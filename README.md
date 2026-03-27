@@ -11,7 +11,7 @@
 **适用场景**：
 - 物理隔离内网，无互联网访问
 - 目标 OS：Windows 7（及以上）
-- 开发语言：C 语言（嵌入式方向）
+- 开发语言：C 语言（偏应用软件，聚焦业务逻辑与算法实现）
 - 工具链：全套 Clang 体系，离线可用
 
 **不做的事**：
@@ -49,6 +49,7 @@
 ### Agent 自治
 - 任务规划与 TODO 自维护
 - 多步工具调用循环（Agent Loop）
+- 可配置模式与 Agent Harness（Ask / Orchestra / Spec / Code / Test / Verify / Debug）
 - 上下文压缩（防止长任务超出 context window）
 - 权限管控（操作前确认 / 自动放行规则）
 
@@ -71,6 +72,7 @@
 
 - 工具接口、权限规则、Agent 配置均配置驱动
 - 核心 Loop 与具体工具实现解耦
+- 模式聚焦而非全能提示，每个模式职责单一、工具受限、便于弱模型稳定执行
 - 预留子 Agent 接口（规划、探索、压缩等专用 Agent）
 
 ---
@@ -79,12 +81,13 @@
 
 | 层次 | 选型 | 理由 |
 |------|------|------|
-| 实现语言 | Python 3.x（嵌入式分发） | 单文件可分发，生态丰富，适合快速迭代 |
-| TUI 框架 | `textual` 或 `urwid` | 纯终端，无 GUI 依赖，Windows 7 兼容 |
-| LLM 接入 | Anthropic Claude API（HTTP） | 标准 REST，可替换为任意兼容接口 |
+| 实现语言 | Python 3.8 Embedded Distribution | Windows 7 兼容边界清晰，适合离线整体打包 |
+| TUI 框架 | `prompt_toolkit` + `rich` | 纯终端、轻依赖、对 Windows/旧终端更友好 |
+| LLM 接入 | OpenAI-compatible HTTP Adapter | 适配内网模型服务，不绑定单一厂商 SDK |
 | 持久化 | SQLite | 内置，零依赖，会话历史 / 权限规则均可存储 |
 | 编译工具链 | LLVM/Clang Windows 预编译包 | 统一体系，覆盖编译 / 静态分析 / 覆盖率 |
-| 版本管理 | Git（命令行调用） | 标准工具，Agent 直接调用 |
+| 版本管理 | MinGit / Portable Git | 可随包分发，满足无环境依赖要求 |
+| 代码搜索 | `ripgrep` + `Universal Ctags` | 轻量、离线、适合 C 代码库结构化检索 |
 
 ---
 
@@ -104,7 +107,9 @@
 
 - [x] 需求确认与范围界定
 - [x] 参考项目架构分析（OpenCode / OpenHands / Roo-Code）
-- [ ] 整体架构设计文档
+- [x] 整体架构设计文档（[docs/overall-solution-architecture.md](docs/overall-solution-architecture.md)）
+- [x] 实施路线与文档维护方案（[docs/implementation-roadmap.md](docs/implementation-roadmap.md)）
+- [x] 项目宪章（[AGENTS.md](AGENTS.md)）
 - [ ] Clang 工具链集成方案
 - [ ] Agent Loop 核心实现
 - [ ] TUI 界面原型
@@ -119,9 +124,12 @@
 
 ```
 coding_agent/
+├── AGENTS.md           # 项目级实现约束与 agent 宪章
 ├── analysis/           # 参考项目架构分析文档
+├── docs/adrs/          # 关键架构决策记录
 ├── reference/          # 参考项目源码（opencode / OpenHands / Roo-Code）
-├── docs/               # 设计文档（待补充）
+├── docs/               # 设计文档
+├── pyproject.toml      # uv / Python 版本与项目元数据
 └── README.md
 ```
 
