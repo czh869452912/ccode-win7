@@ -89,6 +89,10 @@ When changing the project, update the matching document:
   - Stable architecture and major design decisions
 - `docs/implementation-roadmap.md`
   - Milestones, implementation sequencing, document maintenance plan
+- `docs/development-tracker.md`
+  - Near-term execution status, current priorities, blockers and risks
+- `docs/design-change-log.md`
+  - Key design changes, impact scope, related follow-up work
 - `docs/adrs/*.md`
   - One-off architectural decisions that need historical traceability
 
@@ -103,4 +107,3 @@ If a change alters architecture, workflow, version policy, or operating assumpti
 - No premature multi-agent orchestration framework
 
 Multi-agent support is allowed only through the planned `orchestra`-led evolution path.
-

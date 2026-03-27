@@ -110,6 +110,8 @@
 - [x] 整体架构设计文档（[docs/overall-solution-architecture.md](docs/overall-solution-architecture.md)）
 - [x] 实施路线与文档维护方案（[docs/implementation-roadmap.md](docs/implementation-roadmap.md)）
 - [x] 项目宪章（[AGENTS.md](AGENTS.md)）
+- [x] 开发进度跟踪（[docs/development-tracker.md](docs/development-tracker.md)）
+- [x] 设计与变更跟踪（[docs/design-change-log.md](docs/design-change-log.md)）
 - [ ] Clang 工具链集成方案
 - [ ] Agent Loop 核心实现
 - [ ] TUI 界面原型
@@ -129,6 +131,8 @@ coding_agent/
 ├── docs/adrs/          # 关键架构决策记录
 ├── reference/          # 参考项目源码（opencode / OpenHands / Roo-Code）
 ├── docs/               # 设计文档
+│   ├── development-tracker.md
+│   └── design-change-log.md
 ├── pyproject.toml      # uv / Python 版本与项目元数据
 └── README.md
 ```
