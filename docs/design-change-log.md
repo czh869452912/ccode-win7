@@ -153,6 +153,29 @@
 - 后续动作：
   - 直接进入 Phase 1 编码
 
+### DC-006
+
+- 日期：2026-03-27
+- 变更主题：Phase 1 骨架收敛到 `src/embedagent`，模型验证策略允许受限替代
+- 变更摘要：
+  - 将 Phase 1 原型代码从仓库根目录平铺模块收敛到 `src/embedagent/` 包结构
+  - `pyproject.toml` 同步切换为 `src` 布局与 console script 入口
+  - 当 `GLM5 int4` / `Qwen3.5` 联调环境暂不可用时，允许用可访问的 OpenAI-compatible 服务完成真实 function calling 闭环验证
+  - 基于 Moonshot `kimi-k2.5` 补齐了 `temperature` 与 `reasoning_content` 兼容处理
+- 影响范围：
+  - 代码组织结构
+  - Phase 1 验证口径
+  - LLM 适配层兼容策略
+- 关联文档：
+  - `pyproject.toml`
+  - `README.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/llm-adapter.md`
+- 是否需要 ADR：`不单独写`
+- 后续动作：
+  - 进入 Phase 2 工具集实现
+
 ---
 
 ## 4. 维护约定
@@ -161,4 +184,3 @@
 - 若改动影响项目纪律或版本边界，同时更新 `AGENTS.md`
 - 若改动影响实施顺序，同时更新 `docs/implementation-roadmap.md`
 - 若改动具有长期不可逆影响，补充一个 ADR
-

@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools>=65"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "embedagent"
 version = "0.1.0"
@@ -5,5 +9,15 @@ description = "Offline-first agentic coding platform for Windows 7 embedded C ap
 readme = "README.md"
 requires-python = ">=3.8,<3.9"
 
+[project.scripts]
+embedagent = "embedagent.cli:main"
+
+[tool.setuptools.package-dir]
+"" = "src"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["embedagent*"]
+
 [tool.uv]
-package = false
+package = true

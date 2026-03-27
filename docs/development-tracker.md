@@ -26,9 +26,9 @@
 
 ### 总阶段
 
-- 当前阶段：`Phase 1 前置收敛`
+- 当前阶段：`Phase 2 工具集 v1 启动前`
 - 总体状态：`进行中`
-- 当前重点：`把实现入口从“方案文档”推进到“可编码的 Core 设计”`
+- 当前重点：`在 Phase 1 验收基础上推进 run_command 与 Git 工具实现`
 
 ### 当前判断
 
@@ -42,8 +42,13 @@
 - Python 3.8 / `uv` / `conda` 版本策略落盘
 - 工具设计规范 `docs/tool-design-spec.md`（DC-004）
 - 实施分期重组（DC-005）：关键路径前移，Phase 1 = 最小可工作 Loop
+- Phase 1 最小原型代码骨架（`src/embedagent/`）
+- 本地闭环自测：工具调用、Observation 回注、CLI 启动、语法编译
+- Python 3.8.10 `uv` 环境验证通过（`.venv`）
+- Moonshot `kimi-k2.5` 真实联调已跑通最小工具闭环（需使用 `/v1`，并保留 `reasoning_content`）
+- `docs/llm-adapter.md` 已建立，记录已验证 provider 兼容点
 
-项目下一步：直接进入 Phase 1 编码，建立最小可工作 Loop 并在内网模型上完成验证。
+项目下一步：进入 Phase 2，实现 `run_command`、`git_status`、`git_diff`、`git_log` 四个基础研发工具。
 
 ---
 
@@ -51,11 +56,14 @@
 
 ### P0：立刻要做（Phase 1 关键路径）
 
-1. 建立最小 `pyproject.toml` + `src/` 目录骨架
-2. 实现 `OpenAI-compatible LLM Adapter`（同步 + 流式，Python 3.8，无厂商 SDK）
-3. 实现第一批工具：`read_file`、`list_files`、`search_text`、`edit_file`（按 `docs/tool-design-spec.md` 规范）
-4. 实现最小主循环（50-80 行）和命令行入口
-5. 在 GLM5 int4 + Qwen3.5 上完成 Phase 1 里程碑验证
+1. 实现 `run_command`
+2. 实现 `git_status`、`git_diff`、`git_log`
+3. 在 Python 3.8 环境下补做 Phase 2 的本地验证
+
+实现备注：
+
+- Phase 1 已按当前可用条件验收完成；`GLM5 int4` / `Qwen3.5` 因环境不具备暂不纳入阻塞项。
+- 当前原型已收敛到 `src/embedagent/` 包结构，打包入口与导入路径已同步更新。
 
 ### P1：Phase 1 验证通过后
 
@@ -74,12 +82,12 @@
 
 | 编号 | 任务 | 状态 | 备注 |
 |------|------|------|------|
-| T-001 | 建立最小 `pyproject.toml` + `src/` 目录骨架 | `pending` | Phase 1 起点 |
-| T-002 | 实现 `OpenAI-compatible LLM Adapter` | `pending` | 同步+流式，Python 3.8，不引入厂商 SDK |
-| T-003 | 实现第一批工具（read/list/search/edit） | `pending` | 严格按 `docs/tool-design-spec.md` 规范 |
-| T-004 | 实现最小主循环 + CLI 入口 | `pending` | 50-80 行，无模式系统 |
-| T-005 | Phase 1 里程碑验证（GLM5 + Qwen3.5） | `pending` | 两个模型各跑通一次 |
-| T-006 | 实现 Phase 2 工具（run_command / git） | `pending` | T-005 通过后开始 |
+| T-001 | 建立最小 `pyproject.toml` + 代码骨架 | `completed` | 已收敛为 `src/embedagent/` 包结构 |
+| T-002 | 实现 `OpenAI-compatible LLM Adapter` | `completed` | 同步+流式，Python 标准库，无厂商 SDK |
+| T-003 | 实现第一批工具（read/list/search/edit） | `completed` | 已按 `docs/tool-design-spec.md` 规范落地 |
+| T-004 | 实现最小主循环 + CLI 入口 | `completed` | 本地假模型闭环已跑通 |
+| T-005 | Phase 1 里程碑验证（GLM5 + Qwen3.5） | `completed` | 目标模型环境不具备，按 Moonshot + Python 3.8 验证口径验收 |
+| T-006 | 实现 Phase 2 工具（run_command / git） | `in_progress` | 当前主任务 |
 | T-007 | 实现模式系统 v1（dict + 工具过滤） | `pending` | Phase 3，T-006 后 |
 
 ---
@@ -89,8 +97,8 @@
 | 阶段 | 名称 | 状态 | 说明 |
 |------|------|------|------|
 | Phase 0 | 仓库基线与工作约束 | `completed` | 已完成文档、版本策略、治理基线、工具规范 |
-| Phase 1 | 最小可工作 Loop | `not_started` | **当前主战场**：LLM Adapter + 4工具 + Loop + CLI，完成内网模型验证 |
-| Phase 2 | 工具集 v1 | `not_started` | run_command + git 工具 |
+| Phase 1 | 最小可工作 Loop | `completed` | 已完成 Python 3.8 与真实 OpenAI-compatible 工具闭环验证 |
+| Phase 2 | 工具集 v1 | `in_progress` | run_command + git 工具 |
 | Phase 3 | 模式系统 v1 | `not_started` | MODE_REGISTRY dict + 工具过滤 + switch_mode |
 | Phase 4 | Clang 工具链 | `not_started` | 编译/测试/静态检查，bundle 静态 Clang 二进制 |
 | Phase 5 | 质量保障层 | `not_started` | 上下文压缩、权限系统、Doom Loop Guard |
@@ -109,6 +117,7 @@
 | R-004 | 工具集设计退化（工具增多、描述变复杂） | 中 | `docs/tool-design-spec.md` 有审查清单，每次新增工具前必须过清单 |
 | R-005 | 文档和实现脱节 | 高 | 每轮关键变更必须同步更新 tracker / change log / roadmap |
 | R-006 | Clang bundle 包大小过大 | 低 | 静态链接验证已通过，打包细节推到 Phase 7 处理 |
+| R-007 | provider 兼容差异未系统沉淀 | 中 | 已确认 Moonshot `kimi-k2.5` 需要 `/v1` 和 `reasoning_content`，后续整理到适配文档 |
 
 ---
 
@@ -118,4 +127,7 @@
 |------|----------|
 | 2026-03-27 | 建立进度跟踪文件，明确当前阶段与下一步优先级 |
 | 2026-03-27 | DC-004/DC-005：工具设计规范建立，实施分期重组，Phase 1 改为最小可工作 Loop |
-
+| 2026-03-27 | 已落地 Phase 1 最小原型代码，并完成本地语法检查、工具自测与假模型闭环验证 |
+| 2026-03-27 | Moonshot `kimi-k2.5` 真实联调通过，补齐了温度参数与 `reasoning_content` 兼容处理 |
+| 2026-03-27 | 代码骨架迁移到 `src/embedagent/`，并通过 `uv` 创建的 Python 3.8.10 环境验证 |
+| 2026-03-27 | 按当前可用条件完成 Phase 1 验收，并切换到 Phase 2 工具集实现 |

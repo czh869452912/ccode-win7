@@ -105,6 +105,8 @@
 
 ## 项目现状
 
+- 2026-03-27：已落地 Phase 1 最小原型代码，并已迁移到 `src/embedagent/`；当前已通过 Python 3.8.10 本地验证，以及 Moonshot `kimi-k2.5` 的真实最小工具闭环验证。
+
 - [x] 需求确认与范围界定
 - [x] 参考项目架构分析（OpenCode / OpenHands / Roo-Code）
 - [x] 整体架构设计文档（[docs/overall-solution-architecture.md](docs/overall-solution-architecture.md)）
@@ -125,14 +127,21 @@
 ## 目录结构
 
 ```
-coding_agent/
+ccode-win7/
 ├── AGENTS.md           # 项目级实现约束与 agent 宪章
 ├── analysis/           # 参考项目架构分析文档
-├── docs/adrs/          # 关键架构决策记录
-├── reference/          # 参考项目源码（opencode / OpenHands / Roo-Code）
 ├── docs/               # 设计文档
+│   ├── adrs/
 │   ├── development-tracker.md
 │   └── design-change-log.md
+├── reference/          # 参考项目源码（opencode / OpenHands / Roo-Code）
+├── src/
+│   └── embedagent/
+│       ├── cli.py
+│       ├── llm.py
+│       ├── loop.py
+│       ├── session.py
+│       └── tools.py
 ├── pyproject.toml      # uv / Python 版本与项目元数据
 └── README.md
 ```

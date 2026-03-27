@@ -123,6 +123,8 @@ conda activate embedagent-py38
 - [ ] GLM5 int4 和 Qwen3.5 各跑通一次
 
 > 如果 function calling 响应格式不标准（非标准 JSON），必须在 Phase 1 的 LLM Adapter 层补充解析兼容，**不能跳过验证直接进入 Phase 2**。
+>
+> 若目标环境暂时不具备 `GLM5 int4` / `Qwen3.5` 联调条件，可使用任一可访问的 OpenAI-compatible 模型服务完成真实 function calling 闭环验证，并在 `docs/development-tracker.md` 与 `docs/llm-adapter.md` 中明确记录未覆盖模型与已确认兼容点。
 
 建议文档同步：
 
