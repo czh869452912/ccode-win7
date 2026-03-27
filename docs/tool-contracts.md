@@ -1,7 +1,7 @@
-# EmbedAgent 工具接口契约（Phase 2）
+# EmbedAgent 工具接口契约（Phase 4）
 
-> 更新日期：2026-03-27
-> 适用阶段：Phase 2 工具集 v1
+> 更新日期：2026-03-28
+> 适用阶段：Phase 4 工具与验证工具
 
 ---
 
@@ -33,6 +33,17 @@
 | `git_diff` | 查看工作区或暂存区差异 | `path`, `scope` |
 | `git_log` | 查看最近提交历史 | `path`, `limit` |
 
+### 2.3 构建与质量工具
+
+| 工具 | 作用 | 核心参数 |
+|------|------|----------|
+| `compile_project` | 执行编译并解析诊断 | `command`, `cwd`, `timeout_sec` |
+| `run_tests` | 执行测试并汇总结果 | `command`, `cwd`, `timeout_sec` |
+| `run_clang_tidy` | 执行 clang-tidy 并解析诊断 | `command`, `cwd`, `timeout_sec` |
+| `run_clang_analyzer` | 执行 clang 静态分析并解析诊断 | `command`, `cwd`, `timeout_sec` |
+| `collect_coverage` | 执行覆盖率命令并提取百分比 | `command`, `cwd`, `timeout_sec` |
+| `report_quality` | 根据错误数、失败测试和覆盖率给出质量门结论 | `error_count`, `test_failures`, `warning_count`, `line_coverage`, `min_line_coverage` |
+
 ---
 
 ## 3. Observation 基线
@@ -51,7 +62,7 @@
 
 ## 4. 命令类工具 Observation
 
-`run_command`、`git_status`、`git_diff`、`git_log` 都复用同一组基础字段：
+`run_command`、`git_status`、`git_diff`、`git_log`、`compile_project`、`run_tests`、`run_clang_tidy`、`run_clang_analyzer`、`collect_coverage` 都复用同一组基础字段：
 
 ```python
 {
@@ -129,13 +140,91 @@
 
 ---
 
-## 6. 当前结论
+## 6. 构建与质量工具扩展字段
 
-Phase 2 的工具集 v1 已经具备：
+### 6.1 `compile_project` / `run_clang_tidy` / `run_clang_analyzer`
+
+额外字段：
+
+```python
+{
+    "diagnostic_count": int,
+    "error_count": int,
+    "warning_count": int,
+    "note_count": int,
+    "diagnostics": [
+        {
+            "file": str,
+            "line": int,
+            "column": int,
+            "level": "error" | "warning" | "note",
+            "message": str,
+        }
+    ]
+}
+```
+
+### 6.2 `run_tests`
+
+除诊断字段外，额外包含：
+
+```python
+{
+    "test_summary": {
+        "passed": int,
+        "failed": int,
+        "skipped": int,
+        "total": int,
+    }
+}
+```
+
+### 6.3 `collect_coverage`
+
+额外字段：
+
+```python
+{
+    "coverage_summary": {
+        "line_coverage": float | None,
+        "function_coverage": float | None,
+        "branch_coverage": float | None,
+        "region_coverage": float | None,
+    }
+}
+```
+
+### 6.4 `report_quality`
+
+返回：
+
+```python
+{
+    "passed": bool,
+    "error_count": int,
+    "warning_count": int,
+    "test_failures": int,
+    "line_coverage": float | None,
+    "min_line_coverage": float | None,
+    "reasons": list[str],
+}
+```
+
+说明：
+
+- 该工具的 `success` 字段等同于质量门是否通过
+- 若未通过，`error` 返回 `质量门未通过。`
+
+---
+
+## 7. 当前结论
+
+当前工具集已经具备：
 
 - 文件查看与精确编辑
 - 命令执行与超时终止
 - Git 状态、差异、日志查询
+- 编译、测试、静态检查、覆盖率与质量门的第一版封装
 - 面向模型和前端的结构化结果返回
 
-下一步应在此基础上进入模式系统 v1，而不是继续扩充无约束工具数量。
+下一步应在此基础上接入真实 Clang 构建命令与项目级默认配置，而不是重新退回到通用 `run_command`。

@@ -222,6 +222,29 @@
 - 后续动作：
   - 进入 Phase 4 Clang 工具链实现
 
+### DC-009
+
+- 日期：2026-03-28
+- 变更主题：Phase 4 工具链第一版封装落地
+- 变更摘要：
+  - 在 `src/embedagent/tools.py` 中新增 `compile_project`、`run_tests`、`run_clang_tidy`、`run_clang_analyzer`、`collect_coverage`、`report_quality`
+  - 引入 Clang/MSVC 风格诊断解析、测试结果统计和覆盖率摘要提取
+  - 调整 `code` / `test` / `verify` 模式工具集，使其更贴近阶段职责
+  - 建立 `docs/clang-integration-plan.md`，明确当前采用显式 command 封装、后续再接真实工具链
+- 影响范围：
+  - Tool Runtime
+  - Mode Registry
+  - Phase 4 验证口径
+- 关联文档：
+  - `src/embedagent/tools.py`
+  - `src/embedagent/modes.py`
+  - `docs/tool-contracts.md`
+  - `docs/clang-integration-plan.md`
+  - `docs/development-tracker.md`
+- 是否需要 ADR：`不单独写`
+- 后续动作：
+  - 接入真实项目构建命令与 Clang 二进制路径
+
 ---
 
 ## 4. 维护约定

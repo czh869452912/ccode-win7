@@ -3,6 +3,7 @@ from __future__ import annotations
 import fnmatch
 import io
 import os
+import re
 import subprocess
 import time
 from dataclasses import dataclass
@@ -15,9 +16,17 @@ MAX_READ_CHARS = 40000
 MAX_LIST_RESULTS = 500
 MAX_SEARCH_MATCHES = 100
 MAX_COMMAND_OUTPUT_CHARS = 40000
+MAX_DIAGNOSTICS = 200
 DEFAULT_COMMAND_TIMEOUT_SEC = 30
+DEFAULT_BUILD_TIMEOUT_SEC = 120
 TEXT_ENCODINGS = ("utf-8", "utf-8-sig", "gbk", "cp936")
 SKIP_DIR_NAMES = {".git", ".hg", ".svn", "__pycache__"}
+CLANG_DIAGNOSTIC_RE = re.compile(
+    r"^(?P<file>.+?):(?P<line>\d+):(?P<column>\d+): (?P<level>fatal error|error|warning|note): (?P<message>.*)$"
+)
+MSVC_DIAGNOSTIC_RE = re.compile(
+    r"^(?P<file>.+?)\((?P<line>\d+)(?:,(?P<column>\d+))?\): (?P<level>fatal error|error|warning|note) [A-Z0-9]+: (?P<message>.*)$"
+)
 
 
 class ToolError(Exception):
@@ -90,6 +99,12 @@ class ToolRuntime(object):
             "git_status",
             "git_diff",
             "git_log",
+            "compile_project",
+            "run_tests",
+            "run_clang_tidy",
+            "run_clang_analyzer",
+            "collect_coverage",
+            "report_quality",
         ]
 
     def _build_tools(self) -> Dict[str, ToolDefinition]:
@@ -255,6 +270,158 @@ class ToolRuntime(object):
                 },
                 handler=self._git_log,
             ),
+            "compile_project": ToolDefinition(
+                name="compile_project",
+                description="执行项目编译命令。用于构建目标程序并解析编译诊断。命令应输出可解析的编译器信息。",
+                parameters={
+                    "type": "object",
+                    "properties": {
+                        "command": {
+                            "type": "string",
+                            "description": "要执行的编译命令文本。示例：clang -Wall -Wextra src/main.c -o build/main.exe",
+                        },
+                        "cwd": {
+                            "type": "string",
+                            "description": "编译执行目录，相对于项目根目录。示例：.",
+                        },
+                        "timeout_sec": {
+                            "type": "integer",
+                            "description": "编译超时时间，单位为秒。示例：120",
+                        },
+                    },
+                    "required": ["command"],
+                    "additionalProperties": False,
+                },
+                handler=self._compile_project,
+            ),
+            "run_tests": ToolDefinition(
+                name="run_tests",
+                description="执行测试命令并汇总结果。用于运行单元测试、集成测试或测试驱动脚本。命令应输出可统计的测试结果。",
+                parameters={
+                    "type": "object",
+                    "properties": {
+                        "command": {
+                            "type": "string",
+                            "description": "要执行的测试命令文本。示例：ctest --output-on-failure",
+                        },
+                        "cwd": {
+                            "type": "string",
+                            "description": "测试执行目录，相对于项目根目录。示例：build",
+                        },
+                        "timeout_sec": {
+                            "type": "integer",
+                            "description": "测试超时时间，单位为秒。示例：120",
+                        },
+                    },
+                    "required": ["command"],
+                    "additionalProperties": False,
+                },
+                handler=self._run_tests,
+            ),
+            "run_clang_tidy": ToolDefinition(
+                name="run_clang_tidy",
+                description="执行 clang-tidy 检查命令。用于收集静态检查警告和错误。命令应输出 clang 风格诊断。",
+                parameters={
+                    "type": "object",
+                    "properties": {
+                        "command": {
+                            "type": "string",
+                            "description": "要执行的 clang-tidy 命令文本。示例：clang-tidy src/main.c -- -Iinclude",
+                        },
+                        "cwd": {
+                            "type": "string",
+                            "description": "检查执行目录，相对于项目根目录。示例：.",
+                        },
+                        "timeout_sec": {
+                            "type": "integer",
+                            "description": "检查超时时间，单位为秒。示例：120",
+                        },
+                    },
+                    "required": ["command"],
+                    "additionalProperties": False,
+                },
+                handler=self._run_clang_tidy,
+            ),
+            "run_clang_analyzer": ToolDefinition(
+                name="run_clang_analyzer",
+                description="执行 clang 静态分析命令。用于收集分析器发现的问题和定位信息。命令应输出 clang 风格诊断。",
+                parameters={
+                    "type": "object",
+                    "properties": {
+                        "command": {
+                            "type": "string",
+                            "description": "要执行的静态分析命令文本。示例：clang --analyze src/main.c -Iinclude",
+                        },
+                        "cwd": {
+                            "type": "string",
+                            "description": "分析执行目录，相对于项目根目录。示例：.",
+                        },
+                        "timeout_sec": {
+                            "type": "integer",
+                            "description": "分析超时时间，单位为秒。示例：120",
+                        },
+                    },
+                    "required": ["command"],
+                    "additionalProperties": False,
+                },
+                handler=self._run_clang_analyzer,
+            ),
+            "collect_coverage": ToolDefinition(
+                name="collect_coverage",
+                description="执行覆盖率收集命令。用于汇总覆盖率报告并提取核心百分比。命令应输出可识别的覆盖率文本。",
+                parameters={
+                    "type": "object",
+                    "properties": {
+                        "command": {
+                            "type": "string",
+                            "description": "要执行的覆盖率命令文本。示例：llvm-cov report build/app.exe -instr-profile=default.profdata",
+                        },
+                        "cwd": {
+                            "type": "string",
+                            "description": "覆盖率执行目录，相对于项目根目录。示例：build",
+                        },
+                        "timeout_sec": {
+                            "type": "integer",
+                            "description": "覆盖率命令超时时间，单位为秒。示例：120",
+                        },
+                    },
+                    "required": ["command"],
+                    "additionalProperties": False,
+                },
+                handler=self._collect_coverage,
+            ),
+            "report_quality": ToolDefinition(
+                name="report_quality",
+                description="评估当前质量门结果。用于根据错误数、失败测试和覆盖率判断是否通过。参数应来自前置工具 Observation。",
+                parameters={
+                    "type": "object",
+                    "properties": {
+                        "error_count": {
+                            "type": "integer",
+                            "description": "当前累计错误数。示例：0",
+                        },
+                        "test_failures": {
+                            "type": "integer",
+                            "description": "当前失败测试数。示例：0",
+                        },
+                        "warning_count": {
+                            "type": "integer",
+                            "description": "当前累计警告数，未传时按 0 处理。示例：3",
+                        },
+                        "line_coverage": {
+                            "type": "number",
+                            "description": "当前语句或行覆盖率百分比。示例：85.5",
+                        },
+                        "min_line_coverage": {
+                            "type": "number",
+                            "description": "最低可接受的行覆盖率百分比。示例：80.0",
+                        },
+                    },
+                    "required": ["error_count", "test_failures"],
+                    "additionalProperties": False,
+                },
+                handler=self._report_quality,
+            ),
         }
 
     def _resolve_path(self, path: str) -> str:
@@ -356,6 +523,87 @@ class ToolRuntime(object):
             return text, False
         return text[:MAX_COMMAND_OUTPUT_CHARS], True
 
+    def _normalize_level(self, level: str) -> str:
+        return "error" if level == "fatal error" else level
+
+    def _parse_diagnostics(self, text: str) -> List[Dict[str, Any]]:
+        diagnostics = []
+        for line in text.splitlines():
+            match = CLANG_DIAGNOSTIC_RE.match(line) or MSVC_DIAGNOSTIC_RE.match(line)
+            if not match:
+                continue
+            diagnostics.append(
+                {
+                    "file": match.group("file"),
+                    "line": int(match.group("line")),
+                    "column": int(match.groupdict().get("column") or 1),
+                    "level": self._normalize_level(match.group("level")),
+                    "message": match.group("message").strip(),
+                }
+            )
+            if len(diagnostics) >= MAX_DIAGNOSTICS:
+                break
+        return diagnostics
+
+    def _diagnostic_counts(self, diagnostics: List[Dict[str, Any]]) -> Dict[str, int]:
+        counts = {"error_count": 0, "warning_count": 0, "note_count": 0}
+        for item in diagnostics:
+            level = item["level"]
+            if level == "error":
+                counts["error_count"] += 1
+            elif level == "warning":
+                counts["warning_count"] += 1
+            elif level == "note":
+                counts["note_count"] += 1
+        return counts
+
+    def _extract_first_int(self, patterns: List[str], text: str) -> int:
+        for pattern in patterns:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                return int(match.group(1))
+        return 0
+
+    def _parse_test_summary(self, text: str) -> Dict[str, int]:
+        passed = self._extract_first_int([
+            r"(\d+)\s+tests?\s+passed",
+            r"(\d+)\s+passed",
+            r"passed[:=]\s*(\d+)",
+        ], text)
+        failed = self._extract_first_int([
+            r"(\d+)\s+tests?\s+failed",
+            r"(\d+)\s+failed",
+            r"failures?[:=]\s*(\d+)",
+        ], text)
+        skipped = self._extract_first_int([
+            r"(\d+)\s+tests?\s+skipped",
+            r"(\d+)\s+skipped",
+            r"skipped[:=]\s*(\d+)",
+        ], text)
+        total = passed + failed + skipped
+        return {"passed": passed, "failed": failed, "skipped": skipped, "total": total}
+
+    def _parse_coverage_summary(self, text: str) -> Dict[str, Optional[float]]:
+        metrics = {
+            "line_coverage": None,
+            "function_coverage": None,
+            "branch_coverage": None,
+            "region_coverage": None,
+        }
+        patterns = {
+            "line_coverage": [r"lines?[^\d\n]*([0-9]+(?:\.[0-9]+)?)%", r"line coverage[^\d\n]*([0-9]+(?:\.[0-9]+)?)%"],
+            "function_coverage": [r"functions?[^\d\n]*([0-9]+(?:\.[0-9]+)?)%", r"function coverage[^\d\n]*([0-9]+(?:\.[0-9]+)?)%"],
+            "branch_coverage": [r"branches?[^\d\n]*([0-9]+(?:\.[0-9]+)?)%", r"branch coverage[^\d\n]*([0-9]+(?:\.[0-9]+)?)%"],
+            "region_coverage": [r"regions?[^\d\n]*([0-9]+(?:\.[0-9]+)?)%", r"region coverage[^\d\n]*([0-9]+(?:\.[0-9]+)?)%"],
+        }
+        for key, candidates in patterns.items():
+            for pattern in candidates:
+                match = re.search(pattern, text, re.IGNORECASE)
+                if match:
+                    metrics[key] = float(match.group(1))
+                    break
+        return metrics
+
     def _terminate_process_tree(self, process: subprocess.Popen) -> None:
         if process.poll() is not None:
             return
@@ -430,12 +678,39 @@ class ToolRuntime(object):
             "duration_ms": result["duration_ms"],
             "timed_out": result["timed_out"],
         }
-        return Observation(
-            tool_name=tool_name,
-            success=success,
-            error=error,
-            data=data,
-        )
+        return Observation(tool_name=tool_name, success=success, error=error, data=data)
+
+    def _build_diagnostic_observation(
+        self,
+        tool_name: str,
+        command_text: str,
+        cwd: str,
+        result: Dict[str, Any],
+    ) -> Observation:
+        observation = self._build_command_observation(tool_name, command_text, cwd, result)
+        combined = (result["stdout"] or "") + "\n" + (result["stderr"] or "")
+        diagnostics = self._parse_diagnostics(combined)
+        observation.data.update(self._diagnostic_counts(diagnostics))
+        observation.data.update({"diagnostics": diagnostics, "diagnostic_count": len(diagnostics)})
+        return observation
+
+    def _run_shell_tool(
+        self,
+        tool_name: str,
+        command_text: str,
+        cwd_argument: str,
+        timeout_sec: int,
+        diagnostic: bool = False,
+    ) -> Observation:
+        if not command_text:
+            raise ToolError("命令不能为空。")
+        cwd = self._resolve_directory(cwd_argument)
+        if timeout_sec <= 0:
+            raise ToolError("timeout_sec 必须大于 0。")
+        result = self._run_subprocess(command=command_text, cwd=cwd, timeout_sec=timeout_sec, shell=True)
+        if diagnostic:
+            return self._build_diagnostic_observation(tool_name, command_text, cwd, result)
+        return self._build_command_observation(tool_name, command_text, cwd, result)
 
     def _git_relative_arg(self, path: str) -> Optional[str]:
         resolved = self._resolve_path(path)
@@ -445,12 +720,7 @@ class ToolRuntime(object):
         return relative
 
     def _run_git_command(self, args: List[str]) -> Dict[str, Any]:
-        return self._run_subprocess(
-            command=args,
-            cwd=self.workspace,
-            timeout_sec=DEFAULT_COMMAND_TIMEOUT_SEC,
-            shell=False,
-        )
+        return self._run_subprocess(command=args, cwd=self.workspace, timeout_sec=DEFAULT_COMMAND_TIMEOUT_SEC, shell=False)
 
     def _read_file(self, arguments: Dict[str, Any]) -> Observation:
         path = self._resolve_path(str(arguments["path"]))
@@ -504,13 +774,7 @@ class ToolRuntime(object):
             for index, line in enumerate(content.split("\n"), start=1):
                 if lowered_query not in line.lower():
                     continue
-                matches.append(
-                    {
-                        "path": self._relative_path(file_path),
-                        "line": index,
-                        "text": line[:300],
-                    }
-                )
+                matches.append({"path": self._relative_path(file_path), "line": index, "text": line[:300]})
                 if len(matches) >= MAX_SEARCH_MATCHES:
                     break
             if len(matches) >= MAX_SEARCH_MATCHES:
@@ -550,25 +814,9 @@ class ToolRuntime(object):
 
     def _run_command(self, arguments: Dict[str, Any]) -> Observation:
         command_text = str(arguments["command"]).strip()
-        if not command_text:
-            raise ToolError("命令不能为空。")
         cwd_argument = str(arguments.get("cwd") or ".")
-        cwd = self._resolve_directory(cwd_argument)
         timeout_sec = int(arguments.get("timeout_sec") or DEFAULT_COMMAND_TIMEOUT_SEC)
-        if timeout_sec <= 0:
-            raise ToolError("timeout_sec 必须大于 0。")
-        result = self._run_subprocess(
-            command=command_text,
-            cwd=cwd,
-            timeout_sec=timeout_sec,
-            shell=True,
-        )
-        return self._build_command_observation(
-            tool_name="run_command",
-            command_text=command_text,
-            cwd=cwd,
-            result=result,
-        )
+        return self._run_shell_tool("run_command", command_text, cwd_argument, timeout_sec)
 
     def _git_status(self, arguments: Dict[str, Any]) -> Observation:
         path_argument = str(arguments["path"])
@@ -577,12 +825,7 @@ class ToolRuntime(object):
         if relative_arg:
             command.extend(["--", relative_arg])
         result = self._run_git_command(command)
-        observation = self._build_command_observation(
-            tool_name="git_status",
-            command_text=" ".join(command),
-            cwd=self.workspace,
-            result=result,
-        )
+        observation = self._build_command_observation("git_status", " ".join(command), self.workspace, result)
         if not observation.success:
             return observation
         lines = [line for line in result["stdout"].splitlines() if line]
@@ -594,15 +837,8 @@ class ToolRuntime(object):
                 continue
             status_code = line[:2]
             file_path = line[3:].strip() if len(line) > 3 else ""
-            entries.append({
-                "status": status_code,
-                "path": file_path,
-            })
-        observation.data.update({
-            "path": path_argument,
-            "branch": branch,
-            "entries": entries,
-        })
+            entries.append({"status": status_code, "path": file_path})
+        observation.data.update({"path": path_argument, "branch": branch, "entries": entries})
         return observation
 
     def _git_diff(self, arguments: Dict[str, Any]) -> Observation:
@@ -617,12 +853,7 @@ class ToolRuntime(object):
         if relative_arg:
             command.extend(["--", relative_arg])
         result = self._run_git_command(command)
-        observation = self._build_command_observation(
-            tool_name="git_diff",
-            command_text=" ".join(command),
-            cwd=self.workspace,
-            result=result,
-        )
+        observation = self._build_command_observation("git_diff", " ".join(command), self.workspace, result)
         if not observation.success:
             return observation
         diff_text = result["stdout"]
@@ -654,12 +885,7 @@ class ToolRuntime(object):
         if relative_arg:
             command.extend(["--", relative_arg])
         result = self._run_git_command(command)
-        observation = self._build_command_observation(
-            tool_name="git_log",
-            command_text=" ".join(command),
-            cwd=self.workspace,
-            result=result,
-        )
+        observation = self._build_command_observation("git_log", " ".join(command), self.workspace, result)
         if not observation.success:
             return observation
         entries = []
@@ -670,17 +896,74 @@ class ToolRuntime(object):
             parts = record.split("\x1f")
             if len(parts) != 4:
                 continue
-            entries.append(
-                {
-                    "commit": parts[0],
-                    "author": parts[1],
-                    "date": parts[2],
-                    "subject": parts[3],
-                }
-            )
-        observation.data.update({
-            "path": path_argument,
-            "limit": limit,
-            "entries": entries,
-        })
+            entries.append({"commit": parts[0], "author": parts[1], "date": parts[2], "subject": parts[3]})
+        observation.data.update({"path": path_argument, "limit": limit, "entries": entries})
         return observation
+
+    def _compile_project(self, arguments: Dict[str, Any]) -> Observation:
+        command_text = str(arguments["command"]).strip()
+        cwd_argument = str(arguments.get("cwd") or ".")
+        timeout_sec = int(arguments.get("timeout_sec") or DEFAULT_BUILD_TIMEOUT_SEC)
+        return self._run_shell_tool("compile_project", command_text, cwd_argument, timeout_sec, diagnostic=True)
+
+    def _run_tests(self, arguments: Dict[str, Any]) -> Observation:
+        command_text = str(arguments["command"]).strip()
+        cwd_argument = str(arguments.get("cwd") or ".")
+        timeout_sec = int(arguments.get("timeout_sec") or DEFAULT_BUILD_TIMEOUT_SEC)
+        observation = self._run_shell_tool("run_tests", command_text, cwd_argument, timeout_sec, diagnostic=True)
+        combined = (observation.data.get("stdout") or "") + "\n" + (observation.data.get("stderr") or "")
+        observation.data.update({"test_summary": self._parse_test_summary(combined)})
+        return observation
+
+    def _run_clang_tidy(self, arguments: Dict[str, Any]) -> Observation:
+        command_text = str(arguments["command"]).strip()
+        cwd_argument = str(arguments.get("cwd") or ".")
+        timeout_sec = int(arguments.get("timeout_sec") or DEFAULT_BUILD_TIMEOUT_SEC)
+        return self._run_shell_tool("run_clang_tidy", command_text, cwd_argument, timeout_sec, diagnostic=True)
+
+    def _run_clang_analyzer(self, arguments: Dict[str, Any]) -> Observation:
+        command_text = str(arguments["command"]).strip()
+        cwd_argument = str(arguments.get("cwd") or ".")
+        timeout_sec = int(arguments.get("timeout_sec") or DEFAULT_BUILD_TIMEOUT_SEC)
+        return self._run_shell_tool("run_clang_analyzer", command_text, cwd_argument, timeout_sec, diagnostic=True)
+
+    def _collect_coverage(self, arguments: Dict[str, Any]) -> Observation:
+        command_text = str(arguments["command"]).strip()
+        cwd_argument = str(arguments.get("cwd") or ".")
+        timeout_sec = int(arguments.get("timeout_sec") or DEFAULT_BUILD_TIMEOUT_SEC)
+        observation = self._run_shell_tool("collect_coverage", command_text, cwd_argument, timeout_sec)
+        combined = (observation.data.get("stdout") or "") + "\n" + (observation.data.get("stderr") or "")
+        observation.data.update({"coverage_summary": self._parse_coverage_summary(combined)})
+        return observation
+
+    def _report_quality(self, arguments: Dict[str, Any]) -> Observation:
+        error_count = int(arguments.get("error_count") or 0)
+        test_failures = int(arguments.get("test_failures") or 0)
+        warning_count = int(arguments.get("warning_count") or 0)
+        line_coverage = arguments.get("line_coverage")
+        min_line_coverage = arguments.get("min_line_coverage")
+        line_coverage_value = float(line_coverage) if line_coverage is not None else None
+        min_line_coverage_value = float(min_line_coverage) if min_line_coverage is not None else None
+        reasons = []
+        if error_count > 0:
+            reasons.append("存在 %s 个错误。" % error_count)
+        if test_failures > 0:
+            reasons.append("存在 %s 个失败测试。" % test_failures)
+        if line_coverage_value is not None and min_line_coverage_value is not None and line_coverage_value < min_line_coverage_value:
+            reasons.append("行覆盖率 %.2f%% 低于阈值 %.2f%%。" % (line_coverage_value, min_line_coverage_value))
+        passed = not reasons
+        data = {
+            "passed": passed,
+            "error_count": error_count,
+            "warning_count": warning_count,
+            "test_failures": test_failures,
+            "line_coverage": line_coverage_value,
+            "min_line_coverage": min_line_coverage_value,
+            "reasons": reasons,
+        }
+        return Observation(
+            tool_name="report_quality",
+            success=passed,
+            error=None if passed else "质量门未通过。",
+            data=data,
+        )

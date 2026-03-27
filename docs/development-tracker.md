@@ -26,9 +26,9 @@
 
 ### 总阶段
 
-- 当前阶段：`Phase 4 Clang 工具链准备中`
+- 当前阶段：`Phase 4 Clang 工具链实施中`
 - 总体状态：`进行中`
-- 当前重点：`在已完成的模式系统 v1 基础上推进 Clang 工具链集成`
+- 当前重点：`落地构建/测试/诊断/覆盖率工具封装，并为真实 Clang 接入做准备`
 
 ### 当前判断
 
@@ -53,6 +53,9 @@
 - Phase 3 模式系统 v1 已落地：`MODE_REGISTRY`、工具过滤、`switch_mode`、`/mode`
 - `docs/mode-schema.md` 与 `docs/harness-state-machine.md` 已建立
 - Phase 3 验证通过：模式切换、违规工具拦截、写入范围拦截均已完成本地验证
+- Phase 4 工具第一版已落地：`compile_project`、`run_tests`、`run_clang_tidy`、`run_clang_analyzer`、`collect_coverage`、`report_quality`
+- `docs/clang-integration-plan.md` 已建立
+- Phase 4 解析验证通过：编译诊断、测试汇总、覆盖率提取、质量门评估均已完成本地验证
 
 项目下一步：进入 Phase 4，实现 `compile_project`、`run_tests` 与质量检查工具的第一版封装。
 
@@ -62,9 +65,9 @@
 
 ### P0：立刻要做（Phase 4 关键路径）
 
-1. 设计 `compile_project` 与 `run_tests` 的命令封装方式
-2. 建立 Phase 4 的结构化诊断 Observation
-3. 补 `docs/clang-integration-plan.md`
+1. 接入项目级默认构建/测试命令来源
+2. 在真实 Clang 命令上做一次端到端验证
+3. 继续完善 `verify` 模式的质量门流程
 
 实现备注：
 
@@ -97,6 +100,7 @@
 | T-005 | Phase 1 里程碑验证（GLM5 + Qwen3.5） | `completed` | 目标模型环境不具备，按 Moonshot + Python 3.8 验证口径验收 |
 | T-006 | 实现 Phase 2 工具（run_command / git） | `completed` | 已补齐工具契约与 Loop 烟雾验证 |
 | T-007 | 实现模式系统 v1（dict + 工具过滤） | `completed` | 已补齐文档与本地验证 |
+| T-008 | 实现 Phase 4 Clang 工具链第一版封装 | `in_progress` | 核心工具与解析已落地，待真实命令接入 |
 
 ---
 
@@ -108,7 +112,7 @@
 | Phase 1 | 最小可工作 Loop | `completed` | 已完成 Python 3.8 与真实 OpenAI-compatible 工具闭环验证 |
 | Phase 2 | 工具集 v1 | `completed` | 已实现 run_command / git 工具，并完成 3.8 本地验证 |
 | Phase 3 | 模式系统 v1 | `completed` | MODE_REGISTRY、工具过滤、switch_mode、/mode 已完成 |
-| Phase 4 | Clang 工具链 | `not_started` | 编译/测试/静态检查，bundle 静态 Clang 二进制 |
+| Phase 4 | Clang 工具链 | `in_progress` | 已实现工具封装与解析，待真实命令与 bundle 接入 |
 | Phase 5 | 质量保障层 | `not_started` | 上下文压缩、权限系统、Doom Loop Guard |
 | Phase 6 | CLI / TUI | `not_started` | prompt_toolkit + Rich |
 | Phase 7 | 打包与离线交付 | `not_started` | Win7 离线 one-folder bundle |
@@ -126,6 +130,7 @@
 | R-005 | 文档和实现脱节 | 高 | 每轮关键变更必须同步更新 tracker / change log / roadmap |
 | R-006 | Clang bundle 包大小过大 | 低 | 静态链接验证已通过，打包细节推到 Phase 7 处理 |
 | R-007 | provider 兼容差异未系统沉淀 | 中 | 已确认 Moonshot `kimi-k2.5` 需要 `/v1` 和 `reasoning_content`，后续整理到适配文档 |
+| R-008 | 当前仓库缺少真实 C 构建入口 | 中 | Phase 4 先用显式 command 工具封装和解析验证，后续再接默认命令 |
 
 ---
 
@@ -142,3 +147,4 @@
 | 2026-03-27 | Phase 2 核心工具已实现，并通过 Python 3.8 本地自测 |
 | 2026-03-28 | Phase 2 工具契约与 Loop 烟雾验证完成，阶段状态切换到 Phase 3 准备中 |
 | 2026-03-28 | Phase 3 模式系统 v1 已完成，并补齐模式结构与状态机文档 |
+| 2026-03-28 | Phase 4 第一版工具封装与解析验证完成，并建立 Clang 集成计划文档 |

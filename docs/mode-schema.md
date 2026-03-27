@@ -77,9 +77,9 @@
 | `ask` | 澄清信息缺口 | `read_file`, `list_files`, `search_text` | 只读 |
 | `orchestra` | 拆解任务与路由模式 | `read_file`, `list_files`, `search_text`, `git_status` | 只读 |
 | `spec` | 规格与文档整理 | `read_file`, `list_files`, `search_text`, `edit_file` | `docs/**/*.md`, `README.md` |
-| `code` | 最小实现生产代码 | `read_file`, `edit_file`, `search_text`, `run_command` | `src/**/*.py`, `pyproject.toml` |
-| `test` | 测试与复现路径 | `read_file`, `edit_file`, `search_text`, `run_command` | `tests/**/*.py`, `src/**/*.py` |
-| `verify` | 检查命令与 Git 结果 | `run_command`, `git_status`, `git_diff`, `git_log` | 只读 |
+| `code` | 最小实现生产代码 | `read_file`, `edit_file`, `search_text`, `compile_project` | `src/**/*.py`, `pyproject.toml` |
+| `test` | 测试与复现路径 | `read_file`, `edit_file`, `search_text`, `run_tests` | `tests/**/*.py`, `src/**/*.py` |
+| `verify` | 构建、测试、静态检查与质量门 | `compile_project`, `run_tests`, `run_clang_tidy`, `report_quality` | 只读 |
 | `debug` | 复现、定位、最小修复 | `read_file`, `search_text`, `edit_file`, `run_command` | `src/**/*.py`, `tests/**/*.py` |
 | `compact` | 上下文压缩与整理 | `read_file`, `list_files`, `search_text` | 只读 |
 

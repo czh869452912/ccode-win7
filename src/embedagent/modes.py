@@ -28,20 +28,20 @@ MODE_REGISTRY = {
     },
     "code": {
         "slug": "code",
-        "system_prompt": "你当前处于 code 模式，负责以最小变更实现代码。只在明确需要时修改源码或项目配置，必要时用 run_command 做最小验证。",
-        "allowed_tools": ["read_file", "edit_file", "search_text", "run_command"],
+        "system_prompt": "你当前处于 code 模式，负责以最小变更实现代码。优先使用 compile_project 做编译验证，而不是泛化命令执行。",
+        "allowed_tools": ["read_file", "edit_file", "search_text", "compile_project"],
         "writable_globs": ["src/**/*.py", "src/*.py", "pyproject.toml"],
     },
     "test": {
         "slug": "test",
-        "system_prompt": "你当前处于 test 模式，负责编写或调整测试入口、验证脚本和测试辅助代码。优先让问题可复现，再推进实现。",
-        "allowed_tools": ["read_file", "edit_file", "search_text", "run_command"],
+        "system_prompt": "你当前处于 test 模式，负责编写或调整测试入口、验证脚本和测试辅助代码。优先让问题可复现，并使用 run_tests 形成闭环。",
+        "allowed_tools": ["read_file", "edit_file", "search_text", "run_tests"],
         "writable_globs": ["tests/**/*.py", "tests/*.py", "src/**/*.py", "src/*.py"],
     },
     "verify": {
         "slug": "verify",
-        "system_prompt": "你当前处于 verify 模式，负责执行检查、查看差异和汇总验证结果，不直接编辑源码。若发现需要改动，请切换到 code 或 debug。",
-        "allowed_tools": ["run_command", "git_status", "git_diff", "git_log"],
+        "system_prompt": "你当前处于 verify 模式，负责执行构建、测试、静态检查并给出质量门结论，不直接编辑源码。若发现需要改动，请切换到 code 或 debug。",
+        "allowed_tools": ["compile_project", "run_tests", "run_clang_tidy", "report_quality"],
         "writable_globs": [],
     },
     "debug": {
