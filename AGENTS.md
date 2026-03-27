@@ -27,7 +27,15 @@ Use `analysis/` as reference material, not as the source of truth for the curren
 - Do not introduce Python syntax or dependencies that require Python 3.9+.
 - Target runtime remains Python 3.8 because Windows 7 support is a hard requirement.
 - Prefer standard library plus a very small dependency surface.
-- Keep the system portable and bundle-friendly for offline deployment.
+- **The final deliverable must be fully self-contained with zero external dependencies.** This means the bundle must include, without exception:
+  - Python 3.8 embeddable distribution
+  - All Python third-party packages (vendored)
+  - MinGit portable binary
+  - ripgrep binary
+  - Universal Ctags binary
+  - Clang toolchain (statically linked binaries: clang, clang-tidy, clang-analyzer, llvm-profdata, llvm-cov)
+  - Any other tool invoked at runtime
+- A target machine that has only Windows 7 with no pre-installed software must be able to run the system after unpacking the bundle. If a tool is used at runtime but not included in the bundle, it is a defect.
 
 ## Python And Environment Policy
 
@@ -47,13 +55,28 @@ Practical rules:
 
 Build in this order:
 
-1. Core domain model and event model
-2. Mode Registry and Agent Harness
-3. OpenAI-compatible LLM adapter
-4. Tool runtime for file, shell, git, clang, test, coverage
-5. Context, memory, permission system
-6. TUI / CLI adapters
-7. Offline packaging
+1. Minimum working loop: LLM Adapter + first tool set + CLI (Phase 1)
+2. Tool set v1: shell command + git tools (Phase 2)
+3. Mode system v1: MODE_REGISTRY dict + tool filtering + switch_mode (Phase 3)
+4. Clang toolchain: compile, test, clang-tidy, coverage with static binary bundle (Phase 4)
+5. Quality guard layer: context compression, permission system, doom loop guard (Phase 5)
+6. TUI / CLI adapters (Phase 6)
+7. Offline packaging (Phase 7)
+
+Each phase must end with an end-to-end runnable milestone. Do not proceed to the next phase before the milestone is validated.
+
+## Tool Design Policy
+
+Tool set design is a first-class design concern. Refer to `docs/tool-design-spec.md` for the complete specification.
+
+Key rules:
+
+- Each mode must have at most 5 tools (target: 3-4)
+- Tool descriptions must follow the template: Chinese description + English name, three-sentence structure, parameter includes example
+- All parameters must be flattened top-level fields — no nested objects
+- Enum values must be in the `enum` field, not embedded in `description`
+- All tool results must return structured Observations, not raw terminal text
+- Before adding any new tool, go through the checklist in `docs/tool-design-spec.md`
 
 ## Mode System Policy
 
@@ -73,9 +96,24 @@ Rules:
 - Modes are Core contracts, not UI decorations
 - Each mode should have a narrow responsibility
 - `ask` is for resolving ambiguity with the user
-- `orchestra` is for workflow decomposition and routing
+- `orchestra` is for workflow decomposition and routing (implement after Phase 3)
 - `code` should not replace `spec` or `test`
 - `verify` should own quality gates
+
+## Harness Evolution Policy
+
+The Agent Harness must be built incrementally — do not implement TOML configuration or a full state machine before the minimum loop is validated.
+
+Evolution stages:
+
+- Phase 1: No harness — loop has a single hardcoded system prompt
+- Phase 3: Python dict (MODE_REGISTRY) + tool filtering function (~100 lines)
+- Phase 5: Optional TOML loading as an additive layer on top of the dict structure
+
+Mode switch triggers (Phase 3+):
+
+1. User explicit: message starts with `/mode <name>`
+2. LLM tool call: `switch_mode(target)` tool — update current mode, rebuild context with new mode prompt, do not advance the loop
 
 ## Documentation Maintenance
 

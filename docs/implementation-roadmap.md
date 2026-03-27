@@ -1,6 +1,6 @@
 # EmbedAgent 实施路线与文档维护方案
 
-> 更新日期：2026-03-27
+> 更新日期：2026-03-27（DC-004/DC-005 调整后修订）
 > 适用阶段：架构收敛后进入实现前
 
 ---
@@ -20,8 +20,11 @@
 - 系统核心是 `Agent Core + Mode Registry + Agent Harness`
 - 首期聚焦 C 语言偏应用软件开发，而非通用多语言平台
 - 工作流采用 `orchestra -> ask(按需) -> spec -> test -> code -> verify -> debug`
-- 工具链围绕 Clang 生态统一组织
+- 工具链围绕 Clang 生态统一组织（已验证完全静态链接的最新版 Clang 可在 Win7 运行）
 - 最终运行时必须可在 Windows 7 离线环境中一体化交付
+- **工具集设计是一等公民**：每个模式工具上限 5 个，描述格式统一，参见 `docs/tool-design-spec.md`
+- **Harness 分阶段叠加**：Phase 1 无 Harness，Phase 3 引入最小 dict 实现，Phase 5 可选 TOML 加载
+- **每个 Phase 必须有端到端可验证的里程碑**，不做无法验证的纯抽象层构建
 
 ---
 
@@ -94,106 +97,138 @@ conda activate embedagent-py38
 - `.python-version`
 - `pyproject.toml`
 
-### Phase 1：Core 骨架
+### Phase 1：最小可工作 Loop【关键路径，目标 2-3 周】
 
 目标：
 
-- 定义领域模型与事件模型
-- 建立最小会话状态机
-- 建立命令/事件协议骨架
+- 打通 LLM Adapter + 最小工具集 + 命令行 Loop 的端到端链路
+- 在内网 GLM5 int4 和 Qwen3.5 上完成首次 function calling 实际验证
 
-实现重点：
+实现重点（5 个核心文件，不超过此范围）：
 
-- `Session`
-- `Turn`
-- `Action`
-- `Observation`
-- `Task`
-- `PermissionRequest`
-- `Artifact`
+- `agent/llm.py`：OpenAI-compatible HTTP 调用（同步 + 流式，无厂商 SDK 依赖）
+- `agent/tools.py`：第一批工具——`read_file`、`list_files`、`search_text`、`edit_file`（按 `docs/tool-design-spec.md` 规范编写）
+- `agent/loop.py`：主循环（50-80 行，无模式系统，硬编码单一系统 prompt）
+- `agent/session.py`：Session / Turn / Action / Observation 的最小 dataclass 定义
+- `agent/cli.py`：命令行入口（argparse，无 TUI）
+
+**Phase 1 完成里程碑（缺一不可）**：
+
+- [ ] 命令行可启动会话
+- [ ] LLM 流式输出可正常打印
+- [ ] LLM 能成功调用 `read_file` 工具
+- [ ] 工具执行结果作为 Observation 回到 LLM
+- [ ] 会话能正常结束
+- [ ] Python 3.8 无报错运行
+- [ ] GLM5 int4 和 Qwen3.5 各跑通一次
+
+> 如果 function calling 响应格式不标准（非标准 JSON），必须在 Phase 1 的 LLM Adapter 层补充解析兼容，**不能跳过验证直接进入 Phase 2**。
 
 建议文档同步：
 
-- 若对象模型调整，更新 `docs/overall-solution-architecture.md`
-- 若目录布局改变，更新 `README.md`
+- 若领域对象定义调整，更新 `docs/overall-solution-architecture.md`
+- 建立 `docs/llm-adapter.md` 记录 function calling 兼容处理细节
 
-### Phase 2：Mode Registry 与 Agent Harness
+### Phase 2：工具集 v1
+
+目标：
+
+- 建立文件、Shell 命令、Git 基础工具，支持自然语言驱动代码查看与编辑
+
+实现重点：
+
+- `run_command`（带超时，Win7 使用 `taskkill /F /T /PID` 强制终止）
+- `git_status` / `git_diff` / `git_log`
+
+**Phase 2 完成里程碑**：
+
+- [ ] 能用自然语言指令让 Agent 查看代码文件
+- [ ] 能让 Agent 编辑代码并保存
+- [ ] 能让 Agent 执行 shell 命令并返回结构化结果
+- [ ] 能让 Agent 查看 Git 状态和差异
+
+建议产物：
+
+- `docs/tool-contracts.md`（记录工具接口契约和 Observation 结构）
+
+### Phase 3：模式系统 v1
 
 目标：
 
 - 把模式系统做成 Core 一等能力
-- 让 `ask / orchestra / spec / code / test / verify / debug / compact` 可配置
+- 先用 Python dict 实现，不用 TOML 配置文件
 
 实现重点：
 
-- Mode schema
-- Mode loader
-- Mode switch policy
-- Harness state machine
-- Artifact handoff model
+- `MODE_REGISTRY`（Python dict，包含 `system_prompt`、`allowed_tools`、`writable_globs`）
+- 工具过滤机制（按当前模式过滤可调用工具）
+- `switch_mode(target: str)` 工具（所有模式均可调用）
+- 用户显式切换：`/mode <name>` 命令
+
+模式切换规则：
+
+1. 用户消息以 `/mode <name>` 开头 → 立即切换
+2. LLM 调用 `switch_mode` 工具 → 更新当前模式，用新模式 prompt 重建上下文后继续（不推进循环）
+
+> `orchestra` 模式在本阶段暂不实现，用简单任务拆解 prompt 替代，后续再完整实现。
+
+**Phase 3 完成里程碑**：
+
+- [ ] 模式切换生效，工具集随模式变化
+- [ ] 违规工具调用（当前模式不允许的工具）被拦截并提示
+- [ ] `ask` / `spec` / `code` / `test` / `verify` / `debug` 模式均可进入
 
 建议产物：
 
-- `docs/mode-schema.md`
-- `docs/harness-state-machine.md`
-- 第一批 ADR
+- `docs/mode-schema.md`（记录 Mode dict 结构与字段含义）
+- `docs/harness-state-machine.md`（记录模式切换规则和触发路径）
 
-### Phase 3：LLM Adapter
-
-目标：
-
-- 先打通内网大模型服务
-- 支持 OpenAI-compatible HTTP 接口
-
-实现重点：
-
-- 请求/响应归一化
-- 流式输出
-- 工具调用结构化解析
-- 错误归一化与重试
-
-建议产物：
-
-- `docs/llm-adapter.md`
-- `docs/model-profiles.md`
-
-### Phase 4：Runtime 与工具链
+### Phase 4：Clang 工具链
 
 目标：
 
-- 建立文件、命令、Git、Clang、测试、覆盖率工具
+- 建立编译、测试、静态检查工具，支持完整 C 开发质量闭环
+- 集成完全静态链接的 Clang 二进制（已验证可在 Win7 运行）
 
 实现重点：
 
-- `read_file` / `edit_file`
-- `run_command`
-- `git_status` / `git_diff`
 - `compile_project`
 - `run_tests`
 - `run_clang_tidy`
 - `run_clang_analyzer`
-- `collect_coverage`
-- `check_quality_gate`
+- `collect_coverage`（llvm-profdata + llvm-cov）
+- `report_quality`（汇总编译/测试/覆盖率结果）
+
+**Phase 4 完成里程碑**：
+
+- [ ] 能完成"编写代码 → 编译 → 运行测试"完整循环
+- [ ] 编译错误以结构化 Observation 返回（含 file/line/message 诊断列表）
+- [ ] `verify` 模式可输出质量门结论
 
 建议产物：
 
-- `docs/tool-contracts.md`
 - `docs/clang-integration-plan.md`
 
-### Phase 5：上下文、记忆、权限
+### Phase 5：质量保障层
 
 目标：
 
-- 控制上下文膨胀
-- 建立可审计权限系统
+- 控制上下文膨胀，支持长任务稳定运行
+- 建立权限系统和 Doom Loop 防护
 
 实现重点：
 
-- History builder
-- Observation masking
-- Summary compaction
-- Permission rules
-- Session snapshots
+- 上下文压缩策略（Observation 截断 → 裁剪低价值历史 → LLM 摘要）
+- PermissionRequest 机制（写入确认、命令执行确认）
+- Doom Loop Guard（连续错误计数、重复工具调用检测、迭代上限）
+- Session 快照与恢复
+- 模式系统 TOML 可选加载（叠加在 Phase 3 dict 结构上，不重写）
+
+**Phase 5 完成里程碑**：
+
+- [ ] 20+ turn 的长任务可稳定运行（不因上下文超限崩溃）
+- [ ] 高风险操作（文件写入、命令执行）触发 PermissionRequest
+- [ ] 连续 3 次相同工具调用失败后触发防护
 
 建议产物：
 
@@ -208,8 +243,8 @@ conda activate embedagent-py38
 
 实现重点：
 
-- In-process adapter
-- stdio JSON-RPC adapter
+- In-process adapter（同进程调用）
+- stdio JSON-RPC adapter（被宿主程序拉起）
 - prompt_toolkit + Rich TUI
 
 建议产物：
@@ -222,18 +257,30 @@ conda activate embedagent-py38
 目标：
 
 - 形成可在 Windows 7 离线导入的完整交付物
+- **交付物必须完全自包含，目标机只需 Windows 7，无需任何预装软件**
 
 实现重点：
 
 - 运行时目录布局
-- 外部工具 bundling
-- 前置检查
-- one-folder portable bundle
+- 全量工具 bundling（见下表，缺一不可）：
+  - Python 3.8 embeddable distribution
+  - 所有 Python 第三方包（vendoring）
+  - MinGit portable
+  - ripgrep
+  - Universal Ctags
+  - clang / clang-tidy / clang-analyzer / llvm-profdata / llvm-cov（全部静态链接）
+- 前置自检脚本（验证 bundle 完整性，不依赖目标机环境）
+- one-folder portable bundle（解压即用）
+
+验收标准：
+
+- 在全新 Windows 7 虚拟机（无预装开发工具）上解压后可直接运行
+- 所有功能路径均可正常工作，无"找不到工具"类报错
 
 建议产物：
 
-- `docs/offline-packaging.md`
-- `docs/win7-preflight-checklist.md`
+- `docs/offline-packaging.md`（包含 bundle 清单与构建流程）
+- `docs/win7-preflight-checklist.md`（目标机部署检查清单）
 
 ---
 
@@ -292,26 +339,27 @@ conda activate embedagent-py38
 
 建议接下来按这个顺序推进：
 
-1. 建立 `Mode Registry` 配置 schema
-2. 设计 `Harness` 状态机与模式切换规则
-3. 设计 Core 领域模型与事件模型
-4. 建立最小 `pyproject.toml` 与开发命令
-5. 编写 `OpenAI-compatible adapter`
-6. 编写文件工具与命令工具
-7. 编写 clang / test / coverage 工具契约
+1. ~~建立工具设计规范~~ `docs/tool-design-spec.md`（**已完成**）
+2. 建立最小 `pyproject.toml` 与 `src/` 目录骨架
+3. 编写 `OpenAI-compatible LLM Adapter`（同步 + 流式）
+4. 编写第一批工具（`read_file`、`list_files`、`search_text`、`edit_file`）
+5. 编写最小主循环（50-80 行）
+6. 在 GLM5 int4 / Qwen3.5 上完成 Phase 1 里程碑验证
+7. 根据验证结果补充 function calling 兼容处理
 
 ---
 
 ## 7. 近期文档清单
 
-建议下一批优先补齐这些文档：
+下一批优先补齐：
 
-1. `docs/mode-schema.md`
-2. `docs/harness-state-machine.md`
-3. `docs/clang-integration-plan.md`
-4. `docs/tool-contracts.md`
-5. `docs/permission-model.md`
-6. `docs/offline-packaging.md`
+1. `docs/llm-adapter.md`（function calling 兼容细节，Phase 1 完成后）
+2. `docs/tool-contracts.md`（工具接口契约，Phase 2 完成后）
+3. `docs/mode-schema.md`（Phase 3）
+4. `docs/harness-state-machine.md`（Phase 3）
+5. `docs/clang-integration-plan.md`（Phase 4）
+6. `docs/permission-model.md`（Phase 5）
+7. `docs/offline-packaging.md`（Phase 7）
 
 ---
 

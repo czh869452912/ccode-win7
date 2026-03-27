@@ -1,6 +1,6 @@
 # EmbedAgent 开发进度跟踪
 
-> 更新日期：2026-03-27
+> 更新日期：2026-03-27（DC-004/DC-005 调整后修订）
 > 用途：持续跟踪当前阶段、下一步任务、里程碑进度、风险与阻塞
 
 ---
@@ -40,30 +40,33 @@
 - 实施路线与文档治理基线
 - 项目级 `AGENTS.md`
 - Python 3.8 / `uv` / `conda` 版本策略落盘
+- 工具设计规范 `docs/tool-design-spec.md`（DC-004）
+- 实施分期重组（DC-005）：关键路径前移，Phase 1 = 最小可工作 Loop
 
-项目下一步不应立刻进入 UI 或打包，而应先把 Core 设计再向下细化一层。
+项目下一步：直接进入 Phase 1 编码，建立最小可工作 Loop 并在内网模型上完成验证。
 
 ---
 
 ## 3. 下一步优先级
 
-### P0：立刻要做
+### P0：立刻要做（Phase 1 关键路径）
 
-1. 定义 `Mode Registry` 配置 schema
-2. 定义 `Agent Harness` 状态机与模式切换规则
-3. 定义 Core 领域模型与事件模型
+1. 建立最小 `pyproject.toml` + `src/` 目录骨架
+2. 实现 `OpenAI-compatible LLM Adapter`（同步 + 流式，Python 3.8，无厂商 SDK）
+3. 实现第一批工具：`read_file`、`list_files`、`search_text`、`edit_file`（按 `docs/tool-design-spec.md` 规范）
+4. 实现最小主循环（50-80 行）和命令行入口
+5. 在 GLM5 int4 + Qwen3.5 上完成 Phase 1 里程碑验证
 
-### P1：紧接着做
+### P1：Phase 1 验证通过后
 
-1. 建立最小 `src/` 目录布局
-2. 实现 OpenAI-compatible LLM adapter 骨架
-3. 实现最小工具运行时骨架
+1. 根据验证结果补充 function calling 兼容处理
+2. 建立 `docs/llm-adapter.md` 记录兼容细节
+3. 实现 Phase 2 工具：`run_command`、`git_status`、`git_diff`
 
-### P2：随后推进
+### P2：Phase 2 完成后
 
-1. 设计 clang / test / coverage 工具契约
-2. 设计权限模型
-3. 设计上下文管理骨架
+1. 设计并实现模式系统 v1（`MODE_REGISTRY` dict + 工具过滤 + `switch_mode`）
+2. 编写 `docs/mode-schema.md` 和 `docs/harness-state-machine.md`
 
 ---
 
@@ -71,12 +74,13 @@
 
 | 编号 | 任务 | 状态 | 备注 |
 |------|------|------|------|
-| T-001 | 编写 `docs/mode-schema.md` | `pending` | 明确 mode 配置字段、校验规则、覆盖层次 |
-| T-002 | 编写 `docs/harness-state-machine.md` | `pending` | 明确 `ask/orchestra/spec/code/test/verify/debug/compact` 切换规则 |
-| T-003 | 编写 `docs/core-domain-model.md` | `pending` | 固化 `Session/Turn/Action/Observation/Task/Artifact` |
-| T-004 | 建立最小 `src/` 代码目录与包结构 | `pending` | 在文档先行后开始 |
-| T-005 | 建立 LLM adapter 骨架 | `pending` | 只做 OpenAI-compatible 路径 |
-| T-006 | 建立 tool runtime 骨架 | `pending` | 文件/命令/Git 先行 |
+| T-001 | 建立最小 `pyproject.toml` + `src/` 目录骨架 | `pending` | Phase 1 起点 |
+| T-002 | 实现 `OpenAI-compatible LLM Adapter` | `pending` | 同步+流式，Python 3.8，不引入厂商 SDK |
+| T-003 | 实现第一批工具（read/list/search/edit） | `pending` | 严格按 `docs/tool-design-spec.md` 规范 |
+| T-004 | 实现最小主循环 + CLI 入口 | `pending` | 50-80 行，无模式系统 |
+| T-005 | Phase 1 里程碑验证（GLM5 + Qwen3.5） | `pending` | 两个模型各跑通一次 |
+| T-006 | 实现 Phase 2 工具（run_command / git） | `pending` | T-005 通过后开始 |
+| T-007 | 实现模式系统 v1（dict + 工具过滤） | `pending` | Phase 3，T-006 后 |
 
 ---
 
@@ -84,14 +88,14 @@
 
 | 阶段 | 名称 | 状态 | 说明 |
 |------|------|------|------|
-| Phase 0 | 仓库基线与工作约束 | `completed` | 已完成文档、版本策略、治理基线 |
-| Phase 1 | Core 骨架 | `not_started` | 下一步主战场 |
-| Phase 2 | Mode Registry 与 Agent Harness | `not_started` | 与 Phase 1 可交错推进 |
-| Phase 3 | LLM Adapter | `not_started` | Core 设计稳定后开始 |
-| Phase 4 | Runtime 与工具链 | `not_started` | 先文件/命令/Git，再 clang |
-| Phase 5 | 上下文、记忆、权限 | `not_started` | 在主链路打通后推进 |
-| Phase 6 | CLI / TUI | `not_started` | 不抢在 Core 之前 |
-| Phase 7 | 打包与离线交付 | `not_started` | 最后阶段 |
+| Phase 0 | 仓库基线与工作约束 | `completed` | 已完成文档、版本策略、治理基线、工具规范 |
+| Phase 1 | 最小可工作 Loop | `not_started` | **当前主战场**：LLM Adapter + 4工具 + Loop + CLI，完成内网模型验证 |
+| Phase 2 | 工具集 v1 | `not_started` | run_command + git 工具 |
+| Phase 3 | 模式系统 v1 | `not_started` | MODE_REGISTRY dict + 工具过滤 + switch_mode |
+| Phase 4 | Clang 工具链 | `not_started` | 编译/测试/静态检查，bundle 静态 Clang 二进制 |
+| Phase 5 | 质量保障层 | `not_started` | 上下文压缩、权限系统、Doom Loop Guard |
+| Phase 6 | CLI / TUI | `not_started` | prompt_toolkit + Rich |
+| Phase 7 | 打包与离线交付 | `not_started` | Win7 离线 one-folder bundle |
 
 ---
 
@@ -100,10 +104,11 @@
 | 编号 | 风险 | 当前判断 | 应对方式 |
 |------|------|----------|----------|
 | R-001 | Python 版本上滑 | 高 | 强制保持 `>=3.8,<3.9`，文档与配置双锁定 |
-| R-002 | 过早做 UI 导致核心失焦 | 高 | 先做 Core、Harness、Runtime 契约 |
-| R-003 | 模式系统做得太重 | 中 | 先做最小可配置字段和有限模式切换 |
-| R-004 | Clang 生态集成复杂度低估 | 中 | 先写工具契约与验证样例，不急于全接入 |
+| R-002 | 过早做 UI 导致核心失焦 | 高 | Phase 6 才做 TUI，Phase 1 只做最简 CLI |
+| R-003 | 内网模型 function calling 格式不标准 | 高 | Phase 1 里程碑强制在真实模型上验证，发现问题立即在 LLM Adapter 层补充兼容处理 |
+| R-004 | 工具集设计退化（工具增多、描述变复杂） | 中 | `docs/tool-design-spec.md` 有审查清单，每次新增工具前必须过清单 |
 | R-005 | 文档和实现脱节 | 高 | 每轮关键变更必须同步更新 tracker / change log / roadmap |
+| R-006 | Clang bundle 包大小过大 | 低 | 静态链接验证已通过，打包细节推到 Phase 7 处理 |
 
 ---
 
@@ -112,4 +117,5 @@
 | 日期 | 更新内容 |
 |------|----------|
 | 2026-03-27 | 建立进度跟踪文件，明确当前阶段与下一步优先级 |
+| 2026-03-27 | DC-004/DC-005：工具设计规范建立，实施分期重组，Phase 1 改为最小可工作 Loop |
 

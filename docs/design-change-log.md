@@ -108,6 +108,51 @@
   - 建立进度跟踪文件
   - 在每轮关键设计调整时持续维护本文件
 
+### DC-004
+
+- 日期：2026-03-27
+- 变更主题：工具集设计提升为一等公民
+- 变更摘要：
+  - 内网模型（GLM5 int4、Qwen3.5）验证表明工具集设计质量是系统稳定性的关键变量
+  - 确立每个模式工具上限 5 个（目标 3-4 个）
+  - 确立工具描述模板：中文描述 + 英文命名，三段结构，参数含示例
+  - 确立 7 类工具设计反模式（禁止使用）
+  - 确立结构化 Observation 规范
+  - Clang on Win7 风险项解除：已验证完全静态链接的最新版 Clang 可正常运行
+- 影响范围：
+  - 所有工具的实现与 schema 编写
+  - 工具数量与模式分配
+  - 工具返回值结构
+- 关联文档：
+  - `docs/tool-design-spec.md`（新建）
+  - `docs/overall-solution-architecture.md`（补充 §8.3a）
+  - `AGENTS.md`（补充工具规范约束）
+- 是否需要 ADR：`暂缓，先在 Phase 1 验证后再决定是否需要`
+- 后续动作：
+  - 每次新增工具前必须过 `docs/tool-design-spec.md` 审查清单
+  - Phase 1 完成后根据实际测试结果补充兼容处理细节
+
+### DC-005
+
+- 日期：2026-03-27
+- 变更主题：实施分期重组，关键路径前移
+- 变更摘要：
+  - 原 Phase 1（Core 骨架）+ 原 Phase 3（LLM Adapter）合并为新 Phase 1（最小可工作 Loop）
+  - Phase 2 改为工具集 v1（run_command + git），Phase 3 改为模式系统 v1
+  - 每个 Phase 结束时必须有可实际运行的端到端验证点
+  - `orchestra` 模式推迟到 Phase 3 之后实现
+  - Harness 改为分阶段叠加：Phase 1 无 Harness，Phase 3 引入 dict 实现，Phase 5 可选 TOML
+- 影响范围：
+  - 实施顺序与里程碑定义
+  - 开发节奏（从文档驱动转为端到端验证驱动）
+- 关联文档：
+  - `docs/implementation-roadmap.md`（Phase 1-5 重写）
+  - `docs/development-tracker.md`（里程碑、任务板、风险更新）
+  - `docs/overall-solution-architecture.md`（补充 Harness 演进路径）
+- 是否需要 ADR：`不单独写`
+- 后续动作：
+  - 直接进入 Phase 1 编码
+
 ---
 
 ## 4. 维护约定
