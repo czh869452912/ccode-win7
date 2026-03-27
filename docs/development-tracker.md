@@ -1,6 +1,6 @@
 # EmbedAgent 开发进度跟踪
 
-> 更新日期：2026-03-27（DC-004/DC-005 调整后修订）
+> 更新日期：2026-03-28（DC-004/DC-007 调整后修订）
 > 用途：持续跟踪当前阶段、下一步任务、里程碑进度、风险与阻塞
 
 ---
@@ -26,9 +26,9 @@
 
 ### 总阶段
 
-- 当前阶段：`Phase 2 工具集 v1 启动前`
+- 当前阶段：`Phase 3 模式系统 v1 准备中`
 - 总体状态：`进行中`
-- 当前重点：`在 Phase 1 验收基础上推进 run_command 与 Git 工具实现`
+- 当前重点：`在已完成的工具集 v1 基础上推进模式系统 v1`
 
 ### 当前判断
 
@@ -47,23 +47,27 @@
 - Python 3.8.10 `uv` 环境验证通过（`.venv`）
 - Moonshot `kimi-k2.5` 真实联调已跑通最小工具闭环（需使用 `/v1`，并保留 `reasoning_content`）
 - `docs/llm-adapter.md` 已建立，记录已验证 provider 兼容点
+- Phase 2 工具核心实现已落地：`run_command`、`git_status`、`git_diff`、`git_log`
+- `docs/tool-contracts.md` 已建立，记录当前工具接口契约
+- Phase 2 Loop 烟雾验证通过：`run_command` 与 `git_status` 已通过主循环消费验证
 
-项目下一步：进入 Phase 2，实现 `run_command`、`git_status`、`git_diff`、`git_log` 四个基础研发工具。
+项目下一步：进入 Phase 3，实现 `MODE_REGISTRY`、工具过滤和 `switch_mode`。
 
 ---
 
 ## 3. 下一步优先级
 
-### P0：立刻要做（Phase 1 关键路径）
+### P0：立刻要做（Phase 3 关键路径）
 
-1. 实现 `run_command`
-2. 实现 `git_status`、`git_diff`、`git_log`
-3. 在 Python 3.8 环境下补做 Phase 2 的本地验证
+1. 设计 `MODE_REGISTRY` 的最小字段集合
+2. 实现按模式过滤工具
+3. 实现 `switch_mode(target)` 工具与 `/mode <name>` 用户入口
 
 实现备注：
 
 - Phase 1 已按当前可用条件验收完成；`GLM5 int4` / `Qwen3.5` 因环境不具备暂不纳入阻塞项。
 - 当前原型已收敛到 `src/embedagent/` 包结构，打包入口与导入路径已同步更新。
+- Phase 2 里程碑已满足：文件读写、命令执行、Git 状态/差异/日志均已具备并完成 3.8 本地验证。
 
 ### P1：Phase 1 验证通过后
 
@@ -87,8 +91,8 @@
 | T-003 | 实现第一批工具（read/list/search/edit） | `completed` | 已按 `docs/tool-design-spec.md` 规范落地 |
 | T-004 | 实现最小主循环 + CLI 入口 | `completed` | 本地假模型闭环已跑通 |
 | T-005 | Phase 1 里程碑验证（GLM5 + Qwen3.5） | `completed` | 目标模型环境不具备，按 Moonshot + Python 3.8 验证口径验收 |
-| T-006 | 实现 Phase 2 工具（run_command / git） | `in_progress` | 当前主任务 |
-| T-007 | 实现模式系统 v1（dict + 工具过滤） | `pending` | Phase 3，T-006 后 |
+| T-006 | 实现 Phase 2 工具（run_command / git） | `completed` | 已补齐工具契约与 Loop 烟雾验证 |
+| T-007 | 实现模式系统 v1（dict + 工具过滤） | `pending` | 当前主任务 |
 
 ---
 
@@ -98,7 +102,7 @@
 |------|------|------|------|
 | Phase 0 | 仓库基线与工作约束 | `completed` | 已完成文档、版本策略、治理基线、工具规范 |
 | Phase 1 | 最小可工作 Loop | `completed` | 已完成 Python 3.8 与真实 OpenAI-compatible 工具闭环验证 |
-| Phase 2 | 工具集 v1 | `in_progress` | run_command + git 工具 |
+| Phase 2 | 工具集 v1 | `completed` | 已实现 run_command / git 工具，并完成 3.8 本地验证 |
 | Phase 3 | 模式系统 v1 | `not_started` | MODE_REGISTRY dict + 工具过滤 + switch_mode |
 | Phase 4 | Clang 工具链 | `not_started` | 编译/测试/静态检查，bundle 静态 Clang 二进制 |
 | Phase 5 | 质量保障层 | `not_started` | 上下文压缩、权限系统、Doom Loop Guard |
@@ -131,3 +135,5 @@
 | 2026-03-27 | Moonshot `kimi-k2.5` 真实联调通过，补齐了温度参数与 `reasoning_content` 兼容处理 |
 | 2026-03-27 | 代码骨架迁移到 `src/embedagent/`，并通过 `uv` 创建的 Python 3.8.10 环境验证 |
 | 2026-03-27 | 按当前可用条件完成 Phase 1 验收，并切换到 Phase 2 工具集实现 |
+| 2026-03-27 | Phase 2 核心工具已实现，并通过 Python 3.8 本地自测 |
+| 2026-03-28 | Phase 2 工具契约与 Loop 烟雾验证完成，阶段状态切换到 Phase 3 准备中 |

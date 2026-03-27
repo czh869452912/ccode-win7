@@ -176,6 +176,27 @@
 - 后续动作：
   - 进入 Phase 2 工具集实现
 
+### DC-007
+
+- 日期：2026-03-28
+- 变更主题：Phase 2 工具集 v1 落地并验收
+- 变更摘要：
+  - 在 `src/embedagent/tools.py` 中实现 `run_command`、`git_status`、`git_diff`、`git_log`
+  - 命令执行支持超时终止，并在 Windows 上使用 `taskkill /F /T /PID` 处理进程树
+  - 建立 `docs/tool-contracts.md` 记录当前工具 Observation 契约
+  - 在 Python 3.8.10 环境下完成工具直调与 Loop 烟雾验证
+- 影响范围：
+  - Tool Runtime
+  - Phase 2 验证口径
+  - 后续模式系统的工具过滤基线
+- 关联文档：
+  - `src/embedagent/tools.py`
+  - `docs/tool-contracts.md`
+  - `docs/development-tracker.md`
+- 是否需要 ADR：`不单独写`
+- 后续动作：
+  - 进入 Phase 3 模式系统 v1
+
 ---
 
 ## 4. 维护约定

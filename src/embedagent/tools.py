@@ -3,6 +3,8 @@ from __future__ import annotations
 import fnmatch
 import io
 import os
+import subprocess
+import time
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
@@ -12,6 +14,8 @@ from embedagent.session import Observation
 MAX_READ_CHARS = 40000
 MAX_LIST_RESULTS = 500
 MAX_SEARCH_MATCHES = 100
+MAX_COMMAND_OUTPUT_CHARS = 40000
+DEFAULT_COMMAND_TIMEOUT_SEC = 30
 TEXT_ENCODINGS = ("utf-8", "utf-8-sig", "gbk", "cp936")
 SKIP_DIR_NAMES = {".git", ".hg", ".svn", "__pycache__"}
 
@@ -77,7 +81,16 @@ class ToolRuntime(object):
         return observation
 
     def _tool_order(self) -> List[str]:
-        return ["read_file", "list_files", "search_text", "edit_file"]
+        return [
+            "read_file",
+            "list_files",
+            "search_text",
+            "edit_file",
+            "run_command",
+            "git_status",
+            "git_diff",
+            "git_log",
+        ]
 
     def _build_tools(self) -> Dict[str, ToolDefinition]:
         return {
@@ -161,6 +174,87 @@ class ToolRuntime(object):
                 },
                 handler=self._edit_file,
             ),
+            "run_command": ToolDefinition(
+                name="run_command",
+                description="执行工作区内的 shell 命令。用于构建、运行脚本或采集终端结果。命令在项目工作区或其子目录中执行。",
+                parameters={
+                    "type": "object",
+                    "properties": {
+                        "command": {
+                            "type": "string",
+                            "description": "要执行的命令文本，按系统 shell 语法书写。示例：git status --short",
+                        },
+                        "cwd": {
+                            "type": "string",
+                            "description": "命令执行目录，相对于项目根目录。示例：.",
+                        },
+                        "timeout_sec": {
+                            "type": "integer",
+                            "description": "命令超时时间，单位为秒。示例：30",
+                        },
+                    },
+                    "required": ["command"],
+                    "additionalProperties": False,
+                },
+                handler=self._run_command,
+            ),
+            "git_status": ToolDefinition(
+                name="git_status",
+                description="查看当前 Git 工作区状态。用于确认分支、未提交修改和未跟踪文件。路径必须位于当前仓库内。",
+                parameters={
+                    "type": "object",
+                    "properties": {
+                        "path": {
+                            "type": "string",
+                            "description": "要查看的仓库路径或子路径，相对于项目根目录。示例：.",
+                        }
+                    },
+                    "required": ["path"],
+                    "additionalProperties": False,
+                },
+                handler=self._git_status,
+            ),
+            "git_diff": ToolDefinition(
+                name="git_diff",
+                description="查看 Git 差异内容。用于检查未提交修改或已暂存修改的具体文本差异。路径必须位于当前仓库内。",
+                parameters={
+                    "type": "object",
+                    "properties": {
+                        "path": {
+                            "type": "string",
+                            "description": "要查看的仓库路径或子路径，相对于项目根目录。示例：.",
+                        },
+                        "scope": {
+                            "type": "string",
+                            "enum": ["working", "staged"],
+                            "description": "差异范围，working 表示工作区，staged 表示已暂存。示例：working",
+                        },
+                    },
+                    "required": ["path"],
+                    "additionalProperties": False,
+                },
+                handler=self._git_diff,
+            ),
+            "git_log": ToolDefinition(
+                name="git_log",
+                description="查看最近的 Git 提交历史。用于了解最近改动、作者和提交主题。路径必须位于当前仓库内。",
+                parameters={
+                    "type": "object",
+                    "properties": {
+                        "path": {
+                            "type": "string",
+                            "description": "要查看的仓库路径或子路径，相对于项目根目录。示例：.",
+                        },
+                        "limit": {
+                            "type": "integer",
+                            "description": "要返回的提交条数，默认 10。示例：5",
+                        },
+                    },
+                    "required": ["path"],
+                    "additionalProperties": False,
+                },
+                handler=self._git_log,
+            ),
         }
 
     def _resolve_path(self, path: str) -> str:
@@ -179,6 +273,12 @@ class ToolRuntime(object):
             raise ToolError("路径超出当前工作区。")
         if not os.path.exists(resolved):
             raise ToolError("路径不存在：%s" % path)
+        return resolved
+
+    def _resolve_directory(self, path: str) -> str:
+        resolved = self._resolve_path(path)
+        if not os.path.isdir(resolved):
+            raise ToolError("路径不是目录：%s" % path)
         return resolved
 
     def _relative_path(self, path: str) -> str:
@@ -250,6 +350,107 @@ class ToolRuntime(object):
                 collected.append(absolute_path)
         collected.sort()
         return collected
+
+    def _truncate_output(self, text: str) -> Tuple[str, bool]:
+        if len(text) <= MAX_COMMAND_OUTPUT_CHARS:
+            return text, False
+        return text[:MAX_COMMAND_OUTPUT_CHARS], True
+
+    def _terminate_process_tree(self, process: subprocess.Popen) -> None:
+        if process.poll() is not None:
+            return
+        if os.name == "nt":
+            subprocess.call(
+                ["taskkill", "/F", "/T", "/PID", str(process.pid)],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+            return
+        process.kill()
+
+    def _run_subprocess(
+        self,
+        command: Any,
+        cwd: str,
+        timeout_sec: int,
+        shell: bool,
+    ) -> Dict[str, Any]:
+        started = time.time()
+        process = subprocess.Popen(
+            command,
+            cwd=cwd,
+            shell=shell,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            universal_newlines=True,
+            encoding="utf-8",
+            errors="replace",
+        )
+        timed_out = False
+        try:
+            stdout, stderr = process.communicate(timeout=timeout_sec)
+        except subprocess.TimeoutExpired:
+            timed_out = True
+            self._terminate_process_tree(process)
+            stdout, stderr = process.communicate()
+        duration_ms = int((time.time() - started) * 1000)
+        stdout, stdout_truncated = self._truncate_output(stdout or "")
+        stderr, stderr_truncated = self._truncate_output(stderr or "")
+        return {
+            "exit_code": process.returncode,
+            "stdout": stdout,
+            "stderr": stderr,
+            "stdout_truncated": stdout_truncated,
+            "stderr_truncated": stderr_truncated,
+            "duration_ms": duration_ms,
+            "timed_out": timed_out,
+        }
+
+    def _build_command_observation(
+        self,
+        tool_name: str,
+        command_text: str,
+        cwd: str,
+        result: Dict[str, Any],
+    ) -> Observation:
+        success = (result["exit_code"] == 0) and (not result["timed_out"])
+        error = None
+        if result["timed_out"]:
+            error = "命令执行超时，已强制终止。"
+        elif result["exit_code"] != 0:
+            error = "命令退出码为 %s。" % result["exit_code"]
+        data = {
+            "command": command_text,
+            "cwd": self._relative_path(cwd),
+            "exit_code": result["exit_code"],
+            "stdout": result["stdout"],
+            "stderr": result["stderr"],
+            "stdout_truncated": result["stdout_truncated"],
+            "stderr_truncated": result["stderr_truncated"],
+            "duration_ms": result["duration_ms"],
+            "timed_out": result["timed_out"],
+        }
+        return Observation(
+            tool_name=tool_name,
+            success=success,
+            error=error,
+            data=data,
+        )
+
+    def _git_relative_arg(self, path: str) -> Optional[str]:
+        resolved = self._resolve_path(path)
+        relative = self._relative_path(resolved)
+        if relative == ".":
+            return None
+        return relative
+
+    def _run_git_command(self, args: List[str]) -> Dict[str, Any]:
+        return self._run_subprocess(
+            command=args,
+            cwd=self.workspace,
+            timeout_sec=DEFAULT_COMMAND_TIMEOUT_SEC,
+            shell=False,
+        )
 
     def _read_file(self, arguments: Dict[str, Any]) -> Observation:
         path = self._resolve_path(str(arguments["path"]))
@@ -346,3 +547,140 @@ class ToolRuntime(object):
             "line_count": updated.count("\n") + (1 if updated else 0),
         }
         return Observation(tool_name="edit_file", success=True, error=None, data=data)
+
+    def _run_command(self, arguments: Dict[str, Any]) -> Observation:
+        command_text = str(arguments["command"]).strip()
+        if not command_text:
+            raise ToolError("命令不能为空。")
+        cwd_argument = str(arguments.get("cwd") or ".")
+        cwd = self._resolve_directory(cwd_argument)
+        timeout_sec = int(arguments.get("timeout_sec") or DEFAULT_COMMAND_TIMEOUT_SEC)
+        if timeout_sec <= 0:
+            raise ToolError("timeout_sec 必须大于 0。")
+        result = self._run_subprocess(
+            command=command_text,
+            cwd=cwd,
+            timeout_sec=timeout_sec,
+            shell=True,
+        )
+        return self._build_command_observation(
+            tool_name="run_command",
+            command_text=command_text,
+            cwd=cwd,
+            result=result,
+        )
+
+    def _git_status(self, arguments: Dict[str, Any]) -> Observation:
+        path_argument = str(arguments["path"])
+        relative_arg = self._git_relative_arg(path_argument)
+        command = ["git", "-C", self.workspace, "status", "--short", "--branch"]
+        if relative_arg:
+            command.extend(["--", relative_arg])
+        result = self._run_git_command(command)
+        observation = self._build_command_observation(
+            tool_name="git_status",
+            command_text=" ".join(command),
+            cwd=self.workspace,
+            result=result,
+        )
+        if not observation.success:
+            return observation
+        lines = [line for line in result["stdout"].splitlines() if line]
+        branch = ""
+        entries = []
+        for line in lines:
+            if line.startswith("## "):
+                branch = line[3:].strip()
+                continue
+            status_code = line[:2]
+            file_path = line[3:].strip() if len(line) > 3 else ""
+            entries.append({
+                "status": status_code,
+                "path": file_path,
+            })
+        observation.data.update({
+            "path": path_argument,
+            "branch": branch,
+            "entries": entries,
+        })
+        return observation
+
+    def _git_diff(self, arguments: Dict[str, Any]) -> Observation:
+        path_argument = str(arguments["path"])
+        scope = str(arguments.get("scope") or "working")
+        if scope not in ("working", "staged"):
+            raise ToolError("scope 只能是 working 或 staged。")
+        relative_arg = self._git_relative_arg(path_argument)
+        command = ["git", "-C", self.workspace, "diff"]
+        if scope == "staged":
+            command.append("--cached")
+        if relative_arg:
+            command.extend(["--", relative_arg])
+        result = self._run_git_command(command)
+        observation = self._build_command_observation(
+            tool_name="git_diff",
+            command_text=" ".join(command),
+            cwd=self.workspace,
+            result=result,
+        )
+        if not observation.success:
+            return observation
+        diff_text = result["stdout"]
+        observation.data.update({
+            "path": path_argument,
+            "scope": scope,
+            "file_count": diff_text.count("diff --git "),
+            "line_count": diff_text.count("\n") + (1 if diff_text else 0),
+            "diff": diff_text,
+        })
+        return observation
+
+    def _git_log(self, arguments: Dict[str, Any]) -> Observation:
+        path_argument = str(arguments["path"])
+        limit = int(arguments.get("limit") or 10)
+        if limit <= 0:
+            raise ToolError("limit 必须大于 0。")
+        relative_arg = self._git_relative_arg(path_argument)
+        command = [
+            "git",
+            "-C",
+            self.workspace,
+            "log",
+            "--date=iso-strict",
+            "--pretty=format:%H%x1f%an%x1f%ad%x1f%s%x1e",
+            "-n",
+            str(limit),
+        ]
+        if relative_arg:
+            command.extend(["--", relative_arg])
+        result = self._run_git_command(command)
+        observation = self._build_command_observation(
+            tool_name="git_log",
+            command_text=" ".join(command),
+            cwd=self.workspace,
+            result=result,
+        )
+        if not observation.success:
+            return observation
+        entries = []
+        for record in result["stdout"].split("\x1e"):
+            record = record.strip()
+            if not record:
+                continue
+            parts = record.split("\x1f")
+            if len(parts) != 4:
+                continue
+            entries.append(
+                {
+                    "commit": parts[0],
+                    "author": parts[1],
+                    "date": parts[2],
+                    "subject": parts[3],
+                }
+            )
+        observation.data.update({
+            "path": path_argument,
+            "limit": limit,
+            "entries": entries,
+        })
+        return observation
