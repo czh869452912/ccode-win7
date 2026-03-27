@@ -197,6 +197,31 @@
 - 后续动作：
   - 进入 Phase 3 模式系统 v1
 
+### DC-008
+
+- 日期：2026-03-28
+- 变更主题：Phase 3 模式系统 v1 落地并验收
+- 变更摘要：
+  - 新增 `src/embedagent/modes.py`，以 Python dict 形式定义 `MODE_REGISTRY`
+  - Loop 按当前模式过滤工具，并对违规工具调用返回失败 Observation
+  - 实现 `switch_mode(target)` 工具与用户显式 `/mode <name>` 入口
+  - `edit_file` 增加基于 `writable_globs` 的写入边界检查
+  - 新增 `docs/mode-schema.md` 与 `docs/harness-state-machine.md`
+- 影响范围：
+  - Agent Loop
+  - CLI 入口
+  - Tool Runtime 调用边界
+  - 后续 Harness 演进基线
+- 关联文档：
+  - `src/embedagent/modes.py`
+  - `src/embedagent/loop.py`
+  - `src/embedagent/cli.py`
+  - `docs/mode-schema.md`
+  - `docs/harness-state-machine.md`
+- 是否需要 ADR：`不单独写`
+- 后续动作：
+  - 进入 Phase 4 Clang 工具链实现
+
 ---
 
 ## 4. 维护约定
