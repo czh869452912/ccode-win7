@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Callable, Optional, Tuple
 
+from embedagent.guard import LoopGuard
 from embedagent.llm import OpenAICompatibleClient
 from embedagent.modes import (
     DEFAULT_MODE,
@@ -13,6 +14,7 @@ from embedagent.modes import (
     require_mode,
     switch_mode_schema,
 )
+from embedagent.permissions import PermissionPolicy, PermissionRequest
 from embedagent.session import Action, Observation, Session
 from embedagent.tools import ToolRuntime
 
@@ -23,10 +25,14 @@ class AgentLoop(object):
         client: OpenAICompatibleClient,
         tools: ToolRuntime,
         max_turns: int = 8,
+        permission_policy: Optional[PermissionPolicy] = None,
     ) -> None:
         self.client = client
         self.tools = tools
         self.max_turns = max_turns
+        self.permission_policy = permission_policy or PermissionPolicy(
+            auto_approve_all=True
+        )
 
     def run(
         self,
@@ -38,12 +44,16 @@ class AgentLoop(object):
         on_tool_finish: Optional[
             Callable[[Action, Observation], None]
         ] = None,
+        permission_handler: Optional[
+            Callable[[PermissionRequest], bool]
+        ] = None,
     ) -> Tuple[str, Session]:
         current_mode = require_mode(initial_mode)["slug"]
         session = Session()
         session.add_system_message(build_system_prompt(current_mode))
         session.add_user_message(user_text)
         final_text = ""
+        loop_guard = LoopGuard()
         for _ in range(self.max_turns):
             tool_schemas = self._schemas_for_mode(current_mode)
             if stream:
@@ -64,16 +74,26 @@ class AgentLoop(object):
             if not reply.actions:
                 return final_text, session
             for action in reply.actions:
+                if loop_guard.should_block(action):
+                    observation = loop_guard.blocked_observation(action)
+                    session.add_observation(action, observation)
+                    if on_tool_finish:
+                        on_tool_finish(action, observation)
+                    raise RuntimeError(loop_guard.stop_reason())
                 if on_tool_start:
                     on_tool_start(action)
                 observation, current_mode = self._execute_action(
                     action=action,
                     current_mode=current_mode,
                     session=session,
+                    permission_handler=permission_handler,
                 )
                 session.add_observation(action, observation)
                 if on_tool_finish:
                     on_tool_finish(action, observation)
+                loop_guard.record(action, observation)
+                if loop_guard.should_stop():
+                    raise RuntimeError(loop_guard.stop_reason())
         raise RuntimeError("超过最大迭代次数，主循环已停止。")
 
     def _schemas_for_mode(self, mode_name: str):
@@ -92,6 +112,7 @@ class AgentLoop(object):
         action: Action,
         current_mode: str,
         session: Session,
+        permission_handler: Optional[Callable[[PermissionRequest], bool]],
     ) -> Tuple[Observation, str]:
         if action.name == "switch_mode":
             return self._handle_switch_mode(action, current_mode, session)
@@ -126,6 +147,22 @@ class AgentLoop(object):
                     data={
                         "mode": current_mode,
                         "path": normalized_path,
+                    },
+                )
+                return observation, current_mode
+        request = self.permission_policy.build_request(action)
+        if request is not None:
+            approved = permission_handler(request) if permission_handler else False
+            if not approved:
+                observation = Observation(
+                    tool_name=action.name,
+                    success=False,
+                    error="操作未获批准，已跳过执行。",
+                    data={
+                        "permission_required": True,
+                        "category": request.category,
+                        "reason": request.reason,
+                        "details": request.details,
                     },
                 )
                 return observation, current_mode

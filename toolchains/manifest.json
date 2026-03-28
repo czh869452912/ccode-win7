@@ -1,0 +1,38 @@
+{
+  "active_root": "toolchains/llvm/current",
+  "validated_at": "2026-03-28",
+  "components": {
+    "clang": {
+      "source": "https://github.com/vovkos/llvm-package-windows/releases/download/clang-20.1.8/clang-20.1.8-windows-amd64-msvc17-libcmt.7z",
+      "version": "20.1.8",
+      "path": "toolchains/llvm/current/bin/clang.exe"
+    },
+    "clang_tidy": {
+      "source": "https://github.com/cpp-linter/clang-tools-static-binaries/releases/download/master-63858060/clang-tidy-20_windows-amd64.exe",
+      "version": "20.1.0",
+      "path": "toolchains/llvm/current/bin/clang-tidy.exe"
+    },
+    "llvm_cov": {
+      "source": "https://github.com/c3lang/win-llvm/releases/download/llvm_21_1_8/llvm-21.1.8-windows-amd64-msvc17-libcmt.7z",
+      "version": "21.1.8",
+      "path": "toolchains/llvm/current/bin/llvm-cov.exe"
+    },
+    "llvm_profdata": {
+      "source": "https://github.com/c3lang/win-llvm/releases/download/llvm_21_1_8/llvm-21.1.8-windows-amd64-msvc17-libcmt.7z",
+      "version": "21.1.8",
+      "path": "toolchains/llvm/current/bin/llvm-profdata.exe"
+    },
+    "clang_analyzer_entry": {
+      "source": "local wrapper",
+      "version": "clang.exe --analyze",
+      "path": "toolchains/llvm/current/bin/clang-analyzer.bat"
+    }
+  },
+  "status": {
+    "compile_smoke": true,
+    "analyzer_smoke": true,
+    "clang_tidy_smoke": true,
+    "coverage_smoke": true,
+    "win7_validation": false
+  }
+}

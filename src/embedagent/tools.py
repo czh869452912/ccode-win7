@@ -602,7 +602,46 @@ class ToolRuntime(object):
                 if match:
                     metrics[key] = float(match.group(1))
                     break
+        if any(value is None for value in metrics.values()):
+            for line in text.splitlines():
+                if not line.strip().startswith("TOTAL"):
+                    continue
+                percentages = [token for token in line.split() if token.endswith("%")]
+                if len(percentages) >= 3:
+                    metrics["region_coverage"] = metrics["region_coverage"] or float(percentages[0][:-1])
+                    metrics["function_coverage"] = metrics["function_coverage"] or float(percentages[1][:-1])
+                    metrics["line_coverage"] = metrics["line_coverage"] or float(percentages[2][:-1])
+                    if len(percentages) >= 4:
+                        metrics["branch_coverage"] = metrics["branch_coverage"] or float(percentages[3][:-1])
+                break
         return metrics
+
+    def _bundled_toolchain_root(self) -> Optional[str]:
+        env_root = os.environ.get("EMBEDAGENT_LLVM_ROOT", "").strip()
+        candidates = []
+        if env_root:
+            candidates.append(os.path.realpath(env_root))
+        candidates.append(os.path.join(self.workspace, "toolchains", "llvm", "current"))
+        for candidate in candidates:
+            if os.path.isdir(os.path.join(candidate, "bin")):
+                return candidate
+        return None
+
+    def _build_process_env(self) -> Dict[str, str]:
+        env = os.environ.copy()
+        root = self._bundled_toolchain_root()
+        if not root:
+            return env
+        prepend = []
+        for subdir in ("bin", "libexec"):
+            full = os.path.join(root, subdir)
+            if os.path.isdir(full):
+                prepend.append(full)
+        if prepend:
+            current_path = env.get("PATH", "")
+            env["EMBEDAGENT_LLVM_ROOT"] = root
+            env["PATH"] = os.pathsep.join(prepend + ([current_path] if current_path else []))
+        return env
 
     def _terminate_process_tree(self, process: subprocess.Popen) -> None:
         if process.poll() is not None:
@@ -633,6 +672,7 @@ class ToolRuntime(object):
             universal_newlines=True,
             encoding="utf-8",
             errors="replace",
+            env=self._build_process_env(),
         )
         timed_out = False
         try:
@@ -667,6 +707,7 @@ class ToolRuntime(object):
             error = "命令执行超时，已强制终止。"
         elif result["exit_code"] != 0:
             error = "命令退出码为 %s。" % result["exit_code"]
+        toolchain_root = self._bundled_toolchain_root()
         data = {
             "command": command_text,
             "cwd": self._relative_path(cwd),
@@ -677,6 +718,7 @@ class ToolRuntime(object):
             "stderr_truncated": result["stderr_truncated"],
             "duration_ms": result["duration_ms"],
             "timed_out": result["timed_out"],
+            "toolchain_root": self._relative_path(toolchain_root) if toolchain_root else None,
         }
         return Observation(tool_name=tool_name, success=success, error=error, data=data)
 
@@ -967,3 +1009,4 @@ class ToolRuntime(object):
             error=None if passed else "质量门未通过。",
             data=data,
         )
+

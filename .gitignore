@@ -26,6 +26,7 @@ build/
 *.profdata
 *.gcda
 *.gcno
+*.plist
 coverage/
 
 # 系统文件
@@ -37,3 +38,10 @@ desktop.ini
 .vscode/settings.json
 *.swp
 *.swo
+
+# Bundled toolchains
+/toolchains/*
+!/toolchains/.gitignore
+!/toolchains/README.md
+!/toolchains/manifest.json
+/toolchains/probe*/

@@ -245,6 +245,56 @@
 - 后续动作：
   - 接入真实项目构建命令与 Clang 二进制路径
 
+### DC-010
+
+- 日期：2026-03-28
+- 变更主题：项目内闭环 Clang 工具链组装与验证
+- 变更摘要：
+  - 下载并测试多个静态 Windows LLVM/Clang 发行包
+  - 基于 `clang-20.1.8 libcmt`、静态 `clang-tidy` 和 `win-llvm 21.1.8` 组装出 `toolchains/llvm/current`
+  - 在 `ToolRuntime` 中为子进程自动注入 `toolchains/llvm/current/bin` 与 `libexec`
+  - 补本地 `clang-analyzer` 包装入口
+  - 完成编译、静态分析、clang-tidy、profdata、llvm-cov 的真实 smoke test
+- 影响范围：
+  - 本地工具链目录布局
+  - Tool Runtime 的子进程环境
+  - Phase 4 验证口径
+- 关联文档：
+  - `src/embedagent/tools.py`
+  - `docs/clang-integration-plan.md`
+  - `toolchains/README.md`
+  - `toolchains/manifest.json`
+  - `scripts/activate-bundled-llvm.ps1`
+  - `scripts/test-bundled-llvm.ps1`
+- 是否需要 ADR：`暂不写，先等待真实工程和 Win7 验证结果`
+- 后续动作：
+  - 收敛版本组合
+  - 在真实 C 工程和 Win7 上补验
+
+### DC-011
+
+- 日期：2026-03-28
+- 变更主题：Phase 5 最小权限与防循环保护落地
+- 变更摘要：
+  - 新增 `src/embedagent/permissions.py`，定义最小权限分类和 CLI 确认策略
+  - 新增 `src/embedagent/guard.py`，实现连续失败与相同失败动作的防护
+  - `AgentLoop` 接入权限确认和 Doom Loop Guard
+  - CLI 增加 `--approve-all`、`--approve-writes`、`--approve-commands`
+  - 工具链 smoke test 脚本增加清理逻辑，减少临时产物污染
+- 影响范围：
+  - Agent Loop
+  - CLI 入口
+  - Phase 5 验证口径
+- 关联文档：
+  - `src/embedagent/permissions.py`
+  - `src/embedagent/guard.py`
+  - `src/embedagent/loop.py`
+  - `src/embedagent/cli.py`
+  - `docs/permission-model.md`
+- 是否需要 ADR：`不单独写`
+- 后续动作：
+  - 继续补上下文压缩和更细粒度权限规则
+
 ---
 
 ## 4. 维护约定

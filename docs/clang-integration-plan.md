@@ -50,6 +50,34 @@
 - `collect_coverage`
 - `report_quality`
 
+### 3.1a 项目内闭环工具链
+
+当前已在项目内组装出一个可直接使用的本地闭环工具链根目录：
+
+- `toolchains/llvm/current`
+
+当前组成：
+
+- `clang.exe` / `clang-cl.exe`：
+  - 来源：`vovkos/llvm-package-windows`
+  - 包：`clang-20.1.8-windows-amd64-msvc17-libcmt.7z`
+- `clang-tidy.exe`：
+  - 来源：`cpp-linter/clang-tools-static-binaries`
+  - 包：`clang-tidy-20_windows-amd64.exe`
+- `llvm-cov.exe` / `llvm-profdata.exe` / `lld-link.exe` 等 LLVM 工具：
+  - 来源：`c3lang/win-llvm`
+  - 包：`llvm-21.1.8-windows-amd64-msvc17-libcmt.7z`
+- `clang-analyzer.bat`：
+  - 本地包装入口
+  - 实际调用 `clang.exe --analyze`
+
+辅助文件：
+
+- `scripts/activate-bundled-llvm.ps1`
+- `scripts/test-bundled-llvm.ps1`
+- `toolchains/manifest.json`
+- `toolchains/README.md`
+
 ### 3.2 诊断解析
 
 当前已支持两类常见编译器/检查器输出：
@@ -102,6 +130,22 @@ src\\main.c(12,3): error C2143: syntax error
 - `line_coverage`
 - `min_line_coverage`
 
+### 3.6 已完成的真实本地测试
+
+已在项目工作区内完成：
+
+1. `clang --version`
+2. `clang-tidy --version`
+3. `llvm-profdata --version`
+4. 裸命令 `clang -c ...` 编译 object 文件
+5. 裸命令 `clang --analyze ...`
+6. 裸命令 `clang-tidy ...`
+7. 覆盖率闭环：
+   - `clang -fprofile-instr-generate -fcoverage-mapping`
+   - 运行生成 `profraw`
+   - `llvm-profdata merge`
+   - `llvm-cov report`
+
 ---
 
 ## 4. 当前模式接入
@@ -122,25 +166,24 @@ Phase 4 已同步调整模式工具集：
 
 1. 固化项目级默认命令来源
    - 例如 `config/build.toml` 或项目记忆
-2. 接入真实 Clang 工具链路径
-   - `clang`
-   - `clang-tidy`
-   - `clang --analyze`
-   - `llvm-profdata`
-   - `llvm-cov`
-3. 在真实 C 示例项目上验证
+2. 在真实 C 示例项目上验证
    - 编译失败诊断
    - 测试结果汇总
    - 覆盖率提取
-4. 在 Phase 7 中纳入离线 bundle
+3. 尽量收敛到单一来源或单一版本
+   - 当前组合工具链已通过 smoke test
+   - 但 `clang/clang-tidy` 与 `llvm-cov/profdata` 仍存在跨版本组合
+4. 若需要更严格的一致性，补带 compiler-rt 的同版本静态包或自建发行版
+5. 在 Phase 7 中纳入离线 bundle
 
 ---
 
 ## 6. 当前结论
 
-Phase 4 当前已经完成“接口层和解析层”的第一版实现。
+Phase 4 当前已经完成“接口层、解析层和项目内闭环工具链”的第一版实现。
 
 这意味着：
 
 - 即使真实 C 工程尚未接入，Core 侧的工具协议已经成立
-- 后续只需要补项目默认命令和工具链目录，不必重写 Tool Runtime
+- 项目已经有一个可直接启用和测试的本地 Clang 工具链根目录
+- 后续重点转为真实项目命令、版本一致性和 Win7 实机验证，而不是重写 Tool Runtime

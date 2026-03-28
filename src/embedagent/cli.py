@@ -9,13 +9,14 @@ from typing import List, Optional
 from embedagent.llm import ModelClientError, OpenAICompatibleClient
 from embedagent.loop import AgentLoop
 from embedagent.modes import DEFAULT_MODE, parse_mode_command
+from embedagent.permissions import PermissionPolicy, PermissionRequest
 from embedagent.session import Action, Observation
 from embedagent.tools import ToolRuntime
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="EmbedAgent Phase 3 模式化 CLI。"
+        description="EmbedAgent Phase 5 质量保障 CLI。"
     )
     parser.add_argument(
         "message",
@@ -60,6 +61,21 @@ def build_parser() -> argparse.ArgumentParser:
         help="初始工作模式。示例：code",
     )
     parser.add_argument(
+        "--approve-all",
+        action="store_true",
+        help="自动批准所有需要确认的操作。",
+    )
+    parser.add_argument(
+        "--approve-writes",
+        action="store_true",
+        help="自动批准文件写入操作。",
+    )
+    parser.add_argument(
+        "--approve-commands",
+        action="store_true",
+        help="自动批准命令和工具链执行操作。",
+    )
+    parser.add_argument(
         "--no-stream",
         action="store_true",
         help="禁用流式输出，等待完整回复后再打印。",
@@ -100,8 +116,18 @@ def main(argv: Optional[List[str]] = None) -> int:
         model=args.model,
         timeout=args.timeout,
     )
+    permission_policy = PermissionPolicy(
+        auto_approve_all=args.approve_all,
+        auto_approve_writes=args.approve_writes,
+        auto_approve_commands=args.approve_commands,
+    )
     tools = ToolRuntime(args.workspace)
-    loop = AgentLoop(client=client, tools=tools, max_turns=args.max_turns)
+    loop = AgentLoop(
+        client=client,
+        tools=tools,
+        max_turns=args.max_turns,
+        permission_policy=permission_policy,
+    )
 
     streaming_state = {"printed": False}
 
@@ -133,6 +159,19 @@ def main(argv: Optional[List[str]] = None) -> int:
         )
         sys.stderr.flush()
 
+    def on_permission_request(request: PermissionRequest) -> bool:
+        summary = request.details.get("path") or request.details.get("command") or ""
+        if len(summary) > 120:
+            summary = summary[:120] + "..."
+        sys.stderr.write(
+            "[permission] %s %s %s\n"
+            % (request.category, request.tool_name, summary)
+        )
+        sys.stderr.write("%s [y/N]: " % request.reason)
+        sys.stderr.flush()
+        answer = input().strip().lower()
+        return answer in ("y", "yes")
+
     try:
         final_text, _ = loop.run(
             user_text=user_message,
@@ -141,6 +180,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             on_text_delta=on_text_delta,
             on_tool_start=on_tool_start,
             on_tool_finish=on_tool_finish,
+            permission_handler=on_permission_request,
         )
     except (ModelClientError, RuntimeError) as exc:
         sys.stderr.write("error: %s\n" % exc)
