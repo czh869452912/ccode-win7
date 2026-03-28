@@ -4,8 +4,8 @@ import json
 import os
 import re
 import uuid
-from datetime import datetime
-from typing import Any, Dict, Optional, Tuple
+from datetime import datetime, timedelta
+from typing import Any, Dict, List, Optional
 
 
 def _utc_now() -> str:
@@ -21,10 +21,12 @@ _API_KEY_RE = re.compile(
 
 
 class ArtifactStore(object):
-    def __init__(self, workspace: str, relative_root: str = ".embedagent/memory/artifacts") -> None:
+    def __init__(self, workspace: str, relative_root: str = ".embedagent/memory/artifacts", max_index_entries: int = 512) -> None:
         self.workspace = os.path.realpath(workspace)
         self.relative_root = relative_root.replace("\\", "/")
         self.root = os.path.join(self.workspace, *self.relative_root.split("/"))
+        self.index_path = os.path.join(self.root, "index.json")
+        self.max_index_entries = max_index_entries
 
     def sanitize_text(self, text: str) -> str:
         sanitized = _OPENAI_KEY_RE.sub("<redacted-openai-key>", text)
@@ -87,6 +89,113 @@ class ArtifactStore(object):
         }
         return self._write_payload(tool_name, field_name, payload)
 
+
+    def list_artifacts(self, limit: int = 20) -> List[Dict[str, Any]]:
+        index = self._read_index()
+        items = index.get("artifacts") if isinstance(index.get("artifacts"), list) else []
+        result = []
+        for item in items[:limit]:
+            if not isinstance(item, dict):
+                continue
+            result.append(item)
+        return result
+
+    def cleanup(
+        self,
+        active_refs: Optional[object] = None,
+        max_entries: int = 256,
+        max_age_days: int = 14,
+    ) -> Dict[str, int]:
+        index = self._read_index()
+        artifacts = index.get("artifacts") if isinstance(index.get("artifacts"), list) else []
+        normalized_active = set()
+        for item in active_refs or []:
+            normalized_active.add(self._normalize_ref(str(item)))
+        threshold = datetime.utcnow() - timedelta(days=max_age_days)
+        kept = []
+        deleted = 0
+        seen = set()
+        sorted_items = sorted(artifacts, key=lambda item: item.get("created_at") or "", reverse=True)
+        for position, item in enumerate(sorted_items):
+            if not isinstance(item, dict):
+                continue
+            path = self._normalize_ref(str(item.get("path") or ""))
+            if not path or path in seen:
+                continue
+            seen.add(path)
+            absolute_path = os.path.join(self.workspace, path.replace("/", os.sep))
+            if not os.path.isfile(absolute_path):
+                deleted += 1
+                continue
+            created_at = self._parse_time(item.get("created_at"))
+            keep = path in normalized_active or position < max_entries
+            if created_at is not None and created_at >= threshold:
+                keep = True
+            if keep:
+                item["path"] = path
+                kept.append(item)
+                continue
+            try:
+                os.remove(absolute_path)
+                deleted += 1
+            except OSError:
+                item["path"] = path
+                kept.append(item)
+        payload = {
+            "schema_version": 1,
+            "updated_at": _utc_now(),
+            "artifacts": kept[: self.max_index_entries],
+        }
+        self._write_index(payload)
+        return {"kept": len(payload["artifacts"]), "deleted": deleted}
+
+    def _update_index(self, relative_ref: str, payload: Dict[str, Any]) -> None:
+        index = self._read_index()
+        artifacts = index.get("artifacts") if isinstance(index.get("artifacts"), list) else []
+        record = {
+            "path": self._normalize_ref(relative_ref),
+            "tool_name": payload.get("tool_name"),
+            "field_name": payload.get("field_name"),
+            "kind": payload.get("kind"),
+            "created_at": payload.get("created_at") or _utc_now(),
+            "char_count": payload.get("char_count"),
+            "item_count": payload.get("item_count"),
+        }
+        updated = [item for item in artifacts if item.get("path") != record["path"]]
+        updated.append(record)
+        updated.sort(key=lambda item: item.get("created_at") or "", reverse=True)
+        self._write_index({
+            "schema_version": 1,
+            "updated_at": _utc_now(),
+            "artifacts": updated[: self.max_index_entries],
+        })
+
+    def _read_index(self) -> Dict[str, Any]:
+        if not os.path.isfile(self.index_path):
+            return {}
+        try:
+            with open(self.index_path, "r", encoding="utf-8") as handle:
+                data = json.load(handle)
+        except Exception:
+            return {}
+        return data if isinstance(data, dict) else {}
+
+    def _write_index(self, payload: Dict[str, Any]) -> None:
+        if not os.path.isdir(self.root):
+            os.makedirs(self.root)
+        with open(self.index_path, "w", encoding="utf-8") as handle:
+            json.dump(payload, handle, ensure_ascii=False, indent=2, sort_keys=True)
+
+    def _normalize_ref(self, reference: str) -> str:
+        return reference.replace("\\", "/")
+
+    def _parse_time(self, value: Optional[str]) -> Optional[datetime]:
+        if not value:
+            return None
+        try:
+            return datetime.strptime(value, "%Y-%m-%dT%H:%M:%SZ")
+        except ValueError:
+            return None
     def _write_payload(self, tool_name: str, field_name: str, payload: Dict[str, Any]) -> str:
         date_segment = datetime.utcnow().strftime("%Y%m%d")
         file_name = "%s-%s-%s.json" % (tool_name, field_name, uuid.uuid4().hex[:12])
@@ -97,4 +206,7 @@ class ArtifactStore(object):
             os.makedirs(directory)
         with open(absolute_path, "w", encoding="utf-8") as handle:
             json.dump(payload, handle, ensure_ascii=False, indent=2, sort_keys=True)
-        return relative_path.replace(os.sep, "/")
+        relative_ref = relative_path.replace(os.sep, "/")
+        self._update_index(relative_ref, payload)
+        return relative_ref
+

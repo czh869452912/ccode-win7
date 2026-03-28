@@ -105,9 +105,9 @@
 
 ## 项目现状
 
-- 2026-03-28：Phase 1-4 已完成最小可工作闭环，Phase 5 已完成到 5E（权限、Doom Loop、ContextManager、Artifact Store、Session Summary、Project Memory、恢复入口）。
+- 2026-03-28：Phase 1-4 已完成最小可工作闭环，Phase 5 已完成到 5F（权限、Doom Loop、ContextManager、Artifact Store、Session Summary、Project Memory、恢复入口、memory cleanup/index）。
 - 当前可运行能力已经覆盖：OpenAI-compatible LLM Adapter、文件 / Shell / Git / Clang 工具、模式系统、项目内闭环 LLVM/Clang 工具链、上下文压缩与基础记忆层。
-- 当前主线工作已进入：记忆生命周期清理、长任务验证与离线交付收口。
+- 当前主线工作已进入：Phase 4 真实工程验证、Phase 6 前置交互收口与离线交付准备。
 
 - [x] 需求确认与范围界定
 - [x] 参考项目架构分析（OpenCode / OpenHands / Roo-Code）
@@ -120,8 +120,8 @@
 - [x] Phase 2 工具集 v1（文件 / Shell / Git）
 - [x] Phase 3 模式系统 v1
 - [x] Phase 4 第一版 Clang 工具封装与本地闭环工具链
-- [x] Phase 5A-5E 质量保障层基础（权限、上下文、Artifact、Session Summary、Project Memory、恢复入口）
-- [ ] 记忆生命周期清理与索引收口
+- [x] Phase 5A-5F 质量保障层基础（权限、上下文、Artifact、Session Summary、Project Memory、恢复入口、cleanup/index）
+- [x] 长任务稳定性验证与权限细化
 - [ ] TUI / CLI adapters 收口
 - [ ] 打包与离线交付
 
@@ -147,6 +147,7 @@ ccode-win7/
 │       ├── guard.py
 │       ├── llm.py
 │       ├── loop.py
+│       ├── memory_maintenance.py
 │       ├── modes.py
 │       ├── permissions.py
 │       ├── project_memory.py

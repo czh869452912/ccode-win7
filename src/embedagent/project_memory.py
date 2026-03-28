@@ -33,6 +33,7 @@ class ProjectMemoryStore(object):
         max_recipe_count: int = 12,
         max_issue_count: int = 12,
         max_seen_events: int = 512,
+        max_resolved_issues: int = 6,
     ) -> None:
         self.workspace = os.path.realpath(workspace)
         self.relative_root = relative_root.replace('\\', '/')
@@ -44,6 +45,7 @@ class ProjectMemoryStore(object):
         self.max_recipe_count = max_recipe_count
         self.max_issue_count = max_issue_count
         self.max_seen_events = max_seen_events
+        self.max_resolved_issues = max_resolved_issues
         self.sanitizer = ArtifactStore(self.workspace)
 
     def refresh(
@@ -80,6 +82,34 @@ class ProjectMemoryStore(object):
         self._write_json(self.recipes_path, recipes)
         self._write_json(self.issues_path, issues)
         self._write_json(self.index_path, index)
+
+
+    def collect_artifact_refs(self) -> List[str]:
+        issues = self._load_json(self.issues_path, [])
+        refs = []
+        seen = set()
+        for item in issues:
+            if not isinstance(item, dict):
+                continue
+            for path in item.get("artifact_refs") or []:
+                if not path or path in seen:
+                    continue
+                seen.add(path)
+                refs.append(path)
+        return refs
+
+    def cleanup(self) -> Dict[str, int]:
+        self._ensure_root()
+        recipes = self._load_json(self.recipes_path, [])
+        issues = self._load_json(self.issues_path, [])
+        normalized_recipes = self._normalize_recipes(recipes)
+        normalized_issues = self._cleanup_issues(issues)
+        self._write_json(self.recipes_path, normalized_recipes)
+        self._write_json(self.issues_path, normalized_issues)
+        return {
+            "recipes": len(normalized_recipes),
+            "issues": len(normalized_issues),
+        }
 
     def build_system_message(self, mode_name: str, char_limit: int) -> Optional[str]:
         profile = self._load_json(self.profile_path, None)
@@ -275,6 +305,31 @@ class ProjectMemoryStore(object):
             if same_command or same_path:
                 item['status'] = 'resolved'
                 item['resolved_at'] = _utc_now()
+
+
+    def _cleanup_issues(self, issues: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        open_items = []
+        resolved_items = []
+        for item in issues:
+            if not isinstance(item, dict):
+                continue
+            if item.get("status") == "open":
+                open_items.append(item)
+            else:
+                resolved_items.append(item)
+        open_items = sorted(
+            open_items,
+            key=lambda item: (item.get("last_seen_at") or "", int(item.get("count") or 0)),
+            reverse=True,
+        )
+        resolved_items = sorted(
+            resolved_items,
+            key=lambda item: item.get("resolved_at") or item.get("last_seen_at") or "",
+            reverse=True,
+        )
+        result = open_items[: self.max_issue_count]
+        result.extend(resolved_items[: self.max_resolved_issues])
+        return result[: self.max_issue_count + self.max_resolved_issues]
 
     def _normalize_recipes(self, recipes: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         recipes = sorted(

@@ -93,6 +93,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="自动批准命令和工具链执行操作。",
     )
     parser.add_argument(
+        "--permission-rules",
+        default="",
+        help="权限规则文件路径，相对于工作区或绝对路径。示例：.embedagent/permission-rules.json",
+    )
+    parser.add_argument(
         "--no-stream",
         action="store_true",
         help="禁用流式输出，等待完整回复后再打印。",
@@ -170,12 +175,14 @@ def main(argv: Optional[List[str]] = None) -> int:
         model=args.model,
         timeout=args.timeout,
     )
+    tools = ToolRuntime(workspace)
     permission_policy = PermissionPolicy(
         auto_approve_all=args.approve_all,
         auto_approve_writes=args.approve_writes,
         auto_approve_commands=args.approve_commands,
+        workspace=workspace,
+        rules_path=args.permission_rules,
     )
-    tools = ToolRuntime(workspace)
     loop = AgentLoop(
         client=client,
         tools=tools,

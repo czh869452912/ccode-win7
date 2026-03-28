@@ -448,6 +448,60 @@
   - 继续细化权限规则
   - 在长任务上验证恢复与记忆层稳定性
 
+### DC-018
+
+- 日期：2026-03-28
+- 变更主题：Phase 5F Memory Maintenance 与记忆生命周期清理落地
+- 变更摘要：
+  - 新增 `src/embedagent/memory_maintenance.py`，统一协调 artifact / session / project memory 的清理
+  - `ArtifactStore` 新增 `index.json` 与基础 cleanup 能力
+  - `SessionSummaryStore` 新增会话目录 cleanup 与活跃 artifact 引用收集
+  - `ProjectMemoryStore` 新增 artifact 引用收集与 resolved issue 收敛
+  - `AgentLoop` 现在会周期性触发 memory maintenance，避免文件型记忆无限增长
+- 影响范围：
+  - Artifact / Session / Project Memory 全链路
+  - Agent Loop 的后台维护逻辑
+  - Phase 5 的长期稳定性与离线可持续运行能力
+- 关联文档：
+  - `src/embedagent/memory_maintenance.py`
+  - `src/embedagent/artifacts.py`
+  - `src/embedagent/session_store.py`
+  - `src/embedagent/project_memory.py`
+  - `src/embedagent/loop.py`
+  - `docs/context-management-design.md`
+  - `docs/development-tracker.md`
+- 是否需要 ADR：`不单独写`
+- 后续动作：
+  - 在长任务上验证 cleanup 策略是否足够稳健
+  - 继续细化权限规则
+  - 评估 memory browse / inspect 入口
+
+### DC-019
+
+- 日期：2026-03-28
+- 变更主题：Phase 5 长任务稳定性验证完成并升级规则驱动权限模型
+- 变更摘要：
+  - 新增 `scripts/validate-phase5.py`，提供 Phase 5 的长任务稳定性与权限专项回归入口
+  - 完成 20+ turn 长任务、多次上下文压缩、恢复续跑和 Project Memory 注入的本地验证
+  - `PermissionPolicy` 升级为规则驱动模型，支持 `allow / ask / deny`、路径 glob 和命令正则匹配
+  - CLI 新增 `--permission-rules`，支持加载 `.embedagent/permission-rules.json`
+- 影响范围：
+  - 权限模型
+  - Phase 5 验证基线
+  - CLI 配置入口
+- 关联文档：
+  - `src/embedagent/permissions.py`
+  - `src/embedagent/loop.py`
+  - `src/embedagent/cli.py`
+  - `scripts/validate-phase5.py`
+  - `docs/permission-model.md`
+  - `docs/development-tracker.md`
+- 是否需要 ADR：`不单独写`
+- 后续动作：
+  - 在真实模型与更长时间跨度上补稳定性验证
+  - 继续推进 Phase 4 真正工程验证
+  - 评估 memory browse / inspect 入口
+
 ## 4. 维护约定
 
 - 若改动影响总体架构，更新本文件

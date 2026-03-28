@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import shutil
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
@@ -34,6 +35,7 @@ class SessionSummaryStore(object):
         recent_actions_limit: int = 8,
         recent_artifacts_limit: int = 8,
         max_index_entries: int = 64,
+        max_retained_sessions: int = 16,
     ) -> None:
         self.workspace = os.path.realpath(workspace)
         self.relative_root = relative_root.replace("\\", "/")
@@ -44,6 +46,7 @@ class SessionSummaryStore(object):
         self.recent_actions_limit = recent_actions_limit
         self.recent_artifacts_limit = recent_artifacts_limit
         self.max_index_entries = max_index_entries
+        self.max_retained_sessions = max_retained_sessions
         self.sanitizer = ArtifactStore(self.workspace)
 
     def persist(
@@ -81,6 +84,58 @@ class SessionSummaryStore(object):
                 continue
             normalized.append(item)
         return normalized
+
+
+    def collect_artifact_refs(self, limit_sessions: Optional[int] = None) -> List[str]:
+        refs = []
+        seen = set()
+        summaries = self.list_summaries(limit=limit_sessions or self.max_retained_sessions)
+        for item in summaries:
+            summary_ref = item.get("summary_ref") if isinstance(item, dict) else None
+            if not summary_ref:
+                continue
+            payload = self.load_summary(str(summary_ref))
+            refs.extend(self._artifact_refs_from_summary(payload, seen))
+        return refs
+
+    def cleanup(self, max_sessions: Optional[int] = None) -> Dict[str, int]:
+        keep_count = max_sessions or self.max_retained_sessions
+        summaries = self.list_summaries(limit=self.max_index_entries)
+        keep = []
+        keep_ids = set()
+        for item in summaries:
+            if not isinstance(item, dict):
+                continue
+            session_id = item.get("session_id")
+            if not session_id or session_id in keep_ids:
+                continue
+            if len(keep) < keep_count:
+                keep.append(item)
+                keep_ids.add(session_id)
+        deleted = 0
+        if os.path.isdir(self.root):
+            for name in os.listdir(self.root):
+                candidate = os.path.join(self.root, name)
+                if name == "index.json" or not os.path.isdir(candidate):
+                    continue
+                if name in keep_ids:
+                    continue
+                try:
+                    shutil.rmtree(candidate)
+                    deleted += 1
+                except OSError:
+                    pass
+        payload = {
+            "schema_version": 1,
+            "updated_at": _utc_now(),
+            "sessions": keep,
+        }
+        directory = os.path.dirname(self.index_path)
+        if not os.path.isdir(directory):
+            os.makedirs(directory)
+        with open(self.index_path, "w", encoding="utf-8") as handle:
+            json.dump(self.sanitizer.sanitize_jsonable(payload), handle, ensure_ascii=False, indent=2, sort_keys=True)
+        return {"kept": len(keep), "deleted": deleted}
 
     def load_summary(self, reference: str) -> Dict[str, Any]:
         summary_path = self.resolve_summary_path(reference)
@@ -222,6 +277,28 @@ class SessionSummaryStore(object):
             )
         records.sort(key=lambda item: item.get("updated_at") or "", reverse=True)
         return records
+
+
+    def _artifact_refs_from_summary(self, payload: Dict[str, Any], seen: set) -> List[str]:
+        refs = []
+        for item in payload.get("recent_artifacts") or []:
+            if not isinstance(item, dict):
+                continue
+            path = item.get("path")
+            if not path or path in seen:
+                continue
+            seen.add(path)
+            refs.append(path)
+        for key in ("last_success", "last_blocker"):
+            snapshot = payload.get(key)
+            if not isinstance(snapshot, dict):
+                continue
+            for path in snapshot.get("artifact_refs") or []:
+                if not path or path in seen:
+                    continue
+                seen.add(path)
+                refs.append(path)
+        return refs
 
     def _build_payload(
         self,

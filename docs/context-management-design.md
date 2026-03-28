@@ -61,6 +61,7 @@ Observation 往往是上下文膨胀的主要来源，尤其是：
 - `src/embedagent/artifacts.py`
 - `src/embedagent/session_store.py`
 - `src/embedagent/project_memory.py`
+- `src/embedagent/memory_maintenance.py`
 
 ---
 
@@ -116,8 +117,9 @@ Observation 往往是上下文膨胀的主要来源，尤其是：
 7. Agent Loop 会把会话摘要持久化到 `.embedagent/memory/sessions/<session_id>/summary.json`
 8. ContextManager 会按 mode 装载 Project Memory system message
 9. CLI / Loop 可通过 `summary.json` 恢复会话并继续运行
-10. 若仍超预算，减少保留的 recent turn 数量
-11. 若仍超预算，执行硬裁剪
+10. MemoryMaintenance 会定期清理 session / artifact / project memory
+11. 若仍超预算，减少保留的 recent turn 数量
+12. 若仍超预算，执行硬裁剪
 
 ---
 
@@ -263,7 +265,26 @@ Observation 往往是上下文膨胀的主要来源，尤其是：
 
 这让 Phase 5 的记忆层首次具备了“落盘 -> 读取 -> 续跑”的完整闭环。
 
-### 6.8 硬裁剪
+### 6.8 生命周期清理与索引收口（Phase 5F）
+
+从 Phase 5F 起，记忆层不再只负责写入，还会负责“保留什么、删除什么”。
+
+当前已具备：
+
+- `ArtifactStore.index.json`：artifact 元数据索引
+- `SessionSummaryStore.index.json`：最近会话索引
+- `ProjectMemoryStore.memory-index.json`：已处理事件索引
+- `MemoryMaintenance`：协调整理 session / artifact / project memory
+
+当前清理规则是：
+
+- Session：只保留最近若干会话目录
+- Artifact：优先保留活跃引用、最近条目和较新文件
+- Project Memory：保留 open issue，只保留少量最近 resolved issue
+
+这使文件型记忆层从“只增不减”进入“可持续收敛”的状态。
+
+### 6.9 硬裁剪
 
 若在减少 recent turn 后仍超预算：
 
@@ -288,12 +309,12 @@ Observation 往往是上下文膨胀的主要来源，尤其是：
 
 ## 8. 当前局限
 
-### 8.0 当前 Artifact Store 仍是本地文件级 MVP
+### 8.0 Artifact Store 已有索引和基础清理，但仍是文件级 MVP
 
-当前 artifact 只有落盘、脱敏和 `artifact_ref` 引用，还没有：
+当前 artifact 已经有索引和清理能力，但还没有：
 
-- 生命周期清理策略
-- 项目级 artifact 索引
+- 用户可见的 artifact 浏览入口
+- 更精细的引用计数与代际回收
 - 专门的 `read_artifact` / `list_artifacts` 工具
 
 ### 8.1 仍使用字符预算
@@ -320,7 +341,15 @@ Observation 往往是上下文膨胀的主要来源，尤其是：
 - known issue 的归并和 resolved 判定仍较粗
 - 还没有 Project Memory 的显式编辑入口
 
-### 8.5 尚未接入真正的 Archive Memory
+### 8.5 生命周期清理仍较粗粒度
+
+当前 cleanup 已可工作，但仍然存在这些局限：
+
+- 保留策略主要按最近性与少量阈值
+- 没有跨层统一的引用计数
+- 没有后台或定时清理任务
+
+### 8.6 尚未接入真正的 Archive Memory
 
 当前只处理会话摘要和项目级记忆，还没有把：
 
@@ -359,7 +388,7 @@ Observation 往往是上下文膨胀的主要来源，尤其是：
 
 ---
 
-## 11. Phase 5A-5E 新增能力
+## 11. Phase 5A-5F 新增能力
 
 ### 11.1 Mode-Aware Budget
 
@@ -443,15 +472,27 @@ Observation 往往是上下文膨胀的主要来源，尤其是：
 - 以摘要恢复关键工作状态
 - 让用户可以从最近会话快速续跑
 
+### 11.7 Memory Maintenance
+
+`MemoryMaintenance` 当前负责协调整个文件型记忆层的收敛。
+
+它会联动：
+
+- `ArtifactStore.cleanup()`
+- `SessionSummaryStore.cleanup()`
+- `ProjectMemoryStore.cleanup()`
+
+让 Phase 5 的记忆层首次具备“写入 -> 索引 -> 恢复 -> 清理”的完整闭环。
+
 ---
 
 ## 12. 下一步实施建议
 
-Phase 5E 完成后，推荐继续按下面顺序推进：
+Phase 5F 完成后，推荐继续按下面顺序推进：
 
-1. 为 artifact / session / project memory 增加生命周期清理和索引收口
-2. 继续细化权限规则与默认批准策略
-3. 在更长任务场景下做稳定性验证
+1. 继续细化权限规则与默认批准策略
+2. 在更长任务场景下做稳定性验证
+3. 评估是否需要统一的 memory browse / inspect 入口
 4. 仅在预算仍严重不足时引入可选 LLM condenser
 
 

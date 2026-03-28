@@ -1,6 +1,6 @@
 # EmbedAgent 开发进度跟踪
 
-> 更新日期：2026-03-28（DC-017 修订）
+> 更新日期：2026-03-28（DC-019 修订）
 > 用途：持续跟踪当前阶段、下一步任务、里程碑进度、风险与阻塞
 
 ---
@@ -26,9 +26,9 @@
 
 ### 总阶段
 
-- 当前阶段：`Phase 5 质量保障层实施中`
+- 当前阶段：`Phase 4 工具链收尾 + Phase 5 已验收`
 - 总体状态：`进行中`
-- 当前重点：`在现有闭环基础上补权限控制、防循环保护和上下文管理`
+- 当前重点：`Phase 4 真实工程验证与离线交付前置收口`
 
 ### 当前判断
 
@@ -69,8 +69,11 @@
 - Phase 5C Session Summary Store 已落地：会话关键状态会持久化到 `.embedagent/memory/sessions/<session_id>/summary.json`
 - Phase 5D Project Memory Store 已落地：项目级 profile / recipe / known issue 已可落盘并注入上下文
 - Phase 5E Resume Entry 已落地：CLI 已支持 `--list-sessions` 与 `--resume <session_id|latest|summary.json>`
+- Phase 5F Memory Maintenance 已落地：artifact / session / project memory 已具备基础 cleanup 与索引收口能力
+- Phase 5 长任务稳定性验证已完成：`scripts/validate-phase5.py` 已通过 20+ turn 长任务与恢复续跑验证
+- Phase 5 权限细化已完成：已支持规则文件、allow / ask / deny、路径与命令模式匹配
 
-项目下一步：继续推进 Phase 5 的记忆生命周期清理、长任务验证与更细粒度权限规则。
+项目下一步：继续推进 Phase 4 真实工程验证、Phase 6 交互层和离线交付收口。
 
 ---
 
@@ -78,9 +81,9 @@
 
 ### P0：立刻要做（Phase 5 关键路径）
 
-1. 为 artifact / session / project memory 增加生命周期清理与索引收口
-2. 继续细化权限规则与默认批准策略
-3. 在更长任务场景下验证 Doom Loop Guard、ContextManager、Artifact Store、Session Summary Store、Project Memory 与恢复入口
+1. 推进 Phase 4 的真实 C 工程与 Win7 验证
+2. 启动 Phase 6 的 CLI / TUI adapter 收口
+3. 评估是否需要 memory browse / inspect 入口
 
 实现备注：
 
@@ -115,7 +118,7 @@
 | T-006 | 实现 Phase 2 工具（run_command / git） | `completed` | 已补齐工具契约与 Loop 烟雾验证 |
 | T-007 | 实现模式系统 v1（dict + 工具过滤） | `completed` | 已补齐文档与本地验证 |
 | T-008 | 实现 Phase 4 Clang 工具链第一版封装 | `in_progress` | 已有本地闭环工具链，待真实工程验证与版本收敛 |
-| T-009 | 实现 Phase 5 最小权限与防循环保护 | `in_progress` | 权限模型、Doom Loop Guard、ContextManager、mode-aware budget、Artifact Store、SessionSummaryStore、ProjectMemoryStore、Resume Entry 已落地 |
+| T-009 | 实现 Phase 5 最小权限与防循环保护 | `completed` | 权限模型、Doom Loop Guard、ContextManager、mode-aware budget、Artifact Store、SessionSummaryStore、ProjectMemoryStore、Resume Entry、MemoryMaintenance 已落地，并完成长任务/权限专项验证 |
 
 ---
 
@@ -128,7 +131,7 @@
 | Phase 2 | 工具集 v1 | `completed` | 已实现 run_command / git 工具，并完成 3.8 本地验证 |
 | Phase 3 | 模式系统 v1 | `completed` | MODE_REGISTRY、工具过滤、switch_mode、/mode 已完成 |
 | Phase 4 | Clang 工具链 | `in_progress` | 已有项目内闭环工具链，待真实工程与 Win7 验证 |
-| Phase 5 | 质量保障层 | `in_progress` | 最小权限模型、Doom Loop Guard、ContextManager、Artifact Store、SessionSummaryStore、ProjectMemoryStore、Resume Entry 已落地 |
+| Phase 5 | 质量保障层 | `completed` | 权限、上下文、记忆、恢复与 cleanup 已落地，并完成长任务/权限专项验证 |
 | Phase 6 | CLI / TUI | `not_started` | prompt_toolkit + Rich |
 | Phase 7 | 打包与离线交付 | `not_started` | Win7 离线 one-folder bundle |
 
@@ -172,6 +175,9 @@
 | 2026-03-28 | Phase 5B Artifact Store 已落地，并完成大输出脱敏/落盘/回灌验证 |
 | 2026-03-28 | Phase 5C Session Summary Store 已落地，并完成状态落盘/回归验证 |
 | 2026-03-28 | Phase 5D Project Memory Store 已落地，并完成 recipe / known issue / context 注入验证 |
+| 2026-03-28 | Phase 5E Resume Entry 已落地，并完成 list / load / resume 验证 |
+| 2026-03-28 | Phase 5F Memory Maintenance 已落地，并完成 cleanup / index 验证 |
+
 
 
 

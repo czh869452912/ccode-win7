@@ -5,6 +5,7 @@ from typing import Callable, Optional, Tuple
 from embedagent.context import ContextManager
 from embedagent.guard import LoopGuard
 from embedagent.llm import OpenAICompatibleClient
+from embedagent.memory_maintenance import MemoryMaintenance
 from embedagent.modes import (
     DEFAULT_MODE,
     allowed_tools_for,
@@ -32,6 +33,8 @@ class AgentLoop(object):
         context_manager: Optional[ContextManager] = None,
         summary_store: Optional[SessionSummaryStore] = None,
         project_memory_store: Optional[ProjectMemoryStore] = None,
+        memory_maintenance: Optional[MemoryMaintenance] = None,
+        maintenance_interval: int = 4,
     ) -> None:
         self.client = client
         self.tools = tools
@@ -42,6 +45,13 @@ class AgentLoop(object):
         self.project_memory_store = project_memory_store or ProjectMemoryStore(self.tools.workspace)
         self.context_manager = context_manager or ContextManager(project_memory=self.project_memory_store)
         self.summary_store = summary_store or SessionSummaryStore(self.tools.workspace)
+        self.memory_maintenance = memory_maintenance or MemoryMaintenance(
+            artifact_store=self.tools.artifact_store,
+            summary_store=self.summary_store,
+            project_memory_store=self.project_memory_store,
+        )
+        self.maintenance_interval = maintenance_interval if maintenance_interval > 0 else 1
+        self._maintenance_counter = 0
 
     def run(
         self,
@@ -88,6 +98,7 @@ class AgentLoop(object):
             final_text = reply.content
             if not reply.actions:
                 self._persist_summary(session, current_mode)
+                self._maybe_maintain_memory(force=True)
                 return final_text, session
             for action in reply.actions:
                 if loop_guard.should_block(action):
@@ -127,6 +138,17 @@ class AgentLoop(object):
             summary_ref = None
         try:
             self.project_memory_store.refresh(session, current_mode, summary_ref)
+        except Exception:
+            return
+        self._maybe_maintain_memory()
+
+    def _maybe_maintain_memory(self, force: bool = False) -> None:
+        self._maintenance_counter += 1
+        if not force and self._maintenance_counter < self.maintenance_interval:
+            return
+        self._maintenance_counter = 0
+        try:
+            self.memory_maintenance.run()
         except Exception:
             return
 
@@ -184,7 +206,22 @@ class AgentLoop(object):
                     },
                 )
                 return observation, current_mode
-        request = self.permission_policy.build_request(action)
+        decision = self.permission_policy.evaluate(action)
+        if decision.outcome == "deny":
+            observation = Observation(
+                tool_name=action.name,
+                success=False,
+                error=decision.error or "权限规则拒绝该操作。",
+                data={
+                    "permission_required": True,
+                    "category": decision.details.get("category"),
+                    "reason": decision.details.get("rule_reason") or decision.error,
+                    "details": decision.details,
+                    "permission_decision": "deny",
+                },
+            )
+            return observation, current_mode
+        request = decision.request
         if request is not None:
             approved = permission_handler(request) if permission_handler else False
             if not approved:
@@ -197,6 +234,7 @@ class AgentLoop(object):
                         "category": request.category,
                         "reason": request.reason,
                         "details": request.details,
+                        "permission_decision": "ask",
                     },
                 )
                 return observation, current_mode
