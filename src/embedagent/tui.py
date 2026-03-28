@@ -564,13 +564,15 @@ class EmbedAgentTUI(object):
         self._stream_open = False
 
     def _refresh_views(self) -> None:
-        self.header.text = self._build_header_text()
-        self.transcript.text = self._build_transcript_text()
-        self.side_panel.text = self._build_side_panel_text()
-        if self.pending_permission is not None:
-            self.composer.prompt = "confirm(y/n)> "
-        else:
-            self.composer.prompt = "user> "
+        with self._lock:
+            header_text = self._build_header_text()
+            transcript_text = self._build_transcript_text()
+            side_text = self._build_side_panel_text()
+            use_confirm = self.pending_permission is not None
+        self.header.text = header_text
+        self.transcript.text = transcript_text
+        self.side_panel.text = side_text
+        self.composer.prompt = "confirm(y/n)> " if use_confirm else "user> "
         self.application.invalidate()
 
     def _build_header_text(self) -> str:

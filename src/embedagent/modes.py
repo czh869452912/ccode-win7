@@ -29,14 +29,23 @@ MODE_REGISTRY = {
     "code": {
         "slug": "code",
         "system_prompt": "你当前处于 code 模式，负责以最小变更实现代码。优先使用 compile_project 做编译验证，而不是泛化命令执行。",
-        "allowed_tools": ["read_file", "edit_file", "search_text", "compile_project"],
-        "writable_globs": ["src/**/*.py", "src/*.py", "pyproject.toml"],
+        "allowed_tools": ["read_file", "list_files", "edit_file", "search_text", "compile_project"],
+        "writable_globs": [
+            "src/**/*.c", "src/**/*.h", "src/*.c", "src/*.h",
+            "include/**/*.h", "include/*.h",
+            "src/**/*.py", "src/*.py", "pyproject.toml",
+        ],
     },
     "test": {
         "slug": "test",
         "system_prompt": "你当前处于 test 模式，负责编写或调整测试入口、验证脚本和测试辅助代码。优先让问题可复现，并使用 run_tests 形成闭环。",
         "allowed_tools": ["read_file", "edit_file", "search_text", "run_tests"],
-        "writable_globs": ["tests/**/*.py", "tests/*.py", "src/**/*.py", "src/*.py"],
+        "writable_globs": [
+            "tests/**/*.c", "tests/**/*.h", "tests/*.c", "tests/*.h",
+            "tests/**/*.py", "tests/*.py",
+            "src/**/*.c", "src/**/*.h", "src/*.c", "src/*.h",
+            "src/**/*.py", "src/*.py",
+        ],
     },
     "verify": {
         "slug": "verify",
@@ -48,7 +57,13 @@ MODE_REGISTRY = {
         "slug": "debug",
         "system_prompt": "你当前处于 debug 模式，负责复现问题、定位根因并做最小修复。优先用读取、搜索和最小命令验证缩小范围。",
         "allowed_tools": ["read_file", "search_text", "edit_file", "run_command"],
-        "writable_globs": ["src/**/*.py", "src/*.py", "tests/**/*.py", "tests/*.py"],
+        "writable_globs": [
+            "src/**/*.c", "src/**/*.h", "src/*.c", "src/*.h",
+            "include/**/*.h", "include/*.h",
+            "tests/**/*.c", "tests/**/*.h", "tests/*.c", "tests/*.h",
+            "src/**/*.py", "src/*.py",
+            "tests/**/*.py", "tests/*.py",
+        ],
     },
     "compact": {
         "slug": "compact",
