@@ -571,6 +571,7 @@ class EmbedAgentTUI(object):
             use_confirm = self.pending_permission is not None
         self.header.text = header_text
         self.transcript.text = transcript_text
+        self.transcript.buffer.cursor_position = len(self.transcript.buffer.text)
         self.side_panel.text = side_text
         self.composer.prompt = "confirm(y/n)> " if use_confirm else "user> "
         self.application.invalidate()
