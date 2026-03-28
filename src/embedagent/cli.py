@@ -4,13 +4,14 @@ import argparse
 import json
 import os
 import sys
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from embedagent.llm import ModelClientError, OpenAICompatibleClient
 from embedagent.loop import AgentLoop
 from embedagent.modes import DEFAULT_MODE, parse_mode_command
 from embedagent.permissions import PermissionPolicy, PermissionRequest
-from embedagent.session import Action, Observation
+from embedagent.session import Action, Observation, Session
+from embedagent.session_store import SessionSummaryStore
 from embedagent.tools import ToolRuntime
 
 
@@ -57,8 +58,24 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--mode",
-        default=DEFAULT_MODE,
-        help="初始工作模式。示例：code",
+        default=None,
+        help="初始工作模式。示例：code；恢复会话时默认沿用摘要中的模式。",
+    )
+    parser.add_argument(
+        "--resume",
+        default="",
+        help="恢复一个会话，可传 session_id、latest 或 summary.json 路径。示例：--resume latest",
+    )
+    parser.add_argument(
+        "--list-sessions",
+        action="store_true",
+        help="列出最近可恢复的会话摘要。",
+    )
+    parser.add_argument(
+        "--session-limit",
+        type=int,
+        default=10,
+        help="列出会话时返回的最大条数。示例：10",
     )
     parser.add_argument(
         "--approve-all",
@@ -83,25 +100,59 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _read_user_message(parts: List[str]) -> str:
+def _read_user_message(parts: List[str], prompt: str = "user> ") -> str:
     if parts:
         return " ".join(parts).strip()
-    return input("user> ").strip()
+    return input(prompt).strip()
+
+
+def _format_session_record(item: Dict[str, object]) -> str:
+    goal = str(item.get("user_goal") or item.get("summary_text") or "").strip()
+    if len(goal) > 80:
+        goal = goal[:80] + "..."
+    return "{session_id}  mode={mode}  updated={updated}  goal={goal}".format(
+        session_id=str(item.get("session_id") or ""),
+        mode=str(item.get("current_mode") or ""),
+        updated=str(item.get("updated_at") or ""),
+        goal=goal,
+    )
 
 
 def main(argv: Optional[List[str]] = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
-    raw_message = _read_user_message(args.message)
+    workspace = os.path.realpath(args.workspace)
+    summary_store = SessionSummaryStore(workspace)
+
+    if args.list_sessions:
+        sessions = summary_store.list_summaries(limit=max(1, int(args.session_limit)))
+        if not sessions:
+            sys.stdout.write("当前没有可恢复的会话摘要。\n")
+            return 0
+        for item in sessions:
+            sys.stdout.write(_format_session_record(item) + "\n")
+        return 0
+
+    resumed_session = None  # type: Optional[Session]
+    resumed_summary = None  # type: Optional[Dict[str, object]]
+    fallback_mode = args.mode or DEFAULT_MODE
+    if args.resume:
+        try:
+            resumed_summary = summary_store.load_summary(args.resume)
+        except ValueError as exc:
+            parser.error(str(exc))
+        fallback_mode = args.mode or str(resumed_summary.get("current_mode") or DEFAULT_MODE)
+        resumed_session = summary_store.create_resumed_session(resumed_summary, fallback_mode)
+
+    raw_prompt = "resume> " if resumed_session is not None else "user> "
+    raw_message = _read_user_message(args.message, prompt=raw_prompt)
     if not raw_message:
         parser.error("必须提供用户消息。")
-    if not args.model:
-        parser.error("必须通过 --model 或 EMBEDAGENT_MODEL 提供模型名称。")
 
     try:
         initial_mode, user_message, switched = parse_mode_command(
             raw_message,
-            fallback_mode=args.mode,
+            fallback_mode=fallback_mode,
         )
     except ValueError as exc:
         parser.error(str(exc))
@@ -109,6 +160,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     if switched and not user_message:
         sys.stdout.write("已切换到 %s 模式。\n" % initial_mode)
         return 0
+
+    if not args.model:
+        parser.error("必须通过 --model 或 EMBEDAGENT_MODEL 提供模型名称。")
 
     client = OpenAICompatibleClient(
         base_url=args.base_url,
@@ -121,13 +175,24 @@ def main(argv: Optional[List[str]] = None) -> int:
         auto_approve_writes=args.approve_writes,
         auto_approve_commands=args.approve_commands,
     )
-    tools = ToolRuntime(args.workspace)
+    tools = ToolRuntime(workspace)
     loop = AgentLoop(
         client=client,
         tools=tools,
         max_turns=args.max_turns,
         permission_policy=permission_policy,
+        summary_store=summary_store,
     )
+
+    if resumed_summary is not None:
+        sys.stderr.write(
+            "[resume] session=%s mode=%s\n"
+            % (
+                resumed_summary.get("session_id") or "",
+                fallback_mode,
+            )
+        )
+        sys.stderr.flush()
 
     streaming_state = {"printed": False}
 
@@ -181,6 +246,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             on_tool_start=on_tool_start,
             on_tool_finish=on_tool_finish,
             permission_handler=on_permission_request,
+            session=resumed_session,
         )
     except (ModelClientError, RuntimeError) as exc:
         sys.stderr.write("error: %s\n" % exc)
@@ -191,3 +257,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     if final_text and not final_text.endswith("\n"):
         sys.stdout.write("\n")
     return 0
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())
+

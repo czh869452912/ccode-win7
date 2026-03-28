@@ -7,6 +7,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from embedagent.artifacts import ArtifactStore
+from embedagent.modes import build_system_prompt
 from embedagent.session import Action, Observation, Session
 
 
@@ -32,14 +33,17 @@ class SessionSummaryStore(object):
         modified_files_limit: int = 12,
         recent_actions_limit: int = 8,
         recent_artifacts_limit: int = 8,
+        max_index_entries: int = 64,
     ) -> None:
         self.workspace = os.path.realpath(workspace)
         self.relative_root = relative_root.replace("\\", "/")
         self.root = os.path.join(self.workspace, *self.relative_root.split("/"))
+        self.index_path = os.path.join(self.root, "index.json")
         self.working_set_limit = working_set_limit
         self.modified_files_limit = modified_files_limit
         self.recent_actions_limit = recent_actions_limit
         self.recent_artifacts_limit = recent_artifacts_limit
+        self.max_index_entries = max_index_entries
         self.sanitizer = ArtifactStore(self.workspace)
 
     def persist(
@@ -52,7 +56,7 @@ class SessionSummaryStore(object):
         if not os.path.isdir(directory):
             os.makedirs(directory)
         summary_path = os.path.join(directory, "summary.json")
-        previous = self._read_previous_summary(summary_path)
+        previous = self._read_json(summary_path)
         payload = self._build_payload(session, current_mode, context_result)
         if context_result is None and previous is not None:
             for key in ("context_policy", "context_budget", "context_stats"):
@@ -60,17 +64,164 @@ class SessionSummaryStore(object):
                     payload[key] = previous[key]
         with open(summary_path, "w", encoding="utf-8") as handle:
             json.dump(payload, handle, ensure_ascii=False, indent=2, sort_keys=True)
-        return os.path.relpath(summary_path, self.workspace).replace(os.sep, "/")
+        summary_ref = os.path.relpath(summary_path, self.workspace).replace(os.sep, "/")
+        self._update_index(payload, summary_ref)
+        return summary_ref
 
-    def _read_previous_summary(self, summary_path: str) -> Optional[Dict[str, Any]]:
-        if not os.path.isfile(summary_path):
+    def list_summaries(self, limit: int = 10) -> List[Dict[str, Any]]:
+        index = self._read_json(self.index_path)
+        items = []
+        if isinstance(index, dict):
+            items = index.get("sessions") or []
+        if not items:
+            items = self._scan_summaries()
+        normalized = []
+        for item in items[:limit]:
+            if not isinstance(item, dict):
+                continue
+            normalized.append(item)
+        return normalized
+
+    def load_summary(self, reference: str) -> Dict[str, Any]:
+        summary_path = self.resolve_summary_path(reference)
+        payload = self._read_json(summary_path)
+        if not isinstance(payload, dict):
+            raise ValueError("未找到可用的会话摘要：%s" % reference)
+        payload["summary_ref"] = os.path.relpath(summary_path, self.workspace).replace(os.sep, "/")
+        return payload
+
+    def resolve_summary_path(self, reference: str) -> str:
+        raw = (reference or "").strip()
+        if not raw:
+            raise ValueError("恢复会话时必须提供 session_id、latest 或 summary.json 路径。")
+        if raw == "latest":
+            summaries = self.list_summaries(limit=1)
+            if not summaries:
+                raise ValueError("当前没有可恢复的会话摘要。")
+            candidate = summaries[0].get("summary_ref") or summaries[0].get("path")
+            if not candidate:
+                raise ValueError("最近会话摘要缺少路径信息。")
+            raw = str(candidate)
+        if raw.endswith("summary.json"):
+            candidate = raw
+            if not os.path.isabs(candidate):
+                candidate = os.path.join(self.workspace, candidate)
+            candidate = os.path.realpath(candidate)
+            if not os.path.isfile(candidate):
+                raise ValueError("摘要文件不存在：%s" % reference)
+            return candidate
+        candidate = os.path.join(self.root, raw, "summary.json")
+        candidate = os.path.realpath(candidate)
+        if not os.path.isfile(candidate):
+            raise ValueError("未找到会话摘要：%s" % reference)
+        return candidate
+
+    def build_resume_message(self, summary: Dict[str, Any], char_limit: int = 1800) -> str:
+        lines = [
+            "以下是上次会话的恢复摘要，仅供续跑参考；若与新的系统提示、项目记忆或用户当前要求冲突，以后者为准。"
+        ]
+        if summary.get("session_id"):
+            lines.append("会话ID：%s" % summary["session_id"])
+        if summary.get("summary_text"):
+            lines.append("摘要：%s" % summary["summary_text"])
+        if summary.get("working_set"):
+            lines.append("工作集：%s" % ", ".join(summary["working_set"][:6]))
+        if summary.get("modified_files"):
+            lines.append("已修改：%s" % ", ".join(summary["modified_files"][:6]))
+        if summary.get("last_success"):
+            lines.append("最近成功：%s" % self._observation_line(summary["last_success"]))
+        if summary.get("last_blocker"):
+            lines.append("最近阻塞：%s" % self._observation_line(summary["last_blocker"]))
+        if summary.get("recent_actions"):
+            names = [item.get("name", "") for item in summary["recent_actions"] if item.get("name")]
+            if names:
+                lines.append("近期动作：%s" % ", ".join(names[:6]))
+        if summary.get("recent_artifacts"):
+            refs = [item.get("path", "") for item in summary["recent_artifacts"] if item.get("path")]
+            if refs:
+                lines.append("最近工件：%s" % ", ".join(refs[:4]))
+        return _truncate_text("\n".join(lines), char_limit)
+
+    def create_resumed_session(
+        self,
+        summary: Dict[str, Any],
+        mode_name: Optional[str] = None,
+    ) -> Session:
+        current_mode = str(mode_name or summary.get("current_mode") or "code")
+        session = Session(
+            session_id=str(summary.get("session_id") or Session().session_id),
+            started_at=str(summary.get("started_at") or _utc_now()),
+        )
+        resume_message = self.build_resume_message(summary)
+        if resume_message:
+            session.add_system_message(resume_message)
+        session.add_system_message(build_system_prompt(current_mode))
+        return session
+
+    def _read_json(self, path: str) -> Optional[Dict[str, Any]]:
+        if not os.path.isfile(path):
             return None
         try:
-            with open(summary_path, "r", encoding="utf-8") as handle:
+            with open(path, "r", encoding="utf-8") as handle:
                 data = json.load(handle)
         except Exception:
             return None
         return data if isinstance(data, dict) else None
+
+    def _update_index(self, payload: Dict[str, Any], summary_ref: str) -> None:
+        directory = os.path.dirname(self.index_path)
+        if not os.path.isdir(directory):
+            os.makedirs(directory)
+        index = self._read_json(self.index_path) or {}
+        sessions = index.get("sessions") if isinstance(index.get("sessions"), list) else []
+        record = {
+            "session_id": payload.get("session_id"),
+            "started_at": payload.get("started_at"),
+            "updated_at": payload.get("updated_at"),
+            "current_mode": payload.get("current_mode"),
+            "turn_count": payload.get("turn_count"),
+            "message_count": payload.get("message_count"),
+            "user_goal": payload.get("user_goal"),
+            "summary_text": payload.get("summary_text"),
+            "summary_ref": summary_ref,
+        }
+        updated = [item for item in sessions if item.get("session_id") != record["session_id"]]
+        updated.append(record)
+        updated.sort(key=lambda item: item.get("updated_at") or "", reverse=True)
+        payload = {
+            "schema_version": 1,
+            "updated_at": _utc_now(),
+            "sessions": updated[: self.max_index_entries],
+        }
+        with open(self.index_path, "w", encoding="utf-8") as handle:
+            json.dump(self.sanitizer.sanitize_jsonable(payload), handle, ensure_ascii=False, indent=2, sort_keys=True)
+
+    def _scan_summaries(self) -> List[Dict[str, Any]]:
+        if not os.path.isdir(self.root):
+            return []
+        records = []
+        for session_id in os.listdir(self.root):
+            if session_id == "index.json":
+                continue
+            summary_path = os.path.join(self.root, session_id, "summary.json")
+            payload = self._read_json(summary_path)
+            if not payload:
+                continue
+            records.append(
+                {
+                    "session_id": payload.get("session_id") or session_id,
+                    "started_at": payload.get("started_at"),
+                    "updated_at": payload.get("updated_at"),
+                    "current_mode": payload.get("current_mode"),
+                    "turn_count": payload.get("turn_count"),
+                    "message_count": payload.get("message_count"),
+                    "user_goal": payload.get("user_goal"),
+                    "summary_text": payload.get("summary_text"),
+                    "summary_ref": os.path.relpath(summary_path, self.workspace).replace(os.sep, "/"),
+                }
+            )
+        records.sort(key=lambda item: item.get("updated_at") or "", reverse=True)
+        return records
 
     def _build_payload(
         self,

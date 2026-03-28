@@ -115,8 +115,9 @@ Observation 往往是上下文膨胀的主要来源，尤其是：
 6. 对最近消息中的 tool message 做 Observation reducer 压缩
 7. Agent Loop 会把会话摘要持久化到 `.embedagent/memory/sessions/<session_id>/summary.json`
 8. ContextManager 会按 mode 装载 Project Memory system message
-9. 若仍超预算，减少保留的 recent turn 数量
-10. 若仍超预算，执行硬裁剪
+9. CLI / Loop 可通过 `summary.json` 恢复会话并继续运行
+10. 若仍超预算，减少保留的 recent turn 数量
+11. 若仍超预算，执行硬裁剪
 
 ---
 
@@ -243,7 +244,26 @@ Observation 往往是上下文膨胀的主要来源，尤其是：
 - 常用命令
 - 最近踩过的坑
 
-### 6.7 硬裁剪
+### 6.7 恢复入口与会话索引（Phase 5E）
+
+从 Phase 5E 起，`summary.json` 不再只是落盘状态，而是可直接作为恢复入口使用。
+
+当前已具备：
+
+- `SessionSummaryStore.index.json`：最近会话索引
+- `--list-sessions`：列出最近可恢复会话
+- `--resume <session_id|latest|summary.json>`：从摘要恢复
+- 恢复时会注入一条“恢复摘要” system message，再叠加当前模式 prompt 和 Project Memory
+
+当前恢复策略不是全量历史回放，而是：
+
+- 保留原会话 `session_id`
+- 用摘要重建关键状态
+- 在新用户消息上继续推进
+
+这让 Phase 5 的记忆层首次具备了“落盘 -> 读取 -> 续跑”的完整闭环。
+
+### 6.8 硬裁剪
 
 若在减少 recent turn 后仍超预算：
 
@@ -284,13 +304,13 @@ Observation 往往是上下文膨胀的主要来源，尤其是：
 
 当前旧 turn 摘要基于字段拼接，不是 LLM 语义总结。
 
-### 8.3 会话摘要已落盘，但尚未形成恢复入口
+### 8.3 恢复入口已具备，但仍是摘要驱动 MVP
 
-当前已经有 `summary.json`，但还没有：
+当前恢复已经可用，但仍然存在这些局限：
 
-- CLI 层的 session resume 入口
-- 基于摘要重建工作上下文的加载器
-- 多会话之间的索引与检索能力
+- 不是全量 message / tool history 回放
+- 恢复质量依赖 `summary.json` 的信息完整度
+- 多会话索引仍是轻量文件清单，不是结构化检索系统
 
 ### 8.4 Project Memory 仍是规则驱动 MVP
 
@@ -339,7 +359,7 @@ Observation 往往是上下文膨胀的主要来源，尤其是：
 
 ---
 
-## 11. Phase 5A-5D 新增能力
+## 11. Phase 5A-5E 新增能力
 
 ### 11.1 Mode-Aware Budget
 
@@ -413,15 +433,25 @@ Observation 往往是上下文膨胀的主要来源，尤其是：
 - 最近成功命令 recipe
 - 最近 open / resolved issue
 
+### 11.6 Resume Entry
+
+当前 CLI 已支持基于 `summary.json` 的恢复入口和最近会话索引。
+
+它的定位是：
+
+- 不追求全量历史回放
+- 以摘要恢复关键工作状态
+- 让用户可以从最近会话快速续跑
+
 ---
 
 ## 12. 下一步实施建议
 
-Phase 5D 完成后，推荐继续按下面顺序推进：
+Phase 5E 完成后，推荐继续按下面顺序推进：
 
-1. 增加基于 `summary.json` 的恢复入口
-2. 为 artifact / session / project memory 增加生命周期清理和索引
-3. 继续细化权限规则与默认批准策略
+1. 为 artifact / session / project memory 增加生命周期清理和索引收口
+2. 继续细化权限规则与默认批准策略
+3. 在更长任务场景下做稳定性验证
 4. 仅在预算仍严重不足时引入可选 LLM condenser
 
 

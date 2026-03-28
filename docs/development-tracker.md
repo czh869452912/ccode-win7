@@ -1,6 +1,6 @@
 # EmbedAgent 开发进度跟踪
 
-> 更新日期：2026-03-28（DC-016 修订）
+> 更新日期：2026-03-28（DC-017 修订）
 > 用途：持续跟踪当前阶段、下一步任务、里程碑进度、风险与阻塞
 
 ---
@@ -68,8 +68,9 @@
 - Phase 5B Artifact Store 已落地：长输出与大列表会落盘为 `.embedagent/memory/artifacts/...` 并回写 `artifact_ref`
 - Phase 5C Session Summary Store 已落地：会话关键状态会持久化到 `.embedagent/memory/sessions/<session_id>/summary.json`
 - Phase 5D Project Memory Store 已落地：项目级 profile / recipe / known issue 已可落盘并注入上下文
+- Phase 5E Resume Entry 已落地：CLI 已支持 `--list-sessions` 与 `--resume <session_id|latest|summary.json>`
 
-项目下一步：继续推进 Phase 5 的恢复入口、记忆索引与更细粒度权限规则。
+项目下一步：继续推进 Phase 5 的记忆生命周期清理、长任务验证与更细粒度权限规则。
 
 ---
 
@@ -77,9 +78,9 @@
 
 ### P0：立刻要做（Phase 5 关键路径）
 
-1. 增加基于 `summary.json` 的恢复入口
+1. 为 artifact / session / project memory 增加生命周期清理与索引收口
 2. 继续细化权限规则与默认批准策略
-3. 在更长任务场景下验证 Doom Loop Guard、ContextManager、Artifact Store、Session Summary Store 与 Project Memory
+3. 在更长任务场景下验证 Doom Loop Guard、ContextManager、Artifact Store、Session Summary Store、Project Memory 与恢复入口
 
 实现备注：
 
@@ -114,7 +115,7 @@
 | T-006 | 实现 Phase 2 工具（run_command / git） | `completed` | 已补齐工具契约与 Loop 烟雾验证 |
 | T-007 | 实现模式系统 v1（dict + 工具过滤） | `completed` | 已补齐文档与本地验证 |
 | T-008 | 实现 Phase 4 Clang 工具链第一版封装 | `in_progress` | 已有本地闭环工具链，待真实工程验证与版本收敛 |
-| T-009 | 实现 Phase 5 最小权限与防循环保护 | `in_progress` | 权限模型、Doom Loop Guard、ContextManager、mode-aware budget、Artifact Store、SessionSummaryStore、ProjectMemoryStore 已落地 |
+| T-009 | 实现 Phase 5 最小权限与防循环保护 | `in_progress` | 权限模型、Doom Loop Guard、ContextManager、mode-aware budget、Artifact Store、SessionSummaryStore、ProjectMemoryStore、Resume Entry 已落地 |
 
 ---
 
@@ -127,7 +128,7 @@
 | Phase 2 | 工具集 v1 | `completed` | 已实现 run_command / git 工具，并完成 3.8 本地验证 |
 | Phase 3 | 模式系统 v1 | `completed` | MODE_REGISTRY、工具过滤、switch_mode、/mode 已完成 |
 | Phase 4 | Clang 工具链 | `in_progress` | 已有项目内闭环工具链，待真实工程与 Win7 验证 |
-| Phase 5 | 质量保障层 | `in_progress` | 最小权限模型、Doom Loop Guard、ContextManager、Artifact Store、SessionSummaryStore、ProjectMemoryStore 已落地 |
+| Phase 5 | 质量保障层 | `in_progress` | 最小权限模型、Doom Loop Guard、ContextManager、Artifact Store、SessionSummaryStore、ProjectMemoryStore、Resume Entry 已落地 |
 | Phase 6 | CLI / TUI | `not_started` | prompt_toolkit + Rich |
 | Phase 7 | 打包与离线交付 | `not_started` | Win7 离线 one-folder bundle |
 
@@ -146,7 +147,7 @@
 | R-007 | provider 兼容差异未系统沉淀 | 中 | 已确认 Moonshot `kimi-k2.5` 需要 `/v1` 和 `reasoning_content`，后续整理到适配文档 |
 | R-008 | 当前仓库缺少真实 C 构建入口 | 中 | 已完成本地 smoke test，后续仍需接默认命令和真实工程 |
 | R-009 | 当前闭环工具链存在跨版本组合 | 中 | 现状已通过本地 smoke test，后续需要继续收敛到同版本或自建包 |
-| R-010 | 当前上下文压缩仍较弱 | 中 | 已有 mode-aware budget、reducer registry、Artifact Store、SessionSummaryStore 与 ProjectMemoryStore，后续继续补恢复入口与可选 LLM condenser |
+| R-010 | 当前上下文压缩仍较弱 | 中 | 已有 mode-aware budget、reducer registry、Artifact Store、SessionSummaryStore、ProjectMemoryStore 与 Resume Entry，后续继续补生命周期清理与可选 LLM condenser |
 
 ---
 

@@ -11,6 +11,7 @@ from embedagent.session import Message, Observation, Session, Turn
 
 
 _MODE_RE = re.compile(r"当前模式：(\w+)")
+_MODE_PROMPT_PREFIX = "你是 EmbedAgent 的受控模式原型。"
 
 
 @dataclass
@@ -377,6 +378,7 @@ class ContextManager(object):
 
     def _build_candidate(self, session: Session, policy: ContextPolicy, recent_turns: int, chars_before: int, tokens_before: int, shrinks: int) -> ContextBuildResult:
         latest_system = self._latest_system_message(session)
+        auxiliary_system_messages = self._auxiliary_system_messages(session, latest_system, policy)
         old_turns = session.turns[:-recent_turns] if recent_turns < len(session.turns) else []
         summary_message, summarized_observations = self._build_summary_message(old_turns, policy)
         project_memory_message = self._build_project_memory_message(policy)
@@ -384,6 +386,7 @@ class ContextManager(object):
         messages = []
         if latest_system is not None:
             messages.append(self._compact_system_message(latest_system, policy))
+        messages.extend(auxiliary_system_messages)
         if project_memory_message is not None:
             messages.append(project_memory_message)
         if summary_message is not None:
@@ -434,6 +437,9 @@ class ContextManager(object):
 
     def _latest_system_message(self, session: Session) -> Optional[Message]:
         for message in reversed(session.messages):
+            if self._is_mode_system_message(message):
+                return message
+        for message in reversed(session.messages):
             if message.role == "system":
                 return message
         return None
@@ -444,6 +450,30 @@ class ContextManager(object):
             return None
         match = _MODE_RE.search(latest_system.content)
         return match.group(1) if match else None
+
+    def _is_mode_system_message(self, message: Message) -> bool:
+        if message.role != "system":
+            return False
+        if _MODE_PROMPT_PREFIX not in message.content:
+            return False
+        return bool(_MODE_RE.search(message.content))
+
+    def _auxiliary_system_messages(
+        self,
+        session: Session,
+        latest_system: Optional[Message],
+        policy: ContextPolicy,
+    ) -> List[Dict[str, Any]]:
+        result = []
+        for message in session.messages:
+            if message.role != "system":
+                continue
+            if latest_system is not None and message is latest_system:
+                continue
+            if self._is_mode_system_message(message):
+                continue
+            result.append(self._compact_system_message(message, policy))
+        return result[-2:]
 
     def _build_project_memory_message(self, policy: ContextPolicy) -> Optional[Dict[str, Any]]:
         if self.project_memory is None:

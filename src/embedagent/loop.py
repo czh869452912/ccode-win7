@@ -56,10 +56,12 @@ class AgentLoop(object):
         permission_handler: Optional[
             Callable[[PermissionRequest], bool]
         ] = None,
+        session: Optional[Session] = None,
     ) -> Tuple[str, Session]:
         current_mode = require_mode(initial_mode)["slug"]
-        session = Session()
-        session.add_system_message(build_system_prompt(current_mode))
+        if session is None:
+            session = Session()
+            session.add_system_message(build_system_prompt(current_mode))
         session.add_user_message(user_text)
         self._persist_summary(session, current_mode)
         final_text = ""

@@ -422,6 +422,32 @@
   - 为 memory 文件增加生命周期清理与索引
   - 评估是否需要 Project Memory 的显式编辑入口
 
+### DC-017
+
+- 日期：2026-03-28
+- 变更主题：Phase 5E Resume Entry 与会话索引落地
+- 变更摘要：
+  - `SessionSummaryStore` 新增 `index.json`、最近会话列表、`latest` 解析和摘要加载能力
+  - CLI 新增 `--list-sessions` 与 `--resume <session_id|latest|summary.json>`
+  - 恢复会话时，会基于 `summary.json` 注入恢复摘要，再叠加当前模式 prompt 与 Project Memory
+  - 这使 Phase 5 的记忆层首次形成“落盘 -> 列出 -> 加载 -> 续跑”的闭环
+- 影响范围：
+  - CLI 入口
+  - Session Summary Store
+  - Context Manager 的 system message 装载逻辑
+- 关联文档：
+  - `src/embedagent/cli.py`
+  - `src/embedagent/session_store.py`
+  - `src/embedagent/context.py`
+  - `src/embedagent/loop.py`
+  - `docs/context-management-design.md`
+  - `docs/development-tracker.md`
+- 是否需要 ADR：`不单独写`
+- 后续动作：
+  - 为 memory 文件增加生命周期清理与索引收口
+  - 继续细化权限规则
+  - 在长任务上验证恢复与记忆层稳定性
+
 ## 4. 维护约定
 
 - 若改动影响总体架构，更新本文件
