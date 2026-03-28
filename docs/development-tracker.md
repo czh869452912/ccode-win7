@@ -1,6 +1,6 @@
 # EmbedAgent 开发进度跟踪
 
-> 更新日期：2026-03-28（DC-019 修订）
+> 更新日期：2026-03-28（DC-021 修订）
 > 用途：持续跟踪当前阶段、下一步任务、里程碑进度、风险与阻塞
 
 ---
@@ -28,7 +28,7 @@
 
 - 当前阶段：`Phase 4 工具链收尾 + Phase 5 已验收`
 - 总体状态：`进行中`
-- 当前重点：`Phase 4 真实工程验证与离线交付前置收口`
+- 当前重点：`Phase 4 真实工程验证与 Phase 6A InProcessAdapter 落地`
 
 ### 当前判断
 
@@ -73,7 +73,7 @@
 - Phase 5 长任务稳定性验证已完成：`scripts/validate-phase5.py` 已通过 20+ turn 长任务与恢复续跑验证
 - Phase 5 权限细化已完成：已支持规则文件、allow / ask / deny、路径与命令模式匹配
 
-项目下一步：继续推进 Phase 4 真实工程验证、Phase 6 交互层和离线交付收口。
+项目下一步：继续推进 Phase 4 真实工程验证，并在 InProcessAdapter 之上实现最小 TUI。
 
 ---
 
@@ -82,7 +82,7 @@
 ### P0：立刻要做（Phase 5 关键路径）
 
 1. 推进 Phase 4 的真实 C 工程与 Win7 验证
-2. 启动 Phase 6 的 CLI / TUI adapter 收口
+2. 在已落地的 InProcessAdapter 之上实现最小 TUI 框架
 3. 评估是否需要 memory browse / inspect 入口
 
 实现备注：
@@ -119,6 +119,8 @@
 | T-007 | 实现模式系统 v1（dict + 工具过滤） | `completed` | 已补齐文档与本地验证 |
 | T-008 | 实现 Phase 4 Clang 工具链第一版封装 | `in_progress` | 已有本地闭环工具链，待真实工程验证与版本收敛 |
 | T-009 | 实现 Phase 5 最小权限与防循环保护 | `completed` | 权限模型、Doom Loop Guard、ContextManager、mode-aware budget、Artifact Store、SessionSummaryStore、ProjectMemoryStore、Resume Entry、MemoryMaintenance 已落地，并完成长任务/权限专项验证 |
+| T-010 | 完成 Phase 6 前端协议与 TUI IA 设计 | `completed` | `frontend-protocol.md` 与 `tui-information-architecture.md` 已建立 |
+| T-011 | 实现 Phase 6A InProcessAdapter | `completed` | CLI 已改为通过 adapter 驱动 Core，并完成最小行为验证 |
 
 ---
 
@@ -132,7 +134,7 @@
 | Phase 3 | 模式系统 v1 | `completed` | MODE_REGISTRY、工具过滤、switch_mode、/mode 已完成 |
 | Phase 4 | Clang 工具链 | `in_progress` | 已有项目内闭环工具链，待真实工程与 Win7 验证 |
 | Phase 5 | 质量保障层 | `completed` | 权限、上下文、记忆、恢复与 cleanup 已落地，并完成长任务/权限专项验证 |
-| Phase 6 | CLI / TUI | `not_started` | prompt_toolkit + Rich |
+| Phase 6 | CLI / TUI | `in_progress` | InProcessAdapter 已完成，最小 TUI 待实现 |
 | Phase 7 | 打包与离线交付 | `not_started` | Win7 离线 one-folder bundle |
 
 ---

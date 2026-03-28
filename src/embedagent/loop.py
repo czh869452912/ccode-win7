@@ -66,6 +66,7 @@ class AgentLoop(object):
         permission_handler: Optional[
             Callable[[PermissionRequest], bool]
         ] = None,
+        on_context_result: Optional[Callable[[object], None]] = None,
         session: Optional[Session] = None,
     ) -> Tuple[str, Session]:
         current_mode = require_mode(initial_mode)["slug"]
@@ -79,6 +80,8 @@ class AgentLoop(object):
         for _ in range(self.max_turns):
             tool_schemas = self._schemas_for_mode(current_mode)
             context_result = self.context_manager.build_messages(session, current_mode)
+            if on_context_result is not None:
+                on_context_result(context_result)
             self._persist_summary(session, current_mode, context_result)
             if stream:
                 reply = self.client.stream(

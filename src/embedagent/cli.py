@@ -1,23 +1,21 @@
 from __future__ import annotations
 
 import argparse
-import json
 import os
 import sys
 from typing import Dict, List, Optional
 
+from embedagent.inprocess_adapter import InProcessAdapter
 from embedagent.llm import ModelClientError, OpenAICompatibleClient
-from embedagent.loop import AgentLoop
 from embedagent.modes import DEFAULT_MODE, parse_mode_command
-from embedagent.permissions import PermissionPolicy, PermissionRequest
-from embedagent.session import Action, Observation, Session
+from embedagent.permissions import PermissionPolicy
 from embedagent.session_store import SessionSummaryStore
 from embedagent.tools import ToolRuntime
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="EmbedAgent Phase 5 质量保障 CLI。"
+        description="EmbedAgent Phase 6A In-Process CLI。"
     )
     parser.add_argument(
         "message",
@@ -138,7 +136,6 @@ def main(argv: Optional[List[str]] = None) -> int:
             sys.stdout.write(_format_session_record(item) + "\n")
         return 0
 
-    resumed_session = None  # type: Optional[Session]
     resumed_summary = None  # type: Optional[Dict[str, object]]
     fallback_mode = args.mode or DEFAULT_MODE
     if args.resume:
@@ -147,9 +144,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         except ValueError as exc:
             parser.error(str(exc))
         fallback_mode = args.mode or str(resumed_summary.get("current_mode") or DEFAULT_MODE)
-        resumed_session = summary_store.create_resumed_session(resumed_summary, fallback_mode)
 
-    raw_prompt = "resume> " if resumed_session is not None else "user> "
+    raw_prompt = "resume> " if resumed_summary is not None else "user> "
     raw_message = _read_user_message(args.message, prompt=raw_prompt)
     if not raw_message:
         parser.error("必须提供用户消息。")
@@ -183,82 +179,118 @@ def main(argv: Optional[List[str]] = None) -> int:
         workspace=workspace,
         rules_path=args.permission_rules,
     )
-    loop = AgentLoop(
+
+    runtime_state = {
+        "printed": False,
+        "final_text": "",
+        "last_error": "",
+    }
+
+    def on_event(event_name: str, session_id: str, payload: Dict[str, object]) -> None:
+        if event_name == "assistant_delta":
+            text = str(payload.get("text") or "")
+            if not args.no_stream and text:
+                sys.stdout.write(text)
+                sys.stdout.flush()
+                runtime_state["printed"] = True
+            return
+        if event_name == "tool_started":
+            if runtime_state["printed"]:
+                sys.stdout.write("\n")
+                sys.stdout.flush()
+                runtime_state["printed"] = False
+            sys.stderr.write(
+                "[tool] %s %s\n"
+                % (
+                    str(payload.get("tool_name") or ""),
+                    payload.get("arguments"),
+                )
+            )
+            sys.stderr.flush()
+            return
+        if event_name == "tool_finished":
+            sys.stderr.write(
+                "[observation] %s success=%s\n"
+                % (
+                    str(payload.get("tool_name") or ""),
+                    bool(payload.get("success")),
+                )
+            )
+            sys.stderr.flush()
+            return
+        if event_name == "permission_required":
+            permission = payload.get("permission") or {}
+            if not isinstance(permission, dict):
+                return
+            summary = str(((permission.get("details") or {}).get("path") or ((permission.get("details") or {}).get("command")) or ""))
+            if len(summary) > 120:
+                summary = summary[:120] + "..."
+            sys.stderr.write(
+                "[permission] %s %s %s\n"
+                % (
+                    str(permission.get("category") or ""),
+                    str(permission.get("tool_name") or ""),
+                    summary,
+                )
+            )
+            sys.stderr.flush()
+            return
+        if event_name == "session_resumed":
+            sys.stderr.write(
+                "[resume] session=%s\n" % session_id
+            )
+            sys.stderr.flush()
+            return
+        if event_name == "context_compacted":
+            return
+        if event_name == "session_finished":
+            runtime_state["final_text"] = str(payload.get("final_text") or "")
+            return
+        if event_name == "session_error":
+            runtime_state["last_error"] = str(payload.get("error") or "")
+            return
+
+    adapter = InProcessAdapter(
         client=client,
         tools=tools,
         max_turns=args.max_turns,
         permission_policy=permission_policy,
         summary_store=summary_store,
+        event_handler=on_event,
     )
 
-    if resumed_summary is not None:
-        sys.stderr.write(
-            "[resume] session=%s mode=%s\n"
-            % (
-                resumed_summary.get("session_id") or "",
-                fallback_mode,
-            )
-        )
-        sys.stderr.flush()
+    try:
+        if args.resume:
+            snapshot = adapter.resume_session(args.resume, initial_mode, event_handler=on_event)
+        else:
+            snapshot = adapter.create_session(initial_mode, event_handler=on_event)
+    except ValueError as exc:
+        parser.error(str(exc))
 
-    streaming_state = {"printed": False}
-
-    def on_text_delta(text: str) -> None:
-        if not text:
-            return
-        sys.stdout.write(text)
-        sys.stdout.flush()
-        streaming_state["printed"] = True
-
-    def on_tool_start(action: Action) -> None:
-        if streaming_state["printed"]:
-            sys.stdout.write("\n")
-            sys.stdout.flush()
-            streaming_state["printed"] = False
-        sys.stderr.write(
-            "[tool] %s %s\n"
-            % (
-                action.name,
-                json.dumps(action.arguments, ensure_ascii=False, sort_keys=True),
-            )
-        )
-        sys.stderr.flush()
-
-    def on_tool_finish(action: Action, observation: Observation) -> None:
-        sys.stderr.write(
-            "[observation] %s success=%s\n"
-            % (action.name, observation.success)
-        )
-        sys.stderr.flush()
-
-    def on_permission_request(request: PermissionRequest) -> bool:
-        summary = request.details.get("path") or request.details.get("command") or ""
-        if len(summary) > 120:
-            summary = summary[:120] + "..."
-        sys.stderr.write(
-            "[permission] %s %s %s\n"
-            % (request.category, request.tool_name, summary)
-        )
-        sys.stderr.write("%s [y/N]: " % request.reason)
+    def permission_resolver(ticket: Dict[str, object]) -> bool:
+        reason = str(ticket.get("reason") or "该操作需要确认。")
+        sys.stderr.write("%s [y/N]: " % reason)
         sys.stderr.flush()
         answer = input().strip().lower()
         return answer in ("y", "yes")
 
     try:
-        final_text, _ = loop.run(
-            user_text=user_message,
+        adapter.submit_user_message(
+            session_id=str(snapshot.get("session_id") or ""),
+            text=user_message,
             stream=not args.no_stream,
-            initial_mode=initial_mode,
-            on_text_delta=on_text_delta,
-            on_tool_start=on_tool_start,
-            on_tool_finish=on_tool_finish,
-            permission_handler=on_permission_request,
-            session=resumed_session,
+            wait=True,
+            permission_resolver=permission_resolver,
+            event_handler=on_event,
         )
-    except (ModelClientError, RuntimeError) as exc:
+    except (ModelClientError, RuntimeError, ValueError) as exc:
         sys.stderr.write("error: %s\n" % exc)
         return 1
 
+    final_text = runtime_state["final_text"]
+    if runtime_state["last_error"]:
+        sys.stderr.write("error: %s\n" % runtime_state["last_error"])
+        return 1
     if args.no_stream:
         sys.stdout.write(final_text)
     if final_text and not final_text.endswith("\n"):
@@ -268,4 +300,3 @@ def main(argv: Optional[List[str]] = None) -> int:
 
 if __name__ == '__main__':
     raise SystemExit(main())
-

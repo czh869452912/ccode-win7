@@ -502,6 +502,55 @@
   - 继续推进 Phase 4 真正工程验证
   - 评估 memory browse / inspect 入口
 
+### DC-020
+
+- 日期：2026-03-28
+- 变更主题：Phase 6 前端协议与 TUI 信息架构设计落地
+- 变更摘要：
+  - 新增 `docs/frontend-protocol.md`，定义 Frontend 与 Core 的 Command / Event 边界、In-Process adapter 和 stdio JSON-RPC 演进路径
+  - 新增 `docs/tui-information-architecture.md`，定义首版 TUI 的页面结构、关键交互流和首版范围边界
+  - 明确 Phase 6 首先实现 `InProcessAdapter`，再在其上构建最小 TUI，最后才考虑 stdio adapter
+- 影响范围：
+  - Phase 6 实现顺序
+  - CLI / TUI 的边界定义
+  - Frontend 与 Core 的协议收敛方式
+- 关联文档：
+  - `docs/frontend-protocol.md`
+  - `docs/tui-information-architecture.md`
+  - `docs/development-tracker.md`
+  - `README.md`
+- 是否需要 ADR：`暂不写`
+- 后续动作：
+  - 实现 `InProcessAdapter`
+  - 让现有 CLI 改为通过 adapter 调用 Core
+  - 在 adapter 上实现最小 TUI
+
+### DC-021
+
+- 日期：2026-03-28
+- 变更主题：Phase 6A InProcessAdapter 落地并接管 CLI 驱动路径
+- 变更摘要：
+  - 新增 `src/embedagent/inprocess_adapter.py`，统一封装会话创建、恢复、消息提交、事件回调和会话快照
+  - `AgentLoop` 新增 `on_context_result` 钩子，允许前端层接收 `context_compacted` 事件
+  - 现有 CLI 已改为通过 `InProcessAdapter` 驱动 Core，而不再直接组装 loop
+  - 当前适配层已具备 Phase 6 最小可用边界，为最小 TUI 直接复用铺平路径
+- 影响范围：
+  - CLI 入口
+  - Frontend / Core 协议落地方式
+  - Phase 6 的实现顺序
+- 关联文档：
+  - `src/embedagent/inprocess_adapter.py`
+  - `src/embedagent/cli.py`
+  - `src/embedagent/loop.py`
+  - `docs/frontend-protocol.md`
+  - `docs/tui-information-architecture.md`
+  - `docs/development-tracker.md`
+- 是否需要 ADR：`暂不写`
+- 后续动作：
+  - 在 adapter 之上实现最小 TUI
+  - 评估是否需要 stdio adapter 提前落地
+  - 继续推进 Phase 4 真实工程验证
+
 ## 4. 维护约定
 
 - 若改动影响总体架构，更新本文件
