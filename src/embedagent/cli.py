@@ -11,6 +11,7 @@ from embedagent.modes import DEFAULT_MODE, parse_mode_command
 from embedagent.permissions import PermissionPolicy
 from embedagent.session_store import SessionSummaryStore
 from embedagent.tools import ToolRuntime
+from embedagent.tui import TUIUnavailableError, run_tui
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -100,6 +101,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="禁用流式输出，等待完整回复后再打印。",
     )
+    parser.add_argument(
+        "--tui",
+        action="store_true",
+        help="启动最小 TUI 原型。若依赖未安装，会给出提示。",
+    )
     return parser
 
 
@@ -119,6 +125,21 @@ def _format_session_record(item: Dict[str, object]) -> str:
         updated=str(item.get("updated_at") or ""),
         goal=goal,
     )
+
+
+def _parse_initial_message(
+    parser: argparse.ArgumentParser,
+    raw_message: str,
+    fallback_mode: str,
+) -> List[str]:
+    try:
+        initial_mode, user_message, switched = parse_mode_command(
+            raw_message,
+            fallback_mode=fallback_mode,
+        )
+    except ValueError as exc:
+        parser.error(str(exc))
+    return [initial_mode, user_message, "1" if switched else "0"]
 
 
 def main(argv: Optional[List[str]] = None) -> int:
@@ -145,18 +166,48 @@ def main(argv: Optional[List[str]] = None) -> int:
             parser.error(str(exc))
         fallback_mode = args.mode or str(resumed_summary.get("current_mode") or DEFAULT_MODE)
 
+    if args.tui:
+        if not args.model:
+            parser.error("必须通过 --model 或 EMBEDAGENT_MODEL 提供模型名称。")
+        initial_mode = fallback_mode
+        initial_message = " ".join(args.message).strip()
+        switched = False
+        if initial_message:
+            parsed = _parse_initial_message(parser, initial_message, fallback_mode)
+            initial_mode = parsed[0]
+            initial_message = parsed[1]
+            switched = parsed[2] == "1"
+        if switched and not initial_message:
+            initial_message = ""
+        try:
+            return run_tui(
+                base_url=args.base_url,
+                api_key=args.api_key,
+                model=args.model,
+                workspace=workspace,
+                timeout=args.timeout,
+                max_turns=args.max_turns,
+                mode=initial_mode,
+                resume=args.resume,
+                approve_all=args.approve_all,
+                approve_writes=args.approve_writes,
+                approve_commands=args.approve_commands,
+                permission_rules=args.permission_rules,
+                initial_message=initial_message,
+            )
+        except TUIUnavailableError as exc:
+            sys.stderr.write("error: %s\n" % exc)
+            return 1
+
     raw_prompt = "resume> " if resumed_summary is not None else "user> "
     raw_message = _read_user_message(args.message, prompt=raw_prompt)
     if not raw_message:
         parser.error("必须提供用户消息。")
 
-    try:
-        initial_mode, user_message, switched = parse_mode_command(
-            raw_message,
-            fallback_mode=fallback_mode,
-        )
-    except ValueError as exc:
-        parser.error(str(exc))
+    parsed = _parse_initial_message(parser, raw_message, fallback_mode)
+    initial_mode = parsed[0]
+    user_message = parsed[1]
+    switched = parsed[2] == "1"
 
     if switched and not user_message:
         sys.stdout.write("已切换到 %s 模式。\n" % initial_mode)
@@ -222,7 +273,8 @@ def main(argv: Optional[List[str]] = None) -> int:
             permission = payload.get("permission") or {}
             if not isinstance(permission, dict):
                 return
-            summary = str(((permission.get("details") or {}).get("path") or ((permission.get("details") or {}).get("command")) or ""))
+            details = permission.get("details") or {}
+            summary = str((details.get("path") or details.get("command") or "")) if isinstance(details, dict) else ""
             if len(summary) > 120:
                 summary = summary[:120] + "..."
             sys.stderr.write(

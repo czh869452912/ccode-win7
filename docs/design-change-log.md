@@ -551,11 +551,81 @@
   - 评估是否需要 stdio adapter 提前落地
   - 继续推进 Phase 4 真实工程验证
 
+### DC-022
+
+- 日期：2026-03-28
+- 变更主题：Phase 6B 最小 TUI 原型接入 CLI
+- 变更摘要：
+  - 新增 `src/embedagent/tui.py`，在 `InProcessAdapter` 之上实现最小单会话 TUI 骨架
+  - TUI 已具备 Header、Transcript、Side Panel、Composer 和基本快捷键
+  - 现有 CLI 新增 `--tui` 入口，并在依赖缺失时返回明确错误提示
+  - 当前已验证普通 CLI 不退化，以及 `--tui` 在缺少 `prompt_toolkit` / `rich` 时会 graceful fallback
+- 影响范围：
+  - CLI 入口
+  - Phase 6 最小可运行交互壳
+  - 后续 TUI 实现节奏
+- 关联文档：
+  - `src/embedagent/tui.py`
+  - `src/embedagent/cli.py`
+  - `docs/tui-information-architecture.md`
+  - `docs/development-tracker.md`
+  - `README.md`
+- 是否需要 ADR：`暂不写`
+- 后续动作：
+  - 补齐 `prompt_toolkit` / `rich` 依赖并完成真实运行验证
+  - 完善权限确认、会话列表和侧栏刷新交互
+  - 评估是否推进 stdio adapter
+
+### DC-023
+
+- 日期：2026-03-28
+- 变更主题：Phase 6B 最小 TUI 交互深化与 `--tui` 空启动修复
+- 变更摘要：
+  - `src/embedagent/tui.py` 新增会话列表浏览、选中恢复、帮助/快照侧栏，以及权限、错误、上下文压缩状态展示
+  - `src/embedagent/cli.py` 修复 `--tui` 仍要求启动消息的问题，并支持将可选初始消息交给 TUI 在首轮自动提交
+  - 已补做本地回归：普通 CLI 不退化，TUI 逻辑可用假依赖验证，缺失 `prompt_toolkit` / `rich` 时继续保持 graceful fallback
+- 影响范围：
+  - Phase 6 最小 TUI 交互能力
+  - CLI 的 `--tui` 启动路径
+  - 后续真实 TUI 运行验证的准备状态
+- 关联文档：
+  - `src/embedagent/tui.py`
+  - `src/embedagent/cli.py`
+  - `README.md`
+  - `docs/development-tracker.md`
+- 是否需要 ADR：`暂不写`
+- 后续动作：
+  - 补齐 `prompt_toolkit` / `rich` 依赖并完成真实运行验证
+  - 评估是否接入 artifact 浏览或 inspect 入口
+  - 继续推进 Phase 4 真实工程验证
+
+### DC-024
+
+- 日期：2026-03-28
+- 变更主题：Phase 6B TUI 依赖接入与宿主兼容性收口
+- 变更摘要：
+  - `pyproject.toml` 已声明 `prompt-toolkit==3.0.52` 与 `rich==14.3.3`，开发环境可通过 `uv sync --python 3.8.10` 直接拉起 TUI 依赖
+  - `src/embedagent/tui.py` 新增非控制台宿主拦截，遇到 `NoConsoleScreenBufferError` 时会转换为清晰的 `TUIUnavailableError`
+  - 新增 `EMBEDAGENT_TUI_HEADLESS=1` 的内部验证路径，用于在当前宿主下跑通真实 prompt_toolkit 事件循环
+- 影响范围：
+  - TUI 依赖声明
+  - 非控制台宿主的错误体验
+  - Phase 6 的自动化验证能力
+- 关联文档：
+  - `pyproject.toml`
+  - `src/embedagent/tui.py`
+  - `README.md`
+  - `docs/development-tracker.md`
+- 是否需要 ADR：`暂不写`
+- 后续动作：
+  - 在真实控制台里补一轮手工验证
+  - 评估是否为 headless 验证补独立脚本
+  - 继续推进 Phase 4 真实工程验证
+
 ## 4. 维护约定
 
 - 若改动影响总体架构，更新本文件
 - 若改动影响项目纪律或版本边界，同时更新 `AGENTS.md`
 - 若改动影响实施顺序，同时更新 `docs/implementation-roadmap.md`
 - 若改动具有长期不可逆影响，补充一个 ADR
-
 

@@ -214,6 +214,15 @@ class InProcessAdapter(object):
             state.pending_event.set()
         return self.get_session_snapshot(session_id)
 
+    def set_session_mode(self, session_id: str, mode: str) -> Dict[str, Any]:
+        state = self._require_session(session_id)
+        current_mode = require_mode(mode)["slug"]
+        with state.lock:
+            state.session.add_system_message(build_system_prompt(current_mode))
+            state.current_mode = current_mode
+        self._persist_state(state)
+        return self.get_session_snapshot(session_id)
+
     def cancel_session(self, session_id: str) -> Dict[str, Any]:
         state = self._require_session(session_id)
         with state.lock:

@@ -8,6 +8,10 @@ version = "0.1.0"
 description = "Offline-first agentic coding platform for Windows 7 embedded C application development"
 readme = "README.md"
 requires-python = ">=3.8,<3.9"
+dependencies = [
+    "prompt-toolkit==3.0.52",
+    "rich==14.3.3",
+]
 
 [project.scripts]
 embedagent = "embedagent.cli:main"

@@ -1,6 +1,6 @@
 # EmbedAgent 开发进度跟踪
 
-> 更新日期：2026-03-28（DC-021 修订）
+> 更新日期：2026-03-28（DC-022 修订）
 > 用途：持续跟踪当前阶段、下一步任务、里程碑进度、风险与阻塞
 
 ---
@@ -28,7 +28,7 @@
 
 - 当前阶段：`Phase 4 工具链收尾 + Phase 5 已验收`
 - 总体状态：`进行中`
-- 当前重点：`Phase 4 真实工程验证与 Phase 6A InProcessAdapter 落地`
+- 当前重点：`Phase 4 真实工程验证与 Phase 6 TUI 运行验证收口`
 
 ### 当前判断
 
@@ -73,7 +73,7 @@
 - Phase 5 长任务稳定性验证已完成：`scripts/validate-phase5.py` 已通过 20+ turn 长任务与恢复续跑验证
 - Phase 5 权限细化已完成：已支持规则文件、allow / ask / deny、路径与命令模式匹配
 
-项目下一步：继续推进 Phase 4 真实工程验证，并在 InProcessAdapter 之上实现最小 TUI。
+项目下一步：继续推进 Phase 4 真实工程验证，并在真实控制台里完成最小 TUI 手工验证。
 
 ---
 
@@ -82,7 +82,7 @@
 ### P0：立刻要做（Phase 5 关键路径）
 
 1. 推进 Phase 4 的真实 C 工程与 Win7 验证
-2. 在已落地的 InProcessAdapter 之上实现最小 TUI 框架
+2. 在真实控制台里完成最小 TUI 手工验证并补使用说明
 3. 评估是否需要 memory browse / inspect 入口
 
 实现备注：
@@ -121,6 +121,7 @@
 | T-009 | 实现 Phase 5 最小权限与防循环保护 | `completed` | 权限模型、Doom Loop Guard、ContextManager、mode-aware budget、Artifact Store、SessionSummaryStore、ProjectMemoryStore、Resume Entry、MemoryMaintenance 已落地，并完成长任务/权限专项验证 |
 | T-010 | 完成 Phase 6 前端协议与 TUI IA 设计 | `completed` | `frontend-protocol.md` 与 `tui-information-architecture.md` 已建立 |
 | T-011 | 实现 Phase 6A InProcessAdapter | `completed` | CLI 已改为通过 adapter 驱动 Core，并完成最小行为验证 |
+| T-012 | 落地最小 TUI 原型 | `in_progress` | 已补齐会话浏览、权限确认、错误与上下文状态展示；`prompt_toolkit` / `rich` 已接入，并完成 headless 运行与非控制台宿主报错验证，待真实控制台手工验证 |
 
 ---
 
@@ -134,7 +135,7 @@
 | Phase 3 | 模式系统 v1 | `completed` | MODE_REGISTRY、工具过滤、switch_mode、/mode 已完成 |
 | Phase 4 | Clang 工具链 | `in_progress` | 已有项目内闭环工具链，待真实工程与 Win7 验证 |
 | Phase 5 | 质量保障层 | `completed` | 权限、上下文、记忆、恢复与 cleanup 已落地，并完成长任务/权限专项验证 |
-| Phase 6 | CLI / TUI | `in_progress` | InProcessAdapter 已完成，最小 TUI 待实现 |
+| Phase 6 | CLI / TUI | `in_progress` | InProcessAdapter 已完成，最小 TUI 已具备会话浏览、权限确认与状态侧栏，并完成 headless/宿主校验，待真实控制台手工验证 |
 | Phase 7 | 打包与离线交付 | `not_started` | Win7 离线 one-folder bundle |
 
 ---
@@ -179,8 +180,5 @@
 | 2026-03-28 | Phase 5D Project Memory Store 已落地，并完成 recipe / known issue / context 注入验证 |
 | 2026-03-28 | Phase 5E Resume Entry 已落地，并完成 list / load / resume 验证 |
 | 2026-03-28 | Phase 5F Memory Maintenance 已落地，并完成 cleanup / index 验证 |
-
-
-
-
-
+| 2026-03-28 | Phase 6B 交互深化已完成：TUI 新增会话列表浏览、权限确认/错误/上下文状态展示，并修复 --tui 空启动路径 |
+| 2026-03-28 | Phase 6B 依赖与运行验证已推进：`prompt_toolkit` / `rich` 已接入，非控制台宿主会优雅报错，并完成 headless 真实事件循环验证 |
