@@ -125,6 +125,16 @@
 - [ ] TUI / CLI adapters 收口（InProcessAdapter 已落地，最小 TUI 已支持会话浏览、权限确认与状态侧栏，依赖已接入并完成 headless/宿主校验，待真实控制台手工验证）
 - [ ] 打包与离线交付
 
+### Phase 6 验证
+
+自动化验证：
+
+```powershell
+.venv\Scripts\python.exe scripts\validate-phase6.py
+```
+
+手工验证说明见 [docs/phase6-validation.md](docs/phase6-validation.md)。
+
 ---
 
 ## 目录结构

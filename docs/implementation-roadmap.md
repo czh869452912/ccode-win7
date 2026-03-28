@@ -247,13 +247,16 @@ conda activate embedagent-py38
 实现重点：
 
 - In-process adapter（同进程调用）
-- stdio JSON-RPC adapter（被宿主程序拉起）
 - prompt_toolkit + Rich TUI
+- Phase 6 回归脚本与手工验证清单
+- stdio JSON-RPC adapter（被宿主程序拉起，放在最小 TUI 稳定后）
 
 建议产物：
 
 - `docs/frontend-protocol.md`
 - `docs/tui-information-architecture.md`
+- `scripts/validate-phase6.py`
+- `docs/phase6-validation.md`
 
 ### Phase 7：打包与离线交付
 

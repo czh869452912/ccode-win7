@@ -622,6 +622,29 @@
   - 评估是否为 headless 验证补独立脚本
   - 继续推进 Phase 4 真实工程验证
 
+### DC-025
+
+- 日期：2026-03-28
+- 变更主题：Phase 6 进入脚本可追踪状态
+- 变更摘要：
+  - 新增 `scripts/validate-phase6.py`，固化 Phase 6 的自动化验证入口
+  - 新增 `docs/phase6-validation.md`，记录自动化命令与真实控制台手工验证清单
+  - 修正 `docs/frontend-protocol.md` 中 Phase 6B/6C 的阶段编号，使其与实际实现顺序一致
+- 影响范围：
+  - Phase 6 验证口径
+  - 前端协议文档与路线图一致性
+  - 阶段收口状态的可追踪性
+- 关联文档：
+  - `scripts/validate-phase6.py`
+  - `docs/phase6-validation.md`
+  - `docs/frontend-protocol.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+- 是否需要 ADR：`暂不写`
+- 后续动作：
+  - 在真实控制台里执行手工验证并记录结果
+  - 继续推进 Phase 4 真实工程验证
+
 ## 4. 维护约定
 
 - 若改动影响总体架构，更新本文件

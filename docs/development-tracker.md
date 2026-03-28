@@ -82,7 +82,7 @@
 ### P0：立刻要做（Phase 5 关键路径）
 
 1. 推进 Phase 4 的真实 C 工程与 Win7 验证
-2. 在真实控制台里完成最小 TUI 手工验证并补使用说明
+2. 在真实控制台里完成最小 TUI 手工验证并记录结果
 3. 评估是否需要 memory browse / inspect 入口
 
 实现备注：
@@ -122,6 +122,7 @@
 | T-010 | 完成 Phase 6 前端协议与 TUI IA 设计 | `completed` | `frontend-protocol.md` 与 `tui-information-architecture.md` 已建立 |
 | T-011 | 实现 Phase 6A InProcessAdapter | `completed` | CLI 已改为通过 adapter 驱动 Core，并完成最小行为验证 |
 | T-012 | 落地最小 TUI 原型 | `in_progress` | 已补齐会话浏览、权限确认、错误与上下文状态展示；`prompt_toolkit` / `rich` 已接入，并完成 headless 运行与非控制台宿主报错验证，待真实控制台手工验证 |
+| T-013 | 建立 Phase 6 验证入口 | `completed` | `scripts/validate-phase6.py` 与 `docs/phase6-validation.md` 已建立，Phase 6 已进入脚本可跟踪状态 |
 
 ---
 
@@ -182,3 +183,4 @@
 | 2026-03-28 | Phase 5F Memory Maintenance 已落地，并完成 cleanup / index 验证 |
 | 2026-03-28 | Phase 6B 交互深化已完成：TUI 新增会话列表浏览、权限确认/错误/上下文状态展示，并修复 --tui 空启动路径 |
 | 2026-03-28 | Phase 6B 依赖与运行验证已推进：`prompt_toolkit` / `rich` 已接入，非控制台宿主会优雅报错，并完成 headless 真实事件循环验证 |
+| 2026-03-28 | Phase 6 验证入口已建立：新增 `scripts/validate-phase6.py` 和 `docs/phase6-validation.md`，阶段状态已可脚本跟踪 |

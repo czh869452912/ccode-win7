@@ -35,8 +35,9 @@
 Phase 6 的实现顺序固定为：
 
 1. `InProcessAdapter`
-2. `stdio JSON-RPC Adapter`
-3. `Local HTTP + SSE Adapter`（后续，不在当前阶段）
+2. 最小 `TUI`
+3. `stdio JSON-RPC Adapter`
+4. `Local HTTP + SSE Adapter`（后续，不在当前阶段）
 
 原因：
 
@@ -76,7 +77,27 @@ Phase 6 的实现顺序固定为：
 - `list_sessions`
 - `get_session_snapshot`
 
-### 3.2 Phase 6B：stdio JSON-RPC Adapter
+### 3.2 Phase 6B：最小 TUI
+
+目标：
+
+- 在 `InProcessAdapter` 之上提供最小可运行交互壳
+- 让 Session、Event、Permission、Context 四类信息都能被直接观测
+
+当前范围：
+
+- Header / Transcript / Side Panel / Composer
+- 会话列表浏览与恢复
+- 权限确认、错误状态与上下文压缩状态展示
+- 允许 `--tui` 空启动，并支持可选初始消息自动提交
+
+验证口径：
+
+- `scripts/validate-phase6.py`
+- `EMBEDAGENT_TUI_HEADLESS=1`
+- 真实控制台手工验证
+
+### 3.3 Phase 6C：stdio JSON-RPC Adapter
 
 目标：
 
@@ -413,7 +434,7 @@ Loop 内部错误、模型错误、工具错误，应通过 `session_error` Even
 
 1. 先实现 `InProcessAdapter`
 2. 让现有 CLI 改为调用 adapter，而不是直接组装 loop
-3. 基于同一 adapter 做 TUI
+3. 基于同一 adapter 做最小 TUI，并补 `scripts/validate-phase6.py`
 4. 最后再暴露 stdio JSON-RPC adapter
 
 ---
