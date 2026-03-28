@@ -1,7 +1,7 @@
 # EmbedAgent 工具接口契约（Phase 4）
 
-> 更新日期：2026-03-28
-> 适用阶段：Phase 4 工具与验证工具
+> 更新日期：2026-03-28（Phase 5B 修订）
+> 适用阶段：Phase 4-5 工具与验证工具
 
 ---
 
@@ -60,6 +60,27 @@
 
 ---
 
+## 3.1 大输出 Artifact 规则
+
+从 Phase 5B 开始，工具不会再把大体积 `content` / `stdout` / `stderr` / `diff` / `diagnostics` / `files` / `matches` / `entries` 原样长期留在会话里。
+
+当这些字段超过内联阈值时，Observation 会改为：
+
+- 保留脱敏后的预览内容
+- 追加 `<field>_artifact_ref`，指向工作区内 `.embedagent/memory/artifacts/...` 的 JSON 文件
+- 追加 `<field>_char_count` 或 `<field>_item_count` 之类的元数据
+
+Artifact 文件同样会做基础脱敏，当前至少覆盖：
+
+- `sk-...` 形式 key
+- `Bearer ...` token
+- `Authorization:` 头
+- 常见 `api_key` / `secret` / `password` 赋值片段
+
+模型若需要查看更多上下文，可通过 `read_file` 读取对应 `artifact_ref`。
+
+---
+
 ## 4. 命令类工具 Observation
 
 `run_command`、`git_status`、`git_diff`、`git_log`、`compile_project`、`run_tests`、`run_clang_tidy`、`run_clang_analyzer`、`collect_coverage` 都复用同一组基础字段：
@@ -69,10 +90,14 @@
     "command": str,
     "cwd": str,
     "exit_code": int,
-    "stdout": str,
-    "stderr": str,
+    "stdout": str,  # 可能是预览
+    "stderr": str,  # 可能是预览
     "stdout_truncated": bool,
     "stderr_truncated": bool,
+    "stdout_artifact_ref": str | None,
+    "stderr_artifact_ref": str | None,
+    "stdout_char_count": int | None,
+    "stderr_char_count": int | None,
     "duration_ms": int,
     "timed_out": bool,
 }
@@ -101,7 +126,9 @@
             "status": str,
             "path": str,
         }
-    ]
+    ],
+    "entries_artifact_ref": str | None,
+    "entries_item_count": int | None,
 }
 ```
 
@@ -115,7 +142,9 @@
     "scope": "working" | "staged",
     "file_count": int,
     "line_count": int,
-    "diff": str,
+    "diff": str,  # 可能是预览
+    "diff_artifact_ref": str | None,
+    "diff_char_count": int | None,
 }
 ```
 
@@ -134,7 +163,9 @@
             "date": str,
             "subject": str,
         }
-    ]
+    ],
+    "entries_artifact_ref": str | None,
+    "entries_item_count": int | None,
 }
 ```
 
@@ -160,7 +191,9 @@
             "level": "error" | "warning" | "note",
             "message": str,
         }
-    ]
+    ],
+    "diagnostics_artifact_ref": str | None,
+    "diagnostics_item_count": int | None,
 }
 ```
 

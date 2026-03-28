@@ -39,6 +39,9 @@ desktop.ini
 *.swp
 *.swo
 
+# Runtime memory / artifacts
+.embedagent/
+
 # Bundled toolchains
 /toolchains/*
 !/toolchains/.gitignore

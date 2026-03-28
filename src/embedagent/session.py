@@ -86,6 +86,8 @@ class Turn:
     assistant_message: str = ""
     actions: List[Action] = field(default_factory=list)
     observations: List[Observation] = field(default_factory=list)
+    message_start_index: int = 0
+    message_end_index: int = 0
 
 
 @dataclass
@@ -100,7 +102,8 @@ class Session:
 
     def add_user_message(self, content: str) -> None:
         self.messages.append(Message(role="user", content=content))
-        self.turns.append(Turn(user_message=content))
+        index = len(self.messages) - 1
+        self.turns.append(Turn(user_message=content, message_start_index=index, message_end_index=index))
 
     def add_assistant_reply(self, reply: AssistantReply) -> None:
         self.messages.append(
@@ -115,6 +118,7 @@ class Session:
             self.turns.append(Turn(user_message=""))
         self.turns[-1].assistant_message = reply.content
         self.turns[-1].actions.extend(reply.actions)
+        self.turns[-1].message_end_index = len(self.messages) - 1
 
     def add_observation(self, action: Action, observation: Observation) -> None:
         self.messages.append(
@@ -128,6 +132,7 @@ class Session:
         if not self.turns:
             self.turns.append(Turn(user_message=""))
         self.turns[-1].observations.append(observation)
+        self.turns[-1].message_end_index = len(self.messages) - 1
 
     def api_messages(self) -> List[Dict[str, Any]]:
         return [message.to_api_dict() for message in self.messages]

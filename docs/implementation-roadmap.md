@@ -106,11 +106,11 @@ conda activate embedagent-py38
 
 实现重点（5 个核心文件，不超过此范围）：
 
-- `agent/llm.py`：OpenAI-compatible HTTP 调用（同步 + 流式，无厂商 SDK 依赖）
-- `agent/tools.py`：第一批工具——`read_file`、`list_files`、`search_text`、`edit_file`（按 `docs/tool-design-spec.md` 规范编写）
-- `agent/loop.py`：主循环（50-80 行，无模式系统，硬编码单一系统 prompt）
-- `agent/session.py`：Session / Turn / Action / Observation 的最小 dataclass 定义
-- `agent/cli.py`：命令行入口（argparse，无 TUI）
+- `src/embedagent/llm.py`：OpenAI-compatible HTTP 调用（同步 + 流式，无厂商 SDK 依赖）
+- `src/embedagent/tools.py`：第一批工具——`read_file`、`list_files`、`search_text`、`edit_file`（按 `docs/tool-design-spec.md` 规范编写）
+- `src/embedagent/loop.py`：主循环（50-80 行，无模式系统，硬编码单一系统 prompt）
+- `src/embedagent/session.py`：Session / Turn / Action / Observation 的最小 dataclass 定义
+- `src/embedagent/cli.py`：命令行入口（argparse，无 TUI）
 
 **Phase 1 完成里程碑（缺一不可）**：
 
@@ -223,7 +223,8 @@ conda activate embedagent-py38
 - 上下文压缩策略（Observation 截断 → 裁剪低价值历史 → LLM 摘要）
 - PermissionRequest 机制（写入确认、命令执行确认）
 - Doom Loop Guard（连续错误计数、重复工具调用检测、迭代上限）
-- Session 快照与恢复
+- Session Summary 持久化与恢复入口
+- Project Memory / Archive Memory 演进
 - 模式系统 TOML 可选加载（叠加在 Phase 3 dict 结构上，不重写）
 
 **Phase 5 完成里程碑**：

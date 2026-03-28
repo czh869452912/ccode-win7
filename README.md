@@ -77,14 +77,14 @@
 
 ---
 
-## 技术选型（规划中）
+## 技术选型（当前实现 / 规划）
 
 | 层次 | 选型 | 理由 |
 |------|------|------|
 | 实现语言 | Python 3.8 Embedded Distribution | Windows 7 兼容边界清晰，适合离线整体打包 |
 | TUI 框架 | `prompt_toolkit` + `rich` | 纯终端、轻依赖、对 Windows/旧终端更友好 |
 | LLM 接入 | OpenAI-compatible HTTP Adapter | 适配内网模型服务，不绑定单一厂商 SDK |
-| 持久化 | SQLite | 内置，零依赖，会话历史 / 权限规则均可存储 |
+| 持久化 | 文件系统 JSON + SQLite（分阶段） | 当前以文件型记忆与摘要为主，后续补 SQLite 索引、权限与结构化状态 |
 | 编译工具链 | LLVM/Clang Windows 预编译包 | 统一体系，覆盖编译 / 静态分析 / 覆盖率 |
 | 版本管理 | MinGit / Portable Git | 可随包分发，满足无环境依赖要求 |
 | 代码搜索 | `ripgrep` + `Universal Ctags` | 轻量、离线、适合 C 代码库结构化检索 |
@@ -105,7 +105,9 @@
 
 ## 项目现状
 
-- 2026-03-27：已落地 Phase 1 最小原型代码，并已迁移到 `src/embedagent/`；当前已通过 Python 3.8.10 本地验证，以及 Moonshot `kimi-k2.5` 的真实最小工具闭环验证。
+- 2026-03-28：Phase 1-4 已完成最小可工作闭环，Phase 5 已完成到 5D（权限、Doom Loop、ContextManager、Artifact Store、Session Summary、Project Memory）。
+- 当前可运行能力已经覆盖：OpenAI-compatible LLM Adapter、文件 / Shell / Git / Clang 工具、模式系统、项目内闭环 LLVM/Clang 工具链、上下文压缩与基础记忆层。
+- 当前主线工作已进入：恢复入口、记忆索引与离线交付收口。
 
 - [x] 需求确认与范围界定
 - [x] 参考项目架构分析（OpenCode / OpenHands / Roo-Code）
@@ -114,13 +116,14 @@
 - [x] 项目宪章（[AGENTS.md](AGENTS.md)）
 - [x] 开发进度跟踪（[docs/development-tracker.md](docs/development-tracker.md)）
 - [x] 设计与变更跟踪（[docs/design-change-log.md](docs/design-change-log.md)）
-- [ ] Clang 工具链集成方案
-- [ ] Agent Loop 核心实现
-- [ ] TUI 界面原型
-- [ ] 工具集实现（文件 / Shell / Git / Clang）
-- [ ] 权限系统实现
-- [ ] 上下文压缩策略
-- [ ] 打包与分发
+- [x] Phase 1 最小可工作 Loop
+- [x] Phase 2 工具集 v1（文件 / Shell / Git）
+- [x] Phase 3 模式系统 v1
+- [x] Phase 4 第一版 Clang 工具封装与本地闭环工具链
+- [x] Phase 5A-5D 质量保障层基础（权限、上下文、Artifact、Session Summary、Project Memory）
+- [ ] 恢复入口与记忆索引
+- [ ] TUI / CLI adapters 收口
+- [ ] 打包与离线交付
 
 ---
 
@@ -135,13 +138,22 @@ ccode-win7/
 │   ├── development-tracker.md
 │   └── design-change-log.md
 ├── reference/          # 参考项目源码（opencode / OpenHands / Roo-Code）
+├── scripts/            # 本地辅助脚本（LLVM 激活 / smoke test 等）
 ├── src/
 │   └── embedagent/
+│       ├── artifacts.py
 │       ├── cli.py
+│       ├── context.py
+│       ├── guard.py
 │       ├── llm.py
 │       ├── loop.py
+│       ├── modes.py
+│       ├── permissions.py
+│       ├── project_memory.py
 │       ├── session.py
+│       ├── session_store.py
 │       └── tools.py
+├── toolchains/         # 项目内闭环 LLVM/Clang 工具链与清单
 ├── pyproject.toml      # uv / Python 版本与项目元数据
 └── README.md
 ```

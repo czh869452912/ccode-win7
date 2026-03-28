@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Callable, Optional, Tuple
 
+from embedagent.context import ContextManager
 from embedagent.guard import LoopGuard
 from embedagent.llm import OpenAICompatibleClient
 from embedagent.modes import (
@@ -15,7 +16,9 @@ from embedagent.modes import (
     switch_mode_schema,
 )
 from embedagent.permissions import PermissionPolicy, PermissionRequest
+from embedagent.project_memory import ProjectMemoryStore
 from embedagent.session import Action, Observation, Session
+from embedagent.session_store import SessionSummaryStore
 from embedagent.tools import ToolRuntime
 
 
@@ -26,6 +29,9 @@ class AgentLoop(object):
         tools: ToolRuntime,
         max_turns: int = 8,
         permission_policy: Optional[PermissionPolicy] = None,
+        context_manager: Optional[ContextManager] = None,
+        summary_store: Optional[SessionSummaryStore] = None,
+        project_memory_store: Optional[ProjectMemoryStore] = None,
     ) -> None:
         self.client = client
         self.tools = tools
@@ -33,6 +39,9 @@ class AgentLoop(object):
         self.permission_policy = permission_policy or PermissionPolicy(
             auto_approve_all=True
         )
+        self.project_memory_store = project_memory_store or ProjectMemoryStore(self.tools.workspace)
+        self.context_manager = context_manager or ContextManager(project_memory=self.project_memory_store)
+        self.summary_store = summary_store or SessionSummaryStore(self.tools.workspace)
 
     def run(
         self,
@@ -52,31 +61,37 @@ class AgentLoop(object):
         session = Session()
         session.add_system_message(build_system_prompt(current_mode))
         session.add_user_message(user_text)
+        self._persist_summary(session, current_mode)
         final_text = ""
         loop_guard = LoopGuard()
         for _ in range(self.max_turns):
             tool_schemas = self._schemas_for_mode(current_mode)
+            context_result = self.context_manager.build_messages(session, current_mode)
+            self._persist_summary(session, current_mode, context_result)
             if stream:
                 reply = self.client.stream(
-                    session.api_messages(),
+                    context_result.messages,
                     tools=tool_schemas,
                     on_text_delta=on_text_delta,
                 )
             else:
                 reply = self.client.generate(
-                    session.api_messages(),
+                    context_result.messages,
                     tools=tool_schemas,
                 )
                 if on_text_delta and reply.content:
                     on_text_delta(reply.content)
             session.add_assistant_reply(reply)
+            self._persist_summary(session, current_mode, context_result)
             final_text = reply.content
             if not reply.actions:
+                self._persist_summary(session, current_mode)
                 return final_text, session
             for action in reply.actions:
                 if loop_guard.should_block(action):
                     observation = loop_guard.blocked_observation(action)
                     session.add_observation(action, observation)
+                    self._persist_summary(session, current_mode)
                     if on_tool_finish:
                         on_tool_finish(action, observation)
                     raise RuntimeError(loop_guard.stop_reason())
@@ -89,12 +104,29 @@ class AgentLoop(object):
                     permission_handler=permission_handler,
                 )
                 session.add_observation(action, observation)
+                self._persist_summary(session, current_mode)
                 if on_tool_finish:
                     on_tool_finish(action, observation)
                 loop_guard.record(action, observation)
                 if loop_guard.should_stop():
                     raise RuntimeError(loop_guard.stop_reason())
         raise RuntimeError("超过最大迭代次数，主循环已停止。")
+
+    def _persist_summary(
+        self,
+        session: Session,
+        current_mode: str,
+        context_result: Optional[object] = None,
+    ) -> None:
+        summary_ref = None
+        try:
+            summary_ref = self.summary_store.persist(session, current_mode, context_result)
+        except Exception:
+            summary_ref = None
+        try:
+            self.project_memory_store.refresh(session, current_mode, summary_ref)
+        except Exception:
+            return
 
     def _schemas_for_mode(self, mode_name: str):
         allowed = set(allowed_tools_for(mode_name))

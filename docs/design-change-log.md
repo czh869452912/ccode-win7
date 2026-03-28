@@ -295,7 +295,132 @@
 - 后续动作：
   - 继续补上下文压缩和更细粒度权限规则
 
+### DC-012
+
+- 日期：2026-03-28
+- 变更主题：Phase 5 第一版上下文管理落地
+- 变更摘要：
+  - 新增 `src/embedagent/context.py`，以确定性规则实现会话上下文构建
+  - `Turn` 新增消息范围索引，允许精确保留最近 turn 的原始消息链
+  - 旧 turn 被压缩为摘要，工具 Observation 被结构化遮蔽与截断
+  - `AgentLoop` 在每轮模型调用前不再直接发送全量 `session.messages`，而是交由 `ContextManager` 构建上下文
+  - 新增 `docs/context-management-design.md` 记录当前策略与后续演进方向
+- 影响范围：
+  - Session 结构
+  - Agent Loop 的上下文构建流程
+  - Phase 5 上下文预算与压缩口径
+- 关联文档：
+  - `src/embedagent/context.py`
+  - `src/embedagent/session.py`
+  - `src/embedagent/loop.py`
+  - `docs/context-management-design.md`
+- 是否需要 ADR：`不单独写`
+- 后续动作：
+  - 引入更精确的 token 预算
+  - 视需要增加 LLM 摘要压缩路径
+
+### DC-013
+
+- 日期：2026-03-28
+- 变更主题：Phase 5A 上下文预算器与 Observation Reducer Registry 落地
+- 变更摘要：
+  - `ContextManager` 引入 mode-aware budget，为不同模式分配不同输入预算并预留输出/推理空间
+  - 新增 `ContextPolicy`、`BudgetEstimate`、`ContextStats`，让上下文压缩过程可观测
+  - 引入 `ReducerRegistry`，按工具类型裁剪 Observation，而不是只依赖统一截断逻辑
+  - `AgentLoop` 在构建上下文时显式传入当前 mode，使预算策略不再只靠 system prompt 反推
+- 影响范围：
+  - Context Manager
+  - Agent Loop 的模型输入构建逻辑
+  - Phase 5 上下文压缩评估与后续 condenser 触发策略
+- 关联文档：
+  - `src/embedagent/context.py`
+  - `src/embedagent/loop.py`
+  - `docs/context-management-design.md`
+  - `docs/development-tracker.md`
+- 是否需要 ADR：`不单独写`
+- 后续动作：
+  - 在 Tool Runtime 源头引入 Artifact Store
+  - 持久化 session summary
+  - 评估可选 LLM condenser 的接入点
+
+### DC-014
+
+- 日期：2026-03-28
+- 变更主题：Phase 5B Artifact Store 与 Observation 源头瘦身落地
+- 变更摘要：
+  - 新增 `src/embedagent/artifacts.py`，提供本地 artifact 落盘与基础脱敏能力
+  - `ToolRuntime` 在 Observation 返回前，会把长 `content/stdout/stderr/diff` 和大列表写入 `.embedagent/memory/artifacts/...`
+  - Observation 改为保留预览 + `artifact_ref` + 元数据，不再把大输出完整塞入会话
+  - `ContextManager` 的 reducer 现在会保留关键 `artifact_ref`，允许模型按需回看工件
+- 影响范围：
+  - Tool Runtime
+  - 上下文管理链路
+  - Tool Observation 契约
+- 关联文档：
+  - `src/embedagent/artifacts.py`
+  - `src/embedagent/tools.py`
+  - `src/embedagent/context.py`
+  - `docs/tool-contracts.md`
+  - `docs/context-management-design.md`
+  - `docs/development-tracker.md`
+- 是否需要 ADR：`不单独写`
+- 后续动作：
+  - 持久化 session summary
+  - 增加 artifact 生命周期清理与索引
+  - 评估是否需要单独的 artifact 读取工具
+
 ---
+
+### DC-015
+
+- 日期：2026-03-28
+- 变更主题：Phase 5C Session Summary Store 与会话状态持久化落地
+- 变更摘要：
+  - 新增 `src/embedagent/session_store.py`，负责将会话关键状态持久化到 `.embedagent/memory/sessions/<session_id>/summary.json`
+  - `AgentLoop` 在初始化、构建上下文、assistant 回复和 Observation 回注后都会刷新摘要文件
+  - 摘要当前保留 `user_goal`、`current_mode`、`working_set`、`modified_files`、`last_success`、`last_blocker`、`recent_actions`、`recent_artifacts` 以及最近一次上下文预算统计
+  - 该摘要文件作为后续恢复入口和 Project Memory 的基础落点，而不是全量历史回放
+- 影响范围：
+  - Agent Loop
+  - 会话状态持久化
+  - Phase 5 后续恢复与记忆演进路径
+- 关联文档：
+  - `src/embedagent/session_store.py`
+  - `src/embedagent/loop.py`
+  - `docs/context-management-design.md`
+  - `docs/development-tracker.md`
+- 是否需要 ADR：`不单独写`
+- 后续动作：
+  - 建立 Project Memory 加载层
+  - 增加基于 `summary.json` 的恢复入口
+  - 为 session / artifact 增加生命周期清理与索引
+
+---
+
+### DC-016
+
+- 日期：2026-03-28
+- 变更主题：Phase 5D Project Memory Store 与项目级记忆装载落地
+- 变更摘要：
+  - 新增 `src/embedagent/project_memory.py`，维护 `project-profile.json`、`command-recipes.json`、`known-issues.json` 与处理索引
+  - `AgentLoop` 在持久化 session summary 后，会继续刷新 Project Memory
+  - `ContextManager` 现在会按当前 mode 装载 Project Memory system message
+  - 模型在新轮次中可直接看到项目硬约束、最近成功命令 recipe 和最近 open issue
+- 影响范围：
+  - Agent Loop
+  - Context Manager
+  - Phase 5 后续恢复与长期记忆演进路径
+- 关联文档：
+  - `src/embedagent/project_memory.py`
+  - `src/embedagent/loop.py`
+  - `src/embedagent/context.py`
+  - `docs/context-management-design.md`
+  - `docs/development-tracker.md`
+- 是否需要 ADR：`不单独写`
+- 后续动作：
+  - 增加基于 `summary.json` 的恢复入口
+  - 为 memory 文件增加生命周期清理与索引
+  - 评估是否需要 Project Memory 的显式编辑入口
 
 ## 4. 维护约定
 
@@ -303,3 +428,5 @@
 - 若改动影响项目纪律或版本边界，同时更新 `AGENTS.md`
 - 若改动影响实施顺序，同时更新 `docs/implementation-roadmap.md`
 - 若改动具有长期不可逆影响，补充一个 ADR
+
+

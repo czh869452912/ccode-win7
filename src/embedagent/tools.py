@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import fnmatch
 import io
+import json
 import os
 import re
 import subprocess
@@ -9,6 +10,7 @@ import time
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
+from embedagent.artifacts import ArtifactStore
 from embedagent.session import Observation
 
 
@@ -17,6 +19,10 @@ MAX_LIST_RESULTS = 500
 MAX_SEARCH_MATCHES = 100
 MAX_COMMAND_OUTPUT_CHARS = 40000
 MAX_DIAGNOSTICS = 200
+MAX_INLINE_ARTIFACT_TEXT_CHARS = 1600
+MAX_INLINE_COMMAND_PREVIEW_CHARS = 1200
+MAX_INLINE_LIST_ITEMS = 20
+MAX_INLINE_LIST_CHARS = 3000
 DEFAULT_COMMAND_TIMEOUT_SEC = 30
 DEFAULT_BUILD_TIMEOUT_SEC = 120
 TEXT_ENCODINGS = ("utf-8", "utf-8-sig", "gbk", "cp936")
@@ -54,6 +60,7 @@ class ToolDefinition:
 class ToolRuntime(object):
     def __init__(self, workspace: str) -> None:
         self.workspace = os.path.realpath(workspace)
+        self.artifact_store = ArtifactStore(self.workspace)
         self._tools = self._build_tools()
 
     def schemas(self) -> List[Dict[str, Any]]:
@@ -71,7 +78,7 @@ class ToolRuntime(object):
         try:
             if not isinstance(arguments, dict):
                 raise ToolError("工具参数必须是对象。")
-            observation = tool.handler(arguments)
+            observation = self._shrink_observation(tool.handler(arguments))
         except ToolError as exc:
             return Observation(
                 tool_name=name,
@@ -497,6 +504,73 @@ class ToolRuntime(object):
         serialized = content.replace("\n", newline_style)
         with io.open(path, "w", encoding=encoding, newline="") as handle:
             handle.write(serialized)
+
+    def _preview_text(self, text: str, limit: int) -> str:
+        if len(text) <= limit:
+            return text
+        return text[:limit] + "\n...[artifact preview truncated]"
+
+    def _shrink_text_field(
+        self,
+        tool_name: str,
+        data: Dict[str, Any],
+        field_name: str,
+        inline_limit: int,
+    ) -> None:
+        value = data.get(field_name)
+        if not isinstance(value, str):
+            return
+        sanitized = self.artifact_store.sanitize_text(value)
+        data[field_name + "_char_count"] = len(sanitized)
+        if len(sanitized) <= inline_limit:
+            data[field_name] = sanitized
+            return
+        data[field_name] = self._preview_text(sanitized, inline_limit)
+        data[field_name + "_artifact_ref"] = self.artifact_store.write_text(
+            tool_name,
+            field_name,
+            sanitized,
+            metadata={"char_count": len(sanitized)},
+        )
+
+    def _shrink_list_field(
+        self,
+        tool_name: str,
+        data: Dict[str, Any],
+        field_name: str,
+        inline_items: int,
+    ) -> None:
+        value = data.get(field_name)
+        if not isinstance(value, list):
+            return
+        sanitized = self.artifact_store.sanitize_jsonable(value)
+        serialized = json.dumps(sanitized, ensure_ascii=False)
+        if len(sanitized) <= inline_items and len(serialized) <= MAX_INLINE_LIST_CHARS:
+            data[field_name] = sanitized
+            return
+        data[field_name] = sanitized[:inline_items]
+        data[field_name + "_item_count"] = len(sanitized)
+        data[field_name + "_artifact_ref"] = self.artifact_store.write_json(
+            tool_name,
+            field_name,
+            sanitized,
+            metadata={"item_count": len(sanitized)},
+        )
+
+    def _shrink_observation(self, observation: Observation) -> Observation:
+        if not isinstance(observation.data, dict):
+            return observation
+        data = dict(observation.data)
+        self._shrink_text_field(observation.tool_name, data, "content", MAX_INLINE_ARTIFACT_TEXT_CHARS)
+        self._shrink_text_field(observation.tool_name, data, "stdout", MAX_INLINE_COMMAND_PREVIEW_CHARS)
+        self._shrink_text_field(observation.tool_name, data, "stderr", MAX_INLINE_COMMAND_PREVIEW_CHARS)
+        self._shrink_text_field(observation.tool_name, data, "diff", MAX_INLINE_COMMAND_PREVIEW_CHARS)
+        self._shrink_list_field(observation.tool_name, data, "diagnostics", MAX_INLINE_LIST_ITEMS)
+        self._shrink_list_field(observation.tool_name, data, "files", MAX_INLINE_LIST_ITEMS)
+        self._shrink_list_field(observation.tool_name, data, "matches", MAX_INLINE_LIST_ITEMS)
+        self._shrink_list_field(observation.tool_name, data, "entries", MAX_INLINE_LIST_ITEMS)
+        observation.data = data
+        return observation
 
     def _iter_files(self, root: str, pattern: Optional[str]) -> List[str]:
         if os.path.isfile(root):
