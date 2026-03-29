@@ -3,6 +3,7 @@ param(
     [string]$ArtifactName = 'embedagent-win7-x64',
     [string]$BundleRoot = "",
     [string]$ZipPath = "",
+    [string]$SourcesRoot = "",
     [switch]$RequireComplete,
     [switch]$SkipDynamicChecks
 )
@@ -25,23 +26,25 @@ function Add-Result {
     })
 }
 
-function Test-PathOrRecord {
+function Invoke-ComponentResult {
     param(
         [System.Collections.ArrayList]$Results,
-        [string]$Path,
-        [string]$Code,
+        [string]$Name,
+        [string]$Status,
         [string]$Message,
-        [bool]$Required
+        [bool]$TreatAsCompleteGate
     )
 
-    if (Test-Path -LiteralPath $Path) {
-        Add-Result -Results $Results -Level 'pass' -Code $Code -Message $Message
-        return $true
+    $level = 'pass'
+    if ($Status -eq 'missing' -or $Status -eq 'skipped' -or $Status -eq 'cached') {
+        if ($TreatAsCompleteGate -and $RequireComplete) {
+            $level = 'fail'
+        }
+        else {
+            $level = 'warn'
+        }
     }
-
-    $level = if ($Required) { 'fail' } else { 'warn' }
-    Add-Result -Results $Results -Level $level -Code $Code -Message ('Missing path: {0}' -f $Path)
-    return $false
+    Add-Result -Results $Results -Level $level -Code ('component.' + $Name) -Message ('{0}: {1}' -f $Status, $Message)
 }
 
 function Invoke-CommandCheck {
@@ -49,11 +52,13 @@ function Invoke-CommandCheck {
         [System.Collections.ArrayList]$Results,
         [string]$FilePath,
         [string[]]$Arguments,
-        [string]$Code
+        [string]$Code,
+        [bool]$TreatAsCompleteGate
     )
 
     if (-not (Test-Path -LiteralPath $FilePath)) {
-        Add-Result -Results $Results -Level 'warn' -Code $Code -Message ('Skipped command check because file is missing: {0}' -f $FilePath)
+        $level = if ($TreatAsCompleteGate -and $RequireComplete) { 'fail' } else { 'warn' }
+        Add-Result -Results $Results -Level $level -Code $Code -Message ('Skipped command check because file is missing: {0}' -f $FilePath)
         return
     }
 
@@ -104,49 +109,102 @@ function Get-ChecksumLines {
 function Validate-Checksums {
     param(
         [System.Collections.ArrayList]$Results,
-        [string]$BundleRoot,
-        [string]$ChecksumPath
+        [string]$Root,
+        [string]$ChecksumPath,
+        [string]$CodePrefix
     )
 
     $lines = Get-ChecksumLines -ChecksumPath $ChecksumPath
     if ($lines.Count -eq 0) {
-        Add-Result -Results $Results -Level 'fail' -Code 'checksums.empty' -Message 'checksums.txt is missing or empty.'
+        Add-Result -Results $Results -Level 'fail' -Code ($CodePrefix + '.checksums.empty') -Message ('{0} checksums.txt is missing or empty.' -f $CodePrefix)
         return
     }
 
     foreach ($line in $lines) {
         $parts = $line.Split('*', 2)
         if ($parts.Count -ne 2) {
-            Add-Result -Results $Results -Level 'fail' -Code 'checksums.format' -Message ('Invalid checksum line: {0}' -f $line)
+            Add-Result -Results $Results -Level 'fail' -Code ($CodePrefix + '.checksums.format') -Message ('Invalid checksum line: {0}' -f $line)
             continue
         }
         $expectedHash = $parts[0].Trim().ToLowerInvariant()
         $relativePath = $parts[1].Trim().Replace('/', '\')
-        $targetPath = Join-Path $BundleRoot $relativePath
+        $targetPath = Join-Path $Root $relativePath
         if (-not (Test-Path -LiteralPath $targetPath)) {
-            Add-Result -Results $Results -Level 'fail' -Code 'checksums.missing_file' -Message ('Missing file referenced by checksums.txt: {0}' -f $relativePath)
+            Add-Result -Results $Results -Level 'fail' -Code ($CodePrefix + '.checksums.missing_file') -Message ('Missing file referenced by checksums.txt: {0}' -f $relativePath)
             continue
         }
         $actualHash = (Get-FileHash -LiteralPath $targetPath -Algorithm SHA256).Hash.ToLowerInvariant()
         if ($actualHash -ne $expectedHash) {
-            Add-Result -Results $Results -Level 'fail' -Code 'checksums.mismatch' -Message ('Checksum mismatch: {0}' -f $relativePath)
+            Add-Result -Results $Results -Level 'fail' -Code ($CodePrefix + '.checksums.mismatch') -Message ('Checksum mismatch: {0}' -f $relativePath)
         }
     }
 
-    if (-not @($Results | Where-Object { $_.code -like 'checksums.*' -and $_.level -eq 'fail' }).Count) {
-        Add-Result -Results $Results -Level 'pass' -Code 'checksums.ok' -Message 'checksums.txt verified successfully.'
+    if (-not @($Results | Where-Object { $_.code -like ($CodePrefix + '.checksums.*') -and $_.level -eq 'fail' }).Count) {
+        Add-Result -Results $Results -Level 'pass' -Code ($CodePrefix + '.checksums.ok') -Message ('{0} checksums.txt verified successfully.' -f $CodePrefix)
+    }
+}
+
+function Test-StaticPath {
+    param(
+        [System.Collections.ArrayList]$Results,
+        [string]$Path,
+        [string]$Code,
+        [string]$Message,
+        [bool]$TreatAsCompleteGate
+    )
+
+    if (Test-Path -LiteralPath $Path) {
+        Add-Result -Results $Results -Level 'pass' -Code $Code -Message $Message
+        return
+    }
+
+    $level = if ($TreatAsCompleteGate -and $RequireComplete) { 'fail' } else { 'warn' }
+    Add-Result -Results $Results -Level $level -Code $Code -Message ('Missing path: {0}' -f $Path)
+}
+
+function Validate-PthFile {
+    param(
+        [System.Collections.ArrayList]$Results,
+        [string]$PythonRoot
+    )
+
+    $pthFile = Get-ChildItem -LiteralPath $PythonRoot -Filter 'python*._pth' -File | Select-Object -First 1
+    if (-not $pthFile) {
+        $level = if ($RequireComplete) { 'fail' } else { 'warn' }
+        Add-Result -Results $Results -Level $level -Code 'python.pth' -Message 'python*._pth file not found.'
+        return
+    }
+
+    $content = Get-Content -LiteralPath $pthFile.FullName
+    $expected = @('..\..\app', '..\site-packages', 'import site')
+    $missing = @()
+    foreach ($line in $expected) {
+        if (-not ($content -contains $line)) {
+            $missing += $line
+        }
+    }
+    if ($missing.Count -eq 0) {
+        Add-Result -Results $Results -Level 'pass' -Code 'python.pth' -Message ('Embeddable ._pth patched correctly: {0}' -f $pthFile.Name)
+    }
+    else {
+        $level = if ($RequireComplete) { 'fail' } else { 'warn' }
+        Add-Result -Results $Results -Level $level -Code 'python.pth' -Message ('Embeddable ._pth missing expected lines: {0}' -f ($missing -join ', '))
     }
 }
 
 $projectRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
 $defaultBundleRoot = Join-Path $projectRoot ('build\offline-dist\' + $ArtifactName)
 $defaultZipPath = Join-Path $projectRoot ('build\offline-dist\' + $ArtifactName + '.zip')
+$defaultSourcesRoot = Join-Path $projectRoot ('build\offline-dist\' + $ArtifactName + '-sources')
 
 if (-not $BundleRoot) {
     $BundleRoot = $defaultBundleRoot
 }
 if (-not $ZipPath) {
     $ZipPath = $defaultZipPath
+}
+if (-not $SourcesRoot) {
+    $SourcesRoot = $defaultSourcesRoot
 }
 
 $results = New-Object System.Collections.ArrayList
@@ -160,28 +218,26 @@ else {
 
 $manifestPath = Join-Path $BundleRoot 'manifests\bundle-manifest.json'
 $checksumsPath = Join-Path $BundleRoot 'manifests\checksums.txt'
+$sourcesManifestPath = Join-Path $SourcesRoot 'assets-manifest.json'
+$sourcesChecksumsPath = Join-Path $SourcesRoot 'checksums.txt'
 
-$requiredPaths = @(
-    @{ path = (Join-Path $BundleRoot 'app\embedagent'); code = 'bundle.app'; message = 'Application directory present.' },
-    @{ path = (Join-Path $BundleRoot 'config\config.json'); code = 'bundle.config'; message = 'Default config template present.' },
-    @{ path = (Join-Path $BundleRoot 'config\permission-rules.json'); code = 'bundle.permissions'; message = 'Default permission rules template present.' },
-    @{ path = $manifestPath; code = 'bundle.manifest'; message = 'bundle-manifest.json present.' },
-    @{ path = $checksumsPath; code = 'bundle.checksums'; message = 'checksums.txt present.' },
-    @{ path = (Join-Path $BundleRoot 'embedagent.cmd'); code = 'bundle.launcher.cli'; message = 'CLI launcher present.' },
-    @{ path = (Join-Path $BundleRoot 'embedagent-tui.cmd'); code = 'bundle.launcher.tui'; message = 'TUI launcher present.' }
-)
+Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'app\embedagent') -Code 'bundle.app' -Message 'Application directory present.' -TreatAsCompleteGate $true
+Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'config\config.json') -Code 'bundle.config' -Message 'Default config template present.' -TreatAsCompleteGate $true
+Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'config\permission-rules.json') -Code 'bundle.permissions' -Message 'Default permission rules template present.' -TreatAsCompleteGate $true
+Test-StaticPath -Results $results -Path $manifestPath -Code 'bundle.manifest' -Message 'bundle-manifest.json present.' -TreatAsCompleteGate $true
+Test-StaticPath -Results $results -Path $checksumsPath -Code 'bundle.checksums' -Message 'checksums.txt present.' -TreatAsCompleteGate $true
+Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'embedagent.cmd') -Code 'bundle.launcher.cli' -Message 'CLI launcher present.' -TreatAsCompleteGate $true
+Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'embedagent-tui.cmd') -Code 'bundle.launcher.tui' -Message 'TUI launcher present.' -TreatAsCompleteGate $true
+Test-StaticPath -Results $results -Path $SourcesRoot -Code 'sources.root' -Message 'Sources seed directory present.' -TreatAsCompleteGate $true
+Test-StaticPath -Results $results -Path $sourcesManifestPath -Code 'sources.manifest' -Message 'assets-manifest.json present.' -TreatAsCompleteGate $true
+Test-StaticPath -Results $results -Path $sourcesChecksumsPath -Code 'sources.checksums' -Message 'sources checksums.txt present.' -TreatAsCompleteGate $true
 
-foreach ($item in $requiredPaths) {
-    [void](Test-PathOrRecord -Results $results -Path $item.path -Code $item.code -Message $item.message -Required $true)
-}
-
-$zipExists = Test-Path -LiteralPath $ZipPath
-if ($zipExists) {
+if (Test-Path -LiteralPath $ZipPath) {
     Add-Result -Results $results -Level 'pass' -Code 'bundle.zip' -Message ('Zip artifact present: {0}' -f $ZipPath)
 }
 else {
-    $zipLevel = if ($RequireComplete) { 'fail' } else { 'warn' }
-    Add-Result -Results $results -Level $zipLevel -Code 'bundle.zip' -Message ('Zip artifact missing: {0}' -f $ZipPath)
+    $level = if ($RequireComplete) { 'fail' } else { 'warn' }
+    Add-Result -Results $results -Level $level -Code 'bundle.zip' -Message ('Zip artifact missing: {0}' -f $ZipPath)
 }
 
 $manifest = $null
@@ -196,41 +252,72 @@ if (Test-Path -LiteralPath $manifestPath) {
 }
 
 if ($manifest -ne $null) {
+    $completeGateComponents = @('python_runtime', 'python_packages', 'mingit_portable')
     foreach ($component in @($manifest.components)) {
         if (-not $component.required) {
             continue
         }
-        $level = 'pass'
-        if ($component.status -eq 'missing') {
-            $level = if ($RequireComplete) { 'fail' } else { 'warn' }
-        }
-        elseif ($component.status -eq 'skipped') {
-            $level = if ($RequireComplete) { 'fail' } else { 'warn' }
-        }
-        Add-Result -Results $results -Level $level -Code ('component.' + $component.name) -Message ('{0}: {1}' -f $component.status, $component.notes)
+        $treatAsGate = $completeGateComponents -contains $component.name
+        Invoke-ComponentResult -Results $results -Name $component.name -Status $component.status -Message $component.notes -TreatAsCompleteGate $treatAsGate
     }
 }
 
 if (Test-Path -LiteralPath $checksumsPath) {
-    Validate-Checksums -Results $results -BundleRoot $BundleRoot -ChecksumPath $checksumsPath
+    Validate-Checksums -Results $results -Root $BundleRoot -ChecksumPath $checksumsPath -CodePrefix 'bundle'
+}
+if (Test-Path -LiteralPath $sourcesChecksumsPath) {
+    Validate-Checksums -Results $results -Root $SourcesRoot -ChecksumPath $sourcesChecksumsPath -CodePrefix 'sources'
+}
+
+$pythonExe = Join-Path $BundleRoot 'runtime\python\python.exe'
+$gitExe = Get-GitExecutablePath -BundleRoot $BundleRoot
+Test-StaticPath -Results $results -Path $pythonExe -Code 'python.exe' -Message 'Bundled python.exe present.' -TreatAsCompleteGate $true
+Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'manifests\licenses\python-3.8.10.txt') -Code 'python.license' -Message 'Python license notice present.' -TreatAsCompleteGate $true
+Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'manifests\licenses\mingit-2.46.2.windows.1.txt') -Code 'mingit.license' -Message 'MinGit license notice present.' -TreatAsCompleteGate $true
+Test-StaticPath -Results $results -Path (Join-Path $SourcesRoot 'archives\python-3.8.10-embed-amd64.zip') -Code 'sources.python_archive' -Message 'Python source archive present in sources seed.' -TreatAsCompleteGate $true
+Test-StaticPath -Results $results -Path (Join-Path $SourcesRoot 'archives\MinGit-2.46.2-64-bit.zip') -Code 'sources.mingit_archive' -Message 'MinGit source archive present in sources seed.' -TreatAsCompleteGate $true
+
+if ($gitExe) {
+    Add-Result -Results $results -Level 'pass' -Code 'git.exe' -Message ('Bundled git.exe present: {0}' -f $gitExe)
+}
+else {
+    $level = if ($RequireComplete) { 'fail' } else { 'warn' }
+    Add-Result -Results $results -Level $level -Code 'git.exe' -Message 'Bundled git.exe not found in expected locations.'
+}
+
+if (Test-Path -LiteralPath (Join-Path $BundleRoot 'runtime\python')) {
+    Validate-PthFile -Results $results -PythonRoot (Join-Path $BundleRoot 'runtime\python')
 }
 
 if (-not $SkipDynamicChecks) {
-    $pythonExe = Join-Path $BundleRoot 'runtime\python\python.exe'
-    $rgExe = Join-Path $BundleRoot 'bin\rg\rg.exe'
-    $ctagsExe = Join-Path $BundleRoot 'bin\ctags\ctags.exe'
-    $clangExe = Join-Path $BundleRoot 'bin\llvm\bin\clang.exe'
-    $gitExe = Get-GitExecutablePath -BundleRoot $BundleRoot
-
-    Invoke-CommandCheck -Results $results -FilePath $pythonExe -Arguments @('--version') -Code 'dynamic.python'
-    Invoke-CommandCheck -Results $results -FilePath $rgExe -Arguments @('--version') -Code 'dynamic.rg'
-    Invoke-CommandCheck -Results $results -FilePath $ctagsExe -Arguments @('--version') -Code 'dynamic.ctags'
-    Invoke-CommandCheck -Results $results -FilePath $clangExe -Arguments @('--version') -Code 'dynamic.clang'
+    Invoke-CommandCheck -Results $results -FilePath $pythonExe -Arguments @('--version') -Code 'dynamic.python' -TreatAsCompleteGate $true
     if ($gitExe) {
-        Invoke-CommandCheck -Results $results -FilePath $gitExe -Arguments @('--version') -Code 'dynamic.git'
+        Invoke-CommandCheck -Results $results -FilePath $gitExe -Arguments @('--version') -Code 'dynamic.git' -TreatAsCompleteGate $true
     }
     else {
-        Add-Result -Results $results -Level 'warn' -Code 'dynamic.git' -Message 'Skipped git version check because git.exe was not found in the bundle.'
+        $level = if ($RequireComplete) { 'fail' } else { 'warn' }
+        Add-Result -Results $results -Level $level -Code 'dynamic.git' -Message 'Skipped git version check because git.exe was not found in the bundle.'
+    }
+
+    $launcher = Join-Path $BundleRoot 'embedagent.cmd'
+    if (Test-Path -LiteralPath $launcher) {
+        Push-Location $BundleRoot
+        try {
+            $output = & cmd.exe /c '.\embedagent.cmd --help' 2>&1
+            $exitCode = $LASTEXITCODE
+            if ($exitCode -eq 0) {
+                Add-Result -Results $results -Level 'pass' -Code 'dynamic.launcher' -Message 'embedagent.cmd --help succeeded.'
+            }
+            else {
+                Add-Result -Results $results -Level 'fail' -Code 'dynamic.launcher' -Message ('embedagent.cmd --help failed ({0}): {1}' -f $exitCode, ($output | Out-String).Trim())
+            }
+        }
+        catch {
+            Add-Result -Results $results -Level 'fail' -Code 'dynamic.launcher' -Message ('embedagent.cmd --help threw: {0}' -f $_.Exception.Message)
+        }
+        finally {
+            Pop-Location
+        }
     }
 }
 

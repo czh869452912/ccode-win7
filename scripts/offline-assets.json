@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "assets": [
+    {
+      "id": "python_embedded_x64",
+      "version": "3.8.10",
+      "kind": "python_runtime",
+      "platform": "win7-x64",
+      "upstream_url": "https://www.python.org/ftp/python/3.8.10/python-3.8.10-embed-amd64.zip",
+      "sha256": "abbe314e9b41603dde0a823b76f5bbbe17b3de3e5ac4ef06b759da5466711271",
+      "archive_type": "zip",
+      "cache_relpath": "python/python-3.8.10-embed-amd64.zip",
+      "stage_relpath": "runtime/python",
+      "license_name": "Python Software Foundation License",
+      "license_url": "https://docs.python.org/3.8/license.html",
+      "notes": "Pinned to CPython 3.8.10 embeddable x64 for Windows 7 runtime compatibility."
+    },
+    {
+      "id": "mingit_x64",
+      "version": "2.46.2.windows.1",
+      "kind": "git_portable",
+      "platform": "win7-x64",
+      "upstream_url": "https://github.com/git-for-windows/git/releases/download/v2.46.2.windows.1/MinGit-2.46.2-64-bit.zip",
+      "sha256": "0dca60869825ceb8b6108be69f0c536174fbca45e11300f2c14c34632d8238ed",
+      "archive_type": "zip",
+      "cache_relpath": "git/MinGit-2.46.2-64-bit.zip",
+      "stage_relpath": "bin/git",
+      "license_name": "GNU General Public License v2.0",
+      "license_url": "https://github.com/git-for-windows/git/blob/v2.46.2.windows.1/COPYING",
+      "notes": "Pinned to the last Git for Windows / MinGit release supporting Windows 7 and 8."
+    }
+  ]
+}

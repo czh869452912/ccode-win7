@@ -116,6 +116,7 @@
 - 2026-03-29：Phase 7 首个脚本骨架已建立：`scripts/prepare-offline.ps1` 可生成 staging bundle 目录、launcher、模板配置、`bundle-manifest.json` 与 `checksums.txt`。
 - 2026-03-29：Phase 7 `scripts/build-offline-bundle.ps1` 已落地，可把 staging bundle 复制到 `build/offline-dist/` 并生成 zip。
 - 2026-03-29：Phase 7 `scripts/validate-offline-bundle.ps1` 已落地，默认模式可校验 skeleton bundle 并输出告警，`-RequireComplete` 可收紧为正式验收门。
+- 2026-03-29：Phase 7 已正式接入真实 `Python 3.8 embeddable x64` 与 `MinGit x64` 资产，`scripts/offline-assets.json`、sources seed、license notice 和完整性校验链路已跑通。
 
 - [x] 需求确认与范围界定
 - [x] 参考项目架构分析（OpenCode / OpenHands / Roo-Code）

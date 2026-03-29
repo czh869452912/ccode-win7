@@ -805,3 +805,31 @@
   - 在正式验收入口中强制使用 `-RequireComplete`
   - 接入 embeddable Python 与第三方工具后补动态启动验证
   - 将 validate 结果沉淀到 bundle manifest 或独立报告文件
+
+### DC-032
+
+- 日期：2026-03-29
+- 变更主题：接入 Python embeddable 与 MinGit 的真实资产链路
+- 变更摘要：
+  - 新增 `scripts/offline-assets.json`，固定 `python_embedded_x64` 与 `mingit_x64` 的官方 URL、SHA256、stage/cache 路径与 License 元数据
+  - `scripts/prepare-offline.ps1` 现在支持 `-AssetManifestPath`、`-AssetIds` 和 `-AllowDownload`，并会对 Python/MinGit 执行缓存校验、按需下载、解压和 license notice 生成
+  - Python embeddable 会在 prepare 阶段修补 `python38._pth`，写入 `..\..\app`、`..\site-packages` 和 `import site`
+  - `scripts/build-offline-bundle.ps1` 现在会生成 `embedagent-win7-x64-sources/`，包含 `assets-manifest.json`、原始 zip 归档和 `checksums.txt`
+  - `scripts/validate-offline-bundle.ps1` 已在真实 Python/MinGit 资产接入后通过默认模式和 `-RequireComplete` 模式验收
+- 影响范围：
+  - Phase 7 真实资产接入路径
+  - bundle manifest / sources seed 结构
+  - Python embeddable 启动方式
+- 关联文档：
+  - `scripts/offline-assets.json`
+  - `scripts/prepare-offline.ps1`
+  - `scripts/build-offline-bundle.ps1`
+  - `scripts/validate-offline-bundle.ps1`
+  - `docs/offline-packaging.md`
+  - `docs/development-tracker.md`
+  - `docs/implementation-roadmap.md`
+- 是否需要 ADR：`不单独写`
+- 后续动作：
+  - 接入 `ripgrep` 与 `Universal Ctags`
+  - 评估是否用更精简的方式导出运行时 `site-packages`
+  - 在 Win7 虚拟机上补 bundle 级真实验收

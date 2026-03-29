@@ -1,6 +1,6 @@
 # EmbedAgent 实施路线与文档维护方案
 
-> 更新日期：2026-03-29（Phase 7 prepare/build/validate 骨架修订）
+> 更新日期：2026-03-29（Phase 7 Python/MinGit 真实资产接入修订）
 > 适用阶段：架构收敛后进入实现前
 
 ---
@@ -41,7 +41,7 @@
 | Phase 4 | `in_progress` | 本地闭环 LLVM/Clang 工具链已具备，待真实 C 工程与 Win7 验证 |
 | Phase 5 | `completed` | 权限、上下文、记忆、恢复和 cleanup 已落地，`validate-phase5.py` 已复验通过 |
 | Phase 6 | `in_progress` | 自动化验证已通过，待真实控制台 / Win7 / ConEmu 手工验证 |
-| Phase 7 | `in_progress` | 离线打包设计文档、ADR 与 `scripts/prepare-offline.ps1` / `scripts/build-offline-bundle.ps1` / `scripts/validate-offline-bundle.ps1` 已建立，尚未进入真实资产组装与完整验收 |
+| Phase 7 | `in_progress` | 离线打包设计文档、ADR、`prepare/build/validate` 三段脚本，以及 Python/MinGit 真实资产接入已完成，待接 `rg/ctags` 与继续收口 |
 
 ---
 
@@ -314,6 +314,7 @@ conda activate embedagent-py38
 - `scripts/prepare-offline.ps1` 已建立，可生成 staging bundle 骨架与 manifest/checksum 草案
 - `scripts/build-offline-bundle.ps1` 已建立，可把 staging bundle 复制到 `offline-dist` 并生成 zip
 - `scripts/validate-offline-bundle.ps1` 已建立，可校验 skeleton bundle，并支持 `-RequireComplete` 严格门禁
+- `scripts/offline-assets.json` 已建立，并完成 Python embeddable / MinGit 真实资产接入
 
 ---
 
@@ -377,8 +378,8 @@ conda activate embedagent-py38
 1. 为 Phase 4 选定真实 C 工程样例，并固化默认 `compile / test / tidy / coverage` recipe
 2. 在 Win7 与真实控制台宿主中完成 Phase 4 / Phase 6 手工验证
 3. 收敛 LLVM/Clang bundle 的版本组合与调用路径
-4. 在现有 `prepare/build/validate` 骨架上接入真实 embeddable Python 与第三方工具资产
-5. 固化 MinGit / ripgrep / Universal Ctags 的来源、License 与 checksum 记录
+4. 在现有 `prepare/build/validate` 骨架上接入 `ripgrep` 与 `Universal Ctags`
+5. 评估 `.venv\Lib\site-packages` 直拷是否需要替换成更精简的运行时导出方案
 6. 评估 `memory browse / inspect` 是否作为 Phase 6 收口的必要项
 
 ---
