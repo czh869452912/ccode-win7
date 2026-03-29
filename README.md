@@ -112,6 +112,7 @@
 - 2026-03-29：Phase 1-5 功能已落地；修复根目录文件写入边界后，`scripts/validate-phase5.py` 已重新跑通。
 - 2026-03-29：Phase 6 自动化验证已通过；`scripts/validate-phase6.py` 与 `unittest discover -s tests -v` 已可复跑。
 - 当前主线工作：Phase 4 真实 C 工程 / Win7 验证、Phase 6 真实控制台 / Win7 手工验证、Phase 7 打包与离线交付设计。
+- 2026-03-29：Phase 7 设计基线已建立：`docs/offline-packaging.md`、`docs/win7-preflight-checklist.md` 与 ADR `0001-offline-portable-bundle-baseline.md`。
 
 - [x] 需求确认与范围界定
 - [x] 参考项目架构分析（OpenCode / OpenHands / Roo-Code）
@@ -142,6 +143,12 @@
 
 Phase 6 手工验证说明见 [docs/phase6-validation.md](docs/phase6-validation.md)。
 
+Phase 7 设计基线见：
+
+- [docs/offline-packaging.md](docs/offline-packaging.md)
+- [docs/win7-preflight-checklist.md](docs/win7-preflight-checklist.md)
+- [docs/adrs/0001-offline-portable-bundle-baseline.md](docs/adrs/0001-offline-portable-bundle-baseline.md)
+
 ---
 
 ## 目录结构
@@ -153,7 +160,9 @@ ccode-win7/
 ├── docs/               # 设计文档
 │   ├── adrs/
 │   ├── development-tracker.md
-│   └── design-change-log.md
+│   ├── design-change-log.md
+│   ├── offline-packaging.md
+│   └── win7-preflight-checklist.md
 ├── reference/          # 参考项目源码（opencode / OpenHands / Roo-Code）
 ├── scripts/            # 本地辅助脚本（LLVM 激活 / smoke test 等）
 ├── src/

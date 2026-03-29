@@ -706,3 +706,29 @@
   - 继续推进 Phase 4 真实 C 工程与 Win7 验证
   - 在真实控制台与 Win7 / ConEmu 下完成 Phase 6 手工验证
   - 启动 Phase 7 打包文档与前置自检设计
+
+### DC-028
+
+- 日期：2026-03-29
+- 变更主题：建立 Phase 7 离线打包与 Win7 preflight 设计基线
+- 变更摘要：
+  - 新增 `docs/offline-packaging.md`，固定 one-folder portable bundle、目录布局、组件清单、构建流水线与 bundle 级验证口径
+  - 新增 `docs/win7-preflight-checklist.md`，固定 Windows 7 目标机部署与首次运行检查项
+  - 新增 ADR `0001-offline-portable-bundle-baseline.md`，把 Phase 7 首个交付形态收敛为 x64 one-folder portable bundle
+  - README、tracker 与 roadmap 已同步登记 Phase 7 设计基线已建立
+- 影响范围：
+  - Phase 7 交付路线
+  - 文档治理与验收口径
+  - 后续打包脚本命名与职责拆分
+- 关联文档：
+  - `README.md`
+  - `docs/offline-packaging.md`
+  - `docs/win7-preflight-checklist.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/adrs/0001-offline-portable-bundle-baseline.md`
+- 是否需要 ADR：`已补 ADR-0001`
+- 后续动作：
+  - 落 bundle manifest / checksum / license 生成方案
+  - 规划 `prepare-offline` / `build-offline-bundle` / `validate-offline-bundle` 脚本骨架
+  - 在 Win7 虚拟机上按 preflight 口径完成首轮 bundle 验收

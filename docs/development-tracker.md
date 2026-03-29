@@ -1,6 +1,6 @@
 # EmbedAgent 开发进度跟踪
 
-> 更新日期：2026-03-29（DC-027 修订）
+> 更新日期：2026-03-29（DC-028 修订）
 > 用途：持续跟踪当前阶段、下一步任务、里程碑进度、风险与阻塞
 
 ---
@@ -28,7 +28,7 @@
 
 - 当前阶段：`Phase 4 真实工程验证 + Phase 6 手工验证收口`
 - 总体状态：`进行中`
-- 当前重点：`Phase 4 默认 recipe/真实工程/Win7 验证，Phase 6 真实控制台与 Win7 手工验证，Phase 7 打包文档起步`
+- 当前重点：`Phase 4 默认 recipe/真实工程/Win7 验证，Phase 6 真实控制台与 Win7 手工验证，Phase 7 基于设计基线推进 manifest / preflight / bundle 脚本骨架`
 
 ### 当前判断
 
@@ -72,8 +72,9 @@
 - Phase 5F Memory Maintenance 已落地：artifact / session / project memory 已具备基础 cleanup 与索引收口能力
 - Phase 5 长任务稳定性验证已完成：`scripts/validate-phase5.py` 已在修复根目录文件写入边界后重新跑通
 - Phase 5 权限细化已完成：已支持规则文件、allow / ask / deny、路径与命令模式匹配
+- Phase 7 设计基线已建立：`docs/offline-packaging.md`、`docs/win7-preflight-checklist.md` 与 ADR `0001-offline-portable-bundle-baseline.md`
 
-项目下一步：继续推进 Phase 4 真实工程验证，并在真实控制台里完成模块化终端前端的手工验证。
+项目下一步：继续推进 Phase 4 真实工程验证，在真实控制台里完成模块化终端前端手工验证，并把 Phase 7 的 manifest / preflight / bundle 脚本骨架落下来。
 
 ---
 
@@ -83,7 +84,7 @@
 
 1. 推进 Phase 4 的真实 C 工程与 Win7 验证
 2. 在真实控制台里完成模块化终端前端手工验证并记录结果
-3. 启动 Phase 7 打包文档与前置自检骨架
+3. 基于 Phase 7 设计基线启动 bundle manifest、preflight 与组包脚本骨架
 
 实现备注：
 
@@ -94,12 +95,14 @@
 - Phase 4 已具备项目内闭环工具链，但默认 recipe、真实 C 工程和 Win7 验证仍需补齐。
 - Phase 5 脚本验证已重新跑通，当前已从“实现完成”推进到“脚本复验通过”。
 - Phase 6 自动化验证已通过，剩余缺口是宿主兼容与真实交互体验。
+- Phase 7 现已完成设计基线与 ADR，下一步应转向 manifest、bundle 目录和 preflight 脚本实现。
 
 ### P1：紧随其后
 
 1. 收敛 Clang bundle 的版本组合与默认命令 recipe
 2. 决定是否将 memory browse / inspect 作为 Phase 6 收口项
 3. 评估终端前端稳定后是否推进 stdio JSON-RPC adapter
+4. 固化 MinGit / ripgrep / Universal Ctags 的来源、License 与 checksum 管理方式
 
 ---
 
@@ -120,6 +123,7 @@
 | T-011 | 实现 Phase 6A InProcessAdapter | `completed` | CLI 已改为通过 adapter 驱动 Core，并完成最小行为验证 |
 | T-012 | 落地模块化终端前端 | `in_progress` | 已完成 `src/embedagent/frontends/terminal/` 模块化拆包，接入 timeline / workspace / artifact / todo 浏览接口，保留 `embedagent.tui` 兼容入口；下一步是继续做真实控制台 / Win7 手工验证与交互细化 |
 | T-013 | 建立 Phase 6 验证入口 | `completed` | `scripts/validate-phase6.py` 与 `docs/phase6-validation.md` 已建立，Phase 6 已进入脚本可跟踪状态 |
+| T-014 | 建立 Phase 7 离线打包设计基线 | `completed` | 已新增 `docs/offline-packaging.md`、`docs/win7-preflight-checklist.md` 与 ADR `0001-offline-portable-bundle-baseline.md` |
 
 ---
 
@@ -134,7 +138,7 @@
 | Phase 4 | Clang 工具链 | `in_progress` | 已有项目内闭环工具链，待真实工程与 Win7 验证 |
 | Phase 5 | 质量保障层 | `completed` | 权限、上下文、记忆、恢复与 cleanup 已落地；修复根目录文件写入边界后，专项验证脚本已复验通过 |
 | Phase 6 | CLI / TUI | `in_progress` | InProcessAdapter 已扩展 workspace / timeline / artifact / todo 前端接口，终端前端已拆为 `frontends/terminal` 子模块，并已通过 `validate-phase6.py` 与单元测试；待真实控制台 / Win7 手工验证 |
-| Phase 7 | 打包与离线交付 | `not_started` | Win7 离线 one-folder bundle |
+| Phase 7 | 打包与离线交付 | `not_started` | 设计基线与 ADR 已建立，尚未进入 manifest / preflight / bundle 脚本实现 |
 
 ---
 
@@ -152,6 +156,8 @@
 | R-008 | 当前仓库缺少真实 C 构建入口 | 中 | 已完成本地 smoke test，后续仍需接默认命令和真实工程 |
 | R-009 | 当前闭环工具链存在跨版本组合 | 中 | 现状已通过本地 smoke test，后续需要继续收敛到同版本或自建包 |
 | R-010 | 当前上下文压缩仍较弱 | 中 | 已有 mode-aware budget、reducer registry、Artifact Store、SessionSummaryStore、ProjectMemoryStore 与 Resume Entry，后续继续补生命周期清理与可选 LLM condenser |
+| R-011 | Python embeddable distribution 的 CRT / UCRT 本地部署复杂 | 中 | 用 Phase 7 preflight 清单和本地 DLL bundling 策略收口 |
+| R-012 | 第三方二进制来源、License 和 checksum 追溯不足 | 中 | 用 bundle manifest 记录 version/source/license/checksum，并纳入构建产物 |
 
 ---
 
@@ -184,6 +190,7 @@
 | 2026-03-29 | Phase 6 终端前端已模块化：新增 src/embedagent/frontends/terminal/ 包、timeline store 和 adapter 浏览接口，保留 embedagent.tui 兼容入口，并通过 headless 与单元测试 |
 | 2026-03-29 | 修复 `**/*.md` 等模式对根目录文件不匹配的问题，补充 `test_modes.py` 回归，并重新跑通 `scripts/validate-phase5.py` |
 | 2026-03-29 | README、路线图、进度跟踪与变更日志已按当前能力和阶段状态完成一轮对齐 |
+| 2026-03-29 | 建立 Phase 7 离线打包设计基线：新增 `docs/offline-packaging.md`、`docs/win7-preflight-checklist.md` 与 ADR `0001-offline-portable-bundle-baseline.md` |
 
 
 

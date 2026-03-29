@@ -1,6 +1,6 @@
 # EmbedAgent 实施路线与文档维护方案
 
-> 更新日期：2026-03-29（Phase 5 复验 / 文档对齐修订）
+> 更新日期：2026-03-29（Phase 7 设计基线修订）
 > 适用阶段：架构收敛后进入实现前
 
 ---
@@ -41,7 +41,7 @@
 | Phase 4 | `in_progress` | 本地闭环 LLVM/Clang 工具链已具备，待真实 C 工程与 Win7 验证 |
 | Phase 5 | `completed` | 权限、上下文、记忆、恢复和 cleanup 已落地，`validate-phase5.py` 已复验通过 |
 | Phase 6 | `in_progress` | 自动化验证已通过，待真实控制台 / Win7 / ConEmu 手工验证 |
-| Phase 7 | `not_started` | 离线打包与交付文档尚未启动 |
+| Phase 7 | `not_started` | 离线打包设计文档和 ADR 已建立，尚未进入脚本与 bundle 组装实现 |
 
 ---
 
@@ -306,6 +306,12 @@ conda activate embedagent-py38
 - `docs/offline-packaging.md`（包含 bundle 清单与构建流程）
 - `docs/win7-preflight-checklist.md`（目标机部署检查清单）
 
+当前状态补充：
+
+- `docs/offline-packaging.md` 已建立
+- `docs/win7-preflight-checklist.md` 已建立
+- `docs/adrs/0001-offline-portable-bundle-baseline.md` 已建立
+
 ---
 
 ## 5. 文档维护策略
@@ -368,8 +374,9 @@ conda activate embedagent-py38
 1. 为 Phase 4 选定真实 C 工程样例，并固化默认 `compile / test / tidy / coverage` recipe
 2. 在 Win7 与真实控制台宿主中完成 Phase 4 / Phase 6 手工验证
 3. 收敛 LLVM/Clang bundle 的版本组合与调用路径
-4. 启动 Phase 7 文档：`offline-packaging.md` 与 `win7-preflight-checklist.md`
-5. 评估 `memory browse / inspect` 是否作为 Phase 6 收口的必要项
+4. 基于 Phase 7 设计文档落 `prepare/build/validate` 三类打包脚本骨架
+5. 固化 MinGit / ripgrep / Universal Ctags 的来源、License 与 checksum 记录
+6. 评估 `memory browse / inspect` 是否作为 Phase 6 收口的必要项
 
 ---
 
@@ -379,8 +386,9 @@ conda activate embedagent-py38
 
 1. `docs/clang-integration-plan.md`（补真实工程 recipe 与 Win7 验证记录）
 2. `docs/phase6-validation.md`（回填真实控制台 / Win7 / ConEmu 手工验证结果）
-3. `docs/offline-packaging.md`（Phase 7）
-4. `docs/win7-preflight-checklist.md`（Phase 7）
+3. `docs/offline-packaging.md`（已建立，后续补 bundle manifest 与脚本落地记录）
+4. `docs/win7-preflight-checklist.md`（已建立，后续补实机验收记录）
+5. `docs/adrs/0001-offline-portable-bundle-baseline.md`（已建立）
 
 ---
 
