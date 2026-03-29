@@ -283,20 +283,46 @@ def is_tool_allowed(mode_name: str, tool_name: str) -> bool:
     return tool_name in allowed_tools_for(mode_name)
 
 
-def is_path_writable(mode_name: str, relative_path: str, config=None) -> bool:
-    normalized_path = relative_path.replace("\\", "/")
-    for pattern in get_writable_globs(mode_name, config):
-        normalized_pattern = pattern.replace("\\", "/")
-        if fnmatch.fnmatch(normalized_path, normalized_pattern):
-            return True
-        # Python's fnmatch does not match "**/*.md" against root-level "README.md",
-        # so treat a leading "**/" as "any depth, including zero".
-        if normalized_pattern.startswith("**/") and fnmatch.fnmatch(
-            normalized_path,
-            normalized_pattern[3:],
-        ):
-            return True
+def _fnmatch_with_doublestar(path: str, pattern: str) -> bool:
+    """Return True if *path* matches *pattern*.
+
+    Handles the ``**/`` prefix as "any depth, including zero" because
+    Python's :mod:`fnmatch` does not natively support ``**``.
+    """
+    if fnmatch.fnmatch(path, pattern):
+        return True
+    if pattern.startswith("**/") and fnmatch.fnmatch(path, pattern[3:]):
+        return True
     return False
+
+
+def is_path_writable(mode_name: str, relative_path: str, config=None) -> bool:
+    """Return True if *relative_path* is writable in *mode_name*.
+
+    Glob patterns are evaluated in order; the **last matching** pattern wins
+    (`.gitignore` semantics).  A pattern prefixed with ``!`` is a negation
+    rule that revokes write permission for paths that match it::
+
+        writable_globs:
+          - "**/*.c"      # allow all C files
+          - "!build/**"   # except anything under build/
+
+    This lets projects exclude generated files (e.g. ``build/``) from the
+    writable set without enumerating every non-build directory.
+    """
+    normalized_path = relative_path.replace("\\", "/")
+    result = False  # default: not writable
+    for raw_pattern in get_writable_globs(mode_name, config):
+        raw_pattern = raw_pattern.replace("\\", "/")
+        if raw_pattern.startswith("!"):
+            # Negation: if this pattern matches, revoke permission.
+            deny_pattern = raw_pattern[1:]
+            if _fnmatch_with_doublestar(normalized_path, deny_pattern):
+                result = False
+        else:
+            if _fnmatch_with_doublestar(normalized_path, raw_pattern):
+                result = True
+    return result
 
 
 def parse_mode_command(text: str, fallback_mode: str = DEFAULT_MODE) -> Tuple[str, str, bool]:

@@ -12,6 +12,14 @@ def _utc_now() -> str:
     return datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
 
 
+def _atomic_write_json(path: str, payload: Any) -> None:
+    """Write *payload* as JSON to *path* atomically via temp-file rename."""
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as handle:
+        json.dump(payload, handle, ensure_ascii=False, indent=2, sort_keys=True)
+    os.replace(tmp, path)
+
+
 _OPENAI_KEY_RE = re.compile(r"sk-[A-Za-z0-9_-]{12,}")
 _BEARER_RE = re.compile(r"\bBearer\s+[A-Za-z0-9._~+/=-]{8,}", re.IGNORECASE)
 _AUTH_HEADER_RE = re.compile(r"(?im)^(Authorization\s*:\s*)(.+)$")
@@ -211,8 +219,7 @@ class ArtifactStore(object):
     def _write_index(self, payload: Dict[str, Any]) -> None:
         if not os.path.isdir(self.root):
             os.makedirs(self.root)
-        with open(self.index_path, "w", encoding="utf-8") as handle:
-            json.dump(payload, handle, ensure_ascii=False, indent=2, sort_keys=True)
+        _atomic_write_json(self.index_path, payload)
 
     def _normalize_ref(self, reference: str) -> str:
         return reference.replace("\\", "/")
@@ -232,8 +239,7 @@ class ArtifactStore(object):
         directory = os.path.dirname(absolute_path)
         if not os.path.isdir(directory):
             os.makedirs(directory)
-        with open(absolute_path, "w", encoding="utf-8") as handle:
-            json.dump(payload, handle, ensure_ascii=False, indent=2, sort_keys=True)
+        _atomic_write_json(absolute_path, payload)
         relative_ref = relative_path.replace(os.sep, "/")
         self._update_index(relative_ref, payload)
         return relative_ref

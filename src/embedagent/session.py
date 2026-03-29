@@ -91,6 +91,29 @@ class Turn:
 
 
 @dataclass
+class LoopResult:
+    """Structured result returned by AgentLoop.run().
+
+    Replaces the previous bare ``Tuple[str, Session]`` + RuntimeError pattern.
+    Callers can branch on ``termination_reason`` without parsing exception text.
+
+    Possible ``termination_reason`` values
+    ---------------------------------------
+    ``"completed"``   — agent replied without requesting more tool calls.
+    ``"max_turns"``   — hit the ``max_turns`` ceiling.
+    ``"guard"``       — LoopGuard stopped the loop (doom-loop protection).
+    ``"cancelled"``   — external ``stop_event`` was set.
+    ``"error"``       — unexpected exception; ``error`` field contains the message.
+    """
+
+    final_text: str
+    session: "Session"
+    termination_reason: str  # completed | max_turns | guard | cancelled | error
+    error: Optional[str] = None
+    turns_used: int = 0
+
+
+@dataclass
 class Session:
     session_id: str = field(default_factory=lambda: uuid.uuid4().hex)
     started_at: str = field(default_factory=_utc_now)
@@ -136,3 +159,41 @@ class Session:
 
     def api_messages(self) -> List[Dict[str, Any]]:
         return [message.to_api_dict() for message in self.messages]
+
+    def trim_old_observations(self, keep_turns: int = 20) -> int:
+        """Replace observation content in turns older than *keep_turns* with a stub.
+
+        This bounds in-memory growth for long sessions without losing the
+        message list structure that ``ContextManager`` relies on.  The stub
+        preserves ``success``, ``tool_name``, and ``error`` so that summaries
+        and the guard system still work correctly.
+
+        Returns the number of messages whose content was stubbed.
+        """
+        if len(self.turns) <= keep_turns:
+            return 0
+        archived_turns = self.turns[:-keep_turns]
+        archived_indices: set = set()
+        for turn in archived_turns:
+            # Collect indices of tool-result messages for this turn.
+            for idx in range(turn.message_start_index, turn.message_end_index + 1):
+                if idx < len(self.messages) and self.messages[idx].role == "tool":
+                    archived_indices.add(idx)
+        stubbed = 0
+        for idx in archived_indices:
+            msg = self.messages[idx]
+            try:
+                data = json.loads(msg.content)
+            except (ValueError, TypeError):
+                continue
+            if not isinstance(data, dict) or data.get("_archived"):
+                continue
+            stub = {
+                "_archived": True,
+                "success": data.get("success"),
+                "error": data.get("error"),
+                "data": {"tool_name": data.get("data", {}).get("tool_name") if isinstance(data.get("data"), dict) else None},
+            }
+            msg.content = _to_json(stub)
+            stubbed += 1
+        return stubbed
