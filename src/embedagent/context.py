@@ -13,6 +13,20 @@ from embedagent.session import Message, Observation, Session, Turn
 _MODE_RE = re.compile(r"当前模式：(\w+)")
 _MODE_PROMPT_PREFIX = "你是 EmbedAgent 的受控模式原型。"
 
+# Tool messages from these tools carry diagnostic/build results that are
+# especially valuable for the LLM.  They are skipped when hard-trim needs
+# to drop messages to fit within the token budget, so that a compile error
+# on line 400 of the build log is not silently discarded before a trivial
+# list_files result.
+_HIGH_PRIORITY_TOOLS = frozenset({
+    "compile_project",
+    "run_tests",
+    "run_clang_tidy",
+    "run_clang_analyzer",
+    "collect_coverage",
+    "report_quality",
+})
+
 
 @dataclass
 class ContextPolicy:
@@ -633,6 +647,23 @@ class ContextManager(object):
         return trimmed, dropped_messages
 
     def _oldest_non_system_index(self, messages: List[Dict[str, Any]]) -> Optional[int]:
+        """Return the index of the oldest message eligible for dropping.
+
+        System messages are never dropped.  Tool messages from high-priority
+        tools (build/test diagnostics) are also skipped in the first pass so
+        that critical error output survives compression as long as possible.
+        If no non-priority candidate exists, fall back to any non-system
+        message to guarantee progress.
+        """
+        # First pass: prefer dropping non-system, non-high-priority messages.
+        for index, message in enumerate(messages):
+            if message.get("role") == "system":
+                continue
+            tool_name = message.get("name") or ""
+            if message.get("role") == "tool" and tool_name in _HIGH_PRIORITY_TOOLS:
+                continue
+            return index
+        # Second pass (fallback): drop any non-system message.
         for index, message in enumerate(messages):
             if message.get("role") != "system":
                 return index

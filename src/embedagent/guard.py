@@ -77,6 +77,12 @@ class LoopGuard(object):
             self.same_failed_action_count = 0
             self.last_failed_retryable = True
             return
+        # User clicking "deny" on a permission prompt is a deliberate choice,
+        # not a tool malfunction.  Do not count it toward the failure thresholds
+        # so that a single user rejection does not trigger the guard.
+        if isinstance(observation.data, dict):
+            if observation.data.get("blocked_by") == "user_confirmation":
+                return
         self.consecutive_failures += 1
         action_key = _action_key(action)
         retryable = True

@@ -2,11 +2,13 @@ from __future__ import annotations
 
 from typing import Any, Dict, List
 
+from embedagent.command_sanitizer import get_default_sanitizer
 from embedagent.session import Observation
 from embedagent.tools._base import (
     DEFAULT_COMMAND_TIMEOUT_SEC,
     ToolContext,
     ToolDefinition,
+    ToolError,
 )
 
 
@@ -16,6 +18,10 @@ def build_tools(ctx: ToolContext) -> List[ToolDefinition]:
         command_text = str(arguments["command"]).strip()
         cwd_argument = str(arguments.get("cwd") or ".")
         timeout_sec = int(arguments.get("timeout_sec") or DEFAULT_COMMAND_TIMEOUT_SEC)
+        sanitizer = get_default_sanitizer()
+        blocked, reason = sanitizer.is_blocked(command_text)
+        if blocked:
+            raise ToolError(reason)
         return ctx.run_shell_tool("run_command", command_text, cwd_argument, timeout_sec)
 
     return [

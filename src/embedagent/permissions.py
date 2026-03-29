@@ -184,6 +184,10 @@ class PermissionPolicy(object):
         category: str,
         details: Dict[str, Any],
     ) -> Optional[PermissionRule]:
+        # Use last-match semantics: later rules in the list take precedence over
+        # earlier ones.  This mirrors .gitignore / security-policy conventions
+        # where project-level overrides (appended after global rules) win.
+        matched = None
         for rule in self.rules:
             if rule.category and rule.category != category:
                 continue
@@ -201,8 +205,8 @@ class PermissionPolicy(object):
                 command = str(details.get("command") or "")
                 if not command or not self._matches_patterns(command, rule.command_patterns):
                     continue
-            return rule
-        return None
+            matched = rule  # keep scanning; last match wins
+        return matched
 
     def _matches_globs(self, value: str, patterns: List[str]) -> bool:
         normalized = value.replace("\\", "/")

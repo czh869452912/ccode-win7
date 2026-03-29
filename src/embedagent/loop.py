@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import logging
 import os
+import threading
+import time
 from typing import Callable, Optional, Tuple
 
 from embedagent.context import ContextManager
 from embedagent.guard import LoopGuard
-from embedagent.llm import OpenAICompatibleClient
+from embedagent.llm import ModelClientError, OpenAICompatibleClient
 from embedagent.memory_maintenance import MemoryMaintenance
 from embedagent.interaction import (
     UserInputRequest,
@@ -24,11 +27,18 @@ from embedagent.modes import (
 )
 from embedagent.permissions import PermissionPolicy, PermissionRequest
 from embedagent.project_memory import ProjectMemoryStore
-from embedagent.session import Action, Observation, Session
+from embedagent.session import Action, LoopResult, Observation, Session
 from embedagent.session_store import SessionSummaryStore
 from embedagent.tools import ToolRuntime
 from embedagent.tools._base import ToolError
 from embedagent.workspace_profile import build_workspace_profile_message
+
+_LOG = logging.getLogger(__name__)
+
+# Transient HTTP status codes that warrant an LLM retry.
+_RETRYABLE_HTTP_CODES = {429, 500, 502, 503, 504}
+_LLM_MAX_RETRIES = 3
+_LLM_RETRY_BASE_DELAY = 1.0  # seconds
 
 
 class AgentLoop(object):
@@ -79,7 +89,8 @@ class AgentLoop(object):
         ] = None,
         on_context_result: Optional[Callable[[object], None]] = None,
         session: Optional[Session] = None,
-    ) -> Tuple[str, Session]:
+        stop_event: Optional[threading.Event] = None,
+    ) -> LoopResult:
         current_mode = require_mode(initial_mode)["slug"]
         if session is None:
             session = Session()
@@ -96,40 +107,65 @@ class AgentLoop(object):
         self._persist_summary(session, current_mode)
         final_text = ""
         loop_guard = LoopGuard()
-        for _ in range(self.max_turns):
+        turns_used = 0
+        for turn_index in range(self.max_turns):
+            # ---- cancellation check ----
+            if stop_event is not None and stop_event.is_set():
+                self._persist_summary(session, current_mode)
+                return LoopResult(
+                    final_text=final_text,
+                    session=session,
+                    termination_reason="cancelled",
+                    turns_used=turns_used,
+                )
             tool_schemas = self._schemas_for_mode(current_mode)
             context_result = self.context_manager.build_messages(session, current_mode)
             if on_context_result is not None:
                 on_context_result(context_result)
             self._persist_summary(session, current_mode, context_result)
-            if stream:
-                reply = self.client.stream(
-                    context_result.messages,
-                    tools=tool_schemas,
-                    on_text_delta=on_text_delta,
-                )
-            else:
-                reply = self.client.generate(
-                    context_result.messages,
-                    tools=tool_schemas,
-                )
-                if on_text_delta and reply.content:
-                    on_text_delta(reply.content)
+            # ---- LLM call with retry ----
+            reply = self._call_llm_with_retry(
+                context_result.messages,
+                tool_schemas,
+                stream=stream,
+                on_text_delta=on_text_delta,
+            )
             session.add_assistant_reply(reply)
             self._persist_summary(session, current_mode, context_result)
             final_text = reply.content
+            turns_used = turn_index + 1
             if not reply.actions:
                 self._persist_summary(session, current_mode)
                 self._maybe_maintain_memory(force=True)
-                return final_text, session
+                return LoopResult(
+                    final_text=final_text,
+                    session=session,
+                    termination_reason="completed",
+                    turns_used=turns_used,
+                )
             for action in reply.actions:
+                # ---- cancellation check inside tool loop ----
+                if stop_event is not None and stop_event.is_set():
+                    self._persist_summary(session, current_mode)
+                    return LoopResult(
+                        final_text=final_text,
+                        session=session,
+                        termination_reason="cancelled",
+                        turns_used=turns_used,
+                    )
                 if loop_guard.should_block(action):
                     observation = loop_guard.blocked_observation(action)
                     session.add_observation(action, observation)
                     self._persist_summary(session, current_mode)
                     if on_tool_finish:
                         on_tool_finish(action, observation)
-                    raise RuntimeError(loop_guard.stop_reason())
+                    return LoopResult(
+                        final_text=final_text,
+                        session=session,
+                        termination_reason="guard",
+                        error=loop_guard.stop_reason(),
+                        turns_used=turns_used,
+                    )
                 if on_tool_start:
                     on_tool_start(action)
                 observation, current_mode = self._execute_action(
@@ -144,9 +180,75 @@ class AgentLoop(object):
                 if on_tool_finish:
                     on_tool_finish(action, observation)
                 loop_guard.record(action, observation)
+                # ---- recovery hint injection before hard stop ----
+                if loop_guard.consecutive_failures >= 2 and not loop_guard.should_stop():
+                    hint = (
+                        "警告：已连续失败 %d 次（最近工具：%s，错误：%s）。"
+                        "请重新评估方案，考虑换一种工具或路径，或用 ask_user 向用户求助。"
+                    ) % (
+                        loop_guard.consecutive_failures,
+                        action.name,
+                        (observation.error or "未知错误")[:120],
+                    )
+                    session.add_system_message(hint)
                 if loop_guard.should_stop():
-                    raise RuntimeError(loop_guard.stop_reason())
-        raise RuntimeError("超过最大迭代次数，主循环已停止。")
+                    self._persist_summary(session, current_mode)
+                    return LoopResult(
+                        final_text=final_text,
+                        session=session,
+                        termination_reason="guard",
+                        error=loop_guard.stop_reason(),
+                        turns_used=turns_used,
+                    )
+        self._persist_summary(session, current_mode)
+        return LoopResult(
+            final_text=final_text,
+            session=session,
+            termination_reason="max_turns",
+            error="超过最大迭代次数（%d），主循环已停止。" % self.max_turns,
+            turns_used=turns_used,
+        )
+
+    def _call_llm_with_retry(
+        self,
+        messages: list,
+        tool_schemas: list,
+        stream: bool,
+        on_text_delta: Optional[Callable[[str], None]],
+    ):
+        """Call the LLM with exponential back-off retry on transient errors."""
+        last_exc = None
+        for attempt in range(_LLM_MAX_RETRIES):
+            try:
+                if stream:
+                    return self.client.stream(
+                        messages,
+                        tools=tool_schemas,
+                        on_text_delta=on_text_delta,
+                    )
+                else:
+                    reply = self.client.generate(messages, tools=tool_schemas)
+                    if on_text_delta and reply.content:
+                        on_text_delta(reply.content)
+                    return reply
+            except ModelClientError as exc:
+                last_exc = exc
+                error_text = str(exc)
+                is_retryable = any(
+                    str(code) in error_text for code in _RETRYABLE_HTTP_CODES
+                )
+                if not is_retryable or attempt >= _LLM_MAX_RETRIES - 1:
+                    raise
+                delay = _LLM_RETRY_BASE_DELAY * (2 ** attempt)
+                _LOG.warning(
+                    "LLM call failed (attempt %d/%d), retrying in %.1fs: %s",
+                    attempt + 1, _LLM_MAX_RETRIES, delay, exc,
+                )
+                time.sleep(delay)
+        raise last_exc  # type: ignore[misc]
+
+    # Number of recent turns to keep fully in memory; older turns are stubbed.
+    _SESSION_ARCHIVE_KEEP_TURNS = 30
 
     def _persist_summary(
         self,
@@ -157,12 +259,19 @@ class AgentLoop(object):
         summary_ref = None
         try:
             summary_ref = self.summary_store.persist(session, current_mode, context_result)
-        except Exception:
-            summary_ref = None
+        except OSError as exc:
+            _LOG.warning("session summary persist failed: %s", exc)
+        except Exception as exc:
+            _LOG.error("unexpected error in persist_summary: %s", exc, exc_info=True)
         try:
             self.project_memory_store.refresh(session, current_mode, summary_ref)
-        except Exception:
-            return
+        except Exception as exc:
+            _LOG.warning("project memory refresh failed: %s", exc)
+        # Bound in-memory message growth for long sessions.
+        try:
+            session.trim_old_observations(self._SESSION_ARCHIVE_KEEP_TURNS)
+        except Exception as exc:
+            _LOG.warning("session trim failed: %s", exc)
         self._maybe_maintain_memory()
 
     def _maybe_maintain_memory(self, force: bool = False) -> None:
@@ -172,8 +281,8 @@ class AgentLoop(object):
         self._maintenance_counter = 0
         try:
             self.memory_maintenance.run()
-        except Exception:
-            return
+        except Exception as exc:
+            _LOG.warning("memory maintenance failed: %s", exc)
 
     def _schemas_for_mode(self, mode_name: str):
         allowed = set(allowed_tools_for(mode_name))

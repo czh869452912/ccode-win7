@@ -92,6 +92,7 @@ class ManagedSession:
     active_thread: Optional[threading.Thread] = None
     resume_summary: Optional[Dict[str, Any]] = None
     last_assistant_message: str = ""
+    stop_event: threading.Event = field(default_factory=threading.Event, repr=False)
     lock: threading.RLock = field(default_factory=threading.RLock, repr=False)
 
 
@@ -607,7 +608,7 @@ class InProcessAdapter(object):
             return response
 
         try:
-            final_text, session = loop.run(
+            loop_result = loop.run(
                 user_text=text,
                 stream=stream,
                 initial_mode=state.current_mode,
@@ -618,7 +619,10 @@ class InProcessAdapter(object):
                 permission_handler=on_permission_request,
                 user_input_handler=on_user_input_request,
                 session=state.session,
+                stop_event=state.stop_event,
             )
+            final_text = loop_result.final_text
+            session = loop_result.session
         except Exception as exc:
             with state.lock:
                 state.status = "error"

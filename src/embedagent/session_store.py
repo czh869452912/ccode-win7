@@ -7,6 +7,18 @@ import shutil
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
+
+def _atomic_write_json(path: str, payload: Any) -> None:
+    """Write *payload* to *path* atomically (write temp, rename).
+
+    On NTFS (Windows 7) and POSIX, ``os.replace`` is atomic within the same
+    filesystem, which prevents corrupt files on process crash.
+    """
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as handle:
+        json.dump(payload, handle, ensure_ascii=False, indent=2, sort_keys=True)
+    os.replace(tmp, path)
+
 from embedagent.artifacts import ArtifactStore
 from embedagent.modes import build_system_prompt
 from embedagent.session import Action, Observation, Session
@@ -66,8 +78,7 @@ class SessionSummaryStore(object):
             for key in ("context_policy", "context_budget", "context_stats"):
                 if key in previous and key not in payload:
                     payload[key] = previous[key]
-        with open(summary_path, "w", encoding="utf-8") as handle:
-            json.dump(payload, handle, ensure_ascii=False, indent=2, sort_keys=True)
+        _atomic_write_json(summary_path, payload)
         summary_ref = os.path.relpath(summary_path, self.workspace).replace(os.sep, "/")
         self._update_index(payload, summary_ref)
         return summary_ref
@@ -134,8 +145,7 @@ class SessionSummaryStore(object):
         directory = os.path.dirname(self.index_path)
         if not os.path.isdir(directory):
             os.makedirs(directory)
-        with open(self.index_path, "w", encoding="utf-8") as handle:
-            json.dump(self.sanitizer.sanitize_jsonable(payload), handle, ensure_ascii=False, indent=2, sort_keys=True)
+        _atomic_write_json(self.index_path, self.sanitizer.sanitize_jsonable(payload))
         return {"kept": len(keep), "deleted": deleted}
 
     def load_summary(self, reference: str) -> Dict[str, Any]:
@@ -251,8 +261,7 @@ class SessionSummaryStore(object):
             "updated_at": _utc_now(),
             "sessions": updated[: self.max_index_entries],
         }
-        with open(self.index_path, "w", encoding="utf-8") as handle:
-            json.dump(self.sanitizer.sanitize_jsonable(payload), handle, ensure_ascii=False, indent=2, sort_keys=True)
+        _atomic_write_json(self.index_path, self.sanitizer.sanitize_jsonable(payload))
 
     def _scan_summaries(self) -> List[Dict[str, Any]]:
         if not os.path.isdir(self.root):
