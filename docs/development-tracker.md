@@ -50,7 +50,7 @@
 - Phase 2 工具核心实现已落地：`run_command`、`git_status`、`git_diff`、`git_log`
 - `docs/tool-contracts.md` 已建立，记录当前工具接口契约
 - Phase 2 Loop 烟雾验证通过：`run_command` 与 `git_status` 已通过主循环消费验证
-- Phase 3 模式系统 v1 已落地：`MODE_REGISTRY`、工具过滤、`switch_mode`、`/mode`
+- Phase 3 模式系统 v2 已落地：5 模式配置驱动（`explore`/`spec`/`code`/`debug`/`verify`）、`initialize_modes`、工具过滤、`/mode`；`switch_mode` LLM 工具已移除
 - `docs/mode-schema.md` 与 `docs/harness-state-machine.md` 已建立
 - Phase 3 验证通过：模式切换、违规工具拦截、写入范围拦截均已完成本地验证
 - Phase 4 工具第一版已落地：`compile_project`、`run_tests`、`run_clang_tidy`、`run_clang_analyzer`、`collect_coverage`、`report_quality`
@@ -96,7 +96,7 @@
 - Phase 1 已按当前可用条件验收完成；`GLM5 int4` / `Qwen3.5` 因环境不具备暂不纳入阻塞项。
 - 当前原型已收敛到 `src/embedagent/` 包结构，打包入口与导入路径已同步更新。
 - Phase 2 里程碑已满足：文件读写、命令执行、Git 状态/差异/日志均已具备并完成 3.8 本地验证。
-- Phase 3 里程碑已满足：模式切换、工具过滤和 `switch_mode` 已具备并完成 3.8 本地验证。
+- Phase 3 v2 里程碑已满足：5 模式（explore/spec/code/debug/verify）、配置驱动、工具过滤、用户主导切换均已完成 3.8 本地验证。
 - Phase 4 已具备项目内闭环工具链，但默认 recipe、真实 C 工程和 Win7 验证仍需补齐。
 - Phase 5 脚本验证已重新跑通，当前已从“实现完成”推进到“脚本复验通过”。
 - Phase 6 自动化验证已通过，剩余缺口是宿主兼容与真实交互体验。
@@ -145,7 +145,7 @@
 | Phase 0 | 仓库基线与工作约束 | `completed` | 已完成文档、版本策略、治理基线、工具规范 |
 | Phase 1 | 最小可工作 Loop | `completed` | 已完成 Python 3.8 与真实 OpenAI-compatible 工具闭环验证 |
 | Phase 2 | 工具集 v1 | `completed` | 已实现 run_command / git 工具，并完成 3.8 本地验证 |
-| Phase 3 | 模式系统 v1 | `completed` | MODE_REGISTRY、工具过滤、switch_mode、/mode 已完成 |
+| Phase 3 | 模式系统 v2 | `completed` | 5 模式配置驱动（explore/spec/code/debug/verify）、initialize_modes、工具过滤、/mode 已完成；switch_mode LLM 工具已移除 |
 | Phase 4 | Clang 工具链 | `in_progress` | 已有项目内闭环工具链，待真实工程与 Win7 验证 |
 | Phase 5 | 质量保障层 | `completed` | 权限、上下文、记忆、恢复与 cleanup 已落地；修复根目录文件写入边界后，专项验证脚本已复验通过 |
 | Phase 6 | CLI / TUI | `in_progress` | InProcessAdapter 已扩展 workspace / timeline / artifact / todo 前端接口，终端前端已拆为 `frontends/terminal` 子模块，并已通过 `validate-phase6.py` 与单元测试；待真实控制台 / Win7 手工验证 |

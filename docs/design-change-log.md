@@ -893,3 +893,33 @@
 - 后续动作：
   - 在真实 TUI / Win7 手工验证中复查 `waiting_user_input` 与 `waiting_permission` 的宿主体验
   - 继续评估 `ask_user` 是否需要被扩展到 `code` / `debug` 等执行模式
+
+### DC-035
+
+- 日期：2026-03-29
+- 变更主题：模式系统 v2 重构——5 模式配置驱动，移除 switch_mode LLM 工具
+- 变更摘要：
+  - 模式集从 8 个缩减为 5 个：`explore`（默认，重命名自 ask）/`spec`/`code`/`debug`/`verify`；删除 `orchestra`、`test`、`compact`
+  - `switch_mode` LLM 工具彻底移除；LLM 不能主动切换模式，只能通过 `ask_user` 建议，由用户确认
+  - 模式定义迁移到 `_BUILTIN_MODES` + `initialize_modes(workspace)` 配置加载层；项目可通过 `.embedagent/modes.json` 覆盖或新增模式
+  - `build_system_prompt()` 改为 `str.format()` + 可替换框架模板（`prompt_frame.txt`）
+  - `manage_todos` / `ask_user` 在所有模式中统一可用
+  - 会话启动时自动注入待办提示（通过 `workspace_profile.py`）
+  - 旧 session 中已删除模式名（如 `orchestra`）自动回落到 `explore`，不崩溃
+- 影响范围：
+  - `src/embedagent/modes.py`（主要改动）
+  - `src/embedagent/loop.py`（删除 switch_mode 逻辑）
+  - `src/embedagent/workspace_profile.py`（加入待办提示）
+  - `src/embedagent/cli.py` / `inprocess_adapter.py`（调用 initialize_modes）
+  - 所有引用旧模式集的文档
+- 关联文档：
+  - `docs/mode-schema.md`（完全重写）
+  - `docs/harness-state-machine.md`（更新切换机制）
+  - `docs/tool-design-spec.md`（更新工具分配表）
+  - `AGENTS.md`（更新模式政策与 Harness 演进策略）
+  - `README.md`（更新模式列表）
+  - `docs/implementation-roadmap.md` / `docs/development-tracker.md` / `docs/configuration-guide.md`（同步更新）
+- 是否需要 ADR：`暂不单独写`
+- 后续动作：
+  - 在真实 TUI / Win7 环境验证新默认模式 `explore` 的入口体验
+  - 评估是否需要为常见 C 维护工程提供预置的 `modes.json` 样板文件

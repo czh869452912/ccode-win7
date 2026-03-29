@@ -21,7 +21,6 @@ from embedagent.modes import (
     is_tool_allowed,
     mode_names,
     require_mode,
-    switch_mode_schema,
 )
 from embedagent.permissions import PermissionPolicy, PermissionRequest
 from embedagent.project_memory import ProjectMemoryStore
@@ -183,8 +182,6 @@ class AgentLoop(object):
             name = item.get("function", {}).get("name", "")
             if name in allowed:
                 schemas.append(item)
-        if "switch_mode" in allowed:
-            schemas.append(switch_mode_schema())
         if "ask_user" in allowed:
             schemas.append(ask_user_schema())
         return schemas
@@ -212,8 +209,6 @@ class AgentLoop(object):
                 },
             )
             return observation, current_mode
-        if action.name == "switch_mode":
-            return self._handle_switch_mode(action, current_mode, session)
         if action.name == "ask_user":
             return self._handle_ask_user(action, current_mode, session, user_input_handler)
         if action.name in ("edit_file", "write_file"):
@@ -319,68 +314,6 @@ class AgentLoop(object):
                 return observation, current_mode
         observation = self.tools.execute(action.name, action.arguments)
         return observation, current_mode
-
-    def _handle_switch_mode(
-        self,
-        action: Action,
-        current_mode: str,
-        session: Session,
-    ) -> Tuple[Observation, str]:
-        target = str(action.arguments.get("target") or "").strip()
-        reason = str(action.arguments.get("reason") or "").strip()
-        if not target:
-            observation = self._failure_observation(
-                tool_name="switch_mode",
-                error="switch_mode 缺少 target 参数。",
-                error_kind="invalid_arguments",
-                retryable=False,
-                blocked_by="arguments",
-                suggested_next_step="补充一个有效的目标模式。",
-                extra_data={"mode": current_mode, "available_modes": mode_names()},
-            )
-            return observation, current_mode
-        if not reason:
-            observation = self._failure_observation(
-                tool_name="switch_mode",
-                error="switch_mode 缺少 reason 参数。",
-                error_kind="invalid_arguments",
-                retryable=False,
-                blocked_by="arguments",
-                suggested_next_step="说明为什么此时需要切换模式。",
-                extra_data={"mode": current_mode, "available_modes": mode_names()},
-            )
-            return observation, current_mode
-        try:
-            require_mode(target)
-        except ValueError as exc:
-            observation = self._failure_observation(
-                tool_name="switch_mode",
-                error=str(exc),
-                error_kind="invalid_arguments",
-                retryable=False,
-                blocked_by="arguments",
-                suggested_next_step="从可用模式列表中选择目标模式。",
-                extra_data={"mode": current_mode, "available_modes": mode_names()},
-            )
-            return observation, current_mode
-        session.add_system_message(
-            build_system_prompt(
-                target,
-                getattr(self.tools, "app_config", None),
-            )
-        )
-        observation = Observation(
-            tool_name="switch_mode",
-            success=True,
-            error=None,
-            data={
-                "from_mode": current_mode,
-                "to_mode": target,
-                "reason": reason,
-                "allowed_tools": allowed_tools_for(target),
-            },
-        )
-        return observation, target
 
     def _handle_ask_user(
         self,

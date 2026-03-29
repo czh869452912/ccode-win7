@@ -9,7 +9,7 @@ from embedagent.config import load_config
 from embedagent.context import ContextManager, make_context_config
 from embedagent.inprocess_adapter import InProcessAdapter
 from embedagent.llm import ModelClientError, OpenAICompatibleClient
-from embedagent.modes import DEFAULT_MODE, parse_mode_command
+from embedagent.modes import DEFAULT_MODE, initialize_modes, parse_mode_command
 from embedagent.permissions import PermissionPolicy
 from embedagent.project_memory import ProjectMemoryStore
 from embedagent.session_store import SessionSummaryStore
@@ -167,6 +167,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     workspace = os.path.realpath(args.workspace)
+    initialize_modes(workspace)
 
     # Load user-level and project-level config, then apply CLI overrides
     app_config = load_config(workspace)
@@ -189,7 +190,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         return 0
 
     resumed_summary = None  # type: Optional[Dict[str, object]]
-    fallback_mode = args.mode or DEFAULT_MODE
+    fallback_mode = args.mode or getattr(app_config, "default_mode", None) or DEFAULT_MODE
     if args.resume:
         try:
             resumed_summary = summary_store.load_summary(args.resume)

@@ -57,7 +57,7 @@ Build in this order:
 
 1. Minimum working loop: LLM Adapter + first tool set + CLI (Phase 1)
 2. Tool set v1: shell command + git tools (Phase 2)
-3. Mode system v1: MODE_REGISTRY dict + tool filtering + switch_mode (Phase 3)
+3. Mode system v1: 5-mode config-driven registry + tool filtering (Phase 3)
 4. Clang toolchain: compile, test, clang-tidy, coverage with static binary bundle (Phase 4)
 5. Quality guard layer: context compression, permission system, doom loop guard (Phase 5)
 6. TUI / CLI adapters (Phase 6)
@@ -82,38 +82,38 @@ Key rules:
 
 The supported first-class modes are:
 
-- `ask`
-- `orchestra`
-- `spec`
-- `code`
-- `test`
-- `verify`
-- `debug`
-- `compact`
+- `explore` *(default)* — read-only exploration, code reading, discussion, fuzzy sessions
+- `spec` — requirements, acceptance criteria, documentation writing
+- `code` — C implementation and build-system changes
+- `debug` — root-cause analysis and minimal fixes
+- `verify` — build, static analysis, test execution (read-only)
 
 Rules:
 
 - Modes are Core contracts, not UI decorations
 - Each mode should have a narrow responsibility
-- `ask` is for resolving ambiguity with the user
-- `orchestra` is for workflow decomposition and routing (implement after Phase 3)
-- `code` should not replace `spec` or `test`
-- `verify` should own quality gates
+- `explore` is the default entry point for all sessions; it covers unstructured exploration and discussion
+- `verify` should own quality gates and never write code
+- **LLM cannot switch modes autonomously** — the `switch_mode` tool does not exist; mode switching is user-driven only via `/mode <name>` or by selecting a mode option in `ask_user`
+- Mode definitions live in `src/embedagent/modes.py` (`_BUILTIN_MODES`) and can be overridden per-user (`~/.embedagent/modes.json`) or per-project (`<workspace>/.embedagent/modes.json`)
+- All modes include `manage_todos` and `ask_user`
 
 ## Harness Evolution Policy
 
-The Agent Harness must be built incrementally — do not implement TOML configuration or a full state machine before the minimum loop is validated.
+The Agent Harness must be built incrementally — do not implement full configuration loading or a complex state machine before the minimum loop is validated.
 
 Evolution stages:
 
 - Phase 1: No harness — loop has a single hardcoded system prompt
-- Phase 3: Python dict (MODE_REGISTRY) + tool filtering function (~100 lines)
-- Phase 5: Optional TOML loading as an additive layer on top of the dict structure
+- Phase 3: `_BUILTIN_MODES` dict + `initialize_modes()` config loader + tool filtering (~200 lines)
+- Phase 5: JSON override loading (`modes.json`) already implemented; prompt frame override (`prompt_frame.txt`) available
 
 Mode switch triggers (Phase 3+):
 
-1. User explicit: message starts with `/mode <name>`
-2. LLM tool call: `switch_mode(target)` tool — update current mode, rebuild context with new mode prompt, do not advance the loop
+1. **User explicit:** message starts with `/mode <name>`
+2. **User option selection:** user picks an `ask_user` option that has an `option_N_mode` field set — loop updates current mode and appends new system prompt
+
+The `switch_mode` LLM tool has been **removed**. The LLM can only suggest mode changes by calling `ask_user` with mode-bearing options; the switch does not happen until the user confirms.
 
 ## Documentation Maintenance
 
@@ -144,4 +144,4 @@ If a change alters architecture, workflow, version policy, or operating assumpti
 - No plugin marketplace
 - No premature multi-agent orchestration framework
 
-Multi-agent support is allowed only through the planned `orchestra`-led evolution path.
+Multi-agent support (true parallel sub-loops) is deferred; it is not part of the current single-developer maintenance workflow.

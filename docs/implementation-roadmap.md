@@ -19,7 +19,7 @@
 
 - 系统核心是 `Agent Core + Mode Registry + Agent Harness`
 - 首期聚焦 C 语言偏应用软件开发，而非通用多语言平台
-- 工作流采用 `orchestra -> ask(按需) -> spec -> test -> code -> verify -> debug`
+- 工作流：用户以 `explore` 模式入场（探索/讨论），按需切换到 `spec / code / debug / verify` 等具体模式
 - 工具链围绕 Clang 生态统一组织（已验证完全静态链接的最新版 Clang 可在 Win7 运行）
 - 最终运行时必须可在 Windows 7 离线环境中一体化交付
 - **工具集设计是一等公民**：每个模式工具上限 5 个，描述格式统一，参见 `docs/tool-design-spec.md`
@@ -177,27 +177,29 @@ conda activate embedagent-py38
 - 把模式系统做成 Core 一等能力
 - 先用 Python dict 实现，不用 TOML 配置文件
 
-实现重点：
+实现重点（v2 已落地）：
 
-- `MODE_REGISTRY`（Python dict，包含 `system_prompt`、`allowed_tools`、`writable_globs`）
+- `_BUILTIN_MODES`（Python dict，含 `system_prompt`、`allowed_tools`、`writable_globs`）
+- `initialize_modes(workspace)` 配置加载（`modes.json` 两级覆盖）
 - 工具过滤机制（按当前模式过滤可调用工具）
-- `switch_mode(target: str, reason: str)` 工具（仅 `orchestra` 模式可调用）
-- `ask_user(...)` 用户交互工具（优先给 ask/spec/orchestra）
-- 用户显式切换：`/mode <name>` 命令
+- `ask_user(...)` 用户交互工具（所有模式均可用）
+- `manage_todos` 任务跟踪工具（所有模式均可用）
+- 用户显式切换：`/mode <name>` 命令；`ask_user` 选项也可触发切换
 
 模式切换规则：
 
-1. 用户消息以 `/mode <name>` 开头 → 立即切换
-2. `orchestra` 调用 `switch_mode` 工具 → 更新当前模式，用新模式 prompt 重建上下文后继续（不推进循环）
+1. 用户消息以 `/mode <name>` 开头 → 立即切换（未知模式回落到 `explore`）
+2. 用户在 `ask_user` 弹出选项中选择含 `option_N_mode` 的项 → 自动追加新模式 prompt，更新 `current_mode`
 
-> `orchestra` 模式在本阶段暂不实现，用简单任务拆解 prompt 替代，后续再完整实现。
+> **`switch_mode` LLM 工具已移除**：LLM 不能主动切换模式，只能通过 `ask_user` 建议，由用户确认。
 
-**Phase 3 完成里程碑**：
+**Phase 3 v2 完成状态**：
 
-- [ ] 模式切换生效，工具集随模式变化
-- [ ] 违规工具调用（当前模式不允许的工具）被拦截并提示
-- [ ] `ask_user` 与权限审批分开显示，不再共用等待状态
-- [ ] `ask` / `spec` / `code` / `test` / `verify` / `debug` 模式均可进入
+- [x] 模式切换生效，工具集随模式变化
+- [x] 违规工具调用（当前模式不允许的工具）被拦截并提示
+- [x] `ask_user` 与权限审批分开显示，不再共用等待状态
+- [x] 5 个模式（`explore`/`spec`/`code`/`debug`/`verify`）均可进入
+- [x] 模式定义可通过 `modes.json` 覆盖，无需改代码
 
 建议产物：
 

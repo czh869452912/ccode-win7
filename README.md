@@ -47,7 +47,7 @@
 
 ### Agent 运行控制
 - 多步工具调用循环（Agent Loop）
-- 可配置模式与 Agent Harness（Ask / Orchestra / Spec / Code / Test / Verify / Debug / Compact）
+- 配置驱动模式与 Agent Harness（Explore / Spec / Code / Debug / Verify），可通过 `modes.json` 覆盖或扩展
 - 上下文压缩、记忆清理与恢复入口
 - 权限管控（操作前确认 / `allow` / `ask` / `deny` 规则）
 

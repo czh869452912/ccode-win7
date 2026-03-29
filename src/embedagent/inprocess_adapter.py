@@ -15,7 +15,7 @@ from embedagent.interaction import UserInputRequest, UserInputResponse
 from embedagent.llm import OpenAICompatibleClient
 from embedagent.loop import AgentLoop
 from embedagent.memory_maintenance import MemoryMaintenance
-from embedagent.modes import DEFAULT_MODE, build_system_prompt, require_mode
+from embedagent.modes import DEFAULT_MODE, build_system_prompt, initialize_modes, require_mode
 from embedagent.permissions import PermissionPolicy, PermissionRequest
 from embedagent.project_memory import ProjectMemoryStore
 from embedagent.session import Action, Observation, Session
@@ -125,6 +125,7 @@ class InProcessAdapter(object):
         )
         self.maintenance_interval = maintenance_interval if maintenance_interval > 0 else 1
         self.event_handler = event_handler
+        initialize_modes(self.tools.workspace)
         self.workspace_profile_message = build_workspace_profile_message(self.tools.workspace)
         self._sessions = {}  # type: Dict[str, ManagedSession]
         self._lock = threading.RLock()

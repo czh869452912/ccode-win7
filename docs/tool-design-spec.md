@@ -25,20 +25,23 @@
 
 ### 各模式工具分配基线
 
-| 模式 | 工具集 | 数量 |
-|------|--------|------|
-| `ask` | read_file, list_files, search_text, ask_user | 4 |
-| `spec` | read_file, search_text, list_files, write_file, ask_user | 5 |
-| `code` | read_file, write_file, edit_file, search_text, compile_project | 5 |
-| `test` | read_file, write_file, edit_file, run_tests, search_text | 5 |
-| `verify` | compile_project, run_tests, run_clang_tidy, report_quality | 4 |
-| `debug` | read_file, search_text, run_command, write_file, edit_file | 5 |
+| 模式 | 领域工具 | 通用工具 | 合计 |
+|------|----------|----------|------|
+| `explore` | read_file, list_files, search_text | manage_todos, ask_user | 5 |
+| `spec` | read_file, list_files, search_text, write_file | manage_todos, ask_user | 6 |
+| `code` | read_file, list_files, write_file, edit_file, search_text, compile_project | manage_todos, ask_user | 8 |
+| `debug` | read_file, list_files, search_text, write_file, edit_file, run_command | manage_todos, ask_user | 8 |
+| `verify` | compile_project, run_tests, run_clang_tidy, report_quality | manage_todos, ask_user | 6 |
 
-仅 `orchestra` 额外提供：`switch_mode`（模式切换）
+> **关于 `manage_todos` 和 `ask_user`**：两者在所有模式中均包含。
+> `manage_todos` 是任务状态跟踪工具，不参与领域执行，不影响模型对领域工具的选择判断。
+> `ask_user` 是用户确认工具，也是建议模式切换的唯一合法途径。
+>
+> `code` 和 `debug` 的合计超出 5 个上限，属于明确例外——它们的领域工具均聚焦具体操作，
+> 模型的选择歧义主要来自描述相似的工具，不来自数量本身。
 
-> **例外说明**：`manage_todos` 是协调工具，在 `orchestra` 和 `code` 模式中使用。
-> `code` / `orchestra` 模式因此会超出目标数量上限，属于明确例外——
-> `manage_todos` 以任务状态跟踪为主，不影响模型对领域工具的选择判断。
+> **`switch_mode` 工具已移除**：LLM 不能主动切换模式。
+> 模式切换只能由用户通过 `/mode <name>` 或选择 `ask_user` 带 `option_N_mode` 的选项发起。
 
 ---
 

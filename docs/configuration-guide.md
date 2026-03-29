@@ -49,7 +49,7 @@ CLI 参数    (--max-context-tokens 等)
   "chars_per_token": 3.0,
   "max_recent_turns": 4,
   "max_turns": 8,
-  "default_mode": "code",
+  "default_mode": "explore",
   "mode_writable_globs": {
     "<mode_name>": ["glob_pattern", "..."]
   },
@@ -93,7 +93,7 @@ CLI 参数    (--max-context-tokens 等)
 | 字段 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
 | `max_turns` | integer | `8` | 单次会话允许的最大工具调用轮数 |
-| `default_mode` | string | `"code"` | 启动时的默认模式 |
+| `default_mode` | string | `"explore"` | 启动时的默认模式 |
 
 ### 模式可写路径覆盖
 
@@ -132,14 +132,11 @@ CLI 参数    (--max-context-tokens 等)
 
 | 模式 | 默认可写扩展名/文件 |
 |------|------------------|
-| `ask` | （只读） |
-| `orchestra` | （只读） |
+| `explore` | （只读） |
 | `spec` | `**/*.md`、`**/*.rst`、`**/*.txt` |
 | `code` | 常见源码、脚本、JSON/YAML、TOML/INI/CFG、CMake/Makefile 类文件 |
-| `test` | 常见测试源码、夹具、JSON/YAML/TXT、部分构建相关文件 |
-| `verify` | （只读） |
 | `debug` | 常见源码、脚本、JSON/YAML、TOML/INI/CFG、CMake/Makefile 类文件 |
-| `compact` | （只读） |
+| `verify` | （只读） |
 
 ---
 
@@ -204,7 +201,7 @@ CLI 参数    (--max-context-tokens 等)
 
 ### 使用场景
 
-- **orchestra 模式**：拆解任务时先用 `add` 添加各子任务，再按顺序切换模式执行；
+- **explore 模式**：探索代码库后用 `add` 记录发现的问题或改进点，方便后续切换到具体模式处理；
 - **code 模式**：长实现序列中用 `complete` 标记已完成项，避免遗漏；
 - **会话恢复**：恢复会话后 `list` 查看未完成项，快速回到上下文。
 
@@ -230,4 +227,4 @@ manage_todos(action="remove", item_id=3)
 
 - `todos.json` 是项目级持久化文件，可随项目 git 提交（或加入 `.gitignore`）；
 - `remove` 操作会重新编号剩余条目（从 1 开始），建议在完成前不要依赖固定 id；
-- 工具在 orchestra 和 code 模式下默认可用，其他模式需通过 `mode_writable_globs` 配置或切换模式。
+- 工具在所有模式下均可用；`mode_writable_globs` 仅影响 `write_file` / `edit_file` 的路径白名单，不影响 `manage_todos`。
