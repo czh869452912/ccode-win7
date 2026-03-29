@@ -652,3 +652,28 @@
 - 若改动影响实施顺序，同时更新 `docs/implementation-roadmap.md`
 - 若改动具有长期不可逆影响，补充一个 ADR
 
+
+### DC-026
+
+- 日期：2026-03-29
+- 变更主题：Phase 6 终端前端模块化与浏览接口扩展
+- 变更摘要：
+  - `src/embedagent/tui.py` 已收敛为兼容 shim，真实终端前端迁移到 `src/embedagent/frontends/terminal/`
+  - 终端前端按 `state / reducer / controller / layout / services / views` 拆分，避免继续把交互逻辑堆在单文件中
+  - `InProcessAdapter` 新增 workspace / timeline / artifact / todo 读取接口，并接入 `SessionTimelineStore`
+  - 新增单元测试覆盖 timeline store、adapter 前端接口与终端补全模块；`scripts/validate-phase6.py` 回归通过
+- 影响范围：
+  - Phase 6 前端包结构
+  - Frontend/Core 浏览型接口边界
+  - 后续 Win7 控制台与 ConEmu 收口路径
+- 关联文档：
+  - `src/embedagent/frontends/terminal/`
+  - `src/embedagent/inprocess_adapter.py`
+  - `src/embedagent/session_timeline.py`
+  - `docs/frontend-protocol.md`
+  - `docs/development-tracker.md`
+- 是否需要 ADR：`暂不写`
+- 后续动作：
+  - 在真实 Win7 控制台与 ConEmu 下补手工验证
+  - 继续细化 explorer / editor / plan 交互
+  - 评估是否将同一协议推广到 stdio adapter

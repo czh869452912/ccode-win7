@@ -107,7 +107,7 @@ conda activate embedagent-py38
 实现重点（5 个核心文件，不超过此范围）：
 
 - `src/embedagent/llm.py`：OpenAI-compatible HTTP 调用（同步 + 流式，无厂商 SDK 依赖）
-- `src/embedagent/tools.py`：第一批工具——`read_file`、`list_files`、`search_text`、`edit_file`（按 `docs/tool-design-spec.md` 规范编写）
+- `src/embedagent/tools/`：第一批工具包——`read_file`、`list_files`、`search_text`、`edit_file`（按 `docs/tool-design-spec.md` 规范编写）
 - `src/embedagent/loop.py`：主循环（50-80 行，无模式系统，硬编码单一系统 prompt）
 - `src/embedagent/session.py`：Session / Turn / Action / Observation 的最小 dataclass 定义
 - `src/embedagent/cli.py`：命令行入口（argparse，无 TUI）
@@ -242,14 +242,16 @@ conda activate embedagent-py38
 
 目标：
 
-- 先做 CLI，再做 TUI
+- 先做 CLI，再做模块化终端前端
 
 实现重点：
 
 - In-process adapter（同进程调用）
+- `SessionTimelineStore` 与 workspace / artifact / todo 浏览接口
+- `src/embedagent/frontends/terminal/` 模块化终端前端包（state / reducer / controller / layout / services / views）
 - prompt_toolkit + Rich TUI
 - Phase 6 回归脚本与手工验证清单
-- stdio JSON-RPC adapter（被宿主程序拉起，放在最小 TUI 稳定后）
+- stdio JSON-RPC adapter（被宿主程序拉起，放在终端前端稳定后）
 
 建议产物：
 
@@ -257,7 +259,6 @@ conda activate embedagent-py38
 - `docs/tui-information-architecture.md`
 - `scripts/validate-phase6.py`
 - `docs/phase6-validation.md`
-
 ### Phase 7：打包与离线交付
 
 目标：
@@ -380,3 +381,6 @@ conda activate embedagent-py38
 - 用“总体架构文档 + 实施路线文档 + 进度跟踪 + 设计变更记录 + 按需 ADR”的组合维护知识
 
 这样后续实现时，代码、架构、开发环境和文档会更容易保持一致。
+
+
+

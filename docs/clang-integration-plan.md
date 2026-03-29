@@ -41,7 +41,7 @@
 
 ### 3.1 工具
 
-已在 `src/embedagent/tools.py` 中落地：
+已在 `src/embedagent/tools/` 包中落地：
 
 - `compile_project`
 - `run_tests`
@@ -187,3 +187,4 @@ Phase 4 当前已经完成“接口层、解析层和项目内闭环工具链”
 - 即使真实 C 工程尚未接入，Core 侧的工具协议已经成立
 - 项目已经有一个可直接启用和测试的本地 Clang 工具链根目录
 - 后续重点转为真实项目命令、版本一致性和 Win7 实机验证，而不是重写 Tool Runtime
+

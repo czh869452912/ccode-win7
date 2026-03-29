@@ -77,26 +77,27 @@ Phase 6 的实现顺序固定为：
 - `list_sessions`
 - `get_session_snapshot`
 
-### 3.2 Phase 6B：最小 TUI
+### 3.2 Phase 6B：模块化终端前端
 
 目标：
 
-- 在 `InProcessAdapter` 之上提供最小可运行交互壳
-- 让 Session、Event、Permission、Context 四类信息都能被直接观测
+- 在 `InProcessAdapter` 之上提供可维护的终端前端包
+- 让 Session、Workspace、Timeline、Artifacts、Permission 都能被直接观测
 
 当前范围：
 
-- Header / Transcript / Side Panel / Composer
-- 会话列表浏览与恢复
-- 权限确认、错误状态与上下文压缩状态展示
-- 允许 `--tui` 空启动，并支持可选初始消息自动提交
+- `src/embedagent/frontends/terminal/` 包结构（state / reducer / controller / layout / services / views）
+- Explorer / Main View / Inspector / Composer 终端布局
+- workspace / timeline / artifact / todo 浏览接口接入
+- 会话浏览、权限确认、错误状态、上下文状态和单缓冲编辑器
+- 保留 `embedagent.tui` 兼容入口
 
 验证口径：
 
 - `scripts/validate-phase6.py`
 - `EMBEDAGENT_TUI_HEADLESS=1`
+- `python -m unittest discover -s tests`
 - 真实控制台手工验证
-
 ### 3.3 Phase 6C：stdio JSON-RPC Adapter
 
 目标：
@@ -434,7 +435,7 @@ Loop 内部错误、模型错误、工具错误，应通过 `session_error` Even
 
 1. 先实现 `InProcessAdapter`
 2. 让现有 CLI 改为调用 adapter，而不是直接组装 loop
-3. 基于同一 adapter 做最小 TUI，并补 `scripts/validate-phase6.py`
+3. 基于同一 adapter 做模块化终端前端，并补 `scripts/validate-phase6.py` 与前端单元测试
 4. 最后再暴露 stdio JSON-RPC adapter
 
 ---
@@ -446,3 +447,25 @@ Phase 6 的关键不是“先画界面”，而是：
 **先把 Frontend 与 Core 的命令/事件边界定稳。**
 
 只要这个边界是稳定的，CLI、TUI、未来 GUI 都能复用同一个 Core，而不会再次把状态、权限和上下文逻辑分散回前端。
+
+## 11. Frontend Browse APIs
+
+在最小会话协议之外，Phase 6 终端前端当前还依赖以下浏览型接口：
+
+- `get_workspace_snapshot`
+- `list_workspace_tree`
+- `read_workspace_file`
+- `write_workspace_file`
+- `get_session_timeline`
+- `list_artifacts`
+- `read_artifact`
+- `list_todos`
+
+这些接口保持“前端读模型状态 / 工作区状态，但不绕过 Core 会话真相”的原则：
+
+- timeline 来自持久化事件流，而不是前端临时 transcript
+- artifact 浏览来自 `ArtifactStore.index.json` 与 artifact 文件本体
+- 文件保存仍通过 adapter 边界，不在 TUI 里直接散落文件写入逻辑
+
+
+

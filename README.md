@@ -107,7 +107,7 @@
 
 - 2026-03-28：Phase 1-4 已完成最小可工作闭环，Phase 5 已完成到 5F（权限、Doom Loop、ContextManager、Artifact Store、Session Summary、Project Memory、恢复入口、memory cleanup/index）。
 - 当前可运行能力已经覆盖：OpenAI-compatible LLM Adapter、文件 / Shell / Git / Clang 工具、模式系统、项目内闭环 LLVM/Clang 工具链、上下文压缩与基础记忆层。
-- 当前主线工作已进入：Phase 4 真实工程验证，以及 Phase 6B 最小 TUI 运行验证收口。
+- 当前主线工作已进入：Phase 4 真实工程验证，以及 Phase 6 终端前端模块化后的真实控制台 / Win7 运行验证收口。
 
 - [x] 需求确认与范围界定
 - [x] 参考项目架构分析（OpenCode / OpenHands / Roo-Code）
@@ -122,7 +122,7 @@
 - [x] Phase 4 第一版 Clang 工具封装与本地闭环工具链
 - [x] Phase 5A-5F 质量保障层基础（权限、上下文、Artifact、Session Summary、Project Memory、恢复入口、cleanup/index）
 - [x] 长任务稳定性验证与权限细化
-- [ ] TUI / CLI adapters 收口（InProcessAdapter 已落地，最小 TUI 已支持会话浏览、权限确认与状态侧栏，依赖已接入并完成 headless/宿主校验，待真实控制台手工验证）
+- [ ] TUI / CLI adapters 收口（InProcessAdapter 已扩展 workspace / timeline / artifact / todo 浏览接口，终端前端已拆为 `src/embedagent/frontends/terminal/` 包并保留 `embedagent.tui` 兼容入口，已完成 headless/单元测试，待真实控制台 / Win7 手工验证）
 - [ ] 打包与离线交付
 
 ### Phase 6 验证
@@ -154,6 +154,8 @@ ccode-win7/
 │       ├── artifacts.py
 │       ├── cli.py
 │       ├── context.py
+│       ├── frontends/
+│       │   └── terminal/  # 模块化终端前端（state / reducer / controller / views / services）
 │       ├── guard.py
 │       ├── inprocess_adapter.py
 │       ├── llm.py
@@ -164,15 +166,18 @@ ccode-win7/
 │       ├── project_memory.py
 │       ├── session.py
 │       ├── session_store.py
-│       ├── tools.py
-│       └── tui.py
+│       ├── session_timeline.py
+│       ├── tools/
+│       └── tui.py      # 兼容 shim，导出模块化终端前端入口
+├── tests/              # 单元测试与前端回归测试
 ├── toolchains/         # 项目内闭环 LLVM/Clang 工具链与清单
 ├── pyproject.toml      # uv / Python 版本与项目元数据
 └── README.md
 ```
 
 ---
-
 ## License
 
 待定。参考项目均为开源项目，本项目实现将避免直接复制其代码。
+
+

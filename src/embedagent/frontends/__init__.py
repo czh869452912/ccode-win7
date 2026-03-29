@@ -1,0 +1,1 @@
+"""Frontend adapters and shells."""

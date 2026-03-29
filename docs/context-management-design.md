@@ -57,7 +57,7 @@ Observation 往往是上下文膨胀的主要来源，尤其是：
 - `src/embedagent/context.py`
 - `src/embedagent/session.py`
 - `src/embedagent/loop.py`
-- `src/embedagent/tools.py`
+- `src/embedagent/tools/`
 - `src/embedagent/artifacts.py`
 - `src/embedagent/session_store.py`
 - `src/embedagent/project_memory.py`
@@ -494,6 +494,7 @@ Phase 5F 完成后，推荐继续按下面顺序推进：
 2. 在更长任务场景下做稳定性验证
 3. 评估是否需要统一的 memory browse / inspect 入口
 4. 仅在预算仍严重不足时引入可选 LLM condenser
+
 
 
 

@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import difflib
+import io
+import json
+import os
 import threading
 import uuid
 from dataclasses import dataclass, field
@@ -15,7 +19,9 @@ from embedagent.permissions import PermissionPolicy, PermissionRequest
 from embedagent.project_memory import ProjectMemoryStore
 from embedagent.session import Action, Observation, Session
 from embedagent.session_store import SessionSummaryStore
+from embedagent.session_timeline import SessionTimelineStore
 from embedagent.tools import ToolRuntime
+from embedagent.tools._base import SKIP_DIR_NAMES
 
 
 EventHandler = Callable[[str, str, Dict[str, Any]], None]
@@ -74,6 +80,7 @@ class InProcessAdapter(object):
         project_memory_store: Optional[ProjectMemoryStore] = None,
         context_manager: Optional[ContextManager] = None,
         memory_maintenance: Optional[MemoryMaintenance] = None,
+        timeline_store: Optional[SessionTimelineStore] = None,
         maintenance_interval: int = 4,
         event_handler: Optional[EventHandler] = None,
     ) -> None:
@@ -82,6 +89,7 @@ class InProcessAdapter(object):
         self.max_turns = max_turns
         self.permission_policy = permission_policy or PermissionPolicy(auto_approve_all=True)
         self.summary_store = summary_store or SessionSummaryStore(self.tools.workspace)
+        self.timeline_store = timeline_store or SessionTimelineStore(self.tools.workspace)
         self.project_memory_store = project_memory_store or ProjectMemoryStore(self.tools.workspace)
         self.context_manager = context_manager or ContextManager(project_memory=self.project_memory_store)
         self.memory_maintenance = memory_maintenance or MemoryMaintenance(
@@ -160,6 +168,168 @@ class InProcessAdapter(object):
                 "last_error": state.last_error,
             }
             return payload
+
+    def get_workspace_snapshot(self) -> Dict[str, Any]:
+        counts = self._count_workspace_items()
+        git_status = self.tools.execute("git_status", {"path": "."})
+        branch = ""
+        dirty_count = 0
+        modified_count = 0
+        untracked_count = 0
+        if git_status.success and isinstance(git_status.data, dict):
+            branch = str(git_status.data.get("branch") or "")
+            entries = git_status.data.get("entries") or []
+            if isinstance(entries, list):
+                dirty_count = len(entries)
+                for item in entries:
+                    if not isinstance(item, dict):
+                        continue
+                    status = str(item.get("status") or "").strip()
+                    if "?" in status:
+                        untracked_count += 1
+                    elif status:
+                        modified_count += 1
+        return {
+            "workspace": self.tools.workspace,
+            "hosted": True,
+            "git": {
+                "available": bool(branch or git_status.success),
+                "branch": branch,
+                "dirty_count": dirty_count,
+                "modified_count": modified_count,
+                "untracked_count": untracked_count,
+            },
+            "tree": counts,
+        }
+
+    def list_workspace_tree(
+        self,
+        path: str = ".",
+        max_depth: int = 3,
+        limit: int = 200,
+    ) -> Dict[str, Any]:
+        root = self._resolve_workspace_candidate(path, allow_missing=False)
+        if not os.path.isdir(root):
+            raise ValueError("路径不是目录：%s" % path)
+        items = []  # type: List[Dict[str, Any]]
+        truncated = [False]
+
+        def walk(current_path: str, depth: int) -> None:
+            if truncated[0]:
+                return
+            try:
+                names = sorted(os.listdir(current_path), key=lambda item: item.lower())
+            except OSError:
+                return
+            directories = []
+            files = []
+            for name in names:
+                absolute = os.path.join(current_path, name)
+                if os.path.isdir(absolute):
+                    if name in SKIP_DIR_NAMES:
+                        continue
+                    directories.append((name, absolute))
+                else:
+                    files.append((name, absolute))
+            for name, absolute in directories + files:
+                items.append(
+                    {
+                        "path": self._relative_path(absolute),
+                        "name": name,
+                        "kind": "dir" if os.path.isdir(absolute) else "file",
+                        "depth": depth,
+                    }
+                )
+                if len(items) >= limit:
+                    truncated[0] = True
+                    return
+                if os.path.isdir(absolute) and depth < max_depth:
+                    walk(absolute, depth + 1)
+
+        walk(root, 0)
+        return {
+            "root": self._relative_path(root),
+            "max_depth": max_depth,
+            "limit": limit,
+            "truncated": truncated[0],
+            "items": items,
+        }
+
+    def read_workspace_file(self, path: str) -> Dict[str, Any]:
+        candidate = self._resolve_workspace_candidate(path, allow_missing=False)
+        if not os.path.isfile(candidate):
+            raise ValueError("只能读取文件，不能读取目录。")
+        content, newline, encoding = self.tools._ctx.read_text(candidate)
+        return {
+            "path": self._relative_path(candidate),
+            "encoding": encoding,
+            "newline": newline,
+            "char_count": len(content),
+            "line_count": content.count("\n") + (1 if content else 0),
+            "truncated": False,
+            "content": content,
+        }
+
+    def write_workspace_file(self, path: str, content: str) -> Dict[str, Any]:
+        candidate = self._resolve_workspace_candidate(path, allow_missing=True)
+        existed = os.path.isfile(candidate)
+        if os.path.isdir(candidate):
+            raise ValueError("不能把目录当作文件写入：%s" % path)
+        parent = os.path.dirname(candidate)
+        if not os.path.isdir(parent):
+            os.makedirs(parent)
+        newline = "\n"
+        encoding = "utf-8"
+        old_content = ""
+        if existed:
+            old_content, newline, encoding = self.tools._ctx.read_text(candidate)
+        serialized = str(content or "")
+        self.tools._ctx.write_text(candidate, serialized, newline, encoding)
+        diff_text = "".join(
+            difflib.unified_diff(
+                old_content.splitlines(True),
+                serialized.splitlines(True),
+                fromfile=self._relative_path(candidate),
+                tofile=self._relative_path(candidate),
+                lineterm="",
+            )
+        )
+        return {
+            "path": self._relative_path(candidate),
+            "created": not existed,
+            "encoding": encoding,
+            "newline": newline,
+            "char_count": len(serialized),
+            "line_count": serialized.count("\n") + (1 if serialized else 0),
+            "diff_preview": diff_text,
+        }
+
+    def get_session_timeline(self, session_id: str, limit: int = 200) -> Dict[str, Any]:
+        state = self._require_session(session_id)
+        return {
+            "session_id": state.session.session_id,
+            "events": self.timeline_store.load_events(state.session.session_id, limit=limit),
+            "latest_assistant_reply": self.timeline_store.latest_assistant_reply(state.session.session_id),
+        }
+
+    def list_artifacts(self, limit: int = 20) -> List[Dict[str, Any]]:
+        return self.tools.artifact_store.list_artifacts(limit=limit)
+
+    def read_artifact(self, reference: str) -> Dict[str, Any]:
+        return self.tools.artifact_store.read_artifact(reference)
+
+    def list_todos(self) -> Dict[str, Any]:
+        todos_path = os.path.join(self.tools.workspace, ".embedagent", "todos.json")
+        if not os.path.isfile(todos_path):
+            return {"count": 0, "todos": [], "path": ".embedagent/todos.json"}
+        with open(todos_path, "r", encoding="utf-8") as handle:
+            data = json.load(handle)
+        todos = data if isinstance(data, list) else []
+        return {
+            "count": len(todos),
+            "todos": todos,
+            "path": ".embedagent/todos.json",
+        }
 
     def submit_user_message(
         self,
@@ -418,7 +588,58 @@ class InProcessAdapter(object):
         session_id: str,
         payload: Dict[str, Any],
     ) -> None:
+        try:
+            self.timeline_store.append_event(session_id, event_name, payload)
+        except Exception:
+            pass
         handler = event_handler or self.event_handler
         if handler is None:
             return
         handler(event_name, session_id, payload)
+
+    def _resolve_workspace_candidate(self, path: str, allow_missing: bool) -> str:
+        raw = (path or "").strip()
+        if not raw:
+            raise ValueError("路径不能为空。")
+        candidate = raw if os.path.isabs(raw) else os.path.join(self.tools.workspace, raw)
+        resolved = os.path.realpath(candidate)
+        workspace_norm = os.path.normcase(self.tools.workspace)
+        resolved_norm = os.path.normcase(resolved)
+        if not (
+            resolved_norm == workspace_norm
+            or resolved_norm.startswith(workspace_norm + os.sep)
+        ):
+            raise ValueError("路径超出当前工作区。")
+        if not allow_missing and not os.path.exists(resolved):
+            raise ValueError("路径不存在：%s" % path)
+        return resolved
+
+    def _relative_path(self, path: str) -> str:
+        relative = os.path.relpath(path, self.tools.workspace)
+        if relative == ".":
+            return "."
+        return relative.replace(os.sep, "/")
+
+    def _count_workspace_items(self) -> Dict[str, int]:
+        file_count = 0
+        dir_count = 0
+        for current_root, dir_names, file_names in os.walk(self.tools.workspace):
+            dir_names[:] = [name for name in dir_names if name not in SKIP_DIR_NAMES]
+            dir_count += len(dir_names)
+            file_count += len(file_names)
+        return {"file_count": file_count, "dir_count": dir_count}
+
+    def _detect_newline(self, path: str) -> str:
+        with io.open(path, "rb") as handle:
+            sample = handle.read(4096)
+        if b"\r\n" in sample:
+            return "\r\n"
+        if b"\r" in sample:
+            return "\r"
+        return "\n"
+
+
+
+
+
+

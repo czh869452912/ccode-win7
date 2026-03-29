@@ -1,102 +1,122 @@
 # EmbedAgent TUI 信息架构（Phase 6）
 
-> 更新日期：2026-03-28
+> 更新日期：2026-03-29
 > 适用阶段：Phase 6 交互层设计
 
 ---
 
 ## 1. 文档目标
 
-定义首版 TUI 的信息结构、核心交互流和边界，保证：
+定义当前终端前端的信息结构、子模块边界和关键交互流，保证：
 
 - 交互层不反向侵蚀 Core 设计
-- 首版 TUI 足够可用，但不演化成终端 IDE
-- Windows 7 终端环境下也能稳定工作
+- TUI 已经从单文件原型收敛成可维护模块
+- Windows 7 终端环境下的保底体验始终可用
 
-本文件关注“界面应呈现什么、如何组织信息”，不展开最终视觉细节。
+本文件关注“当前终端前端应该呈现什么、怎样组织信息、哪些边界已经固定”。
 
 ---
 
-## 2. 设计原则
+## 2. 当前设计原则
 
 ### 2.1 单会话优先，多会话可切换
 
-首版 TUI 的重点是：
+当前终端前端仍以一个活跃会话为中心：
 
 - 一个活跃会话的清晰推进
 - 最近会话的快速恢复
+- 会话列表作为 explorer 子视图，而不是多标签并发编排
 
-而不是同时并排管理很多会话。
+### 2.2 先保证可观测，再增加浏览与编辑能力
 
-### 2.2 先保证可观测，再追求炫技交互
+当前前端优先解决：
 
-用户首先需要知道：
+- Session / Mode / Permission / Error 可见
+- Timeline 可回看
+- Workspace 可浏览
+- Artifact 可浏览
+- 单文件可编辑
 
-- 当前模式是什么
-- 当前 Agent 在做什么
-- 有没有权限确认卡住
-- 最近工具结果和错误是什么
-- 当前会话是否已经被压缩/恢复
+### 2.3 不做终端 IDE 的全量野心
 
-所以首版应优先展示状态和事件，而不是花哨布局。
+当前仍然**不是**完整终端 IDE，不承担：
 
-### 2.3 不把 TUI 做成文本编辑器
-
-首版 TUI 不承担：
-
-- 多文件源码编辑
-- 内嵌 diff merge
-- 复杂树状工程浏览
-
-这些都不是当前 Phase 6 的核心目标。
-
----
-
-## 3. 首版范围
-
-### 3.1 要做
-
-- 新建会话
-- 恢复最近会话
-- 发送用户消息
-- 查看 assistant 流式回复
-- 查看工具开始/结束事件
-- 响应权限确认
-- 查看最近会话状态摘要
-- 查看当前模式、上下文压缩和错误状态
-
-### 3.2 暂不做
-
-- 多标签页会话并发运行
-- 内嵌文件编辑器
-- artifact 专门浏览器
+- 多标签会话并发运行
+- 多缓冲文件编辑
+- 内嵌 merge editor
 - 图形化 diff
 - HTTP/Web 前端复用层
 
 ---
 
-## 4. 页面结构
+## 3. 当前包结构
 
-首版建议采用三段式纵向结构，加一个可切换侧栏。
+当前终端前端已从单文件 `src/embedagent/tui.py` 迁移为模块包：
 
 ```text
-┌─────────────────────────────────────────────────────────────┐
-│ Header / Session Bar                                        │
-├───────────────────────────────────────┬─────────────────────┤
-│ Transcript / Event Stream             │ Side Panel          │
-│                                       │                     │
-│ user / assistant / tool / permission  │ session summary     │
-│                                       │ mode / budget       │
-│                                       │ project memory      │
-│                                       │ last blocker        │
-├───────────────────────────────────────┴─────────────────────┤
-│ Composer / Command Line                                     │
-└─────────────────────────────────────────────────────────────┘
+src/embedagent/
+├── tui.py                          # 兼容 shim，懒加载终端前端
+└── frontends/
+    └── terminal/
+        ├── __init__.py
+        ├── bootstrap.py            # run_tui / 依赖加载 / 宿主保护
+        ├── app.py                  # TerminalApp 主协调器
+        ├── state.py                # UI 状态真相
+        ├── reducer.py              # 纯状态变换
+        ├── controller.py           # 输入路由与副作用
+        ├── commands.py             # slash command 解析
+        ├── completion.py           # /、@文件、artifact、session 补全
+        ├── host.py                 # raw-console / conemu 能力识别
+        ├── theme.py                # Win7-safe 主题
+        ├── layout.py               # prompt_toolkit 布局和快捷键
+        ├── models.py               # ExplorerItem / ArtifactRow / EditorBuffer
+        ├── services/
+        │   ├── sessions.py
+        │   ├── workspace.py
+        │   ├── timeline.py
+        │   ├── artifacts.py
+        │   └── editor.py
+        └── views/
+            ├── header.py
+            ├── explorer.py
+            ├── timeline.py
+            ├── inspector.py
+            ├── composer.py
+            ├── editor.py
+            └── dialogs.py
+```
+
+边界约束固定为：
+
+- `views/` 不直接调 adapter
+- `reducer.py` 不触碰 prompt_toolkit 对象
+- `controller.py` 负责副作用和服务调用
+- `bootstrap.py` 之外不直接 new LLM / ToolRuntime
+
+---
+
+## 4. 当前页面结构
+
+当前终端前端采用“三栏主体 + 底部 composer”的布局。
+
+```text
+┌──────────────────────────────────────────────────────────────────────┐
+│ Header / Session Bar                                                 │
+├───────────────────────┬─────────────────────────┬────────────────────┤
+│ Explorer              │ Main View               │ Inspector          │
+│                       │                         │                    │
+│ Workspace             │ Timeline                │ Status             │
+│ Sessions              │ Preview                 │ Plan               │
+│ Todos                 │ Editor                  │ Artifacts          │
+│                       │                         │ Permission / Diff  │
+├───────────────────────┴─────────────────────────┴────────────────────┤
+│ Composer / Command Line                                              │
+└──────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 5. 主要区域
+## 5. 当前主要区域
 
 ### 5.1 Header / Session Bar
 
@@ -106,209 +126,201 @@
 - 当前 mode
 - 当前状态：`idle / running / waiting_permission / error`
 - 当前工作区
-- 是否来自 resume
+- host mode：`raw-console / conemu`
+- git branch / dirty 计数
+- follow output 状态
+- editor dirty 状态
 
-辅助操作：
+### 5.2 Explorer
 
-- `n` 新建会话
-- `r` 恢复最近会话
-- `s` 打开会话列表
-- `q` 退出
+当前 explorer 有 3 个主标签：
 
-### 5.2 Transcript / Event Stream
+- `Workspace`
+- `Sessions`
+- `Todos`
 
-这是首版 TUI 的主区域。
+当前支持：
 
-显示顺序：
+- 列表/树状文本浏览
+- 选中项移动
+- 目录下钻
+- 选中文件预览
+- 选中文件进入编辑
+- 选中会话恢复
 
-- 用户消息
-- assistant 回复
-- tool started / finished
-- permission required
-- session error / session finished
+### 5.3 Main View
 
-要求：
+当前主视图支持 3 种模式：
 
-- assistant 流式增量要自然滚动
-- tool 事件要比普通文本更醒目
-- permission 事件要固定停留，直到用户处理
-- context compact / session resumed 这类系统事件也要可见，但权重低于错误与权限
+- `Timeline`
+- `Preview`
+- `Editor`
 
-### 5.3 Side Panel
+其中：
 
-侧栏显示“当前会话摘要”，而不是完整历史。
+- Timeline 负责显示 user / assistant / tool / permission / context 事件
+- Preview 负责显示文件或 artifact 文本
+- Editor 负责单缓冲文件编辑
 
-建议分 4 个小块：
+### 5.4 Inspector
 
-1. `Session`
-   - current mode
-   - updated_at
-   - turn_count
-   - message_count
+当前 inspector 标签：
 
-2. `Context`
-   - recent_turns
-   - summarized_turns
-   - approx_tokens_after
-   - project_memory_included
+- `status`
+- `plan`
+- `artifacts`
+- `help`
+- `snapshot`
+- `diff`
 
-3. `Work`
-   - working_set
-   - modified_files
-   - recent_actions
+当前含义：
 
-4. `Status`
-   - last_success
-   - last_blocker
-   - recent_artifacts（只显示引用，不展开正文）
+- `status`：当前 session、workspace、summary、permission、error
+- `plan`：最近 assistant 完整回复 + todo 列表
+- `artifacts`：artifact 索引列表与当前选中引用
+- `snapshot`：当前前端状态快照
+- `diff`：编辑器保存前后差异预览
 
-### 5.4 Composer / Command Line
+### 5.5 Composer / Command Line
 
-底部输入区统一承载三类输入：
+当前底部输入统一承载：
 
 - 普通用户消息
-- slash 命令
-- 权限确认快捷回复
+- slash command
+- 权限确认回复
 
-首版建议支持：
+当前命令集至少包括：
 
-- 直接输入消息回车发送
-- `/mode <name>`
-- `/resume latest`
+- `/help`
+- `/new [mode]`
+- `/resume latest|selected|<session_id>`
+- `/workspace [path]`
 - `/sessions`
-- `/snapshot`
+- `/todos`
+- `/artifacts`
+- `/artifact <ref>`
+- `/open <path>`
+- `/edit <path>`
+- `/save`
+- `/explorer <workspace|sessions|todos>`
+- `/inspector <status|plan|artifacts|help|snapshot|diff>`
+- `/follow <on|off>`
+- `/mode <name>`
 - `/quit`
+
+当前补全集包括：
+
+- slash command 补全
+- `@文件` 路径补全
+- `artifact:<ref>` 补全
+- `session:<id>` 补全
 
 ---
 
-## 6. 关键交互流
+## 6. 当前交互流
 
 ### 6.1 新建会话
 
-1. 用户进入 TUI
-2. 默认显示一个空会话 Composer
-3. 输入消息并发送
-4. Header 切到 `running`
-5. Transcript 追加 `turn_started`
-6. assistant / tool 事件陆续出现
-7. 完成后状态切回 `idle`
+1. 进入 TUI
+2. 创建新 session
+3. Header 切到当前 session
+4. Timeline 显示后续事件流
+5. Inspector 默认显示状态摘要
 
 ### 6.2 恢复会话
 
-1. 用户按 `r` 或输入 `/resume latest`
-2. 弹出最近会话列表，显示：
-   - session_id
-   - current_mode
-   - updated_at
-   - summary_text
-3. 选中后恢复
-4. Transcript 追加 `session_resumed`
-5. 侧栏立即显示恢复摘要、工作集和最近 blocker
-6. 用户继续输入下一条消息
+1. 切到 `Sessions` explorer 或使用 `/resume`
+2. 恢复选中 session
+3. Timeline 从持久化 timeline 重新装载
+4. Inspector 可继续查看 summary / plan / artifacts
 
-### 6.3 权限确认
+### 6.3 浏览工作区
 
-1. Transcript 收到 `permission_required`
-2. Header 状态切为 `waiting_permission`
-3. 底部 Composer 切换成确认提示：
-   - `y` 批准
-   - `n` 拒绝
-4. 用户选择后，事件流继续推进
+1. `Workspace` explorer 展示目录树
+2. 选中文件后可预览
+3. 选中目录后可继续下钻
+4. 可在 composer 中通过 `@文件` 引用路径
 
-### 6.4 错误处理
+### 6.4 编辑单文件
 
-1. 出现 `session_error`
-2. Header 标红或至少高亮错误状态
-3. 侧栏 `Status` 区显示 `last_error`
-4. Composer 不锁死，允许用户继续输入“继续排查”或切换 mode
+1. 选中文件后进入 `Editor`
+2. 在单缓冲中修改内容
+3. 保存时通过 adapter 写回工作区
+4. Inspector `diff` 可查看保存前 diff 预览
 
----
+### 6.5 权限确认
 
-## 7. 会话列表视图
-
-会话列表不需要单独一整页，首版可以是弹层或抽屉。
-
-每个条目显示：
-
-- `session_id`
-- `current_mode`
-- `updated_at`
-- `summary_text`（截断）
-
-支持动作：
-
-- 回车恢复
-- `d` 删除（后续再做）
-- `esc` 关闭
+1. 收到 `permission_required`
+2. Header 切到 `waiting_permission`
+3. Composer prompt 切换到 `confirm(y/n)>`
+4. 用户输入 `y` / `n`
+5. Timeline 继续推进
 
 ---
 
-## 8. 事件到 UI 的映射
+## 7. 事件到 UI 的映射
 
-| Event | TUI 行为 |
-|------|-----------|
-| `session_created` | 新建会话条、刷新 Header |
-| `session_resumed` | 在 Transcript 中插入恢复标记，并刷新侧栏 |
-| `turn_started` | 在事件流中插入分隔线 |
-| `assistant_delta` | 追加到当前 assistant 气泡 |
-| `tool_started` | 插入工具开始卡片 |
-| `tool_finished` | 更新工具卡片结果 |
-| `permission_required` | 锁定为待处理提示，并切 Header 状态 |
-| `context_compacted` | 侧栏刷新 Context 区 |
-| `session_finished` | Header 切回 idle，侧栏更新时间 |
-| `session_error` | 高亮错误状态，并在侧栏显示 last_error |
+| Event | 当前 UI 行为 |
+|------|--------------|
+| `session_created` | 刷新当前 session 与 explorer |
+| `session_resumed` | 刷新快照、重载 timeline |
+| `turn_started` | Timeline 追加用户输入 |
+| `assistant_delta` | 追加到流式 assistant 行 |
+| `tool_started` | Timeline 插入工具开始事件 |
+| `tool_finished` | Timeline 插入 Observation 摘要 |
+| `permission_required` | Header 切 waiting，Composer 切 confirm prompt |
+| `context_compacted` | Timeline 追加 context 事件，Inspector 刷新 context 概况 |
+| `session_finished` | 刷新 snapshot / summary / artifacts / todos / timeline |
+| `session_error` | 记录错误并刷新 Inspector |
+
+---
+
+## 8. Core 数据入口
+
+当前终端前端除了会话型命令，还依赖以下浏览型 adapter 接口：
+
+- `get_workspace_snapshot`
+- `list_workspace_tree`
+- `read_workspace_file`
+- `write_workspace_file`
+- `get_session_timeline`
+- `list_artifacts`
+- `read_artifact`
+- `list_todos`
+
+其中：
+
+- timeline 来自 `SessionTimelineStore`
+- artifact 来自 `ArtifactStore.index.json` 与 artifact 文件本体
+- 文件保存仍通过 adapter 边界，而不是在前端里散落文件写入逻辑
 
 ---
 
 ## 9. Windows 7 终端约束
 
-首版 TUI 必须适配较弱终端环境，因此：
+当前终端前端继续遵循 Win7 弱宿主约束：
 
-- 不依赖鼠标
 - 不依赖复杂 Unicode 边框
-- 动画尽量少
-- 保证无颜色环境下也能读
-- 所有关键操作必须有键盘路径
+- 不依赖鼠标作为关键路径
+- 所有关键操作有纯键盘路径
+- 低颜色和 ASCII 环境可读
+- `ConEmu` 只是增强宿主，不承载应用逻辑
 
-建议：
+当前 host 识别分为：
 
-- 用 `Rich` 做基础样式，但不要强依赖高级渲染特性
-- 用 `prompt_toolkit` 做输入框、快捷键和布局
-- 所有弹层都要有纯键盘退出路径
-
----
-
-## 10. Phase 6 实现顺序
-
-### 10.1 第一步
-
-先做 `InProcessAdapter`，让现有 CLI 从“直接调 loop”变成“通过 adapter 调 loop”。
-
-### 10.2 第二步
-
-在 adapter 之上做最小 TUI：
-
-- Header
-- Transcript
-- Composer
-- Session Summary Side Panel
-
-### 10.3 第三步
-
-补：
-
-- 会话列表弹层
-- 权限确认交互
-- 错误状态展示
-
-stdio JSON-RPC adapter 放在这些都稳定后再接。
+- `raw-console`
+- `conemu`
 
 ---
 
-## 11. 当前结论
+## 10. 当前结论
 
-Phase 6 首版 TUI 的目标不是“终端 IDE”，而是：
+Phase 6 当前终端前端已经不再是“单文件聊天壳”，而是：
 
-**把 Session、Event、Permission、Context 这四类信息稳定地呈现出来。**
+**一个围绕 session / workspace / timeline / artifacts / editor 组织的模块化终端前端。**
 
-只要这四类信息组织清楚，用户就能真正感知 Core 的行为，而不是把交互层做成一个只会显示聊天记录的壳。
+后续继续细化的重点将是：
+
+- 真实 Win7 控制台与 ConEmu 手工验证
+- explorer / editor / plan 交互打磨
+- stdio adapter 与未来原生桌面壳复用同一协议

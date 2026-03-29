@@ -100,6 +100,34 @@ class ArtifactStore(object):
             result.append(item)
         return result
 
+    def resolve_artifact_path(self, reference: str) -> str:
+        raw = self._normalize_ref((reference or "").strip())
+        if not raw:
+            raise ValueError("artifact 引用不能为空。")
+        candidate = raw
+        if not os.path.isabs(candidate):
+            candidate = os.path.join(self.workspace, candidate.replace("/", os.sep))
+        candidate = os.path.realpath(candidate)
+        root_norm = os.path.normcase(self.root)
+        candidate_norm = os.path.normcase(candidate)
+        if not (
+            candidate_norm == root_norm
+            or candidate_norm.startswith(root_norm + os.sep)
+        ):
+            raise ValueError("artifact 路径超出 artifacts 根目录。")
+        if not os.path.isfile(candidate):
+            raise ValueError("artifact 不存在：%s" % reference)
+        return candidate
+
+    def read_artifact(self, reference: str) -> Dict[str, Any]:
+        artifact_path = self.resolve_artifact_path(reference)
+        with open(artifact_path, "r", encoding="utf-8") as handle:
+            payload = json.load(handle)
+        if not isinstance(payload, dict):
+            raise ValueError("artifact 内容不可用：%s" % reference)
+        payload["path"] = os.path.relpath(artifact_path, self.workspace).replace(os.sep, "/")
+        return payload
+
     def cleanup(
         self,
         active_refs: Optional[object] = None,
@@ -209,4 +237,5 @@ class ArtifactStore(object):
         relative_ref = relative_path.replace(os.sep, "/")
         self._update_index(relative_ref, payload)
         return relative_ref
+
 
