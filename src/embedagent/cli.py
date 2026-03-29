@@ -5,10 +5,13 @@ import os
 import sys
 from typing import Dict, List, Optional
 
+from embedagent.config import load_config
+from embedagent.context import ContextManager, make_context_config
 from embedagent.inprocess_adapter import InProcessAdapter
 from embedagent.llm import ModelClientError, OpenAICompatibleClient
 from embedagent.modes import DEFAULT_MODE, parse_mode_command
 from embedagent.permissions import PermissionPolicy
+from embedagent.project_memory import ProjectMemoryStore
 from embedagent.session_store import SessionSummaryStore
 from embedagent.tools import ToolRuntime
 from embedagent.tui import TUIUnavailableError, run_tui
@@ -97,6 +100,24 @@ def build_parser() -> argparse.ArgumentParser:
         help="权限规则文件路径，相对于工作区或绝对路径。示例：.embedagent/permission-rules.json",
     )
     parser.add_argument(
+        "--max-context-tokens",
+        type=int,
+        default=None,
+        help="覆盖上下文窗口大小（token 数）。示例：32000",
+    )
+    parser.add_argument(
+        "--reserve-output-tokens",
+        type=int,
+        default=None,
+        help="覆盖为输出预留的 token 数。示例：3000",
+    )
+    parser.add_argument(
+        "--chars-per-token",
+        type=float,
+        default=None,
+        help="覆盖字符/token 估算比率。示例：3.0",
+    )
+    parser.add_argument(
         "--no-stream",
         action="store_true",
         help="禁用流式输出，等待完整回复后再打印。",
@@ -146,6 +167,16 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     workspace = os.path.realpath(args.workspace)
+
+    # Load user-level and project-level config, then apply CLI overrides
+    app_config = load_config(workspace)
+    if args.max_context_tokens is not None:
+        app_config.max_context_tokens = args.max_context_tokens
+    if args.reserve_output_tokens is not None:
+        app_config.reserve_output_tokens = args.reserve_output_tokens
+    if args.chars_per_token is not None:
+        app_config.chars_per_token = args.chars_per_token
+
     summary_store = SessionSummaryStore(workspace)
 
     if args.list_sessions:
@@ -222,7 +253,10 @@ def main(argv: Optional[List[str]] = None) -> int:
         model=args.model,
         timeout=args.timeout,
     )
-    tools = ToolRuntime(workspace)
+    tools = ToolRuntime(workspace, app_config=app_config)
+    context_config = make_context_config(app_config)
+    project_memory = ProjectMemoryStore(workspace)
+    context_manager = ContextManager(config=context_config, project_memory=project_memory)
     permission_policy = PermissionPolicy(
         auto_approve_all=args.approve_all,
         auto_approve_writes=args.approve_writes,
@@ -308,6 +342,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         max_turns=args.max_turns,
         permission_policy=permission_policy,
         summary_store=summary_store,
+        context_manager=context_manager,
         event_handler=on_event,
     )
 

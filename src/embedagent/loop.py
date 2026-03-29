@@ -198,7 +198,7 @@ class AgentLoop(object):
                 )
                 return observation, current_mode
             normalized_path = path.replace("\\", "/")
-            if not is_path_writable(current_mode, normalized_path):
+            if not is_path_writable(current_mode, normalized_path, getattr(self.tools, "app_config", None)):
                 observation = Observation(
                     tool_name=action.name,
                     success=False,
