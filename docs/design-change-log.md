@@ -833,3 +833,30 @@
   - 接入 `ripgrep` 与 `Universal Ctags`
   - 评估是否用更精简的方式导出运行时 `site-packages`
   - 在 Win7 虚拟机上补 bundle 级真实验收
+
+### DC-033
+
+- 日期：2026-03-29
+- 变更主题：接入 ripgrep 与 Universal Ctags 的真实资产链路
+- 变更摘要：
+  - `scripts/offline-assets.json` 已新增 `ripgrep_x64` 与 `universal_ctags_x64`，固定官方 URL、SHA256、stage/cache 路径与 License 元数据
+  - `scripts/prepare-offline.ps1` 现在会对这两类 zip 执行缓存校验、按需下载、解压与 license notice 生成
+  - prepare 新增“单层顶级目录自动拍平”逻辑，使 ripgrep zip 能稳定落到 `bin/rg/rg.exe`
+  - `scripts/validate-offline-bundle.ps1` 已把 `rg.exe`、`ctags.exe`、对应 license notice、sources archive 和 `--version` 动态检查纳入正式门禁
+  - 当前 `prepare/build/validate -RequireComplete` 已在 Python / MinGit / ripgrep / Universal Ctags 四类核心资产上全量通过
+- 影响范围：
+  - Phase 7 第三方资产接入范围
+  - bundle 与 sources seed 的完整性门禁
+  - validate 的动态工具检查覆盖面
+- 关联文档：
+  - `scripts/offline-assets.json`
+  - `scripts/prepare-offline.ps1`
+  - `scripts/validate-offline-bundle.ps1`
+  - `docs/offline-packaging.md`
+  - `docs/development-tracker.md`
+  - `docs/implementation-roadmap.md`
+- 是否需要 ADR：`不单独写`
+- 后续动作：
+  - 评估 `.venv\Lib\site-packages` 的精简导出方案
+  - 在 Win7 虚拟机上补 bundle 级真实验收
+  - 视需要继续收敛第三方工具 license 文件的随包归档方式

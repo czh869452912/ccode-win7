@@ -1,6 +1,6 @@
 # EmbedAgent 开发进度跟踪
 
-> 更新日期：2026-03-29（DC-032 修订）
+> 更新日期：2026-03-29（DC-033 修订）
 > 用途：持续跟踪当前阶段、下一步任务、里程碑进度、风险与阻塞
 
 ---
@@ -28,7 +28,7 @@
 
 - 当前阶段：`Phase 4 真实工程验证 + Phase 6 手工验证收口`
 - 总体状态：`进行中`
-- 当前重点：`Phase 4 默认 recipe/真实工程/Win7 验证，Phase 6 真实控制台与 Win7 手工验证，Phase 7 在 Python/MinGit 已接入的基础上继续推进 rg/ctags、site-packages 精简与完整 bundle 验收`
+- 当前重点：`Phase 4 默认 recipe/真实工程/Win7 验证，Phase 6 真实控制台与 Win7 手工验证，Phase 7 在四类核心资产已接入的基础上继续推进 site-packages 精简与 Win7 bundle 验收`
 
 ### 当前判断
 
@@ -77,8 +77,9 @@
 - Phase 7 build 脚本骨架已落地：`scripts/build-offline-bundle.ps1` 已可把 staging bundle 复制到 `build/offline-dist/`、重写 manifest、重算 checksum，并生成 zip
 - Phase 7 validate 脚本骨架已落地：`scripts/validate-offline-bundle.ps1` 已在 skeleton bundle 上验证通过，且 `-RequireComplete` 会按预期对缺失资产返回失败
 - Phase 7 真实资产接入已打通第一段：`scripts/offline-assets.json` 已固定 `python_embedded_x64` 与 `mingit_x64`，`prepare/build/validate` 已完成真实 zip、SHA256、sources seed、license notice 与 launcher 校验
+- Phase 7 真实资产接入已继续扩展到 `ripgrep_x64` 与 `universal_ctags_x64`，当前 `prepare/build/validate -RequireComplete` 已在四类核心资产上通过
 
-项目下一步：继续推进 Phase 4 真实工程验证，在真实控制台里完成模块化终端前端手工验证，并把 Phase 7 的 `rg/ctags` 资产接入、site-packages 精简和 Win7 bundle 验收接上。
+项目下一步：继续推进 Phase 4 真实工程验证，在真实控制台里完成模块化终端前端手工验证，并把 Phase 7 的 site-packages 精简和 Win7 bundle 验收接上。
 
 ---
 
@@ -88,7 +89,7 @@
 
 1. 推进 Phase 4 的真实 C 工程与 Win7 验证
 2. 在真实控制台里完成模块化终端前端手工验证并记录结果
-3. 为 `prepare/build/validate` 三段脚本补齐 `rg/ctags` 真实资产来源、版本、License 与 checksum 记录
+3. 为当前 bundle 评估并收敛 `site-packages` 的精简导出方案
 
 实现备注：
 
@@ -99,16 +100,15 @@
 - Phase 4 已具备项目内闭环工具链，但默认 recipe、真实 C 工程和 Win7 验证仍需补齐。
 - Phase 5 脚本验证已重新跑通，当前已从“实现完成”推进到“脚本复验通过”。
 - Phase 6 自动化验证已通过，剩余缺口是宿主兼容与真实交互体验。
-- Phase 7 现已完成设计基线、ADR、`prepare/build/validate` 三段脚本骨架，以及 Python/MinGit 的真实资产接入；下一步应转向 `rg/ctags`、site-packages 精简与完整 bundle 验收。
+- Phase 7 现已完成设计基线、ADR、`prepare/build/validate` 三段脚本骨架，以及 Python / MinGit / rg / ctags 的真实资产接入；下一步应转向 site-packages 精简与完整 bundle 验收。
 
 ### P1：紧随其后
 
 1. 收敛 Clang bundle 的版本组合与默认命令 recipe
 2. 决定是否将 memory browse / inspect 作为 Phase 6 收口项
 3. 评估终端前端稳定后是否推进 stdio JSON-RPC adapter
-4. 固化 `ripgrep` / `Universal Ctags` 的来源、License 与 checksum 管理方式
-5. 决定是否从 `.venv\Lib\site-packages` 继续直拷，还是切到更精简的运行时导出策略
-6. 接入 `ripgrep`、`ctags` 到 `prepare/build/validate` 流水线中做一次更接近最终交付的 bundle 试跑
+4. 决定是否从 `.venv\Lib\site-packages` 继续直拷，还是切到更精简的运行时导出策略
+5. 在 Win7 虚拟机上对当前四类核心资产 bundle 做一次真实验收
 
 ---
 
@@ -134,6 +134,7 @@
 | T-016 | 实现 Phase 7B build-offline-bundle 骨架 | `completed` | 已新增 `scripts/build-offline-bundle.ps1`，可消费 staging bundle，生成 `build/offline-dist/<artifact>/` 与 zip，并重写 dist manifest/checksum |
 | T-017 | 实现 Phase 7C validate-offline-bundle 骨架 | `completed` | 已新增 `scripts/validate-offline-bundle.ps1`，可校验 skeleton bundle，并支持 `-RequireComplete` 切换到严格门禁 |
 | T-018 | 接入 Python embeddable 与 MinGit 真实资产 | `completed` | 已新增 `scripts/offline-assets.json`，并完成真实 zip 下载、SHA256 固定、staging 解压、sources seed、license notice 与 `-RequireComplete` 验收 |
+| T-019 | 接入 ripgrep 与 Universal Ctags 真实资产 | `completed` | 已扩展 `scripts/offline-assets.json` 与 `prepare/build/validate`，完成真实 zip 下载、SHA256 固定、sources seed、license notice 与 `-RequireComplete` 验收 |
 
 ---
 
@@ -148,7 +149,7 @@
 | Phase 4 | Clang 工具链 | `in_progress` | 已有项目内闭环工具链，待真实工程与 Win7 验证 |
 | Phase 5 | 质量保障层 | `completed` | 权限、上下文、记忆、恢复与 cleanup 已落地；修复根目录文件写入边界后，专项验证脚本已复验通过 |
 | Phase 6 | CLI / TUI | `in_progress` | InProcessAdapter 已扩展 workspace / timeline / artifact / todo 前端接口，终端前端已拆为 `frontends/terminal` 子模块，并已通过 `validate-phase6.py` 与单元测试；待真实控制台 / Win7 手工验证 |
-| Phase 7 | 打包与离线交付 | `in_progress` | 设计基线、ADR、`prepare/build/validate` 三段脚本骨架，以及 Python/MinGit 真实资产接入已完成；待接 `rg/ctags`、收敛 site-packages、并做 Win7 bundle 验收 |
+| Phase 7 | 打包与离线交付 | `in_progress` | 设计基线、ADR、`prepare/build/validate` 三段脚本骨架，以及 Python/MinGit/rg/ctags 真实资产接入已完成；待收敛 site-packages 并做 Win7 bundle 验收 |
 
 ---
 
@@ -169,7 +170,7 @@
 | R-011 | Python embeddable distribution 的 CRT / UCRT 本地部署复杂 | 中 | 用 Phase 7 preflight 清单和本地 DLL bundling 策略收口 |
 | R-012 | 第三方二进制来源、License 和 checksum 追溯不足 | 中 | 用 bundle manifest 记录 version/source/license/checksum，并纳入构建产物 |
 | R-013 | prepare 阶段与最终 build/validate 阶段契约不清晰，后续脚本容易返工 | 中 | 先把 `prepare/build/validate` 的输入输出边界写清，再继续实现 |
-| R-014 | 当前 build 已验证 Python/MinGit 可启动，但 `rg/ctags` 仍未接入，离最终 bundle 仍有差距 | 中 | 继续接 `rg/ctags` 并在 `-RequireComplete` 下保持通过 |
+| R-014 | 当前 build 已验证四类核心资产可启动，但 `site-packages` 仍是直拷 `.venv`，离最终 bundle 仍有优化空间 | 中 | 下一步收敛更精简的运行时包导出方案 |
 | R-015 | validate 默认允许 skeleton bundle 以告警通过，若无人切到 `-RequireComplete` 可能误判“已可交付” | 中 | 在正式验收和 CI 入口中强制使用 `-RequireComplete` |
 | R-016 | 直接拷贝 `.venv\Lib\site-packages` 可能带来过大的 bundle 体积 | 中 | 评估更精简的运行时导出方案，再决定是否替换当前实现 |
 
@@ -209,6 +210,7 @@
 | 2026-03-29 | 建立 `scripts/build-offline-bundle.ps1`：已可把 staging bundle 复制到 `build/offline-dist/`、生成 zip、重写 dist manifest 并重算 checksum |
 | 2026-03-29 | 建立 `scripts/validate-offline-bundle.ps1`：默认模式可校验 skeleton bundle 并告警通过，`-RequireComplete` 下会对缺失资产返回失败 |
 | 2026-03-29 | 建立 `scripts/offline-assets.json`，正式接入 `python_embedded_x64` 与 `mingit_x64`，并完成真实 prepare/build/validate 验收 |
+| 2026-03-29 | 扩展 `scripts/offline-assets.json`，正式接入 `ripgrep_x64` 与 `universal_ctags_x64`，并完成真实 prepare/build/validate `-RequireComplete` 验收 |
 
 
 

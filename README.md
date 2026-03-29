@@ -117,6 +117,7 @@
 - 2026-03-29：Phase 7 `scripts/build-offline-bundle.ps1` 已落地，可把 staging bundle 复制到 `build/offline-dist/` 并生成 zip。
 - 2026-03-29：Phase 7 `scripts/validate-offline-bundle.ps1` 已落地，默认模式可校验 skeleton bundle 并输出告警，`-RequireComplete` 可收紧为正式验收门。
 - 2026-03-29：Phase 7 已正式接入真实 `Python 3.8 embeddable x64` 与 `MinGit x64` 资产，`scripts/offline-assets.json`、sources seed、license notice 和完整性校验链路已跑通。
+- 2026-03-29：Phase 7 已继续接入真实 `ripgrep x64` 与 `Universal Ctags x64` 资产，当前 `prepare/build/validate -RequireComplete` 已在四类核心资产上全量通过。
 
 - [x] 需求确认与范围界定
 - [x] 参考项目架构分析（OpenCode / OpenHands / Roo-Code）

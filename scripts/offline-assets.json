@@ -28,6 +28,34 @@
       "license_name": "GNU General Public License v2.0",
       "license_url": "https://github.com/git-for-windows/git/blob/v2.46.2.windows.1/COPYING",
       "notes": "Pinned to the last Git for Windows / MinGit release supporting Windows 7 and 8."
+    },
+    {
+      "id": "ripgrep_x64",
+      "version": "14.1.1",
+      "kind": "search_tool",
+      "platform": "win7-x64",
+      "upstream_url": "https://github.com/BurntSushi/ripgrep/releases/download/14.1.1/ripgrep-14.1.1-x86_64-pc-windows-msvc.zip",
+      "sha256": "d0f534024c42afd6cb4d38907c25cd2b249b79bbe6cc1dbee8e3e37c2b6e25a1",
+      "archive_type": "zip",
+      "cache_relpath": "rg/ripgrep-14.1.1-x86_64-pc-windows-msvc.zip",
+      "stage_relpath": "bin/rg",
+      "license_name": "MIT OR The Unlicense",
+      "license_url": "https://github.com/BurntSushi/ripgrep/blob/14.1.1/COPYING",
+      "notes": "Pinned to ripgrep 14.1.1 x64 Windows zip for offline bundle integration."
+    },
+    {
+      "id": "universal_ctags_x64",
+      "version": "p6.2.20251116.0",
+      "kind": "symbol_indexer",
+      "platform": "win7-x64",
+      "upstream_url": "https://github.com/universal-ctags/ctags-win32/releases/download/p6.2.20251116.0/ctags-p6.2.20251116.0-x64.zip",
+      "sha256": "8c715201b31c9e10c64b8c94829a0526e11ac7986326d90b2e7a3b47782252f0",
+      "archive_type": "zip",
+      "cache_relpath": "ctags/ctags-p6.2.20251116.0-x64.zip",
+      "stage_relpath": "bin/ctags",
+      "license_name": "GNU General Public License v2.0",
+      "license_url": "https://github.com/universal-ctags/ctags/blob/master/COPYING",
+      "notes": "Pinned to the official ctags-win32 x64 zip for offline bundle integration."
     }
   ]
 }

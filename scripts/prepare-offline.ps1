@@ -264,6 +264,31 @@ function Extract-ZipArchive {
     Expand-Archive -LiteralPath $ArchivePath -DestinationPath $DestinationPath -Force
 }
 
+function Normalize-ExtractedRoot {
+    param(
+        [string]$Root
+    )
+
+    if (-not (Test-Path -LiteralPath $Root)) {
+        return
+    }
+
+    $items = @(Get-ChildItem -LiteralPath $Root -Force)
+    $directories = @($items | Where-Object { $_.PSIsContainer })
+    $files = @($items | Where-Object { -not $_.PSIsContainer })
+
+    if ($directories.Count -ne 1 -or $files.Count -ne 0) {
+        return
+    }
+
+    $nestedRoot = $directories[0].FullName
+    $nestedItems = @(Get-ChildItem -LiteralPath $nestedRoot -Force)
+    foreach ($item in $nestedItems) {
+        Move-Item -LiteralPath $item.FullName -Destination $Root -Force
+    }
+    Remove-Item -LiteralPath $nestedRoot -Recurse -Force
+}
+
 function Patch-EmbeddablePython {
     param(
         [string]$PythonRoot
@@ -287,6 +312,20 @@ function Patch-EmbeddablePython {
         'import site'
     )
     Write-TextFile -Path $pthFile.FullName -Content ([string]::Join("`r`n", $lines) + "`r`n")
+}
+
+function Get-LicensePrefix {
+    param(
+        [object]$Asset
+    )
+
+    switch ($Asset.kind) {
+        'python_runtime' { return 'python' }
+        'git_portable' { return 'mingit' }
+        'search_tool' { return 'ripgrep' }
+        'symbol_indexer' { return 'ctags' }
+        default { return $Asset.id }
+    }
 }
 
 function Write-LicenseNotice {
@@ -354,10 +393,11 @@ function Resolve-AssetForStaging {
             throw "Unsupported archive_type '$($Asset.archive_type)' for asset $($Asset.id)"
         }
         Extract-ZipArchive -ArchivePath $cacheArchivePath -DestinationRoot $BundleRoot -DestinationPath $stagedPath
+        Normalize-ExtractedRoot -Root $stagedPath
         if ($Asset.kind -eq 'python_runtime') {
             Patch-EmbeddablePython -PythonRoot $stagedPath
         }
-        $licensePrefix = if ($Asset.kind -eq 'python_runtime') { 'python' } else { 'mingit' }
+        $licensePrefix = Get-LicensePrefix -Asset $Asset
         Write-LicenseNotice -LicenseDir $LicenseDir -Prefix $licensePrefix -Asset $Asset
         return [ordered]@{
             asset_id = $Asset.id
@@ -586,7 +626,31 @@ else {
     $components += New-ComponentRecord -Name 'mingit_portable' -StagedPath 'bin\git' -Required $true -Status 'missing' -SourcePath '' -Notes 'Provide -MinGitRoot or request mingit_x64 via -AssetIds.' -AssetId ''
 }
 
-if ($ripgrepResolved) {
+$useRipgrepAsset = $requestedAssetIds -contains 'ripgrep_x64'
+if ($useRipgrepAsset) {
+    $rgAsset = Find-AssetRecord -Manifest $assetManifest -AssetId 'ripgrep_x64'
+    $resolved = Resolve-AssetForStaging -Asset $rgAsset -CacheRoot $cacheRoot -BundleRoot $bundleRoot -LicenseDir $licenseDir -AllowDownload ([bool]$AllowDownload) -SkipBuild ([bool]$SkipBuild)
+    $resolvedAssets += [ordered]@{
+        id = $rgAsset.id
+        version = $rgAsset.version
+        kind = $rgAsset.kind
+        platform = $rgAsset.platform
+        upstream_url = $rgAsset.upstream_url
+        sha256 = $rgAsset.sha256
+        archive_type = $rgAsset.archive_type
+        cache_relpath = $rgAsset.cache_relpath
+        stage_relpath = $rgAsset.stage_relpath
+        license_name = $rgAsset.license_name
+        license_url = $rgAsset.license_url
+        notes = $rgAsset.notes
+        cache_archive_path = $resolved.cache_archive_path
+        staged_path = $resolved.staged_path
+        source_mode = 'asset_manifest'
+        status = $resolved.status
+    }
+    $components += New-ComponentRecord -Name 'ripgrep' -StagedPath $rgAsset.stage_relpath -Required $true -Status $resolved.status -SourcePath $resolved.cache_archive_path -Notes $resolved.notes -AssetId $rgAsset.id
+}
+elseif ($ripgrepResolved) {
     if (-not $SkipBuild) {
         if ((Get-Item -LiteralPath $ripgrepResolved).PSIsContainer) {
             Stage-Directory -Source $ripgrepResolved -Destination (Join-Path $bundleRoot 'bin\rg')
@@ -600,10 +664,34 @@ if ($ripgrepResolved) {
     $components += New-ComponentRecord -Name 'ripgrep' -StagedPath 'bin\rg' -Required $true -Status $status -SourcePath $ripgrepResolved -Notes $note -AssetId ''
 }
 else {
-    $components += New-ComponentRecord -Name 'ripgrep' -StagedPath 'bin\rg' -Required $true -Status 'missing' -SourcePath '' -Notes 'Provide -RipgrepPath to stage rg.exe.' -AssetId ''
+    $components += New-ComponentRecord -Name 'ripgrep' -StagedPath 'bin\rg' -Required $true -Status 'missing' -SourcePath '' -Notes 'Provide -RipgrepPath or request ripgrep_x64 via -AssetIds.' -AssetId ''
 }
 
-if ($ctagsResolved) {
+$useCtagsAsset = $requestedAssetIds -contains 'universal_ctags_x64'
+if ($useCtagsAsset) {
+    $ctagsAsset = Find-AssetRecord -Manifest $assetManifest -AssetId 'universal_ctags_x64'
+    $resolved = Resolve-AssetForStaging -Asset $ctagsAsset -CacheRoot $cacheRoot -BundleRoot $bundleRoot -LicenseDir $licenseDir -AllowDownload ([bool]$AllowDownload) -SkipBuild ([bool]$SkipBuild)
+    $resolvedAssets += [ordered]@{
+        id = $ctagsAsset.id
+        version = $ctagsAsset.version
+        kind = $ctagsAsset.kind
+        platform = $ctagsAsset.platform
+        upstream_url = $ctagsAsset.upstream_url
+        sha256 = $ctagsAsset.sha256
+        archive_type = $ctagsAsset.archive_type
+        cache_relpath = $ctagsAsset.cache_relpath
+        stage_relpath = $ctagsAsset.stage_relpath
+        license_name = $ctagsAsset.license_name
+        license_url = $ctagsAsset.license_url
+        notes = $ctagsAsset.notes
+        cache_archive_path = $resolved.cache_archive_path
+        staged_path = $resolved.staged_path
+        source_mode = 'asset_manifest'
+        status = $resolved.status
+    }
+    $components += New-ComponentRecord -Name 'universal_ctags' -StagedPath $ctagsAsset.stage_relpath -Required $true -Status $resolved.status -SourcePath $resolved.cache_archive_path -Notes $resolved.notes -AssetId $ctagsAsset.id
+}
+elseif ($ctagsResolved) {
     if (-not $SkipBuild) {
         if ((Get-Item -LiteralPath $ctagsResolved).PSIsContainer) {
             Stage-Directory -Source $ctagsResolved -Destination (Join-Path $bundleRoot 'bin\ctags')
@@ -617,7 +705,7 @@ if ($ctagsResolved) {
     $components += New-ComponentRecord -Name 'universal_ctags' -StagedPath 'bin\ctags' -Required $true -Status $status -SourcePath $ctagsResolved -Notes $note -AssetId ''
 }
 else {
-    $components += New-ComponentRecord -Name 'universal_ctags' -StagedPath 'bin\ctags' -Required $true -Status 'missing' -SourcePath '' -Notes 'Provide -CtagsPath to stage ctags.exe.' -AssetId ''
+    $components += New-ComponentRecord -Name 'universal_ctags' -StagedPath 'bin\ctags' -Required $true -Status 'missing' -SourcePath '' -Notes 'Provide -CtagsPath or request universal_ctags_x64 via -AssetIds.' -AssetId ''
 }
 
 if ($llvmPath) {

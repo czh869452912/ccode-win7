@@ -252,7 +252,7 @@ if (Test-Path -LiteralPath $manifestPath) {
 }
 
 if ($manifest -ne $null) {
-    $completeGateComponents = @('python_runtime', 'python_packages', 'mingit_portable')
+    $completeGateComponents = @('python_runtime', 'python_packages', 'mingit_portable', 'ripgrep', 'universal_ctags')
     foreach ($component in @($manifest.components)) {
         if (-not $component.required) {
             continue
@@ -271,11 +271,19 @@ if (Test-Path -LiteralPath $sourcesChecksumsPath) {
 
 $pythonExe = Join-Path $BundleRoot 'runtime\python\python.exe'
 $gitExe = Get-GitExecutablePath -BundleRoot $BundleRoot
+$ripgrepExe = Join-Path $BundleRoot 'bin\rg\rg.exe'
+$ctagsExe = Join-Path $BundleRoot 'bin\ctags\ctags.exe'
 Test-StaticPath -Results $results -Path $pythonExe -Code 'python.exe' -Message 'Bundled python.exe present.' -TreatAsCompleteGate $true
 Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'manifests\licenses\python-3.8.10.txt') -Code 'python.license' -Message 'Python license notice present.' -TreatAsCompleteGate $true
 Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'manifests\licenses\mingit-2.46.2.windows.1.txt') -Code 'mingit.license' -Message 'MinGit license notice present.' -TreatAsCompleteGate $true
+Test-StaticPath -Results $results -Path $ripgrepExe -Code 'ripgrep.exe' -Message 'Bundled rg.exe present.' -TreatAsCompleteGate $true
+Test-StaticPath -Results $results -Path $ctagsExe -Code 'ctags.exe' -Message 'Bundled ctags.exe present.' -TreatAsCompleteGate $true
+Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'manifests\licenses\ripgrep-14.1.1.txt') -Code 'ripgrep.license' -Message 'ripgrep license notice present.' -TreatAsCompleteGate $true
+Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'manifests\licenses\ctags-p6.2.20251116.0.txt') -Code 'ctags.license' -Message 'ctags license notice present.' -TreatAsCompleteGate $true
 Test-StaticPath -Results $results -Path (Join-Path $SourcesRoot 'archives\python-3.8.10-embed-amd64.zip') -Code 'sources.python_archive' -Message 'Python source archive present in sources seed.' -TreatAsCompleteGate $true
 Test-StaticPath -Results $results -Path (Join-Path $SourcesRoot 'archives\MinGit-2.46.2-64-bit.zip') -Code 'sources.mingit_archive' -Message 'MinGit source archive present in sources seed.' -TreatAsCompleteGate $true
+Test-StaticPath -Results $results -Path (Join-Path $SourcesRoot 'archives\ripgrep-14.1.1-x86_64-pc-windows-msvc.zip') -Code 'sources.ripgrep_archive' -Message 'ripgrep source archive present in sources seed.' -TreatAsCompleteGate $true
+Test-StaticPath -Results $results -Path (Join-Path $SourcesRoot 'archives\ctags-p6.2.20251116.0-x64.zip') -Code 'sources.ctags_archive' -Message 'ctags source archive present in sources seed.' -TreatAsCompleteGate $true
 
 if ($gitExe) {
     Add-Result -Results $results -Level 'pass' -Code 'git.exe' -Message ('Bundled git.exe present: {0}' -f $gitExe)
@@ -298,6 +306,8 @@ if (-not $SkipDynamicChecks) {
         $level = if ($RequireComplete) { 'fail' } else { 'warn' }
         Add-Result -Results $results -Level $level -Code 'dynamic.git' -Message 'Skipped git version check because git.exe was not found in the bundle.'
     }
+    Invoke-CommandCheck -Results $results -FilePath $ripgrepExe -Arguments @('--version') -Code 'dynamic.ripgrep' -TreatAsCompleteGate $true
+    Invoke-CommandCheck -Results $results -FilePath $ctagsExe -Arguments @('--version') -Code 'dynamic.ctags' -TreatAsCompleteGate $true
 
     $launcher = Join-Path $BundleRoot 'embedagent.cmd'
     if (Test-Path -LiteralPath $launcher) {

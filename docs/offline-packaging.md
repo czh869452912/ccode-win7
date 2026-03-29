@@ -34,11 +34,11 @@
 | Python 依赖锁定 | `ready` | `uv.lock` + `pyproject.toml` 已存在，当前三方依赖面较小 |
 | LLVM/Clang 工具链 | `provisional` | `toolchains/llvm/current` 已组装并通过本地 smoke test，但 Win7 与真实工程仍未收口 |
 | MinGit portable | `integrated` | 已通过 `scripts/offline-assets.json` 接入 Win7 兼容的 `2.46.2.windows.1` MinGit zip，并进入 prepare/build/validate 流水线 |
-| ripgrep | `missing` | 最终交付硬约束要求带入 bundle |
-| Universal Ctags | `missing` | 最终交付硬约束要求带入 bundle |
+| ripgrep | `integrated` | 已通过 `scripts/offline-assets.json` 接入官方 Windows x64 zip，并进入 prepare/build/validate 流水线 |
+| Universal Ctags | `integrated` | 已通过 `scripts/offline-assets.json` 接入官方 x64 zip，并进入 prepare/build/validate 流水线 |
 | 前端依赖 | `ready` | `prompt_toolkit` / `rich` 已在开发环境验证 |
-| bundle 构建脚本 | `in_progress` | `prepare/build/validate` 三段脚本已落地，且 Python embeddable / MinGit 已完成真实资产接入；当前缺口转为 `rg/ctags` 和更完整的最终运行时收口 |
-| Win7 前置检查脚本 | `in_progress` | `scripts/validate-offline-bundle.ps1` 已能校验真实 Python / MinGit / sources seed，仍待补 `rg/ctags` 与最终 Win7 实机结果 |
+| bundle 构建脚本 | `in_progress` | `prepare/build/validate` 三段脚本已落地，且 Python / MinGit / rg / ctags 四类核心资产已完成真实接入；当前缺口转为 site-packages 精简与 Win7 实机收口 |
+| Win7 前置检查脚本 | `in_progress` | `scripts/validate-offline-bundle.ps1` 已能校验真实 Python / MinGit / rg / ctags / sources seed，仍待补最终 Win7 实机结果 |
 
 当前代码面已经明确会在运行时直接或间接依赖：
 
@@ -165,13 +165,13 @@ EmbedAgent/
 | 组件 | 目标位置 | 来源基线 | 当前状态 |
 |------|----------|----------|----------|
 | Python 3.8 embeddable distribution | `runtime/python/` | Python 官方嵌入式发行包 | `integrated` |
-| vendored Python packages | `runtime/site-packages/` | `uv.lock` + 构建脚本导出结果 | `missing` |
+| vendored Python packages | `runtime/site-packages/` | `uv.lock` + 构建脚本导出结果 | `integrated` |
 | EmbedAgent 应用代码 | `app/embedagent/` | `src/embedagent/` | `ready` |
 | MinGit portable | `bin/git/` | Git for Windows / MinGit 便携包 | `integrated` |
-| ripgrep | `bin/rg/` | 官方 Windows 可执行文件 | `missing` |
-| Universal Ctags | `bin/ctags/` | 官方 Windows 可执行文件 | `missing` |
+| ripgrep | `bin/rg/` | 官方 Windows 可执行文件 | `integrated` |
+| Universal Ctags | `bin/ctags/` | 官方 Windows 可执行文件 | `integrated` |
 | LLVM/Clang bundle | `bin/llvm/` | 当前 `toolchains/llvm/current` 收敛版 | `provisional` |
-| 默认配置模板 | `config/` | 仓库模板文件 | `missing` |
+| 默认配置模板 | `config/` | 仓库模板文件 | `integrated` |
 | bundle manifest / checksums / licenses | `manifests/` | Phase 7 构建脚本生成 | `working` |
 
 附加约束：
@@ -245,7 +245,7 @@ portable bundle 自带的 `config/` 主要用于：
 
 - `prepare-offline.ps1` 已支持 `-SkipBuild`，可在资产尚未收齐时先生成稳定的 staging 布局和组件状态清单。
 - `build-offline-bundle.ps1` 已支持直接消费现有 staging，输出 `offline-dist` 目录和 zip。
-- `validate-offline-bundle.ps1` 默认允许 skeleton bundle 以告警形式通过；当前在 Python / MinGit 已接入后，`-RequireComplete` 已可通过本轮 slice 的正式验收。
+- `validate-offline-bundle.ps1` 默认允许 skeleton bundle 以告警形式通过；当前在 Python / MinGit / rg / ctags 已接入后，`-RequireComplete` 已可通过本轮 slice 的正式验收。
 
 ### 7.2 建议工作目录
 
@@ -370,10 +370,9 @@ build/
 
 1. `toolchains/llvm/current` 仍是混合版本组合，Phase 7 打包前需要决定是否继续沿用。
 2. Python 3.8 embeddable distribution 的 CRT / UCRT 本地部署策略需要明确。
-3. `ripgrep`、`ctags` 的版本、来源和 License 追溯方案还未落盘。
-4. 当前 site-packages 直接复制自 `.venv\Lib\site-packages`，后续需要决定是否导出为更精简的运行时集合。
-5. 当前还没有真实 C 工程默认 recipe，因此 bundle 级验证暂时仍以工具存在性和最小运行检查为主。
-6. TUI 在 Win7 / ConEmu / 原生 console 的宿主兼容性仍需与 Phase 6 收口联动处理。
+3. 当前 site-packages 直接复制自 `.venv\Lib\site-packages`，后续需要决定是否导出为更精简的运行时集合。
+4. 当前还没有真实 C 工程默认 recipe，因此 bundle 级验证暂时仍以工具存在性和最小运行检查为主。
+5. TUI 在 Win7 / ConEmu / 原生 console 的宿主兼容性仍需与 Phase 6 收口联动处理。
 
 ---
 
