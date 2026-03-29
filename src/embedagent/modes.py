@@ -129,7 +129,15 @@ def is_tool_allowed(mode_name: str, tool_name: str) -> bool:
 def is_path_writable(mode_name: str, relative_path: str, config=None) -> bool:
     normalized_path = relative_path.replace("\\", "/")
     for pattern in get_writable_globs(mode_name, config):
-        if fnmatch.fnmatch(normalized_path, pattern):
+        normalized_pattern = pattern.replace("\\", "/")
+        if fnmatch.fnmatch(normalized_path, normalized_pattern):
+            return True
+        # Python 的 fnmatch 不会让 "**/*.md" 匹配根目录 README.md，
+        # 这里把前导 "**/" 视为“任意子目录，可为空”。
+        if normalized_pattern.startswith("**/") and fnmatch.fnmatch(
+            normalized_path,
+            normalized_pattern[3:],
+        ):
             return True
     return False
 

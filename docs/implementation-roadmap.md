@@ -1,6 +1,6 @@
 # EmbedAgent 实施路线与文档维护方案
 
-> 更新日期：2026-03-27（DC-004/DC-005 调整后修订）
+> 更新日期：2026-03-29（Phase 5 复验 / 文档对齐修订）
 > 适用阶段：架构收敛后进入实现前
 
 ---
@@ -25,6 +25,23 @@
 - **工具集设计是一等公民**：每个模式工具上限 5 个，描述格式统一，参见 `docs/tool-design-spec.md`
 - **Harness 分阶段叠加**：Phase 1 无 Harness，Phase 3 引入最小 dict 实现，Phase 5 可选 TOML 加载
 - **每个 Phase 必须有端到端可验证的里程碑**，不做无法验证的纯抽象层构建
+
+### 2.1 当前执行状态（2026-03-29）
+
+路线图的阶段顺序保持不变，但当前仓库已经不再处于 Phase 1 起步期。
+
+截至 2026-03-29：
+
+| 阶段 | 状态 | 说明 |
+|------|------|------|
+| Phase 0 | `completed` | 文档治理、版本策略、约束基线已完成 |
+| Phase 1 | `completed` | 最小可工作 Loop 已完成真实 OpenAI-compatible 闭环验证 |
+| Phase 2 | `completed` | 文件 / Shell / Git 工具已落地 |
+| Phase 3 | `completed` | 模式系统 v1 已落地 |
+| Phase 4 | `in_progress` | 本地闭环 LLVM/Clang 工具链已具备，待真实 C 工程与 Win7 验证 |
+| Phase 5 | `completed` | 权限、上下文、记忆、恢复和 cleanup 已落地，`validate-phase5.py` 已复验通过 |
+| Phase 6 | `in_progress` | 自动化验证已通过，待真实控制台 / Win7 / ConEmu 手工验证 |
+| Phase 7 | `not_started` | 离线打包与交付文档尚未启动 |
 
 ---
 
@@ -301,6 +318,8 @@ conda activate embedagent-py38
 | `AGENTS.md` | 项目宪章、开发约束、模式与版本纪律 | 工作规则、版本策略、执行纪律变化时 |
 | `docs/overall-solution-architecture.md` | 稳定架构设计 | 分层、模式体系、核心决策变化时 |
 | `docs/implementation-roadmap.md` | 实施路径、阶段计划、文档治理 | 里程碑、实施顺序、维护策略变化时 |
+| `docs/development-tracker.md` | 当前执行状态、阻塞、风险、下一步 | 每次里程碑完成、验证结论改变、优先级调整时 |
+| `docs/design-change-log.md` | 关键设计变更与关联影响范围 | 每次关键实现或文档口径变化时 |
 | `docs/adrs/*.md` | 单项关键决策记录 | 做出重要不可逆决策时 |
 | `analysis/*.md` | 外部参考研究 | 新增竞品或新一轮研究时 |
 
@@ -346,13 +365,11 @@ conda activate embedagent-py38
 
 建议接下来按这个顺序推进：
 
-1. ~~建立工具设计规范~~ `docs/tool-design-spec.md`（**已完成**）
-2. 建立最小 `pyproject.toml` 与 `src/` 目录骨架
-3. 编写 `OpenAI-compatible LLM Adapter`（同步 + 流式）
-4. 编写第一批工具（`read_file`、`list_files`、`search_text`、`edit_file`）
-5. 编写最小主循环（50-80 行）
-6. 在 GLM5 int4 / Qwen3.5 上完成 Phase 1 里程碑验证
-7. 根据验证结果补充 function calling 兼容处理
+1. 为 Phase 4 选定真实 C 工程样例，并固化默认 `compile / test / tidy / coverage` recipe
+2. 在 Win7 与真实控制台宿主中完成 Phase 4 / Phase 6 手工验证
+3. 收敛 LLVM/Clang bundle 的版本组合与调用路径
+4. 启动 Phase 7 文档：`offline-packaging.md` 与 `win7-preflight-checklist.md`
+5. 评估 `memory browse / inspect` 是否作为 Phase 6 收口的必要项
 
 ---
 
@@ -360,13 +377,10 @@ conda activate embedagent-py38
 
 下一批优先补齐：
 
-1. `docs/llm-adapter.md`（function calling 兼容细节，Phase 1 完成后）
-2. `docs/tool-contracts.md`（工具接口契约，Phase 2 完成后）
-3. `docs/mode-schema.md`（Phase 3）
-4. `docs/harness-state-machine.md`（Phase 3）
-5. `docs/clang-integration-plan.md`（Phase 4）
-6. `docs/permission-model.md`（Phase 5）
-7. `docs/offline-packaging.md`（Phase 7）
+1. `docs/clang-integration-plan.md`（补真实工程 recipe 与 Win7 验证记录）
+2. `docs/phase6-validation.md`（回填真实控制台 / Win7 / ConEmu 手工验证结果）
+3. `docs/offline-packaging.md`（Phase 7）
+4. `docs/win7-preflight-checklist.md`（Phase 7）
 
 ---
 

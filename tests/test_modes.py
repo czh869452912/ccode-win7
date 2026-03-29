@@ -97,9 +97,16 @@ class TestIsPathWritable(unittest.TestCase):
         self.assertTrue(is_path_writable("code", "lib/utils.c"))
 
     def test_markdown_in_spec_mode(self):
+        self.assertTrue(is_path_writable("spec", "README.md"))
         self.assertTrue(is_path_writable("spec", "docs/README.md"))
         self.assertTrue(is_path_writable("spec", "wiki/design.md"))
         self.assertTrue(is_path_writable("spec", "ADR/001-decision.rst"))
+
+    def test_root_toml_in_code_mode(self):
+        self.assertTrue(is_path_writable("code", "pyproject.toml"))
+
+    def test_root_python_in_code_mode(self):
+        self.assertTrue(is_path_writable("code", "manage.py"))
 
     def test_markdown_blocked_in_code_mode(self):
         self.assertFalse(is_path_writable("code", "README.md"))

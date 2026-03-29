@@ -1,6 +1,6 @@
 # EmbedAgent 设计与变更跟踪
 
-> 更新日期：2026-03-27
+> 更新日期：2026-03-29
 > 用途：记录关键设计变更、影响范围、关联文档和后续动作
 
 ---
@@ -181,7 +181,7 @@
 - 日期：2026-03-28
 - 变更主题：Phase 2 工具集 v1 落地并验收
 - 变更摘要：
-  - 在 `src/embedagent/tools.py` 中实现 `run_command`、`git_status`、`git_diff`、`git_log`
+  - 在 `src/embedagent/tools/` 包中实现 `run_command`、`git_status`、`git_diff`、`git_log`
   - 命令执行支持超时终止，并在 Windows 上使用 `taskkill /F /T /PID` 处理进程树
   - 建立 `docs/tool-contracts.md` 记录当前工具 Observation 契约
   - 在 Python 3.8.10 环境下完成工具直调与 Loop 烟雾验证
@@ -190,7 +190,9 @@
   - Phase 2 验证口径
   - 后续模式系统的工具过滤基线
 - 关联文档：
-  - `src/embedagent/tools.py`
+  - `src/embedagent/tools/runtime.py`
+  - `src/embedagent/tools/shell_ops.py`
+  - `src/embedagent/tools/git_ops.py`
   - `docs/tool-contracts.md`
   - `docs/development-tracker.md`
 - 是否需要 ADR：`不单独写`
@@ -227,7 +229,7 @@
 - 日期：2026-03-28
 - 变更主题：Phase 4 工具链第一版封装落地
 - 变更摘要：
-  - 在 `src/embedagent/tools.py` 中新增 `compile_project`、`run_tests`、`run_clang_tidy`、`run_clang_analyzer`、`collect_coverage`、`report_quality`
+  - 在 `src/embedagent/tools/build_ops.py` 中新增 `compile_project`、`run_tests`、`run_clang_tidy`、`run_clang_analyzer`、`collect_coverage`、`report_quality`
   - 引入 Clang/MSVC 风格诊断解析、测试结果统计和覆盖率摘要提取
   - 调整 `code` / `test` / `verify` 模式工具集，使其更贴近阶段职责
   - 建立 `docs/clang-integration-plan.md`，明确当前采用显式 command 封装、后续再接真实工具链
@@ -236,7 +238,7 @@
   - Mode Registry
   - Phase 4 验证口径
 - 关联文档：
-  - `src/embedagent/tools.py`
+  - `src/embedagent/tools/build_ops.py`
   - `src/embedagent/modes.py`
   - `docs/tool-contracts.md`
   - `docs/clang-integration-plan.md`
@@ -260,7 +262,8 @@
   - Tool Runtime 的子进程环境
   - Phase 4 验证口径
 - 关联文档：
-  - `src/embedagent/tools.py`
+  - `src/embedagent/tools/runtime.py`
+  - `src/embedagent/tools/build_ops.py`
   - `docs/clang-integration-plan.md`
   - `toolchains/README.md`
   - `toolchains/manifest.json`
@@ -358,7 +361,7 @@
   - Tool Observation 契约
 - 关联文档：
   - `src/embedagent/artifacts.py`
-  - `src/embedagent/tools.py`
+  - `src/embedagent/tools/runtime.py`
   - `src/embedagent/context.py`
   - `docs/tool-contracts.md`
   - `docs/context-management-design.md`
@@ -677,3 +680,29 @@
   - 在真实 Win7 控制台与 ConEmu 下补手工验证
   - 继续细化 explorer / editor / plan 交互
   - 评估是否将同一协议推广到 stdio adapter
+
+### DC-027
+
+- 日期：2026-03-29
+- 变更主题：修复根目录文件写入边界匹配并对齐当前文档状态
+- 变更摘要：
+  - `modes.py` 现在把前导 `**/` 视为“可为空的目录前缀”，使 `README.md`、`AGENTS.md`、`pyproject.toml` 等根目录文件能按模式写入规则正确匹配
+  - `tests/test_modes.py` 新增根目录 `README.md` / `pyproject.toml` / `manage.py` 的可写边界回归
+  - `scripts/validate-phase5.py` 已在该修复后重新跑通，Phase 5 状态从“实现完成”校正为“脚本复验通过”
+  - README、路线图、进度跟踪与变更日志已同步对齐当前能力、阶段状态与验证口径
+- 影响范围：
+  - 模式写入边界
+  - Phase 5 验证基线
+  - 文档治理一致性
+- 关联文档：
+  - `src/embedagent/modes.py`
+  - `tests/test_modes.py`
+  - `README.md`
+  - `docs/development-tracker.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/design-change-log.md`
+- 是否需要 ADR：`不单独写`
+- 后续动作：
+  - 继续推进 Phase 4 真实 C 工程与 Win7 验证
+  - 在真实控制台与 Win7 / ConEmu 下完成 Phase 6 手工验证
+  - 启动 Phase 7 打包文档与前置自检设计

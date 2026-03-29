@@ -23,35 +23,39 @@
 
 ---
 
-## 核心能力
+## 核心能力（当前已落地）
 
-### C 语言开发
-| 能力 | 工具 |
-|------|------|
-| 代码编写与修改 | Agent 工具调用（read/edit/write） |
-| 桌面编译 | clang / clang-cl |
-| 静态检查 | clang-tidy、clang-analyzer |
-| 单元测试 | 基于 clang 构建的测试 runner |
-| MC/DC 覆盖率 | clang 插桩 + 覆盖率报告 |
-| 运行时分析 | AddressSanitizer、UBSan（clang 内置） |
-| 仿真运行 | QEMU 或裸机仿真（待定） |
+### C 语言研发闭环
+| 能力 | 当前实现 |
+|------|----------|
+| 代码查看与精确修改 | `read_file` / `list_files` / `search_text` / `edit_file` |
+| 编译 | `compile_project` + 项目内闭环 LLVM/Clang 工具链 |
+| 单元测试执行 | `run_tests` |
+| 静态检查 | `run_clang_tidy` / `run_clang_analyzer` |
+| 覆盖率统计与质量门 | `collect_coverage` / `report_quality` |
+| 任务跟踪 | `manage_todos` + 模式化 Agent Loop |
 
-### 文档管理
+### 文档与项目治理
 - 文档读取与分析（Markdown、纯文本）
-- 需求文档与设计文档的辅助编写
-- 代码注释与 API 文档生成
+- 需求、设计、进度与变更文档的辅助维护
+- `Session Summary` / `Project Memory` / `Artifact Store` 持久化
 
-### 版本管理
-- 基于 Git 的提交、分支、回退操作
-- Agent 自主生成提交信息
-- 会话级变更快照（防止 Agent 操作失误）
+### 版本与工作区检查
+- Git 状态、差异、历史查询
+- 会话级 timeline / artifact / todo 浏览
+- Git 写操作（提交、分支、回退）仍属于后续工作
 
-### Agent 自治
-- 任务规划与 TODO 自维护
+### Agent 运行控制
 - 多步工具调用循环（Agent Loop）
-- 可配置模式与 Agent Harness（Ask / Orchestra / Spec / Code / Test / Verify / Debug）
-- 上下文压缩（防止长任务超出 context window）
-- 权限管控（操作前确认 / 自动放行规则）
+- 可配置模式与 Agent Harness（Ask / Orchestra / Spec / Code / Test / Verify / Debug / Compact）
+- 上下文压缩、记忆清理与恢复入口
+- 权限管控（操作前确认 / `allow` / `ask` / `deny` 规则）
+
+当前尚未收口的能力主要是：
+
+- Phase 4 真实 C 工程与 Win7 验证
+- Phase 6 真实控制台 / Win7 / ConEmu 手工验证
+- Phase 7 打包与离线交付
 
 ---
 
@@ -105,9 +109,9 @@
 
 ## 项目现状
 
-- 2026-03-28：Phase 1-4 已完成最小可工作闭环，Phase 5 已完成到 5F（权限、Doom Loop、ContextManager、Artifact Store、Session Summary、Project Memory、恢复入口、memory cleanup/index）。
-- 当前可运行能力已经覆盖：OpenAI-compatible LLM Adapter、文件 / Shell / Git / Clang 工具、模式系统、项目内闭环 LLVM/Clang 工具链、上下文压缩与基础记忆层。
-- 当前主线工作已进入：Phase 4 真实工程验证，以及 Phase 6 终端前端模块化后的真实控制台 / Win7 运行验证收口。
+- 2026-03-29：Phase 1-5 功能已落地；修复根目录文件写入边界后，`scripts/validate-phase5.py` 已重新跑通。
+- 2026-03-29：Phase 6 自动化验证已通过；`scripts/validate-phase6.py` 与 `unittest discover -s tests -v` 已可复跑。
+- 当前主线工作：Phase 4 真实 C 工程 / Win7 验证、Phase 6 真实控制台 / Win7 手工验证、Phase 7 打包与离线交付设计。
 
 - [x] 需求确认与范围界定
 - [x] 参考项目架构分析（OpenCode / OpenHands / Roo-Code）
@@ -121,19 +125,22 @@
 - [x] Phase 3 模式系统 v1
 - [x] Phase 4 第一版 Clang 工具封装与本地闭环工具链
 - [x] Phase 5A-5F 质量保障层基础（权限、上下文、Artifact、Session Summary、Project Memory、恢复入口、cleanup/index）
-- [x] 长任务稳定性验证与权限细化
-- [ ] TUI / CLI adapters 收口（InProcessAdapter 已扩展 workspace / timeline / artifact / todo 浏览接口，终端前端已拆为 `src/embedagent/frontends/terminal/` 包并保留 `embedagent.tui` 兼容入口，已完成 headless/单元测试，待真实控制台 / Win7 手工验证）
+- [x] 长任务稳定性验证与权限细化（`scripts/validate-phase5.py` 已复验通过）
+- [x] Phase 6 自动化验证（`scripts/validate-phase6.py` + `unittest discover -s tests -v`）
+- [ ] TUI / CLI adapters 收口（InProcessAdapter 已扩展 workspace / timeline / artifact / todo 浏览接口，终端前端已拆为 `src/embedagent/frontends/terminal/` 包并保留 `embedagent.tui` 兼容入口；真实控制台 / Win7 手工验证与交互细化待完成）
 - [ ] 打包与离线交付
 
-### Phase 6 验证
+### 当前验证入口
 
 自动化验证：
 
 ```powershell
+.venv\Scripts\python.exe scripts\validate-phase5.py
 .venv\Scripts\python.exe scripts\validate-phase6.py
+.venv\Scripts\python.exe -m unittest discover -s tests -v
 ```
 
-手工验证说明见 [docs/phase6-validation.md](docs/phase6-validation.md)。
+Phase 6 手工验证说明见 [docs/phase6-validation.md](docs/phase6-validation.md)。
 
 ---
 
