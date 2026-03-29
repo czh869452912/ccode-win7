@@ -37,8 +37,8 @@
 | ripgrep | `missing` | 最终交付硬约束要求带入 bundle |
 | Universal Ctags | `missing` | 最终交付硬约束要求带入 bundle |
 | 前端依赖 | `ready` | `prompt_toolkit` / `rich` 已在开发环境验证 |
-| bundle 构建脚本 | `missing` | 仍处于设计阶段 |
-| Win7 前置检查脚本 | `missing` | 仍处于设计阶段 |
+| bundle 构建脚本 | `in_progress` | `scripts/prepare-offline.ps1`、`scripts/build-offline-bundle.ps1` 与 `scripts/validate-offline-bundle.ps1` 已落地，当前缺口是接入真实资产与完整运行时验证 |
+| Win7 前置检查脚本 | `in_progress` | `scripts/validate-offline-bundle.ps1` 已落地，仍待接入真实 embeddable Python 和外部工具资产 |
 
 当前代码面已经明确会在运行时直接或间接依赖：
 
@@ -172,7 +172,7 @@ EmbedAgent/
 | Universal Ctags | `bin/ctags/` | 官方 Windows 可执行文件 | `missing` |
 | LLVM/Clang bundle | `bin/llvm/` | 当前 `toolchains/llvm/current` 收敛版 | `provisional` |
 | 默认配置模板 | `config/` | 仓库模板文件 | `missing` |
-| bundle manifest / checksums / licenses | `manifests/` | Phase 7 构建脚本生成 | `missing` |
+| bundle manifest / checksums / licenses | `manifests/` | Phase 7 构建脚本生成 | `in_progress` |
 
 附加约束：
 
@@ -233,13 +233,19 @@ portable bundle 自带的 `config/` 主要用于：
 
 ### 7.1 建议脚本分工
 
-计划新增以下脚本：
+当前与计划脚本如下：
 
 | 脚本 | 作用 |
 |------|------|
-| `scripts/prepare-offline.ps1` | 收集原始第三方资产、展开目录、准备 staging workspace |
-| `scripts/build-offline-bundle.ps1` | 把 Python/runtime/tools/app 组装到统一 bundle 根目录 |
-| `scripts/validate-offline-bundle.ps1` | 对 bundle 做静态检查和最小运行检查 |
+| `scripts/prepare-offline.ps1` | 已落地；生成 `build/offline-staging/EmbedAgent/`、launcher、模板配置、`bundle-manifest.json` 与 `checksums.txt`，并可按参数复制可选资产 |
+| `scripts/build-offline-bundle.ps1` | 已落地；把 staging bundle 复制到 `build/offline-dist/<artifact>/`，重写 dist 上下文 manifest，重算 checksum，并生成 zip |
+| `scripts/validate-offline-bundle.ps1` | 已落地；可校验 bundle 根目录、manifest、checksum、关键文件存在性，并支持 `-RequireComplete` 切换到严格门禁 |
+
+当前边界：
+
+- `prepare-offline.ps1` 已支持 `-SkipBuild`，可在资产尚未收齐时先生成稳定的 staging 布局和组件状态清单。
+- `build-offline-bundle.ps1` 已支持直接消费现有 staging，输出 `offline-dist` 目录和 zip。
+- `validate-offline-bundle.ps1` 默认允许 skeleton bundle 以告警形式通过，后续在资产收齐后用 `-RequireComplete` 作为正式验收门。
 
 ### 7.2 建议工作目录
 

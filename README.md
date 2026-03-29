@@ -113,6 +113,9 @@
 - 2026-03-29：Phase 6 自动化验证已通过；`scripts/validate-phase6.py` 与 `unittest discover -s tests -v` 已可复跑。
 - 当前主线工作：Phase 4 真实 C 工程 / Win7 验证、Phase 6 真实控制台 / Win7 手工验证、Phase 7 打包与离线交付设计。
 - 2026-03-29：Phase 7 设计基线已建立：`docs/offline-packaging.md`、`docs/win7-preflight-checklist.md` 与 ADR `0001-offline-portable-bundle-baseline.md`。
+- 2026-03-29：Phase 7 首个脚本骨架已建立：`scripts/prepare-offline.ps1` 可生成 staging bundle 目录、launcher、模板配置、`bundle-manifest.json` 与 `checksums.txt`。
+- 2026-03-29：Phase 7 `scripts/build-offline-bundle.ps1` 已落地，可把 staging bundle 复制到 `build/offline-dist/` 并生成 zip。
+- 2026-03-29：Phase 7 `scripts/validate-offline-bundle.ps1` 已落地，默认模式可校验 skeleton bundle 并输出告警，`-RequireComplete` 可收紧为正式验收门。
 
 - [x] 需求确认与范围界定
 - [x] 参考项目架构分析（OpenCode / OpenHands / Roo-Code）

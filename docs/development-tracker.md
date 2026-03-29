@@ -1,6 +1,6 @@
 # EmbedAgent 开发进度跟踪
 
-> 更新日期：2026-03-29（DC-028 修订）
+> 更新日期：2026-03-29（DC-031 修订）
 > 用途：持续跟踪当前阶段、下一步任务、里程碑进度、风险与阻塞
 
 ---
@@ -28,7 +28,7 @@
 
 - 当前阶段：`Phase 4 真实工程验证 + Phase 6 手工验证收口`
 - 总体状态：`进行中`
-- 当前重点：`Phase 4 默认 recipe/真实工程/Win7 验证，Phase 6 真实控制台与 Win7 手工验证，Phase 7 基于设计基线推进 manifest / preflight / bundle 脚本骨架`
+- 当前重点：`Phase 4 默认 recipe/真实工程/Win7 验证，Phase 6 真实控制台与 Win7 手工验证，Phase 7 基于 prepare/build/validate 骨架继续推进真实资产清单与完整 bundle 验收`
 
 ### 当前判断
 
@@ -73,8 +73,11 @@
 - Phase 5 长任务稳定性验证已完成：`scripts/validate-phase5.py` 已在修复根目录文件写入边界后重新跑通
 - Phase 5 权限细化已完成：已支持规则文件、allow / ask / deny、路径与命令模式匹配
 - Phase 7 设计基线已建立：`docs/offline-packaging.md`、`docs/win7-preflight-checklist.md` 与 ADR `0001-offline-portable-bundle-baseline.md`
+- Phase 7 初始脚本骨架已落地：`scripts/prepare-offline.ps1` 已可生成 `build/offline-staging/EmbedAgent/`、launcher、模板配置和 manifest/checksum 草案，并已通过 `powershell.exe -NoProfile -File scripts/prepare-offline.ps1 -SkipBuild` 验证
+- Phase 7 build 脚本骨架已落地：`scripts/build-offline-bundle.ps1` 已可把 staging bundle 复制到 `build/offline-dist/`、重写 manifest、重算 checksum，并生成 zip
+- Phase 7 validate 脚本骨架已落地：`scripts/validate-offline-bundle.ps1` 已在 skeleton bundle 上验证通过，且 `-RequireComplete` 会按预期对缺失资产返回失败
 
-项目下一步：继续推进 Phase 4 真实工程验证，在真实控制台里完成模块化终端前端手工验证，并把 Phase 7 的 manifest / preflight / bundle 脚本骨架落下来。
+项目下一步：继续推进 Phase 4 真实工程验证，在真实控制台里完成模块化终端前端手工验证，并把 Phase 7 的真实资产接入、完整性校验和 Win7 bundle 验收接上。
 
 ---
 
@@ -84,7 +87,7 @@
 
 1. 推进 Phase 4 的真实 C 工程与 Win7 验证
 2. 在真实控制台里完成模块化终端前端手工验证并记录结果
-3. 基于 Phase 7 设计基线启动 bundle manifest、preflight 与组包脚本骨架
+3. 为 `prepare/build/validate` 三段脚本补齐真实资产来源、版本、License 与 checksum 记录
 
 实现备注：
 
@@ -95,7 +98,7 @@
 - Phase 4 已具备项目内闭环工具链，但默认 recipe、真实 C 工程和 Win7 验证仍需补齐。
 - Phase 5 脚本验证已重新跑通，当前已从“实现完成”推进到“脚本复验通过”。
 - Phase 6 自动化验证已通过，剩余缺口是宿主兼容与真实交互体验。
-- Phase 7 现已完成设计基线与 ADR，下一步应转向 manifest、bundle 目录和 preflight 脚本实现。
+- Phase 7 现已完成设计基线、ADR 和 `prepare/build/validate` 三段脚本骨架，下一步应转向第三方资产清单、真实运行时接入与完整 bundle 验收。
 
 ### P1：紧随其后
 
@@ -103,6 +106,7 @@
 2. 决定是否将 memory browse / inspect 作为 Phase 6 收口项
 3. 评估终端前端稳定后是否推进 stdio JSON-RPC adapter
 4. 固化 MinGit / ripgrep / Universal Ctags 的来源、License 与 checksum 管理方式
+5. 接入 embeddable Python、MinGit、ripgrep、ctags 到 `prepare/build/validate` 流水线中做一次真实 bundle 试跑
 
 ---
 
@@ -124,6 +128,9 @@
 | T-012 | 落地模块化终端前端 | `in_progress` | 已完成 `src/embedagent/frontends/terminal/` 模块化拆包，接入 timeline / workspace / artifact / todo 浏览接口，保留 `embedagent.tui` 兼容入口；下一步是继续做真实控制台 / Win7 手工验证与交互细化 |
 | T-013 | 建立 Phase 6 验证入口 | `completed` | `scripts/validate-phase6.py` 与 `docs/phase6-validation.md` 已建立，Phase 6 已进入脚本可跟踪状态 |
 | T-014 | 建立 Phase 7 离线打包设计基线 | `completed` | 已新增 `docs/offline-packaging.md`、`docs/win7-preflight-checklist.md` 与 ADR `0001-offline-portable-bundle-baseline.md` |
+| T-015 | 实现 Phase 7A prepare-offline 骨架 | `completed` | 已新增 `scripts/prepare-offline.ps1`，可生成 `build/offline-staging/EmbedAgent/`、launcher、模板配置、manifest 与 checksum 草案，并支持 `-SkipBuild` |
+| T-016 | 实现 Phase 7B build-offline-bundle 骨架 | `completed` | 已新增 `scripts/build-offline-bundle.ps1`，可消费 staging bundle，生成 `build/offline-dist/<artifact>/` 与 zip，并重写 dist manifest/checksum |
+| T-017 | 实现 Phase 7C validate-offline-bundle 骨架 | `completed` | 已新增 `scripts/validate-offline-bundle.ps1`，可校验 skeleton bundle，并支持 `-RequireComplete` 切换到严格门禁 |
 
 ---
 
@@ -138,7 +145,7 @@
 | Phase 4 | Clang 工具链 | `in_progress` | 已有项目内闭环工具链，待真实工程与 Win7 验证 |
 | Phase 5 | 质量保障层 | `completed` | 权限、上下文、记忆、恢复与 cleanup 已落地；修复根目录文件写入边界后，专项验证脚本已复验通过 |
 | Phase 6 | CLI / TUI | `in_progress` | InProcessAdapter 已扩展 workspace / timeline / artifact / todo 前端接口，终端前端已拆为 `frontends/terminal` 子模块，并已通过 `validate-phase6.py` 与单元测试；待真实控制台 / Win7 手工验证 |
-| Phase 7 | 打包与离线交付 | `not_started` | 设计基线与 ADR 已建立，尚未进入 manifest / preflight / bundle 脚本实现 |
+| Phase 7 | 打包与离线交付 | `in_progress` | 设计基线、ADR 与 `prepare/build/validate` 初始脚本骨架已建立，待接真实资产、完善完整性校验并做 Win7 bundle 验收 |
 
 ---
 
@@ -158,6 +165,9 @@
 | R-010 | 当前上下文压缩仍较弱 | 中 | 已有 mode-aware budget、reducer registry、Artifact Store、SessionSummaryStore、ProjectMemoryStore 与 Resume Entry，后续继续补生命周期清理与可选 LLM condenser |
 | R-011 | Python embeddable distribution 的 CRT / UCRT 本地部署复杂 | 中 | 用 Phase 7 preflight 清单和本地 DLL bundling 策略收口 |
 | R-012 | 第三方二进制来源、License 和 checksum 追溯不足 | 中 | 用 bundle manifest 记录 version/source/license/checksum，并纳入构建产物 |
+| R-013 | prepare 阶段与最终 build/validate 阶段契约不清晰，后续脚本容易返工 | 中 | 先把 `prepare/build/validate` 的输入输出边界写清，再继续实现 |
+| R-014 | 当前 build 骨架尚未验证完整运行时可启动，只验证了 skeleton bundle 复制与 zip | 中 | 下一步用 `validate-offline-bundle.ps1` 对 launcher、manifest 与依赖存在性做静态/动态校验 |
+| R-015 | validate 默认允许 skeleton bundle 以告警通过，若无人切到 `-RequireComplete` 可能误判“已可交付” | 中 | 在正式验收和 CI 入口中强制使用 `-RequireComplete` |
 
 ---
 
@@ -191,6 +201,9 @@
 | 2026-03-29 | 修复 `**/*.md` 等模式对根目录文件不匹配的问题，补充 `test_modes.py` 回归，并重新跑通 `scripts/validate-phase5.py` |
 | 2026-03-29 | README、路线图、进度跟踪与变更日志已按当前能力和阶段状态完成一轮对齐 |
 | 2026-03-29 | 建立 Phase 7 离线打包设计基线：新增 `docs/offline-packaging.md`、`docs/win7-preflight-checklist.md` 与 ADR `0001-offline-portable-bundle-baseline.md` |
+| 2026-03-29 | 建立 `scripts/prepare-offline.ps1`：已可生成 staging bundle 骨架、launcher、模板配置、`bundle-manifest.json` 与 `checksums.txt`，并通过 `powershell.exe -NoProfile -File scripts/prepare-offline.ps1 -SkipBuild` 验证 |
+| 2026-03-29 | 建立 `scripts/build-offline-bundle.ps1`：已可把 staging bundle 复制到 `build/offline-dist/`、生成 zip、重写 dist manifest 并重算 checksum |
+| 2026-03-29 | 建立 `scripts/validate-offline-bundle.ps1`：默认模式可校验 skeleton bundle 并告警通过，`-RequireComplete` 下会对缺失资产返回失败 |
 
 
 

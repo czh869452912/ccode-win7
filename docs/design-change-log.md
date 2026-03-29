@@ -732,3 +732,76 @@
   - 落 bundle manifest / checksum / license 生成方案
   - 规划 `prepare-offline` / `build-offline-bundle` / `validate-offline-bundle` 脚本骨架
   - 在 Win7 虚拟机上按 preflight 口径完成首轮 bundle 验收
+
+### DC-029
+
+- 日期：2026-03-29
+- 变更主题：落地 Phase 7A `prepare-offline` 脚本骨架
+- 变更摘要：
+  - 新增 `scripts/prepare-offline.ps1`，可生成 `build/offline-staging/EmbedAgent/` 目录布局
+  - 该脚本会写出 `embedagent.cmd`、`embedagent-tui.cmd`、默认配置模板、`bundle-manifest.json` 和 `checksums.txt`
+  - 脚本支持 `-SkipBuild`，允许在第三方资产尚未收齐时先生成稳定的 staging 布局和组件状态清单
+  - 已用 `powershell.exe -NoProfile -File scripts/prepare-offline.ps1 -SkipBuild` 验证脚本可运行
+- 影响范围：
+  - Phase 7 打包脚本分层
+  - bundle 目录布局的可执行基线
+  - manifest / checksum 生成口径
+- 关联文档：
+  - `scripts/prepare-offline.ps1`
+  - `docs/offline-packaging.md`
+  - `docs/development-tracker.md`
+  - `docs/implementation-roadmap.md`
+- 是否需要 ADR：`不单独写`
+- 后续动作：
+  - 补 `build-offline-bundle.ps1`
+  - 补 `validate-offline-bundle.ps1`
+  - 固化 MinGit / ripgrep / Universal Ctags / embeddable Python 的来源与校验和
+
+### DC-030
+
+- 日期：2026-03-29
+- 变更主题：落地 Phase 7B `build-offline-bundle` 脚本骨架
+- 变更摘要：
+  - 新增 `scripts/build-offline-bundle.ps1`，可直接消费 `build/offline-staging/EmbedAgent/`
+  - 脚本会把 staging bundle 复制到 `build/offline-dist/<artifact>/`，重写 dist 上下文 `bundle-manifest.json`，重算 `checksums.txt`，并生成 zip
+  - 脚本已在 skeleton bundle 上通过 `powershell.exe -NoProfile -File scripts/build-offline-bundle.ps1` 验证
+  - `prepare-offline.ps1` 同步增加对 `__pycache__` / `.pyc` / `.pyo` 的清理，避免把瞬态 Python 产物带进发布包
+- 影响范围：
+  - Phase 7 build 阶段脚本分层
+  - dist 目录与 zip 产物约定
+  - bundle manifest / checksum 在 dist 上下文的生成口径
+- 关联文档：
+  - `scripts/build-offline-bundle.ps1`
+  - `scripts/prepare-offline.ps1`
+  - `docs/offline-packaging.md`
+  - `docs/development-tracker.md`
+  - `docs/implementation-roadmap.md`
+- 是否需要 ADR：`不单独写`
+- 后续动作：
+  - 补 `validate-offline-bundle.ps1`
+  - 将 launcher、manifest 与关键文件存在性检查纳入自动验证
+  - 在真实资产收齐后补全 end-to-end bundle 验证
+
+### DC-031
+
+- 日期：2026-03-29
+- 变更主题：落地 Phase 7C `validate-offline-bundle` 脚本骨架
+- 变更摘要：
+  - 新增 `scripts/validate-offline-bundle.ps1`，可校验 bundle 根目录、manifest、checksums、关键 launcher 和目录布局
+  - 默认模式下，缺失 embeddable Python / MinGit / rg / ctags / LLVM 等资产会以告警呈现，便于在 skeleton bundle 阶段继续推进
+  - `-RequireComplete` 下，相同缺失项会被提升为失败，作为后续正式离线交付验收门
+  - 已在当前 skeleton bundle 上完成两轮验证：默认模式返回告警但通过；`-RequireComplete` 按预期返回失败
+- 影响范围：
+  - Phase 7 validate 阶段脚本分层
+  - skeleton bundle 与正式验收之间的门禁切换策略
+  - bundle manifest/checksum 的自动校验口径
+- 关联文档：
+  - `scripts/validate-offline-bundle.ps1`
+  - `docs/offline-packaging.md`
+  - `docs/development-tracker.md`
+  - `docs/implementation-roadmap.md`
+- 是否需要 ADR：`不单独写`
+- 后续动作：
+  - 在正式验收入口中强制使用 `-RequireComplete`
+  - 接入 embeddable Python 与第三方工具后补动态启动验证
+  - 将 validate 结果沉淀到 bundle manifest 或独立报告文件
