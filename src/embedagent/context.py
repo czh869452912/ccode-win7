@@ -67,6 +67,28 @@ class ContextConfig:
     )
 
 
+def make_context_config(app_config=None):
+    # type: (Optional[Any]) -> ContextConfig
+    """Build a ContextConfig from an AppConfig, falling back to defaults.
+
+    Args:
+        app_config: An embedagent.config.AppConfig instance, or None to use
+                    all built-in defaults.
+    """
+    if app_config is None:
+        return ContextConfig()
+    kwargs = {}
+    if getattr(app_config, "max_context_tokens", None) is not None:
+        kwargs["default_max_context_tokens"] = int(app_config.max_context_tokens)
+    if getattr(app_config, "reserve_output_tokens", None) is not None:
+        kwargs["default_reserve_output_tokens"] = int(app_config.reserve_output_tokens)
+    if getattr(app_config, "chars_per_token", None) is not None:
+        kwargs["estimated_chars_per_token"] = float(app_config.chars_per_token)
+    if getattr(app_config, "max_recent_turns", None) is not None:
+        kwargs["default_max_recent_turns"] = int(app_config.max_recent_turns)
+    return ContextConfig(**kwargs)
+
+
 @dataclass
 class BudgetEstimate:
     mode_name: str
@@ -130,6 +152,7 @@ class ReducerRegistry(object):
             "collect_coverage": self._reduce_coverage,
             "report_quality": self._reduce_quality,
             "switch_mode": self._reduce_switch_mode,
+            "manage_todos": self._reduce_todos,
         }
 
     def reduce_tool_message(self, tool_name: str, payload: Dict[str, Any], detailed: bool, policy: ContextPolicy) -> str:
@@ -268,6 +291,14 @@ class ReducerRegistry(object):
     def _reduce_switch_mode(self, data: Dict[str, Any], detailed: bool, policy: ContextPolicy) -> Dict[str, Any]:
         result = self._copy(data, "from_mode", "to_mode")
         result["allowed_tools"] = self._simple_list(data.get("allowed_tools") or [], 6 if detailed else 4)
+        return result
+
+    def _reduce_todos(self, data: Dict[str, Any], detailed: bool, policy: ContextPolicy) -> Dict[str, Any]:
+        result = self._copy(data, "action", "count", "id", "content", "removed_id", "remaining")
+        todos = data.get("todos")
+        if isinstance(todos, list):
+            limit = 12 if detailed else 6
+            result["todos"] = self._simple_list(todos, limit)
         return result
 
     def _reduce_generic(self, data: Dict[str, Any], detailed: bool, policy: ContextPolicy) -> Dict[str, Any]:

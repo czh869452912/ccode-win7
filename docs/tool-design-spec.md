@@ -1,6 +1,6 @@
 # EmbedAgent 工具设计规范
 
-> 更新日期：2026-03-27
+> 更新日期：2026-03-29
 > 适用范围：所有 Agent 工具的设计、实现与 function calling schema 编写
 
 ---
@@ -35,6 +35,10 @@
 | `debug` | read_file, search_text, run_command, edit_file | 4 |
 
 所有模式额外提供：`switch_mode`（模式切换，始终可用）
+
+> **例外说明**：`manage_todos` 是协调工具，在 `orchestra` 和 `code` 模式中使用。
+> `code` 模式因此含 6 个工具（含 `manage_todos`），属于明确例外——
+> `manage_todos` 以任务状态跟踪为主，不影响模型对领域工具的选择判断。
 
 ---
 
@@ -182,3 +186,35 @@
 - [ ] 所有工具中同一语义的参数名一致
 - [ ] 无否定限定描述
 - [ ] 返回值是结构化 Observation，非原始文本
+
+---
+
+## 9. 工具模块组织（tools/ 包结构）
+
+工具按职责拆分到独立模块，禁止将所有工具堆放在单一文件中：
+
+```
+src/embedagent/tools/
+├── __init__.py      # 仅导出 ToolRuntime, ToolDefinition（保持外部 API 稳定）
+├── _base.py         # ToolDefinition、ToolContext（共享 helper）、常量
+├── file_ops.py      # read_file, list_files, search_text, edit_file
+├── shell_ops.py     # run_command
+├── git_ops.py       # git_status, git_diff, git_log
+├── build_ops.py     # compile_project, run_tests, clang-tidy, clang-analyzer, coverage, report_quality
+├── todo_ops.py      # manage_todos
+└── runtime.py       # ToolRuntime（组装所有模块，提供 schemas() 和 execute()）
+```
+
+### 新增工具的标准流程
+
+1. **选择或新建 ops 模块**：功能归属明确时加入已有模块（≤6 个工具），否则新建 `xxx_ops.py`。
+2. **在 `build_tools(ctx)` 函数中**定义 handler 闭包和 ToolDefinition，加入返回列表。
+3. **在 `runtime.py` 的 `__init__` 中**引入新模块并加入工具列表。
+4. **在 `context.py` 的 `ReducerRegistry`** 中注册对应的 `_reduce_xxx` 方法。
+5. **在 `modes.py`** 的对应模式 `allowed_tools` 中添加工具名。
+
+### ToolContext 说明
+
+`ToolContext`（`_base.py`）封装了所有工具共享的 helper：路径解析、文本读写、
+子进程执行、诊断解析、输出压缩等。各 ops 模块通过 `ctx` 参数获得这些能力，
+**不直接操作文件系统或子进程**，保持模块间解耦。
