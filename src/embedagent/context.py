@@ -140,6 +140,7 @@ class ReducerRegistry(object):
             "read_file": self._reduce_file,
             "list_files": self._reduce_list,
             "search_text": self._reduce_search,
+            "write_file": self._reduce_write,
             "edit_file": self._reduce_edit,
             "run_command": self._reduce_command,
             "git_status": self._reduce_git_status,
@@ -152,6 +153,7 @@ class ReducerRegistry(object):
             "collect_coverage": self._reduce_coverage,
             "report_quality": self._reduce_quality,
             "switch_mode": self._reduce_switch_mode,
+            "ask_user": self._reduce_ask_user,
             "manage_todos": self._reduce_todos,
         }
 
@@ -222,6 +224,9 @@ class ReducerRegistry(object):
     def _reduce_edit(self, data: Dict[str, Any], detailed: bool, policy: ContextPolicy) -> Dict[str, Any]:
         return self._copy(data, "path", "encoding", "replaced", "line_count")
 
+    def _reduce_write(self, data: Dict[str, Any], detailed: bool, policy: ContextPolicy) -> Dict[str, Any]:
+        return self._copy(data, "path", "encoding", "created", "overwritten", "char_count", "line_count")
+
     def _reduce_command(self, data: Dict[str, Any], detailed: bool, policy: ContextPolicy) -> Dict[str, Any]:
         result = self._copy(data, "command", "cwd", "exit_code", "duration_ms", "timed_out", "toolchain_root", "stdout_truncated", "stderr_truncated", "stdout_artifact_ref", "stderr_artifact_ref", "stdout_char_count", "stderr_char_count")
         preview = min(self._text_limit(detailed, policy), 1200 if detailed else 320)
@@ -289,8 +294,26 @@ class ReducerRegistry(object):
         return result
 
     def _reduce_switch_mode(self, data: Dict[str, Any], detailed: bool, policy: ContextPolicy) -> Dict[str, Any]:
-        result = self._copy(data, "from_mode", "to_mode")
+        result = self._copy(data, "from_mode", "to_mode", "reason")
         result["allowed_tools"] = self._simple_list(data.get("allowed_tools") or [], 6 if detailed else 4)
+        return result
+
+    def _reduce_ask_user(self, data: Dict[str, Any], detailed: bool, policy: ContextPolicy) -> Dict[str, Any]:
+        result = self._copy(
+            data,
+            "question",
+            "answer",
+            "selected_index",
+            "selected_option_text",
+            "selected_mode",
+            "mode_changed",
+        )
+        options = []
+        for item in (data.get("options") or [])[: (4 if detailed else 2)]:
+            if isinstance(item, dict):
+                options.append(self._copy(item, "index", "text", "mode"))
+        if options:
+            result["options"] = options
         return result
 
     def _reduce_todos(self, data: Dict[str, Any], detailed: bool, policy: ContextPolicy) -> Dict[str, Any]:
@@ -302,7 +325,7 @@ class ReducerRegistry(object):
         return result
 
     def _reduce_generic(self, data: Dict[str, Any], detailed: bool, policy: ContextPolicy) -> Dict[str, Any]:
-        result = self._copy(data, "path", "query", "count", "match_count", "command", "cwd", "exit_code", "duration_ms", "timed_out", "error_count", "warning_count", "note_count", "diagnostic_count", "branch", "scope", "file_count", "line_count", "replaced", "toolchain_root", "passed", "test_failures", "line_coverage", "min_line_coverage", "truncated", "encoding", "char_count", "limit", "from_mode", "to_mode", "content_artifact_ref", "content_char_count", "stdout_artifact_ref", "stderr_artifact_ref", "stdout_char_count", "stderr_char_count", "diff_artifact_ref", "diff_char_count", "files_artifact_ref", "files_item_count", "matches_artifact_ref", "matches_item_count", "entries_artifact_ref", "entries_item_count", "diagnostics_artifact_ref", "diagnostics_item_count")
+        result = self._copy(data, "path", "query", "count", "match_count", "command", "cwd", "exit_code", "duration_ms", "timed_out", "error_count", "warning_count", "note_count", "diagnostic_count", "branch", "scope", "file_count", "line_count", "replaced", "created", "overwritten", "toolchain_root", "passed", "test_failures", "line_coverage", "min_line_coverage", "truncated", "encoding", "char_count", "limit", "from_mode", "to_mode", "reason", "question", "answer", "selected_index", "selected_option_text", "selected_mode", "mode_changed", "error_kind", "retryable", "blocked_by", "suggested_next_step", "content_artifact_ref", "content_char_count", "stdout_artifact_ref", "stderr_artifact_ref", "stdout_char_count", "stderr_char_count", "diff_artifact_ref", "diff_char_count", "files_artifact_ref", "files_item_count", "matches_artifact_ref", "matches_item_count", "entries_artifact_ref", "entries_item_count", "diagnostics_artifact_ref", "diagnostics_item_count")
         for key in ("entries", "matches", "files", "reasons"):
             if isinstance(data.get(key), list):
                 result[key] = self._simple_list(data[key], 8 if detailed else 4)

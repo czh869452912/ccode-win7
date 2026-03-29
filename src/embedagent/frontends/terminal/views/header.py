@@ -25,6 +25,8 @@ def build_header_text(state: TerminalState) -> str:
     )
     if state.session.pending_permission is not None:
         second_line += "  permission=waiting"
+    if state.session.pending_user_input is not None:
+        second_line += "  user_input=waiting"
     if not state.timeline.follow_output:
         second_line += "  follow=off"
     if state.editor.buffer.dirty:

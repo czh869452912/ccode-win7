@@ -106,6 +106,33 @@ def build_tools(ctx: ToolContext) -> List[ToolDefinition]:
         }
         return Observation(tool_name="edit_file", success=True, error=None, data=data)
 
+    def _write_file(arguments: Dict[str, Any]) -> Observation:
+        path = ctx.resolve_path(str(arguments["path"]), allow_missing=True)
+        if os.path.isdir(path):
+            raise ToolError("不能把目录当作文件写入。")
+        overwrite = bool(arguments.get("overwrite", False))
+        existed = os.path.isfile(path)
+        if existed and not overwrite:
+            raise ToolError("目标文件已存在；如需整体覆盖，请把 overwrite 设为 true。")
+        content = str(arguments.get("content") or "")
+        parent = os.path.dirname(path)
+        if parent and not os.path.isdir(parent):
+            os.makedirs(parent)
+        newline_style = "\n"
+        encoding = "utf-8"
+        if existed:
+            _, newline_style, encoding = ctx.read_text(path)
+        ctx.write_text(path, content, newline_style, encoding)
+        data = {
+            "path": ctx.relative_path(path),
+            "created": not existed,
+            "overwritten": existed,
+            "encoding": encoding,
+            "char_count": len(content),
+            "line_count": content.count("\n") + (1 if content else 0),
+        }
+        return Observation(tool_name="write_file", success=True, error=None, data=data)
+
     return [
         ToolDefinition(
             name="read_file",
@@ -162,6 +189,30 @@ def build_tools(ctx: ToolContext) -> List[ToolDefinition]:
                 "additionalProperties": False,
             },
             handler=_search_text,
+        ),
+        ToolDefinition(
+            name="write_file",
+            description="写入一个完整文本文件。用于创建新文件或整体覆盖已有文件。路径必须位于项目工作区内。",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "要写入的文件路径，相对于项目根目录。示例：docs/requirements.md",
+                    },
+                    "content": {
+                        "type": "string",
+                        "description": "要写入文件的完整文本内容。示例：# Requirements",
+                    },
+                    "overwrite": {
+                        "type": "boolean",
+                        "description": "目标文件已存在时是否允许整体覆盖。示例：false",
+                    },
+                },
+                "required": ["path", "content"],
+                "additionalProperties": False,
+            },
+            handler=_write_file,
         ),
         ToolDefinition(
             name="edit_file",

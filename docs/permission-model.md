@@ -27,16 +27,23 @@
 - `read_file`
 - `list_files`
 - `search_text`
+- `ask_user`
 - `git_status`
 - `git_diff`
 - `git_log`
 - `report_quality`
 - `switch_mode`
 
+说明：
+
+- `switch_mode` 虽然默认安全，但只会在 `orchestra` 模式暴露
+- `ask_user` 属于用户交互，不属于权限审批链路
+
 ### 2.2 默认需要确认
 
 以下工具在没有命中显式 allow 规则、且未开启自动批准时，会触发权限确认：
 
+- `write_file`
 - `edit_file`
 - `run_command`
 - `compile_project`
@@ -146,6 +153,12 @@
 
 - 是规则层直接拒绝
 - 还是本轮需要人工确认但用户没批准
+
+### 5.3 用户输入（`ask_user`）
+
+- `ask_user` 不走 permission approval
+- 前端会单独进入 `waiting_user_input` 状态
+- Loop 收到回答后会把用户选择写回 Observation；若该选项附带 mode，loop 会同步切到对应模式
 
 ---
 

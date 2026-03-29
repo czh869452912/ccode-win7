@@ -23,6 +23,12 @@ def format_observation_line(payload):
             parts.append("failed=%s" % data.get("failed"))
         if data.get("passed") is not None:
             parts.append("passed=%s" % data.get("passed"))
+        if data.get("to_mode"):
+            parts.append("to=%s" % data.get("to_mode"))
+        if data.get("selected_mode"):
+            parts.append("selected_mode=%s" % data.get("selected_mode"))
+        if data.get("error_kind"):
+            parts.append("kind=%s" % data.get("error_kind"))
     if error:
         parts.append("error=%s" % (error[:80] + ("..." if len(error) > 80 else "")))
     return " ".join(parts)
@@ -57,6 +63,9 @@ def format_timeline_records(records):
         elif event == "permission_required":
             permission = payload.get("permission") if isinstance(payload.get("permission"), dict) else {}
             lines.append("[permission] %s" % (permission.get("reason") or "需要确认"))
+        elif event == "user_input_required":
+            request = payload.get("user_input") if isinstance(payload.get("user_input"), dict) else {}
+            lines.append("[question] %s" % (request.get("question") or "需要用户回答"))
         elif event == "context_compacted":
             lines.append(format_context_line(payload))
         elif event == "session_error":

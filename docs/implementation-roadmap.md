@@ -181,13 +181,14 @@ conda activate embedagent-py38
 
 - `MODE_REGISTRY`（Python dict，包含 `system_prompt`、`allowed_tools`、`writable_globs`）
 - 工具过滤机制（按当前模式过滤可调用工具）
-- `switch_mode(target: str)` 工具（所有模式均可调用）
+- `switch_mode(target: str, reason: str)` 工具（仅 `orchestra` 模式可调用）
+- `ask_user(...)` 用户交互工具（优先给 ask/spec/orchestra）
 - 用户显式切换：`/mode <name>` 命令
 
 模式切换规则：
 
 1. 用户消息以 `/mode <name>` 开头 → 立即切换
-2. LLM 调用 `switch_mode` 工具 → 更新当前模式，用新模式 prompt 重建上下文后继续（不推进循环）
+2. `orchestra` 调用 `switch_mode` 工具 → 更新当前模式，用新模式 prompt 重建上下文后继续（不推进循环）
 
 > `orchestra` 模式在本阶段暂不实现，用简单任务拆解 prompt 替代，后续再完整实现。
 
@@ -195,6 +196,7 @@ conda activate embedagent-py38
 
 - [ ] 模式切换生效，工具集随模式变化
 - [ ] 违规工具调用（当前模式不允许的工具）被拦截并提示
+- [ ] `ask_user` 与权限审批分开显示，不再共用等待状态
 - [ ] `ask` / `spec` / `code` / `test` / `verify` / `debug` 模式均可进入
 
 建议产物：

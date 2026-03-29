@@ -28,16 +28,16 @@
 | 模式 | 工具集 | 数量 |
 |------|--------|------|
 | `ask` | read_file, list_files, search_text, ask_user | 4 |
-| `spec` | read_file, search_text, list_files, write_file | 4 |
-| `code` | read_file, edit_file, search_text, compile_project | 4 |
-| `test` | read_file, edit_file, run_tests, search_text | 4 |
+| `spec` | read_file, search_text, list_files, write_file, ask_user | 5 |
+| `code` | read_file, write_file, edit_file, search_text, compile_project | 5 |
+| `test` | read_file, write_file, edit_file, run_tests, search_text | 5 |
 | `verify` | compile_project, run_tests, run_clang_tidy, report_quality | 4 |
-| `debug` | read_file, search_text, run_command, edit_file | 4 |
+| `debug` | read_file, search_text, run_command, write_file, edit_file | 5 |
 
-所有模式额外提供：`switch_mode`（模式切换，始终可用）
+仅 `orchestra` 额外提供：`switch_mode`（模式切换）
 
 > **例外说明**：`manage_todos` 是协调工具，在 `orchestra` 和 `code` 模式中使用。
-> `code` 模式因此含 6 个工具（含 `manage_todos`），属于明确例外——
+> `code` / `orchestra` 模式因此会超出目标数量上限，属于明确例外——
 > `manage_todos` 以任务状态跟踪为主，不影响模型对领域工具的选择判断。
 
 ---
@@ -197,7 +197,7 @@
 src/embedagent/tools/
 ├── __init__.py      # 仅导出 ToolRuntime, ToolDefinition（保持外部 API 稳定）
 ├── _base.py         # ToolDefinition、ToolContext（共享 helper）、常量
-├── file_ops.py      # read_file, list_files, search_text, edit_file
+├── file_ops.py      # read_file, list_files, search_text, write_file, edit_file
 ├── shell_ops.py     # run_command
 ├── git_ops.py       # git_status, git_diff, git_log
 ├── build_ops.py     # compile_project, run_tests, clang-tidy, clang-analyzer, coverage, report_quality

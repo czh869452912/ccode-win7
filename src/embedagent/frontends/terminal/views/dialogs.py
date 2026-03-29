@@ -36,4 +36,8 @@ def build_help_text(state: TerminalState) -> str:
         lines.append("")
         lines.append("Permission")
         lines.append("输入 y / n 处理当前确认。")
+    if state.session.pending_user_input is not None:
+        lines.append("")
+        lines.append("Question")
+        lines.append("输入选项序号或自由文本回答当前问题。")
     return "\n".join(lines)

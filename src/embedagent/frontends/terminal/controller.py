@@ -59,6 +59,9 @@ class TerminalController(object):
         if self.owner.state.session.pending_permission is not None:
             self.handle_permission_reply(text)
             return
+        if self.owner.state.session.pending_user_input is not None:
+            self.handle_user_input_reply(text)
+            return
         if text.startswith("/"):
             self.handle_command(text)
             return
@@ -87,6 +90,59 @@ class TerminalController(object):
             self.owner.refresh_views()
             return
         reducer.append_line(self.owner.state, "[permission] 请输入 y 或 n。")
+        self.owner.refresh_views()
+
+    def handle_user_input_reply(self, text: str) -> None:
+        ticket = self.owner.state.session.pending_user_input or {}
+        request_id = str(ticket.get("request_id") or "")
+        raw = text.strip()
+        if not raw:
+            reducer.append_line(self.owner.state, "[question] 请输入选项序号或自由文本。")
+            self.owner.refresh_views()
+            return
+        answer = raw
+        selected_index = None
+        selected_mode = ""
+        selected_option_text = ""
+        if raw.isdigit():
+            options = ticket.get("options") or []
+            for item in options:
+                if not isinstance(item, dict):
+                    continue
+                if int(item.get("index") or 0) != int(raw):
+                    continue
+                selected_index = int(item.get("index") or 0)
+                selected_option_text = str(item.get("text") or "")
+                selected_mode = str(item.get("mode") or "")
+                answer = selected_option_text
+                break
+            if selected_index is None:
+                reducer.append_line(self.owner.state, "[question] 无效选项，请重新输入。")
+                self.owner.refresh_views()
+                return
+        snapshot = self.owner.session_service.reply_user_input(
+            self.owner.state.session.current_session_id,
+            request_id,
+            answer,
+            selected_index=selected_index,
+            selected_mode=selected_mode,
+            selected_option_text=selected_option_text,
+        )
+        reducer.append_line(
+            self.owner.state,
+            "[question] 已回答 %s" % (answer[:96] + ("..." if len(answer) > 96 else "")),
+        )
+        reducer.set_pending_user_input(self.owner.state, None)
+        reducer.set_snapshot(self.owner.state, snapshot)
+        updates = {
+            "has_pending_user_input": False,
+            "pending_user_input": None,
+            "status": "running",
+        }
+        if selected_mode:
+            updates["current_mode"] = selected_mode
+        reducer.update_snapshot(self.owner.state, **updates)
+        self.refresh_inspector(self.owner.state.inspector.tab)
         self.owner.refresh_views()
 
     def handle_command(self, text: str) -> None:
@@ -363,6 +419,11 @@ class TerminalController(object):
         elif event_name == "tool_finished":
             reducer.close_stream(self.owner.state)
             reducer.update_snapshot(self.owner.state, status="running")
+            data = payload.get("data") if isinstance(payload.get("data"), dict) else {}
+            if payload.get("tool_name") == "switch_mode" and data.get("to_mode"):
+                reducer.update_snapshot(self.owner.state, current_mode=str(data.get("to_mode") or ""))
+            if payload.get("tool_name") == "ask_user" and data.get("selected_mode"):
+                reducer.update_snapshot(self.owner.state, current_mode=str(data.get("selected_mode") or ""))
             reducer.append_line(self.owner.state, format_observation_line(payload))
         elif event_name == "permission_required":
             permission = payload.get("permission") or {}
@@ -377,14 +438,35 @@ class TerminalController(object):
                 )
                 reducer.append_line(self.owner.state, "[permission] %s" % (permission.get("reason") or "需要确认"))
                 self.refresh_inspector(self.owner.state.inspector.tab)
+        elif event_name == "user_input_required":
+            request = payload.get("user_input") or {}
+            if isinstance(request, dict):
+                reducer.set_pending_user_input(self.owner.state, request)
+                reducer.close_stream(self.owner.state)
+                reducer.update_snapshot(
+                    self.owner.state,
+                    status="waiting_user_input",
+                    has_pending_user_input=True,
+                    pending_user_input=request,
+                )
+                reducer.append_line(self.owner.state, "[question] %s" % (request.get("question") or "需要用户回答"))
+                self.refresh_inspector(self.owner.state.inspector.tab)
         elif event_name == "session_finished":
             reducer.close_stream(self.owner.state)
             reducer.set_pending_permission(self.owner.state, None)
+            reducer.set_pending_user_input(self.owner.state, None)
             snapshot = payload.get("session_snapshot")
             if isinstance(snapshot, dict):
                 reducer.set_snapshot(self.owner.state, snapshot)
             else:
-                reducer.update_snapshot(self.owner.state, status="idle", has_pending_permission=False, pending_permission=None)
+                reducer.update_snapshot(
+                    self.owner.state,
+                    status="idle",
+                    has_pending_permission=False,
+                    pending_permission=None,
+                    has_pending_user_input=False,
+                    pending_user_input=None,
+                )
             reducer.set_last_error(self.owner.state, "")
             self.refresh_workspace_snapshot()
             self.refresh_sessions()
@@ -407,12 +489,15 @@ class TerminalController(object):
             reducer.close_stream(self.owner.state)
             reducer.set_last_error(self.owner.state, str(payload.get("error") or ""))
             reducer.set_pending_permission(self.owner.state, None)
+            reducer.set_pending_user_input(self.owner.state, None)
             reducer.update_snapshot(
                 self.owner.state,
                 status="error",
                 last_error=self.owner.state.session.last_error,
                 has_pending_permission=False,
                 pending_permission=None,
+                has_pending_user_input=False,
+                pending_user_input=None,
             )
             reducer.append_line(self.owner.state, "[error] %s" % self.owner.state.session.last_error)
         elif event_name == "context_compacted":

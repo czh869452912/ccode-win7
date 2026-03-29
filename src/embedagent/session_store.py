@@ -10,6 +10,7 @@ from typing import Any, Dict, List, Optional
 from embedagent.artifacts import ArtifactStore
 from embedagent.modes import build_system_prompt
 from embedagent.session import Action, Observation, Session
+from embedagent.workspace_profile import build_workspace_profile_message
 
 
 _MODE_RE = re.compile(r"当前模式：(\w+)")
@@ -201,6 +202,7 @@ class SessionSummaryStore(object):
         self,
         summary: Dict[str, Any],
         mode_name: Optional[str] = None,
+        config: Optional[Any] = None,
     ) -> Session:
         current_mode = str(mode_name or summary.get("current_mode") or "code")
         session = Session(
@@ -210,7 +212,8 @@ class SessionSummaryStore(object):
         resume_message = self.build_resume_message(summary)
         if resume_message:
             session.add_system_message(resume_message)
-        session.add_system_message(build_system_prompt(current_mode))
+        session.add_system_message(build_workspace_profile_message(self.workspace))
+        session.add_system_message(build_system_prompt(current_mode, config))
         return session
 
     def _read_json(self, path: str) -> Optional[Dict[str, Any]]:
@@ -478,7 +481,7 @@ class SessionSummaryStore(object):
         result = []
         seen = set()
         for observation in observations:
-            if observation.tool_name != "edit_file" or not observation.success:
+            if observation.tool_name not in ("edit_file", "write_file") or not observation.success:
                 continue
             path = observation.data.get("path") if isinstance(observation.data, dict) else None
             if not path or path in seen:
@@ -566,6 +569,10 @@ class SessionSummaryStore(object):
                 "diagnostic_count",
                 "line_coverage",
                 "passed",
+                "error_kind",
+                "retryable",
+                "blocked_by",
+                "suggested_next_step",
             ):
                 if key in observation.data:
                     snapshot[key] = observation.data[key]

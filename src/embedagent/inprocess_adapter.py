@@ -11,6 +11,7 @@ from datetime import datetime
 from typing import Any, Callable, Dict, List, Optional
 
 from embedagent.context import ContextManager
+from embedagent.interaction import UserInputRequest, UserInputResponse
 from embedagent.llm import OpenAICompatibleClient
 from embedagent.loop import AgentLoop
 from embedagent.memory_maintenance import MemoryMaintenance
@@ -22,10 +23,12 @@ from embedagent.session_store import SessionSummaryStore
 from embedagent.session_timeline import SessionTimelineStore
 from embedagent.tools import ToolRuntime
 from embedagent.tools._base import SKIP_DIR_NAMES
+from embedagent.workspace_profile import build_workspace_profile_message
 
 
 EventHandler = Callable[[str, str, Dict[str, Any]], None]
 PermissionResolver = Callable[[Dict[str, Any]], bool]
+UserInputResolver = Callable[[Dict[str, Any]], Optional[Dict[str, Any]]]
 
 
 def _utc_now() -> str:
@@ -53,6 +56,26 @@ class PermissionTicket:
 
 
 @dataclass
+class UserInputTicket:
+    request_id: str
+    session_id: str
+    tool_name: str
+    question: str
+    options: List[Dict[str, Any]]
+    details: Dict[str, Any]
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "request_id": self.request_id,
+            "session_id": self.session_id,
+            "tool_name": self.tool_name,
+            "question": self.question,
+            "options": self.options,
+            "details": self.details,
+        }
+
+
+@dataclass
 class ManagedSession:
     session: Session
     current_mode: str
@@ -61,8 +84,11 @@ class ManagedSession:
     updated_at: str = field(default_factory=_utc_now)
     last_error: Optional[str] = None
     pending_permission: Optional[PermissionTicket] = None
+    pending_user_input: Optional[UserInputTicket] = None
     pending_event: Optional[threading.Event] = None
     pending_result: Optional[bool] = None
+    pending_user_event: Optional[threading.Event] = None
+    pending_user_response: Optional[UserInputResponse] = None
     active_thread: Optional[threading.Thread] = None
     resume_summary: Optional[Dict[str, Any]] = None
     last_assistant_message: str = ""
@@ -99,6 +125,7 @@ class InProcessAdapter(object):
         )
         self.maintenance_interval = maintenance_interval if maintenance_interval > 0 else 1
         self.event_handler = event_handler
+        self.workspace_profile_message = build_workspace_profile_message(self.tools.workspace)
         self._sessions = {}  # type: Dict[str, ManagedSession]
         self._lock = threading.RLock()
 
@@ -109,7 +136,10 @@ class InProcessAdapter(object):
     ) -> Dict[str, Any]:
         current_mode = require_mode(mode)["slug"]
         session = Session()
-        session.add_system_message(build_system_prompt(current_mode))
+        session.add_system_message(self.workspace_profile_message)
+        session.add_system_message(
+            build_system_prompt(current_mode, getattr(self.tools, "app_config", None))
+        )
         state = ManagedSession(session=session, current_mode=current_mode)
         self._persist_state(state)
         with self._lock:
@@ -126,7 +156,11 @@ class InProcessAdapter(object):
     ) -> Dict[str, Any]:
         summary = self.summary_store.load_summary(reference)
         current_mode = require_mode(mode or str(summary.get("current_mode") or DEFAULT_MODE))["slug"]
-        session = self.summary_store.create_resumed_session(summary, current_mode)
+        session = self.summary_store.create_resumed_session(
+            summary,
+            current_mode,
+            config=getattr(self.tools, "app_config", None),
+        )
         state = ManagedSession(
             session=session,
             current_mode=current_mode,
@@ -165,6 +199,8 @@ class InProcessAdapter(object):
                 "summary_ref": str((summary or {}).get("summary_ref") or state.summary_ref or ""),
                 "has_pending_permission": state.pending_permission is not None,
                 "pending_permission": state.pending_permission.to_dict() if state.pending_permission else None,
+                "has_pending_user_input": state.pending_user_input is not None,
+                "pending_user_input": state.pending_user_input.to_dict() if state.pending_user_input else None,
                 "last_error": state.last_error,
             }
             return payload
@@ -338,6 +374,7 @@ class InProcessAdapter(object):
         stream: bool = True,
         wait: bool = True,
         permission_resolver: Optional[PermissionResolver] = None,
+        user_input_resolver: Optional[UserInputResolver] = None,
         event_handler: Optional[EventHandler] = None,
     ) -> Dict[str, Any]:
         state = self._require_session(session_id)
@@ -347,11 +384,18 @@ class InProcessAdapter(object):
         }
         self._emit(event_handler, "turn_started", session_id, payload)
         if wait:
-            self._run_turn(state, text, stream, permission_resolver, event_handler)
+            self._run_turn(
+                state,
+                text,
+                stream,
+                permission_resolver,
+                user_input_resolver,
+                event_handler,
+            )
             return self.get_session_snapshot(session_id)
         thread = threading.Thread(
             target=self._run_turn,
-            args=(state, text, stream, permission_resolver, event_handler),
+            args=(state, text, stream, permission_resolver, user_input_resolver, event_handler),
             name="embedagent-session-%s" % session_id[:8],
         )
         with state.lock:
@@ -384,11 +428,37 @@ class InProcessAdapter(object):
             state.pending_event.set()
         return self.get_session_snapshot(session_id)
 
+    def reply_user_input(
+        self,
+        session_id: str,
+        request_id: str,
+        answer: str,
+        selected_index: Optional[int] = None,
+        selected_mode: str = "",
+        selected_option_text: str = "",
+    ) -> Dict[str, Any]:
+        state = self._require_session(session_id)
+        with state.lock:
+            if state.pending_user_input is None or state.pending_user_input.request_id != request_id:
+                raise ValueError("未找到待处理的用户问题。")
+            if state.pending_user_event is None:
+                raise ValueError("当前用户问题不支持异步回答。")
+            state.pending_user_response = UserInputResponse(
+                answer=str(answer or ""),
+                selected_index=selected_index,
+                selected_mode=str(selected_mode or ""),
+                selected_option_text=str(selected_option_text or ""),
+            )
+            state.pending_user_event.set()
+        return self.get_session_snapshot(session_id)
+
     def set_session_mode(self, session_id: str, mode: str) -> Dict[str, Any]:
         state = self._require_session(session_id)
         current_mode = require_mode(mode)["slug"]
         with state.lock:
-            state.session.add_system_message(build_system_prompt(current_mode))
+            state.session.add_system_message(
+                build_system_prompt(current_mode, getattr(self.tools, "app_config", None))
+            )
             state.current_mode = current_mode
         self._persist_state(state)
         return self.get_session_snapshot(session_id)
@@ -399,6 +469,9 @@ class InProcessAdapter(object):
             if state.pending_permission is not None and state.pending_event is not None:
                 state.pending_result = False
                 state.pending_event.set()
+            if state.pending_user_input is not None and state.pending_user_event is not None:
+                state.pending_user_response = UserInputResponse(answer="")
+                state.pending_user_event.set()
             state.status = "idle"
         return self.get_session_snapshot(session_id)
 
@@ -408,6 +481,7 @@ class InProcessAdapter(object):
         text: str,
         stream: bool,
         permission_resolver: Optional[PermissionResolver],
+        user_input_resolver: Optional[UserInputResolver],
         event_handler: Optional[EventHandler],
     ) -> None:
         session_id = state.session.session_id
@@ -417,6 +491,9 @@ class InProcessAdapter(object):
             state.pending_permission = None
             state.pending_event = None
             state.pending_result = None
+            state.pending_user_input = None
+            state.pending_user_event = None
+            state.pending_user_response = None
         loop = AgentLoop(
             client=self.client,
             tools=self.tools,
@@ -441,6 +518,21 @@ class InProcessAdapter(object):
             )
 
         def on_tool_finish(action: Action, observation: Observation) -> None:
+            with state.lock:
+                if (
+                    observation.success
+                    and isinstance(observation.data, dict)
+                    and action.name == "switch_mode"
+                    and observation.data.get("to_mode")
+                ):
+                    state.current_mode = str(observation.data.get("to_mode") or state.current_mode)
+                if (
+                    observation.success
+                    and isinstance(observation.data, dict)
+                    and action.name == "ask_user"
+                    and observation.data.get("selected_mode")
+                ):
+                    state.current_mode = str(observation.data.get("selected_mode") or state.current_mode)
             self._emit(
                 event_handler,
                 "tool_finished",
@@ -489,6 +581,30 @@ class InProcessAdapter(object):
             self._clear_pending_permission(state)
             return approved
 
+        def on_user_input_request(request: UserInputRequest) -> Optional[UserInputResponse]:
+            ticket = self._create_user_input_ticket(state, request)
+            self._emit(event_handler, "user_input_required", session_id, {"user_input": ticket.to_dict()})
+            if user_input_resolver is not None:
+                payload = user_input_resolver(ticket.to_dict()) or {}
+                response = UserInputResponse(
+                    answer=str(payload.get("answer") or ""),
+                    selected_index=payload.get("selected_index"),
+                    selected_mode=str(payload.get("selected_mode") or ""),
+                    selected_option_text=str(payload.get("selected_option_text") or ""),
+                )
+                self._clear_pending_user_input(state)
+                return response
+            event = threading.Event()
+            with state.lock:
+                state.status = "waiting_user_input"
+                state.pending_user_event = event
+            event.wait()
+            with state.lock:
+                response = state.pending_user_response
+                state.status = "running"
+            self._clear_pending_user_input(state)
+            return response
+
         try:
             final_text, session = loop.run(
                 user_text=text,
@@ -499,12 +615,19 @@ class InProcessAdapter(object):
                 on_tool_finish=on_tool_finish,
                 on_context_result=on_context_result,
                 permission_handler=on_permission_request,
+                user_input_handler=on_user_input_request,
                 session=state.session,
             )
         except Exception as exc:
             with state.lock:
                 state.status = "error"
                 state.last_error = str(exc)
+                state.pending_permission = None
+                state.pending_event = None
+                state.pending_result = None
+                state.pending_user_input = None
+                state.pending_user_event = None
+                state.pending_user_response = None
                 state.updated_at = _utc_now()
                 state.active_thread = None
             self._emit(event_handler, "session_error", session_id, {"error": str(exc), "phase": "loop"})
@@ -521,6 +644,12 @@ class InProcessAdapter(object):
             state.current_mode = str((summary or {}).get("current_mode") or state.current_mode)
             state.summary_ref = str((summary or {}).get("summary_ref") or state.summary_ref)
             state.updated_at = str((summary or {}).get("updated_at") or _utc_now())
+            state.pending_permission = None
+            state.pending_event = None
+            state.pending_result = None
+            state.pending_user_input = None
+            state.pending_user_event = None
+            state.pending_user_response = None
             state.status = "idle"
             state.active_thread = None
         snapshot = self.get_session_snapshot(session_id)
@@ -555,11 +684,38 @@ class InProcessAdapter(object):
             state.updated_at = _utc_now()
         return ticket
 
+    def _create_user_input_ticket(self, state: ManagedSession, request: UserInputRequest) -> UserInputTicket:
+        ticket = UserInputTicket(
+            request_id="ask_%s" % uuid.uuid4().hex[:8],
+            session_id=state.session.session_id,
+            tool_name=request.tool_name,
+            question=request.question,
+            options=[
+                {"index": item.index, "text": item.text, "mode": item.mode}
+                for item in request.options
+            ],
+            details=request.details,
+        )
+        with state.lock:
+            state.pending_user_input = ticket
+            state.pending_user_response = None
+            state.updated_at = _utc_now()
+        return ticket
+
     def _clear_pending_permission(self, state: ManagedSession) -> None:
         with state.lock:
             state.pending_permission = None
             state.pending_event = None
             state.pending_result = None
+            if state.status != "error":
+                state.status = "running"
+            state.updated_at = _utc_now()
+
+    def _clear_pending_user_input(self, state: ManagedSession) -> None:
+        with state.lock:
+            state.pending_user_input = None
+            state.pending_user_event = None
+            state.pending_user_response = None
             if state.status != "error":
                 state.status = "running"
             state.updated_at = _utc_now()

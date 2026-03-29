@@ -23,6 +23,65 @@ class FakeClient(object):
         return reply
 
 
+class AskUserClient(object):
+    def __init__(self):
+        self.calls = 0
+
+    def generate(self, messages, tools=None):
+        self.calls += 1
+        if self.calls == 1:
+            return AssistantReply(
+                content="",
+                actions=[
+                    Action(
+                        name="ask_user",
+                        arguments={
+                            "question": "下一步怎么做？",
+                            "option_1": "切到 debug 模式继续排查",
+                            "option_1_mode": "debug",
+                            "option_2": "保持当前模式继续说明",
+                        },
+                        call_id="call-ask",
+                    )
+                ],
+                finish_reason="tool_calls",
+            )
+        return AssistantReply(content="done", actions=[], finish_reason="stop")
+
+    def stream(self, messages, tools=None, on_text_delta=None):
+        reply = self.generate(messages, tools=tools)
+        if on_text_delta is not None and reply.content:
+            on_text_delta(reply.content)
+        return reply
+
+
+class SwitchModeClient(object):
+    def __init__(self):
+        self.calls = 0
+
+    def generate(self, messages, tools=None):
+        self.calls += 1
+        if self.calls == 1:
+            return AssistantReply(
+                content="",
+                actions=[
+                    Action(
+                        name="switch_mode",
+                        arguments={"target": "code", "reason": "规格已明确，开始实现。"},
+                        call_id="call-switch",
+                    )
+                ],
+                finish_reason="tool_calls",
+            )
+        return AssistantReply(content="implemented", actions=[], finish_reason="stop")
+
+    def stream(self, messages, tools=None, on_text_delta=None):
+        reply = self.generate(messages, tools=tools)
+        if on_text_delta is not None and reply.content:
+            on_text_delta(reply.content)
+        return reply
+
+
 class TestInProcessAdapterFrontendApis(unittest.TestCase):
     def setUp(self):
         self.workspace = tempfile.mkdtemp()
@@ -78,6 +137,50 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         payload = self.adapter.get_session_timeline(str(self.snapshot.get('session_id') or ''))
         self.assertTrue(any(item['event'] == 'turn_started' for item in payload['events']))
         self.assertEqual(payload['latest_assistant_reply'], 'ok')
+
+    def test_user_input_flow_can_change_mode(self):
+        adapter = InProcessAdapter(
+            client=AskUserClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+        )
+        snapshot = adapter.create_session('spec')
+        events = []
+        adapter.submit_user_message(
+            session_id=str(snapshot.get('session_id') or ''),
+            text='请继续',
+            stream=False,
+            wait=True,
+            permission_resolver=lambda ticket: True,
+            user_input_resolver=lambda ticket: {
+                "answer": "切到 debug 模式继续排查",
+                "selected_index": 1,
+                "selected_mode": "debug",
+                "selected_option_text": "切到 debug 模式继续排查",
+            },
+            event_handler=lambda event_name, session_id, payload: events.append(event_name),
+        )
+        final_snapshot = adapter.get_session_snapshot(str(snapshot.get('session_id') or ''))
+        self.assertEqual(final_snapshot["current_mode"], "debug")
+        self.assertIn("user_input_required", events)
+
+    def test_orchestra_switch_mode_updates_snapshot(self):
+        adapter = InProcessAdapter(
+            client=SwitchModeClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+        )
+        snapshot = adapter.create_session('orchestra')
+        adapter.submit_user_message(
+            session_id=str(snapshot.get('session_id') or ''),
+            text='安排下一步',
+            stream=False,
+            wait=True,
+            permission_resolver=lambda ticket: True,
+            event_handler=lambda event_name, session_id, payload: None,
+        )
+        final_snapshot = adapter.get_session_snapshot(str(snapshot.get('session_id') or ''))
+        self.assertEqual(final_snapshot["current_mode"], "code")
 
 
 if __name__ == '__main__':

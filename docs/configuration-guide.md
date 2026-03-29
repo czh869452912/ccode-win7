@@ -52,6 +52,9 @@ CLI 参数    (--max-context-tokens 等)
   "default_mode": "code",
   "mode_writable_globs": {
     "<mode_name>": ["glob_pattern", "..."]
+  },
+  "mode_extra_writable_globs": {
+    "<mode_name>": ["glob_pattern", "..."]
   }
 }
 ```
@@ -109,6 +112,20 @@ CLI 参数    (--max-context-tokens 等)
 - **只覆盖指定模式**：未指定的模式继续使用内置默认值。
 - **空列表 = 只读**：`"code": []` 将使 code 模式无法写入任何文件。
 
+`mode_extra_writable_globs` 用于在保留内置默认值的前提下，**增量追加**额外可写 glob。
+
+```json
+{
+  "mode_extra_writable_globs": {
+    "code": ["**/*.cmake", "CMakeLists.txt"],
+    "spec": ["**/*.adoc"]
+  }
+}
+```
+
+- **不会替换默认值**：它只在已有默认范围上追加。
+- **适合项目异构结构**：例如只想给 code 模式增加 `cmake/` 文件，而不想整份重写默认规则。
+
 ---
 
 ## 内置默认可写路径
@@ -118,10 +135,10 @@ CLI 参数    (--max-context-tokens 等)
 | `ask` | （只读） |
 | `orchestra` | （只读） |
 | `spec` | `**/*.md`、`**/*.rst`、`**/*.txt` |
-| `code` | `**/*.c`、`**/*.h`、`**/*.py`、`**/*.pyi`、`**/*.toml`、`**/*.cfg`、`**/*.ini` |
-| `test` | `**/*.c`、`**/*.h`、`**/*.py`、`**/*.pyi` |
+| `code` | 常见源码、脚本、JSON/YAML、TOML/INI/CFG、CMake/Makefile 类文件 |
+| `test` | 常见测试源码、夹具、JSON/YAML/TXT、部分构建相关文件 |
 | `verify` | （只读） |
-| `debug` | `**/*.c`、`**/*.h`、`**/*.py`、`**/*.pyi` |
+| `debug` | 常见源码、脚本、JSON/YAML、TOML/INI/CFG、CMake/Makefile 类文件 |
 | `compact` | （只读） |
 
 ---
@@ -141,25 +158,14 @@ CLI 参数    (--max-context-tokens 等)
 }
 ```
 
-### 场景 2：非标准项目目录结构
+### 场景 2：非标准项目目录结构（增量追加）
 
 项目根目录的 `.embedagent/config.json`:
 ```json
 {
-  "mode_writable_globs": {
-    "code": [
-      "app/**/*.py",
-      "scripts/**/*.py",
-      "config/**/*.yaml",
-      "config/**/*.json",
-      "pyproject.toml",
-      "setup.cfg"
-    ],
-    "spec": [
-      "docs/**/*.md",
-      "wiki/**/*.md",
-      "ADR/**/*.md"
-    ]
+  "mode_extra_writable_globs": {
+    "code": ["**/*.cmake", "CMakeLists.txt", "cmake/**/*.txt"],
+    "spec": ["**/*.adoc"]
   }
 }
 ```

@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional
 from embedagent.session import Action
 
 
-WRITE_TOOLS = {"edit_file"}
+WRITE_TOOLS = {"edit_file", "write_file"}
 COMMAND_TOOLS = {
     "run_command",
     "compile_project",
@@ -28,6 +28,7 @@ SAFE_TOOLS = {
     "git_log",
     "report_quality",
     "switch_mode",
+    "ask_user",
 }
 
 

@@ -321,6 +321,8 @@ def main(argv: Optional[List[str]] = None) -> int:
             )
             sys.stderr.flush()
             return
+        if event_name == "user_input_required":
+            return
         if event_name == "session_resumed":
             sys.stderr.write(
                 "[resume] session=%s\n" % session_id
@@ -361,6 +363,32 @@ def main(argv: Optional[List[str]] = None) -> int:
         answer = input().strip().lower()
         return answer in ("y", "yes")
 
+    def user_input_resolver(ticket: Dict[str, object]) -> Dict[str, object]:
+        question = str(ticket.get("question") or "请输入回答。")
+        options = ticket.get("options") if isinstance(ticket.get("options"), list) else []
+        sys.stderr.write(question + "\n")
+        for item in options:
+            if not isinstance(item, dict):
+                continue
+            suffix = " -> %s" % item.get("mode") if item.get("mode") else ""
+            sys.stderr.write("  %s. %s%s\n" % (item.get("index") or "-", item.get("text") or "", suffix))
+        sys.stderr.write("answer> ")
+        sys.stderr.flush()
+        raw = input().strip()
+        if raw.isdigit():
+            for item in options:
+                if not isinstance(item, dict):
+                    continue
+                if int(item.get("index") or 0) != int(raw):
+                    continue
+                return {
+                    "answer": str(item.get("text") or ""),
+                    "selected_index": int(item.get("index") or 0),
+                    "selected_mode": str(item.get("mode") or ""),
+                    "selected_option_text": str(item.get("text") or ""),
+                }
+        return {"answer": raw}
+
     try:
         adapter.submit_user_message(
             session_id=str(snapshot.get("session_id") or ""),
@@ -368,6 +396,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             stream=not args.no_stream,
             wait=True,
             permission_resolver=permission_resolver,
+            user_input_resolver=user_input_resolver,
             event_handler=on_event,
         )
     except (ModelClientError, RuntimeError, ValueError) as exc:

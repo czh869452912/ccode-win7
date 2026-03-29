@@ -66,7 +66,7 @@ class ToolContext(object):
 
     # ------------------------------------------------------------------ paths
 
-    def resolve_path(self, path: str) -> str:
+    def resolve_path(self, path: str, allow_missing: bool = False) -> str:
         if not path:
             raise ToolError("路径不能为空。")
         candidate = path if os.path.isabs(path) else os.path.join(self.workspace, path)
@@ -78,7 +78,7 @@ class ToolContext(object):
             or resolved_norm.startswith(workspace_norm + os.sep)
         ):
             raise ToolError("路径超出当前工作区。")
-        if not os.path.exists(resolved):
+        if not allow_missing and not os.path.exists(resolved):
             raise ToolError("路径不存在：%s" % path)
         return resolved
 

@@ -29,9 +29,10 @@ class TestModeRegistry(unittest.TestCase):
 
 
 class TestAllowedTools(unittest.TestCase):
-    def test_switch_mode_always_present(self):
-        for m in mode_names():
-            self.assertIn("switch_mode", allowed_tools_for(m))
+    def test_switch_mode_only_in_orchestra(self):
+        self.assertIn("switch_mode", allowed_tools_for("orchestra"))
+        for m in ("ask", "spec", "code", "test", "verify", "debug", "compact"):
+            self.assertNotIn("switch_mode", allowed_tools_for(m))
 
     def test_orchestra_has_manage_todos(self):
         tools = allowed_tools_for("orchestra")
@@ -46,11 +47,15 @@ class TestAllowedTools(unittest.TestCase):
 
     def test_ask_is_read_only_tools(self):
         tools = allowed_tools_for("ask")
-        for write_tool in ("edit_file", "run_command", "compile_project"):
+        self.assertIn("ask_user", tools)
+        for write_tool in ("edit_file", "write_file", "run_command", "compile_project"):
             self.assertNotIn(write_tool, tools)
 
     def test_verify_has_no_edit_file(self):
         self.assertNotIn("edit_file", allowed_tools_for("verify"))
+
+    def test_code_has_write_file(self):
+        self.assertIn("write_file", allowed_tools_for("code"))
 
 
 class TestWritableGlobs(unittest.TestCase):
@@ -78,6 +83,12 @@ class TestWritableGlobs(unittest.TestCase):
         cfg = AppConfig(mode_writable_globs={"code": ["app/**/*.py"]})
         spec_globs = get_writable_globs("spec", cfg)
         self.assertIn("**/*.md", spec_globs)
+
+    def test_extra_globs_append_to_defaults(self):
+        cfg = AppConfig(mode_extra_writable_globs={"code": ["**/*.cmake"]})
+        globs = get_writable_globs("code", cfg)
+        self.assertIn("**/*.py", globs)
+        self.assertIn("**/*.cmake", globs)
 
     def test_config_none_uses_defaults(self):
         default_globs = get_writable_globs("code")

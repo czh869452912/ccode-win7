@@ -12,7 +12,8 @@
 本版本只覆盖：
 
 - 用户显式 `/mode <name>`
-- LLM 工具调用 `switch_mode(target)`
+- `orchestra` 模式下的 LLM 工具调用 `switch_mode(target, reason)`
+- `ask_user` 触发的等待用户回答
 
 ---
 
@@ -30,10 +31,19 @@
 
 规则：
 
-1. 所有模式都自动附加 `switch_mode`
-2. 当模型调用 `switch_mode(target)` 时，Loop 不把它交给 ToolRuntime
+1. 只有 `orchestra` 模式暴露 `switch_mode`
+2. 当模型调用 `switch_mode(target, reason)` 时，Loop 不把它交给 ToolRuntime
 3. Loop 直接校验目标模式是否合法
 4. 校验通过后，追加新的 mode system prompt，并继续下一轮
+
+### 2.3 ask_user
+
+规则：
+
+1. `ask` / `spec` / `orchestra` 模式可调用 `ask_user`
+2. Loop 不把它交给 ToolRuntime，而是把问题转成前端事件
+3. 前端进入 `waiting_user_input`，等待用户选择建议项或自由输入
+4. 用户回答会回写为 `ask_user` Observation；若回答附带 mode，则 loop 会同步更新当前模式
 
 ---
 
@@ -48,8 +58,9 @@ start
   -> send messages + filtered tools to model
   -> if no action: finish
   -> if action == switch_mode: update mode + append new prompt + continue
+  -> if action == ask_user: wait user input + append observation + continue
   -> if action not allowed in current mode: return blocked observation + continue
-  -> if action == edit_file and path not in writable_globs: return blocked observation + continue
+  -> if action in (write_file, edit_file) and path not in writable_globs: return blocked observation + continue
   -> else execute tool in ToolRuntime + append observation + continue
 ```
 
@@ -59,7 +70,8 @@ start
 
 ### 4.1 工具过滤
 
-- 模型只能看到当前模式允许的工具，加上 `switch_mode`
+- 模型只能看到当前模式允许的工具
+- `switch_mode` 不再全局附加，只在 `orchestra` 暴露
 
 ### 4.2 违规工具调用拦截
 
@@ -67,7 +79,7 @@ start
 
 ### 4.3 写入范围拦截
 
-- `edit_file` 额外检查目标路径是否匹配当前模式的 `writable_globs`
+- `write_file` / `edit_file` 额外检查目标路径是否匹配当前模式的 `writable_globs`
 
 ---
 

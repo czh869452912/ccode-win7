@@ -24,20 +24,49 @@ class SessionService(object):
         return self.adapter.set_session_mode(session_id, mode)
 
     def submit(self, session_id: str, text: str, event_handler=None) -> Dict[str, Any]:
-        return self.adapter.submit_user_message(
-            session_id,
-            text,
-            stream=True,
-            wait=False,
-            permission_resolver=None,
-            event_handler=event_handler,
-        )
+        try:
+            return self.adapter.submit_user_message(
+                session_id,
+                text,
+                stream=True,
+                wait=False,
+                permission_resolver=None,
+                user_input_resolver=None,
+                event_handler=event_handler,
+            )
+        except TypeError:
+            return self.adapter.submit_user_message(
+                session_id,
+                text,
+                stream=True,
+                wait=False,
+                permission_resolver=None,
+                event_handler=event_handler,
+            )
 
     def approve(self, session_id: str, permission_id: str) -> Dict[str, Any]:
         return self.adapter.approve_permission(session_id, permission_id)
 
     def reject(self, session_id: str, permission_id: str) -> Dict[str, Any]:
         return self.adapter.reject_permission(session_id, permission_id)
+
+    def reply_user_input(
+        self,
+        session_id: str,
+        request_id: str,
+        answer: str,
+        selected_index=None,
+        selected_mode: str = "",
+        selected_option_text: str = "",
+    ) -> Dict[str, Any]:
+        return self.adapter.reply_user_input(
+            session_id,
+            request_id,
+            answer,
+            selected_index=selected_index,
+            selected_mode=selected_mode,
+            selected_option_text=selected_option_text,
+        )
 
     def load_summary(self, summary_ref: str) -> Optional[Dict[str, Any]]:
         store = getattr(self.adapter, "summary_store", None)

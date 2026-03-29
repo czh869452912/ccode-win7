@@ -2,10 +2,13 @@ from __future__ import annotations
 
 import os
 
+from embedagent.config import load_config
+from embedagent.context import ContextManager, make_context_config
 from embedagent.inprocess_adapter import InProcessAdapter
 from embedagent.llm import OpenAICompatibleClient
 from embedagent.modes import DEFAULT_MODE
 from embedagent.permissions import PermissionPolicy
+from embedagent.project_memory import ProjectMemoryStore
 from embedagent.tools import ToolRuntime
 
 
@@ -47,13 +50,18 @@ def run_tui(
     initial_message: str = "",
 ) -> int:
     deps = load_tui_dependencies()
+    app_config = load_config(os.path.realpath(workspace))
     client = OpenAICompatibleClient(
         base_url=base_url,
         api_key=api_key,
         model=model,
         timeout=timeout,
     )
-    tools = ToolRuntime(workspace)
+    tools = ToolRuntime(workspace, app_config=app_config)
+    context_manager = ContextManager(
+        config=make_context_config(app_config),
+        project_memory=ProjectMemoryStore(os.path.realpath(workspace)),
+    )
     permission_policy = PermissionPolicy(
         auto_approve_all=approve_all,
         auto_approve_writes=approve_writes,
@@ -66,6 +74,7 @@ def run_tui(
         tools=tools,
         max_turns=max_turns,
         permission_policy=permission_policy,
+        context_manager=context_manager,
     )
     from embedagent.frontends.terminal.app import TerminalApp
 

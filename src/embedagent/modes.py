@@ -13,49 +13,69 @@ DEFAULT_MODE = "code"
 MODE_REGISTRY = {
     "ask": {
         "slug": "ask",
-        "system_prompt": "你当前处于 ask 模式，只负责澄清信息缺口与关键决策，不直接修改代码。若任务需要实现或验证，请先切换到更合适的模式。",
-        "allowed_tools": ["read_file", "list_files", "search_text"],
+        "system_prompt": "你当前处于 ask 模式，只负责澄清信息缺口、边界与关键决策。不要实现功能，也不要主动切模式；需要方向时用 ask_user 向用户确认。",
+        "allowed_tools": ["read_file", "list_files", "search_text", "ask_user"],
         "writable_globs": [],
     },
     "orchestra": {
         "slug": "orchestra",
-        "system_prompt": "你当前处于 orchestra 模式，负责拆解任务、选择后续模式并协调步骤，不直接承担大规模实现。若需要具体执行，请先切换到对应模式。",
-        "allowed_tools": ["read_file", "list_files", "search_text", "manage_todos"],
+        "system_prompt": "你当前处于 orchestra 模式，负责拆解任务、协调步骤，并在明确理由时把工作路由到下游模式。只有本模式可以主动调用 switch_mode。",
+        "allowed_tools": ["read_file", "list_files", "search_text", "manage_todos", "ask_user", "switch_mode"],
         "writable_globs": [],
     },
     "spec": {
         "slug": "spec",
-        "system_prompt": "你当前处于 spec 模式，负责整理需求、边界条件、验收标准和文档，不直接承担命令执行或开放式调试。修改范围应限制在文档文件。",
-        "allowed_tools": ["read_file", "list_files", "search_text", "edit_file"],
+        "system_prompt": "你当前处于 spec 模式，负责整理需求、边界条件、验收标准和文档。先复用现有文档结构；若工作区没有文档目录，可轻量创建 docs/，但不要擅自切到实现模式。",
+        "allowed_tools": ["read_file", "list_files", "search_text", "write_file", "ask_user"],
         "writable_globs": ["**/*.md", "**/*.rst", "**/*.txt"],
     },
     "code": {
         "slug": "code",
-        "system_prompt": "你当前处于 code 模式，负责以最小变更实现代码。优先使用 compile_project 做编译验证，而不是泛化命令执行。",
-        "allowed_tools": ["read_file", "list_files", "edit_file", "search_text", "compile_project", "manage_todos"],
+        "system_prompt": "你当前处于 code 模式，负责以最小变更实现代码。应复用现有工程结构，不要假设 src/ 必然存在；若需要其它模式，请先完成当前职责并向用户说明。",
+        "allowed_tools": ["read_file", "list_files", "write_file", "edit_file", "search_text", "compile_project", "manage_todos"],
         "writable_globs": [
-            "**/*.c", "**/*.h",
-            "**/*.py", "**/*.pyi",
+            "**/*.c", "**/*.cc", "**/*.cpp", "**/*.cxx",
+            "**/*.h", "**/*.hh", "**/*.hpp", "**/*.hxx",
+            "**/*.py", "**/*.pyi", "**/*.ps1", "**/*.bat",
             "**/*.toml", "**/*.cfg", "**/*.ini",
+            "**/*.json", "**/*.yaml", "**/*.yml",
+            "**/*.cmake", "CMakeLists.txt", "**/CMakeLists.txt",
+            "Makefile", "**/Makefile", "makefile", "**/makefile",
+            "meson.build", "**/meson.build",
         ],
     },
     "test": {
         "slug": "test",
-        "system_prompt": "你当前处于 test 模式，负责编写或调整测试入口、验证脚本和测试辅助代码。优先让问题可复现，并使用 run_tests 形成闭环。",
-        "allowed_tools": ["read_file", "edit_file", "search_text", "run_tests"],
-        "writable_globs": ["**/*.c", "**/*.h", "**/*.py", "**/*.pyi"],
+        "system_prompt": "你当前处于 test 模式，负责编写或调整测试入口、夹具和验证脚本。优先让问题可复现，不要假设 tests/ 必然存在。",
+        "allowed_tools": ["read_file", "write_file", "edit_file", "search_text", "run_tests"],
+        "writable_globs": [
+            "**/*.c", "**/*.cc", "**/*.cpp", "**/*.cxx",
+            "**/*.h", "**/*.hh", "**/*.hpp", "**/*.hxx",
+            "**/*.py", "**/*.pyi", "**/*.json",
+            "**/*.yaml", "**/*.yml", "**/*.txt",
+            "**/*.cmake", "CMakeLists.txt", "**/CMakeLists.txt",
+        ],
     },
     "verify": {
         "slug": "verify",
-        "system_prompt": "你当前处于 verify 模式，负责执行构建、测试、静态检查并给出质量门结论，不直接编辑源码。若发现需要改动，请切换到 code 或 debug。",
+        "system_prompt": "你当前处于 verify 模式，负责执行构建、测试、静态检查并给出质量门结论。本模式不改代码，也不自动切模式；发现问题时只说明证据与建议。",
         "allowed_tools": ["compile_project", "run_tests", "run_clang_tidy", "report_quality"],
         "writable_globs": [],
     },
     "debug": {
         "slug": "debug",
-        "system_prompt": "你当前处于 debug 模式，负责复现问题、定位根因并做最小修复。优先用读取、搜索和最小命令验证缩小范围。",
-        "allowed_tools": ["read_file", "search_text", "edit_file", "run_command"],
-        "writable_globs": ["**/*.c", "**/*.h", "**/*.py", "**/*.pyi"],
+        "system_prompt": "你当前处于 debug 模式，负责复现问题、定位根因并做最小修复。先根据当前工程结构和诊断缩小范围，不要假设固定目录，也不要自动切模式。",
+        "allowed_tools": ["read_file", "search_text", "write_file", "edit_file", "run_command"],
+        "writable_globs": [
+            "**/*.c", "**/*.cc", "**/*.cpp", "**/*.cxx",
+            "**/*.h", "**/*.hh", "**/*.hpp", "**/*.hxx",
+            "**/*.py", "**/*.pyi", "**/*.ps1", "**/*.bat",
+            "**/*.toml", "**/*.cfg", "**/*.ini",
+            "**/*.json", "**/*.yaml", "**/*.yml",
+            "**/*.cmake", "CMakeLists.txt", "**/CMakeLists.txt",
+            "Makefile", "**/Makefile", "makefile", "**/makefile",
+            "meson.build", "**/meson.build",
+        ],
     },
     "compact": {
         "slug": "compact",
@@ -92,26 +112,54 @@ def get_writable_globs(mode_name: str, config=None) -> List[str]:
         return base_globs
     override = config.mode_writable_globs.get(mode_name)
     if override is not None and isinstance(override, list):
-        return list(override)
-    return base_globs
+        base_globs = list(override)
+    extra = config.mode_extra_writable_globs.get(mode_name)
+    if extra is not None and isinstance(extra, list):
+        base_globs.extend([str(item) for item in extra if str(item or "").strip()])
+    deduped = []
+    seen = set()
+    for item in base_globs:
+        text = str(item or "").strip()
+        if not text or text in seen:
+            continue
+        seen.add(text)
+        deduped.append(text)
+    return deduped
 
 
 def build_system_prompt(mode_name: str, config=None) -> str:
     cfg = require_mode(mode_name)
-    allowed_tools = list(cfg["allowed_tools"]) + ["switch_mode"]
+    allowed_tools = list(cfg["allowed_tools"])
     writable_globs = get_writable_globs(mode_name, config)
     writable_text = ", ".join(writable_globs) if writable_globs else "只读"
+    can_switch = "switch_mode" in allowed_tools
+    can_ask_user = "ask_user" in allowed_tools
+    switch_rule = (
+        "你可以在理由明确时调用 switch_mode。"
+        if can_switch
+        else "你不能主动切换模式；若方向需要改变，优先用 ask_user 询问用户，或在回复中建议用户使用 /mode。"
+    )
+    ask_rule = (
+        "当缺少关键决策时，优先用 ask_user 提供 2 到 4 个明确选项。"
+        if can_ask_user
+        else "当需要用户决策时，用自然语言说明建议并等待用户输入。"
+    )
     return (
         "你是 EmbedAgent 的受控模式原型。"
         "请优先用中文回答，并严格遵守当前模式边界。"
-        "当任务需要当前模式之外的工具时，先调用 switch_mode。\n\n"
+        "模式不是权限系统；权限审批由运行时单独处理。"
+        "工程结构是可探测的软约定，不是你必须强推的模板。\n\n"
         "当前模式：%s\n"
         "模式说明：%s\n"
+        "模式切换规则：%s\n"
+        "用户确认规则：%s\n"
         "允许工具：%s\n"
         "可写范围：%s"
     ) % (
         mode_name,
         cfg["system_prompt"],
+        switch_rule,
+        ask_rule,
         ", ".join(allowed_tools),
         writable_text,
     )
@@ -119,7 +167,7 @@ def build_system_prompt(mode_name: str, config=None) -> str:
 
 def allowed_tools_for(mode_name: str) -> List[str]:
     cfg = require_mode(mode_name)
-    return list(cfg["allowed_tools"]) + ["switch_mode"]
+    return list(cfg["allowed_tools"])
 
 
 def is_tool_allowed(mode_name: str, tool_name: str) -> bool:
@@ -155,9 +203,13 @@ def switch_mode_schema() -> Dict[str, object]:
                         "type": "string",
                         "enum": mode_names(),
                         "description": "要切换到的目标模式，必须是受支持的模式名。示例：code",
+                    },
+                    "reason": {
+                        "type": "string",
+                        "description": "说明为什么此时需要切换模式。示例：规格已明确，下一步进入 code 模式实现。",
                     }
                 },
-                "required": ["target"],
+                "required": ["target", "reason"],
                 "additionalProperties": False,
             },
         },

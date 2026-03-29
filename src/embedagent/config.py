@@ -21,6 +21,9 @@
         "mode_writable_globs": {
             "code": ["**/*.py", "**/*.toml", "**/*.cfg"],
             "spec": ["**/*.md", "**/*.rst"]
+        },
+        "mode_extra_writable_globs": {
+            "code": ["CMakeLists.txt", "**/*.cmake"]
         }
     }
 """
@@ -53,6 +56,7 @@ class AppConfig:
     default_mode: Optional[str] = None
     # 每个模式的可写路径 glob 覆盖
     mode_writable_globs: Dict[str, List[str]] = field(default_factory=dict)
+    mode_extra_writable_globs: Dict[str, List[str]] = field(default_factory=dict)
 
 
 def _load_json_file(path: str) -> dict:
@@ -74,6 +78,7 @@ def _merge(base: AppConfig, overrides: dict) -> AppConfig:
         "max_turns", "default_mode",
     )
     merged_globs = dict(base.mode_writable_globs)
+    merged_extra_globs = dict(base.mode_extra_writable_globs)
 
     kwargs = {}
     for f in simple_fields:
@@ -89,6 +94,12 @@ def _merge(base: AppConfig, overrides: dict) -> AppConfig:
             if isinstance(globs, list):
                 merged_globs[mode_name] = [str(g) for g in globs]
     kwargs["mode_writable_globs"] = merged_globs
+    extra_globs_override = overrides.get("mode_extra_writable_globs")
+    if isinstance(extra_globs_override, dict):
+        for mode_name, globs in extra_globs_override.items():
+            if isinstance(globs, list):
+                merged_extra_globs[mode_name] = [str(g) for g in globs]
+    kwargs["mode_extra_writable_globs"] = merged_extra_globs
 
     return AppConfig(**kwargs)
 

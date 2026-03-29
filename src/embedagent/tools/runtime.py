@@ -46,14 +46,14 @@ class ToolRuntime(object):
                 tool_name=name,
                 success=False,
                 error=str(exc),
-                data={},
+                data={"error_kind": "tool_error", "retryable": True},
             )
         except Exception as exc:
             return Observation(
                 tool_name=name,
                 success=False,
                 error="工具执行失败：%s" % exc,
-                data={},
+                data={"error_kind": "tool_error", "retryable": True},
             )
         observation.tool_name = name
         return observation

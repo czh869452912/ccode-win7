@@ -23,6 +23,7 @@ def reset_session_buffers(state: TerminalState) -> None:
     state.timeline.stream_text = ""
     state.timeline.follow_output = True
     state.session.pending_permission = None
+    state.session.pending_user_input = None
     state.session.last_context_event = {}
     state.session.last_error = ""
     state.preview_path = ""
@@ -112,6 +113,10 @@ def set_selected_artifact(state: TerminalState, reference: str) -> None:
 
 def set_pending_permission(state: TerminalState, ticket: Optional[Dict[str, object]]) -> None:
     state.session.pending_permission = ticket
+
+
+def set_pending_user_input(state: TerminalState, ticket: Optional[Dict[str, object]]) -> None:
+    state.session.pending_user_input = ticket
 
 
 def set_last_error(state: TerminalState, message: str) -> None:

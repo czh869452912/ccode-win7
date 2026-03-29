@@ -22,6 +22,7 @@ class TestAppConfigDefaults(unittest.TestCase):
     def test_mode_writable_globs_default_empty(self):
         cfg = AppConfig()
         self.assertEqual(cfg.mode_writable_globs, {})
+        self.assertEqual(cfg.mode_extra_writable_globs, {})
 
     def test_explicit_values(self):
         cfg = AppConfig(max_context_tokens=32000, model="qwen3")
@@ -81,10 +82,21 @@ class TestMerge(unittest.TestCase):
         self.assertIn("code", result.mode_writable_globs)
         self.assertIn("spec", result.mode_writable_globs)
 
+    def test_mode_extra_writable_globs_merged(self):
+        base = AppConfig(mode_extra_writable_globs={"code": ["**/*.cmake"]})
+        result = _merge(base, {"mode_extra_writable_globs": {"spec": ["**/*.adoc"]}})
+        self.assertIn("code", result.mode_extra_writable_globs)
+        self.assertIn("spec", result.mode_extra_writable_globs)
+
     def test_mode_writable_globs_overrides_existing_mode(self):
         base = AppConfig(mode_writable_globs={"code": ["old/*.py"]})
         result = _merge(base, {"mode_writable_globs": {"code": ["new/*.py"]}})
         self.assertEqual(result.mode_writable_globs["code"], ["new/*.py"])
+
+    def test_mode_extra_writable_globs_overrides_existing_mode(self):
+        base = AppConfig(mode_extra_writable_globs={"code": ["old/*.py"]})
+        result = _merge(base, {"mode_extra_writable_globs": {"code": ["new/*.py"]}})
+        self.assertEqual(result.mode_extra_writable_globs["code"], ["new/*.py"])
 
     def test_numeric_type_coercion(self):
         base = AppConfig()
@@ -98,6 +110,7 @@ class TestLoadConfig(unittest.TestCase):
             cfg = load_config(workspace)
             self.assertIsNone(cfg.model)
             self.assertEqual(cfg.mode_writable_globs, {})
+            self.assertEqual(cfg.mode_extra_writable_globs, {})
 
     def test_project_config_loaded(self):
         with tempfile.TemporaryDirectory() as workspace:
@@ -138,6 +151,16 @@ class TestLoadConfig(unittest.TestCase):
                 json.dump({"mode_writable_globs": {"code": ["app/**/*.py"]}}, f)
             cfg = load_config(workspace)
             self.assertEqual(cfg.mode_writable_globs["code"], ["app/**/*.py"])
+
+    def test_mode_extra_writable_globs_in_project_config(self):
+        with tempfile.TemporaryDirectory() as workspace:
+            config_dir = os.path.join(workspace, ".embedagent")
+            os.makedirs(config_dir)
+            config_path = os.path.join(config_dir, "config.json")
+            with open(config_path, "w") as f:
+                json.dump({"mode_extra_writable_globs": {"code": ["**/*.cmake"]}}, f)
+            cfg = load_config(workspace)
+            self.assertEqual(cfg.mode_extra_writable_globs["code"], ["**/*.cmake"])
 
 
 if __name__ == "__main__":

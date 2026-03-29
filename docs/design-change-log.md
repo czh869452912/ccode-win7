@@ -860,3 +860,36 @@
   - 评估 `.venv\Lib\site-packages` 的精简导出方案
   - 在 Win7 虚拟机上补 bundle 级真实验收
   - 视需要继续收敛第三方工具 license 文件的随包归档方式
+
+### DC-034
+
+- 日期：2026-03-29
+- 变更主题：模式/权限解耦与空目录启动收口
+- 变更摘要：
+  - 新增 `write_file`，允许 agent 在工作区内创建新文件并自动创建父目录，解决空目录下 `spec` 无法起草文档的问题
+  - 新增 `ask_user` 与 `waiting_user_input` 交互流，将用户问答与权限审批彻底分开
+  - `switch_mode` 不再全模式可用，只保留给 `orchestra`；其他模式只能通过 `ask_user` 或文本建议请求用户决定
+  - `MODE_REGISTRY` 的默认可写范围改为按文件类型放行，不再把 `docs/` / `src/` / `tests/` 固定成唯一目录结构
+  - 配置新增 `mode_extra_writable_globs`，用于在保留默认值的前提下增量追加可写规则
+  - 引入工作区画像 system message，并把非重试型阻塞纳入 LoopGuard 的提前停机逻辑
+- 影响范围：
+  - Mode Registry
+  - Agent Loop / Guard
+  - InProcessAdapter / CLI / TUI
+  - 配置与文档治理
+- 关联文档：
+  - `src/embedagent/modes.py`
+  - `src/embedagent/loop.py`
+  - `src/embedagent/inprocess_adapter.py`
+  - `src/embedagent/tools/file_ops.py`
+  - `src/embedagent/workspace_profile.py`
+  - `docs/mode-schema.md`
+  - `docs/tool-design-spec.md`
+  - `docs/permission-model.md`
+  - `docs/configuration-guide.md`
+  - `docs/harness-state-machine.md`
+  - `docs/implementation-roadmap.md`
+- 是否需要 ADR：`暂不单独写`
+- 后续动作：
+  - 在真实 TUI / Win7 手工验证中复查 `waiting_user_input` 与 `waiting_permission` 的宿主体验
+  - 继续评估 `ask_user` 是否需要被扩展到 `code` / `debug` 等执行模式

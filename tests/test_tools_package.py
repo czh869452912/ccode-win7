@@ -49,11 +49,11 @@ class TestToolRuntimeSchemas(unittest.TestCase):
         self.tool_names = [s["function"]["name"] for s in self.schemas]
 
     def test_total_tool_count(self):
-        self.assertEqual(len(self.schemas), 15)
+        self.assertEqual(len(self.schemas), 16)
 
     def test_all_original_tools_present(self):
         expected = [
-            "read_file", "list_files", "search_text", "edit_file",
+            "read_file", "list_files", "search_text", "write_file", "edit_file",
             "run_command",
             "git_status", "git_diff", "git_log",
             "compile_project", "run_tests", "run_clang_tidy",
@@ -132,6 +132,27 @@ class TestToolRuntimeExecute(unittest.TestCase):
         with open(test_file, "r", encoding="utf-8") as f:
             content = f.read()
         self.assertIn("x = 2", content)
+
+    def test_write_file_creates_new_file(self):
+        obs = self.rt.execute("write_file", {
+            "path": "docs/requirements.md",
+            "content": "# Requirements\n",
+        })
+        self.assertTrue(obs.success)
+        self.assertTrue(obs.data["created"])
+        with open(os.path.join(self.workspace, "docs", "requirements.md"), "r", encoding="utf-8") as f:
+            content = f.read()
+        self.assertEqual(content, "# Requirements\n")
+
+    def test_write_file_blocks_existing_without_overwrite(self):
+        test_file = os.path.join(self.workspace, "existing.txt")
+        with open(test_file, "w", encoding="utf-8") as f:
+            f.write("old\n")
+        obs = self.rt.execute("write_file", {
+            "path": "existing.txt",
+            "content": "new\n",
+        })
+        self.assertFalse(obs.success)
 
     def test_observation_tool_name_set(self):
         obs = self.rt.execute("manage_todos", {"action": "list"})
