@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EmbedAgent</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="app">
+        <!-- 左侧边栏：文件树 -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <span class="logo">EmbedAgent</span>
+            </div>
+            <div class="workspace-info">
+                <div class="branch" id="branch">-</div>
+                <div class="dirty" id="dirty">0 changes</div>
+            </div>
+            <div class="file-tree" id="fileTree">
+                <div class="loading">Loading...</div>
+            </div>
+        </aside>
+
+        <!-- 主区域：对话 -->
+        <main class="main">
+            <!-- 会话头部 -->
+            <header class="chat-header">
+                <div class="session-info">
+                    <span class="mode" id="mode">code</span>
+                    <span class="status" id="status">idle</span>
+                </div>
+                <div class="actions">
+                    <button onclick="app.newSession()">New</button>
+                    <button onclick="app.clearChat()">Clear</button>
+                </div>
+            </header>
+
+            <!-- 消息列表 -->
+            <div class="chat-messages" id="chatMessages">
+                <!-- 消息会动态插入这里 -->
+            </div>
+
+            <!-- 输入框 -->
+            <div class="input-area">
+                <textarea 
+                    id="messageInput" 
+                    placeholder="输入消息，按 Enter 发送，Shift+Enter 换行..."
+                    rows="3"
+                ></textarea>
+                <button onclick="app.sendMessage()" id="sendBtn">发送</button>
+            </div>
+        </main>
+
+        <!-- 右侧面板：详情 -->
+        <aside class="inspector">
+            <div class="tabs">
+                <button class="tab active" onclick="app.switchTab('status')">Status</button>
+                <button class="tab" onclick="app.switchTab('todos')">Todos</button>
+            </div>
+            <div class="tab-content" id="inspectorContent">
+                <!-- 动态内容 -->
+            </div>
+        </aside>
+    </div>
+
+    <!-- Diff 确认对话框 -->
+    <div class="modal" id="diffModal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>确认修改</h3>
+                <button class="close" onclick="app.closeDiffModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="diff-info">
+                    <span id="diffPath"></span>
+                </div>
+                <div class="diff-view" id="diffView"></div>
+            </div>
+            <div class="modal-footer">
+                <button onclick="app.rejectDiff()">拒绝</button>
+                <button class="primary" onclick="app.approveDiff()">确认</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Permission 确认对话框 -->
+    <div class="modal" id="permissionModal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>需要确认</h3>
+            </div>
+            <div class="modal-body">
+                <div class="permission-info">
+                    <div class="tool-name" id="permTool"></div>
+                    <div class="reason" id="permReason"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button onclick="app.rejectPermission()">拒绝</button>
+                <button class="primary" onclick="app.approvePermission()">确认</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>

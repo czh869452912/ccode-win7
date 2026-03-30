@@ -72,7 +72,10 @@ function Reset-Directory {
     Ensure-Directory -Path $Root
     if (Test-Path -LiteralPath $Target) {
         Assert-ChildPath -Root $Root -Child $Target
-        Remove-Item -LiteralPath $Target -Recurse -Force
+        Remove-Item -LiteralPath $Target -Recurse -Force -ErrorAction SilentlyContinue
+        if (Test-Path -LiteralPath $Target) {
+            throw "Failed to reset directory: $Target"
+        }
     }
     New-Item -ItemType Directory -Path $Target -Force | Out-Null
 }
@@ -446,7 +449,9 @@ $paths = @(
     'manifests\licenses',
     'runtime',
     'runtime\python',
-    'runtime\site-packages'
+    'runtime\site-packages',
+    'tools',
+    'tools\validation'
 )
 foreach ($relative in $paths) {
     Ensure-Directory -Path (Join-Path $bundleRoot $relative)
@@ -459,19 +464,49 @@ Remove-TransientPythonArtifacts -Root $stagedAppRoot
 
 $configurationGuide = Join-Path $projectRoot 'docs\configuration-guide.md'
 $preflightGuide = Join-Path $projectRoot 'docs\win7-preflight-checklist.md'
+$intranetGuide = Join-Path $projectRoot 'docs\intranet-deployment.md'
+$win7GuiGuide = Join-Path $projectRoot 'docs\win7-gui-validation.md'
 Stage-File -Source $configurationGuide -Destination (Join-Path $bundleRoot 'docs\configuration-guide.md')
 Stage-File -Source $preflightGuide -Destination (Join-Path $bundleRoot 'docs\win7-preflight-checklist.md')
+if (Test-Path -LiteralPath $intranetGuide) {
+    Stage-File -Source $intranetGuide -Destination (Join-Path $bundleRoot 'docs\intranet-deployment.md')
+}
+if (Test-Path -LiteralPath $win7GuiGuide) {
+    Stage-File -Source $win7GuiGuide -Destination (Join-Path $bundleRoot 'docs\win7-gui-validation.md')
+}
+
+$guiSmokeScript = Join-Path $projectRoot 'scripts\validate-gui-smoke.py'
+if (Test-Path -LiteralPath $guiSmokeScript) {
+    Stage-File -Source $guiSmokeScript -Destination (Join-Path $bundleRoot 'tools\validation\validate-gui-smoke.py')
+}
 
 $defaultConfig = @'
 {
-  "base_url": "http://127.0.0.1:8000/v1",
+  "_comment": "EmbedAgent Configuration - Update for your internal LLM service",
+  "base_url": "http://192.168.1.100:8000/v1",
+  "api_key": "sk-internal",
+  "model": "qwen3.5-coder",
+  "timeout": 120,
+  "max_context_tokens": 32000,
+  "reserve_output_tokens": 3000,
+  "chars_per_token": 3.0,
+  "max_turns": 8,
+  "default_mode": "code"
+}
+'@
+Write-TextFile -Path (Join-Path $bundleRoot 'config\config.json.template') -Content ($defaultConfig.Trim() + "`r`n")
+
+# Also create a minimal config.json for quick start
+$minimalConfig = @'
+{
+  "base_url": "http://192.168.1.100:8000/v1",
   "api_key": "",
   "model": "",
   "timeout": 120,
   "default_mode": "code"
 }
 '@
-Write-TextFile -Path (Join-Path $bundleRoot 'config\config.json') -Content ($defaultConfig.Trim() + "`r`n")
+Write-TextFile -Path (Join-Path $bundleRoot 'config\config.json') -Content ($minimalConfig.Trim() + "`r`n")
 
 $defaultPermissionRules = @'
 {
@@ -506,6 +541,48 @@ call "%~dp0embedagent.cmd" --tui %*
 '@
 Write-TextFile -Path (Join-Path $bundleRoot 'embedagent-tui.cmd') -Content ($launcherTui.Trim() + "`r`n")
 
+$launcherGui = @'
+@echo off
+setlocal EnableDelayedExpansion
+
+set "BUNDLE_ROOT=%~dp0"
+set "PYTHONHOME=%BUNDLE_ROOT%runtime\python"
+set "PYTHONPATH=%BUNDLE_ROOT%app;%BUNDLE_ROOT%runtime\site-packages"
+
+set "PATH=%BUNDLE_ROOT%bin\git\cmd;%BUNDLE_ROOT%bin\rg;%BUNDLE_ROOT%bin\ctags;%BUNDLE_ROOT%bin\llvm\bin;%PATH%"
+
+if not defined EMBEDAGENT_HOME (
+    set "EMBEDAGENT_HOME=%USERPROFILE%\.embedagent"
+)
+
+if not exist "%PYTHONHOME%\python.exe" (
+    echo Error: Python runtime not found in %PYTHONHOME%
+    exit /b 1
+)
+
+if exist "%ProgramFiles(x86)%\Microsoft\EdgeWebView\Application\*" (
+    echo Info: WebView2 Runtime detected
+) else if exist "%LOCALAPPDATA%\Microsoft\EdgeWebView\Application\*" (
+    echo Info: WebView2 Runtime detected (user install)
+) else (
+    echo Warning: WebView2 Runtime not detected
+    echo GUI will use IE11 fallback mode on Windows 7
+)
+
+"%PYTHONHOME%\python.exe" -m embedagent.frontend.gui.launcher %*
+'@
+Write-TextFile -Path (Join-Path $bundleRoot 'embedagent-gui.cmd') -Content ($launcherGui.Trim() + "`r`n")
+
+$launcherGuiSmoke = @'
+@echo off
+setlocal
+set "BUNDLE_ROOT=%~dp0"
+set "PYTHONHOME=%BUNDLE_ROOT%runtime\python"
+set "PYTHONPATH=%BUNDLE_ROOT%app;%BUNDLE_ROOT%runtime\site-packages"
+"%PYTHONHOME%\python.exe" "%BUNDLE_ROOT%tools\validation\validate-gui-smoke.py" --bundle-root "%BUNDLE_ROOT%" %*
+'@
+Write-TextFile -Path (Join-Path $bundleRoot 'validate-gui-smoke.cmd') -Content ($launcherGuiSmoke.Trim() + "`r`n")
+
 $licensesReadme = @'
 Third-party license notices for bundled assets are written here during prepare.
 '@
@@ -536,9 +613,10 @@ $ctagsResolved = Resolve-ProjectPath -ProjectRoot $projectRoot -Value $CtagsPath
 $llvmPath = Resolve-ProjectPath -ProjectRoot $projectRoot -Value $LlvmRoot
 
 $components += New-ComponentRecord -Name 'app_code' -StagedPath 'app\embedagent' -Required $true -Status 'staged' -SourcePath $sourceAppRoot -Notes 'Copied from src/embedagent.' -AssetId ''
-$components += New-ComponentRecord -Name 'docs_bundle' -StagedPath 'docs' -Required $true -Status 'staged' -SourcePath (Join-Path $projectRoot 'docs') -Notes 'Copied configuration and preflight docs.' -AssetId ''
+$components += New-ComponentRecord -Name 'docs_bundle' -StagedPath 'docs' -Required $true -Status 'staged' -SourcePath (Join-Path $projectRoot 'docs') -Notes 'Copied configuration, preflight, intranet, and Win7 GUI validation docs.' -AssetId ''
 $components += New-ComponentRecord -Name 'config_templates' -StagedPath 'config' -Required $true -Status 'staged' -SourcePath '' -Notes 'Generated default config and permission rules templates.' -AssetId ''
-$components += New-ComponentRecord -Name 'launcher_scripts' -StagedPath '.' -Required $true -Status 'staged' -SourcePath '' -Notes 'Generated embedagent.cmd and embedagent-tui.cmd.' -AssetId ''
+$components += New-ComponentRecord -Name 'launcher_scripts' -StagedPath '.' -Required $true -Status 'staged' -SourcePath '' -Notes 'Generated embedagent.cmd, embedagent-tui.cmd, embedagent-gui.cmd, and validate-gui-smoke.cmd.' -AssetId ''
+$components += New-ComponentRecord -Name 'validation_tools' -StagedPath 'tools\validation' -Required $true -Status 'staged' -SourcePath $guiSmokeScript -Notes 'Copied bundle-local GUI smoke validation script.' -AssetId ''
 
 $usePythonAsset = $requestedAssetIds -contains 'python_embedded_x64'
 if ($usePythonAsset) {

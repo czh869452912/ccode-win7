@@ -104,7 +104,7 @@
 截至 2026-03-29，Phase 6 已具备：
 
 - adapter 驱动 CLI
-- 模块化终端前端包 `src/embedagent/frontends/terminal/`
+- 模块化终端前端包 `src/embedagent/frontend/tui/`
 - `embedagent.tui` 兼容 shim
 - workspace / timeline / artifact / todo 浏览接口
 - `SessionTimelineStore`

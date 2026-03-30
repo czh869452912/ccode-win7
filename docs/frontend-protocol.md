@@ -86,7 +86,7 @@ Phase 6 的实现顺序固定为：
 
 当前范围：
 
-- `src/embedagent/frontends/terminal/` 包结构（state / reducer / controller / layout / services / views）
+- `src/embedagent/frontend/tui/` 包结构（state / reducer / controller / layout / services / views）
 - Explorer / Main View / Inspector / Composer 终端布局
 - workspace / timeline / artifact / todo 浏览接口接入
 - 会话浏览、权限确认、错误状态、上下文状态和单缓冲编辑器

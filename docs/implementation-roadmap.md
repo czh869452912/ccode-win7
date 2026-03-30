@@ -269,7 +269,7 @@ conda activate embedagent-py38
 
 - In-process adapter（同进程调用）
 - `SessionTimelineStore` 与 workspace / artifact / todo 浏览接口
-- `src/embedagent/frontends/terminal/` 模块化终端前端包（state / reducer / controller / layout / services / views）
+- `src/embedagent/frontend/tui/` 模块化终端前端包（state / reducer / controller / layout / services / views）
 - prompt_toolkit + Rich TUI
 - Phase 6 回归脚本与手工验证清单
 - stdio JSON-RPC adapter（被宿主程序拉起，放在终端前端稳定后）

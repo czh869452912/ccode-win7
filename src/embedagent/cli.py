@@ -127,6 +127,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="启动最小 TUI 原型。若依赖未安装，会给出提示。",
     )
+    parser.add_argument(
+        "--gui",
+        action="store_true",
+        help="启动 PyWebView GUI 前端。若依赖未安装，会给出提示。",
+    )
     return parser
 
 
@@ -199,7 +204,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         fallback_mode = args.mode or str(resumed_summary.get("current_mode") or DEFAULT_MODE)
 
     if args.tui:
-        if not args.model:
+        if not (args.model or app_config.model):
             parser.error("必须通过 --model 或 EMBEDAGENT_MODEL 提供模型名称。")
         initial_mode = fallback_mode
         initial_message = " ".join(args.message).strip()
@@ -228,6 +233,37 @@ def main(argv: Optional[List[str]] = None) -> int:
                 initial_message=initial_message,
             )
         except TUIUnavailableError as exc:
+            sys.stderr.write("error: %s\n" % exc)
+            return 1
+
+    if args.gui:
+        if not (args.model or app_config.model):
+            parser.error("必须通过 --model 或 EMBEDAGENT_MODEL 提供模型名称。")
+        initial_mode = fallback_mode
+        initial_message = " ".join(args.message).strip()
+        if initial_message:
+            parsed = _parse_initial_message(parser, initial_message, fallback_mode)
+            initial_mode = parsed[0]
+            initial_message = parsed[1]
+        try:
+            from embedagent.frontend.gui.launcher import launch_gui
+            launch_gui(
+                workspace=workspace,
+                mode=initial_mode,
+                debug=False,
+                headless=False,
+                base_url=args.base_url or None,
+                api_key=args.api_key or None,
+                model=args.model or None,
+                timeout=args.timeout,
+                max_turns=args.max_turns,
+                approve_all=args.approve_all,
+                approve_writes=args.approve_writes,
+                approve_commands=args.approve_commands,
+                permission_rules=args.permission_rules,
+            )
+            return 0
+        except (ImportError, RuntimeError, ValueError) as exc:
             sys.stderr.write("error: %s\n" % exc)
             return 1
 

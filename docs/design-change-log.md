@@ -1,6 +1,6 @@
 # EmbedAgent 设计与变更跟踪
 
-> 更新日期：2026-03-29
+> 更新日期：2026-03-30
 > 用途：记录关键设计变更、影响范围、关联文档和后续动作
 
 ---
@@ -661,7 +661,7 @@
 - 日期：2026-03-29
 - 变更主题：Phase 6 终端前端模块化与浏览接口扩展
 - 变更摘要：
-  - `src/embedagent/tui.py` 已收敛为兼容 shim，真实终端前端迁移到 `src/embedagent/frontends/terminal/`
+  - `src/embedagent/tui.py` 已收敛为兼容 shim，真实终端前端迁移到 `src/embedagent/frontend/tui/`
   - 终端前端按 `state / reducer / controller / layout / services / views` 拆分，避免继续把交互逻辑堆在单文件中
   - `InProcessAdapter` 新增 workspace / timeline / artifact / todo 读取接口，并接入 `SessionTimelineStore`
   - 新增单元测试覆盖 timeline store、adapter 前端接口与终端补全模块；`scripts/validate-phase6.py` 回归通过
@@ -670,7 +670,7 @@
   - Frontend/Core 浏览型接口边界
   - 后续 Win7 控制台与 ConEmu 收口路径
 - 关联文档：
-  - `src/embedagent/frontends/terminal/`
+  - `src/embedagent/frontend/tui/`
   - `src/embedagent/inprocess_adapter.py`
   - `src/embedagent/session_timeline.py`
   - `docs/frontend-protocol.md`
@@ -923,3 +923,65 @@
 - 后续动作：
   - 在真实 TUI / Win7 环境验证新默认模式 `explore` 的入口体验
   - 评估是否需要为常见 C 维护工程提供预置的 `modes.json` 样板文件
+
+### DC-036
+
+- 日期：2026-03-30
+- 变更主题：新架构落地——protocol/core/frontend 分层与 GUI PyWebView 前端
+- 变更摘要：
+  - 新增 `src/embedagent/protocol/`，定义 `CoreInterface`、`FrontendCallbacks` 及数据类型，实现前后端协议层
+  - 新增 `src/embedagent/core/adapter.py`，实现 `AgentCoreAdapter` 包装 `InProcessAdapter` 并统一事件分发
+  - 新增 `src/embedagent/frontend/gui/`，实现 PyWebView + FastAPI + WebSocket 的 GUI 前端，包含 diff/权限确认弹窗
+  - 迁移 `src/embedagent/frontend/tui/`，按新架构实现 `TUIFrontend` 适配器，延迟导入处理缺失依赖
+  - 旧 `src/embedagent/frontend/tui/` 保留向后兼容，未来逐步迁移
+  - 新增 `tests/test_architecture.py`，17 项架构测试覆盖协议、Core、前后端导入
+  - 新增 `docs/architecture-new.md` 记录新架构设计
+- 影响范围：
+  - 整体架构分层（新增 protocol/core/frontend）
+  - TUI/GUI 前端实现方式
+  - Agent Core 与前端解耦程度
+  - 文档治理（README、development-tracker、architecture-new）
+- 关联文档：
+  - `docs/architecture-new.md`（新建）
+  - `docs/frontend-protocol.md`（需要后续更新以反映 protocol 层）
+  - `docs/development-tracker.md`（新增 T-020、T-021）
+  - `README.md`（目录结构、技术选型、项目现状更新）
+  - `src/embedagent/protocol/__init__.py`
+  - `src/embedagent/core/adapter.py`
+  - `src/embedagent/frontend/tui/`
+  - `src/embedagent/frontend/gui/`
+  - `tests/test_architecture.py`
+- 是否需要 ADR：`建议后续补 ADR 记录架构分层决策`
+- 后续动作：
+  - 将旧 `frontend/tui/` 完全迁移到 `frontend/tui/`
+  - 实现 GUI 的 diff 确认弹窗与后端实际联动
+  - 更新 `docs/frontend-protocol.md` 以反映新 protocol 层设计
+  - 在 Win7 环境下验证 GUI 前端兼容性（IE11 回退）
+
+### DC-037
+
+- 日期：2026-03-30
+- 变更主题：补齐 GUI smoke 与离线 bundle GUI 验证链路
+- 变更摘要：
+  - 在当前开发环境安装并同步 GUI 运行依赖，新增 `scripts/validate-gui-smoke.py`，可对源码路径和 bundle 路径执行 headless GUI smoke
+  - `src/embedagent/frontend/gui/launcher.py` 新增 renderer report 与 auto-close 参数，便于在真实 Windows 宿主执行 windowed smoke
+  - 修正 `scripts/prepare-offline.ps1` 生成的 `embedagent-gui.cmd`，使其直接进入 GUI launcher，支持 GUI 专属参数
+  - 离线 bundle 新增 `validate-gui-smoke.cmd` 与 `docs/win7-gui-validation.md`，作为 Win7 实机验收入口
+  - 修正 `scripts/build-offline-bundle.ps1` 的 `AssetIds` 参数处理
+  - 扩展 `scripts/validate-offline-bundle.ps1` 与 `scripts/check-bundle-dependencies.py`，把 GUI launcher、静态资源、内网部署文档和 GUI 依赖纳入正式校验
+- 影响范围：
+  - GUI 当前环境验收口径
+  - 离线 bundle 的 GUI 交付完整性
+  - Phase 6 / Phase 7 的验证结论
+- 关联文档：
+  - `docs/development-tracker.md`
+  - `docs/gui-packaging.md`
+  - `scripts/validate-gui-smoke.py`
+  - `scripts/prepare-offline.ps1`
+  - `scripts/build-offline-bundle.ps1`
+  - `scripts/validate-offline-bundle.ps1`
+  - `scripts/check-bundle-dependencies.py`
+- 是否需要 ADR：`暂不单独写`
+- 后续动作：
+  - 实现 GUI 的 diff 确认弹窗与后端实际联动
+  - 在真实 Win7 环境完成 WebView2 / MSHTML 回退实机验证

@@ -11,10 +11,23 @@ requires-python = ">=3.8,<3.9"
 dependencies = [
     "prompt-toolkit==3.0.52",
     "rich==14.3.3",
+    # GUI dependencies
+    "pywebview>=4.0",
+    "fastapi>=0.100",
+    "uvicorn[standard]>=0.23",
+    "websockets>=11.0",
+]
+
+[project.optional-dependencies]
+# 纯 CLI/TUI 版本（无 GUI）
+cli = [
+    "prompt-toolkit==3.0.52",
+    "rich==14.3.3",
 ]
 
 [project.scripts]
 embedagent = "embedagent.cli:main"
+embedagent-gui = "embedagent.frontend.gui.launcher:main"
 
 [tool.setuptools.package-dir]
 "" = "src"
@@ -22,6 +35,11 @@ embedagent = "embedagent.cli:main"
 [tool.setuptools.packages.find]
 where = ["src"]
 include = ["embedagent*"]
+
+[tool.setuptools.package-data]
+embedagent = [
+    "frontend/gui/static/**/*",
+]
 
 [tool.uv]
 package = true

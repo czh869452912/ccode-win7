@@ -7,9 +7,9 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 from prompt_toolkit.document import Document
 
-from embedagent.frontends.terminal.completion import TerminalCompleter
-from embedagent.frontends.terminal.models import ArtifactRow, ExplorerItem
-from embedagent.frontends.terminal.state import TerminalState
+from embedagent.frontend.tui.completion import TerminalCompleter
+from embedagent.frontend.tui.models import ArtifactRow, ExplorerItem
+from embedagent.frontend.tui.state import TerminalState
 
 
 class TestTerminalFrontendModules(unittest.TestCase):

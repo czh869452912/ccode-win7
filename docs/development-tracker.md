@@ -127,7 +127,7 @@
 | T-009 | 实现 Phase 5 最小权限与防循环保护 | `completed` | 权限模型、Doom Loop Guard、ContextManager、mode-aware budget、Artifact Store、SessionSummaryStore、ProjectMemoryStore、Resume Entry、MemoryMaintenance 已落地；`scripts/validate-phase5.py` 已在 2026-03-29 复验通过 |
 | T-010 | 完成 Phase 6 前端协议与 TUI IA 设计 | `completed` | `frontend-protocol.md` 与 `tui-information-architecture.md` 已建立 |
 | T-011 | 实现 Phase 6A InProcessAdapter | `completed` | CLI 已改为通过 adapter 驱动 Core，并完成最小行为验证 |
-| T-012 | 落地模块化终端前端 | `in_progress` | 已完成 `src/embedagent/frontends/terminal/` 模块化拆包，接入 timeline / workspace / artifact / todo 浏览接口，保留 `embedagent.tui` 兼容入口；下一步是继续做真实控制台 / Win7 手工验证与交互细化 |
+| T-012 | 落地模块化终端前端 | `completed` | 已完成 `src/embedagent/frontend/tui/` 模块化拆包，`src/embedagent/frontend/tui/` 已按新架构迁移，接入 timeline / workspace / artifact / todo 浏览接口，保留 `embedagent.tui` 兼容入口；下一步是继续做真实控制台 / Win7 手工验证与交互细化 |
 | T-013 | 建立 Phase 6 验证入口 | `completed` | `scripts/validate-phase6.py` 与 `docs/phase6-validation.md` 已建立，Phase 6 已进入脚本可跟踪状态 |
 | T-014 | 建立 Phase 7 离线打包设计基线 | `completed` | 已新增 `docs/offline-packaging.md`、`docs/win7-preflight-checklist.md` 与 ADR `0001-offline-portable-bundle-baseline.md` |
 | T-015 | 实现 Phase 7A prepare-offline 骨架 | `completed` | 已新增 `scripts/prepare-offline.ps1`，可生成 `build/offline-staging/EmbedAgent/`、launcher、模板配置、manifest 与 checksum 草案，并支持 `-SkipBuild` |
@@ -135,6 +135,12 @@
 | T-017 | 实现 Phase 7C validate-offline-bundle 骨架 | `completed` | 已新增 `scripts/validate-offline-bundle.ps1`，可校验 skeleton bundle，并支持 `-RequireComplete` 切换到严格门禁 |
 | T-018 | 接入 Python embeddable 与 MinGit 真实资产 | `completed` | 已新增 `scripts/offline-assets.json`，并完成真实 zip 下载、SHA256 固定、staging 解压、sources seed、license notice 与 `-RequireComplete` 验收 |
 | T-019 | 接入 ripgrep 与 Universal Ctags 真实资产 | `completed` | 已扩展 `scripts/offline-assets.json` 与 `prepare/build/validate`，完成真实 zip 下载、SHA256 固定、sources seed、license notice 与 `-RequireComplete` 验收 |
+| T-020 | 实现新架构协议层（protocol/core/frontend） | `completed` | 已新增 `protocol/` 层定义 CoreInterface/FrontendCallbacks，`core/` 层实现 AgentCoreAdapter，`frontend/gui/` 实现 PyWebView 前端，架构测试 17 项全通过 |
+| T-021 | GUI 前端与后端功能联动 | `in_progress` | 已完成权限确认链路、线程安全事件桥接、当前环境 headless/windowed GUI smoke，以及 bundle 内置 `validate-gui-smoke.cmd` 验证入口；剩余缺口是 diff 确认弹窗后端联动与 Win7 实机验证 |
+| T-022 | 零依赖打包：Python 依赖完整导出 | `completed` | 已新增 `scripts/export-dependencies.py`，确保所有 Python 依赖（含传递依赖）完整导出到 site-packages |
+| T-023 | 零依赖打包：依赖完整性验证 | `completed` | 已新增 `scripts/check-bundle-dependencies.py`，验证 bundle 包含所有必需依赖 |
+| T-024 | 零依赖打包：内网部署文档 | `completed` | 已新增 `docs/intranet-deployment.md` 和 `docs/offline-packaging-guide.md`，提供完整内网部署指南 |
+| T-025 | 零依赖打包：内网配置模板 | `completed` | 已新增 `config/config.json.template`，预配置内网大模型服务示例 |
 
 ---
 
@@ -148,8 +154,8 @@
 | Phase 3 | 模式系统 v2 | `completed` | 5 模式配置驱动（explore/spec/code/debug/verify）、initialize_modes、工具过滤、/mode 已完成；switch_mode LLM 工具已移除 |
 | Phase 4 | Clang 工具链 | `in_progress` | 已有项目内闭环工具链，待真实工程与 Win7 验证 |
 | Phase 5 | 质量保障层 | `completed` | 权限、上下文、记忆、恢复与 cleanup 已落地；修复根目录文件写入边界后，专项验证脚本已复验通过 |
-| Phase 6 | CLI / TUI | `in_progress` | InProcessAdapter 已扩展 workspace / timeline / artifact / todo 前端接口，终端前端已拆为 `frontends/terminal` 子模块，并已通过 `validate-phase6.py` 与单元测试；待真实控制台 / Win7 手工验证 |
-| Phase 7 | 打包与离线交付 | `in_progress` | 设计基线、ADR、`prepare/build/validate` 三段脚本骨架，以及 Python/MinGit/rg/ctags 真实资产接入已完成；待收敛 site-packages 并做 Win7 bundle 验收 |
+| Phase 6 | CLI / TUI / GUI | `in_progress` | InProcessAdapter 已扩展 workspace / timeline / artifact / todo 前端接口；终端前端已拆为 `frontend/tui` 子模块；新架构 protocol/core/frontend 分层已落地；GUI PyWebView 前端已通过当前环境 headless/windowed smoke；待 diff 联动、真实控制台与 Win7 手工验证 |
+| Phase 7 | 打包与离线交付 | `in_progress` | 设计基线、ADR、`prepare/build/validate` 三段脚本骨架已完成；Python/MinGit/rg/ctags 真实资产接入已完成；GUI 依赖与 bundle-local smoke 已进入交付物，`validate-offline-bundle -RequireComplete`、`check-bundle-dependencies.py` 与 bundle 级 windowed GUI smoke 已通过；待 Win7 bundle 实机验收 |
 
 ---
 
@@ -202,7 +208,7 @@
 | 2026-03-28 | Phase 6B 交互深化已完成：TUI 新增会话列表浏览、权限确认/错误/上下文状态展示，并修复 --tui 空启动路径 |
 | 2026-03-28 | Phase 6B 依赖与运行验证已推进：`prompt_toolkit` / `rich` 已接入，非控制台宿主会优雅报错，并完成 headless 真实事件循环验证 |
 | 2026-03-28 | Phase 6 验证入口已建立：新增 scripts/validate-phase6.py 和 docs/phase6-validation.md，阶段状态已可脚本跟踪 |
-| 2026-03-29 | Phase 6 终端前端已模块化：新增 src/embedagent/frontends/terminal/ 包、timeline store 和 adapter 浏览接口，保留 embedagent.tui 兼容入口，并通过 headless 与单元测试 |
+| 2026-03-29 | Phase 6 终端前端已模块化：新增 src/embedagent/frontend/tui/ 包、timeline store 和 adapter 浏览接口，保留 embedagent.tui 兼容入口，并通过 headless 与单元测试 |
 | 2026-03-29 | 修复 `**/*.md` 等模式对根目录文件不匹配的问题，补充 `test_modes.py` 回归，并重新跑通 `scripts/validate-phase5.py` |
 | 2026-03-29 | README、路线图、进度跟踪与变更日志已按当前能力和阶段状态完成一轮对齐 |
 | 2026-03-29 | 建立 Phase 7 离线打包设计基线：新增 `docs/offline-packaging.md`、`docs/win7-preflight-checklist.md` 与 ADR `0001-offline-portable-bundle-baseline.md` |
@@ -210,7 +216,10 @@
 | 2026-03-29 | 建立 `scripts/build-offline-bundle.ps1`：已可把 staging bundle 复制到 `build/offline-dist/`、生成 zip、重写 dist manifest 并重算 checksum |
 | 2026-03-29 | 建立 `scripts/validate-offline-bundle.ps1`：默认模式可校验 skeleton bundle 并告警通过，`-RequireComplete` 下会对缺失资产返回失败 |
 | 2026-03-29 | 建立 `scripts/offline-assets.json`，正式接入 `python_embedded_x64` 与 `mingit_x64`，并完成真实 prepare/build/validate 验收 |
-| 2026-03-29 | 扩展 `scripts/offline-assets.json`，正式接入 `ripgrep_x64` 与 `universal_ctags_x64`，并完成真实 prepare/build/validate `-RequireComplete` 验收 |
+| 2026-03-30 | 零依赖打包方案落地：新增 `scripts/export-dependencies.py` 导出完整 Python 依赖（含传递依赖），新增 `scripts/check-bundle-dependencies.py` 验证 bundle 完整性，新增 `docs/intranet-deployment.md` 内网部署指南，新增 `docs/offline-packaging-guide.md` 完整打包指南，配置模板已预置内网大模型服务示例 |
+| 2026-03-30 | 当前环境 GUI 验证已补齐：已安装 `pywebview` / `fastapi` / `uvicorn` / `websockets`，新增 `scripts/validate-gui-smoke.py`，源码路径与 bundle 路径的 headless GUI smoke 均已通过 |
+| 2026-03-30 | 离线 bundle GUI 集成已补齐：`prepare/build/validate` 与 `check-bundle-dependencies.py` 已纳入 GUI launcher / static files / 文档 / site-packages 检查，当前环境完整 bundle 验证通过 |
+| 2026-03-30 | Win7 GUI 实机验证入口已准备：GUI launcher 新增 renderer report 与 auto-close 参数，bundle 已内置 `validate-gui-smoke.cmd` 和 `docs/win7-gui-validation.md`，当前 Windows 10 环境 windowed smoke 返回 `renderer=edgechromium` |
 
 
 

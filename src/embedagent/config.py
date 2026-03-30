@@ -71,6 +71,22 @@ def _load_json_file(path: str) -> dict:
 
 def _merge(base: AppConfig, overrides: dict) -> AppConfig:
     """Apply overrides dict onto base, returning a new AppConfig."""
+    normalized = dict(overrides)
+    llm_section = overrides.get("llm")
+    if isinstance(llm_section, dict):
+        for field_name in ("base_url", "api_key", "model", "timeout"):
+            if normalized.get(field_name) is None and llm_section.get(field_name) is not None:
+                normalized[field_name] = llm_section.get(field_name)
+    context_section = overrides.get("context")
+    if isinstance(context_section, dict):
+        for field_name in ("max_context_tokens", "reserve_output_tokens", "chars_per_token", "max_recent_turns"):
+            if normalized.get(field_name) is None and context_section.get(field_name) is not None:
+                normalized[field_name] = context_section.get(field_name)
+    session_section = overrides.get("session")
+    if isinstance(session_section, dict):
+        if normalized.get("max_turns") is None and session_section.get("max_turns") is not None:
+            normalized["max_turns"] = session_section.get("max_turns")
+
     simple_fields = (
         "base_url", "api_key", "model", "timeout",
         "max_context_tokens", "reserve_output_tokens",
@@ -82,19 +98,19 @@ def _merge(base: AppConfig, overrides: dict) -> AppConfig:
 
     kwargs = {}
     for f in simple_fields:
-        val = overrides.get(f)
+        val = normalized.get(f)
         if val is not None:
             kwargs[f] = val
         else:
             kwargs[f] = getattr(base, f)
 
-    globs_override = overrides.get("mode_writable_globs")
+    globs_override = normalized.get("mode_writable_globs")
     if isinstance(globs_override, dict):
         for mode_name, globs in globs_override.items():
             if isinstance(globs, list):
                 merged_globs[mode_name] = [str(g) for g in globs]
     kwargs["mode_writable_globs"] = merged_globs
-    extra_globs_override = overrides.get("mode_extra_writable_globs")
+    extra_globs_override = normalized.get("mode_extra_writable_globs")
     if isinstance(extra_globs_override, dict):
         for mode_name, globs in extra_globs_override.items():
             if isinstance(globs, list):
