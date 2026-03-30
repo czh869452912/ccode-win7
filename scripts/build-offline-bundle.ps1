@@ -166,7 +166,7 @@ function Invoke-PrepareOffline {
     $prepareParams = @{
         AssetManifestPath = $AssetManifestPath
     }
-    if ($AssetIds.Count -gt 0) {
+    if (@($AssetIds).Count -gt 0) {
         $prepareParams.AssetIds = $AssetIds
     }
     if ($PrepareSkipBuild) {

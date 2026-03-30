@@ -223,11 +223,17 @@ $sourcesChecksumsPath = Join-Path $SourcesRoot 'checksums.txt'
 
 Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'app\embedagent') -Code 'bundle.app' -Message 'Application directory present.' -TreatAsCompleteGate $true
 Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'config\config.json') -Code 'bundle.config' -Message 'Default config template present.' -TreatAsCompleteGate $true
+Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'config\config.json.template') -Code 'bundle.config_template' -Message 'Config template present.' -TreatAsCompleteGate $true
 Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'config\permission-rules.json') -Code 'bundle.permissions' -Message 'Default permission rules template present.' -TreatAsCompleteGate $true
 Test-StaticPath -Results $results -Path $manifestPath -Code 'bundle.manifest' -Message 'bundle-manifest.json present.' -TreatAsCompleteGate $true
 Test-StaticPath -Results $results -Path $checksumsPath -Code 'bundle.checksums' -Message 'checksums.txt present.' -TreatAsCompleteGate $true
 Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'embedagent.cmd') -Code 'bundle.launcher.cli' -Message 'CLI launcher present.' -TreatAsCompleteGate $true
 Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'embedagent-tui.cmd') -Code 'bundle.launcher.tui' -Message 'TUI launcher present.' -TreatAsCompleteGate $true
+Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'embedagent-gui.cmd') -Code 'bundle.launcher.gui' -Message 'GUI launcher present.' -TreatAsCompleteGate $true
+Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'docs\intranet-deployment.md') -Code 'bundle.docs.intranet' -Message 'Intranet deployment guide present.' -TreatAsCompleteGate $true
+Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'app\embedagent\frontend\gui\static\index.html') -Code 'bundle.gui.index' -Message 'GUI index.html present.' -TreatAsCompleteGate $true
+Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'app\embedagent\frontend\gui\static\css\style.css') -Code 'bundle.gui.css' -Message 'GUI style.css present.' -TreatAsCompleteGate $true
+Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'app\embedagent\frontend\gui\static\js\app.js') -Code 'bundle.gui.js' -Message 'GUI app.js present.' -TreatAsCompleteGate $true
 Test-StaticPath -Results $results -Path $SourcesRoot -Code 'sources.root' -Message 'Sources seed directory present.' -TreatAsCompleteGate $true
 Test-StaticPath -Results $results -Path $sourcesManifestPath -Code 'sources.manifest' -Message 'assets-manifest.json present.' -TreatAsCompleteGate $true
 Test-StaticPath -Results $results -Path $sourcesChecksumsPath -Code 'sources.checksums' -Message 'sources checksums.txt present.' -TreatAsCompleteGate $true
@@ -324,6 +330,27 @@ if (-not $SkipDynamicChecks) {
         }
         catch {
             Add-Result -Results $results -Level 'fail' -Code 'dynamic.launcher' -Message ('embedagent.cmd --help threw: {0}' -f $_.Exception.Message)
+        }
+        finally {
+            Pop-Location
+        }
+    }
+
+    $guiLauncher = Join-Path $BundleRoot 'embedagent-gui.cmd'
+    if (Test-Path -LiteralPath $guiLauncher) {
+        Push-Location $BundleRoot
+        try {
+            $output = & cmd.exe /c '.\embedagent-gui.cmd --help' 2>&1
+            $exitCode = $LASTEXITCODE
+            if ($exitCode -eq 0) {
+                Add-Result -Results $results -Level 'pass' -Code 'dynamic.gui_launcher' -Message 'embedagent-gui.cmd --help succeeded.'
+            }
+            else {
+                Add-Result -Results $results -Level 'fail' -Code 'dynamic.gui_launcher' -Message ('embedagent-gui.cmd --help failed ({0}): {1}' -f $exitCode, ($output | Out-String).Trim())
+            }
+        }
+        catch {
+            Add-Result -Results $results -Level 'fail' -Code 'dynamic.gui_launcher' -Message ('embedagent-gui.cmd --help threw: {0}' -f $_.Exception.Message)
         }
         finally {
             Pop-Location

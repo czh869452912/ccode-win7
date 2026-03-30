@@ -529,8 +529,33 @@ Write-TextFile -Path (Join-Path $bundleRoot 'embedagent-tui.cmd') -Content ($lau
 
 $launcherGui = @'
 @echo off
-setlocal
-call "%~dp0embedagent.cmd" --gui %*
+setlocal EnableDelayedExpansion
+
+set "BUNDLE_ROOT=%~dp0"
+set "PYTHONHOME=%BUNDLE_ROOT%runtime\python"
+set "PYTHONPATH=%BUNDLE_ROOT%app;%BUNDLE_ROOT%runtime\site-packages"
+
+set "PATH=%BUNDLE_ROOT%bin\git\cmd;%BUNDLE_ROOT%bin\rg;%BUNDLE_ROOT%bin\ctags;%BUNDLE_ROOT%bin\llvm\bin;%PATH%"
+
+if not defined EMBEDAGENT_HOME (
+    set "EMBEDAGENT_HOME=%USERPROFILE%\.embedagent"
+)
+
+if not exist "%PYTHONHOME%\python.exe" (
+    echo Error: Python runtime not found in %PYTHONHOME%
+    exit /b 1
+)
+
+if exist "%ProgramFiles(x86)%\Microsoft\EdgeWebView\Application\*" (
+    echo Info: WebView2 Runtime detected
+) else if exist "%LOCALAPPDATA%\Microsoft\EdgeWebView\Application\*" (
+    echo Info: WebView2 Runtime detected (user install)
+) else (
+    echo Warning: WebView2 Runtime not detected
+    echo GUI will use IE11 fallback mode on Windows 7
+)
+
+"%PYTHONHOME%\python.exe" -m embedagent.frontend.gui.launcher %*
 '@
 Write-TextFile -Path (Join-Path $bundleRoot 'embedagent-gui.cmd') -Content ($launcherGui.Trim() + "`r`n")
 

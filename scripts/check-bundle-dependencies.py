@@ -71,14 +71,12 @@ def check_site_packages(bundle_root: Path) -> Tuple[bool, List[str]]:
         # HTTP
         "h11": ["h11"],
         "idna": ["idna"],
-        "certifi": ["certifi"],
         # Utils
         "click": ["click"],
         "typing_extensions": ["typing_extensions", "typing-extensions"],
         "colorama": ["colorama"],
         "pygments": ["pygments", "Pygments"],
         "wcwidth": ["wcwidth"],
-        "six": ["six"],
     }
     
     for display_name, variants in critical.items():
@@ -204,10 +202,12 @@ def check_manifest(bundle_root: Path) -> Tuple[bool, List[str]]:
         with open(manifest_path) as f:
             manifest = json.load(f)
         
-        required_keys = ["schema_version", "bundle_id", "components"]
+        required_keys = ["schema_version", "components"]
         for key in required_keys:
             if key not in manifest:
                 errors.append(f"Manifest missing key: {key}")
+        if "bundle_id" not in manifest and "artifact_name" not in manifest:
+            errors.append("Manifest missing identifier key: bundle_id or artifact_name")
     except json.JSONDecodeError as e:
         errors.append(f"Invalid manifest JSON: {e}")
     

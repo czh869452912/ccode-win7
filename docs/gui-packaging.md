@@ -170,23 +170,23 @@ set "EMBEDAGENT_HOME=%USERPROFILE%\.embedagent"
 
 ### 5.1 依赖检查
 
-- [ ] pywebview 及其依赖在 site-packages 中
-- [ ] fastapi 及其依赖在 site-packages 中
-- [ ] uvicorn 及其依赖在 site-packages 中
-- [ ] websockets 在 site-packages 中
+- [x] pywebview 及其依赖在 site-packages 中
+- [x] fastapi 及其依赖在 site-packages 中
+- [x] uvicorn 及其依赖在 site-packages 中
+- [x] websockets 在 site-packages 中
 
 ### 5.2 静态文件检查
 
-- [ ] `frontend/gui/static/index.html` 在包中
-- [ ] `frontend/gui/static/css/style.css` 在包中
-- [ ] `frontend/gui/static/js/app.js` 在包中
+- [x] `frontend/gui/static/index.html` 在包中
+- [x] `frontend/gui/static/css/style.css` 在包中
+- [x] `frontend/gui/static/js/app.js` 在包中
 
 ### 5.3 启动检查
 
-- [ ] `embedagent-gui.cmd` 存在
+- [x] `embedagent-gui.cmd` 存在
 - [ ] GUI 能正常启动（至少显示窗口）
-- [ ] WebSocket 连接正常
-- [ ] 无窗口模式 (`--headless`) 工作
+- [x] WebSocket 连接正常
+- [x] 无窗口模式 (`--headless`) 工作
 
 ### 5.4 Win7 兼容性检查
 
@@ -230,18 +230,16 @@ set "EMBEDAGENT_HOME=%USERPROFILE%\.embedagent"
 | 项目 | 状态 |
 |------|------|
 | GUI 代码实现 | ✅ 完成 |
-| GUI 依赖声明 | ⚠️ 需更新 pyproject.toml |
-| 静态文件打包配置 | ⚠️ 需添加 MANIFEST.in/package-data |
-| GUI launcher CMD | ⚠️ 需创建 |
+| GUI 依赖声明 | ✅ 已更新并完成当前环境安装验证 |
+| 静态文件打包配置 | ✅ 已通过 package-data + bundle 验证 |
+| GUI launcher CMD | ✅ 已创建并接入 bundle |
 | Win7 WebView2 处理 | ✅ IE11 回退已实现 |
-| Bundle 集成 | ⚠️ 待 Phase 7 脚本更新 |
+| Bundle 集成 | ✅ 已完成 prepare/build/validate 与 bundle smoke |
 
 ---
 
 ## 9. 下一步行动
 
-1. **更新 pyproject.toml** - 添加 GUI 依赖
-2. **添加静态文件打包配置** - MANIFEST.in 或 package-data
-3. **创建 embedagent-gui.cmd** - GUI launcher
-4. **更新 prepare-offline.ps1** - 包含 GUI 依赖导出
-5. **验证 Win7 兼容性** - 测试 IE11 回退模式
+1. **实现 diff 确认弹窗与后端联动** - 完成 GUI 编辑闭环
+2. **补充窗口模式 smoke** - 验证实际桌面窗口可交互
+3. **验证 Win7 兼容性** - 测试 IE11 / MSHTML 回退模式
