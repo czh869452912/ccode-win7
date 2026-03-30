@@ -661,7 +661,7 @@
 - 日期：2026-03-29
 - 变更主题：Phase 6 终端前端模块化与浏览接口扩展
 - 变更摘要：
-  - `src/embedagent/tui.py` 已收敛为兼容 shim，真实终端前端迁移到 `src/embedagent/frontends/terminal/`
+  - `src/embedagent/tui.py` 已收敛为兼容 shim，真实终端前端迁移到 `src/embedagent/frontend/tui/`
   - 终端前端按 `state / reducer / controller / layout / services / views` 拆分，避免继续把交互逻辑堆在单文件中
   - `InProcessAdapter` 新增 workspace / timeline / artifact / todo 读取接口，并接入 `SessionTimelineStore`
   - 新增单元测试覆盖 timeline store、adapter 前端接口与终端补全模块；`scripts/validate-phase6.py` 回归通过
@@ -670,7 +670,7 @@
   - Frontend/Core 浏览型接口边界
   - 后续 Win7 控制台与 ConEmu 收口路径
 - 关联文档：
-  - `src/embedagent/frontends/terminal/`
+  - `src/embedagent/frontend/tui/`
   - `src/embedagent/inprocess_adapter.py`
   - `src/embedagent/session_timeline.py`
   - `docs/frontend-protocol.md`
@@ -933,7 +933,7 @@
   - 新增 `src/embedagent/core/adapter.py`，实现 `AgentCoreAdapter` 包装 `InProcessAdapter` 并统一事件分发
   - 新增 `src/embedagent/frontend/gui/`，实现 PyWebView + FastAPI + WebSocket 的 GUI 前端，包含 diff/权限确认弹窗
   - 迁移 `src/embedagent/frontend/tui/`，按新架构实现 `TUIFrontend` 适配器，延迟导入处理缺失依赖
-  - 旧 `src/embedagent/frontends/terminal/` 保留向后兼容，未来逐步迁移
+  - 旧 `src/embedagent/frontend/tui/` 保留向后兼容，未来逐步迁移
   - 新增 `tests/test_architecture.py`，17 项架构测试覆盖协议、Core、前后端导入
   - 新增 `docs/architecture-new.md` 记录新架构设计
 - 影响范围：
@@ -953,7 +953,7 @@
   - `tests/test_architecture.py`
 - 是否需要 ADR：`建议后续补 ADR 记录架构分层决策`
 - 后续动作：
-  - 将旧 `frontends/terminal/` 完全迁移到 `frontend/tui/`
+  - 将旧 `frontend/tui/` 完全迁移到 `frontend/tui/`
   - 实现 GUI 的 diff/权限确认弹窗与后端实际联动
   - 更新 `docs/frontend-protocol.md` 以反映新 protocol 层设计
   - 在 Win7 环境下验证 GUI 前端兼容性（IE11 回退）

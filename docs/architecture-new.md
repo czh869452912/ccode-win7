@@ -71,7 +71,7 @@ src/embedagent/
 │           ├── css/style.css
 │           └── js/app.js
 │
-└── frontends/terminal/          # 旧 TUI 位置（向后兼容）
+└── frontend/tui/          # 旧 TUI 位置（向后兼容）
     └── ...
 ```
 
@@ -204,7 +204,7 @@ GUI Launcher
 
 ### 6.1 旧 TUI 入口
 
-旧位置 `frontends/terminal/` 仍然保留，通过 `embedagent.tui` 导入：
+旧位置 `frontend/tui/` 仍然保留，通过 `embedagent.tui` 导入：
 
 ```python
 # 旧方式（仍然有效）
@@ -252,7 +252,7 @@ TestCoreAdapterImport           ✓
 | 文档 | 新架构对应 |
 |------|-----------|
 | `docs/frontend-protocol.md` | `protocol/` 层 |
-| `docs/tui-information-architecture.md` | `frontend/tui/` + `frontends/terminal/` |
+| `docs/tui-information-architecture.md` | `frontend/tui/` + `frontend/tui/` |
 | `docs/overall-solution-architecture.md` | Core/Frontend 解耦设计 |
 | `docs/development-tracker.md` | T-012 已更新 |
 
@@ -260,7 +260,7 @@ TestCoreAdapterImport           ✓
 
 ## 9. 后续工作
 
-- [ ] 将旧 `frontends/terminal/` 完全迁移到 `frontend/tui/`
+- [ ] 将旧 `frontend/tui/` 完全迁移到 `frontend/tui/`
 - [ ] 实现 GUI 的 diff 确认弹窗与后端联动
 - [ ] 实现 GUI 的权限确认弹窗与后端联动
 - [ ] 添加更多架构集成测试

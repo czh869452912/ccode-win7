@@ -64,7 +64,7 @@
 **对应性**：
 - ✅ `TUIFrontend` 实现 `FrontendCallbacks`
 - ✅ 延迟导入处理缺失依赖
-- ✅ 与旧 `frontends/terminal/` 并存（向后兼容）
+- ✅ 与旧 `frontend/tui/` 并存（向后兼容）
 
 ### 2.4 GUI 前端
 
@@ -102,7 +102,7 @@
 ### 2.6 向后兼容
 
 **代码**：
-- `src/embedagent/frontends/terminal/` - 旧 TUI 位置保留
+- `src/embedagent/frontend/tui/` - 旧 TUI 位置保留
 - `src/embedagent/tui.py` - 兼容 shim
 
 **对应性**：
@@ -145,7 +145,7 @@
 
 ### 5.2 代码待完善项
 
-- [ ] 将旧 `frontends/terminal/` 完全迁移到 `frontend/tui/`
+- [ ] 将旧 `frontend/tui/` 完全迁移到 `frontend/tui/`
 - [ ] 实现 GUI 的 diff/权限确认弹窗与后端实际联动
 - [ ] 在 Win7 环境下验证 GUI 前端兼容性
 

@@ -56,7 +56,7 @@
 ```text
 src/embedagent/
 ├── tui.py                          # 兼容 shim，懒加载终端前端
-└── frontends/
+└── frontend/
     └── terminal/
         ├── __init__.py
         ├── bootstrap.py            # run_tui / 依赖加载 / 宿主保护
