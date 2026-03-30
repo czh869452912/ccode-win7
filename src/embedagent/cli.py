@@ -127,6 +127,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="启动最小 TUI 原型。若依赖未安装，会给出提示。",
     )
+    parser.add_argument(
+        "--gui",
+        action="store_true",
+        help="启动 PyWebView GUI 前端。若依赖未安装，会给出提示。",
+    )
     return parser
 
 
@@ -229,6 +234,29 @@ def main(argv: Optional[List[str]] = None) -> int:
             )
         except TUIUnavailableError as exc:
             sys.stderr.write("error: %s\n" % exc)
+            return 1
+
+    if args.gui:
+        if not args.model:
+            parser.error("必须通过 --model 或 EMBEDAGENT_MODEL 提供模型名称。")
+        initial_mode = fallback_mode
+        initial_message = " ".join(args.message).strip()
+        if initial_message:
+            parsed = _parse_initial_message(parser, initial_message, fallback_mode)
+            initial_mode = parsed[0]
+            initial_message = parsed[1]
+        try:
+            from embedagent.frontend.gui.launcher import launch_gui
+            launch_gui(
+                workspace=workspace,
+                mode=initial_mode,
+                debug=False,
+                headless=False,
+            )
+            return 0
+        except ImportError as exc:
+            sys.stderr.write("error: GUI 依赖未安装: %s\n" % exc)
+            sys.stderr.write("请安装 GUI 依赖: pip install pywebview fastapi uvicorn websockets\n")
             return 1
 
     raw_prompt = "resume> " if resumed_summary is not None else "user> "

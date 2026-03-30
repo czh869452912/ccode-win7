@@ -506,6 +506,13 @@ call "%~dp0embedagent.cmd" --tui %*
 '@
 Write-TextFile -Path (Join-Path $bundleRoot 'embedagent-tui.cmd') -Content ($launcherTui.Trim() + "`r`n")
 
+$launcherGui = @'
+@echo off
+setlocal
+call "%~dp0embedagent.cmd" --gui %*
+'@
+Write-TextFile -Path (Join-Path $bundleRoot 'embedagent-gui.cmd') -Content ($launcherGui.Trim() + "`r`n")
+
 $licensesReadme = @'
 Third-party license notices for bundled assets are written here during prepare.
 '@
@@ -538,7 +545,7 @@ $llvmPath = Resolve-ProjectPath -ProjectRoot $projectRoot -Value $LlvmRoot
 $components += New-ComponentRecord -Name 'app_code' -StagedPath 'app\embedagent' -Required $true -Status 'staged' -SourcePath $sourceAppRoot -Notes 'Copied from src/embedagent.' -AssetId ''
 $components += New-ComponentRecord -Name 'docs_bundle' -StagedPath 'docs' -Required $true -Status 'staged' -SourcePath (Join-Path $projectRoot 'docs') -Notes 'Copied configuration and preflight docs.' -AssetId ''
 $components += New-ComponentRecord -Name 'config_templates' -StagedPath 'config' -Required $true -Status 'staged' -SourcePath '' -Notes 'Generated default config and permission rules templates.' -AssetId ''
-$components += New-ComponentRecord -Name 'launcher_scripts' -StagedPath '.' -Required $true -Status 'staged' -SourcePath '' -Notes 'Generated embedagent.cmd and embedagent-tui.cmd.' -AssetId ''
+$components += New-ComponentRecord -Name 'launcher_scripts' -StagedPath '.' -Required $true -Status 'staged' -SourcePath '' -Notes 'Generated embedagent.cmd, embedagent-tui.cmd, and embedagent-gui.cmd.' -AssetId ''
 
 $usePythonAsset = $requestedAssetIds -contains 'python_embedded_x64'
 if ($usePythonAsset) {
