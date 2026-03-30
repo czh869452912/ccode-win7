@@ -459,19 +459,49 @@ Remove-TransientPythonArtifacts -Root $stagedAppRoot
 
 $configurationGuide = Join-Path $projectRoot 'docs\configuration-guide.md'
 $preflightGuide = Join-Path $projectRoot 'docs\win7-preflight-checklist.md'
+$intranetGuide = Join-Path $projectRoot 'docs\intranet-deployment.md'
 Stage-File -Source $configurationGuide -Destination (Join-Path $bundleRoot 'docs\configuration-guide.md')
 Stage-File -Source $preflightGuide -Destination (Join-Path $bundleRoot 'docs\win7-preflight-checklist.md')
+if (Test-Path -LiteralPath $intranetGuide) {
+    Stage-File -Source $intranetGuide -Destination (Join-Path $bundleRoot 'docs\intranet-deployment.md')
+}
 
 $defaultConfig = @'
 {
-  "base_url": "http://127.0.0.1:8000/v1",
-  "api_key": "",
-  "model": "",
-  "timeout": 120,
+  "_comment": "EmbedAgent Configuration - Update for your internal LLM service",
+  "llm": {
+    "base_url": "http://192.168.1.100:8000/v1",
+    "api_key": "sk-internal",
+    "model": "qwen3.5-coder",
+    "timeout": 120,
+    "max_retries": 3
+  },
+  "context": {
+    "max_context_tokens": 32000,
+    "reserve_output_tokens": 3000,
+    "chars_per_token": 3.0
+  },
+  "default_mode": "code",
+  "session": {
+    "default_limit": 10
+  }
+}
+'@
+Write-TextFile -Path (Join-Path $bundleRoot 'config\config.json.template') -Content ($defaultConfig.Trim() + "`r`n")
+
+# Also create a minimal config.json for quick start
+$minimalConfig = @'
+{
+  "llm": {
+    "base_url": "http://192.168.1.100:8000/v1",
+    "api_key": "",
+    "model": "",
+    "timeout": 120
+  },
   "default_mode": "code"
 }
 '@
-Write-TextFile -Path (Join-Path $bundleRoot 'config\config.json') -Content ($defaultConfig.Trim() + "`r`n")
+Write-TextFile -Path (Join-Path $bundleRoot 'config\config.json') -Content ($minimalConfig.Trim() + "`r`n")
 
 $defaultPermissionRules = @'
 {
