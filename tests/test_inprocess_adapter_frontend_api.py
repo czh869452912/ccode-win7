@@ -164,13 +164,22 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertEqual(final_snapshot["current_mode"], "debug")
         self.assertIn("user_input_required", events)
 
-    def test_orchestra_switch_mode_updates_snapshot(self):
+    def test_explore_mode_with_switch_mode_intent(self):
+        """Test that explore mode (fallback for removed orchestra) handles switch_mode intent.
+        
+        Note: switch_mode tool is no longer available in any mode; mode switching is
+        now user-driven via /mode command or ask_user options.
+        """
         adapter = InProcessAdapter(
             client=SwitchModeClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
         )
+        # orchestra mode no longer exists, falls back to explore
         snapshot = adapter.create_session('orchestra')
+        # Initial mode should be fallback (explore)
+        initial_snapshot = adapter.get_session_snapshot(str(snapshot.get('session_id') or ''))
+        self.assertEqual(initial_snapshot["current_mode"], "explore")
         adapter.submit_user_message(
             session_id=str(snapshot.get('session_id') or ''),
             text='安排下一步',
@@ -179,8 +188,9 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             permission_resolver=lambda ticket: True,
             event_handler=lambda event_name, session_id, payload: None,
         )
+        # Mode should remain explore (no switch_mode tool available)
         final_snapshot = adapter.get_session_snapshot(str(snapshot.get('session_id') or ''))
-        self.assertEqual(final_snapshot["current_mode"], "code")
+        self.assertEqual(final_snapshot["current_mode"], "explore")
 
 
 if __name__ == '__main__':

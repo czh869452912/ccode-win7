@@ -14,39 +14,44 @@ from embedagent.modes import (
     mode_names,
     parse_mode_command,
     require_mode,
+    DEFAULT_MODE,
 )
 
 
 class TestModeRegistry(unittest.TestCase):
     def test_all_expected_modes_present(self):
+        """Verify current built-in modes are present."""
         names = mode_names()
-        for m in ("ask", "orchestra", "spec", "code", "test", "verify", "debug", "compact"):
+        # Current built-in modes: explore, spec, code, debug, verify
+        for m in ("explore", "spec", "code", "debug", "verify"):
             self.assertIn(m, names)
 
-    def test_require_mode_invalid_raises(self):
-        with self.assertRaises(ValueError):
-            require_mode("nonexistent_mode")
+    def test_require_mode_invalid_fallback(self):
+        """Unknown modes fall back to DEFAULT_MODE instead of raising."""
+        result = require_mode("nonexistent_mode")
+        expected = require_mode(DEFAULT_MODE)
+        self.assertEqual(result["slug"], expected["slug"])
 
 
 class TestAllowedTools(unittest.TestCase):
-    def test_switch_mode_only_in_orchestra(self):
-        self.assertIn("switch_mode", allowed_tools_for("orchestra"))
-        for m in ("ask", "spec", "code", "test", "verify", "debug", "compact"):
-            self.assertNotIn("switch_mode", allowed_tools_for(m))
+    def test_explore_has_read_tools(self):
+        tools = allowed_tools_for("explore")
+        self.assertIn("read_file", tools)
+        self.assertIn("list_files", tools)
+        self.assertIn("search_text", tools)
 
-    def test_orchestra_has_manage_todos(self):
-        tools = allowed_tools_for("orchestra")
-        self.assertIn("manage_todos", tools)
+    def test_explore_has_manage_todos(self):
+        self.assertIn("manage_todos", allowed_tools_for("explore"))
 
-    def test_orchestra_does_not_have_git_status(self):
-        tools = allowed_tools_for("orchestra")
+    def test_explore_does_not_have_git_status(self):
+        tools = allowed_tools_for("explore")
         self.assertNotIn("git_status", tools)
 
     def test_code_has_manage_todos(self):
         self.assertIn("manage_todos", allowed_tools_for("code"))
 
-    def test_ask_is_read_only_tools(self):
-        tools = allowed_tools_for("ask")
+    def test_explore_is_read_only_tools(self):
+        tools = allowed_tools_for("explore")
         self.assertIn("ask_user", tools)
         for write_tool in ("edit_file", "write_file", "run_command", "compile_project"):
             self.assertNotIn(write_tool, tools)
@@ -60,7 +65,7 @@ class TestAllowedTools(unittest.TestCase):
 
 class TestWritableGlobs(unittest.TestCase):
     def test_read_only_modes_have_empty_globs(self):
-        for m in ("ask", "orchestra", "verify", "compact"):
+        for m in ("explore", "verify"):
             self.assertEqual(get_writable_globs(m), [])
 
     def test_code_mode_default_globs(self):
@@ -127,7 +132,7 @@ class TestIsPathWritable(unittest.TestCase):
 
     def test_read_only_mode_blocks_everything(self):
         for path in ("src/main.py", "README.md", "src/main.c"):
-            self.assertFalse(is_path_writable("ask", path))
+            self.assertFalse(is_path_writable("explore", path))
             self.assertFalse(is_path_writable("verify", path))
 
     # --- config override ---
@@ -149,12 +154,12 @@ class TestBuildSystemPrompt(unittest.TestCase):
         prompt = build_system_prompt("code")
         self.assertIn("code", prompt)
 
-    def test_prompt_contains_manage_todos_in_orchestra(self):
-        prompt = build_system_prompt("orchestra")
+    def test_prompt_contains_manage_todos_in_explore(self):
+        prompt = build_system_prompt("explore")
         self.assertIn("manage_todos", prompt)
 
-    def test_prompt_shows_readonly_for_ask(self):
-        prompt = build_system_prompt("ask")
+    def test_prompt_shows_readonly_for_explore(self):
+        prompt = build_system_prompt("explore")
         self.assertIn("只读", prompt)
 
     def test_config_override_reflected_in_prompt(self):
@@ -171,13 +176,15 @@ class TestParseModeCommand(unittest.TestCase):
         self.assertTrue(switched)
 
     def test_no_command_returns_fallback(self):
-        mode, msg, switched = parse_mode_command("普通消息", fallback_mode="ask")
-        self.assertEqual(mode, "ask")
+        mode, msg, switched = parse_mode_command("普通消息", fallback_mode="explore")
+        self.assertEqual(mode, "explore")
         self.assertFalse(switched)
 
-    def test_invalid_mode_raises(self):
-        with self.assertRaises(ValueError):
-            parse_mode_command("/mode invalid_mode")
+    def test_invalid_mode_fallback(self):
+        """Invalid mode falls back to DEFAULT_MODE instead of raising."""
+        mode, msg, switched = parse_mode_command("/mode invalid_mode")
+        self.assertEqual(mode, DEFAULT_MODE)
+        self.assertTrue(switched)
 
     def test_mode_only_no_message(self):
         mode, msg, switched = parse_mode_command("/mode debug")
