@@ -985,3 +985,37 @@
 - 后续动作：
   - 实现 GUI 的 diff 确认弹窗与后端实际联动
   - 在真实 Win7 环境完成 WebView2 / MSHTML 回退实机验证
+
+### DC-038
+
+- 日期：2026-03-30
+- 变更主题：GUI 状态语义收口、session-scoped todo 与 React/Vite 新壳层
+- 变更摘要：
+  - `manage_todos` 与前端 `list_todos` 默认切换为 session 作用域，真实会话数据落到 `.embedagent/memory/sessions/<session_id>/todos.json`；新建会话不再继承旧会话 todo
+  - `InProcessAdapter` / `protocol` / `core.adapter` 补齐权威 `session_snapshot` 状态流，新增 `session_status`、`reasoning_delta`、`thinking_state`，并修复 `tool_started` / `tool_finished` 的稳定 `call_id`
+  - 新增 GUI 专用懒加载文件树接口 `list_workspace_children`
+  - 新增 `src/embedagent/frontend/gui/webapp/` React + Vite 工程，构建产物写回 `src/embedagent/frontend/gui/static/`
+  - GUI launcher 现在优先要求 bundle 内 Fixed Version WebView2 runtime；bundle 模式下若缺失 Chromium 运行时会显式失败，不再静默回退到 IE11
+  - `scripts/validate-gui-smoke.py` 已升级，可覆盖 tool / permission / ask_user / session todo 隔离与 renderer runtime source
+- 影响范围：
+  - GUI / Core 协议边界
+  - todo 持久化语义
+  - Win7 GUI 运行时基线
+  - GUI 前端构建与静态资源来源
+- 关联文档：
+  - `src/embedagent/inprocess_adapter.py`
+  - `src/embedagent/core/adapter.py`
+  - `src/embedagent/protocol/__init__.py`
+  - `src/embedagent/tools/todo_ops.py`
+  - `src/embedagent/frontend/gui/webapp/`
+  - `src/embedagent/frontend/gui/launcher.py`
+  - `scripts/validate-gui-smoke.py`
+  - `docs/frontend-protocol.md`
+  - `docs/gui-packaging.md`
+  - `docs/win7-gui-validation.md`
+  - `docs/configuration-guide.md`
+- 是否需要 ADR：`建议后续补一条 GUI Chromium 基线 ADR`
+- 后续动作：
+  - 在 Win7 bundle 中完成 Fixed Version WebView2 109 实机验证
+  - 继续细化文件预览 / diff / 编辑闭环
+  - 评估是否继续保留 `mshtml` 仅作报错级兜底

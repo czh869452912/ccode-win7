@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 from typing import Dict, List, Set, Tuple
 
+from embedagent import todos as todo_store
 from embedagent.tools._base import SKIP_DIR_NAMES
 
 
@@ -117,26 +118,16 @@ def profile_workspace(workspace: str, max_depth: int = 3, max_entries: int = 400
     }
 
 
-def _pending_todos_hint(workspace: str) -> str:
+def _pending_todos_hint(workspace: str, session_id: str = "") -> str:
     """Return a short hint if there are pending todos, else empty string."""
-    import json as _json
-    todos_path = os.path.join(workspace, ".embedagent", "todos.json")
-    if not os.path.isfile(todos_path):
-        return ""
-    try:
-        with open(todos_path, "r", encoding="utf-8") as fh:
-            data = _json.load(fh)
-    except (IOError, OSError, ValueError):
-        return ""
-    if not isinstance(data, list):
-        return ""
+    data = todo_store.load_todos(workspace, session_id=session_id)
     pending = [t for t in data if isinstance(t, dict) and not t.get("done")]
     if not pending:
         return ""
     return "\n待办事项提示：当前有 %d 个未完成待办项，建议先调用 manage_todos list 查看。" % len(pending)
 
 
-def build_workspace_profile_message(workspace: str, char_limit: int = 900) -> str:
+def build_workspace_profile_message(workspace: str, session_id: str = "", char_limit: int = 900) -> str:
     profile = profile_workspace(workspace)
     if profile.get("workspace_empty"):
         empty_msg = (
@@ -144,7 +135,7 @@ def build_workspace_profile_message(workspace: str, char_limit: int = 900) -> st
             "spec 模式如需起草文档，可默认创建 docs/ 作为首个文档目录；"
             "code/debug 模式不要假设 src/ 已存在，应根据用户路径或当前目标决定结构。"
         )
-        return empty_msg + _pending_todos_hint(workspace)
+        return empty_msg + _pending_todos_hint(workspace, session_id=session_id)
     lines = ["工作区画像：请优先复用现有工程结构，不要强行套模板。"]
     doc_roots = profile.get("doc_roots") or []
     code_roots = profile.get("code_roots") or []
@@ -161,7 +152,7 @@ def build_workspace_profile_message(workspace: str, char_limit: int = 900) -> st
     if root_entries:
         lines.append("根目录样本：%s" % ", ".join(root_entries[:10]))
     message = "\n".join(lines)
-    message += _pending_todos_hint(workspace)
+    message += _pending_todos_hint(workspace, session_id=session_id)
     if len(message) <= char_limit:
         return message
     return message[:char_limit] + "\n...[truncated]"

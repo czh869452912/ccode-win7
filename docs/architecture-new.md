@@ -66,10 +66,10 @@ src/embedagent/
 │       ├── backend/
 │       │   ├── __init__.py
 │       │   └── server.py        # FastAPI + WebSocket 服务器
-│       └── static/
-│           ├── index.html
-│           ├── css/style.css
-│           └── js/app.js
+│       ├── static/
+│       │   ├── index.html
+│       │   └── assets/
+│       └── webapp/              # React + Vite 源码
 │
 └── frontend/tui/          # 旧 TUI 位置（向后兼容）
     └── ...
@@ -100,6 +100,8 @@ class FrontendCallbacks(Protocol):
     def on_permission_request(request: PermissionRequest) -> bool: ...
     def on_session_status_change(snapshot: SessionSnapshot) -> None: ...
     def on_stream_delta(text: str) -> None: ...
+    def on_reasoning_delta(text: str) -> None: ...
+    def on_thinking_state_change(active: bool, reason: str = "") -> None: ...
 ```
 
 ### 3.2 数据类型
@@ -171,8 +173,8 @@ python -m embedagent.frontend.tui.launcher /path/to/workspace
 
 **特点**:
 - 基于 `PyWebView` + `FastAPI` + `WebSocket`
-- 现代 Web 界面，类似 Claude Code
-- Windows 7 兼容（IE11 回退）
+- 前端源码使用 React + Vite，构建产物继续由 Python 托管
+- Windows 7 兼容基线改为 bundle 内 Fixed Version WebView2 109
 
 **启动方式**:
 ```bash

@@ -77,6 +77,7 @@ class AgentLoop(object):
         stream: bool = True,
         initial_mode: str = DEFAULT_MODE,
         on_text_delta: Optional[Callable[[str], None]] = None,
+        on_reasoning_delta: Optional[Callable[[str], None]] = None,
         on_tool_start: Optional[Callable[[Action], None]] = None,
         on_tool_finish: Optional[
             Callable[[Action, Observation], None]
@@ -95,7 +96,7 @@ class AgentLoop(object):
         if session is None:
             session = Session()
             session.add_system_message(
-                build_workspace_profile_message(self.tools.workspace)
+                build_workspace_profile_message(self.tools.workspace, session.session_id)
             )
             session.add_system_message(
                 build_system_prompt(
@@ -129,6 +130,7 @@ class AgentLoop(object):
                 tool_schemas,
                 stream=stream,
                 on_text_delta=on_text_delta,
+                on_reasoning_delta=on_reasoning_delta,
             )
             session.add_assistant_reply(reply)
             self._persist_summary(session, current_mode, context_result)
@@ -215,6 +217,7 @@ class AgentLoop(object):
         tool_schemas: list,
         stream: bool,
         on_text_delta: Optional[Callable[[str], None]],
+        on_reasoning_delta: Optional[Callable[[str], None]],
     ):
         """Call the LLM with exponential back-off retry on transient errors."""
         last_exc = None
@@ -225,9 +228,12 @@ class AgentLoop(object):
                         messages,
                         tools=tool_schemas,
                         on_text_delta=on_text_delta,
+                        on_reasoning_delta=on_reasoning_delta,
                     )
                 else:
                     reply = self.client.generate(messages, tools=tool_schemas)
+                    if on_reasoning_delta and reply.reasoning_content:
+                        on_reasoning_delta(reply.reasoning_content)
                     if on_text_delta and reply.content:
                         on_text_delta(reply.content)
                     return reply
@@ -303,6 +309,14 @@ class AgentLoop(object):
         permission_handler: Optional[Callable[[PermissionRequest], bool]],
         user_input_handler: Optional[Callable[[UserInputRequest], Optional[UserInputResponse]]],
     ) -> Tuple[Observation, str]:
+        runtime_action = action
+        if action.name == "manage_todos" and not action.arguments.get("session_id"):
+            runtime_action = Action(
+                name=action.name,
+                arguments=dict(action.arguments, session_id=session.session_id),
+                call_id=action.call_id,
+                raw_arguments=action.raw_arguments,
+            )
         if not is_tool_allowed(current_mode, action.name):
             observation = self._failure_observation(
                 tool_name=action.name,
@@ -321,7 +335,7 @@ class AgentLoop(object):
         if action.name == "ask_user":
             return self._handle_ask_user(action, current_mode, session, user_input_handler)
         if action.name in ("edit_file", "write_file"):
-            path = str(action.arguments.get("path") or "")
+            path = str(runtime_action.arguments.get("path") or "")
             if not path:
                 observation = self._failure_observation(
                     tool_name=action.name,
@@ -383,7 +397,7 @@ class AgentLoop(object):
                         extra_data={"mode": current_mode, "path": normalized_path},
                     )
                     return observation, current_mode
-        decision = self.permission_policy.evaluate(action)
+        decision = self.permission_policy.evaluate(runtime_action)
         if decision.outcome == "deny":
             observation = self._failure_observation(
                 tool_name=action.name,
@@ -421,7 +435,7 @@ class AgentLoop(object):
                     },
                 )
                 return observation, current_mode
-        observation = self.tools.execute(action.name, action.arguments)
+        observation = self.tools.execute(runtime_action.name, runtime_action.arguments)
         return observation, current_mode
 
     def _handle_ask_user(

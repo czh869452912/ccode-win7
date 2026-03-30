@@ -4,6 +4,8 @@ import json
 import os
 from typing import Any, Dict, List, Optional
 
+from embedagent import todos as todo_store
+
 
 class SessionService(object):
     def __init__(self, adapter, workspace: str, session_limit: int = 10) -> None:
@@ -77,17 +79,17 @@ class SessionService(object):
         except Exception:
             return None
 
-    def list_todos(self) -> Dict[str, Any]:
+    def list_todos(self, session_id: str = "") -> Dict[str, Any]:
         method = getattr(self.adapter, "list_todos", None)
         if callable(method):
-            return method()
-        todos_path = os.path.join(self.workspace, ".embedagent", "todos.json")
+            return method(session_id=session_id)
+        todos_path = todo_store.session_todos_path(self.workspace, session_id) if session_id else todo_store.legacy_todos_path(self.workspace)
         if not os.path.isfile(todos_path):
-            return {"count": 0, "todos": [], "path": ".embedagent/todos.json"}
+            return {"count": 0, "todos": [], "path": todo_store.relative_todos_path(session_id), "session_id": session_id}
         try:
             with open(todos_path, "r", encoding="utf-8") as handle:
                 payload = json.load(handle)
         except Exception:
             payload = []
         todos = payload if isinstance(payload, list) else []
-        return {"count": len(todos), "todos": todos, "path": ".embedagent/todos.json"}
+        return {"count": len(todos), "todos": todos, "path": todo_store.relative_todos_path(session_id), "session_id": session_id}

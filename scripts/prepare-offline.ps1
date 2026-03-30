@@ -560,13 +560,10 @@ if not exist "%PYTHONHOME%\python.exe" (
     exit /b 1
 )
 
-if exist "%ProgramFiles(x86)%\Microsoft\EdgeWebView\Application\*" (
-    echo Info: WebView2 Runtime detected
-) else if exist "%LOCALAPPDATA%\Microsoft\EdgeWebView\Application\*" (
-    echo Info: WebView2 Runtime detected (user install)
-) else (
-    echo Warning: WebView2 Runtime not detected
-    echo GUI will use IE11 fallback mode on Windows 7
+if not exist "%BUNDLE_ROOT%runtime\webview2-fixed-runtime\msedgewebview2.exe" (
+    echo Error: Bundled Fixed Version WebView2 runtime not found.
+    echo GUI no longer falls back to IE11. Please use TUI/CLI or repair the bundle.
+    exit /b 1
 )
 
 "%PYTHONHOME%\python.exe" -m embedagent.frontend.gui.launcher %*

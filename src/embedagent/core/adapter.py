@@ -56,7 +56,7 @@ class CallbackBridge:
             call = ToolCall(
                 tool_name=payload.get("tool_name", ""),
                 arguments=payload.get("arguments", {}),
-                call_id=str(uuid.uuid4())[:8]
+                call_id=str(payload.get("call_id") or str(uuid.uuid4())[:8])
             )
             self.frontend.on_tool_start(call)
             
@@ -65,38 +65,35 @@ class CallbackBridge:
                 tool_name=payload.get("tool_name", ""),
                 success=payload.get("success", False),
                 data=payload.get("data", {}),
-                error=payload.get("error")
+                error=payload.get("error"),
+                call_id=str(payload.get("call_id") or ""),
             )
             self.frontend.on_tool_finish(result)
             
-        elif event_name == "permission_required":
-            perm_data = payload.get("permission", {})
-            request = PermissionRequest(
-                permission_id=perm_data.get("permission_id", ""),
-                tool_name=perm_data.get("tool_name", ""),
-                category=perm_data.get("category", ""),
-                reason=perm_data.get("reason", ""),
-                details=perm_data.get("details", {})
-            )
-            result = self.frontend.on_permission_request(request)
-            
-        elif event_name == "user_input_required":
-            input_data = payload.get("user_input", {})
-            request = UserInputRequest(
-                request_id=input_data.get("request_id", ""),
-                tool_name=input_data.get("tool_name", ""),
-                question=input_data.get("question", ""),
-                options=input_data.get("options", [])
-            )
-            result = self.frontend.on_user_input_request(request)
-            
         elif event_name == "session_error":
+            snapshot = payload.get("session_snapshot", {})
+            if isinstance(snapshot, dict) and snapshot.get("session_id"):
+                self._notify_status_change(snapshot)
             msg = Message(
                 id=str(uuid.uuid4()),
                 type=MessageType.ERROR,
                 content=payload.get("error", "Unknown error")
             )
             self.frontend.on_message(msg)
+
+        elif event_name == "session_status":
+            snapshot = payload.get("session_snapshot", {})
+            if isinstance(snapshot, dict):
+                self._notify_status_change(snapshot)
+
+        elif event_name == "reasoning_delta":
+            self.frontend.on_reasoning_delta(payload.get("text", ""))
+
+        elif event_name == "thinking_state":
+            self.frontend.on_thinking_state_change(
+                bool(payload.get("active", False)),
+                str(payload.get("reason") or ""),
+            )
             
         elif event_name == "session_finished":
             snapshot = payload.get("session_snapshot", {})
@@ -110,6 +107,30 @@ class CallbackBridge:
                 content=f"Context compacted: {stats} turns kept"
             )
             self.frontend.on_message(msg)
+
+    def request_permission(self, payload: Dict[str, Any]) -> bool:
+        request = PermissionRequest(
+            permission_id=str(payload.get("permission_id", "")),
+            tool_name=str(payload.get("tool_name", "")),
+            category=str(payload.get("category", "")),
+            reason=str(payload.get("reason", "")),
+            details=payload.get("details", {}),
+        )
+        return bool(self.frontend.on_permission_request(request))
+
+    def request_user_input(self, payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        request = UserInputRequest(
+            request_id=str(payload.get("request_id", "")),
+            tool_name=str(payload.get("tool_name", "")),
+            question=str(payload.get("question", "")),
+            options=payload.get("options", []),
+        )
+        answer = self.frontend.on_user_input_request(request)
+        if answer is None:
+            return None
+        if isinstance(answer, dict):
+            return answer
+        return {"answer": str(answer)}
     
     def _notify_status_change(self, snapshot: Dict[str, Any]) -> None:
         """通知状态变化"""
@@ -199,7 +220,7 @@ class AgentCoreAdapter(CoreInterface):
             )
         
         pending_input = None
-        if snapshot.get("has_pending_user_input"):
+        if snapshot.get("has_pending_user_input") or snapshot.get("has_pending_input"):
             i = snapshot.get("pending_user_input", {})
             pending_input = UserInputRequest(
                 request_id=i.get("request_id", ""),
@@ -215,7 +236,7 @@ class AgentCoreAdapter(CoreInterface):
             created_at=snapshot.get("started_at", ""),
             updated_at=snapshot.get("updated_at", ""),
             has_pending_permission=snapshot.get("has_pending_permission", False),
-            has_pending_input=snapshot.get("has_pending_user_input", False),
+            has_pending_input=snapshot.get("has_pending_user_input", snapshot.get("has_pending_input", False)),
             pending_permission=pending_perm,
             pending_input=pending_input,
             last_error=snapshot.get("last_error")
@@ -233,6 +254,9 @@ class AgentCoreAdapter(CoreInterface):
     
     def list_sessions(self, limit: int = 10) -> List[Dict[str, Any]]:
         return self._adapter.list_sessions(limit=limit)
+
+    def get_session_snapshot(self, session_id: str) -> SessionSnapshot:
+        return self._snapshot_to_protocol(self._adapter.get_session_snapshot(session_id))
     
     def submit_message(self, session_id: str, text: str) -> None:
         """异步提交消息"""
@@ -243,6 +267,8 @@ class AgentCoreAdapter(CoreInterface):
                     text=text,
                     stream=True,
                     wait=True,
+                    permission_resolver=self._resolve_permission,
+                    user_input_resolver=self._resolve_user_input,
                     event_handler=self._on_adapter_event
                 )
             except Exception as e:
@@ -255,6 +281,16 @@ class AgentCoreAdapter(CoreInterface):
         
         thread = threading.Thread(target=run, daemon=True)
         thread.start()
+
+    def _resolve_permission(self, payload: Dict[str, Any]) -> bool:
+        if self._callback_bridge is None:
+            return False
+        return self._callback_bridge.request_permission(payload)
+
+    def _resolve_user_input(self, payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        if self._callback_bridge is None:
+            return None
+        return self._callback_bridge.request_user_input(payload)
     
     def cancel_session(self, session_id: str) -> None:
         self._adapter.cancel_session(session_id)
@@ -292,12 +328,25 @@ class AgentCoreAdapter(CoreInterface):
     def list_files(self, path: str = ".", max_depth: int = 3) -> List[Dict[str, Any]]:
         result = self._adapter.list_workspace_tree(path, max_depth)
         return result.get("items", [])
+
+    def list_file_children(self, path: str = ".", limit: int = 200) -> List[Dict[str, Any]]:
+        result = self._adapter.list_workspace_children(path, limit)
+        return result.get("items", [])
     
     def read_file(self, path: str) -> Dict[str, Any]:
         return self._adapter.read_workspace_file(path)
     
     def write_file(self, path: str, content: str) -> Dict[str, Any]:
         return self._adapter.write_workspace_file(path, content)
+
+    def get_session_timeline(self, session_id: str, limit: int = 200) -> Dict[str, Any]:
+        return self._adapter.get_session_timeline(session_id, limit=limit)
+
+    def list_artifacts(self, limit: int = 20) -> List[Dict[str, Any]]:
+        return self._adapter.list_artifacts(limit=limit)
+
+    def read_artifact(self, reference: str) -> Dict[str, Any]:
+        return self._adapter.read_artifact(reference)
     
     def get_diff_preview(self, path: str, new_content: str) -> DiffPreview:
         old_content = ""
@@ -322,8 +371,8 @@ class AgentCoreAdapter(CoreInterface):
             unified_diff=unified_diff
         )
     
-    def list_todos(self) -> List[Dict[str, Any]]:
-        result = self._adapter.list_todos()
+    def list_todos(self, session_id: str = "") -> List[Dict[str, Any]]:
+        result = self._adapter.list_todos(session_id=session_id)
         return result.get("todos", [])
     
     def shutdown(self) -> None:

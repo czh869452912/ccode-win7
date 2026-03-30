@@ -128,6 +128,93 @@ def _detect_windows_renderer() -> Dict[str, Any]:
         }
 
 
+def _bundle_root() -> str:
+    env_root = os.environ.get("EMBEDAGENT_BUNDLE_ROOT", "").strip()
+    if env_root:
+        return os.path.realpath(env_root)
+    candidate = os.path.realpath(
+        os.path.join(os.path.dirname(__file__), "..", "..", "..", "..")
+    )
+    return candidate
+
+
+def _bundled_webview2_runtime() -> str:
+    override = os.environ.get("EMBEDAGENT_WEBVIEW2_RUNTIME", "").strip()
+    candidates = []
+    if override:
+        candidates.append(override)
+    root = _bundle_root()
+    candidates.extend(
+        [
+            os.path.join(root, "runtime", "webview2-fixed-runtime"),
+            os.path.join(root, "runtime", "webview2"),
+            os.path.join(root, "bin", "webview2-fixed-runtime"),
+            os.path.join(root, "bin", "webview2"),
+        ]
+    )
+    for candidate in candidates:
+        resolved = os.path.realpath(candidate)
+        if not os.path.isdir(resolved):
+            continue
+        executable = os.path.join(resolved, "msedgewebview2.exe")
+        if os.path.isfile(executable):
+            return resolved
+    return ""
+
+
+def _running_from_bundle() -> bool:
+    root = _bundle_root()
+    return (
+        os.path.isdir(os.path.join(root, "runtime"))
+        and os.path.isdir(os.path.join(root, "app"))
+    )
+
+
+def _configure_webview_runtime() -> Dict[str, Any]:
+    import webview
+
+    runtime_path = _bundled_webview2_runtime()
+    source = "system"
+    if runtime_path:
+        webview.settings["WEBVIEW2_RUNTIME_PATH"] = runtime_path
+        source = "bundle"
+    try:
+        import webview.platforms.winforms as winforms
+    except Exception as exc:
+        raise RuntimeError("无法初始化 Windows WebView 引擎：%s" % exc)
+
+    is_chromium = False
+    detector = getattr(winforms, "_is_chromium", None)
+    if callable(detector):
+        try:
+            is_chromium = bool(detector())
+        except Exception:
+            is_chromium = bool(getattr(winforms, "is_chromium", False))
+    else:
+        is_chromium = bool(getattr(winforms, "is_chromium", False))
+    renderer = str(getattr(winforms, "renderer", "unknown"))
+    if runtime_path and renderer != "edgechromium":
+        raise RuntimeError(
+            "已找到 bundle 内 WebView2 运行时，但 pywebview 未进入 edgechromium。"
+            "请改用 TUI/CLI，或检查 Fixed Version 运行时目录。"
+        )
+    if _running_from_bundle() and not runtime_path:
+        raise RuntimeError(
+            "未找到 bundle 内 Fixed Version WebView2 109。"
+            "当前 GUI 不再静默回退到 IE11，请改用 TUI/CLI，或补齐运行时。"
+        )
+    if not is_chromium or renderer != "edgechromium":
+        raise RuntimeError(
+            "当前环境没有可用的 Chromium WebView。"
+            "GUI 不再回退到 IE11，请改用 TUI/CLI。"
+        )
+    return {
+        "runtime_path": runtime_path,
+        "runtime_source": source,
+        "bundle_required": _running_from_bundle(),
+    }
+
+
 def _write_renderer_report(path: str, report: Dict[str, Any]) -> None:
     if not path:
         return
@@ -175,6 +262,11 @@ def launch_gui(
     import uvicorn
     import webview
     workspace = os.path.realpath(workspace)
+    runtime_info = _configure_webview_runtime() if sys.platform == "win32" else {
+        "runtime_path": "",
+        "runtime_source": "non-win32",
+        "bundle_required": False,
+    }
     
     # 查找可用端口
     if port == 0:
@@ -226,6 +318,7 @@ def launch_gui(
         server_thread.start()
 
         renderer_info = _detect_windows_renderer()
+        renderer_info.update(runtime_info)
         _LOGGER.info("GUI renderer detection: %s", renderer_info.get("renderer"))
         _write_renderer_report(renderer_report, renderer_info)
         

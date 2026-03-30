@@ -1,6 +1,6 @@
 # EmbedAgent Frontend Protocol（Phase 6）
 
-> 更新日期：2026-03-28
+> 更新日期：2026-03-30
 > 适用阶段：Phase 6 交互层设计
 
 ---
@@ -54,6 +54,22 @@ Phase 6 的实现顺序固定为：
 - 一个前端实例可以管理多个会话
 - 交互层的最小单位是 Session，而不是单条消息
 - 恢复、暂停、权限确认都必须显式关联到 Session
+
+### 2.4 Session Snapshot 是权威状态
+
+前端不能再自己猜测 `idle / running / waiting_permission / waiting_user_input / error`。
+
+当前约定是：
+
+- `turn_started`
+- `permission_required`
+- `user_input_required`
+- `mode_changed`
+- `session_finished`
+- `session_error`
+- `session_status`
+
+这些事件都会附带最新 `session_snapshot`，前端必须以该快照为准更新状态与模式显示。
 
 ---
 
@@ -338,6 +354,8 @@ payload：
 
 表示工具即将执行。
 
+当前 payload 必须带稳定的 `call_id`，供前端把同一工具卡片的 start / finish 正确关联起来。
+
 #### `tool_finished`
 
 表示工具完成，并返回结构化 Observation 摘要。
@@ -347,6 +365,49 @@ payload：
 表示当前会话进入等待人工确认状态。
 
 payload：`permission_ticket`
+
+同时附带 `session_snapshot`，其 `status` 应为 `waiting_permission`。
+
+#### `user_input_required`
+
+表示当前会话进入等待用户回答状态。
+
+payload：`user_input_ticket`
+
+同时附带 `session_snapshot`，其 `status` 应为 `waiting_user_input`。
+
+#### `session_status`
+
+表示权威状态快照刷新。
+
+payload 至少包含：
+
+- `session_snapshot`
+
+#### `reasoning_delta`
+
+表示模型显式输出的 thinking / reasoning 文本增量。
+
+payload：
+
+```json
+{
+  "text": "先检查最近的工具输出，再决定是否需要 ask_user。"
+}
+```
+
+#### `thinking_state`
+
+表示当前 turn 是否处于 thinking 阶段。
+
+payload：
+
+```json
+{
+  "active": true,
+  "reason": "turn_started"
+}
+```
 
 #### `context_compacted`
 
@@ -454,6 +515,7 @@ Phase 6 的关键不是“先画界面”，而是：
 
 - `get_workspace_snapshot`
 - `list_workspace_tree`
+- `list_workspace_children`
 - `read_workspace_file`
 - `write_workspace_file`
 - `get_session_timeline`
@@ -465,6 +527,8 @@ Phase 6 的关键不是“先画界面”，而是：
 
 - timeline 来自持久化事件流，而不是前端临时 transcript
 - artifact 浏览来自 `ArtifactStore.index.json` 与 artifact 文件本体
+- GUI 文件树应优先使用 `list_workspace_children` 做懒加载，而不是一次性平铺整棵树
+- `list_todos` 现在应显式关联 `session_id`，前端默认展示当前会话的 todo，而不是工作区全局 todo
 - 文件保存仍通过 adapter 边界，不在 TUI 里直接散落文件写入逻辑
 
 

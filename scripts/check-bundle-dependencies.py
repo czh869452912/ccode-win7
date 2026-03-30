@@ -178,8 +178,7 @@ def check_static_files(bundle_root: Path) -> Tuple[bool, List[str]]:
     errors = []
     static_files = [
         "app/embedagent/frontend/gui/static/index.html",
-        "app/embedagent/frontend/gui/static/css/style.css",
-        "app/embedagent/frontend/gui/static/js/app.js",
+        "app/embedagent/frontend/gui/static/assets",
     ]
     
     for file in static_files:

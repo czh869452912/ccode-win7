@@ -196,19 +196,25 @@ CLI 参数    (--max-context-tokens 等)
 
 ## manage_todos 工具使用指引
 
-`manage_todos` 工具用于在多步任务中维护显式任务清单，数据持久化到
-`<workspace>/.embedagent/todos.json`。
+`manage_todos` 工具用于在多步任务中维护显式任务清单。
+
+当前默认语义已经改为**会话级隔离**：
+
+- 真实会话运行时，数据持久化到
+  `<workspace>/.embedagent/memory/sessions/<session_id>/todos.json`
+- 只有脱离会话上下文、直接调用工具运行时时，才会退回旧的
+  `<workspace>/.embedagent/todos.json`
 
 ### 使用场景
 
 - **explore 模式**：探索代码库后用 `add` 记录发现的问题或改进点，方便后续切换到具体模式处理；
 - **code 模式**：长实现序列中用 `complete` 标记已完成项，避免遗漏；
-- **会话恢复**：恢复会话后 `list` 查看未完成项，快速回到上下文。
+- **会话恢复**：恢复会话后 `list` 查看该 session 未完成项，快速回到上下文。
 
 ### 操作示例
 
 ```
-# 列出当前所有任务
+# 列出当前会话的所有任务
 manage_todos(action="list")
 
 # 添加任务
@@ -227,4 +233,5 @@ manage_todos(action="remove", item_id=3)
 
 - `todos.json` 是项目级持久化文件，可随项目 git 提交（或加入 `.gitignore`）；
 - `remove` 操作会重新编号剩余条目（从 1 开始），建议在完成前不要依赖固定 id；
+- 若前端 / Runtime 已注入 `session_id`，`manage_todos` 默认只读写当前会话的 todo 文件，不会污染其他会话；
 - 工具在所有模式下均可用；`mode_writable_globs` 仅影响 `write_file` / `edit_file` 的路径白名单，不影响 `manage_todos`。

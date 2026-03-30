@@ -222,7 +222,7 @@ class SessionSummaryStore(object):
         resume_message = self.build_resume_message(summary)
         if resume_message:
             session.add_system_message(resume_message)
-        session.add_system_message(build_workspace_profile_message(self.workspace))
+        session.add_system_message(build_workspace_profile_message(self.workspace, session.session_id))
         session.add_system_message(build_system_prompt(current_mode, config))
         return session
 

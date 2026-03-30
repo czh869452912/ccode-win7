@@ -133,3 +133,14 @@ class TUIFrontend(FrontendCallbacks):
         from embedagent.frontend.tui import reducer
         reducer.append_delta(self.app.state, text)
         self.app.refresh_views()
+
+    def on_reasoning_delta(self, text: str) -> None:
+        from embedagent.frontend.tui import reducer
+        reducer.append_line(self.app.state, "[thinking] %s" % text)
+        self.app.refresh_views()
+
+    def on_thinking_state_change(self, active: bool, reason: str = "") -> None:
+        from embedagent.frontend.tui import reducer
+        if active:
+            reducer.append_line(self.app.state, "[thinking] 模型正在思考...")
+        self.app.refresh_views()

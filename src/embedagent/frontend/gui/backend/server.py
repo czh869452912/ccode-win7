@@ -38,7 +38,7 @@ class WebSocketFrontend(FrontendCallbacks):
     def __init__(self):
         self.connections: Set[WebSocket] = set()
         self._pending_permissions = {}  # type: Dict[str, BlockingResult[bool]]
-        self._pending_inputs = {}  # type: Dict[str, BlockingResult[Optional[str]]]
+        self._pending_inputs = {}  # type: Dict[str, BlockingResult[Optional[Dict[str, Any]]]]
         self._pending_lock = threading.RLock()
         self._dispatcher = ThreadsafeAsyncDispatcher()
     
@@ -106,7 +106,8 @@ class WebSocketFrontend(FrontendCallbacks):
                 "success": result.success,
                 "data": result.data,
                 "error": result.error,
-                "execution_time_ms": result.execution_time_ms
+                "execution_time_ms": result.execution_time_ms,
+                "call_id": result.call_id,
             }
         })
     
@@ -133,9 +134,9 @@ class WebSocketFrontend(FrontendCallbacks):
             with self._pending_lock:
                 self._pending_permissions.pop(request.permission_id, None)
     
-    def on_user_input_request(self, request: UserInputRequest) -> Optional[str]:
+    def on_user_input_request(self, request: UserInputRequest) -> Optional[Dict[str, Any]]:
         """同步阻塞等待用户响应"""
-        waiter = BlockingResult(None)  # type: BlockingResult[Optional[str]]
+        waiter = BlockingResult(None)  # type: BlockingResult[Optional[Dict[str, Any]]]
         with self._pending_lock:
             self._pending_inputs[request.request_id] = waiter
         queued = self._dispatch_message({
@@ -159,12 +160,24 @@ class WebSocketFrontend(FrontendCallbacks):
         self._dispatch_message({
             "type": "session_status",
             "data": {
+                "session_snapshot": {
+                    "session_id": snapshot.session_id,
+                    "status": snapshot.status.value,
+                    "current_mode": snapshot.current_mode,
+                    "started_at": snapshot.created_at,
+                    "updated_at": snapshot.updated_at,
+                    "has_pending_permission": snapshot.has_pending_permission,
+                    "has_pending_input": snapshot.has_pending_input,
+                    "pending_permission": snapshot.pending_permission.__dict__ if snapshot.pending_permission else None,
+                    "pending_user_input": snapshot.pending_input.__dict__ if snapshot.pending_input else None,
+                    "last_error": snapshot.last_error,
+                },
                 "session_id": snapshot.session_id,
                 "status": snapshot.status.value,
                 "current_mode": snapshot.current_mode,
                 "has_pending_permission": snapshot.has_pending_permission,
                 "has_pending_input": snapshot.has_pending_input,
-                "last_error": snapshot.last_error
+                "last_error": snapshot.last_error,
             }
         })
     
@@ -172,6 +185,18 @@ class WebSocketFrontend(FrontendCallbacks):
         self._dispatch_message({
             "type": "stream_delta",
             "data": {"text": text}
+        })
+
+    def on_reasoning_delta(self, text: str) -> None:
+        self._dispatch_message({
+            "type": "reasoning_delta",
+            "data": {"text": text}
+        })
+
+    def on_thinking_state_change(self, active: bool, reason: str = "") -> None:
+        self._dispatch_message({
+            "type": "thinking_state",
+            "data": {"active": active, "reason": reason}
         })
     
     # ============ 处理前端响应 ============
@@ -183,12 +208,12 @@ class WebSocketFrontend(FrontendCallbacks):
         if waiter is not None:
             waiter.resolve(bool(approved))
     
-    def handle_user_input_response(self, request_id: str, answer: str):
+    def handle_user_input_response(self, request_id: str, payload: Dict[str, Any]):
         """处理用户输入响应"""
         with self._pending_lock:
             waiter = self._pending_inputs.get(request_id)
         if waiter is not None:
-            waiter.resolve(answer)
+            waiter.resolve(dict(payload))
 
 
 class GUIBackend:
@@ -226,7 +251,23 @@ class GUIBackend:
         @app.get("/api/sessions")
         async def list_sessions(limit: int = 10):
             return {"sessions": self.core.list_sessions(limit)}
-        
+
+        @app.get("/api/sessions/{session_id}")
+        async def get_session_snapshot(session_id: str):
+            snapshot = self.core.get_session_snapshot(session_id)
+            return {
+                "session_id": snapshot.session_id,
+                "status": snapshot.status.value,
+                "current_mode": snapshot.current_mode,
+                "started_at": snapshot.created_at,
+                "updated_at": snapshot.updated_at,
+                "has_pending_permission": snapshot.has_pending_permission,
+                "has_pending_input": snapshot.has_pending_input,
+                "pending_permission": snapshot.pending_permission.__dict__ if snapshot.pending_permission else None,
+                "pending_user_input": snapshot.pending_input.__dict__ if snapshot.pending_input else None,
+                "last_error": snapshot.last_error,
+            }
+
         @app.post("/api/sessions")
         async def create_session(mode: str = "code"):
             snapshot = self.core.create_session(mode)
@@ -250,7 +291,7 @@ class GUIBackend:
         async def cancel_session(session_id: str):
             self.core.cancel_session(session_id)
             return {"status": "cancelled"}
-        
+
         @app.post("/api/sessions/{session_id}/mode")
         async def set_mode(session_id: str, request: Dict[str, Any]):
             mode = request.get("mode", "code")
@@ -260,10 +301,18 @@ class GUIBackend:
         @app.get("/api/workspace")
         async def get_workspace():
             return self.core.get_workspace_snapshot()
+
+        @app.get("/api/sessions/{session_id}/timeline")
+        async def get_session_timeline(session_id: str, limit: int = 200):
+            return self.core.get_session_timeline(session_id, limit=limit)
         
         @app.get("/api/files")
         async def list_files(path: str = ".", max_depth: int = 3):
             return {"items": self.core.list_files(path, max_depth)}
+
+        @app.get("/api/files/tree")
+        async def list_file_children(path: str = ".", limit: int = 200):
+            return {"items": self.core.list_file_children(path, limit)}
         
         @app.get("/api/files/{path:path}")
         async def read_file(path: str):
@@ -290,8 +339,16 @@ class GUIBackend:
             }
         
         @app.get("/api/todos")
-        async def list_todos():
-            return {"todos": self.core.list_todos()}
+        async def list_todos(session_id: str = ""):
+            return {"todos": self.core.list_todos(session_id=session_id)}
+
+        @app.get("/api/artifacts")
+        async def list_artifacts(limit: int = 20):
+            return {"items": self.core.list_artifacts(limit=limit)}
+
+        @app.get("/api/artifacts/{reference:path}")
+        async def read_artifact(reference: str):
+            return self.core.read_artifact(reference)
         
         # WebSocket 路由
         @app.websocket("/ws")
@@ -317,5 +374,4 @@ class GUIBackend:
         
         elif msg_type == "user_input_response":
             req_id = data.get("request_id", "")
-            answer = data.get("answer", "")
-            self.frontend.handle_user_input_response(req_id, answer)
+            self.frontend.handle_user_input_response(req_id, data)

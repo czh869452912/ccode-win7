@@ -1,0 +1,26 @@
+{
+  "name": "embedagent-gui-webapp",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "node build.mjs",
+    "build:vite": "vite build",
+    "preview": "vite preview",
+    "test": "node test/run-tests.mjs"
+  },
+  "dependencies": {
+    "diff2html": "^3.4.52",
+    "react": "^18.3.1",
+    "react-arborist": "^3.4.3",
+    "react-dom": "^18.3.1",
+    "react-markdown": "^9.0.1",
+    "remark-gfm": "^4.0.0"
+  },
+  "devDependencies": {
+    "@rollup/rollup-win32-x64-msvc": "^4.60.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "vite": "^5.4.10"
+  }
+}

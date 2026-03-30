@@ -16,7 +16,7 @@ class FakeClient(object):
     def generate(self, messages, tools=None):
         return AssistantReply(content='ok', actions=[], finish_reason='stop')
 
-    def stream(self, messages, tools=None, on_text_delta=None):
+    def stream(self, messages, tools=None, on_text_delta=None, on_reasoning_delta=None):
         reply = self.generate(messages, tools=tools)
         if on_text_delta is not None:
             on_text_delta(reply.content)
@@ -48,7 +48,7 @@ class AskUserClient(object):
             )
         return AssistantReply(content="done", actions=[], finish_reason="stop")
 
-    def stream(self, messages, tools=None, on_text_delta=None):
+    def stream(self, messages, tools=None, on_text_delta=None, on_reasoning_delta=None):
         reply = self.generate(messages, tools=tools)
         if on_text_delta is not None and reply.content:
             on_text_delta(reply.content)
@@ -75,7 +75,34 @@ class SwitchModeClient(object):
             )
         return AssistantReply(content="implemented", actions=[], finish_reason="stop")
 
-    def stream(self, messages, tools=None, on_text_delta=None):
+    def stream(self, messages, tools=None, on_text_delta=None, on_reasoning_delta=None):
+        reply = self.generate(messages, tools=tools)
+        if on_text_delta is not None and reply.content:
+            on_text_delta(reply.content)
+        return reply
+
+
+class ToolClient(object):
+    def __init__(self):
+        self.calls = 0
+
+    def generate(self, messages, tools=None):
+        self.calls += 1
+        if self.calls == 1:
+            return AssistantReply(
+                content="",
+                actions=[
+                    Action(
+                        name="read_file",
+                        arguments={"path": "src/pkg/demo.c"},
+                        call_id="call-read-demo",
+                    )
+                ],
+                finish_reason="tool_calls",
+            )
+        return AssistantReply(content="done", actions=[], finish_reason="stop")
+
+    def stream(self, messages, tools=None, on_text_delta=None, on_reasoning_delta=None):
         reply = self.generate(messages, tools=tools)
         if on_text_delta is not None and reply.content:
             on_text_delta(reply.content)
@@ -107,6 +134,9 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         paths = [item['path'] for item in tree['items']]
         self.assertIn('src/pkg', paths)
         self.assertIn('src/pkg/demo.c', paths)
+        children = self.adapter.list_workspace_children(path='src', limit=20)
+        pkg = [item for item in children['items'] if item['path'] == 'src/pkg'][0]
+        self.assertTrue(pkg['has_children'])
 
     def test_read_and_write_workspace_file(self):
         loaded = self.adapter.read_workspace_file('src/pkg/demo.c')
@@ -137,6 +167,53 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         payload = self.adapter.get_session_timeline(str(self.snapshot.get('session_id') or ''))
         self.assertTrue(any(item['event'] == 'turn_started' for item in payload['events']))
         self.assertEqual(payload['latest_assistant_reply'], 'ok')
+
+    def test_session_scoped_todos_are_isolated(self):
+        first_session_id = str(self.snapshot.get('session_id') or '')
+        self.tools.execute("manage_todos", {"action": "add", "content": "session-one", "session_id": first_session_id})
+        second = self.adapter.create_session('code')
+        second_session_id = str(second.get('session_id') or '')
+        self.assertEqual(self.adapter.list_todos(session_id=first_session_id)["count"], 1)
+        self.assertEqual(self.adapter.list_todos(session_id=second_session_id)["count"], 0)
+
+    def test_session_status_events_cover_running_and_idle(self):
+        events = []
+        self.adapter.submit_user_message(
+            session_id=str(self.snapshot.get('session_id') or ''),
+            text='hello',
+            stream=False,
+            wait=True,
+            permission_resolver=lambda ticket: True,
+            event_handler=lambda event_name, session_id, payload: events.append((event_name, payload)),
+        )
+        statuses = [
+            item[1].get("session_snapshot", {}).get("status")
+            for item in events
+            if item[0] == "session_status"
+        ]
+        self.assertIn("running", statuses)
+        self.assertIn("idle", statuses)
+
+    def test_tool_call_id_is_stable_across_start_and_finish(self):
+        adapter = InProcessAdapter(
+            client=ToolClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+        )
+        snapshot = adapter.create_session('code')
+        events = []
+        adapter.submit_user_message(
+            session_id=str(snapshot.get('session_id') or ''),
+            text='读取文件',
+            stream=False,
+            wait=True,
+            permission_resolver=lambda ticket: True,
+            event_handler=lambda event_name, session_id, payload: events.append((event_name, payload)),
+        )
+        tool_start = [payload for event_name, payload in events if event_name == "tool_started"][0]
+        tool_finish = [payload for event_name, payload in events if event_name == "tool_finished"][0]
+        self.assertEqual(tool_start.get("call_id"), "call-read-demo")
+        self.assertEqual(tool_finish.get("call_id"), "call-read-demo")
 
     def test_user_input_flow_can_change_mode(self):
         adapter = InProcessAdapter(

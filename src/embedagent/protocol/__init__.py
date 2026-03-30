@@ -60,6 +60,7 @@ class ToolResult:
     data: Dict[str, Any] = field(default_factory=dict)
     error: Optional[str] = None
     execution_time_ms: int = 0
+    call_id: str = ""
 
 
 @dataclass
@@ -153,6 +154,14 @@ class FrontendCallbacks(Protocol):
         """流式输出增量"""
         ...
 
+    def on_reasoning_delta(self, text: str) -> None:
+        """thinking / reasoning 流式增量"""
+        ...
+
+    def on_thinking_state_change(self, active: bool, reason: str = "") -> None:
+        """模型是否处于 thinking 阶段"""
+        ...
+
 
 class CoreInterface(ABC):
     """Core 接口抽象 - Frontend 调用 Core"""
@@ -170,6 +179,11 @@ class CoreInterface(ABC):
     @abstractmethod
     def list_sessions(self, limit: int = 10) -> List[Dict[str, Any]]:
         """列出会话"""
+        pass
+
+    @abstractmethod
+    def get_session_snapshot(self, session_id: str) -> SessionSnapshot:
+        """获取会话快照"""
         pass
     
     @abstractmethod
@@ -212,6 +226,11 @@ class CoreInterface(ABC):
     def list_files(self, path: str = ".", max_depth: int = 3) -> List[Dict[str, Any]]:
         """列出文件"""
         pass
+
+    @abstractmethod
+    def list_file_children(self, path: str = ".", limit: int = 200) -> List[Dict[str, Any]]:
+        """列出目录的直接子项"""
+        pass
     
     @abstractmethod
     def read_file(self, path: str) -> Dict[str, Any]:
@@ -222,6 +241,21 @@ class CoreInterface(ABC):
     def write_file(self, path: str, content: str) -> Dict[str, Any]:
         """写入文件"""
         pass
+
+    @abstractmethod
+    def get_session_timeline(self, session_id: str, limit: int = 200) -> Dict[str, Any]:
+        """获取会话时间线"""
+        pass
+
+    @abstractmethod
+    def list_artifacts(self, limit: int = 20) -> List[Dict[str, Any]]:
+        """列出工件"""
+        pass
+
+    @abstractmethod
+    def read_artifact(self, reference: str) -> Dict[str, Any]:
+        """读取工件"""
+        pass
     
     @abstractmethod
     def get_diff_preview(self, path: str, new_content: str) -> DiffPreview:
@@ -229,7 +263,7 @@ class CoreInterface(ABC):
         pass
     
     @abstractmethod
-    def list_todos(self) -> List[Dict[str, Any]]:
+    def list_todos(self, session_id: str = "") -> List[Dict[str, Any]]:
         """列出待办事项"""
         pass
     

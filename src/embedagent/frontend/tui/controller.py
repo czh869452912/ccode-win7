@@ -406,12 +406,22 @@ class TerminalController(object):
         self.owner.refresh_views()
 
     def on_event(self, event_name: str, session_id: str, payload: Dict[str, object]) -> None:
+        snapshot = payload.get("session_snapshot")
+        if isinstance(snapshot, dict):
+            reducer.set_snapshot(self.owner.state, snapshot)
         if event_name == "turn_started":
             reducer.close_stream(self.owner.state)
             reducer.update_snapshot(self.owner.state, status="running", last_error=None)
+        elif event_name == "session_status":
+            pass
         elif event_name == "assistant_delta":
             reducer.update_snapshot(self.owner.state, status="running")
             reducer.append_delta(self.owner.state, str(payload.get("text") or ""))
+        elif event_name == "reasoning_delta":
+            reducer.append_line(self.owner.state, "[thinking] %s" % (payload.get("text") or ""))
+        elif event_name == "thinking_state":
+            if payload.get("active"):
+                reducer.append_line(self.owner.state, "[thinking] 模型正在思考...")
         elif event_name == "tool_started":
             reducer.close_stream(self.owner.state)
             reducer.update_snapshot(self.owner.state, status="running")
@@ -474,17 +484,13 @@ class TerminalController(object):
             self.refresh_artifacts()
             self.reload_timeline()
         elif event_name == "session_resumed":
-            snapshot = payload.get("session_snapshot")
-            if isinstance(snapshot, dict):
-                reducer.set_snapshot(self.owner.state, snapshot)
             reducer.set_last_error(self.owner.state, "")
             self.refresh_sessions()
+            self.refresh_todos()
             self.reload_timeline()
         elif event_name == "session_created":
-            snapshot = payload.get("session_snapshot")
-            if isinstance(snapshot, dict):
-                reducer.set_snapshot(self.owner.state, snapshot)
             self.refresh_sessions()
+            self.refresh_todos()
         elif event_name == "session_error":
             reducer.close_stream(self.owner.state)
             reducer.set_last_error(self.owner.state, str(payload.get("error") or ""))
@@ -508,7 +514,8 @@ class TerminalController(object):
 
     def refresh_workspace_snapshot(self) -> None:
         snapshot = self.owner.workspace_service.snapshot()
-        snapshot["todos"] = self.owner.session_service.list_todos().get("todos") or []
+        session_id = self.owner.state.session.current_session_id
+        snapshot["todos"] = self.owner.session_service.list_todos(session_id=session_id).get("todos") or []
         reducer.set_workspace_snapshot(self.owner.state, snapshot)
 
     def refresh_sessions(self) -> None:
@@ -524,7 +531,8 @@ class TerminalController(object):
             reducer.set_explorer_items(self.owner.state, "sessions", explorer_items, root="sessions")
 
     def refresh_todos(self) -> None:
-        payload = self.owner.session_service.list_todos()
+        session_id = self.owner.state.session.current_session_id
+        payload = self.owner.session_service.list_todos(session_id=session_id)
         if self.owner.state.explorer.tab == "todos":
             explorer_items = []
             for item in payload.get("todos") or []:

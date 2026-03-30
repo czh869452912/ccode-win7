@@ -137,6 +137,16 @@ class TestManageTodos(unittest.TestCase):
         self.assertEqual(len(done_todos), 1)
         self.assertEqual(done_todos[0]["content"], "步骤2")
 
+    def test_session_scoped_todos_do_not_overlap(self):
+        self._exec(action="add", content="会话A任务", session_id="sess-a")
+        self._exec(action="add", content="会话B任务", session_id="sess-b")
+        todos_a = self._exec(action="list", session_id="sess-a")
+        todos_b = self._exec(action="list", session_id="sess-b")
+        self.assertEqual(todos_a.data["count"], 1)
+        self.assertEqual(todos_b.data["count"], 1)
+        self.assertEqual(todos_a.data["todos"][0]["content"], "会话A任务")
+        self.assertEqual(todos_b.data["todos"][0]["content"], "会话B任务")
+
 
 if __name__ == "__main__":
     unittest.main()

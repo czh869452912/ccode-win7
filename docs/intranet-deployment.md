@@ -136,10 +136,10 @@ cd C:\Tools\EmbedAgent
 
 ### Q2: GUI 启动失败
 
-**原因**：Windows 7 缺少 WebView2 Runtime
+**原因**：bundle 内缺少 Fixed Version WebView2 109，或 Chromium 初始化失败
 
 **解决**：
-- 方案 A：在内网机器上安装 WebView2 Runtime（Evergreen Standalone Installer）
+- 方案 A：修复 bundle，使其包含 `runtime\webview2-fixed-runtime\msedgewebview2.exe`
 - 方案 B：使用 TUI 模式（无需 WebView2）
 
 ### Q3: 内网模型服务连接失败

@@ -280,7 +280,8 @@ python scripts/export-dependencies.py --exclude-dev
 **问题**：GUI 启动失败
 
 **解决**：
-- Windows 7 需安装 WebView2 Runtime，或使用 TUI 模式
+- 当前 GUI 正式基线要求 bundle 内包含 Fixed Version WebView2 109
+- 若 `embedagent-gui.cmd` 报缺少 WebView2 runtime，请修复 bundle 或改用 TUI 模式
 - 检查 `embedagent-gui.cmd` 是否正确设置了 PYTHONPATH
 
 **问题**：无法连接内网模型服务

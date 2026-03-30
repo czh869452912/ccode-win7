@@ -23,16 +23,11 @@ if not exist "%PYTHONHOME%\python.exe" (
     exit /b 1
 )
 
-:: Check for WebView2 Runtime on Windows
-if exist "%ProgramFiles(x86)%\Microsoft\EdgeWebView\Application\*" (
-    echo Info: WebView2 Runtime detected
-) else if exist "%LOCALAPPDATA%\Microsoft\EdgeWebView\Application\*" (
-    echo Info: WebView2 Runtime detected (user install)
-) else (
-    echo Warning: WebView2 Runtime not detected
-    echo GUI will use IE11 fallback mode on Windows 7
-    echo For better experience, install WebView2 Runtime:
-    echo https://developer.microsoft.com/microsoft-edge/webview2/
+:: Check for bundled Fixed Version WebView2 Runtime
+if not exist "%BUNDLE_ROOT%runtime\webview2-fixed-runtime\msedgewebview2.exe" (
+    echo Error: Bundled Fixed Version WebView2 runtime not found.
+    echo GUI no longer falls back to IE11. Please use TUI/CLI or repair the bundle.
+    exit /b 1
 )
 
 :: Launch GUI

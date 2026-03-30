@@ -46,10 +46,12 @@ class OpenAICompatibleClient(object):
         messages: List[Dict[str, Any]],
         tools: Optional[List[Dict[str, Any]]] = None,
         on_text_delta: Optional[Callable[[str], None]] = None,
+        on_reasoning_delta: Optional[Callable[[str], None]] = None,
     ) -> AssistantReply:
         return self._stream_request(
             self._build_payload(messages, tools, stream=True),
             on_text_delta=on_text_delta,
+            on_reasoning_delta=on_reasoning_delta,
         )
 
     def _build_endpoint(self, base_url: str) -> str:
@@ -107,6 +109,7 @@ class OpenAICompatibleClient(object):
         self,
         payload: Dict[str, Any],
         on_text_delta: Optional[Callable[[str], None]],
+        on_reasoning_delta: Optional[Callable[[str], None]],
     ) -> AssistantReply:
         request = urllib.request.Request(
             self.endpoint,
@@ -145,6 +148,8 @@ class OpenAICompatibleClient(object):
             reasoning_text = self._normalize_content(delta.get("reasoning_content"))
             if reasoning_text:
                 reasoning_parts.append(reasoning_text)
+                if on_reasoning_delta is not None:
+                    on_reasoning_delta(reasoning_text)
             self._merge_stream_tool_calls(tool_buffers, delta)
             if choice.get("finish_reason"):
                 finish_reason = choice.get("finish_reason")

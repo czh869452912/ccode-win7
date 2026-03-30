@@ -21,6 +21,7 @@ from embedagent.project_memory import ProjectMemoryStore
 from embedagent.session import Action, Observation, Session
 from embedagent.session_store import SessionSummaryStore
 from embedagent.session_timeline import SessionTimelineStore
+from embedagent import todos as todo_store
 from embedagent.tools import ToolRuntime
 from embedagent.tools._base import SKIP_DIR_NAMES
 from embedagent.workspace_profile import build_workspace_profile_message
@@ -127,7 +128,6 @@ class InProcessAdapter(object):
         self.maintenance_interval = maintenance_interval if maintenance_interval > 0 else 1
         self.event_handler = event_handler
         initialize_modes(self.tools.workspace)
-        self.workspace_profile_message = build_workspace_profile_message(self.tools.workspace)
         self._sessions = {}  # type: Dict[str, ManagedSession]
         self._lock = threading.RLock()
 
@@ -138,7 +138,8 @@ class InProcessAdapter(object):
     ) -> Dict[str, Any]:
         current_mode = require_mode(mode)["slug"]
         session = Session()
-        session.add_system_message(self.workspace_profile_message)
+        todo_store.ensure_session_todos(self.tools.workspace, session.session_id, seed_from_legacy=False)
+        session.add_system_message(build_workspace_profile_message(self.tools.workspace, session.session_id))
         session.add_system_message(
             build_system_prompt(current_mode, getattr(self.tools, "app_config", None))
         )
@@ -148,6 +149,7 @@ class InProcessAdapter(object):
             self._sessions[session.session_id] = state
         snapshot = self.get_session_snapshot(session.session_id)
         self._emit(event_handler, "session_created", session.session_id, {"session_snapshot": snapshot})
+        self._notify_status(event_handler, state)
         return snapshot
 
     def resume_session(
@@ -158,6 +160,13 @@ class InProcessAdapter(object):
     ) -> Dict[str, Any]:
         summary = self.summary_store.load_summary(reference)
         current_mode = require_mode(mode or str(summary.get("current_mode") or DEFAULT_MODE))["slug"]
+        summary_session_id = str(summary.get("session_id") or "")
+        if summary_session_id:
+            todo_store.ensure_session_todos(
+                self.tools.workspace,
+                summary_session_id,
+                seed_from_legacy=True,
+            )
         session = self.summary_store.create_resumed_session(
             summary,
             current_mode,
@@ -180,6 +189,7 @@ class InProcessAdapter(object):
             session.session_id,
             {"session_snapshot": snapshot, "resume_ref": snapshot.get("summary_ref")},
         )
+        self._notify_status(event_handler, state)
         return snapshot
 
     def list_sessions(self, limit: int = 10) -> List[Dict[str, Any]]:
@@ -198,6 +208,8 @@ class InProcessAdapter(object):
                 "updated_at": updated_at,
                 "last_user_message": str((summary or {}).get("latest_user_message") or ""),
                 "last_assistant_message": str((summary or {}).get("assistant_last_reply") or state.last_assistant_message or ""),
+                "summary_text": str((summary or {}).get("summary_text") or ""),
+                "user_goal": str((summary or {}).get("user_goal") or ""),
                 "summary_ref": str((summary or {}).get("summary_ref") or state.summary_ref or ""),
                 "has_pending_permission": state.pending_permission is not None,
                 "pending_permission": state.pending_permission.to_dict() if state.pending_permission else None,
@@ -293,6 +305,36 @@ class InProcessAdapter(object):
             "items": items,
         }
 
+    def list_workspace_children(
+        self,
+        path: str = ".",
+        limit: int = 200,
+    ) -> Dict[str, Any]:
+        root = self._resolve_workspace_candidate(path, allow_missing=False)
+        if not os.path.isdir(root):
+            raise ValueError("路径不是目录：%s" % path)
+        items = []  # type: List[Dict[str, Any]]
+        try:
+            names = sorted(os.listdir(root), key=lambda item: item.lower())
+        except OSError:
+            names = []
+        for name in names:
+            absolute = os.path.join(root, name)
+            if os.path.isdir(absolute) and name in SKIP_DIR_NAMES:
+                continue
+            kind = "dir" if os.path.isdir(absolute) else "file"
+            items.append(
+                {
+                    "path": self._relative_path(absolute),
+                    "name": name,
+                    "kind": kind,
+                    "has_children": self._directory_has_visible_children(absolute) if kind == "dir" else False,
+                }
+            )
+            if len(items) >= limit:
+                break
+        return {"root": self._relative_path(root), "limit": limit, "items": items}
+
     def read_workspace_file(self, path: str) -> Dict[str, Any]:
         candidate = self._resolve_workspace_candidate(path, allow_missing=False)
         if not os.path.isfile(candidate):
@@ -356,17 +398,13 @@ class InProcessAdapter(object):
     def read_artifact(self, reference: str) -> Dict[str, Any]:
         return self.tools.artifact_store.read_artifact(reference)
 
-    def list_todos(self) -> Dict[str, Any]:
-        todos_path = os.path.join(self.tools.workspace, ".embedagent", "todos.json")
-        if not os.path.isfile(todos_path):
-            return {"count": 0, "todos": [], "path": ".embedagent/todos.json"}
-        with open(todos_path, "r", encoding="utf-8") as handle:
-            data = json.load(handle)
-        todos = data if isinstance(data, list) else []
+    def list_todos(self, session_id: str = "") -> Dict[str, Any]:
+        todos = todo_store.load_todos(self.tools.workspace, session_id=session_id)
         return {
             "count": len(todos),
             "todos": todos,
-            "path": ".embedagent/todos.json",
+            "path": todo_store.relative_todos_path(session_id),
+            "session_id": session_id,
         }
 
     def submit_user_message(
@@ -380,11 +418,16 @@ class InProcessAdapter(object):
         event_handler: Optional[EventHandler] = None,
     ) -> Dict[str, Any]:
         state = self._require_session(session_id)
+        with state.lock:
+            state.status = "running"
+            state.last_error = None
+            state.updated_at = _utc_now()
         payload = {
             "text": text,
             "stream": stream,
         }
-        self._emit(event_handler, "turn_started", session_id, payload)
+        self._emit_with_snapshot(event_handler, "turn_started", state, payload)
+        self._notify_status(event_handler, state)
         if wait:
             self._run_turn(
                 state,
@@ -452,7 +495,9 @@ class InProcessAdapter(object):
                 selected_option_text=str(selected_option_text or ""),
             )
             state.pending_user_event.set()
-        return self.get_session_snapshot(session_id)
+        snapshot = self.get_session_snapshot(session_id)
+        self._notify_status(None, state)
+        return snapshot
 
     def set_session_mode(self, session_id: str, mode: str) -> Dict[str, Any]:
         state = self._require_session(session_id)
@@ -463,7 +508,10 @@ class InProcessAdapter(object):
             )
             state.current_mode = current_mode
         self._persist_state(state)
-        return self.get_session_snapshot(session_id)
+        snapshot = self.get_session_snapshot(session_id)
+        self._emit(self.event_handler, "mode_changed", session_id, {"mode": current_mode, "session_snapshot": snapshot})
+        self._notify_status(None, state)
+        return snapshot
 
     def cancel_session(self, session_id: str) -> Dict[str, Any]:
         state = self._require_session(session_id)
@@ -475,7 +523,9 @@ class InProcessAdapter(object):
                 state.pending_user_response = UserInputResponse(answer="")
                 state.pending_user_event.set()
             state.status = "idle"
-        return self.get_session_snapshot(session_id)
+        snapshot = self.get_session_snapshot(session_id)
+        self._notify_status(None, state)
+        return snapshot
 
     def _run_turn(
         self,
@@ -508,18 +558,42 @@ class InProcessAdapter(object):
             maintenance_interval=self.maintenance_interval,
         )
 
+        thinking_state = {"active": False}
+
+        def set_thinking(active: bool, reason: str) -> None:
+            if thinking_state["active"] == active:
+                return
+            thinking_state["active"] = active
+            self._emit_with_snapshot(
+                event_handler,
+                "thinking_state",
+                state,
+                {"active": active, "reason": reason},
+            )
+
         def on_text_delta(delta: str) -> None:
+            set_thinking(False, "assistant_text")
             self._emit(event_handler, "assistant_delta", session_id, {"text": delta})
 
+        def on_reasoning_delta(delta: str) -> None:
+            self._emit(event_handler, "reasoning_delta", session_id, {"text": delta})
+
         def on_tool_start(action: Action) -> None:
+            set_thinking(False, "tool_start")
             self._emit(
                 event_handler,
                 "tool_started",
                 session_id,
-                {"tool_name": action.name, "arguments": action.arguments},
+                {
+                    "tool_name": action.name,
+                    "arguments": action.arguments,
+                    "call_id": action.call_id,
+                },
             )
 
         def on_tool_finish(action: Action, observation: Observation) -> None:
+            mode_changed = False
+            next_mode = ""
             with state.lock:
                 if (
                     observation.success
@@ -527,25 +601,37 @@ class InProcessAdapter(object):
                     and action.name == "switch_mode"
                     and observation.data.get("to_mode")
                 ):
-                    state.current_mode = str(observation.data.get("to_mode") or state.current_mode)
+                    next_mode = str(observation.data.get("to_mode") or state.current_mode)
+                    mode_changed = next_mode != state.current_mode
+                    state.current_mode = next_mode
                 if (
                     observation.success
                     and isinstance(observation.data, dict)
                     and action.name == "ask_user"
                     and observation.data.get("selected_mode")
                 ):
-                    state.current_mode = str(observation.data.get("selected_mode") or state.current_mode)
-            self._emit(
+                    next_mode = str(observation.data.get("selected_mode") or state.current_mode)
+                    mode_changed = next_mode != state.current_mode
+                    state.current_mode = next_mode
+            self._emit_with_snapshot(
                 event_handler,
                 "tool_finished",
-                session_id,
+                state,
                 {
                     "tool_name": action.name,
                     "success": observation.success,
                     "error": observation.error,
                     "data": observation.data,
+                    "call_id": action.call_id,
                 },
             )
+            if mode_changed:
+                self._emit_with_snapshot(
+                    event_handler,
+                    "mode_changed",
+                    state,
+                    {"mode": next_mode, "source": action.name},
+                )
 
         def on_context_result(result: object) -> None:
             stats = getattr(result, "stats", None)
@@ -553,10 +639,10 @@ class InProcessAdapter(object):
             compacted = bool(getattr(result, "compacted", False))
             if not compacted:
                 return
-            self._emit(
+            self._emit_with_snapshot(
                 event_handler,
                 "context_compacted",
-                session_id,
+                state,
                 {
                     "recent_turns": getattr(stats, "recent_turns", None),
                     "summarized_turns": getattr(stats, "summarized_turns", None),
@@ -567,25 +653,36 @@ class InProcessAdapter(object):
 
         def on_permission_request(request: PermissionRequest) -> bool:
             ticket = self._create_permission_ticket(state, request)
-            self._emit(event_handler, "permission_required", session_id, {"permission": ticket.to_dict()})
+            set_thinking(False, "permission_required")
+            with state.lock:
+                state.status = "waiting_permission"
+                state.pending_event = threading.Event()
+            self._emit_with_snapshot(event_handler, "permission_required", state, {"permission": ticket.to_dict()})
+            self._notify_status(event_handler, state)
             if permission_resolver is not None:
                 approved = permission_resolver(ticket.to_dict())
                 self._clear_pending_permission(state)
+                self._notify_status(event_handler, state)
                 return bool(approved)
-            event = threading.Event()
+            event = None
             with state.lock:
-                state.status = "waiting_permission"
-                state.pending_event = event
+                event = state.pending_event
             event.wait()
             with state.lock:
                 approved = bool(state.pending_result)
                 state.status = "running"
             self._clear_pending_permission(state)
+            self._notify_status(event_handler, state)
             return approved
 
         def on_user_input_request(request: UserInputRequest) -> Optional[UserInputResponse]:
             ticket = self._create_user_input_ticket(state, request)
-            self._emit(event_handler, "user_input_required", session_id, {"user_input": ticket.to_dict()})
+            set_thinking(False, "user_input_required")
+            with state.lock:
+                state.status = "waiting_user_input"
+                state.pending_user_event = threading.Event()
+            self._emit_with_snapshot(event_handler, "user_input_required", state, {"user_input": ticket.to_dict()})
+            self._notify_status(event_handler, state)
             if user_input_resolver is not None:
                 payload = user_input_resolver(ticket.to_dict()) or {}
                 response = UserInputResponse(
@@ -595,24 +692,27 @@ class InProcessAdapter(object):
                     selected_option_text=str(payload.get("selected_option_text") or ""),
                 )
                 self._clear_pending_user_input(state)
+                self._notify_status(event_handler, state)
                 return response
-            event = threading.Event()
+            event = None
             with state.lock:
-                state.status = "waiting_user_input"
-                state.pending_user_event = event
+                event = state.pending_user_event
             event.wait()
             with state.lock:
                 response = state.pending_user_response
                 state.status = "running"
             self._clear_pending_user_input(state)
+            self._notify_status(event_handler, state)
             return response
 
         try:
+            set_thinking(True, "turn_started")
             loop_result = loop.run(
                 user_text=text,
                 stream=stream,
                 initial_mode=state.current_mode,
                 on_text_delta=on_text_delta,
+                on_reasoning_delta=on_reasoning_delta,
                 on_tool_start=on_tool_start,
                 on_tool_finish=on_tool_finish,
                 on_context_result=on_context_result,
@@ -624,6 +724,7 @@ class InProcessAdapter(object):
             final_text = loop_result.final_text
             session = loop_result.session
         except Exception as exc:
+            set_thinking(False, "session_error")
             with state.lock:
                 state.status = "error"
                 state.last_error = str(exc)
@@ -635,7 +736,8 @@ class InProcessAdapter(object):
                 state.pending_user_response = None
                 state.updated_at = _utc_now()
                 state.active_thread = None
-            self._emit(event_handler, "session_error", session_id, {"error": str(exc), "phase": "loop"})
+            self._emit_with_snapshot(event_handler, "session_error", state, {"error": str(exc), "phase": "loop"})
+            self._notify_status(event_handler, state)
             if threading.current_thread() is state.active_thread:
                 return
             raise
@@ -657,8 +759,10 @@ class InProcessAdapter(object):
             state.pending_user_response = None
             state.status = "idle"
             state.active_thread = None
+        set_thinking(False, "session_finished")
         snapshot = self.get_session_snapshot(session_id)
         self._emit(event_handler, "session_finished", session_id, {"final_text": final_text, "session_snapshot": snapshot})
+        self._notify_status(event_handler, state)
 
     def _persist_state(self, state: ManagedSession) -> None:
         try:
@@ -758,6 +862,31 @@ class InProcessAdapter(object):
             return
         handler(event_name, session_id, payload)
 
+    def _emit_with_snapshot(
+        self,
+        event_handler: Optional[EventHandler],
+        event_name: str,
+        state: ManagedSession,
+        payload: Dict[str, Any],
+    ) -> None:
+        data = dict(payload)
+        data["session_snapshot"] = self.get_session_snapshot(state.session.session_id)
+        self._emit(event_handler, event_name, state.session.session_id, data)
+
+    def _notify_status(
+        self,
+        event_handler: Optional[EventHandler],
+        state: ManagedSession,
+    ) -> None:
+        handler = event_handler or self.event_handler
+        if handler is None:
+            return
+        handler(
+            "session_status",
+            state.session.session_id,
+            {"session_snapshot": self.get_session_snapshot(state.session.session_id)},
+        )
+
     def _resolve_workspace_candidate(self, path: str, allow_missing: bool) -> str:
         raw = (path or "").strip()
         if not raw:
@@ -789,6 +918,17 @@ class InProcessAdapter(object):
             dir_count += len(dir_names)
             file_count += len(file_names)
         return {"file_count": file_count, "dir_count": dir_count}
+
+    def _directory_has_visible_children(self, path: str) -> bool:
+        try:
+            names = os.listdir(path)
+        except OSError:
+            return False
+        for name in names:
+            if name in SKIP_DIR_NAMES:
+                continue
+            return True
+        return False
 
     def _detect_newline(self, path: str) -> str:
         with io.open(path, "rb") as handle:

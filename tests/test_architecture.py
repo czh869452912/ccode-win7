@@ -32,6 +32,8 @@ class MockFrontend(FrontendCallbacks):
         self.permissions_requested = []
         self.session_changes = []
         self.stream_deltas = []
+        self.reasoning_deltas = []
+        self.thinking_states = []
     
     def on_message(self, message: Message) -> None:
         self.messages.append(message)
@@ -57,6 +59,12 @@ class MockFrontend(FrontendCallbacks):
     
     def on_stream_delta(self, text: str) -> None:
         self.stream_deltas.append(text)
+
+    def on_reasoning_delta(self, text: str) -> None:
+        self.reasoning_deltas.append(text)
+
+    def on_thinking_state_change(self, active: bool, reason: str = "") -> None:
+        self.thinking_states.append((active, reason))
 
 
 class TestProtocol(unittest.TestCase):
@@ -157,6 +165,10 @@ class TestMockFrontend(unittest.TestCase):
         self.frontend.on_stream_delta("Hello")
         self.frontend.on_stream_delta(" World")
         self.assertEqual(self.frontend.stream_deltas, ["Hello", " World"])
+
+    def test_reasoning_delta(self):
+        self.frontend.on_reasoning_delta("thinking")
+        self.assertEqual(self.frontend.reasoning_deltas, ["thinking"])
 
 
 class TestFrontendTUIImport(unittest.TestCase):
