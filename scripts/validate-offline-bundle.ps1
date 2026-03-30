@@ -261,7 +261,7 @@ if (Test-Path -LiteralPath $manifestPath) {
 }
 
 if ($manifest -ne $null) {
-    $completeGateComponents = @('python_runtime', 'python_packages', 'mingit_portable', 'ripgrep', 'universal_ctags')
+    $completeGateComponents = @('python_runtime', 'python_packages', 'mingit_portable', 'ripgrep', 'universal_ctags', 'webview2_fixed_runtime')
     foreach ($component in @($manifest.components)) {
         if (-not $component.required) {
             continue

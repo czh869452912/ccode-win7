@@ -13,6 +13,7 @@ param(
     [string]$MinGitRoot = "",
     [string]$RipgrepPath = "",
     [string]$CtagsPath = "",
+    [string]$WebView2RuntimeRoot = "",
     [string]$LlvmRoot = ""
 )
 
@@ -245,6 +246,7 @@ if ($shouldPrepare) {
         -MinGitRoot $MinGitRoot `
         -RipgrepPath $RipgrepPath `
         -CtagsPath $CtagsPath `
+        -WebView2RuntimeRoot $WebView2RuntimeRoot `
         -LlvmRoot $LlvmRoot
 }
 

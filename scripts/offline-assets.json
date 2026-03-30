@@ -56,6 +56,21 @@
       "license_name": "GNU General Public License v2.0",
       "license_url": "https://github.com/universal-ctags/ctags/blob/master/COPYING",
       "notes": "Pinned to the official ctags-win32 x64 zip for offline bundle integration."
+    },
+    {
+      "id": "webview2_fixed_runtime_x64",
+      "version": "109.0.1518.78",
+      "kind": "webview2_runtime",
+      "platform": "win7-x64",
+      "upstream_url": "https://api.nuget.org/v3-flatcontainer/webview2.runtime.x64/109.0.1518.78/webview2.runtime.x64.109.0.1518.78.nupkg",
+      "sha256": "7016c03ed2ec423fe68c187f4068ccdfafd49a52e59e7c55792142e8d8334906",
+      "archive_type": "nupkg",
+      "cache_relpath": "webview2/webview2.runtime.x64.109.0.1518.78.nupkg",
+      "stage_relpath": "runtime/webview2-fixed-runtime",
+      "extract_subdir_relpath": "contentFiles/any/any/WebView2",
+      "license_name": "Microsoft WebView2 Runtime Redistribution License",
+      "license_url": "https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/distribution",
+      "notes": "Pinned to a WebView2 109 x64 fixed-version runtime package for Windows 7 offline GUI compatibility."
     }
   ]
 }

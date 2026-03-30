@@ -8,6 +8,7 @@ param(
     [string]$MinGitRoot = "",
     [string]$RipgrepPath = "",
     [string]$CtagsPath = "",
+    [string]$WebView2RuntimeRoot = "",
     [string]$LlvmRoot = "",
     [switch]$SkipBuild,
     [switch]$Clean
@@ -267,6 +268,35 @@ function Extract-ZipArchive {
     Expand-Archive -LiteralPath $ArchivePath -DestinationPath $DestinationPath -Force
 }
 
+function Promote-ExtractedSubdirectory {
+    param(
+        [string]$Root,
+        [string]$SubdirectoryRelpath
+    )
+
+    if (-not $SubdirectoryRelpath) {
+        return
+    }
+
+    $normalized = $SubdirectoryRelpath.Replace('/', '\')
+    $nestedRoot = Join-Path $Root $normalized
+    if (-not (Test-Path -LiteralPath $nestedRoot)) {
+        throw "Extracted asset subdirectory not found: $nestedRoot"
+    }
+
+    $tempRoot = Join-Path (Split-Path -Parent $Root) ([System.IO.Path]::GetRandomFileName())
+    New-Item -ItemType Directory -Path $tempRoot -Force | Out-Null
+    Copy-Item -Path (Join-Path $nestedRoot '*') -Destination $tempRoot -Recurse -Force
+
+    Get-ChildItem -LiteralPath $Root -Force | ForEach-Object {
+        Remove-Item -LiteralPath $_.FullName -Recurse -Force
+    }
+    Get-ChildItem -LiteralPath $tempRoot -Force | ForEach-Object {
+        Move-Item -LiteralPath $_.FullName -Destination $Root -Force
+    }
+    Remove-Item -LiteralPath $tempRoot -Recurse -Force
+}
+
 function Normalize-ExtractedRoot {
     param(
         [string]$Root
@@ -327,6 +357,7 @@ function Get-LicensePrefix {
         'git_portable' { return 'mingit' }
         'search_tool' { return 'ripgrep' }
         'symbol_indexer' { return 'ctags' }
+        'webview2_runtime' { return 'webview2' }
         default { return $Asset.id }
     }
 }
@@ -392,10 +423,13 @@ function Resolve-AssetForStaging {
     }
 
     if (-not $SkipBuild) {
-        if ($Asset.archive_type -ne 'zip') {
+        if ($Asset.archive_type -notin @('zip', 'nupkg')) {
             throw "Unsupported archive_type '$($Asset.archive_type)' for asset $($Asset.id)"
         }
         Extract-ZipArchive -ArchivePath $cacheArchivePath -DestinationRoot $BundleRoot -DestinationPath $stagedPath
+        if ($Asset.PSObject.Properties.Name -contains 'extract_subdir_relpath') {
+            Promote-ExtractedSubdirectory -Root $stagedPath -SubdirectoryRelpath ([string]$Asset.extract_subdir_relpath)
+        }
         Normalize-ExtractedRoot -Root $stagedPath
         if ($Asset.kind -eq 'python_runtime') {
             Patch-EmbeddablePython -PythonRoot $stagedPath
@@ -450,6 +484,7 @@ $paths = @(
     'runtime',
     'runtime\python',
     'runtime\site-packages',
+    'runtime\webview2-fixed-runtime',
     'tools',
     'tools\validation'
 )
@@ -607,6 +642,7 @@ $sitePackagesPath = Resolve-ProjectPath -ProjectRoot $projectRoot -Value $SitePa
 $minGitPath = Resolve-ProjectPath -ProjectRoot $projectRoot -Value $MinGitRoot
 $ripgrepResolved = Resolve-ProjectPath -ProjectRoot $projectRoot -Value $RipgrepPath
 $ctagsResolved = Resolve-ProjectPath -ProjectRoot $projectRoot -Value $CtagsPath
+$webView2RuntimePath = Resolve-ProjectPath -ProjectRoot $projectRoot -Value $WebView2RuntimeRoot
 $llvmPath = Resolve-ProjectPath -ProjectRoot $projectRoot -Value $LlvmRoot
 
 $components += New-ComponentRecord -Name 'app_code' -StagedPath 'app\embedagent' -Required $true -Status 'staged' -SourcePath $sourceAppRoot -Notes 'Copied from src/embedagent.' -AssetId ''
@@ -781,6 +817,42 @@ elseif ($ctagsResolved) {
 }
 else {
     $components += New-ComponentRecord -Name 'universal_ctags' -StagedPath 'bin\ctags' -Required $true -Status 'missing' -SourcePath '' -Notes 'Provide -CtagsPath or request universal_ctags_x64 via -AssetIds.' -AssetId ''
+}
+
+$useWebView2Asset = $requestedAssetIds -contains 'webview2_fixed_runtime_x64'
+if ($useWebView2Asset) {
+    $webView2Asset = Find-AssetRecord -Manifest $assetManifest -AssetId 'webview2_fixed_runtime_x64'
+    $resolved = Resolve-AssetForStaging -Asset $webView2Asset -CacheRoot $cacheRoot -BundleRoot $bundleRoot -LicenseDir $licenseDir -AllowDownload ([bool]$AllowDownload) -SkipBuild ([bool]$SkipBuild)
+    $resolvedAssets += [ordered]@{
+        id = $webView2Asset.id
+        version = $webView2Asset.version
+        kind = $webView2Asset.kind
+        platform = $webView2Asset.platform
+        upstream_url = $webView2Asset.upstream_url
+        sha256 = $webView2Asset.sha256
+        archive_type = $webView2Asset.archive_type
+        cache_relpath = $webView2Asset.cache_relpath
+        stage_relpath = $webView2Asset.stage_relpath
+        license_name = $webView2Asset.license_name
+        license_url = $webView2Asset.license_url
+        notes = $webView2Asset.notes
+        cache_archive_path = $resolved.cache_archive_path
+        staged_path = $resolved.staged_path
+        source_mode = 'asset_manifest'
+        status = $resolved.status
+    }
+    $components += New-ComponentRecord -Name 'webview2_fixed_runtime' -StagedPath $webView2Asset.stage_relpath -Required $true -Status $resolved.status -SourcePath $resolved.cache_archive_path -Notes $resolved.notes -AssetId $webView2Asset.id
+}
+elseif ($webView2RuntimePath) {
+    if (-not $SkipBuild) {
+        Stage-Directory -Source $webView2RuntimePath -Destination (Join-Path $bundleRoot 'runtime\webview2-fixed-runtime')
+    }
+    $status = if ($SkipBuild) { 'skipped' } else { 'staged' }
+    $note = if ($SkipBuild) { 'WebView2 fixed runtime copy skipped by -SkipBuild.' } else { 'Copied WebView2 fixed runtime root from manual path.' }
+    $components += New-ComponentRecord -Name 'webview2_fixed_runtime' -StagedPath 'runtime\webview2-fixed-runtime' -Required $true -Status $status -SourcePath $webView2RuntimePath -Notes $note -AssetId ''
+}
+else {
+    $components += New-ComponentRecord -Name 'webview2_fixed_runtime' -StagedPath 'runtime\webview2-fixed-runtime' -Required $true -Status 'missing' -SourcePath '' -Notes 'Provide -WebView2RuntimeRoot or request webview2_fixed_runtime_x64 via -AssetIds.' -AssetId ''
 }
 
 if ($llvmPath) {
