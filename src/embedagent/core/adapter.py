@@ -148,13 +148,24 @@ class AgentCoreAdapter(CoreInterface):
     def initialize(self, client, tools, **kwargs) -> None:
         """初始化内部 Adapter"""
         AdapterClass = _get_adapter_class()
-        self._adapter = AdapterClass(
-            client=client,
-            tools=tools,
-            max_turns=kwargs.get("max_turns", 8),
-            permission_policy=kwargs.get("permission_policy"),
-            event_handler=self._on_adapter_event
-        )
+        adapter_kwargs = {
+            "client": client,
+            "tools": tools,
+            "max_turns": kwargs.get("max_turns", 8),
+            "permission_policy": kwargs.get("permission_policy"),
+            "event_handler": self._on_adapter_event,
+        }
+        for key in (
+            "summary_store",
+            "project_memory_store",
+            "context_manager",
+            "memory_maintenance",
+            "timeline_store",
+            "maintenance_interval",
+        ):
+            if key in kwargs and kwargs.get(key) is not None:
+                adapter_kwargs[key] = kwargs.get(key)
+        self._adapter = AdapterClass(**adapter_kwargs)
     
     def register_frontend(self, frontend: FrontendCallbacks) -> None:
         """注册前端回调"""

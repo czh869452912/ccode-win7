@@ -262,7 +262,6 @@ TestCoreAdapterImport           ✓
 
 - [ ] 将旧 `frontend/tui/` 完全迁移到 `frontend/tui/`
 - [ ] 实现 GUI 的 diff 确认弹窗与后端联动
-- [ ] 实现 GUI 的权限确认弹窗与后端联动
 - [ ] 添加更多架构集成测试
 - [ ] 更新 `docs/frontend-protocol.md` 以反映新协议层
 

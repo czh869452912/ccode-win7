@@ -954,6 +954,6 @@
 - 是否需要 ADR：`建议后续补 ADR 记录架构分层决策`
 - 后续动作：
   - 将旧 `frontend/tui/` 完全迁移到 `frontend/tui/`
-  - 实现 GUI 的 diff/权限确认弹窗与后端实际联动
+  - 实现 GUI 的 diff 确认弹窗与后端实际联动
   - 更新 `docs/frontend-protocol.md` 以反映新 protocol 层设计
   - 在 Win7 环境下验证 GUI 前端兼容性（IE11 回退）

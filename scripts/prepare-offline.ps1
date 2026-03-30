@@ -469,22 +469,15 @@ if (Test-Path -LiteralPath $intranetGuide) {
 $defaultConfig = @'
 {
   "_comment": "EmbedAgent Configuration - Update for your internal LLM service",
-  "llm": {
-    "base_url": "http://192.168.1.100:8000/v1",
-    "api_key": "sk-internal",
-    "model": "qwen3.5-coder",
-    "timeout": 120,
-    "max_retries": 3
-  },
-  "context": {
-    "max_context_tokens": 32000,
-    "reserve_output_tokens": 3000,
-    "chars_per_token": 3.0
-  },
-  "default_mode": "code",
-  "session": {
-    "default_limit": 10
-  }
+  "base_url": "http://192.168.1.100:8000/v1",
+  "api_key": "sk-internal",
+  "model": "qwen3.5-coder",
+  "timeout": 120,
+  "max_context_tokens": 32000,
+  "reserve_output_tokens": 3000,
+  "chars_per_token": 3.0,
+  "max_turns": 8,
+  "default_mode": "code"
 }
 '@
 Write-TextFile -Path (Join-Path $bundleRoot 'config\config.json.template') -Content ($defaultConfig.Trim() + "`r`n")
@@ -492,12 +485,10 @@ Write-TextFile -Path (Join-Path $bundleRoot 'config\config.json.template') -Cont
 # Also create a minimal config.json for quick start
 $minimalConfig = @'
 {
-  "llm": {
-    "base_url": "http://192.168.1.100:8000/v1",
-    "api_key": "",
-    "model": "",
-    "timeout": 120
-  },
+  "base_url": "http://192.168.1.100:8000/v1",
+  "api_key": "",
+  "model": "",
+  "timeout": 120,
   "default_mode": "code"
 }
 '@

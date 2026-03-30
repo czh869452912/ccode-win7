@@ -203,17 +203,12 @@ C:\Tools\EmbedAgent\embedagent.cmd --workspace D:\Project --model qwen3.5-coder 
 
 ```json
 {
-  "llm": {
-    "base_url": "http://192.168.1.100:8000/v1",
-    "api_key": "sk-internal-key",
-    "model": "qwen3.5-coder",
-    "timeout": 120,
-    "max_retries": 3
-  },
-  "context": {
-    "max_context_tokens": 32000,
-    "reserve_output_tokens": 3000
-  },
+  "base_url": "http://192.168.1.100:8000/v1",
+  "api_key": "sk-internal-key",
+  "model": "qwen3.5-coder",
+  "timeout": 120,
+  "max_context_tokens": 32000,
+  "reserve_output_tokens": 3000,
   "default_mode": "code"
 }
 ```

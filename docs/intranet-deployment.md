@@ -78,12 +78,10 @@ copy C:\Tools\EmbedAgent\config\config.json C:\Users\<username>\.embedagent\
 
 ```json
 {
-  "llm": {
-    "base_url": "http://192.168.1.100:8000/v1",
-    "api_key": "your-internal-api-key",
-    "model": "qwen3.5-coder",
-    "timeout": 120
-  },
+  "base_url": "http://192.168.1.100:8000/v1",
+  "api_key": "your-internal-api-key",
+  "model": "qwen3.5-coder",
+  "timeout": 120,
   "default_mode": "code"
 }
 ```
@@ -158,11 +156,9 @@ cd C:\Tools\EmbedAgent
 
 ```json
 {
-  "llm": {
-    "base_url": "http://new-internal-server:8000/v1",
-    "api_key": "new-key",
-    "model": "new-model-name"
-  }
+  "base_url": "http://new-internal-server:8000/v1",
+  "api_key": "new-key",
+  "model": "new-model-name"
 }
 ```
 

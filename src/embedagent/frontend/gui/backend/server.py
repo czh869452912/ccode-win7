@@ -5,22 +5,20 @@ GUI Backend - FastAPI + WebSocket 服务
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
+import threading
 from contextlib import asynccontextmanager
-from datetime import datetime
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, Optional, Set
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
+from embedagent.frontend.gui.backend.bridge import BlockingResult, ThreadsafeAsyncDispatcher
 from embedagent.protocol import (
     CoreInterface,
-    DiffPreview,
     FrontendCallbacks,
     Message,
-    MessageType,
     PermissionRequest,
     SessionSnapshot,
     ToolCall,
@@ -39,11 +37,14 @@ class WebSocketFrontend(FrontendCallbacks):
     
     def __init__(self):
         self.connections: Set[WebSocket] = set()
-        self._pending_permissions: Dict[str, asyncio.Future] = {}
-        self._pending_inputs: Dict[str, asyncio.Future] = {}
+        self._pending_permissions = {}  # type: Dict[str, BlockingResult[bool]]
+        self._pending_inputs = {}  # type: Dict[str, BlockingResult[Optional[str]]]
+        self._pending_lock = threading.RLock()
+        self._dispatcher = ThreadsafeAsyncDispatcher()
     
     async def connect(self, websocket: WebSocket):
         await websocket.accept()
+        self._dispatcher.bind_running_loop()
         self.connections.add(websocket)
         _LOGGER.info(f"WebSocket connected, total: {len(self.connections)}")
     
@@ -63,11 +64,14 @@ class WebSocketFrontend(FrontendCallbacks):
         # 清理断开的连接
         for conn in disconnected:
             self.connections.discard(conn)
+
+    def _dispatch_message(self, message: Dict[str, Any]) -> bool:
+        return self._dispatcher.dispatch(lambda: self.broadcast(message))
     
     # ============ FrontendCallbacks 实现 ============
     
     def on_message(self, message: Message) -> None:
-        asyncio.create_task(self.broadcast({
+        self._dispatch_message({
             "type": "message",
             "data": {
                 "id": message.id,
@@ -76,26 +80,26 @@ class WebSocketFrontend(FrontendCallbacks):
                 "timestamp": message.timestamp.isoformat(),
                 "metadata": message.metadata
             }
-        }))
+        })
     
     def on_tool_start(self, call: ToolCall) -> None:
-        asyncio.create_task(self.broadcast({
+        self._dispatch_message({
             "type": "tool_start",
             "data": {
                 "tool_name": call.tool_name,
                 "arguments": call.arguments,
                 "call_id": call.call_id
             }
-        }))
+        })
     
     def on_tool_progress(self, call_id: str, progress: Dict[str, Any]) -> None:
-        asyncio.create_task(self.broadcast({
+        self._dispatch_message({
             "type": "tool_progress",
             "data": {"call_id": call_id, **progress}
-        }))
+        })
     
     def on_tool_finish(self, result: ToolResult) -> None:
-        asyncio.create_task(self.broadcast({
+        self._dispatch_message({
             "type": "tool_finish",
             "data": {
                 "tool_name": result.tool_name,
@@ -104,14 +108,14 @@ class WebSocketFrontend(FrontendCallbacks):
                 "error": result.error,
                 "execution_time_ms": result.execution_time_ms
             }
-        }))
+        })
     
     def on_permission_request(self, request: PermissionRequest) -> bool:
         """同步阻塞等待用户响应"""
-        future = asyncio.get_event_loop().create_future()
-        self._pending_permissions[request.permission_id] = future
-        
-        asyncio.create_task(self.broadcast({
+        waiter = BlockingResult(False)
+        with self._pending_lock:
+            self._pending_permissions[request.permission_id] = waiter
+        queued = self._dispatch_message({
             "type": "permission_request",
             "data": {
                 "permission_id": request.permission_id,
@@ -120,22 +124,21 @@ class WebSocketFrontend(FrontendCallbacks):
                 "reason": request.reason,
                 "details": request.details
             }
-        }))
-        
+        })
         try:
-            # 等待用户响应（通过 WebSocket 接收）
-            return asyncio.wait_for(future, timeout=300.0)
-        except asyncio.TimeoutError:
-            return False
+            if not queued:
+                return False
+            return bool(waiter.wait(300.0))
         finally:
-            self._pending_permissions.pop(request.permission_id, None)
+            with self._pending_lock:
+                self._pending_permissions.pop(request.permission_id, None)
     
     def on_user_input_request(self, request: UserInputRequest) -> Optional[str]:
         """同步阻塞等待用户响应"""
-        future = asyncio.get_event_loop().create_future()
-        self._pending_inputs[request.request_id] = future
-        
-        asyncio.create_task(self.broadcast({
+        waiter = BlockingResult(None)  # type: BlockingResult[Optional[str]]
+        with self._pending_lock:
+            self._pending_inputs[request.request_id] = waiter
+        queued = self._dispatch_message({
             "type": "user_input_request",
             "data": {
                 "request_id": request.request_id,
@@ -143,18 +146,17 @@ class WebSocketFrontend(FrontendCallbacks):
                 "question": request.question,
                 "options": request.options
             }
-        }))
-        
+        })
         try:
-            result = asyncio.wait_for(future, timeout=300.0)
-            return result
-        except asyncio.TimeoutError:
-            return None
+            if not queued:
+                return None
+            return waiter.wait(300.0)
         finally:
-            self._pending_inputs.pop(request.request_id, None)
+            with self._pending_lock:
+                self._pending_inputs.pop(request.request_id, None)
     
     def on_session_status_change(self, snapshot: SessionSnapshot) -> None:
-        asyncio.create_task(self.broadcast({
+        self._dispatch_message({
             "type": "session_status",
             "data": {
                 "session_id": snapshot.session_id,
@@ -164,27 +166,29 @@ class WebSocketFrontend(FrontendCallbacks):
                 "has_pending_input": snapshot.has_pending_input,
                 "last_error": snapshot.last_error
             }
-        }))
+        })
     
     def on_stream_delta(self, text: str) -> None:
-        asyncio.create_task(self.broadcast({
+        self._dispatch_message({
             "type": "stream_delta",
             "data": {"text": text}
-        }))
+        })
     
     # ============ 处理前端响应 ============
     
     def handle_permission_response(self, permission_id: str, approved: bool):
         """处理权限响应"""
-        future = self._pending_permissions.get(permission_id)
-        if future and not future.done():
-            future.set_result(approved)
+        with self._pending_lock:
+            waiter = self._pending_permissions.get(permission_id)
+        if waiter is not None:
+            waiter.resolve(bool(approved))
     
     def handle_user_input_response(self, request_id: str, answer: str):
         """处理用户输入响应"""
-        future = self._pending_inputs.get(request_id)
-        if future and not future.done():
-            future.set_result(answer)
+        with self._pending_lock:
+            waiter = self._pending_inputs.get(request_id)
+        if waiter is not None:
+            waiter.resolve(answer)
 
 
 class GUIBackend:

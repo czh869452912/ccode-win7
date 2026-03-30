@@ -103,6 +103,36 @@ class TestMerge(unittest.TestCase):
         result = _merge(base, {"timeout": 60})
         self.assertEqual(result.timeout, 60)
 
+    def test_nested_sections_are_merged(self):
+        base = AppConfig()
+        result = _merge(
+            base,
+            {
+                "llm": {
+                    "base_url": "http://internal/v1",
+                    "api_key": "sk-test",
+                    "model": "qwen3.5-coder",
+                    "timeout": 45,
+                },
+                "context": {
+                    "max_context_tokens": 32000,
+                    "reserve_output_tokens": 3000,
+                    "chars_per_token": 3.5,
+                    "max_recent_turns": 4,
+                },
+                "session": {"max_turns": 12},
+            },
+        )
+        self.assertEqual(result.base_url, "http://internal/v1")
+        self.assertEqual(result.api_key, "sk-test")
+        self.assertEqual(result.model, "qwen3.5-coder")
+        self.assertEqual(result.timeout, 45)
+        self.assertEqual(result.max_context_tokens, 32000)
+        self.assertEqual(result.reserve_output_tokens, 3000)
+        self.assertEqual(result.chars_per_token, 3.5)
+        self.assertEqual(result.max_recent_turns, 4)
+        self.assertEqual(result.max_turns, 12)
+
 
 class TestLoadConfig(unittest.TestCase):
     def test_no_config_files_returns_defaults(self):
@@ -161,6 +191,35 @@ class TestLoadConfig(unittest.TestCase):
                 json.dump({"mode_extra_writable_globs": {"code": ["**/*.cmake"]}}, f)
             cfg = load_config(workspace)
             self.assertEqual(cfg.mode_extra_writable_globs["code"], ["**/*.cmake"])
+
+    def test_nested_project_config_loaded(self):
+        with tempfile.TemporaryDirectory() as workspace:
+            config_dir = os.path.join(workspace, ".embedagent")
+            os.makedirs(config_dir)
+            config_path = os.path.join(config_dir, "config.json")
+            with open(config_path, "w") as f:
+                json.dump(
+                    {
+                        "llm": {
+                            "base_url": "http://nested/v1",
+                            "api_key": "nested-key",
+                            "model": "nested-model",
+                            "timeout": 90,
+                        },
+                        "context": {
+                            "max_context_tokens": 24000,
+                            "reserve_output_tokens": 2500,
+                        },
+                    },
+                    f,
+                )
+            cfg = load_config(workspace)
+            self.assertEqual(cfg.base_url, "http://nested/v1")
+            self.assertEqual(cfg.api_key, "nested-key")
+            self.assertEqual(cfg.model, "nested-model")
+            self.assertEqual(cfg.timeout, 90)
+            self.assertEqual(cfg.max_context_tokens, 24000)
+            self.assertEqual(cfg.reserve_output_tokens, 2500)
 
 
 if __name__ == "__main__":

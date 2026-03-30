@@ -10,6 +10,7 @@ import os
 import sys
 import threading
 import time
+from typing import Any, Dict, Optional
 
 # 配置日志
 logging.basicConfig(
@@ -36,33 +37,73 @@ def check_dependencies():
     return True
 
 
-def create_core(workspace: str, config: dict):
+def _resolve_runtime_value(override: Any, configured: Any, default: Any) -> Any:
+    if override is not None:
+        if isinstance(override, str):
+            if override.strip():
+                return override
+        else:
+            return override
+    if configured is not None:
+        return configured
+    return default
+
+
+def create_core(workspace: str, config: Optional[Dict[str, Any]] = None):
     """创建 Agent Core 实例"""
     # 延迟导入以避免循环依赖
     from embedagent.core.adapter import AgentCoreAdapter
+    from embedagent.context import ContextManager, make_context_config
     from embedagent.llm import OpenAICompatibleClient
-    from embedagent.tools import ToolRuntime
     from embedagent.config import load_config
+    from embedagent.permissions import PermissionPolicy
+    from embedagent.project_memory import ProjectMemoryStore
+    from embedagent.tools import ToolRuntime
+
+    options = dict(config or {})
+    workspace = os.path.realpath(workspace)
     
     # 加载配置
     app_config = load_config(workspace)
+    base_url = str(_resolve_runtime_value(options.get("base_url"), app_config.base_url, "http://127.0.0.1:8000/v1"))
+    api_key = str(_resolve_runtime_value(options.get("api_key"), app_config.api_key, ""))
+    model = str(_resolve_runtime_value(options.get("model"), app_config.model, ""))
+    timeout = float(_resolve_runtime_value(options.get("timeout"), app_config.timeout, 120.0))
+    max_turns = int(_resolve_runtime_value(options.get("max_turns"), app_config.max_turns, 8))
+    permission_rules = str(options.get("permission_rules") or "")
+    if not model:
+        raise ValueError("必须通过 --model 或配置文件提供模型名称。")
     
     # 创建 LLM 客户端
     client = OpenAICompatibleClient(
-        base_url=app_config.get("llm", {}).get("base_url", "http://localhost:8000"),
-        api_key=app_config.get("llm", {}).get("api_key", ""),
-        model=app_config.get("llm", {}).get("model", "gpt-3.5-turbo"),
+        base_url=base_url,
+        api_key=api_key,
+        model=model,
+        timeout=timeout,
     )
     
     # 创建工具运行时
-    tools = ToolRuntime(workspace=workspace)
+    tools = ToolRuntime(workspace=workspace, app_config=app_config)
+    context_manager = ContextManager(
+        config=make_context_config(app_config),
+        project_memory=ProjectMemoryStore(workspace),
+    )
+    permission_policy = PermissionPolicy(
+        auto_approve_all=bool(options.get("approve_all", False)),
+        auto_approve_writes=bool(options.get("approve_writes", False)),
+        auto_approve_commands=bool(options.get("approve_commands", False)),
+        workspace=workspace,
+        rules_path=permission_rules,
+    )
     
     # 创建 Core Adapter
-    core = AgentCoreAdapter(workspace=workspace, config=app_config)
+    core = AgentCoreAdapter(workspace=workspace, config=options)
     core.initialize(
         client=client,
         tools=tools,
-        max_turns=config.get("max_turns", 8)
+        max_turns=max_turns,
+        permission_policy=permission_policy,
+        context_manager=context_manager,
     )
     
     return core
@@ -75,6 +116,15 @@ def launch_gui(
     mode: str = "code",
     debug: bool = False,
     headless: bool = False,
+    base_url: Optional[str] = None,
+    api_key: Optional[str] = None,
+    model: Optional[str] = None,
+    timeout: Optional[float] = None,
+    max_turns: Optional[int] = None,
+    approve_all: bool = False,
+    approve_writes: bool = False,
+    approve_commands: bool = False,
+    permission_rules: str = "",
 ):
     """
     启动 GUI
@@ -88,10 +138,11 @@ def launch_gui(
         headless: 是否无窗口模式（用于测试）
     """
     if not check_dependencies():
-        sys.exit(1)
+        raise RuntimeError("GUI 依赖未安装。")
     
     import uvicorn
     import webview
+    workspace = os.path.realpath(workspace)
     
     # 查找可用端口
     if port == 0:
@@ -103,107 +154,148 @@ def launch_gui(
     
     # 创建 Core
     _LOGGER.info(f"Initializing Agent Core for workspace: {workspace}")
-    core = create_core(workspace, {"max_turns": 8})
-    
-    # 创建 GUI Backend
-    static_dir = os.path.join(
-        os.path.dirname(__file__),
-        "static"
+    core = create_core(
+        workspace,
+        {
+            "base_url": base_url,
+            "api_key": api_key,
+            "model": model,
+            "timeout": timeout,
+            "max_turns": max_turns,
+            "approve_all": approve_all,
+            "approve_writes": approve_writes,
+            "approve_commands": approve_commands,
+            "permission_rules": permission_rules,
+        },
     )
     
-    from embedagent.frontend.gui.backend.server import GUIBackend
-    backend = GUIBackend(core=core, static_dir=static_dir)
-    
-    # 启动 FastAPI 服务器（在后台线程）
-    server_url = f"http://{host}:{port}"
-    
-    def run_server():
-        uvicorn.run(
-            backend.app,
-            host=host,
-            port=port,
-            log_level="warning" if not debug else "info"
+    try:
+        # 创建 GUI Backend
+        static_dir = os.path.join(
+            os.path.dirname(__file__),
+            "static"
         )
-    
-    server_thread = threading.Thread(target=run_server, daemon=True)
-    server_thread.start()
-    
-    # 等待服务器启动
-    _LOGGER.info(f"Starting server at {server_url}")
-    time.sleep(1)
-    
-    if headless:
-        _LOGGER.info("Running in headless mode, press Ctrl+C to exit")
-        try:
-            while True:
-                time.sleep(1)
-        except KeyboardInterrupt:
-            _LOGGER.info("Shutting down...")
-        return
-    
-    # 创建 PyWebView 窗口
-    window_title = f"EmbedAgent - {os.path.basename(workspace)}"
-    
-    # Windows 7 兼容性设置
-    webview_settings = {
-        "text_select": True,
-        "confirm_close": True,
-    }
-    
-    # 尝试使用 Edge Chromium（如果安装了 WebView2）
-    if sys.platform == "win32":
-        try:
-            import webview.platforms.winforms
-            # 优先使用 Edge Chromium
-            webview.platforms.winforms.BUILTIN_BROWSER = 'edgechromium'
-            _LOGGER.info("Using Edge Chromium (WebView2)")
-        except:
-            _LOGGER.info("Using default browser (IE11)")
-    
-    window = webview.create_window(
-        title=window_title,
-        url=server_url,
-        width=1400,
-        height=900,
-        min_size=(800, 600),
-        **webview_settings
-    )
-    
-    _LOGGER.info("Starting GUI...")
-    webview.start(debug=debug)
-    
-    # 清理
-    _LOGGER.info("Shutting down...")
-    core.shutdown()
+        
+        from embedagent.frontend.gui.backend.server import GUIBackend
+        backend = GUIBackend(core=core, static_dir=static_dir)
+        
+        # 启动 FastAPI 服务器（在后台线程）
+        server_url = f"http://{host}:{port}"
+        
+        def run_server():
+            uvicorn.run(
+                backend.app,
+                host=host,
+                port=port,
+                log_level="warning" if not debug else "info"
+            )
+        
+        server_thread = threading.Thread(target=run_server, daemon=True)
+        server_thread.start()
+        
+        # 等待服务器启动
+        _LOGGER.info(f"Starting server at {server_url}")
+        time.sleep(1)
+        
+        if headless:
+            _LOGGER.info("Running in headless mode, press Ctrl+C to exit")
+            try:
+                while True:
+                    time.sleep(1)
+            except KeyboardInterrupt:
+                return
+        
+        # 创建 PyWebView 窗口
+        window_title = f"EmbedAgent - {os.path.basename(workspace)}"
+        
+        # Windows 7 兼容性设置
+        webview_settings = {
+            "text_select": True,
+            "confirm_close": True,
+        }
+        
+        # 尝试使用 Edge Chromium（如果安装了 WebView2）
+        if sys.platform == "win32":
+            try:
+                import webview.platforms.winforms
+                # 优先使用 Edge Chromium
+                webview.platforms.winforms.BUILTIN_BROWSER = 'edgechromium'
+                _LOGGER.info("Using Edge Chromium (WebView2)")
+            except Exception:
+                _LOGGER.info("Using default browser (IE11)")
+        
+        webview.create_window(
+            title=window_title,
+            url=server_url,
+            width=1400,
+            height=900,
+            min_size=(800, 600),
+            **webview_settings
+        )
+        
+        _LOGGER.info("Starting GUI...")
+        webview.start(debug=debug)
+    finally:
+        _LOGGER.info("Shutting down...")
+        core.shutdown()
 
 
-def main():
-    """命令行入口"""
+def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="EmbedAgent GUI")
-    parser.add_argument("workspace", help="Workspace directory")
+    parser.add_argument("workspace", nargs="?", help="Workspace directory")
+    parser.add_argument("--workspace", dest="workspace_option", default="", help="Workspace directory")
     parser.add_argument("--host", default="127.0.0.1", help="Server host")
     parser.add_argument("--port", type=int, default=0, help="Server port (0=auto)")
     parser.add_argument("--mode", default="code", help="Initial mode")
+    parser.add_argument("--base-url", default="", help="Model service root URL")
+    parser.add_argument("--api-key", default="", help="Model service API key")
+    parser.add_argument("--model", default="", help="Model name")
+    parser.add_argument("--timeout", type=float, default=None, help="Model request timeout in seconds")
+    parser.add_argument("--max-turns", type=int, default=None, help="Maximum turns per session")
+    parser.add_argument("--approve-all", action="store_true", help="Auto-approve all risky actions")
+    parser.add_argument("--approve-writes", action="store_true", help="Auto-approve file writes")
+    parser.add_argument("--approve-commands", action="store_true", help="Auto-approve commands and toolchain runs")
+    parser.add_argument("--permission-rules", default="", help="Permission rules file path")
     parser.add_argument("--debug", action="store_true", help="Debug mode")
     parser.add_argument("--headless", action="store_true", help="Headless mode (no window)")
-    
-    args = parser.parse_args()
-    
+    return parser
+
+
+def main(argv: Optional[list] = None) -> int:
+    """命令行入口"""
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    workspace_arg = args.workspace_option or args.workspace or os.getcwd()
+
     # 验证工作区
-    workspace = os.path.abspath(args.workspace)
+    workspace = os.path.abspath(workspace_arg)
     if not os.path.isdir(workspace):
         _LOGGER.error(f"Workspace not found: {workspace}")
-        sys.exit(1)
-    
-    launch_gui(
-        workspace=workspace,
-        host=args.host,
-        port=args.port,
-        mode=args.mode,
-        debug=args.debug,
-        headless=args.headless,
-    )
+        return 1
+
+    try:
+        launch_gui(
+            workspace=workspace,
+            host=args.host,
+            port=args.port,
+            mode=args.mode,
+            debug=args.debug,
+            headless=args.headless,
+            base_url=args.base_url or None,
+            api_key=args.api_key or None,
+            model=args.model or None,
+            timeout=args.timeout,
+            max_turns=args.max_turns,
+            approve_all=args.approve_all,
+            approve_writes=args.approve_writes,
+            approve_commands=args.approve_commands,
+            permission_rules=args.permission_rules,
+        )
+    except (RuntimeError, ValueError) as exc:
+        _LOGGER.error(str(exc))
+        return 1
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

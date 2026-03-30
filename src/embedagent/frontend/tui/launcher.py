@@ -1,6 +1,6 @@
 """
 TUI Launcher
-使用新架构启动 TUI
+使用现有稳定的 bootstrap 入口启动 TUI。
 """
 from __future__ import annotations
 
@@ -8,43 +8,24 @@ import argparse
 import logging
 import os
 import sys
-from typing import Optional
+from typing import Any, Optional
 
-from embedagent.core.adapter import AgentCoreAdapter
-from embedagent.frontend.tui.app import TerminalApp
-from embedagent.frontend.tui.frontend_adapter import TUIFrontend
+from embedagent.config import load_config
+from embedagent.frontend.tui.bootstrap import TUIUnavailableError, run_tui
 
 _LOGGER = logging.getLogger(__name__)
 
 
-def create_core(workspace: str, config: Optional[dict] = None):
-    """创建 Agent Core 实例"""
-    from embedagent.llm import OpenAICompatibleClient
-    from embedagent.tools import ToolRuntime
-    from embedagent.config import load_config
-    
-    # 加载配置
-    app_config = load_config(workspace)
-    
-    # 创建 LLM 客户端
-    client = OpenAICompatibleClient(
-        base_url=app_config.get("llm", {}).get("base_url", "http://localhost:8000"),
-        api_key=app_config.get("llm", {}).get("api_key", ""),
-        model=app_config.get("llm", {}).get("model", "gpt-3.5-turbo"),
-    )
-    
-    # 创建工具运行时
-    tools = ToolRuntime(workspace=workspace)
-    
-    # 创建 Core Adapter
-    core = AgentCoreAdapter(workspace=workspace, config=app_config)
-    core.initialize(
-        client=client,
-        tools=tools,
-        max_turns=config.get("max_turns", 8) if config else 8
-    )
-    
-    return core
+def _resolve_runtime_value(override: Any, configured: Any, default: Any) -> Any:
+    if override is not None:
+        if isinstance(override, str):
+            if override.strip():
+                return override
+        else:
+            return override
+    if configured is not None:
+        return configured
+    return default
 
 
 def launch_tui(
@@ -53,85 +34,114 @@ def launch_tui(
     resume: str = "",
     message: str = "",
     headless: bool = False,
-    **kwargs
+    base_url: Optional[str] = None,
+    api_key: Optional[str] = None,
+    model: Optional[str] = None,
+    timeout: Optional[float] = None,
+    max_turns: Optional[int] = None,
+    approve_all: bool = False,
+    approve_writes: bool = False,
+    approve_commands: bool = False,
+    permission_rules: str = "",
 ):
-    """
-    启动 TUI
-    
-    Args:
-        workspace: 工作区路径
-        mode: 初始模式
-        resume: 恢复会话的引用
-        message: 初始消息
-        headless: 无头模式（用于测试）
-    """
-    _LOGGER.info(f"Starting TUI for workspace: {workspace}")
-    
-    # 创建 Core
-    core = create_core(workspace, {"max_turns": kwargs.get("max_turns", 8)})
-    
-    # 创建 TUI App
-    app = TerminalApp(
-        adapter=core,  # 这里传递 core，但 TerminalApp 需要适配
-        workspace=workspace,
-        initial_mode=mode,
-        resume_reference=resume,
-        initial_message=message,
-        headless=headless,
-        create_pipe_input=kwargs.get("create_pipe_input"),
-        dummy_output=kwargs.get("dummy_output"),
-    )
-    
-    # 创建并注册前端适配器
-    frontend = TUIFrontend(app)
-    core.register_frontend(frontend)
-    
-    # 运行
+    """启动 TUI。"""
+    workspace = os.path.realpath(workspace)
+    app_config = load_config(workspace)
+    resolved_base_url = str(_resolve_runtime_value(base_url, app_config.base_url, "http://127.0.0.1:8000/v1"))
+    resolved_api_key = str(_resolve_runtime_value(api_key, app_config.api_key, ""))
+    resolved_model = str(_resolve_runtime_value(model, app_config.model, ""))
+    resolved_timeout = float(_resolve_runtime_value(timeout, app_config.timeout, 120.0))
+    resolved_max_turns = int(_resolve_runtime_value(max_turns, app_config.max_turns, 8))
+    if not resolved_model:
+        raise ValueError("必须通过 --model 或配置文件提供模型名称。")
+
+    previous_headless = os.environ.get("EMBEDAGENT_TUI_HEADLESS")
+    if headless:
+        os.environ["EMBEDAGENT_TUI_HEADLESS"] = "1"
+    else:
+        os.environ.pop("EMBEDAGENT_TUI_HEADLESS", None)
     try:
-        exit_code = app.run()
-        return exit_code
-    except KeyboardInterrupt:
-        _LOGGER.info("Interrupted by user")
-        return 0
+        return run_tui(
+            base_url=resolved_base_url,
+            api_key=resolved_api_key,
+            model=resolved_model,
+            workspace=workspace,
+            timeout=resolved_timeout,
+            max_turns=resolved_max_turns,
+            mode=mode,
+            resume=resume,
+            approve_all=approve_all,
+            approve_writes=approve_writes,
+            approve_commands=approve_commands,
+            permission_rules=permission_rules,
+            initial_message=message,
+        )
     finally:
-        core.shutdown()
+        if previous_headless is None:
+            os.environ.pop("EMBEDAGENT_TUI_HEADLESS", None)
+        else:
+            os.environ["EMBEDAGENT_TUI_HEADLESS"] = previous_headless
 
 
-def main():
-    """命令行入口"""
+def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="EmbedAgent TUI")
-    parser.add_argument("workspace", nargs="?", default=".", help="Workspace directory")
+    parser.add_argument("workspace", nargs="?", help="Workspace directory")
+    parser.add_argument("--workspace", dest="workspace_option", default="", help="Workspace directory")
     parser.add_argument("--mode", default="code", help="Initial mode")
     parser.add_argument("--resume", default="", help="Resume session reference")
     parser.add_argument("--message", "-m", default="", help="Initial message")
+    parser.add_argument("--base-url", default="", help="Model service root URL")
+    parser.add_argument("--api-key", default="", help="Model service API key")
+    parser.add_argument("--model", default="", help="Model name")
+    parser.add_argument("--timeout", type=float, default=None, help="Model request timeout in seconds")
+    parser.add_argument("--max-turns", type=int, default=None, help="Maximum turns per session")
+    parser.add_argument("--approve-all", action="store_true", help="Auto-approve all risky actions")
+    parser.add_argument("--approve-writes", action="store_true", help="Auto-approve file writes")
+    parser.add_argument("--approve-commands", action="store_true", help="Auto-approve commands and toolchain runs")
+    parser.add_argument("--permission-rules", default="", help="Permission rules file path")
     parser.add_argument("--headless", action="store_true", help="Headless mode")
     parser.add_argument("--debug", action="store_true", help="Debug mode")
-    
-    args = parser.parse_args()
-    
-    # 配置日志
+    return parser
+
+
+def main(argv: Optional[list] = None) -> int:
+    """命令行入口"""
+    parser = build_parser()
+    args = parser.parse_args(argv)
+
     logging.basicConfig(
         level=logging.DEBUG if args.debug else logging.INFO,
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     )
-    
-    # 验证工作区
-    workspace = os.path.abspath(args.workspace)
+
+    workspace_arg = args.workspace_option or args.workspace or os.getcwd()
+    workspace = os.path.abspath(workspace_arg)
     if not os.path.isdir(workspace):
         _LOGGER.error(f"Workspace not found: {workspace}")
-        sys.exit(1)
-    
-    # 启动
-    exit_code = launch_tui(
-        workspace=workspace,
-        mode=args.mode,
-        resume=args.resume,
-        message=args.message,
-        headless=args.headless,
-    )
-    
-    sys.exit(exit_code)
+        return 1
+
+    try:
+        exit_code = launch_tui(
+            workspace=workspace,
+            mode=args.mode,
+            resume=args.resume,
+            message=args.message,
+            headless=args.headless,
+            base_url=args.base_url or None,
+            api_key=args.api_key or None,
+            model=args.model or None,
+            timeout=args.timeout,
+            max_turns=args.max_turns,
+            approve_all=args.approve_all,
+            approve_writes=args.approve_writes,
+            approve_commands=args.approve_commands,
+            permission_rules=args.permission_rules,
+        )
+    except (TUIUnavailableError, ValueError) as exc:
+        _LOGGER.error(str(exc))
+        return 1
+    return int(exit_code or 0)
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
