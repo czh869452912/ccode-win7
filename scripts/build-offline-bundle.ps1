@@ -56,7 +56,10 @@ function Remove-IfExists {
         return
     }
     Assert-ChildPath -Root $Root -Child $Target
-    Remove-Item -LiteralPath $Target -Recurse -Force
+    Remove-Item -LiteralPath $Target -Recurse -Force -ErrorAction SilentlyContinue
+    if (Test-Path -LiteralPath $Target) {
+        throw "Failed to remove target: $Target"
+    }
 }
 
 function Copy-BundleTree {

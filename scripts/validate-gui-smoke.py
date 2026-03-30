@@ -176,7 +176,6 @@ def _build_command(bundle_root: Optional[str], workspace_dir: str, model_port: i
                 "http://127.0.0.1:%d/v1" % model_port,
                 "--port",
                 str(gui_port),
-                "--headless",
                 "--timeout",
                 "20",
                 "--max-turns",
@@ -191,23 +190,22 @@ def _build_command(bundle_root: Optional[str], workspace_dir: str, model_port: i
     env = dict(os.environ)
     env["PYTHONPATH"] = os.path.join(REPO_ROOT, "src")
     return {
-        "command": [
-            PYTHON_EXE,
-            "-m",
-            "embedagent.frontend.gui.launcher",
-            "--workspace",
+            "command": [
+                PYTHON_EXE,
+                "-m",
+                "embedagent.frontend.gui.launcher",
+                "--workspace",
             workspace_dir,
             "--model",
             "gui-smoke-model",
-            "--base-url",
-            "http://127.0.0.1:%d/v1" % model_port,
-            "--port",
-            str(gui_port),
-            "--headless",
-            "--timeout",
-            "20",
-            "--max-turns",
-            "2",
+                "--base-url",
+                "http://127.0.0.1:%d/v1" % model_port,
+                "--port",
+                str(gui_port),
+                "--timeout",
+                "20",
+                "--max-turns",
+                "2",
         ],
         "cwd": REPO_ROOT,
         "env": env,
@@ -215,8 +213,11 @@ def _build_command(bundle_root: Optional[str], workspace_dir: str, model_port: i
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Validate headless GUI smoke flow.")
+    parser = argparse.ArgumentParser(description="Validate GUI smoke flow.")
     parser.add_argument("--bundle-root", default="", help="Optional offline bundle root to launch instead of source tree")
+    parser.add_argument("--workspace", default="", help="Optional workspace path to use during smoke validation")
+    parser.add_argument("--windowed", action="store_true", help="Launch a real GUI window and auto-close it")
+    parser.add_argument("--auto-close-seconds", type=float, default=8.0, help="Auto-close delay for windowed smoke")
     return parser
 
 
@@ -232,9 +233,17 @@ def main(argv: Optional[List[str]] = None) -> int:
     server_thread.start()
 
     process = None
-    workspace_dir = tempfile.mkdtemp(prefix="embedagent-gui-smoke-")
+    workspace_dir = os.path.realpath(args.workspace) if args.workspace else tempfile.mkdtemp(prefix="embedagent-gui-smoke-")
+    if not os.path.isdir(workspace_dir):
+        os.makedirs(workspace_dir)
     try:
         launch = _build_command(bundle_root or None, workspace_dir, model_port, gui_port)
+        renderer_report_path = os.path.join(workspace_dir, "renderer-report.json")
+        launch["command"] += ["--renderer-report", renderer_report_path]
+        if args.windowed:
+            launch["command"] += ["--auto-close-seconds", str(args.auto_close_seconds)]
+        else:
+            launch["command"].append("--headless")
         process = subprocess.Popen(
             launch["command"],
             cwd=str(launch["cwd"]),
@@ -248,6 +257,10 @@ def main(argv: Optional[List[str]] = None) -> int:
             raise RuntimeError("GUI smoke did not receive assistant stream text: %s" % summary)
         if not FakeOpenAIHandler.requests_seen:
             raise RuntimeError("Fake model server did not receive any request")
+        renderer_report = {}
+        if os.path.isfile(renderer_report_path):
+            with open(renderer_report_path, "r", encoding="utf-8") as handle:
+                renderer_report = json.load(handle)
         print(json.dumps({
             "bundle_root": bundle_root or "",
             "workspace": workspace_dir,
@@ -257,6 +270,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             "session_statuses": summary.get("session_statuses"),
             "tool_events": summary.get("tool_events"),
             "model_requests": len(FakeOpenAIHandler.requests_seen),
+            "renderer_report": renderer_report,
         }, ensure_ascii=False, indent=2))
         return 0
     finally:

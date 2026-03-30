@@ -5,6 +5,7 @@ EmbedAgent GUI Launcher
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import os
 import sys
@@ -109,6 +110,35 @@ def create_core(workspace: str, config: Optional[Dict[str, Any]] = None):
     return core
 
 
+def _detect_windows_renderer() -> Dict[str, Any]:
+    if sys.platform != "win32":
+        return {"platform": sys.platform, "renderer": "non-win32"}
+    try:
+        import webview.platforms.winforms as winforms
+        return {
+            "platform": "win32",
+            "renderer": str(getattr(winforms, "renderer", "unknown")),
+            "is_chromium": bool(getattr(winforms, "is_chromium", False)),
+        }
+    except Exception as exc:
+        return {
+            "platform": "win32",
+            "renderer": "unknown",
+            "error": str(exc),
+        }
+
+
+def _write_renderer_report(path: str, report: Dict[str, Any]) -> None:
+    if not path:
+        return
+    target = os.path.realpath(path)
+    parent = os.path.dirname(target)
+    if parent and not os.path.isdir(parent):
+        os.makedirs(parent)
+    with open(target, "w", encoding="utf-8") as handle:
+        json.dump(report, handle, indent=2, ensure_ascii=False)
+
+
 def launch_gui(
     workspace: str,
     host: str = "127.0.0.1",
@@ -125,6 +155,8 @@ def launch_gui(
     approve_writes: bool = False,
     approve_commands: bool = False,
     permission_rules: str = "",
+    auto_close_seconds: Optional[float] = None,
+    renderer_report: str = "",
 ):
     """
     启动 GUI
@@ -192,6 +224,10 @@ def launch_gui(
         
         server_thread = threading.Thread(target=run_server, daemon=True)
         server_thread.start()
+
+        renderer_info = _detect_windows_renderer()
+        _LOGGER.info("GUI renderer detection: %s", renderer_info.get("renderer"))
+        _write_renderer_report(renderer_report, renderer_info)
         
         # 等待服务器启动
         _LOGGER.info(f"Starting server at {server_url}")
@@ -213,18 +249,8 @@ def launch_gui(
             "text_select": True,
             "confirm_close": True,
         }
-        
-        # 尝试使用 Edge Chromium（如果安装了 WebView2）
-        if sys.platform == "win32":
-            try:
-                import webview.platforms.winforms
-                # 优先使用 Edge Chromium
-                webview.platforms.winforms.BUILTIN_BROWSER = 'edgechromium'
-                _LOGGER.info("Using Edge Chromium (WebView2)")
-            except Exception:
-                _LOGGER.info("Using default browser (IE11)")
-        
-        webview.create_window(
+
+        window = webview.create_window(
             title=window_title,
             url=server_url,
             width=1400,
@@ -234,7 +260,17 @@ def launch_gui(
         )
         
         _LOGGER.info("Starting GUI...")
-        webview.start(debug=debug)
+        if auto_close_seconds and auto_close_seconds > 0:
+            def close_after_delay() -> None:
+                time.sleep(float(auto_close_seconds))
+                try:
+                    window.destroy()
+                except Exception as exc:
+                    _LOGGER.warning("Failed to auto-close GUI window: %s", exc)
+
+            webview.start(close_after_delay, debug=debug)
+        else:
+            webview.start(debug=debug)
     finally:
         _LOGGER.info("Shutting down...")
         core.shutdown()
@@ -256,6 +292,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--approve-writes", action="store_true", help="Auto-approve file writes")
     parser.add_argument("--approve-commands", action="store_true", help="Auto-approve commands and toolchain runs")
     parser.add_argument("--permission-rules", default="", help="Permission rules file path")
+    parser.add_argument("--auto-close-seconds", type=float, default=None, help="Auto-close GUI window after N seconds")
+    parser.add_argument("--renderer-report", default="", help="Optional path to write renderer detection JSON")
     parser.add_argument("--debug", action="store_true", help="Debug mode")
     parser.add_argument("--headless", action="store_true", help="Headless mode (no window)")
     return parser
@@ -290,6 +328,8 @@ def main(argv: Optional[list] = None) -> int:
             approve_writes=args.approve_writes,
             approve_commands=args.approve_commands,
             permission_rules=args.permission_rules,
+            auto_close_seconds=args.auto_close_seconds,
+            renderer_report=args.renderer_report,
         )
     except (RuntimeError, ValueError) as exc:
         _LOGGER.error(str(exc))

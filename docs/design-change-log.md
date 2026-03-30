@@ -964,7 +964,9 @@
 - 变更主题：补齐 GUI smoke 与离线 bundle GUI 验证链路
 - 变更摘要：
   - 在当前开发环境安装并同步 GUI 运行依赖，新增 `scripts/validate-gui-smoke.py`，可对源码路径和 bundle 路径执行 headless GUI smoke
+  - `src/embedagent/frontend/gui/launcher.py` 新增 renderer report 与 auto-close 参数，便于在真实 Windows 宿主执行 windowed smoke
   - 修正 `scripts/prepare-offline.ps1` 生成的 `embedagent-gui.cmd`，使其直接进入 GUI launcher，支持 GUI 专属参数
+  - 离线 bundle 新增 `validate-gui-smoke.cmd` 与 `docs/win7-gui-validation.md`，作为 Win7 实机验收入口
   - 修正 `scripts/build-offline-bundle.ps1` 的 `AssetIds` 参数处理
   - 扩展 `scripts/validate-offline-bundle.ps1` 与 `scripts/check-bundle-dependencies.py`，把 GUI launcher、静态资源、内网部署文档和 GUI 依赖纳入正式校验
 - 影响范围：
@@ -982,5 +984,4 @@
 - 是否需要 ADR：`暂不单独写`
 - 后续动作：
   - 实现 GUI 的 diff 确认弹窗与后端实际联动
-  - 在窗口模式补一次桌面 GUI smoke
   - 在真实 Win7 环境完成 WebView2 / MSHTML 回退实机验证

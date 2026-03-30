@@ -184,7 +184,7 @@ set "EMBEDAGENT_HOME=%USERPROFILE%\.embedagent"
 ### 5.3 启动检查
 
 - [x] `embedagent-gui.cmd` 存在
-- [ ] GUI 能正常启动（至少显示窗口）
+- [x] GUI 能正常启动（当前环境 windowed smoke 已通过）
 - [x] WebSocket 连接正常
 - [x] 无窗口模式 (`--headless`) 工作
 
@@ -234,12 +234,12 @@ set "EMBEDAGENT_HOME=%USERPROFILE%\.embedagent"
 | 静态文件打包配置 | ✅ 已通过 package-data + bundle 验证 |
 | GUI launcher CMD | ✅ 已创建并接入 bundle |
 | Win7 WebView2 处理 | ✅ IE11 回退已实现 |
-| Bundle 集成 | ✅ 已完成 prepare/build/validate 与 bundle smoke |
+| Bundle 集成 | ✅ 已完成 prepare/build/validate、bundle smoke 和 bundle-local 验证入口 |
 
 ---
 
 ## 9. 下一步行动
 
 1. **实现 diff 确认弹窗与后端联动** - 完成 GUI 编辑闭环
-2. **补充窗口模式 smoke** - 验证实际桌面窗口可交互
-3. **验证 Win7 兼容性** - 测试 IE11 / MSHTML 回退模式
+2. **在 Win7 执行 `validate-gui-smoke.cmd --windowed`** - 记录 `renderer_report.renderer`
+3. **回填 Win7 验证结果** - 同步到 tracker / change-log / packaging 文档
