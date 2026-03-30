@@ -127,7 +127,7 @@
 | T-009 | 实现 Phase 5 最小权限与防循环保护 | `completed` | 权限模型、Doom Loop Guard、ContextManager、mode-aware budget、Artifact Store、SessionSummaryStore、ProjectMemoryStore、Resume Entry、MemoryMaintenance 已落地；`scripts/validate-phase5.py` 已在 2026-03-29 复验通过 |
 | T-010 | 完成 Phase 6 前端协议与 TUI IA 设计 | `completed` | `frontend-protocol.md` 与 `tui-information-architecture.md` 已建立 |
 | T-011 | 实现 Phase 6A InProcessAdapter | `completed` | CLI 已改为通过 adapter 驱动 Core，并完成最小行为验证 |
-| T-012 | 落地模块化终端前端 | `in_progress` | 已完成 `src/embedagent/frontends/terminal/` 模块化拆包，接入 timeline / workspace / artifact / todo 浏览接口，保留 `embedagent.tui` 兼容入口；下一步是继续做真实控制台 / Win7 手工验证与交互细化 |
+| T-012 | 落地模块化终端前端 | `completed` | 已完成 `src/embedagent/frontends/terminal/` 模块化拆包，`src/embedagent/frontend/tui/` 已按新架构迁移，接入 timeline / workspace / artifact / todo 浏览接口，保留 `embedagent.tui` 兼容入口；下一步是继续做真实控制台 / Win7 手工验证与交互细化 |
 | T-013 | 建立 Phase 6 验证入口 | `completed` | `scripts/validate-phase6.py` 与 `docs/phase6-validation.md` 已建立，Phase 6 已进入脚本可跟踪状态 |
 | T-014 | 建立 Phase 7 离线打包设计基线 | `completed` | 已新增 `docs/offline-packaging.md`、`docs/win7-preflight-checklist.md` 与 ADR `0001-offline-portable-bundle-baseline.md` |
 | T-015 | 实现 Phase 7A prepare-offline 骨架 | `completed` | 已新增 `scripts/prepare-offline.ps1`，可生成 `build/offline-staging/EmbedAgent/`、launcher、模板配置、manifest 与 checksum 草案，并支持 `-SkipBuild` |
@@ -135,6 +135,8 @@
 | T-017 | 实现 Phase 7C validate-offline-bundle 骨架 | `completed` | 已新增 `scripts/validate-offline-bundle.ps1`，可校验 skeleton bundle，并支持 `-RequireComplete` 切换到严格门禁 |
 | T-018 | 接入 Python embeddable 与 MinGit 真实资产 | `completed` | 已新增 `scripts/offline-assets.json`，并完成真实 zip 下载、SHA256 固定、staging 解压、sources seed、license notice 与 `-RequireComplete` 验收 |
 | T-019 | 接入 ripgrep 与 Universal Ctags 真实资产 | `completed` | 已扩展 `scripts/offline-assets.json` 与 `prepare/build/validate`，完成真实 zip 下载、SHA256 固定、sources seed、license notice 与 `-RequireComplete` 验收 |
+| T-020 | 实现新架构协议层（protocol/core/frontend） | `completed` | 已新增 `protocol/` 层定义 CoreInterface/FrontendCallbacks，`core/` 层实现 AgentCoreAdapter，`frontend/gui/` 实现 PyWebView 前端，架构测试 17 项全通过 |
+| T-021 | GUI 前端与后端功能联动 | `in_progress` | 已实现基础通信框架，待实现 diff 确认弹窗、权限确认弹窗与后端实际联动 |
 
 ---
 
@@ -148,7 +150,7 @@
 | Phase 3 | 模式系统 v2 | `completed` | 5 模式配置驱动（explore/spec/code/debug/verify）、initialize_modes、工具过滤、/mode 已完成；switch_mode LLM 工具已移除 |
 | Phase 4 | Clang 工具链 | `in_progress` | 已有项目内闭环工具链，待真实工程与 Win7 验证 |
 | Phase 5 | 质量保障层 | `completed` | 权限、上下文、记忆、恢复与 cleanup 已落地；修复根目录文件写入边界后，专项验证脚本已复验通过 |
-| Phase 6 | CLI / TUI | `in_progress` | InProcessAdapter 已扩展 workspace / timeline / artifact / todo 前端接口，终端前端已拆为 `frontends/terminal` 子模块，并已通过 `validate-phase6.py` 与单元测试；待真实控制台 / Win7 手工验证 |
+| Phase 6 | CLI / TUI / GUI | `in_progress` | InProcessAdapter 已扩展 workspace / timeline / artifact / todo 前端接口；终端前端已拆为 `frontends/terminal` 子模块；新架构 protocol/core/frontend 分层已落地；GUI PyWebView 前端已实现基础框架；待 GUI 功能联动完善、真实控制台 / Win7 手工验证 |
 | Phase 7 | 打包与离线交付 | `in_progress` | 设计基线、ADR、`prepare/build/validate` 三段脚本骨架，以及 Python/MinGit/rg/ctags 真实资产接入已完成；待收敛 site-packages 并做 Win7 bundle 验收 |
 
 ---
@@ -210,7 +212,7 @@
 | 2026-03-29 | 建立 `scripts/build-offline-bundle.ps1`：已可把 staging bundle 复制到 `build/offline-dist/`、生成 zip、重写 dist manifest 并重算 checksum |
 | 2026-03-29 | 建立 `scripts/validate-offline-bundle.ps1`：默认模式可校验 skeleton bundle 并告警通过，`-RequireComplete` 下会对缺失资产返回失败 |
 | 2026-03-29 | 建立 `scripts/offline-assets.json`，正式接入 `python_embedded_x64` 与 `mingit_x64`，并完成真实 prepare/build/validate 验收 |
-| 2026-03-29 | 扩展 `scripts/offline-assets.json`，正式接入 `ripgrep_x64` 与 `universal_ctags_x64`，并完成真实 prepare/build/validate `-RequireComplete` 验收 |
+| 2026-03-30 | 新架构落地：新增 `protocol/` 通信协议层、`core/` AgentCoreAdapter、`frontend/gui/` PyWebView 前端，TUI 迁移至 `frontend/tui/`，架构测试 17 项全通过，文档已同步更新 |
 
 
 

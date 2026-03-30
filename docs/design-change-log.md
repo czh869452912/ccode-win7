@@ -1,6 +1,6 @@
 # EmbedAgent 设计与变更跟踪
 
-> 更新日期：2026-03-29
+> 更新日期：2026-03-30
 > 用途：记录关键设计变更、影响范围、关联文档和后续动作
 
 ---
@@ -923,3 +923,37 @@
 - 后续动作：
   - 在真实 TUI / Win7 环境验证新默认模式 `explore` 的入口体验
   - 评估是否需要为常见 C 维护工程提供预置的 `modes.json` 样板文件
+
+### DC-036
+
+- 日期：2026-03-30
+- 变更主题：新架构落地——protocol/core/frontend 分层与 GUI PyWebView 前端
+- 变更摘要：
+  - 新增 `src/embedagent/protocol/`，定义 `CoreInterface`、`FrontendCallbacks` 及数据类型，实现前后端协议层
+  - 新增 `src/embedagent/core/adapter.py`，实现 `AgentCoreAdapter` 包装 `InProcessAdapter` 并统一事件分发
+  - 新增 `src/embedagent/frontend/gui/`，实现 PyWebView + FastAPI + WebSocket 的 GUI 前端，包含 diff/权限确认弹窗
+  - 迁移 `src/embedagent/frontend/tui/`，按新架构实现 `TUIFrontend` 适配器，延迟导入处理缺失依赖
+  - 旧 `src/embedagent/frontends/terminal/` 保留向后兼容，未来逐步迁移
+  - 新增 `tests/test_architecture.py`，17 项架构测试覆盖协议、Core、前后端导入
+  - 新增 `docs/architecture-new.md` 记录新架构设计
+- 影响范围：
+  - 整体架构分层（新增 protocol/core/frontend）
+  - TUI/GUI 前端实现方式
+  - Agent Core 与前端解耦程度
+  - 文档治理（README、development-tracker、architecture-new）
+- 关联文档：
+  - `docs/architecture-new.md`（新建）
+  - `docs/frontend-protocol.md`（需要后续更新以反映 protocol 层）
+  - `docs/development-tracker.md`（新增 T-020、T-021）
+  - `README.md`（目录结构、技术选型、项目现状更新）
+  - `src/embedagent/protocol/__init__.py`
+  - `src/embedagent/core/adapter.py`
+  - `src/embedagent/frontend/tui/`
+  - `src/embedagent/frontend/gui/`
+  - `tests/test_architecture.py`
+- 是否需要 ADR：`建议后续补 ADR 记录架构分层决策`
+- 后续动作：
+  - 将旧 `frontends/terminal/` 完全迁移到 `frontend/tui/`
+  - 实现 GUI 的 diff/权限确认弹窗与后端实际联动
+  - 更新 `docs/frontend-protocol.md` 以反映新 protocol 层设计
+  - 在 Win7 环境下验证 GUI 前端兼容性（IE11 回退）

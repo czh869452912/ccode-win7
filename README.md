@@ -87,6 +87,7 @@
 |------|------|------|
 | 实现语言 | Python 3.8 Embedded Distribution | Windows 7 兼容边界清晰，适合离线整体打包 |
 | TUI 框架 | `prompt_toolkit` + `rich` | 纯终端、轻依赖、对 Windows/旧终端更友好 |
+| GUI 框架 | `pywebview` + FastAPI + WebSocket | 现代 Web 界面、Windows 7 兼容（IE11 回退） |
 | LLM 接入 | OpenAI-compatible HTTP Adapter | 适配内网模型服务，不绑定单一厂商 SDK |
 | 持久化 | 文件系统 JSON + SQLite（分阶段） | 当前以文件型记忆与摘要为主，后续补 SQLite 索引、权限与结构化状态 |
 | 编译工具链 | LLVM/Clang Windows 预编译包 | 统一体系，覆盖编译 / 静态分析 / 覆盖率 |
@@ -109,6 +110,7 @@
 
 ## 项目现状
 
+- 2026-03-30：新架构落地：`protocol/` 通信协议层、`core/` AgentCoreAdapter、`frontend/gui/` PyWebView 前端，TUI 迁移至 `frontend/tui/`，架构测试 17 项全通过，文档已同步更新。
 - 2026-03-29：Phase 1-5 功能已落地；修复根目录文件写入边界后，`scripts/validate-phase5.py` 已重新跑通。
 - 2026-03-29：Phase 6 自动化验证已通过；`scripts/validate-phase6.py` 与 `unittest discover -s tests -v` 已可复跑。
 - 当前主线工作：Phase 4 真实 C 工程 / Win7 验证、Phase 6 真实控制台 / Win7 手工验证、Phase 7 打包与离线交付设计。
@@ -167,6 +169,8 @@ ccode-win7/
 │   ├── development-tracker.md
 │   ├── design-change-log.md
 │   ├── offline-packaging.md
+│   ├── frontend-protocol.md      # 前端协议定义
+│   ├── architecture-new.md       # 新架构文档
 │   └── win7-preflight-checklist.md
 ├── reference/          # 参考项目源码（opencode / OpenHands / Roo-Code）
 ├── scripts/            # 本地辅助脚本（LLVM 激活 / smoke test 等）
@@ -175,8 +179,20 @@ ccode-win7/
 │       ├── artifacts.py
 │       ├── cli.py
 │       ├── context.py
+│       ├── core/                 # Agent Core 适配层
+│       │   ├── __init__.py
+│       │   └── adapter.py        # AgentCoreAdapter
 │       ├── frontends/
-│       │   └── terminal/  # 模块化终端前端（state / reducer / controller / views / services）
+│       │   └── terminal/         # 模块化终端前端（向后兼容）
+│       ├── frontend/             # 新前端架构
+│       │   ├── tui/              # TUI 实现（prompt_toolkit）
+│       │   │   ├── launcher.py
+│       │   │   ├── frontend_adapter.py
+│       │   │   └── ...
+│       │   └── gui/              # GUI 实现（PyWebView）
+│       │       ├── launcher.py
+│       │       ├── backend/
+│       │       └── static/
 │       ├── guard.py
 │       ├── inprocess_adapter.py
 │       ├── llm.py
@@ -185,11 +201,13 @@ ccode-win7/
 │       ├── modes.py
 │       ├── permissions.py
 │       ├── project_memory.py
+│       ├── protocol/             # 通信协议层
+│       │   └── __init__.py       # CoreInterface, FrontendCallbacks
 │       ├── session.py
 │       ├── session_store.py
 │       ├── session_timeline.py
 │       ├── tools/
-│       └── tui.py      # 兼容 shim，导出模块化终端前端入口
+│       └── tui.py                # 兼容 shim
 ├── tests/              # 单元测试与前端回归测试
 ├── toolchains/         # 项目内闭环 LLVM/Clang 工具链与清单
 ├── pyproject.toml      # uv / Python 版本与项目元数据
