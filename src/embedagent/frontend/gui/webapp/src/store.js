@@ -18,9 +18,11 @@ export const initialState = {
   todos: [],
   artifacts: [],
   plan: null,
+  review: null,
   permissionContext: null,
   preview: null,
   fileTree: [],
+  toolCatalog: {},
   requestedMode: "code",
   connectionState: "connecting",
   eventLog: [],
@@ -60,6 +62,7 @@ export function reducer(state, action) {
         terminationReason: "",
         turnsUsed: 0,
         plan: null,
+        review: null,
         permissionContext: null,
       };
     case "session_snapshot": {
@@ -152,6 +155,8 @@ export function reducer(state, action) {
           error: "",
           permissionCategory: action.permissionCategory || "",
           supportsDiffPreview: Boolean(action.supportsDiffPreview),
+          progressRendererKey: action.progressRendererKey || "",
+          resultRendererKey: action.resultRendererKey || "",
         }),
       };
     case "tool_finished":
@@ -170,6 +175,8 @@ export function reducer(state, action) {
                   action.supportsDiffPreview === undefined
                     ? item.supportsDiffPreview
                     : Boolean(action.supportsDiffPreview),
+                progressRendererKey: action.progressRendererKey || item.progressRendererKey,
+                resultRendererKey: action.resultRendererKey || item.resultRendererKey,
               }
             : item,
         ),
@@ -252,11 +259,22 @@ export function reducer(state, action) {
         plan: action.plan,
         inspectorTab: action.inspectorTab || state.inspectorTab,
       };
+    case "review_loaded":
+      return {
+        ...state,
+        review: action.review,
+        inspectorTab: action.inspectorTab || state.inspectorTab,
+      };
     case "permission_context_loaded":
       return {
         ...state,
         permissionContext: action.context,
         inspectorTab: action.inspectorTab || state.inspectorTab,
+      };
+    case "tool_catalog_loaded":
+      return {
+        ...state,
+        toolCatalog: action.catalog || {},
       };
     case "command_result": {
       const clearTimeline = Boolean(action.data?.clear_timeline);
@@ -276,6 +294,7 @@ export function reducer(state, action) {
         thinkingActive: false,
         streamingAssistantId: "",
         streamingReasoningId: "",
+        review: action.commandName === "review" ? action.data?.review || state.review : state.review,
       };
     }
     case "file_tree_loaded":

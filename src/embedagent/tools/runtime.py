@@ -297,6 +297,8 @@ class ToolRuntime(object):
                 data.setdefault("tool_label", entry.user_label)
                 data.setdefault("permission_category", entry.permission_category)
                 data.setdefault("supports_diff_preview", entry.supports_diff_preview)
+                data.setdefault("progress_renderer_key", entry.progress_renderer_key)
+                data.setdefault("result_renderer_key", entry.result_renderer_key)
                 observation.data = data
         return observation
 

@@ -100,6 +100,8 @@ class WebSocketFrontend(FrontendCallbacks):
                 "tool_label": call.arguments.get("_tool_label") if isinstance(call.arguments, dict) else "",
                 "permission_category": call.arguments.get("_permission_category") if isinstance(call.arguments, dict) else "",
                 "supports_diff_preview": bool(call.arguments.get("_supports_diff_preview")) if isinstance(call.arguments, dict) else False,
+                "progress_renderer_key": call.arguments.get("_progress_renderer_key") if isinstance(call.arguments, dict) else "",
+                "result_renderer_key": call.arguments.get("_result_renderer_key") if isinstance(call.arguments, dict) else "",
             }
         })
     
@@ -122,6 +124,8 @@ class WebSocketFrontend(FrontendCallbacks):
                 "tool_label": result.data.get("tool_label") if isinstance(result.data, dict) else "",
                 "permission_category": result.data.get("permission_category") if isinstance(result.data, dict) else "",
                 "supports_diff_preview": bool(result.data.get("supports_diff_preview")) if isinstance(result.data, dict) else False,
+                "progress_renderer_key": result.data.get("progress_renderer_key") if isinstance(result.data, dict) else "",
+                "result_renderer_key": result.data.get("result_renderer_key") if isinstance(result.data, dict) else "",
             }
         })
     
@@ -357,6 +361,10 @@ class GUIBackend:
         @app.get("/api/workspace")
         async def get_workspace():
             return self.core.get_workspace_snapshot()
+
+        @app.get("/api/tool-catalog")
+        async def get_tool_catalog():
+            return {"items": self.core.get_tool_catalog()}
 
         @app.get("/api/sessions/{session_id}/plan")
         async def get_session_plan(session_id: str):

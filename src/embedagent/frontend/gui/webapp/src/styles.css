@@ -185,7 +185,7 @@ button {
 
 .inspector-tabs {
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
+  grid-template-columns: repeat(7, 1fr);
   gap: 5px;
   padding: 12px;
 }
@@ -509,6 +509,67 @@ select.badge {
   color: var(--muted);
 }
 
+.review-result {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.review-summary {
+  font-weight: 600;
+}
+
+.review-findings {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.review-finding {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.review-finding.severity-high {
+  border-color: rgba(159, 47, 53, 0.28);
+}
+
+.review-finding.severity-medium {
+  border-color: rgba(147, 97, 26, 0.28);
+}
+
+.review-finding-header {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+
+.review-finding-severity,
+.review-finding-priority {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.review-finding-title {
+  font-weight: 700;
+}
+
+.review-finding-body {
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.review-risk-list {
+  margin: 8px 0 0;
+  padding-left: 18px;
+}
+
 .tool-card {
   align-self: flex-start;
   width: min(720px, 100%);
@@ -530,6 +591,22 @@ select.badge {
 .tool-title {
   font-weight: 700;
   margin-bottom: 8px;
+}
+
+.tool-renderer-badge {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 2px 6px;
+}
+
+.tool-summary {
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: var(--muted);
 }
 
 .tool-error {

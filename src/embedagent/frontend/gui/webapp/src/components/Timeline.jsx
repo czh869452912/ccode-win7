@@ -35,7 +35,7 @@ function groupByTurn(items) {
 
 const Timeline = forwardRef(function Timeline(
   {
-    timeline, thinkingActive, streamingReasoningId,
+    timeline, toolCatalog, thinkingActive, streamingReasoningId,
     terminationReason, turnsUsed, maxTurns,
     userAnswer, onUserAnswerChange, onSubmitUserInput,
     onPermissionResponse,
@@ -61,6 +61,7 @@ const Timeline = forwardRef(function Timeline(
         <TurnGroup
           key={group.userItem?.id || `anon-${idx}`}
           group={group}
+          toolCatalog={toolCatalog}
           isLast={idx === lastIdx}
           thinkingActive={thinkingActive}
           streamingReasoningId={streamingReasoningId}
@@ -87,7 +88,7 @@ const Timeline = forwardRef(function Timeline(
 
 export default Timeline;
 
-function TurnGroup({ group, isLast, thinkingActive, streamingReasoningId, userAnswer, onUserAnswerChange, onSubmitUserInput, onPermissionResponse, lang }) {
+function TurnGroup({ group, toolCatalog, isLast, thinkingActive, streamingReasoningId, userAnswer, onUserAnswerChange, onSubmitUserInput, onPermissionResponse, lang }) {
   const { userItem, activityItems, assistantItem, systemItems } = group;
   const tools = activityItems.filter((i) => i.kind === "tool");
   const hasRunningTool = tools.some((i) => i.status === "running");
@@ -144,7 +145,7 @@ function TurnGroup({ group, isLast, thinkingActive, streamingReasoningId, userAn
                 lang={lang}
               />
             ) : (
-              <TimelineItem key={item.id} item={item} lang={lang} />
+              <TimelineItem key={item.id} item={item} toolCatalog={toolCatalog} lang={lang} />
             )
           )}
           </div>
@@ -173,7 +174,7 @@ function TurnGroup({ group, isLast, thinkingActive, streamingReasoningId, userAn
   );
 }
 
-function TimelineItem({ item, lang }) {
+function TimelineItem({ item, toolCatalog, lang }) {
   if (item.kind === "user") {
     return <div className="bubble user" role="article">{item.content}</div>;
   }
@@ -189,6 +190,9 @@ function TimelineItem({ item, lang }) {
     );
   }
   if (item.kind === "command_result") {
+    if (item.commandName === "review" && item.data?.review) {
+      return <ReviewResultCard item={item} lang={lang} />;
+    }
     return (
       <div className={`bubble assistant command-result ${item.success === false ? "error" : ""}`} role="article">
         <div className="command-result-label">/{item.commandName}</div>
@@ -216,21 +220,28 @@ function TimelineItem({ item, lang }) {
   }
   if (item.kind === "tool") {
     const status = item.status || "running";
-    const label = item.label || toolLabel(item.toolName, item.arguments);
+    const catalogEntry = toolCatalog?.[item.toolName] || null;
+    const label = item.label || catalogEntry?.user_label || toolLabel(item.toolName, item.arguments);
+    const rendererKey = item.resultRendererKey || catalogEntry?.result_renderer_key || item.progressRendererKey || catalogEntry?.progress_renderer_key || "default";
     const hasData = status !== "running" && item.data && Object.keys(item.data).length > 0;
     const hasArgs = item.arguments && Object.keys(item.arguments).length > 0;
     const hasDiff = typeof item.data?.diff === "string" && item.data.diff.length > 0;
+    const summary = toolRendererSummary(item, lang);
     return (
-      <div className={`tool-card ${status}`} role="article" aria-label={label}>
+      <div className={`tool-card ${status} renderer-${rendererKey}`} role="article" aria-label={label}>
         <div className="tool-header">
           <span className={`tool-status-icon ${status}`} aria-hidden="true">
             {STATUS_ICON[status] || "⋯"}
           </span>
           <span className="tool-title">{label}</span>
+          {rendererKey && rendererKey !== "default" ? (
+            <span className="tool-renderer-badge">{rendererKey}</span>
+          ) : null}
           <span className="tool-name-badge" aria-label={`Tool: ${item.toolName}`}>
             {item.toolName}
           </span>
         </div>
+        {summary ? <div className="tool-summary">{summary}</div> : null}
         {item.error ? <div className="tool-error" role="alert">{item.error}</div> : null}
         {hasDiff ? (
           <DiffView diff={item.data.diff} title={t("timeline.diffChanges", lang)} />
@@ -248,6 +259,87 @@ function TimelineItem({ item, lang }) {
   return (
     <div className={`system-card ${item.tone || ""}`} role="alert">
       {item.content}
+    </div>
+  );
+}
+
+function toolRendererSummary(item, lang) {
+  const key = item.resultRendererKey || item.progressRendererKey || "default";
+  const data = item.data || {};
+  if (item.status === "running") {
+    if (key === "toolchain") return t("timeline.runningToolchain", lang);
+    if (key === "command") return t("timeline.runningCommand", lang);
+    if (key === "git") return t("timeline.runningGit", lang);
+    return "";
+  }
+  if (key === "toolchain") {
+    const exitCode = data.exit_code;
+    const diagnostics = data.diagnostic_count;
+    const tests = data.test_summary?.failed;
+    if (typeof tests === "number") {
+      return t("timeline.toolchainTests", lang, { n: tests });
+    }
+    if (typeof diagnostics === "number") {
+      return t("timeline.toolchainDiagnostics", lang, { n: diagnostics });
+    }
+    if (typeof exitCode === "number") {
+      return t("timeline.commandExitCode", lang, { n: exitCode });
+    }
+  }
+  if (key === "git") {
+    if (typeof data.file_count === "number") {
+      return t("timeline.gitFilesChanged", lang, { n: data.file_count });
+    }
+    if (Array.isArray(data.entries)) {
+      return t("timeline.gitEntries", lang, { n: data.entries.length });
+    }
+  }
+  if (key === "quality" && Array.isArray(data.reasons)) {
+    return data.passed ? t("timeline.qualityPassed", lang) : t("timeline.qualityFailed", lang, { n: data.reasons.length });
+  }
+  if (key === "todos" && typeof data.count === "number") {
+    return t("timeline.todoCount", lang, { n: data.count });
+  }
+  if (key === "command" && typeof data.exit_code === "number") {
+    return t("timeline.commandExitCode", lang, { n: data.exit_code });
+  }
+  return "";
+}
+
+function ReviewResultCard({ item, lang }) {
+  const review = item.data?.review || {};
+  const findings = Array.isArray(review.findings) ? review.findings : [];
+  const residualRisks = Array.isArray(review.residual_risks) ? review.residual_risks : [];
+  return (
+    <div className={`bubble assistant command-result review-result ${item.success === false ? "error" : ""}`} role="article">
+      <div className="command-result-label">/{item.commandName}</div>
+      <div className="review-summary">{review.summary || item.content}</div>
+      {findings.length > 0 ? (
+        <div className="review-findings">
+          {findings.map((finding) => (
+            <div key={finding.id || `${finding.title}-${finding.priority}`} className={`review-finding severity-${finding.severity || "info"}`}>
+              <div className="review-finding-header">
+                <span className="review-finding-severity">{finding.severity || "info"}</span>
+                <span className="review-finding-priority">P{finding.priority || "-"}</span>
+                <span className="review-finding-title">{finding.title || "Finding"}</span>
+              </div>
+              <div className="review-finding-body">{finding.body || ""}</div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <Markdown content={item.content} />
+      )}
+      {residualRisks.length > 0 ? (
+        <details className="tool-details">
+          <summary>{t("timeline.residualRisks", lang)}</summary>
+          <ul className="review-risk-list">
+            {residualRisks.map((risk, index) => (
+              <li key={`${index}-${risk}`}>{risk}</li>
+            ))}
+          </ul>
+        </details>
+      ) : null}
     </div>
   );
 }

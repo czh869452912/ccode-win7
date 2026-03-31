@@ -76,6 +76,8 @@ export function timelineFromEvents(events) {
         status: "running",
         permissionCategory: payload.permission_category || "",
         supportsDiffPreview: Boolean(payload.supports_diff_preview),
+        progressRendererKey: payload.progress_renderer_key || "",
+        resultRendererKey: payload.result_renderer_key || "",
       };
       toolIndex[item.id] = items.length;
       items.push(item);
@@ -93,6 +95,8 @@ export function timelineFromEvents(events) {
         error: payload.error,
         permissionCategory: payload.permission_category || "",
         supportsDiffPreview: Boolean(payload.supports_diff_preview),
+        progressRendererKey: payload.progress_renderer_key || "",
+        resultRendererKey: payload.result_renderer_key || "",
       };
       if (index === undefined) {
         items.push(toolItem);
@@ -172,6 +176,8 @@ export function timelineFromTurns(turns) {
         error: tc.error || "",
         permissionCategory: tc.permission_category || "",
         supportsDiffPreview: Boolean(tc.supports_diff_preview),
+        progressRendererKey: tc.progress_renderer_key || "",
+        resultRendererKey: tc.result_renderer_key || "",
       });
     }
     if (turn.assistant_text) {

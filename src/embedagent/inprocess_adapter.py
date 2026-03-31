@@ -530,6 +530,12 @@ class InProcessAdapter(object):
             state.updated_at = _utc_now()
         return self.get_session_snapshot(session_id)
 
+    def get_tool_catalog(self) -> List[Dict[str, Any]]:
+        method = getattr(self.tools, "catalog_entries", None)
+        if callable(method):
+            return method()
+        return []
+
     def submit_user_message(
         self,
         session_id: str,
@@ -966,33 +972,8 @@ class InProcessAdapter(object):
         event_handler: Optional[EventHandler],
     ) -> Dict[str, Any]:
         events = self.timeline_store.load_events(state.session.session_id, limit=400)
-        findings = []  # type: List[str]
-        saw_verify = False
-        saw_tests = False
-        for record in events:
-            event_name = record.get("event")
-            payload = record.get("payload") or {}
-            if event_name == "tool_finished":
-                tool_name = str(payload.get("tool_name") or "")
-                success = bool(payload.get("success"))
-                if tool_name in ("compile_project", "run_tests", "run_clang_tidy", "run_clang_analyzer", "collect_coverage", "report_quality"):
-                    saw_verify = True
-                if tool_name == "run_tests":
-                    saw_tests = True
-                if not success:
-                    findings.append(
-                        "- `%s` failed: %s" % (tool_name or "tool", str(payload.get("error") or "unknown error"))
-                    )
-        diff_observation = self.tools.execute("git_diff", {"path": ".", "scope": "working"})
-        diff_data = diff_observation.data if isinstance(diff_observation.data, dict) else {}
-        diff_file_count = int(diff_data.get("file_count") or 0)
-        if diff_observation.success and diff_file_count > 0 and not saw_verify:
-            findings.append("- 工作区存在 %s 个改动文件，但最近没有完整 verify 证据。" % diff_file_count)
-        if saw_verify and not saw_tests:
-            findings.append("- 最近没有看到 `run_tests` 结果，测试覆盖存在缺口。")
-        if not findings:
-            findings.append("- 未发现明确阻塞项；残余风险是需要在真实工程上再次执行完整 verify。")
-        lines = ["## Review Findings", ""] + findings
+        review = self._build_review_payload(events)
+        lines = self._review_markdown_lines(review)
         self._emit_command_result(
             event_handler,
             state,
@@ -1001,14 +982,176 @@ class InProcessAdapter(object):
                 success=True,
                 message="\n".join(lines),
                 data={
-                    "findings": findings,
-                    "diff_file_count": diff_file_count,
-                    "verify_evidence_present": saw_verify,
-                    "tests_seen": saw_tests,
+                    "review": review,
                 },
             ),
         )
         return {"handled": True, "continue_with_text": ""}
+
+    def _build_review_payload(self, events: List[Dict[str, Any]]) -> Dict[str, Any]:
+        findings = []  # type: List[Dict[str, Any]]
+        saw_verify = False
+        saw_tests = False
+        for record in events:
+            if record.get("event") != "tool_finished":
+                continue
+            payload = record.get("payload") or {}
+            if not isinstance(payload, dict):
+                continue
+            tool_name = str(payload.get("tool_name") or "")
+            success = bool(payload.get("success"))
+            data = payload.get("data") if isinstance(payload.get("data"), dict) else {}
+            if tool_name in ("compile_project", "run_tests", "run_clang_tidy", "run_clang_analyzer", "collect_coverage", "report_quality"):
+                saw_verify = True
+            if tool_name == "run_tests":
+                saw_tests = True
+            finding = self._review_finding_from_tool(tool_name, success, payload, data)
+            if finding is not None:
+                findings.append(finding)
+        diff_observation = self.tools.execute("git_diff", {"path": ".", "scope": "working"})
+        diff_data = diff_observation.data if isinstance(diff_observation.data, dict) else {}
+        diff_file_count = int(diff_data.get("file_count") or 0)
+        if diff_observation.success and diff_file_count > 0 and not saw_verify:
+            findings.append(
+                {
+                    "id": "verify-missing",
+                    "priority": 2,
+                    "severity": "medium",
+                    "title": "Missing verification evidence",
+                    "body": "工作区存在 %s 个改动文件，但最近没有看到完整 verify 证据。" % diff_file_count,
+                    "evidence": [
+                        {"type": "git_diff", "file_count": diff_file_count},
+                    ],
+                }
+            )
+        if saw_verify and not saw_tests:
+            findings.append(
+                {
+                    "id": "tests-missing",
+                    "priority": 2,
+                    "severity": "medium",
+                    "title": "No recent test execution",
+                    "body": "最近的验证证据里没有 `run_tests` 结果，测试覆盖存在缺口。",
+                    "evidence": [{"type": "verify_gap", "tool_name": "run_tests"}],
+                }
+            )
+        findings.sort(key=lambda item: (int(item.get("priority") or 99), str(item.get("title") or "")))
+        no_findings = not findings
+        residual_risks = []
+        if no_findings:
+            residual_risks.append("需要在真实工程和 Win7 目标环境上再次执行完整 verify。")
+        elif not saw_verify:
+            residual_risks.append("当前结论缺少完整 verify 证据，只能视为阶段性审查。")
+        return {
+            "summary": "发现 %s 条问题。" % len(findings) if findings else "未发现明确阻塞项。",
+            "findings": findings,
+            "residual_risks": residual_risks,
+            "no_findings": no_findings,
+            "diff_file_count": diff_file_count,
+            "verify_evidence_present": saw_verify,
+            "tests_seen": saw_tests,
+        }
+
+    def _review_finding_from_tool(
+        self,
+        tool_name: str,
+        success: bool,
+        payload: Dict[str, Any],
+        data: Dict[str, Any],
+    ) -> Optional[Dict[str, Any]]:
+        if tool_name == "compile_project" and not success:
+            detail = self._review_primary_detail(data, payload.get("error"))
+            return {
+                "id": "build-failed-%s" % str(payload.get("call_id") or tool_name),
+                "priority": 1,
+                "severity": "high",
+                "title": "Build failed",
+                "body": detail,
+                "evidence": [{"type": "tool_failure", "tool_name": tool_name, "call_id": payload.get("call_id")}],
+            }
+        if tool_name == "run_tests":
+            summary = data.get("test_summary") if isinstance(data.get("test_summary"), dict) else {}
+            failures = int(summary.get("failed") or data.get("test_failures") or 0)
+            if (not success) or failures > 0:
+                return {
+                    "id": "tests-failed-%s" % str(payload.get("call_id") or tool_name),
+                    "priority": 1,
+                    "severity": "high",
+                    "title": "Tests failing",
+                    "body": "最近一次 `run_tests` 报告了 %s 个失败测试。" % failures,
+                    "evidence": [{"type": "test_summary", "tool_name": tool_name, "failed": failures}],
+                }
+        if tool_name in ("run_clang_tidy", "run_clang_analyzer"):
+            error_count = int(data.get("error_count") or 0)
+            warning_count = int(data.get("warning_count") or 0)
+            if (not success) or error_count > 0 or warning_count > 0:
+                return {
+                    "id": "%s-issues-%s" % (tool_name, str(payload.get("call_id") or tool_name)),
+                    "priority": 2,
+                    "severity": "medium",
+                    "title": "%s reported diagnostics" % tool_name,
+                    "body": "%s 返回 error=%s, warning=%s。" % (tool_name, error_count, warning_count),
+                    "evidence": [{"type": "diagnostics", "tool_name": tool_name, "error_count": error_count, "warning_count": warning_count}],
+                }
+        if tool_name == "collect_coverage":
+            summary = data.get("coverage_summary") if isinstance(data.get("coverage_summary"), dict) else {}
+            line_coverage = summary.get("line_coverage")
+            if line_coverage is not None and float(line_coverage) < 80.0:
+                return {
+                    "id": "coverage-low-%s" % str(payload.get("call_id") or tool_name),
+                    "priority": 2,
+                    "severity": "medium",
+                    "title": "Coverage below expected floor",
+                    "body": "最近一次覆盖率结果显示 line coverage 为 %.2f%%，低于 80%% 经验阈值。" % float(line_coverage),
+                    "evidence": [{"type": "coverage", "tool_name": tool_name, "line_coverage": float(line_coverage)}],
+                }
+        if tool_name == "report_quality" and not success:
+            reasons = data.get("reasons") if isinstance(data.get("reasons"), list) else []
+            body = "；".join([str(item) for item in reasons if str(item or "").strip()]) or "质量门未通过。"
+            return {
+                "id": "quality-gate-failed-%s" % str(payload.get("call_id") or tool_name),
+                "priority": 1,
+                "severity": "high",
+                "title": "Quality gate failed",
+                "body": body,
+                "evidence": [{"type": "quality_gate", "tool_name": tool_name, "reasons": reasons}],
+            }
+        return None
+
+    def _review_primary_detail(self, data: Dict[str, Any], fallback: Any) -> str:
+        diagnostics = data.get("diagnostics") if isinstance(data.get("diagnostics"), list) else []
+        if diagnostics:
+            first = diagnostics[0] if isinstance(diagnostics[0], dict) else {}
+            return "%s:%s:%s %s" % (
+                first.get("file") or "?",
+                first.get("line") or 1,
+                first.get("column") or 1,
+                first.get("message") or (fallback or "编译失败。"),
+            )
+        return str(fallback or "编译失败。")
+
+    def _review_markdown_lines(self, review: Dict[str, Any]) -> List[str]:
+        lines = ["## Review Findings", ""]
+        findings = review.get("findings") if isinstance(review.get("findings"), list) else []
+        if findings:
+            for item in findings:
+                lines.append(
+                    "- [%s/P%s] **%s**: %s"
+                    % (
+                        str(item.get("severity") or "info"),
+                        str(item.get("priority") or "-"),
+                        str(item.get("title") or "Finding"),
+                        str(item.get("body") or ""),
+                    )
+                )
+        else:
+            lines.append("- 未发现明确阻塞项。")
+        residual = review.get("residual_risks") if isinstance(review.get("residual_risks"), list) else []
+        if residual:
+            lines.extend(["", "## Residual Risks", ""])
+            for item in residual:
+                lines.append("- %s" % str(item or ""))
+        return lines
 
     def _tool_event_metadata(self, tool_name: str) -> Dict[str, Any]:
         lookup = getattr(self.tools, "tool_catalog_entry", None)

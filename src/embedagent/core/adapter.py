@@ -66,6 +66,10 @@ class CallbackBridge:
                 arguments["_permission_category"] = payload.get("permission_category")
             if "supports_diff_preview" in payload:
                 arguments["_supports_diff_preview"] = bool(payload.get("supports_diff_preview"))
+            if payload.get("progress_renderer_key"):
+                arguments["_progress_renderer_key"] = payload.get("progress_renderer_key")
+            if payload.get("result_renderer_key"):
+                arguments["_result_renderer_key"] = payload.get("result_renderer_key")
             call = ToolCall(
                 tool_name=payload.get("tool_name", ""),
                 arguments=arguments,
@@ -469,6 +473,9 @@ class AgentCoreAdapter(CoreInterface):
         return self._snapshot_to_protocol(
             self._adapter.remember_permission_category(session_id, category)
         )
+
+    def get_tool_catalog(self) -> List[Dict[str, Any]]:
+        return self._adapter.get_tool_catalog()
     
     def shutdown(self) -> None:
         """关闭 Core"""

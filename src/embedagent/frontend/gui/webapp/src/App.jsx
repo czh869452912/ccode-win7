@@ -56,6 +56,7 @@ function App() {
     loadArtifacts();
     loadTodos("");
     loadFileChildren(".");
+    loadToolCatalog();
   }, []);
 
   // websocket lifecycle
@@ -99,6 +100,17 @@ function App() {
   async function loadSessions() {
     const payload = await fetchJson("/api/sessions");
     dispatch({ type: "sessions_loaded", sessions: payload.sessions || [] });
+  }
+
+  async function loadToolCatalog() {
+    const payload = await fetchJson("/api/tool-catalog");
+    const items = Array.isArray(payload.items) ? payload.items : [];
+    const catalog = {};
+    for (const item of items) {
+      if (!item || !item.name) continue;
+      catalog[item.name] = item;
+    }
+    dispatch({ type: "tool_catalog_loaded", catalog });
   }
 
   async function loadPermissionContext(sessionId) {
@@ -283,6 +295,8 @@ function App() {
         arguments: data.arguments || {},
         permissionCategory: data.permission_category || "",
         supportsDiffPreview: Boolean(data.supports_diff_preview),
+        progressRendererKey: data.progress_renderer_key || "",
+        resultRendererKey: data.result_renderer_key || "",
       });
       logEvent(`tool: ${data.tool_name || "?"}`, JSON.stringify(data.arguments || {}).slice(0, 80));
       return;
@@ -297,6 +311,8 @@ function App() {
         label: data.tool_label || data.tool_name || "",
         permissionCategory: data.permission_category || "",
         supportsDiffPreview: Boolean(data.supports_diff_preview),
+        progressRendererKey: data.progress_renderer_key || "",
+        resultRendererKey: data.result_renderer_key || "",
       });
       logEvent(
         `tool done: ${data.call_id || "?"}`,
@@ -366,6 +382,13 @@ function App() {
           type: "permission_context_loaded",
           context: data.data || {},
           inspectorTab: "permissions",
+        });
+      }
+      if (data.command_name === "review" && data.data?.review) {
+        dispatch({
+          type: "review_loaded",
+          review: data.data.review,
+          inspectorTab: "review",
         });
       }
       logEvent(`command: /${data.command_name || "?"}`, data.success ? "ok" : "error");
@@ -577,6 +600,7 @@ function App() {
         <Timeline
           ref={timelineRef}
           timeline={state.timeline}
+          toolCatalog={state.toolCatalog}
           thinkingActive={state.thinkingActive}
           streamingReasoningId={state.streamingReasoningId}
           terminationReason={state.terminationReason}
@@ -605,6 +629,7 @@ function App() {
           todos={state.todos}
           artifacts={state.artifacts}
           plan={state.plan}
+          review={state.review}
           permissionContext={state.permissionContext}
           preview={state.preview}
           userInput={state.userInput}

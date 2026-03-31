@@ -69,6 +69,50 @@
   - 继续把 `/review`、`/permissions`、`/diff` 的 GUI inspector 表现收口
   - 在 Win7 bundle 中完成 GUI workflow / plan pane / renderer 路径验收
 
+### DC-035
+
+- 日期：2026-03-31
+- 变更主题：`/review` 结构化 findings 与 renderer metadata 前端消费
+- 变更摘要：
+  - `/review` 不再只返回普通文本，而是输出带 `priority` / `severity` / `title` / `body` / `evidence` 的 findings 列表
+  - GUI timeline 新增 review result 卡片，能够直接渲染 findings 与 residual risks
+  - 工具事件开始把 `progress_renderer_key` / `result_renderer_key` 从 Core 传到前端，GUI 工具卡片已按 renderer key 展示不同摘要
+  - `permissions` inspector 已独立于 `plan` inspector，减少工作流视图混杂
+- 影响范围：
+  - command/workflow 结果模型
+  - GUI timeline 与 inspector 渲染
+  - tool metadata 消费链路
+- 关联文档：
+  - `docs/development-tracker.md`
+  - `src/embedagent/inprocess_adapter.py`
+  - `src/embedagent/frontend/gui/webapp/src/components/Timeline.jsx`
+- 是否需要 ADR：`否`
+- 后续动作：
+  - 继续把 quality / diagnostics / coverage 的 review evidence 展示细化到 inspector
+  - 继续减少前端 `toolName -> UI` 的硬编码映射
+
+### DC-036
+
+- 日期：2026-03-31
+- 变更主题：review inspector 独立化与 tool catalog API 前端 fallback
+- 变更摘要：
+  - GUI inspector 新增独立 `review` 面板，`/review` 的结构化结果不再只存在于 timeline bubble
+  - 后端新增 tool catalog API，前端会在事件未携带完整 label / renderer 时使用 Core 工具目录做 fallback
+  - 这让前端进一步从“猜测工具展示”转向“消费 Core 工具定义”
+- 影响范围：
+  - GUI inspector 信息架构
+  - 前后端工具元数据链路
+  - 旧 timeline / fallback 展示逻辑
+- 关联文档：
+  - `docs/development-tracker.md`
+  - `src/embedagent/frontend/gui/backend/server.py`
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/components/Inspector.jsx`
+- 是否需要 ADR：`否`
+- 后续动作：
+  - 把 permissions inspector 从 JSON 视图升级为结构化规则列表
+  - 继续把 review evidence 细化为可展开的 diagnostics / tests / coverage 分组
+
 ### DC-001
 
 - 日期：2026-03-27

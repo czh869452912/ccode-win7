@@ -8,6 +8,7 @@ export default function Inspector({
   todos,
   artifacts,
   plan,
+  review,
   permissionContext,
   preview,
   userInput,
@@ -27,6 +28,7 @@ export default function Inspector({
           ["todos", t("inspector.todos", lang)],
           ["artifacts", t("inspector.artifacts", lang)],
           ["plan", t("inspector.plan", lang)],
+          ["review", t("inspector.review", lang)],
           ["permissions", t("inspector.permissions", lang)],
           ["preview", t("inspector.preview", lang)],
           ["log", t("inspector.log", lang)],
@@ -48,6 +50,7 @@ export default function Inspector({
           <ArtifactPanel artifacts={artifacts} onOpen={onOpenArtifact} lang={lang} />
         )}
         {inspectorTab === "plan" && <PlanPanel plan={plan} lang={lang} />}
+        {inspectorTab === "review" && <ReviewPanel review={review} lang={lang} />}
         {inspectorTab === "permissions" && (
           <PermissionsPanel permissionContext={permissionContext} lang={lang} />
         )}
@@ -105,6 +108,49 @@ function PermissionsPanel({ permissionContext, lang }) {
     <div className="panel-preview">
       <h3>{t("inspector.permissions", lang)}</h3>
       <pre>{JSON.stringify(permissionContext, null, 2)}</pre>
+    </div>
+  );
+}
+
+function ReviewPanel({ review, lang }) {
+  if (!review) {
+    return <div className="empty-copy">{t("inspector.noReview", lang)}</div>;
+  }
+  const findings = Array.isArray(review.findings) ? review.findings : [];
+  const residualRisks = Array.isArray(review.residual_risks) ? review.residual_risks : [];
+  return (
+    <div className="panel-preview">
+      <h3>{t("inspector.review", lang)}</h3>
+      <p>{review.summary || ""}</p>
+      {findings.length > 0 ? (
+        <div className="review-findings">
+          {findings.map((finding) => (
+            <details key={finding.id || `${finding.title}-${finding.priority}`} className={`review-finding severity-${finding.severity || "info"}`}>
+              <summary className="review-finding-header">
+                <span className="review-finding-severity">{finding.severity || "info"}</span>
+                <span className="review-finding-priority">P{finding.priority || "-"}</span>
+                <span className="review-finding-title">{finding.title || "Finding"}</span>
+              </summary>
+              <div className="review-finding-body">{finding.body || ""}</div>
+              {Array.isArray(finding.evidence) && finding.evidence.length > 0 ? (
+                <pre>{JSON.stringify(finding.evidence, null, 2)}</pre>
+              ) : null}
+            </details>
+          ))}
+        </div>
+      ) : (
+        <div className="empty-copy">{t("inspector.noReviewFindings", lang)}</div>
+      )}
+      {residualRisks.length > 0 ? (
+        <>
+          <h3>{t("timeline.residualRisks", lang)}</h3>
+          <ul className="review-risk-list">
+            {residualRisks.map((risk, index) => (
+              <li key={`${index}-${risk}`}>{risk}</li>
+            ))}
+          </ul>
+        </>
+      ) : null}
     </div>
   );
 }

@@ -343,6 +343,11 @@ class CoreInterface(ABC):
     def get_permission_context(self, session_id: str) -> PermissionContextView:
         """获取当前会话的权限上下文"""
         pass
+
+    @abstractmethod
+    def get_tool_catalog(self) -> List[Dict[str, Any]]:
+        """获取当前工具目录"""
+        pass
     
     @abstractmethod
     def shutdown(self) -> None:

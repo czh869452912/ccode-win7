@@ -18,13 +18,33 @@ function main() {
 
   const timeline = timelineFromEvents([
     { event_id: "evt-1", event: "turn_started", payload: { text: "hello" } },
-    { event_id: "evt-2", event: "tool_started", payload: { call_id: "call-1", tool_name: "read_file", arguments: { path: "README.md" } } },
-    { event_id: "evt-3", event: "tool_finished", payload: { call_id: "call-1", tool_name: "read_file", success: true, data: { path: "README.md" } } },
+    { event_id: "evt-2", event: "tool_started", payload: { call_id: "call-1", tool_name: "read_file", tool_label: "Read File", progress_renderer_key: "file", result_renderer_key: "file", arguments: { path: "README.md" } } },
+    { event_id: "evt-3", event: "tool_finished", payload: { call_id: "call-1", tool_name: "read_file", tool_label: "Read File", progress_renderer_key: "file", result_renderer_key: "file", success: true, data: { path: "README.md" } } },
     { event_id: "evt-4", event: "session_finished", payload: { final_text: "done" } },
   ]);
   assert.equal(timeline[1].id, "call-1");
   assert.equal(timeline[1].status, "success");
+  assert.equal(timeline[1].label, "Read File");
+  assert.equal(timeline[1].resultRendererKey, "file");
   assert.equal(timeline[2].content, "done");
+
+  const reviewTimeline = timelineFromEvents([
+    {
+      event_id: "evt-review",
+      event: "command_result",
+      payload: {
+        command_name: "review",
+        success: true,
+        message: "## Review Findings",
+        data: {
+          review: {
+            findings: [{ id: "f1", severity: "high", priority: 1, title: "Build failed", body: "compile failed" }],
+          },
+        },
+      },
+    },
+  ]);
+  assert.equal(reviewTimeline[0].commandName, "review");
 
   const snapshot = normalizeSessionPayload({
     session_id: "sess-1",

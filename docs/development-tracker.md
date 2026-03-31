@@ -84,6 +84,8 @@
 - `scripts/validate-gui-smoke.py` 已升级：当前源码路径 smoke 可覆盖 tool / permission / ask_user / session todo 隔离与 renderer 报告
 - unified input / slash command / workflow 第一版已落地：`submit_user_message` 已统一分发普通消息与 `/help` `/mode` `/sessions` `/resume` `/workspace` `/clear` `/plan` `/review` `/diff` `/permissions` `/todos` `/artifacts`
 - 协议层已扩展 `CommandResult`、`PlanSnapshot`、`TurnRecord`、`TimelineItem` 与增强版 `SessionSnapshot`；GUI 已接入 command result、plan pane、command cards 与 slash command hint
+- `/review` 已升级为结构化 findings 输出；GUI 工具卡片开始使用 Core 下发的 `tool_label` / `progress_renderer_key` / `result_renderer_key` 做分支渲染
+- GUI 已新增独立 review inspector；后端已暴露 tool catalog API，前端开始用 Core 的工具目录为旧 timeline / fallback 展示补足 label 与 renderer
 
 项目下一步：继续推进 Phase 4 真实工程验证，在 Win7 bundle 中验证 Fixed Version WebView2 109 路径，并把 Phase 7 的 site-packages 精简和 Win7 bundle 验收接上。
 
@@ -142,7 +144,7 @@
 | T-018 | 接入 Python embeddable 与 MinGit 真实资产 | `completed` | 已新增 `scripts/offline-assets.json`，并完成真实 zip 下载、SHA256 固定、staging 解压、sources seed、license notice 与 `-RequireComplete` 验收 |
 | T-019 | 接入 ripgrep 与 Universal Ctags 真实资产 | `completed` | 已扩展 `scripts/offline-assets.json` 与 `prepare/build/validate`，完成真实 zip 下载、SHA256 固定、sources seed、license notice 与 `-RequireComplete` 验收 |
 | T-020 | 实现新架构协议层（protocol/core/frontend） | `completed` | 已新增 `protocol/` 层定义 CoreInterface/FrontendCallbacks，`core/` 层实现 AgentCoreAdapter，`frontend/gui/` 实现 PyWebView 前端，架构测试 17 项全通过 |
-| T-021 | GUI 前端与后端功能联动 | `in_progress` | 已完成 session-scoped todo、权威 session snapshot 状态事件、稳定 tool_call_id、reasoning/thinking 事件、GUI 懒加载文件树、新 React/Vite webapp 构建、slash command / plan pane / command cards 与增强版 GUI smoke；剩余缺口是更完整的 review/workflow 细化与 Win7 实机验证 |
+| T-021 | GUI 前端与后端功能联动 | `in_progress` | 已完成 session-scoped todo、权威 session snapshot 状态事件、稳定 tool_call_id、reasoning/thinking 事件、GUI 懒加载文件树、新 React/Vite webapp 构建、slash command / plan pane / command cards、structured review command、review inspector 与 tool catalog fallback；剩余缺口是更完整的 workflow 深化与 Win7 实机验证 |
 | T-026 | unified input / slash command / workflow 第一版 | `completed` | 已打通 `submit_user_message -> slash command dispatcher -> command_result / plan_updated -> GUI/TUI` 闭环，并补齐协议类型、计划存储、权限上下文与 focused tests |
 | T-022 | 零依赖打包：Python 依赖完整导出 | `completed` | 已新增 `scripts/export-dependencies.py`，确保所有 Python 依赖（含传递依赖）完整导出到 site-packages |
 | T-023 | 零依赖打包：依赖完整性验证 | `completed` | 已新增 `scripts/check-bundle-dependencies.py`，验证 bundle 包含所有必需依赖 |

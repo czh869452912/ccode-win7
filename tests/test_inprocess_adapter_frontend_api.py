@@ -216,6 +216,8 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertEqual(tool_finish.get("call_id"), "call-read-demo")
         self.assertEqual(tool_start.get("tool_label"), "Read File")
         self.assertEqual(tool_finish.get("permission_category"), "read")
+        self.assertEqual(tool_start.get("progress_renderer_key"), "file")
+        self.assertEqual(tool_finish.get("result_renderer_key"), "file")
 
     def test_user_input_flow_can_change_mode(self):
         adapter = InProcessAdapter(
@@ -308,6 +310,45 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.adapter.remember_permission_category(session_id, "workspace_write")
         context = self.adapter.get_permission_context(session_id)
         self.assertIn("workspace_write", context.remembered_categories)
+
+    def test_slash_review_emits_structured_findings(self):
+        session_id = str(self.snapshot.get('session_id') or '')
+        self.adapter.timeline_store.append_event(
+            session_id,
+            "tool_finished",
+            {
+                "tool_name": "compile_project",
+                "success": False,
+                "call_id": "call-build-1",
+                "error": "命令退出码为 1。",
+                "data": {
+                    "diagnostics": [
+                        {
+                            "file": "src/pkg/demo.c",
+                            "line": 2,
+                            "column": 5,
+                            "message": "expected ';' after return statement",
+                        }
+                    ]
+                },
+            },
+        )
+        events = []
+        self.adapter.submit_user_message(
+            session_id=session_id,
+            text='/review',
+            stream=False,
+            wait=True,
+            permission_resolver=lambda ticket: True,
+            event_handler=lambda event_name, session_id, payload: events.append((event_name, payload)),
+        )
+        command_events = [payload for event_name, payload in events if event_name == "command_result"]
+        self.assertEqual(command_events[0].get("command_name"), "review")
+        review = command_events[0].get("data", {}).get("review", {})
+        findings = review.get("findings") or []
+        self.assertGreaterEqual(len(findings), 1)
+        self.assertEqual(findings[0]["severity"], "high")
+        self.assertIn("Build failed", findings[0]["title"])
 
 
 if __name__ == '__main__':
