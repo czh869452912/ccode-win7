@@ -7,10 +7,12 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
 from embedagent.protocol import (
+    CommandResult,
     FrontendCallbacks,
     Message,
     MessageType,
     PermissionRequest,
+    PlanSnapshot,
     SessionSnapshot,
     ToolCall,
     ToolResult,
@@ -143,4 +145,14 @@ class TUIFrontend(FrontendCallbacks):
         from embedagent.frontend.tui import reducer
         if active:
             reducer.append_line(self.app.state, "[thinking] 模型正在思考...")
+        self.app.refresh_views()
+
+    def on_command_result(self, result: CommandResult) -> None:
+        from embedagent.frontend.tui import reducer
+        reducer.append_line(self.app.state, "[command:/%s] %s" % (result.command_name, result.message))
+        self.app.refresh_views()
+
+    def on_plan_updated(self, plan: PlanSnapshot) -> None:
+        from embedagent.frontend.tui import reducer
+        reducer.append_line(self.app.state, "[plan] %s" % (plan.title or "Current Plan"))
         self.app.refresh_views()

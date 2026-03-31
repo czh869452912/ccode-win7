@@ -48,9 +48,9 @@ export function timelineFromEvents(events) {
   for (const record of events || []) {
     const eventName = record.event;
     const payload = record.payload || {};
-    if (eventName === "turn_started" && payload.text) {
+    if ((eventName === "turn_started" || eventName === "turn_start") && (payload.text || payload.user_text)) {
       flushReasoning();
-      items.push({ id: record.event_id, kind: "user", content: payload.text });
+      items.push({ id: record.event_id, kind: "user", content: payload.text || payload.user_text || "" });
     } else if (eventName === "reasoning_delta" && payload.text) {
       // Aggregate consecutive reasoning deltas into a single card.
       if (pendingReasoningId !== null) {
@@ -109,6 +109,25 @@ export function timelineFromEvents(events) {
         tone: "error",
         content: payload.error || "会话出错",
       });
+    } else if (eventName === "command_result") {
+      flushReasoning();
+      items.push({
+        id: record.event_id,
+        kind: "command_result",
+        commandName: payload.command_name || "",
+        content: payload.message || "",
+        data: payload.data || {},
+        success: Boolean(payload.success),
+      });
+    } else if (eventName === "plan_updated") {
+      flushReasoning();
+      const plan = payload.plan || {};
+      items.push({
+        id: record.event_id,
+        kind: "system",
+        tone: "context",
+        content: `计划已更新：${plan.title || "Current Plan"}`,
+      });
     } else if (eventName === "session_finished" && payload.final_text) {
       flushReasoning();
       items.push({
@@ -160,6 +179,10 @@ export function normalizeSessionPayload(payload) {
     current_mode: payload.current_mode || "code",
     started_at: payload.started_at || payload.created_at || "",
     updated_at: payload.updated_at || "",
+    workflow_state: payload.workflow_state || "chat",
+    has_active_plan: Boolean(payload.has_active_plan),
+    active_plan_ref: payload.active_plan_ref || "",
+    current_command_context: payload.current_command_context || "",
     has_pending_permission: Boolean(payload.has_pending_permission),
     has_pending_input: Boolean(payload.has_pending_input),
     pending_permission: payload.pending_permission || null,

@@ -184,6 +184,9 @@ class TerminalController(object):
                 self.refresh_inspector(self.owner.state.inspector.tab)
             self.owner.refresh_views()
             return
+        if name in ("plan", "review", "diff", "permissions"):
+            self.submit_message(text)
+            return
         if name == "workspace":
             self.refresh_explorer("workspace", args[0] if args else ".")
             self.owner.refresh_views()

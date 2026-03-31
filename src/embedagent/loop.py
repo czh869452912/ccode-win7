@@ -94,6 +94,7 @@ class AgentLoop(object):
         on_context_result: Optional[Callable[[object], None]] = None,
         session: Optional[Session] = None,
         stop_event: Optional[threading.Event] = None,
+        workflow_state: str = "chat",
     ) -> LoopResult:
         current_mode = require_mode(initial_mode)["slug"]
         if session is None:
@@ -123,7 +124,7 @@ class AgentLoop(object):
                     termination_reason="cancelled",
                     turns_used=turns_used,
                 )
-            tool_schemas = self._schemas_for_mode(current_mode)
+            tool_schemas = self._schemas_for_mode(current_mode, workflow_state)
             context_result = self.context_manager.build_messages(session, current_mode)
             if on_context_result is not None:
                 on_context_result(context_result)
@@ -294,13 +295,17 @@ class AgentLoop(object):
         except Exception as exc:
             _LOG.warning("memory maintenance failed: %s", exc)
 
-    def _schemas_for_mode(self, mode_name: str):
+    def _schemas_for_mode(self, mode_name: str, workflow_state: str = "chat"):
         allowed = set(allowed_tools_for(mode_name))
         schemas = []
-        for item in self.tools.schemas():
-            name = item.get("function", {}).get("name", "")
-            if name in allowed:
-                schemas.append(item)
+        runtime_schemas = getattr(self.tools, "schemas_for", None)
+        if callable(runtime_schemas):
+            schemas.extend(runtime_schemas(mode_name, workflow_state=workflow_state, tool_names=list(allowed)))
+        else:
+            for item in self.tools.schemas():
+                name = item.get("function", {}).get("name", "")
+                if name in allowed:
+                    schemas.append(item)
         if "ask_user" in allowed:
             schemas.append(ask_user_schema())
         schemas.append(propose_mode_switch_schema())

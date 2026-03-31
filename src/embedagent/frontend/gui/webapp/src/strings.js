@@ -15,12 +15,15 @@ const STRINGS = {
     // Inspector tabs
     "inspector.todos": "Todos",
     "inspector.artifacts": "Artifacts",
+    "inspector.plan": "Plan",
+    "inspector.permissions": "Permissions",
     "inspector.preview": "Preview",
     "inspector.log": "Log",
 
     // Panel empty states
     "inspector.noTodos": "No todos in this session.",
     "inspector.noArtifacts": "No artifacts yet.",
+    "inspector.noPlan": "No active plan in this session.",
     "inspector.noPreview": "Select a file or artifact to preview.",
     "inspector.noLog": "No events yet.",
 
@@ -57,6 +60,7 @@ const STRINGS = {
     "modal.permissionRequired": "Permission Required",
     "modal.tool": "Tool",
     "modal.showDetails": "Show details",
+    "modal.remember": "Remember for this session",
     "modal.deny": "Deny",
     "modal.approve": "Approve",
 
@@ -73,11 +77,14 @@ const STRINGS = {
 
     "inspector.todos": "待办",
     "inspector.artifacts": "产物",
+    "inspector.plan": "计划",
+    "inspector.permissions": "权限",
     "inspector.preview": "预览",
     "inspector.log": "日志",
 
     "inspector.noTodos": "本次会话暂无待办。",
     "inspector.noArtifacts": "暂无产物。",
+    "inspector.noPlan": "当前会话暂无计划。",
     "inspector.noPreview": "选择文件或产物以预览。",
     "inspector.noLog": "暂无事件。",
 
@@ -107,6 +114,7 @@ const STRINGS = {
     "modal.permissionRequired": "需要确认",
     "modal.tool": "工具",
     "modal.showDetails": "展开详情",
+    "modal.remember": "本会话记住此类操作",
     "modal.deny": "拒绝",
     "modal.approve": "批准",
 

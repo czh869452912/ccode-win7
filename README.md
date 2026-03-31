@@ -110,6 +110,7 @@
 
 ## 项目现状
 
+- 2026-03-31：已落地 unified input / slash command / workflow 第一版：`submit_user_message` 现在统一分发普通消息与 `/help` `/mode` `/sessions` `/resume` `/workspace` `/clear` `/plan` `/review` `/diff` `/permissions` `/todos` `/artifacts`；协议层新增 `CommandResult`、`PlanSnapshot`、`TurnRecord`、`TimelineItem` 与扩展 `SessionSnapshot`；GUI 已接入 command result、plan pane、timeline command cards 与 slash command hint。
 - 2026-03-30：新架构落地：`protocol/` 通信协议层、`core/` AgentCoreAdapter、`frontend/gui/` PyWebView 前端，TUI 迁移至 `frontend/tui/`，架构测试 17 项全通过，文档已同步更新。
 - 2026-03-29：Phase 1-5 功能已落地；修复根目录文件写入边界后，`scripts/validate-phase5.py` 已重新跑通。
 - 2026-03-29：Phase 6 自动化验证已通过；`scripts/validate-phase6.py` 与 `unittest discover -s tests -v` 已可复跑。

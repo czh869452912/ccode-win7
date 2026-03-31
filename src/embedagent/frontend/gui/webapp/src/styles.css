@@ -185,12 +185,12 @@ button {
 
 .inspector-tabs {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 5px;
   padding: 12px;
 }
 
-/* Smaller font for 4-tab inspector buttons */
+/* Smaller font for multi-tab inspector buttons */
 .inspector-tabs button {
   font-size: 11px;
   padding: 8px 6px;
@@ -494,6 +494,21 @@ select.badge {
   border-style: dashed;
 }
 
+.bubble.command-result {
+  background: rgba(23, 100, 79, 0.06);
+}
+
+.bubble.command-result.error {
+  background: rgba(159, 47, 53, 0.08);
+}
+
+.command-result-label {
+  margin-bottom: 8px;
+  font-family: monospace;
+  font-size: 12px;
+  color: var(--muted);
+}
+
 .tool-card {
   align-self: flex-start;
   width: min(720px, 100%);
@@ -551,6 +566,29 @@ select.badge {
   padding: 18px;
   display: flex;
   gap: 12px;
+}
+
+.composer-input {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.composer-hints {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.composer-hint {
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--muted);
+  padding: 6px 10px;
+  font-size: 12px;
 }
 
 .composer textarea,

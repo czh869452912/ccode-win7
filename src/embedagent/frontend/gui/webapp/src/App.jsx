@@ -5,7 +5,6 @@ import {
   makeEventId,
   normalizeSessionPayload,
   timelineFromEvents,
-  timelineFromTurns,
 } from "./state-helpers.js";
 import { LangContext } from "./LangContext.js";
 import { t } from "./strings.js";
@@ -16,12 +15,25 @@ import Composer from "./components/Composer.jsx";
 import PermissionModal from "./components/PermissionModal.jsx";
 
 const MODES = ["explore", "spec", "code", "debug", "verify"];
+const SLASH_COMMAND_HINTS = [
+  "/help",
+  "/mode",
+  "/sessions",
+  "/resume",
+  "/workspace",
+  "/clear",
+  "/plan",
+  "/review",
+  "/diff",
+  "/permissions",
+  "/todos",
+  "/artifacts",
+];
 
 function App() {
   const [state, dispatch] = useReducer(reducer, initialState);
   const [treeHeight, setTreeHeight] = useState(640);
   const [userAnswer, setUserAnswer] = useState("");
-  const sessionAutoApprove = useRef(new Set()); // categories auto-approved for this session
   const wsRef = useRef(null);
   const timelineRef = useRef(null);
   const wsRetryRef = useRef(0);
@@ -90,18 +102,18 @@ function App() {
   }
 
   async function loadSession(sessionId) {
-    const [snapshot, timelinePayload] = await Promise.all([
+    const [snapshot, timelinePayload, planPayload] = await Promise.all([
       fetchJson(`/api/sessions/${encodeURIComponent(sessionId)}`),
       fetchJson(`/api/sessions/${encodeURIComponent(sessionId)}/timeline`),
+      fetchJson(`/api/sessions/${encodeURIComponent(sessionId)}/plan`),
     ]);
     dispatch({
       type: "session_activated",
       sessionId,
       snapshot,
-      timeline: timelinePayload.turns
-        ? timelineFromTurns(timelinePayload.turns)
-        : timelineFromEvents(timelinePayload.events || []),
+      timeline: timelineFromEvents(timelinePayload.events || []),
     });
+    dispatch({ type: "plan_loaded", plan: planPayload.plan || null });
     await Promise.all([loadTodos(sessionId), loadArtifacts()]);
   }
 
@@ -277,20 +289,8 @@ function App() {
     }
     if (type === "permission_request") {
       const category = data.category || "";
-      // Auto-approve if user already said "remember this session"
-      if (sessionAutoApprove.current.has(category)) {
-        if (wsRef.current) {
-          wsRef.current.send(JSON.stringify({
-            type: "permission_response",
-            permission_id: data.permission_id,
-            approved: true,
-          }));
-        }
-        logEvent("permission_request (auto-approved)", category);
-        return;
-      }
       // Command-level → keep blocking modal
-      if (category === "command") {
+      if (category === "shell_exec" || category === "toolchain_exec") {
         dispatch({ type: "permission_request", permission: data });
       } else {
         // Write / safe → inline timeline card
@@ -312,6 +312,55 @@ function App() {
       setUserAnswer("");
       dispatch({ type: "user_input_request", request: data });
       logEvent("user_input_request", data.question || "");
+      return;
+    }
+    if (type === "command_result") {
+      dispatch({
+        type: "command_result",
+        id: makeEventId("cmd"),
+        commandName: data.command_name || "",
+        success: Boolean(data.success),
+        message: data.message || "",
+        data: data.data || {},
+      });
+      if (data.command_name === "resume" && data.data?.switch_session_id) {
+        loadSession(data.data.switch_session_id);
+      }
+      if (data.command_name === "diff" && typeof data.data?.diff === "string" && data.data.diff) {
+        dispatch({
+          type: "preview_loaded",
+          preview: { kind: "diff", title: "Git Diff", diff: data.data.diff, content: "" },
+          inspectorTab: "preview",
+        });
+      }
+      if (data.command_name === "workspace") {
+        dispatch({
+          type: "preview_loaded",
+          preview: {
+            kind: "workspace",
+            title: "Workspace",
+            content: JSON.stringify(data.data || {}, null, 2),
+          },
+          inspectorTab: "preview",
+        });
+      }
+      if (data.command_name === "permissions") {
+        dispatch({
+          type: "permission_context_loaded",
+          context: data.data || {},
+          inspectorTab: "plan",
+        });
+      }
+      logEvent(`command: /${data.command_name || "?"}`, data.success ? "ok" : "error");
+      return;
+    }
+    if (type === "plan_updated") {
+      dispatch({
+        type: "plan_loaded",
+        plan: data.plan || null,
+        inspectorTab: "plan",
+      });
+      logEvent("plan_updated", data.plan?.title || "");
       return;
     }
     if (type === "turn_end") {
@@ -356,13 +405,15 @@ function App() {
     }
   }
 
-  function sendPermissionResponse(approved) {
+  function sendPermissionResponse(approved, remember, category) {
     if (!wsRef.current || !state.permission) return;
     wsRef.current.send(
       JSON.stringify({
         type: "permission_response",
         permission_id: state.permission.permission_id,
         approved,
+        remember: Boolean(remember),
+        category: category || state.permission.category || "",
       }),
     );
     dispatch({ type: "permission_cleared" });
@@ -371,10 +422,13 @@ function App() {
 
   function sendInlinePermissionResponse(permissionId, approved, remember, category) {
     if (!wsRef.current) return;
-    if (remember && approved && category) {
-      sessionAutoApprove.current.add(category);
-    }
-    wsRef.current.send(JSON.stringify({ type: "permission_response", permission_id: permissionId, approved }));
+    wsRef.current.send(JSON.stringify({
+      type: "permission_response",
+      permission_id: permissionId,
+      approved,
+      remember: Boolean(remember),
+      category: category || "",
+    }));
     dispatch({ type: "permission_item_resolved", permissionId, approved });
     logEvent("permission_response (inline)", approved ? "approved" : "denied");
   }
@@ -518,6 +572,7 @@ function App() {
           onSend={sendMessage}
           onStop={cancelSession}
           isRunning={currentStatus === "running" || currentStatus === "waiting_user_input"}
+          commandHints={SLASH_COMMAND_HINTS}
         />
       </main>
 
@@ -526,6 +581,8 @@ function App() {
           inspectorTab={state.inspectorTab}
           todos={state.todos}
           artifacts={state.artifacts}
+          plan={state.plan}
+          permissionContext={state.permissionContext}
           preview={state.preview}
           userInput={state.userInput}
           userAnswer={userAnswer}
@@ -539,8 +596,8 @@ function App() {
 
       <PermissionModal
         permission={state.permission}
-        onApprove={() => sendPermissionResponse(true)}
-        onDeny={() => sendPermissionResponse(false)}
+        onApprove={(remember, category) => sendPermissionResponse(true, remember, category)}
+        onDeny={(remember, category) => sendPermissionResponse(false, remember, category)}
       />
     </div>
     </LangContext.Provider>

@@ -9,15 +9,20 @@ import unittest
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 from embedagent.protocol import (
+    CommandResult,
     CoreInterface,
     FrontendCallbacks,
     Message,
     MessageType,
+    PermissionContextView,
     PermissionRequest,
+    PlanSnapshot,
     SessionSnapshot,
     SessionStatus,
+    TimelineItem,
     ToolCall,
     ToolResult,
+    TurnRecord,
     WorkspaceInfo,
 )
 
@@ -34,6 +39,8 @@ class MockFrontend(FrontendCallbacks):
         self.stream_deltas = []
         self.reasoning_deltas = []
         self.thinking_states = []
+        self.command_results = []
+        self.plan_updates = []
     
     def on_message(self, message: Message) -> None:
         self.messages.append(message)
@@ -65,6 +72,12 @@ class MockFrontend(FrontendCallbacks):
 
     def on_thinking_state_change(self, active: bool, reason: str = "") -> None:
         self.thinking_states.append((active, reason))
+
+    def on_command_result(self, result: CommandResult) -> None:
+        self.command_results.append(result)
+
+    def on_plan_updated(self, plan: PlanSnapshot) -> None:
+        self.plan_updates.append(plan)
 
 
 class TestProtocol(unittest.TestCase):
@@ -115,6 +128,31 @@ class TestProtocol(unittest.TestCase):
             git_dirty=2
         )
         self.assertEqual(info.git_branch, "main")
+
+    def test_command_result(self):
+        result = CommandResult(
+            command_name="help",
+            success=True,
+            message="ok",
+            data={"items": 1},
+        )
+        self.assertEqual(result.command_name, "help")
+        self.assertTrue(result.success)
+
+    def test_plan_snapshot(self):
+        plan = PlanSnapshot(
+            session_id="sess_001",
+            title="Current Plan",
+            content="## Summary",
+            updated_at="2026-03-30T10:00:00",
+        )
+        self.assertEqual(plan.workflow_state, "plan")
+
+    def test_turn_record_and_timeline_item(self):
+        turn = TurnRecord(turn_id="turn_1", user_text="hi")
+        item = TimelineItem(id="item_1", kind="command_result", content="ok")
+        self.assertEqual(turn.turn_id, "turn_1")
+        self.assertEqual(item.kind, "command_result")
 
 
 class TestMockFrontend(unittest.TestCase):
@@ -169,6 +207,19 @@ class TestMockFrontend(unittest.TestCase):
     def test_reasoning_delta(self):
         self.frontend.on_reasoning_delta("thinking")
         self.assertEqual(self.frontend.reasoning_deltas, ["thinking"])
+
+    def test_command_result_and_plan_update(self):
+        self.frontend.on_command_result(CommandResult(command_name="help", success=True, message="ok"))
+        self.frontend.on_plan_updated(
+            PlanSnapshot(
+                session_id="s1",
+                title="Current Plan",
+                content="body",
+                updated_at="2026-03-30T10:00:00",
+            )
+        )
+        self.assertEqual(len(self.frontend.command_results), 1)
+        self.assertEqual(len(self.frontend.plan_updates), 1)
 
 
 class TestFrontendTUIImport(unittest.TestCase):

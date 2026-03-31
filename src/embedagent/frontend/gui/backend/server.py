@@ -16,10 +16,12 @@ from fastapi.responses import FileResponse
 
 from embedagent.frontend.gui.backend.bridge import BlockingResult, ThreadsafeAsyncDispatcher
 from embedagent.protocol import (
+    CommandResult,
     CoreInterface,
     FrontendCallbacks,
     Message,
     PermissionRequest,
+    PlanSnapshot,
     SessionSnapshot,
     ToolCall,
     ToolResult,
@@ -166,6 +168,10 @@ class WebSocketFrontend(FrontendCallbacks):
                     "current_mode": snapshot.current_mode,
                     "started_at": snapshot.created_at,
                     "updated_at": snapshot.updated_at,
+                    "workflow_state": snapshot.workflow_state,
+                    "has_active_plan": snapshot.has_active_plan,
+                    "active_plan_ref": snapshot.active_plan_ref,
+                    "current_command_context": snapshot.current_command_context,
                     "has_pending_permission": snapshot.has_pending_permission,
                     "has_pending_input": snapshot.has_pending_input,
                     "pending_permission": snapshot.pending_permission.__dict__ if snapshot.pending_permission else None,
@@ -175,6 +181,10 @@ class WebSocketFrontend(FrontendCallbacks):
                 "session_id": snapshot.session_id,
                 "status": snapshot.status.value,
                 "current_mode": snapshot.current_mode,
+                "workflow_state": snapshot.workflow_state,
+                "has_active_plan": snapshot.has_active_plan,
+                "active_plan_ref": snapshot.active_plan_ref,
+                "current_command_context": snapshot.current_command_context,
                 "has_pending_permission": snapshot.has_pending_permission,
                 "has_pending_input": snapshot.has_pending_input,
                 "last_error": snapshot.last_error,
@@ -197,6 +207,33 @@ class WebSocketFrontend(FrontendCallbacks):
         self._dispatch_message({
             "type": "thinking_state",
             "data": {"active": active, "reason": reason}
+        })
+
+    def on_command_result(self, result: CommandResult) -> None:
+        self._dispatch_message({
+            "type": "command_result",
+            "data": {
+                "command_name": result.command_name,
+                "success": result.success,
+                "message": result.message,
+                "data": result.data,
+            }
+        })
+
+    def on_plan_updated(self, plan: PlanSnapshot) -> None:
+        self._dispatch_message({
+            "type": "plan_updated",
+            "data": {
+                "plan": {
+                    "session_id": plan.session_id,
+                    "title": plan.title,
+                    "content": plan.content,
+                    "updated_at": plan.updated_at,
+                    "workflow_state": plan.workflow_state,
+                    "path": plan.path,
+                    "summary": plan.summary,
+                }
+            }
         })
 
     def on_turn_event(self, event_name: str, payload: dict) -> None:
@@ -264,6 +301,10 @@ class GUIBackend:
                 "current_mode": snapshot.current_mode,
                 "started_at": snapshot.created_at,
                 "updated_at": snapshot.updated_at,
+                "workflow_state": snapshot.workflow_state,
+                "has_active_plan": snapshot.has_active_plan,
+                "active_plan_ref": snapshot.active_plan_ref,
+                "current_command_context": snapshot.current_command_context,
                 "has_pending_permission": snapshot.has_pending_permission,
                 "has_pending_input": snapshot.has_pending_input,
                 "pending_permission": snapshot.pending_permission.__dict__ if snapshot.pending_permission else None,
@@ -304,6 +345,37 @@ class GUIBackend:
         @app.get("/api/workspace")
         async def get_workspace():
             return self.core.get_workspace_snapshot()
+
+        @app.get("/api/sessions/{session_id}/plan")
+        async def get_session_plan(session_id: str):
+            plan = self.core.get_session_plan(session_id)
+            if plan is None:
+                return {"plan": None}
+            return {
+                "plan": {
+                    "session_id": plan.session_id,
+                    "title": plan.title,
+                    "content": plan.content,
+                    "updated_at": plan.updated_at,
+                    "workflow_state": plan.workflow_state,
+                    "path": plan.path,
+                    "summary": plan.summary,
+                }
+            }
+
+        @app.get("/api/sessions/{session_id}/permissions")
+        async def get_permission_context(session_id: str):
+            context = self.core.get_permission_context(session_id)
+            return {
+                "session_id": context.session_id,
+                "rules_path": context.rules_path,
+                "categories": context.categories,
+                "rules": context.rules,
+                "remembered_categories": context.remembered_categories,
+                "auto_approve_all": context.auto_approve_all,
+                "auto_approve_writes": context.auto_approve_writes,
+                "auto_approve_commands": context.auto_approve_commands,
+            }
 
         @app.get("/api/sessions/{session_id}/timeline")
         async def get_session_timeline(session_id: str, limit: int = 200):
@@ -373,6 +445,12 @@ class GUIBackend:
         if msg_type == "permission_response":
             perm_id = data.get("permission_id", "")
             approved = data.get("approved", False)
+            remember = bool(data.get("remember", False))
+            category = str(data.get("category") or "")
+            if remember and approved and category and self._current_session_id:
+                remember_method = getattr(self.core, "remember_permission_category", None)
+                if callable(remember_method):
+                    remember_method(self._current_session_id, category)
             self.frontend.handle_permission_response(perm_id, approved)
         
         elif msg_type == "user_input_response":

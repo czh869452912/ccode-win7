@@ -1,6 +1,6 @@
 # EmbedAgent 设计与变更跟踪
 
-> 更新日期：2026-03-30
+> 更新日期：2026-03-31
 > 用途：记录关键设计变更、影响范围、关联文档和后续动作
 
 ---
@@ -43,6 +43,31 @@
 ---
 
 ## 3. 当前变更记录
+
+### DC-034
+
+- 日期：2026-03-31
+- 变更主题：统一输入总线与 slash command / workflow 第一版
+- 变更摘要：
+  - `submit_user_message` 升级为统一输入入口，先分发普通消息与 slash command，再决定是否进入 `AgentLoop`
+  - 新增 `/help`、`/mode`、`/sessions`、`/resume`、`/workspace`、`/clear`、`/plan`、`/review`、`/diff`、`/permissions`、`/todos`、`/artifacts`
+  - 新增 `CommandResult`、`PlanSnapshot`、`TurnRecord`、`TimelineItem`、`PermissionContextView`，并扩展 `SessionSnapshot`
+  - GUI 已接入 command result、plan pane、timeline command cards、slash command hint；TUI 已可透传核心 workflow 命令
+- 影响范围：
+  - Core 输入分发
+  - 协议层
+  - GUI/TUI 交互层
+  - 会话计划与权限上下文
+- 关联文档：
+  - `README.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/adrs/0002-gui-workflow-shell-clean-room.md`
+- 是否需要 ADR：`是`
+- 后续动作：
+  - 继续把 `/review`、`/permissions`、`/diff` 的 GUI inspector 表现收口
+  - 在 Win7 bundle 中完成 GUI workflow / plan pane / renderer 路径验收
 
 ### DC-001
 

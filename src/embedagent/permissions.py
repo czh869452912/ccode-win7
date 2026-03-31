@@ -7,19 +7,11 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
+from embedagent.protocol import PermissionContextView
 from embedagent.session import Action
 
 
-WRITE_TOOLS = {"edit_file", "write_file"}
-COMMAND_TOOLS = {
-    "run_command",
-    "compile_project",
-    "run_tests",
-    "run_clang_tidy",
-    "run_clang_analyzer",
-    "collect_coverage",
-}
-SAFE_TOOLS = {
+READ_TOOLS = {
     "read_file",
     "list_files",
     "search_text",
@@ -27,8 +19,22 @@ SAFE_TOOLS = {
     "git_diff",
     "git_log",
     "report_quality",
-    "switch_mode",
+}
+WORKSPACE_WRITE_TOOLS = {"edit_file", "write_file", "manage_todos"}
+SHELL_EXEC_TOOLS = {
+    "run_command",
+}
+TOOLCHAIN_EXEC_TOOLS = {
+    "compile_project",
+    "run_tests",
+    "run_clang_tidy",
+    "run_clang_analyzer",
+    "collect_coverage",
+}
+GIT_WRITE_TOOLS = set()
+INTERACTION_TOOLS = {
     "ask_user",
+    "propose_mode_switch",
 }
 
 
@@ -103,30 +109,30 @@ class PermissionPolicy(object):
             )
         if self.auto_approve_all:
             return PermissionDecision(outcome="allow", details=details)
-        if action.name in SAFE_TOOLS:
+        if category == "read" or action.name in INTERACTION_TOOLS:
             return PermissionDecision(outcome="allow", details=details)
-        if action.name in WRITE_TOOLS:
+        if category == "workspace_write" or category == "git_write":
             if self.auto_approve_writes:
                 return PermissionDecision(outcome="allow", details=details)
             return PermissionDecision(
                 outcome="ask",
                 request=PermissionRequest(
                     tool_name=action.name,
-                    category="write",
+                    category=category,
                     reason="该操作会修改工作区文件。",
                     details=details,
                 ),
                 details=details,
             )
-        if action.name in COMMAND_TOOLS:
+        if category in ("shell_exec", "toolchain_exec"):
             if self.auto_approve_commands:
                 return PermissionDecision(outcome="allow", details=details)
             return PermissionDecision(
                 outcome="ask",
                 request=PermissionRequest(
                     tool_name=action.name,
-                    category="command",
-                    reason="该操作会执行命令或工具链程序。",
+                    category=category,
+                    reason=self._default_reason(category),
                     details=details,
                 ),
                 details=details,
@@ -189,7 +195,7 @@ class PermissionPolicy(object):
         # where project-level overrides (appended after global rules) win.
         matched = None
         for rule in self.rules:
-            if rule.category and rule.category != category:
+            if rule.category and not self._category_matches(rule.category, category):
                 continue
             if rule.tool_names and action.name not in rule.tool_names:
                 continue
@@ -207,6 +213,24 @@ class PermissionPolicy(object):
                     continue
             matched = rule  # keep scanning; last match wins
         return matched
+
+    def _category_matches(self, rule_category: str, actual_category: str) -> bool:
+        normalized_rule = self._normalize_rule_category(rule_category)
+        if normalized_rule == actual_category:
+            return True
+        if normalized_rule == "shell_or_toolchain":
+            return actual_category in ("shell_exec", "toolchain_exec")
+        return False
+
+    def _normalize_rule_category(self, value: str) -> str:
+        raw = str(value or "").strip().lower()
+        aliases = {
+            "write": "workspace_write",
+            "command": "shell_or_toolchain",
+            "safe": "read",
+            "other": "other",
+        }
+        return aliases.get(raw, raw)
 
     def _matches_globs(self, value: str, patterns: List[str]) -> bool:
         normalized = value.replace("\\", "/")
@@ -235,19 +259,27 @@ class PermissionPolicy(object):
         return details
 
     def _default_reason(self, category: str) -> str:
-        if category == "write":
+        if category == "workspace_write":
             return "该操作会修改工作区文件。"
-        if category == "command":
-            return "该操作会执行命令或工具链程序。"
+        if category == "git_write":
+            return "该操作会修改 Git 状态。"
+        if category == "shell_exec":
+            return "该操作会执行 shell 命令。"
+        if category == "toolchain_exec":
+            return "该操作会执行构建或验证工具链。"
         return "该操作需要确认。"
 
     def _category_for_action(self, action: Action) -> str:
-        if action.name in WRITE_TOOLS:
-            return "write"
-        if action.name in COMMAND_TOOLS:
-            return "command"
-        if action.name in SAFE_TOOLS:
-            return "safe"
+        if action.name in WORKSPACE_WRITE_TOOLS:
+            return "workspace_write"
+        if action.name in GIT_WRITE_TOOLS:
+            return "git_write"
+        if action.name in SHELL_EXEC_TOOLS:
+            return "shell_exec"
+        if action.name in TOOLCHAIN_EXEC_TOOLS:
+            return "toolchain_exec"
+        if action.name in READ_TOOLS:
+            return "read"
         return "other"
 
     def _list_of_strings(self, value: Any) -> List[str]:
@@ -259,3 +291,39 @@ class PermissionPolicy(object):
             if text:
                 result.append(text)
         return result
+
+    def build_context_view(
+        self,
+        session_id: str = "",
+        remembered_categories: Optional[List[str]] = None,
+    ) -> PermissionContextView:
+        categories = [
+            "read",
+            "workspace_write",
+            "shell_exec",
+            "toolchain_exec",
+            "git_write",
+        ]
+        rules = []
+        for rule in self.rules:
+            rules.append(
+                {
+                    "decision": rule.decision,
+                    "category": rule.category,
+                    "tool_names": list(rule.tool_names),
+                    "path_globs": list(rule.path_globs),
+                    "cwd_globs": list(rule.cwd_globs),
+                    "command_patterns": list(rule.command_patterns),
+                    "reason": rule.reason,
+                }
+            )
+        return PermissionContextView(
+            session_id=session_id,
+            rules_path=self.rules_path.replace("\\", "/"),
+            categories=categories,
+            rules=rules,
+            remembered_categories=sorted(list(set(remembered_categories or []))),
+            auto_approve_all=self.auto_approve_all,
+            auto_approve_writes=self.auto_approve_writes,
+            auto_approve_commands=self.auto_approve_commands,
+        )

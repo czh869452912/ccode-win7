@@ -188,6 +188,14 @@ function TimelineItem({ item, lang }) {
       </div>
     );
   }
+  if (item.kind === "command_result") {
+    return (
+      <div className={`bubble assistant command-result ${item.success === false ? "error" : ""}`} role="article">
+        <div className="command-result-label">/{item.commandName}</div>
+        <Markdown content={item.content} />
+      </div>
+    );
+  }
   if (item.kind === "reasoning") {
     const wordCount = (item.content || "").split(/\s+/).filter(Boolean).length;
     return (

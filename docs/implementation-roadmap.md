@@ -19,18 +19,18 @@
 
 - 系统核心是 `Agent Core + Mode Registry + Agent Harness`
 - 首期聚焦 C 语言偏应用软件开发，而非通用多语言平台
-- 工作流：用户以 `explore` 模式入场（探索/讨论），按需切换到 `spec / code / debug / verify` 等具体模式
+- 工作流：用户以 `explore` 模式入场（探索/讨论），按需切换到 `spec / code / debug / verify` 等具体模式；产品表层逐步转向 slash command / workflow，模式退到 Core 执行边界
 - 工具链围绕 Clang 生态统一组织（已验证完全静态链接的最新版 Clang 可在 Win7 运行）
 - 最终运行时必须可在 Windows 7 离线环境中一体化交付
 - **工具集设计是一等公民**：每个模式工具上限 5 个，描述格式统一，参见 `docs/tool-design-spec.md`
 - **Harness 分阶段叠加**：Phase 1 无 Harness，Phase 3 引入最小 dict 实现，Phase 5 可选 TOML 加载
 - **每个 Phase 必须有端到端可验证的里程碑**，不做无法验证的纯抽象层构建
 
-### 2.1 当前执行状态（2026-03-29）
+### 2.1 当前执行状态（2026-03-31）
 
 路线图的阶段顺序保持不变，但当前仓库已经不再处于 Phase 1 起步期。
 
-截至 2026-03-29：
+截至 2026-03-31：
 
 | 阶段 | 状态 | 说明 |
 |------|------|------|
@@ -40,7 +40,7 @@
 | Phase 3 | `completed` | 模式系统 v1 已落地 |
 | Phase 4 | `in_progress` | 本地闭环 LLVM/Clang 工具链已具备，待真实 C 工程与 Win7 验证 |
 | Phase 5 | `completed` | 权限、上下文、记忆、恢复和 cleanup 已落地，`validate-phase5.py` 已复验通过 |
-| Phase 6 | `in_progress` | 自动化验证已通过，待真实控制台 / Win7 / ConEmu 手工验证 |
+| Phase 6 | `in_progress` | 自动化验证已通过；unified input / slash command / workflow 第一版已落地，待真实控制台 / Win7 / ConEmu 手工验证 |
 | Phase 7 | `in_progress` | 离线打包设计文档、ADR、`prepare/build/validate` 三段脚本，以及 Python/MinGit/rg/ctags 真实资产接入已完成，待继续收口 |
 
 ---

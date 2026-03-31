@@ -7,6 +7,8 @@ export default function Inspector({
   inspectorTab,
   todos,
   artifacts,
+  plan,
+  permissionContext,
   preview,
   userInput,
   userAnswer,
@@ -24,6 +26,7 @@ export default function Inspector({
         {[
           ["todos", t("inspector.todos", lang)],
           ["artifacts", t("inspector.artifacts", lang)],
+          ["plan", t("inspector.plan", lang)],
           ["preview", t("inspector.preview", lang)],
           ["log", t("inspector.log", lang)],
         ].map(([id, label]) => (
@@ -42,6 +45,9 @@ export default function Inspector({
         {inspectorTab === "todos" && <TodoPanel todos={todos} lang={lang} />}
         {inspectorTab === "artifacts" && (
           <ArtifactPanel artifacts={artifacts} onOpen={onOpenArtifact} lang={lang} />
+        )}
+        {inspectorTab === "plan" && (
+          <PlanPanel plan={plan} permissionContext={permissionContext} lang={lang} />
         )}
         {inspectorTab === "preview" && <PreviewPanel preview={preview} lang={lang} />}
         {inspectorTab === "log" && <LogPanel entries={eventLog} lang={lang} />}
@@ -74,6 +80,28 @@ export default function Inspector({
         ) : null}
       </div>
     </aside>
+  );
+}
+
+function PlanPanel({ plan, permissionContext, lang }) {
+  if (!plan && !permissionContext) {
+    return <div className="empty-copy">{t("inspector.noPlan", lang)}</div>;
+  }
+  return (
+    <div className="panel-preview">
+      {plan ? (
+        <>
+          <h3>{plan.title || t("inspector.plan", lang)}</h3>
+          <pre>{plan.content}</pre>
+        </>
+      ) : null}
+      {permissionContext ? (
+        <>
+          <h3>{t("inspector.permissions", lang)}</h3>
+          <pre>{JSON.stringify(permissionContext, null, 2)}</pre>
+        </>
+      ) : null}
+    </div>
   );
 }
 

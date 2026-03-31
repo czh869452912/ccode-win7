@@ -12,12 +12,15 @@ from datetime import datetime
 from typing import Any, Callable, Dict, List, Optional
 
 from embedagent.protocol import (
+    CommandResult,
     CoreInterface,
     DiffPreview,
     FrontendCallbacks,
     Message,
     MessageType,
+    PermissionContextView,
     PermissionRequest,
+    PlanSnapshot,
     SessionSnapshot,
     SessionStatus,
     ToolCall,
@@ -94,6 +97,31 @@ class CallbackBridge:
                 bool(payload.get("active", False)),
                 str(payload.get("reason") or ""),
             )
+
+        elif event_name == "command_result":
+            self.frontend.on_command_result(
+                CommandResult(
+                    command_name=str(payload.get("command_name") or ""),
+                    success=bool(payload.get("success", False)),
+                    message=str(payload.get("message") or ""),
+                    data=payload.get("data", {}),
+                )
+            )
+
+        elif event_name == "plan_updated":
+            plan = payload.get("plan", {})
+            if isinstance(plan, dict):
+                self.frontend.on_plan_updated(
+                    PlanSnapshot(
+                        session_id=str(plan.get("session_id") or session_id),
+                        title=str(plan.get("title") or "Current Plan"),
+                        content=str(plan.get("content") or ""),
+                        updated_at=str(plan.get("updated_at") or ""),
+                        workflow_state=str(plan.get("workflow_state") or "plan"),
+                        path=str(plan.get("path") or ""),
+                        summary=str(plan.get("summary") or ""),
+                    )
+                )
             
         elif event_name == "session_finished":
             snapshot = payload.get("session_snapshot", {})
@@ -151,12 +179,44 @@ class CallbackBridge:
             "error": SessionStatus.ERROR
         }
         
+        pending_perm = None
+        if snapshot.get("has_pending_permission"):
+            permission = snapshot.get("pending_permission", {})
+            if isinstance(permission, dict):
+                pending_perm = PermissionRequest(
+                    permission_id=permission.get("permission_id", ""),
+                    tool_name=permission.get("tool_name", ""),
+                    category=permission.get("category", ""),
+                    reason=permission.get("reason", ""),
+                    details=permission.get("details", {}),
+                )
+
+        pending_input = None
+        if snapshot.get("has_pending_user_input") or snapshot.get("has_pending_input"):
+            request = snapshot.get("pending_user_input", {})
+            if isinstance(request, dict):
+                pending_input = UserInputRequest(
+                    request_id=request.get("request_id", ""),
+                    tool_name=request.get("tool_name", ""),
+                    question=request.get("question", ""),
+                    options=request.get("options", []),
+                )
+
         snap = SessionSnapshot(
             session_id=snapshot.get("session_id", ""),
             status=status_map.get(snapshot.get("status"), SessionStatus.IDLE),
             current_mode=snapshot.get("current_mode", "code"),
             created_at=snapshot.get("started_at", ""),
-            updated_at=snapshot.get("updated_at", "")
+            updated_at=snapshot.get("updated_at", ""),
+            workflow_state=snapshot.get("workflow_state", "chat"),
+            has_active_plan=bool(snapshot.get("has_active_plan", False)),
+            active_plan_ref=snapshot.get("active_plan_ref", ""),
+            current_command_context=snapshot.get("current_command_context", ""),
+            has_pending_permission=bool(snapshot.get("has_pending_permission", False)),
+            has_pending_input=bool(snapshot.get("has_pending_user_input", snapshot.get("has_pending_input", False))),
+            pending_permission=pending_perm,
+            pending_input=pending_input,
+            last_error=snapshot.get("last_error"),
         )
         self.frontend.on_session_status_change(snap)
 
@@ -244,6 +304,10 @@ class AgentCoreAdapter(CoreInterface):
             current_mode=snapshot.get("current_mode", "code"),
             created_at=snapshot.get("started_at", ""),
             updated_at=snapshot.get("updated_at", ""),
+            workflow_state=snapshot.get("workflow_state", "chat"),
+            has_active_plan=bool(snapshot.get("has_active_plan", False)),
+            active_plan_ref=snapshot.get("active_plan_ref", ""),
+            current_command_context=snapshot.get("current_command_context", ""),
             has_pending_permission=snapshot.get("has_pending_permission", False),
             has_pending_input=snapshot.get("has_pending_user_input", snapshot.get("has_pending_input", False)),
             pending_permission=pending_perm,
@@ -383,6 +447,18 @@ class AgentCoreAdapter(CoreInterface):
     def list_todos(self, session_id: str = "") -> List[Dict[str, Any]]:
         result = self._adapter.list_todos(session_id=session_id)
         return result.get("todos", [])
+
+    def get_session_plan(self, session_id: str) -> Optional[PlanSnapshot]:
+        payload = self._adapter.get_session_plan(session_id)
+        return payload
+
+    def get_permission_context(self, session_id: str) -> PermissionContextView:
+        return self._adapter.get_permission_context(session_id)
+
+    def remember_permission_category(self, session_id: str, category: str) -> SessionSnapshot:
+        return self._snapshot_to_protocol(
+            self._adapter.remember_permission_category(session_id, category)
+        )
     
     def shutdown(self) -> None:
         """关闭 Core"""

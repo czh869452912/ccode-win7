@@ -366,6 +366,19 @@ def main(argv: Optional[List[str]] = None) -> int:
             )
             sys.stderr.flush()
             return
+        if event_name == "command_result":
+            message = str(payload.get("message") or "")
+            if message:
+                sys.stdout.write(message + ("\n" if not message.endswith("\n") else ""))
+                sys.stdout.flush()
+                runtime_state["printed"] = True
+            return
+        if event_name == "plan_updated":
+            plan = payload.get("plan") or {}
+            title = str(plan.get("title") or "Current Plan") if isinstance(plan, dict) else "Current Plan"
+            sys.stderr.write("[plan] updated %s\n" % title)
+            sys.stderr.flush()
+            return
         if event_name == "context_compacted":
             return
         if event_name == "session_finished":

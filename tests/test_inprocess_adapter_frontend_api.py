@@ -269,6 +269,44 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         final_snapshot = adapter.get_session_snapshot(str(snapshot.get('session_id') or ''))
         self.assertEqual(final_snapshot["current_mode"], "explore")
 
+    def test_slash_help_emits_command_result(self):
+        events = []
+        self.adapter.submit_user_message(
+            session_id=str(self.snapshot.get('session_id') or ''),
+            text='/help',
+            stream=False,
+            wait=True,
+            permission_resolver=lambda ticket: True,
+            event_handler=lambda event_name, session_id, payload: events.append((event_name, payload)),
+        )
+        command_events = [payload for event_name, payload in events if event_name == "command_result"]
+        self.assertEqual(len(command_events), 1)
+        self.assertEqual(command_events[0].get("command_name"), "help")
+        self.assertIn("Slash Commands", command_events[0].get("message") or "")
+
+    def test_slash_plan_persists_plan_snapshot(self):
+        session_id = str(self.snapshot.get('session_id') or '')
+        self.adapter.submit_user_message(
+            session_id=session_id,
+            text='/plan ## Summary\n\n- add tests',
+            stream=False,
+            wait=True,
+            permission_resolver=lambda ticket: True,
+            event_handler=lambda event_name, session_id, payload: None,
+        )
+        snapshot = self.adapter.get_session_snapshot(session_id)
+        self.assertTrue(snapshot["has_active_plan"])
+        self.assertEqual(snapshot["workflow_state"], "plan")
+        plan = self.adapter.get_session_plan(session_id)
+        self.assertIsNotNone(plan)
+        self.assertIn("add tests", plan.content)
+
+    def test_slash_permissions_reflects_session_memory(self):
+        session_id = str(self.snapshot.get('session_id') or '')
+        self.adapter.remember_permission_category(session_id, "workspace_write")
+        context = self.adapter.get_permission_context(session_id)
+        self.assertIn("workspace_write", context.remembered_categories)
+
 
 if __name__ == '__main__':
     unittest.main()

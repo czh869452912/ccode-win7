@@ -17,6 +17,8 @@ export const initialState = {
   userInput: null,
   todos: [],
   artifacts: [],
+  plan: null,
+  permissionContext: null,
   preview: null,
   fileTree: [],
   requestedMode: "code",
@@ -57,6 +59,8 @@ export function reducer(state, action) {
         userInput: null,
         terminationReason: "",
         turnsUsed: 0,
+        plan: null,
+        permissionContext: null,
       };
     case "session_snapshot": {
       const snapshot = action.snapshot;
@@ -228,6 +232,38 @@ export function reducer(state, action) {
         preview: action.preview,
         inspectorTab: action.inspectorTab || state.inspectorTab,
       };
+    case "plan_loaded":
+      return {
+        ...state,
+        plan: action.plan,
+        inspectorTab: action.inspectorTab || state.inspectorTab,
+      };
+    case "permission_context_loaded":
+      return {
+        ...state,
+        permissionContext: action.context,
+        inspectorTab: action.inspectorTab || state.inspectorTab,
+      };
+    case "command_result": {
+      const clearTimeline = Boolean(action.data?.clear_timeline);
+      const timeline = clearTimeline
+        ? []
+        : state.timeline.concat({
+            id: action.id || makeEventId("cmd"),
+            kind: "command_result",
+            commandName: action.commandName,
+            content: action.message,
+            data: action.data || {},
+            success: action.success,
+          });
+      return {
+        ...state,
+        timeline,
+        thinkingActive: false,
+        streamingAssistantId: "",
+        streamingReasoningId: "",
+      };
+    }
     case "file_tree_loaded":
       return { ...state, fileTree: action.nodes };
     case "file_children_loaded":

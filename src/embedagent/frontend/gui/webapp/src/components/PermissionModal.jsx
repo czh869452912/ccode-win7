@@ -4,6 +4,11 @@ import { t } from "../strings.js";
 
 export default function PermissionModal({ permission, onApprove, onDeny }) {
   const lang = useLang();
+  const [remember, setRemember] = React.useState(false);
+
+  React.useEffect(() => {
+    setRemember(false);
+  }, [permission?.permission_id]);
 
   if (!permission) return null;
   return (
@@ -31,11 +36,19 @@ export default function PermissionModal({ permission, onApprove, onDeny }) {
             <pre>{JSON.stringify(permission.details, null, 2)}</pre>
           </details>
         ) : null}
+        <label className="permission-remember">
+          <input
+            type="checkbox"
+            checked={remember}
+            onChange={(e) => setRemember(e.target.checked)}
+          />
+          {t("modal.remember", lang)}
+        </label>
         <div className="modal-actions">
-          <button className="ghost btn-deny" onClick={onDeny}>
+          <button className="ghost btn-deny" onClick={() => onDeny(remember, permission.category || "")}>
             {t("modal.deny", lang)}
           </button>
-          <button className="primary" onClick={onApprove}>
+          <button className="primary" onClick={() => onApprove(remember, permission.category || "")}>
             {t("modal.approve", lang)}
           </button>
         </div>

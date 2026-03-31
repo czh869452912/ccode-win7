@@ -7,7 +7,7 @@ import os
 import re
 import subprocess
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from embedagent.artifacts import ArtifactStore
@@ -45,6 +45,7 @@ class ToolDefinition:
     description: str
     parameters: Dict[str, Any]
     handler: Callable[[Dict[str, Any]], Observation]
+    metadata: Dict[str, Any] = field(default_factory=dict)
 
     def schema(self) -> Dict[str, Any]:
         return {

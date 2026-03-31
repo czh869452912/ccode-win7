@@ -83,6 +83,61 @@ class UserInputRequest:
 
 
 @dataclass
+class CommandResult:
+    """Slash command / workflow result"""
+    command_name: str
+    success: bool
+    message: str
+    data: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class PlanSnapshot:
+    """当前会话的计划快照"""
+    session_id: str
+    title: str
+    content: str
+    updated_at: str
+    workflow_state: str = "plan"
+    path: str = ""
+    summary: str = ""
+
+
+@dataclass
+class TimelineItem:
+    """前端可消费的统一时间线条目"""
+    id: str
+    kind: str
+    content: str = ""
+    status: str = ""
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class TurnRecord:
+    """结构化 turn 记录"""
+    turn_id: str
+    user_text: str
+    reasoning: str = ""
+    assistant_text: str = ""
+    status: str = "completed"
+    tool_calls: List[Dict[str, Any]] = field(default_factory=list)
+
+
+@dataclass
+class PermissionContextView:
+    """前端展示权限上下文所需的数据"""
+    session_id: str
+    rules_path: str
+    categories: List[str] = field(default_factory=list)
+    rules: List[Dict[str, Any]] = field(default_factory=list)
+    remembered_categories: List[str] = field(default_factory=list)
+    auto_approve_all: bool = False
+    auto_approve_writes: bool = False
+    auto_approve_commands: bool = False
+
+
+@dataclass
 class DiffPreview:
     """Diff 预览"""
     path: str
@@ -100,6 +155,10 @@ class SessionSnapshot:
     current_mode: str
     created_at: str
     updated_at: str
+    workflow_state: str = "chat"
+    has_active_plan: bool = False
+    active_plan_ref: str = ""
+    current_command_context: str = ""
     has_pending_permission: bool = False
     has_pending_input: bool = False
     pending_permission: Optional[PermissionRequest] = None
@@ -160,6 +219,14 @@ class FrontendCallbacks(Protocol):
 
     def on_thinking_state_change(self, active: bool, reason: str = "") -> None:
         """模型是否处于 thinking 阶段"""
+        ...
+
+    def on_command_result(self, result: CommandResult) -> None:
+        """slash command / workflow 结果"""
+        ...
+
+    def on_plan_updated(self, plan: PlanSnapshot) -> None:
+        """计划更新"""
         ...
 
 
@@ -265,6 +332,16 @@ class CoreInterface(ABC):
     @abstractmethod
     def list_todos(self, session_id: str = "") -> List[Dict[str, Any]]:
         """列出待办事项"""
+        pass
+
+    @abstractmethod
+    def get_session_plan(self, session_id: str) -> Optional[PlanSnapshot]:
+        """获取会话计划"""
+        pass
+
+    @abstractmethod
+    def get_permission_context(self, session_id: str) -> PermissionContextView:
+        """获取当前会话的权限上下文"""
         pass
     
     @abstractmethod

@@ -8,7 +8,7 @@ import threading
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Set
 
 from embedagent.context import ContextManager
 from embedagent.interaction import UserInputRequest, UserInputResponse
@@ -16,11 +16,14 @@ from embedagent.llm import OpenAICompatibleClient
 from embedagent.loop import AgentLoop
 from embedagent.memory_maintenance import MemoryMaintenance
 from embedagent.modes import DEFAULT_MODE, build_system_prompt, initialize_modes, require_mode
+from embedagent.plan_store import PlanStore
 from embedagent.permissions import PermissionPolicy, PermissionRequest
+from embedagent.protocol import CommandResult, PermissionContextView, PlanSnapshot
 from embedagent.project_memory import ProjectMemoryStore
 from embedagent.session import Action, Observation, Session
 from embedagent.session_store import SessionSummaryStore
 from embedagent.session_timeline import SessionTimelineStore
+from embedagent.slash_commands import ParsedSlashCommand, SlashCommandRegistry, parse_slash_command
 from embedagent import todos as todo_store
 from embedagent.tools import ToolRuntime
 from embedagent.tools._base import SKIP_DIR_NAMES
@@ -81,6 +84,9 @@ class ManagedSession:
     session: Session
     current_mode: str
     status: str = "idle"
+    workflow_state: str = "chat"
+    active_plan_ref: str = ""
+    current_command_context: str = ""
     summary_ref: str = ""
     updated_at: str = field(default_factory=_utc_now)
     last_error: Optional[str] = None
@@ -93,6 +99,7 @@ class ManagedSession:
     active_thread: Optional[threading.Thread] = None
     resume_summary: Optional[Dict[str, Any]] = None
     last_assistant_message: str = ""
+    remembered_permission_categories: Set[str] = field(default_factory=set)
     stop_event: threading.Event = field(default_factory=threading.Event, repr=False)
     lock: threading.RLock = field(default_factory=threading.RLock, repr=False)
 
@@ -127,6 +134,8 @@ class InProcessAdapter(object):
         )
         self.maintenance_interval = maintenance_interval if maintenance_interval > 0 else 1
         self.event_handler = event_handler
+        self.plan_store = PlanStore(self.tools.workspace)
+        self.command_registry = SlashCommandRegistry()
         initialize_modes(self.tools.workspace)
         self._sessions = {}  # type: Dict[str, ManagedSession]
         self._lock = threading.RLock()
@@ -143,7 +152,13 @@ class InProcessAdapter(object):
         session.add_system_message(
             build_system_prompt(current_mode, getattr(self.tools, "app_config", None), self.tools.workspace)
         )
-        state = ManagedSession(session=session, current_mode=current_mode)
+        plan = self.plan_store.load(session.session_id)
+        state = ManagedSession(
+            session=session,
+            current_mode=current_mode,
+            active_plan_ref=plan.path if plan is not None else "",
+            workflow_state="plan" if plan is not None else "chat",
+        )
         self._persist_state(state)
         with self._lock:
             self._sessions[session.session_id] = state
@@ -180,6 +195,10 @@ class InProcessAdapter(object):
             resume_summary=summary,
             last_assistant_message=str(summary.get("assistant_last_reply") or ""),
         )
+        plan = self.plan_store.load(session.session_id)
+        if plan is not None:
+            state.active_plan_ref = plan.path
+            state.workflow_state = "plan"
         with self._lock:
             self._sessions[session.session_id] = state
         snapshot = self.get_session_snapshot(session.session_id)
@@ -206,6 +225,10 @@ class InProcessAdapter(object):
                 "current_mode": state.current_mode,
                 "started_at": str((summary or {}).get("started_at") or state.session.started_at),
                 "updated_at": updated_at,
+                "workflow_state": state.workflow_state,
+                "has_active_plan": bool(state.active_plan_ref),
+                "active_plan_ref": state.active_plan_ref,
+                "current_command_context": state.current_command_context,
                 "last_user_message": str((summary or {}).get("latest_user_message") or ""),
                 "last_assistant_message": str((summary or {}).get("assistant_last_reply") or state.last_assistant_message or ""),
                 "summary_text": str((summary or {}).get("summary_text") or ""),
@@ -404,6 +427,7 @@ class InProcessAdapter(object):
             return {
                 "session_id": state.session.session_id,
                 "events": raw_events,
+                "turns": [],
             }
         turns = []
         current_turn = None  # type: Optional[Dict[str, Any]]
@@ -458,6 +482,7 @@ class InProcessAdapter(object):
                 current_turn["status"] = payload.get("termination_reason") or "completed"
         return {
             "session_id": state.session.session_id,
+            "events": raw_events,
             "turns": turns,
         }
 
@@ -476,6 +501,28 @@ class InProcessAdapter(object):
             "session_id": session_id,
         }
 
+    def get_session_plan(self, session_id: str) -> Optional[PlanSnapshot]:
+        state = self._require_session(session_id)
+        return self.plan_store.load(state.session.session_id)
+
+    def get_permission_context(self, session_id: str) -> PermissionContextView:
+        state = self._require_session(session_id)
+        remembered = sorted(state.remembered_permission_categories)
+        return self.permission_policy.build_context_view(
+            session_id=state.session.session_id,
+            remembered_categories=remembered,
+        )
+
+    def remember_permission_category(self, session_id: str, category: str) -> Dict[str, Any]:
+        state = self._require_session(session_id)
+        normalized = str(category or "").strip()
+        if not normalized:
+            return self.get_session_snapshot(session_id)
+        with state.lock:
+            state.remembered_permission_categories.add(normalized)
+            state.updated_at = _utc_now()
+        return self.get_session_snapshot(session_id)
+
     def submit_user_message(
         self,
         session_id: str,
@@ -487,12 +534,19 @@ class InProcessAdapter(object):
         event_handler: Optional[EventHandler] = None,
     ) -> Dict[str, Any]:
         state = self._require_session(session_id)
+        dispatch = self._dispatch_input(state, text, event_handler)
+        if dispatch.get("handled") and not dispatch.get("continue_with_text"):
+            return self.get_session_snapshot(session_id)
+        text_to_run = str(dispatch.get("continue_with_text") or text)
         with state.lock:
             state.status = "running"
             state.last_error = None
+            state.current_command_context = ""
+            if state.workflow_state != "plan":
+                state.workflow_state = "chat"
             state.updated_at = _utc_now()
         payload = {
-            "text": text,
+            "text": text_to_run,
             "stream": stream,
         }
         self._emit_with_snapshot(event_handler, "turn_started", state, payload)
@@ -500,7 +554,7 @@ class InProcessAdapter(object):
         if wait:
             self._run_turn(
                 state,
-                text,
+                text_to_run,
                 stream,
                 permission_resolver,
                 user_input_resolver,
@@ -509,7 +563,7 @@ class InProcessAdapter(object):
             return self.get_session_snapshot(session_id)
         thread = threading.Thread(
             target=self._run_turn,
-            args=(state, text, stream, permission_resolver, user_input_resolver, event_handler),
+            args=(state, text_to_run, stream, permission_resolver, user_input_resolver, event_handler),
             name="embedagent-session-%s" % session_id[:8],
         )
         with state.lock:
@@ -519,6 +573,473 @@ class InProcessAdapter(object):
         thread.daemon = True
         thread.start()
         return self.get_session_snapshot(session_id)
+
+    def _dispatch_input(
+        self,
+        state: ManagedSession,
+        text: str,
+        event_handler: Optional[EventHandler],
+    ) -> Dict[str, Any]:
+        parsed = parse_slash_command(text)
+        if parsed is None:
+            return {"handled": False, "continue_with_text": text}
+        spec = self.command_registry.get(parsed.name)
+        if spec is None:
+            self._emit_command_result(
+                event_handler,
+                state,
+                CommandResult(
+                    command_name=parsed.name,
+                    success=False,
+                    message="未知命令：/%s" % parsed.name,
+                    data={"raw_args": parsed.raw_args},
+                ),
+            )
+            return {"handled": True, "continue_with_text": ""}
+        with state.lock:
+            state.current_command_context = parsed.name
+            if parsed.name in ("plan", "review"):
+                state.workflow_state = parsed.name
+            else:
+                state.workflow_state = "command"
+            state.updated_at = _utc_now()
+        handler = getattr(self, "_handle_command_%s" % parsed.name, None)
+        if not callable(handler):
+            self._emit_command_result(
+                event_handler,
+                state,
+                CommandResult(
+                    command_name=parsed.name,
+                    success=False,
+                    message="命令尚未实现：/%s" % parsed.name,
+                    data={"raw_args": parsed.raw_args},
+                ),
+            )
+            return {"handled": True, "continue_with_text": ""}
+        return handler(state, parsed, event_handler)
+
+    def _handle_command_help(
+        self,
+        state: ManagedSession,
+        parsed: ParsedSlashCommand,
+        event_handler: Optional[EventHandler],
+    ) -> Dict[str, Any]:
+        self._emit_command_result(
+            event_handler,
+            state,
+            CommandResult(
+                command_name="help",
+                success=True,
+                message=self.command_registry.help_markdown(),
+                data={"commands": [item.name for item in self.command_registry.specs()]},
+            ),
+        )
+        return {"handled": True, "continue_with_text": ""}
+
+    def _handle_command_mode(
+        self,
+        state: ManagedSession,
+        parsed: ParsedSlashCommand,
+        event_handler: Optional[EventHandler],
+    ) -> Dict[str, Any]:
+        if not parsed.args:
+            self._emit_command_result(
+                event_handler,
+                state,
+                CommandResult(
+                    command_name="mode",
+                    success=True,
+                    message="当前模式：`%s`" % state.current_mode,
+                    data={"current_mode": state.current_mode},
+                ),
+            )
+            return {"handled": True, "continue_with_text": ""}
+        target_mode = require_mode(parsed.args[0])["slug"]
+        remainder = ""
+        if parsed.raw_args:
+            parts = parsed.raw_args.split(None, 1)
+            remainder = str(parts[1] or "").strip() if len(parts) > 1 else ""
+        snapshot = self.set_session_mode(state.session.session_id, target_mode)
+        message = "已切换到 `%s` 模式。" % target_mode
+        if remainder:
+            message += " 继续处理后续消息。"
+        self._emit_command_result(
+            event_handler,
+            state,
+            CommandResult(
+                command_name="mode",
+                success=True,
+                message=message,
+                data={"current_mode": target_mode, "session_snapshot": snapshot},
+            ),
+        )
+        return {"handled": True, "continue_with_text": remainder}
+
+    def _handle_command_sessions(
+        self,
+        state: ManagedSession,
+        parsed: ParsedSlashCommand,
+        event_handler: Optional[EventHandler],
+    ) -> Dict[str, Any]:
+        sessions = self.list_sessions(limit=10)
+        lines = ["## Recent Sessions", ""]
+        if not sessions:
+            lines.append("当前没有可恢复会话。")
+        else:
+            for item in sessions:
+                label = str(item.get("user_goal") or item.get("summary_text") or item.get("session_id") or "")
+                lines.append(
+                    "- `%s` [%s] %s"
+                    % (
+                        str(item.get("session_id") or "")[:12],
+                        str(item.get("current_mode") or "-"),
+                        label[:96],
+                    )
+                )
+        self._emit_command_result(
+            event_handler,
+            state,
+            CommandResult(
+                command_name="sessions",
+                success=True,
+                message="\n".join(lines),
+                data={"sessions": sessions},
+            ),
+        )
+        return {"handled": True, "continue_with_text": ""}
+
+    def _handle_command_resume(
+        self,
+        state: ManagedSession,
+        parsed: ParsedSlashCommand,
+        event_handler: Optional[EventHandler],
+    ) -> Dict[str, Any]:
+        reference = parsed.args[0] if parsed.args else "latest"
+        mode = parsed.args[1] if len(parsed.args) > 1 else state.current_mode
+        snapshot = self.resume_session(reference, mode, event_handler=event_handler)
+        self._emit_command_result(
+            event_handler,
+            self._require_session(str(snapshot.get("session_id") or "")),
+            CommandResult(
+                command_name="resume",
+                success=True,
+                message="已恢复会话 `%s`。" % str(snapshot.get("session_id") or ""),
+                data={"session_snapshot": snapshot, "switch_session_id": str(snapshot.get("session_id") or "")},
+            ),
+        )
+        return {"handled": True, "continue_with_text": ""}
+
+    def _handle_command_workspace(
+        self,
+        state: ManagedSession,
+        parsed: ParsedSlashCommand,
+        event_handler: Optional[EventHandler],
+    ) -> Dict[str, Any]:
+        payload = self.get_workspace_snapshot()
+        git_payload = payload.get("git") if isinstance(payload.get("git"), dict) else {}
+        tree_payload = payload.get("tree") if isinstance(payload.get("tree"), dict) else {}
+        lines = [
+            "## Workspace",
+            "",
+            "- path: `%s`" % payload.get("workspace", ""),
+            "- branch: `%s`" % git_payload.get("branch", ""),
+            "- dirty files: %s" % git_payload.get("dirty_count", 0),
+            "- files: %s" % tree_payload.get("file_count", 0),
+            "- dirs: %s" % tree_payload.get("dir_count", 0),
+        ]
+        self._emit_command_result(
+            event_handler,
+            state,
+            CommandResult(
+                command_name="workspace",
+                success=True,
+                message="\n".join(lines),
+                data=payload,
+            ),
+        )
+        return {"handled": True, "continue_with_text": ""}
+
+    def _handle_command_clear(
+        self,
+        state: ManagedSession,
+        parsed: ParsedSlashCommand,
+        event_handler: Optional[EventHandler],
+    ) -> Dict[str, Any]:
+        self._emit_command_result(
+            event_handler,
+            state,
+            CommandResult(
+                command_name="clear",
+                success=True,
+                message="已请求前端清空当前时间线视图。",
+                data={"clear_timeline": True},
+            ),
+        )
+        return {"handled": True, "continue_with_text": ""}
+
+    def _handle_command_todos(
+        self,
+        state: ManagedSession,
+        parsed: ParsedSlashCommand,
+        event_handler: Optional[EventHandler],
+    ) -> Dict[str, Any]:
+        payload = self.list_todos(session_id=state.session.session_id)
+        lines = ["## Session Todos", ""]
+        todos = payload.get("todos") or []
+        if not todos:
+            lines.append("当前会话暂无待办。")
+        else:
+            for item in todos:
+                if not isinstance(item, dict):
+                    continue
+                prefix = "[x]" if item.get("done") else "[ ]"
+                lines.append("- %s %s" % (prefix, str(item.get("content") or "")))
+        self._emit_command_result(
+            event_handler,
+            state,
+            CommandResult(
+                command_name="todos",
+                success=True,
+                message="\n".join(lines),
+                data=payload,
+            ),
+        )
+        return {"handled": True, "continue_with_text": ""}
+
+    def _handle_command_artifacts(
+        self,
+        state: ManagedSession,
+        parsed: ParsedSlashCommand,
+        event_handler: Optional[EventHandler],
+    ) -> Dict[str, Any]:
+        items = self.list_artifacts(limit=20)
+        lines = ["## Recent Artifacts", ""]
+        if not items:
+            lines.append("暂无工件。")
+        else:
+            for item in items:
+                lines.append("- `%s` (%s)" % (str(item.get("path") or ""), str(item.get("tool_name") or item.get("kind") or "")))
+        self._emit_command_result(
+            event_handler,
+            state,
+            CommandResult(
+                command_name="artifacts",
+                success=True,
+                message="\n".join(lines),
+                data={"items": items},
+            ),
+        )
+        return {"handled": True, "continue_with_text": ""}
+
+    def _handle_command_diff(
+        self,
+        state: ManagedSession,
+        parsed: ParsedSlashCommand,
+        event_handler: Optional[EventHandler],
+    ) -> Dict[str, Any]:
+        observation = self.tools.execute("git_diff", {"path": ".", "scope": "working"})
+        diff_text = ""
+        file_count = 0
+        if observation.success and isinstance(observation.data, dict):
+            diff_text = str(observation.data.get("diff") or "")
+            file_count = int(observation.data.get("file_count") or 0)
+        if not observation.success:
+            message = "无法读取 Git diff：%s" % (observation.error or "未知错误")
+        elif not diff_text:
+            message = "当前工作区没有未提交 diff。"
+        else:
+            message = "## Git Diff\n\n- changed files: %s" % file_count
+        self._emit_command_result(
+            event_handler,
+            state,
+            CommandResult(
+                command_name="diff",
+                success=observation.success,
+                message=message,
+                data=observation.data if isinstance(observation.data, dict) else {},
+            ),
+        )
+        return {"handled": True, "continue_with_text": ""}
+
+    def _handle_command_permissions(
+        self,
+        state: ManagedSession,
+        parsed: ParsedSlashCommand,
+        event_handler: Optional[EventHandler],
+    ) -> Dict[str, Any]:
+        context = self.get_permission_context(state.session.session_id)
+        lines = [
+            "## Permission Context",
+            "",
+            "- rules path: `%s`" % context.rules_path,
+            "- remembered categories: %s" % (", ".join(context.remembered_categories) or "(none)"),
+            "- rule count: %s" % len(context.rules),
+        ]
+        self._emit_command_result(
+            event_handler,
+            state,
+            CommandResult(
+                command_name="permissions",
+                success=True,
+                message="\n".join(lines),
+                data={
+                    "session_id": context.session_id,
+                    "rules_path": context.rules_path,
+                    "categories": context.categories,
+                    "rules": context.rules,
+                    "remembered_categories": context.remembered_categories,
+                    "auto_approve_all": context.auto_approve_all,
+                    "auto_approve_writes": context.auto_approve_writes,
+                    "auto_approve_commands": context.auto_approve_commands,
+                },
+            ),
+        )
+        return {"handled": True, "continue_with_text": ""}
+
+    def _handle_command_plan(
+        self,
+        state: ManagedSession,
+        parsed: ParsedSlashCommand,
+        event_handler: Optional[EventHandler],
+    ) -> Dict[str, Any]:
+        current = self.plan_store.load(state.session.session_id)
+        if parsed.raw_args:
+            summary = parsed.raw_args.splitlines()[0][:120]
+            current = self.plan_store.save(
+                state.session.session_id,
+                title="Current Plan",
+                content=parsed.raw_args,
+                workflow_state="plan",
+                summary=summary,
+            )
+            with state.lock:
+                state.workflow_state = "plan"
+                state.active_plan_ref = current.path
+                state.updated_at = _utc_now()
+            self._emit_plan_updated(event_handler, state, current)
+            self._emit_command_result(
+                event_handler,
+                state,
+                CommandResult(
+                    command_name="plan",
+                    success=True,
+                    message="已更新当前计划。",
+                    data={"plan": self._plan_to_dict(current)},
+                ),
+            )
+            return {"handled": True, "continue_with_text": ""}
+        if current is None:
+            current = self.plan_store.save(
+                state.session.session_id,
+                title="Current Plan",
+                content="## Summary\n\n- \n\n## Steps\n\n1. \n\n## Tests\n\n- \n\n## Assumptions\n\n- ",
+                workflow_state="plan",
+                summary="Current Plan",
+            )
+            with state.lock:
+                state.workflow_state = "plan"
+                state.active_plan_ref = current.path
+        self._emit_plan_updated(event_handler, state, current)
+        self._emit_command_result(
+            event_handler,
+            state,
+            CommandResult(
+                command_name="plan",
+                success=True,
+                message=current.content,
+                data={"plan": self._plan_to_dict(current)},
+            ),
+        )
+        return {"handled": True, "continue_with_text": ""}
+
+    def _handle_command_review(
+        self,
+        state: ManagedSession,
+        parsed: ParsedSlashCommand,
+        event_handler: Optional[EventHandler],
+    ) -> Dict[str, Any]:
+        events = self.timeline_store.load_events(state.session.session_id, limit=400)
+        findings = []  # type: List[str]
+        saw_verify = False
+        saw_tests = False
+        for record in events:
+            event_name = record.get("event")
+            payload = record.get("payload") or {}
+            if event_name == "tool_finished":
+                tool_name = str(payload.get("tool_name") or "")
+                success = bool(payload.get("success"))
+                if tool_name in ("compile_project", "run_tests", "run_clang_tidy", "run_clang_analyzer", "collect_coverage", "report_quality"):
+                    saw_verify = True
+                if tool_name == "run_tests":
+                    saw_tests = True
+                if not success:
+                    findings.append(
+                        "- `%s` failed: %s" % (tool_name or "tool", str(payload.get("error") or "unknown error"))
+                    )
+        diff_observation = self.tools.execute("git_diff", {"path": ".", "scope": "working"})
+        diff_data = diff_observation.data if isinstance(diff_observation.data, dict) else {}
+        diff_file_count = int(diff_data.get("file_count") or 0)
+        if diff_observation.success and diff_file_count > 0 and not saw_verify:
+            findings.append("- 工作区存在 %s 个改动文件，但最近没有完整 verify 证据。" % diff_file_count)
+        if saw_verify and not saw_tests:
+            findings.append("- 最近没有看到 `run_tests` 结果，测试覆盖存在缺口。")
+        if not findings:
+            findings.append("- 未发现明确阻塞项；残余风险是需要在真实工程上再次执行完整 verify。")
+        lines = ["## Review Findings", ""] + findings
+        self._emit_command_result(
+            event_handler,
+            state,
+            CommandResult(
+                command_name="review",
+                success=True,
+                message="\n".join(lines),
+                data={
+                    "findings": findings,
+                    "diff_file_count": diff_file_count,
+                    "verify_evidence_present": saw_verify,
+                    "tests_seen": saw_tests,
+                },
+            ),
+        )
+        return {"handled": True, "continue_with_text": ""}
+
+    def _emit_command_result(
+        self,
+        event_handler: Optional[EventHandler],
+        state: ManagedSession,
+        result: CommandResult,
+    ) -> None:
+        payload = {
+            "command_name": result.command_name,
+            "success": result.success,
+            "message": result.message,
+            "data": result.data,
+        }
+        self._emit_with_snapshot(event_handler, "command_result", state, payload)
+
+    def _emit_plan_updated(
+        self,
+        event_handler: Optional[EventHandler],
+        state: ManagedSession,
+        plan: PlanSnapshot,
+    ) -> None:
+        self._emit_with_snapshot(
+            event_handler,
+            "plan_updated",
+            state,
+            {"plan": self._plan_to_dict(plan)},
+        )
+
+    def _plan_to_dict(self, plan: PlanSnapshot) -> Dict[str, Any]:
+        return {
+            "session_id": plan.session_id,
+            "title": plan.title,
+            "content": plan.content,
+            "updated_at": plan.updated_at,
+            "workflow_state": plan.workflow_state,
+            "path": plan.path,
+            "summary": plan.summary,
+        }
 
     def approve_permission(self, session_id: str, permission_id: str) -> Dict[str, Any]:
         state = self._require_session(session_id)
@@ -725,6 +1246,9 @@ class InProcessAdapter(object):
             )
 
         def on_permission_request(request: PermissionRequest) -> bool:
+            with state.lock:
+                if request.category in state.remembered_permission_categories:
+                    return True
             ticket = self._create_permission_ticket(state, request)
             set_thinking(False, "permission_required")
             with state.lock:
@@ -785,6 +1309,7 @@ class InProcessAdapter(object):
                 user_text=text,
                 stream=stream,
                 initial_mode=state.current_mode,
+                workflow_state=state.workflow_state,
                 on_text_delta=on_text_delta,
                 on_reasoning_delta=on_reasoning_delta,
                 on_tool_start=on_tool_start,
