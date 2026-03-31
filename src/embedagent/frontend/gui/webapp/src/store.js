@@ -4,6 +4,7 @@ export const initialState = {
   sidebarTab: "chats",
   inspectorTab: "todos",
   inspectorOpen: true,
+  lang: "en",
   sessions: [],
   currentSessionId: "",
   snapshot: null,
@@ -31,6 +32,8 @@ export function reducer(state, action) {
       return { ...state, inspectorTab: action.value };
     case "toggle_inspector":
       return { ...state, inspectorOpen: !state.inspectorOpen };
+    case "set_lang":
+      return { ...state, lang: action.value };
     case "set_composer":
       return { ...state, composer: action.value };
     case "set_connection":

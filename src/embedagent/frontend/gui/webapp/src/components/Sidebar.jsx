@@ -1,5 +1,7 @@
 import React from "react";
 import { Tree } from "react-arborist";
+import { useLang } from "../LangContext.js";
+import { t } from "../strings.js";
 
 export default function Sidebar({
   sidebarTab,
@@ -14,36 +16,47 @@ export default function Sidebar({
   onOpenFile,
   onLoadFileChildren,
 }) {
+  const lang = useLang();
+
   return (
-    <aside className="sidebar">
+    <aside className="sidebar" role="navigation" aria-label="Sidebar">
       <div className="brand">
         <div className="brand-mark">EmbedAgent</div>
-        <div className="brand-sub">Codex-grade local shell</div>
+        <div className="brand-sub">{t("brand.sub", lang)}</div>
       </div>
-      <div className="sidebar-tabs">
+      <div className="sidebar-tabs" role="tablist">
         <button
+          role="tab"
+          aria-selected={sidebarTab === "chats"}
           className={sidebarTab === "chats" ? "active" : ""}
           onClick={() => onTabChange("chats")}
         >
-          Chats
+          {t("sidebar.chats", lang)}
         </button>
         <button
+          role="tab"
+          aria-selected={sidebarTab === "files"}
           className={sidebarTab === "files" ? "active" : ""}
           onClick={() => onTabChange("files")}
         >
-          Files
+          {t("sidebar.files", lang)}
         </button>
       </div>
       {sidebarTab === "chats" ? (
-        <div className="thread-panel">
-          <button className="primary wide" onClick={() => onCreateSession(currentMode)}>
-            New Session
+        <div className="thread-panel" role="tabpanel" aria-label={t("sidebar.chats", lang)}>
+          <button
+            className="primary wide"
+            onClick={() => onCreateSession(currentMode)}
+          >
+            {t("sidebar.newSession", lang)}
           </button>
-          <div className="thread-list">
+          <div className="thread-list" role="list">
             {sessions.map((session) => (
               <button
                 key={session.id}
+                role="listitem"
                 className={`thread-card ${currentSessionId === session.id ? "selected" : ""}`}
+                aria-pressed={currentSessionId === session.id}
                 onClick={() => onLoadSession(session.id)}
               >
                 <span className="thread-title">{session.title}</span>
@@ -58,7 +71,7 @@ export default function Sidebar({
           </div>
         </div>
       ) : (
-        <div className="files-panel">
+        <div className="files-panel" role="tabpanel" aria-label={t("sidebar.files", lang)}>
           <Tree
             data={fileTree}
             width={300}
@@ -77,6 +90,8 @@ export default function Sidebar({
               <div
                 style={style}
                 className={`tree-row ${node.data.kind}`}
+                role="treeitem"
+                aria-expanded={node.data.kind === "dir" ? node.isOpen : undefined}
                 onClick={() => {
                   if (node.data.kind === "dir") {
                     if (!node.data.childrenLoaded && node.data.hasChildren) {
@@ -88,7 +103,7 @@ export default function Sidebar({
                   }
                 }}
               >
-                <span className="tree-icon">
+                <span className="tree-icon" aria-hidden="true">
                   {node.data.kind === "dir" ? (node.isOpen ? "▾" : "▸") : "·"}
                 </span>
                 <span className="tree-label">{node.data.name}</span>

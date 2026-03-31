@@ -1,4 +1,7 @@
 import React from "react";
+import { useLang } from "../LangContext.js";
+import { t } from "../strings.js";
+import DiffView from "./DiffView.jsx";
 
 export default function Inspector({
   inspectorTab,
@@ -13,44 +16,38 @@ export default function Inspector({
   onUserAnswerChange,
   onSubmitUserInput,
 }) {
+  const lang = useLang();
+
   return (
-    <aside className="inspector">
-      <div className="inspector-tabs">
-        <button
-          className={inspectorTab === "todos" ? "active" : ""}
-          onClick={() => onTabChange("todos")}
-        >
-          Todos
-        </button>
-        <button
-          className={inspectorTab === "artifacts" ? "active" : ""}
-          onClick={() => onTabChange("artifacts")}
-        >
-          Artifacts
-        </button>
-        <button
-          className={inspectorTab === "preview" ? "active" : ""}
-          onClick={() => onTabChange("preview")}
-        >
-          Preview
-        </button>
-        <button
-          className={inspectorTab === "log" ? "active" : ""}
-          onClick={() => onTabChange("log")}
-        >
-          Log
-        </button>
+    <aside className="inspector" role="complementary" aria-label="Inspector">
+      <div className="inspector-tabs" role="tablist">
+        {[
+          ["todos", t("inspector.todos", lang)],
+          ["artifacts", t("inspector.artifacts", lang)],
+          ["preview", t("inspector.preview", lang)],
+          ["log", t("inspector.log", lang)],
+        ].map(([id, label]) => (
+          <button
+            key={id}
+            role="tab"
+            aria-selected={inspectorTab === id}
+            className={inspectorTab === id ? "active" : ""}
+            onClick={() => onTabChange(id)}
+          >
+            {label}
+          </button>
+        ))}
       </div>
       <div className="inspector-body">
-        {inspectorTab === "todos" && <TodoPanel todos={todos} />}
+        {inspectorTab === "todos" && <TodoPanel todos={todos} lang={lang} />}
         {inspectorTab === "artifacts" && (
-          <ArtifactPanel artifacts={artifacts} onOpen={onOpenArtifact} />
+          <ArtifactPanel artifacts={artifacts} onOpen={onOpenArtifact} lang={lang} />
         )}
-        {inspectorTab === "preview" && <PreviewPanel preview={preview} />}
-        {inspectorTab === "log" && <LogPanel entries={eventLog} />}
+        {inspectorTab === "preview" && <PreviewPanel preview={preview} lang={lang} />}
+        {inspectorTab === "log" && <LogPanel entries={eventLog} lang={lang} />}
         {userInput ? (
-          <div className="prompt-panel">
-            <h3>Input Required</h3>
+          <div className="prompt-panel" role="dialog" aria-label={t("inspector.inputRequired", lang)}>
+            <h3>{t("inspector.inputRequired", lang)}</h3>
             <p>{userInput.question}</p>
             <div className="option-list">
               {(userInput.options || []).map((option) => (
@@ -67,10 +64,11 @@ export default function Inspector({
             <textarea
               value={userAnswer}
               onChange={(e) => onUserAnswerChange(e.target.value)}
-              placeholder="Or type a custom answer…"
+              placeholder={t("inspector.customAnswer", lang)}
+              aria-label={t("inspector.customAnswer", lang)}
             />
             <button className="primary wide" onClick={() => onSubmitUserInput(null)}>
-              Submit
+              {t("inspector.submit", lang)}
             </button>
           </div>
         ) : null}
@@ -79,62 +77,71 @@ export default function Inspector({
   );
 }
 
-function TodoPanel({ todos }) {
+function TodoPanel({ todos, lang }) {
   return (
     <div className="panel-list">
-      <h3>Session Todos</h3>
+      <h3>{t("todos.title", lang)}</h3>
       {(todos || []).length ? (
         todos.map((todo) => (
-          <div key={todo.id} className="todo-row">
+          <div key={todo.id} className="todo-row" role="listitem">
             <span className={todo.done ? "todo-mark done" : "todo-mark"}>
-              {todo.done ? "done" : "todo"}
+              {todo.done ? t("todos.done", lang) : t("todos.todo", lang)}
             </span>
             <span>{todo.content}</span>
           </div>
         ))
       ) : (
-        <div className="empty-copy">No todos in this session.</div>
+        <div className="empty-copy">{t("inspector.noTodos", lang)}</div>
       )}
     </div>
   );
 }
 
-function ArtifactPanel({ artifacts, onOpen }) {
+function ArtifactPanel({ artifacts, onOpen, lang }) {
   return (
     <div className="panel-list">
-      <h3>Artifacts</h3>
+      <h3>{t("artifacts.title", lang)}</h3>
       {(artifacts || []).length ? (
         artifacts.map((item) => (
-          <button key={item.path} className="artifact-row" onClick={() => onOpen(item.path)}>
+          <button
+            key={item.path}
+            className="artifact-row"
+            onClick={() => onOpen(item.path)}
+            aria-label={item.path}
+          >
             <span>{item.path}</span>
             <small>{item.tool_name || item.kind}</small>
           </button>
         ))
       ) : (
-        <div className="empty-copy">No artifacts yet.</div>
+        <div className="empty-copy">{t("inspector.noArtifacts", lang)}</div>
       )}
     </div>
   );
 }
 
-function PreviewPanel({ preview }) {
+function PreviewPanel({ preview, lang }) {
   if (!preview) {
-    return <div className="empty-copy">Select a file or artifact to preview.</div>;
+    return <div className="empty-copy">{t("inspector.noPreview", lang)}</div>;
   }
   return (
     <div className="panel-preview">
       <h3>{preview.title}</h3>
-      <pre>{preview.content}</pre>
+      {preview.diff ? (
+        <DiffView diff={preview.diff} title={t("timeline.diffChanges", lang)} />
+      ) : (
+        <pre>{preview.content}</pre>
+      )}
     </div>
   );
 }
 
-function LogPanel({ entries }) {
+function LogPanel({ entries, lang }) {
   if (!entries || entries.length === 0) {
-    return <div className="empty-copy">No events yet.</div>;
+    return <div className="empty-copy">{t("inspector.noLog", lang)}</div>;
   }
   return (
-    <div className="log-list">
+    <div className="log-list" role="log" aria-live="off" aria-label="Event log">
       {[...entries].reverse().map((e, i) => (
         <div key={i} className="log-entry">
           <span className="log-time">

@@ -1,6 +1,10 @@
 import React from "react";
+import { useLang } from "../LangContext.js";
+import { t } from "../strings.js";
 
 export default function Composer({ value, onChange, onSend }) {
+  const lang = useLang();
+
   return (
     <footer className="composer">
       <textarea
@@ -12,10 +16,15 @@ export default function Composer({ value, onChange, onSend }) {
             onSend();
           }
         }}
-        placeholder="Message… Enter to send, Shift+Enter for newline"
+        placeholder={t("composer.placeholder", lang)}
+        aria-label={t("composer.placeholder", lang)}
       />
-      <button className="primary send" onClick={onSend}>
-        Send
+      <button
+        className="primary send"
+        onClick={onSend}
+        aria-label={t("composer.send", lang)}
+      >
+        {t("composer.send", lang)}
       </button>
     </footer>
   );

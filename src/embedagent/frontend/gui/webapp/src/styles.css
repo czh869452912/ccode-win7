@@ -1,5 +1,5 @@
 :root {
-  color-scheme: light;
+  color-scheme: light dark;
   font-family: "Segoe UI", "Microsoft YaHei UI", sans-serif;
   --bg: #f5f0e8;
   --panel: rgba(255, 250, 244, 0.94);
@@ -15,8 +15,97 @@
   --shadow: 0 18px 48px rgba(34, 24, 15, 0.12);
 }
 
+/* ── Dark mode (C1) ───────────────────────────────────────────────── */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #18120c;
+    --panel: rgba(30, 22, 14, 0.96);
+    --panel-strong: #22180e;
+    --line: rgba(255, 220, 180, 0.10);
+    --line-strong: rgba(255, 220, 180, 0.18);
+    --ink: #f0e8dc;
+    --muted: #a08870;
+    --accent: #2a9b74;
+    --accent-soft: rgba(42, 155, 116, 0.20);
+    --danger: #e05a5a;
+    --warning: #d49440;
+    --shadow: 0 18px 48px rgba(0, 0, 0, 0.50);
+  }
+
+  html, body, #root {
+    background:
+      radial-gradient(circle at top left, rgba(42, 155, 116, 0.07), transparent 34%),
+      linear-gradient(135deg, #18120c, #1e160f 48%, #1a1410);
+  }
+
+  .sidebar-tabs button,
+  .inspector-tabs button,
+  .ghost,
+  select {
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--ink);
+  }
+
+  .thread-card,
+  .artifact-row,
+  .option-card {
+    background: rgba(255, 255, 255, 0.05);
+  }
+
+  .thread-card.selected,
+  .thread-card:hover,
+  .artifact-row:hover,
+  .option-card:hover {
+    background: rgba(255, 255, 255, 0.10);
+  }
+
+  .bubble.user {
+    background: #1a6b4f;
+  }
+
+  .tool-card {
+    background: rgba(30, 22, 14, 0.92);
+  }
+
+  .composer textarea,
+  .prompt-panel textarea {
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--ink);
+  }
+
+  .modal-card {
+    background: var(--panel-strong);
+  }
+
+  .panel-preview pre,
+  .tool-card pre,
+  .modal-card pre,
+  .code-block {
+    background: rgba(0, 0, 0, 0.25);
+  }
+
+  .reasoning-card {
+    background: rgba(42, 155, 116, 0.10);
+  }
+
+  .system-card.context {
+    background: rgba(42, 155, 116, 0.10);
+  }
+
+  .system-card.error {
+    background: rgba(224, 90, 90, 0.10);
+  }
+}
+
 * {
   box-sizing: border-box;
+}
+
+/* ── Accessibility: visible focus ring (C2) ──────────────────────── */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 
 html,
@@ -726,4 +815,60 @@ select {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* ── Language toggle button (C4) ─────────────────────────────────── */
+.lang-toggle {
+  font-size: 12px;
+  padding: 8px 10px;
+  letter-spacing: 0.02em;
+}
+
+/* ── Diff view (C3) ──────────────────────────────────────────────── */
+.diff-view {
+  margin-top: 10px;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  font-size: 12px;
+}
+
+.diff-view-title {
+  padding: 6px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  background: rgba(0, 0, 0, 0.04);
+  border-bottom: 1px solid var(--line);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.diff-view-body {
+  overflow: auto;
+  max-height: 320px;
+}
+
+/* Scope diff2html styles to .diff-view-body to avoid global conflicts */
+.diff-view-body .d2h-wrapper { margin: 0; }
+.diff-view-body .d2h-file-header { background: rgba(0, 0, 0, 0.04); border-bottom: 1px solid var(--line); }
+.diff-view-body .d2h-code-line-prefix { width: 40px; }
+.diff-view-body .d2h-ins { background: rgba(23, 100, 79, 0.12); }
+.diff-view-body .d2h-del { background: rgba(159, 47, 53, 0.12); }
+.diff-view-body .d2h-ins .d2h-code-line-prefix { background: rgba(23, 100, 79, 0.20); color: var(--accent); }
+.diff-view-body .d2h-del .d2h-code-line-prefix { background: rgba(159, 47, 53, 0.20); color: var(--danger); }
+.diff-view-body table { font-family: monospace; font-size: 12px; width: 100%; border-collapse: collapse; }
+.diff-view-body td { padding: 2px 8px; vertical-align: top; white-space: pre-wrap; word-break: break-all; }
+
+@media (prefers-color-scheme: dark) {
+  .diff-view-title {
+    background: rgba(255, 255, 255, 0.04);
+  }
+  .diff-view-body .d2h-file-header {
+    background: rgba(255, 255, 255, 0.04);
+  }
+  .diff-view-body .d2h-ins { background: rgba(42, 155, 116, 0.15); }
+  .diff-view-body .d2h-del { background: rgba(224, 90, 90, 0.15); }
+  .diff-view-body .d2h-ins .d2h-code-line-prefix { background: rgba(42, 155, 116, 0.25); }
+  .diff-view-body .d2h-del .d2h-code-line-prefix { background: rgba(224, 90, 90, 0.25); }
 }

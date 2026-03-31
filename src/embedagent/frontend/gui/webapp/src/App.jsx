@@ -6,6 +6,8 @@ import {
   normalizeSessionPayload,
   timelineFromEvents,
 } from "./state-helpers.js";
+import { LangContext } from "./LangContext.js";
+import { t } from "./strings.js";
 import Sidebar from "./components/Sidebar.jsx";
 import Timeline from "./components/Timeline.jsx";
 import Inspector from "./components/Inspector.jsx";
@@ -337,6 +339,7 @@ function App() {
   );
 
   return (
+    <LangContext.Provider value={state.lang}>
     <div className={`shell${state.inspectorOpen ? "" : " inspector-closed"}`}>
       <Sidebar
         sidebarTab={state.sidebarTab}
@@ -367,13 +370,23 @@ function App() {
                 </option>
               ))}
             </select>
-            <button className="ghost" onClick={loadSessions}>
-              Refresh
+            <button className="ghost" onClick={loadSessions} aria-label={t("header.refresh", state.lang)}>
+              {t("header.refresh", state.lang)}
+            </button>
+            <button
+              className="ghost lang-toggle"
+              onClick={() => dispatch({ type: "set_lang", value: state.lang === "en" ? "zh" : "en" })}
+              aria-label="Toggle language"
+              title="Toggle language"
+            >
+              {t("lang.toggle", state.lang)}
             </button>
             <button
               className={`ghost inspector-toggle${state.inspectorOpen ? " active" : ""}`}
               onClick={() => dispatch({ type: "toggle_inspector" })}
-              title="Toggle inspector panel"
+              title={t("header.toggleInspector", state.lang)}
+              aria-pressed={state.inspectorOpen}
+              aria-label={t("header.toggleInspector", state.lang)}
             >
               ⊞
             </button>
@@ -417,6 +430,7 @@ function App() {
         onDeny={() => sendPermissionResponse(false)}
       />
     </div>
+    </LangContext.Provider>
   );
 }
 
