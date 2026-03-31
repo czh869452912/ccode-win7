@@ -43,9 +43,11 @@ class TestAllowedTools(unittest.TestCase):
     def test_explore_has_manage_todos(self):
         self.assertIn("manage_todos", allowed_tools_for("explore"))
 
-    def test_explore_does_not_have_git_status(self):
+    def test_explore_has_git_status(self):
+        # git_status and git_log were added to explore in Phase 1 (P3 fix)
         tools = allowed_tools_for("explore")
-        self.assertNotIn("git_status", tools)
+        self.assertIn("git_status", tools)
+        self.assertIn("git_log", tools)
 
     def test_code_has_manage_todos(self):
         self.assertIn("manage_todos", allowed_tools_for("code"))

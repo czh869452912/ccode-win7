@@ -121,6 +121,38 @@ export function timelineFromEvents(events) {
   return items;
 }
 
+/**
+ * Convert a structured Turn list (from build_structured_timeline) into flat timeline items.
+ * Each turn produces: user bubble, reasoning card, tool cards, assistant bubble.
+ */
+export function timelineFromTurns(turns) {
+  const items = [];
+  for (const turn of turns || []) {
+    const turnId = turn.turn_id || makeEventId("turn");
+    if (turn.user_text) {
+      items.push({ id: `${turnId}-user`, kind: "user", content: turn.user_text });
+    }
+    if (turn.reasoning) {
+      items.push({ id: `${turnId}-reasoning`, kind: "reasoning", content: turn.reasoning, open: false });
+    }
+    for (const tc of turn.tool_calls || []) {
+      items.push({
+        id: tc.call_id || makeEventId("tool"),
+        kind: "tool",
+        toolName: tc.tool_name,
+        arguments: tc.arguments || {},
+        status: tc.status || "success",
+        data: tc.data,
+        error: tc.error || "",
+      });
+    }
+    if (turn.assistant_text) {
+      items.push({ id: `${turnId}-assistant`, kind: "assistant", content: turn.assistant_text });
+    }
+  }
+  return items;
+}
+
 export function normalizeSessionPayload(payload) {
   return {
     session_id: payload.session_id || "",

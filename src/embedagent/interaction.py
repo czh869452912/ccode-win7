@@ -27,6 +27,38 @@ class UserInputResponse:
     selected_option_text: str = ""
 
 
+@dataclass
+class ModeSwitchProposal:
+    target_mode: str
+    reason: str
+
+
+def propose_mode_switch_schema() -> Dict[str, object]:
+    return {
+        "type": "function",
+        "function": {
+            "name": "propose_mode_switch",
+            "description": "向用户建议切换工作模式。当前任务需要的能力超出当前模式权限时调用。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "target_mode": {
+                        "type": "string",
+                        "enum": ["explore", "spec", "code", "debug", "verify"],
+                        "description": "建议切换到的目标模式。",
+                    },
+                    "reason": {
+                        "type": "string",
+                        "description": "为何需要切换模式的简短说明。",
+                    },
+                },
+                "required": ["target_mode", "reason"],
+                "additionalProperties": False,
+            },
+        },
+    }
+
+
 def ask_user_schema() -> Dict[str, object]:
     properties = {
         "question": {

@@ -207,6 +207,18 @@ def _load_prompt_frame() -> str:
     return _DEFAULT_PROMPT_FRAME
 
 
+def _load_project_context(workspace: str) -> str:
+    """Load project-specific context from .embedagent/context.md if present."""
+    if not workspace:
+        return ""
+    ctx_path = os.path.join(workspace, ".embedagent", "context.md")
+    try:
+        with open(ctx_path, encoding="utf-8") as fh:
+            return fh.read().strip()
+    except (FileNotFoundError, OSError):
+        return ""
+
+
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
@@ -257,7 +269,7 @@ def get_writable_globs(mode_name: str, config=None) -> List[str]:
     return deduped
 
 
-def build_system_prompt(mode_name: str, config=None) -> str:
+def build_system_prompt(mode_name: str, config=None, workspace: str = "") -> str:
     cfg = require_mode(mode_name)
     allowed_tools = list(cfg["allowed_tools"])  # type: ignore[index]
     writable_globs = get_writable_globs(mode_name, config)
@@ -269,13 +281,17 @@ def build_system_prompt(mode_name: str, config=None) -> str:
         else "当需要用户决策时，用自然语言说明建议并等待用户输入。"
     )
     frame = _load_prompt_frame()
-    return frame.format(
+    result = frame.format(
         mode_name=mode_name,
         mode_description=str(cfg["system_prompt"]),
         ask_rule=ask_rule,
         allowed_tools=", ".join(allowed_tools),
         writable_globs=writable_text,
     )
+    ctx = _load_project_context(workspace)
+    if ctx:
+        result += "\n\n## Project Context\n" + ctx
+    return result
 
 
 def allowed_tools_for(mode_name: str) -> List[str]:

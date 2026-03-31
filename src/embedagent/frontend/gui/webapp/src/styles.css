@@ -775,6 +775,55 @@ select.badge {
   }
 }
 
+/* ── Inline Mode Switch Proposal Card ──────────────────────────────── */
+.mode-switch-card {
+  border: 1px solid;
+  border-radius: 14px;
+  padding: 14px 16px;
+  margin: 4px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mode-switch-card.resolved {
+  flex-direction: row;
+  align-items: center;
+  padding: 8px 12px;
+  opacity: 0.7;
+}
+
+.mode-switch-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+
+.mode-switch-icon { font-size: 16px; }
+
+.mode-switch-target {
+  font-family: monospace;
+  font-size: 13px;
+}
+
+.mode-switch-reason {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.mode-switch-verdict {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.mode-switch-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
 .modal-backdrop {
   position: fixed;
   inset: 0;

@@ -223,7 +223,7 @@ class SessionSummaryStore(object):
         if resume_message:
             session.add_system_message(resume_message)
         session.add_system_message(build_workspace_profile_message(self.workspace, session.session_id))
-        session.add_system_message(build_system_prompt(current_mode, config))
+        session.add_system_message(build_system_prompt(current_mode, config, self.workspace))
         return session
 
     def _read_json(self, path: str) -> Optional[Dict[str, Any]]:

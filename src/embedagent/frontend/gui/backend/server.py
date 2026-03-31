@@ -307,7 +307,7 @@ class GUIBackend:
 
         @app.get("/api/sessions/{session_id}/timeline")
         async def get_session_timeline(session_id: str, limit: int = 200):
-            return self.core.get_session_timeline(session_id, limit=limit)
+            return self.core.build_structured_timeline(session_id, limit=limit)
         
         @app.get("/api/files")
         async def list_files(path: str = ".", max_depth: int = 3):

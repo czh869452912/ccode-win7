@@ -120,7 +120,14 @@ function TurnGroup({ group, isLast, thinkingActive, streamingReasoningId, userAn
           </summary>
           <div className="turn-activity-body">
             {activityItems.map((item) =>
-            item.kind === "user_input" ? (
+            item.kind === "mode_switch_proposal" ? (
+              <ModeSwitchCard
+                key={item.id}
+                item={item}
+                onSubmitUserInput={onSubmitUserInput}
+                lang={lang}
+              />
+            ) : item.kind === "user_input" ? (
               <UserInputCard
                 key={item.id}
                 item={item}
@@ -328,6 +335,44 @@ function PermissionCard({ item, onPermissionResponse, lang }) {
           onClick={() => onPermissionResponse && onPermissionResponse(item.id, true, remember, permission?.category)}
         >
           Approve
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ModeSwitchCard({ item, onSubmitUserInput }) {
+  const { request, answered, answerText } = item;
+  const targetMode = request?.details?.target_mode || "";
+  const reason = request?.question || "";
+
+  if (answered) {
+    return (
+      <div className={`mode-switch-card resolved mode-${targetMode}`} role="article">
+        <span className="mode-switch-icon">⇄</span>
+        <span className="mode-switch-verdict">{answerText}</span>
+      </div>
+    );
+  }
+  return (
+    <div className={`mode-switch-card mode-${targetMode}`} role="dialog" aria-label="Mode switch proposal">
+      <div className="mode-switch-header">
+        <span className="mode-switch-icon">⇄</span>
+        <span className="mode-switch-target">→ {targetMode}</span>
+      </div>
+      {reason && <p className="mode-switch-reason">{reason}</p>}
+      <div className="mode-switch-actions">
+        <button
+          className="ghost"
+          onClick={() => onSubmitUserInput && onSubmitUserInput({ index: 2, text: "取消：保持当前模式", mode: "" })}
+        >
+          Cancel
+        </button>
+        <button
+          className="primary"
+          onClick={() => onSubmitUserInput && onSubmitUserInput({ index: 1, text: `确认：切换到 ${targetMode} 模式`, mode: targetMode })}
+        >
+          Switch to {targetMode}
         </button>
       </div>
     </div>

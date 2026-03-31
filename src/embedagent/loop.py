@@ -11,10 +11,13 @@ from embedagent.guard import LoopGuard
 from embedagent.llm import ModelClientError, OpenAICompatibleClient
 from embedagent.memory_maintenance import MemoryMaintenance
 from embedagent.interaction import (
+    ModeSwitchProposal,
+    UserInputOption,
     UserInputRequest,
     UserInputResponse,
     ask_user_schema,
     build_user_input_request,
+    propose_mode_switch_schema,
 )
 from embedagent.modes import (
     DEFAULT_MODE,
@@ -102,6 +105,7 @@ class AgentLoop(object):
                 build_system_prompt(
                     current_mode,
                     getattr(self.tools, "app_config", None),
+                    getattr(self.tools, "workspace", ""),
                 )
             )
         session.add_user_message(user_text)
@@ -299,6 +303,7 @@ class AgentLoop(object):
                 schemas.append(item)
         if "ask_user" in allowed:
             schemas.append(ask_user_schema())
+        schemas.append(propose_mode_switch_schema())
         return schemas
 
     def _execute_action(
@@ -317,6 +322,8 @@ class AgentLoop(object):
                 call_id=action.call_id,
                 raw_arguments=action.raw_arguments,
             )
+        if action.name == "propose_mode_switch":
+            return self._handle_propose_mode_switch(action, current_mode, session, user_input_handler)
         if not is_tool_allowed(current_mode, action.name):
             observation = self._failure_observation(
                 tool_name=action.name,
@@ -505,6 +512,7 @@ class AgentLoop(object):
                         build_system_prompt(
                             selected_mode,
                             getattr(self.tools, "app_config", None),
+                            getattr(self.tools, "workspace", ""),
                         )
                     )
         observation = Observation(
@@ -563,6 +571,84 @@ class AgentLoop(object):
         if "ask_user" in allowed_tools_for(current_mode):
             return "若确实需要修改该路径，请先用 ask_user 让用户确认路径或模式。"
         return "请改用当前模式允许的文件类型，或在回复中建议用户切到更合适的模式。"
+
+    def _handle_propose_mode_switch(
+        self,
+        action: Action,
+        current_mode: str,
+        session: Session,
+        user_input_handler: Optional[Callable[[UserInputRequest], Optional[UserInputResponse]]],
+    ) -> Tuple[Observation, str]:
+        target_mode = str(action.arguments.get("target_mode") or "").strip()
+        reason = str(action.arguments.get("reason") or "").strip()
+        if not target_mode:
+            return self._failure_observation(
+                tool_name="propose_mode_switch",
+                error="propose_mode_switch 缺少 target_mode 参数。",
+                error_kind="invalid_arguments",
+                retryable=False,
+                blocked_by="arguments",
+                suggested_next_step="补充 target_mode 参数（如 code, debug, verify）。",
+                extra_data={},
+            ), current_mode
+        resolved = str(require_mode(target_mode)["slug"])
+        if user_input_handler is None:
+            return self._failure_observation(
+                tool_name="propose_mode_switch",
+                error="当前运行环境无法处理 propose_mode_switch。",
+                error_kind="user_input_unavailable",
+                retryable=False,
+                blocked_by="runtime",
+                suggested_next_step="在支持用户交互的前端中运行。",
+                extra_data={"target_mode": resolved},
+            ), current_mode
+        request = UserInputRequest(
+            tool_name="propose_mode_switch",
+            question=reason or ("建议切换到 %s 模式。" % resolved),
+            options=[
+                UserInputOption(index=1, text="确认：切换到 %s 模式" % resolved, mode=resolved),
+                UserInputOption(index=2, text="取消：保持当前模式", mode=""),
+            ],
+            details={"target_mode": resolved, "reason": reason},
+        )
+        response = user_input_handler(request)
+        if response is None or not str(response.answer or "").strip():
+            return self._failure_observation(
+                tool_name="propose_mode_switch",
+                error="未收到有效的模式切换响应。",
+                error_kind="user_input_unavailable",
+                retryable=False,
+                blocked_by="user_input",
+                suggested_next_step="重新提议模式切换，或在最终回复中说明建议。",
+                extra_data={"target_mode": resolved},
+            ), current_mode
+        selected_mode = str(response.selected_mode or "").strip()
+        next_mode = current_mode
+        mode_changed = False
+        if selected_mode and selected_mode != current_mode:
+            next_mode = selected_mode
+            mode_changed = True
+            session.add_system_message(
+                build_system_prompt(
+                    selected_mode,
+                    getattr(self.tools, "app_config", None),
+                    getattr(self.tools, "workspace", ""),
+                )
+            )
+        observation = Observation(
+            tool_name="propose_mode_switch",
+            success=True,
+            error=None,
+            data={
+                "target_mode": resolved,
+                "reason": reason,
+                "confirmed": mode_changed,
+                "mode_changed": mode_changed,
+                "current_mode": next_mode,
+                "selected_mode": selected_mode if mode_changed else "",
+            },
+        )
+        return observation, next_mode
 
     def _path_exists(self, path: str) -> bool:
         return bool(path) and os.path.exists(path)

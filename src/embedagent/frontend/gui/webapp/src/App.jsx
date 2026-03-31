@@ -5,6 +5,7 @@ import {
   makeEventId,
   normalizeSessionPayload,
   timelineFromEvents,
+  timelineFromTurns,
 } from "./state-helpers.js";
 import { LangContext } from "./LangContext.js";
 import { t } from "./strings.js";
@@ -97,7 +98,9 @@ function App() {
       type: "session_activated",
       sessionId,
       snapshot,
-      timeline: timelineFromEvents(timelinePayload.events || []),
+      timeline: timelinePayload.turns
+        ? timelineFromTurns(timelinePayload.turns)
+        : timelineFromEvents(timelinePayload.events || []),
     });
     await Promise.all([loadTodos(sessionId), loadArtifacts()]);
   }

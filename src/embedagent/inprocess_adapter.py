@@ -141,7 +141,7 @@ class InProcessAdapter(object):
         todo_store.ensure_session_todos(self.tools.workspace, session.session_id, seed_from_legacy=False)
         session.add_system_message(build_workspace_profile_message(self.tools.workspace, session.session_id))
         session.add_system_message(
-            build_system_prompt(current_mode, getattr(self.tools, "app_config", None))
+            build_system_prompt(current_mode, getattr(self.tools, "app_config", None), self.tools.workspace)
         )
         state = ManagedSession(session=session, current_mode=current_mode)
         self._persist_state(state)
@@ -392,6 +392,75 @@ class InProcessAdapter(object):
             "latest_assistant_reply": self.timeline_store.latest_assistant_reply(state.session.session_id),
         }
 
+    def build_structured_timeline(self, session_id: str, limit: int = 200) -> Dict[str, Any]:
+        """Return timeline as structured Turn list, aggregated from raw events.
+
+        Falls back to raw events format for old sessions without turn_start events.
+        """
+        state = self._require_session(session_id)
+        raw_events = self.timeline_store.load_events(state.session.session_id, limit=limit)
+        has_turn_start = any(r.get("event") == "turn_start" for r in raw_events)
+        if not has_turn_start:
+            return {
+                "session_id": state.session.session_id,
+                "events": raw_events,
+            }
+        turns = []
+        current_turn = None  # type: Optional[Dict[str, Any]]
+        tool_index = {}  # type: Dict[str, int]
+        for record in raw_events:
+            event = record.get("event")
+            payload = record.get("payload") or {}
+            if event == "turn_start":
+                current_turn = {
+                    "turn_id": payload.get("turn_id", ""),
+                    "user_text": payload.get("user_text", ""),
+                    "reasoning": "",
+                    "tool_calls": [],
+                    "assistant_text": "",
+                    "status": "in_progress",
+                }
+                tool_index = {}
+                turns.append(current_turn)
+            elif event == "reasoning_delta" and current_turn is not None:
+                current_turn["reasoning"] += payload.get("text", "")
+            elif event == "tool_started" and current_turn is not None:
+                call_id = payload.get("call_id") or record.get("event_id", "")
+                tool_call = {
+                    "call_id": call_id,
+                    "tool_name": payload.get("tool_name", ""),
+                    "arguments": payload.get("arguments") or {},
+                    "status": "running",
+                    "data": None,
+                    "error": "",
+                }
+                tool_index[call_id] = len(current_turn["tool_calls"])
+                current_turn["tool_calls"].append(tool_call)
+            elif event == "tool_finished" and current_turn is not None:
+                call_id = payload.get("call_id") or record.get("event_id", "")
+                idx = tool_index.get(call_id)
+                update = {
+                    "status": "success" if payload.get("success") else "error",
+                    "data": payload.get("data"),
+                    "error": payload.get("error") or "",
+                }
+                if idx is not None:
+                    current_turn["tool_calls"][idx].update(update)
+                else:
+                    current_turn["tool_calls"].append(dict(
+                        call_id=call_id,
+                        tool_name=payload.get("tool_name", ""),
+                        arguments={},
+                        **update,
+                    ))
+            elif event == "turn_end" and current_turn is not None:
+                current_turn["assistant_text"] = payload.get("final_text") or ""
+                current_turn["status"] = payload.get("termination_reason") or "completed"
+        return {
+            "session_id": state.session.session_id,
+            "turns": turns,
+        }
+
     def list_artifacts(self, limit: int = 20) -> List[Dict[str, Any]]:
         return self.tools.artifact_store.list_artifacts(limit=limit)
 
@@ -504,7 +573,7 @@ class InProcessAdapter(object):
         current_mode = require_mode(mode)["slug"]
         with state.lock:
             state.session.add_system_message(
-                build_system_prompt(current_mode, getattr(self.tools, "app_config", None))
+                build_system_prompt(current_mode, getattr(self.tools, "app_config", None), self.tools.workspace)
             )
             state.current_mode = current_mode
         self._persist_state(state)
@@ -610,7 +679,7 @@ class InProcessAdapter(object):
                 if (
                     observation.success
                     and isinstance(observation.data, dict)
-                    and action.name == "ask_user"
+                    and action.name in ("ask_user", "propose_mode_switch")
                     and observation.data.get("selected_mode")
                 ):
                     next_mode = str(observation.data.get("selected_mode") or state.current_mode)

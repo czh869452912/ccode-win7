@@ -162,24 +162,36 @@ export function reducer(state, action) {
       return { ...state, permission: action.permission, thinkingActive: false };
     case "permission_cleared":
       return { ...state, permission: null };
-    case "user_input_request":
+    case "user_input_request": {
+      const isModeSwitchProposal = action.request.tool_name === "propose_mode_switch";
       return {
         ...state,
         userInput: action.request,
         thinkingActive: false,
-        timeline: state.timeline.concat({
-          id: makeEventId("user_input"),
-          kind: "user_input",
-          request: action.request,
-          answered: false,
-        }),
+        timeline: state.timeline.concat(
+          isModeSwitchProposal
+            ? {
+                id: makeEventId("mode_switch"),
+                kind: "mode_switch_proposal",
+                request: action.request,
+                answered: false,
+              }
+            : {
+                id: makeEventId("user_input"),
+                kind: "user_input",
+                request: action.request,
+                answered: false,
+              },
+        ),
       };
+    }
     case "user_input_answered":
       return {
         ...state,
         userInput: null,
         timeline: state.timeline.map((item) =>
-          item.kind === "user_input" && item.request?.request_id === action.requestId
+          (item.kind === "user_input" || item.kind === "mode_switch_proposal") &&
+          item.request?.request_id === action.requestId
             ? { ...item, answered: true, answerText: action.answerText }
             : item,
         ),
@@ -189,7 +201,7 @@ export function reducer(state, action) {
         ...state,
         userInput: null,
         timeline: state.timeline.map((item) =>
-          item.kind === "user_input" && !item.answered
+          (item.kind === "user_input" || item.kind === "mode_switch_proposal") && !item.answered
             ? { ...item, answered: true }
             : item,
         ),
