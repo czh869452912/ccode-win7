@@ -92,9 +92,15 @@ button {
 
 .inspector-tabs {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 6px;
-  padding: 16px;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 5px;
+  padding: 12px;
+}
+
+/* Smaller font for 4-tab inspector buttons */
+.inspector-tabs button {
+  font-size: 11px;
+  padding: 8px 6px;
 }
 
 .sidebar-tabs button,
@@ -438,13 +444,82 @@ select {
   white-space: nowrap;
 }
 
+/* ── Inspector toggle button ──────────────────────────────────────── */
+.inspector-toggle {
+  min-width: 0;
+  padding: 10px;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.inspector-toggle.active {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-color: rgba(23, 100, 79, 0.25);
+}
+
+/* When inspector is closed via toggle button */
+.shell.inspector-closed {
+  grid-template-columns: 300px minmax(0, 1fr);
+}
+
+/* ── Responsive breakpoints ───────────────────────────────────────── */
+
+/* 1180px: hide inspector by default, still togglable */
 @media (max-width: 1180px) {
   .shell {
     grid-template-columns: 260px minmax(0, 1fr);
   }
 
-  .inspector {
+  .shell:not(.inspector-closed) .inspector {
     display: none;
+  }
+}
+
+/* 768px: narrower sidebar */
+@media (max-width: 768px) {
+  .shell {
+    grid-template-columns: 200px minmax(0, 1fr);
+    gap: 10px;
+    padding: 10px;
+  }
+
+  .shell.inspector-closed {
+    grid-template-columns: 200px minmax(0, 1fr);
+  }
+
+  .brand {
+    padding: 16px 14px 12px;
+  }
+
+  .brand-mark {
+    font-size: 18px;
+  }
+}
+
+/* 480px: single column, sidebar hidden */
+@media (max-width: 480px) {
+  .shell,
+  .shell.inspector-closed {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 8px;
+    gap: 8px;
+  }
+
+  .sidebar {
+    display: none;
+  }
+
+  .inspector {
+    display: none !important;
+  }
+
+  .bubble,
+  .tool-card,
+  .system-card,
+  .thinking-placeholder,
+  .reasoning-card {
+    max-width: 100%;
   }
 }
 
@@ -607,4 +682,48 @@ select {
 
 .btn-deny:hover {
   background: rgba(159, 47, 53, 0.08);
+}
+
+/* ── Event Log panel (B4) ─────────────────────────────────────────── */
+.log-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow: auto;
+  flex: 1;
+}
+
+.log-entry {
+  display: grid;
+  grid-template-columns: 64px 1fr;
+  grid-template-rows: auto auto;
+  gap: 0 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 12px;
+}
+
+.log-time {
+  grid-row: 1 / 3;
+  font-family: monospace;
+  font-size: 11px;
+  color: var(--muted);
+  padding-top: 1px;
+  white-space: nowrap;
+}
+
+.log-label {
+  font-weight: 600;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.log-detail {
+  font-size: 11px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
