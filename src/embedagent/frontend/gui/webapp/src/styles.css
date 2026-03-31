@@ -83,11 +83,17 @@ button {
   color: var(--muted);
 }
 
-.sidebar-tabs,
-.inspector-tabs {
+.sidebar-tabs {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 8px;
+  padding: 16px;
+}
+
+.inspector-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 6px;
   padding: 16px;
 }
 
@@ -228,6 +234,7 @@ select {
   display: flex;
   flex-direction: column;
   gap: 14px;
+  scroll-behavior: smooth;
 }
 
 .bubble,
@@ -439,4 +446,165 @@ select {
   .inspector {
     display: none;
   }
+}
+
+/* ── Connection / extra status badges ─────────────────────────────── */
+.status-connecting {
+  background: rgba(147, 97, 26, 0.16);
+  color: var(--warning);
+}
+
+.status-disconnected {
+  background: rgba(159, 47, 53, 0.14);
+  color: var(--danger);
+}
+
+/* ── Session card meta row ─────────────────────────────────────────── */
+.thread-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.thread-mode {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* ── Tool card – upgraded header ──────────────────────────────────── */
+.tool-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.tool-status-icon {
+  font-size: 13px;
+  width: 18px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.tool-status-icon.running { color: var(--warning); }
+.tool-status-icon.success { color: var(--accent); }
+.tool-status-icon.error   { color: var(--danger); }
+
+.tool-name-badge {
+  margin-left: auto;
+  font-size: 11px;
+  font-family: monospace;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 160px;
+}
+
+.tool-details {
+  margin-top: 8px;
+}
+
+.tool-details summary {
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 6px;
+  user-select: none;
+}
+
+/* ── Reasoning card improvements ──────────────────────────────────── */
+.reasoning-card summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.reasoning-label {
+  font-weight: 600;
+}
+
+.reasoning-status {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.reasoning-status.streaming {
+  color: var(--warning);
+  animation: pulse 1s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+
+/* ── Permission modal improvements ───────────────────────────────── */
+.modal-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.modal-header h3 {
+  margin: 0;
+}
+
+.modal-icon {
+  font-size: 20px;
+  color: var(--warning);
+}
+
+.modal-tool-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  font-size: 13px;
+}
+
+.modal-tool-label {
+  font-weight: 600;
+  color: var(--muted);
+  min-width: 36px;
+}
+
+.modal-tool-row code {
+  background: rgba(29, 22, 16, 0.06);
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-family: monospace;
+  font-size: 13px;
+}
+
+.modal-reason {
+  margin-bottom: 14px;
+  line-height: 1.5;
+}
+
+.modal-details {
+  margin-bottom: 14px;
+}
+
+.modal-details summary {
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 6px;
+  user-select: none;
+}
+
+.btn-deny {
+  color: var(--danger);
+  border-color: rgba(159, 47, 53, 0.3);
+}
+
+.btn-deny:hover {
+  background: rgba(159, 47, 53, 0.08);
 }

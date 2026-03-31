@@ -102,7 +102,7 @@ function reducer(state, action) {
       let id = state.streamingReasoningId;
       if (!id) {
         id = makeEventId("thinking");
-        timeline.push({ id, kind: "reasoning", content: action.text, open: true, streaming: true });
+        timeline.push({ id, kind: "reasoning", content: action.text, open: false, streaming: true });
       } else {
         timeline = timeline.map((item) =>
           item.id === id ? { ...item, content: `${item.content || ""}${action.text}`, streaming: true } : item,
@@ -195,12 +195,45 @@ function reducer(state, action) {
   }
 }
 
+const TOOL_LABELS = {
+  read_file: (a) => `Read  ${a.path || ""}`,
+  write_file: (a) => `Write  ${a.path || ""}`,
+  create_file: (a) => `Create  ${a.path || ""}`,
+  edit_file: (a) => `Edit  ${a.path || ""}`,
+  patch_file: (a) => `Patch  ${a.path || ""}`,
+  delete_file: (a) => `Delete  ${a.path || ""}`,
+  list_files: (a) => `List  ${a.path || "."}`,
+  search_files: (a) => `Search "${a.pattern || a.query || ""}"`,
+  grep: (a) => `Grep "${a.pattern || ""}"`,
+  run_command: (a) => `Shell: ${a.command || ""}`,
+  bash: (a) => `Shell: ${a.command || ""}`,
+  shell: (a) => `Shell: ${a.command || ""}`,
+  execute: (a) => `Run: ${a.command || ""}`,
+  git_status: () => "Git status",
+  git_diff: (a) => `Git diff${a.path ? `  ${a.path}` : ""}`,
+  git_commit: (a) => `Git commit: ${a.message || ""}`,
+  git_add: (a) => `Git add ${a.path || "."}`,
+  git_log: () => "Git log",
+  compile: (a) => `Compile ${a.target || a.file || ""}`,
+  build: (a) => `Build ${a.target || ""}`,
+  run_tests: (a) => `Run tests${a.target ? `: ${a.target}` : ""}`,
+};
+
+function toolLabel(toolName, args) {
+  const fn = TOOL_LABELS[toolName];
+  return fn ? fn(args || {}) : toolName;
+}
+
+const STATUS_ICON = { running: "⋯", success: "✓", error: "✗" };
+
 function App() {
   const [state, dispatch] = useReducer(reducer, initialState);
   const [treeHeight, setTreeHeight] = useState(640);
   const [userAnswer, setUserAnswer] = useState("");
   const wsRef = useRef(null);
   const timelineRef = useRef(null);
+  const wsRetryRef = useRef(0);
+  const isAtBottomRef = useRef(true);
 
   const currentMode = state.snapshot?.current_mode || state.requestedMode;
   const currentStatus = state.snapshot?.status || "idle";
@@ -231,10 +264,16 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (timelineRef.current) {
+    if (isAtBottomRef.current && timelineRef.current) {
       timelineRef.current.scrollTop = timelineRef.current.scrollHeight;
     }
   }, [state.timeline, state.thinkingActive, state.permission, state.userInput]);
+
+  function handleTimelineScroll() {
+    const el = timelineRef.current;
+    if (!el) return;
+    isAtBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+  }
 
   async function fetchJson(url, options) {
     const response = await fetch(url, options);
@@ -334,6 +373,7 @@ function App() {
     if (!text) {
       return;
     }
+    isAtBottomRef.current = true;
     dispatch({ type: "local_user_message", text });
     let sessionId = state.currentSessionId;
     if (!sessionId) {
@@ -350,10 +390,15 @@ function App() {
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const socket = new WebSocket(`${protocol}//${window.location.host}/ws`);
     wsRef.current = socket;
-    socket.onopen = () => dispatch({ type: "set_connection", value: "connected" });
+    socket.onopen = () => {
+      dispatch({ type: "set_connection", value: "connected" });
+      wsRetryRef.current = 0;
+    };
     socket.onclose = () => {
       dispatch({ type: "set_connection", value: "disconnected" });
-      window.setTimeout(connectWebSocket, 1500);
+      const delay = Math.min(1500 * Math.pow(2, wsRetryRef.current), 30000);
+      wsRetryRef.current += 1;
+      window.setTimeout(connectWebSocket, delay);
     };
     socket.onmessage = (event) => {
       const message = JSON.parse(event.data);
@@ -423,7 +468,7 @@ function App() {
     if (type === "message" && data.type === "ERROR") {
       dispatch({
         type: "append_timeline_item",
-        item: { id: makeEventId("error"), kind: "system", tone: "error", content: data.content || "错误" },
+        item: { id: makeEventId("error"), kind: "system", tone: "error", content: data.content || "Error" },
       });
     }
   }
@@ -466,11 +511,24 @@ function App() {
 
   const sessionCards = useMemo(
     () =>
-      state.sessions.map((item) => ({
-        id: item.session_id,
-        title: item.user_goal || item.summary_text || item.session_id,
-        detail: `${item.current_mode || "-"} · ${item.updated_at || "-"}`,
-      })),
+      state.sessions.map((item) => {
+        let updated = null;
+        if (item.updated_at) {
+          try {
+            updated = new Date(item.updated_at).toLocaleString(undefined, {
+              month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
+            });
+          } catch (_) {
+            updated = item.updated_at;
+          }
+        }
+        return {
+          id: item.session_id,
+          title: item.user_goal || item.summary_text || `Session ${item.session_id.slice(0, 8)}`,
+          mode: item.current_mode || "code",
+          updated,
+        };
+      }),
     [state.sessions],
   );
 
@@ -496,7 +554,10 @@ function App() {
                   onClick={() => loadSession(session.id)}
                 >
                   <span className="thread-title">{session.title}</span>
-                  <span className="thread-detail">{session.detail}</span>
+                  <span className="thread-meta">
+                    <span className={`thread-mode mode-${session.mode}`}>{session.mode}</span>
+                    {session.updated ? <span className="thread-detail">{session.updated}</span> : null}
+                  </span>
                 </button>
               ))}
             </div>
@@ -560,12 +621,12 @@ function App() {
           </div>
         </header>
 
-        <div className="timeline" ref={timelineRef}>
+        <div className="timeline" ref={timelineRef} onScroll={handleTimelineScroll}>
           {state.timeline.map((item) => (
             <TimelineItem key={item.id} item={item} />
           ))}
           {state.thinkingActive && !state.streamingReasoningId ? (
-            <div className="thinking-placeholder">模型正在思考...</div>
+            <div className="thinking-placeholder">Thinking…</div>
           ) : null}
         </div>
 
@@ -579,7 +640,7 @@ function App() {
                 sendMessage();
               }
             }}
-            placeholder="输入消息，Enter 发送，Shift+Enter 换行"
+            placeholder="Message… Enter to send, Shift+Enter for newline"
           />
           <button className="primary send" onClick={sendMessage}>Send</button>
         </footer>
@@ -603,7 +664,7 @@ function App() {
           ) : null}
           {state.userInput ? (
             <div className="prompt-panel">
-              <h3>需要用户决策</h3>
+              <h3>Input Required</h3>
               <p>{state.userInput.question}</p>
               <div className="option-list">
                 {(state.userInput.options || []).map((option) => (
@@ -616,9 +677,9 @@ function App() {
               <textarea
                 value={userAnswer}
                 onChange={(event) => setUserAnswer(event.target.value)}
-                placeholder="或输入自由回答"
+                placeholder="Or type a custom answer…"
               />
-              <button className="primary wide" onClick={() => sendUserInputResponse(null)}>提交回答</button>
+              <button className="primary wide" onClick={() => sendUserInputResponse(null)}>Submit</button>
             </div>
           ) : null}
         </div>
@@ -627,12 +688,26 @@ function App() {
       {state.permission ? (
         <div className="modal-backdrop">
           <div className="modal-card">
-            <h3>需要确认</h3>
-            <p>{state.permission.reason}</p>
-            <pre>{JSON.stringify(state.permission.details || {}, null, 2)}</pre>
+            <div className="modal-header">
+              <span className="modal-icon">⚠</span>
+              <h3>Permission Required</h3>
+            </div>
+            {state.permission.tool_name ? (
+              <div className="modal-tool-row">
+                <span className="modal-tool-label">Tool</span>
+                <code>{state.permission.tool_name}</code>
+              </div>
+            ) : null}
+            <p className="modal-reason">{state.permission.reason}</p>
+            {state.permission.details && Object.keys(state.permission.details).length > 0 ? (
+              <details className="modal-details">
+                <summary>Show details</summary>
+                <pre>{JSON.stringify(state.permission.details, null, 2)}</pre>
+              </details>
+            ) : null}
             <div className="modal-actions">
-              <button className="ghost" onClick={() => sendPermissionResponse(false)}>拒绝</button>
-              <button className="primary" onClick={() => sendPermissionResponse(true)}>批准</button>
+              <button className="ghost btn-deny" onClick={() => sendPermissionResponse(false)}>Deny</button>
+              <button className="primary" onClick={() => sendPermissionResponse(true)}>Approve</button>
             </div>
           </div>
         </div>
@@ -653,19 +728,39 @@ function TimelineItem({ item }) {
     );
   }
   if (item.kind === "reasoning") {
+    const wordCount = (item.content || "").split(/\s+/).filter(Boolean).length;
     return (
-      <details className="reasoning-card" open={item.open || item.streaming}>
-        <summary>Thinking</summary>
+      <details className="reasoning-card" open={item.streaming}>
+        <summary>
+          <span className="reasoning-label">Thinking</span>
+          {item.streaming
+            ? <span className="reasoning-status streaming">…</span>
+            : <span className="reasoning-status done">{wordCount} words</span>}
+        </summary>
         <div className="reasoning-body">{item.content}</div>
       </details>
     );
   }
   if (item.kind === "tool") {
+    const status = item.status || "running";
+    const label = toolLabel(item.toolName, item.arguments);
+    const hasData = status !== "running" && item.data && Object.keys(item.data).length > 0;
+    const hasArgs = item.arguments && Object.keys(item.arguments).length > 0;
     return (
-      <div className={`tool-card ${item.status || "running"}`}>
-        <div className="tool-title">{item.toolName}</div>
-        <pre>{JSON.stringify(item.arguments || item.data || {}, null, 2)}</pre>
+      <div className={`tool-card ${status}`}>
+        <div className="tool-header">
+          <span className={`tool-status-icon ${status}`}>{STATUS_ICON[status] || "⋯"}</span>
+          <span className="tool-title">{label}</span>
+          <span className="tool-name-badge">{item.toolName}</span>
+        </div>
         {item.error ? <div className="tool-error">{item.error}</div> : null}
+        {hasArgs || hasData ? (
+          <details className="tool-details">
+            <summary>Details</summary>
+            {hasArgs ? <pre>{JSON.stringify(item.arguments, null, 2)}</pre> : null}
+            {hasData ? <pre>{JSON.stringify(item.data, null, 2)}</pre> : null}
+          </details>
+        ) : null}
       </div>
     );
   }
@@ -707,7 +802,7 @@ function TodoPanel({ todos }) {
           </div>
         ))
       ) : (
-        <div className="empty-copy">当前会话还没有 todo。</div>
+        <div className="empty-copy">No todos in this session.</div>
       )}
     </div>
   );
@@ -725,7 +820,7 @@ function ArtifactPanel({ artifacts, onOpen }) {
           </button>
         ))
       ) : (
-        <div className="empty-copy">暂无 artifact。</div>
+        <div className="empty-copy">No artifacts yet.</div>
       )}
     </div>
   );
@@ -733,7 +828,7 @@ function ArtifactPanel({ artifacts, onOpen }) {
 
 function PreviewPanel({ preview }) {
   if (!preview) {
-    return <div className="empty-copy">选择文件或 artifact 以预览。</div>;
+    return <div className="empty-copy">Select a file or artifact to preview.</div>;
   }
   return (
     <div className="panel-preview">
