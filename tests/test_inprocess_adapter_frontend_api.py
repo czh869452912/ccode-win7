@@ -311,6 +311,13 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         context = self.adapter.get_permission_context(session_id)
         self.assertIn("workspace_write", context.remembered_categories)
 
+    def test_tool_catalog_exposes_renderer_metadata(self):
+        items = self.adapter.get_tool_catalog()
+        self.assertTrue(any(item.get("name") == "read_file" for item in items))
+        read_file = [item for item in items if item.get("name") == "read_file"][0]
+        self.assertEqual(read_file.get("user_label"), "Read File")
+        self.assertEqual(read_file.get("result_renderer_key"), "file")
+
     def test_slash_review_emits_structured_findings(self):
         session_id = str(self.snapshot.get('session_id') or '')
         self.adapter.timeline_store.append_event(
@@ -349,6 +356,8 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertGreaterEqual(len(findings), 1)
         self.assertEqual(findings[0]["severity"], "high")
         self.assertIn("Build failed", findings[0]["title"])
+        sections = review.get("sections") or {}
+        self.assertGreaterEqual(len(sections.get("diagnostics") or []), 1)
 
 
 if __name__ == '__main__':

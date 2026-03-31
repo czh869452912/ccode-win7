@@ -104,10 +104,45 @@ function PermissionsPanel({ permissionContext, lang }) {
   if (!permissionContext) {
     return <div className="empty-copy">{t("inspector.noPermissions", lang)}</div>;
   }
+  const remembered = Array.isArray(permissionContext.remembered_categories)
+    ? permissionContext.remembered_categories
+    : [];
+  const rules = Array.isArray(permissionContext.rules) ? permissionContext.rules : [];
   return (
     <div className="panel-preview">
       <h3>{t("inspector.permissions", lang)}</h3>
-      <pre>{JSON.stringify(permissionContext, null, 2)}</pre>
+      <div className="permission-context-summary">
+        <div><strong>{t("inspector.rulesPath", lang)}:</strong> {permissionContext.rules_path || "-"}</div>
+        <div><strong>{t("inspector.remembered", lang)}:</strong> {remembered.length || 0}</div>
+        <div><strong>{t("inspector.ruleCount", lang)}:</strong> {rules.length}</div>
+      </div>
+      {remembered.length > 0 ? (
+        <>
+          <h3>{t("inspector.rememberedCategories", lang)}</h3>
+          <div className="permission-chip-list">
+            {remembered.map((item) => (
+              <span key={item} className="permission-chip">{item}</span>
+            ))}
+          </div>
+        </>
+      ) : null}
+      <h3>{t("inspector.permissionRules", lang)}</h3>
+      {rules.length > 0 ? (
+        <div className="permission-rule-list">
+          {rules.map((rule, index) => (
+            <details key={`${index}-${rule.category}-${rule.decision}`} className="permission-rule-card">
+              <summary className="permission-rule-summary">
+                <span className={`permission-rule-decision decision-${rule.decision}`}>{rule.decision}</span>
+                <span>{rule.category || "all"}</span>
+                <span className="permission-rule-reason">{rule.reason || "-"}</span>
+              </summary>
+              <pre>{JSON.stringify(rule, null, 2)}</pre>
+            </details>
+          ))}
+        </div>
+      ) : (
+        <div className="empty-copy">{t("inspector.noPermissionRules", lang)}</div>
+      )}
     </div>
   );
 }
@@ -118,6 +153,7 @@ function ReviewPanel({ review, lang }) {
   }
   const findings = Array.isArray(review.findings) ? review.findings : [];
   const residualRisks = Array.isArray(review.residual_risks) ? review.residual_risks : [];
+  const sections = review.sections || {};
   return (
     <div className="panel-preview">
       <h3>{t("inspector.review", lang)}</h3>
@@ -151,6 +187,36 @@ function ReviewPanel({ review, lang }) {
           </ul>
         </>
       ) : null}
+      <h3>{t("inspector.reviewEvidence", lang)}</h3>
+      <ReviewSections sections={sections} lang={lang} />
+    </div>
+  );
+}
+
+function ReviewSections({ sections, lang }) {
+  const groups = [
+    ["diagnostics", t("inspector.reviewDiagnostics", lang)],
+    ["tests", t("inspector.reviewTests", lang)],
+    ["coverage", t("inspector.reviewCoverage", lang)],
+    ["quality", t("inspector.reviewQuality", lang)],
+    ["git", t("inspector.reviewGit", lang)],
+  ];
+  const hasAny = groups.some(([key]) => Array.isArray(sections[key]) && sections[key].length > 0);
+  if (!hasAny) {
+    return <div className="empty-copy">{t("inspector.noReviewEvidence", lang)}</div>;
+  }
+  return (
+    <div className="review-section-list">
+      {groups.map(([key, label]) => {
+        const items = Array.isArray(sections[key]) ? sections[key] : [];
+        if (items.length === 0) return null;
+        return (
+          <details key={key} className="review-section-card">
+            <summary>{label} ({items.length})</summary>
+            <pre>{JSON.stringify(items, null, 2)}</pre>
+          </details>
+        );
+      })}
     </div>
   );
 }

@@ -570,6 +570,90 @@ select.badge {
   padding-left: 18px;
 }
 
+.review-section-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.review-section-card,
+.permission-rule-card {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.44);
+}
+
+.review-section-card summary,
+.permission-rule-card summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.permission-context-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+  font-size: 13px;
+}
+
+.permission-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.permission-chip {
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  padding: 4px 10px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.permission-rule-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.permission-rule-summary {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.permission-rule-decision {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
+.permission-rule-decision.decision-allow {
+  background: rgba(23, 100, 79, 0.14);
+  color: var(--accent);
+}
+
+.permission-rule-decision.decision-ask {
+  background: rgba(147, 97, 26, 0.16);
+  color: var(--warning);
+}
+
+.permission-rule-decision.decision-deny {
+  background: rgba(159, 47, 53, 0.14);
+  color: var(--danger);
+}
+
+.permission-rule-reason {
+  color: var(--muted);
+  font-size: 12px;
+}
+
 .tool-card {
   align-self: flex-start;
   width: min(720px, 100%);

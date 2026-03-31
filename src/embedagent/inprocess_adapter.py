@@ -992,6 +992,13 @@ class InProcessAdapter(object):
         findings = []  # type: List[Dict[str, Any]]
         saw_verify = False
         saw_tests = False
+        sections = {
+            "diagnostics": [],
+            "tests": [],
+            "coverage": [],
+            "quality": [],
+            "git": [],
+        }  # type: Dict[str, List[Dict[str, Any]]]
         for record in events:
             if record.get("event") != "tool_finished":
                 continue
@@ -1005,12 +1012,21 @@ class InProcessAdapter(object):
                 saw_verify = True
             if tool_name == "run_tests":
                 saw_tests = True
+            self._append_review_section(sections, tool_name, success, payload, data)
             finding = self._review_finding_from_tool(tool_name, success, payload, data)
             if finding is not None:
                 findings.append(finding)
         diff_observation = self.tools.execute("git_diff", {"path": ".", "scope": "working"})
         diff_data = diff_observation.data if isinstance(diff_observation.data, dict) else {}
         diff_file_count = int(diff_data.get("file_count") or 0)
+        if diff_observation.success:
+            sections["git"].append(
+                {
+                    "kind": "git_diff",
+                    "file_count": diff_file_count,
+                    "line_count": int(diff_data.get("line_count") or 0),
+                }
+            )
         if diff_observation.success and diff_file_count > 0 and not saw_verify:
             findings.append(
                 {
@@ -1050,7 +1066,75 @@ class InProcessAdapter(object):
             "diff_file_count": diff_file_count,
             "verify_evidence_present": saw_verify,
             "tests_seen": saw_tests,
+            "sections": sections,
         }
+
+    def _append_review_section(
+        self,
+        sections: Dict[str, List[Dict[str, Any]]],
+        tool_name: str,
+        success: bool,
+        payload: Dict[str, Any],
+        data: Dict[str, Any],
+    ) -> None:
+        if tool_name == "compile_project":
+            diagnostics = data.get("diagnostics") if isinstance(data.get("diagnostics"), list) else []
+            sections["diagnostics"].append(
+                {
+                    "tool_name": tool_name,
+                    "success": success,
+                    "call_id": payload.get("call_id"),
+                    "error_count": int(data.get("error_count") or 0),
+                    "warning_count": int(data.get("warning_count") or 0),
+                    "diagnostics": diagnostics[:10],
+                }
+            )
+            return
+        if tool_name in ("run_clang_tidy", "run_clang_analyzer"):
+            diagnostics = data.get("diagnostics") if isinstance(data.get("diagnostics"), list) else []
+            sections["diagnostics"].append(
+                {
+                    "tool_name": tool_name,
+                    "success": success,
+                    "call_id": payload.get("call_id"),
+                    "error_count": int(data.get("error_count") or 0),
+                    "warning_count": int(data.get("warning_count") or 0),
+                    "diagnostics": diagnostics[:10],
+                }
+            )
+            return
+        if tool_name == "run_tests":
+            summary = data.get("test_summary") if isinstance(data.get("test_summary"), dict) else {}
+            sections["tests"].append(
+                {
+                    "tool_name": tool_name,
+                    "success": success,
+                    "call_id": payload.get("call_id"),
+                    "summary": summary,
+                }
+            )
+            return
+        if tool_name == "collect_coverage":
+            summary = data.get("coverage_summary") if isinstance(data.get("coverage_summary"), dict) else {}
+            sections["coverage"].append(
+                {
+                    "tool_name": tool_name,
+                    "success": success,
+                    "call_id": payload.get("call_id"),
+                    "summary": summary,
+                }
+            )
+            return
+        if tool_name == "report_quality":
+            sections["quality"].append(
+                {
+                    "tool_name": tool_name,
+                    "success": success,
+                    "call_id": payload.get("call_id"),
+                    "passed": bool(data.get("passed")),
+                    "reasons": list(data.get("reasons") or []),
+                }
+            )
 
     def _review_finding_from_tool(
         self,
