@@ -214,6 +214,8 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         tool_finish = [payload for event_name, payload in events if event_name == "tool_finished"][0]
         self.assertEqual(tool_start.get("call_id"), "call-read-demo")
         self.assertEqual(tool_finish.get("call_id"), "call-read-demo")
+        self.assertEqual(tool_start.get("tool_label"), "Read File")
+        self.assertEqual(tool_finish.get("permission_category"), "read")
 
     def test_user_input_flow_can_change_mode(self):
         adapter = InProcessAdapter(

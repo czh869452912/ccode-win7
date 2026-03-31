@@ -71,8 +71,11 @@ export function timelineFromEvents(events) {
         id: payload.call_id || record.event_id,
         kind: "tool",
         toolName: payload.tool_name,
+        label: payload.tool_label || payload.tool_name,
         arguments: payload.arguments,
         status: "running",
+        permissionCategory: payload.permission_category || "",
+        supportsDiffPreview: Boolean(payload.supports_diff_preview),
       };
       toolIndex[item.id] = items.length;
       items.push(item);
@@ -83,10 +86,13 @@ export function timelineFromEvents(events) {
         id: callId,
         kind: "tool",
         toolName: payload.tool_name,
+        label: payload.tool_label || payload.tool_name,
         arguments: {},
         status: payload.success ? "success" : "error",
         data: payload.data,
         error: payload.error,
+        permissionCategory: payload.permission_category || "",
+        supportsDiffPreview: Boolean(payload.supports_diff_preview),
       };
       if (index === undefined) {
         items.push(toolItem);
@@ -159,10 +165,13 @@ export function timelineFromTurns(turns) {
         id: tc.call_id || makeEventId("tool"),
         kind: "tool",
         toolName: tc.tool_name,
+        label: tc.tool_label || tc.tool_name,
         arguments: tc.arguments || {},
         status: tc.status || "success",
         data: tc.data,
         error: tc.error || "",
+        permissionCategory: tc.permission_category || "",
+        supportsDiffPreview: Boolean(tc.supports_diff_preview),
       });
     }
     if (turn.assistant_text) {

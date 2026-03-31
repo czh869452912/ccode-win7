@@ -55,9 +55,15 @@ class TUIFrontend(FrontendCallbacks):
     def on_tool_start(self, call: ToolCall) -> None:
         """工具开始执行"""
         from embedagent.frontend.tui import reducer
+        arguments = {}
+        if isinstance(call.arguments, dict):
+            for key, value in call.arguments.items():
+                if str(key).startswith("_"):
+                    continue
+                arguments[key] = value
         reducer.append_line(
             self.app.state,
-            f"[tool] {call.tool_name} {call.arguments}"
+            f"[tool] {call.tool_name} {arguments}"
         )
         self.app.refresh_views()
     

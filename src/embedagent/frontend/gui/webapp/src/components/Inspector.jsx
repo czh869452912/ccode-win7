@@ -27,6 +27,7 @@ export default function Inspector({
           ["todos", t("inspector.todos", lang)],
           ["artifacts", t("inspector.artifacts", lang)],
           ["plan", t("inspector.plan", lang)],
+          ["permissions", t("inspector.permissions", lang)],
           ["preview", t("inspector.preview", lang)],
           ["log", t("inspector.log", lang)],
         ].map(([id, label]) => (
@@ -46,8 +47,9 @@ export default function Inspector({
         {inspectorTab === "artifacts" && (
           <ArtifactPanel artifacts={artifacts} onOpen={onOpenArtifact} lang={lang} />
         )}
-        {inspectorTab === "plan" && (
-          <PlanPanel plan={plan} permissionContext={permissionContext} lang={lang} />
+        {inspectorTab === "plan" && <PlanPanel plan={plan} lang={lang} />}
+        {inspectorTab === "permissions" && (
+          <PermissionsPanel permissionContext={permissionContext} lang={lang} />
         )}
         {inspectorTab === "preview" && <PreviewPanel preview={preview} lang={lang} />}
         {inspectorTab === "log" && <LogPanel entries={eventLog} lang={lang} />}
@@ -83,24 +85,26 @@ export default function Inspector({
   );
 }
 
-function PlanPanel({ plan, permissionContext, lang }) {
-  if (!plan && !permissionContext) {
+function PlanPanel({ plan, lang }) {
+  if (!plan) {
     return <div className="empty-copy">{t("inspector.noPlan", lang)}</div>;
   }
   return (
     <div className="panel-preview">
-      {plan ? (
-        <>
-          <h3>{plan.title || t("inspector.plan", lang)}</h3>
-          <pre>{plan.content}</pre>
-        </>
-      ) : null}
-      {permissionContext ? (
-        <>
-          <h3>{t("inspector.permissions", lang)}</h3>
-          <pre>{JSON.stringify(permissionContext, null, 2)}</pre>
-        </>
-      ) : null}
+      <h3>{plan.title || t("inspector.plan", lang)}</h3>
+      <pre>{plan.content}</pre>
+    </div>
+  );
+}
+
+function PermissionsPanel({ permissionContext, lang }) {
+  if (!permissionContext) {
+    return <div className="empty-copy">{t("inspector.noPermissions", lang)}</div>;
+  }
+  return (
+    <div className="panel-preview">
+      <h3>{t("inspector.permissions", lang)}</h3>
+      <pre>{JSON.stringify(permissionContext, null, 2)}</pre>
     </div>
   );
 }

@@ -85,12 +85,21 @@ class WebSocketFrontend(FrontendCallbacks):
         })
     
     def on_tool_start(self, call: ToolCall) -> None:
+        arguments = {}
+        if isinstance(call.arguments, dict):
+            for key, value in call.arguments.items():
+                if str(key).startswith("_"):
+                    continue
+                arguments[key] = value
         self._dispatch_message({
             "type": "tool_start",
             "data": {
                 "tool_name": call.tool_name,
-                "arguments": call.arguments,
-                "call_id": call.call_id
+                "arguments": arguments,
+                "call_id": call.call_id,
+                "tool_label": call.arguments.get("_tool_label") if isinstance(call.arguments, dict) else "",
+                "permission_category": call.arguments.get("_permission_category") if isinstance(call.arguments, dict) else "",
+                "supports_diff_preview": bool(call.arguments.get("_supports_diff_preview")) if isinstance(call.arguments, dict) else False,
             }
         })
     
@@ -110,6 +119,9 @@ class WebSocketFrontend(FrontendCallbacks):
                 "error": result.error,
                 "execution_time_ms": result.execution_time_ms,
                 "call_id": result.call_id,
+                "tool_label": result.data.get("tool_label") if isinstance(result.data, dict) else "",
+                "permission_category": result.data.get("permission_category") if isinstance(result.data, dict) else "",
+                "supports_diff_preview": bool(result.data.get("supports_diff_preview")) if isinstance(result.data, dict) else False,
             }
         })
     

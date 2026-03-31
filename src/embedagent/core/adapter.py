@@ -56,9 +56,19 @@ class CallbackBridge:
             self.frontend.on_stream_delta(payload.get("text", ""))
             
         elif event_name == "tool_started":
+            arguments = payload.get("arguments", {})
+            if not isinstance(arguments, dict):
+                arguments = {}
+            arguments = dict(arguments)
+            if payload.get("tool_label"):
+                arguments["_tool_label"] = payload.get("tool_label")
+            if payload.get("permission_category"):
+                arguments["_permission_category"] = payload.get("permission_category")
+            if "supports_diff_preview" in payload:
+                arguments["_supports_diff_preview"] = bool(payload.get("supports_diff_preview"))
             call = ToolCall(
                 tool_name=payload.get("tool_name", ""),
-                arguments=payload.get("arguments", {}),
+                arguments=arguments,
                 call_id=str(payload.get("call_id") or str(uuid.uuid4())[:8])
             )
             self.frontend.on_tool_start(call)

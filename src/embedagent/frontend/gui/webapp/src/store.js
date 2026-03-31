@@ -145,10 +145,13 @@ export function reducer(state, action) {
           id: action.callId,
           kind: "tool",
           toolName: action.toolName,
+          label: action.label || action.toolName,
           arguments: action.arguments,
           status: "running",
           data: null,
           error: "",
+          permissionCategory: action.permissionCategory || "",
+          supportsDiffPreview: Boolean(action.supportsDiffPreview),
         }),
       };
     case "tool_finished":
@@ -156,7 +159,18 @@ export function reducer(state, action) {
         ...state,
         timeline: state.timeline.map((item) =>
           item.id === action.callId
-            ? { ...item, status: action.success ? "success" : "error", data: action.data, error: action.error }
+            ? {
+                ...item,
+                status: action.success ? "success" : "error",
+                data: action.data,
+                error: action.error,
+                label: action.label || item.label,
+                permissionCategory: action.permissionCategory || item.permissionCategory,
+                supportsDiffPreview:
+                  action.supportsDiffPreview === undefined
+                    ? item.supportsDiffPreview
+                    : Boolean(action.supportsDiffPreview),
+              }
             : item,
         ),
       };

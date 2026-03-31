@@ -101,11 +101,21 @@ function App() {
     dispatch({ type: "sessions_loaded", sessions: payload.sessions || [] });
   }
 
+  async function loadPermissionContext(sessionId) {
+    if (!sessionId) {
+      dispatch({ type: "permission_context_loaded", context: null });
+      return;
+    }
+    const payload = await fetchJson(`/api/sessions/${encodeURIComponent(sessionId)}/permissions`);
+    dispatch({ type: "permission_context_loaded", context: payload });
+  }
+
   async function loadSession(sessionId) {
-    const [snapshot, timelinePayload, planPayload] = await Promise.all([
+    const [snapshot, timelinePayload, planPayload, permissionPayload] = await Promise.all([
       fetchJson(`/api/sessions/${encodeURIComponent(sessionId)}`),
       fetchJson(`/api/sessions/${encodeURIComponent(sessionId)}/timeline`),
       fetchJson(`/api/sessions/${encodeURIComponent(sessionId)}/plan`),
+      fetchJson(`/api/sessions/${encodeURIComponent(sessionId)}/permissions`),
     ]);
     dispatch({
       type: "session_activated",
@@ -114,6 +124,7 @@ function App() {
       timeline: timelineFromEvents(timelinePayload.events || []),
     });
     dispatch({ type: "plan_loaded", plan: planPayload.plan || null });
+    dispatch({ type: "permission_context_loaded", context: permissionPayload });
     await Promise.all([loadTodos(sessionId), loadArtifacts()]);
   }
 
@@ -165,7 +176,7 @@ function App() {
     });
     const snapshot = normalizeSessionPayload(payload);
     dispatch({ type: "session_activated", sessionId: snapshot.session_id, snapshot, timeline: [] });
-    await Promise.all([loadSessions(), loadTodos(snapshot.session_id)]);
+    await Promise.all([loadSessions(), loadTodos(snapshot.session_id), loadPermissionContext(snapshot.session_id)]);
     return snapshot.session_id;
   }
 
@@ -268,7 +279,10 @@ function App() {
         type: "tool_started",
         callId,
         toolName: data.tool_name || "",
+        label: data.tool_label || data.tool_name || "",
         arguments: data.arguments || {},
+        permissionCategory: data.permission_category || "",
+        supportsDiffPreview: Boolean(data.supports_diff_preview),
       });
       logEvent(`tool: ${data.tool_name || "?"}`, JSON.stringify(data.arguments || {}).slice(0, 80));
       return;
@@ -280,6 +294,9 @@ function App() {
         success: Boolean(data.success),
         error: data.error || "",
         data: data.data || {},
+        label: data.tool_label || data.tool_name || "",
+        permissionCategory: data.permission_category || "",
+        supportsDiffPreview: Boolean(data.supports_diff_preview),
       });
       logEvent(
         `tool done: ${data.call_id || "?"}`,
@@ -348,7 +365,7 @@ function App() {
         dispatch({
           type: "permission_context_loaded",
           context: data.data || {},
-          inspectorTab: "plan",
+          inspectorTab: "permissions",
         });
       }
       logEvent(`command: /${data.command_name || "?"}`, data.success ? "ok" : "error");
@@ -417,6 +434,9 @@ function App() {
       }),
     );
     dispatch({ type: "permission_cleared" });
+    if (approved && remember && state.currentSessionId) {
+      loadPermissionContext(state.currentSessionId);
+    }
     logEvent("permission_response", approved ? "approved" : "denied");
   }
 
@@ -430,6 +450,9 @@ function App() {
       category: category || "",
     }));
     dispatch({ type: "permission_item_resolved", permissionId, approved });
+    if (approved && remember && state.currentSessionId) {
+      loadPermissionContext(state.currentSessionId);
+    }
     logEvent("permission_response (inline)", approved ? "approved" : "denied");
   }
 

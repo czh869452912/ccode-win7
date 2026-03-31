@@ -216,7 +216,7 @@ function TimelineItem({ item, lang }) {
   }
   if (item.kind === "tool") {
     const status = item.status || "running";
-    const label = toolLabel(item.toolName, item.arguments);
+    const label = item.label || toolLabel(item.toolName, item.arguments);
     const hasData = status !== "running" && item.data && Object.keys(item.data).length > 0;
     const hasArgs = item.arguments && Object.keys(item.arguments).length > 0;
     const hasDiff = typeof item.data?.diff === "string" && item.data.diff.length > 0;

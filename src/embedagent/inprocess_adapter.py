@@ -453,10 +453,13 @@ class InProcessAdapter(object):
                 tool_call = {
                     "call_id": call_id,
                     "tool_name": payload.get("tool_name", ""),
+                    "tool_label": payload.get("tool_label", payload.get("tool_name", "")),
                     "arguments": payload.get("arguments") or {},
                     "status": "running",
                     "data": None,
                     "error": "",
+                    "permission_category": payload.get("permission_category", ""),
+                    "supports_diff_preview": bool(payload.get("supports_diff_preview", False)),
                 }
                 tool_index[call_id] = len(current_turn["tool_calls"])
                 current_turn["tool_calls"].append(tool_call)
@@ -467,6 +470,9 @@ class InProcessAdapter(object):
                     "status": "success" if payload.get("success") else "error",
                     "data": payload.get("data"),
                     "error": payload.get("error") or "",
+                    "tool_label": payload.get("tool_label", payload.get("tool_name", "")),
+                    "permission_category": payload.get("permission_category", ""),
+                    "supports_diff_preview": bool(payload.get("supports_diff_preview", False)),
                 }
                 if idx is not None:
                     current_turn["tool_calls"][idx].update(update)
@@ -474,6 +480,7 @@ class InProcessAdapter(object):
                     current_turn["tool_calls"].append(dict(
                         call_id=call_id,
                         tool_name=payload.get("tool_name", ""),
+                        tool_label=payload.get("tool_label", payload.get("tool_name", "")),
                         arguments={},
                         **update,
                     ))
@@ -1003,6 +1010,21 @@ class InProcessAdapter(object):
         )
         return {"handled": True, "continue_with_text": ""}
 
+    def _tool_event_metadata(self, tool_name: str) -> Dict[str, Any]:
+        lookup = getattr(self.tools, "tool_catalog_entry", None)
+        if not callable(lookup):
+            return {}
+        entry = lookup(tool_name) or {}
+        if not isinstance(entry, dict):
+            return {}
+        return {
+            "tool_label": entry.get("user_label") or tool_name,
+            "permission_category": entry.get("permission_category") or "",
+            "supports_diff_preview": bool(entry.get("supports_diff_preview")),
+            "progress_renderer_key": entry.get("progress_renderer_key") or "",
+            "result_renderer_key": entry.get("result_renderer_key") or "",
+        }
+
     def _emit_command_result(
         self,
         event_handler: Optional[EventHandler],
@@ -1172,16 +1194,18 @@ class InProcessAdapter(object):
 
         def on_tool_start(action: Action) -> None:
             set_thinking(False, "tool_start")
+            payload = {
+                "tool_name": action.name,
+                "arguments": action.arguments,
+                "call_id": action.call_id,
+                "turn_id": turn_id,
+            }
+            payload.update(self._tool_event_metadata(action.name))
             self._emit(
                 event_handler,
                 "tool_started",
                 session_id,
-                {
-                    "tool_name": action.name,
-                    "arguments": action.arguments,
-                    "call_id": action.call_id,
-                    "turn_id": turn_id,
-                },
+                payload,
             )
 
         def on_tool_finish(action: Action, observation: Observation) -> None:
@@ -1217,6 +1241,7 @@ class InProcessAdapter(object):
                     "data": observation.data,
                     "call_id": action.call_id,
                     "turn_id": turn_id,
+                    **self._tool_event_metadata(action.name),
                 },
             )
             if mode_changed:

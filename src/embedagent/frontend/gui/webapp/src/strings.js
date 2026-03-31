@@ -24,6 +24,7 @@ const STRINGS = {
     "inspector.noTodos": "No todos in this session.",
     "inspector.noArtifacts": "No artifacts yet.",
     "inspector.noPlan": "No active plan in this session.",
+    "inspector.noPermissions": "No permission context loaded.",
     "inspector.noPreview": "Select a file or artifact to preview.",
     "inspector.noLog": "No events yet.",
 
@@ -85,6 +86,7 @@ const STRINGS = {
     "inspector.noTodos": "本次会话暂无待办。",
     "inspector.noArtifacts": "暂无产物。",
     "inspector.noPlan": "当前会话暂无计划。",
+    "inspector.noPermissions": "当前没有权限上下文。",
     "inspector.noPreview": "选择文件或产物以预览。",
     "inspector.noLog": "暂无事件。",
 
