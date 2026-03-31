@@ -50,6 +50,17 @@ function App() {
     return () => wsRef.current?.close();
   }, []);
 
+  // Escape key cancels running session
+  useEffect(() => {
+    function onKeyDown(e) {
+      if (e.key === "Escape" && (currentStatus === "running" || currentStatus === "waiting_user_input")) {
+        cancelSession();
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [currentStatus, state.currentSessionId]);
+
   // smart auto-scroll: only follow when user is at bottom
   useEffect(() => {
     if (isAtBottomRef.current && timelineRef.current) {
@@ -153,10 +164,19 @@ function App() {
     await loadSession(state.currentSessionId);
   }
 
+  async function cancelSession() {
+    if (!state.currentSessionId) return;
+    dispatch({ type: "stream_completed" });
+    await fetchJson(`/api/sessions/${encodeURIComponent(state.currentSessionId)}/cancel`, {
+      method: "POST",
+    });
+  }
+
   async function sendMessage() {
     const text = state.composer.trim();
     if (!text) return;
     isAtBottomRef.current = true;
+    dispatch({ type: "stream_completed" });
     dispatch({ type: "local_user_message", text });
     let sessionId = state.currentSessionId;
     if (!sessionId) sessionId = await createSession(currentMode);
@@ -405,6 +425,8 @@ function App() {
           value={state.composer}
           onChange={(v) => dispatch({ type: "set_composer", value: v })}
           onSend={sendMessage}
+          onStop={cancelSession}
+          isRunning={currentStatus === "running" || currentStatus === "waiting_user_input"}
         />
       </main>
 

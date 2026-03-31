@@ -32,6 +32,7 @@ const STRINGS = {
     // Composer
     "composer.placeholder": "Message… Enter to send, Shift+Enter for newline",
     "composer.send": "Send",
+    "composer.stop": "Stop",
 
     // Header
     "header.refresh": "Refresh",
@@ -86,6 +87,7 @@ const STRINGS = {
 
     "composer.placeholder": "输入消息，Enter 发送，Shift+Enter 换行",
     "composer.send": "发送",
+    "composer.stop": "停止",
 
     "header.refresh": "刷新",
     "header.toggleInspector": "切换检查面板",

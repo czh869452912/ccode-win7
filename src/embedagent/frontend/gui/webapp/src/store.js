@@ -66,12 +66,17 @@ export function reducer(state, action) {
     case "local_user_message":
       return {
         ...state,
-        timeline: state.timeline.concat({
-          id: makeEventId("user"),
-          kind: "user",
-          content: action.text,
-        }),
+        timeline: state.timeline
+          .map((item) => (item.streaming ? { ...item, streaming: false } : item))
+          .concat({
+            id: makeEventId("user"),
+            kind: "user",
+            content: action.text,
+          }),
         composer: "",
+        streamingAssistantId: "",
+        streamingReasoningId: "",
+        thinkingActive: false,
       };
     case "assistant_delta": {
       let timeline = state.timeline.slice();

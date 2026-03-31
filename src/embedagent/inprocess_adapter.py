@@ -516,6 +516,7 @@ class InProcessAdapter(object):
     def cancel_session(self, session_id: str) -> Dict[str, Any]:
         state = self._require_session(session_id)
         with state.lock:
+            state.stop_event.set()
             if state.pending_permission is not None and state.pending_event is not None:
                 state.pending_result = False
                 state.pending_event.set()
@@ -748,7 +749,9 @@ class InProcessAdapter(object):
         with state.lock:
             state.session = session
             state.last_assistant_message = final_text
-            state.current_mode = str((summary or {}).get("current_mode") or state.current_mode)
+            # Do NOT overwrite state.current_mode from summary here: on_tool_finish already
+            # updated it correctly when ask_user / propose_mode_switch ran. Reading an
+            # older summary at this point would silently revert a just-confirmed mode change.
             state.summary_ref = str((summary or {}).get("summary_ref") or state.summary_ref)
             state.updated_at = str((summary or {}).get("updated_at") or _utc_now())
             state.pending_permission = None

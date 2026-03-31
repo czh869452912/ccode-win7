@@ -47,6 +47,7 @@ _BUILTIN_MODES = {
             "不要擅自写文件。"
         ),
         "allowed_tools": ["read_file", "list_files", "search_text",
+                          "git_status", "git_log",
                           "manage_todos", "ask_user"],
         "writable_globs": [],
     },
@@ -71,7 +72,9 @@ _BUILTIN_MODES = {
             "若遇到需要用户决策的问题，用 ask_user 询问。"
         ),
         "allowed_tools": ["read_file", "list_files", "write_file", "edit_file",
-                          "search_text", "compile_project", "manage_todos", "ask_user"],
+                          "search_text", "compile_project",
+                          "git_status", "git_diff",
+                          "manage_todos", "ask_user"],
         "writable_globs": [
             "**/*.c", "**/*.cc", "**/*.cpp", "**/*.cxx",
             "**/*.h", "**/*.hh", "**/*.hpp", "**/*.hxx",
@@ -93,6 +96,7 @@ _BUILTIN_MODES = {
         ),
         "allowed_tools": ["read_file", "list_files", "search_text",
                           "write_file", "edit_file", "run_command",
+                          "git_status", "git_diff", "git_log",
                           "manage_todos", "ask_user"],
         "writable_globs": [
             "**/*.c", "**/*.cc", "**/*.cpp", "**/*.cxx",

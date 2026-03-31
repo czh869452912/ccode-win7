@@ -2,7 +2,7 @@ import React from "react";
 import { useLang } from "../LangContext.js";
 import { t } from "../strings.js";
 
-export default function Composer({ value, onChange, onSend }) {
+export default function Composer({ value, onChange, onSend, onStop, isRunning }) {
   const lang = useLang();
 
   return (
@@ -13,19 +13,30 @@ export default function Composer({ value, onChange, onSend }) {
         onKeyDown={(e) => {
           if (e.key === "Enter" && !e.shiftKey) {
             e.preventDefault();
-            onSend();
+            if (!isRunning) onSend();
           }
         }}
         placeholder={t("composer.placeholder", lang)}
         aria-label={t("composer.placeholder", lang)}
+        disabled={isRunning}
       />
-      <button
-        className="primary send"
-        onClick={onSend}
-        aria-label={t("composer.send", lang)}
-      >
-        {t("composer.send", lang)}
-      </button>
+      {isRunning ? (
+        <button
+          className="stop"
+          onClick={onStop}
+          aria-label={t("composer.stop", lang)}
+        >
+          {t("composer.stop", lang)}
+        </button>
+      ) : (
+        <button
+          className="primary send"
+          onClick={onSend}
+          aria-label={t("composer.send", lang)}
+        >
+          {t("composer.send", lang)}
+        </button>
+      )}
     </footer>
   );
 }

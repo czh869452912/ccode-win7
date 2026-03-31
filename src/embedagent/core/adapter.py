@@ -99,6 +99,11 @@ class CallbackBridge:
             snapshot = payload.get("session_snapshot", {})
             self._notify_status_change(snapshot)
             
+        elif event_name == "mode_changed":
+            snapshot = payload.get("session_snapshot", {})
+            if isinstance(snapshot, dict) and snapshot.get("session_id"):
+                self._notify_status_change(snapshot)
+
         elif event_name == "context_compacted":
             stats = payload.get("recent_turns", 0)
             msg = Message(

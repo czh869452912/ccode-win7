@@ -2,7 +2,7 @@
   color-scheme: light dark;
   font-family: "Segoe UI", "Microsoft YaHei UI", sans-serif;
   --bg: #f5f0e8;
-  --panel: rgba(255, 250, 244, 0.94);
+  --panel: rgba(255, 250, 244, 0.98);
   --panel-strong: #fffdf9;
   --line: rgba(78, 58, 39, 0.12);
   --line-strong: rgba(78, 58, 39, 0.2);
@@ -49,7 +49,11 @@
   .thread-card,
   .artifact-row,
   .option-card {
-    background: rgba(255, 255, 255, 0.05);
+    background: rgba(45, 32, 20, 0.90);
+  }
+
+  .tool-name-badge {
+    color: #c0a888;
   }
 
   .thread-card.selected,
@@ -60,7 +64,7 @@
   }
 
   .bubble.user {
-    background: #1a6b4f;
+    background: #1f7d5a;
   }
 
   .tool-card {
@@ -234,7 +238,7 @@ select {
   gap: 6px;
   padding: 14px 16px;
   border-radius: 18px;
-  background: rgba(255, 255, 255, 0.72);
+  background: rgba(240, 234, 226, 0.95);
   border: 1px solid var(--line);
   color: var(--ink);
   text-align: left;
@@ -302,7 +306,9 @@ select {
 }
 
 .mode {
-  background: rgba(255, 255, 255, 0.75);
+  background: rgba(240, 234, 226, 0.95);
+  color: var(--ink);
+  border: 1px solid var(--line-strong);
 }
 
 .status-idle {
@@ -408,7 +414,7 @@ select {
 .reasoning-body {
   margin-top: 10px;
   white-space: pre-wrap;
-  color: var(--muted);
+  color: var(--ink);
 }
 
 .composer {
@@ -431,6 +437,27 @@ select {
 
 .composer .send {
   min-width: 120px;
+}
+
+.composer .stop {
+  min-width: 120px;
+  background: var(--danger);
+  color: #fff;
+  border: none;
+  border-radius: 18px;
+  padding: 10px 20px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.composer .stop:hover {
+  opacity: 0.85;
+}
+
+.composer textarea:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .panel-preview pre,
@@ -663,7 +690,7 @@ select {
   margin-left: auto;
   font-size: 11px;
   font-family: monospace;
-  color: var(--muted);
+  color: #5a4a3a;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

@@ -36,14 +36,37 @@ export function injectChildren(nodes, targetPath, children) {
 export function timelineFromEvents(events) {
   const items = [];
   const toolIndex = {};
+  // Tracks an in-progress reasoning aggregation across consecutive delta events.
+  let pendingReasoningId = null;
+  let pendingReasoningIdx = -1;
+
+  function flushReasoning() {
+    pendingReasoningId = null;
+    pendingReasoningIdx = -1;
+  }
+
   for (const record of events || []) {
     const eventName = record.event;
     const payload = record.payload || {};
     if (eventName === "turn_started" && payload.text) {
+      flushReasoning();
       items.push({ id: record.event_id, kind: "user", content: payload.text });
     } else if (eventName === "reasoning_delta" && payload.text) {
-      items.push({ id: record.event_id, kind: "reasoning", content: payload.text, open: true });
+      // Aggregate consecutive reasoning deltas into a single card.
+      if (pendingReasoningId !== null) {
+        items[pendingReasoningIdx] = {
+          ...items[pendingReasoningIdx],
+          content: (items[pendingReasoningIdx].content || "") + payload.text,
+        };
+      } else {
+        pendingReasoningId = record.event_id;
+        pendingReasoningIdx = items.length;
+        items.push({ id: record.event_id, kind: "reasoning", content: payload.text, open: false });
+      }
+      // Do NOT flush — stay in accumulation mode until a non-reasoning event arrives.
+      continue;
     } else if (eventName === "tool_started") {
+      flushReasoning();
       const item = {
         id: payload.call_id || record.event_id,
         kind: "tool",
@@ -71,6 +94,7 @@ export function timelineFromEvents(events) {
         items[index] = { ...items[index], ...toolItem };
       }
     } else if (eventName === "context_compacted") {
+      flushReasoning();
       items.push({
         id: record.event_id,
         kind: "system",
@@ -78,6 +102,7 @@ export function timelineFromEvents(events) {
         content: `上下文已压缩：保留 ${payload.recent_turns || 0} 轮，摘要 ${payload.summarized_turns || 0} 轮`,
       });
     } else if (eventName === "session_error") {
+      flushReasoning();
       items.push({
         id: record.event_id,
         kind: "system",
@@ -85,6 +110,7 @@ export function timelineFromEvents(events) {
         content: payload.error || "会话出错",
       });
     } else if (eventName === "session_finished" && payload.final_text) {
+      flushReasoning();
       items.push({
         id: record.event_id,
         kind: "assistant",
