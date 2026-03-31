@@ -270,6 +270,20 @@ function App() {
       logEvent("user_input_request", data.question || "");
       return;
     }
+    if (type === "turn_end") {
+      dispatch({
+        type: "turn_ended",
+        terminationReason: data.termination_reason || "",
+        turnsUsed: data.turns_used || 0,
+        maxTurns: data.max_turns || 8,
+      });
+      logEvent("turn_end", `reason=${data.termination_reason} turns=${data.turns_used}`);
+      return;
+    }
+    if (type === "turn_start") {
+      logEvent("turn_start", data.turn_id || "");
+      return;
+    }
     if (type === "session_finished") {
       dispatch({ type: "stream_completed" });
       if (data.session_snapshot) {
@@ -310,21 +324,26 @@ function App() {
     logEvent("permission_response", approved ? "approved" : "denied");
   }
 
-  function sendUserInputResponse(option) {
-    if (!wsRef.current || !state.userInput) return;
-    const answer = option?.text || userAnswer.trim();
+  function sendUserInputResponse(option, overrideAnswer) {
+    const request = state.userInput;
+    if (!wsRef.current || !request) return;
+    const answer = option?.text || overrideAnswer || userAnswer.trim();
     if (!answer) return;
     wsRef.current.send(
       JSON.stringify({
         type: "user_input_response",
-        request_id: state.userInput.request_id,
+        request_id: request.request_id,
         answer,
         selected_index: option?.index || null,
         selected_mode: option?.mode || "",
         selected_option_text: option?.text || "",
       }),
     );
-    dispatch({ type: "user_input_cleared" });
+    dispatch({
+      type: "user_input_answered",
+      requestId: request.request_id,
+      answerText: option?.text || overrideAnswer || userAnswer.trim(),
+    });
     setUserAnswer("");
     logEvent("user_input_response", answer.slice(0, 40));
   }
@@ -418,6 +437,12 @@ function App() {
           timeline={state.timeline}
           thinkingActive={state.thinkingActive}
           streamingReasoningId={state.streamingReasoningId}
+          terminationReason={state.terminationReason}
+          turnsUsed={state.turnsUsed}
+          maxTurns={state.maxTurns}
+          userAnswer={userAnswer}
+          onUserAnswerChange={setUserAnswer}
+          onSubmitUserInput={sendUserInputResponse}
           onScroll={handleTimelineScroll}
         />
 

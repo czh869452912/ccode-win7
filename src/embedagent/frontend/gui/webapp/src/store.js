@@ -22,6 +22,9 @@ export const initialState = {
   requestedMode: "code",
   connectionState: "connecting",
   eventLog: [],
+  terminationReason: "",
+  turnsUsed: 0,
+  maxTurns: 8,
 };
 
 export function reducer(state, action) {
@@ -52,6 +55,8 @@ export function reducer(state, action) {
         thinkingActive: false,
         permission: null,
         userInput: null,
+        terminationReason: "",
+        turnsUsed: 0,
       };
     case "session_snapshot": {
       const snapshot = action.snapshot;
@@ -77,6 +82,14 @@ export function reducer(state, action) {
         streamingAssistantId: "",
         streamingReasoningId: "",
         thinkingActive: false,
+        terminationReason: "",
+      };
+    case "turn_ended":
+      return {
+        ...state,
+        terminationReason: action.terminationReason || "",
+        turnsUsed: action.turnsUsed || 0,
+        maxTurns: action.maxTurns || state.maxTurns,
       };
     case "assistant_delta": {
       let timeline = state.timeline.slice();
@@ -150,9 +163,37 @@ export function reducer(state, action) {
     case "permission_cleared":
       return { ...state, permission: null };
     case "user_input_request":
-      return { ...state, userInput: action.request, thinkingActive: false };
+      return {
+        ...state,
+        userInput: action.request,
+        thinkingActive: false,
+        timeline: state.timeline.concat({
+          id: makeEventId("user_input"),
+          kind: "user_input",
+          request: action.request,
+          answered: false,
+        }),
+      };
+    case "user_input_answered":
+      return {
+        ...state,
+        userInput: null,
+        timeline: state.timeline.map((item) =>
+          item.kind === "user_input" && item.request?.request_id === action.requestId
+            ? { ...item, answered: true, answerText: action.answerText }
+            : item,
+        ),
+      };
     case "user_input_cleared":
-      return { ...state, userInput: null };
+      return {
+        ...state,
+        userInput: null,
+        timeline: state.timeline.map((item) =>
+          item.kind === "user_input" && !item.answered
+            ? { ...item, answered: true }
+            : item,
+        ),
+      };
     case "todos_loaded":
       return { ...state, todos: action.todos };
     case "artifacts_loaded":

@@ -99,6 +99,10 @@ class CallbackBridge:
             snapshot = payload.get("session_snapshot", {})
             self._notify_status_change(snapshot)
             
+        elif event_name in ("turn_start", "turn_end"):
+            if hasattr(self.frontend, "on_turn_event"):
+                self.frontend.on_turn_event(event_name, payload)
+
         elif event_name == "mode_changed":
             snapshot = payload.get("session_snapshot", {})
             if isinstance(snapshot, dict) and snapshot.get("session_id"):

@@ -6,11 +6,45 @@ import { useLang } from "../LangContext.js";
 import { t } from "../strings.js";
 import DiffView from "./DiffView.jsx";
 
+// Split flat timeline into turn groups.
+// A new group starts at every "user" item.
+function groupByTurn(items) {
+  const groups = [];
+  let current = null;
+  for (const item of items) {
+    if (item.kind === "user") {
+      current = { userItem: item, activityItems: [], assistantItem: null, systemItems: [] };
+      groups.push(current);
+    } else if (!current) {
+      // Items before any user message — create an anonymous group.
+      current = { userItem: null, activityItems: [], assistantItem: null, systemItems: [] };
+      groups.push(current);
+      current.activityItems.push(item);
+    } else if (item.kind === "assistant") {
+      // The final assistant bubble for this turn.
+      current.assistantItem = item;
+    } else if (item.kind === "system") {
+      current.systemItems.push(item);
+    } else {
+      // reasoning, tool → activity section
+      current.activityItems.push(item);
+    }
+  }
+  return groups;
+}
+
 const Timeline = forwardRef(function Timeline(
-  { timeline, thinkingActive, streamingReasoningId, onScroll },
+  {
+    timeline, thinkingActive, streamingReasoningId,
+    terminationReason, turnsUsed, maxTurns,
+    userAnswer, onUserAnswerChange, onSubmitUserInput,
+    onScroll,
+  },
   ref,
 ) {
   const lang = useLang();
+  const groups = groupByTurn(timeline);
+  const lastIdx = groups.length - 1;
 
   return (
     <div
@@ -22,19 +56,106 @@ const Timeline = forwardRef(function Timeline(
       aria-atomic="false"
       aria-label="Conversation"
     >
-      {timeline.map((item) => (
-        <TimelineItem key={item.id} item={item} lang={lang} />
+      {groups.map((group, idx) => (
+        <TurnGroup
+          key={group.userItem?.id || `anon-${idx}`}
+          group={group}
+          isLast={idx === lastIdx}
+          thinkingActive={thinkingActive}
+          streamingReasoningId={streamingReasoningId}
+          userAnswer={userAnswer}
+          onUserAnswerChange={onUserAnswerChange}
+          onSubmitUserInput={onSubmitUserInput}
+          lang={lang}
+        />
       ))}
-      {thinkingActive && !streamingReasoningId ? (
-        <div className="thinking-placeholder" aria-live="polite">
-          {t("timeline.thinking", lang)}
+      {terminationReason === "max_turns" && (
+        <div className="system-card context" role="status">
+          已达到 {maxTurns} 轮上限（已用 {turnsUsed} 轮）。如需继续，请继续输入。
         </div>
-      ) : null}
+      )}
+      {terminationReason === "guard" && (
+        <div className="system-card error" role="alert">
+          连续操作失败，Agent 已停止。请描述问题或调整方向后重新提交。
+        </div>
+      )}
     </div>
   );
 });
 
 export default Timeline;
+
+function TurnGroup({ group, isLast, thinkingActive, streamingReasoningId, userAnswer, onUserAnswerChange, onSubmitUserInput, lang }) {
+  const { userItem, activityItems, assistantItem, systemItems } = group;
+  const tools = activityItems.filter((i) => i.kind === "tool");
+  const hasRunningTool = tools.some((i) => i.status === "running");
+  const hasErrorTool = tools.some((i) => i.status === "error");
+  const hasActivity = activityItems.length > 0;
+
+  // Summary line for the collapsible activity section.
+  const activitySummary = (() => {
+    if (hasRunningTool) return `⋯ 正在执行…`;
+    const toolCount = tools.length;
+    if (toolCount === 0) return null;
+    const icon = hasErrorTool ? "✗" : "✓";
+    return `${icon} ${toolCount} 次工具调用`;
+  })();
+
+  // The activity section is open when this is the last (active) turn.
+  const activityOpen = isLast;
+
+  return (
+    <div className="turn-group">
+      {userItem && (
+        <div className="bubble user" role="article">
+          {userItem.content}
+        </div>
+      )}
+      {hasActivity && (
+        <details className="turn-activity" open={activityOpen}>
+          <summary className="turn-activity-summary">
+            {activitySummary || `${activityItems.length} 次活动`}
+          </summary>
+          <div className="turn-activity-body">
+            {activityItems.map((item) =>
+            item.kind === "user_input" ? (
+              <UserInputCard
+                key={item.id}
+                item={item}
+                userAnswer={userAnswer}
+                onUserAnswerChange={onUserAnswerChange}
+                onSubmitUserInput={onSubmitUserInput}
+                lang={lang}
+              />
+            ) : (
+              <TimelineItem key={item.id} item={item} lang={lang} />
+            )
+          )}
+          </div>
+        </details>
+      )}
+      {assistantItem && (
+        <div
+          className={`bubble assistant ${assistantItem.streaming ? "streaming" : ""}`}
+          role="article"
+          aria-busy={assistantItem.streaming || undefined}
+        >
+          <Markdown content={assistantItem.content} />
+        </div>
+      )}
+      {systemItems.map((item) => (
+        <div key={item.id} className={`system-card ${item.tone || ""}`} role="alert">
+          {item.content}
+        </div>
+      ))}
+      {isLast && thinkingActive && !streamingReasoningId && (
+        <div className="thinking-placeholder" aria-live="polite">
+          {t("timeline.thinking", lang)}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function TimelineItem({ item, lang }) {
   if (item.kind === "user") {
@@ -103,6 +224,49 @@ function TimelineItem({ item, lang }) {
   return (
     <div className={`system-card ${item.tone || ""}`} role="alert">
       {item.content}
+    </div>
+  );
+}
+
+function UserInputCard({ item, userAnswer, onUserAnswerChange, onSubmitUserInput, lang }) {
+  const { request, answered, answerText } = item;
+  if (answered) {
+    return (
+      <div className="user-input-card answered" role="article">
+        <div className="user-input-question">{request?.question}</div>
+        <div className="user-input-answer">✓ {answerText || t("inspector.submit", lang)}</div>
+      </div>
+    );
+  }
+  return (
+    <div className="user-input-card" role="dialog" aria-label={t("inspector.inputRequired", lang)}>
+      <div className="user-input-question">{request?.question}</div>
+      <div className="option-list">
+        {(request?.options || []).map((option) => (
+          <button
+            key={option.index}
+            className="option-card"
+            onClick={() => onSubmitUserInput && onSubmitUserInput(option)}
+          >
+            <span>{option.text}</span>
+            {option.mode ? <small className="option-mode">→ {option.mode}</small> : null}
+          </button>
+        ))}
+      </div>
+      <textarea
+        className="user-input-textarea"
+        value={userAnswer || ""}
+        onChange={(e) => onUserAnswerChange && onUserAnswerChange(e.target.value)}
+        placeholder={t("inspector.customAnswer", lang)}
+        aria-label={t("inspector.customAnswer", lang)}
+      />
+      <button
+        className="primary wide"
+        onClick={() => onSubmitUserInput && onSubmitUserInput(null, userAnswer)}
+        disabled={!userAnswer?.trim()}
+      >
+        {t("inspector.submit", lang)}
+      </button>
     </div>
   );
 }

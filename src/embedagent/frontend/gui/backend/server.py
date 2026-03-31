@@ -198,7 +198,10 @@ class WebSocketFrontend(FrontendCallbacks):
             "type": "thinking_state",
             "data": {"active": active, "reason": reason}
         })
-    
+
+    def on_turn_event(self, event_name: str, payload: dict) -> None:
+        self._dispatch_message({"type": event_name, "data": payload})
+
     # ============ 处理前端响应 ============
     
     def handle_permission_response(self, permission_id: str, approved: bool):

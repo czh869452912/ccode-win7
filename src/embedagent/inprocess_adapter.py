@@ -538,6 +538,7 @@ class InProcessAdapter(object):
         event_handler: Optional[EventHandler],
     ) -> None:
         session_id = state.session.session_id
+        turn_id = "t-" + uuid.uuid4().hex[:12]
         with state.lock:
             state.status = "running"
             state.last_error = None
@@ -574,10 +575,10 @@ class InProcessAdapter(object):
 
         def on_text_delta(delta: str) -> None:
             set_thinking(False, "assistant_text")
-            self._emit(event_handler, "assistant_delta", session_id, {"text": delta})
+            self._emit(event_handler, "assistant_delta", session_id, {"text": delta, "turn_id": turn_id})
 
         def on_reasoning_delta(delta: str) -> None:
-            self._emit(event_handler, "reasoning_delta", session_id, {"text": delta})
+            self._emit(event_handler, "reasoning_delta", session_id, {"text": delta, "turn_id": turn_id})
 
         def on_tool_start(action: Action) -> None:
             set_thinking(False, "tool_start")
@@ -589,6 +590,7 @@ class InProcessAdapter(object):
                     "tool_name": action.name,
                     "arguments": action.arguments,
                     "call_id": action.call_id,
+                    "turn_id": turn_id,
                 },
             )
 
@@ -624,6 +626,7 @@ class InProcessAdapter(object):
                     "error": observation.error,
                     "data": observation.data,
                     "call_id": action.call_id,
+                    "turn_id": turn_id,
                 },
             )
             if mode_changed:
@@ -658,7 +661,7 @@ class InProcessAdapter(object):
             with state.lock:
                 state.status = "waiting_permission"
                 state.pending_event = threading.Event()
-            self._emit_with_snapshot(event_handler, "permission_required", state, {"permission": ticket.to_dict()})
+            self._emit_with_snapshot(event_handler, "permission_required", state, {"permission": ticket.to_dict(), "turn_id": turn_id})
             self._notify_status(event_handler, state)
             if permission_resolver is not None:
                 approved = permission_resolver(ticket.to_dict())
@@ -682,7 +685,7 @@ class InProcessAdapter(object):
             with state.lock:
                 state.status = "waiting_user_input"
                 state.pending_user_event = threading.Event()
-            self._emit_with_snapshot(event_handler, "user_input_required", state, {"user_input": ticket.to_dict()})
+            self._emit_with_snapshot(event_handler, "user_input_required", state, {"user_input": ticket.to_dict(), "turn_id": turn_id})
             self._notify_status(event_handler, state)
             if user_input_resolver is not None:
                 payload = user_input_resolver(ticket.to_dict()) or {}
@@ -707,6 +710,7 @@ class InProcessAdapter(object):
             return response
 
         try:
+            self._emit(event_handler, "turn_start", session_id, {"turn_id": turn_id, "user_text": text})
             set_thinking(True, "turn_started")
             loop_result = loop.run(
                 user_text=text,
@@ -724,6 +728,8 @@ class InProcessAdapter(object):
             )
             final_text = loop_result.final_text
             session = loop_result.session
+            termination_reason = loop_result.termination_reason
+            turns_used = loop_result.turns_used
         except Exception as exc:
             set_thinking(False, "session_error")
             with state.lock:
@@ -764,7 +770,20 @@ class InProcessAdapter(object):
             state.active_thread = None
         set_thinking(False, "session_finished")
         snapshot = self.get_session_snapshot(session_id)
-        self._emit(event_handler, "session_finished", session_id, {"final_text": final_text, "session_snapshot": snapshot})
+        self._emit(event_handler, "turn_end", session_id, {
+            "turn_id": turn_id,
+            "final_text": final_text,
+            "termination_reason": termination_reason,
+            "turns_used": turns_used,
+            "max_turns": self.max_turns,
+        })
+        self._emit(event_handler, "session_finished", session_id, {
+            "final_text": final_text,
+            "session_snapshot": snapshot,
+            "termination_reason": termination_reason,
+            "turns_used": turns_used,
+            "max_turns": self.max_turns,
+        })
         self._notify_status(event_handler, state)
 
     def _persist_state(self, state: ManagedSession) -> None:

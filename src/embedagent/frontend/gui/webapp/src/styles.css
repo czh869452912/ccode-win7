@@ -338,6 +338,52 @@ select {
   scroll-behavior: smooth;
 }
 
+/* ── Turn Groups ──────────────────────────────────────────────────── */
+.turn-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.turn-group + .turn-group {
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.turn-activity {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.turn-activity-summary {
+  padding: 8px 14px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--muted);
+  list-style: none;
+  user-select: none;
+}
+
+.turn-activity-summary::-webkit-details-marker { display: none; }
+
+.turn-activity[open] .turn-activity-summary {
+  border-bottom: 1px solid var(--line);
+}
+
+.turn-activity-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+}
+
+.turn-activity-body .tool-card {
+  margin: 0;
+  border-radius: 10px;
+}
+
+/* ── Items ────────────────────────────────────────────────────────── */
 .bubble,
 .tool-card,
 .system-card,
@@ -511,6 +557,50 @@ select {
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+/* ── Inline user-input card (ask_user response in timeline) ─────── */
+.user-input-card {
+  border: 1px solid var(--accent);
+  border-radius: 16px;
+  padding: 16px;
+  background: var(--accent-soft);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: min(600px, 100%);
+}
+
+.user-input-card.answered {
+  border-color: var(--line);
+  background: transparent;
+  opacity: 0.7;
+}
+
+.user-input-question {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.user-input-answer {
+  color: var(--accent);
+  font-size: 13px;
+}
+
+.user-input-textarea {
+  width: 100%;
+  min-height: 60px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  padding: 10px 12px;
+  resize: vertical;
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.option-mode {
+  color: var(--accent);
+  font-size: 11px;
+  margin-left: 6px;
 }
 
 .modal-backdrop {
