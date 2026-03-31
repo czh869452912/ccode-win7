@@ -5,26 +5,41 @@
     "clang": {
       "source": "https://github.com/vovkos/llvm-package-windows/releases/download/clang-20.1.8/clang-20.1.8-windows-amd64-msvc17-libcmt.7z",
       "version": "20.1.8",
+      "archive_type": "7z",
+      "sha256": "5ae2fef38a1c5fae92dd4dce14f07d403b336376682330c842a7fead5ecbc0b9",
+      "cache_relpath": "llvm/clang-20.1.8-windows-amd64-msvc17-libcmt.7z",
       "path": "toolchains/llvm/current/bin/clang.exe"
     },
     "clang_tidy": {
       "source": "https://github.com/cpp-linter/clang-tools-static-binaries/releases/download/master-63858060/clang-tidy-20_windows-amd64.exe",
       "version": "20.1.0",
+      "archive_type": "exe",
+      "sha256": "76528ec7c365fbaead4d8077eae90679898c97aafb2af08179c9094165ccac18",
+      "cache_relpath": "llvm/clang-tidy-20_windows-amd64.exe",
       "path": "toolchains/llvm/current/bin/clang-tidy.exe"
     },
     "llvm_cov": {
       "source": "https://github.com/c3lang/win-llvm/releases/download/llvm_21_1_8/llvm-21.1.8-windows-amd64-msvc17-libcmt.7z",
       "version": "21.1.8",
+      "archive_type": "7z",
+      "sha256": "892dec50f633a9ca5207dcc9bc8d4c69630e4baf975636e6dfa7137b6aa1c535",
+      "cache_relpath": "llvm/llvm-21.1.8-windows-amd64-msvc17-libcmt.7z",
       "path": "toolchains/llvm/current/bin/llvm-cov.exe"
     },
     "llvm_profdata": {
       "source": "https://github.com/c3lang/win-llvm/releases/download/llvm_21_1_8/llvm-21.1.8-windows-amd64-msvc17-libcmt.7z",
       "version": "21.1.8",
+      "archive_type": "7z",
+      "sha256": "892dec50f633a9ca5207dcc9bc8d4c69630e4baf975636e6dfa7137b6aa1c535",
+      "cache_relpath": "llvm/llvm-21.1.8-windows-amd64-msvc17-libcmt.7z",
       "path": "toolchains/llvm/current/bin/llvm-profdata.exe"
     },
     "clang_analyzer_entry": {
       "source": "local wrapper",
       "version": "clang.exe --analyze",
+      "archive_type": "generated",
+      "sha256": "",
+      "cache_relpath": "",
       "path": "toolchains/llvm/current/bin/clang-analyzer.bat"
     }
   },

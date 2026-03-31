@@ -71,6 +71,20 @@
       "license_name": "Microsoft WebView2 Runtime Redistribution License",
       "license_url": "https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/distribution",
       "notes": "Pinned to a WebView2 109 x64 fixed-version runtime package for Windows 7 offline GUI compatibility."
+    },
+    {
+      "id": "7za_standalone",
+      "version": "18.1.0",
+      "kind": "bootstrap_tool",
+      "platform": "win-x64",
+      "upstream_url": "https://api.nuget.org/v3-flatcontainer/7-zip.commandline/18.1.0/7-zip.commandline.18.1.0.nupkg",
+      "sha256": "39fd1b1d7b8d44d7c48fee9d9405f4324d33011e51bfe0742d8ada1259990197",
+      "archive_type": "zip",
+      "cache_relpath": "7za/7-zip.commandline.18.1.0.nupkg",
+      "stage_relpath": "",
+      "license_name": "GNU Lesser General Public License v2.1",
+      "license_url": "https://www.7-zip.org/license.txt",
+      "notes": "7-Zip standalone console executable (7za.exe) from the 7-Zip.CommandLine NuGet package. nupkg is a zip extractable by PowerShell Expand-Archive; 7za.exe lives at tools/7za.exe inside. Used during bootstrap to extract LLVM 7z archives. Not included in the offline bundle."
     }
   ]
 }
