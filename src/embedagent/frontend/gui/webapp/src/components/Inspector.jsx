@@ -16,6 +16,7 @@ export default function Inspector({
   eventLog,
   onTabChange,
   onOpenArtifact,
+  onOpenReviewEvidence,
   onUserAnswerChange,
   onSubmitUserInput,
 }) {
@@ -50,7 +51,7 @@ export default function Inspector({
           <ArtifactPanel artifacts={artifacts} onOpen={onOpenArtifact} lang={lang} />
         )}
         {inspectorTab === "plan" && <PlanPanel plan={plan} lang={lang} />}
-        {inspectorTab === "review" && <ReviewPanel review={review} lang={lang} />}
+        {inspectorTab === "review" && <ReviewPanel review={review} lang={lang} onOpenReviewEvidence={onOpenReviewEvidence} />}
         {inspectorTab === "permissions" && (
           <PermissionsPanel permissionContext={permissionContext} lang={lang} />
         )}
@@ -165,7 +166,7 @@ function PermissionsPanel({ permissionContext, lang }) {
   );
 }
 
-function ReviewPanel({ review, lang }) {
+function ReviewPanel({ review, lang, onOpenReviewEvidence }) {
   if (!review) {
     return <div className="empty-copy">{t("inspector.noReview", lang)}</div>;
   }
@@ -206,12 +207,12 @@ function ReviewPanel({ review, lang }) {
         </>
       ) : null}
       <h3>{t("inspector.reviewEvidence", lang)}</h3>
-      <ReviewSections sections={sections} lang={lang} />
+      <ReviewSections sections={sections} lang={lang} onOpenReviewEvidence={onOpenReviewEvidence} />
     </div>
   );
 }
 
-function ReviewSections({ sections, lang }) {
+function ReviewSections({ sections, lang, onOpenReviewEvidence }) {
   const groups = [
     ["diagnostics", t("inspector.reviewDiagnostics", lang)],
     ["tests", t("inspector.reviewTests", lang)],
@@ -233,7 +234,7 @@ function ReviewSections({ sections, lang }) {
             <summary>{label} ({items.length})</summary>
             <div className="review-section-body">
               {key === "diagnostics" && items.map((item, index) => (
-                <DiagnosticEvidenceCard key={`${key}-${index}`} item={item} lang={lang} />
+                <DiagnosticEvidenceCard key={`${key}-${index}`} item={item} lang={lang} onOpenReviewEvidence={onOpenReviewEvidence} />
               ))}
               {key === "tests" && items.map((item, index) => (
                 <TestEvidenceCard key={`${key}-${index}`} item={item} lang={lang} />
@@ -245,7 +246,7 @@ function ReviewSections({ sections, lang }) {
                 <QualityEvidenceCard key={`${key}-${index}`} item={item} lang={lang} />
               ))}
               {key === "git" && items.map((item, index) => (
-                <GitEvidenceCard key={`${key}-${index}`} item={item} lang={lang} />
+                <GitEvidenceCard key={`${key}-${index}`} item={item} lang={lang} onOpenReviewEvidence={onOpenReviewEvidence} />
               ))}
             </div>
           </details>
@@ -274,7 +275,7 @@ function RuleField({ label, values, monospace = false }) {
   );
 }
 
-function DiagnosticEvidenceCard({ item, lang }) {
+function DiagnosticEvidenceCard({ item, lang, onOpenReviewEvidence }) {
   const diagnostics = Array.isArray(item.diagnostics) ? item.diagnostics : [];
   return (
     <div className="evidence-card">
@@ -287,9 +288,17 @@ function DiagnosticEvidenceCard({ item, lang }) {
       {diagnostics.length > 0 ? (
         <div className="evidence-list">
           {diagnostics.map((diag, index) => (
-            <div key={`${item.call_id || item.tool_name}-${index}`} className="evidence-row monospace">
+            <button
+              key={`${item.call_id || item.tool_name}-${index}`}
+              className="evidence-row monospace evidence-link"
+              onClick={() => onOpenReviewEvidence && onOpenReviewEvidence({
+                kind: "diagnostic",
+                title: `${diag.file || "?"}:${diag.line || 1}:${diag.column || 1}`,
+                content: `${diag.file || "?"}:${diag.line || 1}:${diag.column || 1} ${diag.message || ""}`,
+              })}
+            >
               {diag.file || "?"}:{diag.line || 1}:{diag.column || 1} {diag.message || ""}
-            </div>
+            </button>
           ))}
         </div>
       ) : (
@@ -363,16 +372,46 @@ function QualityEvidenceCard({ item, lang }) {
   );
 }
 
-function GitEvidenceCard({ item, lang }) {
+function GitEvidenceCard({ item, lang, onOpenReviewEvidence }) {
+  const hasArtifact = Boolean(item.diff_artifact_ref);
+  const hasDiff = Boolean(item.diff_preview);
+  const available = item.available !== false;
   return (
     <div className="evidence-card">
       <div className="evidence-header">
         <span className="evidence-title">{t("inspector.reviewGit", lang)}</span>
       </div>
       <div className="evidence-grid">
+        <span>{t("inspector.gitAvailable", lang)}: {available ? t("inspector.yes", lang) : t("inspector.no", lang)}</span>
         <span>{t("inspector.gitFiles", lang)}: {item.file_count || 0}</span>
         <span>{t("inspector.gitLines", lang)}: {item.line_count || 0}</span>
       </div>
+      {!available && item.error ? <div className="rule-field-empty">{item.error}</div> : null}
+      {hasArtifact || hasDiff ? (
+        <button
+          className="ghost evidence-action"
+          onClick={() => onOpenReviewEvidence && onOpenReviewEvidence({
+            kind: "git",
+            title: t("inspector.reviewGit", lang),
+            diff: item.diff_preview || "",
+            artifactRef: item.diff_artifact_ref || "",
+            content: JSON.stringify(item, null, 2),
+          })}
+        >
+          {t("inspector.openDiff", lang)}
+        </button>
+      ) : (
+        <button
+          className="ghost evidence-action"
+          onClick={() => onOpenReviewEvidence && onOpenReviewEvidence({
+            kind: "git",
+            title: t("inspector.reviewGit", lang),
+            content: JSON.stringify(item, null, 2),
+          })}
+        >
+          {t("inspector.openEvidence", lang)}
+        </button>
+      )}
     </div>
   );
 }

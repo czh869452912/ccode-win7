@@ -358,6 +358,9 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertIn("Build failed", findings[0]["title"])
         sections = review.get("sections") or {}
         self.assertGreaterEqual(len(sections.get("diagnostics") or []), 1)
+        git_sections = sections.get("git") or []
+        self.assertGreaterEqual(len(git_sections), 1)
+        self.assertIn("diff_preview", git_sections[0])
 
 
 if __name__ == '__main__':

@@ -41,6 +41,11 @@ const STRINGS = {
     "inspector.qualityFailed": "Failed",
     "inspector.gitFiles": "Files",
     "inspector.gitLines": "Lines",
+    "inspector.gitAvailable": "Git",
+    "inspector.yes": "Yes",
+    "inspector.no": "No",
+    "inspector.openEvidence": "Open in Preview",
+    "inspector.openDiff": "Open Diff",
     "inspector.preview": "Preview",
     "inspector.log": "Log",
 
@@ -144,6 +149,11 @@ const STRINGS = {
     "inspector.qualityFailed": "失败",
     "inspector.gitFiles": "文件数",
     "inspector.gitLines": "行数",
+    "inspector.gitAvailable": "Git可用",
+    "inspector.yes": "是",
+    "inspector.no": "否",
+    "inspector.openEvidence": "在预览中打开",
+    "inspector.openDiff": "打开差异",
     "inspector.preview": "预览",
     "inspector.log": "日志",
 

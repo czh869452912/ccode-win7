@@ -1019,14 +1019,18 @@ class InProcessAdapter(object):
         diff_observation = self.tools.execute("git_diff", {"path": ".", "scope": "working"})
         diff_data = diff_observation.data if isinstance(diff_observation.data, dict) else {}
         diff_file_count = int(diff_data.get("file_count") or 0)
-        if diff_observation.success:
-            sections["git"].append(
-                {
-                    "kind": "git_diff",
-                    "file_count": diff_file_count,
-                    "line_count": int(diff_data.get("line_count") or 0),
-                }
-            )
+        sections["git"].append(
+            {
+                "kind": "git_diff",
+                "available": bool(diff_observation.success),
+                "error": diff_observation.error or "",
+                "file_count": diff_file_count,
+                "line_count": int(diff_data.get("line_count") or 0),
+                "diff_preview": str(diff_data.get("diff") or ""),
+                "diff_artifact_ref": str(diff_data.get("diff_artifact_ref") or ""),
+                "diff_char_count": int(diff_data.get("diff_char_count") or 0),
+            }
+        )
         if diff_observation.success and diff_file_count > 0 and not saw_verify:
             findings.append(
                 {

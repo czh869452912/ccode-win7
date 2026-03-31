@@ -182,6 +182,35 @@ function App() {
     });
   }
 
+  async function openReviewEvidence(entry) {
+    if (entry?.artifactRef) {
+      await openArtifact(entry.artifactRef);
+      return;
+    }
+    if (entry?.diff) {
+      dispatch({
+        type: "preview_loaded",
+        preview: {
+          kind: entry?.kind || "diff",
+          title: entry?.title || "Review Diff",
+          diff: entry.diff,
+          content: "",
+        },
+        inspectorTab: "preview",
+      });
+      return;
+    }
+    dispatch({
+      type: "preview_loaded",
+      preview: {
+        kind: entry?.kind || "review",
+        title: entry?.title || "Review Evidence",
+        content: entry?.content || "",
+      },
+      inspectorTab: "preview",
+    });
+  }
+
   async function createSession(mode) {
     const payload = await fetchJson(`/api/sessions?mode=${encodeURIComponent(mode)}`, {
       method: "POST",
@@ -637,6 +666,7 @@ function App() {
           eventLog={state.eventLog}
           onTabChange={(v) => dispatch({ type: "set_inspector", value: v })}
           onOpenArtifact={openArtifact}
+          onOpenReviewEvidence={openReviewEvidence}
           onUserAnswerChange={setUserAnswer}
           onSubmitUserInput={sendUserInputResponse}
         />
