@@ -194,6 +194,18 @@ export function reducer(state, action) {
             : item,
         ),
       };
+    case "permission_request_inline":
+      // Inline permission — we only need to track the ID for potential cleanup; modal stays null
+      return state;
+    case "permission_item_resolved":
+      return {
+        ...state,
+        timeline: state.timeline.map((item) =>
+          item.kind === "permission" && item.id === action.permissionId
+            ? { ...item, resolved: true, approved: action.approved }
+            : item,
+        ),
+      };
     case "todos_loaded":
       return { ...state, todos: action.todos };
     case "artifacts_loaded":

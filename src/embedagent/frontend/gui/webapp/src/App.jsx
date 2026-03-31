@@ -20,6 +20,7 @@ function App() {
   const [state, dispatch] = useReducer(reducer, initialState);
   const [treeHeight, setTreeHeight] = useState(640);
   const [userAnswer, setUserAnswer] = useState("");
+  const sessionAutoApprove = useRef(new Set()); // categories auto-approved for this session
   const wsRef = useRef(null);
   const timelineRef = useRef(null);
   const wsRetryRef = useRef(0);
@@ -216,6 +217,18 @@ function App() {
   function handleSocketMessage(type, data) {
     if (type === "session_status") {
       const snap = data.session_snapshot || data;
+      const newMode = snap.current_mode;
+      if (newMode && state.snapshot?.current_mode && newMode !== state.snapshot.current_mode) {
+        dispatch({
+          type: "append_timeline_item",
+          item: {
+            id: makeEventId("mode"),
+            kind: "system",
+            tone: "context",
+            content: `Switched to ${newMode} mode`,
+          },
+        });
+      }
       dispatch({ type: "session_snapshot", snapshot: normalizeSessionPayload(snap) });
       if (snap.session_id) loadSessions();
       logEvent("session_status", snap.status || "");
@@ -260,7 +273,35 @@ function App() {
       return;
     }
     if (type === "permission_request") {
-      dispatch({ type: "permission_request", permission: data });
+      const category = data.category || "";
+      // Auto-approve if user already said "remember this session"
+      if (sessionAutoApprove.current.has(category)) {
+        if (wsRef.current) {
+          wsRef.current.send(JSON.stringify({
+            type: "permission_response",
+            permission_id: data.permission_id,
+            approved: true,
+          }));
+        }
+        logEvent("permission_request (auto-approved)", category);
+        return;
+      }
+      // Command-level → keep blocking modal
+      if (category === "command") {
+        dispatch({ type: "permission_request", permission: data });
+      } else {
+        // Write / safe → inline timeline card
+        dispatch({
+          type: "append_timeline_item",
+          item: {
+            id: data.permission_id || makeEventId("perm"),
+            kind: "permission",
+            permission: data,
+            resolved: false,
+          },
+        });
+        dispatch({ type: "permission_request_inline", permissionId: data.permission_id });
+      }
       logEvent("permission_request", data.reason || "");
       return;
     }
@@ -284,6 +325,7 @@ function App() {
       logEvent("turn_start", data.turn_id || "");
       return;
     }
+
     if (type === "session_finished") {
       dispatch({ type: "stream_completed" });
       if (data.session_snapshot) {
@@ -322,6 +364,16 @@ function App() {
     );
     dispatch({ type: "permission_cleared" });
     logEvent("permission_response", approved ? "approved" : "denied");
+  }
+
+  function sendInlinePermissionResponse(permissionId, approved, remember, category) {
+    if (!wsRef.current) return;
+    if (remember && approved && category) {
+      sessionAutoApprove.current.add(category);
+    }
+    wsRef.current.send(JSON.stringify({ type: "permission_response", permission_id: permissionId, approved }));
+    dispatch({ type: "permission_item_resolved", permissionId, approved });
+    logEvent("permission_response (inline)", approved ? "approved" : "denied");
   }
 
   function sendUserInputResponse(option, overrideAnswer) {
@@ -397,18 +449,21 @@ function App() {
       <main className="chat-shell">
         <header className="header">
           <div className="header-group">
-            <div className={`badge mode mode-${currentMode}`}>{currentMode}</div>
-            <div className={`badge status status-${currentStatus}`}>{currentStatus}</div>
-            <div className="status-copy">{state.connectionState}</div>
-          </div>
-          <div className="header-group">
-            <select value={currentMode} onChange={(e) => setMode(e.target.value)}>
+            <select
+              className={`badge mode mode-${currentMode}`}
+              value={currentMode}
+              onChange={(e) => setMode(e.target.value)}
+              aria-label="Agent mode"
+            >
               {MODES.map((m) => (
                 <option key={m} value={m}>
                   {m}
                 </option>
               ))}
             </select>
+            <div className="status-copy">{state.connectionState}</div>
+          </div>
+          <div className="header-group">
             <button className="ghost" onClick={loadSessions} aria-label={t("header.refresh", state.lang)}>
               {t("header.refresh", state.lang)}
             </button>
@@ -431,6 +486,13 @@ function App() {
             </button>
           </div>
         </header>
+        <StatusBar
+          turnsUsed={state.turnsUsed}
+          maxTurns={state.maxTurns}
+          currentMode={currentMode}
+          currentStatus={currentStatus}
+          lang={state.lang}
+        />
 
         <Timeline
           ref={timelineRef}
@@ -443,6 +505,7 @@ function App() {
           userAnswer={userAnswer}
           onUserAnswerChange={setUserAnswer}
           onSubmitUserInput={sendUserInputResponse}
+          onPermissionResponse={sendInlinePermissionResponse}
           onScroll={handleTimelineScroll}
         />
 
@@ -482,3 +545,23 @@ function App() {
 }
 
 export default App;
+
+function StatusBar({ turnsUsed, maxTurns, currentMode, currentStatus, lang }) {
+  const isActive = currentStatus === "running" || currentStatus === "waiting_permission" || currentStatus === "waiting_user_input";
+  return (
+    <div className="status-bar" aria-label="Session status">
+      {turnsUsed > 0 && (
+        <>
+          <span className="status-bar-turn" title="Turns used / max">
+            Turn {turnsUsed}/{maxTurns}
+          </span>
+          <span className="status-bar-sep">·</span>
+        </>
+      )}
+      <span className={`status-bar-mode mode-${currentMode}`}>{currentMode}</span>
+      <span className={`status-bar-status ${isActive ? currentStatus : ""}`}>
+        {currentStatus}
+      </span>
+    </div>
+  );
+}

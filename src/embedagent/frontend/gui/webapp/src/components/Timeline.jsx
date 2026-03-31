@@ -38,6 +38,7 @@ const Timeline = forwardRef(function Timeline(
     timeline, thinkingActive, streamingReasoningId,
     terminationReason, turnsUsed, maxTurns,
     userAnswer, onUserAnswerChange, onSubmitUserInput,
+    onPermissionResponse,
     onScroll,
   },
   ref,
@@ -66,6 +67,7 @@ const Timeline = forwardRef(function Timeline(
           userAnswer={userAnswer}
           onUserAnswerChange={onUserAnswerChange}
           onSubmitUserInput={onSubmitUserInput}
+          onPermissionResponse={onPermissionResponse}
           lang={lang}
         />
       ))}
@@ -85,7 +87,7 @@ const Timeline = forwardRef(function Timeline(
 
 export default Timeline;
 
-function TurnGroup({ group, isLast, thinkingActive, streamingReasoningId, userAnswer, onUserAnswerChange, onSubmitUserInput, lang }) {
+function TurnGroup({ group, isLast, thinkingActive, streamingReasoningId, userAnswer, onUserAnswerChange, onSubmitUserInput, onPermissionResponse, lang }) {
   const { userItem, activityItems, assistantItem, systemItems } = group;
   const tools = activityItems.filter((i) => i.kind === "tool");
   const hasRunningTool = tools.some((i) => i.status === "running");
@@ -125,6 +127,13 @@ function TurnGroup({ group, isLast, thinkingActive, streamingReasoningId, userAn
                 userAnswer={userAnswer}
                 onUserAnswerChange={onUserAnswerChange}
                 onSubmitUserInput={onSubmitUserInput}
+                lang={lang}
+              />
+            ) : item.kind === "permission" ? (
+              <PermissionCard
+                key={item.id}
+                item={item}
+                onPermissionResponse={onPermissionResponse}
                 lang={lang}
               />
             ) : (
@@ -267,6 +276,60 @@ function UserInputCard({ item, userAnswer, onUserAnswerChange, onSubmitUserInput
       >
         {t("inspector.submit", lang)}
       </button>
+    </div>
+  );
+}
+
+function PermissionCard({ item, onPermissionResponse, lang }) {
+  const [remember, setRemember] = React.useState(false);
+  const { permission, resolved, approved } = item;
+
+  if (resolved) {
+    return (
+      <div className="permission-card resolved" role="article">
+        <span className="permission-icon" aria-hidden="true">{approved ? "✓" : "✗"}</span>
+        <span className="permission-action">{permission?.tool_name || "permission"}</span>
+        <span className="permission-verdict">{approved ? "Approved" : "Denied"}</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="permission-card" role="dialog" aria-label="Permission request">
+      <div className="permission-header">
+        <span className="permission-icon" aria-hidden="true">🔐</span>
+        <span className="permission-tool">{permission?.tool_name || ""}</span>
+        <span className="permission-category">{permission?.category || ""}</span>
+      </div>
+      <p className="permission-reason">{permission?.reason || ""}</p>
+      {permission?.details && Object.keys(permission.details).length > 0 && (
+        <details className="permission-details">
+          <summary>Details</summary>
+          <pre>{JSON.stringify(permission.details, null, 2)}</pre>
+        </details>
+      )}
+      <label className="permission-remember">
+        <input
+          type="checkbox"
+          checked={remember}
+          onChange={(e) => setRemember(e.target.checked)}
+        />
+        Remember for this session
+      </label>
+      <div className="permission-actions">
+        <button
+          className="ghost btn-deny"
+          onClick={() => onPermissionResponse && onPermissionResponse(item.id, false, false, permission?.category)}
+        >
+          Deny
+        </button>
+        <button
+          className="primary"
+          onClick={() => onPermissionResponse && onPermissionResponse(item.id, true, remember, permission?.category)}
+        >
+          Approve
+        </button>
+      </div>
     </div>
   );
 }
