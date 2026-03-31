@@ -102,6 +102,11 @@ def check_site_packages(bundle_root: Path) -> Tuple[bool, List[str]]:
     pkg_count = len([d for d in sp.iterdir() if d.is_dir() and not d.name.endswith(".dist-info")])
     if pkg_count < 20:  # Minimum expected packages
         errors.append(f"Warning: Only {pkg_count} packages found, expected at least 20")
+
+    editable_links = list(sp.glob("__editable__*.pth"))
+    if editable_links:
+        names = ", ".join(item.name for item in editable_links)
+        errors.append(f"Editable path links should not be bundled: {names}")
     
     return len(errors) == 0, errors
 

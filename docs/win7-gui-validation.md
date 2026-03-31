@@ -1,6 +1,6 @@
 # Win7 GUI 验证步骤
 
-> 更新日期：2026-03-30
+> 更新日期：2026-03-31
 > 适用对象：已解压的离线 bundle，在真实 Windows 7 目标机上执行
 
 ---
@@ -57,6 +57,7 @@ validate-gui-smoke.cmd --workspace D:\EmbedAgentWorkspace --windowed --auto-clos
 - `assistant_text` 包含 `GUI smoke reply`
 - `session_statuses` 至少覆盖 `running`、`waiting_permission`、`waiting_user_input`、`idle`
 - `tool_events` 同时包含 `tool_start` 与 `tool_finish`
+- `command_results` 中包含 `command_name == "review"` 且 `success == true`
 - `first_session_todos == 1`
 - `second_session_todos == 0`
 
@@ -65,6 +66,7 @@ validate-gui-smoke.cmd --workspace D:\EmbedAgentWorkspace --windowed --auto-clos
 `validate-gui-smoke.cmd --windowed --auto-close-seconds 8` 的 JSON 输出中应满足：
 
 - `assistant_text` 包含 `GUI smoke reply`
+- `command_results` 中包含 `command_name == "review"` 且 `success == true`
 - `renderer_report.renderer == "edgechromium"`
 - `renderer_report.runtime_source == "bundle"`
 

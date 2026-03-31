@@ -7,6 +7,7 @@ setlocal EnableDelayedExpansion
 set "BUNDLE_ROOT=%~dp0"
 set "PYTHONHOME=%BUNDLE_ROOT%runtime\python"
 set "PYTHONPATH=%BUNDLE_ROOT%app;%BUNDLE_ROOT%runtime\site-packages"
+set "PYTHONNOUSERSITE=1"
 
 :: Add bundled tools to PATH
 set "PATH=%BUNDLE_ROOT%bin\git\cmd;%BUNDLE_ROOT%bin\rg;%BUNDLE_ROOT%bin\ctags;%BUNDLE_ROOT%bin\llvm\bin;%PATH%"
@@ -31,4 +32,4 @@ if not exist "%BUNDLE_ROOT%runtime\webview2-fixed-runtime\msedgewebview2.exe" (
 )
 
 :: Launch GUI
-"%PYTHONHOME%\python.exe" -m embedagent.frontend.gui.launcher %*
+"%PYTHONHOME%\python.exe" "%BUNDLE_ROOT%app\embedagent\frontend\gui\launcher.py" %*

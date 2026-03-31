@@ -164,6 +164,7 @@ function Invoke-PrepareOffline {
         [string]$MinGitRoot,
         [string]$RipgrepPath,
         [string]$CtagsPath,
+        [string]$WebView2RuntimeRoot,
         [string]$LlvmRoot
     )
 
@@ -193,6 +194,9 @@ function Invoke-PrepareOffline {
     }
     if ($CtagsPath) {
         $prepareParams.CtagsPath = $CtagsPath
+    }
+    if ($WebView2RuntimeRoot) {
+        $prepareParams.WebView2RuntimeRoot = $WebView2RuntimeRoot
     }
     if ($LlvmRoot) {
         $prepareParams.LlvmRoot = $LlvmRoot

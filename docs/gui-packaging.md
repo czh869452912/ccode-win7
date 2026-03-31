@@ -1,6 +1,6 @@
 # EmbedAgent GUI 打包配置指南
 
-> 更新日期：2026-03-30（WebView2 Fixed Version / React webapp 修订）
+> 更新日期：2026-03-31（Bundle 对齐 / WebView2 / editable-path 清理修订）
 > 适用：Phase 7 离线打包
 
 ---
@@ -153,12 +153,19 @@ setlocal EnableDelayedExpansion
 set "BUNDLE_ROOT=%~dp0"
 set "PYTHONHOME=%BUNDLE_ROOT%runtime\python"
 set "PYTHONPATH=%BUNDLE_ROOT%app;%BUNDLE_ROOT%runtime\site-packages"
+set "PYTHONNOUSERSITE=1"
 set "PATH=%BUNDLE_ROOT%bin\git\cmd;%BUNDLE_ROOT%bin\rg;%BUNDLE_ROOT%bin\ctags;%BUNDLE_ROOT%bin\llvm\bin;%PATH%"
 
 set "EMBEDAGENT_HOME=%USERPROFILE%\.embedagent"
 
-"%PYTHONHOME%\python.exe" -m embedagent.frontend.gui.launcher %*
+"%PYTHONHOME%\python.exe" "%BUNDLE_ROOT%app\embedagent\frontend\gui\launcher.py" %*
 ```
+
+补充说明：
+
+- GUI launcher 现在直接执行 bundle 内 `launcher.py`，避免 `runpy` / 宿主 Python 环境干扰
+- `PYTHONNOUSERSITE=1` 必须保留，避免用户级 site-packages 污染 bundle 运行时
+- bundle 的 `runtime/site-packages/` 中不应残留 `__editable__*.pth`
 
 ---
 
@@ -170,6 +177,7 @@ set "EMBEDAGENT_HOME=%USERPROFILE%\.embedagent"
 - [x] fastapi 及其依赖在 site-packages 中
 - [x] uvicorn 及其依赖在 site-packages 中
 - [x] websockets 在 site-packages 中
+- [x] `runtime/site-packages/` 中无 `__editable__*.pth`
 
 ### 5.2 静态文件检查
 

@@ -192,6 +192,27 @@ function Validate-PthFile {
     }
 }
 
+function Test-NoEditableBundleLinks {
+    param(
+        [System.Collections.ArrayList]$Results,
+        [string]$SitePackagesRoot
+    )
+
+    if (-not (Test-Path -LiteralPath $SitePackagesRoot)) {
+        $level = if ($RequireComplete) { 'fail' } else { 'warn' }
+        Add-Result -Results $Results -Level $level -Code 'python.editable_links' -Message 'site-packages directory not found for editable link scan.'
+        return
+    }
+
+    $editableFiles = @(Get-ChildItem -LiteralPath $SitePackagesRoot -Filter '__editable__*.pth' -File -ErrorAction SilentlyContinue)
+    if ($editableFiles.Count -gt 0) {
+        $names = @($editableFiles | ForEach-Object { $_.Name }) -join ', '
+        Add-Result -Results $Results -Level 'fail' -Code 'python.editable_links' -Message ('Bundle site-packages still contains editable path links: {0}' -f $names)
+        return
+    }
+    Add-Result -Results $Results -Level 'pass' -Code 'python.editable_links' -Message 'Bundle site-packages contains no editable path links.'
+}
+
 $projectRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
 $defaultBundleRoot = Join-Path $projectRoot ('build\offline-dist\' + $ArtifactName)
 $defaultZipPath = Join-Path $projectRoot ('build\offline-dist\' + $ArtifactName + '.zip')
@@ -305,6 +326,7 @@ else {
 if (Test-Path -LiteralPath (Join-Path $BundleRoot 'runtime\python')) {
     Validate-PthFile -Results $results -PythonRoot (Join-Path $BundleRoot 'runtime\python')
 }
+Test-NoEditableBundleLinks -Results $results -SitePackagesRoot (Join-Path $BundleRoot 'runtime\site-packages')
 
 if (-not $SkipDynamicChecks) {
     Invoke-CommandCheck -Results $results -FilePath $pythonExe -Arguments @('--version') -Code 'dynamic.python' -TreatAsCompleteGate $true

@@ -128,6 +128,58 @@ function Remove-TransientPythonArtifacts {
         }
 }
 
+function Remove-ProjectEditableArtifacts {
+    param(
+        [string]$SitePackagesRoot,
+        [string]$ProjectRoot
+    )
+
+    if (-not (Test-Path -LiteralPath $SitePackagesRoot)) {
+        return
+    }
+
+    $normalizedProjectRoot = [System.IO.Path]::GetFullPath($ProjectRoot)
+    Get-ChildItem -LiteralPath $SitePackagesRoot -Filter '*.pth' -File | ForEach-Object {
+        $path = $_.FullName
+        $content = @()
+        try {
+            $content = @(Get-Content -LiteralPath $path -ErrorAction Stop)
+        }
+        catch {
+            return
+        }
+
+        $shouldRemove = $false
+        foreach ($line in $content) {
+            $trimmed = "$line".Trim()
+            if (-not $trimmed) {
+                continue
+            }
+            if ($trimmed.StartsWith('import ', [System.StringComparison]::OrdinalIgnoreCase)) {
+                continue
+            }
+            $candidate = $trimmed
+            if (-not [System.IO.Path]::IsPathRooted($candidate)) {
+                continue
+            }
+            try {
+                $resolved = [System.IO.Path]::GetFullPath($candidate)
+            }
+            catch {
+                continue
+            }
+            if ($resolved -eq $normalizedProjectRoot -or $resolved.StartsWith($normalizedProjectRoot.TrimEnd('\') + '\', [System.StringComparison]::OrdinalIgnoreCase)) {
+                $shouldRemove = $true
+                break
+            }
+        }
+
+        if ($shouldRemove) {
+            Remove-Item -LiteralPath $path -Force
+        }
+    }
+}
+
 function Write-TextFile {
     param(
         [string]$Path,
@@ -265,7 +317,8 @@ function Extract-ZipArchive {
     )
 
     Reset-Directory -Root $DestinationRoot -Target $DestinationPath
-    Expand-Archive -LiteralPath $ArchivePath -DestinationPath $DestinationPath -Force
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    [System.IO.Compression.ZipFile]::ExtractToDirectory($ArchivePath, $DestinationPath)
 }
 
 function Promote-ExtractedSubdirectory {
@@ -564,6 +617,7 @@ set "BUNDLE_ROOT=%~dp0"
 set "EMBEDAGENT_BUNDLE_ROOT=%BUNDLE_ROOT%"
 set "PYTHONHOME=%BUNDLE_ROOT%runtime\python"
 set "PYTHONPATH=%BUNDLE_ROOT%app;%BUNDLE_ROOT%runtime\site-packages"
+set "PYTHONNOUSERSITE=1"
 set "PATH=%BUNDLE_ROOT%bin\git\cmd;%BUNDLE_ROOT%bin\git\bin;%BUNDLE_ROOT%bin\rg;%BUNDLE_ROOT%bin\ctags;%BUNDLE_ROOT%bin\llvm\bin;%BUNDLE_ROOT%bin\llvm\libexec;%PATH%"
 "%BUNDLE_ROOT%runtime\python\python.exe" -m embedagent %*
 '@
@@ -583,6 +637,7 @@ setlocal EnableDelayedExpansion
 set "BUNDLE_ROOT=%~dp0"
 set "PYTHONHOME=%BUNDLE_ROOT%runtime\python"
 set "PYTHONPATH=%BUNDLE_ROOT%app;%BUNDLE_ROOT%runtime\site-packages"
+set "PYTHONNOUSERSITE=1"
 
 set "PATH=%BUNDLE_ROOT%bin\git\cmd;%BUNDLE_ROOT%bin\rg;%BUNDLE_ROOT%bin\ctags;%BUNDLE_ROOT%bin\llvm\bin;%PATH%"
 
@@ -601,7 +656,7 @@ if not exist "%BUNDLE_ROOT%runtime\webview2-fixed-runtime\msedgewebview2.exe" (
     exit /b 1
 )
 
-"%PYTHONHOME%\python.exe" -m embedagent.frontend.gui.launcher %*
+"%PYTHONHOME%\python.exe" "%BUNDLE_ROOT%app\embedagent\frontend\gui\launcher.py" %*
 '@
 Write-TextFile -Path (Join-Path $bundleRoot 'embedagent-gui.cmd') -Content ($launcherGui.Trim() + "`r`n")
 
@@ -611,6 +666,7 @@ setlocal
 set "BUNDLE_ROOT=%~dp0"
 set "PYTHONHOME=%BUNDLE_ROOT%runtime\python"
 set "PYTHONPATH=%BUNDLE_ROOT%app;%BUNDLE_ROOT%runtime\site-packages"
+set "PYTHONNOUSERSITE=1"
 "%PYTHONHOME%\python.exe" "%BUNDLE_ROOT%tools\validation\validate-gui-smoke.py" --bundle-root "%BUNDLE_ROOT%" %*
 '@
 Write-TextFile -Path (Join-Path $bundleRoot 'validate-gui-smoke.cmd') -Content ($launcherGuiSmoke.Trim() + "`r`n")
@@ -692,9 +748,10 @@ if ($sitePackagesPath) {
     if (-not $SkipBuild) {
         Stage-Directory -Source $sitePackagesPath -Destination (Join-Path $bundleRoot 'runtime\site-packages')
         Remove-TransientPythonArtifacts -Root (Join-Path $bundleRoot 'runtime\site-packages')
+        Remove-ProjectEditableArtifacts -SitePackagesRoot (Join-Path $bundleRoot 'runtime\site-packages') -ProjectRoot $projectRoot
     }
     $status = if ($SkipBuild) { 'skipped' } else { 'staged' }
-    $note = if ($SkipBuild) { 'Site-packages copy skipped by -SkipBuild.' } else { 'Copied vendored site-packages root.' }
+    $note = if ($SkipBuild) { 'Site-packages copy skipped by -SkipBuild.' } else { 'Copied vendored site-packages root and removed project-local editable path references.' }
     $components += New-ComponentRecord -Name 'python_packages' -StagedPath 'runtime\site-packages' -Required $true -Status $status -SourcePath $sitePackagesPath -Notes $note -AssetId ''
 }
 else {

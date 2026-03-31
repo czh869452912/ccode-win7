@@ -44,6 +44,33 @@
 
 ## 3. 当前变更记录
 
+### DC-040
+
+- 日期：2026-03-31
+- 变更主题：离线 bundle GUI 布局重新对齐与 editable path 泄漏修复
+- 变更摘要：
+  - 确认 `build/offline-dist/` 先前之所以仍是旧的 `static/js` / `static/css` 布局，不是 `prepare-offline.ps1` 回退了静态资源，而是旧 dist 根本没有在 GUI webapp 迁移到 `static/assets` 之后重新构建
+  - `prepare-offline.ps1` 现在会在复制 `site-packages` 后清理指向开发工作区的 `__editable__*.pth`，避免 bundle 运行时串回本机源码树
+  - `build-offline-bundle.ps1` 现在正确透传 `WebView2RuntimeRoot`，并在重建时显式接入 `webview2_fixed_runtime_x64`
+  - `prepare-offline.ps1` 的压缩包解包逻辑改成基于 `System.IO.Compression.ZipFile`，从而真正支持 `.nupkg` 形式的 WebView2 runtime 资产
+  - bundle 生成的 `embedagent-gui.cmd` 改为直接执行 bundle 内 `launcher.py`，并设置 `PYTHONNOUSERSITE=1`，减少 `runpy` warning 与宿主环境污染
+  - `validate-offline-bundle.ps1` 与 `check-bundle-dependencies.py` 新增对 `__editable__*.pth` 的门禁检查；重建后的 dist 已通过 `validate-offline-bundle.ps1`、bundle 级 `validate-gui-smoke.py` 与 `check-bundle-dependencies.py`
+- 影响范围：
+  - Phase 7 prepare/build/validate 脚本
+  - bundle GUI launcher 稳定性
+  - 离线包对宿主开发环境的隔离性
+- 关联文档：
+  - `docs/development-tracker.md`
+  - `scripts/prepare-offline.ps1`
+  - `scripts/build-offline-bundle.ps1`
+  - `scripts/validate-offline-bundle.ps1`
+  - `scripts/check-bundle-dependencies.py`
+- 是否需要 ADR：`否`
+- 后续动作：
+  - 在 Win7 目标机上执行 `validate-gui-smoke.cmd --windowed`
+  - 继续推进 `site-packages` 精简导出，减少 bundle 体积
+  - 视需要把“禁止 bundle 残留 editable path”纳入更多自动化入口
+
 ### DC-039
 
 - 日期：2026-03-31

@@ -2,7 +2,7 @@
 
 > 目标：构建完全自包含、零外部依赖、开箱即用的离线 bundle
 > 适用：物理隔离内网环境（无互联网，仅有内网大模型服务）
-> 更新日期：2026-03-30
+> 更新日期：2026-03-31
 
 ---
 
@@ -85,19 +85,24 @@ python scripts\export-dependencies.py `
 ```powershell
 # 方式 1：使用预下载的资产（推荐）
 powershell -File scripts\prepare-offline.ps1 `
-    -AssetIds python_embedded_x64,mingit_x64,ripgrep_x64,universal_ctags_x64 `
+    -AssetIds python_embedded_x64,mingit_x64,ripgrep_x64,universal_ctags_x64,webview2_fixed_runtime_x64 `
     -SitePackagesRoot build\offline-cache\site-packages-export\site-packages `
     -LlvmRoot toolchains\llvm\current
 
 # 方式 2：允许下载资产（首次打包）
 powershell -File scripts\prepare-offline.ps1 `
-    -AssetIds python_embedded_x64,mingit_x64,ripgrep_x64,universal_ctags_x64 `
+    -AssetIds python_embedded_x64,mingit_x64,ripgrep_x64,universal_ctags_x64,webview2_fixed_runtime_x64 `
     -SitePackagesRoot build\offline-cache\site-packages-export\site-packages `
     -LlvmRoot toolchains\llvm\current `
     -AllowDownload
 
 # 输出：build/offline-staging/EmbedAgent/
 ```
+
+注意：
+
+- GUI bundle 现在把 `webview2_fixed_runtime_x64` 视为正式资产，若缺失则 GUI 不再回退到 IE11
+- `prepare-offline.ps1` 在复制 `site-packages` 后会自动清理指向开发工作区的 `__editable__*.pth`
 
 **关键参数说明**：
 
@@ -114,8 +119,8 @@ powershell -File scripts\prepare-offline.ps1 `
 powershell -File scripts\build-offline-bundle.ps1
 
 # 输出：
-# - build/offline-dist/embedagent-win7-x64-<timestamp>/
-# - build/offline-dist/embedagent-win7-x64-<timestamp>.zip
+# - build/offline-dist/embedagent-win7-x64/
+# - build/offline-dist/embedagent-win7-x64.zip
 ```
 
 ### 2.5 验证 Bundle
@@ -155,6 +160,7 @@ powershell -File scripts\validate-offline-bundle.ps1
 - [x] 内网部署文档
 - [x] GUI 静态文件
 - [x] Bundle manifest
+- [x] 无 `__editable__*.pth` 指向开发源码树
 
 ### 3.2 手动验证步骤
 
@@ -282,7 +288,8 @@ python scripts/export-dependencies.py --exclude-dev
 **解决**：
 - 当前 GUI 正式基线要求 bundle 内包含 Fixed Version WebView2 109
 - 若 `embedagent-gui.cmd` 报缺少 WebView2 runtime，请修复 bundle 或改用 TUI 模式
-- 检查 `embedagent-gui.cmd` 是否正确设置了 PYTHONPATH
+- 检查 `embedagent-gui.cmd` 是否正确设置了 `PYTHONPATH` 与 `PYTHONNOUSERSITE=1`
+- 运行 `python scripts\check-bundle-dependencies.py build\offline-dist\embedagent-win7-x64`，确认 bundle 内没有 `__editable__*.pth`
 
 **问题**：无法连接内网模型服务
 
@@ -339,7 +346,7 @@ python scripts\export-dependencies.py `
 # Step 2: Prepare bundle
 Write-Host "`n[2/4] Preparing offline bundle..." -ForegroundColor Yellow
 powershell -File scripts\prepare-offline.ps1 `
-    -AssetIds python_embedded_x64,mingit_x64,ripgrep_x64,universal_ctags_x64 `
+    -AssetIds python_embedded_x64,mingit_x64,ripgrep_x64,universal_ctags_x64,webview2_fixed_runtime_x64 `
     -SitePackagesRoot build\offline-cache\site-packages-export\site-packages `
     -LlvmRoot toolchains\llvm\current `
     -AllowDownload
