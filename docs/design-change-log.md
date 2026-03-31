@@ -44,6 +44,31 @@
 
 ## 3. 当前变更记录
 
+### DC-039
+
+- 日期：2026-03-31
+- 变更主题：补强 workflow/filtering 回归测试与 GUI smoke 的 `/review` 覆盖
+- 变更摘要：
+  - `tests/test_tools_package.py` 新增 `schemas_for(mode, workflow_state)` 过滤回归，确认 `spec` 在 `review` workflow 下不会暴露写工具，`verify` 仍保留质量门工具
+  - `ToolRuntime.execute()` 的 metadata 回灌新增回归断言，确保 `tool_label`、`permission_category`、renderer key 与 `supports_diff_preview` 在观察结果里稳定存在
+  - GUI webapp `test/run-tests.mjs` 新增 reducer 级状态断言，覆盖 review command result 和 permission context inspector 所依赖的状态流
+  - `scripts/validate-gui-smoke.py` 现在会显式执行 `/review`，让源码路径 smoke 覆盖 command/workflow 链路，而不仅是普通对话与工具调用
+  - 当前验证也暴露出 `build/offline-dist/` 里的既有 bundle 仍是旧 GUI 布局（`static/js` / `static/css`），尚未与最新 validator 所要求的 `static/assets` / Fixed Version WebView2 路径完全同步
+- 影响范围：
+  - Core workflow/tool filtering 回归测试
+  - GUI 状态层 smoke 与 reducer 回归
+  - Phase 7 bundle/source 布局一致性检查
+- 关联文档：
+  - `docs/development-tracker.md`
+  - `tests/test_tools_package.py`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `scripts/validate-gui-smoke.py`
+- 是否需要 ADR：`否`
+- 后续动作：
+  - 重新生成离线 bundle，并在新 bundle 上重跑 `validate-offline-bundle.ps1`
+  - 用 bundle 级 `validate-gui-smoke.py` 复核 `/review` workflow 与 renderer runtime 路径
+  - 继续收敛 GUI 打包产物布局，避免 source 与 dist 结构漂移
+
 ### DC-034
 
 - 日期：2026-03-31

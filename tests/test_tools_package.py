@@ -75,6 +75,22 @@ class TestToolRuntimeSchemas(unittest.TestCase):
             self.assertEqual(func["parameters"]["type"], "object")
             self.assertIn("required", func["parameters"])
 
+    def test_review_workflow_filters_out_write_tools_from_spec_mode(self):
+        schemas = self.rt.schemas_for("spec", workflow_state="review")
+        tool_names = [item["function"]["name"] for item in schemas]
+        self.assertIn("read_file", tool_names)
+        self.assertIn("manage_todos", tool_names)
+        self.assertNotIn("write_file", tool_names)
+
+    def test_verify_review_workflow_keeps_quality_tools_visible(self):
+        schemas = self.rt.schemas_for("verify", workflow_state="review")
+        tool_names = [item["function"]["name"] for item in schemas]
+        self.assertIn("compile_project", tool_names)
+        self.assertIn("run_tests", tool_names)
+        self.assertIn("run_clang_tidy", tool_names)
+        self.assertIn("report_quality", tool_names)
+        self.assertNotIn("write_file", tool_names)
+
 
 class TestToolRuntimeExecute(unittest.TestCase):
     def setUp(self):
@@ -157,6 +173,19 @@ class TestToolRuntimeExecute(unittest.TestCase):
     def test_observation_tool_name_set(self):
         obs = self.rt.execute("manage_todos", {"action": "list"})
         self.assertEqual(obs.tool_name, "manage_todos")
+
+    def test_write_file_observation_includes_catalog_metadata(self):
+        obs = self.rt.execute("write_file", {
+            "path": "notes/plan.md",
+            "content": "# Plan\n",
+            "overwrite": True,
+        })
+        self.assertTrue(obs.success)
+        self.assertEqual(obs.data["tool_label"], "Write File")
+        self.assertEqual(obs.data["permission_category"], "workspace_write")
+        self.assertTrue(obs.data["supports_diff_preview"])
+        self.assertEqual(obs.data["progress_renderer_key"], "file_write")
+        self.assertEqual(obs.data["result_renderer_key"], "file_write")
 
 
 class TestModuleIsolation(unittest.TestCase):

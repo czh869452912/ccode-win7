@@ -246,6 +246,7 @@ def _json_request(url: str, method: str = "GET", payload: Dict[str, object] = No
 
 async def _consume_until_idle(websocket, session_id: str, summary: Dict[str, object]) -> None:
     saw_running = False
+    saw_command_result = False
     deadline = time.time() + 20.0
     while time.time() < deadline:
         remaining = max(0.1, deadline - time.time())
@@ -263,6 +264,16 @@ async def _consume_until_idle(websocket, session_id: str, summary: Dict[str, obj
             summary["tool_events"].append({"type": "tool_start", "call_id": data.get("call_id"), "tool_name": data.get("tool_name")})
         elif msg_type == "tool_finish":
             summary["tool_events"].append({"type": "tool_finish", "call_id": data.get("call_id"), "tool_name": data.get("tool_name")})
+        elif msg_type == "command_result":
+            saw_command_result = True
+            summary["command_results"].append({
+                "command_name": data.get("command_name"),
+                "success": bool(data.get("success")),
+                "message": data.get("message") or "",
+                "data": data.get("data") or {},
+            })
+            if not saw_running:
+                return
         elif msg_type == "permission_request":
             summary["permission_requests"] += 1
             await websocket.send(json.dumps({
@@ -289,6 +300,8 @@ async def _consume_until_idle(websocket, session_id: str, summary: Dict[str, obj
                 saw_running = True
             if saw_running and status == "idle":
                 return
+            if saw_command_result and status == "idle":
+                return
     raise RuntimeError("Timed out waiting for session to return to idle")
 
 
@@ -299,6 +312,7 @@ async def _exercise_gui(gui_port: int) -> Dict[str, object]:
         "stream_deltas": [],
         "session_statuses": [],
         "tool_events": [],
+        "command_results": [],
         "permission_requests": 0,
         "user_input_requests": 0,
     }
@@ -317,6 +331,9 @@ async def _exercise_gui(gui_port: int) -> Dict[str, object]:
         await _consume_until_idle(websocket, session_id, summary)
 
         _json_request(api_root + "/api/sessions/%s/message" % session_id, method="POST", payload={"text": "permission smoke"})
+        await _consume_until_idle(websocket, session_id, summary)
+
+        _json_request(api_root + "/api/sessions/%s/message" % session_id, method="POST", payload={"text": "/review"})
         await _consume_until_idle(websocket, session_id, summary)
 
         first_todos = _json_request(api_root + "/api/todos?session_id=%s" % session_id)
@@ -434,6 +451,12 @@ def main(argv: Optional[List[str]] = None) -> int:
         tool_event_types = [item.get("type") for item in summary.get("tool_events", [])]
         if "tool_start" not in tool_event_types or "tool_finish" not in tool_event_types:
             raise RuntimeError("GUI smoke did not exercise tool events: %s" % summary)
+        review_commands = [
+            item for item in summary.get("command_results", [])
+            if item.get("command_name") == "review"
+        ]
+        if not review_commands or not review_commands[0].get("success"):
+            raise RuntimeError("GUI smoke did not exercise /review workflow: %s" % summary)
         if summary.get("first_session_todos") != 1 or summary.get("second_session_todos") != 0:
             raise RuntimeError("GUI smoke todo isolation failed: %s" % summary)
         renderer_report = {}
@@ -450,6 +473,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             "assistant_text": summary.get("assistant_text"),
             "session_statuses": summary.get("session_statuses"),
             "tool_events": summary.get("tool_events"),
+            "command_results": summary.get("command_results"),
             "model_requests": len(FakeOpenAIHandler.requests_seen),
             "renderer_report": renderer_report,
         }, ensure_ascii=False, indent=2))

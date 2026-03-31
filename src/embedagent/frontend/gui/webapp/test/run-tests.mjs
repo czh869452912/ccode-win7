@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 
+import { initialState, reducer } from "../src/store.js";
 import {
   createTreeNode,
   injectChildren,
@@ -45,6 +46,7 @@ function main() {
     },
   ]);
   assert.equal(reviewTimeline[0].commandName, "review");
+  assert.equal(reviewTimeline[0].data.review.findings[0].title, "Build failed");
 
   const snapshot = normalizeSessionPayload({
     session_id: "sess-1",
@@ -55,6 +57,35 @@ function main() {
   assert.equal(snapshot.status, "waiting_permission");
   assert.equal(snapshot.current_mode, "debug");
   assert.equal(snapshot.has_pending_permission, true);
+
+  const reviewState = reducer(initialState, {
+    type: "command_result",
+    id: "cmd-review",
+    commandName: "review",
+    success: true,
+    message: "## Review Findings",
+    data: {
+      review: {
+        summary: "quality summary",
+        findings: [{ id: "f1", severity: "high", priority: 1, title: "Build failed" }],
+      },
+    },
+  });
+  assert.equal(reviewState.timeline.length, 1);
+  assert.equal(reviewState.timeline[0].kind, "command_result");
+  assert.equal(reviewState.review.summary, "quality summary");
+
+  const permissionState = reducer(initialState, {
+    type: "permission_context_loaded",
+    context: {
+      session_id: "sess-1",
+      remembered_categories: ["workspace_write"],
+      rules: [{ decision: "ask", category: "workspace_write", reason: "write" }],
+    },
+    inspectorTab: "permissions",
+  });
+  assert.equal(permissionState.inspectorTab, "permissions");
+  assert.deepEqual(permissionState.permissionContext.remembered_categories, ["workspace_write"]);
 
   console.log("frontend helper checks passed");
 }
