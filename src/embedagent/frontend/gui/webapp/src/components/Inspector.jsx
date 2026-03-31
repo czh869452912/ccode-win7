@@ -133,10 +133,28 @@ function PermissionsPanel({ permissionContext, lang }) {
             <details key={`${index}-${rule.category}-${rule.decision}`} className="permission-rule-card">
               <summary className="permission-rule-summary">
                 <span className={`permission-rule-decision decision-${rule.decision}`}>{rule.decision}</span>
-                <span>{rule.category || "all"}</span>
+                <span className="permission-rule-category">{rule.category || "all"}</span>
                 <span className="permission-rule-reason">{rule.reason || "-"}</span>
               </summary>
-              <pre>{JSON.stringify(rule, null, 2)}</pre>
+              <div className="permission-rule-body">
+                <RuleField
+                  label={t("inspector.ruleTools", lang)}
+                  values={Array.isArray(rule.tool_names) ? rule.tool_names : []}
+                />
+                <RuleField
+                  label={t("inspector.rulePaths", lang)}
+                  values={Array.isArray(rule.path_globs) ? rule.path_globs : []}
+                />
+                <RuleField
+                  label={t("inspector.ruleCwds", lang)}
+                  values={Array.isArray(rule.cwd_globs) ? rule.cwd_globs : []}
+                />
+                <RuleField
+                  label={t("inspector.ruleCommands", lang)}
+                  values={Array.isArray(rule.command_patterns) ? rule.command_patterns : []}
+                  monospace={true}
+                />
+              </div>
             </details>
           ))}
         </div>
@@ -213,10 +231,148 @@ function ReviewSections({ sections, lang }) {
         return (
           <details key={key} className="review-section-card">
             <summary>{label} ({items.length})</summary>
-            <pre>{JSON.stringify(items, null, 2)}</pre>
+            <div className="review-section-body">
+              {key === "diagnostics" && items.map((item, index) => (
+                <DiagnosticEvidenceCard key={`${key}-${index}`} item={item} lang={lang} />
+              ))}
+              {key === "tests" && items.map((item, index) => (
+                <TestEvidenceCard key={`${key}-${index}`} item={item} lang={lang} />
+              ))}
+              {key === "coverage" && items.map((item, index) => (
+                <CoverageEvidenceCard key={`${key}-${index}`} item={item} lang={lang} />
+              ))}
+              {key === "quality" && items.map((item, index) => (
+                <QualityEvidenceCard key={`${key}-${index}`} item={item} lang={lang} />
+              ))}
+              {key === "git" && items.map((item, index) => (
+                <GitEvidenceCard key={`${key}-${index}`} item={item} lang={lang} />
+              ))}
+            </div>
           </details>
         );
       })}
+    </div>
+  );
+}
+
+function RuleField({ label, values, monospace = false }) {
+  return (
+    <div className="rule-field">
+      <div className="rule-field-label">{label}</div>
+      {values.length > 0 ? (
+        <div className="rule-chip-list">
+          {values.map((value) => (
+            <span key={`${label}-${value}`} className={`rule-chip${monospace ? " monospace" : ""}`}>
+              {value}
+            </span>
+          ))}
+        </div>
+      ) : (
+        <div className="rule-field-empty">-</div>
+      )}
+    </div>
+  );
+}
+
+function DiagnosticEvidenceCard({ item, lang }) {
+  const diagnostics = Array.isArray(item.diagnostics) ? item.diagnostics : [];
+  return (
+    <div className="evidence-card">
+      <div className="evidence-header">
+        <span className="evidence-title">{item.tool_name || t("inspector.reviewDiagnostics", lang)}</span>
+        <span className="evidence-meta">
+          E{item.error_count || 0} / W{item.warning_count || 0}
+        </span>
+      </div>
+      {diagnostics.length > 0 ? (
+        <div className="evidence-list">
+          {diagnostics.map((diag, index) => (
+            <div key={`${item.call_id || item.tool_name}-${index}`} className="evidence-row monospace">
+              {diag.file || "?"}:{diag.line || 1}:{diag.column || 1} {diag.message || ""}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="rule-field-empty">-</div>
+      )}
+    </div>
+  );
+}
+
+function TestEvidenceCard({ item, lang }) {
+  const summary = item.summary || {};
+  return (
+    <div className="evidence-card">
+      <div className="evidence-header">
+        <span className="evidence-title">{item.tool_name || t("inspector.reviewTests", lang)}</span>
+      </div>
+      <div className="evidence-grid">
+        <span>{t("inspector.testPassed", lang)}: {summary.passed || 0}</span>
+        <span>{t("inspector.testFailed", lang)}: {summary.failed || 0}</span>
+        <span>{t("inspector.testSkipped", lang)}: {summary.skipped || 0}</span>
+        <span>{t("inspector.testTotal", lang)}: {summary.total || 0}</span>
+      </div>
+    </div>
+  );
+}
+
+function CoverageEvidenceCard({ item, lang }) {
+  const summary = item.summary || {};
+  const rows = [
+    ["line", summary.line_coverage],
+    ["function", summary.function_coverage],
+    ["branch", summary.branch_coverage],
+    ["region", summary.region_coverage],
+  ];
+  return (
+    <div className="evidence-card">
+      <div className="evidence-header">
+        <span className="evidence-title">{item.tool_name || t("inspector.reviewCoverage", lang)}</span>
+      </div>
+      <div className="evidence-grid">
+        {rows.map(([label, value]) => (
+          <span key={label}>
+            {label}: {value == null ? "-" : `${Number(value).toFixed(2)}%`}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function QualityEvidenceCard({ item, lang }) {
+  const reasons = Array.isArray(item.reasons) ? item.reasons : [];
+  return (
+    <div className="evidence-card">
+      <div className="evidence-header">
+        <span className="evidence-title">{item.tool_name || t("inspector.reviewQuality", lang)}</span>
+        <span className={`quality-pill ${item.passed ? "passed" : "failed"}`}>
+          {item.passed ? t("inspector.qualityPassed", lang) : t("inspector.qualityFailed", lang)}
+        </span>
+      </div>
+      {reasons.length > 0 ? (
+        <ul className="review-risk-list">
+          {reasons.map((reason, index) => (
+            <li key={`${index}-${reason}`}>{reason}</li>
+          ))}
+        </ul>
+      ) : (
+        <div className="rule-field-empty">-</div>
+      )}
+    </div>
+  );
+}
+
+function GitEvidenceCard({ item, lang }) {
+  return (
+    <div className="evidence-card">
+      <div className="evidence-header">
+        <span className="evidence-title">{t("inspector.reviewGit", lang)}</span>
+      </div>
+      <div className="evidence-grid">
+        <span>{t("inspector.gitFiles", lang)}: {item.file_count || 0}</span>
+        <span>{t("inspector.gitLines", lang)}: {item.line_count || 0}</span>
+      </div>
     </div>
   );
 }
