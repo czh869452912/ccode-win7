@@ -20,9 +20,12 @@ from typing import Dict, List, Tuple
 def _run(cmd: List[str], cwd: str = None, check: bool = True) -> subprocess.CompletedProcess:
     result = subprocess.run(cmd, capture_output=True, text=True, cwd=cwd)
     if check and result.returncode != 0:
-        print(f"Command failed: {' '.join(cmd)}", file=sys.stderr)
-        print(result.stderr, file=sys.stderr)
-        sys.exit(1)
+        raise RuntimeError(
+            "Command failed: {0}\n{1}".format(
+                " ".join(cmd),
+                result.stderr.strip(),
+            )
+        )
     return result
 
 
@@ -246,51 +249,64 @@ def main():
 
     args = parser.parse_args()
 
-    if args.verify_only:
-        site_packages = Path(args.output_dir) / "site-packages"
-        if not site_packages.exists():
-            payload = {"ok": False, "missing_packages": ["site-packages"], "mode": "verify-only"}
-            write_json_report(args.json_report, payload)
-            print(f"Site-packages not found: {site_packages}")
-            sys.exit(1)
-        success, missing = verify_site_packages(str(site_packages))
-        write_json_report(
-            args.json_report,
-            {
-                "ok": success,
-                "mode": "verify-only",
-                "site_packages_root": str(site_packages),
-                "missing_packages": missing,
-            },
+    try:
+        if args.verify_only:
+            site_packages = Path(args.output_dir) / "site-packages"
+            if not site_packages.exists():
+                payload = {"ok": False, "missing_packages": ["site-packages"], "mode": "verify-only"}
+                write_json_report(args.json_report, payload)
+                print(f"Site-packages not found: {site_packages}")
+                sys.exit(1)
+            success, missing = verify_site_packages(str(site_packages))
+            write_json_report(
+                args.json_report,
+                {
+                    "ok": success,
+                    "mode": "verify-only",
+                    "site_packages_root": str(site_packages),
+                    "missing_packages": missing,
+                },
+            )
+            sys.exit(0 if success else 1)
+
+        export_site_packages(
+            args.project_root,
+            args.output_dir,
+            args.python_version,
         )
-        sys.exit(0 if success else 1)
 
-    export_site_packages(
-        args.project_root,
-        args.output_dir,
-        args.python_version,
-    )
+        site_packages = Path(args.output_dir) / "site-packages"
+        if site_packages.exists():
+            success, missing = verify_site_packages(str(site_packages))
+            write_json_report(
+                args.json_report,
+                {
+                    "ok": success,
+                    "mode": "export",
+                    "output_dir": args.output_dir,
+                    "site_packages_root": str(site_packages),
+                    "requirements_file": str(Path(args.output_dir) / "requirements-pinned.txt"),
+                    "missing_packages": missing,
+                },
+            )
 
-    site_packages = Path(args.output_dir) / "site-packages"
-    if site_packages.exists():
-        success, missing = verify_site_packages(str(site_packages))
+        print(f"\n{'='*60}")
+        print("Export complete!")
+        print(f"Output: {args.output_dir}")
+        print("Use this directory as -SitePackagesRoot in prepare-offline.ps1")
+        print(f"{'='*60}")
+    except Exception as exc:
         write_json_report(
             args.json_report,
             {
-                "ok": success,
+                "ok": False,
                 "mode": "export",
                 "output_dir": args.output_dir,
-                "site_packages_root": str(site_packages),
-                "requirements_file": str(Path(args.output_dir) / "requirements-pinned.txt"),
-                "missing_packages": missing,
+                "error": str(exc),
             },
         )
-
-    print(f"\n{'='*60}")
-    print("Export complete!")
-    print(f"Output: {args.output_dir}")
-    print("Use this directory as -SitePackagesRoot in prepare-offline.ps1")
-    print(f"{'='*60}")
+        print(str(exc), file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == "__main__":

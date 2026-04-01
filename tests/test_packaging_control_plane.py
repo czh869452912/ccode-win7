@@ -80,8 +80,29 @@ class TestStageJsonReports(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertTrue(report_path.exists())
             payload = json.loads(report_path.read_text(encoding="utf-8"))
-            self.assertIn("ok", payload)
-            self.assertIn("checks", payload)
+            self.assertFalse(payload["ok"])
+            self.assertEqual(payload["bundle_root"], str(bundle_root))
+            self.assertTrue(payload["checks"])
+            self.assertEqual(payload["checks"][0]["name"], "Python Runtime")
+            self.assertFalse(payload["checks"][0]["ok"])
+
+    def test_dependency_checker_autodetect_failure_writes_json_report(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            temp_root = Path(tmp)
+            report_path = temp_root / "dependency-report.json"
+            result = subprocess.run(
+                [sys.executable, str(CHECK_SCRIPT), "--json-report", str(report_path)],
+                cwd=str(temp_root),
+                capture_output=True,
+                text=True,
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertTrue(report_path.exists())
+            payload = json.loads(report_path.read_text(encoding="utf-8"))
+            self.assertFalse(payload["ok"])
+            self.assertEqual(payload["bundle_root"], "")
+            self.assertEqual(payload["checks"], [])
+            self.assertIn("Cannot find bundle root", payload["error"])
 
     def test_export_verify_only_writes_json_report(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -124,7 +145,9 @@ class TestStageJsonReports(unittest.TestCase):
             self.assertTrue(report_path.exists())
             payload = json.loads(report_path.read_text(encoding="utf-8"))
             self.assertTrue(payload["ok"])
-            self.assertIn("missing_packages", payload)
+            self.assertEqual(payload["mode"], "verify-only")
+            self.assertEqual(payload["site_packages_root"], str(site_packages))
+            self.assertEqual(payload["missing_packages"], [])
 
     def test_validate_offline_bundle_writes_json_report(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -153,10 +176,42 @@ class TestStageJsonReports(unittest.TestCase):
                 capture_output=True,
                 text=True,
             )
+            self.assertEqual(result.returncode, 0, result.stderr)
             self.assertTrue(json_path.exists())
             payload = json.loads(json_path.read_text(encoding="utf-8"))
-            self.assertIn("results", payload)
-            self.assertIn("fail_count", payload)
+            self.assertTrue(payload["ok"])
+            self.assertEqual(payload["skip_dynamic_checks"], True)
+            self.assertEqual(payload["bundle_root"], str(bundle_root))
+            self.assertEqual(payload["sources_root"], str(sources_root))
+            self.assertEqual(payload["fail_count"], 0)
+            self.assertTrue(isinstance(payload["results"], list))
+
+    def test_export_failure_writes_json_report(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            temp_root = Path(tmp)
+            report_path = temp_root / "export-failure-report.json"
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(EXPORT_SCRIPT),
+                    "--output-dir",
+                    str(temp_root / "out"),
+                    "--project-root",
+                    str(temp_root / "missing-project"),
+                    "--json-report",
+                    str(report_path),
+                ],
+                cwd=str(ROOT),
+                capture_output=True,
+                text=True,
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertTrue(report_path.exists())
+            payload = json.loads(report_path.read_text(encoding="utf-8"))
+            self.assertFalse(payload["ok"])
+            self.assertEqual(payload["mode"], "export")
+            self.assertEqual(payload["output_dir"], str(temp_root / "out"))
+            self.assertIn("error", payload)
 
 
 if __name__ == "__main__":

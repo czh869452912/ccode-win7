@@ -9,7 +9,7 @@ import json
 import argparse
 import sys
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 
 def parse_args():
@@ -39,8 +39,8 @@ def write_json_report(path: str, payload: Dict) -> None:
         json.dump(payload, handle, indent=2, sort_keys=True)
 
 
-def get_bundle_root() -> Path:
-    """Get bundle root from command line or auto-detect."""
+def get_bundle_root() -> Optional[Path]:
+    """Auto-detect bundle root when no explicit path is provided."""
     # Auto-detect: look for common indicators
     script_dir = Path(__file__).parent
     candidates = [
@@ -50,9 +50,7 @@ def get_bundle_root() -> Path:
     for candidate in candidates:
         if (candidate / "runtime" / "python").exists():
             return candidate
-    
-    print("Error: Cannot find bundle root. Please provide path as argument.")
-    sys.exit(1)
+    return None
 
 
 def check_python_runtime(bundle_root: Path) -> Tuple[bool, List[str]]:
@@ -244,7 +242,22 @@ def check_manifest(bundle_root: Path) -> Tuple[bool, List[str]]:
 
 def main():
     args = parse_args()
-    bundle_root = Path(args.bundle_root) if args.bundle_root else get_bundle_root()
+    if args.bundle_root:
+        bundle_root = Path(args.bundle_root)
+    else:
+        bundle_root = get_bundle_root()
+        if bundle_root is None:
+            write_json_report(
+                args.json_report,
+                {
+                    "ok": False,
+                    "bundle_root": "",
+                    "checks": [],
+                    "error": "Cannot find bundle root. Please provide path as argument.",
+                },
+            )
+            print("Error: Cannot find bundle root. Please provide path as argument.")
+            return 1
     all_passed = True
     checks = [
         ("Python Runtime", check_python_runtime),
