@@ -6,6 +6,7 @@ import {
   injectChildren,
   normalizeSessionPayload,
   timelineFromEvents,
+  timelineFromTurns,
 } from "../src/state-helpers.js";
 
 function main() {
@@ -57,6 +58,99 @@ function main() {
   assert.equal(snapshot.status, "waiting_permission");
   assert.equal(snapshot.current_mode, "debug");
   assert.equal(snapshot.has_pending_permission, true);
+
+  const structuredTimeline = timelineFromTurns([
+    {
+      turn_id: "turn-1",
+      user_text: "analyze demo",
+      steps: [
+        {
+          step_id: "step-1",
+          reasoning: "inspect file",
+          tool_calls: [
+            {
+              call_id: "call-1",
+              tool_name: "read_file",
+              tool_label: "Read File",
+              status: "success",
+              arguments: { path: "demo.c" },
+            },
+          ],
+        },
+        {
+          step_id: "step-2",
+          reasoning: "summarize",
+          assistant_text: "done",
+          tool_calls: [],
+        },
+      ],
+    },
+  ]);
+  assert.equal(structuredTimeline[1].stepId, "step-1");
+  assert.equal(structuredTimeline[4].stepId, "step-2");
+
+  let liveState = reducer(initialState, {
+    type: "local_user_message",
+    text: "inspect demo",
+  });
+  liveState = reducer(liveState, {
+    type: "turn_started",
+    turnId: "turn-live",
+    userText: "inspect demo",
+  });
+  liveState = reducer(liveState, {
+    type: "step_started",
+    turnId: "turn-live",
+    stepId: "step-live-1",
+    stepIndex: 1,
+  });
+  liveState = reducer(liveState, {
+    type: "reasoning_delta",
+    text: "inspect file",
+    turnId: "turn-live",
+    stepId: "step-live-1",
+    stepIndex: 1,
+  });
+  liveState = reducer(liveState, {
+    type: "tool_started",
+    callId: "call-live-1",
+    toolName: "read_file",
+    label: "Read File",
+    arguments: { path: "demo.c" },
+    turnId: "turn-live",
+    stepId: "step-live-1",
+    stepIndex: 1,
+  });
+  liveState = reducer(liveState, {
+    type: "tool_finished",
+    callId: "call-live-1",
+    success: true,
+    error: "",
+    data: { path: "demo.c" },
+    label: "Read File",
+    turnId: "turn-live",
+    stepId: "step-live-1",
+    stepIndex: 1,
+  });
+  liveState = reducer(liveState, {
+    type: "assistant_delta",
+    text: "done",
+    turnId: "turn-live",
+    stepId: "step-live-1",
+    stepIndex: 1,
+  });
+  liveState = reducer(liveState, {
+    type: "step_ended",
+    turnId: "turn-live",
+    stepId: "step-live-1",
+    stepIndex: 1,
+    assistantText: "done",
+  });
+  assert.equal(liveState.timeline[0].turnId, "turn-live");
+  assert.equal(liveState.timeline[1].stepId, "step-live-1");
+  assert.equal(liveState.timeline[2].stepId, "step-live-1");
+  assert.equal(liveState.timeline[3].stepId, "step-live-1");
+  assert.equal(liveState.timeline.length, 4);
 
   const reviewState = reducer(initialState, {
     type: "command_result",

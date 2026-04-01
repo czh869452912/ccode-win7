@@ -50,6 +50,11 @@ class ToolCall:
     tool_name: str
     arguments: Dict[str, Any]
     call_id: str
+    turn_id: str = ""
+    step_id: str = ""
+    step_index: int = 0
+    runtime_source: str = ""
+    resolved_tool_roots: Dict[str, Any] = field(default_factory=dict)
     
 
 @dataclass
@@ -61,6 +66,11 @@ class ToolResult:
     error: Optional[str] = None
     execution_time_ms: int = 0
     call_id: str = ""
+    turn_id: str = ""
+    step_id: str = ""
+    step_index: int = 0
+    runtime_source: str = ""
+    resolved_tool_roots: Dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -114,6 +124,17 @@ class TimelineItem:
 
 
 @dataclass
+class AgentStepRecord:
+    """单个用户 turn 下的一次 agent 迭代"""
+    step_id: str
+    step_index: int = 0
+    reasoning: str = ""
+    assistant_text: str = ""
+    status: str = "in_progress"
+    tool_calls: List[Dict[str, Any]] = field(default_factory=list)
+
+
+@dataclass
 class TurnRecord:
     """结构化 turn 记录"""
     turn_id: str
@@ -122,6 +143,17 @@ class TurnRecord:
     assistant_text: str = ""
     status: str = "completed"
     tool_calls: List[Dict[str, Any]] = field(default_factory=list)
+    steps: List[AgentStepRecord] = field(default_factory=list)
+
+
+@dataclass
+class RuntimeEnvironmentSnapshot:
+    """托管运行环境摘要"""
+    runtime_source: str = ""
+    bundled_tools_ready: bool = False
+    fallback_warnings: List[str] = field(default_factory=list)
+    resolved_tool_roots: Dict[str, Any] = field(default_factory=dict)
+    tool_sources: Dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -164,6 +196,10 @@ class SessionSnapshot:
     pending_permission: Optional[PermissionRequest] = None
     pending_input: Optional[UserInputRequest] = None
     last_error: Optional[str] = None
+    runtime_source: str = ""
+    bundled_tools_ready: bool = False
+    fallback_warnings: List[str] = field(default_factory=list)
+    runtime_environment: Optional[RuntimeEnvironmentSnapshot] = None
 
 
 @dataclass  
@@ -209,11 +245,11 @@ class FrontendCallbacks(Protocol):
         """会话状态变化"""
         ...
     
-    def on_stream_delta(self, text: str) -> None:
+    def on_stream_delta(self, text: str, metadata: Optional[Dict[str, Any]] = None) -> None:
         """流式输出增量"""
         ...
 
-    def on_reasoning_delta(self, text: str) -> None:
+    def on_reasoning_delta(self, text: str, metadata: Optional[Dict[str, Any]] = None) -> None:
         """thinking / reasoning 流式增量"""
         ...
 

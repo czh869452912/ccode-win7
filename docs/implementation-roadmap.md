@@ -1,6 +1,6 @@
 # EmbedAgent 实施路线与文档维护方案
 
-> 更新日期：2026-03-29（Phase 7 四类核心资产接入修订）
+> 更新日期：2026-04-01（Agent step timeline / managed runtime slice）
 > 适用阶段：架构收敛后进入实现前
 
 ---
@@ -40,8 +40,8 @@
 | Phase 3 | `completed` | 模式系统 v1 已落地 |
 | Phase 4 | `in_progress` | 本地闭环 LLVM/Clang 工具链已具备，待真实 C 工程与 Win7 验证 |
 | Phase 5 | `completed` | 权限、上下文、记忆、恢复和 cleanup 已落地，`validate-phase5.py` 已复验通过 |
-| Phase 6 | `in_progress` | 自动化验证已通过；unified input / slash command / workflow 第一版已落地，待真实控制台 / Win7 / ConEmu 手工验证 |
-| Phase 7 | `in_progress` | 离线打包设计文档、ADR、`prepare/build/validate` 三段脚本，以及 Python/MinGit/rg/ctags 真实资产接入已完成，待继续收口 |
+| Phase 6 | `in_progress` | 自动化验证已通过；unified input / slash command / workflow 第一版、step-based timeline 与 Runtime inspector 已落地，待真实控制台 / Win7 / ConEmu 手工验证 |
+| Phase 7 | `in_progress` | 离线打包设计文档、ADR、`prepare/build/validate` 三段脚本，以及 Python/MinGit/rg/ctags 真实资产接入已完成；当前运行时已补托管环境元数据，待继续收口 bundle / Win7 验收 |
 
 ---
 

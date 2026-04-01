@@ -6,6 +6,7 @@ import {
   injectChildren,
   normalizeSessionPayload,
   timelineFromEvents,
+  timelineFromTurns,
 } from "../src/state-helpers.js";
 
 test("injectChildren loads nested file tree children in place", () => {
@@ -68,4 +69,45 @@ test("normalizeSessionPayload keeps status and mode stable", () => {
   assert.equal(snapshot.status, "waiting_permission");
   assert.equal(snapshot.current_mode, "debug");
   assert.equal(snapshot.has_pending_permission, true);
+});
+
+test("timelineFromTurns expands one user turn into multiple agent steps", () => {
+  const timeline = timelineFromTurns([
+    {
+      turn_id: "turn-1",
+      user_text: "analyze demo",
+      steps: [
+        {
+          step_id: "step-1",
+          reasoning: "inspect file",
+          tool_calls: [
+            {
+              call_id: "call-1",
+              tool_name: "read_file",
+              tool_label: "Read File",
+              status: "success",
+              arguments: { path: "demo.c" },
+              data: { path: "demo.c" },
+            },
+          ],
+          assistant_text: "",
+        },
+        {
+          step_id: "step-2",
+          reasoning: "summarize result",
+          assistant_text: "done",
+          tool_calls: [],
+        },
+      ],
+    },
+  ]);
+  assert.equal(timeline[0].kind, "user");
+  assert.equal(timeline[1].stepId, "step-1");
+  assert.equal(timeline[1].kind, "reasoning");
+  assert.equal(timeline[2].stepId, "step-1");
+  assert.equal(timeline[2].kind, "tool");
+  assert.equal(timeline[3].stepId, "step-2");
+  assert.equal(timeline[3].kind, "reasoning");
+  assert.equal(timeline[4].stepId, "step-2");
+  assert.equal(timeline[4].kind, "assistant");
 });

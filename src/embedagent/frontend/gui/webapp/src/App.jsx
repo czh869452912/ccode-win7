@@ -5,6 +5,7 @@ import {
   makeEventId,
   normalizeSessionPayload,
   timelineFromEvents,
+  timelineFromTurns,
 } from "./state-helpers.js";
 import { LangContext } from "./LangContext.js";
 import { t } from "./strings.js";
@@ -125,7 +126,10 @@ function App() {
       type: "session_activated",
       sessionId,
       snapshot,
-      timeline: timelineFromEvents(timelinePayload.events || []),
+      timeline:
+        Array.isArray(timelinePayload.turns) && timelinePayload.turns.length > 0
+          ? timelineFromTurns(timelinePayload.turns || [], timelinePayload.events || [])
+          : timelineFromEvents(timelinePayload.events || []),
     });
     dispatch({ type: "plan_loaded", plan: planPayload.plan || null });
     dispatch({ type: "permission_context_loaded", context: permissionPayload });
@@ -294,11 +298,23 @@ function App() {
       return;
     }
     if (type === "stream_delta") {
-      dispatch({ type: "assistant_delta", text: data.text || "" });
+      dispatch({
+        type: "assistant_delta",
+        text: data.text || "",
+        turnId: data.turn_id || "",
+        stepId: data.step_id || "",
+        stepIndex: data.step_index || 0,
+      });
       return;
     }
     if (type === "reasoning_delta") {
-      dispatch({ type: "reasoning_delta", text: data.text || "" });
+      dispatch({
+        type: "reasoning_delta",
+        text: data.text || "",
+        turnId: data.turn_id || "",
+        stepId: data.step_id || "",
+        stepIndex: data.step_index || 0,
+      });
       return;
     }
     if (type === "thinking_state") {
@@ -318,6 +334,11 @@ function App() {
         supportsDiffPreview: Boolean(data.supports_diff_preview),
         progressRendererKey: data.progress_renderer_key || "",
         resultRendererKey: data.result_renderer_key || "",
+        runtimeSource: data.runtime_source || "",
+        resolvedToolRoots: data.resolved_tool_roots || {},
+        turnId: data.turn_id || "",
+        stepId: data.step_id || "",
+        stepIndex: data.step_index || 0,
       });
       logEvent(`tool: ${data.tool_name || "?"}`, JSON.stringify(data.arguments || {}).slice(0, 80));
       return;
@@ -334,6 +355,11 @@ function App() {
         supportsDiffPreview: Boolean(data.supports_diff_preview),
         progressRendererKey: data.progress_renderer_key || "",
         resultRendererKey: data.result_renderer_key || "",
+        runtimeSource: data.runtime_source || "",
+        resolvedToolRoots: data.resolved_tool_roots || {},
+        turnId: data.turn_id || "",
+        stepId: data.step_id || "",
+        stepIndex: data.step_index || 0,
       });
       logEvent(
         `tool done: ${data.call_id || "?"}`,
@@ -359,6 +385,9 @@ function App() {
             kind: "permission",
             permission: data,
             resolved: false,
+            turnId: data.turn_id || "",
+            stepId: data.step_id || "",
+            stepIndex: data.step_index || 0,
           },
         });
         dispatch({ type: "permission_request_inline", permissionId: data.permission_id });
@@ -368,7 +397,15 @@ function App() {
     }
     if (type === "user_input_request") {
       setUserAnswer("");
-      dispatch({ type: "user_input_request", request: data });
+      dispatch({
+        type: "user_input_request",
+        request: {
+          ...data,
+          turn_id: data.turn_id || "",
+          step_id: data.step_id || "",
+          step_index: data.step_index || 0,
+        },
+      });
       logEvent("user_input_request", data.question || "");
       return;
     }
@@ -439,7 +476,34 @@ function App() {
       return;
     }
     if (type === "turn_start") {
+      dispatch({
+        type: "turn_started",
+        turnId: data.turn_id || "",
+        userText: data.user_text || "",
+      });
       logEvent("turn_start", data.turn_id || "");
+      return;
+    }
+    if (type === "step_start") {
+      dispatch({
+        type: "step_started",
+        turnId: data.turn_id || "",
+        stepId: data.step_id || "",
+        stepIndex: data.step_index || 0,
+      });
+      logEvent("step_start", data.step_id || "");
+      return;
+    }
+    if (type === "step_end") {
+      dispatch({
+        type: "step_ended",
+        turnId: data.turn_id || "",
+        stepId: data.step_id || "",
+        stepIndex: data.step_index || 0,
+        assistantText: data.assistant_text || "",
+        status: data.status || "",
+      });
+      logEvent("step_end", data.step_id || "");
       return;
     }
 
@@ -695,12 +759,13 @@ function App() {
             todos={state.todos}
             artifacts={state.artifacts}
             plan={state.plan}
-            review={state.review}
-            permissionContext={state.permissionContext}
-            preview={state.preview}
-            userInput={state.userInput}
-            userAnswer={userAnswer}
-            eventLog={state.eventLog}
+              review={state.review}
+              permissionContext={state.permissionContext}
+              preview={state.preview}
+              snapshot={state.snapshot}
+              userInput={state.userInput}
+              userAnswer={userAnswer}
+              eventLog={state.eventLog}
             onTabChange={(v) => dispatch({ type: "set_inspector", value: v })}
             onOpenArtifact={openArtifact}
             onOpenReviewEvidence={openReviewEvidence}

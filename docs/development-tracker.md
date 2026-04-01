@@ -1,6 +1,6 @@
 # EmbedAgent 开发进度跟踪
 
-> 更新日期：2026-03-31（DC-034 修订）
+> 更新日期：2026-04-01（DC-041 修订）
 > 用途：持续跟踪当前阶段、下一步任务、里程碑进度、风险与阻塞
 
 ---
@@ -28,7 +28,7 @@
 
 - 当前阶段：`Phase 4 真实工程验证 + Phase 6 GUI / Win7 收口`
 - 总体状态：`进行中`
-- 当前重点：`Phase 4 默认 recipe/真实工程/Win7 验证，Phase 6 GUI 新壳层与 Win7 Chromium 基线收口，Phase 7 继续推进 site-packages 精简与 Win7 bundle 验收`
+- 当前重点：`Phase 4 默认 recipe/真实工程/Win7 验证，Phase 6 step-based timeline / Runtime inspector / GUI 新壳层与 Win7 Chromium 基线收口，Phase 7 继续推进 site-packages 精简与 Win7 bundle 验收`
 
 ### 当前判断
 
@@ -79,6 +79,8 @@
 - Phase 7 真实资产接入已打通第一段：`scripts/offline-assets.json` 已固定 `python_embedded_x64` 与 `mingit_x64`，`prepare/build/validate` 已完成真实 zip、SHA256、sources seed、license notice 与 launcher 校验
 - Phase 7 真实资产接入已继续扩展到 `ripgrep_x64` 与 `universal_ctags_x64`，当前 `prepare/build/validate -RequireComplete` 已在四类核心资产上通过
 - GUI 状态语义已收口：session status 现在以 `session_snapshot` 为权威，补齐了 `session_status`、`reasoning_delta`、`thinking_state`、稳定 `tool_call_id` 与 GUI 专用懒加载文件树接口
+- GUI / Core 已完成第一段高拟态 clean-room 升级：时间线 API 现在以 `turns[].steps[]` 为主，单个用户问题下的多轮 Agent 自推进会拆成独立 step；GUI 也已开始按 step 渲染 thinking / tool / assistant
+- 托管运行环境摘要已接入 ToolRuntime / SessionSnapshot / GUI Runtime inspector：当前会显示 `runtime_source`、`bundled_tools_ready`、`fallback_warnings` 与 `resolved_tool_roots`
 - todo 已切换为 session-scoped：真实会话默认使用 `.embedagent/memory/sessions/<session_id>/todos.json`，新建会话不再继承旧会话 todo
 - 新 GUI webapp 已建立：`src/embedagent/frontend/gui/webapp/` 使用 React + Vite 构建，产物已写回 `src/embedagent/frontend/gui/static/`
 - `scripts/validate-gui-smoke.py` 已升级：当前源码路径 smoke 可覆盖 tool / permission / ask_user / session todo 隔离、`/review` workflow 与 renderer 报告
@@ -146,7 +148,7 @@
 | T-018 | 接入 Python embeddable 与 MinGit 真实资产 | `completed` | 已新增 `scripts/offline-assets.json`，并完成真实 zip 下载、SHA256 固定、staging 解压、sources seed、license notice 与 `-RequireComplete` 验收 |
 | T-019 | 接入 ripgrep 与 Universal Ctags 真实资产 | `completed` | 已扩展 `scripts/offline-assets.json` 与 `prepare/build/validate`，完成真实 zip 下载、SHA256 固定、sources seed、license notice 与 `-RequireComplete` 验收 |
 | T-020 | 实现新架构协议层（protocol/core/frontend） | `completed` | 已新增 `protocol/` 层定义 CoreInterface/FrontendCallbacks，`core/` 层实现 AgentCoreAdapter，`frontend/gui/` 实现 PyWebView 前端，架构测试 17 项全通过 |
-| T-021 | GUI 前端与后端功能联动 | `in_progress` | 已完成 session-scoped todo、权威 session snapshot 状态事件、稳定 tool_call_id、reasoning/thinking 事件、GUI 懒加载文件树、新 React/Vite webapp 构建、slash command / plan pane / command cards、structured review command、review inspector、tool catalog fallback 与 `/review` smoke；剩余缺口是更完整的 workflow 深化与 Win7 实机验证 |
+| T-021 | GUI 前端与后端功能联动 | `in_progress` | 已完成 session-scoped todo、权威 session snapshot 状态事件、稳定 tool_call_id、reasoning/thinking 事件、GUI 懒加载文件树、新 React/Vite webapp 构建、slash command / plan pane / command cards、structured review command、review inspector、tool catalog fallback、step-based timeline、Runtime inspector 与 `/review` smoke；剩余缺口是更完整的 workflow 深化与 Win7 实机验证 |
 | T-026 | unified input / slash command / workflow 第一版 | `completed` | 已打通 `submit_user_message -> slash command dispatcher -> command_result / plan_updated -> GUI/TUI` 闭环，并补齐协议类型、计划存储、权限上下文与 focused tests |
 | T-022 | 零依赖打包：Python 依赖完整导出 | `completed` | 已新增 `scripts/export-dependencies.py`，确保所有 Python 依赖（含传递依赖）完整导出到 site-packages |
 | T-023 | 零依赖打包：依赖完整性验证 | `completed` | 已新增 `scripts/check-bundle-dependencies.py`，验证 bundle 包含所有必需依赖 |

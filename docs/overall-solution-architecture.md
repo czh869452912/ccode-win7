@@ -173,6 +173,7 @@ TUI、CLI、未来 GUI/Web 只是不同的交互壳。
 
 - 统一封装文件、命令、Git、编译、静态分析、符号检索等工具。
 - 所有工具返回结构化 Observation，而不是让 Agent 解析原始终端垃圾输出。
+- Tool Runtime 负责统一解析托管运行环境，优先使用 bundle / workspace 内置的 `git`、`rg`、`ctags`、`llvm` 与 Python 运行时，并把 `runtime_source`、`bundled_tools_ready`、`fallback_warnings`、`resolved_tool_roots` 回写到 Observation / Session Snapshot。
 
 #### LLM Adapter
 
@@ -204,12 +205,21 @@ TUI、CLI、未来 GUI/Web 只是不同的交互壳。
 建议采用 `Controller -> Agent -> Runtime -> Observation -> Controller` 的同步循环：
 
 1. 从 `Session State` 构建上下文
-2. 调用 LLM，得到结构化 Action
-3. 校验 Action 是否符合权限与状态机规则
-4. 调用 Runtime 执行工具
-5. 产出 Observation 并写入事件流
-6. 更新任务状态、上下文状态、压缩状态
-7. 继续下一轮，直到 `finish`
+2. 为当前用户 turn 创建一个新的 agent step
+3. 调用 LLM，得到结构化 Action
+4. 校验 Action 是否符合权限与状态机规则
+5. 调用 Runtime 执行工具
+6. 产出 Observation 并写入事件流
+7. 结束当前 agent step，并决定是否继续下一步
+8. 更新任务状态、上下文状态、压缩状态
+9. 继续下一轮，直到 `finish`
+
+这里的 `Turn` 与 `Agent Step` 区分如下：
+
+- `Turn`：一次用户输入触发的完整会话处理周期
+- `Agent Step`：该 turn 内的一次模型迭代，负责承载 `thinking -> tools -> partial answer`
+
+这样 GUI / TUI / 回放层都不需要再通过“最后一个 user bubble 之后的所有事件”去猜测分组。
 
 ### 5.3 必须具备的安全阀
 

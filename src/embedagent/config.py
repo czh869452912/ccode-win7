@@ -54,6 +54,7 @@ class AppConfig:
     # 循环控制
     max_turns: Optional[int] = None
     default_mode: Optional[str] = None
+    allow_system_tool_fallback: Optional[bool] = None
     # 每个模式的可写路径 glob 覆盖
     mode_writable_globs: Dict[str, List[str]] = field(default_factory=dict)
     mode_extra_writable_globs: Dict[str, List[str]] = field(default_factory=dict)
@@ -91,7 +92,7 @@ def _merge(base: AppConfig, overrides: dict) -> AppConfig:
         "base_url", "api_key", "model", "timeout",
         "max_context_tokens", "reserve_output_tokens",
         "chars_per_token", "max_recent_turns",
-        "max_turns", "default_mode",
+        "max_turns", "default_mode", "allow_system_tool_fallback",
     )
     merged_globs = dict(base.mode_writable_globs)
     merged_extra_globs = dict(base.mode_extra_writable_globs)

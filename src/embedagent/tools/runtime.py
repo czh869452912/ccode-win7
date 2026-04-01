@@ -207,7 +207,7 @@ class ToolRuntime(object):
     def __init__(self, workspace: str, app_config=None) -> None:
         self.workspace = os.path.realpath(workspace)
         artifact_store = ArtifactStore(self.workspace)
-        self._ctx = ToolContext(self.workspace, artifact_store)
+        self._ctx = ToolContext(self.workspace, artifact_store, app_config=app_config)
         self.artifact_store = artifact_store  # exposed for external consumers (e.g. InProcessAdapter)
         self.app_config = app_config  # Optional AppConfig; used by loop for path write checking
         all_tools = (
@@ -261,6 +261,9 @@ class ToolRuntime(object):
     def tool_catalog_entry(self, name: str) -> Optional[Dict[str, Any]]:
         entry = self._catalog.get(name)
         return entry.to_dict() if entry is not None else None
+
+    def runtime_environment_snapshot(self) -> Dict[str, Any]:
+        return self._ctx.runtime_environment_snapshot()
 
     def execute(self, name: str, arguments: Dict[str, Any]) -> Observation:
         tool = self._tools.get(name)

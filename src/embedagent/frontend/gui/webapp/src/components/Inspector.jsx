@@ -4,7 +4,7 @@ import { t } from "../strings.js";
 import DiffView from "./DiffView.jsx";
 
 const PRIMARY_TABS = ["todos", "plan", "artifacts"];
-const OVERFLOW_TABS = ["review", "permissions", "preview", "log"];
+const OVERFLOW_TABS = ["review", "permissions", "runtime", "preview", "log"];
 
 function InspectorTabs({ active, onChange, todosCount, artifactsCount }) {
   const lang = useLang();
@@ -76,6 +76,7 @@ export default function Inspector({
   review,
   permissionContext,
   preview,
+  snapshot,
   userInput,
   userAnswer,
   eventLog,
@@ -104,6 +105,9 @@ export default function Inspector({
         {inspectorTab === "review" && <ReviewPanel review={review} lang={lang} onOpenReviewEvidence={onOpenReviewEvidence} />}
         {inspectorTab === "permissions" && (
           <PermissionsPanel permissionContext={permissionContext} lang={lang} />
+        )}
+        {inspectorTab === "runtime" && (
+          <RuntimePanel snapshot={snapshot} lang={lang} />
         )}
         {inspectorTab === "preview" && <PreviewPanel preview={preview} lang={lang} />}
         {inspectorTab === "log" && <LogPanel entries={eventLog} lang={lang} />}
@@ -211,6 +215,58 @@ function PermissionsPanel({ permissionContext, lang }) {
         </div>
       ) : (
         <div className="empty-copy">{t("inspector.noPermissionRules", lang)}</div>
+      )}
+    </div>
+  );
+}
+
+function RuntimePanel({ snapshot, lang }) {
+  const runtime = snapshot?.runtimeEnvironment || {};
+  const warnings = Array.isArray(snapshot?.fallbackWarnings)
+    ? snapshot.fallbackWarnings
+    : Array.isArray(runtime?.fallback_warnings)
+      ? runtime.fallback_warnings
+      : [];
+  const resolvedRoots = runtime?.resolved_tool_roots || {};
+  const toolSources = runtime?.tool_sources || {};
+  if (!snapshot) {
+    return <div className="empty-copy">{t("inspector.noRuntime", lang)}</div>;
+  }
+  return (
+    <div className="panel-preview">
+      <h3>{t("inspector.runtime", lang)}</h3>
+      <div className="runtime-summary">
+        <div><strong>{t("inspector.runtimeSource", lang)}:</strong> {snapshot.runtimeSource || "-"}</div>
+        <div><strong>{t("inspector.runtimeReady", lang)}:</strong> {snapshot.bundledToolsReady ? t("inspector.yes", lang) : t("inspector.no", lang)}</div>
+      </div>
+      <h3>{t("inspector.runtimeResolvedRoots", lang)}</h3>
+      <div className="runtime-grid">
+        {Object.entries(resolvedRoots).map(([key, value]) => (
+          <div key={key} className="runtime-row">
+            <span className="runtime-key">{key}</span>
+            <code className="runtime-value">{value || "-"}</code>
+          </div>
+        ))}
+      </div>
+      <h3>{t("inspector.runtimeToolSources", lang)}</h3>
+      <div className="rule-chip-list">
+        {Object.keys(toolSources).length > 0 ? (
+          Object.entries(toolSources).map(([key, value]) => (
+            <span key={key} className="rule-chip monospace">{key}: {value}</span>
+          ))
+        ) : (
+          <div className="empty-copy">-</div>
+        )}
+      </div>
+      <h3>{t("inspector.runtimeWarnings", lang)}</h3>
+      {warnings.length > 0 ? (
+        <ul className="review-risk-list">
+          {warnings.map((warning, index) => (
+            <li key={`${index}-${warning}`}>{warning}</li>
+          ))}
+        </ul>
+      ) : (
+        <div className="empty-copy">{t("inspector.noRuntimeWarnings", lang)}</div>
       )}
     </div>
   );

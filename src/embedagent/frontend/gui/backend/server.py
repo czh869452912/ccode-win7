@@ -97,11 +97,16 @@ class WebSocketFrontend(FrontendCallbacks):
                 "tool_name": call.tool_name,
                 "arguments": arguments,
                 "call_id": call.call_id,
+                "turn_id": call.turn_id,
+                "step_id": call.step_id,
+                "step_index": call.step_index,
                 "tool_label": call.arguments.get("_tool_label") if isinstance(call.arguments, dict) else "",
                 "permission_category": call.arguments.get("_permission_category") if isinstance(call.arguments, dict) else "",
                 "supports_diff_preview": bool(call.arguments.get("_supports_diff_preview")) if isinstance(call.arguments, dict) else False,
                 "progress_renderer_key": call.arguments.get("_progress_renderer_key") if isinstance(call.arguments, dict) else "",
                 "result_renderer_key": call.arguments.get("_result_renderer_key") if isinstance(call.arguments, dict) else "",
+                "runtime_source": call.runtime_source,
+                "resolved_tool_roots": call.resolved_tool_roots,
             }
         })
     
@@ -121,11 +126,16 @@ class WebSocketFrontend(FrontendCallbacks):
                 "error": result.error,
                 "execution_time_ms": result.execution_time_ms,
                 "call_id": result.call_id,
+                "turn_id": result.turn_id,
+                "step_id": result.step_id,
+                "step_index": result.step_index,
                 "tool_label": result.data.get("tool_label") if isinstance(result.data, dict) else "",
                 "permission_category": result.data.get("permission_category") if isinstance(result.data, dict) else "",
                 "supports_diff_preview": bool(result.data.get("supports_diff_preview")) if isinstance(result.data, dict) else False,
                 "progress_renderer_key": result.data.get("progress_renderer_key") if isinstance(result.data, dict) else "",
                 "result_renderer_key": result.data.get("result_renderer_key") if isinstance(result.data, dict) else "",
+                "runtime_source": result.runtime_source or (result.data.get("runtime_source") if isinstance(result.data, dict) else ""),
+                "resolved_tool_roots": result.resolved_tool_roots or (result.data.get("resolved_tool_roots") if isinstance(result.data, dict) else {}),
             }
         })
     
@@ -193,6 +203,10 @@ class WebSocketFrontend(FrontendCallbacks):
                     "pending_permission": snapshot.pending_permission.__dict__ if snapshot.pending_permission else None,
                     "pending_user_input": snapshot.pending_input.__dict__ if snapshot.pending_input else None,
                     "last_error": snapshot.last_error,
+                    "runtime_source": snapshot.runtime_source,
+                    "bundled_tools_ready": snapshot.bundled_tools_ready,
+                    "fallback_warnings": list(snapshot.fallback_warnings),
+                    "runtime_environment": snapshot.runtime_environment.__dict__ if snapshot.runtime_environment else None,
                 },
                 "session_id": snapshot.session_id,
                 "status": snapshot.status.value,
@@ -204,19 +218,23 @@ class WebSocketFrontend(FrontendCallbacks):
                 "has_pending_permission": snapshot.has_pending_permission,
                 "has_pending_input": snapshot.has_pending_input,
                 "last_error": snapshot.last_error,
+                "runtime_source": snapshot.runtime_source,
+                "bundled_tools_ready": snapshot.bundled_tools_ready,
+                "fallback_warnings": list(snapshot.fallback_warnings),
+                "runtime_environment": snapshot.runtime_environment.__dict__ if snapshot.runtime_environment else None,
             }
         })
     
-    def on_stream_delta(self, text: str) -> None:
+    def on_stream_delta(self, text: str, metadata: Optional[Dict[str, Any]] = None) -> None:
         self._dispatch_message({
             "type": "stream_delta",
-            "data": {"text": text}
+            "data": {"text": text, **(metadata or {})}
         })
 
-    def on_reasoning_delta(self, text: str) -> None:
+    def on_reasoning_delta(self, text: str, metadata: Optional[Dict[str, Any]] = None) -> None:
         self._dispatch_message({
             "type": "reasoning_delta",
-            "data": {"text": text}
+            "data": {"text": text, **(metadata or {})}
         })
 
     def on_thinking_state_change(self, active: bool, reason: str = "") -> None:
@@ -332,6 +350,10 @@ class GUIBackend:
                 "pending_permission": snapshot.pending_permission.__dict__ if snapshot.pending_permission else None,
                 "pending_user_input": snapshot.pending_input.__dict__ if snapshot.pending_input else None,
                 "last_error": snapshot.last_error,
+                "runtime_source": snapshot.runtime_source,
+                "bundled_tools_ready": snapshot.bundled_tools_ready,
+                "fallback_warnings": list(snapshot.fallback_warnings),
+                "runtime_environment": snapshot.runtime_environment.__dict__ if snapshot.runtime_environment else None,
             }
 
         @app.post("/api/sessions")

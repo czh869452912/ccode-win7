@@ -29,6 +29,9 @@ export const initialState = {
   terminationReason: "",
   turnsUsed: 0,
   maxTurns: 8,
+  activeTurnId: "",
+  activeStepId: "",
+  activeStepIndex: 0,
 };
 
 export function reducer(state, action) {
@@ -61,6 +64,9 @@ export function reducer(state, action) {
         userInput: null,
         terminationReason: "",
         turnsUsed: 0,
+        activeTurnId: "",
+        activeStepId: "",
+        activeStepIndex: 0,
         plan: null,
         review: null,
         permissionContext: null,
@@ -84,12 +90,50 @@ export function reducer(state, action) {
             id: makeEventId("user"),
             kind: "user",
             content: action.text,
+            turnId: "",
           }),
         composer: "",
         streamingAssistantId: "",
         streamingReasoningId: "",
         thinkingActive: false,
         terminationReason: "",
+      };
+    case "turn_started": {
+      const turnId = action.turnId || "";
+      let linked = false;
+      const timeline = state.timeline.map((item) => {
+        if (!linked && item.kind === "user" && !item.turnId) {
+          linked = true;
+          return {
+            ...item,
+            turnId,
+            content: action.userText || item.content,
+          };
+        }
+        return item;
+      });
+      if (!linked) {
+        timeline.push({
+          id: makeEventId("user"),
+          kind: "user",
+          content: action.userText || "",
+          turnId,
+        });
+      }
+      return {
+        ...state,
+        timeline,
+        activeTurnId: turnId,
+      };
+    }
+    case "step_started":
+      return {
+        ...state,
+        activeTurnId: action.turnId || state.activeTurnId,
+        activeStepId: action.stepId || "",
+        activeStepIndex: action.stepIndex || 0,
+        streamingAssistantId: "",
+        streamingReasoningId: "",
       };
     case "turn_ended":
       return {
@@ -100,10 +144,22 @@ export function reducer(state, action) {
       };
     case "assistant_delta": {
       let timeline = state.timeline.slice();
+      const turnId = action.turnId || state.activeTurnId;
+      const stepId = action.stepId || state.activeStepId;
+      const stepIndex = action.stepIndex || state.activeStepIndex;
       let id = state.streamingAssistantId;
-      if (!id) {
+      const existing = id ? timeline.find((item) => item.id === id) : null;
+      if (!id || (existing && existing.stepId !== stepId)) {
         id = makeEventId("assistant");
-        timeline.push({ id, kind: "assistant", content: action.text, streaming: true });
+        timeline.push({
+          id,
+          kind: "assistant",
+          content: action.text,
+          streaming: true,
+          turnId,
+          stepId,
+          stepIndex,
+        });
       } else {
         timeline = timeline.map((item) =>
           item.id === id
@@ -115,10 +171,23 @@ export function reducer(state, action) {
     }
     case "reasoning_delta": {
       let timeline = state.timeline.slice();
+      const turnId = action.turnId || state.activeTurnId;
+      const stepId = action.stepId || state.activeStepId;
+      const stepIndex = action.stepIndex || state.activeStepIndex;
       let id = state.streamingReasoningId;
-      if (!id) {
+      const existing = id ? timeline.find((item) => item.id === id) : null;
+      if (!id || (existing && existing.stepId !== stepId)) {
         id = makeEventId("thinking");
-        timeline.push({ id, kind: "reasoning", content: action.text, open: false, streaming: true });
+        timeline.push({
+          id,
+          kind: "reasoning",
+          content: action.text,
+          open: false,
+          streaming: true,
+          turnId,
+          stepId,
+          stepIndex,
+        });
       } else {
         timeline = timeline.map((item) =>
           item.id === id
@@ -151,12 +220,17 @@ export function reducer(state, action) {
           label: action.label || action.toolName,
           arguments: action.arguments,
           status: "running",
+          turnId: action.turnId || state.activeTurnId,
+          stepId: action.stepId || state.activeStepId,
+          stepIndex: action.stepIndex || state.activeStepIndex,
           data: null,
           error: "",
           permissionCategory: action.permissionCategory || "",
           supportsDiffPreview: Boolean(action.supportsDiffPreview),
           progressRendererKey: action.progressRendererKey || "",
           resultRendererKey: action.resultRendererKey || "",
+          runtimeSource: action.runtimeSource || "",
+          resolvedToolRoots: action.resolvedToolRoots || {},
         }),
       };
     case "tool_finished":
@@ -170,6 +244,9 @@ export function reducer(state, action) {
                 data: action.data,
                 error: action.error,
                 label: action.label || item.label,
+                turnId: action.turnId || item.turnId,
+                stepId: action.stepId || item.stepId,
+                stepIndex: action.stepIndex || item.stepIndex,
                 permissionCategory: action.permissionCategory || item.permissionCategory,
                 supportsDiffPreview:
                   action.supportsDiffPreview === undefined
@@ -177,10 +254,44 @@ export function reducer(state, action) {
                     : Boolean(action.supportsDiffPreview),
                 progressRendererKey: action.progressRendererKey || item.progressRendererKey,
                 resultRendererKey: action.resultRendererKey || item.resultRendererKey,
+                runtimeSource: action.runtimeSource || item.runtimeSource || "",
+                resolvedToolRoots: action.resolvedToolRoots || item.resolvedToolRoots || {},
               }
             : item,
         ),
       };
+    case "step_ended": {
+      const turnId = action.turnId || state.activeTurnId;
+      const stepId = action.stepId || state.activeStepId;
+      const stepIndex = action.stepIndex || state.activeStepIndex;
+      let timeline = state.timeline.map((item) => {
+        if ((item.id === state.streamingAssistantId || item.id === state.streamingReasoningId) && item.stepId === stepId) {
+          return { ...item, streaming: false };
+        }
+        return item;
+      });
+      const hasAssistant = timeline.some((item) => item.kind === "assistant" && item.stepId === stepId);
+      if (!hasAssistant && action.assistantText) {
+        timeline = timeline.concat({
+          id: makeEventId("assistant"),
+          kind: "assistant",
+          content: action.assistantText,
+          turnId,
+          stepId,
+          stepIndex,
+          streaming: false,
+        });
+      }
+      return {
+        ...state,
+        timeline,
+        streamingAssistantId: "",
+        streamingReasoningId: "",
+        activeTurnId: turnId,
+        activeStepId: stepId,
+        activeStepIndex: stepIndex,
+      };
+    }
     case "append_timeline_item":
       return { ...state, timeline: state.timeline.concat(action.item) };
     case "permission_request":
@@ -200,12 +311,18 @@ export function reducer(state, action) {
                 kind: "mode_switch_proposal",
                 request: action.request,
                 answered: false,
+                turnId: action.request?.turn_id || state.activeTurnId,
+                stepId: action.request?.step_id || state.activeStepId,
+                stepIndex: action.request?.step_index || state.activeStepIndex,
               }
             : {
                 id: makeEventId("user_input"),
                 kind: "user_input",
                 request: action.request,
                 answered: false,
+                turnId: action.request?.turn_id || state.activeTurnId,
+                stepId: action.request?.step_id || state.activeStepId,
+                stepIndex: action.request?.step_index || state.activeStepIndex,
               },
         ),
       };

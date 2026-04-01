@@ -109,6 +109,41 @@ class ToolClient(object):
         return reply
 
 
+class MultiStepClient(object):
+    def __init__(self):
+        self.calls = 0
+
+    def generate(self, messages, tools=None):
+        self.calls += 1
+        if self.calls == 1:
+            return AssistantReply(
+                content="",
+                reasoning_content="先读取文件内容。",
+                actions=[
+                    Action(
+                        name="read_file",
+                        arguments={"path": "src/pkg/demo.c"},
+                        call_id="call-step-1",
+                    )
+                ],
+                finish_reason="tool_calls",
+            )
+        return AssistantReply(
+            content="分析完成，文件结构正常。",
+            reasoning_content="读取完成，总结结果。",
+            actions=[],
+            finish_reason="stop",
+        )
+
+    def stream(self, messages, tools=None, on_text_delta=None, on_reasoning_delta=None):
+        reply = self.generate(messages, tools=tools)
+        if on_reasoning_delta is not None and reply.reasoning_content:
+            on_reasoning_delta(reply.reasoning_content)
+        if on_text_delta is not None and reply.content:
+            on_text_delta(reply.content)
+        return reply
+
+
 class TestInProcessAdapterFrontendApis(unittest.TestCase):
     def setUp(self):
         self.workspace = tempfile.mkdtemp()
@@ -167,6 +202,42 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         payload = self.adapter.get_session_timeline(str(self.snapshot.get('session_id') or ''))
         self.assertTrue(any(item['event'] == 'turn_started' for item in payload['events']))
         self.assertEqual(payload['latest_assistant_reply'], 'ok')
+
+    def test_structured_timeline_splits_single_turn_into_multiple_agent_steps(self):
+        adapter = InProcessAdapter(
+            client=MultiStepClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+        )
+        snapshot = adapter.create_session('code')
+        session_id = str(snapshot.get('session_id') or '')
+        adapter.submit_user_message(
+            session_id=session_id,
+            text='请分析这个文件',
+            stream=False,
+            wait=True,
+            permission_resolver=lambda ticket: True,
+            event_handler=lambda event_name, current_session_id, payload: None,
+        )
+        payload = adapter.build_structured_timeline(session_id)
+        self.assertEqual(len(payload["turns"]), 1)
+        turn = payload["turns"][0]
+        self.assertEqual(turn["user_text"], "请分析这个文件")
+        self.assertEqual(len(turn["steps"]), 2)
+        self.assertEqual(turn["steps"][0]["tool_calls"][0]["call_id"], "call-step-1")
+        self.assertEqual(turn["steps"][0]["reasoning"], "先读取文件内容。")
+        self.assertEqual(turn["steps"][1]["assistant_text"], "分析完成，文件结构正常。")
+        self.assertEqual(turn["steps"][1]["reasoning"], "读取完成，总结结果。")
+        step_ids = [step["step_id"] for step in turn["steps"]]
+        self.assertEqual(len(step_ids), len(set(step_ids)))
+
+    def test_session_snapshot_includes_runtime_environment_summary(self):
+        snapshot = self.adapter.get_session_snapshot(str(self.snapshot.get('session_id') or ''))
+        self.assertIn("runtime_source", snapshot)
+        self.assertIn("bundled_tools_ready", snapshot)
+        self.assertIn("fallback_warnings", snapshot)
+        self.assertIn("runtime_environment", snapshot)
+        self.assertIsInstance(snapshot["fallback_warnings"], list)
 
     def test_session_scoped_todos_are_isolated(self):
         first_session_id = str(self.snapshot.get('session_id') or '')

@@ -86,8 +86,19 @@ class Turn:
     assistant_message: str = ""
     actions: List[Action] = field(default_factory=list)
     observations: List[Observation] = field(default_factory=list)
+    steps: List["AgentStep"] = field(default_factory=list)
     message_start_index: int = 0
     message_end_index: int = 0
+
+
+@dataclass
+class AgentStep:
+    step_id: str
+    reasoning: str = ""
+    assistant_message: str = ""
+    actions: List[Action] = field(default_factory=list)
+    observations: List[Observation] = field(default_factory=list)
+    status: str = "in_progress"
 
 
 @dataclass

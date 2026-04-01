@@ -3,6 +3,7 @@ import os
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
@@ -213,6 +214,51 @@ class TestModuleIsolation(unittest.TestCase):
     def test_base_importable(self):
         from embedagent.tools._base import ToolContext, ToolDefinition, ToolError
         self.assertTrue(True)
+
+
+class TestManagedRuntimeEnvironment(unittest.TestCase):
+    def setUp(self):
+        self.workspace = tempfile.mkdtemp()
+
+    def _touch(self, *parts):
+        path = os.path.join(*parts)
+        parent = os.path.dirname(path)
+        if not os.path.isdir(parent):
+            os.makedirs(parent)
+        with open(path, "w", encoding="utf-8") as handle:
+            handle.write("stub\n")
+        return path
+
+    def test_runtime_snapshot_prefers_bundle_tools(self):
+        bundle_root = os.path.join(self.workspace, "bundle")
+        self._touch(bundle_root, "bin", "git", "cmd", "git.exe")
+        self._touch(bundle_root, "bin", "git", "bin", "git.exe")
+        self._touch(bundle_root, "bin", "rg", "rg.exe")
+        self._touch(bundle_root, "bin", "ctags", "ctags.exe")
+        self._touch(bundle_root, "bin", "llvm", "bin", "clang.exe")
+        self._touch(bundle_root, "bin", "llvm", "bin", "clang-tidy.exe")
+        self._touch(bundle_root, "bin", "llvm", "bin", "llvm-profdata.exe")
+        self._touch(bundle_root, "bin", "llvm", "bin", "llvm-cov.exe")
+        with patch.dict(os.environ, {"EMBEDAGENT_BUNDLE_ROOT": bundle_root}, clear=False):
+            runtime = ToolRuntime(self.workspace)
+            snapshot = runtime.runtime_environment_snapshot()
+        self.assertEqual(snapshot["runtime_source"], "bundle")
+        self.assertTrue(snapshot["bundled_tools_ready"])
+        self.assertEqual(snapshot["tool_sources"]["git"], "bundle")
+        self.assertEqual(snapshot["tool_sources"]["rg"], "bundle")
+        self.assertEqual(snapshot["tool_sources"]["ctags"], "bundle")
+        self.assertEqual(snapshot["tool_sources"]["llvm"], "bundle")
+        self.assertTrue(snapshot["resolved_tool_roots"]["bundle_root"].endswith("bundle"))
+
+    def test_runtime_snapshot_reports_missing_bundle_tools_without_fallback(self):
+        bundle_root = os.path.join(self.workspace, "bundle-missing")
+        self._touch(bundle_root, "bin", "llvm", "bin", "clang.exe")
+        with patch.dict(os.environ, {"EMBEDAGENT_BUNDLE_ROOT": bundle_root}, clear=False):
+            runtime = ToolRuntime(self.workspace)
+            snapshot = runtime.runtime_environment_snapshot()
+        self.assertEqual(snapshot["runtime_source"], "bundle")
+        self.assertFalse(snapshot["bundled_tools_ready"])
+        self.assertGreaterEqual(len(snapshot["fallback_warnings"]), 1)
 
 
 if __name__ == "__main__":

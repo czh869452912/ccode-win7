@@ -50,7 +50,12 @@ export function timelineFromEvents(events) {
     const payload = record.payload || {};
     if ((eventName === "turn_started" || eventName === "turn_start") && (payload.text || payload.user_text)) {
       flushReasoning();
-      items.push({ id: record.event_id, kind: "user", content: payload.text || payload.user_text || "" });
+      items.push({
+        id: record.event_id,
+        kind: "user",
+        content: payload.text || payload.user_text || "",
+        turnId: payload.turn_id || "",
+      });
     } else if (eventName === "reasoning_delta" && payload.text) {
       // Aggregate consecutive reasoning deltas into a single card.
       if (pendingReasoningId !== null) {
@@ -61,7 +66,15 @@ export function timelineFromEvents(events) {
       } else {
         pendingReasoningId = record.event_id;
         pendingReasoningIdx = items.length;
-        items.push({ id: record.event_id, kind: "reasoning", content: payload.text, open: false });
+        items.push({
+          id: record.event_id,
+          kind: "reasoning",
+          content: payload.text,
+          open: false,
+          turnId: payload.turn_id || "",
+          stepId: payload.step_id || "",
+          stepIndex: payload.step_index || 0,
+        });
       }
       // Do NOT flush — stay in accumulation mode until a non-reasoning event arrives.
       continue;
@@ -74,6 +87,9 @@ export function timelineFromEvents(events) {
         label: payload.tool_label || payload.tool_name,
         arguments: payload.arguments,
         status: "running",
+        turnId: payload.turn_id || "",
+        stepId: payload.step_id || "",
+        stepIndex: payload.step_index || 0,
         permissionCategory: payload.permission_category || "",
         supportsDiffPreview: Boolean(payload.supports_diff_preview),
         progressRendererKey: payload.progress_renderer_key || "",
@@ -91,6 +107,9 @@ export function timelineFromEvents(events) {
         label: payload.tool_label || payload.tool_name,
         arguments: {},
         status: payload.success ? "success" : "error",
+        turnId: payload.turn_id || "",
+        stepId: payload.step_id || "",
+        stepIndex: payload.step_index || 0,
         data: payload.data,
         error: payload.error,
         permissionCategory: payload.permission_category || "",
@@ -144,6 +163,7 @@ export function timelineFromEvents(events) {
         id: record.event_id,
         kind: "assistant",
         content: payload.final_text,
+        turnId: payload.turn_id || "",
       });
     }
   }
@@ -154,34 +174,108 @@ export function timelineFromEvents(events) {
  * Convert a structured Turn list (from build_structured_timeline) into flat timeline items.
  * Each turn produces: user bubble, reasoning card, tool cards, assistant bubble.
  */
-export function timelineFromTurns(turns) {
+export function timelineFromTurns(turns, events = []) {
   const items = [];
+  const eventCardsByStep = {};
+  for (const record of events || []) {
+    const payload = record.payload || {};
+    const stepId = payload.step_id || "";
+    if (!stepId) continue;
+    if (record.event === "permission_required") {
+      if (!eventCardsByStep[stepId]) eventCardsByStep[stepId] = [];
+      eventCardsByStep[stepId].push({
+        id: payload.permission?.permission_id || record.event_id,
+        kind: "permission",
+        permission: payload.permission || {},
+        resolved: false,
+        turnId: payload.turn_id || "",
+        stepId,
+        stepIndex: payload.step_index || 0,
+      });
+    }
+    if (record.event === "user_input_required") {
+      if (!eventCardsByStep[stepId]) eventCardsByStep[stepId] = [];
+      const request = payload.user_input || {};
+      eventCardsByStep[stepId].push({
+        id: request.request_id || record.event_id,
+        kind:
+          request.tool_name === "propose_mode_switch"
+            ? "mode_switch_proposal"
+            : "user_input",
+        request,
+        answered: false,
+        turnId: payload.turn_id || "",
+        stepId,
+        stepIndex: payload.step_index || 0,
+      });
+    }
+  }
   for (const turn of turns || []) {
     const turnId = turn.turn_id || makeEventId("turn");
     if (turn.user_text) {
-      items.push({ id: `${turnId}-user`, kind: "user", content: turn.user_text });
+      items.push({ id: `${turnId}-user`, kind: "user", content: turn.user_text, turnId });
     }
-    if (turn.reasoning) {
-      items.push({ id: `${turnId}-reasoning`, kind: "reasoning", content: turn.reasoning, open: false });
-    }
-    for (const tc of turn.tool_calls || []) {
-      items.push({
-        id: tc.call_id || makeEventId("tool"),
-        kind: "tool",
-        toolName: tc.tool_name,
-        label: tc.tool_label || tc.tool_name,
-        arguments: tc.arguments || {},
-        status: tc.status || "success",
-        data: tc.data,
-        error: tc.error || "",
-        permissionCategory: tc.permission_category || "",
-        supportsDiffPreview: Boolean(tc.supports_diff_preview),
-        progressRendererKey: tc.progress_renderer_key || "",
-        resultRendererKey: tc.result_renderer_key || "",
-      });
-    }
-    if (turn.assistant_text) {
-      items.push({ id: `${turnId}-assistant`, kind: "assistant", content: turn.assistant_text });
+    const steps =
+      Array.isArray(turn.steps) && turn.steps.length > 0
+        ? turn.steps
+        : [
+            {
+              step_id: `${turnId}-step-1`,
+              step_index: 1,
+              reasoning: turn.reasoning || "",
+              assistant_text: turn.assistant_text || "",
+              tool_calls: turn.tool_calls || [],
+              status: turn.status || "completed",
+            },
+          ];
+    for (const step of steps) {
+      const stepId = step.step_id || makeEventId("step");
+      const stepIndex = step.step_index || 0;
+      if (step.reasoning) {
+        items.push({
+          id: `${stepId}-reasoning`,
+          kind: "reasoning",
+          content: step.reasoning,
+          open: false,
+          turnId,
+          stepId,
+          stepIndex,
+        });
+      }
+      for (const tc of step.tool_calls || []) {
+        items.push({
+          id: tc.call_id || makeEventId("tool"),
+          kind: "tool",
+          toolName: tc.tool_name,
+          label: tc.tool_label || tc.tool_name,
+          arguments: tc.arguments || {},
+          status: tc.status || "success",
+          data: tc.data,
+          error: tc.error || "",
+          permissionCategory: tc.permission_category || "",
+          supportsDiffPreview: Boolean(tc.supports_diff_preview),
+          progressRendererKey: tc.progress_renderer_key || "",
+          resultRendererKey: tc.result_renderer_key || "",
+          runtimeSource: tc.runtime_source || "",
+          resolvedToolRoots: tc.resolved_tool_roots || {},
+          turnId,
+          stepId,
+          stepIndex,
+        });
+      }
+      for (const card of eventCardsByStep[stepId] || []) {
+        items.push(card);
+      }
+      if (step.assistant_text) {
+        items.push({
+          id: `${stepId}-assistant`,
+          kind: "assistant",
+          content: step.assistant_text,
+          turnId,
+          stepId,
+          stepIndex,
+        });
+      }
     }
   }
   return items;
@@ -203,5 +297,9 @@ export function normalizeSessionPayload(payload) {
     pending_permission: payload.pending_permission || null,
     pending_user_input: payload.pending_user_input || null,
     last_error: payload.last_error || "",
+    runtimeSource: payload.runtime_source || "",
+    bundledToolsReady: Boolean(payload.bundled_tools_ready),
+    fallbackWarnings: payload.fallback_warnings || [],
+    runtimeEnvironment: payload.runtime_environment || null,
   };
 }

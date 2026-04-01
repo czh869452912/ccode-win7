@@ -136,13 +136,13 @@ class TUIFrontend(FrontendCallbacks):
         
         self.app.refresh_views()
     
-    def on_stream_delta(self, text: str) -> None:
+    def on_stream_delta(self, text: str, metadata=None) -> None:
         """流式输出增量"""
         from embedagent.frontend.tui import reducer
         reducer.append_delta(self.app.state, text)
         self.app.refresh_views()
 
-    def on_reasoning_delta(self, text: str) -> None:
+    def on_reasoning_delta(self, text: str, metadata=None) -> None:
         from embedagent.frontend.tui import reducer
         reducer.append_line(self.app.state, "[thinking] %s" % text)
         self.app.refresh_views()

@@ -44,6 +44,33 @@
 
 ## 3. 当前变更记录
 
+### DC-041
+
+- 日期：2026-04-01
+- 变更主题：Agent step 时间线与托管运行环境摘要接入 GUI 壳层
+- 变更摘要：
+  - `AgentLoop` / `InProcessAdapter` 现在会在单个用户 turn 内生成多个 agent step，并写出 `step_start` / `step_end`
+  - `build_structured_timeline()` 已从旧的扁平事件推断切换为以 `turns[].steps[]` 为主，同时保留 raw events 作为调试/回放补充
+  - `ToolRuntime` / `ToolContext` 新增托管运行环境摘要，统一产出 `runtime_source`、`bundled_tools_ready`、`fallback_warnings` 与 `resolved_tool_roots`
+  - GUI timeline 已改为按 turn 下的多个 step 呈现 thinking / tool / assistant；Inspector 新增 Runtime 面板
+  - `styles.css` 已与 `Timeline.jsx` / `Sidebar.jsx` / `Inspector.jsx` / `Composer.jsx` 的类名重新对齐，修复缺失卡片与样式漂移
+- 影响范围：
+  - AgentLoop 与 InProcessAdapter 事件模型
+  - 协议层 `TurnRecord` / `SessionSnapshot`
+  - Tool Runtime 与 GUI Runtime inspector
+  - GUI 时间线与样式系统
+- 关联文档：
+  - `README.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/adrs/0003-agent-step-timeline-and-managed-runtime-shell.md`
+- 是否需要 ADR：`是`
+- 后续动作：
+  - 在 Phase 2 中把 build/test/tidy/coverage 收敛到默认 recipe / preset
+  - 继续推进 Runtime inspector 与 Problems / Diagnostics / Diff 工作台联动
+  - 在 Win7 bundle 中验证 step-based GUI 与托管环境路径
+
 ### DC-040
 
 - 日期：2026-03-31

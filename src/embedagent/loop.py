@@ -92,6 +92,8 @@ class AgentLoop(object):
             Callable[[UserInputRequest], Optional[UserInputResponse]]
         ] = None,
         on_context_result: Optional[Callable[[object], None]] = None,
+        on_step_start: Optional[Callable[[int], None]] = None,
+        on_step_finish: Optional[Callable[[int, AssistantReply, str], None]] = None,
         session: Optional[Session] = None,
         stop_event: Optional[threading.Event] = None,
         workflow_state: str = "chat",
@@ -115,6 +117,7 @@ class AgentLoop(object):
         loop_guard = LoopGuard()
         turns_used = 0
         for turn_index in range(self.max_turns):
+            step_index = turn_index + 1
             # ---- cancellation check ----
             if stop_event is not None and stop_event.is_set():
                 self._persist_summary(session, current_mode)
@@ -129,6 +132,8 @@ class AgentLoop(object):
             if on_context_result is not None:
                 on_context_result(context_result)
             self._persist_summary(session, current_mode, context_result)
+            if on_step_start is not None:
+                on_step_start(step_index)
             # ---- LLM call with retry ----
             reply = self._call_llm_with_retry(
                 context_result.messages,
@@ -142,6 +147,8 @@ class AgentLoop(object):
             final_text = reply.content
             turns_used = turn_index + 1
             if not reply.actions:
+                if on_step_finish is not None:
+                    on_step_finish(step_index, reply, "completed")
                 self._persist_summary(session, current_mode)
                 self._maybe_maintain_memory(force=True)
                 return LoopResult(
@@ -153,6 +160,8 @@ class AgentLoop(object):
             for action in reply.actions:
                 # ---- cancellation check inside tool loop ----
                 if stop_event is not None and stop_event.is_set():
+                    if on_step_finish is not None:
+                        on_step_finish(step_index, reply, "cancelled")
                     self._persist_summary(session, current_mode)
                     return LoopResult(
                         final_text=final_text,
@@ -163,6 +172,8 @@ class AgentLoop(object):
                 if loop_guard.should_block(action):
                     observation = loop_guard.blocked_observation(action)
                     session.add_observation(action, observation)
+                    if on_step_finish is not None:
+                        on_step_finish(step_index, reply, "guard")
                     self._persist_summary(session, current_mode)
                     if on_tool_finish:
                         on_tool_finish(action, observation)
@@ -199,6 +210,8 @@ class AgentLoop(object):
                     )
                     session.add_system_message(hint)
                 if loop_guard.should_stop():
+                    if on_step_finish is not None:
+                        on_step_finish(step_index, reply, "guard")
                     self._persist_summary(session, current_mode)
                     return LoopResult(
                         final_text=final_text,
@@ -207,6 +220,8 @@ class AgentLoop(object):
                         error=loop_guard.stop_reason(),
                         turns_used=turns_used,
                     )
+            if on_step_finish is not None:
+                on_step_finish(step_index, reply, "tool_calls")
         self._persist_summary(session, current_mode)
         return LoopResult(
             final_text=final_text,

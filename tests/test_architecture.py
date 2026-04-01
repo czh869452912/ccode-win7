@@ -64,10 +64,10 @@ class MockFrontend(FrontendCallbacks):
     def on_session_status_change(self, snapshot: SessionSnapshot) -> None:
         self.session_changes.append(snapshot)
     
-    def on_stream_delta(self, text: str) -> None:
+    def on_stream_delta(self, text: str, metadata=None) -> None:
         self.stream_deltas.append(text)
 
-    def on_reasoning_delta(self, text: str) -> None:
+    def on_reasoning_delta(self, text: str, metadata=None) -> None:
         self.reasoning_deltas.append(text)
 
     def on_thinking_state_change(self, active: bool, reason: str = "") -> None:

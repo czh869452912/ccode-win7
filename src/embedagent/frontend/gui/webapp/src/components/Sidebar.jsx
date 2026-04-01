@@ -28,7 +28,7 @@ export default function Sidebar({
         <button
           role="tab"
           aria-selected={sidebarTab === "chats"}
-          className={sidebarTab === "chats" ? "active" : ""}
+          className={`sidebar-tab${sidebarTab === "chats" ? " active" : ""}`}
           onClick={() => onTabChange("chats")}
         >
           {t("sidebar.chats", lang)}
@@ -36,7 +36,7 @@ export default function Sidebar({
         <button
           role="tab"
           aria-selected={sidebarTab === "files"}
-          className={sidebarTab === "files" ? "active" : ""}
+          className={`sidebar-tab${sidebarTab === "files" ? " active" : ""}`}
           onClick={() => onTabChange("files")}
         >
           {t("sidebar.files", lang)}

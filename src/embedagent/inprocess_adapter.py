@@ -20,7 +20,7 @@ from embedagent.plan_store import PlanStore
 from embedagent.permissions import PermissionPolicy, PermissionRequest
 from embedagent.protocol import CommandResult, PermissionContextView, PlanSnapshot
 from embedagent.project_memory import ProjectMemoryStore
-from embedagent.session import Action, Observation, Session
+from embedagent.session import Action, AssistantReply, Observation, Session
 from embedagent.session_store import SessionSummaryStore
 from embedagent.session_timeline import SessionTimelineStore
 from embedagent.slash_commands import ParsedSlashCommand, SlashCommandRegistry, parse_slash_command
@@ -216,6 +216,8 @@ class InProcessAdapter(object):
 
     def get_session_snapshot(self, session_id: str) -> Dict[str, Any]:
         state = self._require_session(session_id)
+        runtime_lookup = getattr(self.tools, "runtime_environment_snapshot", None)
+        runtime = runtime_lookup() if callable(runtime_lookup) else {}
         with state.lock:
             summary = self._read_summary_for_state(state)
             updated_at = str((summary or {}).get("updated_at") or state.updated_at)
@@ -239,11 +241,17 @@ class InProcessAdapter(object):
                 "has_pending_user_input": state.pending_user_input is not None,
                 "pending_user_input": state.pending_user_input.to_dict() if state.pending_user_input else None,
                 "last_error": state.last_error,
+                "runtime_source": str(runtime.get("runtime_source") or ""),
+                "bundled_tools_ready": bool(runtime.get("bundled_tools_ready")),
+                "fallback_warnings": list(runtime.get("fallback_warnings") or []),
+                "runtime_environment": runtime,
             }
             return payload
 
     def get_workspace_snapshot(self) -> Dict[str, Any]:
         counts = self._count_workspace_items()
+        runtime_lookup = getattr(self.tools, "runtime_environment_snapshot", None)
+        runtime = runtime_lookup() if callable(runtime_lookup) else {}
         git_status = self.tools.execute("git_status", {"path": "."})
         branch = ""
         dirty_count = 0
@@ -273,6 +281,7 @@ class InProcessAdapter(object):
                 "untracked_count": untracked_count,
             },
             "tree": counts,
+            "runtime_environment": runtime,
         }
 
     def list_workspace_tree(
@@ -429,6 +438,91 @@ class InProcessAdapter(object):
                 "events": raw_events,
                 "turns": [],
             }
+        has_step_start = any(r.get("event") == "step_start" for r in raw_events)
+        if has_step_start:
+            turns = []
+            current_turn = None  # type: Optional[Dict[str, Any]]
+            current_step = None  # type: Optional[Dict[str, Any]]
+            tool_index = {}  # type: Dict[str, int]
+            for record in raw_events:
+                event = record.get("event")
+                payload = record.get("payload") or {}
+                if event == "turn_start":
+                    current_turn = {
+                        "turn_id": payload.get("turn_id", ""),
+                        "user_text": payload.get("user_text", ""),
+                        "steps": [],
+                        "status": "in_progress",
+                    }
+                    current_step = None
+                    tool_index = {}
+                    turns.append(current_turn)
+                elif event == "step_start" and current_turn is not None:
+                    current_step = {
+                        "step_id": payload.get("step_id", ""),
+                        "step_index": int(payload.get("step_index") or 0),
+                        "reasoning": "",
+                        "assistant_text": "",
+                        "tool_calls": [],
+                        "status": "in_progress",
+                    }
+                    tool_index = {}
+                    current_turn["steps"].append(current_step)
+                elif event == "reasoning_delta" and current_step is not None:
+                    current_step["reasoning"] += payload.get("text", "")
+                elif event == "tool_started" and current_step is not None:
+                    call_id = payload.get("call_id") or record.get("event_id", "")
+                    tool_call = {
+                        "call_id": call_id,
+                        "tool_name": payload.get("tool_name", ""),
+                        "tool_label": payload.get("tool_label", payload.get("tool_name", "")),
+                        "arguments": payload.get("arguments") or {},
+                        "status": "running",
+                        "data": None,
+                        "error": "",
+                        "permission_category": payload.get("permission_category", ""),
+                        "supports_diff_preview": bool(payload.get("supports_diff_preview", False)),
+                        "runtime_source": payload.get("runtime_source", ""),
+                        "resolved_tool_roots": payload.get("resolved_tool_roots") or {},
+                    }
+                    tool_index[call_id] = len(current_step["tool_calls"])
+                    current_step["tool_calls"].append(tool_call)
+                elif event == "tool_finished" and current_step is not None:
+                    call_id = payload.get("call_id") or record.get("event_id", "")
+                    idx = tool_index.get(call_id)
+                    update = {
+                        "status": "success" if payload.get("success") else "error",
+                        "data": payload.get("data"),
+                        "error": payload.get("error") or "",
+                        "tool_label": payload.get("tool_label", payload.get("tool_name", "")),
+                        "permission_category": payload.get("permission_category", ""),
+                        "supports_diff_preview": bool(payload.get("supports_diff_preview", False)),
+                        "runtime_source": payload.get("runtime_source", ""),
+                        "resolved_tool_roots": payload.get("resolved_tool_roots") or {},
+                    }
+                    if idx is not None:
+                        current_step["tool_calls"][idx].update(update)
+                    else:
+                        current_step["tool_calls"].append(
+                            dict(
+                                call_id=call_id,
+                                tool_name=payload.get("tool_name", ""),
+                                tool_label=payload.get("tool_label", payload.get("tool_name", "")),
+                                arguments={},
+                                **update
+                            )
+                        )
+                elif event == "step_end" and current_step is not None:
+                    if payload.get("assistant_text") is not None:
+                        current_step["assistant_text"] = payload.get("assistant_text") or ""
+                    current_step["status"] = payload.get("status") or "completed"
+                elif event == "turn_end" and current_turn is not None:
+                    current_turn["status"] = payload.get("termination_reason") or "completed"
+            return {
+                "session_id": state.session.session_id,
+                "events": raw_events,
+                "turns": turns,
+            }
         turns = []
         current_turn = None  # type: Optional[Dict[str, Any]]
         tool_index = {}  # type: Dict[str, int]
@@ -443,6 +537,7 @@ class InProcessAdapter(object):
                     "tool_calls": [],
                     "assistant_text": "",
                     "status": "in_progress",
+                    "steps": [],
                 }
                 tool_index = {}
                 turns.append(current_turn)
@@ -487,6 +582,17 @@ class InProcessAdapter(object):
             elif event == "turn_end" and current_turn is not None:
                 current_turn["assistant_text"] = payload.get("final_text") or ""
                 current_turn["status"] = payload.get("termination_reason") or "completed"
+        for turn in turns:
+            turn["steps"] = [
+                {
+                    "step_id": "%s-step-1" % (turn.get("turn_id") or "legacy"),
+                    "step_index": 1,
+                    "reasoning": turn.get("reasoning") or "",
+                    "assistant_text": turn.get("assistant_text") or "",
+                    "tool_calls": list(turn.get("tool_calls") or []),
+                    "status": turn.get("status") or "completed",
+                }
+            ]
         return {
             "session_id": state.session.session_id,
             "events": raw_events,
@@ -1243,17 +1349,22 @@ class InProcessAdapter(object):
 
     def _tool_event_metadata(self, tool_name: str) -> Dict[str, Any]:
         lookup = getattr(self.tools, "tool_catalog_entry", None)
+        runtime_lookup = getattr(self.tools, "runtime_environment_snapshot", None)
         if not callable(lookup):
             return {}
         entry = lookup(tool_name) or {}
         if not isinstance(entry, dict):
             return {}
+        runtime = runtime_lookup() if callable(runtime_lookup) else {}
         return {
             "tool_label": entry.get("user_label") or tool_name,
             "permission_category": entry.get("permission_category") or "",
             "supports_diff_preview": bool(entry.get("supports_diff_preview")),
             "progress_renderer_key": entry.get("progress_renderer_key") or "",
             "result_renderer_key": entry.get("result_renderer_key") or "",
+            "runtime_source": str(runtime.get("runtime_source") or ""),
+            "resolved_tool_roots": dict(runtime.get("resolved_tool_roots") or {}),
+            "fallback_warnings": list(runtime.get("fallback_warnings") or []),
         }
 
     def _emit_command_result(
@@ -1404,6 +1515,7 @@ class InProcessAdapter(object):
         )
 
         thinking_state = {"active": False}
+        current_step = {"step_id": "", "step_index": 0}
 
         def set_thinking(active: bool, reason: str) -> None:
             if thinking_state["active"] == active:
@@ -1418,10 +1530,62 @@ class InProcessAdapter(object):
 
         def on_text_delta(delta: str) -> None:
             set_thinking(False, "assistant_text")
-            self._emit(event_handler, "assistant_delta", session_id, {"text": delta, "turn_id": turn_id})
+            self._emit(
+                event_handler,
+                "assistant_delta",
+                session_id,
+                {
+                    "text": delta,
+                    "turn_id": turn_id,
+                    "step_id": current_step["step_id"],
+                    "step_index": current_step["step_index"],
+                },
+            )
 
         def on_reasoning_delta(delta: str) -> None:
-            self._emit(event_handler, "reasoning_delta", session_id, {"text": delta, "turn_id": turn_id})
+            self._emit(
+                event_handler,
+                "reasoning_delta",
+                session_id,
+                {
+                    "text": delta,
+                    "turn_id": turn_id,
+                    "step_id": current_step["step_id"],
+                    "step_index": current_step["step_index"],
+                },
+            )
+
+        def on_step_start(step_index: int) -> None:
+            step_id = "s-" + uuid.uuid4().hex[:12]
+            current_step["step_id"] = step_id
+            current_step["step_index"] = step_index
+            set_thinking(True, "step_started")
+            self._emit(
+                event_handler,
+                "step_start",
+                session_id,
+                {
+                    "turn_id": turn_id,
+                    "step_id": step_id,
+                    "step_index": step_index,
+                },
+            )
+
+        def on_step_finish(step_index: int, reply: AssistantReply, status: str) -> None:
+            set_thinking(False, "step_finished")
+            self._emit(
+                event_handler,
+                "step_end",
+                session_id,
+                {
+                    "turn_id": turn_id,
+                    "step_id": current_step["step_id"],
+                    "step_index": step_index,
+                    "assistant_text": reply.content or "",
+                    "finish_reason": reply.finish_reason or "",
+                    "status": status,
+                },
+            )
 
         def on_tool_start(action: Action) -> None:
             set_thinking(False, "tool_start")
@@ -1430,6 +1594,8 @@ class InProcessAdapter(object):
                 "arguments": action.arguments,
                 "call_id": action.call_id,
                 "turn_id": turn_id,
+                "step_id": current_step["step_id"],
+                "step_index": current_step["step_index"],
             }
             payload.update(self._tool_event_metadata(action.name))
             self._emit(
@@ -1472,6 +1638,8 @@ class InProcessAdapter(object):
                     "data": observation.data,
                     "call_id": action.call_id,
                     "turn_id": turn_id,
+                    "step_id": current_step["step_id"],
+                    "step_index": current_step["step_index"],
                     **self._tool_event_metadata(action.name),
                 },
             )
@@ -1510,7 +1678,17 @@ class InProcessAdapter(object):
             with state.lock:
                 state.status = "waiting_permission"
                 state.pending_event = threading.Event()
-            self._emit_with_snapshot(event_handler, "permission_required", state, {"permission": ticket.to_dict(), "turn_id": turn_id})
+            self._emit_with_snapshot(
+                event_handler,
+                "permission_required",
+                state,
+                {
+                    "permission": ticket.to_dict(),
+                    "turn_id": turn_id,
+                    "step_id": current_step["step_id"],
+                    "step_index": current_step["step_index"],
+                },
+            )
             self._notify_status(event_handler, state)
             if permission_resolver is not None:
                 approved = permission_resolver(ticket.to_dict())
@@ -1534,7 +1712,17 @@ class InProcessAdapter(object):
             with state.lock:
                 state.status = "waiting_user_input"
                 state.pending_user_event = threading.Event()
-            self._emit_with_snapshot(event_handler, "user_input_required", state, {"user_input": ticket.to_dict(), "turn_id": turn_id})
+            self._emit_with_snapshot(
+                event_handler,
+                "user_input_required",
+                state,
+                {
+                    "user_input": ticket.to_dict(),
+                    "turn_id": turn_id,
+                    "step_id": current_step["step_id"],
+                    "step_index": current_step["step_index"],
+                },
+            )
             self._notify_status(event_handler, state)
             if user_input_resolver is not None:
                 payload = user_input_resolver(ticket.to_dict()) or {}
@@ -1571,6 +1759,8 @@ class InProcessAdapter(object):
                 on_tool_start=on_tool_start,
                 on_tool_finish=on_tool_finish,
                 on_context_result=on_context_result,
+                on_step_start=on_step_start,
+                on_step_finish=on_step_finish,
                 permission_handler=on_permission_request,
                 user_input_handler=on_user_input_request,
                 session=state.session,

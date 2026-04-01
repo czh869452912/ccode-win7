@@ -27,6 +27,35 @@ DEFAULT_COMMAND_TIMEOUT_SEC = 30
 DEFAULT_BUILD_TIMEOUT_SEC = 120
 TEXT_ENCODINGS = ("utf-8", "utf-8-sig", "gbk", "cp936")
 SKIP_DIR_NAMES = {".git", ".hg", ".svn", "__pycache__"}
+MANAGED_RUNTIME_TOOL_KEYS = ("python", "git", "rg", "ctags", "llvm")
+LLVM_EXECUTABLE_NAMES = frozenset(
+    (
+        "clang",
+        "clang.exe",
+        "clang++",
+        "clang++.exe",
+        "clang-cl",
+        "clang-cl.exe",
+        "clang-tidy",
+        "clang-tidy.exe",
+        "clang-analyzer",
+        "clang-analyzer.bat",
+        "llvm-profdata",
+        "llvm-profdata.exe",
+        "llvm-cov",
+        "llvm-cov.exe",
+    )
+)
+DIRECT_MANAGED_EXECUTABLES = {
+    "git": "git",
+    "git.exe": "git",
+    "rg": "rg",
+    "rg.exe": "rg",
+    "ctags": "ctags",
+    "ctags.exe": "ctags",
+    "python": "python",
+    "python.exe": "python",
+}
 CLANG_DIAGNOSTIC_RE = re.compile(
     r"^(?P<file>.+?):(?P<line>\d+):(?P<column>\d+): (?P<level>fatal error|error|warning|note): (?P<message>.*)$"
 )
@@ -61,9 +90,10 @@ class ToolDefinition:
 class ToolContext(object):
     """Shared workspace helpers injected into every tool module via build_tools(ctx)."""
 
-    def __init__(self, workspace: str, artifact_store: ArtifactStore) -> None:
+    def __init__(self, workspace: str, artifact_store: ArtifactStore, app_config: Any = None) -> None:
         self.workspace = workspace
         self.artifact_store = artifact_store
+        self.app_config = app_config
 
     # ------------------------------------------------------------------ paths
 
@@ -94,6 +124,16 @@ class ToolContext(object):
         if relative == ".":
             return "."
         return relative.replace(os.sep, "/")
+
+    def display_path(self, path: Optional[str]) -> str:
+        if not path:
+            return ""
+        resolved = os.path.realpath(path)
+        workspace_norm = os.path.normcase(self.workspace)
+        resolved_norm = os.path.normcase(resolved)
+        if resolved_norm == workspace_norm or resolved_norm.startswith(workspace_norm + os.sep):
+            return self.relative_path(resolved)
+        return resolved
 
     # ------------------------------------------------------------ text I/O
 
@@ -231,30 +271,208 @@ class ToolContext(object):
             return text, False
         return text[:MAX_COMMAND_OUTPUT_CHARS], True
 
-    def bundled_toolchain_root(self) -> Optional[str]:
+    def allow_system_tool_fallback(self) -> bool:
+        env_value = os.environ.get("EMBEDAGENT_ALLOW_SYSTEM_TOOL_FALLBACK", "").strip().lower()
+        if env_value in ("1", "true", "yes", "on"):
+            return True
+        if env_value in ("0", "false", "no", "off"):
+            return False
+        configured = getattr(self.app_config, "allow_system_tool_fallback", None)
+        return bool(configured)
+
+    def bundle_root(self) -> Optional[str]:
+        env_root = os.environ.get("EMBEDAGENT_BUNDLE_ROOT", "").strip()
+        if not env_root:
+            return None
+        resolved = os.path.realpath(env_root)
+        if not os.path.isdir(resolved):
+            return None
+        return resolved
+
+    def _llvm_root_candidates(self) -> List[Tuple[str, str]]:
+        candidates = []  # type: List[Tuple[str, str]]
         env_root = os.environ.get("EMBEDAGENT_LLVM_ROOT", "").strip()
-        candidates = []
         if env_root:
-            candidates.append(os.path.realpath(env_root))
-        candidates.append(os.path.join(self.workspace, "toolchains", "llvm", "current"))
-        for candidate in candidates:
-            if os.path.isdir(os.path.join(candidate, "bin")):
-                return candidate
-        return None
+            candidates.append((os.path.realpath(env_root), "bundle" if self.bundle_root() else "workspace"))
+        bundle_root = self.bundle_root()
+        if bundle_root:
+            candidates.append((os.path.join(bundle_root, "bin", "llvm"), "bundle"))
+        candidates.append((os.path.join(self.workspace, "toolchains", "llvm", "current"), "workspace"))
+        candidates.append((os.path.join(self.workspace, "bin", "llvm"), "workspace"))
+        return candidates
+
+    def bundled_toolchain_root(self) -> Optional[str]:
+        root, _ = self.resolve_managed_tool_path("llvm")
+        return root
+
+    def _managed_tool_candidates(self, tool_key: str) -> List[Tuple[str, str]]:
+        bundle_root = self.bundle_root()
+        candidates = []  # type: List[Tuple[str, str]]
+        if tool_key == "llvm":
+            return self._llvm_root_candidates()
+        if tool_key == "python":
+            if bundle_root:
+                candidates.append((os.path.join(bundle_root, "runtime", "python", "python.exe"), "bundle"))
+            candidates.append((os.path.join(self.workspace, "runtime", "python", "python.exe"), "workspace"))
+            return candidates
+        if tool_key == "git":
+            if bundle_root:
+                candidates.append((os.path.join(bundle_root, "bin", "git", "cmd", "git.exe"), "bundle"))
+                candidates.append((os.path.join(bundle_root, "bin", "git", "bin", "git.exe"), "bundle"))
+            candidates.append((os.path.join(self.workspace, "bin", "git", "cmd", "git.exe"), "workspace"))
+            candidates.append((os.path.join(self.workspace, "bin", "git", "bin", "git.exe"), "workspace"))
+            return candidates
+        if tool_key == "rg":
+            if bundle_root:
+                candidates.append((os.path.join(bundle_root, "bin", "rg", "rg.exe"), "bundle"))
+            candidates.append((os.path.join(self.workspace, "bin", "rg", "rg.exe"), "workspace"))
+            return candidates
+        if tool_key == "ctags":
+            if bundle_root:
+                candidates.append((os.path.join(bundle_root, "bin", "ctags", "ctags.exe"), "bundle"))
+            candidates.append((os.path.join(self.workspace, "bin", "ctags", "ctags.exe"), "workspace"))
+            return candidates
+        return candidates
+
+    def resolve_managed_tool_path(self, tool_key: str) -> Tuple[Optional[str], str]:
+        for candidate, source in self._managed_tool_candidates(tool_key):
+            if tool_key == "llvm":
+                if os.path.isdir(os.path.join(candidate, "bin")):
+                    return os.path.realpath(candidate), source
+                continue
+            if os.path.isfile(candidate):
+                return os.path.realpath(candidate), source
+        return None, ""
+
+    def classify_managed_command(self, command_name: str) -> str:
+        normalized = os.path.basename(str(command_name or "")).strip().lower()
+        if normalized in DIRECT_MANAGED_EXECUTABLES:
+            return DIRECT_MANAGED_EXECUTABLES[normalized]
+        if normalized in LLVM_EXECUTABLE_NAMES:
+            return "llvm"
+        return ""
+
+    def resolve_managed_command_executable(self, command_name: str, required: bool = True) -> Tuple[str, str]:
+        tool_key = self.classify_managed_command(command_name)
+        if not tool_key:
+            return command_name, "system"
+        path, source = self.resolve_managed_tool_path(tool_key)
+        if tool_key == "llvm" and path:
+            executable = os.path.join(path, "bin", os.path.basename(command_name))
+            if os.path.isfile(executable):
+                return executable, source
+        elif path:
+            return path, source
+        if self.allow_system_tool_fallback():
+            return command_name, "system"
+        if required:
+            raise ToolError("未找到托管工具：%s。当前环境未允许回退到系统 PATH。" % command_name)
+        return command_name, "system"
+
+    def managed_search_path_entries(self) -> List[str]:
+        entries = []  # type: List[str]
+        seen = set()
+        git_exe, _ = self.resolve_managed_tool_path("git")
+        if git_exe:
+            git_dir = os.path.dirname(git_exe)
+            sibling_bin = os.path.join(os.path.dirname(git_dir), "bin")
+            for candidate in (git_dir, sibling_bin):
+                if candidate and os.path.isdir(candidate):
+                    resolved = os.path.realpath(candidate)
+                    if resolved not in seen:
+                        entries.append(resolved)
+                        seen.add(resolved)
+        for tool_key in ("rg", "ctags", "python"):
+            executable, _ = self.resolve_managed_tool_path(tool_key)
+            if executable:
+                directory = os.path.dirname(executable)
+                if os.path.isdir(directory):
+                    resolved = os.path.realpath(directory)
+                    if resolved not in seen:
+                        entries.append(resolved)
+                        seen.add(resolved)
+        llvm_root, _ = self.resolve_managed_tool_path("llvm")
+        if llvm_root:
+            for candidate in (os.path.join(llvm_root, "bin"), os.path.join(llvm_root, "libexec")):
+                if os.path.isdir(candidate):
+                    resolved = os.path.realpath(candidate)
+                    if resolved not in seen:
+                        entries.append(resolved)
+                        seen.add(resolved)
+        return entries
+
+    def runtime_environment_snapshot(self) -> Dict[str, Any]:
+        resolved_tool_roots = {
+            "bundle_root": "",
+            "python_exe": "",
+            "git_exe": "",
+            "rg_exe": "",
+            "ctags_exe": "",
+            "llvm_root": "",
+        }
+        tool_sources = {}  # type: Dict[str, str]
+        fallback_warnings = []  # type: List[str]
+        for tool_key in MANAGED_RUNTIME_TOOL_KEYS:
+            path, source = self.resolve_managed_tool_path(tool_key)
+            if path:
+                tool_sources[tool_key] = source
+                if tool_key == "python":
+                    resolved_tool_roots["python_exe"] = self.display_path(path)
+                elif tool_key == "git":
+                    resolved_tool_roots["git_exe"] = self.display_path(path)
+                elif tool_key == "rg":
+                    resolved_tool_roots["rg_exe"] = self.display_path(path)
+                elif tool_key == "ctags":
+                    resolved_tool_roots["ctags_exe"] = self.display_path(path)
+                elif tool_key == "llvm":
+                    resolved_tool_roots["llvm_root"] = self.display_path(path)
+            elif self.bundle_root():
+                fallback_warnings.append("Bundle 未包含必需工具：%s" % tool_key)
+            elif not self.allow_system_tool_fallback():
+                fallback_warnings.append("未找到托管工具：%s，且未启用系统回退。" % tool_key)
+        bundle_root = self.bundle_root()
+        if bundle_root:
+            resolved_tool_roots["bundle_root"] = self.display_path(bundle_root)
+            runtime_source = "bundle"
+        elif any(source == "workspace" for source in tool_sources.values()):
+            runtime_source = "workspace"
+        elif self.allow_system_tool_fallback():
+            runtime_source = "system"
+        else:
+            runtime_source = "unavailable"
+        bundled_tools_ready = all(tool_sources.get(key) in ("bundle", "workspace") for key in ("git", "rg", "ctags", "llvm"))
+        return {
+            "runtime_source": runtime_source,
+            "bundled_tools_ready": bundled_tools_ready,
+            "fallback_warnings": fallback_warnings,
+            "resolved_tool_roots": resolved_tool_roots,
+            "tool_sources": tool_sources,
+            "allow_system_tool_fallback": self.allow_system_tool_fallback(),
+        }
+
+    def rewrite_command_for_managed_tools(self, command_text: str) -> Tuple[str, str, str]:
+        match = re.match(r'^(\s*)(?:"([^"]+)"|([^\s|&;<>]+))', command_text)
+        if not match:
+            return command_text, "", ""
+        leading = match.group(1) or ""
+        token = match.group(2) or match.group(3) or ""
+        tool_key = self.classify_managed_command(token)
+        if not tool_key:
+            return command_text, "", ""
+        executable, source = self.resolve_managed_command_executable(token)
+        rewritten = leading + '"' + executable + '"' + command_text[match.end():]
+        return rewritten, tool_key, source
 
     def build_process_env(self) -> Dict[str, str]:
         env = os.environ.copy()
-        root = self.bundled_toolchain_root()
-        if not root:
-            return env
-        prepend = []
-        for subdir in ("bin", "libexec"):
-            full = os.path.join(root, subdir)
-            if os.path.isdir(full):
-                prepend.append(full)
+        runtime = self.runtime_environment_snapshot()
+        prepend = self.managed_search_path_entries()
         if prepend:
             current_path = env.get("PATH", "")
-            env["EMBEDAGENT_LLVM_ROOT"] = root
+            llvm_root, _ = self.resolve_managed_tool_path("llvm")
+            if llvm_root:
+                env["EMBEDAGENT_LLVM_ROOT"] = llvm_root
+            env["EMBEDAGENT_RUNTIME_SOURCE"] = str(runtime.get("runtime_source") or "")
             env["PATH"] = os.pathsep.join(prepend + ([current_path] if current_path else []))
         return env
 
@@ -322,7 +540,7 @@ class ToolContext(object):
             error = "命令执行超时，已强制终止。"
         elif result["exit_code"] != 0:
             error = "命令退出码为 %s。" % result["exit_code"]
-        toolchain_root = self.bundled_toolchain_root()
+        runtime = self.runtime_environment_snapshot()
         data = {
             "command": command_text,
             "cwd": self.relative_path(cwd),
@@ -333,7 +551,11 @@ class ToolContext(object):
             "stderr_truncated": result["stderr_truncated"],
             "duration_ms": result["duration_ms"],
             "timed_out": result["timed_out"],
-            "toolchain_root": self.relative_path(toolchain_root) if toolchain_root else None,
+            "toolchain_root": runtime.get("resolved_tool_roots", {}).get("llvm_root") or None,
+            "runtime_source": runtime.get("runtime_source") or "",
+            "bundled_tools_ready": bool(runtime.get("bundled_tools_ready")),
+            "fallback_warnings": list(runtime.get("fallback_warnings") or []),
+            "resolved_tool_roots": dict(runtime.get("resolved_tool_roots") or {}),
         }
         return Observation(tool_name=tool_name, success=success, error=error, data=data)
 
@@ -364,10 +586,19 @@ class ToolContext(object):
         cwd = self.resolve_directory(cwd_argument)
         if timeout_sec <= 0:
             raise ToolError("timeout_sec 必须大于 0。")
-        result = self.run_subprocess(command=command_text, cwd=cwd, timeout_sec=timeout_sec, shell=True)
+        resolved_command, managed_tool, _ = self.rewrite_command_for_managed_tools(command_text)
+        result = self.run_subprocess(command=resolved_command, cwd=cwd, timeout_sec=timeout_sec, shell=True)
         if diagnostic:
-            return self.build_diagnostic_observation(tool_name, command_text, cwd, result)
-        return self.build_command_observation(tool_name, command_text, cwd, result)
+            observation = self.build_diagnostic_observation(tool_name, resolved_command, cwd, result)
+        else:
+            observation = self.build_command_observation(tool_name, resolved_command, cwd, result)
+        if isinstance(observation.data, dict):
+            data = dict(observation.data)
+            data["requested_command"] = command_text
+            if managed_tool:
+                data["managed_primary_tool"] = managed_tool
+            observation.data = data
+        return observation
 
     # ----------------------------------------------------------- git helpers
 
@@ -379,6 +610,9 @@ class ToolContext(object):
         return relative
 
     def run_git_command(self, args: List[str]) -> Dict[str, Any]:
+        if args:
+            executable, _ = self.resolve_managed_command_executable(args[0])
+            args = [executable] + list(args[1:])
         return self.run_subprocess(
             command=args,
             cwd=self.workspace,

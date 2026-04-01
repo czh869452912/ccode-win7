@@ -21,6 +21,7 @@ from embedagent.protocol import (
     PermissionContextView,
     PermissionRequest,
     PlanSnapshot,
+    RuntimeEnvironmentSnapshot,
     SessionSnapshot,
     SessionStatus,
     ToolCall,
@@ -57,7 +58,14 @@ class CallbackBridge:
     def emit(self, event_name: str, session_id: str, payload: Dict[str, Any]) -> None:
         """处理来自 Adapter 的事件"""
         if event_name == "assistant_delta":
-            self.frontend.on_stream_delta(payload.get("text", ""))
+            self.frontend.on_stream_delta(
+                payload.get("text", ""),
+                {
+                    "turn_id": payload.get("turn_id", ""),
+                    "step_id": payload.get("step_id", ""),
+                    "step_index": payload.get("step_index", 0),
+                },
+            )
             
         elif event_name == "tool_started":
             arguments = payload.get("arguments", {})
@@ -77,7 +85,12 @@ class CallbackBridge:
             call = ToolCall(
                 tool_name=payload.get("tool_name", ""),
                 arguments=arguments,
-                call_id=str(payload.get("call_id") or str(uuid.uuid4())[:8])
+                call_id=str(payload.get("call_id") or str(uuid.uuid4())[:8]),
+                turn_id=str(payload.get("turn_id") or ""),
+                step_id=str(payload.get("step_id") or ""),
+                step_index=int(payload.get("step_index") or 0),
+                runtime_source=str(payload.get("runtime_source") or ""),
+                resolved_tool_roots=payload.get("resolved_tool_roots", {}) if isinstance(payload.get("resolved_tool_roots"), dict) else {},
             )
             self.frontend.on_tool_start(call)
             
@@ -88,6 +101,11 @@ class CallbackBridge:
                 data=payload.get("data", {}),
                 error=payload.get("error"),
                 call_id=str(payload.get("call_id") or ""),
+                turn_id=str(payload.get("turn_id") or ""),
+                step_id=str(payload.get("step_id") or ""),
+                step_index=int(payload.get("step_index") or 0),
+                runtime_source=str(payload.get("runtime_source") or ""),
+                resolved_tool_roots=payload.get("resolved_tool_roots", {}) if isinstance(payload.get("resolved_tool_roots"), dict) else {},
             )
             self.frontend.on_tool_finish(result)
             # Sync push: notify frontend to refetch related data
@@ -114,7 +132,14 @@ class CallbackBridge:
                 self._notify_status_change(snapshot)
 
         elif event_name == "reasoning_delta":
-            self.frontend.on_reasoning_delta(payload.get("text", ""))
+            self.frontend.on_reasoning_delta(
+                payload.get("text", ""),
+                {
+                    "turn_id": payload.get("turn_id", ""),
+                    "step_id": payload.get("step_id", ""),
+                    "step_index": payload.get("step_index", 0),
+                },
+            )
 
         elif event_name == "thinking_state":
             self.frontend.on_thinking_state_change(
@@ -241,6 +266,16 @@ class CallbackBridge:
             pending_permission=pending_perm,
             pending_input=pending_input,
             last_error=snapshot.get("last_error"),
+            runtime_source=str(snapshot.get("runtime_source") or ""),
+            bundled_tools_ready=bool(snapshot.get("bundled_tools_ready", False)),
+            fallback_warnings=list(snapshot.get("fallback_warnings") or []),
+            runtime_environment=RuntimeEnvironmentSnapshot(
+                runtime_source=str((snapshot.get("runtime_environment") or {}).get("runtime_source") or snapshot.get("runtime_source") or ""),
+                bundled_tools_ready=bool((snapshot.get("runtime_environment") or {}).get("bundled_tools_ready", snapshot.get("bundled_tools_ready", False))),
+                fallback_warnings=list((snapshot.get("runtime_environment") or {}).get("fallback_warnings") or snapshot.get("fallback_warnings") or []),
+                resolved_tool_roots=dict((snapshot.get("runtime_environment") or {}).get("resolved_tool_roots") or {}),
+                tool_sources=dict((snapshot.get("runtime_environment") or {}).get("tool_sources") or {}),
+            ),
         )
         self.frontend.on_session_status_change(snap)
 
@@ -336,7 +371,17 @@ class AgentCoreAdapter(CoreInterface):
             has_pending_input=snapshot.get("has_pending_user_input", snapshot.get("has_pending_input", False)),
             pending_permission=pending_perm,
             pending_input=pending_input,
-            last_error=snapshot.get("last_error")
+            last_error=snapshot.get("last_error"),
+            runtime_source=str(snapshot.get("runtime_source") or ""),
+            bundled_tools_ready=bool(snapshot.get("bundled_tools_ready", False)),
+            fallback_warnings=list(snapshot.get("fallback_warnings") or []),
+            runtime_environment=RuntimeEnvironmentSnapshot(
+                runtime_source=str((snapshot.get("runtime_environment") or {}).get("runtime_source") or snapshot.get("runtime_source") or ""),
+                bundled_tools_ready=bool((snapshot.get("runtime_environment") or {}).get("bundled_tools_ready", snapshot.get("bundled_tools_ready", False))),
+                fallback_warnings=list((snapshot.get("runtime_environment") or {}).get("fallback_warnings") or snapshot.get("fallback_warnings") or []),
+                resolved_tool_roots=dict((snapshot.get("runtime_environment") or {}).get("resolved_tool_roots") or {}),
+                tool_sources=dict((snapshot.get("runtime_environment") or {}).get("tool_sources") or {}),
+            ),
         )
     
     # ============ CoreInterface 实现 ============

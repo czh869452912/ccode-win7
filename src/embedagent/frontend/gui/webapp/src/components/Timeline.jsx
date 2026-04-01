@@ -74,31 +74,71 @@ function ToolBlock({ item }) {
   );
 }
 
-// Split flat timeline into turn groups.
-// A new group starts at every "user" item.
 function groupByTurn(items) {
   const groups = [];
-  let current = null;
+  const turnMap = new Map();
+
+  function getTurn(turnId, fallbackId) {
+    const key = turnId || fallbackId;
+    if (!turnMap.has(key)) {
+      const turn = {
+        turnId: key,
+        userItem: null,
+        steps: [],
+        detachedItems: [],
+        systemItems: [],
+        _stepMap: new Map(),
+      };
+      turnMap.set(key, turn);
+      groups.push(turn);
+    }
+    return turnMap.get(key);
+  }
+
+  function getStep(turn, item) {
+    const key = item.stepId || `step-${turn.steps.length + 1}`;
+    if (!turn._stepMap.has(key)) {
+      const step = {
+        stepId: key,
+        stepIndex: item.stepIndex || turn.steps.length + 1,
+        activityItems: [],
+        assistantItem: null,
+      };
+      turn._stepMap.set(key, step);
+      turn.steps.push(step);
+    }
+    return turn._stepMap.get(key);
+  }
+
   for (const item of items) {
+    const turn = getTurn(item.turnId || "", item.kind === "user" ? item.id : `detached-${item.id}`);
     if (item.kind === "user") {
-      current = { userItem: item, activityItems: [], assistantItem: null, systemItems: [] };
-      groups.push(current);
-    } else if (!current) {
-      // Items before any user message — create an anonymous group.
-      current = { userItem: null, activityItems: [], assistantItem: null, systemItems: [] };
-      groups.push(current);
-      current.activityItems.push(item);
-    } else if (item.kind === "assistant") {
-      // The final assistant bubble for this turn.
-      current.assistantItem = item;
-    } else if (item.kind === "system") {
-      current.systemItems.push(item);
+      turn.userItem = item;
+      continue;
+    }
+    if (item.stepId) {
+      const step = getStep(turn, item);
+      if (item.kind === "assistant") {
+        step.assistantItem = item;
+      } else {
+        step.activityItems.push(item);
+      }
+      continue;
+    }
+    if (item.kind === "system") {
+      turn.systemItems.push(item);
     } else {
-      // reasoning, tool → activity section
-      current.activityItems.push(item);
+      turn.detachedItems.push(item);
     }
   }
-  return groups;
+
+  return groups.map((turn) => ({
+    turnId: turn.turnId,
+    userItem: turn.userItem,
+    steps: turn.steps.sort((a, b) => (a.stepIndex || 0) - (b.stepIndex || 0)),
+    detachedItems: turn.detachedItems,
+    systemItems: turn.systemItems,
+  }));
 }
 
 const Timeline = forwardRef(function Timeline(
@@ -157,23 +197,7 @@ const Timeline = forwardRef(function Timeline(
 export default Timeline;
 
 function TurnGroup({ group, toolCatalog, isLast, thinkingActive, streamingReasoningId, userAnswer, onUserAnswerChange, onSubmitUserInput, onPermissionResponse, lang }) {
-  const { userItem, activityItems, assistantItem, systemItems } = group;
-  const tools = activityItems.filter((i) => i.kind === "tool");
-  const hasRunningTool = tools.some((i) => i.status === "running");
-  const hasErrorTool = tools.some((i) => i.status === "error");
-  const hasActivity = activityItems.length > 0;
-
-  // Summary line for the collapsible activity section.
-  const activitySummary = (() => {
-    if (hasRunningTool) return `⋯ 正在执行…`;
-    const toolCount = tools.length;
-    if (toolCount === 0) return null;
-    const icon = hasErrorTool ? "✗" : "✓";
-    return `${icon} ${toolCount} 次工具调用`;
-  })();
-
-  // The activity section is open when this is the last (active) turn.
-  const activityOpen = isLast;
+  const { userItem, steps, detachedItems, systemItems } = group;
 
   return (
     <div className="turn-group">
@@ -182,66 +206,111 @@ function TurnGroup({ group, toolCatalog, isLast, thinkingActive, streamingReason
           {userItem.content}
         </div>
       )}
-      {hasActivity && (
-        <details className="turn-activity" open={activityOpen}>
-          <summary className="turn-activity-summary">
-            {activitySummary || `${activityItems.length} 次活动`}
-          </summary>
-          <div className="turn-activity-body">
-            {activityItems.map((item) =>
-            item.kind === "mode_switch_proposal" ? (
-              <ModeSwitchCard
-                key={item.id}
-                item={item}
-                onSubmitUserInput={onSubmitUserInput}
-                lang={lang}
-              />
-            ) : item.kind === "user_input" ? (
-              <UserInputCard
-                key={item.id}
-                item={item}
-                userAnswer={userAnswer}
-                onUserAnswerChange={onUserAnswerChange}
-                onSubmitUserInput={onSubmitUserInput}
-                lang={lang}
-              />
-            ) : item.kind === "permission" ? (
-              <PermissionCard
-                key={item.id}
-                item={item}
-                onPermissionResponse={onPermissionResponse}
-                lang={lang}
-              />
-            ) : (
-              <TimelineItem key={item.id} item={item} toolCatalog={toolCatalog} lang={lang} />
-            )
-          )}
-          </div>
-        </details>
-      )}
-      {assistantItem && (
-        <div
-          className={`bubble assistant ${assistantItem.streaming ? "streaming" : ""}`}
-          role="article"
-          aria-busy={assistantItem.streaming || undefined}
-        >
-          <Markdown content={assistantItem.content} />
-          {assistantItem.streaming && (
-            <span className="stream-cursor" aria-hidden="true" />
-          )}
-        </div>
-      )}
+      {detachedItems.map((item) => (
+        <TimelineItem key={item.id} item={item} toolCatalog={toolCatalog} lang={lang} />
+      ))}
+      {steps.map((step, index) => (
+        <StepGroup
+          key={step.stepId || `${group.turnId}-step-${index + 1}`}
+          step={step}
+          stepNumber={step.stepIndex || index + 1}
+          toolCatalog={toolCatalog}
+          isActive={isLast && index === steps.length - 1}
+          thinkingActive={thinkingActive}
+          streamingReasoningId={streamingReasoningId}
+          userAnswer={userAnswer}
+          onUserAnswerChange={onUserAnswerChange}
+          onSubmitUserInput={onSubmitUserInput}
+          onPermissionResponse={onPermissionResponse}
+          lang={lang}
+        />
+      ))}
       {systemItems.map((item) => (
         <div key={item.id} className={`system-card ${item.tone || ""}`} role="alert">
           {item.content}
         </div>
       ))}
-      {isLast && thinkingActive && !streamingReasoningId && (
+      {isLast && thinkingActive && !streamingReasoningId && steps.length === 0 && (
         <div className="thinking-placeholder" aria-live="polite">
           {t("timeline.thinking", lang)}
         </div>
       )}
     </div>
+  );
+}
+
+function StepGroup({ step, stepNumber, toolCatalog, isActive, thinkingActive, streamingReasoningId, userAnswer, onUserAnswerChange, onSubmitUserInput, onPermissionResponse, lang }) {
+  const tools = step.activityItems.filter((item) => item.kind === "tool");
+  const hasRunningTool = tools.some((item) => item.status === "running");
+  const hasErrorTool = tools.some((item) => item.status === "error");
+  const hasActivity = step.activityItems.length > 0;
+  const activitySummary = (() => {
+    if (hasRunningTool) return `Step ${stepNumber} · running…`;
+    const toolCount = tools.length;
+    if (toolCount === 0) return `Step ${stepNumber}`;
+    const icon = hasErrorTool ? "✗" : "✓";
+    return `Step ${stepNumber} · ${icon} ${toolCount} tools`;
+  })();
+
+  return (
+    <section className={`step-group${isActive ? " active" : ""}`} aria-label={`Agent step ${stepNumber}`}>
+      <div className="step-header">
+        <span className="step-label">{t("timeline.stepLabel", lang, { n: stepNumber })}</span>
+        {step.assistantItem?.streaming ? <span className="step-status">streaming</span> : null}
+      </div>
+      {hasActivity ? (
+        <details className="turn-activity" open={isActive}>
+          <summary className="turn-activity-summary">{activitySummary}</summary>
+          <div className="turn-activity-body">
+            {step.activityItems.map((item) =>
+              item.kind === "mode_switch_proposal" ? (
+                <ModeSwitchCard
+                  key={item.id}
+                  item={item}
+                  onSubmitUserInput={onSubmitUserInput}
+                  lang={lang}
+                />
+              ) : item.kind === "user_input" ? (
+                <UserInputCard
+                  key={item.id}
+                  item={item}
+                  userAnswer={userAnswer}
+                  onUserAnswerChange={onUserAnswerChange}
+                  onSubmitUserInput={onSubmitUserInput}
+                  lang={lang}
+                />
+              ) : item.kind === "permission" ? (
+                <PermissionCard
+                  key={item.id}
+                  item={item}
+                  onPermissionResponse={onPermissionResponse}
+                  lang={lang}
+                />
+              ) : (
+                <TimelineItem key={item.id} item={item} toolCatalog={toolCatalog} lang={lang} />
+              )
+            )}
+          </div>
+        </details>
+      ) : null}
+      {step.assistantItem ? (
+        <div
+          className={`bubble assistant ${step.assistantItem.streaming ? "streaming" : ""}`}
+          role="article"
+          aria-busy={step.assistantItem.streaming || undefined}
+        >
+          <Markdown content={step.assistantItem.content} />
+          {step.assistantItem.streaming && (
+            <span className="stream-cursor" aria-hidden="true" />
+          )}
+        </div>
+      ) : null}
+      {isActive && thinkingActive && !streamingReasoningId && !step.assistantItem ? (
+        <div className="thinking-placeholder" aria-live="polite">
+          {t("timeline.thinking", lang)}
+        </div>
+      ) : null}
+    </section>
   );
 }
 
