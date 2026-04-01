@@ -1,372 +1,289 @@
-# EmbedAgent 零依赖打包完整指南
+# EmbedAgent 离线打包操作指南
 
-> 目标：构建完全自包含、零外部依赖、开箱即用的离线 bundle
+> 目标：通过统一控制面构建完全自包含、零外部依赖、可交付的离线 bundle
 > 适用：物理隔离内网环境（无互联网，仅有内网大模型服务）
-> 更新日期：2026-03-31
+> 更新日期：2026-04-02
 
 ---
 
-## 1. 打包流程概览
+## 1. 公共入口
 
+离线打包现在对外统一使用：
+
+```powershell
+pwsh -File scripts/package.ps1 <command>
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│  Step 1: 导出 Python 依赖                                        │
-│  python scripts/export-dependencies.py                          │
-│  └── 生成: build/offline-cache/site-packages-export/            │
-└──────────────────────────────┬──────────────────────────────────┘
-                               │
-┌──────────────────────────────▼──────────────────────────────────┐
-│  Step 2: 准备离线 bundle                                        │
-│  powershell -File scripts/prepare-offline.ps1                   │
-│  └── 生成: build/offline-staging/EmbedAgent/                    │
-└──────────────────────────────┬──────────────────────────────────┘
-                               │
-┌──────────────────────────────▼──────────────────────────────────┐
-│  Step 3: 构建最终 zip                                           │
-│  powershell -File scripts/build-offline-bundle.ps1              │
-│  └── 生成: build/offline-dist/embedagent-win7-x64.zip           │
-└──────────────────────────────┬──────────────────────────────────┘
-                               │
-┌──────────────────────────────▼──────────────────────────────────┐
-│  Step 4: 验证 bundle                                            │
-│  powershell -File scripts/validate-offline-bundle.ps1           │
-│  └── 确保: 零依赖、完整性、可运行                               │
-└─────────────────────────────────────────────────────────────────┘
+
+公开子命令：
+
+```powershell
+pwsh -File scripts/package.ps1 doctor
+pwsh -File scripts/package.ps1 deps
+pwsh -File scripts/package.ps1 assemble -Profile dev
+pwsh -File scripts/package.ps1 verify -BundleRoot build/offline-dist/embedagent-win7-x64
+pwsh -File scripts/package.ps1 release
 ```
+
+操作层面不再推荐直接记忆和串联：
+
+- `scripts/export-dependencies.py`
+- `scripts/prepare-offline.ps1`
+- `scripts/build-offline-bundle.ps1`
+- `scripts/validate-offline-bundle.ps1`
+- `scripts/check-bundle-dependencies.py`
+
+这些脚本仍然存在，但现在属于内部 stage 或兼容入口，不是主要操作界面。
 
 ---
 
-## 2. 详细步骤
+## 2. 命令说明
 
-### 2.1 环境准备
+### `doctor`
 
-确保开发环境已安装：
+检查当前开发机是否具备打包条件，并输出控制面可见的配置/脚本路径状态。
 
 ```powershell
-# Python 3.8（用于运行导出脚本）
-python --version  # 3.8.x
-
-# PowerShell 5.1+（用于打包脚本）
-$PSVersionTable.PSVersion  # 5.1 或更高
-
-# 工作目录
-cd ccode-win7
+pwsh -File scripts/package.ps1 doctor
+pwsh -File scripts/package.ps1 doctor -Json
 ```
 
-### 2.2 导出 Python 依赖
+### `deps`
 
-这是关键步骤，确保**所有**依赖（包括传递依赖）都被包含：
+准备 Python 依赖导出和第三方资产所需的缓存/前置结果。
 
 ```powershell
-# 导出完整依赖（从 uv.lock 读取，自动清理 editable .pth）
-python scripts\export-dependencies.py `
-    --output-dir build\offline-cache\site-packages-export `
-    --python-version 3.8
-
-# 输出：
-# - build/offline-cache/site-packages-export/site-packages/
-# - build/offline-cache/site-packages-export/requirements-pinned.txt
-# - build/offline-cache/site-packages-export/site-packages-manifest.json
+pwsh -File scripts/package.ps1 deps
 ```
 
-> **注意**：脚本优先使用 `uv`（从 `uv.lock` 导出），无 uv 时回退到 `pip freeze`。
-> 脚本会自动删除 `__editable__*.pth`，无需手动清理。
+### `assemble`
 
-**验证导出的依赖**：
+组装 bundle，但默认偏开发态。
 
 ```powershell
-# 检查关键包是否存在
-python scripts\export-dependencies.py `
-    --output-dir build\offline-cache\site-packages-export `
-    --verify-only
+pwsh -File scripts/package.ps1 assemble -Profile dev
 ```
 
-### 2.3 准备离线 Bundle
+适合：
 
-使用导出的 site-packages 和其他资产：
+- 本机快速验证
+- 先看包体结构
+- 不急着出最终 release zip
+
+### `verify`
+
+只验证已有 bundle，不重新构建。
 
 ```powershell
-# 方式 1：使用预下载的资产（推荐）
-powershell -File scripts\prepare-offline.ps1 `
-    -AssetIds python_embedded_x64,mingit_x64,ripgrep_x64,universal_ctags_x64,webview2_fixed_runtime_x64 `
-    -SitePackagesRoot build\offline-cache\site-packages-export\site-packages `
-    -LlvmRoot toolchains\llvm\current
-
-# 方式 2：允许下载资产（首次打包）
-powershell -File scripts\prepare-offline.ps1 `
-    -AssetIds python_embedded_x64,mingit_x64,ripgrep_x64,universal_ctags_x64,webview2_fixed_runtime_x64 `
-    -SitePackagesRoot build\offline-cache\site-packages-export\site-packages `
-    -LlvmRoot toolchains\llvm\current `
-    -AllowDownload
-
-# 输出：build/offline-staging/EmbedAgent/
+pwsh -File scripts/package.ps1 verify -BundleRoot build/offline-dist/embedagent-win7-x64
 ```
 
-注意：
+### `release`
 
-- GUI bundle 现在把 `webview2_fixed_runtime_x64` 视为正式资产，若缺失则 GUI 不再回退到 IE11
-- `prepare-offline.ps1` 在复制 `site-packages` 后会自动清理指向开发工作区的 `__editable__*.pth`
-
-**关键参数说明**：
-
-| 参数 | 说明 |
-|------|------|
-| `-AssetIds` | 要包含的第三方资产 |
-| `-SitePackagesRoot` | 导出的 Python site-packages 目录 |
-| `-LlvmRoot` | LLVM/Clang 工具链位置 |
-| `-AllowDownload` | 允许下载缺失的资产 |
-
-### 2.4 构建最终 Zip
+正式推荐入口。默认走更严格的 release 流程。
 
 ```powershell
-powershell -File scripts\build-offline-bundle.ps1
-
-# 输出：
-# - build/offline-dist/embedagent-win7-x64/
-# - build/offline-dist/embedagent-win7-x64.zip
+pwsh -File scripts/package.ps1 release
+pwsh -File scripts/package.ps1 release -Json
 ```
 
-### 2.5 验证 Bundle
+`release` 会统一完成：
 
-**严格验证（推荐用于正式发布）**：
+1. 依赖准备
+2. bundle 组装
+3. bundle 验证
+4. 报告输出
+5. 最终状态判定
+
+---
+
+## 3. 推荐工作流
+
+### 3.1 日常开发打包
 
 ```powershell
-powershell -File scripts\validate-offline-bundle.ps1 -RequireComplete
+pwsh -File scripts/package.ps1 doctor
+pwsh -File scripts/package.ps1 assemble -Profile dev
+pwsh -File scripts/package.ps1 verify -Profile dev -BundleRoot build/offline-dist/embedagent-win7-x64-dev
 ```
 
-**快速验证（开发调试）**：
+这条路径的目标是：
+
+- 快速出一个本机可验证的 bundle
+- 尽量缩短迭代时间
+- 不宣称 release ready
+
+### 3.2 正式发布打包
 
 ```powershell
-# 检查依赖完整性
-python scripts\check-bundle-dependencies.py build\offline-dist\embedagent-win7-x64-<timestamp>
+pwsh -File scripts/package.ps1 release
+```
 
-# 或运行完整验证
-powershell -File scripts\validate-offline-bundle.ps1
+如果需要给自动化或上层脚本消费：
+
+```powershell
+pwsh -File scripts/package.ps1 release -Json
 ```
 
 ---
 
-## 3. Bundle 内容验证
+## 4. Profile 与最终状态
 
-### 3.1 依赖完整性检查清单
+### `dev`
 
-运行 `scripts/check-bundle-dependencies.py` 会检查：
+面向：
 
-- [x] Python 3.8.10 embeddable x64
-- [x] 完整 site-packages（含传递依赖）
-- [x] MinGit 2.46.2
-- [x] ripgrep 14.1.1
-- [x] Universal Ctags p6.2.20251116.0
-- [x] LLVM/Clang 工具链
-- [x] Launcher 脚本（embedagent.cmd, embedagent-tui.cmd, embedagent-gui.cmd）
-- [x] 配置文件模板
-- [x] 内网部署文档
-- [x] GUI 静态文件
-- [x] Bundle manifest
-- [x] 无 `__editable__*.pth` 指向开发源码树
+- 本机构建
+- 调试 bundle
+- 迭代验证
 
-### 3.2 手动验证步骤
+可能得到的最终状态：
 
-在**干净的 Windows 7 x64** 机器上：
+- `DEV_ONLY`
+- `NOT_READY`
+
+### `release`
+
+面向：
+
+- 正式打包
+- Win7 交付准备
+
+可能得到的最终状态：
+
+- `READY`
+- `NOT_READY`
+
+### 最终状态含义
+
+- `READY`
+  - 当前 bundle 满足 release 门禁
+- `DEV_ONLY`
+  - 当前 bundle 可用于开发验证，但不能视为正式交付物
+- `NOT_READY`
+  - 当前 bundle 未通过必需门禁
+
+---
+
+## 5. 报告输出
+
+控制面会把机器可读报告写到：
+
+```text
+build/offline-reports/latest.json
+build/offline-reports/<timestamp>-<command>.json
+```
+
+报告至少包含：
+
+- `command`
+- `profile`
+- `final_status`
+- `blocking_issues`
+- `warnings`
+- `report_path`
+- 阶段级结果（如已执行）
+
+如果你只想知道这次打包是否可交付，优先看：
+
+- `final_status`
+- `blocking_issues`
+
+---
+
+## 6. 常见操作
+
+### 6.1 检查打包环境
 
 ```powershell
-# 1. 确保没有 Python/Git/LLVM 在 PATH 中
-Get-Command python -ErrorAction SilentlyContinue  # 应返回空
-Get-Command git -ErrorAction SilentlyContinue     # 应返回空
-Get-Command clang -ErrorAction SilentlyContinue   # 应返回空
-
-# 2. 解压 bundle
-Expand-Archive -Path embedagent-win7-x64.zip -DestinationPath C:\Tools
-
-# 3. 验证依赖检查
-python C:\Tools\EmbedAgent\scripts\check-bundle-dependencies.py C:\Tools\EmbedAgent
-
-# 4. 测试 CLI
-C:\Tools\EmbedAgent\embedagent.cmd --help
-
-# 5. 测试工具链版本检测
-C:\Tools\EmbedAgent\embedagent.cmd --version
-
-# 6. 配置内网模型服务
-notepad C:\Users\%USERNAME%\.embedagent\config.json
-
-# 7. 运行实际任务
-C:\Tools\EmbedAgent\embedagent.cmd --workspace D:\Project --model qwen3.5-coder "Hello"
+pwsh -File scripts/package.ps1 doctor -Json
 ```
 
----
-
-## 4. 内网部署配置
-
-### 4.1 配置文件位置
-
-| 位置 | 用途 |
-|------|------|
-| `config/config.json.template` | Bundle 内置模板 |
-| `~/.embedagent/config.json` | 用户级配置（内网部署时修改） |
-| `.embedagent/config.json` | 项目级配置 |
-
-### 4.2 内网模型服务配置示例
-
-编辑 `%USERPROFILE%\.embedagent\config.json`：
-
-```json
-{
-  "base_url": "http://192.168.1.100:8000/v1",
-  "api_key": "sk-internal-key",
-  "model": "qwen3.5-coder",
-  "timeout": 120,
-  "max_context_tokens": 32000,
-  "reserve_output_tokens": 3000,
-  "default_mode": "code"
-}
-```
-
----
-
-## 5. 零依赖验证
-
-### 5.1 验证清单
-
-部署后确认目标机：
-
-- [ ] 无 Python 安装或 Python 未在 PATH
-- [ ] 无 Git 安装
-- [ ] 无 LLVM/Clang 安装
-- [ ] 无 Visual Studio 安装
-- [ ] 无 Node.js 安装
-- [ ] 无互联网连接
-- [ ] Bundle 可独立运行
-- [ ] 可连接内网大模型服务
-
-### 5.2 自动化验证脚本
+### 6.2 做一次 dev 组装
 
 ```powershell
-# 在目标机上运行
-C:\Tools\EmbedAgent\embedagent.cmd --self-test
+pwsh -File scripts/package.ps1 assemble -Profile dev
 ```
 
-预期输出：
-```
-✓ Python runtime: OK
-✓ Site packages: OK (XX packages)
-✓ Git: OK (bundled)
-✓ ripgrep: OK (bundled)
-✓ ctags: OK (bundled)
-✓ Clang: OK (bundled)
-✓ LLM connection: OK (192.168.1.100:8000)
-All systems operational.
-```
-
----
-
-## 6. 故障排除
-
-### 6.1 打包阶段
-
-**问题**：`export-dependencies.py` 下载失败
-
-**解决**：
-```powershell
-# 手动下载 wheel 并放入缓存
-python -m pip download -d build/offline-cache/wheels <package-name>
-```
-
-**问题**：site-packages 大小过大
-
-**解决**：
-```powershell
-# 移除开发/测试依赖
-python scripts/export-dependencies.py --exclude-dev
-```
-
-### 6.2 部署阶段
-
-**问题**：启动时提示缺少 DLL
-
-**解决**：安装 Visual C++ Redistributable（可随 bundle 分发 `vcredist_x64.exe`）
-
-**问题**：GUI 启动失败
-
-**解决**：
-- 当前 GUI 正式基线要求 bundle 内包含 Fixed Version WebView2 109
-- 若 `embedagent-gui.cmd` 报缺少 WebView2 runtime，请修复 bundle 或改用 TUI 模式
-- 检查 `embedagent-gui.cmd` 是否正确设置了 `PYTHONPATH` 与 `PYTHONNOUSERSITE=1`
-- 运行 `python scripts\check-bundle-dependencies.py build\offline-dist\embedagent-win7-x64`，确认 bundle 内没有 `__editable__*.pth`
-
-**问题**：无法连接内网模型服务
-
-**解决**：
-1. 确认内网服务地址可达：`ping 192.168.1.100`
-2. 确认端口开放：`telnet 192.168.1.100 8000`
-3. 检查 config.json 格式是否正确
-
----
-
-## 7. Bundle 大小优化
-
-### 7.1 当前大小估算
-
-| 组件 | 大小 |
-|------|------|
-| Python 3.8 embeddable | ~15 MB |
-| Python site-packages | ~30-50 MB |
-| MinGit | ~40 MB |
-| ripgrep | ~5 MB |
-| ctags | ~2 MB |
-| LLVM/Clang | ~200-300 MB |
-| EmbedAgent 代码 | ~1 MB |
-| **总计** | **~300-450 MB** |
-
-### 7.2 优化建议
-
-1. **精简 Clang**：只包含必要的工具（clang, clang-tidy, llvm-cov）
-2. **分离 GUI/TUI**：提供 CLI-only 版本（减少 ~20MB）
-3. **压缩**：zip 压缩后通常可减少 30-40%
-
----
-
-## 8. 完整构建命令
-
-一键构建脚本：
+### 6.3 对已有 bundle 复验
 
 ```powershell
-# build-offline.ps1
-param(
-    [string]$OutputName = "embedagent-win7-x64-$(Get-Date -Format 'yyyyMMddHHmm')"
-)
+pwsh -File scripts/package.ps1 verify -BundleRoot build/offline-dist/embedagent-win7-x64
+```
 
-$ErrorActionPreference = 'Stop'
+### 6.4 输出一份 release 结果给自动化消费
 
-Write-Host "=== EmbedAgent Offline Bundle Build ===" -ForegroundColor Green
-
-# Step 1: Export dependencies
-Write-Host "`n[1/4] Exporting Python dependencies..." -ForegroundColor Yellow
-python scripts\export-dependencies.py `
-    --output-dir build\offline-cache\site-packages-export `
-    --python-version 3.8
-
-# Step 2: Prepare bundle
-Write-Host "`n[2/4] Preparing offline bundle..." -ForegroundColor Yellow
-powershell -File scripts\prepare-offline.ps1 `
-    -AssetIds python_embedded_x64,mingit_x64,ripgrep_x64,universal_ctags_x64,webview2_fixed_runtime_x64 `
-    -SitePackagesRoot build\offline-cache\site-packages-export\site-packages `
-    -LlvmRoot toolchains\llvm\current `
-    -AllowDownload
-
-# Step 3: Build zip
-Write-Host "`n[3/4] Building distribution zip..." -ForegroundColor Yellow
-powershell -File scripts\build-offline-bundle.ps1
-
-# Step 4: Validate
-Write-Host "`n[4/4] Validating bundle..." -ForegroundColor Yellow
-$bundleDir = Get-ChildItem build\offline-dist -Directory | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-python scripts\check-bundle-dependencies.py $bundleDir.FullName
-
-Write-Host "`n=== Build Complete ===" -ForegroundColor Green
-Write-Host "Output: build\offline-dist\$OutputName.zip"
+```powershell
+pwsh -File scripts/package.ps1 release -Json > build/offline-reports/release-console.json
 ```
 
 ---
 
-**确保零外部依赖，开箱即用！**
+## 7. 内网部署简表
+
+在外网/构建机：
+
+```powershell
+pwsh -File scripts/package.ps1 release
+```
+
+在内网目标机：
+
+1. 解压 zip
+2. 按 [docs/win7-preflight-checklist.md](D:/Claude-project/ccode-win7/.worktrees/codex-package-control-plane-redesign/docs/win7-preflight-checklist.md) 检查环境
+3. 按 [docs/intranet-deployment.md](D:/Claude-project/ccode-win7/.worktrees/codex-package-control-plane-redesign/docs/intranet-deployment.md) 配置内网模型服务
+4. 用 bundle 内 launcher 启动 CLI/TUI/GUI
+
+---
+
+## 8. 故障排查
+
+### `doctor` 就失败
+
+通常说明：
+
+- `scripts/package.config.json` 路径不对
+- 资产 manifest 路径不对
+- 某个内部 stage 脚本缺失
+
+优先看：
+
+```powershell
+pwsh -File scripts/package.ps1 doctor -Json
+```
+
+### `release` 返回 `NOT_READY`
+
+优先看：
+
+- `build/offline-reports/latest.json`
+- 其中的 `blocking_issues`
+
+### 想知道底层到底调用了哪些 stage
+
+控制面当前仍会复用内部 stage 脚本，因此可以在报告里看到阶段级摘要和路径；但日常操作不需要直接调用它们。
+
+---
+
+## 9. 内部 Stage 说明
+
+以下脚本仍然保留，用于控制面内部复用或兼容：
+
+- `scripts/export-dependencies.py`
+- `scripts/prepare-offline.ps1`
+- `scripts/build-offline-bundle.ps1`
+- `scripts/validate-offline-bundle.ps1`
+- `scripts/check-bundle-dependencies.py`
+
+除非你在维护控制面本身，否则不建议把它们当作主要操作入口。
+
+---
+
+## 10. 一句话口径
+
+离线打包的公共操作方式现在是：
+
+```powershell
+pwsh -File scripts/package.ps1 release
+```
+
+如果不是在调试控制面本身，就从这条命令开始。

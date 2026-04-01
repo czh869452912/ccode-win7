@@ -37,7 +37,7 @@
 | ripgrep | `integrated` | 已通过 `scripts/offline-assets.json` 接入官方 Windows x64 zip，并进入 prepare/build/validate 流水线 |
 | Universal Ctags | `integrated` | 已通过 `scripts/offline-assets.json` 接入官方 x64 zip，并进入 prepare/build/validate 流水线 |
 | 前端依赖 | `ready` | `prompt_toolkit` / `rich` 已在开发环境验证 |
-| bundle 构建脚本 | `in_progress` | `prepare/build/validate` 三段脚本已落地，且 Python / MinGit / rg / ctags 四类核心资产已完成真实接入；当前缺口转为 site-packages 精简与 Win7 实机收口 |
+| bundle 构建脚本 | `in_progress` | `package.ps1` 控制面已接上 `doctor/deps/assemble/verify/release`，`prepare/build/validate` 与依赖检查脚本继续作为内部 stage；当前缺口转为 site-packages 精简与 Win7 实机收口 |
 | Win7 前置检查脚本 | `in_progress` | `scripts/validate-offline-bundle.ps1` 已能校验真实 Python / MinGit / rg / ctags / sources seed，仍待补最终 Win7 实机结果 |
 
 当前代码面已经明确会在运行时直接或间接依赖：
@@ -237,15 +237,24 @@ portable bundle 自带的 `config/` 主要用于：
 
 | 脚本 | 作用 |
 |------|------|
+| `scripts/package.ps1` | 公共控制面；对外统一提供 `doctor` / `deps` / `assemble` / `verify` / `release` |
 | `scripts/prepare-offline.ps1` | 已落地；生成 `build/offline-staging/EmbedAgent/`、launcher、模板配置、`bundle-manifest.json` 与 `checksums.txt`，并可按参数复制可选资产 |
 | `scripts/build-offline-bundle.ps1` | 已落地；把 staging bundle 复制到 `build/offline-dist/<artifact>/`，重写 dist 上下文 manifest，重算 checksum，并生成 zip |
 | `scripts/validate-offline-bundle.ps1` | 已落地；可校验 bundle 根目录、manifest、checksum、关键文件存在性，并支持 `-RequireComplete` 切换到严格门禁 |
 
 当前边界：
 
+- `package.ps1` 现在是对人类操作者和自动化脚本的推荐入口，统一负责 profile、阶段编排、最终状态和报告输出。
 - `prepare-offline.ps1` 已支持 `-SkipBuild`，可在资产尚未收齐时先生成稳定的 staging 布局和组件状态清单。
 - `build-offline-bundle.ps1` 已支持直接消费现有 staging，输出 `offline-dist` 目录和 zip。
 - `validate-offline-bundle.ps1` 默认允许 skeleton bundle 以告警形式通过；当前在 Python / MinGit / rg / ctags 已接入后，`-RequireComplete` 已可通过本轮 slice 的正式验收。
+
+当前建议的人类操作路径：
+
+```powershell
+pwsh -File scripts/package.ps1 doctor
+pwsh -File scripts/package.ps1 release
+```
 
 ### 7.2 建议工作目录
 

@@ -1,6 +1,6 @@
 # EmbedAgent 开发进度跟踪
 
-> 更新日期：2026-04-01（DC-042 修订）
+> 更新日期：2026-04-02（Packaging control plane 修订）
 > 用途：持续跟踪当前阶段、下一步任务、里程碑进度、风险与阻塞
 
 ---
@@ -28,7 +28,7 @@
 
 - 当前阶段：`Phase 4 真实工程验证 + Phase 6 GUI / Win7 收口`
 - 总体状态：`进行中`
-- 当前重点：`Phase 4 默认 recipe/真实工程/Win7 验证，Phase 6 step-based timeline / Runtime inspector / GUI 新壳层与 Win7 Chromium 基线收口，Phase 7 继续推进 site-packages 精简与 Win7 bundle 验收`
+- 当前重点：`Phase 4 默认 recipe/真实工程/Win7 验证，Phase 6 step-based timeline / Runtime inspector / GUI 新壳层与 Win7 Chromium 基线收口，Phase 7 继续推进 package.ps1 控制面后的 site-packages 精简与 Win7 bundle 验收`
 
 ### 当前判断
 
@@ -91,8 +91,9 @@
 - GUI 已新增独立 review inspector；后端已暴露 tool catalog API，前端开始用 Core 的工具目录为旧 timeline / fallback 展示补足 label 与 renderer
 - 已补 workflow/filtering 回归测试：`test_tools_package.py` 现在覆盖 `schemas_for(mode, workflow)` 过滤与 tool metadata 注入，GUI webapp `run-tests.mjs` 现在覆盖 review command / permission context 状态回归
 - 已完成 dist/source GUI 布局重新对齐：重建后的离线 bundle 已携带 `static/assets`、Fixed Version WebView2 109、无 `__editable__.embedagent-*.pth` 泄漏，且 bundle 级 `validate-offline-bundle.ps1`、`validate-gui-smoke.py`、`check-bundle-dependencies.py` 全部通过
+- Phase 7 打包链路已开始切换到声明式控制面：`scripts/package.config.json`、`scripts/package-lib.ps1` 与 `scripts/package.ps1` 已落地；当前 `doctor/deps/assemble/verify/release` 已可通过 mocked orchestration contract 运行，并统一写入 `build/offline-reports/`
 
-项目下一步：继续推进 Phase 4 真实工程验证，在 Win7 bundle 中验证 Fixed Version WebView2 109 路径，并把 Phase 7 的 site-packages 精简和 Win7 bundle 验收接上。
+项目下一步：继续推进 Phase 4 真实工程验证，在 Win7 bundle 中验证 Fixed Version WebView2 109 路径，并把 Phase 7 的 site-packages 精简、真实 release pipeline 验收和 Win7 bundle 验收接上。
 
 ---
 
@@ -102,7 +103,7 @@
 
 1. 推进 Phase 4 的真实 C 工程与 Win7 验证
 2. 在 Win7 bundle 中完成 GUI Chromium 基线实机验证并记录结果
-3. 为当前 bundle 评估并收敛 `site-packages` 的精简导出方案
+3. 为当前 `package.ps1 release` 路径评估并收敛 `site-packages` 的精简导出方案
 
 实现备注：
 
@@ -113,7 +114,7 @@
 - Phase 4 已具备项目内闭环工具链，但默认 recipe、真实 C 工程和 Win7 验证仍需补齐。
 - Phase 5 脚本验证已重新跑通，当前已从“实现完成”推进到“脚本复验通过”。
 - Phase 6 自动化验证已通过，当前缺口已收敛到 Win7 Chromium 路径与真实交互体验。
-- Phase 7 现已完成设计基线、ADR、`prepare/build/validate` 三段脚本骨架，以及 Python / MinGit / rg / ctags 的真实资产接入；下一步应转向 site-packages 精简与完整 bundle 验收。
+- Phase 7 现已完成设计基线、ADR、`prepare/build/validate` 三段脚本骨架，以及 Python / MinGit / rg / ctags 的真实资产接入；公共控制面 `package.ps1` 已接上，下一步应转向 site-packages 精简与完整 bundle 验收。
 
 ### P1：紧随其后
 
@@ -155,6 +156,7 @@
 | T-023 | 零依赖打包：依赖完整性验证 | `completed` | 已新增 `scripts/check-bundle-dependencies.py`，验证 bundle 包含所有必需依赖 |
 | T-024 | 零依赖打包：内网部署文档 | `completed` | 已新增 `docs/intranet-deployment.md` 和 `docs/offline-packaging-guide.md`，提供完整内网部署指南 |
 | T-025 | 零依赖打包：内网配置模板 | `completed` | 已新增 `config/config.json.template`，预配置内网大模型服务示例 |
+| T-027 | Phase 7 打包控制面收口 | `in_progress` | `scripts/package.ps1`、`scripts/package.config.json`、`scripts/package-lib.ps1` 与 `tests/test_packaging_control_plane.py` 已打通 `doctor/deps/assemble/verify/release` mocked orchestration；下一步是完成文档迁移并在真实 bundle 路径上验收 |
 
 ---
 
@@ -169,7 +171,7 @@
 | Phase 4 | Clang 工具链 | `in_progress` | 已有项目内闭环工具链，待真实工程与 Win7 验证 |
 | Phase 5 | 质量保障层 | `completed` | 权限、上下文、记忆、恢复与 cleanup 已落地；修复根目录文件写入边界后，专项验证脚本已复验通过 |
 | Phase 6 | CLI / TUI / GUI | `in_progress` | InProcessAdapter 已扩展 workspace / timeline / artifact / todo 前端接口；终端前端已拆为 `frontend/tui` 子模块；GUI 已切换到 React/Vite webapp + PyWebView 宿主，当前环境 smoke 已覆盖 tool / permission / ask_user / todo 隔离；待 Win7 Chromium 实机验证与 diff/编辑闭环细化 |
-| Phase 7 | 打包与离线交付 | `in_progress` | 设计基线、ADR、`prepare/build/validate` 三段脚本骨架已完成；Python/MinGit/rg/ctags 真实资产接入已完成；GUI 依赖与 bundle-local smoke 已进入交付物，`validate-offline-bundle -RequireComplete`、`check-bundle-dependencies.py` 与 bundle 级 windowed GUI smoke 已通过；待 Win7 bundle 实机验收 |
+| Phase 7 | 打包与离线交付 | `in_progress` | 设计基线、ADR、`prepare/build/validate` 三段脚本骨架已完成；Python/MinGit/rg/ctags 真实资产接入已完成；`package.ps1` 控制面已接上 mocked orchestration；GUI 依赖与 bundle-local smoke 已进入交付物，`validate-offline-bundle -RequireComplete`、`check-bundle-dependencies.py` 与 bundle 级 windowed GUI smoke 已通过；待真实 release pipeline 与 Win7 bundle 实机验收 |
 
 ---
 

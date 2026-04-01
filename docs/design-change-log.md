@@ -44,6 +44,34 @@
 
 ## 3. 当前变更记录
 
+### DC-043
+
+- 日期：2026-04-02
+- 变更主题：离线打包切换到 `package.ps1` 控制面
+- 变更摘要：
+  - 新增 `scripts/package.config.json`、`scripts/package-lib.ps1` 与 `scripts/package.ps1`，把离线打包的公共入口收敛为 `doctor` / `deps` / `assemble` / `verify` / `release`
+  - 现有 `export-dependencies.py`、`prepare-offline.ps1`、`build-offline-bundle.ps1`、`validate-offline-bundle.ps1` 与 `check-bundle-dependencies.py` 继续保留，但转为控制面内部 stage 或兼容入口
+  - `tests/test_packaging_control_plane.py` 已覆盖 foundation、stage JSON 报告、doctor 契约以及 mocked orchestration；`tests/fixtures/package/` 提供最小 mock stage 夹具
+  - `build/offline-reports/` 现在成为控制面统一的阶段报告与最终报告目录，`release -Json` 可直接输出机器可读状态
+  - 对外文档开始全面改口：用户和维护者默认不再串联旧多脚本流程，而是从 `pwsh -File scripts/package.ps1 release` 开始
+- 影响范围：
+  - Phase 7 打包控制面
+  - 脚本职责分层
+  - operator-facing 文档与部署流程
+  - 后续真实 bundle 验收口径
+- 关联文档：
+  - `docs/offline-packaging-guide.md`
+  - `docs/offline-packaging.md`
+  - `docs/intranet-deployment.md`
+  - `docs/development-tracker.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/adrs/0004-packaging-control-plane-redesign.md`
+- 是否需要 ADR：`是`
+- 后续动作：
+  - 在真实 bundle 路径上验证 `package.ps1 release`
+  - 继续收紧 `site-packages` 导出策略
+  - 在 Win7 实机上补控制面主路径验收
+
 ### DC-042
 
 - 日期：2026-04-01

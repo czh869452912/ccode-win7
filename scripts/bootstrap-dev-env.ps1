@@ -584,10 +584,11 @@ if ($errors.Count -gt 0) {
         Write-Host "[bootstrap]   LLVM root       : $LlvmTargetRoot"
     }
     Write-Host ''
-    Write-Host '[bootstrap] Next step — package the offline bundle:'
-    Write-Host '[bootstrap]   .\scripts\prepare-offline.ps1 `'
-    Write-Host '[bootstrap]     -AllowDownload `'
-    Write-Host '[bootstrap]     -AssetIds "python_embedded_x64,mingit_x64,ripgrep_x64,universal_ctags_x64,webview2_fixed_runtime_x64"'
+    Write-Host '[bootstrap] Next step — package the offline bundle via the control plane:'
+    Write-Host '[bootstrap]   .\scripts\package.ps1 doctor'
+    Write-Host '[bootstrap]   .\scripts\package.ps1 release'
+    Write-Host '[bootstrap] For fast local iteration use:'
+    Write-Host '[bootstrap]   .\scripts\package.ps1 assemble -Profile dev'
 }
 Write-Host '[bootstrap] ================================================'
 Write-Host ''

@@ -1,6 +1,6 @@
 # EmbedAgent 实施路线与文档维护方案
 
-> 更新日期：2026-04-01（Agent step timeline / managed runtime slice）
+> 更新日期：2026-04-02（Packaging control plane slice）
 > 适用阶段：架构收敛后进入实现前
 
 ---
@@ -41,7 +41,7 @@
 | Phase 4 | `in_progress` | 本地闭环 LLVM/Clang 工具链已具备，recipe-aware build/test 入口已起步，待真实 C 工程与 Win7 验证 |
 | Phase 5 | `completed` | 权限、上下文、记忆、恢复和 cleanup 已落地，`validate-phase5.py` 已复验通过 |
 | Phase 6 | `in_progress` | 自动化验证已通过；unified input / slash command / workflow 第一版、step-based timeline 与 Runtime inspector 已落地，待真实控制台 / Win7 / ConEmu 手工验证 |
-| Phase 7 | `in_progress` | 离线打包设计文档、ADR、`prepare/build/validate` 三段脚本，以及 Python/MinGit/rg/ctags 真实资产接入已完成；当前运行时已补托管环境元数据，待继续收口 bundle / Win7 验收 |
+| Phase 7 | `in_progress` | 离线打包设计文档、ADR、`prepare/build/validate` 三段脚本，以及 Python/MinGit/rg/ctags 真实资产接入已完成；`package.ps1` 控制面已接上 `doctor/deps/assemble/verify/release` mocked orchestration，待继续收口真实 bundle / Win7 验收 |
 
 ---
 
@@ -319,6 +319,7 @@ conda activate embedagent-py38
 - `scripts/build-offline-bundle.ps1` 已建立，可把 staging bundle 复制到 `offline-dist` 并生成 zip
 - `scripts/validate-offline-bundle.ps1` 已建立，可校验 skeleton bundle，并支持 `-RequireComplete` 严格门禁
 - `scripts/offline-assets.json` 已建立，并完成 Python embeddable / MinGit / ripgrep / Universal Ctags 真实资产接入
+- `scripts/package.ps1` / `scripts/package-lib.ps1` / `scripts/package.config.json` 已建立，并已通过 mocked orchestration 测试打通控制面
 
 ---
 
@@ -379,12 +380,12 @@ conda activate embedagent-py38
 
 建议接下来按这个顺序推进：
 
-1. 为 Phase 4 选定真实 C 工程样例，并固化默认 `compile / test / tidy / coverage` recipe
-2. 在 Win7 与真实控制台宿主中完成 Phase 4 / Phase 6 手工验证
-3. 收敛 LLVM/Clang bundle 的版本组合与调用路径
-4. 评估 `.venv\Lib\site-packages` 直拷是否需要替换成更精简的运行时导出方案
-5. 在 Win7 虚拟机上对当前 bundle 做一次真实验收
-6. 评估 `memory browse / inspect` 是否作为 Phase 6 收口的必要项
+1. 完成 `package.ps1 release` 在真实 bundle 路径上的验收，而不只是 mocked orchestration
+2. 为 Phase 4 选定真实 C 工程样例，并固化默认 `compile / test / tidy / coverage` recipe
+3. 在 Win7 与真实控制台宿主中完成 Phase 4 / Phase 6 手工验证
+4. 收敛 LLVM/Clang bundle 的版本组合与调用路径
+5. 评估 `.venv\Lib\site-packages` 直拷是否需要替换成更精简的运行时导出方案
+6. 在 Win7 虚拟机上对当前 bundle 做一次真实验收
 
 ---
 
