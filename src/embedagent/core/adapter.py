@@ -86,7 +86,15 @@ class CallbackBridge:
                 call_id=str(payload.get("call_id") or ""),
             )
             self.frontend.on_tool_finish(result)
-            
+            # Sync push: notify frontend to refetch related data
+            _TODOS_TOOLS = {"manage_todos"}
+            _ARTIFACT_TOOLS = {"write_file", "edit_file"}
+            tool_name = payload.get("tool_name", "")
+            if tool_name in _TODOS_TOOLS and hasattr(self.frontend, "on_todos_refresh"):
+                self.frontend.on_todos_refresh()
+            if tool_name in _ARTIFACT_TOOLS and hasattr(self.frontend, "on_artifacts_refresh"):
+                self.frontend.on_artifacts_refresh()
+
         elif event_name == "session_error":
             snapshot = payload.get("session_snapshot", {})
             if isinstance(snapshot, dict) and snapshot.get("session_id"):

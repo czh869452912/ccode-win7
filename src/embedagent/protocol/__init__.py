@@ -229,6 +229,14 @@ class FrontendCallbacks(Protocol):
         """计划更新"""
         ...
 
+    def on_todos_refresh(self) -> None:
+        """Notify frontend to refetch todos list."""
+        ...
+
+    def on_artifacts_refresh(self) -> None:
+        """Notify frontend to refetch artifacts list."""
+        ...
+
 
 class CoreInterface(ABC):
     """Core 接口抽象 - Frontend 调用 Core"""
