@@ -339,6 +339,10 @@ function App() {
         `tool done: ${data.call_id || "?"}`,
         data.success ? "success" : `error: ${data.error || ""}`,
       );
+      const FS_TOOLS = ["write_file", "edit_file", "git_commit", "git_reset"];
+      if (FS_TOOLS.includes(data.tool_name || "")) {
+        loadFileChildren(".");
+      }
       return;
     }
     if (type === "permission_request") {
@@ -450,6 +454,14 @@ function App() {
       loadSessions();
       if (state.currentSessionId) loadTodos(state.currentSessionId);
       logEvent("session_finished", "");
+      return;
+    }
+    if (type === "todos_refresh") {
+      if (state.currentSessionId) loadTodos(state.currentSessionId);
+      return;
+    }
+    if (type === "artifacts_refresh") {
+      loadArtifacts();
       return;
     }
     if (type === "message" && data.type === "ERROR") {
