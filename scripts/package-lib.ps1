@@ -126,3 +126,83 @@ function Get-PackageExitCode {
         default { return 2 }
     }
 }
+
+function New-PackageContext {
+    param(
+        [string]$ProjectRoot,
+        [object]$Config,
+        [string]$ConfigPath,
+        [string]$Command,
+        [string]$RequestedProfile,
+        [string]$BundleRoot,
+        [string]$OutputRoot,
+        [string]$ArtifactName,
+        [bool]$AllowDownload,
+        [bool]$NoZip,
+        [bool]$Strict
+    )
+
+    $effectiveProfile = if ($RequestedProfile) {
+        $RequestedProfile
+    }
+    elseif ($Command -eq 'release') {
+        'release'
+    }
+    else {
+        [string]$Config.default_profile
+    }
+
+    $profileConfig = $Config.profiles.$effectiveProfile
+    if (-not $profileConfig) {
+        throw "Unknown packaging profile: $effectiveProfile"
+    }
+
+    return [ordered]@{
+        project_root = $ProjectRoot
+        config_path = $ConfigPath
+        config = $Config
+        command = $Command
+        profile = $effectiveProfile
+        profile_config = $profileConfig
+        bundle_root = $BundleRoot
+        output_root = $OutputRoot
+        artifact_name = $(if ($ArtifactName) { $ArtifactName } else { [string]$profileConfig.artifact_name })
+        allow_download = $AllowDownload -or [bool]$profileConfig.allow_download
+        no_zip = $NoZip
+        strict = $Strict
+    }
+}
+
+function Invoke-PackageDoctor {
+    param(
+        [hashtable]$Context
+    )
+
+    $report = New-PackageReport -Command 'doctor' -Profile $Context.profile
+    $doctorChecks = @()
+
+    $assetManifestPath = Resolve-ConfigPath -ProjectRoot $Context.project_root -Path ([string]$Context.config.paths.asset_manifest)
+    $toolingRootChecks = @(
+        (Resolve-ConfigPath -ProjectRoot $Context.project_root -Path ([string]$Context.config.tooling.export_dependencies))
+        (Resolve-ConfigPath -ProjectRoot $Context.project_root -Path ([string]$Context.config.tooling.prepare_bundle))
+        (Resolve-ConfigPath -ProjectRoot $Context.project_root -Path ([string]$Context.config.tooling.build_bundle))
+        (Resolve-ConfigPath -ProjectRoot $Context.project_root -Path ([string]$Context.config.tooling.validate_bundle))
+        (Resolve-ConfigPath -ProjectRoot $Context.project_root -Path ([string]$Context.config.tooling.check_dependencies))
+    )
+
+    $doctorChecks += [ordered]@{ name = 'config'; ok = (Test-Path -LiteralPath $Context.config_path); path = $Context.config_path }
+    $doctorChecks += [ordered]@{ name = 'asset_manifest'; ok = (Test-Path -LiteralPath $assetManifestPath); path = $assetManifestPath }
+    foreach ($toolPath in $toolingRootChecks) {
+        $doctorChecks += [ordered]@{ name = ('tool:' + [System.IO.Path]::GetFileName($toolPath)); ok = (Test-Path -LiteralPath $toolPath); path = $toolPath }
+    }
+
+    foreach ($check in $doctorChecks) {
+        if (-not $check.ok) {
+            $report.blocking_issues += ('Missing required path: ' + $check.path)
+        }
+    }
+
+    $report.doctor_checks = $doctorChecks
+    Complete-PackageReport -Report ([ref]$report)
+    return $report
+}

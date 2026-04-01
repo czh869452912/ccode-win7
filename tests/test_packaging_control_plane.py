@@ -13,6 +13,7 @@ CONFIG = ROOT / "scripts" / "package.config.json"
 EXPORT_SCRIPT = ROOT / "scripts" / "export-dependencies.py"
 CHECK_SCRIPT = ROOT / "scripts" / "check-bundle-dependencies.py"
 VALIDATE_SCRIPT = ROOT / "scripts" / "validate-offline-bundle.ps1"
+PACKAGE_SCRIPT = ROOT / "scripts" / "package.ps1"
 
 
 def _powershell_exe():
@@ -212,6 +213,44 @@ class TestStageJsonReports(unittest.TestCase):
             self.assertEqual(payload["mode"], "export")
             self.assertEqual(payload["output_dir"], str(temp_root / "out"))
             self.assertIn("error", payload)
+
+
+class TestPackageDoctor(unittest.TestCase):
+    def test_package_doctor_emits_json_summary(self):
+        result = subprocess.run(
+            [
+                _powershell_exe(),
+                "-NoProfile",
+                "-File",
+                str(PACKAGE_SCRIPT),
+                "doctor",
+                "-Json",
+            ],
+            cwd=str(ROOT),
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["command"], "doctor")
+        self.assertIn("doctor_checks", payload)
+
+    def test_package_doctor_fails_for_missing_config(self):
+        result = subprocess.run(
+            [
+                _powershell_exe(),
+                "-NoProfile",
+                "-File",
+                str(PACKAGE_SCRIPT),
+                "doctor",
+                "-Config",
+                "scripts/does-not-exist.json",
+            ],
+            cwd=str(ROOT),
+            capture_output=True,
+            text=True,
+        )
+        self.assertNotEqual(result.returncode, 0)
 
 
 if __name__ == "__main__":
