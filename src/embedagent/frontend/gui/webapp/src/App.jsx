@@ -666,6 +666,7 @@ function App() {
             onSend={sendMessage}
             onStop={cancelSession}
             isRunning={currentStatus === "running" || currentStatus === "waiting_user_input"}
+            currentMode={currentMode}
             commandHints={SLASH_COMMAND_HINTS}
           />
         </main>
