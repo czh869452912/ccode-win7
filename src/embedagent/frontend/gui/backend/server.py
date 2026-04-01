@@ -252,6 +252,12 @@ class WebSocketFrontend(FrontendCallbacks):
             }
         })
 
+    def on_todos_refresh(self) -> None:
+        self._dispatch_message({"type": "todos_refresh"})
+
+    def on_artifacts_refresh(self) -> None:
+        self._dispatch_message({"type": "artifacts_refresh"})
+
     def on_turn_event(self, event_name: str, payload: dict) -> None:
         self._dispatch_message({"type": event_name, "data": payload})
 

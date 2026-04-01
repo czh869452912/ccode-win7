@@ -6,6 +6,74 @@ import { useLang } from "../LangContext.js";
 import { t } from "../strings.js";
 import DiffView from "./DiffView.jsx";
 
+function ToolBlock({ item }) {
+  const status = item.status || "running"; // "running" | "success" | "error"
+  const [userToggled, setUserToggled] = React.useState(false);
+  const [expanded, setExpanded] = React.useState(item.status === "error");
+
+  React.useEffect(() => {
+    if (status === "error" && !userToggled) setExpanded(true);
+  }, [status, userToggled]);
+
+  // Build display args string from item.arguments
+  const argsStr = React.useMemo(() => {
+    const args = item.arguments || {};
+    const skip = new Set(["_tool_label","_permission_category","_supports_diff_preview",
+                          "_progress_renderer_key","_result_renderer_key"]);
+    const vals = Object.entries(args)
+      .filter(([k]) => !skip.has(k))
+      .map(([, v]) => (typeof v === "string" ? v : JSON.stringify(v)));
+    return vals.join("  ").slice(0, 80);
+  }, [item.arguments]);
+
+  const metaStr = React.useMemo(() => {
+    if (status === "running") return "running...";
+    if (status === "success") {
+      const ms = item.executionTimeMs;
+      const summary = item.resultSummary || "";
+      return [summary, ms != null ? `${ms}ms` : ""].filter(Boolean).join(" · ").slice(0, 60) || "done";
+    }
+    // error
+    const ms = item.executionTimeMs;
+    return `error${ms != null ? ` · ${ms}ms` : ""}`;
+  }, [status, item.executionTimeMs, item.resultSummary]);
+
+  const MAX_OUTPUT = 4000;
+  const rawOutput = item.error ||
+    (item.data != null
+      ? (typeof item.data === "string"
+          ? item.data
+          : JSON.stringify(item.data, null, 2))
+      : null);
+  const outputText = rawOutput && rawOutput.length > MAX_OUTPUT
+    ? rawOutput.slice(0, MAX_OUTPUT) + "\n…[truncated]"
+    : rawOutput;
+  const hasOutput = Boolean(outputText);
+
+  return (
+    <div>
+      <div
+        className={`tool-block ${status}`}
+        onClick={() => hasOutput && (setUserToggled(true), setExpanded((v) => !v))}
+        title={item.toolName}
+      >
+        <span className={`tool-dot ${status}`} />
+        <span className={`tool-name ${status}`}>{item.label || item.toolName}</span>
+        {argsStr && <span className="tool-args">{argsStr}</span>}
+        <span className="tool-meta">{metaStr}</span>
+        {status === "error" && hasOutput && (
+          <span className="tool-expand">{expanded ? "▾" : "▸"}</span>
+        )}
+      </div>
+      {expanded && hasOutput && (
+        <div className="tool-output">
+          {outputText}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Split flat timeline into turn groups.
 // A new group starts at every "user" item.
 function groupByTurn(items) {
@@ -158,6 +226,9 @@ function TurnGroup({ group, toolCatalog, isLast, thinkingActive, streamingReason
           aria-busy={assistantItem.streaming || undefined}
         >
           <Markdown content={assistantItem.content} />
+          {assistantItem.streaming && (
+            <span className="stream-cursor" aria-hidden="true" />
+          )}
         </div>
       )}
       {systemItems.map((item) => (
@@ -219,91 +290,13 @@ function TimelineItem({ item, toolCatalog, lang }) {
     );
   }
   if (item.kind === "tool") {
-    const status = item.status || "running";
-    const catalogEntry = toolCatalog?.[item.toolName] || null;
-    const label = item.label || catalogEntry?.user_label || toolLabel(item.toolName, item.arguments);
-    const rendererKey = item.resultRendererKey || catalogEntry?.result_renderer_key || item.progressRendererKey || catalogEntry?.progress_renderer_key || "default";
-    const hasData = status !== "running" && item.data && Object.keys(item.data).length > 0;
-    const hasArgs = item.arguments && Object.keys(item.arguments).length > 0;
-    const hasDiff = typeof item.data?.diff === "string" && item.data.diff.length > 0;
-    const summary = toolRendererSummary(item, lang);
-    return (
-      <div className={`tool-card ${status} renderer-${rendererKey}`} role="article" aria-label={label}>
-        <div className="tool-header">
-          <span className={`tool-status-icon ${status}`} aria-hidden="true">
-            {STATUS_ICON[status] || "⋯"}
-          </span>
-          <span className="tool-title">{label}</span>
-          {rendererKey && rendererKey !== "default" ? (
-            <span className="tool-renderer-badge">{rendererKey}</span>
-          ) : null}
-          <span className="tool-name-badge" aria-label={`Tool: ${item.toolName}`}>
-            {item.toolName}
-          </span>
-        </div>
-        {summary ? <div className="tool-summary">{summary}</div> : null}
-        {item.error ? <div className="tool-error" role="alert">{item.error}</div> : null}
-        {hasDiff ? (
-          <DiffView diff={item.data.diff} title={t("timeline.diffChanges", lang)} />
-        ) : null}
-        {(hasArgs || (hasData && !hasDiff)) ? (
-          <details className="tool-details">
-            <summary>{t("timeline.toolDetails", lang)}</summary>
-            {hasArgs ? <pre>{JSON.stringify(item.arguments, null, 2)}</pre> : null}
-            {hasData && !hasDiff ? <pre>{JSON.stringify(item.data, null, 2)}</pre> : null}
-          </details>
-        ) : null}
-      </div>
-    );
+    return <ToolBlock item={item} />;
   }
   return (
     <div className={`system-card ${item.tone || ""}`} role="alert">
       {item.content}
     </div>
   );
-}
-
-function toolRendererSummary(item, lang) {
-  const key = item.resultRendererKey || item.progressRendererKey || "default";
-  const data = item.data || {};
-  if (item.status === "running") {
-    if (key === "toolchain") return t("timeline.runningToolchain", lang);
-    if (key === "command") return t("timeline.runningCommand", lang);
-    if (key === "git") return t("timeline.runningGit", lang);
-    return "";
-  }
-  if (key === "toolchain") {
-    const exitCode = data.exit_code;
-    const diagnostics = data.diagnostic_count;
-    const tests = data.test_summary?.failed;
-    if (typeof tests === "number") {
-      return t("timeline.toolchainTests", lang, { n: tests });
-    }
-    if (typeof diagnostics === "number") {
-      return t("timeline.toolchainDiagnostics", lang, { n: diagnostics });
-    }
-    if (typeof exitCode === "number") {
-      return t("timeline.commandExitCode", lang, { n: exitCode });
-    }
-  }
-  if (key === "git") {
-    if (typeof data.file_count === "number") {
-      return t("timeline.gitFilesChanged", lang, { n: data.file_count });
-    }
-    if (Array.isArray(data.entries)) {
-      return t("timeline.gitEntries", lang, { n: data.entries.length });
-    }
-  }
-  if (key === "quality" && Array.isArray(data.reasons)) {
-    return data.passed ? t("timeline.qualityPassed", lang) : t("timeline.qualityFailed", lang, { n: data.reasons.length });
-  }
-  if (key === "todos" && typeof data.count === "number") {
-    return t("timeline.todoCount", lang, { n: data.count });
-  }
-  if (key === "command" && typeof data.exit_code === "number") {
-    return t("timeline.commandExitCode", lang, { n: data.exit_code });
-  }
-  return "";
 }
 
 function ReviewResultCard({ item, lang }) {

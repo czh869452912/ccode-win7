@@ -3,6 +3,71 @@ import { useLang } from "../LangContext.js";
 import { t } from "../strings.js";
 import DiffView from "./DiffView.jsx";
 
+const PRIMARY_TABS = ["todos", "plan", "artifacts"];
+const OVERFLOW_TABS = ["review", "permissions", "preview", "log"];
+
+function InspectorTabs({ active, onChange, todosCount, artifactsCount }) {
+  const lang = useLang();
+  const [overflowOpen, setOverflowOpen] = React.useState(false);
+  const overflowRef = React.useRef(null);
+
+  // Close overflow menu when clicking outside
+  React.useEffect(() => {
+    if (!overflowOpen) return;
+    function onDoc(e) {
+      if (overflowRef.current && !overflowRef.current.contains(e.target)) {
+        setOverflowOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [overflowOpen]);
+
+  const badges = { todos: todosCount, artifacts: artifactsCount };
+
+  return (
+    <div className="inspector-tabs" role="tablist">
+      {PRIMARY_TABS.map((id) => (
+        <button
+          key={id}
+          role="tab"
+          aria-selected={active === id}
+          className={`insp-tab${active === id ? " active" : ""}`}
+          onClick={() => onChange(id)}
+        >
+          {t(`inspector.${id}`, lang)}
+          {badges[id] > 0 && <span className="tab-badge">{badges[id]}</span>}
+        </button>
+      ))}
+      <div ref={overflowRef} style={{ marginLeft: "auto", position: "relative" }}>
+        <button
+          className="more-tab-btn"
+          onClick={() => setOverflowOpen((v) => !v)}
+          aria-label="More tabs"
+        >
+          {OVERFLOW_TABS.includes(active)
+            ? t(`inspector.${active}`, lang) + " ···"
+            : "···"}
+        </button>
+        {overflowOpen && (
+          <div className="tab-overflow-menu" role="menu">
+            {OVERFLOW_TABS.map((id) => (
+              <button
+                key={id}
+                role="menuitem"
+                className="overflow-menu-item"
+                onClick={() => { onChange(id); setOverflowOpen(false); }}
+              >
+                {t(`inspector.${id}`, lang)}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function Inspector({
   inspectorTab,
   todos,
@@ -24,27 +89,12 @@ export default function Inspector({
 
   return (
     <aside className="inspector" role="complementary" aria-label="Inspector">
-      <div className="inspector-tabs" role="tablist">
-        {[
-          ["todos", t("inspector.todos", lang)],
-          ["artifacts", t("inspector.artifacts", lang)],
-          ["plan", t("inspector.plan", lang)],
-          ["review", t("inspector.review", lang)],
-          ["permissions", t("inspector.permissions", lang)],
-          ["preview", t("inspector.preview", lang)],
-          ["log", t("inspector.log", lang)],
-        ].map(([id, label]) => (
-          <button
-            key={id}
-            role="tab"
-            aria-selected={inspectorTab === id}
-            className={inspectorTab === id ? "active" : ""}
-            onClick={() => onTabChange(id)}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+      <InspectorTabs
+        active={inspectorTab}
+        onChange={onTabChange}
+        todosCount={todos.length}
+        artifactsCount={artifacts.length}
+      />
       <div className="inspector-body">
         {inspectorTab === "todos" && <TodoPanel todos={todos} lang={lang} />}
         {inspectorTab === "artifacts" && (
