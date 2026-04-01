@@ -58,7 +58,7 @@ cd ccode-win7
 这是关键步骤，确保**所有**依赖（包括传递依赖）都被包含：
 
 ```powershell
-# 导出完整依赖（包括传递依赖）
+# 导出完整依赖（从 uv.lock 读取，自动清理 editable .pth）
 python scripts\export-dependencies.py `
     --output-dir build\offline-cache\site-packages-export `
     --python-version 3.8
@@ -68,6 +68,9 @@ python scripts\export-dependencies.py `
 # - build/offline-cache/site-packages-export/requirements-pinned.txt
 # - build/offline-cache/site-packages-export/site-packages-manifest.json
 ```
+
+> **注意**：脚本优先使用 `uv`（从 `uv.lock` 导出），无 uv 时回退到 `pip freeze`。
+> 脚本会自动删除 `__editable__*.pth`，无需手动清理。
 
 **验证导出的依赖**：
 
