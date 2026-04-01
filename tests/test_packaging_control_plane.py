@@ -312,7 +312,17 @@ class TestPackageOrchestration(unittest.TestCase):
         )
         self.assertNotEqual(result.returncode, 0)
         payload = json.loads(result.stdout)
+        self.assertEqual(payload["command"], "verify")
+        self.assertEqual(payload["command_status"], "completed")
         self.assertEqual(payload["final_status"], "NOT_READY")
+        self.assertTrue(payload["report_path"])
+        self.assertTrue(Path(payload["report_path"]).exists())
+        self.assertTrue(payload["stages"])
+        verify_stage = payload["stages"][-1]
+        self.assertEqual(verify_stage["name"], "verify")
+        self.assertEqual(verify_stage["status"], "fail")
+        self.assertEqual(verify_stage["summary"]["reason"], "bundle_root_missing")
+        self.assertTrue(payload["blocking_issues"])
 
     def test_package_release_with_mock_stages_returns_ready(self):
         result = subprocess.run(
@@ -333,8 +343,20 @@ class TestPackageOrchestration(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         payload = json.loads(result.stdout)
         self.assertEqual(payload["command"], "release")
+        self.assertEqual(payload["command_status"], "completed")
         self.assertEqual(payload["final_status"], "READY")
         self.assertTrue(payload["report_path"])
+        report_path = Path(payload["report_path"])
+        self.assertTrue(report_path.exists())
+        latest_path = report_path.parent / "latest.json"
+        self.assertTrue(latest_path.exists())
+        stage_names = [stage["name"] for stage in payload["stages"]]
+        self.assertEqual(stage_names, ["deps", "prepare", "build", "verify"])
+        stage_statuses = [stage["status"] for stage in payload["stages"]]
+        self.assertEqual(stage_statuses, ["pass", "pass", "pass", "pass"])
+        verify_summary = payload["stages"][-1]["summary"]
+        self.assertTrue(verify_summary["validate_report"])
+        self.assertTrue(verify_summary["dependency_report"])
 
 
 if __name__ == "__main__":

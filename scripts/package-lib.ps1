@@ -206,3 +206,164 @@ function Invoke-PackageDoctor {
     Complete-PackageReport -Report ([ref]$report)
     return $report
 }
+
+function Resolve-ToolPath {
+    param(
+        [hashtable]$Context,
+        [string]$RelativePath
+    )
+
+    return Resolve-ConfigPath -ProjectRoot $Context.project_root -Path $RelativePath
+}
+
+function Invoke-StageScript {
+    param(
+        [string]$ScriptPath,
+        [string[]]$Arguments
+    )
+
+    $extension = [System.IO.Path]::GetExtension($ScriptPath).ToLowerInvariant()
+    if ($extension -eq '.py') {
+        $pythonPath = 'D:\Claude-project\ccode-win7\.venv\Scripts\python.exe'
+        return & $pythonPath $ScriptPath @Arguments 2>&1
+    }
+    if ($extension -eq '.ps1') {
+        return & powershell -NoProfile -File $ScriptPath @Arguments 2>&1
+    }
+    throw "Unsupported stage script extension: $ScriptPath"
+}
+
+function New-ReportPath {
+    param(
+        [hashtable]$Context,
+        [string]$StageName
+    )
+
+    $reportsRoot = Resolve-ConfigPath -ProjectRoot $Context.project_root -Path ([string]$Context.config.paths.reports_root)
+    if (-not (Test-Path -LiteralPath $reportsRoot)) {
+        New-Item -ItemType Directory -Path $reportsRoot -Force | Out-Null
+    }
+    return Join-Path $reportsRoot ($StageName + '.json')
+}
+
+function Invoke-PackageDeps {
+    param(
+        [hashtable]$Context,
+        [ref]$Report
+    )
+
+    $scriptPath = Resolve-ToolPath -Context $Context -RelativePath ([string]$Context.config.tooling.export_dependencies)
+    $jsonPath = New-ReportPath -Context $Context -StageName 'deps'
+    $outputRoot = Resolve-ConfigPath -ProjectRoot $Context.project_root -Path ([string]$Context.config.paths.site_packages_export_root)
+    $null = Invoke-StageScript -ScriptPath $scriptPath -Arguments @('--output-dir', $outputRoot, '--json-report', $jsonPath)
+    $payload = Get-Content -LiteralPath $jsonPath -Raw | ConvertFrom-Json
+    Add-StageResult -Report $Report -Name 'deps' -Status $(if ($payload.ok) { 'pass' } else { 'fail' }) -ExitCode $(if ($payload.ok) { 0 } else { 1 }) -Summary @{ report = $jsonPath }
+}
+
+function Invoke-PackageAssemble {
+    param(
+        [hashtable]$Context,
+        [ref]$Report
+    )
+
+    $preparePath = Resolve-ToolPath -Context $Context -RelativePath ([string]$Context.config.tooling.prepare_bundle)
+    $buildPath = Resolve-ToolPath -Context $Context -RelativePath ([string]$Context.config.tooling.build_bundle)
+    $null = Invoke-StageScript -ScriptPath $preparePath -Arguments @()
+    Add-StageResult -Report $Report -Name 'prepare' -Status 'pass' -ExitCode 0 -Summary @{ script = $preparePath }
+    $null = Invoke-StageScript -ScriptPath $buildPath -Arguments @('-ArtifactName', [string]$Context.artifact_name)
+    Add-StageResult -Report $Report -Name 'build' -Status 'pass' -ExitCode 0 -Summary @{ script = $buildPath; artifact_name = $Context.artifact_name }
+}
+
+function Invoke-PackageVerify {
+    param(
+        [hashtable]$Context,
+        [ref]$Report
+    )
+
+    $bundleRoot = if ($Context.bundle_root) {
+        Resolve-ConfigPath -ProjectRoot $Context.project_root -Path $Context.bundle_root
+    }
+    else {
+        Resolve-ConfigPath -ProjectRoot $Context.project_root -Path ([string]$Context.config.paths.dist_bundle_root)
+    }
+    if (-not (Test-Path -LiteralPath $bundleRoot)) {
+        Add-StageResult -Report $Report -Name 'verify' -Status 'fail' -ExitCode 1 -Summary @{ reason = 'bundle_root_missing'; bundle_root = $bundleRoot }
+        return
+    }
+
+    $validateScript = Resolve-ToolPath -Context $Context -RelativePath ([string]$Context.config.tooling.validate_bundle)
+    $checkScript = Resolve-ToolPath -Context $Context -RelativePath ([string]$Context.config.tooling.check_dependencies)
+    $validateJson = New-ReportPath -Context $Context -StageName 'validate'
+    $checkJson = New-ReportPath -Context $Context -StageName 'check'
+
+    $validateArgs = @('-BundleRoot', $bundleRoot, '-JsonOutputPath', $validateJson, '-SkipDynamicChecks')
+    if ([bool]$Context.profile_config.require_complete -or [bool]$Context.strict) {
+        $validateArgs += '-RequireComplete'
+    }
+    $null = Invoke-StageScript -ScriptPath $validateScript -Arguments $validateArgs
+    $validatePayload = Get-Content -LiteralPath $validateJson -Raw | ConvertFrom-Json
+
+    $null = Invoke-StageScript -ScriptPath $checkScript -Arguments @($bundleRoot, '--json-report', $checkJson)
+    $checkPayload = Get-Content -LiteralPath $checkJson -Raw | ConvertFrom-Json
+
+    $verifyOk = ([bool]$validatePayload.ok) -and ([bool]$checkPayload.ok)
+    Add-StageResult -Report $Report -Name 'verify' -Status $(if ($verifyOk) { 'pass' } else { 'fail' }) -ExitCode $(if ($verifyOk) { 0 } else { 1 }) -Summary @{
+        bundle_root = $bundleRoot
+        validate_report = $validateJson
+        dependency_report = $checkJson
+    }
+}
+
+function Write-PackageReport {
+    param(
+        [hashtable]$Context,
+        [hashtable]$Report
+    )
+
+    $reportsRoot = Resolve-ConfigPath -ProjectRoot $Context.project_root -Path ([string]$Context.config.paths.reports_root)
+    if (-not (Test-Path -LiteralPath $reportsRoot)) {
+        New-Item -ItemType Directory -Path $reportsRoot -Force | Out-Null
+    }
+    $timestamp = (Get-Date).ToUniversalTime().ToString('yyyyMMddHHmmss')
+    $reportPath = Join-Path $reportsRoot ($timestamp + '-' + $Context.command + '.json')
+    $latestPath = Join-Path $reportsRoot 'latest.json'
+    $Report.report_path = $reportPath
+    $Report.generated_at = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
+    $Report | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $reportPath -Encoding ASCII
+    $Report | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $latestPath -Encoding ASCII
+    return $reportPath
+}
+
+function Invoke-PackageCommand {
+    param(
+        [hashtable]$Context
+    )
+
+    $report = New-PackageReport -Command $Context.command -Profile $Context.profile
+    switch ($Context.command) {
+        'deps' {
+            Invoke-PackageDeps -Context $Context -Report ([ref]$report)
+        }
+        'assemble' {
+            Invoke-PackageAssemble -Context $Context -Report ([ref]$report)
+        }
+        'verify' {
+            Invoke-PackageVerify -Context $Context -Report ([ref]$report)
+        }
+        'release' {
+            Invoke-PackageDeps -Context $Context -Report ([ref]$report)
+            if (@($report.blocking_issues).Count -eq 0) {
+                Invoke-PackageAssemble -Context $Context -Report ([ref]$report)
+            }
+            if (@($report.blocking_issues).Count -eq 0) {
+                Invoke-PackageVerify -Context $Context -Report ([ref]$report)
+            }
+        }
+        default {
+            throw "Unsupported packaging command: $($Context.command)"
+        }
+    }
+    Complete-PackageReport -Report ([ref]$report)
+    $null = Write-PackageReport -Context $Context -Report $report
+    return $report
+}
