@@ -32,6 +32,10 @@ from embedagent.protocol import (
 # 延迟导入现有实现，避免循环依赖
 _inprocess_adapter = None
 
+# Tool sets for sync-push refresh notifications
+_TODOS_TOOLS: frozenset = frozenset({"manage_todos"})
+_ARTIFACT_TOOLS: frozenset = frozenset({"write_file", "edit_file"})
+
 def _get_adapter_class():
     global _inprocess_adapter
     if _inprocess_adapter is None:
@@ -87,8 +91,6 @@ class CallbackBridge:
             )
             self.frontend.on_tool_finish(result)
             # Sync push: notify frontend to refetch related data
-            _TODOS_TOOLS = {"manage_todos"}
-            _ARTIFACT_TOOLS = {"write_file", "edit_file"}
             tool_name = payload.get("tool_name", "")
             if tool_name in _TODOS_TOOLS and hasattr(self.frontend, "on_todos_refresh"):
                 self.frontend.on_todos_refresh()
