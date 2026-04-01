@@ -175,7 +175,7 @@ function New-PackageContext {
 
 function Invoke-PackageDoctor {
     param(
-        [hashtable]$Context
+        [System.Collections.IDictionary]$Context
     )
 
     $report = New-PackageReport -Command 'doctor' -Profile $Context.profile
@@ -209,7 +209,7 @@ function Invoke-PackageDoctor {
 
 function Resolve-ToolPath {
     param(
-        [hashtable]$Context,
+        [System.Collections.IDictionary]$Context,
         [string]$RelativePath
     )
 
@@ -235,7 +235,7 @@ function Invoke-StageScript {
 
 function New-ReportPath {
     param(
-        [hashtable]$Context,
+        [System.Collections.IDictionary]$Context,
         [string]$StageName
     )
 
@@ -248,7 +248,7 @@ function New-ReportPath {
 
 function Invoke-PackageDeps {
     param(
-        [hashtable]$Context,
+        [System.Collections.IDictionary]$Context,
         [ref]$Report
     )
 
@@ -262,7 +262,7 @@ function Invoke-PackageDeps {
 
 function Invoke-PackageAssemble {
     param(
-        [hashtable]$Context,
+        [System.Collections.IDictionary]$Context,
         [ref]$Report
     )
 
@@ -276,7 +276,7 @@ function Invoke-PackageAssemble {
 
 function Invoke-PackageVerify {
     param(
-        [hashtable]$Context,
+        [System.Collections.IDictionary]$Context,
         [ref]$Report
     )
 
@@ -316,8 +316,8 @@ function Invoke-PackageVerify {
 
 function Write-PackageReport {
     param(
-        [hashtable]$Context,
-        [hashtable]$Report
+        [System.Collections.IDictionary]$Context,
+        [System.Collections.IDictionary]$Report
     )
 
     $reportsRoot = Resolve-ConfigPath -ProjectRoot $Context.project_root -Path ([string]$Context.config.paths.reports_root)
@@ -329,14 +329,16 @@ function Write-PackageReport {
     $latestPath = Join-Path $reportsRoot 'latest.json'
     $Report.report_path = $reportPath
     $Report.generated_at = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
-    $Report | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $reportPath -Encoding ASCII
-    $Report | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $latestPath -Encoding ASCII
+    $json = $Report | ConvertTo-Json -Depth 10
+    $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+    [System.IO.File]::WriteAllText($reportPath, $json, $utf8NoBom)
+    [System.IO.File]::WriteAllText($latestPath, $json, $utf8NoBom)
     return $reportPath
 }
 
 function Invoke-PackageCommand {
     param(
-        [hashtable]$Context
+        [System.Collections.IDictionary]$Context
     )
 
     $report = New-PackageReport -Command $Context.command -Profile $Context.profile

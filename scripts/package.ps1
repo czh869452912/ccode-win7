@@ -25,10 +25,6 @@ $ErrorActionPreference = 'Stop'
 $report = $null
 
 try {
-    if ($Command -ne 'doctor') {
-        throw "Not implemented yet: $Command"
-    }
-
     $projectRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
     $configPath = Resolve-ConfigPath -ProjectRoot $projectRoot -Path $Config
     $configObject = Read-PackageConfig -Path $configPath
@@ -45,7 +41,14 @@ try {
         -NoZip ([bool]$NoZip) `
         -Strict ([bool]$Strict)
 
-    $report = Invoke-PackageDoctor -Context $context
+    switch ($Command) {
+        'doctor' { $report = Invoke-PackageDoctor -Context $context }
+        'deps' { $report = Invoke-PackageCommand -Context $context }
+        'assemble' { $report = Invoke-PackageCommand -Context $context }
+        'verify' { $report = Invoke-PackageCommand -Context $context }
+        'release' { $report = Invoke-PackageCommand -Context $context }
+        default { throw "Unsupported command: $Command" }
+    }
 }
 catch {
     $errorMessage = $_.Exception.Message

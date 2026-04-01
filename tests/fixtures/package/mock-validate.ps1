@@ -1,7 +1,9 @@
 [CmdletBinding()]
 param(
     [string]$BundleRoot = '',
-    [string]$JsonOutputPath = ''
+    [string]$JsonOutputPath = '',
+    [switch]$SkipDynamicChecks,
+    [switch]$RequireComplete
 )
 
 $payload = [ordered]@{

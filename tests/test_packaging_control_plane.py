@@ -267,7 +267,7 @@ class TestPackageDoctor(unittest.TestCase):
         self.assertTrue(payload["blocking_issues"])
         self.assertIn("Package config not found", payload["blocking_issues"][0])
 
-    def test_package_non_doctor_command_fails_before_config_load(self):
+    def test_package_non_doctor_command_reports_missing_config(self):
         result = subprocess.run(
             [
                 _powershell_exe(),
@@ -289,8 +289,7 @@ class TestPackageDoctor(unittest.TestCase):
         self.assertEqual(payload["command_status"], "NOT_READY")
         self.assertIsNone(payload["final_status"])
         self.assertTrue(payload["blocking_issues"])
-        self.assertIn("Not implemented yet: deps", payload["blocking_issues"][0])
-        self.assertNotIn("Package config not found", payload["blocking_issues"][0])
+        self.assertIn("Package config not found", payload["blocking_issues"][0])
 
 
 class TestPackageOrchestration(unittest.TestCase):
