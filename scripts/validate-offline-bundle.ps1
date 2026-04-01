@@ -40,7 +40,9 @@ function Write-JsonReport {
     if ($parent -and (-not (Test-Path -LiteralPath $parent))) {
         New-Item -ItemType Directory -Path $parent -Force | Out-Null
     }
-    $Payload | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $Path -Encoding ASCII
+    $jsonText = $Payload | ConvertTo-Json -Depth 8
+    $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+    [System.IO.File]::WriteAllText($Path, $jsonText, $utf8NoBom)
 }
 
 function Invoke-ComponentResult {
