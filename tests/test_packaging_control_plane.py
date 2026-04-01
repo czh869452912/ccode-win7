@@ -233,7 +233,14 @@ class TestPackageDoctor(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         payload = json.loads(result.stdout)
         self.assertEqual(payload["command"], "doctor")
+        self.assertEqual(payload["command_status"], "READY")
+        self.assertIsNone(payload["final_status"])
         self.assertIn("doctor_checks", payload)
+        self.assertTrue(payload["doctor_checks"])
+        config_checks = [check for check in payload["doctor_checks"] if check.get("name") == "config"]
+        self.assertEqual(len(config_checks), 1)
+        self.assertTrue(config_checks[0]["ok"])
+        self.assertIn("package.config.json", config_checks[0]["path"])
 
     def test_package_doctor_fails_for_missing_config(self):
         result = subprocess.run(
@@ -245,12 +252,44 @@ class TestPackageDoctor(unittest.TestCase):
                 "doctor",
                 "-Config",
                 "scripts/does-not-exist.json",
+                "-Json",
             ],
             cwd=str(ROOT),
             capture_output=True,
             text=True,
         )
         self.assertNotEqual(result.returncode, 0)
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["command"], "doctor")
+        self.assertEqual(payload["command_status"], "NOT_READY")
+        self.assertIsNone(payload["final_status"])
+        self.assertTrue(payload["blocking_issues"])
+        self.assertIn("Package config not found", payload["blocking_issues"][0])
+
+    def test_package_non_doctor_command_fails_before_config_load(self):
+        result = subprocess.run(
+            [
+                _powershell_exe(),
+                "-NoProfile",
+                "-File",
+                str(PACKAGE_SCRIPT),
+                "deps",
+                "-Config",
+                "scripts/does-not-exist.json",
+                "-Json",
+            ],
+            cwd=str(ROOT),
+            capture_output=True,
+            text=True,
+        )
+        self.assertNotEqual(result.returncode, 0)
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["command"], "deps")
+        self.assertEqual(payload["command_status"], "NOT_READY")
+        self.assertIsNone(payload["final_status"])
+        self.assertTrue(payload["blocking_issues"])
+        self.assertIn("Not implemented yet: deps", payload["blocking_issues"][0])
+        self.assertNotIn("Package config not found", payload["blocking_issues"][0])
 
 
 if __name__ == "__main__":
