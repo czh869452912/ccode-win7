@@ -7,8 +7,13 @@ import { t } from "../strings.js";
 import DiffView from "./DiffView.jsx";
 
 function ToolBlock({ item }) {
-  const [expanded, setExpanded] = React.useState(item.status === "error");
   const status = item.status || "running"; // "running" | "success" | "error"
+  const [userToggled, setUserToggled] = React.useState(false);
+  const [expanded, setExpanded] = React.useState(item.status === "error");
+
+  React.useEffect(() => {
+    if (status === "error" && !userToggled) setExpanded(true);
+  }, [status, userToggled]);
 
   // Build display args string from item.arguments
   const argsStr = React.useMemo(() => {
@@ -31,19 +36,25 @@ function ToolBlock({ item }) {
     // error
     const ms = item.executionTimeMs;
     return `error${ms != null ? ` · ${ms}ms` : ""}`;
-  }, [status, item]);
+  }, [status, item.executionTimeMs, item.resultSummary]);
 
-  // item.data may be an object; serialize it for display if it's not a string
-  const outputText = item.error || (item.data != null
-    ? (typeof item.data === "string" ? item.data : JSON.stringify(item.data, null, 2))
-    : null);
+  const MAX_OUTPUT = 4000;
+  const rawOutput = item.error ||
+    (item.data != null
+      ? (typeof item.data === "string"
+          ? item.data
+          : JSON.stringify(item.data, null, 2))
+      : null);
+  const outputText = rawOutput && rawOutput.length > MAX_OUTPUT
+    ? rawOutput.slice(0, MAX_OUTPUT) + "\n…[truncated]"
+    : rawOutput;
   const hasOutput = Boolean(outputText);
 
   return (
     <div>
       <div
         className={`tool-block ${status}`}
-        onClick={() => hasOutput && setExpanded((v) => !v)}
+        onClick={() => hasOutput && (setUserToggled(true), setExpanded((v) => !v))}
         title={item.toolName}
       >
         <span className={`tool-dot ${status}`} />
@@ -286,49 +297,6 @@ function TimelineItem({ item, toolCatalog, lang }) {
       {item.content}
     </div>
   );
-}
-
-function toolRendererSummary(item, lang) {
-  const key = item.resultRendererKey || item.progressRendererKey || "default";
-  const data = item.data || {};
-  if (item.status === "running") {
-    if (key === "toolchain") return t("timeline.runningToolchain", lang);
-    if (key === "command") return t("timeline.runningCommand", lang);
-    if (key === "git") return t("timeline.runningGit", lang);
-    return "";
-  }
-  if (key === "toolchain") {
-    const exitCode = data.exit_code;
-    const diagnostics = data.diagnostic_count;
-    const tests = data.test_summary?.failed;
-    if (typeof tests === "number") {
-      return t("timeline.toolchainTests", lang, { n: tests });
-    }
-    if (typeof diagnostics === "number") {
-      return t("timeline.toolchainDiagnostics", lang, { n: diagnostics });
-    }
-    if (typeof exitCode === "number") {
-      return t("timeline.commandExitCode", lang, { n: exitCode });
-    }
-  }
-  if (key === "git") {
-    if (typeof data.file_count === "number") {
-      return t("timeline.gitFilesChanged", lang, { n: data.file_count });
-    }
-    if (Array.isArray(data.entries)) {
-      return t("timeline.gitEntries", lang, { n: data.entries.length });
-    }
-  }
-  if (key === "quality" && Array.isArray(data.reasons)) {
-    return data.passed ? t("timeline.qualityPassed", lang) : t("timeline.qualityFailed", lang, { n: data.reasons.length });
-  }
-  if (key === "todos" && typeof data.count === "number") {
-    return t("timeline.todoCount", lang, { n: data.count });
-  }
-  if (key === "command" && typeof data.exit_code === "number") {
-    return t("timeline.commandExitCode", lang, { n: data.exit_code });
-  }
-  return "";
 }
 
 function ReviewResultCard({ item, lang }) {
