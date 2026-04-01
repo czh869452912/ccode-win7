@@ -553,27 +553,34 @@ function App() {
     [state.sessions],
   );
 
+  const RESIZE_RIGHT = 1;   // sidebar: drag right = expand
+  const RESIZE_LEFT  = -1;  // inspector: drag right = shrink
+
   function startResize(e, cssVar, direction) {
     e.preventDefault();
     const handle = e.currentTarget;
     handle.classList.add("dragging");
     const startX = e.clientX;
-    const startVal = parseFloat(
-      getComputedStyle(document.documentElement).getPropertyValue(cssVar).trim()
-    ) || (cssVar === "--sidebar-w-raw" ? 220 : 260);
+    const startVal =
+      parseFloat(
+        getComputedStyle(document.documentElement).getPropertyValue(cssVar).trim()
+      ) || (cssVar === "--sidebar-w-raw" ? 220 : 260);
 
     function onMove(ev) {
       const delta = (ev.clientX - startX) * direction;
       const newVal = Math.max(160, Math.min(480, startVal + delta));
       document.documentElement.style.setProperty(cssVar, `${newVal}px`);
     }
-    function onUp() {
+    function onEnd() {
       handle.classList.remove("dragging");
-      document.removeEventListener("mousemove", onMove);
-      document.removeEventListener("mouseup", onUp);
+      handle.removeEventListener("pointermove", onMove);
+      handle.removeEventListener("pointerup",   onEnd);
+      handle.removeEventListener("pointercancel", onEnd);
     }
-    document.addEventListener("mousemove", onMove);
-    document.addEventListener("mouseup", onUp);
+    handle.setPointerCapture(e.pointerId);
+    handle.addEventListener("pointermove",   onMove);
+    handle.addEventListener("pointerup",     onEnd);
+    handle.addEventListener("pointercancel", onEnd);
   }
 
   return (
@@ -633,7 +640,7 @@ function App() {
 
         <div
           className="resize-handle"
-          onMouseDown={(e) => startResize(e, "--sidebar-w-raw", 1)}
+          onPointerDown={(e) => startResize(e, "--sidebar-w-raw", RESIZE_RIGHT)}
           aria-hidden="true"
         />
 
@@ -665,7 +672,7 @@ function App() {
 
         <div
           className="resize-handle"
-          onMouseDown={(e) => startResize(e, "--inspector-w-raw", -1)}
+          onPointerDown={(e) => startResize(e, "--inspector-w-raw", RESIZE_LEFT)}
           aria-hidden="true"
         />
 
