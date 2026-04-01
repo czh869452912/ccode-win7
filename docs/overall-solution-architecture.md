@@ -174,6 +174,8 @@ TUI、CLI、未来 GUI/Web 只是不同的交互壳。
 - 统一封装文件、命令、Git、编译、静态分析、符号检索等工具。
 - 所有工具返回结构化 Observation，而不是让 Agent 解析原始终端垃圾输出。
 - Tool Runtime 负责统一解析托管运行环境，优先使用 bundle / workspace 内置的 `git`、`rg`、`ctags`、`llvm` 与 Python 运行时，并把 `runtime_source`、`bundled_tools_ready`、`fallback_warnings`、`resolved_tool_roots` 回写到 Observation / Session Snapshot。
+- Tool Runtime 同时负责暴露工作区 recipe：自动检测 `CMakeLists.txt` / `Makefile`，加载项目自定义 recipe，并把历史成功命令整理成可复用 recipe 列表。
+- 产品表层允许用户通过 `/recipes` 浏览 recipe，并通过 `/run <recipe_id>` 直接执行；GUI Run 面板复用同一入口，而不是单独维护第二套执行逻辑。
 
 #### LLM Adapter
 

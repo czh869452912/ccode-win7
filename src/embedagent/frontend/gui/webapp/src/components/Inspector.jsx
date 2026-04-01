@@ -4,7 +4,7 @@ import { t } from "../strings.js";
 import DiffView from "./DiffView.jsx";
 
 const PRIMARY_TABS = ["todos", "plan", "artifacts"];
-const OVERFLOW_TABS = ["review", "permissions", "runtime", "preview", "log"];
+const OVERFLOW_TABS = ["run", "problems", "review", "permissions", "runtime", "preview", "log"];
 
 function InspectorTabs({ active, onChange, todosCount, artifactsCount }) {
   const lang = useLang();
@@ -74,6 +74,8 @@ export default function Inspector({
   artifacts,
   plan,
   review,
+  recipes,
+  timeline,
   permissionContext,
   preview,
   snapshot,
@@ -83,6 +85,7 @@ export default function Inspector({
   onTabChange,
   onOpenArtifact,
   onOpenReviewEvidence,
+  onRunRecipe,
   onUserAnswerChange,
   onSubmitUserInput,
 }) {
@@ -102,6 +105,8 @@ export default function Inspector({
           <ArtifactPanel artifacts={artifacts} onOpen={onOpenArtifact} lang={lang} />
         )}
         {inspectorTab === "plan" && <PlanPanel plan={plan} lang={lang} />}
+        {inspectorTab === "run" && <RunPanel recipes={recipes} lang={lang} onRunRecipe={onRunRecipe} />}
+        {inspectorTab === "problems" && <ProblemsPanel timeline={timeline} lang={lang} />}
         {inspectorTab === "review" && <ReviewPanel review={review} lang={lang} onOpenReviewEvidence={onOpenReviewEvidence} />}
         {inspectorTab === "permissions" && (
           <PermissionsPanel permissionContext={permissionContext} lang={lang} />
@@ -140,6 +145,95 @@ export default function Inspector({
         ) : null}
       </div>
     </aside>
+  );
+}
+
+function RunPanel({ recipes, lang, onRunRecipe }) {
+  const items = Array.isArray(recipes) ? recipes : [];
+  return (
+    <div className="panel-preview">
+      <h3>{t("inspector.run", lang)}</h3>
+      {items.length > 0 ? (
+        <div className="recipe-list">
+          {items.map((recipe) => (
+            <RecipeCard key={recipe.id} recipe={recipe} lang={lang} onRunRecipe={onRunRecipe} />
+          ))}
+        </div>
+      ) : (
+        <div className="empty-copy">{t("inspector.noRecipes", lang)}</div>
+      )}
+    </div>
+  );
+}
+
+function RecipeCard({ recipe, lang, onRunRecipe }) {
+  const [target, setTarget] = React.useState("");
+  const [profile, setProfile] = React.useState("");
+  const supportsTarget = Boolean(recipe.supports_target);
+  const supportsProfile = Boolean(recipe.supports_profile);
+
+  return (
+    <div className="recipe-card">
+      <div className="recipe-header">
+        <span className="recipe-label">{recipe.label || recipe.id}</span>
+        <span className="recipe-tool">{recipe.tool_name}</span>
+      </div>
+      <div className="recipe-meta">
+        <span className="rule-chip monospace">{recipe.id}</span>
+        <span className="rule-chip monospace">{recipe.source || "detected"}</span>
+      </div>
+      <code className="recipe-command">{recipe.command || "-"}</code>
+      {(supportsTarget || supportsProfile) ? (
+        <div className="recipe-inputs">
+          {supportsTarget ? (
+            <input
+              className="recipe-input"
+              value={target}
+              onChange={(e) => setTarget(e.target.value)}
+              placeholder={t("inspector.runTarget", lang)}
+            />
+          ) : null}
+          {supportsProfile ? (
+            <input
+              className="recipe-input"
+              value={profile}
+              onChange={(e) => setProfile(e.target.value)}
+              placeholder={t("inspector.runProfile", lang)}
+            />
+          ) : null}
+        </div>
+      ) : null}
+      <button
+        className="primary"
+        onClick={() => onRunRecipe && onRunRecipe(recipe.id, { target, profile })}
+      >
+        {t("inspector.runRecipe", lang)}
+      </button>
+    </div>
+  );
+}
+
+function ProblemsPanel({ timeline, lang }) {
+  const items = collectProblems(timeline || []);
+  return (
+    <div className="panel-preview">
+      <h3>{t("inspector.problems", lang)}</h3>
+      {items.length > 0 ? (
+        <div className="problem-list">
+          {items.map((item, index) => (
+            <div key={`${index}-${item.title}-${item.detail}`} className={`review-finding severity-${item.severity}`}>
+              <div className="review-finding-header">
+                <span className="review-finding-severity">{item.severity}</span>
+                <span className="review-finding-title">{item.title}</span>
+              </div>
+              <div className="review-finding-body">{item.detail}</div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="empty-copy">{t("inspector.noProblems", lang)}</div>
+      )}
+    </div>
   );
 }
 
@@ -270,6 +364,39 @@ function RuntimePanel({ snapshot, lang }) {
       )}
     </div>
   );
+}
+
+function collectProblems(timeline) {
+  const results = [];
+  for (const item of [...timeline].reverse()) {
+    if (item.kind !== "tool") continue;
+    const data = item.data || {};
+    const diagnostics = Array.isArray(data.diagnostics) ? data.diagnostics : [];
+    for (const diagnostic of diagnostics) {
+      results.push({
+        severity: diagnostic.level || "warning",
+        title: diagnostic.file || item.label || item.toolName || "Diagnostic",
+        detail: `${diagnostic.line || 1}:${diagnostic.column || 1} ${diagnostic.message || ""}`.trim(),
+      });
+    }
+    const summary = data.test_summary || {};
+    if (summary.failed > 0) {
+      results.push({
+        severity: "high",
+        title: item.label || item.toolName || "Tests",
+        detail: `${summary.failed} failing tests (${summary.total || 0} total)`,
+      });
+    }
+    const qualityReasons = Array.isArray(data.reasons) ? data.reasons : [];
+    for (const reason of qualityReasons) {
+      results.push({
+        severity: "medium",
+        title: item.label || item.toolName || "Quality",
+        detail: reason,
+      });
+    }
+  }
+  return results.slice(0, 20);
 }
 
 function ReviewPanel({ review, lang, onOpenReviewEvidence }) {

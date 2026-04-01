@@ -44,6 +44,31 @@
 
 ## 3. 当前变更记录
 
+### DC-042
+
+- 日期：2026-04-01
+- 变更主题：recipe-aware build/test 入口与 GUI Run / Problems 面板
+- 变更摘要：
+  - 新增 `workspace_recipes.py`，统一收集项目自定义 recipe、自动检测的 `CMakeLists.txt` / `Makefile` recipe，以及历史成功命令 recipe
+  - `compile_project` / `run_tests` / `run_clang_tidy` / `run_clang_analyzer` / `collect_coverage` 已支持 `recipe_id`，并把 `recipe_id`、`recipe_source`、`recipe_label` 回写到 Observation
+  - `InProcessAdapter` 与 GUI backend 已暴露 workspace recipe API；slash command 新增 `/recipes` 与 `/run <recipe_id>`
+  - GUI Inspector 已新增 `Run` / `Problems` 面板：Run 用于查看并直接执行 recipe，Problems 用于聚合最近 diagnostics / failing tests / quality reasons
+  - workspace profile 会把探测到的 recipe 样本注入给 Agent，减少后续 build/test 仍走自由拼命令的概率
+- 影响范围：
+  - Tool Runtime recipe 解析
+  - slash command / workspace API
+  - GUI Inspector 工作台
+  - Agent workspace profile 注入
+- 关联文档：
+  - `README.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+- 是否需要 ADR：`否`
+- 后续动作：
+  - 继续把 recipe / preset 扩展到更强的 `target / profile / coverage` 工作流
+  - 在 Win7 bundle 中验证 Run / Problems 与 step timeline 的联动
+
 ### DC-041
 
 - 日期：2026-04-01

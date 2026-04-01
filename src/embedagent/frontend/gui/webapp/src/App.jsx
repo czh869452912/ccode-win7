@@ -22,6 +22,8 @@ const SLASH_COMMAND_HINTS = [
   "/sessions",
   "/resume",
   "/workspace",
+  "/run",
+  "/recipes",
   "/clear",
   "/plan",
   "/review",
@@ -50,6 +52,7 @@ function App() {
     loadTodos("");
     loadFileChildren(".");
     loadToolCatalog();
+    loadWorkspaceRecipes();
   }, []);
 
   // websocket lifecycle
@@ -146,6 +149,11 @@ function App() {
     dispatch({ type: "artifacts_loaded", items: payload.items || [] });
   }
 
+  async function loadWorkspaceRecipes() {
+    const payload = await fetchJson("/api/workspace/recipes");
+    dispatch({ type: "recipes_loaded", items: payload.items || [] });
+  }
+
   async function loadFileChildren(path) {
     const payload = await fetchJson(`/api/files/tree?path=${encodeURIComponent(path || ".")}`);
     const children = (payload.items || []).map(createTreeNode);
@@ -236,8 +244,8 @@ function App() {
     });
   }
 
-  async function sendMessage() {
-    const text = state.composer.trim();
+  async function submitText(rawText) {
+    const text = (rawText || "").trim();
     if (!text) return;
     isAtBottomRef.current = true;
     dispatch({ type: "stream_completed" });
@@ -249,6 +257,19 @@ function App() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text }),
     });
+  }
+
+  async function sendMessage() {
+    await submitText(state.composer);
+  }
+
+  async function runRecipe(recipeId, options = {}) {
+    const target = (options.target || "").trim();
+    const profile = (options.profile || "").trim();
+    const parts = ["/run", recipeId];
+    if (target) parts.push(target);
+    if (profile) parts.push(profile);
+    await submitText(parts.join(" "));
   }
 
   // ── WebSocket ──────────────────────────────────────────────────────
@@ -438,6 +459,16 @@ function App() {
           },
           inspectorTab: "preview",
         });
+      }
+      if (data.command_name === "recipes") {
+        dispatch({
+          type: "recipes_loaded",
+          items: data.data?.items || [],
+        });
+        dispatch({ type: "set_inspector", value: "run" });
+      }
+      if (data.command_name === "run") {
+        dispatch({ type: "set_inspector", value: "problems" });
       }
       if (data.command_name === "permissions") {
         dispatch({
@@ -757,9 +788,11 @@ function App() {
           <Inspector
             inspectorTab={state.inspectorTab}
             todos={state.todos}
-            artifacts={state.artifacts}
-            plan={state.plan}
+              artifacts={state.artifacts}
+              plan={state.plan}
               review={state.review}
+              recipes={state.recipes}
+              timeline={state.timeline}
               permissionContext={state.permissionContext}
               preview={state.preview}
               snapshot={state.snapshot}
@@ -769,6 +802,7 @@ function App() {
             onTabChange={(v) => dispatch({ type: "set_inspector", value: v })}
             onOpenArtifact={openArtifact}
             onOpenReviewEvidence={openReviewEvidence}
+            onRunRecipe={runRecipe}
             onUserAnswerChange={setUserAnswer}
             onSubmitUserInput={sendUserInputResponse}
           />

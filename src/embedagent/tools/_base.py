@@ -12,6 +12,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from embedagent.artifacts import ArtifactStore
 from embedagent.session import Observation
+from embedagent.workspace_recipes import list_workspace_recipes, resolve_workspace_recipe
 
 
 MAX_READ_CHARS = 40000
@@ -449,6 +450,27 @@ class ToolContext(object):
             "tool_sources": tool_sources,
             "allow_system_tool_fallback": self.allow_system_tool_fallback(),
         }
+
+    def list_workspace_recipes(self) -> Dict[str, Any]:
+        return list_workspace_recipes(self.workspace)
+
+    def resolve_workspace_recipe(
+        self,
+        recipe_id: str,
+        expected_tool_name: str = "",
+        target: str = "",
+        profile: str = "",
+    ) -> Dict[str, Any]:
+        try:
+            return resolve_workspace_recipe(
+                self.workspace,
+                recipe_id=recipe_id,
+                expected_tool_name=expected_tool_name,
+                target=target,
+                profile=profile,
+            )
+        except ValueError as exc:
+            raise ToolError(str(exc))
 
     def rewrite_command_for_managed_tools(self, command_text: str) -> Tuple[str, str, str]:
         match = re.match(r'^(\s*)(?:"([^"]+)"|([^\s|&;<>]+))', command_text)

@@ -181,6 +181,15 @@ function main() {
   assert.equal(permissionState.inspectorTab, "permissions");
   assert.deepEqual(permissionState.permissionContext.remembered_categories, ["workspace_write"]);
 
+  const recipeState = reducer(initialState, {
+    type: "recipes_loaded",
+    items: [
+      { id: "cmake.build.default", tool_name: "compile_project", label: "CMake Build", source: "detected" },
+      { id: "cmake.test.default", tool_name: "run_tests", label: "CTest", source: "detected" },
+    ],
+  });
+  assert.equal(recipeState.recipes.length, 2);
+
   console.log("frontend helper checks passed");
 }
 

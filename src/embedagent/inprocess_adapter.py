@@ -252,6 +252,8 @@ class InProcessAdapter(object):
         counts = self._count_workspace_items()
         runtime_lookup = getattr(self.tools, "runtime_environment_snapshot", None)
         runtime = runtime_lookup() if callable(runtime_lookup) else {}
+        recipes_payload = self.list_workspace_recipes()
+        recipe_items = recipes_payload.get("items") if isinstance(recipes_payload, dict) else []
         git_status = self.tools.execute("git_status", {"path": "."})
         branch = ""
         dirty_count = 0
@@ -282,6 +284,10 @@ class InProcessAdapter(object):
             },
             "tree": counts,
             "runtime_environment": runtime,
+            "recipes": {
+                "count": len(recipe_items or []),
+                "items": recipe_items or [],
+            },
         }
 
     def list_workspace_tree(
@@ -642,6 +648,12 @@ class InProcessAdapter(object):
             return method()
         return []
 
+    def list_workspace_recipes(self) -> Dict[str, Any]:
+        method = getattr(self.tools, "workspace_recipes", None)
+        if callable(method):
+            return method()
+        return {"workspace": self.tools.workspace, "items": []}
+
     def submit_user_message(
         self,
         session_id: str,
@@ -653,7 +665,7 @@ class InProcessAdapter(object):
         event_handler: Optional[EventHandler] = None,
     ) -> Dict[str, Any]:
         state = self._require_session(session_id)
-        dispatch = self._dispatch_input(state, text, event_handler)
+        dispatch = self._dispatch_input(state, text, event_handler, permission_resolver)
         if dispatch.get("handled") and not dispatch.get("continue_with_text"):
             return self.get_session_snapshot(session_id)
         text_to_run = str(dispatch.get("continue_with_text") or text)
@@ -698,6 +710,7 @@ class InProcessAdapter(object):
         state: ManagedSession,
         text: str,
         event_handler: Optional[EventHandler],
+        permission_resolver: Optional[PermissionResolver],
     ) -> Dict[str, Any]:
         parsed = parse_slash_command(text)
         if parsed is None:
@@ -735,13 +748,14 @@ class InProcessAdapter(object):
                 ),
             )
             return {"handled": True, "continue_with_text": ""}
-        return handler(state, parsed, event_handler)
+        return handler(state, parsed, event_handler, permission_resolver)
 
     def _handle_command_help(
         self,
         state: ManagedSession,
         parsed: ParsedSlashCommand,
         event_handler: Optional[EventHandler],
+        permission_resolver: Optional[PermissionResolver],
     ) -> Dict[str, Any]:
         self._emit_command_result(
             event_handler,
@@ -760,6 +774,7 @@ class InProcessAdapter(object):
         state: ManagedSession,
         parsed: ParsedSlashCommand,
         event_handler: Optional[EventHandler],
+        permission_resolver: Optional[PermissionResolver],
     ) -> Dict[str, Any]:
         if not parsed.args:
             self._emit_command_result(
@@ -799,6 +814,7 @@ class InProcessAdapter(object):
         state: ManagedSession,
         parsed: ParsedSlashCommand,
         event_handler: Optional[EventHandler],
+        permission_resolver: Optional[PermissionResolver],
     ) -> Dict[str, Any]:
         sessions = self.list_sessions(limit=10)
         lines = ["## Recent Sessions", ""]
@@ -832,6 +848,7 @@ class InProcessAdapter(object):
         state: ManagedSession,
         parsed: ParsedSlashCommand,
         event_handler: Optional[EventHandler],
+        permission_resolver: Optional[PermissionResolver],
     ) -> Dict[str, Any]:
         reference = parsed.args[0] if parsed.args else "latest"
         mode = parsed.args[1] if len(parsed.args) > 1 else state.current_mode
@@ -853,10 +870,12 @@ class InProcessAdapter(object):
         state: ManagedSession,
         parsed: ParsedSlashCommand,
         event_handler: Optional[EventHandler],
+        permission_resolver: Optional[PermissionResolver],
     ) -> Dict[str, Any]:
         payload = self.get_workspace_snapshot()
         git_payload = payload.get("git") if isinstance(payload.get("git"), dict) else {}
         tree_payload = payload.get("tree") if isinstance(payload.get("tree"), dict) else {}
+        recipe_payload = payload.get("recipes") if isinstance(payload.get("recipes"), dict) else {}
         lines = [
             "## Workspace",
             "",
@@ -865,6 +884,7 @@ class InProcessAdapter(object):
             "- dirty files: %s" % git_payload.get("dirty_count", 0),
             "- files: %s" % tree_payload.get("file_count", 0),
             "- dirs: %s" % tree_payload.get("dir_count", 0),
+            "- recipes: %s" % int(recipe_payload.get("count") or 0),
         ]
         self._emit_command_result(
             event_handler,
@@ -878,11 +898,115 @@ class InProcessAdapter(object):
         )
         return {"handled": True, "continue_with_text": ""}
 
+    def _handle_command_recipes(
+        self,
+        state: ManagedSession,
+        parsed: ParsedSlashCommand,
+        event_handler: Optional[EventHandler],
+        permission_resolver: Optional[PermissionResolver],
+    ) -> Dict[str, Any]:
+        payload = self.list_workspace_recipes()
+        items = payload.get("items") or []
+        lines = ["## Workspace Recipes", ""]
+        if not items:
+            lines.append("当前工作区没有可用 recipe。")
+        else:
+            for item in items:
+                if not isinstance(item, dict):
+                    continue
+                lines.append(
+                    "- `%s` [%s] %s"
+                    % (
+                        str(item.get("id") or ""),
+                        str(item.get("tool_name") or ""),
+                        str(item.get("label") or item.get("command") or ""),
+                    )
+                )
+        self._emit_command_result(
+            event_handler,
+            state,
+            CommandResult(
+                command_name="recipes",
+                success=True,
+                message="\n".join(lines),
+                data=payload,
+            ),
+        )
+        return {"handled": True, "continue_with_text": ""}
+
+    def _handle_command_run(
+        self,
+        state: ManagedSession,
+        parsed: ParsedSlashCommand,
+        event_handler: Optional[EventHandler],
+        permission_resolver: Optional[PermissionResolver],
+    ) -> Dict[str, Any]:
+        if not parsed.args:
+            self._emit_command_result(
+                event_handler,
+                state,
+                CommandResult(
+                    command_name="run",
+                    success=False,
+                    message="用法：`/run <recipe_id>`",
+                    data={},
+                ),
+            )
+            return {"handled": True, "continue_with_text": ""}
+        recipe_id = str(parsed.args[0] or "").strip()
+        target = str(parsed.args[1] or "").strip() if len(parsed.args) > 1 else ""
+        profile = str(parsed.args[2] or "").strip() if len(parsed.args) > 2 else ""
+        recipes_payload = self.list_workspace_recipes()
+        recipe_items = recipes_payload.get("items") or []
+        matched = None
+        for item in recipe_items:
+            if isinstance(item, dict) and str(item.get("id") or "") == recipe_id:
+                matched = item
+                break
+        if matched is None:
+            self._emit_command_result(
+                event_handler,
+                state,
+                CommandResult(
+                    command_name="run",
+                    success=False,
+                    message="未找到 recipe：`%s`" % recipe_id,
+                    data={"recipe_id": recipe_id},
+                ),
+            )
+            return {"handled": True, "continue_with_text": ""}
+        observation = self._execute_tool_from_command(
+            state=state,
+            tool_name=str(matched.get("tool_name") or ""),
+            arguments={"recipe_id": recipe_id, "target": target, "profile": profile},
+            permission_resolver=permission_resolver,
+            event_handler=event_handler,
+        )
+        success = bool(observation.success)
+        message = "已执行 recipe `%s`。" % recipe_id if success else "recipe `%s` 执行失败：%s" % (recipe_id, observation.error or "未知错误")
+        payload = dict(observation.data) if isinstance(observation.data, dict) else {}
+        payload["recipe_id"] = recipe_id
+        payload["tool_name"] = str(matched.get("tool_name") or "")
+        payload["target"] = target
+        payload["profile"] = profile
+        self._emit_command_result(
+            event_handler,
+            state,
+            CommandResult(
+                command_name="run",
+                success=success,
+                message=message,
+                data=payload,
+            ),
+        )
+        return {"handled": True, "continue_with_text": ""}
+
     def _handle_command_clear(
         self,
         state: ManagedSession,
         parsed: ParsedSlashCommand,
         event_handler: Optional[EventHandler],
+        permission_resolver: Optional[PermissionResolver],
     ) -> Dict[str, Any]:
         self._emit_command_result(
             event_handler,
@@ -901,6 +1025,7 @@ class InProcessAdapter(object):
         state: ManagedSession,
         parsed: ParsedSlashCommand,
         event_handler: Optional[EventHandler],
+        permission_resolver: Optional[PermissionResolver],
     ) -> Dict[str, Any]:
         payload = self.list_todos(session_id=state.session.session_id)
         lines = ["## Session Todos", ""]
@@ -930,6 +1055,7 @@ class InProcessAdapter(object):
         state: ManagedSession,
         parsed: ParsedSlashCommand,
         event_handler: Optional[EventHandler],
+        permission_resolver: Optional[PermissionResolver],
     ) -> Dict[str, Any]:
         items = self.list_artifacts(limit=20)
         lines = ["## Recent Artifacts", ""]
@@ -955,6 +1081,7 @@ class InProcessAdapter(object):
         state: ManagedSession,
         parsed: ParsedSlashCommand,
         event_handler: Optional[EventHandler],
+        permission_resolver: Optional[PermissionResolver],
     ) -> Dict[str, Any]:
         observation = self.tools.execute("git_diff", {"path": ".", "scope": "working"})
         diff_text = ""
@@ -985,6 +1112,7 @@ class InProcessAdapter(object):
         state: ManagedSession,
         parsed: ParsedSlashCommand,
         event_handler: Optional[EventHandler],
+        permission_resolver: Optional[PermissionResolver],
     ) -> Dict[str, Any]:
         context = self.get_permission_context(state.session.session_id)
         lines = [
@@ -1020,6 +1148,7 @@ class InProcessAdapter(object):
         state: ManagedSession,
         parsed: ParsedSlashCommand,
         event_handler: Optional[EventHandler],
+        permission_resolver: Optional[PermissionResolver],
     ) -> Dict[str, Any]:
         current = self.plan_store.load(state.session.session_id)
         if parsed.raw_args:
@@ -1076,6 +1205,7 @@ class InProcessAdapter(object):
         state: ManagedSession,
         parsed: ParsedSlashCommand,
         event_handler: Optional[EventHandler],
+        permission_resolver: Optional[PermissionResolver],
     ) -> Dict[str, Any]:
         events = self.timeline_store.load_events(state.session.session_id, limit=400)
         review = self._build_review_payload(events)
@@ -1093,6 +1223,85 @@ class InProcessAdapter(object):
             ),
         )
         return {"handled": True, "continue_with_text": ""}
+
+    def _execute_tool_from_command(
+        self,
+        state: ManagedSession,
+        tool_name: str,
+        arguments: Dict[str, Any],
+        permission_resolver: Optional[PermissionResolver],
+        event_handler: Optional[EventHandler],
+    ) -> Observation:
+        action = Action(
+            name=tool_name,
+            arguments=dict(arguments),
+            call_id="cmd-%s" % uuid.uuid4().hex[:10],
+        )
+        decision = self.permission_policy.evaluate(action)
+        with state.lock:
+            state.status = "running"
+            state.updated_at = _utc_now()
+        self._notify_status(event_handler, state)
+        if decision.outcome == "deny":
+            with state.lock:
+                state.status = "idle"
+            self._notify_status(event_handler, state)
+            return Observation(tool_name=tool_name, success=False, error=decision.error or "权限拒绝该操作。", data={"error_kind": "permission_denied"})
+        if decision.outcome == "ask" and decision.request is not None:
+            ticket = self._create_permission_ticket(state, decision.request)
+            with state.lock:
+                state.status = "waiting_permission"
+                state.pending_event = threading.Event()
+            self._emit_with_snapshot(
+                event_handler,
+                "permission_required",
+                state,
+                {"permission": ticket.to_dict()},
+            )
+            self._notify_status(event_handler, state)
+            if permission_resolver is not None:
+                approved = bool(permission_resolver(ticket.to_dict()))
+                self._clear_pending_permission(state)
+                self._notify_status(event_handler, state)
+            else:
+                with state.lock:
+                    event = state.pending_event
+                event.wait()
+                with state.lock:
+                    approved = bool(state.pending_result)
+                self._clear_pending_permission(state)
+                self._notify_status(event_handler, state)
+            if not approved:
+                with state.lock:
+                    state.status = "idle"
+                self._notify_status(event_handler, state)
+                return Observation(tool_name=tool_name, success=False, error="用户拒绝执行该 recipe。", data={"error_kind": "permission_denied"})
+        payload = {
+            "tool_name": tool_name,
+            "arguments": dict(arguments),
+            "call_id": action.call_id,
+        }
+        payload.update(self._tool_event_metadata(tool_name))
+        self._emit(event_handler, "tool_started", state.session.session_id, payload)
+        observation = self.tools.execute(tool_name, dict(arguments))
+        self._emit_with_snapshot(
+            event_handler,
+            "tool_finished",
+            state,
+            {
+                "tool_name": tool_name,
+                "success": observation.success,
+                "error": observation.error,
+                "data": observation.data,
+                "call_id": action.call_id,
+                **self._tool_event_metadata(tool_name),
+            },
+        )
+        with state.lock:
+            state.status = "idle"
+            state.updated_at = _utc_now()
+        self._notify_status(event_handler, state)
+        return observation
 
     def _build_review_payload(self, events: List[Dict[str, Any]]) -> Dict[str, Any]:
         findings = []  # type: List[Dict[str, Any]]

@@ -390,6 +390,10 @@ class GUIBackend:
         async def get_workspace():
             return self.core.get_workspace_snapshot()
 
+        @app.get("/api/workspace/recipes")
+        async def get_workspace_recipes():
+            return self.core.list_workspace_recipes()
+
         @app.get("/api/tool-catalog")
         async def get_tool_catalog():
             return {"items": self.core.get_tool_catalog()}

@@ -8,40 +8,92 @@ from embedagent.tools._base import DEFAULT_BUILD_TIMEOUT_SEC, ToolContext, ToolD
 
 def build_tools(ctx: ToolContext) -> List[ToolDefinition]:
 
+    def _resolve_recipe(arguments: Dict[str, Any], expected_tool_name: str) -> Dict[str, Any]:
+        recipe_id = str(arguments.get("recipe_id") or "").strip()
+        if not recipe_id:
+            return {}
+        resolved = ctx.resolve_workspace_recipe(
+            recipe_id=recipe_id,
+            expected_tool_name=expected_tool_name,
+            target=str(arguments.get("target") or ""),
+            profile=str(arguments.get("profile") or ""),
+        )
+        return resolved
+
     def _compile_project(arguments: Dict[str, Any]) -> Observation:
-        command_text = str(arguments["command"]).strip()
-        cwd_argument = str(arguments.get("cwd") or ".")
+        recipe = _resolve_recipe(arguments, "compile_project")
+        command_text = str(recipe.get("command") or arguments.get("command") or "").strip()
+        cwd_argument = str(recipe.get("cwd") or arguments.get("cwd") or ".")
         timeout_sec = int(arguments.get("timeout_sec") or DEFAULT_BUILD_TIMEOUT_SEC)
-        return ctx.run_shell_tool("compile_project", command_text, cwd_argument, timeout_sec, diagnostic=True)
+        observation = ctx.run_shell_tool("compile_project", command_text, cwd_argument, timeout_sec, diagnostic=True)
+        if recipe and isinstance(observation.data, dict):
+            data = dict(observation.data)
+            data["recipe_id"] = recipe.get("id") or recipe.get("recipe_id") or str(arguments.get("recipe_id") or "")
+            data["recipe_source"] = recipe.get("source") or ""
+            data["recipe_label"] = recipe.get("label") or data["recipe_id"]
+            data["target"] = recipe.get("target") or ""
+            data["profile"] = recipe.get("profile") or ""
+            observation.data = data
+        return observation
 
     def _run_tests(arguments: Dict[str, Any]) -> Observation:
-        command_text = str(arguments["command"]).strip()
-        cwd_argument = str(arguments.get("cwd") or ".")
+        recipe = _resolve_recipe(arguments, "run_tests")
+        command_text = str(recipe.get("command") or arguments.get("command") or "").strip()
+        cwd_argument = str(recipe.get("cwd") or arguments.get("cwd") or ".")
         timeout_sec = int(arguments.get("timeout_sec") or DEFAULT_BUILD_TIMEOUT_SEC)
         observation = ctx.run_shell_tool("run_tests", command_text, cwd_argument, timeout_sec, diagnostic=True)
         combined = (observation.data.get("stdout") or "") + "\n" + (observation.data.get("stderr") or "")
         observation.data.update({"test_summary": ctx.parse_test_summary(combined)})
+        if recipe and isinstance(observation.data, dict):
+            observation.data["recipe_id"] = recipe.get("id") or recipe.get("recipe_id") or str(arguments.get("recipe_id") or "")
+            observation.data["recipe_source"] = recipe.get("source") or ""
+            observation.data["recipe_label"] = recipe.get("label") or observation.data["recipe_id"]
+            observation.data["target"] = recipe.get("target") or ""
+            observation.data["profile"] = recipe.get("profile") or ""
         return observation
 
     def _run_clang_tidy(arguments: Dict[str, Any]) -> Observation:
-        command_text = str(arguments["command"]).strip()
-        cwd_argument = str(arguments.get("cwd") or ".")
+        recipe = _resolve_recipe(arguments, "run_clang_tidy")
+        command_text = str(recipe.get("command") or arguments.get("command") or "").strip()
+        cwd_argument = str(recipe.get("cwd") or arguments.get("cwd") or ".")
         timeout_sec = int(arguments.get("timeout_sec") or DEFAULT_BUILD_TIMEOUT_SEC)
-        return ctx.run_shell_tool("run_clang_tidy", command_text, cwd_argument, timeout_sec, diagnostic=True)
+        observation = ctx.run_shell_tool("run_clang_tidy", command_text, cwd_argument, timeout_sec, diagnostic=True)
+        if recipe and isinstance(observation.data, dict):
+            observation.data["recipe_id"] = recipe.get("id") or recipe.get("recipe_id") or str(arguments.get("recipe_id") or "")
+            observation.data["recipe_source"] = recipe.get("source") or ""
+            observation.data["recipe_label"] = recipe.get("label") or observation.data["recipe_id"]
+            observation.data["target"] = recipe.get("target") or ""
+            observation.data["profile"] = recipe.get("profile") or ""
+        return observation
 
     def _run_clang_analyzer(arguments: Dict[str, Any]) -> Observation:
-        command_text = str(arguments["command"]).strip()
-        cwd_argument = str(arguments.get("cwd") or ".")
+        recipe = _resolve_recipe(arguments, "run_clang_analyzer")
+        command_text = str(recipe.get("command") or arguments.get("command") or "").strip()
+        cwd_argument = str(recipe.get("cwd") or arguments.get("cwd") or ".")
         timeout_sec = int(arguments.get("timeout_sec") or DEFAULT_BUILD_TIMEOUT_SEC)
-        return ctx.run_shell_tool("run_clang_analyzer", command_text, cwd_argument, timeout_sec, diagnostic=True)
+        observation = ctx.run_shell_tool("run_clang_analyzer", command_text, cwd_argument, timeout_sec, diagnostic=True)
+        if recipe and isinstance(observation.data, dict):
+            observation.data["recipe_id"] = recipe.get("id") or recipe.get("recipe_id") or str(arguments.get("recipe_id") or "")
+            observation.data["recipe_source"] = recipe.get("source") or ""
+            observation.data["recipe_label"] = recipe.get("label") or observation.data["recipe_id"]
+            observation.data["target"] = recipe.get("target") or ""
+            observation.data["profile"] = recipe.get("profile") or ""
+        return observation
 
     def _collect_coverage(arguments: Dict[str, Any]) -> Observation:
-        command_text = str(arguments["command"]).strip()
-        cwd_argument = str(arguments.get("cwd") or ".")
+        recipe = _resolve_recipe(arguments, "collect_coverage")
+        command_text = str(recipe.get("command") or arguments.get("command") or "").strip()
+        cwd_argument = str(recipe.get("cwd") or arguments.get("cwd") or ".")
         timeout_sec = int(arguments.get("timeout_sec") or DEFAULT_BUILD_TIMEOUT_SEC)
         observation = ctx.run_shell_tool("collect_coverage", command_text, cwd_argument, timeout_sec)
         combined = (observation.data.get("stdout") or "") + "\n" + (observation.data.get("stderr") or "")
         observation.data.update({"coverage_summary": ctx.parse_coverage_summary(combined)})
+        if recipe and isinstance(observation.data, dict):
+            observation.data["recipe_id"] = recipe.get("id") or recipe.get("recipe_id") or str(arguments.get("recipe_id") or "")
+            observation.data["recipe_source"] = recipe.get("source") or ""
+            observation.data["recipe_label"] = recipe.get("label") or observation.data["recipe_id"]
+            observation.data["target"] = recipe.get("target") or ""
+            observation.data["profile"] = recipe.get("profile") or ""
         return observation
 
     def _report_quality(arguments: Dict[str, Any]) -> Observation:
@@ -91,6 +143,18 @@ def build_tools(ctx: ToolContext) -> List[ToolDefinition]:
                         "type": "string",
                         "description": "要执行的编译命令文本。示例：clang -Wall -Wextra src/main.c -o build/main.exe",
                     },
+                    "recipe_id": {
+                        "type": "string",
+                        "description": "可选的工作区 recipe 标识。示例：cmake.build.default",
+                    },
+                    "target": {
+                        "type": "string",
+                        "description": "可选的构建目标；当前主要用于支持 CMake build recipe。示例：app",
+                    },
+                    "profile": {
+                        "type": "string",
+                        "description": "可选的构建 profile；当前主要用于支持 CMake build 目录。示例：debug",
+                    },
                     "cwd": {
                         "type": "string",
                         "description": "编译执行目录，相对于项目根目录。示例：.",
@@ -100,7 +164,11 @@ def build_tools(ctx: ToolContext) -> List[ToolDefinition]:
                         "description": "编译超时时间，单位为秒。示例：120",
                     },
                 },
-                "required": ["command"],
+                "required": [],
+                "anyOf": [
+                    {"required": ["command"]},
+                    {"required": ["recipe_id"]},
+                ],
                 "additionalProperties": False,
             },
             handler=_compile_project,
@@ -115,6 +183,18 @@ def build_tools(ctx: ToolContext) -> List[ToolDefinition]:
                         "type": "string",
                         "description": "要执行的测试命令文本。示例：ctest --output-on-failure",
                     },
+                    "recipe_id": {
+                        "type": "string",
+                        "description": "可选的工作区 recipe 标识。示例：cmake.test.default",
+                    },
+                    "target": {
+                        "type": "string",
+                        "description": "可选的测试目标或筛选；当前保留给后续 recipe 扩展。示例：unit",
+                    },
+                    "profile": {
+                        "type": "string",
+                        "description": "可选的测试 profile；当前主要用于支持 CMake build 目录。示例：debug",
+                    },
                     "cwd": {
                         "type": "string",
                         "description": "测试执行目录，相对于项目根目录。示例：build",
@@ -124,7 +204,11 @@ def build_tools(ctx: ToolContext) -> List[ToolDefinition]:
                         "description": "测试超时时间，单位为秒。示例：120",
                     },
                 },
-                "required": ["command"],
+                "required": [],
+                "anyOf": [
+                    {"required": ["command"]},
+                    {"required": ["recipe_id"]},
+                ],
                 "additionalProperties": False,
             },
             handler=_run_tests,
@@ -139,6 +223,10 @@ def build_tools(ctx: ToolContext) -> List[ToolDefinition]:
                         "type": "string",
                         "description": "要执行的 clang-tidy 命令文本。示例：clang-tidy src/main.c -- -Iinclude",
                     },
+                    "recipe_id": {
+                        "type": "string",
+                        "description": "可选的工作区 recipe 标识。示例：history.run_clang_tidy.1",
+                    },
                     "cwd": {
                         "type": "string",
                         "description": "检查执行目录，相对于项目根目录。示例：.",
@@ -148,7 +236,11 @@ def build_tools(ctx: ToolContext) -> List[ToolDefinition]:
                         "description": "检查超时时间，单位为秒。示例：120",
                     },
                 },
-                "required": ["command"],
+                "required": [],
+                "anyOf": [
+                    {"required": ["command"]},
+                    {"required": ["recipe_id"]},
+                ],
                 "additionalProperties": False,
             },
             handler=_run_clang_tidy,
@@ -163,6 +255,10 @@ def build_tools(ctx: ToolContext) -> List[ToolDefinition]:
                         "type": "string",
                         "description": "要执行的静态分析命令文本。示例：clang --analyze src/main.c -Iinclude",
                     },
+                    "recipe_id": {
+                        "type": "string",
+                        "description": "可选的工作区 recipe 标识。示例：history.run_clang_analyzer.1",
+                    },
                     "cwd": {
                         "type": "string",
                         "description": "分析执行目录，相对于项目根目录。示例：.",
@@ -172,7 +268,11 @@ def build_tools(ctx: ToolContext) -> List[ToolDefinition]:
                         "description": "分析超时时间，单位为秒。示例：120",
                     },
                 },
-                "required": ["command"],
+                "required": [],
+                "anyOf": [
+                    {"required": ["command"]},
+                    {"required": ["recipe_id"]},
+                ],
                 "additionalProperties": False,
             },
             handler=_run_clang_analyzer,
@@ -187,6 +287,10 @@ def build_tools(ctx: ToolContext) -> List[ToolDefinition]:
                         "type": "string",
                         "description": "要执行的覆盖率命令文本。示例：llvm-cov report build/app.exe -instr-profile=default.profdata",
                     },
+                    "recipe_id": {
+                        "type": "string",
+                        "description": "可选的工作区 recipe 标识。示例：history.collect_coverage.1",
+                    },
                     "cwd": {
                         "type": "string",
                         "description": "覆盖率执行目录，相对于项目根目录。示例：build",
@@ -196,7 +300,11 @@ def build_tools(ctx: ToolContext) -> List[ToolDefinition]:
                         "description": "覆盖率命令超时时间，单位为秒。示例：120",
                     },
                 },
-                "required": ["command"],
+                "required": [],
+                "anyOf": [
+                    {"required": ["command"]},
+                    {"required": ["recipe_id"]},
+                ],
                 "additionalProperties": False,
             },
             handler=_collect_coverage,

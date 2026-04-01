@@ -19,6 +19,7 @@ export const initialState = {
   artifacts: [],
   plan: null,
   review: null,
+  recipes: [],
   permissionContext: null,
   preview: null,
   fileTree: [],
@@ -364,6 +365,8 @@ export function reducer(state, action) {
       return { ...state, todos: action.todos };
     case "artifacts_loaded":
       return { ...state, artifacts: action.items };
+    case "recipes_loaded":
+      return { ...state, recipes: action.items || [] };
     case "preview_loaded":
       return {
         ...state,

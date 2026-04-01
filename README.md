@@ -33,6 +33,7 @@
 | 单元测试执行 | `run_tests` |
 | 静态检查 | `run_clang_tidy` / `run_clang_analyzer` |
 | 覆盖率统计与质量门 | `collect_coverage` / `report_quality` |
+| recipe / preset | 自动检测 `CMakeLists.txt` / `Makefile`，支持 `recipe_id` 驱动 build/test |
 | 任务跟踪 | `manage_todos` + 模式化 Agent Loop |
 
 ### 文档与项目治理
@@ -52,6 +53,7 @@
 - 上下文压缩、记忆清理与恢复入口
 - 权限管控（操作前确认 / `allow` / `ask` / `deny` 规则）
 - 托管运行环境摘要（bundle/workspace/system 来源、内置工具就绪状态、回退告警）
+- 工作区 recipe 摘要（自动检测 + 历史成功命令），并在 GUI Run / Problems 面板中可见
 
 当前尚未收口的能力主要是：
 
@@ -112,6 +114,7 @@
 
 ## 项目现状
 
+- 2026-04-01：Phase 2 第一段 workbench 切片已落地：Tool Runtime 现在可自动检测 `CMakeLists.txt` / `Makefile` 与历史成功命令 recipe；`compile_project` / `run_tests` / `run_clang_tidy` / `run_clang_analyzer` / `collect_coverage` 已支持 `recipe_id`；slash command 新增 `/recipes` 与 `/run <recipe_id>`；GUI Inspector 已补 `Run` / `Problems` 面板并可直接执行 recipe。
 - 2026-04-01：Phase 1 clean-room 高拟态升级切片已落地：时间线 API 现在以 `turns[].steps[]` 为主，GUI 可按单用户 turn 下的多个 agent step 显示 thinking/tool/assistant；托管运行环境会统一汇总 `runtime_source`、`bundled_tools_ready`、`fallback_warnings` 与 `resolved_tool_roots`，并在 GUI Runtime inspector 中显示。
 - 2026-03-31：已落地 unified input / slash command / workflow 第一版：`submit_user_message` 现在统一分发普通消息与 `/help` `/mode` `/sessions` `/resume` `/workspace` `/clear` `/plan` `/review` `/diff` `/permissions` `/todos` `/artifacts`；协议层新增 `CommandResult`、`PlanSnapshot`、`TurnRecord`、`TimelineItem` 与扩展 `SessionSnapshot`；GUI 已接入 command result、plan pane、timeline command cards 与 slash command hint。
 - 2026-03-30：新架构落地：`protocol/` 通信协议层、`core/` AgentCoreAdapter、`frontend/gui/` PyWebView 前端，TUI 迁移至 `frontend/tui/`，架构测试 17 项全通过，文档已同步更新。

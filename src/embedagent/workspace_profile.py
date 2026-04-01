@@ -5,6 +5,7 @@ from typing import Dict, List, Set, Tuple
 
 from embedagent import todos as todo_store
 from embedagent.tools._base import SKIP_DIR_NAMES
+from embedagent.workspace_recipes import list_workspace_recipes
 
 
 _DOC_DIR_NAMES = {
@@ -129,6 +130,8 @@ def _pending_todos_hint(workspace: str, session_id: str = "") -> str:
 
 def build_workspace_profile_message(workspace: str, session_id: str = "", char_limit: int = 900) -> str:
     profile = profile_workspace(workspace)
+    recipe_payload = list_workspace_recipes(workspace)
+    recipe_items = recipe_payload.get("items") if isinstance(recipe_payload, dict) else []
     if profile.get("workspace_empty"):
         empty_msg = (
             "工作区画像：当前工作区基本为空。"
@@ -151,6 +154,14 @@ def build_workspace_profile_message(workspace: str, session_id: str = "", char_l
     root_entries = profile.get("root_entries") or []
     if root_entries:
         lines.append("根目录样本：%s" % ", ".join(root_entries[:10]))
+    if recipe_items:
+        samples = []
+        for item in recipe_items[:4]:
+            if not isinstance(item, dict):
+                continue
+            samples.append("%s[%s]" % (str(item.get("id") or ""), str(item.get("tool_name") or "")))
+        if samples:
+            lines.append("已探测 recipe：%s" % ", ".join(samples))
     message = "\n".join(lines)
     message += _pending_todos_hint(workspace, session_id=session_id)
     if len(message) <= char_limit:

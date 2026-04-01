@@ -239,6 +239,72 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertIn("runtime_environment", snapshot)
         self.assertIsInstance(snapshot["fallback_warnings"], list)
 
+    def test_workspace_recipe_api_detects_cmake(self):
+        with open(os.path.join(self.workspace, "CMakeLists.txt"), "w", encoding="utf-8") as handle:
+            handle.write("cmake_minimum_required(VERSION 3.20)\nproject(demo C)\n")
+        payload = self.adapter.list_workspace_recipes()
+        recipe_ids = [item["id"] for item in payload["items"]]
+        self.assertIn("cmake.build.default", recipe_ids)
+        self.assertIn("cmake.test.default", recipe_ids)
+
+    def test_slash_recipes_emits_recipe_summary(self):
+        with open(os.path.join(self.workspace, "Makefile"), "w", encoding="utf-8") as handle:
+            handle.write("all:\n\t@echo build\n")
+        events = []
+        self.adapter.submit_user_message(
+            session_id=str(self.snapshot.get('session_id') or ''),
+            text='/recipes',
+            stream=False,
+            wait=True,
+            permission_resolver=lambda ticket: True,
+            event_handler=lambda event_name, session_id, payload: events.append((event_name, payload)),
+        )
+        command_events = [payload for event_name, payload in events if event_name == "command_result"]
+        self.assertEqual(command_events[0].get("command_name"), "recipes")
+        self.assertIn("Workspace Recipes", command_events[0].get("message") or "")
+        recipe_ids = [item["id"] for item in command_events[0].get("data", {}).get("items", [])]
+        self.assertIn("make.build.default", recipe_ids)
+
+    def test_slash_run_executes_recipe_and_emits_tool_events(self):
+        os.makedirs(os.path.join(self.workspace, ".embedagent"), exist_ok=True)
+        with open(os.path.join(self.workspace, ".embedagent", "workspace-recipes.json"), "w", encoding="utf-8") as handle:
+            handle.write(
+                '[{"id":"custom.build","tool_name":"compile_project","label":"Custom Build","command":"cmd /c echo build-ok","cwd":"."}]'
+            )
+        events = []
+        self.adapter.submit_user_message(
+            session_id=str(self.snapshot.get('session_id') or ''),
+            text='/run custom.build',
+            stream=False,
+            wait=True,
+            permission_resolver=lambda ticket: True,
+            event_handler=lambda event_name, session_id, payload: events.append((event_name, payload)),
+        )
+        event_names = [event_name for event_name, _ in events]
+        self.assertIn("tool_started", event_names)
+        self.assertIn("tool_finished", event_names)
+        command_events = [payload for event_name, payload in events if event_name == "command_result"]
+        self.assertEqual(command_events[0].get("command_name"), "run")
+        self.assertTrue(command_events[0].get("success"))
+        self.assertEqual(command_events[0].get("data", {}).get("recipe_id"), "custom.build")
+
+    def test_slash_run_passes_target_and_profile_to_recipe(self):
+        with open(os.path.join(self.workspace, "CMakeLists.txt"), "w", encoding="utf-8") as handle:
+            handle.write("cmake_minimum_required(VERSION 3.20)\nproject(demo C)\n")
+        events = []
+        self.adapter.submit_user_message(
+            session_id=str(self.snapshot.get('session_id') or ''),
+            text='/run cmake.build.default demo-app debug',
+            stream=False,
+            wait=True,
+            permission_resolver=lambda ticket: True,
+            event_handler=lambda event_name, session_id, payload: events.append((event_name, payload)),
+        )
+        tool_finish = [payload for event_name, payload in events if event_name == "tool_finished"][0]
+        self.assertEqual(tool_finish.get("data", {}).get("recipe_id"), "cmake.build.default")
+        self.assertEqual(tool_finish.get("data", {}).get("target"), "demo-app")
+        self.assertEqual(tool_finish.get("data", {}).get("profile"), "debug")
+
     def test_session_scoped_todos_are_isolated(self):
         first_session_id = str(self.snapshot.get('session_id') or '')
         self.tools.execute("manage_todos", {"action": "add", "content": "session-one", "session_id": first_session_id})

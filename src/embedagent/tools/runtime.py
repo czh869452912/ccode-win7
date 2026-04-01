@@ -265,6 +265,9 @@ class ToolRuntime(object):
     def runtime_environment_snapshot(self) -> Dict[str, Any]:
         return self._ctx.runtime_environment_snapshot()
 
+    def workspace_recipes(self) -> Dict[str, Any]:
+        return self._ctx.list_workspace_recipes()
+
     def execute(self, name: str, arguments: Dict[str, Any]) -> Observation:
         tool = self._tools.get(name)
         if tool is None:

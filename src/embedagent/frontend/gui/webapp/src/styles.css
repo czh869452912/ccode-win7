@@ -1032,6 +1032,65 @@ body {
   flex-direction: column;
   gap: 8px;
 }
+.recipe-list,
+.problem-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.recipe-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-md);
+  background: var(--bg-subtle);
+}
+.recipe-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.recipe-label {
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 600;
+}
+.recipe-tool {
+  color: var(--text-muted);
+  font-size: 10px;
+  font-family: var(--font-mono);
+}
+.recipe-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.recipe-inputs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.recipe-input {
+  min-width: 0;
+  flex: 1;
+  background: var(--bg-canvas);
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-sm);
+  color: var(--text-primary);
+  padding: 8px 10px;
+}
+.recipe-command {
+  display: block;
+  background: var(--bg-canvas);
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-sm);
+  color: var(--text-secondary);
+  padding: 8px 10px;
+  overflow-x: auto;
+}
 .runtime-key {
   width: 140px;
   color: var(--text-muted);

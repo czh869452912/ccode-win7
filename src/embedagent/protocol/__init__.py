@@ -332,6 +332,11 @@ class CoreInterface(ABC):
     def get_workspace_snapshot(self) -> WorkspaceInfo:
         """获取工作区快照"""
         pass
+
+    @abstractmethod
+    def list_workspace_recipes(self) -> Dict[str, Any]:
+        """列出工作区 recipe"""
+        pass
     
     @abstractmethod
     def list_files(self, path: str = ".", max_depth: int = 3) -> List[Dict[str, Any]]:

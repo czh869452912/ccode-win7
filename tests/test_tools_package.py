@@ -261,5 +261,84 @@ class TestManagedRuntimeEnvironment(unittest.TestCase):
         self.assertGreaterEqual(len(snapshot["fallback_warnings"]), 1)
 
 
+class TestWorkspaceRecipes(unittest.TestCase):
+    def setUp(self):
+        self.workspace = tempfile.mkdtemp()
+
+    def test_detects_cmake_and_history_recipes(self):
+        os.makedirs(os.path.join(self.workspace, ".embedagent", "memory", "project"))
+        with open(os.path.join(self.workspace, "CMakeLists.txt"), "w", encoding="utf-8") as handle:
+            handle.write("cmake_minimum_required(VERSION 3.20)\nproject(demo C)\n")
+        with open(
+            os.path.join(self.workspace, ".embedagent", "memory", "project", "command-recipes.json"),
+            "w",
+            encoding="utf-8",
+        ) as handle:
+            handle.write(
+                '[{"key":"compile_project|.|clang demo.c","tool_name":"compile_project","command":"clang demo.c","cwd":".","last_mode":"code","created_at":"2026-04-01T00:00:00Z","last_success_at":"2026-04-01T00:00:00Z","success_count":1}]'
+            )
+        from embedagent.workspace_recipes import list_workspace_recipes
+
+        payload = list_workspace_recipes(self.workspace)
+        recipe_ids = [item["id"] for item in payload["items"]]
+        self.assertIn("cmake.configure.default", recipe_ids)
+        self.assertIn("cmake.build.default", recipe_ids)
+        self.assertIn("cmake.test.default", recipe_ids)
+        self.assertIn("history.compile_project.1", recipe_ids)
+        cmake_build = [item for item in payload["items"] if item["id"] == "cmake.build.default"][0]
+        self.assertTrue(cmake_build["supports_target"])
+        self.assertTrue(cmake_build["supports_profile"])
+
+    def test_compile_project_can_run_via_recipe_id(self):
+        os.makedirs(os.path.join(self.workspace, ".embedagent"))
+        with open(os.path.join(self.workspace, ".embedagent", "workspace-recipes.json"), "w", encoding="utf-8") as handle:
+            handle.write(
+                '[{"id":"custom.build","tool_name":"compile_project","label":"Custom Build","command":"cmd /c echo build-ok","cwd":"."}]'
+            )
+        runtime = ToolRuntime(self.workspace)
+        obs = runtime.execute("compile_project", {"recipe_id": "custom.build"})
+        self.assertTrue(obs.success)
+        self.assertEqual(obs.data["recipe_id"], "custom.build")
+        self.assertEqual(obs.data["recipe_source"], "project")
+        self.assertIn("build-ok", obs.data["stdout"])
+
+    def test_resolve_cmake_recipe_applies_target_and_profile(self):
+        with open(os.path.join(self.workspace, "CMakeLists.txt"), "w", encoding="utf-8") as handle:
+            handle.write("cmake_minimum_required(VERSION 3.20)\nproject(demo C)\n")
+        from embedagent.workspace_recipes import resolve_workspace_recipe
+        payload = resolve_workspace_recipe(
+            self.workspace,
+            recipe_id="cmake.build.default",
+            expected_tool_name="compile_project",
+            target="demo-app",
+            profile="debug",
+        )
+        self.assertEqual(payload["profile"], "debug")
+        self.assertEqual(payload["target"], "demo-app")
+        self.assertIn("build/debug", payload["command"])
+        self.assertIn("--target demo-app", payload["command"])
+
+    def test_verify_tools_can_run_via_recipe_id(self):
+        os.makedirs(os.path.join(self.workspace, ".embedagent"))
+        with open(os.path.join(self.workspace, ".embedagent", "workspace-recipes.json"), "w", encoding="utf-8") as handle:
+            handle.write(
+                "[" +
+                '{"id":"custom.tidy","tool_name":"run_clang_tidy","label":"Custom Tidy","command":"cmd /c echo tidy-ok","cwd":"."},' +
+                '{"id":"custom.analyze","tool_name":"run_clang_analyzer","label":"Custom Analyze","command":"cmd /c echo analyze-ok","cwd":"."},' +
+                '{"id":"custom.coverage","tool_name":"collect_coverage","label":"Custom Coverage","command":"cmd /c echo lines 85%","cwd":"."}' +
+                "]"
+            )
+        runtime = ToolRuntime(self.workspace)
+        tidy_obs = runtime.execute("run_clang_tidy", {"recipe_id": "custom.tidy"})
+        analyze_obs = runtime.execute("run_clang_analyzer", {"recipe_id": "custom.analyze"})
+        coverage_obs = runtime.execute("collect_coverage", {"recipe_id": "custom.coverage"})
+        self.assertTrue(tidy_obs.success)
+        self.assertTrue(analyze_obs.success)
+        self.assertTrue(coverage_obs.success)
+        self.assertEqual(tidy_obs.data["recipe_id"], "custom.tidy")
+        self.assertEqual(analyze_obs.data["recipe_id"], "custom.analyze")
+        self.assertEqual(coverage_obs.data["recipe_id"], "custom.coverage")
+
+
 if __name__ == "__main__":
     unittest.main()

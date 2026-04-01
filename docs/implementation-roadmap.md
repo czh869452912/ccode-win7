@@ -38,7 +38,7 @@
 | Phase 1 | `completed` | 最小可工作 Loop 已完成真实 OpenAI-compatible 闭环验证 |
 | Phase 2 | `completed` | 文件 / Shell / Git 工具已落地 |
 | Phase 3 | `completed` | 模式系统 v1 已落地 |
-| Phase 4 | `in_progress` | 本地闭环 LLVM/Clang 工具链已具备，待真实 C 工程与 Win7 验证 |
+| Phase 4 | `in_progress` | 本地闭环 LLVM/Clang 工具链已具备，recipe-aware build/test 入口已起步，待真实 C 工程与 Win7 验证 |
 | Phase 5 | `completed` | 权限、上下文、记忆、恢复和 cleanup 已落地，`validate-phase5.py` 已复验通过 |
 | Phase 6 | `in_progress` | 自动化验证已通过；unified input / slash command / workflow 第一版、step-based timeline 与 Runtime inspector 已落地，待真实控制台 / Win7 / ConEmu 手工验证 |
 | Phase 7 | `in_progress` | 离线打包设计文档、ADR、`prepare/build/validate` 三段脚本，以及 Python/MinGit/rg/ctags 真实资产接入已完成；当前运行时已补托管环境元数据，待继续收口 bundle / Win7 验收 |

@@ -466,6 +466,9 @@ class AgentCoreAdapter(CoreInterface):
             file_count=tree_info.get("file_count", 0),
             dir_count=tree_info.get("dir_count", 0)
         )
+
+    def list_workspace_recipes(self) -> Dict[str, Any]:
+        return self._adapter.list_workspace_recipes()
     
     def list_files(self, path: str = ".", max_depth: int = 3) -> List[Dict[str, Any]]:
         result = self._adapter.list_workspace_tree(path, max_depth)
