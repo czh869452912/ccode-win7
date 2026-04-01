@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "default_profile": "dev",
+  "paths": {
+    "project_root": ".",
+    "build_root": "build",
+    "reports_root": "build/offline-reports",
+    "asset_manifest": "scripts/offline-assets.json",
+    "site_packages_export_root": "build/offline-cache/site-packages-export",
+    "site_packages_root": "build/offline-cache/site-packages-export/site-packages",
+    "llvm_root": "toolchains/llvm/current",
+    "dist_bundle_root": "build/offline-dist/embedagent-win7-x64"
+  },
+  "tooling": {
+    "export_dependencies": "scripts/export-dependencies.py",
+    "prepare_bundle": "scripts/prepare-offline.ps1",
+    "build_bundle": "scripts/build-offline-bundle.ps1",
+    "validate_bundle": "scripts/validate-offline-bundle.ps1",
+    "check_dependencies": "scripts/check-bundle-dependencies.py"
+  },
+  "profiles": {
+    "dev": {
+      "artifact_name": "embedagent-win7-x64-dev",
+      "allow_download": false,
+      "require_complete": false,
+      "create_zip": false,
+      "run_dynamic_checks": false,
+      "run_dependency_checker": true,
+      "required_assets": [
+        "python_embedded_x64",
+        "mingit_x64",
+        "ripgrep_x64",
+        "universal_ctags_x64",
+        "webview2_fixed_runtime_x64"
+      ]
+    },
+    "release": {
+      "artifact_name": "embedagent-win7-x64",
+      "allow_download": false,
+      "require_complete": true,
+      "create_zip": true,
+      "run_dynamic_checks": true,
+      "run_dependency_checker": true,
+      "required_assets": [
+        "python_embedded_x64",
+        "mingit_x64",
+        "ripgrep_x64",
+        "universal_ctags_x64",
+        "webview2_fixed_runtime_x64"
+      ]
+    }
+  }
+}
