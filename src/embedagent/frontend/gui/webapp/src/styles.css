@@ -22,6 +22,7 @@
   --color-error:   #f85149;
   --color-info:    #388bfd;
   --color-accent:  #bc8cff;
+  --color-verify:  #e3b341;
   --color-diff-add:#7ee787;
   --color-diff-del:#ffa198;
 
@@ -99,7 +100,7 @@ body {
 .mode-badge.mode-spec    { color: var(--color-accent);  background: rgba(188,140,255,.1); border-color: rgba(188,140,255,.25); }
 .mode-badge.mode-code    { color: var(--color-success); background: rgba(63,185,80,.1);   border-color: rgba(63,185,80,.25);   }
 .mode-badge.mode-debug   { color: var(--color-warning); background: rgba(210,153,34,.1);  border-color: rgba(210,153,34,.25);  }
-.mode-badge.mode-verify  { color: #e3b341;              background: rgba(227,179,65,.1);  border-color: rgba(227,179,65,.25);  }
+.mode-badge.mode-verify  { color: var(--color-verify);              background: rgba(227,179,65,.1);  border-color: rgba(227,179,65,.25);  }
 
 .header-right { margin-left: auto; display: flex; align-items: center; gap: var(--sp-3); }
 
@@ -384,7 +385,7 @@ body {
 .more-tab-btn:hover { background: var(--bg-canvas); }
 
 .tab-overflow-menu {
-  position: absolute; right: var(--sp-2); top: 40px;
+  position: absolute; right: var(--sp-2); top: var(--header-h);
   background: var(--bg-default);
   border: 1px solid var(--border-default);
   border-radius: var(--r-md);
@@ -463,6 +464,7 @@ body {
   border-top: 1px solid var(--border-default);
   padding: var(--sp-3) var(--sp-3) var(--sp-2);
   background: var(--bg-canvas); flex-shrink: 0;
+  position: relative;
 }
 
 .composer-inner {
@@ -484,7 +486,7 @@ body {
 .composer-mode-badge.mode-spec    { color:var(--color-accent);  background:rgba(188,140,255,.1); border-color:rgba(188,140,255,.25); }
 .composer-mode-badge.mode-code    { color:var(--color-success); background:rgba(63,185,80,.1);   border-color:rgba(63,185,80,.25);   }
 .composer-mode-badge.mode-debug   { color:var(--color-warning); background:rgba(210,153,34,.1);  border-color:rgba(210,153,34,.25);  }
-.composer-mode-badge.mode-verify  { color:#e3b341;              background:rgba(227,179,65,.1);  border-color:rgba(227,179,65,.25);  }
+.composer-mode-badge.mode-verify  { color:var(--color-verify);              background:rgba(227,179,65,.1);  border-color:rgba(227,179,65,.25);  }
 
 .composer textarea {
   flex: 1; background: none; border: none; outline: none;
