@@ -14,6 +14,7 @@ EXPORT_SCRIPT = ROOT / "scripts" / "export-dependencies.py"
 CHECK_SCRIPT = ROOT / "scripts" / "check-bundle-dependencies.py"
 VALIDATE_SCRIPT = ROOT / "scripts" / "validate-offline-bundle.ps1"
 PACKAGE_SCRIPT = ROOT / "scripts" / "package.ps1"
+MOCK_CONFIG = ROOT / "tests" / "fixtures" / "package" / "mock-config.json"
 
 
 def _powershell_exe():
@@ -290,6 +291,50 @@ class TestPackageDoctor(unittest.TestCase):
         self.assertTrue(payload["blocking_issues"])
         self.assertIn("Not implemented yet: deps", payload["blocking_issues"][0])
         self.assertNotIn("Package config not found", payload["blocking_issues"][0])
+
+
+class TestPackageOrchestration(unittest.TestCase):
+    def test_package_verify_returns_not_ready_for_missing_bundle(self):
+        result = subprocess.run(
+            [
+                _powershell_exe(),
+                "-NoProfile",
+                "-File",
+                str(PACKAGE_SCRIPT),
+                "verify",
+                "-BundleRoot",
+                "build/does-not-exist",
+                "-Json",
+            ],
+            cwd=str(ROOT),
+            capture_output=True,
+            text=True,
+        )
+        self.assertNotEqual(result.returncode, 0)
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["final_status"], "NOT_READY")
+
+    def test_package_release_with_mock_stages_returns_ready(self):
+        result = subprocess.run(
+            [
+                _powershell_exe(),
+                "-NoProfile",
+                "-File",
+                str(PACKAGE_SCRIPT),
+                "release",
+                "-Config",
+                str(MOCK_CONFIG),
+                "-Json",
+            ],
+            cwd=str(ROOT),
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["command"], "release")
+        self.assertEqual(payload["final_status"], "READY")
+        self.assertTrue(payload["report_path"])
 
 
 if __name__ == "__main__":

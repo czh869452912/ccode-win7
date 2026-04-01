@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "default_profile": "dev",
+  "paths": {
+    "project_root": ".",
+    "build_root": "build",
+    "reports_root": "build/offline-reports",
+    "asset_manifest": "scripts/offline-assets.json",
+    "site_packages_export_root": "build/offline-cache/site-packages-export",
+    "site_packages_root": "build/offline-cache/site-packages-export/site-packages",
+    "llvm_root": "toolchains/llvm/current",
+    "dist_bundle_root": "build/offline-dist/mock-artifact"
+  },
+  "tooling": {
+    "export_dependencies": "tests/fixtures/package/mock-export.py",
+    "prepare_bundle": "tests/fixtures/package/mock-prepare.ps1",
+    "build_bundle": "tests/fixtures/package/mock-build.ps1",
+    "validate_bundle": "tests/fixtures/package/mock-validate.ps1",
+    "check_dependencies": "tests/fixtures/package/mock-check.py"
+  },
+  "profiles": {
+    "dev": {
+      "artifact_name": "mock-artifact",
+      "allow_download": false,
+      "require_complete": false,
+      "create_zip": false,
+      "run_dynamic_checks": false,
+      "run_dependency_checker": true,
+      "required_assets": []
+    },
+    "release": {
+      "artifact_name": "mock-artifact",
+      "allow_download": false,
+      "require_complete": true,
+      "create_zip": true,
+      "run_dynamic_checks": false,
+      "run_dependency_checker": true,
+      "required_assets": []
+    }
+  }
+}
