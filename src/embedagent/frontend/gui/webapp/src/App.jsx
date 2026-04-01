@@ -32,7 +32,7 @@ const SLASH_COMMAND_HINTS = [
 
 function App() {
   const [state, dispatch] = useReducer(reducer, initialState);
-  const [treeHeight, setTreeHeight] = useState(640);
+  const treeHeight = 640;
   const [userAnswer, setUserAnswer] = useState("");
   const wsRef = useRef(null);
   const timelineRef = useRef(null);
@@ -41,14 +41,6 @@ function App() {
 
   const currentMode = state.snapshot?.current_mode || state.requestedMode;
   const currentStatus = state.snapshot?.status || "idle";
-
-  // resize handler for file tree
-  useEffect(() => {
-    const update = () => setTreeHeight(Math.max(window.innerHeight - 180, 360));
-    update();
-    window.addEventListener("resize", update);
-    return () => window.removeEventListener("resize", update);
-  }, []);
 
   // initial data load
   useEffect(() => {
@@ -561,116 +553,144 @@ function App() {
     [state.sessions],
   );
 
+  function startResize(e, cssVar, direction) {
+    e.preventDefault();
+    const handle = e.currentTarget;
+    handle.classList.add("dragging");
+    const startX = e.clientX;
+    const startVal = parseFloat(
+      getComputedStyle(document.documentElement).getPropertyValue(cssVar).trim()
+    ) || (cssVar === "--sidebar-w-raw" ? 220 : 260);
+
+    function onMove(ev) {
+      const delta = (ev.clientX - startX) * direction;
+      const newVal = Math.max(160, Math.min(480, startVal + delta));
+      document.documentElement.style.setProperty(cssVar, `${newVal}px`);
+    }
+    function onUp() {
+      handle.classList.remove("dragging");
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    }
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  }
+
   return (
     <LangContext.Provider value={state.lang}>
-    <div className={`shell${state.inspectorOpen ? "" : " inspector-closed"}`}>
-      <Sidebar
-        sidebarTab={state.sidebarTab}
-        sessions={sessionCards}
-        currentSessionId={state.currentSessionId}
-        fileTree={state.fileTree}
-        treeHeight={treeHeight}
-        currentMode={currentMode}
-        onTabChange={(v) => dispatch({ type: "set_sidebar", value: v })}
-        onLoadSession={loadSession}
-        onCreateSession={createSession}
-        onOpenFile={openFile}
-        onLoadFileChildren={loadFileChildren}
-      />
+    <div className="app-shell">
+      {/* ── Global Header ── */}
+      <header className="app-header">
+        <span className="app-logo">EmbedAgent</span>
+        <span className={`mode-badge mode-${currentMode}`}>{currentMode}</span>
+        <div className="header-right">
+          <span className={`status-dot ${currentStatus}`} title={currentStatus} />
+          <span className={`status-label ${currentStatus === "idle" ? "idle" : currentStatus === "error" ? "error" : ""}`}>
+            {currentStatus}
+          </span>
+          {state.currentSessionId && (
+            <span className="meta-text">{state.currentSessionId.slice(0, 8)}</span>
+          )}
+          {state.turnsUsed > 0 && (
+            <span className="meta-text">turns {state.turnsUsed}/{state.maxTurns}</span>
+          )}
+          <button className="ghost" onClick={loadSessions} aria-label={t("header.refresh", state.lang)}>
+            {t("header.refresh", state.lang)}
+          </button>
+          <button
+            className="ghost lang-toggle"
+            onClick={() => dispatch({ type: "set_lang", value: state.lang === "en" ? "zh" : "en" })}
+            aria-label="Toggle language"
+          >
+            {t("lang.toggle", state.lang)}
+          </button>
+          <button
+            className={`ghost inspector-toggle${state.inspectorOpen ? " active" : ""}`}
+            onClick={() => dispatch({ type: "toggle_inspector" })}
+            title={t("header.toggleInspector", state.lang)}
+            aria-pressed={state.inspectorOpen}
+          >
+            ⊞
+          </button>
+        </div>
+      </header>
 
-      <main className="chat-shell">
-        <header className="header">
-          <div className="header-group">
-            <select
-              className={`badge mode mode-${currentMode}`}
-              value={currentMode}
-              onChange={(e) => setMode(e.target.value)}
-              aria-label="Agent mode"
-            >
-              {MODES.map((m) => (
-                <option key={m} value={m}>
-                  {m}
-                </option>
-              ))}
-            </select>
-            <div className="status-copy">{state.connectionState}</div>
-          </div>
-          <div className="header-group">
-            <button className="ghost" onClick={loadSessions} aria-label={t("header.refresh", state.lang)}>
-              {t("header.refresh", state.lang)}
-            </button>
-            <button
-              className="ghost lang-toggle"
-              onClick={() => dispatch({ type: "set_lang", value: state.lang === "en" ? "zh" : "en" })}
-              aria-label="Toggle language"
-              title="Toggle language"
-            >
-              {t("lang.toggle", state.lang)}
-            </button>
-            <button
-              className={`ghost inspector-toggle${state.inspectorOpen ? " active" : ""}`}
-              onClick={() => dispatch({ type: "toggle_inspector" })}
-              title={t("header.toggleInspector", state.lang)}
-              aria-pressed={state.inspectorOpen}
-              aria-label={t("header.toggleInspector", state.lang)}
-            >
-              ⊞
-            </button>
-          </div>
-        </header>
-        <StatusBar
-          turnsUsed={state.turnsUsed}
-          maxTurns={state.maxTurns}
+      {/* ── Workspace ── */}
+      <div className="workspace">
+        <Sidebar
+          sidebarTab={state.sidebarTab}
+          sessions={sessionCards}
+          currentSessionId={state.currentSessionId}
+          fileTree={state.fileTree}
+          treeHeight={treeHeight}
           currentMode={currentMode}
-          currentStatus={currentStatus}
-          lang={state.lang}
+          onTabChange={(v) => dispatch({ type: "set_sidebar", value: v })}
+          onLoadSession={loadSession}
+          onCreateSession={createSession}
+          onOpenFile={openFile}
+          onLoadFileChildren={loadFileChildren}
         />
 
-        <Timeline
-          ref={timelineRef}
-          timeline={state.timeline}
-          toolCatalog={state.toolCatalog}
-          thinkingActive={state.thinkingActive}
-          streamingReasoningId={state.streamingReasoningId}
-          terminationReason={state.terminationReason}
-          turnsUsed={state.turnsUsed}
-          maxTurns={state.maxTurns}
-          userAnswer={userAnswer}
-          onUserAnswerChange={setUserAnswer}
-          onSubmitUserInput={sendUserInputResponse}
-          onPermissionResponse={sendInlinePermissionResponse}
-          onScroll={handleTimelineScroll}
+        <div
+          className="resize-handle"
+          onMouseDown={(e) => startResize(e, "--sidebar-w-raw", 1)}
+          aria-hidden="true"
         />
 
-        <Composer
-          value={state.composer}
-          onChange={(v) => dispatch({ type: "set_composer", value: v })}
-          onSend={sendMessage}
-          onStop={cancelSession}
-          isRunning={currentStatus === "running" || currentStatus === "waiting_user_input"}
-          commandHints={SLASH_COMMAND_HINTS}
-        />
-      </main>
+        <main className="main-chat">
+          <Timeline
+            ref={timelineRef}
+            timeline={state.timeline}
+            toolCatalog={state.toolCatalog}
+            thinkingActive={state.thinkingActive}
+            streamingReasoningId={state.streamingReasoningId}
+            terminationReason={state.terminationReason}
+            turnsUsed={state.turnsUsed}
+            maxTurns={state.maxTurns}
+            userAnswer={userAnswer}
+            onUserAnswerChange={setUserAnswer}
+            onSubmitUserInput={sendUserInputResponse}
+            onPermissionResponse={sendInlinePermissionResponse}
+            onScroll={handleTimelineScroll}
+          />
+          <Composer
+            value={state.composer}
+            onChange={(v) => dispatch({ type: "set_composer", value: v })}
+            onSend={sendMessage}
+            onStop={cancelSession}
+            isRunning={currentStatus === "running" || currentStatus === "waiting_user_input"}
+            commandHints={SLASH_COMMAND_HINTS}
+          />
+        </main>
 
-      {state.inspectorOpen ? (
-        <Inspector
-          inspectorTab={state.inspectorTab}
-          todos={state.todos}
-          artifacts={state.artifacts}
-          plan={state.plan}
-          review={state.review}
-          permissionContext={state.permissionContext}
-          preview={state.preview}
-          userInput={state.userInput}
-          userAnswer={userAnswer}
-          eventLog={state.eventLog}
-          onTabChange={(v) => dispatch({ type: "set_inspector", value: v })}
-          onOpenArtifact={openArtifact}
-          onOpenReviewEvidence={openReviewEvidence}
-          onUserAnswerChange={setUserAnswer}
-          onSubmitUserInput={sendUserInputResponse}
+        <div
+          className="resize-handle"
+          onMouseDown={(e) => startResize(e, "--inspector-w-raw", -1)}
+          aria-hidden="true"
         />
-      ) : null}
+
+        {state.inspectorOpen ? (
+          <Inspector
+            inspectorTab={state.inspectorTab}
+            todos={state.todos}
+            artifacts={state.artifacts}
+            plan={state.plan}
+            review={state.review}
+            permissionContext={state.permissionContext}
+            preview={state.preview}
+            userInput={state.userInput}
+            userAnswer={userAnswer}
+            eventLog={state.eventLog}
+            onTabChange={(v) => dispatch({ type: "set_inspector", value: v })}
+            onOpenArtifact={openArtifact}
+            onOpenReviewEvidence={openReviewEvidence}
+            onUserAnswerChange={setUserAnswer}
+            onSubmitUserInput={sendUserInputResponse}
+          />
+        ) : (
+          <div style={{ background: "var(--bg-default)", borderLeft: "1px solid var(--bg-subtle)" }} />
+        )}
+      </div>
 
       <PermissionModal
         permission={state.permission}
@@ -683,23 +703,3 @@ function App() {
 }
 
 export default App;
-
-function StatusBar({ turnsUsed, maxTurns, currentMode, currentStatus, lang }) {
-  const isActive = currentStatus === "running" || currentStatus === "waiting_permission" || currentStatus === "waiting_user_input";
-  return (
-    <div className="status-bar" aria-label="Session status">
-      {turnsUsed > 0 && (
-        <>
-          <span className="status-bar-turn" title="Turns used / max">
-            Turn {turnsUsed}/{maxTurns}
-          </span>
-          <span className="status-bar-sep">·</span>
-        </>
-      )}
-      <span className={`status-bar-mode mode-${currentMode}`}>{currentMode}</span>
-      <span className={`status-bar-status ${isActive ? currentStatus : ""}`}>
-        {currentStatus}
-      </span>
-    </div>
-  );
-}
