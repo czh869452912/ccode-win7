@@ -1,6 +1,8 @@
 import json
 import os
 import subprocess
+import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -8,6 +10,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 LIB = ROOT / "scripts" / "package-lib.ps1"
 CONFIG = ROOT / "scripts" / "package.config.json"
+EXPORT_SCRIPT = ROOT / "scripts" / "export-dependencies.py"
+CHECK_SCRIPT = ROOT / "scripts" / "check-bundle-dependencies.py"
+VALIDATE_SCRIPT = ROOT / "scripts" / "validate-offline-bundle.ps1"
 
 
 def _powershell_exe():
@@ -59,6 +64,100 @@ class TestPackageFoundation(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         payload = json.loads(result.stdout)
         self.assertEqual(payload["final_status"], "READY")
+
+
+class TestStageJsonReports(unittest.TestCase):
+    def test_dependency_checker_writes_json_report(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            bundle_root = Path(tmp)
+            report_path = bundle_root / "dependency-report.json"
+            result = subprocess.run(
+                [sys.executable, str(CHECK_SCRIPT), str(bundle_root), "--json-report", str(report_path)],
+                cwd=str(ROOT),
+                capture_output=True,
+                text=True,
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertTrue(report_path.exists())
+            payload = json.loads(report_path.read_text(encoding="utf-8"))
+            self.assertIn("ok", payload)
+            self.assertIn("checks", payload)
+
+    def test_export_verify_only_writes_json_report(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            export_root = Path(tmp)
+            site_packages = export_root / "site-packages"
+            site_packages.mkdir()
+            for name in [
+                "prompt_toolkit",
+                "rich",
+                "webview",
+                "fastapi",
+                "uvicorn",
+                "websockets",
+                "starlette",
+                "pydantic",
+                "anyio",
+                "click",
+                "h11",
+                "idna",
+                "sniffio",
+                "typing_extensions",
+            ]:
+                (site_packages / name).mkdir()
+            report_path = export_root / "export-report.json"
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(EXPORT_SCRIPT),
+                    "--output-dir",
+                    str(export_root),
+                    "--verify-only",
+                    "--json-report",
+                    str(report_path),
+                ],
+                cwd=str(ROOT),
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertTrue(report_path.exists())
+            payload = json.loads(report_path.read_text(encoding="utf-8"))
+            self.assertTrue(payload["ok"])
+            self.assertIn("missing_packages", payload)
+
+    def test_validate_offline_bundle_writes_json_report(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            bundle_root = Path(tmp) / "bundle"
+            sources_root = Path(tmp) / "sources"
+            bundle_root.mkdir()
+            sources_root.mkdir()
+            json_path = Path(tmp) / "validate-report.json"
+            result = subprocess.run(
+                [
+                    _powershell_exe(),
+                    "-NoProfile",
+                    "-File",
+                    str(VALIDATE_SCRIPT),
+                    "-BundleRoot",
+                    str(bundle_root),
+                    "-SourcesRoot",
+                    str(sources_root),
+                    "-ZipPath",
+                    str(Path(tmp) / "bundle.zip"),
+                    "-SkipDynamicChecks",
+                    "-JsonOutputPath",
+                    str(json_path),
+                ],
+                cwd=str(ROOT),
+                capture_output=True,
+                text=True,
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertTrue(json_path.exists())
+            payload = json.loads(json_path.read_text(encoding="utf-8"))
+            self.assertIn("results", payload)
+            self.assertIn("fail_count", payload)
 
 
 if __name__ == "__main__":

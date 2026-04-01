@@ -4,6 +4,7 @@ param(
     [string]$BundleRoot = "",
     [string]$ZipPath = "",
     [string]$SourcesRoot = "",
+    [string]$JsonOutputPath = "",
     [switch]$RequireComplete,
     [switch]$SkipDynamicChecks
 )
@@ -24,6 +25,22 @@ function Add-Result {
         code = $Code
         message = $Message
     })
+}
+
+function Write-JsonReport {
+    param(
+        [string]$Path,
+        [hashtable]$Payload
+    )
+
+    if (-not $Path) {
+        return
+    }
+    $parent = Split-Path -Parent $Path
+    if ($parent -and (-not (Test-Path -LiteralPath $parent))) {
+        New-Item -ItemType Directory -Path $parent -Force | Out-Null
+    }
+    $Payload | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $Path -Encoding ASCII
 }
 
 function Invoke-ComponentResult {
@@ -247,6 +264,9 @@ Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'config\config.js
 Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'config\config.json.template') -Code 'bundle.config_template' -Message 'Config template present.' -TreatAsCompleteGate $true
 Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'config\permission-rules.json') -Code 'bundle.permissions' -Message 'Default permission rules template present.' -TreatAsCompleteGate $true
 Test-StaticPath -Results $results -Path $manifestPath -Code 'bundle.manifest' -Message 'bundle-manifest.json present.' -TreatAsCompleteGate $true
+if (-not (Test-Path -LiteralPath $manifestPath)) {
+    Add-Result -Results $results -Level 'fail' -Code 'bundle.manifest.required' -Message 'bundle-manifest.json is required for validation.'
+}
 Test-StaticPath -Results $results -Path $checksumsPath -Code 'bundle.checksums' -Message 'checksums.txt present.' -TreatAsCompleteGate $true
 Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'embedagent.cmd') -Code 'bundle.launcher.cli' -Message 'CLI launcher present.' -TreatAsCompleteGate $true
 Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'embedagent-tui.cmd') -Code 'bundle.launcher.tui' -Message 'TUI launcher present.' -TreatAsCompleteGate $true
@@ -392,6 +412,21 @@ foreach ($item in $results) {
 }
 
 Write-Host ('Summary: pass={0} warn={1} fail={2}' -f $passCount, $warnCount, $failCount)
+
+$summaryPayload = [ordered]@{
+    ok = ($failCount -eq 0)
+    artifact_name = $ArtifactName
+    bundle_root = $BundleRoot
+    zip_path = $ZipPath
+    sources_root = $SourcesRoot
+    require_complete = [bool]$RequireComplete
+    skip_dynamic_checks = [bool]$SkipDynamicChecks
+    pass_count = $passCount
+    warn_count = $warnCount
+    fail_count = $failCount
+    results = $results
+}
+Write-JsonReport -Path $JsonOutputPath -Payload $summaryPayload
 
 if ($failCount -gt 0) {
     exit 1

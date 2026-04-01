@@ -14,7 +14,7 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
-from typing import List
+from typing import Dict, List, Tuple
 
 
 def _run(cmd: List[str], cwd: str = None, check: bool = True) -> subprocess.CompletedProcess:
@@ -24,6 +24,15 @@ def _run(cmd: List[str], cwd: str = None, check: bool = True) -> subprocess.Comp
         print(result.stderr, file=sys.stderr)
         sys.exit(1)
     return result
+
+
+def write_json_report(path: str, payload: Dict) -> None:
+    if not path:
+        return
+    report_path = Path(path)
+    report_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(report_path, "w", encoding="utf-8") as handle:
+        json.dump(payload, handle, indent=2, sort_keys=True)
 
 
 def find_uv() -> str | None:
@@ -166,10 +175,9 @@ def export_site_packages(
     print(f"Written manifest to {manifest_file}")
 
 
-def verify_site_packages(site_packages_dir: str) -> bool:
+def verify_site_packages(site_packages_dir: str) -> Tuple[bool, List[str]]:
     """Verify critical packages are present."""
     sp = Path(site_packages_dir)
-
     critical_packages = [
         "prompt_toolkit",
         "rich",
@@ -199,13 +207,11 @@ def verify_site_packages(site_packages_dir: str) -> bool:
                 break
         if not found:
             missing.append(pkg)
-
     if missing:
         print(f"\nMissing critical packages: {', '.join(missing)}")
-        return False
-
+        return False, missing
     print(f"\nAll {len(critical_packages)} critical packages verified!")
-    return True
+    return True, missing
 
 
 def main():
@@ -232,15 +238,31 @@ def main():
         action="store_true",
         help="Only verify existing site-packages",
     )
+    parser.add_argument(
+        "--json-report",
+        default="",
+        help="Optional path for a machine-readable JSON report",
+    )
 
     args = parser.parse_args()
 
     if args.verify_only:
         site_packages = Path(args.output_dir) / "site-packages"
         if not site_packages.exists():
+            payload = {"ok": False, "missing_packages": ["site-packages"], "mode": "verify-only"}
+            write_json_report(args.json_report, payload)
             print(f"Site-packages not found: {site_packages}")
             sys.exit(1)
-        success = verify_site_packages(str(site_packages))
+        success, missing = verify_site_packages(str(site_packages))
+        write_json_report(
+            args.json_report,
+            {
+                "ok": success,
+                "mode": "verify-only",
+                "site_packages_root": str(site_packages),
+                "missing_packages": missing,
+            },
+        )
         sys.exit(0 if success else 1)
 
     export_site_packages(
@@ -251,7 +273,18 @@ def main():
 
     site_packages = Path(args.output_dir) / "site-packages"
     if site_packages.exists():
-        verify_site_packages(str(site_packages))
+        success, missing = verify_site_packages(str(site_packages))
+        write_json_report(
+            args.json_report,
+            {
+                "ok": success,
+                "mode": "export",
+                "output_dir": args.output_dir,
+                "site_packages_root": str(site_packages),
+                "requirements_file": str(Path(args.output_dir) / "requirements-pinned.txt"),
+                "missing_packages": missing,
+            },
+        )
 
     print(f"\n{'='*60}")
     print("Export complete!")

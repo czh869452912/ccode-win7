@@ -6,17 +6,41 @@ Ensures all dependencies are present for zero-dependency deployment.
 from __future__ import annotations
 
 import json
-import os
+import argparse
 import sys
 from pathlib import Path
-from typing import List, Set, Tuple
+from typing import Dict, List, Tuple
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="Offline Bundle Dependency Checker",
+    )
+    parser.add_argument(
+        "bundle_root",
+        nargs="?",
+        default="",
+        help="Bundle root path (optional, auto-detect when omitted)",
+    )
+    parser.add_argument(
+        "--json-report",
+        default="",
+        help="Optional path for a machine-readable JSON report",
+    )
+    return parser.parse_args()
+
+
+def write_json_report(path: str, payload: Dict) -> None:
+    if not path:
+        return
+    report_path = Path(path)
+    report_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(report_path, "w", encoding="utf-8") as handle:
+        json.dump(payload, handle, indent=2, sort_keys=True)
 
 
 def get_bundle_root() -> Path:
     """Get bundle root from command line or auto-detect."""
-    if len(sys.argv) > 1:
-        return Path(sys.argv[1])
-    
     # Auto-detect: look for common indicators
     script_dir = Path(__file__).parent
     candidates = [
@@ -219,13 +243,9 @@ def check_manifest(bundle_root: Path) -> Tuple[bool, List[str]]:
 
 
 def main():
-    bundle_root = get_bundle_root()
-    print(f"Checking bundle: {bundle_root}")
-    print("=" * 60)
-    
+    args = parse_args()
+    bundle_root = Path(args.bundle_root) if args.bundle_root else get_bundle_root()
     all_passed = True
-    all_errors = []
-    
     checks = [
         ("Python Runtime", check_python_runtime),
         ("Site Packages", check_site_packages),
@@ -236,18 +256,33 @@ def main():
         ("Static Files", check_static_files),
         ("Manifest", check_manifest),
     ]
-    
+
+    check_payloads = []
     for name, check_func in checks:
         passed, errors = check_func(bundle_root)
-        status = "✓" if passed else "✗"
-        print(f"{status} {name}")
-        if errors:
-            for error in errors:
-                print(f"   - {error}")
-            all_errors.extend(errors)
+        check_payloads.append({"name": name, "ok": passed, "errors": errors})
         if not passed:
             all_passed = False
-    
+
+    write_json_report(
+        args.json_report,
+        {
+            "ok": all_passed,
+            "bundle_root": str(bundle_root),
+            "checks": check_payloads,
+        },
+    )
+
+    print(f"Checking bundle: {bundle_root}")
+    print("=" * 60)
+    all_errors = []
+    for item in check_payloads:
+        status = "✓" if item["ok"] else "✗"
+        print(f"{status} {item['name']}")
+        for error in item["errors"]:
+            print(f"   - {error}")
+            all_errors.append(error)
+
     print("=" * 60)
     if all_passed:
         print("All checks passed! Bundle is ready for offline deployment.")
