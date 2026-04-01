@@ -49,3 +49,4 @@ desktop.ini
 !/toolchains/README.md
 !/toolchains/manifest.json
 /toolchains/probe*/
+.worktrees/
