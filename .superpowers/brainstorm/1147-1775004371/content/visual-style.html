@@ -1,0 +1,83 @@
+<h2>问题 2：视觉风格方向</h2>
+<p class="subtitle">现有 GUI 是暖色系卡片风格，Claude Code 是极简终端美学。迭代后走哪个方向？</p>
+
+<div class="cards">
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="background:#1a1a1a;padding:12px;border-radius:8px;font-family:monospace;font-size:12px;color:#ccc;line-height:1.6">
+        <div style="color:#6a9f6a">● EmbedAgent  explore  session:a1b2</div>
+        <div style="margin-top:8px;border-top:1px solid #333;padding-top:8px">
+          <span style="color:#888">user</span> <span style="color:#fff">请分析一下这个模块</span>
+        </div>
+        <div style="margin-top:6px">
+          <span style="color:#888">assistant</span>
+          <span style="color:#ddd"> 正在分析 src/main.c...</span>
+        </div>
+        <div style="margin-top:4px;color:#666">
+          ▸ read_file  src/main.c  <span style="color:#5a9">✓ 342 行</span>
+        </div>
+        <div style="margin-top:8px;padding:6px;border:1px solid #333;border-radius:4px;color:#bbb;font-size:11px">
+          Todos │ Artifacts │ Plan │ Log
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A — 终端美学（TUI-inspired）</h3>
+      <p>深色背景 + 等宽字体，类 Claude Code 风格。紧凑、信息密度高，适合长时间开发工作流。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="background:#f8f9fa;padding:12px;border-radius:8px;font-family:system-ui,sans-serif;font-size:12px;line-height:1.6">
+        <div style="display:flex;gap:8px;margin-bottom:8px">
+          <div style="background:#e9ecef;padding:4px 8px;border-radius:4px;font-size:11px;color:#495057">explore</div>
+          <div style="color:#6c757d;font-size:11px">session a1b2</div>
+        </div>
+        <div style="background:#fff;border:1px solid #dee2e6;border-radius:8px;padding:8px;margin-bottom:6px">
+          <div style="color:#212529">请分析一下这个模块</div>
+        </div>
+        <div style="background:#f0f4ff;border:1px solid #c9d8ff;border-radius:8px;padding:8px">
+          <div style="color:#333">正在分析 src/main.c...</div>
+          <div style="margin-top:4px;color:#666;font-size:11px">▸ read_file · src/main.c · 342 行</div>
+        </div>
+        <div style="margin-top:8px;display:flex;gap:4px">
+          <div style="background:#e9ecef;padding:3px 8px;border-radius:4px;font-size:10px;color:#495057">Todos</div>
+          <div style="background:#e9ecef;padding:3px 8px;border-radius:4px;font-size:10px;color:#495057">Plan</div>
+          <div style="background:#4361ee;padding:3px 8px;border-radius:4px;font-size:10px;color:#fff">Log</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B — 现代浅色（IDE-like）</h3>
+      <p>干净的浅色 + 蓝色强调，类 Cursor/VS Code 风格。亮眼、专业，符合大多数桌面应用习惯。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="background:#0d1117;padding:12px;border-radius:8px;font-family:system-ui,monospace;font-size:12px;line-height:1.6">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+          <div style="width:8px;height:8px;background:#3fb950;border-radius:50%"></div>
+          <span style="color:#8b949e;font-size:11px">explore · a1b2</span>
+        </div>
+        <div style="color:#e6edf3;margin-bottom:6px">请分析一下这个模块</div>
+        <div style="border-left:2px solid #3fb950;padding-left:8px;margin-bottom:6px">
+          <div style="color:#7ee787">正在分析 src/main.c...</div>
+          <div style="color:#6e7681;font-size:11px">read_file · 342行 · 1.2ms</div>
+        </div>
+        <div style="background:#161b22;border:1px solid #30363d;border-radius:6px;padding:6px;display:flex;gap:8px">
+          <span style="color:#3fb950;font-size:10px">● Todos</span>
+          <span style="color:#6e7681;font-size:10px">Plan</span>
+          <span style="color:#6e7681;font-size:10px">Log</span>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C — GitHub 深色（精致暗色）</h3>
+      <p>深色 + 绿色强调，类 GitHub Copilot/Codespaces 风格。开发者熟悉，对比度出色，配色克制。</p>
+    </div>
+  </div>
+</div>
+
+<p class="subtitle" style="margin-top:16px">点击你倾向的风格，或在终端告诉我</p>

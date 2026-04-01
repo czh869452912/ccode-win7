@@ -1,0 +1,113 @@
+<h2>核心组件交互设计</h2>
+<p class="subtitle">借鉴 Claude Code 的关键交互模式，提升信息密度和可读性</p>
+
+<div class="section">
+<h3>① Timeline — 工具执行展示（最大改动）</h3>
+<p style="font-size:12px;color:#8b949e">当前：工具用纯文本行展示。新设计：借鉴 Claude Code 的 tool block 样式，分 running/success/error 三态</p>
+<div style="background:#0d1117;padding:12px;border-radius:8px;font-family:monospace;font-size:11px">
+  <!-- User message -->
+  <div style="display:flex;gap:8px;margin-bottom:10px;align-items:flex-start">
+    <div style="background:#21262d;border-radius:4px;padding:6px 10px;color:#e6edf3;font-size:11px;border-left:2px solid #8b949e;max-width:70%;margin-left:auto">
+      请分析 main.c 的内存管理
+    </div>
+  </div>
+  <!-- Tool: running -->
+  <div style="background:#161b22;border:1px solid #d2992240;border-radius:6px;padding:7px 10px;margin-bottom:6px;display:flex;align-items:center;gap:8px">
+    <div style="width:8px;height:8px;background:#d29922;border-radius:50%;animation:pulse 1s infinite"></div>
+    <span style="color:#d29922;font-size:10px">read_file</span>
+    <span style="color:#8b949e;font-size:10px">src/main.c</span>
+    <span style="color:#6e7681;font-size:10px;margin-left:auto">running...</span>
+  </div>
+  <!-- Tool: success -->
+  <div style="background:#161b22;border:1px solid #3fb95040;border-radius:6px;padding:7px 10px;margin-bottom:6px;display:flex;align-items:center;gap:8px">
+    <div style="width:8px;height:8px;background:#3fb950;border-radius:50%"></div>
+    <span style="color:#3fb950;font-size:10px">search_text</span>
+    <span style="color:#8b949e;font-size:10px">malloc|free|realloc</span>
+    <span style="color:#6e7681;font-size:10px;margin-left:auto">12 matches · 48ms</span>
+  </div>
+  <!-- Tool: error -->
+  <div style="background:#161b22;border:1px solid #f8514940;border-radius:6px;padding:7px 10px;margin-bottom:10px;display:flex;align-items:center;gap:8px">
+    <div style="width:8px;height:8px;background:#f85149;border-radius:50%"></div>
+    <span style="color:#f85149;font-size:10px">run_tests</span>
+    <span style="color:#8b949e;font-size:10px">--suite memory</span>
+    <span style="color:#6e7681;font-size:10px;margin-left:auto">exit 1 · 120ms</span>
+    <span style="color:#f85149;font-size:10px;cursor:pointer">▸ 展开</span>
+  </div>
+  <!-- Assistant streaming -->
+  <div style="border-left:2px solid #3fb950;padding:6px 10px;color:#e6edf3;font-size:11px">
+    main.c 第 47 行存在内存泄漏：malloc 分配后在错误路径中未释放。建议在 return -1 之前添加 free(buf)...<span style="display:inline-block;width:2px;height:12px;background:#3fb950;margin-left:2px;animation:blink 1s step-end infinite"></span>
+  </div>
+</div>
+<p style="font-size:11px;color:#6e7681;margin-top:6px">工具行：点击可展开详细输出；错误态自动展开；running 态有脉冲动效</p>
+</div>
+
+<div class="section">
+<h3>② Inspector — 实时同步 + Tab 重排</h3>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+  <div>
+    <div style="font-size:11px;color:#d29922;margin-bottom:6px">当前（7个平铺 tab，溢出严重）</div>
+    <div style="background:#161b22;border:1px solid #30363d;border-radius:6px;padding:8px">
+      <div style="display:flex;gap:2px;flex-wrap:wrap;margin-bottom:6px">
+        <span style="background:#21262d;padding:2px 5px;border-radius:3px;font-size:8px;color:#6e7681;white-space:nowrap">todos</span>
+        <span style="background:#21262d;padding:2px 5px;border-radius:3px;font-size:8px;color:#6e7681;white-space:nowrap">artifacts</span>
+        <span style="background:#21262d;padding:2px 5px;border-radius:3px;font-size:8px;color:#6e7681;white-space:nowrap">plan</span>
+        <span style="background:#21262d;padding:2px 5px;border-radius:3px;font-size:8px;color:#6e7681;white-space:nowrap">review</span>
+        <span style="background:#21262d;padding:2px 5px;border-radius:3px;font-size:8px;color:#6e7681;white-space:nowrap">perms</span>
+        <span style="background:#21262d;padding:2px 5px;border-radius:3px;font-size:8px;color:#6e7681;white-space:nowrap">preview</span>
+        <span style="background:#21262d;padding:2px 5px;border-radius:3px;font-size:8px;color:#6e7681;white-space:nowrap">log</span>
+      </div>
+      <div style="color:#f85149;font-size:10px">⚠ inspector 宽度 260px 时这 7 个 tab 会溢出</div>
+    </div>
+  </div>
+  <div>
+    <div style="font-size:11px;color:#3fb950;margin-bottom:6px">新设计（主 tab + 溢出菜单）</div>
+    <div style="background:#161b22;border:1px solid #30363d;border-radius:6px;padding:8px">
+      <div style="display:flex;align-items:center;gap:2px;margin-bottom:6px;border-bottom:1px solid #21262d;padding-bottom:6px">
+        <span style="background:#3fb95020;color:#3fb950;padding:2px 8px;border-radius:4px;font-size:9px;border-bottom:2px solid #3fb950">Todos <span style="background:#3fb950;color:#0d1117;border-radius:8px;padding:0 4px">3</span></span>
+        <span style="color:#8b949e;padding:2px 8px;font-size:9px">Plan</span>
+        <span style="color:#8b949e;padding:2px 8px;font-size:9px">Artifacts</span>
+        <span style="color:#8b949e;padding:2px 6px;font-size:9px;margin-left:auto;background:#21262d;border-radius:3px">···</span>
+      </div>
+      <div style="font-size:10px;color:#8b949e">前 3 个常用 tab 常驻，其余折叠到 ··· 菜单<br/>badge 数字实时更新（push 驱动）</div>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="section">
+<h3>③ 数据同步架构</h3>
+<div style="background:#161b22;border:1px solid #30363d;border-radius:8px;padding:12px;font-family:monospace;font-size:11px;line-height:1.8">
+  <div style="color:#388bfd">// 后端 server.py 新增 push 事件</div>
+  <div style="color:#e6edf3">on_todos_updated(todos)  <span style="color:#6e7681">← InProcessAdapter 在 manage_todos 工具完成后触发</span></div>
+  <div style="color:#e6edf3">on_artifacts_updated(artifacts)  <span style="color:#6e7681">← write_file / edit_file 工具完成后触发</span></div>
+  <br/>
+  <div style="color:#388bfd">// 前端 App.jsx 新增</div>
+  <div style="color:#e6edf3">case <span style="color:#d29922">"tool_finished"</span>:</div>
+  <div style="color:#e6edf3">&nbsp;&nbsp;dispatch(action)  <span style="color:#6e7681">// 原有逻辑</span></div>
+  <div style="color:#e6edf3">&nbsp;&nbsp;<span style="color:#3fb950">if</span> (isFileSystemTool(data.tool_name)) {</div>
+  <div style="color:#e6edf3">&nbsp;&nbsp;&nbsp;&nbsp;fetchFileTree()  <span style="color:#6e7681">// 文件树 refetch</span></div>
+  <div style="color:#e6edf3">&nbsp;&nbsp;}</div>
+  <br/>
+  <div style="color:#388bfd">// isFileSystemTool 匹配工具</div>
+  <div style="color:#e6edf3">const FS_TOOLS = [<span style="color:#d29922">"write_file","edit_file","git_commit","git_reset"</span>]</div>
+</div>
+</div>
+
+<div class="section">
+<h3>④ Composer — 模式感知输入框</h3>
+<div style="background:#161b22;border:1px solid #388bfd;border-radius:8px;padding:10px;font-family:monospace">
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+    <span style="background:#388bfd20;color:#388bfd;padding:2px 7px;border-radius:4px;font-size:10px;border:1px solid #388bfd40">explore</span>
+    <span style="color:#6e7681;font-size:10px">只读模式 · 文件不会被修改</span>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px">
+    <div style="flex:1;background:#0d1117;border:1px solid #30363d;border-radius:5px;padding:6px 10px;color:#8b949e;font-size:11px">输入消息，/ 开始命令...</div>
+    <div style="background:#21262d;border:1px solid #30363d;border-radius:5px;padding:6px 10px;color:#6e7681;font-size:10px;cursor:pointer">↵ 发送</div>
+  </div>
+  <div style="display:flex;gap:8px;margin-top:6px;color:#6e7681;font-size:9px">
+    <span>/ 命令</span><span>↑↓ 历史</span><span>Shift+Enter 换行</span><span style="margin-left:auto;color:#d29922">● running 时禁用</span>
+  </div>
+</div>
+</div>
+
+<p class="subtitle">组件设计是否符合预期？确认后进入最后一节：完整交互预览</p>

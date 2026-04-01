@@ -1,0 +1,123 @@
+<h2>布局架构设计</h2>
+<p class="subtitle">可拖拽三列 + 严格 overflow 约束，彻底消除内容溢出问题</p>
+
+<div class="section">
+<h3>整体结构</h3>
+<div style="background:#0d1117;border:1px solid #30363d;border-radius:10px;padding:12px;font-family:monospace;font-size:11px">
+  <!-- App Shell -->
+  <div style="border:1px dashed #388bfd;border-radius:6px;padding:8px;margin-bottom:8px">
+    <div style="color:#388bfd;font-size:10px;margin-bottom:6px">.app-shell  (display:grid; grid-template-rows: 40px 1fr; height:100vh; overflow:hidden)</div>
+    <!-- Header -->
+    <div style="background:#161b22;border:1px solid #30363d;border-radius:4px;padding:6px 10px;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="color:#3fb950;font-size:10px">● EmbedAgent</span>
+        <span style="background:#21262d;color:#8b949e;padding:2px 6px;border-radius:3px;font-size:9px">explore</span>
+      </div>
+      <span style="color:#6e7681;font-size:9px">session a1b2  ·  turns 3/8</span>
+    </div>
+    <!-- 3-column body -->
+    <div style="border:1px dashed #d29922;border-radius:4px;padding:6px">
+      <div style="color:#d29922;font-size:10px;margin-bottom:6px">.workspace  (display:grid; grid-template-columns: var(--sidebar-w) 4px 1fr 4px var(--inspector-w); overflow:hidden)</div>
+      <div style="display:grid;grid-template-columns:180px 4px 1fr 4px 220px;gap:0;height:160px">
+        <!-- Sidebar -->
+        <div style="background:#161b22;border:1px solid #30363d;border-radius:4px;padding:8px;overflow:hidden">
+          <div style="color:#8b949e;font-size:9px;margin-bottom:4px;letter-spacing:.5px">SESSIONS</div>
+          <div style="background:#21262d;border-left:2px solid #3fb950;padding:4px 6px;border-radius:3px;color:#e6edf3;font-size:9px;margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">explore · a1b2</div>
+          <div style="padding:4px 6px;color:#6e7681;font-size:9px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">code · c3d4</div>
+          <div style="color:#8b949e;font-size:9px;margin-top:8px;margin-bottom:4px;letter-spacing:.5px">FILES</div>
+          <div style="color:#6e7681;font-size:9px;line-height:1.6">▾ src/<br/>&nbsp;&nbsp;· main.c<br/>&nbsp;&nbsp;· utils.c</div>
+        </div>
+        <!-- Resize handle left -->
+        <div style="background:#21262d;cursor:col-resize;display:flex;align-items:center;justify-content:center">
+          <div style="width:1px;height:40px;background:#30363d"></div>
+        </div>
+        <!-- Main chat -->
+        <div style="background:#0d1117;border:1px solid #30363d;border-radius:4px;padding:8px;display:flex;flex-direction:column;overflow:hidden">
+          <div style="flex:1;overflow:hidden">
+            <div style="border-left:2px solid #30363d;padding-left:6px;margin-bottom:6px">
+              <div style="color:#8b949e;font-size:9px">user</div>
+              <div style="color:#e6edf3;font-size:9px">请分析这个模块</div>
+            </div>
+            <div style="background:#161b22;border-radius:3px;padding:5px;margin-bottom:4px">
+              <div style="display:flex;align-items:center;gap:4px;margin-bottom:3px">
+                <div style="width:6px;height:6px;background:#3fb950;border-radius:50%"></div>
+                <span style="color:#3fb950;font-size:9px">read_file</span>
+                <span style="color:#6e7681;font-size:9px">src/main.c · 342行</span>
+              </div>
+            </div>
+            <div style="border-left:2px solid #3fb950;padding-left:6px">
+              <div style="color:#8b949e;font-size:9px">assistant</div>
+              <div style="color:#e6edf3;font-size:9px">这个模块实现了...</div>
+            </div>
+          </div>
+          <!-- Composer -->
+          <div style="background:#161b22;border:1px solid #30363d;border-radius:4px;padding:5px 8px;margin-top:6px;display:flex;align-items:center;gap:6px">
+            <span style="color:#6e7681;font-size:9px;flex:1">输入消息...</span>
+            <span style="color:#3fb950;font-size:9px">↵</span>
+          </div>
+        </div>
+        <!-- Resize handle right -->
+        <div style="background:#21262d;cursor:col-resize;display:flex;align-items:center;justify-content:center">
+          <div style="width:1px;height:40px;background:#30363d"></div>
+        </div>
+        <!-- Inspector -->
+        <div style="background:#161b22;border:1px solid #30363d;border-radius:4px;padding:8px;overflow:hidden">
+          <div style="display:flex;gap:3px;flex-wrap:wrap;margin-bottom:6px">
+            <span style="background:#3fb95020;color:#3fb950;padding:2px 5px;border-radius:3px;font-size:8px;border:1px solid #3fb95040">Todos</span>
+            <span style="background:#21262d;color:#6e7681;padding:2px 5px;border-radius:3px;font-size:8px">Plan</span>
+            <span style="background:#21262d;color:#6e7681;padding:2px 5px;border-radius:3px;font-size:8px">Log</span>
+          </div>
+          <div style="background:#21262d;border-radius:3px;padding:5px;overflow:hidden">
+            <div style="display:flex;align-items:center;gap:4px;margin-bottom:3px">
+              <div style="width:8px;height:8px;border:1px solid #3fb950;border-radius:2px"></div>
+              <span style="color:#e6edf3;font-size:9px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">分析模块结构</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:4px">
+              <div style="width:8px;height:8px;border:1px solid #6e7681;border-radius:2px;background:#3fb95040"></div>
+              <span style="color:#6e7681;font-size:9px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-decoration:line-through">读取配置文件</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="section">
+<h3>关键 CSS 约束规则</h3>
+<div style="background:#161b22;padding:12px;border-radius:8px;font-family:monospace;font-size:11px;color:#8b949e;line-height:1.8">
+  <div style="color:#e6edf3">/* 防溢出三原则 */</div>
+  <div><span style="color:#7ee787">.workspace</span> { <span style="color:#388bfd">overflow</span>: <span style="color:#d29922">hidden</span>; }  <span style="color:#6e7681">/* 父容器截断 */</span></div>
+  <div><span style="color:#7ee787">.sidebar, .inspector</span> { <span style="color:#388bfd">overflow-y</span>: <span style="color:#d29922">auto</span>; <span style="color:#388bfd">min-width</span>: <span style="color:#d29922">0</span>; }  <span style="color:#6e7681">/* 子列可滚动 */</span></div>
+  <div><span style="color:#7ee787">*</span> { <span style="color:#388bfd">box-sizing</span>: <span style="color:#d29922">border-box</span>; <span style="color:#388bfd">min-width</span>: <span style="color:#d29922">0</span>; }  <span style="color:#6e7681">/* 所有元素收缩 */</span></div>
+  <br/>
+  <div style="color:#e6edf3">/* 拖拽宽度通过 CSS 变量控制 */</div>
+  <div>:root { <span style="color:#388bfd">--sidebar-w</span>: 220px; <span style="color:#388bfd">--inspector-w</span>: 260px; }</div>
+  <div><span style="color:#6e7681">/* JS 拖拽时: document.documentElement.style.setProperty('--sidebar-w', x+'px') */</span></div>
+  <br/>
+  <div style="color:#e6edf3">/* 宽度边界 */</div>
+  <div><span style="color:#388bfd">--sidebar-w</span>: clamp(160px, var(--sidebar-w), 360px);</div>
+  <div><span style="color:#388bfd">--inspector-w</span>: clamp(200px, var(--inspector-w), 480px);</div>
+</div>
+</div>
+
+<div class="section">
+<h3>新增：全局顶部 Header 栏</h3>
+<p style="font-size:12px;color:#8b949e">当前 GUI 无全局 header。借鉴 Claude Code 的状态栏，新增 40px 固定高度 header：</p>
+<div style="background:#161b22;border:1px solid #30363d;border-radius:6px;padding:8px 14px;display:flex;align-items:center;justify-content:space-between;font-family:monospace;font-size:11px">
+  <div style="display:flex;align-items:center;gap:12px">
+    <span style="color:#3fb950;font-weight:bold">EmbedAgent</span>
+    <div style="display:flex;gap:4px">
+      <span style="background:#3fb95020;color:#3fb950;padding:2px 8px;border-radius:4px;border:1px solid #3fb95040">explore</span>
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;gap:12px;color:#6e7681">
+    <span>session a1b2</span>
+    <span style="color:#d29922">● running</span>
+    <span>turns 3/8</span>
+  </div>
+</div>
+</div>
+
+<p class="subtitle">布局结构是否符合预期？确认后进入第三节组件交互</p>

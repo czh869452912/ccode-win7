@@ -1,0 +1,97 @@
+<h2>问题 3：面板布局结构</h2>
+<p class="subtitle">当前是固定三列 (300px + fluid + 340px)，总宽约 640px 固定，这是溢出的根源。选择新的布局策略：</p>
+
+<div class="cards">
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="background:#0d1117;padding:10px;border-radius:6px;font-family:monospace;font-size:11px">
+        <div style="display:grid;grid-template-columns:56px 1fr 280px;gap:4px;height:140px">
+          <div style="background:#161b22;border:1px solid #30363d;border-radius:4px;display:flex;flex-direction:column;align-items:center;padding:8px 4px;gap:6px">
+            <div style="width:24px;height:24px;background:#21262d;border-radius:4px;display:flex;align-items:center;justify-content:center">
+              <div style="width:14px;height:2px;background:#6e7681;border-radius:1px;box-shadow:0 3px 0 #6e7681,0 6px 0 #6e7681"></div>
+            </div>
+            <div style="width:24px;height:24px;background:#21262d;border-radius:4px"></div>
+            <div style="width:24px;height:24px;background:#21262d;border-radius:4px"></div>
+            <div style="color:#8b949e;font-size:9px;margin-top:auto">EmbedAgent</div>
+          </div>
+          <div style="background:#0d1117;border:1px solid #30363d;border-radius:4px;padding:8px;overflow:hidden">
+            <div style="color:#3fb950;font-size:10px;margin-bottom:6px">● explore</div>
+            <div style="background:#161b22;border-radius:3px;padding:5px;color:#e6edf3;font-size:10px;margin-bottom:4px">user message</div>
+            <div style="border-left:2px solid #3fb950;padding-left:6px;color:#7ee787;font-size:10px">assistant...</div>
+          </div>
+          <div style="background:#161b22;border:1px solid #30363d;border-radius:4px;padding:8px">
+            <div style="display:flex;gap:4px;margin-bottom:6px;flex-wrap:wrap">
+              <div style="background:#21262d;padding:2px 5px;border-radius:3px;color:#3fb950;font-size:9px">Todos</div>
+              <div style="background:#21262d;padding:2px 5px;border-radius:3px;color:#6e7681;font-size:9px">Plan</div>
+              <div style="background:#21262d;padding:2px 5px;border-radius:3px;color:#6e7681;font-size:9px">Log</div>
+            </div>
+            <div style="background:#21262d;border-radius:3px;padding:5px;color:#8b949e;font-size:9px">inspector content</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A — 图标栏 + 流式布局</h3>
+      <p>左侧改为 56px 图标导航栏（类 VS Code Activity Bar），中间流式撑满，右侧 inspector 固定 280px，总固定宽度大幅降低。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="background:#0d1117;padding:10px;border-radius:6px;font-family:monospace;font-size:11px">
+        <div style="display:grid;grid-template-columns:220px 1fr;gap:4px;height:140px">
+          <div style="background:#161b22;border:1px solid #30363d;border-radius:4px;padding:8px">
+            <div style="color:#8b949e;font-size:9px;margin-bottom:4px">SESSIONS</div>
+            <div style="background:#21262d;border-left:2px solid #3fb950;padding:4px 6px;border-radius:3px;color:#e6edf3;font-size:10px;margin-bottom:3px">explore · a1b2</div>
+            <div style="padding:4px 6px;color:#6e7681;font-size:10px;margin-bottom:3px">code · c3d4</div>
+            <div style="color:#8b949e;font-size:9px;margin-top:8px;margin-bottom:4px">FILES</div>
+            <div style="color:#6e7681;font-size:9px">▾ src/ <br/>  · main.c<br/>  · utils.c</div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:4px">
+            <div style="background:#0d1117;border:1px solid #30363d;border-radius:4px;padding:8px;flex:1">
+              <div style="color:#7ee787;font-size:10px">assistant response</div>
+            </div>
+            <div style="background:#161b22;border:1px solid #30363d;border-radius:4px;padding:6px;font-size:9px;color:#6e7681">
+              [Todos 3] [Plan] [Log 12]  ← 底部折叠标签栏
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B — 左侧栏 + Inspector 折叠到底部</h3>
+      <p>左侧保留 sidebar（可折叠），Inspector 移至底部标签栏（Claude Code footer 思路），主对话区获得最大宽度。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="background:#0d1117;padding:10px;border-radius:6px;font-family:monospace;font-size:11px">
+        <div style="display:grid;grid-template-columns:220px 1fr 260px;gap:4px;height:140px">
+          <div style="background:#161b22;border:1px solid #30363d;border-radius:4px;padding:8px">
+            <div style="color:#8b949e;font-size:9px;margin-bottom:4px">SESSIONS</div>
+            <div style="background:#21262d;border-left:2px solid #3fb950;padding:4px 6px;border-radius:3px;color:#e6edf3;font-size:10px;margin-bottom:3px">explore · a1b2</div>
+            <div style="padding:4px 6px;color:#6e7681;font-size:10px">code · c3d4</div>
+          </div>
+          <div style="background:#0d1117;border:1px solid #30363d;border-radius:4px;padding:8px;overflow:hidden">
+            <div style="color:#7ee787;font-size:10px">assistant...</div>
+          </div>
+          <div style="background:#161b22;border:1px solid #30363d;border-radius:4px;padding:8px;display:flex;flex-direction:column;gap:4px">
+            <div style="display:flex;gap:3px;flex-wrap:wrap">
+              <span style="background:#21262d;padding:2px 4px;border-radius:3px;color:#3fb950;font-size:8px">Todos</span>
+              <span style="background:#21262d;padding:2px 4px;border-radius:3px;color:#6e7681;font-size:8px">Plan</span>
+            </div>
+            <div style="background:#21262d;border-radius:3px;padding:4px;color:#8b949e;font-size:9px;flex:1">inspector</div>
+          </div>
+        </div>
+        <div style="margin-top:4px;color:#58a6ff;font-size:9px;text-align:center">← → 拖拽分隔线可调整宽度</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C — 可调宽三列（推荐）</h3>
+      <p>保留三列但改用 CSS min/max 约束 + 拖拽分隔线，sidebar 默认 220px (min 160px)，inspector 默认 260px (min 200px)，彻底解决溢出问题。</p>
+    </div>
+  </div>
+</div>
+
+<p class="subtitle" style="margin-top:16px">请选择布局策略，或告诉我你的具体需求</p>

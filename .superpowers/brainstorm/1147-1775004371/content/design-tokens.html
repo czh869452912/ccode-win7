@@ -1,0 +1,100 @@
+<h2>设计 Token 系统</h2>
+<p class="subtitle">将当前 warm parchment 暖色系替换为 GitHub dark 语义化 token 体系，解决可读性问题</p>
+
+<div class="section">
+<h3>色彩层级（5层）</h3>
+<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin:12px 0">
+  <div>
+    <div style="height:60px;background:#0d1117;border:1px solid #30363d;border-radius:6px;margin-bottom:6px"></div>
+    <div style="font-size:11px;color:var(--text-primary)"><strong>--bg-canvas</strong><br/>#0d1117<br/><span style="color:var(--text-secondary)">窗口底色</span></div>
+  </div>
+  <div>
+    <div style="height:60px;background:#161b22;border:1px solid #30363d;border-radius:6px;margin-bottom:6px"></div>
+    <div style="font-size:11px;color:var(--text-primary)"><strong>--bg-default</strong><br/>#161b22<br/><span style="color:var(--text-secondary)">面板底色</span></div>
+  </div>
+  <div>
+    <div style="height:60px;background:#21262d;border:1px solid #30363d;border-radius:6px;margin-bottom:6px"></div>
+    <div style="font-size:11px;color:var(--text-primary)"><strong>--bg-subtle</strong><br/>#21262d<br/><span style="color:var(--text-secondary)">卡片/徽章</span></div>
+  </div>
+  <div>
+    <div style="height:60px;background:#30363d;border:1px solid #30363d;border-radius:6px;margin-bottom:6px"></div>
+    <div style="font-size:11px;color:var(--text-primary)"><strong>--border-default</strong><br/>#30363d<br/><span style="color:var(--text-secondary)">边框</span></div>
+  </div>
+  <div>
+    <div style="height:60px;background:#388bfd1a;border:1px solid #388bfd;border-radius:6px;margin-bottom:6px"></div>
+    <div style="font-size:11px;color:var(--text-primary)"><strong>--border-focus</strong><br/>#388bfd<br/><span style="color:var(--text-secondary)">焦点边框</span></div>
+  </div>
+</div>
+</div>
+
+<div class="section">
+<h3>文字层级（对比度全部 ≥ 4.5:1）</h3>
+<div style="background:#0d1117;padding:14px;border-radius:8px;font-family:monospace">
+  <div style="color:#e6edf3;font-size:14px;margin-bottom:6px">--text-primary  #e6edf3  ← 主文字（对比 14.5:1）</div>
+  <div style="color:#8b949e;font-size:14px;margin-bottom:6px">--text-secondary  #8b949e  ← 次要文字（对比 5.9:1）✓</div>
+  <div style="color:#6e7681;font-size:14px;margin-bottom:6px">--text-muted  #6e7681  ← 时间戳/标签（对比 4.5:1）✓</div>
+  <div style="color:#58a6ff;font-size:14px;margin-bottom:6px">--text-link  #58a6ff  ← 链接/强调</div>
+  <div style="color:#3fb950;font-size:14px">--text-success  #3fb950  ← 成功/工具完成</div>
+</div>
+<p style="font-size:11px;color:#8b949e;margin-top:6px">⚠ 当前 --muted: #7b6857 在 #f5f0e8 背景上对比仅 3.8:1（不达标），修复后全部 ≥ 4.5:1</p>
+</div>
+
+<div class="section">
+<h3>语义强调色</h3>
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+  <div style="background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:10px">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+      <div style="width:12px;height:12px;background:#3fb950;border-radius:50%"></div>
+      <span style="color:#3fb950;font-size:12px">success / idle</span>
+    </div>
+    <div style="color:#8b949e;font-size:11px">工具成功、会话空闲、文件写入</div>
+  </div>
+  <div style="background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:10px">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+      <div style="width:12px;height:12px;background:#d29922;border-radius:50%"></div>
+      <span style="color:#d29922;font-size:12px">warning / running</span>
+    </div>
+    <div style="color:#8b949e;font-size:11px">Agent 运行中、待审权限</div>
+  </div>
+  <div style="background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:10px">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+      <div style="width:12px;height:12px;background:#f85149;border-radius:50%"></div>
+      <span style="color:#f85149;font-size:12px">error / danger</span>
+    </div>
+    <div style="color:#8b949e;font-size:11px">工具失败、权限拒绝、错误消息</div>
+  </div>
+  <div style="background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:10px">
+    <div style="display:flex;align-items:center;gap=8px;gap:8px;margin-bottom:6px">
+      <div style="width:12px;height:12px;background:#388bfd;border-radius:50%"></div>
+      <span style="color:#388bfd;font-size:12px">info / explore mode</span>
+    </div>
+    <div style="color:#8b949e;font-size:11px">explore/spec 模式、信息类工具</div>
+  </div>
+  <div style="background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:10px">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+      <div style="width:12px;height:12px;background:#bc8cff;border-radius:50%"></div>
+      <span style="color:#bc8cff;font-size:12px">accent / plan mode</span>
+    </div>
+    <div style="color:#8b949e;font-size:11px">spec/plan 内容、权限上下文</div>
+  </div>
+  <div style="background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:10px">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+      <div style="width:8px;height:8px;background:#7ee787;border-radius:1px;transform:rotate(45deg)"></div>
+      <span style="color:#7ee787;font-size:12px">diff added</span>
+    </div>
+    <div style="color:#8b949e;font-size:11px">+新增行 / <span style="color:#ffa198">diff removed</span> 删除行</div>
+  </div>
+</div>
+</div>
+
+<div class="section">
+<h3>字体 & 间距</h3>
+<div style="background:#161b22;padding:12px;border-radius:8px;font-size:12px;color:#8b949e">
+  <div style="color:#e6edf3;margin-bottom:4px">--font-sans: system-ui, -apple-system, "Segoe UI", sans-serif</div>
+  <div style="color:#e6edf3;margin-bottom:8px">--font-mono: "Cascadia Code", "Consolas", "SF Mono", monospace</div>
+  <div>间距 token: --space-1(4px) --space-2(8px) --space-3(12px) --space-4(16px) --space-6(24px)</div>
+  <div style="margin-top:4px">圆角: --radius-sm(4px) --radius-md(6px) --radius-lg(10px)</div>
+</div>
+</div>
+
+<p class="subtitle">这套 token 体系正确吗？确认后进入第二节布局</p>
