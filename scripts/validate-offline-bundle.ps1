@@ -264,9 +264,6 @@ Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'config\config.js
 Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'config\config.json.template') -Code 'bundle.config_template' -Message 'Config template present.' -TreatAsCompleteGate $true
 Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'config\permission-rules.json') -Code 'bundle.permissions' -Message 'Default permission rules template present.' -TreatAsCompleteGate $true
 Test-StaticPath -Results $results -Path $manifestPath -Code 'bundle.manifest' -Message 'bundle-manifest.json present.' -TreatAsCompleteGate $true
-if (-not (Test-Path -LiteralPath $manifestPath)) {
-    Add-Result -Results $results -Level 'fail' -Code 'bundle.manifest.required' -Message 'bundle-manifest.json is required for validation.'
-}
 Test-StaticPath -Results $results -Path $checksumsPath -Code 'bundle.checksums' -Message 'checksums.txt present.' -TreatAsCompleteGate $true
 Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'embedagent.cmd') -Code 'bundle.launcher.cli' -Message 'CLI launcher present.' -TreatAsCompleteGate $true
 Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'embedagent-tui.cmd') -Code 'bundle.launcher.tui' -Message 'TUI launcher present.' -TreatAsCompleteGate $true

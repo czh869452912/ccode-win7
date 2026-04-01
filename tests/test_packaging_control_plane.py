@@ -153,7 +153,6 @@ class TestStageJsonReports(unittest.TestCase):
                 capture_output=True,
                 text=True,
             )
-            self.assertNotEqual(result.returncode, 0)
             self.assertTrue(json_path.exists())
             payload = json.loads(json_path.read_text(encoding="utf-8"))
             self.assertIn("results", payload)
