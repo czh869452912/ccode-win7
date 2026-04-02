@@ -124,6 +124,26 @@
 - 后续动作：
   - 继续把 `guard_stop / max_turns / aborted` 等终止态也统一投影到 structured timeline transitions
 
+### DC-050
+
+- 日期：2026-04-02
+- 变更主题：structured timeline 开始保留终止态 transitions
+- 变更摘要：
+  - `turn_end` 的 `termination_reason` 现在会在非 `completed` 情况下同步投影到 structured timeline transitions
+  - 目前已覆盖 `max_turns`，同一条规则也为后续 `guard_stop / cancelled` 留好了入口
+  - 这样 structured timeline 不再只靠 turn status 文本表达终止原因，而是能把它当成显式状态机事件
+- 影响范围：
+  - 结构化时间线协议
+  - loop 终止态的前端可观测性
+  - 调试与回归测试口径
+- 关联文档：
+  - `docs/query-context-redesign.md`
+  - `docs/development-tracker.md`
+- 是否需要 ADR：`否`
+- 后续动作：
+  - 补 `guard_stop / cancelled` 的回归测试
+  - 决定 GUI 是否对终止态 transitions 做统一展示
+
 ### DC-045
 
 - 日期：2026-04-02

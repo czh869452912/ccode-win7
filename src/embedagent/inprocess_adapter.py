@@ -555,7 +555,18 @@ class InProcessAdapter(object):
                         current_step["assistant_text"] = payload.get("assistant_text") or ""
                     current_step["status"] = payload.get("status") or "completed"
                 elif event == "turn_end" and current_turn is not None:
-                    current_turn["status"] = payload.get("termination_reason") or "completed"
+                    termination_reason = str(payload.get("termination_reason") or "completed")
+                    current_turn["status"] = termination_reason
+                    if termination_reason and termination_reason != "completed":
+                        transition_item = {
+                            "kind": termination_reason,
+                            "message": "",
+                            "created_at": record.get("created_at", ""),
+                            "metadata": dict(payload),
+                        }
+                        current_turn["transitions"].append(dict(transition_item))
+                        if current_step is not None:
+                            current_step["transitions"].append(dict(transition_item))
             return {
                 "session_id": state.session.session_id,
                 "events": raw_events,
@@ -625,8 +636,16 @@ class InProcessAdapter(object):
                         **update,
                     ))
             elif event == "turn_end" and current_turn is not None:
+                termination_reason = str(payload.get("termination_reason") or "completed")
                 current_turn["assistant_text"] = payload.get("final_text") or ""
-                current_turn["status"] = payload.get("termination_reason") or "completed"
+                current_turn["status"] = termination_reason
+                if termination_reason and termination_reason != "completed":
+                    current_turn["transitions"].append({
+                        "kind": termination_reason,
+                        "message": "",
+                        "created_at": record.get("created_at", ""),
+                        "metadata": dict(payload),
+                    })
         for turn in turns:
             turn["steps"] = [
                 {

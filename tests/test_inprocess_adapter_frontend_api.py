@@ -403,6 +403,32 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertEqual(step["status"], "user_input_wait")
         self.assertIn("user_input_required", [item.get("kind") for item in step.get("transitions", [])])
 
+    def test_structured_timeline_preserves_max_turns_transition(self):
+        adapter = InProcessAdapter(
+            client=ToolClient(),
+            tools=self.tools,
+            max_turns=1,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+        )
+        snapshot = adapter.create_session('code')
+        session_id = str(snapshot.get('session_id') or '')
+        adapter.submit_user_message(
+            session_id=session_id,
+            text='读取文件',
+            stream=False,
+            wait=True,
+            permission_resolver=lambda ticket: True,
+            event_handler=lambda event_name, current_session_id, payload: None,
+        )
+        payload = adapter.build_structured_timeline(session_id)
+        self.assertEqual(len(payload["turns"]), 1)
+        turn = payload["turns"][0]
+        self.assertEqual(turn["status"], "max_turns")
+        self.assertIn("max_turns", [item.get("kind") for item in turn.get("transitions", [])])
+        self.assertEqual(len(turn["steps"]), 1)
+        step = turn["steps"][0]
+        self.assertIn("max_turns", [item.get("kind") for item in step.get("transitions", [])])
+
     def test_workspace_recipe_api_detects_cmake(self):
         with open(os.path.join(self.workspace, "CMakeLists.txt"), "w", encoding="utf-8") as handle:
             handle.write("cmake_minimum_required(VERSION 3.20)\nproject(demo C)\n")

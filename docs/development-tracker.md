@@ -80,6 +80,7 @@
 - `compact_retry` 现在已对前端可观测：snapshot 暴露最近 transition reasons / compact retry 次数，timeline 也会记录 `compact_retry` event
 - `build_structured_timeline()` 现在也保留 turn/step 级 transitions，`compact_retry` 不再只存在于 raw timeline event
 - `build_structured_timeline()` 也开始保留 `user_input_required / permission_required` 等等待态 transition，并把 turn 状态同步为 waiting 态
+- `turn_end` 的非完成终止态也开始进入 structured timeline transitions，当前已覆盖 `max_turns`
 - Phase 7 设计基线已建立：`docs/offline-packaging.md`、`docs/win7-preflight-checklist.md` 与 ADR `0001-offline-portable-bundle-baseline.md`
 - Phase 7 初始脚本骨架已落地：`scripts/prepare-offline.ps1` 已可生成 `build/offline-staging/EmbedAgent/`、launcher、模板配置和 manifest/checksum 草案，并已通过 `powershell.exe -NoProfile -File scripts/prepare-offline.ps1 -SkipBuild` 验证
 - Phase 7 build 脚本骨架已落地：`scripts/build-offline-bundle.ps1` 已可把 staging bundle 复制到 `build/offline-dist/`、重写 manifest、重算 checksum，并生成 zip

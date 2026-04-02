@@ -43,6 +43,7 @@
 - `SessionSnapshot` / timeline 已开始投影 compact retry 可观测性，当前至少能看到 `compact_retry_count`、最近 transition reasons，以及 `compact_retry` timeline event
 - `build_structured_timeline()` 也开始保留 turn/step 级别的 `transitions`，这样 `compact_retry` 不会在结构化时间线里丢失
 - 结构化时间线现在也会保留 `user_input_required / permission_required` 这类等待态 transition，并把 turn 状态更新为对应的 waiting 状态
+- `turn_end` 的非完成终止态（如 `max_turns`）也开始进入 structured timeline transitions，不再只表现为 turn status 文本
 
 ---
 
