@@ -4,6 +4,7 @@ import {
   createTreeNode,
   makeEventId,
   normalizeSessionPayload,
+  resolveVisiblePermission,
   timelineFromEvents,
   timelineFromTurns,
 } from "./state-helpers.js";
@@ -44,6 +45,7 @@ function App() {
 
   const currentMode = state.snapshot?.current_mode || state.requestedMode;
   const currentStatus = state.snapshot?.status || "idle";
+  const activePermission = resolveVisiblePermission(state.permission, state.snapshot);
 
   // initial data load
   useEffect(() => {
@@ -77,7 +79,7 @@ function App() {
     if (isAtBottomRef.current && timelineRef.current) {
       timelineRef.current.scrollTop = timelineRef.current.scrollHeight;
     }
-  }, [state.timeline, state.thinkingActive, state.permission, state.userInput]);
+  }, [state.timeline, state.thinkingActive, activePermission, state.userInput]);
 
   function handleTimelineScroll() {
     const el = timelineRef.current;
@@ -301,18 +303,6 @@ function App() {
   function handleSocketMessage(type, data) {
     if (type === "session_status") {
       const snap = data.session_snapshot || data;
-      const newMode = snap.current_mode;
-      if (newMode && state.snapshot?.current_mode && newMode !== state.snapshot.current_mode) {
-        dispatch({
-          type: "append_timeline_item",
-          item: {
-            id: makeEventId("mode"),
-            kind: "system",
-            tone: "context",
-            content: `Switched to ${newMode} mode`,
-          },
-        });
-      }
       dispatch({ type: "session_snapshot", snapshot: normalizeSessionPayload(snap) });
       if (snap.session_id) loadSessions();
       logEvent("session_status", snap.status || "");
@@ -393,26 +383,7 @@ function App() {
       return;
     }
     if (type === "permission_request") {
-      const category = data.category || "";
-      // Command-level → keep blocking modal
-      if (category === "shell_exec" || category === "toolchain_exec") {
-        dispatch({ type: "permission_request", permission: data });
-      } else {
-        // Write / safe → inline timeline card
-        dispatch({
-          type: "append_timeline_item",
-          item: {
-            id: data.permission_id || makeEventId("perm"),
-            kind: "permission",
-            permission: data,
-            resolved: false,
-            turnId: data.turn_id || "",
-            stepId: data.step_id || "",
-            stepIndex: data.step_index || 0,
-          },
-        });
-        dispatch({ type: "permission_request_inline", permissionId: data.permission_id });
-      }
+      dispatch({ type: "permission_request", permission: data });
       logEvent("permission_request", data.reason || "");
       return;
     }
@@ -574,14 +545,14 @@ function App() {
   }
 
   function sendPermissionResponse(approved, remember, category) {
-    if (!wsRef.current || !state.permission) return;
+    if (!wsRef.current || !activePermission) return;
     wsRef.current.send(
       JSON.stringify({
         type: "permission_response",
-        permission_id: state.permission.permission_id,
+        permission_id: activePermission.permission_id,
         approved,
         remember: Boolean(remember),
-        category: category || state.permission.category || "",
+        category: category || activePermission.category || "",
       }),
     );
     dispatch({ type: "permission_cleared" });
@@ -812,7 +783,7 @@ function App() {
       </div>
 
       <PermissionModal
-        permission={state.permission}
+        permission={activePermission}
         onApprove={(remember, category) => sendPermissionResponse(true, remember, category)}
         onDeny={(remember, category) => sendPermissionResponse(false, remember, category)}
       />

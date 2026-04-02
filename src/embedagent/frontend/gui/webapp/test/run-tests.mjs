@@ -5,6 +5,8 @@ import {
   createTreeNode,
   injectChildren,
   normalizeSessionPayload,
+  resolveTimelineAnchor,
+  resolveVisiblePermission,
   timelineFromEvents,
   timelineFromTurns,
 } from "../src/state-helpers.js";
@@ -89,6 +91,27 @@ function main() {
   assert.equal(structuredTimeline[1].stepId, "step-1");
   assert.equal(structuredTimeline[4].stepId, "step-2");
 
+  const pendingTurnAnchor = resolveTimelineAnchor({
+    explicitTurnId: "",
+    activeTurnId: "",
+    timeline: [
+      { id: "cmd-old", kind: "command_result", turnId: "" },
+      { id: "user-pending", kind: "user", turnId: "", content: "/mode debug" },
+    ],
+  });
+  assert.equal(pendingTurnAnchor, "user-pending");
+
+  const visiblePermission = resolveVisiblePermission(null, {
+    has_pending_permission: true,
+    pending_permission: {
+      permission_id: "perm-1",
+      tool_name: "edit_file",
+      category: "workspace_write",
+      reason: "需要写入",
+    },
+  });
+  assert.equal(visiblePermission.permission_id, "perm-1");
+
   let liveState = reducer(initialState, {
     type: "local_user_message",
     text: "inspect demo",
@@ -151,6 +174,22 @@ function main() {
   assert.equal(liveState.timeline[2].stepId, "step-live-1");
   assert.equal(liveState.timeline[3].stepId, "step-live-1");
   assert.equal(liveState.timeline.length, 4);
+
+  let modeCommandState = reducer(initialState, {
+    type: "local_user_message",
+    text: "/mode debug",
+  });
+  modeCommandState = reducer(modeCommandState, {
+    type: "command_result",
+    id: "cmd-mode",
+    commandName: "mode",
+    success: true,
+    message: "已切换到 `debug` 模式。",
+    data: {
+      current_mode: "debug",
+    },
+  });
+  assert.equal(modeCommandState.timeline[1].turnId, modeCommandState.timeline[0].id);
 
   const reviewState = reducer(initialState, {
     type: "command_result",

@@ -1,4 +1,4 @@
-import { makeEventId, injectChildren } from "./state-helpers.js";
+import { injectChildren, makeEventId, resolveTimelineAnchor } from "./state-helpers.js";
 
 export const initialState = {
   sidebarTab: "chats",
@@ -397,6 +397,11 @@ export function reducer(state, action) {
         toolCatalog: action.catalog || {},
       };
     case "command_result": {
+      const turnId = resolveTimelineAnchor({
+        explicitTurnId: action.turnId || "",
+        activeTurnId: state.activeTurnId,
+        timeline: state.timeline,
+      });
       const clearTimeline = Boolean(action.data?.clear_timeline);
       const timeline = clearTimeline
         ? []
@@ -407,6 +412,7 @@ export function reducer(state, action) {
             content: action.message,
             data: action.data || {},
             success: action.success,
+            turnId,
           });
       return {
         ...state,

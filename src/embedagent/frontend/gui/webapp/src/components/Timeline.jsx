@@ -167,7 +167,7 @@ const Timeline = forwardRef(function Timeline(
     >
       {groups.map((group, idx) => (
         <TurnGroup
-          key={group.userItem?.id || `anon-${idx}`}
+          key={group.turnId || group.userItem?.id || `anon-${idx}`}
           group={group}
           toolCatalog={toolCatalog}
           isLast={idx === lastIdx}

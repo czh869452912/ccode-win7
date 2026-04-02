@@ -33,6 +33,30 @@ export function injectChildren(nodes, targetPath, children) {
   });
 }
 
+export function findLatestPendingUserTurnKey(timeline) {
+  for (let index = (timeline || []).length - 1; index >= 0; index -= 1) {
+    const item = timeline[index];
+    if (item?.kind === "user" && !item.turnId) {
+      return item.id || "";
+    }
+  }
+  return "";
+}
+
+export function resolveTimelineAnchor({ explicitTurnId = "", activeTurnId = "", timeline = [] } = {}) {
+  return explicitTurnId || activeTurnId || findLatestPendingUserTurnKey(timeline) || "";
+}
+
+export function resolveVisiblePermission(explicitPermission, snapshot) {
+  if (explicitPermission) {
+    return explicitPermission;
+  }
+  if (snapshot?.has_pending_permission && snapshot?.pending_permission) {
+    return snapshot.pending_permission;
+  }
+  return null;
+}
+
 export function timelineFromEvents(events) {
   const items = [];
   const toolIndex = {};
