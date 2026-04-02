@@ -180,6 +180,28 @@ class CompactRetryClient(object):
         return reply
 
 
+class GuardStopClient(object):
+    def __init__(self):
+        self.calls = 0
+
+    def generate(self, messages, tools=None):
+        self.calls += 1
+        return AssistantReply(
+            content="",
+            actions=[
+                Action(
+                    name="edit_file",
+                    arguments={"path": "src/pkg/missing.c", "old_text": "0", "new_text": "1"},
+                    call_id="call-guard-%s" % self.calls,
+                )
+            ],
+            finish_reason="tool_calls",
+        )
+
+    def stream(self, messages, tools=None, on_text_delta=None, on_reasoning_delta=None):
+        return self.generate(messages, tools=tools)
+
+
 class TestInProcessAdapterFrontendApis(unittest.TestCase):
     def setUp(self):
         self.workspace = _make_workspace()
@@ -456,6 +478,36 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertIn("max_turns", [item.get("kind") for item in step.get("transitions", [])])
         terminal = [item for item in turn.get("transitions", []) if item.get("kind") == "max_turns"][0]
         self.assertTrue(str(terminal.get("message") or "").strip())
+
+    def test_snapshot_and_structured_timeline_preserve_guard_stop_transition(self):
+        adapter = InProcessAdapter(
+            client=GuardStopClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+        )
+        snapshot = adapter.create_session('code')
+        session_id = str(snapshot.get('session_id') or '')
+        adapter.submit_user_message(
+            session_id=session_id,
+            text='重复修改不存在文件',
+            stream=False,
+            wait=True,
+            permission_resolver=lambda ticket: True,
+            event_handler=lambda event_name, current_session_id, payload: None,
+        )
+        refreshed = adapter.get_session_snapshot(session_id)
+        self.assertEqual(refreshed["last_transition_reason"], "guard_stop")
+        self.assertTrue(str(refreshed["last_transition_message"] or "").strip())
+        self.assertEqual(refreshed["recent_transitions"][-1].get("reason"), "guard_stop")
+        payload = adapter.build_structured_timeline(session_id)
+        self.assertEqual(len(payload["turns"]), 1)
+        turn = payload["turns"][0]
+        self.assertEqual(turn["status"], "guard_stop")
+        self.assertIn("guard_stop", [item.get("kind") for item in turn.get("transitions", [])])
+        terminal = [item for item in turn.get("transitions", []) if item.get("kind") == "guard_stop"][0]
+        self.assertTrue(str(terminal.get("message") or "").strip())
+        self.assertEqual(len(turn["steps"]), 1)
+        self.assertIn("guard_stop", [item.get("kind") for item in turn["steps"][0].get("transitions", [])])
 
     def test_workspace_recipe_api_detects_cmake(self):
         with open(os.path.join(self.workspace, "CMakeLists.txt"), "w", encoding="utf-8") as handle:
