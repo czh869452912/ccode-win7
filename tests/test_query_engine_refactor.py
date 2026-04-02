@@ -1,6 +1,7 @@
 import os
 import shutil
 import sys
+import threading
 import unittest
 from itertools import count
 
@@ -152,6 +153,17 @@ class ToolClient(object):
         if on_text_delta is not None and reply.content:
             on_text_delta(reply.content)
         return reply
+
+
+class CountingToolRuntime(object):
+    def __init__(self, base):
+        self._base = base
+
+    def execute(self, name, arguments):
+        return self._base.execute(name, arguments)
+
+    def __getattr__(self, name):
+        return getattr(self._base, name)
 
 
 class TestQueryEngineRefactor(unittest.TestCase):
@@ -599,6 +611,34 @@ class TestQueryEngineRefactor(unittest.TestCase):
         )
         rendered = "\n".join(str(item.get("content") or "") for item in result.messages)
         self.assertIn("Tool result replaced: read_file src/demo.c -> .embedagent/memory/artifacts/demo.json", rendered)
+
+    def test_query_engine_emits_interrupted_tool_result_when_stop_event_is_set_after_tool_start(self):
+        session = Session()
+        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：code")
+        transcript_store = TranscriptStore(self.workspace)
+        stop_event = threading.Event()
+        wrapped_tools = CountingToolRuntime(self.tools)
+        engine = QueryEngine(
+            client=ToolClient(),
+            tools=wrapped_tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+            transcript_store=transcript_store,
+        )
+        result = engine.submit_turn(
+            user_text="读取文件",
+            stream=False,
+            initial_mode="code",
+            session=session,
+            stop_event=stop_event,
+            on_tool_start=lambda action: stop_event.set(),
+        )
+        self.assertEqual(result.transition.reason, "aborted")
+        observation = session.turns[-1].observations[-1]
+        self.assertFalse(observation.success)
+        self.assertEqual(observation.data.get("error_kind"), "interrupted")
+        events = transcript_store.load_events(session.session_id)
+        tool_results = [item for item in events if item["type"] == "tool_result"]
+        self.assertEqual(tool_results[-1]["payload"]["observation"]["data"].get("error_kind"), "interrupted")
 
     def test_adapter_resumes_pending_user_input(self):
         adapter = InProcessAdapter(

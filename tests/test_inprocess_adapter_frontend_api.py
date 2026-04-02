@@ -752,6 +752,37 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertEqual(restored["status"], "waiting_permission")
         self.assertTrue(restored["has_pending_permission"])
 
+    def test_cancel_session_emits_interrupted_tool_result_when_tool_started(self):
+        adapter = InProcessAdapter(
+            client=ToolClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+        )
+        snapshot = adapter.create_session('code')
+        session_id = str(snapshot.get('session_id') or '')
+        events = []
+        cancelled = {"done": False}
+
+        def handle(event_name, current_session_id, payload):
+            events.append((event_name, payload))
+            if event_name == "tool_started" and not cancelled["done"]:
+                cancelled["done"] = True
+                adapter.cancel_session(session_id)
+
+        adapter.submit_user_message(
+            session_id=session_id,
+            text='读取文件',
+            stream=False,
+            wait=True,
+            permission_resolver=lambda ticket: True,
+            event_handler=handle,
+        )
+        final_snapshot = adapter.get_session_snapshot(session_id)
+        self.assertEqual(final_snapshot.get("last_transition_reason"), "aborted")
+        tool_finished = [payload for event_name, payload in events if event_name == "tool_finished"][-1]
+        self.assertFalse(tool_finished.get("success"))
+        self.assertEqual((tool_finished.get("data") or {}).get("error_kind"), "interrupted")
+
     def test_slash_recipes_emits_recipe_summary(self):
         with open(os.path.join(self.workspace, "Makefile"), "w", encoding="utf-8") as handle:
             handle.write("all:\n\t@echo build\n")

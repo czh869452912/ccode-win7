@@ -112,6 +112,26 @@ class QueryEngine(object):
         )
         session.record_transition(transition)
 
+    def _interrupted_observation(self, tool_name: str) -> Observation:
+        return Observation(
+            tool_name=tool_name,
+            success=False,
+            error="tool execution interrupted",
+            data={
+                "error_kind": "interrupted",
+                "retryable": False,
+                "blocked_by": "user_cancelled",
+                "suggested_next_step": "用户取消了当前会话；如需继续，请恢复会话或重新提交请求。",
+                "synthetic": True,
+            },
+        )
+
+    def _is_interrupted_observation(self, observation: Observation) -> bool:
+        return bool(
+            isinstance(observation.data, dict)
+            and str(observation.data.get("error_kind") or "") == "interrupted"
+        )
+
     def submit_turn(
         self,
         user_text: str,
@@ -388,18 +408,26 @@ class QueryEngine(object):
                         session.record_tool_call(action)
                         if on_tool_start is not None:
                             on_tool_start(action)
-                        observation, current_mode, suspended = self._execute_action(
-                            session,
-                            action,
-                            current_mode,
-                            permission_handler,
-                            user_input_handler,
-                        )
-                        if suspended is not None:
-                            self._persist_summary(session, current_mode, assembly)
-                            if on_step_finish is not None:
-                                on_step_finish(step_index, reply, suspended.transition.reason)
-                            return suspended
+                        interrupted = bool(stop_event is not None and stop_event.is_set())
+                        suspended = None
+                        if interrupted:
+                            observation = self._interrupted_observation(action.name)
+                        else:
+                            observation, current_mode, suspended = self._execute_action(
+                                session,
+                                action,
+                                current_mode,
+                                permission_handler,
+                                user_input_handler,
+                            )
+                            if suspended is not None:
+                                self._persist_summary(session, current_mode, assembly)
+                                if on_step_finish is not None:
+                                    on_step_finish(step_index, reply, suspended.transition.reason)
+                                return suspended
+                            if stop_event is not None and stop_event.is_set() and not self._is_interrupted_observation(observation):
+                                interrupted = True
+                                observation = self._interrupted_observation(action.name)
                         tool_message_id = "m-" + uuid.uuid4().hex[:12]
                         finished_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
                         self._append_transcript_event(
@@ -426,6 +454,12 @@ class QueryEngine(object):
                         if on_tool_finish is not None:
                             on_tool_finish(action, observation)
                         loop_guard.record(action, observation)
+                        if interrupted:
+                            transition = LoopTransition(reason="aborted", message="tool execution interrupted", turns_used=turns_used)
+                            self._record_transition(session, transition)
+                            if on_step_finish is not None:
+                                on_step_finish(step_index, reply, "aborted")
+                            return QueryTurnResult(final_text, session, transition, turns_used)
                         if loop_guard.should_block(action) or loop_guard.should_stop():
                             transition = LoopTransition(reason="guard_stop", message=loop_guard.stop_reason(), turns_used=turns_used)
                             self._record_transition(session, transition)
@@ -433,6 +467,7 @@ class QueryEngine(object):
                                 on_step_finish(step_index, reply, "guard_stop")
                             return QueryTurnResult(final_text, session, transition, turns_used)
                     continue
+                batch_interrupted = False
                 for update in executor.run_batch(batch):
                     if update.phase == "start":
                         self._append_transcript_event(
@@ -450,20 +485,30 @@ class QueryEngine(object):
                         session.record_tool_call(update.action)
                         if on_tool_start is not None:
                             on_tool_start(update.action)
+                        if stop_event is not None and stop_event.is_set():
+                            batch_interrupted = True
                         continue
-                    observation, current_mode, suspended = self._execute_action(
-                        session,
-                        update.action,
-                        current_mode,
-                        permission_handler,
-                        user_input_handler,
-                        update.observation,
-                    )
-                    if suspended is not None:
-                        self._persist_summary(session, current_mode, assembly)
-                        if on_step_finish is not None:
-                            on_step_finish(step_index, reply, suspended.transition.reason)
-                        return suspended
+                    suspended = None
+                    if batch_interrupted or (stop_event is not None and stop_event.is_set()):
+                        batch_interrupted = True
+                        observation = self._interrupted_observation(update.action.name)
+                    else:
+                        observation, current_mode, suspended = self._execute_action(
+                            session,
+                            update.action,
+                            current_mode,
+                            permission_handler,
+                            user_input_handler,
+                            update.observation,
+                        )
+                        if suspended is not None:
+                            self._persist_summary(session, current_mode, assembly)
+                            if on_step_finish is not None:
+                                on_step_finish(step_index, reply, suspended.transition.reason)
+                            return suspended
+                        if stop_event is not None and stop_event.is_set() and not self._is_interrupted_observation(observation):
+                            batch_interrupted = True
+                            observation = self._interrupted_observation(update.action.name)
                     tool_message_id = "m-" + uuid.uuid4().hex[:12]
                     finished_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
                     self._append_transcript_event(
@@ -490,12 +535,20 @@ class QueryEngine(object):
                     if on_tool_finish is not None:
                         on_tool_finish(update.action, observation)
                     loop_guard.record(update.action, observation)
+                    if batch_interrupted:
+                        continue
                     if loop_guard.should_block(update.action) or loop_guard.should_stop():
                         transition = LoopTransition(reason="guard_stop", message=loop_guard.stop_reason(), turns_used=turns_used)
                         self._record_transition(session, transition)
                         if on_step_finish is not None:
                             on_step_finish(step_index, reply, "guard_stop")
                         return QueryTurnResult(final_text, session, transition, turns_used)
+                if batch_interrupted:
+                    transition = LoopTransition(reason="aborted", message="tool execution interrupted", turns_used=turns_used)
+                    self._record_transition(session, transition)
+                    if on_step_finish is not None:
+                        on_step_finish(step_index, reply, "aborted")
+                    return QueryTurnResult(final_text, session, transition, turns_used)
             if on_step_finish is not None:
                 on_step_finish(step_index, reply, "tool_calls")
         transition = LoopTransition(reason="max_turns", message="超过最大迭代次数", turns_used=turns_used)

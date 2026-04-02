@@ -87,6 +87,7 @@
 - `SessionSnapshot` 还补了 `last_transition_display_reason`，前端可直接消费用户语义层的状态名称；历史 summary 缺失 `display_reason` 时也会在读取 snapshot 时即时补齐
 - structured timeline 的 transition 也开始带 `display_reason`，等待态与终止态都能直接映射到 GUI 友好的状态语义
 - resume consistency 已切到 transcript-truth 语义：新增 `transcript_store.py`、`session_restore.py`，`resume_session()` 已从 transcript replay 恢复 `Session`，`summary.json` 不再作为恢复真相源
+- tool interrupt / retry 已推进第一段：`tool_started` 之后若会话被取消，`QueryEngine` 现在会写入 synthetic interrupted tool_result，并在 transcript / timeline / adapter `tool_finished` 事件中统一表现为 aborted
 - Phase 7 设计基线已建立：`docs/offline-packaging.md`、`docs/win7-preflight-checklist.md` 与 ADR `0001-offline-portable-bundle-baseline.md`
 - Phase 7 初始脚本骨架已落地：`scripts/prepare-offline.ps1` 已可生成 `build/offline-staging/EmbedAgent/`、launcher、模板配置和 manifest/checksum 草案，并已通过 `powershell.exe -NoProfile -File scripts/prepare-offline.ps1 -SkipBuild` 验证
 - Phase 7 build 脚本骨架已落地：`scripts/build-offline-bundle.ps1` 已可把 staging bundle 复制到 `build/offline-dist/`、重写 manifest、重算 checksum，并生成 zip
@@ -173,7 +174,7 @@
 | T-024 | 零依赖打包：内网部署文档 | `completed` | 已新增 `docs/intranet-deployment.md` 和 `docs/offline-packaging-guide.md`，提供完整内网部署指南 |
 | T-025 | 零依赖打包：内网配置模板 | `completed` | 已新增 `config/config.json.template`，预配置内网大模型服务示例 |
 | T-027 | Phase 7 打包控制面收口 | `in_progress` | `scripts/package.ps1`、`scripts/package.config.json`、`scripts/package-lib.ps1` 与 `tests/test_packaging_control_plane.py` 已打通 `doctor/deps/assemble/verify/release` mocked orchestration；下一步是完成文档迁移并在真实 bundle 路径上验收 |
-| T-028 | Query / Context 内核重构切片 | `in_progress` | 已落地 `QueryEngine`、transcript/event 模型、workspace intelligence broker、tool capability metadata、batch tool orchestration、pending interaction resume、`transcript_store.py`、`session_restore.py` 与 transcript-truth resume；下一步继续深化 interrupt/retry transcript 语义、provider 精度与 adapter 全量兼容 |
+| T-028 | Query / Context 内核重构切片 | `in_progress` | 已落地 `QueryEngine`、transcript/event 模型、workspace intelligence broker、tool capability metadata、batch tool orchestration、pending interaction resume、`transcript_store.py`、`session_restore.py`、transcript-truth resume，以及第一段 interrupted synthetic tool_result；下一步继续深化 discard-on-retry transcript 语义、provider 精度与 adapter 全量兼容 |
 
 ---
 

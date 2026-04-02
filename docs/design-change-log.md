@@ -44,6 +44,28 @@
 
 ## 3. 当前变更记录
 
+### DC-049
+
+- 日期：2026-04-02
+- 变更主题：中断后的 synthetic interrupted tool_result 已接入 transcript 主线
+- 变更摘要：
+  - 当会话在 `tool_started` 之后被取消时，`QueryEngine` 现在会生成 synthetic interrupted observation，而不是让工具调用只留下 `tool_call` 没有结果
+  - 该 synthetic result 会同步写入 transcript、session observation、timeline 和 adapter 的 `tool_finished` 事件
+  - 会话最终仍以 `aborted` transition 收束，但前端和恢复链现在都能看到更完整的“中断发生在工具执行阶段”语义
+- 影响范围：
+  - Query loop 中断语义
+  - Transcript 完整性
+  - Adapter / timeline 的取消态投影
+- 关联文档：
+  - `docs/context-loop-handoff-status.md`
+  - `docs/development-tracker.md`
+  - `docs/query-context-redesign.md`
+- 是否需要 ADR：`否`
+- 后续动作：
+  - 继续补 discard-on-retry transcript 语义
+  - 收紧多 tool batch 下的 abort 边界
+  - 评估长命令 / tool runtime 的真实 interrupt 行为
+
 ### DC-048
 
 - 日期：2026-04-02

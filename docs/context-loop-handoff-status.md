@@ -172,17 +172,21 @@
 
 剩余需要继续硬化的点：
 
-- interrupt / synthetic tool_result transcript 语义
+- interrupt / synthetic tool_result transcript 语义已起步；当前已覆盖“tool_started 后取消 -> synthetic interrupted tool_result + aborted transition”
 - retry/discard transcript 语义
 - 更贴近真实大工程的恢复一致性回归
 
 ### P1：interrupt / retry / synthetic result
 
+当前进展：
+
+- 用户中断后 synthetic tool_result 已落地第一段：`tool_started` 之后若会话被取消，`QueryEngine` 会写入 synthetic interrupted observation，并在 transcript / timeline / adapter event 中对齐为 aborted
+
 还没做硬的点：
 
-- 用户中断后 synthetic tool_result
 - discard-on-retry 的 transcript 语义
-- streaming tool execution 的 retry / abort 边界
+- 多 tool batch 下更完整的 retry / abort 边界
+- 更贴近真实长命令 / tool runtime 的 interrupt 行为
 
 ### P1：workspace intelligence 深化
 
@@ -206,12 +210,11 @@
 
 如果在另一台电脑继续开发，我建议按这个顺序推进：
 
-1. `resume consistency`
-   - 先补失败测试
-   - 再修 artifact replacement / compact boundary / summary replay
-2. `tool interrupt / retry`
-   - 明确 interrupted turn 的 transcript 结果
-   - 补 synthetic tool_result
+1. `tool interrupt / retry`
+   - 补 discard-on-retry transcript 语义
+   - 收紧多 tool batch 的 abort 边界
+2. `workspace intelligence`
+   - 深化 mode-aware recipe / diagnostics 聚合
 3. `GUI inspector 消费 display_reason`
    - 让前端真正用上现在已经准备好的结构化语义
 
