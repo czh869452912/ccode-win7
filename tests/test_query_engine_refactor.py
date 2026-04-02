@@ -489,6 +489,53 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertEqual(evidence[0].metadata.get("path"), "src/demo.c")
         self.assertEqual(evidence[0].metadata.get("group_kind"), "path_hotspot")
 
+    def test_diagnostics_provider_aggregates_quality_gate_and_pathless_failures(self):
+        session = Session()
+        session.add_user_message("验证当前质量门")
+        session.add_observation(
+            Action("run_tests", {}, "tests-1"),
+            Observation(
+                "run_tests",
+                False,
+                "tests failed",
+                {"test_summary": {"total": 5, "passed": 3, "failed": 2, "skipped": 0}},
+            ),
+        )
+        session.add_observation(
+            Action("collect_coverage", {}, "coverage-1"),
+            Observation(
+                "collect_coverage",
+                True,
+                None,
+                {"coverage_summary": {"line_coverage": 62.5}},
+            ),
+        )
+        session.add_observation(
+            Action("report_quality", {}, "quality-1"),
+            Observation(
+                "report_quality",
+                False,
+                "quality gate failed",
+                {
+                    "passed": False,
+                    "test_failures": 2,
+                    "line_coverage": 62.5,
+                    "min_line_coverage": 80.0,
+                    "reasons": ["存在 2 个失败测试。", "行覆盖率 62.50% 低于阈值 80.00%。"],
+                },
+            ),
+        )
+        provider = DiagnosticsProvider()
+        evidence = provider.collect(session, "verify", self.tools, None)
+        self.assertGreaterEqual(len(evidence), 1)
+        self.assertEqual(evidence[0].title, "Quality Gate Summary")
+        self.assertIn("质量门", evidence[0].content)
+        self.assertIn("run_tests", evidence[0].content)
+        self.assertIn("collect_coverage", evidence[0].content)
+        self.assertIn("report_quality", evidence[0].content)
+        self.assertEqual(evidence[0].metadata.get("group_kind"), "quality_gate_summary")
+        self.assertEqual(set(evidence[0].metadata.get("tool_names") or []), {"run_tests", "collect_coverage", "report_quality"})
+
     def test_recipe_provider_prefers_verify_tools_in_verify_mode(self):
         os.makedirs(os.path.join(self.workspace, ".embedagent"), exist_ok=True)
         with open(os.path.join(self.workspace, ".embedagent", "workspace-recipes.json"), "w", encoding="utf-8") as handle:

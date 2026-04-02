@@ -147,6 +147,7 @@
 - transcript-truth restore
 - ctags 解析与优先级
 - diagnostics hotspot 聚合
+- quality gate / pathless diagnostics 聚合
 - reactive compact retry
 - tool interrupt / discard / long-running command cancel
 - discard-on-retry transcript boundary
@@ -157,8 +158,8 @@
 最近一次新鲜验证结果：
 
 - `python -m unittest tests.test_transcript_store tests.test_session_restore tests.test_query_engine_refactor tests.test_inprocess_adapter_frontend_api -v`
-  - `65/65` 通过
-- `python -m py_compile src\embedagent\tools\_base.py src\embedagent\tools\runtime.py src\embedagent\query_engine.py tests\test_query_engine_refactor.py tests\test_inprocess_adapter_frontend_api.py`
+  - `66/66` 通过
+- `python -m py_compile src\embedagent\workspace_intelligence.py src\embedagent\tools\_base.py src\embedagent\tools\runtime.py src\embedagent\query_engine.py tests\test_query_engine_refactor.py tests\test_inprocess_adapter_frontend_api.py`
   - 通过
 
 ---
@@ -200,7 +201,6 @@
 还没做硬的点：
 
 - `RecipeProvider` 更细的 mode-aware 选证
-- `DiagnosticsProvider` 对 quality gate / pathless failure 的聚合
 - `LlspProvider` 真实 backend 接入
 
 ### P1：frontend/protocol 收口

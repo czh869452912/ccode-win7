@@ -76,6 +76,7 @@
 - `ContextManager.build_messages(...)` 已开始接入 workspace intelligence、tool result replacement、duplicate suppression、activity folding 与 compact boundary 复用
 - `workspace_intelligence.py`、`tool_execution.py` 与 `tests/test_query_engine_refactor.py` 已落地；新测试已覆盖 pending interaction resume、tool batch partition、intelligence/boundary 注入
 - `DiagnosticsProvider` 已升级为工作集优先的文件级热点聚合：同一文件上的 compile/tidy/analyzer 诊断会折叠为单条热点证据，最近编辑/读取文件优先于被动报错文件
+- `DiagnosticsProvider` 已继续推进第二段：`verify` 模式下会把 `report_quality`、`run_tests`、`collect_coverage` 等无路径失败聚成一条 quality gate summary，避免质量门信息只剩零散 observation
 - `QueryEngine` 已具备第一版 reactive compact retry：当模型明确报出 prompt/context 过长时，会记录 `compact_retry` transition、复用 compact boundary，并以内部 compact policy 自动重试一次
 - `compact_retry` 现在已对前端可观测：snapshot 暴露最近 transition reasons / compact retry 次数，timeline 也会记录 `compact_retry` event
 - `build_structured_timeline()` 现在也保留 turn/step 级 transitions，`compact_retry` 不再只存在于 raw timeline event
@@ -180,7 +181,7 @@
 | T-024 | 零依赖打包：内网部署文档 | `completed` | 已新增 `docs/intranet-deployment.md` 和 `docs/offline-packaging-guide.md`，提供完整内网部署指南 |
 | T-025 | 零依赖打包：内网配置模板 | `completed` | 已新增 `config/config.json.template`，预配置内网大模型服务示例 |
 | T-027 | Phase 7 打包控制面收口 | `in_progress` | `scripts/package.ps1`、`scripts/package.config.json`、`scripts/package-lib.ps1` 与 `tests/test_packaging_control_plane.py` 已打通 `doctor/deps/assemble/verify/release` mocked orchestration；下一步是完成文档迁移并在真实 bundle 路径上验收 |
-| T-028 | Query / Context 内核重构切片 | `in_progress` | 已落地 `QueryEngine`、transcript/event 模型、workspace intelligence broker、tool capability metadata、batch tool orchestration、pending interaction resume、`transcript_store.py`、`session_restore.py`、transcript-truth resume，以及 interrupted/discarded synthetic tool_result 主线；`StreamingToolExecutor` 现已支持流式并行 batch writeback、直接观察 cancel event，并在 batch 出现 `discarded` 后丢弃同一 assistant plan 的后续 batch；`tool_call` transcript 已在 assistant action 阶段按原始顺序落盘，`run_command` 的 Windows 长命令中断也已切到进程组 + `CTRL_BREAK_EVENT`；下一步转向 provider 精度、adapter 全量兼容与更强集成回归 |
+| T-028 | Query / Context 内核重构切片 | `in_progress` | 已落地 `QueryEngine`、transcript/event 模型、workspace intelligence broker、tool capability metadata、batch tool orchestration、pending interaction resume、`transcript_store.py`、`session_restore.py`、transcript-truth resume，以及 interrupted/discarded synthetic tool_result 主线；`StreamingToolExecutor` 现已支持流式并行 batch writeback、直接观察 cancel event，并在 batch 出现 `discarded` 后丢弃同一 assistant plan 的后续 batch；`tool_call` transcript 已在 assistant action 阶段按原始顺序落盘，`run_command` 的 Windows 长命令中断也已切到进程组 + `CTRL_BREAK_EVENT`，`DiagnosticsProvider` 也已补上 quality gate / pathless summary 聚合；下一步转向 `RecipeProvider` 选证、真实 `LlspProvider`、adapter 全量兼容与更强集成回归 |
 
 ---
 

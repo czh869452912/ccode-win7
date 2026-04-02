@@ -413,6 +413,27 @@
   - 后续把 LLSP/clangd 的引用链与调用关系证据并入同一热点选择器
   - 观察 GUI Problems / timeline inspector 是否也应复用同一聚合逻辑
 
+### DC-056
+
+- 日期：2026-04-02
+- 变更主题：DiagnosticsProvider 已补 quality gate / pathless summary 聚合
+- 变更摘要：
+  - `verify` 模式下，`DiagnosticsProvider` 现在会把 `report_quality`、`run_tests`、`collect_coverage` 等无明确文件路径的失败或告警聚成一条 `Quality Gate Summary`
+  - 这让质量门信息不再散落成多条 pathless observation，而能以单条高优先级证据进入 workspace intelligence
+  - 若没有 `report_quality` 但存在多条无路径诊断，provider 也会退化输出 `Pathless Diagnostics` 摘要
+- 影响范围：
+  - verify mode 的工程情报首屏质量
+  - quality gate / test / coverage 的上下文聚合
+  - DiagnosticsProvider 的 pathless failure contract
+- 关联文档：
+  - `docs/context-loop-handoff-status.md`
+  - `docs/development-tracker.md`
+  - `docs/query-context-redesign.md`
+- 是否需要 ADR：`否`
+- 后续动作：
+  - 继续深化 `RecipeProvider` 的 mode-aware 选证
+  - 评估 GUI Problems / inspector 是否也应直接复用这条 quality gate summary
+
 ### DC-044
 
 - 日期：2026-04-02

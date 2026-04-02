@@ -182,6 +182,25 @@ class DiagnosticsProvider(WorkspaceIntelligenceProvider):
         working_paths = set(_working_set_paths_from_session(session))
         focus_paths = set(_focus_paths_from_session(session))
         observations = list(reversed(_all_observations(session)))
+        pathless_summary = _group_pathless_diagnostic_summary(observations)
+        if pathless_summary is not None and mode_name == "verify":
+            evidence.append(
+                IntelligenceEvidence(
+                    provider=self.name,
+                    title=str(pathless_summary["title"]),
+                    content=str(pathless_summary["content"]),
+                    priority=105,
+                    tags=["diagnostic", mode_name] + list(pathless_summary["tool_names"]),
+                    metadata={
+                        "tool_name": pathless_summary["tool_names"][0] if pathless_summary["tool_names"] else "",
+                        "tool_names": list(pathless_summary["tool_names"]),
+                        "focus_match": False,
+                        "path": "",
+                        "diagnostic_count": int(pathless_summary["diagnostic_count"] or 0),
+                        "group_kind": str(pathless_summary["group_kind"]),
+                    },
+                )
+            )
         hotspots = _group_diagnostic_hotspots(observations, working_paths, focus_paths)
         for hotspot in hotspots[:2]:
             tool_names = hotspot["tool_names"]
@@ -209,6 +228,26 @@ class DiagnosticsProvider(WorkspaceIntelligenceProvider):
             )
         if len(evidence) >= 2:
             return evidence
+        if pathless_summary is not None and not any(item.metadata.get("group_kind") == str(pathless_summary["group_kind"]) for item in evidence):
+            evidence.append(
+                IntelligenceEvidence(
+                    provider=self.name,
+                    title=str(pathless_summary["title"]),
+                    content=str(pathless_summary["content"]),
+                    priority=95 if mode_name in ("code", "debug", "verify") else 55,
+                    tags=["diagnostic", mode_name] + list(pathless_summary["tool_names"]),
+                    metadata={
+                        "tool_name": pathless_summary["tool_names"][0] if pathless_summary["tool_names"] else "",
+                        "tool_names": list(pathless_summary["tool_names"]),
+                        "focus_match": False,
+                        "path": "",
+                        "diagnostic_count": int(pathless_summary["diagnostic_count"] or 0),
+                        "group_kind": str(pathless_summary["group_kind"]),
+                    },
+                )
+            )
+            if len(evidence) >= 2:
+                return evidence
         seen_keys = set()
         observations.sort(
             key=lambda observation: (
@@ -571,6 +610,71 @@ def _group_diagnostic_hotspots(
         )
     )
     return ranked
+
+
+def _group_pathless_diagnostic_summary(observations: List[Observation]) -> Optional[Dict[str, Any]]:
+    tool_names = []
+    tool_name_set = set()
+    reasons = []
+    diagnostic_count = 0
+    latest_detail = ""
+    has_quality_gate = False
+    for observation in observations:
+        if observation.tool_name not in (
+            "compile_project",
+            "run_tests",
+            "run_clang_tidy",
+            "run_clang_analyzer",
+            "collect_coverage",
+            "report_quality",
+        ):
+            continue
+        if not isinstance(observation.data, dict):
+            continue
+        if _observation_primary_path(observation):
+            continue
+        detail = _diagnostic_detail(observation)
+        if not detail and observation.tool_name != "report_quality":
+            continue
+        if observation.tool_name not in tool_name_set:
+            tool_name_set.add(observation.tool_name)
+            tool_names.append(observation.tool_name)
+        diagnostic_count += _observation_diagnostic_count(observation)
+        if not latest_detail and detail:
+            latest_detail = detail
+        if observation.tool_name == "report_quality" and not observation.success:
+            has_quality_gate = True
+            for item in observation.data.get("reasons") or []:
+                text = str(item or "").strip()
+                if text and text not in reasons:
+                    reasons.append(text)
+    if not tool_names:
+        return None
+    if has_quality_gate:
+        content_parts = ["质量门未通过"]
+        if reasons:
+            content_parts.append("；".join(reasons))
+        content_parts.append("相关检查：%s" % ", ".join(tool_names))
+        return {
+            "title": "Quality Gate Summary",
+            "content": "。".join([part for part in content_parts if part]) + "。",
+            "tool_names": tool_names,
+            "diagnostic_count": diagnostic_count or len(reasons) or len(tool_names),
+            "group_kind": "quality_gate_summary",
+        }
+    if len(tool_names) < 2:
+        return None
+    content = "无路径诊断摘要：来自 %s。最新：%s" % (
+        ", ".join(tool_names),
+        latest_detail or "最近一次检查未通过。",
+    )
+    return {
+        "title": "Pathless Diagnostics",
+        "content": content,
+        "tool_names": tool_names,
+        "diagnostic_count": diagnostic_count or len(tool_names),
+        "group_kind": "pathless_summary",
+    }
 
 
 def _observation_diagnostic_count(observation: Observation) -> int:
