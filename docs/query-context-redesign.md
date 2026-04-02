@@ -117,6 +117,7 @@
   - 结果按原始 tool call 顺序回写
 - `run_command` 的 Windows runtime interrupt 现已从 `taskkill` 单一路径收口为“进程组 + `CTRL_BREAK_EVENT` 优先、必要时再 fallback”的终止策略
 - `StreamingToolExecutor` 现在也会直接观察 cancel event，避免 `max_parallel_tools>1` 时排队 action 在取消后继续偷偷启动
+- `QueryEngine` 现在还会把“前一个 batch 已出现 discarded”当作 retry boundary，因此同一条 assistant plan 里的后续 batch 会统一落 `discarded` result，而不是继续真实执行
 
 ---
 

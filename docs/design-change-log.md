@@ -44,6 +44,27 @@
 
 ## 3. 当前变更记录
 
+### DC-055
+
+- 日期：2026-04-02
+- 变更主题：discard-on-retry 已扩展到后续 batch
+- 变更摘要：
+  - `QueryEngine` 现在会把“当前 batch 已出现 discarded”视为当前 assistant plan 已不完整的明确边界
+  - 在这种情况下，同一条 assistant reply 中后续 batch 的 action 不再继续真实执行，而是统一落 `discarded` tool_result
+  - 新增回归覆盖“前一个并行读 batch 已 discarded，后续 edit batch 必须 discarded 且不得改文件”的 transcript 语义
+- 影响范围：
+  - discard-on-retry transcript contract
+  - 多 batch assistant plan 的安全边界
+  - 写动作在部分失败后的继续执行策略
+- 关联文档：
+  - `docs/context-loop-handoff-status.md`
+  - `docs/development-tracker.md`
+  - `docs/query-context-redesign.md`
+- 是否需要 ADR：`否`
+- 后续动作：
+  - 在真实 C 工程回归里验证 compile/test/diagnose 链路上的 discard-on-retry 体验
+  - 评估是否要把 discarded 的 reason contract 再细分为 cancel / retry 两类
+
 ### DC-054
 
 - 日期：2026-04-02

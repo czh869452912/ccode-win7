@@ -8,7 +8,7 @@
 
 ## 1. 总体判断
 
-相对最初的重构计划，这条工作流当前总体进展约为 `75%`。
+相对最初的重构计划，这条工作流当前总体进展约为 `80%`。
 
 这是人工评估，不是自动统计；它反映的是：
 
@@ -48,7 +48,7 @@
 | Phase B | `大体完成` | context pipeline、artifact replacement、compact boundary、reactive compact retry 已落地 |
 | Phase C | `大部分完成` | tool capability metadata、batch orchestration、permission / ask_user 恢复已打通 |
 | Phase D | `基本完成` | workspace intelligence broker 和首批 provider 已接入 |
-| Phase E | `未完成` | resume consistency、interrupt/retry 收口、legacy projection 瘦身仍待继续 |
+| Phase E | `大体完成` | resume consistency 与 interrupt/retry 主线已基本补齐，legacy projection 瘦身和前端最终消费仍待继续 |
 
 ---
 
@@ -149,6 +149,7 @@
 - diagnostics hotspot 聚合
 - reactive compact retry
 - tool interrupt / discard / long-running command cancel
+- discard-on-retry transcript boundary
 - compact retry 的 snapshot / timeline / structured timeline 投影
 - `guard_stop / aborted / max_turns / user_input_wait / permission_wait` 的前端投影
 - `display_reason` 以及旧 summary 兼容回填
@@ -156,7 +157,7 @@
 最近一次新鲜验证结果：
 
 - `python -m unittest tests.test_transcript_store tests.test_session_restore tests.test_query_engine_refactor tests.test_inprocess_adapter_frontend_api -v`
-  - `64/64` 通过
+  - `65/65` 通过
 - `python -m py_compile src\embedagent\tools\_base.py src\embedagent\tools\runtime.py src\embedagent\query_engine.py tests\test_query_engine_refactor.py tests\test_inprocess_adapter_frontend_api.py`
   - 通过
 
@@ -188,10 +189,11 @@
 - 更高并发下的 queued action cancel 边界也已补上：`StreamingToolExecutor` 现在会直接观察 cancel event，因此 `max_parallel_tools>1` 时排队 action 不会在取消后偷偷启动
 - transcript completeness 也已补硬：`tool_call` event 现在在 assistant action 阶段按原始顺序落盘，因此即使后续 action 被 discarded，也不会出现“有 tool_result 没有 tool_call”的残缺链路
 - 更贴近真实 runtime 的取消路径也已补上：Windows 下 `run_command` 现在使用新进程组 + `CTRL_BREAK_EVENT` 优先中断，长命令在用户取消后不再等完整命令自然结束才返回
+- discard-on-retry 的 transcript 语义也已补上：一旦前一个 batch 已经出现 `discarded`，同一条 assistant plan 中后续 batch 会统一落 `discarded` result，而不再继续真实执行
 
-还没做硬的点：
+当前判断：
 
-- 更复杂的多 tool batch retry 组合边界
+- 这条 `interrupt / retry` 主线已经从“待收口”进入“基本完成”；剩余更像真实工程级集成回归，而不是核心 contract 缺失
 
 ### P1：workspace intelligence 深化
 
@@ -215,12 +217,12 @@
 
 如果在另一台电脑继续开发，我建议按这个顺序推进：
 
-1. `tool interrupt / retry`
-   - 覆盖更高并发下的多 tool batch abort/retry 组合边界
-2. `workspace intelligence`
+1. `workspace intelligence`
    - 深化 mode-aware recipe / diagnostics 聚合
-3. `GUI inspector 消费 display_reason`
+2. `GUI inspector 消费 display_reason`
    - 让前端真正用上现在已经准备好的结构化语义
+3. `更强集成回归`
+   - 在真实 C 工程上把 interrupt / resume / compact / permission wait 再串一遍
 
 不建议下一轮优先做的事：
 

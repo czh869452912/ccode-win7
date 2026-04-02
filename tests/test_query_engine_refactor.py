@@ -211,6 +211,36 @@ class ParallelSuccessfulReadThenDoneClient(object):
         return reply
 
 
+class ParallelReadThenEditClient(object):
+    def __init__(self):
+        self.calls = 0
+
+    def generate(self, messages, tools=None):
+        self.calls += 1
+        if self.calls == 1:
+            return AssistantReply(
+                content="",
+                actions=[
+                    Action("read_file", {"path": "src/missing.c"}, "call-read-missing"),
+                    Action("read_file", {"path": "src/demo.c"}, "call-read-demo-a"),
+                    Action("read_file", {"path": "src/demo.c"}, "call-read-demo-b"),
+                    Action(
+                        "edit_file",
+                        {"path": "src/demo.c", "old_text": "0", "new_text": "1"},
+                        "call-edit-demo",
+                    ),
+                ],
+                finish_reason="tool_calls",
+            )
+        return AssistantReply(content="after retry boundary", actions=[], finish_reason="stop")
+
+    def stream(self, messages, tools=None, on_text_delta=None, on_reasoning_delta=None):
+        reply = self.generate(messages, tools=tools)
+        if on_text_delta is not None and reply.content:
+            on_text_delta(reply.content)
+        return reply
+
+
 class SlowCommandClient(object):
     def __init__(self):
         self.calls = 0
@@ -865,6 +895,58 @@ class TestQueryEngineRefactor(unittest.TestCase):
                 ("call-read-demo-a", "interrupted"),
                 ("call-read-demo-b", "interrupted"),
                 ("call-read-demo-c", "discarded"),
+            ],
+        )
+
+    def test_query_engine_discards_later_batches_after_parallel_discard(self):
+        session = Session()
+        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：code")
+        transcript_store = TranscriptStore(self.workspace)
+        wrapped_tools = CountingToolRuntime(self.tools, slow_read_calls=2, slow_delay_sec=0.2)
+        engine = QueryEngine(
+            client=ParallelReadThenEditClient(),
+            tools=wrapped_tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+            transcript_store=transcript_store,
+            max_parallel_tools=2,
+        )
+
+        result = engine.submit_turn(
+            user_text="读取并修改文件",
+            stream=False,
+            initial_mode="code",
+            session=session,
+        )
+        self.assertEqual(result.transition.reason, "completed")
+        self.assertEqual(result.final_text, "after retry boundary")
+        with open(os.path.join(self.workspace, "src", "demo.c"), "r", encoding="utf-8") as handle:
+            self.assertIn("return 0;", handle.read())
+        tool_results = [
+            (item.tool_name, item.data.get("error_kind") if isinstance(item.data, dict) else None)
+            for item in session.turns[-1].observations
+        ]
+        self.assertEqual(
+            tool_results,
+            [
+                ("read_file", "tool_error"),
+                ("read_file", None),
+                ("read_file", "discarded"),
+                ("edit_file", "discarded"),
+            ],
+        )
+        events = transcript_store.load_events(session.session_id)
+        transcript_results = [
+            (item["payload"]["call_id"], item["payload"]["observation"]["data"].get("error_kind"))
+            for item in events
+            if item["type"] == "tool_result"
+        ]
+        self.assertEqual(
+            transcript_results,
+            [
+                ("call-read-missing", "tool_error"),
+                ("call-read-demo-a", None),
+                ("call-read-demo-b", "discarded"),
+                ("call-edit-demo", "discarded"),
             ],
         )
 

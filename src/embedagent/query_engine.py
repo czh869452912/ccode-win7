@@ -126,11 +126,59 @@ class QueryEngine(object):
             },
         )
 
+    def _discarded_observation(self, tool_name: str) -> Observation:
+        return Observation(
+            tool_name=tool_name,
+            success=False,
+            error="tool execution discarded",
+            data={
+                "error_kind": "discarded",
+                "retryable": False,
+                "synthetic": True,
+            },
+        )
+
     def _is_interrupted_observation(self, observation: Observation) -> bool:
         return bool(
             isinstance(observation.data, dict)
             and str(observation.data.get("error_kind") or "") == "interrupted"
         )
+
+    def _record_tool_observation(
+        self,
+        session: Session,
+        action: Action,
+        observation: Observation,
+        current_mode: str,
+        assembly: ContextAssemblyResult,
+        step_id: str,
+        on_tool_finish: Optional[Callable[[Action, Observation], None]],
+    ) -> None:
+        tool_message_id = "m-" + uuid.uuid4().hex[:12]
+        finished_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+        self._append_transcript_event(
+            session,
+            "tool_result",
+            {
+                "turn_id": session.turns[-1].turn_id if session.turns else "",
+                "step_id": step_id,
+                "call_id": action.call_id,
+                "tool_name": action.name,
+                "finished_at": finished_at,
+                "observation": observation.to_dict(),
+            },
+        )
+        session.add_observation(
+            action,
+            observation,
+            message_id=tool_message_id,
+            turn_id=session.turns[-1].turn_id if session.turns else "",
+            step_id=step_id,
+            finished_at=finished_at,
+        )
+        self._persist_summary(session, current_mode, assembly)
+        if on_tool_finish is not None:
+            on_tool_finish(action, observation)
 
     def submit_turn(
         self,
@@ -407,7 +455,22 @@ class QueryEngine(object):
                 self.max_parallel_tools,
                 cancel_event=stop_event,
             )
+            discard_remaining_batches = False
             for batch in partition_tool_actions(reply.actions, self.tools.tool_capabilities):
+                if discard_remaining_batches:
+                    for action in batch.actions:
+                        observation = self._discarded_observation(action.name)
+                        self._record_tool_observation(
+                            session,
+                            action,
+                            observation,
+                            current_mode,
+                            assembly,
+                            step_id,
+                            on_tool_finish,
+                        )
+                        loop_guard.record(action, observation)
+                    continue
                 if not batch.parallel:
                     for action in batch.actions:
                         if on_tool_start is not None:
@@ -433,31 +496,15 @@ class QueryEngine(object):
                             if stop_event is not None and stop_event.is_set() and not self._is_interrupted_observation(observation):
                                 interrupted = True
                                 observation = self._interrupted_observation(action.name)
-                        tool_message_id = "m-" + uuid.uuid4().hex[:12]
-                        finished_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-                        self._append_transcript_event(
+                        self._record_tool_observation(
                             session,
-                            "tool_result",
-                            {
-                                "turn_id": session.turns[-1].turn_id if session.turns else "",
-                                "step_id": step_id,
-                                "call_id": action.call_id,
-                                "tool_name": action.name,
-                                "finished_at": finished_at,
-                                "observation": observation.to_dict(),
-                            },
-                        )
-                        session.add_observation(
                             action,
                             observation,
-                            message_id=tool_message_id,
-                            turn_id=session.turns[-1].turn_id if session.turns else "",
-                            step_id=step_id,
-                            finished_at=finished_at,
+                            current_mode,
+                            assembly,
+                            step_id,
+                            on_tool_finish,
                         )
-                        self._persist_summary(session, current_mode, assembly)
-                        if on_tool_finish is not None:
-                            on_tool_finish(action, observation)
                         loop_guard.record(action, observation)
                         if interrupted:
                             transition = LoopTransition(reason="aborted", message="tool execution interrupted", turns_used=turns_used)
@@ -473,6 +520,7 @@ class QueryEngine(object):
                             return QueryTurnResult(final_text, session, transition, turns_used)
                     continue
                 batch_interrupted = False
+                batch_discarded = False
                 for update in executor.run_batch(batch):
                     if update.phase == "start":
                         if on_tool_start is not None:
@@ -507,31 +555,17 @@ class QueryEngine(object):
                             batch_interrupted = True
                             executor.discard()
                             observation = self._interrupted_observation(update.action.name)
-                    tool_message_id = "m-" + uuid.uuid4().hex[:12]
-                    finished_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-                    self._append_transcript_event(
+                    if isinstance(observation.data, dict) and observation.data.get("error_kind") == "discarded":
+                        batch_discarded = True
+                    self._record_tool_observation(
                         session,
-                        "tool_result",
-                        {
-                            "turn_id": session.turns[-1].turn_id if session.turns else "",
-                            "step_id": step_id,
-                            "call_id": update.action.call_id,
-                            "tool_name": update.action.name,
-                            "finished_at": finished_at,
-                            "observation": observation.to_dict(),
-                        },
-                    )
-                    session.add_observation(
                         update.action,
                         observation,
-                        message_id=tool_message_id,
-                        turn_id=session.turns[-1].turn_id if session.turns else "",
-                        step_id=step_id,
-                        finished_at=finished_at,
+                        current_mode,
+                        assembly,
+                        step_id,
+                        on_tool_finish,
                     )
-                    self._persist_summary(session, current_mode, assembly)
-                    if on_tool_finish is not None:
-                        on_tool_finish(update.action, observation)
                     loop_guard.record(update.action, observation)
                     if batch_interrupted:
                         continue
@@ -547,6 +581,8 @@ class QueryEngine(object):
                     if on_step_finish is not None:
                         on_step_finish(step_index, reply, "aborted")
                     return QueryTurnResult(final_text, session, transition, turns_used)
+                if batch_discarded:
+                    discard_remaining_batches = True
             if on_step_finish is not None:
                 on_step_finish(step_index, reply, "tool_calls")
         transition = LoopTransition(reason="max_turns", message="超过最大迭代次数", turns_used=turns_used)
