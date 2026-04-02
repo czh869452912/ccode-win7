@@ -106,6 +106,25 @@
   - 继续补更高并发下的 abort/retry 组合边界
   - 评估是否需要显式 progress event / result buffering contract 文档
 
+### DC-052
+
+- 日期：2026-04-02
+- 变更主题：tool_call transcript 改为在 assistant action 阶段统一落盘
+- 变更摘要：
+  - `tool_call` transcript event 不再依赖实际 start 时机，而是在 assistant 产出 action 后就按原始顺序统一写入
+  - 这保证了后续 action 即使因取消而变成 `discarded`，仍然有完整的 `tool_call -> tool_result` transcript 链路
+  - `SessionRestorer` 也已避免为同一 `call_id` 重复创建 `ToolCallRecord`
+- 影响范围：
+  - Transcript 完整性
+  - Resume replay 的 tool-call 重建
+  - 并行 batch 取消场景的可审计性
+- 关联文档：
+  - `docs/context-loop-handoff-status.md`
+  - `docs/development-tracker.md`
+- 是否需要 ADR：`否`
+- 后续动作：
+  - 继续验证更高并发下 `tool_call` / `tool_result` 顺序与 retry 组合语义
+
 ### DC-048
 
 - 日期：2026-04-02

@@ -378,6 +378,19 @@ class QueryEngine(object):
                 turn_id=session.turns[-1].turn_id if session.turns else "",
                 step_id=step_id,
             )
+            for action in reply.actions:
+                self._append_transcript_event(
+                    session,
+                    "tool_call",
+                    {
+                        "turn_id": session.turns[-1].turn_id if session.turns else "",
+                        "step_id": step_id,
+                        "call_id": action.call_id,
+                        "tool_name": action.name,
+                        "arguments": dict(action.arguments),
+                        "status": "pending",
+                    },
+                )
             final_text = reply.content
             turns_used = step_index
             if not reply.actions:
@@ -393,19 +406,6 @@ class QueryEngine(object):
             for batch in partition_tool_actions(reply.actions, self.tools.tool_capabilities):
                 if not batch.parallel:
                     for action in batch.actions:
-                        self._append_transcript_event(
-                            session,
-                            "tool_call",
-                            {
-                                "turn_id": session.turns[-1].turn_id if session.turns else "",
-                                "step_id": step_id,
-                                "call_id": action.call_id,
-                                "tool_name": action.name,
-                                "arguments": dict(action.arguments),
-                                "status": "started",
-                            },
-                        )
-                        session.record_tool_call(action)
                         if on_tool_start is not None:
                             on_tool_start(action)
                         interrupted = bool(stop_event is not None and stop_event.is_set())
@@ -470,19 +470,6 @@ class QueryEngine(object):
                 batch_interrupted = False
                 for update in executor.run_batch(batch):
                     if update.phase == "start":
-                        self._append_transcript_event(
-                            session,
-                            "tool_call",
-                            {
-                                "turn_id": session.turns[-1].turn_id if session.turns else "",
-                                "step_id": step_id,
-                                "call_id": update.action.call_id,
-                                "tool_name": update.action.name,
-                                "arguments": dict(update.action.arguments),
-                                "status": "started",
-                            },
-                        )
-                        session.record_tool_call(update.action)
                         if on_tool_start is not None:
                             on_tool_start(update.action)
                         if stop_event is not None and stop_event.is_set():

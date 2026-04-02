@@ -183,6 +183,7 @@
 - 用户中断后 synthetic tool_result 已落地第一段：`tool_started` 之后若会话被取消，`QueryEngine` 会写入 synthetic interrupted observation，并在 transcript / timeline / adapter event 中对齐为 aborted
 - parallel batch 中的 `discarded` result 现在仍会写入 transcript，但不再误触发 `LoopGuard` 把整轮提前打成 `guard_stop`
 - `StreamingToolExecutor` 的并行批次现在已改成流式 start/result；在 `max_parallel_tools=1` 一类受控场景下，已覆盖“首个 action interrupted、后续未开始 action discarded”的 batch abort 边界
+- transcript completeness 也已补硬：`tool_call` event 现在在 assistant action 阶段按原始顺序落盘，因此即使后续 action 被 discarded，也不会出现“有 tool_result 没有 tool_call”的残缺链路
 
 还没做硬的点：
 

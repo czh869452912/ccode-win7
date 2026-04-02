@@ -765,6 +765,9 @@ class TestQueryEngineRefactor(unittest.TestCase):
         ]
         self.assertIn("interrupted", error_kinds)
         self.assertIn("discarded", error_kinds)
+        events = transcript_store.load_events(session.session_id)
+        tool_call_ids = [item["payload"]["call_id"] for item in events if item["type"] == "tool_call"]
+        self.assertEqual(tool_call_ids, ["call-read-demo-a", "call-read-demo-b", "call-read-demo-c"])
 
     def test_adapter_resumes_pending_user_input(self):
         adapter = InProcessAdapter(

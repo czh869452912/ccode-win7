@@ -52,7 +52,8 @@ class SessionRestorer(object):
                     arguments=dict(payload.get("arguments") or {}),
                     call_id=str(payload.get("call_id") or ""),
                 )
-                session.record_tool_call(action)
+                if session._find_tool_call(action.call_id) is None:
+                    session.record_tool_call(action)
                 continue
             if event_type == "tool_result":
                 action = Action(
