@@ -105,6 +105,25 @@
   - 决定 transitions 在 GUI 中的展示形式
   - 继续把更多 loop transition 结构化到 step/turn 记录中
 
+### DC-049
+
+- 日期：2026-04-02
+- 变更主题：structured timeline 保留 waiting-state transitions
+- 变更摘要：
+  - `build_structured_timeline()` 现在会把 `user_input_required` / `permission_required` 作为 turn/step 级 transition 保留下来
+  - 当会话进入等待态时，structured timeline 的 turn 状态也会同步更新为 `waiting_user_input` 或 `waiting_permission`
+  - 这让 pending interaction 不再只靠 snapshot 判断，structured timeline 也能完整表达“为什么停住了”
+- 影响范围：
+  - 结构化时间线协议
+  - pending interaction 的前端展示能力
+  - 调试与回归测试口径
+- 关联文档：
+  - `docs/query-context-redesign.md`
+  - `docs/development-tracker.md`
+- 是否需要 ADR：`否`
+- 后续动作：
+  - 继续把 `guard_stop / max_turns / aborted` 等终止态也统一投影到 structured timeline transitions
+
 ### DC-045
 
 - 日期：2026-04-02

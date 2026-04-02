@@ -378,6 +378,31 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertIn("transitions", step)
         self.assertIn("compact_retry", [item.get("kind") for item in step["transitions"]])
 
+    def test_structured_timeline_preserves_user_input_wait_transition(self):
+        adapter = InProcessAdapter(
+            client=AskUserClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+        )
+        snapshot = adapter.create_session('spec')
+        session_id = str(snapshot.get('session_id') or '')
+        adapter.submit_user_message(
+            session_id=session_id,
+            text='请继续',
+            stream=False,
+            wait=True,
+            event_handler=lambda event_name, current_session_id, payload: None,
+        )
+        payload = adapter.build_structured_timeline(session_id)
+        self.assertEqual(len(payload["turns"]), 1)
+        turn = payload["turns"][0]
+        self.assertEqual(turn["status"], "waiting_user_input")
+        self.assertIn("user_input_required", [item.get("kind") for item in turn.get("transitions", [])])
+        self.assertEqual(len(turn["steps"]), 1)
+        step = turn["steps"][0]
+        self.assertEqual(step["status"], "user_input_wait")
+        self.assertIn("user_input_required", [item.get("kind") for item in step.get("transitions", [])])
+
     def test_workspace_recipe_api_detects_cmake(self):
         with open(os.path.join(self.workspace, "CMakeLists.txt"), "w", encoding="utf-8") as handle:
             handle.write("cmake_minimum_required(VERSION 3.20)\nproject(demo C)\n")

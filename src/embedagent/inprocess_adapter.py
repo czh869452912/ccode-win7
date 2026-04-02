@@ -495,11 +495,19 @@ class InProcessAdapter(object):
                     current_turn["steps"].append(current_step)
                 elif event == "reasoning_delta" and current_step is not None:
                     current_step["reasoning"] += payload.get("text", "")
-                elif event in ("compact_retry", "context_compacted", "mode_changed") and current_turn is not None:
+                elif event in ("compact_retry", "context_compacted", "mode_changed", "permission_required", "user_input_required") and current_turn is not None:
                     transition_item = make_transition_item(event, payload, record)
                     current_turn["transitions"].append(dict(transition_item))
                     if current_step is not None:
                         current_step["transitions"].append(dict(transition_item))
+                    if event == "permission_required":
+                        current_turn["status"] = "waiting_permission"
+                        if current_step is not None and current_step.get("status") == "in_progress":
+                            current_step["status"] = "waiting_permission"
+                    elif event == "user_input_required":
+                        current_turn["status"] = "waiting_user_input"
+                        if current_step is not None and current_step.get("status") == "in_progress":
+                            current_step["status"] = "waiting_user_input"
                 elif event == "tool_started" and current_step is not None:
                     call_id = payload.get("call_id") or record.get("event_id", "")
                     tool_call = {
@@ -574,8 +582,12 @@ class InProcessAdapter(object):
                 turns.append(current_turn)
             elif event == "reasoning_delta" and current_turn is not None:
                 current_turn["reasoning"] += payload.get("text", "")
-            elif event in ("compact_retry", "context_compacted", "mode_changed") and current_turn is not None:
+            elif event in ("compact_retry", "context_compacted", "mode_changed", "permission_required", "user_input_required") and current_turn is not None:
                 current_turn["transitions"].append(make_transition_item(event, payload, record))
+                if event == "permission_required":
+                    current_turn["status"] = "waiting_permission"
+                elif event == "user_input_required":
+                    current_turn["status"] = "waiting_user_input"
             elif event == "tool_started" and current_turn is not None:
                 call_id = payload.get("call_id") or record.get("event_id", "")
                 tool_call = {
