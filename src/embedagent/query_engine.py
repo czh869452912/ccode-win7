@@ -25,6 +25,16 @@ _LOG = logging.getLogger(__name__)
 _RETRYABLE_HTTP_CODES = {429, 500, 502, 503, 504}
 _LLM_MAX_RETRIES = 3
 _LLM_RETRY_BASE_DELAY = 1.0
+_COMPACT_RETRY_ERROR_MARKERS = (
+    "context length",
+    "maximum context",
+    "prompt is too long",
+    "prompt too long",
+    "max tokens",
+    "too many tokens",
+    "上下文",
+    "超出上下文",
+)
 
 
 class QueryEngine(object):
@@ -175,14 +185,40 @@ class QueryEngine(object):
                 session.record_transition(transition)
                 return QueryTurnResult(final_text, session, transition, turns_used)
             step_index = turn_index + 1
-            assembly = self._build_context(session, current_mode, workflow_state)
-            if on_context_result is not None:
-                on_context_result(assembly)
-            self._persist_summary(session, current_mode, assembly)
             session.begin_step()
             if on_step_start is not None:
                 on_step_start(step_index)
-            reply = self._call_llm_with_retry(assembly.messages, self._schemas_for_mode(current_mode, workflow_state), stream, on_text_delta, on_reasoning_delta)
+            force_compact = False
+            compact_retry_used = False
+            while True:
+                assembly = self._build_context(session, current_mode, workflow_state, force_compact=force_compact)
+                if on_context_result is not None:
+                    on_context_result(assembly)
+                self._persist_summary(session, current_mode, assembly)
+                try:
+                    reply = self._call_llm_with_retry(assembly.messages, self._schemas_for_mode(current_mode, workflow_state), stream, on_text_delta, on_reasoning_delta)
+                    break
+                except ModelClientError as exc:
+                    if compact_retry_used or not self._should_retry_with_compact(exc):
+                        raise
+                    compact_retry_used = True
+                    force_compact = True
+                    self._maybe_record_compact_boundary(session, current_mode, assembly)
+                    transition = LoopTransition(
+                        reason="compact_retry",
+                        message=str(exc),
+                        next_mode=current_mode,
+                        turns_used=turns_used,
+                        metadata={
+                            "source_mode": current_mode,
+                            "retry_mode": "compact",
+                            "error": str(exc),
+                            "approx_tokens_before": assembly.approx_tokens,
+                            "pipeline_steps": list(assembly.pipeline_steps),
+                        },
+                    )
+                    session.record_transition(transition)
+                    continue
             session.add_assistant_reply(reply)
             final_text = reply.content
             turns_used = step_index
@@ -262,13 +298,14 @@ class QueryEngine(object):
         session.record_transition(transition)
         return QueryTurnResult(final_text, session, transition, turns_used)
 
-    def _build_context(self, session: Session, mode_name: str, workflow_state: str) -> ContextAssemblyResult:
+    def _build_context(self, session: Session, mode_name: str, workflow_state: str, force_compact: bool = False) -> ContextAssemblyResult:
         build = self.context_manager.build_messages(
             session,
             mode_name,
             tools=self.tools,
             workflow_state=workflow_state,
             intelligence_broker=self.intelligence_broker,
+            force_compact=force_compact,
         )
         if isinstance(build, ContextAssemblyResult):
             return build
@@ -288,6 +325,15 @@ class QueryEngine(object):
             replacements=getattr(build, "replacements", []),
             pipeline_steps=getattr(build, "pipeline_steps", []),
         )
+
+    def _should_retry_with_compact(self, exc: ModelClientError) -> bool:
+        text = str(exc or "").lower()
+        if not text:
+            return False
+        for marker in _COMPACT_RETRY_ERROR_MARKERS:
+            if marker in text:
+                return True
+        return False
 
     def _schemas_for_mode(self, mode_name: str, workflow_state: str) -> list:
         allowed = set(allowed_tools_for(mode_name))

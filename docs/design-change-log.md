@@ -44,6 +44,27 @@
 
 ## 3. 当前变更记录
 
+### DC-046
+
+- 日期：2026-04-02
+- 变更主题：QueryEngine 增加 reactive compact retry
+- 变更摘要：
+  - `QueryEngine` 现在会识别 `prompt/context too long` 一类 LLM 错误，并在同一步内触发一次内部 `compact_retry`
+  - retry 前会尽量落下 `CompactBoundary`，随后以更紧的 compact budget 重组上下文，再自动重试一次模型调用
+  - compact retry 仍保持原始 mode 作为工具过滤和 workspace intelligence 选证依据，不把 `compact` 暴露成用户可切换 mode
+- 影响范围：
+  - Query loop 状态迁移
+  - Context pipeline 的内部 compact 策略
+  - 长任务上下文超限后的恢复体验
+- 关联文档：
+  - `docs/query-context-redesign.md`
+  - `docs/development-tracker.md`
+- 是否需要 ADR：`否`
+- 后续动作：
+  - 把 retry 触发条件从字符串匹配升级为更稳的 provider/error contract
+  - 继续补 LLM compact 与多次 retry 的边界策略
+  - 补 adapter/session snapshot 对 compact retry 的显式可观测性
+
 ### DC-045
 
 - 日期：2026-04-02

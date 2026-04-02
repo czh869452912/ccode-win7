@@ -409,9 +409,9 @@ class ContextManager(object):
         self.project_memory = project_memory
         self.token_estimator = token_estimator or TokenEstimator(self.config.estimated_chars_per_token)
 
-    def build_messages(self, session: Session, mode_name: Optional[str] = None, tools: Optional[Any] = None, workflow_state: str = "chat", intelligence_broker: Optional[WorkspaceIntelligenceBroker] = None) -> ContextBuildResult:
+    def build_messages(self, session: Session, mode_name: Optional[str] = None, tools: Optional[Any] = None, workflow_state: str = "chat", intelligence_broker: Optional[WorkspaceIntelligenceBroker] = None, force_compact: bool = False) -> ContextBuildResult:
         resolved_mode = mode_name or self._detect_mode_name(session) or "code"
-        policy = self._policy_for_mode(resolved_mode)
+        policy = self._policy_for_mode("compact" if force_compact else resolved_mode)
         boundary = session.latest_compact_boundary() if hasattr(session, "latest_compact_boundary") else None
         visible_turns = session.turns[int(boundary.compacted_turn_count):] if boundary is not None else session.turns
         raw_messages = [message.to_api_dict() for message in session.messages]
@@ -449,7 +449,10 @@ class ContextManager(object):
                 summary_message_included=bool(boundary),
                 project_memory_included=bool(intelligence_message),
             )
-            return ContextBuildResult(messages, used_chars, budget.input_tokens, used_chars < chars_before, 0, 0, policy, budget, stats, summary_message=boundary.summary_text if boundary is not None else "", intelligence_sections=intelligence_sections, analysis=self._analyze_context(session), replacements=[], pipeline_steps=["working_set", "workspace_intelligence", "summary/compact", "prompt_render"])
+            pipeline_steps = ["working_set", "workspace_intelligence", "summary/compact", "prompt_render"]
+            if force_compact:
+                pipeline_steps.insert(0, "reactive_compact_retry")
+            return ContextBuildResult(messages, used_chars, budget.input_tokens, used_chars < chars_before, 0, 0, policy, budget, stats, summary_message=boundary.summary_text if boundary is not None else "", intelligence_sections=intelligence_sections, analysis=self._analyze_context(session), replacements=[], pipeline_steps=pipeline_steps)
         recent_turns = min(policy.max_recent_turns, len(visible_turns))
         best = None  # type: Optional[ContextBuildResult]
         shrinks = 0
@@ -457,6 +460,8 @@ class ContextManager(object):
             candidate = self._build_candidate(session, visible_turns, boundary.summary_text if boundary is not None else "", policy, recent_turns, chars_before, tokens_before, shrinks, intelligence_message, intelligence_sections)
             best = candidate
             if not candidate.budget.over_budget:
+                if force_compact and "reactive_compact_retry" not in candidate.pipeline_steps:
+                    candidate.pipeline_steps.insert(0, "reactive_compact_retry")
                 return candidate
             recent_turns -= 1
             shrinks += 1
@@ -471,6 +476,8 @@ class ContextManager(object):
         best.stats.selected_messages = len(best.messages)
         best.stats.dropped_messages += dropped_messages
         best.stats.hard_trimmed = True
+        if force_compact and "reactive_compact_retry" not in best.pipeline_steps:
+            best.pipeline_steps.insert(0, "reactive_compact_retry")
         return best
 
     def _build_candidate(self, session: Session, visible_turns: List[Turn], boundary_summary: str, policy: ContextPolicy, recent_turns: int, chars_before: int, tokens_before: int, shrinks: int, intelligence_message: str, intelligence_sections: List[Dict[str, Any]]) -> ContextBuildResult:

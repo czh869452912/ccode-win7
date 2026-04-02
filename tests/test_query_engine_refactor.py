@@ -8,6 +8,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from embedagent.context import ContextManager
 from embedagent.inprocess_adapter import InProcessAdapter
+from embedagent.llm import ModelClientError
 from embedagent.permissions import PermissionPolicy
 from embedagent.query_engine import QueryEngine
 from embedagent.session import Action, AssistantReply, Observation, Session
@@ -101,6 +102,27 @@ class FakeLlspBackend(object):
                 "metadata": {"backend": "fake", "workspace": workspace, "mode_name": mode_name},
             }
         ]
+
+
+class CompactRetryClient(object):
+    def __init__(self):
+        self.calls = 0
+        self.message_sizes = []
+        self.messages = []
+
+    def generate(self, messages, tools=None):
+        self.calls += 1
+        self.messages.append(messages)
+        self.message_sizes.append(sum(len(str(item.get("content") or "")) for item in messages))
+        if self.calls == 1:
+            raise ModelClientError("prompt is too long: context length exceeded")
+        return AssistantReply(content="after compact", actions=[], finish_reason="stop")
+
+    def stream(self, messages, tools=None, on_text_delta=None, on_reasoning_delta=None):
+        reply = self.generate(messages, tools=tools)
+        if on_text_delta is not None and reply.content:
+            on_text_delta(reply.content)
+        return reply
 
 
 class TestQueryEngineRefactor(unittest.TestCase):
@@ -370,6 +392,53 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertEqual(resumed.transition.reason, "completed")
         self.assertEqual(resumed.final_text, "written")
         self.assertTrue(os.path.isfile(os.path.join(self.workspace, "notes", "out.md")))
+
+    def test_query_engine_retries_with_compact_context_after_context_limit_error(self):
+        session = Session()
+        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：code")
+        for index in range(5):
+            session.add_user_message("old user %s %s" % (index, "u" * 400))
+            session.add_assistant_reply(
+                AssistantReply(
+                    content="old assistant %s %s" % (index, "a" * 300),
+                    actions=[],
+                    finish_reason="stop",
+                )
+            )
+            session.add_observation(
+                Action("read_file", {"path": "src/demo.c"}, "read-old-%s" % index),
+                Observation(
+                    "read_file",
+                    True,
+                    None,
+                    {
+                        "path": "src/demo.c",
+                        "content": "int demo(void) {\n%s\n}\n" % ("x" * 1200),
+                        "content_artifact_ref": ".embedagent/memory/artifacts/demo-%s.json" % index,
+                    },
+                ),
+            )
+        client = CompactRetryClient()
+        engine = QueryEngine(
+            client=client,
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+        )
+        result = engine.submit_turn(
+            user_text="继续分析并给我结论",
+            stream=False,
+            initial_mode="code",
+            session=session,
+        )
+        self.assertEqual(result.transition.reason, "completed")
+        self.assertEqual(result.final_text, "after compact")
+        self.assertEqual(client.calls, 2)
+        self.assertGreater(client.message_sizes[0], client.message_sizes[1])
+        self.assertTrue(any(item.reason == "compact_retry" for item in session.turns[-1].transitions))
+        self.assertIsNotNone(session.latest_compact_boundary())
+        retry_transition = [item for item in session.turns[-1].transitions if item.reason == "compact_retry"][0]
+        self.assertEqual(retry_transition.metadata.get("retry_mode"), "compact")
+        self.assertEqual(retry_transition.metadata.get("source_mode"), "code")
 
     def test_adapter_resumes_pending_user_input(self):
         adapter = InProcessAdapter(

@@ -39,6 +39,7 @@
   - `transition commit`
 - `ask_user` 和权限审批在 resolver 缺失时不再伪造失败 Observation，而是返回 `PendingInteraction + LoopTransition`
 - `resume_pending(...)` 会先把等待中的交互写回 transcript，再继续后续 step
+- 当 LLM 明确返回 `prompt/context too long` 一类错误时，主循环现在会记录一次内部 `compact_retry` transition，并用更紧的内部 compact policy 重组上下文后自动重试一次
 
 ---
 
@@ -110,6 +111,7 @@
 - adapter 侧的 pending interaction 恢复主链路
 - context pipeline 的第一版 intelligence / replacement / suppression / analysis
 - tool capability metadata 与批处理执行器
+- reactive compact 的第一版重试闭环：识别上下文超限错误、记录 compact retry、复用 compact boundary，并以内部 compact policy 自动重试一次
 
 当前仍未完全收口：
 
