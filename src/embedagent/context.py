@@ -628,6 +628,11 @@ class ContextManager(object):
         seen_reads = set()
         seen_searches = set()
         pending_activity = {"read": 0, "search": 0, "list": 0}
+        replacement_index = {}
+        for item in getattr(session, "content_replacements", []) or []:
+            message_id = str(item.get("message_id") or "")
+            if message_id:
+                replacement_index[message_id] = dict(item)
 
         def flush_activity() -> None:
             parts = []
@@ -647,6 +652,14 @@ class ContextManager(object):
             if message.role == "system":
                 continue
             if message.role == "tool":
+                restored_replacement = replacement_index.get(message.message_id)
+                if restored_replacement is not None:
+                    reduced_tool_messages += 1
+                    replacements.append(dict(restored_replacement))
+                    replacement_text = str(restored_replacement.get("replacement_text") or "").strip()
+                    if replacement_text:
+                        result.append({"role": "system", "content": replacement_text})
+                    continue
                 reduced_tool_messages += 1
                 replacement = self._compact_tool_message_with_replacements(message, policy, seen_reads, seen_searches)
                 if replacement is not None:
@@ -701,7 +714,14 @@ class ContextManager(object):
         parsed = parsed if isinstance(parsed, dict) else {"data": parsed}
         data = parsed.get("data") if isinstance(parsed.get("data"), dict) else {}
         tool_name = str(message.name or "")
-        replacement = {"tool_name": tool_name, "artifact_refs": [], "duplicate": False}
+        replacement = {
+            "tool_name": tool_name,
+            "message_id": message.message_id,
+            "tool_call_id": message.tool_call_id,
+            "artifact_refs": [],
+            "duplicate": False,
+            "replacement_text": "",
+        }
         for key, value in data.items():
             if key.endswith("_artifact_ref") and value:
                 replacement["artifact_refs"].append(value)
@@ -717,10 +737,14 @@ class ContextManager(object):
                     }
                 seen_reads.add(path)
                 if replacement["artifact_refs"]:
+                    replacement["replacement_text"] = "Tool result replaced: read_file %s -> %s" % (
+                        path,
+                        replacement["artifact_refs"][0],
+                    )
                     return {
                         "activity_kind": "read",
                         "replacement": replacement,
-                        "message": None,
+                        "message": {"role": "system", "content": replacement["replacement_text"]},
                     }
         if tool_name == "search_text":
             key = "%s|%s" % (str(data.get("path") or ""), str(data.get("query") or ""))
@@ -734,13 +758,25 @@ class ContextManager(object):
                     }
                 seen_searches.add(key)
                 if replacement["artifact_refs"]:
+                    replacement["replacement_text"] = "Tool result replaced: search_text %s -> %s" % (
+                        key,
+                        replacement["artifact_refs"][0],
+                    )
                     return {
                         "activity_kind": "search",
                         "replacement": replacement,
-                        "message": None,
+                        "message": {"role": "system", "content": replacement["replacement_text"]},
                     }
         if tool_name == "list_files" and replacement["artifact_refs"]:
-            return {"activity_kind": "list", "replacement": replacement, "message": None}
+            replacement["replacement_text"] = "Tool result replaced: list_files %s -> %s" % (
+                str(data.get("path") or "."),
+                replacement["artifact_refs"][0],
+            )
+            return {
+                "activity_kind": "list",
+                "replacement": replacement,
+                "message": {"role": "system", "content": replacement["replacement_text"]},
+            }
         return None
 
     def _budget_for_chars(self, policy: ContextPolicy, used_chars: int) -> BudgetEstimate:

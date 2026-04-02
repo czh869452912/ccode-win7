@@ -11,6 +11,7 @@ from embedagent.inprocess_adapter import InProcessAdapter
 from embedagent.llm import ModelClientError
 from embedagent.permissions import PermissionPolicy
 from embedagent.query_engine import QueryEngine
+from embedagent.session_restore import SessionRestorer
 from embedagent.session import Action, AssistantReply, Observation, Session
 from embedagent.transcript_store import TranscriptStore
 from embedagent.tool_execution import partition_tool_actions
@@ -515,6 +516,89 @@ class TestQueryEngineRefactor(unittest.TestCase):
         event_types = [item["type"] for item in events]
         self.assertIn("pending_interaction", event_types)
         self.assertEqual(events[-1]["type"], "loop_transition")
+
+    def test_query_engine_persists_content_replacement_and_context_snapshot_events(self):
+        session = Session()
+        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：code")
+        session.add_user_message("old user " + ("u" * 400))
+        session.add_assistant_reply(
+            AssistantReply(
+                content="old assistant " + ("a" * 300),
+                actions=[],
+                finish_reason="stop",
+            )
+        )
+        session.add_observation(
+            Action("read_file", {"path": "src/demo.c"}, "read-old"),
+            Observation(
+                "read_file",
+                True,
+                None,
+                {
+                    "path": "src/demo.c",
+                    "content": "int demo(void) {\n%s\n}\n" % ("x" * 1200),
+                    "content_artifact_ref": ".embedagent/memory/artifacts/demo-old.json",
+                },
+            ),
+        )
+        transcript_store = TranscriptStore(self.workspace)
+        engine = QueryEngine(
+            client=CompactRetryClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+            transcript_store=transcript_store,
+        )
+        result = engine.submit_turn(
+            user_text="继续分析并给我结论",
+            stream=False,
+            initial_mode="code",
+            session=session,
+        )
+        self.assertEqual(result.transition.reason, "completed")
+        events = transcript_store.load_events(session.session_id)
+        event_types = [item["type"] for item in events]
+        self.assertIn("context_snapshot", event_types)
+
+    def test_restored_session_reuses_persisted_content_replacements(self):
+        transcript_store = TranscriptStore(self.workspace)
+        session_id = "sess-replacements"
+        transcript_store.append_event(session_id, "session_meta", {"current_mode": "code"})
+        transcript_store.append_event(session_id, "message", {"role": "user", "content": "继续", "message_id": "m-user", "turn_id": "t-1", "step_id": ""})
+        transcript_store.append_event(
+            session_id,
+            "message",
+            {
+                "role": "tool",
+                "content": "{\"success\": true, \"error\": null, \"data\": {\"path\": \"src/demo.c\", \"content_artifact_ref\": \".embedagent/memory/artifacts/demo.json\"}}",
+                "message_id": "m-tool",
+                "turn_id": "t-1",
+                "step_id": "s-1",
+                "tool_call_id": "call-read-1",
+                "tool_name": "read_file",
+                "replaced_by_refs": [".embedagent/memory/artifacts/demo.json"],
+            },
+        )
+        transcript_store.append_event(
+            session_id,
+            "content_replacement",
+            {
+                "message_id": "m-tool",
+                "tool_call_id": "call-read-1",
+                "tool_name": "read_file",
+                "replacement_text": "Tool result replaced: read_file src/demo.c -> .embedagent/memory/artifacts/demo.json",
+                "artifact_refs": [".embedagent/memory/artifacts/demo.json"],
+            },
+        )
+        restored = SessionRestorer().restore(transcript_store.load_events(session_id))
+        result = ContextManager().build_messages(
+            restored.session,
+            "code",
+            tools=self.tools,
+            workflow_state="chat",
+            intelligence_broker=WorkspaceIntelligenceBroker(),
+        )
+        rendered = "\n".join(str(item.get("content") or "") for item in result.messages)
+        self.assertIn("Tool result replaced: read_file src/demo.c -> .embedagent/memory/artifacts/demo.json", rendered)
 
     def test_adapter_resumes_pending_user_input(self):
         adapter = InProcessAdapter(

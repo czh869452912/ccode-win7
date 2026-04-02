@@ -281,6 +281,33 @@ class QueryEngine(object):
             compact_retry_used = False
             while True:
                 assembly = self._build_context(session, current_mode, workflow_state, force_compact=force_compact)
+                session.record_context_snapshot(
+                    {
+                        "mode_name": current_mode,
+                        "pipeline_steps": list(assembly.pipeline_steps),
+                        "analysis": dict(assembly.analysis),
+                        "approx_tokens": assembly.approx_tokens,
+                        "summary_message": assembly.summary_message,
+                    }
+                )
+                self._append_transcript_event(
+                    session,
+                    "context_snapshot",
+                    {
+                        "mode_name": current_mode,
+                        "pipeline_steps": list(assembly.pipeline_steps),
+                        "analysis": dict(assembly.analysis),
+                        "approx_tokens": assembly.approx_tokens,
+                        "summary_message": assembly.summary_message,
+                    },
+                )
+                for replacement in assembly.replacements:
+                    session.record_content_replacement(dict(replacement))
+                    self._append_transcript_event(
+                        session,
+                        "content_replacement",
+                        dict(replacement),
+                    )
                 if on_context_result is not None:
                     on_context_result(assembly)
                 self._persist_summary(session, current_mode, assembly)

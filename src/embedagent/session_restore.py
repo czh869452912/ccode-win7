@@ -10,6 +10,7 @@ from embedagent.session import (
     Observation,
     PendingInteraction,
     Session,
+    TranscriptMessage,
 )
 
 
@@ -69,9 +70,11 @@ class SessionRestorer(object):
                 session.add_observation(
                     action,
                     observation,
+                    message_id=str(payload.get("message_id") or ""),
                     turn_id=str(payload.get("turn_id") or ""),
                     step_id=str(payload.get("step_id") or ""),
                     finished_at=str(payload.get("finished_at") or ""),
+                    replaced_by_refs=list(payload.get("replaced_by_refs") or []),
                 )
                 continue
             if event_type == "pending_interaction":
@@ -87,6 +90,12 @@ class SessionRestorer(object):
                 continue
             if event_type == "pending_resolution":
                 session.resolve_pending_interaction(dict(payload.get("resolution_payload") or {}))
+                continue
+            if event_type == "content_replacement":
+                session.record_content_replacement(dict(payload))
+                continue
+            if event_type == "context_snapshot":
+                session.record_context_snapshot(dict(payload))
                 continue
             if event_type == "compact_boundary":
                 session.add_compact_boundary(
@@ -157,3 +166,20 @@ class SessionRestorer(object):
                 turn_id=str(payload.get("turn_id") or ""),
                 step_id=str(payload.get("step_id") or ""),
             )
+            return
+        if role == "tool":
+            message = TranscriptMessage(
+                role="tool",
+                content=str(payload.get("content") or ""),
+                name=str(payload.get("tool_name") or ""),
+                tool_call_id=str(payload.get("tool_call_id") or ""),
+                message_id=str(payload.get("message_id") or ""),
+                turn_id=str(payload.get("turn_id") or ""),
+                step_id=str(payload.get("step_id") or ""),
+                kind=str(payload.get("kind") or "tool_result"),
+                metadata=dict(payload.get("metadata") or {}),
+                replaced_by_refs=list(payload.get("replaced_by_refs") or []),
+            )
+            session.messages.append(message)
+            if session.turns:
+                session.turns[-1].message_end_index = len(session.messages) - 1

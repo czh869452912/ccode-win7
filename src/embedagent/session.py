@@ -222,6 +222,8 @@ class Session:
     turns: List[Turn] = field(default_factory=list)
     compact_boundaries: List[CompactBoundary] = field(default_factory=list)
     pending_interaction: Optional[PendingInteraction] = None
+    content_replacements: List[Dict[str, Any]] = field(default_factory=list)
+    latest_context_snapshot: Dict[str, Any] = field(default_factory=dict)
 
     def add_system_message(
         self,
@@ -397,6 +399,18 @@ class Session:
         if self.turns:
             self.turns[-1].pending_interaction = None
         return pending
+
+    def record_content_replacement(self, payload: Dict[str, Any]) -> None:
+        key = str(payload.get("message_id") or payload.get("tool_call_id") or "")
+        self.content_replacements = [
+            item
+            for item in self.content_replacements
+            if str(item.get("message_id") or item.get("tool_call_id") or "") != key
+        ]
+        self.content_replacements.append(dict(payload))
+
+    def record_context_snapshot(self, payload: Dict[str, Any]) -> None:
+        self.latest_context_snapshot = dict(payload or {})
 
     def add_compact_boundary(
         self,
