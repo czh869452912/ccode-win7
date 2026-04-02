@@ -1,17 +1,38 @@
 import os
+import shutil
 import sys
-import tempfile
 import unittest
+from itertools import count
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 from embedagent.session_timeline import SessionTimelineStore
 
 
+_COUNTER = count(1)
+
+
+def _make_workspace():
+    root = os.path.join(
+        os.path.dirname(__file__),
+        "..",
+        "build",
+        "test-sandboxes",
+        "timeline-%s" % next(_COUNTER),
+    )
+    root = os.path.realpath(root)
+    shutil.rmtree(root, ignore_errors=True)
+    os.makedirs(root)
+    return root
+
+
 class TestSessionTimelineStore(unittest.TestCase):
     def setUp(self):
-        self.workspace = tempfile.mkdtemp()
+        self.workspace = _make_workspace()
         self.store = SessionTimelineStore(self.workspace, max_events=3)
+
+    def tearDown(self):
+        shutil.rmtree(self.workspace, ignore_errors=True)
 
     def test_append_and_load_events(self):
         self.store.append_event('sess-1', 'turn_started', {'text': 'hello'})

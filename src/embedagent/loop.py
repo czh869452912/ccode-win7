@@ -30,6 +30,7 @@ from embedagent.modes import (
 )
 from embedagent.permissions import PermissionPolicy, PermissionRequest
 from embedagent.project_memory import ProjectMemoryStore
+from embedagent.query_engine import QueryEngine, to_loop_result
 from embedagent.session import Action, LoopResult, Observation, Session
 from embedagent.session_store import SessionSummaryStore
 from embedagent.tools import ToolRuntime
@@ -75,6 +76,60 @@ class AgentLoop(object):
         self._maintenance_counter = 0
 
     def run(
+        self,
+        user_text: str,
+        stream: bool = True,
+        initial_mode: str = DEFAULT_MODE,
+        on_text_delta: Optional[Callable[[str], None]] = None,
+        on_reasoning_delta: Optional[Callable[[str], None]] = None,
+        on_tool_start: Optional[Callable[[Action], None]] = None,
+        on_tool_finish: Optional[
+            Callable[[Action, Observation], None]
+        ] = None,
+        permission_handler: Optional[
+            Callable[[PermissionRequest], bool]
+        ] = None,
+        user_input_handler: Optional[
+            Callable[[UserInputRequest], Optional[UserInputResponse]]
+        ] = None,
+        on_context_result: Optional[Callable[[object], None]] = None,
+        on_step_start: Optional[Callable[[int], None]] = None,
+        on_step_finish: Optional[Callable[[int, AssistantReply, str], None]] = None,
+        session: Optional[Session] = None,
+        stop_event: Optional[threading.Event] = None,
+        workflow_state: str = "chat",
+    ) -> LoopResult:
+        engine = QueryEngine(
+            client=self.client,
+            tools=self.tools,
+            max_turns=self.max_turns,
+            permission_policy=self.permission_policy,
+            context_manager=self.context_manager,
+            summary_store=self.summary_store,
+            project_memory_store=self.project_memory_store,
+            memory_maintenance=self.memory_maintenance,
+            maintenance_interval=self.maintenance_interval,
+        )
+        result = engine.submit_turn(
+            user_text=user_text,
+            stream=stream,
+            initial_mode=initial_mode,
+            workflow_state=workflow_state,
+            on_text_delta=on_text_delta,
+            on_reasoning_delta=on_reasoning_delta,
+            on_tool_start=on_tool_start,
+            on_tool_finish=on_tool_finish,
+            permission_handler=permission_handler,
+            user_input_handler=user_input_handler,
+            on_context_result=on_context_result,
+            on_step_start=on_step_start,
+            on_step_finish=on_step_finish,
+            session=session,
+            stop_event=stop_event,
+        )
+        return to_loop_result(result)
+
+    def _legacy_run(
         self,
         user_text: str,
         stream: bool = True,

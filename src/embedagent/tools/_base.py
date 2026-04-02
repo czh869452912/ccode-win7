@@ -76,6 +76,12 @@ class ToolDefinition:
     parameters: Dict[str, Any]
     handler: Callable[[Dict[str, Any]], Observation]
     metadata: Dict[str, Any] = field(default_factory=dict)
+    read_only: bool = False
+    concurrency_safe: bool = False
+    interrupt_behavior: str = "block"
+    result_budget_policy: str = "default"
+    activity_kind: str = "tool"
+    context_priority: int = 50
 
     def schema(self) -> Dict[str, Any]:
         return {

@@ -20,6 +20,7 @@ from embedagent.plan_store import PlanStore
 from embedagent.permissions import PermissionPolicy, PermissionRequest
 from embedagent.protocol import CommandResult, PermissionContextView, PlanSnapshot
 from embedagent.project_memory import ProjectMemoryStore
+from embedagent.query_engine import QueryEngine
 from embedagent.session import Action, AssistantReply, Observation, Session
 from embedagent.session_store import SessionSummaryStore
 from embedagent.session_timeline import SessionTimelineStore
@@ -1619,10 +1620,11 @@ class InProcessAdapter(object):
         with state.lock:
             if state.pending_permission is None or state.pending_permission.permission_id != permission_id:
                 raise ValueError("未找到待批准的权限请求。")
-            if state.pending_event is None:
-                raise ValueError("当前权限请求不支持异步批准。")
-            state.pending_result = True
-            state.pending_event.set()
+            if state.pending_event is not None:
+                state.pending_result = True
+                state.pending_event.set()
+                return self.get_session_snapshot(session_id)
+        self._run_turn_v2(state, "", True, None, None, self.event_handler, {"approved": True}, True)
         return self.get_session_snapshot(session_id)
 
     def reject_permission(self, session_id: str, permission_id: str) -> Dict[str, Any]:
@@ -1630,10 +1632,11 @@ class InProcessAdapter(object):
         with state.lock:
             if state.pending_permission is None or state.pending_permission.permission_id != permission_id:
                 raise ValueError("未找到待拒绝的权限请求。")
-            if state.pending_event is None:
-                raise ValueError("当前权限请求不支持异步拒绝。")
-            state.pending_result = False
-            state.pending_event.set()
+            if state.pending_event is not None:
+                state.pending_result = False
+                state.pending_event.set()
+                return self.get_session_snapshot(session_id)
+        self._run_turn_v2(state, "", True, None, None, self.event_handler, {"approved": False}, True)
         return self.get_session_snapshot(session_id)
 
     def reply_user_input(
@@ -1649,15 +1652,32 @@ class InProcessAdapter(object):
         with state.lock:
             if state.pending_user_input is None or state.pending_user_input.request_id != request_id:
                 raise ValueError("未找到待处理的用户问题。")
-            if state.pending_user_event is None:
-                raise ValueError("当前用户问题不支持异步回答。")
-            state.pending_user_response = UserInputResponse(
-                answer=str(answer or ""),
-                selected_index=selected_index,
-                selected_mode=str(selected_mode or ""),
-                selected_option_text=str(selected_option_text or ""),
-            )
-            state.pending_user_event.set()
+            if state.pending_user_event is not None:
+                state.pending_user_response = UserInputResponse(
+                    answer=str(answer or ""),
+                    selected_index=selected_index,
+                    selected_mode=str(selected_mode or ""),
+                    selected_option_text=str(selected_option_text or ""),
+                )
+                state.pending_user_event.set()
+                snapshot = self.get_session_snapshot(session_id)
+                self._notify_status(None, state)
+                return snapshot
+        self._run_turn_v2(
+            state,
+            "",
+            True,
+            None,
+            None,
+            self.event_handler,
+            {
+                "answer": str(answer or ""),
+                "selected_index": selected_index,
+                "selected_mode": str(selected_mode or ""),
+                "selected_option_text": str(selected_option_text or ""),
+            },
+            True,
+        )
         snapshot = self.get_session_snapshot(session_id)
         self._notify_status(None, state)
         return snapshot
@@ -1700,6 +1720,183 @@ class InProcessAdapter(object):
         user_input_resolver: Optional[UserInputResolver],
         event_handler: Optional[EventHandler],
     ) -> None:
+        return self._run_turn_v2(
+            state=state,
+            text=text,
+            stream=stream,
+            permission_resolver=permission_resolver,
+            user_input_resolver=user_input_resolver,
+            event_handler=event_handler,
+        )
+
+    def _run_turn_v2(
+        self,
+        state: ManagedSession,
+        text: str,
+        stream: bool,
+        permission_resolver: Optional[PermissionResolver],
+        user_input_resolver: Optional[UserInputResolver],
+        event_handler: Optional[EventHandler],
+        interaction_resolution: Optional[Dict[str, Any]] = None,
+        resume_pending: bool = False,
+    ) -> None:
+        session_id = state.session.session_id
+        turn_id = "t-" + uuid.uuid4().hex[:12]
+        with state.lock:
+            state.status = "running"
+            state.last_error = None
+            state.updated_at = _utc_now()
+            state.pending_permission = None
+            state.pending_user_input = None
+        engine = QueryEngine(
+            client=self.client,
+            tools=self.tools,
+            max_turns=self.max_turns,
+            permission_policy=self.permission_policy,
+            context_manager=self.context_manager,
+            summary_store=self.summary_store,
+            project_memory_store=self.project_memory_store,
+            memory_maintenance=self.memory_maintenance,
+            maintenance_interval=self.maintenance_interval,
+        )
+        current_step = {"step_id": "", "step_index": 0}
+        thinking_state = {"active": False}
+
+        def set_thinking(active: bool, reason: str) -> None:
+            if thinking_state["active"] == active:
+                return
+            thinking_state["active"] = active
+            self._emit_with_snapshot(event_handler, "thinking_state", state, {"active": active, "reason": reason})
+
+        def on_text_delta(delta: str) -> None:
+            set_thinking(False, "assistant_text")
+            self._emit(event_handler, "assistant_delta", session_id, {"text": delta, "turn_id": turn_id, "step_id": current_step["step_id"], "step_index": current_step["step_index"]})
+
+        def on_reasoning_delta(delta: str) -> None:
+            self._emit(event_handler, "reasoning_delta", session_id, {"text": delta, "turn_id": turn_id, "step_id": current_step["step_id"], "step_index": current_step["step_index"]})
+
+        def on_step_start(step_index: int) -> None:
+            current_step["step_id"] = "s-" + uuid.uuid4().hex[:12]
+            current_step["step_index"] = step_index
+            set_thinking(True, "step_started")
+            self._emit(event_handler, "step_start", session_id, {"turn_id": turn_id, "step_id": current_step["step_id"], "step_index": step_index})
+
+        def on_step_finish(step_index: int, reply: AssistantReply, status: str) -> None:
+            set_thinking(False, "step_finished")
+            self._emit(event_handler, "step_end", session_id, {"turn_id": turn_id, "step_id": current_step["step_id"], "step_index": step_index, "assistant_text": reply.content or "", "finish_reason": reply.finish_reason or "", "status": status})
+
+        def on_tool_start(action: Action) -> None:
+            set_thinking(False, "tool_start")
+            payload = {"tool_name": action.name, "arguments": action.arguments, "call_id": action.call_id, "turn_id": turn_id, "step_id": current_step["step_id"], "step_index": current_step["step_index"]}
+            payload.update(self._tool_event_metadata(action.name))
+            self._emit(event_handler, "tool_started", session_id, payload)
+
+        def on_tool_finish(action: Action, observation: Observation) -> None:
+            payload = {"tool_name": action.name, "success": observation.success, "error": observation.error, "data": observation.data, "call_id": action.call_id, "turn_id": turn_id, "step_id": current_step["step_id"], "step_index": current_step["step_index"]}
+            payload.update(self._tool_event_metadata(action.name))
+            self._emit_with_snapshot(event_handler, "tool_finished", state, payload)
+
+        def on_context_result(result: object) -> None:
+            if not bool(getattr(result, "compacted", False)):
+                return
+            self._emit_with_snapshot(event_handler, "context_compacted", state, {"recent_turns": getattr(getattr(result, "stats", None), "recent_turns", None), "summarized_turns": getattr(getattr(result, "stats", None), "summarized_turns", None), "approx_tokens_after": getattr(getattr(result, "budget", None), "input_tokens", None), "analysis": getattr(result, "analysis", {})})
+
+        def permission_handler(request: PermissionRequest) -> Optional[bool]:
+            if permission_resolver is not None:
+                ticket = self._create_permission_ticket(state, request)
+                approved = bool(permission_resolver(ticket.to_dict()))
+                self._clear_pending_permission(state)
+                return approved
+            ticket = self._create_permission_ticket(state, request)
+            with state.lock:
+                state.status = "waiting_permission"
+            self._emit_with_snapshot(event_handler, "permission_required", state, {"permission": ticket.to_dict(), "turn_id": turn_id, "step_id": current_step["step_id"], "step_index": current_step["step_index"]})
+            self._notify_status(event_handler, state)
+            return None
+
+        def user_input_handler(request: UserInputRequest) -> Optional[UserInputResponse]:
+            if user_input_resolver is not None:
+                payload = user_input_resolver({"tool_name": request.tool_name, "question": request.question, "options": [{"index": item.index, "text": item.text, "mode": item.mode} for item in request.options], "details": request.details}) or {}
+                return UserInputResponse(answer=str(payload.get("answer") or ""), selected_index=payload.get("selected_index"), selected_mode=str(payload.get("selected_mode") or ""), selected_option_text=str(payload.get("selected_option_text") or ""))
+            ticket = self._create_user_input_ticket(state, request)
+            with state.lock:
+                state.status = "waiting_user_input"
+            self._emit_with_snapshot(event_handler, "user_input_required", state, {"user_input": ticket.to_dict(), "turn_id": turn_id, "step_id": current_step["step_id"], "step_index": current_step["step_index"]})
+            self._notify_status(event_handler, state)
+            return None
+
+        try:
+            self._emit(event_handler, "turn_start", session_id, {"turn_id": turn_id, "user_text": text})
+            set_thinking(True, "turn_started")
+            if resume_pending:
+                result = engine.resume_pending(
+                    session=state.session,
+                    initial_mode=state.current_mode,
+                    interaction_resolution=interaction_resolution,
+                    workflow_state=state.workflow_state,
+                    stream=stream,
+                    stop_event=state.stop_event,
+                    on_text_delta=on_text_delta,
+                    on_reasoning_delta=on_reasoning_delta,
+                    on_tool_start=on_tool_start,
+                    on_tool_finish=on_tool_finish,
+                    on_context_result=on_context_result,
+                    on_step_start=on_step_start,
+                    on_step_finish=on_step_finish,
+                    permission_handler=permission_handler,
+                    user_input_handler=user_input_handler,
+                )
+            else:
+                result = engine.submit_turn(
+                    user_text=text,
+                    stream=stream,
+                    initial_mode=state.current_mode,
+                    workflow_state=state.workflow_state,
+                    session=state.session,
+                    stop_event=state.stop_event,
+                    on_text_delta=on_text_delta,
+                    on_reasoning_delta=on_reasoning_delta,
+                    on_tool_start=on_tool_start,
+                    on_tool_finish=on_tool_finish,
+                    on_context_result=on_context_result,
+                    on_step_start=on_step_start,
+                    on_step_finish=on_step_finish,
+                    permission_handler=permission_handler,
+                    user_input_handler=user_input_handler,
+                )
+        except Exception as exc:
+            set_thinking(False, "session_error")
+            with state.lock:
+                state.status = "error"
+                state.last_error = str(exc)
+                state.active_thread = None
+                state.updated_at = _utc_now()
+            self._emit_with_snapshot(event_handler, "session_error", state, {"error": str(exc), "phase": "loop"})
+            self._notify_status(event_handler, state)
+            if threading.current_thread() is state.active_thread:
+                return
+            raise
+        state.session = result.session
+        if result.transition.reason in ("permission_wait", "user_input_wait"):
+            set_thinking(False, result.transition.reason)
+            with state.lock:
+                state.updated_at = _utc_now()
+                state.active_thread = None
+            return
+        with state.lock:
+            state.last_assistant_message = result.final_text
+            if result.transition.next_mode:
+                state.current_mode = result.transition.next_mode
+            state.summary_ref = str((self.summary_store.load_summary(state.session.session_id) or {}).get("summary_ref") or state.summary_ref) if os.path.isdir(os.path.join(self.tools.workspace, ".embedagent", "memory", "sessions")) else state.summary_ref
+            state.status = "idle"
+            state.active_thread = None
+            state.updated_at = _utc_now()
+        set_thinking(False, "session_finished")
+        snapshot = self.get_session_snapshot(session_id)
+        self._emit(event_handler, "turn_end", session_id, {"turn_id": turn_id, "final_text": result.final_text, "termination_reason": result.transition.reason, "turns_used": result.turns_used, "max_turns": self.max_turns})
+        self._emit(event_handler, "session_finished", session_id, {"final_text": result.final_text, "session_snapshot": snapshot, "termination_reason": result.transition.reason, "turns_used": result.turns_used, "max_turns": self.max_turns})
+        self._notify_status(event_handler, state)
+        return
         session_id = state.session.session_id
         turn_id = "t-" + uuid.uuid4().hex[:12]
         with state.lock:

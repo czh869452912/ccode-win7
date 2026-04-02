@@ -7,7 +7,8 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
 from embedagent.project_memory import ProjectMemoryStore
-from embedagent.session import Message, Observation, Session, Turn
+from embedagent.session import ContextAssemblyResult, Message, Observation, Session, Turn
+from embedagent.workspace_intelligence import WorkspaceIntelligenceBroker
 
 
 _MODE_RE = re.compile(r"当前模式：(\w+)")
@@ -147,6 +148,22 @@ class ContextBuildResult:
     policy: ContextPolicy
     budget: BudgetEstimate
     stats: ContextStats
+    summary_message: str = ""
+    intelligence_sections: List[Dict[str, Any]] = field(default_factory=list)
+    analysis: Dict[str, Any] = field(default_factory=dict)
+    replacements: List[Dict[str, Any]] = field(default_factory=list)
+    pipeline_steps: List[str] = field(default_factory=list)
+
+
+class TokenEstimator(object):
+    def __init__(self, chars_per_token: float = 3.0) -> None:
+        self.chars_per_token = chars_per_token if chars_per_token > 0 else 1.0
+
+    def estimate_text(self, text: str) -> int:
+        return int(math.ceil(float(len(text or "")) / self.chars_per_token))
+
+    def estimate_messages(self, messages: List[Dict[str, Any]]) -> int:
+        return sum(self.estimate_text(json.dumps(message, ensure_ascii=False)) for message in messages)
 
 class ReducerRegistry(object):
     def __init__(self) -> None:
@@ -386,19 +403,31 @@ class ReducerRegistry(object):
         return policy.recent_tool_chars if detailed else policy.summary_tool_chars
 
 class ContextManager(object):
-    def __init__(self, config: Optional[ContextConfig] = None, reducers: Optional[ReducerRegistry] = None, project_memory: Optional[ProjectMemoryStore] = None) -> None:
+    def __init__(self, config: Optional[ContextConfig] = None, reducers: Optional[ReducerRegistry] = None, project_memory: Optional[ProjectMemoryStore] = None, token_estimator: Optional[TokenEstimator] = None) -> None:
         self.config = config or ContextConfig()
         self.reducers = reducers or ReducerRegistry()
         self.project_memory = project_memory
+        self.token_estimator = token_estimator or TokenEstimator(self.config.estimated_chars_per_token)
 
-    def build_messages(self, session: Session, mode_name: Optional[str] = None) -> ContextBuildResult:
+    def build_messages(self, session: Session, mode_name: Optional[str] = None, tools: Optional[Any] = None, workflow_state: str = "chat", intelligence_broker: Optional[WorkspaceIntelligenceBroker] = None) -> ContextBuildResult:
         resolved_mode = mode_name or self._detect_mode_name(session) or "code"
         policy = self._policy_for_mode(resolved_mode)
+        boundary = session.latest_compact_boundary() if hasattr(session, "latest_compact_boundary") else None
+        visible_turns = session.turns[int(boundary.compacted_turn_count):] if boundary is not None else session.turns
         raw_messages = [message.to_api_dict() for message in session.messages]
         chars_before = self._measure_messages(raw_messages)
         tokens_before = self._estimate_tokens(chars_before)
-        if not session.turns:
+        intelligence_message = ""
+        intelligence_sections = []
+        if intelligence_broker is not None and tools is not None:
+            intelligence_message = intelligence_broker.render_system_message(session, resolved_mode, tools, self.project_memory, limit=3, char_limit=policy.project_memory_chars)
+            intelligence_sections = [
+                {"title": "workspace_intelligence", "content": intelligence_message}
+            ] if intelligence_message else []
+        if not visible_turns:
             messages = [self._compact_message(message, policy) for message in session.messages]
+            if intelligence_message:
+                messages.insert(0, {"role": "system", "content": intelligence_message})
             used_chars = self._measure_messages(messages)
             budget = self._budget_for_chars(policy, used_chars)
             stats = ContextStats(
@@ -417,15 +446,15 @@ class ContextManager(object):
                 dropped_messages=max(0, len(session.messages) - len(messages)),
                 recent_window_shrinks=0,
                 hard_trimmed=False,
-                summary_message_included=False,
-                project_memory_included=False,
+                summary_message_included=bool(boundary),
+                project_memory_included=bool(intelligence_message),
             )
-            return ContextBuildResult(messages, used_chars, budget.input_tokens, used_chars < chars_before, 0, 0, policy, budget, stats)
-        recent_turns = min(policy.max_recent_turns, len(session.turns))
+            return ContextBuildResult(messages, used_chars, budget.input_tokens, used_chars < chars_before, 0, 0, policy, budget, stats, summary_message=boundary.summary_text if boundary is not None else "", intelligence_sections=intelligence_sections, analysis=self._analyze_context(session), replacements=[], pipeline_steps=["working_set", "workspace_intelligence", "summary/compact", "prompt_render"])
+        recent_turns = min(policy.max_recent_turns, len(visible_turns))
         best = None  # type: Optional[ContextBuildResult]
         shrinks = 0
         while recent_turns >= policy.min_recent_turns:
-            candidate = self._build_candidate(session, policy, recent_turns, chars_before, tokens_before, shrinks)
+            candidate = self._build_candidate(session, visible_turns, boundary.summary_text if boundary is not None else "", policy, recent_turns, chars_before, tokens_before, shrinks, intelligence_message, intelligence_sections)
             best = candidate
             if not candidate.budget.over_budget:
                 return candidate
@@ -444,17 +473,19 @@ class ContextManager(object):
         best.stats.hard_trimmed = True
         return best
 
-    def _build_candidate(self, session: Session, policy: ContextPolicy, recent_turns: int, chars_before: int, tokens_before: int, shrinks: int) -> ContextBuildResult:
+    def _build_candidate(self, session: Session, visible_turns: List[Turn], boundary_summary: str, policy: ContextPolicy, recent_turns: int, chars_before: int, tokens_before: int, shrinks: int, intelligence_message: str, intelligence_sections: List[Dict[str, Any]]) -> ContextBuildResult:
         latest_system = self._latest_system_message(session)
         auxiliary_system_messages = self._auxiliary_system_messages(session, latest_system, policy)
-        old_turns = session.turns[:-recent_turns] if recent_turns < len(session.turns) else []
-        summary_message, summarized_observations = self._build_summary_message(old_turns, policy)
+        old_turns = visible_turns[:-recent_turns] if recent_turns < len(visible_turns) else []
+        summary_message, summarized_observations, summary_text = self._build_summary_message(old_turns, policy, base_summary_text=boundary_summary)
         project_memory_message = self._build_project_memory_message(policy)
-        recent_messages, reduced_tool_messages = self._build_recent_messages(session, recent_turns, policy)
+        recent_messages, reduced_tool_messages, replacements = self._build_recent_messages(session, visible_turns, recent_turns, policy)
         messages = []
         if latest_system is not None:
             messages.append(self._compact_system_message(latest_system, policy))
         messages.extend(auxiliary_system_messages)
+        if intelligence_message:
+            messages.append({"role": "system", "content": intelligence_message})
         if project_memory_message is not None:
             messages.append(project_memory_message)
         if summary_message is not None:
@@ -479,10 +510,10 @@ class ContextManager(object):
             recent_window_shrinks=shrinks,
             hard_trimmed=False,
             summary_message_included=summary_message is not None,
-            project_memory_included=project_memory_message is not None,
+            project_memory_included=project_memory_message is not None or bool(intelligence_message),
         )
         compacted = bool(old_turns) or bool(reduced_tool_messages) or (used_chars < chars_before)
-        return ContextBuildResult(messages, used_chars, budget.input_tokens, compacted, len(old_turns), recent_turns, policy, budget, stats)
+        return ContextBuildResult(messages, used_chars, budget.input_tokens, compacted, len(old_turns), recent_turns, policy, budget, stats, summary_message=summary_text, intelligence_sections=intelligence_sections, analysis=self._analyze_context(session), replacements=replacements, pipeline_steps=["working_set", "workspace_intelligence", "tool_result_budget_replacement", "duplicate_suppression", "activity_folding", "summary/compact", "prompt_render"])
 
     def _policy_for_mode(self, mode_name: str) -> ContextPolicy:
         values = {
@@ -551,13 +582,15 @@ class ContextManager(object):
             return None
         return {"role": "system", "content": content}
 
-    def _build_summary_message(self, turns: List[Turn], policy: ContextPolicy) -> Tuple[Optional[Dict[str, Any]], int]:
-        if not turns:
-            return None, 0
+    def _build_summary_message(self, turns: List[Turn], policy: ContextPolicy, base_summary_text: str = "") -> Tuple[Optional[Dict[str, Any]], int, str]:
+        if not turns and not base_summary_text:
+            return None, 0, ""
         visible_turns = turns[-policy.max_summary_turns :]
         omitted = len(turns) - len(visible_turns)
         summarized_observations = 0
         lines = ["以下是更早会话的压缩摘要，仅供上下文参考；若与最近消息冲突，以最近消息和最新系统提示为准。"]
+        if base_summary_text:
+            lines.append("先前 compact 摘要：%s" % _truncate_text(base_summary_text, policy.summary_text_chars * 2))
         if omitted > 0:
             lines.append("更早还有 %s 个 turn 已进一步折叠。" % omitted)
         for index, turn in enumerate(visible_turns, start=1):
@@ -573,23 +606,54 @@ class ContextManager(object):
             if turn.assistant_message:
                 lines.append("   结果：%s" % _truncate_text(turn.assistant_message, policy.summary_text_chars))
         limit = max(400, policy.max_summary_turns * policy.summary_text_chars)
-        return {"role": "system", "content": _truncate_text("\n".join(lines), limit)}, summarized_observations
+        summary_text = _truncate_text("\n".join(lines), limit)
+        return {"role": "system", "content": summary_text}, summarized_observations, summary_text
 
-    def _build_recent_messages(self, session: Session, recent_turns: int, policy: ContextPolicy) -> Tuple[List[Dict[str, Any]], int]:
-        turns = session.turns[-recent_turns:]
+    def _build_recent_messages(self, session: Session, visible_turns: List[Turn], recent_turns: int, policy: ContextPolicy) -> Tuple[List[Dict[str, Any]], int, List[Dict[str, Any]]]:
+        turns = visible_turns[-recent_turns:]
         if not turns:
-            return [], 0
+            return [], 0, []
         start_index = turns[0].message_start_index
         end_index = turns[-1].message_end_index
         result = []
         reduced_tool_messages = 0
+        replacements = []
+        seen_reads = set()
+        seen_searches = set()
+        pending_activity = {"read": 0, "search": 0, "list": 0}
+
+        def flush_activity() -> None:
+            parts = []
+            if pending_activity["search"]:
+                parts.append("searched %s patterns" % pending_activity["search"])
+            if pending_activity["read"]:
+                parts.append("read %s files" % pending_activity["read"])
+            if pending_activity["list"]:
+                parts.append("listed %s directories" % pending_activity["list"])
+            if parts:
+                result.append({"role": "system", "content": "Recent activity: " + ", ".join(parts)})
+            pending_activity["read"] = 0
+            pending_activity["search"] = 0
+            pending_activity["list"] = 0
+
         for message in session.messages[start_index : end_index + 1]:
             if message.role == "system":
                 continue
             if message.role == "tool":
                 reduced_tool_messages += 1
+                replacement = self._compact_tool_message_with_replacements(message, policy, seen_reads, seen_searches)
+                if replacement is not None:
+                    replacements.append(replacement["replacement"])
+                    pending_activity[replacement["activity_kind"]] = pending_activity.get(replacement["activity_kind"], 0) + 1
+                    if replacement["message"] is not None:
+                        result.append(replacement["message"])
+                    continue
+                flush_activity()
+            else:
+                flush_activity()
             result.append(self._compact_message(message, policy))
-        return result, reduced_tool_messages
+        flush_activity()
+        return result, reduced_tool_messages, replacements
 
     def _compact_system_message(self, message: Message, policy: ContextPolicy) -> Dict[str, Any]:
         return {"role": "system", "content": _truncate_text(message.content, policy.recent_message_chars)}
@@ -616,14 +680,70 @@ class ContextManager(object):
             payload["content"] = _truncate_text(message.content, policy.recent_message_chars)
         return payload
 
+    def _compact_tool_message_with_replacements(
+        self,
+        message: Message,
+        policy: ContextPolicy,
+        seen_reads: set,
+        seen_searches: set,
+    ) -> Optional[Dict[str, Any]]:
+        try:
+            parsed = json.loads(message.content)
+        except ValueError:
+            return None
+        parsed = parsed if isinstance(parsed, dict) else {"data": parsed}
+        data = parsed.get("data") if isinstance(parsed.get("data"), dict) else {}
+        tool_name = str(message.name or "")
+        replacement = {"tool_name": tool_name, "artifact_refs": [], "duplicate": False}
+        for key, value in data.items():
+            if key.endswith("_artifact_ref") and value:
+                replacement["artifact_refs"].append(value)
+        if tool_name == "read_file":
+            path = str(data.get("path") or "")
+            if path:
+                if path in seen_reads:
+                    replacement["duplicate"] = True
+                    return {
+                        "activity_kind": "read",
+                        "replacement": replacement,
+                        "message": {"role": "system", "content": "Duplicate read suppressed for `%s`." % path},
+                    }
+                seen_reads.add(path)
+                if replacement["artifact_refs"]:
+                    return {
+                        "activity_kind": "read",
+                        "replacement": replacement,
+                        "message": None,
+                    }
+        if tool_name == "search_text":
+            key = "%s|%s" % (str(data.get("path") or ""), str(data.get("query") or ""))
+            if key.strip("|"):
+                if key in seen_searches:
+                    replacement["duplicate"] = True
+                    return {
+                        "activity_kind": "search",
+                        "replacement": replacement,
+                        "message": {"role": "system", "content": "Duplicate search suppressed for `%s`." % key},
+                    }
+                seen_searches.add(key)
+                if replacement["artifact_refs"]:
+                    return {
+                        "activity_kind": "search",
+                        "replacement": replacement,
+                        "message": None,
+                    }
+        if tool_name == "list_files" and replacement["artifact_refs"]:
+            return {"activity_kind": "list", "replacement": replacement, "message": None}
+        return None
+
     def _budget_for_chars(self, policy: ContextPolicy, used_chars: int) -> BudgetEstimate:
         input_tokens = self._estimate_tokens(used_chars)
         remaining = policy.max_input_tokens - input_tokens
         return BudgetEstimate(policy.mode_name, policy.max_context_tokens, policy.reserve_output_tokens, policy.reserve_reasoning_tokens, policy.max_input_tokens, input_tokens, remaining, input_tokens > policy.max_input_tokens)
 
     def _estimate_tokens(self, used_chars: int) -> int:
-        ratio = self.config.estimated_chars_per_token or 1.0
-        return int(math.ceil(float(used_chars) / (ratio if ratio > 0 else 1.0)))
+        ratio = self.token_estimator.chars_per_token or 1.0
+        return int(math.ceil(float(max(0, used_chars)) / ratio))
 
     def _measure_messages(self, messages: List[Dict[str, Any]]) -> int:
         return sum(len(json.dumps(message, ensure_ascii=False)) for message in messages)
@@ -668,6 +788,43 @@ class ContextManager(object):
             if message.get("role") != "system":
                 return index
         return None
+
+    def _analyze_context(self, session: Session) -> Dict[str, Any]:
+        tool_request_tokens = 0
+        tool_result_tokens = 0
+        duplicate_file_read_tokens = 0
+        file_counts = {}
+        seen_reads = {}
+        replacement_count = 0
+        for turn in session.turns:
+            for action in turn.actions:
+                tool_request_tokens += self.token_estimator.estimate_text(json.dumps(action.arguments, ensure_ascii=False))
+            for observation in turn.observations:
+                tool_result_tokens += self.token_estimator.estimate_text(json.dumps(observation.to_dict(), ensure_ascii=False))
+                if not isinstance(observation.data, dict):
+                    continue
+                path = observation.data.get("path")
+                if isinstance(path, str) and path:
+                    file_counts[path] = file_counts.get(path, 0) + 1
+                artifact_refs = [value for key, value in observation.data.items() if key.endswith("_artifact_ref") and value]
+                if artifact_refs:
+                    replacement_count += 1
+                if observation.tool_name == "read_file" and isinstance(path, str) and path:
+                    current_tokens = self.token_estimator.estimate_text(str(observation.data.get("content") or ""))
+                    previous = seen_reads.get(path)
+                    if previous is not None:
+                        duplicate_file_read_tokens += min(previous, current_tokens)
+                    else:
+                        seen_reads[path] = current_tokens
+        ranked = sorted(file_counts.items(), key=lambda item: (-item[1], item[0]))
+        return {
+            "tool_request_tokens": tool_request_tokens,
+            "tool_result_tokens": tool_result_tokens,
+            "duplicate_file_read_tokens": duplicate_file_read_tokens,
+            "top_hot_files": [{"path": path, "count": count} for path, count in ranked[:5]],
+            "artifact_replacement_count": replacement_count,
+            "resume_replay_hits": 1 if session.latest_compact_boundary() is not None else 0,
+        }
 
 
 def _truncate_text(text: str, limit: int) -> str:

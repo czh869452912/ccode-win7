@@ -51,6 +51,7 @@
 - 单个用户问题下支持多次 Agent 自推进 step（thinking / tools / partial answer 分步呈现）
 - 配置驱动模式与 Agent Harness（Explore / Spec / Code / Debug / Verify），可通过 `modes.json` 覆盖或扩展
 - 上下文压缩、记忆清理与恢复入口
+- 新的 `QueryEngine` / transcript / pending interaction 内核切片已落地，开始把上下文流水线、工具批处理、compact boundary 与挂起恢复机制收敛到统一主循环
 - 权限管控（操作前确认 / `allow` / `ask` / `deny` 规则）
 - 托管运行环境摘要（bundle/workspace/system 来源、内置工具就绪状态、回退告警）
 - 工作区 recipe 摘要（自动检测 + 历史成功命令），并在 GUI Run / Problems 面板中可见
@@ -114,6 +115,7 @@
 
 ## 项目现状
 
+- 2026-04-02：Query / Context 激进重构切片已启动：`session.py` 已补齐 transcript/event 数据模型，`query_engine.py` 已成为新主循环骨架，`ContextManager` 已开始接入 workspace intelligence、tool result replacement、duplicate suppression、activity folding 与 compact boundary 复用；同时新增 `tool_execution.py` 与 `workspace_intelligence.py`。
 - 2026-04-01：Phase 2 第一段 workbench 切片已落地：Tool Runtime 现在可自动检测 `CMakeLists.txt` / `Makefile` 与历史成功命令 recipe；`compile_project` / `run_tests` / `run_clang_tidy` / `run_clang_analyzer` / `collect_coverage` 已支持 `recipe_id`；slash command 新增 `/recipes` 与 `/run <recipe_id>`；GUI Inspector 已补 `Run` / `Problems` 面板并可直接执行 recipe。
 - 2026-04-01：Phase 1 clean-room 高拟态升级切片已落地：时间线 API 现在以 `turns[].steps[]` 为主，GUI 可按单用户 turn 下的多个 agent step 显示 thinking/tool/assistant；托管运行环境会统一汇总 `runtime_source`、`bundled_tools_ready`、`fallback_warnings` 与 `resolved_tool_roots`，并在 GUI Runtime inspector 中显示。
 - 2026-03-31：已落地 unified input / slash command / workflow 第一版：`submit_user_message` 现在统一分发普通消息与 `/help` `/mode` `/sessions` `/resume` `/workspace` `/clear` `/plan` `/review` `/diff` `/permissions` `/todos` `/artifacts`；协议层新增 `CommandResult`、`PlanSnapshot`、`TurnRecord`、`TimelineItem` 与扩展 `SessionSnapshot`；GUI 已接入 command result、plan pane、timeline command cards 与 slash command hint。

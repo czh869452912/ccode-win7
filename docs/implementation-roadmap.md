@@ -1,6 +1,6 @@
 # EmbedAgent 实施路线与文档维护方案
 
-> 更新日期：2026-04-02（Packaging control plane slice）
+> 更新日期：2026-04-02（Packaging control plane + query/context refactor slice）
 > 适用阶段：架构收敛后进入实现前
 
 ---
@@ -42,6 +42,10 @@
 | Phase 5 | `completed` | 权限、上下文、记忆、恢复和 cleanup 已落地，`validate-phase5.py` 已复验通过 |
 | Phase 6 | `in_progress` | 自动化验证已通过；unified input / slash command / workflow 第一版、step-based timeline 与 Runtime inspector 已落地，待真实控制台 / Win7 / ConEmu 手工验证 |
 | Phase 7 | `in_progress` | 离线打包设计文档、ADR、`prepare/build/validate` 三段脚本，以及 Python/MinGit/rg/ctags 真实资产接入已完成；`package.ps1` 控制面已接上 `doctor/deps/assemble/verify/release` mocked orchestration，待继续收口真实 bundle / Win7 验收 |
+
+补充切片：
+
+- `2026-04-02`：上下文与 query loop 激进重构已进入实现切片。当前已新增 `QueryEngine`、transcript/event 数据模型、tool capability metadata、workspace intelligence broker、batch tool orchestration 与 pending interaction / resume 主链路骨架。详见 `docs/query-context-redesign.md`。
 
 ---
 

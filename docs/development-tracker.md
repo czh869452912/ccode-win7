@@ -1,6 +1,6 @@
 # EmbedAgent 开发进度跟踪
 
-> 更新日期：2026-04-02（Packaging control plane 修订）
+> 更新日期：2026-04-02（Packaging control plane + query/context refactor）
 > 用途：持续跟踪当前阶段、下一步任务、里程碑进度、风险与阻塞
 
 ---
@@ -28,7 +28,7 @@
 
 - 当前阶段：`Phase 4 真实工程验证 + Phase 6 GUI / Win7 收口`
 - 总体状态：`进行中`
-- 当前重点：`Phase 4 默认 recipe/真实工程/Win7 验证，Phase 6 step-based timeline / Runtime inspector / GUI 新壳层与 Win7 Chromium 基线收口，Phase 7 继续推进 package.ps1 控制面后的 site-packages 精简与 Win7 bundle 验收`
+- 当前重点：`Phase 4 默认 recipe/真实工程/Win7 验证，Context/Query 内核重构切片，Phase 6 step-based timeline / Runtime inspector / GUI 新壳层与 Win7 Chromium 基线收口，Phase 7 继续推进 package.ps1 控制面后的 site-packages 精简与 Win7 bundle 验收`
 
 ### 当前判断
 
@@ -72,6 +72,9 @@
 - Phase 5F Memory Maintenance 已落地：artifact / session / project memory 已具备基础 cleanup 与索引收口能力
 - Phase 5 长任务稳定性验证已完成：`scripts/validate-phase5.py` 已在修复根目录文件写入边界后重新跑通
 - Phase 5 权限细化已完成：已支持规则文件、allow / ask / deny、路径与命令模式匹配
+- Query / Context 重构切片已启动：`session.py` 已补齐 transcript/event 数据模型，`query_engine.py` 已成为新主循环骨架，`loop.py` 已退化为兼容入口
+- `ContextManager.build_messages(...)` 已开始接入 workspace intelligence、tool result replacement、duplicate suppression、activity folding 与 compact boundary 复用
+- `workspace_intelligence.py`、`tool_execution.py` 与 `tests/test_query_engine_refactor.py` 已落地；新测试已覆盖 pending interaction resume、tool batch partition、intelligence/boundary 注入
 - Phase 7 设计基线已建立：`docs/offline-packaging.md`、`docs/win7-preflight-checklist.md` 与 ADR `0001-offline-portable-bundle-baseline.md`
 - Phase 7 初始脚本骨架已落地：`scripts/prepare-offline.ps1` 已可生成 `build/offline-staging/EmbedAgent/`、launcher、模板配置和 manifest/checksum 草案，并已通过 `powershell.exe -NoProfile -File scripts/prepare-offline.ps1 -SkipBuild` 验证
 - Phase 7 build 脚本骨架已落地：`scripts/build-offline-bundle.ps1` 已可把 staging bundle 复制到 `build/offline-dist/`、重写 manifest、重算 checksum，并生成 zip
@@ -102,8 +105,9 @@
 ### P0：立刻要做（当前关键路径）
 
 1. 推进 Phase 4 的真实 C 工程与 Win7 验证
-2. 在 Win7 bundle 中完成 GUI Chromium 基线实机验证并记录结果
-3. 为当前 `package.ps1 release` 路径评估并收敛 `site-packages` 的精简导出方案
+2. 继续推进 Query / Context 内核重构，逐步把旧 adapter 的事件阻塞路径切换到 pending interaction / resume
+3. 在 Win7 bundle 中完成 GUI Chromium 基线实机验证并记录结果
+4. 为当前 `package.ps1 release` 路径评估并收敛 `site-packages` 的精简导出方案
 
 实现备注：
 
@@ -157,6 +161,7 @@
 | T-024 | 零依赖打包：内网部署文档 | `completed` | 已新增 `docs/intranet-deployment.md` 和 `docs/offline-packaging-guide.md`，提供完整内网部署指南 |
 | T-025 | 零依赖打包：内网配置模板 | `completed` | 已新增 `config/config.json.template`，预配置内网大模型服务示例 |
 | T-027 | Phase 7 打包控制面收口 | `in_progress` | `scripts/package.ps1`、`scripts/package.config.json`、`scripts/package-lib.ps1` 与 `tests/test_packaging_control_plane.py` 已打通 `doctor/deps/assemble/verify/release` mocked orchestration；下一步是完成文档迁移并在真实 bundle 路径上验收 |
+| T-028 | Query / Context 内核重构切片 | `in_progress` | 已落地 `QueryEngine`、transcript/event 模型、workspace intelligence broker、tool capability metadata、batch tool orchestration、pending interaction resume 与 focused tests；下一步继续深化 reactive compact、provider 精度与 adapter 全量兼容 |
 
 ---
 
@@ -196,6 +201,7 @@
 | R-015 | validate 默认允许 skeleton bundle 以告警通过，若无人切到 `-RequireComplete` 可能误判“已可交付” | 中 | 在正式验收和 CI 入口中强制使用 `-RequireComplete` |
 | R-016 | 直接拷贝 `.venv\Lib\site-packages` 可能带来过大的 bundle 体积 | 中 | 评估更精简的运行时导出方案，再决定是否替换当前实现 |
 | R-017 | 离线 bundle 容易因未重建或直接拷贝开发 `.venv` 而把旧 GUI 布局或项目内 editable `.pth` 带进发布物 | 中 | 保持 `prepare/build/validate` 串联执行，并在 bundle 验证中强制检查 `static/assets`、Fixed Version WebView2 和无 `__editable__*.pth` |
+| R-018 | Query / Context 重构仍处于双栈阶段，旧 adapter/loop 兼容层与新内核可能出现状态漂移 | 中 | 继续用 focused regression tests 覆盖 mode、timeline、pending interaction、context assembly，并逐步减少旧路径分叉 |
 
 ---
 
@@ -240,6 +246,7 @@
 | 2026-03-30 | GUI 新壳层已落地：新增 `frontend/gui/webapp/` React + Vite 工程，产物写回 `frontend/gui/static/`；同时完成 session-scoped todo、权威 `session_status`/`thinking_state`/`reasoning_delta`、稳定 `tool_call_id`、GUI 懒加载文件树与增强版 smoke 校验 |
 | 2026-03-31 | 已补 workflow/filtering 回归测试，并把 `scripts/validate-gui-smoke.py` 扩展到 `/review` workflow；源码路径 smoke 已通过，但当前 `build/offline-dist/` bundle 仍呈现旧 GUI 布局并在 bundle smoke / validate 中暴露出与最新 validator 的结构漂移 |
 | 2026-03-31 | 已定位并修复 dist/source GUI 漂移：原因是旧 dist 未在 GUI 静态产物迁移后重建、WebView2 资产未纳入 prepare/build、以及 `.venv` 里的 `__editable__.embedagent-0.1.0.pth` 被直接带入 bundle；当前已重建 bundle，并通过 `validate-offline-bundle.ps1`、bundle 级 `validate-gui-smoke.py` 与 `check-bundle-dependencies.py` |
+| 2026-04-02 | 已启动 Query / Context 激进重构切片：新增 `QueryEngine`、transcript/event 模型、workspace intelligence broker、tool capability metadata、batch tool orchestration、pending interaction resume 与 focused regression tests；`tests.test_context_config` / `tests.test_guard` / `tests.test_modes` / `tests.test_session_timeline` / `tests.test_query_engine_refactor` 已复验通过 |
 
 
 

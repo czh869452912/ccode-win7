@@ -44,6 +44,36 @@
 
 ## 3. 当前变更记录
 
+### DC-044
+
+- 日期：2026-04-02
+- 变更主题：上下文与 Query Loop 激进重构切片落地
+- 变更摘要：
+  - `session.py` 已升级为 transcript/event 基础模型，新增 `TranscriptMessage`、`ToolCallRecord`、`AgentStepState`、`PendingInteraction`、`LoopTransition`、`CompactBoundary` 与 `ContextAssemblyResult`
+  - 新增 `query_engine.py` 作为真实主循环；`loop.py` 已退化为兼容 shim
+  - `ContextManager.build_messages(...)` 已扩展为上下文流水线入口，开始接入 workspace intelligence、tool result replacement、duplicate suppression、activity folding 与 compact boundary 复用
+  - 新增 `workspace_intelligence.py`，统一挂接 `WorkingSet / ProjectMemory / Recipe / Ctags / Diagnostics / Git / Llsp(empty)` provider
+  - `ToolDefinition` 与 `ToolRuntime` 已补齐 `read_only / concurrency_safe / interrupt_behavior / result_budget_policy / activity_kind / context_priority`
+  - 新增 `tool_execution.py`，提供批处理分组与流式工具执行器骨架
+  - `InProcessAdapter` 已开始采用 pending interaction + resume 主链路，不再只依赖线程阻塞等待 `ask_user` / permission
+- 影响范围：
+  - Agent Core 主循环
+  - 会话与 transcript 模型
+  - 上下文管理
+  - Tool Runtime 能力模型
+  - 前端兼容投影
+- 关联文档：
+  - `docs/query-context-redesign.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `README.md`
+- 是否需要 ADR：`建议后续补一条 Query / Context 内核 ADR`
+- 后续动作：
+  - 继续把 reactive compact、resume consistency 与 workspace intelligence provider 深化到真实工程场景
+  - 逐步把旧的 event-blocking 交互路径完全切换到 pending interaction / resume
+  - 扩充对旧测试集的兼容回归覆盖
+
 ### DC-043
 
 - 日期：2026-04-02

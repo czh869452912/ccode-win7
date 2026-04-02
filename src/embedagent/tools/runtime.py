@@ -23,6 +23,12 @@ class ToolCatalogEntry:
     result_renderer_key: str
     supports_diff_preview: bool
     context_reducer_key: str
+    read_only: bool
+    concurrency_safe: bool
+    interrupt_behavior: str
+    result_budget_policy: str
+    activity_kind: str
+    context_priority: int
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -36,6 +42,12 @@ class ToolCatalogEntry:
             "result_renderer_key": self.result_renderer_key,
             "supports_diff_preview": self.supports_diff_preview,
             "context_reducer_key": self.context_reducer_key,
+            "read_only": self.read_only,
+            "concurrency_safe": self.concurrency_safe,
+            "interrupt_behavior": self.interrupt_behavior,
+            "result_budget_policy": self.result_budget_policy,
+            "activity_kind": self.activity_kind,
+            "context_priority": self.context_priority,
         }
 
 
@@ -49,6 +61,12 @@ _DEFAULT_TOOL_METADATA = {
         "result_renderer_key": "file",
         "supports_diff_preview": False,
         "context_reducer_key": "read_file",
+        "read_only": True,
+        "concurrency_safe": True,
+        "interrupt_behavior": "block",
+        "result_budget_policy": "artifact-first",
+        "activity_kind": "read",
+        "context_priority": 90,
     },
     "list_files": {
         "permission_category": "read",
@@ -59,6 +77,12 @@ _DEFAULT_TOOL_METADATA = {
         "result_renderer_key": "list",
         "supports_diff_preview": False,
         "context_reducer_key": "list_files",
+        "read_only": True,
+        "concurrency_safe": True,
+        "interrupt_behavior": "block",
+        "result_budget_policy": "artifact-first",
+        "activity_kind": "list",
+        "context_priority": 70,
     },
     "search_text": {
         "permission_category": "read",
@@ -69,6 +93,12 @@ _DEFAULT_TOOL_METADATA = {
         "result_renderer_key": "search",
         "supports_diff_preview": False,
         "context_reducer_key": "search_text",
+        "read_only": True,
+        "concurrency_safe": True,
+        "interrupt_behavior": "block",
+        "result_budget_policy": "artifact-first",
+        "activity_kind": "search",
+        "context_priority": 85,
     },
     "write_file": {
         "permission_category": "workspace_write",
@@ -79,6 +109,12 @@ _DEFAULT_TOOL_METADATA = {
         "result_renderer_key": "file_write",
         "supports_diff_preview": True,
         "context_reducer_key": "write_file",
+        "read_only": False,
+        "concurrency_safe": False,
+        "interrupt_behavior": "block",
+        "result_budget_policy": "compact-preview",
+        "activity_kind": "edit",
+        "context_priority": 95,
     },
     "edit_file": {
         "permission_category": "workspace_write",
@@ -89,6 +125,12 @@ _DEFAULT_TOOL_METADATA = {
         "result_renderer_key": "file_edit",
         "supports_diff_preview": True,
         "context_reducer_key": "edit_file",
+        "read_only": False,
+        "concurrency_safe": False,
+        "interrupt_behavior": "block",
+        "result_budget_policy": "compact-preview",
+        "activity_kind": "edit",
+        "context_priority": 95,
     },
     "run_command": {
         "permission_category": "shell_exec",
@@ -99,6 +141,12 @@ _DEFAULT_TOOL_METADATA = {
         "result_renderer_key": "command",
         "supports_diff_preview": False,
         "context_reducer_key": "run_command",
+        "read_only": False,
+        "concurrency_safe": False,
+        "interrupt_behavior": "cancel",
+        "result_budget_policy": "artifact-first",
+        "activity_kind": "command",
+        "context_priority": 88,
     },
     "compile_project": {
         "permission_category": "toolchain_exec",
@@ -109,6 +157,12 @@ _DEFAULT_TOOL_METADATA = {
         "result_renderer_key": "toolchain",
         "supports_diff_preview": False,
         "context_reducer_key": "compile_project",
+        "read_only": True,
+        "concurrency_safe": False,
+        "interrupt_behavior": "block",
+        "result_budget_policy": "artifact-first",
+        "activity_kind": "diagnostic",
+        "context_priority": 100,
     },
     "run_tests": {
         "permission_category": "toolchain_exec",
@@ -119,6 +173,12 @@ _DEFAULT_TOOL_METADATA = {
         "result_renderer_key": "toolchain",
         "supports_diff_preview": False,
         "context_reducer_key": "run_tests",
+        "read_only": True,
+        "concurrency_safe": False,
+        "interrupt_behavior": "block",
+        "result_budget_policy": "artifact-first",
+        "activity_kind": "diagnostic",
+        "context_priority": 100,
     },
     "run_clang_tidy": {
         "permission_category": "toolchain_exec",
@@ -129,6 +189,12 @@ _DEFAULT_TOOL_METADATA = {
         "result_renderer_key": "toolchain",
         "supports_diff_preview": False,
         "context_reducer_key": "run_clang_tidy",
+        "read_only": True,
+        "concurrency_safe": False,
+        "interrupt_behavior": "block",
+        "result_budget_policy": "artifact-first",
+        "activity_kind": "diagnostic",
+        "context_priority": 100,
     },
     "run_clang_analyzer": {
         "permission_category": "toolchain_exec",
@@ -139,6 +205,12 @@ _DEFAULT_TOOL_METADATA = {
         "result_renderer_key": "toolchain",
         "supports_diff_preview": False,
         "context_reducer_key": "run_clang_analyzer",
+        "read_only": True,
+        "concurrency_safe": False,
+        "interrupt_behavior": "block",
+        "result_budget_policy": "artifact-first",
+        "activity_kind": "diagnostic",
+        "context_priority": 100,
     },
     "collect_coverage": {
         "permission_category": "toolchain_exec",
@@ -149,6 +221,12 @@ _DEFAULT_TOOL_METADATA = {
         "result_renderer_key": "toolchain",
         "supports_diff_preview": False,
         "context_reducer_key": "collect_coverage",
+        "read_only": True,
+        "concurrency_safe": False,
+        "interrupt_behavior": "block",
+        "result_budget_policy": "artifact-first",
+        "activity_kind": "diagnostic",
+        "context_priority": 85,
     },
     "report_quality": {
         "permission_category": "read",
@@ -159,6 +237,12 @@ _DEFAULT_TOOL_METADATA = {
         "result_renderer_key": "quality",
         "supports_diff_preview": False,
         "context_reducer_key": "report_quality",
+        "read_only": True,
+        "concurrency_safe": True,
+        "interrupt_behavior": "block",
+        "result_budget_policy": "compact-preview",
+        "activity_kind": "diagnostic",
+        "context_priority": 85,
     },
     "git_status": {
         "permission_category": "read",
@@ -169,6 +253,12 @@ _DEFAULT_TOOL_METADATA = {
         "result_renderer_key": "git",
         "supports_diff_preview": False,
         "context_reducer_key": "git_status",
+        "read_only": True,
+        "concurrency_safe": True,
+        "interrupt_behavior": "block",
+        "result_budget_policy": "compact-preview",
+        "activity_kind": "git",
+        "context_priority": 60,
     },
     "git_diff": {
         "permission_category": "read",
@@ -179,6 +269,12 @@ _DEFAULT_TOOL_METADATA = {
         "result_renderer_key": "git",
         "supports_diff_preview": True,
         "context_reducer_key": "git_diff",
+        "read_only": True,
+        "concurrency_safe": True,
+        "interrupt_behavior": "block",
+        "result_budget_policy": "artifact-first",
+        "activity_kind": "git",
+        "context_priority": 75,
     },
     "git_log": {
         "permission_category": "read",
@@ -189,6 +285,12 @@ _DEFAULT_TOOL_METADATA = {
         "result_renderer_key": "git",
         "supports_diff_preview": False,
         "context_reducer_key": "git_log",
+        "read_only": True,
+        "concurrency_safe": True,
+        "interrupt_behavior": "block",
+        "result_budget_policy": "compact-preview",
+        "activity_kind": "git",
+        "context_priority": 55,
     },
     "manage_todos": {
         "permission_category": "workspace_write",
@@ -199,6 +301,12 @@ _DEFAULT_TOOL_METADATA = {
         "result_renderer_key": "todos",
         "supports_diff_preview": False,
         "context_reducer_key": "manage_todos",
+        "read_only": False,
+        "concurrency_safe": False,
+        "interrupt_behavior": "block",
+        "result_budget_policy": "compact-preview",
+        "activity_kind": "todo",
+        "context_priority": 98,
     },
 }
 
@@ -221,6 +329,12 @@ class ToolRuntime(object):
         self._tools = {td.name: td for td in all_tools}  # type: Dict[str, ToolDefinition]
         for tool in all_tools:
             tool.metadata.update(self._build_default_metadata(tool.name))
+            tool.metadata.setdefault("read_only", tool.read_only)
+            tool.metadata.setdefault("concurrency_safe", tool.concurrency_safe)
+            tool.metadata.setdefault("interrupt_behavior", tool.interrupt_behavior)
+            tool.metadata.setdefault("result_budget_policy", tool.result_budget_policy)
+            tool.metadata.setdefault("activity_kind", tool.activity_kind)
+            tool.metadata.setdefault("context_priority", tool.context_priority)
             self._catalog[tool.name] = ToolCatalogEntry(
                 name=tool.name,
                 description=tool.description,
@@ -232,6 +346,12 @@ class ToolRuntime(object):
                 result_renderer_key=str(tool.metadata.get("result_renderer_key") or "default"),
                 supports_diff_preview=bool(tool.metadata.get("supports_diff_preview")),
                 context_reducer_key=str(tool.metadata.get("context_reducer_key") or tool.name),
+                read_only=bool(tool.metadata.get("read_only")),
+                concurrency_safe=bool(tool.metadata.get("concurrency_safe")),
+                interrupt_behavior=str(tool.metadata.get("interrupt_behavior") or "block"),
+                result_budget_policy=str(tool.metadata.get("result_budget_policy") or "default"),
+                activity_kind=str(tool.metadata.get("activity_kind") or "tool"),
+                context_priority=int(tool.metadata.get("context_priority") or 50),
             )
 
     def schemas(self) -> List[Dict[str, Any]]:
@@ -261,6 +381,10 @@ class ToolRuntime(object):
     def tool_catalog_entry(self, name: str) -> Optional[Dict[str, Any]]:
         entry = self._catalog.get(name)
         return entry.to_dict() if entry is not None else None
+
+    def tool_capabilities(self, name: str) -> Dict[str, Any]:
+        entry = self._catalog.get(name)
+        return entry.to_dict() if entry is not None else {}
 
     def runtime_environment_snapshot(self) -> Dict[str, Any]:
         return self._ctx.runtime_environment_snapshot()
@@ -321,4 +445,10 @@ class ToolRuntime(object):
             "result_renderer_key": "default",
             "supports_diff_preview": False,
             "context_reducer_key": name,
+            "read_only": False,
+            "concurrency_safe": False,
+            "interrupt_behavior": "block",
+            "result_budget_policy": "default",
+            "activity_kind": "tool",
+            "context_priority": 50,
         }

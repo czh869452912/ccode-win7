@@ -168,6 +168,9 @@ TUI、CLI、未来 GUI/Web 只是不同的交互壳。
 - 负责 Agent 主循环。
 - 将“LLM 生成动作”与“运行时执行动作”严格分离。
 - 集中处理上下文构建、重试、压缩、迭代限制、异常保护。
+- 当前 clean-room 升级方向是把旧的 `AgentLoop` 收口为兼容入口，并把真实执行迁移到 `QueryEngine`。
+- `QueryEngine` 以显式状态机驱动 `submit_turn -> transition`，并把 `PendingInteraction`、`CompactBoundary`、`ToolCallRecord` 与 `AgentStepState` 作为一等领域对象。
+- `ask_user` 与权限审批不再被建模成“失败 Observation + 阻塞线程”，而是可挂起、可恢复的交互状态。
 
 #### Tool Runtime
 
@@ -525,6 +528,16 @@ Core 对前端只暴露两类接口：
 2. 再裁剪低价值历史
 3. 最后再触发 LLM 摘要
 
+在 2026-04-02 的 Query / Context 重构切片中，这一策略已经开始收敛为显式流水线：
+
+1. `working set`
+2. `workspace intelligence`
+3. `tool result replacement`
+4. `duplicate read/search suppression`
+5. `activity folding`
+6. `summary / compact boundary`
+7. `prompt render`
+
 这与调研结论一致：对于本地或内网模型，**先做观测遮蔽，再做摘要压缩**，成本和稳定性都更好。
 
 ### 7.4 代码库上下文策略
@@ -542,6 +555,16 @@ Core 对前端只暴露两类接口：
 - 精确读取：自研 `read_range` / `search_symbol`
 
 这是比 Tree-sitter + 向量库更稳妥的首期方案，尤其适合离线、轻量、C 项目。
+
+当前已新增 `WorkspaceIntelligenceBroker` 作为统一情报层入口，首批 provider 包括：
+
+- `WorkingSetProvider`
+- `ProjectMemoryProvider`
+- `RecipeProvider`
+- `CtagsProvider`
+- `DiagnosticsProvider`
+- `GitStateProvider`
+- `LlspProvider`（空实现，占位未来 provider 契约）
 
 ---
 
