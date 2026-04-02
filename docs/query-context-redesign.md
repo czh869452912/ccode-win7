@@ -40,6 +40,7 @@
 - `ask_user` 和权限审批在 resolver 缺失时不再伪造失败 Observation，而是返回 `PendingInteraction + LoopTransition`
 - `resume_pending(...)` 会先把等待中的交互写回 transcript，再继续后续 step
 - 当 LLM 明确返回 `prompt/context too long` 一类错误时，主循环现在会记录一次内部 `compact_retry` transition，并用更紧的内部 compact policy 重组上下文后自动重试一次
+- `SessionSnapshot` / timeline 已开始投影 compact retry 可观测性，当前至少能看到 `compact_retry_count`、最近 transition reasons，以及 `compact_retry` timeline event
 
 ---
 

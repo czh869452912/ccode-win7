@@ -8,6 +8,7 @@ from itertools import count
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 from embedagent.inprocess_adapter import InProcessAdapter
+from embedagent.llm import ModelClientError
 from embedagent.permissions import PermissionPolicy
 from embedagent.session import Action, AssistantReply
 from embedagent.tools import ToolRuntime
@@ -162,6 +163,23 @@ class MultiStepClient(object):
         return reply
 
 
+class CompactRetryClient(object):
+    def __init__(self):
+        self.calls = 0
+
+    def generate(self, messages, tools=None):
+        self.calls += 1
+        if self.calls == 1:
+            raise ModelClientError("prompt is too long: context length exceeded")
+        return AssistantReply(content='after compact', actions=[], finish_reason='stop')
+
+    def stream(self, messages, tools=None, on_text_delta=None, on_reasoning_delta=None):
+        reply = self.generate(messages, tools=tools)
+        if on_text_delta is not None and reply.content:
+            on_text_delta(reply.content)
+        return reply
+
+
 class TestInProcessAdapterFrontendApis(unittest.TestCase):
     def setUp(self):
         self.workspace = _make_workspace()
@@ -305,6 +323,34 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertIn("context_pipeline_steps", refreshed)
         self.assertIsInstance(refreshed["workspace_intelligence"], list)
         self.assertGreaterEqual(len(refreshed["workspace_intelligence"]), 1)
+
+    def test_session_snapshot_and_timeline_include_compact_retry_projection(self):
+        adapter = InProcessAdapter(
+            client=CompactRetryClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+        )
+        snapshot = adapter.create_session('code')
+        session_id = str(snapshot.get('session_id') or '')
+        events = []
+        adapter.submit_user_message(
+            session_id=session_id,
+            text='继续分析',
+            stream=False,
+            wait=True,
+            permission_resolver=lambda ticket: True,
+            event_handler=lambda event_name, current_session_id, payload: events.append((event_name, payload)),
+        )
+        refreshed = adapter.get_session_snapshot(session_id)
+        self.assertIn("last_transition_reason", refreshed)
+        self.assertIn("recent_transition_reasons", refreshed)
+        self.assertIn("compact_retry_count", refreshed)
+        self.assertEqual(refreshed["last_transition_reason"], "completed")
+        self.assertIn("compact_retry", refreshed["recent_transition_reasons"])
+        self.assertEqual(refreshed["compact_retry_count"], 1)
+        timeline = adapter.get_session_timeline(session_id)
+        self.assertTrue(any(item["event"] == "compact_retry" for item in timeline["events"]))
+        self.assertIn("compact_retry", [item[0] for item in events])
 
     def test_workspace_recipe_api_detects_cmake(self):
         with open(os.path.join(self.workspace, "CMakeLists.txt"), "w", encoding="utf-8") as handle:

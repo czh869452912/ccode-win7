@@ -65,6 +65,26 @@
   - 继续补 LLM compact 与多次 retry 的边界策略
   - 补 adapter/session snapshot 对 compact retry 的显式可观测性
 
+### DC-047
+
+- 日期：2026-04-02
+- 变更主题：compact retry 已投影到 snapshot 与 timeline
+- 变更摘要：
+  - `SessionSummaryStore` / `SessionSnapshot` 现在会暴露 `last_transition_reason`、`recent_transition_reasons` 与 `compact_retry_count`
+  - `InProcessAdapter` 在检测到 `reactive_compact_retry` 上下文装配时，会额外发出 `compact_retry` event，前端和调试工具可直接从 timeline 观察到自动压缩重试
+  - 这让 compact retry 不再只是 loop 内部细节，而是成为可调试、可回归验证的显式状态
+- 影响范围：
+  - Session summary / snapshot 协议
+  - Timeline event 可观测性
+  - 前端调试和 QA 回归
+- 关联文档：
+  - `docs/query-context-redesign.md`
+  - `docs/development-tracker.md`
+- 是否需要 ADR：`否`
+- 后续动作：
+  - 决定 GUI inspector 是否要给 compact retry 单独展示卡片/徽标
+  - 继续把更多 transition 信息投影为结构化 timeline 语义
+
 ### DC-045
 
 - 日期：2026-04-02

@@ -242,6 +242,9 @@ class InProcessAdapter(object):
                 "compact_boundary_count": len(getattr(state.session, "compact_boundaries", []) or []),
                 "workspace_intelligence": list((summary or {}).get("workspace_intelligence") or []),
                 "context_pipeline_steps": list((summary or {}).get("context_pipeline_steps") or []),
+                "last_transition_reason": str((summary or {}).get("last_transition_reason") or ""),
+                "recent_transition_reasons": list((summary or {}).get("recent_transition_reasons") or []),
+                "compact_retry_count": int((summary or {}).get("compact_retry_count") or 0),
                 "has_pending_permission": state.pending_permission is not None,
                 "pending_permission": state.pending_permission.to_dict() if state.pending_permission else None,
                 "has_pending_user_input": state.pending_user_input is not None,
@@ -1802,6 +1805,22 @@ class InProcessAdapter(object):
             self._emit_with_snapshot(event_handler, "tool_finished", state, payload)
 
         def on_context_result(result: object) -> None:
+            pipeline_steps = list(getattr(result, "pipeline_steps", []) or [])
+            if "reactive_compact_retry" in pipeline_steps:
+                self._emit_with_snapshot(
+                    event_handler,
+                    "compact_retry",
+                    state,
+                    {
+                        "turn_id": turn_id,
+                        "step_id": current_step["step_id"],
+                        "step_index": current_step["step_index"],
+                        "recent_turns": getattr(getattr(result, "stats", None), "recent_turns", None),
+                        "summarized_turns": getattr(getattr(result, "stats", None), "summarized_turns", None),
+                        "approx_tokens_after": getattr(getattr(result, "budget", None), "input_tokens", None),
+                        "pipeline_steps": pipeline_steps,
+                    },
+                )
             if not bool(getattr(result, "compacted", False)):
                 return
             self._emit_with_snapshot(event_handler, "context_compacted", state, {"recent_turns": getattr(getattr(result, "stats", None), "recent_turns", None), "summarized_turns": getattr(getattr(result, "stats", None), "summarized_turns", None), "approx_tokens_after": getattr(getattr(result, "budget", None), "input_tokens", None), "analysis": getattr(result, "analysis", {})})
@@ -2066,6 +2085,22 @@ class InProcessAdapter(object):
             stats = getattr(result, "stats", None)
             budget = getattr(result, "budget", None)
             compacted = bool(getattr(result, "compacted", False))
+            pipeline_steps = list(getattr(result, "pipeline_steps", []) or [])
+            if "reactive_compact_retry" in pipeline_steps:
+                self._emit_with_snapshot(
+                    event_handler,
+                    "compact_retry",
+                    state,
+                    {
+                        "turn_id": turn_id,
+                        "step_id": current_step["step_id"],
+                        "step_index": current_step["step_index"],
+                        "recent_turns": getattr(stats, "recent_turns", None),
+                        "summarized_turns": getattr(stats, "summarized_turns", None),
+                        "approx_tokens_after": getattr(budget, "input_tokens", None),
+                        "pipeline_steps": pipeline_steps,
+                    },
+                )
             if not compacted:
                 return
             self._emit_with_snapshot(

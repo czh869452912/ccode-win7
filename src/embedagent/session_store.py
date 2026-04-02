@@ -345,6 +345,9 @@ class SessionSummaryStore(object):
             "last_blocker": self._observation_snapshot(last_blocker),
             "recent_artifacts": recent_artifacts,
         }
+        transition_snapshot = self._transition_payload(session)
+        if transition_snapshot:
+            payload.update(transition_snapshot)
         context_payload = self._context_payload(context_result)
         if context_payload:
             payload.update(context_payload)
@@ -429,6 +432,8 @@ class SessionSummaryStore(object):
         analysis = payload.get("context_analysis") if isinstance(payload.get("context_analysis"), dict) else {}
         if analysis.get("artifact_replacement_count"):
             parts.append("替换输出：%s" % analysis.get("artifact_replacement_count"))
+        if payload.get("compact_retry_count"):
+            parts.append("compact_retry：%s" % payload.get("compact_retry_count"))
         if payload.get("compact_summary_text"):
             parts.append("compact：已生成摘要")
         return "；".join(parts)
@@ -468,6 +473,22 @@ class SessionSummaryStore(object):
         for turn in session.turns:
             observations.extend(turn.observations)
         return observations
+
+    def _transition_payload(self, session: Session) -> Dict[str, Any]:
+        reasons = []
+        for turn in session.turns:
+            for transition in turn.transitions:
+                reason = str(getattr(transition, "reason", "") or "").strip()
+                if reason:
+                    reasons.append(reason)
+        if not reasons:
+            return {}
+        compact_retry_count = len([item for item in reasons if item == "compact_retry"])
+        return {
+            "last_transition_reason": reasons[-1],
+            "recent_transition_reasons": reasons[-8:],
+            "compact_retry_count": compact_retry_count,
+        }
 
     def _collect_recent_actions(self, session: Session) -> List[Dict[str, Any]]:
         items = []

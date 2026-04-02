@@ -205,6 +205,9 @@ class SessionSnapshot:
     compact_boundary_count: int = 0
     workspace_intelligence: List[Dict[str, Any]] = field(default_factory=list)
     context_pipeline_steps: List[str] = field(default_factory=list)
+    last_transition_reason: str = ""
+    recent_transition_reasons: List[str] = field(default_factory=list)
+    compact_retry_count: int = 0
 
 
 @dataclass  
