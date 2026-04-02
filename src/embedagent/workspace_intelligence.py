@@ -129,7 +129,18 @@ class CtagsProvider(WorkspaceIntelligenceProvider):
         ctags_path = str((roots or {}).get("ctags_exe") or "")
         tags_file = os.path.join(tools.workspace, "tags")
         if os.path.isfile(tags_file):
-            content = "检测到 tags 文件：%s" % os.path.relpath(tags_file, tools.workspace).replace(os.sep, "/")
+            entries = _load_ctags_entries(tags_file, limit=16)
+            focus_paths = _focus_paths_from_session(session)
+            if focus_paths:
+                entries.sort(key=lambda item: (0 if item["path"] in focus_paths else 1, item["path"], item["name"]))
+            entries = entries[:5]
+            if entries:
+                rendered = []
+                for item in entries:
+                    rendered.append("%s -> %s (%s)" % (item["name"], item["path"], item["kind"]))
+                content = "关键符号：%s" % "; ".join(rendered)
+            else:
+                content = "检测到 tags 文件：%s" % os.path.relpath(tags_file, tools.workspace).replace(os.sep, "/")
         elif ctags_path:
             content = "ctags 可用：%s；当前还没有预生成 tags 文件。" % ctags_path
         else:
@@ -141,7 +152,7 @@ class CtagsProvider(WorkspaceIntelligenceProvider):
                 content=content,
                 priority=80 if mode_name in ("code", "debug") else 40,
                 tags=["symbol", mode_name],
-                metadata={"ctags_available": bool(ctags_path), "tags_file": os.path.isfile(tags_file)},
+                metadata={"ctags_available": bool(ctags_path), "tags_file": os.path.isfile(tags_file), "parsed_tags": bool(os.path.isfile(tags_file) and _load_ctags_entries(tags_file, limit=1)), "focus_paths": focus_paths if os.path.isfile(tags_file) else []},
             )
         ]
 
@@ -242,6 +253,7 @@ class WorkspaceIntelligenceBroker(object):
         collected = []
         for provider in self.providers:
             collected.extend(provider.collect(session, mode_name, tools, project_memory))
+        collected = self._filter_for_mode(mode_name, collected)
         collected.sort(key=lambda item: (-int(item.priority or 0), item.provider, item.title))
         return collected
 
@@ -262,6 +274,25 @@ class WorkspaceIntelligenceBroker(object):
             lines.append("- %s: %s" % (item.title, item.content))
         message = "\n".join(lines)
         return message[:char_limit]
+
+    def _filter_for_mode(self, mode_name: str, evidence: List[IntelligenceEvidence]) -> List[IntelligenceEvidence]:
+        allowed_tags = {
+            "explore": {"project_memory", "git", "recipe", "llsp", "symbol"},
+            "spec": {"project_memory", "git", "recipe", "llsp", "symbol"},
+            "code": {"working_set", "project_memory", "recipe", "symbol", "diagnostic", "llsp"},
+            "debug": {"working_set", "project_memory", "recipe", "symbol", "diagnostic", "git", "llsp"},
+            "verify": {"project_memory", "recipe", "diagnostic", "llsp"},
+        }.get(mode_name)
+        if not allowed_tags:
+            return evidence
+        filtered = []
+        for item in evidence:
+            if not item.tags:
+                filtered.append(item)
+                continue
+            if any(tag in allowed_tags for tag in item.tags):
+                filtered.append(item)
+        return filtered
 
 
 def _all_observations(session: Session) -> List[Observation]:
@@ -298,3 +329,61 @@ def _diagnostic_detail(observation: Observation) -> str:
     if observation.error:
         return "%s: %s" % (observation.tool_name, observation.error)
     return ""
+
+
+def _load_ctags_entries(path: str, limit: int = 5) -> List[Dict[str, str]]:
+    entries = []
+    try:
+        with open(path, "r", encoding="utf-8", errors="replace") as handle:
+            for raw_line in handle:
+                line = raw_line.strip()
+                if not line or line.startswith("!_TAG_"):
+                    continue
+                parts = line.split("\t")
+                if len(parts) < 4:
+                    continue
+                name = parts[0].strip()
+                file_path = parts[1].strip().replace("\\", "/")
+                rest = parts[3:]
+                kind = ""
+                for token in rest:
+                    token = token.strip()
+                    if token.startswith("kind:"):
+                        kind = token.split(":", 1)[1].strip()
+                        break
+                    if len(token) == 1:
+                        kind = token
+                        break
+                entries.append(
+                    {
+                        "name": name,
+                        "path": file_path,
+                        "kind": kind or "?",
+                    }
+                )
+                if len(entries) >= limit:
+                    break
+    except OSError:
+        return []
+    return entries
+
+
+def _focus_paths_from_session(session: Session) -> List[str]:
+    seen = set()
+    paths = []
+    for observation in reversed(_all_observations(session)):
+        if not isinstance(observation.data, dict):
+            continue
+        direct = observation.data.get("path")
+        if isinstance(direct, str) and direct and direct not in seen:
+            seen.add(direct)
+            paths.append(direct.replace("\\", "/"))
+        diagnostics = observation.data.get("diagnostics") if isinstance(observation.data.get("diagnostics"), list) else []
+        for item in diagnostics:
+            if not isinstance(item, dict):
+                continue
+            path = item.get("file") or item.get("path")
+            if isinstance(path, str) and path and path not in seen:
+                seen.add(path)
+                paths.append(path.replace("\\", "/"))
+    return paths[:8]

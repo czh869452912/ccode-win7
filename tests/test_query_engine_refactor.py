@@ -13,7 +13,7 @@ from embedagent.query_engine import QueryEngine
 from embedagent.session import Action, AssistantReply, Observation, Session
 from embedagent.tool_execution import partition_tool_actions
 from embedagent.tools import ToolRuntime
-from embedagent.workspace_intelligence import WorkspaceIntelligenceBroker
+from embedagent.workspace_intelligence import CtagsProvider, WorkspaceIntelligenceBroker
 
 
 _COUNTER = count(1)
@@ -153,6 +153,49 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertIn("Earlier work summary", result.summary_message)
         self.assertIn("工程情报", rendered)
         self.assertGreaterEqual(result.analysis.get("artifact_replacement_count") or 0, 1)
+
+    def test_ctags_provider_parses_symbol_entries(self):
+        with open(os.path.join(self.workspace, "tags"), "w", encoding="utf-8") as handle:
+            handle.write("!_TAG_FILE_FORMAT\t2\t/extended format/\n")
+            handle.write("demo\tsrc/demo.c\t/^int demo(void) {$/;\"\tf\n")
+            handle.write("helper\tsrc/demo.c\t/^static int helper(int x) {$/;\"\tf\n")
+        provider = CtagsProvider()
+        evidence = provider.collect(Session(), "code", self.tools, None)
+        self.assertEqual(len(evidence), 1)
+        self.assertIn("demo", evidence[0].content)
+        self.assertIn("src/demo.c", evidence[0].content)
+        self.assertTrue(evidence[0].metadata.get("parsed_tags"))
+
+    def test_broker_renders_symbol_evidence_for_code_mode(self):
+        with open(os.path.join(self.workspace, "tags"), "w", encoding="utf-8") as handle:
+            handle.write("!_TAG_FILE_FORMAT\t2\t/extended format/\n")
+            handle.write("demo\tsrc/demo.c\t/^int demo(void) {$/;\"\tf\n")
+        broker = WorkspaceIntelligenceBroker()
+        message = broker.render_system_message(Session(), "code", self.tools, None, limit=5, char_limit=2000)
+        self.assertIn("demo", message)
+        self.assertIn("src/demo.c", message)
+
+    def test_ctags_provider_prioritizes_recent_working_set_files(self):
+        with open(os.path.join(self.workspace, "tags"), "w", encoding="utf-8") as handle:
+            handle.write("!_TAG_FILE_FORMAT\t2\t/extended format/\n")
+            handle.write("other_symbol\tsrc/other.c\t/^int other_symbol(void) {$/;\"\tf\n")
+            handle.write("demo\tsrc/demo.c\t/^int demo(void) {$/;\"\tf\n")
+        session = Session()
+        session.add_user_message("改 demo")
+        session.add_assistant_reply(
+            AssistantReply(
+                content="",
+                actions=[Action("edit_file", {"path": "src/demo.c", "old_text": "0", "new_text": "1"}, "edit-1")],
+                finish_reason="tool_calls",
+            )
+        )
+        session.add_observation(
+            Action("edit_file", {"path": "src/demo.c", "old_text": "0", "new_text": "1"}, "edit-1"),
+            Observation("edit_file", True, None, {"path": "src/demo.c"}),
+        )
+        provider = CtagsProvider()
+        evidence = provider.collect(session, "code", self.tools, None)
+        self.assertTrue(evidence[0].content.index("demo") < evidence[0].content.index("other_symbol"))
 
     def test_query_engine_waits_for_user_input_and_can_resume(self):
         session = Session()
