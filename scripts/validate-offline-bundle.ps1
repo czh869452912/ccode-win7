@@ -133,14 +133,14 @@ function Validate-Checksums {
         [string]$CodePrefix
     )
 
-    $lines = Get-ChecksumLines -ChecksumPath $ChecksumPath
+    $lines = @(Get-ChecksumLines -ChecksumPath $ChecksumPath)
     if ($lines.Count -eq 0) {
         Add-Result -Results $Results -Level 'fail' -Code ($CodePrefix + '.checksums.empty') -Message ('{0} checksums.txt is missing or empty.' -f $CodePrefix)
         return
     }
 
     foreach ($line in $lines) {
-        $parts = $line.Split('*', 2)
+        $parts = @($line.Split('*', 2))
         if ($parts.Count -ne 2) {
             Add-Result -Results $Results -Level 'fail' -Code ($CodePrefix + '.checksums.format') -Message ('Invalid checksum line: {0}' -f $line)
             continue
@@ -158,7 +158,8 @@ function Validate-Checksums {
         }
     }
 
-    if (-not @($Results | Where-Object { $_.code -like ($CodePrefix + '.checksums.*') -and $_.level -eq 'fail' }).Count) {
+    $checksumFailures = @($Results | Where-Object { $_.code -like ($CodePrefix + '.checksums.*') -and $_.level -eq 'fail' })
+    if ($checksumFailures.Count -eq 0) {
         Add-Result -Results $Results -Level 'pass' -Code ($CodePrefix + '.checksums.ok') -Message ('{0} checksums.txt verified successfully.' -f $CodePrefix)
     }
 }

@@ -216,19 +216,115 @@ function Resolve-ToolPath {
     return Resolve-ConfigPath -ProjectRoot $Context.project_root -Path $RelativePath
 }
 
+function Get-PackageRequiredAssetIds {
+    param(
+        [System.Collections.IDictionary]$Context
+    )
+
+    $requiredAssets = @()
+    if ($Context.profile_config -and $Context.profile_config.required_assets) {
+        foreach ($assetId in @($Context.profile_config.required_assets)) {
+            $value = "$assetId".Trim()
+            if ($value) {
+                $requiredAssets += $value
+            }
+        }
+    }
+    return @($requiredAssets | Select-Object -Unique)
+}
+
+function Get-PackagePythonCandidates {
+    param(
+        [string]$ProjectRoot
+    )
+
+    $candidates = @()
+    if ($env:EMBEDAGENT_PYTHON) {
+        $candidates += [string]$env:EMBEDAGENT_PYTHON
+    }
+    if ($ProjectRoot) {
+        $candidates += (Join-Path $ProjectRoot '.venv\Scripts\python.exe')
+    }
+
+    $resolved = @()
+    foreach ($candidate in $candidates | Select-Object -Unique) {
+        if ($candidate -and (Test-Path -LiteralPath $candidate)) {
+            $resolved += (Resolve-Path -LiteralPath $candidate).Path
+        }
+    }
+    return $resolved
+}
+
+function Resolve-PackagePythonPath {
+    param(
+        [string]$ProjectRoot
+    )
+
+    $candidates = Get-PackagePythonCandidates -ProjectRoot $ProjectRoot
+    if (@($candidates).Count -eq 0) {
+        $expectedPath = if ($ProjectRoot) {
+            Join-Path $ProjectRoot '.venv\Scripts\python.exe'
+        }
+        else {
+            '.venv\Scripts\python.exe'
+        }
+        throw ('Expected project virtualenv Python at {0} or an explicit EMBEDAGENT_PYTHON override. Run ''uv sync --python 3.8.10'' to provision the locked environment.' -f $expectedPath)
+    }
+    return $candidates[0]
+}
+
+function Resolve-PackagePowerShellPath {
+    $currentProcess = Get-Process -Id $PID -ErrorAction SilentlyContinue
+    if ($currentProcess -and $currentProcess.Path -and (Test-Path -LiteralPath $currentProcess.Path)) {
+        return $currentProcess.Path
+    }
+
+    foreach ($commandName in @('pwsh', 'powershell')) {
+        $command = Get-Command $commandName -ErrorAction SilentlyContinue
+        if ($command -and $command.Source -and (Test-Path -LiteralPath $command.Source)) {
+            return $command.Source
+        }
+    }
+
+    throw 'PowerShell executable not found for packaging.'
+}
+
 function Invoke-StageScript {
     param(
+        [string]$ProjectRoot,
         [string]$ScriptPath,
         [string[]]$Arguments
     )
 
     $extension = [System.IO.Path]::GetExtension($ScriptPath).ToLowerInvariant()
     if ($extension -eq '.py') {
-        $pythonPath = 'D:\Claude-project\ccode-win7\.venv\Scripts\python.exe'
-        return & $pythonPath $ScriptPath @Arguments 2>&1
+        $pythonCandidates = Get-PackagePythonCandidates -ProjectRoot $ProjectRoot
+        if (@($pythonCandidates).Count -eq 0) {
+            $null = Resolve-PackagePythonPath -ProjectRoot $ProjectRoot
+        }
+
+        $errors = @()
+        foreach ($pythonPath in $pythonCandidates) {
+            try {
+                $result = & $pythonPath $ScriptPath @Arguments 2>&1
+                if ($LASTEXITCODE -eq 0) {
+                    return $result
+                }
+                $errors += ('{0} exited with code {1}' -f $pythonPath, $LASTEXITCODE)
+            }
+            catch {
+                $errors += ('{0} failed: {1}' -f $pythonPath, $_.Exception.Message)
+            }
+        }
+        throw ('Python stage script failed for all candidates. ' + ($errors -join '; '))
     }
     if ($extension -eq '.ps1') {
-        return & powershell -NoProfile -File $ScriptPath @Arguments 2>&1
+        $powerShellPath = Resolve-PackagePowerShellPath
+        $result = & $powerShellPath -NoProfile -ExecutionPolicy Bypass -File $ScriptPath @Arguments 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            throw ('PowerShell stage script failed: {0} (exit {1})' -f $ScriptPath, $LASTEXITCODE)
+        }
+        return $result
     }
     throw "Unsupported stage script extension: $ScriptPath"
 }
@@ -255,7 +351,7 @@ function Invoke-PackageDeps {
     $scriptPath = Resolve-ToolPath -Context $Context -RelativePath ([string]$Context.config.tooling.export_dependencies)
     $jsonPath = New-ReportPath -Context $Context -StageName 'deps'
     $outputRoot = Resolve-ConfigPath -ProjectRoot $Context.project_root -Path ([string]$Context.config.paths.site_packages_export_root)
-    $null = Invoke-StageScript -ScriptPath $scriptPath -Arguments @('--output-dir', $outputRoot, '--json-report', $jsonPath)
+    $null = Invoke-StageScript -ProjectRoot $Context.project_root -ScriptPath $scriptPath -Arguments @('--output-dir', $outputRoot, '--json-report', $jsonPath)
     $payload = Get-Content -LiteralPath $jsonPath -Raw | ConvertFrom-Json
     Add-StageResult -Report $Report -Name 'deps' -Status $(if ($payload.ok) { 'pass' } else { 'fail' }) -ExitCode $(if ($payload.ok) { 0 } else { 1 }) -Summary @{ report = $jsonPath }
 }
@@ -268,9 +364,28 @@ function Invoke-PackageAssemble {
 
     $preparePath = Resolve-ToolPath -Context $Context -RelativePath ([string]$Context.config.tooling.prepare_bundle)
     $buildPath = Resolve-ToolPath -Context $Context -RelativePath ([string]$Context.config.tooling.build_bundle)
-    $null = Invoke-StageScript -ScriptPath $preparePath -Arguments @()
+    $requiredAssetIds = Get-PackageRequiredAssetIds -Context $Context
+    $prepareArgs = @()
+    if (@($requiredAssetIds).Count -gt 0) {
+        $prepareArgs += '-AssetIds'
+        $prepareArgs += ($requiredAssetIds -join ',')
+    }
+    if ([bool]$Context.allow_download) {
+        $prepareArgs += '-AllowDownload'
+    }
+
+    $buildArgs = @('-ArtifactName', [string]$Context.artifact_name)
+    if (@($requiredAssetIds).Count -gt 0) {
+        $buildArgs += '-AssetIds'
+        $buildArgs += ($requiredAssetIds -join ',')
+    }
+    if ([bool]$Context.allow_download) {
+        $buildArgs += '-AllowDownload'
+    }
+
+    $null = Invoke-StageScript -ProjectRoot $Context.project_root -ScriptPath $preparePath -Arguments $prepareArgs
     Add-StageResult -Report $Report -Name 'prepare' -Status 'pass' -ExitCode 0 -Summary @{ script = $preparePath }
-    $null = Invoke-StageScript -ScriptPath $buildPath -Arguments @('-ArtifactName', [string]$Context.artifact_name)
+    $null = Invoke-StageScript -ProjectRoot $Context.project_root -ScriptPath $buildPath -Arguments $buildArgs
     Add-StageResult -Report $Report -Name 'build' -Status 'pass' -ExitCode 0 -Summary @{ script = $buildPath; artifact_name = $Context.artifact_name }
 }
 
@@ -300,10 +415,10 @@ function Invoke-PackageVerify {
     if ([bool]$Context.profile_config.require_complete -or [bool]$Context.strict) {
         $validateArgs += '-RequireComplete'
     }
-    $null = Invoke-StageScript -ScriptPath $validateScript -Arguments $validateArgs
+    $null = Invoke-StageScript -ProjectRoot $Context.project_root -ScriptPath $validateScript -Arguments $validateArgs
     $validatePayload = Get-Content -LiteralPath $validateJson -Raw | ConvertFrom-Json
 
-    $null = Invoke-StageScript -ScriptPath $checkScript -Arguments @($bundleRoot, '--json-report', $checkJson)
+    $null = Invoke-StageScript -ProjectRoot $Context.project_root -ScriptPath $checkScript -Arguments @($bundleRoot, '--json-report', $checkJson)
     $checkPayload = Get-Content -LiteralPath $checkJson -Raw | ConvertFrom-Json
 
     $verifyOk = ([bool]$validatePayload.ok) -and ([bool]$checkPayload.ok)

@@ -30,12 +30,15 @@
     },
     "release": {
       "artifact_name": "mock-artifact",
-      "allow_download": false,
+      "allow_download": true,
       "require_complete": true,
       "create_zip": true,
       "run_dynamic_checks": false,
       "run_dependency_checker": true,
-      "required_assets": []
+      "required_assets": [
+        "python_embedded_x64",
+        "mingit_x64"
+      ]
     }
   }
 }

@@ -1,5 +1,15 @@
 [CmdletBinding()]
-param()
+param(
+    [string[]]$AssetIds = @(),
+    [switch]$AllowDownload
+)
+
+if (@($AssetIds).Count -eq 0) {
+    throw 'mock prepare expected AssetIds'
+}
+if (-not $AllowDownload) {
+    throw 'mock prepare expected AllowDownload'
+}
 
 $projectRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..\..')).Path
 $bundleRoot = Join-Path $projectRoot 'build\offline-staging\EmbedAgent'

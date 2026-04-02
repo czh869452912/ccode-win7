@@ -1,7 +1,16 @@
 [CmdletBinding()]
 param(
-    [string]$ArtifactName = 'mock-artifact'
+    [string]$ArtifactName = 'mock-artifact',
+    [string[]]$AssetIds = @(),
+    [switch]$AllowDownload
 )
+
+if (@($AssetIds).Count -eq 0) {
+    throw 'mock build expected AssetIds'
+}
+if (-not $AllowDownload) {
+    throw 'mock build expected AllowDownload'
+}
 
 $projectRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..\..')).Path
 $distRoot = Join-Path $projectRoot 'build\offline-dist'

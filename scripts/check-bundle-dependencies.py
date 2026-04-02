@@ -290,7 +290,7 @@ def main():
     print("=" * 60)
     all_errors = []
     for item in check_payloads:
-        status = "✓" if item["ok"] else "✗"
+        status = "[PASS]" if item["ok"] else "[FAIL]"
         print(f"{status} {item['name']}")
         for error in item["errors"]:
             print(f"   - {error}")
