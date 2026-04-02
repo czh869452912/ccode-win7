@@ -477,6 +477,24 @@
   - 继续判断 `step/turn` 是否还需要 raw/internal 双层语义
   - 评估是否把相同展示语义继续下沉到 timeline 顶部终止态提示
 
+### DC-059
+
+- 日期：2026-04-02
+- 变更主题：GUI webapp 本地验证链补齐显式 esbuild 依赖与根目录 test runner
+- 变更摘要：
+  - `build.mjs` 直接依赖 `esbuild`，现在 `package.json` / `package-lock.json` 已把它声明为显式 `devDependency`
+  - 新增 webapp 根目录 `run-local-tests.mjs`，把原有 helper checks 与 `node:test` 回归统一成一个直接可运行的本地测试入口
+  - 当前已确认可复跑的本地命令链是：`npm install`、`node .\\run-local-tests.mjs`、`npm run build`
+- 影响范围：
+  - GUI webapp 本地开发验证
+  - webapp 依赖声明完整性
+  - 静态资源重建链路
+- 关联文档：
+  - `docs/development-tracker.md`
+- 是否需要 ADR：`否`
+- 后续动作：
+  - 若后续继续依赖 npm script runner，再单独调查当前环境里 `npm test` 的 `EPERM lstat C:\\Users\\Administrator` 异常
+
 ### DC-044
 
 - 日期：2026-04-02
