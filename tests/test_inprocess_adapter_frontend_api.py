@@ -281,6 +281,31 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertIn("compact_boundary_count", refreshed)
         self.assertIsInstance(refreshed["context_analysis"], dict)
 
+    def test_session_snapshot_includes_workspace_intelligence_projection(self):
+        with open(os.path.join(self.workspace, "tags"), "w", encoding="utf-8") as handle:
+            handle.write("!_TAG_FILE_FORMAT\t2\t/extended format/\n")
+            handle.write("demo\tsrc/pkg/demo.c\t/^int main(void) {$/;\"\tf\n")
+        adapter = InProcessAdapter(
+            client=ToolClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+        )
+        snapshot = adapter.create_session('code')
+        session_id = str(snapshot.get('session_id') or '')
+        adapter.submit_user_message(
+            session_id=session_id,
+            text='读取文件',
+            stream=False,
+            wait=True,
+            permission_resolver=lambda ticket: True,
+            event_handler=lambda event_name, current_session_id, payload: None,
+        )
+        refreshed = adapter.get_session_snapshot(session_id)
+        self.assertIn("workspace_intelligence", refreshed)
+        self.assertIn("context_pipeline_steps", refreshed)
+        self.assertIsInstance(refreshed["workspace_intelligence"], list)
+        self.assertGreaterEqual(len(refreshed["workspace_intelligence"]), 1)
+
     def test_workspace_recipe_api_detects_cmake(self):
         with open(os.path.join(self.workspace, "CMakeLists.txt"), "w", encoding="utf-8") as handle:
             handle.write("cmake_minimum_required(VERSION 3.20)\nproject(demo C)\n")

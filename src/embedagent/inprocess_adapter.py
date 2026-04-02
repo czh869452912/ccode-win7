@@ -240,6 +240,8 @@ class InProcessAdapter(object):
                 "compact_summary_text": str((summary or {}).get("compact_summary_text") or ""),
                 "context_analysis": dict((summary or {}).get("context_analysis") or {}),
                 "compact_boundary_count": len(getattr(state.session, "compact_boundaries", []) or []),
+                "workspace_intelligence": list((summary or {}).get("workspace_intelligence") or []),
+                "context_pipeline_steps": list((summary or {}).get("context_pipeline_steps") or []),
                 "has_pending_permission": state.pending_permission is not None,
                 "pending_permission": state.pending_permission.to_dict() if state.pending_permission else None,
                 "has_pending_user_input": state.pending_user_input is not None,

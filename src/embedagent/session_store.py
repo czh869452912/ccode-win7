@@ -404,6 +404,9 @@ class SessionSummaryStore(object):
         pipeline_steps = getattr(context_result, "pipeline_steps", None)
         if isinstance(pipeline_steps, list) and pipeline_steps:
             payload["context_pipeline_steps"] = [str(item) for item in pipeline_steps[:12]]
+        intelligence_sections = getattr(context_result, "intelligence_sections", None)
+        if isinstance(intelligence_sections, list) and intelligence_sections:
+            payload["workspace_intelligence"] = self.sanitizer.sanitize_jsonable(intelligence_sections[:8])
         return payload
 
     def _build_summary_text(self, payload: Dict[str, Any]) -> str:
