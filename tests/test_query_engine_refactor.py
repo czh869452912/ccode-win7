@@ -235,6 +235,58 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertGreaterEqual(len(evidence), 2)
         self.assertIn("src/demo.c", evidence[0].content)
 
+    def test_diagnostics_provider_aggregates_hotspots_by_file(self):
+        session = Session()
+        session.add_user_message("继续修复 demo")
+        session.add_assistant_reply(
+            AssistantReply(
+                content="",
+                actions=[Action("edit_file", {"path": "src/demo.c", "old_text": "0", "new_text": "2"}, "edit-demo-2")],
+                finish_reason="tool_calls",
+            )
+        )
+        session.add_observation(
+            Action("edit_file", {"path": "src/demo.c", "old_text": "0", "new_text": "2"}, "edit-demo-2"),
+            Observation("edit_file", True, None, {"path": "src/demo.c"}),
+        )
+        session.add_observation(
+            Action("compile_project", {}, "compile-2"),
+            Observation(
+                "compile_project",
+                False,
+                "compile failed",
+                {"diagnostics": [{"file": "src/demo.c", "line": 7, "column": 3, "message": "compile failure"}]},
+            ),
+        )
+        session.add_observation(
+            Action("run_clang_tidy", {}, "tidy-2"),
+            Observation(
+                "run_clang_tidy",
+                False,
+                "tidy failed",
+                {"diagnostics": [{"file": "src/demo.c", "line": 9, "column": 2, "message": "tidy warning"}]},
+            ),
+        )
+        session.add_observation(
+            Action("run_clang_analyzer", {}, "analyzer-2"),
+            Observation(
+                "run_clang_analyzer",
+                False,
+                "analyzer failed",
+                {"diagnostics": [{"file": "src/other.c", "line": 4, "column": 1, "message": "other issue"}]},
+            ),
+        )
+        provider = DiagnosticsProvider()
+        evidence = provider.collect(session, "debug", self.tools, None)
+        self.assertGreaterEqual(len(evidence), 2)
+        self.assertIn("src/demo.c", evidence[0].content)
+        self.assertIn("2 条", evidence[0].content)
+        self.assertIn("compile_project", evidence[0].content)
+        self.assertIn("run_clang_tidy", evidence[0].content)
+        self.assertEqual(evidence[0].metadata.get("diagnostic_count"), 2)
+        self.assertEqual(evidence[0].metadata.get("path"), "src/demo.c")
+        self.assertEqual(evidence[0].metadata.get("group_kind"), "path_hotspot")
+
     def test_recipe_provider_prefers_verify_tools_in_verify_mode(self):
         os.makedirs(os.path.join(self.workspace, ".embedagent"), exist_ok=True)
         with open(os.path.join(self.workspace, ".embedagent", "workspace-recipes.json"), "w", encoding="utf-8") as handle:

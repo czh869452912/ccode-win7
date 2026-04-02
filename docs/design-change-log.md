@@ -1,6 +1,6 @@
 # EmbedAgent 设计与变更跟踪
 
-> 更新日期：2026-03-31
+> 更新日期：2026-04-02
 > 用途：记录关键设计变更、影响范围、关联文档和后续动作
 
 ---
@@ -43,6 +43,27 @@
 ---
 
 ## 3. 当前变更记录
+
+### DC-045
+
+- 日期：2026-04-02
+- 变更主题：Workspace intelligence 的诊断热点改为按工作集优先聚合
+- 变更摘要：
+  - `DiagnosticsProvider` 不再只返回最近两条原始诊断摘录，而是先按文件聚合 compile / test / tidy / analyzer 等诊断热点
+  - 最近编辑/读取过的工作集文件会优先于“仅出现在报错输出里的文件”，避免被动报错文件抢占焦点
+  - 同一文件上的多条诊断会折叠为一条热点证据，并带出诊断数量、来源工具集合与最新一条摘要，便于 `code/debug/verify` 模式把首屏上下文留给更有操作价值的问题
+- 影响范围：
+  - Workspace intelligence 证据选择
+  - Context pipeline 首屏上下文质量
+  - Diagnostics / Problems 聚合的一致性预期
+- 关联文档：
+  - `docs/query-context-redesign.md`
+  - `docs/development-tracker.md`
+- 是否需要 ADR：`否`
+- 后续动作：
+  - 继续补 pathless 的 failing tests / quality gate / coverage 热点聚合
+  - 后续把 LLSP/clangd 的引用链与调用关系证据并入同一热点选择器
+  - 观察 GUI Problems / timeline inspector 是否也应复用同一聚合逻辑
 
 ### DC-044
 

@@ -76,7 +76,7 @@
 2026-04-02 的后续切片继续把这一层做深：
 
 - `CtagsProvider` 不再只探测 `tags` 文件存在，而会解析符号项并优先呈现最近工作集 / 诊断热点文件中的符号定义
-- `DiagnosticsProvider` 开始按 focus path 去重并优先选择更相关的诊断证据
+- `DiagnosticsProvider` 已升级为“工作集优先 + 按文件聚合”的热点选择器：最近编辑/读取过的文件会优先于被动报错文件，同一文件上的多条 compile/tidy/analyzer 诊断会合并成单条热点证据
 - `RecipeProvider` 按 mode 重新排序 recipe，`verify` 优先测试/静态检查，`code` 优先编译与测试
 - `LlspProvider` 已扩展为可注入 backend 的契约；默认仍为空实现，但后续可直接接入真实 `llsp/clangd` provider
 

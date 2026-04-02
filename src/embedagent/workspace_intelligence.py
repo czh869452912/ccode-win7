@@ -179,11 +179,40 @@ class DiagnosticsProvider(WorkspaceIntelligenceProvider):
 
     def collect(self, session: Session, mode_name: str, tools: Any, project_memory: Optional[ProjectMemoryStore] = None) -> List[IntelligenceEvidence]:
         evidence = []
+        working_paths = set(_working_set_paths_from_session(session))
         focus_paths = set(_focus_paths_from_session(session))
-        seen_keys = set()
         observations = list(reversed(_all_observations(session)))
+        hotspots = _group_diagnostic_hotspots(observations, working_paths, focus_paths)
+        for hotspot in hotspots[:2]:
+            tool_names = hotspot["tool_names"]
+            evidence.append(
+                IntelligenceEvidence(
+                    provider=self.name,
+                    title="Diagnostic Hotspot",
+                    content="诊断热点 %s：%s 条诊断，来自 %s。最新：%s" % (
+                        hotspot["path"],
+                        hotspot["diagnostic_count"],
+                        ", ".join(tool_names),
+                        hotspot["latest_detail"],
+                    ),
+                    priority=100 if mode_name in ("code", "debug", "verify") else 60,
+                    tags=["diagnostic", mode_name] + list(tool_names),
+                    metadata={
+                        "tool_name": tool_names[0] if tool_names else "",
+                        "tool_names": list(tool_names),
+                        "focus_match": bool(hotspot["focus_match"]),
+                        "path": hotspot["path"],
+                        "diagnostic_count": hotspot["diagnostic_count"],
+                        "group_kind": "path_hotspot",
+                    },
+                )
+            )
+        if len(evidence) >= 2:
+            return evidence
+        seen_keys = set()
         observations.sort(
             key=lambda observation: (
+                0 if _observation_primary_path(observation) in working_paths else 1,
                 0 if _observation_primary_path(observation) in focus_paths else 1,
                 0 if observation.tool_name in ("run_tests", "compile_project", "run_clang_tidy", "run_clang_analyzer") else 1,
             )
@@ -208,14 +237,19 @@ class DiagnosticsProvider(WorkspaceIntelligenceProvider):
             if key in seen_keys:
                 continue
             seen_keys.add(key)
+            if primary_path and any(item.metadata.get("path") == primary_path for item in evidence):
+                continue
+            focus_match = primary_path in working_paths or primary_path in focus_paths
+            tags = ["diagnostic", observation.tool_name, mode_name]
+            metadata = {"tool_name": observation.tool_name, "focus_match": focus_match, "path": primary_path, "group_kind": "single_observation"}
             evidence.append(
                 IntelligenceEvidence(
                     provider=self.name,
                     title="Recent Diagnostics",
                     content=detail,
                     priority=100 if mode_name in ("code", "debug", "verify") else 60,
-                    tags=["diagnostic", observation.tool_name, mode_name],
-                    metadata={"tool_name": observation.tool_name, "focus_match": primary_path in focus_paths, "path": primary_path},
+                    tags=tags,
+                    metadata=metadata,
                 )
             )
             if len(evidence) >= 2:
@@ -460,3 +494,98 @@ def _focus_paths_from_session(session: Session) -> List[str]:
                 seen.add(path)
                 paths.append(path.replace("\\", "/"))
     return paths[:8]
+
+
+def _working_set_paths_from_session(session: Session) -> List[str]:
+    seen = set()
+    paths = []
+    for observation in reversed(_all_observations(session)):
+        if observation.tool_name not in ("read_file", "write_file", "edit_file"):
+            continue
+        if not isinstance(observation.data, dict):
+            continue
+        path = observation.data.get("path")
+        if not isinstance(path, str) or not path:
+            continue
+        normalized = path.replace("\\", "/")
+        if normalized in seen:
+            continue
+        seen.add(normalized)
+        paths.append(normalized)
+    return paths[:8]
+
+
+def _group_diagnostic_hotspots(
+    observations: List[Observation],
+    working_paths: set,
+    focus_paths: set,
+) -> List[Dict[str, Any]]:
+    groups = {}
+    order = 0
+    for observation in observations:
+        if observation.tool_name not in (
+            "compile_project",
+            "run_tests",
+            "run_clang_tidy",
+            "run_clang_analyzer",
+            "collect_coverage",
+            "report_quality",
+        ):
+            continue
+        if not isinstance(observation.data, dict):
+            continue
+        primary_path = _observation_primary_path(observation)
+        if not primary_path:
+            continue
+        detail = _diagnostic_detail(observation)
+        if not detail:
+            continue
+        group = groups.get(primary_path)
+        if group is None:
+            group = {
+                "path": primary_path,
+                "details": [],
+                "tool_names": [],
+                "diagnostic_count": 0,
+                "working_match": primary_path in working_paths,
+                "focus_match": primary_path in focus_paths,
+                "first_seen_order": order,
+                "latest_detail": detail,
+            }
+            groups[primary_path] = group
+            order += 1
+        group["details"].append(detail)
+        if observation.tool_name not in group["tool_names"]:
+            group["tool_names"].append(observation.tool_name)
+        group["diagnostic_count"] += _observation_diagnostic_count(observation)
+        if len(group["details"]) == 1:
+            group["latest_detail"] = detail
+    ranked = list(groups.values())
+    ranked.sort(
+        key=lambda item: (
+            0 if item["working_match"] else 1,
+            0 if item["focus_match"] else 1,
+            -int(item["diagnostic_count"] or 0),
+            int(item["first_seen_order"] or 0),
+            str(item["path"] or ""),
+        )
+    )
+    return ranked
+
+
+def _observation_diagnostic_count(observation: Observation) -> int:
+    if not isinstance(observation.data, dict):
+        return 0
+    diagnostics = observation.data.get("diagnostics") if isinstance(observation.data.get("diagnostics"), list) else []
+    if diagnostics:
+        return len(diagnostics)
+    if observation.tool_name == "run_tests":
+        summary = observation.data.get("test_summary") if isinstance(observation.data.get("test_summary"), dict) else {}
+        failed = int(summary.get("failed") or 0)
+        if failed:
+            return failed
+    if observation.tool_name == "report_quality":
+        reasons = observation.data.get("reasons") if isinstance(observation.data.get("reasons"), list) else []
+        if reasons:
+            return len(reasons)
+    return 1 if _diagnostic_detail(observation) else 0
