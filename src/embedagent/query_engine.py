@@ -402,7 +402,11 @@ class QueryEngine(object):
                 if on_step_finish is not None:
                     on_step_finish(step_index, reply, "completed")
                 return QueryTurnResult(final_text, session, transition, turns_used)
-            executor = StreamingToolExecutor(lambda action: self.tools.execute(action.name, action.arguments), self.max_parallel_tools)
+            executor = StreamingToolExecutor(
+                lambda action: self.tools.execute_with_interrupt(action.name, action.arguments, stop_event),
+                self.max_parallel_tools,
+                cancel_event=stop_event,
+            )
             for batch in partition_tool_actions(reply.actions, self.tools.tool_capabilities):
                 if not batch.parallel:
                     for action in batch.actions:
@@ -419,6 +423,7 @@ class QueryEngine(object):
                                 current_mode,
                                 permission_handler,
                                 user_input_handler,
+                                stop_event=stop_event,
                             )
                             if suspended is not None:
                                 self._persist_summary(session, current_mode, assembly)
@@ -491,6 +496,7 @@ class QueryEngine(object):
                             permission_handler,
                             user_input_handler,
                             update.observation,
+                            stop_event=stop_event,
                         )
                         if suspended is not None:
                             self._persist_summary(session, current_mode, assembly)
@@ -608,6 +614,7 @@ class QueryEngine(object):
         permission_handler: Optional[Callable[[PermissionRequest], Optional[bool]]],
         user_input_handler: Optional[Callable[[UserInputRequest], Optional[UserInputResponse]]],
         precomputed_observation: Optional[Observation] = None,
+        stop_event: Optional[threading.Event] = None,
     ) -> Tuple[Observation, str, Optional[QueryTurnResult]]:
         runtime_action = action
         if action.name == "manage_todos" and not action.arguments.get("session_id"):
@@ -688,7 +695,12 @@ class QueryEngine(object):
                     return self._failure_observation(action.name, str(exc), "path_invalid", False, "workspace", "改用工作区内的相对路径。"), current_mode, None
                 if not resolved_path or not os.path.exists(resolved_path):
                     return self._failure_observation(action.name, "目标文件不存在，edit_file 只能修改已存在的文件。", "file_missing", False, "filesystem", "若要新建文件，请改用 write_file。"), current_mode, None
-        return precomputed_observation or self.tools.execute(runtime_action.name, runtime_action.arguments), current_mode, None
+        return (
+            precomputed_observation
+            or self.tools.execute_with_interrupt(runtime_action.name, runtime_action.arguments, stop_event),
+            current_mode,
+            None,
+        )
 
     def _build_user_input_observation(self, session: Session, current_mode: str, request: UserInputRequest, response: UserInputResponse) -> Tuple[Observation, str]:
         selected_mode = str(response.selected_mode or "").strip()

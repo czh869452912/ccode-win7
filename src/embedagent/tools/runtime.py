@@ -393,6 +393,14 @@ class ToolRuntime(object):
         return self._ctx.list_workspace_recipes()
 
     def execute(self, name: str, arguments: Dict[str, Any]) -> Observation:
+        return self.execute_with_interrupt(name, arguments, None)
+
+    def execute_with_interrupt(
+        self,
+        name: str,
+        arguments: Dict[str, Any],
+        stop_event=None,
+    ) -> Observation:
         tool = self._tools.get(name)
         if tool is None:
             return Observation(
@@ -404,6 +412,7 @@ class ToolRuntime(object):
         try:
             if not isinstance(arguments, dict):
                 raise ToolError("工具参数必须是对象。")
+            self._ctx.set_interrupt_event(stop_event)
             observation = self._ctx.shrink_observation(tool.handler(arguments))
         except ToolError as exc:
             return Observation(
@@ -419,6 +428,8 @@ class ToolRuntime(object):
                 error="工具执行失败：%s" % exc,
                 data={"error_kind": "tool_error", "retryable": True},
             )
+        finally:
+            self._ctx.clear_interrupt_event()
         observation.tool_name = name
         if isinstance(observation.data, dict):
             entry = self._catalog.get(name)

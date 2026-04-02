@@ -5,7 +5,9 @@ import io
 import json
 import os
 import re
+import signal
 import subprocess
+import threading
 import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Tuple
@@ -101,6 +103,17 @@ class ToolContext(object):
         self.workspace = workspace
         self.artifact_store = artifact_store
         self.app_config = app_config
+        self._thread_local = threading.local()
+
+    def set_interrupt_event(self, stop_event: Optional[threading.Event]) -> None:
+        self._thread_local.stop_event = stop_event
+
+    def clear_interrupt_event(self) -> None:
+        if hasattr(self._thread_local, "stop_event"):
+            delattr(self._thread_local, "stop_event")
+
+    def get_interrupt_event(self) -> Optional[threading.Event]:
+        return getattr(self._thread_local, "stop_event", None)
 
     # ------------------------------------------------------------------ paths
 
@@ -504,15 +517,29 @@ class ToolContext(object):
             env["PATH"] = os.pathsep.join(prepend + ([current_path] if current_path else []))
         return env
 
-    def terminate_process_tree(self, process: subprocess.Popen) -> None:
+    def terminate_process_tree(self, process: subprocess.Popen, grace_sec: float = 0.5) -> None:
         if process.poll() is not None:
             return
         if os.name == "nt":
-            subprocess.call(
-                ["taskkill", "/F", "/T", "/PID", str(process.pid)],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-            )
+            ctrl_break = getattr(signal, "CTRL_BREAK_EVENT", None)
+            if ctrl_break is not None:
+                try:
+                    process.send_signal(ctrl_break)
+                    process.wait(timeout=grace_sec)
+                    return
+                except (OSError, ValueError, subprocess.TimeoutExpired):
+                    pass
+            try:
+                subprocess.call(
+                    ["taskkill", "/F", "/T", "/PID", str(process.pid)],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                )
+                process.wait(timeout=grace_sec)
+                return
+            except (OSError, ValueError, subprocess.TimeoutExpired):
+                pass
+            process.kill()
             return
         process.kill()
 
@@ -522,6 +549,7 @@ class ToolContext(object):
         cwd: str,
         timeout_sec: int,
         shell: bool,
+        stop_event: Optional[threading.Event] = None,
     ) -> Dict[str, Any]:
         started = time.time()
         process = subprocess.Popen(
@@ -534,14 +562,29 @@ class ToolContext(object):
             encoding="utf-8",
             errors="replace",
             env=self.build_process_env(),
+            creationflags=(getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0) if os.name == "nt" else 0),
         )
         timed_out = False
-        try:
-            stdout, stderr = process.communicate(timeout=timeout_sec)
-        except subprocess.TimeoutExpired:
-            timed_out = True
-            self.terminate_process_tree(process)
-            stdout, stderr = process.communicate()
+        interrupted = False
+        deadline = started + timeout_sec
+        stdout = ""
+        stderr = ""
+        while True:
+            remaining = deadline - time.time()
+            if remaining <= 0:
+                timed_out = True
+                self.terminate_process_tree(process)
+                stdout, stderr = process.communicate()
+                break
+            try:
+                stdout, stderr = process.communicate(timeout=min(0.2, remaining))
+                break
+            except subprocess.TimeoutExpired:
+                if stop_event is not None and stop_event.is_set():
+                    interrupted = True
+                    self.terminate_process_tree(process)
+                    stdout, stderr = process.communicate()
+                    break
         duration_ms = int((time.time() - started) * 1000)
         stdout, stdout_truncated = self.truncate_output(stdout or "")
         stderr, stderr_truncated = self.truncate_output(stderr or "")
@@ -553,6 +596,7 @@ class ToolContext(object):
             "stderr_truncated": stderr_truncated,
             "duration_ms": duration_ms,
             "timed_out": timed_out,
+            "interrupted": interrupted,
         }
 
     def build_command_observation(
@@ -563,8 +607,11 @@ class ToolContext(object):
         result: Dict[str, Any],
     ) -> Observation:
         success = (result["exit_code"] == 0) and (not result["timed_out"])
+        success = success and (not result.get("interrupted"))
         error = None
-        if result["timed_out"]:
+        if result.get("interrupted"):
+            error = "命令执行被中断，已强制终止。"
+        elif result["timed_out"]:
             error = "命令执行超时，已强制终止。"
         elif result["exit_code"] != 0:
             error = "命令退出码为 %s。" % result["exit_code"]
@@ -579,12 +626,22 @@ class ToolContext(object):
             "stderr_truncated": result["stderr_truncated"],
             "duration_ms": result["duration_ms"],
             "timed_out": result["timed_out"],
+            "interrupted": bool(result.get("interrupted")),
             "toolchain_root": runtime.get("resolved_tool_roots", {}).get("llvm_root") or None,
             "runtime_source": runtime.get("runtime_source") or "",
             "bundled_tools_ready": bool(runtime.get("bundled_tools_ready")),
             "fallback_warnings": list(runtime.get("fallback_warnings") or []),
             "resolved_tool_roots": dict(runtime.get("resolved_tool_roots") or {}),
         }
+        if result.get("interrupted"):
+            data.update(
+                {
+                    "error_kind": "interrupted",
+                    "retryable": False,
+                    "blocked_by": "user_cancelled",
+                    "suggested_next_step": "用户取消了当前会话；如需继续，请恢复会话或重新提交请求。",
+                }
+            )
         return Observation(tool_name=tool_name, success=success, error=error, data=data)
 
     def build_diagnostic_observation(
@@ -615,7 +672,13 @@ class ToolContext(object):
         if timeout_sec <= 0:
             raise ToolError("timeout_sec 必须大于 0。")
         resolved_command, managed_tool, _ = self.rewrite_command_for_managed_tools(command_text)
-        result = self.run_subprocess(command=resolved_command, cwd=cwd, timeout_sec=timeout_sec, shell=True)
+        result = self.run_subprocess(
+            command=resolved_command,
+            cwd=cwd,
+            timeout_sec=timeout_sec,
+            shell=True,
+            stop_event=self.get_interrupt_event(),
+        )
         if diagnostic:
             observation = self.build_diagnostic_observation(tool_name, resolved_command, cwd, result)
         else:

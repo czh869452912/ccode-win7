@@ -9,6 +9,7 @@ from itertools import count
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from embedagent.context import ContextManager
+from embedagent.config import AppConfig
 from embedagent.inprocess_adapter import InProcessAdapter
 from embedagent.llm import ModelClientError
 from embedagent.permissions import PermissionPolicy
@@ -36,6 +37,10 @@ def _make_workspace(name):
     shutil.rmtree(root, ignore_errors=True)
     os.makedirs(root)
     return root
+
+
+def _py_sleep_command(seconds):
+    return 'python -c "import time; time.sleep(%s)"' % seconds
 
 
 class AskThenDoneClient(object):
@@ -206,11 +211,40 @@ class ParallelSuccessfulReadThenDoneClient(object):
         return reply
 
 
+class SlowCommandClient(object):
+    def __init__(self):
+        self.calls = 0
+
+    def generate(self, messages, tools=None):
+        self.calls += 1
+        if self.calls == 1:
+            return AssistantReply(
+                content="",
+                actions=[
+                    Action(
+                        "run_command",
+                        {"command": _py_sleep_command(5), "cwd": ".", "timeout_sec": 10},
+                        "call-sleep-command",
+                    )
+                ],
+                finish_reason="tool_calls",
+            )
+        return AssistantReply(content="after long command", actions=[], finish_reason="stop")
+
+    def stream(self, messages, tools=None, on_text_delta=None, on_reasoning_delta=None):
+        reply = self.generate(messages, tools=tools)
+        if on_text_delta is not None and reply.content:
+            on_text_delta(reply.content)
+        return reply
+
+
 class CountingToolRuntime(object):
-    def __init__(self, base, slow_first=False):
+    def __init__(self, base, slow_first=False, slow_read_calls=0, slow_delay_sec=0.2):
         self._base = base
         self.execute_calls = 0
         self.slow_first = slow_first
+        self.slow_read_calls = int(slow_read_calls or 0)
+        self.slow_delay_sec = float(slow_delay_sec or 0.0)
         self.call_names = []
         self.read_file_calls = 0
 
@@ -219,9 +253,23 @@ class CountingToolRuntime(object):
         self.call_names.append((name, dict(arguments)))
         if name == "read_file":
             self.read_file_calls += 1
-        if self.slow_first and name == "read_file" and self.read_file_calls == 1:
-            time.sleep(0.2)
+        if name == "read_file":
+            should_sleep = self.slow_first and self.read_file_calls == 1
+            should_sleep = should_sleep or (self.slow_read_calls > 0 and self.read_file_calls <= self.slow_read_calls)
+            if should_sleep:
+                time.sleep(self.slow_delay_sec)
         return self._base.execute(name, arguments)
+
+    def execute_with_interrupt(self, name, arguments, stop_event=None):
+        self.execute_calls += 1
+        self.call_names.append((name, dict(arguments)))
+        if name == "read_file":
+            self.read_file_calls += 1
+            should_sleep = self.slow_first and self.read_file_calls == 1
+            should_sleep = should_sleep or (self.slow_read_calls > 0 and self.read_file_calls <= self.slow_read_calls)
+            if should_sleep:
+                time.sleep(self.slow_delay_sec)
+        return self._base.execute_with_interrupt(name, arguments, stop_event)
 
     def __getattr__(self, name):
         return getattr(self._base, name)
@@ -768,6 +816,98 @@ class TestQueryEngineRefactor(unittest.TestCase):
         events = transcript_store.load_events(session.session_id)
         tool_call_ids = [item["payload"]["call_id"] for item in events if item["type"] == "tool_call"]
         self.assertEqual(tool_call_ids, ["call-read-demo-a", "call-read-demo-b", "call-read-demo-c"])
+
+    def test_query_engine_discards_queued_parallel_actions_after_cancel_with_higher_parallelism(self):
+        session = Session()
+        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：code")
+        transcript_store = TranscriptStore(self.workspace)
+        stop_event = threading.Event()
+        wrapped_tools = CountingToolRuntime(self.tools, slow_read_calls=2, slow_delay_sec=0.3)
+        engine = QueryEngine(
+            client=ParallelSuccessfulReadThenDoneClient(),
+            tools=wrapped_tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+            transcript_store=transcript_store,
+            max_parallel_tools=2,
+        )
+
+        started_call_ids = []
+
+        def trigger_cancel(action):
+            started_call_ids.append(action.call_id)
+            if len(started_call_ids) == 1:
+                thread = threading.Thread(target=lambda: (time.sleep(0.05), stop_event.set()))
+                thread.daemon = True
+                thread.start()
+
+        result = engine.submit_turn(
+            user_text="读取文件",
+            stream=False,
+            initial_mode="code",
+            session=session,
+            stop_event=stop_event,
+            on_tool_start=trigger_cancel,
+        )
+        self.assertEqual(result.transition.reason, "aborted")
+        self.assertEqual(started_call_ids[:2], ["call-read-demo-a", "call-read-demo-b"])
+        self.assertNotIn("call-read-demo-c", started_call_ids)
+        error_kinds = [
+            item.data.get("error_kind")
+            for item in session.turns[-1].observations
+            if isinstance(item.data, dict)
+        ]
+        self.assertEqual(error_kinds, ["interrupted", "interrupted", "discarded"])
+        events = transcript_store.load_events(session.session_id)
+        tool_results = [item for item in events if item["type"] == "tool_result"]
+        self.assertEqual(
+            [(item["payload"]["call_id"], item["payload"]["observation"]["data"].get("error_kind")) for item in tool_results],
+            [
+                ("call-read-demo-a", "interrupted"),
+                ("call-read-demo-b", "interrupted"),
+                ("call-read-demo-c", "discarded"),
+            ],
+        )
+
+    def test_query_engine_interrupts_long_running_command_without_waiting_for_completion(self):
+        session = Session()
+        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：debug")
+        transcript_store = TranscriptStore(self.workspace)
+        stop_event = threading.Event()
+        interrupt_tools = ToolRuntime(
+            self.workspace,
+            app_config=AppConfig(allow_system_tool_fallback=True),
+        )
+        engine = QueryEngine(
+            client=SlowCommandClient(),
+            tools=interrupt_tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+            transcript_store=transcript_store,
+        )
+
+        def trigger_cancel(action):
+            thread = threading.Thread(target=lambda: (time.sleep(0.2), stop_event.set()))
+            thread.daemon = True
+            thread.start()
+
+        started = time.time()
+        result = engine.submit_turn(
+            user_text="运行长命令",
+            stream=False,
+            initial_mode="debug",
+            session=session,
+            stop_event=stop_event,
+            on_tool_start=trigger_cancel,
+        )
+        elapsed = time.time() - started
+        self.assertEqual(result.transition.reason, "aborted")
+        self.assertLess(elapsed, 3.0)
+        observation = session.turns[-1].observations[-1]
+        self.assertFalse(observation.success)
+        self.assertEqual(observation.data.get("error_kind"), "interrupted")
+        self.assertIsNot(observation.data.get("synthetic"), True)
+        events = transcript_store.load_events(session.session_id)
+        tool_results = [item for item in events if item["type"] == "tool_result"]
+        self.assertEqual(tool_results[-1]["payload"]["observation"]["data"].get("error_kind"), "interrupted")
 
     def test_adapter_resumes_pending_user_input(self):
         adapter = InProcessAdapter(

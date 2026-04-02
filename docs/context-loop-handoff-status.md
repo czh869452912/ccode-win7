@@ -144,18 +144,20 @@
 
 - pending permission / pending user input 挂起与恢复
 - tool batch partition
+- transcript-truth restore
 - ctags 解析与优先级
 - diagnostics hotspot 聚合
 - reactive compact retry
+- tool interrupt / discard / long-running command cancel
 - compact retry 的 snapshot / timeline / structured timeline 投影
 - `guard_stop / aborted / max_turns / user_input_wait / permission_wait` 的前端投影
 - `display_reason` 以及旧 summary 兼容回填
 
 最近一次新鲜验证结果：
 
-- `python -m unittest tests.test_inprocess_adapter_frontend_api tests.test_query_engine_refactor -v`
-  - `46/46` 通过
-- `python -m py_compile src\embedagent\inprocess_adapter.py src\embedagent\session_store.py src\embedagent\protocol\__init__.py tests\test_inprocess_adapter_frontend_api.py`
+- `python -m unittest tests.test_transcript_store tests.test_session_restore tests.test_query_engine_refactor tests.test_inprocess_adapter_frontend_api -v`
+  - `64/64` 通过
+- `python -m py_compile src\embedagent\tools\_base.py src\embedagent\tools\runtime.py src\embedagent\query_engine.py tests\test_query_engine_refactor.py tests\test_inprocess_adapter_frontend_api.py`
   - 通过
 
 ---
@@ -183,12 +185,13 @@
 - 用户中断后 synthetic tool_result 已落地第一段：`tool_started` 之后若会话被取消，`QueryEngine` 会写入 synthetic interrupted observation，并在 transcript / timeline / adapter event 中对齐为 aborted
 - parallel batch 中的 `discarded` result 现在仍会写入 transcript，但不再误触发 `LoopGuard` 把整轮提前打成 `guard_stop`
 - `StreamingToolExecutor` 的并行批次现在已改成流式 start/result；在 `max_parallel_tools=1` 一类受控场景下，已覆盖“首个 action interrupted、后续未开始 action discarded”的 batch abort 边界
+- 更高并发下的 queued action cancel 边界也已补上：`StreamingToolExecutor` 现在会直接观察 cancel event，因此 `max_parallel_tools>1` 时排队 action 不会在取消后偷偷启动
 - transcript completeness 也已补硬：`tool_call` event 现在在 assistant action 阶段按原始顺序落盘，因此即使后续 action 被 discarded，也不会出现“有 tool_result 没有 tool_call”的残缺链路
+- 更贴近真实 runtime 的取消路径也已补上：Windows 下 `run_command` 现在使用新进程组 + `CTRL_BREAK_EVENT` 优先中断，长命令在用户取消后不再等完整命令自然结束才返回
 
 还没做硬的点：
 
-- 更高并发下的多 tool batch retry / abort 边界
-- 更贴近真实长命令 / tool runtime 的 interrupt 行为
+- 更复杂的多 tool batch retry 组合边界
 
 ### P1：workspace intelligence 深化
 

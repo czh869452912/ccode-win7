@@ -44,6 +44,48 @@
 
 ## 3. 当前变更记录
 
+### DC-054
+
+- 日期：2026-04-02
+- 变更主题：并行执行器现在直接观察 cancel event
+- 变更摘要：
+  - `StreamingToolExecutor` 现在在 worker 获得并发槽位后，会直接检查 cancel event，而不再只等主线程处理 update 后再转述 `discard()`
+  - 这让 `max_parallel_tools>1` 时尚未启动的 queued action 在取消后保持 `discarded`，不会因为主线程观察延迟而偷偷变成已启动的 `interrupted`
+  - 新增高并发回归，覆盖“两条慢读已启动、第三条排队、取消后第三条仍应 discarded”的 transcript 语义
+- 影响范围：
+  - 并行 tool batch 的取消边界
+  - discard vs interrupted 的 transcript 语义
+  - 高并发 focused regression
+- 关联文档：
+  - `docs/context-loop-handoff-status.md`
+  - `docs/development-tracker.md`
+  - `docs/query-context-redesign.md`
+- 是否需要 ADR：`否`
+- 后续动作：
+  - 继续覆盖更复杂的 multi-batch retry 组合边界
+  - 评估是否要把 cancel/discard contract 明确写成独立文档
+
+### DC-053
+
+- 日期：2026-04-02
+- 变更主题：Windows 长命令中断已切到进程组 + CTRL_BREAK_EVENT
+- 变更摘要：
+  - `run_command` 现在在 Windows 下以新进程组启动子进程，取消时优先发送 `CTRL_BREAK_EVENT`
+  - 这让长命令用户中断不再依赖 `taskkill` 成功，避免当前运行环境里 `taskkill` 返回 `Access denied` 时仍然要等命令自然结束
+  - Query loop 现在可以更稳定地得到非 synthetic 的 interrupted observation，并及时以 `aborted` transition 收束
+- 影响范围：
+  - Tool runtime 的 Windows 中断语义
+  - 长命令取消时的端到端响应延迟
+  - interrupt/retry focused regression
+- 关联文档：
+  - `docs/context-loop-handoff-status.md`
+  - `docs/development-tracker.md`
+  - `docs/query-context-redesign.md`
+- 是否需要 ADR：`否`
+- 后续动作：
+  - 继续覆盖更高并发下的 abort/retry 组合边界
+  - 评估 compile/test/toolchain 类工具是否也需要复用更细的 runtime interrupt contract
+
 ### DC-049
 
 - 日期：2026-04-02

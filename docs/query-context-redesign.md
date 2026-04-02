@@ -41,6 +41,7 @@
 - `resume_pending(...)` 会先把等待中的交互写回 transcript，再继续后续 step
 - 当 LLM 明确返回 `prompt/context too long` 一类错误时，主循环现在会记录一次内部 `compact_retry` transition，并用更紧的内部 compact policy 重组上下文后自动重试一次
 - 当会话在 `tool_started` 之后被取消时，主循环现在会补 synthetic interrupted tool_result，避免 transcript 里只留下孤立的 `tool_call`
+- Windows 下的 `run_command` 现在会以新进程组启动，并在取消时优先发送 `CTRL_BREAK_EVENT`，因此长命令中断不再需要等命令自然结束
 - `SessionSnapshot` / timeline 已开始投影 compact retry 可观测性，当前至少能看到 `compact_retry_count`、最近 transition reasons，以及 `compact_retry` timeline event
 - `SessionSnapshot` 现在也开始保留 `last_transition_message`，便于前端直接展示“为什么停住了”
 - `SessionSnapshot` 也开始暴露 `recent_transitions`，让前端不依赖 raw timeline 也能拿到最近几条状态迁移的 `reason + message + display_reason`
@@ -114,6 +115,8 @@
   - `read_only && concurrency_safe` 批量并发
   - 其余工具串行
   - 结果按原始 tool call 顺序回写
+- `run_command` 的 Windows runtime interrupt 现已从 `taskkill` 单一路径收口为“进程组 + `CTRL_BREAK_EVENT` 优先、必要时再 fallback”的终止策略
+- `StreamingToolExecutor` 现在也会直接观察 cancel event，避免 `max_parallel_tools>1` 时排队 action 在取消后继续偷偷启动
 
 ---
 

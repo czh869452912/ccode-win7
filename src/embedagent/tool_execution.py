@@ -3,7 +3,7 @@ from __future__ import annotations
 import queue
 import threading
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional
 
 from embedagent.session import Action, Observation
 
@@ -27,9 +27,11 @@ class StreamingToolExecutor(object):
         self,
         execute_action: Callable[[Action], Observation],
         max_parallel: int = 3,
+        cancel_event: Optional[threading.Event] = None,
     ) -> None:
         self.execute_action = execute_action
         self.max_parallel = max(1, int(max_parallel or 1))
+        self.cancel_event = cancel_event
         self._discarded = False
         self._lock = threading.Lock()
 
@@ -81,7 +83,7 @@ class StreamingToolExecutor(object):
 
         def runner(action: Action) -> None:
             with semaphore:
-                if self._discarded or sibling_error.is_set():
+                if self._discarded or sibling_error.is_set() or (self.cancel_event is not None and self.cancel_event.is_set()):
                     updates.put(
                         ToolExecutionUpdate(
                             action=action,
