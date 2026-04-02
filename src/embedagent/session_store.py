@@ -22,6 +22,7 @@ def _atomic_write_json(path: str, payload: Any) -> None:
 from embedagent.artifacts import ArtifactStore
 from embedagent.modes import build_system_prompt
 from embedagent.session import Action, Observation, Session
+from embedagent.transcript_store import TranscriptStore
 from embedagent.workspace_profile import build_workspace_profile_message
 
 
@@ -74,6 +75,7 @@ class SessionSummaryStore(object):
         self.max_index_entries = max_index_entries
         self.max_retained_sessions = max_retained_sessions
         self.sanitizer = ArtifactStore(self.workspace)
+        self.transcript_store = TranscriptStore(self.workspace, relative_root=self.relative_root)
 
     def persist(
         self,
@@ -204,6 +206,29 @@ class SessionSummaryStore(object):
             raise ValueError("未找到会话摘要：%s" % reference)
         return candidate
 
+    def resolve_transcript_path(self, reference: str) -> str:
+        raw = (reference or "").strip()
+        if not raw:
+            raise ValueError("恢复会话时必须提供 session_id、latest、summary.json 或 transcript.jsonl。")
+        if raw == "latest":
+            summaries = self.list_summaries(limit=1)
+            if summaries:
+                candidate = str(summaries[0].get("transcript_ref") or summaries[0].get("session_id") or "")
+                if candidate:
+                    return self.transcript_store.resolve_transcript_path(candidate)
+            raise ValueError("当前没有可恢复的 transcript。")
+        if raw.endswith("summary.json"):
+            summary = self.load_summary(raw)
+            transcript_ref = str(summary.get("transcript_ref") or summary.get("session_id") or "")
+            if not transcript_ref:
+                raise ValueError("摘要文件缺少 transcript 路径。")
+            return self.transcript_store.resolve_transcript_path(transcript_ref)
+        return self.transcript_store.resolve_transcript_path(raw)
+
+    def transcript_ref_for_session(self, session_id: str) -> str:
+        path = self.transcript_store.resolve_transcript_path(session_id)
+        return os.path.relpath(path, self.workspace).replace(os.sep, "/")
+
     def build_resume_message(self, summary: Dict[str, Any], char_limit: int = 1800) -> str:
         lines = [
             "以下是上次会话的恢复摘要，仅供续跑参考；若与新的系统提示、项目记忆或用户当前要求冲突，以后者为准。"
@@ -273,6 +298,7 @@ class SessionSummaryStore(object):
             "message_count": payload.get("message_count"),
             "user_goal": payload.get("user_goal"),
             "summary_text": payload.get("summary_text"),
+            "transcript_ref": payload.get("transcript_ref"),
             "summary_ref": summary_ref,
         }
         updated = [item for item in sessions if item.get("session_id") != record["session_id"]]
@@ -306,6 +332,7 @@ class SessionSummaryStore(object):
                     "message_count": payload.get("message_count"),
                     "user_goal": payload.get("user_goal"),
                     "summary_text": payload.get("summary_text"),
+                    "transcript_ref": payload.get("transcript_ref"),
                     "summary_ref": os.path.relpath(summary_path, self.workspace).replace(os.sep, "/"),
                 }
             )
@@ -359,6 +386,7 @@ class SessionSummaryStore(object):
             "user_goal": self._first_user_message(session),
             "latest_user_message": self._last_user_message(session),
             "assistant_last_reply": self._last_assistant_message(session),
+            "transcript_ref": self.transcript_ref_for_session(session.session_id),
             "working_set": working_set,
             "modified_files": modified_files,
             "recent_actions": recent_actions,

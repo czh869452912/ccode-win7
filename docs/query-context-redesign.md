@@ -50,6 +50,10 @@
 - `turn_end` 的非完成终止态（如 `max_turns`）也开始进入 structured timeline transitions，不再只表现为 turn status 文本
 - 结构化时间线里的 transition 现在也会同步携带 `display_reason` 与错误/停止原因文本，前端不必再从其他 summary 或日志里反查原因
 - 会话结束后会重新持久化一次最终状态，确保 `max_turns` 这类最后才出现的 transition 不会丢失在 summary/snapshot 之外
+- Session truth 现在开始落到 `.embedagent/memory/sessions/<session_id>/transcript.jsonl`
+- `summary.json` / snapshot payload 已下沉为 derived projection，而不再作为恢复真相源
+- `resume_session()` 已切到 transcript replay 主线：恢复时先重建 `Session`，再回填 snapshot / summary / timeline
+- `content_replacement` 与 `context_snapshot` transcript events 已开始持久化 replacement / compact 相关语义，避免 resume 后 replacement 字符串漂移
 
 ---
 

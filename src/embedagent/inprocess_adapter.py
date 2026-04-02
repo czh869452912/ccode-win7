@@ -21,10 +21,12 @@ from embedagent.permissions import PermissionPolicy, PermissionRequest
 from embedagent.protocol import CommandResult, PermissionContextView, PlanSnapshot
 from embedagent.project_memory import ProjectMemoryStore
 from embedagent.query_engine import QueryEngine
+from embedagent.session_restore import SessionRestorer
 from embedagent.session import Action, AssistantReply, Observation, Session
 from embedagent.session_store import SessionSummaryStore
 from embedagent.session_timeline import SessionTimelineStore
 from embedagent.slash_commands import ParsedSlashCommand, SlashCommandRegistry, parse_slash_command
+from embedagent.transcript_store import TranscriptStore
 from embedagent import todos as todo_store
 from embedagent.tools import ToolRuntime
 from embedagent.tools._base import SKIP_DIR_NAMES
@@ -165,6 +167,8 @@ class InProcessAdapter(object):
         self.event_handler = event_handler
         self.plan_store = PlanStore(self.tools.workspace)
         self.command_registry = SlashCommandRegistry()
+        self.transcript_store = TranscriptStore(self.tools.workspace)
+        self.session_restorer = SessionRestorer()
         initialize_modes(self.tools.workspace)
         self._sessions = {}  # type: Dict[str, ManagedSession]
         self._lock = threading.RLock()
@@ -177,10 +181,34 @@ class InProcessAdapter(object):
         current_mode = require_mode(mode)["slug"]
         session = Session()
         todo_store.ensure_session_todos(self.tools.workspace, session.session_id, seed_from_legacy=False)
-        session.add_system_message(build_workspace_profile_message(self.tools.workspace, session.session_id))
-        session.add_system_message(
+        profile_message = session.add_system_message(build_workspace_profile_message(self.tools.workspace, session.session_id))
+        mode_message = session.add_system_message(
             build_system_prompt(current_mode, getattr(self.tools, "app_config", None), self.tools.workspace)
         )
+        self.transcript_store.append_event(
+            session.session_id,
+            "session_meta",
+            {
+                "current_mode": current_mode,
+                "started_at": session.started_at,
+                "workspace": self.tools.workspace,
+            },
+        )
+        for message in (profile_message, mode_message):
+            self.transcript_store.append_event(
+                session.session_id,
+                "message",
+                {
+                    "role": message.role,
+                    "content": message.content,
+                    "message_id": message.message_id,
+                    "turn_id": message.turn_id,
+                    "step_id": message.step_id,
+                    "kind": message.kind,
+                    "metadata": dict(message.metadata),
+                    "replaced_by_refs": list(message.replaced_by_refs),
+                },
+            )
         plan = self.plan_store.load(session.session_id)
         state = ManagedSession(
             session=session,
@@ -202,28 +230,61 @@ class InProcessAdapter(object):
         mode: str = "",
         event_handler: Optional[EventHandler] = None,
     ) -> Dict[str, Any]:
-        summary = self.summary_store.load_summary(reference)
-        current_mode = require_mode(mode or str(summary.get("current_mode") or DEFAULT_MODE))["slug"]
-        summary_session_id = str(summary.get("session_id") or "")
-        if summary_session_id:
-            todo_store.ensure_session_todos(
-                self.tools.workspace,
-                summary_session_id,
-                seed_from_legacy=True,
-            )
-        session = self.summary_store.create_resumed_session(
-            summary,
-            current_mode,
-            config=getattr(self.tools, "app_config", None),
+        summary = None
+        try:
+            summary = self.summary_store.load_summary(reference)
+        except ValueError:
+            summary = None
+        transcript_path = self.summary_store.resolve_transcript_path(reference)
+        events = self.transcript_store.load_events(transcript_path)
+        restored = self.session_restorer.restore(events)
+        current_mode = require_mode(
+            mode
+            or restored.current_mode
+            or str((summary or {}).get("current_mode") or DEFAULT_MODE)
+        )["slug"]
+        session = restored.session
+        todo_store.ensure_session_todos(
+            self.tools.workspace,
+            session.session_id,
+            seed_from_legacy=True,
         )
+        summary_ref = ""
+        try:
+            summary_ref = self.summary_store.persist(session, current_mode)
+        except Exception:
+            summary_ref = str((summary or {}).get("summary_ref") or "")
         state = ManagedSession(
             session=session,
             current_mode=current_mode,
-            summary_ref=str(summary.get("summary_ref") or ""),
-            updated_at=str(summary.get("updated_at") or _utc_now()),
+            summary_ref=summary_ref,
+            updated_at=str((summary or {}).get("updated_at") or _utc_now()),
             resume_summary=summary,
-            last_assistant_message=str(summary.get("assistant_last_reply") or ""),
+            last_assistant_message=self._last_assistant_from_session(session),
         )
+        if session.pending_interaction is not None:
+            if session.pending_interaction.kind == "permission":
+                state.status = "waiting_permission"
+                permission_payload = dict(session.pending_interaction.request_payload.get("permission") or {})
+                state.pending_permission = PermissionTicket(
+                    permission_id=str(session.pending_interaction.interaction_id or "perm-resume"),
+                    session_id=session.session_id,
+                    tool_name=session.pending_interaction.tool_name,
+                    category=str(permission_payload.get("category") or ""),
+                    reason=str(permission_payload.get("reason") or ""),
+                    details=dict(permission_payload.get("details") or {}),
+                )
+            elif session.pending_interaction.kind == "user_input":
+                state.status = "waiting_user_input"
+                request_payload = dict(session.pending_interaction.request_payload.get("request") or {})
+                state.pending_user_input = UserInputTicket(
+                    request_id=str(session.pending_interaction.interaction_id or "ask-resume"),
+                    session_id=session.session_id,
+                    tool_name=session.pending_interaction.tool_name,
+                    question=str(request_payload.get("question") or ""),
+                    options=list(request_payload.get("options") or []),
+                    details=dict(request_payload.get("details") or {}),
+                )
         plan = self.plan_store.load(session.session_id)
         if plan is not None:
             state.active_plan_ref = plan.path
@@ -1853,6 +1914,7 @@ class InProcessAdapter(object):
             project_memory_store=self.project_memory_store,
             memory_maintenance=self.memory_maintenance,
             maintenance_interval=self.maintenance_interval,
+            transcript_store=self.transcript_store,
         )
         current_step = {"step_id": "", "step_index": 0}
         thinking_state = {"active": False}
@@ -2425,6 +2487,12 @@ class InProcessAdapter(object):
             if state.status != "error":
                 state.status = "running"
             state.updated_at = _utc_now()
+
+    def _last_assistant_from_session(self, session: Session) -> str:
+        for turn in reversed(session.turns):
+            if turn.assistant_message:
+                return str(turn.assistant_message)
+        return ""
 
     def _read_summary_for_state(self, state: ManagedSession) -> Optional[Dict[str, Any]]:
         if state.summary_ref or state.session.turns:

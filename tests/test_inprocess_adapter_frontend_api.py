@@ -13,6 +13,7 @@ from embedagent.inprocess_adapter import InProcessAdapter
 from embedagent.llm import ModelClientError
 from embedagent.permissions import PermissionPolicy
 from embedagent.session import Action, AssistantReply
+from embedagent.transcript_store import TranscriptStore
 from embedagent.tools import ToolRuntime
 
 
@@ -707,6 +708,49 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         recipe_ids = [item["id"] for item in payload["items"]]
         self.assertIn("cmake.build.default", recipe_ids)
         self.assertIn("cmake.test.default", recipe_ids)
+
+    def test_resume_session_rebuilds_from_transcript_when_summary_is_missing(self):
+        adapter = InProcessAdapter(
+            client=ToolClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+        )
+        snapshot = adapter.create_session('code')
+        session_id = str(snapshot.get('session_id') or '')
+        adapter.submit_user_message(
+            session_id=session_id,
+            text='读取文件',
+            stream=False,
+            wait=True,
+            permission_resolver=lambda ticket: True,
+            event_handler=lambda event_name, current_session_id, payload: None,
+        )
+        summary_path = adapter.summary_store.resolve_summary_path(session_id)
+        if os.path.isfile(summary_path):
+            os.remove(summary_path)
+        restored = adapter.resume_session(session_id, 'code')
+        self.assertEqual(restored["session_id"], session_id)
+        self.assertEqual(restored["current_mode"], "code")
+        self.assertEqual(restored["last_assistant_message"], "done")
+
+    def test_resume_session_restores_waiting_permission_from_transcript(self):
+        adapter = InProcessAdapter(
+            client=WriteThenDoneClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=False, workspace=self.workspace),
+        )
+        snapshot = adapter.create_session('code')
+        session_id = str(snapshot.get('session_id') or '')
+        adapter.submit_user_message(
+            session_id=session_id,
+            text='写文件',
+            stream=False,
+            wait=True,
+            event_handler=lambda event_name, current_session_id, payload: None,
+        )
+        restored = adapter.resume_session(session_id, 'code')
+        self.assertEqual(restored["status"], "waiting_permission")
+        self.assertTrue(restored["has_pending_permission"])
 
     def test_slash_recipes_emits_recipe_summary(self):
         with open(os.path.join(self.workspace, "Makefile"), "w", encoding="utf-8") as handle:

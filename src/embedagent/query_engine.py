@@ -4,6 +4,7 @@ import logging
 import os
 import threading
 import time
+import uuid
 from typing import Any, Callable, Dict, Optional, Tuple
 
 from embedagent.context import ContextManager
@@ -16,6 +17,7 @@ from embedagent.permissions import PermissionPolicy, PermissionRequest
 from embedagent.project_memory import ProjectMemoryStore
 from embedagent.session import Action, AssistantReply, ContextAssemblyResult, LoopResult, LoopTransition, Observation, PendingInteraction, QueryTurnResult, Session
 from embedagent.session_store import SessionSummaryStore
+from embedagent.transcript_store import TranscriptStore
 from embedagent.tool_execution import StreamingToolExecutor, partition_tool_actions
 from embedagent.tools import ToolRuntime
 from embedagent.tools._base import ToolError
@@ -51,6 +53,7 @@ class QueryEngine(object):
         maintenance_interval: int = 4,
         intelligence_broker: Optional[WorkspaceIntelligenceBroker] = None,
         max_parallel_tools: int = 3,
+        transcript_store: Optional[TranscriptStore] = None,
     ) -> None:
         self.client = client
         self.tools = tools
@@ -67,7 +70,47 @@ class QueryEngine(object):
         self.maintenance_interval = maintenance_interval if maintenance_interval > 0 else 1
         self.intelligence_broker = intelligence_broker or WorkspaceIntelligenceBroker()
         self.max_parallel_tools = max(1, int(max_parallel_tools or 1))
+        self.transcript_store = transcript_store or TranscriptStore(self.tools.workspace)
         self._maintenance_counter = 0
+
+    def _append_transcript_event(self, session: Session, event_type: str, payload: Dict[str, Any]) -> None:
+        if self.transcript_store is None:
+            return
+        self.transcript_store.append_event(session.session_id, event_type, payload)
+
+    def _append_message_event(self, session: Session, payload: Dict[str, Any]) -> None:
+        self._append_transcript_event(session, "message", payload)
+
+    def _record_transition(self, session: Session, transition: LoopTransition) -> None:
+        step_id = session.current_step().step_id if session.current_step() is not None else ""
+        turn_id = session.turns[-1].turn_id if session.turns else ""
+        if transition.pending_interaction is not None:
+            self._append_transcript_event(
+                session,
+                "pending_interaction",
+                {
+                    "turn_id": turn_id,
+                    "step_id": step_id,
+                    "kind": transition.pending_interaction.kind,
+                    "tool_name": transition.pending_interaction.tool_name,
+                    "interaction_id": transition.pending_interaction.interaction_id,
+                    "request_payload": dict(transition.pending_interaction.request_payload),
+                },
+            )
+        self._append_transcript_event(
+            session,
+            "loop_transition",
+            {
+                "turn_id": turn_id,
+                "step_id": step_id,
+                "reason": transition.reason,
+                "message": transition.message,
+                "next_mode": transition.next_mode,
+                "turns_used": transition.turns_used,
+                "metadata": dict(transition.metadata),
+            },
+        )
+        session.record_transition(transition)
 
     def submit_turn(
         self,
@@ -90,9 +133,45 @@ class QueryEngine(object):
         current_mode = require_mode(initial_mode)["slug"]
         if session is None:
             session = Session()
-            session.add_system_message(build_system_prompt(current_mode, getattr(self.tools, "app_config", None), self.tools.workspace))
+            system_message = session.add_system_message(
+                build_system_prompt(current_mode, getattr(self.tools, "app_config", None), self.tools.workspace)
+            )
+            self._append_transcript_event(
+                session,
+                "session_meta",
+                {
+                    "current_mode": current_mode,
+                    "started_at": session.started_at,
+                    "workspace": self.tools.workspace,
+                },
+            )
+            self._append_message_event(
+                session,
+                {
+                    "role": system_message.role,
+                    "content": system_message.content,
+                    "message_id": system_message.message_id,
+                    "turn_id": system_message.turn_id,
+                    "step_id": system_message.step_id,
+                    "kind": system_message.kind,
+                    "metadata": dict(system_message.metadata),
+                    "replaced_by_refs": list(system_message.replaced_by_refs),
+                },
+            )
         if user_text:
-            session.add_user_message(user_text)
+            turn_id = "t-" + uuid.uuid4().hex[:12]
+            message_id = "m-" + uuid.uuid4().hex[:12]
+            self._append_message_event(
+                session,
+                {
+                    "role": "user",
+                    "content": user_text,
+                    "message_id": message_id,
+                    "turn_id": turn_id,
+                    "step_id": "",
+                },
+            )
+            session.add_user_message(user_text, turn_id=turn_id, message_id=message_id)
         return self._run_loop(
             session,
             current_mode,
@@ -132,7 +211,7 @@ class QueryEngine(object):
         pending = session.pending_interaction
         if pending is None:
             transition = LoopTransition(reason="completed", message="no pending interaction")
-            session.record_transition(transition)
+            self._record_transition(session, transition)
             return QueryTurnResult("", session, transition)
         current_mode = self._resume_interaction(
             session,
@@ -182,16 +261,53 @@ class QueryEngine(object):
         for turn_index in range(self.max_turns):
             if stop_event is not None and stop_event.is_set():
                 transition = LoopTransition(reason="aborted", message="stop_event set", turns_used=turns_used)
-                session.record_transition(transition)
+                self._record_transition(session, transition)
                 return QueryTurnResult(final_text, session, transition, turns_used)
             step_index = turn_index + 1
-            session.begin_step()
+            step_id = "s-" + uuid.uuid4().hex[:12]
+            self._append_transcript_event(
+                session,
+                "step_started",
+                {
+                    "turn_id": session.turns[-1].turn_id if session.turns else "",
+                    "step_id": step_id,
+                    "step_index": step_index,
+                },
+            )
+            session.begin_step(step_id=step_id)
             if on_step_start is not None:
                 on_step_start(step_index)
             force_compact = False
             compact_retry_used = False
             while True:
                 assembly = self._build_context(session, current_mode, workflow_state, force_compact=force_compact)
+                session.record_context_snapshot(
+                    {
+                        "mode_name": current_mode,
+                        "pipeline_steps": list(assembly.pipeline_steps),
+                        "analysis": dict(assembly.analysis),
+                        "approx_tokens": assembly.approx_tokens,
+                        "summary_message": assembly.summary_message,
+                    }
+                )
+                self._append_transcript_event(
+                    session,
+                    "context_snapshot",
+                    {
+                        "mode_name": current_mode,
+                        "pipeline_steps": list(assembly.pipeline_steps),
+                        "analysis": dict(assembly.analysis),
+                        "approx_tokens": assembly.approx_tokens,
+                        "summary_message": assembly.summary_message,
+                    },
+                )
+                for replacement in assembly.replacements:
+                    session.record_content_replacement(dict(replacement))
+                    self._append_transcript_event(
+                        session,
+                        "content_replacement",
+                        dict(replacement),
+                    )
                 if on_context_result is not None:
                     on_context_result(assembly)
                 self._persist_summary(session, current_mode, assembly)
@@ -217,14 +333,36 @@ class QueryEngine(object):
                             "pipeline_steps": list(assembly.pipeline_steps),
                         },
                     )
-                    session.record_transition(transition)
+                    self._record_transition(session, transition)
                     continue
-            session.add_assistant_reply(reply)
+            assistant_message_id = "m-" + uuid.uuid4().hex[:12]
+            self._append_message_event(
+                session,
+                {
+                    "role": "assistant",
+                    "content": reply.content,
+                    "message_id": assistant_message_id,
+                    "turn_id": session.turns[-1].turn_id if session.turns else "",
+                    "step_id": step_id,
+                    "actions": [
+                        {"name": action.name, "arguments": dict(action.arguments), "call_id": action.call_id}
+                        for action in reply.actions
+                    ],
+                    "reasoning_content": reply.reasoning_content,
+                    "finish_reason": reply.finish_reason,
+                },
+            )
+            session.add_assistant_reply(
+                reply,
+                message_id=assistant_message_id,
+                turn_id=session.turns[-1].turn_id if session.turns else "",
+                step_id=step_id,
+            )
             final_text = reply.content
             turns_used = step_index
             if not reply.actions:
                 transition = LoopTransition(reason="completed", message="assistant finished", next_mode=current_mode, turns_used=turns_used)
-                session.record_transition(transition)
+                self._record_transition(session, transition)
                 self._persist_summary(session, current_mode, assembly)
                 self._maybe_record_compact_boundary(session, current_mode, assembly)
                 self._maybe_maintain_memory(True)
@@ -235,6 +373,18 @@ class QueryEngine(object):
             for batch in partition_tool_actions(reply.actions, self.tools.tool_capabilities):
                 if not batch.parallel:
                     for action in batch.actions:
+                        self._append_transcript_event(
+                            session,
+                            "tool_call",
+                            {
+                                "turn_id": session.turns[-1].turn_id if session.turns else "",
+                                "step_id": step_id,
+                                "call_id": action.call_id,
+                                "tool_name": action.name,
+                                "arguments": dict(action.arguments),
+                                "status": "started",
+                            },
+                        )
                         session.record_tool_call(action)
                         if on_tool_start is not None:
                             on_tool_start(action)
@@ -250,20 +400,53 @@ class QueryEngine(object):
                             if on_step_finish is not None:
                                 on_step_finish(step_index, reply, suspended.transition.reason)
                             return suspended
-                        session.add_observation(action, observation)
+                        tool_message_id = "m-" + uuid.uuid4().hex[:12]
+                        finished_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+                        self._append_transcript_event(
+                            session,
+                            "tool_result",
+                            {
+                                "turn_id": session.turns[-1].turn_id if session.turns else "",
+                                "step_id": step_id,
+                                "call_id": action.call_id,
+                                "tool_name": action.name,
+                                "finished_at": finished_at,
+                                "observation": observation.to_dict(),
+                            },
+                        )
+                        session.add_observation(
+                            action,
+                            observation,
+                            message_id=tool_message_id,
+                            turn_id=session.turns[-1].turn_id if session.turns else "",
+                            step_id=step_id,
+                            finished_at=finished_at,
+                        )
                         self._persist_summary(session, current_mode, assembly)
                         if on_tool_finish is not None:
                             on_tool_finish(action, observation)
                         loop_guard.record(action, observation)
                         if loop_guard.should_block(action) or loop_guard.should_stop():
                             transition = LoopTransition(reason="guard_stop", message=loop_guard.stop_reason(), turns_used=turns_used)
-                            session.record_transition(transition)
+                            self._record_transition(session, transition)
                             if on_step_finish is not None:
                                 on_step_finish(step_index, reply, "guard_stop")
                             return QueryTurnResult(final_text, session, transition, turns_used)
                     continue
                 for update in executor.run_batch(batch):
                     if update.phase == "start":
+                        self._append_transcript_event(
+                            session,
+                            "tool_call",
+                            {
+                                "turn_id": session.turns[-1].turn_id if session.turns else "",
+                                "step_id": step_id,
+                                "call_id": update.action.call_id,
+                                "tool_name": update.action.name,
+                                "arguments": dict(update.action.arguments),
+                                "status": "started",
+                            },
+                        )
                         session.record_tool_call(update.action)
                         if on_tool_start is not None:
                             on_tool_start(update.action)
@@ -281,21 +464,42 @@ class QueryEngine(object):
                         if on_step_finish is not None:
                             on_step_finish(step_index, reply, suspended.transition.reason)
                         return suspended
-                    session.add_observation(update.action, observation)
+                    tool_message_id = "m-" + uuid.uuid4().hex[:12]
+                    finished_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+                    self._append_transcript_event(
+                        session,
+                        "tool_result",
+                        {
+                            "turn_id": session.turns[-1].turn_id if session.turns else "",
+                            "step_id": step_id,
+                            "call_id": update.action.call_id,
+                            "tool_name": update.action.name,
+                            "finished_at": finished_at,
+                            "observation": observation.to_dict(),
+                        },
+                    )
+                    session.add_observation(
+                        update.action,
+                        observation,
+                        message_id=tool_message_id,
+                        turn_id=session.turns[-1].turn_id if session.turns else "",
+                        step_id=step_id,
+                        finished_at=finished_at,
+                    )
                     self._persist_summary(session, current_mode, assembly)
                     if on_tool_finish is not None:
                         on_tool_finish(update.action, observation)
                     loop_guard.record(update.action, observation)
                     if loop_guard.should_block(update.action) or loop_guard.should_stop():
                         transition = LoopTransition(reason="guard_stop", message=loop_guard.stop_reason(), turns_used=turns_used)
-                        session.record_transition(transition)
+                        self._record_transition(session, transition)
                         if on_step_finish is not None:
                             on_step_finish(step_index, reply, "guard_stop")
                         return QueryTurnResult(final_text, session, transition, turns_used)
             if on_step_finish is not None:
                 on_step_finish(step_index, reply, "tool_calls")
         transition = LoopTransition(reason="max_turns", message="超过最大迭代次数", turns_used=turns_used)
-        session.record_transition(transition)
+        self._record_transition(session, transition)
         return QueryTurnResult(final_text, session, transition, turns_used)
 
     def _build_context(self, session: Session, mode_name: str, workflow_state: str, force_compact: bool = False) -> ContextAssemblyResult:
@@ -383,7 +587,7 @@ class QueryEngine(object):
                     },
                 )
                 transition = LoopTransition("user_input_wait", request.question, pending, current_mode)
-                session.record_transition(transition)
+                self._record_transition(session, transition)
                 return self._failure_observation("ask_user", "waiting user input", "pending_interaction", False, "user_input", "等待用户回答。", {"pending": True}), current_mode, QueryTurnResult("", session, transition, pending_interaction=pending)
             observation, next_mode = self._build_user_input_observation(session, current_mode, request, response)
             return observation, next_mode, None
@@ -398,7 +602,7 @@ class QueryEngine(object):
                     request_payload={"action": {"name": action.name, "arguments": dict(action.arguments), "call_id": action.call_id}},
                 )
                 transition = LoopTransition("user_input_wait", str(action.arguments.get("reason") or ""), pending, current_mode)
-                session.record_transition(transition)
+                self._record_transition(session, transition)
                 return self._failure_observation(action.name, "waiting user input", "pending_interaction", False, "user_input", "等待用户回答。", {"pending": True}), current_mode, QueryTurnResult("", session, transition, pending_interaction=pending)
             target_mode = str(response.selected_mode or action.arguments.get("target_mode") or "").strip()
             if target_mode:
@@ -422,7 +626,7 @@ class QueryEngine(object):
                     },
                 )
                 transition = LoopTransition("permission_wait", decision.request.reason, pending, current_mode)
-                session.record_transition(transition)
+                self._record_transition(session, transition)
                 return self._failure_observation(action.name, "waiting permission", "pending_interaction", False, "permission", "等待用户批准。", {"pending": True}), current_mode, QueryTurnResult("", session, transition, pending_interaction=pending)
             if not approved:
                 return self._failure_observation(action.name, "操作未获批准，已跳过执行。", "permission_denied", False, "user_confirmation", "等待用户批准，或改为不需要该权限的方案。", {"permission_required": True, "permission_decision": "deny"}), current_mode, None
