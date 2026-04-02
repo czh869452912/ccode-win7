@@ -3,13 +3,32 @@ import { useLang } from "../LangContext.js";
 import { t } from "../strings.js";
 import DiffView from "./DiffView.jsx";
 
-const PRIMARY_TABS = ["todos", "plan", "artifacts"];
-const OVERFLOW_TABS = ["run", "problems", "review", "permissions", "runtime", "preview", "log"];
+const ALL_TABS = ["todos", "plan", "artifacts", "run", "problems", "review", "permissions", "runtime", "preview", "log"];
+
+// Approximate px each tab occupies (monospace 10px + padding 16px)
+const TAB_WIDTH_PX = 52;
+// Width reserved for the "···" overflow button
+const OVERFLOW_BTN_PX = 44;
 
 function InspectorTabs({ active, onChange, todosCount, artifactsCount }) {
   const lang = useLang();
   const [overflowOpen, setOverflowOpen] = React.useState(false);
   const overflowRef = React.useRef(null);
+  const tabsRef = React.useRef(null);
+  const [visibleCount, setVisibleCount] = React.useState(3);
+
+  // Resize observer: expand visible tabs as inspector widens
+  React.useEffect(() => {
+    if (!tabsRef.current) return;
+    const ro = new ResizeObserver(([entry]) => {
+      const w = entry.contentRect.width;
+      // How many tabs fit before we need the overflow button?
+      const fits = Math.floor((w - OVERFLOW_BTN_PX) / TAB_WIDTH_PX);
+      setVisibleCount(Math.max(3, Math.min(fits, ALL_TABS.length)));
+    });
+    ro.observe(tabsRef.current);
+    return () => ro.disconnect();
+  }, []);
 
   // Close overflow menu when clicking outside
   React.useEffect(() => {
@@ -23,11 +42,15 @@ function InspectorTabs({ active, onChange, todosCount, artifactsCount }) {
     return () => document.removeEventListener("mousedown", onDoc);
   }, [overflowOpen]);
 
+  const primaryTabs = ALL_TABS.slice(0, visibleCount);
+  const overflowTabs = ALL_TABS.slice(visibleCount);
+  const hasOverflow = overflowTabs.length > 0;
+  const activeInOverflow = overflowTabs.includes(active);
   const badges = { todos: todosCount, artifacts: artifactsCount };
 
   return (
-    <div className="inspector-tabs" role="tablist">
-      {PRIMARY_TABS.map((id) => (
+    <div className="inspector-tabs" role="tablist" ref={tabsRef}>
+      {primaryTabs.map((id) => (
         <button
           key={id}
           role="tab"
@@ -39,31 +62,34 @@ function InspectorTabs({ active, onChange, todosCount, artifactsCount }) {
           {badges[id] > 0 && <span className="tab-badge">{badges[id]}</span>}
         </button>
       ))}
-      <div ref={overflowRef} style={{ marginLeft: "auto", position: "relative" }}>
-        <button
-          className="more-tab-btn"
-          onClick={() => setOverflowOpen((v) => !v)}
-          aria-label="More tabs"
-        >
-          {OVERFLOW_TABS.includes(active)
-            ? t(`inspector.${active}`, lang) + " ···"
-            : "···"}
-        </button>
-        {overflowOpen && (
-          <div className="tab-overflow-menu" role="menu">
-            {OVERFLOW_TABS.map((id) => (
-              <button
-                key={id}
-                role="menuitem"
-                className="overflow-menu-item"
-                onClick={() => { onChange(id); setOverflowOpen(false); }}
-              >
-                {t(`inspector.${id}`, lang)}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
+      {hasOverflow && (
+        <div ref={overflowRef} style={{ marginLeft: "auto", position: "relative" }}>
+          <button
+            className={`more-tab-btn${activeInOverflow ? " active" : ""}`}
+            onClick={() => setOverflowOpen((v) => !v)}
+            aria-label="More tabs"
+            aria-expanded={overflowOpen}
+          >
+            {activeInOverflow
+              ? t(`inspector.${active}`, lang) + " ···"
+              : "···"}
+          </button>
+          {overflowOpen && (
+            <div className="tab-overflow-menu" role="menu">
+              {overflowTabs.map((id) => (
+                <button
+                  key={id}
+                  role="menuitem"
+                  className={`overflow-menu-item${active === id ? " active" : ""}`}
+                  onClick={() => { onChange(id); setOverflowOpen(false); }}
+                >
+                  {t(`inspector.${id}`, lang)}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
