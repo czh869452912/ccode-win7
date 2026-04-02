@@ -187,8 +187,9 @@
 - 日期：2026-04-02
 - 变更主题：snapshot 补齐结构化 recent transitions
 - 变更摘要：
-  - `SessionSummaryStore` 现在会持久化 `recent_transitions`，每项包含 `reason` 与 `message`
+  - `SessionSummaryStore` 现在会持久化 `recent_transitions`，每项包含 `reason`、`message` 与 `display_reason`
   - `SessionSnapshot` 已投影这一结构化列表，前端可直接消费最近几条状态迁移，而不必先解析 raw timeline
+  - 对历史 summary，如果 `recent_transitions` 尚未带 `display_reason`，adapter 也会在读取 snapshot 时即时补齐
   - 这让 snapshot 和 structured timeline 之间的可观测性口径进一步靠近
 - 影响范围：
   - Session summary / snapshot 协议
@@ -201,6 +202,26 @@
 - 后续动作：
   - 继续补 `guard_stop / cancelled` 的专项回归
   - 视 GUI 需求决定 recent transitions 的展示排序与截断策略
+
+### DC-054
+
+- 日期：2026-04-02
+- 变更主题：snapshot 补齐 display 级 transition reason
+- 变更摘要：
+  - `SessionSnapshot` 现在会额外暴露 `last_transition_display_reason`
+  - 该字段把内部 loop reason 映射到更适合前端消费的语义，例如 `aborted -> cancelled`、`guard_stop -> guard`
+  - `build_structured_timeline()` 里的 transition 项现在也会带上同一套 `display_reason`
+  - 这让前端可以同时保留底层 raw reason 和用户可读 reason，而无需在 UI 层硬编码映射表
+- 影响范围：
+  - Session snapshot 协议
+  - 前端状态文案与展示逻辑
+  - transition 相关回归测试
+- 关联文档：
+  - `docs/query-context-redesign.md`
+  - `docs/development-tracker.md`
+- 是否需要 ADR：`否`
+- 后续动作：
+  - 视 GUI 需求决定是否把 `display_reason` 进一步统一成完整的展示文案层模型
 
 ### DC-045
 

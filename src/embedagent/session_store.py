@@ -38,6 +38,19 @@ def _truncate_text(text: str, limit: int) -> str:
     return text[:limit] + "..."
 
 
+def _display_transition_reason(reason: str) -> str:
+    value = str(reason or "").strip()
+    mapping = {
+        "aborted": "cancelled",
+        "guard_stop": "guard",
+        "permission_wait": "waiting_permission",
+        "permission_required": "waiting_permission",
+        "user_input_wait": "waiting_user_input",
+        "user_input_required": "waiting_user_input",
+    }
+    return mapping.get(value, value)
+
+
 class SessionSummaryStore(object):
     def __init__(
         self,
@@ -499,6 +512,7 @@ class SessionSummaryStore(object):
                     recent_items.append(
                         {
                             "reason": reason,
+                            "display_reason": _display_transition_reason(reason),
                             "message": message,
                         }
                     )

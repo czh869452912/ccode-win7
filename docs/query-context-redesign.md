@@ -42,11 +42,13 @@
 - 当 LLM 明确返回 `prompt/context too long` 一类错误时，主循环现在会记录一次内部 `compact_retry` transition，并用更紧的内部 compact policy 重组上下文后自动重试一次
 - `SessionSnapshot` / timeline 已开始投影 compact retry 可观测性，当前至少能看到 `compact_retry_count`、最近 transition reasons，以及 `compact_retry` timeline event
 - `SessionSnapshot` 现在也开始保留 `last_transition_message`，便于前端直接展示“为什么停住了”
-- `SessionSnapshot` 也开始暴露 `recent_transitions`，让前端不依赖 raw timeline 也能拿到最近几条状态迁移的 `reason + message`
+- `SessionSnapshot` 也开始暴露 `recent_transitions`，让前端不依赖 raw timeline 也能拿到最近几条状态迁移的 `reason + message + display_reason`
+- `SessionSnapshot` 现在还会给最后一条 transition 提供 display 级 reason，前端不必自己把 `aborted / guard_stop / user_input_wait` 这类内部名称再映射成用户语义
+- 读取旧 `summary.json` 时，即使历史 `recent_transitions` 里还没有 `display_reason`，snapshot 也会按当前映射规则即时补齐，避免 resume 老会话时出现新旧字段混杂
 - `build_structured_timeline()` 也开始保留 turn/step 级别的 `transitions`，这样 `compact_retry` 不会在结构化时间线里丢失
 - 结构化时间线现在也会保留 `user_input_required / permission_required` 这类等待态 transition，并把 turn 状态更新为对应的 waiting 状态
 - `turn_end` 的非完成终止态（如 `max_turns`）也开始进入 structured timeline transitions，不再只表现为 turn status 文本
-- 终止态 transition 现在会同步携带错误/停止原因文本，前端不必再从其他 summary 或日志里反查原因
+- 结构化时间线里的 transition 现在也会同步携带 `display_reason` 与错误/停止原因文本，前端不必再从其他 summary 或日志里反查原因
 - 会话结束后会重新持久化一次最终状态，确保 `max_turns` 这类最后才出现的 transition 不会丢失在 summary/snapshot 之外
 
 ---

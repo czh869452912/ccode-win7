@@ -2,6 +2,8 @@ import json
 import os
 import shutil
 import sys
+import threading
+import time
 import unittest
 from itertools import count
 
@@ -193,6 +195,57 @@ class GuardStopClient(object):
                     name="edit_file",
                     arguments={"path": "src/pkg/missing.c", "old_text": "0", "new_text": "1"},
                     call_id="call-guard-%s" % self.calls,
+                )
+            ],
+            finish_reason="tool_calls",
+        )
+
+    def stream(self, messages, tools=None, on_text_delta=None, on_reasoning_delta=None):
+        return self.generate(messages, tools=tools)
+
+
+class WriteThenDoneClient(object):
+    def __init__(self):
+        self.calls = 0
+
+    def generate(self, messages, tools=None):
+        self.calls += 1
+        if self.calls == 1:
+            return AssistantReply(
+                content="",
+                actions=[
+                    Action(
+                        name="write_file",
+                        arguments={"path": "notes/out.md", "content": "# hi\n", "overwrite": True},
+                        call_id="write-frontend-1",
+                    )
+                ],
+                finish_reason="tool_calls",
+            )
+        return AssistantReply(content="written", actions=[], finish_reason="stop")
+
+    def stream(self, messages, tools=None, on_text_delta=None, on_reasoning_delta=None):
+        reply = self.generate(messages, tools=tools)
+        if on_text_delta is not None and reply.content:
+            on_text_delta(reply.content)
+        return reply
+
+
+class CancellableToolClient(object):
+    def __init__(self):
+        self.calls = 0
+        self.release = threading.Event()
+
+    def generate(self, messages, tools=None):
+        self.calls += 1
+        self.release.wait(2.0)
+        return AssistantReply(
+            content="",
+            actions=[
+                Action(
+                    name="read_file",
+                    arguments={"path": "src/pkg/demo.c"},
+                    call_id="call-cancel-%s" % self.calls,
                 )
             ],
             finish_reason="tool_calls",
@@ -398,7 +451,38 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertIn("recent_transitions", refreshed)
         self.assertGreaterEqual(len(refreshed["recent_transitions"]), 1)
         self.assertEqual(refreshed["recent_transitions"][-1].get("reason"), "max_turns")
+        self.assertEqual(refreshed["recent_transitions"][-1].get("display_reason"), "max_turns")
         self.assertTrue(str(refreshed["recent_transitions"][-1].get("message") or "").strip())
+
+    def test_snapshot_enriches_legacy_recent_transitions_with_display_reason(self):
+        adapter = InProcessAdapter(
+            client=ToolClient(),
+            tools=self.tools,
+            max_turns=1,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+        )
+        snapshot = adapter.create_session('code')
+        session_id = str(snapshot.get('session_id') or '')
+        adapter.submit_user_message(
+            session_id=session_id,
+            text='读取文件',
+            stream=False,
+            wait=True,
+            permission_resolver=lambda ticket: True,
+            event_handler=lambda event_name, current_session_id, payload: None,
+        )
+        refreshed = adapter.get_session_snapshot(session_id)
+        summary_path = adapter.summary_store.resolve_summary_path(str(refreshed.get("summary_ref") or session_id))
+        with open(summary_path, 'r', encoding='utf-8') as handle:
+            payload = json.load(handle)
+        for item in payload.get("recent_transitions") or []:
+            if isinstance(item, dict) and "display_reason" in item:
+                del item["display_reason"]
+        with open(summary_path, 'w', encoding='utf-8') as handle:
+            json.dump(payload, handle, ensure_ascii=False, indent=2, sort_keys=True)
+        legacy = adapter.get_session_snapshot(session_id)
+        self.assertEqual(legacy["last_transition_display_reason"], "max_turns")
+        self.assertEqual(legacy["recent_transitions"][-1].get("display_reason"), "max_turns")
 
     def test_structured_timeline_includes_compact_retry_transition(self):
         adapter = InProcessAdapter(
@@ -446,10 +530,44 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         turn = payload["turns"][0]
         self.assertEqual(turn["status"], "waiting_user_input")
         self.assertIn("user_input_required", [item.get("kind") for item in turn.get("transitions", [])])
+        waiting_transition = [item for item in turn.get("transitions", []) if item.get("kind") == "user_input_required"][0]
+        self.assertEqual(waiting_transition.get("display_reason"), "waiting_user_input")
         self.assertEqual(len(turn["steps"]), 1)
         step = turn["steps"][0]
         self.assertEqual(step["status"], "user_input_wait")
         self.assertIn("user_input_required", [item.get("kind") for item in step.get("transitions", [])])
+
+    def test_snapshot_and_structured_timeline_preserve_permission_wait_transition(self):
+        adapter = InProcessAdapter(
+            client=WriteThenDoneClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=False, workspace=self.workspace),
+        )
+        snapshot = adapter.create_session('code')
+        session_id = str(snapshot.get('session_id') or '')
+        adapter.submit_user_message(
+            session_id=session_id,
+            text='写文件',
+            stream=False,
+            wait=True,
+            event_handler=lambda event_name, current_session_id, payload: None,
+        )
+        refreshed = adapter.get_session_snapshot(session_id)
+        self.assertEqual(refreshed["status"], "waiting_permission")
+        self.assertEqual(refreshed["last_transition_reason"], "permission_wait")
+        self.assertEqual(refreshed["last_transition_display_reason"], "waiting_permission")
+        self.assertEqual(refreshed["recent_transitions"][-1].get("display_reason"), "waiting_permission")
+        payload = adapter.build_structured_timeline(session_id)
+        self.assertEqual(len(payload["turns"]), 1)
+        turn = payload["turns"][0]
+        self.assertEqual(turn["status"], "waiting_permission")
+        self.assertIn("permission_required", [item.get("kind") for item in turn.get("transitions", [])])
+        waiting_transition = [item for item in turn.get("transitions", []) if item.get("kind") == "permission_required"][0]
+        self.assertEqual(waiting_transition.get("display_reason"), "waiting_permission")
+        self.assertEqual(len(turn["steps"]), 1)
+        step = turn["steps"][0]
+        self.assertEqual(step["status"], "permission_wait")
+        self.assertIn("permission_required", [item.get("kind") for item in step.get("transitions", [])])
 
     def test_structured_timeline_preserves_max_turns_transition(self):
         adapter = InProcessAdapter(
@@ -499,15 +617,88 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertEqual(refreshed["last_transition_reason"], "guard_stop")
         self.assertTrue(str(refreshed["last_transition_message"] or "").strip())
         self.assertEqual(refreshed["recent_transitions"][-1].get("reason"), "guard_stop")
+        self.assertEqual(refreshed["recent_transitions"][-1].get("display_reason"), "guard")
         payload = adapter.build_structured_timeline(session_id)
         self.assertEqual(len(payload["turns"]), 1)
         turn = payload["turns"][0]
         self.assertEqual(turn["status"], "guard_stop")
         self.assertIn("guard_stop", [item.get("kind") for item in turn.get("transitions", [])])
         terminal = [item for item in turn.get("transitions", []) if item.get("kind") == "guard_stop"][0]
+        self.assertEqual(terminal.get("display_reason"), "guard")
         self.assertTrue(str(terminal.get("message") or "").strip())
         self.assertEqual(len(turn["steps"]), 1)
         self.assertIn("guard_stop", [item.get("kind") for item in turn["steps"][0].get("transitions", [])])
+
+    def test_snapshot_and_structured_timeline_preserve_cancelled_transition(self):
+        client = CancellableToolClient()
+        adapter = InProcessAdapter(
+            client=client,
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+        )
+        snapshot = adapter.create_session('code')
+        session_id = str(snapshot.get('session_id') or '')
+        adapter.submit_user_message(
+            session_id=session_id,
+            text='读取文件后取消',
+            stream=False,
+            wait=False,
+            permission_resolver=lambda ticket: True,
+            event_handler=lambda event_name, current_session_id, payload: None,
+        )
+        time.sleep(0.05)
+        adapter.cancel_session(session_id)
+        client.release.set()
+        deadline = time.time() + 3.0
+        refreshed = {}
+        while time.time() < deadline:
+            refreshed = adapter.get_session_snapshot(session_id)
+            if str(refreshed.get("last_transition_reason") or "") == "aborted":
+                break
+            time.sleep(0.05)
+        self.assertEqual(refreshed.get("last_transition_reason"), "aborted")
+        self.assertEqual(refreshed.get("last_transition_display_reason"), "cancelled")
+        self.assertTrue(str(refreshed.get("last_transition_message") or "").strip())
+        self.assertEqual(refreshed["recent_transitions"][-1].get("display_reason"), "cancelled")
+        payload = adapter.build_structured_timeline(session_id)
+        self.assertEqual(len(payload["turns"]), 1)
+        turn = payload["turns"][0]
+        self.assertEqual(turn["status"], "aborted")
+        self.assertIn("aborted", [item.get("kind") for item in turn.get("transitions", [])])
+        terminal = [item for item in turn.get("transitions", []) if item.get("kind") == "aborted"][0]
+        self.assertEqual(terminal.get("display_reason"), "cancelled")
+        self.assertTrue(str(terminal.get("message") or "").strip())
+
+    def test_cancel_session_does_not_mark_idle_before_worker_exits(self):
+        client = CancellableToolClient()
+        adapter = InProcessAdapter(
+            client=client,
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+        )
+        snapshot = adapter.create_session('code')
+        session_id = str(snapshot.get('session_id') or '')
+        adapter.submit_user_message(
+            session_id=session_id,
+            text='读取文件后取消',
+            stream=False,
+            wait=False,
+            permission_resolver=lambda ticket: True,
+            event_handler=lambda event_name, current_session_id, payload: None,
+        )
+        time.sleep(0.05)
+        cancelling = adapter.cancel_session(session_id)
+        self.assertEqual(cancelling.get("status"), "running")
+        client.release.set()
+        deadline = time.time() + 3.0
+        final_snapshot = {}
+        while time.time() < deadline:
+            final_snapshot = adapter.get_session_snapshot(session_id)
+            if final_snapshot.get("status") == "idle" and final_snapshot.get("last_transition_reason") == "aborted":
+                break
+            time.sleep(0.05)
+        self.assertEqual(final_snapshot.get("status"), "idle")
+        self.assertEqual(final_snapshot.get("last_transition_reason"), "aborted")
 
     def test_workspace_recipe_api_detects_cmake(self):
         with open(os.path.join(self.workspace, "CMakeLists.txt"), "w", encoding="utf-8") as handle:

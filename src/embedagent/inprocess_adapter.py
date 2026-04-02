@@ -32,6 +32,34 @@ from embedagent.workspace_profile import build_workspace_profile_message
 
 
 EventHandler = Callable[[str, str, Dict[str, Any]], None]
+
+
+def _display_transition_reason(reason: str) -> str:
+    value = str(reason or "").strip()
+    mapping = {
+        "aborted": "cancelled",
+        "guard_stop": "guard",
+        "permission_wait": "waiting_permission",
+        "permission_required": "waiting_permission",
+        "user_input_wait": "waiting_user_input",
+        "user_input_required": "waiting_user_input",
+    }
+    return mapping.get(value, value)
+
+
+def _normalize_recent_transitions(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    normalized = []
+    for item in items or []:
+        if not isinstance(item, dict):
+            continue
+        entry = dict(item)
+        reason = str(entry.get("reason") or entry.get("kind") or "").strip()
+        if reason and not str(entry.get("display_reason") or "").strip():
+            entry["display_reason"] = _display_transition_reason(reason)
+        normalized.append(entry)
+    return normalized
+
+
 PermissionResolver = Callable[[Dict[str, Any]], bool]
 UserInputResolver = Callable[[Dict[str, Any]], Optional[Dict[str, Any]]]
 
@@ -222,6 +250,7 @@ class InProcessAdapter(object):
         with state.lock:
             summary = self._read_summary_for_state(state)
             updated_at = str((summary or {}).get("updated_at") or state.updated_at)
+            recent_transitions = _normalize_recent_transitions(list((summary or {}).get("recent_transitions") or []))
             payload = {
                 "session_id": state.session.session_id,
                 "status": state.status,
@@ -244,8 +273,9 @@ class InProcessAdapter(object):
                 "context_pipeline_steps": list((summary or {}).get("context_pipeline_steps") or []),
                 "last_transition_reason": str((summary or {}).get("last_transition_reason") or ""),
                 "last_transition_message": str((summary or {}).get("last_transition_message") or ""),
+                "last_transition_display_reason": _display_transition_reason(str((summary or {}).get("last_transition_reason") or "")),
                 "recent_transition_reasons": list((summary or {}).get("recent_transition_reasons") or []),
-                "recent_transitions": list((summary or {}).get("recent_transitions") or []),
+                "recent_transitions": recent_transitions,
                 "compact_retry_count": int((summary or {}).get("compact_retry_count") or 0),
                 "has_pending_permission": state.pending_permission is not None,
                 "pending_permission": state.pending_permission.to_dict() if state.pending_permission else None,
@@ -449,6 +479,7 @@ class InProcessAdapter(object):
         def make_transition_item(event_name: str, payload: Dict[str, Any], record: Dict[str, Any]) -> Dict[str, Any]:
             return {
                 "kind": event_name,
+                "display_reason": _display_transition_reason(event_name),
                 "message": str(payload.get("message") or payload.get("reason") or ""),
                 "created_at": record.get("created_at", ""),
                 "metadata": dict(payload),
@@ -562,6 +593,7 @@ class InProcessAdapter(object):
                     if termination_reason and termination_reason != "completed":
                         transition_item = {
                             "kind": termination_reason,
+                            "display_reason": _display_transition_reason(termination_reason),
                             "message": str(payload.get("error") or payload.get("message") or ""),
                             "created_at": record.get("created_at", ""),
                             "metadata": dict(payload),
@@ -644,6 +676,7 @@ class InProcessAdapter(object):
                 if termination_reason and termination_reason != "completed":
                     current_turn["transitions"].append({
                         "kind": termination_reason,
+                        "display_reason": _display_transition_reason(termination_reason),
                         "message": str(payload.get("error") or payload.get("message") or ""),
                         "created_at": record.get("created_at", ""),
                         "metadata": dict(payload),
@@ -1760,13 +1793,15 @@ class InProcessAdapter(object):
         state = self._require_session(session_id)
         with state.lock:
             state.stop_event.set()
+            has_active_thread = bool(state.active_thread is not None and state.active_thread.is_alive())
             if state.pending_permission is not None and state.pending_event is not None:
                 state.pending_result = False
                 state.pending_event.set()
             if state.pending_user_input is not None and state.pending_user_event is not None:
                 state.pending_user_response = UserInputResponse(answer="")
                 state.pending_user_event.set()
-            state.status = "idle"
+            if state.status != "error":
+                state.status = "running" if has_active_thread else "idle"
         snapshot = self.get_session_snapshot(session_id)
         self._notify_status(None, state)
         return snapshot

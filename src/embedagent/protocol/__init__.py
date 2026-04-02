@@ -209,6 +209,7 @@ class SessionSnapshot:
     context_pipeline_steps: List[str] = field(default_factory=list)
     last_transition_reason: str = ""
     last_transition_message: str = ""
+    last_transition_display_reason: str = ""
     recent_transition_reasons: List[str] = field(default_factory=list)
     recent_transitions: List[Dict[str, Any]] = field(default_factory=list)
     compact_retry_count: int = 0

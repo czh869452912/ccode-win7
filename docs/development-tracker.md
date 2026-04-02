@@ -83,7 +83,9 @@
 - `turn_end` 的非完成终止态也开始进入 structured timeline transitions，当前已覆盖 `max_turns`
 - 终止态 transition 现在会携带停止原因文本，structured timeline 不再只暴露终止类型
 - `SessionSnapshot` 也开始保留 `last_transition_message`，并在会话结束后重持久化最终状态，避免末尾 transition 丢失
-- `SessionSnapshot` 现在还会暴露结构化 `recent_transitions`，前端可直接查看最近几条状态迁移及其原因文本
+- `SessionSnapshot` 现在还会暴露结构化 `recent_transitions`，前端可直接查看最近几条状态迁移及其 `reason / message / display_reason`
+- `SessionSnapshot` 还补了 `last_transition_display_reason`，前端可直接消费用户语义层的状态名称；历史 summary 缺失 `display_reason` 时也会在读取 snapshot 时即时补齐
+- structured timeline 的 transition 也开始带 `display_reason`，等待态与终止态都能直接映射到 GUI 友好的状态语义
 - Phase 7 设计基线已建立：`docs/offline-packaging.md`、`docs/win7-preflight-checklist.md` 与 ADR `0001-offline-portable-bundle-baseline.md`
 - Phase 7 初始脚本骨架已落地：`scripts/prepare-offline.ps1` 已可生成 `build/offline-staging/EmbedAgent/`、launcher、模板配置和 manifest/checksum 草案，并已通过 `powershell.exe -NoProfile -File scripts/prepare-offline.ps1 -SkipBuild` 验证
 - Phase 7 build 脚本骨架已落地：`scripts/build-offline-bundle.ps1` 已可把 staging bundle 复制到 `build/offline-dist/`、重写 manifest、重算 checksum，并生成 zip
