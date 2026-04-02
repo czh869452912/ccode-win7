@@ -202,9 +202,8 @@
 
 优先完成：
 
-- user interrupt 后 synthetic tool_result
-- discard-on-retry 的 transcript 语义
-- streaming tool execution 的 retry / abort 边界
+- 这条主线的核心 contract 已基本完成
+- 后续主要转入真实工程级集成回归，而不是继续扩展新的中断语义切片
 
 ### P1：workspace intelligence 深化
 
@@ -257,19 +256,28 @@
 最低验证：
 
 ```powershell
-$env:PYTHONPATH='D:/Project/coding_agent/src;D:/Project/coding_agent/.venv/Lib/site-packages'; python -m unittest tests.test_inprocess_adapter_frontend_api tests.test_query_engine_refactor -v
+D:\Claude-project\ccode-win7\.venv\Scripts\python.exe -m unittest tests.test_transcript_store tests.test_session_restore tests.test_query_engine_refactor tests.test_inprocess_adapter_frontend_api -v
 ```
 
 本工作流常用语法检查：
 
 ```powershell
-$env:PYTHONPATH='D:/Project/coding_agent/src;D:/Project/coding_agent/.venv/Lib/site-packages'; python -m py_compile src\embedagent\inprocess_adapter.py src\embedagent\session_store.py src\embedagent\protocol\__init__.py tests\test_inprocess_adapter_frontend_api.py
+D:\Claude-project\ccode-win7\.venv\Scripts\python.exe -m py_compile src\embedagent\workspace_intelligence.py src\embedagent\tools\_base.py src\embedagent\tools\runtime.py src\embedagent\query_engine.py tests\test_query_engine_refactor.py tests\test_inprocess_adapter_frontend_api.py
 ```
 
 如果修改了 `context/query/tool_execution/workspace_intelligence`，也应补跑：
 
 ```powershell
-$env:PYTHONPATH='D:/Project/coding_agent/src;D:/Project/coding_agent/.venv/Lib/site-packages'; python -m py_compile src\embedagent\context.py src\embedagent\query_engine.py src\embedagent\tool_execution.py src\embedagent\workspace_intelligence.py
+D:\Claude-project\ccode-win7\.venv\Scripts\python.exe -m py_compile src\embedagent\context.py src\embedagent\query_engine.py src\embedagent\tool_execution.py src\embedagent\workspace_intelligence.py
+```
+
+如果修改了 GUI webapp，本地已验证可复跑的最小链路是：
+
+```powershell
+Set-Location D:\Claude-project\ccode-win7\src\embedagent\frontend\gui\webapp
+& 'C:\Program Files\nodejs\npm.cmd' install
+node .\run-local-tests.mjs
+& 'C:\Program Files\nodejs\npm.cmd' run build
 ```
 
 ---
@@ -281,6 +289,6 @@ $env:PYTHONPATH='D:/Project/coding_agent/src;D:/Project/coding_agent/.venv/Lib/s
 1. 先读本文件
 2. 再读 `docs/context-loop-handoff-status.md`
 3. 跑验证
-4. 从 `P0 恢复一致性` 或 `P1 tool interrupt/retry` 开始下一轮
+4. 优先从 `P1 workspace intelligence` 的真实 `LlspProvider`，或 `P1 frontend/protocol` 的 raw/internal 语义收口开始下一轮
 
 这两份文件的目标就是让另一台电脑上的开发者无需重新梳理对话历史，也能直接接着干。

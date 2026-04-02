@@ -8,7 +8,7 @@
 
 ## 1. 总体判断
 
-相对最初的重构计划，这条工作流当前总体进展约为 `80%`。
+相对最初的重构计划，这条工作流当前总体进展约为 `85%`。
 
 这是人工评估，不是自动统计；它反映的是：
 
@@ -20,7 +20,7 @@
 
 ## 2. 已合入主线的提交范围
 
-这一轮工作流的核心提交从 `9bfc9c3` 到 `2b02fa5`，主题如下：
+这一轮工作流的核心提交从 `9bfc9c3` 到 `f2693c2`，主题如下：
 
 - `9bfc9c3` `feat: add query and context refactor core`
 - `0e12058` `feat: harden query refactor compatibility`
@@ -37,6 +37,16 @@
 - `e2d39d0` `feat: enrich snapshot transition details`
 - `359455f` `test: cover guard stop timeline projection`
 - `2b02fa5` `feat: enrich transition display semantics`
+- `6482f87` `feat: add interrupted synthetic tool results`
+- `0a82d72` `feat: keep discarded tool results out of guard stop`
+- `9a249b5` `feat: stream parallel tool batch cancellation`
+- `c5a5c5b` `feat: record planned tool calls before execution`
+- `78409fb` `feat: harden tool interrupt runtime semantics`
+- `5a26367` `feat: discard later batches after retry boundaries`
+- `d8dce56` `feat: aggregate pathless quality gate diagnostics`
+- `b343798` `feat: refine recipe intelligence ranking`
+- `5552192` `feat: surface display reasons in gui inspector`
+- `f2693c2` `chore: stabilize local gui webapp verification`
 
 ---
 
@@ -125,6 +135,7 @@
 - structured timeline 保留 turn/step 级 transitions
 - `display_reason` 语义映射
 - legacy summary 缺失 `display_reason` 时的 snapshot 读取兼容回填
+- GUI inspector 已开始直接消费 `last_transition_display_reason / last_transition_message / recent_transitions`
 
 关键文件：
 
@@ -163,6 +174,9 @@
   - `68/68` 通过
 - `python -m py_compile src\embedagent\workspace_intelligence.py src\embedagent\tools\_base.py src\embedagent\tools\runtime.py src\embedagent\query_engine.py tests\test_query_engine_refactor.py tests\test_inprocess_adapter_frontend_api.py`
   - 通过
+- GUI webapp 本地链路：
+  - `node .\run-local-tests.mjs` 通过
+  - `npm run build` 通过
 
 ---
 
@@ -241,11 +255,20 @@
 3. 运行：
 
 ```powershell
-$env:PYTHONPATH='D:/Project/coding_agent/src;D:/Project/coding_agent/.venv/Lib/site-packages'; python -m unittest tests.test_inprocess_adapter_frontend_api tests.test_query_engine_refactor -v
+D:\Claude-project\ccode-win7\.venv\Scripts\python.exe -m unittest tests.test_transcript_store tests.test_session_restore tests.test_query_engine_refactor tests.test_inprocess_adapter_frontend_api -v
 ```
 
 4. 从 `src/embedagent/inprocess_adapter.py`、`src/embedagent/session_store.py`、`src/embedagent/query_engine.py`、`src/embedagent/context.py` 开始阅读
-5. 按“第 7 节 下一轮切入点”继续
+5. 如果涉及 GUI webapp，再运行：
+
+```powershell
+Set-Location D:\Claude-project\ccode-win7\src\embedagent\frontend\gui\webapp
+& 'C:\Program Files\nodejs\npm.cmd' install
+node .\run-local-tests.mjs
+& 'C:\Program Files\nodejs\npm.cmd' run build
+```
+
+6. 按“第 7 节 下一轮切入点”继续
 
 ---
 
