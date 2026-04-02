@@ -164,11 +164,17 @@
 
 ### P0：resume consistency
 
-还没做硬的点：
+已切到 transcript-truth 主线：
 
-- artifact replacement 是否在 resume 后严格按原样重放
-- compact boundary / replacement / intelligence 在长任务恢复后的稳定性
-- 更贴近真实工程的恢复回归
+- `transcript.jsonl` 现在是会话真相源
+- `SessionRestorer` 可重建 `Session/Turn/Step/ToolCall/CompactBoundary/PendingInteraction`
+- `summary.json` 已降级为 projection/index 层
+
+剩余需要继续硬化的点：
+
+- interrupt / synthetic tool_result transcript 语义
+- retry/discard transcript 语义
+- 更贴近真实大工程的恢复一致性回归
 
 ### P1：interrupt / retry / synthetic result
 

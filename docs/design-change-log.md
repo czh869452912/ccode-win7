@@ -44,6 +44,31 @@
 
 ## 3. 当前变更记录
 
+### DC-048
+
+- 日期：2026-04-02
+- 变更主题：Resume truth source switched to transcript replay
+- 变更摘要：
+  - 新增 append-only session transcript 持久化，路径为 `.embedagent/memory/sessions/<session_id>/transcript.jsonl`
+  - 新增 `SessionRestorer`，可按 transcript event replay 重建 `Session`
+  - `resume_session()` 已从 summary-driven reconstruction 切到 transcript-driven replay
+  - `summary.json` / snapshot 数据已降级为 derived projection，不再作为恢复真相源
+- 影响范围：
+  - Session persistence
+  - Resume 语义
+  - Context replacement / compact snapshot 持久化
+  - Frontend snapshot/timeline projection 的恢复来源
+- 关联文档：
+  - `docs/query-context-redesign.md`
+  - `docs/context-loop-handoff-status.md`
+  - `docs/development-tracker.md`
+  - `docs/superpowers/specs/2026-04-02-full-transcript-persistence-design.md`
+- 是否需要 ADR：`否`
+- 后续动作：
+  - 补 interrupt / synthetic tool_result / discard-on-retry 的 transcript 语义
+  - 补更贴近真实工程的 transcript restore 集成回归
+  - 继续收缩 summary-only 兼容路径
+
 ### DC-046
 
 - 日期：2026-04-02
