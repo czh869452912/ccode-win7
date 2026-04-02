@@ -26,7 +26,7 @@ def _make_workspace(name):
         "..",
         "build",
         "test-sandboxes",
-        "%s-%s" % (name, next(_COUNTER)),
+        "%s-%s-%s" % (name, os.getpid(), next(_COUNTER)),
     )
     root = os.path.realpath(root)
     shutil.rmtree(root, ignore_errors=True)

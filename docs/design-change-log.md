@@ -144,6 +144,44 @@
   - 补 `guard_stop / cancelled` 的回归测试
   - 决定 GUI 是否对终止态 transitions 做统一展示
 
+### DC-051
+
+- 日期：2026-04-02
+- 变更主题：structured timeline 终止态补齐停止原因文本
+- 变更摘要：
+  - `turn_end` / `session_finished` 现在会携带 `error` 字段，把 loop 终止时的原因文本显式传给前端
+  - structured timeline 中由终止态生成的 transition 会直接消费这段文本，而不再只暴露一个无说明的 `kind`
+  - 这让 `max_turns` 以及后续 `guard / cancelled` 的展示和排障信息更完整
+- 影响范围：
+  - turn_end / session_finished 事件契约
+  - structured timeline transition 语义
+  - 前端调试与展示质量
+- 关联文档：
+  - `docs/query-context-redesign.md`
+  - `docs/development-tracker.md`
+- 是否需要 ADR：`否`
+- 后续动作：
+  - 继续补 `guard_stop / cancelled` 的专项测试
+
+### DC-052
+
+- 日期：2026-04-02
+- 变更主题：snapshot 补齐最后 transition 的原因文本
+- 变更摘要：
+  - `SessionSummaryStore` / `SessionSnapshot` 现在会暴露 `last_transition_message`
+  - adapter 在会话结束后会重新持久化一次最终 session，使 `max_turns` 等最后才落下的 transition 进入 summary / snapshot
+  - 这让前端无需强依赖 timeline，也能直接解释当前 session 的最后状态
+- 影响范围：
+  - Session summary / snapshot 协议
+  - 会话结束时的持久化链路
+  - 前端状态说明质量
+- 关联文档：
+  - `docs/query-context-redesign.md`
+  - `docs/development-tracker.md`
+- 是否需要 ADR：`否`
+- 后续动作：
+  - 继续补 `guard_stop / cancelled` 的 snapshot/timeline 一致性测试
+
 ### DC-045
 
 - 日期：2026-04-02

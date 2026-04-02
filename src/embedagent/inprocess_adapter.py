@@ -243,6 +243,7 @@ class InProcessAdapter(object):
                 "workspace_intelligence": list((summary or {}).get("workspace_intelligence") or []),
                 "context_pipeline_steps": list((summary or {}).get("context_pipeline_steps") or []),
                 "last_transition_reason": str((summary or {}).get("last_transition_reason") or ""),
+                "last_transition_message": str((summary or {}).get("last_transition_message") or ""),
                 "recent_transition_reasons": list((summary or {}).get("recent_transition_reasons") or []),
                 "compact_retry_count": int((summary or {}).get("compact_retry_count") or 0),
                 "has_pending_permission": state.pending_permission is not None,
@@ -560,7 +561,7 @@ class InProcessAdapter(object):
                     if termination_reason and termination_reason != "completed":
                         transition_item = {
                             "kind": termination_reason,
-                            "message": "",
+                            "message": str(payload.get("error") or payload.get("message") or ""),
                             "created_at": record.get("created_at", ""),
                             "metadata": dict(payload),
                         }
@@ -642,7 +643,7 @@ class InProcessAdapter(object):
                 if termination_reason and termination_reason != "completed":
                     current_turn["transitions"].append({
                         "kind": termination_reason,
-                        "message": "",
+                        "message": str(payload.get("error") or payload.get("message") or ""),
                         "created_at": record.get("created_at", ""),
                         "metadata": dict(payload),
                     })
@@ -1961,14 +1962,14 @@ class InProcessAdapter(object):
             state.last_assistant_message = result.final_text
             if result.transition.next_mode:
                 state.current_mode = result.transition.next_mode
-            state.summary_ref = str((self.summary_store.load_summary(state.session.session_id) or {}).get("summary_ref") or state.summary_ref) if os.path.isdir(os.path.join(self.tools.workspace, ".embedagent", "memory", "sessions")) else state.summary_ref
             state.status = "idle"
             state.active_thread = None
             state.updated_at = _utc_now()
+        self._persist_state(state)
         set_thinking(False, "session_finished")
         snapshot = self.get_session_snapshot(session_id)
-        self._emit(event_handler, "turn_end", session_id, {"turn_id": turn_id, "final_text": result.final_text, "termination_reason": result.transition.reason, "turns_used": result.turns_used, "max_turns": self.max_turns})
-        self._emit(event_handler, "session_finished", session_id, {"final_text": result.final_text, "session_snapshot": snapshot, "termination_reason": result.transition.reason, "turns_used": result.turns_used, "max_turns": self.max_turns})
+        self._emit(event_handler, "turn_end", session_id, {"turn_id": turn_id, "final_text": result.final_text, "termination_reason": result.transition.reason, "turns_used": result.turns_used, "max_turns": self.max_turns, "error": result.transition.message or ""})
+        self._emit(event_handler, "session_finished", session_id, {"final_text": result.final_text, "session_snapshot": snapshot, "termination_reason": result.transition.reason, "turns_used": result.turns_used, "max_turns": self.max_turns, "error": result.transition.message or ""})
         self._notify_status(event_handler, state)
         return
         session_id = state.session.session_id
@@ -2312,6 +2313,7 @@ class InProcessAdapter(object):
             "termination_reason": termination_reason,
             "turns_used": turns_used,
             "max_turns": self.max_turns,
+            "error": loop_result.error or "",
         })
         self._emit(event_handler, "session_finished", session_id, {
             "final_text": final_text,
@@ -2319,6 +2321,7 @@ class InProcessAdapter(object):
             "termination_reason": termination_reason,
             "turns_used": turns_used,
             "max_turns": self.max_turns,
+            "error": loop_result.error or "",
         })
         self._notify_status(event_handler, state)
 

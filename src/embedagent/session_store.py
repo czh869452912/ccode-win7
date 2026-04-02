@@ -75,7 +75,16 @@ class SessionSummaryStore(object):
         previous = self._read_json(summary_path)
         payload = self._build_payload(session, current_mode, context_result)
         if context_result is None and previous is not None:
-            for key in ("context_policy", "context_budget", "context_stats"):
+            for key in (
+                "context_policy",
+                "context_budget",
+                "context_stats",
+                "context_analysis",
+                "compact_summary_text",
+                "context_replacements",
+                "context_pipeline_steps",
+                "workspace_intelligence",
+            ):
                 if key in previous and key not in payload:
                     payload[key] = previous[key]
         _atomic_write_json(summary_path, payload)
@@ -434,6 +443,8 @@ class SessionSummaryStore(object):
             parts.append("替换输出：%s" % analysis.get("artifact_replacement_count"))
         if payload.get("compact_retry_count"):
             parts.append("compact_retry：%s" % payload.get("compact_retry_count"))
+        if payload.get("last_transition_reason") and payload.get("last_transition_reason") != "completed":
+            parts.append("最后状态：%s" % payload.get("last_transition_reason"))
         if payload.get("compact_summary_text"):
             parts.append("compact：已生成摘要")
         return "；".join(parts)
@@ -476,16 +487,20 @@ class SessionSummaryStore(object):
 
     def _transition_payload(self, session: Session) -> Dict[str, Any]:
         reasons = []
+        messages = []
         for turn in session.turns:
             for transition in turn.transitions:
                 reason = str(getattr(transition, "reason", "") or "").strip()
+                message = str(getattr(transition, "message", "") or "").strip()
                 if reason:
                     reasons.append(reason)
+                    messages.append(message)
         if not reasons:
             return {}
         compact_retry_count = len([item for item in reasons if item == "compact_retry"])
         return {
             "last_transition_reason": reasons[-1],
+            "last_transition_message": messages[-1] if messages else "",
             "recent_transition_reasons": reasons[-8:],
             "compact_retry_count": compact_retry_count,
         }

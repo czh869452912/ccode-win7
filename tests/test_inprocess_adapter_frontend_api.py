@@ -23,7 +23,7 @@ def _make_workspace():
         "..",
         "build",
         "test-sandboxes",
-        "adapter-%s" % next(_COUNTER),
+        "adapter-%s-%s" % (os.getpid(), next(_COUNTER)),
     )
     root = os.path.realpath(root)
     shutil.rmtree(root, ignore_errors=True)
@@ -352,6 +352,28 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertTrue(any(item["event"] == "compact_retry" for item in timeline["events"]))
         self.assertIn("compact_retry", [item[0] for item in events])
 
+    def test_session_snapshot_includes_last_transition_message(self):
+        adapter = InProcessAdapter(
+            client=ToolClient(),
+            tools=self.tools,
+            max_turns=1,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+        )
+        snapshot = adapter.create_session('code')
+        session_id = str(snapshot.get('session_id') or '')
+        adapter.submit_user_message(
+            session_id=session_id,
+            text='读取文件',
+            stream=False,
+            wait=True,
+            permission_resolver=lambda ticket: True,
+            event_handler=lambda event_name, current_session_id, payload: None,
+        )
+        refreshed = adapter.get_session_snapshot(session_id)
+        self.assertEqual(refreshed["last_transition_reason"], "max_turns")
+        self.assertIn("last_transition_message", refreshed)
+        self.assertTrue(str(refreshed["last_transition_message"] or "").strip())
+
     def test_structured_timeline_includes_compact_retry_transition(self):
         adapter = InProcessAdapter(
             client=CompactRetryClient(),
@@ -428,6 +450,8 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertEqual(len(turn["steps"]), 1)
         step = turn["steps"][0]
         self.assertIn("max_turns", [item.get("kind") for item in step.get("transitions", [])])
+        terminal = [item for item in turn.get("transitions", []) if item.get("kind") == "max_turns"][0]
+        self.assertTrue(str(terminal.get("message") or "").strip())
 
     def test_workspace_recipe_api_detects_cmake(self):
         with open(os.path.join(self.workspace, "CMakeLists.txt"), "w", encoding="utf-8") as handle:
