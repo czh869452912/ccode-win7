@@ -1,8 +1,9 @@
 import json
 import os
+import shutil
 import sys
-import tempfile
 import unittest
+from itertools import count
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
@@ -10,6 +11,23 @@ from embedagent.inprocess_adapter import InProcessAdapter
 from embedagent.permissions import PermissionPolicy
 from embedagent.session import Action, AssistantReply
 from embedagent.tools import ToolRuntime
+
+
+_COUNTER = count(1)
+
+
+def _make_workspace():
+    root = os.path.join(
+        os.path.dirname(__file__),
+        "..",
+        "build",
+        "test-sandboxes",
+        "adapter-%s" % next(_COUNTER),
+    )
+    root = os.path.realpath(root)
+    shutil.rmtree(root, ignore_errors=True)
+    os.makedirs(root)
+    return root
 
 
 class FakeClient(object):
@@ -146,7 +164,7 @@ class MultiStepClient(object):
 
 class TestInProcessAdapterFrontendApis(unittest.TestCase):
     def setUp(self):
-        self.workspace = tempfile.mkdtemp()
+        self.workspace = _make_workspace()
         self.tools = ToolRuntime(self.workspace)
         self.adapter = InProcessAdapter(
             client=FakeClient(),
@@ -161,6 +179,9 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             json.dump([{'id': 1, 'content': 'demo', 'done': False}], handle)
         self.tools.artifact_store.write_text('run_command', 'stdout', 'hello artifact')
         self.snapshot = self.adapter.create_session('code')
+
+    def tearDown(self):
+        shutil.rmtree(self.workspace, ignore_errors=True)
 
     def test_workspace_snapshot_and_tree(self):
         payload = self.adapter.get_workspace_snapshot()
@@ -238,6 +259,27 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertIn("fallback_warnings", snapshot)
         self.assertIn("runtime_environment", snapshot)
         self.assertIsInstance(snapshot["fallback_warnings"], list)
+
+    def test_session_snapshot_includes_context_analysis_fields(self):
+        adapter = InProcessAdapter(
+            client=ToolClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+        )
+        snapshot = adapter.create_session('code')
+        session_id = str(snapshot.get('session_id') or '')
+        adapter.submit_user_message(
+            session_id=session_id,
+            text='读取文件',
+            stream=False,
+            wait=True,
+            permission_resolver=lambda ticket: True,
+            event_handler=lambda event_name, current_session_id, payload: None,
+        )
+        refreshed = adapter.get_session_snapshot(session_id)
+        self.assertIn("context_analysis", refreshed)
+        self.assertIn("compact_boundary_count", refreshed)
+        self.assertIsInstance(refreshed["context_analysis"], dict)
 
     def test_workspace_recipe_api_detects_cmake(self):
         with open(os.path.join(self.workspace, "CMakeLists.txt"), "w", encoding="utf-8") as handle:

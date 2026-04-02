@@ -385,6 +385,25 @@ class SessionSummaryStore(object):
                 "approx_tokens_after": getattr(stats, "approx_tokens_after", None),
                 "hard_trimmed": getattr(stats, "hard_trimmed", None),
             }
+        analysis = getattr(context_result, "analysis", None)
+        if isinstance(analysis, dict) and analysis:
+            payload["context_analysis"] = {
+                "tool_request_tokens": analysis.get("tool_request_tokens"),
+                "tool_result_tokens": analysis.get("tool_result_tokens"),
+                "duplicate_file_read_tokens": analysis.get("duplicate_file_read_tokens"),
+                "artifact_replacement_count": analysis.get("artifact_replacement_count"),
+                "resume_replay_hits": analysis.get("resume_replay_hits"),
+                "top_hot_files": analysis.get("top_hot_files") or [],
+            }
+        summary_message = str(getattr(context_result, "summary_message", "") or "").strip()
+        if summary_message:
+            payload["compact_summary_text"] = summary_message
+        replacements = getattr(context_result, "replacements", None)
+        if isinstance(replacements, list) and replacements:
+            payload["context_replacements"] = replacements[:8]
+        pipeline_steps = getattr(context_result, "pipeline_steps", None)
+        if isinstance(pipeline_steps, list) and pipeline_steps:
+            payload["context_pipeline_steps"] = [str(item) for item in pipeline_steps[:12]]
         return payload
 
     def _build_summary_text(self, payload: Dict[str, Any]) -> str:
@@ -404,6 +423,11 @@ class SessionSummaryStore(object):
             names = [item.get("name", "") for item in payload["recent_actions"] if item.get("name")]
             if names:
                 parts.append("近期动作：%s" % ", ".join(names[:6]))
+        analysis = payload.get("context_analysis") if isinstance(payload.get("context_analysis"), dict) else {}
+        if analysis.get("artifact_replacement_count"):
+            parts.append("替换输出：%s" % analysis.get("artifact_replacement_count"))
+        if payload.get("compact_summary_text"):
+            parts.append("compact：已生成摘要")
         return "；".join(parts)
 
     def _observation_line(self, snapshot: Dict[str, Any]) -> str:

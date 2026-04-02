@@ -65,6 +65,33 @@ class AskThenDoneClient(object):
         return reply
 
 
+class WriteThenDoneClient(object):
+    def __init__(self):
+        self.calls = 0
+
+    def generate(self, messages, tools=None):
+        self.calls += 1
+        if self.calls == 1:
+            return AssistantReply(
+                content="",
+                actions=[
+                    Action(
+                        name="write_file",
+                        arguments={"path": "notes/out.md", "content": "# hi\n", "overwrite": True},
+                        call_id="write-1",
+                    )
+                ],
+                finish_reason="tool_calls",
+            )
+        return AssistantReply(content="written", actions=[], finish_reason="stop")
+
+    def stream(self, messages, tools=None, on_text_delta=None, on_reasoning_delta=None):
+        reply = self.generate(messages, tools=tools)
+        if on_text_delta is not None and reply.content:
+            on_text_delta(reply.content)
+        return reply
+
+
 class TestQueryEngineRefactor(unittest.TestCase):
     def setUp(self):
         self.workspace = _make_workspace("query-engine")
@@ -161,6 +188,34 @@ class TestQueryEngineRefactor(unittest.TestCase):
             any("当前模式：debug" in item.content for item in session.messages if item.role == "system")
         )
 
+    def test_query_engine_waits_for_permission_and_can_resume(self):
+        session = Session()
+        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：code")
+        engine = QueryEngine(
+            client=WriteThenDoneClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=False, workspace=self.workspace),
+        )
+        first = engine.submit_turn(
+            user_text="写文件",
+            stream=False,
+            initial_mode="code",
+            session=session,
+            permission_handler=None,
+        )
+        self.assertEqual(first.transition.reason, "permission_wait")
+        self.assertIsNotNone(first.pending_interaction)
+        self.assertEqual(len(session.turns[-1].transitions), 1)
+        resumed = engine.resume_pending(
+            session=session,
+            initial_mode="code",
+            stream=False,
+            interaction_resolution={"approved": True},
+        )
+        self.assertEqual(resumed.transition.reason, "completed")
+        self.assertEqual(resumed.final_text, "written")
+        self.assertTrue(os.path.isfile(os.path.join(self.workspace, "notes", "out.md")))
+
     def test_adapter_resumes_pending_user_input(self):
         adapter = InProcessAdapter(
             client=AskThenDoneClient(),
@@ -190,6 +245,29 @@ class TestQueryEngineRefactor(unittest.TestCase):
         final_snapshot = adapter.get_session_snapshot(session_id)
         self.assertEqual(final_snapshot["status"], "idle")
         self.assertEqual(final_snapshot["current_mode"], "debug")
+
+    def test_adapter_resumes_pending_permission(self):
+        adapter = InProcessAdapter(
+            client=WriteThenDoneClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=False, workspace=self.workspace),
+        )
+        snapshot = adapter.create_session("code")
+        session_id = str(snapshot.get("session_id") or "")
+        adapter.submit_user_message(
+            session_id=session_id,
+            text="写文件",
+            stream=False,
+            wait=True,
+            event_handler=lambda event_name, current_session_id, payload: None,
+        )
+        waiting = adapter.get_session_snapshot(session_id)
+        self.assertEqual(waiting["status"], "waiting_permission")
+        permission_id = str((waiting.get("pending_permission") or {}).get("permission_id") or "")
+        adapter.approve_permission(session_id, permission_id)
+        final_snapshot = adapter.get_session_snapshot(session_id)
+        self.assertEqual(final_snapshot["status"], "idle")
+        self.assertTrue(os.path.isfile(os.path.join(self.workspace, "notes", "out.md")))
 
 
 if __name__ == "__main__":

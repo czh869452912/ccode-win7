@@ -195,8 +195,37 @@ class QueryEngine(object):
                 if on_step_finish is not None:
                     on_step_finish(step_index, reply, "completed")
                 return QueryTurnResult(final_text, session, transition, turns_used)
-            executor = StreamingToolExecutor(lambda action: self._execute_action(session, action, current_mode, permission_handler, user_input_handler)[0], self.max_parallel_tools)
+            executor = StreamingToolExecutor(lambda action: self.tools.execute(action.name, action.arguments), self.max_parallel_tools)
             for batch in partition_tool_actions(reply.actions, self.tools.tool_capabilities):
+                if not batch.parallel:
+                    for action in batch.actions:
+                        session.record_tool_call(action)
+                        if on_tool_start is not None:
+                            on_tool_start(action)
+                        observation, current_mode, suspended = self._execute_action(
+                            session,
+                            action,
+                            current_mode,
+                            permission_handler,
+                            user_input_handler,
+                        )
+                        if suspended is not None:
+                            self._persist_summary(session, current_mode, assembly)
+                            if on_step_finish is not None:
+                                on_step_finish(step_index, reply, suspended.transition.reason)
+                            return suspended
+                        session.add_observation(action, observation)
+                        self._persist_summary(session, current_mode, assembly)
+                        if on_tool_finish is not None:
+                            on_tool_finish(action, observation)
+                        loop_guard.record(action, observation)
+                        if loop_guard.should_block(action) or loop_guard.should_stop():
+                            transition = LoopTransition(reason="guard_stop", message=loop_guard.stop_reason(), turns_used=turns_used)
+                            session.record_transition(transition)
+                            if on_step_finish is not None:
+                                on_step_finish(step_index, reply, "guard_stop")
+                            return QueryTurnResult(final_text, session, transition, turns_used)
+                    continue
                 for update in executor.run_batch(batch):
                     if update.phase == "start":
                         session.record_tool_call(update.action)

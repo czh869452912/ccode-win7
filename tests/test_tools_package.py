@@ -1,13 +1,31 @@
 """Tests for the tools/ package refactoring and ToolRuntime."""
 import os
+import shutil
 import sys
-import tempfile
 import unittest
 from unittest.mock import patch
+from itertools import count
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from embedagent.tools import ToolRuntime, ToolDefinition
+
+
+_COUNTER = count(1)
+
+
+def _make_workspace(prefix):
+    root = os.path.join(
+        os.path.dirname(__file__),
+        "..",
+        "build",
+        "test-sandboxes",
+        "%s-%s" % (prefix, next(_COUNTER)),
+    )
+    root = os.path.realpath(root)
+    shutil.rmtree(root, ignore_errors=True)
+    os.makedirs(root)
+    return root
 
 
 class TestToolRuntimeImport(unittest.TestCase):
@@ -23,8 +41,11 @@ class TestToolRuntimeImport(unittest.TestCase):
 
 class TestToolRuntimeInit(unittest.TestCase):
     def setUp(self):
-        self.workspace = tempfile.mkdtemp()
+        self.workspace = _make_workspace("tools-init")
         self.rt = ToolRuntime(self.workspace)
+
+    def tearDown(self):
+        shutil.rmtree(self.workspace, ignore_errors=True)
 
     def test_workspace_is_realpath(self):
         self.assertEqual(self.rt.workspace, os.path.realpath(self.workspace))
@@ -44,10 +65,13 @@ class TestToolRuntimeInit(unittest.TestCase):
 
 class TestToolRuntimeSchemas(unittest.TestCase):
     def setUp(self):
-        self.workspace = tempfile.mkdtemp()
+        self.workspace = _make_workspace("tools-schemas")
         self.rt = ToolRuntime(self.workspace)
         self.schemas = self.rt.schemas()
         self.tool_names = [s["function"]["name"] for s in self.schemas]
+
+    def tearDown(self):
+        shutil.rmtree(self.workspace, ignore_errors=True)
 
     def test_total_tool_count(self):
         self.assertEqual(len(self.schemas), 16)
@@ -95,8 +119,11 @@ class TestToolRuntimeSchemas(unittest.TestCase):
 
 class TestToolRuntimeExecute(unittest.TestCase):
     def setUp(self):
-        self.workspace = tempfile.mkdtemp()
+        self.workspace = _make_workspace("tools-exec")
         self.rt = ToolRuntime(self.workspace)
+
+    def tearDown(self):
+        shutil.rmtree(self.workspace, ignore_errors=True)
 
     def test_unknown_tool_returns_error(self):
         obs = self.rt.execute("nonexistent_tool", {})
@@ -218,7 +245,10 @@ class TestModuleIsolation(unittest.TestCase):
 
 class TestManagedRuntimeEnvironment(unittest.TestCase):
     def setUp(self):
-        self.workspace = tempfile.mkdtemp()
+        self.workspace = _make_workspace("tools-runtime")
+
+    def tearDown(self):
+        shutil.rmtree(self.workspace, ignore_errors=True)
 
     def _touch(self, *parts):
         path = os.path.join(*parts)
@@ -263,7 +293,10 @@ class TestManagedRuntimeEnvironment(unittest.TestCase):
 
 class TestWorkspaceRecipes(unittest.TestCase):
     def setUp(self):
-        self.workspace = tempfile.mkdtemp()
+        self.workspace = _make_workspace("tools-recipes")
+
+    def tearDown(self):
+        shutil.rmtree(self.workspace, ignore_errors=True)
 
     def test_detects_cmake_and_history_recipes(self):
         os.makedirs(os.path.join(self.workspace, ".embedagent", "memory", "project"))

@@ -200,6 +200,9 @@ class SessionSnapshot:
     bundled_tools_ready: bool = False
     fallback_warnings: List[str] = field(default_factory=list)
     runtime_environment: Optional[RuntimeEnvironmentSnapshot] = None
+    compact_summary_text: str = ""
+    context_analysis: Dict[str, Any] = field(default_factory=dict)
+    compact_boundary_count: int = 0
 
 
 @dataclass  

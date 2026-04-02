@@ -237,6 +237,9 @@ class InProcessAdapter(object):
                 "summary_text": str((summary or {}).get("summary_text") or ""),
                 "user_goal": str((summary or {}).get("user_goal") or ""),
                 "summary_ref": str((summary or {}).get("summary_ref") or state.summary_ref or ""),
+                "compact_summary_text": str((summary or {}).get("compact_summary_text") or ""),
+                "context_analysis": dict((summary or {}).get("context_analysis") or {}),
+                "compact_boundary_count": len(getattr(state.session, "compact_boundaries", []) or []),
                 "has_pending_permission": state.pending_permission is not None,
                 "pending_permission": state.pending_permission.to_dict() if state.pending_permission else None,
                 "has_pending_user_input": state.pending_user_input is not None,
@@ -1802,27 +1805,27 @@ class InProcessAdapter(object):
             self._emit_with_snapshot(event_handler, "context_compacted", state, {"recent_turns": getattr(getattr(result, "stats", None), "recent_turns", None), "summarized_turns": getattr(getattr(result, "stats", None), "summarized_turns", None), "approx_tokens_after": getattr(getattr(result, "budget", None), "input_tokens", None), "analysis": getattr(result, "analysis", {})})
 
         def permission_handler(request: PermissionRequest) -> Optional[bool]:
+            ticket = self._create_permission_ticket(state, request)
+            self._emit_with_snapshot(event_handler, "permission_required", state, {"permission": ticket.to_dict(), "turn_id": turn_id, "step_id": current_step["step_id"], "step_index": current_step["step_index"]})
+            self._notify_status(event_handler, state)
             if permission_resolver is not None:
-                ticket = self._create_permission_ticket(state, request)
                 approved = bool(permission_resolver(ticket.to_dict()))
                 self._clear_pending_permission(state)
                 return approved
-            ticket = self._create_permission_ticket(state, request)
             with state.lock:
                 state.status = "waiting_permission"
-            self._emit_with_snapshot(event_handler, "permission_required", state, {"permission": ticket.to_dict(), "turn_id": turn_id, "step_id": current_step["step_id"], "step_index": current_step["step_index"]})
-            self._notify_status(event_handler, state)
             return None
 
         def user_input_handler(request: UserInputRequest) -> Optional[UserInputResponse]:
-            if user_input_resolver is not None:
-                payload = user_input_resolver({"tool_name": request.tool_name, "question": request.question, "options": [{"index": item.index, "text": item.text, "mode": item.mode} for item in request.options], "details": request.details}) or {}
-                return UserInputResponse(answer=str(payload.get("answer") or ""), selected_index=payload.get("selected_index"), selected_mode=str(payload.get("selected_mode") or ""), selected_option_text=str(payload.get("selected_option_text") or ""))
             ticket = self._create_user_input_ticket(state, request)
-            with state.lock:
-                state.status = "waiting_user_input"
             self._emit_with_snapshot(event_handler, "user_input_required", state, {"user_input": ticket.to_dict(), "turn_id": turn_id, "step_id": current_step["step_id"], "step_index": current_step["step_index"]})
             self._notify_status(event_handler, state)
+            if user_input_resolver is not None:
+                payload = user_input_resolver(ticket.to_dict()) or {}
+                self._clear_pending_user_input(state)
+                return UserInputResponse(answer=str(payload.get("answer") or ""), selected_index=payload.get("selected_index"), selected_mode=str(payload.get("selected_mode") or ""), selected_option_text=str(payload.get("selected_option_text") or ""))
+            with state.lock:
+                state.status = "waiting_user_input"
             return None
 
         try:
