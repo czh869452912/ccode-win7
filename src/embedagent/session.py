@@ -223,23 +223,40 @@ class Session:
     compact_boundaries: List[CompactBoundary] = field(default_factory=list)
     pending_interaction: Optional[PendingInteraction] = None
 
-    def add_system_message(self, content: str) -> None:
-        turn_id = self.turns[-1].turn_id if self.turns else ""
-        self.messages.append(
-            TranscriptMessage(
-                role="system",
-                content=content,
-                turn_id=turn_id,
-                step_id=self._current_step_id(),
-            )
+    def add_system_message(
+        self,
+        content: str,
+        message_id: str = "",
+        turn_id: str = "",
+        step_id: str = "",
+        kind: str = "message",
+        metadata: Optional[Dict[str, Any]] = None,
+        replaced_by_refs: Optional[List[str]] = None,
+    ) -> TranscriptMessage:
+        turn_value = turn_id or (self.turns[-1].turn_id if self.turns else "")
+        message = TranscriptMessage(
+            role="system",
+            content=content,
+            message_id=message_id or ("m-" + uuid.uuid4().hex[:12]),
+            turn_id=turn_value,
+            step_id=step_id or self._current_step_id(),
+            kind=kind,
+            metadata=dict(metadata or {}),
+            replaced_by_refs=list(replaced_by_refs or []),
         )
+        self.messages.append(message)
+        return message
 
-    def add_user_message(self, content: str) -> None:
-        turn = Turn(user_message=content)
+    def add_user_message(self, content: str, turn_id: str = "", message_id: str = "") -> Turn:
+        turn = Turn(
+            user_message=content,
+            turn_id=turn_id or ("t-" + uuid.uuid4().hex[:12]),
+        )
         self.messages.append(
             TranscriptMessage(
                 role="user",
                 content=content,
+                message_id=message_id or ("m-" + uuid.uuid4().hex[:12]),
                 turn_id=turn.turn_id,
             )
         )
@@ -247,13 +264,14 @@ class Session:
         turn.message_start_index = index
         turn.message_end_index = index
         self.turns.append(turn)
+        return turn
 
-    def begin_step(self, reasoning: str = "") -> AgentStepState:
+    def begin_step(self, reasoning: str = "", step_id: str = "") -> AgentStepState:
         if not self.turns:
             self.turns.append(Turn(user_message=""))
         turn = self.turns[-1]
         step = AgentStepState(
-            step_id="s-" + uuid.uuid4().hex[:12],
+            step_id=step_id or ("s-" + uuid.uuid4().hex[:12]),
             step_index=len(turn.steps) + 1,
             reasoning=reasoning,
         )
@@ -277,10 +295,16 @@ class Session:
         step.actions.append(action)
         return record
 
-    def add_assistant_reply(self, reply: AssistantReply) -> None:
+    def add_assistant_reply(
+        self,
+        reply: AssistantReply,
+        message_id: str = "",
+        turn_id: str = "",
+        step_id: str = "",
+    ) -> None:
         step = self.current_step()
         if step is None:
-            step = self.begin_step(reasoning=reply.reasoning_content)
+            step = self.begin_step(reasoning=reply.reasoning_content, step_id=step_id)
         else:
             if reply.reasoning_content:
                 step.reasoning = reply.reasoning_content
@@ -290,8 +314,9 @@ class Session:
                 content=reply.content,
                 action_calls=reply.actions,
                 reasoning_content=reply.reasoning_content,
-                turn_id=self.turns[-1].turn_id if self.turns else "",
-                step_id=step.step_id if step is not None else "",
+                message_id=message_id or ("m-" + uuid.uuid4().hex[:12]),
+                turn_id=turn_id or (self.turns[-1].turn_id if self.turns else ""),
+                step_id=step_id or (step.step_id if step is not None else ""),
             )
         )
         if not self.turns:
@@ -308,23 +333,33 @@ class Session:
             if existing is None:
                 self.record_tool_call(action)
 
-    def add_observation(self, action: Action, observation: Observation) -> None:
+    def add_observation(
+        self,
+        action: Action,
+        observation: Observation,
+        message_id: str = "",
+        turn_id: str = "",
+        step_id: str = "",
+        finished_at: str = "",
+        replaced_by_refs: Optional[List[str]] = None,
+    ) -> None:
         record = self._find_tool_call(action.call_id)
         if record is None:
             record = self.record_tool_call(action)
         record.status = "completed"
         record.observation = observation
-        record.finished_at = _utc_now()
+        record.finished_at = finished_at or _utc_now()
         self.messages.append(
             TranscriptMessage(
                 role="tool",
                 content=_to_json(observation.to_dict()),
                 tool_call_id=action.call_id,
                 name=action.name,
-                turn_id=self.turns[-1].turn_id if self.turns else "",
-                step_id=self._current_step_id(),
+                message_id=message_id or ("m-" + uuid.uuid4().hex[:12]),
+                turn_id=turn_id or (self.turns[-1].turn_id if self.turns else ""),
+                step_id=step_id or self._current_step_id(),
                 kind="tool_result",
-                replaced_by_refs=self._artifact_refs_from_observation(observation),
+                replaced_by_refs=list(replaced_by_refs or self._artifact_refs_from_observation(observation)),
             )
         )
         if not self.turns:
@@ -369,29 +404,30 @@ class Session:
         compacted_turn_count: int,
         mode_name: str = "",
         metadata: Optional[Dict[str, Any]] = None,
+        boundary_id: str = "",
+        created_at: str = "",
     ) -> CompactBoundary:
         boundary = CompactBoundary(
+            boundary_id=boundary_id or ("cb-" + uuid.uuid4().hex[:12]),
             summary_text=summary_text,
             compacted_turn_count=max(0, int(compacted_turn_count)),
+            created_at=created_at or _utc_now(),
             mode_name=mode_name,
             metadata=dict(metadata or {}),
         )
         self.compact_boundaries.append(boundary)
         if self.turns:
             self.turns[-1].compact_boundaries.append(boundary)
-        self.messages.append(
-            TranscriptMessage(
-                role="system",
-                kind="compact_boundary",
-                content=summary_text,
-                turn_id=self.turns[-1].turn_id if self.turns else "",
-                step_id=self._current_step_id(),
-                metadata={
-                    "boundary_id": boundary.boundary_id,
-                    "compacted_turn_count": boundary.compacted_turn_count,
-                    "mode_name": boundary.mode_name,
-                },
-            )
+        self.add_system_message(
+            summary_text,
+            turn_id=self.turns[-1].turn_id if self.turns else "",
+            step_id=self._current_step_id(),
+            kind="compact_boundary",
+            metadata={
+                "boundary_id": boundary.boundary_id,
+                "compacted_turn_count": boundary.compacted_turn_count,
+                "mode_name": boundary.mode_name,
+            },
         )
         if self.turns:
             self.turns[-1].message_end_index = len(self.messages) - 1

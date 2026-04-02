@@ -12,6 +12,7 @@ from embedagent.llm import ModelClientError
 from embedagent.permissions import PermissionPolicy
 from embedagent.query_engine import QueryEngine
 from embedagent.session import Action, AssistantReply, Observation, Session
+from embedagent.transcript_store import TranscriptStore
 from embedagent.tool_execution import partition_tool_actions
 from embedagent.tools import ToolRuntime
 from embedagent.workspace_intelligence import CtagsProvider, DiagnosticsProvider, LlspProvider, RecipeProvider, WorkspaceIntelligenceBroker
@@ -117,6 +118,33 @@ class CompactRetryClient(object):
         if self.calls == 1:
             raise ModelClientError("prompt is too long: context length exceeded")
         return AssistantReply(content="after compact", actions=[], finish_reason="stop")
+
+    def stream(self, messages, tools=None, on_text_delta=None, on_reasoning_delta=None):
+        reply = self.generate(messages, tools=tools)
+        if on_text_delta is not None and reply.content:
+            on_text_delta(reply.content)
+        return reply
+
+
+class ToolClient(object):
+    def __init__(self):
+        self.calls = 0
+
+    def generate(self, messages, tools=None):
+        self.calls += 1
+        if self.calls == 1:
+            return AssistantReply(
+                content="",
+                actions=[
+                    Action(
+                        name="read_file",
+                        arguments={"path": "src/demo.c"},
+                        call_id="call-read-demo",
+                    )
+                ],
+                finish_reason="tool_calls",
+            )
+        return AssistantReply(content="done", actions=[], finish_reason="stop")
 
     def stream(self, messages, tools=None, on_text_delta=None, on_reasoning_delta=None):
         reply = self.generate(messages, tools=tools)
@@ -439,6 +467,54 @@ class TestQueryEngineRefactor(unittest.TestCase):
         retry_transition = [item for item in session.turns[-1].transitions if item.reason == "compact_retry"][0]
         self.assertEqual(retry_transition.metadata.get("retry_mode"), "compact")
         self.assertEqual(retry_transition.metadata.get("source_mode"), "code")
+
+    def test_query_engine_writes_transcript_for_completed_turn(self):
+        session = Session()
+        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：code")
+        transcript_store = TranscriptStore(self.workspace)
+        engine = QueryEngine(
+            client=ToolClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+            transcript_store=transcript_store,
+        )
+        result = engine.submit_turn(
+            user_text="读取文件",
+            stream=False,
+            initial_mode="code",
+            session=session,
+        )
+        self.assertEqual(result.transition.reason, "completed")
+        events = transcript_store.load_events(session.session_id)
+        event_types = [item["type"] for item in events]
+        self.assertIn("message", event_types)
+        self.assertIn("step_started", event_types)
+        self.assertIn("tool_call", event_types)
+        self.assertIn("tool_result", event_types)
+        self.assertEqual(event_types[-1], "loop_transition")
+
+    def test_query_engine_writes_pending_interaction_events(self):
+        session = Session()
+        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：spec")
+        transcript_store = TranscriptStore(self.workspace)
+        engine = QueryEngine(
+            client=AskThenDoneClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+            transcript_store=transcript_store,
+        )
+        result = engine.submit_turn(
+            user_text="继续",
+            stream=False,
+            initial_mode="spec",
+            session=session,
+            user_input_handler=None,
+        )
+        self.assertEqual(result.transition.reason, "user_input_wait")
+        events = transcript_store.load_events(session.session_id)
+        event_types = [item["type"] for item in events]
+        self.assertIn("pending_interaction", event_types)
+        self.assertEqual(events[-1]["type"], "loop_transition")
 
     def test_adapter_resumes_pending_user_input(self):
         adapter = InProcessAdapter(

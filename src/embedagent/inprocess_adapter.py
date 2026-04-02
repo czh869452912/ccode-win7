@@ -25,6 +25,7 @@ from embedagent.session import Action, AssistantReply, Observation, Session
 from embedagent.session_store import SessionSummaryStore
 from embedagent.session_timeline import SessionTimelineStore
 from embedagent.slash_commands import ParsedSlashCommand, SlashCommandRegistry, parse_slash_command
+from embedagent.transcript_store import TranscriptStore
 from embedagent import todos as todo_store
 from embedagent.tools import ToolRuntime
 from embedagent.tools._base import SKIP_DIR_NAMES
@@ -165,6 +166,7 @@ class InProcessAdapter(object):
         self.event_handler = event_handler
         self.plan_store = PlanStore(self.tools.workspace)
         self.command_registry = SlashCommandRegistry()
+        self.transcript_store = TranscriptStore(self.tools.workspace)
         initialize_modes(self.tools.workspace)
         self._sessions = {}  # type: Dict[str, ManagedSession]
         self._lock = threading.RLock()
@@ -177,10 +179,34 @@ class InProcessAdapter(object):
         current_mode = require_mode(mode)["slug"]
         session = Session()
         todo_store.ensure_session_todos(self.tools.workspace, session.session_id, seed_from_legacy=False)
-        session.add_system_message(build_workspace_profile_message(self.tools.workspace, session.session_id))
-        session.add_system_message(
+        profile_message = session.add_system_message(build_workspace_profile_message(self.tools.workspace, session.session_id))
+        mode_message = session.add_system_message(
             build_system_prompt(current_mode, getattr(self.tools, "app_config", None), self.tools.workspace)
         )
+        self.transcript_store.append_event(
+            session.session_id,
+            "session_meta",
+            {
+                "current_mode": current_mode,
+                "started_at": session.started_at,
+                "workspace": self.tools.workspace,
+            },
+        )
+        for message in (profile_message, mode_message):
+            self.transcript_store.append_event(
+                session.session_id,
+                "message",
+                {
+                    "role": message.role,
+                    "content": message.content,
+                    "message_id": message.message_id,
+                    "turn_id": message.turn_id,
+                    "step_id": message.step_id,
+                    "kind": message.kind,
+                    "metadata": dict(message.metadata),
+                    "replaced_by_refs": list(message.replaced_by_refs),
+                },
+            )
         plan = self.plan_store.load(session.session_id)
         state = ManagedSession(
             session=session,
@@ -1853,6 +1879,7 @@ class InProcessAdapter(object):
             project_memory_store=self.project_memory_store,
             memory_maintenance=self.memory_maintenance,
             maintenance_interval=self.maintenance_interval,
+            transcript_store=self.transcript_store,
         )
         current_step = {"step_id": "", "step_index": 0}
         thinking_state = {"active": False}
