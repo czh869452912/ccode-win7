@@ -373,6 +373,10 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertEqual(refreshed["last_transition_reason"], "max_turns")
         self.assertIn("last_transition_message", refreshed)
         self.assertTrue(str(refreshed["last_transition_message"] or "").strip())
+        self.assertIn("recent_transitions", refreshed)
+        self.assertGreaterEqual(len(refreshed["recent_transitions"]), 1)
+        self.assertEqual(refreshed["recent_transitions"][-1].get("reason"), "max_turns")
+        self.assertTrue(str(refreshed["recent_transitions"][-1].get("message") or "").strip())
 
     def test_structured_timeline_includes_compact_retry_transition(self):
         adapter = InProcessAdapter(

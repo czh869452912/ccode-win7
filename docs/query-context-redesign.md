@@ -42,6 +42,7 @@
 - 当 LLM 明确返回 `prompt/context too long` 一类错误时，主循环现在会记录一次内部 `compact_retry` transition，并用更紧的内部 compact policy 重组上下文后自动重试一次
 - `SessionSnapshot` / timeline 已开始投影 compact retry 可观测性，当前至少能看到 `compact_retry_count`、最近 transition reasons，以及 `compact_retry` timeline event
 - `SessionSnapshot` 现在也开始保留 `last_transition_message`，便于前端直接展示“为什么停住了”
+- `SessionSnapshot` 也开始暴露 `recent_transitions`，让前端不依赖 raw timeline 也能拿到最近几条状态迁移的 `reason + message`
 - `build_structured_timeline()` 也开始保留 turn/step 级别的 `transitions`，这样 `compact_retry` 不会在结构化时间线里丢失
 - 结构化时间线现在也会保留 `user_input_required / permission_required` 这类等待态 transition，并把 turn 状态更新为对应的 waiting 状态
 - `turn_end` 的非完成终止态（如 `max_turns`）也开始进入 structured timeline transitions，不再只表现为 turn status 文本

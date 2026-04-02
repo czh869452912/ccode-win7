@@ -210,6 +210,7 @@ class SessionSnapshot:
     last_transition_reason: str = ""
     last_transition_message: str = ""
     recent_transition_reasons: List[str] = field(default_factory=list)
+    recent_transitions: List[Dict[str, Any]] = field(default_factory=list)
     compact_retry_count: int = 0
 
 

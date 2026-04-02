@@ -245,6 +245,7 @@ class InProcessAdapter(object):
                 "last_transition_reason": str((summary or {}).get("last_transition_reason") or ""),
                 "last_transition_message": str((summary or {}).get("last_transition_message") or ""),
                 "recent_transition_reasons": list((summary or {}).get("recent_transition_reasons") or []),
+                "recent_transitions": list((summary or {}).get("recent_transitions") or []),
                 "compact_retry_count": int((summary or {}).get("compact_retry_count") or 0),
                 "has_pending_permission": state.pending_permission is not None,
                 "pending_permission": state.pending_permission.to_dict() if state.pending_permission else None,

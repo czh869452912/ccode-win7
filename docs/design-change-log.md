@@ -182,6 +182,26 @@
 - 后续动作：
   - 继续补 `guard_stop / cancelled` 的 snapshot/timeline 一致性测试
 
+### DC-053
+
+- 日期：2026-04-02
+- 变更主题：snapshot 补齐结构化 recent transitions
+- 变更摘要：
+  - `SessionSummaryStore` 现在会持久化 `recent_transitions`，每项包含 `reason` 与 `message`
+  - `SessionSnapshot` 已投影这一结构化列表，前端可直接消费最近几条状态迁移，而不必先解析 raw timeline
+  - 这让 snapshot 和 structured timeline 之间的可观测性口径进一步靠近
+- 影响范围：
+  - Session summary / snapshot 协议
+  - 前端状态面板与调试能力
+  - transition 相关回归测试
+- 关联文档：
+  - `docs/query-context-redesign.md`
+  - `docs/development-tracker.md`
+- 是否需要 ADR：`否`
+- 后续动作：
+  - 继续补 `guard_stop / cancelled` 的专项回归
+  - 视 GUI 需求决定 recent transitions 的展示排序与截断策略
+
 ### DC-045
 
 - 日期：2026-04-02

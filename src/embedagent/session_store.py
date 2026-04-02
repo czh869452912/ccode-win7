@@ -488,6 +488,7 @@ class SessionSummaryStore(object):
     def _transition_payload(self, session: Session) -> Dict[str, Any]:
         reasons = []
         messages = []
+        recent_items = []
         for turn in session.turns:
             for transition in turn.transitions:
                 reason = str(getattr(transition, "reason", "") or "").strip()
@@ -495,6 +496,12 @@ class SessionSummaryStore(object):
                 if reason:
                     reasons.append(reason)
                     messages.append(message)
+                    recent_items.append(
+                        {
+                            "reason": reason,
+                            "message": message,
+                        }
+                    )
         if not reasons:
             return {}
         compact_retry_count = len([item for item in reasons if item == "compact_retry"])
@@ -502,6 +509,7 @@ class SessionSummaryStore(object):
             "last_transition_reason": reasons[-1],
             "last_transition_message": messages[-1] if messages else "",
             "recent_transition_reasons": reasons[-8:],
+            "recent_transitions": recent_items[-8:],
             "compact_retry_count": compact_retry_count,
         }
 
