@@ -46,6 +46,7 @@
 - `SessionSnapshot` 现在也开始保留 `last_transition_message`，便于前端直接展示“为什么停住了”
 - `SessionSnapshot` 也开始暴露 `recent_transitions`，让前端不依赖 raw timeline 也能拿到最近几条状态迁移的 `reason + message + display_reason`
 - `SessionSnapshot` 现在还会给最后一条 transition 提供 display 级 reason，前端不必自己把 `aborted / guard_stop / user_input_wait` 这类内部名称再映射成用户语义
+- GUI inspector 现在也已直接消费这些 snapshot 字段，Runtime 面板会展示最后状态与最近状态迁移，而不是只靠内部 termination reason
 - 读取旧 `summary.json` 时，即使历史 `recent_transitions` 里还没有 `display_reason`，snapshot 也会按当前映射规则即时补齐，避免 resume 老会话时出现新旧字段混杂
 - `build_structured_timeline()` 也开始保留 turn/step 级别的 `transitions`，这样 `compact_retry` 不会在结构化时间线里丢失
 - 结构化时间线现在也会保留 `user_input_required / permission_required` 这类等待态 transition，并把 turn 状态更新为对应的 waiting 状态

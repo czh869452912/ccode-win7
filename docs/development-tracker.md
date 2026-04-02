@@ -88,6 +88,7 @@
 - `SessionSnapshot` 现在还会暴露结构化 `recent_transitions`，前端可直接查看最近几条状态迁移及其 `reason / message / display_reason`
 - `SessionSnapshot` 还补了 `last_transition_display_reason`，前端可直接消费用户语义层的状态名称；历史 summary 缺失 `display_reason` 时也会在读取 snapshot 时即时补齐
 - structured timeline 的 transition 也开始带 `display_reason`，等待态与终止态都能直接映射到 GUI 友好的状态语义
+- GUI inspector 现在已开始直接消费 `last_transition_display_reason / last_transition_message / recent_transitions`，Runtime 面板不再只依赖内部 termination reason
 - resume consistency 已切到 transcript-truth 语义：新增 `transcript_store.py`、`session_restore.py`，`resume_session()` 已从 transcript replay 恢复 `Session`，`summary.json` 不再作为恢复真相源
 - tool interrupt / retry 已推进第一段：`tool_started` 之后若会话被取消，`QueryEngine` 现在会写入 synthetic interrupted tool_result，并在 transcript / timeline / adapter `tool_finished` 事件中统一表现为 aborted
 - tool interrupt / retry 已继续推进第二段：parallel batch 中的 `discarded` synthetic result 仍会进 transcript，但不再误计入 `LoopGuard` 导致整轮提前 `guard_stop`

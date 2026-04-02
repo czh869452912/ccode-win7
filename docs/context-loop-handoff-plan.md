@@ -217,7 +217,6 @@
 优先完成：
 
 - 明确 step/turn 状态语义是否继续保留 raw/internal 双层
-- 让 GUI inspector 直接消费 `display_reason`
 - 继续收缩 adapter 内的 legacy 分支
 
 ### P2：更强集成回归

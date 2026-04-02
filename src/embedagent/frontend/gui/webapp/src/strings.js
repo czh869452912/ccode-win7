@@ -59,6 +59,11 @@ const STRINGS = {
     "inspector.runtimeResolvedRoots": "Resolved roots",
     "inspector.runtimeToolSources": "Tool sources",
     "inspector.runtimeWarnings": "Warnings",
+    "inspector.sessionStatus": "Session status",
+    "inspector.lastState": "Last state",
+    "inspector.lastStateMessage": "Last state detail",
+    "inspector.recentTransitions": "Recent transitions",
+    "inspector.noRecentTransitions": "No recent transitions.",
 
     // Panel empty states
     "inspector.noTodos": "No todos in this session.",
@@ -183,6 +188,11 @@ const STRINGS = {
     "inspector.runtimeResolvedRoots": "解析路径",
     "inspector.runtimeToolSources": "工具来源",
     "inspector.runtimeWarnings": "告警",
+    "inspector.sessionStatus": "会话状态",
+    "inspector.lastState": "最后状态",
+    "inspector.lastStateMessage": "最后状态详情",
+    "inspector.recentTransitions": "最近状态迁移",
+    "inspector.noRecentTransitions": "当前没有最近状态迁移。",
 
     "inspector.noTodos": "本次会话暂无待办。",
     "inspector.noArtifacts": "暂无产物。",

@@ -71,6 +71,34 @@ test("normalizeSessionPayload keeps status and mode stable", () => {
   assert.equal(snapshot.has_pending_permission, true);
 });
 
+test("normalizeSessionPayload preserves display-oriented transition fields", () => {
+  const snapshot = normalizeSessionPayload({
+    session_id: "sess-2",
+    status: "idle",
+    last_transition_reason: "aborted",
+    last_transition_display_reason: "cancelled",
+    last_transition_message: "tool execution interrupted",
+    recent_transitions: [
+      {
+        reason: "aborted",
+        display_reason: "cancelled",
+        message: "tool execution interrupted",
+      },
+      {
+        reason: "guard_stop",
+        display_reason: "guard",
+        message: "too many repeated failures",
+      },
+    ],
+  });
+  assert.equal(snapshot.lastTransitionReason, "aborted");
+  assert.equal(snapshot.lastTransitionDisplayReason, "cancelled");
+  assert.equal(snapshot.lastTransitionMessage, "tool execution interrupted");
+  assert.equal(snapshot.recentTransitions.length, 2);
+  assert.equal(snapshot.recentTransitions[0].displayReason, "cancelled");
+  assert.equal(snapshot.recentTransitions[0].display_reason, "cancelled");
+});
+
 test("timelineFromTurns expands one user turn into multiple agent steps", () => {
   const timeline = timelineFromTurns([
     {

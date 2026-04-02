@@ -455,6 +455,28 @@
   - 评估是否要引入 session hint 作为 recipe tie-break
   - 继续推进真实 `LlspProvider`
 
+### DC-058
+
+- 日期：2026-04-02
+- 变更主题：GUI inspector 已开始直接消费 display_reason
+- 变更摘要：
+  - 前端 `normalizeSessionPayload()` 现在会保留 `last_transition_display_reason`、`last_transition_message` 与 `recent_transitions`
+  - GUI Runtime inspector 已开始直接展示最后状态与最近状态迁移，优先使用 `display_reason` 而不是内部 `reason`
+  - `loadSession()` 也已统一走 snapshot normalize，避免刷新/切会话后 다시退回原始 payload 导致前端丢字段
+- 影响范围：
+  - GUI inspector 状态语义
+  - Session snapshot 到前端的字段透传一致性
+  - 前端 helper tests
+- 关联文档：
+  - `docs/context-loop-handoff-plan.md`
+  - `docs/context-loop-handoff-status.md`
+  - `docs/development-tracker.md`
+  - `docs/query-context-redesign.md`
+- 是否需要 ADR：`否`
+- 后续动作：
+  - 继续判断 `step/turn` 是否还需要 raw/internal 双层语义
+  - 评估是否把相同展示语义继续下沉到 timeline 顶部终止态提示
+
 ### DC-044
 
 - 日期：2026-04-02

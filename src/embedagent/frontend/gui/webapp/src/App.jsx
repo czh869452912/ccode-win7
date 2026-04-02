@@ -121,12 +121,13 @@ function App() {
   }
 
   async function loadSession(sessionId) {
-    const [snapshot, timelinePayload, planPayload, permissionPayload] = await Promise.all([
+    const [snapshotPayload, timelinePayload, planPayload, permissionPayload] = await Promise.all([
       fetchJson(`/api/sessions/${encodeURIComponent(sessionId)}`),
       fetchJson(`/api/sessions/${encodeURIComponent(sessionId)}/timeline`),
       fetchJson(`/api/sessions/${encodeURIComponent(sessionId)}/plan`),
       fetchJson(`/api/sessions/${encodeURIComponent(sessionId)}/permissions`),
     ]);
+    const snapshot = normalizeSessionPayload(snapshotPayload);
     dispatch({
       type: "session_activated",
       sessionId,

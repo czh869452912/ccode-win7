@@ -306,6 +306,14 @@ export function timelineFromTurns(turns, events = []) {
 }
 
 export function normalizeSessionPayload(payload) {
+  const recentTransitions = Array.isArray(payload.recent_transitions)
+    ? payload.recent_transitions.map((entry) => ({
+        ...entry,
+        reason: entry?.reason || "",
+        message: entry?.message || "",
+        displayReason: entry?.display_reason || entry?.displayReason || entry?.reason || "",
+      }))
+    : [];
   return {
     session_id: payload.session_id || "",
     status: payload.status || "idle",
@@ -321,6 +329,11 @@ export function normalizeSessionPayload(payload) {
     pending_permission: payload.pending_permission || null,
     pending_user_input: payload.pending_user_input || null,
     last_error: payload.last_error || "",
+    lastTransitionReason: payload.last_transition_reason || "",
+    lastTransitionDisplayReason:
+      payload.last_transition_display_reason || payload.last_transition_reason || "",
+    lastTransitionMessage: payload.last_transition_message || "",
+    recentTransitions,
     runtimeSource: payload.runtime_source || "",
     bundledToolsReady: Boolean(payload.bundled_tools_ready),
     fallbackWarnings: payload.fallback_warnings || [],

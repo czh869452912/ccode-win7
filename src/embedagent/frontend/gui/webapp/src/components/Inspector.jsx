@@ -321,6 +321,9 @@ function RuntimePanel({ snapshot, lang }) {
     : Array.isArray(runtime?.fallback_warnings)
       ? runtime.fallback_warnings
       : [];
+  const recentTransitions = Array.isArray(snapshot?.recentTransitions)
+    ? snapshot.recentTransitions
+    : [];
   const resolvedRoots = runtime?.resolved_tool_roots || {};
   const toolSources = runtime?.tool_sources || {};
   if (!snapshot) {
@@ -330,9 +333,25 @@ function RuntimePanel({ snapshot, lang }) {
     <div className="panel-preview">
       <h3>{t("inspector.runtime", lang)}</h3>
       <div className="runtime-summary">
+        <div><strong>{t("inspector.sessionStatus", lang)}:</strong> {snapshot.status || "-"}</div>
+        <div><strong>{t("inspector.lastState", lang)}:</strong> {snapshot.lastTransitionDisplayReason || snapshot.lastTransitionReason || "-"}</div>
+        <div><strong>{t("inspector.lastStateMessage", lang)}:</strong> {snapshot.lastTransitionMessage || "-"}</div>
         <div><strong>{t("inspector.runtimeSource", lang)}:</strong> {snapshot.runtimeSource || "-"}</div>
         <div><strong>{t("inspector.runtimeReady", lang)}:</strong> {snapshot.bundledToolsReady ? t("inspector.yes", lang) : t("inspector.no", lang)}</div>
       </div>
+      <h3>{t("inspector.recentTransitions", lang)}</h3>
+      {recentTransitions.length > 0 ? (
+        <ul className="review-risk-list">
+          {recentTransitions.map((entry, index) => (
+            <li key={`${index}-${entry.reason || entry.displayReason || "transition"}`}>
+              <strong>{entry.displayReason || entry.display_reason || entry.reason || "-"}</strong>
+              {entry.message ? `: ${entry.message}` : ""}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <div className="empty-copy">{t("inspector.noRecentTransitions", lang)}</div>
+      )}
       <h3>{t("inspector.runtimeResolvedRoots", lang)}</h3>
       <div className="runtime-grid">
         {Object.entries(resolvedRoots).map(([key, value]) => (

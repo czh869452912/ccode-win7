@@ -208,7 +208,6 @@
 
 还没做硬的点：
 
-- GUI inspector 直接消费 `display_reason`
 - step/turn 状态语义是否继续保持 raw/internal 双层
 - adapter 中 legacy 路径继续收缩
 
@@ -220,8 +219,8 @@
 
 1. `workspace intelligence`
    - 接入真实 `LlspProvider`
-2. `GUI inspector 消费 display_reason`
-   - 让前端真正用上现在已经准备好的结构化语义
+2. `frontend/protocol`
+   - 继续收 `step/turn` raw/internal 双层语义和 legacy adapter 分支
 3. `更强集成回归`
    - 在真实 C 工程上把 interrupt / resume / compact / permission wait 再串一遍
 
