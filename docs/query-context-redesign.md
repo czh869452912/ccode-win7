@@ -73,6 +73,13 @@
   - `LlspProvider`（空实现）
 - 本轮只定义统一 broker/provider 契约；`llsp` 不作为运行前置条件
 
+2026-04-02 的后续切片继续把这一层做深：
+
+- `CtagsProvider` 不再只探测 `tags` 文件存在，而会解析符号项并优先呈现最近工作集 / 诊断热点文件中的符号定义
+- `DiagnosticsProvider` 开始按 focus path 去重并优先选择更相关的诊断证据
+- `RecipeProvider` 按 mode 重新排序 recipe，`verify` 优先测试/静态检查，`code` 优先编译与测试
+- `LlspProvider` 已扩展为可注入 backend 的契约；默认仍为空实现，但后续可直接接入真实 `llsp/clangd` provider
+
 ---
 
 ## 6. 工具编排
@@ -110,4 +117,3 @@
 - 更完整的 permission wait / background resume 用户体验
 - 更深的 ctags / llsp 实体级代码情报
 - 全量旧测试迁移到无 ACL 噪音的测试沙箱
-

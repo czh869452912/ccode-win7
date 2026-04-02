@@ -96,8 +96,9 @@ class RecipeProvider(WorkspaceIntelligenceProvider):
         items = payload.get("items") if isinstance(payload, dict) else []
         if not isinstance(items, list) or not items:
             return []
+        ranked = self._rank_items(mode_name, items)
         selected = []
-        for item in items[:4]:
+        for item in ranked[:4]:
             if not isinstance(item, dict):
                 continue
             selected.append(
@@ -118,6 +119,22 @@ class RecipeProvider(WorkspaceIntelligenceProvider):
                 metadata={"count": len(items)},
             )
         ]
+
+    def _rank_items(self, mode_name: str, items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        preferred = {
+            "verify": {"run_tests": 0, "run_clang_tidy": 1, "run_clang_analyzer": 2, "collect_coverage": 3, "compile_project": 4},
+            "code": {"compile_project": 0, "run_tests": 1, "run_clang_tidy": 2},
+            "debug": {"run_tests": 0, "compile_project": 1, "run_clang_tidy": 2, "run_clang_analyzer": 3},
+            "explore": {"compile_project": 0, "run_tests": 1},
+            "spec": {"compile_project": 0, "run_tests": 1},
+        }.get(mode_name, {})
+        return sorted(
+            items,
+            key=lambda item: (
+                preferred.get(str(item.get("tool_name") or ""), 99),
+                str(item.get("id") or ""),
+            ),
+        )
 
 
 class CtagsProvider(WorkspaceIntelligenceProvider):
@@ -162,7 +179,16 @@ class DiagnosticsProvider(WorkspaceIntelligenceProvider):
 
     def collect(self, session: Session, mode_name: str, tools: Any, project_memory: Optional[ProjectMemoryStore] = None) -> List[IntelligenceEvidence]:
         evidence = []
-        for observation in reversed(_all_observations(session)):
+        focus_paths = set(_focus_paths_from_session(session))
+        seen_keys = set()
+        observations = list(reversed(_all_observations(session)))
+        observations.sort(
+            key=lambda observation: (
+                0 if _observation_primary_path(observation) in focus_paths else 1,
+                0 if observation.tool_name in ("run_tests", "compile_project", "run_clang_tidy", "run_clang_analyzer") else 1,
+            )
+        )
+        for observation in observations:
             if observation.tool_name not in (
                 "compile_project",
                 "run_tests",
@@ -177,6 +203,11 @@ class DiagnosticsProvider(WorkspaceIntelligenceProvider):
             detail = _diagnostic_detail(observation)
             if not detail:
                 continue
+            primary_path = _observation_primary_path(observation)
+            key = "%s|%s|%s" % (observation.tool_name, primary_path, detail)
+            if key in seen_keys:
+                continue
+            seen_keys.add(key)
             evidence.append(
                 IntelligenceEvidence(
                     provider=self.name,
@@ -184,7 +215,7 @@ class DiagnosticsProvider(WorkspaceIntelligenceProvider):
                     content=detail,
                     priority=100 if mode_name in ("code", "debug", "verify") else 60,
                     tags=["diagnostic", observation.tool_name, mode_name],
-                    metadata={"tool_name": observation.tool_name},
+                    metadata={"tool_name": observation.tool_name, "focus_match": primary_path in focus_paths, "path": primary_path},
                 )
             )
             if len(evidence) >= 2:
@@ -215,10 +246,36 @@ class GitStateProvider(WorkspaceIntelligenceProvider):
         ]
 
 
+class LlspBackend(object):
+    def collect(self, workspace: str, session: Session, mode_name: str) -> List[Dict[str, Any]]:
+        return []
+
+
 class LlspProvider(WorkspaceIntelligenceProvider):
     name = "llsp"
 
+    def __init__(self, backend: Optional[LlspBackend] = None) -> None:
+        self.backend = backend
+
     def collect(self, session: Session, mode_name: str, tools: Any, project_memory: Optional[ProjectMemoryStore] = None) -> List[IntelligenceEvidence]:
+        if self.backend is not None:
+            items = self.backend.collect(tools.workspace, session, mode_name) or []
+            evidence = []
+            for item in items:
+                if not isinstance(item, dict):
+                    continue
+                evidence.append(
+                    IntelligenceEvidence(
+                        provider=self.name,
+                        title=str(item.get("title") or "LLSP Evidence"),
+                        content=str(item.get("content") or ""),
+                        priority=int(item.get("priority") or 75),
+                        tags=["llsp", mode_name],
+                        metadata=dict(item.get("metadata") or {}),
+                    )
+                )
+            if evidence:
+                return evidence
         return [
             IntelligenceEvidence(
                 provider=self.name,
@@ -328,6 +385,22 @@ def _diagnostic_detail(observation: Observation) -> str:
         )
     if observation.error:
         return "%s: %s" % (observation.tool_name, observation.error)
+    return ""
+
+
+def _observation_primary_path(observation: Observation) -> str:
+    if not isinstance(observation.data, dict):
+        return ""
+    direct = observation.data.get("path")
+    if isinstance(direct, str) and direct:
+        return direct.replace("\\", "/")
+    diagnostics = observation.data.get("diagnostics") if isinstance(observation.data.get("diagnostics"), list) else []
+    for item in diagnostics:
+        if not isinstance(item, dict):
+            continue
+        path = item.get("file") or item.get("path")
+        if isinstance(path, str) and path:
+            return path.replace("\\", "/")
     return ""
 
 

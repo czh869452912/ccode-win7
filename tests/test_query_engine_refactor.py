@@ -13,7 +13,7 @@ from embedagent.query_engine import QueryEngine
 from embedagent.session import Action, AssistantReply, Observation, Session
 from embedagent.tool_execution import partition_tool_actions
 from embedagent.tools import ToolRuntime
-from embedagent.workspace_intelligence import CtagsProvider, WorkspaceIntelligenceBroker
+from embedagent.workspace_intelligence import CtagsProvider, DiagnosticsProvider, LlspProvider, RecipeProvider, WorkspaceIntelligenceBroker
 
 
 _COUNTER = count(1)
@@ -90,6 +90,17 @@ class WriteThenDoneClient(object):
         if on_text_delta is not None and reply.content:
             on_text_delta(reply.content)
         return reply
+
+
+class FakeLlspBackend(object):
+    def collect(self, workspace, session, mode_name):
+        return [
+            {
+                "title": "LLSP Symbols",
+                "content": "llsp symbol demo -> src/demo.c",
+                "metadata": {"backend": "fake", "workspace": workspace, "mode_name": mode_name},
+            }
+        ]
 
 
 class TestQueryEngineRefactor(unittest.TestCase):
@@ -196,6 +207,55 @@ class TestQueryEngineRefactor(unittest.TestCase):
         provider = CtagsProvider()
         evidence = provider.collect(session, "code", self.tools, None)
         self.assertTrue(evidence[0].content.index("demo") < evidence[0].content.index("other_symbol"))
+
+    def test_diagnostics_provider_prioritizes_focused_file(self):
+        session = Session()
+        session.add_user_message("修复 demo")
+        session.add_assistant_reply(
+            AssistantReply(
+                content="",
+                actions=[Action("edit_file", {"path": "src/demo.c", "old_text": "0", "new_text": "1"}, "edit-demo")],
+                finish_reason="tool_calls",
+            )
+        )
+        session.add_observation(
+            Action("edit_file", {"path": "src/demo.c", "old_text": "0", "new_text": "1"}, "edit-demo"),
+            Observation("edit_file", True, None, {"path": "src/demo.c"}),
+        )
+        session.add_observation(
+            Action("compile_project", {}, "compile-1"),
+            Observation("compile_project", False, "compile failed", {"diagnostics": [{"file": "src/other.c", "line": 3, "column": 1, "message": "other failure"}]}),
+        )
+        session.add_observation(
+            Action("run_clang_tidy", {}, "tidy-1"),
+            Observation("run_clang_tidy", False, "tidy failed", {"diagnostics": [{"file": "src/demo.c", "line": 5, "column": 2, "message": "demo warning"}]}),
+        )
+        provider = DiagnosticsProvider()
+        evidence = provider.collect(session, "code", self.tools, None)
+        self.assertGreaterEqual(len(evidence), 2)
+        self.assertIn("src/demo.c", evidence[0].content)
+
+    def test_recipe_provider_prefers_verify_tools_in_verify_mode(self):
+        os.makedirs(os.path.join(self.workspace, ".embedagent"), exist_ok=True)
+        with open(os.path.join(self.workspace, ".embedagent", "workspace-recipes.json"), "w", encoding="utf-8") as handle:
+            handle.write(
+                "[" +
+                '{"id":"custom.build","tool_name":"compile_project","label":"Custom Build","command":"cmd /c echo build","cwd":"."},' +
+                '{"id":"custom.test","tool_name":"run_tests","label":"Custom Test","command":"cmd /c echo test","cwd":"."},' +
+                '{"id":"custom.tidy","tool_name":"run_clang_tidy","label":"Custom Tidy","command":"cmd /c echo tidy","cwd":"."}' +
+                "]"
+            )
+        provider = RecipeProvider()
+        evidence = provider.collect(Session(), "verify", self.tools, None)
+        self.assertIn("run_tests", evidence[0].content)
+        self.assertIn("run_clang_tidy", evidence[0].content)
+
+    def test_llsp_provider_uses_backend_contract(self):
+        provider = LlspProvider(backend=FakeLlspBackend())
+        evidence = provider.collect(Session(), "code", self.tools, None)
+        self.assertEqual(len(evidence), 1)
+        self.assertIn("llsp symbol demo", evidence[0].content)
+        self.assertEqual(evidence[0].metadata.get("backend"), "fake")
 
     def test_query_engine_waits_for_user_input_and_can_resume(self):
         session = Session()
