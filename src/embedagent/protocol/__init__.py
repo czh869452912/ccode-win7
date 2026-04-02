@@ -132,6 +132,7 @@ class AgentStepRecord:
     assistant_text: str = ""
     status: str = "in_progress"
     tool_calls: List[Dict[str, Any]] = field(default_factory=list)
+    transitions: List[Dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass
@@ -144,6 +145,7 @@ class TurnRecord:
     status: str = "completed"
     tool_calls: List[Dict[str, Any]] = field(default_factory=list)
     steps: List[AgentStepRecord] = field(default_factory=list)
+    transitions: List[Dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass

@@ -352,6 +352,32 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertTrue(any(item["event"] == "compact_retry" for item in timeline["events"]))
         self.assertIn("compact_retry", [item[0] for item in events])
 
+    def test_structured_timeline_includes_compact_retry_transition(self):
+        adapter = InProcessAdapter(
+            client=CompactRetryClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+        )
+        snapshot = adapter.create_session('code')
+        session_id = str(snapshot.get('session_id') or '')
+        adapter.submit_user_message(
+            session_id=session_id,
+            text='继续分析',
+            stream=False,
+            wait=True,
+            permission_resolver=lambda ticket: True,
+            event_handler=lambda event_name, current_session_id, payload: None,
+        )
+        payload = adapter.build_structured_timeline(session_id)
+        self.assertEqual(len(payload["turns"]), 1)
+        turn = payload["turns"][0]
+        self.assertIn("transitions", turn)
+        self.assertIn("compact_retry", [item.get("kind") for item in turn["transitions"]])
+        self.assertEqual(len(turn["steps"]), 1)
+        step = turn["steps"][0]
+        self.assertIn("transitions", step)
+        self.assertIn("compact_retry", [item.get("kind") for item in step["transitions"]])
+
     def test_workspace_recipe_api_detects_cmake(self):
         with open(os.path.join(self.workspace, "CMakeLists.txt"), "w", encoding="utf-8") as handle:
             handle.write("cmake_minimum_required(VERSION 3.20)\nproject(demo C)\n")

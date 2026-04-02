@@ -85,6 +85,26 @@
   - 决定 GUI inspector 是否要给 compact retry 单独展示卡片/徽标
   - 继续把更多 transition 信息投影为结构化 timeline 语义
 
+### DC-048
+
+- 日期：2026-04-02
+- 变更主题：structured timeline 保留 compact retry transitions
+- 变更摘要：
+  - `build_structured_timeline()` 现在会在 turn/step 级别保留 `transitions`
+  - `compact_retry`、`context_compacted`、`mode_changed` 这类事件不再只存在于 raw events，而能进入结构化 timeline 供 GUI 直接消费
+  - 这让 step-based timeline 和 snapshot 对同一条状态机变化的观察口径开始收敛
+- 影响范围：
+  - 结构化时间线协议
+  - GUI step timeline / inspector 展示能力
+  - 前端回归测试口径
+- 关联文档：
+  - `docs/query-context-redesign.md`
+  - `docs/development-tracker.md`
+- 是否需要 ADR：`否`
+- 后续动作：
+  - 决定 transitions 在 GUI 中的展示形式
+  - 继续把更多 loop transition 结构化到 step/turn 记录中
+
 ### DC-045
 
 - 日期：2026-04-02

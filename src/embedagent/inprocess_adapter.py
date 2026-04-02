@@ -444,6 +444,14 @@ class InProcessAdapter(object):
 
         Falls back to raw events format for old sessions without turn_start events.
         """
+        def make_transition_item(event_name: str, payload: Dict[str, Any], record: Dict[str, Any]) -> Dict[str, Any]:
+            return {
+                "kind": event_name,
+                "message": str(payload.get("message") or payload.get("reason") or ""),
+                "created_at": record.get("created_at", ""),
+                "metadata": dict(payload),
+            }
+
         state = self._require_session(session_id)
         raw_events = self.timeline_store.load_events(state.session.session_id, limit=limit)
         has_turn_start = any(r.get("event") == "turn_start" for r in raw_events)
@@ -467,6 +475,7 @@ class InProcessAdapter(object):
                         "turn_id": payload.get("turn_id", ""),
                         "user_text": payload.get("user_text", ""),
                         "steps": [],
+                        "transitions": [],
                         "status": "in_progress",
                     }
                     current_step = None
@@ -479,12 +488,18 @@ class InProcessAdapter(object):
                         "reasoning": "",
                         "assistant_text": "",
                         "tool_calls": [],
+                        "transitions": [],
                         "status": "in_progress",
                     }
                     tool_index = {}
                     current_turn["steps"].append(current_step)
                 elif event == "reasoning_delta" and current_step is not None:
                     current_step["reasoning"] += payload.get("text", "")
+                elif event in ("compact_retry", "context_compacted", "mode_changed") and current_turn is not None:
+                    transition_item = make_transition_item(event, payload, record)
+                    current_turn["transitions"].append(dict(transition_item))
+                    if current_step is not None:
+                        current_step["transitions"].append(dict(transition_item))
                 elif event == "tool_started" and current_step is not None:
                     call_id = payload.get("call_id") or record.get("event_id", "")
                     tool_call = {
@@ -551,6 +566,7 @@ class InProcessAdapter(object):
                     "reasoning": "",
                     "tool_calls": [],
                     "assistant_text": "",
+                    "transitions": [],
                     "status": "in_progress",
                     "steps": [],
                 }
@@ -558,6 +574,8 @@ class InProcessAdapter(object):
                 turns.append(current_turn)
             elif event == "reasoning_delta" and current_turn is not None:
                 current_turn["reasoning"] += payload.get("text", "")
+            elif event in ("compact_retry", "context_compacted", "mode_changed") and current_turn is not None:
+                current_turn["transitions"].append(make_transition_item(event, payload, record))
             elif event == "tool_started" and current_turn is not None:
                 call_id = payload.get("call_id") or record.get("event_id", "")
                 tool_call = {
@@ -605,6 +623,7 @@ class InProcessAdapter(object):
                     "reasoning": turn.get("reasoning") or "",
                     "assistant_text": turn.get("assistant_text") or "",
                     "tool_calls": list(turn.get("tool_calls") or []),
+                    "transitions": list(turn.get("transitions") or []),
                     "status": turn.get("status") or "completed",
                 }
             ]
