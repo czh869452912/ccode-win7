@@ -2,6 +2,7 @@ import os
 import shutil
 import sys
 import threading
+import time
 import unittest
 from itertools import count
 
@@ -180,11 +181,46 @@ class ParallelReadThenDoneClient(object):
         return reply
 
 
+class ParallelSuccessfulReadThenDoneClient(object):
+    def __init__(self):
+        self.calls = 0
+
+    def generate(self, messages, tools=None):
+        self.calls += 1
+        if self.calls == 1:
+            return AssistantReply(
+                content="",
+                actions=[
+                    Action("read_file", {"path": "src/demo.c"}, "call-read-demo-a"),
+                    Action("read_file", {"path": "src/demo.c"}, "call-read-demo-b"),
+                    Action("read_file", {"path": "src/demo.c"}, "call-read-demo-c"),
+                ],
+                finish_reason="tool_calls",
+            )
+        return AssistantReply(content="after cancel", actions=[], finish_reason="stop")
+
+    def stream(self, messages, tools=None, on_text_delta=None, on_reasoning_delta=None):
+        reply = self.generate(messages, tools=tools)
+        if on_text_delta is not None and reply.content:
+            on_text_delta(reply.content)
+        return reply
+
+
 class CountingToolRuntime(object):
-    def __init__(self, base):
+    def __init__(self, base, slow_first=False):
         self._base = base
+        self.execute_calls = 0
+        self.slow_first = slow_first
+        self.call_names = []
+        self.read_file_calls = 0
 
     def execute(self, name, arguments):
+        self.execute_calls += 1
+        self.call_names.append((name, dict(arguments)))
+        if name == "read_file":
+            self.read_file_calls += 1
+        if self.slow_first and name == "read_file" and self.read_file_calls == 1:
+            time.sleep(0.2)
         return self._base.execute(name, arguments)
 
     def __getattr__(self, name):
@@ -642,7 +678,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
         session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：code")
         transcript_store = TranscriptStore(self.workspace)
         stop_event = threading.Event()
-        wrapped_tools = CountingToolRuntime(self.tools)
+        wrapped_tools = CountingToolRuntime(self.tools, slow_first=True)
         engine = QueryEngine(
             client=ToolClient(),
             tools=wrapped_tools,
@@ -699,6 +735,36 @@ class TestQueryEngineRefactor(unittest.TestCase):
             and item["payload"]["observation"]["data"].get("error_kind") == "discarded"
         ]
         self.assertGreaterEqual(len(discarded_events), 2)
+
+    def test_query_engine_discards_not_started_parallel_actions_after_cancel(self):
+        session = Session()
+        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：code")
+        transcript_store = TranscriptStore(self.workspace)
+        stop_event = threading.Event()
+        wrapped_tools = CountingToolRuntime(self.tools, slow_first=True)
+        engine = QueryEngine(
+            client=ParallelSuccessfulReadThenDoneClient(),
+            tools=wrapped_tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+            transcript_store=transcript_store,
+            max_parallel_tools=1,
+        )
+        result = engine.submit_turn(
+            user_text="读取文件",
+            stream=False,
+            initial_mode="code",
+            session=session,
+            stop_event=stop_event,
+            on_tool_start=lambda action: stop_event.set(),
+        )
+        self.assertEqual(result.transition.reason, "aborted")
+        error_kinds = [
+            item.data.get("error_kind")
+            for item in session.turns[-1].observations
+            if isinstance(item.data, dict)
+        ]
+        self.assertIn("interrupted", error_kinds)
+        self.assertIn("discarded", error_kinds)
 
     def test_adapter_resumes_pending_user_input(self):
         adapter = InProcessAdapter(

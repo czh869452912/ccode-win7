@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import queue
 import threading
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Tuple
@@ -69,25 +70,40 @@ class StreamingToolExecutor(object):
             )
         return updates
 
-    def _run_parallel(self, actions: List[Action]) -> List[ToolExecutionUpdate]:
-        updates = [ToolExecutionUpdate(action=action, phase="start") for action in actions]
-        results = {}  # type: Dict[str, Observation]
+    def _run_parallel(self, actions: List[Action]):
+        updates = queue.Queue()  # type: queue.Queue
         sibling_error = threading.Event()
         semaphore = threading.Semaphore(self.max_parallel)
         threads = []
+        pending_results = {}  # type: Dict[str, ToolExecutionUpdate]
+        next_result_index = 0
+        yielded_results = 0
 
         def runner(action: Action) -> None:
             with semaphore:
                 if self._discarded or sibling_error.is_set():
-                    results[action.call_id] = Observation(
-                        tool_name=action.name,
-                        success=False,
-                        error="tool execution discarded",
-                        data={"error_kind": "discarded", "retryable": False},
+                    updates.put(
+                        ToolExecutionUpdate(
+                            action=action,
+                            observation=Observation(
+                                tool_name=action.name,
+                                success=False,
+                                error="tool execution discarded",
+                                data={"error_kind": "discarded", "retryable": False},
+                            ),
+                            phase="result",
+                        )
                     )
                     return
+                updates.put(ToolExecutionUpdate(action=action, phase="start"))
                 observation = self.execute_action(action)
-                results[action.call_id] = observation
+                updates.put(
+                    ToolExecutionUpdate(
+                        action=action,
+                        observation=observation,
+                        phase="result",
+                    )
+                )
                 if not observation.success:
                     sibling_error.set()
 
@@ -95,20 +111,26 @@ class StreamingToolExecutor(object):
             thread = threading.Thread(target=runner, args=(action,))
             thread.daemon = True
             threads.append(thread)
+
+        for thread in threads:
             thread.start()
+
+        while yielded_results < len(actions):
+            update = updates.get()
+            if update.phase == "start":
+                yield update
+                continue
+            pending_results[update.action.call_id] = update
+            while next_result_index < len(actions):
+                expected_call_id = actions[next_result_index].call_id
+                if expected_call_id not in pending_results:
+                    break
+                yield pending_results.pop(expected_call_id)
+                next_result_index += 1
+                yielded_results += 1
 
         for thread in threads:
             thread.join()
-
-        for action in actions:
-            updates.append(
-                ToolExecutionUpdate(
-                    action=action,
-                    observation=results.get(action.call_id),
-                    phase="result",
-                )
-            )
-        return updates
 
 
 def partition_tool_actions(

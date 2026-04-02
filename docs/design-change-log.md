@@ -86,6 +86,26 @@
   - 继续补多 tool batch 下的 abort 边界
   - 明确 discard-on-retry 的更细 transcript contract
 
+### DC-051
+
+- 日期：2026-04-02
+- 变更主题：并行 tool batch 已切到流式 start/result writeback
+- 变更摘要：
+  - `StreamingToolExecutor` 的并行批次不再一次性收集完结果后整体返回，而是改为流式发出 `start` / 有序 `result`
+  - 这让 `QueryEngine` 能在看到 `tool_started` 后及时 `discard()` 尚未开始的后续 action
+  - 在 `max_parallel_tools=1` 等受控场景下，当前已验证“首个 action interrupted、后续未开始 action discarded”的 transcript 语义
+- 影响范围：
+  - Tool batch 执行时序
+  - QueryEngine 的 cancel/discard 协同
+  - interrupt/retry transcript 一致性
+- 关联文档：
+  - `docs/context-loop-handoff-status.md`
+  - `docs/development-tracker.md`
+- 是否需要 ADR：`否`
+- 后续动作：
+  - 继续补更高并发下的 abort/retry 组合边界
+  - 评估是否需要显式 progress event / result buffering contract 文档
+
 ### DC-048
 
 - 日期：2026-04-02

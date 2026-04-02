@@ -487,11 +487,15 @@ class QueryEngine(object):
                             on_tool_start(update.action)
                         if stop_event is not None and stop_event.is_set():
                             batch_interrupted = True
+                            executor.discard()
                         continue
                     suspended = None
                     if batch_interrupted or (stop_event is not None and stop_event.is_set()):
                         batch_interrupted = True
-                        observation = self._interrupted_observation(update.action.name)
+                        if update.observation is not None and isinstance(update.observation.data, dict) and update.observation.data.get("error_kind") == "discarded":
+                            observation = update.observation
+                        else:
+                            observation = self._interrupted_observation(update.action.name)
                     else:
                         observation, current_mode, suspended = self._execute_action(
                             session,
@@ -508,6 +512,7 @@ class QueryEngine(object):
                             return suspended
                         if stop_event is not None and stop_event.is_set() and not self._is_interrupted_observation(observation):
                             batch_interrupted = True
+                            executor.discard()
                             observation = self._interrupted_observation(update.action.name)
                     tool_message_id = "m-" + uuid.uuid4().hex[:12]
                     finished_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
