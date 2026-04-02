@@ -210,8 +210,6 @@
 
 优先完成：
 
-- `RecipeProvider` 更细的 mode-aware 选证
-- `DiagnosticsProvider` 对 quality gate / pathless failure 的聚合
 - `LlspProvider` 接真实 backend
 
 ### P1：frontend / protocol 继续规范化

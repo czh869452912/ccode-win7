@@ -93,7 +93,8 @@
 - broker/provider 框架
 - `CtagsProvider` 真实解析 `tags`
 - `DiagnosticsProvider` 工作集优先热点聚合
-- `RecipeProvider` / `GitStateProvider`
+- `RecipeProvider` mode-aware source/stage 选证
+- `GitStateProvider`
 - `LlspProvider` contract + backend hook
 
 关键文件：
@@ -148,6 +149,7 @@
 - ctags 解析与优先级
 - diagnostics hotspot 聚合
 - quality gate / pathless diagnostics 聚合
+- recipe mode-aware source/stage ranking
 - reactive compact retry
 - tool interrupt / discard / long-running command cancel
 - discard-on-retry transcript boundary
@@ -158,7 +160,7 @@
 最近一次新鲜验证结果：
 
 - `python -m unittest tests.test_transcript_store tests.test_session_restore tests.test_query_engine_refactor tests.test_inprocess_adapter_frontend_api -v`
-  - `66/66` 通过
+  - `68/68` 通过
 - `python -m py_compile src\embedagent\workspace_intelligence.py src\embedagent\tools\_base.py src\embedagent\tools\runtime.py src\embedagent\query_engine.py tests\test_query_engine_refactor.py tests\test_inprocess_adapter_frontend_api.py`
   - 通过
 
@@ -200,7 +202,6 @@
 
 还没做硬的点：
 
-- `RecipeProvider` 更细的 mode-aware 选证
 - `LlspProvider` 真实 backend 接入
 
 ### P1：frontend/protocol 收口
@@ -218,7 +219,7 @@
 如果在另一台电脑继续开发，我建议按这个顺序推进：
 
 1. `workspace intelligence`
-   - 深化 mode-aware recipe / diagnostics 聚合
+   - 接入真实 `LlspProvider`
 2. `GUI inspector 消费 display_reason`
    - 让前端真正用上现在已经准备好的结构化语义
 3. `更强集成回归`

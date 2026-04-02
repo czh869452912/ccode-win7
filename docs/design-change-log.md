@@ -434,6 +434,27 @@
   - 继续深化 `RecipeProvider` 的 mode-aware 选证
   - 评估 GUI Problems / inspector 是否也应直接复用这条 quality gate summary
 
+### DC-057
+
+- 日期：2026-04-02
+- 变更主题：RecipeProvider 已补 mode-aware source/stage 排序
+- 变更摘要：
+  - `RecipeProvider` 现在不再只按 `tool_name + id` 粗排，而是按 mode 区分 `project / history / detected` 的来源优先级
+  - `code/debug` 模式更偏显式 project recipe 和 detected build 链路，`verify` 模式则更偏 project/history 的 test recipe
+  - `stage` 现在也参与 tie-break，因此 `build / test / configure` 在不同 mode 下有更稳定的相对顺序
+- 影响范围：
+  - workspace intelligence 的 recipe 首屏质量
+  - `/recipes` / `/run` 之前的模型选证
+  - code/debug/verify 模式下的 recipe 提示稳定性
+- 关联文档：
+  - `docs/context-loop-handoff-status.md`
+  - `docs/development-tracker.md`
+  - `docs/query-context-redesign.md`
+- 是否需要 ADR：`否`
+- 后续动作：
+  - 评估是否要引入 session hint 作为 recipe tie-break
+  - 继续推进真实 `LlspProvider`
+
 ### DC-044
 
 - 日期：2026-04-02

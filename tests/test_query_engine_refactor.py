@@ -551,6 +551,35 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertIn("run_tests", evidence[0].content)
         self.assertIn("run_clang_tidy", evidence[0].content)
 
+    def test_recipe_provider_prefers_project_recipe_over_detected_in_code_mode(self):
+        os.makedirs(os.path.join(self.workspace, ".embedagent"), exist_ok=True)
+        with open(os.path.join(self.workspace, ".embedagent", "workspace-recipes.json"), "w", encoding="utf-8") as handle:
+            handle.write(
+                "[" +
+                '{"id":"custom.build","tool_name":"compile_project","label":"Custom Build","command":"cmd /c echo build","cwd":"."}' +
+                "]"
+            )
+        provider = RecipeProvider()
+        evidence = provider.collect(Session(), "code", self.tools, None)
+        self.assertIn("custom.build", evidence[0].content)
+        self.assertIn("cmake.build.default", evidence[0].content)
+        self.assertLess(evidence[0].content.index("custom.build"), evidence[0].content.index("cmake.build.default"))
+
+    def test_recipe_provider_prefers_history_test_recipe_over_detected_in_verify_mode(self):
+        history_root = os.path.join(self.workspace, ".embedagent", "memory", "project")
+        os.makedirs(history_root, exist_ok=True)
+        with open(os.path.join(history_root, "command-recipes.json"), "w", encoding="utf-8") as handle:
+            handle.write(
+                "[" +
+                '{"tool_name":"run_tests","command":"python -m unittest","cwd":"."}' +
+                "]"
+            )
+        provider = RecipeProvider()
+        evidence = provider.collect(Session(), "verify", self.tools, None)
+        self.assertIn("history.run_tests.1", evidence[0].content)
+        self.assertIn("cmake.test.default", evidence[0].content)
+        self.assertLess(evidence[0].content.index("history.run_tests.1"), evidence[0].content.index("cmake.test.default"))
+
     def test_llsp_provider_uses_backend_contract(self):
         provider = LlspProvider(backend=FakeLlspBackend())
         evidence = provider.collect(Session(), "code", self.tools, None)

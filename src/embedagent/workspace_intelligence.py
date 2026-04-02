@@ -98,9 +98,13 @@ class RecipeProvider(WorkspaceIntelligenceProvider):
             return []
         ranked = self._rank_items(mode_name, items)
         selected = []
+        selected_ids = []
+        selected_sources = []
         for item in ranked[:4]:
             if not isinstance(item, dict):
                 continue
+            selected_ids.append(str(item.get("id") or ""))
+            selected_sources.append(str(item.get("source") or ""))
             selected.append(
                 "[%s] %s" % (
                     str(item.get("tool_name") or ""),
@@ -116,7 +120,7 @@ class RecipeProvider(WorkspaceIntelligenceProvider):
                 content="工作区 recipe：%s" % "; ".join(selected),
                 priority=85 if mode_name in ("code", "verify", "debug") else 55,
                 tags=["recipe", mode_name],
-                metadata={"count": len(items)},
+                metadata={"count": len(items), "selected_ids": selected_ids, "selected_sources": selected_sources},
             )
         ]
 
@@ -128,13 +132,34 @@ class RecipeProvider(WorkspaceIntelligenceProvider):
             "explore": {"compile_project": 0, "run_tests": 1},
             "spec": {"compile_project": 0, "run_tests": 1},
         }.get(mode_name, {})
+        source_rank = {
+            "code": {"project": 0, "detected": 1, "history": 2},
+            "debug": {"project": 0, "detected": 1, "history": 2},
+            "verify": {"project": 0, "history": 1, "detected": 2},
+            "explore": {"project": 0, "detected": 1, "history": 2},
+            "spec": {"project": 0, "detected": 1, "history": 2},
+        }.get(mode_name, {})
         return sorted(
             items,
             key=lambda item: (
                 preferred.get(str(item.get("tool_name") or ""), 99),
+                source_rank.get(str(item.get("source") or ""), 99),
+                self._stage_rank(mode_name, item),
                 str(item.get("id") or ""),
             ),
         )
+
+    def _stage_rank(self, mode_name: str, item: Dict[str, Any]) -> int:
+        stage = str(item.get("stage") or "")
+        if not stage:
+            return 0
+        if mode_name in ("code", "debug"):
+            order = {"build": 0, "test": 1, "configure": 2}
+        elif mode_name == "verify":
+            order = {"test": 0, "build": 1, "configure": 2}
+        else:
+            order = {"build": 0, "test": 1, "configure": 2}
+        return int(order.get(stage, 99))
 
 
 class CtagsProvider(WorkspaceIntelligenceProvider):
