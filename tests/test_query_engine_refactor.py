@@ -155,6 +155,31 @@ class ToolClient(object):
         return reply
 
 
+class ParallelReadThenDoneClient(object):
+    def __init__(self):
+        self.calls = 0
+
+    def generate(self, messages, tools=None):
+        self.calls += 1
+        if self.calls == 1:
+            return AssistantReply(
+                content="",
+                actions=[
+                    Action("read_file", {"path": "src/missing.c"}, "call-read-missing"),
+                    Action("read_file", {"path": "src/demo.c"}, "call-read-demo-1"),
+                    Action("read_file", {"path": "src/demo.c"}, "call-read-demo-2"),
+                ],
+                finish_reason="tool_calls",
+            )
+        return AssistantReply(content="after discard", actions=[], finish_reason="stop")
+
+    def stream(self, messages, tools=None, on_text_delta=None, on_reasoning_delta=None):
+        reply = self.generate(messages, tools=tools)
+        if on_text_delta is not None and reply.content:
+            on_text_delta(reply.content)
+        return reply
+
+
 class CountingToolRuntime(object):
     def __init__(self, base):
         self._base = base
@@ -639,6 +664,41 @@ class TestQueryEngineRefactor(unittest.TestCase):
         events = transcript_store.load_events(session.session_id)
         tool_results = [item for item in events if item["type"] == "tool_result"]
         self.assertEqual(tool_results[-1]["payload"]["observation"]["data"].get("error_kind"), "interrupted")
+
+    def test_query_engine_keeps_discarded_parallel_results_out_of_guard_stop(self):
+        session = Session()
+        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：code")
+        transcript_store = TranscriptStore(self.workspace)
+        engine = QueryEngine(
+            client=ParallelReadThenDoneClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+            transcript_store=transcript_store,
+            max_parallel_tools=1,
+        )
+        result = engine.submit_turn(
+            user_text="并行读取",
+            stream=False,
+            initial_mode="code",
+            session=session,
+        )
+        self.assertEqual(result.transition.reason, "completed")
+        self.assertEqual(result.final_text, "after discard")
+        discarded = [
+            item
+            for item in session.turns[-1].observations
+            if isinstance(item.data, dict) and item.data.get("error_kind") == "discarded"
+        ]
+        self.assertGreaterEqual(len(discarded), 2)
+        events = transcript_store.load_events(session.session_id)
+        discarded_events = [
+            item
+            for item in events
+            if item["type"] == "tool_result"
+            and isinstance(item["payload"].get("observation", {}).get("data"), dict)
+            and item["payload"]["observation"]["data"].get("error_kind") == "discarded"
+        ]
+        self.assertGreaterEqual(len(discarded_events), 2)
 
     def test_adapter_resumes_pending_user_input(self):
         adapter = InProcessAdapter(

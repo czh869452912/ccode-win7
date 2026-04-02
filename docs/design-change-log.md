@@ -66,6 +66,26 @@
   - 收紧多 tool batch 下的 abort 边界
   - 评估长命令 / tool runtime 的真实 interrupt 行为
 
+### DC-050
+
+- 日期：2026-04-02
+- 变更主题：discarded synthetic result 不再误触发 guard stop
+- 变更摘要：
+  - parallel batch 中被丢弃的 synthetic `discarded` tool_result 仍会写入 transcript 和 session observation
+  - `LoopGuard` 现在不会把 `discarded` / `interrupted` synthetic result 当成真实工具失败累计
+  - 这避免了“第一个只读工具失败，后续被丢弃的工具结果反而把整轮提前打成 `guard_stop`”的错误语义
+- 影响范围：
+  - parallel tool batch 的失败路径
+  - QueryEngine 的 retry/abort 行为
+  - transcript 中 synthetic result 的语义一致性
+- 关联文档：
+  - `docs/context-loop-handoff-status.md`
+  - `docs/development-tracker.md`
+- 是否需要 ADR：`否`
+- 后续动作：
+  - 继续补多 tool batch 下的 abort 边界
+  - 明确 discard-on-retry 的更细 transcript contract
+
 ### DC-048
 
 - 日期：2026-04-02

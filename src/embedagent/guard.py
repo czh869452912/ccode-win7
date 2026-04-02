@@ -83,6 +83,8 @@ class LoopGuard(object):
         if isinstance(observation.data, dict):
             if observation.data.get("blocked_by") == "user_confirmation":
                 return
+            if observation.data.get("error_kind") in ("discarded", "interrupted"):
+                return
         self.consecutive_failures += 1
         action_key = _action_key(action)
         retryable = True

@@ -181,10 +181,10 @@
 当前进展：
 
 - 用户中断后 synthetic tool_result 已落地第一段：`tool_started` 之后若会话被取消，`QueryEngine` 会写入 synthetic interrupted observation，并在 transcript / timeline / adapter event 中对齐为 aborted
+- parallel batch 中的 `discarded` result 现在仍会写入 transcript，但不再误触发 `LoopGuard` 把整轮提前打成 `guard_stop`
 
 还没做硬的点：
 
-- discard-on-retry 的 transcript 语义
 - 多 tool batch 下更完整的 retry / abort 边界
 - 更贴近真实长命令 / tool runtime 的 interrupt 行为
 
@@ -211,7 +211,6 @@
 如果在另一台电脑继续开发，我建议按这个顺序推进：
 
 1. `tool interrupt / retry`
-   - 补 discard-on-retry transcript 语义
    - 收紧多 tool batch 的 abort 边界
 2. `workspace intelligence`
    - 深化 mode-aware recipe / diagnostics 聚合
