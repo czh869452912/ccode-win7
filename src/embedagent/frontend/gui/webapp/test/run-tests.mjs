@@ -203,6 +203,9 @@ function main() {
     },
   });
   assert.equal(modeCommandState.timeline[1].turnId, modeCommandState.timeline[0].id);
+  assert.equal(modeCommandState.timeline[1].projectionSource, "raw_events");
+  assert.equal(modeCommandState.timeline[1].projectionKind, "raw_event");
+  assert.equal(modeCommandState.timeline[1].synthetic, false);
 
   const reviewState = reducer(initialState, {
     type: "command_result",
@@ -219,6 +222,7 @@ function main() {
   });
   assert.equal(reviewState.timeline.length, 1);
   assert.equal(reviewState.timeline[0].kind, "command_result");
+  assert.equal(reviewState.timeline[0].projectionSource, "raw_events");
   assert.equal(reviewState.review.summary, "quality summary");
 
   const permissionState = reducer(initialState, {

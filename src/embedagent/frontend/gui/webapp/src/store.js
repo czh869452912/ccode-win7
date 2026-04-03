@@ -43,6 +43,14 @@ function liveProjectionMeta() {
   };
 }
 
+function rawProjectionMeta() {
+  return {
+    projectionSource: "raw_events",
+    projectionKind: "raw_event",
+    synthetic: false,
+  };
+}
+
 export function reducer(state, action) {
   switch (action.type) {
     case "set_sidebar":
@@ -440,7 +448,7 @@ export function reducer(state, action) {
               data: action.data || {},
               success: action.success,
               turnId,
-              ...liveProjectionMeta(),
+              ...rawProjectionMeta(),
             });
       return {
         ...state,
