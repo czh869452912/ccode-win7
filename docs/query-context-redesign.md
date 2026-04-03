@@ -1,6 +1,6 @@
 # EmbedAgent Query / Context Redesign
 
-> 更新日期：2026-04-02
+> 更新日期：2026-04-03
 > 适用阶段：上下文管理与 agent loop 激进重构切片
 
 ---
@@ -88,8 +88,9 @@
   - `CtagsProvider`
   - `DiagnosticsProvider`
   - `GitStateProvider`
-  - `LlspProvider`（空实现）
-- 本轮只定义统一 broker/provider 契约；`llsp` 不作为运行前置条件
+  - `LlspProvider`（默认文件型 backend + injectable backend）
+- `LlspProvider` 当前默认会读取工作区 `.embedagent/llsp/evidence.json`；文件缺失时静默退化，不把 `llsp` 变成运行前置条件
+- provider 侧会按当前 session 的 focus path / working set 对 LLSP 证据做最小排序，优先把当前正在看的文件抬到前面
 
 2026-04-02 的后续切片继续把这一层做深：
 
@@ -97,7 +98,7 @@
 - `DiagnosticsProvider` 已升级为“工作集优先 + 按文件聚合”的热点选择器：最近编辑/读取过的文件会优先于被动报错文件，同一文件上的多条 compile/tidy/analyzer 诊断会合并成单条热点证据
 - `DiagnosticsProvider` 现在还会在 `verify` 模式下聚合 `report_quality` / `run_tests` / `collect_coverage` 一类无路径失败，生成单条 quality gate summary
 - `RecipeProvider` 现在会按 mode 区分 `project / history / detected` 来源优先级，并使用 `stage` 细化 `build / test / configure` 的相对顺序
-- `LlspProvider` 已扩展为可注入 backend 的契约；默认仍为空实现，但后续可直接接入真实 `llsp/clangd` provider
+- `LlspProvider` 已扩展为“默认文件型 backend + 可注入 custom backend”的契约；当前默认路径是 `.embedagent/llsp/evidence.json`，后续仍可直接接入真实 `llsp/clangd` provider
 
 ---
 
@@ -138,5 +139,5 @@
 
 - 更强的 reactive compact / LLM compact
 - 更完整的 permission wait / background resume 用户体验
-- 更深的 ctags / llsp 实体级代码情报
+- 更深的 llsp/clangd 实时语义后端（若后续确有需要）
 - 全量旧测试迁移到无 ACL 噪音的测试沙箱

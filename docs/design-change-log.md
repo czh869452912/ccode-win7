@@ -1701,3 +1701,28 @@
   - 在 Win7 bundle 中完成 Fixed Version WebView2 109 实机验证
   - 继续细化文件预览 / diff / 编辑闭环
   - 评估是否继续保留 `mshtml` 仅作报错级兜底
+
+### DC-039
+
+- 日期：2026-04-03
+- 变更主题：LlspProvider 接入默认文件型 backend
+- 变更摘要：
+  - `LlspProvider` 不再默认返回“空实现占位”提示，而是优先读取工作区 `.embedagent/llsp/evidence.json`
+  - 新增 `LlspFileBackend`，支持离线读取 LLSP 证据文件，并保持 `llsp` 仍然是 optional provider，不引入新的运行时硬依赖
+  - provider 侧增加基于 `focus path / working set` 的最小排序逻辑，让当前正在编辑或诊断的文件优先浮到上下文和 snapshot 投影前部
+  - 新增测试覆盖默认 backend 读取、缺文件静默退化，以及 snapshot 对 LLSP 证据的投影
+- 影响范围：
+  - workspace intelligence 证据来源
+  - context pipeline 的 intelligence 选证结果
+  - session snapshot / frontend inspector 的情报投影
+- 关联文档：
+  - `docs/query-context-redesign.md`
+  - `docs/context-loop-handoff-plan.md`
+  - `docs/context-loop-handoff-status.md`
+  - `src/embedagent/workspace_intelligence.py`
+  - `tests/test_query_engine_refactor.py`
+  - `tests/test_inprocess_adapter_frontend_api.py`
+- 是否需要 ADR：`否`
+- 后续动作：
+  - 若需要更强实时语义，再接入真实 llsp/clangd daemon backend
+  - 在真实 C 工程回归中验证 LLSP 证据文件与 diagnostics/ctags 的协同排序是否合适

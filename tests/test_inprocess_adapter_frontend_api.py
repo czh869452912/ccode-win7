@@ -400,6 +400,44 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertIsInstance(refreshed["workspace_intelligence"], list)
         self.assertGreaterEqual(len(refreshed["workspace_intelligence"]), 1)
 
+    def test_session_snapshot_projects_default_llsp_file_evidence(self):
+        os.makedirs(os.path.join(self.workspace, ".embedagent", "llsp"), exist_ok=True)
+        with open(os.path.join(self.workspace, ".embedagent", "llsp", "evidence.json"), "w", encoding="utf-8") as handle:
+            json.dump(
+                {
+                    "items": [
+                        {
+                            "path": "src/pkg/demo.c",
+                            "symbol": "demo_symbol",
+                            "kind": "function",
+                            "priority": 70,
+                        }
+                    ]
+                },
+                handle,
+                ensure_ascii=False,
+                indent=2,
+            )
+        adapter = InProcessAdapter(
+            client=ToolClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+        )
+        snapshot = adapter.create_session('code')
+        session_id = str(snapshot.get('session_id') or '')
+        adapter.submit_user_message(
+            session_id=session_id,
+            text='读取文件',
+            stream=False,
+            wait=True,
+            permission_resolver=lambda ticket: True,
+            event_handler=lambda event_name, current_session_id, payload: None,
+        )
+        refreshed = adapter.get_session_snapshot(session_id)
+        self.assertIn("workspace_intelligence", refreshed)
+        rendered_sections = [item.get("content") or "" for item in refreshed["workspace_intelligence"] if isinstance(item, dict)]
+        self.assertTrue(any("demo_symbol" in item for item in rendered_sections))
+
     def test_session_snapshot_and_timeline_include_compact_retry_projection(self):
         adapter = InProcessAdapter(
             client=CompactRetryClient(),

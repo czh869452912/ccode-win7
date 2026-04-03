@@ -1,6 +1,6 @@
 # Context/Loop 重构交接计划
 
-> 最后更新：2026-04-02
+> 最后更新：2026-04-03
 > 用途：这是面向“上下文管理 + agent loop + tool orchestration + workspace intelligence”重构线的自包含计划文档。
 > 交接约定：在另一台电脑上，只要仓库代码与本文件、[`docs/context-loop-handoff-status.md`](./context-loop-handoff-status.md) 同步，就可以继续开发这一工作流，不依赖额外口头背景。
 
@@ -95,7 +95,7 @@
 - `CtagsProvider`
 - `DiagnosticsProvider`
 - `GitStateProvider`
-- `LlspProvider`（contract + optional backend）
+- `LlspProvider`（默认文件型 backend + optional custom backend）
 
 ### 3.5 Tool Execution
 
@@ -209,7 +209,7 @@
 
 优先完成：
 
-- `LlspProvider` 接真实 backend
+- 若后续需要更强实时语义，再把 `LlspProvider` 从默认文件型 backend 扩展到真实 llsp/clangd backend
 
 ### P1：frontend / protocol 继续规范化
 
@@ -289,6 +289,6 @@ node .\run-local-tests.mjs
 1. 先读本文件
 2. 再读 `docs/context-loop-handoff-status.md`
 3. 跑验证
-4. 优先从 `P1 workspace intelligence` 的真实 `LlspProvider`，或 `P1 frontend/protocol` 的 raw/internal 语义收口开始下一轮
+4. 优先从 `P1 frontend/protocol` 的 raw/internal 语义收口，或 `P2` 的更强集成回归开始下一轮；若确有需要，再继续把 `LlspProvider` 接到真实 llsp/clangd backend
 
 这两份文件的目标就是让另一台电脑上的开发者无需重新梳理对话历史，也能直接接着干。

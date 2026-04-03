@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
@@ -349,41 +350,149 @@ class LlspBackend(object):
         return []
 
 
+class LlspFileBackend(LlspBackend):
+    def __init__(self, relative_path: str = ".embedagent/llsp/evidence.json") -> None:
+        self.relative_path = str(relative_path or ".embedagent/llsp/evidence.json").replace("\\", "/")
+
+    def collect(self, workspace: str, session: Session, mode_name: str) -> List[Dict[str, Any]]:
+        candidate = os.path.join(os.path.realpath(workspace), *self.relative_path.split("/"))
+        if not os.path.isfile(candidate):
+            return []
+        try:
+            with open(candidate, "r", encoding="utf-8") as handle:
+                payload = json.load(handle)
+        except (OSError, ValueError, TypeError):
+            return []
+        items = payload.get("items") if isinstance(payload, dict) else payload
+        if not isinstance(items, list):
+            return []
+        normalized = []
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            normalized_item = self._normalize_item(item)
+            if normalized_item is not None:
+                normalized.append(normalized_item)
+        return normalized
+
+    def _normalize_item(self, item: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        metadata = dict(item.get("metadata") or {})
+        path = _normalize_intelligence_path(str(item.get("path") or metadata.get("path") or ""))
+        symbol = str(item.get("symbol") or metadata.get("symbol") or "").strip()
+        kind = str(item.get("kind") or metadata.get("kind") or "").strip()
+        title = str(item.get("title") or "").strip()
+        content = str(item.get("content") or "").strip()
+        if not content:
+            fragments = []
+            if symbol and path:
+                fragments.append("%s -> %s" % (symbol, path))
+            elif symbol:
+                fragments.append(symbol)
+            elif path:
+                fragments.append(path)
+            if kind:
+                if fragments:
+                    fragments[-1] = "%s (%s)" % (fragments[-1], kind)
+                else:
+                    fragments.append(kind)
+            content = "；".join([fragment for fragment in fragments if fragment])
+        if not content:
+            return None
+        if not title:
+            if symbol:
+                title = "LLSP Symbol"
+            elif path:
+                title = "LLSP Evidence"
+            else:
+                title = "LLSP Evidence"
+        if path:
+            metadata["path"] = path
+        if symbol:
+            metadata["symbol"] = symbol
+        if kind:
+            metadata["kind"] = kind
+        metadata.setdefault("source", "llsp_file")
+        return {
+            "title": title,
+            "content": content,
+            "priority": int(item.get("priority") or 75),
+            "score": item.get("score"),
+            "mode_name": str(item.get("mode_name") or "").strip(),
+            "mode_names": list(item.get("mode_names") or []),
+            "metadata": metadata,
+        }
+
+
 class LlspProvider(WorkspaceIntelligenceProvider):
     name = "llsp"
 
     def __init__(self, backend: Optional[LlspBackend] = None) -> None:
-        self.backend = backend
+        self.backend = backend or LlspFileBackend()
 
     def collect(self, session: Session, mode_name: str, tools: Any, project_memory: Optional[ProjectMemoryStore] = None) -> List[IntelligenceEvidence]:
-        if self.backend is not None:
-            items = self.backend.collect(tools.workspace, session, mode_name) or []
-            evidence = []
-            for item in items:
-                if not isinstance(item, dict):
-                    continue
-                evidence.append(
-                    IntelligenceEvidence(
-                        provider=self.name,
-                        title=str(item.get("title") or "LLSP Evidence"),
-                        content=str(item.get("content") or ""),
-                        priority=int(item.get("priority") or 75),
-                        tags=["llsp", mode_name],
-                        metadata=dict(item.get("metadata") or {}),
-                    )
+        if self.backend is None:
+            return []
+        items = self.backend.collect(tools.workspace, session, mode_name) or []
+        if not items:
+            return []
+        focus_paths = set(_focus_paths_from_session(session))
+        working_paths = set(_working_set_paths_from_session(session))
+        ranked = []
+        for item in items:
+            if not isinstance(item, dict) or not self._mode_matches(item, mode_name):
+                continue
+            metadata = dict(item.get("metadata") or {})
+            path = _normalize_intelligence_path(str(metadata.get("path") or item.get("path") or ""))
+            if path:
+                metadata["path"] = path
+            focus_match = bool(path and path in focus_paths)
+            working_set_match = bool(path and path in working_paths)
+            metadata["focus_match"] = focus_match
+            metadata["working_set_match"] = working_set_match
+            metadata.setdefault("source", "llsp_file")
+            priority = int(item.get("priority") or 75)
+            if mode_name in ("code", "debug", "verify"):
+                priority = max(priority, 80)
+            if focus_match:
+                priority += 15
+            if working_set_match:
+                priority += 10
+            ranked.append(
+                IntelligenceEvidence(
+                    provider=self.name,
+                    title=str(item.get("title") or "LLSP Evidence"),
+                    content=str(item.get("content") or ""),
+                    priority=priority,
+                    tags=["llsp", mode_name],
+                    metadata=metadata,
                 )
-            if evidence:
-                return evidence
-        return [
-            IntelligenceEvidence(
-                provider=self.name,
-                title="LLSP Provider",
-                content="LLSP provider 已预留接口，当前使用空实现并自动退化到 ctags + grep + diagnostics。",
-                priority=30,
-                tags=["llsp", "contract"],
-                metadata={"available": False},
             )
-        ]
+        if not ranked:
+            return []
+        ranked.sort(
+            key=lambda item: (
+                0 if item.metadata.get("focus_match") else 1,
+                0 if item.metadata.get("working_set_match") else 1,
+                -int(item.priority or 0),
+                str(item.metadata.get("path") or ""),
+                item.title,
+            )
+        )
+        limit = 2 if mode_name in ("code", "debug", "verify") else 1
+        return ranked[:limit]
+
+    def _mode_matches(self, item: Dict[str, Any], mode_name: str) -> bool:
+        explicit_mode = str(item.get("mode_name") or "").strip()
+        if explicit_mode and explicit_mode != mode_name:
+            return False
+        mode_names = []
+        for value in item.get("mode_names") or []:
+            text = str(value or "").strip()
+            if text:
+                mode_names.append(text)
+        if mode_names and mode_name not in mode_names:
+            return False
+        return True
 
 
 class WorkspaceIntelligenceBroker(object):
@@ -455,6 +564,15 @@ def _all_observations(session: Session) -> List[Observation]:
     for turn in session.turns:
         observations.extend(turn.observations)
     return observations
+
+
+def _normalize_intelligence_path(path: str) -> str:
+    value = str(path or "").strip().replace("\\", "/")
+    if not value:
+        return ""
+    if value.startswith("./"):
+        return value[2:]
+    return value
 
 
 def _diagnostic_detail(observation: Observation) -> str:

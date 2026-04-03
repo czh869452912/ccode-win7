@@ -1,3 +1,4 @@
+import json
 import os
 import shutil
 import sys
@@ -586,6 +587,56 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertEqual(len(evidence), 1)
         self.assertIn("llsp symbol demo", evidence[0].content)
         self.assertEqual(evidence[0].metadata.get("backend"), "fake")
+
+    def test_llsp_provider_uses_default_file_backend_and_prioritizes_focus_path(self):
+        os.makedirs(os.path.join(self.workspace, ".embedagent", "llsp"), exist_ok=True)
+        with open(os.path.join(self.workspace, ".embedagent", "llsp", "evidence.json"), "w", encoding="utf-8") as handle:
+            json.dump(
+                {
+                    "items": [
+                        {
+                            "path": "src/other.c",
+                            "symbol": "other_symbol",
+                            "kind": "function",
+                            "priority": 60,
+                        },
+                        {
+                            "path": "src/demo.c",
+                            "symbol": "demo_symbol",
+                            "kind": "function",
+                            "priority": 60,
+                        },
+                    ]
+                },
+                handle,
+                ensure_ascii=False,
+                indent=2,
+            )
+        session = Session()
+        session.add_user_message("修 demo")
+        session.add_assistant_reply(
+            AssistantReply(
+                content="",
+                actions=[Action("edit_file", {"path": "src/demo.c", "old_text": "0", "new_text": "1"}, "edit-demo-llsp")],
+                finish_reason="tool_calls",
+            )
+        )
+        session.add_observation(
+            Action("edit_file", {"path": "src/demo.c", "old_text": "0", "new_text": "1"}, "edit-demo-llsp"),
+            Observation("edit_file", True, None, {"path": "src/demo.c"}),
+        )
+        provider = LlspProvider()
+        evidence = provider.collect(session, "code", self.tools, None)
+        self.assertGreaterEqual(len(evidence), 1)
+        self.assertIn("demo_symbol", evidence[0].content)
+        self.assertEqual(evidence[0].metadata.get("path"), "src/demo.c")
+        self.assertTrue(evidence[0].metadata.get("focus_match"))
+        self.assertEqual(evidence[0].metadata.get("source"), "llsp_file")
+
+    def test_llsp_provider_silently_degrades_when_default_file_is_missing(self):
+        provider = LlspProvider()
+        evidence = provider.collect(Session(), "code", self.tools, None)
+        self.assertEqual(evidence, [])
 
     def test_query_engine_waits_for_user_input_and_can_resume(self):
         session = Session()

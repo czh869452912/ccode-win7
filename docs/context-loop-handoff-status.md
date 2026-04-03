@@ -1,6 +1,6 @@
 # Context/Loop 重构当前进展
 
-> 最后更新：2026-04-02
+> 最后更新：2026-04-03
 > 用途：这是面向另一台电脑继续开发的“当前状态快照”。
 > 使用方式：先读 [`docs/context-loop-handoff-plan.md`](./context-loop-handoff-plan.md)，再读本文件，然后直接从“下一步建议”开始。
 
@@ -8,13 +8,14 @@
 
 ## 1. 总体判断
 
-相对最初的重构计划，这条工作流当前总体进展约为 `85%`。
+相对最初的重构计划，这条工作流当前总体进展约为 `88%`。
 
 这是人工评估，不是自动统计；它反映的是：
 
 - 核心骨架已经成形
 - 关键主链路已可用
-- 但恢复一致性、interrupt/retry、真实 llsp 接入、部分前端收口还没有完成
+- 但恢复一致性、interrupt/retry、部分前端收口还没有完成
+- `LlspProvider` 的默认文件型 backend 已接入；若后续需要更强实时语义，仍可继续外接真实 llsp/clangd backend
 
 ---
 
@@ -105,7 +106,7 @@
 - `DiagnosticsProvider` 工作集优先热点聚合
 - `RecipeProvider` mode-aware source/stage 选证
 - `GitStateProvider`
-- `LlspProvider` contract + backend hook
+- `LlspProvider` 默认文件型 backend（`.embedagent/llsp/evidence.json`）+ custom backend hook
 
 关键文件：
 
@@ -158,6 +159,7 @@
 - tool batch partition
 - transcript-truth restore
 - ctags 解析与优先级
+- llsp 文件型 backend 加载 / 焦点文件优先级 / snapshot 投影
 - diagnostics hotspot 聚合
 - quality gate / pathless diagnostics 聚合
 - recipe mode-aware source/stage ranking
@@ -171,7 +173,7 @@
 最近一次新鲜验证结果：
 
 - `python -m unittest tests.test_transcript_store tests.test_session_restore tests.test_query_engine_refactor tests.test_inprocess_adapter_frontend_api -v`
-  - `68/68` 通过
+  - `71/71` 通过
 - `python -m py_compile src\embedagent\workspace_intelligence.py src\embedagent\tools\_base.py src\embedagent\tools\runtime.py src\embedagent\query_engine.py tests\test_query_engine_refactor.py tests\test_inprocess_adapter_frontend_api.py`
   - 通过
 - GUI webapp 本地链路：
@@ -214,9 +216,13 @@
 
 ### P1：workspace intelligence 深化
 
-还没做硬的点：
+当前状态：
 
-- `LlspProvider` 真实 backend 接入
+- `LlspProvider` 默认文件型 backend 已落地，可从工作区 `.embedagent/llsp/evidence.json` 读取证据并按 focus/working set 排序
+
+如果后续还要继续做深：
+
+- 接入真正的 llsp/clangd daemon 或其他实时语义 backend
 
 ### P1：frontend/protocol 收口
 
@@ -231,12 +237,12 @@
 
 如果在另一台电脑继续开发，我建议按这个顺序推进：
 
-1. `workspace intelligence`
-   - 接入真实 `LlspProvider`
-2. `frontend/protocol`
+1. `frontend/protocol`
    - 继续收 `step/turn` raw/internal 双层语义和 legacy adapter 分支
-3. `更强集成回归`
+2. `更强集成回归`
    - 在真实 C 工程上把 interrupt / resume / compact / permission wait 再串一遍
+3. `workspace intelligence`（可选深化）
+   - 若需要更强实时语义，再接真实 llsp/clangd backend
 
 不建议下一轮优先做的事：
 
@@ -274,4 +280,4 @@ node .\run-local-tests.mjs
 
 ## 9. 一句话结论
 
-这条重构线已经从“概念计划”进入“骨架已成、剩余是硬化和收口”的阶段；接下来最值钱的工作，不是再扩功能，而是把恢复一致性、interrupt/retry 和前端最终消费链做实。
+这条重构线已经从“概念计划”进入“骨架已成、剩余是硬化和收口”的阶段；`LlspProvider` 默认 backend 已补齐，接下来最值钱的工作是把恢复一致性、interrupt/retry 和前端最终消费链做实。
