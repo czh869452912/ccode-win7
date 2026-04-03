@@ -1726,3 +1726,27 @@
 - 后续动作：
   - 若需要更强实时语义，再接入真实 llsp/clangd daemon backend
   - 在真实 C 工程回归中验证 LLSP 证据文件与 diagnostics/ctags 的协同排序是否合适
+
+### DC-040
+
+- 日期：2026-04-03
+- 变更主题：structured timeline 显式暴露投影来源语义
+- 变更摘要：
+  - `build_structured_timeline()` 现在会返回 `projection_source`，明确区分 `raw_events / turn_events / step_events`
+  - 当 timeline 只有 turn 级事件时，adapter 会生成带 `projection_kind = synthetic_single_step` 和 `synthetic = true` 的 step，前端不再需要通过缺少 `step_start` 去猜当前语义
+  - `protocol` 中的 `TurnRecord / AgentStepRecord` 也补上对应字段，开始把“记录的 step”和“投影出来的 step”区分开
+- 影响范围：
+  - frontend/protocol 的 structured timeline 语义
+  - legacy timeline 向 step-based timeline 的投影方式
+  - 后续 GUI 对 raw/internal 双层状态的收口空间
+- 关联文档：
+  - `docs/context-loop-handoff-plan.md`
+  - `docs/context-loop-handoff-status.md`
+  - `docs/query-context-redesign.md`
+  - `src/embedagent/inprocess_adapter.py`
+  - `src/embedagent/protocol/__init__.py`
+  - `tests/test_inprocess_adapter_frontend_api.py`
+- 是否需要 ADR：`否`
+- 后续动作：
+  - 继续决定前端最终是否仍保留 raw timeline 调试层
+  - 继续收缩 adapter 内 legacy 分支，逐步把 structured timeline 变成默认消费面

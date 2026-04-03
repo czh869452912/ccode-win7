@@ -134,6 +134,7 @@
 - snapshot 投影新 context / intelligence / transition 信息
 - raw timeline 保留 compact retry 与等待态
 - structured timeline 保留 turn/step 级 transitions
+- structured timeline 现在还会显式暴露 `projection_source`，并区分 recorded step / synthetic single step / raw event fallback
 - `display_reason` 语义映射
 - legacy summary 缺失 `display_reason` 时的 snapshot 读取兼容回填
 - GUI inspector 已开始直接消费 `last_transition_display_reason / last_transition_message / recent_transitions`
@@ -169,11 +170,12 @@
 - compact retry 的 snapshot / timeline / structured timeline 投影
 - `guard_stop / aborted / max_turns / user_input_wait / permission_wait` 的前端投影
 - `display_reason` 以及旧 summary 兼容回填
+- structured timeline 的 `projection_source / projection_kind / synthetic` 语义
 
 最近一次新鲜验证结果：
 
 - `python -m unittest tests.test_transcript_store tests.test_session_restore tests.test_query_engine_refactor tests.test_inprocess_adapter_frontend_api -v`
-  - `71/71` 通过
+  - `73/73` 通过
 - `python -m py_compile src\embedagent\workspace_intelligence.py src\embedagent\tools\_base.py src\embedagent\tools\runtime.py src\embedagent\query_engine.py tests\test_query_engine_refactor.py tests\test_inprocess_adapter_frontend_api.py`
   - 通过
 - GUI webapp 本地链路：
@@ -225,6 +227,11 @@
 - 接入真正的 llsp/clangd daemon 或其他实时语义 backend
 
 ### P1：frontend/protocol 收口
+
+当前进展：
+
+- structured timeline 已明确区分 `raw_events / turn_events / step_events`
+- legacy turn-only timeline 现在会以 synthetic single step 语义投影，不再只能靠前端猜测
 
 还没做硬的点：
 

@@ -131,6 +131,8 @@ class AgentStepRecord:
     reasoning: str = ""
     assistant_text: str = ""
     status: str = "in_progress"
+    projection_kind: str = "recorded_step"
+    synthetic: bool = False
     tool_calls: List[Dict[str, Any]] = field(default_factory=list)
     transitions: List[Dict[str, Any]] = field(default_factory=list)
 
@@ -143,6 +145,7 @@ class TurnRecord:
     reasoning: str = ""
     assistant_text: str = ""
     status: str = "completed"
+    projection_kind: str = ""
     tool_calls: List[Dict[str, Any]] = field(default_factory=list)
     steps: List[AgentStepRecord] = field(default_factory=list)
     transitions: List[Dict[str, Any]] = field(default_factory=list)

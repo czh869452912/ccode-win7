@@ -345,6 +345,63 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertEqual(turn["steps"][1]["reasoning"], "读取完成，总结结果。")
         step_ids = [step["step_id"] for step in turn["steps"]]
         self.assertEqual(len(step_ids), len(set(step_ids)))
+        self.assertEqual(payload["projection_source"], "step_events")
+        self.assertEqual(turn["projection_kind"], "step_events")
+        self.assertTrue(all(not step.get("synthetic") for step in turn["steps"]))
+        self.assertTrue(all(step.get("projection_kind") == "recorded_step" for step in turn["steps"]))
+
+    def test_structured_timeline_marks_turn_level_projection_as_synthetic_step(self):
+        snapshot = self.adapter.create_session('code')
+        session_id = str(snapshot.get('session_id') or '')
+        self.adapter.timeline_store.append_event(
+            session_id,
+            "turn_start",
+            {"turn_id": "turn-legacy", "user_text": "legacy turn"},
+        )
+        self.adapter.timeline_store.append_event(
+            session_id,
+            "reasoning_delta",
+            {"turn_id": "turn-legacy", "text": "legacy reasoning"},
+        )
+        self.adapter.timeline_store.append_event(
+            session_id,
+            "tool_started",
+            {"turn_id": "turn-legacy", "call_id": "call-legacy", "tool_name": "read_file", "arguments": {"path": "src/pkg/demo.c"}},
+        )
+        self.adapter.timeline_store.append_event(
+            session_id,
+            "tool_finished",
+            {"turn_id": "turn-legacy", "call_id": "call-legacy", "tool_name": "read_file", "success": True, "data": {"path": "src/pkg/demo.c"}},
+        )
+        self.adapter.timeline_store.append_event(
+            session_id,
+            "turn_end",
+            {"turn_id": "turn-legacy", "termination_reason": "completed", "final_text": "legacy done"},
+        )
+        payload = self.adapter.build_structured_timeline(session_id)
+        self.assertEqual(payload["projection_source"], "turn_events")
+        self.assertEqual(len(payload["turns"]), 1)
+        turn = payload["turns"][0]
+        self.assertEqual(turn["projection_kind"], "turn_events")
+        self.assertEqual(len(turn["steps"]), 1)
+        step = turn["steps"][0]
+        self.assertTrue(step["synthetic"])
+        self.assertEqual(step["projection_kind"], "synthetic_single_step")
+        self.assertEqual(step["assistant_text"], "legacy done")
+        self.assertEqual(step["reasoning"], "legacy reasoning")
+
+    def test_structured_timeline_reports_raw_event_projection_without_turns(self):
+        snapshot = self.adapter.create_session('code')
+        session_id = str(snapshot.get('session_id') or '')
+        self.adapter.timeline_store.append_event(
+            session_id,
+            "tool_started",
+            {"call_id": "call-raw", "tool_name": "read_file", "arguments": {"path": "src/pkg/demo.c"}},
+        )
+        payload = self.adapter.build_structured_timeline(session_id)
+        self.assertEqual(payload["projection_source"], "raw_events")
+        self.assertEqual(payload["turns"], [])
+        self.assertTrue(any(item.get("event") == "tool_started" for item in payload["events"]))
 
     def test_session_snapshot_includes_runtime_environment_summary(self):
         snapshot = self.adapter.get_session_snapshot(str(self.snapshot.get('session_id') or ''))

@@ -115,6 +115,11 @@
 - raw timeline
 - structured timeline
 
+当前 structured timeline 也开始显式暴露投影来源：
+
+- `projection_source = raw_events | turn_events | step_events`
+- step 级记录可通过 `projection_kind` / `synthetic` 区分 recorded step 与 synthetic single step
+
 这些投影要从新 transcript / transition 真相里派生，不再自己定义状态。
 
 ---

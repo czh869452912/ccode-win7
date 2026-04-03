@@ -552,6 +552,7 @@ class InProcessAdapter(object):
         if not has_turn_start:
             return {
                 "session_id": state.session.session_id,
+                "projection_source": "raw_events",
                 "events": raw_events,
                 "turns": [],
             }
@@ -568,6 +569,7 @@ class InProcessAdapter(object):
                     current_turn = {
                         "turn_id": payload.get("turn_id", ""),
                         "user_text": payload.get("user_text", ""),
+                        "projection_kind": "step_events",
                         "steps": [],
                         "transitions": [],
                         "status": "in_progress",
@@ -581,6 +583,8 @@ class InProcessAdapter(object):
                         "step_index": int(payload.get("step_index") or 0),
                         "reasoning": "",
                         "assistant_text": "",
+                        "projection_kind": "recorded_step",
+                        "synthetic": False,
                         "tool_calls": [],
                         "transitions": [],
                         "status": "in_progress",
@@ -664,6 +668,7 @@ class InProcessAdapter(object):
                             current_step["transitions"].append(dict(transition_item))
             return {
                 "session_id": state.session.session_id,
+                "projection_source": "step_events",
                 "events": raw_events,
                 "turns": turns,
             }
@@ -680,6 +685,7 @@ class InProcessAdapter(object):
                     "reasoning": "",
                     "tool_calls": [],
                     "assistant_text": "",
+                    "projection_kind": "turn_events",
                     "transitions": [],
                     "status": "in_progress",
                     "steps": [],
@@ -749,6 +755,8 @@ class InProcessAdapter(object):
                     "step_index": 1,
                     "reasoning": turn.get("reasoning") or "",
                     "assistant_text": turn.get("assistant_text") or "",
+                    "projection_kind": "synthetic_single_step",
+                    "synthetic": True,
                     "tool_calls": list(turn.get("tool_calls") or []),
                     "transitions": list(turn.get("transitions") or []),
                     "status": turn.get("status") or "completed",
@@ -756,6 +764,7 @@ class InProcessAdapter(object):
             ]
         return {
             "session_id": state.session.session_id,
+            "projection_source": "turn_events",
             "events": raw_events,
             "turns": turns,
         }
