@@ -3,20 +3,43 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
+import hljs from "highlight.js/lib/core";
+import hljsC from "highlight.js/lib/languages/c";
+import hljsCpp from "highlight.js/lib/languages/cpp";
+import hljsBash from "highlight.js/lib/languages/bash";
+import hljsJson from "highlight.js/lib/languages/json";
+import hljsPython from "highlight.js/lib/languages/python";
+import hljsMakefile from "highlight.js/lib/languages/makefile";
+import hljsYaml from "highlight.js/lib/languages/yaml";
 import { toolLabel, STATUS_ICON } from "../store.js";
 import { useLang } from "../LangContext.js";
 import { t } from "../strings.js";
 import { describeProjectionBadge, describeTimelineProjectionNotice, summarizeTimelineProjection } from "../state-helpers.js";
 import DiffView from "./DiffView.jsx";
 
+hljs.registerLanguage("c", hljsC);
+hljs.registerLanguage("cpp", hljsCpp);
+hljs.registerLanguage("bash", hljsBash);
+hljs.registerLanguage("sh", hljsBash);
+hljs.registerLanguage("json", hljsJson);
+hljs.registerLanguage("python", hljsPython);
+hljs.registerLanguage("makefile", hljsMakefile);
+hljs.registerLanguage("yaml", hljsYaml);
+
 function ToolBlock({ item }) {
+  const lang = useLang();
   const status = item.status || "running"; // "running" | "success" | "error"
+  const errorKind = (item.data && item.data.error_kind) || "";
+  const isInterrupted = errorKind === "interrupted";
+  const isDiscarded = errorKind === "discarded";
+  const isSynthetic = isInterrupted || isDiscarded;
+
   const [userToggled, setUserToggled] = React.useState(false);
-  const [expanded, setExpanded] = React.useState(item.status === "error");
+  const [expanded, setExpanded] = React.useState(!isSynthetic && item.status === "error");
 
   React.useEffect(() => {
-    if (status === "error" && !userToggled) setExpanded(true);
-  }, [status, userToggled]);
+    if (!isSynthetic && status === "error" && !userToggled) setExpanded(true);
+  }, [status, userToggled, isSynthetic]);
 
   // Build display args string from item.arguments
   const argsStr = React.useMemo(() => {
@@ -30,6 +53,8 @@ function ToolBlock({ item }) {
   }, [item.arguments]);
 
   const metaStr = React.useMemo(() => {
+    if (isInterrupted) return t("timeline.toolInterrupted", lang);
+    if (isDiscarded) return t("timeline.toolDiscarded", lang);
     if (status === "running") return "running...";
     if (status === "success") {
       const ms = item.executionTimeMs;
@@ -39,32 +64,36 @@ function ToolBlock({ item }) {
     // error
     const ms = item.executionTimeMs;
     return `error${ms != null ? ` · ${ms}ms` : ""}`;
-  }, [status, item.executionTimeMs, item.resultSummary]);
+  }, [status, item.executionTimeMs, item.resultSummary, isInterrupted, isDiscarded, lang]);
 
   const MAX_OUTPUT = 4000;
-  const rawOutput = item.error ||
-    (item.data != null
-      ? (typeof item.data === "string"
-          ? item.data
-          : JSON.stringify(item.data, null, 2))
-      : null);
+  const rawOutput = !isSynthetic
+    ? (item.error ||
+       (item.data != null
+         ? (typeof item.data === "string"
+             ? item.data
+             : JSON.stringify(item.data, null, 2))
+         : null))
+    : null;
   const outputText = rawOutput && rawOutput.length > MAX_OUTPUT
     ? rawOutput.slice(0, MAX_OUTPUT) + "\n…[truncated]"
     : rawOutput;
   const hasOutput = Boolean(outputText);
 
+  const effectiveStatus = isSynthetic ? (isInterrupted ? "interrupted" : "discarded") : status;
+
   return (
     <div>
       <div
-        className={`tool-block ${status}`}
+        className={`tool-block ${effectiveStatus}`}
         onClick={() => hasOutput && (setUserToggled(true), setExpanded((v) => !v))}
         title={item.toolName}
       >
-        <span className={`tool-dot ${status}`} />
-        <span className={`tool-name ${status}`}>{item.label || item.toolName}</span>
+        <span className={`tool-dot ${effectiveStatus}`} />
+        <span className={`tool-name ${effectiveStatus}`}>{item.label || item.toolName}</span>
         {argsStr && <span className="tool-args">{argsStr}</span>}
         <span className="tool-meta">{metaStr}</span>
-        {status === "error" && hasOutput && (
+        {!isSynthetic && status === "error" && hasOutput && (
           <span className="tool-expand">{expanded ? "▾" : "▸"}</span>
         )}
       </div>
@@ -135,7 +164,7 @@ function groupByTurn(items) {
       }
       continue;
     }
-    if (item.kind === "system") {
+    if (item.kind === "system" || item.kind === "compact") {
       turn.systemItems.push(item);
     } else {
       turn.detachedItems.push(item);
@@ -154,7 +183,8 @@ function groupByTurn(items) {
 const Timeline = forwardRef(function Timeline(
   {
     timeline, toolCatalog, thinkingActive, streamingReasoningId,
-    terminationReason, turnsUsed, maxTurns,
+    terminationReason, terminationDisplayReason, terminationMessage,
+    turnsUsed, maxTurns,
     userAnswer, onUserAnswerChange, onSubmitUserInput,
     onPermissionResponse,
     onScroll,
@@ -166,6 +196,27 @@ const Timeline = forwardRef(function Timeline(
   const projectionSummary = summarizeTimelineProjection(timeline);
   const projectionNotice = describeTimelineProjectionNotice(projectionSummary);
   const lastIdx = groups.length - 1;
+
+  // Derive termination card props
+  let terminationCard = null;
+  if (terminationReason === "max_turns") {
+    terminationCard = {
+      tone: "context",
+      content: t("timeline.maxTurnsReached", lang)
+        .replace("{max}", maxTurns)
+        .replace("{used}", turnsUsed),
+    };
+  } else if (terminationReason === "guard") {
+    terminationCard = { tone: "error", content: t("timeline.guardStop", lang) };
+  } else if (terminationReason === "aborted") {
+    terminationCard = { tone: "context", content: t("timeline.cancelled", lang) };
+  } else if (terminationReason && terminationReason !== "completed") {
+    const label = terminationDisplayReason || terminationReason;
+    terminationCard = {
+      tone: "context",
+      content: terminationMessage ? `${label}: ${terminationMessage}` : label,
+    };
+  }
 
   return (
     <div
@@ -197,14 +248,9 @@ const Timeline = forwardRef(function Timeline(
           lang={lang}
         />
       ))}
-      {terminationReason === "max_turns" && (
-        <div className="system-card context" role="status">
-          已达到 {maxTurns} 轮上限（已用 {turnsUsed} 轮）。如需继续，请继续输入。
-        </div>
-      )}
-      {terminationReason === "guard" && (
-        <div className="system-card error" role="alert">
-          连续操作失败，Agent 已停止。请描述问题或调整方向后重新提交。
+      {terminationCard && (
+        <div className={`system-card ${terminationCard.tone}`} role={terminationCard.tone === "error" ? "alert" : "status"}>
+          {terminationCard.content}
         </div>
       )}
     </div>
@@ -243,9 +289,9 @@ function TurnGroup({ group, toolCatalog, isLast, thinkingActive, streamingReason
         />
       ))}
       {systemItems.map((item) => (
-        <div key={item.id} className={`system-card ${item.tone || ""}`} role="alert">
-          {item.content}
-        </div>
+        item.kind === "compact"
+          ? <CompactCard key={item.id} item={item} lang={lang} />
+          : <div key={item.id} className={`system-card ${item.tone || ""}`} role="alert">{item.content}</div>
       ))}
       {isLast && thinkingActive && !streamingReasoningId && steps.length === 0 && (
         <div className="thinking-placeholder" aria-live="polite">
@@ -391,9 +437,27 @@ function TimelineItem({ item, toolCatalog, lang }) {
   if (item.kind === "tool") {
     return <ToolBlock item={item} />;
   }
+  if (item.kind === "compact") {
+    return <CompactCard item={item} lang={lang} />;
+  }
   return (
     <div className={`system-card ${item.tone || ""}`} role="alert">
       {item.content}
+    </div>
+  );
+}
+
+function CompactCard({ item, lang }) {
+  const hasStats = item.recentTurns !== undefined || item.summarizedTurns !== undefined;
+  const parts = [];
+  if (item.summarizedTurns !== undefined) parts.push(`${t("timeline.compactSummarized", lang)} ${item.summarizedTurns}`);
+  if (item.recentTurns !== undefined) parts.push(`${t("timeline.compactRetained", lang)} ${item.recentTurns}`);
+  if (item.approxTokensAfter !== undefined) parts.push(`~${item.approxTokensAfter.toLocaleString()} tokens`);
+  const summary = hasStats ? parts.join(" · ") : (item.content || t("timeline.compacted", lang));
+  return (
+    <div className="system-card compact-card context" role="status">
+      <span className="compact-icon" aria-hidden="true">⊙</span>
+      <span className="compact-summary">{t("timeline.compacted", lang)}: {summary}</span>
     </div>
   );
 }
@@ -481,29 +545,37 @@ function UserInputCard({ item, userAnswer, onUserAnswerChange, onSubmitUserInput
 
 function PermissionCard({ item, onPermissionResponse, lang }) {
   const [remember, setRemember] = React.useState(false);
+  const cardRef = React.useRef(null);
   const { permission, resolved, approved } = item;
+
+  // Auto-scroll pending permission card into view
+  React.useEffect(() => {
+    if (!resolved && cardRef.current) {
+      cardRef.current.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  }, [resolved]);
 
   if (resolved) {
     return (
       <div className="permission-card resolved" role="article">
         <span className="permission-icon" aria-hidden="true">{approved ? "✓" : "✗"}</span>
         <span className="permission-action">{permission?.tool_name || "permission"}</span>
-        <span className="permission-verdict">{approved ? "Approved" : "Denied"}</span>
+        <span className="permission-verdict">{approved ? t("modal.approve", lang) : t("modal.deny", lang)}</span>
       </div>
     );
   }
 
   return (
-    <div className="permission-card" role="dialog" aria-label="Permission request">
+    <div className="permission-card" ref={cardRef} role="dialog" aria-label={t("modal.permissionRequired", lang)}>
       <div className="permission-header">
         <span className="permission-icon" aria-hidden="true">🔐</span>
         <span className="permission-tool">{permission?.tool_name || ""}</span>
-        <span className="permission-category">{permission?.category || ""}</span>
+        {permission?.category && <span className="permission-category">{permission.category}</span>}
       </div>
       <p className="permission-reason">{permission?.reason || ""}</p>
       {permission?.details && Object.keys(permission.details).length > 0 && (
         <details className="permission-details">
-          <summary>Details</summary>
+          <summary>{t("modal.showDetails", lang)}</summary>
           <pre>{JSON.stringify(permission.details, null, 2)}</pre>
         </details>
       )}
@@ -513,20 +585,20 @@ function PermissionCard({ item, onPermissionResponse, lang }) {
           checked={remember}
           onChange={(e) => setRemember(e.target.checked)}
         />
-        Remember for this session
+        {t("modal.remember", lang)}
       </label>
       <div className="permission-actions">
         <button
           className="ghost btn-deny"
           onClick={() => onPermissionResponse && onPermissionResponse(item.id, false, false, permission?.category)}
         >
-          Deny
+          {t("modal.deny", lang)}
         </button>
         <button
           className="primary"
           onClick={() => onPermissionResponse && onPermissionResponse(item.id, true, remember, permission?.category)}
         >
-          Approve
+          {t("modal.approve", lang)}
         </button>
       </div>
     </div>
@@ -571,28 +643,63 @@ function ModeSwitchCard({ item, onSubmitUserInput }) {
   );
 }
 
+function CodeBlock({ className, children }) {
+  const [copied, setCopied] = React.useState(false);
+  const lang = (className || "").replace("language-", "") || "";
+  const codeText = String(children || "").replace(/\n$/, "");
+
+  const highlighted = React.useMemo(() => {
+    try {
+      if (lang && hljs.getLanguage(lang)) {
+        return hljs.highlight(codeText, { language: lang }).value;
+      }
+      return hljs.highlightAuto(codeText).value;
+    } catch {
+      return null;
+    }
+  }, [codeText, lang]);
+
+  function handleCopy() {
+    navigator.clipboard?.writeText(codeText).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  }
+
+  return (
+    <div className="code-block-wrapper">
+      <div className="code-block-header">
+        {lang && <span className="code-lang">{lang}</span>}
+        <button className="code-copy-btn" onClick={handleCopy} aria-label="Copy code">
+          {copied ? "✓" : "Copy"}
+        </button>
+      </div>
+      <pre className="code-block">
+        {highlighted
+          ? <code className={className} dangerouslySetInnerHTML={{ __html: highlighted }} />
+          : <code className={className}>{codeText}</code>
+        }
+      </pre>
+    </div>
+  );
+}
+
 function Markdown({ content }) {
   return (
     <ReactMarkdown
       remarkPlugins={[remarkGfm, remarkMath]}
       rehypePlugins={[rehypeKatex]}
+      className="markdown-body"
       components={{
         code(props) {
-          const { inline, className, children, ...rest } = props;
+          const { node, inline, className, children, ...rest } = props;
           if (inline) {
-            return (
-              <code className={className} {...rest}>
-                {children}
-              </code>
-            );
+            return <code className={`inline-code ${className || ""}`} {...rest}>{children}</code>;
           }
-          return (
-            <pre className="code-block">
-              <code className={className} {...rest}>
-                {children}
-              </code>
-            </pre>
-          );
+          return <CodeBlock className={className}>{children}</CodeBlock>;
+        },
+        a(props) {
+          return <a {...props} target="_blank" rel="noopener noreferrer" />;
         },
       }}
     >

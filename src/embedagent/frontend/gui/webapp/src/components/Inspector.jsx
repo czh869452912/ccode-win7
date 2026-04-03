@@ -6,56 +6,27 @@ import DiffView from "./DiffView.jsx";
 
 const ALL_TABS = ["todos", "plan", "artifacts", "run", "problems", "review", "permissions", "runtime", "preview", "log"];
 
-// Approximate px each tab occupies (monospace 10px + padding 16px)
-const TAB_WIDTH_PX = 52;
-// Width reserved for the "···" overflow button
-const OVERFLOW_BTN_PX = 44;
-
 function InspectorTabs({ active, onChange, todosCount, artifactsCount }) {
   const lang = useLang();
-  const [overflowOpen, setOverflowOpen] = React.useState(false);
-  const overflowRef = React.useRef(null);
   const tabsRef = React.useRef(null);
-  const [visibleCount, setVisibleCount] = React.useState(3);
-
-  // Resize observer: expand visible tabs as inspector widens
-  React.useEffect(() => {
-    if (!tabsRef.current) return;
-    const ro = new ResizeObserver(([entry]) => {
-      const w = entry.contentRect.width;
-      // How many tabs fit before we need the overflow button?
-      const fits = Math.floor((w - OVERFLOW_BTN_PX) / TAB_WIDTH_PX);
-      setVisibleCount(Math.max(3, Math.min(fits, ALL_TABS.length)));
-    });
-    ro.observe(tabsRef.current);
-    return () => ro.disconnect();
-  }, []);
-
-  // Close overflow menu when clicking outside
-  React.useEffect(() => {
-    if (!overflowOpen) return;
-    function onDoc(e) {
-      if (overflowRef.current && !overflowRef.current.contains(e.target)) {
-        setOverflowOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, [overflowOpen]);
-
-  const primaryTabs = ALL_TABS.slice(0, visibleCount);
-  const overflowTabs = ALL_TABS.slice(visibleCount);
-  const hasOverflow = overflowTabs.length > 0;
-  const activeInOverflow = overflowTabs.includes(active);
+  const activeRef = React.useRef(null);
   const badges = { todos: todosCount, artifacts: artifactsCount };
+
+  // Scroll active tab into view when it changes
+  React.useEffect(() => {
+    if (activeRef.current) {
+      activeRef.current.scrollIntoView({ block: "nearest", inline: "nearest" });
+    }
+  }, [active]);
 
   return (
     <div className="inspector-tabs" role="tablist" ref={tabsRef}>
-      {primaryTabs.map((id) => (
+      {ALL_TABS.map((id) => (
         <button
           key={id}
           role="tab"
           aria-selected={active === id}
+          ref={active === id ? activeRef : null}
           className={`insp-tab${active === id ? " active" : ""}`}
           onClick={() => onChange(id)}
         >
@@ -63,34 +34,6 @@ function InspectorTabs({ active, onChange, todosCount, artifactsCount }) {
           {badges[id] > 0 && <span className="tab-badge">{badges[id]}</span>}
         </button>
       ))}
-      {hasOverflow && (
-        <div ref={overflowRef} style={{ marginLeft: "auto", position: "relative" }}>
-          <button
-            className={`more-tab-btn${activeInOverflow ? " active" : ""}`}
-            onClick={() => setOverflowOpen((v) => !v)}
-            aria-label="More tabs"
-            aria-expanded={overflowOpen}
-          >
-            {activeInOverflow
-              ? t(`inspector.${active}`, lang) + " ···"
-              : "···"}
-          </button>
-          {overflowOpen && (
-            <div className="tab-overflow-menu" role="menu">
-              {overflowTabs.map((id) => (
-                <button
-                  key={id}
-                  role="menuitem"
-                  className={`overflow-menu-item${active === id ? " active" : ""}`}
-                  onClick={() => { onChange(id); setOverflowOpen(false); }}
-                >
-                  {t(`inspector.${id}`, lang)}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 }
@@ -367,7 +310,23 @@ function RuntimePanel({ snapshot, timeline, lang }) {
         <div><strong>{t("inspector.timelineProjection", lang)}:</strong> {projection.source || "-"}</div>
         <div><strong>{t("inspector.runtimeSource", lang)}:</strong> {snapshot.runtimeSource || "-"}</div>
         <div><strong>{t("inspector.runtimeReady", lang)}:</strong> {snapshot.bundledToolsReady ? t("inspector.yes", lang) : t("inspector.no", lang)}</div>
+        {snapshot.compactBoundaryCount > 0 && (
+          <div><strong>{t("inspector.compactBoundaryCount", lang)}:</strong> {snapshot.compactBoundaryCount}</div>
+        )}
+        {snapshot.compactRetryCount > 0 && (
+          <div><strong>{t("inspector.compactRetryCount", lang)}:</strong> {snapshot.compactRetryCount}</div>
+        )}
       </div>
+      {Array.isArray(snapshot.contextPipelineSteps) && snapshot.contextPipelineSteps.length > 0 && (
+        <>
+          <h3>{t("inspector.contextPipelineSteps", lang)}</h3>
+          <div className="rule-chip-list">
+            {snapshot.contextPipelineSteps.map((step, i) => (
+              <span key={i} className="rule-chip monospace">{step}</span>
+            ))}
+          </div>
+        </>
+      )}
       <h3>{t("inspector.recentTransitions", lang)}</h3>
       {recentTransitions.length > 0 ? (
         <ul className="review-risk-list">

@@ -224,9 +224,11 @@ export function timelineFromEvents(events) {
       flushReasoning();
       items.push({
         id: record.event_id,
-        kind: "system",
-        tone: "context",
-        content: `上下文已压缩：保留 ${payload.recent_turns || 0} 轮，摘要 ${payload.summarized_turns || 0} 轮`,
+        kind: "compact",
+        content: payload.content || "",
+        recentTurns: payload.recent_turns,
+        summarizedTurns: payload.summarized_turns,
+        approxTokensAfter: payload.approx_tokens_after,
         projectionSource: "raw_events",
       });
     } else if (eventName === "session_error") {
@@ -442,5 +444,9 @@ export function normalizeSessionPayload(payload) {
     bundledToolsReady: Boolean(payload.bundled_tools_ready),
     fallbackWarnings: payload.fallback_warnings || [],
     runtimeEnvironment: payload.runtime_environment || null,
+    compactRetryCount: payload.compact_retry_count || 0,
+    compactBoundaryCount: payload.compact_boundary_count || 0,
+    contextPipelineSteps: Array.isArray(payload.context_pipeline_steps) ? payload.context_pipeline_steps : [],
+    contextAnalysis: payload.context_analysis || null,
   };
 }

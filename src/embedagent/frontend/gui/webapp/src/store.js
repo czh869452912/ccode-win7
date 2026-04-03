@@ -28,6 +28,8 @@ export const initialState = {
   connectionState: "connecting",
   eventLog: [],
   terminationReason: "",
+  terminationDisplayReason: "",
+  terminationMessage: "",
   turnsUsed: 0,
   maxTurns: 8,
   activeTurnId: "",
@@ -80,6 +82,8 @@ export function reducer(state, action) {
         permission: null,
         userInput: null,
         terminationReason: "",
+        terminationDisplayReason: "",
+        terminationMessage: "",
         turnsUsed: 0,
         activeTurnId: "",
         activeStepId: "",
@@ -115,6 +119,8 @@ export function reducer(state, action) {
         streamingReasoningId: "",
         thinkingActive: false,
         terminationReason: "",
+        // Clear stale activeTurnId so command_result falls back to findLatestPendingUserTurnKey
+        activeTurnId: "",
       };
     case "turn_started": {
       const turnId = action.turnId || "";
@@ -158,6 +164,8 @@ export function reducer(state, action) {
       return {
         ...state,
         terminationReason: action.terminationReason || "",
+        terminationDisplayReason: action.terminationDisplayReason || action.terminationReason || "",
+        terminationMessage: action.terminationMessage || "",
         turnsUsed: action.turnsUsed || 0,
         maxTurns: action.maxTurns || state.maxTurns,
       };
@@ -441,17 +449,15 @@ export function reducer(state, action) {
         streamingReasoningId: "",
       };
     case "context_compacted": {
-      const hasStats = action.recentTurns !== undefined || action.summarizedTurns !== undefined;
-      const content = hasStats
-        ? `上下文已压缩：保留 ${action.recentTurns || 0} 轮，摘要 ${action.summarizedTurns || 0} 轮`
-        : action.content || "上下文已压缩";
       return {
         ...state,
         timeline: state.timeline.concat({
           id: action.id || makeEventId("context"),
-          kind: "system",
-          tone: "context",
-          content,
+          kind: "compact",
+          content: action.content || "",
+          recentTurns: action.recentTurns,
+          summarizedTurns: action.summarizedTurns,
+          approxTokensAfter: action.approxTokensAfter,
           ...rawProjectionMeta(),
         }),
       };
