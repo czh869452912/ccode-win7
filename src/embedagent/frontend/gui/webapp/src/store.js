@@ -35,6 +35,14 @@ export const initialState = {
   activeStepIndex: 0,
 };
 
+function liveProjectionMeta() {
+  return {
+    projectionSource: "step_events",
+    projectionKind: "recorded_step",
+    synthetic: false,
+  };
+}
+
 export function reducer(state, action) {
   switch (action.type) {
     case "set_sidebar":
@@ -92,6 +100,7 @@ export function reducer(state, action) {
             kind: "user",
             content: action.text,
             turnId: "",
+            ...liveProjectionMeta(),
           }),
         composer: "",
         streamingAssistantId: "",
@@ -119,6 +128,7 @@ export function reducer(state, action) {
           kind: "user",
           content: action.userText || "",
           turnId,
+          ...liveProjectionMeta(),
         });
       }
       return {
@@ -160,6 +170,7 @@ export function reducer(state, action) {
           turnId,
           stepId,
           stepIndex,
+          ...liveProjectionMeta(),
         });
       } else {
         timeline = timeline.map((item) =>
@@ -188,6 +199,7 @@ export function reducer(state, action) {
           turnId,
           stepId,
           stepIndex,
+          ...liveProjectionMeta(),
         });
       } else {
         timeline = timeline.map((item) =>
@@ -232,6 +244,7 @@ export function reducer(state, action) {
           resultRendererKey: action.resultRendererKey || "",
           runtimeSource: action.runtimeSource || "",
           resolvedToolRoots: action.resolvedToolRoots || {},
+          ...liveProjectionMeta(),
         }),
       };
     case "tool_finished":
@@ -281,6 +294,7 @@ export function reducer(state, action) {
           stepId,
           stepIndex,
           streaming: false,
+          ...liveProjectionMeta(),
         });
       }
       return {
@@ -315,6 +329,7 @@ export function reducer(state, action) {
                 turnId: action.request?.turn_id || state.activeTurnId,
                 stepId: action.request?.step_id || state.activeStepId,
                 stepIndex: action.request?.step_index || state.activeStepIndex,
+                ...liveProjectionMeta(),
               }
             : {
                 id: makeEventId("user_input"),
@@ -324,6 +339,7 @@ export function reducer(state, action) {
                 turnId: action.request?.turn_id || state.activeTurnId,
                 stepId: action.request?.step_id || state.activeStepId,
                 stepIndex: action.request?.step_index || state.activeStepIndex,
+                ...liveProjectionMeta(),
               },
         ),
       };
@@ -404,16 +420,17 @@ export function reducer(state, action) {
       });
       const clearTimeline = Boolean(action.data?.clear_timeline);
       const timeline = clearTimeline
-        ? []
-        : state.timeline.concat({
-            id: action.id || makeEventId("cmd"),
-            kind: "command_result",
-            commandName: action.commandName,
-            content: action.message,
-            data: action.data || {},
-            success: action.success,
-            turnId,
-          });
+          ? []
+          : state.timeline.concat({
+              id: action.id || makeEventId("cmd"),
+              kind: "command_result",
+              commandName: action.commandName,
+              content: action.message,
+              data: action.data || {},
+              success: action.success,
+              turnId,
+              ...liveProjectionMeta(),
+            });
       return {
         ...state,
         timeline,

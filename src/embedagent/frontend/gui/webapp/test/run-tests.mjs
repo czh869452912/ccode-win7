@@ -181,6 +181,11 @@ function main() {
   assert.equal(liveState.timeline[1].stepId, "step-live-1");
   assert.equal(liveState.timeline[2].stepId, "step-live-1");
   assert.equal(liveState.timeline[3].stepId, "step-live-1");
+  assert.equal(liveState.timeline[1].projectionSource, "step_events");
+  assert.equal(liveState.timeline[1].projectionKind, "recorded_step");
+  assert.equal(liveState.timeline[1].synthetic, false);
+  assert.equal(liveState.timeline[2].projectionSource, "step_events");
+  assert.equal(liveState.timeline[3].projectionSource, "step_events");
   assert.equal(liveState.timeline.length, 4);
 
   let modeCommandState = reducer(initialState, {

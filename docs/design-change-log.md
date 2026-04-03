@@ -1830,3 +1830,21 @@
 - 是否需要 ADR：`否`
 - 后续动作：
   - 继续决定 raw timeline 是否只保留在调试场景
+
+### DC-045
+
+- 日期：2026-04-03
+- 变更主题：live reducer 追加的 timeline item 与 structured timeline 语义对齐
+- 变更摘要：
+  - webapp `store` 现在会给 live session 期间追加的 `user / reasoning / tool / assistant / command_result / user_input` item 统一补上 `step_events / recorded_step / synthetic=false`
+  - 这让“流式进行中的 timeline”和“刷新后重新加载的 structured timeline”在 projection 语义上开始真正对齐
+  - smoke test、helper test 和 webapp build 已重新验证
+- 影响范围：
+  - GUI live timeline / reload timeline 的一致性
+  - projection 调试语义在前端状态层的稳定性
+- 关联文档：
+  - `src/embedagent/frontend/gui/webapp/src/store.js`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+- 是否需要 ADR：`否`
+- 后续动作：
+  - 继续检查 websocket 增量路径是否还存在未标记 projection 的边角事件
