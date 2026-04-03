@@ -6,6 +6,7 @@ import {
   describeProjectionBadge,
   injectChildren,
   normalizeSessionPayload,
+  summarizeTimelineProjection,
   timelineFromEvents,
   timelineFromTurns,
 } from "../src/state-helpers.js";
@@ -193,6 +194,31 @@ test("describeProjectionBadge hides recorded steps and labels synthetic projecti
     {
       label: "synthetic",
       detail: "turn projection",
+    },
+  );
+});
+
+test("summarizeTimelineProjection distinguishes structured and raw fallback timelines", () => {
+  assert.deepEqual(
+    summarizeTimelineProjection([
+      { kind: "user", projectionSource: "turn_events", projectionKind: "turn_events", synthetic: false },
+      { kind: "reasoning", projectionSource: "turn_events", projectionKind: "synthetic_single_step", synthetic: true },
+    ]),
+    {
+      source: "turn_events",
+      syntheticCount: 1,
+      projectedCount: 2,
+    },
+  );
+  assert.deepEqual(
+    summarizeTimelineProjection([
+      { kind: "user", content: "legacy raw" },
+      { kind: "tool", toolName: "read_file" },
+    ]),
+    {
+      source: "raw_events",
+      syntheticCount: 0,
+      projectedCount: 0,
     },
   );
 });

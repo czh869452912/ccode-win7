@@ -62,6 +62,7 @@ const STRINGS = {
     "inspector.sessionStatus": "Session status",
     "inspector.lastState": "Last state",
     "inspector.lastStateMessage": "Last state detail",
+    "inspector.timelineProjection": "Timeline projection",
     "inspector.recentTransitions": "Recent transitions",
     "inspector.noRecentTransitions": "No recent transitions.",
 
@@ -191,6 +192,7 @@ const STRINGS = {
     "inspector.sessionStatus": "会话状态",
     "inspector.lastState": "最后状态",
     "inspector.lastStateMessage": "最后状态详情",
+    "inspector.timelineProjection": "时间线投影",
     "inspector.recentTransitions": "最近状态迁移",
     "inspector.noRecentTransitions": "当前没有最近状态迁移。",
 

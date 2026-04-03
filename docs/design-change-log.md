@@ -1791,3 +1791,23 @@
 - 后续动作：
   - 决定是否还要把 projection 语义补到 Inspector / runtime 调试面板
   - 继续收缩 raw timeline 只保留给诊断与回放使用
+
+### DC-043
+
+- 日期：2026-04-03
+- 变更主题：Runtime 面板开始汇总 timeline projection 来源
+- 变更摘要：
+  - `state-helpers` 新增 timeline projection 汇总逻辑，能区分 `step_events / turn_events / raw_events`
+  - GUI `Runtime` 面板现在会直接显示当前 timeline projection 来源，帮助区分“原生 step 时间线”和“退化回放”
+  - webapp helper 测试、smoke test 和 build 都已对这条显示链路复验
+- 影响范围：
+  - GUI runtime 调试可见性
+  - structured timeline / raw fallback 的前端区分能力
+- 关联文档：
+  - `src/embedagent/frontend/gui/webapp/src/state-helpers.js`
+  - `src/embedagent/frontend/gui/webapp/src/components/Inspector.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/strings.js`
+  - `src/embedagent/frontend/gui/webapp/test/state-helpers.test.mjs`
+- 是否需要 ADR：`否`
+- 后续动作：
+  - 视需要继续把 projection 摘要补到 event log 或 timeline 顶部 banner

@@ -1,6 +1,7 @@
 import React from "react";
 import { useLang } from "../LangContext.js";
 import { t } from "../strings.js";
+import { summarizeTimelineProjection } from "../state-helpers.js";
 import DiffView from "./DiffView.jsx";
 
 const ALL_TABS = ["todos", "plan", "artifacts", "run", "problems", "review", "permissions", "runtime", "preview", "log"];
@@ -138,7 +139,7 @@ export default function Inspector({
           <PermissionsPanel permissionContext={permissionContext} lang={lang} />
         )}
         {inspectorTab === "runtime" && (
-          <RuntimePanel snapshot={snapshot} lang={lang} />
+          <RuntimePanel snapshot={snapshot} timeline={timeline} lang={lang} />
         )}
         {inspectorTab === "preview" && <PreviewPanel preview={preview} lang={lang} />}
         {inspectorTab === "log" && <LogPanel entries={eventLog} lang={lang} />}
@@ -340,7 +341,7 @@ function PermissionsPanel({ permissionContext, lang }) {
   );
 }
 
-function RuntimePanel({ snapshot, lang }) {
+function RuntimePanel({ snapshot, timeline, lang }) {
   const runtime = snapshot?.runtimeEnvironment || {};
   const warnings = Array.isArray(snapshot?.fallbackWarnings)
     ? snapshot.fallbackWarnings
@@ -350,6 +351,7 @@ function RuntimePanel({ snapshot, lang }) {
   const recentTransitions = Array.isArray(snapshot?.recentTransitions)
     ? snapshot.recentTransitions
     : [];
+  const projection = summarizeTimelineProjection(timeline || []);
   const resolvedRoots = runtime?.resolved_tool_roots || {};
   const toolSources = runtime?.tool_sources || {};
   if (!snapshot) {
@@ -362,6 +364,7 @@ function RuntimePanel({ snapshot, lang }) {
         <div><strong>{t("inspector.sessionStatus", lang)}:</strong> {snapshot.status || "-"}</div>
         <div><strong>{t("inspector.lastState", lang)}:</strong> {snapshot.lastTransitionDisplayReason || snapshot.lastTransitionReason || "-"}</div>
         <div><strong>{t("inspector.lastStateMessage", lang)}:</strong> {snapshot.lastTransitionMessage || "-"}</div>
+        <div><strong>{t("inspector.timelineProjection", lang)}:</strong> {projection.source || "-"}</div>
         <div><strong>{t("inspector.runtimeSource", lang)}:</strong> {snapshot.runtimeSource || "-"}</div>
         <div><strong>{t("inspector.runtimeReady", lang)}:</strong> {snapshot.bundledToolsReady ? t("inspector.yes", lang) : t("inspector.no", lang)}</div>
       </div>

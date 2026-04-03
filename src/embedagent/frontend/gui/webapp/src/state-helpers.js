@@ -88,6 +88,33 @@ export function describeProjectionBadge({
   };
 }
 
+export function summarizeTimelineProjection(timeline = []) {
+  const items = Array.isArray(timeline) ? timeline : [];
+  if (items.length === 0) {
+    return {
+      source: "",
+      syntheticCount: 0,
+      projectedCount: 0,
+    };
+  }
+  let source = "";
+  let syntheticCount = 0;
+  let projectedCount = 0;
+  for (const item of items) {
+    const itemSource = String(item?.projectionSource || "").trim();
+    if (!source && itemSource) {
+      source = itemSource;
+    }
+    if (item?.synthetic) syntheticCount += 1;
+    if (itemSource && itemSource !== "raw_events") projectedCount += 1;
+  }
+  return {
+    source: source || "raw_events",
+    syntheticCount,
+    projectedCount,
+  };
+}
+
 export function timelineFromEvents(events) {
   const items = [];
   const toolIndex = {};
@@ -110,6 +137,7 @@ export function timelineFromEvents(events) {
         kind: "user",
         content: payload.text || payload.user_text || "",
         turnId: payload.turn_id || "",
+        projectionSource: "raw_events",
       });
     } else if (eventName === "reasoning_delta" && payload.text) {
       // Aggregate consecutive reasoning deltas into a single card.
@@ -129,6 +157,7 @@ export function timelineFromEvents(events) {
           turnId: payload.turn_id || "",
           stepId: payload.step_id || "",
           stepIndex: payload.step_index || 0,
+          projectionSource: "raw_events",
         });
       }
       // Do NOT flush — stay in accumulation mode until a non-reasoning event arrives.
@@ -149,6 +178,7 @@ export function timelineFromEvents(events) {
         supportsDiffPreview: Boolean(payload.supports_diff_preview),
         progressRendererKey: payload.progress_renderer_key || "",
         resultRendererKey: payload.result_renderer_key || "",
+        projectionSource: "raw_events",
       };
       toolIndex[item.id] = items.length;
       items.push(item);
@@ -171,6 +201,7 @@ export function timelineFromEvents(events) {
         supportsDiffPreview: Boolean(payload.supports_diff_preview),
         progressRendererKey: payload.progress_renderer_key || "",
         resultRendererKey: payload.result_renderer_key || "",
+        projectionSource: "raw_events",
       };
       if (index === undefined) {
         items.push(toolItem);
@@ -184,6 +215,7 @@ export function timelineFromEvents(events) {
         kind: "system",
         tone: "context",
         content: `上下文已压缩：保留 ${payload.recent_turns || 0} 轮，摘要 ${payload.summarized_turns || 0} 轮`,
+        projectionSource: "raw_events",
       });
     } else if (eventName === "session_error") {
       flushReasoning();
@@ -192,6 +224,7 @@ export function timelineFromEvents(events) {
         kind: "system",
         tone: "error",
         content: payload.error || "会话出错",
+        projectionSource: "raw_events",
       });
     } else if (eventName === "command_result") {
       flushReasoning();
@@ -202,6 +235,7 @@ export function timelineFromEvents(events) {
         content: payload.message || "",
         data: payload.data || {},
         success: Boolean(payload.success),
+        projectionSource: "raw_events",
       });
     } else if (eventName === "plan_updated") {
       flushReasoning();
@@ -211,6 +245,7 @@ export function timelineFromEvents(events) {
         kind: "system",
         tone: "context",
         content: `计划已更新：${plan.title || "Current Plan"}`,
+        projectionSource: "raw_events",
       });
     } else if (eventName === "session_finished" && payload.final_text) {
       flushReasoning();
@@ -219,6 +254,7 @@ export function timelineFromEvents(events) {
         kind: "assistant",
         content: payload.final_text,
         turnId: payload.turn_id || "",
+        projectionSource: "raw_events",
       });
     }
   }
