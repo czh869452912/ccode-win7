@@ -389,6 +389,13 @@ function App() {
     }
     if (type === "permission_request") {
       dispatch({ type: "permission_request", permission: data });
+      dispatch({
+        type: "permission_request_inline",
+        permission: data,
+        turnId: data.turn_id || "",
+        stepId: data.step_id || "",
+        stepIndex: data.step_index || 0,
+      });
       logEvent("permission_request", data.reason || "");
       return;
     }

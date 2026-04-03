@@ -366,8 +366,19 @@ export function reducer(state, action) {
         ),
       };
     case "permission_request_inline":
-      // Inline permission — we only need to track the ID for potential cleanup; modal stays null
-      return state;
+      return {
+        ...state,
+        timeline: state.timeline.concat({
+          id: action.permission?.permission_id || makeEventId("permission"),
+          kind: "permission",
+          permission: action.permission || {},
+          resolved: false,
+          turnId: action.turnId || state.activeTurnId,
+          stepId: action.stepId || state.activeStepId,
+          stepIndex: action.stepIndex || state.activeStepIndex,
+          ...liveProjectionMeta(),
+        }),
+      };
     case "permission_item_resolved":
       return {
         ...state,

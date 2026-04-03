@@ -242,6 +242,30 @@ function main() {
   });
   assert.equal(recipeState.recipes.length, 2);
 
+  let inlinePermissionState = reducer(initialState, {
+    type: "permission_request_inline",
+    permission: {
+      permission_id: "perm-inline-1",
+      tool_name: "edit_file",
+      category: "workspace_write",
+      reason: "need write permission",
+    },
+    turnId: "turn-inline",
+    stepId: "step-inline-1",
+    stepIndex: 1,
+  });
+  assert.equal(inlinePermissionState.timeline.length, 1);
+  assert.equal(inlinePermissionState.timeline[0].kind, "permission");
+  assert.equal(inlinePermissionState.timeline[0].id, "perm-inline-1");
+  assert.equal(inlinePermissionState.timeline[0].projectionSource, "step_events");
+  inlinePermissionState = reducer(inlinePermissionState, {
+    type: "permission_item_resolved",
+    permissionId: "perm-inline-1",
+    approved: true,
+  });
+  assert.equal(inlinePermissionState.timeline[0].resolved, true);
+  assert.equal(inlinePermissionState.timeline[0].approved, true);
+
   console.log("frontend helper checks passed");
 }
 
