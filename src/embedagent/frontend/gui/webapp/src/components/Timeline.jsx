@@ -83,7 +83,7 @@ function ToolBlock({ item }) {
   const effectiveStatus = isSynthetic ? (isInterrupted ? "interrupted" : "discarded") : status;
 
   return (
-    <div>
+    <div data-testid="tool-block">
       <div
         className={`tool-block ${effectiveStatus}`}
         onClick={() => hasOutput && (setUserToggled(true), setExpanded((v) => !v))}
@@ -265,7 +265,7 @@ function TurnGroup({ group, toolCatalog, isLast, thinkingActive, streamingReason
   return (
     <div className="turn-group">
       {userItem && (
-        <div className="bubble user" role="article">
+        <div className="bubble user" role="article" data-testid="timeline-user-message">
           {userItem.content}
         </div>
       )}
@@ -374,6 +374,7 @@ function StepGroup({ step, stepNumber, toolCatalog, isActive, thinkingActive, st
           className={`bubble assistant ${step.assistantItem.streaming ? "streaming" : ""}`}
           role="article"
           aria-busy={step.assistantItem.streaming || undefined}
+          data-testid="timeline-assistant-message"
         >
           <Markdown content={step.assistantItem.content} />
           {step.assistantItem.streaming && (
@@ -392,7 +393,7 @@ function StepGroup({ step, stepNumber, toolCatalog, isActive, thinkingActive, st
 
 function TimelineItem({ item, toolCatalog, lang }) {
   if (item.kind === "user") {
-    return <div className="bubble user" role="article">{item.content}</div>;
+    return <div className="bubble user" role="article" data-testid="timeline-user-message">{item.content}</div>;
   }
   if (item.kind === "assistant") {
     return (
@@ -400,6 +401,7 @@ function TimelineItem({ item, toolCatalog, lang }) {
         className={`bubble assistant ${item.streaming ? "streaming" : ""}`}
         role="article"
         aria-busy={item.streaming || undefined}
+        data-testid="timeline-assistant-message"
       >
         <Markdown content={item.content} />
       </div>
@@ -591,12 +593,14 @@ function PermissionCard({ item, onPermissionResponse, lang }) {
         <button
           className="ghost btn-deny"
           onClick={() => onPermissionResponse && onPermissionResponse(item.id, false, false, permission?.category)}
+          data-testid="permission-deny-btn"
         >
           {t("modal.deny", lang)}
         </button>
         <button
           className="primary"
           onClick={() => onPermissionResponse && onPermissionResponse(item.id, true, remember, permission?.category)}
+          data-testid="permission-approve-btn"
         >
           {t("modal.approve", lang)}
         </button>

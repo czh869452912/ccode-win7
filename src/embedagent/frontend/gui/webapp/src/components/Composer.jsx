@@ -42,6 +42,7 @@ export default function Composer({
           aria-label={t("composer.placeholder", lang)}
           disabled={isRunning}
           rows={1}
+          data-testid="composer-input"
         />
         {hints.length > 0 && (
           <div className="composer-hints" role="listbox" aria-label="Slash command suggestions">
@@ -57,7 +58,7 @@ export default function Composer({
           </div>
         )}
         {isRunning ? (
-          <button className="stop" onClick={onStop} aria-label={t("composer.stop", lang)}>
+          <button className="stop" onClick={onStop} aria-label={t("composer.stop", lang)} data-testid="stop-button">
             {t("composer.stop", lang)}
           </button>
         ) : (
@@ -66,6 +67,7 @@ export default function Composer({
             onClick={onSend}
             disabled={!value.trim()}
             aria-label={t("composer.send", lang)}
+            data-testid="send-button"
           >
             ↵
           </button>

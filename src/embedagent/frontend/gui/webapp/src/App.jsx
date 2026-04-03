@@ -687,13 +687,14 @@ function App() {
           {state.turnsUsed > 0 && (
             <span className="meta-text">turns {state.turnsUsed}/{state.maxTurns}</span>
           )}
-          <button className="ghost" onClick={loadSessions} aria-label={t("header.refresh", state.lang)}>
+          <button className="ghost" onClick={loadSessions} aria-label={t("header.refresh", state.lang)} data-testid="refresh-sessions">
             {t("header.refresh", state.lang)}
           </button>
           <button
             className="ghost lang-toggle"
             onClick={() => dispatch({ type: "set_lang", value: state.lang === "en" ? "zh" : "en" })}
             aria-label="Toggle language"
+            data-testid="lang-toggle"
           >
             {t("lang.toggle", state.lang)}
           </button>
@@ -702,6 +703,7 @@ function App() {
             onClick={() => dispatch({ type: "toggle_inspector" })}
             title={t("header.toggleInspector", state.lang)}
             aria-pressed={state.inspectorOpen}
+            data-testid="inspector-toggle"
           >
             ⊞
           </button>

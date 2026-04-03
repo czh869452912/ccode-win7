@@ -29,6 +29,7 @@ function InspectorTabs({ active, onChange, todosCount, artifactsCount }) {
           ref={active === id ? activeRef : null}
           className={`insp-tab${active === id ? " active" : ""}`}
           onClick={() => onChange(id)}
+          data-testid={`inspector-tab--${id}`}
         >
           {t(`inspector.${id}`, lang)}
           {badges[id] > 0 && <span className="tab-badge">{badges[id]}</span>}
@@ -65,7 +66,7 @@ export default function Inspector({
   const visiblePermission = resolveVisiblePermission(permission, snapshot);
 
   return (
-    <aside className="inspector" role="complementary" aria-label="Inspector">
+    <aside className="inspector" role="complementary" aria-label="Inspector" data-testid="inspector">
       <InspectorTabs
         active={inspectorTab}
         onChange={onTabChange}

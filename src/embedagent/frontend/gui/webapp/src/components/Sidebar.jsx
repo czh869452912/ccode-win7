@@ -19,7 +19,7 @@ export default function Sidebar({
   const lang = useLang();
 
   return (
-    <aside className="sidebar" role="navigation" aria-label="Sidebar">
+    <aside className="sidebar" role="navigation" aria-label="Sidebar" data-testid="sidebar">
       <div className="brand">
         <div className="brand-mark">EmbedAgent</div>
         <div className="brand-sub">{t("brand.sub", lang)}</div>
@@ -30,6 +30,7 @@ export default function Sidebar({
           aria-selected={sidebarTab === "chats"}
           className={`sidebar-tab${sidebarTab === "chats" ? " active" : ""}`}
           onClick={() => onTabChange("chats")}
+          data-testid="sidebar-tab--chats"
         >
           {t("sidebar.chats", lang)}
         </button>
@@ -38,6 +39,7 @@ export default function Sidebar({
           aria-selected={sidebarTab === "files"}
           className={`sidebar-tab${sidebarTab === "files" ? " active" : ""}`}
           onClick={() => onTabChange("files")}
+          data-testid="sidebar-tab--files"
         >
           {t("sidebar.files", lang)}
         </button>
@@ -47,6 +49,7 @@ export default function Sidebar({
           <button
             className="primary wide"
             onClick={() => onCreateSession(currentMode)}
+            data-testid="new-session-btn"
           >
             {t("sidebar.newSession", lang)}
           </button>
@@ -58,6 +61,7 @@ export default function Sidebar({
                 className={`thread-card ${currentSessionId === session.id ? "selected" : ""}`}
                 aria-pressed={currentSessionId === session.id}
                 onClick={() => onLoadSession(session.id)}
+                data-testid={`session-card--${session.id}`}
               >
                 <span className="thread-title">{session.title}</span>
                 <span className="thread-meta">
@@ -102,6 +106,7 @@ export default function Sidebar({
                     onOpenFile(node.data.path);
                   }
                 }}
+                data-testid={`file-tree-node--${node.data.path}`}
               >
                 <span className="tree-icon" aria-hidden="true">
                   {node.data.kind === "dir" ? (node.isOpen ? "▾" : "▸") : "·"}

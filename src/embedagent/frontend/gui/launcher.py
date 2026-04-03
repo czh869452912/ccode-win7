@@ -244,6 +244,7 @@ def launch_gui(
     permission_rules: str = "",
     auto_close_seconds: Optional[float] = None,
     renderer_report: str = "",
+    cdp_port: Optional[int] = None,
 ):
     """
     启动 GUI
@@ -343,6 +344,11 @@ def launch_gui(
             "confirm_close": True,
         }
 
+        # 启用CDP调试端口（用于自动化测试）
+        if cdp_port:
+            webview.settings["WEBVIEW2_ADDITIONAL_BROWSER_ARGS"] = f"--remote-debugging-port={cdp_port}"
+            _LOGGER.info(f"CDP debug port enabled: {cdp_port}")
+
         window = webview.create_window(
             title=window_title,
             url=server_url,
@@ -389,6 +395,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--renderer-report", default="", help="Optional path to write renderer detection JSON")
     parser.add_argument("--debug", action="store_true", help="Debug mode")
     parser.add_argument("--headless", action="store_true", help="Headless mode (no window)")
+    parser.add_argument("--cdp-port", type=int, default=None, help="CDP debug port for automation testing")
     return parser
 
 
@@ -417,6 +424,7 @@ def main(argv: Optional[list] = None) -> int:
             model=args.model or None,
             timeout=args.timeout,
             max_turns=args.max_turns,
+            cdp_port=args.cdp_port,
             approve_all=args.approve_all,
             approve_writes=args.approve_writes,
             approve_commands=args.approve_commands,
