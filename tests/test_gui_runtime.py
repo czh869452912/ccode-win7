@@ -5,7 +5,7 @@ import sys
 import threading
 import tempfile
 import unittest
-from unittest.mock import ANY, patch
+from unittest.mock import ANY, MagicMock, patch
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
@@ -151,6 +151,23 @@ class TestThreadsafeAsyncDispatcher(unittest.TestCase):
 
     async def _noop(self):
         return None
+
+
+class TestAgentCoreAdapterApi(unittest.TestCase):
+    def test_build_structured_timeline_delegates_to_inner_adapter(self):
+        from embedagent.core.adapter import AgentCoreAdapter
+
+        core = AgentCoreAdapter(workspace="D:\\workspace")
+        core._adapter = MagicMock()
+        core._adapter.build_structured_timeline.return_value = {
+            "session_id": "sess-1",
+            "turns": [{"turn_id": "turn-1", "steps": []}],
+        }
+
+        payload = core.build_structured_timeline("sess-1", limit=55)
+
+        self.assertEqual(payload["session_id"], "sess-1")
+        core._adapter.build_structured_timeline.assert_called_once_with("sess-1", limit=55)
 
 
 if __name__ == "__main__":

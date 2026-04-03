@@ -385,13 +385,10 @@ function App() {
       return;
     }
     if (type === "permission_request") {
-      // Show inline permission card in timeline only (not a blocking modal)
       dispatch({
-        type: "permission_request_inline",
+        type: "permission_request",
         permission: data,
-        turnId: data.turn_id || "",
-        stepId: data.step_id || "",
-        stepIndex: data.step_index || 0,
+        inspectorTab: "permissions",
       });
       logEvent("permission_request", data.reason || "");
       return;
@@ -582,7 +579,7 @@ function App() {
       remember: Boolean(remember),
       category: category || "",
     }));
-    dispatch({ type: "permission_item_resolved", permissionId, approved });
+    dispatch({ type: "permission_cleared" });
     if (approved && remember && state.currentSessionId) {
       loadPermissionContext(state.currentSessionId);
     }
@@ -772,23 +769,25 @@ function App() {
           <Inspector
             inspectorTab={state.inspectorTab}
             todos={state.todos}
-              artifacts={state.artifacts}
-              plan={state.plan}
-              review={state.review}
-              recipes={state.recipes}
-              timeline={state.timeline}
-              permissionContext={state.permissionContext}
-              preview={state.preview}
-              snapshot={state.snapshot}
-              userInput={state.userInput}
-              userAnswer={userAnswer}
-              eventLog={state.eventLog}
+            artifacts={state.artifacts}
+            plan={state.plan}
+            review={state.review}
+            recipes={state.recipes}
+            timeline={state.timeline}
+            permission={state.permission}
+            permissionContext={state.permissionContext}
+            preview={state.preview}
+            snapshot={state.snapshot}
+            userInput={state.userInput}
+            userAnswer={userAnswer}
+            eventLog={state.eventLog}
             onTabChange={(v) => dispatch({ type: "set_inspector", value: v })}
             onOpenArtifact={openArtifact}
             onOpenReviewEvidence={openReviewEvidence}
             onRunRecipe={runRecipe}
             onUserAnswerChange={setUserAnswer}
             onSubmitUserInput={sendUserInputResponse}
+            onPermissionResponse={sendInlinePermissionResponse}
           />
         ) : (
           <div style={{ background: "var(--bg-default)", borderLeft: "1px solid var(--bg-subtle)" }} />

@@ -270,6 +270,11 @@ class PermissionPolicy(object):
         return "该操作需要确认。"
 
     def _category_for_action(self, action: Action) -> str:
+        if action.name == "manage_todos":
+            action_name = str(action.arguments.get("action") or "").strip().lower()
+            if action_name == "list":
+                return "read"
+            return "workspace_write"
         if action.name in WORKSPACE_WRITE_TOOLS:
             return "workspace_write"
         if action.name in GIT_WRITE_TOOLS:

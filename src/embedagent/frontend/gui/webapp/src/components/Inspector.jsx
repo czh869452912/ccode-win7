@@ -1,7 +1,7 @@
 import React from "react";
 import { useLang } from "../LangContext.js";
 import { t } from "../strings.js";
-import { summarizeTimelineProjection } from "../state-helpers.js";
+import { resolveVisiblePermission, summarizeTimelineProjection } from "../state-helpers.js";
 import DiffView from "./DiffView.jsx";
 
 const ALL_TABS = ["todos", "plan", "artifacts", "run", "problems", "review", "permissions", "runtime", "preview", "log"];
@@ -46,6 +46,7 @@ export default function Inspector({
   review,
   recipes,
   timeline,
+  permission,
   permissionContext,
   preview,
   snapshot,
@@ -56,10 +57,12 @@ export default function Inspector({
   onOpenArtifact,
   onOpenReviewEvidence,
   onRunRecipe,
+  onPermissionResponse,
   onUserAnswerChange,
   onSubmitUserInput,
 }) {
   const lang = useLang();
+  const visiblePermission = resolveVisiblePermission(permission, snapshot);
 
   return (
     <aside className="inspector" role="complementary" aria-label="Inspector">
@@ -86,6 +89,13 @@ export default function Inspector({
         )}
         {inspectorTab === "preview" && <PreviewPanel preview={preview} lang={lang} />}
         {inspectorTab === "log" && <LogPanel entries={eventLog} lang={lang} />}
+        {visiblePermission ? (
+          <PermissionPrompt
+            permission={visiblePermission}
+            lang={lang}
+            onPermissionResponse={onPermissionResponse}
+          />
+        ) : null}
         {userInput ? (
           <div className="prompt-panel" role="dialog" aria-label={t("inspector.inputRequired", lang)}>
             <h3>{t("inspector.inputRequired", lang)}</h3>
@@ -115,6 +125,52 @@ export default function Inspector({
         ) : null}
       </div>
     </aside>
+  );
+}
+
+function PermissionPrompt({ permission, lang, onPermissionResponse }) {
+  const [remember, setRemember] = React.useState(false);
+
+  React.useEffect(() => {
+    setRemember(false);
+  }, [permission?.permission_id]);
+
+  return (
+    <div className="prompt-panel" role="dialog" aria-label={t("modal.permissionRequired", lang)}>
+      <h3>{t("modal.permissionRequired", lang)}</h3>
+      {permission?.tool_name ? (
+        <p><strong>{t("modal.tool", lang)}:</strong> <code>{permission.tool_name}</code></p>
+      ) : null}
+      <p>{permission?.reason || ""}</p>
+      {permission?.details && Object.keys(permission.details).length > 0 ? (
+        <details className="permission-details">
+          <summary>{t("modal.showDetails", lang)}</summary>
+          <pre>{JSON.stringify(permission.details, null, 2)}</pre>
+        </details>
+      ) : null}
+      <label className="permission-remember">
+        <input
+          type="checkbox"
+          checked={remember}
+          onChange={(e) => setRemember(e.target.checked)}
+        />
+        {t("modal.remember", lang)}
+      </label>
+      <div className="permission-actions">
+        <button
+          className="ghost btn-deny"
+          onClick={() => onPermissionResponse && onPermissionResponse(permission.permission_id, false, false, permission.category || "")}
+        >
+          {t("modal.deny", lang)}
+        </button>
+        <button
+          className="primary"
+          onClick={() => onPermissionResponse && onPermissionResponse(permission.permission_id, true, remember, permission.category || "")}
+        >
+          {t("modal.approve", lang)}
+        </button>
+      </div>
+    </div>
   );
 }
 

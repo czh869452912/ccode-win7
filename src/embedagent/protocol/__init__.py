@@ -380,6 +380,11 @@ class CoreInterface(ABC):
         pass
 
     @abstractmethod
+    def build_structured_timeline(self, session_id: str, limit: int = 200) -> Dict[str, Any]:
+        """获取结构化 turn/step 时间线"""
+        pass
+
+    @abstractmethod
     def list_artifacts(self, limit: int = 20) -> List[Dict[str, Any]]:
         """列出工件"""
         pass

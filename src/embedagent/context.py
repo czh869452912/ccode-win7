@@ -628,6 +628,7 @@ class ContextManager(object):
         seen_reads = set()
         seen_searches = set()
         pending_activity = {"read": 0, "search": 0, "list": 0}
+        expected_tool_call_ids = set()
         replacement_index = {}
         for item in getattr(session, "content_replacements", []) or []:
             message_id = str(item.get("message_id") or "")
@@ -651,7 +652,21 @@ class ContextManager(object):
         for message in session.messages[start_index : end_index + 1]:
             if message.role == "system":
                 continue
+            if message.role == "assistant":
+                expected_tool_call_ids = set(
+                    str(action.call_id or "").strip()
+                    for action in (message.action_calls or [])
+                    if str(action.call_id or "").strip()
+                )
+            elif message.role != "tool":
+                expected_tool_call_ids = set()
             if message.role == "tool":
+                call_id = str(message.tool_call_id or "").strip()
+                if call_id and call_id in expected_tool_call_ids:
+                    flush_activity()
+                    result.append(self._compact_message(message, policy))
+                    expected_tool_call_ids.discard(call_id)
+                    continue
                 restored_replacement = replacement_index.get(message.message_id)
                 if restored_replacement is not None:
                     reduced_tool_messages += 1
@@ -805,8 +820,15 @@ class ContextManager(object):
             drop_index = self._oldest_non_system_index(trimmed)
             if drop_index is None:
                 break
-            trimmed.pop(drop_index)
-            dropped_messages += 1
+            drop_indices = self._trim_chunk_indices(trimmed, drop_index)
+            if not drop_indices:
+                break
+            trimmed = [
+                message
+                for index, message in enumerate(trimmed)
+                if index not in drop_indices
+            ]
+            dropped_messages += len(drop_indices)
         return trimmed, dropped_messages
 
     def _oldest_non_system_index(self, messages: List[Dict[str, Any]]) -> Optional[int]:
@@ -822,6 +844,13 @@ class ContextManager(object):
         for index, message in enumerate(messages):
             if message.get("role") == "system":
                 continue
+            tool_calls = message.get("tool_calls") or []
+            if message.get("role") == "assistant" and any(
+                str(((call or {}).get("function") or {}).get("name") or "") in _HIGH_PRIORITY_TOOLS
+                for call in tool_calls
+                if isinstance(call, dict)
+            ):
+                continue
             tool_name = message.get("name") or ""
             if message.get("role") == "tool" and tool_name in _HIGH_PRIORITY_TOOLS:
                 continue
@@ -830,6 +859,55 @@ class ContextManager(object):
         for index, message in enumerate(messages):
             if message.get("role") != "system":
                 return index
+        return None
+
+    def _trim_chunk_indices(self, messages: List[Dict[str, Any]], index: int) -> List[int]:
+        message = messages[index]
+        if message.get("role") == "assistant":
+            expected_call_ids = set(
+                str(item.get("id") or "").strip()
+                for item in (message.get("tool_calls") or [])
+                if isinstance(item, dict) and str(item.get("id") or "").strip()
+            )
+            if not expected_call_ids:
+                return [index]
+            discard = set([index])
+            for idx in range(index + 1, len(messages)):
+                current = messages[idx]
+                if current.get("role") == "system":
+                    continue
+                if current.get("role") != "tool":
+                    break
+                call_id = str(current.get("tool_call_id") or "").strip()
+                if call_id in expected_call_ids:
+                    discard.add(idx)
+                    expected_call_ids.discard(call_id)
+                    if not expected_call_ids:
+                        break
+            return sorted(discard)
+        if message.get("role") == "tool":
+            call_id = str(message.get("tool_call_id") or "").strip()
+            if call_id:
+                owner_index = self._find_tool_call_owner_index(messages, call_id, index)
+                if owner_index is not None and owner_index != index:
+                    return self._trim_chunk_indices(messages, owner_index)
+        return [index]
+
+    def _find_tool_call_owner_index(
+        self,
+        messages: List[Dict[str, Any]],
+        tool_call_id: str,
+        upto_index: int,
+    ) -> Optional[int]:
+        for index in range(upto_index - 1, -1, -1):
+            message = messages[index]
+            if message.get("role") != "assistant":
+                continue
+            for call in (message.get("tool_calls") or []):
+                if not isinstance(call, dict):
+                    continue
+                if str(call.get("id") or "").strip() == tool_call_id:
+                    return index
         return None
 
     def _analyze_context(self, session: Session) -> Dict[str, Any]:

@@ -79,7 +79,7 @@ export function reducer(state, action) {
         streamingAssistantId: "",
         streamingReasoningId: "",
         thinkingActive: false,
-        permission: null,
+        permission: action.snapshot?.has_pending_permission ? action.snapshot?.pending_permission || null : null,
         userInput: null,
         terminationReason: "",
         terminationDisplayReason: "",
@@ -91,6 +91,8 @@ export function reducer(state, action) {
         plan: null,
         review: null,
         permissionContext: null,
+        inspectorTab: action.snapshot?.has_pending_permission ? "permissions" : state.inspectorTab,
+        inspectorOpen: action.snapshot?.has_pending_permission ? true : state.inspectorOpen,
       };
     case "session_snapshot": {
       const snapshot = action.snapshot;
@@ -100,6 +102,7 @@ export function reducer(state, action) {
         currentSessionId: snapshot.session_id || state.currentSessionId,
         snapshot,
         requestedMode: snapshot.current_mode || state.requestedMode,
+        permission: snapshot.has_pending_permission ? snapshot.pending_permission || state.permission : null,
       };
     }
     case "local_user_message":
@@ -326,7 +329,13 @@ export function reducer(state, action) {
     case "append_timeline_item":
       return { ...state, timeline: state.timeline.concat(action.item) };
     case "permission_request":
-      return { ...state, permission: action.permission, thinkingActive: false };
+      return {
+        ...state,
+        permission: action.permission,
+        thinkingActive: false,
+        inspectorTab: action.inspectorTab || "permissions",
+        inspectorOpen: true,
+      };
     case "permission_cleared":
       return { ...state, permission: null };
     case "user_input_request": {
@@ -378,29 +387,6 @@ export function reducer(state, action) {
         timeline: state.timeline.map((item) =>
           (item.kind === "user_input" || item.kind === "mode_switch_proposal") && !item.answered
             ? { ...item, answered: true }
-            : item,
-        ),
-      };
-    case "permission_request_inline":
-      return {
-        ...state,
-        timeline: state.timeline.concat({
-          id: action.permission?.permission_id || makeEventId("permission"),
-          kind: "permission",
-          permission: action.permission || {},
-          resolved: false,
-          turnId: action.turnId || state.activeTurnId,
-          stepId: action.stepId || state.activeStepId,
-          stepIndex: action.stepIndex || state.activeStepIndex,
-          ...liveProjectionMeta(),
-        }),
-      };
-    case "permission_item_resolved":
-      return {
-        ...state,
-        timeline: state.timeline.map((item) =>
-          item.kind === "permission" && item.id === action.permissionId
-            ? { ...item, resolved: true, approved: action.approved }
             : item,
         ),
       };

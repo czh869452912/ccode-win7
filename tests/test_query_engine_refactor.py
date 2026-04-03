@@ -368,6 +368,78 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertIn("工程情报", rendered)
         self.assertGreaterEqual(result.analysis.get("artifact_replacement_count") or 0, 1)
 
+    def test_context_manager_preserves_tool_response_pairs_for_recent_tool_calls(self):
+        session = Session()
+        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：code")
+        session.add_user_message("继续分析")
+        actions = [
+            Action("list_files", {"path": "src"}, "call-list-1"),
+            Action("read_file", {"path": "src/demo.c"}, "call-read-1"),
+            Action("read_file", {"path": "src/demo.c"}, "call-read-2"),
+        ]
+        session.add_assistant_reply(
+            AssistantReply(
+                content="",
+                actions=actions,
+                finish_reason="tool_calls",
+            )
+        )
+        session.add_observation(
+            actions[0],
+            Observation(
+                tool_name="list_files",
+                success=True,
+                error=None,
+                data={
+                    "path": "src",
+                    "files": ["src/demo.c"],
+                    "files_artifact_ref": ".embedagent/memory/artifacts/list-files.json",
+                },
+            ),
+        )
+        session.add_observation(
+            actions[1],
+            Observation(
+                tool_name="read_file",
+                success=True,
+                error=None,
+                data={
+                    "path": "src/demo.c",
+                    "content": "int demo(void) {\n    return 0;\n}\n",
+                    "content_artifact_ref": ".embedagent/memory/artifacts/demo-1.json",
+                },
+            ),
+        )
+        session.add_observation(
+            actions[2],
+            Observation(
+                tool_name="read_file",
+                success=True,
+                error=None,
+                data={
+                    "path": "src/demo.c",
+                    "content": "int demo(void) {\n    return 0;\n}\n",
+                    "content_artifact_ref": ".embedagent/memory/artifacts/demo-2.json",
+                },
+            ),
+        )
+
+        result = ContextManager().build_messages(session, "code")
+
+        assistant_messages = [
+            item for item in result.messages
+            if item.get("role") == "assistant" and item.get("tool_calls")
+        ]
+        self.assertEqual(len(assistant_messages), 1)
+        expected_call_ids = [item["id"] for item in assistant_messages[0]["tool_calls"]]
+        tool_call_ids = [
+            item.get("tool_call_id") for item in result.messages
+            if item.get("role") == "tool"
+        ]
+        self.assertEqual(tool_call_ids, expected_call_ids)
+        rendered = "\n".join(str(item.get("content") or "") for item in result.messages)
+        self.assertNotIn("Tool result replaced:", rendered)
+
     def test_ctags_provider_parses_symbol_entries(self):
         with open(os.path.join(self.workspace, "tags"), "w", encoding="utf-8") as handle:
             handle.write("!_TAG_FILE_FORMAT\t2\t/extended format/\n")

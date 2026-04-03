@@ -264,6 +264,20 @@ function main() {
   assert.equal(permissionState.inspectorTab, "permissions");
   assert.deepEqual(permissionState.permissionContext.remembered_categories, ["workspace_write"]);
 
+  const pendingPermissionState = reducer(initialState, {
+    type: "permission_request",
+    permission: {
+      permission_id: "perm-panel-1",
+      tool_name: "edit_file",
+      category: "workspace_write",
+      reason: "need write permission",
+    },
+    inspectorTab: "permissions",
+  });
+  assert.equal(pendingPermissionState.permission.permission_id, "perm-panel-1");
+  assert.equal(pendingPermissionState.inspectorTab, "permissions");
+  assert.equal(pendingPermissionState.timeline.length, 0);
+
   const recipeState = reducer(initialState, {
     type: "recipes_loaded",
     items: [
@@ -273,29 +287,10 @@ function main() {
   });
   assert.equal(recipeState.recipes.length, 2);
 
-  let inlinePermissionState = reducer(initialState, {
-    type: "permission_request_inline",
-    permission: {
-      permission_id: "perm-inline-1",
-      tool_name: "edit_file",
-      category: "workspace_write",
-      reason: "need write permission",
-    },
-    turnId: "turn-inline",
-    stepId: "step-inline-1",
-    stepIndex: 1,
+  const resolvedPermissionState = reducer(pendingPermissionState, {
+    type: "permission_cleared",
   });
-  assert.equal(inlinePermissionState.timeline.length, 1);
-  assert.equal(inlinePermissionState.timeline[0].kind, "permission");
-  assert.equal(inlinePermissionState.timeline[0].id, "perm-inline-1");
-  assert.equal(inlinePermissionState.timeline[0].projectionSource, "step_events");
-  inlinePermissionState = reducer(inlinePermissionState, {
-    type: "permission_item_resolved",
-    permissionId: "perm-inline-1",
-    approved: true,
-  });
-  assert.equal(inlinePermissionState.timeline[0].resolved, true);
-  assert.equal(inlinePermissionState.timeline[0].approved, true);
+  assert.equal(resolvedPermissionState.permission, null);
 
   console.log("frontend helper checks passed");
 }

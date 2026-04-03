@@ -287,18 +287,6 @@ export function timelineFromTurns(turns, events = [], options = {}) {
     const payload = record.payload || {};
     const stepId = payload.step_id || "";
     if (!stepId) continue;
-    if (record.event === "permission_required") {
-      if (!eventCardsByStep[stepId]) eventCardsByStep[stepId] = [];
-      eventCardsByStep[stepId].push({
-        id: payload.permission?.permission_id || record.event_id,
-        kind: "permission",
-        permission: payload.permission || {},
-        resolved: false,
-        turnId: payload.turn_id || "",
-        stepId,
-        stepIndex: payload.step_index || 0,
-      });
-    }
     if (record.event === "user_input_required") {
       if (!eventCardsByStep[stepId]) eventCardsByStep[stepId] = [];
       const request = payload.user_input || {};

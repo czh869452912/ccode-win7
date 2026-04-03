@@ -493,6 +493,9 @@ class AgentCoreAdapter(CoreInterface):
     def get_session_timeline(self, session_id: str, limit: int = 200) -> Dict[str, Any]:
         return self._adapter.get_session_timeline(session_id, limit=limit)
 
+    def build_structured_timeline(self, session_id: str, limit: int = 200) -> Dict[str, Any]:
+        return self._adapter.build_structured_timeline(session_id, limit=limit)
+
     def list_artifacts(self, limit: int = 20) -> List[Dict[str, Any]]:
         return self._adapter.list_artifacts(limit=limit)
 
