@@ -4,7 +4,6 @@ import {
   createTreeNode,
   makeEventId,
   normalizeSessionPayload,
-  resolveVisiblePermission,
   timelineFromEvents,
   timelineFromTurns,
 } from "./state-helpers.js";
@@ -14,7 +13,6 @@ import Sidebar from "./components/Sidebar.jsx";
 import Timeline from "./components/Timeline.jsx";
 import Inspector from "./components/Inspector.jsx";
 import Composer from "./components/Composer.jsx";
-import PermissionModal from "./components/PermissionModal.jsx";
 
 const MODES = ["explore", "spec", "code", "debug", "verify"];
 const SLASH_COMMAND_HINTS = [
@@ -45,7 +43,6 @@ function App() {
 
   const currentMode = state.snapshot?.current_mode || state.requestedMode;
   const currentStatus = state.snapshot?.status || "idle";
-  const activePermission = resolveVisiblePermission(state.permission, state.snapshot);
 
   // initial data load
   useEffect(() => {
@@ -79,7 +76,7 @@ function App() {
     if (isAtBottomRef.current && timelineRef.current) {
       timelineRef.current.scrollTop = timelineRef.current.scrollHeight;
     }
-  }, [state.timeline, state.thinkingActive, activePermission, state.userInput]);
+  }, [state.timeline, state.thinkingActive, state.userInput]);
 
   function handleTimelineScroll() {
     const el = timelineRef.current;
@@ -388,7 +385,7 @@ function App() {
       return;
     }
     if (type === "permission_request") {
-      dispatch({ type: "permission_request", permission: data });
+      // Show inline permission card in timeline only (not a blocking modal)
       dispatch({
         type: "permission_request_inline",
         permission: data,
@@ -492,6 +489,8 @@ function App() {
       dispatch({
         type: "turn_ended",
         terminationReason: data.termination_reason || "",
+        terminationDisplayReason: data.display_reason || data.termination_reason || "",
+        terminationMessage: data.message || "",
         turnsUsed: data.turns_used || 0,
         maxTurns: data.max_turns || 8,
       });
@@ -568,27 +567,10 @@ function App() {
         content: data.content || "",
         recentTurns: metadata.recent_turns,
         summarizedTurns: metadata.summarized_turns,
+        approxTokensAfter: metadata.approx_tokens_after,
       });
       logEvent("context_compacted", data.content || "");
     }
-  }
-
-  function sendPermissionResponse(approved, remember, category) {
-    if (!wsRef.current || !activePermission) return;
-    wsRef.current.send(
-      JSON.stringify({
-        type: "permission_response",
-        permission_id: activePermission.permission_id,
-        approved,
-        remember: Boolean(remember),
-        category: category || activePermission.category || "",
-      }),
-    );
-    dispatch({ type: "permission_cleared" });
-    if (approved && remember && state.currentSessionId) {
-      loadPermissionContext(state.currentSessionId);
-    }
-    logEvent("permission_response", approved ? "approved" : "denied");
   }
 
   function sendInlinePermissionResponse(permissionId, approved, remember, category) {
@@ -759,6 +741,8 @@ function App() {
             thinkingActive={state.thinkingActive}
             streamingReasoningId={state.streamingReasoningId}
             terminationReason={state.terminationReason}
+            terminationDisplayReason={state.terminationDisplayReason}
+            terminationMessage={state.terminationMessage}
             turnsUsed={state.turnsUsed}
             maxTurns={state.maxTurns}
             userAnswer={userAnswer}
@@ -811,11 +795,6 @@ function App() {
         )}
       </div>
 
-      <PermissionModal
-        permission={activePermission}
-        onApprove={(remember, category) => sendPermissionResponse(true, remember, category)}
-        onDeny={(remember, category) => sendPermissionResponse(false, remember, category)}
-      />
     </div>
     </LangContext.Provider>
   );

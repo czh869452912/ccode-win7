@@ -241,11 +241,13 @@ function main() {
     type: "context_compacted",
     recentTurns: 2,
     summarizedTurns: 5,
+    approxTokensAfter: 8000,
   });
   assert.equal(compactedState.timeline.length, 1);
-  assert.equal(compactedState.timeline[0].kind, "system");
-  assert.equal(compactedState.timeline[0].tone, "context");
-  assert.equal(compactedState.timeline[0].content, "上下文已压缩：保留 2 轮，摘要 5 轮");
+  assert.equal(compactedState.timeline[0].kind, "compact");
+  assert.equal(compactedState.timeline[0].recentTurns, 2);
+  assert.equal(compactedState.timeline[0].summarizedTurns, 5);
+  assert.equal(compactedState.timeline[0].approxTokensAfter, 8000);
   assert.equal(compactedState.timeline[0].projectionSource, "raw_events");
   assert.equal(compactedState.timeline[0].projectionKind, "raw_event");
   assert.equal(compactedState.timeline[0].synthetic, false);
