@@ -1848,3 +1848,46 @@
 - 是否需要 ADR：`否`
 - 后续动作：
   - 继续检查 websocket 增量路径是否还存在未标记 projection 的边角事件
+
+### DC-046
+
+- 日期：2026-04-03
+- 变更主题：live raw-event 卡片与 reload timeline 继续收口
+- 变更摘要：
+  - webapp `store` 现在会把 live `command_result` 明确标成 `raw_events / raw_event`，不再误带 `step_events / recorded_step`
+  - live `permission_request` 已补成 inline permission card，因此进行中的 session 与刷新后的 structured timeline 不再缺少同一张等待卡片
+  - `message(ERROR)` 也改为走统一的 raw-event error 卡片路径，避免 system error 只存在于 event log 而不进入 timeline
+- 影响范围：
+  - GUI live timeline / reload timeline 一致性
+  - raw-event 与 step-event 的投影边界
+  - websocket 增量事件的调试可见性
+- 关联文档：
+  - `docs/context-loop-handoff-status.md`
+  - `src/embedagent/frontend/gui/webapp/src/store.js`
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+- 是否需要 ADR：`否`
+- 后续动作：
+  - 继续检查所有 `message(*)` 分支是否仍有 live/reload 语义差异
+
+### DC-047
+
+- 日期：2026-04-03
+- 变更主题：GUI live context_compacted 卡片恢复 compact 元数据
+- 变更摘要：
+  - `CallbackBridge` 现在会在 `MessageType.CONTEXT_COMPACTED` 上保留 `recent_turns / summarized_turns / approx_tokens_after / analysis`
+  - GUI webapp 开始消费 `message(CONTEXT_COMPACTED)`，并在 live timeline 中生成带 `raw_events / raw_event` 语义的 context 卡片
+  - 这让上下文压缩卡片不再只在 reload/raw timeline 中可见，live session 期间也能看到与 compact 边界一致的调试信息
+- 影响范围：
+  - CallbackBridge 消息元数据契约
+  - GUI live timeline 的 context_compacted 可见性
+  - compact observability 在 live / reload 两条路径上的一致性
+- 关联文档：
+  - `docs/query-context-redesign.md`
+  - `src/embedagent/core/adapter.py`
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/store.js`
+  - `tests/test_gui_sync.py`
+- 是否需要 ADR：`否`
+- 后续动作：
+  - 继续决定是否要把更多 compact analysis 明细暴露到 inspector 而不只留在 metadata

@@ -225,6 +225,31 @@ function main() {
   assert.equal(reviewState.timeline[0].projectionSource, "raw_events");
   assert.equal(reviewState.review.summary, "quality summary");
 
+  const sessionErrorState = reducer(initialState, {
+    type: "session_error",
+    error: "loop exploded",
+  });
+  assert.equal(sessionErrorState.timeline.length, 1);
+  assert.equal(sessionErrorState.timeline[0].kind, "system");
+  assert.equal(sessionErrorState.timeline[0].tone, "error");
+  assert.equal(sessionErrorState.timeline[0].content, "loop exploded");
+  assert.equal(sessionErrorState.timeline[0].projectionSource, "raw_events");
+  assert.equal(sessionErrorState.timeline[0].projectionKind, "raw_event");
+  assert.equal(sessionErrorState.timeline[0].synthetic, false);
+
+  const compactedState = reducer(initialState, {
+    type: "context_compacted",
+    recentTurns: 2,
+    summarizedTurns: 5,
+  });
+  assert.equal(compactedState.timeline.length, 1);
+  assert.equal(compactedState.timeline[0].kind, "system");
+  assert.equal(compactedState.timeline[0].tone, "context");
+  assert.equal(compactedState.timeline[0].content, "上下文已压缩：保留 2 轮，摘要 5 轮");
+  assert.equal(compactedState.timeline[0].projectionSource, "raw_events");
+  assert.equal(compactedState.timeline[0].projectionKind, "raw_event");
+  assert.equal(compactedState.timeline[0].synthetic, false);
+
   const permissionState = reducer(initialState, {
     type: "permission_context_loaded",
     context: {

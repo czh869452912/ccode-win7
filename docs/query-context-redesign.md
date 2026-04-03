@@ -55,6 +55,8 @@
 - `build_structured_timeline()` 现在还会显式暴露 `projection_source`，并用 `projection_kind / synthetic` 标记 recorded step、synthetic single step 与 raw-event fallback 的区别
 - 当 `turn_end` 带来 `max_turns` 等终止态时，structured timeline 也会同步收口当前 step 的 `status`，不再出现 turn 已终止但 step 仍停在 `tool_calls` 的分裂语义
 - 会话结束后会重新持久化一次最终状态，确保 `max_turns` 这类最后才出现的 transition 不会丢失在 summary/snapshot 之外
+- GUI live reducer 现在也会把 inline permission、`command_result`、`session_error` 与 `context_compacted` 这些非 step 卡片明确标成 `raw_events / raw_event`，避免 live session 和 reload 后的 raw timeline 在 projection 语义上继续分裂
+- `CallbackBridge` 在把 `context_compacted` 降成 `MessageType.CONTEXT_COMPACTED` 时会保留 compact 统计 metadata，因此 GUI live 卡片能继续显示“保留多少轮 / 摘要多少轮”而不是只剩一条泛化消息
 - Session truth 现在开始落到 `.embedagent/memory/sessions/<session_id>/transcript.jsonl`
 - `summary.json` / snapshot payload 已下沉为 derived projection，而不再作为恢复真相源
 - `resume_session()` 已切到 transcript replay 主线：恢复时先重建 `Session`，再回填 snapshot / summary / timeline

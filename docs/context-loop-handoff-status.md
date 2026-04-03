@@ -175,6 +175,9 @@
 - structured timeline 的 `projection_source / projection_kind / synthetic` 语义
 - structured timeline 在 `max_turns` 一类终止态下的 step/turn 状态一致性
 - GUI helper / smoke test 与 webapp build 已覆盖 projection 徽标消费链路
+- live websocket 的 `permission_request` 现在也会插入 inline permission card，live session 与 reload 后的 structured timeline 不再分裂
+- live reducer 里的 `command_result`、`message(ERROR)` 与 `message(CONTEXT_COMPACTED)` 现在都按 `raw_events / raw_event` 语义落进 timeline，不再误标成 step projection 或直接丢卡
+- `CallbackBridge` 透传 `CONTEXT_COMPACTED` 时会保留 `recent_turns / summarized_turns / approx_tokens_after` metadata，GUI live 卡片能尽量复用 reload 侧的上下文压缩文案
 
 最近一次新鲜验证结果：
 

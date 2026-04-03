@@ -426,6 +426,36 @@ export function reducer(state, action) {
         permissionContext: action.context,
         inspectorTab: action.inspectorTab || state.inspectorTab,
       };
+    case "session_error":
+      return {
+        ...state,
+        timeline: state.timeline.concat({
+          id: action.id || makeEventId("error"),
+          kind: "system",
+          tone: "error",
+          content: action.error || "会话出错",
+          ...rawProjectionMeta(),
+        }),
+        thinkingActive: false,
+        streamingAssistantId: "",
+        streamingReasoningId: "",
+      };
+    case "context_compacted": {
+      const hasStats = action.recentTurns !== undefined || action.summarizedTurns !== undefined;
+      const content = hasStats
+        ? `上下文已压缩：保留 ${action.recentTurns || 0} 轮，摘要 ${action.summarizedTurns || 0} 轮`
+        : action.content || "上下文已压缩";
+      return {
+        ...state,
+        timeline: state.timeline.concat({
+          id: action.id || makeEventId("context"),
+          kind: "system",
+          tone: "context",
+          content,
+          ...rawProjectionMeta(),
+        }),
+      };
+    }
     case "tool_catalog_loaded":
       return {
         ...state,

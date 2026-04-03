@@ -470,6 +470,15 @@ function App() {
       logEvent(`command: /${data.command_name || "?"}`, data.success ? "ok" : "error");
       return;
     }
+    if (type === "session_error") {
+      dispatch({
+        type: "session_error",
+        id: data.event_id || makeEventId("error"),
+        error: data.error || "",
+      });
+      logEvent("session_error", data.error || "");
+      return;
+    }
     if (type === "plan_updated") {
       dispatch({
         type: "plan_loaded",
@@ -544,15 +553,23 @@ function App() {
     }
     if (type === "message" && data.type === "ERROR") {
       dispatch({
-        type: "append_timeline_item",
-        item: {
-          id: makeEventId("error"),
-          kind: "system",
-          tone: "error",
-          content: data.content || "Error",
-        },
+        type: "session_error",
+        id: data.id || makeEventId("error"),
+        error: data.content || "Error",
       });
       logEvent("error", data.content || "");
+      return;
+    }
+    if (type === "message" && data.type === "CONTEXT_COMPACTED") {
+      const metadata = data.metadata || {};
+      dispatch({
+        type: "context_compacted",
+        id: data.id || makeEventId("context"),
+        content: data.content || "",
+        recentTurns: metadata.recent_turns,
+        summarizedTurns: metadata.summarized_turns,
+      });
+      logEvent("context_compacted", data.content || "");
     }
   }
 

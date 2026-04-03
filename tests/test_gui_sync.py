@@ -2,6 +2,8 @@
 import unittest
 from unittest.mock import MagicMock
 
+from embedagent.protocol import MessageType
+
 
 class TestGuiSync(unittest.TestCase):
     def test_websocket_frontend_has_on_todos_refresh(self):
@@ -65,6 +67,22 @@ class TestGuiSync(unittest.TestCase):
             "call_id": "call-3",
         })
         mock_frontend.on_artifacts_refresh.assert_called_once()
+
+    def test_callback_bridge_context_compacted_preserves_metadata(self):
+        from embedagent.core.adapter import CallbackBridge
+        mock_frontend = MagicMock()
+        bridge = CallbackBridge(mock_frontend)
+        bridge.emit("context_compacted", "session-1", {
+            "recent_turns": 2,
+            "summarized_turns": 5,
+            "approx_tokens_after": 1024,
+        })
+        mock_frontend.on_message.assert_called_once()
+        message = mock_frontend.on_message.call_args[0][0]
+        self.assertEqual(message.type, MessageType.CONTEXT_COMPACTED)
+        self.assertEqual(message.metadata.get("recent_turns"), 2)
+        self.assertEqual(message.metadata.get("summarized_turns"), 5)
+        self.assertEqual(message.metadata.get("approx_tokens_after"), 1024)
 
     def test_callback_bridge_does_not_call_refresh_for_unrelated_tool(self):
         from embedagent.core.adapter import CallbackBridge

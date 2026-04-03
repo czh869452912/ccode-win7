@@ -190,7 +190,13 @@ class CallbackBridge:
             msg = Message(
                 id=str(uuid.uuid4()),
                 type=MessageType.CONTEXT_COMPACTED,
-                content=f"Context compacted: {stats} turns kept"
+                content=f"Context compacted: {stats} turns kept",
+                metadata={
+                    "recent_turns": payload.get("recent_turns", 0),
+                    "summarized_turns": payload.get("summarized_turns", 0),
+                    "approx_tokens_after": payload.get("approx_tokens_after"),
+                    "analysis": payload.get("analysis", {}),
+                },
             )
             self.frontend.on_message(msg)
 
