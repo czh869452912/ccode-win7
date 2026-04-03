@@ -115,6 +115,18 @@ export function summarizeTimelineProjection(timeline = []) {
   };
 }
 
+export function describeTimelineProjectionNotice(summary = {}) {
+  const source = String(summary?.source || "").trim();
+  if (source !== "raw_events") {
+    return null;
+  }
+  return {
+    tone: "context",
+    title: "raw fallback",
+    detail: "showing raw timeline events",
+  };
+}
+
 export function timelineFromEvents(events) {
   const items = [];
   const toolIndex = {};

@@ -6,7 +6,7 @@ import rehypeKatex from "rehype-katex";
 import { toolLabel, STATUS_ICON } from "../store.js";
 import { useLang } from "../LangContext.js";
 import { t } from "../strings.js";
-import { describeProjectionBadge } from "../state-helpers.js";
+import { describeProjectionBadge, describeTimelineProjectionNotice, summarizeTimelineProjection } from "../state-helpers.js";
 import DiffView from "./DiffView.jsx";
 
 function ToolBlock({ item }) {
@@ -163,6 +163,8 @@ const Timeline = forwardRef(function Timeline(
 ) {
   const lang = useLang();
   const groups = groupByTurn(timeline);
+  const projectionSummary = summarizeTimelineProjection(timeline);
+  const projectionNotice = describeTimelineProjectionNotice(projectionSummary);
   const lastIdx = groups.length - 1;
 
   return (
@@ -175,6 +177,11 @@ const Timeline = forwardRef(function Timeline(
       aria-atomic="false"
       aria-label="Conversation"
     >
+      {projectionNotice ? (
+        <div className={`system-card ${projectionNotice.tone || "context"}`} role="status">
+          <strong>{projectionNotice.title}</strong>: {projectionNotice.detail}
+        </div>
+      ) : null}
       {groups.map((group, idx) => (
         <TurnGroup
           key={group.turnId || group.userItem?.id || `anon-${idx}`}

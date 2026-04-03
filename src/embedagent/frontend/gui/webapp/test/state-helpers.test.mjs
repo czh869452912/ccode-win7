@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
   createTreeNode,
   describeProjectionBadge,
+  describeTimelineProjectionNotice,
   injectChildren,
   normalizeSessionPayload,
   summarizeTimelineProjection,
@@ -219,6 +220,29 @@ test("summarizeTimelineProjection distinguishes structured and raw fallback time
       source: "raw_events",
       syntheticCount: 0,
       projectedCount: 0,
+    },
+  );
+});
+
+test("describeTimelineProjectionNotice highlights raw fallback only", () => {
+  assert.equal(
+    describeTimelineProjectionNotice({
+      source: "step_events",
+      syntheticCount: 0,
+      projectedCount: 4,
+    }),
+    null,
+  );
+  assert.deepEqual(
+    describeTimelineProjectionNotice({
+      source: "raw_events",
+      syntheticCount: 0,
+      projectedCount: 0,
+    }),
+    {
+      tone: "context",
+      title: "raw fallback",
+      detail: "showing raw timeline events",
     },
   );
 });

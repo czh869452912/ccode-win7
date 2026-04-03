@@ -1811,3 +1811,22 @@
 - 是否需要 ADR：`否`
 - 后续动作：
   - 视需要继续把 projection 摘要补到 event log 或 timeline 顶部 banner
+
+### DC-044
+
+- 日期：2026-04-03
+- 变更主题：raw fallback timeline 增加顶部提示
+- 变更摘要：
+  - `timelineFromEvents()` 现在会把 `raw_events` 作为 projection source 带到前端 timeline item
+  - GUI `Timeline` 组件会在 raw fallback 场景顶部显示一条提示，明确当前看到的是原始事件回放而不是结构化 step timeline
+  - helper 测试、smoke test、Python 前端回归和 webapp build 都已重新验证
+- 影响范围：
+  - raw/internal 双层语义在 GUI 中的可见性
+  - timeline fallback 场景的用户可理解性
+- 关联文档：
+  - `src/embedagent/frontend/gui/webapp/src/state-helpers.js`
+  - `src/embedagent/frontend/gui/webapp/src/components/Timeline.jsx`
+  - `src/embedagent/frontend/gui/webapp/test/state-helpers.test.mjs`
+- 是否需要 ADR：`否`
+- 后续动作：
+  - 继续决定 raw timeline 是否只保留在调试场景
