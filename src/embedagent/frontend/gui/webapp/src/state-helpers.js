@@ -57,6 +57,37 @@ export function resolveVisiblePermission(explicitPermission, snapshot) {
   return null;
 }
 
+export function describeProjectionBadge({
+  projectionSource = "",
+  projectionKind = "",
+  synthetic = false,
+} = {}) {
+  const source = String(projectionSource || "").trim();
+  const kind = String(projectionKind || "").trim();
+  if (!synthetic && kind === "recorded_step") {
+    return null;
+  }
+  if (!source && !kind && !synthetic) {
+    return null;
+  }
+  const sourceLabelMap = {
+    turn_events: "turn projection",
+    raw_events: "raw fallback",
+    step_events: "step events",
+  };
+  const detail = sourceLabelMap[source] || source.replace(/_/g, " ");
+  if (synthetic || kind === "synthetic_single_step") {
+    return {
+      label: "synthetic",
+      detail: detail || "projected",
+    };
+  }
+  return {
+    label: kind || "projected",
+    detail: detail || "",
+  };
+}
+
 export function timelineFromEvents(events) {
   const items = [];
   const toolIndex = {};

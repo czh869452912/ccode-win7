@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import {
   createTreeNode,
+  describeProjectionBadge,
   injectChildren,
   normalizeSessionPayload,
   timelineFromEvents,
@@ -172,4 +173,26 @@ test("timelineFromTurns preserves synthetic step projection metadata", () => {
   assert.equal(timeline[1].synthetic, true);
   assert.equal(timeline[2].projectionKind, "synthetic_single_step");
   assert.equal(timeline[2].synthetic, true);
+});
+
+test("describeProjectionBadge hides recorded steps and labels synthetic projections", () => {
+  assert.equal(
+    describeProjectionBadge({
+      projectionSource: "step_events",
+      projectionKind: "recorded_step",
+      synthetic: false,
+    }),
+    null,
+  );
+  assert.deepEqual(
+    describeProjectionBadge({
+      projectionSource: "turn_events",
+      projectionKind: "synthetic_single_step",
+      synthetic: true,
+    }),
+    {
+      label: "synthetic",
+      detail: "turn projection",
+    },
+  );
 });

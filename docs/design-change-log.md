@@ -1770,3 +1770,24 @@
 - 是否需要 ADR：`否`
 - 后续动作：
   - 继续检查其他终止态是否还存在 step/turn 语义分裂
+
+### DC-042
+
+- 日期：2026-04-03
+- 变更主题：GUI timeline 开始显示 projection 调试徽标
+- 变更摘要：
+  - webapp `state-helpers` 现在会保留 structured timeline item 的 `projectionSource / projectionKind / synthetic`
+  - `Timeline` 组件开始在 step header 上显示 synthetic / projected step 的调试徽标，普通 recorded step 仍保持静默
+  - helper 测试、smoke test 和一次完整 webapp build 已重新验证这条消费链路
+- 影响范围：
+  - GUI timeline 的 step 调试可见性
+  - structured timeline 语义在前端的最终消费链
+- 关联文档：
+  - `docs/context-loop-handoff-status.md`
+  - `src/embedagent/frontend/gui/webapp/src/state-helpers.js`
+  - `src/embedagent/frontend/gui/webapp/src/components/Timeline.jsx`
+  - `src/embedagent/frontend/gui/webapp/test/state-helpers.test.mjs`
+- 是否需要 ADR：`否`
+- 后续动作：
+  - 决定是否还要把 projection 语义补到 Inspector / runtime 调试面板
+  - 继续收缩 raw timeline 只保留给诊断与回放使用

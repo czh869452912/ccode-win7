@@ -136,6 +136,7 @@
 - structured timeline 保留 turn/step 级 transitions
 - structured timeline 现在还会显式暴露 `projection_source`，并区分 recorded step / synthetic single step / raw event fallback
 - `step_events` 路径下的 terminal transition 现在会同步收口最后一个 step 的 `status`，避免 turn 已结束但 step 仍停留在 `tool_calls`
+- GUI webapp 的 timeline step header 已开始直接消费 `projectionSource / projectionKind / synthetic`，仅在 synthetic / projected step 上显示调试徽标
 - `display_reason` 语义映射
 - legacy summary 缺失 `display_reason` 时的 snapshot 读取兼容回填
 - GUI inspector 已开始直接消费 `last_transition_display_reason / last_transition_message / recent_transitions`
@@ -173,6 +174,7 @@
 - `display_reason` 以及旧 summary 兼容回填
 - structured timeline 的 `projection_source / projection_kind / synthetic` 语义
 - structured timeline 在 `max_turns` 一类终止态下的 step/turn 状态一致性
+- GUI helper / smoke test 与 webapp build 已覆盖 projection 徽标消费链路
 
 最近一次新鲜验证结果：
 

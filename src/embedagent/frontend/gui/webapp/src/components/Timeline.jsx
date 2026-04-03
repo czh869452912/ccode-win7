@@ -6,6 +6,7 @@ import rehypeKatex from "rehype-katex";
 import { toolLabel, STATUS_ICON } from "../store.js";
 import { useLang } from "../LangContext.js";
 import { t } from "../strings.js";
+import { describeProjectionBadge } from "../state-helpers.js";
 import DiffView from "./DiffView.jsx";
 
 function ToolBlock({ item }) {
@@ -103,13 +104,20 @@ function groupByTurn(items) {
       const step = {
         stepId: key,
         stepIndex: item.stepIndex || turn.steps.length + 1,
+        projectionSource: item.projectionSource || "",
+        projectionKind: item.projectionKind || "",
+        synthetic: Boolean(item.synthetic),
         activityItems: [],
         assistantItem: null,
       };
       turn._stepMap.set(key, step);
       turn.steps.push(step);
     }
-    return turn._stepMap.get(key);
+    const step = turn._stepMap.get(key);
+    if (item.projectionSource && !step.projectionSource) step.projectionSource = item.projectionSource;
+    if (item.projectionKind && !step.projectionKind) step.projectionKind = item.projectionKind;
+    if (item.synthetic) step.synthetic = true;
+    return step;
   }
 
   for (const item of items) {
@@ -246,6 +254,7 @@ function StepGroup({ step, stepNumber, toolCatalog, isActive, thinkingActive, st
   const hasRunningTool = tools.some((item) => item.status === "running");
   const hasErrorTool = tools.some((item) => item.status === "error");
   const hasActivity = step.activityItems.length > 0;
+  const projectionBadge = describeProjectionBadge(step);
   const activitySummary = (() => {
     if (hasRunningTool) return `Step ${stepNumber} · running…`;
     const toolCount = tools.length;
@@ -257,8 +266,20 @@ function StepGroup({ step, stepNumber, toolCatalog, isActive, thinkingActive, st
   return (
     <section className={`step-group${isActive ? " active" : ""}`} aria-label={`Agent step ${stepNumber}`}>
       <div className="step-header">
-        <span className="step-label">{t("timeline.stepLabel", lang, { n: stepNumber })}</span>
-        {step.assistantItem?.streaming ? <span className="step-status">streaming</span> : null}
+        <div className="step-header-left">
+          <span className="step-label">{t("timeline.stepLabel", lang, { n: stepNumber })}</span>
+          {projectionBadge ? (
+            <span className="rule-chip monospace step-projection-chip" title={projectionBadge.detail || projectionBadge.label}>
+              {projectionBadge.label}
+            </span>
+          ) : null}
+        </div>
+        <div className="step-header-right">
+          {projectionBadge?.detail ? (
+            <span className="step-status">{projectionBadge.detail}</span>
+          ) : null}
+          {step.assistantItem?.streaming ? <span className="step-status">streaming</span> : null}
+        </div>
       </div>
       {hasActivity ? (
         <details className="turn-activity" open={isActive}>
