@@ -198,9 +198,10 @@ export function timelineFromEvents(events) {
  * Convert a structured Turn list (from build_structured_timeline) into flat timeline items.
  * Each turn produces: user bubble, reasoning card, tool cards, assistant bubble.
  */
-export function timelineFromTurns(turns, events = []) {
+export function timelineFromTurns(turns, events = [], options = {}) {
   const items = [];
   const eventCardsByStep = {};
+  const projectionSource = options?.projectionSource || "";
   for (const record of events || []) {
     const payload = record.payload || {};
     const stepId = payload.step_id || "";
@@ -237,7 +238,15 @@ export function timelineFromTurns(turns, events = []) {
   for (const turn of turns || []) {
     const turnId = turn.turn_id || makeEventId("turn");
     if (turn.user_text) {
-      items.push({ id: `${turnId}-user`, kind: "user", content: turn.user_text, turnId });
+      items.push({
+        id: `${turnId}-user`,
+        kind: "user",
+        content: turn.user_text,
+        turnId,
+        projectionSource,
+        projectionKind: turn.projection_kind || "",
+        synthetic: false,
+      });
     }
     const steps =
       Array.isArray(turn.steps) && turn.steps.length > 0
@@ -255,6 +264,8 @@ export function timelineFromTurns(turns, events = []) {
     for (const step of steps) {
       const stepId = step.step_id || makeEventId("step");
       const stepIndex = step.step_index || 0;
+      const projectionKind = step.projection_kind || turn.projection_kind || "";
+      const synthetic = Boolean(step.synthetic);
       if (step.reasoning) {
         items.push({
           id: `${stepId}-reasoning`,
@@ -264,6 +275,9 @@ export function timelineFromTurns(turns, events = []) {
           turnId,
           stepId,
           stepIndex,
+          projectionSource,
+          projectionKind,
+          synthetic,
         });
       }
       for (const tc of step.tool_calls || []) {
@@ -285,10 +299,18 @@ export function timelineFromTurns(turns, events = []) {
           turnId,
           stepId,
           stepIndex,
+          projectionSource,
+          projectionKind,
+          synthetic,
         });
       }
       for (const card of eventCardsByStep[stepId] || []) {
-        items.push(card);
+        items.push({
+          ...card,
+          projectionSource,
+          projectionKind,
+          synthetic,
+        });
       }
       if (step.assistant_text) {
         items.push({
@@ -298,6 +320,9 @@ export function timelineFromTurns(turns, events = []) {
           turnId,
           stepId,
           stepIndex,
+          projectionSource,
+          projectionKind,
+          synthetic,
         });
       }
     }

@@ -665,6 +665,8 @@ class InProcessAdapter(object):
                         }
                         current_turn["transitions"].append(dict(transition_item))
                         if current_step is not None:
+                            if current_step.get("status") in ("in_progress", "tool_calls", "completed"):
+                                current_step["status"] = termination_reason
                             current_step["transitions"].append(dict(transition_item))
             return {
                 "session_id": state.session.session_id,

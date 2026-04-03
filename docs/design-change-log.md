@@ -1750,3 +1750,23 @@
 - 后续动作：
   - 继续决定前端最终是否仍保留 raw timeline 调试层
   - 继续收缩 adapter 内 legacy 分支，逐步把 structured timeline 变成默认消费面
+
+### DC-041
+
+- 日期：2026-04-03
+- 变更主题：structured timeline 终止态同步收口 step status
+- 变更摘要：
+  - `step_events` 路径下，当 `turn_end` 投影出 `max_turns` 一类终止态时，adapter 现在会同步更新当前 step 的 `status`
+  - 这样 structured timeline 不再出现 turn 已明确终止，但最后一个 step 仍停留在 `tool_calls` 的不一致状态
+  - 新增回归测试覆盖 `max_turns` 场景下 step/turn 状态一致性
+- 影响范围：
+  - structured timeline 的终止态语义
+  - 前端 step/turn 状态展示一致性
+- 关联文档：
+  - `docs/context-loop-handoff-status.md`
+  - `docs/query-context-redesign.md`
+  - `src/embedagent/inprocess_adapter.py`
+  - `tests/test_inprocess_adapter_frontend_api.py`
+- 是否需要 ADR：`否`
+- 后续动作：
+  - 继续检查其他终止态是否还存在 step/turn 语义分裂

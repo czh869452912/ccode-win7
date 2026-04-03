@@ -689,6 +689,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertIn("max_turns", [item.get("kind") for item in turn.get("transitions", [])])
         self.assertEqual(len(turn["steps"]), 1)
         step = turn["steps"][0]
+        self.assertEqual(step["status"], "max_turns")
         self.assertIn("max_turns", [item.get("kind") for item in step.get("transitions", [])])
         terminal = [item for item in turn.get("transitions", []) if item.get("kind") == "max_turns"][0]
         self.assertTrue(str(terminal.get("message") or "").strip())

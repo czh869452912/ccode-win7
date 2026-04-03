@@ -134,7 +134,11 @@ function App() {
       snapshot,
       timeline:
         Array.isArray(timelinePayload.turns) && timelinePayload.turns.length > 0
-          ? timelineFromTurns(timelinePayload.turns || [], timelinePayload.events || [])
+          ? timelineFromTurns(
+              timelinePayload.turns || [],
+              timelinePayload.events || [],
+              { projectionSource: timelinePayload.projection_source || "" },
+            )
           : timelineFromEvents(timelinePayload.events || []),
     });
     dispatch({ type: "plan_loaded", plan: planPayload.plan || null });

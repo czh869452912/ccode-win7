@@ -104,9 +104,12 @@ test("timelineFromTurns expands one user turn into multiple agent steps", () => 
     {
       turn_id: "turn-1",
       user_text: "analyze demo",
+      projection_kind: "step_events",
       steps: [
         {
           step_id: "step-1",
+          projection_kind: "recorded_step",
+          synthetic: false,
           reasoning: "inspect file",
           tool_calls: [
             {
@@ -122,20 +125,51 @@ test("timelineFromTurns expands one user turn into multiple agent steps", () => 
         },
         {
           step_id: "step-2",
+          projection_kind: "recorded_step",
+          synthetic: false,
           reasoning: "summarize result",
           assistant_text: "done",
           tool_calls: [],
         },
       ],
     },
-  ]);
+  ], [], { projectionSource: "step_events" });
   assert.equal(timeline[0].kind, "user");
+  assert.equal(timeline[0].projectionSource, "step_events");
   assert.equal(timeline[1].stepId, "step-1");
   assert.equal(timeline[1].kind, "reasoning");
+  assert.equal(timeline[1].projectionKind, "recorded_step");
+  assert.equal(timeline[1].synthetic, false);
   assert.equal(timeline[2].stepId, "step-1");
   assert.equal(timeline[2].kind, "tool");
   assert.equal(timeline[3].stepId, "step-2");
   assert.equal(timeline[3].kind, "reasoning");
   assert.equal(timeline[4].stepId, "step-2");
   assert.equal(timeline[4].kind, "assistant");
+});
+
+test("timelineFromTurns preserves synthetic step projection metadata", () => {
+  const timeline = timelineFromTurns([
+    {
+      turn_id: "turn-legacy",
+      user_text: "legacy analyze",
+      projection_kind: "turn_events",
+      steps: [
+        {
+          step_id: "turn-legacy-step-1",
+          step_index: 1,
+          projection_kind: "synthetic_single_step",
+          synthetic: true,
+          reasoning: "legacy reasoning",
+          assistant_text: "legacy done",
+          tool_calls: [],
+        },
+      ],
+    },
+  ], [], { projectionSource: "turn_events" });
+  assert.equal(timeline[0].projectionSource, "turn_events");
+  assert.equal(timeline[1].projectionKind, "synthetic_single_step");
+  assert.equal(timeline[1].synthetic, true);
+  assert.equal(timeline[2].projectionKind, "synthetic_single_step");
+  assert.equal(timeline[2].synthetic, true);
 });
