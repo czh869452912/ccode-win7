@@ -1,6 +1,8 @@
 import React, { forwardRef } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
 import { toolLabel, STATUS_ICON } from "../store.js";
 import { useLang } from "../LangContext.js";
 import { t } from "../strings.js";
@@ -544,7 +546,8 @@ function ModeSwitchCard({ item, onSubmitUserInput }) {
 function Markdown({ content }) {
   return (
     <ReactMarkdown
-      remarkPlugins={[remarkGfm]}
+      remarkPlugins={[remarkGfm, remarkMath]}
+      rehypePlugins={[rehypeKatex]}
       components={{
         code(props) {
           const { inline, className, children, ...rest } = props;

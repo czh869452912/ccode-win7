@@ -28,9 +28,17 @@ await build({
   jsx: "automatic",
 });
 
+// Copy KaTeX dist (CSS + fonts) for offline formula rendering
+const katexSrc = path.resolve(__dirname, "node_modules/katex/dist");
+const katexDst = path.join(assetsDir, "katex");
+if (fs.existsSync(katexSrc)) {
+  fs.cpSync(katexSrc, katexDst, { recursive: true });
+}
+
 const cssFilename = "app.css";
 const cssPath = path.join(assetsDir, cssFilename);
 const hasCss = fs.existsSync(cssPath);
+const hasKatex = fs.existsSync(path.join(katexDst, "katex.min.css"));
 
 const indexHtml = `<!doctype html>
 <html lang="zh-CN">
@@ -39,6 +47,7 @@ const indexHtml = `<!doctype html>
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>EmbedAgent</title>
+    ${hasKatex ? '<link rel="stylesheet" href="/static/assets/katex/katex.min.css" />' : ""}
     ${hasCss ? '<link rel="stylesheet" href="/static/assets/app.css" />' : ""}
   </head>
   <body>

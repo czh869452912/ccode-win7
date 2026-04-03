@@ -196,6 +196,17 @@ function Invoke-PackageDoctor {
         $doctorChecks += [ordered]@{ name = ('tool:' + [System.IO.Path]::GetFileName($toolPath)); ok = (Test-Path -LiteralPath $toolPath); path = $toolPath }
     }
 
+    # Check that Node.js / npm are available on the build machine.
+    # npm is required by Invoke-FrontendBuild (runs 'npm install --force && npm run build'
+    # before assembling the bundle) so that KaTeX fonts are present in static/assets/katex/.
+    $npmOk = $false
+    $npmVersion = ''
+    try {
+        $npmVersion = (& npm --version 2>&1 | Out-String).Trim()
+        $npmOk = ($LASTEXITCODE -eq 0) -and ($npmVersion -ne '')
+    } catch { $npmOk = $false }
+    $doctorChecks += [ordered]@{ name = 'runtime:npm'; ok = $npmOk; path = "npm ($npmVersion)" }
+
     foreach ($check in $doctorChecks) {
         if (-not $check.ok) {
             $report.blocking_issues += ('Missing required path: ' + $check.path)
@@ -356,11 +367,71 @@ function Invoke-PackageDeps {
     Add-StageResult -Report $Report -Name 'deps' -Status $(if ($payload.ok) { 'pass' } else { 'fail' }) -ExitCode $(if ($payload.ok) { 0 } else { 1 }) -Summary @{ report = $jsonPath }
 }
 
+function Invoke-FrontendBuild {
+    param(
+        [System.Collections.IDictionary]$Context,
+        [ref]$Report
+    )
+
+    # Build the React frontend so static/assets/katex/ and app.js are up-to-date.
+    # This is required because static/assets/katex/ is gitignored (binary fonts are
+    # build artifacts, not committed).  app.js / app.css are committed as pre-built
+    # artifacts but are also regenerated here so the bundle always reflects the
+    # current source.
+    $webappDir = Join-Path $Context.project_root 'src\embedagent\frontend\gui\webapp'
+    if (-not (Test-Path -LiteralPath $webappDir)) {
+        Add-StageResult -Report $Report -Name 'frontend_build' -Status 'fail' -ExitCode 1 -Summary @{ reason = 'webapp_dir_missing'; path = $webappDir }
+        return
+    }
+
+    $npmCmd = 'npm'
+    try {
+        $npmVersion = & $npmCmd --version 2>&1
+        if ($LASTEXITCODE -ne 0) { throw "npm --version failed" }
+    }
+    catch {
+        Add-StageResult -Report $Report -Name 'frontend_build' -Status 'fail' -ExitCode 1 -Summary @{ reason = 'npm_not_found'; hint = 'Install Node.js >= 18 on the build machine.' }
+        return
+    }
+
+    Push-Location $webappDir
+    try {
+        # --force is required because @rollup/rollup-win32-x64-msvc declares
+        # os:win32 but build machines may be Linux/macOS.
+        $installOutput = & $npmCmd install --force 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            throw ('npm install --force failed (exit {0}): {1}' -f $LASTEXITCODE, ($installOutput | Out-String).Trim())
+        }
+        $buildOutput = & $npmCmd run build 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            throw ('npm run build failed (exit {0}): {1}' -f $LASTEXITCODE, ($buildOutput | Out-String).Trim())
+        }
+    }
+    catch {
+        Add-StageResult -Report $Report -Name 'frontend_build' -Status 'fail' -ExitCode 1 -Summary @{ reason = 'build_error'; error = $_.Exception.Message }
+        return
+    }
+    finally {
+        Pop-Location
+    }
+
+    $katexCss = Join-Path $Context.project_root 'src\embedagent\frontend\gui\static\assets\katex\katex.min.css'
+    if (-not (Test-Path -LiteralPath $katexCss)) {
+        Add-StageResult -Report $Report -Name 'frontend_build' -Status 'fail' -ExitCode 1 -Summary @{ reason = 'katex_css_missing_after_build'; path = $katexCss }
+        return
+    }
+
+    Add-StageResult -Report $Report -Name 'frontend_build' -Status 'pass' -ExitCode 0 -Summary @{ webapp = $webappDir; npm_version = ($npmVersion | Out-String).Trim() }
+}
+
 function Invoke-PackageAssemble {
     param(
         [System.Collections.IDictionary]$Context,
         [ref]$Report
     )
+
+    Invoke-FrontendBuild -Context $Context -Report $Report
+    if (@($Report.Value.blocking_issues).Count -gt 0) { return }
 
     $preparePath = Resolve-ToolPath -Context $Context -RelativePath ([string]$Context.config.tooling.prepare_bundle)
     $buildPath = Resolve-ToolPath -Context $Context -RelativePath ([string]$Context.config.tooling.build_bundle)
