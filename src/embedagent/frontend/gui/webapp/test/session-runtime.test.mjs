@@ -41,4 +41,36 @@ export function runSessionRuntimeTests() {
   });
   assert.equal(runtime.currentInteraction.interaction_id, "int-1");
   assert.equal(runtime.timelineView.some((item) => item.kind === "permission"), false);
+
+  const interactionRuntime = projectSessionRuntime({
+    snapshot: {
+      session_id: "sess-1",
+      status: "waiting_user_input",
+      pending_interaction: {
+        interaction_id: "int-2",
+        kind: "user_input",
+        question: "继续吗？",
+        options: [{ index: 1, text: "继续" }],
+      },
+    },
+    eventLog: {
+      ...createSessionEventLog(),
+      events: [
+        {
+          session_id: "sess-1",
+          event_id: "evt-10",
+          seq: 10,
+          event_kind: "interaction.created",
+          created_at: "2026-04-04T00:01:00Z",
+          payload: {
+            interaction_id: "int-2",
+            kind: "user_input",
+            question: "继续吗？",
+          },
+        },
+      ],
+    },
+  });
+  assert.equal(interactionRuntime.currentInteraction.interaction_id, "int-2");
+  assert.equal(interactionRuntime.timelineView[0].kind, "interaction_requested");
 }
