@@ -849,6 +849,20 @@ class InProcessAdapter(object):
             return method()
         return []
 
+    def load_session_events_after(self, session_id: str, after_seq: int, limit: int = 200) -> List[Dict[str, Any]]:
+        self._require_session(session_id)
+        raw_events = self.timeline_store.load_events_after(session_id, after_seq, limit=limit)
+        items = []
+        for record in raw_events:
+            items.append({
+                "event_id": str(record.get("event_id") or ""),
+                "seq": int(record.get("seq") or 0),
+                "created_at": str(record.get("created_at") or ""),
+                "event_kind": str(record.get("event") or "").replace("_", "."),
+                "payload": dict(record.get("payload") or {}),
+            })
+        return items
+
     def list_workspace_recipes(self) -> Dict[str, Any]:
         method = getattr(self.tools, "workspace_recipes", None)
         if callable(method):

@@ -29,6 +29,26 @@ class _FakeCore(object):
         }
 
 
+class _FakeCoreWithTimeline(_FakeCore):
+    def load_session_events_after(self, session_id, after_seq, limit=200):
+        return [
+            {
+                "event_id": "evt-3",
+                "seq": 3,
+                "created_at": "2026-04-04T00:00:03Z",
+                "event_kind": "tool.started",
+                "payload": {"tool_name": "read_file"},
+            },
+            {
+                "event_id": "evt-4",
+                "seq": 4,
+                "created_at": "2026-04-04T00:00:04Z",
+                "event_kind": "tool.finished",
+                "payload": {"tool_name": "read_file", "success": True},
+            },
+        ]
+
+
 class TestGuiBackendApi(unittest.TestCase):
     def test_post_interaction_response_uses_unified_endpoint(self):
         with tempfile.TemporaryDirectory() as static_dir:
@@ -56,6 +76,20 @@ class TestGuiBackendApi(unittest.TestCase):
                 )
             )
         self.assertEqual(response["interaction_id"], "int-1")
+
+    def test_get_session_events_replays_only_entries_after_seq(self):
+        with tempfile.TemporaryDirectory() as static_dir:
+            with open(os.path.join(static_dir, "index.html"), "w", encoding="utf-8") as handle:
+                handle.write("<html><body>ok</body></html>")
+            backend = GUIBackend(_FakeCoreWithTimeline(), static_dir=static_dir)
+            route = None
+            for item in backend.app.routes:
+                if getattr(item, "path", "") == "/api/sessions/{session_id}/events" and "GET" in getattr(item, "methods", set()):
+                    route = item
+                    break
+            self.assertIsNotNone(route)
+            response = asyncio.run(route.endpoint("sess-1", 2, 200))
+        self.assertEqual([item["seq"] for item in response["events"]], [3, 4])
 
 
 if __name__ == "__main__":

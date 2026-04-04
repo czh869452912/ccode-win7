@@ -178,6 +178,31 @@ class TestWebSocketFrontend(unittest.TestCase):
         self.assertEqual(late.messages, [{"type": "ping"}])
         self.assertNotIn(late, frontend.connections)
 
+    def test_on_turn_event_wraps_payload_as_session_event(self):
+        frontend = WebSocketFrontend()
+        dispatched = []
+        frontend._dispatch_message = lambda message: dispatched.append(message) or True
+
+        frontend.on_turn_event(
+            "tool_started",
+            {
+                "session_id": "sess-1",
+                "_timeline_event": {
+                    "event_id": "evt-1",
+                    "seq": 3,
+                    "created_at": "2026-04-04T00:00:00Z",
+                    "event": "tool_started",
+                },
+                "tool_name": "read_file",
+                "arguments": {"path": "README.md"},
+            },
+        )
+
+        self.assertEqual(dispatched[0]["type"], "session_event")
+        self.assertEqual(dispatched[0]["data"]["session_id"], "sess-1")
+        self.assertEqual(dispatched[0]["data"]["event_kind"], "tool.started")
+        self.assertEqual(dispatched[0]["data"]["seq"], 3)
+
 
 class TestAgentCoreAdapterApi(unittest.TestCase):
     def test_build_structured_timeline_delegates_to_inner_adapter(self):
