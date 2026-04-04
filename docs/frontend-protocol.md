@@ -71,6 +71,17 @@ Phase 6 的实现顺序固定为：
 
 这些事件都会附带最新 `session_snapshot`，前端必须以该快照为准更新状态与模式显示。
 
+### 2.5 GUI Active Session 采用事件日志 + 快照纠偏
+
+当前 GUI active session 已不再只依赖零散 WebSocket 消息和局部 reducer 推断状态。
+
+新增约束：
+
+- WebSocket 会为 active session 推送 `type = session_event` 的统一事件 envelope
+- HTTP `GET /api/sessions/{session_id}/events?after_seq=N` 负责在断线/错序后补齐增量事件
+- HTTP `POST /api/sessions/{session_id}/interactions/{interaction_id}/respond` 是 GUI 唯一的交互响应入口
+- Inspector 负责当前 pending interaction 的操作；Timeline 只显示交互历史摘要
+
 ---
 
 ## 3. 分阶段实现
@@ -221,6 +232,64 @@ payload：
 {
   "session_id": "abc123",
   "text": "继续修复当前问题"
+}
+```
+
+#### `respond_to_interaction`
+
+用途：统一处理 GUI 的 permission / ask-user / mode proposal 交互响应。
+
+HTTP 入口：
+
+```text
+POST /api/sessions/{session_id}/interactions/{interaction_id}/respond
+```
+
+payload：
+
+```json
+{
+  "response_kind": "approve",
+  "decision": true,
+  "remember": false,
+  "answer": "",
+  "selected_index": null,
+  "selected_mode": "",
+  "selected_option_text": ""
+}
+```
+
+返回：
+
+- `session_id`
+- `interaction_id`
+- `status`
+- `snapshot`
+
+#### `replay_session_events`
+
+用途：在 GUI reconnect 或事件错序后，从指定 `seq` 之后重新获取事件。
+
+HTTP 入口：
+
+```text
+GET /api/sessions/{session_id}/events?after_seq=42
+```
+
+返回：
+
+```json
+{
+  "session_id": "abc123",
+  "events": [
+    {
+      "event_id": "evt-100",
+      "seq": 43,
+      "created_at": "2026-04-04T08:00:00Z",
+      "event_kind": "tool.started",
+      "payload": {}
+    }
+  ]
 }
 ```
 
