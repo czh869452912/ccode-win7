@@ -306,6 +306,26 @@
   - 评估是否要把 stop reason / consumed count 透传到 session snapshot 或 GUI inspector
   - 若继续推进统一引用验证层，可顺手把 stop reason 归类成更稳定的错误码集合
 
+### DC-069
+
+- 日期：2026-04-04
+- 变更主题：restore diagnostics 现在透传到 adapter session snapshot
+- 变更摘要：
+  - `ManagedSession` 与 session snapshot 现在会保存并暴露 `restore_stop_reason / restore_consumed_event_count / restore_transcript_event_count`
+  - 这让 `resume_session()` 的调用方可以直接判断“本次恢复是否被截断、截断点在哪里”，而不再只能从日志或 transcript 间接推断
+  - focused regression 已覆盖 clean replay 与 truncated replay 两条路径
+- 影响范围：
+  - adapter resume observability
+  - session snapshot contract
+  - 上层恢复诊断体验
+- 关联文档：
+  - `docs/context-loop-handoff-status.md`
+  - `docs/development-tracker.md`
+- 是否需要 ADR：`否`
+- 后续动作：
+  - 评估是否把这些字段继续接到 GUI inspector / runtime 面板
+  - 若后续收敛 stop reason 枚举，可把 snapshot contract 改成更稳定的 code + message 组合
+
 ### DC-055
 
 - 日期：2026-04-02

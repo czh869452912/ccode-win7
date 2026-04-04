@@ -848,6 +848,79 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertEqual(restored["status"], "waiting_permission")
         self.assertTrue(restored["has_pending_permission"])
 
+    def test_resume_session_exposes_restore_diagnostics_for_clean_replay(self):
+        adapter = InProcessAdapter(
+            client=ToolClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+        )
+        snapshot = adapter.create_session('code')
+        session_id = str(snapshot.get('session_id') or '')
+        adapter.submit_user_message(
+            session_id=session_id,
+            text='读取文件',
+            stream=False,
+            wait=True,
+            permission_resolver=lambda ticket: True,
+            event_handler=lambda event_name, current_session_id, payload: None,
+        )
+        summary_path = adapter.summary_store.resolve_summary_path(session_id)
+        if os.path.isfile(summary_path):
+            os.remove(summary_path)
+        restored = adapter.resume_session(session_id, 'code')
+        self.assertEqual(restored["restore_stop_reason"], "")
+        self.assertEqual(restored["restore_consumed_event_count"], restored["restore_transcript_event_count"])
+        self.assertGreater(restored["restore_transcript_event_count"], 0)
+
+    def test_resume_session_exposes_restore_diagnostics_for_truncated_replay(self):
+        adapter = InProcessAdapter(
+            client=ToolClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+        )
+        session_id = "sess-bad-resume"
+        adapter.transcript_store.append_event(session_id, "session_meta", {"current_mode": "spec"})
+        adapter.transcript_store.append_event(
+            session_id,
+            "message",
+            {"role": "user", "content": "继续", "message_id": "m-user", "turn_id": "t-1", "step_id": ""},
+        )
+        adapter.transcript_store.append_event(
+            session_id,
+            "step_started",
+            {"turn_id": "t-1", "step_id": "s-1", "step_index": 1},
+        )
+        adapter.transcript_store.append_event(
+            session_id,
+            "pending_interaction",
+            {
+                "turn_id": "t-1",
+                "step_id": "s-1",
+                "kind": "user_input",
+                "tool_name": "ask_user",
+                "interaction_id": "pi-1",
+                "request_payload": {"question": "下一步怎么做？"},
+            },
+        )
+        adapter.transcript_store.append_event(
+            session_id,
+            "pending_resolution",
+            {
+                "turn_id": "t-1",
+                "step_id": "s-1",
+                "interaction_id": "pi-other",
+                "kind": "user_input",
+                "tool_name": "ask_user",
+                "resolution_payload": {"answer": "继续"},
+            },
+        )
+
+        restored = adapter.resume_session(session_id, 'spec')
+        self.assertEqual(restored["status"], "waiting_user_input")
+        self.assertEqual(restored["restore_stop_reason"], "pending_resolution_identity_mismatch")
+        self.assertEqual(restored["restore_consumed_event_count"], 4)
+        self.assertEqual(restored["restore_transcript_event_count"], 5)
+
     def test_cancel_session_emits_interrupted_tool_result_when_tool_started(self):
         adapter = InProcessAdapter(
             client=ToolClient(),

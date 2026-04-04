@@ -130,6 +130,9 @@ class ManagedSession:
     active_thread: Optional[threading.Thread] = None
     resume_summary: Optional[Dict[str, Any]] = None
     last_assistant_message: str = ""
+    restore_stop_reason: str = ""
+    restore_consumed_event_count: int = 0
+    restore_transcript_event_count: int = 0
     remembered_permission_categories: Set[str] = field(default_factory=set)
     stop_event: threading.Event = field(default_factory=threading.Event, repr=False)
     lock: threading.RLock = field(default_factory=threading.RLock, repr=False)
@@ -261,6 +264,9 @@ class InProcessAdapter(object):
             updated_at=str((summary or {}).get("updated_at") or _utc_now()),
             resume_summary=summary,
             last_assistant_message=self._last_assistant_from_session(session),
+            restore_stop_reason=str(restored.stop_reason or ""),
+            restore_consumed_event_count=int(restored.consumed_event_count or 0),
+            restore_transcript_event_count=int(restored.transcript_event_count or 0),
         )
         if session.pending_interaction is not None:
             if session.pending_interaction.kind == "permission":
@@ -343,6 +349,9 @@ class InProcessAdapter(object):
                 "has_pending_user_input": state.pending_user_input is not None,
                 "pending_user_input": state.pending_user_input.to_dict() if state.pending_user_input else None,
                 "last_error": state.last_error,
+                "restore_stop_reason": state.restore_stop_reason,
+                "restore_consumed_event_count": state.restore_consumed_event_count,
+                "restore_transcript_event_count": state.restore_transcript_event_count,
                 "runtime_source": str(runtime.get("runtime_source") or ""),
                 "bundled_tools_ready": bool(runtime.get("bundled_tools_ready")),
                 "fallback_warnings": list(runtime.get("fallback_warnings") or []),

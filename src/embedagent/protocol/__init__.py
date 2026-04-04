@@ -216,6 +216,9 @@ class SessionSnapshot:
     recent_transition_reasons: List[str] = field(default_factory=list)
     recent_transitions: List[Dict[str, Any]] = field(default_factory=list)
     compact_retry_count: int = 0
+    restore_stop_reason: str = ""
+    restore_consumed_event_count: int = 0
+    restore_transcript_event_count: int = 0
 
 
 @dataclass  
