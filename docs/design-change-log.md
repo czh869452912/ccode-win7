@@ -226,6 +226,26 @@
   - 继续评估 restore stop reason / consumed event count 的上抛
   - 若继续推进 message chain，可把 pending interaction 纳入统一 parent/reference 校验
 
+### DC-065
+
+- 日期：2026-04-04
+- 变更主题：pending_resolution replay 现在校验 interaction identity
+- 变更摘要：
+  - `SessionRestorer` 现在会校验 `pending_resolution` 的 `interaction_id / tool_name / kind` 是否与当前 `pending_interaction` 一致
+  - 一旦 resolution 指向了别的 interaction、别的工具或别的等待类型，恢复会停在最后一个自洽前缀，而不会把当前等待态错误清掉
+  - 新增 focused regression 覆盖 wrong-interaction-id 和 wrong-tool-name 两条路径
+- 影响范围：
+  - pending interaction replay
+  - resume 状态可信度
+  - malformed transcript 的引用一致性
+- 关联文档：
+  - `docs/context-loop-handoff-status.md`
+  - `docs/development-tracker.md`
+- 是否需要 ADR：`否`
+- 后续动作：
+  - 继续评估 restore stop reason / consumed event count 的上抛
+  - 若继续推进 parent/reference contract，可把 compact boundary / pending interaction 统一到一套引用校验模型
+
 ### DC-055
 
 - 日期：2026-04-02

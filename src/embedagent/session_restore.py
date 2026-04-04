@@ -124,6 +124,8 @@ class SessionRestorer(object):
                     break
                 if not self._matches_current_step(session, str(payload.get("step_id") or "")):
                     break
+                if not self._matches_pending_interaction(session.pending_interaction, payload):
+                    break
                 session.resolve_pending_interaction(dict(payload.get("resolution_payload") or {}))
                 continue
             if event_type == "content_replacement":
@@ -289,3 +291,15 @@ class SessionRestorer(object):
             if str(getattr(message, "message_id", "") or "") == target:
                 return index
         return -1
+
+    def _matches_pending_interaction(self, pending: PendingInteraction, payload: Dict[str, Any]) -> bool:
+        interaction_id = str(payload.get("interaction_id") or "").strip()
+        if interaction_id and interaction_id != str(pending.interaction_id or ""):
+            return False
+        tool_name = str(payload.get("tool_name") or "").strip()
+        if tool_name and tool_name != str(pending.tool_name or ""):
+            return False
+        kind = str(payload.get("kind") or "").strip()
+        if kind and kind != str(pending.kind or ""):
+            return False
+        return True
