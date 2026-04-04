@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any, Dict, List
 
 from embedagent.session import (
@@ -170,6 +171,11 @@ class SessionRestorer(object):
                     consumed_event_count = index
                     stop_reason = "interaction_expired"
                     break
+                interaction_created_at = str(payload.get("created_at") or "").strip()
+                if interaction_created_at and self._interaction_is_stale(interaction_created_at, max_age_seconds=300):
+                    consumed_event_count = index
+                    stop_reason = "interaction_expired"
+                    break
                 if interaction_id and interaction_id in seen_interaction_ids:
                     consumed_event_count = index
                     stop_reason = "duplicate_pending_interaction_id"
@@ -179,6 +185,7 @@ class SessionRestorer(object):
                     kind=str(payload.get("kind") or ""),
                     tool_name=str(payload.get("tool_name") or ""),
                     request_payload=dict(payload.get("request_payload") or {}),
+                    created_at=interaction_created_at or "",
                 )
                 session.pending_interaction = pending
                 if session.turns:
@@ -411,6 +418,18 @@ class SessionRestorer(object):
         if kind and kind != str(pending.kind or ""):
             return False
         return True
+
+    def _interaction_is_stale(self, created_at: str, max_age_seconds: int) -> bool:
+        value = str(created_at or "").strip()
+        if not value:
+            return True
+        try:
+            created = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError:
+            return True
+        now = datetime.utcnow().replace(microsecond=0)
+        created_naive = created.replace(tzinfo=None)
+        return (now - created_naive).total_seconds() > float(max_age_seconds)
 
     def _matches_tool_result_record(self, record: Any, payload: Dict[str, Any]) -> bool:
         tool_name = str(payload.get("tool_name") or "").strip()

@@ -21,7 +21,7 @@ from embedagent.permissions import PermissionPolicy, PermissionRequest
 from embedagent.protocol import CommandResult, PermissionContextView, PlanSnapshot
 from embedagent.project_memory import ProjectMemoryStore
 from embedagent.query_engine import QueryEngine
-from embedagent.session_restore import SessionRestorer
+from embedagent.session_restore import SessionRestoreResult, SessionRestorer
 from embedagent.session import Action, AssistantReply, Observation, Session
 from embedagent.session_store import SessionSummaryStore
 from embedagent.session_timeline import SessionTimelineStore
@@ -264,8 +264,24 @@ class InProcessAdapter(object):
         except ValueError:
             summary = None
         transcript_path = self.summary_store.resolve_transcript_path(reference)
-        events = self.transcript_store.load_events(transcript_path)
-        restored = self.session_restorer.restore(events)
+        events = []
+        transcript_missing = False
+        try:
+            events = self.transcript_store.load_events(transcript_path)
+        except ValueError:
+            transcript_missing = True
+        if transcript_missing:
+            session = Session()
+            session.session_id = str(reference or "")
+            restored = SessionRestoreResult(
+                session=session,
+                current_mode=str((summary or {}).get("current_mode") or DEFAULT_MODE),
+                transcript_event_count=0,
+                consumed_event_count=0,
+                stop_reason="transcript_missing",
+            )
+        else:
+            restored = self.session_restorer.restore(events)
         current_mode = require_mode(
             mode
             or restored.current_mode
@@ -297,25 +313,33 @@ class InProcessAdapter(object):
             if session.pending_interaction.kind == "permission":
                 state.status = "waiting_permission"
                 permission_payload = dict(session.pending_interaction.request_payload.get("permission") or {})
-                state.pending_permission = PermissionTicket(
-                    permission_id=str(session.pending_interaction.interaction_id or "perm-resume"),
-                    session_id=session.session_id,
-                    tool_name=session.pending_interaction.tool_name,
-                    category=str(permission_payload.get("category") or ""),
-                    reason=str(permission_payload.get("reason") or ""),
-                    details=dict(permission_payload.get("details") or {}),
-                )
+                interaction_id = str(session.pending_interaction.interaction_id or "").strip()
+                if interaction_id:
+                    state.pending_permission = PermissionTicket(
+                        permission_id=interaction_id,
+                        session_id=session.session_id,
+                        tool_name=session.pending_interaction.tool_name,
+                        category=str(permission_payload.get("category") or ""),
+                        reason=str(permission_payload.get("reason") or ""),
+                        details=dict(permission_payload.get("details") or {}),
+                    )
+                else:
+                    state.status = "idle"
             elif session.pending_interaction.kind == "user_input":
                 state.status = "waiting_user_input"
                 request_payload = dict(session.pending_interaction.request_payload.get("request") or {})
-                state.pending_user_input = UserInputTicket(
-                    request_id=str(session.pending_interaction.interaction_id or "ask-resume"),
-                    session_id=session.session_id,
-                    tool_name=session.pending_interaction.tool_name,
-                    question=str(request_payload.get("question") or ""),
-                    options=list(request_payload.get("options") or []),
-                    details=dict(request_payload.get("details") or {}),
-                )
+                interaction_id = str(session.pending_interaction.interaction_id or "").strip()
+                if interaction_id:
+                    state.pending_user_input = UserInputTicket(
+                        request_id=interaction_id,
+                        session_id=session.session_id,
+                        tool_name=session.pending_interaction.tool_name,
+                        question=str(request_payload.get("question") or ""),
+                        options=list(request_payload.get("options") or []),
+                        details=dict(request_payload.get("details") or {}),
+                    )
+                else:
+                    state.status = "idle"
         plan = self.plan_store.load(session.session_id)
         if plan is not None:
             state.active_plan_ref = plan.path
@@ -378,6 +402,11 @@ class InProcessAdapter(object):
                 "restore_stop_reason": state.restore_stop_reason,
                 "restore_consumed_event_count": state.restore_consumed_event_count,
                 "restore_transcript_event_count": state.restore_transcript_event_count,
+                "timeline_replay_status": "degraded" if state.restore_stop_reason == "transcript_missing" else "replay",
+                "timeline_first_seq": 0,
+                "timeline_last_seq": 0,
+                "timeline_integrity": "degraded" if state.restore_stop_reason == "transcript_missing" else "healthy",
+                "pending_interaction_valid": bool(state.pending_permission or state.pending_user_input),
                 "runtime_source": str(runtime.get("runtime_source") or ""),
                 "bundled_tools_ready": bool(runtime.get("bundled_tools_ready")),
                 "fallback_warnings": list(runtime.get("fallback_warnings") or []),
@@ -849,11 +878,11 @@ class InProcessAdapter(object):
             return method()
         return []
 
-    def load_session_events_after(self, session_id: str, after_seq: int, limit: int = 200) -> List[Dict[str, Any]]:
+    def load_session_events_after(self, session_id: str, after_seq: int, limit: int = 200) -> Dict[str, Any]:
         self._require_session(session_id)
-        raw_events = self.timeline_store.load_events_after(session_id, after_seq, limit=limit)
+        replay = self.timeline_store.load_events_after(session_id, after_seq, limit=limit)
         items = []
-        for record in raw_events:
+        for record in replay.get("events", []):
             items.append({
                 "event_id": str(record.get("event_id") or ""),
                 "seq": int(record.get("seq") or 0),
@@ -861,7 +890,13 @@ class InProcessAdapter(object):
                 "event_kind": str(record.get("event") or "").replace("_", "."),
                 "payload": dict(record.get("payload") or {}),
             })
-        return items
+        return {
+            "status": replay.get("status", "replay"),
+            "events": items,
+            "first_seq": int(replay.get("first_seq") or 0),
+            "last_seq": int(replay.get("last_seq") or 0),
+            "reason": str(replay.get("reason") or ""),
+        }
 
     def list_workspace_recipes(self) -> Dict[str, Any]:
         method = getattr(self.tools, "workspace_recipes", None)

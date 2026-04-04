@@ -924,6 +924,43 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertEqual(restored["restore_consumed_event_count"], 4)
         self.assertEqual(restored["restore_transcript_event_count"], 5)
 
+    def test_load_session_events_after_returns_reload_required_when_after_seq_falls_before_retained_window(self):
+        self.adapter.timeline_store.max_events = 3
+        session_id = str(self.snapshot.get('session_id') or '')
+        for index in range(5):
+            self.adapter.timeline_store.append_event(
+                session_id,
+                'tool_started',
+                {'tool_name': 'read_file', 'call_id': 'call-%s' % index},
+            )
+        self.adapter.timeline_store._trim_if_needed(self.adapter.timeline_store._timeline_path(session_id))
+        payload = self.adapter.load_session_events_after(session_id, after_seq=1, limit=50)
+        self.assertEqual(payload["status"], "reload_required")
+        self.assertGreater(payload["first_seq"], 1)
+
+    def test_resume_session_reports_transcript_missing_as_degraded_restore(self):
+        adapter = InProcessAdapter(
+            client=ToolClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+        )
+        snapshot = adapter.create_session('code')
+        session_id = str(snapshot.get('session_id') or '')
+        adapter.submit_user_message(
+            session_id=session_id,
+            text='读取文件',
+            stream=False,
+            wait=True,
+            permission_resolver=lambda ticket: True,
+            event_handler=lambda event_name, current_session_id, payload: None,
+        )
+        transcript_path = adapter.summary_store.resolve_transcript_path(session_id)
+        if os.path.isfile(transcript_path):
+            os.remove(transcript_path)
+        restored = adapter.resume_session(session_id, 'code')
+        self.assertEqual(restored["restore_stop_reason"], "transcript_missing")
+        self.assertEqual(restored["timeline_replay_status"], "degraded")
+
     def test_cancel_session_emits_interrupted_tool_result_when_tool_started(self):
         adapter = InProcessAdapter(
             client=ToolClient(),
