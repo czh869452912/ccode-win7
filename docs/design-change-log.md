@@ -286,6 +286,26 @@
   - 继续评估 restore stop reason / consumed event count 的上抛
   - 若继续推进 parent/reference contract，可把 compact boundary / pending / replacement 收拢成统一引用验证层
 
+### DC-068
+
+- 日期：2026-04-04
+- 变更主题：SessionRestorer 现在暴露 consumed_event_count 与 stop_reason
+- 变更摘要：
+  - `SessionRestoreResult` 现在会区分 transcript 总事件数和实际消费到的连续前缀长度
+  - 当恢复在某个校验点提前停止时，会带上稳定的 `stop_reason`，便于 adapter / UI / 日志层诊断具体是在哪类一致性检查上停下来的
+  - focused regression 已覆盖“完整恢复 consumed=total”与“坏 transcript 返回明确 stop_reason”两条路径
+- 影响范围：
+  - transcript replay diagnostics
+  - restore 可观测性
+  - 上层恢复故障排查
+- 关联文档：
+  - `docs/context-loop-handoff-status.md`
+  - `docs/development-tracker.md`
+- 是否需要 ADR：`否`
+- 后续动作：
+  - 评估是否要把 stop reason / consumed count 透传到 session snapshot 或 GUI inspector
+  - 若继续推进统一引用验证层，可顺手把 stop reason 归类成更稳定的错误码集合
+
 ### DC-055
 
 - 日期：2026-04-02

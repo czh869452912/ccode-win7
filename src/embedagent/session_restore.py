@@ -19,6 +19,8 @@ class SessionRestoreResult:
     session: Session
     current_mode: str
     transcript_event_count: int
+    consumed_event_count: int
+    stop_reason: str = ""
 
 
 class SessionRestorer(object):
@@ -31,7 +33,9 @@ class SessionRestorer(object):
         current_mode = "explore"
         seen_message_ids = set()
         seen_tool_call_ids = set()
-        for event in events:
+        consumed_event_count = len(events)
+        stop_reason = ""
+        for index, event in enumerate(events):
             event_type = str(event.get("type") or "")
             payload = dict(event.get("payload") or {})
             if event_type == "session_meta":
@@ -40,13 +44,20 @@ class SessionRestorer(object):
                     session.started_at = str(payload["started_at"])
                 continue
             if event_type == "message":
-                if not self._apply_message(session, payload, seen_message_ids):
+                message_error = self._apply_message(session, payload, seen_message_ids)
+                if message_error:
+                    consumed_event_count = index
+                    stop_reason = message_error
                     break
                 continue
             if event_type == "step_started":
                 if not session.turns:
+                    consumed_event_count = index
+                    stop_reason = "step_started_without_turn"
                     break
                 if not self._matches_current_turn(session, str(payload.get("turn_id") or "")):
+                    consumed_event_count = index
+                    stop_reason = "step_started_turn_mismatch"
                     break
                 session.begin_step(
                     reasoning=str(payload.get("reasoning") or ""),
@@ -55,13 +66,21 @@ class SessionRestorer(object):
                 continue
             if event_type == "tool_call":
                 if session.current_step() is None:
+                    consumed_event_count = index
+                    stop_reason = "tool_call_without_active_step"
                     break
                 if not self._matches_current_turn(session, str(payload.get("turn_id") or "")):
+                    consumed_event_count = index
+                    stop_reason = "tool_call_turn_mismatch"
                     break
                 if not self._matches_current_step(session, str(payload.get("step_id") or "")):
+                    consumed_event_count = index
+                    stop_reason = "tool_call_step_mismatch"
                     break
                 call_id = str(payload.get("call_id") or "").strip()
                 if not call_id or call_id in seen_tool_call_ids:
+                    consumed_event_count = index
+                    stop_reason = "duplicate_tool_call_id"
                     break
                 action = Action(
                     name=str(payload.get("tool_name") or ""),
@@ -76,12 +95,20 @@ class SessionRestorer(object):
                 call_id = str(payload.get("call_id") or "")
                 record = session._find_tool_call(call_id) if call_id else None
                 if record is None:
+                    consumed_event_count = index
+                    stop_reason = "tool_result_missing_tool_call"
                     break
                 if not self._matches_current_turn(session, str(payload.get("turn_id") or "")):
+                    consumed_event_count = index
+                    stop_reason = "tool_result_turn_mismatch"
                     break
                 if not self._matches_current_step(session, str(payload.get("step_id") or "")):
+                    consumed_event_count = index
+                    stop_reason = "tool_result_step_mismatch"
                     break
                 if not self._matches_tool_result_record(record, payload):
+                    consumed_event_count = index
+                    stop_reason = "tool_result_identity_mismatch"
                     break
                 action = Action(
                     name=str(payload.get("tool_name") or ""),
@@ -107,8 +134,12 @@ class SessionRestorer(object):
                 continue
             if event_type == "pending_interaction":
                 if not self._matches_current_turn(session, str(payload.get("turn_id") or "")):
+                    consumed_event_count = index
+                    stop_reason = "pending_interaction_turn_mismatch"
                     break
                 if not self._matches_current_step(session, str(payload.get("step_id") or "")):
+                    consumed_event_count = index
+                    stop_reason = "pending_interaction_step_mismatch"
                     break
                 pending = PendingInteraction(
                     interaction_id=str(payload.get("interaction_id") or ""),
@@ -122,17 +153,27 @@ class SessionRestorer(object):
                 continue
             if event_type == "pending_resolution":
                 if session.pending_interaction is None:
+                    consumed_event_count = index
+                    stop_reason = "pending_resolution_without_pending"
                     break
                 if not self._matches_current_turn(session, str(payload.get("turn_id") or "")):
+                    consumed_event_count = index
+                    stop_reason = "pending_resolution_turn_mismatch"
                     break
                 if not self._matches_current_step(session, str(payload.get("step_id") or "")):
+                    consumed_event_count = index
+                    stop_reason = "pending_resolution_step_mismatch"
                     break
                 if not self._matches_pending_interaction(session.pending_interaction, payload):
+                    consumed_event_count = index
+                    stop_reason = "pending_resolution_identity_mismatch"
                     break
                 session.resolve_pending_interaction(dict(payload.get("resolution_payload") or {}))
                 continue
             if event_type == "content_replacement":
                 if not self._is_valid_content_replacement(session, payload):
+                    consumed_event_count = index
+                    stop_reason = "content_replacement_target_mismatch"
                     break
                 session.record_content_replacement(dict(payload))
                 continue
@@ -141,6 +182,8 @@ class SessionRestorer(object):
                 continue
             if event_type == "compact_boundary":
                 if not self._is_valid_compact_boundary(session, payload):
+                    consumed_event_count = index
+                    stop_reason = "compact_boundary_invalid_preserved_segment"
                     break
                 session.add_compact_boundary(
                     str(payload.get("summary_text") or ""),
@@ -155,8 +198,12 @@ class SessionRestorer(object):
                 continue
             if event_type == "loop_transition":
                 if not self._matches_current_turn(session, str(payload.get("turn_id") or "")):
+                    consumed_event_count = index
+                    stop_reason = "loop_transition_turn_mismatch"
                     break
                 if not self._matches_current_step(session, str(payload.get("step_id") or "")):
+                    consumed_event_count = index
+                    stop_reason = "loop_transition_step_mismatch"
                     break
                 pending = session.pending_interaction
                 transition = LoopTransition(
@@ -174,14 +221,16 @@ class SessionRestorer(object):
             session=session,
             current_mode=current_mode,
             transcript_event_count=len(events),
+            consumed_event_count=consumed_event_count,
+            stop_reason=stop_reason,
         )
 
-    def _apply_message(self, session: Session, payload: Dict[str, Any], seen_message_ids: set) -> bool:
+    def _apply_message(self, session: Session, payload: Dict[str, Any], seen_message_ids: set) -> str:
         role = str(payload.get("role") or "")
         message_id = str(payload.get("message_id") or "").strip()
         if message_id:
             if message_id in seen_message_ids:
-                return False
+                return "duplicate_message_id"
             seen_message_ids.add(message_id)
         if role == "system":
             session.add_system_message(
@@ -193,19 +242,19 @@ class SessionRestorer(object):
                 metadata=dict(payload.get("metadata") or {}),
                 replaced_by_refs=list(payload.get("replaced_by_refs") or []),
             )
-            return True
+            return ""
         if role == "user":
             session.add_user_message(
                 str(payload.get("content") or ""),
                 turn_id=str(payload.get("turn_id") or ""),
                 message_id=message_id,
             )
-            return True
+            return ""
         if role == "assistant":
             if not self._matches_current_turn(session, str(payload.get("turn_id") or "")):
-                return False
+                return "assistant_message_turn_mismatch"
             if not self._matches_message_step(session, str(payload.get("step_id") or "")):
-                return False
+                return "assistant_message_step_mismatch"
             reply = AssistantReply(
                 content=str(payload.get("content") or ""),
                 actions=[
@@ -225,12 +274,12 @@ class SessionRestorer(object):
                 turn_id=str(payload.get("turn_id") or ""),
                 step_id=str(payload.get("step_id") or ""),
             )
-            return True
+            return ""
         if role == "tool":
             if not self._matches_current_turn(session, str(payload.get("turn_id") or "")):
-                return False
+                return "tool_message_turn_mismatch"
             if not self._matches_message_step(session, str(payload.get("step_id") or "")):
-                return False
+                return "tool_message_step_mismatch"
             message = TranscriptMessage(
                 role="tool",
                 content=str(payload.get("content") or ""),
@@ -246,8 +295,8 @@ class SessionRestorer(object):
             session.messages.append(message)
             if session.turns:
                 session.turns[-1].message_end_index = len(session.messages) - 1
-            return True
-        return False
+            return ""
+        return "unknown_message_role"
 
     def _matches_current_turn(self, session: Session, turn_id: str) -> bool:
         expected = str(turn_id or "").strip()

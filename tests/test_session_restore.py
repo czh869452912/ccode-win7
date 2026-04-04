@@ -102,6 +102,9 @@ class TestSessionRestorer(unittest.TestCase):
         self.assertEqual(result.session.turns[0].turn_id, "t-1")
         self.assertEqual(result.session.turns[0].steps[0].step_id, "s-1")
         self.assertEqual(result.session.turns[0].steps[0].tool_calls[0].call_id, "call-read-1")
+        self.assertEqual(result.transcript_event_count, 7)
+        self.assertEqual(result.consumed_event_count, 7)
+        self.assertEqual(result.stop_reason, "")
 
     def test_restore_preserves_pending_interaction(self):
         session_id = "sess-pending"
@@ -851,6 +854,8 @@ class TestSessionRestorer(unittest.TestCase):
         self.assertIsNotNone(result.session.pending_interaction)
         self.assertEqual(result.session.pending_interaction.tool_name, "ask_user")
         self.assertEqual(result.session.turns[0].transitions, [])
+        self.assertEqual(result.consumed_event_count, 4)
+        self.assertEqual(result.stop_reason, "pending_resolution_identity_mismatch")
 
     def test_restore_stops_at_tool_result_with_mismatched_tool_name(self):
         session_id = "sess-tool-result-wrong-tool"
