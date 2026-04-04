@@ -7,6 +7,8 @@ import {
   timelineFromEvents,
   timelineFromTurns,
 } from "./state-helpers.js";
+import { appendSessionEvent, createSessionEventLog } from "./session-runtime/event-log.js";
+import { projectSessionRuntime } from "./session-runtime/projector.js";
 import { LangContext } from "./LangContext.js";
 import { t } from "./strings.js";
 import Sidebar from "./components/Sidebar.jsx";
@@ -36,13 +38,33 @@ function App() {
   const [state, dispatch] = useReducer(reducer, initialState);
   const treeHeight = 640;
   const [userAnswer, setUserAnswer] = useState("");
+  const [sessionEventLog, setSessionEventLog] = useState(() => createSessionEventLog());
   const wsRef = useRef(null);
   const timelineRef = useRef(null);
   const wsRetryRef = useRef(0);
   const isAtBottomRef = useRef(true);
+  const currentSessionIdRef = useRef("");
+  const sessionEventLogRef = useRef(sessionEventLog);
 
   const currentMode = state.snapshot?.current_mode || state.requestedMode;
   const currentStatus = state.snapshot?.status || "idle";
+  const runtimeState = useMemo(
+    () =>
+      projectSessionRuntime({
+        snapshot: state.snapshot,
+        eventLog: sessionEventLog,
+        bootstrapTimeline: state.timeline,
+      }),
+    [sessionEventLog, state.snapshot, state.timeline],
+  );
+
+  useEffect(() => {
+    currentSessionIdRef.current = state.currentSessionId || "";
+  }, [state.currentSessionId]);
+
+  useEffect(() => {
+    sessionEventLogRef.current = sessionEventLog;
+  }, [sessionEventLog]);
 
   // initial data load
   useEffect(() => {
@@ -76,7 +98,7 @@ function App() {
     if (isAtBottomRef.current && timelineRef.current) {
       timelineRef.current.scrollTop = timelineRef.current.scrollHeight;
     }
-  }, [state.timeline, state.thinkingActive, state.userInput]);
+  }, [runtimeState.timelineView, state.thinkingActive, runtimeState.currentInteraction]);
 
   function handleTimelineScroll() {
     const el = timelineRef.current;
@@ -138,6 +160,7 @@ function App() {
             )
           : timelineFromEvents(timelinePayload.events || []),
     });
+    setSessionEventLog(createSessionEventLog());
     dispatch({ type: "plan_loaded", plan: planPayload.plan || null });
     dispatch({ type: "permission_context_loaded", context: permissionPayload });
     await Promise.all([loadTodos(sessionId), loadArtifacts()]);
@@ -225,6 +248,7 @@ function App() {
     });
     const snapshot = normalizeSessionPayload(payload);
     dispatch({ type: "session_activated", sessionId: snapshot.session_id, snapshot, timeline: [] });
+    setSessionEventLog(createSessionEventLog());
     await Promise.all([loadSessions(), loadTodos(snapshot.session_id), loadPermissionContext(snapshot.session_id)]);
     return snapshot.session_id;
   }
@@ -282,19 +306,58 @@ function App() {
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const socket = new WebSocket(`${protocol}//${window.location.host}/ws`);
     wsRef.current = socket;
-    socket.onopen = () => {
+    socket.onopen = async () => {
       dispatch({ type: "set_connection", value: "connected" });
+      setSessionEventLog((current) => ({ ...current, connectionState: "connected" }));
       wsRetryRef.current = 0;
+      if (currentSessionIdRef.current && sessionEventLogRef.current.needsResync) {
+        try {
+          const replay = await fetchJson(
+            `/api/sessions/${encodeURIComponent(currentSessionIdRef.current)}/events?after_seq=${encodeURIComponent(sessionEventLogRef.current.lastAppliedSeq || 0)}`,
+          );
+          const items = Array.isArray(replay.events) ? replay.events : [];
+          setSessionEventLog((current) => {
+            let next = current;
+            for (const item of items) {
+              next = appendSessionEvent(next, item);
+            }
+            return { ...next, connectionState: "connected" };
+          });
+          if (items.length === 0) {
+            await loadSession(currentSessionIdRef.current);
+          }
+        } catch (_) {
+          await loadSession(currentSessionIdRef.current);
+        }
+      }
     };
     socket.onclose = () => {
       dispatch({ type: "set_connection", value: "disconnected" });
+      setSessionEventLog((current) => ({ ...current, connectionState: "disconnected" }));
       const delay = Math.min(1500 * Math.pow(2, wsRetryRef.current), 30000);
       wsRetryRef.current += 1;
       window.setTimeout(connectWebSocket, delay);
     };
+    socket.onerror = () => {
+      dispatch({ type: "set_connection", value: "disconnected" });
+      setSessionEventLog((current) => ({
+        ...current,
+        connectionState: "degraded",
+        needsResync: true,
+      }));
+    };
     socket.onmessage = (event) => {
-      const message = JSON.parse(event.data);
-      startTransition(() => handleSocketMessage(message.type, message.data || {}));
+      try {
+        const message = JSON.parse(event.data);
+        startTransition(() => handleSocketMessage(message.type, message.data || {}));
+      } catch (_) {
+        dispatch({ type: "set_connection", value: "disconnected" });
+        setSessionEventLog((current) => ({
+          ...current,
+          connectionState: "degraded",
+          needsResync: true,
+        }));
+      }
     };
   }
 
@@ -303,6 +366,26 @@ function App() {
   }
 
   function handleSocketMessage(type, data) {
+    if (type === "session_event") {
+      setSessionEventLog((current) => appendSessionEvent(current, data || {}));
+      if (data?.event_kind === "turn.started") {
+        dispatch({
+          type: "turn_started",
+          turnId: data.payload?.turn_id || "",
+          userText: data.payload?.user_text || "",
+        });
+      } else if (data?.event_kind === "transition.recorded") {
+        dispatch({
+          type: "turn_ended",
+          terminationReason: data.payload?.termination_reason || "",
+          terminationDisplayReason: data.payload?.display_reason || data.payload?.termination_reason || "",
+          terminationMessage: data.payload?.message || data.payload?.error || "",
+          turnsUsed: data.payload?.turns_used || 0,
+          maxTurns: data.payload?.max_turns || 8,
+        });
+      }
+      return;
+    }
     if (type === "session_status") {
       const snap = data.session_snapshot || data;
       dispatch({ type: "session_snapshot", snapshot: normalizeSessionPayload(snap) });
@@ -390,6 +473,23 @@ function App() {
         permission: data,
         inspectorTab: "permissions",
       });
+      setSessionEventLog((current) =>
+        appendSessionEvent(current, {
+          session_id: state.currentSessionId || "",
+          event_id: data.permission_id || makeEventId("evt"),
+          seq: current.lastAppliedSeq + 1,
+          created_at: new Date().toISOString(),
+          event_kind: "interaction.created",
+          payload: {
+            interaction_id: data.permission_id || "",
+            kind: "permission",
+            tool_name: data.tool_name || "",
+            category: data.category || "",
+            reason: data.reason || "",
+            details: data.details || {},
+          },
+        }),
+      );
       logEvent("permission_request", data.reason || "");
       return;
     }
@@ -404,6 +504,25 @@ function App() {
           step_index: data.step_index || 0,
         },
       });
+      setSessionEventLog((current) =>
+        appendSessionEvent(current, {
+          session_id: state.currentSessionId || "",
+          event_id: data.request_id || makeEventId("evt"),
+          seq: current.lastAppliedSeq + 1,
+          created_at: new Date().toISOString(),
+          event_kind: "interaction.created",
+          payload: {
+            interaction_id: data.request_id || "",
+            kind: "user_input",
+            tool_name: data.tool_name || "",
+            question: data.question || "",
+            options: data.options || [],
+            turn_id: data.turn_id || "",
+            step_id: data.step_id || "",
+            step_index: data.step_index || 0,
+          },
+        }),
+      );
       logEvent("user_input_request", data.question || "");
       return;
     }
@@ -570,44 +689,56 @@ function App() {
     }
   }
 
-  function sendInlinePermissionResponse(permissionId, approved, remember, category) {
-    if (!wsRef.current) return;
-    wsRef.current.send(JSON.stringify({
-      type: "permission_response",
-      permission_id: permissionId,
-      approved,
-      remember: Boolean(remember),
-      category: category || "",
-    }));
-    dispatch({ type: "permission_cleared" });
-    if (approved && remember && state.currentSessionId) {
-      loadPermissionContext(state.currentSessionId);
+  async function respondToInteraction(payload) {
+    const interaction = runtimeState.currentInteraction;
+    if (!interaction || !state.currentSessionId) return;
+    const response = await fetchJson(
+      `/api/sessions/${encodeURIComponent(state.currentSessionId)}/interactions/${encodeURIComponent(interaction.interaction_id)}/respond`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload || {}),
+      },
+    );
+    if (response?.snapshot) {
+      dispatch({
+        type: "session_snapshot",
+        snapshot: normalizeSessionPayload(response.snapshot),
+      });
+    } else {
+      await loadSession(state.currentSessionId);
     }
-    logEvent("permission_response (inline)", approved ? "approved" : "denied");
-  }
-
-  function sendUserInputResponse(option, overrideAnswer) {
-    const request = state.userInput;
-    if (!wsRef.current || !request) return;
-    const answer = option?.text || overrideAnswer || userAnswer.trim();
-    if (!answer) return;
-    wsRef.current.send(
-      JSON.stringify({
-        type: "user_input_response",
-        request_id: request.request_id,
-        answer,
-        selected_index: option?.index || null,
-        selected_mode: option?.mode || "",
-        selected_option_text: option?.text || "",
+    setSessionEventLog((current) =>
+      appendSessionEvent(current, {
+        session_id: state.currentSessionId,
+        event_id: makeEventId("evt"),
+        seq: current.lastAppliedSeq + 1,
+        created_at: new Date().toISOString(),
+        event_kind: "interaction.resolved",
+        payload: {
+          interaction_id: interaction.interaction_id,
+          kind: interaction.kind,
+          answer: payload?.answer || "",
+          selected_option_text: payload?.selected_option_text || "",
+          decision: payload?.decision,
+        },
       }),
     );
+    if (interaction.kind === "permission") {
+      dispatch({ type: "permission_cleared" });
+      if (payload?.decision && payload?.remember) {
+        loadPermissionContext(state.currentSessionId);
+      }
+      logEvent("interaction_response", payload?.decision ? "approved" : "denied");
+      return;
+    }
     dispatch({
       type: "user_input_answered",
-      requestId: request.request_id,
-      answerText: option?.text || overrideAnswer || userAnswer.trim(),
+      requestId: interaction.interaction_id,
+      answerText: payload?.selected_option_text || payload?.answer || userAnswer.trim(),
     });
     setUserAnswer("");
-    logEvent("user_input_response", answer.slice(0, 40));
+    logEvent("interaction_response", (payload?.answer || payload?.selected_option_text || "").slice(0, 40));
   }
 
   const sessionCards = useMemo(
@@ -735,7 +866,7 @@ function App() {
         <main className="main-chat">
           <Timeline
             ref={timelineRef}
-            timeline={state.timeline}
+            timeline={runtimeState.timelineView}
             toolCatalog={state.toolCatalog}
             thinkingActive={state.thinkingActive}
             streamingReasoningId={state.streamingReasoningId}
@@ -744,10 +875,6 @@ function App() {
             terminationMessage={state.terminationMessage}
             turnsUsed={state.turnsUsed}
             maxTurns={state.maxTurns}
-            userAnswer={userAnswer}
-            onUserAnswerChange={setUserAnswer}
-            onSubmitUserInput={sendUserInputResponse}
-            onPermissionResponse={sendInlinePermissionResponse}
             onScroll={handleTimelineScroll}
           />
           <Composer
@@ -775,12 +902,11 @@ function App() {
             plan={state.plan}
             review={state.review}
             recipes={state.recipes}
-            timeline={state.timeline}
-            permission={state.permission}
+            timeline={runtimeState.timelineView}
+            currentInteraction={runtimeState.currentInteraction}
             permissionContext={state.permissionContext}
             preview={state.preview}
             snapshot={state.snapshot}
-            userInput={state.userInput}
             userAnswer={userAnswer}
             eventLog={state.eventLog}
             onTabChange={(v) => dispatch({ type: "set_inspector", value: v })}
@@ -788,8 +914,7 @@ function App() {
             onOpenReviewEvidence={openReviewEvidence}
             onRunRecipe={runRecipe}
             onUserAnswerChange={setUserAnswer}
-            onSubmitUserInput={sendUserInputResponse}
-            onPermissionResponse={sendInlinePermissionResponse}
+            onRespondInteraction={respondToInteraction}
           />
         ) : (
           <div style={{ background: "var(--bg-default)", borderLeft: "1px solid var(--bg-subtle)" }} />

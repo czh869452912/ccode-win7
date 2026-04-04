@@ -118,7 +118,9 @@ class TestBlockingResult(unittest.TestCase):
 class TestThreadsafeAsyncDispatcher(unittest.TestCase):
     def test_dispatch_requires_bound_loop(self):
         dispatcher = ThreadsafeAsyncDispatcher()
-        self.assertFalse(dispatcher.dispatch(lambda: self._noop()))
+        result = dispatcher.dispatch(lambda: self._noop())
+        self.assertFalse(result)
+        self.assertEqual(result.reason, "loop_missing")
 
     def test_dispatch_runs_coroutine_on_bound_loop(self):
         dispatcher = ThreadsafeAsyncDispatcher()
@@ -142,13 +144,24 @@ class TestThreadsafeAsyncDispatcher(unittest.TestCase):
                 results.append("ok")
                 done.set()
 
-            self.assertTrue(dispatcher.dispatch(lambda: work()))
+            result = dispatcher.dispatch(lambda: work())
+            self.assertTrue(result)
+            self.assertEqual(result.reason, "")
             self.assertTrue(done.wait(1.0))
             self.assertEqual(results, ["ok"])
         finally:
             loop.call_soon_threadsafe(loop.stop)
             thread.join(1.0)
             loop.close()
+
+    def test_dispatch_reports_closed_loop_reason(self):
+        dispatcher = ThreadsafeAsyncDispatcher()
+        loop = asyncio.new_event_loop()
+        loop.close()
+        dispatcher.set_loop(loop)
+        result = dispatcher.dispatch(lambda: self._noop())
+        self.assertFalse(result)
+        self.assertEqual(result.reason, "loop_closed")
 
     async def _noop(self):
         return None
@@ -177,6 +190,31 @@ class TestWebSocketFrontend(unittest.TestCase):
         self.assertEqual(first.messages, [{"type": "ping"}])
         self.assertEqual(late.messages, [{"type": "ping"}])
         self.assertNotIn(late, frontend.connections)
+
+    def test_on_turn_event_wraps_payload_as_session_event(self):
+        frontend = WebSocketFrontend()
+        dispatched = []
+        frontend._dispatch_message = lambda message: dispatched.append(message) or True
+
+        frontend.on_turn_event(
+            "tool_started",
+            {
+                "session_id": "sess-1",
+                "_timeline_event": {
+                    "event_id": "evt-1",
+                    "seq": 3,
+                    "created_at": "2026-04-04T00:00:00Z",
+                    "event": "tool_started",
+                },
+                "tool_name": "read_file",
+                "arguments": {"path": "README.md"},
+            },
+        )
+
+        self.assertEqual(dispatched[0]["type"], "session_event")
+        self.assertEqual(dispatched[0]["data"]["session_id"], "sess-1")
+        self.assertEqual(dispatched[0]["data"]["event_kind"], "tool.started")
+        self.assertEqual(dispatched[0]["data"]["seq"], 3)
 
 
 class TestAgentCoreAdapterApi(unittest.TestCase):

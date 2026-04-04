@@ -185,8 +185,6 @@ const Timeline = forwardRef(function Timeline(
     timeline, toolCatalog, thinkingActive, streamingReasoningId,
     terminationReason, terminationDisplayReason, terminationMessage,
     turnsUsed, maxTurns,
-    userAnswer, onUserAnswerChange, onSubmitUserInput,
-    onPermissionResponse,
     onScroll,
   },
   ref,
@@ -241,10 +239,6 @@ const Timeline = forwardRef(function Timeline(
           isLast={idx === lastIdx}
           thinkingActive={thinkingActive}
           streamingReasoningId={streamingReasoningId}
-          userAnswer={userAnswer}
-          onUserAnswerChange={onUserAnswerChange}
-          onSubmitUserInput={onSubmitUserInput}
-          onPermissionResponse={onPermissionResponse}
           lang={lang}
         />
       ))}
@@ -259,7 +253,7 @@ const Timeline = forwardRef(function Timeline(
 
 export default Timeline;
 
-function TurnGroup({ group, toolCatalog, isLast, thinkingActive, streamingReasoningId, userAnswer, onUserAnswerChange, onSubmitUserInput, onPermissionResponse, lang }) {
+function TurnGroup({ group, toolCatalog, isLast, thinkingActive, streamingReasoningId, lang }) {
   const { userItem, steps, detachedItems, systemItems } = group;
 
   return (
@@ -281,10 +275,6 @@ function TurnGroup({ group, toolCatalog, isLast, thinkingActive, streamingReason
           isActive={isLast && index === steps.length - 1}
           thinkingActive={thinkingActive}
           streamingReasoningId={streamingReasoningId}
-          userAnswer={userAnswer}
-          onUserAnswerChange={onUserAnswerChange}
-          onSubmitUserInput={onSubmitUserInput}
-          onPermissionResponse={onPermissionResponse}
           lang={lang}
         />
       ))}
@@ -302,7 +292,7 @@ function TurnGroup({ group, toolCatalog, isLast, thinkingActive, streamingReason
   );
 }
 
-function StepGroup({ step, stepNumber, toolCatalog, isActive, thinkingActive, streamingReasoningId, userAnswer, onUserAnswerChange, onSubmitUserInput, onPermissionResponse, lang }) {
+function StepGroup({ step, stepNumber, toolCatalog, isActive, thinkingActive, streamingReasoningId, lang }) {
   const tools = step.activityItems.filter((item) => item.kind === "tool");
   const hasRunningTool = tools.some((item) => item.status === "running");
   const hasErrorTool = tools.some((item) => item.status === "error");
@@ -338,34 +328,9 @@ function StepGroup({ step, stepNumber, toolCatalog, isActive, thinkingActive, st
         <details className="turn-activity" open={isActive}>
           <summary className="turn-activity-summary">{activitySummary}</summary>
           <div className="turn-activity-body">
-            {step.activityItems.map((item) =>
-              item.kind === "mode_switch_proposal" ? (
-                <ModeSwitchCard
-                  key={item.id}
-                  item={item}
-                  onSubmitUserInput={onSubmitUserInput}
-                  lang={lang}
-                />
-              ) : item.kind === "user_input" ? (
-                <UserInputCard
-                  key={item.id}
-                  item={item}
-                  userAnswer={userAnswer}
-                  onUserAnswerChange={onUserAnswerChange}
-                  onSubmitUserInput={onSubmitUserInput}
-                  lang={lang}
-                />
-              ) : item.kind === "permission" ? (
-                <PermissionCard
-                  key={item.id}
-                  item={item}
-                  onPermissionResponse={onPermissionResponse}
-                  lang={lang}
-                />
-              ) : (
-                <TimelineItem key={item.id} item={item} toolCatalog={toolCatalog} lang={lang} />
-              )
-            )}
+            {step.activityItems.map((item) => (
+              <TimelineItem key={item.id} item={item} toolCatalog={toolCatalog} lang={lang} />
+            ))}
           </div>
         </details>
       ) : null}
@@ -439,6 +404,17 @@ function TimelineItem({ item, toolCatalog, lang }) {
   if (item.kind === "tool") {
     return <ToolBlock item={item} />;
   }
+  if (item.kind === "interaction_requested" || item.kind === "interaction_resolved") {
+    return (
+      <div className={`permission-card ${item.kind === "interaction_resolved" ? "resolved" : ""}`} role="article">
+        <span className="permission-action">{item.label || item.interactionKind || "interaction"}</span>
+        <span className="permission-verdict">
+          {item.kind === "interaction_resolved" ? "Resolved" : "Pending in Inspector"}
+        </span>
+        {item.detail ? <span className="permission-reason">{item.detail}</span> : null}
+      </div>
+    );
+  }
   if (item.kind === "compact") {
     return <CompactCard item={item} lang={lang} />;
   }
@@ -498,151 +474,6 @@ function ReviewResultCard({ item, lang }) {
           </ul>
         </details>
       ) : null}
-    </div>
-  );
-}
-
-function UserInputCard({ item, userAnswer, onUserAnswerChange, onSubmitUserInput, lang }) {
-  const { request, answered, answerText } = item;
-  if (answered) {
-    return (
-      <div className="user-input-card answered" role="article">
-        <div className="user-input-question">{request?.question}</div>
-        <div className="user-input-answer">✓ {answerText || t("inspector.submit", lang)}</div>
-      </div>
-    );
-  }
-  return (
-    <div className="user-input-card" role="dialog" aria-label={t("inspector.inputRequired", lang)}>
-      <div className="user-input-question">{request?.question}</div>
-      <div className="option-list">
-        {(request?.options || []).map((option) => (
-          <button
-            key={option.index}
-            className="option-card"
-            onClick={() => onSubmitUserInput && onSubmitUserInput(option)}
-          >
-            <span>{option.text}</span>
-            {option.mode ? <small className="option-mode">→ {option.mode}</small> : null}
-          </button>
-        ))}
-      </div>
-      <textarea
-        className="user-input-textarea"
-        value={userAnswer || ""}
-        onChange={(e) => onUserAnswerChange && onUserAnswerChange(e.target.value)}
-        placeholder={t("inspector.customAnswer", lang)}
-        aria-label={t("inspector.customAnswer", lang)}
-      />
-      <button
-        className="primary wide"
-        onClick={() => onSubmitUserInput && onSubmitUserInput(null, userAnswer)}
-        disabled={!userAnswer?.trim()}
-      >
-        {t("inspector.submit", lang)}
-      </button>
-    </div>
-  );
-}
-
-function PermissionCard({ item, onPermissionResponse, lang }) {
-  const [remember, setRemember] = React.useState(false);
-  const cardRef = React.useRef(null);
-  const { permission, resolved, approved } = item;
-
-  // Auto-scroll pending permission card into view
-  React.useEffect(() => {
-    if (!resolved && cardRef.current) {
-      cardRef.current.scrollIntoView({ behavior: "smooth", block: "nearest" });
-    }
-  }, [resolved]);
-
-  if (resolved) {
-    return (
-      <div className="permission-card resolved" role="article">
-        <span className="permission-icon" aria-hidden="true">{approved ? "✓" : "✗"}</span>
-        <span className="permission-action">{permission?.tool_name || "permission"}</span>
-        <span className="permission-verdict">{approved ? t("modal.approve", lang) : t("modal.deny", lang)}</span>
-      </div>
-    );
-  }
-
-  return (
-    <div className="permission-card" ref={cardRef} role="dialog" aria-label={t("modal.permissionRequired", lang)}>
-      <div className="permission-header">
-        <span className="permission-icon" aria-hidden="true">🔐</span>
-        <span className="permission-tool">{permission?.tool_name || ""}</span>
-        {permission?.category && <span className="permission-category">{permission.category}</span>}
-      </div>
-      <p className="permission-reason">{permission?.reason || ""}</p>
-      {permission?.details && Object.keys(permission.details).length > 0 && (
-        <details className="permission-details">
-          <summary>{t("modal.showDetails", lang)}</summary>
-          <pre>{JSON.stringify(permission.details, null, 2)}</pre>
-        </details>
-      )}
-      <label className="permission-remember">
-        <input
-          type="checkbox"
-          checked={remember}
-          onChange={(e) => setRemember(e.target.checked)}
-        />
-        {t("modal.remember", lang)}
-      </label>
-      <div className="permission-actions">
-        <button
-          className="ghost btn-deny"
-          onClick={() => onPermissionResponse && onPermissionResponse(item.id, false, false, permission?.category)}
-          data-testid="permission-deny-btn"
-        >
-          {t("modal.deny", lang)}
-        </button>
-        <button
-          className="primary"
-          onClick={() => onPermissionResponse && onPermissionResponse(item.id, true, remember, permission?.category)}
-          data-testid="permission-approve-btn"
-        >
-          {t("modal.approve", lang)}
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function ModeSwitchCard({ item, onSubmitUserInput }) {
-  const { request, answered, answerText } = item;
-  const targetMode = request?.details?.target_mode || "";
-  const reason = request?.question || "";
-
-  if (answered) {
-    return (
-      <div className={`mode-switch-card resolved mode-${targetMode}`} role="article">
-        <span className="mode-switch-icon">⇄</span>
-        <span className="mode-switch-verdict">{answerText}</span>
-      </div>
-    );
-  }
-  return (
-    <div className={`mode-switch-card mode-${targetMode}`} role="dialog" aria-label="Mode switch proposal">
-      <div className="mode-switch-header">
-        <span className="mode-switch-icon">⇄</span>
-        <span className="mode-switch-target">→ {targetMode}</span>
-      </div>
-      {reason && <p className="mode-switch-reason">{reason}</p>}
-      <div className="mode-switch-actions">
-        <button
-          className="ghost"
-          onClick={() => onSubmitUserInput && onSubmitUserInput({ index: 2, text: "取消：保持当前模式", mode: "" })}
-        >
-          Cancel
-        </button>
-        <button
-          className="primary"
-          onClick={() => onSubmitUserInput && onSubmitUserInput({ index: 1, text: `确认：切换到 ${targetMode} 模式`, mode: targetMode })}
-        >
-          Switch to {targetMode}
-        </button>
-      </div>
     </div>
   );
 }

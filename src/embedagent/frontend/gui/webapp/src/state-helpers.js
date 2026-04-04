@@ -436,5 +436,28 @@ export function normalizeSessionPayload(payload) {
     compactBoundaryCount: payload.compact_boundary_count || 0,
     contextPipelineSteps: Array.isArray(payload.context_pipeline_steps) ? payload.context_pipeline_steps : [],
     contextAnalysis: payload.context_analysis || null,
+    pending_interaction:
+      payload.pending_interaction ||
+      (payload.pending_permission
+        ? {
+            interaction_id: payload.pending_permission.permission_id || "",
+            session_id: payload.pending_permission.session_id || payload.session_id || "",
+            kind: "permission",
+            tool_name: payload.pending_permission.tool_name || "",
+            category: payload.pending_permission.category || "",
+            reason: payload.pending_permission.reason || "",
+            details: payload.pending_permission.details || {},
+          }
+        : payload.pending_user_input
+          ? {
+              interaction_id: payload.pending_user_input.request_id || "",
+              session_id: payload.pending_user_input.session_id || payload.session_id || "",
+              kind: "user_input",
+              tool_name: payload.pending_user_input.tool_name || "",
+              question: payload.pending_user_input.question || "",
+              options: payload.pending_user_input.options || [],
+              details: payload.pending_user_input.details || {},
+            }
+          : null),
   };
 }

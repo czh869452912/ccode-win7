@@ -2,10 +2,20 @@ from __future__ import annotations
 
 import asyncio
 import threading
+from dataclasses import dataclass
 from typing import Any, Awaitable, Callable, Generic, Optional, TypeVar
 
 
 T = TypeVar("T")
+
+
+@dataclass(frozen=True)
+class DispatchResult(object):
+    queued: bool
+    reason: str = ""
+
+    def __bool__(self) -> bool:
+        return bool(self.queued)
 
 
 class BlockingResult(Generic[T]):
@@ -43,14 +53,16 @@ class ThreadsafeAsyncDispatcher(object):
     def bind_running_loop(self) -> None:
         self.set_loop(asyncio.get_running_loop())
 
-    def dispatch(self, coroutine_factory: Callable[[], Awaitable[Any]]) -> bool:
+    def dispatch(self, coroutine_factory: Callable[[], Awaitable[Any]]) -> DispatchResult:
         with self._lock:
             loop = self._loop
-        if loop is None or loop.is_closed():
-            return False
+        if loop is None:
+            return DispatchResult(False, "loop_missing")
+        if loop.is_closed():
+            return DispatchResult(False, "loop_closed")
 
         def runner() -> None:
             asyncio.create_task(coroutine_factory())
 
         loop.call_soon_threadsafe(runner)
-        return True
+        return DispatchResult(True, "")

@@ -44,6 +44,29 @@
 
 ## 3. 当前变更记录
 
+### DC-063
+
+- 日期：2026-04-04
+- 变更主题：GUI active-session runtime 改为 event-log + projector 驱动
+- 变更摘要：
+  - GUI backend 新增统一 `session_event` envelope，并补 `GET /api/sessions/{session_id}/events?after_seq=N` replay 入口
+  - active session 当前交互改为统一 interaction response route；Inspector 成为唯一可操作入口，Timeline 退化为交互历史摘要投影
+  - webapp 新增 `session-runtime/event-log.js` 与 `session-runtime/projector.js`，当前会话读模型开始从 `snapshot + event log + bootstrap timeline` 统一派生
+  - dispatcher 失败开始带 `reason`，restore 遇到缺失可信 `interaction_id` 的 pending interaction 会显式停在 `interaction_expired`
+- 影响范围：
+  - GUI Timeline / Inspector / transport 恢复语义
+  - pending interaction 的 UI 真相边界
+  - reconnect / resync / degraded-state 处理
+- 关联文档：
+  - `docs/superpowers/specs/2026-04-04-gui-event-sourced-session-design.md`
+  - `docs/frontend-protocol.md`
+  - `docs/development-tracker.md`
+- 是否需要 ADR：`否`
+- 后续动作：
+  - 继续把更多 live event 从 reducer patching 收口到 `session_event` 驱动
+  - 为 malformed transport、interaction conflict/gone 和 replay gap 补更多前端/后端回归
+  - 在最终 bundle 验收时验证 GUI degraded/resync 流在真实宿主中的表现
+
 ### DC-060
 
 - 日期：2026-04-04

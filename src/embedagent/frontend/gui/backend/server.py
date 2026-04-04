@@ -15,6 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
 from embedagent.frontend.gui.backend.bridge import BlockingResult, ThreadsafeAsyncDispatcher
+from embedagent.frontend.gui.backend.session_events import build_session_event
 from embedagent.protocol import (
     CommandResult,
     CoreInterface,
@@ -286,7 +287,8 @@ class WebSocketFrontend(FrontendCallbacks):
         self._dispatch_message({"type": "artifacts_refresh"})
 
     def on_turn_event(self, event_name: str, payload: dict) -> None:
-        self._dispatch_message({"type": event_name, "data": payload})
+        session_id = str(payload.get("session_id") or "")
+        self._dispatch_message(build_session_event(session_id, event_name, dict(payload)))
 
     # ============ 处理前端响应 ============
     
@@ -394,6 +396,11 @@ class GUIBackend:
             mode = request.get("mode", "code")
             self.core.set_mode(session_id, mode)
             return {"status": "ok"}
+
+        @app.post("/api/sessions/{session_id}/interactions/{interaction_id}/respond")
+        async def respond_to_interaction(session_id: str, interaction_id: str, request: Dict[str, Any]):
+            self._current_session_id = session_id
+            return self.core.respond_to_interaction(session_id, interaction_id, request)
         
         @app.get("/api/workspace")
         async def get_workspace():
@@ -441,6 +448,13 @@ class GUIBackend:
         @app.get("/api/sessions/{session_id}/timeline")
         async def get_session_timeline(session_id: str, limit: int = 200):
             return self.core.build_structured_timeline(session_id, limit=limit)
+
+        @app.get("/api/sessions/{session_id}/events")
+        async def get_session_events(session_id: str, after_seq: int = 0, limit: int = 200):
+            return {
+                "session_id": session_id,
+                "events": self.core.load_session_events_after(session_id, after_seq, limit=limit),
+            }
         
         @app.get("/api/files")
         async def list_files(path: str = ".", max_depth: int = 3):

@@ -63,6 +63,13 @@ class SessionTimelineStore(object):
             return items
         return items[-limit:]
 
+    def load_events_after(self, session_id: str, after_seq: int, limit: int = 200) -> List[Dict[str, Any]]:
+        events = self.load_events(session_id, limit=self.max_events)
+        filtered = [item for item in events if int(item.get("seq") or 0) > int(after_seq or 0)]
+        if limit <= 0:
+            return filtered
+        return filtered[:limit]
+
     def latest_assistant_reply(self, session_id: str) -> str:
         for item in reversed(self.load_events(session_id, limit=self.max_events)):
             if item.get("event") != "session_finished":

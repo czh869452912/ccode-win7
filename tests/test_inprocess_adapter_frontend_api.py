@@ -664,6 +664,9 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         step = turn["steps"][0]
         self.assertEqual(step["status"], "permission_wait")
         self.assertIn("permission_required", [item.get("kind") for item in step.get("transitions", [])])
+        self.assertIn("pending_interaction", refreshed)
+        self.assertEqual(refreshed["pending_interaction"]["kind"], "permission")
+        self.assertEqual(refreshed["pending_interaction"]["tool_name"], "write_file")
 
     def test_structured_timeline_preserves_max_turns_transition(self):
         adapter = InProcessAdapter(
