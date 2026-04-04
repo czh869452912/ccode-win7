@@ -563,6 +563,91 @@ class TestSessionRestorer(unittest.TestCase):
         self.assertEqual([item.role for item in result.session.messages], ["user"])
         self.assertEqual(result.session.turns[0].transitions, [])
 
+    def test_restore_stops_at_duplicate_message_id(self):
+        session_id = "sess-duplicate-message-id"
+        self.store.append_event(session_id, "session_meta", {"current_mode": "code"})
+        self.store.append_event(
+            session_id,
+            "message",
+            {"role": "user", "content": "first", "message_id": "m-dup", "turn_id": "t-1", "step_id": ""},
+        )
+        self.store.append_event(
+            session_id,
+            "message",
+            {"role": "user", "content": "second", "message_id": "m-dup", "turn_id": "t-2", "step_id": ""},
+        )
+        self.store.append_event(
+            session_id,
+            "loop_transition",
+            {
+                "turn_id": "t-2",
+                "step_id": "",
+                "reason": "completed",
+                "message": "assistant finished",
+                "next_mode": "code",
+                "turns_used": 1,
+                "metadata": {},
+            },
+        )
+        result = SessionRestorer().restore(self.store.load_events(session_id))
+        self.assertEqual(len(result.session.turns), 1)
+        self.assertEqual(result.session.turns[0].turn_id, "t-1")
+        self.assertEqual(result.session.turns[0].user_message, "first")
+        self.assertEqual(result.session.turns[0].transitions, [])
+
+    def test_restore_stops_at_duplicate_tool_call_id(self):
+        session_id = "sess-duplicate-call-id"
+        self.store.append_event(session_id, "session_meta", {"current_mode": "code"})
+        self.store.append_event(
+            session_id,
+            "message",
+            {"role": "user", "content": "读取文件", "message_id": "m-user", "turn_id": "t-1", "step_id": ""},
+        )
+        self.store.append_event(session_id, "step_started", {"turn_id": "t-1", "step_id": "s-1", "step_index": 1})
+        self.store.append_event(
+            session_id,
+            "tool_call",
+            {
+                "turn_id": "t-1",
+                "step_id": "s-1",
+                "call_id": "call-dup",
+                "tool_name": "read_file",
+                "arguments": {"path": "src/demo.c"},
+                "status": "started",
+            },
+        )
+        self.store.append_event(
+            session_id,
+            "tool_call",
+            {
+                "turn_id": "t-1",
+                "step_id": "s-1",
+                "call_id": "call-dup",
+                "tool_name": "search_text",
+                "arguments": {"path": ".", "query": "demo"},
+                "status": "started",
+            },
+        )
+        self.store.append_event(
+            session_id,
+            "loop_transition",
+            {
+                "turn_id": "t-1",
+                "step_id": "s-1",
+                "reason": "completed",
+                "message": "assistant finished",
+                "next_mode": "code",
+                "turns_used": 1,
+                "metadata": {},
+            },
+        )
+        result = SessionRestorer().restore(self.store.load_events(session_id))
+        self.assertEqual(len(result.session.turns), 1)
+        self.assertEqual(len(result.session.turns[0].steps), 1)
+        self.assertEqual(len(result.session.turns[0].steps[0].tool_calls), 1)
+        self.assertEqual(result.session.turns[0].steps[0].tool_calls[0].tool_name, "read_file")
+        self.assertEqual(result.session.turns[0].transitions, [])
+
 
 if __name__ == "__main__":
     unittest.main()

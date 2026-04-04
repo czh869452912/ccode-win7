@@ -29,6 +29,8 @@ class SessionRestorer(object):
         started_at = str(events[0].get("ts") or "")
         session = Session(session_id=session_id, started_at=started_at or Session().started_at)
         current_mode = "explore"
+        seen_message_ids = set()
+        seen_tool_call_ids = set()
         for event in events:
             event_type = str(event.get("type") or "")
             payload = dict(event.get("payload") or {})
@@ -38,7 +40,7 @@ class SessionRestorer(object):
                     session.started_at = str(payload["started_at"])
                 continue
             if event_type == "message":
-                if not self._apply_message(session, payload):
+                if not self._apply_message(session, payload, seen_message_ids):
                     break
                 continue
             if event_type == "step_started":
@@ -58,13 +60,17 @@ class SessionRestorer(object):
                     break
                 if not self._matches_current_step(session, str(payload.get("step_id") or "")):
                     break
+                call_id = str(payload.get("call_id") or "").strip()
+                if not call_id or call_id in seen_tool_call_ids:
+                    break
                 action = Action(
                     name=str(payload.get("tool_name") or ""),
                     arguments=dict(payload.get("arguments") or {}),
-                    call_id=str(payload.get("call_id") or ""),
+                    call_id=call_id,
                 )
                 if session._find_tool_call(action.call_id) is None:
                     session.record_tool_call(action)
+                    seen_tool_call_ids.add(call_id)
                 continue
             if event_type == "tool_result":
                 call_id = str(payload.get("call_id") or "")
@@ -159,12 +165,17 @@ class SessionRestorer(object):
             transcript_event_count=len(events),
         )
 
-    def _apply_message(self, session: Session, payload: Dict[str, Any]) -> bool:
+    def _apply_message(self, session: Session, payload: Dict[str, Any], seen_message_ids: set) -> bool:
         role = str(payload.get("role") or "")
+        message_id = str(payload.get("message_id") or "").strip()
+        if message_id:
+            if message_id in seen_message_ids:
+                return False
+            seen_message_ids.add(message_id)
         if role == "system":
             session.add_system_message(
                 str(payload.get("content") or ""),
-                message_id=str(payload.get("message_id") or ""),
+                message_id=message_id,
                 turn_id=str(payload.get("turn_id") or ""),
                 step_id=str(payload.get("step_id") or ""),
                 kind=str(payload.get("kind") or "message"),
@@ -176,7 +187,7 @@ class SessionRestorer(object):
             session.add_user_message(
                 str(payload.get("content") or ""),
                 turn_id=str(payload.get("turn_id") or ""),
-                message_id=str(payload.get("message_id") or ""),
+                message_id=message_id,
             )
             return True
         if role == "assistant":
@@ -199,7 +210,7 @@ class SessionRestorer(object):
             )
             session.add_assistant_reply(
                 reply,
-                message_id=str(payload.get("message_id") or ""),
+                message_id=message_id,
                 turn_id=str(payload.get("turn_id") or ""),
                 step_id=str(payload.get("step_id") or ""),
             )
@@ -214,7 +225,7 @@ class SessionRestorer(object):
                 content=str(payload.get("content") or ""),
                 name=str(payload.get("tool_name") or ""),
                 tool_call_id=str(payload.get("tool_call_id") or ""),
-                message_id=str(payload.get("message_id") or ""),
+                message_id=message_id,
                 turn_id=str(payload.get("turn_id") or ""),
                 step_id=str(payload.get("step_id") or ""),
                 kind=str(payload.get("kind") or "tool_result"),

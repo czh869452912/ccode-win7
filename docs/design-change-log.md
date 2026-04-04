@@ -186,6 +186,26 @@
   - 继续补 message chain / parent consistency
   - 评估是否要为 legacy compatibility 打上显式 restore note
 
+### DC-063
+
+- 日期：2026-04-04
+- 变更主题：SessionRestorer 现在拒绝重复 message_id / tool_call_id
+- 变更摘要：
+  - `SessionRestorer` 在 replay `message` 事件时会校验 `message_id` 唯一性
+  - `tool_call` 的 `call_id` 现在也要求唯一；一旦 transcript 中重复声明同一个 call id，恢复会停在最后一个自洽前缀
+  - 这保证了 compact boundary、content replacement 和 tool topology 不会落到不唯一的引用目标上
+- 影响范围：
+  - message identity
+  - tool call identity
+  - transcript replay 的引用稳定性
+- 关联文档：
+  - `docs/context-loop-handoff-status.md`
+  - `docs/development-tracker.md`
+- 是否需要 ADR：`否`
+- 后续动作：
+  - 继续评估是否要把 restore stop reason / consumed event count 暴露给上层
+  - message chain / parent consistency 目前已开始具备基础前置条件，后续可继续推进
+
 ### DC-055
 
 - 日期：2026-04-02
