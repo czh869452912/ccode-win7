@@ -31,6 +31,7 @@ class SessionRestorer(object):
         started_at = str(events[0].get("ts") or "")
         session = Session(session_id=session_id, started_at=started_at or Session().started_at)
         current_mode = "explore"
+        seen_turn_ids = set()
         seen_message_ids = set()
         seen_tool_call_ids = set()
         seen_step_ids = set()
@@ -46,7 +47,7 @@ class SessionRestorer(object):
                     session.started_at = str(payload["started_at"])
                 continue
             if event_type == "message":
-                message_error = self._apply_message(session, payload, seen_message_ids)
+                message_error = self._apply_message(session, payload, seen_turn_ids, seen_message_ids)
                 if message_error:
                     consumed_event_count = index
                     stop_reason = message_error
@@ -241,7 +242,7 @@ class SessionRestorer(object):
             stop_reason=stop_reason,
         )
 
-    def _apply_message(self, session: Session, payload: Dict[str, Any], seen_message_ids: set) -> str:
+    def _apply_message(self, session: Session, payload: Dict[str, Any], seen_turn_ids: set, seen_message_ids: set) -> str:
         role = str(payload.get("role") or "")
         message_id = str(payload.get("message_id") or "").strip()
         if message_id:
@@ -260,9 +261,14 @@ class SessionRestorer(object):
             )
             return ""
         if role == "user":
+            turn_id = str(payload.get("turn_id") or "").strip()
+            if turn_id:
+                if turn_id in seen_turn_ids:
+                    return "duplicate_turn_id"
+                seen_turn_ids.add(turn_id)
             session.add_user_message(
                 str(payload.get("content") or ""),
-                turn_id=str(payload.get("turn_id") or ""),
+                turn_id=turn_id,
                 message_id=message_id,
             )
             return ""

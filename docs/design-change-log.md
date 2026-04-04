@@ -346,6 +346,26 @@
   - 评估是否还需要对 `turn_id` 做全局唯一性校验
   - 若继续推进统一引用验证层，可把这些 identity checks 收敛成统一 helper
 
+### DC-071
+
+- 日期：2026-04-04
+- 变更主题：SessionRestorer 现在拒绝重复 turn_id
+- 变更摘要：
+  - `user` message 在 replay 时现在会校验 `turn_id` 唯一性
+  - 一旦 transcript 中重复声明新的 turn id，恢复会停在最后一个自洽前缀，而不会创建两个语义上冲突的 turn
+  - 这进一步收紧了 turn/step/pending/tool 四层 identity 体系中的 turn 层约束
+- 影响范围：
+  - turn-level replay
+  - transition/pending 的 turn 挂接稳定性
+  - transcript identity consistency
+- 关联文档：
+  - `docs/context-loop-handoff-status.md`
+  - `docs/development-tracker.md`
+- 是否需要 ADR：`否`
+- 后续动作：
+  - 若继续推进统一引用验证层，可把 turn/message/step/call/interaction 的 uniqueness checks 收敛成统一 helper
+  - 评估 stop reason 是否需要继续细分成“identity”与“ordering”两级分类
+
 ### DC-055
 
 - 日期：2026-04-02

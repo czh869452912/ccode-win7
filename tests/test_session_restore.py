@@ -598,6 +598,38 @@ class TestSessionRestorer(unittest.TestCase):
         self.assertEqual(result.session.turns[0].user_message, "first")
         self.assertEqual(result.session.turns[0].transitions, [])
 
+    def test_restore_stops_at_duplicate_turn_id(self):
+        session_id = "sess-duplicate-turn-id"
+        self.store.append_event(session_id, "session_meta", {"current_mode": "code"})
+        self.store.append_event(
+            session_id,
+            "message",
+            {"role": "user", "content": "first", "message_id": "m-user-1", "turn_id": "t-dup", "step_id": ""},
+        )
+        self.store.append_event(
+            session_id,
+            "message",
+            {"role": "user", "content": "second", "message_id": "m-user-2", "turn_id": "t-dup", "step_id": ""},
+        )
+        self.store.append_event(
+            session_id,
+            "loop_transition",
+            {
+                "turn_id": "t-dup",
+                "step_id": "",
+                "reason": "completed",
+                "message": "assistant finished",
+                "next_mode": "code",
+                "turns_used": 1,
+                "metadata": {},
+            },
+        )
+        result = SessionRestorer().restore(self.store.load_events(session_id))
+        self.assertEqual(len(result.session.turns), 1)
+        self.assertEqual(result.session.turns[0].turn_id, "t-dup")
+        self.assertEqual(result.session.turns[0].user_message, "first")
+        self.assertEqual(result.session.turns[0].transitions, [])
+
     def test_restore_stops_at_duplicate_tool_call_id(self):
         session_id = "sess-duplicate-call-id"
         self.store.append_event(session_id, "session_meta", {"current_mode": "code"})
