@@ -326,6 +326,26 @@
   - 评估是否把这些字段继续接到 GUI inspector / runtime 面板
   - 若后续收敛 stop reason 枚举，可把 snapshot contract 改成更稳定的 code + message 组合
 
+### DC-070
+
+- 日期：2026-04-04
+- 变更主题：SessionRestorer 现在拒绝重复 step_id / pending_interaction_id
+- 变更摘要：
+  - `step_started` 现在要求 `step_id` 唯一；重复 step id 会让恢复停在最后一个自洽前缀
+  - `pending_interaction` 现在要求 `interaction_id` 唯一；重复 interaction id 不再覆盖已有等待态
+  - 这样可以避免后续 `tool_call / tool_result / pending_resolution / loop_transition` 被挂到不唯一的活动节点上
+- 影响范围：
+  - step topology replay
+  - pending interaction replay
+  - transcript identity consistency
+- 关联文档：
+  - `docs/context-loop-handoff-status.md`
+  - `docs/development-tracker.md`
+- 是否需要 ADR：`否`
+- 后续动作：
+  - 评估是否还需要对 `turn_id` 做全局唯一性校验
+  - 若继续推进统一引用验证层，可把这些 identity checks 收敛成统一 helper
+
 ### DC-055
 
 - 日期：2026-04-02

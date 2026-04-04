@@ -651,6 +651,107 @@ class TestSessionRestorer(unittest.TestCase):
         self.assertEqual(result.session.turns[0].steps[0].tool_calls[0].tool_name, "read_file")
         self.assertEqual(result.session.turns[0].transitions, [])
 
+    def test_restore_stops_at_duplicate_step_id(self):
+        session_id = "sess-duplicate-step-id"
+        self.store.append_event(session_id, "session_meta", {"current_mode": "code"})
+        self.store.append_event(
+            session_id,
+            "message",
+            {"role": "user", "content": "first", "message_id": "m-user-1", "turn_id": "t-1", "step_id": ""},
+        )
+        self.store.append_event(session_id, "step_started", {"turn_id": "t-1", "step_id": "s-dup", "step_index": 1})
+        self.store.append_event(
+            session_id,
+            "message",
+            {
+                "role": "assistant",
+                "content": "done",
+                "message_id": "m-assistant-1",
+                "turn_id": "t-1",
+                "step_id": "s-dup",
+                "actions": [],
+                "reasoning_content": "",
+                "finish_reason": "stop",
+            },
+        )
+        self.store.append_event(
+            session_id,
+            "message",
+            {"role": "user", "content": "second", "message_id": "m-user-2", "turn_id": "t-2", "step_id": ""},
+        )
+        self.store.append_event(session_id, "step_started", {"turn_id": "t-2", "step_id": "s-dup", "step_index": 1})
+        self.store.append_event(
+            session_id,
+            "loop_transition",
+            {
+                "turn_id": "t-2",
+                "step_id": "s-dup",
+                "reason": "completed",
+                "message": "assistant finished",
+                "next_mode": "code",
+                "turns_used": 1,
+                "metadata": {},
+            },
+        )
+        result = SessionRestorer().restore(self.store.load_events(session_id))
+        self.assertEqual(len(result.session.turns), 2)
+        self.assertEqual(len(result.session.turns[0].steps), 1)
+        self.assertEqual(result.session.turns[0].steps[0].step_id, "s-dup")
+        self.assertEqual(result.session.turns[1].steps, [])
+        self.assertEqual(result.session.turns[1].transitions, [])
+
+    def test_restore_stops_at_duplicate_pending_interaction_id(self):
+        session_id = "sess-duplicate-pending-id"
+        self.store.append_event(session_id, "session_meta", {"current_mode": "spec"})
+        self.store.append_event(
+            session_id,
+            "message",
+            {"role": "user", "content": "继续", "message_id": "m-user", "turn_id": "t-1", "step_id": ""},
+        )
+        self.store.append_event(session_id, "step_started", {"turn_id": "t-1", "step_id": "s-1", "step_index": 1})
+        self.store.append_event(
+            session_id,
+            "pending_interaction",
+            {
+                "turn_id": "t-1",
+                "step_id": "s-1",
+                "kind": "user_input",
+                "tool_name": "ask_user",
+                "interaction_id": "pi-dup",
+                "request_payload": {"question": "第一问"},
+            },
+        )
+        self.store.append_event(
+            session_id,
+            "pending_interaction",
+            {
+                "turn_id": "t-1",
+                "step_id": "s-1",
+                "kind": "user_input",
+                "tool_name": "ask_user",
+                "interaction_id": "pi-dup",
+                "request_payload": {"question": "第二问"},
+            },
+        )
+        self.store.append_event(
+            session_id,
+            "loop_transition",
+            {
+                "turn_id": "t-1",
+                "step_id": "s-1",
+                "reason": "user_input_wait",
+                "message": "等待输入",
+                "next_mode": "spec",
+                "turns_used": 1,
+                "metadata": {},
+            },
+        )
+        result = SessionRestorer().restore(self.store.load_events(session_id))
+        self.assertIsNotNone(result.session.pending_interaction)
+        self.assertEqual(result.session.pending_interaction.interaction_id, "pi-dup")
+        self.assertEqual(result.session.pending_interaction.request_payload.get("question"), "第一问")
+        self.assertEqual(result.session.turns[0].transitions, [])
+
     def test_restore_stops_at_pending_resolution_with_mismatched_turn_id(self):
         session_id = "sess-resolution-wrong-turn"
         self.store.append_event(session_id, "session_meta", {"current_mode": "spec"})

@@ -104,6 +104,7 @@
 - content replacement replay 已继续推进：`SessionRestorer` 现在会校验 `content_replacement` 必须指向一个已恢复的 `tool` message，且其 `tool_call_id / tool_name` 不得与目标消息冲突，避免错误 replacement 文案污染后续上下文组装
 - restore 诊断性已推进一段：`SessionRestoreResult` 现在会暴露 `consumed_event_count` 与 `stop_reason`，上层可以区分“完整恢复”与“在某个校验点停在自洽前缀”
 - restore 诊断透传已推进一段：`resume_session()` / session snapshot 现在会把 `restore_stop_reason / restore_consumed_event_count / restore_transcript_event_count` 透出给 adapter 上层，恢复截断不再只能靠日志推断
+- step / pending identity 唯一性已继续推进：`SessionRestorer` 现在会在出现重复 `step_id` 或重复 `pending_interaction.interaction_id` 时停止回放，避免后续事件挂接到不唯一的活动节点
 - compact / resume replay 已推进一段：`compact_boundary` 现在会显式写入 transcript，并补齐 `preserved_head_message_id / preserved_tail_message_id`，`SessionRestorer` 已可回放 compact 边界而不丢失 preserved segment 元数据
 - pending interaction replay 已推进一段：`resume_pending()` 现在会把 `pending_resolution` 与恢复阶段生成的 `tool_result` 一并落入 transcript，恢复后的 tool call 状态不再卡在 `pending`
 - tool interrupt / retry 已推进第一段：`tool_started` 之后若会话被取消，`QueryEngine` 现在会写入 synthetic interrupted tool_result，并在 transcript / timeline / adapter `tool_finished` 事件中统一表现为 aborted

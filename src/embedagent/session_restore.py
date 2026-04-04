@@ -33,6 +33,8 @@ class SessionRestorer(object):
         current_mode = "explore"
         seen_message_ids = set()
         seen_tool_call_ids = set()
+        seen_step_ids = set()
+        seen_interaction_ids = set()
         consumed_event_count = len(events)
         stop_reason = ""
         for index, event in enumerate(events):
@@ -59,10 +61,17 @@ class SessionRestorer(object):
                     consumed_event_count = index
                     stop_reason = "step_started_turn_mismatch"
                     break
+                step_id = str(payload.get("step_id") or "").strip()
+                if step_id and step_id in seen_step_ids:
+                    consumed_event_count = index
+                    stop_reason = "duplicate_step_id"
+                    break
                 session.begin_step(
                     reasoning=str(payload.get("reasoning") or ""),
-                    step_id=str(payload.get("step_id") or ""),
+                    step_id=step_id,
                 )
+                if step_id:
+                    seen_step_ids.add(step_id)
                 continue
             if event_type == "tool_call":
                 if session.current_step() is None:
@@ -141,8 +150,13 @@ class SessionRestorer(object):
                     consumed_event_count = index
                     stop_reason = "pending_interaction_step_mismatch"
                     break
+                interaction_id = str(payload.get("interaction_id") or "").strip()
+                if interaction_id and interaction_id in seen_interaction_ids:
+                    consumed_event_count = index
+                    stop_reason = "duplicate_pending_interaction_id"
+                    break
                 pending = PendingInteraction(
-                    interaction_id=str(payload.get("interaction_id") or ""),
+                    interaction_id=interaction_id,
                     kind=str(payload.get("kind") or ""),
                     tool_name=str(payload.get("tool_name") or ""),
                     request_payload=dict(payload.get("request_payload") or {}),
@@ -150,6 +164,8 @@ class SessionRestorer(object):
                 session.pending_interaction = pending
                 if session.turns:
                     session.turns[-1].pending_interaction = pending
+                if interaction_id:
+                    seen_interaction_ids.add(interaction_id)
                 continue
             if event_type == "pending_resolution":
                 if session.pending_interaction is None:
