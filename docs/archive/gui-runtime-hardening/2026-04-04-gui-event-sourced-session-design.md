@@ -20,7 +20,7 @@ This direction is chosen because the confirmed GUI issues are primarily architec
 
 ## 2. Confirmed Problem Statement
 
-The audit input is documented in [`docs/issues/gui-timeline-issues-final.md`](../issues/gui-timeline-issues-final.md). After code inspection, the problems that matter for this slice collapse into five root causes:
+The audit input is documented in [`docs/issues/gui-timeline-issues-final.md`](../../issues/gui-timeline-issues-final.md). After code inspection, the problems that matter for this slice collapse into five root causes:
 
 1. the same runtime fact is represented by multiple truth sources
    - `snapshot.pending_*`

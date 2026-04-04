@@ -26,7 +26,7 @@ This direction is chosen because the post-merge review showed that the first eve
 
 ## 2. Confirmed Problem Statement
 
-The follow-up audit input is documented in [`docs/issues/gui-timeline-issues-post-review-build-verified.md`](../issues/gui-timeline-issues-post-review-build-verified.md). After code inspection against the current `main`, the still-real problems collapse into three root-cause clusters.
+The follow-up audit input is documented in [`docs/issues/gui-timeline-issues-post-review-build-verified.md`](../../issues/gui-timeline-issues-post-review-build-verified.md). After code inspection against the current `main`, the still-real problems collapse into three root-cause clusters.
 
 ### 2.1 Timeline Persistence / Replay / Restore Is Not Contractual
 

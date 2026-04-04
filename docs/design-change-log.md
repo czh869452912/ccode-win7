@@ -58,7 +58,7 @@
   - active-session Timeline / Inspector 的读模型边界
   - front-end runtime 与 backend snapshot/replay 契约
 - 关联文档：
-  - `docs/superpowers/specs/2026-04-04-gui-runtime-hardening-design.md`
+  - `docs/archive/gui-runtime-hardening/2026-04-04-gui-runtime-hardening-design.md`
   - `docs/frontend-protocol.md`
   - `docs/development-tracker.md`
 - 是否需要 ADR：`否`
@@ -81,7 +81,7 @@
   - pending interaction 的 UI 真相边界
   - reconnect / resync / degraded-state 处理
 - 关联文档：
-  - `docs/superpowers/specs/2026-04-04-gui-event-sourced-session-design.md`
+  - `docs/archive/gui-runtime-hardening/2026-04-04-gui-event-sourced-session-design.md`
   - `docs/frontend-protocol.md`
   - `docs/development-tracker.md`
 - 是否需要 ADR：`否`
@@ -89,6 +89,25 @@
   - 继续把更多 live event 从 reducer patching 收口到 `session_event` 驱动
   - 为 malformed transport、interaction conflict/gone 和 replay gap 补更多前端/后端回归
   - 在最终 bundle 验收时验证 GUI degraded/resync 流在真实宿主中的表现
+
+### DC-071
+
+- 日期：2026-04-04
+- 变更主题：GUI runtime hardening 文档从活动入口归档
+- 变更摘要：
+  - `gui event-sourced session runtime` 与 `gui runtime hardening` 这轮 spec/plan 已确认完成当前目标，不再保留在活动 `docs/superpowers/specs/` / `plans/` 入口
+  - 相关文档已统一迁入 `docs/archive/gui-runtime-hardening/`
+  - 当前仓库中关于这轮工作的活跃入口收敛为 tracker / change-log / frontend protocol，而不是继续把旧计划当作待执行项
+- 影响范围：
+  - 文档入口与活动工作区整洁度
+  - GUI runtime hardening slice 的关闭状态
+- 关联文档：
+  - `docs/archive/gui-runtime-hardening/README.md`
+  - `docs/development-tracker.md`
+  - `docs/frontend-protocol.md`
+- 是否需要 ADR：`否`
+- 后续动作：
+  - 若后续继续推进 GUI runtime 相关工作，应以新的独立 spec/plan 开启，而不是复用这轮已归档计划
 
 ### DC-060
 
