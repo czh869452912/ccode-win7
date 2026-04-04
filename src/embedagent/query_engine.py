@@ -771,6 +771,20 @@ class QueryEngine(object):
         on_tool_start: Optional[Callable[[Action], None]],
         on_tool_finish: Optional[Callable[[Action, Observation], None]],
     ) -> str:
+        turn_id = session.turns[-1].turn_id if session.turns else ""
+        step_id = session.current_step().step_id if session.current_step() is not None else ""
+        self._append_transcript_event(
+            session,
+            "pending_resolution",
+            {
+                "turn_id": turn_id,
+                "step_id": step_id,
+                "interaction_id": pending.interaction_id,
+                "kind": pending.kind,
+                "tool_name": pending.tool_name,
+                "resolution_payload": dict(resolution or {}),
+            },
+        )
         session.resolve_pending_interaction(resolution)
         action_payload = pending.request_payload.get("action") if isinstance(pending.request_payload, dict) else {}
         action = Action(
@@ -798,7 +812,30 @@ class QueryEngine(object):
                 selected_option_text=str(resolution.get("selected_option_text") or ""),
             )
             observation, current_mode = self._build_user_input_observation(session, current_mode, request, response)
-        session.add_observation(action, observation)
+        tool_message_id = "m-" + uuid.uuid4().hex[:12]
+        finished_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+        self._append_transcript_event(
+            session,
+            "tool_result",
+            {
+                "turn_id": turn_id,
+                "step_id": step_id,
+                "call_id": action.call_id,
+                "tool_name": action.name,
+                "arguments": dict(action.arguments),
+                "message_id": tool_message_id,
+                "finished_at": finished_at,
+                "observation": observation.to_dict(),
+            },
+        )
+        session.add_observation(
+            action,
+            observation,
+            message_id=tool_message_id,
+            turn_id=turn_id,
+            step_id=step_id,
+            finished_at=finished_at,
+        )
         if on_tool_finish is not None:
             on_tool_finish(action, observation)
         return current_mode
@@ -847,7 +884,8 @@ class QueryEngine(object):
         latest = session.latest_compact_boundary()
         if latest is not None and latest.compacted_turn_count == compacted_turn_count:
             return
-        session.add_compact_boundary(
+        preserved_head_message_id, preserved_tail_message_id = session.preserved_segment_message_ids(assembly.recent_turns)
+        boundary = session.add_compact_boundary(
             assembly.summary_message,
             compacted_turn_count,
             current_mode,
@@ -855,6 +893,22 @@ class QueryEngine(object):
                 "approx_tokens": assembly.approx_tokens,
                 "replacements": len(assembly.replacements),
                 "pipeline_steps": list(assembly.pipeline_steps),
+            },
+            preserved_head_message_id=preserved_head_message_id,
+            preserved_tail_message_id=preserved_tail_message_id,
+        )
+        self._append_transcript_event(
+            session,
+            "compact_boundary",
+            {
+                "boundary_id": boundary.boundary_id,
+                "summary_text": boundary.summary_text,
+                "compacted_turn_count": boundary.compacted_turn_count,
+                "created_at": boundary.created_at,
+                "mode_name": boundary.mode_name,
+                "preserved_head_message_id": boundary.preserved_head_message_id,
+                "preserved_tail_message_id": boundary.preserved_tail_message_id,
+                "metadata": dict(boundary.metadata),
             },
         )
 

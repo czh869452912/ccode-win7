@@ -1,6 +1,6 @@
 # EmbedAgent 开发进度跟踪
 
-> 更新日期：2026-04-02（Packaging control plane + query/context refactor + diagnostics hotspots + reactive compact retry）
+> 更新日期：2026-04-04（Transcript hardening + compact boundary replay + pending resolution persistence）
 > 用途：持续跟踪当前阶段、下一步任务、里程碑进度、风险与阻塞
 
 ---
@@ -91,6 +91,9 @@
 - GUI inspector 现在已开始直接消费 `last_transition_display_reason / last_transition_message / recent_transitions`，Runtime 面板不再只依赖内部 termination reason
 - GUI webapp 本地验证链已补齐第一段：`build.mjs` 依赖的 `esbuild` 现在已声明为显式 `devDependency`，并新增根目录 `run-local-tests.mjs` 作为本地 test runner；当前已验证 `node .\\run-local-tests.mjs` 与 `npm run build`
 - resume consistency 已切到 transcript-truth 语义：新增 `transcript_store.py`、`session_restore.py`，`resume_session()` 已从 transcript replay 恢复 `Session`，`summary.json` 不再作为恢复真相源
+- transcript hardening 已推进一段：`TranscriptStore.append_event()` 现已按 transcript 文件串行化写入，避免并发 append 时 `seq` 竞争与 JSONL 尾部截断放大
+- compact / resume replay 已推进一段：`compact_boundary` 现在会显式写入 transcript，并补齐 `preserved_head_message_id / preserved_tail_message_id`，`SessionRestorer` 已可回放 compact 边界而不丢失 preserved segment 元数据
+- pending interaction replay 已推进一段：`resume_pending()` 现在会把 `pending_resolution` 与恢复阶段生成的 `tool_result` 一并落入 transcript，恢复后的 tool call 状态不再卡在 `pending`
 - tool interrupt / retry 已推进第一段：`tool_started` 之后若会话被取消，`QueryEngine` 现在会写入 synthetic interrupted tool_result，并在 transcript / timeline / adapter `tool_finished` 事件中统一表现为 aborted
 - tool interrupt / retry 已继续推进第二段：parallel batch 中的 `discarded` synthetic result 仍会进 transcript，但不再误计入 `LoopGuard` 导致整轮提前 `guard_stop`
 - tool interrupt / retry 已继续推进第三段：`StreamingToolExecutor` 并行批次已改成流式 start/result，`max_parallel_tools=1` 场景下现在能稳定落下“首个 action interrupted、后续未开始 action discarded”的 transcript 语义
@@ -184,7 +187,7 @@
 | T-024 | 零依赖打包：内网部署文档 | `completed` | 已新增 `docs/intranet-deployment.md` 和 `docs/offline-packaging-guide.md`，提供完整内网部署指南 |
 | T-025 | 零依赖打包：内网配置模板 | `completed` | 已新增 `config/config.json.template`，预配置内网大模型服务示例 |
 | T-027 | Phase 7 打包控制面收口 | `in_progress` | `scripts/package.ps1`、`scripts/package.config.json`、`scripts/package-lib.ps1` 与 `tests/test_packaging_control_plane.py` 已打通 `doctor/deps/assemble/verify/release` mocked orchestration；下一步是完成文档迁移并在真实 bundle 路径上验收 |
-| T-028 | Query / Context 内核重构切片 | `in_progress` | 已落地 `QueryEngine`、transcript/event 模型、workspace intelligence broker、tool capability metadata、batch tool orchestration、pending interaction resume、`transcript_store.py`、`session_restore.py`、transcript-truth resume，以及 interrupted/discarded synthetic tool_result 主线；`StreamingToolExecutor` 现已支持流式并行 batch writeback、直接观察 cancel event，并在 batch 出现 `discarded` 后丢弃同一 assistant plan 的后续 batch；`tool_call` transcript 已在 assistant action 阶段按原始顺序落盘，`run_command` 的 Windows 长命令中断也已切到进程组 + `CTRL_BREAK_EVENT`，`DiagnosticsProvider` 已补上 quality gate / pathless summary 聚合，`RecipeProvider` 也已补上 mode-aware source/stage 排序；下一步转向真实 `LlspProvider`、adapter 全量兼容与更强集成回归 |
+| T-028 | Query / Context 内核重构切片 | `in_progress` | 已落地 `QueryEngine`、transcript/event 模型、workspace intelligence broker、tool capability metadata、batch tool orchestration、pending interaction resume、`transcript_store.py`、`session_restore.py`、transcript-truth resume，以及 interrupted/discarded synthetic tool_result 主线；`StreamingToolExecutor` 现已支持流式并行 batch writeback、直接观察 cancel event，并在 batch 出现 `discarded` 后丢弃同一 assistant plan 的后续 batch；`tool_call` transcript 已在 assistant action 阶段按原始顺序落盘，`run_command` 的 Windows 长命令中断也已切到进程组 + `CTRL_BREAK_EVENT`，`DiagnosticsProvider` 已补上 quality gate / pathless summary 聚合，`RecipeProvider` 也已补上 mode-aware source/stage 排序；本轮又补齐了 transcript append 串行化、`compact_boundary` replay 元数据，以及 `pending_resolution + tool_result` 的 resume 持久化；下一步转向真实 `LlspProvider`、adapter 全量兼容与更强集成回归 |
 
 ---
 

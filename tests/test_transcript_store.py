@@ -1,6 +1,8 @@
 import os
 import shutil
 import sys
+import threading
+import time
 import unittest
 from itertools import count
 
@@ -73,6 +75,55 @@ class TestTranscriptStore(unittest.TestCase):
         second = store.append_event("sess-seq", "loop_transition", {"reason": "completed"})
         self.assertEqual(first["seq"], 1)
         self.assertEqual(second["seq"], 2)
+
+    def test_append_event_serializes_concurrent_writers(self):
+        store = TranscriptStore(self.workspace)
+        store.append_event("sess-race", "session_meta", {"current_mode": "code"})
+
+        original_next_seq = store._next_seq
+        first_seq_started = threading.Event()
+        first_call_seen = [False]
+
+        def delayed_next_seq(path):
+            seq = original_next_seq(path)
+            if not first_call_seen[0]:
+                first_call_seen[0] = True
+                first_seq_started.set()
+                time.sleep(0.2)
+            return seq
+
+        store._next_seq = delayed_next_seq
+        errors = []
+
+        def writer(index):
+            try:
+                store.append_event(
+                    "sess-race",
+                    "message",
+                    {
+                        "role": "user",
+                        "message_id": "m-%s" % index,
+                        "turn_id": "t-1",
+                        "step_id": "",
+                        "content": "message-%s" % index,
+                    },
+                )
+            except Exception as exc:  # pragma: no cover - surfaced by assertion below
+                errors.append(exc)
+
+        thread_a = threading.Thread(target=writer, args=(1,))
+        thread_b = threading.Thread(target=writer, args=(2,))
+        thread_a.start()
+        self.assertTrue(first_seq_started.wait(1.0))
+        thread_b.start()
+        thread_a.join()
+        thread_b.join()
+
+        self.assertEqual(errors, [])
+        events = store.load_events("sess-race")
+        self.assertEqual([item["seq"] for item in events], [1, 2, 3])
+        self.assertEqual(events[-2]["payload"]["content"], "message-1")
+        self.assertEqual(events[-1]["payload"]["content"], "message-2")
 
 
 if __name__ == "__main__":

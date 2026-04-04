@@ -140,6 +140,8 @@ class CompactBoundary:
     compacted_turn_count: int = 0
     created_at: str = field(default_factory=_utc_now)
     mode_name: str = ""
+    preserved_head_message_id: str = ""
+    preserved_tail_message_id: str = ""
     metadata: Dict[str, Any] = field(default_factory=dict)
 
 
@@ -420,6 +422,8 @@ class Session:
         metadata: Optional[Dict[str, Any]] = None,
         boundary_id: str = "",
         created_at: str = "",
+        preserved_head_message_id: str = "",
+        preserved_tail_message_id: str = "",
     ) -> CompactBoundary:
         boundary = CompactBoundary(
             boundary_id=boundary_id or ("cb-" + uuid.uuid4().hex[:12]),
@@ -427,6 +431,8 @@ class Session:
             compacted_turn_count=max(0, int(compacted_turn_count)),
             created_at=created_at or _utc_now(),
             mode_name=mode_name,
+            preserved_head_message_id=str(preserved_head_message_id or ""),
+            preserved_tail_message_id=str(preserved_tail_message_id or ""),
             metadata=dict(metadata or {}),
         )
         self.compact_boundaries.append(boundary)
@@ -441,6 +447,8 @@ class Session:
                 "boundary_id": boundary.boundary_id,
                 "compacted_turn_count": boundary.compacted_turn_count,
                 "mode_name": boundary.mode_name,
+                "preserved_head_message_id": boundary.preserved_head_message_id,
+                "preserved_tail_message_id": boundary.preserved_tail_message_id,
             },
         )
         if self.turns:
@@ -494,6 +502,16 @@ class Session:
             stubbed += 1
         return stubbed
 
+    def preserved_segment_message_ids(self, recent_turns: int) -> tuple:
+        if not self.turns or recent_turns <= 0:
+            return "", ""
+        preserved_turns = self.turns[-min(len(self.turns), int(recent_turns)) :]
+        if not preserved_turns:
+            return "", ""
+        head_message_id = self._message_id_at(preserved_turns[0].message_start_index)
+        tail_message_id = self._message_id_at(preserved_turns[-1].message_end_index)
+        return head_message_id, tail_message_id
+
     def _current_step_id(self) -> str:
         step = self.current_step()
         return step.step_id if step is not None else ""
@@ -514,3 +532,8 @@ class Session:
             if key.endswith("_artifact_ref") and value:
                 refs.append(str(value))
         return refs[:8]
+
+    def _message_id_at(self, index: int) -> str:
+        if index < 0 or index >= len(self.messages):
+            return ""
+        return str(self.messages[index].message_id or "")

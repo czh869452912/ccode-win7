@@ -819,6 +819,63 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertEqual(retry_transition.metadata.get("retry_mode"), "compact")
         self.assertEqual(retry_transition.metadata.get("source_mode"), "code")
 
+    def test_query_engine_persists_compact_boundary_event_for_restore(self):
+        session = Session()
+        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：code")
+        for index in range(5):
+            session.add_user_message("old user %s %s" % (index, "u" * 400))
+            session.add_assistant_reply(
+                AssistantReply(
+                    content="old assistant %s %s" % (index, "a" * 300),
+                    actions=[],
+                    finish_reason="stop",
+                )
+            )
+            session.add_observation(
+                Action("read_file", {"path": "src/demo.c"}, "read-old-%s" % index),
+                Observation(
+                    "read_file",
+                    True,
+                    None,
+                    {
+                        "path": "src/demo.c",
+                        "content": "int demo(void) {\n%s\n}\n" % ("x" * 1200),
+                        "content_artifact_ref": ".embedagent/memory/artifacts/demo-%s.json" % index,
+                    },
+                ),
+            )
+        transcript_store = TranscriptStore(self.workspace)
+        client = CompactRetryClient()
+        engine = QueryEngine(
+            client=client,
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+            transcript_store=transcript_store,
+        )
+
+        result = engine.submit_turn(
+            user_text="继续分析并给我结论",
+            stream=False,
+            initial_mode="code",
+            session=session,
+        )
+
+        self.assertEqual(result.transition.reason, "completed")
+        boundary = session.latest_compact_boundary()
+        self.assertIsNotNone(boundary)
+        self.assertTrue(boundary.preserved_head_message_id)
+        self.assertTrue(boundary.preserved_tail_message_id)
+        events = transcript_store.load_events(session.session_id)
+        self.assertIn("compact_boundary", [item["type"] for item in events])
+
+        restored = SessionRestorer().restore(events)
+        restored_boundary = restored.session.latest_compact_boundary()
+        self.assertIsNotNone(restored_boundary)
+        self.assertEqual(restored_boundary.summary_text, boundary.summary_text)
+        self.assertEqual(restored_boundary.compacted_turn_count, boundary.compacted_turn_count)
+        self.assertEqual(restored_boundary.preserved_head_message_id, boundary.preserved_head_message_id)
+        self.assertEqual(restored_boundary.preserved_tail_message_id, boundary.preserved_tail_message_id)
+
     def test_query_engine_writes_transcript_for_completed_turn(self):
         session = Session()
         session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：code")
@@ -866,6 +923,46 @@ class TestQueryEngineRefactor(unittest.TestCase):
         event_types = [item["type"] for item in events]
         self.assertIn("pending_interaction", event_types)
         self.assertEqual(events[-1]["type"], "loop_transition")
+
+    def test_query_engine_resume_pending_persists_resolution_and_tool_result(self):
+        session = Session()
+        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：code")
+        transcript_store = TranscriptStore(self.workspace)
+        engine = QueryEngine(
+            client=WriteThenDoneClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=False, workspace=self.workspace),
+            transcript_store=transcript_store,
+        )
+
+        first = engine.submit_turn(
+            user_text="写文件",
+            stream=False,
+            initial_mode="code",
+            session=session,
+            permission_handler=None,
+        )
+        self.assertEqual(first.transition.reason, "permission_wait")
+
+        resumed = engine.resume_pending(
+            session=session,
+            initial_mode="code",
+            stream=False,
+            interaction_resolution={"approved": True},
+        )
+        self.assertEqual(resumed.transition.reason, "completed")
+
+        events = transcript_store.load_events(session.session_id)
+        event_types = [item["type"] for item in events]
+        self.assertIn("pending_resolution", event_types)
+        tool_results = [item for item in events if item["type"] == "tool_result"]
+        self.assertTrue(any(item["payload"].get("call_id") == "write-1" for item in tool_results))
+
+        restored = SessionRestorer().restore(events)
+        self.assertIsNone(restored.session.pending_interaction)
+        first_step = restored.session.turns[-1].steps[0]
+        self.assertEqual(first_step.tool_calls[0].call_id, "write-1")
+        self.assertEqual(first_step.tool_calls[0].status, "completed")
 
     def test_query_engine_persists_content_replacement_and_context_snapshot_events(self):
         session = Session()

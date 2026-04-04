@@ -1,6 +1,6 @@
 # EmbedAgent 设计与变更跟踪
 
-> 更新日期：2026-04-02
+> 更新日期：2026-04-04
 > 用途：记录关键设计变更、影响范围、关联文档和后续动作
 
 ---
@@ -43,6 +43,28 @@
 ---
 
 ## 3. 当前变更记录
+
+### DC-056
+
+- 日期：2026-04-04
+- 变更主题：transcript replay 链路补齐 compact boundary 与 pending resolution 持久化
+- 变更摘要：
+  - `TranscriptStore.append_event()` 现在会按 transcript 文件串行化写入，避免并发 append 时出现重复 `seq`
+  - `QueryEngine` 现在会把 `compact_boundary` 显式写入 transcript，并补齐 `preserved_head_message_id / preserved_tail_message_id`
+  - `resume_pending()` 现在会把 `pending_resolution` 与恢复阶段生成的 `tool_result` 一并落盘，`SessionRestorer` 也会回放新的 compact metadata
+- 影响范围：
+  - transcript 一致性
+  - compact boundary replay
+  - pending interaction / resume 可审计性
+- 关联文档：
+  - `docs/context-loop-handoff-status.md`
+  - `docs/development-tracker.md`
+  - `docs/query-context-redesign.md`
+- 是否需要 ADR：`否`
+- 后续动作：
+  - 继续补消息链 / preserved segment 的更强一致性验证
+  - 评估 transcript 尾部损坏修复与轮转策略
+  - 补更贴近真实工程的长会话恢复回归
 
 ### DC-055
 

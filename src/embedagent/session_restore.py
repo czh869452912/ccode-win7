@@ -106,6 +106,8 @@ class SessionRestorer(object):
                     dict(payload.get("metadata") or {}),
                     boundary_id=str(payload.get("boundary_id") or ""),
                     created_at=str(payload.get("created_at") or ""),
+                    preserved_head_message_id=str(payload.get("preserved_head_message_id") or ""),
+                    preserved_tail_message_id=str(payload.get("preserved_tail_message_id") or ""),
                 )
                 continue
             if event_type == "loop_transition":

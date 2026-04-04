@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import threading
 import uuid
 from datetime import datetime
 from typing import Any, Dict, List
@@ -20,6 +21,8 @@ class TranscriptStore(object):
         self.workspace = os.path.realpath(workspace)
         self.relative_root = relative_root.replace("\\", "/")
         self.root = os.path.join(self.workspace, *self.relative_root.split("/"))
+        self._append_locks = {}  # type: Dict[str, threading.RLock]
+        self._append_locks_guard = threading.RLock()
 
     def resolve_session_dir(self, session_id: str) -> str:
         if not session_id:
@@ -45,24 +48,26 @@ class TranscriptStore(object):
     ) -> Dict[str, Any]:
         path = self.resolve_transcript_path(session_id)
         directory = os.path.dirname(path)
-        if not os.path.isdir(directory):
-            os.makedirs(directory)
-        seq = self._next_seq(path)
-        event = {
-            "schema_version": 1,
-            "session_id": session_id,
-            "event_id": event_id or ("evt-" + uuid.uuid4().hex[:12]),
-            "seq": seq,
-            "ts": ts or _utc_now(),
-            "type": event_type,
-            "payload": dict(payload or {}),
-        }
-        line = json.dumps(event, ensure_ascii=False, sort_keys=True)
-        with open(path, "a", encoding="utf-8", newline="\n") as handle:
-            handle.write(line + "\n")
-            handle.flush()
-            os.fsync(handle.fileno())
-        return event
+        append_lock = self._lock_for_path(path)
+        with append_lock:
+            if not os.path.isdir(directory):
+                os.makedirs(directory)
+            seq = self._next_seq(path)
+            event = {
+                "schema_version": 1,
+                "session_id": session_id,
+                "event_id": event_id or ("evt-" + uuid.uuid4().hex[:12]),
+                "seq": seq,
+                "ts": ts or _utc_now(),
+                "type": event_type,
+                "payload": dict(payload or {}),
+            }
+            line = json.dumps(event, ensure_ascii=False, sort_keys=True)
+            with open(path, "a", encoding="utf-8", newline="\n") as handle:
+                handle.write(line + "\n")
+                handle.flush()
+                os.fsync(handle.fileno())
+            return event
 
     def load_events(self, reference: str) -> List[Dict[str, Any]]:
         path = self.resolve_transcript_path(reference)
@@ -105,3 +110,12 @@ class TranscriptStore(object):
         if not events:
             return 1
         return int(events[-1].get("seq") or 0) + 1
+
+    def _lock_for_path(self, path: str) -> threading.RLock:
+        normalized = os.path.realpath(path)
+        with self._append_locks_guard:
+            lock = self._append_locks.get(normalized)
+            if lock is None:
+                lock = threading.RLock()
+                self._append_locks[normalized] = lock
+            return lock
