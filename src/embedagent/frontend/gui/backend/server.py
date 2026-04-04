@@ -39,6 +39,7 @@ class WebSocketFrontend(FrontendCallbacks):
     
     def __init__(self):
         self.connections: Set[WebSocket] = set()
+        self._connections_lock = threading.RLock()
         self._pending_permissions = {}  # type: Dict[str, BlockingResult[bool]]
         self._pending_inputs = {}  # type: Dict[str, BlockingResult[Optional[Dict[str, Any]]]]
         self._pending_lock = threading.RLock()
@@ -47,25 +48,33 @@ class WebSocketFrontend(FrontendCallbacks):
     async def connect(self, websocket: WebSocket):
         await websocket.accept()
         self._dispatcher.bind_running_loop()
-        self.connections.add(websocket)
-        _LOGGER.info(f"WebSocket connected, total: {len(self.connections)}")
+        with self._connections_lock:
+            self.connections.add(websocket)
+            total = len(self.connections)
+        _LOGGER.info(f"WebSocket connected, total: {total}")
     
     def disconnect(self, websocket: WebSocket):
-        self.connections.discard(websocket)
-        _LOGGER.info(f"WebSocket disconnected, total: {len(self.connections)}")
+        with self._connections_lock:
+            self.connections.discard(websocket)
+            total = len(self.connections)
+        _LOGGER.info(f"WebSocket disconnected, total: {total}")
     
     async def broadcast(self, message: Dict[str, Any]):
         """广播消息给所有连接的客户端"""
         disconnected = set()
-        for conn in self.connections:
+        with self._connections_lock:
+            connections = list(self.connections)
+        for conn in connections:
             try:
                 await conn.send_json(message)
             except:
                 disconnected.add(conn)
         
         # 清理断开的连接
-        for conn in disconnected:
-            self.connections.discard(conn)
+        if disconnected:
+            with self._connections_lock:
+                for conn in disconnected:
+                    self.connections.discard(conn)
 
     def _dispatch_message(self, message: Dict[str, Any]) -> bool:
         return self._dispatcher.dispatch(lambda: self.broadcast(message))

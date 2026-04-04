@@ -11,6 +11,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from embedagent.config import AppConfig
 from embedagent.frontend.gui.backend.bridge import BlockingResult, ThreadsafeAsyncDispatcher
+from embedagent.frontend.gui.backend.server import WebSocketFrontend
 from embedagent.frontend.gui import launcher as gui_launcher
 
 
@@ -151,6 +152,31 @@ class TestThreadsafeAsyncDispatcher(unittest.TestCase):
 
     async def _noop(self):
         return None
+
+
+class _FakeWebSocket(object):
+    def __init__(self, on_send=None):
+        self.on_send = on_send
+        self.messages = []
+
+    async def send_json(self, message):
+        self.messages.append(message)
+        if self.on_send is not None:
+            self.on_send()
+
+
+class TestWebSocketFrontend(unittest.TestCase):
+    def test_broadcast_tolerates_connection_set_mutation(self):
+        frontend = WebSocketFrontend()
+        late = _FakeWebSocket()
+        first = _FakeWebSocket(on_send=lambda: frontend.disconnect(late))
+        frontend.connections = set([first, late])
+
+        asyncio.run(frontend.broadcast({"type": "ping"}))
+
+        self.assertEqual(first.messages, [{"type": "ping"}])
+        self.assertEqual(late.messages, [{"type": "ping"}])
+        self.assertNotIn(late, frontend.connections)
 
 
 class TestAgentCoreAdapterApi(unittest.TestCase):

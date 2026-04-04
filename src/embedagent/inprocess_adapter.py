@@ -1936,6 +1936,7 @@ class InProcessAdapter(object):
             memory_maintenance=self.memory_maintenance,
             maintenance_interval=self.maintenance_interval,
             transcript_store=self.transcript_store,
+            session_lock=state.lock,
         )
         current_step = {"step_id": "", "step_index": 0}
         thinking_state = {"active": False}

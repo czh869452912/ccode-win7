@@ -1,6 +1,6 @@
 # EmbedAgent 开发进度跟踪
 
-> 更新日期：2026-04-04（Transcript hardening + message parent chain + timeline seq ordering + compact boundary dedupe + parallel tool timeout/cancel hardening）
+> 更新日期：2026-04-04（Transcript hardening + message parent chain + timeline seq ordering + compact boundary dedupe + parallel tool timeout/cancel hardening + websocket/session-lock race hardening）
 > 用途：持续跟踪当前阶段、下一步任务、里程碑进度、风险与阻塞
 
 ---
@@ -122,6 +122,8 @@
 - tool interrupt / retry 已继续推进第八段：`StreamingToolExecutor` 现在对并行 batch 引入 idle timeout / cancel 收口；started 但迟迟不返回的只读 action 会落 `timeout` 或 `interrupted`，尚未开始的兄弟 action 会落 `discarded`，session 不再因单个卡死线程无限等待
 - timeline 持久化已推进一段：`SessionTimelineStore` 现在与 transcript 一样按文件串行化写入并记录单调 `seq`；GUI raw timeline 顺序不再只依赖 `created_at`
 - GUI turn 锚点已收口：webapp reducer 现在会给本地用户消息分配 provisional turn anchor，并在 `turn_started` 到来时整体回填，`/mode ... <message>` 这类“先命令结果、后真实 turn”链路不再把 command card 绑到伪 turn id 上
+- GUI backend broadcast 已硬化：`WebSocketFrontend` 现在会在广播前冻结连接快照，并在独立锁下做 connect/disconnect/cleanup，连接集变化不再触发 `Set changed size during iteration`
+- QueryEngine session 互斥已补齐：`InProcessAdapter` 现在把 `state.lock` 传给 `QueryEngine`，后者会在上下文构建、消息追加、transition/tool_result 落盘、compact boundary 写入和 summary refresh 等关键路径上持锁，避免运行中的 session 与外部模式/快照操作共享可变 `Session` 时发生竞态
 - Phase 7 设计基线已建立：`docs/offline-packaging.md`、`docs/win7-preflight-checklist.md` 与 ADR `0001-offline-portable-bundle-baseline.md`
 - Phase 7 初始脚本骨架已落地：`scripts/prepare-offline.ps1` 已可生成 `build/offline-staging/EmbedAgent/`、launcher、模板配置和 manifest/checksum 草案，并已通过 `powershell.exe -NoProfile -File scripts/prepare-offline.ps1 -SkipBuild` 验证
 - Phase 7 build 脚本骨架已落地：`scripts/build-offline-bundle.ps1` 已可把 staging bundle 复制到 `build/offline-dist/`、重写 manifest、重算 checksum，并生成 zip

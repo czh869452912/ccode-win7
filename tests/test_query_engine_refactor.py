@@ -162,6 +162,42 @@ class ToolClient(object):
         return reply
 
 
+class RecordingSessionLock(object):
+    def __init__(self):
+        self._lock = threading.RLock()
+        self._depth = 0
+
+    def __enter__(self):
+        self._lock.acquire()
+        self._depth += 1
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        self._depth -= 1
+        self._lock.release()
+
+    def held(self):
+        return self._depth > 0
+
+
+class LockCheckingContextManager(ContextManager):
+    def __init__(self, lock, *args, **kwargs):
+        super(LockCheckingContextManager, self).__init__(*args, **kwargs)
+        self._lock = lock
+
+    def build_messages(self, session, mode_name=None, tools=None, workflow_state="chat", intelligence_broker=None, force_compact=False):
+        if not self._lock.held():
+            raise AssertionError("session lock not held during context build")
+        return super(LockCheckingContextManager, self).build_messages(
+            session,
+            mode_name=mode_name,
+            tools=tools,
+            workflow_state=workflow_state,
+            intelligence_broker=intelligence_broker,
+            force_compact=force_compact,
+        )
+
+
 class ParallelReadThenDoneClient(object):
     def __init__(self):
         self.calls = 0
@@ -925,6 +961,53 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertEqual(tool_result["payload"].get("parent_message_id"), message_events[-2]["payload"].get("message_id"))
         self.assertTrue(tool_result["payload"].get("message_id"))
         self.assertEqual(message_events[-1]["payload"].get("parent_message_id"), tool_result["payload"].get("message_id"))
+
+    def test_query_engine_uses_session_lock_for_context_and_session_mutation(self):
+        session = Session()
+        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：code")
+        lock = RecordingSessionLock()
+        context_manager = LockCheckingContextManager(lock)
+
+        original_add_user_message = session.add_user_message
+        original_begin_step = session.begin_step
+        original_add_assistant_reply = session.add_assistant_reply
+        original_add_observation = session.add_observation
+
+        def checked_add_user_message(*args, **kwargs):
+            self.assertTrue(lock.held())
+            return original_add_user_message(*args, **kwargs)
+
+        def checked_begin_step(*args, **kwargs):
+            self.assertTrue(lock.held())
+            return original_begin_step(*args, **kwargs)
+
+        def checked_add_assistant_reply(*args, **kwargs):
+            self.assertTrue(lock.held())
+            return original_add_assistant_reply(*args, **kwargs)
+
+        def checked_add_observation(*args, **kwargs):
+            self.assertTrue(lock.held())
+            return original_add_observation(*args, **kwargs)
+
+        session.add_user_message = checked_add_user_message
+        session.begin_step = checked_begin_step
+        session.add_assistant_reply = checked_add_assistant_reply
+        session.add_observation = checked_add_observation
+
+        engine = QueryEngine(
+            client=ToolClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+            context_manager=context_manager,
+            session_lock=lock,
+        )
+        result = engine.submit_turn(
+            user_text="读取文件",
+            stream=False,
+            initial_mode="code",
+            session=session,
+        )
+        self.assertEqual(result.transition.reason, "completed")
 
     def test_query_engine_writes_pending_interaction_events(self):
         session = Session()

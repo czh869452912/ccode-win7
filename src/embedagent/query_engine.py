@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextlib import nullcontext
 import logging
 import os
 import threading
@@ -54,6 +55,7 @@ class QueryEngine(object):
         intelligence_broker: Optional[WorkspaceIntelligenceBroker] = None,
         max_parallel_tools: int = 3,
         transcript_store: Optional[TranscriptStore] = None,
+        session_lock: Optional[Any] = None,
     ) -> None:
         self.client = client
         self.tools = tools
@@ -71,7 +73,11 @@ class QueryEngine(object):
         self.intelligence_broker = intelligence_broker or WorkspaceIntelligenceBroker()
         self.max_parallel_tools = max(1, int(max_parallel_tools or 1))
         self.transcript_store = transcript_store or TranscriptStore(self.tools.workspace)
+        self.session_lock = session_lock
         self._maintenance_counter = 0
+
+    def _session_guard(self):
+        return self.session_lock if self.session_lock is not None else nullcontext()
 
     def _append_transcript_event(self, session: Session, event_type: str, payload: Dict[str, Any]) -> None:
         if self.transcript_store is None:
@@ -120,63 +126,65 @@ class QueryEngine(object):
             return
         if self.transcript_store.transcript_exists(session.session_id):
             return
-        self._append_transcript_event(
-            session,
-            "session_meta",
-            {
-                "current_mode": current_mode,
-                "started_at": session.started_at,
-                "workspace": self.tools.workspace,
-            },
-        )
-        for message in list(getattr(session, "messages", []) or []):
-            self._append_message_event(session, self._message_event_payload(message))
-        for boundary in list(getattr(session, "compact_boundaries", []) or []):
+        with self._session_guard():
             self._append_transcript_event(
                 session,
-                "compact_boundary",
+                "session_meta",
                 {
-                    "boundary_id": str(getattr(boundary, "boundary_id", "") or ""),
-                    "summary_text": str(getattr(boundary, "summary_text", "") or ""),
-                    "compacted_turn_count": int(getattr(boundary, "compacted_turn_count", 0) or 0),
-                    "created_at": str(getattr(boundary, "created_at", "") or ""),
-                    "mode_name": str(getattr(boundary, "mode_name", "") or ""),
-                    "preserved_head_message_id": str(getattr(boundary, "preserved_head_message_id", "") or ""),
-                    "preserved_tail_message_id": str(getattr(boundary, "preserved_tail_message_id", "") or ""),
-                    "metadata": dict(getattr(boundary, "metadata", {}) or {}),
+                    "current_mode": current_mode,
+                    "started_at": session.started_at,
+                    "workspace": self.tools.workspace,
                 },
             )
+            for message in list(getattr(session, "messages", []) or []):
+                self._append_message_event(session, self._message_event_payload(message))
+            for boundary in list(getattr(session, "compact_boundaries", []) or []):
+                self._append_transcript_event(
+                    session,
+                    "compact_boundary",
+                    {
+                        "boundary_id": str(getattr(boundary, "boundary_id", "") or ""),
+                        "summary_text": str(getattr(boundary, "summary_text", "") or ""),
+                        "compacted_turn_count": int(getattr(boundary, "compacted_turn_count", 0) or 0),
+                        "created_at": str(getattr(boundary, "created_at", "") or ""),
+                        "mode_name": str(getattr(boundary, "mode_name", "") or ""),
+                        "preserved_head_message_id": str(getattr(boundary, "preserved_head_message_id", "") or ""),
+                        "preserved_tail_message_id": str(getattr(boundary, "preserved_tail_message_id", "") or ""),
+                        "metadata": dict(getattr(boundary, "metadata", {}) or {}),
+                    },
+                )
 
     def _record_transition(self, session: Session, transition: LoopTransition) -> None:
-        step_id = session.current_step().step_id if session.current_step() is not None else ""
-        turn_id = session.turns[-1].turn_id if session.turns else ""
-        if transition.pending_interaction is not None:
+        with self._session_guard():
+            step_id = session.current_step().step_id if session.current_step() is not None else ""
+            turn_id = session.turns[-1].turn_id if session.turns else ""
+            if transition.pending_interaction is not None:
+                self._append_transcript_event(
+                    session,
+                    "pending_interaction",
+                    {
+                        "turn_id": turn_id,
+                        "step_id": step_id,
+                        "kind": transition.pending_interaction.kind,
+                        "tool_name": transition.pending_interaction.tool_name,
+                        "interaction_id": transition.pending_interaction.interaction_id,
+                        "request_payload": dict(transition.pending_interaction.request_payload),
+                    },
+                )
             self._append_transcript_event(
                 session,
-                "pending_interaction",
+                "loop_transition",
                 {
                     "turn_id": turn_id,
                     "step_id": step_id,
-                    "kind": transition.pending_interaction.kind,
-                    "tool_name": transition.pending_interaction.tool_name,
-                    "interaction_id": transition.pending_interaction.interaction_id,
-                    "request_payload": dict(transition.pending_interaction.request_payload),
+                    "reason": transition.reason,
+                    "message": transition.message,
+                    "next_mode": transition.next_mode,
+                    "turns_used": transition.turns_used,
+                    "metadata": dict(transition.metadata),
                 },
             )
-        self._append_transcript_event(
-            session,
-            "loop_transition",
-            {
-                "turn_id": turn_id,
-                "step_id": step_id,
-                "reason": transition.reason,
-                "message": transition.message,
-                "next_mode": transition.next_mode,
-                "turns_used": transition.turns_used,
-                "metadata": dict(transition.metadata),
-            },
-        )
-        session.record_transition(transition)
+            session.record_transition(transition)
 
     def _interrupted_observation(self, tool_name: str) -> Observation:
         return Observation(
@@ -220,32 +228,33 @@ class QueryEngine(object):
         step_id: str,
         on_tool_finish: Optional[Callable[[Action, Observation], None]],
     ) -> None:
-        tool_message_id = "m-" + uuid.uuid4().hex[:12]
-        parent_message_id = session.last_message_id()
-        finished_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-        self._append_transcript_event(
-            session,
-            "tool_result",
-            {
-                "turn_id": session.turns[-1].turn_id if session.turns else "",
-                "step_id": step_id,
-                "call_id": action.call_id,
-                "tool_name": action.name,
-                "message_id": tool_message_id,
-                "parent_message_id": parent_message_id,
-                "finished_at": finished_at,
-                "observation": observation.to_dict(),
-            },
-        )
-        session.add_observation(
-            action,
-            observation,
-            message_id=tool_message_id,
-            parent_message_id=parent_message_id,
-            turn_id=session.turns[-1].turn_id if session.turns else "",
-            step_id=step_id,
-            finished_at=finished_at,
-        )
+        with self._session_guard():
+            tool_message_id = "m-" + uuid.uuid4().hex[:12]
+            parent_message_id = session.last_message_id()
+            finished_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+            self._append_transcript_event(
+                session,
+                "tool_result",
+                {
+                    "turn_id": session.turns[-1].turn_id if session.turns else "",
+                    "step_id": step_id,
+                    "call_id": action.call_id,
+                    "tool_name": action.name,
+                    "message_id": tool_message_id,
+                    "parent_message_id": parent_message_id,
+                    "finished_at": finished_at,
+                    "observation": observation.to_dict(),
+                },
+            )
+            session.add_observation(
+                action,
+                observation,
+                message_id=tool_message_id,
+                parent_message_id=parent_message_id,
+                turn_id=session.turns[-1].turn_id if session.turns else "",
+                step_id=step_id,
+                finished_at=finished_at,
+            )
         self._persist_summary(session, current_mode, assembly)
         if on_tool_finish is not None:
             on_tool_finish(action, observation)
@@ -270,56 +279,58 @@ class QueryEngine(object):
     ) -> QueryTurnResult:
         current_mode = require_mode(initial_mode)["slug"]
         if session is None:
-            session = Session()
-            system_message = session.add_system_message(
-                build_system_prompt(current_mode, getattr(self.tools, "app_config", None), self.tools.workspace)
-            )
-            self._append_transcript_event(
-                session,
-                "session_meta",
-                {
-                    "current_mode": current_mode,
-                    "started_at": session.started_at,
-                    "workspace": self.tools.workspace,
-                },
-            )
-            self._append_message_event(
-                session,
-                {
-                    "role": system_message.role,
-                    "content": system_message.content,
-                    "message_id": system_message.message_id,
-                    "parent_message_id": system_message.parent_message_id,
-                    "turn_id": system_message.turn_id,
-                    "step_id": system_message.step_id,
-                    "kind": system_message.kind,
-                    "metadata": dict(system_message.metadata),
-                    "replaced_by_refs": list(system_message.replaced_by_refs),
-                },
-            )
+            with self._session_guard():
+                session = Session()
+                system_message = session.add_system_message(
+                    build_system_prompt(current_mode, getattr(self.tools, "app_config", None), self.tools.workspace)
+                )
+                self._append_transcript_event(
+                    session,
+                    "session_meta",
+                    {
+                        "current_mode": current_mode,
+                        "started_at": session.started_at,
+                        "workspace": self.tools.workspace,
+                    },
+                )
+                self._append_message_event(
+                    session,
+                    {
+                        "role": system_message.role,
+                        "content": system_message.content,
+                        "message_id": system_message.message_id,
+                        "parent_message_id": system_message.parent_message_id,
+                        "turn_id": system_message.turn_id,
+                        "step_id": system_message.step_id,
+                        "kind": system_message.kind,
+                        "metadata": dict(system_message.metadata),
+                        "replaced_by_refs": list(system_message.replaced_by_refs),
+                    },
+                )
         else:
             self._ensure_transcript_bootstrap(session, current_mode)
         if user_text:
-            turn_id = "t-" + uuid.uuid4().hex[:12]
-            message_id = "m-" + uuid.uuid4().hex[:12]
-            parent_message_id = session.last_message_id()
-            self._append_message_event(
-                session,
-                {
-                    "role": "user",
-                    "content": user_text,
-                    "message_id": message_id,
-                    "parent_message_id": parent_message_id,
-                    "turn_id": turn_id,
-                    "step_id": "",
-                },
-            )
-            session.add_user_message(
-                user_text,
-                turn_id=turn_id,
-                message_id=message_id,
-                parent_message_id=parent_message_id,
-            )
+            with self._session_guard():
+                turn_id = "t-" + uuid.uuid4().hex[:12]
+                message_id = "m-" + uuid.uuid4().hex[:12]
+                parent_message_id = session.last_message_id()
+                self._append_message_event(
+                    session,
+                    {
+                        "role": "user",
+                        "content": user_text,
+                        "message_id": message_id,
+                        "parent_message_id": parent_message_id,
+                        "turn_id": turn_id,
+                        "step_id": "",
+                    },
+                )
+                session.add_user_message(
+                    user_text,
+                    turn_id=turn_id,
+                    message_id=message_id,
+                    parent_message_id=parent_message_id,
+                )
         return self._run_loop(
             session,
             current_mode,
@@ -356,7 +367,8 @@ class QueryEngine(object):
         user_input_handler: Optional[Callable[[UserInputRequest], Optional[UserInputResponse]]] = None,
     ) -> QueryTurnResult:
         current_mode = require_mode(initial_mode)["slug"]
-        pending = session.pending_interaction
+        with self._session_guard():
+            pending = session.pending_interaction
         if pending is None:
             transition = LoopTransition(reason="completed", message="no pending interaction")
             self._record_transition(session, transition)
@@ -413,16 +425,17 @@ class QueryEngine(object):
                 return QueryTurnResult(final_text, session, transition, turns_used)
             step_index = turn_index + 1
             step_id = "s-" + uuid.uuid4().hex[:12]
-            self._append_transcript_event(
-                session,
-                "step_started",
-                {
-                    "turn_id": session.turns[-1].turn_id if session.turns else "",
-                    "step_id": step_id,
-                    "step_index": step_index,
-                },
-            )
-            session.begin_step(step_id=step_id)
+            with self._session_guard():
+                self._append_transcript_event(
+                    session,
+                    "step_started",
+                    {
+                        "turn_id": session.turns[-1].turn_id if session.turns else "",
+                        "step_id": step_id,
+                        "step_index": step_index,
+                    },
+                )
+                session.begin_step(step_id=step_id)
             if on_step_start is not None:
                 on_step_start(step_index)
             force_compact = False
@@ -430,33 +443,34 @@ class QueryEngine(object):
             compact_boundary_recorded = False
             while True:
                 assembly = self._build_context(session, current_mode, workflow_state, force_compact=force_compact)
-                session.record_context_snapshot(
-                    {
-                        "mode_name": current_mode,
-                        "pipeline_steps": list(assembly.pipeline_steps),
-                        "analysis": dict(assembly.analysis),
-                        "approx_tokens": assembly.approx_tokens,
-                        "summary_message": assembly.summary_message,
-                    }
-                )
-                self._append_transcript_event(
-                    session,
-                    "context_snapshot",
-                    {
-                        "mode_name": current_mode,
-                        "pipeline_steps": list(assembly.pipeline_steps),
-                        "analysis": dict(assembly.analysis),
-                        "approx_tokens": assembly.approx_tokens,
-                        "summary_message": assembly.summary_message,
-                    },
-                )
-                for replacement in assembly.replacements:
-                    session.record_content_replacement(dict(replacement))
+                with self._session_guard():
+                    session.record_context_snapshot(
+                        {
+                            "mode_name": current_mode,
+                            "pipeline_steps": list(assembly.pipeline_steps),
+                            "analysis": dict(assembly.analysis),
+                            "approx_tokens": assembly.approx_tokens,
+                            "summary_message": assembly.summary_message,
+                        }
+                    )
                     self._append_transcript_event(
                         session,
-                        "content_replacement",
-                        dict(replacement),
+                        "context_snapshot",
+                        {
+                            "mode_name": current_mode,
+                            "pipeline_steps": list(assembly.pipeline_steps),
+                            "analysis": dict(assembly.analysis),
+                            "approx_tokens": assembly.approx_tokens,
+                            "summary_message": assembly.summary_message,
+                        },
                     )
+                    for replacement in assembly.replacements:
+                        session.record_content_replacement(dict(replacement))
+                        self._append_transcript_event(
+                            session,
+                            "content_replacement",
+                            dict(replacement),
+                        )
                 if on_context_result is not None:
                     on_context_result(assembly)
                 self._persist_summary(session, current_mode, assembly)
@@ -484,45 +498,46 @@ class QueryEngine(object):
                     )
                     self._record_transition(session, transition)
                     continue
-            assistant_message_id = "m-" + uuid.uuid4().hex[:12]
-            parent_message_id = session.last_message_id()
-            self._append_message_event(
-                session,
-                {
-                    "role": "assistant",
-                    "content": reply.content,
-                    "message_id": assistant_message_id,
-                    "parent_message_id": parent_message_id,
-                    "turn_id": session.turns[-1].turn_id if session.turns else "",
-                    "step_id": step_id,
-                    "actions": [
-                        {"name": action.name, "arguments": dict(action.arguments), "call_id": action.call_id}
-                        for action in reply.actions
-                    ],
-                    "reasoning_content": reply.reasoning_content,
-                    "finish_reason": reply.finish_reason,
-                },
-            )
-            session.add_assistant_reply(
-                reply,
-                message_id=assistant_message_id,
-                parent_message_id=parent_message_id,
-                turn_id=session.turns[-1].turn_id if session.turns else "",
-                step_id=step_id,
-            )
-            for action in reply.actions:
-                self._append_transcript_event(
+            with self._session_guard():
+                assistant_message_id = "m-" + uuid.uuid4().hex[:12]
+                parent_message_id = session.last_message_id()
+                self._append_message_event(
                     session,
-                    "tool_call",
                     {
+                        "role": "assistant",
+                        "content": reply.content,
+                        "message_id": assistant_message_id,
+                        "parent_message_id": parent_message_id,
                         "turn_id": session.turns[-1].turn_id if session.turns else "",
                         "step_id": step_id,
-                        "call_id": action.call_id,
-                        "tool_name": action.name,
-                        "arguments": dict(action.arguments),
-                        "status": "pending",
+                        "actions": [
+                            {"name": action.name, "arguments": dict(action.arguments), "call_id": action.call_id}
+                            for action in reply.actions
+                        ],
+                        "reasoning_content": reply.reasoning_content,
+                        "finish_reason": reply.finish_reason,
                     },
                 )
+                session.add_assistant_reply(
+                    reply,
+                    message_id=assistant_message_id,
+                    parent_message_id=parent_message_id,
+                    turn_id=session.turns[-1].turn_id if session.turns else "",
+                    step_id=step_id,
+                )
+                for action in reply.actions:
+                    self._append_transcript_event(
+                        session,
+                        "tool_call",
+                        {
+                            "turn_id": session.turns[-1].turn_id if session.turns else "",
+                            "step_id": step_id,
+                            "call_id": action.call_id,
+                            "tool_name": action.name,
+                            "arguments": dict(action.arguments),
+                            "status": "pending",
+                        },
+                    )
             final_text = reply.content
             turns_used = step_index
             if not reply.actions:
@@ -675,14 +690,15 @@ class QueryEngine(object):
         return QueryTurnResult(final_text, session, transition, turns_used)
 
     def _build_context(self, session: Session, mode_name: str, workflow_state: str, force_compact: bool = False) -> ContextAssemblyResult:
-        build = self.context_manager.build_messages(
-            session,
-            mode_name,
-            tools=self.tools,
-            workflow_state=workflow_state,
-            intelligence_broker=self.intelligence_broker,
-            force_compact=force_compact,
-        )
+        with self._session_guard():
+            build = self.context_manager.build_messages(
+                session,
+                mode_name,
+                tools=self.tools,
+                workflow_state=workflow_state,
+                intelligence_broker=self.intelligence_broker,
+                force_compact=force_compact,
+            )
         if isinstance(build, ContextAssemblyResult):
             return build
         return ContextAssemblyResult(
@@ -781,7 +797,8 @@ class QueryEngine(object):
             if target_mode:
                 target_mode = str(require_mode(target_mode)["slug"])
                 if target_mode != current_mode:
-                    session.add_system_message(build_system_prompt(target_mode, getattr(self.tools, "app_config", None), getattr(self.tools, "workspace", "")))
+                    with self._session_guard():
+                        session.add_system_message(build_system_prompt(target_mode, getattr(self.tools, "app_config", None), getattr(self.tools, "workspace", "")))
                     current_mode = target_mode
             return Observation("propose_mode_switch", True, None, {"selected_mode": target_mode, "mode_changed": bool(target_mode)}), current_mode, None
         decision = self.permission_policy.evaluate(runtime_action)
@@ -832,7 +849,8 @@ class QueryEngine(object):
             if selected_mode != current_mode:
                 next_mode = selected_mode
                 mode_changed = True
-                session.add_system_message(build_system_prompt(selected_mode, getattr(self.tools, "app_config", None), getattr(self.tools, "workspace", "")))
+                with self._session_guard():
+                    session.add_system_message(build_system_prompt(selected_mode, getattr(self.tools, "app_config", None), getattr(self.tools, "workspace", "")))
         return Observation(
             "ask_user",
             True,
@@ -856,21 +874,22 @@ class QueryEngine(object):
         on_tool_start: Optional[Callable[[Action], None]],
         on_tool_finish: Optional[Callable[[Action, Observation], None]],
     ) -> str:
-        turn_id = session.turns[-1].turn_id if session.turns else ""
-        step_id = session.current_step().step_id if session.current_step() is not None else ""
-        self._append_transcript_event(
-            session,
-            "pending_resolution",
-            {
-                "turn_id": turn_id,
-                "step_id": step_id,
-                "interaction_id": pending.interaction_id,
-                "kind": pending.kind,
-                "tool_name": pending.tool_name,
-                "resolution_payload": dict(resolution or {}),
-            },
-        )
-        session.resolve_pending_interaction(resolution)
+        with self._session_guard():
+            turn_id = session.turns[-1].turn_id if session.turns else ""
+            step_id = session.current_step().step_id if session.current_step() is not None else ""
+            self._append_transcript_event(
+                session,
+                "pending_resolution",
+                {
+                    "turn_id": turn_id,
+                    "step_id": step_id,
+                    "interaction_id": pending.interaction_id,
+                    "kind": pending.kind,
+                    "tool_name": pending.tool_name,
+                    "resolution_payload": dict(resolution or {}),
+                },
+            )
+            session.resolve_pending_interaction(resolution)
         action_payload = pending.request_payload.get("action") if isinstance(pending.request_payload, dict) else {}
         action = Action(
             name=str(action_payload.get("name") or pending.tool_name),
@@ -897,33 +916,34 @@ class QueryEngine(object):
                 selected_option_text=str(resolution.get("selected_option_text") or ""),
             )
             observation, current_mode = self._build_user_input_observation(session, current_mode, request, response)
-        tool_message_id = "m-" + uuid.uuid4().hex[:12]
-        parent_message_id = session.last_message_id()
-        finished_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-        self._append_transcript_event(
-            session,
-            "tool_result",
-            {
-                "turn_id": turn_id,
-                "step_id": step_id,
-                "call_id": action.call_id,
-                "tool_name": action.name,
-                "arguments": dict(action.arguments),
-                "message_id": tool_message_id,
-                "parent_message_id": parent_message_id,
-                "finished_at": finished_at,
-                "observation": observation.to_dict(),
-            },
-        )
-        session.add_observation(
-            action,
-            observation,
-            message_id=tool_message_id,
-            parent_message_id=parent_message_id,
-            turn_id=turn_id,
-            step_id=step_id,
-            finished_at=finished_at,
-        )
+        with self._session_guard():
+            tool_message_id = "m-" + uuid.uuid4().hex[:12]
+            parent_message_id = session.last_message_id()
+            finished_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+            self._append_transcript_event(
+                session,
+                "tool_result",
+                {
+                    "turn_id": turn_id,
+                    "step_id": step_id,
+                    "call_id": action.call_id,
+                    "tool_name": action.name,
+                    "arguments": dict(action.arguments),
+                    "message_id": tool_message_id,
+                    "parent_message_id": parent_message_id,
+                    "finished_at": finished_at,
+                    "observation": observation.to_dict(),
+                },
+            )
+            session.add_observation(
+                action,
+                observation,
+                message_id=tool_message_id,
+                parent_message_id=parent_message_id,
+                turn_id=turn_id,
+                step_id=step_id,
+                finished_at=finished_at,
+            )
         if on_tool_finish is not None:
             on_tool_finish(action, observation)
         return current_mode
@@ -950,56 +970,58 @@ class QueryEngine(object):
         raise last_exc  # type: ignore[misc]
 
     def _persist_summary(self, session: Session, current_mode: str, assembly: Optional[ContextAssemblyResult] = None) -> None:
-        summary_ref = None
-        try:
-            summary_ref = self.summary_store.persist(session, current_mode, assembly)
-        except Exception as exc:
-            _LOG.warning("session summary persist failed: %s", exc)
-        try:
-            self.project_memory_store.refresh(session, current_mode, summary_ref)
-        except Exception as exc:
-            _LOG.warning("project memory refresh failed: %s", exc)
-        try:
-            session.trim_old_observations(30)
-        except Exception as exc:
-            _LOG.warning("session trim failed: %s", exc)
+        with self._session_guard():
+            summary_ref = None
+            try:
+                summary_ref = self.summary_store.persist(session, current_mode, assembly)
+            except Exception as exc:
+                _LOG.warning("session summary persist failed: %s", exc)
+            try:
+                self.project_memory_store.refresh(session, current_mode, summary_ref)
+            except Exception as exc:
+                _LOG.warning("project memory refresh failed: %s", exc)
+            try:
+                session.trim_old_observations(30)
+            except Exception as exc:
+                _LOG.warning("session trim failed: %s", exc)
         self._maybe_maintain_memory()
 
     def _maybe_record_compact_boundary(self, session: Session, current_mode: str, assembly: ContextAssemblyResult) -> bool:
         if not assembly.compacted or not assembly.summary_message or assembly.summarized_turns <= 0:
             return False
-        compacted_turn_count = max(0, len(session.turns) - assembly.recent_turns)
-        latest = session.latest_compact_boundary()
-        if latest is not None and latest.compacted_turn_count == compacted_turn_count:
-            return False
-        preserved_head_message_id, preserved_tail_message_id = session.preserved_segment_message_ids(assembly.recent_turns)
-        boundary = session.add_compact_boundary(
-            assembly.summary_message,
-            compacted_turn_count,
-            current_mode,
-            {
-                "approx_tokens": assembly.approx_tokens,
-                "replacements": len(assembly.replacements),
-                "pipeline_steps": list(assembly.pipeline_steps),
-            },
-            preserved_head_message_id=preserved_head_message_id,
-            preserved_tail_message_id=preserved_tail_message_id,
-        )
-        self._append_transcript_event(
-            session,
-            "compact_boundary",
-            {
-                "boundary_id": boundary.boundary_id,
-                "summary_text": boundary.summary_text,
-                "compacted_turn_count": boundary.compacted_turn_count,
-                "created_at": boundary.created_at,
-                "mode_name": boundary.mode_name,
-                "preserved_head_message_id": boundary.preserved_head_message_id,
-                "preserved_tail_message_id": boundary.preserved_tail_message_id,
-                "metadata": dict(boundary.metadata),
-            },
-        )
-        return True
+        with self._session_guard():
+            compacted_turn_count = max(0, len(session.turns) - assembly.recent_turns)
+            latest = session.latest_compact_boundary()
+            if latest is not None and latest.compacted_turn_count == compacted_turn_count:
+                return False
+            preserved_head_message_id, preserved_tail_message_id = session.preserved_segment_message_ids(assembly.recent_turns)
+            boundary = session.add_compact_boundary(
+                assembly.summary_message,
+                compacted_turn_count,
+                current_mode,
+                {
+                    "approx_tokens": assembly.approx_tokens,
+                    "replacements": len(assembly.replacements),
+                    "pipeline_steps": list(assembly.pipeline_steps),
+                },
+                preserved_head_message_id=preserved_head_message_id,
+                preserved_tail_message_id=preserved_tail_message_id,
+            )
+            self._append_transcript_event(
+                session,
+                "compact_boundary",
+                {
+                    "boundary_id": boundary.boundary_id,
+                    "summary_text": boundary.summary_text,
+                    "compacted_turn_count": boundary.compacted_turn_count,
+                    "created_at": boundary.created_at,
+                    "mode_name": boundary.mode_name,
+                    "preserved_head_message_id": boundary.preserved_head_message_id,
+                    "preserved_tail_message_id": boundary.preserved_tail_message_id,
+                    "metadata": dict(boundary.metadata),
+                },
+            )
+            return True
 
     def _maybe_maintain_memory(self, force: bool = False) -> None:
         self._maintenance_counter += 1

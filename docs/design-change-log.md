@@ -68,6 +68,26 @@
   - 视 GUI 真实宿主验证结果，决定是否把更多 raw event 投影切换到 `seq` 驱动的增量加载
   - 为更复杂的 resume / compact / mode-change 组合场景补集成回归
 
+### DC-061
+
+- 日期：2026-04-04
+- 变更主题：GUI broadcast 与 QueryEngine session 共享状态的竞态点现在显式收口
+- 变更摘要：
+  - `WebSocketFrontend` 现在为 `connections` 增加锁保护，并在广播时先复制快照再发送，连接在发送期间断开不再触发集合迭代异常
+  - `QueryEngine` 新增可选 `session_lock`，并在 context build、message/tool_result/transition 追加、pending resolution replay、summary persist 与 compact boundary 写入等关键路径上统一持锁
+  - `InProcessAdapter` 已把 `ManagedSession.lock` 作为 `session_lock` 传给 `QueryEngine`，让真实 GUI/API 运行链路也能受益，而不只是单元测试路径
+- 影响范围：
+  - GUI WebSocket 稳定性
+  - Query loop 与 adapter/session snapshot 的并发一致性
+  - 运行中 session 的状态真相边界
+- 关联文档：
+  - `docs/development-tracker.md`
+  - `docs/query-context-redesign.md`
+- 是否需要 ADR：`否`
+- 后续动作：
+  - 继续观察是否需要把 timeline/project memory 等更多只读投影统一迁移到 session truth 的同一锁域
+  - 在真实 GUI 宿主里继续观察高频事件下的广播吞吐与顺序表现
+
 ### DC-056
 
 - 日期：2026-04-04
