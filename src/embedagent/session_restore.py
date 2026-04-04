@@ -122,6 +122,8 @@ class SessionRestorer(object):
                 session.record_context_snapshot(dict(payload))
                 continue
             if event_type == "compact_boundary":
+                if not self._is_valid_compact_boundary(session, payload):
+                    break
                 session.add_compact_boundary(
                     str(payload.get("summary_text") or ""),
                     int(payload.get("compacted_turn_count") or 0),
@@ -230,3 +232,25 @@ class SessionRestorer(object):
         if step is None:
             return False
         return str(step.step_id or "") == expected
+
+    def _is_valid_compact_boundary(self, session: Session, payload: Dict[str, Any]) -> bool:
+        head_id = str(payload.get("preserved_head_message_id") or "").strip()
+        tail_id = str(payload.get("preserved_tail_message_id") or "").strip()
+        if not head_id and not tail_id:
+            return True
+        if not head_id or not tail_id:
+            return False
+        head_index = self._message_index(session, head_id)
+        tail_index = self._message_index(session, tail_id)
+        if head_index < 0 or tail_index < 0:
+            return False
+        return head_index <= tail_index
+
+    def _message_index(self, session: Session, message_id: str) -> int:
+        target = str(message_id or "").strip()
+        if not target:
+            return -1
+        for index, message in enumerate(session.messages):
+            if str(getattr(message, "message_id", "") or "") == target:
+                return index
+        return -1

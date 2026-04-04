@@ -359,6 +359,128 @@ class TestSessionRestorer(unittest.TestCase):
         self.assertEqual(len(result.session.turns[0].steps), 1)
         self.assertEqual(result.session.turns[0].transitions, [])
 
+    def test_restore_stops_at_compact_boundary_with_missing_preserved_message(self):
+        session_id = "sess-invalid-boundary-missing"
+        self.store.append_event(session_id, "session_meta", {"current_mode": "code"})
+        self.store.append_event(
+            session_id,
+            "message",
+            {"role": "user", "content": "读取文件", "message_id": "m-user", "turn_id": "t-1", "step_id": ""},
+        )
+        self.store.append_event(session_id, "step_started", {"turn_id": "t-1", "step_id": "s-1", "step_index": 1})
+        self.store.append_event(
+            session_id,
+            "message",
+            {
+                "role": "assistant",
+                "content": "已压缩",
+                "message_id": "m-assistant",
+                "turn_id": "t-1",
+                "step_id": "s-1",
+                "actions": [],
+                "reasoning_content": "",
+                "finish_reason": "stop",
+            },
+        )
+        self.store.append_event(
+            session_id,
+            "compact_boundary",
+            {
+                "boundary_id": "cb-1",
+                "summary_text": "Earlier work summary",
+                "compacted_turn_count": 1,
+                "created_at": "2026-04-02T00:00:01Z",
+                "mode_name": "code",
+                "preserved_head_message_id": "m-missing",
+                "preserved_tail_message_id": "m-assistant",
+                "metadata": {},
+            },
+        )
+        self.store.append_event(
+            session_id,
+            "loop_transition",
+            {
+                "turn_id": "t-1",
+                "step_id": "s-1",
+                "reason": "completed",
+                "message": "assistant finished",
+                "next_mode": "code",
+                "turns_used": 1,
+                "metadata": {},
+            },
+        )
+        result = SessionRestorer().restore(self.store.load_events(session_id))
+        self.assertEqual(result.session.compact_boundaries, [])
+        self.assertEqual(result.session.turns[0].transitions, [])
+
+    def test_restore_stops_at_compact_boundary_with_reversed_preserved_range(self):
+        session_id = "sess-invalid-boundary-order"
+        self.store.append_event(session_id, "session_meta", {"current_mode": "code"})
+        self.store.append_event(
+            session_id,
+            "message",
+            {"role": "user", "content": "读取文件", "message_id": "m-user", "turn_id": "t-1", "step_id": ""},
+        )
+        self.store.append_event(session_id, "step_started", {"turn_id": "t-1", "step_id": "s-1", "step_index": 1})
+        self.store.append_event(
+            session_id,
+            "message",
+            {
+                "role": "assistant",
+                "content": "first",
+                "message_id": "m-assistant-1",
+                "turn_id": "t-1",
+                "step_id": "s-1",
+                "actions": [],
+                "reasoning_content": "",
+                "finish_reason": "stop",
+            },
+        )
+        self.store.append_event(
+            session_id,
+            "message",
+            {
+                "role": "assistant",
+                "content": "second",
+                "message_id": "m-assistant-2",
+                "turn_id": "t-1",
+                "step_id": "s-1",
+                "actions": [],
+                "reasoning_content": "",
+                "finish_reason": "stop",
+            },
+        )
+        self.store.append_event(
+            session_id,
+            "compact_boundary",
+            {
+                "boundary_id": "cb-1",
+                "summary_text": "Earlier work summary",
+                "compacted_turn_count": 1,
+                "created_at": "2026-04-02T00:00:01Z",
+                "mode_name": "code",
+                "preserved_head_message_id": "m-assistant-2",
+                "preserved_tail_message_id": "m-assistant-1",
+                "metadata": {},
+            },
+        )
+        self.store.append_event(
+            session_id,
+            "loop_transition",
+            {
+                "turn_id": "t-1",
+                "step_id": "s-1",
+                "reason": "completed",
+                "message": "assistant finished",
+                "next_mode": "code",
+                "turns_used": 1,
+                "metadata": {},
+            },
+        )
+        result = SessionRestorer().restore(self.store.load_events(session_id))
+        self.assertEqual(result.session.compact_boundaries, [])
+        self.assertEqual(result.session.turns[0].transitions, [])
+
 
 if __name__ == "__main__":
     unittest.main()

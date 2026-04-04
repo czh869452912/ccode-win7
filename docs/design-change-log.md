@@ -146,6 +146,26 @@
   - 继续补 message-chain / preserved segment 的一致性校验
   - 评估 restore 结果是否要暴露 stop reason / consumed event count
 
+### DC-061
+
+- 日期：2026-04-04
+- 变更主题：compact boundary replay 现在校验 preserved segment，QueryEngine 会为已有内存历史补 transcript bootstrap
+- 变更摘要：
+  - `SessionRestorer` 在回放 `compact_boundary` 前，会验证 `preserved_head_message_id / preserved_tail_message_id` 是否都能在已恢复 message 中找到，且顺序必须合法
+  - `QueryEngine` 在遇到“已有内存历史但 transcript 还不存在”的 session 时，会先把当前 `session.messages` 与 `compact_boundaries` bootstrap 到 transcript，再继续本轮执行
+  - 这避免了新生成的 compact boundary 引用了 transcript 中根本不存在的旧 message，导致恢复器把 boundary 判为坏数据
+- 影响范围：
+  - compact boundary replay
+  - transcript bootstrap for existing in-memory sessions
+  - resumed session 的 compact 边界稳定性
+- 关联文档：
+  - `docs/context-loop-handoff-status.md`
+  - `docs/development-tracker.md`
+- 是否需要 ADR：`否`
+- 后续动作：
+  - 继续补 message event 自身的 chain / parent consistency 校验
+  - 评估 bootstrap 是否需要进一步回填 tool topology / transitions
+
 ### DC-055
 
 - 日期：2026-04-02

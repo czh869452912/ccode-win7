@@ -81,6 +81,71 @@ class QueryEngine(object):
     def _append_message_event(self, session: Session, payload: Dict[str, Any]) -> None:
         self._append_transcript_event(session, "message", payload)
 
+    def _message_event_payload(self, message: Any) -> Dict[str, Any]:
+        payload = {
+            "role": str(getattr(message, "role", "") or ""),
+            "content": str(getattr(message, "content", "") or ""),
+            "message_id": str(getattr(message, "message_id", "") or ""),
+            "turn_id": str(getattr(message, "turn_id", "") or ""),
+            "step_id": str(getattr(message, "step_id", "") or ""),
+            "kind": str(getattr(message, "kind", "message") or "message"),
+            "metadata": dict(getattr(message, "metadata", {}) or {}),
+            "replaced_by_refs": list(getattr(message, "replaced_by_refs", []) or []),
+        }
+        name = str(getattr(message, "name", "") or "")
+        if name:
+            payload["tool_name"] = name
+        tool_call_id = str(getattr(message, "tool_call_id", "") or "")
+        if tool_call_id:
+            payload["tool_call_id"] = tool_call_id
+        actions = []
+        for action in list(getattr(message, "action_calls", []) or []):
+            actions.append(
+                {
+                    "name": str(getattr(action, "name", "") or ""),
+                    "arguments": dict(getattr(action, "arguments", {}) or {}),
+                    "call_id": str(getattr(action, "call_id", "") or ""),
+                }
+            )
+        if actions:
+            payload["actions"] = actions
+        reasoning_content = str(getattr(message, "reasoning_content", "") or "")
+        if reasoning_content:
+            payload["reasoning_content"] = reasoning_content
+        return payload
+
+    def _ensure_transcript_bootstrap(self, session: Session, current_mode: str) -> None:
+        if self.transcript_store is None:
+            return
+        if self.transcript_store.transcript_exists(session.session_id):
+            return
+        self._append_transcript_event(
+            session,
+            "session_meta",
+            {
+                "current_mode": current_mode,
+                "started_at": session.started_at,
+                "workspace": self.tools.workspace,
+            },
+        )
+        for message in list(getattr(session, "messages", []) or []):
+            self._append_message_event(session, self._message_event_payload(message))
+        for boundary in list(getattr(session, "compact_boundaries", []) or []):
+            self._append_transcript_event(
+                session,
+                "compact_boundary",
+                {
+                    "boundary_id": str(getattr(boundary, "boundary_id", "") or ""),
+                    "summary_text": str(getattr(boundary, "summary_text", "") or ""),
+                    "compacted_turn_count": int(getattr(boundary, "compacted_turn_count", 0) or 0),
+                    "created_at": str(getattr(boundary, "created_at", "") or ""),
+                    "mode_name": str(getattr(boundary, "mode_name", "") or ""),
+                    "preserved_head_message_id": str(getattr(boundary, "preserved_head_message_id", "") or ""),
+                    "preserved_tail_message_id": str(getattr(boundary, "preserved_tail_message_id", "") or ""),
+                    "metadata": dict(getattr(boundary, "metadata", {}) or {}),
+                },
+            )
+
     def _record_transition(self, session: Session, transition: LoopTransition) -> None:
         step_id = session.current_step().step_id if session.current_step() is not None else ""
         turn_id = session.turns[-1].turn_id if session.turns else ""
@@ -226,6 +291,8 @@ class QueryEngine(object):
                     "replaced_by_refs": list(system_message.replaced_by_refs),
                 },
             )
+        else:
+            self._ensure_transcript_bootstrap(session, current_mode)
         if user_text:
             turn_id = "t-" + uuid.uuid4().hex[:12]
             message_id = "m-" + uuid.uuid4().hex[:12]
