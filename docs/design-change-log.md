@@ -266,6 +266,26 @@
   - 继续评估 restore stop reason / consumed event count 的上抛
   - 若继续推进 parent/reference contract，可把 assistant action/tool_result/message 三条链路纳入统一约束
 
+### DC-067
+
+- 日期：2026-04-04
+- 变更主题：content_replacement replay 现在校验目标 tool message 的引用一致性
+- 变更摘要：
+  - `SessionRestorer` 现在要求 `content_replacement.message_id` 必须命中一个已恢复的 `tool` message
+  - 若 `content_replacement` 显式提供了 `tool_call_id / tool_name`，它们也必须与目标 tool message 保持一致
+  - 这避免了错误 replacement 文案被挂到无关消息上，进而污染后续的 context assembly
+- 影响范围：
+  - content replacement replay
+  - artifact replacement 的恢复可信度
+  - malformed transcript 的引用一致性
+- 关联文档：
+  - `docs/context-loop-handoff-status.md`
+  - `docs/development-tracker.md`
+- 是否需要 ADR：`否`
+- 后续动作：
+  - 继续评估 restore stop reason / consumed event count 的上抛
+  - 若继续推进 parent/reference contract，可把 compact boundary / pending / replacement 收拢成统一引用验证层
+
 ### DC-055
 
 - 日期：2026-04-02

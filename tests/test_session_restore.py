@@ -969,6 +969,93 @@ class TestSessionRestorer(unittest.TestCase):
         self.assertEqual(result.session.turns[0].observations, [])
         self.assertEqual(result.session.turns[0].transitions, [])
 
+    def test_restore_stops_at_content_replacement_with_missing_message(self):
+        session_id = "sess-replacement-missing-message"
+        self.store.append_event(session_id, "session_meta", {"current_mode": "code"})
+        self.store.append_event(
+            session_id,
+            "message",
+            {"role": "user", "content": "继续", "message_id": "m-user", "turn_id": "t-1", "step_id": ""},
+        )
+        self.store.append_event(
+            session_id,
+            "content_replacement",
+            {
+                "message_id": "m-missing",
+                "tool_call_id": "call-read-1",
+                "tool_name": "read_file",
+                "replacement_text": "Tool result replaced: read_file src/demo.c -> artifact.json",
+                "artifact_refs": ["artifact.json"],
+            },
+        )
+        self.store.append_event(
+            session_id,
+            "loop_transition",
+            {
+                "turn_id": "t-1",
+                "step_id": "",
+                "reason": "completed",
+                "message": "assistant finished",
+                "next_mode": "code",
+                "turns_used": 1,
+                "metadata": {},
+            },
+        )
+        result = SessionRestorer().restore(self.store.load_events(session_id))
+        self.assertEqual(result.session.content_replacements, [])
+        self.assertEqual(result.session.turns[0].transitions, [])
+
+    def test_restore_stops_at_content_replacement_with_mismatched_tool_identity(self):
+        session_id = "sess-replacement-wrong-tool"
+        self.store.append_event(session_id, "session_meta", {"current_mode": "code"})
+        self.store.append_event(
+            session_id,
+            "message",
+            {"role": "user", "content": "继续", "message_id": "m-user", "turn_id": "t-1", "step_id": ""},
+        )
+        self.store.append_event(session_id, "step_started", {"turn_id": "t-1", "step_id": "s-1", "step_index": 1})
+        self.store.append_event(
+            session_id,
+            "message",
+            {
+                "role": "tool",
+                "content": "{\"success\": true, \"error\": null, \"data\": {\"path\": \"src/demo.c\"}}",
+                "message_id": "m-tool",
+                "turn_id": "t-1",
+                "step_id": "s-1",
+                "tool_call_id": "call-read-1",
+                "tool_name": "read_file",
+                "kind": "tool_result",
+            },
+        )
+        self.store.append_event(
+            session_id,
+            "content_replacement",
+            {
+                "message_id": "m-tool",
+                "tool_call_id": "call-other",
+                "tool_name": "search_text",
+                "replacement_text": "Tool result replaced: search_text demo -> artifact.json",
+                "artifact_refs": ["artifact.json"],
+            },
+        )
+        self.store.append_event(
+            session_id,
+            "loop_transition",
+            {
+                "turn_id": "t-1",
+                "step_id": "s-1",
+                "reason": "completed",
+                "message": "assistant finished",
+                "next_mode": "code",
+                "turns_used": 1,
+                "metadata": {},
+            },
+        )
+        result = SessionRestorer().restore(self.store.load_events(session_id))
+        self.assertEqual(result.session.content_replacements, [])
+        self.assertEqual(result.session.turns[0].transitions, [])
+
 
 if __name__ == "__main__":
     unittest.main()

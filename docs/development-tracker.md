@@ -101,6 +101,7 @@
 - pending resolution replay 已继续推进：`SessionRestorer` 现在会校验 `pending_resolution` 的 `turn_id / step_id` 是否仍然指向当前活动节点，避免错误 resolution 把真正的 pending 状态提前清掉
 - pending resolution 引用一致性已继续推进：`SessionRestorer` 现在还会校验 `pending_resolution` 的 `interaction_id / tool_name / kind` 是否匹配当前 pending interaction，避免“指向别的等待态”的 resolution 被错误消费
 - tool result replay 已继续推进：`SessionRestorer` 现在会校验 `tool_result` 的 `tool_name`，以及显式提供时的 `arguments`，是否与前置 `tool_call` 记录一致，避免仅凭 `call_id` 就把错误结果挂到现有 tool call 上
+- content replacement replay 已继续推进：`SessionRestorer` 现在会校验 `content_replacement` 必须指向一个已恢复的 `tool` message，且其 `tool_call_id / tool_name` 不得与目标消息冲突，避免错误 replacement 文案污染后续上下文组装
 - compact / resume replay 已推进一段：`compact_boundary` 现在会显式写入 transcript，并补齐 `preserved_head_message_id / preserved_tail_message_id`，`SessionRestorer` 已可回放 compact 边界而不丢失 preserved segment 元数据
 - pending interaction replay 已推进一段：`resume_pending()` 现在会把 `pending_resolution` 与恢复阶段生成的 `tool_result` 一并落入 transcript，恢复后的 tool call 状态不再卡在 `pending`
 - tool interrupt / retry 已推进第一段：`tool_started` 之后若会话被取消，`QueryEngine` 现在会写入 synthetic interrupted tool_result，并在 transcript / timeline / adapter `tool_finished` 事件中统一表现为 aborted

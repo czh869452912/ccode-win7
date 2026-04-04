@@ -132,6 +132,8 @@ class SessionRestorer(object):
                 session.resolve_pending_interaction(dict(payload.get("resolution_payload") or {}))
                 continue
             if event_type == "content_replacement":
+                if not self._is_valid_content_replacement(session, payload):
+                    break
                 session.record_content_replacement(dict(payload))
                 continue
             if event_type == "context_snapshot":
@@ -316,4 +318,23 @@ class SessionRestorer(object):
             if isinstance(arguments, dict):
                 if dict(arguments) != dict(getattr(record, "arguments", {}) or {}):
                     return False
+        return True
+
+    def _is_valid_content_replacement(self, session: Session, payload: Dict[str, Any]) -> bool:
+        message_id = str(payload.get("message_id") or "").strip()
+        if not message_id:
+            return False
+        target = None
+        for message in session.messages:
+            if str(getattr(message, "message_id", "") or "") == message_id:
+                target = message
+                break
+        if target is None or str(getattr(target, "role", "") or "") != "tool":
+            return False
+        tool_call_id = str(payload.get("tool_call_id") or "").strip()
+        if tool_call_id and tool_call_id != str(getattr(target, "tool_call_id", "") or ""):
+            return False
+        tool_name = str(payload.get("tool_name") or "").strip()
+        if tool_name and tool_name != str(getattr(target, "name", "") or ""):
+            return False
         return True
