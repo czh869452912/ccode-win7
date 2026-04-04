@@ -36,6 +36,7 @@ class SessionRestorer(object):
         seen_tool_call_ids = set()
         seen_step_ids = set()
         seen_interaction_ids = set()
+        seen_boundary_ids = set()
         consumed_event_count = len(events)
         stop_reason = ""
         for index, event in enumerate(events):
@@ -108,6 +109,13 @@ class SessionRestorer(object):
                     consumed_event_count = index
                     stop_reason = "tool_result_missing_tool_call"
                     break
+                message_id = str(payload.get("message_id") or "").strip()
+                if message_id:
+                    if message_id in seen_message_ids:
+                        consumed_event_count = index
+                        stop_reason = "duplicate_message_id"
+                        break
+                    seen_message_ids.add(message_id)
                 if not self._matches_current_turn(session, str(payload.get("turn_id") or "")):
                     consumed_event_count = index
                     stop_reason = "tool_result_turn_mismatch"
@@ -202,16 +210,23 @@ class SessionRestorer(object):
                     consumed_event_count = index
                     stop_reason = "compact_boundary_invalid_preserved_segment"
                     break
+                boundary_id = str(payload.get("boundary_id") or "").strip()
+                if boundary_id and boundary_id in seen_boundary_ids:
+                    consumed_event_count = index
+                    stop_reason = "duplicate_compact_boundary_id"
+                    break
                 session.add_compact_boundary(
                     str(payload.get("summary_text") or ""),
                     int(payload.get("compacted_turn_count") or 0),
                     str(payload.get("mode_name") or ""),
                     dict(payload.get("metadata") or {}),
-                    boundary_id=str(payload.get("boundary_id") or ""),
+                    boundary_id=boundary_id,
                     created_at=str(payload.get("created_at") or ""),
                     preserved_head_message_id=str(payload.get("preserved_head_message_id") or ""),
                     preserved_tail_message_id=str(payload.get("preserved_tail_message_id") or ""),
                 )
+                if boundary_id:
+                    seen_boundary_ids.add(boundary_id)
                 continue
             if event_type == "loop_transition":
                 if not self._matches_current_turn(session, str(payload.get("turn_id") or "")):

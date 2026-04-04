@@ -484,6 +484,76 @@ class TestSessionRestorer(unittest.TestCase):
         self.assertEqual(result.session.compact_boundaries, [])
         self.assertEqual(result.session.turns[0].transitions, [])
 
+    def test_restore_stops_at_duplicate_compact_boundary_id(self):
+        session_id = "sess-duplicate-boundary-id"
+        self.store.append_event(session_id, "session_meta", {"current_mode": "code"})
+        self.store.append_event(
+            session_id,
+            "message",
+            {"role": "user", "content": "读取文件", "message_id": "m-user", "turn_id": "t-1", "step_id": ""},
+        )
+        self.store.append_event(session_id, "step_started", {"turn_id": "t-1", "step_id": "s-1", "step_index": 1})
+        self.store.append_event(
+            session_id,
+            "message",
+            {
+                "role": "assistant",
+                "content": "first",
+                "message_id": "m-assistant-1",
+                "turn_id": "t-1",
+                "step_id": "s-1",
+                "actions": [],
+                "reasoning_content": "",
+                "finish_reason": "stop",
+            },
+        )
+        self.store.append_event(
+            session_id,
+            "compact_boundary",
+            {
+                "boundary_id": "cb-dup",
+                "summary_text": "Earlier work summary 1",
+                "compacted_turn_count": 1,
+                "created_at": "2026-04-02T00:00:01Z",
+                "mode_name": "code",
+                "preserved_head_message_id": "m-user",
+                "preserved_tail_message_id": "m-assistant-1",
+                "metadata": {},
+            },
+        )
+        self.store.append_event(
+            session_id,
+            "compact_boundary",
+            {
+                "boundary_id": "cb-dup",
+                "summary_text": "Earlier work summary 2",
+                "compacted_turn_count": 1,
+                "created_at": "2026-04-02T00:00:02Z",
+                "mode_name": "code",
+                "preserved_head_message_id": "m-user",
+                "preserved_tail_message_id": "m-assistant-1",
+                "metadata": {},
+            },
+        )
+        self.store.append_event(
+            session_id,
+            "loop_transition",
+            {
+                "turn_id": "t-1",
+                "step_id": "s-1",
+                "reason": "completed",
+                "message": "assistant finished",
+                "next_mode": "code",
+                "turns_used": 1,
+                "metadata": {},
+            },
+        )
+        result = SessionRestorer().restore(self.store.load_events(session_id))
+        self.assertEqual(len(result.session.compact_boundaries), 1)
+        self.assertEqual(result.session.compact_boundaries[0].boundary_id, "cb-dup")
+        self.assertEqual(result.session.compact_boundaries[0].summary_text, "Earlier work summary 1")
+        self.assertEqual(result.session.turns[0].transitions, [])
+
     def test_restore_stops_at_assistant_message_with_mismatched_turn_id(self):
         session_id = "sess-invalid-assistant-message"
         self.store.append_event(session_id, "session_meta", {"current_mode": "code"})
@@ -1104,6 +1174,65 @@ class TestSessionRestorer(unittest.TestCase):
         self.assertEqual(len(step.tool_calls), 1)
         self.assertEqual(step.tool_calls[0].arguments, {"path": "src/demo.c"})
         self.assertEqual(step.tool_calls[0].status, "started")
+        self.assertEqual(result.session.turns[0].observations, [])
+        self.assertEqual(result.session.turns[0].transitions, [])
+
+    def test_restore_stops_at_duplicate_tool_result_message_id(self):
+        session_id = "sess-duplicate-tool-result-message-id"
+        self.store.append_event(session_id, "session_meta", {"current_mode": "code"})
+        self.store.append_event(
+            session_id,
+            "message",
+            {"role": "user", "content": "读取文件", "message_id": "m-dup", "turn_id": "t-1", "step_id": ""},
+        )
+        self.store.append_event(session_id, "step_started", {"turn_id": "t-1", "step_id": "s-1", "step_index": 1})
+        self.store.append_event(
+            session_id,
+            "tool_call",
+            {
+                "turn_id": "t-1",
+                "step_id": "s-1",
+                "call_id": "call-read-1",
+                "tool_name": "read_file",
+                "arguments": {"path": "src/demo.c"},
+                "status": "started",
+            },
+        )
+        self.store.append_event(
+            session_id,
+            "tool_result",
+            {
+                "turn_id": "t-1",
+                "step_id": "s-1",
+                "call_id": "call-read-1",
+                "tool_name": "read_file",
+                "message_id": "m-dup",
+                "finished_at": "2026-04-02T00:00:01Z",
+                "observation": {
+                    "success": True,
+                    "error": None,
+                    "data": {"path": "src/demo.c"},
+                },
+            },
+        )
+        self.store.append_event(
+            session_id,
+            "loop_transition",
+            {
+                "turn_id": "t-1",
+                "step_id": "s-1",
+                "reason": "completed",
+                "message": "assistant finished",
+                "next_mode": "code",
+                "turns_used": 1,
+                "metadata": {},
+            },
+        )
+        result = SessionRestorer().restore(self.store.load_events(session_id))
+        step = result.session.turns[0].steps[0]
+        self.assertEqual(len(step.tool_calls), 1)
+        self.assertEqual(step.tool_calls[0].status, "started")
+        self.assertEqual([item.message_id for item in result.session.messages], ["m-dup"])
         self.assertEqual(result.session.turns[0].observations, [])
         self.assertEqual(result.session.turns[0].transitions, [])
 

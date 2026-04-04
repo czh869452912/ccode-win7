@@ -366,6 +366,46 @@
   - 若继续推进统一引用验证层，可把 turn/message/step/call/interaction 的 uniqueness checks 收敛成统一 helper
   - 评估 stop reason 是否需要继续细分成“identity”与“ordering”两级分类
 
+### DC-072
+
+- 日期：2026-04-04
+- 变更主题：SessionRestorer 现在拒绝重复 compact_boundary.boundary_id
+- 变更摘要：
+  - `compact_boundary` 在 replay 时现在要求 `boundary_id` 唯一
+  - 一旦 transcript 中重复声明同一个 boundary id，恢复会停在最后一个自洽前缀，而不会让两个不同摘要边界共享同一个 identity
+  - 这让 compact history 的边界引用和后续 UI/恢复投影更稳定
+- 影响范围：
+  - compact boundary replay
+  - compact history identity consistency
+  - transcript restore 安全性
+- 关联文档：
+  - `docs/context-loop-handoff-status.md`
+  - `docs/development-tracker.md`
+- 是否需要 ADR：`否`
+- 后续动作：
+  - 若继续推进统一引用验证层，可把 boundary/message/turn/step/call/interaction identity checks 收敛成统一 helper
+  - 评估是否还需要为 context_snapshot 一类衍生事件定义 identity/replace 规则
+
+### DC-073
+
+- 日期：2026-04-04
+- 变更主题：SessionRestorer 现在拒绝重复 tool_result.message_id
+- 变更摘要：
+  - `tool_result` replay 现在会把显式给出的 `message_id` 纳入全局 message identity 校验
+  - 一旦 tool result 的 message id 与既有 message 冲突，恢复会停在最后一个自洽前缀，而不会让后续 replacement / preserved segment 指向不唯一的消息节点
+  - 这补齐了 `message_id` 唯一性在 `message` 事件路径之外的最后一个明显缺口
+- 影响范围：
+  - tool result replay
+  - message identity consistency
+  - replacement / preserved segment 的引用稳定性
+- 关联文档：
+  - `docs/context-loop-handoff-status.md`
+  - `docs/development-tracker.md`
+- 是否需要 ADR：`否`
+- 后续动作：
+  - 若继续推进统一引用验证层，可把所有 identity checks 收敛到统一 helper / registry
+  - 评估是否还需要把 `tool_result.message_id` 缺失时的自动生成语义也显式记录进 transcript contract
+
 ### DC-055
 
 - 日期：2026-04-02
