@@ -56,10 +56,13 @@ class SessionRestorer(object):
                     session.record_tool_call(action)
                 continue
             if event_type == "tool_result":
+                call_id = str(payload.get("call_id") or "")
+                if not call_id or session._find_tool_call(call_id) is None:
+                    break
                 action = Action(
                     name=str(payload.get("tool_name") or ""),
                     arguments=dict(payload.get("arguments") or {}),
-                    call_id=str(payload.get("call_id") or ""),
+                    call_id=call_id,
                 )
                 observation_payload = dict(payload.get("observation") or {})
                 observation = Observation(
@@ -90,6 +93,8 @@ class SessionRestorer(object):
                     session.turns[-1].pending_interaction = pending
                 continue
             if event_type == "pending_resolution":
+                if session.pending_interaction is None:
+                    break
                 session.resolve_pending_interaction(dict(payload.get("resolution_payload") or {}))
                 continue
             if event_type == "content_replacement":

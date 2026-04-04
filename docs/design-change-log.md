@@ -86,6 +86,26 @@
   - 继续评估 transcript 轮转与更细的损坏诊断输出
   - 补 restore 侧的更强事件因果校验
 
+### DC-058
+
+- 日期：2026-04-04
+- 变更主题：SessionRestorer 现在只回放因果自洽的 transcript 前缀
+- 变更摘要：
+  - `SessionRestorer` 在遇到没有前置 `tool_call` 的 `tool_result` 时不再自动补造 `ToolCallRecord`
+  - `pending_resolution` 如果前面没有已建立的 `pending_interaction`，恢复流程会停在最后一个自洽前缀
+  - 新增 focused regression 覆盖这两类 malformed transcript，保证恢复链不会静默放大坏数据
+- 影响范围：
+  - transcript replay 边界
+  - malformed transcript 的恢复安全性
+  - restore / adapter 的状态可信度
+- 关联文档：
+  - `docs/context-loop-handoff-status.md`
+  - `docs/development-tracker.md`
+- 是否需要 ADR：`否`
+- 后续动作：
+  - 继续补 message-chain / preserved segment 的更强一致性验证
+  - 评估是否要暴露“恢复停止于哪个 event”的诊断信息
+
 ### DC-055
 
 - 日期：2026-04-02

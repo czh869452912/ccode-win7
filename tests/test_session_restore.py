@@ -147,6 +147,90 @@ class TestSessionRestorer(unittest.TestCase):
         self.assertEqual(result.current_mode, "code")
         self.assertEqual(result.session.session_id, session_id)
 
+    def test_restore_stops_at_tool_result_without_prior_tool_call(self):
+        session_id = "sess-invalid-tool-result"
+        self.store.append_event(session_id, "session_meta", {"current_mode": "code"})
+        self.store.append_event(
+            session_id,
+            "message",
+            {"role": "user", "content": "读取文件", "message_id": "m-user", "turn_id": "t-1", "step_id": ""},
+        )
+        self.store.append_event(session_id, "step_started", {"turn_id": "t-1", "step_id": "s-1", "step_index": 1})
+        self.store.append_event(
+            session_id,
+            "tool_result",
+            {
+                "turn_id": "t-1",
+                "step_id": "s-1",
+                "call_id": "call-read-1",
+                "tool_name": "read_file",
+                "finished_at": "2026-04-02T00:00:01Z",
+                "observation": {
+                    "success": True,
+                    "error": None,
+                    "data": {"path": "src/demo.c", "content": "int demo(void) { return 0; }"},
+                },
+            },
+        )
+        self.store.append_event(
+            session_id,
+            "loop_transition",
+            {
+                "turn_id": "t-1",
+                "step_id": "s-1",
+                "reason": "completed",
+                "message": "assistant finished",
+                "next_mode": "code",
+                "turns_used": 1,
+                "metadata": {},
+            },
+        )
+        result = SessionRestorer().restore(self.store.load_events(session_id))
+        self.assertEqual(len(result.session.turns), 1)
+        self.assertEqual(len(result.session.turns[0].steps), 1)
+        self.assertEqual(result.session.turns[0].steps[0].tool_calls, [])
+        self.assertEqual(result.session.turns[0].observations, [])
+        self.assertEqual(result.session.turns[0].transitions, [])
+
+    def test_restore_stops_at_pending_resolution_without_pending_interaction(self):
+        session_id = "sess-invalid-resolution"
+        self.store.append_event(session_id, "session_meta", {"current_mode": "spec"})
+        self.store.append_event(
+            session_id,
+            "message",
+            {"role": "user", "content": "继续", "message_id": "m-user", "turn_id": "t-1", "step_id": ""},
+        )
+        self.store.append_event(
+            session_id,
+            "pending_resolution",
+            {
+                "turn_id": "t-1",
+                "step_id": "s-1",
+                "interaction_id": "pi-1",
+                "kind": "user_input",
+                "tool_name": "ask_user",
+                "resolution_payload": {"answer": "继续"},
+            },
+        )
+        self.store.append_event(
+            session_id,
+            "loop_transition",
+            {
+                "turn_id": "t-1",
+                "step_id": "s-1",
+                "reason": "completed",
+                "message": "assistant finished",
+                "next_mode": "spec",
+                "turns_used": 1,
+                "metadata": {},
+            },
+        )
+        result = SessionRestorer().restore(self.store.load_events(session_id))
+        self.assertEqual(len(result.session.turns), 1)
+        self.assertIsNone(result.session.pending_interaction)
+        self.assertEqual(result.session.turns[0].pending_interaction, None)
+        self.assertEqual(result.session.turns[0].transitions, [])
+
 
 if __name__ == "__main__":
     unittest.main()
