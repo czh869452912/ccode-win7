@@ -61,7 +61,7 @@
 - 关联文档：
   - `docs/development-tracker.md`
   - `docs/query-context-redesign.md`
-  - `docs/context-loop-handoff-status.md`
+  - `docs/archive/context-loop/context-loop-handoff-status.md`
 - 是否需要 ADR：`否`
 - 后续动作：
   - 继续评估 transcript/timeline 的轮转策略与跨会话长期增长控制
@@ -88,6 +88,25 @@
   - 继续观察是否需要把 timeline/project memory 等更多只读投影统一迁移到 session truth 的同一锁域
   - 在真实 GUI 宿主里继续观察高频事件下的广播吞吐与顺序表现
 
+### DC-062
+
+- 日期：2026-04-04
+- 变更主题：context loop 这轮 handoff/analysis/review 文档已归档
+- 变更摘要：
+  - `docs/context-loop-handoff-plan.md`、`docs/context-loop-handoff-status.md` 以及本轮相关的 context-loop issue/review 文档已移动到 `docs/archive/context-loop/`
+  - 新增 `docs/archive/context-loop/README.md` 说明该轮迭代已关闭，并指向当前仍然活跃的 tracker/change-log/redesign 文档
+  - 仓库内原先引用旧 handoff 路径的文档已统一改到 archive 路径，避免归档后出现失效链接
+- 影响范围：
+  - 文档信息架构
+  - context loop 历史材料的留档方式
+  - 当前活跃工作流入口的清晰度
+- 关联文档：
+  - `docs/archive/context-loop/README.md`
+  - `docs/development-tracker.md`
+- 是否需要 ADR：`否`
+- 后续动作：
+  - 后续若开启新的 context loop 增量迭代，直接在活跃文档中记录，不再复用这组归档 handoff 文件
+
 ### DC-056
 
 - 日期：2026-04-04
@@ -101,7 +120,7 @@
   - compact boundary replay
   - pending interaction / resume 可审计性
 - 关联文档：
-  - `docs/context-loop-handoff-status.md`
+  - `docs/archive/context-loop/context-loop-handoff-status.md`
   - `docs/development-tracker.md`
   - `docs/query-context-redesign.md`
 - 是否需要 ADR：`否`
@@ -123,7 +142,7 @@
   - append-only transcript 的自愈能力
   - resume 前的事件读取一致性
 - 关联文档：
-  - `docs/context-loop-handoff-status.md`
+  - `docs/archive/context-loop/context-loop-handoff-status.md`
   - `docs/development-tracker.md`
 - 是否需要 ADR：`否`
 - 后续动作：
@@ -143,7 +162,7 @@
   - malformed transcript 的恢复安全性
   - restore / adapter 的状态可信度
 - 关联文档：
-  - `docs/context-loop-handoff-status.md`
+  - `docs/archive/context-loop/context-loop-handoff-status.md`
   - `docs/development-tracker.md`
 - 是否需要 ADR：`否`
 - 后续动作：
@@ -163,7 +182,7 @@
   - malformed transcript 的恢复安全性
   - adapter resume 的状态稳定性
 - 关联文档：
-  - `docs/context-loop-handoff-status.md`
+  - `docs/archive/context-loop/context-loop-handoff-status.md`
   - `docs/development-tracker.md`
 - 是否需要 ADR：`否`
 - 后续动作：
@@ -183,7 +202,7 @@
   - malformed transcript 的恢复安全性
   - adapter resume 的状态可信度
 - 关联文档：
-  - `docs/context-loop-handoff-status.md`
+  - `docs/archive/context-loop/context-loop-handoff-status.md`
   - `docs/development-tracker.md`
 - 是否需要 ADR：`否`
 - 后续动作：
@@ -203,7 +222,7 @@
   - transcript bootstrap for existing in-memory sessions
   - resumed session 的 compact 边界稳定性
 - 关联文档：
-  - `docs/context-loop-handoff-status.md`
+  - `docs/archive/context-loop/context-loop-handoff-status.md`
   - `docs/development-tracker.md`
 - 是否需要 ADR：`否`
 - 后续动作：
@@ -223,7 +242,7 @@
   - legacy transcript compatibility
   - compact replay / content replacement 的恢复稳定性
 - 关联文档：
-  - `docs/context-loop-handoff-status.md`
+  - `docs/archive/context-loop/context-loop-handoff-status.md`
   - `docs/development-tracker.md`
 - 是否需要 ADR：`否`
 - 后续动作：
@@ -243,7 +262,7 @@
   - tool call identity
   - transcript replay 的引用稳定性
 - 关联文档：
-  - `docs/context-loop-handoff-status.md`
+  - `docs/archive/context-loop/context-loop-handoff-status.md`
   - `docs/development-tracker.md`
 - 是否需要 ADR：`否`
 - 后续动作：
@@ -263,7 +282,7 @@
   - resume 状态可信度
   - malformed transcript 的恢复安全性
 - 关联文档：
-  - `docs/context-loop-handoff-status.md`
+  - `docs/archive/context-loop/context-loop-handoff-status.md`
   - `docs/development-tracker.md`
 - 是否需要 ADR：`否`
 - 后续动作：
@@ -283,7 +302,7 @@
   - resume 状态可信度
   - malformed transcript 的引用一致性
 - 关联文档：
-  - `docs/context-loop-handoff-status.md`
+  - `docs/archive/context-loop/context-loop-handoff-status.md`
   - `docs/development-tracker.md`
 - 是否需要 ADR：`否`
 - 后续动作：
@@ -303,7 +322,7 @@
   - tool topology 的恢复可信度
   - malformed transcript 的引用一致性
 - 关联文档：
-  - `docs/context-loop-handoff-status.md`
+  - `docs/archive/context-loop/context-loop-handoff-status.md`
   - `docs/development-tracker.md`
 - 是否需要 ADR：`否`
 - 后续动作：
@@ -323,7 +342,7 @@
   - artifact replacement 的恢复可信度
   - malformed transcript 的引用一致性
 - 关联文档：
-  - `docs/context-loop-handoff-status.md`
+  - `docs/archive/context-loop/context-loop-handoff-status.md`
   - `docs/development-tracker.md`
 - 是否需要 ADR：`否`
 - 后续动作：
@@ -343,7 +362,7 @@
   - restore 可观测性
   - 上层恢复故障排查
 - 关联文档：
-  - `docs/context-loop-handoff-status.md`
+  - `docs/archive/context-loop/context-loop-handoff-status.md`
   - `docs/development-tracker.md`
 - 是否需要 ADR：`否`
 - 后续动作：
@@ -363,7 +382,7 @@
   - session snapshot contract
   - 上层恢复诊断体验
 - 关联文档：
-  - `docs/context-loop-handoff-status.md`
+  - `docs/archive/context-loop/context-loop-handoff-status.md`
   - `docs/development-tracker.md`
 - 是否需要 ADR：`否`
 - 后续动作：
@@ -383,7 +402,7 @@
   - pending interaction replay
   - transcript identity consistency
 - 关联文档：
-  - `docs/context-loop-handoff-status.md`
+  - `docs/archive/context-loop/context-loop-handoff-status.md`
   - `docs/development-tracker.md`
 - 是否需要 ADR：`否`
 - 后续动作：
@@ -403,7 +422,7 @@
   - transition/pending 的 turn 挂接稳定性
   - transcript identity consistency
 - 关联文档：
-  - `docs/context-loop-handoff-status.md`
+  - `docs/archive/context-loop/context-loop-handoff-status.md`
   - `docs/development-tracker.md`
 - 是否需要 ADR：`否`
 - 后续动作：
@@ -423,7 +442,7 @@
   - compact history identity consistency
   - transcript restore 安全性
 - 关联文档：
-  - `docs/context-loop-handoff-status.md`
+  - `docs/archive/context-loop/context-loop-handoff-status.md`
   - `docs/development-tracker.md`
 - 是否需要 ADR：`否`
 - 后续动作：
@@ -443,7 +462,7 @@
   - message identity consistency
   - replacement / preserved segment 的引用稳定性
 - 关联文档：
-  - `docs/context-loop-handoff-status.md`
+  - `docs/archive/context-loop/context-loop-handoff-status.md`
   - `docs/development-tracker.md`
 - 是否需要 ADR：`否`
 - 后续动作：
@@ -463,7 +482,7 @@
   - 多 batch assistant plan 的安全边界
   - 写动作在部分失败后的继续执行策略
 - 关联文档：
-  - `docs/context-loop-handoff-status.md`
+  - `docs/archive/context-loop/context-loop-handoff-status.md`
   - `docs/development-tracker.md`
   - `docs/query-context-redesign.md`
 - 是否需要 ADR：`否`
@@ -484,7 +503,7 @@
   - discard vs interrupted 的 transcript 语义
   - 高并发 focused regression
 - 关联文档：
-  - `docs/context-loop-handoff-status.md`
+  - `docs/archive/context-loop/context-loop-handoff-status.md`
   - `docs/development-tracker.md`
   - `docs/query-context-redesign.md`
 - 是否需要 ADR：`否`
@@ -505,7 +524,7 @@
   - 长命令取消时的端到端响应延迟
   - interrupt/retry focused regression
 - 关联文档：
-  - `docs/context-loop-handoff-status.md`
+  - `docs/archive/context-loop/context-loop-handoff-status.md`
   - `docs/development-tracker.md`
   - `docs/query-context-redesign.md`
 - 是否需要 ADR：`否`
@@ -526,7 +545,7 @@
   - Transcript 完整性
   - Adapter / timeline 的取消态投影
 - 关联文档：
-  - `docs/context-loop-handoff-status.md`
+  - `docs/archive/context-loop/context-loop-handoff-status.md`
   - `docs/development-tracker.md`
   - `docs/query-context-redesign.md`
 - 是否需要 ADR：`否`
@@ -548,7 +567,7 @@
   - QueryEngine 的 retry/abort 行为
   - transcript 中 synthetic result 的语义一致性
 - 关联文档：
-  - `docs/context-loop-handoff-status.md`
+  - `docs/archive/context-loop/context-loop-handoff-status.md`
   - `docs/development-tracker.md`
 - 是否需要 ADR：`否`
 - 后续动作：
@@ -568,7 +587,7 @@
   - QueryEngine 的 cancel/discard 协同
   - interrupt/retry transcript 一致性
 - 关联文档：
-  - `docs/context-loop-handoff-status.md`
+  - `docs/archive/context-loop/context-loop-handoff-status.md`
   - `docs/development-tracker.md`
 - 是否需要 ADR：`否`
 - 后续动作：
@@ -588,7 +607,7 @@
   - Resume replay 的 tool-call 重建
   - 并行 batch 取消场景的可审计性
 - 关联文档：
-  - `docs/context-loop-handoff-status.md`
+  - `docs/archive/context-loop/context-loop-handoff-status.md`
   - `docs/development-tracker.md`
 - 是否需要 ADR：`否`
 - 后续动作：
@@ -610,7 +629,7 @@
   - Frontend snapshot/timeline projection 的恢复来源
 - 关联文档：
   - `docs/query-context-redesign.md`
-  - `docs/context-loop-handoff-status.md`
+  - `docs/archive/context-loop/context-loop-handoff-status.md`
   - `docs/development-tracker.md`
   - `docs/superpowers/specs/2026-04-02-full-transcript-persistence-design.md`
 - 是否需要 ADR：`否`
@@ -832,7 +851,7 @@
   - quality gate / test / coverage 的上下文聚合
   - DiagnosticsProvider 的 pathless failure contract
 - 关联文档：
-  - `docs/context-loop-handoff-status.md`
+  - `docs/archive/context-loop/context-loop-handoff-status.md`
   - `docs/development-tracker.md`
   - `docs/query-context-redesign.md`
 - 是否需要 ADR：`否`
@@ -853,7 +872,7 @@
   - `/recipes` / `/run` 之前的模型选证
   - code/debug/verify 模式下的 recipe 提示稳定性
 - 关联文档：
-  - `docs/context-loop-handoff-status.md`
+  - `docs/archive/context-loop/context-loop-handoff-status.md`
   - `docs/development-tracker.md`
   - `docs/query-context-redesign.md`
 - 是否需要 ADR：`否`
@@ -874,8 +893,8 @@
   - Session snapshot 到前端的字段透传一致性
   - 前端 helper tests
 - 关联文档：
-  - `docs/context-loop-handoff-plan.md`
-  - `docs/context-loop-handoff-status.md`
+  - `docs/archive/context-loop/context-loop-handoff-plan.md`
+  - `docs/archive/context-loop/context-loop-handoff-status.md`
   - `docs/development-tracker.md`
   - `docs/query-context-redesign.md`
 - 是否需要 ADR：`否`
@@ -2123,8 +2142,8 @@
   - session snapshot / frontend inspector 的情报投影
 - 关联文档：
   - `docs/query-context-redesign.md`
-  - `docs/context-loop-handoff-plan.md`
-  - `docs/context-loop-handoff-status.md`
+  - `docs/archive/context-loop/context-loop-handoff-plan.md`
+  - `docs/archive/context-loop/context-loop-handoff-status.md`
   - `src/embedagent/workspace_intelligence.py`
   - `tests/test_query_engine_refactor.py`
   - `tests/test_inprocess_adapter_frontend_api.py`
@@ -2146,8 +2165,8 @@
   - legacy timeline 向 step-based timeline 的投影方式
   - 后续 GUI 对 raw/internal 双层状态的收口空间
 - 关联文档：
-  - `docs/context-loop-handoff-plan.md`
-  - `docs/context-loop-handoff-status.md`
+  - `docs/archive/context-loop/context-loop-handoff-plan.md`
+  - `docs/archive/context-loop/context-loop-handoff-status.md`
   - `docs/query-context-redesign.md`
   - `src/embedagent/inprocess_adapter.py`
   - `src/embedagent/protocol/__init__.py`
@@ -2169,7 +2188,7 @@
   - structured timeline 的终止态语义
   - 前端 step/turn 状态展示一致性
 - 关联文档：
-  - `docs/context-loop-handoff-status.md`
+  - `docs/archive/context-loop/context-loop-handoff-status.md`
   - `docs/query-context-redesign.md`
   - `src/embedagent/inprocess_adapter.py`
   - `tests/test_inprocess_adapter_frontend_api.py`
@@ -2189,7 +2208,7 @@
   - GUI timeline 的 step 调试可见性
   - structured timeline 语义在前端的最终消费链
 - 关联文档：
-  - `docs/context-loop-handoff-status.md`
+  - `docs/archive/context-loop/context-loop-handoff-status.md`
   - `src/embedagent/frontend/gui/webapp/src/state-helpers.js`
   - `src/embedagent/frontend/gui/webapp/src/components/Timeline.jsx`
   - `src/embedagent/frontend/gui/webapp/test/state-helpers.test.mjs`
@@ -2268,7 +2287,7 @@
   - raw-event 与 step-event 的投影边界
   - websocket 增量事件的调试可见性
 - 关联文档：
-  - `docs/context-loop-handoff-status.md`
+  - `docs/archive/context-loop/context-loop-handoff-status.md`
   - `src/embedagent/frontend/gui/webapp/src/store.js`
   - `src/embedagent/frontend/gui/webapp/src/App.jsx`
   - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`

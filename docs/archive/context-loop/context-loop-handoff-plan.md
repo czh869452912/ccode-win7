@@ -1,8 +1,10 @@
 # Context/Loop 重构交接计划
 
+> 归档说明：本文件保留为历史交接快照。该轮 context loop 迭代已在 2026-04-04 关闭，当前活跃状态以 [README.md](/D:/Claude-project/ccode-win7/docs/archive/context-loop/README.md) 中列出的文档为准。
+
 > 最后更新：2026-04-03
 > 用途：这是面向“上下文管理 + agent loop + tool orchestration + workspace intelligence”重构线的自包含计划文档。
-> 交接约定：在另一台电脑上，只要仓库代码与本文件、[`docs/context-loop-handoff-status.md`](./context-loop-handoff-status.md) 同步，就可以继续开发这一工作流，不依赖额外口头背景。
+> 交接约定：在另一台电脑上，只要仓库代码与本文件、[`./context-loop-handoff-status.md`](./context-loop-handoff-status.md) 同步，就可以继续开发这一工作流，不依赖额外口头背景。
 
 ---
 
@@ -292,7 +294,7 @@ node .\run-local-tests.mjs
 继续这条工作流时，不要重新做“总体设计”。当前正确做法是：
 
 1. 先读本文件
-2. 再读 `docs/context-loop-handoff-status.md`
+2. 再读 `./context-loop-handoff-status.md`
 3. 跑验证
 4. 优先从 `P1 frontend/protocol` 的 raw/internal 语义收口，或 `P2` 的更强集成回归开始下一轮；若确有需要，再继续把 `LlspProvider` 接到真实 llsp/clangd backend
 

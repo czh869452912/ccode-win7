@@ -154,9 +154,8 @@
 ### P0：立刻要做（当前关键路径）
 
 1. 推进 Phase 4 的真实 C 工程与 Win7 验证
-2. 继续推进 Query / Context 内核重构，逐步把旧 adapter 的事件阻塞路径切换到 pending interaction / resume
-3. 在 Win7 bundle 中完成 GUI Chromium 基线实机验证并记录结果
-4. 为当前 `package.ps1 release` 路径评估并收敛 `site-packages` 的精简导出方案
+2. 在 Win7 bundle 中完成 GUI Chromium 基线实机验证并记录结果
+3. 为当前 `package.ps1 release` 路径评估并收敛 `site-packages` 的精简导出方案
 
 实现备注：
 
@@ -210,7 +209,7 @@
 | T-024 | 零依赖打包：内网部署文档 | `completed` | 已新增 `docs/intranet-deployment.md` 和 `docs/offline-packaging-guide.md`，提供完整内网部署指南 |
 | T-025 | 零依赖打包：内网配置模板 | `completed` | 已新增 `config/config.json.template`，预配置内网大模型服务示例 |
 | T-027 | Phase 7 打包控制面收口 | `in_progress` | `scripts/package.ps1`、`scripts/package.config.json`、`scripts/package-lib.ps1` 与 `tests/test_packaging_control_plane.py` 已打通 `doctor/deps/assemble/verify/release` mocked orchestration；下一步是完成文档迁移并在真实 bundle 路径上验收 |
-| T-028 | Query / Context 内核重构切片 | `in_progress` | 已落地 `QueryEngine`、transcript/event 模型、workspace intelligence broker、tool capability metadata、batch tool orchestration、pending interaction resume、`transcript_store.py`、`session_restore.py`、transcript-truth resume，以及 interrupted/discarded synthetic tool_result 主线；`StreamingToolExecutor` 现已支持流式并行 batch writeback、直接观察 cancel event，并在 batch 出现 `discarded` 后丢弃同一 assistant plan 的后续 batch；`tool_call` transcript 已在 assistant action 阶段按原始顺序落盘，`run_command` 的 Windows 长命令中断也已切到进程组 + `CTRL_BREAK_EVENT`，`DiagnosticsProvider` 已补上 quality gate / pathless summary 聚合，`RecipeProvider` 也已补上 mode-aware source/stage 排序；本轮又补齐了 transcript append 串行化、`compact_boundary` replay 元数据，以及 `pending_resolution + tool_result` 的 resume 持久化；下一步转向真实 `LlspProvider`、adapter 全量兼容与更强集成回归 |
+| T-028 | Query / Context 内核重构切片 | `completed` | 已落地 `QueryEngine`、transcript/event 模型、workspace intelligence broker、tool capability metadata、batch tool orchestration、pending interaction resume、`transcript_store.py`、`session_restore.py`、transcript-truth resume、`parent_message_id` 因果链、timeline `seq` 顺序、parallel tool timeout/cancel 收口，以及 websocket/session-lock 竞态硬化；当前这一轮 context loop 迭代已关闭，handoff/analysis/review 文档已归档到 `docs/archive/context-loop/` |
 
 ---
 
@@ -250,7 +249,7 @@
 | R-015 | validate 默认允许 skeleton bundle 以告警通过，若无人切到 `-RequireComplete` 可能误判“已可交付” | 中 | 在正式验收和 CI 入口中强制使用 `-RequireComplete` |
 | R-016 | 直接拷贝 `.venv\Lib\site-packages` 可能带来过大的 bundle 体积 | 中 | 评估更精简的运行时导出方案，再决定是否替换当前实现 |
 | R-017 | 离线 bundle 容易因未重建或直接拷贝开发 `.venv` 而把旧 GUI 布局或项目内 editable `.pth` 带进发布物 | 中 | 保持 `prepare/build/validate` 串联执行，并在 bundle 验证中强制检查 `static/assets`、Fixed Version WebView2 和无 `__editable__*.pth` |
-| R-018 | Query / Context 重构仍处于双栈阶段，旧 adapter/loop 兼容层与新内核可能出现状态漂移 | 中 | 继续用 focused regression tests 覆盖 mode、timeline、pending interaction、context assembly，并逐步减少旧路径分叉 |
+| R-018 | Query / Context 主线已收口，但 adapter/legacy projection 仍保留少量兼容路径，后续增强时可能重新引入状态漂移 | 低 | 继续保留 focused regression tests 覆盖 mode、timeline、pending interaction、context assembly；新增增强时优先复用现有 transcript-truth 路径 |
 
 ---
 
@@ -258,6 +257,7 @@
 
 | 日期 | 更新内容 |
 |------|----------|
+| 2026-04-04 | Query / Context / Context Loop 这轮重构已收口：P0 问题全部关闭，handoff/analysis/review 文档已归档到 `docs/archive/context-loop/`，活动状态以后续真实工程集成回归和 Win7 验证为准 |
 | 2026-03-27 | 建立进度跟踪文件，明确当前阶段与下一步优先级 |
 | 2026-03-27 | DC-004/DC-005：工具设计规范建立，实施分期重组，Phase 1 改为最小可工作 Loop |
 | 2026-03-27 | 已落地 Phase 1 最小原型代码，并完成本地语法检查、工具自测与假模型闭环验证 |

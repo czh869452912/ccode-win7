@@ -1,8 +1,10 @@
 # Context/Loop 重构当前进展
 
+> 归档说明：本文件保留为历史状态快照。该轮 context loop 迭代已在 2026-04-04 关闭，当前活跃状态以 [README.md](/D:/Claude-project/ccode-win7/docs/archive/context-loop/README.md) 中列出的文档为准。
+
 > 最后更新：2026-04-03
 > 用途：这是面向另一台电脑继续开发的“当前状态快照”。
-> 使用方式：先读 [`docs/context-loop-handoff-plan.md`](./context-loop-handoff-plan.md)，再读本文件，然后直接从“下一步建议”开始。
+> 使用方式：先读 [`./context-loop-handoff-plan.md`](./context-loop-handoff-plan.md)，再读本文件，然后直接从“下一步建议”开始。
 
 ---
 
@@ -271,7 +273,7 @@
 在另一台电脑上继续时，按下面做：
 
 1. 拉取最新 `main`
-2. 打开本文件和 `docs/context-loop-handoff-plan.md`
+2. 打开本文件和 `./context-loop-handoff-plan.md`
 3. 运行：
 
 ```powershell
