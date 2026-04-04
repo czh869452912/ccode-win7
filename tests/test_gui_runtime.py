@@ -11,7 +11,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from embedagent.config import AppConfig
 from embedagent.frontend.gui.backend.bridge import BlockingResult, ThreadsafeAsyncDispatcher
-from embedagent.frontend.gui.backend.server import WebSocketFrontend
+from embedagent.frontend.gui.backend.server import GUIBackend, WebSocketFrontend
 from embedagent.frontend.gui import launcher as gui_launcher
 
 
@@ -178,6 +178,26 @@ class _FakeWebSocket(object):
             self.on_send()
 
 
+class _ReceiveErrorWebSocket(object):
+    def __init__(self, exc):
+        self._exc = exc
+        self.accepted = False
+
+    async def accept(self):
+        self.accepted = True
+
+    async def receive_json(self):
+        raise self._exc
+
+
+class _BackendCore(object):
+    def register_frontend(self, frontend):
+        self.frontend = frontend
+
+    def shutdown(self):
+        return None
+
+
 class TestWebSocketFrontend(unittest.TestCase):
     def test_broadcast_tolerates_connection_set_mutation(self):
         frontend = WebSocketFrontend()
@@ -216,6 +236,32 @@ class TestWebSocketFrontend(unittest.TestCase):
         self.assertEqual(dispatched[0]["data"]["event_kind"], "tool.started")
         self.assertEqual(dispatched[0]["data"]["seq"], 3)
 
+    def test_dispatch_result_reason_is_logged_when_queueing_fails(self):
+        frontend = WebSocketFrontend()
+        frontend._dispatcher.dispatch = lambda factory: type("Result", (), {"queued": False, "reason": "loop_closed", "__bool__": lambda self: False})()
+        with self.assertLogs("embedagent.frontend.gui.backend.server", level="ERROR") as captured:
+            queued = frontend._dispatch_message({"type": "session_event", "data": {}})
+        self.assertFalse(queued)
+        self.assertTrue(any("loop_closed" in entry for entry in captured.output))
+
+    def test_websocket_endpoint_cleans_up_after_receive_failure(self):
+        with tempfile.TemporaryDirectory() as static_dir:
+            with open(os.path.join(static_dir, "index.html"), "w", encoding="utf-8") as handle:
+                handle.write("<html><body>ok</body></html>")
+            backend = GUIBackend(_BackendCore(), static_dir=static_dir)
+            route = None
+            for item in backend.app.routes:
+                if getattr(item, "path", "") == "/ws":
+                    route = item
+                    break
+            self.assertIsNotNone(route)
+            websocket = _ReceiveErrorWebSocket(RuntimeError("boom"))
+            with self.assertLogs("embedagent.frontend.gui.backend.server", level="ERROR") as captured:
+                asyncio.run(route.endpoint(websocket))
+            self.assertTrue(websocket.accepted)
+            self.assertNotIn(websocket, backend.frontend.connections)
+            self.assertTrue(any("Unhandled websocket failure" in entry for entry in captured.output))
+
 
 class TestAgentCoreAdapterApi(unittest.TestCase):
     def test_build_structured_timeline_delegates_to_inner_adapter(self):
@@ -232,6 +278,34 @@ class TestAgentCoreAdapterApi(unittest.TestCase):
 
         self.assertEqual(payload["session_id"], "sess-1")
         core._adapter.build_structured_timeline.assert_called_once_with("sess-1", limit=55)
+
+    def test_snapshot_projection_preserves_replay_metadata(self):
+        from embedagent.core.adapter import AgentCoreAdapter
+
+        core = AgentCoreAdapter(workspace="D:\\workspace")
+        core._adapter = MagicMock()
+        core._adapter.get_session_snapshot.return_value = {
+            "session_id": "sess-1",
+            "status": "idle",
+            "current_mode": "code",
+            "started_at": "2026-04-04T00:00:00Z",
+            "updated_at": "2026-04-04T00:00:01Z",
+            "timeline_replay_status": "degraded",
+            "timeline_first_seq": 2,
+            "timeline_last_seq": 6,
+            "timeline_integrity": "degraded",
+            "pending_interaction_valid": False,
+            "restore_stop_reason": "transcript_missing",
+        }
+
+        snapshot = core.get_session_snapshot("sess-1")
+
+        self.assertEqual(snapshot.timeline_replay_status, "degraded")
+        self.assertEqual(snapshot.timeline_first_seq, 2)
+        self.assertEqual(snapshot.timeline_last_seq, 6)
+        self.assertEqual(snapshot.timeline_integrity, "degraded")
+        self.assertFalse(snapshot.pending_interaction_valid)
+        self.assertEqual(snapshot.restore_stop_reason, "transcript_missing")
 
 
 if __name__ == "__main__":
