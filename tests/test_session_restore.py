@@ -852,6 +852,123 @@ class TestSessionRestorer(unittest.TestCase):
         self.assertEqual(result.session.pending_interaction.tool_name, "ask_user")
         self.assertEqual(result.session.turns[0].transitions, [])
 
+    def test_restore_stops_at_tool_result_with_mismatched_tool_name(self):
+        session_id = "sess-tool-result-wrong-tool"
+        self.store.append_event(session_id, "session_meta", {"current_mode": "code"})
+        self.store.append_event(
+            session_id,
+            "message",
+            {"role": "user", "content": "读取文件", "message_id": "m-user", "turn_id": "t-1", "step_id": ""},
+        )
+        self.store.append_event(session_id, "step_started", {"turn_id": "t-1", "step_id": "s-1", "step_index": 1})
+        self.store.append_event(
+            session_id,
+            "tool_call",
+            {
+                "turn_id": "t-1",
+                "step_id": "s-1",
+                "call_id": "call-read-1",
+                "tool_name": "read_file",
+                "arguments": {"path": "src/demo.c"},
+                "status": "started",
+            },
+        )
+        self.store.append_event(
+            session_id,
+            "tool_result",
+            {
+                "turn_id": "t-1",
+                "step_id": "s-1",
+                "call_id": "call-read-1",
+                "tool_name": "search_text",
+                "finished_at": "2026-04-02T00:00:01Z",
+                "observation": {
+                    "success": True,
+                    "error": None,
+                    "data": {"query": "demo"},
+                },
+            },
+        )
+        self.store.append_event(
+            session_id,
+            "loop_transition",
+            {
+                "turn_id": "t-1",
+                "step_id": "s-1",
+                "reason": "completed",
+                "message": "assistant finished",
+                "next_mode": "code",
+                "turns_used": 1,
+                "metadata": {},
+            },
+        )
+        result = SessionRestorer().restore(self.store.load_events(session_id))
+        step = result.session.turns[0].steps[0]
+        self.assertEqual(len(step.tool_calls), 1)
+        self.assertEqual(step.tool_calls[0].tool_name, "read_file")
+        self.assertEqual(step.tool_calls[0].status, "started")
+        self.assertEqual(result.session.turns[0].observations, [])
+        self.assertEqual(result.session.turns[0].transitions, [])
+
+    def test_restore_stops_at_tool_result_with_mismatched_arguments(self):
+        session_id = "sess-tool-result-wrong-args"
+        self.store.append_event(session_id, "session_meta", {"current_mode": "code"})
+        self.store.append_event(
+            session_id,
+            "message",
+            {"role": "user", "content": "读取文件", "message_id": "m-user", "turn_id": "t-1", "step_id": ""},
+        )
+        self.store.append_event(session_id, "step_started", {"turn_id": "t-1", "step_id": "s-1", "step_index": 1})
+        self.store.append_event(
+            session_id,
+            "tool_call",
+            {
+                "turn_id": "t-1",
+                "step_id": "s-1",
+                "call_id": "call-read-1",
+                "tool_name": "read_file",
+                "arguments": {"path": "src/demo.c"},
+                "status": "started",
+            },
+        )
+        self.store.append_event(
+            session_id,
+            "tool_result",
+            {
+                "turn_id": "t-1",
+                "step_id": "s-1",
+                "call_id": "call-read-1",
+                "tool_name": "read_file",
+                "arguments": {"path": "src/other.c"},
+                "finished_at": "2026-04-02T00:00:01Z",
+                "observation": {
+                    "success": True,
+                    "error": None,
+                    "data": {"path": "src/other.c"},
+                },
+            },
+        )
+        self.store.append_event(
+            session_id,
+            "loop_transition",
+            {
+                "turn_id": "t-1",
+                "step_id": "s-1",
+                "reason": "completed",
+                "message": "assistant finished",
+                "next_mode": "code",
+                "turns_used": 1,
+                "metadata": {},
+            },
+        )
+        result = SessionRestorer().restore(self.store.load_events(session_id))
+        step = result.session.turns[0].steps[0]
+        self.assertEqual(len(step.tool_calls), 1)
+        self.assertEqual(step.tool_calls[0].arguments, {"path": "src/demo.c"})
+        self.assertEqual(step.tool_calls[0].status, "started")
+        self.assertEqual(result.session.turns[0].observations, [])
+        self.assertEqual(result.session.turns[0].transitions, [])
+
 
 if __name__ == "__main__":
     unittest.main()

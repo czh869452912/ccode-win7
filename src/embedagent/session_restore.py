@@ -74,11 +74,14 @@ class SessionRestorer(object):
                 continue
             if event_type == "tool_result":
                 call_id = str(payload.get("call_id") or "")
-                if not call_id or session._find_tool_call(call_id) is None:
+                record = session._find_tool_call(call_id) if call_id else None
+                if record is None:
                     break
                 if not self._matches_current_turn(session, str(payload.get("turn_id") or "")):
                     break
                 if not self._matches_current_step(session, str(payload.get("step_id") or "")):
+                    break
+                if not self._matches_tool_result_record(record, payload):
                     break
                 action = Action(
                     name=str(payload.get("tool_name") or ""),
@@ -302,4 +305,15 @@ class SessionRestorer(object):
         kind = str(payload.get("kind") or "").strip()
         if kind and kind != str(pending.kind or ""):
             return False
+        return True
+
+    def _matches_tool_result_record(self, record: Any, payload: Dict[str, Any]) -> bool:
+        tool_name = str(payload.get("tool_name") or "").strip()
+        if tool_name and tool_name != str(getattr(record, "tool_name", "") or ""):
+            return False
+        if "arguments" in payload:
+            arguments = payload.get("arguments")
+            if isinstance(arguments, dict):
+                if dict(arguments) != dict(getattr(record, "arguments", {}) or {}):
+                    return False
         return True

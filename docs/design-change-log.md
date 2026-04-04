@@ -246,6 +246,26 @@
   - 继续评估 restore stop reason / consumed event count 的上抛
   - 若继续推进 parent/reference contract，可把 compact boundary / pending interaction 统一到一套引用校验模型
 
+### DC-066
+
+- 日期：2026-04-04
+- 变更主题：tool_result replay 现在校验与前置 tool_call 的引用一致性
+- 变更摘要：
+  - `SessionRestorer` 在处理 `tool_result` 时，除了要求 `call_id` 已存在，还会校验 `tool_name` 是否与已记录的 `tool_call` 一致
+  - 若 `tool_result` 显式带了 `arguments`，也会要求它与前置 `tool_call.arguments` 保持一致
+  - 这样可以避免“只碰巧复用了同一个 call id”的错误结果被挂到现有 tool call 上
+- 影响范围：
+  - tool result replay
+  - tool topology 的恢复可信度
+  - malformed transcript 的引用一致性
+- 关联文档：
+  - `docs/context-loop-handoff-status.md`
+  - `docs/development-tracker.md`
+- 是否需要 ADR：`否`
+- 后续动作：
+  - 继续评估 restore stop reason / consumed event count 的上抛
+  - 若继续推进 parent/reference contract，可把 assistant action/tool_result/message 三条链路纳入统一约束
+
 ### DC-055
 
 - 日期：2026-04-02
