@@ -481,6 +481,88 @@ class TestSessionRestorer(unittest.TestCase):
         self.assertEqual(result.session.compact_boundaries, [])
         self.assertEqual(result.session.turns[0].transitions, [])
 
+    def test_restore_stops_at_assistant_message_with_mismatched_turn_id(self):
+        session_id = "sess-invalid-assistant-message"
+        self.store.append_event(session_id, "session_meta", {"current_mode": "code"})
+        self.store.append_event(
+            session_id,
+            "message",
+            {"role": "user", "content": "读取文件", "message_id": "m-user", "turn_id": "t-1", "step_id": ""},
+        )
+        self.store.append_event(session_id, "step_started", {"turn_id": "t-1", "step_id": "s-1", "step_index": 1})
+        self.store.append_event(
+            session_id,
+            "message",
+            {
+                "role": "assistant",
+                "content": "bad assistant",
+                "message_id": "m-assistant",
+                "turn_id": "t-other",
+                "step_id": "s-1",
+                "actions": [],
+                "reasoning_content": "",
+                "finish_reason": "stop",
+            },
+        )
+        self.store.append_event(
+            session_id,
+            "loop_transition",
+            {
+                "turn_id": "t-1",
+                "step_id": "s-1",
+                "reason": "completed",
+                "message": "assistant finished",
+                "next_mode": "code",
+                "turns_used": 1,
+                "metadata": {},
+            },
+        )
+        result = SessionRestorer().restore(self.store.load_events(session_id))
+        self.assertEqual(len(result.session.turns), 1)
+        self.assertEqual(result.session.turns[0].assistant_message, "")
+        self.assertEqual(result.session.turns[0].transitions, [])
+
+    def test_restore_stops_at_tool_message_with_mismatched_step_id(self):
+        session_id = "sess-invalid-tool-message-step"
+        self.store.append_event(session_id, "session_meta", {"current_mode": "code"})
+        self.store.append_event(
+            session_id,
+            "message",
+            {"role": "user", "content": "读取文件", "message_id": "m-user", "turn_id": "t-1", "step_id": ""},
+        )
+        self.store.append_event(session_id, "step_started", {"turn_id": "t-1", "step_id": "s-1", "step_index": 1})
+        self.store.append_event(
+            session_id,
+            "message",
+            {
+                "role": "tool",
+                "content": "{\"success\": true, \"error\": null, \"data\": {\"path\": \"src/demo.c\"}}",
+                "message_id": "m-tool",
+                "turn_id": "t-1",
+                "step_id": "s-other",
+                "tool_call_id": "call-legacy",
+                "tool_name": "read_file",
+                "kind": "tool_result",
+            },
+        )
+        self.store.append_event(
+            session_id,
+            "loop_transition",
+            {
+                "turn_id": "t-1",
+                "step_id": "s-1",
+                "reason": "completed",
+                "message": "assistant finished",
+                "next_mode": "code",
+                "turns_used": 1,
+                "metadata": {},
+            },
+        )
+        result = SessionRestorer().restore(self.store.load_events(session_id))
+        self.assertEqual(len(result.session.turns), 1)
+        self.assertEqual([item.role for item in result.session.messages], ["user"])
+        self.assertEqual(result.session.turns[0].transitions, [])
+
 
 if __name__ == "__main__":
     unittest.main()

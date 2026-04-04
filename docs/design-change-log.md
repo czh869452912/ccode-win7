@@ -166,6 +166,26 @@
   - 继续补 message event 自身的 chain / parent consistency 校验
   - 评估 bootstrap 是否需要进一步回填 tool topology / transitions
 
+### DC-062
+
+- 日期：2026-04-04
+- 变更主题：message replay 现在校验 turn 一致性，并兼容缺少 step_started 的旧 transcript
+- 变更摘要：
+  - `SessionRestorer` 现在会拒绝错误 `turn_id` 的 `assistant/tool` message
+  - 对 `step_id` 的处理改成“有 active step 时严格匹配；没有 active step 时允许 assistant/tool message 作为旧 transcript 的建步前缀”
+  - 这既收紧了 message replay 的错误挂接风险，也保住了历史 transcript 中 message-only 形态的兼容恢复
+- 影响范围：
+  - assistant/tool message replay
+  - legacy transcript compatibility
+  - compact replay / content replacement 的恢复稳定性
+- 关联文档：
+  - `docs/context-loop-handoff-status.md`
+  - `docs/development-tracker.md`
+- 是否需要 ADR：`否`
+- 后续动作：
+  - 继续补 message chain / parent consistency
+  - 评估是否要为 legacy compatibility 打上显式 restore note
+
 ### DC-055
 
 - 日期：2026-04-02

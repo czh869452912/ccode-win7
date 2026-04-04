@@ -38,7 +38,8 @@ class SessionRestorer(object):
                     session.started_at = str(payload["started_at"])
                 continue
             if event_type == "message":
-                self._apply_message(session, payload)
+                if not self._apply_message(session, payload):
+                    break
                 continue
             if event_type == "step_started":
                 if not session.turns:
@@ -158,7 +159,7 @@ class SessionRestorer(object):
             transcript_event_count=len(events),
         )
 
-    def _apply_message(self, session: Session, payload: Dict[str, Any]) -> None:
+    def _apply_message(self, session: Session, payload: Dict[str, Any]) -> bool:
         role = str(payload.get("role") or "")
         if role == "system":
             session.add_system_message(
@@ -170,15 +171,19 @@ class SessionRestorer(object):
                 metadata=dict(payload.get("metadata") or {}),
                 replaced_by_refs=list(payload.get("replaced_by_refs") or []),
             )
-            return
+            return True
         if role == "user":
             session.add_user_message(
                 str(payload.get("content") or ""),
                 turn_id=str(payload.get("turn_id") or ""),
                 message_id=str(payload.get("message_id") or ""),
             )
-            return
+            return True
         if role == "assistant":
+            if not self._matches_current_turn(session, str(payload.get("turn_id") or "")):
+                return False
+            if not self._matches_message_step(session, str(payload.get("step_id") or "")):
+                return False
             reply = AssistantReply(
                 content=str(payload.get("content") or ""),
                 actions=[
@@ -198,8 +203,12 @@ class SessionRestorer(object):
                 turn_id=str(payload.get("turn_id") or ""),
                 step_id=str(payload.get("step_id") or ""),
             )
-            return
+            return True
         if role == "tool":
+            if not self._matches_current_turn(session, str(payload.get("turn_id") or "")):
+                return False
+            if not self._matches_message_step(session, str(payload.get("step_id") or "")):
+                return False
             message = TranscriptMessage(
                 role="tool",
                 content=str(payload.get("content") or ""),
@@ -215,6 +224,8 @@ class SessionRestorer(object):
             session.messages.append(message)
             if session.turns:
                 session.turns[-1].message_end_index = len(session.messages) - 1
+            return True
+        return False
 
     def _matches_current_turn(self, session: Session, turn_id: str) -> bool:
         expected = str(turn_id or "").strip()
@@ -231,6 +242,15 @@ class SessionRestorer(object):
         step = session.current_step()
         if step is None:
             return False
+        return str(step.step_id or "") == expected
+
+    def _matches_message_step(self, session: Session, step_id: str) -> bool:
+        expected = str(step_id or "").strip()
+        if not expected:
+            return True
+        step = session.current_step()
+        if step is None:
+            return True
         return str(step.step_id or "") == expected
 
     def _is_valid_compact_boundary(self, session: Session, payload: Dict[str, Any]) -> bool:
