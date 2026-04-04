@@ -140,4 +140,21 @@ export function runSessionRuntimeTests() {
 
   const retryState = capRetryAttempt(200);
   assert.equal(retryState, 20);
+
+  const expiredRuntime = projectSessionRuntime({
+    snapshot: {
+      session_id: "sess-1",
+      status: "waiting_permission",
+      current_mode: "code",
+      pending_interaction_valid: false,
+      pending_interaction: {
+        interaction_id: "int-expired",
+        kind: "permission",
+        tool_name: "edit_file",
+      },
+    },
+    eventLog: createSessionEventLog(),
+    bootstrapTimeline: [],
+  });
+  assert.equal(expiredRuntime.currentInteraction.status, "expired");
 }

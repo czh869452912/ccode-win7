@@ -539,6 +539,7 @@ function ReviewResultCard({ item, lang }) {
 
 function CodeBlock({ className, children }) {
   const [copied, setCopied] = React.useState(false);
+  const timeoutRef = React.useRef(0);
   const lang = (className || "").replace("language-", "") || "";
   const codeText = String(children || "").replace(/\n$/, "");
 
@@ -553,10 +554,21 @@ function CodeBlock({ className, children }) {
     }
   }, [codeText, lang]);
 
+  React.useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        window.clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
+
   function handleCopy() {
     navigator.clipboard?.writeText(codeText).then(() => {
       setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
+      if (timeoutRef.current) {
+        window.clearTimeout(timeoutRef.current);
+      }
+      timeoutRef.current = window.setTimeout(() => setCopied(false), 1500);
     });
   }
 
@@ -585,12 +597,19 @@ function Markdown({ content }) {
       rehypePlugins={[rehypeKatex]}
       className="markdown-body"
       components={{
+        pre(props) {
+          const child = React.Children.toArray(props.children)[0];
+          if (React.isValidElement(child) && child.props?.className) {
+            return <CodeBlock className={child.props.className}>{child.props.children}</CodeBlock>;
+          }
+          return <pre {...props} />;
+        },
         code(props) {
           const { node, inline, className, children, ...rest } = props;
           if (inline) {
             return <code className={`inline-code ${className || ""}`} {...rest}>{children}</code>;
           }
-          return <CodeBlock className={className}>{children}</CodeBlock>;
+          return <code className={className} {...rest}>{children}</code>;
         },
         a(props) {
           return <a {...props} target="_blank" rel="noopener noreferrer" />;

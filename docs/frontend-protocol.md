@@ -1,6 +1,6 @@
 # EmbedAgent Frontend Protocol（Phase 6）
 
-> 更新日期：2026-03-30
+> 更新日期：2026-04-04
 > 适用阶段：Phase 6 交互层设计
 
 ---
@@ -81,6 +81,8 @@ Phase 6 的实现顺序固定为：
 - HTTP `GET /api/sessions/{session_id}/events?after_seq=N` 负责在断线/错序后补齐增量事件
 - HTTP `POST /api/sessions/{session_id}/interactions/{interaction_id}/respond` 是 GUI 唯一的交互响应入口
 - Inspector 负责当前 pending interaction 的操作；Timeline 只显示交互历史摘要
+- GUI snapshot 必须显式暴露 replay 能力：`timeline_replay_status`、`timeline_first_seq`、`timeline_last_seq`、`timeline_integrity`、`pending_interaction_valid`
+- replay 结果必须显式区分 `replay / reload_required / degraded`，前端不得再从“空 events”反推需要 reload
 
 ---
 
@@ -158,7 +160,12 @@ Phase 6 的实现顺序固定为：
   "summary_ref": ".embedagent/memory/sessions/abc123/summary.json",
   "has_pending_permission": false,
   "pending_permission": null,
-  "last_error": null
+  "last_error": null,
+  "timeline_replay_status": "replay",
+  "timeline_first_seq": 0,
+  "timeline_last_seq": 0,
+  "timeline_integrity": "healthy",
+  "pending_interaction_valid": false
 }
 ```
 
@@ -266,6 +273,13 @@ payload：
 - `status`
 - `snapshot`
 
+错误语义：
+
+- `404 session_not_found`
+- `410 interaction_expired`
+- `409 interaction_conflict`
+- `422 invalid_request`
+
 #### `replay_session_events`
 
 用途：在 GUI reconnect 或事件错序后，从指定 `seq` 之后重新获取事件。
@@ -281,6 +295,10 @@ GET /api/sessions/{session_id}/events?after_seq=42
 ```json
 {
   "session_id": "abc123",
+  "status": "replay",
+  "first_seq": 43,
+  "last_seq": 57,
+  "reason": "",
   "events": [
     {
       "event_id": "evt-100",
@@ -292,6 +310,12 @@ GET /api/sessions/{session_id}/events?after_seq=42
   ]
 }
 ```
+
+说明：
+
+- `status = replay`：当前 retained window 仍覆盖 `after_seq`，可直接追加事件
+- `status = reload_required`：请求的 `after_seq` 早于 retained window，前端必须重新 bootstrap session
+- `status = degraded`：timeline 完整性不足，前端应保守 reload 并显示 degraded 状态
 
 返回：立即确认收到；真正执行结果通过 Event 流返回。
 
@@ -542,7 +566,7 @@ class InProcessAdapter(object):
 
 ## 8. 错误模型
 
-### 8.1 Command Error
+### 8.1 Command Error / Typed HTTP Error
 
 命令执行前的参数错误或状态错误，应直接作为 command result 返回：
 
@@ -555,9 +579,21 @@ class InProcessAdapter(object):
 }
 ```
 
-### 8.2 Runtime Error
+GUI HTTP 路径同时采用 typed status code：
+
+- `404`：`session_not_found`
+- `409`：`interaction_conflict`
+- `410`：`interaction_expired`
+- `422`：`invalid_request`
+
+### 8.2 Runtime Error / Replay Degraded
 
 Loop 内部错误、模型错误、工具错误，应通过 `session_error` Event 发出，并同步更新 Session 快照中的 `last_error`。
+
+GUI runtime 额外约束：
+
+- websocket enqueue / receive / parse 失败要进入 transport degraded
+- replay gap 不再只用布尔值表示，前端读模型至少区分 `healthy / replay_needed / reload_required / degraded`
 
 ---
 

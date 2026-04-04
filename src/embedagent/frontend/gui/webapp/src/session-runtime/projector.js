@@ -33,8 +33,12 @@ function normalizePendingInteraction(snapshot) {
   if (!interaction || interaction.status === "resolved") {
     return null;
   }
-  if (snapshot?.pending_interaction_valid === false || interaction.valid === false) {
-    return null;
+  if (snapshot?.pending_interaction_valid === false || interaction.valid === false || interaction.status === "expired") {
+    return {
+      ...interaction,
+      status: "expired",
+      valid: false,
+    };
   }
   return interaction;
 }

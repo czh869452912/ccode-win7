@@ -17,6 +17,15 @@ export default function InteractionPanel({
 
   if (!interaction) return null;
 
+  if (interaction?.status === "expired" || interaction?.valid === false) {
+    return (
+      <div className="prompt-panel interaction-expired" role="status">
+        <h3>Interaction expired</h3>
+        <p>Please trigger the action again to continue.</p>
+      </div>
+    );
+  }
+
   if (interaction.kind === "permission") {
     return (
       <div className="prompt-panel" role="dialog" aria-label={t("modal.permissionRequired", lang)}>

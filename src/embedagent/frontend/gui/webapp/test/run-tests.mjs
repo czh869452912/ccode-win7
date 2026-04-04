@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
 
 import { initialState, reducer } from "../src/store.js";
 import {
@@ -344,6 +346,19 @@ function main() {
     },
   );
   assert.equal(activatedState.eventLog.length, 0);
+
+  const timelineSource = fs.readFileSync(
+    path.resolve("src", "components", "Timeline.jsx"),
+    "utf8",
+  );
+  assert.equal(timelineSource.includes("pre(props)"), true);
+  assert.equal(timelineSource.includes("if (inline)"), true);
+
+  const interactionPanelSource = fs.readFileSync(
+    path.resolve("src", "components", "InteractionPanel.jsx"),
+    "utf8",
+  );
+  assert.equal(interactionPanelSource.includes('interaction?.status === "expired"'), true);
 
   runSessionRuntimeTests();
 
