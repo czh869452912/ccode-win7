@@ -63,12 +63,22 @@ function main() {
     recent_transitions: [
       { reason: "aborted", display_reason: "cancelled", message: "tool execution interrupted" },
     ],
+    timeline_replay_status: "degraded",
+    timeline_first_seq: 3,
+    timeline_last_seq: 9,
+    timeline_integrity: "degraded",
+    pending_interaction_valid: false,
   });
   assert.equal(snapshot.status, "waiting_permission");
   assert.equal(snapshot.current_mode, "debug");
   assert.equal(snapshot.has_pending_permission, true);
   assert.equal(snapshot.lastTransitionDisplayReason, "cancelled");
   assert.equal(snapshot.recentTransitions[0].displayReason, "cancelled");
+  assert.equal(snapshot.timeline_replay_status, "degraded");
+  assert.equal(snapshot.timeline_first_seq, 3);
+  assert.equal(snapshot.timeline_last_seq, 9);
+  assert.equal(snapshot.timeline_integrity, "degraded");
+  assert.equal(snapshot.pending_interaction_valid, false);
 
   const structuredTimeline = timelineFromTurns([
     {
@@ -316,6 +326,24 @@ function main() {
     type: "permission_cleared",
   });
   assert.equal(resolvedPermissionState.permission, null);
+
+  const activatedState = reducer(
+    {
+      ...initialState,
+      eventLog: [{ ts: 1, label: "stale-session", detail: "" }],
+    },
+    {
+      type: "session_activated",
+      sessionId: "sess-2",
+      snapshot: {
+        session_id: "sess-2",
+        current_mode: "code",
+        has_pending_permission: false,
+      },
+      timeline: [],
+    },
+  );
+  assert.equal(activatedState.eventLog.length, 0);
 
   runSessionRuntimeTests();
 

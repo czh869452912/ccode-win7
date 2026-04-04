@@ -106,7 +106,7 @@ function ToolBlock({ item }) {
   );
 }
 
-function groupByTurn(items) {
+function groupFlatItemsByTurn(items) {
   const groups = [];
   const turnMap = new Map();
 
@@ -180,6 +180,47 @@ function groupByTurn(items) {
   }));
 }
 
+function normalizeTurnGroups(timeline) {
+  if (!Array.isArray(timeline) || timeline.length === 0) {
+    return [];
+  }
+  const first = timeline[0];
+  if (
+    first &&
+    typeof first === "object" &&
+    (Array.isArray(first.steps) ||
+      Array.isArray(first.leadingSystemItems) ||
+      Array.isArray(first.trailingTurnItems) ||
+      Array.isArray(first.sessionFallbackItems))
+  ) {
+    return timeline;
+  }
+  return groupFlatItemsByTurn(timeline);
+}
+
+function flattenTurnGroups(groups) {
+  const items = [];
+  for (const group of groups || []) {
+    if (group.userItem) items.push(group.userItem);
+    for (const item of group.leadingSystemItems || group.systemItems || []) {
+      items.push(item);
+    }
+    for (const step of group.steps || []) {
+      for (const item of step.activityItems || []) {
+        items.push(item);
+      }
+      if (step.assistantItem) items.push(step.assistantItem);
+    }
+    for (const item of group.trailingTurnItems || group.detachedItems || []) {
+      items.push(item);
+    }
+    for (const item of group.sessionFallbackItems || []) {
+      items.push(item);
+    }
+  }
+  return items;
+}
+
 const Timeline = forwardRef(function Timeline(
   {
     timeline, toolCatalog, thinkingActive, streamingReasoningId,
@@ -190,8 +231,8 @@ const Timeline = forwardRef(function Timeline(
   ref,
 ) {
   const lang = useLang();
-  const groups = groupByTurn(timeline);
-  const projectionSummary = summarizeTimelineProjection(timeline);
+  const groups = normalizeTurnGroups(timeline);
+  const projectionSummary = summarizeTimelineProjection(flattenTurnGroups(groups));
   const projectionNotice = describeTimelineProjectionNotice(projectionSummary);
   const lastIdx = groups.length - 1;
 
@@ -254,7 +295,17 @@ const Timeline = forwardRef(function Timeline(
 export default Timeline;
 
 function TurnGroup({ group, toolCatalog, isLast, thinkingActive, streamingReasoningId, lang }) {
-  const { userItem, steps, detachedItems, systemItems } = group;
+  const {
+    userItem,
+    steps,
+    detachedItems = [],
+    systemItems = [],
+    leadingSystemItems = [],
+    trailingTurnItems = [],
+    sessionFallbackItems = [],
+  } = group;
+  const leadingItems = leadingSystemItems.length > 0 ? leadingSystemItems : systemItems;
+  const trailingItems = trailingTurnItems.length > 0 ? trailingTurnItems : detachedItems;
 
   return (
     <div className="turn-group">
@@ -263,8 +314,10 @@ function TurnGroup({ group, toolCatalog, isLast, thinkingActive, streamingReason
           {userItem.content}
         </div>
       )}
-      {detachedItems.map((item) => (
-        <TimelineItem key={item.id} item={item} toolCatalog={toolCatalog} lang={lang} />
+      {leadingItems.map((item) => (
+        item.kind === "compact"
+          ? <CompactCard key={item.id} item={item} lang={lang} />
+          : <TimelineItem key={item.id} item={item} toolCatalog={toolCatalog} lang={lang} />
       ))}
       {steps.map((step, index) => (
         <StepGroup
@@ -278,10 +331,13 @@ function TurnGroup({ group, toolCatalog, isLast, thinkingActive, streamingReason
           lang={lang}
         />
       ))}
-      {systemItems.map((item) => (
+      {trailingItems.map((item) => (
         item.kind === "compact"
           ? <CompactCard key={item.id} item={item} lang={lang} />
-          : <div key={item.id} className={`system-card ${item.tone || ""}`} role="alert">{item.content}</div>
+          : <TimelineItem key={item.id} item={item} toolCatalog={toolCatalog} lang={lang} />
+      ))}
+      {sessionFallbackItems.map((item) => (
+        <TimelineItem key={item.id} item={item} toolCatalog={toolCatalog} lang={lang} />
       ))}
       {isLast && thinkingActive && !streamingReasoningId && steps.length === 0 && (
         <div className="thinking-placeholder" aria-live="polite">
@@ -372,12 +428,15 @@ function TimelineItem({ item, toolCatalog, lang }) {
       </div>
     );
   }
-  if (item.kind === "command_result") {
+  if (item.kind === "command_result" || item.kind === "command_result_fallback") {
     if (item.commandName === "review" && item.data?.review) {
       return <ReviewResultCard item={item} lang={lang} />;
     }
     return (
-      <div className={`bubble assistant command-result ${item.success === false ? "error" : ""}`} role="article">
+      <div
+        className={`bubble assistant command-result ${item.kind === "command_result_fallback" ? "command-result-fallback" : ""} ${item.success === false ? "error" : ""}`}
+        role="article"
+      >
         <div className="command-result-label">/{item.commandName}</div>
         <Markdown content={item.content} />
       </div>
