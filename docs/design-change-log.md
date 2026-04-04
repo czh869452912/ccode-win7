@@ -66,6 +66,26 @@
   - 评估 transcript 尾部损坏修复与轮转策略
   - 补更贴近真实工程的长会话恢复回归
 
+### DC-057
+
+- 日期：2026-04-04
+- 变更主题：transcript damaged-tail recovery 现在会拦截 seq gap 并在追加前修复尾部
+- 变更摘要：
+  - `TranscriptStore.load_events()` 现在要求 `seq` 严格连续，遇到跳号、乱序或损坏行会停止在最后一个连续前缀
+  - `TranscriptStore.append_event()` 现在会在追加前截断损坏尾部，避免新事件被追加到坏尾后面却永远读不出来
+  - 新增 focused regression 覆盖 `seq` gap 和坏尾后继续写入两条路径
+- 影响范围：
+  - transcript corruption handling
+  - append-only transcript 的自愈能力
+  - resume 前的事件读取一致性
+- 关联文档：
+  - `docs/context-loop-handoff-status.md`
+  - `docs/development-tracker.md`
+- 是否需要 ADR：`否`
+- 后续动作：
+  - 继续评估 transcript 轮转与更细的损坏诊断输出
+  - 补 restore 侧的更强事件因果校验
+
 ### DC-055
 
 - 日期：2026-04-02

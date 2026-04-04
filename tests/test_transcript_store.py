@@ -69,6 +69,51 @@ class TestTranscriptStore(unittest.TestCase):
         self.assertEqual(len(events), 1)
         self.assertEqual(events[0]["type"], "session_meta")
 
+    def test_load_events_stops_at_sequence_gap(self):
+        store = TranscriptStore(self.workspace)
+        store.append_event("sess-gap", "session_meta", {"current_mode": "debug"})
+        store.append_event(
+            "sess-gap",
+            "message",
+            {
+                "role": "user",
+                "message_id": "m-user-1",
+                "turn_id": "t-1",
+                "step_id": "",
+                "content": "continue",
+            },
+        )
+        path = store.resolve_transcript_path("sess-gap")
+        with open(path, "a", encoding="utf-8") as handle:
+            handle.write(
+                '{"schema_version":1,"session_id":"sess-gap","event_id":"evt-gap","seq":5,"ts":"2026-04-04T00:00:00Z","type":"loop_transition","payload":{"reason":"completed"}}\n'
+            )
+        events = store.load_events("sess-gap")
+        self.assertEqual([item["seq"] for item in events], [1, 2])
+
+    def test_append_event_truncates_damaged_tail_before_continuing(self):
+        store = TranscriptStore(self.workspace)
+        store.append_event("sess-recover", "session_meta", {"current_mode": "debug"})
+        path = store.resolve_transcript_path("sess-recover")
+        with open(path, "a", encoding="utf-8") as handle:
+            handle.write("{bad-json")
+
+        store.append_event(
+            "sess-recover",
+            "message",
+            {
+                "role": "user",
+                "message_id": "m-user-1",
+                "turn_id": "t-1",
+                "step_id": "",
+                "content": "recovered",
+            },
+        )
+
+        events = store.load_events("sess-recover")
+        self.assertEqual([item["seq"] for item in events], [1, 2])
+        self.assertEqual(events[-1]["payload"]["content"], "recovered")
+
     def test_append_event_keeps_seq_monotonic(self):
         store = TranscriptStore(self.workspace)
         first = store.append_event("sess-seq", "session_meta", {"current_mode": "code"})

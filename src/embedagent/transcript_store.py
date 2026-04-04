@@ -5,7 +5,7 @@ import os
 import threading
 import uuid
 from datetime import datetime
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 
 
 def _utc_now() -> str:
@@ -52,6 +52,7 @@ class TranscriptStore(object):
         with append_lock:
             if not os.path.isdir(directory):
                 os.makedirs(directory)
+            self._repair_tail(path)
             seq = self._next_seq(path)
             event = {
                 "schema_version": 1,
@@ -73,24 +74,7 @@ class TranscriptStore(object):
         path = self.resolve_transcript_path(reference)
         if not os.path.isfile(path):
             raise ValueError("transcript not found: %s" % reference)
-        events = []
-        last_seq = 0
-        with open(path, "r", encoding="utf-8") as handle:
-            for raw_line in handle:
-                line = raw_line.strip()
-                if not line:
-                    continue
-                try:
-                    event = json.loads(line)
-                except ValueError:
-                    break
-                if not isinstance(event, dict):
-                    break
-                seq = int(event.get("seq") or 0)
-                if seq <= last_seq:
-                    break
-                events.append(event)
-                last_seq = seq
+        events, _ = self._scan_events(path)
         return events
 
     def transcript_exists(self, reference: str) -> bool:
@@ -119,3 +103,48 @@ class TranscriptStore(object):
                 lock = threading.RLock()
                 self._append_locks[normalized] = lock
             return lock
+
+    def _repair_tail(self, path: str) -> None:
+        if not os.path.isfile(path):
+            return
+        _, valid_length = self._scan_events(path)
+        try:
+            file_size = os.path.getsize(path)
+        except OSError:
+            return
+        if valid_length >= file_size:
+            return
+        with open(path, "rb+") as handle:
+            handle.truncate(valid_length)
+
+    def _scan_events(self, path: str) -> Tuple[List[Dict[str, Any]], int]:
+        events = []
+        last_seq = 0
+        valid_length = 0
+        with open(path, "rb") as handle:
+            while True:
+                raw_line = handle.readline()
+                if not raw_line:
+                    break
+                next_offset = handle.tell()
+                line = raw_line.strip()
+                if not line:
+                    valid_length = next_offset
+                    continue
+                try:
+                    text = line.decode("utf-8")
+                    event = json.loads(text)
+                except (UnicodeDecodeError, ValueError):
+                    break
+                if not isinstance(event, dict):
+                    break
+                try:
+                    seq = int(event.get("seq") or 0)
+                except (TypeError, ValueError):
+                    break
+                if seq != last_seq + 1:
+                    break
+                events.append(event)
+                last_seq = seq
+                valid_length = next_offset
+        return events, valid_length
