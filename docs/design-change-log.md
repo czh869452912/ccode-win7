@@ -126,6 +126,26 @@
   - 继续补 message-chain / preserved segment 的一致性校验
   - 评估是否要在恢复结果里暴露 stop reason / stop event index
 
+### DC-060
+
+- 日期：2026-04-04
+- 变更主题：SessionRestorer 现在校验 replay 事件的 turn_id / step_id 一致性
+- 变更摘要：
+  - `tool_call`、`tool_result`、`pending_interaction`、`loop_transition` 现在都会校验其 `turn_id / step_id` 是否匹配当前活动节点
+  - 一旦 transcript 事件引用了错误的活动 turn/step，恢复会停在最后一个自洽前缀，而不是把事件静默挂到当前节点
+  - 同时把 `pending_interaction` 的 focused fixture 补齐为真实链路：包含前置 `step_started`
+- 影响范围：
+  - transcript replay 的 ID 一致性
+  - malformed transcript 的恢复安全性
+  - adapter resume 的状态可信度
+- 关联文档：
+  - `docs/context-loop-handoff-status.md`
+  - `docs/development-tracker.md`
+- 是否需要 ADR：`否`
+- 后续动作：
+  - 继续补 message-chain / preserved segment 的一致性校验
+  - 评估 restore 结果是否要暴露 stop reason / consumed event count
+
 ### DC-055
 
 - 日期：2026-04-02

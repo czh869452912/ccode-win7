@@ -107,6 +107,7 @@ class TestSessionRestorer(unittest.TestCase):
         session_id = "sess-pending"
         self.store.append_event(session_id, "session_meta", {"current_mode": "spec"})
         self.store.append_event(session_id, "message", {"role": "user", "content": "继续", "message_id": "m-user", "turn_id": "t-1", "step_id": ""})
+        self.store.append_event(session_id, "step_started", {"turn_id": "t-1", "step_id": "s-1", "step_index": 1})
         self.store.append_event(
             session_id,
             "pending_interaction",
@@ -287,6 +288,75 @@ class TestSessionRestorer(unittest.TestCase):
         result = SessionRestorer().restore(self.store.load_events(session_id))
         self.assertEqual(len(result.session.turns), 1)
         self.assertEqual(result.session.turns[0].steps, [])
+        self.assertEqual(result.session.turns[0].transitions, [])
+
+    def test_restore_stops_at_tool_call_with_mismatched_step_id(self):
+        session_id = "sess-mismatched-tool-call-step"
+        self.store.append_event(session_id, "session_meta", {"current_mode": "code"})
+        self.store.append_event(
+            session_id,
+            "message",
+            {"role": "user", "content": "读取文件", "message_id": "m-user", "turn_id": "t-1", "step_id": ""},
+        )
+        self.store.append_event(session_id, "step_started", {"turn_id": "t-1", "step_id": "s-1", "step_index": 1})
+        self.store.append_event(
+            session_id,
+            "tool_call",
+            {
+                "turn_id": "t-1",
+                "step_id": "s-999",
+                "call_id": "call-read-1",
+                "tool_name": "read_file",
+                "arguments": {"path": "src/demo.c"},
+                "status": "started",
+            },
+        )
+        self.store.append_event(
+            session_id,
+            "loop_transition",
+            {
+                "turn_id": "t-1",
+                "step_id": "s-1",
+                "reason": "completed",
+                "message": "assistant finished",
+                "next_mode": "code",
+                "turns_used": 1,
+                "metadata": {},
+            },
+        )
+        result = SessionRestorer().restore(self.store.load_events(session_id))
+        self.assertEqual(len(result.session.turns), 1)
+        self.assertEqual(len(result.session.turns[0].steps), 1)
+        self.assertEqual(result.session.turns[0].steps[0].step_id, "s-1")
+        self.assertEqual(result.session.turns[0].steps[0].tool_calls, [])
+        self.assertEqual(result.session.turns[0].transitions, [])
+
+    def test_restore_stops_at_loop_transition_with_mismatched_turn_id(self):
+        session_id = "sess-mismatched-transition-turn"
+        self.store.append_event(session_id, "session_meta", {"current_mode": "code"})
+        self.store.append_event(
+            session_id,
+            "message",
+            {"role": "user", "content": "读取文件", "message_id": "m-user", "turn_id": "t-1", "step_id": ""},
+        )
+        self.store.append_event(session_id, "step_started", {"turn_id": "t-1", "step_id": "s-1", "step_index": 1})
+        self.store.append_event(
+            session_id,
+            "loop_transition",
+            {
+                "turn_id": "t-other",
+                "step_id": "s-1",
+                "reason": "completed",
+                "message": "assistant finished",
+                "next_mode": "code",
+                "turns_used": 1,
+                "metadata": {},
+            },
+        )
+        result = SessionRestorer().restore(self.store.load_events(session_id))
+        self.assertEqual(len(result.session.turns), 1)
+        self.assertEqual(result.session.turns[0].turn_id, "t-1")
+        self.assertEqual(len(result.session.turns[0].steps), 1)
         self.assertEqual(result.session.turns[0].transitions, [])
 
 

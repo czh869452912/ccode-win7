@@ -43,6 +43,8 @@ class SessionRestorer(object):
             if event_type == "step_started":
                 if not session.turns:
                     break
+                if not self._matches_current_turn(session, str(payload.get("turn_id") or "")):
+                    break
                 session.begin_step(
                     reasoning=str(payload.get("reasoning") or ""),
                     step_id=str(payload.get("step_id") or ""),
@@ -50,6 +52,10 @@ class SessionRestorer(object):
                 continue
             if event_type == "tool_call":
                 if session.current_step() is None:
+                    break
+                if not self._matches_current_turn(session, str(payload.get("turn_id") or "")):
+                    break
+                if not self._matches_current_step(session, str(payload.get("step_id") or "")):
                     break
                 action = Action(
                     name=str(payload.get("tool_name") or ""),
@@ -62,6 +68,10 @@ class SessionRestorer(object):
             if event_type == "tool_result":
                 call_id = str(payload.get("call_id") or "")
                 if not call_id or session._find_tool_call(call_id) is None:
+                    break
+                if not self._matches_current_turn(session, str(payload.get("turn_id") or "")):
+                    break
+                if not self._matches_current_step(session, str(payload.get("step_id") or "")):
                     break
                 action = Action(
                     name=str(payload.get("tool_name") or ""),
@@ -86,6 +96,10 @@ class SessionRestorer(object):
                 )
                 continue
             if event_type == "pending_interaction":
+                if not self._matches_current_turn(session, str(payload.get("turn_id") or "")):
+                    break
+                if not self._matches_current_step(session, str(payload.get("step_id") or "")):
+                    break
                 pending = PendingInteraction(
                     interaction_id=str(payload.get("interaction_id") or ""),
                     kind=str(payload.get("kind") or ""),
@@ -120,6 +134,10 @@ class SessionRestorer(object):
                 )
                 continue
             if event_type == "loop_transition":
+                if not self._matches_current_turn(session, str(payload.get("turn_id") or "")):
+                    break
+                if not self._matches_current_step(session, str(payload.get("step_id") or "")):
+                    break
                 pending = session.pending_interaction
                 transition = LoopTransition(
                     reason=str(payload.get("reason") or ""),
@@ -195,3 +213,20 @@ class SessionRestorer(object):
             session.messages.append(message)
             if session.turns:
                 session.turns[-1].message_end_index = len(session.messages) - 1
+
+    def _matches_current_turn(self, session: Session, turn_id: str) -> bool:
+        expected = str(turn_id or "").strip()
+        if not expected:
+            return True
+        if not session.turns:
+            return False
+        return str(session.turns[-1].turn_id or "") == expected
+
+    def _matches_current_step(self, session: Session, step_id: str) -> bool:
+        expected = str(step_id or "").strip()
+        if not expected:
+            return True
+        step = session.current_step()
+        if step is None:
+            return False
+        return str(step.step_id or "") == expected
