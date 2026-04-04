@@ -206,6 +206,26 @@
   - 继续评估是否要把 restore stop reason / consumed event count 暴露给上层
   - message chain / parent consistency 目前已开始具备基础前置条件，后续可继续推进
 
+### DC-064
+
+- 日期：2026-04-04
+- 变更主题：pending_resolution replay 现在校验活动 turn / step 一致性
+- 变更摘要：
+  - `SessionRestorer` 在处理 `pending_resolution` 时，除了要求当前存在 `pending_interaction`，还会校验该 resolution 的 `turn_id / step_id` 必须匹配当前活动节点
+  - 一旦 resolution 指向错误的 turn 或 step，恢复会停在最后一个自洽前缀，而不是把真正的 pending 状态提前清掉
+  - 新增 focused regression 覆盖 wrong-turn / wrong-step 两条路径
+- 影响范围：
+  - pending interaction replay
+  - resume 状态可信度
+  - malformed transcript 的恢复安全性
+- 关联文档：
+  - `docs/context-loop-handoff-status.md`
+  - `docs/development-tracker.md`
+- 是否需要 ADR：`否`
+- 后续动作：
+  - 继续评估 restore stop reason / consumed event count 的上抛
+  - 若继续推进 message chain，可把 pending interaction 纳入统一 parent/reference 校验
+
 ### DC-055
 
 - 日期：2026-04-02

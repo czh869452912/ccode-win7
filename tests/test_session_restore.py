@@ -648,6 +648,108 @@ class TestSessionRestorer(unittest.TestCase):
         self.assertEqual(result.session.turns[0].steps[0].tool_calls[0].tool_name, "read_file")
         self.assertEqual(result.session.turns[0].transitions, [])
 
+    def test_restore_stops_at_pending_resolution_with_mismatched_turn_id(self):
+        session_id = "sess-resolution-wrong-turn"
+        self.store.append_event(session_id, "session_meta", {"current_mode": "spec"})
+        self.store.append_event(
+            session_id,
+            "message",
+            {"role": "user", "content": "继续", "message_id": "m-user", "turn_id": "t-1", "step_id": ""},
+        )
+        self.store.append_event(session_id, "step_started", {"turn_id": "t-1", "step_id": "s-1", "step_index": 1})
+        self.store.append_event(
+            session_id,
+            "pending_interaction",
+            {
+                "turn_id": "t-1",
+                "step_id": "s-1",
+                "kind": "user_input",
+                "tool_name": "ask_user",
+                "interaction_id": "pi-1",
+                "request_payload": {"question": "下一步怎么做？"},
+            },
+        )
+        self.store.append_event(
+            session_id,
+            "pending_resolution",
+            {
+                "turn_id": "t-other",
+                "step_id": "s-1",
+                "interaction_id": "pi-1",
+                "kind": "user_input",
+                "tool_name": "ask_user",
+                "resolution_payload": {"answer": "继续"},
+            },
+        )
+        self.store.append_event(
+            session_id,
+            "loop_transition",
+            {
+                "turn_id": "t-1",
+                "step_id": "s-1",
+                "reason": "completed",
+                "message": "assistant finished",
+                "next_mode": "spec",
+                "turns_used": 1,
+                "metadata": {},
+            },
+        )
+        result = SessionRestorer().restore(self.store.load_events(session_id))
+        self.assertIsNotNone(result.session.pending_interaction)
+        self.assertEqual(result.session.pending_interaction.interaction_id, "pi-1")
+        self.assertEqual(result.session.turns[0].transitions, [])
+
+    def test_restore_stops_at_pending_resolution_with_mismatched_step_id(self):
+        session_id = "sess-resolution-wrong-step"
+        self.store.append_event(session_id, "session_meta", {"current_mode": "spec"})
+        self.store.append_event(
+            session_id,
+            "message",
+            {"role": "user", "content": "继续", "message_id": "m-user", "turn_id": "t-1", "step_id": ""},
+        )
+        self.store.append_event(session_id, "step_started", {"turn_id": "t-1", "step_id": "s-1", "step_index": 1})
+        self.store.append_event(
+            session_id,
+            "pending_interaction",
+            {
+                "turn_id": "t-1",
+                "step_id": "s-1",
+                "kind": "user_input",
+                "tool_name": "ask_user",
+                "interaction_id": "pi-1",
+                "request_payload": {"question": "下一步怎么做？"},
+            },
+        )
+        self.store.append_event(
+            session_id,
+            "pending_resolution",
+            {
+                "turn_id": "t-1",
+                "step_id": "s-other",
+                "interaction_id": "pi-1",
+                "kind": "user_input",
+                "tool_name": "ask_user",
+                "resolution_payload": {"answer": "继续"},
+            },
+        )
+        self.store.append_event(
+            session_id,
+            "loop_transition",
+            {
+                "turn_id": "t-1",
+                "step_id": "s-1",
+                "reason": "completed",
+                "message": "assistant finished",
+                "next_mode": "spec",
+                "turns_used": 1,
+                "metadata": {},
+            },
+        )
+        result = SessionRestorer().restore(self.store.load_events(session_id))
+        self.assertIsNotNone(result.session.pending_interaction)
+        self.assertEqual(result.session.pending_interaction.interaction_id, "pi-1")
+        self.assertEqual(result.session.turns[0].transitions, [])
+
 
 if __name__ == "__main__":
     unittest.main()

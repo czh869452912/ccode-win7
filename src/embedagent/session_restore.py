@@ -120,6 +120,10 @@ class SessionRestorer(object):
             if event_type == "pending_resolution":
                 if session.pending_interaction is None:
                     break
+                if not self._matches_current_turn(session, str(payload.get("turn_id") or "")):
+                    break
+                if not self._matches_current_step(session, str(payload.get("step_id") or "")):
+                    break
                 session.resolve_pending_interaction(dict(payload.get("resolution_payload") or {}))
                 continue
             if event_type == "content_replacement":
