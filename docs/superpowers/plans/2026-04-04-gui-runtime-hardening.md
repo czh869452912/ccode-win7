@@ -18,14 +18,17 @@
   - Introduce typed replay status output instead of raw event arrays only.
   - Separate retained-window metadata from event payloads.
   - Replace "break forever" damaged-line handling with typed degraded scanning.
+  - Surface write-path `OSError` as degraded timeline state instead of silent loss.
 
 - Modify: `src/embedagent/inprocess_adapter.py`
   - Return replay metadata through `load_session_events_after()`.
   - Remove pending interaction fallback IDs during restore.
   - Surface replay capability in session snapshots.
+  - Degrade resume explicitly when transcript/timeline inputs are missing.
 
 - Modify: `src/embedagent/session_restore.py`
   - Explicitly expire missing or untrustworthy interaction IDs during restore.
+  - Treat timed-out or freshness-unknown pending interactions as expired.
 
 - Modify: `tests/test_session_restore.py`
   - Cover trusted interaction restore, explicit expiration, and stop reasons.
@@ -65,6 +68,7 @@
 - Modify: `src/embedagent/frontend/gui/webapp/src/App.jsx`
   - Use typed replay responses and tiered bootstrap recovery.
   - Stop relying on reducer heuristics for command result anchoring and transport degradation handling.
+  - Cap websocket retry bookkeeping and keep reconnect backoff bounded.
 
 - Modify: `src/embedagent/frontend/gui/webapp/src/store.js`
   - Reduce active-session derived state still duplicated in reducer logic when projector assumes ownership.
@@ -170,6 +174,23 @@ class TestSessionTimelineStore(unittest.TestCase):
         events, state = self.store.load_events_with_state(session_id)
         self.assertEqual([item["event_id"] for item in events][-1], "evt_after")
         self.assertEqual(state["integrity_state"], "degraded")
+
+    def test_append_event_marks_degraded_when_fsync_raises_oserror(self):
+        session_id = "sess-disk-full"
+        with patch("os.fsync", side_effect=OSError("disk full")):
+            record = self.store.append_event(session_id, "turn_start", {"turn_id": "t-1"})
+        self.assertEqual(record.get("integrity_state"), "degraded")
+
+
+class TestInProcessAdapterFrontendApis(unittest.TestCase):
+    def test_resume_session_reports_transcript_missing_as_degraded_restore(self):
+        reference = str(self.snapshot.get("session_id") or "")
+        transcript_path = self.adapter.summary_store.resolve_transcript_path(reference)
+        if os.path.exists(transcript_path):
+            os.remove(transcript_path)
+        resumed = self.adapter.resume_session(reference)
+        self.assertEqual(resumed["restore_stop_reason"], "transcript_missing")
+        self.assertEqual(resumed["timeline_replay_status"], "degraded")
 ```
 
 - [ ] **Step 2: Run the targeted tests to verify they fail**
@@ -184,6 +205,8 @@ Expected:
 
 - replay contract assertions fail because `load_session_events_after()` only returns a flat event list
 - malformed mid-file scan test fails because `_scan_events()` stops at the damaged row
+- write-path degradation test fails because append errors are not surfaced
+- transcript-missing resume test fails because resume still raises or silently falls through
 - restore expiration test fails if any fallback or permissive restore path remains
 
 - [ ] **Step 3: Implement the minimum timeline contract and restore identity rules**
@@ -227,8 +250,41 @@ except (UnicodeDecodeError, ValueError):
 ```
 
 ```python
+try:
+    os.fsync(handle.fileno())
+except OSError as exc:
+    _LOGGER.error("timeline append fsync failed: %s", exc)
+    record["integrity_state"] = "degraded"
+    return record
+```
+
+```python
 interaction_id = str(payload.get("interaction_id") or "").strip()
 if not interaction_id:
+    consumed_event_count = index
+    stop_reason = "interaction_expired"
+    break
+```
+
+```python
+try:
+    events = self.transcript_store.load_events(transcript_path)
+except ValueError:
+    events = []
+    session = Session()
+    session.session_id = str(reference or "")
+    restored = SessionRestoreResult(
+        session=session,
+        current_mode=current_mode,
+        transcript_event_count=0,
+        consumed_event_count=0,
+        stop_reason="transcript_missing",
+    )
+```
+
+```python
+interaction_created_at = str(payload.get("created_at") or "").strip()
+if not interaction_created_at or self._interaction_is_stale(interaction_created_at, max_age_seconds=300):
     consumed_event_count = index
     stop_reason = "interaction_expired"
     break
@@ -246,7 +302,9 @@ Expected:
 
 - replay responses now distinguish `replay` / `reload_required` / `degraded`
 - malformed mid-file rows no longer hide later valid events
-- restore rejects untrusted interaction IDs cleanly
+- write-path failures are reported as degraded
+- transcript-missing resume degrades instead of raising
+- restore rejects untrusted or stale interaction IDs cleanly
 
 - [ ] **Step 5: Commit the persistence and restore hardening slice**
 
@@ -291,6 +349,12 @@ class TestGuiBackendApi(unittest.TestCase):
             asyncio.run(route.endpoint("sess-1", "int-1", {"response_kind": "approve"}))
         self.assertEqual(raised.exception.status_code, 410)
 
+    def test_snapshot_route_reports_transcript_missing_as_degraded_metadata(self):
+        backend = GUIBackend(_SnapshotCore("transcript_missing"), static_dir=self.static_dir)
+        route = self._find_route(backend.app, "/api/sessions/{session_id}", "GET")
+        payload = asyncio.run(route.endpoint("sess-1"))
+        self.assertEqual(payload["timeline_replay_status"], "degraded")
+
 
 class _ErrorCore(object):
     def __init__(self, error_text):
@@ -307,6 +371,43 @@ class _ErrorCore(object):
 
     def respond_to_interaction(self, session_id, interaction_id, payload):
         raise ValueError(self.error_text)
+
+
+class _SnapshotCore(_ErrorCore):
+    def __init__(self, stop_reason):
+        self.stop_reason = stop_reason
+
+    def get_session_snapshot(self, session_id):
+        return type(
+            "Snapshot",
+            (),
+            {
+                "session_id": session_id,
+                "status": type("Status", (), {"value": "idle"})(),
+                "current_mode": "code",
+                "created_at": "2026-04-04T00:00:00Z",
+                "updated_at": "2026-04-04T00:00:00Z",
+                "workflow_state": "chat",
+                "has_active_plan": False,
+                "active_plan_ref": "",
+                "current_command_context": "",
+                "has_pending_permission": False,
+                "has_pending_input": False,
+                "pending_permission": None,
+                "pending_input": None,
+                "last_error": None,
+                "runtime_source": "",
+                "bundled_tools_ready": False,
+                "fallback_warnings": [],
+                "runtime_environment": None,
+                "timeline_replay_status": "degraded",
+                "timeline_first_seq": 0,
+                "timeline_last_seq": 0,
+                "timeline_integrity": "degraded",
+                "pending_interaction_valid": False,
+                "restore_stop_reason": self.stop_reason,
+            },
+        )()
 ```
 
 - [ ] **Step 2: Run the tests to verify they fail**
@@ -431,6 +532,9 @@ export function runSessionRuntimeTests() {
     ],
   });
   assert.equal(detachedRuntime.timelineView[0].trailingTurnItems[0].id, "detached-tool");
+
+  const retryState = capRetryAttempt(200);
+  assert.equal(retryState, 20);
 }
 ```
 
@@ -447,6 +551,7 @@ Expected:
 - replay-state assertion fails because event log only exposes `needsResync`
 - command result fallback assertion fails because projector still treats it as a normal timeline item
 - detached-item ordering assertion fails because old grouping still renders detached items before steps
+- retry-cap assertion fails because reconnect bookkeeping is still unbounded
 
 - [ ] **Step 3: Implement the runtime state machine and projector ownership**
 
@@ -459,6 +564,10 @@ export function createSessionEventLog() {
     replayState: "healthy",
     connectionState: "connecting",
   };
+}
+
+export function capRetryAttempt(value) {
+  return Math.min(Math.max(Number(value || 0), 0), 20);
 }
 
 export function appendSessionEvent(log, event) {
@@ -528,6 +637,10 @@ export function projectSessionRuntime({ snapshot, eventLog, bootstrapTimeline = 
     timelineView: projectTurnGroups(timelineItems),
   };
 }
+```
+
+```javascript
+wsRetryRef.current = capRetryAttempt(wsRetryRef.current + 1);
 ```
 
 - [ ] **Step 4: Run the webapp tests again to verify they pass**
@@ -690,6 +803,17 @@ React.useEffect(() => {
 }, []);
 ```
 
+```javascript
+if (interaction?.status === "expired" || interaction?.valid === false) {
+  return (
+    <div className="prompt-panel interaction-expired" role="status">
+      <h3>Interaction expired</h3>
+      <p>Please trigger the action again to continue.</p>
+    </div>
+  );
+}
+```
+
 ```markdown
 ## Replay Status
 
@@ -725,6 +849,11 @@ Expected:
 git add src/embedagent/frontend/gui/webapp/src/components/Timeline.jsx src/embedagent/frontend/gui/webapp/src/components/Inspector.jsx src/embedagent/frontend/gui/webapp/src/components/InteractionPanel.jsx src/embedagent/frontend/gui/webapp/src/styles.css docs/frontend-protocol.md docs/development-tracker.md docs/design-change-log.md src/embedagent/frontend/gui/static/assets/app.js src/embedagent/frontend/gui/static/assets/app.css src/embedagent/frontend/gui/static/index.html
 git commit -m "docs(gui): finalize runtime hardening rollout"
 ```
+
+## Post-Slice Backlog
+
+- `P1-1 stepId` 变化导致同一条助手消息被拆分仍属于 streaming aggregation hardening，而不是本次 replay/restore/runtime contract 的核心目标。
+- 若本 slice 完成后该问题仍存在，应以独立的 streaming delta aggregation 方案继续处理，而不是把它强行塞回当前 hardening 执行面。
 
 ## Coverage Check
 

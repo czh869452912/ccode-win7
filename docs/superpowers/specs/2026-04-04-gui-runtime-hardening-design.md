@@ -33,10 +33,12 @@ The follow-up audit input is documented in [`docs/issues/gui-timeline-issues-pos
 The current GUI event log still has implicit semantics:
 
 - `session_timeline.py` trims by dropping the head of the file
+- write-path failures such as `os.fsync` / disk-full are not yet part of the contract
 - `_scan_events()` stops at the first malformed line and discards all following valid events
 - `load_events_after()` is built on a truncated tail window and cannot distinguish "replay possible" from "window lost"
 - `resume_session()` still fabricates fallback interaction IDs such as `perm-resume` / `ask-resume`
 - transcript/timeline restore failures can still surface as brittle or misleading pending state
+- missing transcript/timeline sources can still abort resume instead of degrading explicitly
 
 This creates the most dangerous live failure chain:
 
@@ -98,7 +100,9 @@ The implementation must preserve these rules:
 - Agent Core remains the product truth source
 - GUI runtime may keep a dedicated event log, but its replay guarantees must be explicit
 - replay failure must be typed and visible, never inferred from missing rows
+- write-path failure must be typed and visible, never silently swallowed
 - restore must never fabricate an actionable interaction identity
+- restored interaction validity includes both identity and freshness, not ID presence alone
 - the front-end projector must become the only interpreter of active-session runtime state
 - typed degradation is preferred over optimistic hidden failure
 
@@ -164,7 +168,26 @@ If the store keeps only the last `N` events, truncation is allowed only when the
 
 Silent loss of earlier seq values is not acceptable.
 
-### 6.4 Mid-File Damage Must Not Discard The Rest Of The Session
+### 6.4 Write-Path Failure Must Degrade Explicitly
+
+The timeline store must treat write-path failures as contract-level state, not incidental exceptions.
+
+Examples include:
+
+- `OSError` from `handle.write(...)`
+- `OSError` from `handle.flush()`
+- `OSError` from `os.fsync(...)`
+- disk-full and permission problems
+
+Required behavior:
+
+- capture and log the failure
+- mark timeline integrity or runtime replay capability as degraded
+- avoid silently pretending the event was durably recorded
+
+The system may drop the event if durable write is impossible, but it must not hide that fact.
+
+### 6.5 Mid-File Damage Must Not Discard The Rest Of The Session
 
 `_scan_events()` must no longer treat one malformed line as "stop reading the rest forever".
 
@@ -181,7 +204,7 @@ The key principle is:
 - admit degraded integrity
 - never pretend continuity that does not exist
 
-### 6.5 Replay Is A Typed Outcome
+### 6.6 Replay Is A Typed Outcome
 
 `load_events_after(after_seq)` must not merely return an array. It must return one of:
 
@@ -197,17 +220,33 @@ The key principle is:
    - the store has integrity damage or a gap that prevents trusted replay
    - the client must enter degraded recovery and reload conservatively
 
-### 6.6 Restore Identity Rules
+### 6.7 Restore Identity And Freshness Rules
 
-Pending interactions are restored only when the original `interaction_id` is present and trusted.
+Pending interactions are restored only when the original `interaction_id` is present and trusted, and when the interaction is still fresh enough to be actionable.
 
-If `interaction_id` is missing:
+If `interaction_id` is missing or the interaction is stale:
 
 - the pending interaction must not be restored as actionable state
 - restore should emit or surface explicit expiration/degradation
 - fallback IDs such as `perm-resume` and `ask-resume` are removed
 
 The system must prefer "expired and visible" over "fake but clickable".
+
+The design intentionally treats interaction freshness as part of trust, because the back-end waiter may already have timed out even if an old ID still exists in persisted state.
+
+### 6.8 Missing Transcript / Timeline Source Recovery
+
+If transcript or timeline inputs required for GUI resume/bootstrap are missing or unreadable, the system must not fail with a raw exception.
+
+Allowed degraded outcomes:
+
+- summary-assisted degraded bootstrap
+- empty replay window with explicit `transcript_missing` or `timeline_missing`
+- session snapshot that clearly marks restore/replay as degraded
+
+Disallowed outcome:
+
+- a hard failure that aborts GUI resume while hiding the reason from the front end
 
 ## 7. Replay / Bootstrap API Contract
 
@@ -269,6 +308,18 @@ This lets the front end enter the correct initial runtime mode without guessing.
 - `422 invalid_interaction_payload`
 
 The front end must not have to infer "expired" from a generic 500 or free-form error string.
+
+### 7.5 Reconnect Backoff State Must Be Bounded
+
+Reconnect state is part of transport health and must remain bounded.
+
+Required behavior:
+
+- exponential backoff may be used
+- retry counters must have a hard cap
+- delay must remain clamped
+
+The runtime must not allow retry bookkeeping to grow without bound during long-lived disconnections.
 
 ## 8. HTTP / WebSocket Error Boundary Model
 
@@ -472,16 +523,25 @@ Deliverables:
 4. restore expiration on missing interaction ID
    - no actionable pending interaction is restored
 
-5. websocket endpoint cleanup on non-disconnect exceptions
+5. write-path degradation on `OSError`
+   - append failure is logged and runtime integrity is marked degraded
+
+6. transcript/timeline source missing recovery
+   - resume/bootstrap degrades explicitly instead of throwing raw exceptions
+
+7. websocket endpoint cleanup on non-disconnect exceptions
    - connection is removed and error is logged
 
-6. typed interaction response errors
+8. typed interaction response errors
    - session missing / interaction expired / invalid payload are distinct
 
-7. projector command result fallback placement
+9. interaction freshness expiry
+   - timed-out pending interactions are surfaced as expired, not actionable
+
+10. projector command result fallback placement
    - ambiguous command results become explicit fallback cards, not misattached turn children
 
-8. detached item ordering
+11. detached item ordering
    - turn-level detached items render after steps rather than before them
 
 ### 12.2 Existing Tests To Extend
@@ -500,9 +560,13 @@ This design is complete when all of the following are true:
 - GUI replay can explicitly say replay vs reload-required vs degraded
 - timeline truncation can no longer silently trigger endless seq-gap resync loops
 - malformed mid-file timeline rows no longer hide all later valid events
+- timeline write-path failures no longer disappear silently
 - restore never fabricates a pending interaction ID
+- missing transcript/timeline inputs degrade explicitly instead of aborting GUI resume with a raw exception
+- restored interactions cannot remain actionable solely because an old ID exists
 - websocket endpoint cleans up and logs non-disconnect failures
 - HTTP routes no longer surface common session/interaction lookup problems as generic 500s
+- reconnect retry bookkeeping is bounded
 - the projector owns command result anchoring and detached item placement
 - Timeline and Inspector read from one coherent active-session runtime model
 
