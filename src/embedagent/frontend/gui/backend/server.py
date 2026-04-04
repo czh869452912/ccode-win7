@@ -394,6 +394,11 @@ class GUIBackend:
             mode = request.get("mode", "code")
             self.core.set_mode(session_id, mode)
             return {"status": "ok"}
+
+        @app.post("/api/sessions/{session_id}/interactions/{interaction_id}/respond")
+        async def respond_to_interaction(session_id: str, interaction_id: str, request: Dict[str, Any]):
+            self._current_session_id = session_id
+            return self.core.respond_to_interaction(session_id, interaction_id, request)
         
         @app.get("/api/workspace")
         async def get_workspace():

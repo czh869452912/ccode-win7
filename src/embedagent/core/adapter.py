@@ -460,7 +460,10 @@ class AgentCoreAdapter(CoreInterface):
             selected_mode=kwargs.get("selected_mode"),
             selected_option_text=kwargs.get("selected_option_text")
         )
-    
+
+    def respond_to_interaction(self, session_id: str, interaction_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+        return self._adapter.respond_to_interaction(session_id, interaction_id, payload)
+
     def get_workspace_snapshot(self) -> WorkspaceInfo:
         snapshot = self._adapter.get_workspace_snapshot()
         git_info = snapshot.get("git", {})

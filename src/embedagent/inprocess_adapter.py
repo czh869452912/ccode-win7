@@ -110,6 +110,30 @@ class UserInputTicket:
         }
 
 
+def _pending_interaction_payload(state: "ManagedSession") -> Optional[Dict[str, Any]]:
+    if state.pending_permission is not None:
+        return {
+            "interaction_id": state.pending_permission.permission_id,
+            "session_id": state.pending_permission.session_id,
+            "kind": "permission",
+            "tool_name": state.pending_permission.tool_name,
+            "category": state.pending_permission.category,
+            "reason": state.pending_permission.reason,
+            "details": dict(state.pending_permission.details),
+        }
+    if state.pending_user_input is not None:
+        return {
+            "interaction_id": state.pending_user_input.request_id,
+            "session_id": state.pending_user_input.session_id,
+            "kind": "user_input",
+            "tool_name": state.pending_user_input.tool_name,
+            "question": state.pending_user_input.question,
+            "options": list(state.pending_user_input.options),
+            "details": dict(state.pending_user_input.details),
+        }
+    return None
+
+
 @dataclass
 class ManagedSession:
     session: Session
@@ -349,6 +373,7 @@ class InProcessAdapter(object):
                 "pending_permission": state.pending_permission.to_dict() if state.pending_permission else None,
                 "has_pending_user_input": state.pending_user_input is not None,
                 "pending_user_input": state.pending_user_input.to_dict() if state.pending_user_input else None,
+                "pending_interaction": _pending_interaction_payload(state),
                 "last_error": state.last_error,
                 "restore_stop_reason": state.restore_stop_reason,
                 "restore_consumed_event_count": state.restore_consumed_event_count,
@@ -1856,6 +1881,42 @@ class InProcessAdapter(object):
         snapshot = self.get_session_snapshot(session_id)
         self._notify_status(None, state)
         return snapshot
+
+    def respond_to_interaction(
+        self,
+        session_id: str,
+        interaction_id: str,
+        payload: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        state = self._require_session(session_id)
+        kind = str((payload or {}).get("response_kind") or "").strip()
+        with state.lock:
+            if state.pending_permission is not None and state.pending_permission.permission_id == interaction_id:
+                pass
+            elif state.pending_user_input is not None and state.pending_user_input.request_id == interaction_id:
+                pass
+            else:
+                raise ValueError("未找到待处理的交互请求。")
+        if state.pending_permission is not None and state.pending_permission.permission_id == interaction_id:
+            if kind == "approve":
+                self.approve_permission(session_id, interaction_id)
+            else:
+                self.reject_permission(session_id, interaction_id)
+        else:
+            self.reply_user_input(
+                session_id,
+                interaction_id,
+                str((payload or {}).get("answer") or ""),
+                selected_index=(payload or {}).get("selected_index"),
+                selected_mode=str((payload or {}).get("selected_mode") or ""),
+                selected_option_text=str((payload or {}).get("selected_option_text") or ""),
+            )
+        return {
+            "session_id": session_id,
+            "interaction_id": interaction_id,
+            "status": "resolved",
+            "snapshot": self.get_session_snapshot(session_id),
+        }
 
     def set_session_mode(self, session_id: str, mode: str) -> Dict[str, Any]:
         state = self._require_session(session_id)
