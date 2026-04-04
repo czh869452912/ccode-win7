@@ -73,4 +73,14 @@ export function runSessionRuntimeTests() {
   });
   assert.equal(interactionRuntime.currentInteraction.interaction_id, "int-2");
   assert.equal(interactionRuntime.timelineView[0].kind, "interaction_requested");
+
+  const malformedEventLog = appendSessionEvent(createSessionEventLog(), {
+    session_id: "sess-1",
+    event_id: "evt-bad",
+    seq: 1,
+    event_kind: "",
+    created_at: "2026-04-04T00:02:00Z",
+    payload: null,
+  });
+  assert.equal(malformedEventLog.needsResync, true);
 }

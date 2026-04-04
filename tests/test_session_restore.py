@@ -229,6 +229,27 @@ class TestSessionRestorer(unittest.TestCase):
         self.assertEqual(result.session.pending_interaction.kind, "user_input")
         self.assertEqual(result.session.turns[-1].pending_interaction.interaction_id, "pi-1")
 
+    def test_restore_expires_pending_interaction_without_trusted_id(self):
+        session_id = "sess-pending-no-id"
+        self.store.append_event(session_id, "session_meta", {"current_mode": "spec"})
+        self.store.append_event(session_id, "message", {"role": "user", "content": "继续", "message_id": "m-user", "turn_id": "t-1", "step_id": ""})
+        self.store.append_event(session_id, "step_started", {"turn_id": "t-1", "step_id": "s-1", "step_index": 1})
+        self.store.append_event(
+            session_id,
+            "pending_interaction",
+            {
+                "turn_id": "t-1",
+                "step_id": "s-1",
+                "kind": "permission",
+                "tool_name": "edit_file",
+                "interaction_id": "",
+                "request_payload": {"permission": {"reason": "需要写入"}},
+            },
+        )
+        result = SessionRestorer().restore(self.store.load_events(session_id))
+        self.assertIsNone(result.session.pending_interaction)
+        self.assertEqual(result.stop_reason, "interaction_expired")
+
     def test_restore_ignores_damaged_tail_event(self):
         session_id = "sess-tail"
         self.store.append_event(session_id, "session_meta", {"current_mode": "code"})

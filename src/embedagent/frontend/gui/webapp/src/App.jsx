@@ -43,6 +43,8 @@ function App() {
   const timelineRef = useRef(null);
   const wsRetryRef = useRef(0);
   const isAtBottomRef = useRef(true);
+  const currentSessionIdRef = useRef("");
+  const sessionEventLogRef = useRef(sessionEventLog);
 
   const currentMode = state.snapshot?.current_mode || state.requestedMode;
   const currentStatus = state.snapshot?.status || "idle";
@@ -55,6 +57,14 @@ function App() {
       }),
     [sessionEventLog, state.snapshot, state.timeline],
   );
+
+  useEffect(() => {
+    currentSessionIdRef.current = state.currentSessionId || "";
+  }, [state.currentSessionId]);
+
+  useEffect(() => {
+    sessionEventLogRef.current = sessionEventLog;
+  }, [sessionEventLog]);
 
   // initial data load
   useEffect(() => {
@@ -296,19 +306,58 @@ function App() {
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const socket = new WebSocket(`${protocol}//${window.location.host}/ws`);
     wsRef.current = socket;
-    socket.onopen = () => {
+    socket.onopen = async () => {
       dispatch({ type: "set_connection", value: "connected" });
+      setSessionEventLog((current) => ({ ...current, connectionState: "connected" }));
       wsRetryRef.current = 0;
+      if (currentSessionIdRef.current && sessionEventLogRef.current.needsResync) {
+        try {
+          const replay = await fetchJson(
+            `/api/sessions/${encodeURIComponent(currentSessionIdRef.current)}/events?after_seq=${encodeURIComponent(sessionEventLogRef.current.lastAppliedSeq || 0)}`,
+          );
+          const items = Array.isArray(replay.events) ? replay.events : [];
+          setSessionEventLog((current) => {
+            let next = current;
+            for (const item of items) {
+              next = appendSessionEvent(next, item);
+            }
+            return { ...next, connectionState: "connected" };
+          });
+          if (items.length === 0) {
+            await loadSession(currentSessionIdRef.current);
+          }
+        } catch (_) {
+          await loadSession(currentSessionIdRef.current);
+        }
+      }
     };
     socket.onclose = () => {
       dispatch({ type: "set_connection", value: "disconnected" });
+      setSessionEventLog((current) => ({ ...current, connectionState: "disconnected" }));
       const delay = Math.min(1500 * Math.pow(2, wsRetryRef.current), 30000);
       wsRetryRef.current += 1;
       window.setTimeout(connectWebSocket, delay);
     };
+    socket.onerror = () => {
+      dispatch({ type: "set_connection", value: "disconnected" });
+      setSessionEventLog((current) => ({
+        ...current,
+        connectionState: "degraded",
+        needsResync: true,
+      }));
+    };
     socket.onmessage = (event) => {
-      const message = JSON.parse(event.data);
-      startTransition(() => handleSocketMessage(message.type, message.data || {}));
+      try {
+        const message = JSON.parse(event.data);
+        startTransition(() => handleSocketMessage(message.type, message.data || {}));
+      } catch (_) {
+        dispatch({ type: "set_connection", value: "disconnected" });
+        setSessionEventLog((current) => ({
+          ...current,
+          connectionState: "degraded",
+          needsResync: true,
+        }));
+      }
     };
   }
 

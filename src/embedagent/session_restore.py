@@ -166,6 +166,10 @@ class SessionRestorer(object):
                     stop_reason = "pending_interaction_step_mismatch"
                     break
                 interaction_id = str(payload.get("interaction_id") or "").strip()
+                if not interaction_id:
+                    consumed_event_count = index
+                    stop_reason = "interaction_expired"
+                    break
                 if interaction_id and interaction_id in seen_interaction_ids:
                     consumed_event_count = index
                     stop_reason = "duplicate_pending_interaction_id"

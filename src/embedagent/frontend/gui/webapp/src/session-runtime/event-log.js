@@ -10,6 +10,12 @@ export function createSessionEventLog() {
 
 export function appendSessionEvent(log, event) {
   if (!event || !event.event_id) return log;
+  if (!event.event_kind || typeof event.payload !== "object" || event.payload === null) {
+    return {
+      ...log,
+      needsResync: true,
+    };
+  }
   if (log.eventIds.has(event.event_id)) return log;
   const seq = Number(event.seq || 0);
   if (log.lastAppliedSeq && seq !== log.lastAppliedSeq + 1) {

@@ -118,7 +118,9 @@ class TestBlockingResult(unittest.TestCase):
 class TestThreadsafeAsyncDispatcher(unittest.TestCase):
     def test_dispatch_requires_bound_loop(self):
         dispatcher = ThreadsafeAsyncDispatcher()
-        self.assertFalse(dispatcher.dispatch(lambda: self._noop()))
+        result = dispatcher.dispatch(lambda: self._noop())
+        self.assertFalse(result)
+        self.assertEqual(result.reason, "loop_missing")
 
     def test_dispatch_runs_coroutine_on_bound_loop(self):
         dispatcher = ThreadsafeAsyncDispatcher()
@@ -142,13 +144,24 @@ class TestThreadsafeAsyncDispatcher(unittest.TestCase):
                 results.append("ok")
                 done.set()
 
-            self.assertTrue(dispatcher.dispatch(lambda: work()))
+            result = dispatcher.dispatch(lambda: work())
+            self.assertTrue(result)
+            self.assertEqual(result.reason, "")
             self.assertTrue(done.wait(1.0))
             self.assertEqual(results, ["ok"])
         finally:
             loop.call_soon_threadsafe(loop.stop)
             thread.join(1.0)
             loop.close()
+
+    def test_dispatch_reports_closed_loop_reason(self):
+        dispatcher = ThreadsafeAsyncDispatcher()
+        loop = asyncio.new_event_loop()
+        loop.close()
+        dispatcher.set_loop(loop)
+        result = dispatcher.dispatch(lambda: self._noop())
+        self.assertFalse(result)
+        self.assertEqual(result.reason, "loop_closed")
 
     async def _noop(self):
         return None
