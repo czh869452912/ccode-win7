@@ -109,6 +109,11 @@ class SessionRestorer(object):
                     consumed_event_count = index
                     stop_reason = "tool_result_missing_tool_call"
                     break
+                parent_message_id = str(payload.get("parent_message_id") or "").strip()
+                if parent_message_id and self._message_index(session, parent_message_id) < 0:
+                    consumed_event_count = index
+                    stop_reason = "message_parent_missing"
+                    break
                 message_id = str(payload.get("message_id") or "").strip()
                 if message_id:
                     if message_id in seen_message_ids:
@@ -144,6 +149,7 @@ class SessionRestorer(object):
                     action,
                     observation,
                     message_id=str(payload.get("message_id") or ""),
+                    parent_message_id=parent_message_id,
                     turn_id=str(payload.get("turn_id") or ""),
                     step_id=str(payload.get("step_id") or ""),
                     finished_at=str(payload.get("finished_at") or ""),
@@ -260,6 +266,9 @@ class SessionRestorer(object):
     def _apply_message(self, session: Session, payload: Dict[str, Any], seen_turn_ids: set, seen_message_ids: set) -> str:
         role = str(payload.get("role") or "")
         message_id = str(payload.get("message_id") or "").strip()
+        parent_message_id = str(payload.get("parent_message_id") or "").strip()
+        if parent_message_id and self._message_index(session, parent_message_id) < 0:
+            return "message_parent_missing"
         if message_id:
             if message_id in seen_message_ids:
                 return "duplicate_message_id"
@@ -268,6 +277,7 @@ class SessionRestorer(object):
             session.add_system_message(
                 str(payload.get("content") or ""),
                 message_id=message_id,
+                parent_message_id=parent_message_id,
                 turn_id=str(payload.get("turn_id") or ""),
                 step_id=str(payload.get("step_id") or ""),
                 kind=str(payload.get("kind") or "message"),
@@ -285,6 +295,7 @@ class SessionRestorer(object):
                 str(payload.get("content") or ""),
                 turn_id=turn_id,
                 message_id=message_id,
+                parent_message_id=parent_message_id,
             )
             return ""
         if role == "assistant":
@@ -308,6 +319,7 @@ class SessionRestorer(object):
             session.add_assistant_reply(
                 reply,
                 message_id=message_id,
+                parent_message_id=parent_message_id,
                 turn_id=str(payload.get("turn_id") or ""),
                 step_id=str(payload.get("step_id") or ""),
             )
@@ -323,6 +335,7 @@ class SessionRestorer(object):
                 name=str(payload.get("tool_name") or ""),
                 tool_call_id=str(payload.get("tool_call_id") or ""),
                 message_id=message_id,
+                parent_message_id=parent_message_id,
                 turn_id=str(payload.get("turn_id") or ""),
                 step_id=str(payload.get("step_id") or ""),
                 kind=str(payload.get("kind") or "tool_result"),

@@ -106,15 +106,17 @@ export function reducer(state, action) {
       };
     }
     case "local_user_message":
+      const pendingTurnId = makeEventId("user");
       return {
         ...state,
         timeline: state.timeline
           .map((item) => (item.streaming ? { ...item, streaming: false } : item))
           .concat({
-            id: makeEventId("user"),
+            id: pendingTurnId,
             kind: "user",
             content: action.text,
             turnId: "",
+            pendingTurnId,
             ...liveProjectionMeta(),
           }),
         composer: "",
@@ -122,25 +124,34 @@ export function reducer(state, action) {
         streamingReasoningId: "",
         thinkingActive: false,
         terminationReason: "",
-        // Clear stale activeTurnId so command_result falls back to findLatestPendingUserTurnKey
-        activeTurnId: "",
+        activeTurnId: pendingTurnId,
       };
     case "turn_started": {
       const turnId = action.turnId || "";
       let linked = false;
+      let linkedAnchor = "";
       const timeline = state.timeline.map((item) => {
         if (!linked && item.kind === "user" && !item.turnId) {
           linked = true;
+          linkedAnchor = item.pendingTurnId || item.id || "";
           return {
             ...item,
             turnId,
+            pendingTurnId: "",
             content: action.userText || item.content,
           };
         }
         return item;
       });
+      const reboundTimeline = linkedAnchor
+        ? timeline.map((item) =>
+            item.turnId === linkedAnchor
+              ? { ...item, turnId }
+              : item,
+          )
+        : timeline;
       if (!linked) {
-        timeline.push({
+        reboundTimeline.push({
           id: makeEventId("user"),
           kind: "user",
           content: action.userText || "",
@@ -150,7 +161,7 @@ export function reducer(state, action) {
       }
       return {
         ...state,
-        timeline,
+        timeline: reboundTimeline,
         activeTurnId: turnId,
       };
     }

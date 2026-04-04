@@ -37,7 +37,7 @@ export function findLatestPendingUserTurnKey(timeline) {
   for (let index = (timeline || []).length - 1; index >= 0; index -= 1) {
     const item = timeline[index];
     if (item?.kind === "user" && !item.turnId) {
-      return item.id || "";
+      return item.pendingTurnId || item.id || "";
     }
   }
   return "";

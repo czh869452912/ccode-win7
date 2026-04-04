@@ -106,6 +106,94 @@ class TestSessionRestorer(unittest.TestCase):
         self.assertEqual(result.consumed_event_count, 7)
         self.assertEqual(result.stop_reason, "")
 
+    def test_restore_preserves_message_parent_chain(self):
+        session_id = "sess-parent-chain"
+        self.store.append_event(session_id, "session_meta", {"current_mode": "code"})
+        self.store.append_event(
+            session_id,
+            "message",
+            {
+                "role": "user",
+                "content": "读取文件",
+                "message_id": "m-user",
+                "parent_message_id": "",
+                "turn_id": "t-1",
+                "step_id": "",
+            },
+        )
+        self.store.append_event(session_id, "step_started", {"turn_id": "t-1", "step_id": "s-1", "step_index": 1})
+        self.store.append_event(
+            session_id,
+            "message",
+            {
+                "role": "assistant",
+                "content": "",
+                "message_id": "m-assistant",
+                "parent_message_id": "m-user",
+                "turn_id": "t-1",
+                "step_id": "s-1",
+                "actions": [{"name": "read_file", "arguments": {"path": "src/demo.c"}, "call_id": "call-read-1"}],
+                "reasoning_content": "先读取文件。",
+                "finish_reason": "tool_calls",
+            },
+        )
+        self.store.append_event(
+            session_id,
+            "tool_call",
+            {
+                "turn_id": "t-1",
+                "step_id": "s-1",
+                "call_id": "call-read-1",
+                "tool_name": "read_file",
+                "arguments": {"path": "src/demo.c"},
+                "status": "started",
+            },
+        )
+        self.store.append_event(
+            session_id,
+            "tool_result",
+            {
+                "turn_id": "t-1",
+                "step_id": "s-1",
+                "call_id": "call-read-1",
+                "tool_name": "read_file",
+                "message_id": "m-tool",
+                "parent_message_id": "m-assistant",
+                "finished_at": "2026-04-02T00:00:01Z",
+                "observation": {
+                    "success": True,
+                    "error": None,
+                    "data": {"path": "src/demo.c", "content": "int demo(void) { return 0; }"},
+                },
+            },
+        )
+        result = SessionRestorer().restore(self.store.load_events(session_id))
+        self.assertEqual(result.stop_reason, "")
+        self.assertEqual(
+            [item.parent_message_id for item in result.session.messages],
+            ["", "m-user", "m-assistant"],
+        )
+
+    def test_restore_stops_at_message_with_missing_parent(self):
+        session_id = "sess-bad-parent"
+        self.store.append_event(session_id, "session_meta", {"current_mode": "code"})
+        self.store.append_event(
+            session_id,
+            "message",
+            {
+                "role": "user",
+                "content": "读取文件",
+                "message_id": "m-user",
+                "parent_message_id": "m-missing",
+                "turn_id": "t-1",
+                "step_id": "",
+            },
+        )
+        result = SessionRestorer().restore(self.store.load_events(session_id))
+        self.assertEqual(result.stop_reason, "message_parent_missing")
+        self.assertEqual(result.consumed_event_count, 1)
+        self.assertEqual(result.session.messages, [])
+
     def test_restore_preserves_pending_interaction(self):
         session_id = "sess-pending"
         self.store.append_event(session_id, "session_meta", {"current_mode": "spec"})

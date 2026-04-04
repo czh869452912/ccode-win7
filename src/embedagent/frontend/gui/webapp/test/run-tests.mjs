@@ -207,6 +207,30 @@ function main() {
   assert.equal(modeCommandState.timeline[1].projectionKind, "raw_event");
   assert.equal(modeCommandState.timeline[1].synthetic, false);
 
+  let reboundTurnState = reducer(initialState, {
+    type: "local_user_message",
+    text: "/mode debug 继续分析",
+  });
+  reboundTurnState = reducer(reboundTurnState, {
+    type: "command_result",
+    id: "cmd-mode-and-run",
+    commandName: "mode",
+    success: true,
+    message: "已切换到 `debug` 模式。继续处理后续消息。",
+    data: {
+      current_mode: "debug",
+    },
+  });
+  const provisionalTurnId = reboundTurnState.timeline[1].turnId;
+  reboundTurnState = reducer(reboundTurnState, {
+    type: "turn_started",
+    turnId: "turn-after-mode",
+    userText: "继续分析",
+  });
+  assert.notEqual(provisionalTurnId, "");
+  assert.equal(reboundTurnState.timeline[0].turnId, "turn-after-mode");
+  assert.equal(reboundTurnState.timeline[1].turnId, "turn-after-mode");
+
   const reviewState = reducer(initialState, {
     type: "command_result",
     id: "cmd-review",

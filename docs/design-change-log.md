@@ -44,6 +44,30 @@
 
 ## 3. 当前变更记录
 
+### DC-060
+
+- 日期：2026-04-04
+- 变更主题：上下文主循环的因果链、timeline 顺序与并行工具收口现在统一硬化
+- 变更摘要：
+  - `TranscriptMessage`、普通 `message` 事件和 `tool_result` 事件现在都会显式携带 `parent_message_id`，`SessionRestorer` 在提供父引用时也会校验父消息是否已经存在
+  - `QueryEngine` 对同一 step 的 compact retry 边界改成“最多记录一条有效 boundary”，避免 retry 前后重复写入导致 transcript 中出现“摘要套摘要”
+  - `SessionTimelineStore` 现在引入文件级串行化与单调 `seq`，GUI reducer 也开始使用 provisional turn anchor 并在 `turn_started` 时回填
+  - `StreamingToolExecutor` 现在为并行只读 batch 增加 cancel / idle-timeout 收口：started 但卡住的 action 会变成 `interrupted` 或 `timeout`，未开始的兄弟 action 会变成 `discarded`
+- 影响范围：
+  - transcript resume 一致性
+  - compact boundary replay 稳定性
+  - GUI timeline / command card 的 turn 关联正确性
+  - 并行工具执行的卡死风险
+- 关联文档：
+  - `docs/development-tracker.md`
+  - `docs/query-context-redesign.md`
+  - `docs/context-loop-handoff-status.md`
+- 是否需要 ADR：`否`
+- 后续动作：
+  - 继续评估 transcript/timeline 的轮转策略与跨会话长期增长控制
+  - 视 GUI 真实宿主验证结果，决定是否把更多 raw event 投影切换到 `seq` 驱动的增量加载
+  - 为更复杂的 resume / compact / mode-change 组合场景补集成回归
+
 ### DC-056
 
 - 日期：2026-04-04

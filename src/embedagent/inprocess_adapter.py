@@ -205,6 +205,7 @@ class InProcessAdapter(object):
                     "role": message.role,
                     "content": message.content,
                     "message_id": message.message_id,
+                    "parent_message_id": message.parent_message_id,
                     "turn_id": message.turn_id,
                     "step_id": message.step_id,
                     "kind": message.kind,

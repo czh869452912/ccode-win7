@@ -901,6 +901,31 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertIn("tool_result", event_types)
         self.assertEqual(event_types[-1], "loop_transition")
 
+    def test_query_engine_persists_message_parent_ids_in_transcript(self):
+        session = Session()
+        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：code")
+        transcript_store = TranscriptStore(self.workspace)
+        engine = QueryEngine(
+            client=ToolClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+            transcript_store=transcript_store,
+        )
+        result = engine.submit_turn(
+            user_text="读取文件",
+            stream=False,
+            initial_mode="code",
+            session=session,
+        )
+        self.assertEqual(result.transition.reason, "completed")
+        events = transcript_store.load_events(session.session_id)
+        message_events = [item for item in events if item["type"] == "message"]
+        tool_result = [item for item in events if item["type"] == "tool_result"][0]
+        self.assertEqual(message_events[-2]["payload"].get("parent_message_id"), message_events[-3]["payload"].get("message_id"))
+        self.assertEqual(tool_result["payload"].get("parent_message_id"), message_events[-2]["payload"].get("message_id"))
+        self.assertTrue(tool_result["payload"].get("message_id"))
+        self.assertEqual(message_events[-1]["payload"].get("parent_message_id"), tool_result["payload"].get("message_id"))
+
     def test_query_engine_writes_pending_interaction_events(self):
         session = Session()
         session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：spec")

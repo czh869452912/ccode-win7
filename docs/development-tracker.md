@@ -1,6 +1,6 @@
 # EmbedAgent 开发进度跟踪
 
-> 更新日期：2026-04-04（Transcript hardening + compact boundary replay + pending resolution persistence + damaged-tail recovery + restore causality/order guard）
+> 更新日期：2026-04-04（Transcript hardening + message parent chain + timeline seq ordering + compact boundary dedupe + parallel tool timeout/cancel hardening）
 > 用途：持续跟踪当前阶段、下一步任务、里程碑进度、风险与阻塞
 
 ---
@@ -93,9 +93,11 @@
 - resume consistency 已切到 transcript-truth 语义：新增 `transcript_store.py`、`session_restore.py`，`resume_session()` 已从 transcript replay 恢复 `Session`，`summary.json` 不再作为恢复真相源
 - transcript hardening 已推进一段：`TranscriptStore.append_event()` 现已按 transcript 文件串行化写入，避免并发 append 时 `seq` 竞争与 JSONL 尾部截断放大
 - transcript 损坏恢复已推进一段：`TranscriptStore.load_events()` 现在会在 `seq` 跳号/乱序时停止读取；`append_event()` 追加前会截断损坏尾部，避免“坏尾后新事件永久不可见”
+- transcript 消息因果链已推进一段：`TranscriptMessage` 与 transcript `message/tool_result` 事件现在会显式写入 `parent_message_id`，`SessionRestorer` 在提供父引用时也会验证其存在，resume 不再只依赖“当前顺序碰巧正确”
 - restore 因果校验已推进一段：`SessionRestorer` 现在在 `tool_result` 缺少前置 `tool_call`、或 `pending_resolution` 缺少前置 `pending_interaction` 时停止回放，避免 malformed transcript 被静默脑补成合法状态
 - restore 顺序校验已继续推进：`SessionRestorer` 现在在 `step_started` 缺少 user turn、`tool_call` 缺少 active step，或 replay 事件引用了错误的 `turn_id / step_id` 时停止回放，避免恢复链凭空补造空 turn / 空 step，或把事件静默挂到错误的活动节点上
 - compact boundary replay 已继续推进：`SessionRestorer` 现在会校验 `preserved_head_message_id / preserved_tail_message_id` 是否存在且顺序正确；同时 `QueryEngine` 会在 transcript 缺失时先 bootstrap 现有内存 session 的 message / compact boundary 历史，避免新 boundary 引用了 transcript 里不存在的旧消息
+- compact boundary 写入策略已继续收口：同一 step 在 `compact_retry` 前后现在只会落一条有效 `compact_boundary`，避免把“摘要套摘要”再次写回 transcript，导致 restore 后边界漂移
 - message replay 边界已继续推进：`SessionRestorer` 现在会拒绝错误 `turn_id` 的 `assistant/tool` message，并在已有 active step 时校验其 `step_id`；同时保留对旧 transcript 的兼容入口，允许“未显式落 `step_started` 的 assistant/tool message”作为建步前缀继续恢复
 - transcript 引用 ID 校验已继续推进：`SessionRestorer` 现在会在出现重复 `message_id` 或重复 `tool_call.call_id` 时停止回放，避免 compact boundary、content replacement 和 tool topology 的引用目标变得不唯一
 - pending resolution replay 已继续推进：`SessionRestorer` 现在会校验 `pending_resolution` 的 `turn_id / step_id` 是否仍然指向当前活动节点，避免错误 resolution 把真正的 pending 状态提前清掉
@@ -117,6 +119,9 @@
 - tool interrupt / retry 已继续推进第五段：Windows 下 `run_command` 现在以新进程组启动，并在取消时优先发送 `CTRL_BREAK_EVENT`；长命令用户中断不再依赖 `taskkill` 成功才会及时返回
 - tool interrupt / retry 已继续推进第六段：`StreamingToolExecutor` 现在会直接观察 cancel event，因此 `max_parallel_tools>1` 时排队 action 在取消后会保持 `discarded`，不再偷偷升级成已启动的 `interrupted`
 - tool interrupt / retry 已继续推进第七段：当前 batch 一旦已经出现 `discarded`，同一条 assistant plan 中后续 batch 会统一落 `discarded` result，而不会继续真实执行后续写动作
+- tool interrupt / retry 已继续推进第八段：`StreamingToolExecutor` 现在对并行 batch 引入 idle timeout / cancel 收口；started 但迟迟不返回的只读 action 会落 `timeout` 或 `interrupted`，尚未开始的兄弟 action 会落 `discarded`，session 不再因单个卡死线程无限等待
+- timeline 持久化已推进一段：`SessionTimelineStore` 现在与 transcript 一样按文件串行化写入并记录单调 `seq`；GUI raw timeline 顺序不再只依赖 `created_at`
+- GUI turn 锚点已收口：webapp reducer 现在会给本地用户消息分配 provisional turn anchor，并在 `turn_started` 到来时整体回填，`/mode ... <message>` 这类“先命令结果、后真实 turn”链路不再把 command card 绑到伪 turn id 上
 - Phase 7 设计基线已建立：`docs/offline-packaging.md`、`docs/win7-preflight-checklist.md` 与 ADR `0001-offline-portable-bundle-baseline.md`
 - Phase 7 初始脚本骨架已落地：`scripts/prepare-offline.ps1` 已可生成 `build/offline-staging/EmbedAgent/`、launcher、模板配置和 manifest/checksum 草案，并已通过 `powershell.exe -NoProfile -File scripts/prepare-offline.ps1 -SkipBuild` 验证
 - Phase 7 build 脚本骨架已落地：`scripts/build-offline-bundle.ps1` 已可把 staging bundle 复制到 `build/offline-dist/`、重写 manifest、重算 checksum，并生成 zip

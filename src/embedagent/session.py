@@ -65,6 +65,7 @@ class TranscriptMessage:
     action_calls: List[Action] = field(default_factory=list)
     reasoning_content: str = ""
     message_id: str = field(default_factory=lambda: "m-" + uuid.uuid4().hex[:12])
+    parent_message_id: str = ""
     turn_id: str = ""
     step_id: str = ""
     kind: str = "message"
@@ -231,6 +232,7 @@ class Session:
         self,
         content: str,
         message_id: str = "",
+        parent_message_id: str = "",
         turn_id: str = "",
         step_id: str = "",
         kind: str = "message",
@@ -238,10 +240,12 @@ class Session:
         replaced_by_refs: Optional[List[str]] = None,
     ) -> TranscriptMessage:
         turn_value = turn_id or (self.turns[-1].turn_id if self.turns else "")
+        parent_value = str(parent_message_id or self.last_message_id() or "")
         message = TranscriptMessage(
             role="system",
             content=content,
             message_id=message_id or ("m-" + uuid.uuid4().hex[:12]),
+            parent_message_id=parent_value,
             turn_id=turn_value,
             step_id=step_id or self._current_step_id(),
             kind=kind,
@@ -251,16 +255,24 @@ class Session:
         self.messages.append(message)
         return message
 
-    def add_user_message(self, content: str, turn_id: str = "", message_id: str = "") -> Turn:
+    def add_user_message(
+        self,
+        content: str,
+        turn_id: str = "",
+        message_id: str = "",
+        parent_message_id: str = "",
+    ) -> Turn:
         turn = Turn(
             user_message=content,
             turn_id=turn_id or ("t-" + uuid.uuid4().hex[:12]),
         )
+        parent_value = str(parent_message_id or self.last_message_id() or "")
         self.messages.append(
             TranscriptMessage(
                 role="user",
                 content=content,
                 message_id=message_id or ("m-" + uuid.uuid4().hex[:12]),
+                parent_message_id=parent_value,
                 turn_id=turn.turn_id,
             )
         )
@@ -303,6 +315,7 @@ class Session:
         self,
         reply: AssistantReply,
         message_id: str = "",
+        parent_message_id: str = "",
         turn_id: str = "",
         step_id: str = "",
     ) -> None:
@@ -312,6 +325,7 @@ class Session:
         else:
             if reply.reasoning_content:
                 step.reasoning = reply.reasoning_content
+        parent_value = str(parent_message_id or self.last_message_id() or "")
         self.messages.append(
             TranscriptMessage(
                 role="assistant",
@@ -319,6 +333,7 @@ class Session:
                 action_calls=reply.actions,
                 reasoning_content=reply.reasoning_content,
                 message_id=message_id or ("m-" + uuid.uuid4().hex[:12]),
+                parent_message_id=parent_value,
                 turn_id=turn_id or (self.turns[-1].turn_id if self.turns else ""),
                 step_id=step_id or (step.step_id if step is not None else ""),
             )
@@ -342,6 +357,7 @@ class Session:
         action: Action,
         observation: Observation,
         message_id: str = "",
+        parent_message_id: str = "",
         turn_id: str = "",
         step_id: str = "",
         finished_at: str = "",
@@ -353,6 +369,7 @@ class Session:
         record.status = "completed"
         record.observation = observation
         record.finished_at = finished_at or _utc_now()
+        parent_value = str(parent_message_id or self.last_message_id() or "")
         self.messages.append(
             TranscriptMessage(
                 role="tool",
@@ -360,6 +377,7 @@ class Session:
                 tool_call_id=action.call_id,
                 name=action.name,
                 message_id=message_id or ("m-" + uuid.uuid4().hex[:12]),
+                parent_message_id=parent_value,
                 turn_id=turn_id or (self.turns[-1].turn_id if self.turns else ""),
                 step_id=step_id or self._current_step_id(),
                 kind="tool_result",
@@ -462,6 +480,11 @@ class Session:
 
     def api_messages(self) -> List[Dict[str, Any]]:
         return [message.to_api_dict() for message in self.messages]
+
+    def last_message_id(self) -> str:
+        if not self.messages:
+            return ""
+        return str(self.messages[-1].message_id or "")
 
     def trim_old_observations(self, keep_turns: int = 20) -> int:
         """Replace observation content in turns older than *keep_turns* with a stub.

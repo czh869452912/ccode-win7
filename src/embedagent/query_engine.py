@@ -86,6 +86,7 @@ class QueryEngine(object):
             "role": str(getattr(message, "role", "") or ""),
             "content": str(getattr(message, "content", "") or ""),
             "message_id": str(getattr(message, "message_id", "") or ""),
+            "parent_message_id": str(getattr(message, "parent_message_id", "") or ""),
             "turn_id": str(getattr(message, "turn_id", "") or ""),
             "step_id": str(getattr(message, "step_id", "") or ""),
             "kind": str(getattr(message, "kind", "message") or "message"),
@@ -220,6 +221,7 @@ class QueryEngine(object):
         on_tool_finish: Optional[Callable[[Action, Observation], None]],
     ) -> None:
         tool_message_id = "m-" + uuid.uuid4().hex[:12]
+        parent_message_id = session.last_message_id()
         finished_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
         self._append_transcript_event(
             session,
@@ -229,6 +231,8 @@ class QueryEngine(object):
                 "step_id": step_id,
                 "call_id": action.call_id,
                 "tool_name": action.name,
+                "message_id": tool_message_id,
+                "parent_message_id": parent_message_id,
                 "finished_at": finished_at,
                 "observation": observation.to_dict(),
             },
@@ -237,6 +241,7 @@ class QueryEngine(object):
             action,
             observation,
             message_id=tool_message_id,
+            parent_message_id=parent_message_id,
             turn_id=session.turns[-1].turn_id if session.turns else "",
             step_id=step_id,
             finished_at=finished_at,
@@ -284,6 +289,7 @@ class QueryEngine(object):
                     "role": system_message.role,
                     "content": system_message.content,
                     "message_id": system_message.message_id,
+                    "parent_message_id": system_message.parent_message_id,
                     "turn_id": system_message.turn_id,
                     "step_id": system_message.step_id,
                     "kind": system_message.kind,
@@ -296,17 +302,24 @@ class QueryEngine(object):
         if user_text:
             turn_id = "t-" + uuid.uuid4().hex[:12]
             message_id = "m-" + uuid.uuid4().hex[:12]
+            parent_message_id = session.last_message_id()
             self._append_message_event(
                 session,
                 {
                     "role": "user",
                     "content": user_text,
                     "message_id": message_id,
+                    "parent_message_id": parent_message_id,
                     "turn_id": turn_id,
                     "step_id": "",
                 },
             )
-            session.add_user_message(user_text, turn_id=turn_id, message_id=message_id)
+            session.add_user_message(
+                user_text,
+                turn_id=turn_id,
+                message_id=message_id,
+                parent_message_id=parent_message_id,
+            )
         return self._run_loop(
             session,
             current_mode,
@@ -414,6 +427,7 @@ class QueryEngine(object):
                 on_step_start(step_index)
             force_compact = False
             compact_retry_used = False
+            compact_boundary_recorded = False
             while True:
                 assembly = self._build_context(session, current_mode, workflow_state, force_compact=force_compact)
                 session.record_context_snapshot(
@@ -454,7 +468,7 @@ class QueryEngine(object):
                         raise
                     compact_retry_used = True
                     force_compact = True
-                    self._maybe_record_compact_boundary(session, current_mode, assembly)
+                    compact_boundary_recorded = self._maybe_record_compact_boundary(session, current_mode, assembly) or compact_boundary_recorded
                     transition = LoopTransition(
                         reason="compact_retry",
                         message=str(exc),
@@ -471,12 +485,14 @@ class QueryEngine(object):
                     self._record_transition(session, transition)
                     continue
             assistant_message_id = "m-" + uuid.uuid4().hex[:12]
+            parent_message_id = session.last_message_id()
             self._append_message_event(
                 session,
                 {
                     "role": "assistant",
                     "content": reply.content,
                     "message_id": assistant_message_id,
+                    "parent_message_id": parent_message_id,
                     "turn_id": session.turns[-1].turn_id if session.turns else "",
                     "step_id": step_id,
                     "actions": [
@@ -490,6 +506,7 @@ class QueryEngine(object):
             session.add_assistant_reply(
                 reply,
                 message_id=assistant_message_id,
+                parent_message_id=parent_message_id,
                 turn_id=session.turns[-1].turn_id if session.turns else "",
                 step_id=step_id,
             )
@@ -512,7 +529,8 @@ class QueryEngine(object):
                 transition = LoopTransition(reason="completed", message="assistant finished", next_mode=current_mode, turns_used=turns_used)
                 self._record_transition(session, transition)
                 self._persist_summary(session, current_mode, assembly)
-                self._maybe_record_compact_boundary(session, current_mode, assembly)
+                if not compact_boundary_recorded:
+                    self._maybe_record_compact_boundary(session, current_mode, assembly)
                 self._maybe_maintain_memory(True)
                 if on_step_finish is not None:
                     on_step_finish(step_index, reply, "completed")
@@ -880,6 +898,7 @@ class QueryEngine(object):
             )
             observation, current_mode = self._build_user_input_observation(session, current_mode, request, response)
         tool_message_id = "m-" + uuid.uuid4().hex[:12]
+        parent_message_id = session.last_message_id()
         finished_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
         self._append_transcript_event(
             session,
@@ -891,6 +910,7 @@ class QueryEngine(object):
                 "tool_name": action.name,
                 "arguments": dict(action.arguments),
                 "message_id": tool_message_id,
+                "parent_message_id": parent_message_id,
                 "finished_at": finished_at,
                 "observation": observation.to_dict(),
             },
@@ -899,6 +919,7 @@ class QueryEngine(object):
             action,
             observation,
             message_id=tool_message_id,
+            parent_message_id=parent_message_id,
             turn_id=turn_id,
             step_id=step_id,
             finished_at=finished_at,
@@ -944,13 +965,13 @@ class QueryEngine(object):
             _LOG.warning("session trim failed: %s", exc)
         self._maybe_maintain_memory()
 
-    def _maybe_record_compact_boundary(self, session: Session, current_mode: str, assembly: ContextAssemblyResult) -> None:
+    def _maybe_record_compact_boundary(self, session: Session, current_mode: str, assembly: ContextAssemblyResult) -> bool:
         if not assembly.compacted or not assembly.summary_message or assembly.summarized_turns <= 0:
-            return
+            return False
         compacted_turn_count = max(0, len(session.turns) - assembly.recent_turns)
         latest = session.latest_compact_boundary()
         if latest is not None and latest.compacted_turn_count == compacted_turn_count:
-            return
+            return False
         preserved_head_message_id, preserved_tail_message_id = session.preserved_segment_message_ids(assembly.recent_turns)
         boundary = session.add_compact_boundary(
             assembly.summary_message,
@@ -978,6 +999,7 @@ class QueryEngine(object):
                 "metadata": dict(boundary.metadata),
             },
         )
+        return True
 
     def _maybe_maintain_memory(self, force: bool = False) -> None:
         self._maintenance_counter += 1

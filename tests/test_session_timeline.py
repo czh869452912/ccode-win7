@@ -1,6 +1,8 @@
 import os
 import shutil
 import sys
+import threading
+import time
 import unittest
 from itertools import count
 
@@ -57,6 +59,49 @@ class TestSessionTimelineStore(unittest.TestCase):
         events = self.store.load_events('sess-4', limit=10)
         self.assertEqual(len(events), 3)
         self.assertEqual(events[0]['payload']['text'], 'msg-2')
+
+    def test_append_event_keeps_seq_monotonic(self):
+        first = self.store.append_event('sess-5', 'turn_started', {'text': 'hello'})
+        second = self.store.append_event('sess-5', 'tool_started', {'tool_name': 'read_file'})
+        self.assertEqual(first['seq'], 1)
+        self.assertEqual(second['seq'], 2)
+
+    def test_append_event_serializes_concurrent_writers(self):
+        self.store.append_event('sess-6', 'turn_started', {'text': 'hello'})
+        original_next_seq = self.store._next_seq
+        first_seq_started = threading.Event()
+        first_call_seen = [False]
+
+        def delayed_next_seq(path):
+            seq = original_next_seq(path)
+            if not first_call_seen[0]:
+                first_call_seen[0] = True
+                first_seq_started.set()
+                time.sleep(0.2)
+            return seq
+
+        self.store._next_seq = delayed_next_seq
+        errors = []
+
+        def writer(index):
+            try:
+                self.store.append_event('sess-6', 'tool_started', {'tool_name': 'read_file', 'index': index})
+            except Exception as exc:
+                errors.append(exc)
+
+        thread_a = threading.Thread(target=writer, args=(1,))
+        thread_b = threading.Thread(target=writer, args=(2,))
+        thread_a.start()
+        self.assertTrue(first_seq_started.wait(1.0))
+        thread_b.start()
+        thread_a.join()
+        thread_b.join()
+
+        self.assertEqual(errors, [])
+        events = self.store.load_events('sess-6', limit=10)
+        self.assertEqual([item['seq'] for item in events], [1, 2, 3])
+        self.assertEqual(events[-2]['payload']['index'], 1)
+        self.assertEqual(events[-1]['payload']['index'], 2)
 
 
 if __name__ == '__main__':
