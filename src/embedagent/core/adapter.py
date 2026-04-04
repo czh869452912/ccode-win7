@@ -388,6 +388,26 @@ class AgentCoreAdapter(CoreInterface):
                 resolved_tool_roots=dict((snapshot.get("runtime_environment") or {}).get("resolved_tool_roots") or {}),
                 tool_sources=dict((snapshot.get("runtime_environment") or {}).get("tool_sources") or {}),
             ),
+            compact_summary_text=str(snapshot.get("compact_summary_text") or ""),
+            context_analysis=dict(snapshot.get("context_analysis") or {}),
+            compact_boundary_count=int(snapshot.get("compact_boundary_count") or 0),
+            workspace_intelligence=list(snapshot.get("workspace_intelligence") or []),
+            context_pipeline_steps=list(snapshot.get("context_pipeline_steps") or []),
+            last_transition_reason=str(snapshot.get("last_transition_reason") or ""),
+            last_transition_message=str(snapshot.get("last_transition_message") or ""),
+            last_transition_display_reason=str(snapshot.get("last_transition_display_reason") or ""),
+            recent_transition_reasons=list(snapshot.get("recent_transition_reasons") or []),
+            recent_transitions=list(snapshot.get("recent_transitions") or []),
+            compact_retry_count=int(snapshot.get("compact_retry_count") or 0),
+            restore_stop_reason=str(snapshot.get("restore_stop_reason") or ""),
+            restore_consumed_event_count=int(snapshot.get("restore_consumed_event_count") or 0),
+            restore_transcript_event_count=int(snapshot.get("restore_transcript_event_count") or 0),
+            pending_interaction=dict(snapshot.get("pending_interaction") or {}) if isinstance(snapshot.get("pending_interaction"), dict) else None,
+            timeline_replay_status=str(snapshot.get("timeline_replay_status") or "replay"),
+            timeline_first_seq=int(snapshot.get("timeline_first_seq") or 0),
+            timeline_last_seq=int(snapshot.get("timeline_last_seq") or 0),
+            timeline_integrity=str(snapshot.get("timeline_integrity") or "healthy"),
+            pending_interaction_valid=bool(snapshot.get("pending_interaction_valid", False)),
         )
     
     # ============ CoreInterface 实现 ============
@@ -464,7 +484,7 @@ class AgentCoreAdapter(CoreInterface):
     def respond_to_interaction(self, session_id: str, interaction_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
         return self._adapter.respond_to_interaction(session_id, interaction_id, payload)
 
-    def load_session_events_after(self, session_id: str, after_seq: int, limit: int = 200) -> List[Dict[str, Any]]:
+    def load_session_events_after(self, session_id: str, after_seq: int, limit: int = 200) -> Dict[str, Any]:
         return self._adapter.load_session_events_after(session_id, after_seq, limit=limit)
 
     def get_workspace_snapshot(self) -> WorkspaceInfo:

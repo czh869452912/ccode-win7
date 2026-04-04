@@ -44,6 +44,29 @@
 
 ## 3. 当前变更记录
 
+### DC-070
+
+- 日期：2026-04-04
+- 变更主题：GUI runtime hardening 进入 typed replay + projector ownership 第二阶段
+- 变更摘要：
+  - timeline replay / bootstrap API 现在显式区分 `replay / reload_required / degraded`，HTTP route 不再只返回扁平 events 数组
+  - websocket / HTTP 错误边界现在会把常见 session / interaction 故障映射成 typed 错误，并在 websocket 非正常异常时确保清理连接
+  - `SessionSnapshot` / GUI snapshot payload 现在保留 replay metadata，`AgentCoreAdapter` 与 GUI backend 不再在协议层丢失 `timeline_replay_status` 一类字段
+  - webapp active session projector 现在接管 replay state、command result fallback、detached turn item 排序、session-scoped runtime reset，并让 Timeline 直接消费 grouped runtime view
+- 影响范围：
+  - GUI replay / restore / transport 恢复语义
+  - active-session Timeline / Inspector 的读模型边界
+  - front-end runtime 与 backend snapshot/replay 契约
+- 关联文档：
+  - `docs/superpowers/specs/2026-04-04-gui-runtime-hardening-design.md`
+  - `docs/frontend-protocol.md`
+  - `docs/development-tracker.md`
+- 是否需要 ADR：`否`
+- 后续动作：
+  - 继续观察 Win7 真实宿主中的 reconnect / degraded 流体验
+  - 如仍存在 step streaming 消息拆分问题，按独立 streaming aggregation slice 继续推进
+  - 在最终 bundle 验收中复查 static build 产物与 runtime hardening 文档是否同步
+
 ### DC-063
 
 - 日期：2026-04-04

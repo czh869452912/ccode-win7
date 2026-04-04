@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 
 import {
   appendSessionEvent,
+  capRetryAttempt,
   createSessionEventLog,
 } from "../src/session-runtime/event-log.js";
 import { projectSessionRuntime } from "../src/session-runtime/projector.js";
@@ -24,7 +25,7 @@ export function runSessionRuntimeTests() {
     created_at: "2026-04-04T00:00:01Z",
     payload: { turn_id: "turn-1", step_id: "step-1" },
   });
-  assert.equal(gap.needsResync, true);
+  assert.equal(gap.replayState, "replay_needed");
 
   const runtime = projectSessionRuntime({
     snapshot: {
@@ -41,6 +42,23 @@ export function runSessionRuntimeTests() {
   });
   assert.equal(runtime.currentInteraction.interaction_id, "int-1");
   assert.equal(runtime.timelineView.some((item) => item.kind === "permission"), false);
+
+  const replayRuntime = projectSessionRuntime({
+    snapshot: {
+      session_id: "sess-1",
+      status: "running",
+      current_mode: "code",
+      timeline_replay_status: "reload_required",
+      pending_interaction: null,
+    },
+    eventLog: {
+      ...createSessionEventLog(),
+      replayState: "reload_required",
+      events: [],
+    },
+    bootstrapTimeline: [],
+  });
+  assert.equal(replayRuntime.transportView.replayState, "reload_required");
 
   const interactionRuntime = projectSessionRuntime({
     snapshot: {
@@ -72,7 +90,43 @@ export function runSessionRuntimeTests() {
     },
   });
   assert.equal(interactionRuntime.currentInteraction.interaction_id, "int-2");
-  assert.equal(interactionRuntime.timelineView[0].kind, "interaction_requested");
+  assert.equal(interactionRuntime.timelineItems[0].kind, "interaction_requested");
+
+  const commandRuntime = projectSessionRuntime({
+    snapshot: {
+      session_id: "sess-1",
+      status: "idle",
+      current_mode: "code",
+      pending_interaction: null,
+    },
+    eventLog: createSessionEventLog(),
+    bootstrapTimeline: [
+      {
+        id: "cmd-1",
+        kind: "command_result",
+        commandName: "review",
+        content: "done",
+        turnId: "",
+        projectionSource: "raw_events",
+      },
+    ],
+  });
+  assert.equal(commandRuntime.timelineView[0].sessionFallbackItems[0].kind, "command_result_fallback");
+
+  const detachedRuntime = projectSessionRuntime({
+    snapshot: {
+      session_id: "sess-1",
+      status: "idle",
+      current_mode: "code",
+      pending_interaction: null,
+    },
+    eventLog: createSessionEventLog(),
+    bootstrapTimeline: [
+      { id: "turn-1-user", kind: "user", content: "hello", turnId: "turn-1" },
+      { id: "detached-tool", kind: "tool", toolName: "read_file", turnId: "turn-1", stepId: "", status: "success" },
+    ],
+  });
+  assert.equal(detachedRuntime.timelineView[0].trailingTurnItems[0].id, "detached-tool");
 
   const malformedEventLog = appendSessionEvent(createSessionEventLog(), {
     session_id: "sess-1",
@@ -82,5 +136,25 @@ export function runSessionRuntimeTests() {
     created_at: "2026-04-04T00:02:00Z",
     payload: null,
   });
-  assert.equal(malformedEventLog.needsResync, true);
+  assert.equal(malformedEventLog.replayState, "degraded");
+
+  const retryState = capRetryAttempt(200);
+  assert.equal(retryState, 20);
+
+  const expiredRuntime = projectSessionRuntime({
+    snapshot: {
+      session_id: "sess-1",
+      status: "waiting_permission",
+      current_mode: "code",
+      pending_interaction_valid: false,
+      pending_interaction: {
+        interaction_id: "int-expired",
+        kind: "permission",
+        tool_name: "edit_file",
+      },
+    },
+    eventLog: createSessionEventLog(),
+    bootstrapTimeline: [],
+  });
+  assert.equal(expiredRuntime.currentInteraction.status, "expired");
 }

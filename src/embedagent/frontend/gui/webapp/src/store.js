@@ -88,6 +88,7 @@ export function reducer(state, action) {
         activeTurnId: "",
         activeStepId: "",
         activeStepIndex: 0,
+        eventLog: [],
         plan: null,
         review: null,
         permissionContext: null,

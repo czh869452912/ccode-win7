@@ -10,7 +10,7 @@ import threading
 from contextlib import asynccontextmanager
 from typing import Any, Dict, Optional, Set
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
@@ -30,6 +30,119 @@ from embedagent.protocol import (
 )
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def _to_mapping(value: Any) -> Optional[Dict[str, Any]]:
+    if value is None:
+        return None
+    if isinstance(value, dict):
+        return dict(value)
+    payload = getattr(value, "__dict__", None)
+    if isinstance(payload, dict):
+        return dict(payload)
+    return None
+
+
+def _read_value(payload: Any, key: str, default: Any = None, aliases: tuple = ()) -> Any:
+    if isinstance(payload, dict):
+        if key in payload:
+            return payload.get(key, default)
+        for alias in aliases:
+            if alias in payload:
+                return payload.get(alias, default)
+        return default
+    for name in (key,) + tuple(aliases):
+        if hasattr(payload, name):
+            return getattr(payload, name)
+    return default
+
+
+def _read_status_value(snapshot: Any) -> str:
+    status = _read_value(snapshot, "status", "")
+    return str(getattr(status, "value", status) or "")
+
+
+def _serialize_session_snapshot(snapshot: Any) -> Dict[str, Any]:
+    pending_permission = _to_mapping(_read_value(snapshot, "pending_permission"))
+    pending_input = _to_mapping(_read_value(snapshot, "pending_input", None, aliases=("pending_user_input",)))
+    pending_interaction = _to_mapping(_read_value(snapshot, "pending_interaction"))
+    runtime_environment = _to_mapping(_read_value(snapshot, "runtime_environment"))
+    has_pending_input = bool(_read_value(snapshot, "has_pending_input", False, aliases=("has_pending_user_input",)))
+    pending_interaction_valid = _read_value(snapshot, "pending_interaction_valid", None)
+    if pending_interaction_valid is None:
+        pending_interaction_valid = bool(pending_interaction or pending_permission or pending_input)
+    return {
+        "session_id": str(_read_value(snapshot, "session_id", "") or ""),
+        "status": _read_status_value(snapshot),
+        "current_mode": str(_read_value(snapshot, "current_mode", "code") or "code"),
+        "started_at": str(_read_value(snapshot, "started_at", "", aliases=("created_at",)) or ""),
+        "updated_at": str(_read_value(snapshot, "updated_at", "") or ""),
+        "workflow_state": str(_read_value(snapshot, "workflow_state", "chat") or "chat"),
+        "has_active_plan": bool(_read_value(snapshot, "has_active_plan", False)),
+        "active_plan_ref": str(_read_value(snapshot, "active_plan_ref", "") or ""),
+        "current_command_context": str(_read_value(snapshot, "current_command_context", "") or ""),
+        "has_pending_permission": bool(_read_value(snapshot, "has_pending_permission", False)),
+        "has_pending_input": has_pending_input,
+        "pending_permission": pending_permission,
+        "pending_user_input": pending_input,
+        "pending_interaction": pending_interaction,
+        "last_error": _read_value(snapshot, "last_error"),
+        "runtime_source": str(_read_value(snapshot, "runtime_source", "") or ""),
+        "bundled_tools_ready": bool(_read_value(snapshot, "bundled_tools_ready", False)),
+        "fallback_warnings": list(_read_value(snapshot, "fallback_warnings", []) or []),
+        "runtime_environment": runtime_environment,
+        "timeline_replay_status": str(_read_value(snapshot, "timeline_replay_status", "replay") or "replay"),
+        "timeline_first_seq": int(_read_value(snapshot, "timeline_first_seq", 0) or 0),
+        "timeline_last_seq": int(_read_value(snapshot, "timeline_last_seq", 0) or 0),
+        "timeline_integrity": str(_read_value(snapshot, "timeline_integrity", "healthy") or "healthy"),
+        "pending_interaction_valid": bool(pending_interaction_valid),
+        "restore_stop_reason": str(_read_value(snapshot, "restore_stop_reason", "") or ""),
+        "restore_consumed_event_count": int(_read_value(snapshot, "restore_consumed_event_count", 0) or 0),
+        "restore_transcript_event_count": int(_read_value(snapshot, "restore_transcript_event_count", 0) or 0),
+    }
+
+
+def _serialize_replay_payload(session_id: str, payload: Any) -> Dict[str, Any]:
+    if isinstance(payload, dict):
+        events = payload.get("events")
+        return {
+            "session_id": str(payload.get("session_id") or session_id),
+            "status": str(payload.get("status") or "replay"),
+            "first_seq": int(payload.get("first_seq") or 0),
+            "last_seq": int(payload.get("last_seq") or 0),
+            "reason": str(payload.get("reason") or ""),
+            "events": list(events or []) if isinstance(events, list) else [],
+        }
+    events = list(payload or []) if isinstance(payload, list) else []
+    first_seq = int(events[0].get("seq") or 0) if events else 0
+    last_seq = int(events[-1].get("seq") or 0) if events else 0
+    return {
+        "session_id": str(session_id or ""),
+        "status": "replay",
+        "first_seq": first_seq,
+        "last_seq": last_seq,
+        "reason": "",
+        "events": events,
+    }
+
+
+def _serialize_interaction_response(payload: Dict[str, Any]) -> Dict[str, Any]:
+    response = dict(payload or {})
+    snapshot = response.get("snapshot")
+    if snapshot is not None:
+        response["snapshot"] = _serialize_session_snapshot(snapshot)
+    return response
+
+
+def _translate_value_error(exc: ValueError) -> HTTPException:
+    detail = str(exc or "").strip()
+    if "session_id 不存在" in detail or detail == "session_not_found":
+        return HTTPException(status_code=404, detail="session_not_found")
+    if detail in ("interaction_gone", "interaction_expired", "未找到待处理的交互请求。"):
+        return HTTPException(status_code=410, detail="interaction_expired")
+    if detail == "interaction_conflict":
+        return HTTPException(status_code=409, detail=detail)
+    return HTTPException(status_code=422, detail=detail or "invalid_request")
 
 
 class WebSocketFrontend(FrontendCallbacks):
@@ -68,7 +181,7 @@ class WebSocketFrontend(FrontendCallbacks):
         for conn in connections:
             try:
                 await conn.send_json(message)
-            except:
+            except Exception:
                 disconnected.add(conn)
         
         # 清理断开的连接
@@ -78,7 +191,11 @@ class WebSocketFrontend(FrontendCallbacks):
                     self.connections.discard(conn)
 
     def _dispatch_message(self, message: Dict[str, Any]) -> bool:
-        return self._dispatcher.dispatch(lambda: self.broadcast(message))
+        result = self._dispatcher.dispatch(lambda: self.broadcast(message))
+        if not result:
+            _LOGGER.error("GUI event dispatch failed: %s", result.reason)
+            return False
+        return True
     
     # ============ FrontendCallbacks 实现 ============
     
@@ -195,43 +312,28 @@ class WebSocketFrontend(FrontendCallbacks):
                 self._pending_inputs.pop(request.request_id, None)
     
     def on_session_status_change(self, snapshot: SessionSnapshot) -> None:
+        snapshot_payload = _serialize_session_snapshot(snapshot)
         self._dispatch_message({
             "type": "session_status",
             "data": {
-                "session_snapshot": {
-                    "session_id": snapshot.session_id,
-                    "status": snapshot.status.value,
-                    "current_mode": snapshot.current_mode,
-                    "started_at": snapshot.created_at,
-                    "updated_at": snapshot.updated_at,
-                    "workflow_state": snapshot.workflow_state,
-                    "has_active_plan": snapshot.has_active_plan,
-                    "active_plan_ref": snapshot.active_plan_ref,
-                    "current_command_context": snapshot.current_command_context,
-                    "has_pending_permission": snapshot.has_pending_permission,
-                    "has_pending_input": snapshot.has_pending_input,
-                    "pending_permission": snapshot.pending_permission.__dict__ if snapshot.pending_permission else None,
-                    "pending_user_input": snapshot.pending_input.__dict__ if snapshot.pending_input else None,
-                    "last_error": snapshot.last_error,
-                    "runtime_source": snapshot.runtime_source,
-                    "bundled_tools_ready": snapshot.bundled_tools_ready,
-                    "fallback_warnings": list(snapshot.fallback_warnings),
-                    "runtime_environment": snapshot.runtime_environment.__dict__ if snapshot.runtime_environment else None,
-                },
-                "session_id": snapshot.session_id,
-                "status": snapshot.status.value,
-                "current_mode": snapshot.current_mode,
-                "workflow_state": snapshot.workflow_state,
-                "has_active_plan": snapshot.has_active_plan,
-                "active_plan_ref": snapshot.active_plan_ref,
-                "current_command_context": snapshot.current_command_context,
-                "has_pending_permission": snapshot.has_pending_permission,
-                "has_pending_input": snapshot.has_pending_input,
-                "last_error": snapshot.last_error,
-                "runtime_source": snapshot.runtime_source,
-                "bundled_tools_ready": snapshot.bundled_tools_ready,
-                "fallback_warnings": list(snapshot.fallback_warnings),
-                "runtime_environment": snapshot.runtime_environment.__dict__ if snapshot.runtime_environment else None,
+                "session_snapshot": snapshot_payload,
+                "session_id": snapshot_payload["session_id"],
+                "status": snapshot_payload["status"],
+                "current_mode": snapshot_payload["current_mode"],
+                "workflow_state": snapshot_payload["workflow_state"],
+                "has_active_plan": snapshot_payload["has_active_plan"],
+                "active_plan_ref": snapshot_payload["active_plan_ref"],
+                "current_command_context": snapshot_payload["current_command_context"],
+                "has_pending_permission": snapshot_payload["has_pending_permission"],
+                "has_pending_input": snapshot_payload["has_pending_input"],
+                "last_error": snapshot_payload["last_error"],
+                "runtime_source": snapshot_payload["runtime_source"],
+                "bundled_tools_ready": snapshot_payload["bundled_tools_ready"],
+                "fallback_warnings": snapshot_payload["fallback_warnings"],
+                "runtime_environment": snapshot_payload["runtime_environment"],
+                "timeline_replay_status": snapshot_payload["timeline_replay_status"],
+                "timeline_integrity": snapshot_payload["timeline_integrity"],
+                "pending_interaction_valid": snapshot_payload["pending_interaction_valid"],
             }
         })
     
@@ -319,6 +421,12 @@ class GUIBackend:
         
         # 注册前端回调
         self.core.register_frontend(self.frontend)
+
+    def _call_core(self, func, *args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except ValueError as exc:
+            raise _translate_value_error(exc)
     
     def _create_app(self) -> FastAPI:
         @asynccontextmanager
@@ -345,62 +453,44 @@ class GUIBackend:
 
         @app.get("/api/sessions/{session_id}")
         async def get_session_snapshot(session_id: str):
-            snapshot = self.core.get_session_snapshot(session_id)
-            return {
-                "session_id": snapshot.session_id,
-                "status": snapshot.status.value,
-                "current_mode": snapshot.current_mode,
-                "started_at": snapshot.created_at,
-                "updated_at": snapshot.updated_at,
-                "workflow_state": snapshot.workflow_state,
-                "has_active_plan": snapshot.has_active_plan,
-                "active_plan_ref": snapshot.active_plan_ref,
-                "current_command_context": snapshot.current_command_context,
-                "has_pending_permission": snapshot.has_pending_permission,
-                "has_pending_input": snapshot.has_pending_input,
-                "pending_permission": snapshot.pending_permission.__dict__ if snapshot.pending_permission else None,
-                "pending_user_input": snapshot.pending_input.__dict__ if snapshot.pending_input else None,
-                "last_error": snapshot.last_error,
-                "runtime_source": snapshot.runtime_source,
-                "bundled_tools_ready": snapshot.bundled_tools_ready,
-                "fallback_warnings": list(snapshot.fallback_warnings),
-                "runtime_environment": snapshot.runtime_environment.__dict__ if snapshot.runtime_environment else None,
-            }
+            snapshot = self._call_core(self.core.get_session_snapshot, session_id)
+            return _serialize_session_snapshot(snapshot)
 
         @app.post("/api/sessions")
         async def create_session(mode: str = "code"):
-            snapshot = self.core.create_session(mode)
-            self._current_session_id = snapshot.session_id
-            return snapshot
-        
+            snapshot = self._call_core(self.core.create_session, mode)
+            self._current_session_id = str(_read_value(snapshot, "session_id", "") or "")
+            return _serialize_session_snapshot(snapshot)
+
         @app.post("/api/sessions/{session_id}/resume")
         async def resume_session(session_id: str, mode: str = "code"):
-            snapshot = self.core.resume_session(session_id, mode)
-            self._current_session_id = snapshot.session_id
-            return snapshot
-        
+            snapshot = self._call_core(self.core.resume_session, session_id, mode)
+            self._current_session_id = str(_read_value(snapshot, "session_id", "") or "")
+            return _serialize_session_snapshot(snapshot)
+
         @app.post("/api/sessions/{session_id}/message")
         async def send_message(session_id: str, request: Dict[str, Any]):
             text = request.get("text", "")
             self._current_session_id = session_id
-            self.core.submit_message(session_id, text)
+            self._call_core(self.core.submit_message, session_id, text)
             return {"status": "submitted"}
-        
+
         @app.post("/api/sessions/{session_id}/cancel")
         async def cancel_session(session_id: str):
-            self.core.cancel_session(session_id)
+            self._call_core(self.core.cancel_session, session_id)
             return {"status": "cancelled"}
 
         @app.post("/api/sessions/{session_id}/mode")
         async def set_mode(session_id: str, request: Dict[str, Any]):
             mode = request.get("mode", "code")
-            self.core.set_mode(session_id, mode)
+            self._call_core(self.core.set_mode, session_id, mode)
             return {"status": "ok"}
 
         @app.post("/api/sessions/{session_id}/interactions/{interaction_id}/respond")
         async def respond_to_interaction(session_id: str, interaction_id: str, request: Dict[str, Any]):
             self._current_session_id = session_id
-            return self.core.respond_to_interaction(session_id, interaction_id, request)
+            response = self._call_core(self.core.respond_to_interaction, session_id, interaction_id, request)
+            return _serialize_interaction_response(response)
         
         @app.get("/api/workspace")
         async def get_workspace():
@@ -416,7 +506,7 @@ class GUIBackend:
 
         @app.get("/api/sessions/{session_id}/plan")
         async def get_session_plan(session_id: str):
-            plan = self.core.get_session_plan(session_id)
+            plan = self._call_core(self.core.get_session_plan, session_id)
             if plan is None:
                 return {"plan": None}
             return {
@@ -433,7 +523,7 @@ class GUIBackend:
 
         @app.get("/api/sessions/{session_id}/permissions")
         async def get_permission_context(session_id: str):
-            context = self.core.get_permission_context(session_id)
+            context = self._call_core(self.core.get_permission_context, session_id)
             return {
                 "session_id": context.session_id,
                 "rules_path": context.rules_path,
@@ -447,14 +537,12 @@ class GUIBackend:
 
         @app.get("/api/sessions/{session_id}/timeline")
         async def get_session_timeline(session_id: str, limit: int = 200):
-            return self.core.build_structured_timeline(session_id, limit=limit)
+            return self._call_core(self.core.build_structured_timeline, session_id, limit=limit)
 
         @app.get("/api/sessions/{session_id}/events")
         async def get_session_events(session_id: str, after_seq: int = 0, limit: int = 200):
-            return {
-                "session_id": session_id,
-                "events": self.core.load_session_events_after(session_id, after_seq, limit=limit),
-            }
+            payload = self._call_core(self.core.load_session_events_after, session_id, after_seq, limit=limit)
+            return _serialize_replay_payload(session_id, payload)
         
         @app.get("/api/files")
         async def list_files(path: str = ".", max_depth: int = 3):
@@ -509,6 +597,10 @@ class GUIBackend:
                     data = await websocket.receive_json()
                     await self._handle_websocket_message(data)
             except WebSocketDisconnect:
+                _LOGGER.info("WebSocket client disconnected")
+            except Exception:
+                _LOGGER.exception("Unhandled websocket failure")
+            finally:
                 self.frontend.disconnect(websocket)
         
         return app

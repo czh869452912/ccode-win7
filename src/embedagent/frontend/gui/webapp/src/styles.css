@@ -515,6 +515,10 @@ body {
   border-radius: var(--r-md);
   padding: var(--sp-3);
 }
+.prompt-panel.interaction-expired {
+  border-color: rgba(210,153,34,.35);
+  background: rgba(210,153,34,.08);
+}
 .option-card {
   display: flex; flex-direction: column;
   width: 100%; text-align: left;
@@ -753,6 +757,9 @@ body {
 }
 .bubble.assistant.command-result {
   max-width: 100%;
+}
+.bubble.assistant.command-result.command-result-fallback {
+  border-style: dashed;
 }
 .command-result-label {
   font-size: 10px;

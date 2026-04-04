@@ -7,7 +7,7 @@ import {
   timelineFromEvents,
   timelineFromTurns,
 } from "./state-helpers.js";
-import { appendSessionEvent, createSessionEventLog } from "./session-runtime/event-log.js";
+import { appendSessionEvent, capRetryAttempt, createSessionEventLog } from "./session-runtime/event-log.js";
 import { projectSessionRuntime } from "./session-runtime/projector.js";
 import { LangContext } from "./LangContext.js";
 import { t } from "./strings.js";
@@ -66,6 +66,33 @@ function App() {
     sessionEventLogRef.current = sessionEventLog;
   }, [sessionEventLog]);
 
+  function replaceSessionEventLog(nextLog) {
+    sessionEventLogRef.current = nextLog;
+    setSessionEventLog(nextLog);
+    return nextLog;
+  }
+
+  function updateSessionEventLog(updater) {
+    const nextLog = updater(sessionEventLogRef.current);
+    sessionEventLogRef.current = nextLog;
+    setSessionEventLog(nextLog);
+    return nextLog;
+  }
+
+  function createRuntimeEventLog(snapshot = null) {
+    const readyState = wsRef.current?.readyState;
+    const connectionState =
+      readyState === WebSocket.OPEN
+        ? "connected"
+        : readyState === WebSocket.CLOSED
+          ? "disconnected"
+          : "connecting";
+    return createSessionEventLog({
+      connectionState,
+      replayState: snapshot?.timeline_replay_status || "healthy",
+    });
+  }
+
   // initial data load
   useEffect(() => {
     loadSessions();
@@ -110,8 +137,14 @@ function App() {
 
   async function fetchJson(url, options) {
     const res = await fetch(url, options);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return res.json();
+    const payload = await res.json().catch(() => null);
+    if (!res.ok) {
+      const error = new Error(payload?.detail || `HTTP ${res.status}`);
+      error.status = res.status;
+      error.detail = payload?.detail || "";
+      throw error;
+    }
+    return payload;
   }
 
   async function loadSessions() {
@@ -140,11 +173,13 @@ function App() {
   }
 
   async function loadSession(sessionId) {
-    const [snapshotPayload, timelinePayload, planPayload, permissionPayload] = await Promise.all([
+    const [snapshotPayload, timelinePayload] = await Promise.all([
       fetchJson(`/api/sessions/${encodeURIComponent(sessionId)}`),
       fetchJson(`/api/sessions/${encodeURIComponent(sessionId)}/timeline`),
-      fetchJson(`/api/sessions/${encodeURIComponent(sessionId)}/plan`),
-      fetchJson(`/api/sessions/${encodeURIComponent(sessionId)}/permissions`),
+    ]);
+    const [planPayload, permissionPayload] = await Promise.all([
+      fetchJson(`/api/sessions/${encodeURIComponent(sessionId)}/plan`).catch(() => ({ plan: null })),
+      fetchJson(`/api/sessions/${encodeURIComponent(sessionId)}/permissions`).catch(() => null),
     ]);
     const snapshot = normalizeSessionPayload(snapshotPayload);
     dispatch({
@@ -160,9 +195,11 @@ function App() {
             )
           : timelineFromEvents(timelinePayload.events || []),
     });
-    setSessionEventLog(createSessionEventLog());
+    replaceSessionEventLog(createRuntimeEventLog(snapshot));
     dispatch({ type: "plan_loaded", plan: planPayload.plan || null });
-    dispatch({ type: "permission_context_loaded", context: permissionPayload });
+    if (permissionPayload) {
+      dispatch({ type: "permission_context_loaded", context: permissionPayload });
+    }
     await Promise.all([loadTodos(sessionId), loadArtifacts()]);
   }
 
@@ -248,7 +285,7 @@ function App() {
     });
     const snapshot = normalizeSessionPayload(payload);
     dispatch({ type: "session_activated", sessionId: snapshot.session_id, snapshot, timeline: [] });
-    setSessionEventLog(createSessionEventLog());
+    replaceSessionEventLog(createRuntimeEventLog(snapshot));
     await Promise.all([loadSessions(), loadTodos(snapshot.session_id), loadPermissionContext(snapshot.session_id)]);
     return snapshot.session_id;
   }
@@ -300,6 +337,50 @@ function App() {
     await submitText(parts.join(" "));
   }
 
+  async function recoverSessionReplay(sessionId, logState = sessionEventLogRef.current) {
+    if (!sessionId) return;
+    try {
+      const replay = await fetchJson(
+        `/api/sessions/${encodeURIComponent(sessionId)}/events?after_seq=${encodeURIComponent(logState.lastAppliedSeq || 0)}`,
+      );
+      if (replay?.status === "replay") {
+        updateSessionEventLog((current) => {
+          let next = {
+            ...current,
+            connectionState: "connected",
+            replayState: "healthy",
+          };
+          const items = Array.isArray(replay.events) ? replay.events : [];
+          for (const item of items) {
+            next = appendSessionEvent(next, item);
+          }
+          return {
+            ...next,
+            connectionState: "connected",
+            replayState: next.replayState === "replay_needed" ? "replay_needed" : "healthy",
+          };
+        });
+        if (sessionEventLogRef.current.replayState === "replay_needed") {
+          await loadSession(sessionId);
+        }
+        return;
+      }
+      updateSessionEventLog((current) => ({
+        ...current,
+        connectionState: replay?.status === "degraded" ? "degraded" : "connected",
+        replayState: replay?.status || "degraded",
+      }));
+      await loadSession(sessionId);
+    } catch (_) {
+      updateSessionEventLog((current) => ({
+        ...current,
+        connectionState: "degraded",
+        replayState: "degraded",
+      }));
+      await loadSession(sessionId);
+    }
+  }
+
   // ── WebSocket ──────────────────────────────────────────────────────
 
   function connectWebSocket() {
@@ -308,42 +389,26 @@ function App() {
     wsRef.current = socket;
     socket.onopen = async () => {
       dispatch({ type: "set_connection", value: "connected" });
-      setSessionEventLog((current) => ({ ...current, connectionState: "connected" }));
+      updateSessionEventLog((current) => ({ ...current, connectionState: "connected" }));
       wsRetryRef.current = 0;
-      if (currentSessionIdRef.current && sessionEventLogRef.current.needsResync) {
-        try {
-          const replay = await fetchJson(
-            `/api/sessions/${encodeURIComponent(currentSessionIdRef.current)}/events?after_seq=${encodeURIComponent(sessionEventLogRef.current.lastAppliedSeq || 0)}`,
-          );
-          const items = Array.isArray(replay.events) ? replay.events : [];
-          setSessionEventLog((current) => {
-            let next = current;
-            for (const item of items) {
-              next = appendSessionEvent(next, item);
-            }
-            return { ...next, connectionState: "connected" };
-          });
-          if (items.length === 0) {
-            await loadSession(currentSessionIdRef.current);
-          }
-        } catch (_) {
-          await loadSession(currentSessionIdRef.current);
-        }
+      if (currentSessionIdRef.current && sessionEventLogRef.current.replayState !== "healthy") {
+        await recoverSessionReplay(currentSessionIdRef.current, sessionEventLogRef.current);
       }
     };
     socket.onclose = () => {
       dispatch({ type: "set_connection", value: "disconnected" });
-      setSessionEventLog((current) => ({ ...current, connectionState: "disconnected" }));
-      const delay = Math.min(1500 * Math.pow(2, wsRetryRef.current), 30000);
-      wsRetryRef.current += 1;
+      updateSessionEventLog((current) => ({ ...current, connectionState: "disconnected" }));
+      const nextAttempt = capRetryAttempt(wsRetryRef.current + 1);
+      const delay = Math.min(1500 * Math.pow(2, Math.max(nextAttempt - 1, 0)), 30000);
+      wsRetryRef.current = nextAttempt;
       window.setTimeout(connectWebSocket, delay);
     };
     socket.onerror = () => {
       dispatch({ type: "set_connection", value: "disconnected" });
-      setSessionEventLog((current) => ({
+      updateSessionEventLog((current) => ({
         ...current,
         connectionState: "degraded",
-        needsResync: true,
+        replayState: current.replayState === "reload_required" ? "reload_required" : "replay_needed",
       }));
     };
     socket.onmessage = (event) => {
@@ -352,10 +417,10 @@ function App() {
         startTransition(() => handleSocketMessage(message.type, message.data || {}));
       } catch (_) {
         dispatch({ type: "set_connection", value: "disconnected" });
-        setSessionEventLog((current) => ({
+        updateSessionEventLog((current) => ({
           ...current,
           connectionState: "degraded",
-          needsResync: true,
+          replayState: "degraded",
         }));
       }
     };
@@ -367,7 +432,13 @@ function App() {
 
   function handleSocketMessage(type, data) {
     if (type === "session_event") {
-      setSessionEventLog((current) => appendSessionEvent(current, data || {}));
+      const nextLog = updateSessionEventLog((current) => appendSessionEvent(current, data || {}));
+      if (
+        (nextLog.replayState === "replay_needed" || nextLog.replayState === "degraded") &&
+        currentSessionIdRef.current
+      ) {
+        void recoverSessionReplay(currentSessionIdRef.current, nextLog);
+      }
       if (data?.event_kind === "turn.started") {
         dispatch({
           type: "turn_started",
@@ -389,6 +460,12 @@ function App() {
     if (type === "session_status") {
       const snap = data.session_snapshot || data;
       dispatch({ type: "session_snapshot", snapshot: normalizeSessionPayload(snap) });
+      if (snap.timeline_replay_status && snap.timeline_replay_status !== "replay") {
+        updateSessionEventLog((current) => ({
+          ...current,
+          replayState: snap.timeline_replay_status,
+        }));
+      }
       if (snap.session_id) loadSessions();
       logEvent("session_status", snap.status || "");
       return;
@@ -473,7 +550,7 @@ function App() {
         permission: data,
         inspectorTab: "permissions",
       });
-      setSessionEventLog((current) =>
+      updateSessionEventLog((current) =>
         appendSessionEvent(current, {
           session_id: state.currentSessionId || "",
           event_id: data.permission_id || makeEventId("evt"),
@@ -504,7 +581,7 @@ function App() {
           step_index: data.step_index || 0,
         },
       });
-      setSessionEventLog((current) =>
+      updateSessionEventLog((current) =>
         appendSessionEvent(current, {
           session_id: state.currentSessionId || "",
           event_id: data.request_id || makeEventId("evt"),
@@ -708,7 +785,7 @@ function App() {
     } else {
       await loadSession(state.currentSessionId);
     }
-    setSessionEventLog((current) =>
+    updateSessionEventLog((current) =>
       appendSessionEvent(current, {
         session_id: state.currentSessionId,
         event_id: makeEventId("evt"),
@@ -902,7 +979,7 @@ function App() {
             plan={state.plan}
             review={state.review}
             recipes={state.recipes}
-            timeline={runtimeState.timelineView}
+            timeline={runtimeState.timelineItems}
             currentInteraction={runtimeState.currentInteraction}
             permissionContext={state.permissionContext}
             preview={state.preview}

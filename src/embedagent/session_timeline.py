@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import threading
 import uuid
@@ -8,6 +9,9 @@ from datetime import datetime
 from typing import Any, Dict, List, Tuple
 
 from embedagent.artifacts import ArtifactStore
+
+
+_LOGGER = logging.getLogger(__name__)
 
 
 def _utc_now() -> str:
@@ -50,7 +54,12 @@ class SessionTimelineStore(object):
             with open(path, "a", encoding="utf-8", newline="\n") as handle:
                 handle.write(json.dumps(record, ensure_ascii=False, sort_keys=True) + "\n")
                 handle.flush()
-                os.fsync(handle.fileno())
+                try:
+                    os.fsync(handle.fileno())
+                except OSError as exc:
+                    _LOGGER.error("timeline append fsync failed: %s", exc)
+                    record["integrity_state"] = "degraded"
+                    return record
             self._trim_if_needed(path)
             return record
 
@@ -58,17 +67,61 @@ class SessionTimelineStore(object):
         path = self._timeline_path(session_id)
         if not os.path.isfile(path):
             return []
-        items, _ = self._scan_events(path)
+        items, _, _ = self._scan_events(path)
         if limit <= 0:
             return items
         return items[-limit:]
 
-    def load_events_after(self, session_id: str, after_seq: int, limit: int = 200) -> List[Dict[str, Any]]:
-        events = self.load_events(session_id, limit=self.max_events)
+    def load_events_with_state(self, session_id: str) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+        path = self._timeline_path(session_id)
+        if not os.path.isfile(path):
+            return [], {
+                "first_seq": 0,
+                "last_seq": 0,
+                "integrity_state": "empty",
+                "truncated_before_seq": 0,
+            }
+        events, _, integrity_state = self._scan_events(path)
+        first_seq = int(events[0].get("seq") or 0) if events else 0
+        last_seq = int(events[-1].get("seq") or 0) if events else 0
+        truncated_before_seq = max(first_seq - 1, 0) if first_seq else 0
+        return events, {
+            "first_seq": first_seq,
+            "last_seq": last_seq,
+            "integrity_state": integrity_state,
+            "truncated_before_seq": truncated_before_seq,
+        }
+
+    def load_events_after(self, session_id: str, after_seq: int, limit: int = 200) -> Dict[str, Any]:
+        events, state = self.load_events_with_state(session_id)
+        first_seq = int(state.get("first_seq") or 0)
+        last_seq = int(state.get("last_seq") or 0)
+        if state.get("integrity_state") == "degraded":
+            return {
+                "status": "degraded",
+                "events": [],
+                "first_seq": first_seq,
+                "last_seq": last_seq,
+                "reason": "timeline_degraded",
+            }
+        if first_seq and int(after_seq or 0) < first_seq - 1:
+            return {
+                "status": "reload_required",
+                "events": [],
+                "first_seq": first_seq,
+                "last_seq": last_seq,
+                "reason": "outside_retained_window",
+            }
         filtered = [item for item in events if int(item.get("seq") or 0) > int(after_seq or 0)]
-        if limit <= 0:
-            return filtered
-        return filtered[:limit]
+        if limit > 0:
+            filtered = filtered[:limit]
+        return {
+            "status": "replay",
+            "events": filtered,
+            "first_seq": first_seq,
+            "last_seq": last_seq,
+            "reason": "",
+        }
 
     def latest_assistant_reply(self, session_id: str) -> str:
         for item in reversed(self.load_events(session_id, limit=self.max_events)):
@@ -98,7 +151,7 @@ class SessionTimelineStore(object):
     def _next_seq(self, path: str) -> int:
         if not os.path.isfile(path):
             return 1
-        events, _ = self._scan_events(path)
+        events, _, _ = self._scan_events(path)
         if not events:
             return 1
         return int(events[-1].get("seq") or 0) + 1
@@ -115,7 +168,7 @@ class SessionTimelineStore(object):
     def _repair_tail(self, path: str) -> None:
         if not os.path.isfile(path):
             return
-        _, valid_length = self._scan_events(path)
+        _, valid_length, _ = self._scan_events(path)
         try:
             file_size = os.path.getsize(path)
         except OSError:
@@ -125,10 +178,11 @@ class SessionTimelineStore(object):
         with open(path, "rb+") as handle:
             handle.truncate(valid_length)
 
-    def _scan_events(self, path: str) -> Tuple[List[Dict[str, Any]], int]:
+    def _scan_events(self, path: str) -> Tuple[List[Dict[str, Any]], int, str]:
         events = []
         last_seq = 0
         valid_length = 0
+        integrity_state = "healthy"
         with open(path, "rb") as handle:
             while True:
                 raw_line = handle.readline()
@@ -142,18 +196,26 @@ class SessionTimelineStore(object):
                 try:
                     event = json.loads(line.decode("utf-8"))
                 except (UnicodeDecodeError, ValueError):
-                    break
+                    integrity_state = "degraded"
+                    valid_length = next_offset
+                    continue
                 if not isinstance(event, dict):
-                    break
+                    integrity_state = "degraded"
+                    valid_length = next_offset
+                    continue
                 if "seq" in event:
                     try:
                         seq = int(event.get("seq") or 0)
                     except (TypeError, ValueError):
-                        break
+                        integrity_state = "degraded"
+                        valid_length = next_offset
+                        continue
                     if seq <= 0:
-                        break
+                        integrity_state = "degraded"
+                        valid_length = next_offset
+                        continue
                     if last_seq and seq != last_seq + 1:
-                        break
+                        integrity_state = "degraded"
                 else:
                     seq = last_seq + 1 if last_seq else 1
                     event = dict(event)
@@ -161,4 +223,4 @@ class SessionTimelineStore(object):
                 events.append(event)
                 last_seq = seq
                 valid_length = next_offset
-        return events, valid_length
+        return events, valid_length, integrity_state

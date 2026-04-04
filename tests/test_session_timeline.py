@@ -5,6 +5,7 @@ import threading
 import time
 import unittest
 from itertools import count
+from unittest.mock import patch
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
@@ -102,6 +103,24 @@ class TestSessionTimelineStore(unittest.TestCase):
         self.assertEqual([item['seq'] for item in events], [1, 2, 3])
         self.assertEqual(events[-2]['payload']['index'], 1)
         self.assertEqual(events[-1]['payload']['index'], 2)
+
+    def test_scan_events_skips_malformed_mid_file_rows_and_marks_degraded(self):
+        self.store.max_events = 10
+        self.store.append_event('sess-7', 'turn_started', {'text': 'hello'})
+        path = self.store._timeline_path('sess-7')
+        with open(path, "ab") as handle:
+            handle.write(b"{broken-json}\n")
+            handle.write(
+                b'{"schema_version":1,"event_id":"evt_after","seq":2,"created_at":"2026-04-04T00:00:02Z","event":"turn_end","payload":{"turn_id":"t-1"}}\n'
+            )
+        events, state = self.store.load_events_with_state('sess-7')
+        self.assertEqual(events[-1]["event_id"], "evt_after")
+        self.assertEqual(state["integrity_state"], "degraded")
+
+    def test_append_event_marks_degraded_when_fsync_raises_oserror(self):
+        with patch("embedagent.session_timeline.os.fsync", side_effect=OSError("disk full")):
+            record = self.store.append_event('sess-8', 'turn_started', {'text': 'hello'})
+        self.assertEqual(record.get("integrity_state"), "degraded")
 
 
 if __name__ == '__main__':
