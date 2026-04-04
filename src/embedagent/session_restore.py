@@ -41,12 +41,16 @@ class SessionRestorer(object):
                 self._apply_message(session, payload)
                 continue
             if event_type == "step_started":
+                if not session.turns:
+                    break
                 session.begin_step(
                     reasoning=str(payload.get("reasoning") or ""),
                     step_id=str(payload.get("step_id") or ""),
                 )
                 continue
             if event_type == "tool_call":
+                if session.current_step() is None:
+                    break
                 action = Action(
                     name=str(payload.get("tool_name") or ""),
                     arguments=dict(payload.get("arguments") or {}),

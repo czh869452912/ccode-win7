@@ -106,6 +106,26 @@
   - 继续补 message-chain / preserved segment 的更强一致性验证
   - 评估是否要暴露“恢复停止于哪个 event”的诊断信息
 
+### DC-059
+
+- 日期：2026-04-04
+- 变更主题：SessionRestorer 现在拒绝补造缺失的 turn / step 拓扑
+- 变更摘要：
+  - `step_started` 若前面没有 user turn，恢复会停在最后一个合法前缀，而不是创建空 turn
+  - `tool_call` 若前面没有 active step，恢复会停止，而不是隐式补造 step
+  - 新增 focused regression 覆盖这两类顺序错误，保证 transcript replay 不会把拓扑损坏“修饰”为正常状态
+- 影响范围：
+  - transcript replay 的 turn/step 拓扑可信度
+  - malformed transcript 的恢复安全性
+  - adapter resume 的状态稳定性
+- 关联文档：
+  - `docs/context-loop-handoff-status.md`
+  - `docs/development-tracker.md`
+- 是否需要 ADR：`否`
+- 后续动作：
+  - 继续补 message-chain / preserved segment 的一致性校验
+  - 评估是否要在恢复结果里暴露 stop reason / stop event index
+
 ### DC-055
 
 - 日期：2026-04-02
