@@ -10,6 +10,7 @@ import {
   timelineFromEvents,
   timelineFromTurns,
 } from "../src/state-helpers.js";
+import { runSessionRuntimeTests } from "./session-runtime.test.mjs";
 
 function main() {
   const root = [createTreeNode({ path: "src", name: "src", kind: "dir", has_children: true })];
@@ -315,6 +316,8 @@ function main() {
     type: "permission_cleared",
   });
   assert.equal(resolvedPermissionState.permission, null);
+
+  runSessionRuntimeTests();
 
   console.log("frontend helper checks passed");
 }
