@@ -20,6 +20,8 @@ param(
 Set-StrictMode -Version 2.0
 $ErrorActionPreference = 'Stop'
 
+. (Join-Path $PSScriptRoot 'package-lib.ps1')
+
 function Ensure-Directory {
     param(
         [string]$Path
@@ -256,6 +258,12 @@ if ($shouldPrepare) {
 
 if (-not (Test-Path -LiteralPath $stagingBundleRoot)) {
     throw "Staging bundle not found: $stagingBundleRoot"
+}
+
+$stagingGuiStatus = Get-GuiBundleAssetStatus -BundleRoot $stagingBundleRoot
+if (-not $stagingGuiStatus.ok) {
+    $missingLabel = @($stagingGuiStatus.missing) -join ', '
+    throw ('Staging bundle is missing required GUI static assets. Missing={0}; StaticRoot={1}. Re-run build-offline-bundle.ps1 with -RunPrepare or rebuild the GUI frontend first.' -f $missingLabel, $stagingGuiStatus.static_root)
 }
 
 $stagingManifestPath = Join-Path $stagingBundleRoot 'manifests\bundle-manifest.json'

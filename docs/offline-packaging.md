@@ -245,8 +245,8 @@ portable bundle 自带的 `config/` 主要用于：
 当前边界：
 
 - `package.ps1` 现在是对人类操作者和自动化脚本的推荐入口，统一负责 profile、阶段编排、最终状态和报告输出。
-- `prepare-offline.ps1` 已支持 `-SkipBuild`，可在资产尚未收齐时先生成稳定的 staging 布局和组件状态清单。
-- `build-offline-bundle.ps1` 已支持直接消费现有 staging，输出 `offline-dist` 目录和 zip。
+- `prepare-offline.ps1` 已支持 `-SkipBuild`，可在资产尚未收齐时先生成稳定的 staging 布局和组件状态清单；同时会确保 GUI `static/` 资源完整，缺失时尝试本地前端重建，否则直接失败。
+- `build-offline-bundle.ps1` 已支持直接消费现有 staging，输出 `offline-dist` 目录和 zip；同时会拒绝复制缺少 GUI 关键静态资源的残缺 staging bundle。
 - `validate-offline-bundle.ps1` 默认允许 skeleton bundle 以告警形式通过；当前在 Python / MinGit / rg / ctags 已接入后，`-RequireComplete` 已可通过本轮 slice 的正式验收。
 
 当前建议的人类操作路径：
@@ -293,6 +293,7 @@ build/
 
 操作：
 
+- 确保 GUI `static/` 产物完整（至少包含 `index.html`、`assets/app.js`、`assets/app.css` 与 `assets/katex/katex.min.css`）；若源码静态产物残缺，则先在构建机执行前端重建
 - 复制 `src/embedagent/` 到 `app/embedagent/`
 - 复制 embeddable Python 到 `runtime/python/`
 - 复制 vendored packages 到 `runtime/site-packages/`

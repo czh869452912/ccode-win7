@@ -182,6 +182,38 @@ function Test-StaticPath {
     Add-Result -Results $Results -Level $level -Code $Code -Message ('Missing path: {0}' -f $Path)
 }
 
+function Validate-LauncherContract {
+    param(
+        [System.Collections.ArrayList]$Results,
+        [string]$Path,
+        [string]$Code,
+        [string[]]$RequiredMarkers,
+        [string]$LauncherName
+    )
+
+    if (-not (Test-Path -LiteralPath $Path)) {
+        return
+    }
+
+    $content = Get-Content -LiteralPath $Path -Raw
+    $missing = @()
+    foreach ($marker in @($RequiredMarkers)) {
+        if (-not $marker) {
+            continue
+        }
+        if ($content.IndexOf($marker, [System.StringComparison]::OrdinalIgnoreCase) -lt 0) {
+            $missing += $marker
+        }
+    }
+
+    if ($missing.Count -eq 0) {
+        Add-Result -Results $Results -Level 'pass' -Code $Code -Message ('{0} launcher contract verified.' -f $LauncherName)
+        return
+    }
+
+    Add-Result -Results $Results -Level 'fail' -Code $Code -Message ('{0} launcher missing required markers: {1}' -f $LauncherName, ($missing -join ', '))
+}
+
 function Validate-PthFile {
     param(
         [System.Collections.ArrayList]$Results,
@@ -272,6 +304,16 @@ Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'embedagent.cmd')
 Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'embedagent-tui.cmd') -Code 'bundle.launcher.tui' -Message 'TUI launcher present.' -TreatAsCompleteGate $true
 Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'embedagent-gui.cmd') -Code 'bundle.launcher.gui' -Message 'GUI launcher present.' -TreatAsCompleteGate $true
 Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'validate-gui-smoke.cmd') -Code 'bundle.launcher.gui_smoke' -Message 'GUI smoke launcher present.' -TreatAsCompleteGate $true
+Validate-LauncherContract -Results $results -Path (Join-Path $BundleRoot 'embedagent.cmd') -Code 'bundle.launcher.cli_contract' -RequiredMarkers @(
+    'EMBEDAGENT_BUNDLE_ROOT',
+    '%BUNDLE_ROOT%bin\git\bin',
+    '%BUNDLE_ROOT%bin\llvm\libexec'
+) -LauncherName 'CLI'
+Validate-LauncherContract -Results $results -Path (Join-Path $BundleRoot 'embedagent-gui.cmd') -Code 'bundle.launcher.gui_contract' -RequiredMarkers @(
+    'EMBEDAGENT_BUNDLE_ROOT',
+    '%BUNDLE_ROOT%bin\git\bin',
+    '%BUNDLE_ROOT%bin\llvm\libexec'
+) -LauncherName 'GUI'
 Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'docs\intranet-deployment.md') -Code 'bundle.docs.intranet' -Message 'Intranet deployment guide present.' -TreatAsCompleteGate $true
 Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'docs\win7-gui-validation.md') -Code 'bundle.docs.win7_gui' -Message 'Win7 GUI validation guide present.' -TreatAsCompleteGate $true
 Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'app\embedagent\frontend\gui\static\index.html') -Code 'bundle.gui.index' -Message 'GUI index.html present.' -TreatAsCompleteGate $true

@@ -262,6 +262,8 @@ class TestManagedRuntimeEnvironment(unittest.TestCase):
 
     def test_runtime_snapshot_prefers_bundle_tools(self):
         bundle_root = os.path.join(self.workspace, "bundle")
+        self._touch(bundle_root, "app", "embedagent", "__init__.py")
+        self._touch(bundle_root, "runtime", "python", "python.exe")
         self._touch(bundle_root, "bin", "git", "cmd", "git.exe")
         self._touch(bundle_root, "bin", "git", "bin", "git.exe")
         self._touch(bundle_root, "bin", "rg", "rg.exe")
@@ -283,6 +285,8 @@ class TestManagedRuntimeEnvironment(unittest.TestCase):
 
     def test_runtime_snapshot_reports_missing_bundle_tools_without_fallback(self):
         bundle_root = os.path.join(self.workspace, "bundle-missing")
+        self._touch(bundle_root, "app", "embedagent", "__init__.py")
+        self._touch(bundle_root, "runtime", "python", "python.exe")
         self._touch(bundle_root, "bin", "llvm", "bin", "clang.exe")
         with patch.dict(os.environ, {"EMBEDAGENT_BUNDLE_ROOT": bundle_root}, clear=False):
             runtime = ToolRuntime(self.workspace)
@@ -290,6 +294,37 @@ class TestManagedRuntimeEnvironment(unittest.TestCase):
         self.assertEqual(snapshot["runtime_source"], "bundle")
         self.assertFalse(snapshot["bundled_tools_ready"])
         self.assertGreaterEqual(len(snapshot["fallback_warnings"]), 1)
+
+    def test_runtime_snapshot_detects_bundle_without_env_from_installed_location(self):
+        import embedagent.tools._base as tools_base
+
+        bundle_root = os.path.join(self.workspace, "portable-bundle")
+        workspace_root = os.path.join(bundle_root, "data", "workspace-template")
+        os.makedirs(workspace_root)
+        fake_module_path = self._touch(bundle_root, "app", "embedagent", "tools", "_base.py")
+        self._touch(bundle_root, "app", "embedagent", "__init__.py")
+        self._touch(bundle_root, "runtime", "python", "python.exe")
+        self._touch(bundle_root, "bin", "git", "cmd", "git.exe")
+        self._touch(bundle_root, "bin", "git", "bin", "git.exe")
+        self._touch(bundle_root, "bin", "rg", "rg.exe")
+        self._touch(bundle_root, "bin", "ctags", "ctags.exe")
+        self._touch(bundle_root, "bin", "llvm", "bin", "clang.exe")
+        self._touch(bundle_root, "bin", "llvm", "bin", "clang-tidy.exe")
+        self._touch(bundle_root, "bin", "llvm", "bin", "llvm-profdata.exe")
+        self._touch(bundle_root, "bin", "llvm", "bin", "llvm-cov.exe")
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("EMBEDAGENT_BUNDLE_ROOT", None)
+            with patch.object(tools_base, "__file__", fake_module_path):
+                runtime = ToolRuntime(workspace_root)
+                snapshot = runtime.runtime_environment_snapshot()
+        self.assertEqual(snapshot["runtime_source"], "bundle")
+        self.assertTrue(snapshot["bundled_tools_ready"])
+        self.assertEqual(snapshot["tool_sources"]["python"], "bundle")
+        self.assertEqual(snapshot["tool_sources"]["git"], "bundle")
+        self.assertEqual(snapshot["tool_sources"]["rg"], "bundle")
+        self.assertEqual(snapshot["tool_sources"]["ctags"], "bundle")
+        self.assertEqual(snapshot["tool_sources"]["llvm"], "bundle")
+        self.assertTrue(snapshot["resolved_tool_roots"]["bundle_root"].endswith("portable-bundle"))
 
 
 class TestWorkspaceRecipes(unittest.TestCase):

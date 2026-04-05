@@ -12,6 +12,14 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 
+ROOT = Path(__file__).resolve().parents[1]
+for candidate in (ROOT / "src", ROOT / "app"):
+    if candidate.exists():
+        sys.path.insert(0, str(candidate))
+
+from embedagent.runtime_discovery import discover_bundle_root
+
+
 def parse_args():
     parser = argparse.ArgumentParser(
         description="Offline Bundle Dependency Checker",
@@ -41,16 +49,14 @@ def write_json_report(path: str, payload: Dict) -> None:
 
 def get_bundle_root() -> Optional[Path]:
     """Auto-detect bundle root when no explicit path is provided."""
-    # Auto-detect: look for common indicators
-    script_dir = Path(__file__).parent
-    candidates = [
-        script_dir.parent,  # scripts/..
-        Path.cwd(),
-    ]
-    for candidate in candidates:
-        if (candidate / "runtime" / "python").exists():
-            return candidate
-    return None
+    resolved = discover_bundle_root(
+        anchor_path=str(Path(__file__).resolve()),
+        anchor_levels=(1,),
+        extra_candidates=(str(Path.cwd()),),
+    )
+    if not resolved:
+        return None
+    return Path(resolved)
 
 
 def check_python_runtime(bundle_root: Path) -> Tuple[bool, List[str]]:

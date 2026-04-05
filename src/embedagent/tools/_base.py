@@ -12,6 +12,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
+from embedagent.runtime_discovery import discover_bundle_root
 from embedagent.session import Observation
 from embedagent.workspace_recipes import list_workspace_recipes, resolve_workspace_recipe
 
@@ -102,6 +103,8 @@ class ToolContext(object):
         self.workspace = workspace
         self.app_config = app_config
         self._thread_local = threading.local()
+        self._bundle_root_cache = None  # type: Optional[str]
+        self._bundle_root_resolved = False
 
     def set_interrupt_event(self, stop_event: Optional[threading.Event]) -> None:
         self._thread_local.stop_event = stop_event
@@ -235,13 +238,14 @@ class ToolContext(object):
         return bool(configured)
 
     def bundle_root(self) -> Optional[str]:
-        env_root = os.environ.get("EMBEDAGENT_BUNDLE_ROOT", "").strip()
-        if not env_root:
-            return None
-        resolved = os.path.realpath(env_root)
-        if not os.path.isdir(resolved):
-            return None
-        return resolved
+        if not self._bundle_root_resolved:
+            self._bundle_root_cache = discover_bundle_root(
+                env_root=os.environ.get("EMBEDAGENT_BUNDLE_ROOT", "").strip(),
+                anchor_path=__file__,
+                anchor_levels=(3,),
+            )
+            self._bundle_root_resolved = True
+        return self._bundle_root_cache
 
     def _llvm_root_candidates(self) -> List[Tuple[str, str]]:
         candidates = []  # type: List[Tuple[str, str]]

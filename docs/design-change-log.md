@@ -44,6 +44,52 @@
 
 ## 3. 当前变更记录
 
+### DC-078
+
+- 日期：2026-04-06
+- 变更主题：离线打包直连脚本链补齐 GUI 静态资产门，避免 KaTeX 资源残缺静默入包
+- 变更摘要：
+  - `scripts/package-lib.ps1` 新增 GUI 静态资产检查与确保逻辑，统一识别 `index.html`、`app.js`、`app.css` 与 `assets/katex/katex.min.css` 是否完整
+  - `Invoke-FrontendBuild` 已改为复用同一套检查/构建函数；控制面 `package.ps1` 继续保留强制前端构建语义，但逻辑不再与直连脚本链分叉
+  - `scripts/prepare-offline.ps1` 现在会在复制应用代码前确保 GUI 静态资产完整，缺失时尝试 `npm install --force` + `npm run build`，仍失败则直接中止
+  - `scripts/build-offline-bundle.ps1` 现在会对现有 staging bundle 做 GUI 静态资产门禁；即使用户不带 `-RunPrepare`，也不会再把缺少 KaTeX 的旧 staging 静默复制到 `offline-dist`
+- 影响范围：
+  - Phase 7 直连脚本链（`prepare-offline` / `build-offline-bundle`）
+  - `package.ps1` 控制面与直连脚本链的一致性
+  - GUI 数学公式渲染相关静态资源的随包完整性
+- 关联文档：
+  - `docs/offline-packaging.md`
+  - `docs/development-tracker.md`
+  - `scripts/package-lib.ps1`
+  - `scripts/prepare-offline.ps1`
+  - `scripts/build-offline-bundle.ps1`
+- 是否需要 ADR：`否`
+- 后续动作：
+  - 若后续继续精简打包脚本，应进一步收敛 `prepare/build/package` 三条路径中的共享验证逻辑，减少 PowerShell 侧重复实现
+
+### DC-077
+
+- 日期：2026-04-05
+- 变更主题：bundle 运行时发现统一为强签名单一事实源，并补齐 GUI launcher 契约防回归
+- 变更摘要：
+  - 新增 `src/embedagent/runtime_discovery.py`，把 bundle 根目录识别统一收敛为“环境变量优先 + 安装位置 fallback + 强签名校验”的公共逻辑；只有同时满足 `app/embedagent`、`runtime/python`、`bin` 等关键目录标记时才认定为 bundle 根目录
+  - `ToolContext.bundle_root()` 与 GUI `launcher.py` 不再各自维护分裂的 bundle 推断逻辑，`scripts/check-bundle-dependencies.py` 也复用同一套发现规则，避免出现“GUI 认为在 bundle 中、工具运行时却认为不在 bundle 中”的状态分裂
+  - `scripts/templates/embedagent-gui.cmd` 与 `scripts/prepare-offline.ps1` 生成的 GUI launcher 现在显式导出 `EMBEDAGENT_BUNDLE_ROOT`，并与 CLI launcher 对齐 `git\\bin` / `llvm\\libexec` 的 PATH 注入
+  - `scripts/validate-offline-bundle.ps1` 新增 launcher contract 校验；即使 launcher 文件存在，只要缺失 `EMBEDAGENT_BUNDLE_ROOT` 或关键 PATH 片段，也会被视为 bundle 缺陷而非仅做存在性通过
+- 影响范围：
+  - GUI 离线 bundle 启动链路
+  - Tool Runtime 托管工具发现与 PATH 构造
+  - Phase 7 bundle 验证脚本的缺陷检出能力
+- 关联文档：
+  - `docs/issues/gui-bundled-runtime-discovery-failure.md`
+  - `docs/development-tracker.md`
+  - `src/embedagent/runtime_discovery.py`
+  - `scripts/validate-offline-bundle.ps1`
+- 是否需要 ADR：`否`
+- 后续动作：
+  - 在下一次真实 `prepare/build/validate` 与 Win7 bundle 验收中，复核 GUI runtime inspector 是否稳定显示 bundle 工具根目录
+  - 若后续继续精简 launcher 生成链路，可进一步消除模板文件与 `prepare-offline.ps1` 内嵌字符串的重复来源
+
 ### DC-076
 
 - 日期：2026-04-05

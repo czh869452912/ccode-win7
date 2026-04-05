@@ -13,6 +13,8 @@ import threading
 import time
 from typing import Any, Dict, Optional
 
+from embedagent.runtime_discovery import discover_bundle_root, running_from_bundle
+
 # 配置日志
 logging.basicConfig(
     level=logging.INFO,
@@ -129,13 +131,12 @@ def _detect_windows_renderer() -> Dict[str, Any]:
 
 
 def _bundle_root() -> str:
-    env_root = os.environ.get("EMBEDAGENT_BUNDLE_ROOT", "").strip()
-    if env_root:
-        return os.path.realpath(env_root)
-    candidate = os.path.realpath(
-        os.path.join(os.path.dirname(__file__), "..", "..", "..", "..")
+    resolved = discover_bundle_root(
+        env_root=os.environ.get("EMBEDAGENT_BUNDLE_ROOT", "").strip(),
+        anchor_path=__file__,
+        anchor_levels=(4,),
     )
-    return candidate
+    return resolved or ""
 
 
 def _bundled_webview2_runtime() -> str:
@@ -144,14 +145,15 @@ def _bundled_webview2_runtime() -> str:
     if override:
         candidates.append(override)
     root = _bundle_root()
-    candidates.extend(
-        [
-            os.path.join(root, "runtime", "webview2-fixed-runtime"),
-            os.path.join(root, "runtime", "webview2"),
-            os.path.join(root, "bin", "webview2-fixed-runtime"),
-            os.path.join(root, "bin", "webview2"),
-        ]
-    )
+    if root:
+        candidates.extend(
+            [
+                os.path.join(root, "runtime", "webview2-fixed-runtime"),
+                os.path.join(root, "runtime", "webview2"),
+                os.path.join(root, "bin", "webview2-fixed-runtime"),
+                os.path.join(root, "bin", "webview2"),
+            ]
+        )
     for candidate in candidates:
         resolved = os.path.realpath(candidate)
         if not os.path.isdir(resolved):
@@ -163,10 +165,10 @@ def _bundled_webview2_runtime() -> str:
 
 
 def _running_from_bundle() -> bool:
-    root = _bundle_root()
-    return (
-        os.path.isdir(os.path.join(root, "runtime"))
-        and os.path.isdir(os.path.join(root, "app"))
+    return running_from_bundle(
+        env_root=os.environ.get("EMBEDAGENT_BUNDLE_ROOT", "").strip(),
+        anchor_path=__file__,
+        anchor_levels=(4,),
     )
 
 

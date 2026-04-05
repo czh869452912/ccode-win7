@@ -17,6 +17,8 @@ param(
 Set-StrictMode -Version 2.0
 $ErrorActionPreference = 'Stop'
 
+. (Join-Path $PSScriptRoot 'package-lib.ps1')
+
 function Resolve-ProjectPath {
     param(
         [string]$ProjectRoot,
@@ -545,6 +547,13 @@ foreach ($relative in $paths) {
     Ensure-Directory -Path (Join-Path $bundleRoot $relative)
 }
 
+$guiFrontendStatus = Ensure-GuiFrontendAssets -ProjectRoot $projectRoot
+if (-not $guiFrontendStatus.ok) {
+    $missingLabel = @($guiFrontendStatus.missing) -join ', '
+    $reason = [string]$guiFrontendStatus.reason
+    throw ('GUI static assets are incomplete and could not be prepared. Reason={0}; Missing={1}; StaticRoot={2}' -f $reason, $missingLabel, $guiFrontendStatus.static_root)
+}
+
 $sourceAppRoot = Join-Path $projectRoot 'src\embedagent'
 $stagedAppRoot = Join-Path $bundleRoot 'app\embedagent'
 Stage-Directory -Source $sourceAppRoot -Destination $stagedAppRoot
@@ -632,14 +641,15 @@ Write-TextFile -Path (Join-Path $bundleRoot 'embedagent-tui.cmd') -Content ($lau
 
 $launcherGui = @'
 @echo off
-setlocal EnableDelayedExpansion
+setlocal
 
 set "BUNDLE_ROOT=%~dp0"
+set "EMBEDAGENT_BUNDLE_ROOT=%BUNDLE_ROOT%"
 set "PYTHONHOME=%BUNDLE_ROOT%runtime\python"
 set "PYTHONPATH=%BUNDLE_ROOT%app;%BUNDLE_ROOT%runtime\site-packages"
 set "PYTHONNOUSERSITE=1"
 
-set "PATH=%BUNDLE_ROOT%bin\git\cmd;%BUNDLE_ROOT%bin\rg;%BUNDLE_ROOT%bin\ctags;%BUNDLE_ROOT%bin\llvm\bin;%PATH%"
+set "PATH=%BUNDLE_ROOT%bin\git\cmd;%BUNDLE_ROOT%bin\git\bin;%BUNDLE_ROOT%bin\rg;%BUNDLE_ROOT%bin\ctags;%BUNDLE_ROOT%bin\llvm\bin;%BUNDLE_ROOT%bin\llvm\libexec;%PATH%"
 
 if not defined EMBEDAGENT_HOME (
     set "EMBEDAGENT_HOME=%USERPROFILE%\.embedagent"

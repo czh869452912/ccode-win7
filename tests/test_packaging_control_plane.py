@@ -113,6 +113,76 @@ class TestPackageFoundation(unittest.TestCase):
             shutil.rmtree(project_root, ignore_errors=True)
 
 
+class TestGuiFrontendAssets(unittest.TestCase):
+    def test_gui_frontend_asset_status_requires_katex_css(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project_root = Path(tmp)
+            static_root = project_root / "src" / "embedagent" / "frontend" / "gui" / "static"
+            assets_root = static_root / "assets"
+            assets_root.mkdir(parents=True)
+            (static_root / "index.html").write_text("<html></html>", encoding="utf-8")
+            (assets_root / "app.js").write_text("console.log('ok')", encoding="utf-8")
+            (assets_root / "app.css").write_text("body{}", encoding="utf-8")
+            result = run_pwsh(
+                ". '{lib}'; "
+                "$status = Get-GuiFrontendAssetStatus -ProjectRoot '{project_root}'; "
+                "$status | ConvertTo-Json -Depth 6 -Compress".format(
+                    lib=str(LIB).replace("\\", "\\\\"),
+                    project_root=str(project_root).replace("\\", "\\\\"),
+                )
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertFalse(payload["ok"])
+            self.assertIn("katex.min.css", payload["missing"])
+
+    def test_ensure_gui_frontend_assets_accepts_complete_prebuilt_assets(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project_root = Path(tmp)
+            static_root = project_root / "src" / "embedagent" / "frontend" / "gui" / "static"
+            assets_root = static_root / "assets"
+            katex_root = assets_root / "katex"
+            katex_root.mkdir(parents=True)
+            (static_root / "index.html").write_text("<html></html>", encoding="utf-8")
+            (assets_root / "app.js").write_text("console.log('ok')", encoding="utf-8")
+            (assets_root / "app.css").write_text("body{}", encoding="utf-8")
+            (katex_root / "katex.min.css").write_text("/* katex */", encoding="utf-8")
+            result = run_pwsh(
+                ". '{lib}'; "
+                "$status = Ensure-GuiFrontendAssets -ProjectRoot '{project_root}'; "
+                "$status | ConvertTo-Json -Depth 6 -Compress".format(
+                    lib=str(LIB).replace("\\", "\\\\"),
+                    project_root=str(project_root).replace("\\", "\\\\"),
+                )
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertTrue(payload["ok"])
+            self.assertEqual(payload["mode"], "prebuilt")
+
+    def test_gui_bundle_asset_status_checks_staging_layout(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            bundle_root = Path(tmp) / "bundle"
+            static_root = bundle_root / "app" / "embedagent" / "frontend" / "gui" / "static"
+            assets_root = static_root / "assets"
+            assets_root.mkdir(parents=True)
+            (static_root / "index.html").write_text("<html></html>", encoding="utf-8")
+            (assets_root / "app.js").write_text("console.log('ok')", encoding="utf-8")
+            (assets_root / "app.css").write_text("body{}", encoding="utf-8")
+            result = run_pwsh(
+                ". '{lib}'; "
+                "$status = Get-GuiBundleAssetStatus -BundleRoot '{bundle_root}'; "
+                "$status | ConvertTo-Json -Depth 6 -Compress".format(
+                    lib=str(LIB).replace("\\", "\\\\"),
+                    bundle_root=str(bundle_root).replace("\\", "\\\\"),
+                )
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertFalse(payload["ok"])
+            self.assertIn("katex.min.css", payload["missing"])
+
+
 class TestStageJsonReports(unittest.TestCase):
     def test_dependency_checker_writes_json_report(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -140,6 +210,26 @@ class TestStageJsonReports(unittest.TestCase):
             result = subprocess.run(
                 [sys.executable, str(CHECK_SCRIPT), "--json-report", str(report_path)],
                 cwd=str(temp_root),
+                capture_output=True,
+                text=True,
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertTrue(report_path.exists())
+            payload = json.loads(report_path.read_text(encoding="utf-8"))
+            self.assertFalse(payload["ok"])
+            self.assertEqual(payload["bundle_root"], "")
+            self.assertEqual(payload["checks"], [])
+            self.assertIn("Cannot find bundle root", payload["error"])
+
+    def test_dependency_checker_autodetect_requires_strong_bundle_signature(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            temp_root = Path(tmp)
+            incomplete_root = temp_root / "incomplete-bundle"
+            (incomplete_root / "runtime" / "python").mkdir(parents=True)
+            report_path = temp_root / "dependency-report.json"
+            result = subprocess.run(
+                [sys.executable, str(CHECK_SCRIPT), "--json-report", str(report_path)],
+                cwd=str(incomplete_root),
                 capture_output=True,
                 text=True,
             )
@@ -262,6 +352,43 @@ class TestStageJsonReports(unittest.TestCase):
             self.assertEqual(payload["sources_root"], str(sources_root))
             self.assertEqual(payload["fail_count"], 0)
             self.assertTrue(isinstance(payload["results"], list))
+
+    def test_validate_offline_bundle_flags_gui_launcher_contract_drift(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            bundle_root = Path(tmp) / "bundle"
+            sources_root = Path(tmp) / "sources"
+            bundle_root.mkdir()
+            sources_root.mkdir()
+            (bundle_root / "embedagent-gui.cmd").write_text(
+                "@echo off\nset \"BUNDLE_ROOT=%~dp0\"\n",
+                encoding="ascii",
+            )
+            json_path = Path(tmp) / "validate-report.json"
+            result = subprocess.run(
+                [
+                    _powershell_exe(),
+                    "-NoProfile",
+                    "-File",
+                    str(VALIDATE_SCRIPT),
+                    "-BundleRoot",
+                    str(bundle_root),
+                    "-SourcesRoot",
+                    str(sources_root),
+                    "-ZipPath",
+                    str(Path(tmp) / "bundle.zip"),
+                    "-SkipDynamicChecks",
+                    "-JsonOutputPath",
+                    str(json_path),
+                ],
+                cwd=str(ROOT),
+                capture_output=True,
+                text=True,
+            )
+            self.assertNotEqual(result.returncode, 0)
+            payload = json.loads(json_path.read_text(encoding="utf-8"))
+            self.assertFalse(payload["ok"])
+            result_codes = [item["code"] for item in payload["results"]]
+            self.assertIn("bundle.launcher.gui_contract", result_codes)
 
     def test_validate_offline_bundle_accepts_single_line_checksums(self):
         test_root = ROOT / "build" / "test-tmp" / "validate-single-checksum"

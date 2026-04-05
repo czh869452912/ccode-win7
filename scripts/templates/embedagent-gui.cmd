@@ -1,16 +1,17 @@
 @echo off
-setlocal EnableDelayedExpansion
+setlocal
 
 :: EmbedAgent GUI Launcher for Windows 7 Portable Bundle
 :: This script launches the PyWebView-based GUI frontend
 
 set "BUNDLE_ROOT=%~dp0"
+set "EMBEDAGENT_BUNDLE_ROOT=%BUNDLE_ROOT%"
 set "PYTHONHOME=%BUNDLE_ROOT%runtime\python"
 set "PYTHONPATH=%BUNDLE_ROOT%app;%BUNDLE_ROOT%runtime\site-packages"
 set "PYTHONNOUSERSITE=1"
 
 :: Add bundled tools to PATH
-set "PATH=%BUNDLE_ROOT%bin\git\cmd;%BUNDLE_ROOT%bin\rg;%BUNDLE_ROOT%bin\ctags;%BUNDLE_ROOT%bin\llvm\bin;%PATH%"
+set "PATH=%BUNDLE_ROOT%bin\git\cmd;%BUNDLE_ROOT%bin\git\bin;%BUNDLE_ROOT%bin\rg;%BUNDLE_ROOT%bin\ctags;%BUNDLE_ROOT%bin\llvm\bin;%BUNDLE_ROOT%bin\llvm\libexec;%PATH%"
 
 :: Set EmbedAgent home directory
 if not defined EMBEDAGENT_HOME (

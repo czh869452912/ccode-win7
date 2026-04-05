@@ -173,6 +173,156 @@ function New-PackageContext {
     }
 }
 
+function Get-GuiStaticAssetStatus {
+    param(
+        [string]$StaticRoot
+    )
+
+    $assetsRoot = Join-Path $StaticRoot 'assets'
+    $required = [ordered]@{
+        'index.html' = (Join-Path $StaticRoot 'index.html')
+        'app.js' = (Join-Path $assetsRoot 'app.js')
+        'app.css' = (Join-Path $assetsRoot 'app.css')
+        'katex.min.css' = (Join-Path $assetsRoot 'katex\katex.min.css')
+    }
+    $missing = @()
+    foreach ($name in $required.Keys) {
+        if (-not (Test-Path -LiteralPath $required[$name])) {
+            $missing += $name
+        }
+    }
+    return [ordered]@{
+        ok = ($missing.Count -eq 0)
+        static_root = $StaticRoot
+        assets_root = $assetsRoot
+        paths = $required
+        missing = $missing
+    }
+}
+
+function Get-GuiFrontendAssetStatus {
+    param(
+        [string]$ProjectRoot
+    )
+
+    $staticRoot = Join-Path $ProjectRoot 'src\embedagent\frontend\gui\static'
+    $status = Get-GuiStaticAssetStatus -StaticRoot $staticRoot
+    $status['project_root'] = $ProjectRoot
+    $status['webapp_root'] = Join-Path $ProjectRoot 'src\embedagent\frontend\gui\webapp'
+    return $status
+}
+
+function Get-GuiBundleAssetStatus {
+    param(
+        [string]$BundleRoot
+    )
+
+    $staticRoot = Join-Path $BundleRoot 'app\embedagent\frontend\gui\static'
+    $status = Get-GuiStaticAssetStatus -StaticRoot $staticRoot
+    $status['bundle_root'] = $BundleRoot
+    return $status
+}
+
+function Ensure-GuiFrontendAssets {
+    param(
+        [string]$ProjectRoot,
+        [switch]$ForceBuild
+    )
+
+    $before = Get-GuiFrontendAssetStatus -ProjectRoot $ProjectRoot
+    if ($before.ok -and (-not $ForceBuild)) {
+        return [ordered]@{
+            ok = $true
+            mode = 'prebuilt'
+            static_root = $before.static_root
+            assets_root = $before.assets_root
+            missing = @()
+        }
+    }
+
+    $webappDir = [string]$before.webapp_root
+    if (-not (Test-Path -LiteralPath $webappDir)) {
+        return [ordered]@{
+            ok = $false
+            mode = 'missing'
+            reason = 'webapp_dir_missing'
+            static_root = $before.static_root
+            missing = @($before.missing)
+            path = $webappDir
+        }
+    }
+
+    $npmCmd = 'npm'
+    try {
+        $npmVersion = (& $npmCmd --version 2>&1 | Out-String).Trim()
+        if ($LASTEXITCODE -ne 0 -or -not $npmVersion) {
+            throw 'npm --version failed'
+        }
+    }
+    catch {
+        return [ordered]@{
+            ok = $false
+            mode = 'missing'
+            reason = 'npm_not_found'
+            static_root = $before.static_root
+            missing = @($before.missing)
+            hint = 'Install Node.js >= 18 on the build machine or restore prebuilt GUI static assets.'
+        }
+    }
+
+    Push-Location $webappDir
+    try {
+        $installOutput = & $npmCmd install --force 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            return [ordered]@{
+                ok = $false
+                mode = 'build_failed'
+                reason = 'npm_install_failed'
+                static_root = $before.static_root
+                missing = @($before.missing)
+                npm_version = $npmVersion
+                error = ('npm install --force failed (exit {0}): {1}' -f $LASTEXITCODE, ($installOutput | Out-String).Trim())
+            }
+        }
+        $buildOutput = & $npmCmd run build 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            return [ordered]@{
+                ok = $false
+                mode = 'build_failed'
+                reason = 'npm_build_failed'
+                static_root = $before.static_root
+                missing = @($before.missing)
+                npm_version = $npmVersion
+                error = ('npm run build failed (exit {0}): {1}' -f $LASTEXITCODE, ($buildOutput | Out-String).Trim())
+            }
+        }
+    }
+    finally {
+        Pop-Location
+    }
+
+    $after = Get-GuiFrontendAssetStatus -ProjectRoot $ProjectRoot
+    if (-not $after.ok) {
+        return [ordered]@{
+            ok = $false
+            mode = 'build_failed'
+            reason = 'assets_missing_after_build'
+            static_root = $after.static_root
+            missing = @($after.missing)
+            npm_version = $npmVersion
+        }
+    }
+
+    return [ordered]@{
+        ok = $true
+        mode = 'rebuilt'
+        static_root = $after.static_root
+        assets_root = $after.assets_root
+        missing = @()
+        npm_version = $npmVersion
+    }
+}
+
 function Invoke-PackageDoctor {
     param(
         [System.Collections.IDictionary]$Context
@@ -196,23 +346,20 @@ function Invoke-PackageDoctor {
         $doctorChecks += [ordered]@{ name = ('tool:' + [System.IO.Path]::GetFileName($toolPath)); ok = (Test-Path -LiteralPath $toolPath); path = $toolPath }
     }
 
-    # Check that Node.js / npm are available on the build machine.
-    # npm is required by Invoke-FrontendBuild (runs 'npm install --force && npm run build'
-    # before assembling the bundle) so that KaTeX fonts are present in static/assets/katex/.
+    # Check that Node.js / npm are available on the build machine, or that
+    # complete prebuilt GUI static assets already exist in the source tree.
     $npmOk = $false
     $npmVersion = ''
     try {
         $npmVersion = (& npm --version 2>&1 | Out-String).Trim()
         $npmOk = ($LASTEXITCODE -eq 0) -and ($npmVersion -ne '')
     } catch { $npmOk = $false }
-    $prebuiltFrontendRoot = Join-Path $Context.project_root 'src\embedagent\frontend\gui\static\assets'
-    $prebuiltFrontendOk = (Test-Path -LiteralPath (Join-Path $prebuiltFrontendRoot 'app.js')) -and `
-        (Test-Path -LiteralPath (Join-Path $prebuiltFrontendRoot 'app.css')) -and `
-        (Test-Path -LiteralPath (Join-Path $prebuiltFrontendRoot 'katex\katex.min.css'))
+    $prebuiltFrontendStatus = Get-GuiFrontendAssetStatus -ProjectRoot $Context.project_root
+    $prebuiltFrontendOk = [bool]$prebuiltFrontendStatus.ok
     $doctorChecks += [ordered]@{
         name = 'runtime:npm'
         ok = ($npmOk -or $prebuiltFrontendOk)
-        path = if ($npmOk) { "npm ($npmVersion)" } else { "prebuilt frontend assets present at $prebuiltFrontendRoot" }
+        path = if ($npmOk) { "npm ($npmVersion)" } else { "prebuilt frontend assets present at $($prebuiltFrontendStatus.static_root)" }
     }
 
     foreach ($check in $doctorChecks) {
@@ -387,55 +534,12 @@ function Invoke-FrontendBuild {
         [ref]$Report
     )
 
-    # Build the React frontend so static/assets/katex/ and app.js are up-to-date.
-    # This is required because static/assets/katex/ is gitignored (binary fonts are
-    # build artifacts, not committed).  app.js / app.css are committed as pre-built
-    # artifacts but are also regenerated here so the bundle always reflects the
-    # current source.
-    $webappDir = Join-Path $Context.project_root 'src\embedagent\frontend\gui\webapp'
-    if (-not (Test-Path -LiteralPath $webappDir)) {
-        Add-StageResult -Report $Report -Name 'frontend_build' -Status 'fail' -ExitCode 1 -Summary @{ reason = 'webapp_dir_missing'; path = $webappDir }
+    $result = Ensure-GuiFrontendAssets -ProjectRoot $Context.project_root -ForceBuild
+    if (-not $result.ok) {
+        Add-StageResult -Report $Report -Name 'frontend_build' -Status 'fail' -ExitCode 1 -Summary $result
         return
     }
-
-    $npmCmd = 'npm'
-    try {
-        $npmVersion = & $npmCmd --version 2>&1
-        if ($LASTEXITCODE -ne 0) { throw "npm --version failed" }
-    }
-    catch {
-        Add-StageResult -Report $Report -Name 'frontend_build' -Status 'fail' -ExitCode 1 -Summary @{ reason = 'npm_not_found'; hint = 'Install Node.js >= 18 on the build machine.' }
-        return
-    }
-
-    Push-Location $webappDir
-    try {
-        # --force is required because @rollup/rollup-win32-x64-msvc declares
-        # os:win32 but build machines may be Linux/macOS.
-        $installOutput = & $npmCmd install --force 2>&1
-        if ($LASTEXITCODE -ne 0) {
-            throw ('npm install --force failed (exit {0}): {1}' -f $LASTEXITCODE, ($installOutput | Out-String).Trim())
-        }
-        $buildOutput = & $npmCmd run build 2>&1
-        if ($LASTEXITCODE -ne 0) {
-            throw ('npm run build failed (exit {0}): {1}' -f $LASTEXITCODE, ($buildOutput | Out-String).Trim())
-        }
-    }
-    catch {
-        Add-StageResult -Report $Report -Name 'frontend_build' -Status 'fail' -ExitCode 1 -Summary @{ reason = 'build_error'; error = $_.Exception.Message }
-        return
-    }
-    finally {
-        Pop-Location
-    }
-
-    $katexCss = Join-Path $Context.project_root 'src\embedagent\frontend\gui\static\assets\katex\katex.min.css'
-    if (-not (Test-Path -LiteralPath $katexCss)) {
-        Add-StageResult -Report $Report -Name 'frontend_build' -Status 'fail' -ExitCode 1 -Summary @{ reason = 'katex_css_missing_after_build'; path = $katexCss }
-        return
-    }
-
-    Add-StageResult -Report $Report -Name 'frontend_build' -Status 'pass' -ExitCode 0 -Summary @{ webapp = $webappDir; npm_version = ($npmVersion | Out-String).Trim() }
+    Add-StageResult -Report $Report -Name 'frontend_build' -Status 'pass' -ExitCode 0 -Summary $result
 }
 
 function Invoke-PackageAssemble {

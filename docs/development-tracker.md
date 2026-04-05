@@ -136,6 +136,9 @@
 - GUI timeline event-anchor 相关 spec/plan/analysis 已归档到 `docs/archive/gui-timeline-event-anchors/`，当前这轮 slice 视为关闭
 - GUI backend broadcast 已硬化：`WebSocketFrontend` 现在会在广播前冻结连接快照，并在独立锁下做 connect/disconnect/cleanup，连接集变化不再触发 `Set changed size during iteration`
 - QueryEngine session 互斥已补齐：`InProcessAdapter` 现在把 `state.lock` 传给 `QueryEngine`，后者会在上下文构建、消息追加、transition/tool_result 落盘、compact boundary 写入和 summary refresh 等关键路径上持锁，避免运行中的 session 与外部模式/快照操作共享可变 `Session` 时发生竞态
+- GUI bundle runtime discovery 已收口：新增公共 `runtime_discovery.py` 作为 bundle 根目录单一事实源，`ToolContext`、GUI launcher 与 `check-bundle-dependencies.py` 已统一使用强签名检测，不再允许“GUI 自己识别到 bundle、工具层却识别不到”的分裂状态
+- GUI launcher bundle 契约已加固：`embedagent-gui.cmd` 与 `prepare-offline.ps1` 生成脚本现已显式导出 `EMBEDAGENT_BUNDLE_ROOT` 并对齐 CLI PATH；`validate-offline-bundle.ps1` 还新增了 launcher contract 校验，能直接拦截这类脚本漂移
+- GUI 静态资产门已收口到直连打包链：`package-lib.ps1`、`prepare-offline.ps1` 与 `build-offline-bundle.ps1` 现在统一检查 `index.html` / `app.js` / `app.css` / `katex.min.css`，残缺 staging 不会再静默进入 `offline-dist`
 - Phase 7 设计基线已建立：`docs/offline-packaging.md`、`docs/win7-preflight-checklist.md` 与 ADR `0001-offline-portable-bundle-baseline.md`
 - Phase 7 初始脚本骨架已落地：`scripts/prepare-offline.ps1` 已可生成 `build/offline-staging/EmbedAgent/`、launcher、模板配置和 manifest/checksum 草案，并已通过 `powershell.exe -NoProfile -File scripts/prepare-offline.ps1 -SkipBuild` 验证
 - Phase 7 build 脚本骨架已落地：`scripts/build-offline-bundle.ps1` 已可把 staging bundle 复制到 `build/offline-dist/`、重写 manifest、重算 checksum，并生成 zip
@@ -263,6 +266,8 @@
 | R-017 | 离线 bundle 容易因未重建或直接拷贝开发 `.venv` 而把旧 GUI 布局或项目内 editable `.pth` 带进发布物 | 中 | 保持 `prepare/build/validate` 串联执行，并在 bundle 验证中强制检查 `static/assets`、Fixed Version WebView2 和无 `__editable__*.pth` |
 | R-018 | transcript-truth cutover 已完成，但后续增强若绕过单写提交边界，仍可能重新引入 projection/summary 漂移 | 低 | 继续保留 focused regression tests 覆盖 mode、timeline、pending interaction、context assembly 与 stored-path replacement；新增增强时优先复用 `ToolCommitCoordinator + ProjectionDb` 主线 |
 | R-019 | GUI interaction 事件当前仍是“backend raw event + frontend local append”双轨去重，而非单一真相源 | 中 | 当前已统一结构并按 `interaction_id` 去重；若后续继续演进 event-sourced runtime，应评估把 Timeline/Inspector 收敛到单一 interaction event 主线 |
+| R-020 | launcher 模板与 `prepare-offline.ps1` 仍存在重复定义，后续修改若不同步仍可能重新引入 bundle 契约漂移 | 中 | 当前已通过公共 runtime discovery + validate launcher contract 把缺陷前移到验收阶段；后续可继续收敛 launcher 生成来源 |
+| R-021 | `package.ps1`、`prepare-offline.ps1` 与 `build-offline-bundle.ps1` 之间仍有部分共享打包逻辑分散在多个脚本，后续改动仍可能引入新分叉 | 中 | 当前已先把 GUI 静态资产门和 launcher 契约门收口到共享 helper / validator；后续继续抽公共能力而不是三处平行演化 |
 
 ---
 
@@ -275,6 +280,8 @@
 | 2026-04-04 | GUI runtime hardening 相关 spec/plan 已从活动 `docs/superpowers/` 入口移入 `docs/archive/gui-runtime-hardening/`，当前该 slice 视为关闭 |
 | 2026-04-05 | GUI timeline event-anchor unification 已完成：slash/workflow 命令现在会生成正式 turn 生命周期，`command_result / context_compacted / session_error` 与 permission/user_input 交互在 live/bootstrap/replay 路径上的 turn/step 坐标已统一；定向 Python 与 webapp helper 验证已通过 |
 | 2026-04-05 | GUI timeline event-anchor 相关设计/计划/分析文档已归档到 `docs/archive/gui-timeline-event-anchors/`；同时 `.venv\\Scripts\\python.exe -m unittest discover -s tests -v` 已在本轮收尾时全量通过 |
+| 2026-04-05 | GUI bundle runtime discovery 缺陷已修复：bundle 根目录识别已统一收口到 `runtime_discovery.py`，`ToolContext`/GUI launcher/`check-bundle-dependencies.py` 已共享强签名规则；`embedagent-gui.cmd` 与 `prepare-offline.ps1` 已补 `EMBEDAGENT_BUNDLE_ROOT` 并对齐 PATH，`validate-offline-bundle.ps1` 也新增了 launcher contract 校验 |
+| 2026-04-06 | 直连离线打包链已补齐 GUI 静态资产门：`prepare-offline.ps1` 现在会确保 KaTeX 等前端资源存在，`build-offline-bundle.ps1` 会拒绝复制残缺 staging；重建后的 `build-offline-dist/embedagent-win7-x64` 已重新通过 `validate-offline-bundle -RequireComplete`、`check-bundle-dependencies.py` 与 bundle 级 `validate-gui-smoke.py` |
 | 2026-03-27 | 建立进度跟踪文件，明确当前阶段与下一步优先级 |
 | 2026-03-27 | DC-004/DC-005：工具设计规范建立，实施分期重组，Phase 1 改为最小可工作 Loop |
 | 2026-03-27 | 已落地 Phase 1 最小原型代码，并完成本地语法检查、工具自测与假模型闭环验证 |
