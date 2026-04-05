@@ -291,7 +291,7 @@ src/embedagent/
 其中：
 
 - timeline 来自 `SessionTimelineStore`
-- artifact 来自 `ArtifactStore.index.json` 与 artifact 文件本体
+- artifact 来自 session-local tool-result 文件本体与 `ProjectionDb (SQLite)` 查询结果
 - 文件保存仍通过 adapter 边界，而不是在前端里散落文件写入逻辑
 
 ---

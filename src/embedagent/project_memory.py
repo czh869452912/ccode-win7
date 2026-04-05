@@ -94,15 +94,12 @@ class ProjectMemoryStore(object):
         for item in issues:
             if not isinstance(item, dict):
                 continue
-            for path in item.get("stored_refs") or item.get("artifact_refs") or []:
+            for path in item.get("stored_refs") or []:
                 if not path or path in seen:
                     continue
                 seen.add(path)
                 refs.append(path)
         return refs
-
-    def collect_artifact_refs(self) -> List[str]:
-        return self.collect_stored_paths()
 
     def cleanup(self) -> Dict[str, int]:
         self._ensure_root()

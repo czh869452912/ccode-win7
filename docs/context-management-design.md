@@ -188,9 +188,8 @@ Observation 往往是上下文膨胀的主要来源，尤其是：
 当前规则是：
 
 - `content` / `stdout` / `stderr` / `diff` 过大时，只在 Observation 中保留预览
-- 原始字段会生成 `<field>_artifact_ref`，指向 `.embedagent/memory/artifacts/...`
-- `diagnostics` / `files` / `matches` / `entries` 过大时，只保留前若干项，并写入 JSON artifact
-- artifact 与预览都会先做基础脱敏
+- 原始字段现在会生成 `<field>_stored_path`，指向 `.embedagent/memory/sessions/<session_id>/tool-results/<tool_call_id>/...`
+- 这些 tool-result 文件与预览都会先做基础脱敏；artifact 浏览所需元数据由 SQLite projection 提供
 
 这样做的收益是：
 
@@ -271,7 +270,7 @@ Observation 往往是上下文膨胀的主要来源，尤其是：
 
 当前已具备：
 
-- `ArtifactStore.index.json`：artifact 元数据索引
+- `ProjectionDb (SQLite)`：artifact / session / project memory 的查询型 projection 元数据
 - `SessionSummaryStore.index.json`：最近会话索引
 - `ProjectMemoryStore.memory-index.json`：已处理事件索引
 - `MemoryMaintenance`：协调整理 session / artifact / project memory
@@ -478,7 +477,7 @@ Observation 往往是上下文膨胀的主要来源，尤其是：
 
 它会联动：
 
-- `ArtifactStore.cleanup()`
+- `ToolResultStore.cleanup_unreferenced()`
 - `SessionSummaryStore.cleanup()`
 - `ProjectMemoryStore.cleanup()`
 

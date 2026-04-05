@@ -417,7 +417,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
                 data={
                     "path": "src/demo.c",
                     "content": "int demo(void) {\n    return 0;\n}\n",
-                    "content_artifact_ref": ".embedagent/memory/artifacts/demo.json",
+                    "content_stored_path": ".embedagent/memory/sessions/sess-context/tool-results/read-demo/content.txt",
                 },
             ),
         )
@@ -433,7 +433,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
         rendered = "\n".join(str(item.get("content") or "") for item in result.messages)
         self.assertIn("Earlier work summary", result.summary_message)
         self.assertIn("工程情报", rendered)
-        self.assertGreaterEqual(result.analysis.get("artifact_replacement_count") or 0, 1)
+        self.assertGreaterEqual(result.analysis.get("replacement_count") or 0, 1)
 
     def test_context_manager_preserves_tool_response_pairs_for_recent_tool_calls(self):
         session = Session()
@@ -460,7 +460,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
                 data={
                     "path": "src",
                     "files": ["src/demo.c"],
-                    "files_artifact_ref": ".embedagent/memory/artifacts/list-files.json",
+                    "files_stored_path": ".embedagent/memory/sessions/sess-context/tool-results/list-src/files.json",
                 },
             ),
         )
@@ -473,7 +473,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
                 data={
                     "path": "src/demo.c",
                     "content": "int demo(void) {\n    return 0;\n}\n",
-                    "content_artifact_ref": ".embedagent/memory/artifacts/demo-1.json",
+                    "content_stored_path": ".embedagent/memory/sessions/sess-context/tool-results/read-1/content.txt",
                 },
             ),
         )
@@ -486,7 +486,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
                 data={
                     "path": "src/demo.c",
                     "content": "int demo(void) {\n    return 0;\n}\n",
-                    "content_artifact_ref": ".embedagent/memory/artifacts/demo-2.json",
+                    "content_stored_path": ".embedagent/memory/sessions/sess-context/tool-results/read-2/content.txt",
                 },
             ),
         )
@@ -860,7 +860,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
                     {
                         "path": "src/demo.c",
                         "content": "int demo(void) {\n%s\n}\n" % ("x" * 1200),
-                        "content_artifact_ref": ".embedagent/memory/artifacts/demo-%s.json" % index,
+                        "content_stored_path": ".embedagent/memory/sessions/sess-compact/tool-results/demo-%s/content.txt" % index,
                     },
                 ),
             )
@@ -907,7 +907,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
                     {
                         "path": "src/demo.c",
                         "content": "int demo(void) {\n%s\n}\n" % ("x" * 1200),
-                        "content_artifact_ref": ".embedagent/memory/artifacts/demo-%s.json" % index,
+                        "content_stored_path": ".embedagent/memory/sessions/sess-compact/tool-results/demo-%s/content.txt" % index,
                     },
                 ),
             )
@@ -1123,7 +1123,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
                 {
                     "path": "src/demo.c",
                     "content": "int demo(void) {\n%s\n}\n" % ("x" * 1200),
-                    "content_artifact_ref": ".embedagent/memory/artifacts/demo-old.json",
+                    "content_stored_path": ".embedagent/memory/sessions/sess-existing/tool-results/read-old/content.txt",
                 },
             ),
         )
@@ -1196,13 +1196,13 @@ class TestQueryEngineRefactor(unittest.TestCase):
             "message",
             {
                 "role": "tool",
-                "content": "{\"success\": true, \"error\": null, \"data\": {\"path\": \"src/demo.c\", \"content_artifact_ref\": \".embedagent/memory/artifacts/demo.json\"}}",
+                "content": "{\"success\": true, \"error\": null, \"data\": {\"path\": \"src/demo.c\", \"content_stored_path\": \".embedagent/memory/sessions/sess-replacements/tool-results/call-read-1/content.txt\"}}",
                 "message_id": "m-tool",
                 "turn_id": "t-1",
                 "step_id": "s-1",
                 "tool_call_id": "call-read-1",
                 "tool_name": "read_file",
-                "replaced_by_refs": [".embedagent/memory/artifacts/demo.json"],
+                "replaced_by_refs": [".embedagent/memory/sessions/sess-replacements/tool-results/call-read-1/content.txt"],
             },
         )
         transcript_store.append_event(
@@ -1239,14 +1239,14 @@ class TestQueryEngineRefactor(unittest.TestCase):
         session.messages.append(
             session.messages[-1].__class__(
                 role="tool",
-                content="{\"success\": true, \"error\": null, \"data\": {\"path\": \"src/demo.c\", \"content_artifact_ref\": \".embedagent/memory/artifacts/demo.json\"}}",
+                content="{\"success\": true, \"error\": null, \"data\": {\"path\": \"src/demo.c\", \"content_stored_path\": \".embedagent/memory/sessions/sess-bootstrap/tool-results/call-read-1/content.txt\"}}",
                 name="read_file",
                 tool_call_id="call-read-1",
                 message_id="m-tool",
                 turn_id=session.turns[-1].turn_id,
                 step_id="s-1",
                 kind="tool_result",
-                replaced_by_refs=[".embedagent/memory/artifacts/demo.json"],
+                replaced_by_refs=[".embedagent/memory/sessions/sess-bootstrap/tool-results/call-read-1/content.txt"],
             )
         )
         session.turns[-1].message_end_index = len(session.messages) - 1
@@ -1255,8 +1255,13 @@ class TestQueryEngineRefactor(unittest.TestCase):
                 "message_id": "m-tool",
                 "tool_call_id": "call-read-1",
                 "tool_name": "read_file",
-                "replacement_text": "Tool result replaced: read_file src/demo.c -> .embedagent/memory/artifacts/demo.json",
-                "artifact_refs": [".embedagent/memory/artifacts/demo.json"],
+                "replacements": [
+                    {
+                        "field_name": "content",
+                        "stored_path": ".embedagent/memory/sessions/sess-bootstrap/tool-results/call-read-1/content.txt",
+                        "replacement_text": "Tool result replaced: read_file src/demo.c -> .embedagent/memory/sessions/sess-bootstrap/tool-results/call-read-1/content.txt",
+                    }
+                ],
             }
         )
         transcript_store = TranscriptStore(self.workspace)
@@ -1284,7 +1289,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
             intelligence_broker=WorkspaceIntelligenceBroker(),
         )
         rendered = "\n".join(str(item.get("content") or "") for item in built.messages)
-        self.assertIn("Tool result replaced: read_file src/demo.c -> .embedagent/memory/artifacts/demo.json", rendered)
+        self.assertIn("Tool result replaced: read_file src/demo.c -> .embedagent/memory/sessions/sess-bootstrap/tool-results/call-read-1/content.txt", rendered)
 
     def test_query_engine_emits_interrupted_tool_result_when_stop_event_is_set_after_tool_start(self):
         session = Session()

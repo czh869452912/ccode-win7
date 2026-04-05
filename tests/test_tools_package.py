@@ -50,8 +50,9 @@ class TestToolRuntimeInit(unittest.TestCase):
     def test_workspace_is_realpath(self):
         self.assertEqual(self.rt.workspace, os.path.realpath(self.workspace))
 
-    def test_artifact_store_exposed(self):
-        self.assertIsNotNone(self.rt.artifact_store)
+    def test_cutover_stores_exposed(self):
+        self.assertIsNotNone(self.rt.tool_result_store)
+        self.assertIsNotNone(self.rt.projection_db)
 
     def test_app_config_default_none(self):
         self.assertIsNone(self.rt.app_config)

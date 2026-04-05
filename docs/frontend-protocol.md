@@ -631,7 +631,7 @@ Phase 6 的关键不是“先画界面”，而是：
 这些接口保持“前端读模型状态 / 工作区状态，但不绕过 Core 会话真相”的原则：
 
 - timeline 来自持久化事件流，而不是前端临时 transcript
-- artifact 浏览来自 `ArtifactStore.index.json` 与 artifact 文件本体
+- artifact 浏览来自 session-local tool-result 文件本体与 `ProjectionDb (SQLite)` 提供的查询元数据
 - GUI 文件树应优先使用 `list_workspace_children` 做懒加载，而不是一次性平铺整棵树
 - `list_todos` 现在应显式关联 `session_id`，前端默认展示当前会话的 todo，而不是工作区全局 todo
 - 文件保存仍通过 adapter 边界，不在 TUI 里直接散落文件写入逻辑

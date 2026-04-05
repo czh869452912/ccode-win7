@@ -1,6 +1,6 @@
 # EmbedAgent 开发进度跟踪
 
-> 更新日期：2026-04-04（Transcript hardening + message parent chain + timeline seq ordering + compact boundary dedupe + parallel tool timeout/cancel hardening + websocket/session-lock race hardening + GUI runtime hardening）
+> 更新日期：2026-04-05（Transcript-truth tool-result cutover + single-writer commit + SQLite projection cutover）
 > 用途：持续跟踪当前阶段、下一步任务、里程碑进度、风险与阻塞
 
 ---
@@ -28,7 +28,7 @@
 
 - 当前阶段：`Phase 4 真实工程验证 + Phase 6 GUI / Win7 收口`
 - 总体状态：`进行中`
-- 当前重点：`Phase 4 默认 recipe/真实工程/Win7 验证，Context/Query 内核重构切片，Phase 6 step-based timeline / Runtime inspector / GUI 新壳层与 Win7 Chromium 基线收口，Phase 7 继续推进 package.ps1 控制面后的 site-packages 精简与 Win7 bundle 验收`
+- 当前重点：`Phase 4 默认 recipe/真实工程/Win7 验证，Phase 6 GUI / Win7 收口，以及 transcript-truth cutover 后的 regression/文档收口；Phase 7 继续推进 package.ps1 控制面后的 site-packages 精简与 Win7 bundle 验收`
 
 ### 当前判断
 
@@ -65,11 +65,11 @@
 - Phase 5 第一版上下文管理已落地：旧 turn 摘要化、Observation 遮蔽化、最近 turn 保真化
 - Phase 5A 上下文预算器已接入：按 mode 分配预算并为输出/推理预留空间
 - Phase 5A ReducerRegistry 已落地：不同工具按类型裁剪 Observation，并返回 ContextStats / BudgetEstimate
-- Phase 5B Artifact Store 已落地：长输出与大列表会落盘为 `.embedagent/memory/artifacts/...` 并回写 `artifact_ref`
+- transcript-truth tool-result cutover 已落地：`ArtifactStore` 与共享 `artifacts/index.json` 已从运行时热路径移除，长文本结果现在由 `ToolCommitCoordinator` 串行落到 `.embedagent/memory/sessions/<session_id>/tool-results/<tool_call_id>/...`，Observation 使用 `*_stored_path`
 - Phase 5C Session Summary Store 已落地：会话关键状态会持久化到 `.embedagent/memory/sessions/<session_id>/summary.json`
 - Phase 5D Project Memory Store 已落地：项目级 profile / recipe / known issue 已可落盘并注入上下文
 - Phase 5E Resume Entry 已落地：CLI 已支持 `--list-sessions` 与 `--resume <session_id|latest|summary.json>`
-- Phase 5F Memory Maintenance 已落地：artifact / session / project memory 已具备基础 cleanup 与索引收口能力
+- Phase 5F / Query cutover memory maintenance 已收口：tool-result cleanup 已改为基于 session-local stored paths，artifact browse/session summary/project memory 的可查询投影已切到 SQLite
 - Phase 5 长任务稳定性验证已完成：`scripts/validate-phase5.py` 已在修复根目录文件写入边界后重新跑通
 - Phase 5 权限细化已完成：已支持规则文件、allow / ask / deny、路径与命令模式匹配
 - Query / Context 重构切片已启动：`session.py` 已补齐 transcript/event 数据模型，`query_engine.py` 已成为新主循环骨架，`loop.py` 已退化为兼容入口
@@ -91,6 +91,7 @@
 - GUI inspector 现在已开始直接消费 `last_transition_display_reason / last_transition_message / recent_transitions`，Runtime 面板不再只依赖内部 termination reason
 - GUI webapp 本地验证链已补齐第一段：`build.mjs` 依赖的 `esbuild` 现在已声明为显式 `devDependency`，并新增根目录 `run-local-tests.mjs` 作为本地 test runner；当前已验证 `node .\\run-local-tests.mjs` 与 `npm run build`
 - resume consistency 已切到 transcript-truth 语义：新增 `transcript_store.py`、`session_restore.py`，`resume_session()` 已从 transcript replay 恢复 `Session`，`summary.json` 不再作为恢复真相源
+- single-writer commit 已落地：工具线程只返回 raw observation，`ToolCommitCoordinator` 统一负责 tool-result 落盘、`tool_result` / `content_replacement` transcript append 与 SQLite projection 更新，并确保 projection 失败不会反向把 tool success 改成失败
 - transcript hardening 已推进一段：`TranscriptStore.append_event()` 现已按 transcript 文件串行化写入，避免并发 append 时 `seq` 竞争与 JSONL 尾部截断放大
 - transcript 损坏恢复已推进一段：`TranscriptStore.load_events()` 现在会在 `seq` 跳号/乱序时停止读取；`append_event()` 追加前会截断损坏尾部，避免“坏尾后新事件永久不可见”
 - transcript 消息因果链已推进一段：`TranscriptMessage` 与 transcript `message/tool_result` 事件现在会显式写入 `parent_message_id`，`SessionRestorer` 在提供父引用时也会验证其存在，resume 不再只依赖“当前顺序碰巧正确”
@@ -214,7 +215,7 @@
 | T-024 | 零依赖打包：内网部署文档 | `completed` | 已新增 `docs/intranet-deployment.md` 和 `docs/offline-packaging-guide.md`，提供完整内网部署指南 |
 | T-025 | 零依赖打包：内网配置模板 | `completed` | 已新增 `config/config.json.template`，预配置内网大模型服务示例 |
 | T-027 | Phase 7 打包控制面收口 | `in_progress` | `scripts/package.ps1`、`scripts/package.config.json`、`scripts/package-lib.ps1` 与 `tests/test_packaging_control_plane.py` 已打通 `doctor/deps/assemble/verify/release` mocked orchestration；下一步是完成文档迁移并在真实 bundle 路径上验收 |
-| T-028 | Query / Context 内核重构切片 | `completed` | 已落地 `QueryEngine`、transcript/event 模型、workspace intelligence broker、tool capability metadata、batch tool orchestration、pending interaction resume、`transcript_store.py`、`session_restore.py`、transcript-truth resume、`parent_message_id` 因果链、timeline `seq` 顺序、parallel tool timeout/cancel 收口，以及 websocket/session-lock 竞态硬化；当前这一轮 context loop 迭代已关闭，handoff/analysis/review 文档已归档到 `docs/archive/context-loop/` |
+| T-028 | Query / Context 内核重构切片 | `completed` | 已落地 `QueryEngine`、transcript/event 模型、workspace intelligence broker、tool capability metadata、batch tool orchestration、pending interaction resume、`transcript_store.py`、`session_restore.py`、transcript-truth resume、`parent_message_id` 因果链、timeline `seq` 顺序、parallel tool timeout/cancel 收口、single-writer tool commit、session-local tool-result store、SQLite projection cutover，以及 websocket/session-lock 竞态硬化；当前这一轮 context loop 迭代已关闭，handoff/analysis/review 文档已归档到 `docs/archive/context-loop/` |
 
 ---
 
@@ -254,7 +255,7 @@
 | R-015 | validate 默认允许 skeleton bundle 以告警通过，若无人切到 `-RequireComplete` 可能误判“已可交付” | 中 | 在正式验收和 CI 入口中强制使用 `-RequireComplete` |
 | R-016 | 直接拷贝 `.venv\Lib\site-packages` 可能带来过大的 bundle 体积 | 中 | 评估更精简的运行时导出方案，再决定是否替换当前实现 |
 | R-017 | 离线 bundle 容易因未重建或直接拷贝开发 `.venv` 而把旧 GUI 布局或项目内 editable `.pth` 带进发布物 | 中 | 保持 `prepare/build/validate` 串联执行，并在 bundle 验证中强制检查 `static/assets`、Fixed Version WebView2 和无 `__editable__*.pth` |
-| R-018 | Query / Context 主线已收口，但 adapter/legacy projection 仍保留少量兼容路径，后续增强时可能重新引入状态漂移 | 低 | 继续保留 focused regression tests 覆盖 mode、timeline、pending interaction、context assembly；新增增强时优先复用现有 transcript-truth 路径 |
+| R-018 | transcript-truth cutover 已完成，但后续增强若绕过单写提交边界，仍可能重新引入 projection/summary 漂移 | 低 | 继续保留 focused regression tests 覆盖 mode、timeline、pending interaction、context assembly 与 stored-path replacement；新增增强时优先复用 `ToolCommitCoordinator + ProjectionDb` 主线 |
 
 ---
 

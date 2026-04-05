@@ -1382,8 +1382,13 @@ class TestSessionRestorer(unittest.TestCase):
                 "message_id": "m-missing",
                 "tool_call_id": "call-read-1",
                 "tool_name": "read_file",
-                "replacement_text": "Tool result replaced: read_file src/demo.c -> artifact.json",
-                "artifact_refs": ["artifact.json"],
+                "replacements": [
+                    {
+                        "field_name": "content",
+                        "stored_path": ".embedagent/memory/sessions/sess/tool-results/call-read-1/content.txt",
+                        "replacement_text": "Tool result replaced: read_file src/demo.c -> .embedagent/memory/sessions/sess/tool-results/call-read-1/content.txt",
+                    }
+                ],
             },
         )
         self.store.append_event(
@@ -1433,8 +1438,13 @@ class TestSessionRestorer(unittest.TestCase):
                 "message_id": "m-tool",
                 "tool_call_id": "call-other",
                 "tool_name": "search_text",
-                "replacement_text": "Tool result replaced: search_text demo -> artifact.json",
-                "artifact_refs": ["artifact.json"],
+                "replacements": [
+                    {
+                        "field_name": "content",
+                        "stored_path": ".embedagent/memory/sessions/sess/tool-results/call-other/content.txt",
+                        "replacement_text": "Tool result replaced: search_text demo -> .embedagent/memory/sessions/sess/tool-results/call-other/content.txt",
+                    }
+                ],
             },
         )
         self.store.append_event(

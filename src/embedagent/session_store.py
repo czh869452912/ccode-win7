@@ -148,9 +148,6 @@ class SessionSummaryStore(object):
             refs.extend(self._stored_paths_from_summary(payload, seen))
         return refs
 
-    def collect_artifact_refs(self, limit_sessions: Optional[int] = None) -> List[str]:
-        return self.collect_stored_paths(limit_sessions=limit_sessions)
-
     def cleanup(self, max_sessions: Optional[int] = None) -> Dict[str, int]:
         keep_count = max_sessions or self.max_retained_sessions
         summaries = self.list_summaries(limit=self.max_index_entries)
@@ -371,7 +368,7 @@ class SessionSummaryStore(object):
             snapshot = payload.get(key)
             if not isinstance(snapshot, dict):
                 continue
-            for path in (snapshot.get("stored_refs") or snapshot.get("artifact_refs") or []):
+            for path in (snapshot.get("stored_refs") or []):
                 if not path or path in seen:
                     continue
                 seen.add(path)
@@ -461,7 +458,7 @@ class SessionSummaryStore(object):
                 "tool_request_tokens": analysis.get("tool_request_tokens"),
                 "tool_result_tokens": analysis.get("tool_result_tokens"),
                 "duplicate_file_read_tokens": analysis.get("duplicate_file_read_tokens"),
-                "artifact_replacement_count": analysis.get("artifact_replacement_count"),
+                "replacement_count": analysis.get("replacement_count"),
                 "resume_replay_hits": analysis.get("resume_replay_hits"),
                 "top_hot_files": analysis.get("top_hot_files") or [],
             }
@@ -497,8 +494,8 @@ class SessionSummaryStore(object):
             if names:
                 parts.append("近期动作：%s" % ", ".join(names[:6]))
         analysis = payload.get("context_analysis") if isinstance(payload.get("context_analysis"), dict) else {}
-        if analysis.get("artifact_replacement_count"):
-            parts.append("替换输出：%s" % analysis.get("artifact_replacement_count"))
+        if analysis.get("replacement_count"):
+            parts.append("替换输出：%s" % analysis.get("replacement_count"))
         if payload.get("compact_retry_count"):
             parts.append("compact_retry：%s" % payload.get("compact_retry_count"))
         if payload.get("last_transition_reason") and payload.get("last_transition_reason") != "completed":

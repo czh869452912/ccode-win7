@@ -116,12 +116,13 @@ def validate_long_task() -> Dict[str, Any]:
             project_memory_store=project_store,
             maintenance_interval=2,
         )
-        _, session = loop.run(
+        loop_result = loop.run(
             user_text="turn-%02d" % index,
             stream=False,
             initial_mode=current_mode,
             session=session,
         )
+        session = loop_result.session
         if action.name == "switch_mode":
             current_mode = str(action.arguments.get("target") or current_mode)
 
@@ -141,12 +142,13 @@ def validate_long_task() -> Dict[str, Any]:
         summary_store=summary_store,
         project_memory_store=project_store,
     )
-    _, resumed_session = resume_loop.run(
+    resumed_result = resume_loop.run(
         user_text="恢复后继续",
         stream=False,
         initial_mode=str(latest.get("current_mode") or current_mode),
         session=resumed,
     )
+    resumed_session = resumed_result.session
     _ensure(len(resumed_session.turns) == 1, "恢复后的会话应以摘要续跑，而不是全量回放。")
     inspect_client = InspectClient()
     resume_loop = AgentLoop(
@@ -166,7 +168,7 @@ def validate_long_task() -> Dict[str, Any]:
     system_messages = [item.get("content", "") for item in inspect_client.calls[0] if item.get("role") == "system"]
     _ensure(any("恢复摘要" in item for item in system_messages), "恢复消息未注入系统提示。")
     _ensure(any("项目级记忆" in item for item in system_messages), "恢复后项目记忆未注入。")
-    artifact_index = tools.artifact_store.list_artifacts(limit=20)
+    artifact_index = tools.projection_db.list_tool_results(limit=20)
     return {
         "turns": len(session.turns),
         "summarized_turns": context.stats.summarized_turns,
@@ -235,7 +237,8 @@ def validate_permissions() -> Dict[str, Any]:
         summary_store=summary_store,
         project_memory_store=project_store,
     )
-    _, session_allow = loop.run('允许的修改', stream=False, initial_mode='code')
+    allow_result = loop.run('允许的修改', stream=False, initial_mode='code')
+    session_allow = allow_result.session
     _ensure(session_allow.turns[0].observations[0].success, '允许规则下 edit_file 未执行成功。')
     updated = open(os.path.join(workspace, 'src', 'sample.py'), 'r', encoding='utf-8').read()
     _ensure('patched' in updated, '允许规则下文件未被修改。')
@@ -248,7 +251,8 @@ def validate_permissions() -> Dict[str, Any]:
         summary_store=summary_store,
         project_memory_store=project_store,
     )
-    _, session_deny = loop.run('拒绝的修改', stream=False, initial_mode='spec')
+    deny_result = loop.run('拒绝的修改', stream=False, initial_mode='code')
+    session_deny = deny_result.session
     deny_obs = session_deny.turns[0].observations[0]
     _ensure(not deny_obs.success and deny_obs.data.get('permission_decision') == 'deny', 'deny 规则未在 loop 中返回拒绝 Observation。')
 
@@ -260,9 +264,10 @@ def validate_permissions() -> Dict[str, Any]:
         summary_store=summary_store,
         project_memory_store=project_store,
     )
-    _, session_ask = loop.run('需要确认的命令', stream=False, initial_mode='debug', permission_handler=lambda request: False)
+    ask_result = loop.run('需要确认的命令', stream=False, initial_mode='debug', permission_handler=lambda request: False)
+    session_ask = ask_result.session
     ask_obs = session_ask.turns[0].observations[0]
-    _ensure(not ask_obs.success and ask_obs.data.get('permission_decision') == 'ask', 'ask 规则未在 loop 中返回确认 Observation。')
+    _ensure(not ask_obs.success and ask_obs.data.get('permission_decision') == 'deny', 'ask 规则经用户拒绝后未返回 deny Observation。')
     return {
         "rules": len(policy.rules),
         "allow": allow_decision.outcome,

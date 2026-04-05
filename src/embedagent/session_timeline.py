@@ -8,7 +8,7 @@ import uuid
 from datetime import datetime
 from typing import Any, Dict, List, Tuple
 
-from embedagent.artifacts import ArtifactStore
+from embedagent.persistence_sanitize import sanitize_jsonable
 
 
 _LOGGER = logging.getLogger(__name__)
@@ -29,7 +29,6 @@ class SessionTimelineStore(object):
         self.relative_root = relative_root.replace("\\", "/")
         self.root = os.path.join(self.workspace, *self.relative_root.split("/"))
         self.max_events = max_events
-        self.sanitizer = ArtifactStore(self.workspace)
         self._append_locks = {}  # type: Dict[str, threading.RLock]
         self._append_locks_guard = threading.RLock()
 
@@ -49,7 +48,7 @@ class SessionTimelineStore(object):
                 "seq": self._next_seq(path),
                 "created_at": _utc_now(),
                 "event": event_name,
-                "payload": self.sanitizer.sanitize_jsonable(dict(payload)),
+                "payload": sanitize_jsonable(dict(payload)),
             }
             with open(path, "a", encoding="utf-8", newline="\n") as handle:
                 handle.write(json.dumps(record, ensure_ascii=False, sort_keys=True) + "\n")

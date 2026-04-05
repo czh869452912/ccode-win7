@@ -1,6 +1,6 @@
 # EmbedAgent 设计与变更跟踪
 
-> 更新日期：2026-04-04
+> 更新日期：2026-04-05
 > 用途：记录关键设计变更、影响范围、关联文档和后续动作
 
 ---
@@ -43,6 +43,30 @@
 ---
 
 ## 3. 当前变更记录
+
+### DC-072
+
+- 日期：2026-04-05
+- 变更主题：transcript-truth tool-result cutover 完成，运行时移除共享 ArtifactStore 索引
+- 变更摘要：
+  - 工具执行与持久化提交已经彻底分层：工具线程只返回 raw observation，`ToolCommitCoordinator` 在单写者边界内串行完成 tool-result 落盘、`tool_result`/`content_replacement` transcript append 与 projection 更新
+  - 长文本结果改为写入 session-local `.embedagent/memory/sessions/<session_id>/tool-results/<tool_call_id>/...` 唯一路径，运行时不再维护 `artifacts/index.json`
+  - artifact browse / session summary / project memory 已统一降级为 derived projection，并由 `ProjectionDb`（SQLite）提供可查询元数据；projection 失败不再把主工具结果翻成失败
+  - `ArtifactStore` 已从运行时代码删除，`SessionTimelineStore`/`ToolRuntime`/相关测试与上下文 replacement 逻辑已切到 `*_stored_path` 语义
+- 影响范围：
+  - Query / Context 主线
+  - tool result 持久化与 `/artifacts` 浏览后端
+  - resume / replacement 真相边界
+  - memory maintenance / projection 清理链路
+- 关联文档：
+  - `docs/query-context-redesign.md`
+  - `docs/tool-contracts.md`
+  - `docs/development-tracker.md`
+  - `docs/superpowers/specs/2026-04-05-transcript-truth-tool-result-cutover-design.md`
+- 是否需要 ADR：`否`
+- 后续动作：
+  - 在真实 GUI / Win7 路径上继续复查 `/artifacts`、resume 与 review evidence 的投影行为
+  - 后续若继续扩展大列表/诊断外置策略，优先复用 `ToolResultStore + ProjectionDb`，不要重新引入共享 mutable index
 
 ### DC-070
 

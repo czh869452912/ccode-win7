@@ -1,6 +1,6 @@
 # EmbedAgent Query / Context Redesign
 
-> 更新日期：2026-04-03
+> 更新日期：2026-04-05
 > 适用阶段：上下文管理与 agent loop 激进重构切片
 
 ---
@@ -58,6 +58,9 @@
 - GUI live reducer 现在也会把 inline permission、`command_result`、`session_error` 与 `context_compacted` 这些非 step 卡片明确标成 `raw_events / raw_event`，避免 live session 和 reload 后的 raw timeline 在 projection 语义上继续分裂
 - `CallbackBridge` 在把 `context_compacted` 降成 `MessageType.CONTEXT_COMPACTED` 时会保留 compact 统计 metadata，因此 GUI live 卡片能继续显示“保留多少轮 / 摘要多少轮”而不是只剩一条泛化消息
 - Session truth 现在开始落到 `.embedagent/memory/sessions/<session_id>/transcript.jsonl`
+- 工具执行与共享状态提交现在已拆分：工具线程只产出 raw observation，`ToolCommitCoordinator` 在单写者边界内串行完成 `tool_result`/`content_replacement` transcript append、tool-result 落盘和 projection 更新
+- 大结果现在写入 session-local `.embedagent/memory/sessions/<session_id>/tool-results/<tool_call_id>/...` 唯一路径，不再维护运行时共享的 `artifacts/index.json`
+- artifact 浏览、session summary 与 project memory 现已降级为 derived projection，并统一由 `ProjectionDb`（SQLite）承载可查询元数据
 - `summary.json` / snapshot payload 已下沉为 derived projection，而不再作为恢复真相源
 - `resume_session()` 已切到 transcript replay 主线：恢复时先重建 `Session`，再回填 snapshot / summary / timeline
 - `content_replacement` 与 `context_snapshot` transcript events 已开始持久化 replacement / compact 相关语义，避免 resume 后 replacement 字符串漂移
@@ -122,6 +125,7 @@
   - `read_only && concurrency_safe` 批量并发
   - 其余工具串行
   - 结果按原始 tool call 顺序回写
+- 当前实现已进一步收口为“并行只属于 execution layer，commit 固定单写者串行提交”，因此 `read_file`/`search_text` 的并行不会再与共享索引写入互相竞争
 - `run_command` 的 Windows runtime interrupt 现已从 `taskkill` 单一路径收口为“进程组 + `CTRL_BREAK_EVENT` 优先、必要时再 fallback”的终止策略
 - `StreamingToolExecutor` 现在也会直接观察 cancel event，避免 `max_parallel_tools>1` 时排队 action 在取消后继续偷偷启动
 - `QueryEngine` 现在还会把“前一个 batch 已出现 discarded”当作 retry boundary，因此同一条 assistant plan 里的后续 batch 会统一落 `discarded` result，而不是继续真实执行
@@ -134,6 +138,7 @@
 
 - transcript / step / pending interaction / compact boundary 基础数据模型
 - QueryEngine 主循环与 loop 兼容层
+- transcript-truth hard cutover：`ArtifactStore` 与共享 `artifacts/index.json` 已退出运行时热路径，tool results / artifact browse / session/project projections 已切到 session-local files + SQLite projection
 - adapter 侧的 pending interaction 恢复主链路
 - context pipeline 的第一版 intelligence / replacement / suppression / analysis
 - tool capability metadata 与批处理执行器

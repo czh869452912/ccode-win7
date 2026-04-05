@@ -4,7 +4,6 @@ import os
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
-from embedagent.artifacts import ArtifactStore
 from embedagent.projection_db import ProjectionDb
 from embedagent.tool_result_store import ToolResultStore
 from embedagent.modes import allowed_tools_for
@@ -316,13 +315,11 @@ _DEFAULT_TOOL_METADATA = {
 class ToolRuntime(object):
     def __init__(self, workspace: str, app_config=None) -> None:
         self.workspace = os.path.realpath(workspace)
-        artifact_store = ArtifactStore(self.workspace)
         self.tool_result_store = ToolResultStore(self.workspace)
         self.projection_db = ProjectionDb(
             os.path.join(self.workspace, ".embedagent", "memory", "projections.sqlite3")
         )
         self._ctx = ToolContext(self.workspace, app_config=app_config)
-        self.artifact_store = artifact_store  # exposed for external consumers (e.g. InProcessAdapter)
         self.app_config = app_config  # Optional AppConfig; used by loop for path write checking
         all_tools = (
             file_ops.build_tools(self._ctx)

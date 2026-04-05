@@ -221,14 +221,14 @@ class ReducerRegistry(object):
         return ", ".join(parts)
 
     def _reduce_file(self, data: Dict[str, Any], detailed: bool, policy: ContextPolicy) -> Dict[str, Any]:
-        result = self._copy(data, "path", "encoding", "char_count", "line_count", "truncated", "content_artifact_ref")
+        result = self._copy(data, "path", "encoding", "char_count", "line_count", "truncated", "content_stored_path")
         if isinstance(data.get("content"), str):
             result["content_preview"] = _truncate_text(data["content"], min(self._text_limit(detailed, policy), 1200 if detailed else 320))
         return result
 
     def _reduce_list(self, data: Dict[str, Any], detailed: bool, policy: ContextPolicy) -> Dict[str, Any]:
         files = data.get("files") if isinstance(data.get("files"), list) else []
-        result = self._copy(data, "path", "pattern", "count", "truncated", "files_artifact_ref", "files_item_count")
+        result = self._copy(data, "path", "pattern", "count", "truncated", "files_stored_path", "files_item_count")
         result["files"] = self._simple_list(files, 12 if detailed else 6)
         if files:
             counts = {}
@@ -241,7 +241,7 @@ class ReducerRegistry(object):
         return result
 
     def _reduce_search(self, data: Dict[str, Any], detailed: bool, policy: ContextPolicy) -> Dict[str, Any]:
-        result = self._copy(data, "query", "path", "match_count", "truncated", "matches_artifact_ref", "matches_item_count")
+        result = self._copy(data, "query", "path", "match_count", "truncated", "matches_stored_path", "matches_item_count")
         matches = []
         for item in (data.get("matches") or [])[: (5 if detailed else 3)]:
             if isinstance(item, dict):
@@ -259,7 +259,7 @@ class ReducerRegistry(object):
         return self._copy(data, "path", "encoding", "created", "overwritten", "char_count", "line_count")
 
     def _reduce_command(self, data: Dict[str, Any], detailed: bool, policy: ContextPolicy) -> Dict[str, Any]:
-        result = self._copy(data, "command", "cwd", "exit_code", "duration_ms", "timed_out", "toolchain_root", "stdout_truncated", "stderr_truncated", "stdout_artifact_ref", "stderr_artifact_ref", "stdout_char_count", "stderr_char_count")
+        result = self._copy(data, "command", "cwd", "exit_code", "duration_ms", "timed_out", "toolchain_root", "stdout_truncated", "stderr_truncated", "stdout_stored_path", "stderr_stored_path", "stdout_char_count", "stderr_char_count")
         preview = min(self._text_limit(detailed, policy), 1200 if detailed else 320)
         if isinstance(data.get("stdout"), str):
             result["stdout_preview"] = _truncate_text(data["stdout"], preview)
@@ -269,7 +269,7 @@ class ReducerRegistry(object):
 
     def _reduce_diagnostics_tool(self, data: Dict[str, Any], detailed: bool, policy: ContextPolicy) -> Dict[str, Any]:
         result = self._reduce_command(data, detailed, policy)
-        result.update(self._copy(data, "error_count", "warning_count", "note_count", "diagnostic_count", "diagnostics_artifact_ref", "diagnostics_item_count"))
+        result.update(self._copy(data, "error_count", "warning_count", "note_count", "diagnostic_count", "diagnostics_stored_path", "diagnostics_item_count"))
         result["diagnostics"] = self._diagnostics(data.get("diagnostics") or [], detailed)
         return result
 
@@ -294,7 +294,7 @@ class ReducerRegistry(object):
 
     def _reduce_git_status(self, data: Dict[str, Any], detailed: bool, policy: ContextPolicy) -> Dict[str, Any]:
         result = self._reduce_command(data, detailed, policy)
-        result.update(self._copy(data, "path", "branch", "entries_artifact_ref", "entries_item_count"))
+        result.update(self._copy(data, "path", "branch", "entries_stored_path", "entries_item_count"))
         entries = []
         for item in (data.get("entries") or [])[: (12 if detailed else 6)]:
             if isinstance(item, dict):
@@ -304,14 +304,14 @@ class ReducerRegistry(object):
 
     def _reduce_git_diff(self, data: Dict[str, Any], detailed: bool, policy: ContextPolicy) -> Dict[str, Any]:
         result = self._reduce_command(data, detailed, policy)
-        result.update(self._copy(data, "path", "scope", "file_count", "line_count", "diff_artifact_ref", "diff_char_count"))
+        result.update(self._copy(data, "path", "scope", "file_count", "line_count", "diff_stored_path", "diff_char_count"))
         if isinstance(data.get("diff"), str):
             result["diff_preview"] = _truncate_text(data["diff"], min(self._text_limit(detailed, policy), 1200 if detailed else 260))
         return result
 
     def _reduce_git_log(self, data: Dict[str, Any], detailed: bool, policy: ContextPolicy) -> Dict[str, Any]:
         result = self._reduce_command(data, detailed, policy)
-        result.update(self._copy(data, "path", "limit", "entries_artifact_ref", "entries_item_count"))
+        result.update(self._copy(data, "path", "limit", "entries_stored_path", "entries_item_count"))
         entries = []
         for item in (data.get("entries") or [])[: (8 if detailed else 4)]:
             if isinstance(item, dict):
@@ -356,7 +356,7 @@ class ReducerRegistry(object):
         return result
 
     def _reduce_generic(self, data: Dict[str, Any], detailed: bool, policy: ContextPolicy) -> Dict[str, Any]:
-        result = self._copy(data, "path", "query", "count", "match_count", "command", "cwd", "exit_code", "duration_ms", "timed_out", "error_count", "warning_count", "note_count", "diagnostic_count", "branch", "scope", "file_count", "line_count", "replaced", "created", "overwritten", "toolchain_root", "passed", "test_failures", "line_coverage", "min_line_coverage", "truncated", "encoding", "char_count", "limit", "from_mode", "to_mode", "reason", "question", "answer", "selected_index", "selected_option_text", "selected_mode", "mode_changed", "error_kind", "retryable", "blocked_by", "suggested_next_step", "content_artifact_ref", "content_char_count", "stdout_artifact_ref", "stderr_artifact_ref", "stdout_char_count", "stderr_char_count", "diff_artifact_ref", "diff_char_count", "files_artifact_ref", "files_item_count", "matches_artifact_ref", "matches_item_count", "entries_artifact_ref", "entries_item_count", "diagnostics_artifact_ref", "diagnostics_item_count")
+        result = self._copy(data, "path", "query", "count", "match_count", "command", "cwd", "exit_code", "duration_ms", "timed_out", "error_count", "warning_count", "note_count", "diagnostic_count", "branch", "scope", "file_count", "line_count", "replaced", "created", "overwritten", "toolchain_root", "passed", "test_failures", "line_coverage", "min_line_coverage", "truncated", "encoding", "char_count", "limit", "from_mode", "to_mode", "reason", "question", "answer", "selected_index", "selected_option_text", "selected_mode", "mode_changed", "error_kind", "retryable", "blocked_by", "suggested_next_step", "content_stored_path", "content_char_count", "stdout_stored_path", "stderr_stored_path", "stdout_char_count", "stderr_char_count", "diff_stored_path", "diff_char_count", "files_stored_path", "files_item_count", "matches_stored_path", "matches_item_count", "entries_stored_path", "entries_item_count", "diagnostics_stored_path", "diagnostics_item_count")
         for key in ("entries", "matches", "files", "reasons"):
             if isinstance(data.get(key), list):
                 result[key] = self._simple_list(data[key], 8 if detailed else 4)
@@ -640,10 +640,6 @@ class ContextManager(object):
                     text = str((replacement or {}).get("replacement_text") or "").strip()
                     if text:
                         texts.append(text)
-            else:
-                text = str(item.get("replacement_text") or "").strip()
-                if text:
-                    texts.append(text)
             if texts:
                 replacement_index[message_id] = texts
 
@@ -751,13 +747,13 @@ class ContextManager(object):
             "tool_name": tool_name,
             "message_id": message.message_id,
             "tool_call_id": message.tool_call_id,
-            "artifact_refs": [],
+            "stored_refs": [],
             "duplicate": False,
             "replacement_text": "",
         }
         for key, value in data.items():
-            if key.endswith("_artifact_ref") and value:
-                replacement["artifact_refs"].append(value)
+            if key.endswith("_stored_path") and value:
+                replacement["stored_refs"].append(value)
         if tool_name == "read_file":
             path = str(data.get("path") or "")
             if path:
@@ -769,10 +765,10 @@ class ContextManager(object):
                         "message": {"role": "system", "content": "Duplicate read suppressed for `%s`." % path},
                     }
                 seen_reads.add(path)
-                if replacement["artifact_refs"]:
+                if replacement["stored_refs"]:
                     replacement["replacement_text"] = "Tool result replaced: read_file %s -> %s" % (
                         path,
-                        replacement["artifact_refs"][0],
+                        replacement["stored_refs"][0],
                     )
                     return {
                         "activity_kind": "read",
@@ -790,20 +786,20 @@ class ContextManager(object):
                         "message": {"role": "system", "content": "Duplicate search suppressed for `%s`." % key},
                     }
                 seen_searches.add(key)
-                if replacement["artifact_refs"]:
+                if replacement["stored_refs"]:
                     replacement["replacement_text"] = "Tool result replaced: search_text %s -> %s" % (
                         key,
-                        replacement["artifact_refs"][0],
+                        replacement["stored_refs"][0],
                     )
                     return {
                         "activity_kind": "search",
                         "replacement": replacement,
                         "message": {"role": "system", "content": replacement["replacement_text"]},
                     }
-        if tool_name == "list_files" and replacement["artifact_refs"]:
+        if tool_name == "list_files" and replacement["stored_refs"]:
             replacement["replacement_text"] = "Tool result replaced: list_files %s -> %s" % (
                 str(data.get("path") or "."),
-                replacement["artifact_refs"][0],
+                replacement["stored_refs"][0],
             )
             return {
                 "activity_kind": "list",
@@ -945,8 +941,8 @@ class ContextManager(object):
                 path = observation.data.get("path")
                 if isinstance(path, str) and path:
                     file_counts[path] = file_counts.get(path, 0) + 1
-                artifact_refs = [value for key, value in observation.data.items() if key.endswith("_artifact_ref") and value]
-                if artifact_refs:
+                stored_refs = [value for key, value in observation.data.items() if key.endswith("_stored_path") and value]
+                if stored_refs:
                     replacement_count += 1
                 if observation.tool_name == "read_file" and isinstance(path, str) and path:
                     current_tokens = self.token_estimator.estimate_text(str(observation.data.get("content") or ""))
@@ -961,7 +957,7 @@ class ContextManager(object):
             "tool_result_tokens": tool_result_tokens,
             "duplicate_file_read_tokens": duplicate_file_read_tokens,
             "top_hot_files": [{"path": path, "count": count} for path, count in ranked[:5]],
-            "artifact_replacement_count": replacement_count,
+            "replacement_count": replacement_count,
             "resume_replay_hits": 1 if session.latest_compact_boundary() is not None else 0,
         }
 

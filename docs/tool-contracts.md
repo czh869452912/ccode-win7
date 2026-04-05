@@ -60,24 +60,24 @@
 
 ---
 
-## 3.1 大输出 Artifact 规则
+## 3.1 大输出 Stored Result 规则
 
-从 Phase 5B 开始，工具不会再把大体积 `content` / `stdout` / `stderr` / `diff` / `diagnostics` / `files` / `matches` / `entries` 原样长期留在会话里。
+从 transcript-truth cutover 开始，工具不会再把大体积 `content` / `stdout` / `stderr` / `diff` 原样长期留在会话里。
 
 当这些字段超过内联阈值时，Observation 会改为：
 
 - 保留脱敏后的预览内容
-- 追加 `<field>_artifact_ref`，指向工作区内 `.embedagent/memory/artifacts/...` 的 JSON 文件
+- 追加 `<field>_stored_path`，指向工作区内 `.embedagent/memory/sessions/<session_id>/tool-results/<tool_call_id>/...`
 - 追加 `<field>_char_count` 或 `<field>_item_count` 之类的元数据
 
-Artifact 文件同样会做基础脱敏，当前至少覆盖：
+tool-result 文件同样会做基础脱敏，当前至少覆盖：
 
 - `sk-...` 形式 key
 - `Bearer ...` token
 - `Authorization:` 头
 - 常见 `api_key` / `secret` / `password` 赋值片段
 
-模型若需要查看更多上下文，可通过 `read_file` 读取对应 `artifact_ref`。
+模型若需要查看更多上下文，可通过 `read_file` 读取对应 `stored_path`。
 
 ---
 
@@ -94,8 +94,8 @@ Artifact 文件同样会做基础脱敏，当前至少覆盖：
     "stderr": str,  # 可能是预览
     "stdout_truncated": bool,
     "stderr_truncated": bool,
-    "stdout_artifact_ref": str | None,
-    "stderr_artifact_ref": str | None,
+    "stdout_stored_path": str | None,
+    "stderr_stored_path": str | None,
     "stdout_char_count": int | None,
     "stderr_char_count": int | None,
     "duration_ms": int,
@@ -127,8 +127,6 @@ Artifact 文件同样会做基础脱敏，当前至少覆盖：
             "path": str,
         }
     ],
-    "entries_artifact_ref": str | None,
-    "entries_item_count": int | None,
 }
 ```
 
@@ -143,7 +141,7 @@ Artifact 文件同样会做基础脱敏，当前至少覆盖：
     "file_count": int,
     "line_count": int,
     "diff": str,  # 可能是预览
-    "diff_artifact_ref": str | None,
+    "diff_stored_path": str | None,
     "diff_char_count": int | None,
 }
 ```
@@ -164,8 +162,6 @@ Artifact 文件同样会做基础脱敏，当前至少覆盖：
             "subject": str,
         }
     ],
-    "entries_artifact_ref": str | None,
-    "entries_item_count": int | None,
 }
 ```
 
@@ -192,8 +188,6 @@ Artifact 文件同样会做基础脱敏，当前至少覆盖：
             "message": str,
         }
     ],
-    "diagnostics_artifact_ref": str | None,
-    "diagnostics_item_count": int | None,
 }
 ```
 
