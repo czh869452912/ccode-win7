@@ -381,7 +381,7 @@ class Session:
                 turn_id=turn_id or (self.turns[-1].turn_id if self.turns else ""),
                 step_id=step_id or self._current_step_id(),
                 kind="tool_result",
-                replaced_by_refs=list(replaced_by_refs or self._artifact_refs_from_observation(observation)),
+                replaced_by_refs=list(replaced_by_refs or self._stored_refs_from_observation(observation)),
             )
         )
         if not self.turns:
@@ -547,12 +547,12 @@ class Session:
                         return record
         return None
 
-    def _artifact_refs_from_observation(self, observation: Observation) -> List[str]:
+    def _stored_refs_from_observation(self, observation: Observation) -> List[str]:
         if not isinstance(observation.data, dict):
             return []
         refs = []
         for key, value in observation.data.items():
-            if key.endswith("_artifact_ref") and value:
+            if key.endswith("_stored_path") and value:
                 refs.append(str(value))
         return refs[:8]
 
