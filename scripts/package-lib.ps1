@@ -205,11 +205,24 @@ function Invoke-PackageDoctor {
         $npmVersion = (& npm --version 2>&1 | Out-String).Trim()
         $npmOk = ($LASTEXITCODE -eq 0) -and ($npmVersion -ne '')
     } catch { $npmOk = $false }
-    $doctorChecks += [ordered]@{ name = 'runtime:npm'; ok = $npmOk; path = "npm ($npmVersion)" }
+    $prebuiltFrontendRoot = Join-Path $Context.project_root 'src\embedagent\frontend\gui\static\assets'
+    $prebuiltFrontendOk = (Test-Path -LiteralPath (Join-Path $prebuiltFrontendRoot 'app.js')) -and `
+        (Test-Path -LiteralPath (Join-Path $prebuiltFrontendRoot 'app.css')) -and `
+        (Test-Path -LiteralPath (Join-Path $prebuiltFrontendRoot 'katex\katex.min.css'))
+    $doctorChecks += [ordered]@{
+        name = 'runtime:npm'
+        ok = ($npmOk -or $prebuiltFrontendOk)
+        path = if ($npmOk) { "npm ($npmVersion)" } else { "prebuilt frontend assets present at $prebuiltFrontendRoot" }
+    }
 
     foreach ($check in $doctorChecks) {
         if (-not $check.ok) {
-            $report.blocking_issues += ('Missing required path: ' + $check.path)
+            if ($check.name -eq 'runtime:npm') {
+                $report.warnings += ('Optional runtime unavailable: ' + $check.path)
+            }
+            else {
+                $report.blocking_issues += ('Missing required path: ' + $check.path)
+            }
         }
     }
 
@@ -263,7 +276,8 @@ function Get-PackagePythonCandidates {
             $resolved += (Resolve-Path -LiteralPath $candidate).Path
         }
     }
-    return $resolved
+    Write-Output -NoEnumerate @($resolved)
+    return
 }
 
 function Resolve-PackagePythonPath {
@@ -430,8 +444,10 @@ function Invoke-PackageAssemble {
         [ref]$Report
     )
 
-    Invoke-FrontendBuild -Context $Context -Report $Report
-    if (@($Report.Value.blocking_issues).Count -gt 0) { return }
+    if ([bool]$Context.profile_config.run_frontend_build) {
+        Invoke-FrontendBuild -Context $Context -Report $Report
+        if (@($Report.Value.blocking_issues).Count -gt 0) { return }
+    }
 
     $preparePath = Resolve-ToolPath -Context $Context -RelativePath ([string]$Context.config.tooling.prepare_bundle)
     $buildPath = Resolve-ToolPath -Context $Context -RelativePath ([string]$Context.config.tooling.build_bundle)

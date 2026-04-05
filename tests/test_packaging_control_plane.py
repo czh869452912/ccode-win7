@@ -413,6 +413,8 @@ class TestPackageDoctor(unittest.TestCase):
         self.assertEqual(len(config_checks), 1)
         self.assertTrue(config_checks[0]["ok"])
         self.assertIn("package.config.json", config_checks[0]["path"])
+        npm_checks = [check for check in payload["doctor_checks"] if check.get("name") == "runtime:npm"]
+        self.assertEqual(len(npm_checks), 1)
 
     def test_package_doctor_fails_for_missing_config(self):
         result = subprocess.run(
@@ -530,6 +532,29 @@ class TestPackageOrchestration(unittest.TestCase):
         verify_summary = payload["stages"][-1]["summary"]
         self.assertTrue(verify_summary["validate_report"])
         self.assertTrue(verify_summary["dependency_report"])
+
+    def test_mock_release_does_not_inject_frontend_build_stage(self):
+        env = os.environ.copy()
+        env["EMBEDAGENT_PYTHON"] = sys.executable
+        result = subprocess.run(
+            [
+                _powershell_exe(),
+                "-NoProfile",
+                "-File",
+                str(PACKAGE_SCRIPT),
+                "release",
+                "-Config",
+                str(MOCK_CONFIG),
+                "-Json",
+            ],
+            cwd=str(ROOT),
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+        payload = json.loads(result.stdout)
+        stage_names = [stage["name"] for stage in payload.get("stages", [])]
+        self.assertNotIn("frontend_build", stage_names)
 
 
 if __name__ == "__main__":

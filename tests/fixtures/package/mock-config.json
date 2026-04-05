@@ -24,6 +24,7 @@
       "allow_download": false,
       "require_complete": false,
       "create_zip": false,
+      "run_frontend_build": false,
       "run_dynamic_checks": false,
       "run_dependency_checker": true,
       "required_assets": []
@@ -33,6 +34,7 @@
       "allow_download": true,
       "require_complete": true,
       "create_zip": true,
+      "run_frontend_build": false,
       "run_dynamic_checks": false,
       "run_dependency_checker": true,
       "required_assets": [
