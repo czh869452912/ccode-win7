@@ -440,6 +440,13 @@ export function reducer(state, action) {
           kind: "system",
           tone: "error",
           content: action.error || "会话出错",
+          turnId: resolveTimelineAnchor({
+            explicitTurnId: action.turnId || "",
+            activeTurnId: state.activeTurnId,
+            timeline: state.timeline,
+          }),
+          stepId: action.stepId || "",
+          stepIndex: action.stepIndex || 0,
           ...rawProjectionMeta(),
         }),
         thinkingActive: false,
@@ -456,6 +463,13 @@ export function reducer(state, action) {
           recentTurns: action.recentTurns,
           summarizedTurns: action.summarizedTurns,
           approxTokensAfter: action.approxTokensAfter,
+          turnId: resolveTimelineAnchor({
+            explicitTurnId: action.turnId || "",
+            activeTurnId: state.activeTurnId,
+            timeline: state.timeline,
+          }),
+          stepId: action.stepId || "",
+          stepIndex: action.stepIndex || 0,
           ...rawProjectionMeta(),
         }),
       };
@@ -482,6 +496,8 @@ export function reducer(state, action) {
               data: action.data || {},
               success: action.success,
               turnId,
+              stepId: action.stepId || "",
+              stepIndex: action.stepIndex || 0,
               ...rawProjectionMeta(),
             });
       return {

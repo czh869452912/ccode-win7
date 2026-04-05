@@ -81,6 +81,10 @@ class PermissionRequest:
     category: str
     reason: str
     details: Dict[str, Any] = field(default_factory=dict)
+    session_id: str = ""
+    turn_id: str = ""
+    step_id: str = ""
+    step_index: int = 0
 
 
 @dataclass
@@ -90,6 +94,11 @@ class UserInputRequest:
     tool_name: str
     question: str
     options: List[Dict[str, Any]] = field(default_factory=list)
+    details: Dict[str, Any] = field(default_factory=dict)
+    session_id: str = ""
+    turn_id: str = ""
+    step_id: str = ""
+    step_index: int = 0
 
 
 @dataclass
@@ -99,6 +108,9 @@ class CommandResult:
     success: bool
     message: str
     data: Dict[str, Any] = field(default_factory=dict)
+    turn_id: str = ""
+    step_id: str = ""
+    step_index: int = 0
 
 
 @dataclass

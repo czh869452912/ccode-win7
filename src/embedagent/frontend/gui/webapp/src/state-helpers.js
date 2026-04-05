@@ -229,6 +229,9 @@ export function timelineFromEvents(events) {
         recentTurns: payload.recent_turns,
         summarizedTurns: payload.summarized_turns,
         approxTokensAfter: payload.approx_tokens_after,
+        turnId: payload.turn_id || "",
+        stepId: payload.step_id || "",
+        stepIndex: payload.step_index || 0,
         projectionSource: "raw_events",
       });
     } else if (eventName === "session_error") {
@@ -238,6 +241,9 @@ export function timelineFromEvents(events) {
         kind: "system",
         tone: "error",
         content: payload.error || "会话出错",
+        turnId: payload.turn_id || "",
+        stepId: payload.step_id || "",
+        stepIndex: payload.step_index || 0,
         projectionSource: "raw_events",
       });
     } else if (eventName === "command_result") {
@@ -249,6 +255,9 @@ export function timelineFromEvents(events) {
         content: payload.message || "",
         data: payload.data || {},
         success: Boolean(payload.success),
+        turnId: payload.turn_id || "",
+        stepId: payload.step_id || "",
+        stepIndex: payload.step_index || 0,
         projectionSource: "raw_events",
       });
     } else if (eventName === "plan_updated") {
@@ -275,6 +284,87 @@ export function timelineFromEvents(events) {
   return items;
 }
 
+function projectTurnTransition(turnId, transition = {}, projectionSource = "") {
+  const metadata = transition.metadata || {};
+  const stepId = transition.step_id || metadata.step_id || "";
+  const stepIndex = transition.step_index || metadata.step_index || 0;
+  const itemBase = {
+    id:
+      metadata.call_id ||
+      metadata.permission_id ||
+      metadata.request_id ||
+      metadata.command_name ||
+      `${turnId}-${transition.kind || "transition"}-${transition.created_at || ""}`,
+    turnId: transition.turn_id || metadata.turn_id || turnId,
+    stepId,
+    stepIndex,
+    projectionSource,
+    projectionKind: transition.kind || "",
+    synthetic: false,
+  };
+  if (transition.kind === "command_result") {
+    return {
+      ...itemBase,
+      id: metadata.command_name ? `${turnId}-command-${metadata.command_name}` : itemBase.id,
+      kind: "command_result",
+      commandName: metadata.command_name || "",
+      content: metadata.message || transition.message || "",
+      data: metadata.data || {},
+      success: Boolean(metadata.success),
+    };
+  }
+  if (transition.kind === "context_compacted") {
+    return {
+      ...itemBase,
+      id: `${turnId}-compact-${itemBase.id}`,
+      kind: "compact",
+      content: metadata.content || transition.message || "",
+      recentTurns: metadata.recent_turns,
+      summarizedTurns: metadata.summarized_turns,
+      approxTokensAfter: metadata.approx_tokens_after,
+    };
+  }
+  if (transition.kind === "session_error") {
+    return {
+      ...itemBase,
+      id: `${turnId}-error-${itemBase.id}`,
+      kind: "system",
+      tone: "error",
+      content: metadata.error || transition.message || "会话出错",
+    };
+  }
+  if (transition.kind === "permission_required") {
+    if (stepId) {
+      return null;
+    }
+    const request = metadata.permission || {};
+    return {
+      ...itemBase,
+      id: request.permission_id || itemBase.id,
+      kind: "permission",
+      request,
+      answered: false,
+    };
+  }
+  if (transition.kind === "user_input_required") {
+    if (stepId) {
+      return null;
+    }
+    const request = metadata.user_input || {};
+    return {
+      ...itemBase,
+      id: request.request_id || itemBase.id,
+      kind:
+        request.tool_name === "propose_mode_switch"
+          ? "mode_switch_proposal"
+          : "user_input",
+      request,
+      answered: false,
+    };
+  }
+  return null;
+}
+
 /**
  * Convert a structured Turn list (from build_structured_timeline) into flat timeline items.
  * Each turn produces: user bubble, reasoning card, tool cards, assistant bubble.
@@ -287,6 +377,20 @@ export function timelineFromTurns(turns, events = [], options = {}) {
     const payload = record.payload || {};
     const stepId = payload.step_id || "";
     if (!stepId) continue;
+    if (record.event === "permission_required") {
+      if (!eventCardsByStep[stepId]) eventCardsByStep[stepId] = [];
+      const request = payload.permission || {};
+      eventCardsByStep[stepId].push({
+        id: request.permission_id || record.event_id,
+        kind: "permission",
+        request,
+        answered: false,
+        turnId: payload.turn_id || "",
+        stepId,
+        stepIndex: payload.step_index || 0,
+      });
+      continue;
+    }
     if (record.event === "user_input_required") {
       if (!eventCardsByStep[stepId]) eventCardsByStep[stepId] = [];
       const request = payload.user_input || {};
@@ -312,6 +416,30 @@ export function timelineFromTurns(turns, events = [], options = {}) {
         kind: "user",
         content: turn.user_text,
         turnId,
+        projectionSource,
+        projectionKind: turn.projection_kind || "",
+        synthetic: false,
+      });
+    }
+    for (const tc of turn.tool_calls || []) {
+      items.push({
+        id: tc.call_id || makeEventId("tool"),
+        kind: "tool",
+        toolName: tc.tool_name,
+        label: tc.tool_label || tc.tool_name,
+        arguments: tc.arguments || {},
+        status: tc.status || "success",
+        data: tc.data,
+        error: tc.error || "",
+        permissionCategory: tc.permission_category || "",
+        supportsDiffPreview: Boolean(tc.supports_diff_preview),
+        progressRendererKey: tc.progress_renderer_key || "",
+        resultRendererKey: tc.result_renderer_key || "",
+        runtimeSource: tc.runtime_source || "",
+        resolvedToolRoots: tc.resolved_tool_roots || {},
+        turnId,
+        stepId: "",
+        stepIndex: 0,
         projectionSource,
         projectionKind: turn.projection_kind || "",
         synthetic: false,
@@ -395,6 +523,12 @@ export function timelineFromTurns(turns, events = [], options = {}) {
         });
       }
     }
+    for (const transition of turn.transitions || []) {
+      const item = projectTurnTransition(turnId, transition, projectionSource);
+      if (item) {
+        items.push(item);
+      }
+    }
   }
   return items;
 }
@@ -455,6 +589,9 @@ export function normalizeSessionPayload(payload) {
             category: payload.pending_permission.category || "",
             reason: payload.pending_permission.reason || "",
             details: payload.pending_permission.details || {},
+            turn_id: payload.pending_permission.turn_id || "",
+            step_id: payload.pending_permission.step_id || "",
+            step_index: payload.pending_permission.step_index || 0,
           }
         : payload.pending_user_input
           ? {
@@ -465,6 +602,9 @@ export function normalizeSessionPayload(payload) {
               question: payload.pending_user_input.question || "",
               options: payload.pending_user_input.options || [],
               details: payload.pending_user_input.details || {},
+              turn_id: payload.pending_user_input.turn_id || "",
+              step_id: payload.pending_user_input.step_id || "",
+              step_index: payload.pending_user_input.step_index || 0,
             }
           : null),
   };

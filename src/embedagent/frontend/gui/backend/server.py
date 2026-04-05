@@ -275,10 +275,14 @@ class WebSocketFrontend(FrontendCallbacks):
             "type": "permission_request",
             "data": {
                 "permission_id": request.permission_id,
+                "session_id": request.session_id,
                 "tool_name": request.tool_name,
                 "category": request.category,
                 "reason": request.reason,
-                "details": request.details
+                "details": request.details,
+                "turn_id": request.turn_id,
+                "step_id": request.step_id,
+                "step_index": request.step_index,
             }
         })
         try:
@@ -298,9 +302,14 @@ class WebSocketFrontend(FrontendCallbacks):
             "type": "user_input_request",
             "data": {
                 "request_id": request.request_id,
+                "session_id": request.session_id,
                 "tool_name": request.tool_name,
                 "question": request.question,
-                "options": request.options
+                "options": request.options,
+                "details": request.details,
+                "turn_id": request.turn_id,
+                "step_id": request.step_id,
+                "step_index": request.step_index,
             }
         })
         try:
@@ -363,6 +372,9 @@ class WebSocketFrontend(FrontendCallbacks):
                 "success": result.success,
                 "message": result.message,
                 "data": result.data,
+                "turn_id": result.turn_id,
+                "step_id": result.step_id,
+                "step_index": result.step_index,
             }
         })
 

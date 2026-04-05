@@ -1,6 +1,10 @@
 """Tests for GUI real-time sync callbacks: todos_refresh and artifacts_refresh."""
+import os
+import sys
 import unittest
 from unittest.mock import MagicMock
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 from embedagent.protocol import MessageType
 
@@ -76,6 +80,9 @@ class TestGuiSync(unittest.TestCase):
             "recent_turns": 2,
             "summarized_turns": 5,
             "approx_tokens_after": 1024,
+            "turn_id": "turn-1",
+            "step_id": "step-2",
+            "step_index": 2,
         })
         mock_frontend.on_message.assert_called_once()
         message = mock_frontend.on_message.call_args[0][0]
@@ -83,6 +90,9 @@ class TestGuiSync(unittest.TestCase):
         self.assertEqual(message.metadata.get("recent_turns"), 2)
         self.assertEqual(message.metadata.get("summarized_turns"), 5)
         self.assertEqual(message.metadata.get("approx_tokens_after"), 1024)
+        self.assertEqual(message.metadata.get("turn_id"), "turn-1")
+        self.assertEqual(message.metadata.get("step_id"), "step-2")
+        self.assertEqual(message.metadata.get("step_index"), 2)
 
     def test_callback_bridge_does_not_call_refresh_for_unrelated_tool(self):
         from embedagent.core.adapter import CallbackBridge

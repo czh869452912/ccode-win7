@@ -2,12 +2,13 @@
 import os
 import sys
 import unittest
+from unittest import mock
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from embedagent.config import AppConfig
-from embedagent.context import ContextConfig, make_context_config, ReducerRegistry
-from embedagent.session import Observation
+from embedagent.context import ContextConfig, ContextManager, make_context_config, ReducerRegistry
+from embedagent.session import Observation, Session
 
 
 class TestMakeContextConfig(unittest.TestCase):
@@ -132,6 +133,22 @@ class TestContextConfigModeOverrides(unittest.TestCase):
         compact = cfg.mode_overrides["compact"]
         code = cfg.mode_overrides["code"]
         self.assertLess(compact["max_context_tokens"], code["max_context_tokens"])
+
+
+class TestContextCompactionSignal(unittest.TestCase):
+    def test_old_turns_alone_do_not_mark_compacted(self):
+        cfg = ContextConfig()
+        cfg.default_max_recent_turns = 1
+        cfg.mode_overrides["code"]["max_recent_turns"] = 1
+        manager = ContextManager(config=cfg)
+        session = Session(session_id="sess-compaction")
+        session.add_user_message("first turn", turn_id="turn-1")
+        session.add_system_message("assistant one", turn_id="turn-1")
+        session.add_user_message("second turn", turn_id="turn-2")
+        session.add_system_message("assistant two", turn_id="turn-2")
+        with mock.patch.object(manager, "_measure_messages", return_value=100):
+            result = manager.build_messages(session, mode_name="code")
+        self.assertFalse(result.compacted)
 
 
 if __name__ == "__main__":

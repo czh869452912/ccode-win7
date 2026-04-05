@@ -547,12 +547,17 @@ function App() {
     if (type === "permission_request") {
       dispatch({
         type: "permission_request",
-        permission: data,
+        permission: {
+          ...data,
+          turn_id: data.turn_id || "",
+          step_id: data.step_id || "",
+          step_index: data.step_index || 0,
+        },
         inspectorTab: "permissions",
       });
       updateSessionEventLog((current) =>
         appendSessionEvent(current, {
-          session_id: state.currentSessionId || "",
+          session_id: data.session_id || state.currentSessionId || "",
           event_id: data.permission_id || makeEventId("evt"),
           seq: current.lastAppliedSeq + 1,
           created_at: new Date().toISOString(),
@@ -564,6 +569,9 @@ function App() {
             category: data.category || "",
             reason: data.reason || "",
             details: data.details || {},
+            turn_id: data.turn_id || "",
+            step_id: data.step_id || "",
+            step_index: data.step_index || 0,
           },
         }),
       );
@@ -583,7 +591,7 @@ function App() {
       });
       updateSessionEventLog((current) =>
         appendSessionEvent(current, {
-          session_id: state.currentSessionId || "",
+          session_id: data.session_id || state.currentSessionId || "",
           event_id: data.request_id || makeEventId("evt"),
           seq: current.lastAppliedSeq + 1,
           created_at: new Date().toISOString(),
@@ -611,6 +619,9 @@ function App() {
         success: Boolean(data.success),
         message: data.message || "",
         data: data.data || {},
+        turnId: data.turn_id || "",
+        stepId: data.step_id || "",
+        stepIndex: data.step_index || 0,
       });
       if (data.command_name === "resume" && data.data?.switch_session_id) {
         loadSession(data.data.switch_session_id);
@@ -665,6 +676,9 @@ function App() {
         type: "session_error",
         id: data.event_id || makeEventId("error"),
         error: data.error || "",
+        turnId: data.turn_id || "",
+        stepId: data.step_id || "",
+        stepIndex: data.step_index || 0,
       });
       logEvent("session_error", data.error || "");
       return;
@@ -748,6 +762,9 @@ function App() {
         type: "session_error",
         id: data.id || makeEventId("error"),
         error: data.content || "Error",
+        turnId: data.metadata?.turn_id || "",
+        stepId: data.metadata?.step_id || "",
+        stepIndex: data.metadata?.step_index || 0,
       });
       logEvent("error", data.content || "");
       return;
@@ -761,6 +778,9 @@ function App() {
         recentTurns: metadata.recent_turns,
         summarizedTurns: metadata.summarized_turns,
         approxTokensAfter: metadata.approx_tokens_after,
+        turnId: metadata.turn_id || "",
+        stepId: metadata.step_id || "",
+        stepIndex: metadata.step_index || 0,
       });
       logEvent("context_compacted", data.content || "");
     }

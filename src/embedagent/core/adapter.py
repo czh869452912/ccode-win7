@@ -122,7 +122,13 @@ class CallbackBridge:
             msg = Message(
                 id=str(uuid.uuid4()),
                 type=MessageType.ERROR,
-                content=payload.get("error", "Unknown error")
+                content=payload.get("error", "Unknown error"),
+                metadata={
+                    "turn_id": str(payload.get("turn_id") or ""),
+                    "step_id": str(payload.get("step_id") or ""),
+                    "step_index": int(payload.get("step_index") or 0),
+                    "phase": str(payload.get("phase") or ""),
+                },
             )
             self.frontend.on_message(msg)
 
@@ -154,6 +160,9 @@ class CallbackBridge:
                     success=bool(payload.get("success", False)),
                     message=str(payload.get("message") or ""),
                     data=payload.get("data", {}),
+                    turn_id=str(payload.get("turn_id") or ""),
+                    step_id=str(payload.get("step_id") or ""),
+                    step_index=int(payload.get("step_index") or 0),
                 )
             )
 
@@ -196,6 +205,9 @@ class CallbackBridge:
                     "summarized_turns": payload.get("summarized_turns", 0),
                     "approx_tokens_after": payload.get("approx_tokens_after"),
                     "analysis": payload.get("analysis", {}),
+                    "turn_id": str(payload.get("turn_id") or ""),
+                    "step_id": str(payload.get("step_id") or ""),
+                    "step_index": int(payload.get("step_index") or 0),
                 },
             )
             self.frontend.on_message(msg)
@@ -207,6 +219,10 @@ class CallbackBridge:
             category=str(payload.get("category", "")),
             reason=str(payload.get("reason", "")),
             details=payload.get("details", {}),
+            session_id=str(payload.get("session_id", "")),
+            turn_id=str(payload.get("turn_id", "")),
+            step_id=str(payload.get("step_id", "")),
+            step_index=int(payload.get("step_index") or 0),
         )
         return bool(self.frontend.on_permission_request(request))
 
@@ -216,6 +232,11 @@ class CallbackBridge:
             tool_name=str(payload.get("tool_name", "")),
             question=str(payload.get("question", "")),
             options=payload.get("options", []),
+            details=payload.get("details", {}),
+            session_id=str(payload.get("session_id", "")),
+            turn_id=str(payload.get("turn_id", "")),
+            step_id=str(payload.get("step_id", "")),
+            step_index=int(payload.get("step_index") or 0),
         )
         answer = self.frontend.on_user_input_request(request)
         if answer is None:
@@ -244,6 +265,10 @@ class CallbackBridge:
                     category=permission.get("category", ""),
                     reason=permission.get("reason", ""),
                     details=permission.get("details", {}),
+                    session_id=permission.get("session_id", ""),
+                    turn_id=permission.get("turn_id", ""),
+                    step_id=permission.get("step_id", ""),
+                    step_index=int(permission.get("step_index") or 0),
                 )
 
         pending_input = None
@@ -255,6 +280,11 @@ class CallbackBridge:
                     tool_name=request.get("tool_name", ""),
                     question=request.get("question", ""),
                     options=request.get("options", []),
+                    details=request.get("details", {}),
+                    session_id=request.get("session_id", ""),
+                    turn_id=request.get("turn_id", ""),
+                    step_id=request.get("step_id", ""),
+                    step_index=int(request.get("step_index") or 0),
                 )
 
         snap = SessionSnapshot(
@@ -350,7 +380,11 @@ class AgentCoreAdapter(CoreInterface):
                 tool_name=p.get("tool_name", ""),
                 category=p.get("category", ""),
                 reason=p.get("reason", ""),
-                details=p.get("details", {})
+                details=p.get("details", {}),
+                session_id=p.get("session_id", ""),
+                turn_id=p.get("turn_id", ""),
+                step_id=p.get("step_id", ""),
+                step_index=int(p.get("step_index") or 0),
             )
         
         pending_input = None
@@ -360,7 +394,12 @@ class AgentCoreAdapter(CoreInterface):
                 request_id=i.get("request_id", ""),
                 tool_name=i.get("tool_name", ""),
                 question=i.get("question", ""),
-                options=i.get("options", [])
+                options=i.get("options", []),
+                details=i.get("details", {}),
+                session_id=i.get("session_id", ""),
+                turn_id=i.get("turn_id", ""),
+                step_id=i.get("step_id", ""),
+                step_index=int(i.get("step_index") or 0),
             )
         
         return SessionSnapshot(

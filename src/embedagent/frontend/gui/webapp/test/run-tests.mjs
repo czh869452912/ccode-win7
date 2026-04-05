@@ -214,8 +214,9 @@ function main() {
     data: {
       current_mode: "debug",
     },
+    turnId: "turn-mode",
   });
-  assert.equal(modeCommandState.timeline[1].turnId, modeCommandState.timeline[0].id);
+  assert.equal(modeCommandState.timeline[1].turnId, "turn-mode");
   assert.equal(modeCommandState.timeline[1].projectionSource, "raw_events");
   assert.equal(modeCommandState.timeline[1].projectionKind, "raw_event");
   assert.equal(modeCommandState.timeline[1].synthetic, false);
@@ -265,11 +266,17 @@ function main() {
   const sessionErrorState = reducer(initialState, {
     type: "session_error",
     error: "loop exploded",
+    turnId: "turn-error",
+    stepId: "step-error",
+    stepIndex: 3,
   });
   assert.equal(sessionErrorState.timeline.length, 1);
   assert.equal(sessionErrorState.timeline[0].kind, "system");
   assert.equal(sessionErrorState.timeline[0].tone, "error");
   assert.equal(sessionErrorState.timeline[0].content, "loop exploded");
+  assert.equal(sessionErrorState.timeline[0].turnId, "turn-error");
+  assert.equal(sessionErrorState.timeline[0].stepId, "step-error");
+  assert.equal(sessionErrorState.timeline[0].stepIndex, 3);
   assert.equal(sessionErrorState.timeline[0].projectionSource, "raw_events");
   assert.equal(sessionErrorState.timeline[0].projectionKind, "raw_event");
   assert.equal(sessionErrorState.timeline[0].synthetic, false);
@@ -279,12 +286,18 @@ function main() {
     recentTurns: 2,
     summarizedTurns: 5,
     approxTokensAfter: 8000,
+    turnId: "turn-compact",
+    stepId: "step-compact",
+    stepIndex: 4,
   });
   assert.equal(compactedState.timeline.length, 1);
   assert.equal(compactedState.timeline[0].kind, "compact");
   assert.equal(compactedState.timeline[0].recentTurns, 2);
   assert.equal(compactedState.timeline[0].summarizedTurns, 5);
   assert.equal(compactedState.timeline[0].approxTokensAfter, 8000);
+  assert.equal(compactedState.timeline[0].turnId, "turn-compact");
+  assert.equal(compactedState.timeline[0].stepId, "step-compact");
+  assert.equal(compactedState.timeline[0].stepIndex, 4);
   assert.equal(compactedState.timeline[0].projectionSource, "raw_events");
   assert.equal(compactedState.timeline[0].projectionKind, "raw_event");
   assert.equal(compactedState.timeline[0].synthetic, false);
@@ -348,14 +361,14 @@ function main() {
   assert.equal(activatedState.eventLog.length, 0);
 
   const timelineSource = fs.readFileSync(
-    path.resolve("src", "components", "Timeline.jsx"),
+    path.resolve("src", "embedagent", "frontend", "gui", "webapp", "src", "components", "Timeline.jsx"),
     "utf8",
   );
   assert.equal(timelineSource.includes("pre(props)"), true);
   assert.equal(timelineSource.includes("if (inline)"), true);
 
   const interactionPanelSource = fs.readFileSync(
-    path.resolve("src", "components", "InteractionPanel.jsx"),
+    path.resolve("src", "embedagent", "frontend", "gui", "webapp", "src", "components", "InteractionPanel.jsx"),
     "utf8",
   );
   assert.equal(interactionPanelSource.includes('interaction?.status === "expired"'), true);

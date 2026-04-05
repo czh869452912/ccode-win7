@@ -59,6 +59,49 @@ test("timelineFromEvents keeps command results for review workflows", () => {
   ]);
   assert.equal(timeline[0].kind, "command_result");
   assert.equal(timeline[0].commandName, "review");
+  assert.equal(timeline[0].turnId, "");
+});
+
+test("timelineFromEvents preserves anchors for command, compact, and error events", () => {
+  const timeline = timelineFromEvents([
+    {
+      event_id: "evt-command",
+      event: "command_result",
+      payload: {
+        command_name: "help",
+        success: true,
+        message: "ok",
+        turn_id: "turn-1",
+      },
+    },
+    {
+      event_id: "evt-compact",
+      event: "context_compacted",
+      payload: {
+        recent_turns: 2,
+        summarized_turns: 5,
+        approx_tokens_after: 1024,
+        turn_id: "turn-1",
+        step_id: "step-2",
+        step_index: 2,
+      },
+    },
+    {
+      event_id: "evt-error",
+      event: "session_error",
+      payload: {
+        error: "boom",
+        turn_id: "turn-1",
+        step_id: "step-2",
+        step_index: 2,
+      },
+    },
+  ]);
+  assert.equal(timeline[0].turnId, "turn-1");
+  assert.equal(timeline[1].turnId, "turn-1");
+  assert.equal(timeline[1].stepId, "step-2");
+  assert.equal(timeline[2].turnId, "turn-1");
+  assert.equal(timeline[2].stepId, "step-2");
 });
 
 test("normalizeSessionPayload keeps status and mode stable", () => {
@@ -175,6 +218,44 @@ test("timelineFromTurns preserves synthetic step projection metadata", () => {
   assert.equal(timeline[1].synthetic, true);
   assert.equal(timeline[2].projectionKind, "synthetic_single_step");
   assert.equal(timeline[2].synthetic, true);
+});
+
+test("timelineFromTurns projects turn-level transitions and tool calls", () => {
+  const timeline = timelineFromTurns([
+    {
+      turn_id: "turn-command",
+      user_text: "/run custom.build",
+      projection_kind: "step_events",
+      tool_calls: [
+        {
+          call_id: "cmd-tool-1",
+          tool_name: "compile_project",
+          tool_label: "Custom Build",
+          status: "success",
+          arguments: { recipe_id: "custom.build" },
+        },
+      ],
+      transitions: [
+        {
+          kind: "command_result",
+          message: "recipe finished",
+          metadata: {
+            command_name: "run",
+            success: true,
+            message: "recipe finished",
+            turn_id: "turn-command",
+          },
+        },
+      ],
+      steps: [],
+    },
+  ]);
+  assert.equal(timeline[0].kind, "user");
+  assert.equal(timeline[1].kind, "tool");
+  assert.equal(timeline[1].turnId, "turn-command");
+  assert.equal(timeline[1].stepId, "");
+  assert.equal(timeline[2].kind, "command_result");
+  assert.equal(timeline[2].turnId, "turn-command");
 });
 
 test("describeProjectionBadge hides recorded steps and labels synthetic projections", () => {

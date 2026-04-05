@@ -78,6 +78,9 @@ class PermissionTicket:
     category: str
     reason: str
     details: Dict[str, Any]
+    turn_id: str = ""
+    step_id: str = ""
+    step_index: int = 0
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -87,6 +90,9 @@ class PermissionTicket:
             "category": self.category,
             "reason": self.reason,
             "details": self.details,
+            "turn_id": self.turn_id,
+            "step_id": self.step_id,
+            "step_index": self.step_index,
         }
 
 
@@ -98,6 +104,9 @@ class UserInputTicket:
     question: str
     options: List[Dict[str, Any]]
     details: Dict[str, Any]
+    turn_id: str = ""
+    step_id: str = ""
+    step_index: int = 0
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -107,6 +116,9 @@ class UserInputTicket:
             "question": self.question,
             "options": self.options,
             "details": self.details,
+            "turn_id": self.turn_id,
+            "step_id": self.step_id,
+            "step_index": self.step_index,
         }
 
 
@@ -120,6 +132,9 @@ def _pending_interaction_payload(state: "ManagedSession") -> Optional[Dict[str, 
             "category": state.pending_permission.category,
             "reason": state.pending_permission.reason,
             "details": dict(state.pending_permission.details),
+            "turn_id": state.pending_permission.turn_id,
+            "step_id": state.pending_permission.step_id,
+            "step_index": state.pending_permission.step_index,
         }
     if state.pending_user_input is not None:
         return {
@@ -130,6 +145,9 @@ def _pending_interaction_payload(state: "ManagedSession") -> Optional[Dict[str, 
             "question": state.pending_user_input.question,
             "options": list(state.pending_user_input.options),
             "details": dict(state.pending_user_input.details),
+            "turn_id": state.pending_user_input.turn_id,
+            "step_id": state.pending_user_input.step_id,
+            "step_index": state.pending_user_input.step_index,
         }
     return None
 
@@ -142,6 +160,9 @@ class ManagedSession:
     workflow_state: str = "chat"
     active_plan_ref: str = ""
     current_command_context: str = ""
+    current_command_turn_id: str = ""
+    current_command_step_id: str = ""
+    current_command_step_index: int = 0
     summary_ref: str = ""
     updated_at: str = field(default_factory=_utc_now)
     last_error: Optional[str] = None
@@ -586,6 +607,9 @@ class InProcessAdapter(object):
                 "display_reason": _display_transition_reason(event_name),
                 "message": str(payload.get("message") or payload.get("reason") or ""),
                 "created_at": record.get("created_at", ""),
+                "turn_id": str(payload.get("turn_id") or ""),
+                "step_id": str(payload.get("step_id") or ""),
+                "step_index": int(payload.get("step_index") or 0),
                 "metadata": dict(payload),
             }
 
@@ -613,6 +637,7 @@ class InProcessAdapter(object):
                         "turn_id": payload.get("turn_id", ""),
                         "user_text": payload.get("user_text", ""),
                         "projection_kind": "step_events",
+                        "tool_calls": [],
                         "steps": [],
                         "transitions": [],
                         "status": "in_progress",
@@ -636,7 +661,7 @@ class InProcessAdapter(object):
                     current_turn["steps"].append(current_step)
                 elif event == "reasoning_delta" and current_step is not None:
                     current_step["reasoning"] += payload.get("text", "")
-                elif event in ("compact_retry", "context_compacted", "mode_changed", "permission_required", "user_input_required") and current_turn is not None:
+                elif event in ("compact_retry", "context_compacted", "mode_changed", "permission_required", "user_input_required", "command_result", "session_error") and current_turn is not None:
                     transition_item = make_transition_item(event, payload, record)
                     current_turn["transitions"].append(dict(transition_item))
                     if current_step is not None:
@@ -649,7 +674,7 @@ class InProcessAdapter(object):
                         current_turn["status"] = "waiting_user_input"
                         if current_step is not None and current_step.get("status") == "in_progress":
                             current_step["status"] = "waiting_user_input"
-                elif event == "tool_started" and current_step is not None:
+                elif event == "tool_started" and current_turn is not None:
                     call_id = payload.get("call_id") or record.get("event_id", "")
                     tool_call = {
                         "call_id": call_id,
@@ -664,9 +689,13 @@ class InProcessAdapter(object):
                         "runtime_source": payload.get("runtime_source", ""),
                         "resolved_tool_roots": payload.get("resolved_tool_roots") or {},
                     }
-                    tool_index[call_id] = len(current_step["tool_calls"])
-                    current_step["tool_calls"].append(tool_call)
-                elif event == "tool_finished" and current_step is not None:
+                    if current_step is not None:
+                        tool_index[call_id] = len(current_step["tool_calls"])
+                        current_step["tool_calls"].append(tool_call)
+                    else:
+                        tool_index[call_id] = len(current_turn["tool_calls"])
+                        current_turn["tool_calls"].append(tool_call)
+                elif event == "tool_finished" and current_turn is not None:
                     call_id = payload.get("call_id") or record.get("event_id", "")
                     idx = tool_index.get(call_id)
                     update = {
@@ -679,10 +708,22 @@ class InProcessAdapter(object):
                         "runtime_source": payload.get("runtime_source", ""),
                         "resolved_tool_roots": payload.get("resolved_tool_roots") or {},
                     }
-                    if idx is not None:
+                    if current_step is not None and idx is not None:
                         current_step["tool_calls"][idx].update(update)
-                    else:
+                    elif current_step is not None:
                         current_step["tool_calls"].append(
+                            dict(
+                                call_id=call_id,
+                                tool_name=payload.get("tool_name", ""),
+                                tool_label=payload.get("tool_label", payload.get("tool_name", "")),
+                                arguments={},
+                                **update
+                            )
+                        )
+                    elif idx is not None:
+                        current_turn["tool_calls"][idx].update(update)
+                    else:
+                        current_turn["tool_calls"].append(
                             dict(
                                 call_id=call_id,
                                 tool_name=payload.get("tool_name", ""),
@@ -739,7 +780,7 @@ class InProcessAdapter(object):
                 turns.append(current_turn)
             elif event == "reasoning_delta" and current_turn is not None:
                 current_turn["reasoning"] += payload.get("text", "")
-            elif event in ("compact_retry", "context_compacted", "mode_changed", "permission_required", "user_input_required") and current_turn is not None:
+            elif event in ("compact_retry", "context_compacted", "mode_changed", "permission_required", "user_input_required", "command_result", "session_error") and current_turn is not None:
                 current_turn["transitions"].append(make_transition_item(event, payload, record))
                 if event == "permission_required":
                     current_turn["status"] = "waiting_permission"
@@ -912,10 +953,40 @@ class InProcessAdapter(object):
         event_handler: Optional[EventHandler] = None,
     ) -> Dict[str, Any]:
         state = self._require_session(session_id)
+        parsed_command = parse_slash_command(text)
+        command_turn_id = "t-" + uuid.uuid4().hex[:12] if parsed_command is not None else ""
+        with state.lock:
+            state.current_command_turn_id = command_turn_id
+            state.current_command_step_id = ""
+            state.current_command_step_index = 0
+        if command_turn_id:
+            self._emit(event_handler, "turn_start", session_id, {"turn_id": command_turn_id, "user_text": text})
         dispatch = self._dispatch_input(state, text, event_handler, permission_resolver)
         if dispatch.get("handled") and not dispatch.get("continue_with_text"):
+            if command_turn_id:
+                self._emit(
+                    event_handler,
+                    "turn_end",
+                    session_id,
+                    {
+                        "turn_id": command_turn_id,
+                        "final_text": "",
+                        "termination_reason": "completed",
+                        "turns_used": 0,
+                        "max_turns": self.max_turns,
+                        "error": "",
+                    },
+                )
+            with state.lock:
+                state.current_command_turn_id = ""
+                state.current_command_step_id = ""
+                state.current_command_step_index = 0
             return self.get_session_snapshot(session_id)
         text_to_run = str(dispatch.get("continue_with_text") or text)
+        with state.lock:
+            state.current_command_turn_id = ""
+            state.current_command_step_id = ""
+            state.current_command_step_index = 0
         with state.lock:
             state.status = "running"
             state.last_error = None
@@ -926,6 +997,7 @@ class InProcessAdapter(object):
         payload = {
             "text": text_to_run,
             "stream": stream,
+            "turn_id": command_turn_id,
         }
         self._emit_with_snapshot(event_handler, "turn_started", state, payload)
         self._notify_status(event_handler, state)
@@ -937,11 +1009,13 @@ class InProcessAdapter(object):
                 permission_resolver,
                 user_input_resolver,
                 event_handler,
+                turn_id=command_turn_id or "",
+                emit_turn_start=not bool(command_turn_id),
             )
             return self.get_session_snapshot(session_id)
         thread = threading.Thread(
             target=self._run_turn,
-            args=(state, text_to_run, stream, permission_resolver, user_input_resolver, event_handler),
+            args=(state, text_to_run, stream, permission_resolver, user_input_resolver, event_handler, command_turn_id or "", not bool(command_turn_id)),
             name="embedagent-session-%s" % session_id[:8],
         )
         with state.lock:
@@ -1484,6 +1558,9 @@ class InProcessAdapter(object):
             arguments=dict(arguments),
             call_id="cmd-%s" % uuid.uuid4().hex[:10],
         )
+        turn_id = state.current_command_turn_id
+        step_id = state.current_command_step_id
+        step_index = state.current_command_step_index
         decision = self.permission_policy.evaluate(action)
         with state.lock:
             state.status = "running"
@@ -1495,7 +1572,13 @@ class InProcessAdapter(object):
             self._notify_status(event_handler, state)
             return Observation(tool_name=tool_name, success=False, error=decision.error or "权限拒绝该操作。", data={"error_kind": "permission_denied"})
         if decision.outcome == "ask" and decision.request is not None:
-            ticket = self._create_permission_ticket(state, decision.request)
+            ticket = self._create_permission_ticket(
+                state,
+                decision.request,
+                turn_id=turn_id,
+                step_id=step_id,
+                step_index=step_index,
+            )
             with state.lock:
                 state.status = "waiting_permission"
                 state.pending_event = threading.Event()
@@ -1503,7 +1586,12 @@ class InProcessAdapter(object):
                 event_handler,
                 "permission_required",
                 state,
-                {"permission": ticket.to_dict()},
+                {
+                    "permission": ticket.to_dict(),
+                    "turn_id": ticket.turn_id,
+                    "step_id": ticket.step_id,
+                    "step_index": ticket.step_index,
+                },
             )
             self._notify_status(event_handler, state)
             if permission_resolver is not None:
@@ -1527,6 +1615,9 @@ class InProcessAdapter(object):
             "tool_name": tool_name,
             "arguments": dict(arguments),
             "call_id": action.call_id,
+            "turn_id": turn_id,
+            "step_id": step_id,
+            "step_index": step_index,
         }
         payload.update(self._tool_event_metadata(tool_name))
         self._emit(event_handler, "tool_started", state.session.session_id, payload)
@@ -1541,6 +1632,9 @@ class InProcessAdapter(object):
                 "error": observation.error,
                 "data": observation.data,
                 "call_id": action.call_id,
+                "turn_id": turn_id,
+                "step_id": step_id,
+                "step_index": step_index,
                 **self._tool_event_metadata(tool_name),
             },
         )
@@ -1834,6 +1928,9 @@ class InProcessAdapter(object):
             "success": result.success,
             "message": result.message,
             "data": result.data,
+            "turn_id": result.turn_id or state.current_command_turn_id,
+            "step_id": result.step_id or state.current_command_step_id,
+            "step_index": result.step_index or state.current_command_step_index,
         }
         self._emit_with_snapshot(event_handler, "command_result", state, payload)
 
@@ -2003,6 +2100,8 @@ class InProcessAdapter(object):
         permission_resolver: Optional[PermissionResolver],
         user_input_resolver: Optional[UserInputResolver],
         event_handler: Optional[EventHandler],
+        turn_id: str = "",
+        emit_turn_start: bool = True,
     ) -> None:
         return self._run_turn_v2(
             state=state,
@@ -2011,6 +2110,8 @@ class InProcessAdapter(object):
             permission_resolver=permission_resolver,
             user_input_resolver=user_input_resolver,
             event_handler=event_handler,
+            turn_id=turn_id,
+            emit_turn_start=emit_turn_start,
         )
 
     def _run_turn_v2(
@@ -2023,9 +2124,11 @@ class InProcessAdapter(object):
         event_handler: Optional[EventHandler],
         interaction_resolution: Optional[Dict[str, Any]] = None,
         resume_pending: bool = False,
+        turn_id: str = "",
+        emit_turn_start: bool = True,
     ) -> None:
         session_id = state.session.session_id
-        turn_id = "t-" + uuid.uuid4().hex[:12]
+        turn_id = turn_id or ("t-" + uuid.uuid4().hex[:12])
         with state.lock:
             state.status = "running"
             state.last_error = None
@@ -2101,11 +2204,30 @@ class InProcessAdapter(object):
                 )
             if not bool(getattr(result, "compacted", False)):
                 return
-            self._emit_with_snapshot(event_handler, "context_compacted", state, {"recent_turns": getattr(getattr(result, "stats", None), "recent_turns", None), "summarized_turns": getattr(getattr(result, "stats", None), "summarized_turns", None), "approx_tokens_after": getattr(getattr(result, "budget", None), "input_tokens", None), "analysis": getattr(result, "analysis", {})})
+            self._emit_with_snapshot(
+                event_handler,
+                "context_compacted",
+                state,
+                {
+                    "turn_id": turn_id,
+                    "step_id": current_step["step_id"],
+                    "step_index": current_step["step_index"],
+                    "recent_turns": getattr(getattr(result, "stats", None), "recent_turns", None),
+                    "summarized_turns": getattr(getattr(result, "stats", None), "summarized_turns", None),
+                    "approx_tokens_after": getattr(getattr(result, "budget", None), "input_tokens", None),
+                    "analysis": getattr(result, "analysis", {}),
+                },
+            )
 
         def permission_handler(request: PermissionRequest) -> Optional[bool]:
-            ticket = self._create_permission_ticket(state, request)
-            self._emit_with_snapshot(event_handler, "permission_required", state, {"permission": ticket.to_dict(), "turn_id": turn_id, "step_id": current_step["step_id"], "step_index": current_step["step_index"]})
+            ticket = self._create_permission_ticket(
+                state,
+                request,
+                turn_id=turn_id,
+                step_id=current_step["step_id"],
+                step_index=current_step["step_index"],
+            )
+            self._emit_with_snapshot(event_handler, "permission_required", state, {"permission": ticket.to_dict(), "turn_id": ticket.turn_id, "step_id": ticket.step_id, "step_index": ticket.step_index})
             self._notify_status(event_handler, state)
             if permission_resolver is not None:
                 approved = bool(permission_resolver(ticket.to_dict()))
@@ -2116,8 +2238,14 @@ class InProcessAdapter(object):
             return None
 
         def user_input_handler(request: UserInputRequest) -> Optional[UserInputResponse]:
-            ticket = self._create_user_input_ticket(state, request)
-            self._emit_with_snapshot(event_handler, "user_input_required", state, {"user_input": ticket.to_dict(), "turn_id": turn_id, "step_id": current_step["step_id"], "step_index": current_step["step_index"]})
+            ticket = self._create_user_input_ticket(
+                state,
+                request,
+                turn_id=turn_id,
+                step_id=current_step["step_id"],
+                step_index=current_step["step_index"],
+            )
+            self._emit_with_snapshot(event_handler, "user_input_required", state, {"user_input": ticket.to_dict(), "turn_id": ticket.turn_id, "step_id": ticket.step_id, "step_index": ticket.step_index})
             self._notify_status(event_handler, state)
             if user_input_resolver is not None:
                 payload = user_input_resolver(ticket.to_dict()) or {}
@@ -2128,7 +2256,8 @@ class InProcessAdapter(object):
             return None
 
         try:
-            self._emit(event_handler, "turn_start", session_id, {"turn_id": turn_id, "user_text": text})
+            if emit_turn_start:
+                self._emit(event_handler, "turn_start", session_id, {"turn_id": turn_id, "user_text": text})
             set_thinking(True, "turn_started")
             if resume_pending:
                 result = engine.resume_pending(
@@ -2174,7 +2303,7 @@ class InProcessAdapter(object):
                 state.last_error = str(exc)
                 state.active_thread = None
                 state.updated_at = _utc_now()
-            self._emit_with_snapshot(event_handler, "session_error", state, {"error": str(exc), "phase": "loop"})
+            self._emit_with_snapshot(event_handler, "session_error", state, {"error": str(exc), "phase": "loop", "turn_id": turn_id, "step_id": current_step["step_id"], "step_index": current_step["step_index"]})
             self._notify_status(event_handler, state)
             if is_worker_thread:
                 return
@@ -2215,7 +2344,14 @@ class InProcessAdapter(object):
             state.summary_ref = summary_ref or state.summary_ref
             state.updated_at = _utc_now()
 
-    def _create_permission_ticket(self, state: ManagedSession, request: PermissionRequest) -> PermissionTicket:
+    def _create_permission_ticket(
+        self,
+        state: ManagedSession,
+        request: PermissionRequest,
+        turn_id: str = "",
+        step_id: str = "",
+        step_index: int = 0,
+    ) -> PermissionTicket:
         ticket = PermissionTicket(
             permission_id="perm_%s" % uuid.uuid4().hex[:8],
             session_id=state.session.session_id,
@@ -2223,6 +2359,9 @@ class InProcessAdapter(object):
             category=request.category,
             reason=request.reason,
             details=request.details,
+            turn_id=turn_id,
+            step_id=step_id,
+            step_index=step_index,
         )
         with state.lock:
             state.pending_permission = ticket
@@ -2230,7 +2369,14 @@ class InProcessAdapter(object):
             state.updated_at = _utc_now()
         return ticket
 
-    def _create_user_input_ticket(self, state: ManagedSession, request: UserInputRequest) -> UserInputTicket:
+    def _create_user_input_ticket(
+        self,
+        state: ManagedSession,
+        request: UserInputRequest,
+        turn_id: str = "",
+        step_id: str = "",
+        step_index: int = 0,
+    ) -> UserInputTicket:
         ticket = UserInputTicket(
             request_id="ask_%s" % uuid.uuid4().hex[:8],
             session_id=state.session.session_id,
@@ -2241,6 +2387,9 @@ class InProcessAdapter(object):
                 for item in request.options
             ],
             details=request.details,
+            turn_id=turn_id,
+            step_id=step_id,
+            step_index=step_index,
         )
         with state.lock:
             state.pending_user_input = ticket

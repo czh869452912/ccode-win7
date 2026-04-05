@@ -44,6 +44,32 @@
 
 ## 3. 当前变更记录
 
+### DC-075
+
+- 日期：2026-04-05
+- 变更主题：GUI timeline 事件锚点统一为 turn/step 契约，并把 slash/workflow 命令纳入正式 turn 生命周期
+- 变更摘要：
+  - `CommandResult`、`PermissionRequest`、`UserInputRequest` 现在统一携带 `turn_id / step_id / step_index`；pending interaction snapshot 也保留同样坐标
+  - slash/workflow 输入现在会在命令分发前预生成 `turn_id`，并为 handled-only 命令补齐 `turn_start / turn_end`；命令结果、命令侧工具执行与命令侧权限请求都会锚定到同一 turn
+  - `context_compacted` / `session_error` 的后端 emit、协议转换、WebSocket 转发、前端 reducer 与 raw replay 路径已补齐坐标，避免卡片在 Timeline 中游离或掉到底部 fallback 区
+  - `build_structured_timeline()` 与 `timelineFromTurns()` 现在显式保留并投影 turn-level `transitions` / `tool_calls`，初始加载、实时流与 reload/replay 的时间线语义开始统一
+  - `permission_request` 前端本地 `interaction.created` 追加事件已补齐 turn/step 坐标；permission / user_input 的双源结构仍保留，但结构已对齐且按 `interaction_id` 去重
+  - `ContextManager` 的 `compacted` 判定移除了 `bool(old_turns)`，常规摘要窗口不再被误判为 GUI 层面的真实 compaction
+- 影响范围：
+  - GUI Timeline / Inspector / runtime projector
+  - in-process adapter / core callback bridge / GUI backend websocket payload
+  - structured timeline bootstrap 与 raw replay 的一致性
+  - slash/workflow 命令的时间线生命周期语义
+- 关联文档：
+  - `docs/issues/GUI_timeline_turnid_binding_analysis.md`
+  - `docs/superpowers/specs/2026-04-05-gui-timeline-event-anchors-design.md`
+  - `docs/superpowers/plans/2026-04-05-gui-timeline-event-anchors.md`
+  - `docs/development-tracker.md`
+- 是否需要 ADR：`否`
+- 后续动作：
+  - 在 Win7 / 真实 GUI 宿主里继续验证 `/review`、`/run`、permission wait 与 context compact 的视觉位置是否符合预期
+  - 后续若继续推进 event-sourced runtime，可考虑让 Timeline/Inspector 最终统一只消费一套 interaction event 源，而不是本地 append + backend raw event 双轨并存
+
 ### DC-074
 
 - 日期：2026-04-05

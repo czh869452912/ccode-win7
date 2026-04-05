@@ -1045,10 +1045,20 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         event_names = [event_name for event_name, _ in events]
         self.assertIn("tool_started", event_names)
         self.assertIn("tool_finished", event_names)
+        self.assertIn("turn_start", event_names)
+        self.assertIn("turn_end", event_names)
+        turn_start = [payload for event_name, payload in events if event_name == "turn_start"][0]
+        tool_started = [payload for event_name, payload in events if event_name == "tool_started"][0]
+        tool_finished = [payload for event_name, payload in events if event_name == "tool_finished"][0]
         command_events = [payload for event_name, payload in events if event_name == "command_result"]
         self.assertEqual(command_events[0].get("command_name"), "run")
         self.assertTrue(command_events[0].get("success"))
         self.assertEqual(command_events[0].get("data", {}).get("recipe_id"), "custom.build")
+        self.assertEqual(command_events[0].get("turn_id"), turn_start.get("turn_id"))
+        self.assertEqual(tool_started.get("turn_id"), turn_start.get("turn_id"))
+        self.assertEqual(tool_finished.get("turn_id"), turn_start.get("turn_id"))
+        self.assertEqual(tool_started.get("step_id"), "")
+        self.assertEqual(tool_finished.get("step_id"), "")
 
     def test_slash_run_passes_target_and_profile_to_recipe(self):
         with open(os.path.join(self.workspace, "CMakeLists.txt"), "w", encoding="utf-8") as handle:
@@ -1182,10 +1192,17 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             permission_resolver=lambda ticket: True,
             event_handler=lambda event_name, session_id, payload: events.append((event_name, payload)),
         )
+        event_names = [event_name for event_name, _ in events]
+        self.assertIn("turn_start", event_names)
+        self.assertIn("turn_end", event_names)
+        turn_start = [payload for event_name, payload in events if event_name == "turn_start"][0]
+        turn_end = [payload for event_name, payload in events if event_name == "turn_end"][0]
         command_events = [payload for event_name, payload in events if event_name == "command_result"]
         self.assertEqual(len(command_events), 1)
         self.assertEqual(command_events[0].get("command_name"), "help")
         self.assertIn("Slash Commands", command_events[0].get("message") or "")
+        self.assertEqual(command_events[0].get("turn_id"), turn_start.get("turn_id"))
+        self.assertEqual(turn_end.get("turn_id"), turn_start.get("turn_id"))
 
     def test_slash_plan_persists_plan_snapshot(self):
         session_id = str(self.snapshot.get('session_id') or '')

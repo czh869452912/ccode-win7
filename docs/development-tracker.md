@@ -1,6 +1,6 @@
 # EmbedAgent 开发进度跟踪
 
-> 更新日期：2026-04-05（Transcript-truth tool-result cutover + review follow-up hardening）
+> 更新日期：2026-04-05（GUI timeline event-anchor unification + transcript-truth follow-up hardening）
 > 用途：持续跟踪当前阶段、下一步任务、里程碑进度、风险与阻塞
 
 ---
@@ -130,6 +130,9 @@
 - transport / restore 退化语义已补齐第一版：`ThreadsafeAsyncDispatcher` 现在会返回带 `reason` 的调度结果；`SessionRestorer` 遇到缺失可信 `interaction_id` 的 pending interaction 时会显式停在 `interaction_expired`；webapp `sessionEventLog` 已升级到 typed `replayState`
 - GUI runtime hardening 第二段已完成：timeline replay 现在显式区分 `replay / reload_required / degraded`，HTTP / WebSocket 错误边界已 typed 化；webapp projector 现在接管 replay state、command-result fallback、detached turn item 排序与 session-scoped runtime reset
 - GUI runtime hardening slice 已关闭：相关设计与实施文档已归档到 `docs/archive/gui-runtime-hardening/`
+- GUI timeline event-anchor unification 已完成：`command_result / context_compacted / session_error / permission_request / user_input_request` 现在在协议、GUI backend、前端 reducer、structured timeline 与 replay 路径上共享 `turn_id / step_id / step_index` 契约；slash/workflow 命令也已纳入正式 turn 生命周期
+- `build_structured_timeline()` 与 `timelineFromTurns()` 现已保留并投影 turn-level `transitions` / `tool_calls`，`/help`、`/review`、`/run` 这类命令结果在刷新和重放后不再掉到 session fallback 区
+- `ContextManager` 的 `compacted` 判定已收紧：常规 old-turn summary 不再单独触发 GUI `context_compacted` 卡片
 - GUI backend broadcast 已硬化：`WebSocketFrontend` 现在会在广播前冻结连接快照，并在独立锁下做 connect/disconnect/cleanup，连接集变化不再触发 `Set changed size during iteration`
 - QueryEngine session 互斥已补齐：`InProcessAdapter` 现在把 `state.lock` 传给 `QueryEngine`，后者会在上下文构建、消息追加、transition/tool_result 落盘、compact boundary 写入和 summary refresh 等关键路径上持锁，避免运行中的 session 与外部模式/快照操作共享可变 `Session` 时发生竞态
 - Phase 7 设计基线已建立：`docs/offline-packaging.md`、`docs/win7-preflight-checklist.md` 与 ADR `0001-offline-portable-bundle-baseline.md`
@@ -258,6 +261,7 @@
 | R-016 | 直接拷贝 `.venv\Lib\site-packages` 可能带来过大的 bundle 体积 | 中 | 评估更精简的运行时导出方案，再决定是否替换当前实现 |
 | R-017 | 离线 bundle 容易因未重建或直接拷贝开发 `.venv` 而把旧 GUI 布局或项目内 editable `.pth` 带进发布物 | 中 | 保持 `prepare/build/validate` 串联执行，并在 bundle 验证中强制检查 `static/assets`、Fixed Version WebView2 和无 `__editable__*.pth` |
 | R-018 | transcript-truth cutover 已完成，但后续增强若绕过单写提交边界，仍可能重新引入 projection/summary 漂移 | 低 | 继续保留 focused regression tests 覆盖 mode、timeline、pending interaction、context assembly 与 stored-path replacement；新增增强时优先复用 `ToolCommitCoordinator + ProjectionDb` 主线 |
+| R-019 | GUI interaction 事件当前仍是“backend raw event + frontend local append”双轨去重，而非单一真相源 | 中 | 当前已统一结构并按 `interaction_id` 去重；若后续继续演进 event-sourced runtime，应评估把 Timeline/Inspector 收敛到单一 interaction event 主线 |
 
 ---
 
@@ -268,6 +272,7 @@
 | 2026-04-04 | Query / Context / Context Loop 这轮重构已收口：P0 问题全部关闭，handoff/analysis/review 文档已归档到 `docs/archive/context-loop/`，活动状态以后续真实工程集成回归和 Win7 验证为准 |
 | 2026-04-04 | GUI runtime hardening 已推进完成：timeline replay / restore / typed HTTP-WS error boundary / active-session projector ownership 已收口，webapp 现已按 replay 状态和 grouped projector 读模型驱动 active session |
 | 2026-04-04 | GUI runtime hardening 相关 spec/plan 已从活动 `docs/superpowers/` 入口移入 `docs/archive/gui-runtime-hardening/`，当前该 slice 视为关闭 |
+| 2026-04-05 | GUI timeline event-anchor unification 已完成：slash/workflow 命令现在会生成正式 turn 生命周期，`command_result / context_compacted / session_error` 与 permission/user_input 交互在 live/bootstrap/replay 路径上的 turn/step 坐标已统一；定向 Python 与 webapp helper 验证已通过 |
 | 2026-03-27 | 建立进度跟踪文件，明确当前阶段与下一步优先级 |
 | 2026-03-27 | DC-004/DC-005：工具设计规范建立，实施分期重组，Phase 1 改为最小可工作 Loop |
 | 2026-03-27 | 已落地 Phase 1 最小原型代码，并完成本地语法检查、工具自测与假模型闭环验证 |

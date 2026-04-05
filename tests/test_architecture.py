@@ -23,6 +23,7 @@ from embedagent.protocol import (
     ToolCall,
     ToolResult,
     TurnRecord,
+    UserInputRequest,
     WorkspaceInfo,
 )
 
@@ -135,9 +136,45 @@ class TestProtocol(unittest.TestCase):
             success=True,
             message="ok",
             data={"items": 1},
+            turn_id="turn_1",
+            step_id="",
+            step_index=0,
         )
         self.assertEqual(result.command_name, "help")
         self.assertTrue(result.success)
+        self.assertEqual(result.turn_id, "turn_1")
+
+    def test_permission_request_keeps_anchor_fields(self):
+        req = PermissionRequest(
+            permission_id="perm_1",
+            tool_name="write_file",
+            category="file_write",
+            reason="Test",
+            session_id="sess_1",
+            turn_id="turn_1",
+            step_id="step_1",
+            step_index=1,
+        )
+        self.assertEqual(req.session_id, "sess_1")
+        self.assertEqual(req.turn_id, "turn_1")
+        self.assertEqual(req.step_id, "step_1")
+        self.assertEqual(req.step_index, 1)
+
+    def test_user_input_request_keeps_anchor_fields(self):
+        req = UserInputRequest(
+            request_id="ask_1",
+            tool_name="ask_user",
+            question="继续吗？",
+            options=[{"index": 1, "text": "继续"}],
+            session_id="sess_1",
+            turn_id="turn_1",
+            step_id="step_1",
+            step_index=1,
+        )
+        self.assertEqual(req.session_id, "sess_1")
+        self.assertEqual(req.turn_id, "turn_1")
+        self.assertEqual(req.step_id, "step_1")
+        self.assertEqual(req.step_index, 1)
 
     def test_plan_snapshot(self):
         plan = PlanSnapshot(

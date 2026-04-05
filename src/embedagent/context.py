@@ -519,7 +519,7 @@ class ContextManager(object):
             summary_message_included=summary_message is not None,
             project_memory_included=project_memory_message is not None or bool(intelligence_message),
         )
-        compacted = bool(old_turns) or bool(reduced_tool_messages) or (used_chars < chars_before)
+        compacted = bool(reduced_tool_messages) or (used_chars < chars_before)
         return ContextBuildResult(messages, used_chars, budget.input_tokens, compacted, len(old_turns), recent_turns, policy, budget, stats, summary_message=summary_text, intelligence_sections=intelligence_sections, analysis=self._analyze_context(session), replacements=replacements, pipeline_steps=["working_set", "workspace_intelligence", "tool_result_budget_replacement", "duplicate_suppression", "activity_folding", "summary/compact", "prompt_render"])
 
     def _policy_for_mode(self, mode_name: str) -> ContextPolicy:
