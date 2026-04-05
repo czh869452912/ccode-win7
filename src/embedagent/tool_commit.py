@@ -59,6 +59,7 @@ class ToolCommitCoordinator(object):
         finished_at: str = "",
     ) -> Observation:
         del current_mode
+        projection_updates = []  # type: List[Dict[str, Any]]
         with self._lock:
             data = (
                 deepcopy(raw_observation.data)
@@ -111,21 +112,25 @@ class ToolCommitCoordinator(object):
                 )
                 session.record_content_replacement(payload)
                 for item in replacements:
-                    try:
-                        preview = committed.data.get(item["field_name"] + "_preview", "")
-                        self._projection_db.upsert_tool_result_projection(
-                            session_id=session.session_id,
-                            tool_call_id=action.call_id,
-                            message_id=message_id,
-                            tool_name=action.name,
-                            field_name=item["field_name"],
-                            stored_path=item["stored_path"],
-                            preview_text=preview,
-                            byte_count=len(preview.encode("utf-8")),
-                            line_count=preview.count("\n") + (1 if preview else 0),
-                            content_kind="text",
-                            created_at=finished_at,
-                        )
-                    except Exception:
-                        pass
-            return committed
+                    preview = committed.data.get(item["field_name"] + "_preview", "")
+                    projection_updates.append(
+                        {
+                            "session_id": session.session_id,
+                            "tool_call_id": action.call_id,
+                            "message_id": message_id,
+                            "tool_name": action.name,
+                            "field_name": item["field_name"],
+                            "stored_path": item["stored_path"],
+                            "preview_text": preview,
+                            "byte_count": len(preview.encode("utf-8")),
+                            "line_count": preview.count("\n") + (1 if preview else 0),
+                            "content_kind": "text",
+                            "created_at": finished_at,
+                        }
+                    )
+        for payload in projection_updates:
+            try:
+                self._projection_db.upsert_tool_result_projection(**payload)
+            except Exception:
+                pass
+        return committed

@@ -594,7 +594,7 @@ function QualityEvidenceCard({ item, lang }) {
 }
 
 function GitEvidenceCard({ item, lang, onOpenReviewEvidence }) {
-  const hasArtifact = Boolean(item.diff_artifact_ref);
+  const hasArtifact = Boolean(item.diff_stored_path);
   const hasDiff = Boolean(item.diff_preview);
   const available = item.available !== false;
   return (
@@ -615,7 +615,7 @@ function GitEvidenceCard({ item, lang, onOpenReviewEvidence }) {
             kind: "git",
             title: t("inspector.reviewGit", lang),
             diff: item.diff_preview || "",
-            artifactRef: item.diff_artifact_ref || "",
+            artifactRef: item.diff_stored_path || "",
             content: JSON.stringify(item, null, 2),
           })}
         >

@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 import os
 import re
+import threading
+import uuid
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -26,6 +28,16 @@ def _truncate_text(text: str, limit: int) -> str:
     return text[:limit] + '...'
 
 
+def _atomic_write_json(path: str, payload: Any) -> None:
+    parent = os.path.dirname(path)
+    if parent and not os.path.isdir(parent):
+        os.makedirs(parent, exist_ok=True)
+    tmp = path + '.%s.tmp' % uuid.uuid4().hex
+    with open(tmp, 'w', encoding='utf-8') as handle:
+        json.dump(sanitize_jsonable(payload), handle, ensure_ascii=False, indent=2, sort_keys=True)
+    os.replace(tmp, path)
+
+
 class ProjectMemoryStore(object):
     def __init__(
         self,
@@ -47,6 +59,7 @@ class ProjectMemoryStore(object):
         self.max_issue_count = max_issue_count
         self.max_seen_events = max_seen_events
         self.max_resolved_issues = max_resolved_issues
+        self._lock = threading.RLock()
         self.projection_db = ProjectionDb(
             os.path.join(self.workspace, ".embedagent", "memory", "projections.sqlite3")
         )
@@ -57,34 +70,35 @@ class ProjectMemoryStore(object):
         current_mode: str,
         session_summary_ref: Optional[str] = None,
     ) -> None:
-        self._ensure_root()
-        profile = self._load_json(self.profile_path, self._bootstrap_profile())
-        recipes = self._load_json(self.recipes_path, [])
-        issues = self._load_json(self.issues_path, [])
-        index = self._load_json(self.index_path, {'processed_events': []})
-        processed_events = list(index.get('processed_events') or [])
-        processed_set = set(processed_events)
+        with self._lock:
+            self._ensure_root()
+            profile = self._load_json(self.profile_path, self._bootstrap_profile())
+            recipes = self._load_json(self.recipes_path, [])
+            issues = self._load_json(self.issues_path, [])
+            index = self._load_json(self.index_path, {'processed_events': []})
+            processed_events = list(index.get('processed_events') or [])
+            processed_set = set(processed_events)
 
-        self._update_profile(profile, session, current_mode, session_summary_ref)
-        for event_id, action_name, arguments, observation in self._iter_events(session):
-            if event_id in processed_set:
-                continue
-            self._apply_observation(recipes, issues, current_mode, action_name, arguments, observation)
-            processed_events.append(event_id)
-            processed_set.add(event_id)
+            self._update_profile(profile, session, current_mode, session_summary_ref)
+            for event_id, action_name, arguments, observation in self._iter_events(session):
+                if event_id in processed_set:
+                    continue
+                self._apply_observation(recipes, issues, current_mode, action_name, arguments, observation)
+                processed_events.append(event_id)
+                processed_set.add(event_id)
 
-        processed_events = processed_events[-self.max_seen_events :]
-        recipes = self._normalize_recipes(recipes)
-        issues = self._normalize_issues(issues)
-        index = {
-            'schema_version': 1,
-            'updated_at': _utc_now(),
-            'processed_events': processed_events,
-        }
-        self._write_json(self.profile_path, profile)
-        self._write_json(self.recipes_path, recipes)
-        self._write_json(self.issues_path, issues)
-        self._write_json(self.index_path, index)
+            processed_events = processed_events[-self.max_seen_events :]
+            recipes = self._normalize_recipes(recipes)
+            issues = self._normalize_issues(issues)
+            index = {
+                'schema_version': 1,
+                'updated_at': _utc_now(),
+                'processed_events': processed_events,
+            }
+            self._write_json(self.profile_path, profile)
+            self._write_json(self.recipes_path, recipes)
+            self._write_json(self.issues_path, issues)
+            self._write_json(self.index_path, index)
 
 
     def collect_stored_paths(self) -> List[str]:
@@ -102,17 +116,18 @@ class ProjectMemoryStore(object):
         return refs
 
     def cleanup(self) -> Dict[str, int]:
-        self._ensure_root()
-        recipes = self._load_json(self.recipes_path, [])
-        issues = self._load_json(self.issues_path, [])
-        normalized_recipes = self._normalize_recipes(recipes)
-        normalized_issues = self._cleanup_issues(issues)
-        self._write_json(self.recipes_path, normalized_recipes)
-        self._write_json(self.issues_path, normalized_issues)
-        return {
-            "recipes": len(normalized_recipes),
-            "issues": len(normalized_issues),
-        }
+        with self._lock:
+            self._ensure_root()
+            recipes = self._load_json(self.recipes_path, [])
+            issues = self._load_json(self.issues_path, [])
+            normalized_recipes = self._normalize_recipes(recipes)
+            normalized_issues = self._cleanup_issues(issues)
+            self._write_json(self.recipes_path, normalized_recipes)
+            self._write_json(self.issues_path, normalized_issues)
+            return {
+                "recipes": len(normalized_recipes),
+                "issues": len(normalized_issues),
+            }
 
     def build_system_message(self, mode_name: str, char_limit: int) -> Optional[str]:
         profile = self._load_json(self.profile_path, None)
@@ -453,8 +468,7 @@ class ProjectMemoryStore(object):
         return data
 
     def _write_json(self, path: str, data: Any) -> None:
-        with open(path, 'w', encoding='utf-8') as handle:
-            json.dump(sanitize_jsonable(data), handle, ensure_ascii=False, indent=2, sort_keys=True)
+        _atomic_write_json(path, data)
 
     def _read_requires_python(self) -> Optional[str]:
         path = os.path.join(self.workspace, 'pyproject.toml')

@@ -1260,6 +1260,8 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         git_sections = sections.get("git") or []
         self.assertGreaterEqual(len(git_sections), 1)
         self.assertIn("diff_preview", git_sections[0])
+        self.assertIn("diff_stored_path", git_sections[0])
+        self.assertNotIn("diff_artifact_ref", git_sections[0])
 
 
 if __name__ == '__main__':

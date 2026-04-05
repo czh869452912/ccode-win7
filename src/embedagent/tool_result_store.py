@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import json
+import logging
 import os
 from dataclasses import dataclass
 from typing import Any, Iterable, Optional, Set
@@ -10,6 +11,7 @@ from embedagent.persistence_sanitize import sanitize_jsonable, sanitize_text
 
 
 _PREVIEW_LIMIT = 1600
+_LOGGER = logging.getLogger(__name__)
 
 
 @dataclass
@@ -66,6 +68,16 @@ class ToolResultStore(object):
             with io.open(path, "x", encoding="utf-8", newline="") as handle:
                 handle.write(text)
         except FileExistsError:
+            try:
+                with io.open(path, "r", encoding="utf-8") as handle:
+                    existing = handle.read()
+            except OSError:
+                _LOGGER.debug("tool result already existed and could not be re-read: %s", path)
+                return
+            if existing == text:
+                _LOGGER.debug("duplicate tool result materialization ignored for %s", path)
+            else:
+                _LOGGER.debug("tool result path already exists with different content: %s", path)
             return
 
     def _build_record(

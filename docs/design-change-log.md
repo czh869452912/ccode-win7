@@ -44,6 +44,29 @@
 
 ## 3. 当前变更记录
 
+### DC-073
+
+- 日期：2026-04-05
+- 变更主题：transcript-truth cutover review follow-up 收口了投影层残留竞争与命名债务
+- 变更摘要：
+  - `SessionSummaryStore` 现在会把 session list / latest resolution 优先建立在 `ProjectionDb.session_projection` 上，不再依赖运行时写 `.embedagent/memory/sessions/index.json`
+  - `ProjectMemoryStore` 已增加实例级锁与原子 JSON 写，避免 recipes/issues/profile 在并发 refresh/cleanup 下留下损坏文件
+  - `ToolCommitCoordinator` 已把 SQLite projection refresh 移到单写锁外，继续保持 transcript 与 tool-result 文件为真相提交，同时缩短 commit 临界区
+  - review evidence 与前端 Inspector 中残留的 `diff_artifact_ref` 已统一更名为 `diff_stored_path`
+- 影响范围：
+  - session summary / latest session projection
+  - project memory 持久化稳定性
+  - tool commit 临界区长度
+  - review evidence 前后端字段契约
+- 关联文档：
+  - `docs/query-context-redesign.md`
+  - `docs/development-tracker.md`
+  - `docs/issues/2026-04-05-transcript-truth-cutover-code-review.md`
+- 是否需要 ADR：`否`
+- 后续动作：
+  - 若后续继续把 project memory 完全迁入 SQLite，可在当前锁与原子写基线上渐进替换
+  - 若 review evidence 还发现别的 `*_artifact_ref` 残留，继续按 `*_stored_path` 主线统一
+
 ### DC-072
 
 - 日期：2026-04-05

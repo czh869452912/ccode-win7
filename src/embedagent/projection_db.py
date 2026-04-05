@@ -33,8 +33,12 @@ class ProjectionDb(object):
                       session_id TEXT PRIMARY KEY,
                       updated_at TEXT NOT NULL,
                       current_mode TEXT NOT NULL,
+                      started_at TEXT,
                       turn_count INTEGER NOT NULL,
                       message_count INTEGER NOT NULL,
+                      user_goal TEXT,
+                      transcript_ref TEXT,
+                      summary_ref TEXT,
                       last_transition_reason TEXT,
                       last_transition_message TEXT,
                       summary_text TEXT
@@ -55,9 +59,37 @@ class ProjectionDb(object):
                     );
                     """
                 )
+                self._ensure_columns(
+                    connection,
+                    "session_projection",
+                    {
+                        "started_at": "TEXT",
+                        "user_goal": "TEXT",
+                        "transcript_ref": "TEXT",
+                        "summary_ref": "TEXT",
+                    },
+                )
                 connection.commit()
             finally:
                 connection.close()
+
+    def _ensure_columns(
+        self,
+        connection: sqlite3.Connection,
+        table_name: str,
+        columns: Dict[str, str],
+    ) -> None:
+        existing = set()
+        for row in connection.execute("PRAGMA table_info(%s)" % table_name).fetchall():
+            name = row["name"] if isinstance(row, sqlite3.Row) else row[1]
+            existing.add(str(name))
+        for column_name, ddl in columns.items():
+            if column_name in existing:
+                continue
+            connection.execute(
+                "ALTER TABLE %s ADD COLUMN %s %s"
+                % (table_name, column_name, ddl)
+            )
 
     def upsert_session_projection(self, **payload: Any) -> None:
         self.initialize()
@@ -67,14 +99,19 @@ class ProjectionDb(object):
                 connection.execute(
                     """
                     INSERT INTO session_projection (
-                      session_id, updated_at, current_mode, turn_count, message_count,
+                      session_id, updated_at, current_mode, started_at, turn_count, message_count,
+                      user_goal, transcript_ref, summary_ref,
                       last_transition_reason, last_transition_message, summary_text
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ON CONFLICT(session_id) DO UPDATE SET
                       updated_at=excluded.updated_at,
                       current_mode=excluded.current_mode,
+                      started_at=excluded.started_at,
                       turn_count=excluded.turn_count,
                       message_count=excluded.message_count,
+                      user_goal=excluded.user_goal,
+                      transcript_ref=excluded.transcript_ref,
+                      summary_ref=excluded.summary_ref,
                       last_transition_reason=excluded.last_transition_reason,
                       last_transition_message=excluded.last_transition_message,
                       summary_text=excluded.summary_text
@@ -83,8 +120,12 @@ class ProjectionDb(object):
                         payload["session_id"],
                         payload["updated_at"],
                         payload["current_mode"],
+                        payload.get("started_at"),
                         payload["turn_count"],
                         payload["message_count"],
+                        payload.get("user_goal"),
+                        payload.get("transcript_ref"),
+                        payload.get("summary_ref"),
                         payload.get("last_transition_reason"),
                         payload.get("last_transition_message"),
                         payload.get("summary_text"),
@@ -104,6 +145,37 @@ class ProjectionDb(object):
                     (session_id,),
                 ).fetchone()
                 return dict(row) if row is not None else None
+            finally:
+                connection.close()
+
+    def list_session_projections(self, limit: int = 10) -> List[Dict[str, Any]]:
+        self.initialize()
+        with self._lock:
+            connection = self._connect()
+            try:
+                rows = connection.execute(
+                    "SELECT * FROM session_projection ORDER BY updated_at DESC LIMIT ?",
+                    (int(limit),),
+                ).fetchall()
+                return [dict(row) for row in rows]
+            finally:
+                connection.close()
+
+    def delete_session_projections_except(self, session_ids: List[str]) -> None:
+        self.initialize()
+        with self._lock:
+            connection = self._connect()
+            try:
+                keep = [str(item) for item in session_ids or [] if str(item)]
+                if keep:
+                    placeholders = ", ".join(["?"] * len(keep))
+                    connection.execute(
+                        "DELETE FROM session_projection WHERE session_id NOT IN (%s)" % placeholders,
+                        tuple(keep),
+                    )
+                else:
+                    connection.execute("DELETE FROM session_projection")
+                connection.commit()
             finally:
                 connection.close()
 

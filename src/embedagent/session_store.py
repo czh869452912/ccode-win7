@@ -4,6 +4,8 @@ import json
 import os
 import re
 import shutil
+import threading
+import uuid
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
@@ -17,7 +19,10 @@ def _atomic_write_json(path: str, payload: Any) -> None:
     On NTFS (Windows 7) and POSIX, ``os.replace`` is atomic within the same
     filesystem, which prevents corrupt files on process crash.
     """
-    tmp = path + ".tmp"
+    parent = os.path.dirname(path)
+    if parent and not os.path.isdir(parent):
+        os.makedirs(parent, exist_ok=True)
+    tmp = path + ".%s.tmp" % uuid.uuid4().hex
     with open(tmp, "w", encoding="utf-8") as handle:
         json.dump(payload, handle, ensure_ascii=False, indent=2, sort_keys=True)
     os.replace(tmp, path)
@@ -68,13 +73,13 @@ class SessionSummaryStore(object):
         self.workspace = os.path.realpath(workspace)
         self.relative_root = relative_root.replace("\\", "/")
         self.root = os.path.join(self.workspace, *self.relative_root.split("/"))
-        self.index_path = os.path.join(self.root, "index.json")
         self.working_set_limit = working_set_limit
         self.modified_files_limit = modified_files_limit
         self.recent_actions_limit = recent_actions_limit
         self.recent_artifacts_limit = recent_artifacts_limit
         self.max_index_entries = max_index_entries
         self.max_retained_sessions = max_retained_sessions
+        self._lock = threading.RLock()
         self.projection_db = ProjectionDb(
             os.path.join(self.workspace, ".embedagent", "memory", "projections.sqlite3")
         )
@@ -87,53 +92,55 @@ class SessionSummaryStore(object):
         current_mode: str,
         context_result: Optional[Any] = None,
     ) -> str:
-        directory = os.path.join(self.root, session.session_id)
-        if not os.path.isdir(directory):
-            os.makedirs(directory)
-        summary_path = os.path.join(directory, "summary.json")
-        previous = self._read_json(summary_path)
-        payload = self._build_payload(session, current_mode, context_result)
-        if context_result is None and previous is not None:
-            for key in (
-                "context_policy",
-                "context_budget",
-                "context_stats",
-                "context_analysis",
-                "compact_summary_text",
-                "context_replacements",
-                "context_pipeline_steps",
-                "workspace_intelligence",
-            ):
-                if key in previous and key not in payload:
-                    payload[key] = previous[key]
-        _atomic_write_json(summary_path, payload)
-        summary_ref = os.path.relpath(summary_path, self.workspace).replace(os.sep, "/")
-        self.projection_db.upsert_session_projection(
-            session_id=payload.get("session_id"),
-            updated_at=payload.get("updated_at"),
-            current_mode=payload.get("current_mode"),
-            turn_count=payload.get("turn_count"),
-            message_count=payload.get("message_count"),
-            last_transition_reason=payload.get("last_transition_reason"),
-            last_transition_message=payload.get("last_transition_message"),
-            summary_text=payload.get("summary_text"),
-        )
-        self._update_index(payload, summary_ref)
-        return summary_ref
+        with self._lock:
+            directory = os.path.join(self.root, session.session_id)
+            if not os.path.isdir(directory):
+                os.makedirs(directory)
+            summary_path = os.path.join(directory, "summary.json")
+            previous = self._read_json(summary_path)
+            payload = self._build_payload(session, current_mode, context_result)
+            if context_result is None and previous is not None:
+                for key in (
+                    "context_policy",
+                    "context_budget",
+                    "context_stats",
+                    "context_analysis",
+                    "compact_summary_text",
+                    "context_replacements",
+                    "context_pipeline_steps",
+                    "workspace_intelligence",
+                ):
+                    if key in previous and key not in payload:
+                        payload[key] = previous[key]
+            _atomic_write_json(summary_path, payload)
+            summary_ref = os.path.relpath(summary_path, self.workspace).replace(os.sep, "/")
+            self.projection_db.upsert_session_projection(
+                session_id=payload.get("session_id"),
+                updated_at=payload.get("updated_at"),
+                current_mode=payload.get("current_mode"),
+                started_at=payload.get("started_at"),
+                turn_count=payload.get("turn_count"),
+                message_count=payload.get("message_count"),
+                user_goal=payload.get("user_goal"),
+                transcript_ref=payload.get("transcript_ref"),
+                summary_ref=summary_ref,
+                last_transition_reason=payload.get("last_transition_reason"),
+                last_transition_message=payload.get("last_transition_message"),
+                summary_text=payload.get("summary_text"),
+            )
+            return summary_ref
 
     def list_summaries(self, limit: int = 10) -> List[Dict[str, Any]]:
-        index = self._read_json(self.index_path)
-        items = []
-        if isinstance(index, dict):
-            items = index.get("sessions") or []
-        if not items:
-            items = self._scan_summaries()
-        normalized = []
-        for item in items[:limit]:
-            if not isinstance(item, dict):
-                continue
-            normalized.append(item)
-        return normalized
+        with self._lock:
+            items = self.projection_db.list_session_projections(limit=limit)
+            if not items:
+                items = self._scan_summaries()
+            normalized = []
+            for item in items[:limit]:
+                if not isinstance(item, dict):
+                    continue
+                normalized.append(dict(item))
+            return normalized
 
 
     def collect_stored_paths(self, limit_sessions: Optional[int] = None) -> List[str]:
@@ -149,42 +156,35 @@ class SessionSummaryStore(object):
         return refs
 
     def cleanup(self, max_sessions: Optional[int] = None) -> Dict[str, int]:
-        keep_count = max_sessions or self.max_retained_sessions
-        summaries = self.list_summaries(limit=self.max_index_entries)
-        keep = []
-        keep_ids = set()
-        for item in summaries:
-            if not isinstance(item, dict):
-                continue
-            session_id = item.get("session_id")
-            if not session_id or session_id in keep_ids:
-                continue
-            if len(keep) < keep_count:
-                keep.append(item)
-                keep_ids.add(session_id)
-        deleted = 0
-        if os.path.isdir(self.root):
-            for name in os.listdir(self.root):
-                candidate = os.path.join(self.root, name)
-                if name == "index.json" or not os.path.isdir(candidate):
+        with self._lock:
+            keep_count = max_sessions or self.max_retained_sessions
+            summaries = self.list_summaries(limit=self.max_index_entries)
+            keep = []
+            keep_ids = set()
+            for item in summaries:
+                if not isinstance(item, dict):
                     continue
-                if name in keep_ids:
+                session_id = item.get("session_id")
+                if not session_id or session_id in keep_ids:
                     continue
-                try:
-                    shutil.rmtree(candidate)
-                    deleted += 1
-                except OSError:
-                    pass
-        payload = {
-            "schema_version": 1,
-            "updated_at": _utc_now(),
-            "sessions": keep,
-        }
-        directory = os.path.dirname(self.index_path)
-        if not os.path.isdir(directory):
-            os.makedirs(directory)
-        _atomic_write_json(self.index_path, sanitize_jsonable(payload))
-        return {"kept": len(keep), "deleted": deleted}
+                if len(keep) < keep_count:
+                    keep.append(item)
+                    keep_ids.add(session_id)
+            deleted = 0
+            if os.path.isdir(self.root):
+                for name in os.listdir(self.root):
+                    candidate = os.path.join(self.root, name)
+                    if name == "index.json" or not os.path.isdir(candidate):
+                        continue
+                    if name in keep_ids:
+                        continue
+                    try:
+                        shutil.rmtree(candidate)
+                        deleted += 1
+                    except OSError:
+                        pass
+            self.projection_db.delete_session_projections_except(sorted(keep_ids))
+            return {"kept": len(keep), "deleted": deleted}
 
     def load_summary(self, reference: str) -> Dict[str, Any]:
         summary_path = self.resolve_summary_path(reference)
@@ -296,34 +296,6 @@ class SessionSummaryStore(object):
         except Exception:
             return None
         return data if isinstance(data, dict) else None
-
-    def _update_index(self, payload: Dict[str, Any], summary_ref: str) -> None:
-        directory = os.path.dirname(self.index_path)
-        if not os.path.isdir(directory):
-            os.makedirs(directory)
-        index = self._read_json(self.index_path) or {}
-        sessions = index.get("sessions") if isinstance(index.get("sessions"), list) else []
-        record = {
-            "session_id": payload.get("session_id"),
-            "started_at": payload.get("started_at"),
-            "updated_at": payload.get("updated_at"),
-            "current_mode": payload.get("current_mode"),
-            "turn_count": payload.get("turn_count"),
-            "message_count": payload.get("message_count"),
-            "user_goal": payload.get("user_goal"),
-            "summary_text": payload.get("summary_text"),
-            "transcript_ref": payload.get("transcript_ref"),
-            "summary_ref": summary_ref,
-        }
-        updated = [item for item in sessions if item.get("session_id") != record["session_id"]]
-        updated.append(record)
-        updated.sort(key=lambda item: item.get("updated_at") or "", reverse=True)
-        payload = {
-            "schema_version": 1,
-            "updated_at": _utc_now(),
-            "sessions": updated[: self.max_index_entries],
-        }
-        _atomic_write_json(self.index_path, sanitize_jsonable(payload))
 
     def _scan_summaries(self) -> List[Dict[str, Any]]:
         if not os.path.isdir(self.root):

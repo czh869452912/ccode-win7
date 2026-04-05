@@ -1589,7 +1589,7 @@ class InProcessAdapter(object):
                 "file_count": diff_file_count,
                 "line_count": int(diff_data.get("line_count") or 0),
                 "diff_preview": str(diff_data.get("diff") or ""),
-                "diff_artifact_ref": str(diff_data.get("diff_artifact_ref") or ""),
+                "diff_stored_path": str(diff_data.get("diff_stored_path") or ""),
                 "diff_char_count": int(diff_data.get("diff_char_count") or 0),
             }
         )

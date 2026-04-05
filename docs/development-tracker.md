@@ -1,6 +1,6 @@
 # EmbedAgent 开发进度跟踪
 
-> 更新日期：2026-04-05（Transcript-truth tool-result cutover + single-writer commit + SQLite projection cutover）
+> 更新日期：2026-04-05（Transcript-truth tool-result cutover + review follow-up hardening）
 > 用途：持续跟踪当前阶段、下一步任务、里程碑进度、风险与阻塞
 
 ---
@@ -66,6 +66,7 @@
 - Phase 5A 上下文预算器已接入：按 mode 分配预算并为输出/推理预留空间
 - Phase 5A ReducerRegistry 已落地：不同工具按类型裁剪 Observation，并返回 ContextStats / BudgetEstimate
 - transcript-truth tool-result cutover 已落地：`ArtifactStore` 与共享 `artifacts/index.json` 已从运行时热路径移除，长文本结果现在由 `ToolCommitCoordinator` 串行落到 `.embedagent/memory/sessions/<session_id>/tool-results/<tool_call_id>/...`，Observation 使用 `*_stored_path`
+- cutover review follow-up 已收口：`SessionSummaryStore` 的 session list 已优先走 SQLite projection，`ProjectMemoryStore` 已补实例级锁与原子写，review/git evidence 里的 `diff_artifact_ref` 残留已清理为 `diff_stored_path`
 - Phase 5C Session Summary Store 已落地：会话关键状态会持久化到 `.embedagent/memory/sessions/<session_id>/summary.json`
 - Phase 5D Project Memory Store 已落地：项目级 profile / recipe / known issue 已可落盘并注入上下文
 - Phase 5E Resume Entry 已落地：CLI 已支持 `--list-sessions` 与 `--resume <session_id|latest|summary.json>`
