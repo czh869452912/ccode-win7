@@ -66,9 +66,9 @@ class QueryEngine(object):
         self.context_manager = context_manager or ContextManager(project_memory=self.project_memory_store)
         self.summary_store = summary_store or SessionSummaryStore(self.tools.workspace)
         self.memory_maintenance = memory_maintenance or MemoryMaintenance(
-            artifact_store=self.tools.artifact_store,
             summary_store=self.summary_store,
             project_memory_store=self.project_memory_store,
+            tool_result_store=self.tools.tool_result_store,
         )
         self.maintenance_interval = maintenance_interval if maintenance_interval > 0 else 1
         self.intelligence_broker = intelligence_broker or WorkspaceIntelligenceBroker()

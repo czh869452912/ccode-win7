@@ -160,15 +160,17 @@ class ToolResultStore(object):
         kept = 0
         if not os.path.isdir(self.root):
             return {"kept": kept, "deleted": deleted}
-        for current_root, _, file_names in os.walk(self.root):
-            for file_name in file_names:
-                if file_name == "transcript.jsonl":
-                    continue
-                absolute = os.path.join(current_root, file_name)
-                relative = os.path.relpath(absolute, self.workspace).replace(os.sep, "/")
-                if relative in normalized_active:
-                    kept += 1
-                    continue
-                os.remove(absolute)
-                deleted += 1
+        for session_name in os.listdir(self.root):
+            tool_results_root = os.path.join(self.root, session_name, "tool-results")
+            if not os.path.isdir(tool_results_root):
+                continue
+            for current_root, _, file_names in os.walk(tool_results_root):
+                for file_name in file_names:
+                    absolute = os.path.join(current_root, file_name)
+                    relative = os.path.relpath(absolute, self.workspace).replace(os.sep, "/")
+                    if relative in normalized_active:
+                        kept += 1
+                        continue
+                    os.remove(absolute)
+                    deleted += 1
         return {"kept": kept, "deleted": deleted}

@@ -271,7 +271,25 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         os.makedirs(os.path.join(self.workspace, '.embedagent'))
         with open(os.path.join(self.workspace, '.embedagent', 'todos.json'), 'w', encoding='utf-8') as handle:
             json.dump([{'id': 1, 'content': 'demo', 'done': False}], handle)
-        self.tools.artifact_store.write_text('run_command', 'stdout', 'hello artifact')
+        stored = self.tools.tool_result_store.write_text(
+            session_id="session-artifacts",
+            tool_call_id="call-artifact-1",
+            field_name="stdout",
+            text="hello artifact",
+        )
+        self.tools.projection_db.upsert_tool_result_projection(
+            session_id="session-artifacts",
+            tool_call_id="call-artifact-1",
+            message_id="m-artifact-1",
+            tool_name="run_command",
+            field_name="stdout",
+            stored_path=stored.relative_path,
+            preview_text=stored.preview_text,
+            byte_count=stored.byte_count,
+            line_count=stored.line_count,
+            content_kind=stored.content_kind,
+            created_at="2026-04-05T00:00:00Z",
+        )
         self.snapshot = self.adapter.create_session('code')
 
     def tearDown(self):

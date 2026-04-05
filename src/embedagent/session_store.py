@@ -7,6 +7,9 @@ import shutil
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
+from embedagent.persistence_sanitize import sanitize_jsonable
+from embedagent.projection_db import ProjectionDb
+from embedagent.tool_result_store import ToolResultStore
 
 def _atomic_write_json(path: str, payload: Any) -> None:
     """Write *payload* to *path* atomically (write temp, rename).
@@ -18,8 +21,6 @@ def _atomic_write_json(path: str, payload: Any) -> None:
     with open(tmp, "w", encoding="utf-8") as handle:
         json.dump(payload, handle, ensure_ascii=False, indent=2, sort_keys=True)
     os.replace(tmp, path)
-
-from embedagent.artifacts import ArtifactStore
 from embedagent.modes import build_system_prompt
 from embedagent.session import Action, Observation, Session
 from embedagent.transcript_store import TranscriptStore
@@ -74,7 +75,10 @@ class SessionSummaryStore(object):
         self.recent_artifacts_limit = recent_artifacts_limit
         self.max_index_entries = max_index_entries
         self.max_retained_sessions = max_retained_sessions
-        self.sanitizer = ArtifactStore(self.workspace)
+        self.projection_db = ProjectionDb(
+            os.path.join(self.workspace, ".embedagent", "memory", "projections.sqlite3")
+        )
+        self.tool_result_store = ToolResultStore(self.workspace)
         self.transcript_store = TranscriptStore(self.workspace, relative_root=self.relative_root)
 
     def persist(
@@ -104,6 +108,16 @@ class SessionSummaryStore(object):
                     payload[key] = previous[key]
         _atomic_write_json(summary_path, payload)
         summary_ref = os.path.relpath(summary_path, self.workspace).replace(os.sep, "/")
+        self.projection_db.upsert_session_projection(
+            session_id=payload.get("session_id"),
+            updated_at=payload.get("updated_at"),
+            current_mode=payload.get("current_mode"),
+            turn_count=payload.get("turn_count"),
+            message_count=payload.get("message_count"),
+            last_transition_reason=payload.get("last_transition_reason"),
+            last_transition_message=payload.get("last_transition_message"),
+            summary_text=payload.get("summary_text"),
+        )
         self._update_index(payload, summary_ref)
         return summary_ref
 
@@ -122,7 +136,7 @@ class SessionSummaryStore(object):
         return normalized
 
 
-    def collect_artifact_refs(self, limit_sessions: Optional[int] = None) -> List[str]:
+    def collect_stored_paths(self, limit_sessions: Optional[int] = None) -> List[str]:
         refs = []
         seen = set()
         summaries = self.list_summaries(limit=limit_sessions or self.max_retained_sessions)
@@ -131,8 +145,11 @@ class SessionSummaryStore(object):
             if not summary_ref:
                 continue
             payload = self.load_summary(str(summary_ref))
-            refs.extend(self._artifact_refs_from_summary(payload, seen))
+            refs.extend(self._stored_paths_from_summary(payload, seen))
         return refs
+
+    def collect_artifact_refs(self, limit_sessions: Optional[int] = None) -> List[str]:
+        return self.collect_stored_paths(limit_sessions=limit_sessions)
 
     def cleanup(self, max_sessions: Optional[int] = None) -> Dict[str, int]:
         keep_count = max_sessions or self.max_retained_sessions
@@ -169,7 +186,7 @@ class SessionSummaryStore(object):
         directory = os.path.dirname(self.index_path)
         if not os.path.isdir(directory):
             os.makedirs(directory)
-        _atomic_write_json(self.index_path, self.sanitizer.sanitize_jsonable(payload))
+        _atomic_write_json(self.index_path, sanitize_jsonable(payload))
         return {"kept": len(keep), "deleted": deleted}
 
     def load_summary(self, reference: str) -> Dict[str, Any]:
@@ -309,7 +326,7 @@ class SessionSummaryStore(object):
             "updated_at": _utc_now(),
             "sessions": updated[: self.max_index_entries],
         }
-        _atomic_write_json(self.index_path, self.sanitizer.sanitize_jsonable(payload))
+        _atomic_write_json(self.index_path, sanitize_jsonable(payload))
 
     def _scan_summaries(self) -> List[Dict[str, Any]]:
         if not os.path.isdir(self.root):
@@ -340,7 +357,7 @@ class SessionSummaryStore(object):
         return records
 
 
-    def _artifact_refs_from_summary(self, payload: Dict[str, Any], seen: set) -> List[str]:
+    def _stored_paths_from_summary(self, payload: Dict[str, Any], seen: set) -> List[str]:
         refs = []
         for item in payload.get("recent_artifacts") or []:
             if not isinstance(item, dict):
@@ -354,7 +371,7 @@ class SessionSummaryStore(object):
             snapshot = payload.get(key)
             if not isinstance(snapshot, dict):
                 continue
-            for path in snapshot.get("artifact_refs") or []:
+            for path in (snapshot.get("stored_refs") or snapshot.get("artifact_refs") or []):
                 if not path or path in seen:
                     continue
                 seen.add(path)
@@ -402,7 +419,7 @@ class SessionSummaryStore(object):
         if context_payload:
             payload.update(context_payload)
         payload["summary_text"] = self._build_summary_text(payload)
-        return self.sanitizer.sanitize_jsonable(payload)
+        return sanitize_jsonable(payload)
 
     def _context_payload(self, context_result: Optional[Any]) -> Dict[str, Any]:
         if context_result is None:
@@ -459,7 +476,7 @@ class SessionSummaryStore(object):
             payload["context_pipeline_steps"] = [str(item) for item in pipeline_steps[:12]]
         intelligence_sections = getattr(context_result, "intelligence_sections", None)
         if isinstance(intelligence_sections, list) and intelligence_sections:
-            payload["workspace_intelligence"] = self.sanitizer.sanitize_jsonable(intelligence_sections[:8])
+            payload["workspace_intelligence"] = sanitize_jsonable(intelligence_sections[:8])
         return payload
 
     def _build_summary_text(self, payload: Dict[str, Any]) -> str:
@@ -648,12 +665,12 @@ class SessionSummaryStore(object):
             if not isinstance(observation.data, dict):
                 continue
             for key, value in observation.data.items():
-                if not key.endswith("_artifact_ref") or not value:
+                if not key.endswith("_stored_path") or not value:
                     continue
                 artifacts.append(
                     {
                         "tool_name": observation.tool_name,
-                        "field": key[:-13],
+                        "field": key[:-12],
                         "path": value,
                     }
                 )
@@ -700,10 +717,10 @@ class SessionSummaryStore(object):
                     snapshot[key] = observation.data[key]
             artifacts = []
             for key, value in observation.data.items():
-                if key.endswith("_artifact_ref") and value:
+                if key.endswith("_stored_path") and value:
                     artifacts.append(value)
             if artifacts:
-                snapshot["artifact_refs"] = artifacts[:4]
+                snapshot["stored_refs"] = artifacts[:4]
         return snapshot
 
     def _paths_from_observation(self, observation: Observation) -> List[str]:

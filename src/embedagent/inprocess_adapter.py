@@ -186,9 +186,9 @@ class InProcessAdapter(object):
         self.project_memory_store = project_memory_store or ProjectMemoryStore(self.tools.workspace)
         self.context_manager = context_manager or ContextManager(project_memory=self.project_memory_store)
         self.memory_maintenance = memory_maintenance or MemoryMaintenance(
-            artifact_store=self.tools.artifact_store,
             summary_store=self.summary_store,
             project_memory_store=self.project_memory_store,
+            tool_result_store=self.tools.tool_result_store,
         )
         self.maintenance_interval = maintenance_interval if maintenance_interval > 0 else 1
         self.event_handler = event_handler
@@ -815,10 +815,28 @@ class InProcessAdapter(object):
         }
 
     def list_artifacts(self, limit: int = 20) -> List[Dict[str, Any]]:
-        return self.tools.artifact_store.list_artifacts(limit=limit)
+        items = self.tools.projection_db.list_tool_results(limit=limit)
+        result = []
+        for item in items:
+            result.append(
+                {
+                    "path": item["stored_path"],
+                    "tool_name": item["tool_name"],
+                    "field_name": item["field_name"],
+                    "created_at": item["created_at"],
+                    "preview_text": item["preview_text"],
+                    "byte_count": item["byte_count"],
+                    "kind": item["content_kind"],
+                }
+            )
+        return result
 
     def read_artifact(self, reference: str) -> Dict[str, Any]:
-        return self.tools.artifact_store.read_artifact(reference)
+        absolute_path = self.tools.tool_result_store.resolve_existing_path(reference)
+        with open(absolute_path, "r", encoding="utf-8") as handle:
+            content = handle.read()
+        kind = "json" if absolute_path.lower().endswith(".json") else "text"
+        return {"path": reference, "kind": kind, "content": content}
 
     def list_todos(self, session_id: str = "") -> Dict[str, Any]:
         todos = todo_store.load_todos(self.tools.workspace, session_id=session_id)

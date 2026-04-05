@@ -6,7 +6,8 @@ import re
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
-from embedagent.artifacts import ArtifactStore
+from embedagent.persistence_sanitize import sanitize_jsonable
+from embedagent.projection_db import ProjectionDb
 from embedagent.session import Observation, Session
 
 
@@ -46,7 +47,9 @@ class ProjectMemoryStore(object):
         self.max_issue_count = max_issue_count
         self.max_seen_events = max_seen_events
         self.max_resolved_issues = max_resolved_issues
-        self.sanitizer = ArtifactStore(self.workspace)
+        self.projection_db = ProjectionDb(
+            os.path.join(self.workspace, ".embedagent", "memory", "projections.sqlite3")
+        )
 
     def refresh(
         self,
@@ -84,19 +87,22 @@ class ProjectMemoryStore(object):
         self._write_json(self.index_path, index)
 
 
-    def collect_artifact_refs(self) -> List[str]:
+    def collect_stored_paths(self) -> List[str]:
         issues = self._load_json(self.issues_path, [])
         refs = []
         seen = set()
         for item in issues:
             if not isinstance(item, dict):
                 continue
-            for path in item.get("artifact_refs") or []:
+            for path in item.get("stored_refs") or item.get("artifact_refs") or []:
                 if not path or path in seen:
                     continue
                 seen.add(path)
                 refs.append(path)
         return refs
+
+    def collect_artifact_refs(self) -> List[str]:
+        return self.collect_stored_paths()
 
     def cleanup(self) -> Dict[str, int]:
         self._ensure_root()
@@ -287,7 +293,7 @@ class ProjectMemoryStore(object):
             'count': 1,
             'first_seen_at': now,
             'last_seen_at': now,
-            'artifact_refs': self._artifact_refs(observation),
+            'stored_refs': self._stored_refs(observation),
         }
         issues.append(issue)
 
@@ -430,12 +436,12 @@ class ProjectMemoryStore(object):
             return None
         return observation.data.get('command')
 
-    def _artifact_refs(self, observation: Observation) -> List[str]:
+    def _stored_refs(self, observation: Observation) -> List[str]:
         if not isinstance(observation.data, dict):
             return []
         refs = []
         for key, value in observation.data.items():
-            if key.endswith('_artifact_ref') and value:
+            if key.endswith('_stored_path') and value:
                 refs.append(value)
         return refs[:4]
 
@@ -451,7 +457,7 @@ class ProjectMemoryStore(object):
 
     def _write_json(self, path: str, data: Any) -> None:
         with open(path, 'w', encoding='utf-8') as handle:
-            json.dump(self.sanitizer.sanitize_jsonable(data), handle, ensure_ascii=False, indent=2, sort_keys=True)
+            json.dump(sanitize_jsonable(data), handle, ensure_ascii=False, indent=2, sort_keys=True)
 
     def _read_requires_python(self) -> Optional[str]:
         path = os.path.join(self.workspace, 'pyproject.toml')
