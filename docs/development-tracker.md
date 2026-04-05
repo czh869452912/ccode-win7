@@ -282,6 +282,7 @@
 | 2026-04-05 | GUI timeline event-anchor 相关设计/计划/分析文档已归档到 `docs/archive/gui-timeline-event-anchors/`；同时 `.venv\\Scripts\\python.exe -m unittest discover -s tests -v` 已在本轮收尾时全量通过 |
 | 2026-04-05 | GUI bundle runtime discovery 缺陷已修复：bundle 根目录识别已统一收口到 `runtime_discovery.py`，`ToolContext`/GUI launcher/`check-bundle-dependencies.py` 已共享强签名规则；`embedagent-gui.cmd` 与 `prepare-offline.ps1` 已补 `EMBEDAGENT_BUNDLE_ROOT` 并对齐 PATH，`validate-offline-bundle.ps1` 也新增了 launcher contract 校验 |
 | 2026-04-06 | 直连离线打包链已补齐 GUI 静态资产门：`prepare-offline.ps1` 现在会确保 KaTeX 等前端资源存在，`build-offline-bundle.ps1` 会拒绝复制残缺 staging；重建后的 `build-offline-dist/embedagent-win7-x64` 已重新通过 `validate-offline-bundle -RequireComplete`、`check-bundle-dependencies.py` 与 bundle 级 `validate-gui-smoke.py` |
+| 2026-04-06 | `gui-bundled-runtime-discovery-failure` 问题分析文档已迁入 `docs/archive/issues/`，当前该问题视为关闭并退出活动 issue 入口 |
 | 2026-03-27 | 建立进度跟踪文件，明确当前阶段与下一步优先级 |
 | 2026-03-27 | DC-004/DC-005：工具设计规范建立，实施分期重组，Phase 1 改为最小可工作 Loop |
 | 2026-03-27 | 已落地 Phase 1 最小原型代码，并完成本地语法检查、工具自测与假模型闭环验证 |

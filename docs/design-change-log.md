@@ -44,6 +44,25 @@
 
 ## 3. 当前变更记录
 
+### DC-079
+
+- 日期：2026-04-06
+- 变更主题：GUI bundled runtime discovery 问题分析文档已归档
+- 变更摘要：
+  - `docs/issues/gui-bundled-runtime-discovery-failure.md` 已迁入 `docs/archive/issues/`
+  - 当前该问题已随 bundle runtime discovery 与 GUI 资产门禁修复一起关闭，不再保留在活动 issue 入口
+  - 活跃事实来源收敛为 tracker / change-log / 已合并实现；问题分析文档仅保留为历史追踪材料
+- 影响范围：
+  - 活动问题入口整洁度
+  - bundle runtime discovery 缺陷的关闭状态
+- 关联文档：
+  - `docs/archive/issues/README.md`
+  - `docs/archive/issues/gui-bundled-runtime-discovery-failure.md`
+  - `docs/development-tracker.md`
+- 是否需要 ADR：`否`
+- 后续动作：
+  - 后续若再发现 GUI bundle/runtime 相关缺陷，使用新的 issue 文档而不是复用这份已归档分析
+
 ### DC-078
 
 - 日期：2026-04-06
@@ -81,7 +100,7 @@
   - Tool Runtime 托管工具发现与 PATH 构造
   - Phase 7 bundle 验证脚本的缺陷检出能力
 - 关联文档：
-  - `docs/issues/gui-bundled-runtime-discovery-failure.md`
+  - `docs/archive/issues/gui-bundled-runtime-discovery-failure.md`
   - `docs/development-tracker.md`
   - `src/embedagent/runtime_discovery.py`
   - `scripts/validate-offline-bundle.ps1`
