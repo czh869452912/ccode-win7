@@ -44,6 +44,25 @@
 
 ## 3. 当前变更记录
 
+### DC-074
+
+- 日期：2026-04-05
+- 变更主题：transcript-truth tool-result cutover 文档已归档
+- 变更摘要：
+  - transcript-truth cutover 的设计稿、实施计划、影响分析与代码审阅结论已迁入 `docs/archive/transcript-truth-tool-result-cutover/`
+  - 当前仓库不再把这轮 cutover 的 spec/plan 留在活动 `docs/superpowers/` 入口，也不再把相关分析材料留在活动 issue 入口
+  - 这轮工作当前的活跃事实来源收敛为 tracker / change-log / redesign 文档与已合并实现，而不是继续保留执行期文档作为待办入口
+- 影响范围：
+  - 文档入口与活动工作区整洁度
+  - transcript-truth cutover slice 的关闭状态
+- 关联文档：
+  - `docs/archive/transcript-truth-tool-result-cutover/README.md`
+  - `docs/development-tracker.md`
+  - `docs/query-context-redesign.md`
+- 是否需要 ADR：`否`
+- 后续动作：
+  - 后续若继续扩展 tool-result 外置或 projection 存储，应开启新的独立 spec/plan，而不是复用这轮归档文档
+
 ### DC-073
 
 - 日期：2026-04-05
@@ -61,7 +80,7 @@
 - 关联文档：
   - `docs/query-context-redesign.md`
   - `docs/development-tracker.md`
-  - `docs/issues/2026-04-05-transcript-truth-cutover-code-review.md`
+  - `docs/archive/transcript-truth-tool-result-cutover/2026-04-05-transcript-truth-cutover-code-review.md`
 - 是否需要 ADR：`否`
 - 后续动作：
   - 若后续继续把 project memory 完全迁入 SQLite，可在当前锁与原子写基线上渐进替换
@@ -85,7 +104,7 @@
   - `docs/query-context-redesign.md`
   - `docs/tool-contracts.md`
   - `docs/development-tracker.md`
-  - `docs/superpowers/specs/2026-04-05-transcript-truth-tool-result-cutover-design.md`
+  - `docs/archive/transcript-truth-tool-result-cutover/2026-04-05-transcript-truth-tool-result-cutover-design.md`
 - 是否需要 ADR：`否`
 - 后续动作：
   - 在真实 GUI / Win7 路径上继续复查 `/artifacts`、resume 与 review evidence 的投影行为

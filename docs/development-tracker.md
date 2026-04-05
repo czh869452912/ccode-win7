@@ -67,6 +67,7 @@
 - Phase 5A ReducerRegistry 已落地：不同工具按类型裁剪 Observation，并返回 ContextStats / BudgetEstimate
 - transcript-truth tool-result cutover 已落地：`ArtifactStore` 与共享 `artifacts/index.json` 已从运行时热路径移除，长文本结果现在由 `ToolCommitCoordinator` 串行落到 `.embedagent/memory/sessions/<session_id>/tool-results/<tool_call_id>/...`，Observation 使用 `*_stored_path`
 - cutover review follow-up 已收口：`SessionSummaryStore` 的 session list 已优先走 SQLite projection，`ProjectMemoryStore` 已补实例级锁与原子写，review/git evidence 里的 `diff_artifact_ref` 残留已清理为 `diff_stored_path`
+- transcript-truth cutover 相关设计/计划/分析/复核文档已归档到 `docs/archive/transcript-truth-tool-result-cutover/`，当前这轮 slice 已关闭
 - Phase 5C Session Summary Store 已落地：会话关键状态会持久化到 `.embedagent/memory/sessions/<session_id>/summary.json`
 - Phase 5D Project Memory Store 已落地：项目级 profile / recipe / known issue 已可落盘并注入上下文
 - Phase 5E Resume Entry 已落地：CLI 已支持 `--list-sessions` 与 `--resume <session_id|latest|summary.json>`
@@ -216,7 +217,7 @@
 | T-024 | 零依赖打包：内网部署文档 | `completed` | 已新增 `docs/intranet-deployment.md` 和 `docs/offline-packaging-guide.md`，提供完整内网部署指南 |
 | T-025 | 零依赖打包：内网配置模板 | `completed` | 已新增 `config/config.json.template`，预配置内网大模型服务示例 |
 | T-027 | Phase 7 打包控制面收口 | `in_progress` | `scripts/package.ps1`、`scripts/package.config.json`、`scripts/package-lib.ps1` 与 `tests/test_packaging_control_plane.py` 已打通 `doctor/deps/assemble/verify/release` mocked orchestration；下一步是完成文档迁移并在真实 bundle 路径上验收 |
-| T-028 | Query / Context 内核重构切片 | `completed` | 已落地 `QueryEngine`、transcript/event 模型、workspace intelligence broker、tool capability metadata、batch tool orchestration、pending interaction resume、`transcript_store.py`、`session_restore.py`、transcript-truth resume、`parent_message_id` 因果链、timeline `seq` 顺序、parallel tool timeout/cancel 收口、single-writer tool commit、session-local tool-result store、SQLite projection cutover，以及 websocket/session-lock 竞态硬化；当前这一轮 context loop 迭代已关闭，handoff/analysis/review 文档已归档到 `docs/archive/context-loop/` |
+| T-028 | Query / Context 内核重构切片 | `completed` | 已落地 `QueryEngine`、transcript/event 模型、workspace intelligence broker、tool capability metadata、batch tool orchestration、pending interaction resume、`transcript_store.py`、`session_restore.py`、transcript-truth resume、`parent_message_id` 因果链、timeline `seq` 顺序、parallel tool timeout/cancel 收口、single-writer tool commit、session-local tool-result store、SQLite projection cutover，以及 websocket/session-lock 竞态硬化；相关 transcript-truth cutover 设计/计划/分析/复核文档已归档到 `docs/archive/transcript-truth-tool-result-cutover/` |
 
 ---
 
