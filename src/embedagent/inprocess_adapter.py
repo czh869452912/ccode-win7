@@ -258,34 +258,13 @@ class InProcessAdapter(object):
         mode: str = "",
         event_handler: Optional[EventHandler] = None,
     ) -> Dict[str, Any]:
-        summary = None
-        try:
-            summary = self.summary_store.load_summary(reference)
-        except ValueError:
-            summary = None
         transcript_path = self.summary_store.resolve_transcript_path(reference)
-        events = []
-        transcript_missing = False
-        try:
-            events = self.transcript_store.load_events(transcript_path)
-        except ValueError:
-            transcript_missing = True
-        if transcript_missing:
-            session = Session()
-            session.session_id = str(reference or "")
-            restored = SessionRestoreResult(
-                session=session,
-                current_mode=str((summary or {}).get("current_mode") or DEFAULT_MODE),
-                transcript_event_count=0,
-                consumed_event_count=0,
-                stop_reason="transcript_missing",
-            )
-        else:
-            restored = self.session_restorer.restore(events)
+        events = self.transcript_store.load_events(transcript_path)
+        restored = self.session_restorer.restore(events)
         current_mode = require_mode(
             mode
             or restored.current_mode
-            or str((summary or {}).get("current_mode") or DEFAULT_MODE)
+            or DEFAULT_MODE
         )["slug"]
         session = restored.session
         todo_store.ensure_session_todos(
@@ -297,13 +276,13 @@ class InProcessAdapter(object):
         try:
             summary_ref = self.summary_store.persist(session, current_mode)
         except Exception:
-            summary_ref = str((summary or {}).get("summary_ref") or "")
+            summary_ref = ""
         state = ManagedSession(
             session=session,
             current_mode=current_mode,
             summary_ref=summary_ref,
-            updated_at=str((summary or {}).get("updated_at") or _utc_now()),
-            resume_summary=summary,
+            updated_at=_utc_now(),
+            resume_summary=None,
             last_assistant_message=self._last_assistant_from_session(session),
             restore_stop_reason=str(restored.stop_reason or ""),
             restore_consumed_event_count=int(restored.consumed_event_count or 0),

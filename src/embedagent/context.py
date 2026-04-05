@@ -632,8 +632,20 @@ class ContextManager(object):
         replacement_index = {}
         for item in getattr(session, "content_replacements", []) or []:
             message_id = str(item.get("message_id") or "")
-            if message_id:
-                replacement_index[message_id] = dict(item)
+            if not message_id:
+                continue
+            texts = []
+            if isinstance(item.get("replacements"), list):
+                for replacement in item.get("replacements") or []:
+                    text = str((replacement or {}).get("replacement_text") or "").strip()
+                    if text:
+                        texts.append(text)
+            else:
+                text = str(item.get("replacement_text") or "").strip()
+                if text:
+                    texts.append(text)
+            if texts:
+                replacement_index[message_id] = texts
 
         def flush_activity() -> None:
             parts = []
@@ -670,9 +682,15 @@ class ContextManager(object):
                 restored_replacement = replacement_index.get(message.message_id)
                 if restored_replacement is not None:
                     reduced_tool_messages += 1
-                    replacements.append(dict(restored_replacement))
-                    replacement_text = str(restored_replacement.get("replacement_text") or "").strip()
-                    if replacement_text:
+                    for replacement_text in restored_replacement:
+                        replacements.append(
+                            {
+                                "tool_name": str(message.name or ""),
+                                "message_id": message.message_id,
+                                "tool_call_id": message.tool_call_id,
+                                "replacement_text": replacement_text,
+                            }
+                        )
                         result.append({"role": "system", "content": replacement_text})
                     continue
                 reduced_tool_messages += 1

@@ -1145,6 +1145,47 @@ class TestQueryEngineRefactor(unittest.TestCase):
         event_types = [item["type"] for item in events]
         self.assertIn("context_snapshot", event_types)
 
+    def test_context_manager_uses_persisted_replacement_text_without_regeneration(self):
+        session = Session()
+        session.add_user_message("show file", turn_id="t-1", message_id="m-1")
+        session.begin_step(step_id="s-1")
+        session.record_content_replacement(
+            {
+                "message_id": "m-tool",
+                "tool_call_id": "call-1",
+                "tool_name": "read_file",
+                "replacements": [
+                    {
+                        "field_name": "content",
+                        "stored_path": ".embedagent/memory/sessions/s/tool-results/call-1/content.txt",
+                        "replacement_text": "PERSISTED REPLACEMENT TEXT",
+                    }
+                ],
+            }
+        )
+        session.messages.append(
+            session.messages[-1].__class__(
+                role="tool",
+                content='{"success": true, "error": null, "data": {"path": "src/demo.c", "content_stored_path": ".embedagent/memory/sessions/s/tool-results/call-1/content.txt"}}',
+                name="read_file",
+                tool_call_id="call-1",
+                message_id="m-tool",
+                turn_id="t-1",
+                step_id="s-1",
+                kind="tool_result",
+                replaced_by_refs=[".embedagent/memory/sessions/s/tool-results/call-1/content.txt"],
+            )
+        )
+        session.turns[-1].message_end_index = len(session.messages) - 1
+        rendered = ContextManager().build_messages(
+            session,
+            "code",
+            tools=self.tools,
+            workflow_state="chat",
+            intelligence_broker=WorkspaceIntelligenceBroker(),
+        ).messages
+        self.assertIn("PERSISTED REPLACEMENT TEXT", json.dumps(rendered, ensure_ascii=False))
+
     def test_restored_session_reuses_persisted_content_replacements(self):
         transcript_store = TranscriptStore(self.workspace)
         session_id = "sess-replacements"
@@ -1171,8 +1212,13 @@ class TestQueryEngineRefactor(unittest.TestCase):
                 "message_id": "m-tool",
                 "tool_call_id": "call-read-1",
                 "tool_name": "read_file",
-                "replacement_text": "Tool result replaced: read_file src/demo.c -> .embedagent/memory/artifacts/demo.json",
-                "artifact_refs": [".embedagent/memory/artifacts/demo.json"],
+                "replacements": [
+                    {
+                        "field_name": "content",
+                        "stored_path": ".embedagent/memory/sessions/sess-replacements/tool-results/call-read-1/content.txt",
+                        "replacement_text": "Tool result replaced: read_file src/demo.c -> .embedagent/memory/sessions/sess-replacements/tool-results/call-read-1/content.txt",
+                    }
+                ],
             },
         )
         restored = SessionRestorer().restore(transcript_store.load_events(session_id))
@@ -1184,7 +1230,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
             intelligence_broker=WorkspaceIntelligenceBroker(),
         )
         rendered = "\n".join(str(item.get("content") or "") for item in result.messages)
-        self.assertIn("Tool result replaced: read_file src/demo.c -> .embedagent/memory/artifacts/demo.json", rendered)
+        self.assertIn("Tool result replaced: read_file src/demo.c -> .embedagent/memory/sessions/sess-replacements/tool-results/call-read-1/content.txt", rendered)
 
     def test_query_engine_bootstrap_persists_existing_content_replacements(self):
         session = Session()

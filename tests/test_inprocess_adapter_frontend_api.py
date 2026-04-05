@@ -938,7 +938,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertEqual(payload["status"], "reload_required")
         self.assertGreater(payload["first_seq"], 1)
 
-    def test_resume_session_reports_transcript_missing_as_degraded_restore(self):
+    def test_resume_session_requires_transcript(self):
         adapter = InProcessAdapter(
             client=ToolClient(),
             tools=self.tools,
@@ -957,9 +957,8 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         transcript_path = adapter.summary_store.resolve_transcript_path(session_id)
         if os.path.isfile(transcript_path):
             os.remove(transcript_path)
-        restored = adapter.resume_session(session_id, 'code')
-        self.assertEqual(restored["restore_stop_reason"], "transcript_missing")
-        self.assertEqual(restored["timeline_replay_status"], "degraded")
+        with self.assertRaises(ValueError):
+            adapter.resume_session(session_id, 'code')
 
     def test_cancel_session_emits_interrupted_tool_result_when_tool_started(self):
         adapter = InProcessAdapter(
