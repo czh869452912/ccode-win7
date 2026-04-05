@@ -366,6 +366,37 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertEqual([batch.parallel for batch in batches], [True, False, True])
         self.assertEqual([len(batch.actions) for batch in batches], [2, 1, 1])
 
+    def test_read_file_execution_returns_raw_observation_without_stored_path(self):
+        result = self.tools.execute("read_file", {"path": "src/demo.c"})
+        self.assertTrue(result.success)
+        self.assertIn("content", result.data)
+        self.assertNotIn("content_stored_path", result.data)
+
+    def test_projection_failure_does_not_flip_tool_success(self):
+        transcript_store = TranscriptStore(self.workspace)
+        self.tools.projection_db.upsert_tool_result_projection = (
+            lambda **_: (_ for _ in ()).throw(RuntimeError("db down"))
+        )
+        engine = QueryEngine(
+            client=ToolClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(
+                auto_approve_all=True,
+                workspace=self.workspace,
+            ),
+            transcript_store=transcript_store,
+        )
+        session = Session()
+        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：code")
+        result = engine.submit_turn(
+            user_text="读取文件",
+            stream=False,
+            initial_mode="code",
+            session=session,
+        )
+        self.assertEqual(result.transition.reason, "completed")
+        self.assertTrue(result.session.turns[-1].observations[-1].success)
+
     def test_context_manager_exposes_intelligence_and_boundary(self):
         session = Session()
         session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：code")

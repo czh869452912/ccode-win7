@@ -12,7 +12,6 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
-from embedagent.artifacts import ArtifactStore
 from embedagent.session import Observation
 from embedagent.workspace_recipes import list_workspace_recipes, resolve_workspace_recipe
 
@@ -99,9 +98,8 @@ class ToolDefinition:
 class ToolContext(object):
     """Shared workspace helpers injected into every tool module via build_tools(ctx)."""
 
-    def __init__(self, workspace: str, artifact_store: ArtifactStore, app_config: Any = None) -> None:
+    def __init__(self, workspace: str, app_config: Any = None) -> None:
         self.workspace = workspace
-        self.artifact_store = artifact_store
         self.app_config = app_config
         self._thread_local = threading.local()
 
@@ -198,7 +196,7 @@ class ToolContext(object):
     def preview_text(self, text: str, limit: int) -> str:
         if len(text) <= limit:
             return text
-        return text[:limit] + "\n...[artifact preview truncated]"
+        return text[:limit] + "\n...[stored preview truncated]"
 
     # -------------------------------------------------------- file iteration
 
@@ -219,70 +217,6 @@ class ToolContext(object):
                 collected.append(absolute_path)
         collected.sort()
         return collected
-
-    # ------------------------------------------------------- output shrinking
-
-    def shrink_text_field(
-        self,
-        tool_name: str,
-        data: Dict[str, Any],
-        field_name: str,
-        inline_limit: int,
-    ) -> None:
-        value = data.get(field_name)
-        if not isinstance(value, str):
-            return
-        sanitized = self.artifact_store.sanitize_text(value)
-        data[field_name + "_char_count"] = len(sanitized)
-        if len(sanitized) <= inline_limit:
-            data[field_name] = sanitized
-            return
-        data[field_name] = self.preview_text(sanitized, inline_limit)
-        data[field_name + "_artifact_ref"] = self.artifact_store.write_text(
-            tool_name,
-            field_name,
-            sanitized,
-            metadata={"char_count": len(sanitized)},
-        )
-
-    def shrink_list_field(
-        self,
-        tool_name: str,
-        data: Dict[str, Any],
-        field_name: str,
-        inline_items: int,
-    ) -> None:
-        value = data.get(field_name)
-        if not isinstance(value, list):
-            return
-        sanitized = self.artifact_store.sanitize_jsonable(value)
-        serialized = json.dumps(sanitized, ensure_ascii=False)
-        if len(sanitized) <= inline_items and len(serialized) <= MAX_INLINE_LIST_CHARS:
-            data[field_name] = sanitized
-            return
-        data[field_name] = sanitized[:inline_items]
-        data[field_name + "_item_count"] = len(sanitized)
-        data[field_name + "_artifact_ref"] = self.artifact_store.write_json(
-            tool_name,
-            field_name,
-            sanitized,
-            metadata={"item_count": len(sanitized)},
-        )
-
-    def shrink_observation(self, observation: Observation) -> Observation:
-        if not isinstance(observation.data, dict):
-            return observation
-        data = dict(observation.data)
-        self.shrink_text_field(observation.tool_name, data, "content", MAX_INLINE_ARTIFACT_TEXT_CHARS)
-        self.shrink_text_field(observation.tool_name, data, "stdout", MAX_INLINE_COMMAND_PREVIEW_CHARS)
-        self.shrink_text_field(observation.tool_name, data, "stderr", MAX_INLINE_COMMAND_PREVIEW_CHARS)
-        self.shrink_text_field(observation.tool_name, data, "diff", MAX_INLINE_COMMAND_PREVIEW_CHARS)
-        self.shrink_list_field(observation.tool_name, data, "diagnostics", MAX_INLINE_LIST_ITEMS)
-        self.shrink_list_field(observation.tool_name, data, "files", MAX_INLINE_LIST_ITEMS)
-        self.shrink_list_field(observation.tool_name, data, "matches", MAX_INLINE_LIST_ITEMS)
-        self.shrink_list_field(observation.tool_name, data, "entries", MAX_INLINE_LIST_ITEMS)
-        observation.data = data
-        return observation
 
     # --------------------------------------------------- process execution
 

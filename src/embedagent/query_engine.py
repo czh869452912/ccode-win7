@@ -20,6 +20,7 @@ from embedagent.session import Action, AssistantReply, ContextAssemblyResult, Lo
 from embedagent.session_store import SessionSummaryStore
 from embedagent.transcript_store import TranscriptStore
 from embedagent.tool_execution import StreamingToolExecutor, partition_tool_actions
+from embedagent.tool_commit import ToolCommitCoordinator
 from embedagent.tools import ToolRuntime
 from embedagent.tools._base import ToolError
 from embedagent.workspace_intelligence import WorkspaceIntelligenceBroker
@@ -74,6 +75,11 @@ class QueryEngine(object):
         self.max_parallel_tools = max(1, int(max_parallel_tools or 1))
         self.transcript_store = transcript_store or TranscriptStore(self.tools.workspace)
         self.session_lock = session_lock
+        self.tool_commit = ToolCommitCoordinator(
+            self.tools.tool_result_store,
+            self.tools.projection_db,
+            self.transcript_store,
+        )
         self._maintenance_counter = 0
 
     def _session_guard(self):
@@ -227,37 +233,36 @@ class QueryEngine(object):
         assembly: ContextAssemblyResult,
         step_id: str,
         on_tool_finish: Optional[Callable[[Action, Observation], None]],
-    ) -> None:
+    ) -> Observation:
         with self._session_guard():
             tool_message_id = "m-" + uuid.uuid4().hex[:12]
             parent_message_id = session.last_message_id()
             finished_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-            self._append_transcript_event(
+            turn_id = session.turns[-1].turn_id if session.turns else ""
+            committed = self.tool_commit.commit(
                 session,
-                "tool_result",
-                {
-                    "turn_id": session.turns[-1].turn_id if session.turns else "",
-                    "step_id": step_id,
-                    "call_id": action.call_id,
-                    "tool_name": action.name,
-                    "message_id": tool_message_id,
-                    "parent_message_id": parent_message_id,
-                    "finished_at": finished_at,
-                    "observation": observation.to_dict(),
-                },
+                action,
+                observation,
+                current_mode,
+                turn_id=turn_id,
+                step_id=step_id,
+                message_id=tool_message_id,
+                parent_message_id=parent_message_id,
+                finished_at=finished_at,
             )
             session.add_observation(
                 action,
-                observation,
+                committed,
                 message_id=tool_message_id,
                 parent_message_id=parent_message_id,
-                turn_id=session.turns[-1].turn_id if session.turns else "",
+                turn_id=turn_id,
                 step_id=step_id,
                 finished_at=finished_at,
             )
         self._persist_summary(session, current_mode, assembly)
         if on_tool_finish is not None:
-            on_tool_finish(action, observation)
+            on_tool_finish(action, committed)
+        return committed
 
     def submit_turn(
         self,

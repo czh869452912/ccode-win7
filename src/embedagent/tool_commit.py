@@ -52,6 +52,11 @@ class ToolCommitCoordinator(object):
         action,
         raw_observation: Observation,
         current_mode: str,
+        turn_id: str = "",
+        step_id: str = "",
+        message_id: str = "",
+        parent_message_id: str = "",
+        finished_at: str = "",
     ) -> Observation:
         del current_mode
         with self._lock:
@@ -77,24 +82,24 @@ class ToolCommitCoordinator(object):
                     )
                     if item is not None:
                         replacements.append(item)
-            finished_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+            finished_at = finished_at or time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
             self._transcript_store.append_event(
                 session.session_id,
                 "tool_result",
                 {
-                    "turn_id": session.turns[-1].turn_id if session.turns else "",
-                    "step_id": session.current_step().step_id
-                    if session.current_step() is not None
-                    else "",
+                    "turn_id": turn_id or (session.turns[-1].turn_id if session.turns else ""),
+                    "step_id": step_id or (session.current_step().step_id if session.current_step() is not None else ""),
                     "call_id": action.call_id,
                     "tool_name": action.name,
+                    "message_id": message_id,
+                    "parent_message_id": parent_message_id,
                     "finished_at": finished_at,
                     "observation": committed.to_dict(),
                 },
             )
             if replacements:
                 payload = {
-                    "message_id": "",
+                    "message_id": message_id,
                     "tool_call_id": action.call_id,
                     "tool_name": action.name,
                     "replacements": replacements,
@@ -111,7 +116,7 @@ class ToolCommitCoordinator(object):
                         self._projection_db.upsert_tool_result_projection(
                             session_id=session.session_id,
                             tool_call_id=action.call_id,
-                            message_id="",
+                            message_id=message_id,
                             tool_name=action.name,
                             field_name=item["field_name"],
                             stored_path=item["stored_path"],

@@ -5,6 +5,8 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
 from embedagent.artifacts import ArtifactStore
+from embedagent.projection_db import ProjectionDb
+from embedagent.tool_result_store import ToolResultStore
 from embedagent.modes import allowed_tools_for
 from embedagent.session import Observation
 from embedagent.tools import build_ops, file_ops, git_ops, shell_ops, todo_ops
@@ -315,7 +317,11 @@ class ToolRuntime(object):
     def __init__(self, workspace: str, app_config=None) -> None:
         self.workspace = os.path.realpath(workspace)
         artifact_store = ArtifactStore(self.workspace)
-        self._ctx = ToolContext(self.workspace, artifact_store, app_config=app_config)
+        self.tool_result_store = ToolResultStore(self.workspace)
+        self.projection_db = ProjectionDb(
+            os.path.join(self.workspace, ".embedagent", "memory", "projections.sqlite3")
+        )
+        self._ctx = ToolContext(self.workspace, app_config=app_config)
         self.artifact_store = artifact_store  # exposed for external consumers (e.g. InProcessAdapter)
         self.app_config = app_config  # Optional AppConfig; used by loop for path write checking
         all_tools = (
@@ -413,7 +419,7 @@ class ToolRuntime(object):
             if not isinstance(arguments, dict):
                 raise ToolError("工具参数必须是对象。")
             self._ctx.set_interrupt_event(stop_event)
-            observation = self._ctx.shrink_observation(tool.handler(arguments))
+            observation = tool.handler(arguments)
         except ToolError as exc:
             return Observation(
                 tool_name=name,
