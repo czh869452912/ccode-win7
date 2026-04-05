@@ -44,6 +44,25 @@
 
 ## 3. 当前变更记录
 
+### DC-076
+
+- 日期：2026-04-05
+- 变更主题：GUI timeline event-anchor 文档已归档
+- 变更摘要：
+  - 本轮 `GUI timeline event-anchor unification` 的设计稿、实施计划与问题分析文档已迁入 `docs/archive/gui-timeline-event-anchors/`
+  - 当前仓库不再把这轮 GUI timeline/event-anchor 的 spec/plan 保留在活动 `docs/superpowers/` 入口，也不再把对应问题分析留在活动 `docs/issues/` 入口
+  - 当前这轮工作的活跃事实来源收敛为 tracker / change-log / frontend protocol 与已合并实现
+- 影响范围：
+  - 文档入口与活动工作区整洁度
+  - GUI timeline event-anchor slice 的关闭状态
+- 关联文档：
+  - `docs/archive/gui-timeline-event-anchors/README.md`
+  - `docs/development-tracker.md`
+  - `docs/frontend-protocol.md`
+- 是否需要 ADR：`否`
+- 后续动作：
+  - 后续若继续推进 GUI timeline/runtime 的独立增强，应新开独立 spec/plan，而不是复用这轮已归档文档
+
 ### DC-075
 
 - 日期：2026-04-05
@@ -61,9 +80,9 @@
   - structured timeline bootstrap 与 raw replay 的一致性
   - slash/workflow 命令的时间线生命周期语义
 - 关联文档：
-  - `docs/issues/GUI_timeline_turnid_binding_analysis.md`
-  - `docs/superpowers/specs/2026-04-05-gui-timeline-event-anchors-design.md`
-  - `docs/superpowers/plans/2026-04-05-gui-timeline-event-anchors.md`
+  - `docs/archive/gui-timeline-event-anchors/GUI_timeline_turnid_binding_analysis.md`
+  - `docs/archive/gui-timeline-event-anchors/2026-04-05-gui-timeline-event-anchors-design.md`
+  - `docs/archive/gui-timeline-event-anchors/2026-04-05-gui-timeline-event-anchors.md`
   - `docs/development-tracker.md`
 - 是否需要 ADR：`否`
 - 后续动作：

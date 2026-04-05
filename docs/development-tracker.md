@@ -133,6 +133,7 @@
 - GUI timeline event-anchor unification 已完成：`command_result / context_compacted / session_error / permission_request / user_input_request` 现在在协议、GUI backend、前端 reducer、structured timeline 与 replay 路径上共享 `turn_id / step_id / step_index` 契约；slash/workflow 命令也已纳入正式 turn 生命周期
 - `build_structured_timeline()` 与 `timelineFromTurns()` 现已保留并投影 turn-level `transitions` / `tool_calls`，`/help`、`/review`、`/run` 这类命令结果在刷新和重放后不再掉到 session fallback 区
 - `ContextManager` 的 `compacted` 判定已收紧：常规 old-turn summary 不再单独触发 GUI `context_compacted` 卡片
+- GUI timeline event-anchor 相关 spec/plan/analysis 已归档到 `docs/archive/gui-timeline-event-anchors/`，当前这轮 slice 视为关闭
 - GUI backend broadcast 已硬化：`WebSocketFrontend` 现在会在广播前冻结连接快照，并在独立锁下做 connect/disconnect/cleanup，连接集变化不再触发 `Set changed size during iteration`
 - QueryEngine session 互斥已补齐：`InProcessAdapter` 现在把 `state.lock` 传给 `QueryEngine`，后者会在上下文构建、消息追加、transition/tool_result 落盘、compact boundary 写入和 summary refresh 等关键路径上持锁，避免运行中的 session 与外部模式/快照操作共享可变 `Session` 时发生竞态
 - Phase 7 设计基线已建立：`docs/offline-packaging.md`、`docs/win7-preflight-checklist.md` 与 ADR `0001-offline-portable-bundle-baseline.md`
@@ -273,6 +274,7 @@
 | 2026-04-04 | GUI runtime hardening 已推进完成：timeline replay / restore / typed HTTP-WS error boundary / active-session projector ownership 已收口，webapp 现已按 replay 状态和 grouped projector 读模型驱动 active session |
 | 2026-04-04 | GUI runtime hardening 相关 spec/plan 已从活动 `docs/superpowers/` 入口移入 `docs/archive/gui-runtime-hardening/`，当前该 slice 视为关闭 |
 | 2026-04-05 | GUI timeline event-anchor unification 已完成：slash/workflow 命令现在会生成正式 turn 生命周期，`command_result / context_compacted / session_error` 与 permission/user_input 交互在 live/bootstrap/replay 路径上的 turn/step 坐标已统一；定向 Python 与 webapp helper 验证已通过 |
+| 2026-04-05 | GUI timeline event-anchor 相关设计/计划/分析文档已归档到 `docs/archive/gui-timeline-event-anchors/`；同时 `.venv\\Scripts\\python.exe -m unittest discover -s tests -v` 已在本轮收尾时全量通过 |
 | 2026-03-27 | 建立进度跟踪文件，明确当前阶段与下一步优先级 |
 | 2026-03-27 | DC-004/DC-005：工具设计规范建立，实施分期重组，Phase 1 改为最小可工作 Loop |
 | 2026-03-27 | 已落地 Phase 1 最小原型代码，并完成本地语法检查、工具自测与假模型闭环验证 |
