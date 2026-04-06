@@ -942,6 +942,57 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertEqual(restored["restore_consumed_event_count"], 4)
         self.assertEqual(restored["restore_transcript_event_count"], 5)
 
+    def test_new_turn_clears_restore_stop_reason_before_fresh_ask_user(self):
+        adapter = InProcessAdapter(
+            client=AskUserClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+        )
+        session_id = "sess-expired-resume"
+        adapter.transcript_store.append_event(session_id, "session_meta", {"current_mode": "spec"})
+        adapter.transcript_store.append_event(
+            session_id,
+            "message",
+            {"role": "user", "content": "继续", "message_id": "m-user", "turn_id": "t-1", "step_id": ""},
+        )
+        adapter.transcript_store.append_event(
+            session_id,
+            "step_started",
+            {"turn_id": "t-1", "step_id": "s-1", "step_index": 1},
+        )
+        adapter.transcript_store.append_event(
+            session_id,
+            "pending_interaction",
+            {
+                "turn_id": "t-1",
+                "step_id": "s-1",
+                "kind": "user_input",
+                "tool_name": "ask_user",
+                "interaction_id": "",
+                "request_payload": {"question": "旧问题"},
+            },
+        )
+
+        restored = adapter.resume_session(session_id, 'spec')
+        self.assertEqual(restored["restore_stop_reason"], "interaction_expired")
+
+        adapter.submit_user_message(
+            session_id=session_id,
+            text='请继续',
+            stream=False,
+            wait=True,
+            permission_resolver=lambda ticket: True,
+            user_input_resolver=lambda ticket: {
+                "answer": "切到 debug 模式继续排查",
+                "selected_index": 1,
+                "selected_mode": "debug",
+                "selected_option_text": "切到 debug 模式继续排查",
+            },
+            event_handler=lambda event_name, current_session_id, payload: None,
+        )
+        refreshed = adapter.get_session_snapshot(session_id)
+        self.assertEqual(refreshed["restore_stop_reason"], "")
+
     def test_load_session_events_after_returns_reload_required_when_after_seq_falls_before_retained_window(self):
         self.adapter.timeline_store.max_events = 3
         session_id = str(self.snapshot.get('session_id') or '')
@@ -1153,6 +1204,55 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         final_snapshot = adapter.get_session_snapshot(str(snapshot.get('session_id') or ''))
         self.assertEqual(final_snapshot["current_mode"], "debug")
         self.assertIn("user_input_required", events)
+
+    def test_respond_to_interaction_emits_ask_user_tool_finish_and_completes_pending(self):
+        adapter = InProcessAdapter(
+            client=AskUserClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+        )
+        snapshot = adapter.create_session('spec')
+        session_id = str(snapshot.get('session_id') or '')
+        events = []
+        adapter.event_handler = lambda event_name, current_session_id, payload: events.append((event_name, payload))
+
+        adapter.submit_user_message(
+            session_id=session_id,
+            text='请继续',
+            stream=False,
+            wait=True,
+            permission_resolver=lambda ticket: True,
+            event_handler=lambda event_name, current_session_id, payload: events.append((event_name, payload)),
+        )
+        waiting = adapter.get_session_snapshot(session_id)
+        interaction_id = str((waiting.get("pending_interaction") or {}).get("interaction_id") or "")
+        self.assertEqual(waiting["status"], "waiting_user_input")
+        self.assertTrue(interaction_id)
+
+        adapter.respond_to_interaction(
+            session_id,
+            interaction_id,
+            {
+                "response_kind": "answer",
+                "answer": "切到 debug 模式继续排查",
+                "selected_index": 1,
+                "selected_mode": "debug",
+                "selected_option_text": "切到 debug 模式继续排查",
+            },
+        )
+
+        tool_finished = [
+            payload for event_name, payload in events
+            if event_name == "tool_finished" and payload.get("tool_name") == "ask_user"
+        ]
+        self.assertGreaterEqual(len(tool_finished), 1)
+        self.assertEqual(tool_finished[-1].get("call_id"), "call-ask")
+        self.assertEqual((tool_finished[-1].get("data") or {}).get("selected_mode"), "debug")
+
+        final_snapshot = adapter.get_session_snapshot(session_id)
+        self.assertEqual(final_snapshot["status"], "idle")
+        self.assertFalse(final_snapshot["pending_interaction_valid"])
+        self.assertEqual(final_snapshot["current_mode"], "debug")
 
     def test_explore_mode_with_switch_mode_intent(self):
         """Test that explore mode (fallback for removed orchestra) handles switch_mode intent.

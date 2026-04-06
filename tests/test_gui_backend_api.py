@@ -135,6 +135,71 @@ class TestGuiBackendApi(unittest.TestCase):
             )
         self.assertEqual(response["interaction_id"], "int-1")
 
+    def test_post_interaction_response_resolves_frontend_pending_input_before_core_fallback(self):
+        from embedagent.frontend.gui.backend.bridge import BlockingResult
+
+        with tempfile.TemporaryDirectory() as static_dir:
+            with open(os.path.join(static_dir, "index.html"), "w", encoding="utf-8") as handle:
+                handle.write("<html><body>ok</body></html>")
+            core = _SnapshotCore("")
+            backend = GUIBackend(core, static_dir=static_dir)
+            backend.frontend._pending_inputs["int-1"] = BlockingResult(None)
+            route = None
+            for item in backend.app.routes:
+                if (
+                    getattr(item, "path", "") == "/api/sessions/{session_id}/interactions/{interaction_id}/respond"
+                    and "POST" in getattr(item, "methods", set())
+                ):
+                    route = item
+                    break
+            self.assertIsNotNone(route)
+            response = asyncio.run(
+                route.endpoint(
+                    "sess-1",
+                    "int-1",
+                    {
+                        "response_kind": "answer",
+                        "answer": "继续",
+                        "selected_option_text": "继续",
+                    },
+                )
+            )
+        self.assertEqual(core.respond_calls, [])
+        self.assertEqual(response["interaction_id"], "int-1")
+        self.assertEqual(response["status"], "resolved")
+
+    def test_post_interaction_response_resolves_frontend_pending_permission_before_core_fallback(self):
+        from embedagent.frontend.gui.backend.bridge import BlockingResult
+
+        with tempfile.TemporaryDirectory() as static_dir:
+            with open(os.path.join(static_dir, "index.html"), "w", encoding="utf-8") as handle:
+                handle.write("<html><body>ok</body></html>")
+            core = _SnapshotCore("")
+            backend = GUIBackend(core, static_dir=static_dir)
+            backend.frontend._pending_permissions["perm-1"] = BlockingResult(False)
+            route = None
+            for item in backend.app.routes:
+                if (
+                    getattr(item, "path", "") == "/api/sessions/{session_id}/interactions/{interaction_id}/respond"
+                    and "POST" in getattr(item, "methods", set())
+                ):
+                    route = item
+                    break
+            self.assertIsNotNone(route)
+            response = asyncio.run(
+                route.endpoint(
+                    "sess-1",
+                    "perm-1",
+                    {
+                        "response_kind": "approve",
+                        "decision": True,
+                    },
+                )
+            )
+        self.assertEqual(core.respond_calls, [])
+        self.assertEqual(response["interaction_id"], "perm-1")
+        self.assertEqual(response["status"], "resolved")
+
     def test_get_session_events_replays_only_entries_after_seq(self):
         with tempfile.TemporaryDirectory() as static_dir:
             with open(os.path.join(static_dir, "index.html"), "w", encoding="utf-8") as handle:

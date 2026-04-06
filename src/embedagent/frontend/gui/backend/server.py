@@ -7,6 +7,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import threading
+import time
 from contextlib import asynccontextmanager
 from typing import Any, Dict, Optional, Set
 
@@ -412,6 +413,8 @@ class WebSocketFrontend(FrontendCallbacks):
             waiter = self._pending_permissions.get(permission_id)
         if waiter is not None:
             waiter.resolve(bool(approved))
+            return True
+        return False
     
     def handle_user_input_response(self, request_id: str, payload: Dict[str, Any]):
         """处理用户输入响应"""
@@ -419,6 +422,16 @@ class WebSocketFrontend(FrontendCallbacks):
             waiter = self._pending_inputs.get(request_id)
         if waiter is not None:
             waiter.resolve(dict(payload))
+            return True
+        return False
+
+    def resolve_interaction_response(self, interaction_id: str, payload: Dict[str, Any]) -> bool:
+        decision = bool((payload or {}).get("decision", False))
+        if self.handle_permission_response(interaction_id, decision):
+            return True
+        if self.handle_user_input_response(interaction_id, dict(payload or {})):
+            return True
+        return False
 
 
 class GUIBackend:
@@ -439,6 +452,18 @@ class GUIBackend:
             return func(*args, **kwargs)
         except ValueError as exc:
             raise _translate_value_error(exc)
+
+    def _wait_for_interaction_resolution(self, session_id: str, interaction_id: str, timeout_seconds: float = 2.0):
+        deadline = time.time() + max(timeout_seconds, 0.0)
+        latest = None
+        while time.time() < deadline:
+            latest = self._call_core(self.core.get_session_snapshot, session_id)
+            pending = _to_mapping(_read_value(latest, "pending_interaction"))
+            pending_id = str((pending or {}).get("interaction_id") or "").strip()
+            if not pending_id or pending_id != str(interaction_id or "").strip():
+                return latest
+            time.sleep(0.02)
+        return latest if latest is not None else self._call_core(self.core.get_session_snapshot, session_id)
     
     def _create_app(self) -> FastAPI:
         @asynccontextmanager
@@ -501,7 +526,29 @@ class GUIBackend:
         @app.post("/api/sessions/{session_id}/interactions/{interaction_id}/respond")
         async def respond_to_interaction(session_id: str, interaction_id: str, request: Dict[str, Any]):
             self._current_session_id = session_id
+            if self.frontend.resolve_interaction_response(interaction_id, request):
+                if bool(request.get("decision")) and bool(request.get("remember")):
+                    category = str(request.get("category") or "").strip()
+                    if category:
+                        remember_method = getattr(self.core, "remember_permission_category", None)
+                        if callable(remember_method):
+                            self._call_core(remember_method, session_id, category)
+                snapshot = self._wait_for_interaction_resolution(session_id, interaction_id)
+                return _serialize_interaction_response(
+                    {
+                        "session_id": session_id,
+                        "interaction_id": interaction_id,
+                        "status": "resolved",
+                        "snapshot": snapshot,
+                    }
+                )
             response = self._call_core(self.core.respond_to_interaction, session_id, interaction_id, request)
+            if bool(request.get("decision")) and bool(request.get("remember")):
+                category = str(request.get("category") or "").strip()
+                if category:
+                    remember_method = getattr(self.core, "remember_permission_category", None)
+                    if callable(remember_method):
+                        self._call_core(remember_method, session_id, category)
             return _serialize_interaction_response(response)
         
         @app.get("/api/workspace")

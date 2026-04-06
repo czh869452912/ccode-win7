@@ -2135,6 +2135,9 @@ class InProcessAdapter(object):
             state.updated_at = _utc_now()
             state.pending_permission = None
             state.pending_user_input = None
+            state.restore_stop_reason = ""
+            state.restore_consumed_event_count = 0
+            state.restore_transcript_event_count = 0
         engine = QueryEngine(
             client=self.client,
             tools=self.tools,

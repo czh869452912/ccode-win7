@@ -172,4 +172,24 @@ export function runSessionRuntimeTests() {
   });
   assert.equal(restoredExpiredRuntime.currentInteraction, null);
   assert.equal(restoredExpiredRuntime.interactionNotice.kind, "expired");
+
+  const resumedActiveInteractionRuntime = projectSessionRuntime({
+    snapshot: {
+      session_id: "sess-1",
+      status: "waiting_user_input",
+      current_mode: "code",
+      pending_interaction_valid: true,
+      pending_interaction: {
+        interaction_id: "int-live",
+        kind: "user_input",
+        question: "继续吗？",
+        options: [{ index: 1, text: "继续" }],
+      },
+      restore_stop_reason: "interaction_expired",
+    },
+    eventLog: createSessionEventLog(),
+    bootstrapTimeline: [],
+  });
+  assert.equal(resumedActiveInteractionRuntime.currentInteraction.interaction_id, "int-live");
+  assert.equal(resumedActiveInteractionRuntime.interactionNotice, null);
 }

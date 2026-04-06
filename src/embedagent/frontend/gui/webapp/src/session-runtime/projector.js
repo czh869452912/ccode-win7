@@ -39,7 +39,7 @@ function normalizePendingInteraction(snapshot) {
   return interaction;
 }
 
-function buildInteractionNotice(snapshot) {
+function buildInteractionNotice(snapshot, currentInteraction) {
   const interaction = snapshot?.pending_interaction;
   if (interaction && (snapshot?.pending_interaction_valid === false || interaction.valid === false || interaction.status === "expired")) {
     return {
@@ -48,7 +48,7 @@ function buildInteractionNotice(snapshot) {
       source: "session_snapshot",
     };
   }
-  if (snapshot?.restore_stop_reason === "interaction_expired") {
+  if (!currentInteraction && snapshot?.restore_stop_reason === "interaction_expired") {
     return {
       kind: "expired",
       interactionId: "",
@@ -239,7 +239,7 @@ export function projectSessionRuntime({ snapshot, eventLog, bootstrapTimeline = 
   const timelineItems = mergeTimelineItems({ snapshot, eventLog, bootstrapTimeline });
   return {
     currentInteraction,
-    interactionNotice: buildInteractionNotice(snapshot),
+    interactionNotice: buildInteractionNotice(snapshot, currentInteraction),
     transportView: {
       connectionState: eventLog?.connectionState || "connecting",
       replayState: resolveTransportReplayState(snapshot, eventLog),

@@ -45,6 +45,114 @@ def _get_adapter_class():
     return _inprocess_adapter
 
 
+def _status_from_snapshot(snapshot: Dict[str, Any]) -> SessionStatus:
+    status_map = {
+        "idle": SessionStatus.IDLE,
+        "running": SessionStatus.RUNNING,
+        "waiting_permission": SessionStatus.WAITING_PERMISSION,
+        "waiting_user_input": SessionStatus.WAITING_INPUT,
+        "error": SessionStatus.ERROR,
+    }
+    return status_map.get(snapshot.get("status"), SessionStatus.IDLE)
+
+
+def _permission_request_from_snapshot(snapshot: Dict[str, Any]) -> Optional[PermissionRequest]:
+    if not snapshot.get("has_pending_permission"):
+        return None
+    permission = snapshot.get("pending_permission", {})
+    if not isinstance(permission, dict):
+        return None
+    return PermissionRequest(
+        permission_id=permission.get("permission_id", ""),
+        tool_name=permission.get("tool_name", ""),
+        category=permission.get("category", ""),
+        reason=permission.get("reason", ""),
+        details=permission.get("details", {}),
+        session_id=permission.get("session_id", ""),
+        turn_id=permission.get("turn_id", ""),
+        step_id=permission.get("step_id", ""),
+        step_index=int(permission.get("step_index") or 0),
+    )
+
+
+def _user_input_request_from_snapshot(snapshot: Dict[str, Any]) -> Optional[UserInputRequest]:
+    if not (snapshot.get("has_pending_user_input") or snapshot.get("has_pending_input")):
+        return None
+    request = snapshot.get("pending_user_input", snapshot.get("pending_input", {}))
+    if not isinstance(request, dict):
+        return None
+    return UserInputRequest(
+        request_id=request.get("request_id", ""),
+        tool_name=request.get("tool_name", ""),
+        question=request.get("question", ""),
+        options=request.get("options", []),
+        details=request.get("details", {}),
+        session_id=request.get("session_id", ""),
+        turn_id=request.get("turn_id", ""),
+        step_id=request.get("step_id", ""),
+        step_index=int(request.get("step_index") or 0),
+    )
+
+
+def _runtime_environment_from_snapshot(snapshot: Dict[str, Any]) -> RuntimeEnvironmentSnapshot:
+    runtime = snapshot.get("runtime_environment") or {}
+    return RuntimeEnvironmentSnapshot(
+        runtime_source=str(runtime.get("runtime_source") or snapshot.get("runtime_source") or ""),
+        bundled_tools_ready=bool(runtime.get("bundled_tools_ready", snapshot.get("bundled_tools_ready", False))),
+        fallback_warnings=list(runtime.get("fallback_warnings") or snapshot.get("fallback_warnings") or []),
+        resolved_tool_roots=dict(runtime.get("resolved_tool_roots") or {}),
+        tool_sources=dict(runtime.get("tool_sources") or {}),
+    )
+
+
+def _session_snapshot_from_dict(snapshot: Dict[str, Any]) -> SessionSnapshot:
+    return SessionSnapshot(
+        session_id=snapshot.get("session_id", ""),
+        status=_status_from_snapshot(snapshot),
+        current_mode=snapshot.get("current_mode", "code"),
+        created_at=snapshot.get("started_at", ""),
+        updated_at=snapshot.get("updated_at", ""),
+        workflow_state=snapshot.get("workflow_state", "chat"),
+        has_active_plan=bool(snapshot.get("has_active_plan", False)),
+        active_plan_ref=snapshot.get("active_plan_ref", ""),
+        current_command_context=snapshot.get("current_command_context", ""),
+        has_pending_permission=bool(snapshot.get("has_pending_permission", False)),
+        has_pending_input=bool(snapshot.get("has_pending_user_input", snapshot.get("has_pending_input", False))),
+        pending_permission=_permission_request_from_snapshot(snapshot),
+        pending_input=_user_input_request_from_snapshot(snapshot),
+        last_error=snapshot.get("last_error"),
+        runtime_source=str(snapshot.get("runtime_source") or ""),
+        bundled_tools_ready=bool(snapshot.get("bundled_tools_ready", False)),
+        fallback_warnings=list(snapshot.get("fallback_warnings") or []),
+        runtime_environment=_runtime_environment_from_snapshot(snapshot),
+        compact_summary_text=str(snapshot.get("compact_summary_text") or ""),
+        context_analysis=dict(snapshot.get("context_analysis") or {}),
+        compact_boundary_count=int(snapshot.get("compact_boundary_count") or 0),
+        workspace_intelligence=list(snapshot.get("workspace_intelligence") or []),
+        context_pipeline_steps=list(snapshot.get("context_pipeline_steps") or []),
+        last_transition_reason=str(snapshot.get("last_transition_reason") or ""),
+        last_transition_message=str(snapshot.get("last_transition_message") or ""),
+        last_transition_display_reason=str(snapshot.get("last_transition_display_reason") or ""),
+        recent_transition_reasons=list(snapshot.get("recent_transition_reasons") or []),
+        recent_transitions=list(snapshot.get("recent_transitions") or []),
+        compact_retry_count=int(snapshot.get("compact_retry_count") or 0),
+        restore_stop_reason=str(snapshot.get("restore_stop_reason") or ""),
+        restore_consumed_event_count=int(snapshot.get("restore_consumed_event_count") or 0),
+        restore_transcript_event_count=int(snapshot.get("restore_transcript_event_count") or 0),
+        pending_interaction=dict(snapshot.get("pending_interaction") or {}) if isinstance(snapshot.get("pending_interaction"), dict) else None,
+        timeline_replay_status=str(snapshot.get("timeline_replay_status") or "replay"),
+        timeline_first_seq=int(snapshot.get("timeline_first_seq") or 0),
+        timeline_last_seq=int(snapshot.get("timeline_last_seq") or 0),
+        timeline_integrity=str(snapshot.get("timeline_integrity") or "healthy"),
+        pending_interaction_valid=bool(
+            snapshot.get(
+                "pending_interaction_valid",
+                bool(snapshot.get("pending_interaction") or snapshot.get("pending_permission") or snapshot.get("pending_user_input") or snapshot.get("pending_input")),
+            )
+        ),
+    )
+
+
 class CallbackBridge:
     """回调桥接器 - 将 callback 转换为 Protocol 类型"""
     
@@ -247,73 +355,7 @@ class CallbackBridge:
     
     def _notify_status_change(self, snapshot: Dict[str, Any]) -> None:
         """通知状态变化"""
-        status_map = {
-            "idle": SessionStatus.IDLE,
-            "running": SessionStatus.RUNNING,
-            "waiting_permission": SessionStatus.WAITING_PERMISSION,
-            "waiting_user_input": SessionStatus.WAITING_INPUT,
-            "error": SessionStatus.ERROR
-        }
-        
-        pending_perm = None
-        if snapshot.get("has_pending_permission"):
-            permission = snapshot.get("pending_permission", {})
-            if isinstance(permission, dict):
-                pending_perm = PermissionRequest(
-                    permission_id=permission.get("permission_id", ""),
-                    tool_name=permission.get("tool_name", ""),
-                    category=permission.get("category", ""),
-                    reason=permission.get("reason", ""),
-                    details=permission.get("details", {}),
-                    session_id=permission.get("session_id", ""),
-                    turn_id=permission.get("turn_id", ""),
-                    step_id=permission.get("step_id", ""),
-                    step_index=int(permission.get("step_index") or 0),
-                )
-
-        pending_input = None
-        if snapshot.get("has_pending_user_input") or snapshot.get("has_pending_input"):
-            request = snapshot.get("pending_user_input", {})
-            if isinstance(request, dict):
-                pending_input = UserInputRequest(
-                    request_id=request.get("request_id", ""),
-                    tool_name=request.get("tool_name", ""),
-                    question=request.get("question", ""),
-                    options=request.get("options", []),
-                    details=request.get("details", {}),
-                    session_id=request.get("session_id", ""),
-                    turn_id=request.get("turn_id", ""),
-                    step_id=request.get("step_id", ""),
-                    step_index=int(request.get("step_index") or 0),
-                )
-
-        snap = SessionSnapshot(
-            session_id=snapshot.get("session_id", ""),
-            status=status_map.get(snapshot.get("status"), SessionStatus.IDLE),
-            current_mode=snapshot.get("current_mode", "code"),
-            created_at=snapshot.get("started_at", ""),
-            updated_at=snapshot.get("updated_at", ""),
-            workflow_state=snapshot.get("workflow_state", "chat"),
-            has_active_plan=bool(snapshot.get("has_active_plan", False)),
-            active_plan_ref=snapshot.get("active_plan_ref", ""),
-            current_command_context=snapshot.get("current_command_context", ""),
-            has_pending_permission=bool(snapshot.get("has_pending_permission", False)),
-            has_pending_input=bool(snapshot.get("has_pending_user_input", snapshot.get("has_pending_input", False))),
-            pending_permission=pending_perm,
-            pending_input=pending_input,
-            last_error=snapshot.get("last_error"),
-            runtime_source=str(snapshot.get("runtime_source") or ""),
-            bundled_tools_ready=bool(snapshot.get("bundled_tools_ready", False)),
-            fallback_warnings=list(snapshot.get("fallback_warnings") or []),
-            runtime_environment=RuntimeEnvironmentSnapshot(
-                runtime_source=str((snapshot.get("runtime_environment") or {}).get("runtime_source") or snapshot.get("runtime_source") or ""),
-                bundled_tools_ready=bool((snapshot.get("runtime_environment") or {}).get("bundled_tools_ready", snapshot.get("bundled_tools_ready", False))),
-                fallback_warnings=list((snapshot.get("runtime_environment") or {}).get("fallback_warnings") or snapshot.get("fallback_warnings") or []),
-                resolved_tool_roots=dict((snapshot.get("runtime_environment") or {}).get("resolved_tool_roots") or {}),
-                tool_sources=dict((snapshot.get("runtime_environment") or {}).get("tool_sources") or {}),
-            ),
-        )
-        self.frontend.on_session_status_change(snap)
+        self.frontend.on_session_status_change(_session_snapshot_from_dict(snapshot))
 
 
 class AgentCoreAdapter(CoreInterface):
@@ -364,90 +406,7 @@ class AgentCoreAdapter(CoreInterface):
     
     def _snapshot_to_protocol(self, snapshot: Dict[str, Any]) -> SessionSnapshot:
         """转换快照格式"""
-        status_map = {
-            "idle": SessionStatus.IDLE,
-            "running": SessionStatus.RUNNING,
-            "waiting_permission": SessionStatus.WAITING_PERMISSION,
-            "waiting_user_input": SessionStatus.WAITING_INPUT,
-            "error": SessionStatus.ERROR
-        }
-        
-        pending_perm = None
-        if snapshot.get("has_pending_permission"):
-            p = snapshot.get("pending_permission", {})
-            pending_perm = PermissionRequest(
-                permission_id=p.get("permission_id", ""),
-                tool_name=p.get("tool_name", ""),
-                category=p.get("category", ""),
-                reason=p.get("reason", ""),
-                details=p.get("details", {}),
-                session_id=p.get("session_id", ""),
-                turn_id=p.get("turn_id", ""),
-                step_id=p.get("step_id", ""),
-                step_index=int(p.get("step_index") or 0),
-            )
-        
-        pending_input = None
-        if snapshot.get("has_pending_user_input") or snapshot.get("has_pending_input"):
-            i = snapshot.get("pending_user_input", {})
-            pending_input = UserInputRequest(
-                request_id=i.get("request_id", ""),
-                tool_name=i.get("tool_name", ""),
-                question=i.get("question", ""),
-                options=i.get("options", []),
-                details=i.get("details", {}),
-                session_id=i.get("session_id", ""),
-                turn_id=i.get("turn_id", ""),
-                step_id=i.get("step_id", ""),
-                step_index=int(i.get("step_index") or 0),
-            )
-        
-        return SessionSnapshot(
-            session_id=snapshot.get("session_id", ""),
-            status=status_map.get(snapshot.get("status"), SessionStatus.IDLE),
-            current_mode=snapshot.get("current_mode", "code"),
-            created_at=snapshot.get("started_at", ""),
-            updated_at=snapshot.get("updated_at", ""),
-            workflow_state=snapshot.get("workflow_state", "chat"),
-            has_active_plan=bool(snapshot.get("has_active_plan", False)),
-            active_plan_ref=snapshot.get("active_plan_ref", ""),
-            current_command_context=snapshot.get("current_command_context", ""),
-            has_pending_permission=snapshot.get("has_pending_permission", False),
-            has_pending_input=snapshot.get("has_pending_user_input", snapshot.get("has_pending_input", False)),
-            pending_permission=pending_perm,
-            pending_input=pending_input,
-            last_error=snapshot.get("last_error"),
-            runtime_source=str(snapshot.get("runtime_source") or ""),
-            bundled_tools_ready=bool(snapshot.get("bundled_tools_ready", False)),
-            fallback_warnings=list(snapshot.get("fallback_warnings") or []),
-            runtime_environment=RuntimeEnvironmentSnapshot(
-                runtime_source=str((snapshot.get("runtime_environment") or {}).get("runtime_source") or snapshot.get("runtime_source") or ""),
-                bundled_tools_ready=bool((snapshot.get("runtime_environment") or {}).get("bundled_tools_ready", snapshot.get("bundled_tools_ready", False))),
-                fallback_warnings=list((snapshot.get("runtime_environment") or {}).get("fallback_warnings") or snapshot.get("fallback_warnings") or []),
-                resolved_tool_roots=dict((snapshot.get("runtime_environment") or {}).get("resolved_tool_roots") or {}),
-                tool_sources=dict((snapshot.get("runtime_environment") or {}).get("tool_sources") or {}),
-            ),
-            compact_summary_text=str(snapshot.get("compact_summary_text") or ""),
-            context_analysis=dict(snapshot.get("context_analysis") or {}),
-            compact_boundary_count=int(snapshot.get("compact_boundary_count") or 0),
-            workspace_intelligence=list(snapshot.get("workspace_intelligence") or []),
-            context_pipeline_steps=list(snapshot.get("context_pipeline_steps") or []),
-            last_transition_reason=str(snapshot.get("last_transition_reason") or ""),
-            last_transition_message=str(snapshot.get("last_transition_message") or ""),
-            last_transition_display_reason=str(snapshot.get("last_transition_display_reason") or ""),
-            recent_transition_reasons=list(snapshot.get("recent_transition_reasons") or []),
-            recent_transitions=list(snapshot.get("recent_transitions") or []),
-            compact_retry_count=int(snapshot.get("compact_retry_count") or 0),
-            restore_stop_reason=str(snapshot.get("restore_stop_reason") or ""),
-            restore_consumed_event_count=int(snapshot.get("restore_consumed_event_count") or 0),
-            restore_transcript_event_count=int(snapshot.get("restore_transcript_event_count") or 0),
-            pending_interaction=dict(snapshot.get("pending_interaction") or {}) if isinstance(snapshot.get("pending_interaction"), dict) else None,
-            timeline_replay_status=str(snapshot.get("timeline_replay_status") or "replay"),
-            timeline_first_seq=int(snapshot.get("timeline_first_seq") or 0),
-            timeline_last_seq=int(snapshot.get("timeline_last_seq") or 0),
-            timeline_integrity=str(snapshot.get("timeline_integrity") or "healthy"),
-            pending_interaction_valid=bool(snapshot.get("pending_interaction_valid", False)),
-        )
+        return _session_snapshot_from_dict(snapshot)
     
     # ============ CoreInterface 实现 ============
     

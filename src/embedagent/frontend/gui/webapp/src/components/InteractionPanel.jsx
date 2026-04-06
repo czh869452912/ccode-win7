@@ -67,13 +67,13 @@ export default function InteractionPanel({
         <div className="permission-actions">
           <button
             className="ghost btn-deny"
-            onClick={() => onRespond && onRespond({ response_kind: "deny", decision: false, remember: false })}
+            onClick={() => onRespond && onRespond({ response_kind: "deny", decision: false, remember: false, category: interaction.category || "" })}
           >
             {t("modal.deny", lang)}
           </button>
           <button
             className="primary"
-            onClick={() => onRespond && onRespond({ response_kind: "approve", decision: true, remember })}
+            onClick={() => onRespond && onRespond({ response_kind: "approve", decision: true, remember, category: interaction.category || "" })}
           >
             {t("modal.approve", lang)}
           </button>
