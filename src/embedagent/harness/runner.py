@@ -14,9 +14,15 @@ class HarnessRunner(object):
         mode = self.registry.get(str(mode_name or ""))
         if mode is None:
             return []
+        if mode.slug == "debug":
+            pack_name = "debug_lite"
+        elif mode.slug == "build":
+            pack_name = "build_lite"
+        else:
+            pack_name = "core"
         checklist_lines = ["[ ] %s" % phase.value for phase in mode.lite_track]
         tool_prompt_lines = [
-            "Core pack: %s" % ", ".join(pack_tool_names("build_lite")),
+            "Core pack: %s" % ", ".join(pack_tool_names(pack_name)),
         ]
         units = self.prompt_builder(
             base_prompt="",

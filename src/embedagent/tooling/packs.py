@@ -19,9 +19,25 @@ BUILD_LITE_PACK = CORE_PACK + [
 ]
 
 
+DEBUG_LITE_PACK = [
+    "read_file",
+    "list_dir",
+    "grep_text",
+    "edit_file",
+    "write_file",
+    "run_recipe",
+    "ask_user",
+    "task_status",
+    "glob_files",
+    "list_recipes",
+    "record_failing_evidence",
+]
+
+
 PACKS = {
     "core": CORE_PACK,
     "build_lite": BUILD_LITE_PACK,
+    "debug_lite": DEBUG_LITE_PACK,
 }
 
 

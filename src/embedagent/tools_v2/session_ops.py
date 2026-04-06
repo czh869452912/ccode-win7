@@ -33,6 +33,19 @@ def build_tools(ctx) -> List[ToolDefinition]:
             data={"error_kind": "interaction_only"},
         )
 
+    def _record_failing_evidence(arguments: Dict[str, Any]) -> Observation:
+        summary = str(arguments.get("summary") or "").strip()
+        return Observation(
+            tool_name="record_failing_evidence",
+            success=True,
+            error=None,
+            data={
+                "summary": summary,
+                "failing_evidence_ready": True,
+                "result_ref": "",
+            },
+        )
+
     ask_schema = ask_user_schema()
     return [
         ToolDefinition(
@@ -52,5 +65,23 @@ def build_tools(ctx) -> List[ToolDefinition]:
             description=str(ask_schema.get("function", {}).get("description") or ""),
             parameters=dict(ask_schema.get("function", {}).get("parameters") or {}),
             handler=_ask_user,
+        ),
+        ToolDefinition(
+            name="record_failing_evidence",
+            description="记录当前已复现的失败证据。用于把 debug 过程中的失败现象转换成结构化 artifact。",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "summary": {
+                        "type": "string",
+                        "description": "失败现象摘要。示例：reproduced failure in src/demo.c",
+                    }
+                },
+                "required": ["summary"],
+                "additionalProperties": False,
+            },
+            handler=_record_failing_evidence,
+            read_only=True,
+            concurrency_safe=True,
         ),
     ]

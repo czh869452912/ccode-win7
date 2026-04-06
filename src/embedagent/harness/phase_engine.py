@@ -14,4 +14,8 @@ def advance_phase(current_phase, artifact_flags, discipline_value):
         return ExecutionPhase.CHECK
     if current_phase == ExecutionPhase.CHECK and flags.get("check_passed"):
         return ExecutionPhase.HANDOFF
+    if current_phase == ExecutionPhase.REPRODUCE and flags.get("failing_evidence_ready"):
+        return ExecutionPhase.ISOLATE
+    if current_phase == ExecutionPhase.PATCH and flags.get("regression_result_ready"):
+        return ExecutionPhase.REGRESSION_CHECK
     return current_phase

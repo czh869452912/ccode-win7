@@ -30,6 +30,24 @@ class HarnessContractsTests(unittest.TestCase):
         registry = build_default_registry()
         self.assertTrue(registry["verify"].readonly_mode)
 
+    def test_debug_mode_defaults_to_lite_spec_tdd(self):
+        from embedagent.harness.registry import build_default_registry
+
+        registry = build_default_registry()
+        self.assertEqual(
+            registry["debug"].default_discipline.value,
+            "lite_spec_tdd",
+        )
+
+    def test_debug_mode_has_expected_lite_track(self):
+        from embedagent.harness.registry import build_default_registry
+
+        registry = build_default_registry()
+        self.assertEqual(
+            [phase.value for phase in registry["debug"].lite_track],
+            ["reproduce", "isolate", "patch", "regression_check", "handoff"],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

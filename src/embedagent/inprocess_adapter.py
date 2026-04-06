@@ -272,6 +272,10 @@ class InProcessAdapter(object):
             state.current_phase = "understand"
             state.discipline_profile = "lite_spec_tdd"
             state.current_activity = "Build-lite harness active"
+        elif current_mode == "debug":
+            state.current_phase = "reproduce"
+            state.discipline_profile = "lite_spec_tdd"
+            state.current_activity = "Debug-lite harness active"
         self._persist_state(state)
         with self._lock:
             self._sessions[session.session_id] = state

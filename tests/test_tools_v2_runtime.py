@@ -47,6 +47,18 @@ class ToolsV2RuntimeTests(unittest.TestCase):
         self.assertIn("list_dir", names)
         self.assertIn("run_recipe", names)
 
+    def test_debug_lite_pack_exposes_read_edit_and_run_recipe(self):
+        from embedagent.tools_v2.runtime import ToolRuntimeV2
+
+        runtime = ToolRuntimeV2(self.workspace)
+        names = [
+            item["function"]["name"]
+            for item in runtime.schemas_for_pack("debug_lite")
+        ]
+        self.assertIn("read_file", names)
+        self.assertIn("edit_file", names)
+        self.assertIn("run_recipe", names)
+
 
 if __name__ == "__main__":
     unittest.main()

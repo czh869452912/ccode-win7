@@ -29,6 +29,25 @@ def build_default_registry():
                 ExecutionPhase.HANDOFF,
             ],
         ),
+        "debug": ModeDefinition(
+            slug="debug",
+            default_discipline=DisciplineProfile.LITE_SPEC_TDD,
+            lite_track=[
+                ExecutionPhase.REPRODUCE,
+                ExecutionPhase.ISOLATE,
+                ExecutionPhase.PATCH,
+                ExecutionPhase.REGRESSION_CHECK,
+                ExecutionPhase.HANDOFF,
+            ],
+            full_track=[
+                ExecutionPhase.REPRODUCE,
+                ExecutionPhase.ISOLATE,
+                ExecutionPhase.FAILING_CHECK,
+                ExecutionPhase.PATCH,
+                ExecutionPhase.REGRESSION_CHECK,
+                ExecutionPhase.HANDOFF,
+            ],
+        ),
         "verify": ModeDefinition(
             slug="verify",
             default_discipline=DisciplineProfile.LITE_SPEC_TDD,

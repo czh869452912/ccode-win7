@@ -165,9 +165,9 @@ class QueryEngine(object):
 
     def _run_harness_mode(self, current_mode: str, session: Optional[Session] = None) -> Tuple[str, list]:
         del session
-        if str(current_mode or "") != "build":
+        if str(current_mode or "") not in ("build", "debug"):
             return current_mode, []
-        return current_mode, self.harness_runner.build_mode_units("build")
+        return current_mode, self.harness_runner.build_mode_units(current_mode)
 
     def _record_transition(self, session: Session, transition: LoopTransition) -> None:
         with self._session_guard():
