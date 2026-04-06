@@ -44,6 +44,29 @@
 
 ## 3. 当前变更记录
 
+### DC-080
+
+- 日期：2026-04-06
+- 变更主题：GUI interaction panel 改为专属 tab，并把失效交互降级为 notice
+- 变更摘要：
+  - webapp `Inspector` 不再把当前交互面板挂在所有右侧 tab 的公共尾部，而是新增专属 `interaction` tab 作为唯一可操作入口
+  - `projectSessionRuntime()` 现在把 `currentInteraction` 收敛为“仍然可操作的活跃交互”；`pending_interaction_valid = false`、`interaction.status = expired` 与 `restore_stop_reason = interaction_expired` 会投影成 notice，而不是伪造一个可点击的 expired interaction
+  - `permission_request` / `user_input_request` / session activation with pending interaction 会自动把 Inspector 切到 `interaction` tab；409/410 交互响应错误也会回收到同一 notice 语义
+  - ask_user、permission、restore stale interaction 与并发响应冲突开始共用一套交互生命周期边界，避免“所有 tab 底部长出 expired 卡片”的跨面板污染
+- 影响范围：
+  - GUI Inspector / InteractionPanel / session-runtime projector
+  - pending interaction 的前端读模型边界
+  - interaction expired / conflict 的用户可理解性与恢复路径
+- 关联文档：
+  - `docs/frontend-protocol.md`
+  - `src/embedagent/frontend/gui/webapp/src/session-runtime/projector.js`
+  - `src/embedagent/frontend/gui/webapp/src/components/Inspector.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/components/InteractionPanel.jsx`
+- 是否需要 ADR：`否`
+- 后续动作：
+  - 在真实 GUI 宿主与 Win7 手工验证中复查 ask_user / permission / expired interaction 的 tab 聚焦与恢复体验
+  - 若后续继续推进 event-sourced runtime，可考虑把 interaction notice 也收口到统一的 interaction event 类型，而不是 snapshot + client notice 双来源
+
 ### DC-079
 
 - 日期：2026-04-06

@@ -15,6 +15,7 @@ export const initialState = {
   thinkingActive: false,
   permission: null,
   userInput: null,
+  interactionNotice: null,
   todos: [],
   artifacts: [],
   plan: null,
@@ -80,7 +81,11 @@ export function reducer(state, action) {
         streamingReasoningId: "",
         thinkingActive: false,
         permission: action.snapshot?.has_pending_permission ? action.snapshot?.pending_permission || null : null,
-        userInput: null,
+        userInput:
+          action.snapshot?.pending_interaction_valid && action.snapshot?.pending_interaction?.kind === "user_input"
+            ? action.snapshot?.pending_user_input || action.snapshot?.pending_interaction || null
+            : null,
+        interactionNotice: null,
         terminationReason: "",
         terminationDisplayReason: "",
         terminationMessage: "",
@@ -92,18 +97,46 @@ export function reducer(state, action) {
         plan: null,
         review: null,
         permissionContext: null,
-        inspectorTab: action.snapshot?.has_pending_permission ? "permissions" : state.inspectorTab,
-        inspectorOpen: action.snapshot?.has_pending_permission ? true : state.inspectorOpen,
+        inspectorTab:
+          action.snapshot?.pending_interaction_valid && action.snapshot?.pending_interaction
+            ? "interaction"
+            : state.inspectorTab,
+        inspectorOpen:
+          action.snapshot?.pending_interaction_valid && action.snapshot?.pending_interaction
+            ? true
+            : state.inspectorOpen,
       };
     case "session_snapshot": {
       const snapshot = action.snapshot;
       if (!snapshot) return state;
+      const hadActiveInteraction = Boolean(
+        state.snapshot?.pending_interaction_valid && state.snapshot?.pending_interaction,
+      );
+      const hasActiveInteraction = Boolean(
+        snapshot.pending_interaction_valid && snapshot.pending_interaction,
+      );
       return {
         ...state,
         currentSessionId: snapshot.session_id || state.currentSessionId,
         snapshot,
         requestedMode: snapshot.current_mode || state.requestedMode,
         permission: snapshot.has_pending_permission ? snapshot.pending_permission || state.permission : null,
+        userInput:
+          snapshot.pending_interaction_valid && snapshot.pending_interaction?.kind === "user_input"
+            ? snapshot.pending_user_input || snapshot.pending_interaction || state.userInput
+            : null,
+        interactionNotice:
+          snapshot.pending_interaction_valid && snapshot.pending_interaction
+            ? null
+            : state.interactionNotice,
+        inspectorTab:
+          !hadActiveInteraction && hasActiveInteraction
+            ? "interaction"
+            : state.inspectorTab,
+        inspectorOpen:
+          !hadActiveInteraction && hasActiveInteraction
+            ? true
+            : state.inspectorOpen,
       };
     }
     case "local_user_message":
@@ -121,6 +154,7 @@ export function reducer(state, action) {
             ...liveProjectionMeta(),
           }),
         composer: "",
+        interactionNotice: null,
         streamingAssistantId: "",
         streamingReasoningId: "",
         thinkingActive: false,
@@ -344,8 +378,9 @@ export function reducer(state, action) {
       return {
         ...state,
         permission: action.permission,
+        interactionNotice: null,
         thinkingActive: false,
-        inspectorTab: action.inspectorTab || "permissions",
+        inspectorTab: action.inspectorTab || "interaction",
         inspectorOpen: true,
       };
     case "permission_cleared":
@@ -355,7 +390,10 @@ export function reducer(state, action) {
       return {
         ...state,
         userInput: action.request,
+        interactionNotice: null,
         thinkingActive: false,
+        inspectorTab: "interaction",
+        inspectorOpen: true,
         timeline: state.timeline.concat(
           isModeSwitchProposal
             ? {
@@ -431,6 +469,18 @@ export function reducer(state, action) {
         ...state,
         permissionContext: action.context,
         inspectorTab: action.inspectorTab || state.inspectorTab,
+      };
+    case "interaction_notice_set":
+      return {
+        ...state,
+        interactionNotice: action.notice || null,
+        inspectorTab: "interaction",
+        inspectorOpen: true,
+      };
+    case "interaction_notice_clear":
+      return {
+        ...state,
+        interactionNotice: null,
       };
     case "session_error":
       return {

@@ -13,6 +13,7 @@ const STRINGS = {
     "sidebar.newSession": "New Session",
 
     // Inspector tabs
+    "inspector.interaction": "Interaction",
     "inspector.todos": "Todos",
     "inspector.artifacts": "Artifacts",
     "inspector.plan": "Plan",
@@ -68,6 +69,7 @@ const STRINGS = {
 
     // Panel empty states
     "inspector.noTodos": "No todos in this session.",
+    "inspector.noInteraction": "No pending interaction.",
     "inspector.noArtifacts": "No artifacts yet.",
     "inspector.noPlan": "No active plan in this session.",
     "inspector.noRecipes": "No workspace recipes detected.",
@@ -86,6 +88,10 @@ const STRINGS = {
     "inspector.inputRequired": "Input Required",
     "inspector.customAnswer": "Or type a custom answer…",
     "inspector.submit": "Submit",
+    "interaction.expiredTitle": "Interaction expired",
+    "interaction.expiredBody": "This request is no longer active. Trigger the action again to continue.",
+    "interaction.conflictTitle": "Interaction already handled",
+    "interaction.conflictBody": "This request changed in another flow. Refresh the current interaction and try again if needed.",
 
     // Composer
     "composer.placeholder": "Message… Enter to send, Shift+Enter for newline",
@@ -154,6 +160,7 @@ const STRINGS = {
     "sidebar.files": "文件",
     "sidebar.newSession": "新建会话",
 
+    "inspector.interaction": "交互",
     "inspector.todos": "待办",
     "inspector.artifacts": "产物",
     "inspector.plan": "计划",
@@ -207,6 +214,7 @@ const STRINGS = {
     "inspector.recentTransitions": "最近状态迁移",
     "inspector.noRecentTransitions": "当前没有最近状态迁移。",
 
+    "inspector.noInteraction": "当前没有待处理交互。",
     "inspector.noTodos": "本次会话暂无待办。",
     "inspector.noArtifacts": "暂无产物。",
     "inspector.noPlan": "当前会话暂无计划。",
@@ -225,6 +233,10 @@ const STRINGS = {
     "inspector.inputRequired": "需要输入",
     "inspector.customAnswer": "或输入自定义回答…",
     "inspector.submit": "提交",
+    "interaction.expiredTitle": "交互已过期",
+    "interaction.expiredBody": "该请求已经失效，如仍需继续，请重新触发对应操作。",
+    "interaction.conflictTitle": "交互已被处理",
+    "interaction.conflictBody": "该请求已在其他流程中发生变化，请刷新当前交互后再决定下一步。",
 
     "composer.placeholder": "输入消息，Enter 发送，Shift+Enter 换行",
     "composer.send": "发送",

@@ -5,13 +5,13 @@ import { summarizeTimelineProjection } from "../state-helpers.js";
 import DiffView from "./DiffView.jsx";
 import InteractionPanel from "./InteractionPanel.jsx";
 
-const ALL_TABS = ["todos", "plan", "artifacts", "run", "problems", "review", "permissions", "runtime", "preview", "log"];
+const ALL_TABS = ["interaction", "todos", "plan", "artifacts", "run", "problems", "review", "permissions", "runtime", "preview", "log"];
 
-function InspectorTabs({ active, onChange, todosCount, artifactsCount }) {
+function InspectorTabs({ active, onChange, interactionCount, todosCount, artifactsCount }) {
   const lang = useLang();
   const tabsRef = React.useRef(null);
   const activeRef = React.useRef(null);
-  const badges = { todos: todosCount, artifacts: artifactsCount };
+  const badges = { interaction: interactionCount, todos: todosCount, artifacts: artifactsCount };
 
   // Scroll active tab into view when it changes
   React.useEffect(() => {
@@ -49,6 +49,7 @@ export default function Inspector({
   recipes,
   timeline,
   currentInteraction,
+  interactionNotice,
   permissionContext,
   preview,
   snapshot,
@@ -68,10 +69,20 @@ export default function Inspector({
       <InspectorTabs
         active={inspectorTab}
         onChange={onTabChange}
+        interactionCount={currentInteraction || interactionNotice ? 1 : 0}
         todosCount={todos.length}
         artifactsCount={artifacts.length}
       />
       <div className="inspector-body">
+        {inspectorTab === "interaction" && (
+          <InteractionPanel
+            interaction={currentInteraction}
+            notice={interactionNotice}
+            answerValue={userAnswer}
+            onAnswerChange={onUserAnswerChange}
+            onRespond={onRespondInteraction}
+          />
+        )}
         {inspectorTab === "todos" && <TodoPanel todos={todos} lang={lang} />}
         {inspectorTab === "artifacts" && (
           <ArtifactPanel artifacts={artifacts} onOpen={onOpenArtifact} lang={lang} />
@@ -88,12 +99,6 @@ export default function Inspector({
         )}
         {inspectorTab === "preview" && <PreviewPanel preview={preview} lang={lang} />}
         {inspectorTab === "log" && <LogPanel entries={eventLog} lang={lang} />}
-        <InteractionPanel
-          interaction={currentInteraction}
-          answerValue={userAnswer}
-          onAnswerChange={onUserAnswerChange}
-          onRespond={onRespondInteraction}
-        />
       </div>
     </aside>
   );

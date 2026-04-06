@@ -57,6 +57,7 @@ function App() {
       }),
     [sessionEventLog, state.snapshot, state.timeline],
   );
+  const interactionNotice = state.interactionNotice || runtimeState.interactionNotice;
 
   useEffect(() => {
     currentSessionIdRef.current = state.currentSessionId || "";
@@ -553,7 +554,7 @@ function App() {
           step_id: data.step_id || "",
           step_index: data.step_index || 0,
         },
-        inspectorTab: "permissions",
+        inspectorTab: "interaction",
       });
       updateSessionEventLog((current) =>
         appendSessionEvent(current, {
@@ -789,14 +790,32 @@ function App() {
   async function respondToInteraction(payload) {
     const interaction = runtimeState.currentInteraction;
     if (!interaction || !state.currentSessionId) return;
-    const response = await fetchJson(
-      `/api/sessions/${encodeURIComponent(state.currentSessionId)}/interactions/${encodeURIComponent(interaction.interaction_id)}/respond`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload || {}),
-      },
-    );
+    dispatch({ type: "interaction_notice_clear" });
+    let response;
+    try {
+      response = await fetchJson(
+        `/api/sessions/${encodeURIComponent(state.currentSessionId)}/interactions/${encodeURIComponent(interaction.interaction_id)}/respond`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload || {}),
+        },
+      );
+    } catch (error) {
+      if ((error?.status === 409 || error?.status === 410) && state.currentSessionId) {
+        await loadSession(state.currentSessionId);
+        dispatch({
+          type: "interaction_notice_set",
+          notice: {
+            kind: error.status === 410 ? "expired" : "conflict",
+            detail: error.detail || "",
+          },
+        });
+        logEvent("interaction_response", error.detail || `HTTP ${error.status}`);
+        return;
+      }
+      throw error;
+    }
     if (response?.snapshot) {
       dispatch({
         type: "session_snapshot",
@@ -1001,6 +1020,7 @@ function App() {
             recipes={state.recipes}
             timeline={runtimeState.timelineItems}
             currentInteraction={runtimeState.currentInteraction}
+            interactionNotice={interactionNotice}
             permissionContext={state.permissionContext}
             preview={state.preview}
             snapshot={state.snapshot}

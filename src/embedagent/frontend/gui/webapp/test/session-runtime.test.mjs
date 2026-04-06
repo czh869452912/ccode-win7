@@ -156,5 +156,20 @@ export function runSessionRuntimeTests() {
     eventLog: createSessionEventLog(),
     bootstrapTimeline: [],
   });
-  assert.equal(expiredRuntime.currentInteraction.status, "expired");
+  assert.equal(expiredRuntime.currentInteraction, null);
+  assert.equal(expiredRuntime.interactionNotice.kind, "expired");
+
+  const restoredExpiredRuntime = projectSessionRuntime({
+    snapshot: {
+      session_id: "sess-1",
+      status: "idle",
+      current_mode: "code",
+      pending_interaction: null,
+      restore_stop_reason: "interaction_expired",
+    },
+    eventLog: createSessionEventLog(),
+    bootstrapTimeline: [],
+  });
+  assert.equal(restoredExpiredRuntime.currentInteraction, null);
+  assert.equal(restoredExpiredRuntime.interactionNotice.kind, "expired");
 }

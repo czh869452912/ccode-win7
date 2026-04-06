@@ -34,13 +34,28 @@ function normalizePendingInteraction(snapshot) {
     return null;
   }
   if (snapshot?.pending_interaction_valid === false || interaction.valid === false || interaction.status === "expired") {
-    return {
-      ...interaction,
-      status: "expired",
-      valid: false,
-    };
+    return null;
   }
   return interaction;
+}
+
+function buildInteractionNotice(snapshot) {
+  const interaction = snapshot?.pending_interaction;
+  if (interaction && (snapshot?.pending_interaction_valid === false || interaction.valid === false || interaction.status === "expired")) {
+    return {
+      kind: "expired",
+      interactionId: interaction.interaction_id || "",
+      source: "session_snapshot",
+    };
+  }
+  if (snapshot?.restore_stop_reason === "interaction_expired") {
+    return {
+      kind: "expired",
+      interactionId: "",
+      source: "session_restore",
+    };
+  }
+  return null;
 }
 
 function projectBootstrapTimeline(bootstrapTimeline = []) {
@@ -220,9 +235,11 @@ function resolveTransportReplayState(snapshot, eventLog) {
 }
 
 export function projectSessionRuntime({ snapshot, eventLog, bootstrapTimeline = [] }) {
+  const currentInteraction = normalizePendingInteraction(snapshot);
   const timelineItems = mergeTimelineItems({ snapshot, eventLog, bootstrapTimeline });
   return {
-    currentInteraction: normalizePendingInteraction(snapshot),
+    currentInteraction,
+    interactionNotice: buildInteractionNotice(snapshot),
     transportView: {
       connectionState: eventLog?.connectionState || "connecting",
       replayState: resolveTransportReplayState(snapshot, eventLog),

@@ -4,6 +4,7 @@ import { t } from "../strings.js";
 
 export default function InteractionPanel({
   interaction,
+  notice,
   answerValue,
   onAnswerChange,
   onRespond,
@@ -15,15 +16,30 @@ export default function InteractionPanel({
     setRemember(false);
   }, [interaction?.interaction_id]);
 
-  if (!interaction) return null;
+  if (!interaction && !notice) {
+    return <div className="empty-copy">{t("inspector.noInteraction", lang)}</div>;
+  }
 
-  if (interaction?.status === "expired" || interaction?.valid === false) {
+  if (notice?.kind === "expired") {
     return (
       <div className="prompt-panel interaction-expired" role="status">
-        <h3>Interaction expired</h3>
-        <p>Please trigger the action again to continue.</p>
+        <h3>{t("interaction.expiredTitle", lang)}</h3>
+        <p>{t("interaction.expiredBody", lang)}</p>
       </div>
     );
+  }
+
+  if (notice?.kind === "conflict") {
+    return (
+      <div className="prompt-panel interaction-expired" role="status">
+        <h3>{t("interaction.conflictTitle", lang)}</h3>
+        <p>{t("interaction.conflictBody", lang)}</p>
+      </div>
+    );
+  }
+
+  if (!interaction) {
+    return <div className="empty-copy">{t("inspector.noInteraction", lang)}</div>;
   }
 
   if (interaction.kind === "permission") {

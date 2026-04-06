@@ -322,11 +322,24 @@ function main() {
       category: "workspace_write",
       reason: "need write permission",
     },
-    inspectorTab: "permissions",
+    inspectorTab: "interaction",
   });
   assert.equal(pendingPermissionState.permission.permission_id, "perm-panel-1");
-  assert.equal(pendingPermissionState.inspectorTab, "permissions");
+  assert.equal(pendingPermissionState.inspectorTab, "interaction");
   assert.equal(pendingPermissionState.timeline.length, 0);
+
+  const pendingUserInputState = reducer(initialState, {
+    type: "user_input_request",
+    request: {
+      request_id: "ask-panel-1",
+      tool_name: "ask_user",
+      question: "继续吗？",
+      options: [{ index: 1, text: "继续" }],
+    },
+  });
+  assert.equal(pendingUserInputState.userInput.request_id, "ask-panel-1");
+  assert.equal(pendingUserInputState.inspectorTab, "interaction");
+  assert.equal(pendingUserInputState.inspectorOpen, true);
 
   const recipeState = reducer(initialState, {
     type: "recipes_loaded",
@@ -354,11 +367,19 @@ function main() {
         session_id: "sess-2",
         current_mode: "code",
         has_pending_permission: false,
+        pending_interaction_valid: true,
+        pending_interaction: {
+          interaction_id: "ask-existing",
+          kind: "user_input",
+          question: "继续吗？",
+        },
       },
       timeline: [],
     },
   );
   assert.equal(activatedState.eventLog.length, 0);
+  assert.equal(activatedState.inspectorTab, "interaction");
+  assert.equal(activatedState.inspectorOpen, true);
 
   const timelineSource = fs.readFileSync(
     path.resolve("src", "embedagent", "frontend", "gui", "webapp", "src", "components", "Timeline.jsx"),
@@ -371,7 +392,14 @@ function main() {
     path.resolve("src", "embedagent", "frontend", "gui", "webapp", "src", "components", "InteractionPanel.jsx"),
     "utf8",
   );
-  assert.equal(interactionPanelSource.includes('interaction?.status === "expired"'), true);
+  assert.equal(interactionPanelSource.includes("notice?.kind"), true);
+
+  const inspectorSource = fs.readFileSync(
+    path.resolve("src", "embedagent", "frontend", "gui", "webapp", "src", "components", "Inspector.jsx"),
+    "utf8",
+  );
+  assert.equal(inspectorSource.includes('const ALL_TABS = ["interaction",'), true);
+  assert.equal(inspectorSource.includes('{inspectorTab === "interaction"'), true);
 
   runSessionRuntimeTests();
 

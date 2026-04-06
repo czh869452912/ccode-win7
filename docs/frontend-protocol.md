@@ -80,7 +80,8 @@ Phase 6 的实现顺序固定为：
 - WebSocket 会为 active session 推送 `type = session_event` 的统一事件 envelope
 - HTTP `GET /api/sessions/{session_id}/events?after_seq=N` 负责在断线/错序后补齐增量事件
 - HTTP `POST /api/sessions/{session_id}/interactions/{interaction_id}/respond` 是 GUI 唯一的交互响应入口
-- Inspector 负责当前 pending interaction 的操作；Timeline 只显示交互历史摘要
+- Inspector 现在通过专属 `interaction` tab 承载当前 pending interaction 的操作；Timeline 只显示交互历史摘要
+- `pending_interaction_valid = false` 或 `restore_stop_reason = interaction_expired` 只允许投影成 notice，不能再被前端当作当前可操作交互
 - GUI snapshot 必须显式暴露 replay 能力：`timeline_replay_status`、`timeline_first_seq`、`timeline_last_seq`、`timeline_integrity`、`pending_interaction_valid`
 - replay 结果必须显式区分 `replay / reload_required / degraded`，前端不得再从“空 events”反推需要 reload
 
