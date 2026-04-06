@@ -86,6 +86,28 @@ _BUILTIN_MODES = {
             "meson.build", "**/meson.build",
         ],
     },
+    "build": {
+        "slug": "build",
+        "system_prompt": (
+            "你当前处于 build 模式，负责完成开发闭环。"
+            "当前阶段先以 lite_spec_tdd 方式推进：理解、收敛约束、实现、检查。"
+            "应复用现有工程结构，不要假设固定目录；如遇关键分歧，用 ask_user 请求确认。"
+        ),
+        "allowed_tools": ["read_file", "list_files", "write_file", "edit_file",
+                          "search_text", "compile_project",
+                          "git_status", "git_diff",
+                          "manage_todos", "ask_user"],
+        "writable_globs": [
+            "**/*.c", "**/*.cc", "**/*.cpp", "**/*.cxx",
+            "**/*.h", "**/*.hh", "**/*.hpp", "**/*.hxx",
+            "**/*.py", "**/*.pyi", "**/*.ps1", "**/*.bat",
+            "**/*.toml", "**/*.cfg", "**/*.ini",
+            "**/*.json", "**/*.yaml", "**/*.yml",
+            "**/*.cmake", "CMakeLists.txt", "**/CMakeLists.txt",
+            "Makefile", "**/Makefile", "makefile", "**/makefile",
+            "meson.build", "**/meson.build",
+        ],
+    },
     "debug": {
         "slug": "debug",
         "system_prompt": (

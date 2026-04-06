@@ -178,6 +178,9 @@ class ManagedSession:
     restore_stop_reason: str = ""
     restore_consumed_event_count: int = 0
     restore_transcript_event_count: int = 0
+    current_phase: str = ""
+    discipline_profile: str = ""
+    current_activity: str = ""
     remembered_permission_categories: Set[str] = field(default_factory=set)
     stop_event: threading.Event = field(default_factory=threading.Event, repr=False)
     lock: threading.RLock = field(default_factory=threading.RLock, repr=False)
@@ -265,6 +268,10 @@ class InProcessAdapter(object):
             active_plan_ref=plan.path if plan is not None else "",
             workflow_state="plan" if plan is not None else "chat",
         )
+        if current_mode == "build":
+            state.current_phase = "understand"
+            state.discipline_profile = "lite_spec_tdd"
+            state.current_activity = "Build-lite harness active"
         self._persist_state(state)
         with self._lock:
             self._sessions[session.session_id] = state
@@ -407,6 +414,9 @@ class InProcessAdapter(object):
                 "timeline_last_seq": 0,
                 "timeline_integrity": "degraded" if state.restore_stop_reason == "transcript_missing" else "healthy",
                 "pending_interaction_valid": bool(state.pending_permission or state.pending_user_input),
+                "current_phase": state.current_phase,
+                "discipline_profile": state.discipline_profile,
+                "current_activity": state.current_activity,
                 "runtime_source": str(runtime.get("runtime_source") or ""),
                 "bundled_tools_ready": bool(runtime.get("bundled_tools_ready")),
                 "fallback_warnings": list(runtime.get("fallback_warnings") or []),

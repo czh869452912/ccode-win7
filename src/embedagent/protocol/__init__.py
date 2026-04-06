@@ -237,6 +237,9 @@ class SessionSnapshot:
     timeline_last_seq: int = 0
     timeline_integrity: str = "healthy"
     pending_interaction_valid: bool = False
+    current_phase: str = ""
+    discipline_profile: str = ""
+    current_activity: str = ""
 
 
 @dataclass  

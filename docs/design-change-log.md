@@ -1,6 +1,6 @@
 # EmbedAgent 设计与变更跟踪
 
-> 更新日期：2026-04-05
+> 更新日期：2026-04-06
 > 用途：记录关键设计变更、影响范围、关联文档和后续动作
 
 ---
@@ -43,6 +43,64 @@
 ---
 
 ## 3. 当前变更记录
+
+### DC-082
+
+- 日期：2026-04-06
+- 变更主题：Agent Harness V2 Program A/B 启动实现，并固定“新包承载新核心、旧文件仅做薄桥接”的架构边界
+- 变更摘要：
+  - 新增 `src/embedagent/harness/`、`src/embedagent/tooling/`、`src/embedagent/tools_v2/`、`src/embedagent/permissions_v2/` 四个新包，开始承载 Harness V2 的核心实现
+  - `harness` 已落地第一批核心契约：`WorkMode`、`DisciplineProfile`、`ExecutionPhase`、`ModeDefinition`、artifact 驱动 phase 推进和 3 单元 prompt stack
+  - `tooling` 已落地最小工具契约、pack 定义和 aggregate budget 基础设施；`tools_v2` 已能暴露 `build_lite` 所需的第一批 schema；`permissions_v2` 已上线 Rule Schema V1 的最小形态和确定性 explanation 模板
+  - `build` mode 已被接入旧 mode registry 作为薄入口，`QueryEngine` 仅增加最小 harness context 注入，`InProcessAdapter` snapshot 已开始暴露 `current_phase / discipline_profile / current_activity`
+  - 这轮实现明确遵守“新核心不继续塞进 `query_engine.py` / `modes.py` / `permissions.py` / `tools/runtime.py`”的边界：旧文件只承担兼容入口和薄桥接，不承接 V2 具体逻辑
+- 影响范围：
+  - Harness V2 的目录结构与模块边界
+  - `build` mode 的最小可运行上下文
+  - Session snapshot 对 phase / discipline / activity 的可见性
+  - 后续 Program C/D/E 的实现落点
+- 关联文档：
+  - `docs/agent-harness-v2.md`
+  - `docs/superpowers/plans/2026-04-06-agent-harness-v2-foundation.md`
+  - `docs/development-tracker.md`
+  - `tests/test_harness_contracts.py`
+  - `tests/test_phase_engine.py`
+  - `tests/test_prompt_stack_v2.py`
+  - `tests/test_tooling_budget_v2.py`
+  - `tests/test_rule_schema_v2.py`
+  - `tests/test_tools_v2_runtime.py`
+  - `tests/test_query_engine_build_lite.py`
+- 是否需要 ADR：`仍建议在继续推进 Program C 之前补一条 ADR，固定 visible mode 与 internal phase 的分层原则`
+- 后续动作：
+  - 继续推进 Program C：`debug + lite_spec_tdd`
+  - 在 Program D 前补齐 TaskGraph 自动同步和更真实的 artifact gate
+  - 在后续切断旧体系前，继续用定向旧回归测试保护 `QueryEngine` / `PermissionPolicy` / `ToolCommitCoordinator`
+
+### DC-081
+
+- 日期：2026-04-06
+- 变更主题：确立 Agent Harness V2 作为下一轮 mode / tool / permission 整体重构基线
+- 变更摘要：
+  - 新增 `docs/agent-harness-v2.md`，正式把下一轮重构目标从“修补现有 mode/tool/permission”提升为“重建执行内核”
+  - 新基线保留用户可见 mode，但将其从硬工具围栏改为工作模式；真正驱动自动化的是 mode 内部的 `execution phase`
+  - 新设计引入 `discipline profile`（`full_spec_tdd` / `lite_spec_tdd`）、`tool pack`、`permission DSL`、统一 `failure taxonomy` 与结果预算策略
+  - 设计明确借鉴 `reference/claude-code` 的工具完整契约、结果持久化、权限解释和错误格式化机制，同时保留更适合弱模型的 mode 聚焦与最小工具暴露面
+  - 当前这是一条已确认的设计基线，而非已完成实现；后续实现切片应按该文档推进，而不是继续在旧 mode 和旧权限上做局部修补
+- 影响范围：
+  - mode 系统定位
+  - tool contract / result budget / validator / recovery 设计
+  - allowlist / permission 设计
+  - spec-driven / TDD 默认工作流
+- 关联文档：
+  - `docs/agent-harness-v2.md`
+  - `docs/development-tracker.md`
+  - `docs/tool-design-spec.md`
+  - `docs/mode-schema.md`
+  - `docs/permission-model.md`
+- 是否需要 ADR：`建议在正式进入实现切片前补一条 ADR，固定 visible mode 与 internal phase 的分层决策`
+- 后续动作：
+  - 基于该文档继续细化可执行重构计划与切片边界
+  - 在进入实现前，明确新 mode 命名、recipe 中心验证工具面、permission DSL 文法与 session/front-end 暴露字段
 
 ### DC-080
 

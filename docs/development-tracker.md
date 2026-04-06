@@ -1,6 +1,6 @@
 # EmbedAgent 开发进度跟踪
 
-> 更新日期：2026-04-06（GUI interaction lifecycle tab split + bundle/script follow-up）
+> 更新日期：2026-04-06（Agent Harness V2 Program A/B implementation started）
 > 用途：持续跟踪当前阶段、下一步任务、里程碑进度、风险与阻塞
 
 ---
@@ -28,7 +28,7 @@
 
 - 当前阶段：`Phase 4 真实工程验证 + Phase 6 GUI / Win7 收口`
 - 总体状态：`进行中`
-- 当前重点：`Phase 4 默认 recipe/真实工程/Win7 验证，Phase 6 GUI / Win7 收口，以及 transcript-truth cutover 后的 regression/文档收口；Phase 7 继续推进 package.ps1 控制面后的 site-packages 精简与 Win7 bundle 验收`
+- 当前重点：`Agent Harness V2 Program A/B 实现中：已落地 harness/tooling/tools_v2/permissions_v2 第一批基础包与 build-lite 薄集成；并行保持 Phase 4 默认 recipe/真实工程/Win7 验证、Phase 6 GUI / Win7 收口，以及 Phase 7 bundle/site-packages 精简与 Win7 验收`
 
 ### 当前判断
 
@@ -268,6 +268,7 @@
 | R-019 | GUI interaction 事件当前仍是“backend raw event + frontend local append”双轨去重，而非单一真相源 | 中 | 当前已统一结构并按 `interaction_id` 去重；若后续继续演进 event-sourced runtime，应评估把 Timeline/Inspector 收敛到单一 interaction event 主线 |
 | R-020 | launcher 模板与 `prepare-offline.ps1` 仍存在重复定义，后续修改若不同步仍可能重新引入 bundle 契约漂移 | 中 | 当前已通过公共 runtime discovery + validate launcher contract 把缺陷前移到验收阶段；后续可继续收敛 launcher 生成来源 |
 | R-021 | `package.ps1`、`prepare-offline.ps1` 与 `build-offline-bundle.ps1` 之间仍有部分共享打包逻辑分散在多个脚本，后续改动仍可能引入新分叉 | 中 | 当前已先把 GUI 静态资产门和 launcher 契约门收口到共享 helper / validator；后续继续抽公共能力而不是三处平行演化 |
+| R-022 | 当前 mode / tool / permission 强耦合导致真实任务频繁切模式、奇怪拒绝和工具调用退化 | 高 | 已建立 `docs/agent-harness-v2.md` 作为整体重构基线；后续优先按 harness / tool contract / permission DSL 的顺序做切片，而不是继续在旧机制上打补丁 |
 
 ---
 
@@ -284,6 +285,8 @@
 | 2026-04-06 | 直连离线打包链已补齐 GUI 静态资产门：`prepare-offline.ps1` 现在会确保 KaTeX 等前端资源存在，`build-offline-bundle.ps1` 会拒绝复制残缺 staging；重建后的 `build-offline-dist/embedagent-win7-x64` 已重新通过 `validate-offline-bundle -RequireComplete`、`check-bundle-dependencies.py` 与 bundle 级 `validate-gui-smoke.py` |
 | 2026-04-06 | `gui-bundled-runtime-discovery-failure` 问题分析文档已迁入 `docs/archive/issues/`，当前该问题视为关闭并退出活动 issue 入口 |
 | 2026-04-06 | GUI interaction 生命周期已收口到专属 `interaction` tab：当前交互不再挂在所有 inspector tab 的公共尾部；`pending_interaction_valid=false` / `interaction_expired` 现在只显示 notice，不再伪装成可操作的 expired card；webapp helper 回归与 `tests.test_gui_runtime`、`tests.test_gui_backend_api` 已通过 |
+| 2026-04-06 | 已建立 `docs/agent-harness-v2.md` 作为新一轮 mode/tool/permission 整体重构设计基线：保留用户可见 mode，但引入 execution phase、discipline profile、tool pack、permission DSL 与 failure taxonomy；后续建议以该文档为主线推进重构，而不是继续做局部补丁 |
+| 2026-04-06 | Agent Harness V2 Program A/B 已开始实现：新增 `src/embedagent/harness/`、`tooling/`、`tools_v2/`、`permissions_v2/` 第一批基础包，`build` mode 已可挂载最小 harness context，`InProcessAdapter` snapshot 已暴露 `current_phase / discipline_profile / current_activity`，且新切片测试与定向旧回归均已通过 |
 | 2026-03-27 | 建立进度跟踪文件，明确当前阶段与下一步优先级 |
 | 2026-03-27 | DC-004/DC-005：工具设计规范建立，实施分期重组，Phase 1 改为最小可工作 Loop |
 | 2026-03-27 | 已落地 Phase 1 最小原型代码，并完成本地语法检查、工具自测与假模型闭环验证 |

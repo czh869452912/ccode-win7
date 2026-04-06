@@ -11,6 +11,7 @@ from typing import Any, Callable, Dict, Optional, Tuple
 
 from embedagent.context import ContextManager
 from embedagent.guard import LoopGuard
+from embedagent.harness.runner import HarnessRunner
 from embedagent.interaction import UserInputRequest, UserInputResponse, ask_user_schema, build_user_input_request, propose_mode_switch_schema
 from embedagent.llm import ModelClientError, OpenAICompatibleClient
 from embedagent.memory_maintenance import MemoryMaintenance
@@ -81,6 +82,7 @@ class QueryEngine(object):
             self.tools.projection_db,
             self.transcript_store,
         )
+        self.harness_runner = HarnessRunner()
         self._maintenance_counter = 0
 
     def _session_guard(self):
@@ -160,6 +162,12 @@ class QueryEngine(object):
                         "metadata": dict(getattr(boundary, "metadata", {}) or {}),
                     },
                 )
+
+    def _run_harness_mode(self, current_mode: str, session: Optional[Session] = None) -> Tuple[str, list]:
+        del session
+        if str(current_mode or "") != "build":
+            return current_mode, []
+        return current_mode, self.harness_runner.build_mode_units("build")
 
     def _record_transition(self, session: Session, transition: LoopTransition) -> None:
         with self._session_guard():
@@ -312,6 +320,7 @@ class QueryEngine(object):
         user_input_handler: Optional[Callable[[UserInputRequest], Optional[UserInputResponse]]] = None,
     ) -> QueryTurnResult:
         current_mode = require_mode(initial_mode)["slug"]
+        current_mode, harness_units = self._run_harness_mode(current_mode, session)
         if session is None:
             with self._session_guard():
                 session = Session()
@@ -341,6 +350,22 @@ class QueryEngine(object):
                         "replaced_by_refs": list(system_message.replaced_by_refs),
                     },
                 )
+                for content in harness_units:
+                    harness_message = session.add_system_message(content)
+                    self._append_message_event(
+                        session,
+                        {
+                            "role": harness_message.role,
+                            "content": harness_message.content,
+                            "message_id": harness_message.message_id,
+                            "parent_message_id": harness_message.parent_message_id,
+                            "turn_id": harness_message.turn_id,
+                            "step_id": harness_message.step_id,
+                            "kind": harness_message.kind,
+                            "metadata": dict(harness_message.metadata),
+                            "replaced_by_refs": list(harness_message.replaced_by_refs),
+                        },
+                    )
         else:
             self._ensure_transcript_bootstrap(session, current_mode)
         if user_text:
