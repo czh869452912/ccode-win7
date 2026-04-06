@@ -188,3 +188,13 @@ Phase 4 当前已经完成“接口层、解析层和项目内闭环工具链”
 - 项目已经有一个可直接启用和测试的本地 Clang 工具链根目录
 - 后续重点转为真实项目命令、版本一致性和 Win7 实机验证，而不是重写 Tool Runtime
 
+# Superseded Note
+
+This document captures an older tool-wrapper-oriented Clang plan.
+The current official build/verify workflow is recipe-centered and described by the current architecture docs.
+
+Use these instead:
+
+- `README.md`
+- `docs/overall-solution-architecture.md`
+- `docs/tool-contracts.md`

@@ -4,144 +4,154 @@
 
 This file is the project constitution for future agent and contributor work.
 
-It exists to keep implementation decisions aligned with the core constraints of this repository:
+It exists to keep implementation and documentation aligned with the current product baseline:
 
 - Windows 7 compatibility is mandatory.
 - Offline deployment is mandatory.
-- Agent Core is the product core, UI is replaceable.
-- The initial target is C application software development with a Clang-centered toolchain.
+- Agent Core is the product core; UI shells are replaceable.
+- The first-class target workflow is C/C++ application development with a Clang-centered toolchain.
 
-## Read This First
+## Read First
 
-Before making non-trivial changes, read these files in order:
+Before non-trivial work, read in this order:
 
 1. `README.md`
 2. `docs/overall-solution-architecture.md`
 3. `docs/implementation-roadmap.md`
 
-Use `analysis/` as reference material, not as the source of truth for the current design.
+Use `docs/archive/` and `analysis/` as historical/reference material only.
 
 ## Hard Constraints
 
-- Do not introduce a runtime dependency on Docker, Node.js, VS Code, WSL, or external online services.
-- Do not introduce Python syntax or dependencies that require Python 3.9+.
-- Target runtime remains Python 3.8 because Windows 7 support is a hard requirement.
+- Do not introduce runtime dependencies on Docker, WSL, VS Code, or external online services.
+- Keep runtime compatibility at Python `>=3.8,<3.9`.
+- Do not use Python 3.9+/3.10+ syntax features.
 - Prefer standard library plus a very small dependency surface.
-- **The final deliverable must be fully self-contained with zero external dependencies.** This means the bundle must include, without exception:
-  - Python 3.8 embeddable distribution
-  - All Python third-party packages (vendored)
-  - MinGit portable binary
-  - ripgrep binary
-  - Universal Ctags binary
-  - Clang toolchain (statically linked binaries: clang, clang-tidy, clang-analyzer, llvm-profdata, llvm-cov)
-  - Any other tool invoked at runtime
-- A target machine that has only Windows 7 with no pre-installed software must be able to run the system after unpacking the bundle. If a tool is used at runtime but not included in the bundle, it is a defect.
+- The offline bundle must include every runtime tool it invokes.
 
-## Python And Environment Policy
+Required bundled runtime assets include:
 
-- Primary development environment manager: `uv`
-- Required compatibility target: `CPython 3.8`
-- Default pinned development interpreter: `3.8.10`
-- Runtime packaging target: Python 3.8 embeddable distribution
-- If `uv` cannot provide a suitable Python 3.8 interpreter on a given machine, `conda` is the approved fallback
+- Python 3.8 embeddable distribution
+- vendored Python third-party packages
+- MinGit portable
+- ripgrep
+- Universal Ctags
+- Clang toolchain binaries needed by runtime flows
+- any other binary invoked by the product at runtime
 
-Practical rules:
+If a clean Windows 7 machine cannot unpack and run the bundle without preinstalled tools, it is a defect.
 
-- Keep `requires-python` within `>=3.8,<3.9`
-- Do not use structural pattern matching, `tomllib`, `typing.Self`, or other 3.9+ / 3.10+ features
-- New tooling should be checked for Python 3.8 compatibility before adoption
+## Official Product Vocabulary
 
-## Implementation Priorities
+The repository now has one official architecture vocabulary.
 
-Build in this order:
+### Modes
 
-1. Minimum working loop: LLM Adapter + first tool set + CLI (Phase 1)
-2. Tool set v1: shell command + git tools (Phase 2)
-3. Mode system v1: 5-mode config-driven registry + tool filtering (Phase 3)
-4. Clang toolchain: compile, test, clang-tidy, coverage with static binary bundle (Phase 4)
-5. Quality guard layer: context compression, permission system, doom loop guard (Phase 5)
-6. TUI / CLI adapters (Phase 6)
-7. Offline packaging (Phase 7)
+Official first-class modes are:
 
-Each phase must end with an end-to-end runnable milestone. Do not proceed to the next phase before the milestone is validated.
+- `explore`
+- `spec`
+- `build`
+- `debug`
+- `verify`
 
-## Tool Design Policy
+`code` is no longer a first-class mode.
 
-Tool set design is a first-class design concern. Refer to `docs/tool-design-spec.md` for the complete specification.
+### Harness
 
-Key rules:
+Official execution semantics are:
 
-- Each mode must have at most 5 tools (target: 3-4)
-- Tool descriptions must follow the template: Chinese description + English name, three-sentence structure, parameter includes example
-- All parameters must be flattened top-level fields — no nested objects
-- Enum values must be in the `enum` field, not embedded in `description`
-- All tool results must return structured Observations, not raw terminal text
-- Before adding any new tool, go through the checklist in `docs/tool-design-spec.md`
+- `mode`
+- `discipline_profile`
+- `execution_phase`
+- `TaskGraph`
 
-## Mode System Policy
+### Task System
 
-The supported first-class modes are:
+Official task truth is:
 
-- `explore` *(default)* — read-only exploration, code reading, discussion, fuzzy sessions
-- `spec` — requirements, acceptance criteria, documentation writing
-- `code` — C implementation and build-system changes
-- `debug` — root-cause analysis and minimal fixes
-- `verify` — build, static analysis, test execution (read-only)
+- `TaskGraph`
+- `task_status`
+- session task snapshots
 
-Rules:
+`manage_todos` is not part of the official workflow architecture.
 
-- Modes are Core contracts, not UI decorations
-- Each mode should have a narrow responsibility
-- `explore` is the default entry point for all sessions; it covers unstructured exploration and discussion
-- `verify` should own quality gates and never write code
-- **LLM cannot switch modes autonomously** — the `switch_mode` tool does not exist; mode switching is user-driven only via `/mode <name>` or by selecting a mode option in `ask_user`
-- Mode definitions live in `src/embedagent/modes.py` (`_BUILTIN_MODES`) and can be overridden per-user (`~/.embedagent/modes.json`) or per-project (`<workspace>/.embedagent/modes.json`)
-- All modes include `manage_todos` and `ask_user`
+### Tooling
 
-## Harness Evolution Policy
+Official workflow tools center on:
 
-The Agent Harness must be built incrementally — do not implement full configuration loading or a complex state machine before the minimum loop is validated.
+- `read_file`
+- `list_dir`
+- `glob_files`
+- `grep_text`
+- `write_file`
+- `edit_file`
+- `list_recipes`
+- `run_recipe`
+- `report_quality_v2`
+- `task_status`
+- `record_failing_evidence`
+- `ask_user`
 
-Evolution stages:
+## Mode Policy
 
-- Phase 1: No harness — loop has a single hardcoded system prompt
-- Phase 3: `_BUILTIN_MODES` dict + `initialize_modes()` config loader + tool filtering (~200 lines)
-- Phase 5: JSON override loading (`modes.json`) already implemented; prompt frame override (`prompt_frame.txt`) available
+- Modes are product contracts, not UI decorations.
+- `explore` is the default entry mode.
+- `verify` is read-only and owns quality-gate style execution.
+- The LLM does not autonomously switch modes.
+- User-driven switching happens through `/mode <name>` or confirmed `ask_user` choices.
 
-Mode switch triggers (Phase 3+):
+Mode definitions live in `src/embedagent/modes.py`.
 
-1. **User explicit:** message starts with `/mode <name>`
-2. **User option selection:** user picks an `ask_user` option that has an `option_N_mode` field set — loop updates current mode and appends new system prompt
+## Permission Policy
 
-The `switch_mode` LLM tool has been **removed**. The LLM can only suggest mode changes by calling `ask_user` with mode-bearing options; the switch does not happen until the user confirms.
+One official permission engine only:
+
+- `src/embedagent/permissions.py`
+
+Permission rules are structured data, not free-form prompt behavior.
+When changing permission behavior, keep rule matching, decision categories, and explanation text aligned.
+
+## Frontend / Protocol Policy
+
+One official frontend vocabulary only:
+
+- `tasks`, not `todos`
+- `build`, not `code`
+- `current_phase`, `discipline_profile`, `current_activity`, `task_summary`, `task_items`
+
+Frontend-facing contract changes must be reflected together in:
+
+- `src/embedagent/protocol/`
+- `src/embedagent/core/`
+- `src/embedagent/frontend/`
 
 ## Documentation Maintenance
 
-When changing the project, update the matching document:
+When changing architecture or workflow assumptions, update the matching source-of-truth documents in the same change:
 
 - `README.md`
-  - Public overview, scope, current status
 - `AGENTS.md`
-  - Project constitution, development constraints, workflow rules
 - `docs/overall-solution-architecture.md`
-  - Stable architecture and major design decisions
 - `docs/implementation-roadmap.md`
-  - Milestones, implementation sequencing, document maintenance plan
 - `docs/development-tracker.md`
-  - Near-term execution status, current priorities, blockers and risks
 - `docs/design-change-log.md`
-  - Key design changes, impact scope, related follow-up work
-- `docs/adrs/*.md`
-  - One-off architectural decisions that need historical traceability
+- `docs/mode-schema.md`
+- `docs/tool-contracts.md`
+- `docs/permission-model.md`
+- `docs/frontend-protocol.md`
+- `docs/agent-harness-v2.md`
 
-If a change alters architecture, workflow, version policy, or operating assumptions, document it in the same change.
+Historical notes belong in `docs/archive/` or changelog material, not in current architecture docs.
 
-## Non-Goals For Early Phases
+## Non-Goals
 
-- No browser automation
-- No web search features
-- No heavyweight RAG platform
-- No plugin marketplace
-- No premature multi-agent orchestration framework
+The repository is not currently trying to become:
 
-Multi-agent support (true parallel sub-loops) is deferred; it is not part of the current single-developer maintenance workflow.
+- a browser automation agent
+- a web search system
+- a heavyweight RAG platform
+- a plugin marketplace
+- a general multi-agent orchestration framework
+
+The product is a focused native Agent IDE core for offline C engineering work.

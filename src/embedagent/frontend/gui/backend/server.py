@@ -644,10 +644,6 @@ class GUIBackend:
         async def list_tasks(session_id: str = ""):
             return {"tasks": self.core.list_tasks(session_id=session_id)}
 
-        @app.get("/api/todos")
-        async def list_todos(session_id: str = ""):
-            return {"todos": self.core.list_tasks(session_id=session_id)}
-
         @app.get("/api/artifacts")
         async def list_artifacts(limit: int = 20):
             return {"items": self.core.list_artifacts(limit=limit)}

@@ -567,9 +567,6 @@ class AgentCoreAdapter(CoreInterface):
         result = self._adapter.list_tasks(session_id=session_id)
         return result.get("tasks", [])
 
-    def list_todos(self, session_id: str = "") -> List[Dict[str, Any]]:
-        return self.list_tasks(session_id=session_id)
-
     def get_session_plan(self, session_id: str) -> Optional[PlanSnapshot]:
         payload = self._adapter.get_session_plan(session_id)
         return payload

@@ -324,3 +324,12 @@ Phase 6 当前终端前端已经不再是“单文件聊天壳”，而是：
 - 真实 Win7 控制台与 ConEmu 手工验证
 - explorer / editor / plan 交互打磨
 - stdio adapter 与未来原生桌面壳复用同一协议
+# Superseded Note
+
+This document predates the current `tasks/build` frontend vocabulary cutover.
+Treat it as historical reference material, not as the current frontend contract.
+
+Current source-of-truth documents are:
+
+- `docs/frontend-protocol.md`
+- `docs/overall-solution-architecture.md`

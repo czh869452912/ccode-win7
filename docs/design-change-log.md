@@ -44,6 +44,35 @@
 
 ## 3. 当前变更记录
 
+### DC-089
+
+- 日期：2026-04-06
+- 变更主题：official cutover 第六步完成，当前文档与前端兼容壳层正式收口
+- 变更摘要：
+  - 当前 source-of-truth 文档已改写为单一正式架构说明：README、AGENTS、overall architecture、roadmap、mode schema、tool contracts、permission model、frontend protocol、agent harness baseline
+  - `list_todos` / `/api/todos` / sessionless todo fallback 等前端兼容壳层已从正式产品路径移除，`tasks` 成为唯一前端任务词汇
+  - `InProcessAdapter.get_tool_catalog()` 现在只投影正式 mode tool vocabulary，避免 GUI/TUI 再把 legacy duplicate tools 当作产品功能展示
+  - 若仍保留历史设计材料，则已明确标注为 superseded/historical，不再作为当前架构依据
+- 影响范围：
+  - source-of-truth 文档集合
+  - frontend / protocol / adapter 的兼容边界
+  - tool catalog 的前端可见语义
+- 关联文档：
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/mode-schema.md`
+  - `docs/tool-contracts.md`
+  - `docs/permission-model.md`
+  - `docs/frontend-protocol.md`
+  - `docs/agent-harness-v2.md`
+  - `docs/development-tracker.md`
+- 是否需要 ADR：`否，当前阶段更需要保持文档与实现同步`
+- 后续动作：
+  - 进入真实 C 项目和 Win7 bundle 稳定化验证
+  - 后续若继续清理内部 dead code，应以“不改变正式架构词汇”为前提推进
+
 ### DC-088
 
 - 日期：2026-04-06

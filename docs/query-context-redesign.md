@@ -150,3 +150,13 @@
 - 更完整的 permission wait / background resume 用户体验
 - 更深的 llsp/clangd 实时语义后端（若后续确有需要）
 - 全量旧测试迁移到无 ACL 噪音的测试沙箱
+# Superseded Note
+
+This document records an earlier redesign slice and includes historical terminology.
+Treat it as background material only.
+
+Current source-of-truth documents are:
+
+- `docs/overall-solution-architecture.md`
+- `docs/agent-harness-v2.md`
+- `docs/frontend-protocol.md`

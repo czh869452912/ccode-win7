@@ -17,7 +17,7 @@ from embedagent.interaction import UserInputRequest, UserInputResponse
 from embedagent.llm import OpenAICompatibleClient
 from embedagent.loop import AgentLoop
 from embedagent.memory_maintenance import MemoryMaintenance
-from embedagent.modes import DEFAULT_MODE, build_system_prompt, initialize_modes, require_mode
+from embedagent.modes import DEFAULT_MODE, allowed_tools_for, build_system_prompt, initialize_modes, mode_names, require_mode
 from embedagent.plan_store import PlanStore
 from embedagent.permissions import PermissionPolicy, PermissionRequest
 from embedagent.protocol import CommandResult, PermissionContextView, PlanSnapshot
@@ -29,7 +29,6 @@ from embedagent.session_store import SessionSummaryStore
 from embedagent.session_timeline import SessionTimelineStore
 from embedagent.slash_commands import ParsedSlashCommand, SlashCommandRegistry, parse_slash_command
 from embedagent.transcript_store import TranscriptStore
-from embedagent import todos as todo_store
 from embedagent.tools import ToolRuntime
 from embedagent.tools._base import SKIP_DIR_NAMES
 from embedagent.workspace_profile import build_workspace_profile_message
@@ -960,11 +959,10 @@ class InProcessAdapter(object):
 
     def list_tasks(self, session_id: str = "") -> Dict[str, Any]:
         if not session_id:
-            todos = todo_store.load_todos(self.tools.workspace, session_id=session_id)
             return {
-                "count": len(todos),
-                "tasks": todos,
-                "path": todo_store.relative_todos_path(session_id),
+                "count": 0,
+                "tasks": [],
+                "path": "",
                 "session_id": session_id,
             }
         state = None
@@ -977,15 +975,9 @@ class InProcessAdapter(object):
         return {
             "count": len(todos),
             "tasks": todos,
-            "path": task_store.relative_task_snapshot_path(session_id) if session_id else todo_store.relative_todos_path(session_id),
+            "path": task_store.relative_task_snapshot_path(session_id),
             "session_id": session_id,
         }
-
-    def list_todos(self, session_id: str = "") -> Dict[str, Any]:
-        payload = self.list_tasks(session_id=session_id)
-        legacy = dict(payload)
-        legacy["todos"] = list(payload.get("tasks") or [])
-        return legacy
 
     def get_session_plan(self, session_id: str) -> Optional[PlanSnapshot]:
         state = self._require_session(session_id)
@@ -1012,7 +1004,17 @@ class InProcessAdapter(object):
     def get_tool_catalog(self) -> List[Dict[str, Any]]:
         method = getattr(self.tools, "catalog_entries", None)
         if callable(method):
-            return method()
+            allowed = set()
+            for mode_name in mode_names():
+                allowed.update(allowed_tools_for(mode_name))
+            items = []
+            for entry in method():
+                if not isinstance(entry, dict):
+                    continue
+                if str(entry.get("name") or "") not in allowed:
+                    continue
+                items.append(entry)
+            return items
         return []
 
     def load_session_events_after(self, session_id: str, after_seq: int, limit: int = 200) -> Dict[str, Any]:

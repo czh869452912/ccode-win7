@@ -269,8 +269,6 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         with open(os.path.join(self.workspace, 'src', 'pkg', 'demo.c'), 'w', encoding='utf-8') as handle:
             handle.write('int main(void) {\n    return 0;\n}\n')
         os.makedirs(os.path.join(self.workspace, '.embedagent'))
-        with open(os.path.join(self.workspace, '.embedagent', 'todos.json'), 'w', encoding='utf-8') as handle:
-            json.dump([{'id': 1, 'content': 'demo', 'done': False}], handle)
         stored = self.tools.tool_result_store.write_text(
             session_id="session-artifacts",
             tool_call_id="call-artifact-1",
@@ -319,8 +317,8 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertGreaterEqual(len(artifacts), 1)
         payload = self.adapter.read_artifact(artifacts[0]['path'])
         self.assertEqual(payload['kind'], 'text')
-        tasks = self.adapter.list_tasks()
-        self.assertEqual(tasks['count'], 1)
+        tasks = self.adapter.list_tasks(session_id=str(self.snapshot.get('session_id') or ''))
+        self.assertEqual(tasks['count'], 5)
 
     def test_session_snapshot_exposes_task_items(self):
         self.assertIn("task_items", self.snapshot)
@@ -1334,6 +1332,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
     def test_tool_catalog_exposes_renderer_metadata(self):
         items = self.adapter.get_tool_catalog()
         self.assertTrue(any(item.get("name") == "read_file" for item in items))
+        self.assertFalse(any(item.get("name") == "compile_project" for item in items))
         read_file = [item for item in items if item.get("name") == "read_file"][0]
         self.assertEqual(read_file.get("user_label"), "Read File")
         self.assertEqual(read_file.get("result_renderer_key"), "file")

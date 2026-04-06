@@ -221,3 +221,15 @@ src/embedagent/tools/
 `ToolContext`（`_base.py`）封装了所有工具共享的 helper：路径解析、文本读写、
 子进程执行、诊断解析、输出压缩等。各 ops 模块通过 `ctx` 参数获得这些能力，
 **不直接操作文件系统或子进程**，保持模块间解耦。
+# Superseded Note
+
+This document is retained as historical design guidance from before the official Agent Harness cutover.
+It is no longer the source of truth for the current product architecture.
+
+Use these documents instead:
+
+- `README.md`
+- `docs/overall-solution-architecture.md`
+- `docs/mode-schema.md`
+- `docs/tool-contracts.md`
+- `docs/agent-harness-v2.md`

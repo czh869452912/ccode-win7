@@ -235,3 +235,15 @@ manage_todos(action="remove", item_id=3)
 - `remove` 操作会重新编号剩余条目（从 1 开始），建议在完成前不要依赖固定 id；
 - 若前端 / Runtime 已注入 `session_id`，`manage_todos` 默认只读写当前会话的 todo 文件，不会污染其他会话；
 - 工具在所有模式下均可用；`mode_writable_globs` 仅影响 `write_file` / `edit_file` 的路径白名单，不影响 `manage_todos`。
+# Superseded Note
+
+This document contains pre-cutover configuration guidance and historical examples.
+It is not the source of truth for the current official mode/task architecture.
+
+Current source-of-truth documents are:
+
+- `README.md`
+- `AGENTS.md`
+- `docs/mode-schema.md`
+- `docs/permission-model.md`
+- `docs/frontend-protocol.md`

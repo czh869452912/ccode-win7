@@ -498,3 +498,12 @@ Phase 5F 完成后，推荐继续按下面顺序推进：
 
 
 
+# Superseded Note
+
+This document contains earlier context-layer design material and historical terminology.
+It is no longer the source of truth for the current harness-aligned context pipeline.
+
+Use these instead:
+
+- `docs/overall-solution-architecture.md`
+- `docs/agent-harness-v2.md`

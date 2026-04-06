@@ -4,7 +4,6 @@ import json
 import os
 from typing import Any, Dict, List, Optional
 
-from embedagent import todos as todo_store
 from embedagent.harness import task_store
 
 
@@ -84,9 +83,9 @@ class SessionService(object):
         method = getattr(self.adapter, "list_tasks", None)
         if callable(method):
             return method(session_id=session_id)
-        tasks_path = task_store.task_snapshot_path(self.workspace, session_id) if session_id else todo_store.legacy_todos_path(self.workspace)
+        tasks_path = task_store.task_snapshot_path(self.workspace, session_id) if session_id else ""
         if not os.path.isfile(tasks_path):
-            return {"count": 0, "tasks": [], "path": task_store.relative_task_snapshot_path(session_id) if session_id else todo_store.relative_todos_path(session_id), "session_id": session_id}
+            return {"count": 0, "tasks": [], "path": task_store.relative_task_snapshot_path(session_id) if session_id else "", "session_id": session_id}
         try:
             with open(tasks_path, "r", encoding="utf-8") as handle:
                 payload = json.load(handle)
@@ -96,10 +95,4 @@ class SessionService(object):
             tasks = payload.get("tasks") if isinstance(payload.get("tasks"), list) else []
         else:
             tasks = payload if isinstance(payload, list) else []
-        return {"count": len(tasks), "tasks": tasks, "path": task_store.relative_task_snapshot_path(session_id) if session_id else todo_store.relative_todos_path(session_id), "session_id": session_id}
-
-    def list_todos(self, session_id: str = "") -> Dict[str, Any]:
-        payload = self.list_tasks(session_id=session_id)
-        legacy = dict(payload)
-        legacy["todos"] = list(payload.get("tasks") or [])
-        return legacy
+        return {"count": len(tasks), "tasks": tasks, "path": task_store.relative_task_snapshot_path(session_id) if session_id else "", "session_id": session_id}
