@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
 from embedagent.project_memory import ProjectMemoryStore
-from embedagent.session import ContextAssemblyResult, Message, Observation, Session, Turn
+from embedagent.session import Action, ContextAssemblyResult, Message, Observation, Session, Turn
 from embedagent.workspace_intelligence import WorkspaceIntelligenceBroker
 
 
@@ -629,6 +629,7 @@ class ContextManager(object):
         seen_searches = set()
         pending_activity = {"read": 0, "search": 0, "list": 0}
         expected_tool_call_ids = set()
+        pending_tool_calls = {}
         replacement_index = {}
         for item in getattr(session, "content_replacements", []) or []:
             message_id = str(item.get("message_id") or "")
@@ -657,16 +658,35 @@ class ContextManager(object):
             pending_activity["search"] = 0
             pending_activity["list"] = 0
 
+        def flush_missing_tool_results() -> None:
+            if not pending_tool_calls:
+                return
+            flush_activity()
+            for action in list(pending_tool_calls.values()):
+                result.append(self._synthetic_missing_tool_result_message(action, policy))
+            pending_tool_calls.clear()
+            expected_tool_call_ids.clear()
+
         for message in session.messages[start_index : end_index + 1]:
             if message.role == "system":
                 continue
             if message.role == "assistant":
+                flush_missing_tool_results()
                 expected_tool_call_ids = set(
                     str(action.call_id or "").strip()
                     for action in (message.action_calls or [])
                     if str(action.call_id or "").strip()
                 )
+                pending_tool_calls = dict(
+                    (
+                        str(action.call_id or "").strip(),
+                        action,
+                    )
+                    for action in (message.action_calls or [])
+                    if str(action.call_id or "").strip()
+                )
             elif message.role != "tool":
+                flush_missing_tool_results()
                 expected_tool_call_ids = set()
             if message.role == "tool":
                 call_id = str(message.tool_call_id or "").strip()
@@ -674,7 +694,10 @@ class ContextManager(object):
                     flush_activity()
                     result.append(self._compact_message(message, policy))
                     expected_tool_call_ids.discard(call_id)
+                    pending_tool_calls.pop(call_id, None)
                     continue
+                if pending_tool_calls:
+                    flush_missing_tool_results()
                 restored_replacement = replacement_index.get(message.message_id)
                 if restored_replacement is not None:
                     reduced_tool_messages += 1
@@ -701,8 +724,35 @@ class ContextManager(object):
             else:
                 flush_activity()
             result.append(self._compact_message(message, policy))
+        flush_missing_tool_results()
         flush_activity()
         return result, reduced_tool_messages, replacements
+
+    def _synthetic_missing_tool_result_message(
+        self,
+        action: Action,
+        policy: ContextPolicy,
+    ) -> Dict[str, Any]:
+        payload = {
+            "success": False,
+            "error": "missing tool result",
+            "data": {
+                "error_kind": "missing_tool_result",
+                "retryable": False,
+                "synthetic": True,
+                "blocked_by": "session_repair",
+                "suggested_next_step": "该工具调用的结果在会话中缺失；如需依赖其输出，请重新执行对应工具。",
+            },
+        }
+        return {
+            "role": "tool",
+            "name": str(action.name or ""),
+            "tool_call_id": str(action.call_id or ""),
+            "content": _truncate_text(
+                json.dumps(payload, ensure_ascii=False, sort_keys=True),
+                policy.recent_tool_chars,
+            ),
+        }
 
     def _compact_system_message(self, message: Message, policy: ContextPolicy) -> Dict[str, Any]:
         return {"role": "system", "content": _truncate_text(message.content, policy.recent_message_chars)}

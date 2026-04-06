@@ -162,6 +162,48 @@ class ToolClient(object):
         return reply
 
 
+class UnsafeToolCallIdClient(object):
+    def __init__(self):
+        self.calls = 0
+
+    def generate(self, messages, tools=None):
+        self.calls += 1
+        if self.calls == 1:
+            return AssistantReply(
+                content="",
+                actions=[
+                    Action(
+                        name="read_file",
+                        arguments={"path": "src/demo.c"},
+                        call_id="read_file:1",
+                    )
+                ],
+                finish_reason="tool_calls",
+            )
+        return AssistantReply(content="done", actions=[], finish_reason="stop")
+
+    def stream(self, messages, tools=None, on_text_delta=None, on_reasoning_delta=None):
+        reply = self.generate(messages, tools=tools)
+        if on_text_delta is not None and reply.content:
+            on_text_delta(reply.content)
+        return reply
+
+
+class InspectingDoneClient(object):
+    def __init__(self):
+        self.messages = []
+
+    def generate(self, messages, tools=None):
+        self.messages.append(messages)
+        return AssistantReply(content="recovered", actions=[], finish_reason="stop")
+
+    def stream(self, messages, tools=None, on_text_delta=None, on_reasoning_delta=None):
+        reply = self.generate(messages, tools=tools)
+        if on_text_delta is not None and reply.content:
+            on_text_delta(reply.content)
+        return reply
+
+
 class RecordingSessionLock(object):
     def __init__(self):
         self._lock = threading.RLock()
@@ -396,6 +438,113 @@ class TestQueryEngineRefactor(unittest.TestCase):
         )
         self.assertEqual(result.transition.reason, "completed")
         self.assertTrue(result.session.turns[-1].observations[-1].success)
+
+    def test_tool_result_store_failure_degrades_without_breaking_tool_pairing(self):
+        transcript_store = TranscriptStore(self.workspace)
+        with open(os.path.join(self.workspace, "src", "demo.c"), "w", encoding="utf-8") as handle:
+            handle.write("int demo(void) {\n%s\n}\n" % ("x" * 2500))
+        self.tools.tool_result_store.write_text = (
+            lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("disk down"))
+        )
+        engine = QueryEngine(
+            client=ToolClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(
+                auto_approve_all=True,
+                workspace=self.workspace,
+            ),
+            transcript_store=transcript_store,
+        )
+        session = Session()
+        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：code")
+        result = engine.submit_turn(
+            user_text="读取文件",
+            stream=False,
+            initial_mode="code",
+            session=session,
+        )
+        self.assertEqual(result.transition.reason, "completed")
+        observation = result.session.turns[-1].observations[-1]
+        self.assertTrue(observation.success)
+        self.assertNotIn("content_stored_path", observation.data)
+        warnings = observation.data.get("tool_result_storage_warnings") or []
+        self.assertEqual(len(warnings), 1)
+        self.assertIn("disk down", warnings[0].get("error", ""))
+        events = transcript_store.load_events(session.session_id)
+        tool_results = [item for item in events if item["type"] == "tool_result"]
+        self.assertEqual(len(tool_results), 1)
+        self.assertEqual(tool_results[0]["payload"]["call_id"], "call-read-demo")
+
+    def test_query_engine_accepts_windows_unsafe_tool_call_ids_for_large_results(self):
+        transcript_store = TranscriptStore(self.workspace)
+        with open(os.path.join(self.workspace, "src", "demo.c"), "w", encoding="utf-8") as handle:
+            handle.write("int demo(void) {\n%s\n}\n" % ("x" * 2500))
+        engine = QueryEngine(
+            client=UnsafeToolCallIdClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(
+                auto_approve_all=True,
+                workspace=self.workspace,
+            ),
+            transcript_store=transcript_store,
+        )
+        session = Session()
+        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：code")
+        result = engine.submit_turn(
+            user_text="读取文件",
+            stream=False,
+            initial_mode="code",
+            session=session,
+        )
+        self.assertEqual(result.transition.reason, "completed")
+        observation = result.session.turns[-1].observations[-1]
+        self.assertTrue(observation.success)
+        stored_path = str(observation.data.get("content_stored_path") or "")
+        self.assertTrue(stored_path)
+        self.assertNotIn("read_file:1", stored_path)
+        self.assertNotIn(":", stored_path)
+        events = transcript_store.load_events(session.session_id)
+        tool_results = [item for item in events if item["type"] == "tool_result"]
+        self.assertEqual(tool_results[0]["payload"]["call_id"], "read_file:1")
+
+    def test_context_manager_repairs_dangling_tool_calls_before_next_llm_request(self):
+        session = Session()
+        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：code")
+        session.add_user_message("先读文件", turn_id="t-old", message_id="m-user-old")
+        session.begin_step(step_id="s-old")
+        session.add_assistant_reply(
+            AssistantReply(
+                content="",
+                actions=[Action("read_file", {"path": "src/demo.c"}, "read_file:1")],
+                finish_reason="tool_calls",
+            ),
+            message_id="m-assistant-old",
+            turn_id="t-old",
+            step_id="s-old",
+        )
+        client = InspectingDoneClient()
+        engine = QueryEngine(
+            client=client,
+            tools=self.tools,
+            permission_policy=PermissionPolicy(
+                auto_approve_all=True,
+                workspace=self.workspace,
+            ),
+        )
+        result = engine.submit_turn(
+            user_text="继续",
+            stream=False,
+            initial_mode="code",
+            session=session,
+        )
+        self.assertEqual(result.transition.reason, "completed")
+        self.assertEqual(len(client.messages), 1)
+        tool_messages = [
+            item for item in client.messages[0]
+            if item.get("role") == "tool" and item.get("tool_call_id") == "read_file:1"
+        ]
+        self.assertEqual(len(tool_messages), 1)
+        self.assertIn("missing_tool_result", tool_messages[0].get("content", ""))
 
     def test_context_manager_exposes_intelligence_and_boundary(self):
         session = Session()

@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import io
+import hashlib
 import json
 import logging
 import os
+import re
 from dataclasses import dataclass
 from typing import Any, Iterable, Optional, Set
 
@@ -12,6 +14,63 @@ from embedagent.persistence_sanitize import sanitize_jsonable, sanitize_text
 
 _PREVIEW_LIMIT = 1600
 _LOGGER = logging.getLogger(__name__)
+_SAFE_COMPONENT_RE = re.compile(r"^[A-Za-z0-9._-]+$")
+_UNSAFE_COMPONENT_RE = re.compile(r"[^A-Za-z0-9._-]+")
+_WINDOWS_RESERVED_COMPONENTS = frozenset(
+    [
+        "CON",
+        "PRN",
+        "AUX",
+        "NUL",
+        "COM1",
+        "COM2",
+        "COM3",
+        "COM4",
+        "COM5",
+        "COM6",
+        "COM7",
+        "COM8",
+        "COM9",
+        "LPT1",
+        "LPT2",
+        "LPT3",
+        "LPT4",
+        "LPT5",
+        "LPT6",
+        "LPT7",
+        "LPT8",
+        "LPT9",
+        ".",
+        "..",
+    ]
+)
+
+
+def _is_safe_path_component(value: str) -> bool:
+    text = str(value or "")
+    if not text:
+        return False
+    if len(text) > 80:
+        return False
+    if not _SAFE_COMPONENT_RE.match(text):
+        return False
+    if text[-1] in (" ", "."):
+        return False
+    return text.upper() not in _WINDOWS_RESERVED_COMPONENTS
+
+
+def _storage_component(value: str, prefix: str = "tool-call") -> str:
+    text = str(value or "").strip()
+    if _is_safe_path_component(text):
+        return text
+    normalized = _UNSAFE_COMPONENT_RE.sub("-", text).strip(" .-_")
+    if not normalized:
+        normalized = prefix
+    normalized = normalized[:48].rstrip(" .")
+    if not normalized or normalized.upper() in _WINDOWS_RESERVED_COMPONENTS:
+        normalized = prefix
+    digest = hashlib.sha1(text.encode("utf-8")).hexdigest()[:10]
+    return "%s-%s" % (normalized, digest)
 
 
 @dataclass
@@ -49,11 +108,12 @@ class ToolResultStore(object):
         field_name: str,
         extension: str,
     ) -> str:
+        tool_call_dir = _storage_component(tool_call_id)
         return os.path.join(
             self.root,
             session_id,
             "tool-results",
-            tool_call_id,
+            tool_call_dir,
             "%s.%s" % (field_name, extension),
         )
 

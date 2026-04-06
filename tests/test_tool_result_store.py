@@ -30,6 +30,20 @@ class TestToolResultStore(unittest.TestCase):
         with open(first.absolute_path, "r", encoding="utf-8") as handle:
             self.assertEqual(handle.read(), "hello\nworld")
 
+    def test_write_text_sanitizes_windows_unsafe_tool_call_id(self):
+        stored = self.store.write_text(
+            session_id="s-1",
+            tool_call_id="read_file:1",
+            field_name="content",
+            text="hello\nworld",
+        )
+        self.assertEqual(stored.tool_call_id, "read_file:1")
+        self.assertNotIn("read_file:1", stored.relative_path)
+        self.assertNotIn(":", stored.relative_path)
+        self.assertTrue(os.path.isfile(stored.absolute_path))
+        resolved = self.store.resolve_existing_path(stored.relative_path)
+        self.assertEqual(resolved, stored.absolute_path)
+
 
 if __name__ == "__main__":
     unittest.main()

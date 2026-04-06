@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+import logging
 import threading
 import time
 from copy import deepcopy
 from typing import Any, Dict, List, Optional
 
 from embedagent.session import Observation, Session
+
+
+_LOG = logging.getLogger(__name__)
 
 
 class ToolCommitCoordinator(object):
@@ -15,6 +19,32 @@ class ToolCommitCoordinator(object):
         self._transcript_store = transcript_store
         self._lock = threading.Lock()
         self._inline_text_limit = 1600
+
+    def _inline_preview(self, value: str) -> str:
+        if len(value) <= self._inline_text_limit:
+            return value
+        return value[: self._inline_text_limit] + "\n...[tool result truncated: persistence unavailable]"
+
+    def _record_storage_warning(
+        self,
+        data: Dict[str, Any],
+        field_name: str,
+        value: str,
+        exc: Exception,
+    ) -> None:
+        warnings = data.get("tool_result_storage_warnings")
+        if not isinstance(warnings, list):
+            warnings = []
+        warnings.append(
+            {
+                "field_name": field_name,
+                "error": str(exc),
+            }
+        )
+        data["tool_result_storage_warnings"] = warnings[:8]
+        preview = self._inline_preview(value)
+        data[field_name + "_preview"] = preview
+        data[field_name] = preview
 
     def _materialize_text(
         self,
@@ -26,12 +56,23 @@ class ToolCommitCoordinator(object):
         value = data.get(field_name)
         if not isinstance(value, str) or len(value) <= self._inline_text_limit:
             return None
-        stored = self._tool_result_store.write_text(
-            session.session_id,
-            action.call_id,
-            field_name,
-            value,
-        )
+        try:
+            stored = self._tool_result_store.write_text(
+                session.session_id,
+                action.call_id,
+                field_name,
+                value,
+            )
+        except Exception as exc:
+            _LOG.warning(
+                "tool result persistence failed for %s/%s (%s): %s",
+                action.name,
+                action.call_id,
+                field_name,
+                exc,
+            )
+            self._record_storage_warning(data, field_name, value, exc)
+            return None
         data[field_name + "_stored_path"] = stored.relative_path
         data[field_name + "_preview"] = stored.preview_text
         data[field_name] = stored.preview_text
@@ -105,29 +146,38 @@ class ToolCommitCoordinator(object):
                     "tool_name": action.name,
                     "replacements": replacements,
                 }
-                self._transcript_store.append_event(
-                    session.session_id,
-                    "content_replacement",
-                    payload,
-                )
-                session.record_content_replacement(payload)
-                for item in replacements:
-                    preview = committed.data.get(item["field_name"] + "_preview", "")
-                    projection_updates.append(
-                        {
-                            "session_id": session.session_id,
-                            "tool_call_id": action.call_id,
-                            "message_id": message_id,
-                            "tool_name": action.name,
-                            "field_name": item["field_name"],
-                            "stored_path": item["stored_path"],
-                            "preview_text": preview,
-                            "byte_count": len(preview.encode("utf-8")),
-                            "line_count": preview.count("\n") + (1 if preview else 0),
-                            "content_kind": "text",
-                            "created_at": finished_at,
-                        }
+                try:
+                    self._transcript_store.append_event(
+                        session.session_id,
+                        "content_replacement",
+                        payload,
                     )
+                    session.record_content_replacement(payload)
+                except Exception as exc:
+                    _LOG.warning(
+                        "content replacement persistence failed for %s/%s: %s",
+                        action.name,
+                        action.call_id,
+                        exc,
+                    )
+                else:
+                    for item in replacements:
+                        preview = committed.data.get(item["field_name"] + "_preview", "")
+                        projection_updates.append(
+                            {
+                                "session_id": session.session_id,
+                                "tool_call_id": action.call_id,
+                                "message_id": message_id,
+                                "tool_name": action.name,
+                                "field_name": item["field_name"],
+                                "stored_path": item["stored_path"],
+                                "preview_text": preview,
+                                "byte_count": len(preview.encode("utf-8")),
+                                "line_count": preview.count("\n") + (1 if preview else 0),
+                                "content_kind": "text",
+                                "created_at": finished_at,
+                            }
+                        )
         for payload in projection_updates:
             try:
                 self._projection_db.upsert_tool_result_projection(**payload)

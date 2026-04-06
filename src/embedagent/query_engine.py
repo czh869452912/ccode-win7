@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from copy import deepcopy
 from contextlib import nullcontext
 import logging
 import os
@@ -239,17 +240,26 @@ class QueryEngine(object):
             parent_message_id = session.last_message_id()
             finished_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
             turn_id = session.turns[-1].turn_id if session.turns else ""
-            committed = self.tool_commit.commit(
-                session,
-                action,
-                observation,
-                current_mode,
-                turn_id=turn_id,
-                step_id=step_id,
-                message_id=tool_message_id,
-                parent_message_id=parent_message_id,
-                finished_at=finished_at,
-            )
+            try:
+                committed = self.tool_commit.commit(
+                    session,
+                    action,
+                    observation,
+                    current_mode,
+                    turn_id=turn_id,
+                    step_id=step_id,
+                    message_id=tool_message_id,
+                    parent_message_id=parent_message_id,
+                    finished_at=finished_at,
+                )
+            except Exception as exc:
+                _LOG.warning(
+                    "tool commit failed for %s/%s; falling back to in-memory pairing: %s",
+                    action.name,
+                    action.call_id,
+                    exc,
+                )
+                committed = self._fallback_committed_observation(observation, exc)
             session.add_observation(
                 action,
                 committed,
@@ -263,6 +273,25 @@ class QueryEngine(object):
         if on_tool_finish is not None:
             on_tool_finish(action, committed)
         return committed
+
+    def _fallback_committed_observation(
+        self,
+        observation: Observation,
+        exc: Exception,
+    ) -> Observation:
+        data = deepcopy(observation.data)
+        if isinstance(data, dict):
+            warnings = data.get("tool_result_commit_warnings")
+            if not isinstance(warnings, list):
+                warnings = []
+            warnings.append({"error": str(exc)})
+            data["tool_result_commit_warnings"] = warnings[:8]
+        return Observation(
+            observation.tool_name,
+            observation.success,
+            observation.error,
+            data,
+        )
 
     def submit_turn(
         self,
