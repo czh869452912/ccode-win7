@@ -33,11 +33,11 @@ def build_inspector_text(state: TerminalState, summary, latest_reply: str):
             lines.append(latest_reply)
         else:
             lines.append("当前还没有可展示的 assistant 方案。")
-        todos = state.workspace_snapshot.get("todos") if isinstance(state.workspace_snapshot.get("todos"), list) else None
-        if todos:
+        tasks = state.workspace_snapshot.get("tasks") if isinstance(state.workspace_snapshot.get("tasks"), list) else None
+        if tasks:
             lines.append("")
-            lines.append("Todos")
-            for item in todos:
+            lines.append("Tasks")
+            for item in tasks:
                 if not isinstance(item, dict):
                     continue
                 prefix = "[x]" if item.get("done") else "[ ]"

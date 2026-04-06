@@ -5,13 +5,13 @@ import { summarizeTimelineProjection } from "../state-helpers.js";
 import DiffView from "./DiffView.jsx";
 import InteractionPanel from "./InteractionPanel.jsx";
 
-const ALL_TABS = ["interaction", "todos", "plan", "artifacts", "run", "problems", "review", "permissions", "runtime", "preview", "log"];
+const ALL_TABS = ["interaction", "tasks", "plan", "artifacts", "run", "problems", "review", "permissions", "runtime", "preview", "log"];
 
-function InspectorTabs({ active, onChange, interactionCount, todosCount, artifactsCount }) {
+function InspectorTabs({ active, onChange, interactionCount, tasksCount, artifactsCount }) {
   const lang = useLang();
   const tabsRef = React.useRef(null);
   const activeRef = React.useRef(null);
-  const badges = { interaction: interactionCount, todos: todosCount, artifacts: artifactsCount };
+  const badges = { interaction: interactionCount, tasks: tasksCount, artifacts: artifactsCount };
 
   // Scroll active tab into view when it changes
   React.useEffect(() => {
@@ -42,7 +42,7 @@ function InspectorTabs({ active, onChange, interactionCount, todosCount, artifac
 
 export default function Inspector({
   inspectorTab,
-  todos,
+  tasks,
   artifacts,
   plan,
   review,
@@ -70,7 +70,7 @@ export default function Inspector({
         active={inspectorTab}
         onChange={onTabChange}
         interactionCount={currentInteraction || interactionNotice ? 1 : 0}
-        todosCount={todos.length}
+        tasksCount={tasks.length}
         artifactsCount={artifacts.length}
       />
       <div className="inspector-body">
@@ -83,7 +83,7 @@ export default function Inspector({
             onRespond={onRespondInteraction}
           />
         )}
-        {inspectorTab === "todos" && <TodoPanel todos={todos} lang={lang} />}
+        {inspectorTab === "tasks" && <TaskPanel tasks={tasks} lang={lang} />}
         {inspectorTab === "artifacts" && (
           <ArtifactPanel artifacts={artifacts} onOpen={onOpenArtifact} lang={lang} />
         )}
@@ -293,6 +293,9 @@ function RuntimePanel({ snapshot, timeline, lang }) {
         <div><strong>{t("inspector.sessionStatus", lang)}:</strong> {snapshot.status || "-"}</div>
         <div><strong>{t("inspector.lastState", lang)}:</strong> {snapshot.lastTransitionDisplayReason || snapshot.lastTransitionReason || "-"}</div>
         <div><strong>{t("inspector.lastStateMessage", lang)}:</strong> {snapshot.lastTransitionMessage || "-"}</div>
+        <div><strong>{t("inspector.currentPhase", lang)}:</strong> {snapshot.current_phase || "-"}</div>
+        <div><strong>{t("inspector.disciplineProfile", lang)}:</strong> {snapshot.discipline_profile || "-"}</div>
+        <div><strong>{t("inspector.currentActivity", lang)}:</strong> {snapshot.current_activity || "-"}</div>
         <div><strong>{t("inspector.timelineProjection", lang)}:</strong> {projection.source || "-"}</div>
         <div><strong>{t("inspector.runtimeSource", lang)}:</strong> {snapshot.runtimeSource || "-"}</div>
         <div><strong>{t("inspector.runtimeReady", lang)}:</strong> {snapshot.bundledToolsReady ? t("inspector.yes", lang) : t("inspector.no", lang)}</div>
@@ -313,6 +316,12 @@ function RuntimePanel({ snapshot, timeline, lang }) {
           </div>
         </>
       )}
+      {snapshot.task_summary ? (
+        <>
+          <h3>{t("inspector.taskSummary", lang)}</h3>
+          <pre>{snapshot.task_summary}</pre>
+        </>
+      ) : null}
       <h3>{t("inspector.recentTransitions", lang)}</h3>
       {recentTransitions.length > 0 ? (
         <ul className="review-risk-list">
@@ -642,21 +651,21 @@ function GitEvidenceCard({ item, lang, onOpenReviewEvidence }) {
   );
 }
 
-function TodoPanel({ todos, lang }) {
+function TaskPanel({ tasks, lang }) {
   return (
     <div className="panel-list">
-      <h3>{t("todos.title", lang)}</h3>
-      {(todos || []).length ? (
-        todos.map((todo) => (
-          <div key={todo.id} className="todo-row" role="listitem">
-            <span className={todo.done ? "todo-mark done" : "todo-mark"}>
-              {todo.done ? t("todos.done", lang) : t("todos.todo", lang)}
+      <h3>{t("tasks.title", lang)}</h3>
+      {(tasks || []).length ? (
+        tasks.map((task) => (
+          <div key={task.id} className="todo-row" role="listitem">
+            <span className={task.done ? "todo-mark done" : "todo-mark"}>
+              {task.done ? t("tasks.done", lang) : t("tasks.todo", lang)}
             </span>
-            <span>{todo.content}</span>
+            <span>{task.content}</span>
           </div>
         ))
       ) : (
-        <div className="empty-copy">{t("inspector.noTodos", lang)}</div>
+        <div className="empty-copy">{t("inspector.noTasks", lang)}</div>
       )}
     </div>
   );

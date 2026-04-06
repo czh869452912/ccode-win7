@@ -314,13 +314,17 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         reloaded = self.adapter.read_workspace_file('src/pkg/demo.c')
         self.assertIn('return 1;', reloaded['content'])
 
-    def test_artifact_and_todo_apis(self):
+    def test_artifact_and_task_apis(self):
         artifacts = self.adapter.list_artifacts(limit=10)
         self.assertGreaterEqual(len(artifacts), 1)
         payload = self.adapter.read_artifact(artifacts[0]['path'])
         self.assertEqual(payload['kind'], 'text')
-        todos = self.adapter.list_todos()
-        self.assertEqual(todos['count'], 1)
+        tasks = self.adapter.list_tasks()
+        self.assertEqual(tasks['count'], 1)
+
+    def test_session_snapshot_exposes_task_items(self):
+        self.assertIn("task_items", self.snapshot)
+        self.assertGreaterEqual(len(self.snapshot.get("task_items") or []), 1)
 
     def test_timeline_api(self):
         events = []
@@ -1128,13 +1132,13 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertEqual(tool_finish.get("data", {}).get("target"), "demo-app")
         self.assertEqual(tool_finish.get("data", {}).get("profile"), "debug")
 
-    def test_session_scoped_todos_are_isolated(self):
+    def test_session_scoped_tasks_are_isolated(self):
         first_session_id = str(self.snapshot.get('session_id') or '')
         second = self.adapter.create_session('build')
         second_session_id = str(second.get('session_id') or '')
         self.adapter.set_session_mode(second_session_id, "verify")
-        self.assertEqual(self.adapter.list_todos(session_id=first_session_id)["count"], 5)
-        self.assertEqual(self.adapter.list_todos(session_id=second_session_id)["count"], 3)
+        self.assertEqual(self.adapter.list_tasks(session_id=first_session_id)["count"], 5)
+        self.assertEqual(self.adapter.list_tasks(session_id=second_session_id)["count"], 3)
 
     def test_session_status_events_cover_running_and_idle(self):
         events = []

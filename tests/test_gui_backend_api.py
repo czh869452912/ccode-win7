@@ -103,6 +103,11 @@ class _SnapshotCore(_FakeCore):
                 "timeline_integrity": "degraded",
                 "pending_interaction_valid": False,
                 "restore_stop_reason": self.stop_reason,
+                "current_phase": "implement",
+                "discipline_profile": "lite_spec_tdd",
+                "current_activity": "build harness active (implement)",
+                "task_summary": "in_progress build:implement",
+                "task_items": [{"id": 1, "content": "build:implement", "status": "in_progress", "done": False}],
             },
         )()
 
@@ -261,6 +266,9 @@ class TestGuiBackendApi(unittest.TestCase):
             self.assertIsNotNone(route)
             payload = asyncio.run(route.endpoint("sess-1"))
         self.assertEqual(payload["timeline_replay_status"], "degraded")
+        self.assertEqual(payload["current_phase"], "implement")
+        self.assertEqual(payload["discipline_profile"], "lite_spec_tdd")
+        self.assertEqual(payload["task_items"][0]["content"], "build:implement")
 
 
 if __name__ == "__main__":

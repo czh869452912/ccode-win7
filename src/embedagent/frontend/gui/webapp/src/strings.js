@@ -14,7 +14,7 @@ const STRINGS = {
 
     // Inspector tabs
     "inspector.interaction": "Interaction",
-    "inspector.todos": "Todos",
+    "inspector.tasks": "Tasks",
     "inspector.artifacts": "Artifacts",
     "inspector.plan": "Plan",
     "inspector.run": "Run",
@@ -63,12 +63,16 @@ const STRINGS = {
     "inspector.sessionStatus": "Session status",
     "inspector.lastState": "Last state",
     "inspector.lastStateMessage": "Last state detail",
+    "inspector.currentPhase": "Current phase",
+    "inspector.disciplineProfile": "Discipline",
+    "inspector.currentActivity": "Activity",
+    "inspector.taskSummary": "Task summary",
     "inspector.timelineProjection": "Timeline projection",
     "inspector.recentTransitions": "Recent transitions",
     "inspector.noRecentTransitions": "No recent transitions.",
 
     // Panel empty states
-    "inspector.noTodos": "No todos in this session.",
+    "inspector.noTasks": "No tasks in this session.",
     "inspector.noInteraction": "No pending interaction.",
     "inspector.noArtifacts": "No artifacts yet.",
     "inspector.noPlan": "No active plan in this session.",
@@ -119,7 +123,7 @@ const STRINGS = {
     "timeline.gitEntries": "{n} git entries",
     "timeline.qualityPassed": "Quality gate passed",
     "timeline.qualityFailed": "{n} quality gate reasons",
-    "timeline.todoCount": "{n} todos",
+    "timeline.taskCount": "{n} tasks",
     "timeline.residualRisks": "Residual Risks",
     "timeline.compacted": "Context compacted",
     "timeline.compactSummarized": "summarized",
@@ -133,10 +137,10 @@ const STRINGS = {
     "inspector.compactBoundaryCount": "Compact boundaries",
     "inspector.contextPipelineSteps": "Context pipeline",
 
-    // Todos
-    "todos.title": "Session Todos",
-    "todos.done": "done",
-    "todos.todo": "todo",
+    // Tasks
+    "tasks.title": "Session Tasks",
+    "tasks.done": "done",
+    "tasks.todo": "todo",
 
     // Artifacts
     "artifacts.title": "Artifacts",
@@ -161,7 +165,7 @@ const STRINGS = {
     "sidebar.newSession": "新建会话",
 
     "inspector.interaction": "交互",
-    "inspector.todos": "待办",
+    "inspector.tasks": "任务",
     "inspector.artifacts": "产物",
     "inspector.plan": "计划",
     "inspector.run": "运行",
@@ -210,12 +214,16 @@ const STRINGS = {
     "inspector.sessionStatus": "会话状态",
     "inspector.lastState": "最后状态",
     "inspector.lastStateMessage": "最后状态详情",
+    "inspector.currentPhase": "当前阶段",
+    "inspector.disciplineProfile": "工程纪律",
+    "inspector.currentActivity": "当前活动",
+    "inspector.taskSummary": "任务摘要",
     "inspector.timelineProjection": "时间线投影",
     "inspector.recentTransitions": "最近状态迁移",
     "inspector.noRecentTransitions": "当前没有最近状态迁移。",
 
     "inspector.noInteraction": "当前没有待处理交互。",
-    "inspector.noTodos": "本次会话暂无待办。",
+    "inspector.noTasks": "本次会话暂无任务。",
     "inspector.noArtifacts": "暂无产物。",
     "inspector.noPlan": "当前会话暂无计划。",
     "inspector.noRecipes": "当前未检测到工作区 recipe。",
@@ -261,7 +269,7 @@ const STRINGS = {
     "timeline.gitEntries": "{n} 条 Git 记录",
     "timeline.qualityPassed": "质量门已通过",
     "timeline.qualityFailed": "{n} 条质量门原因",
-    "timeline.todoCount": "{n} 个待办",
+    "timeline.taskCount": "{n} 个任务",
     "timeline.residualRisks": "残余风险",
     "timeline.compacted": "上下文已压缩",
     "timeline.compactSummarized": "摘要",
@@ -275,9 +283,9 @@ const STRINGS = {
     "inspector.compactBoundaryCount": "压缩边界数",
     "inspector.contextPipelineSteps": "上下文流水线",
 
-    "todos.title": "会话待办",
-    "todos.done": "完成",
-    "todos.todo": "待办",
+    "tasks.title": "会话任务",
+    "tasks.done": "完成",
+    "tasks.todo": "任务",
 
     "artifacts.title": "产物",
 

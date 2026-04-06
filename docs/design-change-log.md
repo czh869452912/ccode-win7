@@ -44,6 +44,28 @@
 
 ## 3. 当前变更记录
 
+### DC-088
+
+- 日期：2026-04-06
+- 变更主题：official cutover 第五步完成，frontend/protocol 正式词汇切到 `tasks/build`
+- 变更摘要：
+  - `protocol` / `core.adapter` / GUI backend 现已把 `tasks` 作为正式会话任务接口，并在 `SessionSnapshot` 中显式携带 `current_phase / discipline_profile / current_activity / task_summary / task_items`
+  - TUI 与 GUI webapp 状态层已把 inspector、command hint、slash command、route、refresh event 和 task panel 从 `todos` 改为 `tasks`
+  - webapp 的 `normalizeSessionPayload()`、store、Inspector Runtime 面板与静态构建产物现已显示 Harness 官方任务语义，而不再只停留在 legacy session status
+  - webapp tests、GUI backend tests、GUI sync tests 与 adapter 前端 API 回归均已同步到 `tasks/build` 词汇并通过
+- 影响范围：
+  - CoreInterface / FrontendCallbacks 协议词汇
+  - GUI backend route / websocket refresh event
+  - TUI explorer / inspector / slash command 展示
+  - React webapp store / inspector / runtime summary / built assets
+- 关联文档：
+  - `docs/superpowers/plans/2026-04-06-agent-harness-v2-official-cutover-plan.md`
+  - `docs/development-tracker.md`
+- 是否需要 ADR：`否，继续沿 official cutover 计划推进`
+- 后续动作：
+  - 进入最后一轮 docs rewrite + legacy deletion，删除兼容性的 `list_todos` / `/api/todos` /旧术语残留
+  - 收口 review/loop/README/architecture 等仍使用 legacy mode/tool 词汇的文档与实现
+
 ### DC-087
 
 - 日期：2026-04-06

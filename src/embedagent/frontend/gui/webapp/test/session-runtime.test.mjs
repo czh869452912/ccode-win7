@@ -47,7 +47,7 @@ export function runSessionRuntimeTests() {
     snapshot: {
       session_id: "sess-1",
       status: "running",
-      current_mode: "code",
+      current_mode: "build",
       timeline_replay_status: "reload_required",
       pending_interaction: null,
     },
@@ -96,7 +96,7 @@ export function runSessionRuntimeTests() {
     snapshot: {
       session_id: "sess-1",
       status: "idle",
-      current_mode: "code",
+      current_mode: "build",
       pending_interaction: null,
     },
     eventLog: createSessionEventLog(),
@@ -117,7 +117,7 @@ export function runSessionRuntimeTests() {
     snapshot: {
       session_id: "sess-1",
       status: "idle",
-      current_mode: "code",
+      current_mode: "build",
       pending_interaction: null,
     },
     eventLog: createSessionEventLog(),
@@ -145,7 +145,7 @@ export function runSessionRuntimeTests() {
     snapshot: {
       session_id: "sess-1",
       status: "waiting_permission",
-      current_mode: "code",
+      current_mode: "build",
       pending_interaction_valid: false,
       pending_interaction: {
         interaction_id: "int-expired",
@@ -163,7 +163,7 @@ export function runSessionRuntimeTests() {
     snapshot: {
       session_id: "sess-1",
       status: "idle",
-      current_mode: "code",
+      current_mode: "build",
       pending_interaction: null,
       restore_stop_reason: "interaction_expired",
     },
@@ -177,7 +177,7 @@ export function runSessionRuntimeTests() {
     snapshot: {
       session_id: "sess-1",
       status: "waiting_user_input",
-      current_mode: "code",
+      current_mode: "build",
       pending_interaction_valid: true,
       pending_interaction: {
         interaction_id: "int-live",

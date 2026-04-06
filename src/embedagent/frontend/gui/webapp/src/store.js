@@ -2,7 +2,7 @@ import { injectChildren, makeEventId, resolveTimelineAnchor } from "./state-help
 
 export const initialState = {
   sidebarTab: "chats",
-  inspectorTab: "todos",
+  inspectorTab: "tasks",
   inspectorOpen: true,
   lang: "en",
   sessions: [],
@@ -16,7 +16,7 @@ export const initialState = {
   permission: null,
   userInput: null,
   interactionNotice: null,
-  todos: [],
+  tasks: [],
   artifacts: [],
   plan: null,
   review: null,
@@ -97,6 +97,7 @@ export function reducer(state, action) {
         plan: null,
         review: null,
         permissionContext: null,
+        tasks: Array.isArray(action.snapshot?.task_items) ? action.snapshot.task_items : [],
         inspectorTab:
           action.snapshot?.pending_interaction_valid && action.snapshot?.pending_interaction
             ? "interaction"
@@ -125,6 +126,7 @@ export function reducer(state, action) {
           snapshot.pending_interaction_valid && snapshot.pending_interaction?.kind === "user_input"
             ? snapshot.pending_user_input || snapshot.pending_interaction || state.userInput
             : null,
+        tasks: Array.isArray(snapshot.task_items) ? snapshot.task_items : state.tasks,
         interactionNotice:
           snapshot.pending_interaction_valid && snapshot.pending_interaction
             ? null
@@ -440,8 +442,8 @@ export function reducer(state, action) {
             : item,
         ),
       };
-    case "todos_loaded":
-      return { ...state, todos: action.todos };
+    case "tasks_loaded":
+      return { ...state, tasks: action.tasks };
     case "artifacts_loaded":
       return { ...state, artifacts: action.items };
     case "recipes_loaded":

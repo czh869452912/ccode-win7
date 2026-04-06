@@ -31,7 +31,7 @@ _COMMAND_SPECS = [
     SlashCommandSpec("recipes", "/recipes", "查看当前工作区可用的 build/test recipe。"),
     SlashCommandSpec("diff", "/diff", "查看当前工作区 Git diff。"),
     SlashCommandSpec("permissions", "/permissions", "查看当前会话权限上下文。"),
-    SlashCommandSpec("todos", "/todos", "查看当前会话待办。"),
+    SlashCommandSpec("tasks", "/tasks", "查看当前会话任务。"),
     SlashCommandSpec("artifacts", "/artifacts", "查看最近工件。"),
 ]
 

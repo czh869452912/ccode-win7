@@ -578,6 +578,11 @@ export function normalizeSessionPayload(payload) {
     compactBoundaryCount: payload.compact_boundary_count || 0,
     contextPipelineSteps: Array.isArray(payload.context_pipeline_steps) ? payload.context_pipeline_steps : [],
     contextAnalysis: payload.context_analysis || null,
+    current_phase: payload.current_phase || "",
+    discipline_profile: payload.discipline_profile || "",
+    current_activity: payload.current_activity || "",
+    task_summary: payload.task_summary || "",
+    task_items: Array.isArray(payload.task_items) ? payload.task_items : [],
     pending_interaction:
       payload.pending_interaction ||
       (payload.pending_permission

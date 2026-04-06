@@ -23,7 +23,7 @@ _COMMANDS = [
     "permissions",
     "close",
     "workspace",
-    "todos",
+    "tasks",
     "artifacts",
     "artifact",
     "open",

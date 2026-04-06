@@ -241,6 +241,7 @@ class SessionSnapshot:
     discipline_profile: str = ""
     current_activity: str = ""
     task_summary: str = ""
+    task_items: List[Dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass  
@@ -306,8 +307,8 @@ class FrontendCallbacks(Protocol):
         """计划更新"""
         ...
 
-    def on_todos_refresh(self) -> None:
-        """Notify frontend to refetch todos list."""
+    def on_tasks_refresh(self) -> None:
+        """Notify frontend to refetch task list."""
         ...
 
     def on_artifacts_refresh(self) -> None:
@@ -425,8 +426,8 @@ class CoreInterface(ABC):
         pass
     
     @abstractmethod
-    def list_todos(self, session_id: str = "") -> List[Dict[str, Any]]:
-        """列出待办事项"""
+    def list_tasks(self, session_id: str = "") -> List[Dict[str, Any]]:
+        """列出当前会话任务"""
         pass
 
     @abstractmethod

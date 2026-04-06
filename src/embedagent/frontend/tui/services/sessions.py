@@ -5,6 +5,7 @@ import os
 from typing import Any, Dict, List, Optional
 
 from embedagent import todos as todo_store
+from embedagent.harness import task_store
 
 
 class SessionService(object):
@@ -79,17 +80,26 @@ class SessionService(object):
         except Exception:
             return None
 
-    def list_todos(self, session_id: str = "") -> Dict[str, Any]:
-        method = getattr(self.adapter, "list_todos", None)
+    def list_tasks(self, session_id: str = "") -> Dict[str, Any]:
+        method = getattr(self.adapter, "list_tasks", None)
         if callable(method):
             return method(session_id=session_id)
-        todos_path = todo_store.session_todos_path(self.workspace, session_id) if session_id else todo_store.legacy_todos_path(self.workspace)
-        if not os.path.isfile(todos_path):
-            return {"count": 0, "todos": [], "path": todo_store.relative_todos_path(session_id), "session_id": session_id}
+        tasks_path = task_store.task_snapshot_path(self.workspace, session_id) if session_id else todo_store.legacy_todos_path(self.workspace)
+        if not os.path.isfile(tasks_path):
+            return {"count": 0, "tasks": [], "path": task_store.relative_task_snapshot_path(session_id) if session_id else todo_store.relative_todos_path(session_id), "session_id": session_id}
         try:
-            with open(todos_path, "r", encoding="utf-8") as handle:
+            with open(tasks_path, "r", encoding="utf-8") as handle:
                 payload = json.load(handle)
         except Exception:
             payload = []
-        todos = payload if isinstance(payload, list) else []
-        return {"count": len(todos), "todos": todos, "path": todo_store.relative_todos_path(session_id), "session_id": session_id}
+        if isinstance(payload, dict):
+            tasks = payload.get("tasks") if isinstance(payload.get("tasks"), list) else []
+        else:
+            tasks = payload if isinstance(payload, list) else []
+        return {"count": len(tasks), "tasks": tasks, "path": task_store.relative_task_snapshot_path(session_id) if session_id else todo_store.relative_todos_path(session_id), "session_id": session_id}
+
+    def list_todos(self, session_id: str = "") -> Dict[str, Any]:
+        payload = self.list_tasks(session_id=session_id)
+        legacy = dict(payload)
+        legacy["todos"] = list(payload.get("tasks") or [])
+        return legacy

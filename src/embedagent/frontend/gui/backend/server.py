@@ -100,6 +100,11 @@ def _serialize_session_snapshot(snapshot: Any) -> Dict[str, Any]:
         "restore_stop_reason": str(_read_value(snapshot, "restore_stop_reason", "") or ""),
         "restore_consumed_event_count": int(_read_value(snapshot, "restore_consumed_event_count", 0) or 0),
         "restore_transcript_event_count": int(_read_value(snapshot, "restore_transcript_event_count", 0) or 0),
+        "current_phase": str(_read_value(snapshot, "current_phase", "") or ""),
+        "discipline_profile": str(_read_value(snapshot, "discipline_profile", "") or ""),
+        "current_activity": str(_read_value(snapshot, "current_activity", "") or ""),
+        "task_summary": str(_read_value(snapshot, "task_summary", "") or ""),
+        "task_items": list(_read_value(snapshot, "task_items", []) or []),
     }
 
 
@@ -395,8 +400,8 @@ class WebSocketFrontend(FrontendCallbacks):
             }
         })
 
-    def on_todos_refresh(self) -> None:
-        self._dispatch_message({"type": "todos_refresh"})
+    def on_tasks_refresh(self) -> None:
+        self._dispatch_message({"type": "tasks_refresh"})
 
     def on_artifacts_refresh(self) -> None:
         self._dispatch_message({"type": "artifacts_refresh"})
@@ -635,9 +640,13 @@ class GUIBackend:
                 "unified_diff": diff.unified_diff
             }
         
+        @app.get("/api/tasks")
+        async def list_tasks(session_id: str = ""):
+            return {"tasks": self.core.list_tasks(session_id=session_id)}
+
         @app.get("/api/todos")
         async def list_todos(session_id: str = ""):
-            return {"todos": self.core.list_todos(session_id=session_id)}
+            return {"todos": self.core.list_tasks(session_id=session_id)}
 
         @app.get("/api/artifacts")
         async def list_artifacts(limit: int = 20):

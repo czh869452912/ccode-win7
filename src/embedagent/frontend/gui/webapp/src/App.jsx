@@ -30,7 +30,7 @@ const SLASH_COMMAND_HINTS = [
   "/review",
   "/diff",
   "/permissions",
-  "/todos",
+  "/tasks",
   "/artifacts",
 ];
 
@@ -98,7 +98,7 @@ function App() {
   useEffect(() => {
     loadSessions();
     loadArtifacts();
-    loadTodos("");
+    loadTasks("");
     loadFileChildren(".");
     loadToolCatalog();
     loadWorkspaceRecipes();
@@ -201,12 +201,12 @@ function App() {
     if (permissionPayload) {
       dispatch({ type: "permission_context_loaded", context: permissionPayload });
     }
-    await Promise.all([loadTodos(sessionId), loadArtifacts()]);
+    await Promise.all([loadTasks(sessionId), loadArtifacts()]);
   }
 
-  async function loadTodos(sessionId) {
-    const payload = await fetchJson(`/api/todos?session_id=${encodeURIComponent(sessionId || "")}`);
-    dispatch({ type: "todos_loaded", todos: payload.todos || [] });
+  async function loadTasks(sessionId) {
+    const payload = await fetchJson(`/api/tasks?session_id=${encodeURIComponent(sessionId || "")}`);
+    dispatch({ type: "tasks_loaded", tasks: payload.tasks || [] });
   }
 
   async function loadArtifacts() {
@@ -287,7 +287,7 @@ function App() {
     const snapshot = normalizeSessionPayload(payload);
     dispatch({ type: "session_activated", sessionId: snapshot.session_id, snapshot, timeline: [] });
     replaceSessionEventLog(createRuntimeEventLog(snapshot));
-    await Promise.all([loadSessions(), loadTodos(snapshot.session_id), loadPermissionContext(snapshot.session_id)]);
+    await Promise.all([loadSessions(), loadTasks(snapshot.session_id), loadPermissionContext(snapshot.session_id)]);
     return snapshot.session_id;
   }
 
@@ -746,12 +746,12 @@ function App() {
         });
       }
       loadSessions();
-      if (state.currentSessionId) loadTodos(state.currentSessionId);
+      if (state.currentSessionId) loadTasks(state.currentSessionId);
       logEvent("session_finished", "");
       return;
     }
-    if (type === "todos_refresh") {
-      if (state.currentSessionId) loadTodos(state.currentSessionId);
+    if (type === "tasks_refresh") {
+      if (state.currentSessionId) loadTasks(state.currentSessionId);
       return;
     }
     if (type === "artifacts_refresh") {
@@ -1013,7 +1013,7 @@ function App() {
         {state.inspectorOpen ? (
           <Inspector
             inspectorTab={state.inspectorTab}
-            todos={state.todos}
+            tasks={state.tasks}
             artifacts={state.artifacts}
             plan={state.plan}
             review={state.review}

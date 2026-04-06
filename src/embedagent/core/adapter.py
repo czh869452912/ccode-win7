@@ -34,7 +34,16 @@ from embedagent.protocol import (
 _inprocess_adapter = None
 
 # Tool sets for sync-push refresh notifications
-_TODOS_TOOLS: frozenset = frozenset({"manage_todos"})
+_TASK_REFRESH_TOOLS: frozenset = frozenset(
+    {
+        "task_status",
+        "record_failing_evidence",
+        "write_file",
+        "edit_file",
+        "run_recipe",
+        "report_quality_v2",
+    }
+)
 _ARTIFACT_TOOLS: frozenset = frozenset({"write_file", "edit_file"})
 
 def _get_adapter_class():
@@ -150,6 +159,11 @@ def _session_snapshot_from_dict(snapshot: Dict[str, Any]) -> SessionSnapshot:
                 bool(snapshot.get("pending_interaction") or snapshot.get("pending_permission") or snapshot.get("pending_user_input") or snapshot.get("pending_input")),
             )
         ),
+        current_phase=str(snapshot.get("current_phase") or ""),
+        discipline_profile=str(snapshot.get("discipline_profile") or ""),
+        current_activity=str(snapshot.get("current_activity") or ""),
+        task_summary=str(snapshot.get("task_summary") or ""),
+        task_items=list(snapshot.get("task_items") or []),
     )
 
 
@@ -218,8 +232,8 @@ class CallbackBridge:
             self.frontend.on_tool_finish(result)
             # Sync push: notify frontend to refetch related data
             tool_name = payload.get("tool_name", "")
-            if tool_name in _TODOS_TOOLS and hasattr(self.frontend, "on_todos_refresh"):
-                self.frontend.on_todos_refresh()
+            if tool_name in _TASK_REFRESH_TOOLS and hasattr(self.frontend, "on_tasks_refresh"):
+                self.frontend.on_tasks_refresh()
             if tool_name in _ARTIFACT_TOOLS and hasattr(self.frontend, "on_artifacts_refresh"):
                 self.frontend.on_artifacts_refresh()
 
@@ -549,9 +563,12 @@ class AgentCoreAdapter(CoreInterface):
             unified_diff=unified_diff
         )
     
+    def list_tasks(self, session_id: str = "") -> List[Dict[str, Any]]:
+        result = self._adapter.list_tasks(session_id=session_id)
+        return result.get("tasks", [])
+
     def list_todos(self, session_id: str = "") -> List[Dict[str, Any]]:
-        result = self._adapter.list_todos(session_id=session_id)
-        return result.get("todos", [])
+        return self.list_tasks(session_id=session_id)
 
     def get_session_plan(self, session_id: str) -> Optional[PlanSnapshot]:
         payload = self._adapter.get_session_plan(session_id)

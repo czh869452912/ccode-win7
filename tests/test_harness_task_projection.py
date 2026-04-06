@@ -63,12 +63,12 @@ class HarnessTaskProjectionTests(unittest.TestCase):
         snapshot = self.adapter.create_session("build")
         session_id = str(snapshot.get("session_id") or "")
 
-        payload = self.adapter.list_todos(session_id=session_id)
+        payload = self.adapter.list_tasks(session_id=session_id)
 
         self.assertEqual(payload["count"], 5)
-        self.assertEqual(payload["todos"][0]["content"], "build:understand")
-        self.assertEqual(payload["todos"][0]["status"], "in_progress")
-        self.assertFalse(payload["todos"][0]["done"])
+        self.assertEqual(payload["tasks"][0]["content"], "build:understand")
+        self.assertEqual(payload["tasks"][0]["status"], "in_progress")
+        self.assertFalse(payload["tasks"][0]["done"])
         self.assertTrue(os.path.isfile(task_store.task_snapshot_path(self.workspace, session_id)))
         self.assertFalse(os.path.exists(todo_store.session_todos_path(self.workspace, session_id)))
 
@@ -77,10 +77,10 @@ class HarnessTaskProjectionTests(unittest.TestCase):
         session_id = str(snapshot.get("session_id") or "")
 
         self.adapter.set_session_mode(session_id, "verify")
-        payload = self.adapter.list_todos(session_id=session_id)
+        payload = self.adapter.list_tasks(session_id=session_id)
 
         self.assertEqual(
-            [item["content"] for item in payload["todos"]],
+            [item["content"] for item in payload["tasks"]],
             [
                 "verify:select_recipe",
                 "verify:execute",

@@ -28,7 +28,7 @@
 
 - 当前阶段：`Phase 4 真实工程验证 + Phase 6 GUI / Win7 收口`
 - 总体状态：`进行中`
-- 当前重点：`Agent Harness V2 official cutover 正在执行：runtime promotion、mode vocabulary cutover、context/intelligence cutover、permission/task truth cutover 已完成，下一步进入 frontend/protocol officialization；目标是不再维持 code/build、legacy runtime/V2 runtime、legacy tool vocabulary/V2 tool vocabulary 等平行结构，而是按 runtime -> mode vocabulary -> context -> permission/task truth -> frontend/protocol -> docs/legacy deletion 的顺序，把 V2 扶正为唯一正式实现`
+- 当前重点：`Agent Harness V2 official cutover 正在执行：runtime promotion、mode vocabulary cutover、context/intelligence cutover、permission/task truth cutover、frontend/protocol officialization 已完成，下一步进入 docs/legacy deletion；目标是不再维持 code/build、legacy runtime/V2 runtime、legacy tool vocabulary/V2 tool vocabulary 等平行结构，而是按 runtime -> mode vocabulary -> context -> permission/task truth -> frontend/protocol -> docs/legacy deletion 的顺序，把 V2 扶正为唯一正式实现`
 
 ### 当前判断
 
@@ -269,7 +269,7 @@
 | R-020 | launcher 模板与 `prepare-offline.ps1` 仍存在重复定义，后续修改若不同步仍可能重新引入 bundle 契约漂移 | 中 | 当前已通过公共 runtime discovery + validate launcher contract 把缺陷前移到验收阶段；后续可继续收敛 launcher 生成来源 |
 | R-021 | `package.ps1`、`prepare-offline.ps1` 与 `build-offline-bundle.ps1` 之间仍有部分共享打包逻辑分散在多个脚本，后续改动仍可能引入新分叉 | 中 | 当前已先把 GUI 静态资产门和 launcher 契约门收口到共享 helper / validator；后续继续抽公共能力而不是三处平行演化 |
 | R-022 | 当前 mode / tool / permission 强耦合导致真实任务频繁切模式、奇怪拒绝和工具调用退化 | 高 | 已建立 `docs/agent-harness-v2.md` 作为整体重构基线；后续优先按 harness / tool contract / permission DSL 的顺序做切片，而不是继续在旧机制上打补丁 |
-| R-023 | 当前主循环虽已接入 Harness V2，但 frontend/protocol 与文档仍残留较多 legacy 词汇和兼容壳层，若继续局部修补会造成正式架构发散 | 高 | 已新增 `docs/superpowers/plans/2026-04-06-agent-harness-v2-official-cutover-plan.md`，且 runtime / mode / context / permission/task 已按计划收口；后续继续按 frontend/protocol -> docs/legacy deletion 顺序推进，不再接受长期 V1/V2 并行 |
+| R-023 | 当前主循环虽已接入 Harness V2，但文档与少量兼容壳层仍保留 legacy 词汇，若继续局部修补会造成正式架构发散 | 高 | 已新增 `docs/superpowers/plans/2026-04-06-agent-harness-v2-official-cutover-plan.md`，且 runtime / mode / context / permission/task / frontend-protocol 已按计划收口；后续继续按 docs/legacy deletion 顺序推进，不再接受长期 V1/V2 并行 |
 
 ---
 
@@ -293,6 +293,7 @@
 | 2026-04-06 | official cutover 第 1、2 步已完成：官方 `ToolRuntime` 已提升为唯一 runtime 主入口，`HarnessToolBridge` 与 `ToolRuntimeV2` 已退出产品路径；同时产品和测试默认 mode 已从 `code` 切到 `build`，内建 mode 集现在以 `explore/spec/build/debug/verify` 为正式主词汇 |
 | 2026-04-06 | official cutover 第 3 步已完成：`ContextManager` 与 `WorkspaceIntelligenceBroker` 已把 `list_dir/glob_files/grep_text/run_recipe/report_quality_v2/task_status` 纳入正式 reducer/intelligence 词汇，并将 `build` 作为上下文与情报层的正式实现模式；相关 focused tests 与外围回归均已通过 |
 | 2026-04-06 | official cutover 第 4 步已完成：官方 mode prompt 和 schema 已把 `task_status` 作为唯一模型侧任务入口；`TaskGraph` 现在会投影到 session 级 task snapshot 并驱动 `list_todos` 的主路径，`permissions.py` 也已吸收 recipe/rule/explanation 能力并删除 `permissions_v2/` 并行包；相关 focused tests 与外围回归均已通过 |
+| 2026-04-06 | official cutover 第 5 步已完成：`protocol/core/frontend` 现已把 `tasks` 作为正式前端任务词汇，session snapshot 会显式暴露 `current_phase / discipline_profile / current_activity / task_summary / task_items`，GUI/TUI 与 webapp 构建产物也已切到 `tasks/build` 词汇；相关 Python 与 webapp 验证均已通过 |
 | 2026-03-27 | 建立进度跟踪文件，明确当前阶段与下一步优先级 |
 | 2026-03-27 | DC-004/DC-005：工具设计规范建立，实施分期重组，Phase 1 改为最小可工作 Loop |
 | 2026-03-27 | 已落地 Phase 1 最小原型代码，并完成本地语法检查、工具自测与假模型闭环验证 |

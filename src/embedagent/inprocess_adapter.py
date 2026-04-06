@@ -485,6 +485,7 @@ class InProcessAdapter(object):
                 "discipline_profile": state.discipline_profile,
                 "current_activity": state.current_activity,
                 "task_summary": state.task_summary,
+                "task_items": list(state.task_items),
                 "runtime_source": str(runtime.get("runtime_source") or ""),
                 "bundled_tools_ready": bool(runtime.get("bundled_tools_ready")),
                 "fallback_warnings": list(runtime.get("fallback_warnings") or []),
@@ -957,12 +958,12 @@ class InProcessAdapter(object):
         kind = "json" if absolute_path.lower().endswith(".json") else "text"
         return {"path": reference, "kind": kind, "content": content}
 
-    def list_todos(self, session_id: str = "") -> Dict[str, Any]:
+    def list_tasks(self, session_id: str = "") -> Dict[str, Any]:
         if not session_id:
             todos = todo_store.load_todos(self.tools.workspace, session_id=session_id)
             return {
                 "count": len(todos),
-                "todos": todos,
+                "tasks": todos,
                 "path": todo_store.relative_todos_path(session_id),
                 "session_id": session_id,
             }
@@ -975,10 +976,16 @@ class InProcessAdapter(object):
             todos = task_store.load_task_items(self.tools.workspace, session_id)
         return {
             "count": len(todos),
-            "todos": todos,
+            "tasks": todos,
             "path": task_store.relative_task_snapshot_path(session_id) if session_id else todo_store.relative_todos_path(session_id),
             "session_id": session_id,
         }
+
+    def list_todos(self, session_id: str = "") -> Dict[str, Any]:
+        payload = self.list_tasks(session_id=session_id)
+        legacy = dict(payload)
+        legacy["todos"] = list(payload.get("tasks") or [])
+        return legacy
 
     def get_session_plan(self, session_id: str) -> Optional[PlanSnapshot]:
         state = self._require_session(session_id)
@@ -1433,20 +1440,20 @@ class InProcessAdapter(object):
         )
         return {"handled": True, "continue_with_text": ""}
 
-    def _handle_command_todos(
+    def _handle_command_tasks(
         self,
         state: ManagedSession,
         parsed: ParsedSlashCommand,
         event_handler: Optional[EventHandler],
         permission_resolver: Optional[PermissionResolver],
     ) -> Dict[str, Any]:
-        payload = self.list_todos(session_id=state.session.session_id)
-        lines = ["## Session Todos", ""]
-        todos = payload.get("todos") or []
-        if not todos:
-            lines.append("当前会话暂无待办。")
+        payload = self.list_tasks(session_id=state.session.session_id)
+        lines = ["## Session Tasks", ""]
+        tasks = payload.get("tasks") or []
+        if not tasks:
+            lines.append("当前会话暂无任务。")
         else:
-            for item in todos:
+            for item in tasks:
                 if not isinstance(item, dict):
                     continue
                 prefix = "[x]" if item.get("done") else "[ ]"
@@ -1455,7 +1462,7 @@ class InProcessAdapter(object):
             event_handler,
             state,
             CommandResult(
-                command_name="todos",
+                command_name="tasks",
                 success=True,
                 message="\n".join(lines),
                 data=payload,

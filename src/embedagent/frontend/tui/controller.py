@@ -22,7 +22,7 @@ class TerminalController(object):
     def start(self) -> None:
         self.refresh_workspace_snapshot()
         self.refresh_sessions()
-        self.refresh_todos()
+        self.refresh_tasks()
         self.refresh_artifacts()
         if self.owner.resume_reference:
             snapshot = self.owner.session_service.resume_session(
@@ -191,8 +191,8 @@ class TerminalController(object):
             self.refresh_explorer("workspace", args[0] if args else ".")
             self.owner.refresh_views()
             return
-        if name == "todos":
-            self.refresh_explorer("todos")
+        if name == "tasks":
+            self.refresh_explorer("tasks")
             self.show_plan()
             self.owner.refresh_views()
             return
@@ -300,7 +300,7 @@ class TerminalController(object):
         self.owner.refresh_views()
 
     def show_plan(self) -> None:
-        self.refresh_todos()
+        self.refresh_tasks()
         self.refresh_inspector("plan")
         self.owner.refresh_views()
 
@@ -327,7 +327,7 @@ class TerminalController(object):
                 self.open_preview(item.path)
             self.owner.refresh_views()
             return
-        if self.owner.state.explorer.tab == "todos":
+        if self.owner.state.explorer.tab == "tasks":
             self.show_plan()
 
     def open_selected_preview(self) -> None:
@@ -483,17 +483,17 @@ class TerminalController(object):
             reducer.set_last_error(self.owner.state, "")
             self.refresh_workspace_snapshot()
             self.refresh_sessions()
-            self.refresh_todos()
+            self.refresh_tasks()
             self.refresh_artifacts()
             self.reload_timeline()
         elif event_name == "session_resumed":
             reducer.set_last_error(self.owner.state, "")
             self.refresh_sessions()
-            self.refresh_todos()
+            self.refresh_tasks()
             self.reload_timeline()
         elif event_name == "session_created":
             self.refresh_sessions()
-            self.refresh_todos()
+            self.refresh_tasks()
         elif event_name == "session_error":
             reducer.close_stream(self.owner.state)
             reducer.set_last_error(self.owner.state, str(payload.get("error") or ""))
@@ -518,7 +518,7 @@ class TerminalController(object):
     def refresh_workspace_snapshot(self) -> None:
         snapshot = self.owner.workspace_service.snapshot()
         session_id = self.owner.state.session.current_session_id
-        snapshot["todos"] = self.owner.session_service.list_todos(session_id=session_id).get("todos") or []
+        snapshot["tasks"] = self.owner.session_service.list_tasks(session_id=session_id).get("tasks") or []
         reducer.set_workspace_snapshot(self.owner.state, snapshot)
 
     def refresh_sessions(self) -> None:
@@ -533,18 +533,18 @@ class TerminalController(object):
                 explorer_items.append(ExplorerItem(kind="session", path=session_id, label=label, detail=detail))
             reducer.set_explorer_items(self.owner.state, "sessions", explorer_items, root="sessions")
 
-    def refresh_todos(self) -> None:
+    def refresh_tasks(self) -> None:
         session_id = self.owner.state.session.current_session_id
-        payload = self.owner.session_service.list_todos(session_id=session_id)
-        if self.owner.state.explorer.tab == "todos":
+        payload = self.owner.session_service.list_tasks(session_id=session_id)
+        if self.owner.state.explorer.tab == "tasks":
             explorer_items = []
-            for item in payload.get("todos") or []:
+            for item in payload.get("tasks") or []:
                 if not isinstance(item, dict):
                     continue
                 prefix = "[x]" if item.get("done") else "[ ]"
-                explorer_items.append(ExplorerItem(kind="todo", path=str(item.get("id") or ""), label="%s %s" % (prefix, item.get("content") or ""), detail="id=%s" % (item.get("id") or "-")))
-            reducer.set_explorer_items(self.owner.state, "todos", explorer_items, root=payload.get("path") or ".embedagent/todos.json")
-        self.owner.state.workspace_snapshot["todos"] = payload.get("todos") or []
+                explorer_items.append(ExplorerItem(kind="task", path=str(item.get("id") or ""), label="%s %s" % (prefix, item.get("content") or ""), detail="id=%s" % (item.get("id") or "-")))
+            reducer.set_explorer_items(self.owner.state, "tasks", explorer_items, root=payload.get("path") or ".embedagent/memory/sessions/tasks.json")
+        self.owner.state.workspace_snapshot["tasks"] = payload.get("tasks") or []
 
     def refresh_artifacts(self) -> None:
         items = []
@@ -567,8 +567,8 @@ class TerminalController(object):
         if tab_name == "sessions":
             self.refresh_sessions()
             return
-        if tab_name == "todos":
-            self.refresh_todos()
+        if tab_name == "tasks":
+            self.refresh_tasks()
             return
         payload = self.owner.workspace_service.tree(path=root, max_depth=3, limit=200)
         items = []

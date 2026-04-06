@@ -365,7 +365,7 @@ function main() {
       sessionId: "sess-2",
       snapshot: {
         session_id: "sess-2",
-        current_mode: "code",
+        current_mode: "build",
         has_pending_permission: false,
         pending_interaction_valid: true,
         pending_interaction: {
