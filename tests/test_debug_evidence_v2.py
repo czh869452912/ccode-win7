@@ -32,9 +32,9 @@ class DebugEvidenceV2Tests(unittest.TestCase):
         shutil.rmtree(self.workspace, ignore_errors=True)
 
     def test_record_failing_evidence_returns_structured_payload(self):
-        from embedagent.tools_v2.runtime import ToolRuntimeV2
+        from embedagent.tools import ToolRuntime
 
-        runtime = ToolRuntimeV2(self.workspace)
+        runtime = ToolRuntime(self.workspace)
         result = runtime.execute(
             "record_failing_evidence",
             {"summary": "reproduced failure in src/demo.c"},

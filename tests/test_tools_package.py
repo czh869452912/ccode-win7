@@ -75,7 +75,7 @@ class TestToolRuntimeSchemas(unittest.TestCase):
         shutil.rmtree(self.workspace, ignore_errors=True)
 
     def test_total_tool_count(self):
-        self.assertEqual(len(self.schemas), 16)
+        self.assertEqual(len(self.schemas), 25)
 
     def test_all_original_tools_present(self):
         expected = [
@@ -90,6 +90,20 @@ class TestToolRuntimeSchemas(unittest.TestCase):
 
     def test_manage_todos_present(self):
         self.assertIn("manage_todos", self.tool_names)
+
+    def test_harness_tools_present(self):
+        for name in (
+            "list_dir",
+            "glob_files",
+            "grep_text",
+            "list_recipes",
+            "run_recipe",
+            "report_quality_v2",
+            "task_status",
+            "ask_user",
+            "record_failing_evidence",
+        ):
+            self.assertIn(name, self.tool_names, "Missing harness tool: %s" % name)
 
     def test_schema_structure(self):
         for schema in self.schemas:
@@ -116,6 +130,26 @@ class TestToolRuntimeSchemas(unittest.TestCase):
         self.assertIn("run_clang_tidy", tool_names)
         self.assertIn("report_quality", tool_names)
         self.assertNotIn("write_file", tool_names)
+
+    def test_build_mode_uses_harness_pack_schema(self):
+        schemas = self.rt.schemas_for_mode("build", workflow_state="chat")
+        tool_names = [item["function"]["name"] for item in schemas]
+        self.assertIn("list_dir", tool_names)
+        self.assertIn("run_recipe", tool_names)
+        self.assertNotIn("list_files", tool_names)
+
+    def test_debug_mode_uses_harness_pack_schema(self):
+        schemas = self.rt.schemas_for_mode("debug", workflow_state="chat")
+        tool_names = [item["function"]["name"] for item in schemas]
+        self.assertIn("record_failing_evidence", tool_names)
+        self.assertIn("run_recipe", tool_names)
+        self.assertNotIn("run_command", tool_names)
+
+    def test_allowed_tool_names_include_harness_pack_and_legacy_execution_fallbacks(self):
+        tool_names = self.rt.allowed_tool_names("debug", workflow_state="chat")
+        self.assertIn("record_failing_evidence", tool_names)
+        self.assertIn("run_recipe", tool_names)
+        self.assertIn("run_command", tool_names)
 
 
 class TestToolRuntimeExecute(unittest.TestCase):

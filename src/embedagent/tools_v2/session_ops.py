@@ -54,6 +54,7 @@ def build_tools(ctx) -> List[ToolDefinition]:
             parameters={
                 "type": "object",
                 "properties": {},
+                "required": [],
                 "additionalProperties": False,
             },
             handler=_task_status,

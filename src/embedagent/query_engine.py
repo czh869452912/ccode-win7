@@ -11,7 +11,6 @@ from typing import Any, Callable, Dict, Optional, Tuple
 
 from embedagent.context import ContextManager
 from embedagent.guard import LoopGuard
-from embedagent.harness.runner import HarnessRunner
 from embedagent.interaction import UserInputRequest, UserInputResponse, ask_user_schema, build_user_input_request, propose_mode_switch_schema
 from embedagent.llm import ModelClientError, OpenAICompatibleClient
 from embedagent.memory_maintenance import MemoryMaintenance
@@ -23,7 +22,6 @@ from embedagent.session_store import SessionSummaryStore
 from embedagent.transcript_store import TranscriptStore
 from embedagent.tool_execution import StreamingToolExecutor, partition_tool_actions
 from embedagent.tool_commit import ToolCommitCoordinator
-from embedagent.tooling.bridge import HarnessToolBridge
 from embedagent.tools import ToolRuntime
 from embedagent.tools._base import ToolError
 from embedagent.workspace_intelligence import WorkspaceIntelligenceBroker
@@ -83,8 +81,6 @@ class QueryEngine(object):
             self.tools.projection_db,
             self.transcript_store,
         )
-        self.harness_runner = HarnessRunner()
-        self.tool_bridge = HarnessToolBridge(self.tools, self.harness_runner)
         self._maintenance_counter = 0
 
     def _session_guard(self):
@@ -169,10 +165,10 @@ class QueryEngine(object):
         del session
         if str(current_mode or "") not in ("build", "debug", "verify"):
             return current_mode, None
-        return current_mode, self.tool_bridge.describe_mode(current_mode, workflow_state=workflow_state)
+        return current_mode, self.tools.describe_mode(current_mode, workflow_state=workflow_state)
 
     def _allowed_tools_for_mode(self, mode_name: str, workflow_state: str = "chat") -> set:
-        return set(self.tool_bridge.allowed_tool_names(mode_name, workflow_state=workflow_state))
+        return set(self.tools.allowed_tool_names(mode_name, workflow_state=workflow_state))
 
     def _append_harness_messages(self, session: Session, harness_context: Any) -> None:
         if harness_context is None:
@@ -463,7 +459,7 @@ class QueryEngine(object):
         with self._session_guard():
             self._append_harness_messages(
                 session,
-                self.tool_bridge.describe_mode(current_mode, workflow_state=workflow_state),
+                self.tools.describe_mode(current_mode, workflow_state=workflow_state),
             )
         with self._session_guard():
             pending = session.pending_interaction
@@ -650,24 +646,14 @@ class QueryEngine(object):
                     on_step_finish(step_index, reply, "completed")
                 return QueryTurnResult(final_text, session, transition, turns_used)
             executor = StreamingToolExecutor(
-                lambda action: self.tool_bridge.execute_with_interrupt(
-                    current_mode,
-                    action.name,
-                    action.arguments,
-                    stop_event,
-                    workflow_state=workflow_state,
-                ),
+                lambda action: self.tools.execute_with_interrupt(action.name, action.arguments, stop_event),
                 self.max_parallel_tools,
                 cancel_event=stop_event,
             )
             discard_remaining_batches = False
             for batch in partition_tool_actions(
                 reply.actions,
-                lambda tool_name: self.tool_bridge.tool_capabilities(
-                    current_mode,
-                    tool_name,
-                    workflow_state=workflow_state,
-                ),
+                self.tools.tool_capabilities,
             ):
                 if discard_remaining_batches:
                     for action in batch.actions:
@@ -842,7 +828,7 @@ class QueryEngine(object):
         return False
 
     def _schemas_for_mode(self, mode_name: str, workflow_state: str) -> list:
-        schemas = list(self.tool_bridge.schemas_for_mode(mode_name, workflow_state=workflow_state))
+        schemas = list(self.tools.schemas_for_mode(mode_name, workflow_state=workflow_state))
         names = set(
             item.get("function", {}).get("name", "")
             for item in schemas
@@ -927,7 +913,7 @@ class QueryEngine(object):
                         )
                         self._append_harness_messages(
                             session,
-                            self.tool_bridge.describe_mode(target_mode, workflow_state=workflow_state),
+                            self.tools.describe_mode(target_mode, workflow_state=workflow_state),
                         )
                     current_mode = target_mode
             return Observation("propose_mode_switch", True, None, {"selected_mode": target_mode, "mode_changed": bool(target_mode)}), current_mode, None
@@ -965,13 +951,7 @@ class QueryEngine(object):
                     return self._failure_observation(action.name, "目标文件不存在，edit_file 只能修改已存在的文件。", "file_missing", False, "filesystem", "若要新建文件，请改用 write_file。"), current_mode, None
         return (
             precomputed_observation
-            or self.tool_bridge.execute_with_interrupt(
-                current_mode,
-                runtime_action.name,
-                runtime_action.arguments,
-                stop_event,
-                workflow_state=workflow_state,
-            ),
+            or self.tools.execute_with_interrupt(runtime_action.name, runtime_action.arguments, stop_event),
             current_mode,
             None,
         )
@@ -1010,7 +990,7 @@ class QueryEngine(object):
                     )
                     self._append_harness_messages(
                         session,
-                        self.tool_bridge.describe_mode(selected_mode, workflow_state=workflow_state),
+                        self.tools.describe_mode(selected_mode, workflow_state=workflow_state),
                     )
         return Observation(
             "ask_user",
@@ -1063,12 +1043,7 @@ class QueryEngine(object):
         if pending.kind == "permission":
             approved = bool(resolution.get("approved"))
             observation = (
-                self.tool_bridge.execute(
-                    current_mode,
-                    action.name,
-                    action.arguments,
-                    workflow_state=workflow_state,
-                )
+                self.tools.execute(action.name, action.arguments)
                 if approved
                 else self._failure_observation(action.name, "操作未获批准，已跳过执行。", "permission_denied", False, "user_confirmation", "等待用户批准，或改为不需要该权限的方案。")
             )

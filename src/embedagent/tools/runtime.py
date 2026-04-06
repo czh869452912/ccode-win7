@@ -8,6 +8,12 @@ from embedagent.projection_db import ProjectionDb
 from embedagent.tool_result_store import ToolResultStore
 from embedagent.modes import allowed_tools_for
 from embedagent.session import Observation
+from embedagent.tooling.packs import pack_tool_names
+from embedagent.tools.harness_runtime import (
+    OFFICIAL_HARNESS_TOOL_METADATA,
+    OfficialRuntimeModes,
+    build_harness_tools,
+)
 from embedagent.tools import build_ops, file_ops, git_ops, shell_ops, todo_ops
 from embedagent.tools._base import ToolContext, ToolDefinition, ToolError
 
@@ -310,6 +316,7 @@ _DEFAULT_TOOL_METADATA = {
         "context_priority": 98,
     },
 }
+_DEFAULT_TOOL_METADATA.update(OFFICIAL_HARNESS_TOOL_METADATA)
 
 
 class ToolRuntime(object):
@@ -321,12 +328,19 @@ class ToolRuntime(object):
         )
         self._ctx = ToolContext(self.workspace, app_config=app_config)
         self.app_config = app_config  # Optional AppConfig; used by loop for path write checking
+        self._mode_runtime = OfficialRuntimeModes()
         all_tools = (
             file_ops.build_tools(self._ctx)
             + shell_ops.build_tools(self._ctx)
             + git_ops.build_tools(self._ctx)
             + build_ops.build_tools(self._ctx)
             + todo_ops.build_tools(self._ctx)
+        )
+        harness_tools = build_harness_tools(self._ctx)
+        existing_names = set(tool.name for tool in all_tools)
+        all_tools.extend(
+            tool for tool in harness_tools
+            if tool.name not in existing_names
         )
         self._catalog = {}  # type: Dict[str, ToolCatalogEntry]
         self._tools = {td.name: td for td in all_tools}  # type: Dict[str, ToolDefinition]
@@ -377,6 +391,53 @@ class ToolRuntime(object):
                     continue
             schemas.append(tool.schema())
         return schemas
+
+    def schemas_for_pack(self, pack_name: str) -> List[Dict[str, Any]]:
+        allowed = set(pack_tool_names(pack_name))
+        return [
+            tool.schema()
+            for name, tool in self._tools.items()
+            if name in allowed
+        ]
+
+    def describe_mode(
+        self,
+        mode_name: str,
+        workflow_state: str = "chat",
+        current_phase: str = "",
+        observations: Optional[List[Observation]] = None,
+    ):
+        return self._mode_runtime.describe_mode(
+            mode_name,
+            workflow_state=workflow_state,
+            current_phase=current_phase,
+            observations=observations,
+        )
+
+    def allowed_tool_names(self, mode_name: str, workflow_state: str = "chat") -> set:
+        return set(self._mode_runtime.allowed_tool_names(mode_name, workflow_state=workflow_state))
+
+    def schemas_for_mode(self, mode_name: str, workflow_state: str = "chat") -> List[Dict[str, Any]]:
+        context = self.describe_mode(mode_name, workflow_state=workflow_state)
+        if context is not None:
+            pack_names = set(self._mode_runtime.pack_tool_names_for_mode(mode_name, workflow_state=workflow_state))
+            return [
+                tool.schema()
+                for name, tool in self._tools.items()
+                if name in pack_names
+            ]
+        return self.schemas_for(mode_name, workflow_state=workflow_state)
+
+    def execute_for_mode(
+        self,
+        mode_name: str,
+        name: str,
+        arguments: Dict[str, Any],
+        stop_event=None,
+        workflow_state: str = "chat",
+    ) -> Observation:
+        del mode_name, workflow_state
+        return self.execute_with_interrupt(name, arguments, stop_event)
 
     def catalog_entries(self) -> List[Dict[str, Any]]:
         return [entry.to_dict() for entry in self._catalog.values()]

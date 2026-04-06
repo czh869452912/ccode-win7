@@ -37,35 +37,35 @@ class ToolsV2RuntimeTests(unittest.TestCase):
         shutil.rmtree(self.workspace, ignore_errors=True)
 
     def test_build_lite_pack_exposes_list_dir_and_run_recipe(self):
-        from embedagent.tools_v2.runtime import ToolRuntimeV2
+        from embedagent.tools import ToolRuntime
 
-        runtime = ToolRuntimeV2(self.workspace)
+        runtime = ToolRuntime(self.workspace)
         names = [
             item["function"]["name"]
-            for item in runtime.schemas_for_pack("build_lite")
+            for item in runtime.schemas_for_mode("build")
         ]
         self.assertIn("list_dir", names)
         self.assertIn("run_recipe", names)
 
     def test_debug_lite_pack_exposes_read_edit_and_run_recipe(self):
-        from embedagent.tools_v2.runtime import ToolRuntimeV2
+        from embedagent.tools import ToolRuntime
 
-        runtime = ToolRuntimeV2(self.workspace)
+        runtime = ToolRuntime(self.workspace)
         names = [
             item["function"]["name"]
-            for item in runtime.schemas_for_pack("debug_lite")
+            for item in runtime.schemas_for_mode("debug")
         ]
         self.assertIn("read_file", names)
         self.assertIn("edit_file", names)
         self.assertIn("run_recipe", names)
 
     def test_verify_pack_exposes_run_recipe_and_list_recipes(self):
-        from embedagent.tools_v2.runtime import ToolRuntimeV2
+        from embedagent.tools import ToolRuntime
 
-        runtime = ToolRuntimeV2(self.workspace)
+        runtime = ToolRuntime(self.workspace)
         names = [
             item["function"]["name"]
-            for item in runtime.schemas_for_pack("verify")
+            for item in runtime.schemas_for_mode("verify")
         ]
         self.assertIn("run_recipe", names)
         self.assertIn("list_recipes", names)

@@ -32,9 +32,9 @@ class VerifyQualityV2Tests(unittest.TestCase):
         shutil.rmtree(self.workspace, ignore_errors=True)
 
     def test_report_quality_v2_returns_structured_summary(self):
-        from embedagent.tools_v2.runtime import ToolRuntimeV2
+        from embedagent.tools import ToolRuntime
 
-        runtime = ToolRuntimeV2(self.workspace)
+        runtime = ToolRuntime(self.workspace)
         result = runtime.execute(
             "report_quality_v2",
             {"error_count": 0, "warning_count": 1, "test_failures": 0},

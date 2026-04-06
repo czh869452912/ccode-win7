@@ -1,6 +1,6 @@
 # EmbedAgent 开发进度跟踪
 
-> 更新日期：2026-04-06（Agent Harness V2 Program D task-graph slice started）
+> 更新日期：2026-04-06（Agent Harness V2 official cutover planning）
 > 用途：持续跟踪当前阶段、下一步任务、里程碑进度、风险与阻塞
 
 ---
@@ -28,7 +28,7 @@
 
 - 当前阶段：`Phase 4 真实工程验证 + Phase 6 GUI / Win7 收口`
 - 总体状态：`进行中`
-- 当前重点：`Agent Harness V2 Program D 实现中：已在 build/debug lite 主线之上补齐 full_spec_tdd + TaskGraph 最小闭环；并行保持 Phase 4 默认 recipe/真实工程/Win7 验证、Phase 6 GUI / Win7 收口，以及 Phase 7 bundle/site-packages 精简与 Win7 验收`
+- 当前重点：`Agent Harness V2 进入 official cutover 规划阶段：下一步不再继续堆叠 V1/V2 并行结构，而是按 runtime -> mode vocabulary -> context -> permission/task truth -> frontend/protocol -> docs/legacy deletion 的顺序，把 V2 扶正为唯一正式实现；并行关注 Phase 4/6/7 的真实工程、GUI、Win7 与离线交付验证`
 
 ### 当前判断
 
@@ -269,6 +269,7 @@
 | R-020 | launcher 模板与 `prepare-offline.ps1` 仍存在重复定义，后续修改若不同步仍可能重新引入 bundle 契约漂移 | 中 | 当前已通过公共 runtime discovery + validate launcher contract 把缺陷前移到验收阶段；后续可继续收敛 launcher 生成来源 |
 | R-021 | `package.ps1`、`prepare-offline.ps1` 与 `build-offline-bundle.ps1` 之间仍有部分共享打包逻辑分散在多个脚本，后续改动仍可能引入新分叉 | 中 | 当前已先把 GUI 静态资产门和 launcher 契约门收口到共享 helper / validator；后续继续抽公共能力而不是三处平行演化 |
 | R-022 | 当前 mode / tool / permission 强耦合导致真实任务频繁切模式、奇怪拒绝和工具调用退化 | 高 | 已建立 `docs/agent-harness-v2.md` 作为整体重构基线；后续优先按 harness / tool contract / permission DSL 的顺序做切片，而不是继续在旧机制上打补丁 |
+| R-023 | 当前主循环虽已接入 Harness V2，但 runtime / mode / context / permission / frontend / docs 仍残留大量 legacy 词汇与双轨实现，若继续局部修补会造成正式架构发散 | 高 | 已新增 `docs/superpowers/plans/2026-04-06-agent-harness-v2-official-cutover-plan.md`，后续按 official cutover 顺序推进，不再接受长期 V1/V2 并行 |
 
 ---
 
@@ -288,6 +289,7 @@
 | 2026-04-06 | 已建立 `docs/agent-harness-v2.md` 作为新一轮 mode/tool/permission 整体重构设计基线：保留用户可见 mode，但引入 execution phase、discipline profile、tool pack、permission DSL 与 failure taxonomy；后续建议以该文档为主线推进重构，而不是继续做局部补丁 |
 | 2026-04-06 | Agent Harness V2 Program A/B 已开始实现：新增 `src/embedagent/harness/`、`tooling/`、`tools_v2/`、`permissions_v2/` 第一批基础包，`build` mode 已可挂载最小 harness context，`InProcessAdapter` snapshot 已暴露 `current_phase / discipline_profile / current_activity`，且新切片测试与定向旧回归均已通过 |
 | 2026-04-06 | Agent Harness V2 Program D 已推进到第一批可运行切片：新增 `src/embedagent/harness/task_graph.py`，`build` mode 已支持 `full_spec_tdd` 的最小 task summary 与 artifact gate，`QueryEngine` / `InProcessAdapter` 现已开始暴露 `task_summary`，且新切片测试与定向旧回归均已通过 |
+| 2026-04-06 | 已完成一轮“V2 是否可直接扶正”的仓库审查，并确认当前还不能直接暴力删除 legacy；已新增 `docs/superpowers/plans/2026-04-06-agent-harness-v2-official-cutover-plan.md`，明确后续需要按 runtime、mode、context、permission/task、frontend/protocol、docs/legacy deletion 六个程序完成正式 cutover |
 | 2026-03-27 | 建立进度跟踪文件，明确当前阶段与下一步优先级 |
 | 2026-03-27 | DC-004/DC-005：工具设计规范建立，实施分期重组，Phase 1 改为最小可工作 Loop |
 | 2026-03-27 | 已落地 Phase 1 最小原型代码，并完成本地语法检查、工具自测与假模型闭环验证 |

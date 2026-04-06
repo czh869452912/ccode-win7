@@ -44,6 +44,29 @@
 
 ## 3. 当前变更记录
 
+### DC-084
+
+- 日期：2026-04-06
+- 变更主题：确立 Agent Harness V2 的 official cutover 原则，不再接受长期 V1/V2 并行
+- 变更摘要：
+  - 在完成 build/debug/verify 第一批 V2 切片与主链路接线后，对仓库进行了“是否可直接删 legacy”审查
+  - 结论是：当前主循环已经明显向 Harness V2 收敛，但 runtime、mode vocabulary、context、permission、task truth、frontend/protocol 和文档仍保留大量 legacy 词汇与双轨结构
+  - 因此后续路线不应是“继续桥接 + 局部补丁”，而应改成 official cutover：按 `runtime -> mode vocabulary -> context -> permission/task truth -> frontend/protocol -> docs/legacy deletion` 的顺序，把 V2 扶正为唯一正式实现
+  - 新增 `docs/superpowers/plans/2026-04-06-agent-harness-v2-official-cutover-plan.md` 作为本轮正式化计划，明确不再把 `ToolRuntime + ToolRuntimeV2 + bridge`、`code + build`、`manage_todos + TaskGraph`、`permissions.py + permissions_v2` 视为可长期共存的结构
+- 影响范围：
+  - Agent Harness V2 的后续实施顺序
+  - runtime / mode / permission / task / frontend 的收敛原则
+  - 文档治理与 legacy 删除节奏
+- 关联文档：
+  - `docs/agent-harness-v2.md`
+  - `docs/superpowers/plans/2026-04-06-agent-harness-v2-official-cutover-plan.md`
+  - `docs/development-tracker.md`
+- 是否需要 ADR：`建议在开始实际 official cutover implementation 前补一条 ADR，固定“唯一正式实现”与 mode vocabulary cutover 的原则`
+- 后续动作：
+  - 先做 runtime promotion，再做 mode vocabulary cutover
+  - 在 context/intelligence 和 permission/task truth 收敛前，不再继续扩展新的 V2 侧边包
+  - 完成前端/协议与文档切换后，再做最终 legacy deletion
+
 ### DC-083
 
 - 日期：2026-04-06
