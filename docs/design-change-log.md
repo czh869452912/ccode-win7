@@ -44,6 +44,26 @@
 
 ## 3. 当前变更记录
 
+### DC-092
+
+- 日期：2026-04-06
+- 变更主题：删除死文件并把 `tools_v2` 正式迁入官方 `tools/` 包
+- 变更摘要：
+  - `tools_v2/` 中仍被正式 runtime 使用的 `discovery_ops`、`recipe_ops`、`session_ops` 已迁入 `src/embedagent/tools/`，`harness_runtime.py` 改为只从官方 `tools/` 包装载这些能力
+  - 旧 `src/embedagent/tools_v2/*.py` 代码文件已删除，避免官方产品路径继续依赖带迁移语义的包名
+  - 已完全无人引用的 `src/embedagent/loop.py` 已删除，`session.py` 与 `core/adapter.py` 中关于 `AgentLoop` 的说明同步收敛到当前 `InProcessAdapter / QueryEngine` 主链路
+- 影响范围：
+  - 官方工具模块布局
+  - harness runtime 的导入边界
+  - dead code / dead file 清理
+  - focused runtime / adapter / architecture tests
+- 关联文档：
+  - `docs/development-tracker.md`
+- 是否需要 ADR：`否，属于 official cutover 后的结构收口`
+- 后续动作：
+  - 继续评估 `ToolRuntime` 中 legacy aliases、`permissions.py`、`project_memory.py`、`workspace_intelligence.py` 里的旧工具词汇是否继续下线
+  - 若要宣布“无历史包袱”，还需完成这些仍在产品代码中的兼容逻辑切除
+
 ### DC-091
 
 - 日期：2026-04-06

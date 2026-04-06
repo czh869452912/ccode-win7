@@ -259,6 +259,18 @@ class TestToolRuntimeExecute(unittest.TestCase):
 
 class TestModuleIsolation(unittest.TestCase):
     """Verify each ops module can be imported independently."""
+    def test_discovery_ops_importable(self):
+        from embedagent.tools import discovery_ops
+        self.assertTrue(callable(discovery_ops.build_tools))
+
+    def test_recipe_ops_importable(self):
+        from embedagent.tools import recipe_ops
+        self.assertTrue(callable(recipe_ops.build_tools))
+
+    def test_session_ops_importable(self):
+        from embedagent.tools import session_ops
+        self.assertTrue(callable(session_ops.build_tools))
+
     def test_file_ops_importable(self):
         from embedagent.tools import file_ops
         self.assertTrue(callable(file_ops.build_tools))

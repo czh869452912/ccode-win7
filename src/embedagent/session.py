@@ -196,7 +196,7 @@ class QueryTurnResult:
 
 @dataclass
 class LoopResult:
-    """Structured result returned by AgentLoop.run().
+    """Structured result returned by the agent execution loop.
 
     Replaces the previous bare ``Tuple[str, Session]`` + RuntimeError pattern.
     Callers can branch on ``termination_reason`` without parsing exception text.

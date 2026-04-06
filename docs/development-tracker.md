@@ -30,6 +30,7 @@
 - 总体状态：`进行中`
 - 当前重点：`Agent Harness V2 official cutover 六步程序已完成：runtime、mode vocabulary、context/intelligence、permission/task truth、frontend/protocol、docs/legacy deletion 均已收口。当前进入稳定化阶段，重点转向真实 C 工程验证、Win7 bundle 验证和剩余死代码清理，而不是继续维护并行架构。`
 - 最新稳定化收口：`set_session_mode()` 现在会先重置旧 phase 再刷新 Harness snapshot，避免 build/debug/verify 跨 mode 切换时把上一模式的 phase 残留到新会话快照；同时 `Context` 高优先级工具、reducer registry 与 `/review` 文案已统一到 `run_recipe/report_quality_v2/task_status` 正式词汇。`
+- 最新 dead-code 清理：`tools_v2/` 中仍被正式主路径使用的 discovery/recipe/session 模块已迁入官方 `src/embedagent/tools/`；旧 `tools_v2/*.py` 与已无人引用的 `loop.py` 已删除，产品源码不再直接 import `tools_v2` 或 `AgentLoop`。`
 
 ### 当前判断
 

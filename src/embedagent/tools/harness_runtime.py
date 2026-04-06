@@ -5,7 +5,7 @@ from typing import Dict, List
 from embedagent.harness.runner import HarnessRunner
 from embedagent.modes import allowed_tools_for
 from embedagent.tooling.packs import pack_tool_names
-from embedagent.tools_v2 import discovery_ops, recipe_ops, session_ops
+from embedagent.tools import discovery_ops, recipe_ops, session_ops
 
 
 OFFICIAL_HARNESS_TOOL_METADATA = {
