@@ -50,6 +50,28 @@ class PhaseEngineTests(unittest.TestCase):
         )
         self.assertEqual(next_phase.value, "regression_check")
 
+    def test_contract_advances_to_test_design_when_failing_evidence_is_ready(self):
+        from embedagent.harness.contracts import ExecutionPhase
+        from embedagent.harness.phase_engine import advance_phase
+
+        next_phase = advance_phase(
+            ExecutionPhase.CONTRACT,
+            {"failing_evidence_ready": True},
+            "full_spec_tdd",
+        )
+        self.assertEqual(next_phase.value, "test_design")
+
+    def test_check_advances_to_repair_when_check_failed(self):
+        from embedagent.harness.contracts import ExecutionPhase
+        from embedagent.harness.phase_engine import advance_phase
+
+        next_phase = advance_phase(
+            ExecutionPhase.CHECK,
+            {"check_result_ready": True, "check_passed": False},
+            "full_spec_tdd",
+        )
+        self.assertEqual(next_phase.value, "repair")
+
 
 if __name__ == "__main__":
     unittest.main()

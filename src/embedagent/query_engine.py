@@ -163,11 +163,14 @@ class QueryEngine(object):
                     },
                 )
 
-    def _run_harness_mode(self, current_mode: str, session: Optional[Session] = None) -> Tuple[str, list]:
+    def _run_harness_mode(self, current_mode: str, session: Optional[Session] = None, workflow_state: str = "chat") -> Tuple[str, list]:
         del session
         if str(current_mode or "") not in ("build", "debug"):
             return current_mode, []
-        return current_mode, self.harness_runner.build_mode_units(current_mode)
+        discipline_override = None
+        if str(current_mode or "") == "build" and str(workflow_state or "") == "plan":
+            discipline_override = "full_spec_tdd"
+        return current_mode, self.harness_runner.build_mode_units(current_mode, discipline_override=discipline_override)
 
     def _record_transition(self, session: Session, transition: LoopTransition) -> None:
         with self._session_guard():
@@ -320,7 +323,7 @@ class QueryEngine(object):
         user_input_handler: Optional[Callable[[UserInputRequest], Optional[UserInputResponse]]] = None,
     ) -> QueryTurnResult:
         current_mode = require_mode(initial_mode)["slug"]
-        current_mode, harness_units = self._run_harness_mode(current_mode, session)
+        current_mode, harness_units = self._run_harness_mode(current_mode, session, workflow_state=workflow_state)
         if session is None:
             with self._session_guard():
                 session = Session()

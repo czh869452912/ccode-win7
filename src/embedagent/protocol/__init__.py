@@ -240,6 +240,7 @@ class SessionSnapshot:
     current_phase: str = ""
     discipline_profile: str = ""
     current_activity: str = ""
+    task_summary: str = ""
 
 
 @dataclass  

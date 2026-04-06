@@ -1,6 +1,6 @@
 # EmbedAgent 开发进度跟踪
 
-> 更新日期：2026-04-06（Agent Harness V2 Program A/B implementation started）
+> 更新日期：2026-04-06（Agent Harness V2 Program D task-graph slice started）
 > 用途：持续跟踪当前阶段、下一步任务、里程碑进度、风险与阻塞
 
 ---
@@ -28,7 +28,7 @@
 
 - 当前阶段：`Phase 4 真实工程验证 + Phase 6 GUI / Win7 收口`
 - 总体状态：`进行中`
-- 当前重点：`Agent Harness V2 Program A/B 实现中：已落地 harness/tooling/tools_v2/permissions_v2 第一批基础包与 build-lite 薄集成；并行保持 Phase 4 默认 recipe/真实工程/Win7 验证、Phase 6 GUI / Win7 收口，以及 Phase 7 bundle/site-packages 精简与 Win7 验收`
+- 当前重点：`Agent Harness V2 Program D 实现中：已在 build/debug lite 主线之上补齐 full_spec_tdd + TaskGraph 最小闭环；并行保持 Phase 4 默认 recipe/真实工程/Win7 验证、Phase 6 GUI / Win7 收口，以及 Phase 7 bundle/site-packages 精简与 Win7 验收`
 
 ### 当前判断
 
@@ -287,6 +287,7 @@
 | 2026-04-06 | GUI interaction 生命周期已收口到专属 `interaction` tab：当前交互不再挂在所有 inspector tab 的公共尾部；`pending_interaction_valid=false` / `interaction_expired` 现在只显示 notice，不再伪装成可操作的 expired card；webapp helper 回归与 `tests.test_gui_runtime`、`tests.test_gui_backend_api` 已通过 |
 | 2026-04-06 | 已建立 `docs/agent-harness-v2.md` 作为新一轮 mode/tool/permission 整体重构设计基线：保留用户可见 mode，但引入 execution phase、discipline profile、tool pack、permission DSL 与 failure taxonomy；后续建议以该文档为主线推进重构，而不是继续做局部补丁 |
 | 2026-04-06 | Agent Harness V2 Program A/B 已开始实现：新增 `src/embedagent/harness/`、`tooling/`、`tools_v2/`、`permissions_v2/` 第一批基础包，`build` mode 已可挂载最小 harness context，`InProcessAdapter` snapshot 已暴露 `current_phase / discipline_profile / current_activity`，且新切片测试与定向旧回归均已通过 |
+| 2026-04-06 | Agent Harness V2 Program D 已推进到第一批可运行切片：新增 `src/embedagent/harness/task_graph.py`，`build` mode 已支持 `full_spec_tdd` 的最小 task summary 与 artifact gate，`QueryEngine` / `InProcessAdapter` 现已开始暴露 `task_summary`，且新切片测试与定向旧回归均已通过 |
 | 2026-03-27 | 建立进度跟踪文件，明确当前阶段与下一步优先级 |
 | 2026-03-27 | DC-004/DC-005：工具设计规范建立，实施分期重组，Phase 1 改为最小可工作 Loop |
 | 2026-03-27 | 已落地 Phase 1 最小原型代码，并完成本地语法检查、工具自测与假模型闭环验证 |

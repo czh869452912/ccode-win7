@@ -44,6 +44,33 @@
 
 ## 3. 当前变更记录
 
+### DC-083
+
+- 日期：2026-04-06
+- 变更主题：Agent Harness V2 Program D 启动，实现 `full_spec_tdd + TaskGraph` 的最小闭环
+- 变更摘要：
+  - 新增 `src/embedagent/harness/task_graph.py`，把 `TaskGraph` 作为 Harness V2 的最小真相源引入，而不是继续依赖旧 `manage_todos` 或自由文本
+  - `phase_engine` 现已支持 `build` 模式下 `full_spec_tdd` 的关键 artifact gate：`contract -> test_design` 与 `check -> repair`
+  - `HarnessRunner` 现在支持 `discipline_override="full_spec_tdd"`，并开始把 task summary 注入到 mode context 中
+  - `InProcessAdapter` / `SessionSnapshot` 已补 `task_summary` 字段，`QueryEngine` 在 `build + workflow_state=plan` 路径下可挂起 full-spec harness context
+  - 这轮实现继续遵守“新核心留在 `harness/`，旧主循环只做薄桥接”的边界，没有把 TaskGraph 或 full-spec phase 细节塞回 `query_engine.py` / `modes.py`
+- 影响范围：
+  - `build` mode 的 full-spec 轨道
+  - session snapshot 的 task-level 可见性
+  - 后续 Program D 的 artifact gate 与任务同步扩展空间
+- 关联文档：
+  - `docs/agent-harness-v2.md`
+  - `docs/superpowers/plans/2026-04-06-agent-harness-v2-full-spec-taskgraph.md`
+  - `docs/development-tracker.md`
+  - `tests/test_task_graph_v2.py`
+  - `tests/test_harness_runner_taskgraph.py`
+  - `tests/test_query_engine_build_full_spec.py`
+- 是否需要 ADR：`仍建议在继续扩展 TaskGraph 自动同步前补一条 ADR，固定任务真相源与旧 todos 的关系`
+- 后续动作：
+  - 继续扩展 TaskGraph 自动同步，而不是停留在初始单任务摘要
+  - 在后续切片中把 `failing_evidence_ready / implementation_ready / check_result_ready` 的自动化来源接到更真实的工具结果上
+  - 继续用旧回归保护 QueryEngine / tool execution / permission 主链
+
 ### DC-082
 
 - 日期：2026-04-06

@@ -48,6 +48,15 @@ class HarnessContractsTests(unittest.TestCase):
             ["reproduce", "isolate", "patch", "regression_check", "handoff"],
         )
 
+    def test_build_mode_full_track_has_test_design_and_repair(self):
+        from embedagent.harness.registry import build_default_registry
+
+        registry = build_default_registry()
+        self.assertEqual(
+            [phase.value for phase in registry["build"].full_track],
+            ["understand", "contract", "test_design", "implement", "check", "repair", "handoff"],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

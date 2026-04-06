@@ -181,6 +181,7 @@ class ManagedSession:
     current_phase: str = ""
     discipline_profile: str = ""
     current_activity: str = ""
+    task_summary: str = ""
     remembered_permission_categories: Set[str] = field(default_factory=set)
     stop_event: threading.Event = field(default_factory=threading.Event, repr=False)
     lock: threading.RLock = field(default_factory=threading.RLock, repr=False)
@@ -272,10 +273,12 @@ class InProcessAdapter(object):
             state.current_phase = "understand"
             state.discipline_profile = "lite_spec_tdd"
             state.current_activity = "Build-lite harness active"
+            state.task_summary = "in_progress build:lite_spec_tdd"
         elif current_mode == "debug":
             state.current_phase = "reproduce"
             state.discipline_profile = "lite_spec_tdd"
             state.current_activity = "Debug-lite harness active"
+            state.task_summary = "in_progress debug:lite_spec_tdd"
         self._persist_state(state)
         with self._lock:
             self._sessions[session.session_id] = state
@@ -421,6 +424,7 @@ class InProcessAdapter(object):
                 "current_phase": state.current_phase,
                 "discipline_profile": state.discipline_profile,
                 "current_activity": state.current_activity,
+                "task_summary": state.task_summary,
                 "runtime_source": str(runtime.get("runtime_source") or ""),
                 "bundled_tools_ready": bool(runtime.get("bundled_tools_ready")),
                 "fallback_warnings": list(runtime.get("fallback_warnings") or []),
