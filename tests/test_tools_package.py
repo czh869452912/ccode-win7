@@ -188,21 +188,14 @@ class TestToolRuntimeExecute(unittest.TestCase):
         obs = self.rt.execute("read_file", {"path": "/etc/passwd"})
         self.assertFalse(obs.success)
 
-    def test_list_files_workspace_root(self):
+    def test_official_runtime_rejects_legacy_file_tools(self):
         # Create a file so the directory isn't empty
         with open(os.path.join(self.workspace, "test.txt"), "w") as f:
             f.write("x")
-        obs = self.rt.execute("list_files", {"path": "."})
-        self.assertTrue(obs.success)
-        self.assertIn("files", obs.data)
-
-    def test_search_text_in_workspace(self):
-        test_file = os.path.join(self.workspace, "code.py")
-        with open(test_file, "w", encoding="utf-8") as f:
-            f.write("def my_function():\n    pass\n")
-        obs = self.rt.execute("search_text", {"query": "my_function", "path": "."})
-        self.assertTrue(obs.success)
-        self.assertGreater(obs.data["match_count"], 0)
+        list_obs = self.rt.execute("list_files", {"path": "."})
+        search_obs = self.rt.execute("search_text", {"query": "x", "path": "."})
+        self.assertFalse(list_obs.success)
+        self.assertFalse(search_obs.success)
 
     def test_edit_file_replaces_text(self):
         test_file = os.path.join(self.workspace, "edit_me.py")
@@ -239,8 +232,9 @@ class TestToolRuntimeExecute(unittest.TestCase):
         })
         self.assertFalse(obs.success)
 
-    def test_observation_tool_name_set(self):
+    def test_official_runtime_rejects_legacy_task_tool(self):
         obs = self.rt.execute("manage_todos", {"action": "list"})
+        self.assertFalse(obs.success)
         self.assertEqual(obs.tool_name, "manage_todos")
 
     def test_write_file_observation_includes_catalog_metadata(self):
@@ -282,14 +276,6 @@ class TestModuleIsolation(unittest.TestCase):
     def test_git_ops_importable(self):
         from embedagent.tools import git_ops
         self.assertTrue(callable(git_ops.build_tools))
-
-    def test_build_ops_importable(self):
-        from embedagent.tools import build_ops
-        self.assertTrue(callable(build_ops.build_tools))
-
-    def test_todo_ops_importable(self):
-        from embedagent.tools import todo_ops
-        self.assertTrue(callable(todo_ops.build_tools))
 
     def test_base_importable(self):
         from embedagent.tools._base import ToolContext, ToolDefinition, ToolError
@@ -413,14 +399,14 @@ class TestWorkspaceRecipes(unittest.TestCase):
         self.assertTrue(cmake_build["supports_target"])
         self.assertTrue(cmake_build["supports_profile"])
 
-    def test_compile_project_can_run_via_recipe_id(self):
+    def test_run_recipe_can_run_build_recipe_id(self):
         os.makedirs(os.path.join(self.workspace, ".embedagent"))
         with open(os.path.join(self.workspace, ".embedagent", "workspace-recipes.json"), "w", encoding="utf-8") as handle:
             handle.write(
                 '[{"id":"custom.build","tool_name":"compile_project","label":"Custom Build","command":"cmd /c echo build-ok","cwd":"."}]'
             )
         runtime = ToolRuntime(self.workspace)
-        obs = runtime.execute("compile_project", {"recipe_id": "custom.build"})
+        obs = runtime.execute("run_recipe", {"recipe_id": "custom.build"})
         self.assertTrue(obs.success)
         self.assertEqual(obs.data["recipe_id"], "custom.build")
         self.assertEqual(obs.data["recipe_source"], "project")
@@ -442,7 +428,7 @@ class TestWorkspaceRecipes(unittest.TestCase):
         self.assertIn("build/debug", payload["command"])
         self.assertIn("--target demo-app", payload["command"])
 
-    def test_verify_tools_can_run_via_recipe_id(self):
+    def test_run_recipe_can_run_verify_recipe_id(self):
         os.makedirs(os.path.join(self.workspace, ".embedagent"))
         with open(os.path.join(self.workspace, ".embedagent", "workspace-recipes.json"), "w", encoding="utf-8") as handle:
             handle.write(
@@ -453,15 +439,33 @@ class TestWorkspaceRecipes(unittest.TestCase):
                 "]"
             )
         runtime = ToolRuntime(self.workspace)
-        tidy_obs = runtime.execute("run_clang_tidy", {"recipe_id": "custom.tidy"})
-        analyze_obs = runtime.execute("run_clang_analyzer", {"recipe_id": "custom.analyze"})
-        coverage_obs = runtime.execute("collect_coverage", {"recipe_id": "custom.coverage"})
+        tidy_obs = runtime.execute("run_recipe", {"recipe_id": "custom.tidy"})
+        analyze_obs = runtime.execute("run_recipe", {"recipe_id": "custom.analyze"})
+        coverage_obs = runtime.execute("run_recipe", {"recipe_id": "custom.coverage"})
         self.assertTrue(tidy_obs.success)
         self.assertTrue(analyze_obs.success)
         self.assertTrue(coverage_obs.success)
         self.assertEqual(tidy_obs.data["recipe_id"], "custom.tidy")
         self.assertEqual(analyze_obs.data["recipe_id"], "custom.analyze")
         self.assertEqual(coverage_obs.data["recipe_id"], "custom.coverage")
+
+    def test_official_runtime_rejects_legacy_verify_tool_aliases(self):
+        os.makedirs(os.path.join(self.workspace, ".embedagent"))
+        with open(os.path.join(self.workspace, ".embedagent", "workspace-recipes.json"), "w", encoding="utf-8") as handle:
+            handle.write(
+                '[{"id":"custom.build","tool_name":"compile_project","label":"Custom Build","command":"cmd /c echo build-ok","cwd":"."}]'
+            )
+        runtime = ToolRuntime(self.workspace)
+        for tool_name in (
+            "compile_project",
+            "run_tests",
+            "run_clang_tidy",
+            "run_clang_analyzer",
+            "collect_coverage",
+            "report_quality",
+        ):
+            obs = runtime.execute(tool_name, {"recipe_id": "custom.build"})
+            self.assertFalse(obs.success, tool_name)
 
 
 if __name__ == "__main__":

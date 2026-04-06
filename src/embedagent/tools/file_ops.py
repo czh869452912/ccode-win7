@@ -4,14 +4,7 @@ import os
 from typing import Any, Dict, List
 
 from embedagent.session import Observation
-from embedagent.tools._base import (
-    MAX_READ_CHARS,
-    MAX_LIST_RESULTS,
-    MAX_SEARCH_MATCHES,
-    ToolContext,
-    ToolDefinition,
-    ToolError,
-)
+from embedagent.tools._base import MAX_READ_CHARS, ToolContext, ToolDefinition, ToolError
 
 
 def build_tools(ctx: ToolContext) -> List[ToolDefinition]:
@@ -34,53 +27,6 @@ def build_tools(ctx: ToolContext) -> List[ToolDefinition]:
             "content": content,
         }
         return Observation(tool_name="read_file", success=True, error=None, data=data)
-
-    def _list_files(arguments: Dict[str, Any]) -> Observation:
-        path = ctx.resolve_path(str(arguments["path"]))
-        pattern = arguments.get("pattern")
-        pattern = str(pattern) if pattern else None
-        files = ctx.iter_files(path, pattern)
-        truncated = len(files) > MAX_LIST_RESULTS
-        visible = files[:MAX_LIST_RESULTS]
-        data = {
-            "path": ctx.relative_path(path),
-            "pattern": pattern,
-            "count": len(files),
-            "truncated": truncated,
-            "files": [ctx.relative_path(item) for item in visible],
-        }
-        return Observation(tool_name="list_files", success=True, error=None, data=data)
-
-    def _search_text(arguments: Dict[str, Any]) -> Observation:
-        query = str(arguments["query"])
-        path = ctx.resolve_path(str(arguments["path"]))
-        if not query:
-            raise ToolError("搜索文本不能为空。")
-        matches = []
-        lowered_query = query.lower()
-        for file_path in ctx.iter_files(path, pattern=None):
-            if ctx.is_binary_file(file_path):
-                continue
-            try:
-                content, _, _ = ctx.read_text(file_path)
-            except ToolError:
-                continue
-            for index, line in enumerate(content.split("\n"), start=1):
-                if lowered_query not in line.lower():
-                    continue
-                matches.append({"path": ctx.relative_path(file_path), "line": index, "text": line[:300]})
-                if len(matches) >= MAX_SEARCH_MATCHES:
-                    break
-            if len(matches) >= MAX_SEARCH_MATCHES:
-                break
-        data = {
-            "query": query,
-            "path": ctx.relative_path(path),
-            "match_count": len(matches),
-            "truncated": len(matches) >= MAX_SEARCH_MATCHES,
-            "matches": matches,
-        }
-        return Observation(tool_name="search_text", success=True, error=None, data=data)
 
     def _edit_file(arguments: Dict[str, Any]) -> Observation:
         path = ctx.resolve_path(str(arguments["path"]))
@@ -151,46 +97,6 @@ def build_tools(ctx: ToolContext) -> List[ToolDefinition]:
             handler=_read_file,
         ),
         ToolDefinition(
-            name="list_files",
-            description="列出目录中的文件路径。用于快速了解项目结构或定位目标文件。路径必须位于项目工作区内。",
-            parameters={
-                "type": "object",
-                "properties": {
-                    "path": {
-                        "type": "string",
-                        "description": "要列出的目录路径，相对于项目根目录。示例：docs",
-                    },
-                    "pattern": {
-                        "type": "string",
-                        "description": "要匹配的 glob 模式，留空表示不过滤。示例：*.md",
-                    },
-                },
-                "required": ["path"],
-                "additionalProperties": False,
-            },
-            handler=_list_files,
-        ),
-        ToolDefinition(
-            name="search_text",
-            description="搜索工作区中的文本内容。用于查找符号、关键字或错误信息出现位置。路径必须位于项目工作区内。",
-            parameters={
-                "type": "object",
-                "properties": {
-                    "query": {
-                        "type": "string",
-                        "description": "要搜索的文本片段，默认按不区分大小写匹配。示例：OpenAICompatibleClient",
-                    },
-                    "path": {
-                        "type": "string",
-                        "description": "要搜索的目录路径，相对于项目根目录。示例：src/embedagent",
-                    },
-                },
-                "required": ["query", "path"],
-                "additionalProperties": False,
-            },
-            handler=_search_text,
-        ),
-        ToolDefinition(
             name="write_file",
             description="写入一个完整文本文件。用于创建新文件或整体覆盖已有文件。路径必须位于项目工作区内。",
             parameters={
@@ -222,7 +128,7 @@ def build_tools(ctx: ToolContext) -> List[ToolDefinition]:
                 "properties": {
                     "path": {
                         "type": "string",
-                        "description": "要修改的文件路径，相对于项目根目录。示例：src/embedagent/loop.py",
+                        "description": "要修改的文件路径，相对于项目根目录。示例：src/embedagent/query_engine.py",
                     },
                     "old_text": {
                         "type": "string",

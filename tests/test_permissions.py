@@ -4,7 +4,12 @@ import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from embedagent.permissions import PermissionPolicy
+from embedagent.permissions import (
+    PermissionPolicy,
+    READ_TOOLS,
+    TOOLCHAIN_EXEC_TOOLS,
+    WORKSPACE_WRITE_TOOLS,
+)
 from embedagent.session import Action
 
 
@@ -45,6 +50,14 @@ class TestPermissionPolicy(unittest.TestCase):
         self.assertIn("[风险]", explanation)
         self.assertIn("[规则]", explanation)
         self.assertIn("cmake.test.default", explanation)
+
+    def test_official_permission_sets_exclude_legacy_tool_names(self):
+        self.assertNotIn("list_files", READ_TOOLS)
+        self.assertNotIn("search_text", READ_TOOLS)
+        self.assertNotIn("report_quality", READ_TOOLS)
+        self.assertNotIn("manage_todos", WORKSPACE_WRITE_TOOLS)
+        self.assertNotIn("compile_project", TOOLCHAIN_EXEC_TOOLS)
+        self.assertNotIn("run_tests", TOOLCHAIN_EXEC_TOOLS)
 
 
 if __name__ == "__main__":

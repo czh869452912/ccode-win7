@@ -34,8 +34,6 @@ def build_permission_explanation(
 
 READ_TOOLS = {
     "read_file",
-    "list_files",
-    "search_text",
     "list_dir",
     "glob_files",
     "grep_text",
@@ -46,18 +44,12 @@ READ_TOOLS = {
     "git_status",
     "git_diff",
     "git_log",
-    "report_quality",
 }
-WORKSPACE_WRITE_TOOLS = {"edit_file", "write_file", "manage_todos"}
+WORKSPACE_WRITE_TOOLS = {"edit_file", "write_file"}
 SHELL_EXEC_TOOLS = {
     "run_command",
 }
 TOOLCHAIN_EXEC_TOOLS = {
-    "compile_project",
-    "run_tests",
-    "run_clang_tidy",
-    "run_clang_analyzer",
-    "collect_coverage",
     "run_recipe",
 }
 GIT_WRITE_TOOLS = set()
@@ -381,11 +373,6 @@ class PermissionPolicy(object):
         return "该操作需要确认。"
 
     def _category_for_action(self, action: Action) -> str:
-        if action.name == "manage_todos":
-            action_name = str(action.arguments.get("action") or "").strip().lower()
-            if action_name == "list":
-                return "read"
-            return "workspace_write"
         if action.name in WORKSPACE_WRITE_TOOLS:
             return "workspace_write"
         if action.name in GIT_WRITE_TOOLS:

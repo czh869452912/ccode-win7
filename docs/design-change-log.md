@@ -44,6 +44,26 @@
 
 ## 3. 当前变更记录
 
+### DC-093
+
+- 日期：2026-04-06
+- 变更主题：runtime 与 permission 正式切断 legacy execute aliases
+- 变更摘要：
+  - `ToolRuntime` 现已删除 `_legacy_tools / _legacy_catalog` 双轨执行层，运行时只接受正式工具集合
+  - `permissions.py` 已移除对 `list_files/search_text/manage_todos/compile_project/run_tests/...` 等旧工具名的正式分类，权限判断只围绕当前官方工具词汇展开
+  - `file_ops.py` 已收缩为纯官方 `read_file/write_file/edit_file`；`build_ops.py`、`todo_ops.py` 与对应旧测试 `tests/test_todo_ops.py` 已删除
+- 影响范围：
+  - runtime execute path
+  - permission category mapping
+  - file/build/task legacy module deletion
+  - focused runtime / adapter / architecture tests
+- 关联文档：
+  - `docs/development-tracker.md`
+- 是否需要 ADR：`否，属于 official cutover 后的核心壳层切断`
+- 后续动作：
+  - 继续切除 `project_memory.py`、`workspace_intelligence.py`、frontend/protocol 中仍把旧工具名当一等语义的兼容逻辑
+  - 在最终 merge 前复跑更大范围回归，确认不再依赖任何 legacy execute alias
+
 ### DC-092
 
 - 日期：2026-04-06
