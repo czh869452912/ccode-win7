@@ -15,11 +15,12 @@ _MODE_RE = re.compile(r"当前模式：(\w+)")
 _MODE_PROMPT_PREFIX = "你是 EmbedAgent 的受控模式原型。"
 
 # Tool messages from these tools carry diagnostic/build results that are
-# especially valuable for the LLM.  They are skipped when hard-trim needs
-# to drop messages to fit within the token budget, so that a compile error
-# on line 400 of the build log is not silently discarded before a trivial
-# list_files result.
+# especially valuable for the LLM. They are skipped when hard-trim needs
+# to drop messages to fit within the token budget, so that a failing
+# recipe/quality result is not discarded before a trivial directory listing.
 _HIGH_PRIORITY_TOOLS = frozenset({
+    "run_recipe",
+    "report_quality_v2",
     "compile_project",
     "run_tests",
     "run_clang_tidy",
@@ -70,11 +71,9 @@ class ContextConfig:
     default_project_memory_chars: int = 1600
     mode_overrides: Dict[str, Dict[str, int]] = field(
         default_factory=lambda: {
-            "ask": {"max_context_tokens": 12000, "reserve_output_tokens": 1600, "reserve_reasoning_tokens": 500, "max_recent_turns": 3, "max_summary_turns": 8},
-            "orchestra": {"max_context_tokens": 14000, "reserve_output_tokens": 1800, "reserve_reasoning_tokens": 700, "max_recent_turns": 3, "max_summary_turns": 10},
             "spec": {"max_context_tokens": 14000, "reserve_output_tokens": 1800, "reserve_reasoning_tokens": 600, "max_recent_turns": 3, "max_summary_turns": 10},
             "build": {"max_context_tokens": 18000, "reserve_output_tokens": 2200, "reserve_reasoning_tokens": 1000, "max_recent_turns": 4, "max_summary_turns": 12},
-            "test": {"max_context_tokens": 18000, "reserve_output_tokens": 2200, "reserve_reasoning_tokens": 1000, "max_recent_turns": 4, "max_summary_turns": 12},
+            "explore": {"max_context_tokens": 14000, "reserve_output_tokens": 1800, "reserve_reasoning_tokens": 600, "max_recent_turns": 3, "max_summary_turns": 10},
             "verify": {"max_context_tokens": 18000, "reserve_output_tokens": 1800, "reserve_reasoning_tokens": 1200, "max_recent_turns": 3, "max_summary_turns": 10, "recent_tool_chars": 1800},
             "debug": {"max_context_tokens": 18000, "reserve_output_tokens": 2200, "reserve_reasoning_tokens": 1200, "max_recent_turns": 4, "max_summary_turns": 12},
             "compact": {"max_context_tokens": 9000, "reserve_output_tokens": 1200, "reserve_reasoning_tokens": 500, "max_recent_turns": 2, "max_summary_turns": 6, "recent_message_chars": 1600, "recent_tool_chars": 1200, "summary_text_chars": 160, "summary_tool_chars": 300, "hard_message_chars": 700, "hard_tool_chars": 450, "project_memory_chars": 700},
@@ -169,6 +168,9 @@ class ReducerRegistry(object):
     def __init__(self) -> None:
         self._reducers = {
             "read_file": self._reduce_file,
+            "list_dir": self._reduce_list,
+            "glob_files": self._reduce_list,
+            "grep_text": self._reduce_search,
             "list_files": self._reduce_list,
             "search_text": self._reduce_search,
             "write_file": self._reduce_write,
@@ -182,10 +184,15 @@ class ReducerRegistry(object):
             "run_clang_tidy": self._reduce_diagnostics_tool,
             "run_clang_analyzer": self._reduce_diagnostics_tool,
             "collect_coverage": self._reduce_coverage,
+            "list_recipes": self._reduce_list,
+            "run_recipe": self._reduce_diagnostics_tool,
             "report_quality": self._reduce_quality,
+            "report_quality_v2": self._reduce_quality,
             "switch_mode": self._reduce_switch_mode,
             "ask_user": self._reduce_ask_user,
             "manage_todos": self._reduce_todos,
+            "task_status": self._reduce_todos,
+            "record_failing_evidence": self._reduce_generic,
         }
 
     def reduce_tool_message(self, tool_name: str, payload: Dict[str, Any], detailed: bool, policy: ContextPolicy) -> str:
@@ -221,18 +228,48 @@ class ReducerRegistry(object):
         return ", ".join(parts)
 
     def _reduce_file(self, data: Dict[str, Any], detailed: bool, policy: ContextPolicy) -> Dict[str, Any]:
-        result = self._copy(data, "path", "encoding", "char_count", "line_count", "truncated", "content_stored_path")
+        result = self._copy(
+            data,
+            "path",
+            "encoding",
+            "char_count",
+            "line_count",
+            "truncated",
+            "content_stored_path",
+            "returned_count",
+            "total_count",
+            "has_more",
+            "next_offset",
+            "result_ref",
+        )
         if isinstance(data.get("content"), str):
             result["content_preview"] = _truncate_text(data["content"], min(self._text_limit(detailed, policy), 1200 if detailed else 320))
+        elif isinstance(data.get("preview"), str):
+            result["content_preview"] = _truncate_text(data["preview"], min(self._text_limit(detailed, policy), 1200 if detailed else 320))
         return result
 
     def _reduce_list(self, data: Dict[str, Any], detailed: bool, policy: ContextPolicy) -> Dict[str, Any]:
         files = data.get("files") if isinstance(data.get("files"), list) else []
-        result = self._copy(data, "path", "pattern", "count", "truncated", "files_stored_path", "files_item_count")
-        result["files"] = self._simple_list(files, 12 if detailed else 6)
-        if files:
+        preview_items = data.get("preview") if isinstance(data.get("preview"), list) else []
+        items = files or preview_items
+        result = self._copy(
+            data,
+            "path",
+            "pattern",
+            "count",
+            "truncated",
+            "files_stored_path",
+            "files_item_count",
+            "returned_count",
+            "total_count",
+            "has_more",
+            "next_offset",
+            "result_ref",
+        )
+        result["files"] = self._simple_list(items, 12 if detailed else 6)
+        if items:
             counts = {}
-            for item in files:
+            for item in items:
                 path = str(item)
                 ext = path.rsplit(".", 1)[-1].lower() if "." in path else "(no_ext)"
                 counts[ext] = counts.get(ext, 0) + 1
@@ -241,14 +278,31 @@ class ReducerRegistry(object):
         return result
 
     def _reduce_search(self, data: Dict[str, Any], detailed: bool, policy: ContextPolicy) -> Dict[str, Any]:
-        result = self._copy(data, "query", "path", "match_count", "truncated", "matches_stored_path", "matches_item_count")
+        result = self._copy(
+            data,
+            "query",
+            "pattern",
+            "path",
+            "match_count",
+            "truncated",
+            "matches_stored_path",
+            "matches_item_count",
+            "returned_count",
+            "total_count",
+            "has_more",
+            "next_offset",
+            "result_ref",
+        )
         matches = []
-        for item in (data.get("matches") or [])[: (5 if detailed else 3)]:
+        source_items = data.get("matches") if isinstance(data.get("matches"), list) else data.get("preview") or []
+        for item in source_items[: (5 if detailed else 3)]:
             if isinstance(item, dict):
                 reduced = self._copy(item, "path", "line")
                 if isinstance(item.get("text"), str):
                     reduced["text"] = _truncate_text(item["text"], 200 if detailed else 100)
                 matches.append(reduced)
+            elif isinstance(item, str):
+                matches.append(_truncate_text(item, 200 if detailed else 100))
         result["matches"] = matches
         return result
 
@@ -259,7 +313,23 @@ class ReducerRegistry(object):
         return self._copy(data, "path", "encoding", "created", "overwritten", "char_count", "line_count")
 
     def _reduce_command(self, data: Dict[str, Any], detailed: bool, policy: ContextPolicy) -> Dict[str, Any]:
-        result = self._copy(data, "command", "cwd", "exit_code", "duration_ms", "timed_out", "toolchain_root", "stdout_truncated", "stderr_truncated", "stdout_stored_path", "stderr_stored_path", "stdout_char_count", "stderr_char_count")
+        result = self._copy(
+            data,
+            "command",
+            "cwd",
+            "exit_code",
+            "duration_ms",
+            "timed_out",
+            "toolchain_root",
+            "stdout_truncated",
+            "stderr_truncated",
+            "stdout_stored_path",
+            "stderr_stored_path",
+            "stdout_char_count",
+            "stderr_char_count",
+            "recipe_id",
+            "runtime_source",
+        )
         preview = min(self._text_limit(detailed, policy), 1200 if detailed else 320)
         if isinstance(data.get("stdout"), str):
             result["stdout_preview"] = _truncate_text(data["stdout"], preview)
@@ -348,16 +418,34 @@ class ReducerRegistry(object):
         return result
 
     def _reduce_todos(self, data: Dict[str, Any], detailed: bool, policy: ContextPolicy) -> Dict[str, Any]:
-        result = self._copy(data, "action", "count", "id", "content", "removed_id", "remaining")
+        result = self._copy(
+            data,
+            "action",
+            "count",
+            "id",
+            "content",
+            "removed_id",
+            "remaining",
+            "summary",
+            "failing_evidence_ready",
+            "returned_count",
+            "total_count",
+            "has_more",
+            "next_offset",
+            "result_ref",
+        )
         todos = data.get("todos")
         if isinstance(todos, list):
             limit = 12 if detailed else 6
             result["todos"] = self._simple_list(todos, limit)
+        preview = data.get("preview")
+        if isinstance(preview, list):
+            result["preview"] = self._simple_list(preview, 12 if detailed else 6)
         return result
 
     def _reduce_generic(self, data: Dict[str, Any], detailed: bool, policy: ContextPolicy) -> Dict[str, Any]:
-        result = self._copy(data, "path", "query", "count", "match_count", "command", "cwd", "exit_code", "duration_ms", "timed_out", "error_count", "warning_count", "note_count", "diagnostic_count", "branch", "scope", "file_count", "line_count", "replaced", "created", "overwritten", "toolchain_root", "passed", "test_failures", "line_coverage", "min_line_coverage", "truncated", "encoding", "char_count", "limit", "from_mode", "to_mode", "reason", "question", "answer", "selected_index", "selected_option_text", "selected_mode", "mode_changed", "error_kind", "retryable", "blocked_by", "suggested_next_step", "content_stored_path", "content_char_count", "stdout_stored_path", "stderr_stored_path", "stdout_char_count", "stderr_char_count", "diff_stored_path", "diff_char_count", "files_stored_path", "files_item_count", "matches_stored_path", "matches_item_count", "entries_stored_path", "entries_item_count", "diagnostics_stored_path", "diagnostics_item_count")
-        for key in ("entries", "matches", "files", "reasons"):
+        result = self._copy(data, "path", "query", "pattern", "count", "match_count", "command", "cwd", "exit_code", "duration_ms", "timed_out", "error_count", "warning_count", "note_count", "diagnostic_count", "branch", "scope", "file_count", "line_count", "replaced", "created", "overwritten", "toolchain_root", "passed", "test_failures", "line_coverage", "min_line_coverage", "truncated", "encoding", "char_count", "limit", "from_mode", "to_mode", "reason", "question", "answer", "selected_index", "selected_option_text", "selected_mode", "mode_changed", "error_kind", "retryable", "blocked_by", "suggested_next_step", "content_stored_path", "content_char_count", "stdout_stored_path", "stderr_stored_path", "stdout_char_count", "stderr_char_count", "diff_stored_path", "diff_char_count", "files_stored_path", "files_item_count", "matches_stored_path", "matches_item_count", "entries_stored_path", "entries_item_count", "diagnostics_stored_path", "diagnostics_item_count", "returned_count", "total_count", "has_more", "next_offset", "result_ref", "recipe_id", "failing_evidence_ready", "summary")
+        for key in ("entries", "matches", "files", "reasons", "preview"):
             if isinstance(data.get(key), list):
                 result[key] = self._simple_list(data[key], 8 if detailed else 4)
         if isinstance(data.get("diagnostics"), list):
@@ -825,8 +913,8 @@ class ContextManager(object):
                         "replacement": replacement,
                         "message": {"role": "system", "content": replacement["replacement_text"]},
                     }
-        if tool_name == "search_text":
-            key = "%s|%s" % (str(data.get("path") or ""), str(data.get("query") or ""))
+        if tool_name in ("search_text", "grep_text"):
+            key = "%s|%s" % (str(data.get("path") or ""), str(data.get("query") or data.get("pattern") or ""))
             if key.strip("|"):
                 if key in seen_searches:
                     replacement["duplicate"] = True
@@ -837,7 +925,8 @@ class ContextManager(object):
                     }
                 seen_searches.add(key)
                 if replacement["stored_refs"]:
-                    replacement["replacement_text"] = "Tool result replaced: search_text %s -> %s" % (
+                    replacement["replacement_text"] = "Tool result replaced: %s %s -> %s" % (
+                        tool_name,
                         key,
                         replacement["stored_refs"][0],
                     )
@@ -846,8 +935,9 @@ class ContextManager(object):
                         "replacement": replacement,
                         "message": {"role": "system", "content": replacement["replacement_text"]},
                     }
-        if tool_name == "list_files" and replacement["stored_refs"]:
-            replacement["replacement_text"] = "Tool result replaced: list_files %s -> %s" % (
+        if tool_name in ("list_files", "list_dir", "glob_files") and replacement["stored_refs"]:
+            replacement["replacement_text"] = "Tool result replaced: %s %s -> %s" % (
+                tool_name,
                 str(data.get("path") or "."),
                 replacement["stored_refs"][0],
             )

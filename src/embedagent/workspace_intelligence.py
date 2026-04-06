@@ -279,17 +279,19 @@ class DiagnosticsProvider(WorkspaceIntelligenceProvider):
             key=lambda observation: (
                 0 if _observation_primary_path(observation) in working_paths else 1,
                 0 if _observation_primary_path(observation) in focus_paths else 1,
-                0 if observation.tool_name in ("run_tests", "compile_project", "run_clang_tidy", "run_clang_analyzer") else 1,
+                0 if observation.tool_name in ("run_recipe", "run_tests", "compile_project", "run_clang_tidy", "run_clang_analyzer") else 1,
             )
         )
         for observation in observations:
             if observation.tool_name not in (
+                "run_recipe",
                 "compile_project",
                 "run_tests",
                 "run_clang_tidy",
                 "run_clang_analyzer",
                 "collect_coverage",
                 "report_quality",
+                "report_quality_v2",
             ):
                 continue
             if not isinstance(observation.data, dict):
@@ -584,6 +586,13 @@ def _diagnostic_detail(observation: Observation) -> str:
         total = int(summary.get("total") or 0)
         failed = int(summary.get("failed") or 0)
         return "最近测试：total=%s, failed=%s。" % (total, failed)
+    if observation.tool_name == "report_quality_v2":
+        errors = int(data.get("error_count") or 0)
+        warnings = int(data.get("warning_count") or 0)
+        failed = int(data.get("test_failures") or 0)
+        if not bool(data.get("passed", False)):
+            return "质量门未通过：errors=%s, warnings=%s, test_failures=%s。" % (errors, warnings, failed)
+        return ""
     if observation.tool_name == "collect_coverage":
         summary = data.get("coverage_summary") if isinstance(data.get("coverage_summary"), dict) else {}
         line_cov = summary.get("line_coverage")
@@ -706,12 +715,14 @@ def _group_diagnostic_hotspots(
     order = 0
     for observation in observations:
         if observation.tool_name not in (
+            "run_recipe",
             "compile_project",
             "run_tests",
             "run_clang_tidy",
             "run_clang_analyzer",
             "collect_coverage",
             "report_quality",
+            "report_quality_v2",
         ):
             continue
         if not isinstance(observation.data, dict):
@@ -764,12 +775,14 @@ def _group_pathless_diagnostic_summary(observations: List[Observation]) -> Optio
     has_quality_gate = False
     for observation in observations:
         if observation.tool_name not in (
+            "run_recipe",
             "compile_project",
             "run_tests",
             "run_clang_tidy",
             "run_clang_analyzer",
             "collect_coverage",
             "report_quality",
+            "report_quality_v2",
         ):
             continue
         if not isinstance(observation.data, dict):
@@ -777,7 +790,7 @@ def _group_pathless_diagnostic_summary(observations: List[Observation]) -> Optio
         if _observation_primary_path(observation):
             continue
         detail = _diagnostic_detail(observation)
-        if not detail and observation.tool_name != "report_quality":
+        if not detail and observation.tool_name not in ("report_quality", "report_quality_v2"):
             continue
         if observation.tool_name not in tool_name_set:
             tool_name_set.add(observation.tool_name)
@@ -791,6 +804,11 @@ def _group_pathless_diagnostic_summary(observations: List[Observation]) -> Optio
                 text = str(item or "").strip()
                 if text and text not in reasons:
                     reasons.append(text)
+        if observation.tool_name == "report_quality_v2" and not bool(observation.data.get("passed", False)):
+            has_quality_gate = True
+            summary = _diagnostic_detail(observation)
+            if summary and summary not in reasons:
+                reasons.append(summary)
     if not tool_names:
         return None
     if has_quality_gate:
@@ -835,5 +853,7 @@ def _observation_diagnostic_count(observation: Observation) -> int:
         reasons = observation.data.get("reasons") if isinstance(observation.data.get("reasons"), list) else []
         if reasons:
             return len(reasons)
+    if observation.tool_name == "report_quality_v2" and not bool(observation.data.get("passed", False)):
+        return int(observation.data.get("error_count") or 0) + int(observation.data.get("test_failures") or 0) or 1
     return 1 if _diagnostic_detail(observation) else 0
 

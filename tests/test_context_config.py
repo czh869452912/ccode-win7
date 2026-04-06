@@ -47,7 +47,7 @@ class TestMakeContextConfig(unittest.TestCase):
         cfg = make_context_config(AppConfig(max_context_tokens=32000))
         # mode_overrides should still be present with original values
         self.assertIn("build", cfg.mode_overrides)
-        self.assertIn("ask", cfg.mode_overrides)
+        self.assertIn("explore", cfg.mode_overrides)
 
 
 class TestReducerRegistryTodos(unittest.TestCase):
@@ -121,11 +121,34 @@ class TestReducerRegistryTodos(unittest.TestCase):
         self.assertIn("manage_todos", summary)
         self.assertIn("success", summary)
 
+    def test_reduce_list_dir_preview(self):
+        policy = self._make_policy()
+        data = {
+            "path": "src",
+            "preview": ["main.c", "util.c", "include/"],
+            "returned_count": 3,
+            "total_count": 8,
+            "has_more": True,
+            "next_offset": 3,
+        }
+        result = self.registry.reduce_tool_data("list_dir", data, detailed=True, policy=policy)
+        self.assertEqual(result["returned_count"], 3)
+        self.assertIn("files", result)
+        self.assertIn("main.c", result["files"][0])
+
+    def test_reduce_report_quality_v2(self):
+        policy = self._make_policy()
+        data = {"passed": False, "error_count": 1, "warning_count": 2, "test_failures": 3}
+        result = self.registry.reduce_tool_data("report_quality_v2", data, detailed=False, policy=policy)
+        self.assertFalse(result["passed"])
+        self.assertEqual(result["error_count"], 1)
+        self.assertEqual(result["test_failures"], 3)
+
 
 class TestContextConfigModeOverrides(unittest.TestCase):
     def test_mode_overrides_all_modes_present(self):
         cfg = ContextConfig()
-        for mode in ("ask", "orchestra", "spec", "build", "test", "verify", "debug", "compact"):
+        for mode in ("explore", "spec", "build", "verify", "debug", "compact"):
             self.assertIn(mode, cfg.mode_overrides)
 
     def test_compact_has_smaller_budgets(self):

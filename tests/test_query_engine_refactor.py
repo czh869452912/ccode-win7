@@ -825,6 +825,37 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertEqual(evidence[0].metadata.get("group_kind"), "quality_gate_summary")
         self.assertEqual(set(evidence[0].metadata.get("tool_names") or []), {"run_tests", "collect_coverage", "report_quality"})
 
+    def test_diagnostics_provider_accepts_run_recipe_and_report_quality_v2(self):
+        session = Session()
+        session.add_user_message("验证 V2 质量门")
+        session.add_observation(
+            Action("run_recipe", {"recipe_id": "detected:test"}, "recipe-1"),
+            Observation(
+                "run_recipe",
+                False,
+                "recipe failed",
+                {
+                    "recipe_id": "detected:test",
+                    "diagnostics": [
+                        {"file": "src/demo.c", "line": 9, "column": 2, "message": "demo failure"}
+                    ],
+                },
+            ),
+        )
+        session.add_observation(
+            Action("report_quality_v2", {}, "quality-v2-1"),
+            Observation(
+                "report_quality_v2",
+                True,
+                None,
+                {"passed": False, "error_count": 1, "warning_count": 0, "test_failures": 2},
+            ),
+        )
+        provider = DiagnosticsProvider()
+        evidence = provider.collect(session, "verify", self.tools, None)
+        self.assertGreaterEqual(len(evidence), 1)
+        self.assertTrue(any("run_recipe" in item.content or "report_quality_v2" in item.content for item in evidence))
+
     def test_recipe_provider_prefers_verify_tools_in_verify_mode(self):
         os.makedirs(os.path.join(self.workspace, ".embedagent"), exist_ok=True)
         with open(os.path.join(self.workspace, ".embedagent", "workspace-recipes.json"), "w", encoding="utf-8") as handle:

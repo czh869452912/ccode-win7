@@ -1,6 +1,6 @@
 # EmbedAgent 开发进度跟踪
 
-> 更新日期：2026-04-06（Agent Harness V2 mode vocabulary cutover）
+> 更新日期：2026-04-06（Agent Harness V2 context/intelligence cutover）
 > 用途：持续跟踪当前阶段、下一步任务、里程碑进度、风险与阻塞
 
 ---
@@ -28,7 +28,7 @@
 
 - 当前阶段：`Phase 4 真实工程验证 + Phase 6 GUI / Win7 收口`
 - 总体状态：`进行中`
-- 当前重点：`Agent Harness V2 official cutover 正在执行：runtime promotion 与 mode vocabulary cutover 已完成，下一步进入 context/intelligence 收口；目标是不再维持 code/build、legacy runtime/V2 runtime 等平行结构，而是按 runtime -> mode vocabulary -> context -> permission/task truth -> frontend/protocol -> docs/legacy deletion 的顺序，把 V2 扶正为唯一正式实现`
+- 当前重点：`Agent Harness V2 official cutover 正在执行：runtime promotion、mode vocabulary cutover、context/intelligence cutover 已完成，下一步进入 permission/task truth 收口；目标是不再维持 code/build、legacy runtime/V2 runtime、legacy tool vocabulary/V2 tool vocabulary 等平行结构，而是按 runtime -> mode vocabulary -> context -> permission/task truth -> frontend/protocol -> docs/legacy deletion 的顺序，把 V2 扶正为唯一正式实现`
 
 ### 当前判断
 
@@ -291,6 +291,7 @@
 | 2026-04-06 | Agent Harness V2 Program D 已推进到第一批可运行切片：新增 `src/embedagent/harness/task_graph.py`，`build` mode 已支持 `full_spec_tdd` 的最小 task summary 与 artifact gate，`QueryEngine` / `InProcessAdapter` 现已开始暴露 `task_summary`，且新切片测试与定向旧回归均已通过 |
 | 2026-04-06 | 已完成一轮“V2 是否可直接扶正”的仓库审查，并确认当前还不能直接暴力删除 legacy；已新增 `docs/superpowers/plans/2026-04-06-agent-harness-v2-official-cutover-plan.md`，明确后续需要按 runtime、mode、context、permission/task、frontend/protocol、docs/legacy deletion 六个程序完成正式 cutover |
 | 2026-04-06 | official cutover 第 1、2 步已完成：官方 `ToolRuntime` 已提升为唯一 runtime 主入口，`HarnessToolBridge` 与 `ToolRuntimeV2` 已退出产品路径；同时产品和测试默认 mode 已从 `code` 切到 `build`，内建 mode 集现在以 `explore/spec/build/debug/verify` 为正式主词汇 |
+| 2026-04-06 | official cutover 第 3 步已完成：`ContextManager` 与 `WorkspaceIntelligenceBroker` 已把 `list_dir/glob_files/grep_text/run_recipe/report_quality_v2/task_status` 纳入正式 reducer/intelligence 词汇，并将 `build` 作为上下文与情报层的正式实现模式；相关 focused tests 与外围回归均已通过 |
 | 2026-03-27 | 建立进度跟踪文件，明确当前阶段与下一步优先级 |
 | 2026-03-27 | DC-004/DC-005：工具设计规范建立，实施分期重组，Phase 1 改为最小可工作 Loop |
 | 2026-03-27 | 已落地 Phase 1 最小原型代码，并完成本地语法检查、工具自测与假模型闭环验证 |

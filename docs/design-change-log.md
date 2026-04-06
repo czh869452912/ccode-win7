@@ -44,6 +44,27 @@
 
 ## 3. 当前变更记录
 
+### DC-086
+
+- 日期：2026-04-06
+- 变更主题：official cutover 第三步完成，context/intelligence 切到 V2 tool 词汇
+- 变更摘要：
+  - `ContextConfig` 已从旧的 `ask/orchestra/test/code/...` 组合收敛到正式 `explore/spec/build/debug/verify` 加内部 `compact`
+  - `ReducerRegistry` 现已正式支持 `list_dir`、`glob_files`、`grep_text`、`list_recipes`、`run_recipe`、`report_quality_v2`、`task_status`、`record_failing_evidence`，而不再只围绕 `list_files/search_text/compile_project/report_quality`
+  - `ContextManager` 的文件/列表/搜索/命令/通用 reducer 和 duplicate suppression 逻辑已能处理 V2 结果结构，官方上下文系统开始以 V2 tool vocabulary 为主词汇，同时保留 legacy tool alias 兼容旧测试和非主路径调用
+  - `WorkspaceIntelligenceBroker` 的 diagnostics/intelligence 路径现已接受 `run_recipe` 与 `report_quality_v2`，并把 `build` 作为正式实现模式继续向外投影
+- 影响范围：
+  - 上下文压缩与 tool message reducer
+  - workspace intelligence / diagnostics summary / quality gate summary
+  - focused regression tests
+- 关联文档：
+  - `docs/superpowers/plans/2026-04-06-agent-harness-v2-official-cutover-plan.md`
+  - `docs/development-tracker.md`
+- 是否需要 ADR：`否，继续沿 official cutover 计划推进`
+- 后续动作：
+  - 进入 permission/task truth 收口
+  - 在最终 legacy deletion 前，继续保留 legacy tool alias，但不再让其主导 context/intelligence 语义
+
 ### DC-085
 
 - 日期：2026-04-06
