@@ -1443,7 +1443,9 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertTrue(review.get("verify_evidence_present"))
         self.assertTrue(review.get("tests_seen"))
         titles = [str(item.get("title") or "") for item in findings]
+        bodies = [str(item.get("body") or "") for item in findings]
         self.assertTrue(any("Tests failing" in title or "Quality gate failed" in title for title in titles))
+        self.assertFalse(any("`run_tests`" in body for body in bodies))
 
 
 if __name__ == '__main__':

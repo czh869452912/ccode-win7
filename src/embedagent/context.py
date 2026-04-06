@@ -21,12 +21,6 @@ _MODE_PROMPT_PREFIX = "你是 EmbedAgent 的受控模式原型。"
 _HIGH_PRIORITY_TOOLS = frozenset({
     "run_recipe",
     "report_quality_v2",
-    "compile_project",
-    "run_tests",
-    "run_clang_tidy",
-    "run_clang_analyzer",
-    "collect_coverage",
-    "report_quality",
 })
 
 
@@ -171,27 +165,17 @@ class ReducerRegistry(object):
             "list_dir": self._reduce_list,
             "glob_files": self._reduce_list,
             "grep_text": self._reduce_search,
-            "list_files": self._reduce_list,
-            "search_text": self._reduce_search,
             "write_file": self._reduce_write,
             "edit_file": self._reduce_edit,
             "run_command": self._reduce_command,
             "git_status": self._reduce_git_status,
             "git_diff": self._reduce_git_diff,
             "git_log": self._reduce_git_log,
-            "compile_project": self._reduce_diagnostics_tool,
-            "run_tests": self._reduce_tests,
-            "run_clang_tidy": self._reduce_diagnostics_tool,
-            "run_clang_analyzer": self._reduce_diagnostics_tool,
-            "collect_coverage": self._reduce_coverage,
             "list_recipes": self._reduce_list,
-            "run_recipe": self._reduce_diagnostics_tool,
-            "report_quality": self._reduce_quality,
+            "run_recipe": self._reduce_recipe_result,
             "report_quality_v2": self._reduce_quality,
-            "switch_mode": self._reduce_switch_mode,
             "ask_user": self._reduce_ask_user,
-            "manage_todos": self._reduce_todos,
-            "task_status": self._reduce_todos,
+            "task_status": self._reduce_tasks,
             "record_failing_evidence": self._reduce_generic,
         }
 
@@ -343,16 +327,13 @@ class ReducerRegistry(object):
         result["diagnostics"] = self._diagnostics(data.get("diagnostics") or [], detailed)
         return result
 
-    def _reduce_tests(self, data: Dict[str, Any], detailed: bool, policy: ContextPolicy) -> Dict[str, Any]:
+    def _reduce_recipe_result(self, data: Dict[str, Any], detailed: bool, policy: ContextPolicy) -> Dict[str, Any]:
         result = self._reduce_diagnostics_tool(data, detailed, policy)
+        result.update(self._copy(data, "recipe_id", "recipe_label", "recipe_source", "recipe_action", "legacy_tool_name", "family", "stage", "target", "profile"))
         if isinstance(data.get("test_summary"), dict):
             summary = self._copy(data["test_summary"], "total", "passed", "failed", "skipped")
             summary["failures"] = self._simple_list(data["test_summary"].get("failures") or [], 5 if detailed else 3)
             result["test_summary"] = summary
-        return result
-
-    def _reduce_coverage(self, data: Dict[str, Any], detailed: bool, policy: ContextPolicy) -> Dict[str, Any]:
-        result = self._reduce_command(data, detailed, policy)
         if isinstance(data.get("coverage_summary"), dict):
             result["coverage_summary"] = self._copy(data["coverage_summary"], "line_coverage", "region_coverage", "function_coverage", "lines_covered", "lines_total", "functions_covered", "functions_total", "regions_covered", "regions_total")
         return result
@@ -394,11 +375,6 @@ class ReducerRegistry(object):
         result["entries"] = entries
         return result
 
-    def _reduce_switch_mode(self, data: Dict[str, Any], detailed: bool, policy: ContextPolicy) -> Dict[str, Any]:
-        result = self._copy(data, "from_mode", "to_mode", "reason")
-        result["allowed_tools"] = self._simple_list(data.get("allowed_tools") or [], 6 if detailed else 4)
-        return result
-
     def _reduce_ask_user(self, data: Dict[str, Any], detailed: bool, policy: ContextPolicy) -> Dict[str, Any]:
         result = self._copy(
             data,
@@ -417,7 +393,7 @@ class ReducerRegistry(object):
             result["options"] = options
         return result
 
-    def _reduce_todos(self, data: Dict[str, Any], detailed: bool, policy: ContextPolicy) -> Dict[str, Any]:
+    def _reduce_tasks(self, data: Dict[str, Any], detailed: bool, policy: ContextPolicy) -> Dict[str, Any]:
         result = self._copy(
             data,
             "action",
@@ -434,10 +410,12 @@ class ReducerRegistry(object):
             "next_offset",
             "result_ref",
         )
-        todos = data.get("todos")
-        if isinstance(todos, list):
+        tasks = data.get("tasks")
+        if not isinstance(tasks, list):
+            tasks = data.get("todos")
+        if isinstance(tasks, list):
             limit = 12 if detailed else 6
-            result["todos"] = self._simple_list(todos, limit)
+            result["tasks"] = self._simple_list(tasks, limit)
         preview = data.get("preview")
         if isinstance(preview, list):
             result["preview"] = self._simple_list(preview, 12 if detailed else 6)
@@ -913,7 +891,7 @@ class ContextManager(object):
                         "replacement": replacement,
                         "message": {"role": "system", "content": replacement["replacement_text"]},
                     }
-        if tool_name in ("search_text", "grep_text"):
+        if tool_name == "grep_text":
             key = "%s|%s" % (str(data.get("path") or ""), str(data.get("query") or data.get("pattern") or ""))
             if key.strip("|"):
                 if key in seen_searches:
@@ -935,7 +913,7 @@ class ContextManager(object):
                         "replacement": replacement,
                         "message": {"role": "system", "content": replacement["replacement_text"]},
                     }
-        if tool_name in ("list_files", "list_dir", "glob_files") and replacement["stored_refs"]:
+        if tool_name in ("list_dir", "glob_files") and replacement["stored_refs"]:
             replacement["replacement_text"] = "Tool result replaced: %s %s -> %s" % (
                 tool_name,
                 str(data.get("path") or "."),

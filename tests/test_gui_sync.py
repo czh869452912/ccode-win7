@@ -7,6 +7,7 @@ import shutil
 import unittest
 from unittest.mock import MagicMock
 
+sys.path.insert(0, os.path.dirname(__file__))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 from embedagent.protocol import MessageType

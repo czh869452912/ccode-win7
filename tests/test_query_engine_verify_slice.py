@@ -99,6 +99,21 @@ class QueryEngineVerifySliceTests(unittest.TestCase):
         system_messages = [message.content for message in state.session.messages if message.role == "system"]
         self.assertTrue(any("Mode: verify" in content for content in system_messages))
 
+    def test_set_session_mode_refreshes_harness_snapshot(self):
+        adapter = InProcessAdapter(
+            client=DoneClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+        )
+        snapshot = adapter.create_session("build")
+        self.assertEqual(snapshot["current_phase"], "understand")
+        updated = adapter.set_session_mode(snapshot["session_id"], "verify")
+        self.assertEqual(updated["current_mode"], "verify")
+        self.assertEqual(updated["current_phase"], "select_recipe")
+        self.assertEqual(updated["discipline_profile"], "lite_spec_tdd")
+        self.assertTrue(updated["current_activity"])
+        self.assertIn("verify:select_recipe", updated["task_summary"])
+
 
 if __name__ == "__main__":
     unittest.main()

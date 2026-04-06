@@ -44,6 +44,27 @@
 
 ## 3. 当前变更记录
 
+### DC-091
+
+- 日期：2026-04-06
+- 变更主题：merge 前稳定化收口，消除 mode-change phase 残留与 context 旧词汇主地位
+- 变更摘要：
+  - `set_session_mode()` 现会在刷新 Harness 状态前清空旧 `current_phase`，避免从 `build/debug` 切到 `verify` 等场景时把旧 phase 残留到新 mode snapshot
+  - `Context` 高优先级工具和 reducer registry 已进一步收口到正式词汇：`run_recipe`、`report_quality_v2`、`task_status`；`manage_todos`、`compile_project`、`report_quality` 等旧工具不再作为 context 一等公民
+  - `run_recipe` 现拥有专用 reducer，可保留 `recipe_action / test_summary / coverage_summary / recipe_source` 等关键信息，而不是继续沿用旧 verify 工具的裁剪语义
+  - `/review` 在官方 verify 证据路径上的用户可见文案已从旧 `run_tests` 术语改成“测试 recipe”，避免产品词汇重新漂移回 legacy 工具名
+- 影响范围：
+  - adapter mode change snapshot 刷新
+  - context compaction / replacement / tool summarization
+  - review findings 文案与 evidence metadata
+  - focused regression tests
+- 关联文档：
+  - `docs/development-tracker.md`
+- 是否需要 ADR：`否，属于 official cutover 完成后的 merge 前稳定化收口`
+- 后续动作：
+  - 继续评估 `workspace_intelligence`、`project_memory`、`permissions` 中剩余 legacy 兼容逻辑是否还能继续下线
+  - 在 merge 前保持 `.venv` Python 测试和 webapp helper/build 验证为准入门槛
+
 ### DC-090
 
 - 日期：2026-04-06

@@ -852,8 +852,6 @@ class QueryEngine(object):
         stop_event: Optional[threading.Event] = None,
     ) -> Tuple[Observation, str, Optional[QueryTurnResult]]:
         runtime_action = action
-        if action.name == "manage_todos" and not action.arguments.get("session_id"):
-            runtime_action = Action(action.name, dict(action.arguments, session_id=session.session_id), action.call_id, action.raw_arguments)
         if action.name not in self._allowed_tools_for_mode(current_mode, workflow_state=workflow_state) and action.name not in ("ask_user", "propose_mode_switch"):
             return self._failure_observation(action.name, "当前模式 %s 不允许调用工具 %s。" % (current_mode, action.name), "mode_tool_blocked", False, current_mode, "请改用当前模式允许的工具。"), current_mode, None
         if action.name == "task_status":
@@ -884,7 +882,7 @@ class QueryEngine(object):
                     "current_mode": current_mode,
                     "current_phase": phase,
                     "discipline_profile": discipline,
-                    "todos": task_items,
+                    "tasks": task_items,
                 },
             )
             return observation, current_mode, None

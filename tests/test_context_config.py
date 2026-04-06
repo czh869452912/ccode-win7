@@ -7,7 +7,7 @@ from unittest import mock
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from embedagent.config import AppConfig
-from embedagent.context import ContextConfig, ContextManager, make_context_config, ReducerRegistry
+from embedagent.context import ContextConfig, ContextManager, ReducerRegistry, _HIGH_PRIORITY_TOOLS, make_context_config
 from embedagent.session import Observation, Session
 
 
@@ -50,7 +50,7 @@ class TestMakeContextConfig(unittest.TestCase):
         self.assertIn("explore", cfg.mode_overrides)
 
 
-class TestReducerRegistryTodos(unittest.TestCase):
+class TestReducerRegistryTasks(unittest.TestCase):
     def setUp(self):
         self.registry = ReducerRegistry()
         self.policy = ContextConfig().mode_overrides.get("build", {})
@@ -76,49 +76,50 @@ class TestReducerRegistryTodos(unittest.TestCase):
             project_memory_chars=overrides.get("project_memory_chars", cfg.default_project_memory_chars),
         )
 
-    def test_todos_reducer_registered(self):
-        self.assertIn("manage_todos", self.registry._reducers)
+    def test_official_task_reducer_registered(self):
+        self.assertIn("task_status", self.registry._reducers)
+        self.assertNotIn("manage_todos", self.registry._reducers)
 
-    def test_reduce_list_action(self):
+    def test_reduce_task_status_list_action(self):
         policy = self._make_policy()
         data = {
             "action": "list",
             "count": 2,
-            "todos": [
+            "tasks": [
                 {"id": 1, "content": "任务1", "done": False},
                 {"id": 2, "content": "任务2", "done": True},
             ],
         }
-        result = self.registry.reduce_tool_data("manage_todos", data, detailed=True, policy=policy)
+        result = self.registry.reduce_tool_data("task_status", data, detailed=True, policy=policy)
         self.assertEqual(result["action"], "list")
         self.assertEqual(result["count"], 2)
-        self.assertIn("todos", result)
+        self.assertIn("tasks", result)
 
-    def test_reduce_add_action(self):
+    def test_reduce_task_status_add_action(self):
         policy = self._make_policy()
         data = {"action": "add", "id": 3, "content": "新任务"}
-        result = self.registry.reduce_tool_data("manage_todos", data, detailed=True, policy=policy)
+        result = self.registry.reduce_tool_data("task_status", data, detailed=True, policy=policy)
         self.assertEqual(result["action"], "add")
         self.assertEqual(result["id"], 3)
         self.assertEqual(result["content"], "新任务")
 
-    def test_reduce_remove_action(self):
+    def test_reduce_task_status_remove_action(self):
         policy = self._make_policy()
         data = {"action": "remove", "removed_id": 2, "remaining": 1}
-        result = self.registry.reduce_tool_data("manage_todos", data, detailed=False, policy=policy)
+        result = self.registry.reduce_tool_data("task_status", data, detailed=False, policy=policy)
         self.assertEqual(result["removed_id"], 2)
         self.assertEqual(result["remaining"], 1)
 
-    def test_summarize_todos_observation(self):
+    def test_summarize_task_status_observation(self):
         policy = self._make_policy()
         obs = Observation(
-            tool_name="manage_todos",
+            tool_name="task_status",
             success=True,
             error=None,
             data={"action": "add", "id": 1, "content": "任务1"},
         )
         summary = self.registry.summarize_observation(obs, detailed=False, policy=policy)
-        self.assertIn("manage_todos", summary)
+        self.assertIn("task_status", summary)
         self.assertIn("success", summary)
 
     def test_reduce_list_dir_preview(self):
@@ -143,6 +144,12 @@ class TestReducerRegistryTodos(unittest.TestCase):
         self.assertFalse(result["passed"])
         self.assertEqual(result["error_count"], 1)
         self.assertEqual(result["test_failures"], 3)
+
+    def test_high_priority_tools_use_official_verify_vocabulary(self):
+        self.assertIn("run_recipe", _HIGH_PRIORITY_TOOLS)
+        self.assertIn("report_quality_v2", _HIGH_PRIORITY_TOOLS)
+        self.assertNotIn("compile_project", _HIGH_PRIORITY_TOOLS)
+        self.assertNotIn("report_quality", _HIGH_PRIORITY_TOOLS)
 
 
 class TestContextConfigModeOverrides(unittest.TestCase):

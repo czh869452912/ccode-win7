@@ -15,7 +15,6 @@ from embedagent.harness.runner import HarnessRunner
 from embedagent.harness import task_store
 from embedagent.interaction import UserInputRequest, UserInputResponse
 from embedagent.llm import OpenAICompatibleClient
-from embedagent.loop import AgentLoop
 from embedagent.memory_maintenance import MemoryMaintenance
 from embedagent.modes import DEFAULT_MODE, allowed_tools_for, build_system_prompt, initialize_modes, mode_names, require_mode
 from embedagent.plan_store import PlanStore
@@ -1809,8 +1808,8 @@ class InProcessAdapter(object):
                     "priority": 2,
                     "severity": "medium",
                     "title": "No recent test execution",
-                    "body": "最近的验证证据里没有 `run_tests` 结果，测试覆盖存在缺口。",
-                    "evidence": [{"type": "verify_gap", "tool_name": "run_tests"}],
+                    "body": "最近的验证证据里没有测试 recipe 结果，测试覆盖存在缺口。",
+                    "evidence": [{"type": "verify_gap", "tool_name": "run_recipe", "recipe_action": "test"}],
                 }
             )
         findings.sort(key=lambda item: (int(item.get("priority") or 99), str(item.get("title") or "")))
@@ -1917,8 +1916,8 @@ class InProcessAdapter(object):
                     "priority": 1,
                     "severity": "high",
                     "title": "Tests failing",
-                    "body": "最近一次 `run_tests` 报告了 %s 个失败测试。" % failures,
-                    "evidence": [{"type": "test_summary", "tool_name": tool_name, "failed": failures}],
+                    "body": "最近一次测试 recipe 报告了 %s 个失败测试。" % failures,
+                    "evidence": [{"type": "test_summary", "tool_name": tool_name, "recipe_action": "test", "failed": failures}],
                 }
         if review_kind == "diagnostic":
             error_count = int(data.get("error_count") or 0)
@@ -2191,6 +2190,7 @@ class InProcessAdapter(object):
             )
             self._append_transcript_message_event(session_id, message)
             state.current_mode = current_mode
+            state.current_phase = ""
             self._append_harness_messages(state.session, current_mode, state.workflow_state)
             self._refresh_harness_state(state)
         self._persist_state(state)
