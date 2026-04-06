@@ -8,7 +8,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from embedagent.permissions import PermissionPolicy
 from embedagent.query_engine import QueryEngine
-from embedagent.session import AssistantReply
+from embedagent.session import AssistantReply, Session
 from embedagent.tools import ToolRuntime
 from embedagent.inprocess_adapter import InProcessAdapter
 
@@ -75,6 +75,39 @@ class QueryEngineBuildLiteTests(unittest.TestCase):
         self.assertTrue(any("Discipline: lite_spec_tdd" in content for content in system_messages))
         self.assertTrue(any("Mode: build" in content for content in system_messages))
 
+    def test_build_mode_existing_session_gets_harness_context(self):
+        engine = QueryEngine(
+            client=DoneClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+        )
+        session = Session()
+        session.add_system_message("seed")
+        result = engine.submit_turn(
+            user_text="继续 build-lite",
+            stream=False,
+            initial_mode="build",
+            session=session,
+        )
+        system_messages = [message.content for message in result.session.messages if message.role == "system"]
+        self.assertTrue(any("Mode: build" in content for content in system_messages))
+        self.assertTrue(any("Core pack:" in content for content in system_messages))
+
+    def test_build_mode_schemas_use_v2_pack(self):
+        engine = QueryEngine(
+            client=DoneClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+        )
+        names = sorted(
+            item["function"]["name"]
+            for item in engine._schemas_for_mode("build", "chat")
+        )
+        self.assertIn("list_dir", names)
+        self.assertIn("run_recipe", names)
+        self.assertNotIn("list_files", names)
+        self.assertNotIn("compile_project", names)
+
     def test_adapter_create_session_exposes_build_lite_snapshot_fields(self):
         adapter = InProcessAdapter(
             client=DoneClient(),
@@ -87,6 +120,9 @@ class QueryEngineBuildLiteTests(unittest.TestCase):
         self.assertEqual(snapshot["current_phase"], "understand")
         self.assertEqual(snapshot["discipline_profile"], "lite_spec_tdd")
         self.assertTrue(snapshot["current_activity"])
+        state = adapter._sessions[snapshot["session_id"]]
+        system_messages = [message.content for message in state.session.messages if message.role == "system"]
+        self.assertTrue(any("Mode: build" in content for content in system_messages))
 
 
 if __name__ == "__main__":

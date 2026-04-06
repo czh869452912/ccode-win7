@@ -15,6 +15,13 @@ READ_TOOLS = {
     "read_file",
     "list_files",
     "search_text",
+    "list_dir",
+    "glob_files",
+    "grep_text",
+    "list_recipes",
+    "report_quality_v2",
+    "task_status",
+    "record_failing_evidence",
     "git_status",
     "git_diff",
     "git_log",
@@ -30,6 +37,7 @@ TOOLCHAIN_EXEC_TOOLS = {
     "run_clang_tidy",
     "run_clang_analyzer",
     "collect_coverage",
+    "run_recipe",
 }
 GIT_WRITE_TOOLS = set()
 INTERACTION_TOOLS = {

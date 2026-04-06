@@ -2,6 +2,7 @@ from embedagent.harness.contracts import (
     ArtifactState,
     DisciplineProfile,
     ExecutionPhase,
+    HarnessModeContext,
     ModeDefinition,
     WorkMode,
 )
@@ -18,6 +19,7 @@ __all__ = [
     "build_prompt_units",
     "DisciplineProfile",
     "ExecutionPhase",
+    "HarnessModeContext",
     "HarnessRunner",
     "ModeDefinition",
     "TaskGraph",

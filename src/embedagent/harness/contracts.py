@@ -42,6 +42,18 @@ class ArtifactState:
 
 
 @dataclass
+class HarnessModeContext:
+    mode_name: str
+    discipline_label: str
+    pack_name: str
+    current_phase: str = ""
+    current_activity: str = ""
+    task_summary: str = ""
+    track: List[str] = field(default_factory=list)
+    prompt_units: List[str] = field(default_factory=list)
+
+
+@dataclass
 class ModeDefinition:
     slug: str
     default_discipline: DisciplineProfile

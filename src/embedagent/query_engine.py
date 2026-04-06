@@ -15,7 +15,7 @@ from embedagent.harness.runner import HarnessRunner
 from embedagent.interaction import UserInputRequest, UserInputResponse, ask_user_schema, build_user_input_request, propose_mode_switch_schema
 from embedagent.llm import ModelClientError, OpenAICompatibleClient
 from embedagent.memory_maintenance import MemoryMaintenance
-from embedagent.modes import DEFAULT_MODE, allowed_tools_for, build_system_prompt, is_path_writable, is_tool_allowed, require_mode
+from embedagent.modes import DEFAULT_MODE, build_system_prompt, is_path_writable, require_mode
 from embedagent.permissions import PermissionPolicy, PermissionRequest
 from embedagent.project_memory import ProjectMemoryStore
 from embedagent.session import Action, AssistantReply, ContextAssemblyResult, LoopResult, LoopTransition, Observation, PendingInteraction, QueryTurnResult, Session
@@ -23,6 +23,7 @@ from embedagent.session_store import SessionSummaryStore
 from embedagent.transcript_store import TranscriptStore
 from embedagent.tool_execution import StreamingToolExecutor, partition_tool_actions
 from embedagent.tool_commit import ToolCommitCoordinator
+from embedagent.tooling.bridge import HarnessToolBridge
 from embedagent.tools import ToolRuntime
 from embedagent.tools._base import ToolError
 from embedagent.workspace_intelligence import WorkspaceIntelligenceBroker
@@ -83,6 +84,7 @@ class QueryEngine(object):
             self.transcript_store,
         )
         self.harness_runner = HarnessRunner()
+        self.tool_bridge = HarnessToolBridge(self.tools, self.harness_runner)
         self._maintenance_counter = 0
 
     def _session_guard(self):
@@ -163,14 +165,56 @@ class QueryEngine(object):
                     },
                 )
 
-    def _run_harness_mode(self, current_mode: str, session: Optional[Session] = None, workflow_state: str = "chat") -> Tuple[str, list]:
+    def _run_harness_mode(self, current_mode: str, session: Optional[Session] = None, workflow_state: str = "chat") -> Tuple[str, Any]:
         del session
         if str(current_mode or "") not in ("build", "debug", "verify"):
-            return current_mode, []
-        discipline_override = None
-        if str(current_mode or "") == "build" and str(workflow_state or "") == "plan":
-            discipline_override = "full_spec_tdd"
-        return current_mode, self.harness_runner.build_mode_units(current_mode, discipline_override=discipline_override)
+            return current_mode, None
+        return current_mode, self.tool_bridge.describe_mode(current_mode, workflow_state=workflow_state)
+
+    def _allowed_tools_for_mode(self, mode_name: str, workflow_state: str = "chat") -> set:
+        return set(self.tool_bridge.allowed_tool_names(mode_name, workflow_state=workflow_state))
+
+    def _append_harness_messages(self, session: Session, harness_context: Any) -> None:
+        if harness_context is None:
+            return
+        existing = False
+        for message in list(session.messages):
+            if message.role != "system" or message.kind != "harness_prompt":
+                continue
+            metadata = dict(getattr(message, "metadata", {}) or {})
+            if str(metadata.get("mode_name") or "") != str(harness_context.mode_name or ""):
+                continue
+            if str(metadata.get("discipline_label") or "") != str(harness_context.discipline_label or ""):
+                continue
+            existing = True
+            break
+        if existing:
+            return
+        for index, content in enumerate(list(getattr(harness_context, "prompt_units", []) or [])):
+            harness_message = session.add_system_message(
+                content,
+                kind="harness_prompt",
+                metadata={
+                    "mode_name": str(harness_context.mode_name or ""),
+                    "discipline_label": str(harness_context.discipline_label or ""),
+                    "pack_name": str(harness_context.pack_name or ""),
+                    "unit_index": index,
+                },
+            )
+            self._append_message_event(
+                session,
+                {
+                    "role": harness_message.role,
+                    "content": harness_message.content,
+                    "message_id": harness_message.message_id,
+                    "parent_message_id": harness_message.parent_message_id,
+                    "turn_id": harness_message.turn_id,
+                    "step_id": harness_message.step_id,
+                    "kind": harness_message.kind,
+                    "metadata": dict(harness_message.metadata),
+                    "replaced_by_refs": list(harness_message.replaced_by_refs),
+                },
+            )
 
     def _record_transition(self, session: Session, transition: LoopTransition) -> None:
         with self._session_guard():
@@ -323,7 +367,7 @@ class QueryEngine(object):
         user_input_handler: Optional[Callable[[UserInputRequest], Optional[UserInputResponse]]] = None,
     ) -> QueryTurnResult:
         current_mode = require_mode(initial_mode)["slug"]
-        current_mode, harness_units = self._run_harness_mode(current_mode, session, workflow_state=workflow_state)
+        current_mode, harness_context = self._run_harness_mode(current_mode, session, workflow_state=workflow_state)
         if session is None:
             with self._session_guard():
                 session = Session()
@@ -353,24 +397,11 @@ class QueryEngine(object):
                         "replaced_by_refs": list(system_message.replaced_by_refs),
                     },
                 )
-                for content in harness_units:
-                    harness_message = session.add_system_message(content)
-                    self._append_message_event(
-                        session,
-                        {
-                            "role": harness_message.role,
-                            "content": harness_message.content,
-                            "message_id": harness_message.message_id,
-                            "parent_message_id": harness_message.parent_message_id,
-                            "turn_id": harness_message.turn_id,
-                            "step_id": harness_message.step_id,
-                            "kind": harness_message.kind,
-                            "metadata": dict(harness_message.metadata),
-                            "replaced_by_refs": list(harness_message.replaced_by_refs),
-                        },
-                    )
+                self._append_harness_messages(session, harness_context)
         else:
             self._ensure_transcript_bootstrap(session, current_mode)
+            with self._session_guard():
+                self._append_harness_messages(session, harness_context)
         if user_text:
             with self._session_guard():
                 turn_id = "t-" + uuid.uuid4().hex[:12]
@@ -430,6 +461,11 @@ class QueryEngine(object):
     ) -> QueryTurnResult:
         current_mode = require_mode(initial_mode)["slug"]
         with self._session_guard():
+            self._append_harness_messages(
+                session,
+                self.tool_bridge.describe_mode(current_mode, workflow_state=workflow_state),
+            )
+        with self._session_guard():
             pending = session.pending_interaction
         if pending is None:
             transition = LoopTransition(reason="completed", message="no pending interaction")
@@ -439,6 +475,7 @@ class QueryEngine(object):
             session,
             pending,
             current_mode,
+            workflow_state,
             dict(interaction_resolution or {}),
             on_tool_start,
             on_tool_finish,
@@ -613,12 +650,25 @@ class QueryEngine(object):
                     on_step_finish(step_index, reply, "completed")
                 return QueryTurnResult(final_text, session, transition, turns_used)
             executor = StreamingToolExecutor(
-                lambda action: self.tools.execute_with_interrupt(action.name, action.arguments, stop_event),
+                lambda action: self.tool_bridge.execute_with_interrupt(
+                    current_mode,
+                    action.name,
+                    action.arguments,
+                    stop_event,
+                    workflow_state=workflow_state,
+                ),
                 self.max_parallel_tools,
                 cancel_event=stop_event,
             )
             discard_remaining_batches = False
-            for batch in partition_tool_actions(reply.actions, self.tools.tool_capabilities):
+            for batch in partition_tool_actions(
+                reply.actions,
+                lambda tool_name: self.tool_bridge.tool_capabilities(
+                    current_mode,
+                    tool_name,
+                    workflow_state=workflow_state,
+                ),
+            ):
                 if discard_remaining_batches:
                     for action in batch.actions:
                         observation = self._discarded_observation(action.name)
@@ -646,6 +696,7 @@ class QueryEngine(object):
                                 session,
                                 action,
                                 current_mode,
+                                workflow_state,
                                 permission_handler,
                                 user_input_handler,
                                 stop_event=stop_event,
@@ -703,6 +754,7 @@ class QueryEngine(object):
                             session,
                             update.action,
                             current_mode,
+                            workflow_state,
                             permission_handler,
                             user_input_handler,
                             update.observation,
@@ -790,19 +842,16 @@ class QueryEngine(object):
         return False
 
     def _schemas_for_mode(self, mode_name: str, workflow_state: str) -> list:
-        allowed = set(allowed_tools_for(mode_name))
-        schemas = []
-        runtime_schemas = getattr(self.tools, "schemas_for", None)
-        if callable(runtime_schemas):
-            schemas.extend(runtime_schemas(mode_name, workflow_state=workflow_state, tool_names=list(allowed)))
-        else:
-            for item in self.tools.schemas():
-                name = item.get("function", {}).get("name", "")
-                if name in allowed:
-                    schemas.append(item)
-        if "ask_user" in allowed:
+        schemas = list(self.tool_bridge.schemas_for_mode(mode_name, workflow_state=workflow_state))
+        names = set(
+            item.get("function", {}).get("name", "")
+            for item in schemas
+        )
+        if "ask_user" in self._allowed_tools_for_mode(mode_name, workflow_state=workflow_state) and "ask_user" not in names:
             schemas.append(ask_user_schema())
-        schemas.append(propose_mode_switch_schema())
+            names.add("ask_user")
+        if "propose_mode_switch" not in names:
+            schemas.append(propose_mode_switch_schema())
         return schemas
 
     def _execute_action(
@@ -810,6 +859,7 @@ class QueryEngine(object):
         session: Session,
         action: Action,
         current_mode: str,
+        workflow_state: str,
         permission_handler: Optional[Callable[[PermissionRequest], Optional[bool]]],
         user_input_handler: Optional[Callable[[UserInputRequest], Optional[UserInputResponse]]],
         precomputed_observation: Optional[Observation] = None,
@@ -818,7 +868,7 @@ class QueryEngine(object):
         runtime_action = action
         if action.name == "manage_todos" and not action.arguments.get("session_id"):
             runtime_action = Action(action.name, dict(action.arguments, session_id=session.session_id), action.call_id, action.raw_arguments)
-        if not is_tool_allowed(current_mode, action.name) and action.name not in ("ask_user", "propose_mode_switch"):
+        if action.name not in self._allowed_tools_for_mode(current_mode, workflow_state=workflow_state) and action.name not in ("ask_user", "propose_mode_switch"):
             return self._failure_observation(action.name, "当前模式 %s 不允许调用工具 %s。" % (current_mode, action.name), "mode_tool_blocked", False, current_mode, "请改用当前模式允许的工具。"), current_mode, None
         if action.name == "ask_user":
             request = build_user_input_request(action.arguments)
@@ -840,7 +890,7 @@ class QueryEngine(object):
                 transition = LoopTransition("user_input_wait", request.question, pending, current_mode)
                 self._record_transition(session, transition)
                 return self._failure_observation("ask_user", "waiting user input", "pending_interaction", False, "user_input", "等待用户回答。", {"pending": True}), current_mode, QueryTurnResult("", session, transition, pending_interaction=pending)
-            observation, next_mode = self._build_user_input_observation(session, current_mode, request, response)
+            observation, next_mode = self._build_user_input_observation(session, current_mode, request, response, workflow_state=workflow_state)
             return observation, next_mode, None
         if action.name == "propose_mode_switch":
             response = user_input_handler(
@@ -860,7 +910,25 @@ class QueryEngine(object):
                 target_mode = str(require_mode(target_mode)["slug"])
                 if target_mode != current_mode:
                     with self._session_guard():
-                        session.add_system_message(build_system_prompt(target_mode, getattr(self.tools, "app_config", None), getattr(self.tools, "workspace", "")))
+                        mode_message = session.add_system_message(build_system_prompt(target_mode, getattr(self.tools, "app_config", None), getattr(self.tools, "workspace", "")))
+                        self._append_message_event(
+                            session,
+                            {
+                                "role": mode_message.role,
+                                "content": mode_message.content,
+                                "message_id": mode_message.message_id,
+                                "parent_message_id": mode_message.parent_message_id,
+                                "turn_id": mode_message.turn_id,
+                                "step_id": mode_message.step_id,
+                                "kind": mode_message.kind,
+                                "metadata": dict(mode_message.metadata),
+                                "replaced_by_refs": list(mode_message.replaced_by_refs),
+                            },
+                        )
+                        self._append_harness_messages(
+                            session,
+                            self.tool_bridge.describe_mode(target_mode, workflow_state=workflow_state),
+                        )
                     current_mode = target_mode
             return Observation("propose_mode_switch", True, None, {"selected_mode": target_mode, "mode_changed": bool(target_mode)}), current_mode, None
         decision = self.permission_policy.evaluate(runtime_action)
@@ -897,12 +965,25 @@ class QueryEngine(object):
                     return self._failure_observation(action.name, "目标文件不存在，edit_file 只能修改已存在的文件。", "file_missing", False, "filesystem", "若要新建文件，请改用 write_file。"), current_mode, None
         return (
             precomputed_observation
-            or self.tools.execute_with_interrupt(runtime_action.name, runtime_action.arguments, stop_event),
+            or self.tool_bridge.execute_with_interrupt(
+                current_mode,
+                runtime_action.name,
+                runtime_action.arguments,
+                stop_event,
+                workflow_state=workflow_state,
+            ),
             current_mode,
             None,
         )
 
-    def _build_user_input_observation(self, session: Session, current_mode: str, request: UserInputRequest, response: UserInputResponse) -> Tuple[Observation, str]:
+    def _build_user_input_observation(
+        self,
+        session: Session,
+        current_mode: str,
+        request: UserInputRequest,
+        response: UserInputResponse,
+        workflow_state: str = "chat",
+    ) -> Tuple[Observation, str]:
         selected_mode = str(response.selected_mode or "").strip()
         next_mode = current_mode
         mode_changed = False
@@ -912,7 +993,25 @@ class QueryEngine(object):
                 next_mode = selected_mode
                 mode_changed = True
                 with self._session_guard():
-                    session.add_system_message(build_system_prompt(selected_mode, getattr(self.tools, "app_config", None), getattr(self.tools, "workspace", "")))
+                    mode_message = session.add_system_message(build_system_prompt(selected_mode, getattr(self.tools, "app_config", None), getattr(self.tools, "workspace", "")))
+                    self._append_message_event(
+                        session,
+                        {
+                            "role": mode_message.role,
+                            "content": mode_message.content,
+                            "message_id": mode_message.message_id,
+                            "parent_message_id": mode_message.parent_message_id,
+                            "turn_id": mode_message.turn_id,
+                            "step_id": mode_message.step_id,
+                            "kind": mode_message.kind,
+                            "metadata": dict(mode_message.metadata),
+                            "replaced_by_refs": list(mode_message.replaced_by_refs),
+                        },
+                    )
+                    self._append_harness_messages(
+                        session,
+                        self.tool_bridge.describe_mode(selected_mode, workflow_state=workflow_state),
+                    )
         return Observation(
             "ask_user",
             True,
@@ -932,6 +1031,7 @@ class QueryEngine(object):
         session: Session,
         pending: PendingInteraction,
         current_mode: str,
+        workflow_state: str,
         resolution: Dict[str, Any],
         on_tool_start: Optional[Callable[[Action], None]],
         on_tool_finish: Optional[Callable[[Action, Observation], None]],
@@ -962,7 +1062,16 @@ class QueryEngine(object):
             on_tool_start(action)
         if pending.kind == "permission":
             approved = bool(resolution.get("approved"))
-            observation = self.tools.execute(action.name, action.arguments) if approved else self._failure_observation(action.name, "操作未获批准，已跳过执行。", "permission_denied", False, "user_confirmation", "等待用户批准，或改为不需要该权限的方案。")
+            observation = (
+                self.tool_bridge.execute(
+                    current_mode,
+                    action.name,
+                    action.arguments,
+                    workflow_state=workflow_state,
+                )
+                if approved
+                else self._failure_observation(action.name, "操作未获批准，已跳过执行。", "permission_denied", False, "user_confirmation", "等待用户批准，或改为不需要该权限的方案。")
+            )
         else:
             req = pending.request_payload.get("request") if isinstance(pending.request_payload, dict) else {}
             request = UserInputRequest(
@@ -977,7 +1086,13 @@ class QueryEngine(object):
                 selected_mode=str(resolution.get("selected_mode") or ""),
                 selected_option_text=str(resolution.get("selected_option_text") or ""),
             )
-            observation, current_mode = self._build_user_input_observation(session, current_mode, request, response)
+            observation, current_mode = self._build_user_input_observation(
+                session,
+                current_mode,
+                request,
+                response,
+                workflow_state=workflow_state,
+            )
         with self._session_guard():
             tool_message_id = "m-" + uuid.uuid4().hex[:12]
             parent_message_id = session.last_message_id()

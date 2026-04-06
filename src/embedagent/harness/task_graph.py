@@ -19,7 +19,35 @@ class TaskGraph(object):
     tasks: List[TaskNode] = field(default_factory=list)
 
     @classmethod
-    def for_mode(cls, mode_name, discipline):
+    def for_mode(cls, mode_name, discipline, track=None, current_phase=""):
+        phases = []
+        for item in list(track or []):
+            phases.append(str(getattr(item, "value", item) or ""))
+        if phases:
+            current_value = str(current_phase or phases[0] or "")
+            try:
+                current_index = phases.index(current_value)
+            except ValueError:
+                current_index = 0
+            tasks = []
+            for index, phase in enumerate(phases):
+                status = "pending"
+                if index < current_index:
+                    status = "completed"
+                elif index == current_index:
+                    status = "in_progress"
+                tasks.append(
+                    TaskNode(
+                        task_id="task-%s" % (index + 1),
+                        title="%s:%s" % (str(mode_name or ""), phase),
+                        status=status,
+                    )
+                )
+            return cls(
+                mode_name=str(mode_name or ""),
+                discipline=str(discipline or ""),
+                tasks=tasks,
+            )
         title = "%s:%s" % (str(mode_name or ""), str(discipline or ""))
         return cls(
             mode_name=str(mode_name or ""),

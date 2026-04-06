@@ -71,6 +71,21 @@ class QueryEngineVerifySliceTests(unittest.TestCase):
         system_messages = [message.content for message in result.session.messages if message.role == "system"]
         self.assertTrue(any("Mode: verify" in content for content in system_messages))
 
+    def test_verify_mode_schemas_use_v2_pack(self):
+        engine = QueryEngine(
+            client=DoneClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+        )
+        names = sorted(
+            item["function"]["name"]
+            for item in engine._schemas_for_mode("verify", "chat")
+        )
+        self.assertIn("run_recipe", names)
+        self.assertIn("report_quality_v2", names)
+        self.assertNotIn("compile_project", names)
+        self.assertNotIn("report_quality", names)
+
     def test_adapter_snapshot_exposes_verify_activity(self):
         adapter = InProcessAdapter(
             client=DoneClient(),
@@ -80,6 +95,9 @@ class QueryEngineVerifySliceTests(unittest.TestCase):
         snapshot = adapter.create_session("verify")
         self.assertEqual(snapshot["current_mode"], "verify")
         self.assertTrue(snapshot["current_activity"])
+        state = adapter._sessions[snapshot["session_id"]]
+        system_messages = [message.content for message in state.session.messages if message.role == "system"]
+        self.assertTrue(any("Mode: verify" in content for content in system_messages))
 
 
 if __name__ == "__main__":

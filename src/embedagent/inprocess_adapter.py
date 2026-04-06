@@ -11,6 +11,7 @@ from datetime import datetime
 from typing import Any, Callable, Dict, List, Optional, Set
 
 from embedagent.context import ContextManager
+from embedagent.harness.runner import HarnessRunner
 from embedagent.interaction import UserInputRequest, UserInputResponse
 from embedagent.llm import OpenAICompatibleClient
 from embedagent.loop import AgentLoop
@@ -221,9 +222,71 @@ class InProcessAdapter(object):
         self.command_registry = SlashCommandRegistry()
         self.transcript_store = TranscriptStore(self.tools.workspace)
         self.session_restorer = SessionRestorer()
+        self.harness_runner = HarnessRunner()
         initialize_modes(self.tools.workspace)
         self._sessions = {}  # type: Dict[str, ManagedSession]
         self._lock = threading.RLock()
+
+    def _append_transcript_message_event(self, session_id: str, message: Any) -> None:
+        self.transcript_store.append_event(
+            session_id,
+            "message",
+            {
+                "role": message.role,
+                "content": message.content,
+                "message_id": message.message_id,
+                "parent_message_id": message.parent_message_id,
+                "turn_id": message.turn_id,
+                "step_id": message.step_id,
+                "kind": message.kind,
+                "metadata": dict(message.metadata),
+                "replaced_by_refs": list(message.replaced_by_refs),
+            },
+        )
+
+    def _append_harness_messages(self, session: Session, current_mode: str, workflow_state: str) -> None:
+        context = self.harness_runner.describe_mode(current_mode, discipline_override="full_spec_tdd" if current_mode == "build" and workflow_state == "plan" else None)
+        if context is None:
+            return
+        for message in list(session.messages):
+            if message.role != "system" or message.kind != "harness_prompt":
+                continue
+            metadata = dict(getattr(message, "metadata", {}) or {})
+            if str(metadata.get("mode_name") or "") != str(context.mode_name or ""):
+                continue
+            if str(metadata.get("discipline_label") or "") != str(context.discipline_label or ""):
+                continue
+            return
+        for index, content in enumerate(list(context.prompt_units or [])):
+            message = session.add_system_message(
+                content,
+                kind="harness_prompt",
+                metadata={
+                    "mode_name": str(context.mode_name or ""),
+                    "discipline_label": str(context.discipline_label or ""),
+                    "pack_name": str(context.pack_name or ""),
+                    "unit_index": index,
+                },
+            )
+            self._append_transcript_message_event(session.session_id, message)
+
+    def _refresh_harness_state(self, state: ManagedSession) -> None:
+        context = self.harness_runner.describe_mode(
+            state.current_mode,
+            discipline_override="full_spec_tdd" if state.current_mode == "build" and state.workflow_state == "plan" else None,
+            current_phase=state.current_phase,
+            observations=state.session.turns[-1].observations if state.session.turns else [],
+        )
+        if context is None:
+            state.current_phase = ""
+            state.discipline_profile = ""
+            state.current_activity = ""
+            state.task_summary = ""
+            return
+        state.current_phase = str(context.current_phase or "")
+        state.discipline_profile = str(context.discipline_label or "")
+        state.current_activity = str(context.current_activity or "")
+        state.task_summary = str(context.task_summary or "")
 
     def create_session(
         self,
@@ -247,21 +310,7 @@ class InProcessAdapter(object):
             },
         )
         for message in (profile_message, mode_message):
-            self.transcript_store.append_event(
-                session.session_id,
-                "message",
-                {
-                    "role": message.role,
-                    "content": message.content,
-                    "message_id": message.message_id,
-                    "parent_message_id": message.parent_message_id,
-                    "turn_id": message.turn_id,
-                    "step_id": message.step_id,
-                    "kind": message.kind,
-                    "metadata": dict(message.metadata),
-                    "replaced_by_refs": list(message.replaced_by_refs),
-                },
-            )
+            self._append_transcript_message_event(session.session_id, message)
         plan = self.plan_store.load(session.session_id)
         state = ManagedSession(
             session=session,
@@ -269,21 +318,8 @@ class InProcessAdapter(object):
             active_plan_ref=plan.path if plan is not None else "",
             workflow_state="plan" if plan is not None else "chat",
         )
-        if current_mode == "build":
-            state.current_phase = "understand"
-            state.discipline_profile = "lite_spec_tdd"
-            state.current_activity = "Build-lite harness active"
-            state.task_summary = "in_progress build:lite_spec_tdd"
-        elif current_mode == "debug":
-            state.current_phase = "reproduce"
-            state.discipline_profile = "lite_spec_tdd"
-            state.current_activity = "Debug-lite harness active"
-            state.task_summary = "in_progress debug:lite_spec_tdd"
-        elif current_mode == "verify":
-            state.current_phase = "select_recipe"
-            state.discipline_profile = "lite_spec_tdd"
-            state.current_activity = "Verify harness active"
-            state.task_summary = "in_progress verify:lite_spec_tdd"
+        self._append_harness_messages(session, current_mode, state.workflow_state)
+        self._refresh_harness_state(state)
         self._persist_state(state)
         with self._lock:
             self._sessions[session.session_id] = state
@@ -2088,10 +2124,13 @@ class InProcessAdapter(object):
         state = self._require_session(session_id)
         current_mode = require_mode(mode)["slug"]
         with state.lock:
-            state.session.add_system_message(
+            message = state.session.add_system_message(
                 build_system_prompt(current_mode, getattr(self.tools, "app_config", None), self.tools.workspace)
             )
+            self._append_transcript_message_event(session_id, message)
             state.current_mode = current_mode
+            self._append_harness_messages(state.session, current_mode, state.workflow_state)
+            self._refresh_harness_state(state)
         self._persist_state(state)
         snapshot = self.get_session_snapshot(session_id)
         self._emit(self.event_handler, "mode_changed", session_id, {"mode": current_mode, "session_snapshot": snapshot})
@@ -2345,6 +2384,7 @@ class InProcessAdapter(object):
             state.last_assistant_message = result.final_text
             if result.transition.next_mode:
                 state.current_mode = result.transition.next_mode
+            self._refresh_harness_state(state)
             state.status = "idle"
             state.active_thread = None
             state.updated_at = _utc_now()
