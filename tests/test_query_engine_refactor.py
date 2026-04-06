@@ -400,7 +400,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
     def test_partition_tool_actions_uses_capabilities(self):
         actions = [
             Action("read_file", {"path": "src/demo.c"}, "c1"),
-            Action("search_text", {"path": ".", "query": "demo"}, "c2"),
+            Action("grep_text", {"path": ".", "pattern": "demo"}, "c2"),
             Action("edit_file", {"path": "src/demo.c", "old_text": "0", "new_text": "1"}, "c3"),
             Action("git_status", {"path": "."}, "c4"),
         ]
@@ -714,12 +714,12 @@ class TestQueryEngineRefactor(unittest.TestCase):
             Observation("edit_file", True, None, {"path": "src/demo.c"}),
         )
         session.add_observation(
-            Action("compile_project", {}, "compile-1"),
-            Observation("compile_project", False, "compile failed", {"diagnostics": [{"file": "src/other.c", "line": 3, "column": 1, "message": "other failure"}]}),
+            Action("run_recipe", {"recipe_id": "cmake.build.default"}, "compile-1"),
+            Observation("run_recipe", False, "compile failed", {"recipe_action": "build", "diagnostics": [{"file": "src/other.c", "line": 3, "column": 1, "message": "other failure"}]}),
         )
         session.add_observation(
-            Action("run_clang_tidy", {}, "tidy-1"),
-            Observation("run_clang_tidy", False, "tidy failed", {"diagnostics": [{"file": "src/demo.c", "line": 5, "column": 2, "message": "demo warning"}]}),
+            Action("run_recipe", {"recipe_id": "custom.tidy"}, "tidy-1"),
+            Observation("run_recipe", False, "tidy failed", {"recipe_action": "tidy", "diagnostics": [{"file": "src/demo.c", "line": 5, "column": 2, "message": "demo warning"}]}),
         )
         provider = DiagnosticsProvider()
         evidence = provider.collect(session, "build", self.tools, None)
@@ -741,30 +741,30 @@ class TestQueryEngineRefactor(unittest.TestCase):
             Observation("edit_file", True, None, {"path": "src/demo.c"}),
         )
         session.add_observation(
-            Action("compile_project", {}, "compile-2"),
+            Action("run_recipe", {"recipe_id": "cmake.build.default"}, "compile-2"),
             Observation(
-                "compile_project",
+                "run_recipe",
                 False,
                 "compile failed",
-                {"diagnostics": [{"file": "src/demo.c", "line": 7, "column": 3, "message": "compile failure"}]},
+                {"recipe_action": "build", "diagnostics": [{"file": "src/demo.c", "line": 7, "column": 3, "message": "compile failure"}]},
             ),
         )
         session.add_observation(
-            Action("run_clang_tidy", {}, "tidy-2"),
+            Action("run_recipe", {"recipe_id": "custom.tidy"}, "tidy-2"),
             Observation(
-                "run_clang_tidy",
+                "run_recipe",
                 False,
                 "tidy failed",
-                {"diagnostics": [{"file": "src/demo.c", "line": 9, "column": 2, "message": "tidy warning"}]},
+                {"recipe_action": "tidy", "diagnostics": [{"file": "src/demo.c", "line": 9, "column": 2, "message": "tidy warning"}]},
             ),
         )
         session.add_observation(
-            Action("run_clang_analyzer", {}, "analyzer-2"),
+            Action("run_recipe", {"recipe_id": "custom.analyze"}, "analyzer-2"),
             Observation(
-                "run_clang_analyzer",
+                "run_recipe",
                 False,
                 "analyzer failed",
-                {"diagnostics": [{"file": "src/other.c", "line": 4, "column": 1, "message": "other issue"}]},
+                {"recipe_action": "analyze", "diagnostics": [{"file": "src/other.c", "line": 4, "column": 1, "message": "other issue"}]},
             ),
         )
         provider = DiagnosticsProvider()
@@ -772,8 +772,8 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertGreaterEqual(len(evidence), 2)
         self.assertIn("src/demo.c", evidence[0].content)
         self.assertIn("2 条", evidence[0].content)
-        self.assertIn("compile_project", evidence[0].content)
-        self.assertIn("run_clang_tidy", evidence[0].content)
+        self.assertIn("build", evidence[0].content)
+        self.assertIn("tidy", evidence[0].content)
         self.assertEqual(evidence[0].metadata.get("diagnostic_count"), 2)
         self.assertEqual(evidence[0].metadata.get("path"), "src/demo.c")
         self.assertEqual(evidence[0].metadata.get("group_kind"), "path_hotspot")
@@ -782,31 +782,33 @@ class TestQueryEngineRefactor(unittest.TestCase):
         session = Session()
         session.add_user_message("验证当前质量门")
         session.add_observation(
-            Action("run_tests", {}, "tests-1"),
+            Action("run_recipe", {"recipe_id": "cmake.test.default"}, "tests-1"),
             Observation(
-                "run_tests",
+                "run_recipe",
                 False,
                 "tests failed",
-                {"test_summary": {"total": 5, "passed": 3, "failed": 2, "skipped": 0}},
+                {"recipe_action": "test", "test_summary": {"total": 5, "passed": 3, "failed": 2, "skipped": 0}},
             ),
         )
         session.add_observation(
-            Action("collect_coverage", {}, "coverage-1"),
+            Action("run_recipe", {"recipe_id": "coverage.default"}, "coverage-1"),
             Observation(
-                "collect_coverage",
+                "run_recipe",
                 True,
                 None,
-                {"coverage_summary": {"line_coverage": 62.5}},
+                {"recipe_action": "coverage", "coverage_summary": {"line_coverage": 62.5}},
             ),
         )
         session.add_observation(
-            Action("report_quality", {}, "quality-1"),
+            Action("report_quality_v2", {}, "quality-1"),
             Observation(
-                "report_quality",
-                False,
-                "quality gate failed",
+                "report_quality_v2",
+                True,
+                None,
                 {
                     "passed": False,
+                    "error_count": 0,
+                    "warning_count": 0,
                     "test_failures": 2,
                     "line_coverage": 62.5,
                     "min_line_coverage": 80.0,
@@ -819,11 +821,11 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertGreaterEqual(len(evidence), 1)
         self.assertEqual(evidence[0].title, "Quality Gate Summary")
         self.assertIn("质量门", evidence[0].content)
-        self.assertIn("run_tests", evidence[0].content)
-        self.assertIn("collect_coverage", evidence[0].content)
-        self.assertIn("report_quality", evidence[0].content)
+        self.assertIn("test", evidence[0].content)
+        self.assertIn("coverage", evidence[0].content)
+        self.assertIn("report_quality_v2", evidence[0].content)
         self.assertEqual(evidence[0].metadata.get("group_kind"), "quality_gate_summary")
-        self.assertEqual(set(evidence[0].metadata.get("tool_names") or []), {"run_tests", "collect_coverage", "report_quality"})
+        self.assertEqual(set(evidence[0].metadata.get("tool_names") or []), {"run_recipe", "report_quality_v2"})
 
     def test_diagnostics_provider_accepts_run_recipe_and_report_quality_v2(self):
         session = Session()
@@ -872,7 +874,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertIn("custom.tidy", evidence[0].content)
         self.assertIn("[test]", evidence[0].content)
 
-    def test_recipe_provider_prefers_project_recipe_over_detected_in_code_mode(self):
+    def test_recipe_provider_prefers_project_recipe_over_detected_in_build_mode(self):
         os.makedirs(os.path.join(self.workspace, ".embedagent"), exist_ok=True)
         with open(os.path.join(self.workspace, ".embedagent", "workspace-recipes.json"), "w", encoding="utf-8") as handle:
             handle.write(
@@ -897,9 +899,9 @@ class TestQueryEngineRefactor(unittest.TestCase):
             )
         provider = RecipeProvider()
         evidence = provider.collect(Session(), "verify", self.tools, None)
-        self.assertIn("history.run_tests.1", evidence[0].content)
+        self.assertIn("history.test.1", evidence[0].content)
         self.assertIn("cmake.test.default", evidence[0].content)
-        self.assertLess(evidence[0].content.index("history.run_tests.1"), evidence[0].content.index("cmake.test.default"))
+        self.assertLess(evidence[0].content.index("history.test.1"), evidence[0].content.index("cmake.test.default"))
 
     def test_llsp_provider_uses_backend_contract(self):
         provider = LlspProvider(backend=FakeLlspBackend())

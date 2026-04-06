@@ -237,7 +237,7 @@ class DiagnosticsProvider(WorkspaceIntelligenceProvider):
                     content="诊断热点 %s：%s 条诊断，来自 %s。最新：%s" % (
                         hotspot["path"],
                         hotspot["diagnostic_count"],
-                        ", ".join(tool_names),
+                        ", ".join(hotspot.get("tool_labels") or tool_names),
                         hotspot["latest_detail"],
                     ),
                     priority=100 if mode_name in ("build", "debug", "verify") else 60,
@@ -279,18 +279,12 @@ class DiagnosticsProvider(WorkspaceIntelligenceProvider):
             key=lambda observation: (
                 0 if _observation_primary_path(observation) in working_paths else 1,
                 0 if _observation_primary_path(observation) in focus_paths else 1,
-                0 if observation.tool_name in ("run_recipe", "run_tests", "compile_project", "run_clang_tidy", "run_clang_analyzer") else 1,
+                0 if observation.tool_name in ("run_recipe", "report_quality_v2") else 1,
             )
         )
         for observation in observations:
             if observation.tool_name not in (
                 "run_recipe",
-                "compile_project",
-                "run_tests",
-                "run_clang_tidy",
-                "run_clang_analyzer",
-                "collect_coverage",
-                "report_quality",
                 "report_quality_v2",
             ):
                 continue
@@ -307,7 +301,8 @@ class DiagnosticsProvider(WorkspaceIntelligenceProvider):
             if primary_path and any(item.metadata.get("path") == primary_path for item in evidence):
                 continue
             focus_match = primary_path in working_paths or primary_path in focus_paths
-            tags = ["diagnostic", observation.tool_name, mode_name]
+            label = _observation_tool_label(observation)
+            tags = ["diagnostic", label, mode_name]
             metadata = {"tool_name": observation.tool_name, "focus_match": focus_match, "path": primary_path, "group_kind": "single_observation"}
             evidence.append(
                 IntelligenceEvidence(
@@ -581,7 +576,7 @@ def _diagnostic_detail(observation: Observation) -> str:
     if not isinstance(observation.data, dict):
         return ""
     data = observation.data
-    if observation.tool_name == "run_tests":
+    if observation.tool_name == "run_recipe" and str(data.get("recipe_action") or "") == "test":
         summary = data.get("test_summary") if isinstance(data.get("test_summary"), dict) else {}
         total = int(summary.get("total") or 0)
         failed = int(summary.get("failed") or 0)
@@ -593,7 +588,7 @@ def _diagnostic_detail(observation: Observation) -> str:
         if not bool(data.get("passed", False)):
             return "质量门未通过：errors=%s, warnings=%s, test_failures=%s。" % (errors, warnings, failed)
         return ""
-    if observation.tool_name == "collect_coverage":
+    if observation.tool_name == "run_recipe" and str(data.get("recipe_action") or "") == "coverage":
         summary = data.get("coverage_summary") if isinstance(data.get("coverage_summary"), dict) else {}
         line_cov = summary.get("line_coverage")
         if line_cov is not None:
@@ -611,6 +606,16 @@ def _diagnostic_detail(observation: Observation) -> str:
     if observation.error:
         return "%s: %s" % (observation.tool_name, observation.error)
     return ""
+
+
+def _observation_tool_label(observation: Observation) -> str:
+    if not isinstance(observation.data, dict):
+        return observation.tool_name
+    if observation.tool_name == "run_recipe":
+        recipe_action = str(observation.data.get("recipe_action") or "").strip()
+        if recipe_action:
+            return recipe_action
+    return observation.tool_name
 
 
 def _observation_primary_path(observation: Observation) -> str:
@@ -716,12 +721,6 @@ def _group_diagnostic_hotspots(
     for observation in observations:
         if observation.tool_name not in (
             "run_recipe",
-            "compile_project",
-            "run_tests",
-            "run_clang_tidy",
-            "run_clang_analyzer",
-            "collect_coverage",
-            "report_quality",
             "report_quality_v2",
         ):
             continue
@@ -739,6 +738,7 @@ def _group_diagnostic_hotspots(
                 "path": primary_path,
                 "details": [],
                 "tool_names": [],
+                "tool_labels": [],
                 "diagnostic_count": 0,
                 "working_match": primary_path in working_paths,
                 "focus_match": primary_path in focus_paths,
@@ -750,6 +750,9 @@ def _group_diagnostic_hotspots(
         group["details"].append(detail)
         if observation.tool_name not in group["tool_names"]:
             group["tool_names"].append(observation.tool_name)
+        label = _observation_tool_label(observation)
+        if label not in group["tool_labels"]:
+            group["tool_labels"].append(label)
         group["diagnostic_count"] += _observation_diagnostic_count(observation)
         if len(group["details"]) == 1:
             group["latest_detail"] = detail
@@ -776,12 +779,6 @@ def _group_pathless_diagnostic_summary(observations: List[Observation]) -> Optio
     for observation in observations:
         if observation.tool_name not in (
             "run_recipe",
-            "compile_project",
-            "run_tests",
-            "run_clang_tidy",
-            "run_clang_analyzer",
-            "collect_coverage",
-            "report_quality",
             "report_quality_v2",
         ):
             continue
@@ -790,7 +787,7 @@ def _group_pathless_diagnostic_summary(observations: List[Observation]) -> Optio
         if _observation_primary_path(observation):
             continue
         detail = _diagnostic_detail(observation)
-        if not detail and observation.tool_name not in ("report_quality", "report_quality_v2"):
+        if not detail and observation.tool_name != "report_quality_v2":
             continue
         if observation.tool_name not in tool_name_set:
             tool_name_set.add(observation.tool_name)
@@ -798,12 +795,6 @@ def _group_pathless_diagnostic_summary(observations: List[Observation]) -> Optio
         diagnostic_count += _observation_diagnostic_count(observation)
         if not latest_detail and detail:
             latest_detail = detail
-        if observation.tool_name == "report_quality" and not observation.success:
-            has_quality_gate = True
-            for item in observation.data.get("reasons") or []:
-                text = str(item or "").strip()
-                if text and text not in reasons:
-                    reasons.append(text)
         if observation.tool_name == "report_quality_v2" and not bool(observation.data.get("passed", False)):
             has_quality_gate = True
             summary = _diagnostic_detail(observation)
@@ -815,7 +806,15 @@ def _group_pathless_diagnostic_summary(observations: List[Observation]) -> Optio
         content_parts = ["质量门未通过"]
         if reasons:
             content_parts.append("；".join(reasons))
-        content_parts.append("相关检查：%s" % ", ".join(tool_names))
+        checks = []
+        for observation in observations:
+            if observation.tool_name == "run_recipe":
+                label = _observation_tool_label(observation)
+                if label and label not in checks:
+                    checks.append(label)
+            elif observation.tool_name == "report_quality_v2" and "report_quality_v2" not in checks:
+                checks.append("report_quality_v2")
+        content_parts.append("相关检查：%s" % ", ".join(checks or tool_names))
         return {
             "title": "Quality Gate Summary",
             "content": "。".join([part for part in content_parts if part]) + "。",
@@ -826,7 +825,7 @@ def _group_pathless_diagnostic_summary(observations: List[Observation]) -> Optio
     if len(tool_names) < 2:
         return None
     content = "无路径诊断摘要：来自 %s。最新：%s" % (
-        ", ".join(tool_names),
+        ", ".join([_observation_tool_label(item) for item in observations if item.tool_name in tool_name_set][:4] or tool_names),
         latest_detail or "最近一次检查未通过。",
     )
     return {
@@ -844,15 +843,11 @@ def _observation_diagnostic_count(observation: Observation) -> int:
     diagnostics = observation.data.get("diagnostics") if isinstance(observation.data.get("diagnostics"), list) else []
     if diagnostics:
         return len(diagnostics)
-    if observation.tool_name == "run_tests":
+    if observation.tool_name == "run_recipe" and str(observation.data.get("recipe_action") or "") == "test":
         summary = observation.data.get("test_summary") if isinstance(observation.data.get("test_summary"), dict) else {}
         failed = int(summary.get("failed") or 0)
         if failed:
             return failed
-    if observation.tool_name == "report_quality":
-        reasons = observation.data.get("reasons") if isinstance(observation.data.get("reasons"), list) else []
-        if reasons:
-            return len(reasons)
     if observation.tool_name == "report_quality_v2" and not bool(observation.data.get("passed", False)):
         return int(observation.data.get("error_count") or 0) + int(observation.data.get("test_failures") or 0) or 1
     return 1 if _diagnostic_detail(observation) else 0

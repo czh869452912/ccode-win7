@@ -391,7 +391,7 @@ class TestWorkspaceRecipes(unittest.TestCase):
         self.assertIn("cmake.configure.default", recipe_ids)
         self.assertIn("cmake.build.default", recipe_ids)
         self.assertIn("cmake.test.default", recipe_ids)
-        self.assertIn("history.compile_project.1", recipe_ids)
+        self.assertIn("history.build.1", recipe_ids)
         cmake_build = [item for item in payload["items"] if item["id"] == "cmake.build.default"][0]
         self.assertEqual(cmake_build["tool_name"], "run_recipe")
         self.assertEqual(cmake_build["legacy_tool_name"], "compile_project")

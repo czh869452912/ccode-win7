@@ -147,7 +147,7 @@ class ProjectMemoryStore(object):
                     '%s. [%s] cwd=%s cmd=%s'
                     % (
                         index,
-                        item.get('tool_name', ''),
+                        self._recipe_kind(item),
                         item.get('cwd', '.'),
                         _truncate_text(item.get('command', ''), 120),
                     )
@@ -156,7 +156,7 @@ class ProjectMemoryStore(object):
         if selected_issues:
             lines.append('已知问题：')
             for index, item in enumerate(selected_issues, start=1):
-                parts = [item.get('tool_name', '')]
+                parts = [self._issue_kind(item)]
                 if item.get('path'):
                     parts.append('path=%s' % item['path'])
                 if item.get('summary'):
@@ -243,7 +243,7 @@ class ProjectMemoryStore(object):
         arguments: Dict[str, Any],
         observation: Observation,
     ) -> None:
-        if action_name not in ('run_command', 'compile_project', 'run_tests', 'run_clang_tidy', 'run_clang_analyzer', 'collect_coverage'):
+        if action_name not in ('run_command', 'run_recipe'):
             return
         if not isinstance(observation.data, dict):
             return
@@ -251,7 +251,8 @@ class ProjectMemoryStore(object):
         cwd = observation.data.get('cwd') or arguments.get('cwd') or '.'
         if not command:
             return
-        key = '%s|%s|%s' % (action_name, cwd, command)
+        recipe_action = self._recipe_action_from(action_name, observation.data)
+        key = '%s|%s|%s' % (recipe_action or action_name, cwd, command)
         now = _utc_now()
         for item in recipes:
             if item.get('key') != key:
@@ -264,6 +265,8 @@ class ProjectMemoryStore(object):
             {
                 'key': key,
                 'tool_name': action_name,
+                'recipe_action': recipe_action,
+                'legacy_tool_name': str(observation.data.get('legacy_tool_name') or ''),
                 'command': command,
                 'cwd': cwd,
                 'last_mode': current_mode,
@@ -297,6 +300,8 @@ class ProjectMemoryStore(object):
         issue = {
             'key': key,
             'tool_name': observation.tool_name,
+            'recipe_action': self._recipe_action_from(observation.tool_name, observation.data),
+            'legacy_tool_name': str(observation.data.get('legacy_tool_name') or '') if isinstance(observation.data, dict) else '',
             'mode_name': current_mode,
             'path': self._primary_path(observation),
             'command': self._primary_command(observation),
@@ -366,16 +371,17 @@ class ProjectMemoryStore(object):
 
     def _select_recipes(self, mode_name: str, recipes: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         preferred = {
-            'verify': ('compile_project', 'run_tests', 'run_clang_tidy', 'run_clang_analyzer', 'collect_coverage'),
-            'test': ('run_tests', 'compile_project', 'collect_coverage'),
-            'code': ('compile_project', 'run_command', 'run_tests'),
-            'debug': ('run_command', 'compile_project', 'run_tests'),
-        }.get(mode_name, ('compile_project', 'run_tests', 'run_command'))
+            'verify': ('test', 'tidy', 'analyze', 'coverage', 'build', 'configure', 'run_command'),
+            'build': ('build', 'configure', 'test', 'run_command'),
+            'debug': ('test', 'build', 'configure', 'run_command'),
+            'explore': ('build', 'test', 'configure', 'run_command'),
+            'spec': ('build', 'test', 'configure', 'run_command'),
+        }.get(mode_name, ('build', 'test', 'run_command'))
         selected = []
         seen = set()
-        for tool_name in preferred:
+        for recipe_action in preferred:
             for item in recipes:
-                if item.get('tool_name') != tool_name or item.get('key') in seen:
+                if self._recipe_kind(item) != recipe_action or item.get('key') in seen:
                     continue
                 selected.append(item)
                 seen.add(item['key'])
@@ -384,16 +390,15 @@ class ProjectMemoryStore(object):
 
     def _select_issues(self, mode_name: str, issues: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         preferred = {
-            'verify': ('compile_project', 'run_tests', 'run_clang_tidy', 'run_clang_analyzer', 'report_quality'),
-            'test': ('run_tests', 'compile_project'),
-            'code': ('compile_project', 'run_command', 'report_quality'),
-            'debug': ('run_command', 'compile_project', 'run_tests'),
+            'verify': ('quality', 'test', 'tidy', 'analyze', 'coverage', 'build'),
+            'build': ('build', 'test', 'quality', 'run_command'),
+            'debug': ('test', 'build', 'quality', 'run_command'),
         }.get(mode_name, ())
         selected = []
         for item in issues:
             if item.get('status') != 'open':
                 continue
-            if preferred and item.get('tool_name') not in preferred:
+            if preferred and self._issue_kind(item) not in preferred:
                 continue
             selected.append(item)
             if len(selected) >= 4:
@@ -447,6 +452,35 @@ class ProjectMemoryStore(object):
         if not isinstance(observation.data, dict):
             return None
         return observation.data.get('command')
+
+    def _recipe_action_from(self, action_name: str, data: Dict[str, Any]) -> str:
+        if str(action_name or '') == 'run_recipe':
+            value = str((data or {}).get('recipe_action') or '').strip()
+            if value:
+                return value
+        if str(action_name or '') == 'run_command':
+            return 'run_command'
+        return ''
+
+    def _recipe_kind(self, item: Dict[str, Any]) -> str:
+        recipe_action = str(item.get('recipe_action') or '').strip()
+        if recipe_action:
+            return recipe_action
+        tool_name = str(item.get('tool_name') or '').strip()
+        if tool_name == 'run_command':
+            return 'run_command'
+        return tool_name
+
+    def _issue_kind(self, item: Dict[str, Any]) -> str:
+        tool_name = str(item.get('tool_name') or '').strip()
+        if tool_name == 'report_quality_v2':
+            return 'quality'
+        recipe_action = str(item.get('recipe_action') or '').strip()
+        if recipe_action:
+            return recipe_action
+        if tool_name == 'run_command':
+            return 'run_command'
+        return tool_name
 
     def _stored_refs(self, observation: Observation) -> List[str]:
         if not isinstance(observation.data, dict):

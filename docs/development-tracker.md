@@ -32,6 +32,7 @@
 - 最新稳定化收口：`set_session_mode()` 现在会先重置旧 phase 再刷新 Harness snapshot，避免 build/debug/verify 跨 mode 切换时把上一模式的 phase 残留到新会话快照；同时 `Context` 高优先级工具、reducer registry 与 `/review` 文案已统一到 `run_recipe/report_quality_v2/task_status` 正式词汇。`
 - 最新 dead-code 清理：`tools_v2/` 中仍被正式主路径使用的 discovery/recipe/session 模块已迁入官方 `src/embedagent/tools/`；旧 `tools_v2/*.py` 与已无人引用的 `loop.py` 已删除，产品源码不再直接 import `tools_v2` 或 `AgentLoop`。`
 - 最新 core cutover：`ToolRuntime` 已不再维护 legacy execute aliases，`permissions.py` 也已只按正式工具词汇分类；`build_ops.py`、`todo_ops.py` 与 `tests/test_todo_ops.py` 已删除，官方 runtime 现在只接受正式 schema/catalog 中的工具名。`
+- 最新 intelligence cutover：`ProjectMemoryStore` 与 `WorkspaceIntelligence` 现已按 `run_recipe + recipe_action + report_quality_v2` 工作，历史 recipe id 也已从 `history.run_tests.1` 之类旧命名收敛为 `history.test.1`；当前 `src/` 里剩余的 live legacy 主要集中在 frontend/protocol 旧接口与 `workspace_recipes` 的内部旧名映射。`
 
 ### 当前判断
 

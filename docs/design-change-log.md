@@ -44,6 +44,26 @@
 
 ## 3. 当前变更记录
 
+### DC-094
+
+- 日期：2026-04-06
+- 变更主题：工程记忆与工程情报切到 `recipe_action` 正式语义
+- 变更摘要：
+  - `ProjectMemoryStore` 现在记录 `run_recipe` 的 `recipe_action`，并在 system message 中渲染 `[build]/[test]/[tidy]` 等正式类别，而不再把 `compile_project/run_tests` 当作用户可见语义
+  - `WorkspaceIntelligence.DiagnosticsProvider` 已改按 `run_recipe` 的 `recipe_action` 和 `report_quality_v2` 聚合热点与质量门摘要，诊断首屏不再依赖旧 verify 工具名
+  - `workspace_recipes` 的 history recipe id 已从 `history.<legacy_tool_name>.<n>` 收敛到 `history.<recipe_action>.<n>`
+- 影响范围：
+  - project memory recipe / known issue 选择逻辑
+  - workspace intelligence diagnostics / recipe evidence
+  - history recipe id 生成规则
+  - query_engine_refactor / session_store / tools_package 回归测试
+- 关联文档：
+  - `docs/development-tracker.md`
+- 是否需要 ADR：`否，属于 official cutover 后的语义收口`
+- 后续动作：
+  - 继续切掉 frontend/protocol 中暴露给用户的 `list_files` 和旧 tool label
+  - 再决定是否把 `workspace_recipes` 内部的 legacy 输入映射也进一步压缩
+
 ### DC-093
 
 - 日期：2026-04-06

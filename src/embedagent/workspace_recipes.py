@@ -215,15 +215,17 @@ def _load_history_recipes(workspace: str) -> List[Dict[str, Any]]:
         command = str(entry.get("command") or "").strip()
         if not tool_name or not command:
             continue
-        counts[tool_name] = int(counts.get(tool_name) or 0) + 1
+        recipe_action = _recipe_action_from(tool_name, str(entry.get("recipe_action") or ""))
+        counts[recipe_action] = int(counts.get(recipe_action) or 0) + 1
         items.append(
             {
-                "id": "history.%s.%s" % (tool_name, counts[tool_name]),
+                "id": "history.%s.%s" % (recipe_action, counts[recipe_action]),
                 "tool_name": tool_name,
                 "label": "History %s" % tool_name,
                 "command": command,
                 "cwd": str(entry.get("cwd") or "."),
                 "source": "history",
+                "recipe_action": recipe_action,
             }
         )
     return items
