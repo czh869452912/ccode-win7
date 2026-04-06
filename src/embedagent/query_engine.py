@@ -165,7 +165,7 @@ class QueryEngine(object):
 
     def _run_harness_mode(self, current_mode: str, session: Optional[Session] = None, workflow_state: str = "chat") -> Tuple[str, list]:
         del session
-        if str(current_mode or "") not in ("build", "debug"):
+        if str(current_mode or "") not in ("build", "debug", "verify"):
             return current_mode, []
         discipline_override = None
         if str(current_mode or "") == "build" and str(workflow_state or "") == "plan":

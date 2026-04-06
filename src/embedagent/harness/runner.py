@@ -20,6 +20,8 @@ class HarnessRunner(object):
             pack_name = "debug_lite"
         elif mode.slug == "build":
             pack_name = "build_lite"
+        elif mode.slug == "verify":
+            pack_name = "verify"
         else:
             pack_name = "core"
         if discipline_label == "full_spec_tdd":

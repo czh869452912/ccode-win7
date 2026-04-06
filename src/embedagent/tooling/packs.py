@@ -34,10 +34,20 @@ DEBUG_LITE_PACK = [
 ]
 
 
+VERIFY_PACK = [
+    "list_recipes",
+    "run_recipe",
+    "report_quality_v2",
+    "task_status",
+    "ask_user",
+]
+
+
 PACKS = {
     "core": CORE_PACK,
     "build_lite": BUILD_LITE_PACK,
     "debug_lite": DEBUG_LITE_PACK,
+    "verify": VERIFY_PACK,
 }
 
 

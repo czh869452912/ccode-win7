@@ -279,6 +279,11 @@ class InProcessAdapter(object):
             state.discipline_profile = "lite_spec_tdd"
             state.current_activity = "Debug-lite harness active"
             state.task_summary = "in_progress debug:lite_spec_tdd"
+        elif current_mode == "verify":
+            state.current_phase = "select_recipe"
+            state.discipline_profile = "lite_spec_tdd"
+            state.current_activity = "Verify harness active"
+            state.task_summary = "in_progress verify:lite_spec_tdd"
         self._persist_state(state)
         with self._lock:
             self._sessions[session.session_id] = state

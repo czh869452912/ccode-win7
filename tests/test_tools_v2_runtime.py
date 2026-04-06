@@ -59,6 +59,17 @@ class ToolsV2RuntimeTests(unittest.TestCase):
         self.assertIn("edit_file", names)
         self.assertIn("run_recipe", names)
 
+    def test_verify_pack_exposes_run_recipe_and_list_recipes(self):
+        from embedagent.tools_v2.runtime import ToolRuntimeV2
+
+        runtime = ToolRuntimeV2(self.workspace)
+        names = [
+            item["function"]["name"]
+            for item in runtime.schemas_for_pack("verify")
+        ]
+        self.assertIn("run_recipe", names)
+        self.assertIn("list_recipes", names)
+
 
 if __name__ == "__main__":
     unittest.main()
