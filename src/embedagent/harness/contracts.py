@@ -50,6 +50,7 @@ class HarnessModeContext:
     current_activity: str = ""
     task_summary: str = ""
     track: List[str] = field(default_factory=list)
+    task_items: List[Dict[str, object]] = field(default_factory=list)
     prompt_units: List[str] = field(default_factory=list)
 
 

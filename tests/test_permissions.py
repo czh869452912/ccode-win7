@@ -9,24 +9,42 @@ from embedagent.session import Action
 
 
 class TestPermissionPolicy(unittest.TestCase):
-    def test_manage_todos_list_is_treated_as_read(self):
+    def test_task_status_is_treated_as_read(self):
         policy = PermissionPolicy(auto_approve_all=False, workspace="D:\\workspace")
 
-        decision = policy.evaluate(Action("manage_todos", {"action": "list"}, "call-list"))
+        decision = policy.evaluate(Action("task_status", {}, "call-list"))
 
         self.assertEqual(decision.outcome, "allow")
         self.assertEqual(decision.details.get("category"), "read")
 
-    def test_manage_todos_mutation_still_requires_workspace_write_permission(self):
+    def test_run_recipe_rule_can_match_recipe_alias(self):
         policy = PermissionPolicy(auto_approve_all=False, workspace="D:\\workspace")
-
-        decision = policy.evaluate(
-            Action("manage_todos", {"action": "add", "content": "demo"}, "call-add")
+        policy.rules = policy._load_rules_from_items(
+            [
+                {
+                    "decision": "allow",
+                    "tool": "run_recipe",
+                    "recipe": "cmake.build.default",
+                    "reason": "trusted build recipe",
+                }
+            ]
         )
 
+        decision = policy.evaluate(Action("run_recipe", {"recipe_id": "cmake.build.default"}, "call-run"))
+
+        self.assertEqual(decision.outcome, "allow")
+
+    def test_permission_details_include_stable_explanation_sections(self):
+        policy = PermissionPolicy(auto_approve_all=False, workspace="D:\\workspace")
+
+        decision = policy.evaluate(Action("run_recipe", {"recipe_id": "cmake.test.default"}, "call-run"))
+
         self.assertEqual(decision.outcome, "ask")
-        self.assertIsNotNone(decision.request)
-        self.assertEqual(decision.request.category, "workspace_write")
+        explanation = str(decision.details.get("explanation") or "")
+        self.assertIn("[请求]", explanation)
+        self.assertIn("[风险]", explanation)
+        self.assertIn("[规则]", explanation)
+        self.assertIn("cmake.test.default", explanation)
 
 
 if __name__ == "__main__":

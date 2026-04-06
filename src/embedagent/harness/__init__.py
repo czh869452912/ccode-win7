@@ -11,6 +11,7 @@ from embedagent.harness.prompt_stack import build_prompt_units
 from embedagent.harness.registry import build_default_registry
 from embedagent.harness.runner import HarnessRunner
 from embedagent.harness.task_graph import TaskGraph, TaskNode
+from embedagent.harness import task_store
 
 __all__ = [
     "advance_phase",
@@ -24,5 +25,6 @@ __all__ = [
     "ModeDefinition",
     "TaskGraph",
     "TaskNode",
+    "task_store",
     "WorkMode",
 ]

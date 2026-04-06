@@ -19,7 +19,7 @@ class TestGuiSync(unittest.TestCase):
         import asyncio
         from embedagent.core.adapter import AgentCoreAdapter
         from embedagent.frontend.gui.backend.server import GUIBackend
-        from tests.test_inprocess_adapter_frontend_api import AskUserClient
+        from test_inprocess_adapter_frontend_api import AskUserClient
 
         workspace = tempfile.mkdtemp(prefix="gui-sync-")
         static_dir = tempfile.mkdtemp(prefix="gui-sync-static-")

@@ -41,7 +41,7 @@ def _make_workspace(name):
 
 
 def _py_sleep_command(seconds):
-    return 'python -c "import time; time.sleep(%s)"' % seconds
+    return '"%s" -c "import time; time.sleep(%s)"' % (sys.executable, seconds)
 
 
 class AskThenDoneClient(object):
@@ -331,8 +331,8 @@ class SlowCommandClient(object):
                 content="",
                 actions=[
                     Action(
-                        "run_command",
-                        {"command": _py_sleep_command(5), "cwd": ".", "timeout_sec": 10},
+                        "run_recipe",
+                        {"recipe_id": "slow.recipe"},
                         "call-sleep-command",
                     )
                 ],
@@ -1675,6 +1675,22 @@ class TestQueryEngineRefactor(unittest.TestCase):
         session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：debug")
         transcript_store = TranscriptStore(self.workspace)
         stop_event = threading.Event()
+        os.makedirs(os.path.join(self.workspace, ".embedagent"), exist_ok=True)
+        with open(os.path.join(self.workspace, ".embedagent", "workspace-recipes.json"), "w", encoding="utf-8") as handle:
+            json.dump(
+                [
+                    {
+                        "id": "slow.recipe",
+                        "tool_name": "run_recipe",
+                        "label": "Slow Recipe",
+                        "command": _py_sleep_command(5),
+                        "cwd": ".",
+                    }
+                ],
+                handle,
+                ensure_ascii=False,
+                indent=2,
+            )
         interrupt_tools = ToolRuntime(
             self.workspace,
             app_config=AppConfig(allow_system_tool_fallback=True),

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import List
+from typing import Dict, List
 
 
 @dataclass
@@ -82,3 +82,17 @@ class TaskGraph(object):
         for task in self.tasks:
             lines.append("%s %s" % (task.status, task.title))
         return "\n".join(lines)
+
+    def to_items(self) -> List[Dict[str, object]]:
+        items = []
+        for index, task in enumerate(self.tasks, start=1):
+            items.append(
+                {
+                    "id": index,
+                    "content": task.title,
+                    "status": task.status,
+                    "done": task.status == "completed",
+                    "note": task.note,
+                }
+            )
+        return items

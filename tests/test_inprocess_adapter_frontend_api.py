@@ -1130,11 +1130,11 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
 
     def test_session_scoped_todos_are_isolated(self):
         first_session_id = str(self.snapshot.get('session_id') or '')
-        self.tools.execute("manage_todos", {"action": "add", "content": "session-one", "session_id": first_session_id})
         second = self.adapter.create_session('build')
         second_session_id = str(second.get('session_id') or '')
-        self.assertEqual(self.adapter.list_todos(session_id=first_session_id)["count"], 1)
-        self.assertEqual(self.adapter.list_todos(session_id=second_session_id)["count"], 0)
+        self.adapter.set_session_mode(second_session_id, "verify")
+        self.assertEqual(self.adapter.list_todos(session_id=first_session_id)["count"], 5)
+        self.assertEqual(self.adapter.list_todos(session_id=second_session_id)["count"], 3)
 
     def test_session_status_events_cover_running_and_idle(self):
         events = []

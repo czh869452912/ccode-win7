@@ -119,16 +119,15 @@ class TestToolRuntimeSchemas(unittest.TestCase):
         schemas = self.rt.schemas_for("spec", workflow_state="review")
         tool_names = [item["function"]["name"] for item in schemas]
         self.assertIn("read_file", tool_names)
-        self.assertIn("manage_todos", tool_names)
+        self.assertIn("task_status", tool_names)
         self.assertNotIn("write_file", tool_names)
 
     def test_verify_review_workflow_keeps_quality_tools_visible(self):
         schemas = self.rt.schemas_for("verify", workflow_state="review")
         tool_names = [item["function"]["name"] for item in schemas]
-        self.assertIn("compile_project", tool_names)
-        self.assertIn("run_tests", tool_names)
-        self.assertIn("run_clang_tidy", tool_names)
-        self.assertIn("report_quality", tool_names)
+        self.assertIn("list_recipes", tool_names)
+        self.assertIn("run_recipe", tool_names)
+        self.assertIn("report_quality_v2", tool_names)
         self.assertNotIn("write_file", tool_names)
 
     def test_build_mode_uses_harness_pack_schema(self):
@@ -145,11 +144,11 @@ class TestToolRuntimeSchemas(unittest.TestCase):
         self.assertIn("run_recipe", tool_names)
         self.assertNotIn("run_command", tool_names)
 
-    def test_allowed_tool_names_include_harness_pack_and_legacy_execution_fallbacks(self):
+    def test_allowed_tool_names_match_official_debug_pack(self):
         tool_names = self.rt.allowed_tool_names("debug", workflow_state="chat")
         self.assertIn("record_failing_evidence", tool_names)
         self.assertIn("run_recipe", tool_names)
-        self.assertIn("run_command", tool_names)
+        self.assertNotIn("run_command", tool_names)
 
 
 class TestToolRuntimeExecute(unittest.TestCase):

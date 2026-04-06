@@ -44,6 +44,28 @@
 
 ## 3. 当前变更记录
 
+### DC-087
+
+- 日期：2026-04-06
+- 变更主题：official cutover 第四步完成，permission/task truth 切到正式主线
+- 变更摘要：
+  - 官方 mode prompt 与 mode tool list 现已统一改为 `task_status`，`manage_todos` 不再出现在正式模型工具包中
+  - `HarnessRunner` 开始输出结构化 `task_items`，`TaskGraph` 能被投影为稳定 task 列表，并通过新的 `harness/task_store.py` 持久化到 session 级 task snapshot
+  - `InProcessAdapter` 创建/恢复/切 mode 后会刷新 Harness task snapshot，`list_todos(session_id=...)` 的主路径已改为读取 Harness task truth，而不是 session todo 文件
+  - `permissions.py` 已吸收 recipe 规则匹配、规则别名解析与稳定 explanation 模板，`permissions_v2/` 并行包已删除
+- 影响范围：
+  - 官方模型任务工具契约
+  - session 级任务真相源与 task projection
+  - 权限规则加载、匹配与前端可见解释文本
+  - focused regression tests 与 adapter/task API 行为
+- 关联文档：
+  - `docs/superpowers/plans/2026-04-06-agent-harness-v2-official-cutover-plan.md`
+  - `docs/development-tracker.md`
+- 是否需要 ADR：`否，继续沿 official cutover 计划推进`
+- 后续动作：
+  - 进入 frontend/protocol officialization，把 inspector、tool catalog、UI 文案和事件语义切到正式 V2 词汇
+  - 在最终 legacy deletion 阶段删除剩余 todo 兼容壳层与相关旧测试
+
 ### DC-086
 
 - 日期：2026-04-06

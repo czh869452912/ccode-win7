@@ -37,11 +37,12 @@ class TestAllowedTools(unittest.TestCase):
     def test_explore_has_read_tools(self):
         tools = allowed_tools_for("explore")
         self.assertIn("read_file", tools)
-        self.assertIn("list_files", tools)
-        self.assertIn("search_text", tools)
+        self.assertIn("list_dir", tools)
+        self.assertIn("glob_files", tools)
+        self.assertIn("grep_text", tools)
 
-    def test_explore_has_manage_todos(self):
-        self.assertIn("manage_todos", allowed_tools_for("explore"))
+    def test_explore_has_task_status(self):
+        self.assertIn("task_status", allowed_tools_for("explore"))
 
     def test_explore_has_git_status(self):
         # git_status and git_log were added to explore in Phase 1 (P3 fix)
@@ -49,8 +50,13 @@ class TestAllowedTools(unittest.TestCase):
         self.assertIn("git_status", tools)
         self.assertIn("git_log", tools)
 
-    def test_code_has_manage_todos(self):
-        self.assertIn("manage_todos", allowed_tools_for("build"))
+    def test_build_has_task_status(self):
+        self.assertIn("task_status", allowed_tools_for("build"))
+
+    def test_build_uses_recipe_tools(self):
+        tools = allowed_tools_for("build")
+        self.assertIn("list_recipes", tools)
+        self.assertIn("run_recipe", tools)
 
     def test_explore_is_read_only_tools(self):
         tools = allowed_tools_for("explore")
@@ -156,9 +162,9 @@ class TestBuildSystemPrompt(unittest.TestCase):
         prompt = build_system_prompt("build")
         self.assertIn("build", prompt)
 
-    def test_prompt_contains_manage_todos_in_explore(self):
+    def test_prompt_contains_task_status_in_explore(self):
         prompt = build_system_prompt("explore")
-        self.assertIn("manage_todos", prompt)
+        self.assertIn("task_status", prompt)
 
     def test_prompt_shows_readonly_for_explore(self):
         prompt = build_system_prompt("explore")

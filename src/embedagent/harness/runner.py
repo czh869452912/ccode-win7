@@ -70,6 +70,7 @@ class HarnessRunner(object):
             current_activity="%s harness active (%s)" % (mode.slug, phase_value or "idle"),
             task_summary=task_summary,
             track=[phase.value for phase in track],
+            task_items=task_graph.to_items(),
             prompt_units=[item for item in units if str(item or "").strip()],
         )
 

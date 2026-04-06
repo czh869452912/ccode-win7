@@ -7,7 +7,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 class RuleSchemaV2Tests(unittest.TestCase):
     def test_permission_explanation_has_stable_sections(self):
-        from embedagent.permissions_v2.explainer import build_permission_explanation
+        from embedagent.permissions import build_permission_explanation
 
         text = build_permission_explanation(
             tool_name="Edit",

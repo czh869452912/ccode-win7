@@ -856,6 +856,38 @@ class QueryEngine(object):
             runtime_action = Action(action.name, dict(action.arguments, session_id=session.session_id), action.call_id, action.raw_arguments)
         if action.name not in self._allowed_tools_for_mode(current_mode, workflow_state=workflow_state) and action.name not in ("ask_user", "propose_mode_switch"):
             return self._failure_observation(action.name, "当前模式 %s 不允许调用工具 %s。" % (current_mode, action.name), "mode_tool_blocked", False, current_mode, "请改用当前模式允许的工具。"), current_mode, None
+        if action.name == "task_status":
+            mode_context = self.tools.describe_mode(current_mode, workflow_state=workflow_state)
+            summary = ""
+            phase = ""
+            discipline = ""
+            task_items = []
+            if mode_context is not None:
+                summary = str(getattr(mode_context, "task_summary", "") or "")
+                phase = str(getattr(mode_context, "current_phase", "") or "")
+                discipline = str(getattr(mode_context, "discipline_label", "") or "")
+                task_items = list(getattr(mode_context, "task_items", []) or [])
+            if not summary:
+                summary = "in_progress %s" % current_mode
+            observation = Observation(
+                tool_name="task_status",
+                success=True,
+                error=None,
+                data={
+                    "summary": summary,
+                    "preview": [line for line in summary.splitlines() if line],
+                    "returned_count": len([line for line in summary.splitlines() if line]),
+                    "total_count": len([line for line in summary.splitlines() if line]),
+                    "has_more": False,
+                    "next_offset": 0,
+                    "result_ref": "",
+                    "current_mode": current_mode,
+                    "current_phase": phase,
+                    "discipline_profile": discipline,
+                    "todos": task_items,
+                },
+            )
+            return observation, current_mode, None
         if action.name == "ask_user":
             request = build_user_input_request(action.arguments)
             response = user_input_handler(request) if user_input_handler is not None else None

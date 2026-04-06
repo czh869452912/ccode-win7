@@ -11,6 +11,27 @@ from embedagent.protocol import PermissionContextView
 from embedagent.session import Action
 
 
+def build_permission_explanation(
+    tool_name: str,
+    args_summary: str,
+    risk_category: str,
+    trigger_reason: str,
+    rule_source: str,
+    scope_text: str,
+    memory_scope: str,
+) -> str:
+    return "\n".join(
+        [
+            "[请求] %s(%s)" % (tool_name, args_summary),
+            "[风险] %s" % (risk_category,),
+            "[原因] %s" % (trigger_reason,),
+            "[规则] %s" % (rule_source,),
+            "[范围] %s" % (scope_text,),
+            "[记忆] %s" % (memory_scope,),
+        ]
+    )
+
+
 READ_TOOLS = {
     "read_file",
     "list_files",
@@ -62,6 +83,7 @@ class PermissionRule:
     path_globs: List[str] = field(default_factory=list)
     cwd_globs: List[str] = field(default_factory=list)
     command_patterns: List[str] = field(default_factory=list)
+    recipes: List[str] = field(default_factory=list)
     reason: str = ""
 
 
@@ -94,7 +116,7 @@ class PermissionPolicy(object):
         details = self._build_details(action, category)
         matched_rule = self._match_rule(action, category, details)
         if matched_rule is not None:
-            details = dict(details)
+            details = self._apply_rule_explanation(action, details, category, matched_rule)
             details["rule_decision"] = matched_rule.decision
             details["rule_reason"] = matched_rule.reason
             if matched_rule.decision == "allow":
@@ -170,6 +192,9 @@ class PermissionPolicy(object):
         except Exception:
             return []
         items = payload.get("rules") if isinstance(payload, dict) else None
+        return self._load_rules_from_items(items)
+
+    def _load_rules_from_items(self, items: Any) -> List[PermissionRule]:
         if not isinstance(items, list):
             return []
         result = []
@@ -179,14 +204,24 @@ class PermissionPolicy(object):
             decision = str(item.get("decision") or "").strip().lower()
             if decision not in ("allow", "ask", "deny"):
                 continue
+            tool_names = self._list_of_strings(item.get("tool_names"))
+            if not tool_names and str(item.get("tool") or "").strip():
+                tool_names = [str(item.get("tool") or "").strip()]
+            path_globs = self._list_of_strings(item.get("path_globs"))
+            if not path_globs and str(item.get("path") or "").strip():
+                path_globs = [str(item.get("path") or "").strip()]
+            command_patterns = self._list_of_strings(item.get("command_patterns"))
+            if not command_patterns and str(item.get("command_prefix") or "").strip():
+                command_patterns = ["^%s" % re.escape(str(item.get("command_prefix") or "").strip())]
             result.append(
                 PermissionRule(
                     decision=decision,
                     category=str(item.get("category") or "").strip().lower(),
-                    tool_names=self._list_of_strings(item.get("tool_names")),
-                    path_globs=self._list_of_strings(item.get("path_globs")),
+                    tool_names=tool_names,
+                    path_globs=path_globs,
                     cwd_globs=self._list_of_strings(item.get("cwd_globs")),
-                    command_patterns=self._list_of_strings(item.get("command_patterns")),
+                    command_patterns=command_patterns,
+                    recipes=self._list_of_strings(item.get("recipes") or item.get("recipe")),
                     reason=str(item.get("reason") or "").strip(),
                 )
             )
@@ -218,6 +253,10 @@ class PermissionPolicy(object):
             if rule.command_patterns:
                 command = str(details.get("command") or "")
                 if not command or not self._matches_patterns(command, rule.command_patterns):
+                    continue
+            if rule.recipes:
+                recipe = str(details.get("recipe") or "")
+                if not recipe or recipe not in rule.recipes:
                     continue
             matched = rule  # keep scanning; last match wins
         return matched
@@ -264,7 +303,71 @@ class PermissionPolicy(object):
             details["command"] = str(action.arguments.get("command") or "")
         if "cwd" in action.arguments:
             details["cwd"] = str(action.arguments.get("cwd") or ".").replace("\\", "/")
+        if "recipe_id" in action.arguments:
+            details["recipe"] = str(action.arguments.get("recipe_id") or "")
+        details["explanation"] = self._render_explanation(
+            action.name,
+            details,
+            category,
+            self._default_reason(category),
+            "default",
+        )
         return details
+
+    def _render_explanation(
+        self,
+        tool_name: str,
+        details: Dict[str, Any],
+        category: str,
+        reason: str,
+        rule_source: str,
+    ) -> str:
+        args_summary = []
+        if details.get("path"):
+            args_summary.append(str(details.get("path")))
+        if details.get("recipe"):
+            args_summary.append("recipe=%s" % details.get("recipe"))
+        if details.get("command"):
+            args_summary.append(str(details.get("command")))
+        scope_text = str(details.get("path") or details.get("recipe") or details.get("command") or "session")
+        return build_permission_explanation(
+            tool_name=tool_name,
+            args_summary=", ".join(args_summary) or "-",
+            risk_category=category,
+            trigger_reason=reason,
+            rule_source=rule_source,
+            scope_text=scope_text,
+            memory_scope="session",
+        )
+
+    def _apply_rule_explanation(
+        self,
+        action: Action,
+        details: Dict[str, Any],
+        category: str,
+        matched_rule: Optional[PermissionRule],
+    ) -> Dict[str, Any]:
+        payload = dict(details)
+        if matched_rule is None:
+            payload["rule_source"] = "default"
+            payload["explanation"] = self._render_explanation(
+                action.name,
+                payload,
+                category,
+                self._default_reason(category),
+                "default",
+            )
+            return payload
+        source = "rules:%s" % (os.path.basename(self.rules_path) or "inline")
+        payload["rule_source"] = source
+        payload["explanation"] = self._render_explanation(
+            action.name,
+            payload,
+            category,
+            matched_rule.reason or self._default_reason(category),
+            source,
+        )
+        return payload
 
     def _default_reason(self, category: str) -> str:
         if category == "workspace_write":
@@ -327,6 +430,7 @@ class PermissionPolicy(object):
                     "path_globs": list(rule.path_globs),
                     "cwd_globs": list(rule.cwd_globs),
                     "command_patterns": list(rule.command_patterns),
+                    "recipes": list(rule.recipes),
                     "reason": rule.reason,
                 }
             )

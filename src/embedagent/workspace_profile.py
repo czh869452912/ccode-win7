@@ -4,6 +4,7 @@ import os
 from typing import Dict, List, Set, Tuple
 
 from embedagent import todos as todo_store
+from embedagent.harness import task_store
 from embedagent.tools._base import SKIP_DIR_NAMES
 from embedagent.workspace_recipes import list_workspace_recipes
 
@@ -121,11 +122,14 @@ def profile_workspace(workspace: str, max_depth: int = 3, max_entries: int = 400
 
 def _pending_todos_hint(workspace: str, session_id: str = "") -> str:
     """Return a short hint if there are pending todos, else empty string."""
-    data = todo_store.load_todos(workspace, session_id=session_id)
-    pending = [t for t in data if isinstance(t, dict) and not t.get("done")]
-    if not pending:
+    if session_id:
+        pending_count = task_store.pending_task_count(workspace, session_id)
+    else:
+        data = todo_store.load_todos(workspace, session_id=session_id)
+        pending_count = len([t for t in data if isinstance(t, dict) and not t.get("done")])
+    if not pending_count:
         return ""
-    return "\n待办事项提示：当前有 %d 个未完成待办项，建议先调用 manage_todos list 查看。" % len(pending)
+    return "\n待办事项提示：当前有 %d 个未完成待办项，建议先调用 task_status 查看当前任务摘要。" % pending_count
 
 
 def build_workspace_profile_message(workspace: str, session_id: str = "", char_limit: int = 900) -> str:

@@ -12,6 +12,7 @@ from typing import Any, Callable, Dict, List, Optional, Set
 
 from embedagent.context import ContextManager
 from embedagent.harness.runner import HarnessRunner
+from embedagent.harness import task_store
 from embedagent.interaction import UserInputRequest, UserInputResponse
 from embedagent.llm import OpenAICompatibleClient
 from embedagent.loop import AgentLoop
@@ -183,6 +184,7 @@ class ManagedSession:
     discipline_profile: str = ""
     current_activity: str = ""
     task_summary: str = ""
+    task_items: List[Dict[str, Any]] = field(default_factory=list)
     remembered_permission_categories: Set[str] = field(default_factory=set)
     stop_event: threading.Event = field(default_factory=threading.Event, repr=False)
     lock: threading.RLock = field(default_factory=threading.RLock, repr=False)
@@ -282,11 +284,33 @@ class InProcessAdapter(object):
             state.discipline_profile = ""
             state.current_activity = ""
             state.task_summary = ""
+            state.task_items = []
+            task_store.save_task_snapshot(
+                self.tools.workspace,
+                state.session.session_id,
+                state.current_mode,
+                state.workflow_state,
+                "",
+                "",
+                "",
+                [],
+            )
             return
         state.current_phase = str(context.current_phase or "")
         state.discipline_profile = str(context.discipline_label or "")
         state.current_activity = str(context.current_activity or "")
         state.task_summary = str(context.task_summary or "")
+        state.task_items = list(getattr(context, "task_items", []) or [])
+        task_store.save_task_snapshot(
+            self.tools.workspace,
+            state.session.session_id,
+            state.current_mode,
+            state.workflow_state,
+            state.discipline_profile,
+            state.current_phase,
+            state.task_summary,
+            state.task_items,
+        )
 
     def create_session(
         self,
@@ -295,7 +319,6 @@ class InProcessAdapter(object):
     ) -> Dict[str, Any]:
         current_mode = require_mode(mode)["slug"]
         session = Session()
-        todo_store.ensure_session_todos(self.tools.workspace, session.session_id, seed_from_legacy=False)
         profile_message = session.add_system_message(build_workspace_profile_message(self.tools.workspace, session.session_id))
         mode_message = session.add_system_message(
             build_system_prompt(current_mode, getattr(self.tools, "app_config", None), self.tools.workspace)
@@ -343,11 +366,6 @@ class InProcessAdapter(object):
             or DEFAULT_MODE
         )["slug"]
         session = restored.session
-        todo_store.ensure_session_todos(
-            self.tools.workspace,
-            session.session_id,
-            seed_from_legacy=True,
-        )
         summary_ref = ""
         try:
             summary_ref = self.summary_store.persist(session, current_mode)
@@ -399,6 +417,7 @@ class InProcessAdapter(object):
         if plan is not None:
             state.active_plan_ref = plan.path
             state.workflow_state = "plan"
+        self._refresh_harness_state(state)
         with self._lock:
             self._sessions[session.session_id] = state
         snapshot = self.get_session_snapshot(session.session_id)
@@ -939,11 +958,25 @@ class InProcessAdapter(object):
         return {"path": reference, "kind": kind, "content": content}
 
     def list_todos(self, session_id: str = "") -> Dict[str, Any]:
-        todos = todo_store.load_todos(self.tools.workspace, session_id=session_id)
+        if not session_id:
+            todos = todo_store.load_todos(self.tools.workspace, session_id=session_id)
+            return {
+                "count": len(todos),
+                "todos": todos,
+                "path": todo_store.relative_todos_path(session_id),
+                "session_id": session_id,
+            }
+        state = None
+        with self._lock:
+            state = self._sessions.get(session_id)
+        if state is not None:
+            todos = list(state.task_items or [])
+        else:
+            todos = task_store.load_task_items(self.tools.workspace, session_id)
         return {
             "count": len(todos),
             "todos": todos,
-            "path": todo_store.relative_todos_path(session_id),
+            "path": task_store.relative_task_snapshot_path(session_id) if session_id else todo_store.relative_todos_path(session_id),
             "session_id": session_id,
         }
 
