@@ -78,26 +78,26 @@ class TestMerge(unittest.TestCase):
         self.assertEqual(result.model, "my-model")
 
     def test_mode_writable_globs_merged(self):
-        base = AppConfig(mode_writable_globs={"code": ["**/*.c"]})
+        base = AppConfig(mode_writable_globs={"build": ["**/*.c"]})
         result = _merge(base, {"mode_writable_globs": {"spec": ["**/*.md"]}})
-        self.assertIn("code", result.mode_writable_globs)
+        self.assertIn("build", result.mode_writable_globs)
         self.assertIn("spec", result.mode_writable_globs)
 
     def test_mode_extra_writable_globs_merged(self):
-        base = AppConfig(mode_extra_writable_globs={"code": ["**/*.cmake"]})
+        base = AppConfig(mode_extra_writable_globs={"build": ["**/*.cmake"]})
         result = _merge(base, {"mode_extra_writable_globs": {"spec": ["**/*.adoc"]}})
-        self.assertIn("code", result.mode_extra_writable_globs)
+        self.assertIn("build", result.mode_extra_writable_globs)
         self.assertIn("spec", result.mode_extra_writable_globs)
 
     def test_mode_writable_globs_overrides_existing_mode(self):
-        base = AppConfig(mode_writable_globs={"code": ["old/*.py"]})
-        result = _merge(base, {"mode_writable_globs": {"code": ["new/*.py"]}})
-        self.assertEqual(result.mode_writable_globs["code"], ["new/*.py"])
+        base = AppConfig(mode_writable_globs={"build": ["old/*.py"]})
+        result = _merge(base, {"mode_writable_globs": {"build": ["new/*.py"]}})
+        self.assertEqual(result.mode_writable_globs["build"], ["new/*.py"])
 
     def test_mode_extra_writable_globs_overrides_existing_mode(self):
-        base = AppConfig(mode_extra_writable_globs={"code": ["old/*.py"]})
-        result = _merge(base, {"mode_extra_writable_globs": {"code": ["new/*.py"]}})
-        self.assertEqual(result.mode_extra_writable_globs["code"], ["new/*.py"])
+        base = AppConfig(mode_extra_writable_globs={"build": ["old/*.py"]})
+        result = _merge(base, {"mode_extra_writable_globs": {"build": ["new/*.py"]}})
+        self.assertEqual(result.mode_extra_writable_globs["build"], ["new/*.py"])
 
     def test_numeric_type_coercion(self):
         base = AppConfig()
@@ -182,10 +182,10 @@ class TestLoadConfig(unittest.TestCase):
             os.makedirs(config_dir)
             config_path = os.path.join(config_dir, "config.json")
             with open(config_path, "w") as f:
-                json.dump({"mode_writable_globs": {"code": ["app/**/*.py"]}}, f)
+                json.dump({"mode_writable_globs": {"build": ["app/**/*.py"]}}, f)
             with tempfile.TemporaryDirectory() as user_config_dir, patch("embedagent.config._USER_CONFIG_DIR", user_config_dir):
                 cfg = load_config(workspace)
-            self.assertEqual(cfg.mode_writable_globs["code"], ["app/**/*.py"])
+            self.assertEqual(cfg.mode_writable_globs["build"], ["app/**/*.py"])
 
     def test_mode_extra_writable_globs_in_project_config(self):
         with tempfile.TemporaryDirectory() as workspace:
@@ -193,10 +193,10 @@ class TestLoadConfig(unittest.TestCase):
             os.makedirs(config_dir)
             config_path = os.path.join(config_dir, "config.json")
             with open(config_path, "w") as f:
-                json.dump({"mode_extra_writable_globs": {"code": ["**/*.cmake"]}}, f)
+                json.dump({"mode_extra_writable_globs": {"build": ["**/*.cmake"]}}, f)
             with tempfile.TemporaryDirectory() as user_config_dir, patch("embedagent.config._USER_CONFIG_DIR", user_config_dir):
                 cfg = load_config(workspace)
-            self.assertEqual(cfg.mode_extra_writable_globs["code"], ["**/*.cmake"])
+            self.assertEqual(cfg.mode_extra_writable_globs["build"], ["**/*.cmake"])
 
     def test_nested_project_config_loaded(self):
         with tempfile.TemporaryDirectory() as workspace:
@@ -231,3 +231,4 @@ class TestLoadConfig(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

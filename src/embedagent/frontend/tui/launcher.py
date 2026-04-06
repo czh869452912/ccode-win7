@@ -30,7 +30,7 @@ def _resolve_runtime_value(override: Any, configured: Any, default: Any) -> Any:
 
 def launch_tui(
     workspace: str,
-    mode: str = "code",
+    mode: str = "build",
     resume: str = "",
     message: str = "",
     headless: bool = False,
@@ -87,7 +87,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="EmbedAgent TUI")
     parser.add_argument("workspace", nargs="?", help="Workspace directory")
     parser.add_argument("--workspace", dest="workspace_option", default="", help="Workspace directory")
-    parser.add_argument("--mode", default="code", help="Initial mode")
+    parser.add_argument("--mode", default="build", help="Initial mode")
     parser.add_argument("--resume", default="", help="Resume session reference")
     parser.add_argument("--message", "-m", default="", help="Initial message")
     parser.add_argument("--base-url", default="", help="Model service root URL")
@@ -145,3 +145,4 @@ def main(argv: Optional[list] = None) -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
+

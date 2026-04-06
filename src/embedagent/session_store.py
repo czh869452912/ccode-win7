@@ -275,7 +275,7 @@ class SessionSummaryStore(object):
         mode_name: Optional[str] = None,
         config: Optional[Any] = None,
     ) -> Session:
-        current_mode = str(mode_name or summary.get("current_mode") or "code")
+        current_mode = str(mode_name or summary.get("current_mode") or "build")
         session = Session(
             session_id=str(summary.get("session_id") or Session().session_id),
             started_at=str(summary.get("started_at") or _utc_now()),

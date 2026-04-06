@@ -429,11 +429,11 @@ class TestQueryEngineRefactor(unittest.TestCase):
             transcript_store=transcript_store,
         )
         session = Session()
-        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：code")
+        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：build")
         result = engine.submit_turn(
             user_text="读取文件",
             stream=False,
-            initial_mode="code",
+            initial_mode="build",
             session=session,
         )
         self.assertEqual(result.transition.reason, "completed")
@@ -456,11 +456,11 @@ class TestQueryEngineRefactor(unittest.TestCase):
             transcript_store=transcript_store,
         )
         session = Session()
-        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：code")
+        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：build")
         result = engine.submit_turn(
             user_text="读取文件",
             stream=False,
-            initial_mode="code",
+            initial_mode="build",
             session=session,
         )
         self.assertEqual(result.transition.reason, "completed")
@@ -489,11 +489,11 @@ class TestQueryEngineRefactor(unittest.TestCase):
             transcript_store=transcript_store,
         )
         session = Session()
-        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：code")
+        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：build")
         result = engine.submit_turn(
             user_text="读取文件",
             stream=False,
-            initial_mode="code",
+            initial_mode="build",
             session=session,
         )
         self.assertEqual(result.transition.reason, "completed")
@@ -509,7 +509,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
 
     def test_context_manager_repairs_dangling_tool_calls_before_next_llm_request(self):
         session = Session()
-        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：code")
+        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：build")
         session.add_user_message("先读文件", turn_id="t-old", message_id="m-user-old")
         session.begin_step(step_id="s-old")
         session.add_assistant_reply(
@@ -534,7 +534,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
         result = engine.submit_turn(
             user_text="继续",
             stream=False,
-            initial_mode="code",
+            initial_mode="build",
             session=session,
         )
         self.assertEqual(result.transition.reason, "completed")
@@ -548,7 +548,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
 
     def test_context_manager_exposes_intelligence_and_boundary(self):
         session = Session()
-        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：code")
+        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：build")
         session.add_user_message("请检查工程")
         session.add_assistant_reply(
             AssistantReply(
@@ -570,11 +570,11 @@ class TestQueryEngineRefactor(unittest.TestCase):
                 },
             ),
         )
-        session.add_compact_boundary("Earlier work summary", 1, "code", {"test": True})
+        session.add_compact_boundary("Earlier work summary", 1, "build", {"test": True})
         manager = ContextManager()
         result = manager.build_messages(
             session,
-            "code",
+            "build",
             tools=self.tools,
             workflow_state="chat",
             intelligence_broker=WorkspaceIntelligenceBroker(),
@@ -586,7 +586,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
 
     def test_context_manager_preserves_tool_response_pairs_for_recent_tool_calls(self):
         session = Session()
-        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：code")
+        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：build")
         session.add_user_message("继续分析")
         actions = [
             Action("list_files", {"path": "src"}, "call-list-1"),
@@ -640,7 +640,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
             ),
         )
 
-        result = ContextManager().build_messages(session, "code")
+        result = ContextManager().build_messages(session, "build")
 
         assistant_messages = [
             item for item in result.messages
@@ -662,7 +662,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
             handle.write("demo\tsrc/demo.c\t/^int demo(void) {$/;\"\tf\n")
             handle.write("helper\tsrc/demo.c\t/^static int helper(int x) {$/;\"\tf\n")
         provider = CtagsProvider()
-        evidence = provider.collect(Session(), "code", self.tools, None)
+        evidence = provider.collect(Session(), "build", self.tools, None)
         self.assertEqual(len(evidence), 1)
         self.assertIn("demo", evidence[0].content)
         self.assertIn("src/demo.c", evidence[0].content)
@@ -673,7 +673,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
             handle.write("!_TAG_FILE_FORMAT\t2\t/extended format/\n")
             handle.write("demo\tsrc/demo.c\t/^int demo(void) {$/;\"\tf\n")
         broker = WorkspaceIntelligenceBroker()
-        message = broker.render_system_message(Session(), "code", self.tools, None, limit=5, char_limit=2000)
+        message = broker.render_system_message(Session(), "build", self.tools, None, limit=5, char_limit=2000)
         self.assertIn("demo", message)
         self.assertIn("src/demo.c", message)
 
@@ -696,7 +696,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
             Observation("edit_file", True, None, {"path": "src/demo.c"}),
         )
         provider = CtagsProvider()
-        evidence = provider.collect(session, "code", self.tools, None)
+        evidence = provider.collect(session, "build", self.tools, None)
         self.assertTrue(evidence[0].content.index("demo") < evidence[0].content.index("other_symbol"))
 
     def test_diagnostics_provider_prioritizes_focused_file(self):
@@ -722,7 +722,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
             Observation("run_clang_tidy", False, "tidy failed", {"diagnostics": [{"file": "src/demo.c", "line": 5, "column": 2, "message": "demo warning"}]}),
         )
         provider = DiagnosticsProvider()
-        evidence = provider.collect(session, "code", self.tools, None)
+        evidence = provider.collect(session, "build", self.tools, None)
         self.assertGreaterEqual(len(evidence), 2)
         self.assertIn("src/demo.c", evidence[0].content)
 
@@ -849,7 +849,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
                 "]"
             )
         provider = RecipeProvider()
-        evidence = provider.collect(Session(), "code", self.tools, None)
+        evidence = provider.collect(Session(), "build", self.tools, None)
         self.assertIn("custom.build", evidence[0].content)
         self.assertIn("cmake.build.default", evidence[0].content)
         self.assertLess(evidence[0].content.index("custom.build"), evidence[0].content.index("cmake.build.default"))
@@ -871,7 +871,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
 
     def test_llsp_provider_uses_backend_contract(self):
         provider = LlspProvider(backend=FakeLlspBackend())
-        evidence = provider.collect(Session(), "code", self.tools, None)
+        evidence = provider.collect(Session(), "build", self.tools, None)
         self.assertEqual(len(evidence), 1)
         self.assertIn("llsp symbol demo", evidence[0].content)
         self.assertEqual(evidence[0].metadata.get("backend"), "fake")
@@ -914,7 +914,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
             Observation("edit_file", True, None, {"path": "src/demo.c"}),
         )
         provider = LlspProvider()
-        evidence = provider.collect(session, "code", self.tools, None)
+        evidence = provider.collect(session, "build", self.tools, None)
         self.assertGreaterEqual(len(evidence), 1)
         self.assertIn("demo_symbol", evidence[0].content)
         self.assertEqual(evidence[0].metadata.get("path"), "src/demo.c")
@@ -923,7 +923,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
 
     def test_llsp_provider_silently_degrades_when_default_file_is_missing(self):
         provider = LlspProvider()
-        evidence = provider.collect(Session(), "code", self.tools, None)
+        evidence = provider.collect(Session(), "build", self.tools, None)
         self.assertEqual(evidence, [])
 
     def test_query_engine_waits_for_user_input_and_can_resume(self):
@@ -962,7 +962,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
 
     def test_query_engine_waits_for_permission_and_can_resume(self):
         session = Session()
-        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：code")
+        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：build")
         engine = QueryEngine(
             client=WriteThenDoneClient(),
             tools=self.tools,
@@ -971,7 +971,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
         first = engine.submit_turn(
             user_text="写文件",
             stream=False,
-            initial_mode="code",
+            initial_mode="build",
             session=session,
             permission_handler=None,
         )
@@ -980,7 +980,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertEqual(len(session.turns[-1].transitions), 1)
         resumed = engine.resume_pending(
             session=session,
-            initial_mode="code",
+            initial_mode="build",
             stream=False,
             interaction_resolution={"approved": True},
         )
@@ -990,7 +990,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
 
     def test_query_engine_retries_with_compact_context_after_context_limit_error(self):
         session = Session()
-        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：code")
+        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：build")
         for index in range(5):
             session.add_user_message("old user %s %s" % (index, "u" * 400))
             session.add_assistant_reply(
@@ -1022,7 +1022,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
         result = engine.submit_turn(
             user_text="继续分析并给我结论",
             stream=False,
-            initial_mode="code",
+            initial_mode="build",
             session=session,
         )
         self.assertEqual(result.transition.reason, "completed")
@@ -1033,11 +1033,11 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertIsNotNone(session.latest_compact_boundary())
         retry_transition = [item for item in session.turns[-1].transitions if item.reason == "compact_retry"][0]
         self.assertEqual(retry_transition.metadata.get("retry_mode"), "compact")
-        self.assertEqual(retry_transition.metadata.get("source_mode"), "code")
+        self.assertEqual(retry_transition.metadata.get("source_mode"), "build")
 
     def test_query_engine_persists_compact_boundary_event_for_restore(self):
         session = Session()
-        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：code")
+        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：build")
         for index in range(5):
             session.add_user_message("old user %s %s" % (index, "u" * 400))
             session.add_assistant_reply(
@@ -1072,7 +1072,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
         result = engine.submit_turn(
             user_text="继续分析并给我结论",
             stream=False,
-            initial_mode="code",
+            initial_mode="build",
             session=session,
         )
 
@@ -1094,7 +1094,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
 
     def test_query_engine_writes_transcript_for_completed_turn(self):
         session = Session()
-        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：code")
+        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：build")
         transcript_store = TranscriptStore(self.workspace)
         engine = QueryEngine(
             client=ToolClient(),
@@ -1105,7 +1105,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
         result = engine.submit_turn(
             user_text="读取文件",
             stream=False,
-            initial_mode="code",
+            initial_mode="build",
             session=session,
         )
         self.assertEqual(result.transition.reason, "completed")
@@ -1119,7 +1119,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
 
     def test_query_engine_persists_message_parent_ids_in_transcript(self):
         session = Session()
-        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：code")
+        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：build")
         transcript_store = TranscriptStore(self.workspace)
         engine = QueryEngine(
             client=ToolClient(),
@@ -1130,7 +1130,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
         result = engine.submit_turn(
             user_text="读取文件",
             stream=False,
-            initial_mode="code",
+            initial_mode="build",
             session=session,
         )
         self.assertEqual(result.transition.reason, "completed")
@@ -1144,7 +1144,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
 
     def test_query_engine_uses_session_lock_for_context_and_session_mutation(self):
         session = Session()
-        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：code")
+        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：build")
         lock = RecordingSessionLock()
         context_manager = LockCheckingContextManager(lock)
 
@@ -1184,7 +1184,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
         result = engine.submit_turn(
             user_text="读取文件",
             stream=False,
-            initial_mode="code",
+            initial_mode="build",
             session=session,
         )
         self.assertEqual(result.transition.reason, "completed")
@@ -1214,7 +1214,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
 
     def test_query_engine_resume_pending_persists_resolution_and_tool_result(self):
         session = Session()
-        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：code")
+        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：build")
         transcript_store = TranscriptStore(self.workspace)
         engine = QueryEngine(
             client=WriteThenDoneClient(),
@@ -1226,7 +1226,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
         first = engine.submit_turn(
             user_text="写文件",
             stream=False,
-            initial_mode="code",
+            initial_mode="build",
             session=session,
             permission_handler=None,
         )
@@ -1234,7 +1234,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
 
         resumed = engine.resume_pending(
             session=session,
-            initial_mode="code",
+            initial_mode="build",
             stream=False,
             interaction_resolution={"approved": True},
         )
@@ -1254,7 +1254,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
 
     def test_query_engine_persists_content_replacement_and_context_snapshot_events(self):
         session = Session()
-        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：code")
+        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：build")
         session.add_user_message("old user " + ("u" * 400))
         session.add_assistant_reply(
             AssistantReply(
@@ -1286,7 +1286,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
         result = engine.submit_turn(
             user_text="继续分析并给我结论",
             stream=False,
-            initial_mode="code",
+            initial_mode="build",
             session=session,
         )
         self.assertEqual(result.transition.reason, "completed")
@@ -1328,7 +1328,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
         session.turns[-1].message_end_index = len(session.messages) - 1
         rendered = ContextManager().build_messages(
             session,
-            "code",
+            "build",
             tools=self.tools,
             workflow_state="chat",
             intelligence_broker=WorkspaceIntelligenceBroker(),
@@ -1338,7 +1338,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
     def test_restored_session_reuses_persisted_content_replacements(self):
         transcript_store = TranscriptStore(self.workspace)
         session_id = "sess-replacements"
-        transcript_store.append_event(session_id, "session_meta", {"current_mode": "code"})
+        transcript_store.append_event(session_id, "session_meta", {"current_mode": "build"})
         transcript_store.append_event(session_id, "message", {"role": "user", "content": "继续", "message_id": "m-user", "turn_id": "t-1", "step_id": ""})
         transcript_store.append_event(
             session_id,
@@ -1373,7 +1373,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
         restored = SessionRestorer().restore(transcript_store.load_events(session_id))
         result = ContextManager().build_messages(
             restored.session,
-            "code",
+            "build",
             tools=self.tools,
             workflow_state="chat",
             intelligence_broker=WorkspaceIntelligenceBroker(),
@@ -1383,7 +1383,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
 
     def test_query_engine_bootstrap_persists_existing_content_replacements(self):
         session = Session()
-        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：code")
+        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：build")
         session.add_user_message("继续")
         session.messages.append(
             session.messages[-1].__class__(
@@ -1424,7 +1424,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
         result = engine.submit_turn(
             user_text="再继续",
             stream=False,
-            initial_mode="code",
+            initial_mode="build",
             session=session,
         )
         self.assertEqual(result.transition.reason, "completed")
@@ -1432,7 +1432,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
         restored = SessionRestorer().restore(transcript_store.load_events(session.session_id))
         built = ContextManager().build_messages(
             restored.session,
-            "code",
+            "build",
             tools=self.tools,
             workflow_state="chat",
             intelligence_broker=WorkspaceIntelligenceBroker(),
@@ -1442,7 +1442,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
 
     def test_query_engine_emits_interrupted_tool_result_when_stop_event_is_set_after_tool_start(self):
         session = Session()
-        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：code")
+        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：build")
         transcript_store = TranscriptStore(self.workspace)
         stop_event = threading.Event()
         wrapped_tools = CountingToolRuntime(self.tools, slow_first=True)
@@ -1455,7 +1455,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
         result = engine.submit_turn(
             user_text="读取文件",
             stream=False,
-            initial_mode="code",
+            initial_mode="build",
             session=session,
             stop_event=stop_event,
             on_tool_start=lambda action: stop_event.set(),
@@ -1470,7 +1470,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
 
     def test_query_engine_keeps_discarded_parallel_results_out_of_guard_stop(self):
         session = Session()
-        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：code")
+        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：build")
         transcript_store = TranscriptStore(self.workspace)
         engine = QueryEngine(
             client=ParallelReadThenDoneClient(),
@@ -1482,7 +1482,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
         result = engine.submit_turn(
             user_text="并行读取",
             stream=False,
-            initial_mode="code",
+            initial_mode="build",
             session=session,
         )
         self.assertEqual(result.transition.reason, "completed")
@@ -1505,7 +1505,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
 
     def test_query_engine_discards_not_started_parallel_actions_after_cancel(self):
         session = Session()
-        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：code")
+        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：build")
         transcript_store = TranscriptStore(self.workspace)
         stop_event = threading.Event()
         wrapped_tools = CountingToolRuntime(self.tools, slow_first=True)
@@ -1519,7 +1519,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
         result = engine.submit_turn(
             user_text="读取文件",
             stream=False,
-            initial_mode="code",
+            initial_mode="build",
             session=session,
             stop_event=stop_event,
             on_tool_start=lambda action: stop_event.set(),
@@ -1538,7 +1538,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
 
     def test_query_engine_discards_queued_parallel_actions_after_cancel_with_higher_parallelism(self):
         session = Session()
-        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：code")
+        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：build")
         transcript_store = TranscriptStore(self.workspace)
         stop_event = threading.Event()
         wrapped_tools = CountingToolRuntime(self.tools, slow_read_calls=2, slow_delay_sec=0.3)
@@ -1562,7 +1562,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
         result = engine.submit_turn(
             user_text="读取文件",
             stream=False,
-            initial_mode="code",
+            initial_mode="build",
             session=session,
             stop_event=stop_event,
             on_tool_start=trigger_cancel,
@@ -1589,7 +1589,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
 
     def test_query_engine_discards_later_batches_after_parallel_discard(self):
         session = Session()
-        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：code")
+        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：build")
         transcript_store = TranscriptStore(self.workspace)
         wrapped_tools = CountingToolRuntime(self.tools, slow_read_calls=2, slow_delay_sec=0.2)
         engine = QueryEngine(
@@ -1603,7 +1603,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
         result = engine.submit_turn(
             user_text="读取并修改文件",
             stream=False,
-            initial_mode="code",
+            initial_mode="build",
             session=session,
         )
         self.assertEqual(result.transition.reason, "completed")
@@ -1716,7 +1716,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=False, workspace=self.workspace),
         )
-        snapshot = adapter.create_session("code")
+        snapshot = adapter.create_session("build")
         session_id = str(snapshot.get("session_id") or "")
         adapter.submit_user_message(
             session_id=session_id,
@@ -1736,3 +1736,5 @@ class TestQueryEngineRefactor(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+

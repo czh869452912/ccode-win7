@@ -41,7 +41,7 @@ class TestTranscriptStore(unittest.TestCase):
         store.append_event(
             "sess-roundtrip",
             "session_meta",
-            {"current_mode": "code", "started_at": "2026-04-02T00:00:00Z"},
+            {"current_mode": "build", "started_at": "2026-04-02T00:00:00Z"},
         )
         store.append_event(
             "sess-roundtrip",
@@ -116,14 +116,14 @@ class TestTranscriptStore(unittest.TestCase):
 
     def test_append_event_keeps_seq_monotonic(self):
         store = TranscriptStore(self.workspace)
-        first = store.append_event("sess-seq", "session_meta", {"current_mode": "code"})
+        first = store.append_event("sess-seq", "session_meta", {"current_mode": "build"})
         second = store.append_event("sess-seq", "loop_transition", {"reason": "completed"})
         self.assertEqual(first["seq"], 1)
         self.assertEqual(second["seq"], 2)
 
     def test_append_event_serializes_concurrent_writers(self):
         store = TranscriptStore(self.workspace)
-        store.append_event("sess-race", "session_meta", {"current_mode": "code"})
+        store.append_event("sess-race", "session_meta", {"current_mode": "build"})
 
         original_next_seq = store._next_seq
         first_seq_started = threading.Event()
@@ -173,3 +173,4 @@ class TestTranscriptStore(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

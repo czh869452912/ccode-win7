@@ -287,7 +287,7 @@ class TestAgentCoreAdapterApi(unittest.TestCase):
         core._adapter.get_session_snapshot.return_value = {
             "session_id": "sess-1",
             "status": "idle",
-            "current_mode": "code",
+            "current_mode": "build",
             "started_at": "2026-04-04T00:00:00Z",
             "updated_at": "2026-04-04T00:00:01Z",
             "timeline_replay_status": "degraded",
@@ -310,3 +310,4 @@ class TestAgentCoreAdapterApi(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

@@ -81,7 +81,7 @@ class _SnapshotCore(_FakeCore):
             {
                 "session_id": session_id,
                 "status": type("Status", (), {"value": "idle"})(),
-                "current_mode": "code",
+                "current_mode": "build",
                 "created_at": "2026-04-04T00:00:00Z",
                 "updated_at": "2026-04-04T00:00:00Z",
                 "workflow_state": "chat",
@@ -265,3 +265,4 @@ class TestGuiBackendApi(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

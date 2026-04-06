@@ -21,7 +21,7 @@ class TestSessionSummaryStore(unittest.TestCase):
         store = SessionSummaryStore(self.workspace)
         session = Session()
         session.add_user_message("hello")
-        summary_ref = store.persist(session, "code")
+        summary_ref = store.persist(session, "build")
         self.assertTrue(summary_ref.endswith("/summary.json"))
         self.assertFalse(
             os.path.exists(os.path.join(self.workspace, ".embedagent", "memory", "sessions", "index.json"))
@@ -47,7 +47,7 @@ class TestProjectMemoryStore(unittest.TestCase):
         def worker():
             try:
                 for _ in range(10):
-                    store.refresh(session, "code", ".embedagent/memory/sessions/demo/summary.json")
+                    store.refresh(session, "build", ".embedagent/memory/sessions/demo/summary.json")
             except Exception as exc:
                 failures.append(exc)
 
@@ -75,3 +75,4 @@ class TestProjectMemoryStore(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

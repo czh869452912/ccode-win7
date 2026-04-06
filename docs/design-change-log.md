@@ -44,6 +44,28 @@
 
 ## 3. 当前变更记录
 
+### DC-085
+
+- 日期：2026-04-06
+- 变更主题：official cutover 第二步完成，正式 mode 词汇从 `code` 切到 `build`
+- 变更摘要：
+  - 内建 mode registry 已移除 `code`，正式用户可见 mode 词汇现为 `explore/spec/build/debug/verify`
+  - `interaction.py`、CLI/TUI/GUI 默认值、Core Adapter / GUI backend / webapp session state 等产品入口默认 mode 已切到 `build`
+  - `config.py`、`session_store.py`、`context.py`、`workspace_intelligence.py` 与 `tools/runtime.py` 中依赖 mode 名称的默认值和判断分支已开始统一到 `build`
+  - 相关 Python 与前端测试已同步改成 `build` 语义，webapp 静态资产也已重建，避免 GUI 仍沿用旧默认 mode
+- 影响范围：
+  - 模式注册表与 mode 命名约定
+  - CLI / TUI / GUI / protocol 的默认 mode
+  - context / workspace intelligence / tool metadata 的 mode 判断
+  - 相关测试与 GUI 静态产物
+- 关联文档：
+  - `docs/superpowers/plans/2026-04-06-agent-harness-v2-official-cutover-plan.md`
+  - `docs/development-tracker.md`
+- 是否需要 ADR：`与 DC-084 同步，仍建议在 official cutover 真正完成前补一条 ADR，固定唯一 mode 词汇与 build 作为唯一实现模式`
+- 后续动作：
+  - 继续执行 context/intelligence cutover，消除 `list_files/search_text/compile_project/report_quality` 这类 legacy 词汇在上下文系统中的主地位
+  - 在最终 docs rewrite 时把 README / architecture / mode schema / protocol 示例全部改成 build 词汇
+
 ### DC-084
 
 - 日期：2026-04-06

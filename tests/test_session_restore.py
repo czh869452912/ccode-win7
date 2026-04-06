@@ -38,7 +38,7 @@ class TestSessionRestorer(unittest.TestCase):
 
     def test_restore_rebuilds_turn_step_and_tool_topology(self):
         session_id = "sess-restore"
-        self.store.append_event(session_id, "session_meta", {"current_mode": "code", "started_at": "2026-04-02T00:00:00Z"})
+        self.store.append_event(session_id, "session_meta", {"current_mode": "build", "started_at": "2026-04-02T00:00:00Z"})
         self.store.append_event(session_id, "message", {"role": "user", "content": "读取文件", "message_id": "m-user", "turn_id": "t-1", "step_id": ""})
         self.store.append_event(session_id, "step_started", {"turn_id": "t-1", "step_id": "s-1", "step_index": 1})
         self.store.append_event(
@@ -91,13 +91,13 @@ class TestSessionRestorer(unittest.TestCase):
                 "step_id": "s-1",
                 "reason": "completed",
                 "message": "assistant finished",
-                "next_mode": "code",
+                "next_mode": "build",
                 "turns_used": 1,
                 "metadata": {},
             },
         )
         result = SessionRestorer().restore(self.store.load_events(session_id))
-        self.assertEqual(result.current_mode, "code")
+        self.assertEqual(result.current_mode, "build")
         self.assertEqual(len(result.session.turns), 1)
         self.assertEqual(result.session.turns[0].turn_id, "t-1")
         self.assertEqual(result.session.turns[0].steps[0].step_id, "s-1")
@@ -108,7 +108,7 @@ class TestSessionRestorer(unittest.TestCase):
 
     def test_restore_preserves_message_parent_chain(self):
         session_id = "sess-parent-chain"
-        self.store.append_event(session_id, "session_meta", {"current_mode": "code"})
+        self.store.append_event(session_id, "session_meta", {"current_mode": "build"})
         self.store.append_event(
             session_id,
             "message",
@@ -176,7 +176,7 @@ class TestSessionRestorer(unittest.TestCase):
 
     def test_restore_stops_at_message_with_missing_parent(self):
         session_id = "sess-bad-parent"
-        self.store.append_event(session_id, "session_meta", {"current_mode": "code"})
+        self.store.append_event(session_id, "session_meta", {"current_mode": "build"})
         self.store.append_event(
             session_id,
             "message",
@@ -274,17 +274,17 @@ class TestSessionRestorer(unittest.TestCase):
 
     def test_restore_ignores_damaged_tail_event(self):
         session_id = "sess-tail"
-        self.store.append_event(session_id, "session_meta", {"current_mode": "code"})
+        self.store.append_event(session_id, "session_meta", {"current_mode": "build"})
         path = self.store.resolve_transcript_path(session_id)
         with open(path, "a", encoding="utf-8") as handle:
             handle.write("{oops")
         result = SessionRestorer().restore(self.store.load_events(session_id))
-        self.assertEqual(result.current_mode, "code")
+        self.assertEqual(result.current_mode, "build")
         self.assertEqual(result.session.session_id, session_id)
 
     def test_restore_stops_at_tool_result_without_prior_tool_call(self):
         session_id = "sess-invalid-tool-result"
-        self.store.append_event(session_id, "session_meta", {"current_mode": "code"})
+        self.store.append_event(session_id, "session_meta", {"current_mode": "build"})
         self.store.append_event(
             session_id,
             "message",
@@ -315,7 +315,7 @@ class TestSessionRestorer(unittest.TestCase):
                 "step_id": "s-1",
                 "reason": "completed",
                 "message": "assistant finished",
-                "next_mode": "code",
+                "next_mode": "build",
                 "turns_used": 1,
                 "metadata": {},
             },
@@ -368,7 +368,7 @@ class TestSessionRestorer(unittest.TestCase):
 
     def test_restore_stops_at_step_started_without_user_turn(self):
         session_id = "sess-invalid-step"
-        self.store.append_event(session_id, "session_meta", {"current_mode": "code"})
+        self.store.append_event(session_id, "session_meta", {"current_mode": "build"})
         self.store.append_event(session_id, "step_started", {"turn_id": "t-1", "step_id": "s-1", "step_index": 1})
         self.store.append_event(
             session_id,
@@ -378,7 +378,7 @@ class TestSessionRestorer(unittest.TestCase):
                 "step_id": "s-1",
                 "reason": "completed",
                 "message": "assistant finished",
-                "next_mode": "code",
+                "next_mode": "build",
                 "turns_used": 1,
                 "metadata": {},
             },
@@ -388,7 +388,7 @@ class TestSessionRestorer(unittest.TestCase):
 
     def test_restore_stops_at_tool_call_without_active_step(self):
         session_id = "sess-invalid-tool-call"
-        self.store.append_event(session_id, "session_meta", {"current_mode": "code"})
+        self.store.append_event(session_id, "session_meta", {"current_mode": "build"})
         self.store.append_event(
             session_id,
             "message",
@@ -414,7 +414,7 @@ class TestSessionRestorer(unittest.TestCase):
                 "step_id": "s-1",
                 "reason": "completed",
                 "message": "assistant finished",
-                "next_mode": "code",
+                "next_mode": "build",
                 "turns_used": 1,
                 "metadata": {},
             },
@@ -426,7 +426,7 @@ class TestSessionRestorer(unittest.TestCase):
 
     def test_restore_stops_at_tool_call_with_mismatched_step_id(self):
         session_id = "sess-mismatched-tool-call-step"
-        self.store.append_event(session_id, "session_meta", {"current_mode": "code"})
+        self.store.append_event(session_id, "session_meta", {"current_mode": "build"})
         self.store.append_event(
             session_id,
             "message",
@@ -453,7 +453,7 @@ class TestSessionRestorer(unittest.TestCase):
                 "step_id": "s-1",
                 "reason": "completed",
                 "message": "assistant finished",
-                "next_mode": "code",
+                "next_mode": "build",
                 "turns_used": 1,
                 "metadata": {},
             },
@@ -467,7 +467,7 @@ class TestSessionRestorer(unittest.TestCase):
 
     def test_restore_stops_at_loop_transition_with_mismatched_turn_id(self):
         session_id = "sess-mismatched-transition-turn"
-        self.store.append_event(session_id, "session_meta", {"current_mode": "code"})
+        self.store.append_event(session_id, "session_meta", {"current_mode": "build"})
         self.store.append_event(
             session_id,
             "message",
@@ -482,7 +482,7 @@ class TestSessionRestorer(unittest.TestCase):
                 "step_id": "s-1",
                 "reason": "completed",
                 "message": "assistant finished",
-                "next_mode": "code",
+                "next_mode": "build",
                 "turns_used": 1,
                 "metadata": {},
             },
@@ -495,7 +495,7 @@ class TestSessionRestorer(unittest.TestCase):
 
     def test_restore_stops_at_compact_boundary_with_missing_preserved_message(self):
         session_id = "sess-invalid-boundary-missing"
-        self.store.append_event(session_id, "session_meta", {"current_mode": "code"})
+        self.store.append_event(session_id, "session_meta", {"current_mode": "build"})
         self.store.append_event(
             session_id,
             "message",
@@ -524,7 +524,7 @@ class TestSessionRestorer(unittest.TestCase):
                 "summary_text": "Earlier work summary",
                 "compacted_turn_count": 1,
                 "created_at": "2026-04-02T00:00:01Z",
-                "mode_name": "code",
+                "mode_name": "build",
                 "preserved_head_message_id": "m-missing",
                 "preserved_tail_message_id": "m-assistant",
                 "metadata": {},
@@ -538,7 +538,7 @@ class TestSessionRestorer(unittest.TestCase):
                 "step_id": "s-1",
                 "reason": "completed",
                 "message": "assistant finished",
-                "next_mode": "code",
+                "next_mode": "build",
                 "turns_used": 1,
                 "metadata": {},
             },
@@ -549,7 +549,7 @@ class TestSessionRestorer(unittest.TestCase):
 
     def test_restore_stops_at_compact_boundary_with_reversed_preserved_range(self):
         session_id = "sess-invalid-boundary-order"
-        self.store.append_event(session_id, "session_meta", {"current_mode": "code"})
+        self.store.append_event(session_id, "session_meta", {"current_mode": "build"})
         self.store.append_event(
             session_id,
             "message",
@@ -592,7 +592,7 @@ class TestSessionRestorer(unittest.TestCase):
                 "summary_text": "Earlier work summary",
                 "compacted_turn_count": 1,
                 "created_at": "2026-04-02T00:00:01Z",
-                "mode_name": "code",
+                "mode_name": "build",
                 "preserved_head_message_id": "m-assistant-2",
                 "preserved_tail_message_id": "m-assistant-1",
                 "metadata": {},
@@ -606,7 +606,7 @@ class TestSessionRestorer(unittest.TestCase):
                 "step_id": "s-1",
                 "reason": "completed",
                 "message": "assistant finished",
-                "next_mode": "code",
+                "next_mode": "build",
                 "turns_used": 1,
                 "metadata": {},
             },
@@ -617,7 +617,7 @@ class TestSessionRestorer(unittest.TestCase):
 
     def test_restore_stops_at_duplicate_compact_boundary_id(self):
         session_id = "sess-duplicate-boundary-id"
-        self.store.append_event(session_id, "session_meta", {"current_mode": "code"})
+        self.store.append_event(session_id, "session_meta", {"current_mode": "build"})
         self.store.append_event(
             session_id,
             "message",
@@ -646,7 +646,7 @@ class TestSessionRestorer(unittest.TestCase):
                 "summary_text": "Earlier work summary 1",
                 "compacted_turn_count": 1,
                 "created_at": "2026-04-02T00:00:01Z",
-                "mode_name": "code",
+                "mode_name": "build",
                 "preserved_head_message_id": "m-user",
                 "preserved_tail_message_id": "m-assistant-1",
                 "metadata": {},
@@ -660,7 +660,7 @@ class TestSessionRestorer(unittest.TestCase):
                 "summary_text": "Earlier work summary 2",
                 "compacted_turn_count": 1,
                 "created_at": "2026-04-02T00:00:02Z",
-                "mode_name": "code",
+                "mode_name": "build",
                 "preserved_head_message_id": "m-user",
                 "preserved_tail_message_id": "m-assistant-1",
                 "metadata": {},
@@ -674,7 +674,7 @@ class TestSessionRestorer(unittest.TestCase):
                 "step_id": "s-1",
                 "reason": "completed",
                 "message": "assistant finished",
-                "next_mode": "code",
+                "next_mode": "build",
                 "turns_used": 1,
                 "metadata": {},
             },
@@ -687,7 +687,7 @@ class TestSessionRestorer(unittest.TestCase):
 
     def test_restore_stops_at_assistant_message_with_mismatched_turn_id(self):
         session_id = "sess-invalid-assistant-message"
-        self.store.append_event(session_id, "session_meta", {"current_mode": "code"})
+        self.store.append_event(session_id, "session_meta", {"current_mode": "build"})
         self.store.append_event(
             session_id,
             "message",
@@ -716,7 +716,7 @@ class TestSessionRestorer(unittest.TestCase):
                 "step_id": "s-1",
                 "reason": "completed",
                 "message": "assistant finished",
-                "next_mode": "code",
+                "next_mode": "build",
                 "turns_used": 1,
                 "metadata": {},
             },
@@ -728,7 +728,7 @@ class TestSessionRestorer(unittest.TestCase):
 
     def test_restore_stops_at_tool_message_with_mismatched_step_id(self):
         session_id = "sess-invalid-tool-message-step"
-        self.store.append_event(session_id, "session_meta", {"current_mode": "code"})
+        self.store.append_event(session_id, "session_meta", {"current_mode": "build"})
         self.store.append_event(
             session_id,
             "message",
@@ -757,7 +757,7 @@ class TestSessionRestorer(unittest.TestCase):
                 "step_id": "s-1",
                 "reason": "completed",
                 "message": "assistant finished",
-                "next_mode": "code",
+                "next_mode": "build",
                 "turns_used": 1,
                 "metadata": {},
             },
@@ -769,7 +769,7 @@ class TestSessionRestorer(unittest.TestCase):
 
     def test_restore_stops_at_duplicate_message_id(self):
         session_id = "sess-duplicate-message-id"
-        self.store.append_event(session_id, "session_meta", {"current_mode": "code"})
+        self.store.append_event(session_id, "session_meta", {"current_mode": "build"})
         self.store.append_event(
             session_id,
             "message",
@@ -788,7 +788,7 @@ class TestSessionRestorer(unittest.TestCase):
                 "step_id": "",
                 "reason": "completed",
                 "message": "assistant finished",
-                "next_mode": "code",
+                "next_mode": "build",
                 "turns_used": 1,
                 "metadata": {},
             },
@@ -801,7 +801,7 @@ class TestSessionRestorer(unittest.TestCase):
 
     def test_restore_stops_at_duplicate_turn_id(self):
         session_id = "sess-duplicate-turn-id"
-        self.store.append_event(session_id, "session_meta", {"current_mode": "code"})
+        self.store.append_event(session_id, "session_meta", {"current_mode": "build"})
         self.store.append_event(
             session_id,
             "message",
@@ -820,7 +820,7 @@ class TestSessionRestorer(unittest.TestCase):
                 "step_id": "",
                 "reason": "completed",
                 "message": "assistant finished",
-                "next_mode": "code",
+                "next_mode": "build",
                 "turns_used": 1,
                 "metadata": {},
             },
@@ -833,7 +833,7 @@ class TestSessionRestorer(unittest.TestCase):
 
     def test_restore_stops_at_duplicate_tool_call_id(self):
         session_id = "sess-duplicate-call-id"
-        self.store.append_event(session_id, "session_meta", {"current_mode": "code"})
+        self.store.append_event(session_id, "session_meta", {"current_mode": "build"})
         self.store.append_event(
             session_id,
             "message",
@@ -872,7 +872,7 @@ class TestSessionRestorer(unittest.TestCase):
                 "step_id": "s-1",
                 "reason": "completed",
                 "message": "assistant finished",
-                "next_mode": "code",
+                "next_mode": "build",
                 "turns_used": 1,
                 "metadata": {},
             },
@@ -886,7 +886,7 @@ class TestSessionRestorer(unittest.TestCase):
 
     def test_restore_stops_at_duplicate_step_id(self):
         session_id = "sess-duplicate-step-id"
-        self.store.append_event(session_id, "session_meta", {"current_mode": "code"})
+        self.store.append_event(session_id, "session_meta", {"current_mode": "build"})
         self.store.append_event(
             session_id,
             "message",
@@ -921,7 +921,7 @@ class TestSessionRestorer(unittest.TestCase):
                 "step_id": "s-dup",
                 "reason": "completed",
                 "message": "assistant finished",
-                "next_mode": "code",
+                "next_mode": "build",
                 "turns_used": 1,
                 "metadata": {},
             },
@@ -1193,7 +1193,7 @@ class TestSessionRestorer(unittest.TestCase):
 
     def test_restore_stops_at_tool_result_with_mismatched_tool_name(self):
         session_id = "sess-tool-result-wrong-tool"
-        self.store.append_event(session_id, "session_meta", {"current_mode": "code"})
+        self.store.append_event(session_id, "session_meta", {"current_mode": "build"})
         self.store.append_event(
             session_id,
             "message",
@@ -1236,7 +1236,7 @@ class TestSessionRestorer(unittest.TestCase):
                 "step_id": "s-1",
                 "reason": "completed",
                 "message": "assistant finished",
-                "next_mode": "code",
+                "next_mode": "build",
                 "turns_used": 1,
                 "metadata": {},
             },
@@ -1251,7 +1251,7 @@ class TestSessionRestorer(unittest.TestCase):
 
     def test_restore_stops_at_tool_result_with_mismatched_arguments(self):
         session_id = "sess-tool-result-wrong-args"
-        self.store.append_event(session_id, "session_meta", {"current_mode": "code"})
+        self.store.append_event(session_id, "session_meta", {"current_mode": "build"})
         self.store.append_event(
             session_id,
             "message",
@@ -1295,7 +1295,7 @@ class TestSessionRestorer(unittest.TestCase):
                 "step_id": "s-1",
                 "reason": "completed",
                 "message": "assistant finished",
-                "next_mode": "code",
+                "next_mode": "build",
                 "turns_used": 1,
                 "metadata": {},
             },
@@ -1310,7 +1310,7 @@ class TestSessionRestorer(unittest.TestCase):
 
     def test_restore_stops_at_duplicate_tool_result_message_id(self):
         session_id = "sess-duplicate-tool-result-message-id"
-        self.store.append_event(session_id, "session_meta", {"current_mode": "code"})
+        self.store.append_event(session_id, "session_meta", {"current_mode": "build"})
         self.store.append_event(
             session_id,
             "message",
@@ -1354,7 +1354,7 @@ class TestSessionRestorer(unittest.TestCase):
                 "step_id": "s-1",
                 "reason": "completed",
                 "message": "assistant finished",
-                "next_mode": "code",
+                "next_mode": "build",
                 "turns_used": 1,
                 "metadata": {},
             },
@@ -1369,7 +1369,7 @@ class TestSessionRestorer(unittest.TestCase):
 
     def test_restore_stops_at_content_replacement_with_missing_message(self):
         session_id = "sess-replacement-missing-message"
-        self.store.append_event(session_id, "session_meta", {"current_mode": "code"})
+        self.store.append_event(session_id, "session_meta", {"current_mode": "build"})
         self.store.append_event(
             session_id,
             "message",
@@ -1399,7 +1399,7 @@ class TestSessionRestorer(unittest.TestCase):
                 "step_id": "",
                 "reason": "completed",
                 "message": "assistant finished",
-                "next_mode": "code",
+                "next_mode": "build",
                 "turns_used": 1,
                 "metadata": {},
             },
@@ -1410,7 +1410,7 @@ class TestSessionRestorer(unittest.TestCase):
 
     def test_restore_stops_at_content_replacement_with_mismatched_tool_identity(self):
         session_id = "sess-replacement-wrong-tool"
-        self.store.append_event(session_id, "session_meta", {"current_mode": "code"})
+        self.store.append_event(session_id, "session_meta", {"current_mode": "build"})
         self.store.append_event(
             session_id,
             "message",
@@ -1455,7 +1455,7 @@ class TestSessionRestorer(unittest.TestCase):
                 "step_id": "s-1",
                 "reason": "completed",
                 "message": "assistant finished",
-                "next_mode": "code",
+                "next_mode": "build",
                 "turns_used": 1,
                 "metadata": {},
             },
@@ -1467,3 +1467,4 @@ class TestSessionRestorer(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

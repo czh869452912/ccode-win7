@@ -454,7 +454,7 @@ export function timelineFromTurns(turns, events = [], options = {}) {
               step_index: 1,
               reasoning: turn.reasoning || "",
               assistant_text: turn.assistant_text || "",
-              tool_calls: turn.tool_calls || [],
+              tool_calls: [],
               status: turn.status || "completed",
             },
           ];
@@ -545,7 +545,7 @@ export function normalizeSessionPayload(payload) {
   return {
     session_id: payload.session_id || "",
     status: payload.status || "idle",
-    current_mode: payload.current_mode || "code",
+    current_mode: payload.current_mode || "build",
     started_at: payload.started_at || payload.created_at || "",
     updated_at: payload.updated_at || "",
     workflow_state: payload.workflow_state || "chat",
@@ -609,3 +609,4 @@ export function normalizeSessionPayload(payload) {
           : null),
   };
 }
+

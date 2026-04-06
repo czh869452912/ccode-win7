@@ -46,21 +46,21 @@ class TestMakeContextConfig(unittest.TestCase):
     def test_partial_overrides_preserve_mode_overrides(self):
         cfg = make_context_config(AppConfig(max_context_tokens=32000))
         # mode_overrides should still be present with original values
-        self.assertIn("code", cfg.mode_overrides)
+        self.assertIn("build", cfg.mode_overrides)
         self.assertIn("ask", cfg.mode_overrides)
 
 
 class TestReducerRegistryTodos(unittest.TestCase):
     def setUp(self):
         self.registry = ReducerRegistry()
-        self.policy = ContextConfig().mode_overrides.get("code", {})
+        self.policy = ContextConfig().mode_overrides.get("build", {})
 
     def _make_policy(self):
         from embedagent.context import ContextConfig, ContextPolicy
         cfg = ContextConfig()
-        overrides = cfg.mode_overrides.get("code", {})
+        overrides = cfg.mode_overrides.get("build", {})
         return ContextPolicy(
-            mode_name="code",
+            mode_name="build",
             max_context_tokens=overrides.get("max_context_tokens", cfg.default_max_context_tokens),
             reserve_output_tokens=overrides.get("reserve_output_tokens", cfg.default_reserve_output_tokens),
             reserve_reasoning_tokens=overrides.get("reserve_reasoning_tokens", cfg.default_reserve_reasoning_tokens),
@@ -125,13 +125,13 @@ class TestReducerRegistryTodos(unittest.TestCase):
 class TestContextConfigModeOverrides(unittest.TestCase):
     def test_mode_overrides_all_modes_present(self):
         cfg = ContextConfig()
-        for mode in ("ask", "orchestra", "spec", "code", "test", "verify", "debug", "compact"):
+        for mode in ("ask", "orchestra", "spec", "build", "test", "verify", "debug", "compact"):
             self.assertIn(mode, cfg.mode_overrides)
 
     def test_compact_has_smaller_budgets(self):
         cfg = ContextConfig()
         compact = cfg.mode_overrides["compact"]
-        code = cfg.mode_overrides["code"]
+        code = cfg.mode_overrides["build"]
         self.assertLess(compact["max_context_tokens"], code["max_context_tokens"])
 
 
@@ -139,7 +139,7 @@ class TestContextCompactionSignal(unittest.TestCase):
     def test_old_turns_alone_do_not_mark_compacted(self):
         cfg = ContextConfig()
         cfg.default_max_recent_turns = 1
-        cfg.mode_overrides["code"]["max_recent_turns"] = 1
+        cfg.mode_overrides["build"]["max_recent_turns"] = 1
         manager = ContextManager(config=cfg)
         session = Session(session_id="sess-compaction")
         session.add_user_message("first turn", turn_id="turn-1")
@@ -147,9 +147,10 @@ class TestContextCompactionSignal(unittest.TestCase):
         session.add_user_message("second turn", turn_id="turn-2")
         session.add_system_message("assistant two", turn_id="turn-2")
         with mock.patch.object(manager, "_measure_messages", return_value=100):
-            result = manager.build_messages(session, mode_name="code")
+            result = manager.build_messages(session, mode_name="build")
         self.assertFalse(result.compacted)
 
 
 if __name__ == "__main__":
     unittest.main()
+

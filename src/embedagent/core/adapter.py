@@ -109,7 +109,7 @@ def _session_snapshot_from_dict(snapshot: Dict[str, Any]) -> SessionSnapshot:
     return SessionSnapshot(
         session_id=snapshot.get("session_id", ""),
         status=_status_from_snapshot(snapshot),
-        current_mode=snapshot.get("current_mode", "code"),
+        current_mode=snapshot.get("current_mode", "build"),
         created_at=snapshot.get("started_at", ""),
         updated_at=snapshot.get("updated_at", ""),
         workflow_state=snapshot.get("workflow_state", "chat"),
@@ -572,3 +572,4 @@ class AgentCoreAdapter(CoreInterface):
         """关闭 Core"""
         # 清理资源
         pass
+

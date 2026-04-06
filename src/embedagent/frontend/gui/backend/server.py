@@ -75,7 +75,7 @@ def _serialize_session_snapshot(snapshot: Any) -> Dict[str, Any]:
     return {
         "session_id": str(_read_value(snapshot, "session_id", "") or ""),
         "status": _read_status_value(snapshot),
-        "current_mode": str(_read_value(snapshot, "current_mode", "code") or "code"),
+        "current_mode": str(_read_value(snapshot, "current_mode", "build") or "build"),
         "started_at": str(_read_value(snapshot, "started_at", "", aliases=("created_at",)) or ""),
         "updated_at": str(_read_value(snapshot, "updated_at", "") or ""),
         "workflow_state": str(_read_value(snapshot, "workflow_state", "chat") or "chat"),
@@ -494,13 +494,13 @@ class GUIBackend:
             return _serialize_session_snapshot(snapshot)
 
         @app.post("/api/sessions")
-        async def create_session(mode: str = "code"):
+        async def create_session(mode: str = "build"):
             snapshot = self._call_core(self.core.create_session, mode)
             self._current_session_id = str(_read_value(snapshot, "session_id", "") or "")
             return _serialize_session_snapshot(snapshot)
 
         @app.post("/api/sessions/{session_id}/resume")
-        async def resume_session(session_id: str, mode: str = "code"):
+        async def resume_session(session_id: str, mode: str = "build"):
             snapshot = self._call_core(self.core.resume_session, session_id, mode)
             self._current_session_id = str(_read_value(snapshot, "session_id", "") or "")
             return _serialize_session_snapshot(snapshot)
@@ -519,7 +519,7 @@ class GUIBackend:
 
         @app.post("/api/sessions/{session_id}/mode")
         async def set_mode(session_id: str, request: Dict[str, Any]):
-            mode = request.get("mode", "code")
+            mode = request.get("mode", "build")
             self._call_core(self.core.set_mode, session_id, mode)
             return {"status": "ok"}
 
@@ -682,3 +682,4 @@ class GUIBackend:
         elif msg_type == "user_input_response":
             req_id = data.get("request_id", "")
             self.frontend.handle_user_input_response(req_id, data)
+

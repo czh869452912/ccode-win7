@@ -98,7 +98,7 @@ class TestProtocol(unittest.TestCase):
         snap = SessionSnapshot(
             session_id="sess_001",
             status=SessionStatus.IDLE,
-            current_mode="code",
+            current_mode="build",
             created_at="2026-03-30T10:00:00",
             updated_at="2026-03-30T10:00:00"
         )
@@ -229,7 +229,7 @@ class TestMockFrontend(unittest.TestCase):
         snap = SessionSnapshot(
             session_id="s1",
             status=SessionStatus.RUNNING,
-            current_mode="code",
+            current_mode="build",
             created_at="2026-03-30T10:00:00",
             updated_at="2026-03-30T10:00:00"
         )
@@ -303,3 +303,4 @@ class TestCoreAdapterImport(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+

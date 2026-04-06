@@ -61,7 +61,7 @@ class ToolCatalogEntry:
 _DEFAULT_TOOL_METADATA = {
     "read_file": {
         "permission_category": "read",
-        "mode_visibility": ["explore", "spec", "code", "debug"],
+        "mode_visibility": ["explore", "spec", "build", "debug"],
         "workflow_visibility": ["chat", "plan", "review", "command"],
         "user_label": "Read File",
         "progress_renderer_key": "file",
@@ -77,7 +77,7 @@ _DEFAULT_TOOL_METADATA = {
     },
     "list_files": {
         "permission_category": "read",
-        "mode_visibility": ["explore", "spec", "code", "debug"],
+        "mode_visibility": ["explore", "spec", "build", "debug"],
         "workflow_visibility": ["chat", "plan", "review", "command"],
         "user_label": "List Files",
         "progress_renderer_key": "list",
@@ -93,7 +93,7 @@ _DEFAULT_TOOL_METADATA = {
     },
     "search_text": {
         "permission_category": "read",
-        "mode_visibility": ["explore", "spec", "code", "debug"],
+        "mode_visibility": ["explore", "spec", "build", "debug"],
         "workflow_visibility": ["chat", "plan", "review", "command"],
         "user_label": "Search Text",
         "progress_renderer_key": "search",
@@ -109,7 +109,7 @@ _DEFAULT_TOOL_METADATA = {
     },
     "write_file": {
         "permission_category": "workspace_write",
-        "mode_visibility": ["spec", "code", "debug"],
+        "mode_visibility": ["spec", "build", "debug"],
         "workflow_visibility": ["chat", "plan", "command"],
         "user_label": "Write File",
         "progress_renderer_key": "file_write",
@@ -125,7 +125,7 @@ _DEFAULT_TOOL_METADATA = {
     },
     "edit_file": {
         "permission_category": "workspace_write",
-        "mode_visibility": ["code", "debug"],
+        "mode_visibility": ["build", "debug"],
         "workflow_visibility": ["chat", "command"],
         "user_label": "Edit File",
         "progress_renderer_key": "file_edit",
@@ -157,7 +157,7 @@ _DEFAULT_TOOL_METADATA = {
     },
     "compile_project": {
         "permission_category": "toolchain_exec",
-        "mode_visibility": ["code", "verify"],
+        "mode_visibility": ["build", "verify"],
         "workflow_visibility": ["chat", "review", "command"],
         "user_label": "Compile Project",
         "progress_renderer_key": "toolchain",
@@ -253,7 +253,7 @@ _DEFAULT_TOOL_METADATA = {
     },
     "git_status": {
         "permission_category": "read",
-        "mode_visibility": ["explore", "code", "debug"],
+        "mode_visibility": ["explore", "build", "debug"],
         "workflow_visibility": ["chat", "review", "command"],
         "user_label": "Git Status",
         "progress_renderer_key": "git",
@@ -269,7 +269,7 @@ _DEFAULT_TOOL_METADATA = {
     },
     "git_diff": {
         "permission_category": "read",
-        "mode_visibility": ["explore", "code", "debug"],
+        "mode_visibility": ["explore", "build", "debug"],
         "workflow_visibility": ["chat", "review", "command"],
         "user_label": "Git Diff",
         "progress_renderer_key": "git",
@@ -285,7 +285,7 @@ _DEFAULT_TOOL_METADATA = {
     },
     "git_log": {
         "permission_category": "read",
-        "mode_visibility": ["explore", "code", "debug"],
+        "mode_visibility": ["explore", "build", "debug"],
         "workflow_visibility": ["chat", "review", "command"],
         "user_label": "Git Log",
         "progress_renderer_key": "git",
@@ -301,7 +301,7 @@ _DEFAULT_TOOL_METADATA = {
     },
     "manage_todos": {
         "permission_category": "workspace_write",
-        "mode_visibility": ["explore", "spec", "code", "debug", "verify"],
+        "mode_visibility": ["explore", "spec", "build", "debug", "verify"],
         "workflow_visibility": ["chat", "plan", "review", "command"],
         "user_label": "Manage Todos",
         "progress_renderer_key": "todos",
@@ -513,7 +513,7 @@ class ToolRuntime(object):
             return dict(default)
         return {
             "permission_category": "read",
-            "mode_visibility": ["explore", "spec", "code", "debug", "verify"],
+            "mode_visibility": ["explore", "spec", "build", "debug", "verify"],
             "workflow_visibility": ["chat", "plan", "review", "command"],
             "user_label": name,
             "progress_renderer_key": "default",
@@ -527,3 +527,4 @@ class ToolRuntime(object):
             "activity_kind": "tool",
             "context_priority": 50,
         }
+

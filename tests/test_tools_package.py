@@ -378,7 +378,7 @@ class TestWorkspaceRecipes(unittest.TestCase):
             encoding="utf-8",
         ) as handle:
             handle.write(
-                '[{"key":"compile_project|.|clang demo.c","tool_name":"compile_project","command":"clang demo.c","cwd":".","last_mode":"code","created_at":"2026-04-01T00:00:00Z","last_success_at":"2026-04-01T00:00:00Z","success_count":1}]'
+                '[{"key":"compile_project|.|clang demo.c","tool_name":"compile_project","command":"clang demo.c","cwd":".","last_mode":"build","created_at":"2026-04-01T00:00:00Z","last_success_at":"2026-04-01T00:00:00Z","success_count":1}]'
             )
         from embedagent.workspace_recipes import list_workspace_recipes
 
@@ -445,3 +445,4 @@ class TestWorkspaceRecipes(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

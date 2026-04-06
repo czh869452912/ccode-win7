@@ -25,7 +25,7 @@ export const initialState = {
   preview: null,
   fileTree: [],
   toolCatalog: {},
-  requestedMode: "code",
+  requestedMode: "build",
   connectionState: "connecting",
   eventLog: [],
   terminationReason: "",

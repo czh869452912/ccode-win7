@@ -17,13 +17,13 @@
         "chars_per_token": 3.0,
         "max_recent_turns": 4,
         "max_turns": 8,
-        "default_mode": "code",
+        "default_mode": "build",
         "mode_writable_globs": {
-            "code": ["**/*.py", "**/*.toml", "**/*.cfg"],
+            "build": ["**/*.py", "**/*.toml", "**/*.cfg"],
             "spec": ["**/*.md", "**/*.rst"]
         },
         "mode_extra_writable_globs": {
-            "code": ["CMakeLists.txt", "**/*.cmake"]
+            "build": ["CMakeLists.txt", "**/*.cmake"]
         }
     }
 """
@@ -141,3 +141,4 @@ def load_config(workspace: str) -> AppConfig:
         cfg = _merge(cfg, _load_json_file(project_config_path))
 
     return cfg
+

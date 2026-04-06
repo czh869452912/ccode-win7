@@ -73,7 +73,7 @@ class ContextConfig:
             "ask": {"max_context_tokens": 12000, "reserve_output_tokens": 1600, "reserve_reasoning_tokens": 500, "max_recent_turns": 3, "max_summary_turns": 8},
             "orchestra": {"max_context_tokens": 14000, "reserve_output_tokens": 1800, "reserve_reasoning_tokens": 700, "max_recent_turns": 3, "max_summary_turns": 10},
             "spec": {"max_context_tokens": 14000, "reserve_output_tokens": 1800, "reserve_reasoning_tokens": 600, "max_recent_turns": 3, "max_summary_turns": 10},
-            "code": {"max_context_tokens": 18000, "reserve_output_tokens": 2200, "reserve_reasoning_tokens": 1000, "max_recent_turns": 4, "max_summary_turns": 12},
+            "build": {"max_context_tokens": 18000, "reserve_output_tokens": 2200, "reserve_reasoning_tokens": 1000, "max_recent_turns": 4, "max_summary_turns": 12},
             "test": {"max_context_tokens": 18000, "reserve_output_tokens": 2200, "reserve_reasoning_tokens": 1000, "max_recent_turns": 4, "max_summary_turns": 12},
             "verify": {"max_context_tokens": 18000, "reserve_output_tokens": 1800, "reserve_reasoning_tokens": 1200, "max_recent_turns": 3, "max_summary_turns": 10, "recent_tool_chars": 1800},
             "debug": {"max_context_tokens": 18000, "reserve_output_tokens": 2200, "reserve_reasoning_tokens": 1200, "max_recent_turns": 4, "max_summary_turns": 12},
@@ -410,7 +410,7 @@ class ContextManager(object):
         self.token_estimator = token_estimator or TokenEstimator(self.config.estimated_chars_per_token)
 
     def build_messages(self, session: Session, mode_name: Optional[str] = None, tools: Optional[Any] = None, workflow_state: str = "chat", intelligence_broker: Optional[WorkspaceIntelligenceBroker] = None, force_compact: bool = False) -> ContextBuildResult:
-        resolved_mode = mode_name or self._detect_mode_name(session) or "code"
+        resolved_mode = mode_name or self._detect_mode_name(session) or "build"
         policy = self._policy_for_mode("compact" if force_compact else resolved_mode)
         boundary = session.latest_compact_boundary() if hasattr(session, "latest_compact_boundary") else None
         visible_turns = session.turns[int(boundary.compacted_turn_count):] if boundary is not None else session.turns
@@ -1020,3 +1020,4 @@ def _truncate_text(text: str, limit: int) -> str:
 
 def _single_line(text: str) -> str:
     return " ".join(text.split())
+

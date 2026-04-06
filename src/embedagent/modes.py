@@ -43,7 +43,7 @@ _BUILTIN_MODES = {
             "负责阅读代码、解释逻辑、讨论设计方案，以及帮助用户理清思路。"
             "任务开始时先用 manage_todos list 查看未完成项，有任务则先向用户汇报。"
             "当用户需要修改文件时，用 ask_user 询问应切换到哪个模式，"
-            "提供 2-4 个选项（如 spec / code / debug），等待用户用 /mode 切换。"
+            "提供 2-4 个选项（如 spec / build / debug），等待用户用 /mode 切换。"
             "不要擅自写文件。"
         ),
         "allowed_tools": ["read_file", "list_files", "search_text",
@@ -62,29 +62,6 @@ _BUILTIN_MODES = {
         "allowed_tools": ["read_file", "list_files", "search_text",
                           "write_file", "manage_todos", "ask_user"],
         "writable_globs": ["**/*.md", "**/*.rst", "**/*.txt"],
-    },
-    "code": {
-        "slug": "code",
-        "system_prompt": (
-            "你当前处于 code 模式，负责以最小变更实现代码。"
-            "应复用现有工程结构，不要假设 src/ 必然存在；先用 list_files 了解目录布局。"
-            "任务开始时用 manage_todos list 查看待办项，完成阶段性工作后标记已完成。"
-            "若遇到需要用户决策的问题，用 ask_user 询问。"
-        ),
-        "allowed_tools": ["read_file", "list_files", "write_file", "edit_file",
-                          "search_text", "compile_project",
-                          "git_status", "git_diff",
-                          "manage_todos", "ask_user"],
-        "writable_globs": [
-            "**/*.c", "**/*.cc", "**/*.cpp", "**/*.cxx",
-            "**/*.h", "**/*.hh", "**/*.hpp", "**/*.hxx",
-            "**/*.py", "**/*.pyi", "**/*.ps1", "**/*.bat",
-            "**/*.toml", "**/*.cfg", "**/*.ini",
-            "**/*.json", "**/*.yaml", "**/*.yml",
-            "**/*.cmake", "CMakeLists.txt", "**/CMakeLists.txt",
-            "Makefile", "**/Makefile", "makefile", "**/makefile",
-            "meson.build", "**/meson.build",
-        ],
     },
     "build": {
         "slug": "build",
@@ -114,7 +91,7 @@ _BUILTIN_MODES = {
             "你当前处于 debug 模式，负责复现问题、定位根因并做最小修复。"
             "先根据当前工程结构和诊断缩小范围，不要假设固定目录。"
             "任务开始时用 manage_todos list 查看待办项。"
-            "若需要更大范围重构，用 ask_user 告知用户建议切换到 code 模式。"
+            "若需要更大范围重构，用 ask_user 告知用户建议切换到 build 模式。"
         ),
         "allowed_tools": ["read_file", "list_files", "search_text",
                           "write_file", "edit_file", "run_command",

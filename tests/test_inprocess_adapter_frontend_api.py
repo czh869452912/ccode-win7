@@ -89,7 +89,7 @@ class SwitchModeClient(object):
                 actions=[
                     Action(
                         name="switch_mode",
-                        arguments={"target": "code", "reason": "规格已明确，开始实现。"},
+                        arguments={"target": "build", "reason": "规格已明确，开始实现。"},
                         call_id="call-switch",
                     )
                 ],
@@ -290,7 +290,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             content_kind=stored.content_kind,
             created_at="2026-04-05T00:00:00Z",
         )
-        self.snapshot = self.adapter.create_session('code')
+        self.snapshot = self.adapter.create_session('build')
 
     def tearDown(self):
         shutil.rmtree(self.workspace, ignore_errors=True)
@@ -342,7 +342,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
         )
-        snapshot = adapter.create_session('code')
+        snapshot = adapter.create_session('build')
         session_id = str(snapshot.get('session_id') or '')
         adapter.submit_user_message(
             session_id=session_id,
@@ -369,7 +369,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertTrue(all(step.get("projection_kind") == "recorded_step" for step in turn["steps"]))
 
     def test_structured_timeline_marks_turn_level_projection_as_synthetic_step(self):
-        snapshot = self.adapter.create_session('code')
+        snapshot = self.adapter.create_session('build')
         session_id = str(snapshot.get('session_id') or '')
         self.adapter.timeline_store.append_event(
             session_id,
@@ -409,7 +409,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertEqual(step["reasoning"], "legacy reasoning")
 
     def test_structured_timeline_reports_raw_event_projection_without_turns(self):
-        snapshot = self.adapter.create_session('code')
+        snapshot = self.adapter.create_session('build')
         session_id = str(snapshot.get('session_id') or '')
         self.adapter.timeline_store.append_event(
             session_id,
@@ -435,7 +435,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
         )
-        snapshot = adapter.create_session('code')
+        snapshot = adapter.create_session('build')
         session_id = str(snapshot.get('session_id') or '')
         adapter.submit_user_message(
             session_id=session_id,
@@ -459,7 +459,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
         )
-        snapshot = adapter.create_session('code')
+        snapshot = adapter.create_session('build')
         session_id = str(snapshot.get('session_id') or '')
         adapter.submit_user_message(
             session_id=session_id,
@@ -498,7 +498,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
         )
-        snapshot = adapter.create_session('code')
+        snapshot = adapter.create_session('build')
         session_id = str(snapshot.get('session_id') or '')
         adapter.submit_user_message(
             session_id=session_id,
@@ -519,7 +519,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
         )
-        snapshot = adapter.create_session('code')
+        snapshot = adapter.create_session('build')
         session_id = str(snapshot.get('session_id') or '')
         events = []
         adapter.submit_user_message(
@@ -548,7 +548,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             max_turns=1,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
         )
-        snapshot = adapter.create_session('code')
+        snapshot = adapter.create_session('build')
         session_id = str(snapshot.get('session_id') or '')
         adapter.submit_user_message(
             session_id=session_id,
@@ -575,7 +575,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             max_turns=1,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
         )
-        snapshot = adapter.create_session('code')
+        snapshot = adapter.create_session('build')
         session_id = str(snapshot.get('session_id') or '')
         adapter.submit_user_message(
             session_id=session_id,
@@ -604,7 +604,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
         )
-        snapshot = adapter.create_session('code')
+        snapshot = adapter.create_session('build')
         session_id = str(snapshot.get('session_id') or '')
         adapter.submit_user_message(
             session_id=session_id,
@@ -657,7 +657,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=False, workspace=self.workspace),
         )
-        snapshot = adapter.create_session('code')
+        snapshot = adapter.create_session('build')
         session_id = str(snapshot.get('session_id') or '')
         adapter.submit_user_message(
             session_id=session_id,
@@ -693,7 +693,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             max_turns=1,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
         )
-        snapshot = adapter.create_session('code')
+        snapshot = adapter.create_session('build')
         session_id = str(snapshot.get('session_id') or '')
         adapter.submit_user_message(
             session_id=session_id,
@@ -721,7 +721,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
         )
-        snapshot = adapter.create_session('code')
+        snapshot = adapter.create_session('build')
         session_id = str(snapshot.get('session_id') or '')
         adapter.submit_user_message(
             session_id=session_id,
@@ -754,7 +754,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
         )
-        snapshot = adapter.create_session('code')
+        snapshot = adapter.create_session('build')
         session_id = str(snapshot.get('session_id') or '')
         adapter.submit_user_message(
             session_id=session_id,
@@ -794,7 +794,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
         )
-        snapshot = adapter.create_session('code')
+        snapshot = adapter.create_session('build')
         session_id = str(snapshot.get('session_id') or '')
         adapter.submit_user_message(
             session_id=session_id,
@@ -832,7 +832,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
         )
-        snapshot = adapter.create_session('code')
+        snapshot = adapter.create_session('build')
         session_id = str(snapshot.get('session_id') or '')
         adapter.submit_user_message(
             session_id=session_id,
@@ -845,9 +845,9 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         summary_path = adapter.summary_store.resolve_summary_path(session_id)
         if os.path.isfile(summary_path):
             os.remove(summary_path)
-        restored = adapter.resume_session(session_id, 'code')
+        restored = adapter.resume_session(session_id, 'build')
         self.assertEqual(restored["session_id"], session_id)
-        self.assertEqual(restored["current_mode"], "code")
+        self.assertEqual(restored["current_mode"], "build")
         self.assertEqual(restored["last_assistant_message"], "done")
 
     def test_resume_session_restores_waiting_permission_from_transcript(self):
@@ -856,7 +856,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=False, workspace=self.workspace),
         )
-        snapshot = adapter.create_session('code')
+        snapshot = adapter.create_session('build')
         session_id = str(snapshot.get('session_id') or '')
         adapter.submit_user_message(
             session_id=session_id,
@@ -865,7 +865,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             wait=True,
             event_handler=lambda event_name, current_session_id, payload: None,
         )
-        restored = adapter.resume_session(session_id, 'code')
+        restored = adapter.resume_session(session_id, 'build')
         self.assertEqual(restored["status"], "waiting_permission")
         self.assertTrue(restored["has_pending_permission"])
 
@@ -875,7 +875,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
         )
-        snapshot = adapter.create_session('code')
+        snapshot = adapter.create_session('build')
         session_id = str(snapshot.get('session_id') or '')
         adapter.submit_user_message(
             session_id=session_id,
@@ -888,7 +888,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         summary_path = adapter.summary_store.resolve_summary_path(session_id)
         if os.path.isfile(summary_path):
             os.remove(summary_path)
-        restored = adapter.resume_session(session_id, 'code')
+        restored = adapter.resume_session(session_id, 'build')
         self.assertEqual(restored["restore_stop_reason"], "")
         self.assertEqual(restored["restore_consumed_event_count"], restored["restore_transcript_event_count"])
         self.assertGreater(restored["restore_transcript_event_count"], 0)
@@ -1013,7 +1013,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
         )
-        snapshot = adapter.create_session('code')
+        snapshot = adapter.create_session('build')
         session_id = str(snapshot.get('session_id') or '')
         adapter.submit_user_message(
             session_id=session_id,
@@ -1027,7 +1027,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         if os.path.isfile(transcript_path):
             os.remove(transcript_path)
         with self.assertRaises(ValueError):
-            adapter.resume_session(session_id, 'code')
+            adapter.resume_session(session_id, 'build')
 
     def test_cancel_session_emits_interrupted_tool_result_when_tool_started(self):
         adapter = InProcessAdapter(
@@ -1035,7 +1035,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
         )
-        snapshot = adapter.create_session('code')
+        snapshot = adapter.create_session('build')
         session_id = str(snapshot.get('session_id') or '')
         events = []
         cancelled = {"done": False}
@@ -1131,7 +1131,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
     def test_session_scoped_todos_are_isolated(self):
         first_session_id = str(self.snapshot.get('session_id') or '')
         self.tools.execute("manage_todos", {"action": "add", "content": "session-one", "session_id": first_session_id})
-        second = self.adapter.create_session('code')
+        second = self.adapter.create_session('build')
         second_session_id = str(second.get('session_id') or '')
         self.assertEqual(self.adapter.list_todos(session_id=first_session_id)["count"], 1)
         self.assertEqual(self.adapter.list_todos(session_id=second_session_id)["count"], 0)
@@ -1160,7 +1160,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
         )
-        snapshot = adapter.create_session('code')
+        snapshot = adapter.create_session('build')
         events = []
         adapter.submit_user_message(
             session_id=str(snapshot.get('session_id') or ''),
@@ -1383,3 +1383,4 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+

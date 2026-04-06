@@ -14,7 +14,7 @@ from embedagent.frontend.tui.state import TerminalState
 
 class TestTerminalFrontendModules(unittest.TestCase):
     def setUp(self):
-        self.state = TerminalState(workspace=tempfile.mkdtemp(), initial_mode='code')
+        self.state = TerminalState(workspace=tempfile.mkdtemp(), initial_mode='build')
         self.state.explorer.items = [
             ExplorerItem(kind='file', path='src/main.c', label='[F] main.c'),
             ExplorerItem(kind='file', path='docs/readme.md', label='[F] readme.md'),
@@ -23,7 +23,7 @@ class TestTerminalFrontendModules(unittest.TestCase):
             ArtifactRow(path='.embedagent/memory/artifacts/demo.json', tool_name='run_command', field_name='stdout'),
         ]
         self.state.session.session_items = [
-            {'session_id': 'sess-001', 'current_mode': 'code'},
+            {'session_id': 'sess-001', 'current_mode': 'build'},
         ]
         self.completer = TerminalCompleter(lambda: self.state)
 
@@ -50,3 +50,4 @@ class TestTerminalFrontendModules(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+

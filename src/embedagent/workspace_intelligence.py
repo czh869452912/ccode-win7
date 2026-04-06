@@ -119,7 +119,7 @@ class RecipeProvider(WorkspaceIntelligenceProvider):
                 provider=self.name,
                 title="Active Recipes",
                 content="工作区 recipe：%s" % "; ".join(selected),
-                priority=85 if mode_name in ("code", "verify", "debug") else 55,
+                priority=85 if mode_name in ("build", "verify", "debug") else 55,
                 tags=["recipe", mode_name],
                 metadata={"count": len(items), "selected_ids": selected_ids, "selected_sources": selected_sources},
             )
@@ -128,13 +128,13 @@ class RecipeProvider(WorkspaceIntelligenceProvider):
     def _rank_items(self, mode_name: str, items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         preferred = {
             "verify": {"run_tests": 0, "run_clang_tidy": 1, "run_clang_analyzer": 2, "collect_coverage": 3, "compile_project": 4},
-            "code": {"compile_project": 0, "run_tests": 1, "run_clang_tidy": 2},
+            "build": {"compile_project": 0, "run_tests": 1, "run_clang_tidy": 2},
             "debug": {"run_tests": 0, "compile_project": 1, "run_clang_tidy": 2, "run_clang_analyzer": 3},
             "explore": {"compile_project": 0, "run_tests": 1},
             "spec": {"compile_project": 0, "run_tests": 1},
         }.get(mode_name, {})
         source_rank = {
-            "code": {"project": 0, "detected": 1, "history": 2},
+            "build": {"project": 0, "detected": 1, "history": 2},
             "debug": {"project": 0, "detected": 1, "history": 2},
             "verify": {"project": 0, "history": 1, "detected": 2},
             "explore": {"project": 0, "detected": 1, "history": 2},
@@ -154,7 +154,7 @@ class RecipeProvider(WorkspaceIntelligenceProvider):
         stage = str(item.get("stage") or "")
         if not stage:
             return 0
-        if mode_name in ("code", "debug"):
+        if mode_name in ("build", "debug"):
             order = {"build": 0, "test": 1, "configure": 2}
         elif mode_name == "verify":
             order = {"test": 0, "build": 1, "configure": 2}
@@ -193,7 +193,7 @@ class CtagsProvider(WorkspaceIntelligenceProvider):
                 provider=self.name,
                 title="Symbol Intelligence",
                 content=content,
-                priority=80 if mode_name in ("code", "debug") else 40,
+                priority=80 if mode_name in ("build", "debug") else 40,
                 tags=["symbol", mode_name],
                 metadata={"ctags_available": bool(ctags_path), "tags_file": os.path.isfile(tags_file), "parsed_tags": bool(os.path.isfile(tags_file) and _load_ctags_entries(tags_file, limit=1)), "focus_paths": focus_paths if os.path.isfile(tags_file) else []},
             )
@@ -240,7 +240,7 @@ class DiagnosticsProvider(WorkspaceIntelligenceProvider):
                         ", ".join(tool_names),
                         hotspot["latest_detail"],
                     ),
-                    priority=100 if mode_name in ("code", "debug", "verify") else 60,
+                    priority=100 if mode_name in ("build", "debug", "verify") else 60,
                     tags=["diagnostic", mode_name] + list(tool_names),
                     metadata={
                         "tool_name": tool_names[0] if tool_names else "",
@@ -260,7 +260,7 @@ class DiagnosticsProvider(WorkspaceIntelligenceProvider):
                     provider=self.name,
                     title=str(pathless_summary["title"]),
                     content=str(pathless_summary["content"]),
-                    priority=95 if mode_name in ("code", "debug", "verify") else 55,
+                    priority=95 if mode_name in ("build", "debug", "verify") else 55,
                     tags=["diagnostic", mode_name] + list(pathless_summary["tool_names"]),
                     metadata={
                         "tool_name": pathless_summary["tool_names"][0] if pathless_summary["tool_names"] else "",
@@ -312,7 +312,7 @@ class DiagnosticsProvider(WorkspaceIntelligenceProvider):
                     provider=self.name,
                     title="Recent Diagnostics",
                     content=detail,
-                    priority=100 if mode_name in ("code", "debug", "verify") else 60,
+                    priority=100 if mode_name in ("build", "debug", "verify") else 60,
                     tags=tags,
                     metadata=metadata,
                 )
@@ -326,7 +326,7 @@ class GitStateProvider(WorkspaceIntelligenceProvider):
     name = "git"
 
     def collect(self, session: Session, mode_name: str, tools: Any, project_memory: Optional[ProjectMemoryStore] = None) -> List[IntelligenceEvidence]:
-        if mode_name not in ("explore", "spec", "code", "debug"):
+        if mode_name not in ("explore", "spec", "build", "debug"):
             return []
         observation = tools.execute("git_status", {"path": "."})
         if not isinstance(observation.data, dict):
@@ -451,7 +451,7 @@ class LlspProvider(WorkspaceIntelligenceProvider):
             metadata["working_set_match"] = working_set_match
             metadata.setdefault("source", "llsp_file")
             priority = int(item.get("priority") or 75)
-            if mode_name in ("code", "debug", "verify"):
+            if mode_name in ("build", "debug", "verify"):
                 priority = max(priority, 80)
             if focus_match:
                 priority += 15
@@ -478,7 +478,7 @@ class LlspProvider(WorkspaceIntelligenceProvider):
                 item.title,
             )
         )
-        limit = 2 if mode_name in ("code", "debug", "verify") else 1
+        limit = 2 if mode_name in ("build", "debug", "verify") else 1
         return ranked[:limit]
 
     def _mode_matches(self, item: Dict[str, Any], mode_name: str) -> bool:
@@ -543,7 +543,7 @@ class WorkspaceIntelligenceBroker(object):
         allowed_tags = {
             "explore": {"project_memory", "git", "recipe", "llsp", "symbol"},
             "spec": {"project_memory", "git", "recipe", "llsp", "symbol"},
-            "code": {"working_set", "project_memory", "recipe", "symbol", "diagnostic", "llsp"},
+            "build": {"working_set", "project_memory", "recipe", "symbol", "diagnostic", "llsp"},
             "debug": {"working_set", "project_memory", "recipe", "symbol", "diagnostic", "git", "llsp"},
             "verify": {"project_memory", "recipe", "diagnostic", "llsp"},
         }.get(mode_name)
@@ -836,3 +836,4 @@ def _observation_diagnostic_count(observation: Observation) -> int:
         if reasons:
             return len(reasons)
     return 1 if _diagnostic_detail(observation) else 0
+

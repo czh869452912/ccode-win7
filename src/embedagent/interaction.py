@@ -44,7 +44,7 @@ def propose_mode_switch_schema() -> Dict[str, object]:
                 "properties": {
                     "target_mode": {
                         "type": "string",
-                        "enum": ["explore", "spec", "code", "debug", "verify"],
+                        "enum": ["explore", "spec", "build", "debug", "verify"],
                         "description": "建议切换到的目标模式。",
                     },
                     "reason": {
@@ -63,18 +63,18 @@ def ask_user_schema() -> Dict[str, object]:
     properties = {
         "question": {
             "type": "string",
-            "description": "要向用户提出的明确问题。应聚焦当前阻塞点。示例：是否现在切到 code 模式开始实现？",
+            "description": "要向用户提出的明确问题。应聚焦当前阻塞点。示例：是否现在切到 build 模式开始实现？",
         },
     }
     required = ["question", "option_1", "option_2"]
     for index in range(1, 5):
         properties["option_%s" % index] = {
             "type": "string",
-            "description": "第 %s 个建议选项文本。应是完整可执行的回答。示例：是，切到 code 模式并开始实现。" % index,
+            "description": "第 %s 个建议选项文本。应是完整可执行的回答。示例：是，切到 build 模式并开始实现。" % index,
         }
         properties["option_%s_mode" % index] = {
             "type": "string",
-            "description": "第 %s 个选项对应的模式名，留空表示不切模式。示例：code" % index,
+            "description": "第 %s 个选项对应的模式名，留空表示不切模式。示例：build" % index,
         }
     return {
         "type": "function",
@@ -112,3 +112,4 @@ def build_user_input_request(arguments: Dict[str, Any]) -> UserInputRequest:
             ],
         },
     )
+

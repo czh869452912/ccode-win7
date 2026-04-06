@@ -232,7 +232,7 @@ def launch_gui(
     workspace: str,
     host: str = "127.0.0.1",
     port: int = 0,  # 0 表示自动选择端口
-    mode: str = "code",
+    mode: str = "build",
     debug: bool = False,
     headless: bool = False,
     base_url: Optional[str] = None,
@@ -383,7 +383,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--workspace", dest="workspace_option", default="", help="Workspace directory")
     parser.add_argument("--host", default="127.0.0.1", help="Server host")
     parser.add_argument("--port", type=int, default=0, help="Server port (0=auto)")
-    parser.add_argument("--mode", default="code", help="Initial mode")
+    parser.add_argument("--mode", default="build", help="Initial mode")
     parser.add_argument("--base-url", default="", help="Model service root URL")
     parser.add_argument("--api-key", default="", help="Model service API key")
     parser.add_argument("--model", default="", help="Model name")
@@ -442,3 +442,4 @@ def main(argv: Optional[list] = None) -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
+

@@ -61,7 +61,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--mode",
         default=None,
-        help="初始工作模式。示例：code；恢复会话时默认沿用摘要中的模式。",
+        help="初始工作模式。示例：build；恢复会话时默认沿用摘要中的模式。",
     )
     parser.add_argument(
         "--resume",

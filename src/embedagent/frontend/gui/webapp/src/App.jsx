@@ -16,7 +16,7 @@ import Timeline from "./components/Timeline.jsx";
 import Inspector from "./components/Inspector.jsx";
 import Composer from "./components/Composer.jsx";
 
-const MODES = ["explore", "spec", "code", "debug", "verify"];
+const MODES = ["explore", "spec", "build", "debug", "verify"];
 const SLASH_COMMAND_HINTS = [
   "/help",
   "/mode",
@@ -879,7 +879,7 @@ function App() {
             item.user_goal ||
             item.summary_text ||
             `Session ${item.session_id.slice(0, 8)}`,
-          mode: item.current_mode || "code",
+          mode: item.current_mode || "build",
           updated,
         };
       }),
@@ -1044,3 +1044,4 @@ function App() {
 }
 
 export default App;
+

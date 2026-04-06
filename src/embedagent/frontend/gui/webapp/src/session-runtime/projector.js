@@ -248,9 +248,10 @@ export function projectSessionRuntime({ snapshot, eventLog, bootstrapTimeline = 
     sessionStatusView: {
       sessionId: snapshot?.session_id || "",
       status: snapshot?.status || "idle",
-      mode: snapshot?.current_mode || "code",
+      mode: snapshot?.current_mode || "build",
     },
     timelineItems,
     timelineView: projectTurnGroups(timelineItems),
   };
 }
+

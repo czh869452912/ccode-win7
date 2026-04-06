@@ -23,7 +23,7 @@ class TestModeRegistry(unittest.TestCase):
         """Verify current built-in modes are present."""
         names = mode_names()
         # Current built-in modes: explore, spec, code, debug, verify
-        for m in ("explore", "spec", "code", "debug", "verify"):
+        for m in ("explore", "spec", "build", "debug", "verify"):
             self.assertIn(m, names)
 
     def test_require_mode_invalid_fallback(self):
@@ -50,7 +50,7 @@ class TestAllowedTools(unittest.TestCase):
         self.assertIn("git_log", tools)
 
     def test_code_has_manage_todos(self):
-        self.assertIn("manage_todos", allowed_tools_for("code"))
+        self.assertIn("manage_todos", allowed_tools_for("build"))
 
     def test_explore_is_read_only_tools(self):
         tools = allowed_tools_for("explore")
@@ -62,7 +62,7 @@ class TestAllowedTools(unittest.TestCase):
         self.assertNotIn("edit_file", allowed_tools_for("verify"))
 
     def test_code_has_write_file(self):
-        self.assertIn("write_file", allowed_tools_for("code"))
+        self.assertIn("write_file", allowed_tools_for("build"))
 
 
 class TestWritableGlobs(unittest.TestCase):
@@ -71,7 +71,7 @@ class TestWritableGlobs(unittest.TestCase):
             self.assertEqual(get_writable_globs(m), [])
 
     def test_code_mode_default_globs(self):
-        globs = get_writable_globs("code")
+        globs = get_writable_globs("build")
         self.assertIn("**/*.py", globs)
         self.assertIn("**/*.c", globs)
         self.assertIn("**/*.h", globs)
@@ -82,37 +82,37 @@ class TestWritableGlobs(unittest.TestCase):
         self.assertIn("**/*.rst", globs)
 
     def test_config_override_replaces_defaults(self):
-        cfg = AppConfig(mode_writable_globs={"code": ["app/**/*.py"]})
-        globs = get_writable_globs("code", cfg)
+        cfg = AppConfig(mode_writable_globs={"build": ["app/**/*.py"]})
+        globs = get_writable_globs("build", cfg)
         self.assertEqual(globs, ["app/**/*.py"])
 
     def test_config_override_only_affects_specified_mode(self):
-        cfg = AppConfig(mode_writable_globs={"code": ["app/**/*.py"]})
+        cfg = AppConfig(mode_writable_globs={"build": ["app/**/*.py"]})
         spec_globs = get_writable_globs("spec", cfg)
         self.assertIn("**/*.md", spec_globs)
 
     def test_extra_globs_append_to_defaults(self):
-        cfg = AppConfig(mode_extra_writable_globs={"code": ["**/*.cmake"]})
-        globs = get_writable_globs("code", cfg)
+        cfg = AppConfig(mode_extra_writable_globs={"build": ["**/*.cmake"]})
+        globs = get_writable_globs("build", cfg)
         self.assertIn("**/*.py", globs)
         self.assertIn("**/*.cmake", globs)
 
     def test_config_none_uses_defaults(self):
-        default_globs = get_writable_globs("code")
-        globs_with_none = get_writable_globs("code", None)
+        default_globs = get_writable_globs("build")
+        globs_with_none = get_writable_globs("build", None)
         self.assertEqual(default_globs, globs_with_none)
 
 
 class TestIsPathWritable(unittest.TestCase):
     # --- relaxed default patterns ---
     def test_python_file_in_any_dir(self):
-        self.assertTrue(is_path_writable("code", "scripts/build.py"))
-        self.assertTrue(is_path_writable("code", "src/main.py"))
-        self.assertTrue(is_path_writable("code", "app/models/user.py"))
+        self.assertTrue(is_path_writable("build", "scripts/build.py"))
+        self.assertTrue(is_path_writable("build", "src/main.py"))
+        self.assertTrue(is_path_writable("build", "app/models/user.py"))
 
     def test_c_file_in_any_dir(self):
-        self.assertTrue(is_path_writable("code", "src/main.c"))
-        self.assertTrue(is_path_writable("code", "lib/utils.c"))
+        self.assertTrue(is_path_writable("build", "src/main.c"))
+        self.assertTrue(is_path_writable("build", "lib/utils.c"))
 
     def test_markdown_in_spec_mode(self):
         self.assertTrue(is_path_writable("spec", "README.md"))
@@ -121,13 +121,13 @@ class TestIsPathWritable(unittest.TestCase):
         self.assertTrue(is_path_writable("spec", "ADR/001-decision.rst"))
 
     def test_root_toml_in_code_mode(self):
-        self.assertTrue(is_path_writable("code", "pyproject.toml"))
+        self.assertTrue(is_path_writable("build", "pyproject.toml"))
 
     def test_root_python_in_code_mode(self):
-        self.assertTrue(is_path_writable("code", "manage.py"))
+        self.assertTrue(is_path_writable("build", "manage.py"))
 
     def test_markdown_blocked_in_code_mode(self):
-        self.assertFalse(is_path_writable("code", "README.md"))
+        self.assertFalse(is_path_writable("build", "README.md"))
 
     def test_python_blocked_in_spec_mode(self):
         self.assertFalse(is_path_writable("spec", "src/main.py"))
@@ -139,22 +139,22 @@ class TestIsPathWritable(unittest.TestCase):
 
     # --- config override ---
     def test_config_override_restricts_to_subdirectory(self):
-        cfg = AppConfig(mode_writable_globs={"code": ["src/*.py", "src/**/*.py"]})
-        self.assertTrue(is_path_writable("code", "src/main.py", cfg))
-        self.assertFalse(is_path_writable("code", "scripts/build.py", cfg))
+        cfg = AppConfig(mode_writable_globs={"build": ["src/*.py", "src/**/*.py"]})
+        self.assertTrue(is_path_writable("build", "src/main.py", cfg))
+        self.assertFalse(is_path_writable("build", "scripts/build.py", cfg))
 
     def test_config_override_empty_list_means_readonly(self):
-        cfg = AppConfig(mode_writable_globs={"code": []})
-        self.assertFalse(is_path_writable("code", "src/main.py", cfg))
+        cfg = AppConfig(mode_writable_globs={"build": []})
+        self.assertFalse(is_path_writable("build", "src/main.py", cfg))
 
     def test_windows_backslash_normalized(self):
-        self.assertTrue(is_path_writable("code", "src\\main.py"))
+        self.assertTrue(is_path_writable("build", "src\\main.py"))
 
 
 class TestBuildSystemPrompt(unittest.TestCase):
     def test_prompt_contains_mode_name(self):
-        prompt = build_system_prompt("code")
-        self.assertIn("code", prompt)
+        prompt = build_system_prompt("build")
+        self.assertIn("build", prompt)
 
     def test_prompt_contains_manage_todos_in_explore(self):
         prompt = build_system_prompt("explore")
@@ -165,15 +165,15 @@ class TestBuildSystemPrompt(unittest.TestCase):
         self.assertIn("只读", prompt)
 
     def test_config_override_reflected_in_prompt(self):
-        cfg = AppConfig(mode_writable_globs={"code": ["custom/**/*.py"]})
-        prompt = build_system_prompt("code", cfg)
+        cfg = AppConfig(mode_writable_globs={"build": ["custom/**/*.py"]})
+        prompt = build_system_prompt("build", cfg)
         self.assertIn("custom/**/*.py", prompt)
 
 
 class TestParseModeCommand(unittest.TestCase):
     def test_mode_command_parsed(self):
-        mode, msg, switched = parse_mode_command("/mode code 实现登录接口")
-        self.assertEqual(mode, "code")
+        mode, msg, switched = parse_mode_command("/mode build 实现登录接口")
+        self.assertEqual(mode, "build")
         self.assertEqual(msg, "实现登录接口")
         self.assertTrue(switched)
 
@@ -197,3 +197,5 @@ class TestParseModeCommand(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
