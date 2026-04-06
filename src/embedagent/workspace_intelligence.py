@@ -108,7 +108,7 @@ class RecipeProvider(WorkspaceIntelligenceProvider):
             selected_sources.append(str(item.get("source") or ""))
             selected.append(
                 "[%s] %s" % (
-                    str(item.get("recipe_action") or item.get("legacy_tool_name") or item.get("tool_name") or ""),
+                    str(item.get("recipe_action") or item.get("tool_name") or ""),
                     str(item.get("id") or item.get("label") or ""),
                 )
             )
@@ -143,7 +143,7 @@ class RecipeProvider(WorkspaceIntelligenceProvider):
         return sorted(
             items,
             key=lambda item: (
-                preferred.get(str(item.get("recipe_action") or item.get("legacy_tool_name") or item.get("tool_name") or ""), 99),
+                preferred.get(str(item.get("recipe_action") or item.get("tool_name") or ""), 99),
                 source_rank.get(str(item.get("source") or ""), 99),
                 self._stage_rank(mode_name, item),
                 str(item.get("id") or ""),

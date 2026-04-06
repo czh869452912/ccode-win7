@@ -36,8 +36,7 @@ def resolve_workspace_recipe(
         if str(item.get("id") or "") != normalized_id:
             continue
         tool_name = str(item.get("tool_name") or "")
-        legacy_tool_name = str(item.get("legacy_tool_name") or "")
-        if normalized_expected and normalized_expected not in (tool_name, legacy_tool_name):
+        if normalized_expected and normalized_expected != tool_name:
             raise ValueError("recipe %s 不支持工具 %s。" % (normalized_id, normalized_expected))
         resolved = dict(item)
         resolved["cwd"] = str(item.get("cwd") or ".")
@@ -70,7 +69,6 @@ def _normalize_recipe_item(item: Dict[str, Any]) -> Dict[str, Any]:
     original_tool_name = str(item.get("tool_name") or "").strip()
     stage = str(item.get("stage") or "").strip()
     normalized = dict(item)
-    normalized["legacy_tool_name"] = str(item.get("legacy_tool_name") or original_tool_name)
     normalized["tool_name"] = "run_recipe"
     normalized["recipe_action"] = str(item.get("recipe_action") or _recipe_action_from(original_tool_name, stage))
     return normalized
@@ -80,17 +78,9 @@ def _recipe_action_from(tool_name: str, stage: str) -> str:
     normalized_stage = str(stage or "").strip()
     if normalized_stage:
         return normalized_stage
-    mapping = {
-        "compile_project": "build",
-        "run_tests": "test",
-        "run_clang_tidy": "tidy",
-        "run_clang_analyzer": "analyze",
-        "collect_coverage": "coverage",
-        "report_quality": "quality",
-        "report_quality_v2": "quality",
-        "run_recipe": "custom",
-    }
-    return str(mapping.get(str(tool_name or "").strip(), "custom"))
+    if str(tool_name or "").strip() == "run_recipe":
+        return "custom"
+    return "custom"
 
 
 def _load_project_recipes(workspace: str) -> List[Dict[str, Any]]:
@@ -107,10 +97,12 @@ def _load_project_recipes(workspace: str) -> List[Dict[str, Any]]:
         command = str(entry.get("command") or "").strip()
         if not recipe_id or not tool_name or not command:
             continue
+        recipe_action = str(entry.get("recipe_action") or "").strip() or _recipe_action_from(tool_name, "")
         items.append(
             {
                 "id": recipe_id,
                 "tool_name": tool_name,
+                "recipe_action": recipe_action,
                 "label": str(entry.get("label") or recipe_id),
                 "command": command,
                 "cwd": str(entry.get("cwd") or "."),
@@ -127,7 +119,8 @@ def _detect_builtin_recipes(workspace: str) -> List[Dict[str, Any]]:
             [
                 {
                     "id": "cmake.configure.default",
-                    "tool_name": "compile_project",
+                    "tool_name": "run_recipe",
+                    "recipe_action": "configure",
                     "label": "CMake Configure",
                     "command": "cmake -S . -B build",
                     "cwd": ".",
@@ -139,7 +132,8 @@ def _detect_builtin_recipes(workspace: str) -> List[Dict[str, Any]]:
                 },
                 {
                     "id": "cmake.build.default",
-                    "tool_name": "compile_project",
+                    "tool_name": "run_recipe",
+                    "recipe_action": "build",
                     "label": "CMake Build",
                     "command": "cmake --build build",
                     "cwd": ".",
@@ -151,7 +145,8 @@ def _detect_builtin_recipes(workspace: str) -> List[Dict[str, Any]]:
                 },
                 {
                     "id": "cmake.test.default",
-                    "tool_name": "run_tests",
+                    "tool_name": "run_recipe",
+                    "recipe_action": "test",
                     "label": "CTest",
                     "command": "ctest --test-dir build --output-on-failure",
                     "cwd": ".",
@@ -174,7 +169,8 @@ def _detect_builtin_recipes(workspace: str) -> List[Dict[str, Any]]:
             [
                 {
                     "id": "make.build.default",
-                    "tool_name": "compile_project",
+                    "tool_name": "run_recipe",
+                    "recipe_action": "build",
                     "label": "Make Build",
                     "command": "make",
                     "cwd": ".",
@@ -186,7 +182,8 @@ def _detect_builtin_recipes(workspace: str) -> List[Dict[str, Any]]:
                 },
                 {
                     "id": "make.test.default",
-                    "tool_name": "run_tests",
+                    "tool_name": "run_recipe",
+                    "recipe_action": "test",
                     "label": "Make Test",
                     "command": "make test",
                     "cwd": ".",

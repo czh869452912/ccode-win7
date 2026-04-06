@@ -94,7 +94,6 @@ class TestProjectMemoryStore(unittest.TestCase):
                 "cwd": ".",
                 "recipe_id": "cmake.build.default",
                 "recipe_action": "build",
-                "legacy_tool_name": "compile_project",
             },
         )
         session.add_observation(action, observation)

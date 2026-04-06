@@ -132,7 +132,7 @@ function RecipeCard({ recipe, lang, onRunRecipe }) {
     <div className="recipe-card">
       <div className="recipe-header">
         <span className="recipe-label">{recipe.label || recipe.id}</span>
-        <span className="recipe-tool">{recipe.recipe_action || recipe.legacy_tool_name || recipe.tool_name}</span>
+        <span className="recipe-tool">{recipe.recipe_action || recipe.tool_name}</span>
       </div>
       <div className="recipe-meta">
         <span className="rule-chip monospace">{recipe.id}</span>

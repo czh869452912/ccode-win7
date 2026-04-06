@@ -117,7 +117,7 @@ def build_tools(ctx) -> List[ToolDefinition]:
         ),
         ToolDefinition(
             name="glob_files",
-            description="按文件名或路径模式查找文件。用于替代递归 list_files。支持 limit 和 offset 分页。",
+            description="按文件名或路径模式查找文件。用于按需收窄候选文件范围。支持 limit 和 offset 分页。",
             parameters={
                 "type": "object",
                 "properties": {

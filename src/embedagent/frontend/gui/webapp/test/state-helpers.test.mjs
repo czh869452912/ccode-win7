@@ -229,7 +229,7 @@ test("timelineFromTurns projects turn-level transitions and tool calls", () => {
       tool_calls: [
         {
           call_id: "cmd-tool-1",
-          tool_name: "compile_project",
+          tool_name: "run_recipe",
           tool_label: "Custom Build",
           status: "success",
           arguments: { recipe_id: "custom.build" },

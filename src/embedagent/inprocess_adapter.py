@@ -1959,28 +1959,20 @@ class InProcessAdapter(object):
     def _review_kind(self, tool_name: str, data: Dict[str, Any]) -> str:
         if tool_name == "run_recipe":
             action = str(data.get("recipe_action") or "").strip().lower()
-            legacy_tool_name = str(data.get("legacy_tool_name") or "").strip()
-            if action in ("configure", "build") or legacy_tool_name == "compile_project":
+            if action in ("configure", "build"):
                 return "build"
-            if action == "test" or legacy_tool_name == "run_tests" or isinstance(data.get("test_summary"), dict):
+            if action == "test" or isinstance(data.get("test_summary"), dict):
                 return "test"
-            if action == "coverage" or legacy_tool_name == "collect_coverage" or isinstance(data.get("coverage_summary"), dict):
+            if action == "coverage" or isinstance(data.get("coverage_summary"), dict):
                 return "coverage"
-            if action in ("tidy", "analyze") or legacy_tool_name in ("run_clang_tidy", "run_clang_analyzer"):
+            if action in ("tidy", "analyze"):
                 return "diagnostic"
             if isinstance(data.get("diagnostics"), list):
                 return "diagnostic"
             return ""
-        legacy_mapping = {
-            "compile_project": "build",
-            "run_tests": "test",
-            "run_clang_tidy": "diagnostic",
-            "run_clang_analyzer": "diagnostic",
-            "collect_coverage": "coverage",
-            "report_quality": "quality",
-            "report_quality_v2": "quality",
-        }
-        return str(legacy_mapping.get(tool_name, ""))
+        if tool_name == "report_quality_v2":
+            return "quality"
+        return ""
 
     def _review_primary_detail(self, data: Dict[str, Any], fallback: Any) -> str:
         diagnostics = data.get("diagnostics") if isinstance(data.get("diagnostics"), list) else []

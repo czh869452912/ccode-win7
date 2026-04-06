@@ -595,7 +595,12 @@ export const TOOL_LABELS = {
   edit_file: (a) => `Edit  ${a.path || ""}`,
   patch_file: (a) => `Patch  ${a.path || ""}`,
   delete_file: (a) => `Delete  ${a.path || ""}`,
-  list_files: (a) => `List  ${a.path || "."}`,
+  list_dir: (a) => `List  ${a.path || "."}`,
+  glob_files: (a) => `Glob "${a.pattern || ""}"`,
+  grep_text: (a) => `Grep "${a.pattern || ""}"`,
+  list_recipes: () => "List recipes",
+  run_recipe: (a) => `Run recipe${a.recipe_id ? `: ${a.recipe_id}` : ""}`,
+  report_quality_v2: () => "Quality report",
   search_files: (a) => `Search "${a.pattern || a.query || ""}"`,
   grep: (a) => `Grep "${a.pattern || ""}"`,
   run_command: (a) => `Shell: ${a.command || ""}`,
@@ -609,7 +614,6 @@ export const TOOL_LABELS = {
   git_log: () => "Git log",
   compile: (a) => `Compile ${a.target || a.file || ""}`,
   build: (a) => `Build ${a.target || ""}`,
-  run_tests: (a) => `Run tests${a.target ? `: ${a.target}` : ""}`,
 };
 
 export function toolLabel(toolName, args) {

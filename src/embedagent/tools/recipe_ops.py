@@ -18,7 +18,7 @@ def build_tools(ctx) -> List[ToolDefinition]:
             preview.append(
                 "%s[%s]" % (
                     str(item.get("id") or ""),
-                    str(item.get("recipe_action") or item.get("legacy_tool_name") or item.get("tool_name") or ""),
+                    str(item.get("recipe_action") or item.get("tool_name") or ""),
                 )
             )
         return Observation(
@@ -61,7 +61,6 @@ def build_tools(ctx) -> List[ToolDefinition]:
             data["recipe_label"] = str(recipe.get("label") or recipe_id)
             data["recipe_source"] = str(recipe.get("source") or "")
             data["recipe_action"] = recipe_action
-            data["legacy_tool_name"] = str(recipe.get("legacy_tool_name") or "")
             data["family"] = str(recipe.get("family") or "")
             data["stage"] = str(recipe.get("stage") or "")
             data["target"] = str(recipe.get("target") or "")

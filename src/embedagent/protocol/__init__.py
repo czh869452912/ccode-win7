@@ -381,8 +381,8 @@ class CoreInterface(ABC):
         pass
     
     @abstractmethod
-    def list_files(self, path: str = ".", max_depth: int = 3) -> List[Dict[str, Any]]:
-        """列出文件"""
+    def list_workspace_tree(self, path: str = ".", max_depth: int = 3) -> List[Dict[str, Any]]:
+        """列出工作区树"""
         pass
 
     @abstractmethod

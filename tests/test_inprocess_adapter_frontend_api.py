@@ -1084,7 +1084,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         os.makedirs(os.path.join(self.workspace, ".embedagent"), exist_ok=True)
         with open(os.path.join(self.workspace, ".embedagent", "workspace-recipes.json"), "w", encoding="utf-8") as handle:
             handle.write(
-                '[{"id":"custom.build","tool_name":"compile_project","label":"Custom Build","command":"cmd /c echo build-ok","cwd":"."}]'
+                '[{"id":"custom.build","tool_name":"run_recipe","recipe_action":"build","label":"Custom Build","command":"cmd /c echo build-ok","cwd":"."}]'
             )
         events = []
         self.adapter.submit_user_message(
@@ -1343,11 +1343,13 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             session_id,
             "tool_finished",
             {
-                "tool_name": "compile_project",
+                "tool_name": "run_recipe",
                 "success": False,
                 "call_id": "call-build-1",
                 "error": "命令退出码为 1。",
                 "data": {
+                    "recipe_id": "cmake.build.default",
+                    "recipe_action": "build",
                     "diagnostics": [
                         {
                             "file": "src/pkg/demo.c",
@@ -1396,7 +1398,6 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
                 "data": {
                     "recipe_id": "cmake.test.default",
                     "recipe_action": "test",
-                    "legacy_tool_name": "run_tests",
                     "test_summary": {"failed": 1, "passed": 0, "total": 1},
                     "diagnostics": [
                         {

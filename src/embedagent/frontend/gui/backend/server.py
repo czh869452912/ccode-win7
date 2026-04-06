@@ -609,8 +609,8 @@ class GUIBackend:
             return _serialize_replay_payload(session_id, payload)
         
         @app.get("/api/files")
-        async def list_files(path: str = ".", max_depth: int = 3):
-            return {"items": self.core.list_files(path, max_depth)}
+        async def list_workspace_tree(path: str = ".", max_depth: int = 3):
+            return {"items": self.core.list_workspace_tree(path, max_depth)}
 
         @app.get("/api/files/tree")
         async def list_file_children(path: str = ".", limit: int = 200):

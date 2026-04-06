@@ -329,7 +329,7 @@ class ReducerRegistry(object):
 
     def _reduce_recipe_result(self, data: Dict[str, Any], detailed: bool, policy: ContextPolicy) -> Dict[str, Any]:
         result = self._reduce_diagnostics_tool(data, detailed, policy)
-        result.update(self._copy(data, "recipe_id", "recipe_label", "recipe_source", "recipe_action", "legacy_tool_name", "family", "stage", "target", "profile"))
+        result.update(self._copy(data, "recipe_id", "recipe_label", "recipe_source", "recipe_action", "family", "stage", "target", "profile"))
         if isinstance(data.get("test_summary"), dict):
             summary = self._copy(data["test_summary"], "total", "passed", "failed", "skipped")
             summary["failures"] = self._simple_list(data["test_summary"].get("failures") or [], 5 if detailed else 3)

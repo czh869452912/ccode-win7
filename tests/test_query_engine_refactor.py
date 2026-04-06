@@ -863,9 +863,9 @@ class TestQueryEngineRefactor(unittest.TestCase):
         with open(os.path.join(self.workspace, ".embedagent", "workspace-recipes.json"), "w", encoding="utf-8") as handle:
             handle.write(
                 "[" +
-                '{"id":"custom.build","tool_name":"compile_project","label":"Custom Build","command":"cmd /c echo build","cwd":"."},' +
-                '{"id":"custom.test","tool_name":"run_tests","label":"Custom Test","command":"cmd /c echo test","cwd":"."},' +
-                '{"id":"custom.tidy","tool_name":"run_clang_tidy","label":"Custom Tidy","command":"cmd /c echo tidy","cwd":"."}' +
+                '{"id":"custom.build","tool_name":"run_recipe","recipe_action":"build","label":"Custom Build","command":"cmd /c echo build","cwd":"."},' +
+                '{"id":"custom.test","tool_name":"run_recipe","recipe_action":"test","label":"Custom Test","command":"cmd /c echo test","cwd":"."},' +
+                '{"id":"custom.tidy","tool_name":"run_recipe","recipe_action":"tidy","label":"Custom Tidy","command":"cmd /c echo tidy","cwd":"."}' +
                 "]"
             )
         provider = RecipeProvider()
@@ -879,7 +879,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
         with open(os.path.join(self.workspace, ".embedagent", "workspace-recipes.json"), "w", encoding="utf-8") as handle:
             handle.write(
                 "[" +
-                '{"id":"custom.build","tool_name":"compile_project","label":"Custom Build","command":"cmd /c echo build","cwd":"."}' +
+                '{"id":"custom.build","tool_name":"run_recipe","recipe_action":"build","label":"Custom Build","command":"cmd /c echo build","cwd":"."}' +
                 "]"
             )
         provider = RecipeProvider()
@@ -894,7 +894,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
         with open(os.path.join(history_root, "command-recipes.json"), "w", encoding="utf-8") as handle:
             handle.write(
                 "[" +
-                '{"tool_name":"run_tests","command":"python -m unittest","cwd":"."}' +
+                '{"tool_name":"run_recipe","recipe_action":"test","command":"python -m unittest","cwd":"."}' +
                 "]"
             )
         provider = RecipeProvider()

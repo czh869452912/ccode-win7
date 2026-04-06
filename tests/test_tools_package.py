@@ -382,7 +382,7 @@ class TestWorkspaceRecipes(unittest.TestCase):
             encoding="utf-8",
         ) as handle:
             handle.write(
-                '[{"key":"compile_project|.|clang demo.c","tool_name":"compile_project","command":"clang demo.c","cwd":".","last_mode":"build","created_at":"2026-04-01T00:00:00Z","last_success_at":"2026-04-01T00:00:00Z","success_count":1}]'
+                '[{"key":"build|.|clang demo.c","tool_name":"run_recipe","recipe_action":"build","command":"clang demo.c","cwd":".","last_mode":"build","created_at":"2026-04-01T00:00:00Z","last_success_at":"2026-04-01T00:00:00Z","success_count":1}]'
             )
         from embedagent.workspace_recipes import list_workspace_recipes
 
@@ -394,7 +394,6 @@ class TestWorkspaceRecipes(unittest.TestCase):
         self.assertIn("history.build.1", recipe_ids)
         cmake_build = [item for item in payload["items"] if item["id"] == "cmake.build.default"][0]
         self.assertEqual(cmake_build["tool_name"], "run_recipe")
-        self.assertEqual(cmake_build["legacy_tool_name"], "compile_project")
         self.assertEqual(cmake_build["recipe_action"], "build")
         self.assertTrue(cmake_build["supports_target"])
         self.assertTrue(cmake_build["supports_profile"])
@@ -403,7 +402,7 @@ class TestWorkspaceRecipes(unittest.TestCase):
         os.makedirs(os.path.join(self.workspace, ".embedagent"))
         with open(os.path.join(self.workspace, ".embedagent", "workspace-recipes.json"), "w", encoding="utf-8") as handle:
             handle.write(
-                '[{"id":"custom.build","tool_name":"compile_project","label":"Custom Build","command":"cmd /c echo build-ok","cwd":"."}]'
+                '[{"id":"custom.build","tool_name":"run_recipe","recipe_action":"build","label":"Custom Build","command":"cmd /c echo build-ok","cwd":"."}]'
             )
         runtime = ToolRuntime(self.workspace)
         obs = runtime.execute("run_recipe", {"recipe_id": "custom.build"})
@@ -419,7 +418,7 @@ class TestWorkspaceRecipes(unittest.TestCase):
         payload = resolve_workspace_recipe(
             self.workspace,
             recipe_id="cmake.build.default",
-            expected_tool_name="compile_project",
+            expected_tool_name="run_recipe",
             target="demo-app",
             profile="debug",
         )
@@ -433,9 +432,9 @@ class TestWorkspaceRecipes(unittest.TestCase):
         with open(os.path.join(self.workspace, ".embedagent", "workspace-recipes.json"), "w", encoding="utf-8") as handle:
             handle.write(
                 "[" +
-                '{"id":"custom.tidy","tool_name":"run_clang_tidy","label":"Custom Tidy","command":"cmd /c echo tidy-ok","cwd":"."},' +
-                '{"id":"custom.analyze","tool_name":"run_clang_analyzer","label":"Custom Analyze","command":"cmd /c echo analyze-ok","cwd":"."},' +
-                '{"id":"custom.coverage","tool_name":"collect_coverage","label":"Custom Coverage","command":"cmd /c echo lines 85%","cwd":"."}' +
+                '{"id":"custom.tidy","tool_name":"run_recipe","recipe_action":"tidy","label":"Custom Tidy","command":"cmd /c echo tidy-ok","cwd":"."},' +
+                '{"id":"custom.analyze","tool_name":"run_recipe","recipe_action":"analyze","label":"Custom Analyze","command":"cmd /c echo analyze-ok","cwd":"."},' +
+                '{"id":"custom.coverage","tool_name":"run_recipe","recipe_action":"coverage","label":"Custom Coverage","command":"cmd /c echo lines 85%","cwd":"."}' +
                 "]"
             )
         runtime = ToolRuntime(self.workspace)
@@ -453,7 +452,7 @@ class TestWorkspaceRecipes(unittest.TestCase):
         os.makedirs(os.path.join(self.workspace, ".embedagent"))
         with open(os.path.join(self.workspace, ".embedagent", "workspace-recipes.json"), "w", encoding="utf-8") as handle:
             handle.write(
-                '[{"id":"custom.build","tool_name":"compile_project","label":"Custom Build","command":"cmd /c echo build-ok","cwd":"."}]'
+                '[{"id":"custom.build","tool_name":"run_recipe","recipe_action":"build","label":"Custom Build","command":"cmd /c echo build-ok","cwd":"."}]'
             )
         runtime = ToolRuntime(self.workspace)
         for tool_name in (

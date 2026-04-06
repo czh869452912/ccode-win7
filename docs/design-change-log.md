@@ -44,6 +44,26 @@
 
 ## 3. 当前变更记录
 
+### DC-095
+
+- 日期：2026-04-07
+- 变更主题：产品壳层正式化，移除剩余 legacy recipe/tool 词汇
+- 变更摘要：
+  - `workspace_recipes`、`recipe_ops`、`context`、`project_memory`、`workspace_intelligence` 和 frontend recipe UI 已移除 `legacy_tool_name`，并统一围绕 `run_recipe + recipe_action` 组织数据
+  - 协议/core/backend 的旧 `list_files` 方法名已切为 `list_workspace_tree`，webapp tool label 也只保留正式工具词汇
+  - 相关测试样本和 webapp helper fixtures 已全部切到正式 recipe 格式，`src/embedagent/` 已不再保留旧工具壳层词汇
+- 影响范围：
+  - workspace recipe normalization / resolve path
+  - review / context / project memory / workspace intelligence
+  - protocol/core/backend file tree contract
+  - webapp store / fixtures / labels
+- 关联文档：
+  - `docs/development-tracker.md`
+- 是否需要 ADR：`否，属于 official cutover 的最终壳层清理`
+- 后续动作：
+  - 维持 merge 前全量回归与 webapp build 为准入门槛
+  - 准备最终 merge/PR
+
 ### DC-094
 
 - 日期：2026-04-06

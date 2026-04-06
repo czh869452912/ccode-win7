@@ -344,8 +344,8 @@ function main() {
   const recipeState = reducer(initialState, {
     type: "recipes_loaded",
     items: [
-      { id: "cmake.build.default", tool_name: "compile_project", label: "CMake Build", source: "detected" },
-      { id: "cmake.test.default", tool_name: "run_tests", label: "CTest", source: "detected" },
+      { id: "cmake.build.default", tool_name: "run_recipe", recipe_action: "build", label: "CMake Build", source: "detected" },
+      { id: "cmake.test.default", tool_name: "run_recipe", recipe_action: "test", label: "CTest", source: "detected" },
     ],
   });
   assert.equal(recipeState.recipes.length, 2);
