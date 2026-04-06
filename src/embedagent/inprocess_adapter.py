@@ -1765,9 +1765,10 @@ class InProcessAdapter(object):
             tool_name = str(payload.get("tool_name") or "")
             success = bool(payload.get("success"))
             data = payload.get("data") if isinstance(payload.get("data"), dict) else {}
-            if tool_name in ("compile_project", "run_tests", "run_clang_tidy", "run_clang_analyzer", "collect_coverage", "report_quality"):
+            review_kind = self._review_kind(tool_name, data)
+            if review_kind in ("build", "diagnostic", "test", "coverage", "quality"):
                 saw_verify = True
-            if tool_name == "run_tests":
+            if review_kind == "test":
                 saw_tests = True
             self._append_review_section(sections, tool_name, success, payload, data)
             finding = self._review_finding_from_tool(tool_name, success, payload, data)
@@ -1838,11 +1839,13 @@ class InProcessAdapter(object):
         payload: Dict[str, Any],
         data: Dict[str, Any],
     ) -> None:
-        if tool_name == "compile_project":
+        review_kind = self._review_kind(tool_name, data)
+        if review_kind in ("build", "diagnostic"):
             diagnostics = data.get("diagnostics") if isinstance(data.get("diagnostics"), list) else []
             sections["diagnostics"].append(
                 {
                     "tool_name": tool_name,
+                    "review_kind": review_kind,
                     "success": success,
                     "call_id": payload.get("call_id"),
                     "error_count": int(data.get("error_count") or 0),
@@ -1851,45 +1854,35 @@ class InProcessAdapter(object):
                 }
             )
             return
-        if tool_name in ("run_clang_tidy", "run_clang_analyzer"):
-            diagnostics = data.get("diagnostics") if isinstance(data.get("diagnostics"), list) else []
-            sections["diagnostics"].append(
-                {
-                    "tool_name": tool_name,
-                    "success": success,
-                    "call_id": payload.get("call_id"),
-                    "error_count": int(data.get("error_count") or 0),
-                    "warning_count": int(data.get("warning_count") or 0),
-                    "diagnostics": diagnostics[:10],
-                }
-            )
-            return
-        if tool_name == "run_tests":
+        if review_kind == "test":
             summary = data.get("test_summary") if isinstance(data.get("test_summary"), dict) else {}
             sections["tests"].append(
                 {
                     "tool_name": tool_name,
+                    "review_kind": review_kind,
                     "success": success,
                     "call_id": payload.get("call_id"),
                     "summary": summary,
                 }
             )
             return
-        if tool_name == "collect_coverage":
+        if review_kind == "coverage":
             summary = data.get("coverage_summary") if isinstance(data.get("coverage_summary"), dict) else {}
             sections["coverage"].append(
                 {
                     "tool_name": tool_name,
+                    "review_kind": review_kind,
                     "success": success,
                     "call_id": payload.get("call_id"),
                     "summary": summary,
                 }
             )
             return
-        if tool_name == "report_quality":
+        if review_kind == "quality":
             sections["quality"].append(
                 {
                     "tool_name": tool_name,
+                    "review_kind": review_kind,
                     "success": success,
                     "call_id": payload.get("call_id"),
                     "passed": bool(data.get("passed")),
@@ -1904,7 +1897,8 @@ class InProcessAdapter(object):
         payload: Dict[str, Any],
         data: Dict[str, Any],
     ) -> Optional[Dict[str, Any]]:
-        if tool_name == "compile_project" and not success:
+        review_kind = self._review_kind(tool_name, data)
+        if review_kind == "build" and not success:
             detail = self._review_primary_detail(data, payload.get("error"))
             return {
                 "id": "build-failed-%s" % str(payload.get("call_id") or tool_name),
@@ -1914,7 +1908,7 @@ class InProcessAdapter(object):
                 "body": detail,
                 "evidence": [{"type": "tool_failure", "tool_name": tool_name, "call_id": payload.get("call_id")}],
             }
-        if tool_name == "run_tests":
+        if review_kind == "test":
             summary = data.get("test_summary") if isinstance(data.get("test_summary"), dict) else {}
             failures = int(summary.get("failed") or data.get("test_failures") or 0)
             if (not success) or failures > 0:
@@ -1926,7 +1920,7 @@ class InProcessAdapter(object):
                     "body": "最近一次 `run_tests` 报告了 %s 个失败测试。" % failures,
                     "evidence": [{"type": "test_summary", "tool_name": tool_name, "failed": failures}],
                 }
-        if tool_name in ("run_clang_tidy", "run_clang_analyzer"):
+        if review_kind == "diagnostic":
             error_count = int(data.get("error_count") or 0)
             warning_count = int(data.get("warning_count") or 0)
             if (not success) or error_count > 0 or warning_count > 0:
@@ -1938,7 +1932,7 @@ class InProcessAdapter(object):
                     "body": "%s 返回 error=%s, warning=%s。" % (tool_name, error_count, warning_count),
                     "evidence": [{"type": "diagnostics", "tool_name": tool_name, "error_count": error_count, "warning_count": warning_count}],
                 }
-        if tool_name == "collect_coverage":
+        if review_kind == "coverage":
             summary = data.get("coverage_summary") if isinstance(data.get("coverage_summary"), dict) else {}
             line_coverage = summary.get("line_coverage")
             if line_coverage is not None and float(line_coverage) < 80.0:
@@ -1950,7 +1944,7 @@ class InProcessAdapter(object):
                     "body": "最近一次覆盖率结果显示 line coverage 为 %.2f%%，低于 80%% 经验阈值。" % float(line_coverage),
                     "evidence": [{"type": "coverage", "tool_name": tool_name, "line_coverage": float(line_coverage)}],
                 }
-        if tool_name == "report_quality" and not success:
+        if review_kind == "quality" and not bool(data.get("passed", success)):
             reasons = data.get("reasons") if isinstance(data.get("reasons"), list) else []
             body = "；".join([str(item) for item in reasons if str(item or "").strip()]) or "质量门未通过。"
             return {
@@ -1962,6 +1956,32 @@ class InProcessAdapter(object):
                 "evidence": [{"type": "quality_gate", "tool_name": tool_name, "reasons": reasons}],
             }
         return None
+
+    def _review_kind(self, tool_name: str, data: Dict[str, Any]) -> str:
+        if tool_name == "run_recipe":
+            action = str(data.get("recipe_action") or "").strip().lower()
+            legacy_tool_name = str(data.get("legacy_tool_name") or "").strip()
+            if action in ("configure", "build") or legacy_tool_name == "compile_project":
+                return "build"
+            if action == "test" or legacy_tool_name == "run_tests" or isinstance(data.get("test_summary"), dict):
+                return "test"
+            if action == "coverage" or legacy_tool_name == "collect_coverage" or isinstance(data.get("coverage_summary"), dict):
+                return "coverage"
+            if action in ("tidy", "analyze") or legacy_tool_name in ("run_clang_tidy", "run_clang_analyzer"):
+                return "diagnostic"
+            if isinstance(data.get("diagnostics"), list):
+                return "diagnostic"
+            return ""
+        legacy_mapping = {
+            "compile_project": "build",
+            "run_tests": "test",
+            "run_clang_tidy": "diagnostic",
+            "run_clang_analyzer": "diagnostic",
+            "collect_coverage": "coverage",
+            "report_quality": "quality",
+            "report_quality_v2": "quality",
+        }
+        return str(legacy_mapping.get(tool_name, ""))
 
     def _review_primary_detail(self, data: Dict[str, Any], fallback: Any) -> str:
         diagnostics = data.get("diagnostics") if isinstance(data.get("diagnostics"), list) else []

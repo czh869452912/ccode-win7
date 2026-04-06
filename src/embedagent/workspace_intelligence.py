@@ -108,7 +108,7 @@ class RecipeProvider(WorkspaceIntelligenceProvider):
             selected_sources.append(str(item.get("source") or ""))
             selected.append(
                 "[%s] %s" % (
-                    str(item.get("tool_name") or ""),
+                    str(item.get("recipe_action") or item.get("legacy_tool_name") or item.get("tool_name") or ""),
                     str(item.get("id") or item.get("label") or ""),
                 )
             )
@@ -127,11 +127,11 @@ class RecipeProvider(WorkspaceIntelligenceProvider):
 
     def _rank_items(self, mode_name: str, items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         preferred = {
-            "verify": {"run_tests": 0, "run_clang_tidy": 1, "run_clang_analyzer": 2, "collect_coverage": 3, "compile_project": 4},
-            "build": {"compile_project": 0, "run_tests": 1, "run_clang_tidy": 2},
-            "debug": {"run_tests": 0, "compile_project": 1, "run_clang_tidy": 2, "run_clang_analyzer": 3},
-            "explore": {"compile_project": 0, "run_tests": 1},
-            "spec": {"compile_project": 0, "run_tests": 1},
+            "verify": {"test": 0, "tidy": 1, "analyze": 2, "coverage": 3, "build": 4, "configure": 5},
+            "build": {"build": 0, "configure": 1, "test": 2, "tidy": 3},
+            "debug": {"test": 0, "build": 1, "configure": 2, "tidy": 3, "analyze": 4},
+            "explore": {"build": 0, "test": 1, "configure": 2},
+            "spec": {"build": 0, "test": 1, "configure": 2},
         }.get(mode_name, {})
         source_rank = {
             "build": {"project": 0, "detected": 1, "history": 2},
@@ -143,7 +143,7 @@ class RecipeProvider(WorkspaceIntelligenceProvider):
         return sorted(
             items,
             key=lambda item: (
-                preferred.get(str(item.get("tool_name") or ""), 99),
+                preferred.get(str(item.get("recipe_action") or item.get("legacy_tool_name") or item.get("tool_name") or ""), 99),
                 source_rank.get(str(item.get("source") or ""), 99),
                 self._stage_rank(mode_name, item),
                 str(item.get("id") or ""),

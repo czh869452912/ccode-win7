@@ -44,6 +44,27 @@
 
 ## 3. 当前变更记录
 
+### DC-090
+
+- 日期：2026-04-06
+- 变更主题：稳定化收口补齐 `/review`、recipe 词汇与 runtime 正式目录
+- 变更摘要：
+  - `/review` 现在会把 `run_recipe` 和 `report_quality_v2` 视为正式 verify 证据，并按 `recipe_action / test_summary / coverage_summary / quality gate` 生成结构化 findings
+  - `workspace_recipes` 对外输出已统一为 `tool_name=run_recipe`，并显式附带 `legacy_tool_name` 与 `recipe_action`，避免 GUI/recipe 列表继续把旧 verify 工具名当作正式产品词汇
+  - `run_recipe` observation 现会回填 `recipe_action / legacy_tool_name / recipe_source / recipe_label / target / profile` 等字段，便于 review 和前端统一消费
+  - `ToolRuntime.schemas()` 与 `catalog_entries()` 现已只暴露正式产品工具；legacy file/build/todo wrappers 仅保留为兼容执行别名，不再进入正式 schema/catalog
+- 影响范围：
+  - review synthesizer
+  - workspace recipe metadata
+  - GUI Run 面板 / recipe 文案
+  - runtime schema/catalog 的正式边界
+- 关联文档：
+  - `docs/development-tracker.md`
+- 是否需要 ADR：`否，属于已确定 official cutover 后的稳定化收口`
+- 后续动作：
+  - 继续在真实 C 工程上验证 review、recipe 和 verify 行为
+  - 若后续确认不再需要兼容执行别名，再考虑删除 `build_ops` / `todo_ops` 等剩余旧实现
+
 ### DC-089
 
 - 日期：2026-04-06

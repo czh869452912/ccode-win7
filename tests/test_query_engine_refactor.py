@@ -868,8 +868,9 @@ class TestQueryEngineRefactor(unittest.TestCase):
             )
         provider = RecipeProvider()
         evidence = provider.collect(Session(), "verify", self.tools, None)
-        self.assertIn("run_tests", evidence[0].content)
-        self.assertIn("run_clang_tidy", evidence[0].content)
+        self.assertIn("custom.test", evidence[0].content)
+        self.assertIn("custom.tidy", evidence[0].content)
+        self.assertIn("[test]", evidence[0].content)
 
     def test_recipe_provider_prefers_project_recipe_over_detected_in_code_mode(self):
         os.makedirs(os.path.join(self.workspace, ".embedagent"), exist_ok=True)

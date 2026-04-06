@@ -75,21 +75,28 @@ class TestToolRuntimeSchemas(unittest.TestCase):
         shutil.rmtree(self.workspace, ignore_errors=True)
 
     def test_total_tool_count(self):
-        self.assertEqual(len(self.schemas), 25)
+        self.assertEqual(len(self.schemas), 16)
 
-    def test_all_original_tools_present(self):
+    def test_official_tool_catalog_excludes_legacy_duplicate_tools(self):
         expected = [
-            "read_file", "list_files", "search_text", "write_file", "edit_file",
+            "read_file", "write_file", "edit_file",
             "run_command",
             "git_status", "git_diff", "git_log",
-            "compile_project", "run_tests", "run_clang_tidy",
-            "run_clang_analyzer", "collect_coverage", "report_quality",
         ]
         for name in expected:
             self.assertIn(name, self.tool_names, "Missing tool: %s" % name)
-
-    def test_manage_todos_present(self):
-        self.assertIn("manage_todos", self.tool_names)
+        for name in (
+            "list_files",
+            "search_text",
+            "compile_project",
+            "run_tests",
+            "run_clang_tidy",
+            "run_clang_analyzer",
+            "collect_coverage",
+            "report_quality",
+            "manage_todos",
+        ):
+            self.assertNotIn(name, self.tool_names, "Legacy tool leaked into official catalog: %s" % name)
 
     def test_harness_tools_present(self):
         for name in (
@@ -388,6 +395,9 @@ class TestWorkspaceRecipes(unittest.TestCase):
         self.assertIn("cmake.test.default", recipe_ids)
         self.assertIn("history.compile_project.1", recipe_ids)
         cmake_build = [item for item in payload["items"] if item["id"] == "cmake.build.default"][0]
+        self.assertEqual(cmake_build["tool_name"], "run_recipe")
+        self.assertEqual(cmake_build["legacy_tool_name"], "compile_project")
+        self.assertEqual(cmake_build["recipe_action"], "build")
         self.assertTrue(cmake_build["supports_target"])
         self.assertTrue(cmake_build["supports_profile"])
 

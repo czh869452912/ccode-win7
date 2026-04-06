@@ -15,6 +15,7 @@ def list_workspace_recipes(workspace: str) -> Dict[str, Any]:
     items.extend(_load_project_recipes(workspace))
     items.extend(_detect_builtin_recipes(workspace))
     items.extend(_load_history_recipes(workspace))
+    items = [_normalize_recipe_item(item) for item in items if isinstance(item, dict)]
     return {
         "workspace": workspace,
         "items": items,
@@ -35,7 +36,8 @@ def resolve_workspace_recipe(
         if str(item.get("id") or "") != normalized_id:
             continue
         tool_name = str(item.get("tool_name") or "")
-        if normalized_expected and tool_name != normalized_expected:
+        legacy_tool_name = str(item.get("legacy_tool_name") or "")
+        if normalized_expected and normalized_expected not in (tool_name, legacy_tool_name):
             raise ValueError("recipe %s 不支持工具 %s。" % (normalized_id, normalized_expected))
         resolved = dict(item)
         resolved["cwd"] = str(item.get("cwd") or ".")
@@ -62,6 +64,33 @@ def resolve_workspace_recipe(
         resolved["target"] = str(target or "")
         return resolved
     raise ValueError("未找到 recipe：%s" % normalized_id)
+
+
+def _normalize_recipe_item(item: Dict[str, Any]) -> Dict[str, Any]:
+    original_tool_name = str(item.get("tool_name") or "").strip()
+    stage = str(item.get("stage") or "").strip()
+    normalized = dict(item)
+    normalized["legacy_tool_name"] = str(item.get("legacy_tool_name") or original_tool_name)
+    normalized["tool_name"] = "run_recipe"
+    normalized["recipe_action"] = str(item.get("recipe_action") or _recipe_action_from(original_tool_name, stage))
+    return normalized
+
+
+def _recipe_action_from(tool_name: str, stage: str) -> str:
+    normalized_stage = str(stage or "").strip()
+    if normalized_stage:
+        return normalized_stage
+    mapping = {
+        "compile_project": "build",
+        "run_tests": "test",
+        "run_clang_tidy": "tidy",
+        "run_clang_analyzer": "analyze",
+        "collect_coverage": "coverage",
+        "report_quality": "quality",
+        "report_quality_v2": "quality",
+        "run_recipe": "custom",
+    }
+    return str(mapping.get(str(tool_name or "").strip(), "custom"))
 
 
 def _load_project_recipes(workspace: str) -> List[Dict[str, Any]]:

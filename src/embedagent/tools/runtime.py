@@ -318,6 +318,10 @@ _DEFAULT_TOOL_METADATA = {
 }
 _DEFAULT_TOOL_METADATA.update(OFFICIAL_HARNESS_TOOL_METADATA)
 
+_OFFICIAL_FILE_TOOL_NAMES = {"read_file", "write_file", "edit_file"}
+_OFFICIAL_SHELL_TOOL_NAMES = {"run_command"}
+_OFFICIAL_GIT_TOOL_NAMES = {"git_status", "git_diff", "git_log"}
+
 
 class ToolRuntime(object):
     def __init__(self, workspace: str, app_config=None) -> None:
@@ -329,22 +333,27 @@ class ToolRuntime(object):
         self._ctx = ToolContext(self.workspace, app_config=app_config)
         self.app_config = app_config  # Optional AppConfig; used by loop for path write checking
         self._mode_runtime = OfficialRuntimeModes()
-        all_tools = (
-            file_ops.build_tools(self._ctx)
-            + shell_ops.build_tools(self._ctx)
-            + git_ops.build_tools(self._ctx)
+        official_tools = (
+            [tool for tool in file_ops.build_tools(self._ctx) if tool.name in _OFFICIAL_FILE_TOOL_NAMES]
+            + [tool for tool in shell_ops.build_tools(self._ctx) if tool.name in _OFFICIAL_SHELL_TOOL_NAMES]
+            + [tool for tool in git_ops.build_tools(self._ctx) if tool.name in _OFFICIAL_GIT_TOOL_NAMES]
+        )
+        legacy_tools = (
+            [tool for tool in file_ops.build_tools(self._ctx) if tool.name not in _OFFICIAL_FILE_TOOL_NAMES]
             + build_ops.build_tools(self._ctx)
             + todo_ops.build_tools(self._ctx)
         )
         harness_tools = build_harness_tools(self._ctx)
-        existing_names = set(tool.name for tool in all_tools)
-        all_tools.extend(
+        existing_names = set(tool.name for tool in official_tools)
+        official_tools.extend(
             tool for tool in harness_tools
             if tool.name not in existing_names
         )
         self._catalog = {}  # type: Dict[str, ToolCatalogEntry]
-        self._tools = {td.name: td for td in all_tools}  # type: Dict[str, ToolDefinition]
-        for tool in all_tools:
+        self._legacy_catalog = {}  # type: Dict[str, ToolCatalogEntry]
+        self._tools = {td.name: td for td in official_tools}  # type: Dict[str, ToolDefinition]
+        self._legacy_tools = {td.name: td for td in legacy_tools}  # type: Dict[str, ToolDefinition]
+        for tool in official_tools:
             tool.metadata.update(self._build_default_metadata(tool.name))
             tool.metadata.setdefault("read_only", tool.read_only)
             tool.metadata.setdefault("concurrency_safe", tool.concurrency_safe)
@@ -353,6 +362,32 @@ class ToolRuntime(object):
             tool.metadata.setdefault("activity_kind", tool.activity_kind)
             tool.metadata.setdefault("context_priority", tool.context_priority)
             self._catalog[tool.name] = ToolCatalogEntry(
+                name=tool.name,
+                description=tool.description,
+                permission_category=str(tool.metadata.get("permission_category") or "read"),
+                mode_visibility=list(tool.metadata.get("mode_visibility") or []),
+                workflow_visibility=list(tool.metadata.get("workflow_visibility") or []),
+                user_label=str(tool.metadata.get("user_label") or tool.name),
+                progress_renderer_key=str(tool.metadata.get("progress_renderer_key") or "default"),
+                result_renderer_key=str(tool.metadata.get("result_renderer_key") or "default"),
+                supports_diff_preview=bool(tool.metadata.get("supports_diff_preview")),
+                context_reducer_key=str(tool.metadata.get("context_reducer_key") or tool.name),
+                read_only=bool(tool.metadata.get("read_only")),
+                concurrency_safe=bool(tool.metadata.get("concurrency_safe")),
+                interrupt_behavior=str(tool.metadata.get("interrupt_behavior") or "block"),
+                result_budget_policy=str(tool.metadata.get("result_budget_policy") or "default"),
+                activity_kind=str(tool.metadata.get("activity_kind") or "tool"),
+                context_priority=int(tool.metadata.get("context_priority") or 50),
+            )
+        for tool in legacy_tools:
+            tool.metadata.update(self._build_default_metadata(tool.name))
+            tool.metadata.setdefault("read_only", tool.read_only)
+            tool.metadata.setdefault("concurrency_safe", tool.concurrency_safe)
+            tool.metadata.setdefault("interrupt_behavior", tool.interrupt_behavior)
+            tool.metadata.setdefault("result_budget_policy", tool.result_budget_policy)
+            tool.metadata.setdefault("activity_kind", tool.activity_kind)
+            tool.metadata.setdefault("context_priority", tool.context_priority)
+            self._legacy_catalog[tool.name] = ToolCatalogEntry(
                 name=tool.name,
                 description=tool.description,
                 permission_category=str(tool.metadata.get("permission_category") or "read"),
@@ -447,7 +482,7 @@ class ToolRuntime(object):
         return entry.to_dict() if entry is not None else None
 
     def tool_capabilities(self, name: str) -> Dict[str, Any]:
-        entry = self._catalog.get(name)
+        entry = self._catalog.get(name) or self._legacy_catalog.get(name)
         return entry.to_dict() if entry is not None else {}
 
     def runtime_environment_snapshot(self) -> Dict[str, Any]:
@@ -465,7 +500,7 @@ class ToolRuntime(object):
         arguments: Dict[str, Any],
         stop_event=None,
     ) -> Observation:
-        tool = self._tools.get(name)
+        tool = self._tools.get(name) or self._legacy_tools.get(name)
         if tool is None:
             return Observation(
                 tool_name=name,
@@ -496,7 +531,7 @@ class ToolRuntime(object):
             self._ctx.clear_interrupt_event()
         observation.tool_name = name
         if isinstance(observation.data, dict):
-            entry = self._catalog.get(name)
+            entry = self._catalog.get(name) or self._legacy_catalog.get(name)
             if entry is not None:
                 data = dict(observation.data)
                 data.setdefault("tool_label", entry.user_label)

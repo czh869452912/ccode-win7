@@ -15,7 +15,12 @@ def build_tools(ctx) -> List[ToolDefinition]:
         for item in items[:10]:
             if not isinstance(item, dict):
                 continue
-            preview.append("%s[%s]" % (str(item.get("id") or ""), str(item.get("tool_name") or "")))
+            preview.append(
+                "%s[%s]" % (
+                    str(item.get("id") or ""),
+                    str(item.get("recipe_action") or item.get("legacy_tool_name") or item.get("tool_name") or ""),
+                )
+            )
         return Observation(
             tool_name="list_recipes",
             success=True,
@@ -33,7 +38,11 @@ def build_tools(ctx) -> List[ToolDefinition]:
 
     def _run_recipe(arguments: Dict[str, Any]) -> Observation:
         recipe_id = str(arguments.get("recipe_id") or "").strip()
-        recipe = ctx.resolve_workspace_recipe(recipe_id)
+        recipe = ctx.resolve_workspace_recipe(
+            recipe_id,
+            target=str(arguments.get("target") or ""),
+            profile=str(arguments.get("profile") or ""),
+        )
         command_text = str(recipe.get("command") or "")
         cwd_argument = str(recipe.get("cwd") or ".")
         timeout_sec = int(recipe.get("timeout_sec") or 120)
@@ -46,7 +55,21 @@ def build_tools(ctx) -> List[ToolDefinition]:
         )
         if isinstance(observation.data, dict):
             data = dict(observation.data)
+            recipe_action = str(recipe.get("recipe_action") or "")
+            combined = str(data.get("stdout") or "") + "\n" + str(data.get("stderr") or "")
             data["recipe_id"] = recipe_id
+            data["recipe_label"] = str(recipe.get("label") or recipe_id)
+            data["recipe_source"] = str(recipe.get("source") or "")
+            data["recipe_action"] = recipe_action
+            data["legacy_tool_name"] = str(recipe.get("legacy_tool_name") or "")
+            data["family"] = str(recipe.get("family") or "")
+            data["stage"] = str(recipe.get("stage") or "")
+            data["target"] = str(recipe.get("target") or "")
+            data["profile"] = str(recipe.get("profile") or "")
+            if recipe_action == "test":
+                data["test_summary"] = ctx.parse_test_summary(combined)
+            if recipe_action == "coverage":
+                data["coverage_summary"] = ctx.parse_coverage_summary(combined)
             observation.data = data
         return observation
 
