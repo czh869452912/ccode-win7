@@ -25,6 +25,7 @@ from embedagent.tool_commit import ToolCommitCoordinator
 from embedagent.tools import ToolRuntime
 from embedagent.tools._base import ToolError
 from embedagent.workspace_intelligence import WorkspaceIntelligenceBroker
+from embedagent.workspace_profile import build_workspace_profile_message
 
 _LOG = logging.getLogger(__name__)
 _RETRYABLE_HTTP_CODES = {429, 500, 502, 503, 504}
@@ -227,6 +228,48 @@ class QueryEngine(object):
                 },
             )
 
+    def initialize_session(self, session: Session, initial_mode: str, workflow_state: str = "chat") -> str:
+        current_mode = require_mode(initial_mode)["slug"]
+        current_mode, harness_context = self._run_harness_mode(current_mode, session, workflow_state=workflow_state)
+        if session.messages:
+            self._ensure_transcript_bootstrap(session, current_mode)
+            with self._session_guard():
+                self._append_harness_messages(session, harness_context)
+            return current_mode
+        with self._session_guard():
+            profile_message = session.add_system_message(
+                build_workspace_profile_message(self.tools.workspace, session.session_id)
+            )
+            system_message = session.add_system_message(
+                build_system_prompt(current_mode, getattr(self.tools, "app_config", None), self.tools.workspace)
+            )
+            self._append_transcript_event(
+                session,
+                "session_meta",
+                {
+                    "current_mode": current_mode,
+                    "started_at": session.started_at,
+                    "workspace": self.tools.workspace,
+                },
+            )
+            for message in (profile_message, system_message):
+                self._append_message_event(
+                    session,
+                    {
+                        "role": message.role,
+                        "content": message.content,
+                        "message_id": message.message_id,
+                        "parent_message_id": message.parent_message_id,
+                        "turn_id": message.turn_id,
+                        "step_id": message.step_id,
+                        "kind": message.kind,
+                        "metadata": dict(message.metadata),
+                        "replaced_by_refs": list(message.replaced_by_refs),
+                    },
+                )
+            self._append_harness_messages(session, harness_context)
+        return current_mode
+
     def _record_transition(self, session: Session, transition: LoopTransition) -> None:
         with self._session_guard():
             step_id = session.current_step().step_id if session.current_step() is not None else ""
@@ -377,42 +420,10 @@ class QueryEngine(object):
         permission_handler: Optional[Callable[[PermissionRequest], Optional[bool]]] = None,
         user_input_handler: Optional[Callable[[UserInputRequest], Optional[UserInputResponse]]] = None,
     ) -> QueryTurnResult:
-        current_mode = require_mode(initial_mode)["slug"]
-        current_mode, harness_context = self._run_harness_mode(current_mode, session, workflow_state=workflow_state)
         if session is None:
             with self._session_guard():
                 session = Session()
-                system_message = session.add_system_message(
-                    build_system_prompt(current_mode, getattr(self.tools, "app_config", None), self.tools.workspace)
-                )
-                self._append_transcript_event(
-                    session,
-                    "session_meta",
-                    {
-                        "current_mode": current_mode,
-                        "started_at": session.started_at,
-                        "workspace": self.tools.workspace,
-                    },
-                )
-                self._append_message_event(
-                    session,
-                    {
-                        "role": system_message.role,
-                        "content": system_message.content,
-                        "message_id": system_message.message_id,
-                        "parent_message_id": system_message.parent_message_id,
-                        "turn_id": system_message.turn_id,
-                        "step_id": system_message.step_id,
-                        "kind": system_message.kind,
-                        "metadata": dict(system_message.metadata),
-                        "replaced_by_refs": list(system_message.replaced_by_refs),
-                    },
-                )
-                self._append_harness_messages(session, harness_context)
-        else:
-            self._ensure_transcript_bootstrap(session, current_mode)
-            with self._session_guard():
-                self._append_harness_messages(session, harness_context)
+        current_mode = self.initialize_session(session, initial_mode, workflow_state=workflow_state)
         if user_text:
             with self._session_guard():
                 turn_id = "t-" + uuid.uuid4().hex[:12]

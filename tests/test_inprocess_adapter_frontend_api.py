@@ -324,6 +324,15 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertIn("task_items", self.snapshot)
         self.assertGreaterEqual(len(self.snapshot.get("task_items") or []), 1)
 
+    def test_adapter_reuses_one_engine_per_session(self):
+        state = self.adapter._sessions[self.snapshot["session_id"]]
+        first_engine = state.engine
+
+        self.adapter.submit_user_message(self.snapshot["session_id"], "first turn", wait=True)
+        self.adapter.submit_user_message(self.snapshot["session_id"], "second turn", wait=True)
+
+        self.assertIs(state.engine, first_engine)
+
     def test_timeline_api(self):
         events = []
         self.adapter.submit_user_message(

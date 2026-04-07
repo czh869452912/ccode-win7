@@ -162,6 +162,17 @@ class ToolClient(object):
         return reply
 
 
+class FakeClient(object):
+    def generate(self, messages, tools=None):
+        return AssistantReply(content="ok", actions=[], finish_reason="stop")
+
+    def stream(self, messages, tools=None, on_text_delta=None, on_reasoning_delta=None):
+        reply = self.generate(messages, tools=tools)
+        if on_text_delta is not None and reply.content:
+            on_text_delta(reply.content)
+        return reply
+
+
 class UnsafeToolCallIdClient(object):
     def __init__(self):
         self.calls = 0
@@ -438,6 +449,29 @@ class TestQueryEngineRefactor(unittest.TestCase):
         )
         self.assertEqual(result.transition.reason, "completed")
         self.assertTrue(result.session.turns[-1].observations[-1].success)
+
+    def test_initialize_session_injects_profile_mode_and_harness_once(self):
+        transcript_store = TranscriptStore(self.workspace)
+        engine = QueryEngine(
+            client=FakeClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(
+                auto_approve_all=True,
+                workspace=self.workspace,
+            ),
+            transcript_store=transcript_store,
+        )
+        session = Session()
+
+        current_mode = engine.initialize_session(session, "build", workflow_state="chat")
+        self.assertEqual(current_mode, "build")
+        first_messages = list(session.messages)
+        self.assertGreaterEqual(len(first_messages), 2)
+        self.assertTrue(any(message.kind == "harness_prompt" for message in first_messages))
+
+        current_mode = engine.initialize_session(session, "build", workflow_state="chat")
+        self.assertEqual(current_mode, "build")
+        self.assertEqual(len(session.messages), len(first_messages))
 
     def test_query_engine_writes_tool_presentation_into_tool_call_event(self):
         transcript_store = TranscriptStore(self.workspace)

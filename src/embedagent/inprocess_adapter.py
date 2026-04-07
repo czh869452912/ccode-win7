@@ -6,7 +6,7 @@ import json
 import os
 import threading
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Callable, Dict, List, Optional, Set
 
@@ -27,11 +27,11 @@ from embedagent.session import Action, AssistantReply, Observation, Session
 from embedagent.session_history import SessionHistoryAssembler
 from embedagent.session_store import SessionSummaryStore
 from embedagent.session_timeline import SessionTimelineStore
+from embedagent.session_runtime import ManagedSession
 from embedagent.slash_commands import ParsedSlashCommand, SlashCommandRegistry, parse_slash_command
 from embedagent.transcript_store import TranscriptStore
 from embedagent.tools import ToolRuntime
 from embedagent.tools._base import SKIP_DIR_NAMES
-from embedagent.workspace_profile import build_workspace_profile_message
 
 
 EventHandler = Callable[[str, str, Dict[str, Any]], None]
@@ -153,42 +153,6 @@ def _pending_interaction_payload(state: "ManagedSession") -> Optional[Dict[str, 
     return None
 
 
-@dataclass
-class ManagedSession:
-    session: Session
-    current_mode: str
-    status: str = "idle"
-    workflow_state: str = "chat"
-    active_plan_ref: str = ""
-    current_command_context: str = ""
-    current_command_turn_id: str = ""
-    current_command_step_id: str = ""
-    current_command_step_index: int = 0
-    summary_ref: str = ""
-    updated_at: str = field(default_factory=_utc_now)
-    last_error: Optional[str] = None
-    pending_permission: Optional[PermissionTicket] = None
-    pending_user_input: Optional[UserInputTicket] = None
-    pending_event: Optional[threading.Event] = None
-    pending_result: Optional[bool] = None
-    pending_user_event: Optional[threading.Event] = None
-    pending_user_response: Optional[UserInputResponse] = None
-    active_thread: Optional[threading.Thread] = None
-    resume_summary: Optional[Dict[str, Any]] = None
-    last_assistant_message: str = ""
-    restore_stop_reason: str = ""
-    restore_consumed_event_count: int = 0
-    restore_transcript_event_count: int = 0
-    current_phase: str = ""
-    discipline_profile: str = ""
-    current_activity: str = ""
-    task_summary: str = ""
-    task_items: List[Dict[str, Any]] = field(default_factory=list)
-    remembered_permission_categories: Set[str] = field(default_factory=set)
-    stop_event: threading.Event = field(default_factory=threading.Event, repr=False)
-    lock: threading.RLock = field(default_factory=threading.RLock, repr=False)
-
-
 class InProcessAdapter(object):
     def __init__(
         self,
@@ -227,6 +191,21 @@ class InProcessAdapter(object):
         initialize_modes(self.tools.workspace)
         self._sessions = {}  # type: Dict[str, ManagedSession]
         self._lock = threading.RLock()
+
+    def _build_engine(self, session_lock: Optional[threading.RLock] = None) -> QueryEngine:
+        return QueryEngine(
+            client=self.client,
+            tools=self.tools,
+            max_turns=self.max_turns,
+            permission_policy=self.permission_policy,
+            context_manager=self.context_manager,
+            summary_store=self.summary_store,
+            project_memory_store=self.project_memory_store,
+            memory_maintenance=self.memory_maintenance,
+            maintenance_interval=self.maintenance_interval,
+            transcript_store=self.transcript_store,
+            session_lock=session_lock,
+        )
 
     def _append_transcript_message_event(self, session_id: str, message: Any) -> None:
         self.transcript_store.append_event(
@@ -318,21 +297,6 @@ class InProcessAdapter(object):
     ) -> Dict[str, Any]:
         current_mode = require_mode(mode)["slug"]
         session = Session()
-        profile_message = session.add_system_message(build_workspace_profile_message(self.tools.workspace, session.session_id))
-        mode_message = session.add_system_message(
-            build_system_prompt(current_mode, getattr(self.tools, "app_config", None), self.tools.workspace)
-        )
-        self.transcript_store.append_event(
-            session.session_id,
-            "session_meta",
-            {
-                "current_mode": current_mode,
-                "started_at": session.started_at,
-                "workspace": self.tools.workspace,
-            },
-        )
-        for message in (profile_message, mode_message):
-            self._append_transcript_message_event(session.session_id, message)
         plan = self.plan_store.load(session.session_id)
         state = ManagedSession(
             session=session,
@@ -340,7 +304,12 @@ class InProcessAdapter(object):
             active_plan_ref=plan.path if plan is not None else "",
             workflow_state="plan" if plan is not None else "chat",
         )
-        self._append_harness_messages(session, current_mode, state.workflow_state)
+        state.engine = self._build_engine(state.lock)
+        state.current_mode = state.engine.initialize_session(
+            session,
+            current_mode,
+            workflow_state=state.workflow_state,
+        )
         self._refresh_harness_state(state)
         self._persist_state(state)
         with self._lock:
@@ -380,6 +349,12 @@ class InProcessAdapter(object):
             restore_stop_reason=str(restored.stop_reason or ""),
             restore_consumed_event_count=int(restored.consumed_event_count or 0),
             restore_transcript_event_count=int(restored.transcript_event_count or 0),
+        )
+        state.engine = self._build_engine(state.lock)
+        state.current_mode = state.engine.initialize_session(
+            session,
+            current_mode,
+            workflow_state=state.workflow_state,
         )
         if session.pending_interaction is not None:
             if session.pending_interaction.kind == "permission":
@@ -2057,19 +2032,7 @@ class InProcessAdapter(object):
             state.restore_stop_reason = ""
             state.restore_consumed_event_count = 0
             state.restore_transcript_event_count = 0
-        engine = QueryEngine(
-            client=self.client,
-            tools=self.tools,
-            max_turns=self.max_turns,
-            permission_policy=self.permission_policy,
-            context_manager=self.context_manager,
-            summary_store=self.summary_store,
-            project_memory_store=self.project_memory_store,
-            memory_maintenance=self.memory_maintenance,
-            maintenance_interval=self.maintenance_interval,
-            transcript_store=self.transcript_store,
-            session_lock=state.lock,
-        )
+        engine = state.engine
         current_step = {"step_id": "", "step_index": 0}
         thinking_state = {"active": False}
 
