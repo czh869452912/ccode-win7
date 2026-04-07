@@ -44,6 +44,28 @@
 
 ## 3. 当前变更记录
 
+### DC-097
+
+- 日期：2026-04-07
+- 变更主题：已完成切片的 plan/spec/review/handoff 文档统一归档
+- 变更摘要：
+  - `gui-redesign`、`packaging-pipeline-redesign`、`agent-harness-v2`、`session-history-single-source-cutover` 相关的活动 plan/spec/review/handoff 文档已迁入新的 `docs/archive/<topic>/` 目录
+  - `2026-04-02-full-transcript-persistence-design.md` 已补归档到 `docs/archive/transcript-truth-tool-result-cutover/`
+  - `architecture_documentation_alignment_issues.md` 已迁入 `docs/archive/issues/`，活动 `docs/issues/` 入口不再保留已关闭审查报告
+  - `development-tracker` 与 `design-change-log` 中引用旧活动路径的记录已同步改到 archive 路径，避免后续断链
+- 影响范围：
+  - `docs/archive/` 目录结构
+  - `docs/development-tracker.md`
+  - `docs/design-change-log.md`
+- 关联文档：
+  - `docs/archive/gui-redesign/README.md`
+  - `docs/archive/packaging-pipeline-redesign/README.md`
+  - `docs/archive/agent-harness-v2/README.md`
+  - `docs/archive/session-history-single-source-cutover/README.md`
+- 是否需要 ADR：`否，属于文档治理收口`
+- 后续动作：
+  - 后续新切片在确认实现完成后，继续保持“活动入口最小化、archive 留痕”的文档治理习惯
+
 ### DC-096
 
 - 日期：2026-04-07
@@ -237,7 +259,7 @@
   - TUI explorer / inspector / slash command 展示
   - React webapp store / inspector / runtime summary / built assets
 - 关联文档：
-  - `docs/superpowers/plans/2026-04-06-agent-harness-v2-official-cutover-plan.md`
+  - `docs/archive/agent-harness-v2/2026-04-06-agent-harness-v2-official-cutover-plan.md`
   - `docs/development-tracker.md`
 - 是否需要 ADR：`否，继续沿 official cutover 计划推进`
 - 后续动作：
@@ -259,7 +281,7 @@
   - 权限规则加载、匹配与前端可见解释文本
   - focused regression tests 与 adapter/task API 行为
 - 关联文档：
-  - `docs/superpowers/plans/2026-04-06-agent-harness-v2-official-cutover-plan.md`
+  - `docs/archive/agent-harness-v2/2026-04-06-agent-harness-v2-official-cutover-plan.md`
   - `docs/development-tracker.md`
 - 是否需要 ADR：`否，继续沿 official cutover 计划推进`
 - 后续动作：
@@ -280,7 +302,7 @@
   - workspace intelligence / diagnostics summary / quality gate summary
   - focused regression tests
 - 关联文档：
-  - `docs/superpowers/plans/2026-04-06-agent-harness-v2-official-cutover-plan.md`
+  - `docs/archive/agent-harness-v2/2026-04-06-agent-harness-v2-official-cutover-plan.md`
   - `docs/development-tracker.md`
 - 是否需要 ADR：`否，继续沿 official cutover 计划推进`
 - 后续动作：
@@ -302,7 +324,7 @@
   - context / workspace intelligence / tool metadata 的 mode 判断
   - 相关测试与 GUI 静态产物
 - 关联文档：
-  - `docs/superpowers/plans/2026-04-06-agent-harness-v2-official-cutover-plan.md`
+  - `docs/archive/agent-harness-v2/2026-04-06-agent-harness-v2-official-cutover-plan.md`
   - `docs/development-tracker.md`
 - 是否需要 ADR：`与 DC-084 同步，仍建议在 official cutover 真正完成前补一条 ADR，固定唯一 mode 词汇与 build 作为唯一实现模式`
 - 后续动作：
@@ -317,14 +339,14 @@
   - 在完成 build/debug/verify 第一批 V2 切片与主链路接线后，对仓库进行了“是否可直接删 legacy”审查
   - 结论是：当前主循环已经明显向 Harness V2 收敛，但 runtime、mode vocabulary、context、permission、task truth、frontend/protocol 和文档仍保留大量 legacy 词汇与双轨结构
   - 因此后续路线不应是“继续桥接 + 局部补丁”，而应改成 official cutover：按 `runtime -> mode vocabulary -> context -> permission/task truth -> frontend/protocol -> docs/legacy deletion` 的顺序，把 V2 扶正为唯一正式实现
-  - 新增 `docs/superpowers/plans/2026-04-06-agent-harness-v2-official-cutover-plan.md` 作为本轮正式化计划，明确不再把 `ToolRuntime + ToolRuntimeV2 + bridge`、`code + build`、`manage_todos + TaskGraph`、`permissions.py + permissions_v2` 视为可长期共存的结构
+  - 新增 `docs/archive/agent-harness-v2/2026-04-06-agent-harness-v2-official-cutover-plan.md` 作为本轮正式化计划留痕，明确不再把 `ToolRuntime + ToolRuntimeV2 + bridge`、`code + build`、`manage_todos + TaskGraph`、`permissions.py + permissions_v2` 视为可长期共存的结构
 - 影响范围：
   - Agent Harness V2 的后续实施顺序
   - runtime / mode / permission / task / frontend 的收敛原则
   - 文档治理与 legacy 删除节奏
 - 关联文档：
   - `docs/agent-harness-v2.md`
-  - `docs/superpowers/plans/2026-04-06-agent-harness-v2-official-cutover-plan.md`
+  - `docs/archive/agent-harness-v2/2026-04-06-agent-harness-v2-official-cutover-plan.md`
   - `docs/development-tracker.md`
 - 是否需要 ADR：`建议在开始实际 official cutover implementation 前补一条 ADR，固定“唯一正式实现”与 mode vocabulary cutover 的原则`
 - 后续动作：
@@ -348,7 +370,7 @@
   - 后续 Program D 的 artifact gate 与任务同步扩展空间
 - 关联文档：
   - `docs/agent-harness-v2.md`
-  - `docs/superpowers/plans/2026-04-06-agent-harness-v2-full-spec-taskgraph.md`
+  - `docs/archive/agent-harness-v2/2026-04-06-agent-harness-v2-full-spec-taskgraph.md`
   - `docs/development-tracker.md`
   - `tests/test_task_graph_v2.py`
   - `tests/test_harness_runner_taskgraph.py`
@@ -376,7 +398,7 @@
   - 后续 Program C/D/E 的实现落点
 - 关联文档：
   - `docs/agent-harness-v2.md`
-  - `docs/superpowers/plans/2026-04-06-agent-harness-v2-foundation.md`
+  - `docs/archive/agent-harness-v2/2026-04-06-agent-harness-v2-foundation.md`
   - `docs/development-tracker.md`
   - `tests/test_harness_contracts.py`
   - `tests/test_phase_engine.py`
@@ -1268,7 +1290,7 @@
   - `docs/query-context-redesign.md`
   - `docs/archive/context-loop/context-loop-handoff-status.md`
   - `docs/development-tracker.md`
-  - `docs/superpowers/specs/2026-04-02-full-transcript-persistence-design.md`
+  - `docs/archive/transcript-truth-tool-result-cutover/2026-04-02-full-transcript-persistence-design.md`
 - 是否需要 ADR：`否`
 - 后续动作：
   - 补 interrupt / synthetic tool_result / discard-on-retry 的 transcript 语义

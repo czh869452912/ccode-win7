@@ -13,6 +13,7 @@
 
 归档内容：
 
+- [2026-04-02-full-transcript-persistence-design.md](/D:/Claude-project/ccode-win7/docs/archive/transcript-truth-tool-result-cutover/2026-04-02-full-transcript-persistence-design.md)
 - [2026-04-05-transcript-truth-tool-result-cutover-design.md](/D:/Claude-project/ccode-win7/docs/archive/transcript-truth-tool-result-cutover/2026-04-05-transcript-truth-tool-result-cutover-design.md)
 - [2026-04-05-transcript-truth-tool-result-cutover.md](/D:/Claude-project/ccode-win7/docs/archive/transcript-truth-tool-result-cutover/2026-04-05-transcript-truth-tool-result-cutover.md)
 - [transcript-truth-cutover-impact-analysis.md](/D:/Claude-project/ccode-win7/docs/archive/transcript-truth-tool-result-cutover/transcript-truth-cutover-impact-analysis.md)
