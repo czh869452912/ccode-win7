@@ -24,6 +24,7 @@ from embedagent.project_memory import ProjectMemoryStore
 from embedagent.query_engine import QueryEngine
 from embedagent.session_restore import SessionRestoreResult, SessionRestorer
 from embedagent.session import Action, AssistantReply, Observation, Session
+from embedagent.session_history import SessionHistoryAssembler
 from embedagent.session_store import SessionSummaryStore
 from embedagent.session_timeline import SessionTimelineStore
 from embedagent.slash_commands import ParsedSlashCommand, SlashCommandRegistry, parse_slash_command
@@ -428,11 +429,20 @@ class InProcessAdapter(object):
         self._notify_status(event_handler, state)
         return snapshot
 
+    def _ensure_session_active(self, reference: str, mode: str = "") -> ManagedSession:
+        with self._lock:
+            state = self._sessions.get(reference)
+        if state is not None:
+            return state
+        snapshot = self.resume_session(reference, mode or DEFAULT_MODE)
+        session_id = str(snapshot.get("session_id") or "")
+        return self._require_session(session_id)
+
     def list_sessions(self, limit: int = 10) -> List[Dict[str, Any]]:
         return self.summary_store.list_summaries(limit=limit)
 
     def get_session_snapshot(self, session_id: str) -> Dict[str, Any]:
-        state = self._require_session(session_id)
+        state = self._ensure_session_active(session_id)
         runtime_lookup = getattr(self.tools, "runtime_environment_snapshot", None)
         runtime = runtime_lookup() if callable(runtime_lookup) else {}
         with state.lock:
@@ -666,271 +676,64 @@ class InProcessAdapter(object):
         }
 
     def get_session_timeline(self, session_id: str, limit: int = 200) -> Dict[str, Any]:
-        state = self._require_session(session_id)
+        state = self._ensure_session_active(session_id)
         return {
             "session_id": state.session.session_id,
             "events": self.timeline_store.load_events(state.session.session_id, limit=limit),
             "latest_assistant_reply": self.timeline_store.latest_assistant_reply(state.session.session_id),
         }
 
-    def build_structured_timeline(self, session_id: str, limit: int = 200) -> Dict[str, Any]:
-        """Return timeline as structured Turn list, aggregated from raw events.
-
-        Falls back to raw events format for old sessions without turn_start events.
-        """
-        def make_transition_item(event_name: str, payload: Dict[str, Any], record: Dict[str, Any]) -> Dict[str, Any]:
+    def build_session_history(self, reference: str, mode: str = "") -> Dict[str, Any]:
+        try:
+            state = self._ensure_session_active(reference, mode)
+        except ValueError as exc:
             return {
-                "kind": event_name,
-                "display_reason": _display_transition_reason(event_name),
-                "message": str(payload.get("message") or payload.get("reason") or ""),
-                "created_at": record.get("created_at", ""),
-                "turn_id": str(payload.get("turn_id") or ""),
-                "step_id": str(payload.get("step_id") or ""),
-                "step_index": int(payload.get("step_index") or 0),
-                "metadata": dict(payload),
-            }
-
-        state = self._require_session(session_id)
-        raw_events = self.timeline_store.load_events(state.session.session_id, limit=limit)
-        has_turn_start = any(r.get("event") == "turn_start" for r in raw_events)
-        if not has_turn_start:
-            return {
-                "session_id": state.session.session_id,
-                "projection_source": "raw_events",
-                "events": raw_events,
+                "session_id": str(reference or ""),
+                "history_source": "transcript_restore",
                 "turns": [],
+                "current_interaction": None,
+                "integrity": {
+                    "status": "unavailable",
+                    "restore_stop_reason": self._history_unavailable_reason(exc),
+                    "consumed_event_count": 0,
+                    "transcript_event_count": 0,
+                },
             }
-        has_step_start = any(r.get("event") == "step_start" for r in raw_events)
-        if has_step_start:
-            turns = []
-            current_turn = None  # type: Optional[Dict[str, Any]]
-            current_step = None  # type: Optional[Dict[str, Any]]
-            tool_index = {}  # type: Dict[str, int]
-            for record in raw_events:
-                event = record.get("event")
-                payload = record.get("payload") or {}
-                if event == "turn_start":
-                    current_turn = {
-                        "turn_id": payload.get("turn_id", ""),
-                        "user_text": payload.get("user_text", ""),
-                        "projection_kind": "step_events",
-                        "tool_calls": [],
-                        "steps": [],
-                        "transitions": [],
-                        "status": "in_progress",
-                    }
-                    current_step = None
-                    tool_index = {}
-                    turns.append(current_turn)
-                elif event == "step_start" and current_turn is not None:
-                    current_step = {
-                        "step_id": payload.get("step_id", ""),
-                        "step_index": int(payload.get("step_index") or 0),
-                        "reasoning": "",
-                        "assistant_text": "",
-                        "projection_kind": "recorded_step",
-                        "synthetic": False,
-                        "tool_calls": [],
-                        "transitions": [],
-                        "status": "in_progress",
-                    }
-                    tool_index = {}
-                    current_turn["steps"].append(current_step)
-                elif event == "reasoning_delta" and current_step is not None:
-                    current_step["reasoning"] += payload.get("text", "")
-                elif event in ("compact_retry", "context_compacted", "mode_changed", "permission_required", "user_input_required", "command_result", "session_error") and current_turn is not None:
-                    transition_item = make_transition_item(event, payload, record)
-                    current_turn["transitions"].append(dict(transition_item))
-                    if current_step is not None:
-                        current_step["transitions"].append(dict(transition_item))
-                    if event == "permission_required":
-                        current_turn["status"] = "waiting_permission"
-                        if current_step is not None and current_step.get("status") == "in_progress":
-                            current_step["status"] = "waiting_permission"
-                    elif event == "user_input_required":
-                        current_turn["status"] = "waiting_user_input"
-                        if current_step is not None and current_step.get("status") == "in_progress":
-                            current_step["status"] = "waiting_user_input"
-                elif event == "tool_started" and current_turn is not None:
-                    call_id = payload.get("call_id") or record.get("event_id", "")
-                    tool_call = {
-                        "call_id": call_id,
-                        "tool_name": payload.get("tool_name", ""),
-                        "tool_label": payload.get("tool_label", payload.get("tool_name", "")),
-                        "arguments": payload.get("arguments") or {},
-                        "status": "running",
-                        "data": None,
-                        "error": "",
-                        "permission_category": payload.get("permission_category", ""),
-                        "supports_diff_preview": bool(payload.get("supports_diff_preview", False)),
-                        "runtime_source": payload.get("runtime_source", ""),
-                        "resolved_tool_roots": payload.get("resolved_tool_roots") or {},
-                    }
-                    if current_step is not None:
-                        tool_index[call_id] = len(current_step["tool_calls"])
-                        current_step["tool_calls"].append(tool_call)
-                    else:
-                        tool_index[call_id] = len(current_turn["tool_calls"])
-                        current_turn["tool_calls"].append(tool_call)
-                elif event == "tool_finished" and current_turn is not None:
-                    call_id = payload.get("call_id") or record.get("event_id", "")
-                    idx = tool_index.get(call_id)
-                    update = {
-                        "status": "success" if payload.get("success") else "error",
-                        "data": payload.get("data"),
-                        "error": payload.get("error") or "",
-                        "tool_label": payload.get("tool_label", payload.get("tool_name", "")),
-                        "permission_category": payload.get("permission_category", ""),
-                        "supports_diff_preview": bool(payload.get("supports_diff_preview", False)),
-                        "runtime_source": payload.get("runtime_source", ""),
-                        "resolved_tool_roots": payload.get("resolved_tool_roots") or {},
-                    }
-                    if current_step is not None and idx is not None:
-                        current_step["tool_calls"][idx].update(update)
-                    elif current_step is not None:
-                        current_step["tool_calls"].append(
-                            dict(
-                                call_id=call_id,
-                                tool_name=payload.get("tool_name", ""),
-                                tool_label=payload.get("tool_label", payload.get("tool_name", "")),
-                                arguments={},
-                                **update
-                            )
-                        )
-                    elif idx is not None:
-                        current_turn["tool_calls"][idx].update(update)
-                    else:
-                        current_turn["tool_calls"].append(
-                            dict(
-                                call_id=call_id,
-                                tool_name=payload.get("tool_name", ""),
-                                tool_label=payload.get("tool_label", payload.get("tool_name", "")),
-                                arguments={},
-                                **update
-                            )
-                        )
-                elif event == "step_end" and current_step is not None:
-                    if payload.get("assistant_text") is not None:
-                        current_step["assistant_text"] = payload.get("assistant_text") or ""
-                    current_step["status"] = payload.get("status") or "completed"
-                elif event == "turn_end" and current_turn is not None:
-                    termination_reason = str(payload.get("termination_reason") or "completed")
-                    current_turn["status"] = termination_reason
-                    if termination_reason and termination_reason != "completed":
-                        transition_item = {
-                            "kind": termination_reason,
-                            "display_reason": _display_transition_reason(termination_reason),
-                            "message": str(payload.get("error") or payload.get("message") or ""),
-                            "created_at": record.get("created_at", ""),
-                            "metadata": dict(payload),
-                        }
-                        current_turn["transitions"].append(dict(transition_item))
-                        if current_step is not None:
-                            if current_step.get("status") in ("in_progress", "tool_calls", "completed"):
-                                current_step["status"] = termination_reason
-                            current_step["transitions"].append(dict(transition_item))
-            return {
-                "session_id": state.session.session_id,
-                "projection_source": "step_events",
-                "events": raw_events,
-                "turns": turns,
-            }
-        turns = []
-        current_turn = None  # type: Optional[Dict[str, Any]]
-        tool_index = {}  # type: Dict[str, int]
-        for record in raw_events:
-            event = record.get("event")
-            payload = record.get("payload") or {}
-            if event == "turn_start":
-                current_turn = {
-                    "turn_id": payload.get("turn_id", ""),
-                    "user_text": payload.get("user_text", ""),
-                    "reasoning": "",
-                    "tool_calls": [],
-                    "assistant_text": "",
-                    "projection_kind": "turn_events",
-                    "transitions": [],
-                    "status": "in_progress",
-                    "steps": [],
-                }
-                tool_index = {}
-                turns.append(current_turn)
-            elif event == "reasoning_delta" and current_turn is not None:
-                current_turn["reasoning"] += payload.get("text", "")
-            elif event in ("compact_retry", "context_compacted", "mode_changed", "permission_required", "user_input_required", "command_result", "session_error") and current_turn is not None:
-                current_turn["transitions"].append(make_transition_item(event, payload, record))
-                if event == "permission_required":
-                    current_turn["status"] = "waiting_permission"
-                elif event == "user_input_required":
-                    current_turn["status"] = "waiting_user_input"
-            elif event == "tool_started" and current_turn is not None:
-                call_id = payload.get("call_id") or record.get("event_id", "")
-                tool_call = {
-                    "call_id": call_id,
-                    "tool_name": payload.get("tool_name", ""),
-                    "tool_label": payload.get("tool_label", payload.get("tool_name", "")),
-                    "arguments": payload.get("arguments") or {},
-                    "status": "running",
-                    "data": None,
-                    "error": "",
-                    "permission_category": payload.get("permission_category", ""),
-                    "supports_diff_preview": bool(payload.get("supports_diff_preview", False)),
-                }
-                tool_index[call_id] = len(current_turn["tool_calls"])
-                current_turn["tool_calls"].append(tool_call)
-            elif event == "tool_finished" and current_turn is not None:
-                call_id = payload.get("call_id") or record.get("event_id", "")
-                idx = tool_index.get(call_id)
-                update = {
-                    "status": "success" if payload.get("success") else "error",
-                    "data": payload.get("data"),
-                    "error": payload.get("error") or "",
-                    "tool_label": payload.get("tool_label", payload.get("tool_name", "")),
-                    "permission_category": payload.get("permission_category", ""),
-                    "supports_diff_preview": bool(payload.get("supports_diff_preview", False)),
-                }
-                if idx is not None:
-                    current_turn["tool_calls"][idx].update(update)
-                else:
-                    current_turn["tool_calls"].append(dict(
-                        call_id=call_id,
-                        tool_name=payload.get("tool_name", ""),
-                        tool_label=payload.get("tool_label", payload.get("tool_name", "")),
-                        arguments={},
-                        **update,
-                    ))
-            elif event == "turn_end" and current_turn is not None:
-                termination_reason = str(payload.get("termination_reason") or "completed")
-                current_turn["assistant_text"] = payload.get("final_text") or ""
-                current_turn["status"] = termination_reason
-                if termination_reason and termination_reason != "completed":
-                    current_turn["transitions"].append({
-                        "kind": termination_reason,
-                        "display_reason": _display_transition_reason(termination_reason),
-                        "message": str(payload.get("error") or payload.get("message") or ""),
-                        "created_at": record.get("created_at", ""),
-                        "metadata": dict(payload),
-                    })
-        for turn in turns:
-            turn["steps"] = [
-                {
-                    "step_id": "%s-step-1" % (turn.get("turn_id") or "legacy"),
-                    "step_index": 1,
-                    "reasoning": turn.get("reasoning") or "",
-                    "assistant_text": turn.get("assistant_text") or "",
-                    "projection_kind": "synthetic_single_step",
-                    "synthetic": True,
-                    "tool_calls": list(turn.get("tool_calls") or []),
-                    "transitions": list(turn.get("transitions") or []),
-                    "status": turn.get("status") or "completed",
-                }
-            ]
+        assembler = SessionHistoryAssembler(
+            tool_catalog_lookup=getattr(self.tools, "tool_catalog_entry", None),
+            runtime_snapshot_lookup=getattr(self.tools, "runtime_environment_snapshot", None),
+        )
+        integrity_status = "healthy"
+        history_source = "session_state"
+        if int(state.restore_transcript_event_count or 0) > 0:
+            history_source = "transcript_restore"
+            if str(state.restore_stop_reason or "").strip():
+                integrity_status = "partial"
+        return assembler.build(
+            state.session,
+            history_source=history_source,
+            integrity_status=integrity_status,
+            restore_stop_reason=str(state.restore_stop_reason or ""),
+            consumed_event_count=int(state.restore_consumed_event_count or 0),
+            transcript_event_count=int(state.restore_transcript_event_count or 0),
+        )
+
+    def get_session_bootstrap(self, reference: str, mode: str = "") -> Dict[str, Any]:
+        state = self._ensure_session_active(reference, mode)
+        session_id = state.session.session_id
         return {
-            "session_id": state.session.session_id,
-            "projection_source": "turn_events",
-            "events": raw_events,
-            "turns": turns,
+            "snapshot": self.get_session_snapshot(session_id),
+            "history": self.build_session_history(session_id),
+            "plan": self.get_session_plan(session_id),
+            "permission_context": self.get_permission_context(session_id),
+            "replay": self.load_session_events_after(session_id, after_seq=0, limit=0),
         }
+
+    def _history_unavailable_reason(self, exc: Exception) -> str:
+        message = str(exc or "").strip().lower()
+        if "transcript not found" in message or "empty transcript" in message:
+            return "transcript_missing"
+        return str(exc or "history_unavailable")
 
     def list_artifacts(self, limit: int = 20) -> List[Dict[str, Any]]:
         items = self.tools.projection_db.list_tool_results(limit=limit)
@@ -979,11 +782,11 @@ class InProcessAdapter(object):
         }
 
     def get_session_plan(self, session_id: str) -> Optional[PlanSnapshot]:
-        state = self._require_session(session_id)
+        state = self._ensure_session_active(session_id)
         return self.plan_store.load(state.session.session_id)
 
     def get_permission_context(self, session_id: str) -> PermissionContextView:
-        state = self._require_session(session_id)
+        state = self._ensure_session_active(session_id)
         remembered = sorted(state.remembered_permission_categories)
         return self.permission_policy.build_context_view(
             session_id=state.session.session_id,

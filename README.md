@@ -21,6 +21,7 @@ The repository now treats Agent Harness as the only official execution model.
 - Official file discovery: `list_dir`, `glob_files`, `grep_text`
 - Official permission engine: `PermissionPolicy` with structured rule matching and stable explanation text
 - Official frontend vocabulary: `build`, `tasks`, `current_phase`, `discipline_profile`
+- Official session-history model: `transcript.jsonl -> Session -> SessionHistoryAssembler -> /api/sessions/{id}/bootstrap`
 
 The product no longer treats the old `code` mode or `manage_todos`-style workflow as the architecture baseline.
 
@@ -38,6 +39,8 @@ The product no longer treats the old `code` mode or `manage_todos`-style workflo
   Structured permission categories, rule loading, rule matching, and explanation rendering.
 - `src/embedagent/inprocess_adapter.py`
   Product-facing adapter used by CLI/TUI/GUI, including session snapshots and slash command handling.
+- `src/embedagent/session_history.py`
+  Canonical GUI history assembler built from transcript-backed `Session` state.
 - `src/embedagent/core/` and `src/embedagent/protocol/`
   Stable frontend/core contract layer.
 - `src/embedagent/frontend/`
@@ -87,6 +90,7 @@ Current architecture cutover status:
 - Context/intelligence cutover: completed
 - Permission/task truth cutover: completed
 - Frontend/protocol officialization: completed
+- Session-history single-source cutover: completed
 - Remaining work: finish legacy helper deletion and keep validating on real C projects and Win7 bundle targets
 
 ## Verification

@@ -36,6 +36,7 @@ export const initialState = {
   activeTurnId: "",
   activeStepId: "",
   activeStepIndex: 0,
+  historyIntegrity: null,
 };
 
 function liveProjectionMeta() {
@@ -52,6 +53,16 @@ function rawProjectionMeta() {
     projectionKind: "raw_event",
     synthetic: false,
   };
+}
+
+function upsertTimelineItem(timeline, nextItem, match) {
+  const index = timeline.findIndex(match);
+  if (index < 0) {
+    return timeline.concat(nextItem);
+  }
+  return timeline.map((item, currentIndex) =>
+    currentIndex === index ? { ...item, ...nextItem } : item,
+  );
 }
 
 export function reducer(state, action) {
@@ -94,6 +105,7 @@ export function reducer(state, action) {
         activeStepId: "",
         activeStepIndex: 0,
         eventLog: [],
+        historyIntegrity: action.historyIntegrity || null,
         plan: null,
         review: null,
         permissionContext: null,
@@ -116,6 +128,18 @@ export function reducer(state, action) {
       const hasActiveInteraction = Boolean(
         snapshot.pending_interaction_valid && snapshot.pending_interaction,
       );
+      let historyIntegrity = state.historyIntegrity;
+      if (
+        historyIntegrity &&
+        historyIntegrity.status === "partial" &&
+        !snapshot.restore_stop_reason
+      ) {
+        historyIntegrity = {
+          ...historyIntegrity,
+          status: "healthy",
+          restore_stop_reason: "",
+        };
+      }
       return {
         ...state,
         currentSessionId: snapshot.session_id || state.currentSessionId,
@@ -139,6 +163,7 @@ export function reducer(state, action) {
           !hadActiveInteraction && hasActiveInteraction
             ? true
             : state.inspectorOpen,
+        historyIntegrity,
       };
     }
     case "local_user_message":
@@ -293,52 +318,57 @@ export function reducer(state, action) {
       return {
         ...state,
         thinkingActive: false,
-        timeline: state.timeline.concat({
-          id: action.callId,
-          kind: "tool",
-          toolName: action.toolName,
-          label: action.label || action.toolName,
-          arguments: action.arguments,
-          status: "running",
-          turnId: action.turnId || state.activeTurnId,
-          stepId: action.stepId || state.activeStepId,
-          stepIndex: action.stepIndex || state.activeStepIndex,
-          data: null,
-          error: "",
-          permissionCategory: action.permissionCategory || "",
-          supportsDiffPreview: Boolean(action.supportsDiffPreview),
-          progressRendererKey: action.progressRendererKey || "",
-          resultRendererKey: action.resultRendererKey || "",
-          runtimeSource: action.runtimeSource || "",
-          resolvedToolRoots: action.resolvedToolRoots || {},
-          ...liveProjectionMeta(),
-        }),
+        timeline: upsertTimelineItem(
+          state.timeline,
+          {
+            id: action.callId,
+            kind: "tool",
+            toolName: action.toolName,
+            label: action.label || action.toolName,
+            arguments: action.arguments,
+            status: "running",
+            turnId: action.turnId || state.activeTurnId,
+            stepId: action.stepId || state.activeStepId,
+            stepIndex: action.stepIndex || state.activeStepIndex,
+            data: null,
+            error: "",
+            permissionCategory: action.permissionCategory || "",
+            supportsDiffPreview: Boolean(action.supportsDiffPreview),
+            progressRendererKey: action.progressRendererKey || "",
+            resultRendererKey: action.resultRendererKey || "",
+            runtimeSource: action.runtimeSource || "",
+            resolvedToolRoots: action.resolvedToolRoots || {},
+            ...liveProjectionMeta(),
+          },
+          (item) => item.kind === "tool" && item.id === action.callId,
+        ),
       };
     case "tool_finished":
       return {
         ...state,
-        timeline: state.timeline.map((item) =>
-          item.id === action.callId
-            ? {
-                ...item,
-                status: action.success ? "success" : "error",
-                data: action.data,
-                error: action.error,
-                label: action.label || item.label,
-                turnId: action.turnId || item.turnId,
-                stepId: action.stepId || item.stepId,
-                stepIndex: action.stepIndex || item.stepIndex,
-                permissionCategory: action.permissionCategory || item.permissionCategory,
-                supportsDiffPreview:
-                  action.supportsDiffPreview === undefined
-                    ? item.supportsDiffPreview
-                    : Boolean(action.supportsDiffPreview),
-                progressRendererKey: action.progressRendererKey || item.progressRendererKey,
-                resultRendererKey: action.resultRendererKey || item.resultRendererKey,
-                runtimeSource: action.runtimeSource || item.runtimeSource || "",
-                resolvedToolRoots: action.resolvedToolRoots || item.resolvedToolRoots || {},
-              }
-            : item,
+        timeline: upsertTimelineItem(
+          state.timeline,
+          {
+            id: action.callId,
+            kind: "tool",
+            toolName: action.toolName,
+            label: action.label || action.toolName,
+            arguments: action.arguments || {},
+            status: action.success ? "success" : "error",
+            data: action.data,
+            error: action.error,
+            turnId: action.turnId || state.activeTurnId,
+            stepId: action.stepId || state.activeStepId,
+            stepIndex: action.stepIndex || state.activeStepIndex,
+            permissionCategory: action.permissionCategory || "",
+            supportsDiffPreview: Boolean(action.supportsDiffPreview),
+            progressRendererKey: action.progressRendererKey || "",
+            resultRendererKey: action.resultRendererKey || "",
+            runtimeSource: action.runtimeSource || "",
+            resolvedToolRoots: action.resolvedToolRoots || {},
+            ...liveProjectionMeta(),
+          },
+          (item) => item.kind === "tool" && item.id === action.callId,
         ),
       };
     case "step_ended": {

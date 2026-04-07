@@ -174,6 +174,42 @@ class TestSessionRestorer(unittest.TestCase):
             ["", "m-user", "m-assistant"],
         )
 
+    def test_restore_preserves_tool_presentation_snapshot(self):
+        session_id = "sess-tool-presentation"
+        self.store.append_event(session_id, "session_meta", {"current_mode": "build"})
+        self.store.append_event(
+            session_id,
+            "message",
+            {"role": "user", "content": "读取文件", "message_id": "m-user", "turn_id": "t-1", "step_id": ""},
+        )
+        self.store.append_event(
+            session_id,
+            "step_started",
+            {"turn_id": "t-1", "step_id": "s-1", "step_index": 1},
+        )
+        self.store.append_event(
+            session_id,
+            "tool_call",
+            {
+                "turn_id": "t-1",
+                "step_id": "s-1",
+                "call_id": "call-read-1",
+                "tool_name": "read_file",
+                "arguments": {"path": "src/demo.c"},
+                "presentation": {
+                    "tool_label": "Read File",
+                    "permission_category": "read",
+                    "supports_diff_preview": False,
+                    "progress_renderer_key": "file",
+                    "result_renderer_key": "file",
+                },
+            },
+        )
+        result = SessionRestorer().restore(self.store.load_events(session_id))
+        record = result.session.turns[0].steps[0].tool_calls[0]
+        self.assertEqual(record.presentation.tool_label, "Read File")
+        self.assertEqual(record.presentation.permission_category, "read")
+
     def test_restore_stops_at_message_with_missing_parent(self):
         session_id = "sess-bad-parent"
         self.store.append_event(session_id, "session_meta", {"current_mode": "build"})

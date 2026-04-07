@@ -32,6 +32,71 @@ class _FakeCore(object):
 
 
 class _FakeCoreWithTimeline(_FakeCore):
+    def get_session_bootstrap(self, session_id):
+        return {
+            "snapshot": {
+                "session_id": session_id,
+                "status": "idle",
+                "current_mode": "build",
+                "created_at": "2026-04-04T00:00:00Z",
+                "updated_at": "2026-04-04T00:00:00Z",
+                "workflow_state": "chat",
+                "has_active_plan": False,
+                "active_plan_ref": "",
+                "current_command_context": "",
+                "has_pending_permission": False,
+                "has_pending_input": False,
+                "pending_permission": None,
+                "pending_input": None,
+                "last_error": None,
+                "runtime_source": "",
+                "bundled_tools_ready": False,
+                "fallback_warnings": [],
+                "runtime_environment": None,
+                "timeline_replay_status": "healthy",
+                "timeline_first_seq": 1,
+                "timeline_last_seq": 4,
+                "timeline_integrity": "healthy",
+                "pending_interaction_valid": False,
+                "restore_stop_reason": "",
+                "current_phase": "implement",
+                "discipline_profile": "lite_spec_tdd",
+                "current_activity": "build harness active (implement)",
+                "task_summary": "in_progress build:implement",
+                "task_items": [{"id": 1, "content": "build:implement", "status": "in_progress", "done": False}],
+            },
+            "history": {
+                "session_id": session_id,
+                "history_source": "session_state",
+                "turns": [],
+                "current_interaction": None,
+                "integrity": {
+                    "status": "healthy",
+                    "restore_stop_reason": "",
+                    "consumed_event_count": 0,
+                    "transcript_event_count": 0,
+                },
+            },
+            "plan": None,
+            "permission_context": {
+                "session_id": session_id,
+                "rules_path": "",
+                "categories": [],
+                "rules": [],
+                "remembered_categories": [],
+                "auto_approve_all": True,
+                "auto_approve_writes": False,
+                "auto_approve_commands": False,
+            },
+            "replay": {
+                "status": "replay",
+                "first_seq": 3,
+                "last_seq": 4,
+                "reason": "",
+                "events": [],
+            },
+        }
+
     def load_session_events_after(self, session_id, after_seq, limit=200):
         return {
             "status": "replay",
@@ -219,6 +284,23 @@ class TestGuiBackendApi(unittest.TestCase):
             response = asyncio.run(route.endpoint("sess-1", 2, 200))
         self.assertEqual(response["status"], "replay")
         self.assertEqual([item["seq"] for item in response["events"]], [3, 4])
+
+    def test_bootstrap_endpoint_returns_snapshot_history_plan_and_permissions(self):
+        with tempfile.TemporaryDirectory() as static_dir:
+            with open(os.path.join(static_dir, "index.html"), "w", encoding="utf-8") as handle:
+                handle.write("<html><body>ok</body></html>")
+            backend = GUIBackend(_FakeCoreWithTimeline(), static_dir=static_dir)
+            route = None
+            for item in backend.app.routes:
+                if getattr(item, "path", "") == "/api/sessions/{session_id}/bootstrap" and "GET" in getattr(item, "methods", set()):
+                    route = item
+                    break
+            self.assertIsNotNone(route)
+            payload = asyncio.run(route.endpoint("sess-1"))
+        self.assertIn("snapshot", payload)
+        self.assertIn("history", payload)
+        self.assertIn("plan", payload)
+        self.assertIn("permission_context", payload)
 
     def test_session_lookup_errors_return_404_instead_of_500(self):
         with tempfile.TemporaryDirectory() as static_dir:

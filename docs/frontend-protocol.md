@@ -46,6 +46,20 @@ Important session snapshot fields include:
 
 `task_items` is the official frontend task list payload.
 
+Session activation additionally depends on one bootstrap payload containing:
+
+- `snapshot`
+- `history`
+- `plan`
+- `permission_context`
+- `replay`
+
+`history.integrity.status` is the official history health signal:
+
+- `healthy`
+- `partial`
+- `unavailable`
+
 ## 4. HTTP API Surface
 
 Key routes include:
@@ -57,9 +71,9 @@ Key routes include:
 - `POST /api/sessions/{session_id}/mode`
 - `POST /api/sessions/{session_id}/cancel`
 - `POST /api/sessions/{session_id}/interactions/{interaction_id}/respond`
+- `GET /api/sessions/{session_id}/bootstrap`
 - `GET /api/sessions/{session_id}/plan`
 - `GET /api/sessions/{session_id}/permissions`
-- `GET /api/sessions/{session_id}/timeline`
 - `GET /api/sessions/{session_id}/events`
 - `GET /api/workspace`
 - `GET /api/workspace/recipes`
@@ -89,6 +103,8 @@ Important pushed event types include:
 - `artifacts_refresh`
 - `message`
 - `session_event`
+
+`GET /api/sessions/{session_id}/events` is transport replay only. Frontend history bootstrap must come from the structured bootstrap payload, not replay-log parsing.
 
 ## 6. Tool Catalog
 

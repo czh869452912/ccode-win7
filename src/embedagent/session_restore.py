@@ -11,6 +11,7 @@ from embedagent.session import (
     Observation,
     PendingInteraction,
     Session,
+    ToolPresentationSnapshot,
     TranscriptMessage,
 )
 
@@ -99,8 +100,9 @@ class SessionRestorer(object):
                     arguments=dict(payload.get("arguments") or {}),
                     call_id=call_id,
                 )
+                presentation = ToolPresentationSnapshot.from_dict(payload.get("presentation"))
                 if session._find_tool_call(action.call_id) is None:
-                    session.record_tool_call(action)
+                    session.record_tool_call(action, presentation=presentation)
                     seen_tool_call_ids.add(call_id)
                 continue
             if event_type == "tool_result":

@@ -338,7 +338,73 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertTrue(any(item['event'] == 'turn_started' for item in payload['events']))
         self.assertEqual(payload['latest_assistant_reply'], 'ok')
 
-    def test_structured_timeline_splits_single_turn_into_multiple_agent_steps(self):
+    def test_build_session_history_uses_active_session_state_instead_of_timeline_tail(self):
+        adapter = InProcessAdapter(
+            client=ToolClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+        )
+        snapshot = adapter.create_session("build")
+        session_id = str(snapshot.get("session_id") or "")
+        adapter.submit_user_message(
+            session_id=session_id,
+            text="读取文件",
+            stream=False,
+            wait=True,
+            permission_resolver=lambda ticket: True,
+            event_handler=lambda event_name, current_session_id, payload: None,
+        )
+        adapter.timeline_store.max_events = 3
+        adapter.timeline_store._trim_if_needed(adapter.timeline_store._timeline_path(session_id))
+        history = adapter.build_session_history(session_id)
+        self.assertEqual(history["integrity"]["status"], "healthy")
+        self.assertEqual(len(history["turns"]), 1)
+        self.assertEqual(history["turns"][0]["user_text"], "读取文件")
+
+    def test_build_session_history_marks_partial_restore_without_raw_fallback(self):
+        adapter = InProcessAdapter(
+            client=ToolClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+        )
+        session_id = "sess-partial-history"
+        adapter.transcript_store.append_event(session_id, "session_meta", {"current_mode": "spec"})
+        adapter.transcript_store.append_event(
+            session_id,
+            "message",
+            {"role": "user", "content": "继续", "message_id": "m-user", "turn_id": "t-1", "step_id": ""},
+        )
+        adapter.transcript_store.append_event(
+            session_id,
+            "pending_interaction",
+            {
+                "turn_id": "t-1",
+                "step_id": "",
+                "kind": "user_input",
+                "tool_name": "ask_user",
+                "interaction_id": "pi-1",
+                "request_payload": {"request": {"question": "继续吗？", "options": []}},
+            },
+        )
+        adapter.transcript_store.append_event(
+            session_id,
+            "pending_resolution",
+            {
+                "turn_id": "t-1",
+                "step_id": "",
+                "interaction_id": "wrong-id",
+                "kind": "user_input",
+                "tool_name": "ask_user",
+                "resolution_payload": {"answer": "继续"},
+            },
+        )
+        history = adapter.build_session_history(session_id)
+        self.assertEqual(history["integrity"]["status"], "partial")
+        self.assertEqual(history["integrity"]["restore_stop_reason"], "pending_resolution_identity_mismatch")
+        self.assertTrue(history["turns"])
+        self.assertEqual(history["history_source"], "transcript_restore")
+
+    def test_session_history_splits_single_turn_into_multiple_agent_steps(self):
         adapter = InProcessAdapter(
             client=MultiStepClient(),
             tools=self.tools,
@@ -354,7 +420,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             permission_resolver=lambda ticket: True,
             event_handler=lambda event_name, current_session_id, payload: None,
         )
-        payload = adapter.build_structured_timeline(session_id)
+        payload = adapter.build_session_history(session_id)
         self.assertEqual(len(payload["turns"]), 1)
         turn = payload["turns"][0]
         self.assertEqual(turn["user_text"], "请分析这个文件")
@@ -365,63 +431,34 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertEqual(turn["steps"][1]["reasoning"], "读取完成，总结结果。")
         step_ids = [step["step_id"] for step in turn["steps"]]
         self.assertEqual(len(step_ids), len(set(step_ids)))
-        self.assertEqual(payload["projection_source"], "step_events")
-        self.assertEqual(turn["projection_kind"], "step_events")
-        self.assertTrue(all(not step.get("synthetic") for step in turn["steps"]))
-        self.assertTrue(all(step.get("projection_kind") == "recorded_step" for step in turn["steps"]))
+        self.assertEqual(payload["history_source"], "session_state")
+        self.assertEqual(payload["integrity"]["status"], "healthy")
 
-    def test_structured_timeline_marks_turn_level_projection_as_synthetic_step(self):
-        snapshot = self.adapter.create_session('build')
-        session_id = str(snapshot.get('session_id') or '')
-        self.adapter.timeline_store.append_event(
-            session_id,
-            "turn_start",
-            {"turn_id": "turn-legacy", "user_text": "legacy turn"},
+    def test_session_history_never_returns_raw_event_projection(self):
+        adapter = InProcessAdapter(
+            client=ToolClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
         )
-        self.adapter.timeline_store.append_event(
-            session_id,
-            "reasoning_delta",
-            {"turn_id": "turn-legacy", "text": "legacy reasoning"},
+        snapshot = adapter.create_session("build")
+        session_id = str(snapshot.get("session_id") or "")
+        adapter.submit_user_message(
+            session_id=session_id,
+            text="读取文件",
+            stream=False,
+            wait=True,
+            permission_resolver=lambda ticket: True,
+            event_handler=lambda event_name, current_session_id, payload: None,
         )
-        self.adapter.timeline_store.append_event(
-            session_id,
-            "tool_started",
-            {"turn_id": "turn-legacy", "call_id": "call-legacy", "tool_name": "read_file", "arguments": {"path": "src/pkg/demo.c"}},
-        )
-        self.adapter.timeline_store.append_event(
-            session_id,
-            "tool_finished",
-            {"turn_id": "turn-legacy", "call_id": "call-legacy", "tool_name": "read_file", "success": True, "data": {"path": "src/pkg/demo.c"}},
-        )
-        self.adapter.timeline_store.append_event(
-            session_id,
-            "turn_end",
-            {"turn_id": "turn-legacy", "termination_reason": "completed", "final_text": "legacy done"},
-        )
-        payload = self.adapter.build_structured_timeline(session_id)
-        self.assertEqual(payload["projection_source"], "turn_events")
-        self.assertEqual(len(payload["turns"]), 1)
-        turn = payload["turns"][0]
-        self.assertEqual(turn["projection_kind"], "turn_events")
-        self.assertEqual(len(turn["steps"]), 1)
-        step = turn["steps"][0]
-        self.assertTrue(step["synthetic"])
-        self.assertEqual(step["projection_kind"], "synthetic_single_step")
-        self.assertEqual(step["assistant_text"], "legacy done")
-        self.assertEqual(step["reasoning"], "legacy reasoning")
+        history = adapter.build_session_history(session_id)
+        self.assertIn(history["history_source"], ("session_state", "transcript_restore"))
+        self.assertIn(history["integrity"]["status"], ("healthy", "partial", "unavailable"))
 
-    def test_structured_timeline_reports_raw_event_projection_without_turns(self):
-        snapshot = self.adapter.create_session('build')
-        session_id = str(snapshot.get('session_id') or '')
-        self.adapter.timeline_store.append_event(
-            session_id,
-            "tool_started",
-            {"call_id": "call-raw", "tool_name": "read_file", "arguments": {"path": "src/pkg/demo.c"}},
-        )
-        payload = self.adapter.build_structured_timeline(session_id)
-        self.assertEqual(payload["projection_source"], "raw_events")
-        self.assertEqual(payload["turns"], [])
-        self.assertTrue(any(item.get("event") == "tool_started" for item in payload["events"]))
+    def test_session_history_reports_unavailable_when_transcript_missing(self):
+        history = self.adapter.build_session_history("sess-missing")
+        self.assertEqual(history["integrity"]["status"], "unavailable")
+        self.assertEqual(history["integrity"]["restore_stop_reason"], "transcript_missing")
+        self.assertEqual(history["turns"], [])
 
     def test_session_snapshot_includes_runtime_environment_summary(self):
         snapshot = self.adapter.get_session_snapshot(str(self.snapshot.get('session_id') or ''))
@@ -600,7 +637,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertEqual(legacy["last_transition_display_reason"], "max_turns")
         self.assertEqual(legacy["recent_transitions"][-1].get("display_reason"), "max_turns")
 
-    def test_structured_timeline_includes_compact_retry_transition(self):
+    def test_session_history_includes_compact_retry_transition(self):
         adapter = InProcessAdapter(
             client=CompactRetryClient(),
             tools=self.tools,
@@ -616,7 +653,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             permission_resolver=lambda ticket: True,
             event_handler=lambda event_name, current_session_id, payload: None,
         )
-        payload = adapter.build_structured_timeline(session_id)
+        payload = adapter.build_session_history(session_id)
         self.assertEqual(len(payload["turns"]), 1)
         turn = payload["turns"][0]
         self.assertIn("transitions", turn)
@@ -626,7 +663,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertIn("transitions", step)
         self.assertIn("compact_retry", [item.get("kind") for item in step["transitions"]])
 
-    def test_structured_timeline_preserves_user_input_wait_transition(self):
+    def test_session_history_preserves_user_input_wait_transition(self):
         adapter = InProcessAdapter(
             client=AskUserClient(),
             tools=self.tools,
@@ -641,7 +678,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             wait=True,
             event_handler=lambda event_name, current_session_id, payload: None,
         )
-        payload = adapter.build_structured_timeline(session_id)
+        payload = adapter.build_session_history(session_id)
         self.assertEqual(len(payload["turns"]), 1)
         turn = payload["turns"][0]
         self.assertEqual(turn["status"], "waiting_user_input")
@@ -653,7 +690,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertEqual(step["status"], "user_input_wait")
         self.assertIn("user_input_required", [item.get("kind") for item in step.get("transitions", [])])
 
-    def test_snapshot_and_structured_timeline_preserve_permission_wait_transition(self):
+    def test_snapshot_and_session_history_preserve_permission_wait_transition(self):
         adapter = InProcessAdapter(
             client=WriteThenDoneClient(),
             tools=self.tools,
@@ -673,7 +710,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertEqual(refreshed["last_transition_reason"], "permission_wait")
         self.assertEqual(refreshed["last_transition_display_reason"], "waiting_permission")
         self.assertEqual(refreshed["recent_transitions"][-1].get("display_reason"), "waiting_permission")
-        payload = adapter.build_structured_timeline(session_id)
+        payload = adapter.build_session_history(session_id)
         self.assertEqual(len(payload["turns"]), 1)
         turn = payload["turns"][0]
         self.assertEqual(turn["status"], "waiting_permission")
@@ -688,7 +725,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertEqual(refreshed["pending_interaction"]["kind"], "permission")
         self.assertEqual(refreshed["pending_interaction"]["tool_name"], "write_file")
 
-    def test_structured_timeline_preserves_max_turns_transition(self):
+    def test_session_history_preserves_max_turns_transition(self):
         adapter = InProcessAdapter(
             client=ToolClient(),
             tools=self.tools,
@@ -705,7 +742,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             permission_resolver=lambda ticket: True,
             event_handler=lambda event_name, current_session_id, payload: None,
         )
-        payload = adapter.build_structured_timeline(session_id)
+        payload = adapter.build_session_history(session_id)
         self.assertEqual(len(payload["turns"]), 1)
         turn = payload["turns"][0]
         self.assertEqual(turn["status"], "max_turns")
@@ -717,7 +754,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         terminal = [item for item in turn.get("transitions", []) if item.get("kind") == "max_turns"][0]
         self.assertTrue(str(terminal.get("message") or "").strip())
 
-    def test_snapshot_and_structured_timeline_preserve_guard_stop_transition(self):
+    def test_snapshot_and_session_history_preserve_guard_stop_transition(self):
         adapter = InProcessAdapter(
             client=GuardStopClient(),
             tools=self.tools,
@@ -738,7 +775,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertTrue(str(refreshed["last_transition_message"] or "").strip())
         self.assertEqual(refreshed["recent_transitions"][-1].get("reason"), "guard_stop")
         self.assertEqual(refreshed["recent_transitions"][-1].get("display_reason"), "guard")
-        payload = adapter.build_structured_timeline(session_id)
+        payload = adapter.build_session_history(session_id)
         self.assertEqual(len(payload["turns"]), 1)
         turn = payload["turns"][0]
         self.assertEqual(turn["status"], "guard_stop")
@@ -749,7 +786,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertEqual(len(turn["steps"]), 1)
         self.assertIn("guard_stop", [item.get("kind") for item in turn["steps"][0].get("transitions", [])])
 
-    def test_snapshot_and_structured_timeline_preserve_cancelled_transition(self):
+    def test_snapshot_and_session_history_preserve_cancelled_transition(self):
         client = CancellableToolClient()
         adapter = InProcessAdapter(
             client=client,
@@ -780,7 +817,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertEqual(refreshed.get("last_transition_display_reason"), "cancelled")
         self.assertTrue(str(refreshed.get("last_transition_message") or "").strip())
         self.assertEqual(refreshed["recent_transitions"][-1].get("display_reason"), "cancelled")
-        payload = adapter.build_structured_timeline(session_id)
+        payload = adapter.build_session_history(session_id)
         self.assertEqual(len(payload["turns"]), 1)
         turn = payload["turns"][0]
         self.assertEqual(turn["status"], "aborted")

@@ -72,7 +72,7 @@ export function describeProjectionBadge({
   }
   const sourceLabelMap = {
     turn_events: "turn projection",
-    raw_events: "raw fallback",
+    raw_events: "session events",
     step_events: "step events",
   };
   const detail = sourceLabelMap[source] || source.replace(/_/g, " ");
@@ -116,15 +116,8 @@ export function summarizeTimelineProjection(timeline = []) {
 }
 
 export function describeTimelineProjectionNotice(summary = {}) {
-  const source = String(summary?.source || "").trim();
-  if (source !== "raw_events") {
-    return null;
-  }
-  return {
-    tone: "context",
-    title: "raw fallback",
-    detail: "showing raw timeline events",
-  };
+  void summary;
+  return null;
 }
 
 export function timelineFromEvents(events) {
@@ -366,7 +359,7 @@ function projectTurnTransition(turnId, transition = {}, projectionSource = "") {
 }
 
 /**
- * Convert a structured Turn list (from build_structured_timeline) into flat timeline items.
+ * Convert structured bootstrap history turns into flat timeline items.
  * Each turn produces: user bubble, reasoning card, tool cards, assistant bubble.
  */
 export function timelineFromTurns(turns, events = [], options = {}) {

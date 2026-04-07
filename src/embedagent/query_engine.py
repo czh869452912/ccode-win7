@@ -17,7 +17,7 @@ from embedagent.memory_maintenance import MemoryMaintenance
 from embedagent.modes import DEFAULT_MODE, build_system_prompt, is_path_writable, require_mode
 from embedagent.permissions import PermissionPolicy, PermissionRequest
 from embedagent.project_memory import ProjectMemoryStore
-from embedagent.session import Action, AssistantReply, ContextAssemblyResult, LoopResult, LoopTransition, Observation, PendingInteraction, QueryTurnResult, Session
+from embedagent.session import Action, AssistantReply, ContextAssemblyResult, LoopResult, LoopTransition, Observation, PendingInteraction, QueryTurnResult, Session, ToolPresentationSnapshot
 from embedagent.session_store import SessionSummaryStore
 from embedagent.transcript_store import TranscriptStore
 from embedagent.tool_execution import StreamingToolExecutor, partition_tool_actions
@@ -93,6 +93,21 @@ class QueryEngine(object):
 
     def _append_message_event(self, session: Session, payload: Dict[str, Any]) -> None:
         self._append_transcript_event(session, "message", payload)
+
+    def _tool_presentation_snapshot(self, tool_name: str) -> ToolPresentationSnapshot:
+        lookup = getattr(self.tools, "tool_catalog_entry", None)
+        if not callable(lookup):
+            return ToolPresentationSnapshot(tool_label=tool_name)
+        entry = lookup(tool_name) or {}
+        if not isinstance(entry, dict):
+            return ToolPresentationSnapshot(tool_label=tool_name)
+        return ToolPresentationSnapshot(
+            tool_label=str(entry.get("user_label") or tool_name),
+            permission_category=str(entry.get("permission_category") or ""),
+            supports_diff_preview=bool(entry.get("supports_diff_preview")),
+            progress_renderer_key=str(entry.get("progress_renderer_key") or "default"),
+            result_renderer_key=str(entry.get("result_renderer_key") or "default"),
+        )
 
     def _message_event_payload(self, message: Any) -> Dict[str, Any]:
         payload = {
@@ -621,6 +636,7 @@ class QueryEngine(object):
                     step_id=step_id,
                 )
                 for action in reply.actions:
+                    presentation = self._tool_presentation_snapshot(action.name)
                     self._append_transcript_event(
                         session,
                         "tool_call",
@@ -631,8 +647,12 @@ class QueryEngine(object):
                             "tool_name": action.name,
                             "arguments": dict(action.arguments),
                             "status": "pending",
+                            "presentation": presentation.to_dict(),
                         },
                     )
+                    record = session._find_tool_call(action.call_id)
+                    if record is not None:
+                        record.presentation = presentation
             final_text = reply.content
             turns_used = step_index
             if not reply.actions:

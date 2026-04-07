@@ -1,6 +1,6 @@
 # EmbedAgent 开发进度跟踪
 
-> 更新日期：2026-04-06（Agent Harness V2 context/intelligence cutover）
+> 更新日期：2026-04-07（session history single-source cutover）
 > 用途：持续跟踪当前阶段、下一步任务、里程碑进度、风险与阻塞
 
 ---
@@ -29,6 +29,7 @@
 - 当前阶段：`Phase 4 真实工程验证 + Phase 6 GUI / Win7 收口`
 - 总体状态：`进行中`
 - 当前重点：`Agent Harness V2 official cutover 六步程序已完成：runtime、mode vocabulary、context/intelligence、permission/task truth、frontend/protocol、docs/legacy deletion 均已收口。当前进入稳定化阶段，重点转向真实 C 工程验证、Win7 bundle 验证和剩余死代码清理，而不是继续维护并行架构。`
+- 最新 session-history 收口：`GUI session activation 已切到单一 `/api/sessions/{id}/bootstrap` 合约；历史 turns 现在只从 `transcript.jsonl -> Session -> SessionHistoryAssembler` 生成，`timeline.jsonl` 仅保留 transport replay 角色，raw fallback 不再是正式 GUI 恢复模式。`
 - 最新稳定化收口：`set_session_mode()` 现在会先重置旧 phase 再刷新 Harness snapshot，避免 build/debug/verify 跨 mode 切换时把上一模式的 phase 残留到新会话快照；同时 `Context` 高优先级工具、reducer registry 与 `/review` 文案已统一到 `run_recipe/report_quality_v2/task_status` 正式词汇。`
 - 最新 dead-code 清理：`tools_v2/` 中仍被正式主路径使用的 discovery/recipe/session 模块已迁入官方 `src/embedagent/tools/`；旧 `tools_v2/*.py` 与已无人引用的 `loop.py` 已删除，产品源码不再直接 import `tools_v2` 或 `AgentLoop`。`
 - 最新 core cutover：`ToolRuntime` 已不再维护 legacy execute aliases，`permissions.py` 也已只按正式工具词汇分类；`build_ops.py`、`todo_ops.py` 与 `tests/test_todo_ops.py` 已删除，官方 runtime 现在只接受正式 schema/catalog 中的工具名。`

@@ -439,6 +439,32 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertEqual(result.transition.reason, "completed")
         self.assertTrue(result.session.turns[-1].observations[-1].success)
 
+    def test_query_engine_writes_tool_presentation_into_tool_call_event(self):
+        transcript_store = TranscriptStore(self.workspace)
+        engine = QueryEngine(
+            client=ToolClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(
+                auto_approve_all=True,
+                workspace=self.workspace,
+            ),
+            transcript_store=transcript_store,
+        )
+        session = Session()
+        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：build")
+        engine.submit_turn(
+            user_text="读取文件",
+            stream=False,
+            initial_mode="build",
+            session=session,
+        )
+        events = transcript_store.load_events(session.session_id)
+        tool_call_events = [item for item in events if item["type"] == "tool_call"]
+        self.assertTrue(tool_call_events)
+        presentation = tool_call_events[0]["payload"]["presentation"]
+        self.assertIn("tool_label", presentation)
+        self.assertIn("progress_renderer_key", presentation)
+
     def test_tool_result_store_failure_degrades_without_breaking_tool_pairing(self):
         transcript_store = TranscriptStore(self.workspace)
         with open(os.path.join(self.workspace, "src", "demo.c"), "w", encoding="utf-8") as handle:

@@ -264,20 +264,24 @@ class TestWebSocketFrontend(unittest.TestCase):
 
 
 class TestAgentCoreAdapterApi(unittest.TestCase):
-    def test_build_structured_timeline_delegates_to_inner_adapter(self):
+    def test_get_session_bootstrap_delegates_to_inner_adapter(self):
         from embedagent.core.adapter import AgentCoreAdapter
 
         core = AgentCoreAdapter(workspace="D:\\workspace")
         core._adapter = MagicMock()
-        core._adapter.build_structured_timeline.return_value = {
-            "session_id": "sess-1",
-            "turns": [{"turn_id": "turn-1", "steps": []}],
+        core._adapter.get_session_bootstrap.return_value = {
+            "snapshot": {"session_id": "sess-1", "status": "idle", "current_mode": "build"},
+            "history": {"session_id": "sess-1", "turns": [], "integrity": {"status": "healthy"}},
+            "plan": None,
+            "permission_context": {"session_id": "sess-1", "rules": []},
+            "replay": {"status": "replay", "events": []},
         }
 
-        payload = core.build_structured_timeline("sess-1", limit=55)
+        payload = core.get_session_bootstrap("sess-1")
 
-        self.assertEqual(payload["session_id"], "sess-1")
-        core._adapter.build_structured_timeline.assert_called_once_with("sess-1", limit=55)
+        self.assertEqual(payload["snapshot"].session_id, "sess-1")
+        self.assertEqual(payload["history"]["session_id"], "sess-1")
+        core._adapter.get_session_bootstrap.assert_called_once_with("sess-1")
 
     def test_snapshot_projection_preserves_replay_metadata(self):
         from embedagent.core.adapter import AgentCoreAdapter

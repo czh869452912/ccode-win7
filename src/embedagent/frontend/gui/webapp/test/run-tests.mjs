@@ -381,12 +381,60 @@ function main() {
   assert.equal(activatedState.inspectorTab, "interaction");
   assert.equal(activatedState.inspectorOpen, true);
 
+  const bootstrapToolState = reducer(initialState, {
+    type: "session_activated",
+    sessionId: "sess-bootstrap",
+    snapshot: {
+      session_id: "sess-bootstrap",
+      current_mode: "build",
+      has_pending_permission: false,
+      pending_interaction_valid: false,
+    },
+    timeline: [
+      {
+        id: "call-bootstrap-1",
+        kind: "tool",
+        toolName: "read_file",
+        label: "Read File",
+        arguments: { path: "demo.c" },
+        status: "running",
+        turnId: "turn-bootstrap",
+        stepId: "step-bootstrap",
+        stepIndex: 1,
+        projectionSource: "session_state",
+        projectionKind: "recorded_step",
+        synthetic: false,
+      },
+    ],
+    historyIntegrity: {
+      status: "partial",
+      restore_stop_reason: "pending_resolution_identity_mismatch",
+    },
+  });
+  const dedupedToolState = reducer(bootstrapToolState, {
+    type: "tool_started",
+    callId: "call-bootstrap-1",
+    toolName: "read_file",
+    label: "Read File",
+    arguments: { path: "demo.c" },
+    turnId: "turn-bootstrap",
+    stepId: "step-bootstrap",
+    stepIndex: 1,
+  });
+  assert.equal(
+    dedupedToolState.timeline.filter((item) => item.id === "call-bootstrap-1").length,
+    1,
+  );
+  assert.equal(dedupedToolState.historyIntegrity.status, "partial");
+
   const timelineSource = fs.readFileSync(
     path.resolve("src", "embedagent", "frontend", "gui", "webapp", "src", "components", "Timeline.jsx"),
     "utf8",
   );
   assert.equal(timelineSource.includes("pre(props)"), true);
   assert.equal(timelineSource.includes("if (inline)"), true);
+  assert.equal(timelineSource.includes("history partially restored"), true);
+  assert.equal(timelineSource.includes("session history unavailable"), true);
 
   const interactionPanelSource = fs.readFileSync(
     path.resolve("src", "embedagent", "frontend", "gui", "webapp", "src", "components", "InteractionPanel.jsx"),

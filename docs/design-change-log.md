@@ -44,6 +44,33 @@
 
 ## 3. 当前变更记录
 
+### DC-096
+
+- 日期：2026-04-07
+- 变更主题：GUI session history 切到 transcript-backed single source
+- 变更摘要：
+  - 新增 `session_history.py`，由 `SessionHistoryAssembler` 统一把 transcript-backed `Session` 序列化为 GUI history DTO
+  - `QueryEngine` / `SessionRestorer` 现已持久化并恢复稳定 `ToolPresentationSnapshot`，历史工具卡片不再依赖 replay-log 元数据补洞
+  - GUI session activation 已切到单一 `/api/sessions/{session_id}/bootstrap` 负载，包含 `snapshot + history + plan + permission_context + replay`
+  - replay-log 结构化历史重建路径与 `/api/sessions/{session_id}/timeline` 已删除，raw fallback 不再是正式 GUI 状态
+- 影响范围：
+  - session history ownership / transcript restore
+  - inprocess adapter / core / GUI backend bootstrap contract
+  - webapp activation flow / reducer merge semantics / timeline integrity UI
+  - adapter / GUI backend / webapp helper 回归测试
+- 关联文档：
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/frontend-protocol.md`
+  - `docs/tool-contracts.md`
+  - `docs/agent-harness-v2.md`
+  - `docs/development-tracker.md`
+- 是否需要 ADR：`否，属于已批准 session-history cutover 的正式落地`
+- 后续动作：
+  - 继续用真实 C 工程和 Win7 bundle 场景验证 bootstrap / replay / transcript restore 性能与稳定性
+  - 不再接受 replay-log 历史重建或 raw fallback 兼容层回流
+
 ### DC-095
 
 - 日期：2026-04-07

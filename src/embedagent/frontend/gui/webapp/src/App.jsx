@@ -4,7 +4,6 @@ import {
   createTreeNode,
   makeEventId,
   normalizeSessionPayload,
-  timelineFromEvents,
   timelineFromTurns,
 } from "./state-helpers.js";
 import { appendSessionEvent, capRetryAttempt, createSessionEventLog } from "./session-runtime/event-log.js";
@@ -174,33 +173,21 @@ function App() {
   }
 
   async function loadSession(sessionId) {
-    const [snapshotPayload, timelinePayload] = await Promise.all([
-      fetchJson(`/api/sessions/${encodeURIComponent(sessionId)}`),
-      fetchJson(`/api/sessions/${encodeURIComponent(sessionId)}/timeline`),
-    ]);
-    const [planPayload, permissionPayload] = await Promise.all([
-      fetchJson(`/api/sessions/${encodeURIComponent(sessionId)}/plan`).catch(() => ({ plan: null })),
-      fetchJson(`/api/sessions/${encodeURIComponent(sessionId)}/permissions`).catch(() => null),
-    ]);
-    const snapshot = normalizeSessionPayload(snapshotPayload);
+    const payload = await fetchJson(`/api/sessions/${encodeURIComponent(sessionId)}/bootstrap`);
+    const snapshot = normalizeSessionPayload(payload.snapshot || {});
+    const history = payload.history || {};
     dispatch({
       type: "session_activated",
       sessionId,
       snapshot,
-      timeline:
-        Array.isArray(timelinePayload.turns) && timelinePayload.turns.length > 0
-          ? timelineFromTurns(
-              timelinePayload.turns || [],
-              timelinePayload.events || [],
-              { projectionSource: timelinePayload.projection_source || "" },
-            )
-          : timelineFromEvents(timelinePayload.events || []),
+      timeline: timelineFromTurns(history.turns || [], [], {
+        projectionSource: history.history_source || "",
+      }),
+      historyIntegrity: history.integrity || null,
     });
     replaceSessionEventLog(createRuntimeEventLog(snapshot));
-    dispatch({ type: "plan_loaded", plan: planPayload.plan || null });
-    if (permissionPayload) {
-      dispatch({ type: "permission_context_loaded", context: permissionPayload });
-    }
+    dispatch({ type: "plan_loaded", plan: payload.plan || null });
+    dispatch({ type: "permission_context_loaded", context: payload.permission_context || null });
     await Promise.all([loadTasks(sessionId), loadArtifacts()]);
   }
 
@@ -984,6 +971,7 @@ function App() {
             ref={timelineRef}
             timeline={runtimeState.timelineView}
             toolCatalog={state.toolCatalog}
+            historyIntegrity={state.historyIntegrity}
             thinkingActive={state.thinkingActive}
             streamingReasoningId={state.streamingReasoningId}
             terminationReason={state.terminationReason}

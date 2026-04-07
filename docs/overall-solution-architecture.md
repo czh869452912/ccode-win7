@@ -36,6 +36,7 @@ This is the stable contract boundary between UI and Agent Core.
 
 - `src/embedagent/inprocess_adapter.py`
 - `src/embedagent/query_engine.py`
+- `src/embedagent/session_history.py`
 - `src/embedagent/harness/`
 - `src/embedagent/tools/`
 - `src/embedagent/context.py`
@@ -171,11 +172,23 @@ Session truth is distributed across:
 
 - live `Session`
 - transcript events
+- `SessionHistoryAssembler` projections
 - tool result storage/projections
 - summary store
 - task snapshots
 
 No frontend should maintain its own workflow truth separate from session snapshots and replayable events.
+
+### Session History Rule
+
+Official session-history ownership is:
+
+- `transcript.jsonl` is the only durable session-history ledger
+- `Session` / `session.turns` is the only live structured history state
+- `timeline.jsonl` is replay transport only
+- GUI activation reads one bootstrap payload that includes snapshot, structured history, plan, permission context, and replay metadata
+
+Historical turns must never be rebuilt from replay-log tails.
 
 ## 9. Frontend Contract
 

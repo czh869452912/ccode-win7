@@ -140,6 +140,33 @@ def _serialize_interaction_response(payload: Dict[str, Any]) -> Dict[str, Any]:
     return response
 
 
+def _serialize_plan_snapshot(plan: Optional[PlanSnapshot]) -> Optional[Dict[str, Any]]:
+    if plan is None:
+        return None
+    return {
+        "session_id": plan.session_id,
+        "title": plan.title,
+        "content": plan.content,
+        "updated_at": plan.updated_at,
+        "workflow_state": plan.workflow_state,
+        "path": plan.path,
+        "summary": plan.summary,
+    }
+
+
+def _serialize_permission_context(context: Any) -> Dict[str, Any]:
+    return {
+        "session_id": str(_read_value(context, "session_id", "") or ""),
+        "rules_path": str(_read_value(context, "rules_path", "") or ""),
+        "categories": list(_read_value(context, "categories", []) or []),
+        "rules": list(_read_value(context, "rules", []) or []),
+        "remembered_categories": list(_read_value(context, "remembered_categories", []) or []),
+        "auto_approve_all": bool(_read_value(context, "auto_approve_all", False)),
+        "auto_approve_writes": bool(_read_value(context, "auto_approve_writes", False)),
+        "auto_approve_commands": bool(_read_value(context, "auto_approve_commands", False)),
+    }
+
+
 def _translate_value_error(exc: ValueError) -> HTTPException:
     detail = str(exc or "").strip()
     if "session_id 不存在" in detail or detail == "session_not_found":
@@ -498,6 +525,17 @@ class GUIBackend:
             snapshot = self._call_core(self.core.get_session_snapshot, session_id)
             return _serialize_session_snapshot(snapshot)
 
+        @app.get("/api/sessions/{session_id}/bootstrap")
+        async def get_session_bootstrap(session_id: str):
+            payload = self._call_core(self.core.get_session_bootstrap, session_id)
+            return {
+                "snapshot": _serialize_session_snapshot(payload.get("snapshot")),
+                "history": dict(payload.get("history") or {}),
+                "plan": _serialize_plan_snapshot(payload.get("plan")),
+                "permission_context": _serialize_permission_context(payload.get("permission_context")),
+                "replay": _serialize_replay_payload(session_id, payload.get("replay") or {}),
+            }
+
         @app.post("/api/sessions")
         async def create_session(mode: str = "build"):
             snapshot = self._call_core(self.core.create_session, mode)
@@ -573,35 +611,12 @@ class GUIBackend:
             plan = self._call_core(self.core.get_session_plan, session_id)
             if plan is None:
                 return {"plan": None}
-            return {
-                "plan": {
-                    "session_id": plan.session_id,
-                    "title": plan.title,
-                    "content": plan.content,
-                    "updated_at": plan.updated_at,
-                    "workflow_state": plan.workflow_state,
-                    "path": plan.path,
-                    "summary": plan.summary,
-                }
-            }
+            return {"plan": _serialize_plan_snapshot(plan)}
 
         @app.get("/api/sessions/{session_id}/permissions")
         async def get_permission_context(session_id: str):
             context = self._call_core(self.core.get_permission_context, session_id)
-            return {
-                "session_id": context.session_id,
-                "rules_path": context.rules_path,
-                "categories": context.categories,
-                "rules": context.rules,
-                "remembered_categories": context.remembered_categories,
-                "auto_approve_all": context.auto_approve_all,
-                "auto_approve_writes": context.auto_approve_writes,
-                "auto_approve_commands": context.auto_approve_commands,
-            }
-
-        @app.get("/api/sessions/{session_id}/timeline")
-        async def get_session_timeline(session_id: str, limit: int = 200):
-            return self._call_core(self.core.build_structured_timeline, session_id, limit=limit)
+            return _serialize_permission_context(context)
 
         @app.get("/api/sessions/{session_id}/events")
         async def get_session_events(session_id: str, after_seq: int = 0, limit: int = 200):

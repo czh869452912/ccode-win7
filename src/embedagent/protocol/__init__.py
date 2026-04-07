@@ -338,6 +338,11 @@ class CoreInterface(ABC):
     def get_session_snapshot(self, session_id: str) -> SessionSnapshot:
         """获取会话快照"""
         pass
+
+    @abstractmethod
+    def get_session_bootstrap(self, session_id: str) -> Dict[str, Any]:
+        """获取会话 bootstrap 负载"""
+        pass
     
     @abstractmethod
     def submit_message(self, session_id: str, text: str) -> None:
@@ -403,11 +408,6 @@ class CoreInterface(ABC):
     @abstractmethod
     def get_session_timeline(self, session_id: str, limit: int = 200) -> Dict[str, Any]:
         """获取会话时间线"""
-        pass
-
-    @abstractmethod
-    def build_structured_timeline(self, session_id: str, limit: int = 200) -> Dict[str, Any]:
-        """获取结构化 turn/step 时间线"""
         pass
 
     @abstractmethod

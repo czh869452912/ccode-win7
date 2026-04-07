@@ -280,7 +280,7 @@ test("describeProjectionBadge hides recorded steps and labels synthetic projecti
   );
 });
 
-test("summarizeTimelineProjection distinguishes structured and raw fallback timelines", () => {
+test("summarizeTimelineProjection distinguishes structured and transport-only timelines", () => {
   assert.deepEqual(
     summarizeTimelineProjection([
       { kind: "user", projectionSource: "turn_events", projectionKind: "turn_events", synthetic: false },
@@ -305,7 +305,7 @@ test("summarizeTimelineProjection distinguishes structured and raw fallback time
   );
 });
 
-test("describeTimelineProjectionNotice highlights raw fallback only", () => {
+test("describeTimelineProjectionNotice no longer promotes raw fallback as a UI state", () => {
   assert.equal(
     describeTimelineProjectionNotice({
       source: "step_events",
@@ -320,10 +320,6 @@ test("describeTimelineProjectionNotice highlights raw fallback only", () => {
       syntheticCount: 0,
       projectedCount: 0,
     }),
-    {
-      tone: "context",
-      title: "raw fallback",
-      detail: "showing raw timeline events",
-    },
+    null,
   );
 });

@@ -93,6 +93,17 @@ Official workflow tools center on:
 - `record_failing_evidence`
 - `ask_user`
 
+### Session History
+
+Official session-history truth is:
+
+- `transcript.jsonl` as the only durable session-history ledger
+- `Session` / `session.turns` as the only live structured session state
+- `SessionHistoryAssembler` as the only GUI history serializer
+- `GET /api/sessions/{id}/bootstrap` as the only GUI activation bootstrap contract
+
+`timeline.jsonl` is transport/replay infrastructure only. It is not a historical database.
+
 ## Mode Policy
 
 - Modes are product contracts, not UI decorations.
@@ -125,6 +136,8 @@ Frontend-facing contract changes must be reflected together in:
 - `src/embedagent/protocol/`
 - `src/embedagent/core/`
 - `src/embedagent/frontend/`
+
+Frontend session activation must not reintroduce split snapshot/timeline bootstrap. Use the single bootstrap payload and transcript-backed structured history only.
 
 ## Documentation Maintenance
 

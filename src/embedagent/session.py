@@ -57,6 +57,35 @@ class AssistantReply:
 
 
 @dataclass
+class ToolPresentationSnapshot:
+    tool_label: str = ""
+    permission_category: str = ""
+    supports_diff_preview: bool = False
+    progress_renderer_key: str = "default"
+    result_renderer_key: str = "default"
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "tool_label": self.tool_label,
+            "permission_category": self.permission_category,
+            "supports_diff_preview": self.supports_diff_preview,
+            "progress_renderer_key": self.progress_renderer_key,
+            "result_renderer_key": self.result_renderer_key,
+        }
+
+    @classmethod
+    def from_dict(cls, payload: Optional[Dict[str, Any]]) -> "ToolPresentationSnapshot":
+        data = dict(payload or {})
+        return cls(
+            tool_label=str(data.get("tool_label") or ""),
+            permission_category=str(data.get("permission_category") or ""),
+            supports_diff_preview=bool(data.get("supports_diff_preview")),
+            progress_renderer_key=str(data.get("progress_renderer_key") or "default"),
+            result_renderer_key=str(data.get("result_renderer_key") or "default"),
+        )
+
+
+@dataclass
 class TranscriptMessage:
     role: str
     content: str = ""
@@ -101,6 +130,7 @@ class ToolCallRecord:
     started_at: str = field(default_factory=_utc_now)
     finished_at: str = ""
     progress: List[Dict[str, Any]] = field(default_factory=list)
+    presentation: ToolPresentationSnapshot = field(default_factory=ToolPresentationSnapshot)
 
 
 @dataclass
@@ -299,13 +329,18 @@ class Session:
             return None
         return self.turns[-1].steps[-1]
 
-    def record_tool_call(self, action: Action) -> ToolCallRecord:
+    def record_tool_call(
+        self,
+        action: Action,
+        presentation: Optional[ToolPresentationSnapshot] = None,
+    ) -> ToolCallRecord:
         step = self.current_step() or self.begin_step()
         record = ToolCallRecord(
             call_id=action.call_id,
             tool_name=action.name,
             arguments=dict(action.arguments),
             status="started",
+            presentation=presentation or ToolPresentationSnapshot(),
         )
         step.tool_calls.append(record)
         step.actions.append(action)

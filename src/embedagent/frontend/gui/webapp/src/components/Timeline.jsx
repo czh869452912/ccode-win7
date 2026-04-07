@@ -223,7 +223,7 @@ function flattenTurnGroups(groups) {
 
 const Timeline = forwardRef(function Timeline(
   {
-    timeline, toolCatalog, thinkingActive, streamingReasoningId,
+    timeline, toolCatalog, historyIntegrity, thinkingActive, streamingReasoningId,
     terminationReason, terminationDisplayReason, terminationMessage,
     turnsUsed, maxTurns,
     onScroll,
@@ -267,6 +267,16 @@ const Timeline = forwardRef(function Timeline(
       aria-atomic="false"
       aria-label="Conversation"
     >
+      {historyIntegrity?.status === "partial" ? (
+        <div className="system-card context" role="status">
+          <strong>history partially restored</strong>: {historyIntegrity.restoreStopReason || historyIntegrity.restore_stop_reason || "restore stopped early"}
+        </div>
+      ) : null}
+      {historyIntegrity?.status === "unavailable" ? (
+        <div className="system-card error" role="alert">
+          session history unavailable
+        </div>
+      ) : null}
       {projectionNotice ? (
         <div className={`system-card ${projectionNotice.tone || "context"}`} role="status">
           <strong>{projectionNotice.title}</strong>: {projectionNotice.detail}

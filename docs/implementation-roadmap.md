@@ -31,6 +31,12 @@ This means the repository now has one official execution spine centered on:
 - `run_recipe` / `report_quality_v2` instead of legacy duplicate verify tools in product paths
 - frontend `tasks` vocabulary instead of `todos`
 
+Recent stabilization work has also completed the GUI session-history single-source cutover:
+
+- `transcript.jsonl` is now the only durable session-history truth
+- GUI history is serialized from transcript-backed `Session` state
+- GUI activation now uses one `/api/sessions/{id}/bootstrap` payload instead of split snapshot/timeline fetches
+
 ## 4. Remaining Near-Term Work
 
 ### 4.1 Legacy Helper Deletion
@@ -100,4 +106,5 @@ The repository is now past the architecture cutover stage and into stabilization
 - keep deleting dead compatibility layers
 - keep validating on real C projects
 - keep tightening offline bundle behavior
+- keep the transcript-backed session-history path as the only official history model
 - do not reopen old dual-path architecture

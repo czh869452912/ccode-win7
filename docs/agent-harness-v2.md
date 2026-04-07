@@ -128,6 +128,8 @@ The official frontend vocabulary for harness state is:
 
 GUI and TUI should treat these as the stable shell-facing summary of harness state.
 
+GUI session activation must layer that harness summary through one bootstrap payload sourced from transcript-backed session state. Replay logs remain live transport metadata only.
+
 ## 11. Design Rule
 
 Do not reintroduce long-lived parallel V1/V2 paths.

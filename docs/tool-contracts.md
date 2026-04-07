@@ -99,7 +99,19 @@ Official categories are:
 
 Each catalog entry must identify one permission category.
 
-## 5. Product Rule
+## 5. Historical Tool Presentation Contract
+
+GUI history serialization depends on a small stable presentation snapshot per tool call:
+
+- `tool_label`
+- `permission_category`
+- `supports_diff_preview`
+- `progress_renderer_key`
+- `result_renderer_key`
+
+These fields are part of the durable session-history contract. They must remain reconstructable from transcript-backed session state even when replay logs are trimmed.
+
+## 6. Product Rule
 
 Do not add duplicate first-class tools for the same workflow job.
 
@@ -109,7 +121,7 @@ Examples of duplicates that should not be reintroduced:
 - legacy compile/test wrappers plus recipe execution as equal first-class workflow tools
 - prompt-only todo tools plus harness task state as equal first-class workflow systems
 
-## 6. Source Of Truth
+## 7. Source Of Truth
 
 The authoritative implementation lives in:
 

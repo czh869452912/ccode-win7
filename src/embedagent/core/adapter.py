@@ -437,6 +437,13 @@ class AgentCoreAdapter(CoreInterface):
 
     def get_session_snapshot(self, session_id: str) -> SessionSnapshot:
         return self._snapshot_to_protocol(self._adapter.get_session_snapshot(session_id))
+
+    def get_session_bootstrap(self, session_id: str) -> Dict[str, Any]:
+        payload = self._adapter.get_session_bootstrap(session_id)
+        snapshot = payload.get("snapshot") if isinstance(payload, dict) else None
+        result = dict(payload or {})
+        result["snapshot"] = self._snapshot_to_protocol(snapshot or {})
+        return result
     
     def submit_message(self, session_id: str, text: str) -> None:
         """异步提交消息"""
@@ -530,9 +537,6 @@ class AgentCoreAdapter(CoreInterface):
 
     def get_session_timeline(self, session_id: str, limit: int = 200) -> Dict[str, Any]:
         return self._adapter.get_session_timeline(session_id, limit=limit)
-
-    def build_structured_timeline(self, session_id: str, limit: int = 200) -> Dict[str, Any]:
-        return self._adapter.build_structured_timeline(session_id, limit=limit)
 
     def list_artifacts(self, limit: int = 20) -> List[Dict[str, Any]]:
         return self._adapter.list_artifacts(limit=limit)
