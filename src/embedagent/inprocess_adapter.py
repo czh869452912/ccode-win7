@@ -2049,11 +2049,11 @@ class InProcessAdapter(object):
         def on_reasoning_delta(delta: str) -> None:
             self._emit(event_handler, "reasoning_delta", session_id, {"text": delta, "turn_id": turn_id, "step_id": current_step["step_id"], "step_index": current_step["step_index"]})
 
-        def on_step_start(step_index: int) -> None:
-            current_step["step_id"] = "s-" + uuid.uuid4().hex[:12]
+        def on_step_start(step_id: str, step_index: int) -> None:
+            current_step["step_id"] = step_id
             current_step["step_index"] = step_index
             set_thinking(True, "step_started")
-            self._emit(event_handler, "step_start", session_id, {"turn_id": turn_id, "step_id": current_step["step_id"], "step_index": step_index})
+            self._emit(event_handler, "step_start", session_id, {"turn_id": turn_id, "step_id": step_id, "step_index": step_index})
 
         def on_step_finish(step_index: int, reply: AssistantReply, status: str) -> None:
             set_thinking(False, "step_finished")

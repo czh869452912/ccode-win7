@@ -1236,6 +1236,31 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertTrue(tool_result["payload"].get("message_id"))
         self.assertEqual(message_events[-1]["payload"].get("parent_message_id"), tool_result["payload"].get("message_id"))
 
+    def test_query_engine_on_step_start_receives_engine_step_id(self):
+        transcript_store = TranscriptStore(self.workspace)
+        engine = QueryEngine(
+            client=ToolClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+            transcript_store=transcript_store,
+        )
+        session = Session()
+        engine.initialize_session(session, "build", workflow_state="chat")
+        callback_payloads = []
+
+        result = engine.submit_turn(
+            user_text="读取文件",
+            stream=False,
+            initial_mode="build",
+            session=session,
+            on_step_start=lambda step_id, step_index: callback_payloads.append((step_id, step_index)),
+        )
+
+        self.assertEqual(result.transition.reason, "completed")
+        self.assertGreaterEqual(len(callback_payloads), 1)
+        self.assertEqual(callback_payloads[0][0], session.turns[-1].steps[0].step_id)
+        self.assertEqual(callback_payloads[0][1], 1)
+
     def test_query_engine_uses_session_lock_for_context_and_session_mutation(self):
         session = Session()
         session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：build")

@@ -1227,6 +1227,32 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertEqual(tool_start.get("progress_renderer_key"), "file")
         self.assertEqual(tool_finish.get("result_renderer_key"), "file")
 
+    def test_adapter_step_events_use_engine_step_id(self):
+        adapter = InProcessAdapter(
+            client=ToolClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+        )
+        snapshot = adapter.create_session('build')
+        events = []
+        adapter.submit_user_message(
+            session_id=str(snapshot.get('session_id') or ''),
+            text='读取文件',
+            stream=False,
+            wait=True,
+            permission_resolver=lambda ticket: True,
+            event_handler=lambda event_name, session_id, payload: events.append((event_name, payload)),
+        )
+        step_start = [payload for event_name, payload in events if event_name == "step_start"][0]
+        tool_start = [payload for event_name, payload in events if event_name == "tool_started"][0]
+        step_end = [payload for event_name, payload in events if event_name == "step_end"][0]
+        session_state = adapter._sessions[str(snapshot.get('session_id') or '')].session
+        engine_step_id = session_state.turns[-1].steps[0].step_id
+
+        self.assertEqual(step_start.get("step_id"), engine_step_id)
+        self.assertEqual(tool_start.get("step_id"), engine_step_id)
+        self.assertEqual(step_end.get("step_id"), engine_step_id)
+
     def test_user_input_flow_can_change_mode(self):
         adapter = InProcessAdapter(
             client=AskUserClient(),

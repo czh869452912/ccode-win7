@@ -415,7 +415,7 @@ class QueryEngine(object):
         on_tool_start: Optional[Callable[[Action], None]] = None,
         on_tool_finish: Optional[Callable[[Action, Observation], None]] = None,
         on_context_result: Optional[Callable[[ContextAssemblyResult], None]] = None,
-        on_step_start: Optional[Callable[[int], None]] = None,
+        on_step_start: Optional[Callable[[str, int], None]] = None,
         on_step_finish: Optional[Callable[[int, AssistantReply, str], None]] = None,
         permission_handler: Optional[Callable[[PermissionRequest], Optional[bool]]] = None,
         user_input_handler: Optional[Callable[[UserInputRequest], Optional[UserInputResponse]]] = None,
@@ -476,7 +476,7 @@ class QueryEngine(object):
         on_tool_start: Optional[Callable[[Action], None]] = None,
         on_tool_finish: Optional[Callable[[Action, Observation], None]] = None,
         on_context_result: Optional[Callable[[ContextAssemblyResult], None]] = None,
-        on_step_start: Optional[Callable[[int], None]] = None,
+        on_step_start: Optional[Callable[[str, int], None]] = None,
         on_step_finish: Optional[Callable[[int, AssistantReply, str], None]] = None,
         permission_handler: Optional[Callable[[PermissionRequest], Optional[bool]]] = None,
         user_input_handler: Optional[Callable[[UserInputRequest], Optional[UserInputResponse]]] = None,
@@ -531,7 +531,7 @@ class QueryEngine(object):
         on_tool_start: Optional[Callable[[Action], None]],
         on_tool_finish: Optional[Callable[[Action, Observation], None]],
         on_context_result: Optional[Callable[[ContextAssemblyResult], None]],
-        on_step_start: Optional[Callable[[int], None]],
+        on_step_start: Optional[Callable[[str, int], None]],
         on_step_finish: Optional[Callable[[int, AssistantReply, str], None]],
         permission_handler: Optional[Callable[[PermissionRequest], Optional[bool]]],
         user_input_handler: Optional[Callable[[UserInputRequest], Optional[UserInputResponse]]],
@@ -558,7 +558,7 @@ class QueryEngine(object):
                 )
                 session.begin_step(step_id=step_id)
             if on_step_start is not None:
-                on_step_start(step_index)
+                on_step_start(step_id, step_index)
             force_compact = False
             compact_retry_used = False
             compact_boundary_recorded = False
