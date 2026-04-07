@@ -23,6 +23,7 @@ class TranscriptStore(object):
         self.root = os.path.join(self.workspace, *self.relative_root.split("/"))
         self._append_locks = {}  # type: Dict[str, threading.RLock]
         self._append_locks_guard = threading.RLock()
+        self._scan_cache = {}  # type: Dict[str, Tuple[List[Dict[str, Any]], int, int]]
 
     def resolve_session_dir(self, session_id: str) -> str:
         if not session_id:
@@ -68,6 +69,12 @@ class TranscriptStore(object):
                 handle.write(line + "\n")
                 handle.flush()
                 os.fsync(handle.fileno())
+            normalized = os.path.realpath(path)
+            cached_events, valid_length, file_size = self._scan_cache.get(normalized, ([], 0, 0))
+            updated_events = list(cached_events)
+            updated_events.append(event)
+            written_size = len((line + "\n").encode("utf-8"))
+            self._scan_cache[normalized] = (updated_events, valid_length + written_size, file_size + written_size)
             return event
 
     def load_events(self, reference: str) -> List[Dict[str, Any]]:
@@ -85,6 +92,13 @@ class TranscriptStore(object):
         return os.path.isfile(path)
 
     def _next_seq(self, path: str) -> int:
+        normalized = os.path.realpath(path)
+        cached = self._scan_cache.get(normalized)
+        if cached is not None:
+            events, _, _ = cached
+            if not events:
+                return 1
+            return int(events[-1].get("seq") or 0) + 1
         if not os.path.isfile(path):
             return 1
         try:
@@ -107,17 +121,28 @@ class TranscriptStore(object):
     def _repair_tail(self, path: str) -> None:
         if not os.path.isfile(path):
             return
-        _, valid_length = self._scan_events(path)
-        try:
-            file_size = os.path.getsize(path)
-        except OSError:
-            return
+        normalized = os.path.realpath(path)
+        cached = self._scan_cache.get(normalized)
+        file_size = os.path.getsize(path)
+        if cached is not None and cached[2] == file_size:
+            events, valid_length = list(cached[0]), cached[1]
+        else:
+            events, valid_length = self._scan_events(path)
         if valid_length >= file_size:
             return
         with open(path, "rb+") as handle:
             handle.truncate(valid_length)
+        self._scan_cache[normalized] = (events, valid_length, valid_length)
 
     def _scan_events(self, path: str) -> Tuple[List[Dict[str, Any]], int]:
+        normalized = os.path.realpath(path)
+        cached = self._scan_cache.get(normalized)
+        try:
+            file_size = os.path.getsize(path)
+        except OSError:
+            file_size = 0
+        if cached is not None and cached[2] == file_size:
+            return list(cached[0]), cached[1]
         events = []
         last_seq = 0
         valid_length = 0
@@ -147,4 +172,5 @@ class TranscriptStore(object):
                 events.append(event)
                 last_seq = seq
                 valid_length = next_offset
+        self._scan_cache[normalized] = (list(events), valid_length, file_size)
         return events, valid_length

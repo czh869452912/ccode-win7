@@ -31,6 +31,7 @@ class SessionTimelineStore(object):
         self.max_events = max_events
         self._append_locks = {}  # type: Dict[str, threading.RLock]
         self._append_locks_guard = threading.RLock()
+        self._scan_cache = {}  # type: Dict[str, Tuple[List[Dict[str, Any]], int, str, int]]
 
     def append_event(self, session_id: str, event_name: str, payload: Dict[str, Any]) -> Dict[str, Any]:
         if not session_id or event_name == "assistant_delta":
@@ -51,7 +52,8 @@ class SessionTimelineStore(object):
                 "payload": sanitize_jsonable(dict(payload)),
             }
             with open(path, "a", encoding="utf-8", newline="\n") as handle:
-                handle.write(json.dumps(record, ensure_ascii=False, sort_keys=True) + "\n")
+                line = json.dumps(record, ensure_ascii=False, sort_keys=True) + "\n"
+                handle.write(line)
                 handle.flush()
                 try:
                     os.fsync(handle.fileno())
@@ -59,6 +61,12 @@ class SessionTimelineStore(object):
                     _LOGGER.error("timeline append fsync failed: %s", exc)
                     record["integrity_state"] = "degraded"
                     return record
+            normalized = os.path.realpath(path)
+            cached_events, valid_length, integrity_state, file_size = self._scan_cache.get(normalized, ([], 0, "healthy", 0))
+            updated_events = list(cached_events)
+            updated_events.append(record)
+            written_size = len(line.encode("utf-8"))
+            self._scan_cache[normalized] = (updated_events, valid_length + written_size, integrity_state, file_size + written_size)
             self._trim_if_needed(path)
             return record
 
@@ -144,10 +152,21 @@ class SessionTimelineStore(object):
             lines = handle.readlines()
         if len(lines) <= self.max_events:
             return
+        trimmed_lines = lines[-self.max_events :]
         with open(path, "w", encoding="utf-8") as handle:
-            handle.writelines(lines[-self.max_events :])
+            handle.writelines(trimmed_lines)
+        self._scan_cache.pop(os.path.realpath(path), None)
+        events, valid_length, integrity_state = self._scan_events(path)
+        self._scan_cache[os.path.realpath(path)] = (events, valid_length, integrity_state, os.path.getsize(path))
 
     def _next_seq(self, path: str) -> int:
+        normalized = os.path.realpath(path)
+        cached = self._scan_cache.get(normalized)
+        if cached is not None:
+            events, _, _, _ = cached
+            if not events:
+                return 1
+            return int(events[-1].get("seq") or 0) + 1
         if not os.path.isfile(path):
             return 1
         events, _, _ = self._scan_events(path)
@@ -167,17 +186,29 @@ class SessionTimelineStore(object):
     def _repair_tail(self, path: str) -> None:
         if not os.path.isfile(path):
             return
-        _, valid_length, _ = self._scan_events(path)
-        try:
-            file_size = os.path.getsize(path)
-        except OSError:
-            return
+        normalized = os.path.realpath(path)
+        cached = self._scan_cache.get(normalized)
+        file_size = os.path.getsize(path)
+        if cached is not None and cached[3] == file_size:
+            events, valid_length, integrity_state = list(cached[0]), cached[1], cached[2]
+        else:
+            events, valid_length, integrity_state = self._scan_events(path)
         if valid_length >= file_size:
             return
         with open(path, "rb+") as handle:
             handle.truncate(valid_length)
+        self._scan_cache[normalized] = (events, valid_length, integrity_state, valid_length)
 
     def _scan_events(self, path: str) -> Tuple[List[Dict[str, Any]], int, str]:
+        normalized = os.path.realpath(path)
+        cached = self._scan_cache.get(normalized)
+        try:
+            file_size = os.path.getsize(path)
+        except OSError:
+            file_size = 0
+        if cached is not None and cached[3] == file_size:
+            events, valid_length, integrity_state = cached[0], cached[1], cached[2]
+            return list(events), valid_length, integrity_state
         events = []
         last_seq = 0
         valid_length = 0
@@ -222,4 +253,5 @@ class SessionTimelineStore(object):
                 events.append(event)
                 last_seq = seq
                 valid_length = next_offset
+        self._scan_cache[normalized] = (list(events), valid_length, integrity_state, file_size)
         return events, valid_length, integrity_state

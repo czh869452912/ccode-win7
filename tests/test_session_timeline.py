@@ -67,6 +67,20 @@ class TestSessionTimelineStore(unittest.TestCase):
         self.assertEqual(first['seq'], 1)
         self.assertEqual(second['seq'], 2)
 
+    def test_append_event_uses_cached_seq_after_first_write(self):
+        self.store.append_event('sess-cache', 'turn_started', {'text': 'hello'})
+        original_scan = self.store._scan_events
+
+        def fail_scan(path):
+            raise AssertionError("unexpected timeline rescan for cached append: %s" % path)
+
+        self.store._scan_events = fail_scan
+        try:
+            second = self.store.append_event('sess-cache', 'tool_started', {'tool_name': 'read_file'})
+        finally:
+            self.store._scan_events = original_scan
+        self.assertEqual(second['seq'], 2)
+
     def test_append_event_serializes_concurrent_writers(self):
         self.store.append_event('sess-6', 'turn_started', {'text': 'hello'})
         original_next_seq = self.store._next_seq

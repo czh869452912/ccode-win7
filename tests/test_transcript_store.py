@@ -121,6 +121,31 @@ class TestTranscriptStore(unittest.TestCase):
         self.assertEqual(first["seq"], 1)
         self.assertEqual(second["seq"], 2)
 
+    def test_append_event_uses_cached_seq_after_first_write(self):
+        store = TranscriptStore(self.workspace)
+        store.append_event("sess-cache", "session_meta", {"current_mode": "build"})
+        original_scan = store._scan_events
+
+        def fail_scan(path):
+            raise AssertionError("unexpected transcript rescan for cached append: %s" % path)
+
+        store._scan_events = fail_scan
+        try:
+            second = store.append_event(
+                "sess-cache",
+                "message",
+                {
+                    "role": "user",
+                    "message_id": "m-cache",
+                    "turn_id": "t-1",
+                    "step_id": "",
+                    "content": "cached",
+                },
+            )
+        finally:
+            store._scan_events = original_scan
+        self.assertEqual(second["seq"], 2)
+
     def test_append_event_serializes_concurrent_writers(self):
         store = TranscriptStore(self.workspace)
         store.append_event("sess-race", "session_meta", {"current_mode": "build"})
