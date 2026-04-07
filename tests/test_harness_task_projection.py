@@ -10,7 +10,6 @@ from embedagent.harness import task_store
 from embedagent.inprocess_adapter import InProcessAdapter
 from embedagent.permissions import PermissionPolicy
 from embedagent.tools import ToolRuntime
-from embedagent import todos as todo_store
 
 
 _COUNTER = count(1)
@@ -73,7 +72,18 @@ class HarnessTaskProjectionTests(unittest.TestCase):
         self.assertIsNotNone(state.session.task_graph)
         self.assertEqual(len(state.session.task_graph.tasks), payload["count"])
         self.assertTrue(os.path.isfile(task_store.task_snapshot_path(self.workspace, session_id)))
-        self.assertFalse(os.path.exists(todo_store.session_todos_path(self.workspace, session_id)))
+        self.assertFalse(
+            os.path.exists(
+                os.path.join(
+                    self.workspace,
+                    ".embedagent",
+                    "memory",
+                    "sessions",
+                    session_id,
+                    "todos.json",
+                )
+            )
+        )
 
     def test_mode_change_refreshes_projected_task_track(self):
         snapshot = self.adapter.create_session("build")

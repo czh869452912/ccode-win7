@@ -21,6 +21,9 @@ It does that by separating three concerns:
 - internal `discipline_profile`
 - internal `execution_phase`
 
+Execution ownership is concentrated in one session-scoped `QueryEngine`.
+Harness updates workflow truth inside that engine-owned session; it is not a second runtime.
+
 ## 3. Official Modes
 
 - `explore`
@@ -77,6 +80,9 @@ The official task system is:
 - projected into `task_status`
 - persisted as session task snapshots
 
+`describe_mode(...)` is read-only prompt/context description.
+`update_task_graph(...)` is the harness path that mutates workflow truth inside `Session`.
+
 Frontends consume:
 
 - `task_summary`
@@ -129,6 +135,8 @@ The official frontend vocabulary for harness state is:
 GUI and TUI should treat these as the stable shell-facing summary of harness state.
 
 GUI session activation must layer that harness summary through one bootstrap payload sourced from transcript-backed session state. Replay logs remain live transport metadata only.
+
+`SessionSnapshotProjector` is the official snapshot read model for that shell-facing summary.
 
 ## 11. Design Rule
 

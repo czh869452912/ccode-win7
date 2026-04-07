@@ -27,6 +27,7 @@ EmbedAgent now has one official first-class mode set:
 - Mode switching is user-driven.
 - The model does not autonomously switch modes.
 - The agent may ask for a mode switch through `ask_user`, but the user confirms it.
+- Unknown mode names are invalid input and must fail fast instead of silently falling back to another mode.
 
 ## 4. Harness Relationship
 

@@ -1403,8 +1403,12 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertTrue(any(item.get("name") == "read_file" for item in items))
         self.assertFalse(any(item.get("name") == "compile_project" for item in items))
         read_file = [item for item in items if item.get("name") == "read_file"][0]
+        task_status = [item for item in items if item.get("name") == "task_status"][0]
         self.assertEqual(read_file.get("user_label"), "Read File")
         self.assertEqual(read_file.get("result_renderer_key"), "file")
+        self.assertEqual(task_status.get("progress_renderer_key"), "tasks")
+        self.assertEqual(task_status.get("result_renderer_key"), "tasks")
+        self.assertEqual(task_status.get("activity_kind"), "task")
 
     def test_slash_review_emits_structured_findings(self):
         session_id = str(self.snapshot.get('session_id') or '')

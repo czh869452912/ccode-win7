@@ -20,6 +20,7 @@ The repository now treats Agent Harness as the only official execution model.
 - Official build/verify execution: `list_recipes` + `run_recipe` + `report_quality_v2`
 - Official file discovery: `list_dir`, `glob_files`, `grep_text`
 - Official permission engine: `PermissionPolicy` with structured rule matching and stable explanation text
+- Official session runtime ownership: one session-scoped `QueryEngine` owns turn/step/interaction execution; adapters host and project
 - Official frontend vocabulary: `build`, `tasks`, `current_phase`, `discipline_profile`
 - Official session-history model: `transcript.jsonl -> Session -> SessionHistoryAssembler -> /api/sessions/{id}/bootstrap`
 
@@ -28,7 +29,9 @@ The product no longer treats the old `code` mode or `manage_todos`-style workflo
 ## Main Components
 
 - `src/embedagent/query_engine.py`
-  The main turn loop, tool orchestration, permission interaction, context assembly, and transcript integration.
+  The session-scoped engine that owns turn/step execution, interaction suspend/resume, context assembly, and transcript integration.
+- `src/embedagent/session_runtime.py` and `src/embedagent/session_projector.py`
+  Runtime host state plus pure snapshot/bootstrap projection from session truth.
 - `src/embedagent/harness/`
   Mode registry, discipline/phase modeling, prompt stack, task graph, and session task snapshot persistence.
 - `src/embedagent/tools/`
@@ -89,9 +92,10 @@ Current architecture cutover status:
 - Mode vocabulary cutover: completed
 - Context/intelligence cutover: completed
 - Permission/task truth cutover: completed
+- Agent core ownership cutover: completed
 - Frontend/protocol officialization: completed
 - Session-history single-source cutover: completed
-- Remaining work: finish legacy helper deletion and keep validating on real C projects and Win7 bundle targets
+- Remaining work: keep deleting stale shell-only labels/helpers and keep validating on real C projects and Win7 bundle targets
 
 ## Verification
 

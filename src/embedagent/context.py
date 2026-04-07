@@ -411,8 +411,6 @@ class ReducerRegistry(object):
             "result_ref",
         )
         tasks = data.get("tasks")
-        if not isinstance(tasks, list):
-            tasks = data.get("todos")
         if isinstance(tasks, list):
             limit = 12 if detailed else 6
             result["tasks"] = self._simple_list(tasks, limit)

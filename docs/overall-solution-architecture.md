@@ -16,7 +16,7 @@ The stable architecture assumptions are:
 
 The product is organized around one main execution spine:
 
-`Frontend -> Core Adapter -> InProcessAdapter -> QueryEngine -> Harness -> ToolRuntime -> Permission/Context/Stores`
+`Frontend -> Core Adapter -> InProcessAdapter -> Session Runtime -> QueryEngine -> Harness/ToolRuntime -> Permission/Context/Stores`
 
 ### Frontend Layer
 
@@ -36,6 +36,8 @@ This is the stable contract boundary between UI and Agent Core.
 
 - `src/embedagent/inprocess_adapter.py`
 - `src/embedagent/query_engine.py`
+- `src/embedagent/session_runtime.py`
+- `src/embedagent/session_projector.py`
 - `src/embedagent/session_history.py`
 - `src/embedagent/harness/`
 - `src/embedagent/tools/`
@@ -43,6 +45,13 @@ This is the stable contract boundary between UI and Agent Core.
 - `src/embedagent/permissions.py`
 
 This is the product core.
+
+### Session Runtime Ownership
+
+- `ManagedSession` hosts thread/lock/status and durable `Session` references
+- one session-scoped `QueryEngine` is the only owner of turn/step/interactions and transcript mutation
+- `InProcessAdapter` is a host/bridge layer and must not mint duplicate workflow identities
+- `SessionSnapshotProjector` and `SessionHistoryAssembler` are projections, not workflow truth
 
 ## 3. Official Execution Model
 
@@ -178,6 +187,12 @@ Session truth is distributed across:
 - task snapshots
 
 No frontend should maintain its own workflow truth separate from session snapshots and replayable events.
+
+Additional ownership rules:
+
+- engine-issued `turn_id` / `step_id` / `step_index` are the only official execution anchors
+- resumed interactions must re-enter the same action pipeline used by first execution
+- snapshot/bootstrap payloads are projected from session truth and do not own side effects
 
 ### Session History Rule
 

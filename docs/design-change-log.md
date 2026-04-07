@@ -1,6 +1,6 @@
 # EmbedAgent 设计与变更跟踪
 
-> 更新日期：2026-04-06
+> 更新日期：2026-04-08
 > 用途：记录关键设计变更、影响范围、关联文档和后续动作
 
 ---
@@ -43,6 +43,37 @@
 ---
 
 ## 3. 当前变更记录
+
+### DC-098
+
+- 日期：2026-04-08
+- 变更主题：Agent core ownership cutover，收拢 session owner / step anchor / resume pipeline
+- 变更摘要：
+  - `QueryEngine` 已改为 per-session 常驻执行 owner，负责 turn/step/interactions 与 transcript mutation；`InProcessAdapter` 降为 host/bridge
+  - frontend live events 已直接复用 engine-issued `step_id`，adapter 不再生成第二套 step identity
+  - pending permission/user-input 的恢复已重新进入统一 action pipeline，不再直接旁路到 `tools.execute(...)`
+  - `TaskGraph` 已进入 `Session` 真相层，`SessionSnapshotProjector` 已抽为无副作用 projector，`task_status` 前端元数据正式统一为 `tasks/task`
+  - `TranscriptStore` / `SessionTimelineStore` 追加序号已切到缓存分配，运行时残留 `todos.py` 已删除
+- 影响范围：
+  - query engine / in-process adapter / session runtime ownership
+  - interaction resume correctness
+  - frontend event anchors / tool catalog metadata
+  - task projection / workspace profile wording / runtime cleanup
+  - transcript/timeline append hot path
+- 关联文档：
+  - `README.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/mode-schema.md`
+  - `docs/tool-contracts.md`
+  - `docs/permission-model.md`
+  - `docs/frontend-protocol.md`
+  - `docs/agent-harness-v2.md`
+  - `docs/development-tracker.md`
+- 是否需要 ADR：`否，属于已批准 cutover spec 的实施收口`
+- 后续动作：
+  - 继续删除剩余非正式 shell-only labels / manual samples
+  - 在真实 C 工程和 Win7 bundle 上继续验证恢复、bootstrap 和长会话性能
 
 ### DC-097
 

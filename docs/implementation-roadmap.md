@@ -23,6 +23,7 @@ The following core programs are now complete in the current architecture baselin
 3. Context / intelligence cutover
 4. Permission / task truth cutover
 5. Frontend / protocol officialization
+6. Agent core ownership cutover
 
 This means the repository now has one official execution spine centered on:
 
@@ -37,6 +38,14 @@ Recent stabilization work has also completed the GUI session-history single-sour
 - GUI history is serialized from transcript-backed `Session` state
 - GUI activation now uses one `/api/sessions/{id}/bootstrap` payload instead of split snapshot/timeline fetches
 
+Recent stabilization work has also completed the agent-core ownership cutover:
+
+- `QueryEngine` is now session-scoped and owns session mutation for the lifetime of a conversation
+- frontend/live events now reuse engine-issued `step_id` values end-to-end
+- resumed permission/user-input interactions re-enter the same action pipeline instead of bypassing it
+- session snapshots are now built by a pure `SessionSnapshotProjector`
+- transcript/timeline sequence allocation now uses cached counters instead of rescanning on every append
+
 ## 4. Remaining Near-Term Work
 
 ### 4.1 Legacy Helper Deletion
@@ -45,7 +54,7 @@ Remaining cleanup should focus on:
 
 - removing dead compatibility shims that are no longer part of product paths
 - deleting or archiving superseded helper modules
-- removing outdated tests that preserve non-official behavior
+- removing outdated tests/manual samples that preserve non-official behavior
 
 ### 4.2 Documentation Alignment
 

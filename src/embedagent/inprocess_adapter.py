@@ -709,12 +709,12 @@ class InProcessAdapter(object):
             state = self._sessions.get(session_id)
         if state is not None:
             graph = getattr(state.session, "task_graph", None)
-            todos = list(graph.to_items() if graph is not None else (state.task_items or []))
+            tasks = list(graph.to_items() if graph is not None else (state.task_items or []))
         else:
-            todos = task_store.load_task_items(self.tools.workspace, session_id)
+            tasks = task_store.load_task_items(self.tools.workspace, session_id)
         return {
-            "count": len(todos),
-            "tasks": todos,
+            "count": len(tasks),
+            "tasks": tasks,
             "path": task_store.relative_task_snapshot_path(session_id),
             "session_id": session_id,
         }

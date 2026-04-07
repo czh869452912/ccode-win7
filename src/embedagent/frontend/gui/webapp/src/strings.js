@@ -140,7 +140,7 @@ const STRINGS = {
     // Tasks
     "tasks.title": "Session Tasks",
     "tasks.done": "done",
-    "tasks.todo": "todo",
+    "tasks.todo": "task",
 
     // Artifacts
     "artifacts.title": "Artifacts",

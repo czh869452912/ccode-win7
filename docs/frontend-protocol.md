@@ -35,6 +35,8 @@ Important session snapshot fields include:
 - `pending_permission`
 - `has_pending_input`
 - `pending_input`
+- `pending_interaction`
+- `pending_interaction_valid`
 - `runtime_source`
 - `bundled_tools_ready`
 - `current_phase`
@@ -106,11 +108,25 @@ Important pushed event types include:
 
 `GET /api/sessions/{session_id}/events` is transport replay only. Frontend history bootstrap must come from the structured bootstrap payload, not replay-log parsing.
 
+All live tool/interaction/command events must preserve the engine-issued execution anchors:
+
+- `turn_id`
+- `step_id`
+- `step_index`
+
+Frontend shells must treat these as authoritative and must not synthesize replacement step ids.
+
 ## 6. Tool Catalog
 
 The frontend-visible tool catalog should represent the official workflow vocabulary used by the product shell.
 
 The UI should not use the catalog to reintroduce deprecated mode/tool naming.
+
+For `task_status`, the official presentation metadata is:
+
+- `progress_renderer_key = "tasks"`
+- `result_renderer_key = "tasks"`
+- `activity_kind = "task"`
 
 ## 7. TUI / GUI Rule
 

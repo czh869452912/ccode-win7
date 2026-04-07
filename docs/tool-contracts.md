@@ -111,6 +111,12 @@ GUI history serialization depends on a small stable presentation snapshot per to
 
 These fields are part of the durable session-history contract. They must remain reconstructable from transcript-backed session state even when replay logs are trimmed.
 
+Additional contract rules:
+
+- `task_status` uses `progress_renderer_key = "tasks"`, `result_renderer_key = "tasks"`, and `activity_kind = "task"`
+- `tool_start` / `tool_finish` / interaction events must preserve engine-issued `turn_id` / `step_id` / `step_index` anchors end-to-end
+- adapters and frontends must not mint replacement step identities
+
 ## 6. Product Rule
 
 Do not add duplicate first-class tools for the same workflow job.

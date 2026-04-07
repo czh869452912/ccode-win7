@@ -119,12 +119,12 @@ def profile_workspace(workspace: str, max_depth: int = 3, max_entries: int = 400
     }
 
 
-def _pending_todos_hint(workspace: str, session_id: str = "") -> str:
-    """Return a short hint if there are pending todos, else empty string."""
+def _pending_tasks_hint(workspace: str, session_id: str = "") -> str:
+    """Return a short hint if there are pending tasks, else empty string."""
     pending_count = task_store.pending_task_count(workspace, session_id) if session_id else 0
     if not pending_count:
         return ""
-    return "\n待办事项提示：当前有 %d 个未完成待办项，建议先调用 task_status 查看当前任务摘要。" % pending_count
+    return "\n任务提示：当前有 %d 个未完成任务项，建议先调用 task_status 查看当前任务摘要。" % pending_count
 
 
 def build_workspace_profile_message(workspace: str, session_id: str = "", char_limit: int = 900) -> str:
@@ -137,7 +137,7 @@ def build_workspace_profile_message(workspace: str, session_id: str = "", char_l
             "spec 模式如需起草文档，可默认创建 docs/ 作为首个文档目录；"
             "code/debug 模式不要假设 src/ 已存在，应根据用户路径或当前目标决定结构。"
         )
-        return empty_msg + _pending_todos_hint(workspace, session_id=session_id)
+        return empty_msg + _pending_tasks_hint(workspace, session_id=session_id)
     lines = ["工作区画像：请优先复用现有工程结构，不要强行套模板。"]
     doc_roots = profile.get("doc_roots") or []
     code_roots = profile.get("code_roots") or []
@@ -162,7 +162,7 @@ def build_workspace_profile_message(workspace: str, session_id: str = "", char_l
         if samples:
             lines.append("已探测 recipe：%s" % ", ".join(samples))
     message = "\n".join(lines)
-    message += _pending_todos_hint(workspace, session_id=session_id)
+    message += _pending_tasks_hint(workspace, session_id=session_id)
     if len(message) <= char_limit:
         return message
     return message[:char_limit] + "\n...[truncated]"

@@ -70,6 +70,9 @@ Without a matching rule:
 Frontends may remember permission categories for the current session.
 That remembered state is part of the permission context view, not an implicit mode side effect.
 
+Approving a pending permission does not create a second execution path.
+The resumed action must re-enter the same validation/execution pipeline as the initial action, including mode/path policy checks.
+
 ## 7. Frontend Context View
 
 The frontend-visible permission context includes:
