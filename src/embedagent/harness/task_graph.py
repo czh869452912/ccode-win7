@@ -8,15 +8,23 @@ from typing import Dict, List
 class TaskNode(object):
     task_id: str
     title: str
+    kind: str = "phase"
     status: str = "pending"
+    source: str = "harness"
     note: str = ""
+    evidence_refs: List[str] = field(default_factory=list)
 
 
 @dataclass
 class TaskGraph(object):
     mode_name: str
     discipline: str
+    current_phase: str = ""
     tasks: List[TaskNode] = field(default_factory=list)
+
+    @classmethod
+    def empty(cls):
+        return cls(mode_name="", discipline="", current_phase="", tasks=[])
 
     @classmethod
     def for_mode(cls, mode_name, discipline, track=None, current_phase=""):
@@ -39,21 +47,42 @@ class TaskGraph(object):
                 tasks.append(
                     TaskNode(
                         task_id="task-%s" % (index + 1),
+                        kind="phase",
                         title="%s:%s" % (str(mode_name or ""), phase),
                         status=status,
+                        source="harness",
                     )
                 )
             return cls(
                 mode_name=str(mode_name or ""),
                 discipline=str(discipline or ""),
+                current_phase=current_value,
                 tasks=tasks,
             )
         title = "%s:%s" % (str(mode_name or ""), str(discipline or ""))
         return cls(
             mode_name=str(mode_name or ""),
             discipline=str(discipline or ""),
-            tasks=[TaskNode(task_id="task-1", title=title, status="in_progress")],
+            current_phase=str(current_phase or ""),
+            tasks=[TaskNode(task_id="task-1", kind="phase", title=title, status="in_progress", source="harness")],
         )
+
+    def replace_with(self, other):
+        self.mode_name = str(other.mode_name or "")
+        self.discipline = str(other.discipline or "")
+        self.current_phase = str(other.current_phase or "")
+        self.tasks = [
+            TaskNode(
+                task_id=str(task.task_id),
+                kind=str(getattr(task, "kind", "phase") or "phase"),
+                title=str(task.title or ""),
+                status=str(task.status or "pending"),
+                source=str(getattr(task, "source", "harness") or "harness"),
+                note=str(getattr(task, "note", "") or ""),
+                evidence_refs=list(getattr(task, "evidence_refs", []) or []),
+            )
+            for task in list(other.tasks or [])
+        ]
 
     def current_task(self):
         for task in self.tasks:

@@ -6,6 +6,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
+from embedagent.harness.task_graph import TaskGraph
+
 
 def _utc_now() -> str:
     return datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
@@ -277,6 +279,7 @@ class Session:
     pending_interaction: Optional[PendingInteraction] = None
     content_replacements: List[Dict[str, Any]] = field(default_factory=list)
     latest_context_snapshot: Dict[str, Any] = field(default_factory=dict)
+    task_graph: TaskGraph = field(default_factory=TaskGraph.empty)
 
     def add_system_message(
         self,

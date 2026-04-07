@@ -62,6 +62,7 @@ class HarnessTaskProjectionTests(unittest.TestCase):
     def test_build_session_projects_harness_tasks_without_legacy_todo_store(self):
         snapshot = self.adapter.create_session("build")
         session_id = str(snapshot.get("session_id") or "")
+        state = self.adapter._sessions[session_id]
 
         payload = self.adapter.list_tasks(session_id=session_id)
 
@@ -69,6 +70,8 @@ class HarnessTaskProjectionTests(unittest.TestCase):
         self.assertEqual(payload["tasks"][0]["content"], "build:understand")
         self.assertEqual(payload["tasks"][0]["status"], "in_progress")
         self.assertFalse(payload["tasks"][0]["done"])
+        self.assertIsNotNone(state.session.task_graph)
+        self.assertEqual(len(state.session.task_graph.tasks), payload["count"])
         self.assertTrue(os.path.isfile(task_store.task_snapshot_path(self.workspace, session_id)))
         self.assertFalse(os.path.exists(todo_store.session_todos_path(self.workspace, session_id)))
 
@@ -78,6 +81,7 @@ class HarnessTaskProjectionTests(unittest.TestCase):
 
         self.adapter.set_session_mode(session_id, "verify")
         payload = self.adapter.list_tasks(session_id=session_id)
+        state = self.adapter._sessions[session_id]
 
         self.assertEqual(
             [item["content"] for item in payload["tasks"]],
@@ -87,6 +91,7 @@ class HarnessTaskProjectionTests(unittest.TestCase):
                 "verify:summarize",
             ],
         )
+        self.assertEqual([node.title for node in state.session.task_graph.tasks], [item["content"] for item in payload["tasks"]])
 
 
 if __name__ == "__main__":

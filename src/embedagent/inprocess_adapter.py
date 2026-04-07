@@ -251,11 +251,18 @@ class InProcessAdapter(object):
             self._append_transcript_message_event(session.session_id, message)
 
     def _refresh_harness_state(self, state: ManagedSession) -> None:
+        discipline_override = "full_spec_tdd" if state.current_mode == "build" and state.workflow_state == "plan" else None
+        graph = self.harness_runner.update_task_graph(
+            state.session,
+            state.current_mode,
+            observations=state.session.turns[-1].observations if state.session.turns else [],
+            discipline_override=discipline_override,
+        )
         context = self.harness_runner.describe_mode(
             state.current_mode,
-            discipline_override="full_spec_tdd" if state.current_mode == "build" and state.workflow_state == "plan" else None,
-            current_phase=state.current_phase,
-            observations=state.session.turns[-1].observations if state.session.turns else [],
+            discipline_override=discipline_override,
+            current_phase=str(getattr(graph, "current_phase", "") or ""),
+            observations=[],
         )
         if context is None:
             state.current_phase = ""
@@ -274,11 +281,11 @@ class InProcessAdapter(object):
                 [],
             )
             return
-        state.current_phase = str(context.current_phase or "")
-        state.discipline_profile = str(context.discipline_label or "")
+        state.current_phase = str(getattr(graph, "current_phase", "") or context.current_phase or "")
+        state.discipline_profile = str(getattr(graph, "discipline", "") or context.discipline_label or "")
         state.current_activity = str(context.current_activity or "")
-        state.task_summary = str(context.task_summary or "")
-        state.task_items = list(getattr(context, "task_items", []) or [])
+        state.task_summary = str(graph.render_summary() if graph is not None else (context.task_summary or ""))
+        state.task_items = list(graph.to_items() if graph is not None else (getattr(context, "task_items", []) or []))
         task_store.save_task_snapshot(
             self.tools.workspace,
             state.session.session_id,
@@ -746,7 +753,8 @@ class InProcessAdapter(object):
         with self._lock:
             state = self._sessions.get(session_id)
         if state is not None:
-            todos = list(state.task_items or [])
+            graph = getattr(state.session, "task_graph", None)
+            todos = list(graph.to_items() if graph is not None else (state.task_items or []))
         else:
             todos = task_store.load_task_items(self.tools.workspace, session_id)
         return {
