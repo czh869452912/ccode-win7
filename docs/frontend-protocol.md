@@ -84,8 +84,6 @@ Important pushed event types include:
 - `plan_updated`
 - `turn_start`
 - `turn_end`
-- `step_start`
-- `step_end`
 - `session_finished`
 - `tasks_refresh`
 - `artifacts_refresh`

@@ -70,9 +70,6 @@ src/embedagent/
 │       │   ├── index.html
 │       │   └── assets/
 │       └── webapp/              # React + Vite 源码
-│
-└── frontend/tui/          # 旧 TUI 位置（向后兼容）
-    └── ...
 ```
 
 ---
@@ -85,7 +82,7 @@ src/embedagent/
 class CoreInterface(Protocol):
     """Core 对外暴露的接口"""
     def create_session(...) -> SessionSnapshot: ...
-    def submit_user_message(...) -> None: ...
+    def submit_message(...) -> None: ...
     def approve_permission(...) -> None: ...
     def reject_permission(...) -> None: ...
     def list_sessions(...) -> List[SessionSummary]: ...
@@ -240,11 +237,11 @@ def __getattr__(name):
 python tests/test_architecture.py
 
 # 结果
-TestProtocol (5 tests)          ✓
-TestMockFrontend (6 tests)      ✓
-TestFrontendTUIImport           ✓
-TestFrontendGUIImport           ✓
-TestCoreAdapterImport           ✓
+TestProtocol (10 tests)          ✓
+TestMockFrontend (6 tests)       ✓
+TestFrontendTUIImport            ✓
+TestFrontendGUIImport            ✓
+TestCoreAdapterImport            ✓
 ```
 
 ---

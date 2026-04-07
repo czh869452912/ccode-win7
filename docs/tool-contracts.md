@@ -115,6 +115,5 @@ The authoritative implementation lives in:
 
 - `src/embedagent/tools/runtime.py`
 - `src/embedagent/tools/harness_runtime.py`
-- `src/embedagent/tools_v2/`
 
 This document must stay aligned with those files.
