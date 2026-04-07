@@ -188,6 +188,26 @@ class PendingInteraction:
 
 
 @dataclass
+class InteractionCheckpoint:
+    action: Dict[str, Any]
+    turn_id: str
+    step_id: str
+    interaction_id: str
+    kind: str
+    request_data: Dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "action": dict(self.action),
+            "turn_id": self.turn_id,
+            "step_id": self.step_id,
+            "interaction_id": self.interaction_id,
+            "kind": self.kind,
+            "request_data": dict(self.request_data),
+        }
+
+
+@dataclass
 class LoopTransition:
     reason: str
     message: str = ""

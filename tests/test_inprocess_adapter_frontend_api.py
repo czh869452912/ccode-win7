@@ -217,7 +217,7 @@ class WriteThenDoneClient(object):
                 actions=[
                     Action(
                         name="write_file",
-                        arguments={"path": "notes/out.md", "content": "# hi\n", "overwrite": True},
+                        arguments={"path": "src/generated_write.c", "content": "int generated_write(void) {\n    return 0;\n}\n", "overwrite": True},
                         call_id="write-frontend-1",
                     )
                 ],

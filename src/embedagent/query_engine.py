@@ -17,7 +17,7 @@ from embedagent.memory_maintenance import MemoryMaintenance
 from embedagent.modes import DEFAULT_MODE, build_system_prompt, is_path_writable, require_mode
 from embedagent.permissions import PermissionPolicy, PermissionRequest
 from embedagent.project_memory import ProjectMemoryStore
-from embedagent.session import Action, AssistantReply, ContextAssemblyResult, LoopResult, LoopTransition, Observation, PendingInteraction, QueryTurnResult, Session, ToolPresentationSnapshot
+from embedagent.session import Action, AssistantReply, ContextAssemblyResult, InteractionCheckpoint, LoopResult, LoopTransition, Observation, PendingInteraction, QueryTurnResult, Session, ToolPresentationSnapshot
 from embedagent.session_store import SessionSummaryStore
 from embedagent.transcript_store import TranscriptStore
 from embedagent.tool_execution import StreamingToolExecutor, partition_tool_actions
@@ -301,6 +301,30 @@ class QueryEngine(object):
                 },
             )
             session.record_transition(transition)
+
+    def _interaction_checkpoint_payload(
+        self,
+        session: Session,
+        action: Action,
+        pending: PendingInteraction,
+        request_data: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        turn_id = session.turns[-1].turn_id if session.turns else ""
+        step = session.current_step()
+        step_id = step.step_id if step is not None else ""
+        payload = InteractionCheckpoint(
+            action={
+                "name": action.name,
+                "arguments": dict(action.arguments),
+                "call_id": action.call_id,
+            },
+            turn_id=turn_id,
+            step_id=step_id,
+            interaction_id=pending.interaction_id,
+            kind=pending.kind,
+            request_data=dict(request_data or {}),
+        ).to_dict()
+        return payload
 
     def _interrupted_observation(self, tool_name: str) -> Observation:
         return Observation(
@@ -921,19 +945,23 @@ class QueryEngine(object):
             request = build_user_input_request(action.arguments)
             response = user_input_handler(request) if user_input_handler is not None else None
             if response is None:
+                request_payload = {
+                    "tool_name": request.tool_name,
+                    "question": request.question,
+                    "options": [{"index": item.index, "text": item.text, "mode": item.mode} for item in request.options],
+                    "details": dict(request.details),
+                }
                 pending = PendingInteraction(
                     kind="user_input",
                     tool_name="ask_user",
-                    request_payload={
-                        "action": {"name": action.name, "arguments": dict(action.arguments), "call_id": action.call_id},
-                        "request": {
-                            "tool_name": request.tool_name,
-                            "question": request.question,
-                            "options": [{"index": item.index, "text": item.text, "mode": item.mode} for item in request.options],
-                            "details": dict(request.details),
-                        },
-                    },
                 )
+                pending.request_payload = self._interaction_checkpoint_payload(
+                    session,
+                    action,
+                    pending,
+                    request_data={"request": request_payload},
+                )
+                pending.request_payload["request"] = request_payload
                 transition = LoopTransition("user_input_wait", request.question, pending, current_mode)
                 self._record_transition(session, transition)
                 return self._failure_observation("ask_user", "waiting user input", "pending_interaction", False, "user_input", "等待用户回答。", {"pending": True}), current_mode, QueryTurnResult("", session, transition, pending_interaction=pending)
@@ -947,7 +975,12 @@ class QueryEngine(object):
                 pending = PendingInteraction(
                     kind="user_input",
                     tool_name="propose_mode_switch",
-                    request_payload={"action": {"name": action.name, "arguments": dict(action.arguments), "call_id": action.call_id}},
+                )
+                pending.request_payload = self._interaction_checkpoint_payload(
+                    session,
+                    action,
+                    pending,
+                    request_data={"request": {"tool_name": "propose_mode_switch", "question": str(action.arguments.get("reason") or ""), "options": [], "details": {"target_mode": str(action.arguments.get("target_mode") or "")}}},
                 )
                 transition = LoopTransition("user_input_wait", str(action.arguments.get("reason") or ""), pending, current_mode)
                 self._record_transition(session, transition)
@@ -984,14 +1017,18 @@ class QueryEngine(object):
         if decision.request is not None:
             approved = permission_handler(decision.request) if permission_handler is not None else None
             if approved is None:
+                permission_payload = {"tool_name": decision.request.tool_name, "category": decision.request.category, "reason": decision.request.reason, "details": dict(decision.request.details)}
                 pending = PendingInteraction(
                     kind="permission",
                     tool_name=action.name,
-                    request_payload={
-                        "action": {"name": action.name, "arguments": dict(runtime_action.arguments), "call_id": runtime_action.call_id},
-                        "permission": {"tool_name": decision.request.tool_name, "category": decision.request.category, "reason": decision.request.reason, "details": dict(decision.request.details)},
-                    },
                 )
+                pending.request_payload = self._interaction_checkpoint_payload(
+                    session,
+                    action,
+                    pending,
+                    request_data={"permission": permission_payload},
+                )
+                pending.request_payload["permission"] = permission_payload
                 transition = LoopTransition("permission_wait", decision.request.reason, pending, current_mode)
                 self._record_transition(session, transition)
                 return self._failure_observation(action.name, "waiting permission", "pending_interaction", False, "permission", "等待用户批准。", {"pending": True}), current_mode, QueryTurnResult("", session, transition, pending_interaction=pending)
@@ -1103,11 +1140,19 @@ class QueryEngine(object):
             on_tool_start(action)
         if pending.kind == "permission":
             approved = bool(resolution.get("approved"))
-            observation = (
-                self.tools.execute(action.name, action.arguments)
-                if approved
-                else self._failure_observation(action.name, "操作未获批准，已跳过执行。", "permission_denied", False, "user_confirmation", "等待用户批准，或改为不需要该权限的方案。")
-            )
+            if approved:
+                observation, current_mode, suspended = self._execute_action(
+                    session,
+                    action,
+                    current_mode,
+                    workflow_state,
+                    permission_handler=lambda request: True,
+                    user_input_handler=None,
+                )
+                if suspended is not None:
+                    raise RuntimeError("permission resume unexpectedly re-suspended")
+            else:
+                observation = self._failure_observation(action.name, "操作未获批准，已跳过执行。", "permission_denied", False, "user_confirmation", "等待用户批准，或改为不需要该权限的方案。")
         else:
             req = pending.request_payload.get("request") if isinstance(pending.request_payload, dict) else {}
             request = UserInputRequest(

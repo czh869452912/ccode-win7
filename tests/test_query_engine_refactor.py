@@ -88,7 +88,7 @@ class WriteThenDoneClient(object):
                 actions=[
                     Action(
                         name="write_file",
-                        arguments={"path": "notes/out.md", "content": "# hi\n", "overwrite": True},
+                        arguments={"path": "src/generated_write.c", "content": "int generated_write(void) {\n    return 0;\n}\n", "overwrite": True},
                         call_id="write-1",
                     )
                 ],
@@ -149,6 +149,33 @@ class ToolClient(object):
                         name="read_file",
                         arguments={"path": "src/demo.c"},
                         call_id="call-read-demo",
+                    )
+                ],
+                finish_reason="tool_calls",
+            )
+        return AssistantReply(content="done", actions=[], finish_reason="stop")
+
+    def stream(self, messages, tools=None, on_text_delta=None, on_reasoning_delta=None):
+        reply = self.generate(messages, tools=tools)
+        if on_text_delta is not None and reply.content:
+            on_text_delta(reply.content)
+        return reply
+
+
+class SpecCodeWriteClient(object):
+    def __init__(self):
+        self.calls = 0
+
+    def generate(self, messages, tools=None):
+        self.calls += 1
+        if self.calls == 1:
+            return AssistantReply(
+                content="",
+                actions=[
+                    Action(
+                        name="write_file",
+                        arguments={"path": "src/spec_illegal.c", "content": "int spec_illegal(void) {\n    return 0;\n}\n", "overwrite": True},
+                        call_id="write-spec-illegal",
                     )
                 ],
                 finish_reason="tool_calls",
@@ -1080,7 +1107,60 @@ class TestQueryEngineRefactor(unittest.TestCase):
         )
         self.assertEqual(resumed.transition.reason, "completed")
         self.assertEqual(resumed.final_text, "written")
-        self.assertTrue(os.path.isfile(os.path.join(self.workspace, "notes", "out.md")))
+        self.assertTrue(os.path.isfile(os.path.join(self.workspace, "src", "generated_write.c")))
+
+    def test_permission_wait_payload_contains_execution_checkpoint_fields(self):
+        session = Session()
+        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：build")
+        engine = QueryEngine(
+            client=WriteThenDoneClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=False, workspace=self.workspace),
+        )
+        first = engine.submit_turn(
+            user_text="写文件",
+            stream=False,
+            initial_mode="build",
+            session=session,
+            permission_handler=None,
+        )
+        self.assertEqual(first.transition.reason, "permission_wait")
+        payload = first.pending_interaction.request_payload
+        self.assertIn("action", payload)
+        self.assertIn("turn_id", payload)
+        self.assertIn("step_id", payload)
+        self.assertIn("interaction_id", payload)
+
+    def test_resume_pending_permission_rechecks_mode_path_policy(self):
+        session = Session()
+        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：spec")
+        engine = QueryEngine(
+            client=SpecCodeWriteClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=False, workspace=self.workspace),
+        )
+        target_path = os.path.join(self.workspace, "src", "spec_illegal.c")
+        self.assertFalse(os.path.exists(target_path))
+
+        first = engine.submit_turn(
+            user_text="写 C 文件",
+            stream=False,
+            initial_mode="spec",
+            session=session,
+            permission_handler=None,
+        )
+        self.assertEqual(first.transition.reason, "permission_wait")
+
+        resumed = engine.resume_pending(
+            session=session,
+            initial_mode="spec",
+            stream=False,
+            interaction_resolution={"approved": True},
+        )
+
+        self.assertEqual(resumed.transition.reason, "completed")
+        self.assertFalse(os.path.exists(target_path))
+        self.assertEqual(session.turns[-1].observations[-1].data.get("error_kind"), "mode_path_blocked")
 
     def test_query_engine_retries_with_compact_context_after_context_limit_error(self):
         session = Session()
@@ -1866,7 +1946,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
         adapter.approve_permission(session_id, permission_id)
         final_snapshot = adapter.get_session_snapshot(session_id)
         self.assertEqual(final_snapshot["status"], "idle")
-        self.assertTrue(os.path.isfile(os.path.join(self.workspace, "notes", "out.md")))
+        self.assertTrue(os.path.isfile(os.path.join(self.workspace, "src", "generated_write.c")))
 
 
 if __name__ == "__main__":
