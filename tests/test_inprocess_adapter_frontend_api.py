@@ -324,6 +324,22 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertIn("task_items", self.snapshot)
         self.assertGreaterEqual(len(self.snapshot.get("task_items") or []), 1)
 
+    def test_session_snapshot_projector_is_side_effect_free(self):
+        from embedagent.session_projector import SessionSnapshotProjector
+
+        state = self.adapter._sessions[self.snapshot["session_id"]]
+        before_messages = list(state.session.messages)
+        runtime_lookup = getattr(self.tools, "runtime_environment_snapshot", None)
+        runtime = runtime_lookup() if callable(runtime_lookup) else {}
+        summary = self.adapter._read_summary_for_state(state)
+
+        projected = SessionSnapshotProjector().build_snapshot(state, summary, runtime)
+
+        self.assertEqual(before_messages, state.session.messages)
+        self.assertEqual(projected["session_id"], self.snapshot["session_id"])
+        self.assertIn("task_items", projected)
+        self.assertIn("current_phase", projected)
+
     def test_adapter_reuses_one_engine_per_session(self):
         state = self.adapter._sessions[self.snapshot["session_id"]]
         first_engine = state.engine
