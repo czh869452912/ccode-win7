@@ -228,15 +228,11 @@ def mode_names() -> List[str]:
 def require_mode(mode_name: str) -> Dict[str, object]:
     """Return the mode dict for mode_name.
 
-    Unlike the previous implementation, unknown mode slugs no longer raise
-    ValueError — they fall back to DEFAULT_MODE with a warning.  This prevents
-    crashes when resuming old sessions that referenced since-deleted modes
-    (e.g. 'orchestra', 'ask', 'compact').
+    Unknown mode slugs raise ``ValueError`` immediately.
     """
     if mode_name in MODE_REGISTRY:
         return MODE_REGISTRY[mode_name]
-    _LOG.warning("Unknown mode %r, falling back to %r", mode_name, DEFAULT_MODE)
-    return MODE_REGISTRY[DEFAULT_MODE]
+    raise ValueError("Unknown mode %r" % (mode_name,))
 
 
 def get_writable_globs(mode_name: str, config=None) -> List[str]:
@@ -351,7 +347,6 @@ def parse_mode_command(text: str, fallback_mode: str = DEFAULT_MODE) -> Tuple[st
     if not match:
         return fallback_mode, text, False
     target = match.group(1)
-    # Use require_mode's fallback behaviour instead of raising
     resolved = require_mode(target)["slug"]  # type: ignore[index]
     remainder = (match.group(2) or "").strip()
     return str(resolved), remainder, True

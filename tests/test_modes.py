@@ -26,11 +26,9 @@ class TestModeRegistry(unittest.TestCase):
         for m in ("explore", "spec", "build", "debug", "verify"):
             self.assertIn(m, names)
 
-    def test_require_mode_invalid_fallback(self):
-        """Unknown modes fall back to DEFAULT_MODE instead of raising."""
-        result = require_mode("nonexistent_mode")
-        expected = require_mode(DEFAULT_MODE)
-        self.assertEqual(result["slug"], expected["slug"])
+    def test_require_mode_invalid_raises(self):
+        with self.assertRaises(ValueError):
+            require_mode("nonexistent_mode")
 
 
 class TestAllowedTools(unittest.TestCase):
@@ -188,11 +186,9 @@ class TestParseModeCommand(unittest.TestCase):
         self.assertEqual(mode, "explore")
         self.assertFalse(switched)
 
-    def test_invalid_mode_fallback(self):
-        """Invalid mode falls back to DEFAULT_MODE instead of raising."""
-        mode, msg, switched = parse_mode_command("/mode invalid_mode")
-        self.assertEqual(mode, DEFAULT_MODE)
-        self.assertTrue(switched)
+    def test_invalid_mode_raises(self):
+        with self.assertRaises(ValueError):
+            parse_mode_command("/mode invalid_mode")
 
     def test_mode_only_no_message(self):
         mode, msg, switched = parse_mode_command("/mode debug")
