@@ -324,6 +324,22 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertIn("task_items", self.snapshot)
         self.assertGreaterEqual(len(self.snapshot.get("task_items") or []), 1)
 
+    def test_session_snapshot_projects_task_fields_from_session_graph(self):
+        session_id = str(self.snapshot.get('session_id') or '')
+        state = self.adapter._sessions[session_id]
+        state.current_phase = "stale:phase"
+        state.discipline_profile = "stale:discipline"
+        state.current_activity = "stale activity"
+        state.task_summary = "stale summary"
+        state.task_items = []
+
+        projected = self.adapter.get_session_snapshot(session_id)
+
+        self.assertEqual(projected.get("current_phase"), "understand")
+        self.assertEqual(projected.get("discipline_profile"), state.session.task_graph.discipline)
+        self.assertIn("understand", str(projected.get("task_summary") or ""))
+        self.assertGreaterEqual(len(projected.get("task_items") or []), 1)
+
     def test_session_snapshot_projector_is_side_effect_free(self):
         from embedagent.session_projector import SessionSnapshotProjector
 
@@ -1172,8 +1188,63 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertEqual(command_events[0].get("turn_id"), turn_start.get("turn_id"))
         self.assertEqual(tool_started.get("turn_id"), turn_start.get("turn_id"))
         self.assertEqual(tool_finished.get("turn_id"), turn_start.get("turn_id"))
-        self.assertEqual(tool_started.get("step_id"), "")
-        self.assertEqual(tool_finished.get("step_id"), "")
+        self.assertTrue(str(tool_started.get("step_id") or "").strip())
+        self.assertEqual(tool_finished.get("step_id"), tool_started.get("step_id"))
+
+    def test_slash_run_permission_wait_enters_session_history(self):
+        os.makedirs(os.path.join(self.workspace, ".embedagent"), exist_ok=True)
+        with open(os.path.join(self.workspace, ".embedagent", "workspace-recipes.json"), "w", encoding="utf-8") as handle:
+            handle.write(
+                '[{"id":"custom.build","tool_name":"run_recipe","recipe_action":"build","label":"Custom Build","command":"cmd /c echo build-ok","cwd":"."}]'
+            )
+        adapter = InProcessAdapter(
+            client=FakeClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=False, workspace=self.workspace),
+        )
+        snapshot = adapter.create_session('build')
+        session_id = str(snapshot.get('session_id') or '')
+
+        worker = threading.Thread(
+            target=adapter.submit_user_message,
+            kwargs={
+                "session_id": session_id,
+                "text": '/run custom.build',
+                "stream": False,
+                "wait": True,
+                "event_handler": lambda event_name, current_session_id, payload: None,
+            },
+        )
+        worker.start()
+
+        deadline = time.time() + 3.0
+        waiting = adapter.get_session_snapshot(session_id)
+        while time.time() < deadline:
+            waiting = adapter.get_session_snapshot(session_id)
+            if waiting.get("status") == "waiting_permission":
+                break
+            time.sleep(0.05)
+        permission_id = str((waiting.get("pending_permission") or {}).get("permission_id") or "")
+        try:
+            self.assertEqual(waiting["status"], "waiting_permission")
+            self.assertIn("pending_interaction", waiting)
+            self.assertEqual(waiting["pending_interaction"]["kind"], "permission")
+            self.assertTrue(str(waiting["pending_interaction"].get("step_id") or "").strip())
+            payload = adapter.build_session_history(session_id)
+            self.assertEqual(len(payload["turns"]), 1)
+            turn = payload["turns"][0]
+            self.assertEqual(turn["status"], "waiting_permission")
+            self.assertIn("permission_required", [item.get("kind") for item in turn.get("transitions", [])])
+            self.assertEqual(len(turn["steps"]), 1)
+            step = turn["steps"][0]
+            self.assertEqual(step["status"], "permission_wait")
+            self.assertTrue(str(step.get("step_id") or "").strip())
+        finally:
+            if permission_id:
+                adapter.approve_permission(session_id, permission_id)
+            else:
+                adapter.cancel_session(session_id)
+            worker.join(3.0)
 
     def test_slash_run_passes_target_and_profile_to_recipe(self):
         with open(os.path.join(self.workspace, "CMakeLists.txt"), "w", encoding="utf-8") as handle:

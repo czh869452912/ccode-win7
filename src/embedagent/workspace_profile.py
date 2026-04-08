@@ -120,11 +120,9 @@ def profile_workspace(workspace: str, max_depth: int = 3, max_entries: int = 400
 
 
 def _pending_tasks_hint(workspace: str, session_id: str = "") -> str:
-    """Return a short hint if there are pending tasks, else empty string."""
-    pending_count = task_store.pending_task_count(workspace, session_id) if session_id else 0
-    if not pending_count:
-        return ""
-    return "\n任务提示：当前有 %d 个未完成任务项，建议先调用 task_status 查看当前任务摘要。" % pending_count
+    """Task hints are no longer sourced from sidecar task snapshots."""
+    del workspace, session_id
+    return ""
 
 
 def build_workspace_profile_message(workspace: str, session_id: str = "", char_limit: int = 900) -> str:

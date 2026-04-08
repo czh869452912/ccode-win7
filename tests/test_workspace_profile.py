@@ -34,7 +34,7 @@ class WorkspaceProfileTests(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.workspace, ignore_errors=True)
 
-    def test_workspace_profile_uses_task_vocabulary_for_pending_work(self):
+    def test_workspace_profile_does_not_emit_task_sidecar_hint(self):
         session_id = "session-tasks"
         task_store.save_task_snapshot(
             self.workspace,
@@ -52,7 +52,7 @@ class WorkspaceProfileTests(unittest.TestCase):
 
         message = build_workspace_profile_message(self.workspace, session_id=session_id)
 
-        self.assertIn("任务提示", message)
+        self.assertNotIn("任务提示", message)
         self.assertNotIn("待办", message)
 
 

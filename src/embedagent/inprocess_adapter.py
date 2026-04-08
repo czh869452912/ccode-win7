@@ -709,7 +709,7 @@ class InProcessAdapter(object):
             state = self._sessions.get(session_id)
         if state is not None:
             graph = getattr(state.session, "task_graph", None)
-            tasks = list(graph.to_items() if graph is not None else (state.task_items or []))
+            tasks = list(graph.to_items() if graph is not None else [])
         else:
             tasks = task_store.load_task_items(self.tools.workspace, session_id)
         return {
@@ -1139,6 +1139,7 @@ class InProcessAdapter(object):
             return {"handled": True, "continue_with_text": ""}
         observation = self._execute_tool_from_command(
             state=state,
+            command_text="/run %s" % parsed.raw_args,
             tool_name=str(matched.get("tool_name") or ""),
             arguments={"recipe_id": recipe_id, "target": target, "profile": profile},
             permission_resolver=permission_resolver,
@@ -1389,6 +1390,7 @@ class InProcessAdapter(object):
     def _execute_tool_from_command(
         self,
         state: ManagedSession,
+        command_text: str,
         tool_name: str,
         arguments: Dict[str, Any],
         permission_resolver: Optional[PermissionResolver],
@@ -1400,29 +1402,50 @@ class InProcessAdapter(object):
             call_id="cmd-%s" % uuid.uuid4().hex[:10],
         )
         turn_id = state.current_command_turn_id
-        step_id = state.current_command_step_id
-        step_index = state.current_command_step_index
-        decision = self.permission_policy.evaluate(action)
         with state.lock:
             state.status = "running"
             state.updated_at = _utc_now()
         self._notify_status(event_handler, state)
-        if decision.outcome == "deny":
+        current_step = {"step_id": "", "step_index": 0}
+
+        def on_step_start(step_id: str, step_index: int) -> None:
+            current_step["step_id"] = step_id
+            current_step["step_index"] = step_index
             with state.lock:
-                state.status = "idle"
-            self._notify_status(event_handler, state)
-            return Observation(tool_name=tool_name, success=False, error=decision.error or "权限拒绝该操作。", data={"error_kind": "permission_denied"})
-        if decision.outcome == "ask" and decision.request is not None:
+                state.current_command_step_id = step_id
+                state.current_command_step_index = step_index
+            self._emit(event_handler, "step_start", state.session.session_id, {"turn_id": turn_id, "step_id": step_id, "step_index": step_index})
+
+        def on_step_finish(step_index: int, reply: AssistantReply, status: str) -> None:
+            self._emit(event_handler, "step_end", state.session.session_id, {"turn_id": turn_id, "step_id": current_step["step_id"], "step_index": step_index, "assistant_text": reply.content or "", "finish_reason": reply.finish_reason or "", "status": status})
+
+        def on_tool_start(start_action: Action) -> None:
+            payload = {"tool_name": start_action.name, "arguments": start_action.arguments, "call_id": start_action.call_id, "turn_id": turn_id, "step_id": current_step["step_id"], "step_index": current_step["step_index"]}
+            payload.update(self._tool_event_metadata(start_action.name))
+            self._emit(event_handler, "tool_started", state.session.session_id, payload)
+
+        def on_tool_finish(finished_action: Action, observation: Observation) -> None:
+            payload = {
+                "tool_name": finished_action.name,
+                "success": observation.success,
+                "error": observation.error,
+                "data": observation.data,
+                "call_id": finished_action.call_id,
+                "turn_id": turn_id,
+                "step_id": current_step["step_id"],
+                "step_index": current_step["step_index"],
+            }
+            payload.update(self._tool_event_metadata(finished_action.name))
+            self._emit_with_snapshot(event_handler, "tool_finished", state, payload)
+
+        def permission_handler(request: PermissionRequest) -> Optional[bool]:
             ticket = self._create_permission_ticket(
                 state,
-                decision.request,
+                request,
                 turn_id=turn_id,
-                step_id=step_id,
-                step_index=step_index,
+                step_id=current_step["step_id"],
+                step_index=current_step["step_index"],
             )
-            with state.lock:
-                state.status = "waiting_permission"
-                state.pending_event = threading.Event()
             self._emit_with_snapshot(
                 event_handler,
                 "permission_required",
@@ -1438,50 +1461,70 @@ class InProcessAdapter(object):
             if permission_resolver is not None:
                 approved = bool(permission_resolver(ticket.to_dict()))
                 self._clear_pending_permission(state)
-                self._notify_status(event_handler, state)
-            else:
-                with state.lock:
-                    event = state.pending_event
-                event.wait()
-                with state.lock:
-                    approved = bool(state.pending_result)
-                self._clear_pending_permission(state)
-                self._notify_status(event_handler, state)
-            if not approved:
-                with state.lock:
-                    state.status = "idle"
-                self._notify_status(event_handler, state)
-                return Observation(tool_name=tool_name, success=False, error="用户拒绝执行该 recipe。", data={"error_kind": "permission_denied"})
-        payload = {
-            "tool_name": tool_name,
-            "arguments": dict(arguments),
-            "call_id": action.call_id,
-            "turn_id": turn_id,
-            "step_id": step_id,
-            "step_index": step_index,
-        }
-        payload.update(self._tool_event_metadata(tool_name))
-        self._emit(event_handler, "tool_started", state.session.session_id, payload)
-        observation = self.tools.execute(tool_name, dict(arguments))
-        self._emit_with_snapshot(
-            event_handler,
-            "tool_finished",
-            state,
-            {
-                "tool_name": tool_name,
-                "success": observation.success,
-                "error": observation.error,
-                "data": observation.data,
-                "call_id": action.call_id,
-                "turn_id": turn_id,
-                "step_id": step_id,
-                "step_index": step_index,
-                **self._tool_event_metadata(tool_name),
-            },
+                return approved
+            with state.lock:
+                state.status = "waiting_permission"
+                state.pending_event = threading.Event()
+            return None
+
+        result, observation = state.engine.submit_command_turn(
+            user_text=command_text,
+            action=action,
+            initial_mode=state.current_mode,
+            workflow_state=state.workflow_state,
+            session=state.session,
+            turn_id=turn_id,
+            stop_event=state.stop_event,
+            on_tool_start=on_tool_start,
+            on_tool_finish=on_tool_finish,
+            on_step_start=on_step_start,
+            on_step_finish=on_step_finish,
+            permission_handler=permission_handler,
+            user_input_handler=None,
         )
+        state.session = result.session
+        if result.transition.reason in ("permission_wait", "user_input_wait") and permission_resolver is None:
+            with state.lock:
+                event = state.pending_event
+            if event is not None:
+                event.wait()
+            approved = False
+            with state.lock:
+                approved = bool(state.pending_result)
+                state.pending_event = None
+                state.pending_result = None
+                state.status = "running"
+            resumed = state.engine.resume_pending(
+                session=state.session,
+                initial_mode=state.current_mode,
+                interaction_resolution={"approved": approved},
+                workflow_state=state.workflow_state,
+                stream=False,
+                stop_event=state.stop_event,
+                on_tool_start=on_tool_start,
+                on_tool_finish=on_tool_finish,
+                on_step_start=on_step_start,
+                on_step_finish=on_step_finish,
+                permission_handler=permission_handler,
+                user_input_handler=None,
+            )
+            state.session = resumed.session
+            result = resumed
+            self._clear_pending_permission(state)
+            if state.session.turns and state.session.turns[-1].observations:
+                observation = state.session.turns[-1].observations[-1]
+            else:
+                observation = Observation(tool_name=tool_name, success=False, error="用户拒绝执行该 recipe。", data={"error_kind": "permission_denied"})
+        if result.transition.next_mode:
+            state.current_mode = result.transition.next_mode
+        self._refresh_harness_state(state)
         with state.lock:
             state.status = "idle"
             state.updated_at = _utc_now()
+            state.current_command_step_id = current_step["step_id"]
+            state.current_command_step_index = current_step["step_index"]
+        self._emit(event_handler, "turn_end", state.session.session_id, {"turn_id": turn_id, "final_text": "", "termination_reason": result.transition.reason, "turns_used": result.turns_used, "max_turns": self.max_turns, "error": result.transition.message or ""})
+        self._persist_state(state)
         self._notify_status(event_handler, state)
         return observation
 

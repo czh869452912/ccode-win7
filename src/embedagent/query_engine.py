@@ -487,6 +487,132 @@ class QueryEngine(object):
             user_input_handler,
         )
 
+    def submit_command_turn(
+        self,
+        user_text: str,
+        action: Action,
+        initial_mode: str,
+        workflow_state: str = "command",
+        session: Optional[Session] = None,
+        turn_id: str = "",
+        stop_event: Optional[threading.Event] = None,
+        on_tool_start: Optional[Callable[[Action], None]] = None,
+        on_tool_finish: Optional[Callable[[Action, Observation], None]] = None,
+        on_context_result: Optional[Callable[[ContextAssemblyResult], None]] = None,
+        on_step_start: Optional[Callable[[str, int], None]] = None,
+        on_step_finish: Optional[Callable[[int, AssistantReply, str], None]] = None,
+        permission_handler: Optional[Callable[[PermissionRequest], Optional[bool]]] = None,
+        user_input_handler: Optional[Callable[[UserInputRequest], Optional[UserInputResponse]]] = None,
+    ) -> Tuple[QueryTurnResult, Optional[Observation]]:
+        if session is None:
+            with self._session_guard():
+                session = Session()
+        current_mode = self.initialize_session(session, initial_mode, workflow_state=workflow_state)
+        with self._session_guard():
+            command_turn_id = str(turn_id or ("t-" + uuid.uuid4().hex[:12]))
+            if user_text:
+                message_id = "m-" + uuid.uuid4().hex[:12]
+                parent_message_id = session.last_message_id()
+                self._append_message_event(
+                    session,
+                    {
+                        "role": "user",
+                        "content": user_text,
+                        "message_id": message_id,
+                        "parent_message_id": parent_message_id,
+                        "turn_id": command_turn_id,
+                        "step_id": "",
+                    },
+                )
+                session.add_user_message(
+                    user_text,
+                    turn_id=command_turn_id,
+                    message_id=message_id,
+                    parent_message_id=parent_message_id,
+                )
+            step = session.begin_step()
+            step_id = step.step_id
+            step_index = step.step_index
+            presentation = self._tool_presentation_snapshot(action.name)
+            self._append_transcript_event(
+                session,
+                "tool_call",
+                {
+                    "turn_id": command_turn_id,
+                    "step_id": step_id,
+                    "call_id": action.call_id,
+                    "tool_name": action.name,
+                    "arguments": dict(action.arguments),
+                    "status": "pending",
+                    "presentation": presentation.to_dict(),
+                },
+            )
+            record = session._find_tool_call(action.call_id)
+            if record is None:
+                session.record_tool_call(action, presentation)
+            else:
+                record.presentation = presentation
+        if on_step_start is not None:
+            on_step_start(step_id, step_index)
+        assembly = self._build_context(session, current_mode, workflow_state)
+        if on_context_result is not None:
+            on_context_result(assembly)
+        reply = AssistantReply(content="", actions=[action], finish_reason="tool_calls")
+        interrupted = bool(stop_event is not None and stop_event.is_set())
+        if on_tool_start is not None:
+            on_tool_start(action)
+        if interrupted:
+            observation = self._interrupted_observation(action.name)
+            result = QueryTurnResult(
+                "",
+                session,
+                LoopTransition(reason="aborted", message="tool execution interrupted", next_mode=current_mode, turns_used=1),
+                turns_used=1,
+            )
+            committed = self._record_tool_observation(
+                session,
+                action,
+                observation,
+                current_mode,
+                assembly,
+                step_id,
+                on_tool_finish,
+            )
+            self._record_transition(session, result.transition)
+            self._persist_summary(session, current_mode, assembly)
+            if on_step_finish is not None:
+                on_step_finish(step_index, reply, "aborted")
+            return result, committed
+        observation, current_mode, suspended = self._execute_action(
+            session,
+            action,
+            current_mode,
+            workflow_state,
+            permission_handler,
+            user_input_handler,
+            stop_event=stop_event,
+        )
+        if suspended is not None:
+            self._persist_summary(session, current_mode, assembly)
+            if on_step_finish is not None:
+                on_step_finish(step_index, reply, suspended.transition.reason)
+            return suspended, None
+        committed = self._record_tool_observation(
+            session,
+            action,
+            observation,
+            current_mode,
+            assembly,
+            step_id,
+            on_tool_finish,
+        )
+        transition = LoopTransition(reason="completed", message="command finished", next_mode=current_mode, turns_used=1)
+        self._record_transition(session, transition)
+        self._persist_summary(session, current_mode, assembly)
+        if on_step_finish is not None:
+            on_step_finish(step_index, reply, "completed")
+        return QueryTurnResult("", session, transition, turns_used=1), committed
+
     def resume_pending(
         self,
         session: Session,
