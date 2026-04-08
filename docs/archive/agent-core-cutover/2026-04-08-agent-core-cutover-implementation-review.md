@@ -1,7 +1,7 @@
 # Agent Core Ownership Cutover 实现审计报告
 
 **审计日期**: 2026-04-08  
-**审计对象**: `docs/superpowers/specs/2026-04-07-agent-core-cutover-design.md` 的代码落地情况  
+**审计对象**: `docs/archive/agent-core-cutover/2026-04-07-agent-core-cutover-design.md` 的代码落地情况  
 **审计结论**: 核心架构变更已基本到位，但 adapter 缩容不彻底、API 命名未对齐设计、以及 task truth 的 fallback 路径等问题仍需修复。
 
 ---

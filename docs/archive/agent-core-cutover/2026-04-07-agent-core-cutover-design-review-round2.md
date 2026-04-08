@@ -1,7 +1,7 @@
 # Agent Core Ownership Cutover 设计审查报告（第二轮）
 
 **审查日期**: 2026-04-07
-**审查对象**: `docs/superpowers/specs/2026-04-07-agent-core-cutover-design.md`（已吸收第一轮增强点后的版本）
+**审查对象**: `docs/archive/agent-core-cutover/2026-04-07-agent-core-cutover-design.md`（已吸收第一轮增强点后的版本）
 **审查结论**: 文档质量显著提升，核心原则清晰，但在实施前必须补齐 5 个高优先级细节。
 
 ---

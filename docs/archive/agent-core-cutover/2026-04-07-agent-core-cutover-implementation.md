@@ -978,7 +978,7 @@ git commit -m "docs: align architecture after agent core cutover"
 
 ## Execution Handoff
 
-Plan complete and saved to `docs/superpowers/plans/2026-04-07-agent-core-cutover-implementation.md`. Two execution options:
+Plan complete and saved to `docs/archive/agent-core-cutover/2026-04-07-agent-core-cutover-implementation.md`. Two execution options:
 
 **1. Subagent-Driven (recommended)** - I dispatch a fresh subagent per task, review between tasks, fast iteration
 

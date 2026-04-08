@@ -1,7 +1,7 @@
 # Agent Core Ownership Cutover 设计审查报告
 
 **审查日期**: 2026-04-07
-**审查对象**: `docs/superpowers/specs/2026-04-07-agent-core-cutover-design.md`
+**审查对象**: `docs/archive/agent-core-cutover/2026-04-07-agent-core-cutover-design.md`
 **对比参照**: `reference/claude-code` 源码
 **审查结论**: 方案整体设计合理，问题诊断精准，实施方向正确。
 

@@ -44,6 +44,24 @@
 
 ## 3. 当前变更记录
 
+### DC-099
+
+- 日期：2026-04-08
+- 变更主题：Agent core cutover 相关 superpowers 文档归档
+- 变更摘要：
+  - `agent-core-cutover` 相关的 design / plan / review / implementation review / follow-up plan 已从活动 `docs/superpowers/` 迁入 `docs/archive/agent-core-cutover/`
+  - 新增 `docs/archive/agent-core-cutover/README.md` 作为归档索引，说明本轮 cutover 与 follow-up 已完成
+  - 活动文档只保留仍在推进中的主题，已关闭切片不再占用 `docs/superpowers/` 入口
+- 影响范围：
+  - `docs/archive/agent-core-cutover/`
+  - `docs/development-tracker.md`
+  - `docs/design-change-log.md`
+- 关联文档：
+  - `docs/archive/agent-core-cutover/README.md`
+- 是否需要 ADR：`否，属于文档治理收尾`
+- 后续动作：
+  - 后续类似已关闭切片继续保持“活动入口最小化，archive 留痕”的治理方式
+
 ### DC-098
 
 - 日期：2026-04-08

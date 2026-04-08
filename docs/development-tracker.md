@@ -37,6 +37,7 @@
 - 最新 shell cutover：frontend/protocol/backend 侧的 `list_files` 旧接口名已切为 `list_workspace_tree`；webapp tool labels、review 语义和 workspace recipe 数据也已移除 `legacy_tool_name` 及旧 verify 工具名。当前 `src/embedagent/` grep 已不再出现 `compile_project/run_tests/manage_todos/list_files/search_text/tools_v2/AgentLoop` 这类 legacy 词汇。`
 - 最新 agent core cutover：`QueryEngine` 已改为 session-scoped owner，`InProcessAdapter` 不再为前端事件重新生成 `step_id`；pending permission/user-input 的 resume 现已回到统一 action pipeline，`TaskGraph` 已进入 `Session` 真相层并驱动 task projection，`SessionSnapshotProjector` 已抽成纯投影器，`transcript/timeline` 追加序号也已改为缓存分配。`
 - 最新 runtime cleanup：`task_status` 前端元数据现已统一为 `tasks/task` 词汇，workspace profile 不再输出待办语义提示，运行时残留 `todos.py` 已删除。`
+- 最新归档收尾：`agent-core-cutover` 相关 design / plan / review / implementation review / follow-up plan 已迁入 `docs/archive/agent-core-cutover/`，活动 `docs/superpowers/` 入口不再保留这轮已关闭切片。`
 
 ### 当前判断
 
@@ -306,6 +307,7 @@
 | 2026-04-06 | official cutover 第 6 步已完成：根 README、AGENTS、architecture/roadmap/mode/tool/permission/frontend/harness 文档已改写为单一正式架构说明；`list_todos` / `/api/todos` 等前端兼容壳层已移除，tool catalog 也已只投影正式 mode tool 集；当前 cutover 视为完成并进入稳定化阶段 |
 | 2026-04-06 | 稳定化收口继续推进：`/review` 现已正式消费 `run_recipe + report_quality_v2` 证据，recipe 对外词汇已统一为 `run_recipe` 并保留 `legacy_tool_name` 仅作兼容映射；同时 `ToolRuntime.schemas()/catalog_entries()` 已不再暴露 `list_files/search_text/compile_project/manage_todos` 等 legacy 工具，只保留正式产品词汇 |
 | 2026-04-08 | Agent core ownership cutover 已完成：`QueryEngine` 现为 session-scoped owner，step anchors 在 engine/transcript/frontend events 间已统一，permission resume 已回到同一 action pipeline，`TaskGraph` 已进入 `Session` 真相层，`SessionSnapshotProjector` 已成为无副作用投影器，`transcript/timeline` 序号分配已做缓存优化，并清除了 runtime `todo/todos` 残留词汇 |
+| 2026-04-08 | Agent core cutover 相关 design / plan / review / implementation review / follow-up plan 已归档到 `docs/archive/agent-core-cutover/`；活动 `docs/superpowers/` 入口不再保留这轮已关闭切片 |
 | 2026-03-27 | 建立进度跟踪文件，明确当前阶段与下一步优先级 |
 | 2026-03-27 | DC-004/DC-005：工具设计规范建立，实施分期重组，Phase 1 改为最小可工作 Loop |
 | 2026-03-27 | 已落地 Phase 1 最小原型代码，并完成本地语法检查、工具自测与假模型闭环验证 |
