@@ -26,6 +26,20 @@ The repository now treats Agent Harness as the only official execution model.
 
 The product no longer treats the old `code` mode or `manage_todos`-style workflow as the architecture baseline.
 
+## Documentation Model
+
+- `docs/superpowers/` stores design and implementation materials for the current slice.
+- `docs/` active documents store the long-lived project source of truth.
+- `docs/archive/` stores completed slice artifacts and historical references.
+
+## Documentation Entry Points
+
+- `docs/README.md`
+- `docs/documentation-governance.md`
+- `docs/documentation-style-guide.md`
+- `docs/workflows/code-doc-sync.md`
+- `docs/references/glossary.md`
+
 ## Main Components
 
 - `src/embedagent/query_engine.py`

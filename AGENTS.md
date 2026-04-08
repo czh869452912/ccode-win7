@@ -155,6 +155,11 @@ When changing architecture or workflow assumptions, update the matching source-o
 - `docs/frontend-protocol.md`
 - `docs/agent-harness-v2.md`
 
+- `docs/superpowers/` design and plan documents are slice-local working materials, not permanent architecture truth.
+- When a slice is completed, its durable conclusions must be synchronized back into global source-of-truth docs and module docs.
+- Governance rules, workflow rules, terminology, and templates live under `docs/` active documentation, not inside archived or slice-local files.
+- Completed slice documents should be moved to `docs/archive/` after global docs are synchronized.
+
 Historical notes belong in `docs/archive/` or changelog material, not in current architecture docs.
 
 ## Non-Goals
