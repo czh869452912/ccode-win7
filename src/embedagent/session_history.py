@@ -206,12 +206,16 @@ class SessionHistoryAssembler(object):
         transitions = list(getattr(turn, "transitions", []) or [])
         if not transitions:
             return "completed"
-        reason = str(getattr(transitions[-1], "reason", "") or "")
-        if reason == "permission_wait":
-            return "waiting_permission"
-        if reason == "user_input_wait":
-            return "waiting_user_input"
-        return reason or "completed"
+        for transition in reversed(transitions):
+            reason = str(getattr(transition, "reason", "") or "")
+            if reason == "command_result":
+                continue
+            if reason == "permission_wait":
+                return "waiting_permission"
+            if reason == "user_input_wait":
+                return "waiting_user_input"
+            return reason or "completed"
+        return "completed"
 
     def _step_status(
         self,
@@ -229,8 +233,11 @@ class SessionHistoryAssembler(object):
                 return "permission_wait"
             if pending.kind == "user_input":
                 return "user_input_wait"
-        if step_transition is not None:
-            reason = str(getattr(step_transition, "reason", "") or "")
+        transitions = self._step_transitions(turn_index, step_index, session)
+        for transition in reversed(transitions):
+            reason = str(getattr(transition, "reason", "") or "")
+            if reason == "command_result":
+                continue
             if reason:
                 return reason
         return str(getattr(step, "status", "") or "completed")

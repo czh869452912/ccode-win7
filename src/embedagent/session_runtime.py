@@ -22,6 +22,7 @@ class ManagedSession(object):
     workflow_state: str = "chat"
     active_plan_ref: str = ""
     current_command_context: str = ""
+    current_command_text: str = ""
     current_command_turn_id: str = ""
     current_command_step_id: str = ""
     current_command_step_index: int = 0

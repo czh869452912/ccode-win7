@@ -1415,6 +1415,47 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertFalse(final_snapshot["pending_interaction_valid"])
         self.assertEqual(final_snapshot["current_mode"], "debug")
 
+    def test_approve_permission_returns_resolved_snapshot_for_command_wait(self):
+        os.makedirs(os.path.join(self.workspace, ".embedagent"), exist_ok=True)
+        with open(os.path.join(self.workspace, ".embedagent", "workspace-recipes.json"), "w", encoding="utf-8") as handle:
+            handle.write(
+                '[{"id":"custom.build","tool_name":"run_recipe","recipe_action":"build","label":"Custom Build","command":"cmd /c echo build-ok","cwd":"."}]'
+            )
+        adapter = InProcessAdapter(
+            client=FakeClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=False, workspace=self.workspace),
+        )
+        snapshot = adapter.create_session('build')
+        session_id = str(snapshot.get('session_id') or '')
+        worker = threading.Thread(
+            target=adapter.submit_user_message,
+            kwargs={
+                "session_id": session_id,
+                "text": '/run custom.build',
+                "stream": False,
+                "wait": True,
+                "event_handler": lambda event_name, current_session_id, payload: None,
+            },
+        )
+        worker.start()
+        deadline = time.time() + 3.0
+        waiting = adapter.get_session_snapshot(session_id)
+        while time.time() < deadline:
+            waiting = adapter.get_session_snapshot(session_id)
+            if waiting.get("status") == "waiting_permission":
+                break
+            time.sleep(0.05)
+        permission_id = str((waiting.get("pending_permission") or {}).get("permission_id") or "")
+        self.assertTrue(permission_id)
+
+        resolved = adapter.approve_permission(session_id, permission_id)
+
+        worker.join(3.0)
+        self.assertEqual(resolved["status"], "idle")
+        self.assertFalse(resolved["pending_interaction_valid"])
+        self.assertFalse(resolved["has_pending_permission"])
+
     def test_unknown_mode_create_session_raises(self):
         adapter = InProcessAdapter(
             client=SwitchModeClient(),
@@ -1445,6 +1486,33 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertIn("Slash Commands", command_events[0].get("message") or "")
         self.assertEqual(command_events[0].get("turn_id"), turn_start.get("turn_id"))
         self.assertEqual(turn_end.get("turn_id"), turn_start.get("turn_id"))
+
+    def test_slash_help_command_result_persists_in_resumed_history(self):
+        session_id = str(self.snapshot.get('session_id') or '')
+        self.adapter.submit_user_message(
+            session_id=session_id,
+            text='/help',
+            stream=False,
+            wait=True,
+            permission_resolver=lambda ticket: True,
+            event_handler=lambda event_name, session_id, payload: None,
+        )
+
+        reloaded = InProcessAdapter(
+            client=FakeClient(),
+            tools=ToolRuntime(self.workspace),
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+        )
+        resumed = reloaded.resume_session(session_id, "build")
+        payload = reloaded.build_session_history(str(resumed.get("session_id") or ""))
+
+        self.assertEqual(len(payload["turns"]), 1)
+        turn = payload["turns"][0]
+        self.assertEqual(turn["status"], "completed")
+        command_results = [item for item in turn.get("transitions", []) if item.get("kind") == "command_result"]
+        self.assertEqual(len(command_results), 1)
+        self.assertEqual(command_results[0].get("metadata", {}).get("command_name"), "help")
+        self.assertIn("Slash Commands", command_results[0].get("message") or "")
 
     def test_slash_plan_persists_plan_snapshot(self):
         session_id = str(self.snapshot.get('session_id') or '')

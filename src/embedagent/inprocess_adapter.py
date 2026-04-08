@@ -5,6 +5,7 @@ import io
 import json
 import os
 import threading
+import time
 import uuid
 from dataclasses import dataclass
 from datetime import datetime
@@ -772,6 +773,7 @@ class InProcessAdapter(object):
         parsed_command = parse_slash_command(text)
         command_turn_id = "t-" + uuid.uuid4().hex[:12] if parsed_command is not None else ""
         with state.lock:
+            state.current_command_text = text if parsed_command is not None else ""
             state.current_command_turn_id = command_turn_id
             state.current_command_step_id = ""
             state.current_command_step_index = 0
@@ -794,12 +796,14 @@ class InProcessAdapter(object):
                     },
                 )
             with state.lock:
+                state.current_command_text = ""
                 state.current_command_turn_id = ""
                 state.current_command_step_id = ""
                 state.current_command_step_index = 0
             return self.get_session_snapshot(session_id)
         text_to_run = str(dispatch.get("continue_with_text") or text)
         with state.lock:
+            state.current_command_text = ""
             state.current_command_turn_id = ""
             state.current_command_step_id = ""
             state.current_command_step_index = 0
@@ -1794,6 +1798,17 @@ class InProcessAdapter(object):
         state: ManagedSession,
         result: CommandResult,
     ) -> None:
+        state.engine.record_command_result(
+            state.session,
+            user_text=state.current_command_text,
+            command_name=result.command_name,
+            success=result.success,
+            message=result.message,
+            data=result.data if isinstance(result.data, dict) else {},
+            turn_id=result.turn_id or state.current_command_turn_id,
+            step_id=result.step_id or state.current_command_step_id,
+            step_index=result.step_index or state.current_command_step_index,
+        )
         payload = {
             "command_name": result.command_name,
             "success": result.success,
@@ -1804,6 +1819,21 @@ class InProcessAdapter(object):
             "step_index": result.step_index or state.current_command_step_index,
         }
         self._emit_with_snapshot(event_handler, "command_result", state, payload)
+
+    def _wait_for_command_resolution(self, session_id: str, timeout_s: float = 3.0) -> Dict[str, Any]:
+        deadline = time.time() + max(timeout_s, 0.1)
+        snapshot = self.get_session_snapshot(session_id)
+        while time.time() < deadline:
+            snapshot = self.get_session_snapshot(session_id)
+            if not bool(snapshot.get("pending_interaction_valid")) and snapshot.get("status") != "waiting_permission" and snapshot.get("status") != "waiting_user_input":
+                return snapshot
+            state = self._require_session(session_id)
+            with state.lock:
+                active = state.active_thread
+            if active is not None and not active.is_alive():
+                return snapshot
+            time.sleep(0.05)
+        return snapshot
 
     def _emit_plan_updated(
         self,
@@ -1831,25 +1861,31 @@ class InProcessAdapter(object):
 
     def approve_permission(self, session_id: str, permission_id: str) -> Dict[str, Any]:
         state = self._require_session(session_id)
+        command_wait = False
         with state.lock:
             if state.pending_permission is None or state.pending_permission.permission_id != permission_id:
                 raise ValueError("未找到待批准的权限请求。")
             if state.pending_event is not None:
                 state.pending_result = True
                 state.pending_event.set()
-                return self.get_session_snapshot(session_id)
+                command_wait = True
+        if command_wait:
+            return self._wait_for_command_resolution(session_id)
         self._run_turn_v2(state, "", True, None, None, self.event_handler, {"approved": True}, True)
         return self.get_session_snapshot(session_id)
 
     def reject_permission(self, session_id: str, permission_id: str) -> Dict[str, Any]:
         state = self._require_session(session_id)
+        command_wait = False
         with state.lock:
             if state.pending_permission is None or state.pending_permission.permission_id != permission_id:
                 raise ValueError("未找到待拒绝的权限请求。")
             if state.pending_event is not None:
                 state.pending_result = False
                 state.pending_event.set()
-                return self.get_session_snapshot(session_id)
+                command_wait = True
+        if command_wait:
+            return self._wait_for_command_resolution(session_id)
         self._run_turn_v2(state, "", True, None, None, self.event_handler, {"approved": False}, True)
         return self.get_session_snapshot(session_id)
 
@@ -1863,6 +1899,7 @@ class InProcessAdapter(object):
         selected_option_text: str = "",
     ) -> Dict[str, Any]:
         state = self._require_session(session_id)
+        command_wait = False
         with state.lock:
             if state.pending_user_input is None or state.pending_user_input.request_id != request_id:
                 raise ValueError("未找到待处理的用户问题。")
@@ -1874,9 +1911,11 @@ class InProcessAdapter(object):
                     selected_option_text=str(selected_option_text or ""),
                 )
                 state.pending_user_event.set()
-                snapshot = self.get_session_snapshot(session_id)
-                self._notify_status(None, state)
-                return snapshot
+                command_wait = True
+        if command_wait:
+            snapshot = self._wait_for_command_resolution(session_id)
+            self._notify_status(None, state)
+            return snapshot
         self._run_turn_v2(
             state,
             "",

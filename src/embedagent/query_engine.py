@@ -324,6 +324,54 @@ class QueryEngine(object):
             )
             session.record_transition(transition)
 
+    def record_command_result(
+        self,
+        session: Session,
+        user_text: str,
+        command_name: str,
+        success: bool,
+        message: str,
+        data: Optional[Dict[str, Any]] = None,
+        turn_id: str = "",
+        step_id: str = "",
+        step_index: int = 0,
+    ) -> None:
+        command_turn_id = str(turn_id or "").strip()
+        with self._session_guard():
+            if command_turn_id and (not session.turns or str(session.turns[-1].turn_id or "") != command_turn_id):
+                turn = session.add_user_message(
+                    user_text or ("/%s" % command_name),
+                    turn_id=command_turn_id,
+                )
+                user_message = session.messages[turn.message_end_index]
+                self._append_message_event(
+                    session,
+                    {
+                        "role": user_message.role,
+                        "content": user_message.content,
+                        "message_id": user_message.message_id,
+                        "parent_message_id": user_message.parent_message_id,
+                        "turn_id": user_message.turn_id,
+                        "step_id": user_message.step_id,
+                        "kind": user_message.kind,
+                        "metadata": dict(user_message.metadata),
+                        "replaced_by_refs": list(user_message.replaced_by_refs),
+                    },
+                )
+            transition = LoopTransition(
+                reason="command_result",
+                message=str(message or ""),
+                metadata={
+                    "command_name": str(command_name or ""),
+                    "success": bool(success),
+                    "data": dict(data or {}),
+                    "turn_id": command_turn_id,
+                    "step_id": str(step_id or ""),
+                    "step_index": int(step_index or 0),
+                },
+            )
+        self._record_transition(session, transition)
+
     def _interaction_checkpoint_payload(
         self,
         session: Session,
