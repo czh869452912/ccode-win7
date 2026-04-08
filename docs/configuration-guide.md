@@ -1,5 +1,10 @@
 # EmbedAgent 配置指南
 
+> Superseded Note
+>
+> 本文保留为 pre-cutover 阶段的配置与运行习惯参考，不再定义当前正式的 mode/task/workflow 架构。
+> 当前正式口径以 `README.md`、`AGENTS.md`、`docs/mode-schema.md`、`docs/permission-model.md`、`docs/frontend-protocol.md` 为准。
+
 EmbedAgent 通过分层配置管理 LLM 连接参数、上下文窗口设置和模式行为，
 无需修改源码即可适配不同模型和项目布局。
 
@@ -194,9 +199,9 @@ CLI 参数    (--max-context-tokens 等)
 
 ---
 
-## manage_todos 工具使用指引
+## 历史说明：`manage_todos` 工具使用指引（已废弃）
 
-`manage_todos` 工具用于在多步任务中维护显式任务清单。
+以下内容仅用于解释历史配置与旧运行语义。当前官方任务真相已切换到 `TaskGraph` 与 `task_status`，`manage_todos` 不再属于正式工作流架构。
 
 当前默认语义已经改为**会话级隔离**：
 
@@ -205,13 +210,13 @@ CLI 参数    (--max-context-tokens 等)
 - 只有脱离会话上下文、直接调用工具运行时时，才会退回旧的
   `<workspace>/.embedagent/todos.json`
 
-### 使用场景
+### 历史使用场景
 
 - **explore 模式**：探索代码库后用 `add` 记录发现的问题或改进点，方便后续切换到具体模式处理；
 - **code 模式**：长实现序列中用 `complete` 标记已完成项，避免遗漏；
 - **会话恢复**：恢复会话后 `list` 查看该 session 未完成项，快速回到上下文。
 
-### 操作示例
+### 历史操作示例
 
 ```
 # 列出当前会话的所有任务
@@ -229,21 +234,9 @@ manage_todos(action="complete", item_id=1)
 manage_todos(action="remove", item_id=3)
 ```
 
-### 注意事项
+### 历史注意事项
 
 - `todos.json` 是项目级持久化文件，可随项目 git 提交（或加入 `.gitignore`）；
 - `remove` 操作会重新编号剩余条目（从 1 开始），建议在完成前不要依赖固定 id；
 - 若前端 / Runtime 已注入 `session_id`，`manage_todos` 默认只读写当前会话的 todo 文件，不会污染其他会话；
 - 工具在所有模式下均可用；`mode_writable_globs` 仅影响 `write_file` / `edit_file` 的路径白名单，不影响 `manage_todos`。
-# Superseded Note
-
-This document contains pre-cutover configuration guidance and historical examples.
-It is not the source of truth for the current official mode/task architecture.
-
-Current source-of-truth documents are:
-
-- `README.md`
-- `AGENTS.md`
-- `docs/mode-schema.md`
-- `docs/permission-model.md`
-- `docs/frontend-protocol.md`

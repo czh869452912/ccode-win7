@@ -69,7 +69,14 @@ Current source-of-truth docs must remain aligned with the official architecture:
 - `docs/frontend-protocol.md`
 - `docs/agent-harness-v2.md`
 
-### 4.3 Real-World Validation
+### 4.3 Documentation Governance Baseline
+
+- establish the active docs governance scaffold
+- create module-level documentation for core code areas
+- standardize terminology, templates, and Mermaid usage
+- keep `superpowers -> global docs -> archive` synchronization as the default closure path
+
+### 4.4 Real-World Validation
 
 After architecture cutover, the highest-value validation is:
 

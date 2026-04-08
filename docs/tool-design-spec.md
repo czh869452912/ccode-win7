@@ -1,5 +1,10 @@
 # EmbedAgent 工具设计规范
 
+> Superseded Note
+>
+> 本文保留为 Agent Harness official cutover 之前的工具设计历史说明，不再定义当前正式 mode/tool/task 体系。
+> 当前正式口径以 `README.md`、`docs/overall-solution-architecture.md`、`docs/mode-schema.md`、`docs/tool-contracts.md`、`docs/agent-harness-v2.md` 为准。
+
 > 更新日期：2026-03-29
 > 适用范围：所有 Agent 工具的设计、实现与 function calling schema 编写
 
@@ -17,13 +22,13 @@
 
 ---
 
-## 2. 每个模式的工具数量上限
+## 2. 历史基线：每个模式的工具数量上限（已废弃）
 
 **每个模式严格控制在 5 个工具以内，目标 3-4 个。**
 
 超过 5 个工具时，量化模型在工具选择上的准确率会明显下降——不是不调用，而是调用错工具或混淆参数。
 
-### 各模式工具分配基线
+### 历史模式工具分配基线
 
 | 模式 | 领域工具 | 通用工具 | 合计 |
 |------|----------|----------|------|
@@ -33,7 +38,7 @@
 | `debug` | read_file, list_files, search_text, write_file, edit_file, run_command | manage_todos, ask_user | 8 |
 | `verify` | compile_project, run_tests, run_clang_tidy, report_quality | manage_todos, ask_user | 6 |
 
-> **关于 `manage_todos` 和 `ask_user`**：两者在所有模式中均包含。
+> **关于 `manage_todos` 和 `ask_user` 的历史说明**：两者在旧方案中被视为所有模式通用工具。
 > `manage_todos` 是任务状态跟踪工具，不参与领域执行，不影响模型对领域工具的选择判断。
 > `ask_user` 是用户确认工具，也是建议模式切换的唯一合法途径。
 >
@@ -221,15 +226,3 @@ src/embedagent/tools/
 `ToolContext`（`_base.py`）封装了所有工具共享的 helper：路径解析、文本读写、
 子进程执行、诊断解析、输出压缩等。各 ops 模块通过 `ctx` 参数获得这些能力，
 **不直接操作文件系统或子进程**，保持模块间解耦。
-# Superseded Note
-
-This document is retained as historical design guidance from before the official Agent Harness cutover.
-It is no longer the source of truth for the current product architecture.
-
-Use these documents instead:
-
-- `README.md`
-- `docs/overall-solution-architecture.md`
-- `docs/mode-schema.md`
-- `docs/tool-contracts.md`
-- `docs/agent-harness-v2.md`
