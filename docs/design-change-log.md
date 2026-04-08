@@ -44,6 +44,31 @@
 
 ## 3. 当前变更记录
 
+### DC-100
+
+- 日期：2026-04-08
+- 变更主题：建立文档治理基线与 `superpowers -> 全局文档 -> archive` 回写闭环
+- 变更摘要：
+  - 建立 `docs/` 下的治理规则、工作流、术语和模板体系
+  - 明确 `superpowers` 文档是当前切片说明书，而不是长期架构真相
+  - 建立核心模块文档入口和代码-文档映射规则
+- 影响范围：
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/README.md`
+  - `docs/documentation-governance.md`
+  - `docs/documentation-style-guide.md`
+  - `docs/workflows/`
+  - `docs/references/`
+  - `docs/templates/`
+  - `docs/modules/`
+- 关联文档：
+  - `docs/superpowers/specs/2026-04-08-documentation-governance-baseline-design.md`
+- 是否需要 ADR：`否，先作为文档治理基线实施`
+- 后续动作：
+  - 继续补齐协议、前端、交付模块文档
+  - 分批归档 superseded 活动文档
+
 ### DC-099
 
 - 日期：2026-04-08
