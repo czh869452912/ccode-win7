@@ -36,6 +36,7 @@ class SessionSnapshotProjector(object):
         summary: Optional[Dict[str, Any]],
         runtime: Optional[Dict[str, Any]],
         pending_interaction: Optional[Dict[str, Any]] = None,
+        harness_context: Optional[Any] = None,
     ) -> Dict[str, Any]:
         summary_payload = dict(summary or {})
         runtime_payload = dict(runtime or {})
@@ -45,6 +46,7 @@ class SessionSnapshotProjector(object):
         graph_phase = str(getattr(graph, "current_phase", "") or "") if graph is not None else ""
         graph_discipline = str(getattr(graph, "discipline", "") or "") if graph is not None else ""
         graph_summary = str(graph.render_summary() if graph is not None else "")
+        activity = str(getattr(harness_context, "current_activity", "") or "")
         return {
             "session_id": state.session.session_id,
             "status": state.status,
@@ -85,11 +87,11 @@ class SessionSnapshotProjector(object):
             "timeline_last_seq": 0,
             "timeline_integrity": "degraded" if state.restore_stop_reason == "transcript_missing" else "healthy",
             "pending_interaction_valid": bool(state.pending_permission or state.pending_user_input),
-            "current_phase": graph_phase or state.current_phase,
-            "discipline_profile": graph_discipline or state.discipline_profile,
-            "current_activity": state.current_activity,
-            "task_summary": graph_summary or state.task_summary,
-            "task_items": graph_items or list(state.task_items),
+            "current_phase": graph_phase,
+            "discipline_profile": graph_discipline,
+            "current_activity": activity,
+            "task_summary": graph_summary,
+            "task_items": graph_items,
             "runtime_source": str(runtime_payload.get("runtime_source") or ""),
             "bundled_tools_ready": bool(runtime_payload.get("bundled_tools_ready")),
             "fallback_warnings": list(runtime_payload.get("fallback_warnings") or []),

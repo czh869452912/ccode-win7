@@ -468,7 +468,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
         )
         session = Session()
         session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：build")
-        result = engine.submit_turn(
+        result = engine.submit_user_turn(
             user_text="读取文件",
             stream=False,
             initial_mode="build",
@@ -513,7 +513,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
         )
         session = Session()
         session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：build")
-        engine.submit_turn(
+        engine.submit_user_turn(
             user_text="读取文件",
             stream=False,
             initial_mode="build",
@@ -544,7 +544,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
         )
         session = Session()
         session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：build")
-        result = engine.submit_turn(
+        result = engine.submit_user_turn(
             user_text="读取文件",
             stream=False,
             initial_mode="build",
@@ -577,7 +577,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
         )
         session = Session()
         session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：build")
-        result = engine.submit_turn(
+        result = engine.submit_user_turn(
             user_text="读取文件",
             stream=False,
             initial_mode="build",
@@ -618,7 +618,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
                 workspace=self.workspace,
             ),
         )
-        result = engine.submit_turn(
+        result = engine.submit_user_turn(
             user_text="继续",
             stream=False,
             initial_mode="build",
@@ -1055,7 +1055,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
         )
-        first = engine.submit_turn(
+        first = engine.submit_user_turn(
             user_text="继续",
             stream=False,
             initial_mode="spec",
@@ -1064,7 +1064,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
         )
         self.assertEqual(first.transition.reason, "user_input_wait")
         self.assertIsNotNone(first.pending_interaction)
-        resumed = engine.resume_pending(
+        resumed = engine.resume_interaction(
             session=session,
             initial_mode="spec",
             stream=False,
@@ -1089,7 +1089,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=False, workspace=self.workspace),
         )
-        first = engine.submit_turn(
+        first = engine.submit_user_turn(
             user_text="写文件",
             stream=False,
             initial_mode="build",
@@ -1099,7 +1099,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertEqual(first.transition.reason, "permission_wait")
         self.assertIsNotNone(first.pending_interaction)
         self.assertEqual(len(session.turns[-1].transitions), 1)
-        resumed = engine.resume_pending(
+        resumed = engine.resume_interaction(
             session=session,
             initial_mode="build",
             stream=False,
@@ -1117,7 +1117,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=False, workspace=self.workspace),
         )
-        first = engine.submit_turn(
+        first = engine.submit_user_turn(
             user_text="写文件",
             stream=False,
             initial_mode="build",
@@ -1142,7 +1142,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
         target_path = os.path.join(self.workspace, "src", "spec_illegal.c")
         self.assertFalse(os.path.exists(target_path))
 
-        first = engine.submit_turn(
+        first = engine.submit_user_turn(
             user_text="写 C 文件",
             stream=False,
             initial_mode="spec",
@@ -1151,7 +1151,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
         )
         self.assertEqual(first.transition.reason, "permission_wait")
 
-        resumed = engine.resume_pending(
+        resumed = engine.resume_interaction(
             session=session,
             initial_mode="spec",
             stream=False,
@@ -1193,7 +1193,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
         )
-        result = engine.submit_turn(
+        result = engine.submit_user_turn(
             user_text="继续分析并给我结论",
             stream=False,
             initial_mode="build",
@@ -1243,7 +1243,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
             transcript_store=transcript_store,
         )
 
-        result = engine.submit_turn(
+        result = engine.submit_user_turn(
             user_text="继续分析并给我结论",
             stream=False,
             initial_mode="build",
@@ -1276,7 +1276,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
             transcript_store=transcript_store,
         )
-        result = engine.submit_turn(
+        result = engine.submit_user_turn(
             user_text="读取文件",
             stream=False,
             initial_mode="build",
@@ -1301,7 +1301,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
             transcript_store=transcript_store,
         )
-        result = engine.submit_turn(
+        result = engine.submit_user_turn(
             user_text="读取文件",
             stream=False,
             initial_mode="build",
@@ -1328,7 +1328,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
         engine.initialize_session(session, "build", workflow_state="chat")
         callback_payloads = []
 
-        result = engine.submit_turn(
+        result = engine.submit_user_turn(
             user_text="读取文件",
             stream=False,
             initial_mode="build",
@@ -1378,9 +1378,9 @@ class TestQueryEngineRefactor(unittest.TestCase):
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
             context_manager=context_manager,
-            session_lock=lock,
         )
-        result = engine.submit_turn(
+        engine._session_lock = lock
+        result = engine.submit_user_turn(
             user_text="读取文件",
             stream=False,
             initial_mode="build",
@@ -1398,7 +1398,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
             transcript_store=transcript_store,
         )
-        result = engine.submit_turn(
+        result = engine.submit_user_turn(
             user_text="继续",
             stream=False,
             initial_mode="spec",
@@ -1422,7 +1422,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
             transcript_store=transcript_store,
         )
 
-        first = engine.submit_turn(
+        first = engine.submit_user_turn(
             user_text="写文件",
             stream=False,
             initial_mode="build",
@@ -1431,7 +1431,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
         )
         self.assertEqual(first.transition.reason, "permission_wait")
 
-        resumed = engine.resume_pending(
+        resumed = engine.resume_interaction(
             session=session,
             initial_mode="build",
             stream=False,
@@ -1482,7 +1482,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
             transcript_store=transcript_store,
         )
-        result = engine.submit_turn(
+        result = engine.submit_user_turn(
             user_text="继续分析并给我结论",
             stream=False,
             initial_mode="build",
@@ -1620,7 +1620,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
             transcript_store=transcript_store,
         )
 
-        result = engine.submit_turn(
+        result = engine.submit_user_turn(
             user_text="再继续",
             stream=False,
             initial_mode="build",
@@ -1651,7 +1651,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
             transcript_store=transcript_store,
         )
-        result = engine.submit_turn(
+        result = engine.submit_user_turn(
             user_text="读取文件",
             stream=False,
             initial_mode="build",
@@ -1678,7 +1678,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
             transcript_store=transcript_store,
             max_parallel_tools=1,
         )
-        result = engine.submit_turn(
+        result = engine.submit_user_turn(
             user_text="并行读取",
             stream=False,
             initial_mode="build",
@@ -1715,7 +1715,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
             transcript_store=transcript_store,
             max_parallel_tools=1,
         )
-        result = engine.submit_turn(
+        result = engine.submit_user_turn(
             user_text="读取文件",
             stream=False,
             initial_mode="build",
@@ -1758,7 +1758,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
                 thread.daemon = True
                 thread.start()
 
-        result = engine.submit_turn(
+        result = engine.submit_user_turn(
             user_text="读取文件",
             stream=False,
             initial_mode="build",
@@ -1799,7 +1799,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
             max_parallel_tools=2,
         )
 
-        result = engine.submit_turn(
+        result = engine.submit_user_turn(
             user_text="读取并修改文件",
             stream=False,
             initial_mode="build",
@@ -1876,7 +1876,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
             thread.start()
 
         started = time.time()
-        result = engine.submit_turn(
+        result = engine.submit_user_turn(
             user_text="运行长命令",
             stream=False,
             initial_mode="debug",

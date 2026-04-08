@@ -194,7 +194,7 @@ class InProcessAdapter(object):
         self._sessions = {}  # type: Dict[str, ManagedSession]
         self._lock = threading.RLock()
 
-    def _build_engine(self, session_lock: Optional[threading.RLock] = None) -> QueryEngine:
+    def _build_engine(self) -> QueryEngine:
         return QueryEngine(
             client=self.client,
             tools=self.tools,
@@ -206,7 +206,6 @@ class InProcessAdapter(object):
             memory_maintenance=self.memory_maintenance,
             maintenance_interval=self.maintenance_interval,
             transcript_store=self.transcript_store,
-            session_lock=session_lock,
         )
 
     def _append_transcript_message_event(self, session_id: str, message: Any) -> None:
@@ -226,32 +225,6 @@ class InProcessAdapter(object):
             },
         )
 
-    def _append_harness_messages(self, session: Session, current_mode: str, workflow_state: str) -> None:
-        context = self.harness_runner.describe_mode(current_mode, discipline_override="full_spec_tdd" if current_mode == "build" and workflow_state == "plan" else None)
-        if context is None:
-            return
-        for message in list(session.messages):
-            if message.role != "system" or message.kind != "harness_prompt":
-                continue
-            metadata = dict(getattr(message, "metadata", {}) or {})
-            if str(metadata.get("mode_name") or "") != str(context.mode_name or ""):
-                continue
-            if str(metadata.get("discipline_label") or "") != str(context.discipline_label or ""):
-                continue
-            return
-        for index, content in enumerate(list(context.prompt_units or [])):
-            message = session.add_system_message(
-                content,
-                kind="harness_prompt",
-                metadata={
-                    "mode_name": str(context.mode_name or ""),
-                    "discipline_label": str(context.discipline_label or ""),
-                    "pack_name": str(context.pack_name or ""),
-                    "unit_index": index,
-                },
-            )
-            self._append_transcript_message_event(session.session_id, message)
-
     def _refresh_harness_state(self, state: ManagedSession) -> None:
         discipline_override = "full_spec_tdd" if state.current_mode == "build" and state.workflow_state == "plan" else None
         graph = self.harness_runner.update_task_graph(
@@ -267,11 +240,6 @@ class InProcessAdapter(object):
             observations=[],
         )
         if context is None:
-            state.current_phase = ""
-            state.discipline_profile = ""
-            state.current_activity = ""
-            state.task_summary = ""
-            state.task_items = []
             task_store.save_task_snapshot(
                 self.tools.workspace,
                 state.session.session_id,
@@ -283,20 +251,19 @@ class InProcessAdapter(object):
                 [],
             )
             return
-        state.current_phase = str(getattr(graph, "current_phase", "") or context.current_phase or "")
-        state.discipline_profile = str(getattr(graph, "discipline", "") or context.discipline_label or "")
-        state.current_activity = str(context.current_activity or "")
-        state.task_summary = str(graph.render_summary() if graph is not None else (context.task_summary or ""))
-        state.task_items = list(graph.to_items() if graph is not None else (getattr(context, "task_items", []) or []))
+        current_phase = str(getattr(graph, "current_phase", "") or context.current_phase or "")
+        discipline_profile = str(getattr(graph, "discipline", "") or context.discipline_label or "")
+        task_summary = str(graph.render_summary() if graph is not None else (context.task_summary or ""))
+        task_items = list(graph.to_items() if graph is not None else (getattr(context, "task_items", []) or []))
         task_store.save_task_snapshot(
             self.tools.workspace,
             state.session.session_id,
             state.current_mode,
             state.workflow_state,
-            state.discipline_profile,
-            state.current_phase,
-            state.task_summary,
-            state.task_items,
+            discipline_profile,
+            current_phase,
+            task_summary,
+            task_items,
         )
 
     def create_session(
@@ -313,7 +280,7 @@ class InProcessAdapter(object):
             active_plan_ref=plan.path if plan is not None else "",
             workflow_state="plan" if plan is not None else "chat",
         )
-        state.engine = self._build_engine(state.lock)
+        state.engine = self._build_engine()
         state.current_mode = state.engine.initialize_session(
             session,
             current_mode,
@@ -359,7 +326,7 @@ class InProcessAdapter(object):
             restore_consumed_event_count=int(restored.consumed_event_count or 0),
             restore_transcript_event_count=int(restored.transcript_event_count or 0),
         )
-        state.engine = self._build_engine(state.lock)
+        state.engine = self._build_engine()
         state.current_mode = state.engine.initialize_session(
             session,
             current_mode,
@@ -431,11 +398,19 @@ class InProcessAdapter(object):
         runtime = runtime_lookup() if callable(runtime_lookup) else {}
         with state.lock:
             summary = self._read_summary_for_state(state)
+            graph = getattr(state.session, "task_graph", None)
+            harness_context = self.harness_runner.describe_mode(
+                state.current_mode,
+                discipline_override=str(getattr(graph, "discipline", "") or "") if graph is not None else None,
+                current_phase=str(getattr(graph, "current_phase", "") or "") if graph is not None else "",
+                observations=[],
+            )
             return self.snapshot_projector.build_snapshot(
                 state,
                 summary,
                 runtime,
                 pending_interaction=_pending_interaction_payload(state),
+                harness_context=harness_context,
             )
 
     def get_workspace_snapshot(self) -> Dict[str, Any]:
@@ -1494,7 +1469,7 @@ class InProcessAdapter(object):
                 state.pending_event = None
                 state.pending_result = None
                 state.status = "running"
-            resumed = state.engine.resume_pending(
+            resumed = state.engine.resume_interaction(
                 session=state.session,
                 initial_mode=state.current_mode,
                 interaction_resolution={"approved": approved},
@@ -1961,13 +1936,11 @@ class InProcessAdapter(object):
         state = self._require_session(session_id)
         current_mode = require_mode(mode)["slug"]
         with state.lock:
-            message = state.session.add_system_message(
-                build_system_prompt(current_mode, getattr(self.tools, "app_config", None), self.tools.workspace)
+            state.current_mode = state.engine.apply_mode(
+                state.session,
+                current_mode,
+                workflow_state=state.workflow_state,
             )
-            self._append_transcript_message_event(session_id, message)
-            state.current_mode = current_mode
-            state.current_phase = ""
-            self._append_harness_messages(state.session, current_mode, state.workflow_state)
             self._refresh_harness_state(state)
         self._persist_state(state)
         snapshot = self.get_session_snapshot(session_id)
@@ -2151,7 +2124,7 @@ class InProcessAdapter(object):
                 self._emit(event_handler, "turn_start", session_id, {"turn_id": turn_id, "user_text": text})
             set_thinking(True, "turn_started")
             if resume_pending:
-                result = engine.resume_pending(
+                result = engine.resume_interaction(
                     session=state.session,
                     initial_mode=state.current_mode,
                     interaction_resolution=interaction_resolution,
@@ -2169,7 +2142,7 @@ class InProcessAdapter(object):
                     user_input_handler=user_input_handler,
                 )
             else:
-                result = engine.submit_turn(
+                result = engine.submit_user_turn(
                     user_text=text,
                     stream=stream,
                     initial_mode=state.current_mode,

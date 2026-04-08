@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from contextlib import nullcontext
 import logging
 import os
 import threading
@@ -58,7 +57,6 @@ class QueryEngine(object):
         intelligence_broker: Optional[WorkspaceIntelligenceBroker] = None,
         max_parallel_tools: int = 3,
         transcript_store: Optional[TranscriptStore] = None,
-        session_lock: Optional[Any] = None,
     ) -> None:
         self.client = client
         self.tools = tools
@@ -76,7 +74,7 @@ class QueryEngine(object):
         self.intelligence_broker = intelligence_broker or WorkspaceIntelligenceBroker()
         self.max_parallel_tools = max(1, int(max_parallel_tools or 1))
         self.transcript_store = transcript_store or TranscriptStore(self.tools.workspace)
-        self.session_lock = session_lock
+        self._session_lock = threading.RLock()
         self.tool_commit = ToolCommitCoordinator(
             self.tools.tool_result_store,
             self.tools.projection_db,
@@ -85,7 +83,7 @@ class QueryEngine(object):
         self._maintenance_counter = 0
 
     def _session_guard(self):
-        return self.session_lock if self.session_lock is not None else nullcontext()
+        return self._session_lock
 
     def _append_transcript_event(self, session: Session, event_type: str, payload: Dict[str, Any]) -> None:
         if self.transcript_store is None:
@@ -270,6 +268,30 @@ class QueryEngine(object):
             self._append_harness_messages(session, harness_context)
         return current_mode
 
+    def apply_mode(self, session: Session, next_mode: str, workflow_state: str = "chat") -> str:
+        current_mode = require_mode(next_mode)["slug"]
+        current_mode, harness_context = self._run_harness_mode(current_mode, session, workflow_state=workflow_state)
+        with self._session_guard():
+            mode_message = session.add_system_message(
+                build_system_prompt(current_mode, getattr(self.tools, "app_config", None), self.tools.workspace)
+            )
+            self._append_message_event(
+                session,
+                {
+                    "role": mode_message.role,
+                    "content": mode_message.content,
+                    "message_id": mode_message.message_id,
+                    "parent_message_id": mode_message.parent_message_id,
+                    "turn_id": mode_message.turn_id,
+                    "step_id": mode_message.step_id,
+                    "kind": mode_message.kind,
+                    "metadata": dict(mode_message.metadata),
+                    "replaced_by_refs": list(mode_message.replaced_by_refs),
+                },
+            )
+            self._append_harness_messages(session, harness_context)
+        return current_mode
+
     def _record_transition(self, session: Session, transition: LoopTransition) -> None:
         with self._session_guard():
             step_id = session.current_step().step_id if session.current_step() is not None else ""
@@ -426,7 +448,7 @@ class QueryEngine(object):
             data,
         )
 
-    def submit_turn(
+    def submit_user_turn(
         self,
         user_text: str,
         stream: bool = True,
@@ -613,7 +635,7 @@ class QueryEngine(object):
             on_step_finish(step_index, reply, "completed")
         return QueryTurnResult("", session, transition, turns_used=1), committed
 
-    def resume_pending(
+    def resume_interaction(
         self,
         session: Session,
         initial_mode: str,

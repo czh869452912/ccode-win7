@@ -92,7 +92,9 @@ class HarnessRunner(object):
         discipline_override=None,
     ):
         graph = getattr(session, "task_graph", None)
-        current_phase = str(getattr(graph, "current_phase", "") or "") if graph is not None else ""
+        current_phase = ""
+        if graph is not None and str(getattr(graph, "mode_name", "") or "") == str(mode_name or ""):
+            current_phase = str(getattr(graph, "current_phase", "") or "")
         context = self.describe_mode(
             mode_name,
             discipline_override=discipline_override,

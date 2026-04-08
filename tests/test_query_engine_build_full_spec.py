@@ -63,7 +63,7 @@ class QueryEngineBuildFullSpecTests(unittest.TestCase):
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
         )
-        result = engine.submit_turn(
+        result = engine.submit_user_turn(
             user_text="开始 full spec",
             stream=False,
             initial_mode="build",
