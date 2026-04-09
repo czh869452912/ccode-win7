@@ -44,6 +44,29 @@
 
 ## 3. 当前变更记录
 
+### DC-101
+
+- 日期：2026-04-09
+- 变更主题：补齐剩余模块文档并修正代码-文档映射准确性
+- 变更摘要：
+  - 新建 `docs/modules/protocol-and-core.md`、`frontend-tui.md`、`frontend-gui.md`、`packaging-and-deployment.md`
+  - 修正 `docs/modules/tools-and-tooling.md` 中不准确的 tool pack 类引用
+  - 更新 `docs/modules/README.md` 与 `docs/references/code-doc-matrix.md` 以反映新增模块
+- 影响范围：
+  - `docs/modules/protocol-and-core.md`
+  - `docs/modules/frontend-tui.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/modules/packaging-and-deployment.md`
+  - `docs/modules/tools-and-tooling.md`
+  - `docs/modules/README.md`
+  - `docs/references/code-doc-matrix.md`
+  - `docs/development-tracker.md`
+- 关联文档：
+  - `docs/superpowers/specs/2026-04-08-documentation-governance-baseline-design.md`
+- 是否需要 ADR：`否，先作为文档治理基线实施`
+- 后续动作：
+  - 继续推进 Batch B：归档遗留活动文档并下沉操作指南
+
 ### DC-100
 
 - 日期：2026-04-08

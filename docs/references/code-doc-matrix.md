@@ -3,7 +3,7 @@
 > 状态：`active`
 > 类型：`reference`
 > 负责人：`project maintainers`
-> 最后同步日期：`2026-04-08`
+> 最后同步日期：`2026-04-09`
 > 对应代码范围：`src/embedagent/`, `docs/`
 
 | Code Area | Primary Paths | Global Docs | Module Docs | Workflow / Reference Docs |

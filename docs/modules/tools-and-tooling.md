@@ -25,7 +25,7 @@
 
 - 目录：`src/embedagent/tools/`, `src/embedagent/tooling/`
 - 入口文件：`src/embedagent/tools/runtime.py`
-- 核心对象：`ToolRuntime`、tool ops modules、tool packs
+- 核心对象：`ToolRuntime`、tool ops modules、tool pack registry functions (`register_pack`, `list_packs`)
 - 上游依赖：harness、query engine
 - 下游影响：tool execution、context reduction、frontend tool catalog
 - 相关测试：`tests/test_tools_package.py`、`tests/test_tools_v2_runtime.py`、`tests/test_tool_execution.py`、`tests/test_tool_commit.py`、`tests/test_tooling_budget_v2.py`

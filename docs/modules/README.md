@@ -13,13 +13,14 @@
 - `harness.md`
 - `tools-and-tooling.md`
 - `permissions-and-context.md`
-
-## 2. 后续模块
-
 - `protocol-and-core.md`
 - `frontend-tui.md`
 - `frontend-gui.md`
 - `packaging-and-deployment.md`
+
+## 2. 后续模块
+
+- （第一批核心模块与前端/交付模块已全部补齐）
 
 ## 3. 模块文档维护规则
 
