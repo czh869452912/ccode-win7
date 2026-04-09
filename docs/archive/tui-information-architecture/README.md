@@ -7,5 +7,11 @@ This directory contains the historical `tui-information-architecture.md` documen
 
 - `docs/frontend-protocol.md`
 - `docs/overall-solution-architecture.md`
+- `docs/modules/frontend-tui.md`
 
-The archived document is kept for reference only.
+归档内容：
+
+- [tui-information-architecture.md](tui-information-architecture.md)
+- [tui-information-architecture-root-stub.md](tui-information-architecture-root-stub.md)
+
+The archived documents are kept for reference only.

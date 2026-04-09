@@ -14,9 +14,12 @@
 
 - [2026-04-01-gui-redesign-design.md](/D:/Claude-project/ccode-win7/docs/archive/gui-redesign/2026-04-01-gui-redesign-design.md)
 - [2026-04-01-gui-redesign.md](/D:/Claude-project/ccode-win7/docs/archive/gui-redesign/2026-04-01-gui-redesign.md)
+- [architecture-new.md](architecture-new.md)
+- [DOCUMENTATION_ALIGNMENT_REPORT.md](DOCUMENTATION_ALIGNMENT_REPORT.md)
 
 当前活跃状态请看：
 
 - [README.md](/D:/Claude-project/ccode-win7/README.md)
-- [frontend-protocol.md](/D:/Claude-project/ccode-win7/docs/frontend-protocol.md)
-- [development-tracker.md](/D:/Claude-project/ccode-win7/docs/development-tracker.md)
+- [docs/frontend-protocol.md](/D:/Claude-project/ccode-win7/docs/frontend-protocol.md)
+- [docs/overall-solution-architecture.md](/D:/Claude-project/ccode-win7/docs/overall-solution-architecture.md)
+- [docs/development-tracker.md](/D:/Claude-project/ccode-win7/docs/development-tracker.md)

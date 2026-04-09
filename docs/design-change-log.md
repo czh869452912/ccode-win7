@@ -44,6 +44,36 @@
 
 ## 3. 当前变更记录
 
+### DC-102
+
+- 日期：2026-04-09
+- 变更主题：归档遗留活动文档并下沉操作指南
+- 变更摘要：
+  - 将 10 份 superseded 文档迁入 docs/archive/ 对应主题目录
+  - 将 6 份 packaging/Win7 操作文档迁入 docs/archive/packaging-pipeline-redesign/
+  - 将 configuration-guide.md、llm-adapter.md 下沉为 docs/guides/ 操作指南
+  - 更新 docs/modules/packaging-and-deployment.md 以吸纳 bundle 布局、组件清单和 GUI 验收标准
+  - 更新 docs/README.md 模块列表并新增 guides 索引
+- 影响范围：
+  - docs/README.md
+  - docs/modules/packaging-and-deployment.md
+  - docs/guides/
+  - docs/archive/gui-redesign/
+  - docs/archive/context-loop/
+  - docs/archive/agent-harness-v2/
+  - docs/archive/packaging-pipeline-redesign/
+  - docs/archive/tui-information-architecture/
+  - docs/archive/tool-design/
+  - docs/archive/clang-integration/
+  - docs/archive/phase6-validation/
+- 关联文档：
+  - docs/superpowers/specs/2026-04-08-documentation-governance-baseline-design.md
+- 是否需要 ADR：否，先作为文档治理基线实施
+- 后续动作：
+  - 继续按 doc-impact-first 工作流执行后续切片
+  - 定期复核 archive README 索引与活动文档死链
+
+
 ### DC-101
 
 - 日期：2026-04-09

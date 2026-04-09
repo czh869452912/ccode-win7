@@ -279,7 +279,7 @@
 | R-021 | `package.ps1`、`prepare-offline.ps1` 与 `build-offline-bundle.ps1` 之间仍有部分共享打包逻辑分散在多个脚本，后续改动仍可能引入新分叉 | 中 | 当前已先把 GUI 静态资产门和 launcher 契约门收口到共享 helper / validator；后续继续抽公共能力而不是三处平行演化 |
 | R-022 | 当前 mode / tool / permission 强耦合导致真实任务频繁切模式、奇怪拒绝和工具调用退化 | 高 | 已建立 `docs/agent-harness-v2.md` 作为整体重构基线；后续优先按 harness / tool contract / permission DSL 的顺序做切片，而不是继续在旧机制上打补丁 |
 | R-023 | 架构 cutover 已完成，但若后续新增功能绕过 Harness/Protocol/Permission 的正式边界，仍可能重新引入平行术语和隐式兼容层 | 中 | 继续把 `README` / `AGENTS` / architecture docs 作为唯一 source of truth；新增功能优先复用 Harness、TaskGraph、recipe runtime 和 session snapshot，而不是再建第二套路径 |
-| R-024 | 文档分层、模块映射和同步流程尚未完全建立 | 高 | Batch A 已收口：模块文档已补齐，矩阵已同步；剩余工作为遗留文档归档与操作指南下沉（Batch B） |
+| R-024 | 文档分层、模块映射和同步流程尚未完全建立 | 高 | Batch B 已完成：遗留文档已归档，操作指南已下沉，模块文档与 guides/ 索引已同步 |
 
 ---
 
@@ -287,6 +287,7 @@
 
 | 日期 | 更新内容 |
 |------|----------|
+| 2026-04-09 | 文档治理 Batch B 完成：归档 10 份 superseded 文档至 archive/，下沉 8 份操作文档（6 份 packaging 归档 + 2 份 guides/），更新 docs/README.md 和模块文档 |
 | 2026-04-09 | 文档治理 Batch A 完成：补齐 4 篇缺失模块文档，修复 tools-and-tooling 不准确引用，更新代码-文档矩阵与模块索引 |
 | 2026-04-08 | 启动文档治理基线实施：建立 docs 分层、模板、术语表、同步工作流和第一批模块文档入口 |
 | 2026-04-04 | Query / Context / Context Loop 这轮重构已收口：P0 问题全部关闭，handoff/analysis/review 文档已归档到 `docs/archive/context-loop/`，活动状态以后续真实工程集成回归和 Win7 验证为准 |

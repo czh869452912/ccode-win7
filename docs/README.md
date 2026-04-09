@@ -3,7 +3,7 @@
 > 状态：`active`
 > 类型：`reference`
 > 负责人：`project maintainers`
-> 最后同步日期：`2026-04-08`
+> 最后同步日期：`2026-04-09`
 > 对应代码范围：`README.md`, `AGENTS.md`, `docs/`
 
 ## 1. 文档分层
@@ -34,10 +34,22 @@
 - `modules/harness.md`
 - `modules/tools-and-tooling.md`
 - `modules/permissions-and-context.md`
+- `modules/protocol-and-core.md`
+- `modules/frontend-tui.md`
+- `modules/frontend-gui.md`
+- `modules/packaging-and-deployment.md`
 
 模块文档负责把代码目录、入口文件、数据流、测试入口和相关契约文档稳定地绑定起来。
 
-## 4. 工作流文档
+## 4. 操作指南
+
+- `guides/README.md`
+- `guides/configuration-guide.md`
+- `guides/llm-adapter.md`
+
+指南文档提供配置示例、操作步骤和兼容性记录，是对模块文档和工作流文档的补充。
+
+## 5. 工作流文档
 
 - `workflows/README.md`
 - `workflows/code-doc-sync.md`

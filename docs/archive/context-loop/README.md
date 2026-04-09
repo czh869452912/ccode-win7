@@ -17,9 +17,13 @@
 - [context-loop-implementation-analysis.md](/D:/Claude-project/ccode-win7/docs/archive/context-loop/context-loop-implementation-analysis.md)
 - [context-loop-implementation-analysis-supplement.md](/D:/Claude-project/ccode-win7/docs/archive/context-loop/context-loop-implementation-analysis-supplement.md)
 - [context-loop-implementation-progress-review-2026-04-04.md](/D:/Claude-project/ccode-win7/docs/archive/context-loop/context-loop-implementation-progress-review-2026-04-04.md)
+- [context-management-design.md](context-management-design.md)
+- [context-management-research.md](context-management-research.md)
+- [query-context-redesign.md](query-context-redesign.md)
 
 当前活跃状态请看：
 
 - [development-tracker.md](/D:/Claude-project/ccode-win7/docs/development-tracker.md)
 - [design-change-log.md](/D:/Claude-project/ccode-win7/docs/design-change-log.md)
-- [query-context-redesign.md](/D:/Claude-project/ccode-win7/docs/query-context-redesign.md)
+- [docs/overall-solution-architecture.md](/D:/Claude-project/ccode-win7/docs/overall-solution-architecture.md)
+- [docs/agent-harness-v2.md](/D:/Claude-project/ccode-win7/docs/agent-harness-v2.md)

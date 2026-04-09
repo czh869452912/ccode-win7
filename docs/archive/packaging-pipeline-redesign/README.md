@@ -14,9 +14,15 @@
 
 - [2026-04-01-packaging-pipeline-redesign-design.md](/D:/Claude-project/ccode-win7/docs/archive/packaging-pipeline-redesign/2026-04-01-packaging-pipeline-redesign-design.md)
 - [2026-04-01-packaging-pipeline-redesign.md](/D:/Claude-project/ccode-win7/docs/archive/packaging-pipeline-redesign/2026-04-01-packaging-pipeline-redesign.md)
+- [offline-packaging.md](offline-packaging.md)
+- [offline-packaging-guide.md](offline-packaging-guide.md)
+- [gui-packaging.md](gui-packaging.md)
+- [intranet-deployment.md](intranet-deployment.md)
+- [win7-preflight-checklist.md](win7-preflight-checklist.md)
+- [win7-gui-validation.md](win7-gui-validation.md)
 
 当前活跃状态请看：
 
-- [offline-packaging.md](/D:/Claude-project/ccode-win7/docs/offline-packaging.md)
-- [implementation-roadmap.md](/D:/Claude-project/ccode-win7/docs/implementation-roadmap.md)
-- [development-tracker.md](/D:/Claude-project/ccode-win7/docs/development-tracker.md)
+- [docs/modules/packaging-and-deployment.md](/D:/Claude-project/ccode-win7/docs/modules/packaging-and-deployment.md)
+- [docs/implementation-roadmap.md](/D:/Claude-project/ccode-win7/docs/implementation-roadmap.md)
+- [docs/development-tracker.md](/D:/Claude-project/ccode-win7/docs/development-tracker.md)

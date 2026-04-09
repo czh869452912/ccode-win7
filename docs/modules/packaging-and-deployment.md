@@ -32,9 +32,42 @@
   - `validate-offline-bundle.ps1` — 静态与动态校验门禁
   - `validate-gui-smoke.py` — headless/windowed 端到端 GUI 验收
   - `package-lib.ps1` — PowerShell 共享库（配置解析、报告构建、GUI asset 检查）
+- bundle 目录布局：
+  ```text
+  EmbedAgent/
+  ├── embedagent.cmd / embedagent-tui.cmd / embedagent-gui.cmd
+  ├── manifests/
+  │   ├── bundle-manifest.json
+  │   ├── checksums.txt
+  │   └── licenses/
+  ├── runtime/
+  │   ├── python/
+  │   ├── site-packages/
+  │   └── webview2-fixed-runtime/   # Win7 Chromium 基线（109）
+  ├── app/
+  │   └── embedagent/
+  ├── bin/
+  │   ├── git/
+  │   ├── rg/
+  │   ├── ctags/
+  │   └── llvm/
+  ├── config/
+  └── docs/
+  ```
+- 核心组件清单：
+  | 组件 | 目标位置 | 状态 |
+  |---|---|---|
+  | Python 3.8 embeddable distribution | `runtime/python/` | integrated |
+  | vendored Python packages | `runtime/site-packages/` | integrated |
+  | EmbedAgent 应用代码 | `app/embedagent/` | ready |
+  | MinGit portable | `bin/git/` | integrated |
+  | ripgrep | `bin/rg/` | integrated |
+  | Universal Ctags | `bin/ctags/` | integrated |
+  | LLVM/Clang bundle | `bin/llvm/` | provisional |
+  | Fixed Version WebView2 109 | `runtime/webview2-fixed-runtime/` | Win7 GUI 必需 |
 - 上游依赖：`src/embedagent/`、GUI 静态资源、`scripts/offline-assets.json`、`scripts/package.config.json`
 - 下游影响：`build/offline-dist/<artifact>.zip`、内网目标机
-- 相关验证：`validate-offline-bundle.ps1`、`validate-gui-smoke.py`、`docs/win7-preflight-checklist.md`
+- 相关验证：`validate-offline-bundle.ps1`、`validate-gui-smoke.py`、Win7 目标机部署前检查
 - 相关契约：`README.md`、`docs/implementation-roadmap.md`
 
 ## 4. Dependencies And Consumers
@@ -46,6 +79,8 @@
 - `scripts/offline-assets.json`（第三方资产清单）
 - `scripts/package.config.json`（打包配置）
 - 第三方资产 URL 或本地归档
+- GUI 额外 Python 依赖：`pywebview`、`fastapi`、`uvicorn`、`websockets`
+- Win7 GUI 需携带 Fixed Version WebView2 109 运行时
 
 下游消费者：
 
@@ -81,8 +116,12 @@ flowchart LR
 推荐回归入口：
 
 - `scripts/validate-offline-bundle.ps1` — 文件完整性、manifest 可解析性、checksum、launcher 合约、Python `.pth` 补丁、editable link 清除
-- `scripts/validate-gui-smoke.py` — 模拟 OpenAI 服务器、GUI 启动、WebSocket 会话、工具调用、权限/用户输入流、todo 管理、`/review`
-- `docs/win7-preflight-checklist.md` — Win7 目标机部署前检查项
+- `scripts/validate-gui-smoke.py` — 模拟 OpenAI 服务器、GUI 启动、WebSocket 会话、工具调用、权限/用户输入流、`/review`
+- Win7 GUI 验收标准（窗口模式）：
+  - `renderer_report.renderer == "edgechromium"`
+  - `renderer_report.runtime_source == "bundle"`
+  - `assistant_text` 包含预期回复，工具事件完整
+- Win7 目标机部署前检查：静态文件完整、launcher 可启动、各二进制可输出版本
 
 当 `src/embedagent/`、GUI 前端代码、`offline-assets.json`、`package.config.json`、第三方工具版本或 Win7 兼容性策略变化时，应优先重跑这些验证。
 
@@ -99,11 +138,7 @@ flowchart LR
 
 ## 8. Related Documents
 
-- `docs/offline-packaging.md`
-- `docs/gui-packaging.md`
-- `docs/intranet-deployment.md`
-- `docs/win7-preflight-checklist.md`
-- `docs/win7-gui-validation.md`
 - `docs/implementation-roadmap.md`
+- `docs/guides/configuration-guide.md`
 - `docs/references/code-doc-matrix.md`
 - `docs/references/glossary.md`

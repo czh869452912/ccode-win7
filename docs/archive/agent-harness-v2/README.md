@@ -18,9 +18,10 @@
 - [2026-04-06-agent-harness-v2-debug-lite.md](/D:/Claude-project/ccode-win7/docs/archive/agent-harness-v2/2026-04-06-agent-harness-v2-debug-lite.md)
 - [2026-04-06-agent-harness-v2-verify-slice.md](/D:/Claude-project/ccode-win7/docs/archive/agent-harness-v2/2026-04-06-agent-harness-v2-verify-slice.md)
 - [2026-04-06-agent-harness-v2-official-cutover-plan.md](/D:/Claude-project/ccode-win7/docs/archive/agent-harness-v2/2026-04-06-agent-harness-v2-official-cutover-plan.md)
+- [harness-state-machine.md](harness-state-machine.md)
 
 当前活跃状态请看：
 
-- [agent-harness-v2.md](/D:/Claude-project/ccode-win7/docs/agent-harness-v2.md)
-- [overall-solution-architecture.md](/D:/Claude-project/ccode-win7/docs/overall-solution-architecture.md)
-- [development-tracker.md](/D:/Claude-project/ccode-win7/docs/development-tracker.md)
+- [docs/agent-harness-v2.md](/D:/Claude-project/ccode-win7/docs/agent-harness-v2.md)
+- [docs/overall-solution-architecture.md](/D:/Claude-project/ccode-win7/docs/overall-solution-architecture.md)
+- [docs/development-tracker.md](/D:/Claude-project/ccode-win7/docs/development-tracker.md)
