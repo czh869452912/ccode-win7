@@ -7,13 +7,12 @@
 
 ## 1. 审查结论
 
-本轮仅做静态代码复核，不包含运行验证、集成测试或回归测试。
+本轮为静态代码审查，不包含运行验证、集成测试或回归测试。
 
 结论如下：
 
-- 已确认 **6 个明确问题**。
-- 另识别出 **2 个高置信潜在问题**，需要后续实现或验证时一并处理。
-- 当前最优先的问题是：
+- 已确认 **8 个明确问题**，其中 3 个高风险、3 个中风险、2 个设计漂移。
+- 当前最优先修复的是：
   - 多会话事件串线
   - 交互卡片投影错误
   - 回放事件契约漂移
@@ -24,7 +23,7 @@
 
 **问题描述**
 
-GUI 后端将 WebSocket 消息广播给所有连接，前端消费时又不按 `session_id` 过滤。只要浏览器当前打开的是会话 B，而后台会话 A 仍在推送状态，B 的界面就可能被 A 的 live 事件或快照覆盖。
+GUI 后端将 WebSocket 消息广播给所有连接，前端仅维护单条全局 WebSocket 连接，且消费时又不按 `session_id` 过滤。只要浏览器当前打开的是会话 B，而后台会话 A 仍在推送状态，B 的界面就可能被 A 的 live 事件或快照覆盖。
 
 **静态证据**
 
@@ -36,6 +35,8 @@ GUI 后端将 WebSocket 消息广播给所有连接，前端消费时又不按 `
   - `tool_start` 等 live 事件未携带 `session_id`。
 - `src/embedagent/frontend/gui/backend/server.py:382`
   - `stream_delta`、`reasoning_delta`、`thinking_state` 也未带 `session_id`。
+- `src/embedagent/frontend/gui/webapp/src/App.jsx:376`
+  - 前端仅维护单条 WebSocket 连接 `/ws`，所有会话共享该连接。
 - `src/embedagent/frontend/gui/webapp/src/App.jsx:421`
   - `handleSocketMessage()` 对 `session_event` 不按会话过滤。
 - `src/embedagent/frontend/gui/webapp/src/App.jsx:448`
@@ -97,7 +98,7 @@ store 写入的 timeline item 使用嵌套 `request` 结构，而 runtime projec
 
 **问题描述**
 
-项目基线明确规定默认模式是 `explore`，但 GUI 前后端和相关前端 fallback 仍广泛默认 `build`。
+项目基线明确规定默认模式是 `explore`，但 GUI 前后端和相关前端 fallback 仍广泛默认 `build`，包括服务端序列化层的 `current_mode` fallback。
 
 **静态证据**
 
@@ -109,6 +110,8 @@ store 写入的 timeline item 使用嵌套 `request` 结构，而 runtime projec
   - `create_session(mode: str = "build")`。
 - `src/embedagent/frontend/gui/backend/server.py:546`
   - `resume_session(..., mode: str = "build")`。
+- `src/embedagent/frontend/gui/backend/server.py:78`
+  - `_serialize_session_snapshot()` 对 `current_mode` 序列化 fallback 为 `"build"`。
 - `src/embedagent/frontend/gui/webapp/src/state-helpers.js:541`
   - `normalizeSessionPayload()` 对 `current_mode` fallback 为 `build`。
 - `src/embedagent/frontend/gui/webapp/src/session-runtime/projector.js:251`
@@ -207,9 +210,7 @@ webapp 当前实际通过 REST 响应 interaction，但后端仍保留 WebSocket
 - 收敛到单一正式 interaction 响应路径。
 - 删除或彻底隔离 `_current_session_id` 这类全局态。
 
-## 3. 额外识别的高置信潜在问题
-
-### 3.1 回放接口与 live projector 的 `event_kind` 契约不一致
+### 2.7 高风险：回放接口与 live projector 的 `event_kind` 契约不一致
 
 **问题描述**
 
@@ -244,12 +245,12 @@ webapp 当前实际通过 REST 响应 interaction，但后端仍保留 WebSocket
 - 断线恢复后 timeline 与 live 状态可能不一致。
 - replay 机制可能“看起来可用”，实际无法补齐关键语义。
 
-**建议**
+**修复方向**
 
 - 统一 replay 与 live 的 `event_kind` 词汇表。
 - 优先以 `session_events.py` 的 GUI event mapping 为唯一外显命名源。
 
-### 3.2 bootstrap 历史恢复可能丢失 step 级交互 / 错误卡片
+### 2.8 中风险：bootstrap 历史恢复可能丢失 step 级交互 / 错误卡片
 
 **问题描述**
 
@@ -271,12 +272,12 @@ webapp 当前实际通过 REST 响应 interaction，但后端仍保留 WebSocket
 - bootstrap 历史时间线可能漏掉 step 级交互卡与错误卡。
 - 与“`SessionHistoryAssembler` 是唯一 GUI 历史序列化器”的官方口径不完全一致。
 
-**建议**
+**修复方向**
 
 - 让 `timelineFromTurns()` 正式消费 `step.transitions`。
 - 或者在 bootstrap payload 中提供前端可直接消费的统一 timeline DTO，避免双重投影。
 
-## 4. 建议修复优先级
+## 3. 建议修复优先级
 
 ### P0
 
@@ -289,13 +290,13 @@ webapp 当前实际通过 REST 响应 interaction，但后端仍保留 WebSocket
 - GUI 默认 mode 切回 `explore`
 - `step_start` / `step_end` 正式事件链路补齐或收敛
 - `read_file` 错误状态规范化
+- bootstrap 历史 step 级投影统一
 
 ### P2
 
 - interaction 响应双路径收敛
-- bootstrap 历史 step 级投影统一
 
-## 5. 备注
+## 4. 备注
 
 - 本文档是静态审查结论记录，不等价于运行时复现报告。
 - 若后续进入修复切片，应补充：
