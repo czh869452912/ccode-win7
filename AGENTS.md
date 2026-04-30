@@ -11,6 +11,41 @@ It exists to keep implementation and documentation aligned with the current prod
 - Agent Core is the product core; UI shells are replaceable.
 - The first-class target workflow is C/C++ application development with a Clang-centered toolchain.
 
+## Quick Commands
+
+These are the exact commands to use — copy-paste directly.
+
+```bash
+# Install dev environment
+uv sync
+
+# Run tests (fast subset — excludes GUI and slow integration tests)
+uv run pytest tests/ -m "not slow and not gui" -v
+
+# Run harness component tests only (task_graph, phase_engine, mode_runner)
+uv run pytest tests/ -m harness -v
+
+# Run all tests
+uv run pytest tests/ -v
+
+# Check lint (read-only)
+uv run ruff check src/ tests/
+uv run black --check src/ tests/
+
+# Auto-fix lint
+uv run ruff check --fix src/ tests/ && uv run black src/ tests/
+
+# Full local CI equivalent
+make ci
+```
+
+**Constraints (always enforce)**:
+- Python **3.8.x strictly** — never use 3.9+ syntax (no walrus operator `:=`, no `match`, no `dict | dict`)
+- Never import modules absent from `pyproject.toml` dependencies
+- Never modify `uv.lock` manually
+- Never commit `config/config.json` (contains `api_key`)
+- Test files belong in `tests/` — never in `src/`
+
 ## Read First
 
 Before non-trivial work, read in this order:
