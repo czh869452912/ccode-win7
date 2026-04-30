@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import fnmatch
 import io
-import json
 import os
 import re
 import signal
@@ -15,7 +14,6 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 from embedagent.runtime_discovery import discover_bundle_root
 from embedagent.session import Observation
 from embedagent.workspace_recipes import list_workspace_recipes, resolve_workspace_recipe
-
 
 MAX_READ_CHARS = 40000
 MAX_LIST_RESULTS = 500

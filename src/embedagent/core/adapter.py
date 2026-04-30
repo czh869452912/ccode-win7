@@ -5,11 +5,9 @@ Agent Core 适配器 - 实现 CoreInterface
 from __future__ import annotations
 
 import difflib
-import os
 import threading
 import uuid
-from datetime import datetime
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from embedagent.protocol import (
     CommandResult,
@@ -169,14 +167,14 @@ def _session_snapshot_from_dict(snapshot: Dict[str, Any]) -> SessionSnapshot:
 
 class CallbackBridge:
     """回调桥接器 - 将 callback 转换为 Protocol 类型"""
-    
+
     def __init__(self, frontend: FrontendCallbacks):
         self.frontend = frontend
         self._pending_permissions: Dict[str, threading.Event] = {}
         self._pending_permission_results: Dict[str, bool] = {}
         self._pending_inputs: Dict[str, threading.Event] = {}
         self._pending_input_results: Dict[str, Optional[str]] = {}
-    
+
     def emit(self, event_name: str, session_id: str, payload: Dict[str, Any]) -> None:
         """处理来自 Adapter 的事件"""
         if event_name == "assistant_delta":
@@ -188,7 +186,7 @@ class CallbackBridge:
                     "step_index": payload.get("step_index", 0),
                 },
             )
-            
+
         elif event_name == "tool_started":
             arguments = payload.get("arguments", {})
             if not isinstance(arguments, dict):
@@ -215,7 +213,7 @@ class CallbackBridge:
                 resolved_tool_roots=payload.get("resolved_tool_roots", {}) if isinstance(payload.get("resolved_tool_roots"), dict) else {},
             )
             self.frontend.on_tool_start(call)
-            
+
         elif event_name == "tool_finished":
             result = ToolResult(
                 tool_name=payload.get("tool_name", ""),
@@ -302,11 +300,11 @@ class CallbackBridge:
                         summary=str(plan.get("summary") or ""),
                     )
                 )
-            
+
         elif event_name == "session_finished":
             snapshot = payload.get("session_snapshot", {})
             self._notify_status_change(snapshot)
-            
+
         elif event_name in ("turn_start", "turn_end"):
             if hasattr(self.frontend, "on_turn_event"):
                 self.frontend.on_turn_event(event_name, payload)
@@ -366,7 +364,7 @@ class CallbackBridge:
         if isinstance(answer, dict):
             return answer
         return {"answer": str(answer)}
-    
+
     def _notify_status_change(self, snapshot: Dict[str, Any]) -> None:
         """通知状态变化"""
         self.frontend.on_session_status_change(_session_snapshot_from_dict(snapshot))
@@ -377,7 +375,7 @@ class AgentCoreAdapter(CoreInterface):
     Agent Core 适配器
     包装现有的 InProcessAdapter，实现 CoreInterface
     """
-    
+
     def __init__(self, workspace: str, config: Optional[Dict[str, Any]] = None):
         self.workspace = workspace
         self.config = config or {}
@@ -385,7 +383,7 @@ class AgentCoreAdapter(CoreInterface):
         self._frontend: Optional[FrontendCallbacks] = None
         self._callback_bridge: Optional[CallbackBridge] = None
         self._lock = threading.RLock()
-        
+
     def initialize(self, client, tools, **kwargs) -> None:
         """初始化内部 Adapter"""
         AdapterClass = _get_adapter_class()
@@ -407,31 +405,31 @@ class AgentCoreAdapter(CoreInterface):
             if key in kwargs and kwargs.get(key) is not None:
                 adapter_kwargs[key] = kwargs.get(key)
         self._adapter = AdapterClass(**adapter_kwargs)
-    
+
     def register_frontend(self, frontend: FrontendCallbacks) -> None:
         """注册前端回调"""
         self._frontend = frontend
         self._callback_bridge = CallbackBridge(frontend)
-    
+
     def _on_adapter_event(self, event_name: str, session_id: str, payload: Dict[str, Any]) -> None:
         """处理 Adapter 事件"""
         if self._callback_bridge:
             self._callback_bridge.emit(event_name, session_id, payload)
-    
+
     def _snapshot_to_protocol(self, snapshot: Dict[str, Any]) -> SessionSnapshot:
         """转换快照格式"""
         return _session_snapshot_from_dict(snapshot)
-    
+
     # ============ CoreInterface 实现 ============
-    
+
     def create_session(self, mode: str) -> SessionSnapshot:
         snapshot = self._adapter.create_session(mode=mode)
         return self._snapshot_to_protocol(snapshot)
-    
+
     def resume_session(self, reference: str, mode: str) -> SessionSnapshot:
         snapshot = self._adapter.resume_session(reference, mode)
         return self._snapshot_to_protocol(snapshot)
-    
+
     def list_sessions(self, limit: int = 10) -> List[Dict[str, Any]]:
         return self._adapter.list_sessions(limit=limit)
 
@@ -444,7 +442,7 @@ class AgentCoreAdapter(CoreInterface):
         result = dict(payload or {})
         result["snapshot"] = self._snapshot_to_protocol(snapshot or {})
         return result
-    
+
     def submit_message(self, session_id: str, text: str) -> None:
         """异步提交消息"""
         def run():
@@ -465,7 +463,7 @@ class AgentCoreAdapter(CoreInterface):
                         type=MessageType.ERROR,
                         content=str(e)
                     ))
-        
+
         thread = threading.Thread(target=run, daemon=True)
         thread.start()
 
@@ -478,19 +476,19 @@ class AgentCoreAdapter(CoreInterface):
         if self._callback_bridge is None:
             return None
         return self._callback_bridge.request_user_input(payload)
-    
+
     def cancel_session(self, session_id: str) -> None:
         self._adapter.cancel_session(session_id)
-    
+
     def set_mode(self, session_id: str, mode: str) -> None:
         self._adapter.set_session_mode(session_id, mode)
-    
+
     def approve_permission(self, session_id: str, permission_id: str) -> None:
         self._adapter.approve_permission(session_id, permission_id)
-    
+
     def reject_permission(self, session_id: str, permission_id: str) -> None:
         self._adapter.reject_permission(session_id, permission_id)
-    
+
     def reply_user_input(self, session_id: str, request_id: str,
                         answer: str, **kwargs) -> None:
         self._adapter.reply_user_input(
@@ -520,7 +518,7 @@ class AgentCoreAdapter(CoreInterface):
 
     def list_workspace_recipes(self) -> Dict[str, Any]:
         return self._adapter.list_workspace_recipes()
-    
+
     def list_workspace_tree(self, path: str = ".", max_depth: int = 3) -> List[Dict[str, Any]]:
         result = self._adapter.list_workspace_tree(path, max_depth)
         return result.get("items", [])
@@ -528,10 +526,10 @@ class AgentCoreAdapter(CoreInterface):
     def list_file_children(self, path: str = ".", limit: int = 200) -> List[Dict[str, Any]]:
         result = self._adapter.list_workspace_children(path, limit)
         return result.get("items", [])
-    
+
     def read_file(self, path: str) -> Dict[str, Any]:
         return self._adapter.read_workspace_file(path)
-    
+
     def write_file(self, path: str, content: str) -> Dict[str, Any]:
         return self._adapter.write_workspace_file(path, content)
 
@@ -543,15 +541,15 @@ class AgentCoreAdapter(CoreInterface):
 
     def read_artifact(self, reference: str) -> Dict[str, Any]:
         return self._adapter.read_artifact(reference)
-    
+
     def get_diff_preview(self, path: str, new_content: str) -> DiffPreview:
         old_content = ""
         try:
             file_data = self.read_file(path)
             old_content = file_data.get("content", "")
-        except:
+        except Exception:
             pass
-        
+
         unified_diff = "".join(difflib.unified_diff(
             old_content.splitlines(True),
             new_content.splitlines(True),
@@ -559,14 +557,14 @@ class AgentCoreAdapter(CoreInterface):
             tofile=path,
             lineterm=""
         ))
-        
+
         return DiffPreview(
             path=path,
             old_content=old_content,
             new_content=new_content,
             unified_diff=unified_diff
         )
-    
+
     def list_tasks(self, session_id: str = "") -> List[Dict[str, Any]]:
         result = self._adapter.list_tasks(session_id=session_id)
         return result.get("tasks", [])
@@ -585,7 +583,7 @@ class AgentCoreAdapter(CoreInterface):
 
     def get_tool_catalog(self) -> List[Dict[str, Any]]:
         return self._adapter.get_tool_catalog()
-    
+
     def shutdown(self) -> None:
         """关闭 Core"""
         # 清理资源

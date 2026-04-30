@@ -2,39 +2,43 @@ from __future__ import annotations
 
 import difflib
 import io
-import json
 import os
 import threading
 import time
 import uuid
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Callable, Dict, List, Optional, Set
+from typing import Any, Callable, Dict, List, Optional
 
 from embedagent.context import ContextManager
-from embedagent.harness.runner import HarnessRunner
 from embedagent.harness import task_store
+from embedagent.harness.runner import HarnessRunner
 from embedagent.interaction import UserInputRequest, UserInputResponse
 from embedagent.llm import OpenAICompatibleClient
 from embedagent.memory_maintenance import MemoryMaintenance
-from embedagent.modes import DEFAULT_MODE, allowed_tools_for, build_system_prompt, initialize_modes, mode_names, require_mode
-from embedagent.plan_store import PlanStore
+from embedagent.modes import (
+    DEFAULT_MODE,
+    allowed_tools_for,
+    initialize_modes,
+    mode_names,
+    require_mode,
+)
 from embedagent.permissions import PermissionPolicy, PermissionRequest
-from embedagent.protocol import CommandResult, PermissionContextView, PlanSnapshot
+from embedagent.plan_store import PlanStore
 from embedagent.project_memory import ProjectMemoryStore
+from embedagent.protocol import CommandResult, PermissionContextView, PlanSnapshot
 from embedagent.query_engine import QueryEngine
-from embedagent.session_restore import SessionRestoreResult, SessionRestorer
-from embedagent.session_projector import SessionSnapshotProjector
 from embedagent.session import Action, AssistantReply, Observation, Session
 from embedagent.session_history import SessionHistoryAssembler
+from embedagent.session_projector import SessionSnapshotProjector
+from embedagent.session_restore import SessionRestorer
+from embedagent.session_runtime import ManagedSession
 from embedagent.session_store import SessionSummaryStore
 from embedagent.session_timeline import SessionTimelineStore
-from embedagent.session_runtime import ManagedSession
 from embedagent.slash_commands import ParsedSlashCommand, SlashCommandRegistry, parse_slash_command
-from embedagent.transcript_store import TranscriptStore
 from embedagent.tools import ToolRuntime
 from embedagent.tools._base import SKIP_DIR_NAMES
-
+from embedagent.transcript_store import TranscriptStore
 
 EventHandler = Callable[[str, str, Dict[str, Any]], None]
 

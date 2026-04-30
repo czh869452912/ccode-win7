@@ -3,13 +3,12 @@ import os
 import shutil
 import sys
 import unittest
-from unittest.mock import patch
 from itertools import count
+from unittest.mock import patch
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from embedagent.tools import ToolRuntime, ToolDefinition
-
+from embedagent.tools import ToolDefinition, ToolRuntime
 
 _COUNTER = count(1)
 
@@ -278,7 +277,6 @@ class TestModuleIsolation(unittest.TestCase):
         self.assertTrue(callable(git_ops.build_tools))
 
     def test_base_importable(self):
-        from embedagent.tools._base import ToolContext, ToolDefinition, ToolError
         self.assertTrue(True)
 
 

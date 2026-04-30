@@ -8,7 +8,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum, auto
-from typing import Any, Callable, Dict, List, Optional, Protocol
+from typing import Any, Dict, List, Optional, Protocol
 
 
 class MessageType(Enum):
@@ -55,7 +55,7 @@ class ToolCall:
     step_index: int = 0
     runtime_source: str = ""
     resolved_tool_roots: Dict[str, Any] = field(default_factory=dict)
-    
+
 
 @dataclass
 class ToolResult:
@@ -244,7 +244,7 @@ class SessionSnapshot:
     task_items: List[Dict[str, Any]] = field(default_factory=list)
 
 
-@dataclass  
+@dataclass
 class WorkspaceInfo:
     """工作区信息"""
     path: str
@@ -258,35 +258,35 @@ class WorkspaceInfo:
 
 class FrontendCallbacks(Protocol):
     """前端回调协议 - Core 调用 Frontend"""
-    
+
     def on_message(self, message: Message) -> None:
         """新消息到达"""
         ...
-    
+
     def on_tool_start(self, call: ToolCall) -> None:
         """工具开始执行"""
         ...
-    
+
     def on_tool_progress(self, call_id: str, progress: Dict[str, Any]) -> None:
         """工具进度更新"""
         ...
-    
+
     def on_tool_finish(self, result: ToolResult) -> None:
         """工具执行完成"""
         ...
-    
+
     def on_permission_request(self, request: PermissionRequest) -> bool:
         """请求用户权限，返回是否批准"""
         ...
-    
+
     def on_user_input_request(self, request: UserInputRequest) -> Optional[str]:
         """请求用户输入，返回答案"""
         ...
-    
+
     def on_session_status_change(self, snapshot: SessionSnapshot) -> None:
         """会话状态变化"""
         ...
-    
+
     def on_stream_delta(self, text: str, metadata: Optional[Dict[str, Any]] = None) -> None:
         """流式输出增量"""
         ...
@@ -318,17 +318,17 @@ class FrontendCallbacks(Protocol):
 
 class CoreInterface(ABC):
     """Core 接口抽象 - Frontend 调用 Core"""
-    
+
     @abstractmethod
     def create_session(self, mode: str) -> SessionSnapshot:
         """创建新会话"""
         pass
-    
+
     @abstractmethod
     def resume_session(self, reference: str, mode: str) -> SessionSnapshot:
         """恢复会话"""
         pass
-    
+
     @abstractmethod
     def list_sessions(self, limit: int = 10) -> List[Dict[str, Any]]:
         """列出会话"""
@@ -343,38 +343,38 @@ class CoreInterface(ABC):
     def get_session_bootstrap(self, session_id: str) -> Dict[str, Any]:
         """获取会话 bootstrap 负载"""
         pass
-    
+
     @abstractmethod
     def submit_message(self, session_id: str, text: str) -> None:
         """提交用户消息（异步）"""
         pass
-    
+
     @abstractmethod
     def cancel_session(self, session_id: str) -> None:
         """取消会话"""
         pass
-    
+
     @abstractmethod
     def set_mode(self, session_id: str, mode: str) -> None:
         """设置会话模式"""
         pass
-    
+
     @abstractmethod
     def approve_permission(self, session_id: str, permission_id: str) -> None:
         """批准权限请求"""
         pass
-    
+
     @abstractmethod
     def reject_permission(self, session_id: str, permission_id: str) -> None:
         """拒绝权限请求"""
         pass
-    
+
     @abstractmethod
-    def reply_user_input(self, session_id: str, request_id: str, 
+    def reply_user_input(self, session_id: str, request_id: str,
                         answer: str, **kwargs) -> None:
         """回复用户输入请求"""
         pass
-    
+
     @abstractmethod
     def get_workspace_snapshot(self) -> WorkspaceInfo:
         """获取工作区快照"""
@@ -384,7 +384,7 @@ class CoreInterface(ABC):
     def list_workspace_recipes(self) -> Dict[str, Any]:
         """列出工作区 recipe"""
         pass
-    
+
     @abstractmethod
     def list_workspace_tree(self, path: str = ".", max_depth: int = 3) -> List[Dict[str, Any]]:
         """列出工作区树"""
@@ -394,12 +394,12 @@ class CoreInterface(ABC):
     def list_file_children(self, path: str = ".", limit: int = 200) -> List[Dict[str, Any]]:
         """列出目录的直接子项"""
         pass
-    
+
     @abstractmethod
     def read_file(self, path: str) -> Dict[str, Any]:
         """读取文件"""
         pass
-    
+
     @abstractmethod
     def write_file(self, path: str, content: str) -> Dict[str, Any]:
         """写入文件"""
@@ -419,12 +419,12 @@ class CoreInterface(ABC):
     def read_artifact(self, reference: str) -> Dict[str, Any]:
         """读取工件"""
         pass
-    
+
     @abstractmethod
     def get_diff_preview(self, path: str, new_content: str) -> DiffPreview:
         """获取 diff 预览"""
         pass
-    
+
     @abstractmethod
     def list_tasks(self, session_id: str = "") -> List[Dict[str, Any]]:
         """列出当前会话任务"""
@@ -444,7 +444,7 @@ class CoreInterface(ABC):
     def get_tool_catalog(self) -> List[Dict[str, Any]]:
         """获取当前工具目录"""
         pass
-    
+
     @abstractmethod
     def shutdown(self) -> None:
         """关闭 Core"""

@@ -2,8 +2,7 @@ from __future__ import annotations
 
 import json
 import os
-from typing import Any, Dict, List, Optional
-
+from typing import Any, Dict, List
 
 _PROJECT_RECIPES_RELPATH = os.path.join(".embedagent", "workspace-recipes.json")
 _HISTORY_RECIPES_RELPATH = os.path.join(".embedagent", "memory", "project", "command-recipes.json")

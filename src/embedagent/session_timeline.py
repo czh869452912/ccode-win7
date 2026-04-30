@@ -10,7 +10,6 @@ from typing import Any, Dict, List, Tuple
 
 from embedagent.persistence_sanitize import sanitize_jsonable
 
-
 _LOGGER = logging.getLogger(__name__)
 
 

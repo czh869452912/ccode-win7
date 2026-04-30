@@ -9,19 +9,24 @@ from itertools import count
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from embedagent.context import ContextManager
 from embedagent.config import AppConfig
+from embedagent.context import ContextManager
 from embedagent.inprocess_adapter import InProcessAdapter
 from embedagent.llm import ModelClientError
 from embedagent.permissions import PermissionPolicy
 from embedagent.query_engine import QueryEngine
-from embedagent.session_restore import SessionRestorer
 from embedagent.session import Action, AssistantReply, Observation, Session
-from embedagent.transcript_store import TranscriptStore
+from embedagent.session_restore import SessionRestorer
 from embedagent.tool_execution import partition_tool_actions
 from embedagent.tools import ToolRuntime
-from embedagent.workspace_intelligence import CtagsProvider, DiagnosticsProvider, LlspProvider, RecipeProvider, WorkspaceIntelligenceBroker
-
+from embedagent.transcript_store import TranscriptStore
+from embedagent.workspace_intelligence import (
+    CtagsProvider,
+    DiagnosticsProvider,
+    LlspProvider,
+    RecipeProvider,
+    WorkspaceIntelligenceBroker,
+)
 
 _COUNTER = count(1)
 

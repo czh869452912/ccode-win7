@@ -1,28 +1,46 @@
 from __future__ import annotations
 
-from copy import deepcopy
 import logging
 import os
 import threading
 import time
 import uuid
+from copy import deepcopy
 from typing import Any, Callable, Dict, Optional, Tuple
 
 from embedagent.context import ContextManager
 from embedagent.guard import LoopGuard
-from embedagent.interaction import UserInputRequest, UserInputResponse, ask_user_schema, build_user_input_request, propose_mode_switch_schema
+from embedagent.interaction import (
+    UserInputRequest,
+    UserInputResponse,
+    ask_user_schema,
+    build_user_input_request,
+    propose_mode_switch_schema,
+)
 from embedagent.llm import ModelClientError, OpenAICompatibleClient
 from embedagent.memory_maintenance import MemoryMaintenance
 from embedagent.modes import DEFAULT_MODE, build_system_prompt, is_path_writable, require_mode
 from embedagent.permissions import PermissionPolicy, PermissionRequest
 from embedagent.project_memory import ProjectMemoryStore
-from embedagent.session import Action, AssistantReply, ContextAssemblyResult, InteractionCheckpoint, LoopResult, LoopTransition, Observation, PendingInteraction, QueryTurnResult, Session, ToolPresentationSnapshot
+from embedagent.session import (
+    Action,
+    AssistantReply,
+    ContextAssemblyResult,
+    InteractionCheckpoint,
+    LoopResult,
+    LoopTransition,
+    Observation,
+    PendingInteraction,
+    QueryTurnResult,
+    Session,
+    ToolPresentationSnapshot,
+)
 from embedagent.session_store import SessionSummaryStore
-from embedagent.transcript_store import TranscriptStore
-from embedagent.tool_execution import StreamingToolExecutor, partition_tool_actions
 from embedagent.tool_commit import ToolCommitCoordinator
+from embedagent.tool_execution import StreamingToolExecutor, partition_tool_actions
 from embedagent.tools import ToolRuntime
 from embedagent.tools._base import ToolError
+from embedagent.transcript_store import TranscriptStore
 from embedagent.workspace_intelligence import WorkspaceIntelligenceBroker
 from embedagent.workspace_profile import build_workspace_profile_message
 

@@ -8,7 +8,6 @@ import tempfile
 import unittest
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 LIB = ROOT / "scripts" / "package-lib.ps1"
 CONFIG = ROOT / "scripts" / "package.config.json"

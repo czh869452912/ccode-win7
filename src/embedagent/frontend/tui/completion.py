@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from typing import Iterable, List, Set
+from typing import Iterable, List
 
 from prompt_toolkit.completion import Completer, Completion
 

@@ -3,7 +3,6 @@ import argparse
 import json
 from pathlib import Path
 
-
 parser = argparse.ArgumentParser()
 parser.add_argument("bundle_root")
 parser.add_argument("--json-report", required=True)

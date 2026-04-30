@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable, Optional
 
 from embedagent.frontend.tui.models import ArtifactRow, EditorBuffer, ExplorerItem
 from embedagent.frontend.tui.state import TerminalState

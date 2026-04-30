@@ -5,10 +5,10 @@ import unittest
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from embedagent.permissions import (
-    PermissionPolicy,
     READ_TOOLS,
     TOOLCHAIN_EXEC_TOOLS,
     WORKSPACE_WRITE_TOOLS,
+    PermissionPolicy,
 )
 from embedagent.session import Action
 

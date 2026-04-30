@@ -11,7 +11,6 @@ from embedagent.inprocess_adapter import InProcessAdapter
 from embedagent.permissions import PermissionPolicy
 from embedagent.tools import ToolRuntime
 
-
 _COUNTER = count(1)
 
 

@@ -1,16 +1,15 @@
 from __future__ import annotations
 
-import io
 import hashlib
+import io
 import json
 import logging
 import os
 import re
 from dataclasses import dataclass
-from typing import Any, Iterable, Optional, Set
+from typing import Any, Iterable
 
 from embedagent.persistence_sanitize import sanitize_jsonable, sanitize_text
-
 
 _PREVIEW_LIMIT = 1600
 _LOGGER = logging.getLogger(__name__)

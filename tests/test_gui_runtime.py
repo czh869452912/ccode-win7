@@ -2,17 +2,17 @@ import asyncio
 import json
 import os
 import sys
-import threading
 import tempfile
+import threading
 import unittest
 from unittest.mock import ANY, MagicMock, patch
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from embedagent.config import AppConfig
+from embedagent.frontend.gui import launcher as gui_launcher
 from embedagent.frontend.gui.backend.bridge import BlockingResult, ThreadsafeAsyncDispatcher
 from embedagent.frontend.gui.backend.server import GUIBackend, WebSocketFrontend
-from embedagent.frontend.gui import launcher as gui_launcher
 
 
 class TestGuiLauncher(unittest.TestCase):

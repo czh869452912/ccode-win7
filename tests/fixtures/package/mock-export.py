@@ -3,7 +3,6 @@ import argparse
 import json
 from pathlib import Path
 
-
 parser = argparse.ArgumentParser()
 parser.add_argument("--json-report", required=True)
 parser.add_argument("--output-dir", required=False, default="")

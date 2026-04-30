@@ -14,7 +14,22 @@
       "WebFetch(domain:www.anthropic.com)",
       "WebFetch(domain:docs.cline.bot)",
       "WebFetch(domain:thenewstack.io)",
-      "WebFetch(domain:aider.chat)"
+      "WebFetch(domain:aider.chat)",
+      "Bash(git push *)",
+      "Bash(gh pr create --title 'ci: GitHub Actions pipeline + repo agent-friendliness improvements' --body ' *)",
+      "PowerShell($env:PATH = [System.Environment]::GetEnvironmentVariable\\(\"PATH\", \"Machine\"\\) + \";\" + [System.Environment]::GetEnvironmentVariable\\(\"PATH\", \"User\"\\); cd \"D:\\\\Project\\\\coding_agent\\\\.claude\\\\worktrees\\\\interesting-burnell-9ca697\"; gh run view 25144930514 --repo czh869452912/ccode-win7)",
+      "Bash(python -m pip show ruff)",
+      "Bash(pip install *)",
+      "Bash(ruff check *)",
+      "PowerShell(Get-Command python -ErrorAction SilentlyContinue)",
+      "PowerShell(Get-Command python3 -ErrorAction SilentlyContinue)",
+      "PowerShell(Get-Command uv -ErrorAction SilentlyContinue)",
+      "Bash(sed -n '1,5p' src/embedagent/tui.py)",
+      "Bash(sed -n '25,40p' src/embedagent/frontend/gui/launcher.py)",
+      "Bash(sed -n '545,555p' src/embedagent/core/adapter.py)",
+      "Bash(sed -n '1,35p' src/embedagent/session_store.py)",
+      "Bash(sed -n '9,12p' src/embedagent/protocol/__init__.py)",
+      "Bash(git add *)"
     ]
   }
 }

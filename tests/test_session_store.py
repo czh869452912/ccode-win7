@@ -1,10 +1,10 @@
+import json
 import os
 import shutil
 import sys
 import tempfile
 import threading
 import unittest
-import json
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 

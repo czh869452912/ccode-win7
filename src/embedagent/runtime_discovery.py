@@ -3,7 +3,6 @@ from __future__ import annotations
 import os
 from typing import Iterable, Optional, Sequence
 
-
 _BUNDLE_MARKER_RELATIVE_PATHS = (
     os.path.join("app", "embedagent"),
     os.path.join("runtime", "python"),

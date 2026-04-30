@@ -4,7 +4,6 @@ GUI Backend - FastAPI + WebSocket 服务
 """
 from __future__ import annotations
 
-import asyncio
 import logging
 import threading
 import time
@@ -12,8 +11,8 @@ from contextlib import asynccontextmanager
 from typing import Any, Dict, Optional, Set
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
-from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from embedagent.frontend.gui.backend.bridge import BlockingResult, ThreadsafeAsyncDispatcher
 from embedagent.frontend.gui.backend.session_events import build_session_event
@@ -183,7 +182,7 @@ class WebSocketFrontend(FrontendCallbacks):
     WebSocket 前端适配器
     将 Core 的回调转换为 WebSocket 消息发送给前端
     """
-    
+
     def __init__(self):
         self.connections: Set[WebSocket] = set()
         self._connections_lock = threading.RLock()
@@ -191,7 +190,7 @@ class WebSocketFrontend(FrontendCallbacks):
         self._pending_inputs = {}  # type: Dict[str, BlockingResult[Optional[Dict[str, Any]]]]
         self._pending_lock = threading.RLock()
         self._dispatcher = ThreadsafeAsyncDispatcher()
-    
+
     async def connect(self, websocket: WebSocket):
         await websocket.accept()
         self._dispatcher.bind_running_loop()
@@ -199,13 +198,13 @@ class WebSocketFrontend(FrontendCallbacks):
             self.connections.add(websocket)
             total = len(self.connections)
         _LOGGER.info(f"WebSocket connected, total: {total}")
-    
+
     def disconnect(self, websocket: WebSocket):
         with self._connections_lock:
             self.connections.discard(websocket)
             total = len(self.connections)
         _LOGGER.info(f"WebSocket disconnected, total: {total}")
-    
+
     async def broadcast(self, message: Dict[str, Any]):
         """广播消息给所有连接的客户端"""
         disconnected = set()
@@ -216,7 +215,7 @@ class WebSocketFrontend(FrontendCallbacks):
                 await conn.send_json(message)
             except Exception:
                 disconnected.add(conn)
-        
+
         # 清理断开的连接
         if disconnected:
             with self._connections_lock:
@@ -229,9 +228,9 @@ class WebSocketFrontend(FrontendCallbacks):
             _LOGGER.error("GUI event dispatch failed: %s", result.reason)
             return False
         return True
-    
+
     # ============ FrontendCallbacks 实现 ============
-    
+
     def on_message(self, message: Message) -> None:
         self._dispatch_message({
             "type": "message",
@@ -243,7 +242,7 @@ class WebSocketFrontend(FrontendCallbacks):
                 "metadata": message.metadata
             }
         })
-    
+
     def on_tool_start(self, call: ToolCall) -> None:
         arguments = {}
         if isinstance(call.arguments, dict):
@@ -269,13 +268,13 @@ class WebSocketFrontend(FrontendCallbacks):
                 "resolved_tool_roots": call.resolved_tool_roots,
             }
         })
-    
+
     def on_tool_progress(self, call_id: str, progress: Dict[str, Any]) -> None:
         self._dispatch_message({
             "type": "tool_progress",
             "data": {"call_id": call_id, **progress}
         })
-    
+
     def on_tool_finish(self, result: ToolResult) -> None:
         self._dispatch_message({
             "type": "tool_finish",
@@ -298,7 +297,7 @@ class WebSocketFrontend(FrontendCallbacks):
                 "resolved_tool_roots": result.resolved_tool_roots or (result.data.get("resolved_tool_roots") if isinstance(result.data, dict) else {}),
             }
         })
-    
+
     def on_permission_request(self, request: PermissionRequest) -> bool:
         """同步阻塞等待用户响应"""
         waiter = BlockingResult(False)
@@ -325,7 +324,7 @@ class WebSocketFrontend(FrontendCallbacks):
         finally:
             with self._pending_lock:
                 self._pending_permissions.pop(request.permission_id, None)
-    
+
     def on_user_input_request(self, request: UserInputRequest) -> Optional[Dict[str, Any]]:
         """同步阻塞等待用户响应"""
         waiter = BlockingResult(None)  # type: BlockingResult[Optional[Dict[str, Any]]]
@@ -352,7 +351,7 @@ class WebSocketFrontend(FrontendCallbacks):
         finally:
             with self._pending_lock:
                 self._pending_inputs.pop(request.request_id, None)
-    
+
     def on_session_status_change(self, snapshot: SessionSnapshot) -> None:
         snapshot_payload = _serialize_session_snapshot(snapshot)
         self._dispatch_message({
@@ -378,7 +377,7 @@ class WebSocketFrontend(FrontendCallbacks):
                 "pending_interaction_valid": snapshot_payload["pending_interaction_valid"],
             }
         })
-    
+
     def on_stream_delta(self, text: str, metadata: Optional[Dict[str, Any]] = None) -> None:
         self._dispatch_message({
             "type": "stream_delta",
@@ -438,7 +437,7 @@ class WebSocketFrontend(FrontendCallbacks):
         self._dispatch_message(build_session_event(session_id, event_name, dict(payload)))
 
     # ============ 处理前端响应 ============
-    
+
     def handle_permission_response(self, permission_id: str, approved: bool):
         """处理权限响应"""
         with self._pending_lock:
@@ -447,7 +446,7 @@ class WebSocketFrontend(FrontendCallbacks):
             waiter.resolve(bool(approved))
             return True
         return False
-    
+
     def handle_user_input_response(self, request_id: str, payload: Dict[str, Any]):
         """处理用户输入响应"""
         with self._pending_lock:
@@ -468,14 +467,14 @@ class WebSocketFrontend(FrontendCallbacks):
 
 class GUIBackend:
     """GUI 后端服务"""
-    
+
     def __init__(self, core: CoreInterface, static_dir: str):
         self.core = core
         self.static_dir = static_dir
         self.frontend = WebSocketFrontend()
         self.app = self._create_app()
         self._current_session_id: Optional[str] = None
-        
+
         # 注册前端回调
         self.core.register_frontend(self.frontend)
 
@@ -496,7 +495,7 @@ class GUIBackend:
                 return latest
             time.sleep(0.02)
         return latest if latest is not None else self._call_core(self.core.get_session_snapshot, session_id)
-    
+
     def _create_app(self) -> FastAPI:
         @asynccontextmanager
         async def lifespan(app: FastAPI):
@@ -504,17 +503,17 @@ class GUIBackend:
             yield
             _LOGGER.info("GUI Backend shutting down...")
             self.core.shutdown()
-        
+
         app = FastAPI(title="EmbedAgent GUI", lifespan=lifespan)
-        
+
         # 静态文件
         app.mount("/static", StaticFiles(directory=self.static_dir), name="static")
-        
+
         # 根路由
         @app.get("/")
         async def root():
             return FileResponse(f"{self.static_dir}/index.html")
-        
+
         # API 路由
         @app.get("/api/sessions")
         async def list_sessions(limit: int = 10):
@@ -593,7 +592,7 @@ class GUIBackend:
                     if callable(remember_method):
                         self._call_core(remember_method, session_id, category)
             return _serialize_interaction_response(response)
-        
+
         @app.get("/api/workspace")
         async def get_workspace():
             return self.core.get_workspace_snapshot()
@@ -622,7 +621,7 @@ class GUIBackend:
         async def get_session_events(session_id: str, after_seq: int = 0, limit: int = 200):
             payload = self._call_core(self.core.load_session_events_after, session_id, after_seq, limit=limit)
             return _serialize_replay_payload(session_id, payload)
-        
+
         @app.get("/api/files")
         async def list_workspace_tree(path: str = ".", max_depth: int = 3):
             return {"items": self.core.list_workspace_tree(path, max_depth)}
@@ -630,19 +629,19 @@ class GUIBackend:
         @app.get("/api/files/tree")
         async def list_file_children(path: str = ".", limit: int = 200):
             return {"items": self.core.list_file_children(path, limit)}
-        
+
         @app.get("/api/files/{path:path}")
         async def read_file(path: str):
             try:
                 return self.core.read_file(path)
             except Exception as e:
                 return {"error": str(e)}
-        
+
         @app.post("/api/files/{path:path}")
         async def write_file(path: str, request: Dict[str, Any]):
             content = request.get("content", "")
             return self.core.write_file(path, content)
-        
+
         @app.post("/api/diff")
         async def get_diff(request: Dict[str, Any]):
             path = request.get("path", "")
@@ -654,7 +653,7 @@ class GUIBackend:
                 "new_content": diff.new_content,
                 "unified_diff": diff.unified_diff
             }
-        
+
         @app.get("/api/tasks")
         async def list_tasks(session_id: str = ""):
             return {"tasks": self.core.list_tasks(session_id=session_id)}
@@ -666,7 +665,7 @@ class GUIBackend:
         @app.get("/api/artifacts/{reference:path}")
         async def read_artifact(reference: str):
             return self.core.read_artifact(reference)
-        
+
         # WebSocket 路由
         @app.websocket("/ws")
         async def websocket_endpoint(websocket: WebSocket):
@@ -681,13 +680,13 @@ class GUIBackend:
                 _LOGGER.exception("Unhandled websocket failure")
             finally:
                 self.frontend.disconnect(websocket)
-        
+
         return app
-    
+
     async def _handle_websocket_message(self, data: Dict[str, Any]):
         """处理 WebSocket 消息"""
         msg_type = data.get("type")
-        
+
         if msg_type == "permission_response":
             perm_id = data.get("permission_id", "")
             approved = data.get("approved", False)
@@ -698,7 +697,7 @@ class GUIBackend:
                 if callable(remember_method):
                     remember_method(self._current_session_id, category)
             self.frontend.handle_permission_response(perm_id, approved)
-        
+
         elif msg_type == "user_input_response":
             req_id = data.get("request_id", "")
             self.frontend.handle_user_input_response(req_id, data)

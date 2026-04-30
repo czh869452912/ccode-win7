@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import difflib
 import os
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 from embedagent.tools._base import SKIP_DIR_NAMES, TEXT_ENCODINGS
 

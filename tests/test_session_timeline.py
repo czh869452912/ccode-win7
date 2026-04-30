@@ -11,7 +11,6 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 from embedagent.session_timeline import SessionTimelineStore
 
-
 _COUNTER = count(1)
 
 

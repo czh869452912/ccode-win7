@@ -3,7 +3,6 @@ from __future__ import annotations
 import re
 from typing import Any
 
-
 _OPENAI_KEY_RE = re.compile(r"sk-[A-Za-z0-9_-]{12,}")
 _BEARER_RE = re.compile(r"\bBearer\s+[A-Za-z0-9._~+/=-]{8,}", re.IGNORECASE)
 _AUTH_HEADER_RE = re.compile(r"(?im)^(Authorization\s*:\s*)(.+)$")

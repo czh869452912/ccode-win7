@@ -34,7 +34,6 @@ import os
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
-
 _USER_CONFIG_DIR = os.path.join(os.path.expanduser("~"), ".embedagent")
 _PROJECT_CONFIG_RELPATH = os.path.join(".embedagent", "config.json")
 

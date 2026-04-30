@@ -4,18 +4,18 @@ import os
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
-from embedagent.projection_db import ProjectionDb
-from embedagent.tool_result_store import ToolResultStore
 from embedagent.modes import allowed_tools_for
+from embedagent.projection_db import ProjectionDb
 from embedagent.session import Observation
+from embedagent.tool_result_store import ToolResultStore
 from embedagent.tooling.packs import pack_tool_names
+from embedagent.tools import file_ops, git_ops, shell_ops
+from embedagent.tools._base import ToolContext, ToolError
 from embedagent.tools.harness_runtime import (
     OFFICIAL_HARNESS_TOOL_METADATA,
     OfficialRuntimeModes,
     build_harness_tools,
 )
-from embedagent.tools import file_ops, git_ops, shell_ops
-from embedagent.tools._base import ToolContext, ToolDefinition, ToolError
 
 
 @dataclass

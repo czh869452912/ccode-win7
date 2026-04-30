@@ -14,7 +14,6 @@ from embedagent.modes import (
     mode_names,
     parse_mode_command,
     require_mode,
-    DEFAULT_MODE,
 )
 
 

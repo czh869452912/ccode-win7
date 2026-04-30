@@ -1,12 +1,10 @@
 from __future__ import annotations
 
 import os
-from typing import Dict, List, Set, Tuple
+from typing import Dict, List, Set
 
-from embedagent.harness import task_store
 from embedagent.tools._base import SKIP_DIR_NAMES
 from embedagent.workspace_recipes import list_workspace_recipes
-
 
 _DOC_DIR_NAMES = {
     "doc",

@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import json
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 
+import embedagent.frontend.tui.reducer as reducer
 from embedagent.frontend.tui.commands import parse_command
 from embedagent.frontend.tui.models import ArtifactRow, ExplorerItem
-import embedagent.frontend.tui.reducer as reducer
 from embedagent.frontend.tui.views.timeline import (
     format_context_line,
     format_observation_line,
