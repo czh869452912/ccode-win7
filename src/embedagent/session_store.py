@@ -9,9 +9,14 @@ import uuid
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
+from embedagent.modes import build_system_prompt
 from embedagent.persistence_sanitize import sanitize_jsonable
 from embedagent.projection_db import ProjectionDb
+from embedagent.session import Action, Observation, Session
 from embedagent.tool_result_store import ToolResultStore
+from embedagent.transcript_store import TranscriptStore
+from embedagent.workspace_profile import build_workspace_profile_message
+
 
 def _atomic_write_json(path: str, payload: Any) -> None:
     """Write *payload* to *path* atomically (write temp, rename).
@@ -26,10 +31,6 @@ def _atomic_write_json(path: str, payload: Any) -> None:
     with open(tmp, "w", encoding="utf-8") as handle:
         json.dump(payload, handle, ensure_ascii=False, indent=2, sort_keys=True)
     os.replace(tmp, path)
-from embedagent.modes import build_system_prompt
-from embedagent.session import Action, Observation, Session
-from embedagent.transcript_store import TranscriptStore
-from embedagent.workspace_profile import build_workspace_profile_message
 
 
 _MODE_RE = re.compile(r"当前模式：(\w+)")

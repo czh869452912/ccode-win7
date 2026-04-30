@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
-
 _GUI_EVENT_KIND_MAP = {
     "turn_start": "turn.started",
     "turn_end": "transition.recorded",

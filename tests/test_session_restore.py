@@ -4,12 +4,10 @@ import sys
 import unittest
 from itertools import count
 
-
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from embedagent.session_restore import SessionRestorer
 from embedagent.transcript_store import TranscriptStore
-
 
 _COUNTER = count(1)
 

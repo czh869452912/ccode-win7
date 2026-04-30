@@ -16,10 +16,11 @@ EmbedAgent GUI Playwright 测试示例
        python tests/manual/playwright_example.py
 """
 
-from playwright.sync_api import sync_playwright
 import subprocess
 import sys
 import time
+
+from playwright.sync_api import sync_playwright
 
 
 def start_gui(workspace: str, cdp_port: int = 9222) -> subprocess.Popen:
@@ -143,7 +144,7 @@ def main():
         test_sidebar_interaction(page)
 
         print("\n=== 所有测试完成 ===")
-        print(f"截图保存在: tests/manual/screenshots/")
+        print("截图保存在: tests/manual/screenshots/")
 
         # 关闭浏览器
         browser.close()

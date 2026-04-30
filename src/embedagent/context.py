@@ -7,9 +7,8 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
 from embedagent.project_memory import ProjectMemoryStore
-from embedagent.session import Action, ContextAssemblyResult, Message, Observation, Session, Turn
+from embedagent.session import Action, Message, Observation, Session, Turn
 from embedagent.workspace_intelligence import WorkspaceIntelligenceBroker
-
 
 _MODE_RE = re.compile(r"当前模式：(\w+)")
 _MODE_PROMPT_PREFIX = "你是 EmbedAgent 的受控模式原型。"

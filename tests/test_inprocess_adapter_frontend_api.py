@@ -13,9 +13,7 @@ from embedagent.inprocess_adapter import InProcessAdapter
 from embedagent.llm import ModelClientError
 from embedagent.permissions import PermissionPolicy
 from embedagent.session import Action, AssistantReply
-from embedagent.transcript_store import TranscriptStore
 from embedagent.tools import ToolRuntime
-
 
 _COUNTER = count(1)
 

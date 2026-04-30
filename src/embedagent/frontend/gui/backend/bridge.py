@@ -3,8 +3,7 @@ from __future__ import annotations
 import asyncio
 import threading
 from dataclasses import dataclass
-from typing import Any, Awaitable, Callable, Generic, Optional, TypeVar
-
+from typing import Any, Awaitable, Callable, Generic, TypeVar
 
 T = TypeVar("T")
 

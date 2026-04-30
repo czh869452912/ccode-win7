@@ -12,7 +12,6 @@ from embedagent.persistence_sanitize import sanitize_jsonable
 from embedagent.projection_db import ProjectionDb
 from embedagent.session import Observation, Session
 
-
 _PYTHON_REQ_RE = re.compile(r'^requires-python\s*=\s*"([^"]+)"', re.MULTILINE)
 _PRIMARY_ENV_RE = re.compile(r'Primary development environment manager:\s*`([^`]+)`')
 _FALLBACK_ENV_RE = re.compile(r'approved fallback', re.IGNORECASE)

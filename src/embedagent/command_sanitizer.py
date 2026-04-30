@@ -18,7 +18,7 @@ Design notes
 from __future__ import annotations
 
 import re
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional, Tuple
 
 # ---------------------------------------------------------------------------
 # Built-in deny list — always blocked

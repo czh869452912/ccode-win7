@@ -5,7 +5,7 @@ import json
 import logging
 import os
 import re
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Tuple
 
 _LOG = logging.getLogger(__name__)
 

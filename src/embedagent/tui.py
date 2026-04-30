@@ -1,6 +1,6 @@
 from embedagent.frontend.tui.bootstrap import TUIUnavailableError, run_tui
 
-__all__ = ["TerminalApp", "EmbedAgentTUI", "TUIUnavailableError", "run_tui"]
+__all__ = ["TerminalApp", "EmbedAgentTUI", "TUIUnavailableError", "run_tui"]  # noqa: F822
 
 
 def __getattr__(name):

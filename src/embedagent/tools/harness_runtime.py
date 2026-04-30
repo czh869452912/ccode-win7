@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-from typing import Dict, List
+from typing import List
 
 from embedagent.harness.runner import HarnessRunner
 from embedagent.modes import allowed_tools_for
 from embedagent.tooling.packs import pack_tool_names
 from embedagent.tools import discovery_ops, recipe_ops, session_ops
-
 
 OFFICIAL_HARNESS_TOOL_METADATA = {
     "list_dir": {

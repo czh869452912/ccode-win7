@@ -1,26 +1,28 @@
 """Tests for GUI real-time sync callbacks: tasks_refresh and artifacts_refresh."""
 import os
+import shutil
 import sys
 import tempfile
 import time
-import shutil
 import unittest
 from unittest.mock import MagicMock
 
 sys.path.insert(0, os.path.dirname(__file__))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-from embedagent.protocol import MessageType
 from embedagent.permissions import PermissionPolicy
+from embedagent.protocol import MessageType
 from embedagent.tools import ToolRuntime
 
 
 class TestGuiSync(unittest.TestCase):
     def test_gui_backend_route_resolves_real_pending_input_waiter(self):
         import asyncio
+
+        from test_inprocess_adapter_frontend_api import AskUserClient
+
         from embedagent.core.adapter import AgentCoreAdapter
         from embedagent.frontend.gui.backend.server import GUIBackend
-        from test_inprocess_adapter_frontend_api import AskUserClient
 
         workspace = tempfile.mkdtemp(prefix="gui-sync-")
         static_dir = tempfile.mkdtemp(prefix="gui-sync-static-")

@@ -8,7 +8,7 @@ from unittest.mock import patch
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from embedagent.config import AppConfig, load_config, _merge, _load_json_file
+from embedagent.config import AppConfig, _load_json_file, _merge, load_config
 
 
 class TestAppConfigDefaults(unittest.TestCase):

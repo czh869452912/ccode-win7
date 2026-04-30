@@ -7,7 +7,13 @@ from unittest import mock
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from embedagent.config import AppConfig
-from embedagent.context import ContextConfig, ContextManager, ReducerRegistry, _HIGH_PRIORITY_TOOLS, make_context_config
+from embedagent.context import (
+    _HIGH_PRIORITY_TOOLS,
+    ContextConfig,
+    ContextManager,
+    ReducerRegistry,
+    make_context_config,
+)
 from embedagent.session import Observation, Session
 
 

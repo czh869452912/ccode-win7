@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import os
 from datetime import datetime
-from typing import Dict, Optional
+from typing import Optional
 
 from embedagent.protocol import PlanSnapshot
 

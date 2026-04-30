@@ -26,17 +26,17 @@ _LOGGER = logging.getLogger(__name__)
 def check_dependencies():
     """检查依赖是否安装"""
     try:
-        import webview
+        import webview  # noqa: F401
     except ImportError:
         _LOGGER.error("pywebview not installed. Run: pip install pywebview")
         return False
-    
+
     try:
-        import fastapi
+        import fastapi  # noqa: F401
     except ImportError:
         _LOGGER.error("fastapi not installed. Run: pip install fastapi uvicorn")
         return False
-    
+
     return True
 
 
@@ -55,17 +55,17 @@ def _resolve_runtime_value(override: Any, configured: Any, default: Any) -> Any:
 def create_core(workspace: str, config: Optional[Dict[str, Any]] = None):
     """创建 Agent Core 实例"""
     # 延迟导入以避免循环依赖
-    from embedagent.core.adapter import AgentCoreAdapter
-    from embedagent.context import ContextManager, make_context_config
-    from embedagent.llm import OpenAICompatibleClient
     from embedagent.config import load_config
+    from embedagent.context import ContextManager, make_context_config
+    from embedagent.core.adapter import AgentCoreAdapter
+    from embedagent.llm import OpenAICompatibleClient
     from embedagent.permissions import PermissionPolicy
     from embedagent.project_memory import ProjectMemoryStore
     from embedagent.tools import ToolRuntime
 
     options = dict(config or {})
     workspace = os.path.realpath(workspace)
-    
+
     # 加载配置
     app_config = load_config(workspace)
     base_url = str(_resolve_runtime_value(options.get("base_url"), app_config.base_url, "http://127.0.0.1:8000/v1"))
@@ -76,7 +76,7 @@ def create_core(workspace: str, config: Optional[Dict[str, Any]] = None):
     permission_rules = str(options.get("permission_rules") or "")
     if not model:
         raise ValueError("必须通过 --model 或配置文件提供模型名称。")
-    
+
     # 创建 LLM 客户端
     client = OpenAICompatibleClient(
         base_url=base_url,
@@ -84,7 +84,7 @@ def create_core(workspace: str, config: Optional[Dict[str, Any]] = None):
         model=model,
         timeout=timeout,
     )
-    
+
     # 创建工具运行时
     tools = ToolRuntime(workspace=workspace, app_config=app_config)
     context_manager = ContextManager(
@@ -98,7 +98,7 @@ def create_core(workspace: str, config: Optional[Dict[str, Any]] = None):
         workspace=workspace,
         rules_path=permission_rules,
     )
-    
+
     # 创建 Core Adapter
     core = AgentCoreAdapter(workspace=workspace, config=options)
     core.initialize(
@@ -108,7 +108,7 @@ def create_core(workspace: str, config: Optional[Dict[str, Any]] = None):
         permission_policy=permission_policy,
         context_manager=context_manager,
     )
-    
+
     return core
 
 
@@ -250,7 +250,7 @@ def launch_gui(
 ):
     """
     启动 GUI
-    
+
     Args:
         workspace: 工作区路径
         host: 服务器主机
@@ -261,7 +261,7 @@ def launch_gui(
     """
     if not check_dependencies():
         raise RuntimeError("GUI 依赖未安装。")
-    
+
     import uvicorn
     import webview
     workspace = os.path.realpath(workspace)
@@ -270,7 +270,7 @@ def launch_gui(
         "runtime_source": "non-win32",
         "bundle_required": False,
     }
-    
+
     # 查找可用端口
     if port == 0:
         import socket
@@ -278,7 +278,7 @@ def launch_gui(
         sock.bind((host, 0))
         port = sock.getsockname()[1]
         sock.close()
-    
+
     # 创建 Core
     _LOGGER.info(f"Initializing Agent Core for workspace: {workspace}")
     core = create_core(
@@ -295,20 +295,20 @@ def launch_gui(
             "permission_rules": permission_rules,
         },
     )
-    
+
     try:
         # 创建 GUI Backend
         static_dir = os.path.join(
             os.path.dirname(__file__),
             "static"
         )
-        
+
         from embedagent.frontend.gui.backend.server import GUIBackend
         backend = GUIBackend(core=core, static_dir=static_dir)
-        
+
         # 启动 FastAPI 服务器（在后台线程）
         server_url = f"http://{host}:{port}"
-        
+
         def run_server():
             uvicorn.run(
                 backend.app,
@@ -316,7 +316,7 @@ def launch_gui(
                 port=port,
                 log_level="warning" if not debug else "info"
             )
-        
+
         server_thread = threading.Thread(target=run_server, daemon=True)
         server_thread.start()
 
@@ -324,11 +324,11 @@ def launch_gui(
         renderer_info.update(runtime_info)
         _LOGGER.info("GUI renderer detection: %s", renderer_info.get("renderer"))
         _write_renderer_report(renderer_report, renderer_info)
-        
+
         # 等待服务器启动
         _LOGGER.info(f"Starting server at {server_url}")
         time.sleep(1)
-        
+
         if headless:
             _LOGGER.info("Running in headless mode, press Ctrl+C to exit")
             try:
@@ -336,10 +336,10 @@ def launch_gui(
                     time.sleep(1)
             except KeyboardInterrupt:
                 return
-        
+
         # 创建 PyWebView 窗口
         window_title = f"EmbedAgent - {os.path.basename(workspace)}"
-        
+
         # Windows 7 兼容性设置
         webview_settings = {
             "text_select": True,
@@ -359,7 +359,7 @@ def launch_gui(
             min_size=(800, 600),
             **webview_settings
         )
-        
+
         _LOGGER.info("Starting GUI...")
         if auto_close_seconds and auto_close_seconds > 0:
             def close_after_delay() -> None:

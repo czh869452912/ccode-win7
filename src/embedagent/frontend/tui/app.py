@@ -24,7 +24,7 @@ from embedagent.frontend.tui.views import (
 )
 
 if TYPE_CHECKING:
-    from embedagent.protocol import CoreInterface
+    pass
 
 
 class TerminalApp(object):
