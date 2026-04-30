@@ -43,3 +43,36 @@ embedagent = [
 
 [tool.uv]
 package = true
+
+[tool.ruff]
+target-version = "py38"
+line-length = 100
+select = ["E", "W", "F", "I"]
+ignore = ["E501"]
+
+[tool.black]
+target-version = ["py38"]
+line-length = 100
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v"
+markers = [
+    "unit: pure unit tests, no I/O",
+    "harness: task_graph / phase_engine / mode_runner components",
+    "session: session runtime, restore, timeline",
+    "gui: GUI and frontend tests (requires display)",
+    "slow: integration tests > 5 seconds",
+]
+
+[tool.coverage.run]
+source = ["src/embedagent"]
+omit = ["*/tests/*", "*/fixtures/*", "*/manual/*"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "if __name__ == .__main__.",
+    "raise NotImplementedError",
+    "pass",
+]
+show_missing = true
