@@ -379,7 +379,7 @@ def _get_compiler_version(ctx: ToolContext, executable: str) -> str:
                 if line:
                     return line
             return ""
-    except Exception:
+    except (ToolError, OSError, ValueError, AttributeError):
         return ""
 
 
