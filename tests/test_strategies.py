@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional
 from unittest.mock import MagicMock, patch
 
 from embedagent.llm import ModelClientError
-from embedagent.session import Action, AssistantReply
+from embedagent.session import Action, AssistantReply, QueryTurnResult
 from embedagent.strategies.context_compaction_engine import ContextCompactionEngine
 from embedagent.strategies.llm_retry_wrapper import LLMClientRetryWrapper
 
@@ -211,6 +211,97 @@ class TestLLMClientRetryWrapper(unittest.TestCase):
             )
 
         client.generate.assert_called_once()
+
+
+class TestTurnOrchestrator(unittest.TestCase):
+    def _make_orchestrator(self, llm_wrapper=None, tools=None, permission_policy=None):
+        from embedagent.strategies.turn_orchestrator import TurnOrchestrator
+        return TurnOrchestrator(
+            llm_wrapper=llm_wrapper or MagicMock(),
+            tools=tools or MagicMock(),
+            permission_policy=permission_policy,
+            max_parallel_tools=3,
+        )
+
+    def test_execute_turn_returns_result(self):
+        llm_wrapper = MagicMock()
+        tools = MagicMock()
+        expected_reply = AssistantReply(content="hello", actions=[])
+        llm_wrapper.call_with_retry.return_value = expected_reply
+
+        orchestrator = self._make_orchestrator(llm_wrapper=llm_wrapper, tools=tools)
+        session = MagicMock()
+        result = orchestrator.execute_turn(
+            session=session,
+            messages=[{"role": "user", "content": "hi"}],
+            tool_schemas=[],
+            current_mode="build",
+        )
+
+        self.assertIsInstance(result, QueryTurnResult)
+        self.assertEqual(result.final_text, "hello")
+        self.assertEqual(result.transition.reason, "completed")
+
+    def test_permission_request_handled(self):
+        from embedagent.permissions import PermissionPolicy, PermissionRequest
+
+        llm_wrapper = MagicMock()
+        tools = MagicMock()
+        tools.allowed_tool_names.return_value = ["edit_file"]
+        tools.tool_capabilities.return_value = {}
+        action = Action(name="edit_file", arguments={"path": "test.txt"}, call_id="call-1")
+        expected_reply = AssistantReply(content="", actions=[action])
+        llm_wrapper.call_with_retry.return_value = expected_reply
+
+        permission_policy = MagicMock()
+        decision = MagicMock()
+        decision.outcome = "request"
+        decision.request = PermissionRequest(tool_name="edit_file", category="file", reason="test", details={})
+        permission_policy.evaluate.return_value = decision
+
+        orchestrator = self._make_orchestrator(
+            llm_wrapper=llm_wrapper,
+            tools=tools,
+            permission_policy=permission_policy,
+        )
+        session = MagicMock()
+        result = orchestrator.execute_turn(
+            session=session,
+            messages=[{"role": "user", "content": "hi"}],
+            tool_schemas=[],
+            current_mode="build",
+            permission_handler=None,
+        )
+
+        self.assertIsInstance(result, QueryTurnResult)
+        self.assertEqual(result.transition.reason, "permission_wait")
+        self.assertIsNotNone(result.pending_interaction)
+
+    def test_tool_error_guard_stop(self):
+        from embedagent.tools._base import ToolError
+
+        llm_wrapper = MagicMock()
+        tools = MagicMock()
+        tools.allowed_tool_names.return_value = ["read_file"]
+        tools.tool_capabilities.return_value = {}
+        action = Action(name="read_file", arguments={"path": "test.txt"}, call_id="call-1")
+        expected_reply = AssistantReply(content="", actions=[action])
+        llm_wrapper.call_with_retry.return_value = expected_reply
+
+        tools.execute_with_interrupt.side_effect = ToolError("file not found")
+
+        orchestrator = self._make_orchestrator(llm_wrapper=llm_wrapper, tools=tools)
+        session = MagicMock()
+        result = orchestrator.execute_turn(
+            session=session,
+            messages=[{"role": "user", "content": "hi"}],
+            tool_schemas=[],
+            current_mode="build",
+        )
+
+        self.assertIsInstance(result, QueryTurnResult)
+        # Non-retryable ToolError triggers LoopGuard after first failure
+        self.assertEqual(result.transition.reason, "guard_stop")
 
 
 if __name__ == "__main__":
