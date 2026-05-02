@@ -7,6 +7,8 @@ from typing import Any, Dict, List, Optional
 from embedagent.modes import allowed_tools_for
 from embedagent.projection_db import ProjectionDb
 from embedagent.session import Observation
+from embedagent.strategies.tool_cache import ToolResultCache
+from embedagent.session import Action
 from embedagent.tool_result_store import ToolResultStore
 from embedagent.tooling.packs import pack_tool_names
 from embedagent.tools import compile_ops, file_ops, git_ops, shell_ops
@@ -224,7 +226,7 @@ _DEFAULT_TOOL_METADATA.update(OFFICIAL_HARNESS_TOOL_METADATA)
 
 
 class ToolRuntime(object):
-    def __init__(self, workspace: str, app_config=None) -> None:
+    def __init__(self, workspace: str, app_config=None, cache: Optional[ToolResultCache] = None) -> None:
         self.workspace = os.path.realpath(workspace)
         self.tool_result_store = ToolResultStore(self.workspace)
         self.projection_db = ProjectionDb(
@@ -232,6 +234,7 @@ class ToolRuntime(object):
         )
         self._ctx = ToolContext(self.workspace, app_config=app_config)
         self.app_config = app_config  # Optional AppConfig; used by loop for path write checking
+        self._cache = cache if cache is not None else ToolResultCache(tool_result_store=self.tool_result_store)
         self._mode_runtime = OfficialRuntimeModes()
         official_tools = (
             file_ops.build_tools(self._ctx)
@@ -359,6 +362,30 @@ class ToolRuntime(object):
 
     def execute(self, name: str, arguments: Dict[str, Any]) -> Observation:
         return self.execute_with_interrupt(name, arguments, None)
+
+    def execute_with_cache(
+        self,
+        action_name: str,
+        arguments: Dict[str, Any],
+        session_id: str = "",
+        use_cache: bool = True,
+    ) -> Observation:
+        if not use_cache:
+            return self.execute_with_interrupt(action_name, arguments, None)
+
+        action = Action(name=action_name, arguments=arguments, call_id="", raw_arguments=arguments)
+
+        # Check cache
+        cached = self._cache.get(action, session_id)
+        if cached is not None:
+            return cached
+
+        # Execute and cache if successful
+        observation = self.execute_with_interrupt(action_name, arguments, None)
+        if observation.success:
+            self._cache.put(action, observation, session_id)
+
+        return observation
 
     def execute_with_interrupt(
         self,
