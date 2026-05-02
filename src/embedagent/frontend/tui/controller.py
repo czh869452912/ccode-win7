@@ -252,7 +252,7 @@ class TerminalController(object):
         reducer.set_last_error(self.owner.state, "")
         try:
             self.owner.session_service.submit(session_id, text, event_handler=self.on_event)
-        except Exception as exc:
+        except (RuntimeError, ValueError, TypeError) as exc:
             reducer.set_last_error(self.owner.state, str(exc))
             reducer.update_snapshot(self.owner.state, status="error", last_error=str(exc))
             reducer.append_line(self.owner.state, "[error] %s" % exc)
@@ -350,7 +350,7 @@ class TerminalController(object):
     def open_preview(self, path: str) -> None:
         try:
             payload = self.owner.workspace_service.read_file(path)
-        except Exception as exc:
+        except (OSError, ValueError, TypeError) as exc:
             reducer.append_line(self.owner.state, "[error] %s" % exc)
             return
         text = str(payload.get("content") or "")
@@ -359,7 +359,7 @@ class TerminalController(object):
     def open_editor(self, path: str) -> None:
         try:
             buffer = self.owner.editor_service.open_buffer(path)
-        except Exception as exc:
+        except (OSError, ValueError, TypeError) as exc:
             reducer.append_line(self.owner.state, "[error] %s" % exc)
             return
         reducer.set_editor_buffer(self.owner.state, buffer, diff_preview="", warning="")
@@ -367,7 +367,7 @@ class TerminalController(object):
     def open_artifact(self, reference: str) -> None:
         try:
             payload = self.owner.artifact_service.read_item(reference)
-        except Exception as exc:
+        except (OSError, ValueError, TypeError) as exc:
             reducer.append_line(self.owner.state, "[error] %s" % exc)
             return
         reducer.set_selected_artifact(self.owner.state, str(payload.get("path") or reference))

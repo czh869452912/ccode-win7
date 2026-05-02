@@ -473,7 +473,7 @@ class QueryEngine(object):
                     parent_message_id=parent_message_id,
                     finished_at=finished_at,
                 )
-            except Exception as exc:
+            except (OSError, ValueError, TypeError) as exc:
                 _LOG.warning(
                     "tool commit failed for %s/%s; falling back to in-memory pairing: %s",
                     action.name,
@@ -1446,15 +1446,15 @@ class QueryEngine(object):
             summary_ref = None
             try:
                 summary_ref = self.summary_store.persist(session, current_mode, assembly)
-            except Exception as exc:
+            except (OSError, ValueError, TypeError) as exc:
                 _LOG.warning("session summary persist failed: %s", exc)
             try:
                 self.project_memory_store.refresh(session, current_mode, summary_ref)
-            except Exception as exc:
+            except (OSError, ValueError, TypeError) as exc:
                 _LOG.warning("project memory refresh failed: %s", exc)
             try:
                 session.trim_old_observations(30)
-            except Exception as exc:
+            except (ValueError, TypeError) as exc:
                 _LOG.warning("session trim failed: %s", exc)
         self._maybe_maintain_memory()
 
@@ -1502,7 +1502,7 @@ class QueryEngine(object):
         self._maintenance_counter = 0
         try:
             self.memory_maintenance.run()
-        except Exception as exc:
+        except (RuntimeError, ValueError, TypeError) as exc:
             _LOG.warning("memory maintenance failed: %s", exc)
 
     def _failure_observation(self, tool_name: str, error: str, error_kind: str, retryable: bool, blocked_by: str, suggested_next_step: str, extra_data: Optional[Dict[str, Any]] = None) -> Observation:

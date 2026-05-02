@@ -2202,7 +2202,7 @@ class InProcessAdapter(object):
                     permission_handler=permission_handler,
                     user_input_handler=user_input_handler,
                 )
-        except Exception as exc:
+        except (RuntimeError, ValueError, TypeError) as exc:
             set_thinking(False, "session_error")
             with state.lock:
                 is_worker_thread = threading.current_thread() is state.active_thread

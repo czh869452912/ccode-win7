@@ -634,7 +634,7 @@ class GUIBackend:
         async def read_file(path: str):
             try:
                 return self.core.read_file(path)
-            except Exception as e:
+            except (OSError, ValueError, TypeError) as e:
                 return {"error": str(e)}
 
         @app.post("/api/files/{path:path}")

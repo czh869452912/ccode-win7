@@ -102,7 +102,7 @@ class StreamingToolExecutor(object):
                 updates.put(ToolExecutionUpdate(action=action, phase="start"))
                 try:
                     observation = self.execute_action(action)
-                except Exception as exc:
+                except (RuntimeError, ValueError, TypeError) as exc:
                     observation = Observation(
                         tool_name=action.name,
                         success=False,

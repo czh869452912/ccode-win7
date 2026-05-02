@@ -338,7 +338,7 @@ class ToolRuntime(object):
                 error=str(exc),
                 data={"error_kind": "tool_error", "retryable": True},
             )
-        except Exception as exc:
+        except (RuntimeError, ValueError, TypeError) as exc:
             return Observation(
                 tool_name=name,
                 success=False,

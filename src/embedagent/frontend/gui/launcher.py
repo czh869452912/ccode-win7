@@ -122,7 +122,7 @@ def _detect_windows_renderer() -> Dict[str, Any]:
             "renderer": str(getattr(winforms, "renderer", "unknown")),
             "is_chromium": bool(getattr(winforms, "is_chromium", False)),
         }
-    except Exception as exc:
+    except (OSError, ValueError, TypeError) as exc:
         return {
             "platform": "win32",
             "renderer": "unknown",
@@ -182,7 +182,7 @@ def _configure_webview_runtime() -> Dict[str, Any]:
         source = "bundle"
     try:
         import webview.platforms.winforms as winforms
-    except Exception as exc:
+    except (ImportError, ModuleNotFoundError, OSError) as exc:
         raise RuntimeError("无法初始化 Windows WebView 引擎：%s" % exc)
 
     is_chromium = False
@@ -366,7 +366,7 @@ def launch_gui(
                 time.sleep(float(auto_close_seconds))
                 try:
                     window.destroy()
-                except Exception as exc:
+                except (OSError, RuntimeError, ValueError) as exc:
                     _LOGGER.warning("Failed to auto-close GUI window: %s", exc)
 
             webview.start(close_after_delay, debug=debug)
