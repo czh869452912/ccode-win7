@@ -190,6 +190,7 @@ _DEFAULT_TOOL_METADATA = {
 }
 _DEFAULT_TOOL_METADATA.update(OFFICIAL_HARNESS_TOOL_METADATA)
 
+
 class ToolRuntime(object):
     def __init__(self, workspace: str, app_config=None) -> None:
         self.workspace = os.path.realpath(workspace)
@@ -208,10 +209,7 @@ class ToolRuntime(object):
         )
         harness_tools = build_harness_tools(self._ctx)
         existing_names = set(tool.name for tool in official_tools)
-        official_tools.extend(
-            tool for tool in harness_tools
-            if tool.name not in existing_names
-        )
+        official_tools.extend(tool for tool in harness_tools if tool.name not in existing_names)
         self._catalog = {}  # type: Dict[str, ToolCatalogEntry]
         self._tools = {td.name: td for td in official_tools}  # type: Dict[str, ToolDefinition]
         for tool in official_tools:
@@ -257,18 +255,17 @@ class ToolRuntime(object):
                 continue
             entry = self._catalog.get(name)
             if entry is not None and entry.workflow_visibility:
-                if workflow_state not in entry.workflow_visibility and "any" not in entry.workflow_visibility:
+                if (
+                    workflow_state not in entry.workflow_visibility
+                    and "any" not in entry.workflow_visibility
+                ):
                     continue
             schemas.append(tool.schema())
         return schemas
 
     def schemas_for_pack(self, pack_name: str) -> List[Dict[str, Any]]:
         allowed = set(pack_tool_names(pack_name))
-        return [
-            tool.schema()
-            for name, tool in self._tools.items()
-            if name in allowed
-        ]
+        return [tool.schema() for name, tool in self._tools.items() if name in allowed]
 
     def describe_mode(
         self,
@@ -287,15 +284,17 @@ class ToolRuntime(object):
     def allowed_tool_names(self, mode_name: str, workflow_state: str = "chat") -> set:
         return set(self._mode_runtime.allowed_tool_names(mode_name, workflow_state=workflow_state))
 
-    def schemas_for_mode(self, mode_name: str, workflow_state: str = "chat") -> List[Dict[str, Any]]:
+    def schemas_for_mode(
+        self, mode_name: str, workflow_state: str = "chat"
+    ) -> List[Dict[str, Any]]:
         context = self.describe_mode(mode_name, workflow_state=workflow_state)
         if context is not None:
-            pack_names = set(self._mode_runtime.pack_tool_names_for_mode(mode_name, workflow_state=workflow_state))
-            return [
-                tool.schema()
-                for name, tool in self._tools.items()
-                if name in pack_names
-            ]
+            pack_names = set(
+                self._mode_runtime.pack_tool_names_for_mode(
+                    mode_name, workflow_state=workflow_state
+                )
+            )
+            return [tool.schema() for name, tool in self._tools.items() if name in pack_names]
         return self.schemas_for(mode_name, workflow_state=workflow_state)
 
     def execute_for_mode(
@@ -397,4 +396,3 @@ class ToolRuntime(object):
             "activity_kind": "tool",
             "context_priority": 50,
         }
-

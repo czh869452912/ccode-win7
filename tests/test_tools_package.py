@@ -1,4 +1,5 @@
 """Tests for the tools/ package refactoring and ToolRuntime."""
+
 import os
 import shutil
 import sys
@@ -31,10 +32,12 @@ class TestToolRuntimeImport(unittest.TestCase):
     def test_import_from_package(self):
         # The original import path must still work
         from embedagent.tools import ToolRuntime as RT
+
         self.assertIs(RT, ToolRuntime)
 
     def test_tool_definition_importable(self):
         from embedagent.tools import ToolDefinition as TD
+
         self.assertIs(TD, ToolDefinition)
 
 
@@ -58,6 +61,7 @@ class TestToolRuntimeInit(unittest.TestCase):
 
     def test_app_config_passed_through(self):
         from embedagent.config import AppConfig
+
         cfg = AppConfig(max_context_tokens=32000)
         rt = ToolRuntime(self.workspace, app_config=cfg)
         self.assertIs(rt.app_config, cfg)
@@ -74,13 +78,18 @@ class TestToolRuntimeSchemas(unittest.TestCase):
         shutil.rmtree(self.workspace, ignore_errors=True)
 
     def test_total_tool_count(self):
-        self.assertEqual(len(self.schemas), 16)
+        self.assertEqual(len(self.schemas), 17)
 
     def test_official_tool_catalog_excludes_legacy_duplicate_tools(self):
         expected = [
-            "read_file", "write_file", "edit_file",
+            "read_file",
+            "write_file",
+            "edit_file",
             "run_command",
-            "git_status", "git_diff", "git_log",
+            "git_status",
+            "git_diff",
+            "git_log",
+            "list_compilers",
         ]
         for name in expected:
             self.assertIn(name, self.tool_names, "Missing tool: %s" % name)
@@ -95,7 +104,9 @@ class TestToolRuntimeSchemas(unittest.TestCase):
             "report_quality",
             "manage_todos",
         ):
-            self.assertNotIn(name, self.tool_names, "Legacy tool leaked into official catalog: %s" % name)
+            self.assertNotIn(
+                name, self.tool_names, "Legacy tool leaked into official catalog: %s" % name
+            )
 
     def test_harness_tools_present(self):
         for name in (
@@ -200,24 +211,32 @@ class TestToolRuntimeExecute(unittest.TestCase):
         test_file = os.path.join(self.workspace, "edit_me.py")
         with open(test_file, "w", encoding="utf-8") as f:
             f.write("x = 1\n")
-        obs = self.rt.execute("edit_file", {
-            "path": "edit_me.py",
-            "old_text": "x = 1",
-            "new_text": "x = 2",
-        })
+        obs = self.rt.execute(
+            "edit_file",
+            {
+                "path": "edit_me.py",
+                "old_text": "x = 1",
+                "new_text": "x = 2",
+            },
+        )
         self.assertTrue(obs.success)
         with open(test_file, "r", encoding="utf-8") as f:
             content = f.read()
         self.assertIn("x = 2", content)
 
     def test_write_file_creates_new_file(self):
-        obs = self.rt.execute("write_file", {
-            "path": "docs/requirements.md",
-            "content": "# Requirements\n",
-        })
+        obs = self.rt.execute(
+            "write_file",
+            {
+                "path": "docs/requirements.md",
+                "content": "# Requirements\n",
+            },
+        )
         self.assertTrue(obs.success)
         self.assertTrue(obs.data["created"])
-        with open(os.path.join(self.workspace, "docs", "requirements.md"), "r", encoding="utf-8") as f:
+        with open(
+            os.path.join(self.workspace, "docs", "requirements.md"), "r", encoding="utf-8"
+        ) as f:
             content = f.read()
         self.assertEqual(content, "# Requirements\n")
 
@@ -225,10 +244,13 @@ class TestToolRuntimeExecute(unittest.TestCase):
         test_file = os.path.join(self.workspace, "existing.txt")
         with open(test_file, "w", encoding="utf-8") as f:
             f.write("old\n")
-        obs = self.rt.execute("write_file", {
-            "path": "existing.txt",
-            "content": "new\n",
-        })
+        obs = self.rt.execute(
+            "write_file",
+            {
+                "path": "existing.txt",
+                "content": "new\n",
+            },
+        )
         self.assertFalse(obs.success)
 
     def test_official_runtime_rejects_legacy_task_tool(self):
@@ -237,11 +259,14 @@ class TestToolRuntimeExecute(unittest.TestCase):
         self.assertEqual(obs.tool_name, "manage_todos")
 
     def test_write_file_observation_includes_catalog_metadata(self):
-        obs = self.rt.execute("write_file", {
-            "path": "notes/plan.md",
-            "content": "# Plan\n",
-            "overwrite": True,
-        })
+        obs = self.rt.execute(
+            "write_file",
+            {
+                "path": "notes/plan.md",
+                "content": "# Plan\n",
+                "overwrite": True,
+            },
+        )
         self.assertTrue(obs.success)
         self.assertEqual(obs.data["tool_label"], "Write File")
         self.assertEqual(obs.data["permission_category"], "workspace_write")
@@ -249,32 +274,60 @@ class TestToolRuntimeExecute(unittest.TestCase):
         self.assertEqual(obs.data["progress_renderer_key"], "file_write")
         self.assertEqual(obs.data["result_renderer_key"], "file_write")
 
+    def test_list_compilers_returns_observation(self):
+        obs = self.rt.execute("list_compilers", {})
+        self.assertTrue(obs.success)
+        self.assertEqual(obs.tool_name, "list_compilers")
+        self.assertIn("compilers", obs.data)
+        self.assertIn("count", obs.data)
+        self.assertIsInstance(obs.data["compilers"], list)
+        self.assertIsInstance(obs.data["count"], int)
+
+    def test_list_compilers_includes_catalog_metadata(self):
+        obs = self.rt.execute("list_compilers", {})
+        self.assertTrue(obs.success)
+        self.assertEqual(obs.data["tool_label"], "List Compilers")
+        self.assertEqual(obs.data["permission_category"], "read")
+        self.assertFalse(obs.data["supports_diff_preview"])
+
 
 class TestModuleIsolation(unittest.TestCase):
     """Verify each ops module can be imported independently."""
+
     def test_discovery_ops_importable(self):
         from embedagent.tools import discovery_ops
+
         self.assertTrue(callable(discovery_ops.build_tools))
 
     def test_recipe_ops_importable(self):
         from embedagent.tools import recipe_ops
+
         self.assertTrue(callable(recipe_ops.build_tools))
 
     def test_session_ops_importable(self):
         from embedagent.tools import session_ops
+
         self.assertTrue(callable(session_ops.build_tools))
 
     def test_file_ops_importable(self):
         from embedagent.tools import file_ops
+
         self.assertTrue(callable(file_ops.build_tools))
 
     def test_shell_ops_importable(self):
         from embedagent.tools import shell_ops
+
         self.assertTrue(callable(shell_ops.build_tools))
 
     def test_git_ops_importable(self):
         from embedagent.tools import git_ops
+
         self.assertTrue(callable(git_ops.build_tools))
+
+    def test_compile_ops_importable(self):
+        from embedagent.tools import compile_ops
+
+        self.assertTrue(callable(compile_ops.build_tools))
 
     def test_base_importable(self):
         self.assertTrue(True)
@@ -375,7 +428,9 @@ class TestWorkspaceRecipes(unittest.TestCase):
         with open(os.path.join(self.workspace, "CMakeLists.txt"), "w", encoding="utf-8") as handle:
             handle.write("cmake_minimum_required(VERSION 3.20)\nproject(demo C)\n")
         with open(
-            os.path.join(self.workspace, ".embedagent", "memory", "project", "command-recipes.json"),
+            os.path.join(
+                self.workspace, ".embedagent", "memory", "project", "command-recipes.json"
+            ),
             "w",
             encoding="utf-8",
         ) as handle:
@@ -398,7 +453,11 @@ class TestWorkspaceRecipes(unittest.TestCase):
 
     def test_run_recipe_can_run_build_recipe_id(self):
         os.makedirs(os.path.join(self.workspace, ".embedagent"))
-        with open(os.path.join(self.workspace, ".embedagent", "workspace-recipes.json"), "w", encoding="utf-8") as handle:
+        with open(
+            os.path.join(self.workspace, ".embedagent", "workspace-recipes.json"),
+            "w",
+            encoding="utf-8",
+        ) as handle:
             handle.write(
                 '[{"id":"custom.build","tool_name":"run_recipe","recipe_action":"build","label":"Custom Build","command":"cmd /c echo build-ok","cwd":"."}]'
             )
@@ -413,6 +472,7 @@ class TestWorkspaceRecipes(unittest.TestCase):
         with open(os.path.join(self.workspace, "CMakeLists.txt"), "w", encoding="utf-8") as handle:
             handle.write("cmake_minimum_required(VERSION 3.20)\nproject(demo C)\n")
         from embedagent.workspace_recipes import resolve_workspace_recipe
+
         payload = resolve_workspace_recipe(
             self.workspace,
             recipe_id="cmake.build.default",
@@ -427,13 +487,17 @@ class TestWorkspaceRecipes(unittest.TestCase):
 
     def test_run_recipe_can_run_verify_recipe_id(self):
         os.makedirs(os.path.join(self.workspace, ".embedagent"))
-        with open(os.path.join(self.workspace, ".embedagent", "workspace-recipes.json"), "w", encoding="utf-8") as handle:
+        with open(
+            os.path.join(self.workspace, ".embedagent", "workspace-recipes.json"),
+            "w",
+            encoding="utf-8",
+        ) as handle:
             handle.write(
-                "[" +
-                '{"id":"custom.tidy","tool_name":"run_recipe","recipe_action":"tidy","label":"Custom Tidy","command":"cmd /c echo tidy-ok","cwd":"."},' +
-                '{"id":"custom.analyze","tool_name":"run_recipe","recipe_action":"analyze","label":"Custom Analyze","command":"cmd /c echo analyze-ok","cwd":"."},' +
-                '{"id":"custom.coverage","tool_name":"run_recipe","recipe_action":"coverage","label":"Custom Coverage","command":"cmd /c echo lines 85%","cwd":"."}' +
-                "]"
+                "["
+                + '{"id":"custom.tidy","tool_name":"run_recipe","recipe_action":"tidy","label":"Custom Tidy","command":"cmd /c echo tidy-ok","cwd":"."},'
+                + '{"id":"custom.analyze","tool_name":"run_recipe","recipe_action":"analyze","label":"Custom Analyze","command":"cmd /c echo analyze-ok","cwd":"."},'
+                + '{"id":"custom.coverage","tool_name":"run_recipe","recipe_action":"coverage","label":"Custom Coverage","command":"cmd /c echo lines 85%","cwd":"."}'
+                + "]"
             )
         runtime = ToolRuntime(self.workspace)
         tidy_obs = runtime.execute("run_recipe", {"recipe_id": "custom.tidy"})
@@ -448,7 +512,11 @@ class TestWorkspaceRecipes(unittest.TestCase):
 
     def test_official_runtime_rejects_legacy_verify_tool_aliases(self):
         os.makedirs(os.path.join(self.workspace, ".embedagent"))
-        with open(os.path.join(self.workspace, ".embedagent", "workspace-recipes.json"), "w", encoding="utf-8") as handle:
+        with open(
+            os.path.join(self.workspace, ".embedagent", "workspace-recipes.json"),
+            "w",
+            encoding="utf-8",
+        ) as handle:
             handle.write(
                 '[{"id":"custom.build","tool_name":"run_recipe","recipe_action":"build","label":"Custom Build","command":"cmd /c echo build-ok","cwd":"."}]'
             )
@@ -467,4 +535,3 @@ class TestWorkspaceRecipes(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

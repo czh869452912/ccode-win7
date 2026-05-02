@@ -49,7 +49,14 @@ def _discover_compilers(ctx: ToolContext) -> List[Dict[str, Any]]:
     if llvm_root:
         bin_dir = os.path.join(llvm_root, "bin")
         if os.path.isdir(bin_dir):
-            for name in ("clang", "clang.exe", "clang++", "clang++.exe", "clang-cl", "clang-cl.exe"):
+            for name in (
+                "clang",
+                "clang.exe",
+                "clang++",
+                "clang++.exe",
+                "clang-cl",
+                "clang-cl.exe",
+            ):
                 executable = os.path.join(bin_dir, name)
                 if os.path.isfile(executable):
                     resolved = os.path.realpath(executable)
