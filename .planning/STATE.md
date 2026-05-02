@@ -67,6 +67,7 @@ None yet.
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
 | 20260502-001 | Fix InProcessAdapter backward compatibility - make client and tools optional | 2026-05-02 | 372ac83 | [quick task] |
+| 20260502-002 | Fix tracking data quality: update ROADMAP and STATE for Phases 2-3 | 2026-05-02 | 9114f44 | [fast fix] |
 
 ## Deferred Items
 
