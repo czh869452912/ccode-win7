@@ -10,12 +10,14 @@ class TestNoDeprecationWarnings:
     def test_pytest_runs_without_deprecation_warnings(self):
         """Run pytest with warnings as errors and verify no failures from project code."""
         # Run the fast test subset with deprecation warnings treated as errors
+        # IMPORTANT: ignore this file to avoid infinite recursion
         result = subprocess.run(
             [
                 sys.executable, "-m", "pytest",
                 "tests/",
                 "-m", "not slow and not gui",
                 "--ignore=tests/test_gui_sync.py",  # Skip known failing test
+                "--ignore=tests/test_hygn_03_warning_cleanup.py",  # Skip self to avoid recursion
                 "-W", "error::DeprecationWarning:embedagent.*",
                 "-q",
             ],
@@ -82,7 +84,8 @@ class TestNoDeprecationWarnings:
             # Check for deprecated utcnow() usage in test files
             if "datetime.utcnow()" in content or "utcnow()" in content:
                 # Exclude the test that explicitly checks for its absence
-                if "test_hygn_01" not in filename and "test_timestamp" not in filename:
+                # Also exclude this file which references utcnow() in test logic
+                if filename not in ("test_hygn_01_datetime_cleanup.py", "test_timestamp_characterization.py", "test_hygn_03_warning_cleanup.py"):
                     violations.append(filename)
 
         assert len(violations) == 0, (
