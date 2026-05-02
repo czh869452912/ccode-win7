@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import difflib
-import io
 import os
 import threading
 import time
@@ -34,10 +32,15 @@ from embedagent.session_projector import SessionSnapshotProjector
 from embedagent.session_restore import SessionRestorer
 from embedagent.session_runtime import ManagedSession
 from embedagent.session_store import SessionSummaryStore
+from embedagent.services import (
+    EventEmitter,
+    HarnessStateSynchronizer,
+    SessionLifecycleManager,
+    WorkspaceFileService,
+)
 from embedagent.session_timeline import SessionTimelineStore
 from embedagent.slash_commands import ParsedSlashCommand, SlashCommandRegistry, parse_slash_command
 from embedagent.tools import ToolRuntime
-from embedagent.tools._base import SKIP_DIR_NAMES
 from embedagent.transcript_store import TranscriptStore
 
 EventHandler = Callable[[str, str, Dict[str, Any]], None]
@@ -198,6 +201,24 @@ class InProcessAdapter(object):
         initialize_modes(self.tools.workspace)
         self._sessions = {}  # type: Dict[str, ManagedSession]
         self._lock = threading.RLock()
+        self._event_emitter = EventEmitter(self.timeline_store)
+        self._workspace_files = WorkspaceFileService(
+            self.tools.workspace,
+            getattr(self.tools, "_ctx", None),
+        )
+        self._harness_sync = HarnessStateSynchronizer(
+            self.harness_runner,
+            self.tools.workspace,
+        )
+        self._session_lifecycle = SessionLifecycleManager(
+            session_store=self.summary_store,
+            timeline_store=self.timeline_store,
+            summary_store=self.summary_store,
+            plan_store=self.plan_store,
+            project_memory=self.project_memory_store,
+            session_restorer=self.session_restorer,
+            transcript_store=self.transcript_store,
+        )
 
     def _build_engine(self) -> QueryEngine:
         return QueryEngine(
@@ -231,45 +252,8 @@ class InProcessAdapter(object):
         )
 
     def _refresh_harness_state(self, state: ManagedSession) -> None:
-        discipline_override = "full_spec_tdd" if state.current_mode == "build" and state.workflow_state == "plan" else None
-        graph = self.harness_runner.update_task_graph(
-            state.session,
-            state.current_mode,
-            observations=state.session.turns[-1].observations if state.session.turns else [],
-            discipline_override=discipline_override,
-        )
-        context = self.harness_runner.describe_mode(
-            state.current_mode,
-            discipline_override=discipline_override,
-            current_phase=str(getattr(graph, "current_phase", "") or ""),
-            observations=[],
-        )
-        if context is None:
-            task_store.save_task_snapshot(
-                self.tools.workspace,
-                state.session.session_id,
-                state.current_mode,
-                state.workflow_state,
-                "",
-                "",
-                "",
-                [],
-            )
-            return
-        current_phase = str(getattr(graph, "current_phase", "") or context.current_phase or "")
-        discipline_profile = str(getattr(graph, "discipline", "") or context.discipline_label or "")
-        task_summary = str(graph.render_summary() if graph is not None else (context.task_summary or ""))
-        task_items = list(graph.to_items() if graph is not None else (getattr(context, "task_items", []) or []))
-        task_store.save_task_snapshot(
-            self.tools.workspace,
-            state.session.session_id,
-            state.current_mode,
-            state.workflow_state,
-            discipline_profile,
-            current_phase,
-            task_summary,
-            task_items,
-        )
+        observations = state.session.turns[-1].observations if state.session.turns else []
+        self._harness_sync.refresh_task_graph(state, observations=observations)
 
     def create_session(
         self,
@@ -395,7 +379,7 @@ class InProcessAdapter(object):
         return self._require_session(session_id)
 
     def list_sessions(self, limit: int = 10) -> List[Dict[str, Any]]:
-        return self.summary_store.list_summaries(limit=limit)
+        return self._session_lifecycle.list_sessions(limit=limit)
 
     def get_session_snapshot(self, session_id: str) -> Dict[str, Any]:
         state = self._ensure_session_active(session_id)
@@ -466,131 +450,20 @@ class InProcessAdapter(object):
         max_depth: int = 3,
         limit: int = 200,
     ) -> Dict[str, Any]:
-        root = self._resolve_workspace_candidate(path, allow_missing=False)
-        if not os.path.isdir(root):
-            raise ValueError("路径不是目录：%s" % path)
-        items = []  # type: List[Dict[str, Any]]
-        truncated = [False]
-
-        def walk(current_path: str, depth: int) -> None:
-            if truncated[0]:
-                return
-            try:
-                names = sorted(os.listdir(current_path), key=lambda item: item.lower())
-            except OSError:
-                return
-            directories = []
-            files = []
-            for name in names:
-                absolute = os.path.join(current_path, name)
-                if os.path.isdir(absolute):
-                    if name in SKIP_DIR_NAMES:
-                        continue
-                    directories.append((name, absolute))
-                else:
-                    files.append((name, absolute))
-            for name, absolute in directories + files:
-                items.append(
-                    {
-                        "path": self._relative_path(absolute),
-                        "name": name,
-                        "kind": "dir" if os.path.isdir(absolute) else "file",
-                        "depth": depth,
-                    }
-                )
-                if len(items) >= limit:
-                    truncated[0] = True
-                    return
-                if os.path.isdir(absolute) and depth < max_depth:
-                    walk(absolute, depth + 1)
-
-        walk(root, 0)
-        return {
-            "root": self._relative_path(root),
-            "max_depth": max_depth,
-            "limit": limit,
-            "truncated": truncated[0],
-            "items": items,
-        }
+        return self._workspace_files.list_tree(path, max_depth=max_depth, limit=limit)
 
     def list_workspace_children(
         self,
         path: str = ".",
         limit: int = 200,
     ) -> Dict[str, Any]:
-        root = self._resolve_workspace_candidate(path, allow_missing=False)
-        if not os.path.isdir(root):
-            raise ValueError("路径不是目录：%s" % path)
-        items = []  # type: List[Dict[str, Any]]
-        try:
-            names = sorted(os.listdir(root), key=lambda item: item.lower())
-        except OSError:
-            names = []
-        for name in names:
-            absolute = os.path.join(root, name)
-            if os.path.isdir(absolute) and name in SKIP_DIR_NAMES:
-                continue
-            kind = "dir" if os.path.isdir(absolute) else "file"
-            items.append(
-                {
-                    "path": self._relative_path(absolute),
-                    "name": name,
-                    "kind": kind,
-                    "has_children": self._directory_has_visible_children(absolute) if kind == "dir" else False,
-                }
-            )
-            if len(items) >= limit:
-                break
-        return {"root": self._relative_path(root), "limit": limit, "items": items}
+        return self._workspace_files.list_directory(path, limit=limit)
 
     def read_workspace_file(self, path: str) -> Dict[str, Any]:
-        candidate = self._resolve_workspace_candidate(path, allow_missing=False)
-        if not os.path.isfile(candidate):
-            raise ValueError("只能读取文件，不能读取目录。")
-        content, newline, encoding = self.tools._ctx.read_text(candidate)
-        return {
-            "path": self._relative_path(candidate),
-            "encoding": encoding,
-            "newline": newline,
-            "char_count": len(content),
-            "line_count": content.count("\n") + (1 if content else 0),
-            "truncated": False,
-            "content": content,
-        }
+        return self._workspace_files.read_file(path)
 
     def write_workspace_file(self, path: str, content: str) -> Dict[str, Any]:
-        candidate = self._resolve_workspace_candidate(path, allow_missing=True)
-        existed = os.path.isfile(candidate)
-        if os.path.isdir(candidate):
-            raise ValueError("不能把目录当作文件写入：%s" % path)
-        parent = os.path.dirname(candidate)
-        if not os.path.isdir(parent):
-            os.makedirs(parent)
-        newline = "\n"
-        encoding = "utf-8"
-        old_content = ""
-        if existed:
-            old_content, newline, encoding = self.tools._ctx.read_text(candidate)
-        serialized = str(content or "")
-        self.tools._ctx.write_text(candidate, serialized, newline, encoding)
-        diff_text = "".join(
-            difflib.unified_diff(
-                old_content.splitlines(True),
-                serialized.splitlines(True),
-                fromfile=self._relative_path(candidate),
-                tofile=self._relative_path(candidate),
-                lineterm="",
-            )
-        )
-        return {
-            "path": self._relative_path(candidate),
-            "created": not existed,
-            "encoding": encoding,
-            "newline": newline,
-            "char_count": len(serialized),
-            "line_count": serialized.count("\n") + (1 if serialized else 0),
-            "diff_preview": diff_text,
-        }
+        return self._workspace_files.write_file(path, content)
 
     def get_session_timeline(self, session_id: str, limit: int = 200) -> Dict[str, Any]:
         state = self._ensure_session_active(session_id)
@@ -2239,18 +2112,7 @@ class InProcessAdapter(object):
         return
 
     def _persist_state(self, state: ManagedSession) -> None:
-        try:
-            summary_ref = self.summary_store.persist(state.session, state.current_mode)
-        except (OSError, ValueError, TypeError):
-            summary_ref = ""
-        else:
-            try:
-                self.project_memory_store.refresh(state.session, state.current_mode, summary_ref)
-            except (OSError, ValueError, TypeError):
-                pass
-        with state.lock:
-            state.summary_ref = summary_ref or state.summary_ref
-            state.updated_at = _utc_now()
+        self._session_lifecycle.persist_state(state.session, state.current_mode, state)
 
     def _create_permission_ticket(
         self,
@@ -2324,20 +2186,10 @@ class InProcessAdapter(object):
             state.updated_at = _utc_now()
 
     def _last_assistant_from_session(self, session: Session) -> str:
-        for turn in reversed(session.turns):
-            if turn.assistant_message:
-                return str(turn.assistant_message)
-        return ""
+        return self._session_lifecycle._last_assistant_from_session(session)
 
     def _read_summary_for_state(self, state: ManagedSession) -> Optional[Dict[str, Any]]:
-        if state.summary_ref or state.session.turns:
-            try:
-                summary = self.summary_store.load_summary(state.session.session_id)
-            except ValueError:
-                summary = None
-            if summary is not None:
-                return summary
-        return state.resume_summary
+        return self._session_lifecycle.read_summary_for_state(state)
 
     def _require_session(self, session_id: str) -> ManagedSession:
         with self._lock:
@@ -2353,14 +2205,12 @@ class InProcessAdapter(object):
         session_id: str,
         payload: Dict[str, Any],
     ) -> None:
-        try:
-            self.timeline_store.append_event(session_id, event_name, payload)
-        except (OSError, ValueError, TypeError):
-            pass
-        handler = event_handler or self.event_handler
-        if handler is None:
-            return
-        handler(event_name, session_id, payload)
+        self._event_emitter.emit(
+            event_handler or self.event_handler,
+            event_name,
+            session_id,
+            payload,
+        )
 
     def _emit_with_snapshot(
         self,
@@ -2369,75 +2219,39 @@ class InProcessAdapter(object):
         state: ManagedSession,
         payload: Dict[str, Any],
     ) -> None:
-        data = dict(payload)
-        data["session_snapshot"] = self.get_session_snapshot(state.session.session_id)
-        self._emit(event_handler, event_name, state.session.session_id, data)
+        self._event_emitter.emit_with_snapshot(
+            event_handler or self.event_handler,
+            event_name,
+            state.session.session_id,
+            payload,
+            lambda: self.get_session_snapshot(state.session.session_id),
+        )
 
     def _notify_status(
         self,
         event_handler: Optional[EventHandler],
         state: ManagedSession,
     ) -> None:
-        handler = event_handler or self.event_handler
-        if handler is None:
-            return
-        handler(
-            "session_status",
+        self._event_emitter.notify_status(
+            event_handler or self.event_handler,
             state.session.session_id,
-            {"session_snapshot": self.get_session_snapshot(state.session.session_id)},
+            lambda: self.get_session_snapshot(state.session.session_id),
         )
 
     def _resolve_workspace_candidate(self, path: str, allow_missing: bool) -> str:
-        raw = (path or "").strip()
-        if not raw:
-            raise ValueError("路径不能为空。")
-        candidate = raw if os.path.isabs(raw) else os.path.join(self.tools.workspace, raw)
-        resolved = os.path.realpath(candidate)
-        workspace_norm = os.path.normcase(self.tools.workspace)
-        resolved_norm = os.path.normcase(resolved)
-        if not (
-            resolved_norm == workspace_norm
-            or resolved_norm.startswith(workspace_norm + os.sep)
-        ):
-            raise ValueError("路径超出当前工作区。")
-        if not allow_missing and not os.path.exists(resolved):
-            raise ValueError("路径不存在：%s" % path)
-        return resolved
+        return self._workspace_files.resolve_path(path, allow_missing=allow_missing)
 
     def _relative_path(self, path: str) -> str:
-        relative = os.path.relpath(path, self.tools.workspace)
-        if relative == ".":
-            return "."
-        return relative.replace(os.sep, "/")
+        return self._workspace_files.relative_path(path)
 
     def _count_workspace_items(self) -> Dict[str, int]:
-        file_count = 0
-        dir_count = 0
-        for current_root, dir_names, file_names in os.walk(self.tools.workspace):
-            dir_names[:] = [name for name in dir_names if name not in SKIP_DIR_NAMES]
-            dir_count += len(dir_names)
-            file_count += len(file_names)
-        return {"file_count": file_count, "dir_count": dir_count}
+        return self._workspace_files.count_items()
 
     def _directory_has_visible_children(self, path: str) -> bool:
-        try:
-            names = os.listdir(path)
-        except OSError:
-            return False
-        for name in names:
-            if name in SKIP_DIR_NAMES:
-                continue
-            return True
-        return False
+        return self._workspace_files._directory_has_visible_children(path)
 
     def _detect_newline(self, path: str) -> str:
-        with io.open(path, "rb") as handle:
-            sample = handle.read(4096)
-        if b"\r\n" in sample:
-            return "\r\n"
-        if b"\r" in sample:
-            return "\r"
-        return "\n"
+        return self._workspace_files._detect_newline(path)
 
 
 
