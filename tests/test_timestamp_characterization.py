@@ -1,6 +1,6 @@
 """Characterization tests for timestamp behavior — verifies pre/post change equivalence."""
 import re
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from embedagent.inprocess_adapter import _utc_now as adapter_utc_now
 from embedagent.plan_store import _utc_now as plan_utc_now
@@ -41,11 +41,11 @@ class TestSessionRestoreBehavior:
         # Import the function under test
         from embedagent.session_restore import SessionRestorer
         restore = SessionRestorer()
-        old_time = datetime.utcnow() - timedelta(hours=1)
+        old_time = datetime.now(timezone.utc) - timedelta(hours=1)
         assert restore._interaction_is_stale(old_time.isoformat(), 300) is True
 
     def test_recent_session_is_not_older_than(self):
         from embedagent.session_restore import SessionRestorer
         restore = SessionRestorer()
-        recent_time = datetime.utcnow() - timedelta(seconds=10)
+        recent_time = datetime.now(timezone.utc) - timedelta(seconds=10)
         assert restore._interaction_is_stale(recent_time.isoformat(), 300) is False
