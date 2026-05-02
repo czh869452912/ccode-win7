@@ -5,7 +5,12 @@ import shutil
 from typing import Any, Dict, List, Optional
 
 from embedagent.session import Observation
-from embedagent.tools._base import ToolContext, ToolDefinition
+from embedagent.tools._base import (
+    DEFAULT_BUILD_TIMEOUT_SEC,
+    ToolContext,
+    ToolDefinition,
+    ToolError,
+)
 
 
 def build_tools(ctx: ToolContext) -> List[ToolDefinition]:
@@ -83,6 +88,50 @@ def build_tools(ctx: ToolContext) -> List[ToolDefinition]:
             data=config,
         )
 
+    def _run_build(arguments: Dict[str, Any]) -> Observation:
+        command_text = str(arguments.get("command") or "").strip()
+        if not command_text:
+            raise ToolError("命令不能为空。")
+        cwd_argument = str(arguments.get("cwd") or ".")
+        timeout_sec = int(arguments.get("timeout_sec") or DEFAULT_BUILD_TIMEOUT_SEC)
+        diagnostic = bool(arguments.get("diagnostic", True))
+
+        cwd = ctx.resolve_directory(cwd_argument)
+        if timeout_sec <= 0:
+            raise ToolError("timeout_sec 必须大于 0。")
+
+        resolved_command, managed_tool, _ = ctx.rewrite_command_for_managed_tools(command_text)
+
+        progress_lines = []  # type: List[Dict[str, Any]]
+
+        def _progress_callback(payload: Dict[str, Any]) -> None:
+            progress_lines.append(payload)
+
+        result = ctx.run_subprocess_streaming(
+            command=resolved_command,
+            cwd=cwd,
+            timeout_sec=timeout_sec,
+            shell=True,
+            stop_event=ctx.get_interrupt_event(),
+            progress_callback=_progress_callback,
+        )
+
+        if diagnostic:
+            observation = ctx.build_diagnostic_observation("run_build", resolved_command, cwd, result)
+        else:
+            observation = ctx.build_command_observation("run_build", resolved_command, cwd, result)
+
+        if isinstance(observation.data, dict):
+            data = dict(observation.data)
+            data["requested_command"] = command_text
+            if managed_tool:
+                data["managed_primary_tool"] = managed_tool
+            data["streaming_progress"] = progress_lines[:1000]
+            data["streaming_progress_count"] = len(progress_lines)
+            observation.data = data
+
+        return observation
+
     return [
         ToolDefinition(
             name="list_compilers",
@@ -122,6 +171,37 @@ def build_tools(ctx: ToolContext) -> List[ToolDefinition]:
             handler=_configure_build_env,
             read_only=True,
             concurrency_safe=True,
+        ),
+        ToolDefinition(
+            name="run_build",
+            description="运行构建命令并实时捕获输出。支持诊断解析、托管工具自动替换和流式进度上报。用于编译 C/C++ 项目或运行构建脚本。",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "command": {
+                        "type": "string",
+                        "description": "要执行的构建命令。示例：clang -o demo demo.c",
+                    },
+                    "cwd": {
+                        "type": "string",
+                        "description": "命令执行目录，相对于项目根目录。示例：.",
+                    },
+                    "timeout_sec": {
+                        "type": "integer",
+                        "description": "命令超时时间，单位为秒。默认 120。",
+                    },
+                    "diagnostic": {
+                        "type": "boolean",
+                        "description": "是否解析编译器诊断信息。默认 true。",
+                    },
+                },
+                "required": ["command"],
+                "additionalProperties": False,
+            },
+            handler=_run_build,
+            read_only=False,
+            concurrency_safe=False,
+            interrupt_behavior="cancel",
         ),
     ]
 
