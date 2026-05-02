@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List
 
+from embedagent.services.shadow_git import ShadowGitSnapshot
 from embedagent.session import Observation
 from embedagent.tools._base import ToolContext, ToolDefinition, ToolError
 
@@ -86,6 +87,69 @@ def build_tools(ctx: ToolContext) -> List[ToolDefinition]:
         observation.data.update({"path": path_argument, "limit": limit, "entries": entries})
         return observation
 
+    def _git_snapshot(arguments: Dict[str, Any]) -> Observation:
+        action = str(arguments.get("action") or "list")
+        snapshot_id = str(arguments.get("snapshot_id") or "")
+        reason = str(arguments.get("reason") or "")
+
+        try:
+            snapshot = ShadowGitSnapshot(ctx.workspace)
+        except ToolError as exc:
+            return Observation(
+                tool_name="git_snapshot",
+                success=False,
+                error=str(exc),
+                data={},
+            )
+
+        if action == "create":
+            sid = snapshot.create_snapshot(reason=reason)
+            return Observation(
+                tool_name="git_snapshot",
+                success=True,
+                error=None,
+                data={"snapshot_id": sid, "action": action},
+            )
+        elif action == "list":
+            snapshots = snapshot.list_snapshots()
+            return Observation(
+                tool_name="git_snapshot",
+                success=True,
+                error=None,
+                data={"snapshots": snapshots, "count": len(snapshots), "action": action},
+            )
+        elif action == "restore":
+            if not snapshot_id:
+                raise ToolError("restore 操作需要提供 snapshot_id。")
+            success = snapshot.restore_snapshot(snapshot_id)
+            return Observation(
+                tool_name="git_snapshot",
+                success=success,
+                error=None if success else "恢复快照失败。",
+                data={"snapshot_id": snapshot_id, "action": action},
+            )
+        elif action == "delete":
+            if not snapshot_id:
+                raise ToolError("delete 操作需要提供 snapshot_id。")
+            success = snapshot.delete_snapshot(snapshot_id)
+            return Observation(
+                tool_name="git_snapshot",
+                success=success,
+                error=None if success else "删除快照失败。",
+                data={"snapshot_id": snapshot_id, "action": action},
+            )
+        elif action == "cleanup":
+            max_age = int(arguments.get("max_age_hours", 24))
+            result = snapshot.cleanup_old_snapshots(max_age_hours=max_age)
+            return Observation(
+                tool_name="git_snapshot",
+                success=True,
+                error=None,
+                data={"result": result, "action": action},
+            )
+        else:
+            raise ToolError("无效的 action：{}。可选值：create, list, restore, delete, cleanup".format(action))
+
     return [
         ToolDefinition(
             name="git_status",
@@ -143,5 +207,36 @@ def build_tools(ctx: ToolContext) -> List[ToolDefinition]:
                 "additionalProperties": False,
             },
             handler=_git_log,
+        ),
+        ToolDefinition(
+            name="git_snapshot",
+            description="管理工作区快照。用于创建、查看、恢复和删除基于 git stash 的轻量级快照。",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": ["create", "list", "restore", "delete", "cleanup"],
+                        "description": "操作类型。create 创建快照，list 列出快照，restore 恢复快照，delete 删除快照，cleanup 清理旧快照。",
+                    },
+                    "snapshot_id": {
+                        "type": "string",
+                        "description": "快照 ID，restore/delete 操作必需。",
+                    },
+                    "reason": {
+                        "type": "string",
+                        "description": "创建快照的原因说明，create 操作可选。",
+                    },
+                    "max_age_hours": {
+                        "type": "integer",
+                        "description": "清理超过多少小时的快照，cleanup 操作可选，默认 24。",
+                    },
+                },
+                "required": ["action"],
+                "additionalProperties": False,
+            },
+            handler=_git_snapshot,
+            read_only=False,
+            concurrency_safe=False,
         ),
     ]

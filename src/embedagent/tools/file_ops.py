@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import logging
 import os
 from typing import Any, Dict, List
 
+from embedagent.services.shadow_git import ShadowGitSnapshot
 from embedagent.session import Observation
 from embedagent.tools._base import MAX_READ_CHARS, ToolContext, ToolDefinition, ToolError
+
+logger = logging.getLogger(__name__)
 
 
 def build_tools(ctx: ToolContext) -> List[ToolDefinition]:
@@ -32,6 +36,14 @@ def build_tools(ctx: ToolContext) -> List[ToolDefinition]:
         path = ctx.resolve_path(str(arguments["path"]))
         if not os.path.isfile(path):
             raise ToolError("只能修改已存在的文本文件。")
+        
+        # Create pre-edit snapshot
+        try:
+            snapshot = ShadowGitSnapshot(ctx.workspace)
+            snapshot.create_snapshot(reason="pre_edit:edit_file")
+        except (ToolError, OSError, ValueError) as exc:
+            logger.warning("Pre-edit snapshot failed: %s", exc)
+        
         old_text = str(arguments["old_text"])
         new_text = str(arguments["new_text"])
         if not old_text:

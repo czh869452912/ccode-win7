@@ -79,7 +79,7 @@ class TestToolRuntimeSchemas(unittest.TestCase):
         shutil.rmtree(self.workspace, ignore_errors=True)
 
     def test_total_tool_count(self):
-        self.assertEqual(len(self.schemas), 19)
+        self.assertEqual(len(self.schemas), 20)
 
     def test_official_tool_catalog_excludes_legacy_duplicate_tools(self):
         expected = [
