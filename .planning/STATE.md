@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-05-02)
 Phase: 3 of 4 (Architecture)
 Plan: 4 of 4 in current phase — **COMPLETE**
 Status: Completed
-Last activity: 2026-05-02 — Phase 3 executed (4 plans, ~2.5 hours total)
+Last activity: 2026-05-02 — Completed quick task: Fix InProcessAdapter backward compatibility
 
 Progress: [██████████] 100%
 
@@ -57,6 +57,12 @@ Recent decisions affecting current work:
 ### Blockers/Concerns
 
 None yet.
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 20260502-001 | Fix InProcessAdapter backward compatibility - make client and tools optional | 2026-05-02 | 372ac83 | [quick task] |
 
 ## Deferred Items
 
