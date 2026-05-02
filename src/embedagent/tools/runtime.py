@@ -9,7 +9,7 @@ from embedagent.projection_db import ProjectionDb
 from embedagent.session import Observation
 from embedagent.tool_result_store import ToolResultStore
 from embedagent.tooling.packs import pack_tool_names
-from embedagent.tools import file_ops, git_ops, shell_ops
+from embedagent.tools import compile_ops, file_ops, git_ops, shell_ops
 from embedagent.tools._base import ToolContext, ToolError
 from embedagent.tools.harness_runtime import (
     OFFICIAL_HARNESS_TOOL_METADATA,
@@ -171,6 +171,22 @@ _DEFAULT_TOOL_METADATA = {
         "activity_kind": "git",
         "context_priority": 55,
     },
+    "list_compilers": {
+        "permission_category": "read",
+        "mode_visibility": ["explore", "spec", "build", "debug", "verify"],
+        "workflow_visibility": ["chat", "plan", "review", "command"],
+        "user_label": "List Compilers",
+        "progress_renderer_key": "list",
+        "result_renderer_key": "list",
+        "supports_diff_preview": False,
+        "context_reducer_key": "list_compilers",
+        "read_only": True,
+        "concurrency_safe": True,
+        "interrupt_behavior": "block",
+        "result_budget_policy": "compact-preview",
+        "activity_kind": "tool",
+        "context_priority": 65,
+    },
 }
 _DEFAULT_TOOL_METADATA.update(OFFICIAL_HARNESS_TOOL_METADATA)
 
@@ -188,6 +204,7 @@ class ToolRuntime(object):
             file_ops.build_tools(self._ctx)
             + shell_ops.build_tools(self._ctx)
             + git_ops.build_tools(self._ctx)
+            + compile_ops.build_tools(self._ctx)
         )
         harness_tools = build_harness_tools(self._ctx)
         existing_names = set(tool.name for tool in official_tools)
