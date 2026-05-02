@@ -18,6 +18,7 @@ from embedagent.interaction import (
     propose_mode_switch_schema,
 )
 from embedagent.llm import ModelClientError, OpenAICompatibleClient
+from embedagent.strategies.context_compaction_engine import ContextCompactionEngine
 from embedagent.strategies.llm_retry_wrapper import LLMClientRetryWrapper
 from embedagent.memory_maintenance import MemoryMaintenance
 from embedagent.modes import DEFAULT_MODE, build_system_prompt, is_path_writable, require_mode
@@ -93,10 +94,16 @@ class QueryEngine(object):
         self.intelligence_broker = intelligence_broker or WorkspaceIntelligenceBroker()
         self.max_parallel_tools = max(1, int(max_parallel_tools or 1))
         self.transcript_store = transcript_store or TranscriptStore(self.tools.workspace)
+        self._compaction = ContextCompactionEngine(
+            context_manager=self.context_manager,
+            max_tokens=8000,
+            reserve_tokens=1000,
+        )
         self._llm_wrapper = LLMClientRetryWrapper(
             client=client,
             max_retries=_LLM_MAX_RETRIES,
             base_delay=_LLM_RETRY_BASE_DELAY,
+            compaction_engine=self._compaction,
         )
         self._session_lock = threading.RLock()
         self.tool_commit = ToolCommitCoordinator(
