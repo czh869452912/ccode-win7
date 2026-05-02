@@ -767,9 +767,7 @@ class ToolContext(object):
             {
                 "diagnostics": diagnostics,
                 "diagnostic_count": len(diagnostics),
-                "linker_diagnostics": [
-                    d for d in diagnostics if d.get("category") == "linker"
-                ],
+                "linker_diagnostics": [d for d in diagnostics if d.get("category") == "linker"],
             }
         )
         return observation
@@ -908,9 +906,7 @@ class ToolContext(object):
             return False
         return False
 
-    def parse_diagnostics(
-        self, text: str, capture_context: bool = True
-    ) -> List[Dict[str, Any]]:
+    def parse_diagnostics(self, text: str, capture_context: bool = True) -> List[Dict[str, Any]]:
         diagnostics = []
         lines = text.splitlines()
         i = 0
@@ -955,9 +951,8 @@ class ToolContext(object):
                         elif j < len(lines) - 1:
                             # Check if next line after this is a caret line
                             lookahead = lines[j + 1] if j + 1 < len(lines) else ""
-                            if (
-                                lookahead.lstrip().startswith("^")
-                                or lookahead.lstrip().startswith("~")
+                            if lookahead.lstrip().startswith("^") or lookahead.lstrip().startswith(
+                                "~"
                             ):
                                 context_lines.append(next_line)
                                 j += 1
