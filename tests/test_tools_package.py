@@ -788,5 +788,98 @@ class TestWorkspaceRecipes(unittest.TestCase):
         self.assertFalse(make_build["supports_profile"])
 
 
+class TestBuildArtifactReporting(unittest.TestCase):
+    """Tests for build artifact size reporting in run_build."""
+
+    def setUp(self):
+        self.workspace = _make_workspace("artifacts")
+        self.rt = ToolRuntime(self.workspace)
+
+    def tearDown(self):
+        shutil.rmtree(self.workspace, ignore_errors=True)
+
+    def test_run_build_reports_artifacts_on_success(self):
+        # Create a fake build output directory with artifacts
+        build_dir = os.path.join(self.workspace, "build")
+        os.makedirs(build_dir)
+        with open(os.path.join(build_dir, "demo.exe"), "wb") as f:
+            f.write(b"A" * 2048)
+        with open(os.path.join(build_dir, "demo.obj"), "wb") as f:
+            f.write(b"B" * 512)
+
+        obs = self.rt.execute("run_build", {"command": "cmd /c echo build-ok"})
+        self.assertTrue(obs.success)
+        self.assertIn("artifacts", obs.data)
+        self.assertIn("artifact_count", obs.data)
+        self.assertEqual(obs.data["artifact_count"], 2)
+        paths = [a["path"] for a in obs.data["artifacts"]]
+        self.assertIn("build/demo.exe", paths)
+        self.assertIn("build/demo.obj", paths)
+        for artifact in obs.data["artifacts"]:
+            self.assertIn("size_bytes", artifact)
+            self.assertIn("size_human", artifact)
+            if artifact["path"].endswith(".exe"):
+                self.assertEqual(artifact["size_bytes"], 2048)
+                self.assertEqual(artifact["size_human"], "2.0 KB")
+            elif artifact["path"].endswith(".obj"):
+                self.assertEqual(artifact["size_bytes"], 512)
+                self.assertEqual(artifact["size_human"], "512 B")
+
+    def test_run_build_no_artifacts_on_failure(self):
+        # Create artifacts but build fails
+        build_dir = os.path.join(self.workspace, "build")
+        os.makedirs(build_dir)
+        with open(os.path.join(build_dir, "demo.exe"), "wb") as f:
+            f.write(b"X" * 1024)
+
+        obs = self.rt.execute("run_build", {"command": "cmd /c exit 1"})
+        self.assertFalse(obs.success)
+        self.assertIn("artifacts", obs.data)
+        self.assertEqual(obs.data["artifact_count"], 0)
+        self.assertEqual(obs.data["artifacts"], [])
+
+    def test_run_build_no_artifacts_if_timed_out(self):
+        obs = self.rt.execute("run_build", {"command": "cmd /c echo ok", "timeout_sec": 1})
+        self.assertTrue(obs.success)
+        # Should still scan since it didn't time out
+        self.assertIn("artifacts", obs.data)
+
+    def test_artifact_scanning_respects_max_limit(self):
+        build_dir = os.path.join(self.workspace, "build")
+        os.makedirs(build_dir)
+        for i in range(60):
+            with open(os.path.join(build_dir, "file%d.o" % i), "wb") as f:
+                f.write(b"x")
+        obs = self.rt.execute("run_build", {"command": "cmd /c echo build-ok"})
+        self.assertTrue(obs.success)
+        self.assertLessEqual(obs.data["artifact_count"], 50)
+
+    def test_format_size_bytes(self):
+        from embedagent.tools.compile_ops import _format_size
+
+        self.assertEqual(_format_size(0), "0 B")
+        self.assertEqual(_format_size(512), "512 B")
+        self.assertEqual(_format_size(1023), "1023 B")
+        self.assertEqual(_format_size(1024), "1.0 KB")
+        self.assertEqual(_format_size(1536), "1.5 KB")
+        self.assertEqual(_format_size(1024 * 1024), "1.0 MB")
+        self.assertEqual(_format_size(1024 * 1024 * 2), "2.0 MB")
+
+    def test_artifact_scanning_skips_non_artifact_files(self):
+        build_dir = os.path.join(self.workspace, "build")
+        os.makedirs(build_dir)
+        with open(os.path.join(build_dir, "main.c"), "w") as f:
+            f.write("int main() {}")
+        with open(os.path.join(build_dir, "README.md"), "w") as f:
+            f.write("# Build")
+        with open(os.path.join(build_dir, "app.exe"), "wb") as f:
+            f.write(b"x")
+
+        obs = self.rt.execute("run_build", {"command": "cmd /c echo build-ok"})
+        self.assertTrue(obs.success)
+        self.assertEqual(obs.data["artifact_count"], 1)
+        self.assertEqual(obs.data["artifacts"][0]["path"], "build/app.exe")
+
+
 if __name__ == "__main__":
     unittest.main()

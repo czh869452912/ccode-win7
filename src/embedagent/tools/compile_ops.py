@@ -134,6 +134,63 @@ def build_tools(ctx: ToolContext) -> List[ToolDefinition]:
 
         return observation
 
+    def _run_build(arguments: Dict[str, Any]) -> Observation:
+        command_text = str(arguments.get("command") or "").strip()
+        if not command_text:
+            raise ToolError("命令不能为空。")
+        cwd_argument = str(arguments.get("cwd") or ".")
+        timeout_sec = int(arguments.get("timeout_sec") or DEFAULT_BUILD_TIMEOUT_SEC)
+        diagnostic = bool(arguments.get("diagnostic", True))
+
+        cwd = ctx.resolve_directory(cwd_argument)
+        if timeout_sec <= 0:
+            raise ToolError("timeout_sec 必须大于 0。")
+
+        resolved_command, managed_tool, _ = ctx.rewrite_command_for_managed_tools(command_text)
+
+        progress_lines = []  # type: List[Dict[str, Any]]
+
+        def _progress_callback(payload: Dict[str, Any]) -> None:
+            progress_lines.append(payload)
+
+        result = ctx.run_subprocess_streaming(
+            command=resolved_command,
+            cwd=cwd,
+            timeout_sec=timeout_sec,
+            shell=True,
+            stop_event=ctx.get_interrupt_event(),
+            progress_callback=_progress_callback,
+        )
+
+        if diagnostic:
+            observation = ctx.build_diagnostic_observation(
+                "run_build", resolved_command, cwd, result
+            )
+        else:
+            observation = ctx.build_command_observation("run_build", resolved_command, cwd, result)
+
+        if isinstance(observation.data, dict):
+            data = dict(observation.data)
+            data["requested_command"] = command_text
+            if managed_tool:
+                data["managed_primary_tool"] = managed_tool
+            data["streaming_progress"] = progress_lines[:1000]
+            data["streaming_progress_count"] = len(progress_lines)
+
+            # Scan for build artifacts on success
+            if result["exit_code"] == 0 and not result["timed_out"]:
+                artifacts = _scan_build_artifacts(ctx, cwd)
+                data["artifacts"] = artifacts
+                data["artifact_count"] = len(artifacts)
+            else:
+                data["artifacts"] = []
+                data["artifact_count"] = 0
+
+            # Linker diagnostics already included by build_diagnostic_observation
+            observation.data = data
+
+        return observation
+
     return [
         ToolDefinition(
             name="list_compilers",
@@ -324,3 +381,48 @@ def _get_compiler_version(ctx: ToolContext, executable: str) -> str:
             return ""
     except Exception:
         return ""
+
+
+ARTIFACT_EXTENSIONS = frozenset(
+    (".exe", ".dll", ".lib", ".a", ".so", ".o", ".obj", ".elf", ".bin", ".out", ".wasm")
+)
+MAX_ARTIFACTS = 50
+
+
+def _format_size(size_bytes: int) -> str:
+    """Format a byte size into human-readable string."""
+    if size_bytes < 1024:
+        return "%d B" % size_bytes
+    if size_bytes < 1024 * 1024:
+        return "%.1f KB" % (size_bytes / 1024.0)
+    return "%.1f MB" % (size_bytes / 1024.0 / 1024.0)
+
+
+def _scan_build_artifacts(ctx: ToolContext, build_dir: str) -> List[Dict[str, Any]]:
+    """Scan build directory for artifact files and return their info."""
+    artifacts = []  # type: List[Dict[str, Any]]
+    if not os.path.isdir(build_dir):
+        return artifacts
+    for root, _dirnames, filenames in os.walk(build_dir):
+        for filename in filenames:
+            if not any(filename.lower().endswith(ext) for ext in ARTIFACT_EXTENSIONS):
+                continue
+            full_path = os.path.join(root, filename)
+            try:
+                size = os.path.getsize(full_path)
+            except OSError:
+                continue
+            rel_path = ctx.display_path(full_path)
+            artifacts.append(
+                {
+                    "path": rel_path,
+                    "size_bytes": size,
+                    "size_human": _format_size(size),
+                }
+            )
+            if len(artifacts) >= MAX_ARTIFACTS:
+                break
+        if len(artifacts) >= MAX_ARTIFACTS:
+            break
+    artifacts.sort(key=lambda a: a["path"])
+    return artifacts
