@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List
 
 from embedagent.session import (
@@ -429,9 +429,10 @@ class SessionRestorer(object):
             created = datetime.fromisoformat(value.replace("Z", "+00:00"))
         except ValueError:
             return True
-        now = datetime.utcnow().replace(microsecond=0)
-        created_naive = created.replace(tzinfo=None)
-        return (now - created_naive).total_seconds() > float(max_age_seconds)
+        now = datetime.now(timezone.utc).replace(microsecond=0)
+        if created.tzinfo is None:
+            created = created.replace(tzinfo=timezone.utc)
+        return (now - created).total_seconds() > float(max_age_seconds)
 
     def _matches_tool_result_record(self, record: Any, payload: Dict[str, Any]) -> bool:
         tool_name = str(payload.get("tool_name") or "").strip()

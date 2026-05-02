@@ -5,7 +5,7 @@ import os
 import re
 import threading
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 from embedagent.persistence_sanitize import sanitize_jsonable
@@ -18,7 +18,7 @@ _FALLBACK_ENV_RE = re.compile(r'approved fallback', re.IGNORECASE)
 
 
 def _utc_now() -> str:
-    return datetime.utcnow().replace(microsecond=0).isoformat() + 'Z'
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 def _truncate_text(text: str, limit: int) -> str:

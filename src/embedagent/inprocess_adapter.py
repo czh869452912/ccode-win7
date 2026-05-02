@@ -7,7 +7,7 @@ import threading
 import time
 import uuid
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional
 
 from embedagent.context import ContextManager
@@ -74,7 +74,7 @@ UserInputResolver = Callable[[Dict[str, Any]], Optional[Dict[str, Any]]]
 
 
 def _utc_now() -> str:
-    return datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 @dataclass
