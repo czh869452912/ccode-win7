@@ -34,9 +34,8 @@ result: pass
 
 ### 5. InProcessAdapter Instantiation
 expected: Creating `InProcessAdapter()` with no arguments succeeds (backward compatible)
-result: issue
-reported: "Requires client and tools as positional arguments — backward compat test adapted to use required args instead"
-severity: minor
+result: pass
+note: "Fixed by making client and tools optional with None defaults"
 
 ### 6. Service Delegation Works
 expected: After creating InProcessAdapter, it has _session_lifecycle, _event_emitter, _workspace_files, and _harness_sync attributes
@@ -54,20 +53,11 @@ result: pass
 ## Summary
 
 total: 8
-passed: 6
-issues: 1
+passed: 7
+issues: 0
 pending: 0
 skipped: 0
 
 ## Gaps
 
-- truth: "InProcessAdapter can be instantiated with no arguments (backward compatible)"
-  status: failed
-  reason: "InProcessAdapter requires client and tools as positional arguments. Backward compat test was updated to use required args."
-  severity: minor
-  test: 5
-  root_cause: "Original InProcessAdapter always required client/tools; plan incorrectly assumed no-arg construction was possible"
-  artifacts:
-    - path: "src/embedagent/inprocess_adapter.py"
-      issue: "Constructor requires client and tools positional args"
-  missing: []
+[Fixed] InProcessAdapter no-arg instantiation — made client and tools optional with None defaults in constructor

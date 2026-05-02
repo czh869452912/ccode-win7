@@ -81,9 +81,9 @@ class TestInProcessAdapterCompatibility(object):
         tools.tool_result_store = MagicMock()
         return InProcessAdapter(client=client, tools=tools)
 
-    def test_can_instantiate_with_required_args(self):
+    def test_can_instantiate_with_no_args(self):
         from embedagent.inprocess_adapter import InProcessAdapter
-        adapter = self._make_adapter()
+        adapter = InProcessAdapter()
         assert adapter is not None
 
     def test_has_create_session_method(self, fresh_container):

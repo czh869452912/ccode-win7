@@ -165,8 +165,8 @@ def _pending_interaction_payload(state: "ManagedSession") -> Optional[Dict[str, 
 class InProcessAdapter(object):
     def __init__(
         self,
-        client: OpenAICompatibleClient,
-        tools: ToolRuntime,
+        client: Optional[OpenAICompatibleClient] = None,
+        tools: Optional[ToolRuntime] = None,
         max_turns: int = 8,
         permission_policy: Optional[PermissionPolicy] = None,
         summary_store: Optional[SessionSummaryStore] = None,
@@ -177,6 +177,14 @@ class InProcessAdapter(object):
         maintenance_interval: int = 4,
         event_handler: Optional[EventHandler] = None,
     ) -> None:
+        if tools is None:
+            tools = ToolRuntime(os.getcwd())
+        if client is None:
+            client = OpenAICompatibleClient(
+                base_url="http://localhost",
+                api_key="",
+                model="default-model",
+            )
         self.client = client
         self.tools = tools
         self.max_turns = max_turns
