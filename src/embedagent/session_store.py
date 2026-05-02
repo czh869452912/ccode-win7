@@ -294,7 +294,7 @@ class SessionSummaryStore(object):
         try:
             with open(path, "r", encoding="utf-8") as handle:
                 data = json.load(handle)
-        except Exception:
+        except (OSError, json.JSONDecodeError, ValueError):
             return None
         return data if isinstance(data, dict) else None
 

@@ -12,7 +12,7 @@ class ArtifactService(object):
         if callable(method):
             try:
                 return method(limit=limit)
-            except Exception:
+            except (OSError, ValueError, TypeError):
                 return []
         return []
 

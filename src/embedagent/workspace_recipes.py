@@ -233,5 +233,5 @@ def _load_json(path: str, default: Any) -> Any:
     try:
         with open(path, "r", encoding="utf-8") as handle:
             return json.load(handle)
-    except Exception:
+    except (OSError, json.JSONDecodeError, ValueError):
         return default

@@ -494,7 +494,7 @@ class ProjectMemoryStore(object):
         try:
             with open(path, 'r', encoding='utf-8') as handle:
                 data = json.load(handle)
-        except Exception:
+        except (OSError, json.JSONDecodeError, ValueError):
             return default
         return data
 
@@ -508,7 +508,7 @@ class ProjectMemoryStore(object):
         try:
             with open(path, 'r', encoding='utf-8') as handle:
                 content = handle.read()
-        except Exception:
+        except (OSError, ValueError):
             return None
         match = _PYTHON_REQ_RE.search(content)
         return match.group(1) if match else None
@@ -544,5 +544,5 @@ class ProjectMemoryStore(object):
         try:
             with open(path, 'r', encoding='utf-8') as handle:
                 return handle.read()
-        except Exception:
+        except (OSError, ValueError):
             return None

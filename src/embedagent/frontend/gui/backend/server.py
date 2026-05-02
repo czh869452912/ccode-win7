@@ -213,7 +213,7 @@ class WebSocketFrontend(FrontendCallbacks):
         for conn in connections:
             try:
                 await conn.send_json(message)
-            except Exception:
+            except (OSError, ValueError, TypeError):
                 disconnected.add(conn)
 
         # 清理断开的连接
@@ -676,7 +676,7 @@ class GUIBackend:
                     await self._handle_websocket_message(data)
             except WebSocketDisconnect:
                 _LOGGER.info("WebSocket client disconnected")
-            except Exception:
+            except (OSError, ValueError, TypeError, RuntimeError):
                 _LOGGER.exception("Unhandled websocket failure")
             finally:
                 self.frontend.disconnect(websocket)

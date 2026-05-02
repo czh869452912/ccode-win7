@@ -547,7 +547,7 @@ class AgentCoreAdapter(CoreInterface):
         try:
             file_data = self.read_file(path)
             old_content = file_data.get("content", "")
-        except Exception:
+        except (OSError, ValueError):
             pass
 
         unified_diff = "".join(difflib.unified_diff(

@@ -17,7 +17,7 @@ class WorkspaceService(object):
         if callable(method):
             try:
                 return method()
-            except Exception:
+            except (OSError, ValueError, TypeError):
                 pass
         file_count = 0
         dir_count = 0
@@ -36,7 +36,7 @@ class WorkspaceService(object):
         if callable(method):
             try:
                 return method(path=path, max_depth=max_depth, limit=limit)
-            except Exception:
+            except (OSError, ValueError, TypeError):
                 pass
         root = self._resolve(path)
         items = []
@@ -74,7 +74,7 @@ class WorkspaceService(object):
         if callable(method):
             try:
                 return method(path)
-            except Exception:
+            except (OSError, ValueError, TypeError):
                 pass
         candidate = self._resolve(path)
         raw = open(candidate, "rb").read()

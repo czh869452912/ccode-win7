@@ -180,6 +180,6 @@ class ToolCommitCoordinator(object):
         for payload in projection_updates:
             try:
                 self._projection_db.upsert_tool_result_projection(**payload)
-            except Exception:
+            except (OSError, ValueError, TypeError):
                 pass
         return committed

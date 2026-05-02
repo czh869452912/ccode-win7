@@ -190,7 +190,7 @@ def _configure_webview_runtime() -> Dict[str, Any]:
     if callable(detector):
         try:
             is_chromium = bool(detector())
-        except Exception:
+        except (OSError, ValueError, TypeError):
             is_chromium = bool(getattr(winforms, "is_chromium", False))
     else:
         is_chromium = bool(getattr(winforms, "is_chromium", False))
