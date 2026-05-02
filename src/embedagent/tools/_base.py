@@ -58,11 +58,26 @@ DIRECT_MANAGED_EXECUTABLES = {
     "python.exe": "python",
 }
 CLANG_DIAGNOSTIC_RE = re.compile(
-    r"^(?P<file>.+?):(?P<line>\d+):(?P<column>\d+): (?P<level>fatal error|error|warning|note): (?P<message>.*)$"
+    r"^(?P<file>.+?):(?P<line>\d+):(?:(?P<column>\d+):)? (?P<level>fatal error|error|warning|note): (?P<message>.*)$"
+)
+GCC_DIAGNOSTIC_RE = re.compile(
+    r"^(?P<file>.+?):(?P<line>\d+):(?:(?P<column>\d+):)? (?P<level>fatal error|error|warning|note): (?P<message>.*)$"
 )
 MSVC_DIAGNOSTIC_RE = re.compile(
     r"^(?P<file>.+?)\((?P<line>\d+)(?:,(?P<column>\d+))?\): (?P<level>fatal error|error|warning|note) [A-Z0-9]+: (?P<message>.*)$"
 )
+LINKER_DIAGNOSTIC_RE = re.compile(
+    r"^(?:(?P<file>.+?):)?\s*(?P<level>error|warning): (?P<message>.*)$"
+)
+LINKER_SIGNATURE_PATTERNS = [
+    re.compile(r"^\s*(?:ld|lld|gold|collect2|link\.exe|LINK)\s*[:→-]", re.IGNORECASE),
+    re.compile(r"^\s*undefined reference to", re.IGNORECASE),
+    re.compile(r"^\s*cannot find", re.IGNORECASE),
+    re.compile(r"^\s*multiple definition of", re.IGNORECASE),
+    re.compile(r"^\s*relocation truncated to fit", re.IGNORECASE),
+    re.compile(r"^\s*symbol.*multiply defined", re.IGNORECASE),
+    re.compile(r"^\s*LNK[0-9]+:", re.IGNORECASE),
+]
 
 
 class ToolError(Exception):
@@ -747,7 +762,16 @@ class ToolContext(object):
         combined = (result["stdout"] or "") + "\n" + (result["stderr"] or "")
         diagnostics = self.parse_diagnostics(combined)
         observation.data.update(self.diagnostic_counts(diagnostics))
-        observation.data.update({"diagnostics": diagnostics, "diagnostic_count": len(diagnostics)})
+        observation.data.update(self.linker_diagnostic_counts(diagnostics))
+        observation.data.update(
+            {
+                "diagnostics": diagnostics,
+                "diagnostic_count": len(diagnostics),
+                "linker_diagnostics": [
+                    d for d in diagnostics if d.get("category") == "linker"
+                ],
+            }
+        )
         return observation
 
     def run_shell_tool(
@@ -810,23 +834,144 @@ class ToolContext(object):
     def normalize_level(self, level: str) -> str:
         return "error" if level == "fatal error" else level
 
-    def parse_diagnostics(self, text: str) -> List[Dict[str, Any]]:
+    def _classify_diagnostic_category(self, file: str, message: str) -> str:
+        """Classify whether a diagnostic is from the compiler or linker."""
+        message_lower = message.lower()
+        file_lower = (file or "").lower()
+        linker_keywords = [
+            "undefined reference",
+            "cannot find",
+            "multiple definition",
+            "relocation truncated",
+            "multiply defined",
+            "symbol",
+            "collect2",
+            "ld returned",
+            "linker",
+            "lnk",
+        ]
+        for keyword in linker_keywords:
+            if keyword in message_lower:
+                return "linker"
+        if file_lower in ("ld", "link", "collect2", "lld", "gold"):
+            return "linker"
+        if "link.exe" in file_lower:
+            return "linker"
+        return "compiler"
+
+    def _is_linker_signature_line(self, line: str) -> bool:
+        """Check if a line is a linker diagnostic signature."""
+        for pattern in LINKER_SIGNATURE_PATTERNS:
+            if pattern.search(line):
+                return True
+        return False
+
+    def _extract_linker_diagnostic(self, line: str) -> Optional[Dict[str, Any]]:
+        """Try to parse a linker diagnostic from a line."""
+        match = LINKER_DIAGNOSTIC_RE.match(line)
+        if match:
+            return {
+                "file": match.group("file") or "",
+                "line": 0,
+                "column": 0,
+                "level": self.normalize_level(match.group("level")),
+                "message": match.group("message").strip(),
+                "category": "linker",
+            }
+        if self._is_linker_signature_line(line):
+            level = "error"
+            msg = line.strip()
+            if "warning" in msg.lower():
+                level = "warning"
+            return {
+                "file": "",
+                "line": 0,
+                "column": 0,
+                "level": level,
+                "message": msg,
+                "category": "linker",
+            }
+        return None
+
+    def _looks_like_context_line(self, line: str) -> bool:
+        """Check if a line looks like diagnostic context (code snippet or caret)."""
+        if not line:
+            return False
+        stripped = line.lstrip()
+        if stripped.startswith("|") or stripped.startswith("^"):
+            return True
+        if stripped.startswith("~") and "^" in stripped:
+            return True
+        if stripped.startswith("In file included"):
+            return False
+        if stripped.startswith("from "):
+            return False
+        return False
+
+    def parse_diagnostics(
+        self, text: str, capture_context: bool = True
+    ) -> List[Dict[str, Any]]:
         diagnostics = []
-        for line in text.splitlines():
-            match = CLANG_DIAGNOSTIC_RE.match(line) or MSVC_DIAGNOSTIC_RE.match(line)
-            if not match:
-                continue
-            diagnostics.append(
-                {
-                    "file": match.group("file"),
+        lines = text.splitlines()
+        i = 0
+        while i < len(lines):
+            line = lines[i]
+            match = None
+            diag = None
+
+            # Try compiler diagnostic patterns (Clang/GCC, MSVC)
+            for pattern in (CLANG_DIAGNOSTIC_RE, MSVC_DIAGNOSTIC_RE):
+                match = pattern.match(line)
+                if match:
+                    break
+
+            if match:
+                file_val = match.group("file")
+                message_val = match.group("message").strip()
+                diag = {
+                    "file": file_val,
                     "line": int(match.group("line")),
                     "column": int(match.groupdict().get("column") or 1),
                     "level": self.normalize_level(match.group("level")),
-                    "message": match.group("message").strip(),
+                    "message": message_val,
+                    "category": self._classify_diagnostic_category(file_val, message_val),
                 }
-            )
-            if len(diagnostics) >= MAX_DIAGNOSTICS:
-                break
+            else:
+                # Try linker diagnostic patterns
+                linker_diag = self._extract_linker_diagnostic(line)
+                if linker_diag:
+                    diag = linker_diag
+
+            if diag:
+                # Capture multi-line context
+                if capture_context:
+                    context_lines = []
+                    j = i + 1
+                    while j < len(lines) and len(context_lines) < 3:
+                        next_line = lines[j]
+                        if self._looks_like_context_line(next_line):
+                            context_lines.append(next_line)
+                            j += 1
+                        elif j < len(lines) - 1:
+                            # Check if next line after this is a caret line
+                            lookahead = lines[j + 1] if j + 1 < len(lines) else ""
+                            if (
+                                lookahead.lstrip().startswith("^")
+                                or lookahead.lstrip().startswith("~")
+                            ):
+                                context_lines.append(next_line)
+                                j += 1
+                            else:
+                                break
+                        else:
+                            break
+                    if context_lines:
+                        diag["context"] = context_lines
+                diagnostics.append(diag)
+                if len(diagnostics) >= MAX_DIAGNOSTICS:
+                    break
+
+            i += 1
         return diagnostics
 
     def diagnostic_counts(self, diagnostics: List[Dict[str, Any]]) -> Dict[str, int]:
@@ -839,6 +984,17 @@ class ToolContext(object):
                 counts["warning_count"] += 1
             elif level == "note":
                 counts["note_count"] += 1
+        return counts
+
+    def linker_diagnostic_counts(self, diagnostics: List[Dict[str, Any]]) -> Dict[str, int]:
+        counts = {"linker_error_count": 0, "linker_warning_count": 0}
+        for item in diagnostics:
+            if item.get("category") == "linker":
+                level = item["level"]
+                if level == "error":
+                    counts["linker_error_count"] += 1
+                elif level == "warning":
+                    counts["linker_warning_count"] += 1
         return counts
 
     def extract_first_int(self, patterns: List[str], text: str) -> int:
