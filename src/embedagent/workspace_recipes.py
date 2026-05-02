@@ -69,7 +69,9 @@ def _normalize_recipe_item(item: Dict[str, Any]) -> Dict[str, Any]:
     stage = str(item.get("stage") or "").strip()
     normalized = dict(item)
     normalized["tool_name"] = "run_recipe"
-    normalized["recipe_action"] = str(item.get("recipe_action") or _recipe_action_from(original_tool_name, stage))
+    normalized["recipe_action"] = str(
+        item.get("recipe_action") or _recipe_action_from(original_tool_name, stage)
+    )
     return normalized
 
 
@@ -96,7 +98,9 @@ def _load_project_recipes(workspace: str) -> List[Dict[str, Any]]:
         command = str(entry.get("command") or "").strip()
         if not recipe_id or not tool_name or not command:
             continue
-        recipe_action = str(entry.get("recipe_action") or "").strip() or _recipe_action_from(tool_name, "")
+        recipe_action = str(entry.get("recipe_action") or "").strip() or _recipe_action_from(
+            tool_name, ""
+        )
         items.append(
             {
                 "id": recipe_id,

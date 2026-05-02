@@ -44,7 +44,11 @@ def build_tools(ctx: ToolContext) -> List[ToolDefinition]:
             "debug": {"c_flags": "-O0 -g", "cxx_flags": "-O0 -g", "linker_flags": ""},
             "release": {"c_flags": "-O3 -DNDEBUG", "cxx_flags": "-O3 -DNDEBUG", "linker_flags": ""},
             "relwithdebinfo": {"c_flags": "-O2 -g", "cxx_flags": "-O2 -g", "linker_flags": ""},
-            "minsizerel": {"c_flags": "-Os -DNDEBUG", "cxx_flags": "-Os -DNDEBUG", "linker_flags": ""},
+            "minsizerel": {
+                "c_flags": "-Os -DNDEBUG",
+                "cxx_flags": "-Os -DNDEBUG",
+                "linker_flags": "",
+            },
         }
         type_config = build_types.get(build_type, build_types["debug"])
 

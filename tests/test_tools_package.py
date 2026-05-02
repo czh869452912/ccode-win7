@@ -78,7 +78,7 @@ class TestToolRuntimeSchemas(unittest.TestCase):
         shutil.rmtree(self.workspace, ignore_errors=True)
 
     def test_total_tool_count(self):
-        self.assertEqual(len(self.schemas), 17)
+        self.assertEqual(len(self.schemas), 18)
 
     def test_official_tool_catalog_excludes_legacy_duplicate_tools(self):
         expected = [
@@ -90,6 +90,7 @@ class TestToolRuntimeSchemas(unittest.TestCase):
             "git_diff",
             "git_log",
             "list_compilers",
+            "configure_build_env",
         ]
         for name in expected:
             self.assertIn(name, self.tool_names, "Missing tool: %s" % name)
@@ -287,6 +288,35 @@ class TestToolRuntimeExecute(unittest.TestCase):
         obs = self.rt.execute("list_compilers", {})
         self.assertTrue(obs.success)
         self.assertEqual(obs.data["tool_label"], "List Compilers")
+        self.assertEqual(obs.data["permission_category"], "read")
+        self.assertFalse(obs.data["supports_diff_preview"])
+
+    def test_configure_build_env_returns_observation(self):
+        obs = self.rt.execute("configure_build_env", {})
+        self.assertTrue(obs.success)
+        self.assertEqual(obs.tool_name, "configure_build_env")
+        self.assertIn("compiler", obs.data)
+        self.assertIn("compilers_available", obs.data)
+        self.assertIn("build_type", obs.data)
+        self.assertIn("c_flags", obs.data)
+        self.assertIn("cxx_flags", obs.data)
+        self.assertIn("linker_flags", obs.data)
+        self.assertIn("environment", obs.data)
+        self.assertIn("build_dir", obs.data)
+        self.assertIsInstance(obs.data["compilers_available"], list)
+        self.assertEqual(obs.data["build_type"], "debug")
+
+    def test_configure_build_env_with_build_type(self):
+        obs = self.rt.execute("configure_build_env", {"build_type": "release"})
+        self.assertTrue(obs.success)
+        self.assertEqual(obs.data["build_type"], "release")
+        self.assertEqual(obs.data["c_flags"], "-O3 -DNDEBUG")
+        self.assertEqual(obs.data["cxx_flags"], "-O3 -DNDEBUG")
+
+    def test_configure_build_env_includes_catalog_metadata(self):
+        obs = self.rt.execute("configure_build_env", {})
+        self.assertTrue(obs.success)
+        self.assertEqual(obs.data["tool_label"], "Configure Build Env")
         self.assertEqual(obs.data["permission_category"], "read")
         self.assertFalse(obs.data["supports_diff_preview"])
 
@@ -531,6 +561,36 @@ class TestWorkspaceRecipes(unittest.TestCase):
         ):
             obs = runtime.execute(tool_name, {"recipe_id": "custom.build"})
             self.assertFalse(obs.success, tool_name)
+
+    def test_detects_ninja_recipes(self):
+        with open(os.path.join(self.workspace, "build.ninja"), "w", encoding="utf-8") as handle:
+            handle.write("rule cc\n  command = clang -c $in -o $out\n")
+        from embedagent.workspace_recipes import list_workspace_recipes
+
+        payload = list_workspace_recipes(self.workspace)
+        recipe_ids = [item["id"] for item in payload["items"]]
+        self.assertIn("ninja.build.default", recipe_ids)
+        self.assertIn("ninja.test.default", recipe_ids)
+        ninja_build = [item for item in payload["items"] if item["id"] == "ninja.build.default"][0]
+        self.assertEqual(ninja_build["tool_name"], "run_recipe")
+        self.assertEqual(ninja_build["recipe_action"], "build")
+        self.assertEqual(ninja_build["family"], "ninja")
+        self.assertTrue(ninja_build["supports_target"])
+        self.assertFalse(ninja_build["supports_profile"])
+
+    def test_detects_make_recipes_with_target_support(self):
+        with open(os.path.join(self.workspace, "Makefile"), "w", encoding="utf-8") as handle:
+            handle.write("all:\n\techo hello\n")
+        from embedagent.workspace_recipes import list_workspace_recipes
+
+        payload = list_workspace_recipes(self.workspace)
+        recipe_ids = [item["id"] for item in payload["items"]]
+        self.assertIn("make.build.default", recipe_ids)
+        self.assertIn("make.test.default", recipe_ids)
+        make_build = [item for item in payload["items"] if item["id"] == "make.build.default"][0]
+        self.assertEqual(make_build["family"], "make")
+        self.assertTrue(make_build["supports_target"])
+        self.assertFalse(make_build["supports_profile"])
 
 
 if __name__ == "__main__":

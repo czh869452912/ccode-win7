@@ -187,6 +187,22 @@ _DEFAULT_TOOL_METADATA = {
         "activity_kind": "tool",
         "context_priority": 65,
     },
+    "configure_build_env": {
+        "permission_category": "read",
+        "mode_visibility": ["explore", "spec", "build", "debug", "verify"],
+        "workflow_visibility": ["chat", "plan", "review", "command"],
+        "user_label": "Configure Build Env",
+        "progress_renderer_key": "list",
+        "result_renderer_key": "list",
+        "supports_diff_preview": False,
+        "context_reducer_key": "configure_build_env",
+        "read_only": True,
+        "concurrency_safe": True,
+        "interrupt_behavior": "block",
+        "result_budget_policy": "compact-preview",
+        "activity_kind": "tool",
+        "context_priority": 64,
+    },
 }
 _DEFAULT_TOOL_METADATA.update(OFFICIAL_HARNESS_TOOL_METADATA)
 
