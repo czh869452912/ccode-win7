@@ -31,8 +31,10 @@ class TestModeRegistryIsolation(object):
         assert original_count > 0
 
         # Call with explicit empty registry
-        local_registry = initialize_modes({})
-        assert local_registry == {}
+        local_registry = initialize_modes(registry={})
+        # initialize_modes populates the passed registry with built-ins
+        assert "explore" in local_registry
+        assert "build" in local_registry
 
         # Global unchanged
         global_after = get_mode_registry()

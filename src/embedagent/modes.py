@@ -5,7 +5,9 @@ import json
 import logging
 import os
 import re
-from typing import Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
+
+from embedagent.di_container import get_default_container
 
 _LOG = logging.getLogger(__name__)
 
@@ -120,11 +122,94 @@ _BUILTIN_MODES = {
     },
 }  # type: Dict[str, Dict[str, object]]
 
-# Public registry — rebuilt by initialize_modes(); tests that import directly
-# get the built-in defaults without calling initialize_modes().
-MODE_REGISTRY = dict(_BUILTIN_MODES)  # type: Dict[str, Dict[str, object]]
-
 _MODE_COMMAND_RE = re.compile(r"^/mode\s+(\w+)(?:\s+(.*))?$", re.DOTALL)
+
+
+# ---------------------------------------------------------------------------
+# Factory-based registry — replaces mutable global MODE_REGISTRY
+# ---------------------------------------------------------------------------
+
+def get_mode_registry(fresh: bool = False) -> Dict[str, Any]:
+    """Return the mode registry.
+
+    Use fresh=True in tests to get an isolated registry.
+    """
+    if fresh:
+        return {}
+    return get_default_container().resolve("mode_registry", fresh=False)
+
+
+def initialize_modes(
+    workspace: str = "", registry: Optional[Dict[str, Any]] = None
+) -> Dict[str, Any]:
+    """Rebuild mode registry from built-ins merged with config-file overrides.
+
+    Args:
+        workspace: Path to workspace for loading config overrides.
+        registry: Optional explicit registry to mutate. If None, a fresh
+            registry is created and registered in the DI container.
+
+    Returns:
+        The populated mode registry dict.
+    """
+    if registry is None:
+        registry = dict(_BUILTIN_MODES)
+        overrides = load_modes_config(workspace)
+        registry.update(overrides)
+        # Register in container for singleton access
+        container = get_default_container()
+        container.register_factory("mode_registry", lambda: registry)
+        return registry
+    else:
+        # When an explicit registry is passed, just populate it
+        for name, definition in _BUILTIN_MODES.items():
+            registry[name] = definition
+        return registry
+
+
+# Backward-compatible alias — calls get_mode_registry() on each access.
+# Deprecated: use get_mode_registry() directly.
+class _ModeRegistryAlias(object):
+    """Property-like alias for backward compatibility."""
+
+    def __getitem__(self, key):
+        return get_mode_registry()[key]
+
+    def __setitem__(self, key, value):
+        get_mode_registry()[key] = value
+
+    def __contains__(self, key):
+        return key in get_mode_registry()
+
+    def keys(self):
+        return get_mode_registry().keys()
+
+    def get(self, key, default=None):
+        return get_mode_registry().get(key, default)
+
+    def items(self):
+        return get_mode_registry().items()
+
+    def values(self):
+        return get_mode_registry().values()
+
+    def __repr__(self):
+        return repr(get_mode_registry())
+
+
+MODE_REGISTRY = _ModeRegistryAlias()
+
+
+# Register factory on module load
+_get_mode_registry_original = get_mode_registry
+
+
+def _register_mode_factory() -> None:
+    container = get_default_container()
+    container.register_factory("mode_registry", lambda: initialize_modes())
+
+
+_register_mode_factory()
 
 
 # ---------------------------------------------------------------------------
@@ -171,20 +256,6 @@ def load_modes_config(workspace: str) -> Dict[str, Dict[str, object]]:
                 entry["writable_globs"] = list(builtin.get("writable_globs", []))
             merged[slug] = entry
     return merged
-
-
-def initialize_modes(workspace: str) -> None:
-    """Rebuild MODE_REGISTRY from built-ins merged with config-file overrides.
-
-    Call once at startup (cli.py, inprocess_adapter.__init__) before any
-    require_mode() calls that should see project-level customizations.
-    Safe to call multiple times; later calls overwrite earlier state.
-    """
-    global MODE_REGISTRY
-    overrides = load_modes_config(workspace)
-    new_registry = dict(_BUILTIN_MODES)
-    new_registry.update(overrides)
-    MODE_REGISTRY = new_registry
 
 
 # ---------------------------------------------------------------------------
