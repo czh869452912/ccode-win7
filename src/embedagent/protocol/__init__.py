@@ -6,9 +6,13 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum, auto
 from typing import Any, Dict, List, Optional, Protocol
+
+
+def _utc_now() -> datetime:
+    return datetime.now(timezone.utc)
 
 
 class MessageType(Enum):
@@ -38,7 +42,7 @@ class Message:
     id: str
     type: MessageType
     content: str
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=_utc_now)
     metadata: Dict[str, Any] = field(default_factory=dict)
     collapsed: bool = False
     group_id: Optional[str] = None

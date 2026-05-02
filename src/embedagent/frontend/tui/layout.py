@@ -30,7 +30,7 @@ class TerminalLayout(object):
         self.composer.accept_handler = self.owner.controller.accept_input
         try:
             self.editor.buffer.on_text_changed += self.owner.controller.on_editor_text_changed
-        except Exception:
+        except (ValueError, TypeError):
             pass
         self.application = self._create_application()
 

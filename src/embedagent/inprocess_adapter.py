@@ -7,7 +7,7 @@ import threading
 import time
 import uuid
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional
 
 from embedagent.context import ContextManager
@@ -74,7 +74,7 @@ UserInputResolver = Callable[[Dict[str, Any]], Optional[Dict[str, Any]]]
 
 
 def _utc_now() -> str:
-    return datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 @dataclass
@@ -318,7 +318,7 @@ class InProcessAdapter(object):
         summary_ref = ""
         try:
             summary_ref = self.summary_store.persist(session, current_mode)
-        except Exception:
+        except (OSError, ValueError, TypeError):
             summary_ref = ""
         state = ManagedSession(
             session=session,
@@ -2202,7 +2202,7 @@ class InProcessAdapter(object):
                     permission_handler=permission_handler,
                     user_input_handler=user_input_handler,
                 )
-        except Exception as exc:
+        except (RuntimeError, ValueError, TypeError) as exc:
             set_thinking(False, "session_error")
             with state.lock:
                 is_worker_thread = threading.current_thread() is state.active_thread
@@ -2241,12 +2241,12 @@ class InProcessAdapter(object):
     def _persist_state(self, state: ManagedSession) -> None:
         try:
             summary_ref = self.summary_store.persist(state.session, state.current_mode)
-        except Exception:
+        except (OSError, ValueError, TypeError):
             summary_ref = ""
         else:
             try:
                 self.project_memory_store.refresh(state.session, state.current_mode, summary_ref)
-            except Exception:
+            except (OSError, ValueError, TypeError):
                 pass
         with state.lock:
             state.summary_ref = summary_ref or state.summary_ref
@@ -2355,7 +2355,7 @@ class InProcessAdapter(object):
     ) -> None:
         try:
             self.timeline_store.append_event(session_id, event_name, payload)
-        except Exception:
+        except (OSError, ValueError, TypeError):
             pass
         handler = event_handler or self.event_handler
         if handler is None:

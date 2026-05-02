@@ -12,6 +12,6 @@ class TimelineService(object):
         if callable(method) and session_id:
             try:
                 return method(session_id, limit=limit)
-            except Exception:
+            except (OSError, ValueError, TypeError):
                 pass
         return {"session_id": session_id, "events": [], "latest_assistant_reply": ""}

@@ -76,7 +76,7 @@ class SessionService(object):
             return None
         try:
             return store.load_summary(summary_ref)
-        except Exception:
+        except (OSError, ValueError, TypeError):
             return None
 
     def list_tasks(self, session_id: str = "") -> Dict[str, Any]:
@@ -89,7 +89,7 @@ class SessionService(object):
         try:
             with open(tasks_path, "r", encoding="utf-8") as handle:
                 payload = json.load(handle)
-        except Exception:
+        except (OSError, json.JSONDecodeError, ValueError):
             payload = []
         if isinstance(payload, dict):
             tasks = payload.get("tasks") if isinstance(payload.get("tasks"), list) else []

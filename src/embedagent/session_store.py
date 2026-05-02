@@ -6,7 +6,7 @@ import re
 import shutil
 import threading
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from embedagent.modes import build_system_prompt
@@ -37,7 +37,7 @@ _MODE_RE = re.compile(r"当前模式：(\w+)")
 
 
 def _utc_now() -> str:
-    return datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 def _truncate_text(text: str, limit: int) -> str:
@@ -294,7 +294,7 @@ class SessionSummaryStore(object):
         try:
             with open(path, "r", encoding="utf-8") as handle:
                 data = json.load(handle)
-        except Exception:
+        except (OSError, json.JSONDecodeError, ValueError):
             return None
         return data if isinstance(data, dict) else None
 

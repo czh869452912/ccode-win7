@@ -67,6 +67,10 @@ markers = [
     "gui: GUI and frontend tests (requires display)",
     "slow: integration tests > 5 seconds",
 ]
+filterwarnings = [
+    "error::DeprecationWarning:embedagent.*",
+    "ignore::DeprecationWarning",
+]
 
 [tool.coverage.run]
 source = ["src/embedagent"]
@@ -82,5 +86,6 @@ show_missing = true
 
 [dependency-groups]
 dev = [
+    "pytest>=8.3.5",
     "ruff>=0.15.12",
 ]

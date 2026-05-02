@@ -70,7 +70,7 @@ def build_tools(ctx) -> List[ToolDefinition]:
                 continue
             try:
                 content, _, _ = ctx.read_text(absolute_path)
-            except Exception:
+            except (OSError, UnicodeDecodeError, ValueError):
                 continue
             for line_number, line_text in enumerate(content.split("\n"), start=1):
                 if lowered and lowered not in line_text.lower():

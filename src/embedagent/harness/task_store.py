@@ -55,7 +55,7 @@ def load_task_snapshot(workspace: str, session_id: str) -> Dict[str, Any]:
     try:
         with open(path, "r", encoding="utf-8") as handle:
             payload = json.load(handle)
-    except Exception:
+    except (OSError, json.JSONDecodeError, ValueError):
         return {}
     if not isinstance(payload, dict):
         return {}

@@ -62,7 +62,7 @@ class ToolCommitCoordinator(object):
                 field_name,
                 value,
             )
-        except Exception as exc:
+        except (OSError, RuntimeError, ValueError, TypeError) as exc:
             _LOG.warning(
                 "tool result persistence failed for %s/%s (%s): %s",
                 action.name,
@@ -152,7 +152,7 @@ class ToolCommitCoordinator(object):
                         payload,
                     )
                     session.record_content_replacement(payload)
-                except Exception as exc:
+                except (OSError, RuntimeError, ValueError, TypeError) as exc:
                     _LOG.warning(
                         "content replacement persistence failed for %s/%s: %s",
                         action.name,
@@ -180,6 +180,6 @@ class ToolCommitCoordinator(object):
         for payload in projection_updates:
             try:
                 self._projection_db.upsert_tool_result_projection(**payload)
-            except Exception:
+            except (OSError, ValueError, TypeError):
                 pass
         return committed

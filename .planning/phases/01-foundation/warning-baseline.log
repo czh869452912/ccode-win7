@@ -1,0 +1,528 @@
+# Warning Baseline for Phase 1
+# Captured: 2026-05-02 16:31:12
+# 
+# Summary:
+# - Project-code DeprecationWarnings: 0 (all fixed by Plans 01 and 02)
+# - Third-party DeprecationWarnings: 0
+# - Other warnings: 0
+# - Total warnings: 0
+#
+# Test Run: uv run pytest tests/ -m "not slow and not gui" -W default::DeprecationWarning -v
+# Result: 423 passed, 1 failed (pre-existing GUI sync test unrelated to warnings)
+#
+# Verification: No warnings of any kind detected in test output.
+============================= test session starts =============================
+platform win32 -- Python 3.8.10, pytest-8.3.5, pluggy-1.5.0 -- D:\Claude-project\ccode-win7\.venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: D:\Claude-project\ccode-win7
+configfile: pyproject.toml
+plugins: anyio-4.5.2
+collecting ... collected 424 items
+
+tests/test_architecture.py::TestProtocol::test_command_result PASSED     [  0%]
+tests/test_architecture.py::TestProtocol::test_message_creation PASSED   [  0%]
+tests/test_architecture.py::TestProtocol::test_permission_request_keeps_anchor_fields PASSED [  0%]
+tests/test_architecture.py::TestProtocol::test_plan_snapshot PASSED      [  0%]
+tests/test_architecture.py::TestProtocol::test_session_snapshot PASSED   [  1%]
+tests/test_architecture.py::TestProtocol::test_tool_call PASSED          [  1%]
+tests/test_architecture.py::TestProtocol::test_tool_result PASSED        [  1%]
+tests/test_architecture.py::TestProtocol::test_turn_record_and_timeline_item PASSED [  1%]
+tests/test_architecture.py::TestProtocol::test_user_input_request_keeps_anchor_fields PASSED [  2%]
+tests/test_architecture.py::TestProtocol::test_workspace_info PASSED     [  2%]
+tests/test_architecture.py::TestMockFrontend::test_command_result_and_plan_update PASSED [  2%]
+tests/test_architecture.py::TestMockFrontend::test_message_handling PASSED [  2%]
+tests/test_architecture.py::TestMockFrontend::test_permission_request PASSED [  3%]
+tests/test_architecture.py::TestMockFrontend::test_reasoning_delta PASSED [  3%]
+tests/test_architecture.py::TestMockFrontend::test_session_status_change PASSED [  3%]
+tests/test_architecture.py::TestMockFrontend::test_stream_delta PASSED   [  3%]
+tests/test_architecture.py::TestMockFrontend::test_tool_finish PASSED    [  4%]
+tests/test_architecture.py::TestMockFrontend::test_tool_start PASSED     [  4%]
+tests/test_architecture.py::TestFrontendTUIImport::test_import_launcher PASSED [  4%]
+tests/test_architecture.py::TestFrontendTUIImport::test_import_tui_app PASSED [  4%]
+tests/test_architecture.py::TestFrontendTUIImport::test_import_tui_frontend PASSED [  4%]
+tests/test_architecture.py::TestFrontendGUIImport::test_import_gui_backend PASSED [  5%]
+tests/test_architecture.py::TestFrontendGUIImport::test_import_gui_launcher PASSED [  5%]
+tests/test_architecture.py::TestCoreAdapterImport::test_import_adapter PASSED [  5%]
+tests/test_config.py::TestAppConfigDefaults::test_all_fields_default_to_none PASSED [  5%]
+tests/test_config.py::TestAppConfigDefaults::test_explicit_values PASSED [  6%]
+tests/test_config.py::TestAppConfigDefaults::test_mode_writable_globs_default_empty PASSED [  6%]
+tests/test_config.py::TestLoadJsonFile::test_invalid_json_returns_empty PASSED [  6%]
+tests/test_config.py::TestLoadJsonFile::test_json_array_returns_empty PASSED [  6%]
+tests/test_config.py::TestLoadJsonFile::test_missing_file_returns_empty PASSED [  7%]
+tests/test_config.py::TestLoadJsonFile::test_valid_json PASSED           [  7%]
+tests/test_config.py::TestMerge::test_mode_extra_writable_globs_merged PASSED [  7%]
+tests/test_config.py::TestMerge::test_mode_extra_writable_globs_overrides_existing_mode PASSED [  7%]
+tests/test_config.py::TestMerge::test_mode_writable_globs_merged PASSED  [  8%]
+tests/test_config.py::TestMerge::test_mode_writable_globs_overrides_existing_mode PASSED [  8%]
+tests/test_config.py::TestMerge::test_nested_sections_are_merged PASSED  [  8%]
+tests/test_config.py::TestMerge::test_none_value_not_overriding PASSED   [  8%]
+tests/test_config.py::TestMerge::test_numeric_type_coercion PASSED       [  8%]
+tests/test_config.py::TestMerge::test_simple_field_override PASSED       [  9%]
+tests/test_config.py::TestLoadConfig::test_invalid_project_config_silently_ignored PASSED [  9%]
+tests/test_config.py::TestLoadConfig::test_mode_extra_writable_globs_in_project_config PASSED [  9%]
+tests/test_config.py::TestLoadConfig::test_mode_writable_globs_in_project_config PASSED [  9%]
+tests/test_config.py::TestLoadConfig::test_nested_project_config_loaded PASSED [ 10%]
+tests/test_config.py::TestLoadConfig::test_no_config_files_returns_defaults PASSED [ 10%]
+tests/test_config.py::TestLoadConfig::test_project_config_loaded PASSED  [ 10%]
+tests/test_config.py::TestLoadConfig::test_project_config_overrides_user_config PASSED [ 10%]
+tests/test_context_config.py::TestMakeContextConfig::test_chars_per_token_override PASSED [ 11%]
+tests/test_context_config.py::TestMakeContextConfig::test_empty_app_config_returns_defaults PASSED [ 11%]
+tests/test_context_config.py::TestMakeContextConfig::test_max_context_tokens_override PASSED [ 11%]
+tests/test_context_config.py::TestMakeContextConfig::test_max_recent_turns_override PASSED [ 11%]
+tests/test_context_config.py::TestMakeContextConfig::test_none_returns_default_config PASSED [ 12%]
+tests/test_context_config.py::TestMakeContextConfig::test_partial_overrides_preserve_mode_overrides PASSED [ 12%]
+tests/test_context_config.py::TestMakeContextConfig::test_reserve_output_tokens_override PASSED [ 12%]
+tests/test_context_config.py::TestMakeContextConfig::test_unset_fields_use_defaults PASSED [ 12%]
+tests/test_context_config.py::TestReducerRegistryTasks::test_high_priority_tools_use_official_verify_vocabulary PASSED [ 12%]
+tests/test_context_config.py::TestReducerRegistryTasks::test_official_task_reducer_registered PASSED [ 13%]
+tests/test_context_config.py::TestReducerRegistryTasks::test_reduce_list_dir_preview PASSED [ 13%]
+tests/test_context_config.py::TestReducerRegistryTasks::test_reduce_report_quality_v2 PASSED [ 13%]
+tests/test_context_config.py::TestReducerRegistryTasks::test_reduce_task_status_add_action PASSED [ 13%]
+tests/test_context_config.py::TestReducerRegistryTasks::test_reduce_task_status_list_action PASSED [ 14%]
+tests/test_context_config.py::TestReducerRegistryTasks::test_reduce_task_status_remove_action PASSED [ 14%]
+tests/test_context_config.py::TestReducerRegistryTasks::test_summarize_task_status_observation PASSED [ 14%]
+tests/test_context_config.py::TestContextConfigModeOverrides::test_compact_has_smaller_budgets PASSED [ 14%]
+tests/test_context_config.py::TestContextConfigModeOverrides::test_mode_overrides_all_modes_present PASSED [ 15%]
+tests/test_context_config.py::TestContextCompactionSignal::test_old_turns_alone_do_not_mark_compacted PASSED [ 15%]
+tests/test_debug_evidence_v2.py::DebugEvidenceV2Tests::test_record_failing_evidence_returns_structured_payload PASSED [ 15%]
+tests/test_exception_characterization.py::test_permissions_load_missing_file PASSED [ 15%]
+tests/test_exception_characterization.py::test_task_store_load_missing_file PASSED [ 16%]
+tests/test_exception_characterization.py::test_project_memory_load_missing_file PASSED [ 16%]
+tests/test_exception_characterization.py::test_session_store_read_json_missing_file PASSED [ 16%]
+tests/test_exception_characterization.py::test_workspace_recipes_load_json_missing_file PASSED [ 16%]
+tests/test_exception_characterization.py::test_core_adapter_read_file_missing PASSED [ 16%]
+tests/test_exception_characterization.py::test_artifact_service_list_items PASSED [ 17%]
+tests/test_exception_characterization.py::test_timeline_service_load PASSED [ 17%]
+tests/test_exception_characterization.py::test_all_modified_modules_importable PASSED [ 17%]
+tests/test_guard.py::TestLoopGuard::test_non_retryable_failure_blocks_repeat_early PASSED [ 17%]
+tests/test_gui_backend_api.py::TestGuiBackendApi::test_bootstrap_endpoint_returns_snapshot_history_plan_and_permissions PASSED [ 18%]
+tests/test_gui_backend_api.py::TestGuiBackendApi::test_get_session_events_replays_only_entries_after_seq PASSED [ 18%]
+tests/test_gui_backend_api.py::TestGuiBackendApi::test_interaction_lookup_errors_return_410 PASSED [ 18%]
+tests/test_gui_backend_api.py::TestGuiBackendApi::test_post_interaction_response_resolves_frontend_pending_input_before_core_fallback PASSED [ 18%]
+tests/test_gui_backend_api.py::TestGuiBackendApi::test_post_interaction_response_resolves_frontend_pending_permission_before_core_fallback PASSED [ 19%]
+tests/test_gui_backend_api.py::TestGuiBackendApi::test_post_interaction_response_uses_unified_endpoint PASSED [ 19%]
+tests/test_gui_backend_api.py::TestGuiBackendApi::test_session_lookup_errors_return_404_instead_of_500 PASSED [ 19%]
+tests/test_gui_backend_api.py::TestGuiBackendApi::test_snapshot_route_reports_transcript_missing_as_degraded_metadata PASSED [ 19%]
+tests/test_gui_runtime.py::TestGuiLauncher::test_config_template_uses_flat_runtime_schema PASSED [ 20%]
+tests/test_gui_runtime.py::TestGuiLauncher::test_create_core_uses_flat_config_and_runtime_policies PASSED [ 20%]
+tests/test_gui_runtime.py::TestGuiLauncher::test_main_accepts_workspace_option PASSED [ 20%]
+tests/test_gui_runtime.py::TestBlockingResult::test_wait_returns_resolved_value PASSED [ 20%]
+tests/test_gui_runtime.py::TestBlockingResult::test_wait_times_out_to_default PASSED [ 20%]
+tests/test_gui_runtime.py::TestThreadsafeAsyncDispatcher::test_dispatch_reports_closed_loop_reason PASSED [ 21%]
+tests/test_gui_runtime.py::TestThreadsafeAsyncDispatcher::test_dispatch_requires_bound_loop PASSED [ 21%]
+tests/test_gui_runtime.py::TestThreadsafeAsyncDispatcher::test_dispatch_runs_coroutine_on_bound_loop PASSED [ 21%]
+tests/test_gui_runtime.py::TestWebSocketFrontend::test_broadcast_tolerates_connection_set_mutation PASSED [ 21%]
+tests/test_gui_runtime.py::TestWebSocketFrontend::test_dispatch_result_reason_is_logged_when_queueing_fails PASSED [ 22%]
+tests/test_gui_runtime.py::TestWebSocketFrontend::test_on_turn_event_wraps_payload_as_session_event PASSED [ 22%]
+tests/test_gui_runtime.py::TestWebSocketFrontend::test_websocket_endpoint_cleans_up_after_receive_failure PASSED [ 22%]
+tests/test_gui_runtime.py::TestAgentCoreAdapterApi::test_get_session_bootstrap_delegates_to_inner_adapter PASSED [ 22%]
+tests/test_gui_runtime.py::TestAgentCoreAdapterApi::test_snapshot_projection_preserves_replay_metadata PASSED [ 23%]
+tests/test_gui_sync.py::TestGuiSync::test_callback_bridge_calls_artifacts_refresh_for_edit_file PASSED [ 23%]
+tests/test_gui_sync.py::TestGuiSync::test_callback_bridge_calls_artifacts_refresh_for_write_file PASSED [ 23%]
+tests/test_gui_sync.py::TestGuiSync::test_callback_bridge_calls_tasks_refresh_for_run_recipe PASSED [ 23%]
+tests/test_gui_sync.py::TestGuiSync::test_callback_bridge_context_compacted_preserves_metadata PASSED [ 24%]
+tests/test_gui_sync.py::TestGuiSync::test_callback_bridge_does_not_call_refresh_for_unrelated_tool PASSED [ 24%]
+tests/test_gui_sync.py::TestGuiSync::test_callback_bridge_session_status_preserves_pending_interaction_fields PASSED [ 24%]
+tests/test_gui_sync.py::TestGuiSync::test_gui_backend_route_resolves_real_pending_input_waiter FAILED [ 24%]
+tests/test_gui_sync.py::TestGuiSync::test_on_artifacts_refresh_dispatches_correct_type PASSED [ 25%]
+tests/test_gui_sync.py::TestGuiSync::test_on_tasks_refresh_dispatches_correct_type PASSED [ 25%]
+tests/test_gui_sync.py::TestGuiSync::test_websocket_frontend_has_on_artifacts_refresh PASSED [ 25%]
+tests/test_gui_sync.py::TestGuiSync::test_websocket_frontend_has_on_tasks_refresh PASSED [ 25%]
+tests/test_harness_contracts.py::HarnessContractsTests::test_build_mode_defaults_to_lite_spec_tdd PASSED [ 25%]
+tests/test_harness_contracts.py::HarnessContractsTests::test_build_mode_full_track_has_test_design_and_repair PASSED [ 26%]
+tests/test_harness_contracts.py::HarnessContractsTests::test_build_mode_has_expected_lite_track PASSED [ 26%]
+tests/test_harness_contracts.py::HarnessContractsTests::test_debug_mode_defaults_to_lite_spec_tdd PASSED [ 26%]
+tests/test_harness_contracts.py::HarnessContractsTests::test_debug_mode_has_expected_lite_track PASSED [ 26%]
+tests/test_harness_contracts.py::HarnessContractsTests::test_verify_mode_is_readonly PASSED [ 27%]
+tests/test_harness_runner_debug.py::HarnessRunnerDebugTests::test_runner_builds_debug_mode_units PASSED [ 27%]
+tests/test_harness_runner_taskgraph.py::HarnessRunnerTaskGraphTests::test_runner_builds_full_spec_units_with_task_summary PASSED [ 27%]
+tests/test_harness_runner_verify.py::HarnessRunnerVerifyTests::test_runner_builds_verify_units PASSED [ 27%]
+tests/test_harness_task_projection.py::HarnessTaskProjectionTests::test_build_session_projects_harness_tasks_without_legacy_todo_store PASSED [ 28%]
+tests/test_harness_task_projection.py::HarnessTaskProjectionTests::test_mode_change_refreshes_projected_task_track PASSED [ 28%]
+tests/test_inprocess_adapter_frontend_api.py::TestInProcessAdapterFrontendApis::test_adapter_reuses_one_engine_per_session PASSED [ 28%]
+tests/test_inprocess_adapter_frontend_api.py::TestInProcessAdapterFrontendApis::test_adapter_step_events_use_engine_step_id PASSED [ 28%]
+tests/test_inprocess_adapter_frontend_api.py::TestInProcessAdapterFrontendApis::test_approve_permission_returns_resolved_snapshot_for_command_wait PASSED [ 29%]
+tests/test_inprocess_adapter_frontend_api.py::TestInProcessAdapterFrontendApis::test_artifact_and_task_apis PASSED [ 29%]
+tests/test_inprocess_adapter_frontend_api.py::TestInProcessAdapterFrontendApis::test_build_session_history_marks_partial_restore_without_raw_fallback PASSED [ 29%]
+tests/test_inprocess_adapter_frontend_api.py::TestInProcessAdapterFrontendApis::test_build_session_history_uses_active_session_state_instead_of_timeline_tail PASSED [ 29%]
+tests/test_inprocess_adapter_frontend_api.py::TestInProcessAdapterFrontendApis::test_cancel_session_does_not_mark_idle_before_worker_exits PASSED [ 29%]
+tests/test_inprocess_adapter_frontend_api.py::TestInProcessAdapterFrontendApis::test_cancel_session_emits_interrupted_tool_result_when_tool_started PASSED [ 30%]
+tests/test_inprocess_adapter_frontend_api.py::TestInProcessAdapterFrontendApis::test_load_session_events_after_returns_reload_required_when_after_seq_falls_before_retained_window PASSED [ 30%]
+tests/test_inprocess_adapter_frontend_api.py::TestInProcessAdapterFrontendApis::test_new_turn_clears_restore_stop_reason_before_fresh_ask_user PASSED [ 30%]
+tests/test_inprocess_adapter_frontend_api.py::TestInProcessAdapterFrontendApis::test_read_and_write_workspace_file PASSED [ 30%]
+tests/test_inprocess_adapter_frontend_api.py::TestInProcessAdapterFrontendApis::test_respond_to_interaction_emits_ask_user_tool_finish_and_completes_pending PASSED [ 31%]
+tests/test_inprocess_adapter_frontend_api.py::TestInProcessAdapterFrontendApis::test_resume_session_exposes_restore_diagnostics_for_clean_replay PASSED [ 31%]
+tests/test_inprocess_adapter_frontend_api.py::TestInProcessAdapterFrontendApis::test_resume_session_exposes_restore_diagnostics_for_truncated_replay PASSED [ 31%]
+tests/test_inprocess_adapter_frontend_api.py::TestInProcessAdapterFrontendApis::test_resume_session_rebuilds_from_transcript_when_summary_is_missing PASSED [ 31%]
+tests/test_inprocess_adapter_frontend_api.py::TestInProcessAdapterFrontendApis::test_resume_session_requires_transcript PASSED [ 32%]
+tests/test_inprocess_adapter_frontend_api.py::TestInProcessAdapterFrontendApis::test_resume_session_restores_waiting_permission_from_transcript PASSED [ 32%]
+tests/test_inprocess_adapter_frontend_api.py::TestInProcessAdapterFrontendApis::test_session_history_includes_compact_retry_transition PASSED [ 32%]
+tests/test_inprocess_adapter_frontend_api.py::TestInProcessAdapterFrontendApis::test_session_history_never_returns_raw_event_projection PASSED [ 32%]
+tests/test_inprocess_adapter_frontend_api.py::TestInProcessAdapterFrontendApis::test_session_history_preserves_max_turns_transition PASSED [ 33%]
+tests/test_inprocess_adapter_frontend_api.py::TestInProcessAdapterFrontendApis::test_session_history_preserves_user_input_wait_transition PASSED [ 33%]
+tests/test_inprocess_adapter_frontend_api.py::TestInProcessAdapterFrontendApis::test_session_history_reports_unavailable_when_transcript_missing PASSED [ 33%]
+tests/test_inprocess_adapter_frontend_api.py::TestInProcessAdapterFrontendApis::test_session_history_splits_single_turn_into_multiple_agent_steps PASSED [ 33%]
+tests/test_inprocess_adapter_frontend_api.py::TestInProcessAdapterFrontendApis::test_session_scoped_tasks_are_isolated PASSED [ 33%]
+tests/test_inprocess_adapter_frontend_api.py::TestInProcessAdapterFrontendApis::test_session_snapshot_and_timeline_include_compact_retry_projection PASSED [ 34%]
+tests/test_inprocess_adapter_frontend_api.py::TestInProcessAdapterFrontendApis::test_session_snapshot_exposes_task_items PASSED [ 34%]
+tests/test_inprocess_adapter_frontend_api.py::TestInProcessAdapterFrontendApis::test_session_snapshot_includes_context_analysis_fields PASSED [ 34%]
+tests/test_inprocess_adapter_frontend_api.py::TestInProcessAdapterFrontendApis::test_session_snapshot_includes_last_transition_message PASSED [ 34%]
+tests/test_inprocess_adapter_frontend_api.py::TestInProcessAdapterFrontendApis::test_session_snapshot_includes_runtime_environment_summary PASSED [ 35%]
+tests/test_inprocess_adapter_frontend_api.py::TestInProcessAdapterFrontendApis::test_session_snapshot_includes_workspace_intelligence_projection PASSED [ 35%]
+tests/test_inprocess_adapter_frontend_api.py::TestInProcessAdapterFrontendApis::test_session_snapshot_projector_is_side_effect_free PASSED [ 35%]
+tests/test_inprocess_adapter_frontend_api.py::TestInProcessAdapterFrontendApis::test_session_snapshot_projects_default_llsp_file_evidence PASSED [ 35%]
+tests/test_inprocess_adapter_frontend_api.py::TestInProcessAdapterFrontendApis::test_session_snapshot_projects_task_fields_from_session_graph PASSED [ 36%]
+tests/test_inprocess_adapter_frontend_api.py::TestInProcessAdapterFrontendApis::test_session_status_events_cover_running_and_idle PASSED [ 36%]
+tests/test_inprocess_adapter_frontend_api.py::TestInProcessAdapterFrontendApis::test_slash_help_command_result_persists_in_resumed_history PASSED [ 36%]
+tests/test_inprocess_adapter_frontend_api.py::TestInProcessAdapterFrontendApis::test_slash_help_emits_command_result PASSED [ 36%]
+tests/test_inprocess_adapter_frontend_api.py::TestInProcessAdapterFrontendApis::test_slash_permissions_reflects_session_memory PASSED [ 37%]
+tests/test_inprocess_adapter_frontend_api.py::TestInProcessAdapterFrontendApis::test_slash_plan_persists_plan_snapshot PASSED [ 37%]
+tests/test_inprocess_adapter_frontend_api.py::TestInProcessAdapterFrontendApis::test_slash_recipes_emits_recipe_summary PASSED [ 37%]
+tests/test_inprocess_adapter_frontend_api.py::TestInProcessAdapterFrontendApis::test_slash_review_emits_findings_from_official_verify_path PASSED [ 37%]
+tests/test_inprocess_adapter_frontend_api.py::TestInProcessAdapterFrontendApis::test_slash_review_emits_structured_findings PASSED [ 37%]
+tests/test_inprocess_adapter_frontend_api.py::TestInProcessAdapterFrontendApis::test_slash_run_executes_recipe_and_emits_tool_events PASSED [ 38%]
+tests/test_inprocess_adapter_frontend_api.py::TestInProcessAdapterFrontendApis::test_slash_run_passes_target_and_profile_to_recipe PASSED [ 38%]
+tests/test_inprocess_adapter_frontend_api.py::TestInProcessAdapterFrontendApis::test_slash_run_permission_wait_enters_session_history PASSED [ 38%]
+tests/test_inprocess_adapter_frontend_api.py::TestInProcessAdapterFrontendApis::test_snapshot_and_session_history_preserve_cancelled_transition PASSED [ 38%]
+tests/test_inprocess_adapter_frontend_api.py::TestInProcessAdapterFrontendApis::test_snapshot_and_session_history_preserve_guard_stop_transition PASSED [ 39%]
+tests/test_inprocess_adapter_frontend_api.py::TestInProcessAdapterFrontendApis::test_snapshot_and_session_history_preserve_permission_wait_transition PASSED [ 39%]
+tests/test_inprocess_adapter_frontend_api.py::TestInProcessAdapterFrontendApis::test_snapshot_enriches_legacy_recent_transitions_with_display_reason PASSED [ 39%]
+tests/test_inprocess_adapter_frontend_api.py::TestInProcessAdapterFrontendApis::test_timeline_api PASSED [ 39%]
+tests/test_inprocess_adapter_frontend_api.py::TestInProcessAdapterFrontendApis::test_tool_call_id_is_stable_across_start_and_finish PASSED [ 40%]
+tests/test_inprocess_adapter_frontend_api.py::TestInProcessAdapterFrontendApis::test_tool_catalog_exposes_renderer_metadata PASSED [ 40%]
+tests/test_inprocess_adapter_frontend_api.py::TestInProcessAdapterFrontendApis::test_unknown_mode_create_session_raises PASSED [ 40%]
+tests/test_inprocess_adapter_frontend_api.py::TestInProcessAdapterFrontendApis::test_user_input_flow_can_change_mode PASSED [ 40%]
+tests/test_inprocess_adapter_frontend_api.py::TestInProcessAdapterFrontendApis::test_workspace_recipe_api_detects_cmake PASSED [ 41%]
+tests/test_inprocess_adapter_frontend_api.py::TestInProcessAdapterFrontendApis::test_workspace_snapshot_and_tree PASSED [ 41%]
+tests/test_modes.py::TestModeRegistry::test_all_expected_modes_present PASSED [ 41%]
+tests/test_modes.py::TestModeRegistry::test_require_mode_invalid_raises PASSED [ 41%]
+tests/test_modes.py::TestAllowedTools::test_build_has_task_status PASSED [ 41%]
+tests/test_modes.py::TestAllowedTools::test_build_uses_recipe_tools PASSED [ 42%]
+tests/test_modes.py::TestAllowedTools::test_code_has_write_file PASSED   [ 42%]
+tests/test_modes.py::TestAllowedTools::test_explore_has_git_status PASSED [ 42%]
+tests/test_modes.py::TestAllowedTools::test_explore_has_read_tools PASSED [ 42%]
+tests/test_modes.py::TestAllowedTools::test_explore_has_task_status PASSED [ 43%]
+tests/test_modes.py::TestAllowedTools::test_explore_is_read_only_tools PASSED [ 43%]
+tests/test_modes.py::TestAllowedTools::test_verify_has_no_edit_file PASSED [ 43%]
+tests/test_modes.py::TestWritableGlobs::test_code_mode_default_globs PASSED [ 43%]
+tests/test_modes.py::TestWritableGlobs::test_config_none_uses_defaults PASSED [ 44%]
+tests/test_modes.py::TestWritableGlobs::test_config_override_only_affects_specified_mode PASSED [ 44%]
+tests/test_modes.py::TestWritableGlobs::test_config_override_replaces_defaults PASSED [ 44%]
+tests/test_modes.py::TestWritableGlobs::test_extra_globs_append_to_defaults PASSED [ 44%]
+tests/test_modes.py::TestWritableGlobs::test_read_only_modes_have_empty_globs PASSED [ 45%]
+tests/test_modes.py::TestWritableGlobs::test_spec_mode_default_globs PASSED [ 45%]
+tests/test_modes.py::TestIsPathWritable::test_c_file_in_any_dir PASSED   [ 45%]
+tests/test_modes.py::TestIsPathWritable::test_config_override_empty_list_means_readonly PASSED [ 45%]
+tests/test_modes.py::TestIsPathWritable::test_config_override_restricts_to_subdirectory PASSED [ 45%]
+tests/test_modes.py::TestIsPathWritable::test_markdown_blocked_in_code_mode PASSED [ 46%]
+tests/test_modes.py::TestIsPathWritable::test_markdown_in_spec_mode PASSED [ 46%]
+tests/test_modes.py::TestIsPathWritable::test_python_blocked_in_spec_mode PASSED [ 46%]
+tests/test_modes.py::TestIsPathWritable::test_python_file_in_any_dir PASSED [ 46%]
+tests/test_modes.py::TestIsPathWritable::test_read_only_mode_blocks_everything PASSED [ 47%]
+tests/test_modes.py::TestIsPathWritable::test_root_python_in_code_mode PASSED [ 47%]
+tests/test_modes.py::TestIsPathWritable::test_root_toml_in_code_mode PASSED [ 47%]
+tests/test_modes.py::TestIsPathWritable::test_windows_backslash_normalized PASSED [ 47%]
+tests/test_modes.py::TestBuildSystemPrompt::test_config_override_reflected_in_prompt PASSED [ 48%]
+tests/test_modes.py::TestBuildSystemPrompt::test_prompt_contains_mode_name PASSED [ 48%]
+tests/test_modes.py::TestBuildSystemPrompt::test_prompt_contains_task_status_in_explore PASSED [ 48%]
+tests/test_modes.py::TestBuildSystemPrompt::test_prompt_shows_readonly_for_explore PASSED [ 48%]
+tests/test_modes.py::TestParseModeCommand::test_invalid_mode_raises PASSED [ 49%]
+tests/test_modes.py::TestParseModeCommand::test_mode_command_parsed PASSED [ 49%]
+tests/test_modes.py::TestParseModeCommand::test_mode_only_no_message PASSED [ 49%]
+tests/test_modes.py::TestParseModeCommand::test_no_command_returns_fallback PASSED [ 49%]
+tests/test_packaging_control_plane.py::TestPackageFoundation::test_config_exposes_dev_and_release_profiles PASSED [ 50%]
+tests/test_packaging_control_plane.py::TestPackageFoundation::test_python_stage_resolution_does_not_fallback_to_path_python PASSED [ 50%]
+tests/test_packaging_control_plane.py::TestPackageFoundation::test_python_stage_resolution_prefers_project_relative_venv PASSED [ 50%]
+tests/test_packaging_control_plane.py::TestPackageFoundation::test_release_report_maps_success_to_ready PASSED [ 50%]
+tests/test_packaging_control_plane.py::TestGuiFrontendAssets::test_ensure_gui_frontend_assets_accepts_complete_prebuilt_assets PASSED [ 50%]
+tests/test_packaging_control_plane.py::TestGuiFrontendAssets::test_gui_bundle_asset_status_checks_staging_layout PASSED [ 51%]
+tests/test_packaging_control_plane.py::TestGuiFrontendAssets::test_gui_frontend_asset_status_requires_katex_css PASSED [ 51%]
+tests/test_packaging_control_plane.py::TestStageJsonReports::test_dependency_checker_autodetect_failure_writes_json_report PASSED [ 51%]
+tests/test_packaging_control_plane.py::TestStageJsonReports::test_dependency_checker_autodetect_requires_strong_bundle_signature PASSED [ 51%]
+tests/test_packaging_control_plane.py::TestStageJsonReports::test_dependency_checker_tolerates_gbk_console PASSED [ 52%]
+tests/test_packaging_control_plane.py::TestStageJsonReports::test_dependency_checker_writes_json_report PASSED [ 52%]
+tests/test_packaging_control_plane.py::TestStageJsonReports::test_export_failure_writes_json_report PASSED [ 52%]
+tests/test_packaging_control_plane.py::TestStageJsonReports::test_export_verify_only_writes_json_report PASSED [ 52%]
+tests/test_packaging_control_plane.py::TestStageJsonReports::test_validate_offline_bundle_accepts_multi_line_checksums PASSED [ 53%]
+tests/test_packaging_control_plane.py::TestStageJsonReports::test_validate_offline_bundle_accepts_single_line_checksums PASSED [ 53%]
+tests/test_packaging_control_plane.py::TestStageJsonReports::test_validate_offline_bundle_flags_gui_launcher_contract_drift PASSED [ 53%]
+tests/test_packaging_control_plane.py::TestStageJsonReports::test_validate_offline_bundle_writes_json_report PASSED [ 53%]
+tests/test_packaging_control_plane.py::TestPackageDoctor::test_package_doctor_emits_json_summary PASSED [ 54%]
+tests/test_packaging_control_plane.py::TestPackageDoctor::test_package_doctor_fails_for_missing_config PASSED [ 54%]
+tests/test_packaging_control_plane.py::TestPackageDoctor::test_package_non_doctor_command_reports_missing_config PASSED [ 54%]
+tests/test_packaging_control_plane.py::TestPackageOrchestration::test_mock_release_does_not_inject_frontend_build_stage PASSED [ 54%]
+tests/test_packaging_control_plane.py::TestPackageOrchestration::test_package_release_with_mock_stages_returns_ready PASSED [ 54%]
+tests/test_packaging_control_plane.py::TestPackageOrchestration::test_package_verify_returns_not_ready_for_missing_bundle PASSED [ 55%]
+tests/test_permissions.py::TestPermissionPolicy::test_official_permission_sets_exclude_legacy_tool_names PASSED [ 55%]
+tests/test_permissions.py::TestPermissionPolicy::test_permission_details_include_stable_explanation_sections PASSED [ 55%]
+tests/test_permissions.py::TestPermissionPolicy::test_run_recipe_rule_can_match_recipe_alias PASSED [ 55%]
+tests/test_permissions.py::TestPermissionPolicy::test_task_status_is_treated_as_read PASSED [ 56%]
+tests/test_phase_engine.py::PhaseEngineTests::test_check_advances_to_repair_when_check_failed PASSED [ 56%]
+tests/test_phase_engine.py::PhaseEngineTests::test_contract_advances_to_test_design_when_failing_evidence_is_ready PASSED [ 56%]
+tests/test_phase_engine.py::PhaseEngineTests::test_nonzero_exit_does_not_force_phase_jump PASSED [ 56%]
+tests/test_phase_engine.py::PhaseEngineTests::test_patch_advances_when_regression_result_ready PASSED [ 57%]
+tests/test_phase_engine.py::PhaseEngineTests::test_reproduce_advances_when_failing_evidence_exists PASSED [ 57%]
+tests/test_phase_engine.py::PhaseEngineTests::test_understand_advances_when_contract_artifact_exists PASSED [ 57%]
+tests/test_projection_db.py::TestProjectionDb::test_schema_bootstrap_and_session_projection_upsert PASSED [ 57%]
+tests/test_prompt_stack_v2.py::PromptStackV2Tests::test_build_messages_returns_three_sections PASSED [ 58%]
+tests/test_query_engine_build_full_spec.py::QueryEngineBuildFullSpecTests::test_adapter_snapshot_exposes_task_summary PASSED [ 58%]
+tests/test_query_engine_build_full_spec.py::QueryEngineBuildFullSpecTests::test_build_mode_full_spec_adds_full_harness_context PASSED [ 58%]
+tests/test_query_engine_build_lite.py::QueryEngineBuildLiteTests::test_adapter_create_session_exposes_build_lite_snapshot_fields PASSED [ 58%]
+tests/test_query_engine_build_lite.py::QueryEngineBuildLiteTests::test_build_mode_existing_session_gets_harness_context PASSED [ 58%]
+tests/test_query_engine_build_lite.py::QueryEngineBuildLiteTests::test_build_mode_schemas_use_v2_pack PASSED [ 59%]
+tests/test_query_engine_build_lite.py::QueryEngineBuildLiteTests::test_build_mode_submit_turn_adds_harness_context PASSED [ 59%]
+tests/test_query_engine_debug_lite.py::QueryEngineDebugLiteTests::test_adapter_create_session_exposes_debug_lite_snapshot_fields PASSED [ 59%]
+tests/test_query_engine_debug_lite.py::QueryEngineDebugLiteTests::test_adapter_submit_user_message_refreshes_debug_phase PASSED [ 59%]
+tests/test_query_engine_debug_lite.py::QueryEngineDebugLiteTests::test_debug_mode_schemas_use_v2_pack PASSED [ 60%]
+tests/test_query_engine_debug_lite.py::QueryEngineDebugLiteTests::test_debug_mode_submit_turn_adds_harness_context PASSED [ 60%]
+tests/test_query_engine_refactor.py::TestQueryEngineRefactor::test_adapter_resumes_pending_permission PASSED [ 60%]
+tests/test_query_engine_refactor.py::TestQueryEngineRefactor::test_adapter_resumes_pending_user_input PASSED [ 60%]
+tests/test_query_engine_refactor.py::TestQueryEngineRefactor::test_broker_renders_symbol_evidence_for_code_mode PASSED [ 61%]
+tests/test_query_engine_refactor.py::TestQueryEngineRefactor::test_context_manager_exposes_intelligence_and_boundary PASSED [ 61%]
+tests/test_query_engine_refactor.py::TestQueryEngineRefactor::test_context_manager_preserves_tool_response_pairs_for_recent_tool_calls PASSED [ 61%]
+tests/test_query_engine_refactor.py::TestQueryEngineRefactor::test_context_manager_repairs_dangling_tool_calls_before_next_llm_request PASSED [ 61%]
+tests/test_query_engine_refactor.py::TestQueryEngineRefactor::test_context_manager_uses_persisted_replacement_text_without_regeneration PASSED [ 62%]
+tests/test_query_engine_refactor.py::TestQueryEngineRefactor::test_ctags_provider_parses_symbol_entries PASSED [ 62%]
+tests/test_query_engine_refactor.py::TestQueryEngineRefactor::test_ctags_provider_prioritizes_recent_working_set_files PASSED [ 62%]
+tests/test_query_engine_refactor.py::TestQueryEngineRefactor::test_diagnostics_provider_accepts_run_recipe_and_report_quality_v2 PASSED [ 62%]
+tests/test_query_engine_refactor.py::TestQueryEngineRefactor::test_diagnostics_provider_aggregates_hotspots_by_file PASSED [ 62%]
+tests/test_query_engine_refactor.py::TestQueryEngineRefactor::test_diagnostics_provider_aggregates_quality_gate_and_pathless_failures PASSED [ 63%]
+tests/test_query_engine_refactor.py::TestQueryEngineRefactor::test_diagnostics_provider_prioritizes_focused_file PASSED [ 63%]
+tests/test_query_engine_refactor.py::TestQueryEngineRefactor::test_initialize_session_injects_profile_mode_and_harness_once PASSED [ 63%]
+tests/test_query_engine_refactor.py::TestQueryEngineRefactor::test_llsp_provider_silently_degrades_when_default_file_is_missing PASSED [ 63%]
+tests/test_query_engine_refactor.py::TestQueryEngineRefactor::test_llsp_provider_uses_backend_contract PASSED [ 64%]
+tests/test_query_engine_refactor.py::TestQueryEngineRefactor::test_llsp_provider_uses_default_file_backend_and_prioritizes_focus_path PASSED [ 64%]
+tests/test_query_engine_refactor.py::TestQueryEngineRefactor::test_partition_tool_actions_uses_capabilities PASSED [ 64%]
+tests/test_query_engine_refactor.py::TestQueryEngineRefactor::test_permission_wait_payload_contains_execution_checkpoint_fields PASSED [ 64%]
+tests/test_query_engine_refactor.py::TestQueryEngineRefactor::test_projection_failure_does_not_flip_tool_success PASSED [ 65%]
+tests/test_query_engine_refactor.py::TestQueryEngineRefactor::test_query_engine_accepts_windows_unsafe_tool_call_ids_for_large_results PASSED [ 65%]
+tests/test_query_engine_refactor.py::TestQueryEngineRefactor::test_query_engine_bootstrap_persists_existing_content_replacements PASSED [ 65%]
+tests/test_query_engine_refactor.py::TestQueryEngineRefactor::test_query_engine_discards_later_batches_after_parallel_discard PASSED [ 65%]
+tests/test_query_engine_refactor.py::TestQueryEngineRefactor::test_query_engine_discards_not_started_parallel_actions_after_cancel PASSED [ 66%]
+tests/test_query_engine_refactor.py::TestQueryEngineRefactor::test_query_engine_discards_queued_parallel_actions_after_cancel_with_higher_parallelism PASSED [ 66%]
+tests/test_query_engine_refactor.py::TestQueryEngineRefactor::test_query_engine_emits_interrupted_tool_result_when_stop_event_is_set_after_tool_start PASSED [ 66%]
+tests/test_query_engine_refactor.py::TestQueryEngineRefactor::test_query_engine_interrupts_long_running_command_without_waiting_for_completion PASSED [ 66%]
+tests/test_query_engine_refactor.py::TestQueryEngineRefactor::test_query_engine_keeps_discarded_parallel_results_out_of_guard_stop PASSED [ 66%]
+tests/test_query_engine_refactor.py::TestQueryEngineRefactor::test_query_engine_on_step_start_receives_engine_step_id PASSED [ 67%]
+tests/test_query_engine_refactor.py::TestQueryEngineRefactor::test_query_engine_persists_compact_boundary_event_for_restore PASSED [ 67%]
+tests/test_query_engine_refactor.py::TestQueryEngineRefactor::test_query_engine_persists_content_replacement_and_context_snapshot_events PASSED [ 67%]
+tests/test_query_engine_refactor.py::TestQueryEngineRefactor::test_query_engine_persists_message_parent_ids_in_transcript PASSED [ 67%]
+tests/test_query_engine_refactor.py::TestQueryEngineRefactor::test_query_engine_resume_pending_persists_resolution_and_tool_result PASSED [ 68%]
+tests/test_query_engine_refactor.py::TestQueryEngineRefactor::test_query_engine_retries_with_compact_context_after_context_limit_error PASSED [ 68%]
+tests/test_query_engine_refactor.py::TestQueryEngineRefactor::test_query_engine_uses_session_lock_for_context_and_session_mutation PASSED [ 68%]
+tests/test_query_engine_refactor.py::TestQueryEngineRefactor::test_query_engine_waits_for_permission_and_can_resume PASSED [ 68%]
+tests/test_query_engine_refactor.py::TestQueryEngineRefactor::test_query_engine_waits_for_user_input_and_can_resume PASSED [ 69%]
+tests/test_query_engine_refactor.py::TestQueryEngineRefactor::test_query_engine_writes_pending_interaction_events PASSED [ 69%]
+tests/test_query_engine_refactor.py::TestQueryEngineRefactor::test_query_engine_writes_tool_presentation_into_tool_call_event PASSED [ 69%]
+tests/test_query_engine_refactor.py::TestQueryEngineRefactor::test_query_engine_writes_transcript_for_completed_turn PASSED [ 69%]
+tests/test_query_engine_refactor.py::TestQueryEngineRefactor::test_read_file_execution_returns_raw_observation_without_stored_path PASSED [ 70%]
+tests/test_query_engine_refactor.py::TestQueryEngineRefactor::test_recipe_provider_prefers_history_test_recipe_over_detected_in_verify_mode PASSED [ 70%]
+tests/test_query_engine_refactor.py::TestQueryEngineRefactor::test_recipe_provider_prefers_project_recipe_over_detected_in_build_mode PASSED [ 70%]
+tests/test_query_engine_refactor.py::TestQueryEngineRefactor::test_recipe_provider_prefers_verify_tools_in_verify_mode PASSED [ 70%]
+tests/test_query_engine_refactor.py::TestQueryEngineRefactor::test_restored_session_reuses_persisted_content_replacements PASSED [ 70%]
+tests/test_query_engine_refactor.py::TestQueryEngineRefactor::test_resume_pending_permission_rechecks_mode_path_policy PASSED [ 71%]
+tests/test_query_engine_refactor.py::TestQueryEngineRefactor::test_tool_result_store_failure_degrades_without_breaking_tool_pairing PASSED [ 71%]
+tests/test_query_engine_verify_slice.py::QueryEngineVerifySliceTests::test_adapter_snapshot_exposes_verify_activity PASSED [ 71%]
+tests/test_query_engine_verify_slice.py::QueryEngineVerifySliceTests::test_set_session_mode_refreshes_harness_snapshot PASSED [ 71%]
+tests/test_query_engine_verify_slice.py::QueryEngineVerifySliceTests::test_verify_mode_schemas_use_v2_pack PASSED [ 72%]
+tests/test_query_engine_verify_slice.py::QueryEngineVerifySliceTests::test_verify_mode_submit_turn_adds_verify_context PASSED [ 72%]
+tests/test_rule_schema_v2.py::RuleSchemaV2Tests::test_permission_explanation_has_stable_sections PASSED [ 72%]
+tests/test_session_restore.py::TestSessionRestorer::test_restore_expires_pending_interaction_without_trusted_id PASSED [ 72%]
+tests/test_session_restore.py::TestSessionRestorer::test_restore_expires_stale_pending_interaction PASSED [ 73%]
+tests/test_session_restore.py::TestSessionRestorer::test_restore_ignores_damaged_tail_event PASSED [ 73%]
+tests/test_session_restore.py::TestSessionRestorer::test_restore_preserves_message_parent_chain PASSED [ 73%]
+tests/test_session_restore.py::TestSessionRestorer::test_restore_preserves_pending_interaction PASSED [ 73%]
+tests/test_session_restore.py::TestSessionRestorer::test_restore_preserves_tool_presentation_snapshot PASSED [ 74%]
+tests/test_session_restore.py::TestSessionRestorer::test_restore_rebuilds_turn_step_and_tool_topology PASSED [ 74%]
+tests/test_session_restore.py::TestSessionRestorer::test_restore_stops_at_assistant_message_with_mismatched_turn_id PASSED [ 74%]
+tests/test_session_restore.py::TestSessionRestorer::test_restore_stops_at_compact_boundary_with_missing_preserved_message PASSED [ 74%]
+tests/test_session_restore.py::TestSessionRestorer::test_restore_stops_at_compact_boundary_with_reversed_preserved_range PASSED [ 75%]
+tests/test_session_restore.py::TestSessionRestorer::test_restore_stops_at_content_replacement_with_mismatched_tool_identity PASSED [ 75%]
+tests/test_session_restore.py::TestSessionRestorer::test_restore_stops_at_content_replacement_with_missing_message PASSED [ 75%]
+tests/test_session_restore.py::TestSessionRestorer::test_restore_stops_at_duplicate_compact_boundary_id PASSED [ 75%]
+tests/test_session_restore.py::TestSessionRestorer::test_restore_stops_at_duplicate_message_id PASSED [ 75%]
+tests/test_session_restore.py::TestSessionRestorer::test_restore_stops_at_duplicate_pending_interaction_id PASSED [ 76%]
+tests/test_session_restore.py::TestSessionRestorer::test_restore_stops_at_duplicate_step_id PASSED [ 76%]
+tests/test_session_restore.py::TestSessionRestorer::test_restore_stops_at_duplicate_tool_call_id PASSED [ 76%]
+tests/test_session_restore.py::TestSessionRestorer::test_restore_stops_at_duplicate_tool_result_message_id PASSED [ 76%]
+tests/test_session_restore.py::TestSessionRestorer::test_restore_stops_at_duplicate_turn_id PASSED [ 77%]
+tests/test_session_restore.py::TestSessionRestorer::test_restore_stops_at_loop_transition_with_mismatched_turn_id PASSED [ 77%]
+tests/test_session_restore.py::TestSessionRestorer::test_restore_stops_at_message_with_missing_parent PASSED [ 77%]
+tests/test_session_restore.py::TestSessionRestorer::test_restore_stops_at_pending_resolution_with_mismatched_interaction_id PASSED [ 77%]
+tests/test_session_restore.py::TestSessionRestorer::test_restore_stops_at_pending_resolution_with_mismatched_step_id PASSED [ 78%]
+tests/test_session_restore.py::TestSessionRestorer::test_restore_stops_at_pending_resolution_with_mismatched_tool_name PASSED [ 78%]
+tests/test_session_restore.py::TestSessionRestorer::test_restore_stops_at_pending_resolution_with_mismatched_turn_id PASSED [ 78%]
+tests/test_session_restore.py::TestSessionRestorer::test_restore_stops_at_pending_resolution_without_pending_interaction PASSED [ 78%]
+tests/test_session_restore.py::TestSessionRestorer::test_restore_stops_at_step_started_without_user_turn PASSED [ 79%]
+tests/test_session_restore.py::TestSessionRestorer::test_restore_stops_at_tool_call_with_mismatched_step_id PASSED [ 79%]
+tests/test_session_restore.py::TestSessionRestorer::test_restore_stops_at_tool_call_without_active_step PASSED [ 79%]
+tests/test_session_restore.py::TestSessionRestorer::test_restore_stops_at_tool_message_with_mismatched_step_id PASSED [ 79%]
+tests/test_session_restore.py::TestSessionRestorer::test_restore_stops_at_tool_result_with_mismatched_arguments PASSED [ 79%]
+tests/test_session_restore.py::TestSessionRestorer::test_restore_stops_at_tool_result_with_mismatched_tool_name PASSED [ 80%]
+tests/test_session_restore.py::TestSessionRestorer::test_restore_stops_at_tool_result_without_prior_tool_call PASSED [ 80%]
+tests/test_session_store.py::TestSessionSummaryStore::test_list_summaries_comes_from_projection_without_index_json PASSED [ 80%]
+tests/test_session_store.py::TestProjectMemoryStore::test_concurrent_refresh_keeps_json_files_valid PASSED [ 80%]
+tests/test_session_store.py::TestProjectMemoryStore::test_refresh_records_official_run_recipe_history PASSED [ 81%]
+tests/test_session_timeline.py::TestSessionTimelineStore::test_append_and_load_events PASSED [ 81%]
+tests/test_session_timeline.py::TestSessionTimelineStore::test_append_event_keeps_seq_monotonic PASSED [ 81%]
+tests/test_session_timeline.py::TestSessionTimelineStore::test_append_event_marks_degraded_when_fsync_raises_oserror PASSED [ 81%]
+tests/test_session_timeline.py::TestSessionTimelineStore::test_append_event_serializes_concurrent_writers PASSED [ 82%]
+tests/test_session_timeline.py::TestSessionTimelineStore::test_append_event_uses_cached_seq_after_first_write PASSED [ 82%]
+tests/test_session_timeline.py::TestSessionTimelineStore::test_assistant_delta_is_not_persisted PASSED [ 82%]
+tests/test_session_timeline.py::TestSessionTimelineStore::test_latest_assistant_reply_comes_from_session_finished PASSED [ 82%]
+tests/test_session_timeline.py::TestSessionTimelineStore::test_max_events_trim PASSED [ 83%]
+tests/test_session_timeline.py::TestSessionTimelineStore::test_scan_events_skips_malformed_mid_file_rows_and_marks_degraded PASSED [ 83%]
+tests/test_task_graph_v2.py::TaskGraphV2Tests::test_graph_can_advance_task_status PASSED [ 83%]
+tests/test_task_graph_v2.py::TaskGraphV2Tests::test_graph_summary_is_stable_text PASSED [ 83%]
+tests/test_task_graph_v2.py::TaskGraphV2Tests::test_new_graph_starts_with_single_active_task PASSED [ 83%]
+tests/test_task_graph_v2.py::TaskGraphV2Tests::test_runner_update_task_graph_mutates_session_graph_in_place PASSED [ 84%]
+tests/test_task_graph_v2.py::TaskGraphV2Tests::test_session_starts_with_empty_task_graph PASSED [ 84%]
+tests/test_terminal_frontend.py::TestTerminalFrontendModules::test_artifact_completion PASSED [ 84%]
+tests/test_terminal_frontend.py::TestTerminalFrontendModules::test_file_completion PASSED [ 84%]
+tests/test_terminal_frontend.py::TestTerminalFrontendModules::test_session_completion PASSED [ 85%]
+tests/test_terminal_frontend.py::TestTerminalFrontendModules::test_slash_completion PASSED [ 85%]
+tests/test_timestamp_characterization.py::TestTimestampFormat::test_session_utc_now_format PASSED [ 85%]
+tests/test_timestamp_characterization.py::TestTimestampFormat::test_all_helpers_produce_valid_format PASSED [ 85%]
+tests/test_timestamp_characterization.py::TestSessionRestoreBehavior::test_old_session_is_older_than PASSED [ 86%]
+tests/test_timestamp_characterization.py::TestSessionRestoreBehavior::test_recent_session_is_not_older_than PASSED [ 86%]
+tests/test_tool_commit.py::TestToolCommitCoordinator::test_large_content_creates_stored_path_and_replacement_record PASSED [ 86%]
+tests/test_tool_execution.py::TestStreamingToolExecutor::test_parallel_executor_returns_cancelled_updates_without_hanging PASSED [ 86%]
+tests/test_tool_execution.py::TestStreamingToolExecutor::test_parallel_executor_times_out_idle_started_actions PASSED [ 87%]
+tests/test_tool_result_store.py::TestToolResultStore::test_write_text_field_is_session_local_and_write_once PASSED [ 87%]
+tests/test_tool_result_store.py::TestToolResultStore::test_write_text_sanitizes_windows_unsafe_tool_call_id PASSED [ 87%]
+tests/test_tooling_budget_v2.py::ToolingBudgetV2Tests::test_large_results_are_replaced_with_refs PASSED [ 87%]
+tests/test_tools_package.py::TestToolRuntimeImport::test_import_from_package PASSED [ 87%]
+tests/test_tools_package.py::TestToolRuntimeImport::test_tool_definition_importable PASSED [ 88%]
+tests/test_tools_package.py::TestToolRuntimeInit::test_app_config_default_none PASSED [ 88%]
+tests/test_tools_package.py::TestToolRuntimeInit::test_app_config_passed_through PASSED [ 88%]
+tests/test_tools_package.py::TestToolRuntimeInit::test_cutover_stores_exposed PASSED [ 88%]
+tests/test_tools_package.py::TestToolRuntimeInit::test_workspace_is_realpath PASSED [ 89%]
+tests/test_tools_package.py::TestToolRuntimeSchemas::test_allowed_tool_names_match_official_debug_pack PASSED [ 89%]
+tests/test_tools_package.py::TestToolRuntimeSchemas::test_build_mode_uses_harness_pack_schema PASSED [ 89%]
+tests/test_tools_package.py::TestToolRuntimeSchemas::test_debug_mode_uses_harness_pack_schema PASSED [ 89%]
+tests/test_tools_package.py::TestToolRuntimeSchemas::test_harness_tools_present PASSED [ 90%]
+tests/test_tools_package.py::TestToolRuntimeSchemas::test_official_tool_catalog_excludes_legacy_duplicate_tools PASSED [ 90%]
+tests/test_tools_package.py::TestToolRuntimeSchemas::test_review_workflow_filters_out_write_tools_from_spec_mode PASSED [ 90%]
+tests/test_tools_package.py::TestToolRuntimeSchemas::test_schema_structure PASSED [ 90%]
+tests/test_tools_package.py::TestToolRuntimeSchemas::test_total_tool_count PASSED [ 91%]
+tests/test_tools_package.py::TestToolRuntimeSchemas::test_verify_review_workflow_keeps_quality_tools_visible PASSED [ 91%]
+tests/test_tools_package.py::TestToolRuntimeExecute::test_edit_file_replaces_text PASSED [ 91%]
+tests/test_tools_package.py::TestToolRuntimeExecute::test_invalid_arguments_type_returns_error PASSED [ 91%]
+tests/test_tools_package.py::TestToolRuntimeExecute::test_official_runtime_rejects_legacy_file_tools PASSED [ 91%]
+tests/test_tools_package.py::TestToolRuntimeExecute::test_official_runtime_rejects_legacy_task_tool PASSED [ 92%]
+tests/test_tools_package.py::TestToolRuntimeExecute::test_read_file_outside_workspace_blocked PASSED [ 92%]
+tests/test_tools_package.py::TestToolRuntimeExecute::test_read_file_workspace_file PASSED [ 92%]
+tests/test_tools_package.py::TestToolRuntimeExecute::test_unknown_tool_returns_error PASSED [ 92%]
+tests/test_tools_package.py::TestToolRuntimeExecute::test_write_file_blocks_existing_without_overwrite PASSED [ 93%]
+tests/test_tools_package.py::TestToolRuntimeExecute::test_write_file_creates_new_file PASSED [ 93%]
+tests/test_tools_package.py::TestToolRuntimeExecute::test_write_file_observation_includes_catalog_metadata PASSED [ 93%]
+tests/test_tools_package.py::TestModuleIsolation::test_base_importable PASSED [ 93%]
+tests/test_tools_package.py::TestModuleIsolation::test_discovery_ops_importable PASSED [ 94%]
+tests/test_tools_package.py::TestModuleIsolation::test_file_ops_importable PASSED [ 94%]
+tests/test_tools_package.py::TestModuleIsolation::test_git_ops_importable PASSED [ 94%]
+tests/test_tools_package.py::TestModuleIsolation::test_recipe_ops_importable PASSED [ 94%]
+tests/test_tools_package.py::TestModuleIsolation::test_session_ops_importable PASSED [ 95%]
+tests/test_tools_package.py::TestModuleIsolation::test_shell_ops_importable PASSED [ 95%]
+tests/test_tools_package.py::TestManagedRuntimeEnvironment::test_runtime_snapshot_detects_bundle_without_env_from_installed_location PASSED [ 95%]
+tests/test_tools_package.py::TestManagedRuntimeEnvironment::test_runtime_snapshot_prefers_bundle_tools PASSED [ 95%]
+tests/test_tools_package.py::TestManagedRuntimeEnvironment::test_runtime_snapshot_reports_missing_bundle_tools_without_fallback PASSED [ 95%]
+tests/test_tools_package.py::TestWorkspaceRecipes::test_detects_cmake_and_history_recipes PASSED [ 96%]
+tests/test_tools_package.py::TestWorkspaceRecipes::test_official_runtime_rejects_legacy_verify_tool_aliases PASSED [ 96%]
+tests/test_tools_package.py::TestWorkspaceRecipes::test_resolve_cmake_recipe_applies_target_and_profile PASSED [ 96%]
+tests/test_tools_package.py::TestWorkspaceRecipes::test_run_recipe_can_run_build_recipe_id PASSED [ 96%]
+tests/test_tools_package.py::TestWorkspaceRecipes::test_run_recipe_can_run_verify_recipe_id PASSED [ 97%]
+tests/test_tools_v2_runtime.py::ToolsV2RuntimeTests::test_build_lite_pack_exposes_list_dir_and_run_recipe PASSED [ 97%]
+tests/test_tools_v2_runtime.py::ToolsV2RuntimeTests::test_debug_lite_pack_exposes_read_edit_and_run_recipe PASSED [ 97%]
+tests/test_tools_v2_runtime.py::ToolsV2RuntimeTests::test_verify_pack_exposes_run_recipe_and_list_recipes PASSED [ 97%]
+tests/test_transcript_store.py::TestTranscriptStore::test_append_and_load_roundtrip PASSED [ 98%]
+tests/test_transcript_store.py::TestTranscriptStore::test_append_event_keeps_seq_monotonic PASSED [ 98%]
+tests/test_transcript_store.py::TestTranscriptStore::test_append_event_serializes_concurrent_writers PASSED [ 98%]
+tests/test_transcript_store.py::TestTranscriptStore::test_append_event_truncates_damaged_tail_before_continuing PASSED [ 98%]
+tests/test_transcript_store.py::TestTranscriptStore::test_append_event_uses_cached_seq_after_first_write PASSED [ 99%]
+tests/test_transcript_store.py::TestTranscriptStore::test_load_events_ignores_damaged_tail PASSED [ 99%]
+tests/test_transcript_store.py::TestTranscriptStore::test_load_events_stops_at_sequence_gap PASSED [ 99%]
+tests/test_verify_quality_v2.py::VerifyQualityV2Tests::test_report_quality_v2_returns_structured_summary PASSED [ 99%]
+tests/test_workspace_profile.py::WorkspaceProfileTests::test_workspace_profile_does_not_emit_task_sidecar_hint PASSED [100%]
+
+================================== FAILURES ===================================
+____ TestGuiSync.test_gui_backend_route_resolves_real_pending_input_waiter ____
+
+self = <test_gui_sync.TestGuiSync testMethod=test_gui_backend_route_resolves_real_pending_input_waiter>
+
+    def test_gui_backend_route_resolves_real_pending_input_waiter(self):
+        import asyncio
+    
+        from test_inprocess_adapter_frontend_api import AskUserClient
+    
+        from embedagent.core.adapter import AgentCoreAdapter
+        from embedagent.frontend.gui.backend.server import GUIBackend
+    
+        workspace = tempfile.mkdtemp(prefix="gui-sync-")
+        static_dir = tempfile.mkdtemp(prefix="gui-sync-static-")
+        try:
+            with open(os.path.join(static_dir, "index.html"), "w", encoding="utf-8") as handle:
+                handle.write("<html><body>ok</body></html>")
+            tools = ToolRuntime(workspace)
+            core = AgentCoreAdapter(workspace=workspace)
+            core.initialize(
+                client=AskUserClient(),
+                tools=tools,
+                max_turns=8,
+                permission_policy=PermissionPolicy(auto_approve_all=True, workspace=workspace),
+            )
+            backend = GUIBackend(core, static_dir=static_dir)
+            backend.frontend._dispatch_message = lambda message: True
+    
+            snapshot = core.create_session("spec")
+            session_id = snapshot.session_id
+    
+            core.submit_message(session_id, "请继�?)
+            deadline = time.time() + 3.0
+            interaction_id = ""
+            while time.time() < deadline:
+                with backend.frontend._pending_lock:
+                    pending_ids = list(backend.frontend._pending_inputs.keys())
+                if pending_ids:
+                    interaction_id = str(pending_ids[0] or "")
+                    break
+                time.sleep(0.02)
+    
+            self.assertTrue(interaction_id)
+            route = None
+            for item in backend.app.routes:
+                if (
+                    getattr(item, "path", "") == "/api/sessions/{session_id}/interactions/{interaction_id}/respond"
+                    and "POST" in getattr(item, "methods", set())
+                ):
+                    route = item
+                    break
+            self.assertIsNotNone(route)
+            asyncio.run(
+                route.endpoint(
+                    session_id,
+                    interaction_id,
+                    {
+                        "response_kind": "answer",
+                        "answer": "切到 debug 模式继续排查",
+                        "selected_index": 1,
+                        "selected_mode": "debug",
+                        "selected_option_text": "切到 debug 模式继续排查",
+                    },
+                )
+            )
+    
+            deadline = time.time() + 3.0
+            current_snapshot = None
+            while time.time() < deadline:
+                current_snapshot = core.get_session_snapshot(session_id)
+                if current_snapshot.pending_interaction is None and current_snapshot.current_mode == "debug":
+                    break
+                time.sleep(0.02)
+            self.assertIsNotNone(current_snapshot)
+>           self.assertIsNone(current_snapshot.pending_interaction)
+E           AssertionError: {} is not None
+
+tests\test_gui_sync.py:89: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_gui_sync.py::TestGuiSync::test_gui_backend_route_resolves_real_pending_input_waiter - AssertionError: {} is not None
+======================= 1 failed, 423 passed in 32.17s ========================

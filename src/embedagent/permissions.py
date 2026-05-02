@@ -181,7 +181,7 @@ class PermissionPolicy(object):
         try:
             with open(path, "r", encoding="utf-8") as handle:
                 payload = json.load(handle)
-        except Exception:
+        except (OSError, json.JSONDecodeError, ValueError):
             return []
         items = payload.get("rules") if isinstance(payload, dict) else None
         return self._load_rules_from_items(items)

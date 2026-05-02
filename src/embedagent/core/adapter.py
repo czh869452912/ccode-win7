@@ -456,7 +456,7 @@ class AgentCoreAdapter(CoreInterface):
                     user_input_resolver=self._resolve_user_input,
                     event_handler=self._on_adapter_event
                 )
-            except Exception as e:
+            except (RuntimeError, ValueError, TypeError) as e:
                 if self._frontend:
                     self._frontend.on_message(Message(
                         id=str(uuid.uuid4()),
@@ -547,7 +547,7 @@ class AgentCoreAdapter(CoreInterface):
         try:
             file_data = self.read_file(path)
             old_content = file_data.get("content", "")
-        except Exception:
+        except (OSError, ValueError):
             pass
 
         unified_diff = "".join(difflib.unified_diff(
