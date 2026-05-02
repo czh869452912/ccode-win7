@@ -117,7 +117,9 @@ def build_tools(ctx: ToolContext) -> List[ToolDefinition]:
         )
 
         if diagnostic:
-            observation = ctx.build_diagnostic_observation("run_build", resolved_command, cwd, result)
+            observation = ctx.build_diagnostic_observation(
+                "run_build", resolved_command, cwd, result
+            )
         else:
             observation = ctx.build_command_observation("run_build", resolved_command, cwd, result)
 

@@ -124,8 +124,7 @@ class ToolContext(object):
         workspace_norm = os.path.normcase(self.workspace)
         resolved_norm = os.path.normcase(resolved)
         if not (
-            resolved_norm == workspace_norm
-            or resolved_norm.startswith(workspace_norm + os.sep)
+            resolved_norm == workspace_norm or resolved_norm.startswith(workspace_norm + os.sep)
         ):
             raise ToolError("路径超出当前工作区。")
         if not allow_missing and not os.path.exists(resolved):
@@ -211,8 +210,7 @@ class ToolContext(object):
                 absolute_path = os.path.join(current_root, file_name)
                 relative = self.relative_path(absolute_path)
                 if pattern and not (
-                    fnmatch.fnmatch(file_name, pattern)
-                    or fnmatch.fnmatch(relative, pattern)
+                    fnmatch.fnmatch(file_name, pattern) or fnmatch.fnmatch(relative, pattern)
                 ):
                     continue
                 collected.append(absolute_path)
@@ -249,11 +247,15 @@ class ToolContext(object):
         candidates = []  # type: List[Tuple[str, str]]
         env_root = os.environ.get("EMBEDAGENT_LLVM_ROOT", "").strip()
         if env_root:
-            candidates.append((os.path.realpath(env_root), "bundle" if self.bundle_root() else "workspace"))
+            candidates.append(
+                (os.path.realpath(env_root), "bundle" if self.bundle_root() else "workspace")
+            )
         bundle_root = self.bundle_root()
         if bundle_root:
             candidates.append((os.path.join(bundle_root, "bin", "llvm"), "bundle"))
-        candidates.append((os.path.join(self.workspace, "toolchains", "llvm", "current"), "workspace"))
+        candidates.append(
+            (os.path.join(self.workspace, "toolchains", "llvm", "current"), "workspace")
+        )
         candidates.append((os.path.join(self.workspace, "bin", "llvm"), "workspace"))
         return candidates
 
@@ -268,15 +270,27 @@ class ToolContext(object):
             return self._llvm_root_candidates()
         if tool_key == "python":
             if bundle_root:
-                candidates.append((os.path.join(bundle_root, "runtime", "python", "python.exe"), "bundle"))
-            candidates.append((os.path.join(self.workspace, "runtime", "python", "python.exe"), "workspace"))
+                candidates.append(
+                    (os.path.join(bundle_root, "runtime", "python", "python.exe"), "bundle")
+                )
+            candidates.append(
+                (os.path.join(self.workspace, "runtime", "python", "python.exe"), "workspace")
+            )
             return candidates
         if tool_key == "git":
             if bundle_root:
-                candidates.append((os.path.join(bundle_root, "bin", "git", "cmd", "git.exe"), "bundle"))
-                candidates.append((os.path.join(bundle_root, "bin", "git", "bin", "git.exe"), "bundle"))
-            candidates.append((os.path.join(self.workspace, "bin", "git", "cmd", "git.exe"), "workspace"))
-            candidates.append((os.path.join(self.workspace, "bin", "git", "bin", "git.exe"), "workspace"))
+                candidates.append(
+                    (os.path.join(bundle_root, "bin", "git", "cmd", "git.exe"), "bundle")
+                )
+                candidates.append(
+                    (os.path.join(bundle_root, "bin", "git", "bin", "git.exe"), "bundle")
+                )
+            candidates.append(
+                (os.path.join(self.workspace, "bin", "git", "cmd", "git.exe"), "workspace")
+            )
+            candidates.append(
+                (os.path.join(self.workspace, "bin", "git", "bin", "git.exe"), "workspace")
+            )
             return candidates
         if tool_key == "rg":
             if bundle_root:
@@ -285,8 +299,12 @@ class ToolContext(object):
             return candidates
         if tool_key == "ctags":
             if bundle_root:
-                candidates.append((os.path.join(bundle_root, "bin", "ctags", "ctags.exe"), "bundle"))
-            candidates.append((os.path.join(self.workspace, "bin", "ctags", "ctags.exe"), "workspace"))
+                candidates.append(
+                    (os.path.join(bundle_root, "bin", "ctags", "ctags.exe"), "bundle")
+                )
+            candidates.append(
+                (os.path.join(self.workspace, "bin", "ctags", "ctags.exe"), "workspace")
+            )
             return candidates
         return candidates
 
@@ -308,7 +326,9 @@ class ToolContext(object):
             return "llvm"
         return ""
 
-    def resolve_managed_command_executable(self, command_name: str, required: bool = True) -> Tuple[str, str]:
+    def resolve_managed_command_executable(
+        self, command_name: str, required: bool = True
+    ) -> Tuple[str, str]:
         tool_key = self.classify_managed_command(command_name)
         if not tool_key:
             return command_name, "system"
@@ -396,7 +416,10 @@ class ToolContext(object):
             runtime_source = "system"
         else:
             runtime_source = "unavailable"
-        bundled_tools_ready = all(tool_sources.get(key) in ("bundle", "workspace") for key in ("git", "rg", "ctags", "llvm"))
+        bundled_tools_ready = all(
+            tool_sources.get(key) in ("bundle", "workspace")
+            for key in ("git", "rg", "ctags", "llvm")
+        )
         return {
             "runtime_source": runtime_source,
             "bundled_tools_ready": bundled_tools_ready,
@@ -437,7 +460,7 @@ class ToolContext(object):
         if not tool_key:
             return command_text, "", ""
         executable, source = self.resolve_managed_command_executable(token)
-        rewritten = leading + '"' + executable + '"' + command_text[match.end():]
+        rewritten = leading + '"' + executable + '"' + command_text[match.end() :]
         return rewritten, tool_key, source
 
     def build_process_env(self) -> Dict[str, str]:
@@ -498,7 +521,9 @@ class ToolContext(object):
             encoding="utf-8",
             errors="replace",
             env=self.build_process_env(),
-            creationflags=(getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0) if os.name == "nt" else 0),
+            creationflags=(
+                getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0) if os.name == "nt" else 0
+            ),
         )
         timed_out = False
         interrupted = False
@@ -560,7 +585,9 @@ class ToolContext(object):
             encoding="utf-8",
             errors="replace",
             env=self.build_process_env(),
-            creationflags=(getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0) if os.name == "nt" else 0),
+            creationflags=(
+                getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0) if os.name == "nt" else 0
+            ),
         )
         stdout_lines = []  # type: List[str]
         stderr_lines = []  # type: List[str]
@@ -745,7 +772,9 @@ class ToolContext(object):
             stop_event=self.get_interrupt_event(),
         )
         if diagnostic:
-            observation = self.build_diagnostic_observation(tool_name, resolved_command, cwd, result)
+            observation = self.build_diagnostic_observation(
+                tool_name, resolved_command, cwd, result
+            )
         else:
             observation = self.build_command_observation(tool_name, resolved_command, cwd, result)
         if isinstance(observation.data, dict):
@@ -820,21 +849,30 @@ class ToolContext(object):
         return 0
 
     def parse_test_summary(self, text: str) -> Dict[str, int]:
-        passed = self.extract_first_int([
-            r"(\d+)\s+tests?\s+passed",
-            r"(\d+)\s+passed",
-            r"passed[:=]\s*(\d+)",
-        ], text)
-        failed = self.extract_first_int([
-            r"(\d+)\s+tests?\s+failed",
-            r"(\d+)\s+failed",
-            r"failures?[:=]\s*(\d+)",
-        ], text)
-        skipped = self.extract_first_int([
-            r"(\d+)\s+tests?\s+skipped",
-            r"(\d+)\s+skipped",
-            r"skipped[:=]\s*(\d+)",
-        ], text)
+        passed = self.extract_first_int(
+            [
+                r"(\d+)\s+tests?\s+passed",
+                r"(\d+)\s+passed",
+                r"passed[:=]\s*(\d+)",
+            ],
+            text,
+        )
+        failed = self.extract_first_int(
+            [
+                r"(\d+)\s+tests?\s+failed",
+                r"(\d+)\s+failed",
+                r"failures?[:=]\s*(\d+)",
+            ],
+            text,
+        )
+        skipped = self.extract_first_int(
+            [
+                r"(\d+)\s+tests?\s+skipped",
+                r"(\d+)\s+skipped",
+                r"skipped[:=]\s*(\d+)",
+            ],
+            text,
+        )
         total = passed + failed + skipped
         return {"passed": passed, "failed": failed, "skipped": skipped, "total": total}
 
@@ -846,10 +884,22 @@ class ToolContext(object):
             "region_coverage": None,
         }  # type: Dict[str, Optional[float]]
         patterns = {
-            "line_coverage": [r"lines?[^\d\n]*([0-9]+(?:\.[0-9]+)?)%", r"line coverage[^\d\n]*([0-9]+(?:\.[0-9]+)?)%"],
-            "function_coverage": [r"functions?[^\d\n]*([0-9]+(?:\.[0-9]+)?)%", r"function coverage[^\d\n]*([0-9]+(?:\.[0-9]+)?)%"],
-            "branch_coverage": [r"branches?[^\d\n]*([0-9]+(?:\.[0-9]+)?)%", r"branch coverage[^\d\n]*([0-9]+(?:\.[0-9]+)?)%"],
-            "region_coverage": [r"regions?[^\d\n]*([0-9]+(?:\.[0-9]+)?)%", r"region coverage[^\d\n]*([0-9]+(?:\.[0-9]+)?)%"],
+            "line_coverage": [
+                r"lines?[^\d\n]*([0-9]+(?:\.[0-9]+)?)%",
+                r"line coverage[^\d\n]*([0-9]+(?:\.[0-9]+)?)%",
+            ],
+            "function_coverage": [
+                r"functions?[^\d\n]*([0-9]+(?:\.[0-9]+)?)%",
+                r"function coverage[^\d\n]*([0-9]+(?:\.[0-9]+)?)%",
+            ],
+            "branch_coverage": [
+                r"branches?[^\d\n]*([0-9]+(?:\.[0-9]+)?)%",
+                r"branch coverage[^\d\n]*([0-9]+(?:\.[0-9]+)?)%",
+            ],
+            "region_coverage": [
+                r"regions?[^\d\n]*([0-9]+(?:\.[0-9]+)?)%",
+                r"region coverage[^\d\n]*([0-9]+(?:\.[0-9]+)?)%",
+            ],
         }
         for key, candidates in patterns.items():
             for pattern in candidates:
@@ -863,10 +913,18 @@ class ToolContext(object):
                     continue
                 percentages = [token for token in line.split() if token.endswith("%")]
                 if len(percentages) >= 3:
-                    metrics["region_coverage"] = metrics["region_coverage"] or float(percentages[0][:-1])
-                    metrics["function_coverage"] = metrics["function_coverage"] or float(percentages[1][:-1])
-                    metrics["line_coverage"] = metrics["line_coverage"] or float(percentages[2][:-1])
+                    metrics["region_coverage"] = metrics["region_coverage"] or float(
+                        percentages[0][:-1]
+                    )
+                    metrics["function_coverage"] = metrics["function_coverage"] or float(
+                        percentages[1][:-1]
+                    )
+                    metrics["line_coverage"] = metrics["line_coverage"] or float(
+                        percentages[2][:-1]
+                    )
                     if len(percentages) >= 4:
-                        metrics["branch_coverage"] = metrics["branch_coverage"] or float(percentages[3][:-1])
+                        metrics["branch_coverage"] = metrics["branch_coverage"] or float(
+                            percentages[3][:-1]
+                        )
                 break
         return metrics

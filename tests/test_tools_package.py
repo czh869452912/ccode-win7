@@ -78,7 +78,7 @@ class TestToolRuntimeSchemas(unittest.TestCase):
         shutil.rmtree(self.workspace, ignore_errors=True)
 
     def test_total_tool_count(self):
-        self.assertEqual(len(self.schemas), 18)
+        self.assertEqual(len(self.schemas), 19)
 
     def test_official_tool_catalog_excludes_legacy_duplicate_tools(self):
         expected = [
@@ -91,6 +91,7 @@ class TestToolRuntimeSchemas(unittest.TestCase):
             "git_log",
             "list_compilers",
             "configure_build_env",
+            "run_build",
         ]
         for name in expected:
             self.assertIn(name, self.tool_names, "Missing tool: %s" % name)
@@ -318,6 +319,41 @@ class TestToolRuntimeExecute(unittest.TestCase):
         self.assertTrue(obs.success)
         self.assertEqual(obs.data["tool_label"], "Configure Build Env")
         self.assertEqual(obs.data["permission_category"], "read")
+        self.assertFalse(obs.data["supports_diff_preview"])
+
+    def test_run_build_returns_observation(self):
+        obs = self.rt.execute("run_build", {"command": "cmd /c echo build-ok"})
+        self.assertTrue(obs.success)
+        self.assertEqual(obs.tool_name, "run_build")
+        self.assertIn("stdout", obs.data)
+        self.assertIn("build-ok", obs.data["stdout"])
+        self.assertIn("streaming_progress", obs.data)
+        self.assertIn("streaming_progress_count", obs.data)
+        self.assertIsInstance(obs.data["streaming_progress"], list)
+        self.assertIsInstance(obs.data["streaming_progress_count"], int)
+
+    def test_run_build_requires_command(self):
+        obs = self.rt.execute("run_build", {})
+        self.assertFalse(obs.success)
+        self.assertIsNotNone(obs.error)
+
+    def test_run_build_parses_diagnostics(self):
+        # Write a helper batch file that prints a compiler-style diagnostic line
+        bat_path = os.path.join(self.workspace, "emit_diag.bat")
+        with open(bat_path, "w", encoding="utf-8") as f:
+            f.write("@echo off\necho test.c:1:2: error: test error\n")
+        obs = self.rt.execute("run_build", {"command": "emit_diag.bat"})
+        self.assertTrue(obs.success, obs.error)
+        self.assertIn("diagnostics", obs.data)
+        self.assertIsInstance(obs.data["diagnostics"], list)
+        self.assertGreaterEqual(obs.data["diagnostic_count"], 1)
+        self.assertEqual(obs.data["error_count"], 1)
+
+    def test_run_build_includes_catalog_metadata(self):
+        obs = self.rt.execute("run_build", {"command": "cmd /c echo ok"})
+        self.assertTrue(obs.success)
+        self.assertEqual(obs.data["tool_label"], "Run Build")
+        self.assertEqual(obs.data["permission_category"], "shell_exec")
         self.assertFalse(obs.data["supports_diff_preview"])
 
 
