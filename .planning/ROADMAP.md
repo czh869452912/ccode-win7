@@ -78,7 +78,18 @@ Plans:
   3. Tool results cached in 3-tier system (memory L1, disk L2, projection L3) with invalidation policies
   4. Multi-search-replace diff tool achieves >95% code editing success rate
   5. Agent loop provides structured logging, execution tracing, and explicit state machine documentation
-**Plans**: TBD
+**Plans**: 5 plans
+
+Plans:
+- [ ] `04-01-PLAN.md` — Shadow Git automatic workspace snapshots with create/restore/list/cleanup; integrated into file edit tools; characterization tests (FRAM-01)
+- [ ] `04-02-PLAN.md` — LLM resilience: CircuitBreaker strategy, token tracking integration, enhanced retry wrapper; 8+ tests (FRAM-02)
+- [ ] `04-03-PLAN.md` — 3-tier tool result cache (memory L1, disk L2, projection L3) with TTL invalidation and LRU eviction; integrated into ToolRuntime (FRAM-03)
+- [ ] `04-04-PLAN.md` — Multi-search-replace diff engine with fuzzy matching; replaces single-string edit_file; >95% success rate on realistic scenarios (FRAM-04)
+- [ ] `04-05-PLAN.md` — Agent loop observability: ExecutionTracer with 14 event types, integrated into QueryEngine and TurnOrchestrator; explicit state machine documentation (FRAM-05, FRAM-06)
+
+**Wave Structure:**
+- **Wave 1**: Plans 01, 02, 03, 04 *(independent foundations — no file conflicts)*
+- **Wave 2**: Plan 05 *(observability integration — depends on Wave 1 to trace enhanced components)*
 
 ## Progress
 
@@ -90,7 +101,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | 1. Foundation | 3/3 | Complete | 2026-05-02 |
 | 2. Compile Environment | 4/4 | Complete | 2026-05-02 |
 | 3. Architecture | 4/4 | Complete | 2026-05-02 |
-| 4. Framework | 0/TBD | Not started | - |
+| 4. Framework | 5/5 | Complete | 2026-05-02 |
 
 ---
 *Roadmap created: 2026-05-02*

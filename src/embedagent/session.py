@@ -56,6 +56,7 @@ class AssistantReply:
     actions: List[Action] = field(default_factory=list)
     finish_reason: Optional[str] = None
     reasoning_content: str = ""
+    usage: Dict[str, int] = field(default_factory=dict)
 
 
 @dataclass
