@@ -6,6 +6,7 @@ from typing import Any, Dict, List
 
 from embedagent.services.shadow_git import ShadowGitSnapshot
 from embedagent.session import Observation
+from embedagent.strategies.diff_engine import DiffBlock, MultiSearchReplaceDiffEngine
 from embedagent.tools._base import MAX_READ_CHARS, ToolContext, ToolDefinition, ToolError
 
 logger = logging.getLogger(__name__)
@@ -44,25 +45,49 @@ def build_tools(ctx: ToolContext) -> List[ToolDefinition]:
         except (ToolError, OSError, ValueError) as exc:
             logger.warning("Pre-edit snapshot failed: %s", exc)
         
-        old_text = str(arguments["old_text"])
-        new_text = str(arguments["new_text"])
-        if not old_text:
-            raise ToolError("old_text 不能为空。")
         content, newline_style, encoding = ctx.read_text(path)
-        occurrence_count = content.count(old_text)
-        if occurrence_count == 0:
-            raise ToolError("文件中未找到要替换的原始文本。")
-        if occurrence_count > 1:
-            raise ToolError("原始文本出现了 %s 次，请提供更精确的片段。" % occurrence_count)
-        updated = content.replace(old_text, new_text, 1)
-        ctx.write_text(path, updated, newline_style, encoding)
-        data = {
-            "path": ctx.relative_path(path),
-            "encoding": encoding,
-            "replaced": True,
-            "line_count": updated.count("\n") + (1 if updated else 0),
-        }
-        return Observation(tool_name="edit_file", success=True, error=None, data=data)
+        engine = MultiSearchReplaceDiffEngine()
+        
+        # Build blocks from arguments
+        blocks = []
+        if "blocks" in arguments and arguments["blocks"]:
+            for block_data in arguments["blocks"]:
+                blocks.append(DiffBlock(
+                    old_text=str(block_data["old_text"]),
+                    new_text=str(block_data["new_text"]),
+                    expected_start_line=block_data.get("expected_start_line"),
+                    fuzzy=block_data.get("fuzzy", True),
+                ))
+        else:
+            old_text = str(arguments["old_text"])
+            new_text = str(arguments["new_text"])
+            if not old_text:
+                raise ToolError("old_text 不能为空。")
+            blocks.append(DiffBlock(old_text=old_text, new_text=new_text))
+        
+        updated_content, results = engine.apply_diff(content, blocks)
+        
+        # Check results
+        failed = [r for r in results if r["status"] != "applied"]
+        if failed:
+            error_msg = "; ".join("Block %d: %s" % (r["block_index"], r["message"]) for r in failed)
+            raise ToolError("编辑失败：%s" % error_msg)
+        
+        ctx.write_text(path, updated_content, newline_style, encoding)
+        
+        applied_count = len([r for r in results if r["status"] == "applied"])
+        return Observation(
+            tool_name="edit_file",
+            success=True,
+            error=None,
+            data={
+                "path": ctx.relative_path(path),
+                "encoding": encoding,
+                "replaced": True,
+                "applied_blocks": applied_count,
+                "line_count": updated_content.count("\n") + (1 if updated_content else 0),
+            },
+        )
 
     def _write_file(arguments: Dict[str, Any]) -> Observation:
         path = ctx.resolve_path(str(arguments["path"]), allow_missing=True)
@@ -134,7 +159,7 @@ def build_tools(ctx: ToolContext) -> List[ToolDefinition]:
         ),
         ToolDefinition(
             name="edit_file",
-            description="修改文件中的指定文本片段。用于替换、插入或删除已存在的内容。路径必须位于项目工作区内。",
+            description="修改文件中的指定文本片段。支持单次替换或多块替换。路径必须位于项目工作区内。",
             parameters={
                 "type": "object",
                 "properties": {
@@ -150,8 +175,22 @@ def build_tools(ctx: ToolContext) -> List[ToolDefinition]:
                         "type": "string",
                         "description": "替换后的新文本，传入空字符串表示删除。示例：print('new')",
                     },
+                    "blocks": {
+                        "type": "array",
+                        "description": "多块替换模式，每个块包含 old_text 和 new_text。与 old_text/new_text 互斥。",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "old_text": {"type": "string"},
+                                "new_text": {"type": "string"},
+                                "expected_start_line": {"type": "integer"},
+                                "fuzzy": {"type": "boolean"},
+                            },
+                            "required": ["old_text", "new_text"],
+                        },
+                    },
                 },
-                "required": ["path", "old_text", "new_text"],
+                "required": ["path"],
                 "additionalProperties": False,
             },
             handler=_edit_file,
