@@ -20,6 +20,7 @@ from embedagent.interaction import (
 from embedagent.llm import ModelClientError, OpenAICompatibleClient
 from embedagent.strategies.context_compaction_engine import ContextCompactionEngine
 from embedagent.strategies.llm_retry_wrapper import LLMClientRetryWrapper
+from embedagent.strategies.turn_orchestrator import TurnOrchestrator
 from embedagent.memory_maintenance import MemoryMaintenance
 from embedagent.modes import DEFAULT_MODE, build_system_prompt, is_path_writable, require_mode
 from embedagent.permissions import PermissionPolicy, PermissionRequest
@@ -103,7 +104,6 @@ class QueryEngine(object):
             client=client,
             max_retries=_LLM_MAX_RETRIES,
             base_delay=_LLM_RETRY_BASE_DELAY,
-            compaction_engine=self._compaction,
         )
         self._session_lock = threading.RLock()
         self.tool_commit = ToolCommitCoordinator(
@@ -112,6 +112,38 @@ class QueryEngine(object):
             self.transcript_store,
         )
         self._maintenance_counter = 0
+        self._turn_orchestrator = TurnOrchestrator(
+            llm_wrapper=self._llm_wrapper,
+            tools=self.tools,
+            permission_policy=self.permission_policy,
+            max_parallel_tools=self.max_parallel_tools,
+        )
+        self._internal_stop_event = threading.Event()
+
+    def run(
+        self,
+        user_text: str = "",
+        session: Optional[Any] = None,
+        initial_mode: str = DEFAULT_MODE,
+        workflow_state: str = "chat",
+        stream: bool = True,
+        **kwargs: Any,
+    ) -> QueryTurnResult:
+        """High-level entry point that manages multi-turn execution."""
+        self._internal_stop_event.clear()
+        return self.submit_user_turn(
+            user_text=user_text,
+            stream=stream,
+            initial_mode=initial_mode,
+            workflow_state=workflow_state,
+            session=session,
+            stop_event=self._internal_stop_event,
+            **kwargs,
+        )
+
+    def stop(self) -> None:
+        """Signal the current run() to stop at the earliest opportunity."""
+        self._internal_stop_event.set()
 
     def _session_guard(self):
         return self._session_lock
