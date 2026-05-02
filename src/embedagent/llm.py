@@ -128,6 +128,7 @@ class OpenAICompatibleClient(object):
         reasoning_parts = []
         tool_buffers = {}
         finish_reason = None
+        total_chars = 0
         for event_data in self._iter_sse_events(response):
             if event_data == "[DONE]":
                 break
@@ -143,22 +144,27 @@ class OpenAICompatibleClient(object):
             text = self._normalize_content(delta.get("content"))
             if text:
                 content_parts.append(text)
+                total_chars += len(text)
                 if on_text_delta is not None:
                     on_text_delta(text)
             reasoning_text = self._normalize_content(delta.get("reasoning_content"))
             if reasoning_text:
                 reasoning_parts.append(reasoning_text)
+                total_chars += len(reasoning_text)
                 if on_reasoning_delta is not None:
                     on_reasoning_delta(reasoning_text)
             self._merge_stream_tool_calls(tool_buffers, delta)
             if choice.get("finish_reason"):
                 finish_reason = choice.get("finish_reason")
         actions = self._finalize_stream_tool_calls(tool_buffers)
+        # Approximate tokens for streaming: chars / 4
+        approx_tokens = total_chars // 4
         return AssistantReply(
             content="".join(content_parts),
             actions=actions,
             finish_reason=finish_reason,
             reasoning_content="".join(reasoning_parts),
+            usage={"prompt_tokens": 0, "completion_tokens": approx_tokens, "total_tokens": approx_tokens},
         )
 
     def _iter_sse_events(self, response: Any) -> Iterable[str]:
@@ -194,6 +200,7 @@ class OpenAICompatibleClient(object):
             message.get("tool_calls"),
             message.get("function_call"),
         )
+        usage = self._extract_usage(payload)
         return AssistantReply(
             content=self._normalize_content(message.get("content")),
             actions=actions,
@@ -201,6 +208,7 @@ class OpenAICompatibleClient(object):
             reasoning_content=self._normalize_content(
                 message.get("reasoning_content")
             ),
+            usage=usage,
         )
 
     def _parse_responses_payload(self, payload: Dict[str, Any]) -> AssistantReply:
@@ -222,6 +230,14 @@ class OpenAICompatibleClient(object):
                     )
                 )
         return AssistantReply(content="".join(content_parts), actions=actions)
+
+    def _extract_usage(self, payload: Dict[str, Any]) -> Dict[str, int]:
+        usage_data = payload.get("usage") or {}
+        return {
+            "prompt_tokens": usage_data.get("prompt_tokens") or 0,
+            "completion_tokens": usage_data.get("completion_tokens") or 0,
+            "total_tokens": usage_data.get("total_tokens") or 0,
+        }
 
     def _normalize_content(self, content: Any) -> str:
         if content is None:

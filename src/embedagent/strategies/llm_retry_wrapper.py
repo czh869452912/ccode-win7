@@ -12,6 +12,7 @@ from typing import Any, Callable, Dict, List, Optional
 
 from embedagent.llm import ModelClientError, OpenAICompatibleClient
 from embedagent.session import AssistantReply
+from embedagent.strategies.circuit_breaker import CircuitBreaker, CircuitBreakerOpenError
 
 _LOG = logging.getLogger(__name__)
 
@@ -39,11 +40,15 @@ class LLMClientRetryWrapper(object):
         max_retries: int = _LLM_MAX_RETRIES,
         base_delay: float = _LLM_RETRY_BASE_DELAY,
         compaction_engine: Optional[Any] = None,
+        circuit_breaker: Optional[CircuitBreaker] = None,
+        token_tracker: Optional[Callable[[int, int, int], None]] = None,
     ) -> None:
         self.client = client
         self.max_retries = max_retries
         self.base_delay = base_delay
         self.compaction_engine = compaction_engine
+        self.circuit_breaker = circuit_breaker
+        self.token_tracker = token_tracker
 
     def call_with_retry(
         self,
@@ -64,19 +69,47 @@ class LLMClientRetryWrapper(object):
 
         for attempt in range(self.max_retries):
             try:
-                if stream:
-                    return self.client.stream(
-                        current_messages,
-                        tools=tools,
-                        on_text_delta=on_text_delta,
-                        on_reasoning_delta=on_reasoning_delta,
+                if self.circuit_breaker is not None:
+                    if stream:
+                        reply = self.circuit_breaker.call(
+                            self.client.stream,
+                            current_messages,
+                            tools=tools,
+                            on_text_delta=on_text_delta,
+                            on_reasoning_delta=on_reasoning_delta,
+                        )
+                    else:
+                        reply = self.circuit_breaker.call(
+                            self.client.generate, current_messages, tools=tools
+                        )
+                else:
+                    if stream:
+                        reply = self.client.stream(
+                            current_messages,
+                            tools=tools,
+                            on_text_delta=on_text_delta,
+                            on_reasoning_delta=on_reasoning_delta,
+                        )
+                    else:
+                        reply = self.client.generate(current_messages, tools=tools)
+                
+                # Track token usage if tracker is configured
+                if self.token_tracker is not None:
+                    usage = reply.usage or {}
+                    self.token_tracker(
+                        usage.get("prompt_tokens", 0),
+                        usage.get("completion_tokens", 0),
+                        usage.get("total_tokens", 0),
                     )
-                reply = self.client.generate(current_messages, tools=tools)
+                
                 if on_reasoning_delta and reply.reasoning_content:
                     on_reasoning_delta(reply.reasoning_content)
                 if on_text_delta and reply.content:
                     on_text_delta(reply.content)
                 return reply
+            except CircuitBreakerOpenError:
+                _LOG.warning("LLM circuit breaker open: service temporarily unavailable")
+                raise ModelClientError("LLM circuit breaker open: service temporarily unavailable")
             except ModelClientError as exc:
                 last_exc = exc
                 error_text = str(exc).lower()
