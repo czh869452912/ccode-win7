@@ -22,6 +22,63 @@ def build_tools(ctx: ToolContext) -> List[ToolDefinition]:
             },
         )
 
+    def _configure_build_env(arguments: Dict[str, Any]) -> Observation:
+        compiler_pref = str(arguments.get("compiler") or "").strip()
+        build_type = str(arguments.get("build_type") or "").strip().lower()
+        target = str(arguments.get("target") or "").strip()
+
+        compilers = _discover_compilers(ctx)
+
+        # Select compiler based on preference or default to first available
+        selected = None
+        if compiler_pref:
+            for comp in compilers:
+                if comp["name"] == compiler_pref or comp["name"].startswith(compiler_pref):
+                    selected = comp
+                    break
+        if selected is None and compilers:
+            selected = compilers[0]
+
+        # Determine build type and recommended flags
+        build_types = {
+            "debug": {"c_flags": "-O0 -g", "cxx_flags": "-O0 -g", "linker_flags": ""},
+            "release": {"c_flags": "-O3 -DNDEBUG", "cxx_flags": "-O3 -DNDEBUG", "linker_flags": ""},
+            "relwithdebinfo": {"c_flags": "-O2 -g", "cxx_flags": "-O2 -g", "linker_flags": ""},
+            "minsizerel": {"c_flags": "-Os -DNDEBUG", "cxx_flags": "-Os -DNDEBUG", "linker_flags": ""},
+        }
+        type_config = build_types.get(build_type, build_types["debug"])
+
+        # Get environment with managed tools prepended to PATH
+        env = ctx.build_process_env()
+
+        # Build directory suggestion
+        build_dir = "build"
+        if build_type and build_type not in ("default", "build"):
+            build_dir = "build/%s" % build_type.replace("\\", "/")
+
+        config = {
+            "compiler": selected,
+            "compilers_available": compilers,
+            "build_type": build_type or "debug",
+            "c_flags": type_config["c_flags"],
+            "cxx_flags": type_config["cxx_flags"],
+            "linker_flags": type_config["linker_flags"],
+            "environment": {
+                "PATH": env.get("PATH", ""),
+                "EMBEDAGENT_LLVM_ROOT": env.get("EMBEDAGENT_LLVM_ROOT", ""),
+                "EMBEDAGENT_RUNTIME_SOURCE": env.get("EMBEDAGENT_RUNTIME_SOURCE", ""),
+            },
+            "build_dir": build_dir,
+            "target": target,
+        }
+
+        return Observation(
+            tool_name="configure_build_env",
+            success=True,
+            error=None,
+            data=config,
+        )
+
     return [
         ToolDefinition(
             name="list_compilers",
@@ -33,6 +90,32 @@ def build_tools(ctx: ToolContext) -> List[ToolDefinition]:
                 "additionalProperties": False,
             },
             handler=_list_compilers,
+            read_only=True,
+            concurrency_safe=True,
+        ),
+        ToolDefinition(
+            name="configure_build_env",
+            description="配置构建环境。根据可用编译器、构建类型和目标生成推荐的编译标志、环境变量和构建目录。",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "compiler": {
+                        "type": "string",
+                        "description": "首选编译器名称（如 clang、gcc、cl）。如不可用则回退到第一个可用编译器。",
+                    },
+                    "build_type": {
+                        "type": "string",
+                        "description": "构建类型：debug、release、relwithdebinfo、minsizerel。默认 debug。",
+                    },
+                    "target": {
+                        "type": "string",
+                        "description": "构建目标名称（可选）。",
+                    },
+                },
+                "required": [],
+                "additionalProperties": False,
+            },
+            handler=_configure_build_env,
             read_only=True,
             concurrency_safe=True,
         ),
