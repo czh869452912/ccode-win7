@@ -9,7 +9,7 @@ from embedagent.projection_db import ProjectionDb
 from embedagent.session import Observation
 from embedagent.tool_result_store import ToolResultStore
 from embedagent.tooling.packs import pack_tool_names
-from embedagent.tools import file_ops, git_ops, shell_ops
+from embedagent.tools import compile_ops, file_ops, git_ops, shell_ops
 from embedagent.tools._base import ToolContext, ToolError
 from embedagent.tools.harness_runtime import (
     OFFICIAL_HARNESS_TOOL_METADATA,
@@ -171,8 +171,41 @@ _DEFAULT_TOOL_METADATA = {
         "activity_kind": "git",
         "context_priority": 55,
     },
+    "list_compilers": {
+        "permission_category": "read",
+        "mode_visibility": ["explore", "spec", "build", "debug", "verify"],
+        "workflow_visibility": ["chat", "plan", "review", "command"],
+        "user_label": "List Compilers",
+        "progress_renderer_key": "list",
+        "result_renderer_key": "list",
+        "supports_diff_preview": False,
+        "context_reducer_key": "list_compilers",
+        "read_only": True,
+        "concurrency_safe": True,
+        "interrupt_behavior": "block",
+        "result_budget_policy": "compact-preview",
+        "activity_kind": "tool",
+        "context_priority": 65,
+    },
+    "configure_build_env": {
+        "permission_category": "read",
+        "mode_visibility": ["explore", "spec", "build", "debug", "verify"],
+        "workflow_visibility": ["chat", "plan", "review", "command"],
+        "user_label": "Configure Build Env",
+        "progress_renderer_key": "list",
+        "result_renderer_key": "list",
+        "supports_diff_preview": False,
+        "context_reducer_key": "configure_build_env",
+        "read_only": True,
+        "concurrency_safe": True,
+        "interrupt_behavior": "block",
+        "result_budget_policy": "compact-preview",
+        "activity_kind": "tool",
+        "context_priority": 64,
+    },
 }
 _DEFAULT_TOOL_METADATA.update(OFFICIAL_HARNESS_TOOL_METADATA)
+
 
 class ToolRuntime(object):
     def __init__(self, workspace: str, app_config=None) -> None:
@@ -188,13 +221,11 @@ class ToolRuntime(object):
             file_ops.build_tools(self._ctx)
             + shell_ops.build_tools(self._ctx)
             + git_ops.build_tools(self._ctx)
+            + compile_ops.build_tools(self._ctx)
         )
         harness_tools = build_harness_tools(self._ctx)
         existing_names = set(tool.name for tool in official_tools)
-        official_tools.extend(
-            tool for tool in harness_tools
-            if tool.name not in existing_names
-        )
+        official_tools.extend(tool for tool in harness_tools if tool.name not in existing_names)
         self._catalog = {}  # type: Dict[str, ToolCatalogEntry]
         self._tools = {td.name: td for td in official_tools}  # type: Dict[str, ToolDefinition]
         for tool in official_tools:
@@ -240,18 +271,17 @@ class ToolRuntime(object):
                 continue
             entry = self._catalog.get(name)
             if entry is not None and entry.workflow_visibility:
-                if workflow_state not in entry.workflow_visibility and "any" not in entry.workflow_visibility:
+                if (
+                    workflow_state not in entry.workflow_visibility
+                    and "any" not in entry.workflow_visibility
+                ):
                     continue
             schemas.append(tool.schema())
         return schemas
 
     def schemas_for_pack(self, pack_name: str) -> List[Dict[str, Any]]:
         allowed = set(pack_tool_names(pack_name))
-        return [
-            tool.schema()
-            for name, tool in self._tools.items()
-            if name in allowed
-        ]
+        return [tool.schema() for name, tool in self._tools.items() if name in allowed]
 
     def describe_mode(
         self,
@@ -270,15 +300,17 @@ class ToolRuntime(object):
     def allowed_tool_names(self, mode_name: str, workflow_state: str = "chat") -> set:
         return set(self._mode_runtime.allowed_tool_names(mode_name, workflow_state=workflow_state))
 
-    def schemas_for_mode(self, mode_name: str, workflow_state: str = "chat") -> List[Dict[str, Any]]:
+    def schemas_for_mode(
+        self, mode_name: str, workflow_state: str = "chat"
+    ) -> List[Dict[str, Any]]:
         context = self.describe_mode(mode_name, workflow_state=workflow_state)
         if context is not None:
-            pack_names = set(self._mode_runtime.pack_tool_names_for_mode(mode_name, workflow_state=workflow_state))
-            return [
-                tool.schema()
-                for name, tool in self._tools.items()
-                if name in pack_names
-            ]
+            pack_names = set(
+                self._mode_runtime.pack_tool_names_for_mode(
+                    mode_name, workflow_state=workflow_state
+                )
+            )
+            return [tool.schema() for name, tool in self._tools.items() if name in pack_names]
         return self.schemas_for(mode_name, workflow_state=workflow_state)
 
     def execute_for_mode(
@@ -380,4 +412,3 @@ class ToolRuntime(object):
             "activity_kind": "tool",
             "context_priority": 50,
         }
-
