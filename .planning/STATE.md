@@ -2,17 +2,17 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-05-02)
+See: .planning/PROJECT.md (updated 2026-05-03)
 
 **Core value:** The agent core reliably orchestrates LLM-driven development tasks through a stable harness system with explicit state management, permission controls, and durable session history
-**Current focus:** Phase 4 — Framework (upcoming)
+**Current focus:** Milestone v0.1 shipped — planning next milestone
 
 ## Current Position
 
-Phase: 4 of 4 (Framework) — **COMPLETE ✓**
-Plan: 5 of 5 in current phase
-Status: Completed
-Last activity: 2026-05-02 — Phase 4 execution completed
+**Milestone:** v0.1 — SHIPPED ✓
+**Phase:** 4 of 4 (Framework) — COMPLETE
+**Status:** Archived
+**Last activity:** 2026-05-03 — Milestone v0.1 archived and tagged
 
 Progress: [████████████] 100% (4 of 4 phases)
 
@@ -85,6 +85,12 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-05-02
-Stopped at: Roadmap creation complete
+Last session: 2026-05-03
+Stopped at: Milestone v0.1 archived and tagged
 Resume file: None
+
+## Milestone History
+
+| Milestone | Date | Phases | Status |
+|-----------|------|--------|--------|
+| v0.1 | 2026-05-02 | 1-4 | SHIPPED |
