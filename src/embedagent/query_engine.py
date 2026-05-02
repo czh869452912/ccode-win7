@@ -19,6 +19,7 @@ from embedagent.interaction import (
 )
 from embedagent.llm import ModelClientError, OpenAICompatibleClient
 from embedagent.strategies.context_compaction_engine import ContextCompactionEngine
+from embedagent.strategies.execution_tracer import ExecutionTracer, TraceEventType
 from embedagent.strategies.llm_retry_wrapper import LLMClientRetryWrapper
 from embedagent.strategies.turn_orchestrator import TurnOrchestrator
 from embedagent.memory_maintenance import MemoryMaintenance
@@ -78,6 +79,7 @@ class QueryEngine(object):
         intelligence_broker: Optional[WorkspaceIntelligenceBroker] = None,
         max_parallel_tools: int = 3,
         transcript_store: Optional[TranscriptStore] = None,
+        tracer: Optional[ExecutionTracer] = None,
     ) -> None:
         self.client = client
         self.tools = tools
@@ -95,6 +97,7 @@ class QueryEngine(object):
         self.intelligence_broker = intelligence_broker or WorkspaceIntelligenceBroker()
         self.max_parallel_tools = max(1, int(max_parallel_tools or 1))
         self.transcript_store = transcript_store or TranscriptStore(self.tools.workspace)
+        self.tracer = tracer
         self._compaction = ContextCompactionEngine(
             context_manager=self.context_manager,
             max_tokens=8000,
@@ -117,6 +120,7 @@ class QueryEngine(object):
             tools=self.tools,
             permission_policy=self.permission_policy,
             max_parallel_tools=self.max_parallel_tools,
+            tracer=self.tracer,
         )
         self._internal_stop_event = threading.Event()
 
@@ -581,9 +585,20 @@ class QueryEngine(object):
             with self._session_guard():
                 session = Session()
         current_mode = self.initialize_session(session, initial_mode, workflow_state=workflow_state)
+
+        turn_id = getattr(session, "current_turn_id", "") or "t-" + uuid.uuid4().hex[:12]
+        session_id = getattr(session, "session_id", "") or ""
+
+        if self.tracer is not None:
+            self.tracer.record(
+                TraceEventType.TURN_START,
+                session_id,
+                turn_id,
+                data={"mode": current_mode, "workflow_state": workflow_state},
+            )
+
         if user_text:
             with self._session_guard():
-                turn_id = "t-" + uuid.uuid4().hex[:12]
                 message_id = "m-" + uuid.uuid4().hex[:12]
                 parent_message_id = session.last_message_id()
                 self._append_message_event(
@@ -603,22 +618,42 @@ class QueryEngine(object):
                     message_id=message_id,
                     parent_message_id=parent_message_id,
                 )
-        return self._run_loop(
-            session,
-            current_mode,
-            workflow_state,
-            stream,
-            stop_event,
-            on_text_delta,
-            on_reasoning_delta,
-            on_tool_start,
-            on_tool_finish,
-            on_context_result,
-            on_step_start,
-            on_step_finish,
-            permission_handler,
-            user_input_handler,
-        )
+        try:
+            result = self._run_loop(
+                session,
+                current_mode,
+                workflow_state,
+                stream,
+                stop_event,
+                on_text_delta,
+                on_reasoning_delta,
+                on_tool_start,
+                on_tool_finish,
+                on_context_result,
+                on_step_start,
+                on_step_finish,
+                permission_handler,
+                user_input_handler,
+            )
+            if self.tracer is not None:
+                self.tracer.record(
+                    TraceEventType.TURN_END,
+                    session_id,
+                    turn_id,
+                    data={"transition_reason": getattr(result.transition, "reason", "")},
+                )
+                self.tracer.flush()
+            return result
+        except BaseException as exc:
+            if self.tracer is not None:
+                self.tracer.record(
+                    TraceEventType.ERROR,
+                    session_id,
+                    turn_id,
+                    data={"error_type": type(exc).__name__, "error_message": str(exc)},
+                )
+                self.tracer.flush()
+            raise
 
     def submit_command_turn(
         self,

@@ -19,6 +19,7 @@ from embedagent.session import (
     PendingInteraction,
     QueryTurnResult,
 )
+from embedagent.strategies.execution_tracer import ExecutionTracer, TraceEventType
 from embedagent.tool_execution import StreamingToolExecutor, partition_tool_actions
 from embedagent.tools import ToolRuntime
 from embedagent.tools._base import ToolError
@@ -36,12 +37,14 @@ class TurnOrchestrator(object):
         permission_policy: Optional[PermissionPolicy] = None,
         max_parallel_tools: int = 3,
         streaming_executor: Optional[Any] = None,
+        tracer: Optional[ExecutionTracer] = None,
     ) -> None:
         self.llm_wrapper = llm_wrapper
         self.tools = tools
         self.permission_policy = permission_policy or PermissionPolicy(auto_approve_all=True)
         self.max_parallel_tools = max(1, int(max_parallel_tools or 1))
         self.streaming_executor = streaming_executor
+        self.tracer = tracer
 
     def execute_turn(
         self,
@@ -61,7 +64,19 @@ class TurnOrchestrator(object):
         step_id: str = "",
     ) -> QueryTurnResult:
         """Execute one turn: call LLM, process reply, execute tools."""
+        turn_id = getattr(session, "turn_id", "") or ""
+        session_id = getattr(session, "session_id", "") or ""
+
         # 1. Call LLM
+        if self.tracer is not None:
+            self.tracer.record(
+                TraceEventType.LLM_CALL_START,
+                session_id,
+                turn_id,
+                step_id=step_id,
+                data={"message_count": len(messages), "tool_count": len(tool_schemas)},
+            )
+
         try:
             reply = self.llm_wrapper.call_with_retry(
                 messages=messages,
@@ -70,7 +85,23 @@ class TurnOrchestrator(object):
                 on_text_delta=on_text_delta,
                 on_reasoning_delta=on_reasoning_delta,
             )
+            if self.tracer is not None:
+                self.tracer.record(
+                    TraceEventType.LLM_CALL_END,
+                    session_id,
+                    turn_id,
+                    step_id=step_id,
+                    data={"action_count": len(reply.actions), "finish_reason": reply.finish_reason},
+                )
         except ModelClientError as exc:
+            if self.tracer is not None:
+                self.tracer.record(
+                    TraceEventType.ERROR,
+                    session_id,
+                    turn_id,
+                    step_id=step_id,
+                    data={"error_type": "ModelClientError", "error_message": str(exc)},
+                )
             transition = LoopTransition(
                 reason="error",
                 message=str(exc),
@@ -251,6 +282,9 @@ class TurnOrchestrator(object):
         stop_event: Optional[Any] = None,
     ) -> Tuple[Observation, str, Optional[QueryTurnResult]]:
         """Execute a single tool action with permission handling."""
+        turn_id = getattr(session, "turn_id", "") or ""
+        session_id = getattr(session, "session_id", "") or ""
+
         if precomputed_observation is not None:
             return precomputed_observation, current_mode, None
 
@@ -303,7 +337,21 @@ class TurnOrchestrator(object):
 
         # Permission check for non-special tools
         if action.name not in ("ask_user", "propose_mode_switch", "task_status"):
+            if self.tracer is not None:
+                self.tracer.record(
+                    TraceEventType.PERMISSION_REQUEST,
+                    session_id,
+                    turn_id,
+                    data={"tool_name": action.name},
+                )
             decision = self.permission_policy.evaluate(action)
+            if self.tracer is not None:
+                self.tracer.record(
+                    TraceEventType.PERMISSION_DECISION,
+                    session_id,
+                    turn_id,
+                    data={"tool_name": action.name, "decision": decision.outcome},
+                )
             if decision.outcome == "deny":
                 return (
                     self._failure_observation(
@@ -356,9 +404,30 @@ class TurnOrchestrator(object):
                     )
 
         # Execute the tool
+        if self.tracer is not None:
+            self.tracer.record(
+                TraceEventType.TOOL_EXECUTION_START,
+                session_id,
+                turn_id,
+                data={"tool_name": action.name},
+            )
         try:
             observation = self.tools.execute_with_interrupt(action.name, action.arguments, stop_event)
+            if self.tracer is not None:
+                self.tracer.record(
+                    TraceEventType.TOOL_EXECUTION_END,
+                    session_id,
+                    turn_id,
+                    data={"tool_name": action.name, "success": observation.success},
+                )
         except ToolError as exc:
+            if self.tracer is not None:
+                self.tracer.record(
+                    TraceEventType.ERROR,
+                    session_id,
+                    turn_id,
+                    data={"tool_name": action.name, "error_type": "ToolError", "error_message": str(exc)},
+                )
             observation = self._failure_observation(
                 action.name,
                 str(exc),
