@@ -176,7 +176,7 @@ def _detect_builtin_recipes(workspace: str) -> List[Dict[str, Any]]:
                     "source": "detected",
                     "family": "make",
                     "stage": "build",
-                    "supports_target": False,
+                    "supports_target": True,
                     "supports_profile": False,
                 },
                 {
@@ -188,6 +188,37 @@ def _detect_builtin_recipes(workspace: str) -> List[Dict[str, Any]]:
                     "cwd": ".",
                     "source": "detected",
                     "family": "make",
+                    "stage": "test",
+                    "supports_target": False,
+                    "supports_profile": False,
+                },
+            ]
+        )
+    if os.path.isfile(os.path.join(workspace, "build.ninja")):
+        items.extend(
+            [
+                {
+                    "id": "ninja.build.default",
+                    "tool_name": "run_recipe",
+                    "recipe_action": "build",
+                    "label": "Ninja Build",
+                    "command": "ninja",
+                    "cwd": ".",
+                    "source": "detected",
+                    "family": "ninja",
+                    "stage": "build",
+                    "supports_target": True,
+                    "supports_profile": False,
+                },
+                {
+                    "id": "ninja.test.default",
+                    "tool_name": "run_recipe",
+                    "recipe_action": "test",
+                    "label": "Ninja Test",
+                    "command": "ninja test",
+                    "cwd": ".",
+                    "source": "detected",
+                    "family": "ninja",
                     "stage": "test",
                     "supports_target": False,
                     "supports_profile": False,
