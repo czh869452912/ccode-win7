@@ -535,6 +535,135 @@ class ToolContext(object):
             "interrupted": interrupted,
         }
 
+    def run_subprocess_streaming(
+        self,
+        command: Any,
+        cwd: str,
+        timeout_sec: int,
+        shell: bool,
+        stop_event: Optional[threading.Event] = None,
+        progress_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
+    ) -> Dict[str, Any]:
+        """Run a subprocess with streaming stdout/stderr via progress callback.
+
+        Uses threading for concurrent stdout/stderr reading.
+        Calls progress_callback for each output line and periodic status updates.
+        """
+        started = time.time()
+        process = subprocess.Popen(
+            command,
+            cwd=cwd,
+            shell=shell,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            universal_newlines=True,
+            encoding="utf-8",
+            errors="replace",
+            env=self.build_process_env(),
+            creationflags=(getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0) if os.name == "nt" else 0),
+        )
+        stdout_lines = []  # type: List[str]
+        stderr_lines = []  # type: List[str]
+        callback_lock = threading.Lock()
+
+        def _fire_progress(kind, line="", extra=None):
+            # type: (str, str, Optional[Dict[str, Any]]) -> None
+            if progress_callback is None:
+                return
+            payload = {
+                "kind": kind,
+                "line": line,
+                "timestamp_ms": int((time.time() - started) * 1000),
+            }
+            if extra:
+                payload.update(extra)
+            with callback_lock:
+                progress_callback(payload)
+
+        def _read_stdout():
+            if process.stdout is None:
+                return
+            try:
+                for line in iter(process.stdout.readline, ""):
+                    line = line.rstrip("\n").rstrip("\r")
+                    stdout_lines.append(line)
+                    _fire_progress("stdout", line)
+            finally:
+                process.stdout.close()
+
+        def _read_stderr():
+            if process.stderr is None:
+                return
+            try:
+                for line in iter(process.stderr.readline, ""):
+                    line = line.rstrip("\n").rstrip("\r")
+                    stderr_lines.append(line)
+                    _fire_progress("stderr", line)
+            finally:
+                process.stderr.close()
+
+        stdout_thread = threading.Thread(target=_read_stdout, daemon=True)
+        stderr_thread = threading.Thread(target=_read_stderr, daemon=True)
+        stdout_thread.start()
+        stderr_thread.start()
+
+        timed_out = False
+        interrupted = False
+        deadline = started + timeout_sec
+        last_status_time = started
+
+        while True:
+            now = time.time()
+            remaining = deadline - now
+
+            if progress_callback is not None and now - last_status_time >= 2.0:
+                _fire_progress(
+                    "status",
+                    extra={
+                        "elapsed_ms": int((now - started) * 1000),
+                        "lines_stdout": len(stdout_lines),
+                        "lines_stderr": len(stderr_lines),
+                        "pid": process.pid,
+                    },
+                )
+                last_status_time = now
+
+            if remaining <= 0:
+                timed_out = True
+                self.terminate_process_tree(process)
+                break
+
+            if stop_event is not None and stop_event.is_set():
+                interrupted = True
+                self.terminate_process_tree(process)
+                break
+
+            ret = process.poll()
+            if ret is not None:
+                break
+
+            time.sleep(min(0.1, max(0, remaining)))
+
+        stdout_thread.join(timeout=2.0)
+        stderr_thread.join(timeout=2.0)
+
+        duration_ms = int((time.time() - started) * 1000)
+        stdout = "\n".join(stdout_lines)
+        stderr = "\n".join(stderr_lines)
+        stdout, stdout_truncated = self.truncate_output(stdout)
+        stderr, stderr_truncated = self.truncate_output(stderr)
+
+        return {
+            "exit_code": process.returncode if process.returncode is not None else -1,
+            "stdout": stdout,
+            "stderr": stderr,
+            "stdout_truncated": stdout_truncated,
+            "stderr_truncated": stderr_truncated,
+            "duration_ms": duration_ms,
+            "timed_out": timed_out,
+            "interrupted": interrupted,
+        }
+
     def build_command_observation(
         self,
         tool_name: str,
