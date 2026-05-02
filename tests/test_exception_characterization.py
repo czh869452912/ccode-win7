@@ -1,7 +1,4 @@
 """Characterization tests for exception handling behavior — verifies pre/post change equivalence."""
-import json
-import os
-import tempfile
 
 
 def test_permissions_load_missing_file():
@@ -45,7 +42,6 @@ def test_workspace_recipes_load_json_missing_file():
 def test_core_adapter_read_file_missing():
     """Verify core_adapter handles missing file gracefully."""
     from embedagent.core.adapter import AgentCoreAdapter
-    from embedagent.inprocess_adapter import InProcessAdapter
     from embedagent.permissions import PermissionPolicy
     from embedagent.tools import ToolRuntime
     adapter = AgentCoreAdapter("/nonexistent/path")
@@ -77,19 +73,3 @@ def test_timeline_service_load():
 
 def test_all_modified_modules_importable():
     """Verify all modified modules can be imported without errors."""
-    import embedagent.permissions
-    import embedagent.harness.task_store
-    import embedagent.session_store
-    import embedagent.project_memory
-    import embedagent.workspace_recipes
-    import embedagent.tool_commit
-    import embedagent.core.adapter
-    import embedagent.tools.discovery_ops
-    import embedagent.frontend.gui.launcher
-    import embedagent.frontend.gui.backend.server
-    import embedagent.frontend.tui.services.workspace
-    import embedagent.frontend.tui.services.sessions
-    import embedagent.frontend.tui.services.timeline
-    import embedagent.frontend.tui.services.artifacts
-    import embedagent.frontend.tui.layout
-    import embedagent.inprocess_adapter

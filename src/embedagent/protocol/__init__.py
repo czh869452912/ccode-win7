@@ -8,11 +8,11 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum, auto
+from typing import Any, Dict, List, Optional, Protocol
 
 
 def _utc_now() -> datetime:
     return datetime.now(timezone.utc)
-from typing import Any, Dict, List, Optional, Protocol
 
 
 class MessageType(Enum):
