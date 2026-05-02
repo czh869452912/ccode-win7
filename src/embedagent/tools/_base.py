@@ -58,11 +58,26 @@ DIRECT_MANAGED_EXECUTABLES = {
     "python.exe": "python",
 }
 CLANG_DIAGNOSTIC_RE = re.compile(
-    r"^(?P<file>.+?):(?P<line>\d+):(?P<column>\d+): (?P<level>fatal error|error|warning|note): (?P<message>.*)$"
+    r"^(?P<file>.+?):(?P<line>\d+):(?:(?P<column>\d+):)? (?P<level>fatal error|error|warning|note): (?P<message>.*)$"
+)
+GCC_DIAGNOSTIC_RE = re.compile(
+    r"^(?P<file>.+?):(?P<line>\d+):(?:(?P<column>\d+):)? (?P<level>fatal error|error|warning|note): (?P<message>.*)$"
 )
 MSVC_DIAGNOSTIC_RE = re.compile(
     r"^(?P<file>.+?)\((?P<line>\d+)(?:,(?P<column>\d+))?\): (?P<level>fatal error|error|warning|note) [A-Z0-9]+: (?P<message>.*)$"
 )
+LINKER_DIAGNOSTIC_RE = re.compile(
+    r"^(?:(?P<file>.+?):)?\s*(?P<level>error|warning): (?P<message>.*)$"
+)
+LINKER_SIGNATURE_PATTERNS = [
+    re.compile(r"^\s*(?:ld|lld|gold|collect2|link\.exe|LINK)\s*[:→-]", re.IGNORECASE),
+    re.compile(r"^\s*undefined reference to", re.IGNORECASE),
+    re.compile(r"^\s*cannot find", re.IGNORECASE),
+    re.compile(r"^\s*multiple definition of", re.IGNORECASE),
+    re.compile(r"^\s*relocation truncated to fit", re.IGNORECASE),
+    re.compile(r"^\s*symbol.*multiply defined", re.IGNORECASE),
+    re.compile(r"^\s*LNK[0-9]+:", re.IGNORECASE),
+]
 
 
 class ToolError(Exception):
@@ -124,8 +139,7 @@ class ToolContext(object):
         workspace_norm = os.path.normcase(self.workspace)
         resolved_norm = os.path.normcase(resolved)
         if not (
-            resolved_norm == workspace_norm
-            or resolved_norm.startswith(workspace_norm + os.sep)
+            resolved_norm == workspace_norm or resolved_norm.startswith(workspace_norm + os.sep)
         ):
             raise ToolError("路径超出当前工作区。")
         if not allow_missing and not os.path.exists(resolved):
@@ -211,8 +225,7 @@ class ToolContext(object):
                 absolute_path = os.path.join(current_root, file_name)
                 relative = self.relative_path(absolute_path)
                 if pattern and not (
-                    fnmatch.fnmatch(file_name, pattern)
-                    or fnmatch.fnmatch(relative, pattern)
+                    fnmatch.fnmatch(file_name, pattern) or fnmatch.fnmatch(relative, pattern)
                 ):
                     continue
                 collected.append(absolute_path)
@@ -249,11 +262,15 @@ class ToolContext(object):
         candidates = []  # type: List[Tuple[str, str]]
         env_root = os.environ.get("EMBEDAGENT_LLVM_ROOT", "").strip()
         if env_root:
-            candidates.append((os.path.realpath(env_root), "bundle" if self.bundle_root() else "workspace"))
+            candidates.append(
+                (os.path.realpath(env_root), "bundle" if self.bundle_root() else "workspace")
+            )
         bundle_root = self.bundle_root()
         if bundle_root:
             candidates.append((os.path.join(bundle_root, "bin", "llvm"), "bundle"))
-        candidates.append((os.path.join(self.workspace, "toolchains", "llvm", "current"), "workspace"))
+        candidates.append(
+            (os.path.join(self.workspace, "toolchains", "llvm", "current"), "workspace")
+        )
         candidates.append((os.path.join(self.workspace, "bin", "llvm"), "workspace"))
         return candidates
 
@@ -268,15 +285,27 @@ class ToolContext(object):
             return self._llvm_root_candidates()
         if tool_key == "python":
             if bundle_root:
-                candidates.append((os.path.join(bundle_root, "runtime", "python", "python.exe"), "bundle"))
-            candidates.append((os.path.join(self.workspace, "runtime", "python", "python.exe"), "workspace"))
+                candidates.append(
+                    (os.path.join(bundle_root, "runtime", "python", "python.exe"), "bundle")
+                )
+            candidates.append(
+                (os.path.join(self.workspace, "runtime", "python", "python.exe"), "workspace")
+            )
             return candidates
         if tool_key == "git":
             if bundle_root:
-                candidates.append((os.path.join(bundle_root, "bin", "git", "cmd", "git.exe"), "bundle"))
-                candidates.append((os.path.join(bundle_root, "bin", "git", "bin", "git.exe"), "bundle"))
-            candidates.append((os.path.join(self.workspace, "bin", "git", "cmd", "git.exe"), "workspace"))
-            candidates.append((os.path.join(self.workspace, "bin", "git", "bin", "git.exe"), "workspace"))
+                candidates.append(
+                    (os.path.join(bundle_root, "bin", "git", "cmd", "git.exe"), "bundle")
+                )
+                candidates.append(
+                    (os.path.join(bundle_root, "bin", "git", "bin", "git.exe"), "bundle")
+                )
+            candidates.append(
+                (os.path.join(self.workspace, "bin", "git", "cmd", "git.exe"), "workspace")
+            )
+            candidates.append(
+                (os.path.join(self.workspace, "bin", "git", "bin", "git.exe"), "workspace")
+            )
             return candidates
         if tool_key == "rg":
             if bundle_root:
@@ -285,8 +314,12 @@ class ToolContext(object):
             return candidates
         if tool_key == "ctags":
             if bundle_root:
-                candidates.append((os.path.join(bundle_root, "bin", "ctags", "ctags.exe"), "bundle"))
-            candidates.append((os.path.join(self.workspace, "bin", "ctags", "ctags.exe"), "workspace"))
+                candidates.append(
+                    (os.path.join(bundle_root, "bin", "ctags", "ctags.exe"), "bundle")
+                )
+            candidates.append(
+                (os.path.join(self.workspace, "bin", "ctags", "ctags.exe"), "workspace")
+            )
             return candidates
         return candidates
 
@@ -308,7 +341,9 @@ class ToolContext(object):
             return "llvm"
         return ""
 
-    def resolve_managed_command_executable(self, command_name: str, required: bool = True) -> Tuple[str, str]:
+    def resolve_managed_command_executable(
+        self, command_name: str, required: bool = True
+    ) -> Tuple[str, str]:
         tool_key = self.classify_managed_command(command_name)
         if not tool_key:
             return command_name, "system"
@@ -396,7 +431,10 @@ class ToolContext(object):
             runtime_source = "system"
         else:
             runtime_source = "unavailable"
-        bundled_tools_ready = all(tool_sources.get(key) in ("bundle", "workspace") for key in ("git", "rg", "ctags", "llvm"))
+        bundled_tools_ready = all(
+            tool_sources.get(key) in ("bundle", "workspace")
+            for key in ("git", "rg", "ctags", "llvm")
+        )
         return {
             "runtime_source": runtime_source,
             "bundled_tools_ready": bundled_tools_ready,
@@ -437,7 +475,7 @@ class ToolContext(object):
         if not tool_key:
             return command_text, "", ""
         executable, source = self.resolve_managed_command_executable(token)
-        rewritten = leading + '"' + executable + '"' + command_text[match.end():]
+        rewritten = leading + '"' + executable + '"' + command_text[match.end() :]
         return rewritten, tool_key, source
 
     def build_process_env(self) -> Dict[str, str]:
@@ -498,7 +536,9 @@ class ToolContext(object):
             encoding="utf-8",
             errors="replace",
             env=self.build_process_env(),
-            creationflags=(getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0) if os.name == "nt" else 0),
+            creationflags=(
+                getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0) if os.name == "nt" else 0
+            ),
         )
         timed_out = False
         interrupted = False
@@ -526,6 +566,137 @@ class ToolContext(object):
         stderr, stderr_truncated = self.truncate_output(stderr or "")
         return {
             "exit_code": process.returncode,
+            "stdout": stdout,
+            "stderr": stderr,
+            "stdout_truncated": stdout_truncated,
+            "stderr_truncated": stderr_truncated,
+            "duration_ms": duration_ms,
+            "timed_out": timed_out,
+            "interrupted": interrupted,
+        }
+
+    def run_subprocess_streaming(
+        self,
+        command: Any,
+        cwd: str,
+        timeout_sec: int,
+        shell: bool,
+        stop_event: Optional[threading.Event] = None,
+        progress_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
+    ) -> Dict[str, Any]:
+        """Run a subprocess with streaming stdout/stderr via progress callback.
+
+        Uses threading for concurrent stdout/stderr reading.
+        Calls progress_callback for each output line and periodic status updates.
+        """
+        started = time.time()
+        process = subprocess.Popen(
+            command,
+            cwd=cwd,
+            shell=shell,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            universal_newlines=True,
+            encoding="utf-8",
+            errors="replace",
+            env=self.build_process_env(),
+            creationflags=(
+                getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0) if os.name == "nt" else 0
+            ),
+        )
+        stdout_lines = []  # type: List[str]
+        stderr_lines = []  # type: List[str]
+        callback_lock = threading.Lock()
+
+        def _fire_progress(kind, line="", extra=None):
+            # type: (str, str, Optional[Dict[str, Any]]) -> None
+            if progress_callback is None:
+                return
+            payload = {
+                "kind": kind,
+                "line": line,
+                "timestamp_ms": int((time.time() - started) * 1000),
+            }
+            if extra:
+                payload.update(extra)
+            with callback_lock:
+                progress_callback(payload)
+
+        def _read_stdout():
+            if process.stdout is None:
+                return
+            try:
+                for line in iter(process.stdout.readline, ""):
+                    line = line.rstrip("\n").rstrip("\r")
+                    stdout_lines.append(line)
+                    _fire_progress("stdout", line)
+            finally:
+                process.stdout.close()
+
+        def _read_stderr():
+            if process.stderr is None:
+                return
+            try:
+                for line in iter(process.stderr.readline, ""):
+                    line = line.rstrip("\n").rstrip("\r")
+                    stderr_lines.append(line)
+                    _fire_progress("stderr", line)
+            finally:
+                process.stderr.close()
+
+        stdout_thread = threading.Thread(target=_read_stdout, daemon=True)
+        stderr_thread = threading.Thread(target=_read_stderr, daemon=True)
+        stdout_thread.start()
+        stderr_thread.start()
+
+        timed_out = False
+        interrupted = False
+        deadline = started + timeout_sec
+        last_status_time = started
+
+        while True:
+            now = time.time()
+            remaining = deadline - now
+
+            if progress_callback is not None and now - last_status_time >= 2.0:
+                _fire_progress(
+                    "status",
+                    extra={
+                        "elapsed_ms": int((now - started) * 1000),
+                        "lines_stdout": len(stdout_lines),
+                        "lines_stderr": len(stderr_lines),
+                        "pid": process.pid,
+                    },
+                )
+                last_status_time = now
+
+            if remaining <= 0:
+                timed_out = True
+                self.terminate_process_tree(process)
+                break
+
+            if stop_event is not None and stop_event.is_set():
+                interrupted = True
+                self.terminate_process_tree(process)
+                break
+
+            ret = process.poll()
+            if ret is not None:
+                break
+
+            time.sleep(min(0.1, max(0, remaining)))
+
+        stdout_thread.join(timeout=2.0)
+        stderr_thread.join(timeout=2.0)
+
+        duration_ms = int((time.time() - started) * 1000)
+        stdout = "\n".join(stdout_lines)
+        stderr = "\n".join(stderr_lines)
+        stdout, stdout_truncated = self.truncate_output(stdout)
+        stderr, stderr_truncated = self.truncate_output(stderr)
+
+        return {
+            "exit_code": process.returncode if process.returncode is not None else -1,
             "stdout": stdout,
             "stderr": stderr,
             "stdout_truncated": stdout_truncated,
@@ -591,7 +762,14 @@ class ToolContext(object):
         combined = (result["stdout"] or "") + "\n" + (result["stderr"] or "")
         diagnostics = self.parse_diagnostics(combined)
         observation.data.update(self.diagnostic_counts(diagnostics))
-        observation.data.update({"diagnostics": diagnostics, "diagnostic_count": len(diagnostics)})
+        observation.data.update(self.linker_diagnostic_counts(diagnostics))
+        observation.data.update(
+            {
+                "diagnostics": diagnostics,
+                "diagnostic_count": len(diagnostics),
+                "linker_diagnostics": [d for d in diagnostics if d.get("category") == "linker"],
+            }
+        )
         return observation
 
     def run_shell_tool(
@@ -616,7 +794,9 @@ class ToolContext(object):
             stop_event=self.get_interrupt_event(),
         )
         if diagnostic:
-            observation = self.build_diagnostic_observation(tool_name, resolved_command, cwd, result)
+            observation = self.build_diagnostic_observation(
+                tool_name, resolved_command, cwd, result
+            )
         else:
             observation = self.build_command_observation(tool_name, resolved_command, cwd, result)
         if isinstance(observation.data, dict):
@@ -652,23 +832,141 @@ class ToolContext(object):
     def normalize_level(self, level: str) -> str:
         return "error" if level == "fatal error" else level
 
-    def parse_diagnostics(self, text: str) -> List[Dict[str, Any]]:
+    def _classify_diagnostic_category(self, file: str, message: str) -> str:
+        """Classify whether a diagnostic is from the compiler or linker."""
+        message_lower = message.lower()
+        file_lower = (file or "").lower()
+        linker_keywords = [
+            "undefined reference",
+            "cannot find",
+            "multiple definition",
+            "relocation truncated",
+            "multiply defined",
+            "symbol",
+            "collect2",
+            "ld returned",
+            "linker",
+            "lnk",
+        ]
+        for keyword in linker_keywords:
+            if keyword in message_lower:
+                return "linker"
+        if file_lower in ("ld", "link", "collect2", "lld", "gold"):
+            return "linker"
+        if "link.exe" in file_lower:
+            return "linker"
+        return "compiler"
+
+    def _is_linker_signature_line(self, line: str) -> bool:
+        """Check if a line is a linker diagnostic signature."""
+        for pattern in LINKER_SIGNATURE_PATTERNS:
+            if pattern.search(line):
+                return True
+        return False
+
+    def _extract_linker_diagnostic(self, line: str) -> Optional[Dict[str, Any]]:
+        """Try to parse a linker diagnostic from a line."""
+        match = LINKER_DIAGNOSTIC_RE.match(line)
+        if match:
+            return {
+                "file": match.group("file") or "",
+                "line": 0,
+                "column": 0,
+                "level": self.normalize_level(match.group("level")),
+                "message": match.group("message").strip(),
+                "category": "linker",
+            }
+        if self._is_linker_signature_line(line):
+            level = "error"
+            msg = line.strip()
+            if "warning" in msg.lower():
+                level = "warning"
+            return {
+                "file": "",
+                "line": 0,
+                "column": 0,
+                "level": level,
+                "message": msg,
+                "category": "linker",
+            }
+        return None
+
+    def _looks_like_context_line(self, line: str) -> bool:
+        """Check if a line looks like diagnostic context (code snippet or caret)."""
+        if not line:
+            return False
+        stripped = line.lstrip()
+        if stripped.startswith("|") or stripped.startswith("^"):
+            return True
+        if stripped.startswith("~") and "^" in stripped:
+            return True
+        if stripped.startswith("In file included"):
+            return False
+        if stripped.startswith("from "):
+            return False
+        return False
+
+    def parse_diagnostics(self, text: str, capture_context: bool = True) -> List[Dict[str, Any]]:
         diagnostics = []
-        for line in text.splitlines():
-            match = CLANG_DIAGNOSTIC_RE.match(line) or MSVC_DIAGNOSTIC_RE.match(line)
-            if not match:
-                continue
-            diagnostics.append(
-                {
-                    "file": match.group("file"),
+        lines = text.splitlines()
+        i = 0
+        while i < len(lines):
+            line = lines[i]
+            match = None
+            diag = None
+
+            # Try compiler diagnostic patterns (Clang/GCC, MSVC)
+            for pattern in (CLANG_DIAGNOSTIC_RE, MSVC_DIAGNOSTIC_RE):
+                match = pattern.match(line)
+                if match:
+                    break
+
+            if match:
+                file_val = match.group("file")
+                message_val = match.group("message").strip()
+                diag = {
+                    "file": file_val,
                     "line": int(match.group("line")),
                     "column": int(match.groupdict().get("column") or 1),
                     "level": self.normalize_level(match.group("level")),
-                    "message": match.group("message").strip(),
+                    "message": message_val,
+                    "category": self._classify_diagnostic_category(file_val, message_val),
                 }
-            )
-            if len(diagnostics) >= MAX_DIAGNOSTICS:
-                break
+            else:
+                # Try linker diagnostic patterns
+                linker_diag = self._extract_linker_diagnostic(line)
+                if linker_diag:
+                    diag = linker_diag
+
+            if diag:
+                # Capture multi-line context
+                if capture_context:
+                    context_lines = []
+                    j = i + 1
+                    while j < len(lines) and len(context_lines) < 3:
+                        next_line = lines[j]
+                        if self._looks_like_context_line(next_line):
+                            context_lines.append(next_line)
+                            j += 1
+                        elif j < len(lines) - 1:
+                            # Check if next line after this is a caret line
+                            lookahead = lines[j + 1] if j + 1 < len(lines) else ""
+                            if lookahead.lstrip().startswith("^") or lookahead.lstrip().startswith(
+                                "~"
+                            ):
+                                context_lines.append(next_line)
+                                j += 1
+                            else:
+                                break
+                        else:
+                            break
+                    if context_lines:
+                        diag["context"] = context_lines
+                diagnostics.append(diag)
+                if len(diagnostics) >= MAX_DIAGNOSTICS:
+                    break
+
+            i += 1
         return diagnostics
 
     def diagnostic_counts(self, diagnostics: List[Dict[str, Any]]) -> Dict[str, int]:
@@ -683,6 +981,17 @@ class ToolContext(object):
                 counts["note_count"] += 1
         return counts
 
+    def linker_diagnostic_counts(self, diagnostics: List[Dict[str, Any]]) -> Dict[str, int]:
+        counts = {"linker_error_count": 0, "linker_warning_count": 0}
+        for item in diagnostics:
+            if item.get("category") == "linker":
+                level = item["level"]
+                if level == "error":
+                    counts["linker_error_count"] += 1
+                elif level == "warning":
+                    counts["linker_warning_count"] += 1
+        return counts
+
     def extract_first_int(self, patterns: List[str], text: str) -> int:
         for pattern in patterns:
             match = re.search(pattern, text, re.IGNORECASE)
@@ -691,21 +1000,30 @@ class ToolContext(object):
         return 0
 
     def parse_test_summary(self, text: str) -> Dict[str, int]:
-        passed = self.extract_first_int([
-            r"(\d+)\s+tests?\s+passed",
-            r"(\d+)\s+passed",
-            r"passed[:=]\s*(\d+)",
-        ], text)
-        failed = self.extract_first_int([
-            r"(\d+)\s+tests?\s+failed",
-            r"(\d+)\s+failed",
-            r"failures?[:=]\s*(\d+)",
-        ], text)
-        skipped = self.extract_first_int([
-            r"(\d+)\s+tests?\s+skipped",
-            r"(\d+)\s+skipped",
-            r"skipped[:=]\s*(\d+)",
-        ], text)
+        passed = self.extract_first_int(
+            [
+                r"(\d+)\s+tests?\s+passed",
+                r"(\d+)\s+passed",
+                r"passed[:=]\s*(\d+)",
+            ],
+            text,
+        )
+        failed = self.extract_first_int(
+            [
+                r"(\d+)\s+tests?\s+failed",
+                r"(\d+)\s+failed",
+                r"failures?[:=]\s*(\d+)",
+            ],
+            text,
+        )
+        skipped = self.extract_first_int(
+            [
+                r"(\d+)\s+tests?\s+skipped",
+                r"(\d+)\s+skipped",
+                r"skipped[:=]\s*(\d+)",
+            ],
+            text,
+        )
         total = passed + failed + skipped
         return {"passed": passed, "failed": failed, "skipped": skipped, "total": total}
 
@@ -717,10 +1035,22 @@ class ToolContext(object):
             "region_coverage": None,
         }  # type: Dict[str, Optional[float]]
         patterns = {
-            "line_coverage": [r"lines?[^\d\n]*([0-9]+(?:\.[0-9]+)?)%", r"line coverage[^\d\n]*([0-9]+(?:\.[0-9]+)?)%"],
-            "function_coverage": [r"functions?[^\d\n]*([0-9]+(?:\.[0-9]+)?)%", r"function coverage[^\d\n]*([0-9]+(?:\.[0-9]+)?)%"],
-            "branch_coverage": [r"branches?[^\d\n]*([0-9]+(?:\.[0-9]+)?)%", r"branch coverage[^\d\n]*([0-9]+(?:\.[0-9]+)?)%"],
-            "region_coverage": [r"regions?[^\d\n]*([0-9]+(?:\.[0-9]+)?)%", r"region coverage[^\d\n]*([0-9]+(?:\.[0-9]+)?)%"],
+            "line_coverage": [
+                r"lines?[^\d\n]*([0-9]+(?:\.[0-9]+)?)%",
+                r"line coverage[^\d\n]*([0-9]+(?:\.[0-9]+)?)%",
+            ],
+            "function_coverage": [
+                r"functions?[^\d\n]*([0-9]+(?:\.[0-9]+)?)%",
+                r"function coverage[^\d\n]*([0-9]+(?:\.[0-9]+)?)%",
+            ],
+            "branch_coverage": [
+                r"branches?[^\d\n]*([0-9]+(?:\.[0-9]+)?)%",
+                r"branch coverage[^\d\n]*([0-9]+(?:\.[0-9]+)?)%",
+            ],
+            "region_coverage": [
+                r"regions?[^\d\n]*([0-9]+(?:\.[0-9]+)?)%",
+                r"region coverage[^\d\n]*([0-9]+(?:\.[0-9]+)?)%",
+            ],
         }
         for key, candidates in patterns.items():
             for pattern in candidates:
@@ -734,10 +1064,18 @@ class ToolContext(object):
                     continue
                 percentages = [token for token in line.split() if token.endswith("%")]
                 if len(percentages) >= 3:
-                    metrics["region_coverage"] = metrics["region_coverage"] or float(percentages[0][:-1])
-                    metrics["function_coverage"] = metrics["function_coverage"] or float(percentages[1][:-1])
-                    metrics["line_coverage"] = metrics["line_coverage"] or float(percentages[2][:-1])
+                    metrics["region_coverage"] = metrics["region_coverage"] or float(
+                        percentages[0][:-1]
+                    )
+                    metrics["function_coverage"] = metrics["function_coverage"] or float(
+                        percentages[1][:-1]
+                    )
+                    metrics["line_coverage"] = metrics["line_coverage"] or float(
+                        percentages[2][:-1]
+                    )
                     if len(percentages) >= 4:
-                        metrics["branch_coverage"] = metrics["branch_coverage"] or float(percentages[3][:-1])
+                        metrics["branch_coverage"] = metrics["branch_coverage"] or float(
+                            percentages[3][:-1]
+                        )
                 break
         return metrics

@@ -10,6 +10,7 @@ from unittest.mock import patch
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from embedagent.tools import ToolDefinition, ToolRuntime
+from embedagent.tools._base import ToolContext
 
 _COUNTER = count(1)
 
@@ -78,7 +79,7 @@ class TestToolRuntimeSchemas(unittest.TestCase):
         shutil.rmtree(self.workspace, ignore_errors=True)
 
     def test_total_tool_count(self):
-        self.assertEqual(len(self.schemas), 18)
+        self.assertEqual(len(self.schemas), 19)
 
     def test_official_tool_catalog_excludes_legacy_duplicate_tools(self):
         expected = [
@@ -91,6 +92,7 @@ class TestToolRuntimeSchemas(unittest.TestCase):
             "git_log",
             "list_compilers",
             "configure_build_env",
+            "run_build",
         ]
         for name in expected:
             self.assertIn(name, self.tool_names, "Missing tool: %s" % name)
@@ -319,6 +321,199 @@ class TestToolRuntimeExecute(unittest.TestCase):
         self.assertEqual(obs.data["tool_label"], "Configure Build Env")
         self.assertEqual(obs.data["permission_category"], "read")
         self.assertFalse(obs.data["supports_diff_preview"])
+
+    def test_run_build_returns_observation(self):
+        obs = self.rt.execute("run_build", {"command": "cmd /c echo build-ok"})
+        self.assertTrue(obs.success)
+        self.assertEqual(obs.tool_name, "run_build")
+        self.assertIn("stdout", obs.data)
+        self.assertIn("build-ok", obs.data["stdout"])
+        self.assertIn("streaming_progress", obs.data)
+        self.assertIn("streaming_progress_count", obs.data)
+        self.assertIsInstance(obs.data["streaming_progress"], list)
+        self.assertIsInstance(obs.data["streaming_progress_count"], int)
+
+    def test_run_build_requires_command(self):
+        obs = self.rt.execute("run_build", {})
+        self.assertFalse(obs.success)
+        self.assertIsNotNone(obs.error)
+
+    def test_run_build_parses_diagnostics(self):
+        # Write a helper batch file that prints a compiler-style diagnostic line
+        bat_path = os.path.join(self.workspace, "emit_diag.bat")
+        with open(bat_path, "w", encoding="utf-8") as f:
+            f.write("@echo off\necho test.c:1:2: error: test error\n")
+        obs = self.rt.execute("run_build", {"command": "emit_diag.bat"})
+        self.assertTrue(obs.success, obs.error)
+        self.assertIn("diagnostics", obs.data)
+        self.assertIsInstance(obs.data["diagnostics"], list)
+        self.assertGreaterEqual(obs.data["diagnostic_count"], 1)
+        self.assertEqual(obs.data["error_count"], 1)
+
+    def test_run_build_includes_catalog_metadata(self):
+        obs = self.rt.execute("run_build", {"command": "cmd /c echo ok"})
+        self.assertTrue(obs.success)
+        self.assertEqual(obs.data["tool_label"], "Run Build")
+        self.assertEqual(obs.data["permission_category"], "shell_exec")
+        self.assertFalse(obs.data["supports_diff_preview"])
+
+
+class TestDiagnosticParsing(unittest.TestCase):
+    """Tests for enhanced diagnostic parsing across compiler formats."""
+
+    def setUp(self):
+        import tempfile
+
+        self.workspace = tempfile.mkdtemp(prefix="diag-parse-")
+        self.ctx = ToolContext(self.workspace)
+
+    def tearDown(self):
+        import shutil
+
+        shutil.rmtree(self.workspace, ignore_errors=True)
+
+    def test_clang_single_line_diagnostic(self):
+        text = "test.c:10:5: error: use of undeclared identifier 'x'"
+        diags = self.ctx.parse_diagnostics(text)
+        self.assertEqual(len(diags), 1)
+        self.assertEqual(diags[0]["file"], "test.c")
+        self.assertEqual(diags[0]["line"], 10)
+        self.assertEqual(diags[0]["column"], 5)
+        self.assertEqual(diags[0]["level"], "error")
+        self.assertEqual(diags[0]["message"], "use of undeclared identifier 'x'")
+        self.assertEqual(diags[0]["category"], "compiler")
+
+    def test_clang_no_column_diagnostic(self):
+        text = "test.c:10: error: something went wrong"
+        diags = self.ctx.parse_diagnostics(text)
+        self.assertEqual(len(diags), 1)
+        self.assertEqual(diags[0]["line"], 10)
+        self.assertEqual(diags[0]["column"], 1)
+        self.assertEqual(diags[0]["level"], "error")
+
+    def test_gcc_diagnostic_format(self):
+        text = "test.c:20:10: warning: unused variable 'y'"
+        diags = self.ctx.parse_diagnostics(text)
+        self.assertEqual(len(diags), 1)
+        self.assertEqual(diags[0]["file"], "test.c")
+        self.assertEqual(diags[0]["line"], 20)
+        self.assertEqual(diags[0]["column"], 10)
+        self.assertEqual(diags[0]["level"], "warning")
+        self.assertEqual(diags[0]["category"], "compiler")
+
+    def test_msvc_diagnostic_format(self):
+        text = "test.c(10,5): error C2065: 'x': undeclared identifier"
+        diags = self.ctx.parse_diagnostics(text)
+        self.assertEqual(len(diags), 1)
+        self.assertEqual(diags[0]["file"], "test.c")
+        self.assertEqual(diags[0]["line"], 10)
+        self.assertEqual(diags[0]["column"], 5)
+        self.assertEqual(diags[0]["level"], "error")
+        self.assertEqual(diags[0]["category"], "compiler")
+
+    def test_msvc_no_column_diagnostic(self):
+        text = "test.c(10): warning C4013: 'foo' undefined"
+        diags = self.ctx.parse_diagnostics(text)
+        self.assertEqual(len(diags), 1)
+        self.assertEqual(diags[0]["line"], 10)
+        self.assertEqual(diags[0]["column"], 1)
+        self.assertEqual(diags[0]["level"], "warning")
+
+    def test_multi_line_context_capture(self):
+        text = (
+            "test.c:10:5: error: use of undeclared identifier 'x'\n"
+            "   int y = x;\n"
+            "           ^\n"
+            "test.c:10:5: note: did you mean 'y'?"
+        )
+        diags = self.ctx.parse_diagnostics(text)
+        self.assertEqual(len(diags), 2)
+        self.assertIn("context", diags[0])
+        self.assertEqual(len(diags[0]["context"]), 2)
+        self.assertEqual(diags[0]["context"][0], "   int y = x;")
+        self.assertEqual(diags[0]["context"][1], "           ^")
+
+    def test_linker_diagnostic_classified(self):
+        text = "ld: cannot find -lfoo"
+        diags = self.ctx.parse_diagnostics(text)
+        self.assertEqual(len(diags), 1)
+        self.assertEqual(diags[0]["category"], "linker")
+        self.assertEqual(diags[0]["level"], "error")
+        self.assertEqual(diags[0]["message"], "ld: cannot find -lfoo")
+
+    def test_linker_undefined_reference(self):
+        text = "undefined reference to `bar'"
+        diags = self.ctx.parse_diagnostics(text)
+        self.assertEqual(len(diags), 1)
+        self.assertEqual(diags[0]["category"], "linker")
+        self.assertEqual(diags[0]["level"], "error")
+
+    def test_linker_lnk_error(self):
+        text = "LINK : fatal error LNK1181: cannot open input file 'foo.lib'"
+        diags = self.ctx.parse_diagnostics(text)
+        self.assertEqual(len(diags), 1)
+        self.assertEqual(diags[0]["category"], "linker")
+        self.assertEqual(diags[0]["level"], "error")
+
+    def test_mixed_compiler_and_linker_diagnostics(self):
+        text = (
+            "test.c:1:1: error: syntax error\n"
+            "ld: cannot find -lfoo\n"
+            "test.c:2:1: warning: unused"
+        )
+        diags = self.ctx.parse_diagnostics(text)
+        self.assertEqual(len(diags), 3)
+        categories = [d["category"] for d in diags]
+        self.assertEqual(categories[0], "compiler")
+        self.assertEqual(categories[1], "linker")
+        self.assertEqual(categories[2], "compiler")
+
+    def test_diagnostic_counts(self):
+        diags = [
+            {"level": "error", "category": "compiler"},
+            {"level": "warning", "category": "compiler"},
+            {"level": "error", "category": "linker"},
+            {"level": "note", "category": "compiler"},
+        ]
+        counts = self.ctx.diagnostic_counts(diags)
+        self.assertEqual(counts["error_count"], 2)
+        self.assertEqual(counts["warning_count"], 1)
+        self.assertEqual(counts["note_count"], 1)
+
+    def test_linker_diagnostic_counts(self):
+        diags = [
+            {"level": "error", "category": "linker"},
+            {"level": "warning", "category": "linker"},
+            {"level": "error", "category": "compiler"},
+        ]
+        counts = self.ctx.linker_diagnostic_counts(diags)
+        self.assertEqual(counts["linker_error_count"], 1)
+        self.assertEqual(counts["linker_warning_count"], 1)
+
+    def test_max_diagnostics_limit(self):
+        text = "\n".join("test.c:%d:1: error: msg" % i for i in range(300))
+        diags = self.ctx.parse_diagnostics(text)
+        self.assertEqual(len(diags), 200)
+
+    def test_build_diagnostic_observation_includes_linker_counts(self):
+        result = {
+            "stdout": "",
+            "stderr": "ld: cannot find -lfoo\ntest.c:1:1: error: syntax error",
+            "exit_code": 1,
+            "stdout_truncated": False,
+            "stderr_truncated": False,
+            "duration_ms": 100,
+            "timed_out": False,
+            "interrupted": False,
+        }
+        obs = self.ctx.build_diagnostic_observation(
+            "run_build", "cmd /c test", self.workspace, result
+        )
+        self.assertIn("linker_error_count", obs.data)
+        self.assertIn("linker_warning_count", obs.data)
+        self.assertIn("linker_diagnostics", obs.data)
+        self.assertEqual(obs.data["linker_error_count"], 1)
+        self.assertEqual(obs.data["error_count"], 2)
 
 
 class TestModuleIsolation(unittest.TestCase):
@@ -591,6 +786,99 @@ class TestWorkspaceRecipes(unittest.TestCase):
         self.assertEqual(make_build["family"], "make")
         self.assertTrue(make_build["supports_target"])
         self.assertFalse(make_build["supports_profile"])
+
+
+class TestBuildArtifactReporting(unittest.TestCase):
+    """Tests for build artifact size reporting in run_build."""
+
+    def setUp(self):
+        self.workspace = _make_workspace("artifacts")
+        self.rt = ToolRuntime(self.workspace)
+
+    def tearDown(self):
+        shutil.rmtree(self.workspace, ignore_errors=True)
+
+    def test_run_build_reports_artifacts_on_success(self):
+        # Create a fake build output directory with artifacts
+        build_dir = os.path.join(self.workspace, "build")
+        os.makedirs(build_dir)
+        with open(os.path.join(build_dir, "demo.exe"), "wb") as f:
+            f.write(b"A" * 2048)
+        with open(os.path.join(build_dir, "demo.obj"), "wb") as f:
+            f.write(b"B" * 512)
+
+        obs = self.rt.execute("run_build", {"command": "cmd /c echo build-ok"})
+        self.assertTrue(obs.success)
+        self.assertIn("artifacts", obs.data)
+        self.assertIn("artifact_count", obs.data)
+        self.assertEqual(obs.data["artifact_count"], 2)
+        paths = [a["path"] for a in obs.data["artifacts"]]
+        self.assertIn("build/demo.exe", paths)
+        self.assertIn("build/demo.obj", paths)
+        for artifact in obs.data["artifacts"]:
+            self.assertIn("size_bytes", artifact)
+            self.assertIn("size_human", artifact)
+            if artifact["path"].endswith(".exe"):
+                self.assertEqual(artifact["size_bytes"], 2048)
+                self.assertEqual(artifact["size_human"], "2.0 KB")
+            elif artifact["path"].endswith(".obj"):
+                self.assertEqual(artifact["size_bytes"], 512)
+                self.assertEqual(artifact["size_human"], "512 B")
+
+    def test_run_build_no_artifacts_on_failure(self):
+        # Create artifacts but build fails
+        build_dir = os.path.join(self.workspace, "build")
+        os.makedirs(build_dir)
+        with open(os.path.join(build_dir, "demo.exe"), "wb") as f:
+            f.write(b"X" * 1024)
+
+        obs = self.rt.execute("run_build", {"command": "cmd /c exit 1"})
+        self.assertFalse(obs.success)
+        self.assertIn("artifacts", obs.data)
+        self.assertEqual(obs.data["artifact_count"], 0)
+        self.assertEqual(obs.data["artifacts"], [])
+
+    def test_run_build_no_artifacts_if_timed_out(self):
+        obs = self.rt.execute("run_build", {"command": "cmd /c echo ok", "timeout_sec": 1})
+        self.assertTrue(obs.success)
+        # Should still scan since it didn't time out
+        self.assertIn("artifacts", obs.data)
+
+    def test_artifact_scanning_respects_max_limit(self):
+        build_dir = os.path.join(self.workspace, "build")
+        os.makedirs(build_dir)
+        for i in range(60):
+            with open(os.path.join(build_dir, "file%d.o" % i), "wb") as f:
+                f.write(b"x")
+        obs = self.rt.execute("run_build", {"command": "cmd /c echo build-ok"})
+        self.assertTrue(obs.success)
+        self.assertLessEqual(obs.data["artifact_count"], 50)
+
+    def test_format_size_bytes(self):
+        from embedagent.tools.compile_ops import _format_size
+
+        self.assertEqual(_format_size(0), "0 B")
+        self.assertEqual(_format_size(512), "512 B")
+        self.assertEqual(_format_size(1023), "1023 B")
+        self.assertEqual(_format_size(1024), "1.0 KB")
+        self.assertEqual(_format_size(1536), "1.5 KB")
+        self.assertEqual(_format_size(1024 * 1024), "1.0 MB")
+        self.assertEqual(_format_size(1024 * 1024 * 2), "2.0 MB")
+
+    def test_artifact_scanning_skips_non_artifact_files(self):
+        build_dir = os.path.join(self.workspace, "build")
+        os.makedirs(build_dir)
+        with open(os.path.join(build_dir, "main.c"), "w") as f:
+            f.write("int main() {}")
+        with open(os.path.join(build_dir, "README.md"), "w") as f:
+            f.write("# Build")
+        with open(os.path.join(build_dir, "app.exe"), "wb") as f:
+            f.write(b"x")
+
+        obs = self.rt.execute("run_build", {"command": "cmd /c echo build-ok"})
+        self.assertTrue(obs.success)
+        self.assertEqual(obs.data["artifact_count"], 1)
+        self.assertEqual(obs.data["artifacts"][0]["path"], "build/app.exe")
 
 
 if __name__ == "__main__":

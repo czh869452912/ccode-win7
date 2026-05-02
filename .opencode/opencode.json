@@ -1,0 +1,10 @@
+{
+  "permission": {
+    "read": {
+      "D:/Claude-project/ccode-win7/.opencode/get-shit-done/*": "allow"
+    },
+    "external_directory": {
+      "D:/Claude-project/ccode-win7/.opencode/get-shit-done/*": "allow"
+    }
+  }
+}
