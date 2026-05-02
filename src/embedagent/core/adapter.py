@@ -9,6 +9,7 @@ import threading
 import uuid
 from typing import Any, Dict, List, Optional
 
+from embedagent.di_container import get_default_container
 from embedagent.protocol import (
     CommandResult,
     CoreInterface,
@@ -28,9 +29,6 @@ from embedagent.protocol import (
     WorkspaceInfo,
 )
 
-# 延迟导入现有实现，避免循环依赖
-_inprocess_adapter = None
-
 # Tool sets for sync-push refresh notifications
 _TASK_REFRESH_TOOLS: frozenset = frozenset(
     {
@@ -44,12 +42,34 @@ _TASK_REFRESH_TOOLS: frozenset = frozenset(
 )
 _ARTIFACT_TOOLS: frozenset = frozenset({"write_file", "edit_file"})
 
+
+def get_inprocess_adapter(fresh: bool = False):
+    """Return the InProcessAdapter class.
+
+    Use fresh=True in tests to get an isolated reference.
+    """
+    return get_default_container().resolve("inprocess_adapter", fresh=fresh)
+
+
+def _register_adapter_factory() -> None:
+    from embedagent.inprocess_adapter import InProcessAdapter
+    get_default_container().register_factory(
+        "inprocess_adapter",
+        lambda: InProcessAdapter,
+    )
+
+
+_register_adapter_factory()
+
+
+# Backward-compatible alias — calls get_inprocess_adapter().
+# Deprecated: use get_inprocess_adapter() directly.
+_inprocess_adapter = None
+
+
 def _get_adapter_class():
-    global _inprocess_adapter
-    if _inprocess_adapter is None:
-        from embedagent.inprocess_adapter import InProcessAdapter
-        _inprocess_adapter = InProcessAdapter
-    return _inprocess_adapter
+    """Backward-compatible adapter class accessor."""
+    return get_inprocess_adapter()
 
 
 def _status_from_snapshot(snapshot: Dict[str, Any]) -> SessionStatus:
@@ -386,7 +406,7 @@ class AgentCoreAdapter(CoreInterface):
 
     def initialize(self, client, tools, **kwargs) -> None:
         """初始化内部 Adapter"""
-        AdapterClass = _get_adapter_class()
+        AdapterClass = get_inprocess_adapter()
         adapter_kwargs = {
             "client": client,
             "tools": tools,

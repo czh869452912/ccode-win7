@@ -20,6 +20,8 @@ from __future__ import annotations
 import re
 from typing import List, Optional, Tuple
 
+from embedagent.di_container import get_default_container
+
 # ---------------------------------------------------------------------------
 # Built-in deny list — always blocked
 # ---------------------------------------------------------------------------
@@ -154,12 +156,42 @@ class CommandSanitizer(object):
         return True, note
 
 
-# Module-level default instance — share across all shell tools.
-_DEFAULT_SANITIZER: Optional[CommandSanitizer] = None
+def get_command_sanitizer(fresh: bool = False) -> CommandSanitizer:
+    """Return the default CommandSanitizer instance.
+
+    Use fresh=True in tests to get an isolated instance.
+    """
+    return get_default_container().resolve("command_sanitizer", fresh=fresh)
+
+
+def _register_sanitizer_factory() -> None:
+    get_default_container().register_factory(
+        "command_sanitizer",
+        lambda: CommandSanitizer(),
+    )
+
+
+_register_sanitizer_factory()
+
+
+# Backward-compatible alias — calls get_command_sanitizer().
+# Deprecated: use get_command_sanitizer() directly.
+class _DefaultSanitizerAlias(object):
+    """Property-like alias for backward compatibility."""
+
+    def __call__(self, *args, **kwargs):
+        return get_command_sanitizer()
+
+    def __getattr__(self, name):
+        return getattr(get_command_sanitizer(), name)
+
+    def __setattr__(self, name, value):
+        return setattr(get_command_sanitizer(), name, value)
+
+
+_DEFAULT_SANITIZER = _DefaultSanitizerAlias()
 
 
 def get_default_sanitizer() -> CommandSanitizer:
-    global _DEFAULT_SANITIZER
-    if _DEFAULT_SANITIZER is None:
-        _DEFAULT_SANITIZER = CommandSanitizer()
-    return _DEFAULT_SANITIZER
+    """Backward-compatible alias for get_command_sanitizer()."""
+    return get_command_sanitizer()

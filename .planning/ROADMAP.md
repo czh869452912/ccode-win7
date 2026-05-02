@@ -43,7 +43,18 @@ Plans:
   3. Agent executes compilation with real-time streaming output (stdout/stderr)
   4. Agent parses compilation diagnostics into structured error/warning/note reports
   5. Agent auto-detects Makefile/Ninja recipes, reports build artifact sizes, and uses safe subprocess execution with configurable timeouts
-**Plans**: TBD
+**Plans**: 4 plans
+
+Plans:
+- [x] `03-01-PLAN.md` — Extract InProcessAdapter (2,446 lines) into 4 focused services: SessionLifecycleManager, EventEmitter, WorkspaceFileService, HarnessStateSynchronizer; thin facade remains (ARCH-01)
+- [x] `03-02-PLAN.md` — Extract QueryEngine (1,530 lines) into 3 strategies: LLMClientRetryWrapper, ContextCompactionEngine, TurnOrchestrator; thin orchestrator remains (ARCH-02)
+- [x] `03-03-PLAN.md` — Eliminate global mutable state via manual DI container: replace MODE_REGISTRY, _DEFAULT_SANITIZER, _inprocess_adapter with factory functions (ARCH-03)
+- [x] `03-04-PLAN.md` — Add characterization tests for all extracted components and backward compatibility tests verifying public API stability; architecture documentation (ARCH-04, ARCH-05)
+
+**Wave Structure:**
+- **Wave 1**: Plans 01, 02 *(service extraction and strategy extraction — no dependencies between them)*
+- **Wave 2**: Plan 03 *(global state elimination — depends on Wave 1 to avoid conflicts with refactored constructors)*
+- **Wave 3**: Plan 04 *(characterization and compatibility tests — depends on Waves 1 and 2)*
 
 ### Phase 3: Architecture
 **Goal**: Maintainable codebase with clear component boundaries and no global state
@@ -55,7 +66,7 @@ Plans:
   3. Global mutable state eliminated via dependency injection (`MODE_REGISTRY`, `_DEFAULT_SANITIZER`, `_inprocess_adapter`)
   4. Characterization tests exist for all extracted components preventing regression
   5. All existing public APIs remain backward compatible
-**Plans**: TBD
+**Plans**: 4 plans
 
 ### Phase 4: Framework
 **Goal**: Resilient agent framework with checkpointing, caching, and reliable editing
@@ -76,9 +87,9 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation | 0/3 | Ready to execute | - |
+| 1. Foundation | 3/3 | Complete | 2026-05-02 |
 | 2. Compile Environment | 0/TBD | Not started | - |
-| 3. Architecture | 0/TBD | Not started | - |
+| 3. Architecture | 4/4 | Complete | 2026-05-02 |
 | 4. Framework | 0/TBD | Not started | - |
 
 ---
