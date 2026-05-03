@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Callable, Dict, Optional
 
+from embedagent.frontend.tui.views.timeline import FlatTimelineView
 from embedagent.protocol import (
     CommandResult,
     FrontendCallbacks,
@@ -30,10 +31,85 @@ class TUIFrontend(FrontendCallbacks):
     将 Protocol 回调转换为 TUI 更新
     """
 
-    def __init__(self, app: "TerminalApp"):
+    def __init__(self, app: "TerminalApp", assembler=None):
         self.app = app
+        self.assembler = assembler
+        self.flat_timeline_view = None
+        self._current_timeline: Dict[str, Any] = {"items": []}
         self._pending_permission_callbacks: Dict[str, Callable[[bool], None]] = {}
         self._pending_input_callbacks: Dict[str, Callable[[Optional[str]], None]] = {}
+
+    def get_timeline_data(self, session, history_source="live", integrity_status="healthy",
+                          restore_stop_reason="", consumed_event_count=0, transcript_event_count=0):
+        """Fetch timeline data using flat timeline builder when available."""
+        if self.assembler is not None:
+            try:
+                return self.assembler.build_flat_timeline(
+                    session,
+                    history_source,
+                    integrity_status,
+                    restore_stop_reason=restore_stop_reason,
+                    consumed_event_count=consumed_event_count,
+                    transcript_event_count=transcript_event_count,
+                )
+            except (AttributeError, TypeError):
+                pass
+            try:
+                return self.assembler.build(
+                    session,
+                    history_source,
+                    integrity_status,
+                    restore_stop_reason=restore_stop_reason,
+                    consumed_event_count=consumed_event_count,
+                    transcript_event_count=transcript_event_count,
+                )
+            except (AttributeError, TypeError):
+                pass
+        return {
+            "session_id": getattr(session, "session_id", ""),
+            "items": [],
+            "current_interaction": None,
+            "integrity": {
+                "status": integrity_status,
+                "restore_stop_reason": restore_stop_reason,
+                "consumed_event_count": consumed_event_count,
+                "transcript_event_count": transcript_event_count,
+            },
+        }
+
+    def refresh_timeline(self):
+        """Refresh the timeline view with current data."""
+        if self.flat_timeline_view is not None:
+            self.flat_timeline_view.update(self._current_timeline)
+        self.app.refresh_views()
+
+    def handle_item_updated(self, event_data):
+        """Handle item.updated event from streaming command execution."""
+        item_id = event_data.get("item_id", "")
+        chunk = event_data.get("chunk", "")
+
+        # Find the command_execution item in current timeline
+        for item in self._current_timeline.get("items", []):
+            if item.get("id") == item_id and item.get("type") == "command_execution":
+                # Append chunk to content
+                current = item.get("content", "")
+                item["content"] = current + chunk
+                item["status"] = "running"
+                break
+
+        # Trigger UI refresh
+        self.refresh_timeline()
+
+    def handle_item_completed(self, event_data):
+        """Handle item.completed event when command finishes."""
+        item_id = event_data.get("item_id", "")
+
+        for item in self._current_timeline.get("items", []):
+            if item.get("id") == item_id:
+                item["status"] = "completed"
+                break
+
+        self.refresh_timeline()
 
     def on_message(self, message: Message) -> None:
         """新消息到达"""
@@ -162,3 +238,39 @@ class TUIFrontend(FrontendCallbacks):
 
         reducer.append_line(self.app.state, "[plan] %s" % (plan.title or "Current Plan"))
         self.app.refresh_views()
+
+    def set_assembler(self, assembler):
+        """Set the SessionHistoryAssembler for flat timeline generation."""
+        self._assembler = assembler
+
+    def update_flat_timeline(self, session, history_source="live", integrity_status="healthy",
+                             restore_stop_reason="", consumed_event_count=0, transcript_event_count=0):
+        """Update flat timeline view using build_flat_timeline() if available.
+
+        Falls back to build() for backward compatibility.
+        """
+        if self._assembler is None:
+            return
+        assembler = self._assembler
+        if hasattr(assembler, "build_flat_timeline"):
+            timeline = assembler.build_flat_timeline(
+                session,
+                history_source,
+                integrity_status,
+                restore_stop_reason=restore_stop_reason,
+                consumed_event_count=consumed_event_count,
+                transcript_event_count=transcript_event_count,
+            )
+        elif hasattr(assembler, "build"):
+            timeline = assembler.build(
+                session,
+                history_source,
+                integrity_status,
+                restore_stop_reason=restore_stop_reason,
+                consumed_event_count=consumed_event_count,
+                transcript_event_count=transcript_event_count,
+            )
+        else:
+            return
+        self.flat_timeline_view.update(timeline)
+        return timeline
