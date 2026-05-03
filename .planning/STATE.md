@@ -11,24 +11,24 @@ See: .planning/PROJECT.md (updated 2026-05-03)
 
 **Milestone:** v0.2 — GUI & Harness Experience Refactor
 **Phase:** 6 — GUI Experience
-**Status:** Ready to start
-**Last activity:** 2026-05-03 — Phase 5 complete: All 4 plans executed (05-04 integration validation committed)
+**Status:** Active
+**Last activity:** 2026-05-03 — Phase 6 plans 02-03 complete: DiffView upgrade and real-time streaming updates
 
-Progress: [█████████░░░] 40% (1 of 3 phases complete in v0.2, 1 of 3 plans in Phase 6)
+Progress: [████████████] 67% (1 of 3 phases complete in v0.2, 3 of 3 plans in Phase 6)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 5
-- Average duration: 36 min
-- Total execution time: 178 min
+- Total plans completed: 7
+- Average duration: 34 min
+- Total execution time: 238 min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 5. Session Infrastructure | 4 | 4 | 40 min |
-| 6. GUI Experience | 1 | 3 | 20 min |
+| 6. GUI Experience | 3 | 3 | 25 min |
 | 7. Harness Refactor | — | — | — |
 
 *Updated after each plan completion*
@@ -56,10 +56,10 @@ Recent decisions affecting current work:
   - [x] Task 5-02: Session restore fault tolerance
   - [x] Task 5-03: History assembler flat timeline
   - [x] Task 5-04: Integration validation
-- [ ] Phase 6: GUI Experience
+- [x] Phase 6: GUI Experience
   - [x] Task 6-01: Timeline flat rendering
-  - [ ] Task 6-02: DiffView upgrade
-  - [ ] Task 6-03: Real-time streaming updates
+  - [x] Task 6-02: DiffView upgrade
+  - [x] Task 6-03: Real-time streaming updates
 - [ ] Phase 7: Harness Refactor
   - [ ] Task 7-01: Mode permission contract
   - [ ] Task 7-02: Completion signal mechanism
@@ -80,6 +80,8 @@ None yet.
 | 20260503-005 | Plan 05-03: History assembler flat timeline (build_flat_timeline) | 2026-05-03 | 92b66b8, bdb3f90 | src/embedagent/session_history.py, tests/test_session_history.py |
 | 20260503-006 | Plan 05-04: Integration validation (21 tests: 8 integration + 5 performance + 8 fault injection) | 2026-05-03 | 71d6031 | tests/test_session_integration.py, tests/test_session_performance.py, tests/test_session_fault_injection.py |
 | 20260503-007 | Plan 06-01: Timeline flat rendering (FlatTimelineView, inline tool cards, layout 70%+, 5 tests) | 2026-05-03 | 9162f9e, 96cb274, 610e6b9, c7e4977, f401f08 | src/embedagent/frontend/tui/views/timeline.py, src/embedagent/frontend/tui/frontend_adapter.py, src/embedagent/frontend/tui/layout.py, tests/test_gui_timeline_flat.py |
+| 20260503-008 | Plan 06-02: DiffView upgrade (line numbers, gutter markers, syntax highlighting, dark/light theme, 5 tests) | 2026-05-03 | 8691175 | src/embedagent/frontend/tui/views/diff.py, src/embedagent/frontend/tui/theme.py, tests/test_gui_diff_view.py |
+| 20260503-009 | Plan 06-03: Real-time streaming updates (item.updated/completed handlers, incremental output, 5 tests) | 2026-05-03 | 77959c4 | src/embedagent/frontend/tui/frontend_adapter.py, tests/test_gui_streaming.py |
 
 ## Deferred Items
 
@@ -92,7 +94,7 @@ Items acknowledged and carried forward from previous milestone close:
 ## Session Continuity
 
 Last session: 2026-05-03
-Stopped at: Completed 06-01-PLAN.md
+Stopped at: Completed 06-03-PLAN.md
 Resume file: None
 
 ## Milestone History
