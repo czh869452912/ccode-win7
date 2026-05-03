@@ -1,6 +1,13 @@
 Set-StrictMode -Version 2.0
 $ErrorActionPreference = 'Stop'
 
+function Write-PackageLog {
+    param([string]$Message)
+    if (-not $Global:PackageJsonMode) {
+        Write-Host $Message
+    }
+}
+
 function Resolve-ConfigPath {
     param(
         [string]$ProjectRoot,
@@ -344,7 +351,7 @@ function Invoke-PackageDoctor {
         [System.Collections.IDictionary]$Context
     )
 
-    Write-Host "[doctor] Running environment checks..."
+    Write-PackageLog "[doctor] Running environment checks..."
     $report = New-PackageReport -Command 'doctor' -Profile $Context.profile
     $doctorChecks = @()
 
@@ -359,7 +366,7 @@ function Invoke-PackageDoctor {
 
     $doctorChecks += [ordered]@{ name = 'config'; ok = (Test-Path -LiteralPath $Context.config_path); path = $Context.config_path }
     $doctorChecks += [ordered]@{ name = 'asset_manifest'; ok = (Test-Path -LiteralPath $assetManifestPath); path = $assetManifestPath }
-    Write-Host "[doctor] Checking configuration files..." 
+    Write-PackageLog "[doctor] Checking configuration files..." 
     foreach ($toolPath in $toolingRootChecks) {
         $doctorChecks += [ordered]@{ name = ('tool:' + [System.IO.Path]::GetFileName($toolPath)); ok = (Test-Path -LiteralPath $toolPath); path = $toolPath }
     }
@@ -382,7 +389,7 @@ function Invoke-PackageDoctor {
 
     foreach ($check in $doctorChecks) {
         $status = if ($check.ok) { "OK" } else { "FAIL" }
-        Write-Host ("[doctor]   {0}: {1} ({2})" -f $check.name, $status, $check.path)
+        Write-PackageLog ("[doctor]   {0}: {1} ({2})" -f $check.name, $status, $check.path)
         if (-not $check.ok) {
             if ($check.name -eq 'runtime:npm') {
                 $report.warnings += ('Optional runtime unavailable: ' + $check.path)
@@ -396,7 +403,7 @@ function Invoke-PackageDoctor {
     $report.doctor_checks = $doctorChecks
     Complete-PackageReport -Report ([ref]$report)
     $overall = if ($report.command_status -eq 'READY') { "READY" } else { "NOT_READY" }
-    Write-Host ("[doctor] Overall status: {0}" -f $overall)
+    Write-PackageLog ("[doctor] Overall status: {0}" -f $overall)
     return $report
 }
 
@@ -514,13 +521,21 @@ function Invoke-StageScript {
     }
     if ($extension -eq '.ps1') {
         $powerShellPath = Resolve-PackagePowerShellPath
-        Write-Host ("[stage] Invoking {0}..." -f $ScriptPath)
-        # Use Start-Process so child script output streams directly to the
-        # same console window and progress is visible in real time.
+        Write-PackageLog ("[stage] Invoking {0}..." -f $ScriptPath)
         $procArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $ScriptPath) + $Arguments
-        $proc = Start-Process -FilePath $powerShellPath -ArgumentList $procArgs -NoNewWindow -Wait -PassThru
-        if ($proc.ExitCode -ne 0) {
-            throw ('PowerShell stage script failed: {0} (exit {1})' -f $ScriptPath, $proc.ExitCode)
+        if ($Global:PackageJsonMode) {
+            # In JSON mode, capture output so it does not pollute stdout.
+            $null = & $powerShellPath @procArgs 2>&1
+            if ($LASTEXITCODE -ne 0) {
+                throw ('PowerShell stage script failed: {0} (exit {1})' -f $ScriptPath, $LASTEXITCODE)
+            }
+        } else {
+            # Use Start-Process so child script output streams directly to the
+            # same console window and progress is visible in real time.
+            $proc = Start-Process -FilePath $powerShellPath -ArgumentList $procArgs -NoNewWindow -Wait -PassThru
+            if ($proc.ExitCode -ne 0) {
+                throw ('PowerShell stage script failed: {0} (exit {1})' -f $ScriptPath, $proc.ExitCode)
+            }
         }
         return
     }
@@ -560,14 +575,14 @@ function Invoke-FrontendBuild {
         [ref]$Report
     )
 
-    Write-Host "[assemble] Building GUI frontend assets..."
+    Write-PackageLog "[assemble] Building GUI frontend assets..."
     $result = Ensure-GuiFrontendAssets -ProjectRoot $Context.project_root -ForceBuild
     if (-not $result.ok) {
-        Write-Host ("[assemble]   frontend_build FAILED: {0}" -f $result.reason)
+        Write-PackageLog ("[assemble]   frontend_build FAILED: {0}" -f $result.reason)
         Add-StageResult -Report $Report -Name 'frontend_build' -Status 'fail' -ExitCode 1 -Summary $result
         return
     }
-    Write-Host ("[assemble]   frontend_build OK ({0})" -f $result.mode)
+    Write-PackageLog ("[assemble]   frontend_build OK ({0})" -f $result.mode)
     Add-StageResult -Report $Report -Name 'frontend_build' -Status 'pass' -ExitCode 0 -Summary $result
 }
 
@@ -577,7 +592,7 @@ function Invoke-PackageAssemble {
         [ref]$Report
     )
 
-    Write-Host "[assemble] Starting package assembly (profile: $($Context.profile))..."
+    Write-PackageLog "[assemble] Starting package assembly (profile: $($Context.profile))..."
 
     if ([bool]$Context.profile_config.run_frontend_build) {
         Invoke-FrontendBuild -Context $Context -Report $Report
@@ -605,17 +620,17 @@ function Invoke-PackageAssemble {
         $buildArgs += '-AllowDownload'
     }
 
-    Write-Host "[assemble] Running prepare-offline.ps1..."
+    Write-PackageLog "[assemble] Running prepare-offline.ps1..."
     $null = Invoke-StageScript -ProjectRoot $Context.project_root -ScriptPath $preparePath -Arguments $prepareArgs
-    Write-Host "[assemble]   prepare OK"
+    Write-PackageLog "[assemble]   prepare OK"
     Add-StageResult -Report $Report -Name 'prepare' -Status 'pass' -ExitCode 0 -Summary @{ script = $preparePath }
 
-    Write-Host "[assemble] Running build-offline-bundle.ps1..."
+    Write-PackageLog "[assemble] Running build-offline-bundle.ps1..."
     $null = Invoke-StageScript -ProjectRoot $Context.project_root -ScriptPath $buildPath -Arguments $buildArgs
-    Write-Host "[assemble]   build OK"
+    Write-PackageLog "[assemble]   build OK"
     Add-StageResult -Report $Report -Name 'build' -Status 'pass' -ExitCode 0 -Summary @{ script = $buildPath; artifact_name = $Context.artifact_name }
 
-    Write-Host "[assemble] Package assembly complete"
+    Write-PackageLog "[assemble] Package assembly complete"
 }
 
 function Invoke-PackageVerify {
@@ -624,7 +639,7 @@ function Invoke-PackageVerify {
         [ref]$Report
     )
 
-    Write-Host "[verify] Starting bundle verification..."
+    Write-PackageLog "[verify] Starting bundle verification..."
     $bundleRoot = if ($Context.bundle_root) {
         Resolve-ConfigPath -ProjectRoot $Context.project_root -Path $Context.bundle_root
     }
@@ -632,7 +647,7 @@ function Invoke-PackageVerify {
         Resolve-ConfigPath -ProjectRoot $Context.project_root -Path ([string]$Context.config.paths.dist_bundle_root)
     }
     if (-not (Test-Path -LiteralPath $bundleRoot)) {
-        Write-Host ("[verify]   FAIL: Bundle root not found: {0}" -f $bundleRoot)
+        Write-PackageLog ("[verify]   FAIL: Bundle root not found: {0}" -f $bundleRoot)
         Add-StageResult -Report $Report -Name 'verify' -Status 'fail' -ExitCode 1 -Summary @{ reason = 'bundle_root_missing'; bundle_root = $bundleRoot }
         return
     }
@@ -642,19 +657,19 @@ function Invoke-PackageVerify {
     $validateJson = New-ReportPath -Context $Context -StageName 'validate'
     $checkJson = New-ReportPath -Context $Context -StageName 'check'
 
-    Write-Host "[verify] Running validate-offline-bundle.ps1..."
+    Write-PackageLog "[verify] Running validate-offline-bundle.ps1..."
     $validateArgs = @('-BundleRoot', $bundleRoot, '-JsonOutputPath', $validateJson, '-SkipDynamicChecks')
     if ([bool]$Context.profile_config.require_complete -or [bool]$Context.strict) {
         $validateArgs += '-RequireComplete'
     }
     $null = Invoke-StageScript -ProjectRoot $Context.project_root -ScriptPath $validateScript -Arguments $validateArgs
     $validatePayload = Get-Content -LiteralPath $validateJson -Raw | ConvertFrom-Json
-    Write-Host ("[verify]   validate: {0}" -f $(if ($validatePayload.ok) { "OK" } else { "FAIL" }))
+    Write-PackageLog ("[verify]   validate: {0}" -f $(if ($validatePayload.ok) { "OK" } else { "FAIL" }))
 
-    Write-Host "[verify] Running check-bundle-dependencies.py..."
+    Write-PackageLog "[verify] Running check-bundle-dependencies.py..."
     $null = Invoke-StageScript -ProjectRoot $Context.project_root -ScriptPath $checkScript -Arguments @($bundleRoot, '--json-report', $checkJson)
     $checkPayload = Get-Content -LiteralPath $checkJson -Raw | ConvertFrom-Json
-    Write-Host ("[verify]   dependencies: {0}" -f $(if ($checkPayload.ok) { "OK" } else { "FAIL" }))
+    Write-PackageLog ("[verify]   dependencies: {0}" -f $(if ($checkPayload.ok) { "OK" } else { "FAIL" }))
 
     $verifyOk = ([bool]$validatePayload.ok) -and ([bool]$checkPayload.ok)
     Add-StageResult -Report $Report -Name 'verify' -Status $(if ($verifyOk) { 'pass' } else { 'fail' }) -ExitCode $(if ($verifyOk) { 0 } else { 1 }) -Summary @{
@@ -662,7 +677,7 @@ function Invoke-PackageVerify {
         validate_report = $validateJson
         dependency_report = $checkJson
     }
-    Write-Host ("[verify] Overall: {0}" -f $(if ($verifyOk) { "PASS" } else { "FAIL" }))
+    Write-PackageLog ("[verify] Overall: {0}" -f $(if ($verifyOk) { "PASS" } else { "FAIL" }))
 }
 
 function Write-PackageReport {
@@ -692,8 +707,8 @@ function Invoke-PackageCommand {
         [System.Collections.IDictionary]$Context
     )
 
-    Write-Host ""
-    Write-Host ("=== Package Command: {0} (profile: {1}) ===" -f $Context.command, $Context.profile)
+    Write-PackageLog ""
+    Write-PackageLog ("=== Package Command: {0} (profile: {1}) ===" -f $Context.command, $Context.profile)
     $report = New-PackageReport -Command $Context.command -Profile $Context.profile
     switch ($Context.command) {
         'deps' {
@@ -724,7 +739,7 @@ function Invoke-PackageCommand {
     if ($report.final_status) {
         $statusStr = $report.final_status
     }
-    Write-Host ("=== Command finished: {0} ===" -f $statusStr)
-    Write-Host ""
+    Write-PackageLog ("=== Command finished: {0} ===" -f $statusStr)
+    Write-PackageLog ""
     return $report
 }

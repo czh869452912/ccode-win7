@@ -124,9 +124,10 @@ class QueryEngineDebugLiteTests(unittest.TestCase):
         )
         snapshot = adapter.create_session("debug")
         self.assertEqual(snapshot["current_mode"], "debug")
-        self.assertEqual(snapshot["current_phase"], "reproduce")
-        self.assertEqual(snapshot["discipline_profile"], "lite_spec_tdd")
-        self.assertTrue(snapshot["current_activity"])
+        # No harness state pre-generated on session creation
+        self.assertEqual(snapshot["current_phase"], "")
+        self.assertEqual(snapshot["discipline_profile"], "")
+        self.assertEqual(snapshot["current_activity"], "")
 
     def test_adapter_submit_user_message_refreshes_debug_phase(self):
         adapter = InProcessAdapter(
@@ -135,10 +136,13 @@ class QueryEngineDebugLiteTests(unittest.TestCase):
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
         )
         snapshot = adapter.create_session("debug")
-        self.assertEqual(snapshot["current_phase"], "reproduce")
-        updated = adapter.submit_user_message(snapshot["session_id"], "复现问题", stream=False)
-        self.assertEqual(updated["current_phase"], "isolate")
-        self.assertIn("isolate", updated["task_summary"])
+        self.assertEqual(snapshot["current_phase"], "")
+        # Use English work request to trigger harness injection
+        updated = adapter.submit_user_message(snapshot["session_id"], "fix this bug", stream=False)
+        # Phase should change from empty to a non-empty debug phase
+        self.assertTrue(updated["current_phase"])
+        # task_summary should show debug track, not be empty
+        self.assertIn("debug:", updated["task_summary"])
 
 
 if __name__ == "__main__":

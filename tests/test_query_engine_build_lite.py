@@ -119,9 +119,10 @@ class QueryEngineBuildLiteTests(unittest.TestCase):
 
         snapshot = adapter.create_session("build")
         self.assertEqual(snapshot["current_mode"], "build")
-        self.assertEqual(snapshot["current_phase"], "understand")
-        self.assertEqual(snapshot["discipline_profile"], "lite_spec_tdd")
-        self.assertTrue(snapshot["current_activity"])
+        # No harness state pre-generated on session creation
+        self.assertEqual(snapshot["current_phase"], "")
+        self.assertEqual(snapshot["discipline_profile"], "")
+        self.assertEqual(snapshot["current_activity"], "")
         state = adapter._sessions[snapshot["session_id"]]
         system_messages = [
             message.content for message in state.session.messages if message.role == "system"

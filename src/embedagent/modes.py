@@ -44,7 +44,6 @@ _BUILTIN_MODES = {
         "system_prompt": (
             "你当前处于 explore 模式（默认模式）。"
             "负责阅读代码、解释逻辑、讨论设计方案，以及帮助用户理清思路。"
-            "任务开始时先用 task_status 查看当前任务摘要。"
             "当用户需要修改文件时，用 ask_user 询问应切换到哪个模式，"
             "提供 2-4 个选项（如 spec / build / debug），等待用户用 /mode 切换。"
             "不要擅自写文件。"
@@ -66,7 +65,6 @@ _BUILTIN_MODES = {
         "system_prompt": (
             "你当前处于 spec 模式，负责整理需求、边界条件、验收标准和文档。"
             "先用 list_dir / glob_files 探测现有文档目录；若工作区为空或无文档目录，可在 docs/ 下创建。"
-            "任务开始时用 task_status 查看待办摘要。"
             "不要擅自切到实现模式；若需要实现，用 ask_user 告知用户。"
         ),
         "allowed_tools": [
@@ -85,7 +83,6 @@ _BUILTIN_MODES = {
         "system_prompt": (
             "你当前处于 build 模式，负责完成开发闭环。"
             "当前阶段先以 lite_spec_tdd 方式推进：理解、收敛约束、实现、检查。"
-            "优先使用 task_status 了解当前任务阶段。"
             "应复用现有工程结构，不要假设固定目录；如遇关键分歧，用 ask_user 请求确认。"
         ),
         "allowed_tools": [
@@ -135,7 +132,6 @@ _BUILTIN_MODES = {
         "system_prompt": (
             "你当前处于 debug 模式，负责复现问题、定位根因并做最小修复。"
             "先根据当前工程结构和诊断缩小范围，不要假设固定目录。"
-            "任务开始时用 task_status 查看当前阶段。"
             "若需要更大范围重构，用 ask_user 告知用户建议切换到 build 模式。"
         ),
         "allowed_tools": [
@@ -186,7 +182,6 @@ _BUILTIN_MODES = {
         "system_prompt": (
             "你当前处于 verify 模式，负责执行构建、测试、静态检查并给出质量门结论。"
             "本模式不改代码；发现问题时只说明证据与建议，用 ask_user 告知用户需要切换到哪个模式修复。"
-            "任务开始时用 task_status 查看当前验证阶段。"
         ),
         "allowed_tools": [
             "list_recipes",

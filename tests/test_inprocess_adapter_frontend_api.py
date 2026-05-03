@@ -324,26 +324,47 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         payload = self.adapter.read_artifact(artifacts[0]["path"])
         self.assertEqual(payload["kind"], "text")
         tasks = self.adapter.list_tasks(session_id=str(self.snapshot.get("session_id") or ""))
-        self.assertEqual(tasks["count"], 5)
+        # No harness state pre-generated on session creation
+        self.assertEqual(tasks["count"], 0)
 
     def test_session_snapshot_exposes_task_items(self):
         self.assertIn("task_items", self.snapshot)
-        self.assertGreaterEqual(len(self.snapshot.get("task_items") or []), 1)
+        # No harness state pre-generated on session creation
+        self.assertEqual(len(self.snapshot.get("task_items") or []), 0)
 
     def test_session_snapshot_projects_task_fields_from_session_graph(self):
         session_id = str(self.snapshot.get("session_id") or "")
+        # First submit explicit work to generate task graph
+        self.adapter.submit_user_message(
+            session_id=session_id,
+            text="build the project",
+            stream=False,
+            wait=True,
+        )
+
         state = self.adapter._sessions[session_id]
-        state.current_phase = "stale:phase"
-        state.discipline_profile = "stale:discipline"
-        state.current_activity = "stale activity"
-        state.task_summary = "stale summary"
+        # Verify task graph was generated
+        self.assertFalse(state.session.task_graph.is_empty())
+        expected_phase = state.session.task_graph.current_phase
+
+        # Now set stale values on state (not on task_graph)
+        stale_phase = "stale:phase"
+        stale_discipline = "stale:discipline"
+        stale_activity = "stale activity"
+        stale_summary = "stale summary"
+        state.current_phase = stale_phase
+        state.discipline_profile = stale_discipline
+        state.current_activity = stale_activity
+        state.task_summary = stale_summary
         state.task_items = []
 
         projected = self.adapter.get_session_snapshot(session_id)
 
-        self.assertEqual(projected.get("current_phase"), "understand")
+        # Snapshot should project from task_graph, not from stale state values
+        self.assertEqual(projected.get("current_phase"), expected_phase)
         self.assertEqual(projected.get("discipline_profile"), state.session.task_graph.discipline)
-        self.assertIn("understand", str(projected.get("task_summary") or ""))
+        # task_summary should contain the track phases, not the stale summary
+        self.assertNotEqual(str(projected.get("task_summary") or ""), stale_summary)
         self.assertGreaterEqual(len(projected.get("task_items") or []), 1)
 
     def test_session_snapshot_projector_is_side_effect_free(self):
@@ -1369,8 +1390,12 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         first_session_id = str(self.snapshot.get("session_id") or "")
         second = self.adapter.create_session("build")
         second_session_id = str(second.get("session_id") or "")
+        # No harness state pre-generated on session creation
+        self.assertEqual(self.adapter.list_tasks(session_id=first_session_id)["count"], 0)
+        self.assertEqual(self.adapter.list_tasks(session_id=second_session_id)["count"], 0)
+        # set_session_mode triggers harness refresh for the target session
         self.adapter.set_session_mode(second_session_id, "verify")
-        self.assertEqual(self.adapter.list_tasks(session_id=first_session_id)["count"], 5)
+        self.assertEqual(self.adapter.list_tasks(session_id=first_session_id)["count"], 0)
         self.assertEqual(self.adapter.list_tasks(session_id=second_session_id)["count"], 3)
 
     def test_session_status_events_cover_running_and_idle(self):

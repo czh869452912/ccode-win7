@@ -285,7 +285,6 @@ class InProcessAdapter(object):
             current_mode,
             workflow_state=state.workflow_state,
         )
-        self._refresh_harness_state(state)
         self._persist_state(state)
         with self._lock:
             self._sessions[session.session_id] = state
@@ -400,16 +399,18 @@ class InProcessAdapter(object):
         with state.lock:
             summary = self._read_summary_for_state(state)
             graph = getattr(state.session, "task_graph", None)
-            harness_context = self.harness_runner.describe_mode(
-                state.current_mode,
-                discipline_override=(
-                    str(getattr(graph, "discipline", "") or "") if graph is not None else None
-                ),
-                current_phase=(
-                    str(getattr(graph, "current_phase", "") or "") if graph is not None else ""
-                ),
-                observations=[],
-            )
+            harness_context = None
+            if graph is not None and not graph.is_empty():
+                harness_context = self.harness_runner.describe_mode(
+                    state.current_mode,
+                    discipline_override=(
+                        str(getattr(graph, "discipline", "") or "")
+                    ),
+                    current_phase=(
+                        str(getattr(graph, "current_phase", "") or "")
+                    ),
+                    observations=[],
+                )
             return self.snapshot_projector.build_snapshot(
                 state,
                 summary,

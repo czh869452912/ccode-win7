@@ -97,7 +97,8 @@ class QueryEngineVerifySliceTests(unittest.TestCase):
         )
         snapshot = adapter.create_session("verify")
         self.assertEqual(snapshot["current_mode"], "verify")
-        self.assertTrue(snapshot["current_activity"])
+        # No harness state pre-generated on session creation for verify mode
+        self.assertEqual(snapshot["current_activity"], "")
         state = adapter._sessions[snapshot["session_id"]]
         system_messages = [
             message.content for message in state.session.messages if message.role == "system"
@@ -114,9 +115,11 @@ class QueryEngineVerifySliceTests(unittest.TestCase):
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
         )
         snapshot = adapter.create_session("build")
-        self.assertEqual(snapshot["current_phase"], "understand")
+        # No harness state pre-generated on session creation
+        self.assertEqual(snapshot["current_phase"], "")
         updated = adapter.set_session_mode(snapshot["session_id"], "verify")
         self.assertEqual(updated["current_mode"], "verify")
+        # set_session_mode triggers harness refresh
         self.assertEqual(updated["current_phase"], "select_recipe")
         self.assertEqual(updated["discipline_profile"], "lite_spec_tdd")
         self.assertTrue(updated["current_activity"])

@@ -1449,18 +1449,19 @@ class QueryEngine(object):
                 None,
             )
         if action.name == "task_status":
-            mode_context = self.tools.describe_mode(current_mode, workflow_state=workflow_state)
             summary = ""
             phase = ""
             discipline = ""
             task_items = []
-            if mode_context is not None:
-                summary = str(getattr(mode_context, "task_summary", "") or "")
-                phase = str(getattr(mode_context, "current_phase", "") or "")
-                discipline = str(getattr(mode_context, "discipline_label", "") or "")
-                task_items = list(getattr(mode_context, "task_items", []) or [])
+            if not session.task_graph.is_empty():
+                mode_context = self.tools.describe_mode(current_mode, workflow_state=workflow_state)
+                if mode_context is not None:
+                    summary = str(getattr(mode_context, "task_summary", "") or "")
+                    phase = str(getattr(mode_context, "current_phase", "") or "")
+                    discipline = str(getattr(mode_context, "discipline_label", "") or "")
+                    task_items = list(getattr(mode_context, "task_items", []) or [])
             if not summary:
-                summary = "in_progress %s" % current_mode
+                summary = "no active tasks"
             observation = Observation(
                 tool_name="task_status",
                 success=True,

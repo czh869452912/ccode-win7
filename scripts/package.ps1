@@ -20,6 +20,8 @@ param(
 Set-StrictMode -Version 2.0
 $ErrorActionPreference = 'Stop'
 
+$Global:PackageJsonMode = [bool]$Json
+
 . (Join-Path $PSScriptRoot 'package-lib.ps1')
 
 $report = $null
