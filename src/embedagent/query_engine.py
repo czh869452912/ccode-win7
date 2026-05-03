@@ -155,11 +155,20 @@ class QueryEngine(object):
         return self._session_lock
 
     def _append_transcript_event(
-        self, session: Session, event_type: str, payload: Dict[str, Any]
+        self, session: Session, event_type: str, payload: Dict[str, Any], schema_version: int = 1
     ) -> None:
         if self.transcript_store is None:
             return
-        self.transcript_store.append_event(session.session_id, event_type, payload)
+        self.transcript_store.append_event(session.session_id, event_type, payload, schema_version=schema_version)
+
+    def _emit_lifecycle_event(
+        self, session: Session, event_type: str, payload: Dict[str, Any]
+    ) -> None:
+        """Emit a schema_v2 lifecycle event; failures are logged but not blocking."""
+        try:
+            self._append_transcript_event(session, event_type, payload, schema_version=2)
+        except (OSError, ValueError, TypeError) as exc:  # pragma: no cover
+            _LOG.warning("lifecycle event emission failed (%s): %s", event_type, exc)
 
     def _append_message_event(self, session: Session, payload: Dict[str, Any]) -> None:
         self._append_transcript_event(session, "message", payload)
@@ -1085,6 +1094,21 @@ class QueryEngine(object):
                     for action in batch.actions:
                         if on_tool_start is not None:
                             on_tool_start(action)
+                        self._emit_lifecycle_event(
+                            session,
+                            "tool_use",
+                            {
+                                "role": "tool_use",
+                                "tool_name": action.name,
+                                "call_id": action.call_id,
+                                "arguments": dict(action.arguments),
+                                "message_id": "m-tool-use-" + uuid.uuid4().hex[:12],
+                                "parent_message_id": session.last_message_id(),
+                                "turn_id": session.turns[-1].turn_id if session.turns else "",
+                                "step_id": session.current_step().step_id if session.current_step() else "",
+                                "status": "started",
+                            },
+                        )
                         interrupted = bool(stop_event is not None and stop_event.is_set())
                         suspended = None
                         if interrupted:
@@ -1111,6 +1135,21 @@ class QueryEngine(object):
                             ):
                                 interrupted = True
                                 observation = self._interrupted_observation(action.name)
+                        self._emit_lifecycle_event(
+                            session,
+                            "command_execution",
+                            {
+                                "role": "command_execution",
+                                "call_id": action.call_id,
+                                "tool_name": action.name,
+                                "output_chunk": str(observation.data) if observation.data else "",
+                                "message_id": "m-cmd-" + uuid.uuid4().hex[:12],
+                                "parent_message_id": session.last_message_id(),
+                                "turn_id": session.turns[-1].turn_id if session.turns else "",
+                                "step_id": session.current_step().step_id if session.current_step() else "",
+                                "status": "updated",
+                            },
+                        )
                         self._record_tool_observation(
                             session,
                             action,
@@ -1148,6 +1187,21 @@ class QueryEngine(object):
                     if update.phase == "start":
                         if on_tool_start is not None:
                             on_tool_start(update.action)
+                        self._emit_lifecycle_event(
+                            session,
+                            "tool_use",
+                            {
+                                "role": "tool_use",
+                                "tool_name": update.action.name,
+                                "call_id": update.action.call_id,
+                                "arguments": dict(update.action.arguments),
+                                "message_id": "m-tool-use-" + uuid.uuid4().hex[:12],
+                                "parent_message_id": session.last_message_id(),
+                                "turn_id": session.turns[-1].turn_id if session.turns else "",
+                                "step_id": session.current_step().step_id if session.current_step() else "",
+                                "status": "started",
+                            },
+                        )
                         if stop_event is not None and stop_event.is_set():
                             batch_interrupted = True
                             executor.discard()
@@ -1187,6 +1241,21 @@ class QueryEngine(object):
                             batch_interrupted = True
                             executor.discard()
                             observation = self._interrupted_observation(update.action.name)
+                    self._emit_lifecycle_event(
+                        session,
+                        "command_execution",
+                        {
+                            "role": "command_execution",
+                            "call_id": update.action.call_id,
+                            "tool_name": update.action.name,
+                            "output_chunk": str(observation.data) if observation.data else "",
+                            "message_id": "m-cmd-" + uuid.uuid4().hex[:12],
+                            "parent_message_id": session.last_message_id(),
+                            "turn_id": session.turns[-1].turn_id if session.turns else "",
+                            "step_id": session.current_step().step_id if session.current_step() else "",
+                            "status": "updated",
+                        },
+                    )
                     if (
                         isinstance(observation.data, dict)
                         and observation.data.get("error_kind") == "discarded"
@@ -1489,6 +1558,21 @@ class QueryEngine(object):
             )
         decision = self.permission_policy.evaluate(runtime_action)
         if decision.outcome == "deny":
+            self._emit_lifecycle_event(
+                session,
+                "interaction",
+                {
+                    "role": "interaction",
+                    "tool_name": action.name,
+                    "call_id": action.call_id,
+                    "message_id": "m-reject-" + uuid.uuid4().hex[:12],
+                    "parent_message_id": session.last_message_id(),
+                    "turn_id": session.turns[-1].turn_id if session.turns else "",
+                    "step_id": session.current_step().step_id if session.current_step() else "",
+                    "status": "rejected",
+                    "reason": "permission_denied",
+                },
+            )
             return (
                 self._failure_observation(
                     action.name,
@@ -1542,6 +1626,21 @@ class QueryEngine(object):
                     QueryTurnResult("", session, transition, pending_interaction=pending),
                 )
             if not approved:
+                self._emit_lifecycle_event(
+                    session,
+                    "interaction",
+                    {
+                        "role": "interaction",
+                        "tool_name": action.name,
+                        "call_id": action.call_id,
+                        "message_id": "m-reject-" + uuid.uuid4().hex[:12],
+                        "parent_message_id": session.last_message_id(),
+                        "turn_id": session.turns[-1].turn_id if session.turns else "",
+                        "step_id": session.current_step().step_id if session.current_step() else "",
+                        "status": "rejected",
+                        "reason": "permission_denied",
+                    },
+                )
                 return (
                     self._failure_observation(
                         action.name,
