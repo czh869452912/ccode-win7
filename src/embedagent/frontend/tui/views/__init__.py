@@ -3,6 +3,8 @@ from embedagent.frontend.tui.views.explorer import build_explorer_text
 from embedagent.frontend.tui.views.header import build_header_text
 from embedagent.frontend.tui.views.inspector import build_help_text, build_inspector_text
 from embedagent.frontend.tui.views.timeline import (
+    FlatTimelineView,
+    TimelineView,
     build_timeline_text,
     format_context_line,
     format_observation_line,
@@ -19,4 +21,6 @@ __all__ = [
     "format_context_line",
     "format_observation_line",
     "format_timeline_records",
+    "FlatTimelineView",
+    "TimelineView",
 ]
