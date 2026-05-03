@@ -10,24 +10,24 @@ See: .planning/PROJECT.md (updated 2026-05-03)
 ## Current Position
 
 **Milestone:** v0.2 — GUI & Harness Experience Refactor
-**Phase:** 5 — Session Infrastructure
-**Status:** In Progress (3 of 4 plans complete)
-**Last activity:** 2026-05-03 — Plan 05-03 complete: History assembler flat timeline
+**Phase:** 6 — GUI Experience
+**Status:** Ready to start
+**Last activity:** 2026-05-03 — Phase 5 complete: All 4 plans executed (05-04 integration validation committed)
 
-Progress: [███████░░░░░] 75% (3 of 4 plans executed in Phase 5)
+Progress: [████████░░░░] 33% (1 of 3 phases complete in v0.2)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 3
-- Average duration: 48 min
-- Total execution time: 143 min
+- Total plans completed: 4
+- Average duration: 40 min
+- Total execution time: 158 min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 5. Session Infrastructure | 4 | 3 | 48 min |
+| 5. Session Infrastructure | 4 | 4 | 40 min |
 | 6. GUI Experience | — | — | — |
 | 7. Harness Refactor | — | — | — |
 
@@ -51,11 +51,11 @@ Recent decisions affecting current work:
 
 ### Pending Todos
 
-- [ ] Phase 5: Session Infrastructure
+- [x] Phase 5: Session Infrastructure
   - [x] Task 5-01: Transcript format upgrade (schema_version=2)
   - [x] Task 5-02: Session restore fault tolerance
   - [x] Task 5-03: History assembler flat timeline
-  - [ ] Task 5-04: Integration validation
+  - [x] Task 5-04: Integration validation
 - [ ] Phase 6: GUI Experience
   - [ ] Task 6-01: Timeline flat rendering
   - [ ] Task 6-02: DiffView upgrade
@@ -78,6 +78,7 @@ None yet.
 | 20260503-003 | Plan 05-02: Session restore fault tolerance (best_effort mode) | 2026-05-03 | 967e019, 0715043 | src/embedagent/session_restore.py, tests/test_session_restore.py |
 | 20260503-004 | Plan 05-01: Transcript format upgrade (schema_version=2) | 2026-05-03 | ca9ee3c, 1156a36, a7cd81a | src/embedagent/transcript_store.py, src/embedagent/session.py, src/embedagent/query_engine.py, tests/test_transcript_store.py |
 | 20260503-005 | Plan 05-03: History assembler flat timeline (build_flat_timeline) | 2026-05-03 | 92b66b8, bdb3f90 | src/embedagent/session_history.py, tests/test_session_history.py |
+| 20260503-006 | Plan 05-04: Integration validation (21 tests: 8 integration + 5 performance + 8 fault injection) | 2026-05-03 | 71d6031 | tests/test_session_integration.py, tests/test_session_performance.py, tests/test_session_fault_injection.py |
 
 ## Deferred Items
 
@@ -90,7 +91,7 @@ Items acknowledged and carried forward from previous milestone close:
 ## Session Continuity
 
 Last session: 2026-05-03
-Stopped at: Completed 05-03-PLAN.md
+Stopped at: Completed 05-04-PLAN.md
 Resume file: None
 
 ## Milestone History
