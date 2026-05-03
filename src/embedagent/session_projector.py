@@ -40,7 +40,9 @@ class SessionSnapshotProjector(object):
     ) -> Dict[str, Any]:
         summary_payload = dict(summary or {})
         runtime_payload = dict(runtime or {})
-        recent_transitions = _normalize_recent_transitions(list(summary_payload.get("recent_transitions") or []))
+        recent_transitions = _normalize_recent_transitions(
+            list(summary_payload.get("recent_transitions") or [])
+        )
         graph = getattr(state.session, "task_graph", None)
         graph_items = list(graph.to_items() if graph is not None else [])
         graph_phase = str(getattr(graph, "current_phase", "") or "") if graph is not None else ""
@@ -58,7 +60,9 @@ class SessionSnapshotProjector(object):
             "active_plan_ref": state.active_plan_ref,
             "current_command_context": state.current_command_context,
             "last_user_message": str(summary_payload.get("latest_user_message") or ""),
-            "last_assistant_message": str(summary_payload.get("assistant_last_reply") or state.last_assistant_message or ""),
+            "last_assistant_message": str(
+                summary_payload.get("assistant_last_reply") or state.last_assistant_message or ""
+            ),
             "summary_text": str(summary_payload.get("summary_text") or ""),
             "user_goal": str(summary_payload.get("user_goal") or ""),
             "summary_ref": str(summary_payload.get("summary_ref") or state.summary_ref or ""),
@@ -69,23 +73,37 @@ class SessionSnapshotProjector(object):
             "context_pipeline_steps": list(summary_payload.get("context_pipeline_steps") or []),
             "last_transition_reason": str(summary_payload.get("last_transition_reason") or ""),
             "last_transition_message": str(summary_payload.get("last_transition_message") or ""),
-            "last_transition_display_reason": _display_transition_reason(str(summary_payload.get("last_transition_reason") or "")),
-            "recent_transition_reasons": list(summary_payload.get("recent_transition_reasons") or []),
+            "last_transition_display_reason": _display_transition_reason(
+                str(summary_payload.get("last_transition_reason") or "")
+            ),
+            "recent_transition_reasons": list(
+                summary_payload.get("recent_transition_reasons") or []
+            ),
             "recent_transitions": recent_transitions,
             "compact_retry_count": int(summary_payload.get("compact_retry_count") or 0),
             "has_pending_permission": state.pending_permission is not None,
-            "pending_permission": state.pending_permission.to_dict() if state.pending_permission else None,
+            "pending_permission": (
+                state.pending_permission.to_dict() if state.pending_permission else None
+            ),
             "has_pending_user_input": state.pending_user_input is not None,
-            "pending_user_input": state.pending_user_input.to_dict() if state.pending_user_input else None,
-            "pending_interaction": dict(pending_interaction or {}),
+            "pending_user_input": (
+                state.pending_user_input.to_dict() if state.pending_user_input else None
+            ),
+            "pending_interaction": (
+                dict(pending_interaction) if pending_interaction is not None else None
+            ),
             "last_error": state.last_error,
             "restore_stop_reason": state.restore_stop_reason,
             "restore_consumed_event_count": state.restore_consumed_event_count,
             "restore_transcript_event_count": state.restore_transcript_event_count,
-            "timeline_replay_status": "degraded" if state.restore_stop_reason == "transcript_missing" else "replay",
+            "timeline_replay_status": (
+                "degraded" if state.restore_stop_reason == "transcript_missing" else "replay"
+            ),
             "timeline_first_seq": 0,
             "timeline_last_seq": 0,
-            "timeline_integrity": "degraded" if state.restore_stop_reason == "transcript_missing" else "healthy",
+            "timeline_integrity": (
+                "degraded" if state.restore_stop_reason == "transcript_missing" else "healthy"
+            ),
             "pending_interaction_valid": bool(state.pending_permission or state.pending_user_input),
             "current_phase": graph_phase,
             "discipline_profile": graph_discipline,
