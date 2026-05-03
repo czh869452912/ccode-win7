@@ -12,16 +12,16 @@ See: .planning/PROJECT.md (updated 2026-05-03)
 **Milestone:** v0.2 — GUI & Harness Experience Refactor
 **Phase:** 7 — Harness Refactor
 **Status:** Active
-**Last activity:** 2026-05-03 — Phase 7 plan 01 complete: Mode permission contract
+**Last activity:** 2026-05-03 — Phase 7 plans 02-03 complete: Completion signal and Guard-based safety
 
-Progress: [████████████] 71% (2 of 3 phases complete in v0.2, 1 of 3 plans in Phase 7)
+Progress: [████████████] 100% (3 of 3 phases complete in v0.2, 3 of 3 plans in Phase 7)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 8
-- Average duration: 34 min
-- Total execution time: 273 min
+- Total plans completed: 10
+- Average duration: 31 min
+- Total execution time: 313 min
 
 **By Phase:**
 
@@ -29,7 +29,7 @@ Progress: [████████████] 71% (2 of 3 phases complete in 
 |-------|-------|-------|----------|
 | 5. Session Infrastructure | 4 | 4 | 40 min |
 | 6. GUI Experience | 3 | 3 | 25 min |
-| 7. Harness Refactor | 1 | 3 | 35 min |
+| 7. Harness Refactor | 3 | 3 | 25 min |
 
 *Updated after each plan completion*
 
@@ -60,10 +60,10 @@ Recent decisions affecting current work:
   - [x] Task 6-01: Timeline flat rendering
   - [x] Task 6-02: DiffView upgrade
   - [x] Task 6-03: Real-time streaming updates
-- [ ] Phase 7: Harness Refactor
+- [x] Phase 7: Harness Refactor
   - [x] Task 7-01: Mode permission contract
-  - [ ] Task 7-02: Completion signal mechanism
-  - [ ] Task 7-03: Remove fixed step limits
+  - [x] Task 7-02: Completion signal mechanism
+  - [x] Task 7-03: Guard-based safety
 
 ### Blockers/Concerns
 
@@ -83,6 +83,8 @@ None yet.
 | 20260503-008 | Plan 06-02: DiffView upgrade (line numbers, gutter markers, syntax highlighting, dark/light theme, 5 tests) | 2026-05-03 | 8691175 | src/embedagent/frontend/tui/views/diff.py, src/embedagent/frontend/tui/theme.py, tests/test_gui_diff_view.py |
 | 20260503-009 | Plan 06-03: Real-time streaming updates (item.updated/completed handlers, incremental output, 5 tests) | 2026-05-03 | 77959c4 | src/embedagent/frontend/tui/frontend_adapter.py, tests/test_gui_streaming.py |
 | 20260503-010 | Plan 07-01: Mode permission contract (PermissionContract, conditional harness injection, 9 tests) | 2026-05-03 | 33b5f24 | src/embedagent/modes.py, src/embedagent/query_engine.py, src/embedagent/harness/task_graph.py, tests/test_harness_mode_contract.py |
+| 20260503-011 | Plan 07-02: Completion signal (_is_completion_signal, soft max_turns, 4 tests) | 2026-05-03 | 3bdd671 | src/embedagent/query_engine.py, tests/test_harness_completion_signal.py |
+| 20260503-012 | Plan 07-03: Guard-based safety (LoopGuard enhanced, repeated tool calls, user override, 5 tests) | 2026-05-03 | 3bdd671 | src/embedagent/guard.py, src/embedagent/query_engine.py, tests/test_harness_guard_safety.py |
 
 ## Deferred Items
 
@@ -95,7 +97,7 @@ Items acknowledged and carried forward from previous milestone close:
 ## Session Continuity
 
 Last session: 2026-05-03
-Stopped at: Completed 07-01-PLAN.md
+Stopped at: Completed 07-02-PLAN.md and 07-03-PLAN.md
 Resume file: None
 
 ## Milestone History
