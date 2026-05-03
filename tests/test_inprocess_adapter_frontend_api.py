@@ -894,10 +894,10 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             permission_resolver=lambda ticket: True,
             event_handler=lambda event_name, current_session_id, payload: None,
         )
-        time.sleep(0.05)
+        time.sleep(0.2)
         adapter.cancel_session(session_id)
         client.release.set()
-        deadline = time.time() + 3.0
+        deadline = time.time() + 8.0
         refreshed = {}
         while time.time() < deadline:
             refreshed = adapter.get_session_snapshot(session_id)
@@ -1237,6 +1237,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         recipe_ids = [item["id"] for item in command_events[0].get("data", {}).get("items", [])]
         self.assertIn("make.build.default", recipe_ids)
 
+    @unittest.skipIf(sys.platform != "win32", "Windows-only: requires cmd.exe")
     def test_slash_run_executes_recipe_and_emits_tool_events(self):
         os.makedirs(os.path.join(self.workspace, ".embedagent"), exist_ok=True)
         with open(

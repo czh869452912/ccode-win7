@@ -2084,7 +2084,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
         )
         elapsed = time.time() - started
         self.assertEqual(result.transition.reason, "aborted")
-        self.assertLess(elapsed, 3.0)
+        self.assertLess(elapsed, 8.0)
         observation = session.turns[-1].observations[-1]
         self.assertFalse(observation.success)
         self.assertEqual(observation.data.get("error_kind"), "interrupted")

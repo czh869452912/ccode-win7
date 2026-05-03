@@ -44,6 +44,7 @@ def run_pwsh(command: str) -> subprocess.CompletedProcess:
     )
 
 
+@unittest.skipIf(sys.platform != "win32", "Windows-only: requires PowerShell")
 class TestPackageFoundation(unittest.TestCase):
     def test_config_exposes_dev_and_release_profiles(self):
         result = run_pwsh(
@@ -116,6 +117,7 @@ class TestPackageFoundation(unittest.TestCase):
             shutil.rmtree(project_root, ignore_errors=True)
 
 
+@unittest.skipIf(sys.platform != "win32", "Windows-only: requires PowerShell")
 class TestGuiFrontendAssets(unittest.TestCase):
     def test_gui_frontend_asset_status_requires_katex_css(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -186,6 +188,7 @@ class TestGuiFrontendAssets(unittest.TestCase):
             self.assertIn("katex.min.css", payload["missing"])
 
 
+@unittest.skipIf(sys.platform != "win32", "Windows-only: requires PowerShell")
 class TestStageJsonReports(unittest.TestCase):
     def test_dependency_checker_writes_json_report(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -523,6 +526,7 @@ class TestStageJsonReports(unittest.TestCase):
             self.assertIn("error", payload)
 
 
+@unittest.skipIf(sys.platform != "win32", "Windows-only: requires PowerShell")
 class TestPackageDoctor(unittest.TestCase):
     def test_package_doctor_emits_json_summary(self):
         result = subprocess.run(
@@ -605,6 +609,7 @@ class TestPackageDoctor(unittest.TestCase):
         self.assertIn("Package config not found", payload["blocking_issues"][0])
 
 
+@unittest.skipIf(sys.platform != "win32", "Windows-only: requires PowerShell")
 class TestPackageOrchestration(unittest.TestCase):
     def test_package_verify_returns_not_ready_for_missing_bundle(self):
         result = subprocess.run(

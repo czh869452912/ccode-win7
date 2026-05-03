@@ -322,6 +322,7 @@ class TestToolRuntimeExecute(unittest.TestCase):
         self.assertEqual(obs.data["permission_category"], "read")
         self.assertFalse(obs.data["supports_diff_preview"])
 
+    @unittest.skipIf(sys.platform != "win32", "Windows-only: requires cmd.exe")
     def test_run_build_returns_observation(self):
         obs = self.rt.execute("run_build", {"command": "cmd /c echo build-ok"})
         self.assertTrue(obs.success)
@@ -338,6 +339,7 @@ class TestToolRuntimeExecute(unittest.TestCase):
         self.assertFalse(obs.success)
         self.assertIsNotNone(obs.error)
 
+    @unittest.skipIf(sys.platform != "win32", "Windows-only: requires cmd.exe")
     def test_run_build_parses_diagnostics(self):
         # Write a helper batch file that prints a compiler-style diagnostic line
         bat_path = os.path.join(self.workspace, "emit_diag.bat")
@@ -350,6 +352,7 @@ class TestToolRuntimeExecute(unittest.TestCase):
         self.assertGreaterEqual(obs.data["diagnostic_count"], 1)
         self.assertEqual(obs.data["error_count"], 1)
 
+    @unittest.skipIf(sys.platform != "win32", "Windows-only: requires cmd.exe")
     def test_run_build_includes_catalog_metadata(self):
         obs = self.rt.execute("run_build", {"command": "cmd /c echo ok"})
         self.assertTrue(obs.success)
@@ -676,6 +679,7 @@ class TestWorkspaceRecipes(unittest.TestCase):
         self.assertTrue(cmake_build["supports_target"])
         self.assertTrue(cmake_build["supports_profile"])
 
+    @unittest.skipIf(sys.platform != "win32", "Windows-only: requires cmd.exe")
     def test_run_recipe_can_run_build_recipe_id(self):
         os.makedirs(os.path.join(self.workspace, ".embedagent"))
         with open(
@@ -710,6 +714,7 @@ class TestWorkspaceRecipes(unittest.TestCase):
         self.assertIn("build/debug", payload["command"])
         self.assertIn("--target demo-app", payload["command"])
 
+    @unittest.skipIf(sys.platform != "win32", "Windows-only: requires cmd.exe")
     def test_run_recipe_can_run_verify_recipe_id(self):
         os.makedirs(os.path.join(self.workspace, ".embedagent"))
         with open(
@@ -798,6 +803,7 @@ class TestBuildArtifactReporting(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.workspace, ignore_errors=True)
 
+    @unittest.skipIf(sys.platform != "win32", "Windows-only: requires cmd.exe")
     def test_run_build_reports_artifacts_on_success(self):
         # Create a fake build output directory with artifacts
         build_dir = os.path.join(self.workspace, "build")
@@ -838,12 +844,14 @@ class TestBuildArtifactReporting(unittest.TestCase):
         self.assertEqual(obs.data["artifact_count"], 0)
         self.assertEqual(obs.data["artifacts"], [])
 
+    @unittest.skipIf(sys.platform != "win32", "Windows-only: requires cmd.exe")
     def test_run_build_no_artifacts_if_timed_out(self):
         obs = self.rt.execute("run_build", {"command": "cmd /c echo ok", "timeout_sec": 1})
         self.assertTrue(obs.success)
         # Should still scan since it didn't time out
         self.assertIn("artifacts", obs.data)
 
+    @unittest.skipIf(sys.platform != "win32", "Windows-only: requires cmd.exe")
     def test_artifact_scanning_respects_max_limit(self):
         build_dir = os.path.join(self.workspace, "build")
         os.makedirs(build_dir)
@@ -865,6 +873,7 @@ class TestBuildArtifactReporting(unittest.TestCase):
         self.assertEqual(_format_size(1024 * 1024), "1.0 MB")
         self.assertEqual(_format_size(1024 * 1024 * 2), "2.0 MB")
 
+    @unittest.skipIf(sys.platform != "win32", "Windows-only: requires cmd.exe")
     def test_artifact_scanning_skips_non_artifact_files(self):
         build_dir = os.path.join(self.workspace, "build")
         os.makedirs(build_dir)
