@@ -23,7 +23,7 @@
 
 **Goal:** Transform user experience to match industry-leading agent coding tools by refactoring session persistence, conversation flow, and mode execution.
 
-- [ ] Phase 5: Session Infrastructure (4 tasks)
+- [x] Phase 5: Session Infrastructure (4 tasks) — completed 2026-05-03
 - [ ] Phase 6: GUI Experience (3 tasks)
 - [ ] Phase 7: Harness Refactor (3 tasks)
 
@@ -45,10 +45,10 @@
 5. Old schema_version=1 transcripts remain readable
 
 **Plans:**
-- [x] Plan 05-01: Transcript format upgrade (schema_version=2, typed messages, parentUuid chain) → `05-01-PLAN.md`
-- [x] Plan 05-02: Session restore fault tolerance (best_effort mode, skip corrupted records) → `05-02-PLAN.md` ✅ **COMPLETE** — `05-02-SUMMARY.md`
-- [ ] Plan 05-03: History assembler flat timeline (items[] output, backward compatibility) → `05-03-PLAN.md`
-- [ ] Plan 05-04: Integration validation (end-to-end tests, performance tests, fault injection) → `05-04-PLAN.md`
+- [x] Plan 05-01: Transcript format upgrade (schema_version=2, typed messages, parentUuid chain) → `05-01-PLAN.md` ✅ **COMPLETE**
+- [x] Plan 05-02: Session restore fault tolerance (best_effort mode, skip corrupted records) → `05-02-PLAN.md` ✅ **COMPLETE**
+- [x] Plan 05-03: History assembler flat timeline (items[] output, backward compatibility) → `05-03-PLAN.md` ✅ **COMPLETE**
+- [x] Plan 05-04: Integration validation (end-to-end tests, performance tests, fault injection) → `05-04-PLAN.md` ✅ **COMPLETE**
 
 ### Phase 6: GUI Experience
 
@@ -64,7 +64,7 @@
 5. Dark/light theme adaptive for diff and code blocks
 
 **Plans:**
-- Plan 06-01: Timeline flat rendering (remove nested step panels, inline tool cards)
+- [x] Plan 06-01: Timeline flat rendering (remove nested step panels, inline tool cards) → `06-01-PLAN.md` ✅ **COMPLETE**
 - Plan 06-02: DiffView upgrade (line numbers, gutter markers, syntax highlighting, theme adaptive)
 - Plan 06-03: Real-time streaming updates (item.updated events, command output streaming)
 
@@ -96,8 +96,8 @@
 | 2. Compile Environment | v0.1 | 4/4 | Complete | 2026-05-02 |
 | 3. Architecture | v0.1 | 4/4 | Complete | 2026-05-02 |
 | 4. Framework | v0.1 | 5/5 | Complete | 2026-05-02 |
-| 5. Session Infrastructure | v0.2 | 1/4 complete | In Progress | 2026-05-03 |
-| 6. GUI Experience | v0.2 | 0/3 | Pending | — |
+| 5. Session Infrastructure | v0.2 | 4/4 | Complete | 2026-05-03 |
+| 6. GUI Experience | v0.2 | 0/3 | In Progress | — |
 | 7. Harness Refactor | v0.2 | 0/3 | Pending | — |
 
 ---

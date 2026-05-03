@@ -14,21 +14,21 @@ See: .planning/PROJECT.md (updated 2026-05-03)
 **Status:** Ready to start
 **Last activity:** 2026-05-03 — Phase 5 complete: All 4 plans executed (05-04 integration validation committed)
 
-Progress: [████████░░░░] 33% (1 of 3 phases complete in v0.2)
+Progress: [█████████░░░] 40% (1 of 3 phases complete in v0.2, 1 of 3 plans in Phase 6)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 4
-- Average duration: 40 min
-- Total execution time: 158 min
+- Total plans completed: 5
+- Average duration: 36 min
+- Total execution time: 178 min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 5. Session Infrastructure | 4 | 4 | 40 min |
-| 6. GUI Experience | — | — | — |
+| 6. GUI Experience | 1 | 3 | 20 min |
 | 7. Harness Refactor | — | — | — |
 
 *Updated after each plan completion*
@@ -57,7 +57,7 @@ Recent decisions affecting current work:
   - [x] Task 5-03: History assembler flat timeline
   - [x] Task 5-04: Integration validation
 - [ ] Phase 6: GUI Experience
-  - [ ] Task 6-01: Timeline flat rendering
+  - [x] Task 6-01: Timeline flat rendering
   - [ ] Task 6-02: DiffView upgrade
   - [ ] Task 6-03: Real-time streaming updates
 - [ ] Phase 7: Harness Refactor
@@ -79,6 +79,7 @@ None yet.
 | 20260503-004 | Plan 05-01: Transcript format upgrade (schema_version=2) | 2026-05-03 | ca9ee3c, 1156a36, a7cd81a | src/embedagent/transcript_store.py, src/embedagent/session.py, src/embedagent/query_engine.py, tests/test_transcript_store.py |
 | 20260503-005 | Plan 05-03: History assembler flat timeline (build_flat_timeline) | 2026-05-03 | 92b66b8, bdb3f90 | src/embedagent/session_history.py, tests/test_session_history.py |
 | 20260503-006 | Plan 05-04: Integration validation (21 tests: 8 integration + 5 performance + 8 fault injection) | 2026-05-03 | 71d6031 | tests/test_session_integration.py, tests/test_session_performance.py, tests/test_session_fault_injection.py |
+| 20260503-007 | Plan 06-01: Timeline flat rendering (FlatTimelineView, inline tool cards, layout 70%+, 5 tests) | 2026-05-03 | 9162f9e, 96cb274, 610e6b9, c7e4977, f401f08 | src/embedagent/frontend/tui/views/timeline.py, src/embedagent/frontend/tui/frontend_adapter.py, src/embedagent/frontend/tui/layout.py, tests/test_gui_timeline_flat.py |
 
 ## Deferred Items
 
@@ -91,7 +92,7 @@ Items acknowledged and carried forward from previous milestone close:
 ## Session Continuity
 
 Last session: 2026-05-03
-Stopped at: Completed 05-04-PLAN.md
+Stopped at: Completed 06-01-PLAN.md
 Resume file: None
 
 ## Milestone History
