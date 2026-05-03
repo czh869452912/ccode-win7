@@ -11,23 +11,23 @@ See: .planning/PROJECT.md (updated 2026-05-03)
 
 **Milestone:** v0.2 — GUI & Harness Experience Refactor
 **Phase:** 5 — Session Infrastructure
-**Status:** In Progress (1 of 4 plans complete)
-**Last activity:** 2026-05-03 — Plan 05-02 complete: Session restore fault tolerance
+**Status:** In Progress (2 of 4 plans complete)
+**Last activity:** 2026-05-03 — Plan 05-01 complete: Transcript format upgrade (schema_version=2)
 
-Progress: [███░░░░░░░░░] 25% (1 of 4 plans executed in Phase 5)
+Progress: [█████░░░░░░░] 50% (2 of 4 plans executed in Phase 5)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 1
-- Average duration: 35 min
-- Total execution time: 35 min
+- Total plans completed: 2
+- Average duration: 63 min
+- Total execution time: 125 min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 5. Session Infrastructure | 4 | 1 | 35 min |
+| 5. Session Infrastructure | 4 | 2 | 63 min |
 | 6. GUI Experience | — | — | — |
 | 7. Harness Refactor | — | — | — |
 
@@ -52,7 +52,7 @@ Recent decisions affecting current work:
 ### Pending Todos
 
 - [ ] Phase 5: Session Infrastructure
-  - [ ] Task 5-01: Transcript format upgrade (schema_version=2)
+  - [x] Task 5-01: Transcript format upgrade (schema_version=2)
   - [x] Task 5-02: Session restore fault tolerance
   - [ ] Task 5-03: History assembler flat timeline
   - [ ] Task 5-04: Integration validation
@@ -76,6 +76,7 @@ None yet.
 | 20260503-001 | GUI & Harness design exploration + reference engineering research | 2026-05-03 | — | .planning/ |
 | 20260503-002 | Phase 5 planning — 4 plans created (transcript v2, restore, flat timeline, integration) | 2026-05-03 | — | .planning/phases/05-session-infrastructure/ |
 | 20260503-003 | Plan 05-02: Session restore fault tolerance (best_effort mode) | 2026-05-03 | 967e019, 0715043 | src/embedagent/session_restore.py, tests/test_session_restore.py |
+| 20260503-004 | Plan 05-01: Transcript format upgrade (schema_version=2) | 2026-05-03 | ca9ee3c, 1156a36, a7cd81a | src/embedagent/transcript_store.py, src/embedagent/session.py, src/embedagent/query_engine.py, tests/test_transcript_store.py |
 
 ## Deferred Items
 
@@ -88,7 +89,7 @@ Items acknowledged and carried forward from previous milestone close:
 ## Session Continuity
 
 Last session: 2026-05-03
-Stopped at: Completed 05-02-PLAN.md
+Stopped at: Completed 05-01-PLAN.md
 Resume file: None
 
 ## Milestone History
