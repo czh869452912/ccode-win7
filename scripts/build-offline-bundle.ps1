@@ -260,25 +260,30 @@ if (-not (Test-Path -LiteralPath $stagingBundleRoot)) {
     throw "Staging bundle not found: $stagingBundleRoot"
 }
 
+Write-Host "[build] Validating staging bundle..."
 $stagingGuiStatus = Get-GuiBundleAssetStatus -BundleRoot $stagingBundleRoot
 if (-not $stagingGuiStatus.ok) {
     $missingLabel = @($stagingGuiStatus.missing) -join ', '
     throw ('Staging bundle is missing required GUI static assets. Missing={0}; StaticRoot={1}. Re-run build-offline-bundle.ps1 with -RunPrepare or rebuild the GUI frontend first.' -f $missingLabel, $stagingGuiStatus.static_root)
 }
+Write-Host "[build]   Staging bundle OK"
 
 $stagingManifestPath = Join-Path $stagingBundleRoot 'manifests\bundle-manifest.json'
 if (-not (Test-Path -LiteralPath $stagingManifestPath)) {
     throw "Staging manifest not found: $stagingManifestPath"
 }
 
+Write-Host "[build] Cleaning dist directory..."
 Remove-IfExists -Root $distRoot -Target $distBundleRoot
 Remove-IfExists -Root $distRoot -Target $sourcesRoot
 if (Test-Path -LiteralPath $zipPath) {
     Remove-Item -LiteralPath $zipPath -Force
 }
 
+Write-Host "[build] Copying staging bundle to dist..."
 Copy-BundleTree -Source $stagingBundleRoot -Destination $distBundleRoot
 
+Write-Host "[build] Updating bundle manifest..."
 $distManifestPath = Join-Path $distBundleRoot 'manifests\bundle-manifest.json'
 Update-BundleManifest `
     -ManifestPath $distManifestPath `
@@ -289,9 +294,11 @@ Update-BundleManifest `
     -ZipCreated (-not $NoZip) `
     -SourcesRoot $sourcesRoot
 
+Write-Host "[build] Writing dist checksums..."
 $distChecksumsPath = Join-Path $distBundleRoot 'manifests\checksums.txt'
 Write-BundleChecksums -Root $distBundleRoot -ChecksumPath $distChecksumsPath
 
+Write-Host "[build] Preparing sources archive..."
 Ensure-Directory -Path $sourcesRoot
 Ensure-Directory -Path $sourcesArchivesRoot
 
@@ -332,11 +339,13 @@ foreach ($asset in @($distManifest.resolved_assets)) {
     Copy-Item -LiteralPath $asset.cache_archive_path -Destination (Join-Path $sourcesArchivesRoot $archiveName) -Force
 }
 
+Write-Host "[build] Writing sources checksums..."
 $sourcesChecksumsPath = Join-Path $sourcesRoot 'checksums.txt'
 Write-BundleChecksums -Root $sourcesRoot -ChecksumPath $sourcesChecksumsPath
 
 $zipCreated = $false
 if (-not $NoZip) {
+    Write-Host "[build] Creating distribution zip archive..."
     Create-BundleZip -SourceDirectory $distBundleRoot -ZipPath $zipPath
     $zipCreated = $true
     Update-BundleManifest `
@@ -348,13 +357,18 @@ if (-not $NoZip) {
         -ZipCreated $zipCreated `
         -SourcesRoot $sourcesRoot
     Write-BundleChecksums -Root $distBundleRoot -ChecksumPath $distChecksumsPath
+    Write-Host "[build]   Zip created"
 }
 
-Write-Host ('Built offline bundle directory at {0}' -f $distBundleRoot)
-Write-Host ('Built offline sources seed at {0}' -f $sourcesRoot)
+Write-Host ""
+Write-Host "=========================================="
+Write-Host "[build] Offline bundle build complete"
+Write-Host "  Bundle dir: $distBundleRoot"
+Write-Host "  Sources: $sourcesRoot"
 if ($zipCreated) {
-    Write-Host ('Built offline bundle zip at {0}' -f $zipPath)
+    Write-Host "  Zip: $zipPath"
 }
 else {
-    Write-Host 'Zip generation skipped.'
+    Write-Host "  Zip: skipped"
 }
+Write-Host "=========================================="

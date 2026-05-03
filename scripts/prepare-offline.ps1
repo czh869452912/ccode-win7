@@ -518,6 +518,11 @@ $distRoot = Join-Path $buildRoot 'offline-dist'
 $bundleRoot = Join-Path $stagingRoot 'EmbedAgent'
 $licenseDir = Join-Path $bundleRoot 'manifests\licenses'
 
+Write-Host "[prepare] Starting offline bundle preparation..."
+Write-Host "[prepare] Project root: $projectRoot"
+Write-Host "[prepare] Build root: $buildRoot"
+Write-Host "[prepare] Staging bundle: $bundleRoot"
+
 Ensure-Directory -Path $buildRoot
 Ensure-Directory -Path $cacheRoot
 Ensure-Directory -Path $distRoot
@@ -543,28 +548,39 @@ $paths = @(
     'tools',
     'tools\validation'
 )
+Write-Host "[prepare] Creating bundle directory structure ($($paths.Count) paths)..."
 foreach ($relative in $paths) {
     Ensure-Directory -Path (Join-Path $bundleRoot $relative)
 }
 
+Write-Host "[prepare] Ensuring GUI frontend assets..."
 $guiFrontendStatus = Ensure-GuiFrontendAssets -ProjectRoot $projectRoot
 if (-not $guiFrontendStatus.ok) {
     $missingLabel = @($guiFrontendStatus.missing) -join ', '
     $reason = [string]$guiFrontendStatus.reason
     throw ('GUI static assets are incomplete and could not be prepared. Reason={0}; Missing={1}; StaticRoot={2}' -f $reason, $missingLabel, $guiFrontendStatus.static_root)
 }
+Write-Host "[prepare]   GUI assets: $($guiFrontendStatus.mode) (ok=$($guiFrontendStatus.ok))"
 
+Write-Host "[prepare] Staging application code..."
 $sourceAppRoot = Join-Path $projectRoot 'src\embedagent'
 $stagedAppRoot = Join-Path $bundleRoot 'app\embedagent'
 Stage-Directory -Source $sourceAppRoot -Destination $stagedAppRoot
 Remove-TransientPythonArtifacts -Root $stagedAppRoot
+Write-Host "[prepare]   App code staged to $stagedAppRoot"
+
+Write-Host "[prepare] Staging documentation..."
 
 $configurationGuide = Join-Path $projectRoot 'docs\configuration-guide.md'
 $preflightGuide = Join-Path $projectRoot 'docs\win7-preflight-checklist.md'
 $intranetGuide = Join-Path $projectRoot 'docs\intranet-deployment.md'
 $win7GuiGuide = Join-Path $projectRoot 'docs\win7-gui-validation.md'
-Stage-File -Source $configurationGuide -Destination (Join-Path $bundleRoot 'docs\configuration-guide.md')
-Stage-File -Source $preflightGuide -Destination (Join-Path $bundleRoot 'docs\win7-preflight-checklist.md')
+if (Test-Path -LiteralPath $configurationGuide) {
+    Stage-File -Source $configurationGuide -Destination (Join-Path $bundleRoot 'docs\configuration-guide.md')
+}
+if (Test-Path -LiteralPath $preflightGuide) {
+    Stage-File -Source $preflightGuide -Destination (Join-Path $bundleRoot 'docs\win7-preflight-checklist.md')
+}
 if (Test-Path -LiteralPath $intranetGuide) {
     Stage-File -Source $intranetGuide -Destination (Join-Path $bundleRoot 'docs\intranet-deployment.md')
 }
@@ -686,6 +702,8 @@ Third-party license notices for bundled assets are written here during prepare.
 '@
 Write-TextFile -Path (Join-Path $licenseDir 'README.txt') -Content ($licensesReadme.Trim() + "`r`n")
 
+Write-Host "[prepare] Generating config templates and launcher scripts..."
+
 $defaultLlvmRoot = Join-Path $projectRoot 'toolchains\llvm\current'
 if (-not $LlvmRoot -and (Test-Path -LiteralPath $defaultLlvmRoot)) {
     $LlvmRoot = $defaultLlvmRoot
@@ -717,7 +735,11 @@ $components += New-ComponentRecord -Name 'config_templates' -StagedPath 'config'
 $components += New-ComponentRecord -Name 'launcher_scripts' -StagedPath '.' -Required $true -Status 'staged' -SourcePath '' -Notes 'Generated embedagent.cmd, embedagent-tui.cmd, embedagent-gui.cmd, and validate-gui-smoke.cmd.' -AssetId ''
 $components += New-ComponentRecord -Name 'validation_tools' -StagedPath 'tools\validation' -Required $true -Status 'staged' -SourcePath $guiSmokeScript -Notes 'Copied bundle-local GUI smoke validation script.' -AssetId ''
 
+Write-Host "[prepare] Resolving runtime assets..."
+Write-Host "[prepare]   Requested assets: $($requestedAssetIds -join ', ')"
+
 $usePythonAsset = $requestedAssetIds -contains 'python_embedded_x64'
+Write-Host "[prepare]   python_runtime..."
 if ($usePythonAsset) {
     $pythonAsset = Find-AssetRecord -Manifest $assetManifest -AssetId 'python_embedded_x64'
     $resolved = Resolve-AssetForStaging -Asset $pythonAsset -CacheRoot $cacheRoot -BundleRoot $bundleRoot -LicenseDir $licenseDir -AllowDownload ([bool]$AllowDownload) -SkipBuild ([bool]$SkipBuild)
@@ -754,6 +776,7 @@ else {
     $components += New-ComponentRecord -Name 'python_runtime' -StagedPath 'runtime\python' -Required $true -Status 'missing' -SourcePath '' -Notes 'Provide -PythonRuntimeRoot or request python_embedded_x64 via -AssetIds.' -AssetId ''
 }
 
+Write-Host "[prepare]   python_packages..."
 if ($sitePackagesPath) {
     if (-not $SkipBuild) {
         Stage-Directory -Source $sitePackagesPath -Destination (Join-Path $bundleRoot 'runtime\site-packages')
@@ -768,6 +791,7 @@ else {
     $components += New-ComponentRecord -Name 'python_packages' -StagedPath 'runtime\site-packages' -Required $true -Status 'missing' -SourcePath '' -Notes 'Provide -SitePackagesRoot or rely on a future export step.' -AssetId ''
 }
 
+Write-Host "[prepare]   mingit_portable..."
 $useMinGitAsset = $requestedAssetIds -contains 'mingit_x64'
 if ($useMinGitAsset) {
     $gitAsset = Find-AssetRecord -Manifest $assetManifest -AssetId 'mingit_x64'
@@ -804,6 +828,7 @@ else {
     $components += New-ComponentRecord -Name 'mingit_portable' -StagedPath 'bin\git' -Required $true -Status 'missing' -SourcePath '' -Notes 'Provide -MinGitRoot or request mingit_x64 via -AssetIds.' -AssetId ''
 }
 
+Write-Host "[prepare]   ripgrep..."
 $useRipgrepAsset = $requestedAssetIds -contains 'ripgrep_x64'
 if ($useRipgrepAsset) {
     $rgAsset = Find-AssetRecord -Manifest $assetManifest -AssetId 'ripgrep_x64'
@@ -845,6 +870,7 @@ else {
     $components += New-ComponentRecord -Name 'ripgrep' -StagedPath 'bin\rg' -Required $true -Status 'missing' -SourcePath '' -Notes 'Provide -RipgrepPath or request ripgrep_x64 via -AssetIds.' -AssetId ''
 }
 
+Write-Host "[prepare]   universal_ctags..."
 $useCtagsAsset = $requestedAssetIds -contains 'universal_ctags_x64'
 if ($useCtagsAsset) {
     $ctagsAsset = Find-AssetRecord -Manifest $assetManifest -AssetId 'universal_ctags_x64'
@@ -886,6 +912,7 @@ else {
     $components += New-ComponentRecord -Name 'universal_ctags' -StagedPath 'bin\ctags' -Required $true -Status 'missing' -SourcePath '' -Notes 'Provide -CtagsPath or request universal_ctags_x64 via -AssetIds.' -AssetId ''
 }
 
+Write-Host "[prepare]   webview2_fixed_runtime..."
 $useWebView2Asset = $requestedAssetIds -contains 'webview2_fixed_runtime_x64'
 if ($useWebView2Asset) {
     $webView2Asset = Find-AssetRecord -Manifest $assetManifest -AssetId 'webview2_fixed_runtime_x64'
@@ -922,6 +949,7 @@ else {
     $components += New-ComponentRecord -Name 'webview2_fixed_runtime' -StagedPath 'runtime\webview2-fixed-runtime' -Required $true -Status 'missing' -SourcePath '' -Notes 'Provide -WebView2RuntimeRoot or request webview2_fixed_runtime_x64 via -AssetIds.' -AssetId ''
 }
 
+Write-Host "[prepare]   llvm_clang_bundle..."
 if ($llvmPath) {
     if (-not $SkipBuild) {
         Stage-Directory -Source $llvmPath -Destination (Join-Path $bundleRoot 'bin\llvm')
@@ -956,6 +984,7 @@ $manifest = [ordered]@{
     components = $components
 }
 
+Write-Host "[prepare] Writing bundle manifest and checksums..."
 $manifestPath = Join-Path $bundleRoot 'manifests\bundle-manifest.json'
 $manifest | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $manifestPath -Encoding ASCII
 
@@ -971,8 +1000,18 @@ foreach ($file in $filesToHash) {
 }
 Set-Content -LiteralPath $checksumPath -Value $checksumLines -Encoding ASCII
 
-Write-Host ('Prepared offline staging bundle at {0}' -f $bundleRoot)
-Write-Host ('Required components missing: {0}' -f $requiredMissing.Count)
-foreach ($item in $requiredMissing) {
-    Write-Host ('  - {0}: {1}' -f $item.name, $item.notes)
+Write-Host ""
+Write-Host "=========================================="
+Write-Host "[prepare] Offline bundle preparation complete"
+Write-Host "  Bundle: $bundleRoot"
+Write-Host "  Staged: $($summary.staged)"
+Write-Host "  Skipped: $($summary.skipped)"
+Write-Host "  Cached: $($summary.cached)"
+Write-Host "  Missing: $($summary.missing)"
+if ($requiredMissing.Count -gt 0) {
+    Write-Host "  Missing components:"
+    foreach ($item in $requiredMissing) {
+        Write-Host ('    - {0}: {1}' -f $item.name, $item.notes)
+    }
 }
+Write-Host "=========================================="
