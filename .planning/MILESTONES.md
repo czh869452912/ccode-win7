@@ -38,6 +38,27 @@ A hardened compile environment integration, codebase hygiene, architecture refac
 - L3 projection cache is a placeholder
 - QueryEngine remains ~1560 lines (target was <500)
 
+## v0.2 — GUI & Harness Experience Refactor
+
+**Started:** 2026-05-03
+**Phases:** 5-7 (10 plans)
+**Status:** ACTIVE
+
+### Goal
+
+Transform EmbedAgent's user experience to match industry-leading agent coding tools (Claude Code, Codex, Roo Code) by refactoring session persistence, conversation flow, and mode execution models.
+
+### Target Features
+
+1. **Session Infrastructure** — Typed JSONL transcript, robust resume, flat conversation model
+2. **GUI Experience** — Inline tool cards, inline diff preview, real-time streaming, conversation-first layout
+3. **Harness Refactor** — Permission-contract-based modes, intent-driven workflow, completion self-assessment
+
+### Reference Engineering
+
+- Research artifacts: `.planning/phases/01-ui-ux-harness-research/01-RESEARCH.md`
+- Architecture spec: `.planning/notes/session-architecture-v2-spec.md`
+
 ---
 
 *For milestone details, see `.planning/milestones/v0.1-ROADMAP.md`*

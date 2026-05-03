@@ -3,7 +3,7 @@
 ## Milestones
 
 - **v0.1 Compile Environment + Framework** — Phases 1-4 (shipped 2026-05-02) — [Details](milestones/v0.1-ROADMAP.md)
-- **v0.2 GUI & Harness Experience Refactor** — Phases 5-7 (active 2026-05-03)
+- **v0.2 GUI & Harness Experience Refactor** — Phases 5-7 (completed 2026-05-03)
 
 ## Phases
 
@@ -25,7 +25,7 @@
 
 - [x] Phase 5: Session Infrastructure (4 tasks) — completed 2026-05-03
 - [x] Phase 6: GUI Experience (3 tasks) — completed 2026-05-03
-- [ ] Phase 7: Harness Refactor (3 tasks)
+- [x] Phase 7: Harness Refactor (3 tasks) — completed 2026-05-03
 
 ---
 
@@ -83,8 +83,8 @@
 
 **Plans:**
 - [x] Plan 07-01: Mode permission contract (remove fixed tracks, intent-driven workflow) → `07-01-PLAN.md` ✅ **COMPLETE**
-- Plan 07-02: Completion signal mechanism (agent self-assessment, system recognition)
-- Plan 07-03: Guard-based safety (consecutive mistake limit, loop detection, user override)
+- [x] Plan 07-02: Completion signal mechanism (agent self-assessment, system recognition) → `07-02-PLAN.md` ✅ **COMPLETE**
+- [x] Plan 07-03: Guard-based safety (consecutive mistake limit, loop detection, user override) → `07-03-PLAN.md` ✅ **COMPLETE**
 
 ---
 
@@ -98,7 +98,7 @@
 | 4. Framework | v0.1 | 5/5 | Complete | 2026-05-02 |
 | 5. Session Infrastructure | v0.2 | 4/4 | Complete | 2026-05-03 |
 | 6. GUI Experience | v0.2 | 3/3 | Complete | 2026-05-03 |
-| 7. Harness Refactor | v0.2 | 1/3 | In Progress | — |
+| 7. Harness Refactor | v0.2 | 3/3 | Complete | 2026-05-03 |
 
 ---
 
