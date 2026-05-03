@@ -82,6 +82,7 @@ Flat timeline rendering with inline tool cards for the TUI frontend.
 - `610e6b9`: feat(06-01): update TUIFrontend to support flat timeline
 - `c7e4977`: feat(06-01): adjust TUI layout for conversation-first design
 - `f401f08`: test(06-01): add flat timeline rendering tests
+- `77959c4`: fix(06-01): remove duplicate streaming methods from FlatTimelineView
 
 ## Self-Check: PASSED
 
