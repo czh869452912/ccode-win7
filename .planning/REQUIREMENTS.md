@@ -96,20 +96,20 @@
 **User need:** Entering a mode should not trigger unwanted workflow execution.
 **Requirement:** Mode controls only system prompt, allowed tools, and writable paths. Workflow/task graph is generated only when user explicitly requests work.
 **Acceptance:**
-- [ ] Entering build mode and saying "hi" produces normal chat response
-- [ ] No fixed phase track injected unconditionally
-- [ ] Task graph generated only on explicit user work request
-- [ ] Mode system prompt describes permissions, not workflow steps
+- [x] Entering build mode and saying "hi" produces normal chat response
+- [x] No fixed phase track injected unconditionally
+- [x] Task graph generated only on explicit user work request
+- [x] Mode system prompt describes permissions, not workflow steps
 
 ### HARN-02: Intent-Driven Workflow
 **User need:** The agent should understand when to start working vs. just chatting.
 **Requirement:** Agent distinguishes between casual conversation and explicit work requests, generating task graph only for the latter.
 **Acceptance:**
-- [ ] "Explain this code" → explore/spec response, no task graph
-- [ ] "Fix this bug" → generates debug task graph
-- [ ] "Implement X" → generates build task graph
-- [ ] "Run tests" → generates verify task graph
-- [ ] Task graph dynamically created based on user intent, not mode preset
+- [x] "Explain this code" → explore/spec response, no task graph
+- [x] "Fix this bug" → generates debug task graph
+- [x] "Implement X" → generates build task graph
+- [x] "Run tests" → generates verify task graph
+- [x] Task graph dynamically created based on user intent, not mode preset
 
 ### HARN-03: Completion Signal
 **User need:** The agent should know when to stop, not be cut off by arbitrary limits.

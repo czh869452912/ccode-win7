@@ -24,7 +24,7 @@
 **Goal:** Transform user experience to match industry-leading agent coding tools by refactoring session persistence, conversation flow, and mode execution.
 
 - [x] Phase 5: Session Infrastructure (4 tasks) — completed 2026-05-03
-- [ ] Phase 6: GUI Experience (3 tasks)
+- [x] Phase 6: GUI Experience (3 tasks) — completed 2026-05-03
 - [ ] Phase 7: Harness Refactor (3 tasks)
 
 ---
@@ -65,8 +65,8 @@
 
 **Plans:**
 - [x] Plan 06-01: Timeline flat rendering (remove nested step panels, inline tool cards) → `06-01-PLAN.md` ✅ **COMPLETE**
-- Plan 06-02: DiffView upgrade (line numbers, gutter markers, syntax highlighting, theme adaptive)
-- Plan 06-03: Real-time streaming updates (item.updated events, command output streaming)
+- [x] Plan 06-02: DiffView upgrade (line numbers, gutter markers, syntax highlighting, theme adaptive) → `06-02-PLAN.md` ✅ **COMPLETE**
+- [x] Plan 06-03: Real-time streaming updates (item.updated events, command output streaming) → `06-03-PLAN.md` ✅ **COMPLETE**
 
 ### Phase 7: Harness Refactor
 
@@ -82,7 +82,7 @@
 5. All mode tests updated; harness tests cover new behavior
 
 **Plans:**
-- Plan 07-01: Mode permission contract (remove fixed tracks, intent-driven workflow)
+- [x] Plan 07-01: Mode permission contract (remove fixed tracks, intent-driven workflow) → `07-01-PLAN.md` ✅ **COMPLETE**
 - Plan 07-02: Completion signal mechanism (agent self-assessment, system recognition)
 - Plan 07-03: Guard-based safety (consecutive mistake limit, loop detection, user override)
 
@@ -97,8 +97,8 @@
 | 3. Architecture | v0.1 | 4/4 | Complete | 2026-05-02 |
 | 4. Framework | v0.1 | 5/5 | Complete | 2026-05-02 |
 | 5. Session Infrastructure | v0.2 | 4/4 | Complete | 2026-05-03 |
-| 6. GUI Experience | v0.2 | 0/3 | In Progress | — |
-| 7. Harness Refactor | v0.2 | 0/3 | Pending | — |
+| 6. GUI Experience | v0.2 | 3/3 | Complete | 2026-05-03 |
+| 7. Harness Refactor | v0.2 | 1/3 | In Progress | — |
 
 ---
 

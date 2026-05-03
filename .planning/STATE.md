@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-05-03)
 ## Current Position
 
 **Milestone:** v0.2 — GUI & Harness Experience Refactor
-**Phase:** 6 — GUI Experience
+**Phase:** 7 — Harness Refactor
 **Status:** Active
-**Last activity:** 2026-05-03 — Phase 6 plans 02-03 complete: DiffView upgrade and real-time streaming updates
+**Last activity:** 2026-05-03 — Phase 7 plan 01 complete: Mode permission contract
 
-Progress: [████████████] 67% (1 of 3 phases complete in v0.2, 3 of 3 plans in Phase 6)
+Progress: [████████████] 71% (2 of 3 phases complete in v0.2, 1 of 3 plans in Phase 7)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 7
+- Total plans completed: 8
 - Average duration: 34 min
-- Total execution time: 238 min
+- Total execution time: 273 min
 
 **By Phase:**
 
@@ -29,7 +29,7 @@ Progress: [████████████] 67% (1 of 3 phases complete in 
 |-------|-------|-------|----------|
 | 5. Session Infrastructure | 4 | 4 | 40 min |
 | 6. GUI Experience | 3 | 3 | 25 min |
-| 7. Harness Refactor | — | — | — |
+| 7. Harness Refactor | 1 | 3 | 35 min |
 
 *Updated after each plan completion*
 
@@ -61,7 +61,7 @@ Recent decisions affecting current work:
   - [x] Task 6-02: DiffView upgrade
   - [x] Task 6-03: Real-time streaming updates
 - [ ] Phase 7: Harness Refactor
-  - [ ] Task 7-01: Mode permission contract
+  - [x] Task 7-01: Mode permission contract
   - [ ] Task 7-02: Completion signal mechanism
   - [ ] Task 7-03: Remove fixed step limits
 
@@ -82,6 +82,7 @@ None yet.
 | 20260503-007 | Plan 06-01: Timeline flat rendering (FlatTimelineView, inline tool cards, layout 70%+, 5 tests) | 2026-05-03 | 9162f9e, 96cb274, 610e6b9, c7e4977, f401f08 | src/embedagent/frontend/tui/views/timeline.py, src/embedagent/frontend/tui/frontend_adapter.py, src/embedagent/frontend/tui/layout.py, tests/test_gui_timeline_flat.py |
 | 20260503-008 | Plan 06-02: DiffView upgrade (line numbers, gutter markers, syntax highlighting, dark/light theme, 5 tests) | 2026-05-03 | 8691175 | src/embedagent/frontend/tui/views/diff.py, src/embedagent/frontend/tui/theme.py, tests/test_gui_diff_view.py |
 | 20260503-009 | Plan 06-03: Real-time streaming updates (item.updated/completed handlers, incremental output, 5 tests) | 2026-05-03 | 77959c4 | src/embedagent/frontend/tui/frontend_adapter.py, tests/test_gui_streaming.py |
+| 20260503-010 | Plan 07-01: Mode permission contract (PermissionContract, conditional harness injection, 9 tests) | 2026-05-03 | 33b5f24 | src/embedagent/modes.py, src/embedagent/query_engine.py, src/embedagent/harness/task_graph.py, tests/test_harness_mode_contract.py |
 
 ## Deferred Items
 
@@ -94,7 +95,7 @@ Items acknowledged and carried forward from previous milestone close:
 ## Session Continuity
 
 Last session: 2026-05-03
-Stopped at: Completed 06-03-PLAN.md
+Stopped at: Completed 07-01-PLAN.md
 Resume file: None
 
 ## Milestone History
