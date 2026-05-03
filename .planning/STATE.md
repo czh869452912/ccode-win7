@@ -11,23 +11,23 @@ See: .planning/PROJECT.md (updated 2026-05-03)
 
 **Milestone:** v0.2 — GUI & Harness Experience Refactor
 **Phase:** 5 — Session Infrastructure
-**Status:** Planned (ready to execute)
-**Last activity:** 2026-05-03 — Phase 5 planning complete (4 plans)
+**Status:** In Progress (1 of 4 plans complete)
+**Last activity:** 2026-05-03 — Plan 05-02 complete: Session restore fault tolerance
 
-Progress: [██░░░░░░░░░░] 0% planned (0 of 3 phases executed, Phase 5 planned)
+Progress: [███░░░░░░░░░] 25% (1 of 4 plans executed in Phase 5)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 0
-- Average duration: —
-- Total execution time: —
+- Total plans completed: 1
+- Average duration: 35 min
+- Total execution time: 35 min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 5. Session Infrastructure | 4 | 0 | — |
+| 5. Session Infrastructure | 4 | 1 | 35 min |
 | 6. GUI Experience | — | — | — |
 | 7. Harness Refactor | — | — | — |
 
@@ -53,7 +53,7 @@ Recent decisions affecting current work:
 
 - [ ] Phase 5: Session Infrastructure
   - [ ] Task 5-01: Transcript format upgrade (schema_version=2)
-  - [ ] Task 5-02: Session restore fault tolerance
+  - [x] Task 5-02: Session restore fault tolerance
   - [ ] Task 5-03: History assembler flat timeline
   - [ ] Task 5-04: Integration validation
 - [ ] Phase 6: GUI Experience
@@ -75,6 +75,7 @@ None yet.
 |---|---|-------------|------|--------|-----------|
 | 20260503-001 | GUI & Harness design exploration + reference engineering research | 2026-05-03 | — | .planning/ |
 | 20260503-002 | Phase 5 planning — 4 plans created (transcript v2, restore, flat timeline, integration) | 2026-05-03 | — | .planning/phases/05-session-infrastructure/ |
+| 20260503-003 | Plan 05-02: Session restore fault tolerance (best_effort mode) | 2026-05-03 | 967e019, 0715043 | src/embedagent/session_restore.py, tests/test_session_restore.py |
 
 ## Deferred Items
 
@@ -87,7 +88,7 @@ Items acknowledged and carried forward from previous milestone close:
 ## Session Continuity
 
 Last session: 2026-05-03
-Stopped at: Milestone v0.2 initialized
+Stopped at: Completed 05-02-PLAN.md
 Resume file: None
 
 ## Milestone History

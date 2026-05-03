@@ -46,9 +46,9 @@
 
 **Plans:**
 - [x] Plan 05-01: Transcript format upgrade (schema_version=2, typed messages, parentUuid chain) → `05-01-PLAN.md`
-- [x] Plan 05-02: Session restore fault tolerance (best_effort mode, skip corrupted records) → `05-02-PLAN.md`
-- [x] Plan 05-03: History assembler flat timeline (items[] output, backward compatibility) → `05-03-PLAN.md`
-- [x] Plan 05-04: Integration validation (end-to-end tests, performance tests, fault injection) → `05-04-PLAN.md`
+- [x] Plan 05-02: Session restore fault tolerance (best_effort mode, skip corrupted records) → `05-02-PLAN.md` ✅ **COMPLETE** — `05-02-SUMMARY.md`
+- [ ] Plan 05-03: History assembler flat timeline (items[] output, backward compatibility) → `05-03-PLAN.md`
+- [ ] Plan 05-04: Integration validation (end-to-end tests, performance tests, fault injection) → `05-04-PLAN.md`
 
 ### Phase 6: GUI Experience
 
@@ -96,7 +96,7 @@
 | 2. Compile Environment | v0.1 | 4/4 | Complete | 2026-05-02 |
 | 3. Architecture | v0.1 | 4/4 | Complete | 2026-05-02 |
 | 4. Framework | v0.1 | 5/5 | Complete | 2026-05-02 |
-| 5. Session Infrastructure | v0.2 | 4/4 planned | Planned | 2026-05-03 |
+| 5. Session Infrastructure | v0.2 | 1/4 complete | In Progress | 2026-05-03 |
 | 6. GUI Experience | v0.2 | 0/3 | Pending | — |
 | 7. Harness Refactor | v0.2 | 0/3 | Pending | — |
 
