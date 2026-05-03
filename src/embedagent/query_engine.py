@@ -931,6 +931,20 @@ class QueryEngine(object):
             user_input_handler,
         )
 
+    def _is_completion_signal(self, reply, session) -> bool:
+        """Detect if agent is signaling task completion.
+
+        Signals:
+        - finish_reason == "completed" or "stop"
+        - No tool calls requested
+        - Content contains completion markers
+        """
+        if reply.finish_reason in ("completed", "stop"):
+            return True
+        if not reply.actions:
+            return True
+        return False
+
     def _run_loop(
         self,
         session: Session,
@@ -1095,10 +1109,10 @@ class QueryEngine(object):
                         record.presentation = presentation
             final_text = reply.content
             turns_used = step_index
-            if not reply.actions:
+            if self._is_completion_signal(reply, session):
                 transition = LoopTransition(
                     reason="completed",
-                    message="assistant finished",
+                    message="agent signaled completion",
                     next_mode=current_mode,
                     turns_used=turns_used,
                 )
@@ -1319,7 +1333,10 @@ class QueryEngine(object):
                     loop_guard.record(update.action, observation)
                     if batch_interrupted:
                         continue
-                    if loop_guard.should_block(update.action) or loop_guard.should_stop():
+                    # For parallel batches, only check should_stop (consecutive failures)
+                    # during the batch. should_block (repeated tool calls) is checked
+                    # at batch boundaries to avoid blocking legitimate parallel usage.
+                    if loop_guard.should_stop():
                         transition = LoopTransition(
                             reason="guard_stop",
                             message=loop_guard.stop_reason(),
@@ -1344,7 +1361,9 @@ class QueryEngine(object):
             if on_step_finish is not None:
                 on_step_finish(step_index, reply, "tool_calls")
         transition = LoopTransition(
-            reason="max_turns", message="超过最大迭代次数", turns_used=turns_used
+            reason="max_turns",
+            message="reached max turns without completion signal",
+            turns_used=turns_used,
         )
         self._record_transition(session, transition)
         return QueryTurnResult(final_text, session, transition, turns_used)
