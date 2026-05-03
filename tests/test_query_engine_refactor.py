@@ -1428,7 +1428,10 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertEqual(result.transition.reason, "completed")
         events = transcript_store.load_events(session.session_id)
         event_types = [item["type"] for item in events]
-        self.assertIn("message", event_types)
+        # Schema v2 normalizes message events to their role type
+        self.assertIn("user", event_types)
+        self.assertIn("assistant", event_types)
+        self.assertIn("system", event_types)
         self.assertIn("step_started", event_types)
         self.assertIn("tool_call", event_types)
         self.assertIn("tool_result", event_types)
@@ -1452,7 +1455,11 @@ class TestQueryEngineRefactor(unittest.TestCase):
         )
         self.assertEqual(result.transition.reason, "completed")
         events = transcript_store.load_events(session.session_id)
-        message_events = [item for item in events if item["type"] == "message"]
+        # Schema v2 normalizes message events to their role type
+        message_events = [
+            item for item in events
+            if item["type"] in ("user", "assistant", "system", "tool")
+        ]
         tool_result = [item for item in events if item["type"] == "tool_result"][0]
         self.assertEqual(
             message_events[-2]["payload"].get("parent_message_id"),
