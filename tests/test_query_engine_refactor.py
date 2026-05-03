@@ -515,13 +515,13 @@ class TestQueryEngineRefactor(unittest.TestCase):
         )
         session = Session()
 
-        current_mode = engine.initialize_session(session, "build", workflow_state="chat")
+        current_mode = engine.initialize_session(session, "build", workflow_state="chat", user_text="build the project")
         self.assertEqual(current_mode, "build")
         first_messages = list(session.messages)
         self.assertGreaterEqual(len(first_messages), 2)
         self.assertTrue(any(message.kind == "harness_prompt" for message in first_messages))
 
-        current_mode = engine.initialize_session(session, "build", workflow_state="chat")
+        current_mode = engine.initialize_session(session, "build", workflow_state="chat", user_text="build the project")
         self.assertEqual(current_mode, "build")
         self.assertEqual(len(session.messages), len(first_messages))
 
@@ -1428,7 +1428,10 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertEqual(result.transition.reason, "completed")
         events = transcript_store.load_events(session.session_id)
         event_types = [item["type"] for item in events]
-        self.assertIn("message", event_types)
+        # Schema v2 normalizes message events to their role type
+        self.assertIn("user", event_types)
+        self.assertIn("assistant", event_types)
+        self.assertIn("system", event_types)
         self.assertIn("step_started", event_types)
         self.assertIn("tool_call", event_types)
         self.assertIn("tool_result", event_types)
@@ -1452,7 +1455,11 @@ class TestQueryEngineRefactor(unittest.TestCase):
         )
         self.assertEqual(result.transition.reason, "completed")
         events = transcript_store.load_events(session.session_id)
-        message_events = [item for item in events if item["type"] == "message"]
+        # Schema v2 normalizes message events to their role type
+        message_events = [
+            item for item in events
+            if item["type"] in ("user", "assistant", "system", "tool")
+        ]
         tool_result = [item for item in events if item["type"] == "tool_result"][0]
         self.assertEqual(
             message_events[-2]["payload"].get("parent_message_id"),

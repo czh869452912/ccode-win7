@@ -5,6 +5,7 @@ import json
 import logging
 import os
 import re
+from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
 from embedagent.di_container import get_default_container
@@ -199,6 +200,79 @@ _BUILTIN_MODES = {
 }  # type: Dict[str, Dict[str, object]]
 
 _MODE_COMMAND_RE = re.compile(r"^/mode\s+(\w+)(?:\s+(.*))?$", re.DOTALL)
+
+
+# ---------------------------------------------------------------------------
+# PermissionContract — mode as permission contract, not workflow track
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class PermissionContract:
+    """Defines what a mode allows without prescribing workflow.
+
+    This replaces the old 'track' concept where modes had fixed
+    workflow steps. Now modes only specify:
+    - Which tools are available
+    - Which tools require explicit permission
+    - Which files can be written
+    """
+
+    mode_name: str
+    allowed_tools: List[str] = field(default_factory=list)
+    permission_required_tools: List[str] = field(default_factory=list)
+    writable_globs: List[str] = field(default_factory=list)
+    read_only: bool = False
+
+    def allows_tool(self, tool_name: str) -> bool:
+        """Check if a tool is allowed in this mode."""
+        if not self.allowed_tools:
+            return True
+        return tool_name in self.allowed_tools
+
+    def requires_permission(self, tool_name: str) -> bool:
+        """Check if a tool requires explicit user permission."""
+        return tool_name in self.permission_required_tools
+
+    def is_path_writable(self, path: str) -> bool:
+        """Check if a path is writable in this mode."""
+        if self.read_only:
+            return False
+        # Check against writable globs
+        for pattern in self.writable_globs:
+            if _fnmatch_with_doublestar(path, pattern):
+                return True
+        return False
+
+
+def _build_mode_contracts() -> Dict[str, PermissionContract]:
+    """Build PermissionContract instances from built-in mode definitions."""
+    contracts = {}
+    for mode_name, mode_def in _BUILTIN_MODES.items():
+        allowed_tools = list(mode_def.get("allowed_tools", []))
+        writable_globs = list(mode_def.get("writable_globs", []))
+        read_only = not bool(writable_globs)
+        permission_required = []
+        if mode_name == "build":
+            permission_required = ["write_file", "edit_file"]
+        elif mode_name == "debug":
+            permission_required = ["edit_file"]
+        contracts[mode_name] = PermissionContract(
+            mode_name=mode_name,
+            allowed_tools=allowed_tools,
+            permission_required_tools=permission_required,
+            writable_globs=writable_globs,
+            read_only=read_only,
+        )
+    return contracts
+
+
+MODE_CONTRACTS = _build_mode_contracts()
+
+
+def get_mode_contract(mode_name: str) -> PermissionContract:
+    """Get the permission contract for a mode."""
+    return MODE_CONTRACTS.get(mode_name, MODE_CONTRACTS.get("explore", PermissionContract(mode_name="explore", read_only=True)))
 
 
 # ---------------------------------------------------------------------------

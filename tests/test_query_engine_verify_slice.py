@@ -70,7 +70,10 @@ class QueryEngineVerifySliceTests(unittest.TestCase):
         system_messages = [
             message.content for message in result.session.messages if message.role == "system"
         ]
-        self.assertTrue(any("Mode: verify" in content for content in system_messages))
+        # Harness context is not injected for verify mode (read-only mode)
+        self.assertFalse(any("Mode: verify" in content for content in system_messages))
+        # System prompt should still be present
+        self.assertTrue(any("verify" in content for content in system_messages))
 
     def test_verify_mode_schemas_use_v2_pack(self):
         engine = QueryEngine(
@@ -99,7 +102,10 @@ class QueryEngineVerifySliceTests(unittest.TestCase):
         system_messages = [
             message.content for message in state.session.messages if message.role == "system"
         ]
-        self.assertTrue(any("Mode: verify" in content for content in system_messages))
+        # Harness context is not injected for verify mode on session creation
+        self.assertFalse(any("Mode: verify" in content for content in system_messages))
+        # System prompt should still be present
+        self.assertTrue(any("verify" in content for content in system_messages))
 
     def test_set_session_mode_refreshes_harness_snapshot(self):
         adapter = InProcessAdapter(

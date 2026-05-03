@@ -46,6 +46,7 @@ class TranscriptStore(object):
         payload: Dict[str, Any],
         event_id: str = "",
         ts: str = "",
+        schema_version: int = 2,
     ) -> Dict[str, Any]:
         path = self.resolve_transcript_path(session_id)
         directory = os.path.dirname(path)
@@ -55,15 +56,27 @@ class TranscriptStore(object):
                 os.makedirs(directory)
             self._repair_tail(path)
             seq = self._next_seq(path)
-            event = {
-                "schema_version": 1,
-                "session_id": session_id,
-                "event_id": event_id or ("evt-" + uuid.uuid4().hex[:12]),
-                "seq": seq,
-                "ts": ts or _utc_now(),
-                "type": event_type,
-                "payload": dict(payload or {}),
-            }
+            if schema_version == 2:
+                event = {
+                    "schema_version": 2,
+                    "session_id": session_id,
+                    "event_id": event_id or ("evt-" + uuid.uuid4().hex[:12]),
+                    "seq": seq,
+                    "ts": ts or _utc_now(),
+                    "type": event_type,
+                    "parent_message_id": payload.get("parent_message_id", ""),
+                    "payload": dict(payload or {}),
+                }
+            else:
+                event = {
+                    "schema_version": 1,
+                    "session_id": session_id,
+                    "event_id": event_id or ("evt-" + uuid.uuid4().hex[:12]),
+                    "seq": seq,
+                    "ts": ts or _utc_now(),
+                    "type": event_type,
+                    "payload": dict(payload or {}),
+                }
             line = json.dumps(event, ensure_ascii=False, sort_keys=True)
             with open(path, "a", encoding="utf-8", newline="\n") as handle:
                 handle.write(line + "\n")
@@ -86,7 +99,7 @@ class TranscriptStore(object):
         if not os.path.isfile(path):
             raise ValueError("transcript not found: %s" % reference)
         events, _ = self._scan_events(path)
-        return events
+        return [self._normalize_event(event) for event in events]
 
     def transcript_exists(self, reference: str) -> bool:
         try:
@@ -137,6 +150,57 @@ class TranscriptStore(object):
         with open(path, "rb+") as handle:
             handle.truncate(valid_length)
         self._scan_cache[normalized] = (events, valid_length, valid_length)
+
+    def _normalize_event(self, event: Dict[str, Any]) -> Dict[str, Any]:
+        """Normalize schema_v1 event to schema_v2 structure."""
+        if event.get("schema_version") == 1:
+            payload = dict(event.get("payload") or {})
+            event_type = payload.get("role") or payload.get("event_type") or event.get("type") or "unknown"
+            return {
+                "schema_version": 2,
+                "session_id": event.get("session_id", ""),
+                "event_id": event.get("event_id", ""),
+                "seq": event.get("seq", 0),
+                "ts": event.get("ts", ""),
+                "type": event_type,
+                "parent_message_id": payload.get("parent_message_id", ""),
+                "payload": payload,
+            }
+        return event
+
+    def validate_transcript_chain(self, reference: str) -> Dict[str, Any]:
+        """Validate parent chain integrity of a transcript.
+
+        Returns {"valid": bool, "breaks": [{"index": int, "reason": str}]}
+        """
+        try:
+            events = self.load_events(reference)
+        except ValueError:
+            return {"valid": False, "breaks": [{"index": -1, "reason": "transcript_not_found"}]}
+
+        message_events = [e for e in events if e.get("type") in (
+            "user", "assistant", "tool_use", "tool_result", "command_execution", "file_change"
+        )]
+
+        seen_ids: set = set()
+        breaks = []
+
+        for index, event in enumerate(message_events):
+            payload = dict(event.get("payload") or {})
+            msg_id = payload.get("message_id", "")
+            parent_id = event.get("parent_message_id", "") or payload.get("parent_message_id", "")
+
+            if index == 0 and parent_id:
+                breaks.append({"index": index, "reason": "first_message_has_parent"})
+            elif index > 0 and not parent_id:
+                breaks.append({"index": index, "reason": "missing_parent"})
+            elif index > 0 and parent_id and parent_id not in seen_ids:
+                breaks.append({"index": index, "reason": "parent_not_found:%s" % parent_id})
+
+            if msg_id:
+                seen_ids.add(msg_id)
+
+        return {"valid": len(breaks) == 0, "breaks": breaks}
 
     def _scan_events(self, path: str) -> Tuple[List[Dict[str, Any]], int]:
         normalized = os.path.realpath(path)

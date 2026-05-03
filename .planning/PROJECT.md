@@ -52,6 +52,15 @@ The agent core reliably orchestrates LLM-driven development tasks through a stab
 - Some workflows reference `gsd-sdk` which is not available in this environment
 - Nyquist compliance missing for Phases 2-4
 
+## Current Milestone: v0.2 GUI & Harness Experience Refactor
+
+**Goal:** Transform EmbedAgent's user experience to match industry-leading agent coding tools (Claude Code, Codex, Roo Code) by refactoring session persistence, conversation flow, and mode execution models.
+
+**Target features:**
+- Session infrastructure: typed JSONL transcript, robust resume, flat conversation model
+- GUI experience: inline tool cards, inline diff preview, real-time streaming, conversation-first layout
+- Harness execution: intent-driven workflow, completion self-assessment, removal of fixed step limits
+
 ## Key Decisions
 
 | ID | Decision | Status | Notes |
@@ -62,6 +71,10 @@ The agent core reliably orchestrates LLM-driven development tasks through a stab
 | D-04 | Git stash-based snapshots | ✓ Good | Lightweight, preserves untracked files |
 | D-05 | Threading over asyncio for streaming | ✓ Good | Avoids event loop conflicts |
 | D-06 | Manual DI over external framework | ✓ Good | Minimal dependencies, Python 3.8 safe |
+| D-07 | Flat Item[] over nested Turn→Step→ToolCall | Active | Codex/Cline pattern for conversation flow |
+| D-08 | Schema-v2 JSONL transcript | Active | Typed messages, parentUuid chain, item lifecycle |
+| D-09 | Best-effort session restore | Active | Single corrupted record should not block recovery |
+| D-10 | Mode as permission contract only | Active | Remove unconditional workflow injection |
 
 ## Constraints
 

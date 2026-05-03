@@ -12,8 +12,13 @@ from embedagent.frontend.tui.completion import TerminalCompleter
 
 
 class TerminalLayout(object):
+    # Layout ratios: main chat area dominates
+    MAIN_AREA_RATIO = 0.75
+    AUX_AREA_RATIO = 0.25
+
     def __init__(self, owner) -> None:
         self.owner = owner
+        self._aux_panels_visible = False
         completer = TerminalCompleter(lambda: self.owner.state)
         self.header = TextArea(read_only=True, focusable=False, height=2)
         self.explorer = TextArea(
@@ -63,14 +68,77 @@ class TerminalLayout(object):
             content=FormattedTextControl(text=lambda: self.header.text),
             height=2,
         )
+        explorer_container = ConditionalContainer(
+            content=self.explorer,
+            filter=Condition(lambda: self._aux_panels_visible),
+        )
+        inspector_container = ConditionalContainer(
+            content=self.inspector,
+            filter=Condition(lambda: self._aux_panels_visible),
+        )
         body = VSplit(
             [
-                self.explorer,
-                Window(width=1, char=self.owner.theme.vertical),
+                explorer_container,
+                ConditionalContainer(
+                    content=Window(width=1, char=self.owner.theme.vertical),
+                    filter=Condition(lambda: self._aux_panels_visible),
+                ),
                 preview_container,
                 editor_container,
-                Window(width=1, char=self.owner.theme.vertical),
-                self.inspector,
+                ConditionalContainer(
+                    content=Window(width=1, char=self.owner.theme.vertical),
+                    filter=Condition(lambda: self._aux_panels_visible),
+                ),
+                inspector_container,
+            ]
+        )
+        return Layout(
+            HSplit(
+                [
+                    header_window,
+                    Window(height=1, char=self.owner.theme.horizontal),
+                    body,
+                    Window(height=1, char=self.owner.theme.horizontal),
+                    self.composer,
+                ]
+            )
+        )
+
+    def toggle_auxiliary_panels(self):
+        """Toggle visibility of explorer and inspector panels."""
+        self._aux_panels_visible = not self._aux_panels_visible
+        editor_container = ConditionalContainer(
+            content=self.editor,
+            filter=Condition(lambda: self.owner.state.main_view == "editor"),
+        )
+        header_window = Window(
+            content=FormattedTextControl(text=lambda: self.header.text),
+            height=2,
+        )
+        explorer_container = ConditionalContainer(
+            content=VSplit(
+                [
+                    self.explorer,
+                    Window(width=1, char=self.owner.theme.vertical),
+                ]
+            ),
+            filter=Condition(lambda: self._aux_visible),
+        )
+        inspector_container = ConditionalContainer(
+            content=VSplit(
+                [
+                    Window(width=1, char=self.owner.theme.vertical),
+                    self.inspector,
+                ]
+            ),
+            filter=Condition(lambda: self._aux_visible),
+        )
+        body = VSplit(
+            [
+                explorer_container,
+                preview_container,
+                editor_container,
+                inspector_container,
             ]
         )
         return Layout(
@@ -156,5 +224,10 @@ class TerminalLayout(object):
         @bindings.add("escape")
         def _(event):
             self.owner.controller.close_aux_view()
+
+        @bindings.add("c-p")
+        def _(event):
+            self.toggle_auxiliary_panels()
+            event.app.invalidate()
 
         return bindings

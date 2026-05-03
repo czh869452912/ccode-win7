@@ -5,36 +5,33 @@
 See: .planning/PROJECT.md (updated 2026-05-03)
 
 **Core value:** The agent core reliably orchestrates LLM-driven development tasks through a stable harness system with explicit state management, permission controls, and durable session history
-**Current focus:** Milestone v0.1 shipped — planning next milestone
+**Current focus:** Milestone v0.2 — GUI & Harness Experience Refactor
 
 ## Current Position
 
-**Milestone:** v0.1 — SHIPPED ✓
-**Phase:** 4 of 4 (Framework) — COMPLETE
-**Status:** Archived
-**Last activity:** 2026-05-03 — Milestone v0.1 archived and tagged
+**Milestone:** v0.2 — GUI & Harness Experience Refactor
+**Phase:** 7 — Harness Refactor
+**Status:** Shipped
+**Last activity:** 2026-05-03 — PR #12 created and pushed
 
-Progress: [████████████] 100% (4 of 4 phases)
+Progress: [████████████] 100% (3 of 3 phases complete in v0.2)
+
+**Shipped:** PR #12 — https://github.com/czh869452912/ccode-win7/pull/12
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 16
-- Average duration: 32 min
-- Total execution time: ~8.5 hours
+- Total plans completed: 10
+- Average duration: 31 min
+- Total execution time: 313 min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 1. Foundation | 3/3 | 45 min | 15 min |
-| 2. Compile Environment | 4/4 | ~90 min | ~22 min |
-| 3. Architecture | 4/4 | ~150 min | ~37 min |
-| 4. Framework | 5/5 | ~120 min | ~24 min |
-
-**Recent Trend:**
-- Last 5 plans: 04-01 through 04-05 (Framework)
-- Trend: Steady execution with comprehensive test coverage
+| 5. Session Infrastructure | 4 | 4 | 40 min |
+| 6. GUI Experience | 3 | 3 | 25 min |
+| 7. Harness Refactor | 3 | 3 | 25 min |
 
 *Updated after each plan completion*
 
@@ -49,20 +46,26 @@ Recent decisions affecting current work:
 - Phase 2: Compile environment uses Python 3.8 stdlib only (subprocess, re, json, shlex)
 - Phase 3: Refactoring uses Facade + Strategy patterns with manual dependency injection
 - Phase 4: Framework improvements depend on stable architecture from Phase 3
+- v0.2: Flat Item[] over nested Turn→Step→ToolCall (Codex/Cline pattern)
+- v0.2: Schema-v2 JSONL transcript with typed messages and parentUuid chain
+- v0.2: Best-effort session restore (single corrupted record should not block recovery)
+- v0.2: Mode as permission contract only (remove unconditional workflow injection)
 
 ### Pending Todos
 
-- [x] Execute Plan 01: Fix datetime.utcnow() deprecation (9 files) — COMPLETE
-- [x] Execute Plan 02: Fix bare except Exception blocks (16 files, 25 occurrences) — COMPLETE
-- [x] Execute Plan 03: Verify clean test output with zero deprecation warnings — COMPLETE
-- [x] Phase 2: Compile Environment — COMPLETE
-- [x] Phase 3: Architecture — COMPLETE
-- [x] Phase 4: Framework — COMPLETE
-  - [x] Plan 04-01: Shadow Git automatic workspace snapshots
-  - [x] Plan 04-02: LLM resilience with circuit breaker and token tracking
-  - [x] Plan 04-03: 3-tier tool result caching
-  - [x] Plan 04-04: Multi-search-replace diff engine with fuzzy matching
-  - [x] Plan 04-05: Execution tracing and state machine documentation
+- [x] Phase 5: Session Infrastructure
+  - [x] Task 5-01: Transcript format upgrade (schema_version=2)
+  - [x] Task 5-02: Session restore fault tolerance
+  - [x] Task 5-03: History assembler flat timeline
+  - [x] Task 5-04: Integration validation
+- [x] Phase 6: GUI Experience
+  - [x] Task 6-01: Timeline flat rendering
+  - [x] Task 6-02: DiffView upgrade
+  - [x] Task 6-03: Real-time streaming updates
+- [x] Phase 7: Harness Refactor
+  - [x] Task 7-01: Mode permission contract
+  - [x] Task 7-02: Completion signal mechanism
+  - [x] Task 7-03: Guard-based safety
 
 ### Blockers/Concerns
 
@@ -71,9 +74,19 @@ None yet.
 ### Quick Tasks Completed
 
 | # | Description | Date | Commit | Directory |
-|---|-------------|------|--------|-----------|
-| 20260502-001 | Fix InProcessAdapter backward compatibility - make client and tools optional | 2026-05-02 | 372ac83 | [quick task] |
-| 20260502-002 | Fix tracking data quality: update ROADMAP and STATE for Phases 2-3 | 2026-05-02 | 9114f44 | [fast fix] |
+|---|---|-------------|------|--------|-----------|
+| 20260503-001 | GUI & Harness design exploration + reference engineering research | 2026-05-03 | — | .planning/ |
+| 20260503-002 | Phase 5 planning — 4 plans created (transcript v2, restore, flat timeline, integration) | 2026-05-03 | — | .planning/phases/05-session-infrastructure/ |
+| 20260503-003 | Plan 05-02: Session restore fault tolerance (best_effort mode) | 2026-05-03 | 967e019, 0715043 | src/embedagent/session_restore.py, tests/test_session_restore.py |
+| 20260503-004 | Plan 05-01: Transcript format upgrade (schema_version=2) | 2026-05-03 | ca9ee3c, 1156a36, a7cd81a | src/embedagent/transcript_store.py, src/embedagent/session.py, src/embedagent/query_engine.py, tests/test_transcript_store.py |
+| 20260503-005 | Plan 05-03: History assembler flat timeline (build_flat_timeline) | 2026-05-03 | 92b66b8, bdb3f90 | src/embedagent/session_history.py, tests/test_session_history.py |
+| 20260503-006 | Plan 05-04: Integration validation (21 tests: 8 integration + 5 performance + 8 fault injection) | 2026-05-03 | 71d6031 | tests/test_session_integration.py, tests/test_session_performance.py, tests/test_session_fault_injection.py |
+| 20260503-007 | Plan 06-01: Timeline flat rendering (FlatTimelineView, inline tool cards, layout 70%+, 5 tests) | 2026-05-03 | 9162f9e, 96cb274, 610e6b9, c7e4977, f401f08 | src/embedagent/frontend/tui/views/timeline.py, src/embedagent/frontend/tui/frontend_adapter.py, src/embedagent/frontend/tui/layout.py, tests/test_gui_timeline_flat.py |
+| 20260503-008 | Plan 06-02: DiffView upgrade (line numbers, gutter markers, syntax highlighting, dark/light theme, 5 tests) | 2026-05-03 | 8691175 | src/embedagent/frontend/tui/views/diff.py, src/embedagent/frontend/tui/theme.py, tests/test_gui_diff_view.py |
+| 20260503-009 | Plan 06-03: Real-time streaming updates (item.updated/completed handlers, incremental output, 5 tests) | 2026-05-03 | 77959c4 | src/embedagent/frontend/tui/frontend_adapter.py, tests/test_gui_streaming.py |
+| 20260503-010 | Plan 07-01: Mode permission contract (PermissionContract, conditional harness injection, 9 tests) | 2026-05-03 | 33b5f24 | src/embedagent/modes.py, src/embedagent/query_engine.py, src/embedagent/harness/task_graph.py, tests/test_harness_mode_contract.py |
+| 20260503-011 | Plan 07-02: Completion signal (_is_completion_signal, soft max_turns, 4 tests) | 2026-05-03 | 3bdd671 | src/embedagent/query_engine.py, tests/test_harness_completion_signal.py |
+| 20260503-012 | Plan 07-03: Guard-based safety (LoopGuard enhanced, repeated tool calls, user override, 5 tests) | 2026-05-03 | 3bdd671 | src/embedagent/guard.py, src/embedagent/query_engine.py, tests/test_harness_guard_safety.py |
 
 ## Deferred Items
 
@@ -86,7 +99,7 @@ Items acknowledged and carried forward from previous milestone close:
 ## Session Continuity
 
 Last session: 2026-05-03
-Stopped at: Milestone v0.1 archived and tagged
+Stopped at: Completed 07-02-PLAN.md and 07-03-PLAN.md
 Resume file: None
 
 ## Milestone History
@@ -94,3 +107,4 @@ Resume file: None
 | Milestone | Date | Phases | Status |
 |-----------|------|--------|--------|
 | v0.1 | 2026-05-02 | 1-4 | SHIPPED |
+| v0.2 | 2026-05-03 | 5-7 | SHIPPED |

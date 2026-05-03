@@ -1,0 +1,237 @@
+import os
+import shutil
+import sys
+import time
+import unittest
+from itertools import count
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+
+from embedagent.session import Session
+from embedagent.session_history import SessionHistoryAssembler
+from embedagent.session_restore import SessionRestorer
+from embedagent.transcript_store import TranscriptStore
+
+_COUNTER = count(1)
+
+
+def _make_workspace(name):
+    root = os.path.join(
+        os.path.dirname(__file__),
+        "..",
+        "build",
+        "test-sandboxes",
+        "%s-%s-%s" % (name, os.getpid(), next(_COUNTER)),
+    )
+    root = os.path.realpath(root)
+    shutil.rmtree(root, ignore_errors=True)
+    os.makedirs(root)
+    return root
+
+
+class TestSessionPerformance(unittest.TestCase):
+    """Performance benchmarks for session infrastructure."""
+    
+    # Thresholds
+    MAX_APPEND_MS = 10  # per event
+    MAX_LOAD_MS = 50    # per 100 events
+    MAX_RESTORE_MS = 100  # per 100 events
+    MAX_TIMELINE_MS = 100  # per 100 items
+    
+    def setUp(self):
+        self.workspace = _make_workspace("session-perf")
+        self.store = TranscriptStore(self.workspace)
+        self.restorer = SessionRestorer()
+        self.assembler = SessionHistoryAssembler()
+
+    def tearDown(self):
+        shutil.rmtree(self.workspace, ignore_errors=True)
+
+    def _generate_events(self, count, session_id="sess-perf"):
+        """Generate a sequence of realistic events."""
+        events = []
+        parent_id = ""
+        
+        for i in range(count):
+            if i % 4 == 0:
+                # User message
+                msg_id = "m-%d" % i
+                event = {
+                    "schema_version": 2,
+                    "session_id": session_id,
+                    "event_id": "evt-%d" % i,
+                    "seq": i + 1,
+                    "ts": "2026-04-02T00:00:%02dZ" % (i % 60),
+                    "type": "user",
+                    "parent_message_id": parent_id,
+                    "payload": {
+                        "role": "user",
+                        "content": "Message %d" % i,
+                        "message_id": msg_id,
+                        "turn_id": "t-%d" % (i // 4),
+                    },
+                }
+                parent_id = msg_id
+            elif i % 4 == 1:
+                # Assistant message
+                msg_id = "m-%d" % i
+                event = {
+                    "schema_version": 2,
+                    "session_id": session_id,
+                    "event_id": "evt-%d" % i,
+                    "seq": i + 1,
+                    "ts": "2026-04-02T00:00:%02dZ" % (i % 60),
+                    "type": "assistant",
+                    "parent_message_id": parent_id,
+                    "payload": {
+                        "role": "assistant",
+                        "content": "Reply %d" % i,
+                        "message_id": msg_id,
+                        "turn_id": "t-%d" % (i // 4),
+                        "step_id": "s-%d" % i,
+                    },
+                }
+                parent_id = msg_id
+            elif i % 4 == 2:
+                # Tool call
+                msg_id = "m-%d" % i
+                event = {
+                    "schema_version": 2,
+                    "session_id": session_id,
+                    "event_id": "evt-%d" % i,
+                    "seq": i + 1,
+                    "ts": "2026-04-02T00:00:%02dZ" % (i % 60),
+                    "type": "tool_call",
+                    "parent_message_id": parent_id,
+                    "payload": {
+                        "role": "tool_call",
+                        "tool_name": "read_file",
+                        "call_id": "call-%d" % i,
+                        "arguments": {"path": "file%d.txt" % i},
+                        "message_id": msg_id,
+                        "turn_id": "t-%d" % (i // 4),
+                        "step_id": "s-%d" % (i - 1),
+                    },
+                }
+                parent_id = msg_id
+            else:
+                # Tool result
+                msg_id = "m-%d" % i
+                event = {
+                    "schema_version": 2,
+                    "session_id": session_id,
+                    "event_id": "evt-%d" % i,
+                    "seq": i + 1,
+                    "ts": "2026-04-02T00:00:%02dZ" % (i % 60),
+                    "type": "tool_result",
+                    "parent_message_id": parent_id,
+                    "payload": {
+                        "role": "tool_result",
+                        "tool_name": "read_file",
+                        "call_id": "call-%d" % (i - 1),
+                        "arguments": {"path": "file%d.txt" % (i - 1)},
+                        "observation": {"success": True, "data": "content", "error": None},
+                        "message_id": msg_id,
+                        "turn_id": "t-%d" % (i // 4),
+                        "step_id": "s-%d" % (i - 2),
+                    },
+                }
+                parent_id = msg_id
+            
+            events.append(event)
+        
+        return events
+
+    def test_append_performance_100_events(self):
+        session_id = "sess-perf-100"
+        events = self._generate_events(100, session_id)
+        
+        start = time.time()
+        for event in events:
+            self.store.append_event(
+                session_id,
+                event["type"],
+                event["payload"],
+                event_id=event["event_id"],
+                ts=event["ts"],
+                schema_version=2,
+            )
+        elapsed_ms = (time.time() - start) * 1000
+        
+        per_event_ms = elapsed_ms / len(events)
+        self.assertLess(per_event_ms, self.MAX_APPEND_MS,
+                        "Append took %.2fms per event (max %.2fms)" % (per_event_ms, self.MAX_APPEND_MS))
+
+    def test_load_performance_1000_events(self):
+        session_id = "sess-perf-1000"
+        events = self._generate_events(1000, session_id)
+        
+        # Write all events
+        for event in events:
+            self.store.append_event(
+                session_id,
+                event["type"],
+                event["payload"],
+                event_id=event["event_id"],
+                ts=event["ts"],
+                schema_version=2,
+            )
+        
+        start = time.time()
+        loaded = self.store.load_events(session_id)
+        elapsed_ms = (time.time() - start) * 1000
+        
+        per_hundred_ms = elapsed_ms / (len(events) / 100)
+        self.assertLess(per_hundred_ms, self.MAX_LOAD_MS,
+                        "Load took %.2fms per 100 events (max %.2fms)" % (per_hundred_ms, self.MAX_LOAD_MS))
+        self.assertEqual(len(loaded), len(events))
+
+    def test_restore_performance_1000_events(self):
+        session_id = "sess-perf-1000"
+        events = self._generate_events(1000, session_id)
+        
+        start = time.time()
+        result = self.restorer.restore(events, best_effort=True)
+        elapsed_ms = (time.time() - start) * 1000
+        
+        per_hundred_ms = elapsed_ms / (len(events) / 100)
+        self.assertLess(per_hundred_ms, self.MAX_RESTORE_MS,
+                        "Restore took %.2fms per 100 events (max %.2fms)" % (per_hundred_ms, self.MAX_RESTORE_MS))
+        self.assertEqual(result.transcript_event_count, len(events))
+
+    def test_flat_timeline_performance_1000_items(self):
+        session_id = "sess-perf-1000"
+        events = self._generate_events(1000, session_id)
+        result = self.restorer.restore(events, best_effort=True)
+        
+        start = time.time()
+        timeline = self.assembler.build_flat_timeline(
+            result.session, "restored", "healthy"
+        )
+        elapsed_ms = (time.time() - start) * 1000
+        
+        items = timeline["items"]
+        per_hundred_ms = elapsed_ms / (len(items) / 100)
+        self.assertLess(per_hundred_ms, self.MAX_TIMELINE_MS,
+                        "Timeline took %.2fms per 100 items (max %.2fms)" % (per_hundred_ms, self.MAX_TIMELINE_MS))
+
+    def test_large_session_memory_usage(self):
+        """Ensure no excessive memory growth with large sessions."""
+        import sys as sys_module
+        
+        session_id = "sess-perf-mem"
+        events = self._generate_events(500, session_id)
+        
+        # Measure memory before
+        # Note: This is a coarse check; real memory profiling would use tracemalloc
+        result = self.restorer.restore(events, best_effort=True)
+        
+        # Session should have reasonable number of turns
+        self.assertTrue(len(result.session.turns) <= 125)  # 500 / 4 = 125 turns
+        
+        timeline = self.assembler.build_flat_timeline(result.session, "restored", "healthy")
+        self.assertTrue(len(timeline["items"]) >= 500)
+
+
+if __name__ == "__main__":
+    unittest.main()

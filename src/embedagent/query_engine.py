@@ -2,6 +2,7 @@ from __future__ import annotations  # noqa: I001
 
 import logging
 import os
+import re
 import threading
 import time
 import uuid
@@ -23,6 +24,7 @@ from embedagent.strategies.execution_tracer import ExecutionTracer, TraceEventTy
 from embedagent.strategies.llm_retry_wrapper import LLMClientRetryWrapper
 from embedagent.strategies.turn_orchestrator import TurnOrchestrator
 from embedagent.memory_maintenance import MemoryMaintenance
+from embedagent.harness.task_graph import TaskGraph
 from embedagent.modes import DEFAULT_MODE, build_system_prompt, is_path_writable, require_mode
 from embedagent.permissions import PermissionPolicy, PermissionRequest
 from embedagent.project_memory import ProjectMemoryStore
@@ -155,11 +157,20 @@ class QueryEngine(object):
         return self._session_lock
 
     def _append_transcript_event(
-        self, session: Session, event_type: str, payload: Dict[str, Any]
+        self, session: Session, event_type: str, payload: Dict[str, Any], schema_version: int = 1
     ) -> None:
         if self.transcript_store is None:
             return
-        self.transcript_store.append_event(session.session_id, event_type, payload)
+        self.transcript_store.append_event(session.session_id, event_type, payload, schema_version=schema_version)
+
+    def _emit_lifecycle_event(
+        self, session: Session, event_type: str, payload: Dict[str, Any]
+    ) -> None:
+        """Emit a schema_v2 lifecycle event; failures are logged but not blocking."""
+        try:
+            self._append_transcript_event(session, event_type, payload, schema_version=2)
+        except (OSError, ValueError, TypeError) as exc:  # pragma: no cover
+            _LOG.warning("lifecycle event emission failed (%s): %s", event_type, exc)
 
     def _append_message_event(self, session: Session, payload: Dict[str, Any]) -> None:
         self._append_transcript_event(session, "message", payload)
@@ -260,6 +271,38 @@ class QueryEngine(object):
             return current_mode, None
         return current_mode, self.tools.describe_mode(current_mode, workflow_state=workflow_state)
 
+    def _should_inject_harness(self, user_text: str, current_mode: str) -> bool:
+        """Determine if harness context should be injected.
+
+        Harness context (task graph, execution phases) should only be
+        injected when the user is explicitly requesting work, not for
+        casual conversation like 'hi' or 'what can you do?'.
+        """
+        # Never inject for explore or verify modes
+        if current_mode in ("explore", "verify"):
+            return False
+
+        # Check for explicit work indicators in user text
+        work_indicators = [
+            "build", "compile", "fix", "debug", "implement",
+            "create", "write", "generate", "refactor", "optimize",
+            "test", "verify", "check", "run", "execute",
+        ]
+
+        text_lower = (user_text or "").lower()
+        has_work_indicator = any(ind in text_lower for ind in work_indicators)
+
+        # Check for explicit non-work patterns
+        chat_patterns = [
+            r"^\s*hi\b", r"^\s*hello\b", r"^\s*hey\b",
+            r"what can you do", r"who are you", r"help\s*$",
+            r"^\s*thanks?\b", r"^\s*ok\b", r"^\s*bye\b",
+        ]
+        is_chat = any(re.search(pattern, text_lower) for pattern in chat_patterns)
+
+        # Inject harness only if work indicator present and not chat
+        return has_work_indicator and not is_chat
+
     def _allowed_tools_for_mode(self, mode_name: str, workflow_state: str = "chat") -> set:
         return set(self.tools.allowed_tool_names(mode_name, workflow_state=workflow_state))
 
@@ -308,12 +351,16 @@ class QueryEngine(object):
             )
 
     def initialize_session(
-        self, session: Session, initial_mode: str, workflow_state: str = "chat"
+        self, session: Session, initial_mode: str, workflow_state: str = "chat", user_text: str = ""
     ) -> str:
         current_mode = require_mode(initial_mode)["slug"]
-        current_mode, harness_context = self._run_harness_mode(
-            current_mode, session, workflow_state=workflow_state
-        )
+        # Only inject harness context if user text indicates work
+        if self._should_inject_harness(user_text, current_mode):
+            current_mode, harness_context = self._run_harness_mode(
+                current_mode, session, workflow_state=workflow_state
+            )
+        else:
+            harness_context = None
         if session.messages:
             self._ensure_transcript_bootstrap(session, current_mode)
             with self._session_guard():
@@ -355,11 +402,15 @@ class QueryEngine(object):
             self._append_harness_messages(session, harness_context)
         return current_mode
 
-    def apply_mode(self, session: Session, next_mode: str, workflow_state: str = "chat") -> str:
+    def apply_mode(self, session: Session, next_mode: str, workflow_state: str = "chat", user_text: str = "") -> str:
         current_mode = require_mode(next_mode)["slug"]
-        current_mode, harness_context = self._run_harness_mode(
-            current_mode, session, workflow_state=workflow_state
-        )
+        # Only inject harness context if user text indicates work
+        if self._should_inject_harness(user_text, current_mode):
+            current_mode, harness_context = self._run_harness_mode(
+                current_mode, session, workflow_state=workflow_state
+            )
+        else:
+            harness_context = None
         with self._session_guard():
             mode_message = session.add_system_message(
                 build_system_prompt(
@@ -612,7 +663,11 @@ class QueryEngine(object):
         if session is None:
             with self._session_guard():
                 session = Session()
-        current_mode = self.initialize_session(session, initial_mode, workflow_state=workflow_state)
+        current_mode = self.initialize_session(session, initial_mode, workflow_state=workflow_state, user_text=user_text)
+
+        # Only create task graph for explicit work requests
+        if session.task_graph.is_empty() and self._should_inject_harness(user_text, current_mode):
+            session.task_graph = TaskGraph.from_user_request(user_text, current_mode)
 
         turn_id = getattr(session, "current_turn_id", "") or "t-" + uuid.uuid4().hex[:12]
         session_id = getattr(session, "session_id", "") or ""
@@ -705,7 +760,7 @@ class QueryEngine(object):
         if session is None:
             with self._session_guard():
                 session = Session()
-        current_mode = self.initialize_session(session, initial_mode, workflow_state=workflow_state)
+        current_mode = self.initialize_session(session, initial_mode, workflow_state=workflow_state, user_text=user_text)
         with self._session_guard():
             command_turn_id = str(turn_id or ("t-" + uuid.uuid4().hex[:12]))
             if user_text:
@@ -876,6 +931,20 @@ class QueryEngine(object):
             user_input_handler,
         )
 
+    def _is_completion_signal(self, reply, session) -> bool:
+        """Detect if agent is signaling task completion.
+
+        Signals:
+        - finish_reason == "completed" or "stop"
+        - No tool calls requested
+        - Content contains completion markers
+        """
+        if reply.finish_reason in ("completed", "stop"):
+            return True
+        if not reply.actions:
+            return True
+        return False
+
     def _run_loop(
         self,
         session: Session,
@@ -1040,10 +1109,10 @@ class QueryEngine(object):
                         record.presentation = presentation
             final_text = reply.content
             turns_used = step_index
-            if not reply.actions:
+            if self._is_completion_signal(reply, session):
                 transition = LoopTransition(
                     reason="completed",
-                    message="assistant finished",
+                    message="agent signaled completion",
                     next_mode=current_mode,
                     turns_used=turns_used,
                 )
@@ -1085,6 +1154,21 @@ class QueryEngine(object):
                     for action in batch.actions:
                         if on_tool_start is not None:
                             on_tool_start(action)
+                        self._emit_lifecycle_event(
+                            session,
+                            "tool_use",
+                            {
+                                "role": "tool_use",
+                                "tool_name": action.name,
+                                "call_id": action.call_id,
+                                "arguments": dict(action.arguments),
+                                "message_id": "m-tool-use-" + uuid.uuid4().hex[:12],
+                                "parent_message_id": session.last_message_id(),
+                                "turn_id": session.turns[-1].turn_id if session.turns else "",
+                                "step_id": session.current_step().step_id if session.current_step() else "",
+                                "status": "started",
+                            },
+                        )
                         interrupted = bool(stop_event is not None and stop_event.is_set())
                         suspended = None
                         if interrupted:
@@ -1111,6 +1195,21 @@ class QueryEngine(object):
                             ):
                                 interrupted = True
                                 observation = self._interrupted_observation(action.name)
+                        self._emit_lifecycle_event(
+                            session,
+                            "command_execution",
+                            {
+                                "role": "command_execution",
+                                "call_id": action.call_id,
+                                "tool_name": action.name,
+                                "output_chunk": str(observation.data) if observation.data else "",
+                                "message_id": "m-cmd-" + uuid.uuid4().hex[:12],
+                                "parent_message_id": session.last_message_id(),
+                                "turn_id": session.turns[-1].turn_id if session.turns else "",
+                                "step_id": session.current_step().step_id if session.current_step() else "",
+                                "status": "updated",
+                            },
+                        )
                         self._record_tool_observation(
                             session,
                             action,
@@ -1148,6 +1247,21 @@ class QueryEngine(object):
                     if update.phase == "start":
                         if on_tool_start is not None:
                             on_tool_start(update.action)
+                        self._emit_lifecycle_event(
+                            session,
+                            "tool_use",
+                            {
+                                "role": "tool_use",
+                                "tool_name": update.action.name,
+                                "call_id": update.action.call_id,
+                                "arguments": dict(update.action.arguments),
+                                "message_id": "m-tool-use-" + uuid.uuid4().hex[:12],
+                                "parent_message_id": session.last_message_id(),
+                                "turn_id": session.turns[-1].turn_id if session.turns else "",
+                                "step_id": session.current_step().step_id if session.current_step() else "",
+                                "status": "started",
+                            },
+                        )
                         if stop_event is not None and stop_event.is_set():
                             batch_interrupted = True
                             executor.discard()
@@ -1187,6 +1301,21 @@ class QueryEngine(object):
                             batch_interrupted = True
                             executor.discard()
                             observation = self._interrupted_observation(update.action.name)
+                    self._emit_lifecycle_event(
+                        session,
+                        "command_execution",
+                        {
+                            "role": "command_execution",
+                            "call_id": update.action.call_id,
+                            "tool_name": update.action.name,
+                            "output_chunk": str(observation.data) if observation.data else "",
+                            "message_id": "m-cmd-" + uuid.uuid4().hex[:12],
+                            "parent_message_id": session.last_message_id(),
+                            "turn_id": session.turns[-1].turn_id if session.turns else "",
+                            "step_id": session.current_step().step_id if session.current_step() else "",
+                            "status": "updated",
+                        },
+                    )
                     if (
                         isinstance(observation.data, dict)
                         and observation.data.get("error_kind") == "discarded"
@@ -1204,7 +1333,10 @@ class QueryEngine(object):
                     loop_guard.record(update.action, observation)
                     if batch_interrupted:
                         continue
-                    if loop_guard.should_block(update.action) or loop_guard.should_stop():
+                    # For parallel batches, only check should_stop (consecutive failures)
+                    # during the batch. should_block (repeated tool calls) is checked
+                    # at batch boundaries to avoid blocking legitimate parallel usage.
+                    if loop_guard.should_stop():
                         transition = LoopTransition(
                             reason="guard_stop",
                             message=loop_guard.stop_reason(),
@@ -1229,7 +1361,9 @@ class QueryEngine(object):
             if on_step_finish is not None:
                 on_step_finish(step_index, reply, "tool_calls")
         transition = LoopTransition(
-            reason="max_turns", message="超过最大迭代次数", turns_used=turns_used
+            reason="max_turns",
+            message="reached max turns without completion signal",
+            turns_used=turns_used,
         )
         self._record_transition(session, transition)
         return QueryTurnResult(final_text, session, transition, turns_used)
@@ -1489,6 +1623,21 @@ class QueryEngine(object):
             )
         decision = self.permission_policy.evaluate(runtime_action)
         if decision.outcome == "deny":
+            self._emit_lifecycle_event(
+                session,
+                "interaction",
+                {
+                    "role": "interaction",
+                    "tool_name": action.name,
+                    "call_id": action.call_id,
+                    "message_id": "m-reject-" + uuid.uuid4().hex[:12],
+                    "parent_message_id": session.last_message_id(),
+                    "turn_id": session.turns[-1].turn_id if session.turns else "",
+                    "step_id": session.current_step().step_id if session.current_step() else "",
+                    "status": "rejected",
+                    "reason": "permission_denied",
+                },
+            )
             return (
                 self._failure_observation(
                     action.name,
@@ -1542,6 +1691,21 @@ class QueryEngine(object):
                     QueryTurnResult("", session, transition, pending_interaction=pending),
                 )
             if not approved:
+                self._emit_lifecycle_event(
+                    session,
+                    "interaction",
+                    {
+                        "role": "interaction",
+                        "tool_name": action.name,
+                        "call_id": action.call_id,
+                        "message_id": "m-reject-" + uuid.uuid4().hex[:12],
+                        "parent_message_id": session.last_message_id(),
+                        "turn_id": session.turns[-1].turn_id if session.turns else "",
+                        "step_id": session.current_step().step_id if session.current_step() else "",
+                        "status": "rejected",
+                        "reason": "permission_denied",
+                    },
+                )
                 return (
                     self._failure_observation(
                         action.name,

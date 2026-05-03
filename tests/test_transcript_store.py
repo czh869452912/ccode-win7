@@ -193,6 +193,98 @@ class TestTranscriptStore(unittest.TestCase):
         self.assertEqual(events[-2]["payload"]["content"], "message-1")
         self.assertEqual(events[-1]["payload"]["content"], "message-2")
 
+    def test_append_event_schema_v2_format(self):
+        store = TranscriptStore(self.workspace)
+        event = store.append_event(
+            "sess-v2",
+            "user",
+            {"role": "user", "content": "hi", "parent_message_id": ""},
+            schema_version=2,
+        )
+        self.assertEqual(event["schema_version"], 2)
+        self.assertEqual(event["type"], "user")
+        self.assertIn("parent_message_id", event)
+        events = store.load_events("sess-v2")
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0]["schema_version"], 2)
+        self.assertEqual(events[0]["type"], "user")
+        self.assertIn("parent_message_id", events[0])
+
+    def test_load_events_normalizes_schema_v1(self):
+        store = TranscriptStore(self.workspace)
+        path = store.resolve_transcript_path("sess-v1")
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as handle:
+            handle.write(
+                '{"schema_version":1,"session_id":"sess-v1","event_id":"evt-1","seq":1,"ts":"2026-04-04T00:00:00Z","type":"message","payload":{"role":"user","content":"hello","message_id":"m-1"}}\n'
+            )
+        events = store.load_events("sess-v1")
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0]["schema_version"], 2)
+        self.assertEqual(events[0]["type"], "user")
+
+    def test_mixed_schema_v1_and_v2_readable(self):
+        store = TranscriptStore(self.workspace)
+        path = store.resolve_transcript_path("sess-mixed")
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as handle:
+            handle.write(
+                '{"schema_version":1,"session_id":"sess-mixed","event_id":"evt-1","seq":1,"ts":"2026-04-04T00:00:00Z","type":"message","payload":{"role":"user","content":"v1","message_id":"m-1"}}\n'
+            )
+            handle.write(
+                '{"schema_version":2,"session_id":"sess-mixed","event_id":"evt-2","seq":2,"ts":"2026-04-04T00:00:01Z","type":"assistant","parent_message_id":"m-1","payload":{"role":"assistant","content":"v2","message_id":"m-2"}}\n'
+            )
+        events = store.load_events("sess-mixed")
+        self.assertEqual(len(events), 2)
+        self.assertEqual(events[0]["schema_version"], 2)
+        self.assertEqual(events[0]["type"], "user")
+        self.assertEqual(events[1]["schema_version"], 2)
+        self.assertEqual(events[1]["type"], "assistant")
+        self.assertEqual(events[1]["parent_message_id"], "m-1")
+
+    def test_validate_transcript_chain_valid(self):
+        store = TranscriptStore(self.workspace)
+        store.append_event(
+            "sess-valid",
+            "user",
+            {"role": "user", "content": "first", "message_id": "m-1", "parent_message_id": ""},
+            schema_version=2,
+        )
+        store.append_event(
+            "sess-valid",
+            "assistant",
+            {"role": "assistant", "content": "second", "message_id": "m-2", "parent_message_id": "m-1"},
+            schema_version=2,
+        )
+        store.append_event(
+            "sess-valid",
+            "user",
+            {"role": "user", "content": "third", "message_id": "m-3", "parent_message_id": "m-2"},
+            schema_version=2,
+        )
+        result = store.validate_transcript_chain("sess-valid")
+        self.assertTrue(result["valid"])
+        self.assertEqual(result["breaks"], [])
+
+    def test_validate_transcript_chain_broken(self):
+        store = TranscriptStore(self.workspace)
+        store.append_event(
+            "sess-broken",
+            "user",
+            {"role": "user", "content": "first", "message_id": "m-1", "parent_message_id": ""},
+            schema_version=2,
+        )
+        store.append_event(
+            "sess-broken",
+            "assistant",
+            {"role": "assistant", "content": "second", "message_id": "m-2", "parent_message_id": "m-nonexistent"},
+            schema_version=2,
+        )
+        result = store.validate_transcript_chain("sess-broken")
+        self.assertFalse(result["valid"])
+        self.assertEqual(len(result["breaks"]), 1)
+        self.assertIn("parent_not_found", result["breaks"][0]["reason"])
+
 
 if __name__ == "__main__":
     unittest.main()
