@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 from typing import Dict, List, Set
 
-from embedagent.tools._base import SKIP_DIR_NAMES
+from embedagent.constants import SKIP_DIR_NAMES
 from embedagent.workspace_recipes import list_workspace_recipes
 
 _DOC_DIR_NAMES = {

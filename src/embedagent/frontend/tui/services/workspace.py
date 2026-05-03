@@ -4,7 +4,7 @@ import difflib
 import os
 from typing import Any, Dict
 
-from embedagent.tools._base import SKIP_DIR_NAMES, TEXT_ENCODINGS
+from embedagent.constants import SKIP_DIR_NAMES, TEXT_ENCODINGS
 
 
 class WorkspaceService(object):

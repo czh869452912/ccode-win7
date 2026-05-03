@@ -6,7 +6,7 @@ import logging
 import os
 from typing import Any, Dict, Optional
 
-from embedagent.tools._base import SKIP_DIR_NAMES
+from embedagent.constants import SKIP_DIR_NAMES
 
 logger = logging.getLogger(__name__)
 
