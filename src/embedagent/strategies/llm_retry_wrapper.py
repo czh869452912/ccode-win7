@@ -92,7 +92,7 @@ class LLMClientRetryWrapper(object):
                         )
                     else:
                         reply = self.client.generate(current_messages, tools=tools)
-                
+
                 # Track token usage if tracker is configured
                 if self.token_tracker is not None:
                     usage = reply.usage or {}
@@ -101,7 +101,7 @@ class LLMClientRetryWrapper(object):
                         usage.get("completion_tokens", 0),
                         usage.get("total_tokens", 0),
                     )
-                
+
                 if on_reasoning_delta and reply.reasoning_content:
                     on_reasoning_delta(reply.reasoning_content)
                 if on_text_delta and reply.content:
@@ -120,9 +120,7 @@ class LLMClientRetryWrapper(object):
                     and not compact_retry_used
                     and self.compaction_engine is not None
                 ):
-                    _LOG.warning(
-                        "LLM context-length error detected; compacting and retrying"
-                    )
+                    _LOG.warning("LLM context-length error detected; compacting and retrying")
                     current_messages = self.compaction_engine.compact(current_messages)
                     compact_retry_used = True
                     continue
@@ -133,7 +131,7 @@ class LLMClientRetryWrapper(object):
                 if attempt >= self.max_retries - 1:
                     raise
 
-                delay = self.base_delay * (2 ** attempt) + random.uniform(0, 0.5)
+                delay = self.base_delay * (2**attempt) + random.uniform(0, 0.5)
                 _LOG.warning(
                     "LLM call failed (attempt %d/%d), retrying in %.1fs: %s",
                     attempt + 1,

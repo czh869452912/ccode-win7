@@ -1,4 +1,5 @@
 """Tests for embedagent.modes module."""
+
 import os
 import sys
 import unittest
@@ -198,5 +199,3 @@ class TestParseModeCommand(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-
-

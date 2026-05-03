@@ -16,7 +16,9 @@ def build_tools(ctx: ToolContext) -> List[ToolDefinition]:
         if relative_arg:
             command.extend(["--", relative_arg])
         result = ctx.run_git_command(command)
-        observation = ctx.build_command_observation("git_status", " ".join(command), ctx.workspace, result)
+        observation = ctx.build_command_observation(
+            "git_status", " ".join(command), ctx.workspace, result
+        )
         if not observation.success:
             return observation
         lines = [line for line in result["stdout"].splitlines() if line]
@@ -44,17 +46,21 @@ def build_tools(ctx: ToolContext) -> List[ToolDefinition]:
         if relative_arg:
             command.extend(["--", relative_arg])
         result = ctx.run_git_command(command)
-        observation = ctx.build_command_observation("git_diff", " ".join(command), ctx.workspace, result)
+        observation = ctx.build_command_observation(
+            "git_diff", " ".join(command), ctx.workspace, result
+        )
         if not observation.success:
             return observation
         diff_text = result["stdout"]
-        observation.data.update({
-            "path": path_argument,
-            "scope": scope,
-            "file_count": diff_text.count("diff --git "),
-            "line_count": diff_text.count("\n") + (1 if diff_text else 0),
-            "diff": diff_text,
-        })
+        observation.data.update(
+            {
+                "path": path_argument,
+                "scope": scope,
+                "file_count": diff_text.count("diff --git "),
+                "line_count": diff_text.count("\n") + (1 if diff_text else 0),
+                "diff": diff_text,
+            }
+        )
         return observation
 
     def _git_log(arguments: Dict[str, Any]) -> Observation:
@@ -64,15 +70,21 @@ def build_tools(ctx: ToolContext) -> List[ToolDefinition]:
             raise ToolError("limit 必须大于 0。")
         relative_arg = ctx.git_relative_arg(path_argument)
         command = [
-            "git", "-C", ctx.workspace, "log",
+            "git",
+            "-C",
+            ctx.workspace,
+            "log",
             "--date=iso-strict",
             "--pretty=format:%H%x1f%an%x1f%ad%x1f%s%x1e",
-            "-n", str(limit),
+            "-n",
+            str(limit),
         ]
         if relative_arg:
             command.extend(["--", relative_arg])
         result = ctx.run_git_command(command)
-        observation = ctx.build_command_observation("git_log", " ".join(command), ctx.workspace, result)
+        observation = ctx.build_command_observation(
+            "git_log", " ".join(command), ctx.workspace, result
+        )
         if not observation.success:
             return observation
         entries = []
@@ -83,7 +95,9 @@ def build_tools(ctx: ToolContext) -> List[ToolDefinition]:
             parts = record.split("\x1f")
             if len(parts) != 4:
                 continue
-            entries.append({"commit": parts[0], "author": parts[1], "date": parts[2], "subject": parts[3]})
+            entries.append(
+                {"commit": parts[0], "author": parts[1], "date": parts[2], "subject": parts[3]}
+            )
         observation.data.update({"path": path_argument, "limit": limit, "entries": entries})
         return observation
 
@@ -148,7 +162,9 @@ def build_tools(ctx: ToolContext) -> List[ToolDefinition]:
                 data={"result": result, "action": action},
             )
         else:
-            raise ToolError("无效的 action：{}。可选值：create, list, restore, delete, cleanup".format(action))
+            raise ToolError(
+                "无效的 action：{}。可选值：create, list, restore, delete, cleanup".format(action)
+            )
 
     return [
         ToolDefinition(

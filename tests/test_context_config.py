@@ -1,4 +1,5 @@
 """Tests for context configuration and ReducerRegistry changes."""
+
 import os
 import sys
 import unittest
@@ -63,23 +64,32 @@ class TestReducerRegistryTasks(unittest.TestCase):
 
     def _make_policy(self):
         from embedagent.context import ContextConfig, ContextPolicy
+
         cfg = ContextConfig()
         overrides = cfg.mode_overrides.get("build", {})
         return ContextPolicy(
             mode_name="build",
             max_context_tokens=overrides.get("max_context_tokens", cfg.default_max_context_tokens),
-            reserve_output_tokens=overrides.get("reserve_output_tokens", cfg.default_reserve_output_tokens),
-            reserve_reasoning_tokens=overrides.get("reserve_reasoning_tokens", cfg.default_reserve_reasoning_tokens),
+            reserve_output_tokens=overrides.get(
+                "reserve_output_tokens", cfg.default_reserve_output_tokens
+            ),
+            reserve_reasoning_tokens=overrides.get(
+                "reserve_reasoning_tokens", cfg.default_reserve_reasoning_tokens
+            ),
             max_recent_turns=overrides.get("max_recent_turns", cfg.default_max_recent_turns),
             min_recent_turns=cfg.default_min_recent_turns,
             max_summary_turns=overrides.get("max_summary_turns", cfg.default_max_summary_turns),
-            recent_message_chars=overrides.get("recent_message_chars", cfg.default_recent_message_chars),
+            recent_message_chars=overrides.get(
+                "recent_message_chars", cfg.default_recent_message_chars
+            ),
             recent_tool_chars=overrides.get("recent_tool_chars", cfg.default_recent_tool_chars),
             summary_text_chars=overrides.get("summary_text_chars", cfg.default_summary_text_chars),
             summary_tool_chars=overrides.get("summary_tool_chars", cfg.default_summary_tool_chars),
             hard_message_chars=overrides.get("hard_message_chars", cfg.default_hard_message_chars),
             hard_tool_chars=overrides.get("hard_tool_chars", cfg.default_hard_tool_chars),
-            project_memory_chars=overrides.get("project_memory_chars", cfg.default_project_memory_chars),
+            project_memory_chars=overrides.get(
+                "project_memory_chars", cfg.default_project_memory_chars
+            ),
         )
 
     def test_official_task_reducer_registered(self):
@@ -146,7 +156,9 @@ class TestReducerRegistryTasks(unittest.TestCase):
     def test_reduce_report_quality_v2(self):
         policy = self._make_policy()
         data = {"passed": False, "error_count": 1, "warning_count": 2, "test_failures": 3}
-        result = self.registry.reduce_tool_data("report_quality_v2", data, detailed=False, policy=policy)
+        result = self.registry.reduce_tool_data(
+            "report_quality_v2", data, detailed=False, policy=policy
+        )
         self.assertFalse(result["passed"])
         self.assertEqual(result["error_count"], 1)
         self.assertEqual(result["test_failures"], 3)
@@ -189,4 +201,3 @@ class TestContextCompactionSignal(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

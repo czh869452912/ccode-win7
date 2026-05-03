@@ -26,14 +26,19 @@ class TestGuiLauncher(unittest.TestCase):
         )
         with tempfile.TemporaryDirectory() as workspace:
             real_workspace = os.path.realpath(workspace)
-            with patch("embedagent.config.load_config", return_value=app_config), \
-                 patch("embedagent.llm.OpenAICompatibleClient") as client_cls, \
-                 patch("embedagent.tools.ToolRuntime") as tools_cls, \
-                 patch("embedagent.context.make_context_config", return_value="context-config") as make_context_config, \
-                 patch("embedagent.context.ContextManager") as context_manager_cls, \
-                 patch("embedagent.project_memory.ProjectMemoryStore") as memory_store_cls, \
-                 patch("embedagent.permissions.PermissionPolicy") as permission_policy_cls, \
-                 patch("embedagent.core.adapter.AgentCoreAdapter") as adapter_cls:
+            with patch("embedagent.config.load_config", return_value=app_config), patch(
+                "embedagent.llm.OpenAICompatibleClient"
+            ) as client_cls, patch("embedagent.tools.ToolRuntime") as tools_cls, patch(
+                "embedagent.context.make_context_config", return_value="context-config"
+            ) as make_context_config, patch(
+                "embedagent.context.ContextManager"
+            ) as context_manager_cls, patch(
+                "embedagent.project_memory.ProjectMemoryStore"
+            ) as memory_store_cls, patch(
+                "embedagent.permissions.PermissionPolicy"
+            ) as permission_policy_cls, patch(
+                "embedagent.core.adapter.AgentCoreAdapter"
+            ) as adapter_cls:
                 core = gui_launcher.create_core(
                     workspace,
                     {
@@ -75,7 +80,9 @@ class TestGuiLauncher(unittest.TestCase):
     def test_main_accepts_workspace_option(self):
         with tempfile.TemporaryDirectory() as workspace:
             with patch.object(gui_launcher, "launch_gui") as launch_gui:
-                exit_code = gui_launcher.main(["--workspace", workspace, "--model", "qwen3.5-coder"])
+                exit_code = gui_launcher.main(
+                    ["--workspace", workspace, "--model", "qwen3.5-coder"]
+                )
         self.assertEqual(exit_code, 0)
         launch_gui.assert_called_once()
         self.assertEqual(launch_gui.call_args.kwargs["workspace"], os.path.abspath(workspace))
@@ -238,7 +245,9 @@ class TestWebSocketFrontend(unittest.TestCase):
 
     def test_dispatch_result_reason_is_logged_when_queueing_fails(self):
         frontend = WebSocketFrontend()
-        frontend._dispatcher.dispatch = lambda factory: type("Result", (), {"queued": False, "reason": "loop_closed", "__bool__": lambda self: False})()
+        frontend._dispatcher.dispatch = lambda factory: type(
+            "Result", (), {"queued": False, "reason": "loop_closed", "__bool__": lambda self: False}
+        )()
         with self.assertLogs("embedagent.frontend.gui.backend.server", level="ERROR") as captured:
             queued = frontend._dispatch_message({"type": "session_event", "data": {}})
         self.assertFalse(queued)
@@ -256,11 +265,15 @@ class TestWebSocketFrontend(unittest.TestCase):
                     break
             self.assertIsNotNone(route)
             websocket = _ReceiveErrorWebSocket(RuntimeError("boom"))
-            with self.assertLogs("embedagent.frontend.gui.backend.server", level="ERROR") as captured:
+            with self.assertLogs(
+                "embedagent.frontend.gui.backend.server", level="ERROR"
+            ) as captured:
                 asyncio.run(route.endpoint(websocket))
             self.assertTrue(websocket.accepted)
             self.assertNotIn(websocket, backend.frontend.connections)
-            self.assertTrue(any("Unhandled websocket failure" in entry for entry in captured.output))
+            self.assertTrue(
+                any("Unhandled websocket failure" in entry for entry in captured.output)
+            )
 
 
 class TestAgentCoreAdapterApi(unittest.TestCase):
@@ -314,4 +327,3 @@ class TestAgentCoreAdapterApi(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

@@ -2,6 +2,7 @@
 EmbedAgent GUI Launcher
 启动 PyWebView + FastAPI 后端
 """
+
 from __future__ import annotations
 
 import argparse
@@ -17,8 +18,7 @@ from embedagent.runtime_discovery import discover_bundle_root, running_from_bund
 
 # 配置日志
 logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 _LOGGER = logging.getLogger(__name__)
 
@@ -68,7 +68,11 @@ def create_core(workspace: str, config: Optional[Dict[str, Any]] = None):
 
     # 加载配置
     app_config = load_config(workspace)
-    base_url = str(_resolve_runtime_value(options.get("base_url"), app_config.base_url, "http://127.0.0.1:8000/v1"))
+    base_url = str(
+        _resolve_runtime_value(
+            options.get("base_url"), app_config.base_url, "http://127.0.0.1:8000/v1"
+        )
+    )
     api_key = str(_resolve_runtime_value(options.get("api_key"), app_config.api_key, ""))
     model = str(_resolve_runtime_value(options.get("model"), app_config.model, ""))
     timeout = float(_resolve_runtime_value(options.get("timeout"), app_config.timeout, 120.0))
@@ -117,6 +121,7 @@ def _detect_windows_renderer() -> Dict[str, Any]:
         return {"platform": sys.platform, "renderer": "non-win32"}
     try:
         import webview.platforms.winforms as winforms
+
         return {
             "platform": "win32",
             "renderer": str(getattr(winforms, "renderer", "unknown")),
@@ -207,8 +212,7 @@ def _configure_webview_runtime() -> Dict[str, Any]:
         )
     if not is_chromium or renderer != "edgechromium":
         raise RuntimeError(
-            "当前环境没有可用的 Chromium WebView。"
-            "GUI 不再回退到 IE11，请改用 TUI/CLI。"
+            "当前环境没有可用的 Chromium WebView。" "GUI 不再回退到 IE11，请改用 TUI/CLI。"
         )
     return {
         "runtime_path": runtime_path,
@@ -264,16 +268,22 @@ def launch_gui(
 
     import uvicorn
     import webview
+
     workspace = os.path.realpath(workspace)
-    runtime_info = _configure_webview_runtime() if sys.platform == "win32" else {
-        "runtime_path": "",
-        "runtime_source": "non-win32",
-        "bundle_required": False,
-    }
+    runtime_info = (
+        _configure_webview_runtime()
+        if sys.platform == "win32"
+        else {
+            "runtime_path": "",
+            "runtime_source": "non-win32",
+            "bundle_required": False,
+        }
+    )
 
     # 查找可用端口
     if port == 0:
         import socket
+
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.bind((host, 0))
         port = sock.getsockname()[1]
@@ -298,12 +308,10 @@ def launch_gui(
 
     try:
         # 创建 GUI Backend
-        static_dir = os.path.join(
-            os.path.dirname(__file__),
-            "static"
-        )
+        static_dir = os.path.join(os.path.dirname(__file__), "static")
 
         from embedagent.frontend.gui.backend.server import GUIBackend
+
         backend = GUIBackend(core=core, static_dir=static_dir)
 
         # 启动 FastAPI 服务器（在后台线程）
@@ -311,10 +319,7 @@ def launch_gui(
 
         def run_server():
             uvicorn.run(
-                backend.app,
-                host=host,
-                port=port,
-                log_level="warning" if not debug else "info"
+                backend.app, host=host, port=port, log_level="warning" if not debug else "info"
             )
 
         server_thread = threading.Thread(target=run_server, daemon=True)
@@ -348,7 +353,9 @@ def launch_gui(
 
         # 启用CDP调试端口（用于自动化测试）
         if cdp_port:
-            webview.settings["WEBVIEW2_ADDITIONAL_BROWSER_ARGS"] = f"--remote-debugging-port={cdp_port}"
+            webview.settings["WEBVIEW2_ADDITIONAL_BROWSER_ARGS"] = (
+                f"--remote-debugging-port={cdp_port}"
+            )
             _LOGGER.info(f"CDP debug port enabled: {cdp_port}")
 
         window = webview.create_window(
@@ -357,11 +364,12 @@ def launch_gui(
             width=1400,
             height=900,
             min_size=(800, 600),
-            **webview_settings
+            **webview_settings,
         )
 
         _LOGGER.info("Starting GUI...")
         if auto_close_seconds and auto_close_seconds > 0:
+
             def close_after_delay() -> None:
                 time.sleep(float(auto_close_seconds))
                 try:
@@ -380,24 +388,39 @@ def launch_gui(
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="EmbedAgent GUI")
     parser.add_argument("workspace", nargs="?", help="Workspace directory")
-    parser.add_argument("--workspace", dest="workspace_option", default="", help="Workspace directory")
+    parser.add_argument(
+        "--workspace", dest="workspace_option", default="", help="Workspace directory"
+    )
     parser.add_argument("--host", default="127.0.0.1", help="Server host")
     parser.add_argument("--port", type=int, default=0, help="Server port (0=auto)")
     parser.add_argument("--mode", default="build", help="Initial mode")
     parser.add_argument("--base-url", default="", help="Model service root URL")
     parser.add_argument("--api-key", default="", help="Model service API key")
     parser.add_argument("--model", default="", help="Model name")
-    parser.add_argument("--timeout", type=float, default=None, help="Model request timeout in seconds")
+    parser.add_argument(
+        "--timeout", type=float, default=None, help="Model request timeout in seconds"
+    )
     parser.add_argument("--max-turns", type=int, default=None, help="Maximum turns per session")
     parser.add_argument("--approve-all", action="store_true", help="Auto-approve all risky actions")
     parser.add_argument("--approve-writes", action="store_true", help="Auto-approve file writes")
-    parser.add_argument("--approve-commands", action="store_true", help="Auto-approve commands and toolchain runs")
+    parser.add_argument(
+        "--approve-commands", action="store_true", help="Auto-approve commands and toolchain runs"
+    )
     parser.add_argument("--permission-rules", default="", help="Permission rules file path")
-    parser.add_argument("--auto-close-seconds", type=float, default=None, help="Auto-close GUI window after N seconds")
-    parser.add_argument("--renderer-report", default="", help="Optional path to write renderer detection JSON")
+    parser.add_argument(
+        "--auto-close-seconds",
+        type=float,
+        default=None,
+        help="Auto-close GUI window after N seconds",
+    )
+    parser.add_argument(
+        "--renderer-report", default="", help="Optional path to write renderer detection JSON"
+    )
     parser.add_argument("--debug", action="store_true", help="Debug mode")
     parser.add_argument("--headless", action="store_true", help="Headless mode (no window)")
-    parser.add_argument("--cdp-port", type=int, default=None, help="CDP debug port for automation testing")
+    parser.add_argument(
+        "--cdp-port", type=int, default=None, help="CDP debug port for automation testing"
+    )
     return parser
 
 
@@ -442,4 +465,3 @@ def main(argv: Optional[list] = None) -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
-

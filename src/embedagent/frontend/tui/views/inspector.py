@@ -33,7 +33,11 @@ def build_inspector_text(state: TerminalState, summary, latest_reply: str):
             lines.append(latest_reply)
         else:
             lines.append("当前还没有可展示的 assistant 方案。")
-        tasks = state.workspace_snapshot.get("tasks") if isinstance(state.workspace_snapshot.get("tasks"), list) else None
+        tasks = (
+            state.workspace_snapshot.get("tasks")
+            if isinstance(state.workspace_snapshot.get("tasks"), list)
+            else None
+        )
         if tasks:
             lines.append("")
             lines.append("Tasks")
@@ -49,7 +53,9 @@ def build_inspector_text(state: TerminalState, summary, latest_reply: str):
             lines.append("当前没有 artifact。")
         else:
             for item in state.inspector.artifact_items:
-                lines.append("- %s (%s/%s)" % (item.path, item.tool_name or "-", item.field_name or "-"))
+                lines.append(
+                    "- %s (%s/%s)" % (item.path, item.tool_name or "-", item.field_name or "-")
+                )
         if state.inspector.selected_artifact_ref:
             lines.append("")
             lines.append("Selected")
@@ -70,15 +76,27 @@ def build_inspector_text(state: TerminalState, summary, latest_reply: str):
     lines.append("- host: %s" % state.capability.host_mode)
     lines.append("")
     lines.append("Context")
-    context_stats = summary.get("context_stats") if isinstance(summary, dict) and isinstance(summary.get("context_stats"), dict) else {}
+    context_stats = (
+        summary.get("context_stats")
+        if isinstance(summary, dict) and isinstance(summary.get("context_stats"), dict)
+        else {}
+    )
     for key, value in state.session.last_context_event.items():
         context_stats[key] = value
     lines.append("- recent: %s" % context_stats.get("recent_turns", "-"))
     lines.append("- summarized: %s" % context_stats.get("summarized_turns", "-"))
     lines.append("- tokens: %s" % context_stats.get("approx_tokens_after", "-"))
     if state.workspace_snapshot:
-        git_info = state.workspace_snapshot.get("git") if isinstance(state.workspace_snapshot.get("git"), dict) else {}
-        tree_info = state.workspace_snapshot.get("tree") if isinstance(state.workspace_snapshot.get("tree"), dict) else {}
+        git_info = (
+            state.workspace_snapshot.get("git")
+            if isinstance(state.workspace_snapshot.get("git"), dict)
+            else {}
+        )
+        tree_info = (
+            state.workspace_snapshot.get("tree")
+            if isinstance(state.workspace_snapshot.get("tree"), dict)
+            else {}
+        )
         lines.append("")
         lines.append("Workspace")
         lines.append("- branch: %s" % (git_info.get("branch") or "-"))
@@ -89,8 +107,22 @@ def build_inspector_text(state: TerminalState, summary, latest_reply: str):
         lines.append("")
         lines.append("Work")
         lines.append("- goal: %s" % _truncate_text(str(summary.get("user_goal") or "-"), 84))
-        lines.append("- working_set: %s" % (", ".join((summary.get("working_set") or [])[:4]) if summary.get("working_set") else "-"))
-        lines.append("- modified: %s" % (", ".join((summary.get("modified_files") or [])[:4]) if summary.get("modified_files") else "-"))
+        lines.append(
+            "- working_set: %s"
+            % (
+                ", ".join((summary.get("working_set") or [])[:4])
+                if summary.get("working_set")
+                else "-"
+            )
+        )
+        lines.append(
+            "- modified: %s"
+            % (
+                ", ".join((summary.get("modified_files") or [])[:4])
+                if summary.get("modified_files")
+                else "-"
+            )
+        )
         artifacts = summary.get("recent_artifacts") or []
         lines.append("- artifacts: %s" % len(artifacts))
     if state.session.pending_permission:

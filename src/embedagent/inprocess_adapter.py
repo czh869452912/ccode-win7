@@ -1,4 +1,4 @@
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import os
 import threading
@@ -25,7 +25,6 @@ from embedagent.permissions import PermissionPolicy, PermissionRequest
 from embedagent.plan_store import PlanStore
 from embedagent.project_memory import ProjectMemoryStore
 from embedagent.protocol import CommandResult, PermissionContextView, PlanSnapshot
-from embedagent.query_engine import QueryEngine
 from embedagent.session import Action, AssistantReply, Observation, Session
 from embedagent.session_history import SessionHistoryAssembler
 from embedagent.session_projector import SessionSnapshotProjector
@@ -38,6 +37,7 @@ from embedagent.services import (
     SessionLifecycleManager,
     WorkspaceFileService,
 )
+from embedagent.query_engine import QueryEngine
 from embedagent.session_timeline import SessionTimelineStore
 from embedagent.slash_commands import ParsedSlashCommand, SlashCommandRegistry, parse_slash_command
 from embedagent.tools import ToolRuntime
@@ -192,7 +192,9 @@ class InProcessAdapter(object):
         self.summary_store = summary_store or SessionSummaryStore(self.tools.workspace)
         self.timeline_store = timeline_store or SessionTimelineStore(self.tools.workspace)
         self.project_memory_store = project_memory_store or ProjectMemoryStore(self.tools.workspace)
-        self.context_manager = context_manager or ContextManager(project_memory=self.project_memory_store)
+        self.context_manager = context_manager or ContextManager(
+            project_memory=self.project_memory_store
+        )
         self.memory_maintenance = memory_maintenance or MemoryMaintenance(
             summary_store=self.summary_store,
             project_memory_store=self.project_memory_store,
@@ -288,7 +290,9 @@ class InProcessAdapter(object):
         with self._lock:
             self._sessions[session.session_id] = state
         snapshot = self.get_session_snapshot(session.session_id)
-        self._emit(event_handler, "session_created", session.session_id, {"session_snapshot": snapshot})
+        self._emit(
+            event_handler, "session_created", session.session_id, {"session_snapshot": snapshot}
+        )
         self._notify_status(event_handler, state)
         return snapshot
 
@@ -301,11 +305,7 @@ class InProcessAdapter(object):
         transcript_path = self.summary_store.resolve_transcript_path(reference)
         events = self.transcript_store.load_events(transcript_path)
         restored = self.session_restorer.restore(events)
-        current_mode = require_mode(
-            mode
-            or restored.current_mode
-            or DEFAULT_MODE
-        )["slug"]
+        current_mode = require_mode(mode or restored.current_mode or DEFAULT_MODE)["slug"]
         session = restored.session
         summary_ref = ""
         try:
@@ -332,7 +332,9 @@ class InProcessAdapter(object):
         if session.pending_interaction is not None:
             if session.pending_interaction.kind == "permission":
                 state.status = "waiting_permission"
-                permission_payload = dict(session.pending_interaction.request_payload.get("permission") or {})
+                permission_payload = dict(
+                    session.pending_interaction.request_payload.get("permission") or {}
+                )
                 interaction_id = str(session.pending_interaction.interaction_id or "").strip()
                 if interaction_id:
                     state.pending_permission = PermissionTicket(
@@ -347,7 +349,9 @@ class InProcessAdapter(object):
                     state.status = "idle"
             elif session.pending_interaction.kind == "user_input":
                 state.status = "waiting_user_input"
-                request_payload = dict(session.pending_interaction.request_payload.get("request") or {})
+                request_payload = dict(
+                    session.pending_interaction.request_payload.get("request") or {}
+                )
                 interaction_id = str(session.pending_interaction.interaction_id or "").strip()
                 if interaction_id:
                     state.pending_user_input = UserInputTicket(
@@ -398,8 +402,12 @@ class InProcessAdapter(object):
             graph = getattr(state.session, "task_graph", None)
             harness_context = self.harness_runner.describe_mode(
                 state.current_mode,
-                discipline_override=str(getattr(graph, "discipline", "") or "") if graph is not None else None,
-                current_phase=str(getattr(graph, "current_phase", "") or "") if graph is not None else "",
+                discipline_override=(
+                    str(getattr(graph, "discipline", "") or "") if graph is not None else None
+                ),
+                current_phase=(
+                    str(getattr(graph, "current_phase", "") or "") if graph is not None else ""
+                ),
                 observations=[],
             )
             return self.snapshot_projector.build_snapshot(
@@ -478,7 +486,9 @@ class InProcessAdapter(object):
         return {
             "session_id": state.session.session_id,
             "events": self.timeline_store.load_events(state.session.session_id, limit=limit),
-            "latest_assistant_reply": self.timeline_store.latest_assistant_reply(state.session.session_id),
+            "latest_assistant_reply": self.timeline_store.latest_assistant_reply(
+                state.session.session_id
+            ),
         }
 
     def build_session_history(self, reference: str, mode: str = "") -> Dict[str, Any]:
@@ -618,18 +628,22 @@ class InProcessAdapter(object):
             return items
         return []
 
-    def load_session_events_after(self, session_id: str, after_seq: int, limit: int = 200) -> Dict[str, Any]:
+    def load_session_events_after(
+        self, session_id: str, after_seq: int, limit: int = 200
+    ) -> Dict[str, Any]:
         self._require_session(session_id)
         replay = self.timeline_store.load_events_after(session_id, after_seq, limit=limit)
         items = []
         for record in replay.get("events", []):
-            items.append({
-                "event_id": str(record.get("event_id") or ""),
-                "seq": int(record.get("seq") or 0),
-                "created_at": str(record.get("created_at") or ""),
-                "event_kind": str(record.get("event") or "").replace("_", "."),
-                "payload": dict(record.get("payload") or {}),
-            })
+            items.append(
+                {
+                    "event_id": str(record.get("event_id") or ""),
+                    "seq": int(record.get("seq") or 0),
+                    "created_at": str(record.get("created_at") or ""),
+                    "event_kind": str(record.get("event") or "").replace("_", "."),
+                    "payload": dict(record.get("payload") or {}),
+                }
+            )
         return {
             "status": replay.get("status", "replay"),
             "events": items,
@@ -663,7 +677,12 @@ class InProcessAdapter(object):
             state.current_command_step_id = ""
             state.current_command_step_index = 0
         if command_turn_id:
-            self._emit(event_handler, "turn_start", session_id, {"turn_id": command_turn_id, "user_text": text})
+            self._emit(
+                event_handler,
+                "turn_start",
+                session_id,
+                {"turn_id": command_turn_id, "user_text": text},
+            )
         dispatch = self._dispatch_input(state, text, event_handler, permission_resolver)
         if dispatch.get("handled") and not dispatch.get("continue_with_text"):
             if command_turn_id:
@@ -720,7 +739,16 @@ class InProcessAdapter(object):
             return self.get_session_snapshot(session_id)
         thread = threading.Thread(
             target=self._run_turn,
-            args=(state, text_to_run, stream, permission_resolver, user_input_resolver, event_handler, command_turn_id or "", not bool(command_turn_id)),
+            args=(
+                state,
+                text_to_run,
+                stream,
+                permission_resolver,
+                user_input_resolver,
+                event_handler,
+                command_turn_id or "",
+                not bool(command_turn_id),
+            ),
             name="embedagent-session-%s" % session_id[:8],
         )
         with state.lock:
@@ -848,7 +876,12 @@ class InProcessAdapter(object):
             lines.append("当前没有可恢复会话。")
         else:
             for item in sessions:
-                label = str(item.get("user_goal") or item.get("summary_text") or item.get("session_id") or "")
+                label = str(
+                    item.get("user_goal")
+                    or item.get("summary_text")
+                    or item.get("session_id")
+                    or ""
+                )
                 lines.append(
                     "- `%s` [%s] %s"
                     % (
@@ -886,7 +919,10 @@ class InProcessAdapter(object):
                 command_name="resume",
                 success=True,
                 message="已恢复会话 `%s`。" % str(snapshot.get("session_id") or ""),
-                data={"session_snapshot": snapshot, "switch_session_id": str(snapshot.get("session_id") or "")},
+                data={
+                    "session_snapshot": snapshot,
+                    "switch_session_id": str(snapshot.get("session_id") or ""),
+                },
             ),
         )
         return {"handled": True, "continue_with_text": ""}
@@ -1010,7 +1046,11 @@ class InProcessAdapter(object):
             event_handler=event_handler,
         )
         success = bool(observation.success)
-        message = "已执行 recipe `%s`。" % recipe_id if success else "recipe `%s` 执行失败：%s" % (recipe_id, observation.error or "未知错误")
+        message = (
+            "已执行 recipe `%s`。" % recipe_id
+            if success
+            else "recipe `%s` 执行失败：%s" % (recipe_id, observation.error or "未知错误")
+        )
         payload = dict(observation.data) if isinstance(observation.data, dict) else {}
         payload["recipe_id"] = recipe_id
         payload["tool_name"] = str(matched.get("tool_name") or "")
@@ -1090,7 +1130,13 @@ class InProcessAdapter(object):
             lines.append("暂无工件。")
         else:
             for item in items:
-                lines.append("- `%s` (%s)" % (str(item.get("path") or ""), str(item.get("tool_name") or item.get("kind") or "")))
+                lines.append(
+                    "- `%s` (%s)"
+                    % (
+                        str(item.get("path") or ""),
+                        str(item.get("tool_name") or item.get("kind") or ""),
+                    )
+                )
         self._emit_command_result(
             event_handler,
             state,
@@ -1278,13 +1324,37 @@ class InProcessAdapter(object):
             with state.lock:
                 state.current_command_step_id = step_id
                 state.current_command_step_index = step_index
-            self._emit(event_handler, "step_start", state.session.session_id, {"turn_id": turn_id, "step_id": step_id, "step_index": step_index})
+            self._emit(
+                event_handler,
+                "step_start",
+                state.session.session_id,
+                {"turn_id": turn_id, "step_id": step_id, "step_index": step_index},
+            )
 
         def on_step_finish(step_index: int, reply: AssistantReply, status: str) -> None:
-            self._emit(event_handler, "step_end", state.session.session_id, {"turn_id": turn_id, "step_id": current_step["step_id"], "step_index": step_index, "assistant_text": reply.content or "", "finish_reason": reply.finish_reason or "", "status": status})
+            self._emit(
+                event_handler,
+                "step_end",
+                state.session.session_id,
+                {
+                    "turn_id": turn_id,
+                    "step_id": current_step["step_id"],
+                    "step_index": step_index,
+                    "assistant_text": reply.content or "",
+                    "finish_reason": reply.finish_reason or "",
+                    "status": status,
+                },
+            )
 
         def on_tool_start(start_action: Action) -> None:
-            payload = {"tool_name": start_action.name, "arguments": start_action.arguments, "call_id": start_action.call_id, "turn_id": turn_id, "step_id": current_step["step_id"], "step_index": current_step["step_index"]}
+            payload = {
+                "tool_name": start_action.name,
+                "arguments": start_action.arguments,
+                "call_id": start_action.call_id,
+                "turn_id": turn_id,
+                "step_id": current_step["step_id"],
+                "step_index": current_step["step_index"],
+            }
             payload.update(self._tool_event_metadata(start_action.name))
             self._emit(event_handler, "tool_started", state.session.session_id, payload)
 
@@ -1347,7 +1417,10 @@ class InProcessAdapter(object):
             user_input_handler=None,
         )
         state.session = result.session
-        if result.transition.reason in ("permission_wait", "user_input_wait") and permission_resolver is None:
+        if (
+            result.transition.reason in ("permission_wait", "user_input_wait")
+            and permission_resolver is None
+        ):
             with state.lock:
                 event = state.pending_event
             if event is not None:
@@ -1378,7 +1451,12 @@ class InProcessAdapter(object):
             if state.session.turns and state.session.turns[-1].observations:
                 observation = state.session.turns[-1].observations[-1]
             else:
-                observation = Observation(tool_name=tool_name, success=False, error="用户拒绝执行该 recipe。", data={"error_kind": "permission_denied"})
+                observation = Observation(
+                    tool_name=tool_name,
+                    success=False,
+                    error="用户拒绝执行该 recipe。",
+                    data={"error_kind": "permission_denied"},
+                )
         if result.transition.next_mode:
             state.current_mode = result.transition.next_mode
         self._refresh_harness_state(state)
@@ -1387,7 +1465,19 @@ class InProcessAdapter(object):
             state.updated_at = _utc_now()
             state.current_command_step_id = current_step["step_id"]
             state.current_command_step_index = current_step["step_index"]
-        self._emit(event_handler, "turn_end", state.session.session_id, {"turn_id": turn_id, "final_text": "", "termination_reason": result.transition.reason, "turns_used": result.turns_used, "max_turns": self.max_turns, "error": result.transition.message or ""})
+        self._emit(
+            event_handler,
+            "turn_end",
+            state.session.session_id,
+            {
+                "turn_id": turn_id,
+                "final_text": "",
+                "termination_reason": result.transition.reason,
+                "turns_used": result.turns_used,
+                "max_turns": self.max_turns,
+                "error": result.transition.message or "",
+            },
+        )
         self._persist_state(state)
         self._notify_status(event_handler, state)
         return observation
@@ -1443,7 +1533,8 @@ class InProcessAdapter(object):
                     "priority": 2,
                     "severity": "medium",
                     "title": "Missing verification evidence",
-                    "body": "工作区存在 %s 个改动文件，但最近没有看到完整 verify 证据。" % diff_file_count,
+                    "body": "工作区存在 %s 个改动文件，但最近没有看到完整 verify 证据。"
+                    % diff_file_count,
                     "evidence": [
                         {"type": "git_diff", "file_count": diff_file_count},
                     ],
@@ -1457,10 +1548,14 @@ class InProcessAdapter(object):
                     "severity": "medium",
                     "title": "No recent test execution",
                     "body": "最近的验证证据里没有测试 recipe 结果，测试覆盖存在缺口。",
-                    "evidence": [{"type": "verify_gap", "tool_name": "run_recipe", "recipe_action": "test"}],
+                    "evidence": [
+                        {"type": "verify_gap", "tool_name": "run_recipe", "recipe_action": "test"}
+                    ],
                 }
             )
-        findings.sort(key=lambda item: (int(item.get("priority") or 99), str(item.get("title") or "")))
+        findings.sort(
+            key=lambda item: (int(item.get("priority") or 99), str(item.get("title") or ""))
+        )
         no_findings = not findings
         residual_risks = []
         if no_findings:
@@ -1488,7 +1583,9 @@ class InProcessAdapter(object):
     ) -> None:
         review_kind = self._review_kind(tool_name, data)
         if review_kind in ("build", "diagnostic"):
-            diagnostics = data.get("diagnostics") if isinstance(data.get("diagnostics"), list) else []
+            diagnostics = (
+                data.get("diagnostics") if isinstance(data.get("diagnostics"), list) else []
+            )
             sections["diagnostics"].append(
                 {
                     "tool_name": tool_name,
@@ -1514,7 +1611,11 @@ class InProcessAdapter(object):
             )
             return
         if review_kind == "coverage":
-            summary = data.get("coverage_summary") if isinstance(data.get("coverage_summary"), dict) else {}
+            summary = (
+                data.get("coverage_summary")
+                if isinstance(data.get("coverage_summary"), dict)
+                else {}
+            )
             sections["coverage"].append(
                 {
                     "tool_name": tool_name,
@@ -1553,7 +1654,13 @@ class InProcessAdapter(object):
                 "severity": "high",
                 "title": "Build failed",
                 "body": detail,
-                "evidence": [{"type": "tool_failure", "tool_name": tool_name, "call_id": payload.get("call_id")}],
+                "evidence": [
+                    {
+                        "type": "tool_failure",
+                        "tool_name": tool_name,
+                        "call_id": payload.get("call_id"),
+                    }
+                ],
             }
         if review_kind == "test":
             summary = data.get("test_summary") if isinstance(data.get("test_summary"), dict) else {}
@@ -1565,7 +1672,14 @@ class InProcessAdapter(object):
                     "severity": "high",
                     "title": "Tests failing",
                     "body": "最近一次测试 recipe 报告了 %s 个失败测试。" % failures,
-                    "evidence": [{"type": "test_summary", "tool_name": tool_name, "recipe_action": "test", "failed": failures}],
+                    "evidence": [
+                        {
+                            "type": "test_summary",
+                            "tool_name": tool_name,
+                            "recipe_action": "test",
+                            "failed": failures,
+                        }
+                    ],
                 }
         if review_kind == "diagnostic":
             error_count = int(data.get("error_count") or 0)
@@ -1576,11 +1690,23 @@ class InProcessAdapter(object):
                     "priority": 2,
                     "severity": "medium",
                     "title": "%s reported diagnostics" % tool_name,
-                    "body": "%s 返回 error=%s, warning=%s。" % (tool_name, error_count, warning_count),
-                    "evidence": [{"type": "diagnostics", "tool_name": tool_name, "error_count": error_count, "warning_count": warning_count}],
+                    "body": "%s 返回 error=%s, warning=%s。"
+                    % (tool_name, error_count, warning_count),
+                    "evidence": [
+                        {
+                            "type": "diagnostics",
+                            "tool_name": tool_name,
+                            "error_count": error_count,
+                            "warning_count": warning_count,
+                        }
+                    ],
                 }
         if review_kind == "coverage":
-            summary = data.get("coverage_summary") if isinstance(data.get("coverage_summary"), dict) else {}
+            summary = (
+                data.get("coverage_summary")
+                if isinstance(data.get("coverage_summary"), dict)
+                else {}
+            )
             line_coverage = summary.get("line_coverage")
             if line_coverage is not None and float(line_coverage) < 80.0:
                 return {
@@ -1588,12 +1714,22 @@ class InProcessAdapter(object):
                     "priority": 2,
                     "severity": "medium",
                     "title": "Coverage below expected floor",
-                    "body": "最近一次覆盖率结果显示 line coverage 为 %.2f%%，低于 80%% 经验阈值。" % float(line_coverage),
-                    "evidence": [{"type": "coverage", "tool_name": tool_name, "line_coverage": float(line_coverage)}],
+                    "body": "最近一次覆盖率结果显示 line coverage 为 %.2f%%，低于 80%% 经验阈值。"
+                    % float(line_coverage),
+                    "evidence": [
+                        {
+                            "type": "coverage",
+                            "tool_name": tool_name,
+                            "line_coverage": float(line_coverage),
+                        }
+                    ],
                 }
         if review_kind == "quality" and not bool(data.get("passed", success)):
             reasons = data.get("reasons") if isinstance(data.get("reasons"), list) else []
-            body = "；".join([str(item) for item in reasons if str(item or "").strip()]) or "质量门未通过。"
+            body = (
+                "；".join([str(item) for item in reasons if str(item or "").strip()])
+                or "质量门未通过。"
+            )
             return {
                 "id": "quality-gate-failed-%s" % str(payload.get("call_id") or tool_name),
                 "priority": 1,
@@ -1650,7 +1786,9 @@ class InProcessAdapter(object):
                 )
         else:
             lines.append("- 未发现明确阻塞项。")
-        residual = review.get("residual_risks") if isinstance(review.get("residual_risks"), list) else []
+        residual = (
+            review.get("residual_risks") if isinstance(review.get("residual_risks"), list) else []
+        )
         if residual:
             lines.extend(["", "## Residual Risks", ""])
             for item in residual:
@@ -1705,12 +1843,18 @@ class InProcessAdapter(object):
         }
         self._emit_with_snapshot(event_handler, "command_result", state, payload)
 
-    def _wait_for_command_resolution(self, session_id: str, timeout_s: float = 3.0) -> Dict[str, Any]:
+    def _wait_for_command_resolution(
+        self, session_id: str, timeout_s: float = 3.0
+    ) -> Dict[str, Any]:
         deadline = time.time() + max(timeout_s, 0.1)
         snapshot = self.get_session_snapshot(session_id)
         while time.time() < deadline:
             snapshot = self.get_session_snapshot(session_id)
-            if not bool(snapshot.get("pending_interaction_valid")) and snapshot.get("status") != "waiting_permission" and snapshot.get("status") != "waiting_user_input":
+            if (
+                not bool(snapshot.get("pending_interaction_valid"))
+                and snapshot.get("status") != "waiting_permission"
+                and snapshot.get("status") != "waiting_user_input"
+            ):
                 return snapshot
             state = self._require_session(session_id)
             with state.lock:
@@ -1748,7 +1892,10 @@ class InProcessAdapter(object):
         state = self._require_session(session_id)
         command_wait = False
         with state.lock:
-            if state.pending_permission is None or state.pending_permission.permission_id != permission_id:
+            if (
+                state.pending_permission is None
+                or state.pending_permission.permission_id != permission_id
+            ):
                 raise ValueError("未找到待批准的权限请求。")
             if state.pending_event is not None:
                 state.pending_result = True
@@ -1763,7 +1910,10 @@ class InProcessAdapter(object):
         state = self._require_session(session_id)
         command_wait = False
         with state.lock:
-            if state.pending_permission is None or state.pending_permission.permission_id != permission_id:
+            if (
+                state.pending_permission is None
+                or state.pending_permission.permission_id != permission_id
+            ):
                 raise ValueError("未找到待拒绝的权限请求。")
             if state.pending_event is not None:
                 state.pending_result = False
@@ -1771,7 +1921,9 @@ class InProcessAdapter(object):
                 command_wait = True
         if command_wait:
             return self._wait_for_command_resolution(session_id)
-        self._run_turn_v2(state, "", True, None, None, self.event_handler, {"approved": False}, True)
+        self._run_turn_v2(
+            state, "", True, None, None, self.event_handler, {"approved": False}, True
+        )
         return self.get_session_snapshot(session_id)
 
     def reply_user_input(
@@ -1786,7 +1938,10 @@ class InProcessAdapter(object):
         state = self._require_session(session_id)
         command_wait = False
         with state.lock:
-            if state.pending_user_input is None or state.pending_user_input.request_id != request_id:
+            if (
+                state.pending_user_input is None
+                or state.pending_user_input.request_id != request_id
+            ):
                 raise ValueError("未找到待处理的用户问题。")
             if state.pending_user_event is not None:
                 state.pending_user_response = UserInputResponse(
@@ -1829,13 +1984,22 @@ class InProcessAdapter(object):
         state = self._require_session(session_id)
         kind = str((payload or {}).get("response_kind") or "").strip()
         with state.lock:
-            if state.pending_permission is not None and state.pending_permission.permission_id == interaction_id:
+            if (
+                state.pending_permission is not None
+                and state.pending_permission.permission_id == interaction_id
+            ):
                 pass
-            elif state.pending_user_input is not None and state.pending_user_input.request_id == interaction_id:
+            elif (
+                state.pending_user_input is not None
+                and state.pending_user_input.request_id == interaction_id
+            ):
                 pass
             else:
                 raise ValueError("未找到待处理的交互请求。")
-        if state.pending_permission is not None and state.pending_permission.permission_id == interaction_id:
+        if (
+            state.pending_permission is not None
+            and state.pending_permission.permission_id == interaction_id
+        ):
             if kind == "approve":
                 self.approve_permission(session_id, interaction_id)
             else:
@@ -1868,7 +2032,12 @@ class InProcessAdapter(object):
             self._refresh_harness_state(state)
         self._persist_state(state)
         snapshot = self.get_session_snapshot(session_id)
-        self._emit(self.event_handler, "mode_changed", session_id, {"mode": current_mode, "session_snapshot": snapshot})
+        self._emit(
+            self.event_handler,
+            "mode_changed",
+            session_id,
+            {"mode": current_mode, "session_snapshot": snapshot},
+        )
         self._notify_status(None, state)
         return snapshot
 
@@ -1876,7 +2045,9 @@ class InProcessAdapter(object):
         state = self._require_session(session_id)
         with state.lock:
             state.stop_event.set()
-            has_active_thread = bool(state.active_thread is not None and state.active_thread.is_alive())
+            has_active_thread = bool(
+                state.active_thread is not None and state.active_thread.is_alive()
+            )
             if state.pending_permission is not None and state.pending_event is not None:
                 state.pending_result = False
                 state.pending_event.set()
@@ -1943,33 +2114,88 @@ class InProcessAdapter(object):
             if thinking_state["active"] == active:
                 return
             thinking_state["active"] = active
-            self._emit_with_snapshot(event_handler, "thinking_state", state, {"active": active, "reason": reason})
+            self._emit_with_snapshot(
+                event_handler, "thinking_state", state, {"active": active, "reason": reason}
+            )
 
         def on_text_delta(delta: str) -> None:
             set_thinking(False, "assistant_text")
-            self._emit(event_handler, "assistant_delta", session_id, {"text": delta, "turn_id": turn_id, "step_id": current_step["step_id"], "step_index": current_step["step_index"]})
+            self._emit(
+                event_handler,
+                "assistant_delta",
+                session_id,
+                {
+                    "text": delta,
+                    "turn_id": turn_id,
+                    "step_id": current_step["step_id"],
+                    "step_index": current_step["step_index"],
+                },
+            )
 
         def on_reasoning_delta(delta: str) -> None:
-            self._emit(event_handler, "reasoning_delta", session_id, {"text": delta, "turn_id": turn_id, "step_id": current_step["step_id"], "step_index": current_step["step_index"]})
+            self._emit(
+                event_handler,
+                "reasoning_delta",
+                session_id,
+                {
+                    "text": delta,
+                    "turn_id": turn_id,
+                    "step_id": current_step["step_id"],
+                    "step_index": current_step["step_index"],
+                },
+            )
 
         def on_step_start(step_id: str, step_index: int) -> None:
             current_step["step_id"] = step_id
             current_step["step_index"] = step_index
             set_thinking(True, "step_started")
-            self._emit(event_handler, "step_start", session_id, {"turn_id": turn_id, "step_id": step_id, "step_index": step_index})
+            self._emit(
+                event_handler,
+                "step_start",
+                session_id,
+                {"turn_id": turn_id, "step_id": step_id, "step_index": step_index},
+            )
 
         def on_step_finish(step_index: int, reply: AssistantReply, status: str) -> None:
             set_thinking(False, "step_finished")
-            self._emit(event_handler, "step_end", session_id, {"turn_id": turn_id, "step_id": current_step["step_id"], "step_index": step_index, "assistant_text": reply.content or "", "finish_reason": reply.finish_reason or "", "status": status})
+            self._emit(
+                event_handler,
+                "step_end",
+                session_id,
+                {
+                    "turn_id": turn_id,
+                    "step_id": current_step["step_id"],
+                    "step_index": step_index,
+                    "assistant_text": reply.content or "",
+                    "finish_reason": reply.finish_reason or "",
+                    "status": status,
+                },
+            )
 
         def on_tool_start(action: Action) -> None:
             set_thinking(False, "tool_start")
-            payload = {"tool_name": action.name, "arguments": action.arguments, "call_id": action.call_id, "turn_id": turn_id, "step_id": current_step["step_id"], "step_index": current_step["step_index"]}
+            payload = {
+                "tool_name": action.name,
+                "arguments": action.arguments,
+                "call_id": action.call_id,
+                "turn_id": turn_id,
+                "step_id": current_step["step_id"],
+                "step_index": current_step["step_index"],
+            }
             payload.update(self._tool_event_metadata(action.name))
             self._emit(event_handler, "tool_started", session_id, payload)
 
         def on_tool_finish(action: Action, observation: Observation) -> None:
-            payload = {"tool_name": action.name, "success": observation.success, "error": observation.error, "data": observation.data, "call_id": action.call_id, "turn_id": turn_id, "step_id": current_step["step_id"], "step_index": current_step["step_index"]}
+            payload = {
+                "tool_name": action.name,
+                "success": observation.success,
+                "error": observation.error,
+                "data": observation.data,
+                "call_id": action.call_id,
+                "turn_id": turn_id,
+                "step_id": current_step["step_id"],
+                "step_index": current_step["step_index"],
+            }
             payload.update(self._tool_event_metadata(action.name))
             self._emit_with_snapshot(event_handler, "tool_finished", state, payload)
 
@@ -1984,9 +2210,15 @@ class InProcessAdapter(object):
                         "turn_id": turn_id,
                         "step_id": current_step["step_id"],
                         "step_index": current_step["step_index"],
-                        "recent_turns": getattr(getattr(result, "stats", None), "recent_turns", None),
-                        "summarized_turns": getattr(getattr(result, "stats", None), "summarized_turns", None),
-                        "approx_tokens_after": getattr(getattr(result, "budget", None), "input_tokens", None),
+                        "recent_turns": getattr(
+                            getattr(result, "stats", None), "recent_turns", None
+                        ),
+                        "summarized_turns": getattr(
+                            getattr(result, "stats", None), "summarized_turns", None
+                        ),
+                        "approx_tokens_after": getattr(
+                            getattr(result, "budget", None), "input_tokens", None
+                        ),
                         "pipeline_steps": pipeline_steps,
                     },
                 )
@@ -2001,8 +2233,12 @@ class InProcessAdapter(object):
                     "step_id": current_step["step_id"],
                     "step_index": current_step["step_index"],
                     "recent_turns": getattr(getattr(result, "stats", None), "recent_turns", None),
-                    "summarized_turns": getattr(getattr(result, "stats", None), "summarized_turns", None),
-                    "approx_tokens_after": getattr(getattr(result, "budget", None), "input_tokens", None),
+                    "summarized_turns": getattr(
+                        getattr(result, "stats", None), "summarized_turns", None
+                    ),
+                    "approx_tokens_after": getattr(
+                        getattr(result, "budget", None), "input_tokens", None
+                    ),
                     "analysis": getattr(result, "analysis", {}),
                 },
             )
@@ -2015,7 +2251,17 @@ class InProcessAdapter(object):
                 step_id=current_step["step_id"],
                 step_index=current_step["step_index"],
             )
-            self._emit_with_snapshot(event_handler, "permission_required", state, {"permission": ticket.to_dict(), "turn_id": ticket.turn_id, "step_id": ticket.step_id, "step_index": ticket.step_index})
+            self._emit_with_snapshot(
+                event_handler,
+                "permission_required",
+                state,
+                {
+                    "permission": ticket.to_dict(),
+                    "turn_id": ticket.turn_id,
+                    "step_id": ticket.step_id,
+                    "step_index": ticket.step_index,
+                },
+            )
             self._notify_status(event_handler, state)
             if permission_resolver is not None:
                 approved = bool(permission_resolver(ticket.to_dict()))
@@ -2033,19 +2279,36 @@ class InProcessAdapter(object):
                 step_id=current_step["step_id"],
                 step_index=current_step["step_index"],
             )
-            self._emit_with_snapshot(event_handler, "user_input_required", state, {"user_input": ticket.to_dict(), "turn_id": ticket.turn_id, "step_id": ticket.step_id, "step_index": ticket.step_index})
+            self._emit_with_snapshot(
+                event_handler,
+                "user_input_required",
+                state,
+                {
+                    "user_input": ticket.to_dict(),
+                    "turn_id": ticket.turn_id,
+                    "step_id": ticket.step_id,
+                    "step_index": ticket.step_index,
+                },
+            )
             self._notify_status(event_handler, state)
             if user_input_resolver is not None:
                 payload = user_input_resolver(ticket.to_dict()) or {}
                 self._clear_pending_user_input(state)
-                return UserInputResponse(answer=str(payload.get("answer") or ""), selected_index=payload.get("selected_index"), selected_mode=str(payload.get("selected_mode") or ""), selected_option_text=str(payload.get("selected_option_text") or ""))
+                return UserInputResponse(
+                    answer=str(payload.get("answer") or ""),
+                    selected_index=payload.get("selected_index"),
+                    selected_mode=str(payload.get("selected_mode") or ""),
+                    selected_option_text=str(payload.get("selected_option_text") or ""),
+                )
             with state.lock:
                 state.status = "waiting_user_input"
             return None
 
         try:
             if emit_turn_start:
-                self._emit(event_handler, "turn_start", session_id, {"turn_id": turn_id, "user_text": text})
+                self._emit(
+                    event_handler, "turn_start", session_id, {"turn_id": turn_id, "user_text": text}
+                )
             set_thinking(True, "turn_started")
             if resume_pending:
                 result = engine.resume_interaction(
@@ -2091,7 +2354,18 @@ class InProcessAdapter(object):
                 state.last_error = str(exc)
                 state.active_thread = None
                 state.updated_at = _utc_now()
-            self._emit_with_snapshot(event_handler, "session_error", state, {"error": str(exc), "phase": "loop", "turn_id": turn_id, "step_id": current_step["step_id"], "step_index": current_step["step_index"]})
+            self._emit_with_snapshot(
+                event_handler,
+                "session_error",
+                state,
+                {
+                    "error": str(exc),
+                    "phase": "loop",
+                    "turn_id": turn_id,
+                    "step_id": current_step["step_id"],
+                    "step_index": current_step["step_index"],
+                },
+            )
             self._notify_status(event_handler, state)
             if is_worker_thread:
                 return
@@ -2111,11 +2385,35 @@ class InProcessAdapter(object):
             state.status = "idle"
             state.active_thread = None
             state.updated_at = _utc_now()
-        self._emit(event_handler, "turn_end", session_id, {"turn_id": turn_id, "final_text": result.final_text, "termination_reason": result.transition.reason, "turns_used": result.turns_used, "max_turns": self.max_turns, "error": result.transition.message or ""})
+        self._emit(
+            event_handler,
+            "turn_end",
+            session_id,
+            {
+                "turn_id": turn_id,
+                "final_text": result.final_text,
+                "termination_reason": result.transition.reason,
+                "turns_used": result.turns_used,
+                "max_turns": self.max_turns,
+                "error": result.transition.message or "",
+            },
+        )
         self._persist_state(state)
         set_thinking(False, "session_finished")
         snapshot = self.get_session_snapshot(session_id)
-        self._emit(event_handler, "session_finished", session_id, {"final_text": result.final_text, "session_snapshot": snapshot, "termination_reason": result.transition.reason, "turns_used": result.turns_used, "max_turns": self.max_turns, "error": result.transition.message or ""})
+        self._emit(
+            event_handler,
+            "session_finished",
+            session_id,
+            {
+                "final_text": result.final_text,
+                "session_snapshot": snapshot,
+                "termination_reason": result.transition.reason,
+                "turns_used": result.turns_used,
+                "max_turns": self.max_turns,
+                "error": result.transition.message or "",
+            },
+        )
         self._notify_status(event_handler, state)
         return
 
@@ -2260,9 +2558,3 @@ class InProcessAdapter(object):
 
     def _detect_newline(self, path: str) -> str:
         return self._workspace_files._detect_newline(path)
-
-
-
-
-
-

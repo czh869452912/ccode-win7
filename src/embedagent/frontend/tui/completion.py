@@ -50,32 +50,32 @@ class TerminalCompleter(Completer):
     def _file_candidates(self, state) -> List[str]:
         values = []  # type: List[str]
         seen = set()  # type: Set[str]
-        for item in getattr(state.explorer, 'items', []):
-            path = getattr(item, 'path', '')
+        for item in getattr(state.explorer, "items", []):
+            path = getattr(item, "path", "")
             if path and path not in seen:
                 seen.add(path)
                 values.append(path)
         if state.preview_path and state.preview_path not in seen:
             seen.add(state.preview_path)
             values.append(state.preview_path)
-        editor_path = getattr(getattr(state.editor, 'buffer', None), 'path', '')
+        editor_path = getattr(getattr(state.editor, "buffer", None), "path", "")
         if editor_path and editor_path not in seen:
             seen.add(editor_path)
             values.append(editor_path)
-        summary = getattr(getattr(state.session, 'current_snapshot', {}), 'get', None)
+        summary = getattr(getattr(state.session, "current_snapshot", {}), "get", None)
         if callable(summary):
             pass
         return values[:200]
 
     def _artifact_candidates(self, state) -> Iterable[str]:
-        for item in getattr(state.inspector, 'artifact_items', []):
-            path = getattr(item, 'path', '')
+        for item in getattr(state.inspector, "artifact_items", []):
+            path = getattr(item, "path", "")
             if path:
                 yield path
 
     def _session_candidates(self, state) -> Iterable[str]:
-        for item in getattr(state.session, 'session_items', []):
+        for item in getattr(state.session, "session_items", []):
             if isinstance(item, dict):
-                session_id = str(item.get('session_id') or '')
+                session_id = str(item.get("session_id") or "")
                 if session_id:
                     yield session_id

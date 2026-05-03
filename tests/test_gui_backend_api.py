@@ -63,7 +63,9 @@ class _FakeCoreWithTimeline(_FakeCore):
                 "discipline_profile": "lite_spec_tdd",
                 "current_activity": "build harness active (implement)",
                 "task_summary": "in_progress build:implement",
-                "task_items": [{"id": 1, "content": "build:implement", "status": "in_progress", "done": False}],
+                "task_items": [
+                    {"id": 1, "content": "build:implement", "status": "in_progress", "done": False}
+                ],
             },
             "history": {
                 "session_id": session_id,
@@ -172,7 +174,9 @@ class _SnapshotCore(_FakeCore):
                 "discipline_profile": "lite_spec_tdd",
                 "current_activity": "build harness active (implement)",
                 "task_summary": "in_progress build:implement",
-                "task_items": [{"id": 1, "content": "build:implement", "status": "in_progress", "done": False}],
+                "task_items": [
+                    {"id": 1, "content": "build:implement", "status": "in_progress", "done": False}
+                ],
             },
         )()
 
@@ -185,9 +189,10 @@ class TestGuiBackendApi(unittest.TestCase):
             backend = GUIBackend(_FakeCore(), static_dir=static_dir)
             route = None
             for item in backend.app.routes:
-                if (
-                    getattr(item, "path", "") == "/api/sessions/{session_id}/interactions/{interaction_id}/respond"
-                    and "POST" in getattr(item, "methods", set())
+                if getattr(
+                    item, "path", ""
+                ) == "/api/sessions/{session_id}/interactions/{interaction_id}/respond" and "POST" in getattr(
+                    item, "methods", set()
                 ):
                     route = item
                     break
@@ -216,9 +221,10 @@ class TestGuiBackendApi(unittest.TestCase):
             backend.frontend._pending_inputs["int-1"] = BlockingResult(None)
             route = None
             for item in backend.app.routes:
-                if (
-                    getattr(item, "path", "") == "/api/sessions/{session_id}/interactions/{interaction_id}/respond"
-                    and "POST" in getattr(item, "methods", set())
+                if getattr(
+                    item, "path", ""
+                ) == "/api/sessions/{session_id}/interactions/{interaction_id}/respond" and "POST" in getattr(
+                    item, "methods", set()
                 ):
                     route = item
                     break
@@ -238,7 +244,9 @@ class TestGuiBackendApi(unittest.TestCase):
         self.assertEqual(response["interaction_id"], "int-1")
         self.assertEqual(response["status"], "resolved")
 
-    def test_post_interaction_response_resolves_frontend_pending_permission_before_core_fallback(self):
+    def test_post_interaction_response_resolves_frontend_pending_permission_before_core_fallback(
+        self,
+    ):
         from embedagent.frontend.gui.backend.bridge import BlockingResult
 
         with tempfile.TemporaryDirectory() as static_dir:
@@ -249,9 +257,10 @@ class TestGuiBackendApi(unittest.TestCase):
             backend.frontend._pending_permissions["perm-1"] = BlockingResult(False)
             route = None
             for item in backend.app.routes:
-                if (
-                    getattr(item, "path", "") == "/api/sessions/{session_id}/interactions/{interaction_id}/respond"
-                    and "POST" in getattr(item, "methods", set())
+                if getattr(
+                    item, "path", ""
+                ) == "/api/sessions/{session_id}/interactions/{interaction_id}/respond" and "POST" in getattr(
+                    item, "methods", set()
                 ):
                     route = item
                     break
@@ -277,7 +286,11 @@ class TestGuiBackendApi(unittest.TestCase):
             backend = GUIBackend(_FakeCoreWithTimeline(), static_dir=static_dir)
             route = None
             for item in backend.app.routes:
-                if getattr(item, "path", "") == "/api/sessions/{session_id}/events" and "GET" in getattr(item, "methods", set()):
+                if getattr(
+                    item, "path", ""
+                ) == "/api/sessions/{session_id}/events" and "GET" in getattr(
+                    item, "methods", set()
+                ):
                     route = item
                     break
             self.assertIsNotNone(route)
@@ -292,7 +305,11 @@ class TestGuiBackendApi(unittest.TestCase):
             backend = GUIBackend(_FakeCoreWithTimeline(), static_dir=static_dir)
             route = None
             for item in backend.app.routes:
-                if getattr(item, "path", "") == "/api/sessions/{session_id}/bootstrap" and "GET" in getattr(item, "methods", set()):
+                if getattr(
+                    item, "path", ""
+                ) == "/api/sessions/{session_id}/bootstrap" and "GET" in getattr(
+                    item, "methods", set()
+                ):
                     route = item
                     break
             self.assertIsNotNone(route)
@@ -309,7 +326,9 @@ class TestGuiBackendApi(unittest.TestCase):
             backend = GUIBackend(_ErrorCore("session_id 不存在：sess-404"), static_dir=static_dir)
             route = None
             for item in backend.app.routes:
-                if getattr(item, "path", "") == "/api/sessions/{session_id}" and "GET" in getattr(item, "methods", set()):
+                if getattr(item, "path", "") == "/api/sessions/{session_id}" and "GET" in getattr(
+                    item, "methods", set()
+                ):
                     route = item
                     break
             self.assertIsNotNone(route)
@@ -324,9 +343,10 @@ class TestGuiBackendApi(unittest.TestCase):
             backend = GUIBackend(_ErrorCore("interaction_gone"), static_dir=static_dir)
             route = None
             for item in backend.app.routes:
-                if (
-                    getattr(item, "path", "") == "/api/sessions/{session_id}/interactions/{interaction_id}/respond"
-                    and "POST" in getattr(item, "methods", set())
+                if getattr(
+                    item, "path", ""
+                ) == "/api/sessions/{session_id}/interactions/{interaction_id}/respond" and "POST" in getattr(
+                    item, "methods", set()
                 ):
                     route = item
                     break
@@ -342,7 +362,9 @@ class TestGuiBackendApi(unittest.TestCase):
             backend = GUIBackend(_SnapshotCore("transcript_missing"), static_dir=static_dir)
             route = None
             for item in backend.app.routes:
-                if getattr(item, "path", "") == "/api/sessions/{session_id}" and "GET" in getattr(item, "methods", set()):
+                if getattr(item, "path", "") == "/api/sessions/{session_id}" and "GET" in getattr(
+                    item, "methods", set()
+                ):
                     route = item
                     break
             self.assertIsNotNone(route)
@@ -355,4 +377,3 @@ class TestGuiBackendApi(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

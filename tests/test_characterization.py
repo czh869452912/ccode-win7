@@ -161,29 +161,26 @@ class TestLLMRetryBehavior(object):
             call_count[0] += 1
             if call_count[0] == 1:
                 from embedagent.llm import ModelClientError
+
                 raise ModelClientError("HTTP 500: internal server error")
             from embedagent.session import AssistantReply
+
             return AssistantReply(content="ok", actions=[])
 
         wrapper.client.generate = side_effect
-        result = wrapper.call_with_retry(
-            [{"role": "user", "content": "hi"}], []
-        )
+        result = wrapper.call_with_retry([{"role": "user", "content": "hi"}], [])
         assert call_count[0] == 2
         assert result.content == "ok"
 
     def test_max_retries_exhausted(self):
         from embedagent.llm import ModelClientError
-        from embedagent.session import AssistantReply
 
         wrapper = LLMClientRetryWrapper(
             client=MagicMock(),
             max_retries=2,
             base_delay=0.01,
         )
-        wrapper.client.generate = MagicMock(
-            side_effect=ModelClientError("HTTP 500: always fails")
-        )
+        wrapper.client.generate = MagicMock(side_effect=ModelClientError("HTTP 500: always fails"))
 
         with pytest.raises(ModelClientError):
             wrapper.call_with_retry([{"role": "user", "content": "hi"}], [])

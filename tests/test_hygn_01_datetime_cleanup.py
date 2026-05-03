@@ -1,4 +1,5 @@
 """Validation test for HYGN-01: Verify zero datetime.utcnow() calls remain in source code."""
+
 import ast
 import os
 
@@ -91,6 +92,4 @@ class TestNoDeprecatedDatetime:
             if "datetime.now(timezone.utc)" not in content:
                 violations.append(f"{rel_path}: missing datetime.now(timezone.utc) usage")
 
-        assert len(violations) == 0, (
-            f"Found {len(violations)} violations: {'; '.join(violations)}"
-        )
+        assert len(violations) == 0, f"Found {len(violations)} violations: {'; '.join(violations)}"

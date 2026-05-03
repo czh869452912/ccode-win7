@@ -15,7 +15,9 @@ def update_snapshot(state: TerminalState, **updates: object) -> None:
     merged = dict(state.session.current_snapshot)
     merged.update(updates)
     state.session.current_snapshot = merged
-    state.session.current_session_id = str(merged.get("session_id") or state.session.current_session_id or "")
+    state.session.current_session_id = str(
+        merged.get("session_id") or state.session.current_session_id or ""
+    )
 
 
 def reset_session_buffers(state: TerminalState) -> None:
@@ -60,7 +62,9 @@ def trim_timeline(state: TerminalState) -> None:
         state.timeline.lines = state.timeline.lines[-state.transcript_limit :]
 
 
-def set_explorer_items(state: TerminalState, tab: str, items: Iterable[ExplorerItem], root: str = ".") -> None:
+def set_explorer_items(
+    state: TerminalState, tab: str, items: Iterable[ExplorerItem], root: str = "."
+) -> None:
     state.explorer.tab = tab
     state.explorer.items = list(items)
     state.explorer.root = root
@@ -127,7 +131,9 @@ def set_context_event(state: TerminalState, payload: Dict[str, object]) -> None:
     state.session.last_context_event = dict(payload)
 
 
-def set_editor_buffer(state: TerminalState, buffer: EditorBuffer, diff_preview: str = "", warning: str = "") -> None:
+def set_editor_buffer(
+    state: TerminalState, buffer: EditorBuffer, diff_preview: str = "", warning: str = ""
+) -> None:
     state.editor.buffer = buffer
     state.editor.diff_preview = diff_preview
     state.editor.warning = warning

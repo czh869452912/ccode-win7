@@ -93,7 +93,11 @@ class WriteThenDoneClient(object):
                 actions=[
                     Action(
                         name="write_file",
-                        arguments={"path": "src/generated_write.c", "content": "int generated_write(void) {\n    return 0;\n}\n", "overwrite": True},
+                        arguments={
+                            "path": "src/generated_write.c",
+                            "content": "int generated_write(void) {\n    return 0;\n}\n",
+                            "overwrite": True,
+                        },
                         call_id="write-1",
                     )
                 ],
@@ -179,7 +183,11 @@ class SpecCodeWriteClient(object):
                 actions=[
                     Action(
                         name="write_file",
-                        arguments={"path": "src/spec_illegal.c", "content": "int spec_illegal(void) {\n    return 0;\n}\n", "overwrite": True},
+                        arguments={
+                            "path": "src/spec_illegal.c",
+                            "content": "int spec_illegal(void) {\n    return 0;\n}\n",
+                            "overwrite": True,
+                        },
                         call_id="write-spec-illegal",
                     )
                 ],
@@ -270,7 +278,15 @@ class LockCheckingContextManager(ContextManager):
         super(LockCheckingContextManager, self).__init__(*args, **kwargs)
         self._lock = lock
 
-    def build_messages(self, session, mode_name=None, tools=None, workflow_state="chat", intelligence_broker=None, force_compact=False):
+    def build_messages(
+        self,
+        session,
+        mode_name=None,
+        tools=None,
+        workflow_state="chat",
+        intelligence_broker=None,
+        force_compact=False,
+    ):
         if not self._lock.held():
             raise AssertionError("session lock not held during context build")
         return super(LockCheckingContextManager, self).build_messages(
@@ -407,7 +423,9 @@ class CountingToolRuntime(object):
             self.read_file_calls += 1
         if name == "read_file":
             should_sleep = self.slow_first and self.read_file_calls == 1
-            should_sleep = should_sleep or (self.slow_read_calls > 0 and self.read_file_calls <= self.slow_read_calls)
+            should_sleep = should_sleep or (
+                self.slow_read_calls > 0 and self.read_file_calls <= self.slow_read_calls
+            )
             if should_sleep:
                 time.sleep(self.slow_delay_sec)
         return self._base.execute(name, arguments)
@@ -418,7 +436,9 @@ class CountingToolRuntime(object):
         if name == "read_file":
             self.read_file_calls += 1
             should_sleep = self.slow_first and self.read_file_calls == 1
-            should_sleep = should_sleep or (self.slow_read_calls > 0 and self.read_file_calls <= self.slow_read_calls)
+            should_sleep = should_sleep or (
+                self.slow_read_calls > 0 and self.read_file_calls <= self.slow_read_calls
+            )
             if should_sleep:
                 time.sleep(self.slow_delay_sec)
         return self._base.execute_with_interrupt(name, arguments, stop_event)
@@ -459,8 +479,8 @@ class TestQueryEngineRefactor(unittest.TestCase):
 
     def test_projection_failure_does_not_flip_tool_success(self):
         transcript_store = TranscriptStore(self.workspace)
-        self.tools.projection_db.upsert_tool_result_projection = (
-            lambda **_: (_ for _ in ()).throw(RuntimeError("db down"))
+        self.tools.projection_db.upsert_tool_result_projection = lambda **_: (_ for _ in ()).throw(
+            RuntimeError("db down")
         )
         engine = QueryEngine(
             client=ToolClient(),
@@ -535,8 +555,8 @@ class TestQueryEngineRefactor(unittest.TestCase):
         transcript_store = TranscriptStore(self.workspace)
         with open(os.path.join(self.workspace, "src", "demo.c"), "w", encoding="utf-8") as handle:
             handle.write("int demo(void) {\n%s\n}\n" % ("x" * 2500))
-        self.tools.tool_result_store.write_text = (
-            lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("disk down"))
+        self.tools.tool_result_store.write_text = lambda *args, **kwargs: (_ for _ in ()).throw(
+            RuntimeError("disk down")
         )
         engine = QueryEngine(
             client=ToolClient(),
@@ -632,7 +652,8 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertEqual(result.transition.reason, "completed")
         self.assertEqual(len(client.messages), 1)
         tool_messages = [
-            item for item in client.messages[0]
+            item
+            for item in client.messages[0]
             if item.get("role") == "tool" and item.get("tool_call_id") == "read_file:1"
         ]
         self.assertEqual(len(tool_messages), 1)
@@ -735,14 +756,14 @@ class TestQueryEngineRefactor(unittest.TestCase):
         result = ContextManager().build_messages(session, "build")
 
         assistant_messages = [
-            item for item in result.messages
+            item
+            for item in result.messages
             if item.get("role") == "assistant" and item.get("tool_calls")
         ]
         self.assertEqual(len(assistant_messages), 1)
         expected_call_ids = [item["id"] for item in assistant_messages[0]["tool_calls"]]
         tool_call_ids = [
-            item.get("tool_call_id") for item in result.messages
-            if item.get("role") == "tool"
+            item.get("tool_call_id") for item in result.messages if item.get("role") == "tool"
         ]
         self.assertEqual(tool_call_ids, expected_call_ids)
         rendered = "\n".join(str(item.get("content") or "") for item in result.messages)
@@ -751,8 +772,8 @@ class TestQueryEngineRefactor(unittest.TestCase):
     def test_ctags_provider_parses_symbol_entries(self):
         with open(os.path.join(self.workspace, "tags"), "w", encoding="utf-8") as handle:
             handle.write("!_TAG_FILE_FORMAT\t2\t/extended format/\n")
-            handle.write("demo\tsrc/demo.c\t/^int demo(void) {$/;\"\tf\n")
-            handle.write("helper\tsrc/demo.c\t/^static int helper(int x) {$/;\"\tf\n")
+            handle.write('demo\tsrc/demo.c\t/^int demo(void) {$/;"\tf\n')
+            handle.write('helper\tsrc/demo.c\t/^static int helper(int x) {$/;"\tf\n')
         provider = CtagsProvider()
         evidence = provider.collect(Session(), "build", self.tools, None)
         self.assertEqual(len(evidence), 1)
@@ -763,23 +784,31 @@ class TestQueryEngineRefactor(unittest.TestCase):
     def test_broker_renders_symbol_evidence_for_code_mode(self):
         with open(os.path.join(self.workspace, "tags"), "w", encoding="utf-8") as handle:
             handle.write("!_TAG_FILE_FORMAT\t2\t/extended format/\n")
-            handle.write("demo\tsrc/demo.c\t/^int demo(void) {$/;\"\tf\n")
+            handle.write('demo\tsrc/demo.c\t/^int demo(void) {$/;"\tf\n')
         broker = WorkspaceIntelligenceBroker()
-        message = broker.render_system_message(Session(), "build", self.tools, None, limit=5, char_limit=2000)
+        message = broker.render_system_message(
+            Session(), "build", self.tools, None, limit=5, char_limit=2000
+        )
         self.assertIn("demo", message)
         self.assertIn("src/demo.c", message)
 
     def test_ctags_provider_prioritizes_recent_working_set_files(self):
         with open(os.path.join(self.workspace, "tags"), "w", encoding="utf-8") as handle:
             handle.write("!_TAG_FILE_FORMAT\t2\t/extended format/\n")
-            handle.write("other_symbol\tsrc/other.c\t/^int other_symbol(void) {$/;\"\tf\n")
-            handle.write("demo\tsrc/demo.c\t/^int demo(void) {$/;\"\tf\n")
+            handle.write('other_symbol\tsrc/other.c\t/^int other_symbol(void) {$/;"\tf\n')
+            handle.write('demo\tsrc/demo.c\t/^int demo(void) {$/;"\tf\n')
         session = Session()
         session.add_user_message("改 demo")
         session.add_assistant_reply(
             AssistantReply(
                 content="",
-                actions=[Action("edit_file", {"path": "src/demo.c", "old_text": "0", "new_text": "1"}, "edit-1")],
+                actions=[
+                    Action(
+                        "edit_file",
+                        {"path": "src/demo.c", "old_text": "0", "new_text": "1"},
+                        "edit-1",
+                    )
+                ],
                 finish_reason="tool_calls",
             )
         )
@@ -789,7 +818,9 @@ class TestQueryEngineRefactor(unittest.TestCase):
         )
         provider = CtagsProvider()
         evidence = provider.collect(session, "build", self.tools, None)
-        self.assertTrue(evidence[0].content.index("demo") < evidence[0].content.index("other_symbol"))
+        self.assertTrue(
+            evidence[0].content.index("demo") < evidence[0].content.index("other_symbol")
+        )
 
     def test_diagnostics_provider_prioritizes_focused_file(self):
         session = Session()
@@ -797,21 +828,49 @@ class TestQueryEngineRefactor(unittest.TestCase):
         session.add_assistant_reply(
             AssistantReply(
                 content="",
-                actions=[Action("edit_file", {"path": "src/demo.c", "old_text": "0", "new_text": "1"}, "edit-demo")],
+                actions=[
+                    Action(
+                        "edit_file",
+                        {"path": "src/demo.c", "old_text": "0", "new_text": "1"},
+                        "edit-demo",
+                    )
+                ],
                 finish_reason="tool_calls",
             )
         )
         session.add_observation(
-            Action("edit_file", {"path": "src/demo.c", "old_text": "0", "new_text": "1"}, "edit-demo"),
+            Action(
+                "edit_file", {"path": "src/demo.c", "old_text": "0", "new_text": "1"}, "edit-demo"
+            ),
             Observation("edit_file", True, None, {"path": "src/demo.c"}),
         )
         session.add_observation(
             Action("run_recipe", {"recipe_id": "cmake.build.default"}, "compile-1"),
-            Observation("run_recipe", False, "compile failed", {"recipe_action": "build", "diagnostics": [{"file": "src/other.c", "line": 3, "column": 1, "message": "other failure"}]}),
+            Observation(
+                "run_recipe",
+                False,
+                "compile failed",
+                {
+                    "recipe_action": "build",
+                    "diagnostics": [
+                        {"file": "src/other.c", "line": 3, "column": 1, "message": "other failure"}
+                    ],
+                },
+            ),
         )
         session.add_observation(
             Action("run_recipe", {"recipe_id": "custom.tidy"}, "tidy-1"),
-            Observation("run_recipe", False, "tidy failed", {"recipe_action": "tidy", "diagnostics": [{"file": "src/demo.c", "line": 5, "column": 2, "message": "demo warning"}]}),
+            Observation(
+                "run_recipe",
+                False,
+                "tidy failed",
+                {
+                    "recipe_action": "tidy",
+                    "diagnostics": [
+                        {"file": "src/demo.c", "line": 5, "column": 2, "message": "demo warning"}
+                    ],
+                },
+            ),
         )
         provider = DiagnosticsProvider()
         evidence = provider.collect(session, "build", self.tools, None)
@@ -824,12 +883,20 @@ class TestQueryEngineRefactor(unittest.TestCase):
         session.add_assistant_reply(
             AssistantReply(
                 content="",
-                actions=[Action("edit_file", {"path": "src/demo.c", "old_text": "0", "new_text": "2"}, "edit-demo-2")],
+                actions=[
+                    Action(
+                        "edit_file",
+                        {"path": "src/demo.c", "old_text": "0", "new_text": "2"},
+                        "edit-demo-2",
+                    )
+                ],
                 finish_reason="tool_calls",
             )
         )
         session.add_observation(
-            Action("edit_file", {"path": "src/demo.c", "old_text": "0", "new_text": "2"}, "edit-demo-2"),
+            Action(
+                "edit_file", {"path": "src/demo.c", "old_text": "0", "new_text": "2"}, "edit-demo-2"
+            ),
             Observation("edit_file", True, None, {"path": "src/demo.c"}),
         )
         session.add_observation(
@@ -838,7 +905,12 @@ class TestQueryEngineRefactor(unittest.TestCase):
                 "run_recipe",
                 False,
                 "compile failed",
-                {"recipe_action": "build", "diagnostics": [{"file": "src/demo.c", "line": 7, "column": 3, "message": "compile failure"}]},
+                {
+                    "recipe_action": "build",
+                    "diagnostics": [
+                        {"file": "src/demo.c", "line": 7, "column": 3, "message": "compile failure"}
+                    ],
+                },
             ),
         )
         session.add_observation(
@@ -847,7 +919,12 @@ class TestQueryEngineRefactor(unittest.TestCase):
                 "run_recipe",
                 False,
                 "tidy failed",
-                {"recipe_action": "tidy", "diagnostics": [{"file": "src/demo.c", "line": 9, "column": 2, "message": "tidy warning"}]},
+                {
+                    "recipe_action": "tidy",
+                    "diagnostics": [
+                        {"file": "src/demo.c", "line": 9, "column": 2, "message": "tidy warning"}
+                    ],
+                },
             ),
         )
         session.add_observation(
@@ -856,7 +933,12 @@ class TestQueryEngineRefactor(unittest.TestCase):
                 "run_recipe",
                 False,
                 "analyzer failed",
-                {"recipe_action": "analyze", "diagnostics": [{"file": "src/other.c", "line": 4, "column": 1, "message": "other issue"}]},
+                {
+                    "recipe_action": "analyze",
+                    "diagnostics": [
+                        {"file": "src/other.c", "line": 4, "column": 1, "message": "other issue"}
+                    ],
+                },
             ),
         )
         provider = DiagnosticsProvider()
@@ -879,7 +961,10 @@ class TestQueryEngineRefactor(unittest.TestCase):
                 "run_recipe",
                 False,
                 "tests failed",
-                {"recipe_action": "test", "test_summary": {"total": 5, "passed": 3, "failed": 2, "skipped": 0}},
+                {
+                    "recipe_action": "test",
+                    "test_summary": {"total": 5, "passed": 3, "failed": 2, "skipped": 0},
+                },
             ),
         )
         session.add_observation(
@@ -917,7 +1002,9 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertIn("coverage", evidence[0].content)
         self.assertIn("report_quality_v2", evidence[0].content)
         self.assertEqual(evidence[0].metadata.get("group_kind"), "quality_gate_summary")
-        self.assertEqual(set(evidence[0].metadata.get("tool_names") or []), {"run_recipe", "report_quality_v2"})
+        self.assertEqual(
+            set(evidence[0].metadata.get("tool_names") or []), {"run_recipe", "report_quality_v2"}
+        )
 
     def test_diagnostics_provider_accepts_run_recipe_and_report_quality_v2(self):
         session = Session()
@@ -948,17 +1035,26 @@ class TestQueryEngineRefactor(unittest.TestCase):
         provider = DiagnosticsProvider()
         evidence = provider.collect(session, "verify", self.tools, None)
         self.assertGreaterEqual(len(evidence), 1)
-        self.assertTrue(any("run_recipe" in item.content or "report_quality_v2" in item.content for item in evidence))
+        self.assertTrue(
+            any(
+                "run_recipe" in item.content or "report_quality_v2" in item.content
+                for item in evidence
+            )
+        )
 
     def test_recipe_provider_prefers_verify_tools_in_verify_mode(self):
         os.makedirs(os.path.join(self.workspace, ".embedagent"), exist_ok=True)
-        with open(os.path.join(self.workspace, ".embedagent", "workspace-recipes.json"), "w", encoding="utf-8") as handle:
+        with open(
+            os.path.join(self.workspace, ".embedagent", "workspace-recipes.json"),
+            "w",
+            encoding="utf-8",
+        ) as handle:
             handle.write(
-                "[" +
-                '{"id":"custom.build","tool_name":"run_recipe","recipe_action":"build","label":"Custom Build","command":"cmd /c echo build","cwd":"."},' +
-                '{"id":"custom.test","tool_name":"run_recipe","recipe_action":"test","label":"Custom Test","command":"cmd /c echo test","cwd":"."},' +
-                '{"id":"custom.tidy","tool_name":"run_recipe","recipe_action":"tidy","label":"Custom Tidy","command":"cmd /c echo tidy","cwd":"."}' +
-                "]"
+                "["
+                + '{"id":"custom.build","tool_name":"run_recipe","recipe_action":"build","label":"Custom Build","command":"cmd /c echo build","cwd":"."},'
+                + '{"id":"custom.test","tool_name":"run_recipe","recipe_action":"test","label":"Custom Test","command":"cmd /c echo test","cwd":"."},'
+                + '{"id":"custom.tidy","tool_name":"run_recipe","recipe_action":"tidy","label":"Custom Tidy","command":"cmd /c echo tidy","cwd":"."}'
+                + "]"
             )
         provider = RecipeProvider()
         evidence = provider.collect(Session(), "verify", self.tools, None)
@@ -968,32 +1064,44 @@ class TestQueryEngineRefactor(unittest.TestCase):
 
     def test_recipe_provider_prefers_project_recipe_over_detected_in_build_mode(self):
         os.makedirs(os.path.join(self.workspace, ".embedagent"), exist_ok=True)
-        with open(os.path.join(self.workspace, ".embedagent", "workspace-recipes.json"), "w", encoding="utf-8") as handle:
+        with open(
+            os.path.join(self.workspace, ".embedagent", "workspace-recipes.json"),
+            "w",
+            encoding="utf-8",
+        ) as handle:
             handle.write(
-                "[" +
-                '{"id":"custom.build","tool_name":"run_recipe","recipe_action":"build","label":"Custom Build","command":"cmd /c echo build","cwd":"."}' +
-                "]"
+                "["
+                + '{"id":"custom.build","tool_name":"run_recipe","recipe_action":"build","label":"Custom Build","command":"cmd /c echo build","cwd":"."}'
+                + "]"
             )
         provider = RecipeProvider()
         evidence = provider.collect(Session(), "build", self.tools, None)
         self.assertIn("custom.build", evidence[0].content)
         self.assertIn("cmake.build.default", evidence[0].content)
-        self.assertLess(evidence[0].content.index("custom.build"), evidence[0].content.index("cmake.build.default"))
+        self.assertLess(
+            evidence[0].content.index("custom.build"),
+            evidence[0].content.index("cmake.build.default"),
+        )
 
     def test_recipe_provider_prefers_history_test_recipe_over_detected_in_verify_mode(self):
         history_root = os.path.join(self.workspace, ".embedagent", "memory", "project")
         os.makedirs(history_root, exist_ok=True)
-        with open(os.path.join(history_root, "command-recipes.json"), "w", encoding="utf-8") as handle:
+        with open(
+            os.path.join(history_root, "command-recipes.json"), "w", encoding="utf-8"
+        ) as handle:
             handle.write(
-                "[" +
-                '{"tool_name":"run_recipe","recipe_action":"test","command":"python -m unittest","cwd":"."}' +
-                "]"
+                "["
+                + '{"tool_name":"run_recipe","recipe_action":"test","command":"python -m unittest","cwd":"."}'
+                + "]"
             )
         provider = RecipeProvider()
         evidence = provider.collect(Session(), "verify", self.tools, None)
         self.assertIn("history.test.1", evidence[0].content)
         self.assertIn("cmake.test.default", evidence[0].content)
-        self.assertLess(evidence[0].content.index("history.test.1"), evidence[0].content.index("cmake.test.default"))
+        self.assertLess(
+            evidence[0].content.index("history.test.1"),
+            evidence[0].content.index("cmake.test.default"),
+        )
 
     def test_llsp_provider_uses_backend_contract(self):
         provider = LlspProvider(backend=FakeLlspBackend())
@@ -1004,7 +1112,11 @@ class TestQueryEngineRefactor(unittest.TestCase):
 
     def test_llsp_provider_uses_default_file_backend_and_prioritizes_focus_path(self):
         os.makedirs(os.path.join(self.workspace, ".embedagent", "llsp"), exist_ok=True)
-        with open(os.path.join(self.workspace, ".embedagent", "llsp", "evidence.json"), "w", encoding="utf-8") as handle:
+        with open(
+            os.path.join(self.workspace, ".embedagent", "llsp", "evidence.json"),
+            "w",
+            encoding="utf-8",
+        ) as handle:
             json.dump(
                 {
                     "items": [
@@ -1031,12 +1143,22 @@ class TestQueryEngineRefactor(unittest.TestCase):
         session.add_assistant_reply(
             AssistantReply(
                 content="",
-                actions=[Action("edit_file", {"path": "src/demo.c", "old_text": "0", "new_text": "1"}, "edit-demo-llsp")],
+                actions=[
+                    Action(
+                        "edit_file",
+                        {"path": "src/demo.c", "old_text": "0", "new_text": "1"},
+                        "edit-demo-llsp",
+                    )
+                ],
                 finish_reason="tool_calls",
             )
         )
         session.add_observation(
-            Action("edit_file", {"path": "src/demo.c", "old_text": "0", "new_text": "1"}, "edit-demo-llsp"),
+            Action(
+                "edit_file",
+                {"path": "src/demo.c", "old_text": "0", "new_text": "1"},
+                "edit-demo-llsp",
+            ),
             Observation("edit_file", True, None, {"path": "src/demo.c"}),
         )
         provider = LlspProvider()
@@ -1083,7 +1205,11 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertEqual(resumed.transition.reason, "completed")
         self.assertEqual(resumed.final_text, "done")
         self.assertTrue(
-            any("当前模式：debug" in item.content for item in session.messages if item.role == "system")
+            any(
+                "当前模式：debug" in item.content
+                for item in session.messages
+                if item.role == "system"
+            )
         )
 
     def test_query_engine_waits_for_permission_and_can_resume(self):
@@ -1165,7 +1291,9 @@ class TestQueryEngineRefactor(unittest.TestCase):
 
         self.assertEqual(resumed.transition.reason, "completed")
         self.assertFalse(os.path.exists(target_path))
-        self.assertEqual(session.turns[-1].observations[-1].data.get("error_kind"), "mode_path_blocked")
+        self.assertEqual(
+            session.turns[-1].observations[-1].data.get("error_kind"), "mode_path_blocked"
+        )
 
     def test_query_engine_retries_with_compact_context_after_context_limit_error(self):
         session = Session()
@@ -1188,7 +1316,8 @@ class TestQueryEngineRefactor(unittest.TestCase):
                     {
                         "path": "src/demo.c",
                         "content": "int demo(void) {\n%s\n}\n" % ("x" * 1200),
-                        "content_stored_path": ".embedagent/memory/sessions/sess-compact/tool-results/demo-%s/content.txt" % index,
+                        "content_stored_path": ".embedagent/memory/sessions/sess-compact/tool-results/demo-%s/content.txt"
+                        % index,
                     },
                 ),
             )
@@ -1208,9 +1337,13 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertEqual(result.final_text, "after compact")
         self.assertEqual(client.calls, 2)
         self.assertGreater(client.message_sizes[0], client.message_sizes[1])
-        self.assertTrue(any(item.reason == "compact_retry" for item in session.turns[-1].transitions))
+        self.assertTrue(
+            any(item.reason == "compact_retry" for item in session.turns[-1].transitions)
+        )
         self.assertIsNotNone(session.latest_compact_boundary())
-        retry_transition = [item for item in session.turns[-1].transitions if item.reason == "compact_retry"][0]
+        retry_transition = [
+            item for item in session.turns[-1].transitions if item.reason == "compact_retry"
+        ][0]
         self.assertEqual(retry_transition.metadata.get("retry_mode"), "compact")
         self.assertEqual(retry_transition.metadata.get("source_mode"), "build")
 
@@ -1235,7 +1368,8 @@ class TestQueryEngineRefactor(unittest.TestCase):
                     {
                         "path": "src/demo.c",
                         "content": "int demo(void) {\n%s\n}\n" % ("x" * 1200),
-                        "content_stored_path": ".embedagent/memory/sessions/sess-compact/tool-results/demo-%s/content.txt" % index,
+                        "content_stored_path": ".embedagent/memory/sessions/sess-compact/tool-results/demo-%s/content.txt"
+                        % index,
                     },
                 ),
             )
@@ -1268,8 +1402,12 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertIsNotNone(restored_boundary)
         self.assertEqual(restored_boundary.summary_text, boundary.summary_text)
         self.assertEqual(restored_boundary.compacted_turn_count, boundary.compacted_turn_count)
-        self.assertEqual(restored_boundary.preserved_head_message_id, boundary.preserved_head_message_id)
-        self.assertEqual(restored_boundary.preserved_tail_message_id, boundary.preserved_tail_message_id)
+        self.assertEqual(
+            restored_boundary.preserved_head_message_id, boundary.preserved_head_message_id
+        )
+        self.assertEqual(
+            restored_boundary.preserved_tail_message_id, boundary.preserved_tail_message_id
+        )
 
     def test_query_engine_writes_transcript_for_completed_turn(self):
         session = Session()
@@ -1316,10 +1454,19 @@ class TestQueryEngineRefactor(unittest.TestCase):
         events = transcript_store.load_events(session.session_id)
         message_events = [item for item in events if item["type"] == "message"]
         tool_result = [item for item in events if item["type"] == "tool_result"][0]
-        self.assertEqual(message_events[-2]["payload"].get("parent_message_id"), message_events[-3]["payload"].get("message_id"))
-        self.assertEqual(tool_result["payload"].get("parent_message_id"), message_events[-2]["payload"].get("message_id"))
+        self.assertEqual(
+            message_events[-2]["payload"].get("parent_message_id"),
+            message_events[-3]["payload"].get("message_id"),
+        )
+        self.assertEqual(
+            tool_result["payload"].get("parent_message_id"),
+            message_events[-2]["payload"].get("message_id"),
+        )
         self.assertTrue(tool_result["payload"].get("message_id"))
-        self.assertEqual(message_events[-1]["payload"].get("parent_message_id"), tool_result["payload"].get("message_id"))
+        self.assertEqual(
+            message_events[-1]["payload"].get("parent_message_id"),
+            tool_result["payload"].get("message_id"),
+        )
 
     def test_query_engine_on_step_start_receives_engine_step_id(self):
         transcript_store = TranscriptStore(self.workspace)
@@ -1338,7 +1485,9 @@ class TestQueryEngineRefactor(unittest.TestCase):
             stream=False,
             initial_mode="build",
             session=session,
-            on_step_start=lambda step_id, step_index: callback_payloads.append((step_id, step_index)),
+            on_step_start=lambda step_id, step_index: callback_payloads.append(
+                (step_id, step_index)
+            ),
         )
 
         self.assertEqual(result.transition.reason, "completed")
@@ -1530,32 +1679,48 @@ class TestQueryEngineRefactor(unittest.TestCase):
             )
         )
         session.turns[-1].message_end_index = len(session.messages) - 1
-        rendered = ContextManager().build_messages(
-            session,
-            "build",
-            tools=self.tools,
-            workflow_state="chat",
-            intelligence_broker=WorkspaceIntelligenceBroker(),
-        ).messages
+        rendered = (
+            ContextManager()
+            .build_messages(
+                session,
+                "build",
+                tools=self.tools,
+                workflow_state="chat",
+                intelligence_broker=WorkspaceIntelligenceBroker(),
+            )
+            .messages
+        )
         self.assertIn("PERSISTED REPLACEMENT TEXT", json.dumps(rendered, ensure_ascii=False))
 
     def test_restored_session_reuses_persisted_content_replacements(self):
         transcript_store = TranscriptStore(self.workspace)
         session_id = "sess-replacements"
         transcript_store.append_event(session_id, "session_meta", {"current_mode": "build"})
-        transcript_store.append_event(session_id, "message", {"role": "user", "content": "继续", "message_id": "m-user", "turn_id": "t-1", "step_id": ""})
+        transcript_store.append_event(
+            session_id,
+            "message",
+            {
+                "role": "user",
+                "content": "继续",
+                "message_id": "m-user",
+                "turn_id": "t-1",
+                "step_id": "",
+            },
+        )
         transcript_store.append_event(
             session_id,
             "message",
             {
                 "role": "tool",
-                "content": "{\"success\": true, \"error\": null, \"data\": {\"path\": \"src/demo.c\", \"content_stored_path\": \".embedagent/memory/sessions/sess-replacements/tool-results/call-read-1/content.txt\"}}",
+                "content": '{"success": true, "error": null, "data": {"path": "src/demo.c", "content_stored_path": ".embedagent/memory/sessions/sess-replacements/tool-results/call-read-1/content.txt"}}',
                 "message_id": "m-tool",
                 "turn_id": "t-1",
                 "step_id": "s-1",
                 "tool_call_id": "call-read-1",
                 "tool_name": "read_file",
-                "replaced_by_refs": [".embedagent/memory/sessions/sess-replacements/tool-results/call-read-1/content.txt"],
+                "replaced_by_refs": [
+                    ".embedagent/memory/sessions/sess-replacements/tool-results/call-read-1/content.txt"
+                ],
             },
         )
         transcript_store.append_event(
@@ -1583,7 +1748,10 @@ class TestQueryEngineRefactor(unittest.TestCase):
             intelligence_broker=WorkspaceIntelligenceBroker(),
         )
         rendered = "\n".join(str(item.get("content") or "") for item in result.messages)
-        self.assertIn("Tool result replaced: read_file src/demo.c -> .embedagent/memory/sessions/sess-replacements/tool-results/call-read-1/content.txt", rendered)
+        self.assertIn(
+            "Tool result replaced: read_file src/demo.c -> .embedagent/memory/sessions/sess-replacements/tool-results/call-read-1/content.txt",
+            rendered,
+        )
 
     def test_query_engine_bootstrap_persists_existing_content_replacements(self):
         session = Session()
@@ -1592,14 +1760,16 @@ class TestQueryEngineRefactor(unittest.TestCase):
         session.messages.append(
             session.messages[-1].__class__(
                 role="tool",
-                content="{\"success\": true, \"error\": null, \"data\": {\"path\": \"src/demo.c\", \"content_stored_path\": \".embedagent/memory/sessions/sess-bootstrap/tool-results/call-read-1/content.txt\"}}",
+                content='{"success": true, "error": null, "data": {"path": "src/demo.c", "content_stored_path": ".embedagent/memory/sessions/sess-bootstrap/tool-results/call-read-1/content.txt"}}',
                 name="read_file",
                 tool_call_id="call-read-1",
                 message_id="m-tool",
                 turn_id=session.turns[-1].turn_id,
                 step_id="s-1",
                 kind="tool_result",
-                replaced_by_refs=[".embedagent/memory/sessions/sess-bootstrap/tool-results/call-read-1/content.txt"],
+                replaced_by_refs=[
+                    ".embedagent/memory/sessions/sess-bootstrap/tool-results/call-read-1/content.txt"
+                ],
             )
         )
         session.turns[-1].message_end_index = len(session.messages) - 1
@@ -1642,9 +1812,14 @@ class TestQueryEngineRefactor(unittest.TestCase):
             intelligence_broker=WorkspaceIntelligenceBroker(),
         )
         rendered = "\n".join(str(item.get("content") or "") for item in built.messages)
-        self.assertIn("Tool result replaced: read_file src/demo.c -> .embedagent/memory/sessions/sess-bootstrap/tool-results/call-read-1/content.txt", rendered)
+        self.assertIn(
+            "Tool result replaced: read_file src/demo.c -> .embedagent/memory/sessions/sess-bootstrap/tool-results/call-read-1/content.txt",
+            rendered,
+        )
 
-    def test_query_engine_emits_interrupted_tool_result_when_stop_event_is_set_after_tool_start(self):
+    def test_query_engine_emits_interrupted_tool_result_when_stop_event_is_set_after_tool_start(
+        self,
+    ):
         session = Session()
         session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：build")
         transcript_store = TranscriptStore(self.workspace)
@@ -1670,7 +1845,9 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertEqual(observation.data.get("error_kind"), "interrupted")
         events = transcript_store.load_events(session.session_id)
         tool_results = [item for item in events if item["type"] == "tool_result"]
-        self.assertEqual(tool_results[-1]["payload"]["observation"]["data"].get("error_kind"), "interrupted")
+        self.assertEqual(
+            tool_results[-1]["payload"]["observation"]["data"].get("error_kind"), "interrupted"
+        )
 
     def test_query_engine_keeps_discarded_parallel_results_out_of_guard_stop(self):
         session = Session()
@@ -1737,10 +1914,16 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertIn("interrupted", error_kinds)
         self.assertIn("discarded", error_kinds)
         events = transcript_store.load_events(session.session_id)
-        tool_call_ids = [item["payload"]["call_id"] for item in events if item["type"] == "tool_call"]
-        self.assertEqual(tool_call_ids, ["call-read-demo-a", "call-read-demo-b", "call-read-demo-c"])
+        tool_call_ids = [
+            item["payload"]["call_id"] for item in events if item["type"] == "tool_call"
+        ]
+        self.assertEqual(
+            tool_call_ids, ["call-read-demo-a", "call-read-demo-b", "call-read-demo-c"]
+        )
 
-    def test_query_engine_discards_queued_parallel_actions_after_cancel_with_higher_parallelism(self):
+    def test_query_engine_discards_queued_parallel_actions_after_cancel_with_higher_parallelism(
+        self,
+    ):
         session = Session()
         session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：build")
         transcript_store = TranscriptStore(self.workspace)
@@ -1783,7 +1966,13 @@ class TestQueryEngineRefactor(unittest.TestCase):
         events = transcript_store.load_events(session.session_id)
         tool_results = [item for item in events if item["type"] == "tool_result"]
         self.assertEqual(
-            [(item["payload"]["call_id"], item["payload"]["observation"]["data"].get("error_kind")) for item in tool_results],
+            [
+                (
+                    item["payload"]["call_id"],
+                    item["payload"]["observation"]["data"].get("error_kind"),
+                )
+                for item in tool_results
+            ],
             [
                 ("call-read-demo-a", "interrupted"),
                 ("call-read-demo-b", "interrupted"),
@@ -1849,7 +2038,11 @@ class TestQueryEngineRefactor(unittest.TestCase):
         transcript_store = TranscriptStore(self.workspace)
         stop_event = threading.Event()
         os.makedirs(os.path.join(self.workspace, ".embedagent"), exist_ok=True)
-        with open(os.path.join(self.workspace, ".embedagent", "workspace-recipes.json"), "w", encoding="utf-8") as handle:
+        with open(
+            os.path.join(self.workspace, ".embedagent", "workspace-recipes.json"),
+            "w",
+            encoding="utf-8",
+        ) as handle:
             json.dump(
                 [
                     {
@@ -1898,7 +2091,9 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertIsNot(observation.data.get("synthetic"), True)
         events = transcript_store.load_events(session.session_id)
         tool_results = [item for item in events if item["type"] == "tool_result"]
-        self.assertEqual(tool_results[-1]["payload"]["observation"]["data"].get("error_kind"), "interrupted")
+        self.assertEqual(
+            tool_results[-1]["payload"]["observation"]["data"].get("error_kind"), "interrupted"
+        )
 
     def test_adapter_resumes_pending_user_input(self):
         adapter = InProcessAdapter(
@@ -1956,5 +2151,3 @@ class TestQueryEngineRefactor(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-
-

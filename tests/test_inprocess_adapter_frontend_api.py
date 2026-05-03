@@ -7,7 +7,7 @@ import time
 import unittest
 from itertools import count
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from embedagent.inprocess_adapter import InProcessAdapter
 from embedagent.llm import ModelClientError
@@ -34,7 +34,7 @@ def _make_workspace():
 
 class FakeClient(object):
     def generate(self, messages, tools=None):
-        return AssistantReply(content='ok', actions=[], finish_reason='stop')
+        return AssistantReply(content="ok", actions=[], finish_reason="stop")
 
     def stream(self, messages, tools=None, on_text_delta=None, on_reasoning_delta=None):
         reply = self.generate(messages, tools=tools)
@@ -172,7 +172,7 @@ class CompactRetryClient(object):
         self.calls += 1
         if self.calls == 1:
             raise ModelClientError("prompt is too long: context length exceeded")
-        return AssistantReply(content='after compact', actions=[], finish_reason='stop')
+        return AssistantReply(content="after compact", actions=[], finish_reason="stop")
 
     def stream(self, messages, tools=None, on_text_delta=None, on_reasoning_delta=None):
         reply = self.generate(messages, tools=tools)
@@ -215,7 +215,11 @@ class WriteThenDoneClient(object):
                 actions=[
                     Action(
                         name="write_file",
-                        arguments={"path": "src/generated_write.c", "content": "int generated_write(void) {\n    return 0;\n}\n", "overwrite": True},
+                        arguments={
+                            "path": "src/generated_write.c",
+                            "content": "int generated_write(void) {\n    return 0;\n}\n",
+                            "overwrite": True,
+                        },
                         call_id="write-frontend-1",
                     )
                 ],
@@ -263,10 +267,12 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
         )
-        os.makedirs(os.path.join(self.workspace, 'src', 'pkg'))
-        with open(os.path.join(self.workspace, 'src', 'pkg', 'demo.c'), 'w', encoding='utf-8') as handle:
-            handle.write('int main(void) {\n    return 0;\n}\n')
-        os.makedirs(os.path.join(self.workspace, '.embedagent'))
+        os.makedirs(os.path.join(self.workspace, "src", "pkg"))
+        with open(
+            os.path.join(self.workspace, "src", "pkg", "demo.c"), "w", encoding="utf-8"
+        ) as handle:
+            handle.write("int main(void) {\n    return 0;\n}\n")
+        os.makedirs(os.path.join(self.workspace, ".embedagent"))
         stored = self.tools.tool_result_store.write_text(
             session_id="session-artifacts",
             tool_call_id="call-artifact-1",
@@ -286,44 +292,46 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             content_kind=stored.content_kind,
             created_at="2026-04-05T00:00:00Z",
         )
-        self.snapshot = self.adapter.create_session('build')
+        self.snapshot = self.adapter.create_session("build")
 
     def tearDown(self):
         shutil.rmtree(self.workspace, ignore_errors=True)
 
     def test_workspace_snapshot_and_tree(self):
         payload = self.adapter.get_workspace_snapshot()
-        self.assertEqual(payload['workspace'], os.path.realpath(self.workspace))
-        tree = self.adapter.list_workspace_tree(path='src', max_depth=2, limit=20)
-        paths = [item['path'] for item in tree['items']]
-        self.assertIn('src/pkg', paths)
-        self.assertIn('src/pkg/demo.c', paths)
-        children = self.adapter.list_workspace_children(path='src', limit=20)
-        pkg = [item for item in children['items'] if item['path'] == 'src/pkg'][0]
-        self.assertTrue(pkg['has_children'])
+        self.assertEqual(payload["workspace"], os.path.realpath(self.workspace))
+        tree = self.adapter.list_workspace_tree(path="src", max_depth=2, limit=20)
+        paths = [item["path"] for item in tree["items"]]
+        self.assertIn("src/pkg", paths)
+        self.assertIn("src/pkg/demo.c", paths)
+        children = self.adapter.list_workspace_children(path="src", limit=20)
+        pkg = [item for item in children["items"] if item["path"] == "src/pkg"][0]
+        self.assertTrue(pkg["has_children"])
 
     def test_read_and_write_workspace_file(self):
-        loaded = self.adapter.read_workspace_file('src/pkg/demo.c')
-        self.assertIn('return 0;', loaded['content'])
-        result = self.adapter.write_workspace_file('src/pkg/demo.c', 'int main(void) {\n    return 1;\n}\n')
-        self.assertIn('diff_preview', result)
-        reloaded = self.adapter.read_workspace_file('src/pkg/demo.c')
-        self.assertIn('return 1;', reloaded['content'])
+        loaded = self.adapter.read_workspace_file("src/pkg/demo.c")
+        self.assertIn("return 0;", loaded["content"])
+        result = self.adapter.write_workspace_file(
+            "src/pkg/demo.c", "int main(void) {\n    return 1;\n}\n"
+        )
+        self.assertIn("diff_preview", result)
+        reloaded = self.adapter.read_workspace_file("src/pkg/demo.c")
+        self.assertIn("return 1;", reloaded["content"])
 
     def test_artifact_and_task_apis(self):
         artifacts = self.adapter.list_artifacts(limit=10)
         self.assertGreaterEqual(len(artifacts), 1)
-        payload = self.adapter.read_artifact(artifacts[0]['path'])
-        self.assertEqual(payload['kind'], 'text')
-        tasks = self.adapter.list_tasks(session_id=str(self.snapshot.get('session_id') or ''))
-        self.assertEqual(tasks['count'], 5)
+        payload = self.adapter.read_artifact(artifacts[0]["path"])
+        self.assertEqual(payload["kind"], "text")
+        tasks = self.adapter.list_tasks(session_id=str(self.snapshot.get("session_id") or ""))
+        self.assertEqual(tasks["count"], 5)
 
     def test_session_snapshot_exposes_task_items(self):
         self.assertIn("task_items", self.snapshot)
         self.assertGreaterEqual(len(self.snapshot.get("task_items") or []), 1)
 
     def test_session_snapshot_projects_task_fields_from_session_graph(self):
-        session_id = str(self.snapshot.get('session_id') or '')
+        session_id = str(self.snapshot.get("session_id") or "")
         state = self.adapter._sessions[session_id]
         state.current_phase = "stale:phase"
         state.discipline_profile = "stale:discipline"
@@ -366,16 +374,16 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
     def test_timeline_api(self):
         events = []
         self.adapter.submit_user_message(
-            session_id=str(self.snapshot.get('session_id') or ''),
-            text='hello',
+            session_id=str(self.snapshot.get("session_id") or ""),
+            text="hello",
             stream=False,
             wait=True,
             permission_resolver=lambda ticket: True,
             event_handler=lambda event_name, session_id, payload: events.append(event_name),
         )
-        payload = self.adapter.get_session_timeline(str(self.snapshot.get('session_id') or ''))
-        self.assertTrue(any(item['event'] == 'turn_started' for item in payload['events']))
-        self.assertEqual(payload['latest_assistant_reply'], 'ok')
+        payload = self.adapter.get_session_timeline(str(self.snapshot.get("session_id") or ""))
+        self.assertTrue(any(item["event"] == "turn_started" for item in payload["events"]))
+        self.assertEqual(payload["latest_assistant_reply"], "ok")
 
     def test_build_session_history_uses_active_session_state_instead_of_timeline_tail(self):
         adapter = InProcessAdapter(
@@ -411,7 +419,13 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         adapter.transcript_store.append_event(
             session_id,
             "message",
-            {"role": "user", "content": "继续", "message_id": "m-user", "turn_id": "t-1", "step_id": ""},
+            {
+                "role": "user",
+                "content": "继续",
+                "message_id": "m-user",
+                "turn_id": "t-1",
+                "step_id": "",
+            },
         )
         adapter.transcript_store.append_event(
             session_id,
@@ -439,7 +453,9 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         )
         history = adapter.build_session_history(session_id)
         self.assertEqual(history["integrity"]["status"], "partial")
-        self.assertEqual(history["integrity"]["restore_stop_reason"], "pending_resolution_identity_mismatch")
+        self.assertEqual(
+            history["integrity"]["restore_stop_reason"], "pending_resolution_identity_mismatch"
+        )
         self.assertTrue(history["turns"])
         self.assertEqual(history["history_source"], "transcript_restore")
 
@@ -449,11 +465,11 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
         )
-        snapshot = adapter.create_session('build')
-        session_id = str(snapshot.get('session_id') or '')
+        snapshot = adapter.create_session("build")
+        session_id = str(snapshot.get("session_id") or "")
         adapter.submit_user_message(
             session_id=session_id,
-            text='请分析这个文件',
+            text="请分析这个文件",
             stream=False,
             wait=True,
             permission_resolver=lambda ticket: True,
@@ -500,7 +516,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertEqual(history["turns"], [])
 
     def test_session_snapshot_includes_runtime_environment_summary(self):
-        snapshot = self.adapter.get_session_snapshot(str(self.snapshot.get('session_id') or ''))
+        snapshot = self.adapter.get_session_snapshot(str(self.snapshot.get("session_id") or ""))
         self.assertIn("runtime_source", snapshot)
         self.assertIn("bundled_tools_ready", snapshot)
         self.assertIn("fallback_warnings", snapshot)
@@ -513,11 +529,11 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
         )
-        snapshot = adapter.create_session('build')
-        session_id = str(snapshot.get('session_id') or '')
+        snapshot = adapter.create_session("build")
+        session_id = str(snapshot.get("session_id") or "")
         adapter.submit_user_message(
             session_id=session_id,
-            text='读取文件',
+            text="读取文件",
             stream=False,
             wait=True,
             permission_resolver=lambda ticket: True,
@@ -531,17 +547,17 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
     def test_session_snapshot_includes_workspace_intelligence_projection(self):
         with open(os.path.join(self.workspace, "tags"), "w", encoding="utf-8") as handle:
             handle.write("!_TAG_FILE_FORMAT\t2\t/extended format/\n")
-            handle.write("demo\tsrc/pkg/demo.c\t/^int main(void) {$/;\"\tf\n")
+            handle.write('demo\tsrc/pkg/demo.c\t/^int main(void) {$/;"\tf\n')
         adapter = InProcessAdapter(
             client=ToolClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
         )
-        snapshot = adapter.create_session('build')
-        session_id = str(snapshot.get('session_id') or '')
+        snapshot = adapter.create_session("build")
+        session_id = str(snapshot.get("session_id") or "")
         adapter.submit_user_message(
             session_id=session_id,
-            text='读取文件',
+            text="读取文件",
             stream=False,
             wait=True,
             permission_resolver=lambda ticket: True,
@@ -555,7 +571,11 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
 
     def test_session_snapshot_projects_default_llsp_file_evidence(self):
         os.makedirs(os.path.join(self.workspace, ".embedagent", "llsp"), exist_ok=True)
-        with open(os.path.join(self.workspace, ".embedagent", "llsp", "evidence.json"), "w", encoding="utf-8") as handle:
+        with open(
+            os.path.join(self.workspace, ".embedagent", "llsp", "evidence.json"),
+            "w",
+            encoding="utf-8",
+        ) as handle:
             json.dump(
                 {
                     "items": [
@@ -576,11 +596,11 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
         )
-        snapshot = adapter.create_session('build')
-        session_id = str(snapshot.get('session_id') or '')
+        snapshot = adapter.create_session("build")
+        session_id = str(snapshot.get("session_id") or "")
         adapter.submit_user_message(
             session_id=session_id,
-            text='读取文件',
+            text="读取文件",
             stream=False,
             wait=True,
             permission_resolver=lambda ticket: True,
@@ -588,7 +608,11 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         )
         refreshed = adapter.get_session_snapshot(session_id)
         self.assertIn("workspace_intelligence", refreshed)
-        rendered_sections = [item.get("content") or "" for item in refreshed["workspace_intelligence"] if isinstance(item, dict)]
+        rendered_sections = [
+            item.get("content") or ""
+            for item in refreshed["workspace_intelligence"]
+            if isinstance(item, dict)
+        ]
         self.assertTrue(any("demo_symbol" in item for item in rendered_sections))
 
     def test_session_snapshot_and_timeline_include_compact_retry_projection(self):
@@ -597,16 +621,18 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
         )
-        snapshot = adapter.create_session('build')
-        session_id = str(snapshot.get('session_id') or '')
+        snapshot = adapter.create_session("build")
+        session_id = str(snapshot.get("session_id") or "")
         events = []
         adapter.submit_user_message(
             session_id=session_id,
-            text='继续分析',
+            text="继续分析",
             stream=False,
             wait=True,
             permission_resolver=lambda ticket: True,
-            event_handler=lambda event_name, current_session_id, payload: events.append((event_name, payload)),
+            event_handler=lambda event_name, current_session_id, payload: events.append(
+                (event_name, payload)
+            ),
         )
         refreshed = adapter.get_session_snapshot(session_id)
         self.assertIn("last_transition_reason", refreshed)
@@ -626,11 +652,11 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             max_turns=1,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
         )
-        snapshot = adapter.create_session('build')
-        session_id = str(snapshot.get('session_id') or '')
+        snapshot = adapter.create_session("build")
+        session_id = str(snapshot.get("session_id") or "")
         adapter.submit_user_message(
             session_id=session_id,
-            text='读取文件',
+            text="读取文件",
             stream=False,
             wait=True,
             permission_resolver=lambda ticket: True,
@@ -653,24 +679,26 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             max_turns=1,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
         )
-        snapshot = adapter.create_session('build')
-        session_id = str(snapshot.get('session_id') or '')
+        snapshot = adapter.create_session("build")
+        session_id = str(snapshot.get("session_id") or "")
         adapter.submit_user_message(
             session_id=session_id,
-            text='读取文件',
+            text="读取文件",
             stream=False,
             wait=True,
             permission_resolver=lambda ticket: True,
             event_handler=lambda event_name, current_session_id, payload: None,
         )
         refreshed = adapter.get_session_snapshot(session_id)
-        summary_path = adapter.summary_store.resolve_summary_path(str(refreshed.get("summary_ref") or session_id))
-        with open(summary_path, 'r', encoding='utf-8') as handle:
+        summary_path = adapter.summary_store.resolve_summary_path(
+            str(refreshed.get("summary_ref") or session_id)
+        )
+        with open(summary_path, "r", encoding="utf-8") as handle:
             payload = json.load(handle)
         for item in payload.get("recent_transitions") or []:
             if isinstance(item, dict) and "display_reason" in item:
                 del item["display_reason"]
-        with open(summary_path, 'w', encoding='utf-8') as handle:
+        with open(summary_path, "w", encoding="utf-8") as handle:
             json.dump(payload, handle, ensure_ascii=False, indent=2, sort_keys=True)
         legacy = adapter.get_session_snapshot(session_id)
         self.assertEqual(legacy["last_transition_display_reason"], "max_turns")
@@ -682,11 +710,11 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
         )
-        snapshot = adapter.create_session('build')
-        session_id = str(snapshot.get('session_id') or '')
+        snapshot = adapter.create_session("build")
+        session_id = str(snapshot.get("session_id") or "")
         adapter.submit_user_message(
             session_id=session_id,
-            text='继续分析',
+            text="继续分析",
             stream=False,
             wait=True,
             permission_resolver=lambda ticket: True,
@@ -708,11 +736,11 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
         )
-        snapshot = adapter.create_session('spec')
-        session_id = str(snapshot.get('session_id') or '')
+        snapshot = adapter.create_session("spec")
+        session_id = str(snapshot.get("session_id") or "")
         adapter.submit_user_message(
             session_id=session_id,
-            text='请继续',
+            text="请继续",
             stream=False,
             wait=True,
             event_handler=lambda event_name, current_session_id, payload: None,
@@ -721,13 +749,21 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertEqual(len(payload["turns"]), 1)
         turn = payload["turns"][0]
         self.assertEqual(turn["status"], "waiting_user_input")
-        self.assertIn("user_input_required", [item.get("kind") for item in turn.get("transitions", [])])
-        waiting_transition = [item for item in turn.get("transitions", []) if item.get("kind") == "user_input_required"][0]
+        self.assertIn(
+            "user_input_required", [item.get("kind") for item in turn.get("transitions", [])]
+        )
+        waiting_transition = [
+            item
+            for item in turn.get("transitions", [])
+            if item.get("kind") == "user_input_required"
+        ][0]
         self.assertEqual(waiting_transition.get("display_reason"), "waiting_user_input")
         self.assertEqual(len(turn["steps"]), 1)
         step = turn["steps"][0]
         self.assertEqual(step["status"], "user_input_wait")
-        self.assertIn("user_input_required", [item.get("kind") for item in step.get("transitions", [])])
+        self.assertIn(
+            "user_input_required", [item.get("kind") for item in step.get("transitions", [])]
+        )
 
     def test_snapshot_and_session_history_preserve_permission_wait_transition(self):
         adapter = InProcessAdapter(
@@ -735,11 +771,11 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=False, workspace=self.workspace),
         )
-        snapshot = adapter.create_session('build')
-        session_id = str(snapshot.get('session_id') or '')
+        snapshot = adapter.create_session("build")
+        session_id = str(snapshot.get("session_id") or "")
         adapter.submit_user_message(
             session_id=session_id,
-            text='写文件',
+            text="写文件",
             stream=False,
             wait=True,
             event_handler=lambda event_name, current_session_id, payload: None,
@@ -748,18 +784,28 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertEqual(refreshed["status"], "waiting_permission")
         self.assertEqual(refreshed["last_transition_reason"], "permission_wait")
         self.assertEqual(refreshed["last_transition_display_reason"], "waiting_permission")
-        self.assertEqual(refreshed["recent_transitions"][-1].get("display_reason"), "waiting_permission")
+        self.assertEqual(
+            refreshed["recent_transitions"][-1].get("display_reason"), "waiting_permission"
+        )
         payload = adapter.build_session_history(session_id)
         self.assertEqual(len(payload["turns"]), 1)
         turn = payload["turns"][0]
         self.assertEqual(turn["status"], "waiting_permission")
-        self.assertIn("permission_required", [item.get("kind") for item in turn.get("transitions", [])])
-        waiting_transition = [item for item in turn.get("transitions", []) if item.get("kind") == "permission_required"][0]
+        self.assertIn(
+            "permission_required", [item.get("kind") for item in turn.get("transitions", [])]
+        )
+        waiting_transition = [
+            item
+            for item in turn.get("transitions", [])
+            if item.get("kind") == "permission_required"
+        ][0]
         self.assertEqual(waiting_transition.get("display_reason"), "waiting_permission")
         self.assertEqual(len(turn["steps"]), 1)
         step = turn["steps"][0]
         self.assertEqual(step["status"], "permission_wait")
-        self.assertIn("permission_required", [item.get("kind") for item in step.get("transitions", [])])
+        self.assertIn(
+            "permission_required", [item.get("kind") for item in step.get("transitions", [])]
+        )
         self.assertIn("pending_interaction", refreshed)
         self.assertEqual(refreshed["pending_interaction"]["kind"], "permission")
         self.assertEqual(refreshed["pending_interaction"]["tool_name"], "write_file")
@@ -771,11 +817,11 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             max_turns=1,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
         )
-        snapshot = adapter.create_session('build')
-        session_id = str(snapshot.get('session_id') or '')
+        snapshot = adapter.create_session("build")
+        session_id = str(snapshot.get("session_id") or "")
         adapter.submit_user_message(
             session_id=session_id,
-            text='读取文件',
+            text="读取文件",
             stream=False,
             wait=True,
             permission_resolver=lambda ticket: True,
@@ -790,7 +836,9 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         step = turn["steps"][0]
         self.assertEqual(step["status"], "max_turns")
         self.assertIn("max_turns", [item.get("kind") for item in step.get("transitions", [])])
-        terminal = [item for item in turn.get("transitions", []) if item.get("kind") == "max_turns"][0]
+        terminal = [
+            item for item in turn.get("transitions", []) if item.get("kind") == "max_turns"
+        ][0]
         self.assertTrue(str(terminal.get("message") or "").strip())
 
     def test_snapshot_and_session_history_preserve_guard_stop_transition(self):
@@ -799,11 +847,11 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
         )
-        snapshot = adapter.create_session('build')
-        session_id = str(snapshot.get('session_id') or '')
+        snapshot = adapter.create_session("build")
+        session_id = str(snapshot.get("session_id") or "")
         adapter.submit_user_message(
             session_id=session_id,
-            text='重复修改不存在文件',
+            text="重复修改不存在文件",
             stream=False,
             wait=True,
             permission_resolver=lambda ticket: True,
@@ -819,11 +867,15 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         turn = payload["turns"][0]
         self.assertEqual(turn["status"], "guard_stop")
         self.assertIn("guard_stop", [item.get("kind") for item in turn.get("transitions", [])])
-        terminal = [item for item in turn.get("transitions", []) if item.get("kind") == "guard_stop"][0]
+        terminal = [
+            item for item in turn.get("transitions", []) if item.get("kind") == "guard_stop"
+        ][0]
         self.assertEqual(terminal.get("display_reason"), "guard")
         self.assertTrue(str(terminal.get("message") or "").strip())
         self.assertEqual(len(turn["steps"]), 1)
-        self.assertIn("guard_stop", [item.get("kind") for item in turn["steps"][0].get("transitions", [])])
+        self.assertIn(
+            "guard_stop", [item.get("kind") for item in turn["steps"][0].get("transitions", [])]
+        )
 
     def test_snapshot_and_session_history_preserve_cancelled_transition(self):
         client = CancellableToolClient()
@@ -832,11 +884,11 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
         )
-        snapshot = adapter.create_session('build')
-        session_id = str(snapshot.get('session_id') or '')
+        snapshot = adapter.create_session("build")
+        session_id = str(snapshot.get("session_id") or "")
         adapter.submit_user_message(
             session_id=session_id,
-            text='读取文件后取消',
+            text="读取文件后取消",
             stream=False,
             wait=False,
             permission_resolver=lambda ticket: True,
@@ -861,7 +913,9 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         turn = payload["turns"][0]
         self.assertEqual(turn["status"], "aborted")
         self.assertIn("aborted", [item.get("kind") for item in turn.get("transitions", [])])
-        terminal = [item for item in turn.get("transitions", []) if item.get("kind") == "aborted"][0]
+        terminal = [item for item in turn.get("transitions", []) if item.get("kind") == "aborted"][
+            0
+        ]
         self.assertEqual(terminal.get("display_reason"), "cancelled")
         self.assertTrue(str(terminal.get("message") or "").strip())
 
@@ -872,11 +926,11 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
         )
-        snapshot = adapter.create_session('build')
-        session_id = str(snapshot.get('session_id') or '')
+        snapshot = adapter.create_session("build")
+        session_id = str(snapshot.get("session_id") or "")
         adapter.submit_user_message(
             session_id=session_id,
-            text='读取文件后取消',
+            text="读取文件后取消",
             stream=False,
             wait=False,
             permission_resolver=lambda ticket: True,
@@ -890,7 +944,10 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         final_snapshot = {}
         while time.time() < deadline:
             final_snapshot = adapter.get_session_snapshot(session_id)
-            if final_snapshot.get("status") == "idle" and final_snapshot.get("last_transition_reason") == "aborted":
+            if (
+                final_snapshot.get("status") == "idle"
+                and final_snapshot.get("last_transition_reason") == "aborted"
+            ):
                 break
             time.sleep(0.05)
         self.assertEqual(final_snapshot.get("status"), "idle")
@@ -910,11 +967,11 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
         )
-        snapshot = adapter.create_session('build')
-        session_id = str(snapshot.get('session_id') or '')
+        snapshot = adapter.create_session("build")
+        session_id = str(snapshot.get("session_id") or "")
         adapter.submit_user_message(
             session_id=session_id,
-            text='读取文件',
+            text="读取文件",
             stream=False,
             wait=True,
             permission_resolver=lambda ticket: True,
@@ -923,7 +980,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         summary_path = adapter.summary_store.resolve_summary_path(session_id)
         if os.path.isfile(summary_path):
             os.remove(summary_path)
-        restored = adapter.resume_session(session_id, 'build')
+        restored = adapter.resume_session(session_id, "build")
         self.assertEqual(restored["session_id"], session_id)
         self.assertEqual(restored["current_mode"], "build")
         self.assertEqual(restored["last_assistant_message"], "done")
@@ -934,16 +991,16 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=False, workspace=self.workspace),
         )
-        snapshot = adapter.create_session('build')
-        session_id = str(snapshot.get('session_id') or '')
+        snapshot = adapter.create_session("build")
+        session_id = str(snapshot.get("session_id") or "")
         adapter.submit_user_message(
             session_id=session_id,
-            text='写文件',
+            text="写文件",
             stream=False,
             wait=True,
             event_handler=lambda event_name, current_session_id, payload: None,
         )
-        restored = adapter.resume_session(session_id, 'build')
+        restored = adapter.resume_session(session_id, "build")
         self.assertEqual(restored["status"], "waiting_permission")
         self.assertTrue(restored["has_pending_permission"])
 
@@ -953,11 +1010,11 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
         )
-        snapshot = adapter.create_session('build')
-        session_id = str(snapshot.get('session_id') or '')
+        snapshot = adapter.create_session("build")
+        session_id = str(snapshot.get("session_id") or "")
         adapter.submit_user_message(
             session_id=session_id,
-            text='读取文件',
+            text="读取文件",
             stream=False,
             wait=True,
             permission_resolver=lambda ticket: True,
@@ -966,9 +1023,11 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         summary_path = adapter.summary_store.resolve_summary_path(session_id)
         if os.path.isfile(summary_path):
             os.remove(summary_path)
-        restored = adapter.resume_session(session_id, 'build')
+        restored = adapter.resume_session(session_id, "build")
         self.assertEqual(restored["restore_stop_reason"], "")
-        self.assertEqual(restored["restore_consumed_event_count"], restored["restore_transcript_event_count"])
+        self.assertEqual(
+            restored["restore_consumed_event_count"], restored["restore_transcript_event_count"]
+        )
         self.assertGreater(restored["restore_transcript_event_count"], 0)
 
     def test_resume_session_exposes_restore_diagnostics_for_truncated_replay(self):
@@ -982,7 +1041,13 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         adapter.transcript_store.append_event(
             session_id,
             "message",
-            {"role": "user", "content": "继续", "message_id": "m-user", "turn_id": "t-1", "step_id": ""},
+            {
+                "role": "user",
+                "content": "继续",
+                "message_id": "m-user",
+                "turn_id": "t-1",
+                "step_id": "",
+            },
         )
         adapter.transcript_store.append_event(
             session_id,
@@ -1014,7 +1079,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             },
         )
 
-        restored = adapter.resume_session(session_id, 'spec')
+        restored = adapter.resume_session(session_id, "spec")
         self.assertEqual(restored["status"], "waiting_user_input")
         self.assertEqual(restored["restore_stop_reason"], "pending_resolution_identity_mismatch")
         self.assertEqual(restored["restore_consumed_event_count"], 4)
@@ -1031,7 +1096,13 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         adapter.transcript_store.append_event(
             session_id,
             "message",
-            {"role": "user", "content": "继续", "message_id": "m-user", "turn_id": "t-1", "step_id": ""},
+            {
+                "role": "user",
+                "content": "继续",
+                "message_id": "m-user",
+                "turn_id": "t-1",
+                "step_id": "",
+            },
         )
         adapter.transcript_store.append_event(
             session_id,
@@ -1051,12 +1122,12 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             },
         )
 
-        restored = adapter.resume_session(session_id, 'spec')
+        restored = adapter.resume_session(session_id, "spec")
         self.assertEqual(restored["restore_stop_reason"], "interaction_expired")
 
         adapter.submit_user_message(
             session_id=session_id,
-            text='请继续',
+            text="请继续",
             stream=False,
             wait=True,
             permission_resolver=lambda ticket: True,
@@ -1071,16 +1142,20 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         refreshed = adapter.get_session_snapshot(session_id)
         self.assertEqual(refreshed["restore_stop_reason"], "")
 
-    def test_load_session_events_after_returns_reload_required_when_after_seq_falls_before_retained_window(self):
+    def test_load_session_events_after_returns_reload_required_when_after_seq_falls_before_retained_window(
+        self,
+    ):
         self.adapter.timeline_store.max_events = 3
-        session_id = str(self.snapshot.get('session_id') or '')
+        session_id = str(self.snapshot.get("session_id") or "")
         for index in range(5):
             self.adapter.timeline_store.append_event(
                 session_id,
-                'tool_started',
-                {'tool_name': 'read_file', 'call_id': 'call-%s' % index},
+                "tool_started",
+                {"tool_name": "read_file", "call_id": "call-%s" % index},
             )
-        self.adapter.timeline_store._trim_if_needed(self.adapter.timeline_store._timeline_path(session_id))
+        self.adapter.timeline_store._trim_if_needed(
+            self.adapter.timeline_store._timeline_path(session_id)
+        )
         payload = self.adapter.load_session_events_after(session_id, after_seq=1, limit=50)
         self.assertEqual(payload["status"], "reload_required")
         self.assertGreater(payload["first_seq"], 1)
@@ -1091,11 +1166,11 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
         )
-        snapshot = adapter.create_session('build')
-        session_id = str(snapshot.get('session_id') or '')
+        snapshot = adapter.create_session("build")
+        session_id = str(snapshot.get("session_id") or "")
         adapter.submit_user_message(
             session_id=session_id,
-            text='读取文件',
+            text="读取文件",
             stream=False,
             wait=True,
             permission_resolver=lambda ticket: True,
@@ -1105,7 +1180,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         if os.path.isfile(transcript_path):
             os.remove(transcript_path)
         with self.assertRaises(ValueError):
-            adapter.resume_session(session_id, 'build')
+            adapter.resume_session(session_id, "build")
 
     def test_cancel_session_emits_interrupted_tool_result_when_tool_started(self):
         adapter = InProcessAdapter(
@@ -1113,8 +1188,8 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
         )
-        snapshot = adapter.create_session('build')
-        session_id = str(snapshot.get('session_id') or '')
+        snapshot = adapter.create_session("build")
+        session_id = str(snapshot.get("session_id") or "")
         events = []
         cancelled = {"done": False}
 
@@ -1126,7 +1201,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
 
         adapter.submit_user_message(
             session_id=session_id,
-            text='读取文件',
+            text="读取文件",
             stream=False,
             wait=True,
             permission_resolver=lambda ticket: True,
@@ -1134,7 +1209,9 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         )
         final_snapshot = adapter.get_session_snapshot(session_id)
         self.assertEqual(final_snapshot.get("last_transition_reason"), "aborted")
-        tool_finished = [payload for event_name, payload in events if event_name == "tool_finished"][-1]
+        tool_finished = [
+            payload for event_name, payload in events if event_name == "tool_finished"
+        ][-1]
         self.assertFalse(tool_finished.get("success"))
         self.assertEqual((tool_finished.get("data") or {}).get("error_kind"), "interrupted")
 
@@ -1143,14 +1220,18 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             handle.write("all:\n\t@echo build\n")
         events = []
         self.adapter.submit_user_message(
-            session_id=str(self.snapshot.get('session_id') or ''),
-            text='/recipes',
+            session_id=str(self.snapshot.get("session_id") or ""),
+            text="/recipes",
             stream=False,
             wait=True,
             permission_resolver=lambda ticket: True,
-            event_handler=lambda event_name, session_id, payload: events.append((event_name, payload)),
+            event_handler=lambda event_name, session_id, payload: events.append(
+                (event_name, payload)
+            ),
         )
-        command_events = [payload for event_name, payload in events if event_name == "command_result"]
+        command_events = [
+            payload for event_name, payload in events if event_name == "command_result"
+        ]
         self.assertEqual(command_events[0].get("command_name"), "recipes")
         self.assertIn("Workspace Recipes", command_events[0].get("message") or "")
         recipe_ids = [item["id"] for item in command_events[0].get("data", {}).get("items", [])]
@@ -1158,18 +1239,24 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
 
     def test_slash_run_executes_recipe_and_emits_tool_events(self):
         os.makedirs(os.path.join(self.workspace, ".embedagent"), exist_ok=True)
-        with open(os.path.join(self.workspace, ".embedagent", "workspace-recipes.json"), "w", encoding="utf-8") as handle:
+        with open(
+            os.path.join(self.workspace, ".embedagent", "workspace-recipes.json"),
+            "w",
+            encoding="utf-8",
+        ) as handle:
             handle.write(
                 '[{"id":"custom.build","tool_name":"run_recipe","recipe_action":"build","label":"Custom Build","command":"cmd /c echo build-ok","cwd":"."}]'
             )
         events = []
         self.adapter.submit_user_message(
-            session_id=str(self.snapshot.get('session_id') or ''),
-            text='/run custom.build',
+            session_id=str(self.snapshot.get("session_id") or ""),
+            text="/run custom.build",
             stream=False,
             wait=True,
             permission_resolver=lambda ticket: True,
-            event_handler=lambda event_name, session_id, payload: events.append((event_name, payload)),
+            event_handler=lambda event_name, session_id, payload: events.append(
+                (event_name, payload)
+            ),
         )
         event_names = [event_name for event_name, _ in events]
         self.assertIn("tool_started", event_names)
@@ -1177,9 +1264,15 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertIn("turn_start", event_names)
         self.assertIn("turn_end", event_names)
         turn_start = [payload for event_name, payload in events if event_name == "turn_start"][0]
-        tool_started = [payload for event_name, payload in events if event_name == "tool_started"][0]
-        tool_finished = [payload for event_name, payload in events if event_name == "tool_finished"][0]
-        command_events = [payload for event_name, payload in events if event_name == "command_result"]
+        tool_started = [payload for event_name, payload in events if event_name == "tool_started"][
+            0
+        ]
+        tool_finished = [
+            payload for event_name, payload in events if event_name == "tool_finished"
+        ][0]
+        command_events = [
+            payload for event_name, payload in events if event_name == "command_result"
+        ]
         self.assertEqual(command_events[0].get("command_name"), "run")
         self.assertTrue(command_events[0].get("success"))
         self.assertEqual(command_events[0].get("data", {}).get("recipe_id"), "custom.build")
@@ -1191,7 +1284,11 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
 
     def test_slash_run_permission_wait_enters_session_history(self):
         os.makedirs(os.path.join(self.workspace, ".embedagent"), exist_ok=True)
-        with open(os.path.join(self.workspace, ".embedagent", "workspace-recipes.json"), "w", encoding="utf-8") as handle:
+        with open(
+            os.path.join(self.workspace, ".embedagent", "workspace-recipes.json"),
+            "w",
+            encoding="utf-8",
+        ) as handle:
             handle.write(
                 '[{"id":"custom.build","tool_name":"run_recipe","recipe_action":"build","label":"Custom Build","command":"cmd /c echo build-ok","cwd":"."}]'
             )
@@ -1200,14 +1297,14 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=False, workspace=self.workspace),
         )
-        snapshot = adapter.create_session('build')
-        session_id = str(snapshot.get('session_id') or '')
+        snapshot = adapter.create_session("build")
+        session_id = str(snapshot.get("session_id") or "")
 
         worker = threading.Thread(
             target=adapter.submit_user_message,
             kwargs={
                 "session_id": session_id,
-                "text": '/run custom.build',
+                "text": "/run custom.build",
                 "stream": False,
                 "wait": True,
                 "event_handler": lambda event_name, current_session_id, payload: None,
@@ -1232,7 +1329,9 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             self.assertEqual(len(payload["turns"]), 1)
             turn = payload["turns"][0]
             self.assertEqual(turn["status"], "waiting_permission")
-            self.assertIn("permission_required", [item.get("kind") for item in turn.get("transitions", [])])
+            self.assertIn(
+                "permission_required", [item.get("kind") for item in turn.get("transitions", [])]
+            )
             self.assertEqual(len(turn["steps"]), 1)
             step = turn["steps"][0]
             self.assertEqual(step["status"], "permission_wait")
@@ -1249,22 +1348,26 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             handle.write("cmake_minimum_required(VERSION 3.20)\nproject(demo C)\n")
         events = []
         self.adapter.submit_user_message(
-            session_id=str(self.snapshot.get('session_id') or ''),
-            text='/run cmake.build.default demo-app debug',
+            session_id=str(self.snapshot.get("session_id") or ""),
+            text="/run cmake.build.default demo-app debug",
             stream=False,
             wait=True,
             permission_resolver=lambda ticket: True,
-            event_handler=lambda event_name, session_id, payload: events.append((event_name, payload)),
+            event_handler=lambda event_name, session_id, payload: events.append(
+                (event_name, payload)
+            ),
         )
-        tool_finish = [payload for event_name, payload in events if event_name == "tool_finished"][0]
+        tool_finish = [payload for event_name, payload in events if event_name == "tool_finished"][
+            0
+        ]
         self.assertEqual(tool_finish.get("data", {}).get("recipe_id"), "cmake.build.default")
         self.assertEqual(tool_finish.get("data", {}).get("target"), "demo-app")
         self.assertEqual(tool_finish.get("data", {}).get("profile"), "debug")
 
     def test_session_scoped_tasks_are_isolated(self):
-        first_session_id = str(self.snapshot.get('session_id') or '')
-        second = self.adapter.create_session('build')
-        second_session_id = str(second.get('session_id') or '')
+        first_session_id = str(self.snapshot.get("session_id") or "")
+        second = self.adapter.create_session("build")
+        second_session_id = str(second.get("session_id") or "")
         self.adapter.set_session_mode(second_session_id, "verify")
         self.assertEqual(self.adapter.list_tasks(session_id=first_session_id)["count"], 5)
         self.assertEqual(self.adapter.list_tasks(session_id=second_session_id)["count"], 3)
@@ -1272,12 +1375,14 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
     def test_session_status_events_cover_running_and_idle(self):
         events = []
         self.adapter.submit_user_message(
-            session_id=str(self.snapshot.get('session_id') or ''),
-            text='hello',
+            session_id=str(self.snapshot.get("session_id") or ""),
+            text="hello",
             stream=False,
             wait=True,
             permission_resolver=lambda ticket: True,
-            event_handler=lambda event_name, session_id, payload: events.append((event_name, payload)),
+            event_handler=lambda event_name, session_id, payload: events.append(
+                (event_name, payload)
+            ),
         )
         statuses = [
             item[1].get("session_snapshot", {}).get("status")
@@ -1293,18 +1398,22 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
         )
-        snapshot = adapter.create_session('build')
+        snapshot = adapter.create_session("build")
         events = []
         adapter.submit_user_message(
-            session_id=str(snapshot.get('session_id') or ''),
-            text='读取文件',
+            session_id=str(snapshot.get("session_id") or ""),
+            text="读取文件",
             stream=False,
             wait=True,
             permission_resolver=lambda ticket: True,
-            event_handler=lambda event_name, session_id, payload: events.append((event_name, payload)),
+            event_handler=lambda event_name, session_id, payload: events.append(
+                (event_name, payload)
+            ),
         )
         tool_start = [payload for event_name, payload in events if event_name == "tool_started"][0]
-        tool_finish = [payload for event_name, payload in events if event_name == "tool_finished"][0]
+        tool_finish = [payload for event_name, payload in events if event_name == "tool_finished"][
+            0
+        ]
         self.assertEqual(tool_start.get("call_id"), "call-read-demo")
         self.assertEqual(tool_finish.get("call_id"), "call-read-demo")
         self.assertEqual(tool_start.get("tool_label"), "Read File")
@@ -1318,20 +1427,22 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
         )
-        snapshot = adapter.create_session('build')
+        snapshot = adapter.create_session("build")
         events = []
         adapter.submit_user_message(
-            session_id=str(snapshot.get('session_id') or ''),
-            text='读取文件',
+            session_id=str(snapshot.get("session_id") or ""),
+            text="读取文件",
             stream=False,
             wait=True,
             permission_resolver=lambda ticket: True,
-            event_handler=lambda event_name, session_id, payload: events.append((event_name, payload)),
+            event_handler=lambda event_name, session_id, payload: events.append(
+                (event_name, payload)
+            ),
         )
         step_start = [payload for event_name, payload in events if event_name == "step_start"][0]
         tool_start = [payload for event_name, payload in events if event_name == "tool_started"][0]
         step_end = [payload for event_name, payload in events if event_name == "step_end"][0]
-        session_state = adapter._sessions[str(snapshot.get('session_id') or '')].session
+        session_state = adapter._sessions[str(snapshot.get("session_id") or "")].session
         engine_step_id = session_state.turns[-1].steps[0].step_id
 
         self.assertEqual(step_start.get("step_id"), engine_step_id)
@@ -1344,11 +1455,11 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
         )
-        snapshot = adapter.create_session('spec')
+        snapshot = adapter.create_session("spec")
         events = []
         adapter.submit_user_message(
-            session_id=str(snapshot.get('session_id') or ''),
-            text='请继续',
+            session_id=str(snapshot.get("session_id") or ""),
+            text="请继续",
             stream=False,
             wait=True,
             permission_resolver=lambda ticket: True,
@@ -1360,7 +1471,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             },
             event_handler=lambda event_name, session_id, payload: events.append(event_name),
         )
-        final_snapshot = adapter.get_session_snapshot(str(snapshot.get('session_id') or ''))
+        final_snapshot = adapter.get_session_snapshot(str(snapshot.get("session_id") or ""))
         self.assertEqual(final_snapshot["current_mode"], "debug")
         self.assertIn("user_input_required", events)
 
@@ -1370,18 +1481,22 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
         )
-        snapshot = adapter.create_session('spec')
-        session_id = str(snapshot.get('session_id') or '')
+        snapshot = adapter.create_session("spec")
+        session_id = str(snapshot.get("session_id") or "")
         events = []
-        adapter.event_handler = lambda event_name, current_session_id, payload: events.append((event_name, payload))
+        adapter.event_handler = lambda event_name, current_session_id, payload: events.append(
+            (event_name, payload)
+        )
 
         adapter.submit_user_message(
             session_id=session_id,
-            text='请继续',
+            text="请继续",
             stream=False,
             wait=True,
             permission_resolver=lambda ticket: True,
-            event_handler=lambda event_name, current_session_id, payload: events.append((event_name, payload)),
+            event_handler=lambda event_name, current_session_id, payload: events.append(
+                (event_name, payload)
+            ),
         )
         waiting = adapter.get_session_snapshot(session_id)
         interaction_id = str((waiting.get("pending_interaction") or {}).get("interaction_id") or "")
@@ -1401,7 +1516,8 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         )
 
         tool_finished = [
-            payload for event_name, payload in events
+            payload
+            for event_name, payload in events
             if event_name == "tool_finished" and payload.get("tool_name") == "ask_user"
         ]
         self.assertGreaterEqual(len(tool_finished), 1)
@@ -1415,7 +1531,11 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
 
     def test_approve_permission_returns_resolved_snapshot_for_command_wait(self):
         os.makedirs(os.path.join(self.workspace, ".embedagent"), exist_ok=True)
-        with open(os.path.join(self.workspace, ".embedagent", "workspace-recipes.json"), "w", encoding="utf-8") as handle:
+        with open(
+            os.path.join(self.workspace, ".embedagent", "workspace-recipes.json"),
+            "w",
+            encoding="utf-8",
+        ) as handle:
             handle.write(
                 '[{"id":"custom.build","tool_name":"run_recipe","recipe_action":"build","label":"Custom Build","command":"cmd /c echo build-ok","cwd":"."}]'
             )
@@ -1424,13 +1544,13 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=False, workspace=self.workspace),
         )
-        snapshot = adapter.create_session('build')
-        session_id = str(snapshot.get('session_id') or '')
+        snapshot = adapter.create_session("build")
+        session_id = str(snapshot.get("session_id") or "")
         worker = threading.Thread(
             target=adapter.submit_user_message,
             kwargs={
                 "session_id": session_id,
-                "text": '/run custom.build',
+                "text": "/run custom.build",
                 "stream": False,
                 "wait": True,
                 "event_handler": lambda event_name, current_session_id, payload: None,
@@ -1461,24 +1581,28 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
         )
         with self.assertRaises(ValueError):
-            adapter.create_session('orchestra')
+            adapter.create_session("orchestra")
 
     def test_slash_help_emits_command_result(self):
         events = []
         self.adapter.submit_user_message(
-            session_id=str(self.snapshot.get('session_id') or ''),
-            text='/help',
+            session_id=str(self.snapshot.get("session_id") or ""),
+            text="/help",
             stream=False,
             wait=True,
             permission_resolver=lambda ticket: True,
-            event_handler=lambda event_name, session_id, payload: events.append((event_name, payload)),
+            event_handler=lambda event_name, session_id, payload: events.append(
+                (event_name, payload)
+            ),
         )
         event_names = [event_name for event_name, _ in events]
         self.assertIn("turn_start", event_names)
         self.assertIn("turn_end", event_names)
         turn_start = [payload for event_name, payload in events if event_name == "turn_start"][0]
         turn_end = [payload for event_name, payload in events if event_name == "turn_end"][0]
-        command_events = [payload for event_name, payload in events if event_name == "command_result"]
+        command_events = [
+            payload for event_name, payload in events if event_name == "command_result"
+        ]
         self.assertEqual(len(command_events), 1)
         self.assertEqual(command_events[0].get("command_name"), "help")
         self.assertIn("Slash Commands", command_events[0].get("message") or "")
@@ -1486,10 +1610,10 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertEqual(turn_end.get("turn_id"), turn_start.get("turn_id"))
 
     def test_slash_help_command_result_persists_in_resumed_history(self):
-        session_id = str(self.snapshot.get('session_id') or '')
+        session_id = str(self.snapshot.get("session_id") or "")
         self.adapter.submit_user_message(
             session_id=session_id,
-            text='/help',
+            text="/help",
             stream=False,
             wait=True,
             permission_resolver=lambda ticket: True,
@@ -1507,16 +1631,18 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertEqual(len(payload["turns"]), 1)
         turn = payload["turns"][0]
         self.assertEqual(turn["status"], "completed")
-        command_results = [item for item in turn.get("transitions", []) if item.get("kind") == "command_result"]
+        command_results = [
+            item for item in turn.get("transitions", []) if item.get("kind") == "command_result"
+        ]
         self.assertEqual(len(command_results), 1)
         self.assertEqual(command_results[0].get("metadata", {}).get("command_name"), "help")
         self.assertIn("Slash Commands", command_results[0].get("message") or "")
 
     def test_slash_plan_persists_plan_snapshot(self):
-        session_id = str(self.snapshot.get('session_id') or '')
+        session_id = str(self.snapshot.get("session_id") or "")
         self.adapter.submit_user_message(
             session_id=session_id,
-            text='/plan ## Summary\n\n- add tests',
+            text="/plan ## Summary\n\n- add tests",
             stream=False,
             wait=True,
             permission_resolver=lambda ticket: True,
@@ -1530,7 +1656,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertIn("add tests", plan.content)
 
     def test_slash_permissions_reflects_session_memory(self):
-        session_id = str(self.snapshot.get('session_id') or '')
+        session_id = str(self.snapshot.get("session_id") or "")
         self.adapter.remember_permission_category(session_id, "workspace_write")
         context = self.adapter.get_permission_context(session_id)
         self.assertIn("workspace_write", context.remembered_categories)
@@ -1548,7 +1674,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertEqual(task_status.get("activity_kind"), "task")
 
     def test_slash_review_emits_structured_findings(self):
-        session_id = str(self.snapshot.get('session_id') or '')
+        session_id = str(self.snapshot.get("session_id") or "")
         self.adapter.timeline_store.append_event(
             session_id,
             "tool_finished",
@@ -1567,20 +1693,24 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
                             "column": 5,
                             "message": "expected ';' after return statement",
                         }
-                    ]
+                    ],
                 },
             },
         )
         events = []
         self.adapter.submit_user_message(
             session_id=session_id,
-            text='/review',
+            text="/review",
             stream=False,
             wait=True,
             permission_resolver=lambda ticket: True,
-            event_handler=lambda event_name, session_id, payload: events.append((event_name, payload)),
+            event_handler=lambda event_name, session_id, payload: events.append(
+                (event_name, payload)
+            ),
         )
-        command_events = [payload for event_name, payload in events if event_name == "command_result"]
+        command_events = [
+            payload for event_name, payload in events if event_name == "command_result"
+        ]
         self.assertEqual(command_events[0].get("command_name"), "review")
         review = command_events[0].get("data", {}).get("review", {})
         findings = review.get("findings") or []
@@ -1596,7 +1726,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertNotIn("diff_artifact_ref", git_sections[0])
 
     def test_slash_review_emits_findings_from_official_verify_path(self):
-        session_id = str(self.snapshot.get('session_id') or '')
+        session_id = str(self.snapshot.get("session_id") or "")
         self.adapter.timeline_store.append_event(
             session_id,
             "tool_finished",
@@ -1641,13 +1771,17 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         events = []
         self.adapter.submit_user_message(
             session_id=session_id,
-            text='/review',
+            text="/review",
             stream=False,
             wait=True,
             permission_resolver=lambda ticket: True,
-            event_handler=lambda event_name, session_id, payload: events.append((event_name, payload)),
+            event_handler=lambda event_name, session_id, payload: events.append(
+                (event_name, payload)
+            ),
         )
-        command_events = [payload for event_name, payload in events if event_name == "command_result"]
+        command_events = [
+            payload for event_name, payload in events if event_name == "command_result"
+        ]
         review = command_events[0].get("data", {}).get("review", {})
         findings = review.get("findings") or []
         self.assertGreaterEqual(len(findings), 1)
@@ -1655,10 +1789,11 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertTrue(review.get("tests_seen"))
         titles = [str(item.get("title") or "") for item in findings]
         bodies = [str(item.get("body") or "") for item in findings]
-        self.assertTrue(any("Tests failing" in title or "Quality gate failed" in title for title in titles))
+        self.assertTrue(
+            any("Tests failing" in title or "Quality gate failed" in title for title in titles)
+        )
         self.assertFalse(any("`run_tests`" in body for body in bodies))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()
-

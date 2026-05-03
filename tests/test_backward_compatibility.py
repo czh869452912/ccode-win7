@@ -6,18 +6,18 @@ components exactly as before the refactor.
 
 from unittest.mock import MagicMock
 
-import pytest
-
 
 class TestPublicImports(object):
     """Verify all public imports still work."""
 
     def test_import_inprocess_adapter(self):
         from embedagent.inprocess_adapter import InProcessAdapter
+
         assert InProcessAdapter is not None
 
     def test_import_query_engine(self):
         from embedagent.query_engine import QueryEngine
+
         assert QueryEngine is not None
 
     def test_import_modes(self):
@@ -28,6 +28,7 @@ class TestPublicImports(object):
             mode_names,
             require_mode,
         )
+
         assert DEFAULT_MODE == "explore"
         assert callable(mode_names)
         assert callable(require_mode)
@@ -41,6 +42,7 @@ class TestPublicImports(object):
             SessionLifecycleManager,
             WorkspaceFileService,
         )
+
         assert EventEmitter is not None
         assert SessionLifecycleManager is not None
         assert WorkspaceFileService is not None
@@ -52,17 +54,20 @@ class TestPublicImports(object):
             LLMClientRetryWrapper,
             TurnOrchestrator,
         )
+
         assert ContextCompactionEngine is not None
         assert LLMClientRetryWrapper is not None
         assert TurnOrchestrator is not None
 
     def test_import_di_container(self):
         from embedagent.di_container import DIContainer, get_default_container
+
         assert DIContainer is not None
         assert callable(get_default_container)
 
     def test_import_mode_registry_alias(self):
         from embedagent.modes import MODE_REGISTRY
+
         assert MODE_REGISTRY is not None
         assert "explore" in MODE_REGISTRY
 
@@ -83,6 +88,7 @@ class TestInProcessAdapterCompatibility(object):
 
     def test_can_instantiate_with_no_args(self):
         from embedagent.inprocess_adapter import InProcessAdapter
+
         adapter = InProcessAdapter()
         assert adapter is not None
 
@@ -100,6 +106,7 @@ class TestInProcessAdapterCompatibility(object):
         adapter = self._make_adapter()
         assert hasattr(adapter, "_event_emitter")
         from embedagent.services import EventEmitter
+
         assert isinstance(adapter._event_emitter, EventEmitter)
 
 
@@ -121,16 +128,19 @@ class TestQueryEngineCompatibility(object):
 
     def test_has_run_method(self):
         from embedagent.query_engine import QueryEngine
+
         assert hasattr(QueryEngine, "run")
         assert callable(QueryEngine.run)
 
     def test_has_stop_method(self):
         from embedagent.query_engine import QueryEngine
+
         assert hasattr(QueryEngine, "stop")
         assert callable(QueryEngine.stop)
 
     def test_has_submit_user_turn_method(self):
         from embedagent.query_engine import QueryEngine
+
         assert hasattr(QueryEngine, "submit_user_turn")
         assert callable(QueryEngine.submit_user_turn)
 
@@ -140,6 +150,7 @@ class TestModesCompatibility(object):
 
     def test_mode_names_returns_list(self):
         from embedagent.modes import mode_names
+
         names = mode_names()
         assert isinstance(names, list)
         assert "explore" in names
@@ -147,18 +158,21 @@ class TestModesCompatibility(object):
 
     def test_require_mode_returns_dict(self):
         from embedagent.modes import require_mode
+
         mode = require_mode("explore")
         assert isinstance(mode, dict)
         assert "system_prompt" in mode
 
     def test_initialize_modes_returns_registry(self):
         from embedagent.modes import initialize_modes
+
         registry = initialize_modes()
         assert isinstance(registry, dict)
         assert "explore" in registry
 
     def test_allowed_tools_for_returns_list(self):
         from embedagent.modes import allowed_tools_for
+
         tools = allowed_tools_for("explore")
         assert isinstance(tools, list)
         assert "read_file" in tools
@@ -168,7 +182,7 @@ class TestGlobalStateIsolation(object):
     """Verify tests can get isolated state without affecting global registry."""
 
     def test_fresh_mode_registry_isolated(self):
-        from embedagent.modes import get_mode_registry, initialize_modes
+        from embedagent.modes import get_mode_registry
 
         # Get fresh registry and mutate it
         fresh = get_mode_registry(fresh=True)
@@ -180,6 +194,7 @@ class TestGlobalStateIsolation(object):
 
     def test_fresh_di_container_isolated(self, fresh_container):
         from embedagent.di_container import DIContainer
+
         assert isinstance(fresh_container, DIContainer)
         fresh_container.register_factory("test_key", lambda: "test_value")
         result = fresh_container.resolve("test_key")
@@ -187,6 +202,7 @@ class TestGlobalStateIsolation(object):
 
     def test_get_command_sanitizer_fresh(self):
         from embedagent.command_sanitizer import get_command_sanitizer
+
         s1 = get_command_sanitizer(fresh=True)
         s2 = get_command_sanitizer(fresh=True)
         assert s1 is not s2
@@ -194,5 +210,6 @@ class TestGlobalStateIsolation(object):
     def test_get_inprocess_adapter_returns_class(self):
         from embedagent.core.adapter import get_inprocess_adapter
         from embedagent.inprocess_adapter import InProcessAdapter
+
         result = get_inprocess_adapter()
         assert result is InProcessAdapter

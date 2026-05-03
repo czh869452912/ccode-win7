@@ -17,10 +17,12 @@ _MODE_PROMPT_PREFIX = "你是 EmbedAgent 的受控模式原型。"
 # especially valuable for the LLM. They are skipped when hard-trim needs
 # to drop messages to fit within the token budget, so that a failing
 # recipe/quality result is not discarded before a trivial directory listing.
-_HIGH_PRIORITY_TOOLS = frozenset({
-    "run_recipe",
-    "report_quality_v2",
-})
+_HIGH_PRIORITY_TOOLS = frozenset(
+    {
+        "run_recipe",
+        "report_quality_v2",
+    }
+)
 
 
 @dataclass
@@ -42,7 +44,9 @@ class ContextPolicy:
 
     @property
     def max_input_tokens(self) -> int:
-        budget = self.max_context_tokens - self.reserve_output_tokens - self.reserve_reasoning_tokens
+        budget = (
+            self.max_context_tokens - self.reserve_output_tokens - self.reserve_reasoning_tokens
+        )
         return budget if budget > 256 else 256
 
 
@@ -64,12 +68,56 @@ class ContextConfig:
     default_project_memory_chars: int = 1600
     mode_overrides: Dict[str, Dict[str, int]] = field(
         default_factory=lambda: {
-            "spec": {"max_context_tokens": 14000, "reserve_output_tokens": 1800, "reserve_reasoning_tokens": 600, "max_recent_turns": 3, "max_summary_turns": 10},
-            "build": {"max_context_tokens": 18000, "reserve_output_tokens": 2200, "reserve_reasoning_tokens": 1000, "max_recent_turns": 4, "max_summary_turns": 12},
-            "explore": {"max_context_tokens": 14000, "reserve_output_tokens": 1800, "reserve_reasoning_tokens": 600, "max_recent_turns": 3, "max_summary_turns": 10},
-            "verify": {"max_context_tokens": 18000, "reserve_output_tokens": 1800, "reserve_reasoning_tokens": 1200, "max_recent_turns": 3, "max_summary_turns": 10, "recent_tool_chars": 1800},
-            "debug": {"max_context_tokens": 18000, "reserve_output_tokens": 2200, "reserve_reasoning_tokens": 1200, "max_recent_turns": 4, "max_summary_turns": 12},
-            "compact": {"max_context_tokens": 9000, "reserve_output_tokens": 1200, "reserve_reasoning_tokens": 500, "max_recent_turns": 2, "max_summary_turns": 6, "recent_message_chars": 1600, "recent_tool_chars": 1200, "summary_text_chars": 160, "summary_tool_chars": 300, "hard_message_chars": 700, "hard_tool_chars": 450, "project_memory_chars": 700},
+            "spec": {
+                "max_context_tokens": 14000,
+                "reserve_output_tokens": 1800,
+                "reserve_reasoning_tokens": 600,
+                "max_recent_turns": 3,
+                "max_summary_turns": 10,
+            },
+            "build": {
+                "max_context_tokens": 18000,
+                "reserve_output_tokens": 2200,
+                "reserve_reasoning_tokens": 1000,
+                "max_recent_turns": 4,
+                "max_summary_turns": 12,
+            },
+            "explore": {
+                "max_context_tokens": 14000,
+                "reserve_output_tokens": 1800,
+                "reserve_reasoning_tokens": 600,
+                "max_recent_turns": 3,
+                "max_summary_turns": 10,
+            },
+            "verify": {
+                "max_context_tokens": 18000,
+                "reserve_output_tokens": 1800,
+                "reserve_reasoning_tokens": 1200,
+                "max_recent_turns": 3,
+                "max_summary_turns": 10,
+                "recent_tool_chars": 1800,
+            },
+            "debug": {
+                "max_context_tokens": 18000,
+                "reserve_output_tokens": 2200,
+                "reserve_reasoning_tokens": 1200,
+                "max_recent_turns": 4,
+                "max_summary_turns": 12,
+            },
+            "compact": {
+                "max_context_tokens": 9000,
+                "reserve_output_tokens": 1200,
+                "reserve_reasoning_tokens": 500,
+                "max_recent_turns": 2,
+                "max_summary_turns": 6,
+                "recent_message_chars": 1600,
+                "recent_tool_chars": 1200,
+                "summary_text_chars": 160,
+                "summary_tool_chars": 300,
+                "hard_message_chars": 700,
+                "hard_tool_chars": 450,
+                "project_memory_chars": 700,
+            },
         }
     )
 
@@ -155,7 +203,10 @@ class TokenEstimator(object):
         return int(math.ceil(float(len(text or "")) / self.chars_per_token))
 
     def estimate_messages(self, messages: List[Dict[str, Any]]) -> int:
-        return sum(self.estimate_text(json.dumps(message, ensure_ascii=False)) for message in messages)
+        return sum(
+            self.estimate_text(json.dumps(message, ensure_ascii=False)) for message in messages
+        )
+
 
 class ReducerRegistry(object):
     def __init__(self) -> None:
@@ -178,7 +229,9 @@ class ReducerRegistry(object):
             "record_failing_evidence": self._reduce_generic,
         }
 
-    def reduce_tool_message(self, tool_name: str, payload: Dict[str, Any], detailed: bool, policy: ContextPolicy) -> str:
+    def reduce_tool_message(
+        self, tool_name: str, payload: Dict[str, Any], detailed: bool, policy: ContextPolicy
+    ) -> str:
         compacted = {
             "success": payload.get("success"),
             "error": payload.get("error"),
@@ -188,29 +241,54 @@ class ReducerRegistry(object):
         limit = policy.recent_tool_chars if detailed else policy.summary_tool_chars
         return _truncate_text(raw, limit)
 
-    def reduce_tool_data(self, tool_name: str, data: Any, detailed: bool, policy: ContextPolicy) -> Any:
+    def reduce_tool_data(
+        self, tool_name: str, data: Any, detailed: bool, policy: ContextPolicy
+    ) -> Any:
         if not isinstance(data, dict):
-            return _truncate_text(str(data), self._text_limit(detailed, policy)) if isinstance(data, str) else data
+            return (
+                _truncate_text(str(data), self._text_limit(detailed, policy))
+                if isinstance(data, str)
+                else data
+            )
         reducer = self._reducers.get(tool_name, self._reduce_generic)
         return reducer(data, detailed, policy)
 
-    def summarize_observation(self, observation: Observation, detailed: bool, policy: ContextPolicy) -> str:
+    def summarize_observation(
+        self, observation: Observation, detailed: bool, policy: ContextPolicy
+    ) -> str:
         reduced = self.reduce_tool_data(observation.tool_name, observation.data, detailed, policy)
         parts = [observation.tool_name, "success" if observation.success else "failed"]
         if observation.error:
             parts.append(_single_line(_truncate_text(observation.error, 80)))
         if isinstance(reduced, dict):
-            for key, label in (("path", "path"), ("match_count", "matches"), ("exit_code", "exit"), ("error_count", "errors"), ("warning_count", "warnings"), ("diagnostic_count", "diagnostics"), ("to_mode", "to"), ("passed", "passed")):
+            for key, label in (
+                ("path", "path"),
+                ("match_count", "matches"),
+                ("exit_code", "exit"),
+                ("error_count", "errors"),
+                ("warning_count", "warnings"),
+                ("diagnostic_count", "diagnostics"),
+                ("to_mode", "to"),
+                ("passed", "passed"),
+            ):
                 if reduced.get(key) is not None:
                     parts.append("%s=%s" % (label, reduced[key]))
             if reduced.get("test_summary"):
                 summary = reduced["test_summary"]
-                parts.append("tests=%s/%s failed=%s" % (summary.get("passed"), summary.get("total"), summary.get("failed")))
-            if reduced.get("coverage_summary") and reduced["coverage_summary"].get("line_coverage") is not None:
+                parts.append(
+                    "tests=%s/%s failed=%s"
+                    % (summary.get("passed"), summary.get("total"), summary.get("failed"))
+                )
+            if (
+                reduced.get("coverage_summary")
+                and reduced["coverage_summary"].get("line_coverage") is not None
+            ):
                 parts.append("line=%.2f%%" % reduced["coverage_summary"]["line_coverage"])
         return ", ".join(parts)
 
-    def _reduce_file(self, data: Dict[str, Any], detailed: bool, policy: ContextPolicy) -> Dict[str, Any]:
+    def _reduce_file(
+        self, data: Dict[str, Any], detailed: bool, policy: ContextPolicy
+    ) -> Dict[str, Any]:
         result = self._copy(
             data,
             "path",
@@ -226,12 +304,18 @@ class ReducerRegistry(object):
             "result_ref",
         )
         if isinstance(data.get("content"), str):
-            result["content_preview"] = _truncate_text(data["content"], min(self._text_limit(detailed, policy), 1200 if detailed else 320))
+            result["content_preview"] = _truncate_text(
+                data["content"], min(self._text_limit(detailed, policy), 1200 if detailed else 320)
+            )
         elif isinstance(data.get("preview"), str):
-            result["content_preview"] = _truncate_text(data["preview"], min(self._text_limit(detailed, policy), 1200 if detailed else 320))
+            result["content_preview"] = _truncate_text(
+                data["preview"], min(self._text_limit(detailed, policy), 1200 if detailed else 320)
+            )
         return result
 
-    def _reduce_list(self, data: Dict[str, Any], detailed: bool, policy: ContextPolicy) -> Dict[str, Any]:
+    def _reduce_list(
+        self, data: Dict[str, Any], detailed: bool, policy: ContextPolicy
+    ) -> Dict[str, Any]:
         files = data.get("files") if isinstance(data.get("files"), list) else []
         preview_items = data.get("preview") if isinstance(data.get("preview"), list) else []
         items = files or preview_items
@@ -257,10 +341,14 @@ class ReducerRegistry(object):
                 ext = path.rsplit(".", 1)[-1].lower() if "." in path else "(no_ext)"
                 counts[ext] = counts.get(ext, 0) + 1
             ranked = sorted(counts.items(), key=lambda pair: (-pair[1], pair[0]))
-            result["extensions"] = [{"ext": ext, "count": count} for ext, count in ranked[: (6 if detailed else 4)]]
+            result["extensions"] = [
+                {"ext": ext, "count": count} for ext, count in ranked[: (6 if detailed else 4)]
+            ]
         return result
 
-    def _reduce_search(self, data: Dict[str, Any], detailed: bool, policy: ContextPolicy) -> Dict[str, Any]:
+    def _reduce_search(
+        self, data: Dict[str, Any], detailed: bool, policy: ContextPolicy
+    ) -> Dict[str, Any]:
         result = self._copy(
             data,
             "query",
@@ -277,7 +365,11 @@ class ReducerRegistry(object):
             "result_ref",
         )
         matches = []
-        source_items = data.get("matches") if isinstance(data.get("matches"), list) else data.get("preview") or []
+        source_items = (
+            data.get("matches")
+            if isinstance(data.get("matches"), list)
+            else data.get("preview") or []
+        )
         for item in source_items[: (5 if detailed else 3)]:
             if isinstance(item, dict):
                 reduced = self._copy(item, "path", "line")
@@ -289,13 +381,21 @@ class ReducerRegistry(object):
         result["matches"] = matches
         return result
 
-    def _reduce_edit(self, data: Dict[str, Any], detailed: bool, policy: ContextPolicy) -> Dict[str, Any]:
+    def _reduce_edit(
+        self, data: Dict[str, Any], detailed: bool, policy: ContextPolicy
+    ) -> Dict[str, Any]:
         return self._copy(data, "path", "encoding", "replaced", "line_count")
 
-    def _reduce_write(self, data: Dict[str, Any], detailed: bool, policy: ContextPolicy) -> Dict[str, Any]:
-        return self._copy(data, "path", "encoding", "created", "overwritten", "char_count", "line_count")
+    def _reduce_write(
+        self, data: Dict[str, Any], detailed: bool, policy: ContextPolicy
+    ) -> Dict[str, Any]:
+        return self._copy(
+            data, "path", "encoding", "created", "overwritten", "char_count", "line_count"
+        )
 
-    def _reduce_command(self, data: Dict[str, Any], detailed: bool, policy: ContextPolicy) -> Dict[str, Any]:
+    def _reduce_command(
+        self, data: Dict[str, Any], detailed: bool, policy: ContextPolicy
+    ) -> Dict[str, Any]:
         result = self._copy(
             data,
             "command",
@@ -320,31 +420,84 @@ class ReducerRegistry(object):
             result["stderr_preview"] = _truncate_text(data["stderr"], preview)
         return result
 
-    def _reduce_diagnostics_tool(self, data: Dict[str, Any], detailed: bool, policy: ContextPolicy) -> Dict[str, Any]:
+    def _reduce_diagnostics_tool(
+        self, data: Dict[str, Any], detailed: bool, policy: ContextPolicy
+    ) -> Dict[str, Any]:
         result = self._reduce_command(data, detailed, policy)
-        result.update(self._copy(data, "error_count", "warning_count", "note_count", "diagnostic_count", "diagnostics_stored_path", "diagnostics_item_count"))
+        result.update(
+            self._copy(
+                data,
+                "error_count",
+                "warning_count",
+                "note_count",
+                "diagnostic_count",
+                "diagnostics_stored_path",
+                "diagnostics_item_count",
+            )
+        )
         result["diagnostics"] = self._diagnostics(data.get("diagnostics") or [], detailed)
         return result
 
-    def _reduce_recipe_result(self, data: Dict[str, Any], detailed: bool, policy: ContextPolicy) -> Dict[str, Any]:
+    def _reduce_recipe_result(
+        self, data: Dict[str, Any], detailed: bool, policy: ContextPolicy
+    ) -> Dict[str, Any]:
         result = self._reduce_diagnostics_tool(data, detailed, policy)
-        result.update(self._copy(data, "recipe_id", "recipe_label", "recipe_source", "recipe_action", "family", "stage", "target", "profile"))
+        result.update(
+            self._copy(
+                data,
+                "recipe_id",
+                "recipe_label",
+                "recipe_source",
+                "recipe_action",
+                "family",
+                "stage",
+                "target",
+                "profile",
+            )
+        )
         if isinstance(data.get("test_summary"), dict):
             summary = self._copy(data["test_summary"], "total", "passed", "failed", "skipped")
-            summary["failures"] = self._simple_list(data["test_summary"].get("failures") or [], 5 if detailed else 3)
+            summary["failures"] = self._simple_list(
+                data["test_summary"].get("failures") or [], 5 if detailed else 3
+            )
             result["test_summary"] = summary
         if isinstance(data.get("coverage_summary"), dict):
-            result["coverage_summary"] = self._copy(data["coverage_summary"], "line_coverage", "region_coverage", "function_coverage", "lines_covered", "lines_total", "functions_covered", "functions_total", "regions_covered", "regions_total")
+            result["coverage_summary"] = self._copy(
+                data["coverage_summary"],
+                "line_coverage",
+                "region_coverage",
+                "function_coverage",
+                "lines_covered",
+                "lines_total",
+                "functions_covered",
+                "functions_total",
+                "regions_covered",
+                "regions_total",
+            )
         return result
 
-    def _reduce_quality(self, data: Dict[str, Any], detailed: bool, policy: ContextPolicy) -> Dict[str, Any]:
-        result = self._copy(data, "passed", "error_count", "warning_count", "test_failures", "line_coverage", "min_line_coverage")
+    def _reduce_quality(
+        self, data: Dict[str, Any], detailed: bool, policy: ContextPolicy
+    ) -> Dict[str, Any]:
+        result = self._copy(
+            data,
+            "passed",
+            "error_count",
+            "warning_count",
+            "test_failures",
+            "line_coverage",
+            "min_line_coverage",
+        )
         result["reasons"] = self._simple_list(data.get("reasons") or [], 6 if detailed else 3)
         return result
 
-    def _reduce_git_status(self, data: Dict[str, Any], detailed: bool, policy: ContextPolicy) -> Dict[str, Any]:
+    def _reduce_git_status(
+        self, data: Dict[str, Any], detailed: bool, policy: ContextPolicy
+    ) -> Dict[str, Any]:
         result = self._reduce_command(data, detailed, policy)
-        result.update(self._copy(data, "path", "branch", "entries_stored_path", "entries_item_count"))
+        result.update(
+            self._copy(data, "path", "branch", "entries_stored_path", "entries_item_count")
+        )
         entries = []
         for item in (data.get("entries") or [])[: (12 if detailed else 6)]:
             if isinstance(item, dict):
@@ -352,16 +505,34 @@ class ReducerRegistry(object):
         result["entries"] = entries
         return result
 
-    def _reduce_git_diff(self, data: Dict[str, Any], detailed: bool, policy: ContextPolicy) -> Dict[str, Any]:
+    def _reduce_git_diff(
+        self, data: Dict[str, Any], detailed: bool, policy: ContextPolicy
+    ) -> Dict[str, Any]:
         result = self._reduce_command(data, detailed, policy)
-        result.update(self._copy(data, "path", "scope", "file_count", "line_count", "diff_stored_path", "diff_char_count"))
+        result.update(
+            self._copy(
+                data,
+                "path",
+                "scope",
+                "file_count",
+                "line_count",
+                "diff_stored_path",
+                "diff_char_count",
+            )
+        )
         if isinstance(data.get("diff"), str):
-            result["diff_preview"] = _truncate_text(data["diff"], min(self._text_limit(detailed, policy), 1200 if detailed else 260))
+            result["diff_preview"] = _truncate_text(
+                data["diff"], min(self._text_limit(detailed, policy), 1200 if detailed else 260)
+            )
         return result
 
-    def _reduce_git_log(self, data: Dict[str, Any], detailed: bool, policy: ContextPolicy) -> Dict[str, Any]:
+    def _reduce_git_log(
+        self, data: Dict[str, Any], detailed: bool, policy: ContextPolicy
+    ) -> Dict[str, Any]:
         result = self._reduce_command(data, detailed, policy)
-        result.update(self._copy(data, "path", "limit", "entries_stored_path", "entries_item_count"))
+        result.update(
+            self._copy(data, "path", "limit", "entries_stored_path", "entries_item_count")
+        )
         entries = []
         for item in (data.get("entries") or [])[: (8 if detailed else 4)]:
             if isinstance(item, dict):
@@ -374,7 +545,9 @@ class ReducerRegistry(object):
         result["entries"] = entries
         return result
 
-    def _reduce_ask_user(self, data: Dict[str, Any], detailed: bool, policy: ContextPolicy) -> Dict[str, Any]:
+    def _reduce_ask_user(
+        self, data: Dict[str, Any], detailed: bool, policy: ContextPolicy
+    ) -> Dict[str, Any]:
         result = self._copy(
             data,
             "question",
@@ -392,7 +565,9 @@ class ReducerRegistry(object):
             result["options"] = options
         return result
 
-    def _reduce_tasks(self, data: Dict[str, Any], detailed: bool, policy: ContextPolicy) -> Dict[str, Any]:
+    def _reduce_tasks(
+        self, data: Dict[str, Any], detailed: bool, policy: ContextPolicy
+    ) -> Dict[str, Any]:
         result = self._copy(
             data,
             "action",
@@ -418,19 +593,99 @@ class ReducerRegistry(object):
             result["preview"] = self._simple_list(preview, 12 if detailed else 6)
         return result
 
-    def _reduce_generic(self, data: Dict[str, Any], detailed: bool, policy: ContextPolicy) -> Dict[str, Any]:
-        result = self._copy(data, "path", "query", "pattern", "count", "match_count", "command", "cwd", "exit_code", "duration_ms", "timed_out", "error_count", "warning_count", "note_count", "diagnostic_count", "branch", "scope", "file_count", "line_count", "replaced", "created", "overwritten", "toolchain_root", "passed", "test_failures", "line_coverage", "min_line_coverage", "truncated", "encoding", "char_count", "limit", "from_mode", "to_mode", "reason", "question", "answer", "selected_index", "selected_option_text", "selected_mode", "mode_changed", "error_kind", "retryable", "blocked_by", "suggested_next_step", "content_stored_path", "content_char_count", "stdout_stored_path", "stderr_stored_path", "stdout_char_count", "stderr_char_count", "diff_stored_path", "diff_char_count", "files_stored_path", "files_item_count", "matches_stored_path", "matches_item_count", "entries_stored_path", "entries_item_count", "diagnostics_stored_path", "diagnostics_item_count", "returned_count", "total_count", "has_more", "next_offset", "result_ref", "recipe_id", "failing_evidence_ready", "summary")
+    def _reduce_generic(
+        self, data: Dict[str, Any], detailed: bool, policy: ContextPolicy
+    ) -> Dict[str, Any]:
+        result = self._copy(
+            data,
+            "path",
+            "query",
+            "pattern",
+            "count",
+            "match_count",
+            "command",
+            "cwd",
+            "exit_code",
+            "duration_ms",
+            "timed_out",
+            "error_count",
+            "warning_count",
+            "note_count",
+            "diagnostic_count",
+            "branch",
+            "scope",
+            "file_count",
+            "line_count",
+            "replaced",
+            "created",
+            "overwritten",
+            "toolchain_root",
+            "passed",
+            "test_failures",
+            "line_coverage",
+            "min_line_coverage",
+            "truncated",
+            "encoding",
+            "char_count",
+            "limit",
+            "from_mode",
+            "to_mode",
+            "reason",
+            "question",
+            "answer",
+            "selected_index",
+            "selected_option_text",
+            "selected_mode",
+            "mode_changed",
+            "error_kind",
+            "retryable",
+            "blocked_by",
+            "suggested_next_step",
+            "content_stored_path",
+            "content_char_count",
+            "stdout_stored_path",
+            "stderr_stored_path",
+            "stdout_char_count",
+            "stderr_char_count",
+            "diff_stored_path",
+            "diff_char_count",
+            "files_stored_path",
+            "files_item_count",
+            "matches_stored_path",
+            "matches_item_count",
+            "entries_stored_path",
+            "entries_item_count",
+            "diagnostics_stored_path",
+            "diagnostics_item_count",
+            "returned_count",
+            "total_count",
+            "has_more",
+            "next_offset",
+            "result_ref",
+            "recipe_id",
+            "failing_evidence_ready",
+            "summary",
+        )
         for key in ("entries", "matches", "files", "reasons", "preview"):
             if isinstance(data.get(key), list):
                 result[key] = self._simple_list(data[key], 8 if detailed else 4)
         if isinstance(data.get("diagnostics"), list):
             result["diagnostics"] = self._diagnostics(data["diagnostics"], detailed)
         if isinstance(data.get("test_summary"), dict):
-            result["test_summary"] = self._copy(data["test_summary"], "total", "passed", "failed", "skipped")
+            result["test_summary"] = self._copy(
+                data["test_summary"], "total", "passed", "failed", "skipped"
+            )
         if isinstance(data.get("coverage_summary"), dict):
-            result["coverage_summary"] = self._copy(data["coverage_summary"], "line_coverage", "region_coverage", "function_coverage")
+            result["coverage_summary"] = self._copy(
+                data["coverage_summary"], "line_coverage", "region_coverage", "function_coverage"
+            )
         preview = min(self._text_limit(detailed, policy), 1200 if detailed else 300)
-        for source, target in (("content", "content_preview"), ("stdout", "stdout_preview"), ("stderr", "stderr_preview"), ("diff", "diff_preview")):
+        for source, target in (
+            ("content", "content_preview"),
+            ("stdout", "stdout_preview"),
+            ("stderr", "stderr_preview"),
+            ("diff", "diff_preview"),
+        ):
             if isinstance(data.get(source), str):
                 result[target] = _truncate_text(data[source], preview)
         return result
@@ -465,28 +720,62 @@ class ReducerRegistry(object):
     def _text_limit(self, detailed: bool, policy: ContextPolicy) -> int:
         return policy.recent_tool_chars if detailed else policy.summary_tool_chars
 
+
 class ContextManager(object):
-    def __init__(self, config: Optional[ContextConfig] = None, reducers: Optional[ReducerRegistry] = None, project_memory: Optional[ProjectMemoryStore] = None, token_estimator: Optional[TokenEstimator] = None) -> None:
+    def __init__(
+        self,
+        config: Optional[ContextConfig] = None,
+        reducers: Optional[ReducerRegistry] = None,
+        project_memory: Optional[ProjectMemoryStore] = None,
+        token_estimator: Optional[TokenEstimator] = None,
+    ) -> None:
         self.config = config or ContextConfig()
         self.reducers = reducers or ReducerRegistry()
         self.project_memory = project_memory
-        self.token_estimator = token_estimator or TokenEstimator(self.config.estimated_chars_per_token)
+        self.token_estimator = token_estimator or TokenEstimator(
+            self.config.estimated_chars_per_token
+        )
 
-    def build_messages(self, session: Session, mode_name: Optional[str] = None, tools: Optional[Any] = None, workflow_state: str = "chat", intelligence_broker: Optional[WorkspaceIntelligenceBroker] = None, force_compact: bool = False) -> ContextBuildResult:
+    def build_messages(
+        self,
+        session: Session,
+        mode_name: Optional[str] = None,
+        tools: Optional[Any] = None,
+        workflow_state: str = "chat",
+        intelligence_broker: Optional[WorkspaceIntelligenceBroker] = None,
+        force_compact: bool = False,
+    ) -> ContextBuildResult:
         resolved_mode = mode_name or self._detect_mode_name(session) or "build"
         policy = self._policy_for_mode("compact" if force_compact else resolved_mode)
-        boundary = session.latest_compact_boundary() if hasattr(session, "latest_compact_boundary") else None
-        visible_turns = session.turns[int(boundary.compacted_turn_count):] if boundary is not None else session.turns
+        boundary = (
+            session.latest_compact_boundary()
+            if hasattr(session, "latest_compact_boundary")
+            else None
+        )
+        visible_turns = (
+            session.turns[int(boundary.compacted_turn_count) :]
+            if boundary is not None
+            else session.turns
+        )
         raw_messages = [message.to_api_dict() for message in session.messages]
         chars_before = self._measure_messages(raw_messages)
         tokens_before = self._estimate_tokens(chars_before)
         intelligence_message = ""
         intelligence_sections = []
         if intelligence_broker is not None and tools is not None:
-            intelligence_message = intelligence_broker.render_system_message(session, resolved_mode, tools, self.project_memory, limit=3, char_limit=policy.project_memory_chars)
-            intelligence_sections = [
-                {"title": "workspace_intelligence", "content": intelligence_message}
-            ] if intelligence_message else []
+            intelligence_message = intelligence_broker.render_system_message(
+                session,
+                resolved_mode,
+                tools,
+                self.project_memory,
+                limit=3,
+                char_limit=policy.project_memory_chars,
+            )
+            intelligence_sections = (
+                [{"title": "workspace_intelligence", "content": intelligence_message}]
+                if intelligence_message
+                else []
+            )
         if not visible_turns:
             messages = [self._compact_message(message, policy) for message in session.messages]
             if intelligence_message:
@@ -512,15 +801,46 @@ class ContextManager(object):
                 summary_message_included=bool(boundary),
                 project_memory_included=bool(intelligence_message),
             )
-            pipeline_steps = ["working_set", "workspace_intelligence", "summary/compact", "prompt_render"]
+            pipeline_steps = [
+                "working_set",
+                "workspace_intelligence",
+                "summary/compact",
+                "prompt_render",
+            ]
             if force_compact:
                 pipeline_steps.insert(0, "reactive_compact_retry")
-            return ContextBuildResult(messages, used_chars, budget.input_tokens, used_chars < chars_before, 0, 0, policy, budget, stats, summary_message=boundary.summary_text if boundary is not None else "", intelligence_sections=intelligence_sections, analysis=self._analyze_context(session), replacements=[], pipeline_steps=pipeline_steps)
+            return ContextBuildResult(
+                messages,
+                used_chars,
+                budget.input_tokens,
+                used_chars < chars_before,
+                0,
+                0,
+                policy,
+                budget,
+                stats,
+                summary_message=boundary.summary_text if boundary is not None else "",
+                intelligence_sections=intelligence_sections,
+                analysis=self._analyze_context(session),
+                replacements=[],
+                pipeline_steps=pipeline_steps,
+            )
         recent_turns = min(policy.max_recent_turns, len(visible_turns))
         best = None  # type: Optional[ContextBuildResult]
         shrinks = 0
         while recent_turns >= policy.min_recent_turns:
-            candidate = self._build_candidate(session, visible_turns, boundary.summary_text if boundary is not None else "", policy, recent_turns, chars_before, tokens_before, shrinks, intelligence_message, intelligence_sections)
+            candidate = self._build_candidate(
+                session,
+                visible_turns,
+                boundary.summary_text if boundary is not None else "",
+                policy,
+                recent_turns,
+                chars_before,
+                tokens_before,
+                shrinks,
+                intelligence_message,
+                intelligence_sections,
+            )
             best = candidate
             if not candidate.budget.over_budget:
                 if force_compact and "reactive_compact_retry" not in candidate.pipeline_steps:
@@ -543,13 +863,29 @@ class ContextManager(object):
             best.pipeline_steps.insert(0, "reactive_compact_retry")
         return best
 
-    def _build_candidate(self, session: Session, visible_turns: List[Turn], boundary_summary: str, policy: ContextPolicy, recent_turns: int, chars_before: int, tokens_before: int, shrinks: int, intelligence_message: str, intelligence_sections: List[Dict[str, Any]]) -> ContextBuildResult:
+    def _build_candidate(
+        self,
+        session: Session,
+        visible_turns: List[Turn],
+        boundary_summary: str,
+        policy: ContextPolicy,
+        recent_turns: int,
+        chars_before: int,
+        tokens_before: int,
+        shrinks: int,
+        intelligence_message: str,
+        intelligence_sections: List[Dict[str, Any]],
+    ) -> ContextBuildResult:
         latest_system = self._latest_system_message(session)
         auxiliary_system_messages = self._auxiliary_system_messages(session, latest_system, policy)
         old_turns = visible_turns[:-recent_turns] if recent_turns < len(visible_turns) else []
-        summary_message, summarized_observations, summary_text = self._build_summary_message(old_turns, policy, base_summary_text=boundary_summary)
+        summary_message, summarized_observations, summary_text = self._build_summary_message(
+            old_turns, policy, base_summary_text=boundary_summary
+        )
         project_memory_message = self._build_project_memory_message(policy)
-        recent_messages, reduced_tool_messages, replacements = self._build_recent_messages(session, visible_turns, recent_turns, policy)
+        recent_messages, reduced_tool_messages, replacements = self._build_recent_messages(
+            session, visible_turns, recent_turns, policy
+        )
         messages = []
         if latest_system is not None:
             messages.append(self._compact_system_message(latest_system, policy))
@@ -580,10 +916,34 @@ class ContextManager(object):
             recent_window_shrinks=shrinks,
             hard_trimmed=False,
             summary_message_included=summary_message is not None,
-            project_memory_included=project_memory_message is not None or bool(intelligence_message),
+            project_memory_included=project_memory_message is not None
+            or bool(intelligence_message),
         )
         compacted = bool(reduced_tool_messages) or (used_chars < chars_before)
-        return ContextBuildResult(messages, used_chars, budget.input_tokens, compacted, len(old_turns), recent_turns, policy, budget, stats, summary_message=summary_text, intelligence_sections=intelligence_sections, analysis=self._analyze_context(session), replacements=replacements, pipeline_steps=["working_set", "workspace_intelligence", "tool_result_budget_replacement", "duplicate_suppression", "activity_folding", "summary/compact", "prompt_render"])
+        return ContextBuildResult(
+            messages,
+            used_chars,
+            budget.input_tokens,
+            compacted,
+            len(old_turns),
+            recent_turns,
+            policy,
+            budget,
+            stats,
+            summary_message=summary_text,
+            intelligence_sections=intelligence_sections,
+            analysis=self._analyze_context(session),
+            replacements=replacements,
+            pipeline_steps=[
+                "working_set",
+                "workspace_intelligence",
+                "tool_result_budget_replacement",
+                "duplicate_suppression",
+                "activity_folding",
+                "summary/compact",
+                "prompt_render",
+            ],
+        )
 
     def _policy_for_mode(self, mode_name: str) -> ContextPolicy:
         values = {
@@ -647,39 +1007,61 @@ class ContextManager(object):
     def _build_project_memory_message(self, policy: ContextPolicy) -> Optional[Dict[str, Any]]:
         if self.project_memory is None:
             return None
-        content = self.project_memory.build_system_message(policy.mode_name, policy.project_memory_chars)
+        content = self.project_memory.build_system_message(
+            policy.mode_name, policy.project_memory_chars
+        )
         if not content:
             return None
         return {"role": "system", "content": content}
 
-    def _build_summary_message(self, turns: List[Turn], policy: ContextPolicy, base_summary_text: str = "") -> Tuple[Optional[Dict[str, Any]], int, str]:
+    def _build_summary_message(
+        self, turns: List[Turn], policy: ContextPolicy, base_summary_text: str = ""
+    ) -> Tuple[Optional[Dict[str, Any]], int, str]:
         if not turns and not base_summary_text:
             return None, 0, ""
         visible_turns = turns[-policy.max_summary_turns :]
         omitted = len(turns) - len(visible_turns)
         summarized_observations = 0
-        lines = ["以下是更早会话的压缩摘要，仅供上下文参考；若与最近消息冲突，以最近消息和最新系统提示为准。"]
+        lines = [
+            "以下是更早会话的压缩摘要，仅供上下文参考；若与最近消息冲突，以最近消息和最新系统提示为准。"
+        ]
         if base_summary_text:
-            lines.append("先前 compact 摘要：%s" % _truncate_text(base_summary_text, policy.summary_text_chars * 2))
+            lines.append(
+                "先前 compact 摘要：%s"
+                % _truncate_text(base_summary_text, policy.summary_text_chars * 2)
+            )
         if omitted > 0:
             lines.append("更早还有 %s 个 turn 已进一步折叠。" % omitted)
         for index, turn in enumerate(visible_turns, start=1):
-            lines.append("%s. 用户：%s" % (index, _truncate_text(turn.user_message, policy.summary_text_chars)))
+            lines.append(
+                "%s. 用户：%s"
+                % (index, _truncate_text(turn.user_message, policy.summary_text_chars))
+            )
             if turn.actions:
-                lines.append("   动作：%s" % ", ".join([action.name for action in turn.actions[:6]]))
+                lines.append(
+                    "   动作：%s" % ", ".join([action.name for action in turn.actions[:6]])
+                )
             if turn.observations:
-                visible = [self.reducers.summarize_observation(item, False, policy) for item in turn.observations[:3]]
+                visible = [
+                    self.reducers.summarize_observation(item, False, policy)
+                    for item in turn.observations[:3]
+                ]
                 visible = [item for item in visible if item]
                 summarized_observations += len(turn.observations)
                 if visible:
                     lines.append("   观测：%s" % " | ".join(visible))
             if turn.assistant_message:
-                lines.append("   结果：%s" % _truncate_text(turn.assistant_message, policy.summary_text_chars))
+                lines.append(
+                    "   结果：%s"
+                    % _truncate_text(turn.assistant_message, policy.summary_text_chars)
+                )
         limit = max(400, policy.max_summary_turns * policy.summary_text_chars)
         summary_text = _truncate_text("\n".join(lines), limit)
         return {"role": "system", "content": summary_text}, summarized_observations, summary_text
 
-    def _build_recent_messages(self, session: Session, visible_turns: List[Turn], recent_turns: int, policy: ContextPolicy) -> Tuple[List[Dict[str, Any]], int, List[Dict[str, Any]]]:
+    def _build_recent_messages(
+        self, session: Session, visible_turns: List[Turn], recent_turns: int, policy: ContextPolicy
+    ) -> Tuple[List[Dict[str, Any]], int, List[Dict[str, Any]]]:
         turns = visible_turns[-recent_turns:]
         if not turns:
             return [], 0, []
@@ -776,10 +1158,14 @@ class ContextManager(object):
                         result.append({"role": "system", "content": replacement_text})
                     continue
                 reduced_tool_messages += 1
-                replacement = self._compact_tool_message_with_replacements(message, policy, seen_reads, seen_searches)
+                replacement = self._compact_tool_message_with_replacements(
+                    message, policy, seen_reads, seen_searches
+                )
                 if replacement is not None:
                     replacements.append(replacement["replacement"])
-                    pending_activity[replacement["activity_kind"]] = pending_activity.get(replacement["activity_kind"], 0) + 1
+                    pending_activity[replacement["activity_kind"]] = (
+                        pending_activity.get(replacement["activity_kind"], 0) + 1
+                    )
                     if replacement["message"] is not None:
                         result.append(replacement["message"])
                     continue
@@ -818,7 +1204,10 @@ class ContextManager(object):
         }
 
     def _compact_system_message(self, message: Message, policy: ContextPolicy) -> Dict[str, Any]:
-        return {"role": "system", "content": _truncate_text(message.content, policy.recent_message_chars)}
+        return {
+            "role": "system",
+            "content": _truncate_text(message.content, policy.recent_message_chars),
+        }
 
     def _compact_message(self, message: Message, policy: ContextPolicy) -> Dict[str, Any]:
         payload = {"role": message.role}
@@ -829,7 +1218,9 @@ class ContextManager(object):
         if message.action_calls:
             payload["tool_calls"] = [action.to_api_dict() for action in message.action_calls]
         if message.reasoning_content:
-            payload["reasoning_content"] = _truncate_text(message.reasoning_content, policy.recent_message_chars)
+            payload["reasoning_content"] = _truncate_text(
+                message.reasoning_content, policy.recent_message_chars
+            )
         if message.role == "tool":
             try:
                 parsed = json.loads(message.content)
@@ -837,7 +1228,9 @@ class ContextManager(object):
                 payload["content"] = _truncate_text(message.content, policy.recent_tool_chars)
             else:
                 parsed = parsed if isinstance(parsed, dict) else {"data": parsed}
-                payload["content"] = self.reducers.reduce_tool_message(message.name or "", parsed, True, policy)
+                payload["content"] = self.reducers.reduce_tool_message(
+                    message.name or "", parsed, True, policy
+                )
         else:
             payload["content"] = _truncate_text(message.content, policy.recent_message_chars)
         return payload
@@ -875,7 +1268,10 @@ class ContextManager(object):
                     return {
                         "activity_kind": "read",
                         "replacement": replacement,
-                        "message": {"role": "system", "content": "Duplicate read suppressed for `%s`." % path},
+                        "message": {
+                            "role": "system",
+                            "content": "Duplicate read suppressed for `%s`." % path,
+                        },
                     }
                 seen_reads.add(path)
                 if replacement["stored_refs"]:
@@ -889,14 +1285,20 @@ class ContextManager(object):
                         "message": {"role": "system", "content": replacement["replacement_text"]},
                     }
         if tool_name == "grep_text":
-            key = "%s|%s" % (str(data.get("path") or ""), str(data.get("query") or data.get("pattern") or ""))
+            key = "%s|%s" % (
+                str(data.get("path") or ""),
+                str(data.get("query") or data.get("pattern") or ""),
+            )
             if key.strip("|"):
                 if key in seen_searches:
                     replacement["duplicate"] = True
                     return {
                         "activity_kind": "search",
                         "replacement": replacement,
-                        "message": {"role": "system", "content": "Duplicate search suppressed for `%s`." % key},
+                        "message": {
+                            "role": "system",
+                            "content": "Duplicate search suppressed for `%s`." % key,
+                        },
                     }
                 seen_searches.add(key)
                 if replacement["stored_refs"]:
@@ -926,7 +1328,16 @@ class ContextManager(object):
     def _budget_for_chars(self, policy: ContextPolicy, used_chars: int) -> BudgetEstimate:
         input_tokens = self._estimate_tokens(used_chars)
         remaining = policy.max_input_tokens - input_tokens
-        return BudgetEstimate(policy.mode_name, policy.max_context_tokens, policy.reserve_output_tokens, policy.reserve_reasoning_tokens, policy.max_input_tokens, input_tokens, remaining, input_tokens > policy.max_input_tokens)
+        return BudgetEstimate(
+            policy.mode_name,
+            policy.max_context_tokens,
+            policy.reserve_output_tokens,
+            policy.reserve_reasoning_tokens,
+            policy.max_input_tokens,
+            input_tokens,
+            remaining,
+            input_tokens > policy.max_input_tokens,
+        )
 
     def _estimate_tokens(self, used_chars: int) -> int:
         ratio = self.token_estimator.chars_per_token or 1.0
@@ -935,17 +1346,26 @@ class ContextManager(object):
     def _measure_messages(self, messages: List[Dict[str, Any]]) -> int:
         return sum(len(json.dumps(message, ensure_ascii=False)) for message in messages)
 
-    def _hard_trim(self, messages: List[Dict[str, Any]], policy: ContextPolicy) -> Tuple[List[Dict[str, Any]], int]:
+    def _hard_trim(
+        self, messages: List[Dict[str, Any]], policy: ContextPolicy
+    ) -> Tuple[List[Dict[str, Any]], int]:
         trimmed = []
         for message in messages:
             clone = dict(message)
-            limit = policy.hard_tool_chars if clone.get("role") == "tool" else policy.hard_message_chars
+            limit = (
+                policy.hard_tool_chars if clone.get("role") == "tool" else policy.hard_message_chars
+            )
             clone["content"] = _truncate_text(str(clone.get("content") or ""), limit)
             if clone.get("reasoning_content"):
-                clone["reasoning_content"] = _truncate_text(str(clone["reasoning_content"]), policy.hard_message_chars)
+                clone["reasoning_content"] = _truncate_text(
+                    str(clone["reasoning_content"]), policy.hard_message_chars
+                )
             trimmed.append(clone)
         dropped_messages = 0
-        while self._budget_for_chars(policy, self._measure_messages(trimmed)).over_budget and len(trimmed) > 3:
+        while (
+            self._budget_for_chars(policy, self._measure_messages(trimmed)).over_budget
+            and len(trimmed) > 3
+        ):
             drop_index = self._oldest_non_system_index(trimmed)
             if drop_index is None:
                 break
@@ -953,9 +1373,7 @@ class ContextManager(object):
             if not drop_indices:
                 break
             trimmed = [
-                message
-                for index, message in enumerate(trimmed)
-                if index not in drop_indices
+                message for index, message in enumerate(trimmed) if index not in drop_indices
             ]
             dropped_messages += len(drop_indices)
         return trimmed, dropped_messages
@@ -1032,7 +1450,7 @@ class ContextManager(object):
             message = messages[index]
             if message.get("role") != "assistant":
                 continue
-            for call in (message.get("tool_calls") or []):
+            for call in message.get("tool_calls") or []:
                 if not isinstance(call, dict):
                     continue
                 if str(call.get("id") or "").strip() == tool_call_id:
@@ -1048,19 +1466,29 @@ class ContextManager(object):
         replacement_count = 0
         for turn in session.turns:
             for action in turn.actions:
-                tool_request_tokens += self.token_estimator.estimate_text(json.dumps(action.arguments, ensure_ascii=False))
+                tool_request_tokens += self.token_estimator.estimate_text(
+                    json.dumps(action.arguments, ensure_ascii=False)
+                )
             for observation in turn.observations:
-                tool_result_tokens += self.token_estimator.estimate_text(json.dumps(observation.to_dict(), ensure_ascii=False))
+                tool_result_tokens += self.token_estimator.estimate_text(
+                    json.dumps(observation.to_dict(), ensure_ascii=False)
+                )
                 if not isinstance(observation.data, dict):
                     continue
                 path = observation.data.get("path")
                 if isinstance(path, str) and path:
                     file_counts[path] = file_counts.get(path, 0) + 1
-                stored_refs = [value for key, value in observation.data.items() if key.endswith("_stored_path") and value]
+                stored_refs = [
+                    value
+                    for key, value in observation.data.items()
+                    if key.endswith("_stored_path") and value
+                ]
                 if stored_refs:
                     replacement_count += 1
                 if observation.tool_name == "read_file" and isinstance(path, str) and path:
-                    current_tokens = self.token_estimator.estimate_text(str(observation.data.get("content") or ""))
+                    current_tokens = self.token_estimator.estimate_text(
+                        str(observation.data.get("content") or "")
+                    )
                     previous = seen_reads.get(path)
                     if previous is not None:
                         duplicate_file_read_tokens += min(previous, current_tokens)
@@ -1085,4 +1513,3 @@ def _truncate_text(text: str, limit: int) -> str:
 
 def _single_line(text: str) -> str:
     return " ".join(text.split())
-

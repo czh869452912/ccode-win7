@@ -1,4 +1,5 @@
 """Tests for the manual dependency injection container."""
+
 from __future__ import annotations
 
 import pytest

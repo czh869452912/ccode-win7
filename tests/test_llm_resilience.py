@@ -53,14 +53,14 @@ class TestLLMResilienceIntegration(unittest.TestCase):
     def test_retry_wrapper_uses_circuit_breaker(self):
         mock_client = Mock()
         mock_client.generate.side_effect = ModelClientError("HTTP 500")
-        
+
         cb = CircuitBreaker(failure_threshold=1)
         wrapper = LLMClientRetryWrapper(mock_client, circuit_breaker=cb)
-        
+
         # First call should retry then fail
         with self.assertRaises(ModelClientError):
             wrapper.call_with_retry([{"role": "user", "content": "hi"}], [])
-        
+
         # Second call should trigger circuit breaker
         with self.assertRaises(ModelClientError) as ctx:
             wrapper.call_with_retry([{"role": "user", "content": "hi"}], [])
@@ -72,11 +72,14 @@ class TestLLMResilienceIntegration(unittest.TestCase):
             content="hello",
             usage={"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
         )
-        
+
         tokens = []
-        tracker = lambda p, c, t: tokens.append((p, c, t))
+
+        def tracker(p, c, t):
+            tokens.append((p, c, t))
+
         wrapper = LLMClientRetryWrapper(mock_client, token_tracker=tracker)
-        
+
         reply = wrapper.call_with_retry([{"role": "user", "content": "hi"}], [])
         self.assertEqual(reply.content, "hello")
         self.assertEqual(tokens, [(10, 5, 15)])
@@ -87,12 +90,15 @@ class TestLLMResilienceIntegration(unittest.TestCase):
             content="hello",
             usage={},
         )
-        
+
         tokens = []
-        tracker = lambda p, c, t: tokens.append((p, c, t))
+
+        def tracker(p, c, t):
+            tokens.append((p, c, t))
+
         wrapper = LLMClientRetryWrapper(mock_client, token_tracker=tracker)
-        
-        reply = wrapper.call_with_retry([{"role": "user", "content": "hi"}], [])
+
+        wrapper.call_with_retry([{"role": "user", "content": "hi"}], [])
         self.assertEqual(tokens, [(0, 0, 0)])
 
 

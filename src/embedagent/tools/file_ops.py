@@ -37,44 +37,46 @@ def build_tools(ctx: ToolContext) -> List[ToolDefinition]:
         path = ctx.resolve_path(str(arguments["path"]))
         if not os.path.isfile(path):
             raise ToolError("只能修改已存在的文本文件。")
-        
+
         # Create pre-edit snapshot
         try:
             snapshot = ShadowGitSnapshot(ctx.workspace)
             snapshot.create_snapshot(reason="pre_edit:edit_file")
         except (ToolError, OSError, ValueError) as exc:
             logger.warning("Pre-edit snapshot failed: %s", exc)
-        
+
         content, newline_style, encoding = ctx.read_text(path)
         engine = MultiSearchReplaceDiffEngine()
-        
+
         # Build blocks from arguments
         blocks = []
         if "blocks" in arguments and arguments["blocks"]:
             for block_data in arguments["blocks"]:
-                blocks.append(DiffBlock(
-                    old_text=str(block_data["old_text"]),
-                    new_text=str(block_data["new_text"]),
-                    expected_start_line=block_data.get("expected_start_line"),
-                    fuzzy=block_data.get("fuzzy", True),
-                ))
+                blocks.append(
+                    DiffBlock(
+                        old_text=str(block_data["old_text"]),
+                        new_text=str(block_data["new_text"]),
+                        expected_start_line=block_data.get("expected_start_line"),
+                        fuzzy=block_data.get("fuzzy", True),
+                    )
+                )
         else:
             old_text = str(arguments["old_text"])
             new_text = str(arguments["new_text"])
             if not old_text:
                 raise ToolError("old_text 不能为空。")
             blocks.append(DiffBlock(old_text=old_text, new_text=new_text))
-        
+
         updated_content, results = engine.apply_diff(content, blocks)
-        
+
         # Check results
         failed = [r for r in results if r["status"] != "applied"]
         if failed:
             error_msg = "; ".join("Block %d: %s" % (r["block_index"], r["message"]) for r in failed)
             raise ToolError("编辑失败：%s" % error_msg)
-        
+
         ctx.write_text(path, updated_content, newline_style, encoding)
-        
+
         applied_count = len([r for r in results if r["status"] == "applied"])
         return Observation(
             tool_name="edit_file",

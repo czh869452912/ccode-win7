@@ -15,6 +15,7 @@ Design notes
 * New patterns should be added as plain substring matches (str) or
   compiled re.Pattern objects; both are supported.
 """
+
 from __future__ import annotations
 
 import re
@@ -31,11 +32,11 @@ from embedagent.di_container import get_default_container
 _RAW_DENY_PATTERNS: List[str] = [
     # Recursive / forced delete
     r"\brm\s+(-[a-z]*r[a-z]*f[a-z]*|-[a-z]*f[a-z]*r[a-z]*)\b",  # rm -rf / rm -fr
-    r"\brmdir\s+/s\b",                                              # Windows: rmdir /s
-    r"\bdel\s+/[sf]",                                               # Windows: del /s /f
-    r"\brd\s+/s\b",                                                 # Windows: rd /s
+    r"\brmdir\s+/s\b",  # Windows: rmdir /s
+    r"\bdel\s+/[sf]",  # Windows: del /s /f
+    r"\brd\s+/s\b",  # Windows: rd /s
     # Disk/volume operations
-    r"\bformat\s+[a-z]:",                                           # format C:
+    r"\bformat\s+[a-z]:",  # format C:
     r"\bdiskpart\b",
     # Registry manipulation
     r"\breg\s+(delete|add)\b",
@@ -50,7 +51,7 @@ _RAW_DENY_PATTERNS: List[str] = [
     r"\bsudo\b",
     r"\bsu\s+-\b",
     # Process / service kill
-    r"\btaskkill\s+(/[a-z]+\s+)*/(im|f)\b",                        # taskkill /F /IM
+    r"\btaskkill\s+(/[a-z]+\s+)*/(im|f)\b",  # taskkill /F /IM
     r"\bkill\s+-9\b",
     r"\bkillall\b",
     # System shutdown / reboot
@@ -65,9 +66,7 @@ _RAW_DENY_PATTERNS: List[str] = [
     r">\s*[a-z]:\\(windows|system32)",
 ]
 
-BUILTIN_DENY_PATTERNS: List[re.Pattern] = [
-    re.compile(p, re.IGNORECASE) for p in _RAW_DENY_PATTERNS
-]
+BUILTIN_DENY_PATTERNS: List[re.Pattern] = [re.compile(p, re.IGNORECASE) for p in _RAW_DENY_PATTERNS]
 
 # ---------------------------------------------------------------------------
 # Caution patterns — returned as a warning annotation, not a hard block
@@ -75,20 +74,20 @@ BUILTIN_DENY_PATTERNS: List[re.Pattern] = [
 # These trigger a stronger confirmation message in the permission prompt.
 
 _RAW_CAUTION_PATTERNS: List[str] = [
-    r"\|\s*sh\b",                           # pipe into shell
+    r"\|\s*sh\b",  # pipe into shell
     r"\|\s*bash\b",
     r"\|\s*cmd\b",
     r"\beval\b",
     r"\bexec\b",
-    r">\s*[^\s]",                           # any output redirect
-    r"&&",                                  # command chaining
-    r";\s*\S",                              # command sequencing
-    r"\$\(",                                # command substitution
-    r"`[^`]+`",                             # backtick substitution
-    r"\bcurl\b.*\|\s*(bash|sh)\b",          # curl | bash
+    r">\s*[^\s]",  # any output redirect
+    r"&&",  # command chaining
+    r";\s*\S",  # command sequencing
+    r"\$\(",  # command substitution
+    r"`[^`]+`",  # backtick substitution
+    r"\bcurl\b.*\|\s*(bash|sh)\b",  # curl | bash
     r"\bwget\b.*\|\s*(bash|sh)\b",
-    r"\bpython\b.*-c\b",                    # python -c inline exec
-    r"\bpowershell\b.*-[eE][nN][cC]",      # base64-encoded PS
+    r"\bpython\b.*-c\b",  # python -c inline exec
+    r"\bpowershell\b.*-[eE][nN][cC]",  # base64-encoded PS
 ]
 
 BUILTIN_CAUTION_PATTERNS: List[re.Pattern] = [
@@ -99,6 +98,7 @@ BUILTIN_CAUTION_PATTERNS: List[re.Pattern] = [
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
+
 
 class CommandSanitizer(object):
     """Validates a shell command string before execution.
@@ -132,9 +132,7 @@ class CommandSanitizer(object):
         for pattern in self._deny:
             m = pattern.search(command)
             if m:
-                return True, (
-                    "命令包含被禁止的操作模式（%r），已拒绝执行。" % m.group(0)
-                )
+                return True, ("命令包含被禁止的操作模式（%r），已拒绝执行。" % m.group(0))
         return False, ""
 
     def caution_note(self, command: str) -> Tuple[bool, str]:

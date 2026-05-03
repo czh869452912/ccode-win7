@@ -32,7 +32,9 @@ class SessionTimelineStore(object):
         self._append_locks_guard = threading.RLock()
         self._scan_cache = {}  # type: Dict[str, Tuple[List[Dict[str, Any]], int, str, int]]
 
-    def append_event(self, session_id: str, event_name: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+    def append_event(
+        self, session_id: str, event_name: str, payload: Dict[str, Any]
+    ) -> Dict[str, Any]:
         if not session_id or event_name == "assistant_delta":
             return {}
         path = self._timeline_path(session_id)
@@ -61,11 +63,18 @@ class SessionTimelineStore(object):
                     record["integrity_state"] = "degraded"
                     return record
             normalized = os.path.realpath(path)
-            cached_events, valid_length, integrity_state, file_size = self._scan_cache.get(normalized, ([], 0, "healthy", 0))
+            cached_events, valid_length, integrity_state, file_size = self._scan_cache.get(
+                normalized, ([], 0, "healthy", 0)
+            )
             updated_events = list(cached_events)
             updated_events.append(record)
             written_size = len(line.encode("utf-8"))
-            self._scan_cache[normalized] = (updated_events, valid_length + written_size, integrity_state, file_size + written_size)
+            self._scan_cache[normalized] = (
+                updated_events,
+                valid_length + written_size,
+                integrity_state,
+                file_size + written_size,
+            )
             self._trim_if_needed(path)
             return record
 
@@ -78,7 +87,9 @@ class SessionTimelineStore(object):
             return items
         return items[-limit:]
 
-    def load_events_with_state(self, session_id: str) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+    def load_events_with_state(
+        self, session_id: str
+    ) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
         path = self._timeline_path(session_id)
         if not os.path.isfile(path):
             return [], {
@@ -98,7 +109,9 @@ class SessionTimelineStore(object):
             "truncated_before_seq": truncated_before_seq,
         }
 
-    def load_events_after(self, session_id: str, after_seq: int, limit: int = 200) -> Dict[str, Any]:
+    def load_events_after(
+        self, session_id: str, after_seq: int, limit: int = 200
+    ) -> Dict[str, Any]:
         events, state = self.load_events_with_state(session_id)
         first_seq = int(state.get("first_seq") or 0)
         last_seq = int(state.get("last_seq") or 0)
@@ -156,7 +169,12 @@ class SessionTimelineStore(object):
             handle.writelines(trimmed_lines)
         self._scan_cache.pop(os.path.realpath(path), None)
         events, valid_length, integrity_state = self._scan_events(path)
-        self._scan_cache[os.path.realpath(path)] = (events, valid_length, integrity_state, os.path.getsize(path))
+        self._scan_cache[os.path.realpath(path)] = (
+            events,
+            valid_length,
+            integrity_state,
+            os.path.getsize(path),
+        )
 
     def _next_seq(self, path: str) -> int:
         normalized = os.path.realpath(path)

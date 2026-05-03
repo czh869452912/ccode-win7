@@ -72,20 +72,38 @@ class TerminalController(object):
         permission_id = str(ticket.get("permission_id") or "")
         normalized = text.strip().lower()
         if normalized in ("y", "yes"):
-            snapshot = self.owner.session_service.approve(self.owner.state.session.current_session_id, permission_id)
-            reducer.append_line(self.owner.state, "[permission] 已批准 %s" % (ticket.get("tool_name") or ""))
+            snapshot = self.owner.session_service.approve(
+                self.owner.state.session.current_session_id, permission_id
+            )
+            reducer.append_line(
+                self.owner.state, "[permission] 已批准 %s" % (ticket.get("tool_name") or "")
+            )
             reducer.set_pending_permission(self.owner.state, None)
             reducer.set_snapshot(self.owner.state, snapshot)
-            reducer.update_snapshot(self.owner.state, has_pending_permission=False, pending_permission=None, status="running")
+            reducer.update_snapshot(
+                self.owner.state,
+                has_pending_permission=False,
+                pending_permission=None,
+                status="running",
+            )
             self.refresh_inspector(self.owner.state.inspector.tab)
             self.owner.refresh_views()
             return
         if normalized in ("n", "no"):
-            snapshot = self.owner.session_service.reject(self.owner.state.session.current_session_id, permission_id)
-            reducer.append_line(self.owner.state, "[permission] 已拒绝 %s" % (ticket.get("tool_name") or ""))
+            snapshot = self.owner.session_service.reject(
+                self.owner.state.session.current_session_id, permission_id
+            )
+            reducer.append_line(
+                self.owner.state, "[permission] 已拒绝 %s" % (ticket.get("tool_name") or "")
+            )
             reducer.set_pending_permission(self.owner.state, None)
             reducer.set_snapshot(self.owner.state, snapshot)
-            reducer.update_snapshot(self.owner.state, has_pending_permission=False, pending_permission=None, status="running")
+            reducer.update_snapshot(
+                self.owner.state,
+                has_pending_permission=False,
+                pending_permission=None,
+                status="running",
+            )
             self.refresh_inspector(self.owner.state.inspector.tab)
             self.owner.refresh_views()
             return
@@ -178,7 +196,9 @@ class TerminalController(object):
             if not args:
                 reducer.append_line(self.owner.state, "[system] 用法：/mode <name>")
             else:
-                snapshot = self.owner.session_service.set_mode(self.owner.state.session.current_session_id, args[0])
+                snapshot = self.owner.session_service.set_mode(
+                    self.owner.state.session.current_session_id, args[0]
+                )
                 reducer.set_snapshot(self.owner.state, snapshot)
                 reducer.append_line(self.owner.state, "[system] 已切换到 %s 模式" % args[0])
                 self.refresh_inspector(self.owner.state.inspector.tab)
@@ -259,7 +279,9 @@ class TerminalController(object):
         self.owner.refresh_views()
 
     def create_new_session(self, mode: Optional[str] = None) -> None:
-        snapshot = self.owner.session_service.create_session(mode or self.owner.initial_mode, event_handler=self.on_event)
+        snapshot = self.owner.session_service.create_session(
+            mode or self.owner.initial_mode, event_handler=self.on_event
+        )
         reducer.reset_session_buffers(self.owner.state)
         reducer.set_snapshot(self.owner.state, snapshot)
         self.reload_timeline()
@@ -273,7 +295,9 @@ class TerminalController(object):
         self.resume_session("latest")
 
     def resume_session(self, reference: str) -> None:
-        snapshot = self.owner.session_service.resume_session(reference, self.owner.initial_mode, event_handler=self.on_event)
+        snapshot = self.owner.session_service.resume_session(
+            reference, self.owner.initial_mode, event_handler=self.on_event
+        )
         reducer.reset_session_buffers(self.owner.state)
         reducer.set_snapshot(self.owner.state, snapshot)
         self.reload_timeline()
@@ -428,15 +452,22 @@ class TerminalController(object):
         elif event_name == "tool_started":
             reducer.close_stream(self.owner.state)
             reducer.update_snapshot(self.owner.state, status="running")
-            reducer.append_line(self.owner.state, "[tool] %s %s" % (payload.get("tool_name") or "", payload.get("arguments") or {}))
+            reducer.append_line(
+                self.owner.state,
+                "[tool] %s %s" % (payload.get("tool_name") or "", payload.get("arguments") or {}),
+            )
         elif event_name == "tool_finished":
             reducer.close_stream(self.owner.state)
             reducer.update_snapshot(self.owner.state, status="running")
             data = payload.get("data") if isinstance(payload.get("data"), dict) else {}
             if payload.get("tool_name") == "switch_mode" and data.get("to_mode"):
-                reducer.update_snapshot(self.owner.state, current_mode=str(data.get("to_mode") or ""))
+                reducer.update_snapshot(
+                    self.owner.state, current_mode=str(data.get("to_mode") or "")
+                )
             if payload.get("tool_name") == "ask_user" and data.get("selected_mode"):
-                reducer.update_snapshot(self.owner.state, current_mode=str(data.get("selected_mode") or ""))
+                reducer.update_snapshot(
+                    self.owner.state, current_mode=str(data.get("selected_mode") or "")
+                )
             reducer.append_line(self.owner.state, format_observation_line(payload))
         elif event_name == "permission_required":
             permission = payload.get("permission") or {}
@@ -449,7 +480,9 @@ class TerminalController(object):
                     has_pending_permission=True,
                     pending_permission=permission,
                 )
-                reducer.append_line(self.owner.state, "[permission] %s" % (permission.get("reason") or "需要确认"))
+                reducer.append_line(
+                    self.owner.state, "[permission] %s" % (permission.get("reason") or "需要确认")
+                )
                 self.refresh_inspector(self.owner.state.inspector.tab)
         elif event_name == "user_input_required":
             request = payload.get("user_input") or {}
@@ -462,7 +495,9 @@ class TerminalController(object):
                     has_pending_user_input=True,
                     pending_user_input=request,
                 )
-                reducer.append_line(self.owner.state, "[question] %s" % (request.get("question") or "需要用户回答"))
+                reducer.append_line(
+                    self.owner.state, "[question] %s" % (request.get("question") or "需要用户回答")
+                )
                 self.refresh_inspector(self.owner.state.inspector.tab)
         elif event_name == "session_finished":
             reducer.close_stream(self.owner.state)
@@ -508,7 +543,9 @@ class TerminalController(object):
                 has_pending_user_input=False,
                 pending_user_input=None,
             )
-            reducer.append_line(self.owner.state, "[error] %s" % self.owner.state.session.last_error)
+            reducer.append_line(
+                self.owner.state, "[error] %s" % self.owner.state.session.last_error
+            )
         elif event_name == "context_compacted":
             reducer.set_context_event(self.owner.state, payload)
             reducer.append_line(self.owner.state, format_context_line(payload))
@@ -518,7 +555,9 @@ class TerminalController(object):
     def refresh_workspace_snapshot(self) -> None:
         snapshot = self.owner.workspace_service.snapshot()
         session_id = self.owner.state.session.current_session_id
-        snapshot["tasks"] = self.owner.session_service.list_tasks(session_id=session_id).get("tasks") or []
+        snapshot["tasks"] = (
+            self.owner.session_service.list_tasks(session_id=session_id).get("tasks") or []
+        )
         reducer.set_workspace_snapshot(self.owner.state, snapshot)
 
     def refresh_sessions(self) -> None:
@@ -529,9 +568,16 @@ class TerminalController(object):
             for item in items:
                 session_id = str(item.get("session_id") or "")
                 label = "%s [%s]" % (session_id[:12], item.get("current_mode") or "-")
-                detail = "updated=%s goal=%s" % (item.get("updated_at") or "-", item.get("user_goal") or item.get("summary_text") or "-")
-                explorer_items.append(ExplorerItem(kind="session", path=session_id, label=label, detail=detail))
-            reducer.set_explorer_items(self.owner.state, "sessions", explorer_items, root="sessions")
+                detail = "updated=%s goal=%s" % (
+                    item.get("updated_at") or "-",
+                    item.get("user_goal") or item.get("summary_text") or "-",
+                )
+                explorer_items.append(
+                    ExplorerItem(kind="session", path=session_id, label=label, detail=detail)
+                )
+            reducer.set_explorer_items(
+                self.owner.state, "sessions", explorer_items, root="sessions"
+            )
 
     def refresh_tasks(self) -> None:
         session_id = self.owner.state.session.current_session_id
@@ -542,8 +588,20 @@ class TerminalController(object):
                 if not isinstance(item, dict):
                     continue
                 prefix = "[x]" if item.get("done") else "[ ]"
-                explorer_items.append(ExplorerItem(kind="task", path=str(item.get("id") or ""), label="%s %s" % (prefix, item.get("content") or ""), detail="id=%s" % (item.get("id") or "-")))
-            reducer.set_explorer_items(self.owner.state, "tasks", explorer_items, root=payload.get("path") or ".embedagent/memory/sessions/tasks.json")
+                explorer_items.append(
+                    ExplorerItem(
+                        kind="task",
+                        path=str(item.get("id") or ""),
+                        label="%s %s" % (prefix, item.get("content") or ""),
+                        detail="id=%s" % (item.get("id") or "-"),
+                    )
+                )
+            reducer.set_explorer_items(
+                self.owner.state,
+                "tasks",
+                explorer_items,
+                root=payload.get("path") or ".embedagent/memory/sessions/tasks.json",
+            )
         self.owner.state.workspace_snapshot["tasks"] = payload.get("tasks") or []
 
     def refresh_artifacts(self) -> None:
@@ -578,21 +636,33 @@ class TerminalController(object):
             indent = "  " * int(item.get("depth") or 0)
             icon = "[D]" if item.get("kind") == "dir" else "[F]"
             label = "%s%s %s" % (indent, icon, item.get("name") or item.get("path") or "")
-            items.append(ExplorerItem(kind=str(item.get("kind") or "file"), path=str(item.get("path") or ""), label=label))
-        reducer.set_explorer_items(self.owner.state, "workspace", items, root=str(payload.get("root") or root))
+            items.append(
+                ExplorerItem(
+                    kind=str(item.get("kind") or "file"),
+                    path=str(item.get("path") or ""),
+                    label=label,
+                )
+            )
+        reducer.set_explorer_items(
+            self.owner.state, "workspace", items, root=str(payload.get("root") or root)
+        )
 
     def refresh_inspector(self, tab: str) -> None:
         reducer.set_inspector_tab(self.owner.state, (tab or "status").lower())
-        self.current_summary = self.owner.session_service.load_summary(str(self.owner.state.session.current_snapshot.get("summary_ref") or ""))
+        self.current_summary = self.owner.session_service.load_summary(
+            str(self.owner.state.session.current_snapshot.get("summary_ref") or "")
+        )
 
     def reload_timeline(self) -> None:
         session_id = self.owner.state.session.current_session_id
-        payload = self.owner.timeline_service.load(session_id, limit=self.owner.state.transcript_limit)
+        payload = self.owner.timeline_service.load(
+            session_id, limit=self.owner.state.transcript_limit
+        )
         events = payload.get("events") or []
-        self.latest_assistant_reply = str(payload.get("latest_assistant_reply") or self.latest_assistant_reply or "")
+        self.latest_assistant_reply = str(
+            payload.get("latest_assistant_reply") or self.latest_assistant_reply or ""
+        )
         if events:
             self.owner.state.timeline.lines = format_timeline_records(events)
             self.owner.state.timeline.stream_text = ""
             reducer.trim_timeline(self.owner.state)
-
-

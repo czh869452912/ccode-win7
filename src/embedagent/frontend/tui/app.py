@@ -37,7 +37,7 @@ class TerminalApp(object):
         initial_message: str = "",
         session_limit: int = 10,
         transcript_limit: int = 240,
-        headless = None,
+        headless=None,
         create_pipe_input=None,
         dummy_output=None,
     ) -> None:
@@ -46,7 +46,11 @@ class TerminalApp(object):
         self.initial_mode = initial_mode
         self.resume_reference = resume_reference
         self.initial_message = (initial_message or "").strip()
-        self.headless = bool(os.environ.get("EMBEDAGENT_TUI_HEADLESS", "").strip() == "1") if headless is None else bool(headless)
+        self.headless = (
+            bool(os.environ.get("EMBEDAGENT_TUI_HEADLESS", "").strip() == "1")
+            if headless is None
+            else bool(headless)
+        )
         self.create_pipe_input = create_pipe_input
         self.dummy_output = dummy_output
         self.state = TerminalState(
@@ -57,7 +61,9 @@ class TerminalApp(object):
             capability=detect_host(),
         )
         self.theme = default_theme()
-        self.session_service = SessionService(adapter, workspace, session_limit=self.state.session_limit)
+        self.session_service = SessionService(
+            adapter, workspace, session_limit=self.state.session_limit
+        )
         self.workspace_service = WorkspaceService(adapter, workspace)
         self.timeline_service = TimelineService(adapter)
         self.artifact_service = ArtifactService(adapter)
@@ -122,7 +128,9 @@ class TerminalApp(object):
         self.transcript.text = build_timeline_text(self.state)
         if self.state.timeline.follow_output and self.state.main_view != "editor":
             self.transcript.buffer.cursor_position = len(self.transcript.buffer.text)
-        inspector_text = build_inspector_text(self.state, self.controller.current_summary, self.controller.latest_assistant_reply)
+        inspector_text = build_inspector_text(
+            self.state, self.controller.current_summary, self.controller.latest_assistant_reply
+        )
         self.side_panel.text = inspector_text
         self.composer.prompt = build_prompt(self.state)
         if self.state.main_view == "editor":
@@ -138,5 +146,3 @@ class TerminalApp(object):
         finally:
             self._pipe_input_cm = None
             self.pipe_input = None
-
-

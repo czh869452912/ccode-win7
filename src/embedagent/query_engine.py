@@ -1,4 +1,4 @@
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import logging
 import os
@@ -86,7 +86,9 @@ class QueryEngine(object):
         self.max_turns = max_turns
         self.permission_policy = permission_policy or PermissionPolicy(auto_approve_all=True)
         self.project_memory_store = project_memory_store or ProjectMemoryStore(self.tools.workspace)
-        self.context_manager = context_manager or ContextManager(project_memory=self.project_memory_store)
+        self.context_manager = context_manager or ContextManager(
+            project_memory=self.project_memory_store
+        )
         self.summary_store = summary_store or SessionSummaryStore(self.tools.workspace)
         self.memory_maintenance = memory_maintenance or MemoryMaintenance(
             summary_store=self.summary_store,
@@ -152,7 +154,9 @@ class QueryEngine(object):
     def _session_guard(self):
         return self._session_lock
 
-    def _append_transcript_event(self, session: Session, event_type: str, payload: Dict[str, Any]) -> None:
+    def _append_transcript_event(
+        self, session: Session, event_type: str, payload: Dict[str, Any]
+    ) -> None:
         if self.transcript_store is None:
             return
         self.transcript_store.append_event(session.session_id, event_type, payload)
@@ -233,16 +237,24 @@ class QueryEngine(object):
                     {
                         "boundary_id": str(getattr(boundary, "boundary_id", "") or ""),
                         "summary_text": str(getattr(boundary, "summary_text", "") or ""),
-                        "compacted_turn_count": int(getattr(boundary, "compacted_turn_count", 0) or 0),
+                        "compacted_turn_count": int(
+                            getattr(boundary, "compacted_turn_count", 0) or 0
+                        ),
                         "created_at": str(getattr(boundary, "created_at", "") or ""),
                         "mode_name": str(getattr(boundary, "mode_name", "") or ""),
-                        "preserved_head_message_id": str(getattr(boundary, "preserved_head_message_id", "") or ""),
-                        "preserved_tail_message_id": str(getattr(boundary, "preserved_tail_message_id", "") or ""),
+                        "preserved_head_message_id": str(
+                            getattr(boundary, "preserved_head_message_id", "") or ""
+                        ),
+                        "preserved_tail_message_id": str(
+                            getattr(boundary, "preserved_tail_message_id", "") or ""
+                        ),
                         "metadata": dict(getattr(boundary, "metadata", {}) or {}),
                     },
                 )
 
-    def _run_harness_mode(self, current_mode: str, session: Optional[Session] = None, workflow_state: str = "chat") -> Tuple[str, Any]:
+    def _run_harness_mode(
+        self, current_mode: str, session: Optional[Session] = None, workflow_state: str = "chat"
+    ) -> Tuple[str, Any]:
         del session
         if str(current_mode or "") not in ("build", "debug", "verify"):
             return current_mode, None
@@ -261,7 +273,9 @@ class QueryEngine(object):
             metadata = dict(getattr(message, "metadata", {}) or {})
             if str(metadata.get("mode_name") or "") != str(harness_context.mode_name or ""):
                 continue
-            if str(metadata.get("discipline_label") or "") != str(harness_context.discipline_label or ""):
+            if str(metadata.get("discipline_label") or "") != str(
+                harness_context.discipline_label or ""
+            ):
                 continue
             existing = True
             break
@@ -293,9 +307,13 @@ class QueryEngine(object):
                 },
             )
 
-    def initialize_session(self, session: Session, initial_mode: str, workflow_state: str = "chat") -> str:
+    def initialize_session(
+        self, session: Session, initial_mode: str, workflow_state: str = "chat"
+    ) -> str:
         current_mode = require_mode(initial_mode)["slug"]
-        current_mode, harness_context = self._run_harness_mode(current_mode, session, workflow_state=workflow_state)
+        current_mode, harness_context = self._run_harness_mode(
+            current_mode, session, workflow_state=workflow_state
+        )
         if session.messages:
             self._ensure_transcript_bootstrap(session, current_mode)
             with self._session_guard():
@@ -306,7 +324,9 @@ class QueryEngine(object):
                 build_workspace_profile_message(self.tools.workspace, session.session_id)
             )
             system_message = session.add_system_message(
-                build_system_prompt(current_mode, getattr(self.tools, "app_config", None), self.tools.workspace)
+                build_system_prompt(
+                    current_mode, getattr(self.tools, "app_config", None), self.tools.workspace
+                )
             )
             self._append_transcript_event(
                 session,
@@ -337,10 +357,14 @@ class QueryEngine(object):
 
     def apply_mode(self, session: Session, next_mode: str, workflow_state: str = "chat") -> str:
         current_mode = require_mode(next_mode)["slug"]
-        current_mode, harness_context = self._run_harness_mode(current_mode, session, workflow_state=workflow_state)
+        current_mode, harness_context = self._run_harness_mode(
+            current_mode, session, workflow_state=workflow_state
+        )
         with self._session_guard():
             mode_message = session.add_system_message(
-                build_system_prompt(current_mode, getattr(self.tools, "app_config", None), self.tools.workspace)
+                build_system_prompt(
+                    current_mode, getattr(self.tools, "app_config", None), self.tools.workspace
+                )
             )
             self._append_message_event(
                 session,
@@ -405,7 +429,9 @@ class QueryEngine(object):
     ) -> None:
         command_turn_id = str(turn_id or "").strip()
         with self._session_guard():
-            if command_turn_id and (not session.turns or str(session.turns[-1].turn_id or "") != command_turn_id):
+            if command_turn_id and (
+                not session.turns or str(session.turns[-1].turn_id or "") != command_turn_id
+            ):
                 turn = session.add_user_message(
                     user_text or ("/%s" % command_name),
                     turn_id=command_turn_id,
@@ -579,7 +605,9 @@ class QueryEngine(object):
         on_step_start: Optional[Callable[[str, int], None]] = None,
         on_step_finish: Optional[Callable[[int, AssistantReply, str], None]] = None,
         permission_handler: Optional[Callable[[PermissionRequest], Optional[bool]]] = None,
-        user_input_handler: Optional[Callable[[UserInputRequest], Optional[UserInputResponse]]] = None,
+        user_input_handler: Optional[
+            Callable[[UserInputRequest], Optional[UserInputResponse]]
+        ] = None,
     ) -> QueryTurnResult:
         if session is None:
             with self._session_guard():
@@ -670,7 +698,9 @@ class QueryEngine(object):
         on_step_start: Optional[Callable[[str, int], None]] = None,
         on_step_finish: Optional[Callable[[int, AssistantReply, str], None]] = None,
         permission_handler: Optional[Callable[[PermissionRequest], Optional[bool]]] = None,
-        user_input_handler: Optional[Callable[[UserInputRequest], Optional[UserInputResponse]]] = None,
+        user_input_handler: Optional[
+            Callable[[UserInputRequest], Optional[UserInputResponse]]
+        ] = None,
     ) -> Tuple[QueryTurnResult, Optional[Observation]]:
         if session is None:
             with self._session_guard():
@@ -734,7 +764,12 @@ class QueryEngine(object):
             result = QueryTurnResult(
                 "",
                 session,
-                LoopTransition(reason="aborted", message="tool execution interrupted", next_mode=current_mode, turns_used=1),
+                LoopTransition(
+                    reason="aborted",
+                    message="tool execution interrupted",
+                    next_mode=current_mode,
+                    turns_used=1,
+                ),
                 turns_used=1,
             )
             committed = self._record_tool_observation(
@@ -774,7 +809,9 @@ class QueryEngine(object):
             step_id,
             on_tool_finish,
         )
-        transition = LoopTransition(reason="completed", message="command finished", next_mode=current_mode, turns_used=1)
+        transition = LoopTransition(
+            reason="completed", message="command finished", next_mode=current_mode, turns_used=1
+        )
         self._record_transition(session, transition)
         self._persist_summary(session, current_mode, assembly)
         if on_step_finish is not None:
@@ -797,7 +834,9 @@ class QueryEngine(object):
         on_step_start: Optional[Callable[[str, int], None]] = None,
         on_step_finish: Optional[Callable[[int, AssistantReply, str], None]] = None,
         permission_handler: Optional[Callable[[PermissionRequest], Optional[bool]]] = None,
-        user_input_handler: Optional[Callable[[UserInputRequest], Optional[UserInputResponse]]] = None,
+        user_input_handler: Optional[
+            Callable[[UserInputRequest], Optional[UserInputResponse]]
+        ] = None,
     ) -> QueryTurnResult:
         current_mode = require_mode(initial_mode)["slug"]
         with self._session_guard():
@@ -859,7 +898,9 @@ class QueryEngine(object):
         turns_used = 0
         for turn_index in range(self.max_turns):
             if stop_event is not None and stop_event.is_set():
-                transition = LoopTransition(reason="aborted", message="stop_event set", turns_used=turns_used)
+                transition = LoopTransition(
+                    reason="aborted", message="stop_event set", turns_used=turns_used
+                )
                 self._record_transition(session, transition)
                 return QueryTurnResult(final_text, session, transition, turns_used)
             step_index = turn_index + 1
@@ -881,7 +922,9 @@ class QueryEngine(object):
             compact_retry_used = False
             compact_boundary_recorded = False
             while True:
-                assembly = self._build_context(session, current_mode, workflow_state, force_compact=force_compact)
+                assembly = self._build_context(
+                    session, current_mode, workflow_state, force_compact=force_compact
+                )
                 with self._session_guard():
                     session.record_context_snapshot(
                         {
@@ -914,14 +957,23 @@ class QueryEngine(object):
                     on_context_result(assembly)
                 self._persist_summary(session, current_mode, assembly)
                 try:
-                    reply = self._call_llm_with_retry(assembly.messages, self._schemas_for_mode(current_mode, workflow_state), stream, on_text_delta, on_reasoning_delta)
+                    reply = self._call_llm_with_retry(
+                        assembly.messages,
+                        self._schemas_for_mode(current_mode, workflow_state),
+                        stream,
+                        on_text_delta,
+                        on_reasoning_delta,
+                    )
                     break
                 except ModelClientError as exc:
                     if compact_retry_used or not self._should_retry_with_compact(exc):
                         raise
                     compact_retry_used = True
                     force_compact = True
-                    compact_boundary_recorded = self._maybe_record_compact_boundary(session, current_mode, assembly) or compact_boundary_recorded
+                    compact_boundary_recorded = (
+                        self._maybe_record_compact_boundary(session, current_mode, assembly)
+                        or compact_boundary_recorded
+                    )
                     transition = LoopTransition(
                         reason="compact_retry",
                         message=str(exc),
@@ -950,7 +1002,11 @@ class QueryEngine(object):
                         "turn_id": session.turns[-1].turn_id if session.turns else "",
                         "step_id": step_id,
                         "actions": [
-                            {"name": action.name, "arguments": dict(action.arguments), "call_id": action.call_id}
+                            {
+                                "name": action.name,
+                                "arguments": dict(action.arguments),
+                                "call_id": action.call_id,
+                            }
                             for action in reply.actions
                         ],
                         "reasoning_content": reply.reasoning_content,
@@ -985,7 +1041,12 @@ class QueryEngine(object):
             final_text = reply.content
             turns_used = step_index
             if not reply.actions:
-                transition = LoopTransition(reason="completed", message="assistant finished", next_mode=current_mode, turns_used=turns_used)
+                transition = LoopTransition(
+                    reason="completed",
+                    message="assistant finished",
+                    next_mode=current_mode,
+                    turns_used=turns_used,
+                )
                 self._record_transition(session, transition)
                 self._persist_summary(session, current_mode, assembly)
                 if not compact_boundary_recorded:
@@ -995,7 +1056,9 @@ class QueryEngine(object):
                     on_step_finish(step_index, reply, "completed")
                 return QueryTurnResult(final_text, session, transition, turns_used)
             executor = StreamingToolExecutor(
-                lambda action: self.tools.execute_with_interrupt(action.name, action.arguments, stop_event),
+                lambda action: self.tools.execute_with_interrupt(
+                    action.name, action.arguments, stop_event
+                ),
                 self.max_parallel_tools,
                 cancel_event=stop_event,
             )
@@ -1041,7 +1104,11 @@ class QueryEngine(object):
                                 if on_step_finish is not None:
                                     on_step_finish(step_index, reply, suspended.transition.reason)
                                 return suspended
-                            if stop_event is not None and stop_event.is_set() and not self._is_interrupted_observation(observation):
+                            if (
+                                stop_event is not None
+                                and stop_event.is_set()
+                                and not self._is_interrupted_observation(observation)
+                            ):
                                 interrupted = True
                                 observation = self._interrupted_observation(action.name)
                         self._record_tool_observation(
@@ -1055,13 +1122,21 @@ class QueryEngine(object):
                         )
                         loop_guard.record(action, observation)
                         if interrupted:
-                            transition = LoopTransition(reason="aborted", message="tool execution interrupted", turns_used=turns_used)
+                            transition = LoopTransition(
+                                reason="aborted",
+                                message="tool execution interrupted",
+                                turns_used=turns_used,
+                            )
                             self._record_transition(session, transition)
                             if on_step_finish is not None:
                                 on_step_finish(step_index, reply, "aborted")
                             return QueryTurnResult(final_text, session, transition, turns_used)
                         if loop_guard.should_block(action) or loop_guard.should_stop():
-                            transition = LoopTransition(reason="guard_stop", message=loop_guard.stop_reason(), turns_used=turns_used)
+                            transition = LoopTransition(
+                                reason="guard_stop",
+                                message=loop_guard.stop_reason(),
+                                turns_used=turns_used,
+                            )
                             self._record_transition(session, transition)
                             if on_step_finish is not None:
                                 on_step_finish(step_index, reply, "guard_stop")
@@ -1080,7 +1155,11 @@ class QueryEngine(object):
                     suspended = None
                     if batch_interrupted or (stop_event is not None and stop_event.is_set()):
                         batch_interrupted = True
-                        if update.observation is not None and isinstance(update.observation.data, dict) and update.observation.data.get("error_kind") == "discarded":
+                        if (
+                            update.observation is not None
+                            and isinstance(update.observation.data, dict)
+                            and update.observation.data.get("error_kind") == "discarded"
+                        ):
                             observation = update.observation
                         else:
                             observation = self._interrupted_observation(update.action.name)
@@ -1100,11 +1179,18 @@ class QueryEngine(object):
                             if on_step_finish is not None:
                                 on_step_finish(step_index, reply, suspended.transition.reason)
                             return suspended
-                        if stop_event is not None and stop_event.is_set() and not self._is_interrupted_observation(observation):
+                        if (
+                            stop_event is not None
+                            and stop_event.is_set()
+                            and not self._is_interrupted_observation(observation)
+                        ):
                             batch_interrupted = True
                             executor.discard()
                             observation = self._interrupted_observation(update.action.name)
-                    if isinstance(observation.data, dict) and observation.data.get("error_kind") == "discarded":
+                    if (
+                        isinstance(observation.data, dict)
+                        and observation.data.get("error_kind") == "discarded"
+                    ):
                         batch_discarded = True
                     self._record_tool_observation(
                         session,
@@ -1119,13 +1205,21 @@ class QueryEngine(object):
                     if batch_interrupted:
                         continue
                     if loop_guard.should_block(update.action) or loop_guard.should_stop():
-                        transition = LoopTransition(reason="guard_stop", message=loop_guard.stop_reason(), turns_used=turns_used)
+                        transition = LoopTransition(
+                            reason="guard_stop",
+                            message=loop_guard.stop_reason(),
+                            turns_used=turns_used,
+                        )
                         self._record_transition(session, transition)
                         if on_step_finish is not None:
                             on_step_finish(step_index, reply, "guard_stop")
                         return QueryTurnResult(final_text, session, transition, turns_used)
                 if batch_interrupted:
-                    transition = LoopTransition(reason="aborted", message="tool execution interrupted", turns_used=turns_used)
+                    transition = LoopTransition(
+                        reason="aborted",
+                        message="tool execution interrupted",
+                        turns_used=turns_used,
+                    )
                     self._record_transition(session, transition)
                     if on_step_finish is not None:
                         on_step_finish(step_index, reply, "aborted")
@@ -1134,11 +1228,15 @@ class QueryEngine(object):
                     discard_remaining_batches = True
             if on_step_finish is not None:
                 on_step_finish(step_index, reply, "tool_calls")
-        transition = LoopTransition(reason="max_turns", message="超过最大迭代次数", turns_used=turns_used)
+        transition = LoopTransition(
+            reason="max_turns", message="超过最大迭代次数", turns_used=turns_used
+        )
         self._record_transition(session, transition)
         return QueryTurnResult(final_text, session, transition, turns_used)
 
-    def _build_context(self, session: Session, mode_name: str, workflow_state: str, force_compact: bool = False) -> ContextAssemblyResult:
+    def _build_context(
+        self, session: Session, mode_name: str, workflow_state: str, force_compact: bool = False
+    ) -> ContextAssemblyResult:
         with self._session_guard():
             build = self.context_manager.build_messages(
                 session,
@@ -1178,11 +1276,11 @@ class QueryEngine(object):
 
     def _schemas_for_mode(self, mode_name: str, workflow_state: str) -> list:
         schemas = list(self.tools.schemas_for_mode(mode_name, workflow_state=workflow_state))
-        names = set(
-            item.get("function", {}).get("name", "")
-            for item in schemas
-        )
-        if "ask_user" in self._allowed_tools_for_mode(mode_name, workflow_state=workflow_state) and "ask_user" not in names:
+        names = set(item.get("function", {}).get("name", "") for item in schemas)
+        if (
+            "ask_user" in self._allowed_tools_for_mode(mode_name, workflow_state=workflow_state)
+            and "ask_user" not in names
+        ):
             schemas.append(ask_user_schema())
             names.add("ask_user")
         if "propose_mode_switch" not in names:
@@ -1201,8 +1299,21 @@ class QueryEngine(object):
         stop_event: Optional[threading.Event] = None,
     ) -> Tuple[Observation, str, Optional[QueryTurnResult]]:
         runtime_action = action
-        if action.name not in self._allowed_tools_for_mode(current_mode, workflow_state=workflow_state) and action.name not in ("ask_user", "propose_mode_switch"):
-            return self._failure_observation(action.name, "当前模式 %s 不允许调用工具 %s。" % (current_mode, action.name), "mode_tool_blocked", False, current_mode, "请改用当前模式允许的工具。"), current_mode, None
+        if action.name not in self._allowed_tools_for_mode(
+            current_mode, workflow_state=workflow_state
+        ) and action.name not in ("ask_user", "propose_mode_switch"):
+            return (
+                self._failure_observation(
+                    action.name,
+                    "当前模式 %s 不允许调用工具 %s。" % (current_mode, action.name),
+                    "mode_tool_blocked",
+                    False,
+                    current_mode,
+                    "请改用当前模式允许的工具。",
+                ),
+                current_mode,
+                None,
+            )
         if action.name == "task_status":
             mode_context = self.tools.describe_mode(current_mode, workflow_state=workflow_state)
             summary = ""
@@ -1242,7 +1353,10 @@ class QueryEngine(object):
                 request_payload = {
                     "tool_name": request.tool_name,
                     "question": request.question,
-                    "options": [{"index": item.index, "text": item.text, "mode": item.mode} for item in request.options],
+                    "options": [
+                        {"index": item.index, "text": item.text, "mode": item.mode}
+                        for item in request.options
+                    ],
                     "details": dict(request.details),
                 }
                 pending = PendingInteraction(
@@ -1256,15 +1370,40 @@ class QueryEngine(object):
                     request_data={"request": request_payload},
                 )
                 pending.request_payload["request"] = request_payload
-                transition = LoopTransition("user_input_wait", request.question, pending, current_mode)
+                transition = LoopTransition(
+                    "user_input_wait", request.question, pending, current_mode
+                )
                 self._record_transition(session, transition)
-                return self._failure_observation("ask_user", "waiting user input", "pending_interaction", False, "user_input", "等待用户回答。", {"pending": True}), current_mode, QueryTurnResult("", session, transition, pending_interaction=pending)
-            observation, next_mode = self._build_user_input_observation(session, current_mode, request, response, workflow_state=workflow_state)
+                return (
+                    self._failure_observation(
+                        "ask_user",
+                        "waiting user input",
+                        "pending_interaction",
+                        False,
+                        "user_input",
+                        "等待用户回答。",
+                        {"pending": True},
+                    ),
+                    current_mode,
+                    QueryTurnResult("", session, transition, pending_interaction=pending),
+                )
+            observation, next_mode = self._build_user_input_observation(
+                session, current_mode, request, response, workflow_state=workflow_state
+            )
             return observation, next_mode, None
         if action.name == "propose_mode_switch":
-            response = user_input_handler(
-                UserInputRequest("propose_mode_switch", str(action.arguments.get("reason") or ""), [], {"target_mode": str(action.arguments.get("target_mode") or "")})
-            ) if user_input_handler is not None else None
+            response = (
+                user_input_handler(
+                    UserInputRequest(
+                        "propose_mode_switch",
+                        str(action.arguments.get("reason") or ""),
+                        [],
+                        {"target_mode": str(action.arguments.get("target_mode") or "")},
+                    )
+                )
+                if user_input_handler is not None
+                else None
+            )
             if response is None:
                 pending = PendingInteraction(
                     kind="user_input",
@@ -1274,17 +1413,51 @@ class QueryEngine(object):
                     session,
                     action,
                     pending,
-                    request_data={"request": {"tool_name": "propose_mode_switch", "question": str(action.arguments.get("reason") or ""), "options": [], "details": {"target_mode": str(action.arguments.get("target_mode") or "")}}},
+                    request_data={
+                        "request": {
+                            "tool_name": "propose_mode_switch",
+                            "question": str(action.arguments.get("reason") or ""),
+                            "options": [],
+                            "details": {
+                                "target_mode": str(action.arguments.get("target_mode") or "")
+                            },
+                        }
+                    },
                 )
-                transition = LoopTransition("user_input_wait", str(action.arguments.get("reason") or ""), pending, current_mode)
+                transition = LoopTransition(
+                    "user_input_wait",
+                    str(action.arguments.get("reason") or ""),
+                    pending,
+                    current_mode,
+                )
                 self._record_transition(session, transition)
-                return self._failure_observation(action.name, "waiting user input", "pending_interaction", False, "user_input", "等待用户回答。", {"pending": True}), current_mode, QueryTurnResult("", session, transition, pending_interaction=pending)
-            target_mode = str(response.selected_mode or action.arguments.get("target_mode") or "").strip()
+                return (
+                    self._failure_observation(
+                        action.name,
+                        "waiting user input",
+                        "pending_interaction",
+                        False,
+                        "user_input",
+                        "等待用户回答。",
+                        {"pending": True},
+                    ),
+                    current_mode,
+                    QueryTurnResult("", session, transition, pending_interaction=pending),
+                )
+            target_mode = str(
+                response.selected_mode or action.arguments.get("target_mode") or ""
+            ).strip()
             if target_mode:
                 target_mode = str(require_mode(target_mode)["slug"])
                 if target_mode != current_mode:
                     with self._session_guard():
-                        mode_message = session.add_system_message(build_system_prompt(target_mode, getattr(self.tools, "app_config", None), getattr(self.tools, "workspace", "")))
+                        mode_message = session.add_system_message(
+                            build_system_prompt(
+                                target_mode,
+                                getattr(self.tools, "app_config", None),
+                                getattr(self.tools, "workspace", ""),
+                            )
+                        )
                         self._append_message_event(
                             session,
                             {
@@ -1304,14 +1477,42 @@ class QueryEngine(object):
                             self.tools.describe_mode(target_mode, workflow_state=workflow_state),
                         )
                     current_mode = target_mode
-            return Observation("propose_mode_switch", True, None, {"selected_mode": target_mode, "mode_changed": bool(target_mode)}), current_mode, None
+            return (
+                Observation(
+                    "propose_mode_switch",
+                    True,
+                    None,
+                    {"selected_mode": target_mode, "mode_changed": bool(target_mode)},
+                ),
+                current_mode,
+                None,
+            )
         decision = self.permission_policy.evaluate(runtime_action)
         if decision.outcome == "deny":
-            return self._failure_observation(action.name, decision.error or "权限规则拒绝该操作。", "permission_denied", False, "permission_policy", "修改权限规则，或由用户手动放行后重试。", {"permission_required": True, "permission_decision": "deny"}), current_mode, None
+            return (
+                self._failure_observation(
+                    action.name,
+                    decision.error or "权限规则拒绝该操作。",
+                    "permission_denied",
+                    False,
+                    "permission_policy",
+                    "修改权限规则，或由用户手动放行后重试。",
+                    {"permission_required": True, "permission_decision": "deny"},
+                ),
+                current_mode,
+                None,
+            )
         if decision.request is not None:
-            approved = permission_handler(decision.request) if permission_handler is not None else None
+            approved = (
+                permission_handler(decision.request) if permission_handler is not None else None
+            )
             if approved is None:
-                permission_payload = {"tool_name": decision.request.tool_name, "category": decision.request.category, "reason": decision.request.reason, "details": dict(decision.request.details)}
+                permission_payload = {
+                    "tool_name": decision.request.tool_name,
+                    "category": decision.request.category,
+                    "reason": decision.request.reason,
+                    "details": dict(decision.request.details),
+                }
                 pending = PendingInteraction(
                     kind="permission",
                     tool_name=action.name,
@@ -1323,27 +1524,103 @@ class QueryEngine(object):
                     request_data={"permission": permission_payload},
                 )
                 pending.request_payload["permission"] = permission_payload
-                transition = LoopTransition("permission_wait", decision.request.reason, pending, current_mode)
+                transition = LoopTransition(
+                    "permission_wait", decision.request.reason, pending, current_mode
+                )
                 self._record_transition(session, transition)
-                return self._failure_observation(action.name, "waiting permission", "pending_interaction", False, "permission", "等待用户批准。", {"pending": True}), current_mode, QueryTurnResult("", session, transition, pending_interaction=pending)
+                return (
+                    self._failure_observation(
+                        action.name,
+                        "waiting permission",
+                        "pending_interaction",
+                        False,
+                        "permission",
+                        "等待用户批准。",
+                        {"pending": True},
+                    ),
+                    current_mode,
+                    QueryTurnResult("", session, transition, pending_interaction=pending),
+                )
             if not approved:
-                return self._failure_observation(action.name, "操作未获批准，已跳过执行。", "permission_denied", False, "user_confirmation", "等待用户批准，或改为不需要该权限的方案。", {"permission_required": True, "permission_decision": "deny"}), current_mode, None
+                return (
+                    self._failure_observation(
+                        action.name,
+                        "操作未获批准，已跳过执行。",
+                        "permission_denied",
+                        False,
+                        "user_confirmation",
+                        "等待用户批准，或改为不需要该权限的方案。",
+                        {"permission_required": True, "permission_decision": "deny"},
+                    ),
+                    current_mode,
+                    None,
+                )
         if action.name in ("edit_file", "write_file"):
             path = str(runtime_action.arguments.get("path") or "")
             if not path:
-                return self._failure_observation(action.name, "%s 缺少 path 参数。" % action.name, "invalid_arguments", False, "arguments", "补充一个相对于工作区的 path 参数。"), current_mode, None
-            if not is_path_writable(current_mode, path.replace("\\", "/"), getattr(self.tools, "app_config", None)):
-                return self._failure_observation(action.name, "当前模式 %s 不允许修改 %s。" % (current_mode, path.replace("\\", "/")), "mode_path_blocked", False, current_mode, "请改用当前模式允许的文件类型，或切换模式。"), current_mode, None
+                return (
+                    self._failure_observation(
+                        action.name,
+                        "%s 缺少 path 参数。" % action.name,
+                        "invalid_arguments",
+                        False,
+                        "arguments",
+                        "补充一个相对于工作区的 path 参数。",
+                    ),
+                    current_mode,
+                    None,
+                )
+            if not is_path_writable(
+                current_mode, path.replace("\\", "/"), getattr(self.tools, "app_config", None)
+            ):
+                return (
+                    self._failure_observation(
+                        action.name,
+                        "当前模式 %s 不允许修改 %s。" % (current_mode, path.replace("\\", "/")),
+                        "mode_path_blocked",
+                        False,
+                        current_mode,
+                        "请改用当前模式允许的文件类型，或切换模式。",
+                    ),
+                    current_mode,
+                    None,
+                )
             if action.name == "edit_file":
                 try:
-                    resolved_path = self.tools._ctx.resolve_path(path.replace("\\", "/"), allow_missing=True)
+                    resolved_path = self.tools._ctx.resolve_path(
+                        path.replace("\\", "/"), allow_missing=True
+                    )
                 except ToolError as exc:
-                    return self._failure_observation(action.name, str(exc), "path_invalid", False, "workspace", "改用工作区内的相对路径。"), current_mode, None
+                    return (
+                        self._failure_observation(
+                            action.name,
+                            str(exc),
+                            "path_invalid",
+                            False,
+                            "workspace",
+                            "改用工作区内的相对路径。",
+                        ),
+                        current_mode,
+                        None,
+                    )
                 if not resolved_path or not os.path.exists(resolved_path):
-                    return self._failure_observation(action.name, "目标文件不存在，edit_file 只能修改已存在的文件。", "file_missing", False, "filesystem", "若要新建文件，请改用 write_file。"), current_mode, None
+                    return (
+                        self._failure_observation(
+                            action.name,
+                            "目标文件不存在，edit_file 只能修改已存在的文件。",
+                            "file_missing",
+                            False,
+                            "filesystem",
+                            "若要新建文件，请改用 write_file。",
+                        ),
+                        current_mode,
+                        None,
+                    )
         return (
             precomputed_observation
-            or self.tools.execute_with_interrupt(runtime_action.name, runtime_action.arguments, stop_event),
+            or self.tools.execute_with_interrupt(
+                runtime_action.name, runtime_action.arguments, stop_event
+            ),
             current_mode,
             None,
         )
@@ -1365,7 +1642,13 @@ class QueryEngine(object):
                 next_mode = selected_mode
                 mode_changed = True
                 with self._session_guard():
-                    mode_message = session.add_system_message(build_system_prompt(selected_mode, getattr(self.tools, "app_config", None), getattr(self.tools, "workspace", "")))
+                    mode_message = session.add_system_message(
+                        build_system_prompt(
+                            selected_mode,
+                            getattr(self.tools, "app_config", None),
+                            getattr(self.tools, "workspace", ""),
+                        )
+                    )
                     self._append_message_event(
                         session,
                         {
@@ -1384,19 +1667,22 @@ class QueryEngine(object):
                         session,
                         self.tools.describe_mode(selected_mode, workflow_state=workflow_state),
                     )
-        return Observation(
-            "ask_user",
-            True,
-            None,
-            {
-                "question": request.question,
-                "answer": str(response.answer or "").strip(),
-                "selected_index": response.selected_index,
-                "selected_option_text": response.selected_option_text,
-                "selected_mode": selected_mode,
-                "mode_changed": mode_changed,
-            },
-        ), next_mode
+        return (
+            Observation(
+                "ask_user",
+                True,
+                None,
+                {
+                    "question": request.question,
+                    "answer": str(response.answer or "").strip(),
+                    "selected_index": response.selected_index,
+                    "selected_option_text": response.selected_option_text,
+                    "selected_mode": selected_mode,
+                    "mode_changed": mode_changed,
+                },
+            ),
+            next_mode,
+        )
 
     def _resume_interaction(
         self,
@@ -1424,7 +1710,11 @@ class QueryEngine(object):
                 },
             )
             session.resolve_pending_interaction(resolution)
-        action_payload = pending.request_payload.get("action") if isinstance(pending.request_payload, dict) else {}
+        action_payload = (
+            pending.request_payload.get("action")
+            if isinstance(pending.request_payload, dict)
+            else {}
+        )
         action = Action(
             name=str(action_payload.get("name") or pending.tool_name),
             arguments=dict(action_payload.get("arguments") or {}),
@@ -1446,9 +1736,20 @@ class QueryEngine(object):
                 if suspended is not None:
                     raise RuntimeError("permission resume unexpectedly re-suspended")
             else:
-                observation = self._failure_observation(action.name, "操作未获批准，已跳过执行。", "permission_denied", False, "user_confirmation", "等待用户批准，或改为不需要该权限的方案。")
+                observation = self._failure_observation(
+                    action.name,
+                    "操作未获批准，已跳过执行。",
+                    "permission_denied",
+                    False,
+                    "user_confirmation",
+                    "等待用户批准，或改为不需要该权限的方案。",
+                )
         else:
-            req = pending.request_payload.get("request") if isinstance(pending.request_payload, dict) else {}
+            req = (
+                pending.request_payload.get("request")
+                if isinstance(pending.request_payload, dict)
+                else {}
+            )
             request = UserInputRequest(
                 tool_name=str(req.get("tool_name") or pending.tool_name),
                 question=str(req.get("question") or ""),
@@ -1500,7 +1801,14 @@ class QueryEngine(object):
             on_tool_finish(action, observation)
         return current_mode
 
-    def _call_llm_with_retry(self, messages: list, tool_schemas: list, stream: bool, on_text_delta: Optional[Callable[[str], None]], on_reasoning_delta: Optional[Callable[[str], None]]) -> AssistantReply:
+    def _call_llm_with_retry(
+        self,
+        messages: list,
+        tool_schemas: list,
+        stream: bool,
+        on_text_delta: Optional[Callable[[str], None]],
+        on_reasoning_delta: Optional[Callable[[str], None]],
+    ) -> AssistantReply:
         return self._llm_wrapper.call_with_retry(
             messages=messages,
             tools=tool_schemas,
@@ -1509,7 +1817,9 @@ class QueryEngine(object):
             on_reasoning_delta=on_reasoning_delta,
         )
 
-    def _persist_summary(self, session: Session, current_mode: str, assembly: Optional[ContextAssemblyResult] = None) -> None:
+    def _persist_summary(
+        self, session: Session, current_mode: str, assembly: Optional[ContextAssemblyResult] = None
+    ) -> None:
         with self._session_guard():
             summary_ref = None
             try:
@@ -1526,7 +1836,9 @@ class QueryEngine(object):
                 _LOG.warning("session trim failed: %s", exc)
         self._maybe_maintain_memory()
 
-    def _maybe_record_compact_boundary(self, session: Session, current_mode: str, assembly: ContextAssemblyResult) -> bool:
+    def _maybe_record_compact_boundary(
+        self, session: Session, current_mode: str, assembly: ContextAssemblyResult
+    ) -> bool:
         if not assembly.compacted or not assembly.summary_message or assembly.summarized_turns <= 0:
             return False
         with self._session_guard():
@@ -1534,7 +1846,9 @@ class QueryEngine(object):
             latest = session.latest_compact_boundary()
             if latest is not None and latest.compacted_turn_count == compacted_turn_count:
                 return False
-            preserved_head_message_id, preserved_tail_message_id = session.preserved_segment_message_ids(assembly.recent_turns)
+            preserved_head_message_id, preserved_tail_message_id = (
+                session.preserved_segment_message_ids(assembly.recent_turns)
+            )
             boundary = session.add_compact_boundary(
                 assembly.summary_message,
                 compacted_turn_count,
@@ -1573,8 +1887,22 @@ class QueryEngine(object):
         except (RuntimeError, ValueError, TypeError) as exc:
             _LOG.warning("memory maintenance failed: %s", exc)
 
-    def _failure_observation(self, tool_name: str, error: str, error_kind: str, retryable: bool, blocked_by: str, suggested_next_step: str, extra_data: Optional[Dict[str, Any]] = None) -> Observation:
-        data = {"error_kind": error_kind, "retryable": retryable, "blocked_by": blocked_by, "suggested_next_step": suggested_next_step}
+    def _failure_observation(
+        self,
+        tool_name: str,
+        error: str,
+        error_kind: str,
+        retryable: bool,
+        blocked_by: str,
+        suggested_next_step: str,
+        extra_data: Optional[Dict[str, Any]] = None,
+    ) -> Observation:
+        data = {
+            "error_kind": error_kind,
+            "retryable": retryable,
+            "blocked_by": blocked_by,
+            "suggested_next_step": suggested_next_step,
+        }
         if extra_data:
             data.update(extra_data)
         return Observation(tool_name, False, error, data)

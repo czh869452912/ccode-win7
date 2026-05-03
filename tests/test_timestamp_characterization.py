@@ -1,4 +1,5 @@
 """Characterization tests for timestamp behavior — verifies pre/post change equivalence."""
+
 import re
 from datetime import datetime, timedelta, timezone
 
@@ -26,12 +27,19 @@ class TestTimestampFormat:
 
     def test_all_helpers_produce_valid_format(self):
         helpers = [
-            store_utc_now, timeline_utc_now, runtime_utc_now,
-            memory_utc_now, adapter_utc_now, plan_utc_now, transcript_utc_now,
+            store_utc_now,
+            timeline_utc_now,
+            runtime_utc_now,
+            memory_utc_now,
+            adapter_utc_now,
+            plan_utc_now,
+            transcript_utc_now,
         ]
         for helper in helpers:
             result = helper()
-            assert TIMESTAMP_PATTERN.match(result), f"{helper.__module__} produced invalid format: {result}"
+            assert TIMESTAMP_PATTERN.match(
+                result
+            ), f"{helper.__module__} produced invalid format: {result}"
 
 
 class TestSessionRestoreBehavior:
@@ -40,12 +48,14 @@ class TestSessionRestoreBehavior:
     def test_old_session_is_older_than(self):
         # Import the function under test
         from embedagent.session_restore import SessionRestorer
+
         restore = SessionRestorer()
         old_time = datetime.now(timezone.utc) - timedelta(hours=1)
         assert restore._interaction_is_stale(old_time.isoformat(), 300) is True
 
     def test_recent_session_is_not_older_than(self):
         from embedagent.session_restore import SessionRestorer
+
         restore = SessionRestorer()
         recent_time = datetime.now(timezone.utc) - timedelta(seconds=10)
         assert restore._interaction_is_stale(recent_time.isoformat(), 300) is False

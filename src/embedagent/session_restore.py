@@ -50,7 +50,9 @@ class SessionRestorer(object):
                     session.started_at = str(payload["started_at"])
                 continue
             if event_type == "message":
-                message_error = self._apply_message(session, payload, seen_turn_ids, seen_message_ids)
+                message_error = self._apply_message(
+                    session, payload, seen_turn_ids, seen_message_ids
+                )
                 if message_error:
                     consumed_event_count = index
                     stop_reason = message_error
@@ -174,7 +176,9 @@ class SessionRestorer(object):
                     stop_reason = "interaction_expired"
                     break
                 interaction_created_at = str(payload.get("created_at") or "").strip()
-                if interaction_created_at and self._interaction_is_stale(interaction_created_at, max_age_seconds=300):
+                if interaction_created_at and self._interaction_is_stale(
+                    interaction_created_at, max_age_seconds=300
+                ):
                     consumed_event_count = index
                     stop_reason = "interaction_expired"
                     break
@@ -276,7 +280,9 @@ class SessionRestorer(object):
             stop_reason=stop_reason,
         )
 
-    def _apply_message(self, session: Session, payload: Dict[str, Any], seen_turn_ids: set, seen_message_ids: set) -> str:
+    def _apply_message(
+        self, session: Session, payload: Dict[str, Any], seen_turn_ids: set, seen_message_ids: set
+    ) -> str:
         role = str(payload.get("role") or "")
         message_id = str(payload.get("message_id") or "").strip()
         parent_message_id = str(payload.get("parent_message_id") or "").strip()
@@ -409,7 +415,9 @@ class SessionRestorer(object):
                 return index
         return -1
 
-    def _matches_pending_interaction(self, pending: PendingInteraction, payload: Dict[str, Any]) -> bool:
+    def _matches_pending_interaction(
+        self, pending: PendingInteraction, payload: Dict[str, Any]
+    ) -> bool:
         interaction_id = str(payload.get("interaction_id") or "").strip()
         if interaction_id and interaction_id != str(pending.interaction_id or ""):
             return False

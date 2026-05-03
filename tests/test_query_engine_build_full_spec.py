@@ -68,7 +68,9 @@ class QueryEngineBuildFullSpecTests(unittest.TestCase):
             initial_mode="build",
             workflow_state="plan",
         )
-        system_messages = [message.content for message in result.session.messages if message.role == "system"]
+        system_messages = [
+            message.content for message in result.session.messages if message.role == "system"
+        ]
         self.assertTrue(any("full_spec_tdd" in content for content in system_messages))
 
     def test_adapter_snapshot_exposes_task_summary(self):

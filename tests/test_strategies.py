@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-import time
 import unittest
-from typing import Any, Dict, List, Optional
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 from embedagent.llm import ModelClientError
 from embedagent.session import Action, AssistantReply, QueryTurnResult
@@ -216,6 +214,7 @@ class TestLLMClientRetryWrapper(unittest.TestCase):
 class TestTurnOrchestrator(unittest.TestCase):
     def _make_orchestrator(self, llm_wrapper=None, tools=None, permission_policy=None):
         from embedagent.strategies.turn_orchestrator import TurnOrchestrator
+
         return TurnOrchestrator(
             llm_wrapper=llm_wrapper or MagicMock(),
             tools=tools or MagicMock(),
@@ -243,7 +242,7 @@ class TestTurnOrchestrator(unittest.TestCase):
         self.assertEqual(result.transition.reason, "completed")
 
     def test_permission_request_handled(self):
-        from embedagent.permissions import PermissionPolicy, PermissionRequest
+        from embedagent.permissions import PermissionRequest
 
         llm_wrapper = MagicMock()
         tools = MagicMock()
@@ -256,7 +255,9 @@ class TestTurnOrchestrator(unittest.TestCase):
         permission_policy = MagicMock()
         decision = MagicMock()
         decision.outcome = "request"
-        decision.request = PermissionRequest(tool_name="edit_file", category="file", reason="test", details={})
+        decision.request = PermissionRequest(
+            tool_name="edit_file", category="file", reason="test", details={}
+        )
         permission_policy.evaluate.return_value = decision
 
         orchestrator = self._make_orchestrator(

@@ -25,11 +25,19 @@ from playwright.sync_api import sync_playwright
 
 def start_gui(workspace: str, cdp_port: int = 9222) -> subprocess.Popen:
     """启动 GUI 并返回进程对象"""
-    proc = subprocess.Popen([
-        sys.executable, "-m", "embedagent.gui",
-        "--cdp-port", str(cdp_port),
-        "--workspace", workspace,
-    ], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    proc = subprocess.Popen(
+        [
+            sys.executable,
+            "-m",
+            "embedagent.gui",
+            "--cdp-port",
+            str(cdp_port),
+            "--workspace",
+            workspace,
+        ],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
 
     # 等待 GUI 启动
     time.sleep(3)
@@ -122,6 +130,7 @@ def main():
 
     # 确保截图目录存在
     import os
+
     os.makedirs("tests/manual/screenshots", exist_ok=True)
 
     # 启动 GUI

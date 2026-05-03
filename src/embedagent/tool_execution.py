@@ -84,9 +84,7 @@ class StreamingToolExecutor(object):
         action_state = {}  # type: Dict[str, Dict[str, bool]]
         action_state_lock = threading.Lock()
         idle_deadline = (
-            time.time() + self.idle_timeout_seconds
-            if self.idle_timeout_seconds > 0
-            else 0.0
+            time.time() + self.idle_timeout_seconds if self.idle_timeout_seconds > 0 else 0.0
         )
 
         for action in actions:
@@ -94,7 +92,11 @@ class StreamingToolExecutor(object):
 
         def runner(action: Action) -> None:
             with semaphore:
-                if self._is_discarded() or sibling_error.is_set() or (self.cancel_event is not None and self.cancel_event.is_set()):
+                if (
+                    self._is_discarded()
+                    or sibling_error.is_set()
+                    or (self.cancel_event is not None and self.cancel_event.is_set())
+                ):
                     updates.put(self._discarded_update(action))
                     return
                 with action_state_lock:
@@ -242,7 +244,9 @@ def partition_tool_actions(
     current = None  # type: Optional[ToolBatch]
     for action in actions:
         capabilities = capability_lookup(action.name) or {}
-        is_parallel = bool(capabilities.get("read_only")) and bool(capabilities.get("concurrency_safe"))
+        is_parallel = bool(capabilities.get("read_only")) and bool(
+            capabilities.get("concurrency_safe")
+        )
         if current is None or current.parallel != is_parallel:
             current = ToolBatch(parallel=is_parallel, actions=[action])
             batches.append(current)

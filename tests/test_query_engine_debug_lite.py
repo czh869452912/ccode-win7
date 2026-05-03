@@ -98,7 +98,9 @@ class QueryEngineDebugLiteTests(unittest.TestCase):
             stream=False,
             initial_mode="debug",
         )
-        system_messages = [message.content for message in result.session.messages if message.role == "system"]
+        system_messages = [
+            message.content for message in result.session.messages if message.role == "system"
+        ]
         self.assertTrue(any("Mode: debug" in content for content in system_messages))
 
     def test_debug_mode_schemas_use_v2_pack(self):
@@ -108,8 +110,7 @@ class QueryEngineDebugLiteTests(unittest.TestCase):
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
         )
         names = sorted(
-            item["function"]["name"]
-            for item in engine._schemas_for_mode("debug", "chat")
+            item["function"]["name"] for item in engine._schemas_for_mode("debug", "chat")
         )
         self.assertIn("record_failing_evidence", names)
         self.assertIn("run_recipe", names)

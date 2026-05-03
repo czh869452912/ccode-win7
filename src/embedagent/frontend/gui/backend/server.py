@@ -2,6 +2,7 @@
 GUI Backend - FastAPI + WebSocket 服务
 为 PyWebView 提供后端 API
 """
+
 from __future__ import annotations
 
 import logging
@@ -64,10 +65,14 @@ def _read_status_value(snapshot: Any) -> str:
 
 def _serialize_session_snapshot(snapshot: Any) -> Dict[str, Any]:
     pending_permission = _to_mapping(_read_value(snapshot, "pending_permission"))
-    pending_input = _to_mapping(_read_value(snapshot, "pending_input", None, aliases=("pending_user_input",)))
+    pending_input = _to_mapping(
+        _read_value(snapshot, "pending_input", None, aliases=("pending_user_input",))
+    )
     pending_interaction = _to_mapping(_read_value(snapshot, "pending_interaction"))
     runtime_environment = _to_mapping(_read_value(snapshot, "runtime_environment"))
-    has_pending_input = bool(_read_value(snapshot, "has_pending_input", False, aliases=("has_pending_user_input",)))
+    has_pending_input = bool(
+        _read_value(snapshot, "has_pending_input", False, aliases=("has_pending_user_input",))
+    )
     pending_interaction_valid = _read_value(snapshot, "pending_interaction_valid", None)
     if pending_interaction_valid is None:
         pending_interaction_valid = bool(pending_interaction or pending_permission or pending_input)
@@ -91,14 +96,22 @@ def _serialize_session_snapshot(snapshot: Any) -> Dict[str, Any]:
         "bundled_tools_ready": bool(_read_value(snapshot, "bundled_tools_ready", False)),
         "fallback_warnings": list(_read_value(snapshot, "fallback_warnings", []) or []),
         "runtime_environment": runtime_environment,
-        "timeline_replay_status": str(_read_value(snapshot, "timeline_replay_status", "replay") or "replay"),
+        "timeline_replay_status": str(
+            _read_value(snapshot, "timeline_replay_status", "replay") or "replay"
+        ),
         "timeline_first_seq": int(_read_value(snapshot, "timeline_first_seq", 0) or 0),
         "timeline_last_seq": int(_read_value(snapshot, "timeline_last_seq", 0) or 0),
-        "timeline_integrity": str(_read_value(snapshot, "timeline_integrity", "healthy") or "healthy"),
+        "timeline_integrity": str(
+            _read_value(snapshot, "timeline_integrity", "healthy") or "healthy"
+        ),
         "pending_interaction_valid": bool(pending_interaction_valid),
         "restore_stop_reason": str(_read_value(snapshot, "restore_stop_reason", "") or ""),
-        "restore_consumed_event_count": int(_read_value(snapshot, "restore_consumed_event_count", 0) or 0),
-        "restore_transcript_event_count": int(_read_value(snapshot, "restore_transcript_event_count", 0) or 0),
+        "restore_consumed_event_count": int(
+            _read_value(snapshot, "restore_consumed_event_count", 0) or 0
+        ),
+        "restore_transcript_event_count": int(
+            _read_value(snapshot, "restore_transcript_event_count", 0) or 0
+        ),
         "current_phase": str(_read_value(snapshot, "current_phase", "") or ""),
         "discipline_profile": str(_read_value(snapshot, "discipline_profile", "") or ""),
         "current_activity": str(_read_value(snapshot, "current_activity", "") or ""),
@@ -232,16 +245,18 @@ class WebSocketFrontend(FrontendCallbacks):
     # ============ FrontendCallbacks 实现 ============
 
     def on_message(self, message: Message) -> None:
-        self._dispatch_message({
-            "type": "message",
-            "data": {
-                "id": message.id,
-                "type": message.type.name,
-                "content": message.content,
-                "timestamp": message.timestamp.isoformat(),
-                "metadata": message.metadata
+        self._dispatch_message(
+            {
+                "type": "message",
+                "data": {
+                    "id": message.id,
+                    "type": message.type.name,
+                    "content": message.content,
+                    "timestamp": message.timestamp.isoformat(),
+                    "metadata": message.metadata,
+                },
             }
-        })
+        )
 
     def on_tool_start(self, call: ToolCall) -> None:
         arguments = {}
@@ -250,73 +265,120 @@ class WebSocketFrontend(FrontendCallbacks):
                 if str(key).startswith("_"):
                     continue
                 arguments[key] = value
-        self._dispatch_message({
-            "type": "tool_start",
-            "data": {
-                "tool_name": call.tool_name,
-                "arguments": arguments,
-                "call_id": call.call_id,
-                "turn_id": call.turn_id,
-                "step_id": call.step_id,
-                "step_index": call.step_index,
-                "tool_label": call.arguments.get("_tool_label") if isinstance(call.arguments, dict) else "",
-                "permission_category": call.arguments.get("_permission_category") if isinstance(call.arguments, dict) else "",
-                "supports_diff_preview": bool(call.arguments.get("_supports_diff_preview")) if isinstance(call.arguments, dict) else False,
-                "progress_renderer_key": call.arguments.get("_progress_renderer_key") if isinstance(call.arguments, dict) else "",
-                "result_renderer_key": call.arguments.get("_result_renderer_key") if isinstance(call.arguments, dict) else "",
-                "runtime_source": call.runtime_source,
-                "resolved_tool_roots": call.resolved_tool_roots,
+        self._dispatch_message(
+            {
+                "type": "tool_start",
+                "data": {
+                    "tool_name": call.tool_name,
+                    "arguments": arguments,
+                    "call_id": call.call_id,
+                    "turn_id": call.turn_id,
+                    "step_id": call.step_id,
+                    "step_index": call.step_index,
+                    "tool_label": (
+                        call.arguments.get("_tool_label")
+                        if isinstance(call.arguments, dict)
+                        else ""
+                    ),
+                    "permission_category": (
+                        call.arguments.get("_permission_category")
+                        if isinstance(call.arguments, dict)
+                        else ""
+                    ),
+                    "supports_diff_preview": (
+                        bool(call.arguments.get("_supports_diff_preview"))
+                        if isinstance(call.arguments, dict)
+                        else False
+                    ),
+                    "progress_renderer_key": (
+                        call.arguments.get("_progress_renderer_key")
+                        if isinstance(call.arguments, dict)
+                        else ""
+                    ),
+                    "result_renderer_key": (
+                        call.arguments.get("_result_renderer_key")
+                        if isinstance(call.arguments, dict)
+                        else ""
+                    ),
+                    "runtime_source": call.runtime_source,
+                    "resolved_tool_roots": call.resolved_tool_roots,
+                },
             }
-        })
+        )
 
     def on_tool_progress(self, call_id: str, progress: Dict[str, Any]) -> None:
-        self._dispatch_message({
-            "type": "tool_progress",
-            "data": {"call_id": call_id, **progress}
-        })
+        self._dispatch_message({"type": "tool_progress", "data": {"call_id": call_id, **progress}})
 
     def on_tool_finish(self, result: ToolResult) -> None:
-        self._dispatch_message({
-            "type": "tool_finish",
-            "data": {
-                "tool_name": result.tool_name,
-                "success": result.success,
-                "data": result.data,
-                "error": result.error,
-                "execution_time_ms": result.execution_time_ms,
-                "call_id": result.call_id,
-                "turn_id": result.turn_id,
-                "step_id": result.step_id,
-                "step_index": result.step_index,
-                "tool_label": result.data.get("tool_label") if isinstance(result.data, dict) else "",
-                "permission_category": result.data.get("permission_category") if isinstance(result.data, dict) else "",
-                "supports_diff_preview": bool(result.data.get("supports_diff_preview")) if isinstance(result.data, dict) else False,
-                "progress_renderer_key": result.data.get("progress_renderer_key") if isinstance(result.data, dict) else "",
-                "result_renderer_key": result.data.get("result_renderer_key") if isinstance(result.data, dict) else "",
-                "runtime_source": result.runtime_source or (result.data.get("runtime_source") if isinstance(result.data, dict) else ""),
-                "resolved_tool_roots": result.resolved_tool_roots or (result.data.get("resolved_tool_roots") if isinstance(result.data, dict) else {}),
+        self._dispatch_message(
+            {
+                "type": "tool_finish",
+                "data": {
+                    "tool_name": result.tool_name,
+                    "success": result.success,
+                    "data": result.data,
+                    "error": result.error,
+                    "execution_time_ms": result.execution_time_ms,
+                    "call_id": result.call_id,
+                    "turn_id": result.turn_id,
+                    "step_id": result.step_id,
+                    "step_index": result.step_index,
+                    "tool_label": (
+                        result.data.get("tool_label") if isinstance(result.data, dict) else ""
+                    ),
+                    "permission_category": (
+                        result.data.get("permission_category")
+                        if isinstance(result.data, dict)
+                        else ""
+                    ),
+                    "supports_diff_preview": (
+                        bool(result.data.get("supports_diff_preview"))
+                        if isinstance(result.data, dict)
+                        else False
+                    ),
+                    "progress_renderer_key": (
+                        result.data.get("progress_renderer_key")
+                        if isinstance(result.data, dict)
+                        else ""
+                    ),
+                    "result_renderer_key": (
+                        result.data.get("result_renderer_key")
+                        if isinstance(result.data, dict)
+                        else ""
+                    ),
+                    "runtime_source": result.runtime_source
+                    or (result.data.get("runtime_source") if isinstance(result.data, dict) else ""),
+                    "resolved_tool_roots": result.resolved_tool_roots
+                    or (
+                        result.data.get("resolved_tool_roots")
+                        if isinstance(result.data, dict)
+                        else {}
+                    ),
+                },
             }
-        })
+        )
 
     def on_permission_request(self, request: PermissionRequest) -> bool:
         """同步阻塞等待用户响应"""
         waiter = BlockingResult(False)
         with self._pending_lock:
             self._pending_permissions[request.permission_id] = waiter
-        queued = self._dispatch_message({
-            "type": "permission_request",
-            "data": {
-                "permission_id": request.permission_id,
-                "session_id": request.session_id,
-                "tool_name": request.tool_name,
-                "category": request.category,
-                "reason": request.reason,
-                "details": request.details,
-                "turn_id": request.turn_id,
-                "step_id": request.step_id,
-                "step_index": request.step_index,
+        queued = self._dispatch_message(
+            {
+                "type": "permission_request",
+                "data": {
+                    "permission_id": request.permission_id,
+                    "session_id": request.session_id,
+                    "tool_name": request.tool_name,
+                    "category": request.category,
+                    "reason": request.reason,
+                    "details": request.details,
+                    "turn_id": request.turn_id,
+                    "step_id": request.step_id,
+                    "step_index": request.step_index,
+                },
             }
-        })
+        )
         try:
             if not queued:
                 return False
@@ -330,20 +392,22 @@ class WebSocketFrontend(FrontendCallbacks):
         waiter = BlockingResult(None)  # type: BlockingResult[Optional[Dict[str, Any]]]
         with self._pending_lock:
             self._pending_inputs[request.request_id] = waiter
-        queued = self._dispatch_message({
-            "type": "user_input_request",
-            "data": {
-                "request_id": request.request_id,
-                "session_id": request.session_id,
-                "tool_name": request.tool_name,
-                "question": request.question,
-                "options": request.options,
-                "details": request.details,
-                "turn_id": request.turn_id,
-                "step_id": request.step_id,
-                "step_index": request.step_index,
+        queued = self._dispatch_message(
+            {
+                "type": "user_input_request",
+                "data": {
+                    "request_id": request.request_id,
+                    "session_id": request.session_id,
+                    "tool_name": request.tool_name,
+                    "question": request.question,
+                    "options": request.options,
+                    "details": request.details,
+                    "turn_id": request.turn_id,
+                    "step_id": request.step_id,
+                    "step_index": request.step_index,
+                },
             }
-        })
+        )
         try:
             if not queued:
                 return None
@@ -354,77 +418,78 @@ class WebSocketFrontend(FrontendCallbacks):
 
     def on_session_status_change(self, snapshot: SessionSnapshot) -> None:
         snapshot_payload = _serialize_session_snapshot(snapshot)
-        self._dispatch_message({
-            "type": "session_status",
-            "data": {
-                "session_snapshot": snapshot_payload,
-                "session_id": snapshot_payload["session_id"],
-                "status": snapshot_payload["status"],
-                "current_mode": snapshot_payload["current_mode"],
-                "workflow_state": snapshot_payload["workflow_state"],
-                "has_active_plan": snapshot_payload["has_active_plan"],
-                "active_plan_ref": snapshot_payload["active_plan_ref"],
-                "current_command_context": snapshot_payload["current_command_context"],
-                "has_pending_permission": snapshot_payload["has_pending_permission"],
-                "has_pending_input": snapshot_payload["has_pending_input"],
-                "last_error": snapshot_payload["last_error"],
-                "runtime_source": snapshot_payload["runtime_source"],
-                "bundled_tools_ready": snapshot_payload["bundled_tools_ready"],
-                "fallback_warnings": snapshot_payload["fallback_warnings"],
-                "runtime_environment": snapshot_payload["runtime_environment"],
-                "timeline_replay_status": snapshot_payload["timeline_replay_status"],
-                "timeline_integrity": snapshot_payload["timeline_integrity"],
-                "pending_interaction_valid": snapshot_payload["pending_interaction_valid"],
+        self._dispatch_message(
+            {
+                "type": "session_status",
+                "data": {
+                    "session_snapshot": snapshot_payload,
+                    "session_id": snapshot_payload["session_id"],
+                    "status": snapshot_payload["status"],
+                    "current_mode": snapshot_payload["current_mode"],
+                    "workflow_state": snapshot_payload["workflow_state"],
+                    "has_active_plan": snapshot_payload["has_active_plan"],
+                    "active_plan_ref": snapshot_payload["active_plan_ref"],
+                    "current_command_context": snapshot_payload["current_command_context"],
+                    "has_pending_permission": snapshot_payload["has_pending_permission"],
+                    "has_pending_input": snapshot_payload["has_pending_input"],
+                    "last_error": snapshot_payload["last_error"],
+                    "runtime_source": snapshot_payload["runtime_source"],
+                    "bundled_tools_ready": snapshot_payload["bundled_tools_ready"],
+                    "fallback_warnings": snapshot_payload["fallback_warnings"],
+                    "runtime_environment": snapshot_payload["runtime_environment"],
+                    "timeline_replay_status": snapshot_payload["timeline_replay_status"],
+                    "timeline_integrity": snapshot_payload["timeline_integrity"],
+                    "pending_interaction_valid": snapshot_payload["pending_interaction_valid"],
+                },
             }
-        })
+        )
 
     def on_stream_delta(self, text: str, metadata: Optional[Dict[str, Any]] = None) -> None:
-        self._dispatch_message({
-            "type": "stream_delta",
-            "data": {"text": text, **(metadata or {})}
-        })
+        self._dispatch_message({"type": "stream_delta", "data": {"text": text, **(metadata or {})}})
 
     def on_reasoning_delta(self, text: str, metadata: Optional[Dict[str, Any]] = None) -> None:
-        self._dispatch_message({
-            "type": "reasoning_delta",
-            "data": {"text": text, **(metadata or {})}
-        })
+        self._dispatch_message(
+            {"type": "reasoning_delta", "data": {"text": text, **(metadata or {})}}
+        )
 
     def on_thinking_state_change(self, active: bool, reason: str = "") -> None:
-        self._dispatch_message({
-            "type": "thinking_state",
-            "data": {"active": active, "reason": reason}
-        })
+        self._dispatch_message(
+            {"type": "thinking_state", "data": {"active": active, "reason": reason}}
+        )
 
     def on_command_result(self, result: CommandResult) -> None:
-        self._dispatch_message({
-            "type": "command_result",
-            "data": {
-                "command_name": result.command_name,
-                "success": result.success,
-                "message": result.message,
-                "data": result.data,
-                "turn_id": result.turn_id,
-                "step_id": result.step_id,
-                "step_index": result.step_index,
+        self._dispatch_message(
+            {
+                "type": "command_result",
+                "data": {
+                    "command_name": result.command_name,
+                    "success": result.success,
+                    "message": result.message,
+                    "data": result.data,
+                    "turn_id": result.turn_id,
+                    "step_id": result.step_id,
+                    "step_index": result.step_index,
+                },
             }
-        })
+        )
 
     def on_plan_updated(self, plan: PlanSnapshot) -> None:
-        self._dispatch_message({
-            "type": "plan_updated",
-            "data": {
-                "plan": {
-                    "session_id": plan.session_id,
-                    "title": plan.title,
-                    "content": plan.content,
-                    "updated_at": plan.updated_at,
-                    "workflow_state": plan.workflow_state,
-                    "path": plan.path,
-                    "summary": plan.summary,
-                }
+        self._dispatch_message(
+            {
+                "type": "plan_updated",
+                "data": {
+                    "plan": {
+                        "session_id": plan.session_id,
+                        "title": plan.title,
+                        "content": plan.content,
+                        "updated_at": plan.updated_at,
+                        "workflow_state": plan.workflow_state,
+                        "path": plan.path,
+                        "summary": plan.summary,
+                    }
+                },
             }
-        })
+        )
 
     def on_tasks_refresh(self) -> None:
         self._dispatch_message({"type": "tasks_refresh"})
@@ -484,7 +549,9 @@ class GUIBackend:
         except ValueError as exc:
             raise _translate_value_error(exc)
 
-    def _wait_for_interaction_resolution(self, session_id: str, interaction_id: str, timeout_seconds: float = 2.0):
+    def _wait_for_interaction_resolution(
+        self, session_id: str, interaction_id: str, timeout_seconds: float = 2.0
+    ):
         deadline = time.time() + max(timeout_seconds, 0.0)
         latest = None
         while time.time() < deadline:
@@ -494,7 +561,11 @@ class GUIBackend:
             if not pending_id or pending_id != str(interaction_id or "").strip():
                 return latest
             time.sleep(0.02)
-        return latest if latest is not None else self._call_core(self.core.get_session_snapshot, session_id)
+        return (
+            latest
+            if latest is not None
+            else self._call_core(self.core.get_session_snapshot, session_id)
+        )
 
     def _create_app(self) -> FastAPI:
         @asynccontextmanager
@@ -531,7 +602,9 @@ class GUIBackend:
                 "snapshot": _serialize_session_snapshot(payload.get("snapshot")),
                 "history": dict(payload.get("history") or {}),
                 "plan": _serialize_plan_snapshot(payload.get("plan")),
-                "permission_context": _serialize_permission_context(payload.get("permission_context")),
+                "permission_context": _serialize_permission_context(
+                    payload.get("permission_context")
+                ),
                 "replay": _serialize_replay_payload(session_id, payload.get("replay") or {}),
             }
 
@@ -566,7 +639,9 @@ class GUIBackend:
             return {"status": "ok"}
 
         @app.post("/api/sessions/{session_id}/interactions/{interaction_id}/respond")
-        async def respond_to_interaction(session_id: str, interaction_id: str, request: Dict[str, Any]):
+        async def respond_to_interaction(
+            session_id: str, interaction_id: str, request: Dict[str, Any]
+        ):
             self._current_session_id = session_id
             if self.frontend.resolve_interaction_response(interaction_id, request):
                 if bool(request.get("decision")) and bool(request.get("remember")):
@@ -584,7 +659,9 @@ class GUIBackend:
                         "snapshot": snapshot,
                     }
                 )
-            response = self._call_core(self.core.respond_to_interaction, session_id, interaction_id, request)
+            response = self._call_core(
+                self.core.respond_to_interaction, session_id, interaction_id, request
+            )
             if bool(request.get("decision")) and bool(request.get("remember")):
                 category = str(request.get("category") or "").strip()
                 if category:
@@ -619,7 +696,9 @@ class GUIBackend:
 
         @app.get("/api/sessions/{session_id}/events")
         async def get_session_events(session_id: str, after_seq: int = 0, limit: int = 200):
-            payload = self._call_core(self.core.load_session_events_after, session_id, after_seq, limit=limit)
+            payload = self._call_core(
+                self.core.load_session_events_after, session_id, after_seq, limit=limit
+            )
             return _serialize_replay_payload(session_id, payload)
 
         @app.get("/api/files")
@@ -651,7 +730,7 @@ class GUIBackend:
                 "path": diff.path,
                 "old_content": diff.old_content,
                 "new_content": diff.new_content,
-                "unified_diff": diff.unified_diff
+                "unified_diff": diff.unified_diff,
             }
 
         @app.get("/api/tasks")
@@ -701,4 +780,3 @@ class GUIBackend:
         elif msg_type == "user_input_response":
             req_id = data.get("request_id", "")
             self.frontend.handle_user_input_response(req_id, data)
-

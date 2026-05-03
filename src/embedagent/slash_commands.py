@@ -35,7 +35,9 @@ _COMMAND_SPECS = [
     SlashCommandSpec("artifacts", "/artifacts", "查看最近工件。"),
 ]
 
-_COMMAND_LOOKUP = dict((item.name, item) for item in _COMMAND_SPECS)  # type: Dict[str, SlashCommandSpec]
+_COMMAND_LOOKUP = dict(
+    (item.name, item) for item in _COMMAND_SPECS
+)  # type: Dict[str, SlashCommandSpec]
 
 
 class SlashCommandRegistry(object):

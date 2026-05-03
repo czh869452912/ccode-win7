@@ -7,7 +7,7 @@ import json
 import time
 from collections import OrderedDict
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from embedagent.session import Action, Observation
 

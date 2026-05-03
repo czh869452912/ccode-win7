@@ -112,9 +112,7 @@ class TranscriptMessage:
         if self.tool_call_id:
             payload["tool_call_id"] = self.tool_call_id
         if self.action_calls:
-            payload["tool_calls"] = [
-                action.to_api_dict() for action in self.action_calls
-            ]
+            payload["tool_calls"] = [action.to_api_dict() for action in self.action_calls]
         if self.reasoning_content:
             payload["reasoning_content"] = self.reasoning_content
         return payload
@@ -440,7 +438,9 @@ class Session:
                 turn_id=turn_id or (self.turns[-1].turn_id if self.turns else ""),
                 step_id=step_id or self._current_step_id(),
                 kind="tool_result",
-                replaced_by_refs=list(replaced_by_refs or self._stored_refs_from_observation(observation)),
+                replaced_by_refs=list(
+                    replaced_by_refs or self._stored_refs_from_observation(observation)
+                ),
             )
         )
         if not self.turns:
@@ -468,7 +468,9 @@ class Session:
             self.pending_interaction = None
             self.turns[-1].pending_interaction = None
 
-    def resolve_pending_interaction(self, resolution_payload: Dict[str, Any]) -> Optional[PendingInteraction]:
+    def resolve_pending_interaction(
+        self, resolution_payload: Dict[str, Any]
+    ) -> Optional[PendingInteraction]:
         pending = self.pending_interaction
         if pending is None:
             return None
@@ -577,7 +579,13 @@ class Session:
                 "_archived": True,
                 "success": data.get("success"),
                 "error": data.get("error"),
-                "data": {"tool_name": data.get("data", {}).get("tool_name") if isinstance(data.get("data"), dict) else None},
+                "data": {
+                    "tool_name": (
+                        data.get("data", {}).get("tool_name")
+                        if isinstance(data.get("data"), dict)
+                        else None
+                    )
+                },
             }
             msg.content = _to_json(stub)
             msg.archived = True

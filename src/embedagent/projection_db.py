@@ -86,10 +86,7 @@ class ProjectionDb(object):
         for column_name, ddl in columns.items():
             if column_name in existing:
                 continue
-            connection.execute(
-                "ALTER TABLE %s ADD COLUMN %s %s"
-                % (table_name, column_name, ddl)
-            )
+            connection.execute("ALTER TABLE %s ADD COLUMN %s %s" % (table_name, column_name, ddl))
 
     def upsert_session_projection(self, **payload: Any) -> None:
         self.initialize()
@@ -170,7 +167,8 @@ class ProjectionDb(object):
                 if keep:
                     placeholders = ", ".join(["?"] * len(keep))
                     connection.execute(
-                        "DELETE FROM session_projection WHERE session_id NOT IN (%s)" % placeholders,
+                        "DELETE FROM session_projection WHERE session_id NOT IN (%s)"
+                        % placeholders,
                         tuple(keep),
                     )
                 else:

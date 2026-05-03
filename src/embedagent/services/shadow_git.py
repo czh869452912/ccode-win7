@@ -41,6 +41,7 @@ class ShadowGitSnapshot(object):
 
     def _run_git(self, args: List[str]) -> Dict[str, Any]:
         import subprocess
+
         command = ["git", "-C", self.workspace] + args
         result = subprocess.run(
             command,
@@ -70,7 +71,7 @@ class ShadowGitSnapshot(object):
                     stash_msg = line.split(":", 1)[1].strip()
                     if snapshot_id in stash_msg:
                         try:
-                            return int(idx_str[len("stash@{"):-1])
+                            return int(idx_str[len("stash@{") : -1])
                         except ValueError:
                             continue
         return None
@@ -87,15 +88,21 @@ class ShadowGitSnapshot(object):
 
         # Get current commit hash
         commit_result = self._run_git(["rev-parse", "HEAD"])
-        commit_hash = commit_result["stdout"].strip() if commit_result["exit_code"] == 0 else "unknown"
+        commit_hash = (
+            commit_result["stdout"].strip() if commit_result["exit_code"] == 0 else "unknown"
+        )
 
         # Create stash with snapshot ID in message
         stash_msg = "shadow:{}:{}".format(snapshot_id, reason or "manual")
-        stash_result = self._run_git([
-            "stash", "push",
-            "--include-untracked",
-            "--message", stash_msg,
-        ])
+        stash_result = self._run_git(
+            [
+                "stash",
+                "push",
+                "--include-untracked",
+                "--message",
+                stash_msg,
+            ]
+        )
 
         has_stash = stash_result["exit_code"] == 0
         if not has_stash:
@@ -186,7 +193,9 @@ class ShadowGitSnapshot(object):
             stash_ref = "stash@{" + str(stash_index) + "}"
             result = self._run_git(["stash", "drop", stash_ref])
             if result["exit_code"] != 0:
-                logger.warning("Failed to drop stash for snapshot %s: %s", snapshot_id, result["stderr"])
+                logger.warning(
+                    "Failed to drop stash for snapshot %s: %s", snapshot_id, result["stderr"]
+                )
             else:
                 logger.info("Dropped stash for snapshot %s", snapshot_id)
         else:
@@ -216,7 +225,9 @@ class ShadowGitSnapshot(object):
                 created_at = datetime.fromisoformat(created_at_str.replace("Z", "+00:00"))
                 created_timestamp = created_at.timestamp()
             except (ValueError, AttributeError):
-                logger.warning("Invalid created_at for snapshot %s: %s", snapshot_id, created_at_str)
+                logger.warning(
+                    "Invalid created_at for snapshot %s: %s", snapshot_id, created_at_str
+                )
                 retained += 1
                 continue
 

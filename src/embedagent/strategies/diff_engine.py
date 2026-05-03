@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 class DiffError(Exception):
     """Raised for unrecoverable diff errors."""
+
     pass
 
 
@@ -26,9 +27,7 @@ class MultiSearchReplaceDiffEngine(object):
     def __init__(self, fuzzy_threshold: float = 0.85) -> None:
         self.fuzzy_threshold = fuzzy_threshold
 
-    def apply_diff(
-        self, content: str, blocks: List[DiffBlock]
-    ) -> Tuple[str, List[Dict[str, Any]]]:
+    def apply_diff(self, content: str, blocks: List[DiffBlock]) -> Tuple[str, List[Dict[str, Any]]]:
         """Apply diff blocks to content.
 
         Returns (updated_content, results) where results is a list of dicts
@@ -42,12 +41,14 @@ class MultiSearchReplaceDiffEngine(object):
         if overlap_errors:
             # Add overlap errors for affected blocks
             for error in overlap_errors:
-                results.append({
-                    "block_index": 0,
-                    "status": "failed",
-                    "line_number": 0,
-                    "message": error,
-                })
+                results.append(
+                    {
+                        "block_index": 0,
+                        "status": "failed",
+                        "line_number": 0,
+                        "message": error,
+                    }
+                )
             return working_content, results
 
         # Sort blocks by expected_start_line if provided, otherwise by first occurrence
@@ -59,36 +60,34 @@ class MultiSearchReplaceDiffEngine(object):
                 start_pos, end_pos = match
                 line_number = self._line_number(working_content, start_pos)
                 working_content = (
-                    working_content[:start_pos]
-                    + block.new_text
-                    + working_content[end_pos:]
+                    working_content[:start_pos] + block.new_text + working_content[end_pos:]
                 )
-                results.append({
-                    "block_index": block_index,
-                    "status": "applied",
-                    "line_number": line_number,
-                    "message": "",
-                })
+                results.append(
+                    {
+                        "block_index": block_index,
+                        "status": "applied",
+                        "line_number": line_number,
+                        "message": "",
+                    }
+                )
             else:
-                results.append({
-                    "block_index": block_index,
-                    "status": "failed",
-                    "line_number": 0,
-                    "message": "未找到匹配文本",
-                })
+                results.append(
+                    {
+                        "block_index": block_index,
+                        "status": "failed",
+                        "line_number": 0,
+                        "message": "未找到匹配文本",
+                    }
+                )
 
         return working_content, results
 
-    def preview_diff(
-        self, content: str, blocks: List[DiffBlock]
-    ) -> List[Dict[str, Any]]:
+    def preview_diff(self, content: str, blocks: List[DiffBlock]) -> List[Dict[str, Any]]:
         """Preview diff results without modifying content."""
         _, results = self.apply_diff(content, blocks)
         return results
 
-    def _find_match(
-        self, content: str, block: DiffBlock
-    ) -> Optional[Tuple[int, int]]:
+    def _find_match(self, content: str, block: DiffBlock) -> Optional[Tuple[int, int]]:
         if not block.old_text:
             return None
 
@@ -151,9 +150,7 @@ class MultiSearchReplaceDiffEngine(object):
 
         return None
 
-    def _validate_no_overlap(
-        self, blocks: List[DiffBlock], content: str
-    ) -> List[str]:
+    def _validate_no_overlap(self, blocks: List[DiffBlock], content: str) -> List[str]:
         """Check that replacement regions don't overlap."""
         regions = []
         for i, block in enumerate(blocks):
@@ -168,15 +165,11 @@ class MultiSearchReplaceDiffEngine(object):
                 start2, end2, idx2 = regions[j]
                 # Check overlap
                 if start1 < end2 and start2 < end1:
-                    errors.append(
-                        "Block {} 和 Block {} 的替换区域重叠".format(idx1, idx2)
-                    )
+                    errors.append("Block {} 和 Block {} 的替换区域重叠".format(idx1, idx2))
 
         return errors
 
-    def _sort_blocks(
-        self, blocks: List[DiffBlock], content: str
-    ) -> List[Tuple[int, DiffBlock]]:
+    def _sort_blocks(self, blocks: List[DiffBlock], content: str) -> List[Tuple[int, DiffBlock]]:
         """Sort blocks by position in content (descending to avoid index shifts)."""
         indexed = []
         for i, block in enumerate(blocks):
@@ -195,6 +188,7 @@ class MultiSearchReplaceDiffEngine(object):
     def _normalize_whitespace(text: str) -> str:
         """Collapse multiple whitespace chars to single space, strip."""
         import re
+
         return re.sub(r"\s+", " ", text.strip())
 
     @staticmethod

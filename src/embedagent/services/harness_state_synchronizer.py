@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, List, Optional
 
 from embedagent.harness import task_store
 from embedagent.harness.runner import HarnessRunner
@@ -55,25 +55,13 @@ class HarnessStateSynchronizer(object):
                 [],
             )
             return
-        current_phase = str(
-            getattr(graph, "current_phase", "")
-            or context.current_phase
-            or ""
-        )
-        discipline_profile = str(
-            getattr(graph, "discipline", "")
-            or context.discipline_label
-            or ""
-        )
+        current_phase = str(getattr(graph, "current_phase", "") or context.current_phase or "")
+        discipline_profile = str(getattr(graph, "discipline", "") or context.discipline_label or "")
         task_summary = str(
-            graph.render_summary()
-            if graph is not None
-            else (context.task_summary or "")
+            graph.render_summary() if graph is not None else (context.task_summary or "")
         )
         task_items = list(
-            graph.to_items()
-            if graph is not None
-            else (getattr(context, "task_items", []) or [])
+            graph.to_items() if graph is not None else (getattr(context, "task_items", []) or [])
         )
         task_store.save_task_snapshot(
             self.workspace,
@@ -93,11 +81,11 @@ class HarnessStateSynchronizer(object):
         graph = getattr(session.session, "task_graph", None)
         return self.harness_runner.describe_mode(
             session.current_mode,
-            discipline_override=str(getattr(graph, "discipline", "") or "")
-            if graph is not None
-            else None,
-            current_phase=str(getattr(graph, "current_phase", "") or "")
-            if graph is not None
-            else "",
+            discipline_override=(
+                str(getattr(graph, "discipline", "") or "") if graph is not None else None
+            ),
+            current_phase=(
+                str(getattr(graph, "current_phase", "") or "") if graph is not None else ""
+            ),
             observations=[],
         )

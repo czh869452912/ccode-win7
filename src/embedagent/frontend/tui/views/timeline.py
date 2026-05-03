@@ -57,14 +57,20 @@ def format_timeline_records(records):
         if event == "turn_started":
             lines.append("user> %s" % str(payload.get("text") or ""))
         elif event == "tool_started":
-            lines.append("[tool] %s %s" % (payload.get("tool_name") or "", payload.get("arguments") or {}))
+            lines.append(
+                "[tool] %s %s" % (payload.get("tool_name") or "", payload.get("arguments") or {})
+            )
         elif event == "tool_finished":
             lines.append(format_observation_line(payload))
         elif event == "permission_required":
-            permission = payload.get("permission") if isinstance(payload.get("permission"), dict) else {}
+            permission = (
+                payload.get("permission") if isinstance(payload.get("permission"), dict) else {}
+            )
             lines.append("[permission] %s" % (permission.get("reason") or "需要确认"))
         elif event == "user_input_required":
-            request = payload.get("user_input") if isinstance(payload.get("user_input"), dict) else {}
+            request = (
+                payload.get("user_input") if isinstance(payload.get("user_input"), dict) else {}
+            )
             lines.append("[question] %s" % (request.get("question") or "需要用户回答"))
         elif event == "context_compacted":
             lines.append(format_context_line(payload))
@@ -73,7 +79,11 @@ def format_timeline_records(records):
         elif event == "session_resumed":
             lines.append("[system] 会话已恢复")
         elif event == "session_created":
-            snapshot = payload.get("session_snapshot") if isinstance(payload.get("session_snapshot"), dict) else {}
+            snapshot = (
+                payload.get("session_snapshot")
+                if isinstance(payload.get("session_snapshot"), dict)
+                else {}
+            )
             lines.append("[system] 已创建会话 %s" % (snapshot.get("session_id") or ""))
         elif event == "session_finished":
             text = str(payload.get("final_text") or "").strip()

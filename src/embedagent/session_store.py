@@ -143,7 +143,6 @@ class SessionSummaryStore(object):
                 normalized.append(dict(item))
             return normalized
 
-
     def collect_stored_paths(self, limit_sessions: Optional[int] = None) -> List[str]:
         refs = []
         seen = set()
@@ -224,11 +223,15 @@ class SessionSummaryStore(object):
     def resolve_transcript_path(self, reference: str) -> str:
         raw = (reference or "").strip()
         if not raw:
-            raise ValueError("恢复会话时必须提供 session_id、latest、summary.json 或 transcript.jsonl。")
+            raise ValueError(
+                "恢复会话时必须提供 session_id、latest、summary.json 或 transcript.jsonl。"
+            )
         if raw == "latest":
             summaries = self.list_summaries(limit=1)
             if summaries:
-                candidate = str(summaries[0].get("transcript_ref") or summaries[0].get("session_id") or "")
+                candidate = str(
+                    summaries[0].get("transcript_ref") or summaries[0].get("session_id") or ""
+                )
                 if candidate:
                     return self.transcript_store.resolve_transcript_path(candidate)
             raise ValueError("当前没有可恢复的 transcript。")
@@ -265,7 +268,9 @@ class SessionSummaryStore(object):
             if names:
                 lines.append("近期动作：%s" % ", ".join(names[:6]))
         if summary.get("recent_artifacts"):
-            refs = [item.get("path", "") for item in summary["recent_artifacts"] if item.get("path")]
+            refs = [
+                item.get("path", "") for item in summary["recent_artifacts"] if item.get("path")
+            ]
             if refs:
                 lines.append("最近工件：%s" % ", ".join(refs[:4]))
         return _truncate_text("\n".join(lines), char_limit)
@@ -284,7 +289,9 @@ class SessionSummaryStore(object):
         resume_message = self.build_resume_message(summary)
         if resume_message:
             session.add_system_message(resume_message)
-        session.add_system_message(build_workspace_profile_message(self.workspace, session.session_id))
+        session.add_system_message(
+            build_workspace_profile_message(self.workspace, session.session_id)
+        )
         session.add_system_message(build_system_prompt(current_mode, config, self.workspace))
         return session
 
@@ -320,12 +327,13 @@ class SessionSummaryStore(object):
                     "user_goal": payload.get("user_goal"),
                     "summary_text": payload.get("summary_text"),
                     "transcript_ref": payload.get("transcript_ref"),
-                    "summary_ref": os.path.relpath(summary_path, self.workspace).replace(os.sep, "/"),
+                    "summary_ref": os.path.relpath(summary_path, self.workspace).replace(
+                        os.sep, "/"
+                    ),
                 }
             )
         records.sort(key=lambda item: item.get("updated_at") or "", reverse=True)
         return records
-
 
     def _stored_paths_from_summary(self, payload: Dict[str, Any], seen: set) -> List[str]:
         refs = []
@@ -341,7 +349,7 @@ class SessionSummaryStore(object):
             snapshot = payload.get(key)
             if not isinstance(snapshot, dict):
                 continue
-            for path in (snapshot.get("stored_refs") or []):
+            for path in snapshot.get("stored_refs") or []:
                 if not path or path in seen:
                     continue
                 seen.add(path)
@@ -466,12 +474,19 @@ class SessionSummaryStore(object):
             names = [item.get("name", "") for item in payload["recent_actions"] if item.get("name")]
             if names:
                 parts.append("近期动作：%s" % ", ".join(names[:6]))
-        analysis = payload.get("context_analysis") if isinstance(payload.get("context_analysis"), dict) else {}
+        analysis = (
+            payload.get("context_analysis")
+            if isinstance(payload.get("context_analysis"), dict)
+            else {}
+        )
         if analysis.get("replacement_count"):
             parts.append("替换输出：%s" % analysis.get("replacement_count"))
         if payload.get("compact_retry_count"):
             parts.append("compact_retry：%s" % payload.get("compact_retry_count"))
-        if payload.get("last_transition_reason") and payload.get("last_transition_reason") != "completed":
+        if (
+            payload.get("last_transition_reason")
+            and payload.get("last_transition_reason") != "completed"
+        ):
             parts.append("最后状态：%s" % payload.get("last_transition_reason"))
         if payload.get("compact_summary_text"):
             parts.append("compact：已生成摘要")
@@ -550,7 +565,9 @@ class SessionSummaryStore(object):
                 items.append(self._action_snapshot(action, observation))
         return items[-self.recent_actions_limit :]
 
-    def _action_snapshot(self, action: Action, observation: Optional[Observation]) -> Dict[str, Any]:
+    def _action_snapshot(
+        self, action: Action, observation: Optional[Observation]
+    ) -> Dict[str, Any]:
         snapshot = {
             "name": action.name,
             "arguments": self._compact_arguments(action.arguments),

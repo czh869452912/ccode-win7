@@ -1,4 +1,4 @@
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import os
 from dataclasses import dataclass
@@ -226,7 +226,9 @@ _DEFAULT_TOOL_METADATA.update(OFFICIAL_HARNESS_TOOL_METADATA)
 
 
 class ToolRuntime(object):
-    def __init__(self, workspace: str, app_config=None, cache: Optional[ToolResultCache] = None) -> None:
+    def __init__(
+        self, workspace: str, app_config=None, cache: Optional[ToolResultCache] = None
+    ) -> None:
         self.workspace = os.path.realpath(workspace)
         self.tool_result_store = ToolResultStore(self.workspace)
         self.projection_db = ProjectionDb(
@@ -234,7 +236,11 @@ class ToolRuntime(object):
         )
         self._ctx = ToolContext(self.workspace, app_config=app_config)
         self.app_config = app_config  # Optional AppConfig; used by loop for path write checking
-        self._cache = cache if cache is not None else ToolResultCache(tool_result_store=self.tool_result_store)
+        self._cache = (
+            cache
+            if cache is not None
+            else ToolResultCache(tool_result_store=self.tool_result_store)
+        )
         self._mode_runtime = OfficialRuntimeModes()
         official_tools = (
             file_ops.build_tools(self._ctx)

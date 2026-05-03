@@ -17,7 +17,9 @@ def task_snapshot_path(workspace: str, session_id: str) -> str:
 
 
 def relative_task_snapshot_path(session_id: str) -> str:
-    return os.path.join(".embedagent", "memory", "sessions", str(session_id or ""), "task-graph.json").replace(os.sep, "/")
+    return os.path.join(
+        ".embedagent", "memory", "sessions", str(session_id or ""), "task-graph.json"
+    ).replace(os.sep, "/")
 
 
 def save_task_snapshot(

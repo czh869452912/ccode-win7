@@ -35,14 +35,18 @@ class TestPermissionPolicy(unittest.TestCase):
             ]
         )
 
-        decision = policy.evaluate(Action("run_recipe", {"recipe_id": "cmake.build.default"}, "call-run"))
+        decision = policy.evaluate(
+            Action("run_recipe", {"recipe_id": "cmake.build.default"}, "call-run")
+        )
 
         self.assertEqual(decision.outcome, "allow")
 
     def test_permission_details_include_stable_explanation_sections(self):
         policy = PermissionPolicy(auto_approve_all=False, workspace="D:\\workspace")
 
-        decision = policy.evaluate(Action("run_recipe", {"recipe_id": "cmake.test.default"}, "call-run"))
+        decision = policy.evaluate(
+            Action("run_recipe", {"recipe_id": "cmake.test.default"}, "call-run")
+        )
 
         self.assertEqual(decision.outcome, "ask")
         explanation = str(decision.details.get("explanation") or "")

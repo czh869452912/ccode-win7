@@ -24,7 +24,7 @@ class MemoryMaintenance(object):
         active_refs.update(self.project_memory_store.collect_stored_paths())
         artifact_result = self.tool_result_store.cleanup_unreferenced(active_refs)
         return {
-            'sessions': session_result,
-            'project_memory': project_result,
-            'artifacts': artifact_result,
+            "sessions": session_result,
+            "project_memory": project_result,
+            "artifacts": artifact_result,
         }

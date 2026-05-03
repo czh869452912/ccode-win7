@@ -64,7 +64,15 @@ class TaskGraph(object):
             mode_name=str(mode_name or ""),
             discipline=str(discipline or ""),
             current_phase=str(current_phase or ""),
-            tasks=[TaskNode(task_id="task-1", kind="phase", title=title, status="in_progress", source="harness")],
+            tasks=[
+                TaskNode(
+                    task_id="task-1",
+                    kind="phase",
+                    title=title,
+                    status="in_progress",
+                    source="harness",
+                )
+            ],
         )
 
     def replace_with(self, other):

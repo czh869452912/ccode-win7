@@ -74,7 +74,11 @@ class TranscriptStore(object):
             updated_events = list(cached_events)
             updated_events.append(event)
             written_size = len((line + "\n").encode("utf-8"))
-            self._scan_cache[normalized] = (updated_events, valid_length + written_size, file_size + written_size)
+            self._scan_cache[normalized] = (
+                updated_events,
+                valid_length + written_size,
+                file_size + written_size,
+            )
             return event
 
     def load_events(self, reference: str) -> List[Dict[str, Any]]:

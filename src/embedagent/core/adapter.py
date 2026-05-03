@@ -2,6 +2,7 @@
 Agent Core 适配器 - 实现 CoreInterface
 将当前 InProcessAdapter / QueryEngine 主链路包装为协议接口
 """
+
 from __future__ import annotations
 
 import difflib
@@ -53,6 +54,7 @@ def get_inprocess_adapter(fresh: bool = False):
 
 def _register_adapter_factory() -> None:
     from embedagent.inprocess_adapter import InProcessAdapter
+
     get_default_container().register_factory(
         "inprocess_adapter",
         lambda: InProcessAdapter,
@@ -125,8 +127,12 @@ def _runtime_environment_from_snapshot(snapshot: Dict[str, Any]) -> RuntimeEnvir
     runtime = snapshot.get("runtime_environment") or {}
     return RuntimeEnvironmentSnapshot(
         runtime_source=str(runtime.get("runtime_source") or snapshot.get("runtime_source") or ""),
-        bundled_tools_ready=bool(runtime.get("bundled_tools_ready", snapshot.get("bundled_tools_ready", False))),
-        fallback_warnings=list(runtime.get("fallback_warnings") or snapshot.get("fallback_warnings") or []),
+        bundled_tools_ready=bool(
+            runtime.get("bundled_tools_ready", snapshot.get("bundled_tools_ready", False))
+        ),
+        fallback_warnings=list(
+            runtime.get("fallback_warnings") or snapshot.get("fallback_warnings") or []
+        ),
         resolved_tool_roots=dict(runtime.get("resolved_tool_roots") or {}),
         tool_sources=dict(runtime.get("tool_sources") or {}),
     )
@@ -144,7 +150,9 @@ def _session_snapshot_from_dict(snapshot: Dict[str, Any]) -> SessionSnapshot:
         active_plan_ref=snapshot.get("active_plan_ref", ""),
         current_command_context=snapshot.get("current_command_context", ""),
         has_pending_permission=bool(snapshot.get("has_pending_permission", False)),
-        has_pending_input=bool(snapshot.get("has_pending_user_input", snapshot.get("has_pending_input", False))),
+        has_pending_input=bool(
+            snapshot.get("has_pending_user_input", snapshot.get("has_pending_input", False))
+        ),
         pending_permission=_permission_request_from_snapshot(snapshot),
         pending_input=_user_input_request_from_snapshot(snapshot),
         last_error=snapshot.get("last_error"),
@@ -166,7 +174,11 @@ def _session_snapshot_from_dict(snapshot: Dict[str, Any]) -> SessionSnapshot:
         restore_stop_reason=str(snapshot.get("restore_stop_reason") or ""),
         restore_consumed_event_count=int(snapshot.get("restore_consumed_event_count") or 0),
         restore_transcript_event_count=int(snapshot.get("restore_transcript_event_count") or 0),
-        pending_interaction=dict(snapshot.get("pending_interaction") or {}) if isinstance(snapshot.get("pending_interaction"), dict) else None,
+        pending_interaction=(
+            dict(snapshot.get("pending_interaction") or {})
+            if isinstance(snapshot.get("pending_interaction"), dict)
+            else None
+        ),
         timeline_replay_status=str(snapshot.get("timeline_replay_status") or "replay"),
         timeline_first_seq=int(snapshot.get("timeline_first_seq") or 0),
         timeline_last_seq=int(snapshot.get("timeline_last_seq") or 0),
@@ -174,7 +186,12 @@ def _session_snapshot_from_dict(snapshot: Dict[str, Any]) -> SessionSnapshot:
         pending_interaction_valid=bool(
             snapshot.get(
                 "pending_interaction_valid",
-                bool(snapshot.get("pending_interaction") or snapshot.get("pending_permission") or snapshot.get("pending_user_input") or snapshot.get("pending_input")),
+                bool(
+                    snapshot.get("pending_interaction")
+                    or snapshot.get("pending_permission")
+                    or snapshot.get("pending_user_input")
+                    or snapshot.get("pending_input")
+                ),
             )
         ),
         current_phase=str(snapshot.get("current_phase") or ""),
@@ -230,7 +247,11 @@ class CallbackBridge:
                 step_id=str(payload.get("step_id") or ""),
                 step_index=int(payload.get("step_index") or 0),
                 runtime_source=str(payload.get("runtime_source") or ""),
-                resolved_tool_roots=payload.get("resolved_tool_roots", {}) if isinstance(payload.get("resolved_tool_roots"), dict) else {},
+                resolved_tool_roots=(
+                    payload.get("resolved_tool_roots", {})
+                    if isinstance(payload.get("resolved_tool_roots"), dict)
+                    else {}
+                ),
             )
             self.frontend.on_tool_start(call)
 
@@ -245,7 +266,11 @@ class CallbackBridge:
                 step_id=str(payload.get("step_id") or ""),
                 step_index=int(payload.get("step_index") or 0),
                 runtime_source=str(payload.get("runtime_source") or ""),
-                resolved_tool_roots=payload.get("resolved_tool_roots", {}) if isinstance(payload.get("resolved_tool_roots"), dict) else {},
+                resolved_tool_roots=(
+                    payload.get("resolved_tool_roots", {})
+                    if isinstance(payload.get("resolved_tool_roots"), dict)
+                    else {}
+                ),
             )
             self.frontend.on_tool_finish(result)
             # Sync push: notify frontend to refetch related data
@@ -465,6 +490,7 @@ class AgentCoreAdapter(CoreInterface):
 
     def submit_message(self, session_id: str, text: str) -> None:
         """异步提交消息"""
+
         def run():
             try:
                 self._adapter.submit_user_message(
@@ -474,15 +500,13 @@ class AgentCoreAdapter(CoreInterface):
                     wait=True,
                     permission_resolver=self._resolve_permission,
                     user_input_resolver=self._resolve_user_input,
-                    event_handler=self._on_adapter_event
+                    event_handler=self._on_adapter_event,
                 )
             except (RuntimeError, ValueError, TypeError) as e:
                 if self._frontend:
-                    self._frontend.on_message(Message(
-                        id=str(uuid.uuid4()),
-                        type=MessageType.ERROR,
-                        content=str(e)
-                    ))
+                    self._frontend.on_message(
+                        Message(id=str(uuid.uuid4()), type=MessageType.ERROR, content=str(e))
+                    )
 
         thread = threading.Thread(target=run, daemon=True)
         thread.start()
@@ -509,19 +533,24 @@ class AgentCoreAdapter(CoreInterface):
     def reject_permission(self, session_id: str, permission_id: str) -> None:
         self._adapter.reject_permission(session_id, permission_id)
 
-    def reply_user_input(self, session_id: str, request_id: str,
-                        answer: str, **kwargs) -> None:
+    def reply_user_input(self, session_id: str, request_id: str, answer: str, **kwargs) -> None:
         self._adapter.reply_user_input(
-            session_id, request_id, answer,
+            session_id,
+            request_id,
+            answer,
             selected_index=kwargs.get("selected_index"),
             selected_mode=kwargs.get("selected_mode"),
-            selected_option_text=kwargs.get("selected_option_text")
+            selected_option_text=kwargs.get("selected_option_text"),
         )
 
-    def respond_to_interaction(self, session_id: str, interaction_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+    def respond_to_interaction(
+        self, session_id: str, interaction_id: str, payload: Dict[str, Any]
+    ) -> Dict[str, Any]:
         return self._adapter.respond_to_interaction(session_id, interaction_id, payload)
 
-    def load_session_events_after(self, session_id: str, after_seq: int, limit: int = 200) -> Dict[str, Any]:
+    def load_session_events_after(
+        self, session_id: str, after_seq: int, limit: int = 200
+    ) -> Dict[str, Any]:
         return self._adapter.load_session_events_after(session_id, after_seq, limit=limit)
 
     def get_workspace_snapshot(self) -> WorkspaceInfo:
@@ -533,7 +562,7 @@ class AgentCoreAdapter(CoreInterface):
             git_branch=git_info.get("branch", ""),
             git_dirty=git_info.get("dirty_count", 0),
             file_count=tree_info.get("file_count", 0),
-            dir_count=tree_info.get("dir_count", 0)
+            dir_count=tree_info.get("dir_count", 0),
         )
 
     def list_workspace_recipes(self) -> Dict[str, Any]:
@@ -570,19 +599,18 @@ class AgentCoreAdapter(CoreInterface):
         except (OSError, ValueError):
             pass
 
-        unified_diff = "".join(difflib.unified_diff(
-            old_content.splitlines(True),
-            new_content.splitlines(True),
-            fromfile=path,
-            tofile=path,
-            lineterm=""
-        ))
+        unified_diff = "".join(
+            difflib.unified_diff(
+                old_content.splitlines(True),
+                new_content.splitlines(True),
+                fromfile=path,
+                tofile=path,
+                lineterm="",
+            )
+        )
 
         return DiffPreview(
-            path=path,
-            old_content=old_content,
-            new_content=new_content,
-            unified_diff=unified_diff
+            path=path, old_content=old_content, new_content=new_content, unified_diff=unified_diff
         )
 
     def list_tasks(self, session_id: str = "") -> List[Dict[str, Any]]:
@@ -608,4 +636,3 @@ class AgentCoreAdapter(CoreInterface):
         """关闭 Core"""
         # 清理资源
         pass
-

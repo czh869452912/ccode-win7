@@ -2,6 +2,7 @@
 TUI Frontend Adapter
 将现有 TUI 适配到新的 protocol 接口
 """
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Callable, Dict, Optional
@@ -55,16 +56,14 @@ class TUIFrontend(FrontendCallbacks):
     def on_tool_start(self, call: ToolCall) -> None:
         """工具开始执行"""
         from embedagent.frontend.tui import reducer
+
         arguments = {}
         if isinstance(call.arguments, dict):
             for key, value in call.arguments.items():
                 if str(key).startswith("_"):
                     continue
                 arguments[key] = value
-        reducer.append_line(
-            self.app.state,
-            f"[tool] {call.tool_name} {arguments}"
-        )
+        reducer.append_line(self.app.state, f"[tool] {call.tool_name} {arguments}")
         self.app.refresh_views()
 
     def on_tool_progress(self, call_id: str, progress: Dict[str, Any]) -> None:
@@ -81,7 +80,7 @@ class TUIFrontend(FrontendCallbacks):
             "tool_name": result.tool_name,
             "success": result.success,
             "data": result.data,
-            "error": result.error
+            "error": result.error,
         }
         reducer.append_line(self.app.state, format_observation_line(payload))
         self.app.refresh_views()
@@ -92,10 +91,7 @@ class TUIFrontend(FrontendCallbacks):
 
         # 设置待确认状态
         reducer.set_pending_permission(self.app.state, request.__dict__)
-        reducer.append_line(
-            self.app.state,
-            f"[permission] {request.reason} (y/n)"
-        )
+        reducer.append_line(self.app.state, f"[permission] {request.reason} (y/n)")
         self.app.refresh_views()
 
         # 等待用户输入（通过 controller 处理）
@@ -107,10 +103,7 @@ class TUIFrontend(FrontendCallbacks):
         from embedagent.frontend.tui import reducer
 
         reducer.set_pending_user_input(self.app.state, request.__dict__)
-        reducer.append_line(
-            self.app.state,
-            f"[question] {request.question}"
-        )
+        reducer.append_line(self.app.state, f"[question] {request.question}")
         self.app.refresh_views()
 
         # 等待用户输入
@@ -126,7 +119,7 @@ class TUIFrontend(FrontendCallbacks):
             status=snapshot.status.value,
             current_mode=snapshot.current_mode,
             has_pending_permission=snapshot.has_pending_permission,
-            has_pending_user_input=snapshot.has_pending_input
+            has_pending_user_input=snapshot.has_pending_input,
         )
 
         # 如果有错误，显示
@@ -139,26 +132,33 @@ class TUIFrontend(FrontendCallbacks):
     def on_stream_delta(self, text: str, metadata=None) -> None:
         """流式输出增量"""
         from embedagent.frontend.tui import reducer
+
         reducer.append_delta(self.app.state, text)
         self.app.refresh_views()
 
     def on_reasoning_delta(self, text: str, metadata=None) -> None:
         from embedagent.frontend.tui import reducer
+
         reducer.append_line(self.app.state, "[thinking] %s" % text)
         self.app.refresh_views()
 
     def on_thinking_state_change(self, active: bool, reason: str = "") -> None:
         from embedagent.frontend.tui import reducer
+
         if active:
             reducer.append_line(self.app.state, "[thinking] 模型正在思考...")
         self.app.refresh_views()
 
     def on_command_result(self, result: CommandResult) -> None:
         from embedagent.frontend.tui import reducer
-        reducer.append_line(self.app.state, "[command:/%s] %s" % (result.command_name, result.message))
+
+        reducer.append_line(
+            self.app.state, "[command:/%s] %s" % (result.command_name, result.message)
+        )
         self.app.refresh_views()
 
     def on_plan_updated(self, plan: PlanSnapshot) -> None:
         from embedagent.frontend.tui import reducer
+
         reducer.append_line(self.app.state, "[plan] %s" % (plan.title or "Current Plan"))
         self.app.refresh_views()

@@ -18,9 +18,7 @@ from embedagent.tui import TUIUnavailableError, run_tui
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        description="EmbedAgent Phase 6A In-Process CLI。"
-    )
+    parser = argparse.ArgumentParser(description="EmbedAgent Phase 6A In-Process CLI。")
     parser.add_argument(
         "message",
         nargs="*",
@@ -247,6 +245,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             initial_message = parsed[1]
         try:
             from embedagent.frontend.gui.launcher import launch_gui
+
             launch_gui(
                 workspace=workspace,
                 mode=initial_mode,
@@ -345,7 +344,11 @@ def main(argv: Optional[List[str]] = None) -> int:
             if not isinstance(permission, dict):
                 return
             details = permission.get("details") or {}
-            summary = str((details.get("path") or details.get("command") or "")) if isinstance(details, dict) else ""
+            summary = (
+                str((details.get("path") or details.get("command") or ""))
+                if isinstance(details, dict)
+                else ""
+            )
             if len(summary) > 120:
                 summary = summary[:120] + "..."
             sys.stderr.write(
@@ -361,9 +364,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         if event_name == "user_input_required":
             return
         if event_name == "session_resumed":
-            sys.stderr.write(
-                "[resume] session=%s\n" % session_id
-            )
+            sys.stderr.write("[resume] session=%s\n" % session_id)
             sys.stderr.flush()
             return
         if event_name == "command_result":
@@ -375,7 +376,11 @@ def main(argv: Optional[List[str]] = None) -> int:
             return
         if event_name == "plan_updated":
             plan = payload.get("plan") or {}
-            title = str(plan.get("title") or "Current Plan") if isinstance(plan, dict) else "Current Plan"
+            title = (
+                str(plan.get("title") or "Current Plan")
+                if isinstance(plan, dict)
+                else "Current Plan"
+            )
             sys.stderr.write("[plan] updated %s\n" % title)
             sys.stderr.flush()
             return
@@ -421,7 +426,9 @@ def main(argv: Optional[List[str]] = None) -> int:
             if not isinstance(item, dict):
                 continue
             suffix = " -> %s" % item.get("mode") if item.get("mode") else ""
-            sys.stderr.write("  %s. %s%s\n" % (item.get("index") or "-", item.get("text") or "", suffix))
+            sys.stderr.write(
+                "  %s. %s%s\n" % (item.get("index") or "-", item.get("text") or "", suffix)
+            )
         sys.stderr.write("answer> ")
         sys.stderr.flush()
         raw = input().strip()
@@ -464,5 +471,5 @@ def main(argv: Optional[List[str]] = None) -> int:
     return 0
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     raise SystemExit(main())

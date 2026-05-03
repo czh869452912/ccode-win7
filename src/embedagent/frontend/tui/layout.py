@@ -16,10 +16,14 @@ class TerminalLayout(object):
         self.owner = owner
         completer = TerminalCompleter(lambda: self.owner.state)
         self.header = TextArea(read_only=True, focusable=False, height=2)
-        self.explorer = TextArea(read_only=True, focusable=True, width=32, scrollbar=True, wrap_lines=False)
+        self.explorer = TextArea(
+            read_only=True, focusable=True, width=32, scrollbar=True, wrap_lines=False
+        )
         self.main = TextArea(read_only=True, focusable=True, scrollbar=True, wrap_lines=True)
         self.editor = TextArea(read_only=False, focusable=True, scrollbar=True, wrap_lines=False)
-        self.inspector = TextArea(read_only=True, focusable=True, width=44, scrollbar=True, wrap_lines=True)
+        self.inspector = TextArea(
+            read_only=True, focusable=True, width=44, scrollbar=True, wrap_lines=True
+        )
         self.composer = TextArea(
             multiline=False,
             prompt="user> ",

@@ -3,9 +3,8 @@
 These tests ensure that refactored modules use factory functions
 instead of module-level mutable globals, enabling test isolation.
 """
-from __future__ import annotations
 
-import pytest
+from __future__ import annotations
 
 from embedagent.di_container import DIContainer, get_default_container
 
@@ -23,7 +22,7 @@ class TestModeRegistryIsolation(object):
 
     def test_initialize_modes_does_not_mutate_global(self):
         """initialize_modes with explicit registry does not affect global."""
-        from embedagent.modes import initialize_modes, get_mode_registry
+        from embedagent.modes import get_mode_registry, initialize_modes
 
         # Ensure global has built-in modes
         global_registry = get_mode_registry()

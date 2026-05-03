@@ -46,16 +46,19 @@ def fresh_container(monkeypatch):
 def mock_session_store():
     """Mock SessionSummaryStore for tests."""
     from unittest.mock import MagicMock
+
     return MagicMock()
 
 
 @pytest.fixture
 def mock_timeline_store():
     from unittest.mock import MagicMock
+
     return MagicMock()
 
 
 @pytest.fixture
 def mock_transcript_store():
     from unittest.mock import MagicMock
+
     return MagicMock()

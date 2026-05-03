@@ -36,9 +36,25 @@ class TestSessionRestorer(unittest.TestCase):
 
     def test_restore_rebuilds_turn_step_and_tool_topology(self):
         session_id = "sess-restore"
-        self.store.append_event(session_id, "session_meta", {"current_mode": "build", "started_at": "2026-04-02T00:00:00Z"})
-        self.store.append_event(session_id, "message", {"role": "user", "content": "读取文件", "message_id": "m-user", "turn_id": "t-1", "step_id": ""})
-        self.store.append_event(session_id, "step_started", {"turn_id": "t-1", "step_id": "s-1", "step_index": 1})
+        self.store.append_event(
+            session_id,
+            "session_meta",
+            {"current_mode": "build", "started_at": "2026-04-02T00:00:00Z"},
+        )
+        self.store.append_event(
+            session_id,
+            "message",
+            {
+                "role": "user",
+                "content": "读取文件",
+                "message_id": "m-user",
+                "turn_id": "t-1",
+                "step_id": "",
+            },
+        )
+        self.store.append_event(
+            session_id, "step_started", {"turn_id": "t-1", "step_id": "s-1", "step_index": 1}
+        )
         self.store.append_event(
             session_id,
             "message",
@@ -48,7 +64,13 @@ class TestSessionRestorer(unittest.TestCase):
                 "message_id": "m-assistant",
                 "turn_id": "t-1",
                 "step_id": "s-1",
-                "actions": [{"name": "read_file", "arguments": {"path": "src/demo.c"}, "call_id": "call-read-1"}],
+                "actions": [
+                    {
+                        "name": "read_file",
+                        "arguments": {"path": "src/demo.c"},
+                        "call_id": "call-read-1",
+                    }
+                ],
                 "reasoning_content": "先读取文件。",
                 "finish_reason": "tool_calls",
             },
@@ -119,7 +141,9 @@ class TestSessionRestorer(unittest.TestCase):
                 "step_id": "",
             },
         )
-        self.store.append_event(session_id, "step_started", {"turn_id": "t-1", "step_id": "s-1", "step_index": 1})
+        self.store.append_event(
+            session_id, "step_started", {"turn_id": "t-1", "step_id": "s-1", "step_index": 1}
+        )
         self.store.append_event(
             session_id,
             "message",
@@ -130,7 +154,13 @@ class TestSessionRestorer(unittest.TestCase):
                 "parent_message_id": "m-user",
                 "turn_id": "t-1",
                 "step_id": "s-1",
-                "actions": [{"name": "read_file", "arguments": {"path": "src/demo.c"}, "call_id": "call-read-1"}],
+                "actions": [
+                    {
+                        "name": "read_file",
+                        "arguments": {"path": "src/demo.c"},
+                        "call_id": "call-read-1",
+                    }
+                ],
                 "reasoning_content": "先读取文件。",
                 "finish_reason": "tool_calls",
             },
@@ -178,7 +208,13 @@ class TestSessionRestorer(unittest.TestCase):
         self.store.append_event(
             session_id,
             "message",
-            {"role": "user", "content": "读取文件", "message_id": "m-user", "turn_id": "t-1", "step_id": ""},
+            {
+                "role": "user",
+                "content": "读取文件",
+                "message_id": "m-user",
+                "turn_id": "t-1",
+                "step_id": "",
+            },
         )
         self.store.append_event(
             session_id,
@@ -231,8 +267,20 @@ class TestSessionRestorer(unittest.TestCase):
     def test_restore_preserves_pending_interaction(self):
         session_id = "sess-pending"
         self.store.append_event(session_id, "session_meta", {"current_mode": "spec"})
-        self.store.append_event(session_id, "message", {"role": "user", "content": "继续", "message_id": "m-user", "turn_id": "t-1", "step_id": ""})
-        self.store.append_event(session_id, "step_started", {"turn_id": "t-1", "step_id": "s-1", "step_index": 1})
+        self.store.append_event(
+            session_id,
+            "message",
+            {
+                "role": "user",
+                "content": "继续",
+                "message_id": "m-user",
+                "turn_id": "t-1",
+                "step_id": "",
+            },
+        )
+        self.store.append_event(
+            session_id, "step_started", {"turn_id": "t-1", "step_id": "s-1", "step_index": 1}
+        )
         self.store.append_event(
             session_id,
             "pending_interaction",
@@ -266,8 +314,20 @@ class TestSessionRestorer(unittest.TestCase):
     def test_restore_expires_pending_interaction_without_trusted_id(self):
         session_id = "sess-pending-no-id"
         self.store.append_event(session_id, "session_meta", {"current_mode": "spec"})
-        self.store.append_event(session_id, "message", {"role": "user", "content": "继续", "message_id": "m-user", "turn_id": "t-1", "step_id": ""})
-        self.store.append_event(session_id, "step_started", {"turn_id": "t-1", "step_id": "s-1", "step_index": 1})
+        self.store.append_event(
+            session_id,
+            "message",
+            {
+                "role": "user",
+                "content": "继续",
+                "message_id": "m-user",
+                "turn_id": "t-1",
+                "step_id": "",
+            },
+        )
+        self.store.append_event(
+            session_id, "step_started", {"turn_id": "t-1", "step_id": "s-1", "step_index": 1}
+        )
         self.store.append_event(
             session_id,
             "pending_interaction",
@@ -287,8 +347,20 @@ class TestSessionRestorer(unittest.TestCase):
     def test_restore_expires_stale_pending_interaction(self):
         session_id = "sess-pending-stale"
         self.store.append_event(session_id, "session_meta", {"current_mode": "spec"})
-        self.store.append_event(session_id, "message", {"role": "user", "content": "继续", "message_id": "m-user", "turn_id": "t-1", "step_id": ""})
-        self.store.append_event(session_id, "step_started", {"turn_id": "t-1", "step_id": "s-1", "step_index": 1})
+        self.store.append_event(
+            session_id,
+            "message",
+            {
+                "role": "user",
+                "content": "继续",
+                "message_id": "m-user",
+                "turn_id": "t-1",
+                "step_id": "",
+            },
+        )
+        self.store.append_event(
+            session_id, "step_started", {"turn_id": "t-1", "step_id": "s-1", "step_index": 1}
+        )
         self.store.append_event(
             session_id,
             "pending_interaction",
@@ -322,9 +394,17 @@ class TestSessionRestorer(unittest.TestCase):
         self.store.append_event(
             session_id,
             "message",
-            {"role": "user", "content": "读取文件", "message_id": "m-user", "turn_id": "t-1", "step_id": ""},
+            {
+                "role": "user",
+                "content": "读取文件",
+                "message_id": "m-user",
+                "turn_id": "t-1",
+                "step_id": "",
+            },
         )
-        self.store.append_event(session_id, "step_started", {"turn_id": "t-1", "step_id": "s-1", "step_index": 1})
+        self.store.append_event(
+            session_id, "step_started", {"turn_id": "t-1", "step_id": "s-1", "step_index": 1}
+        )
         self.store.append_event(
             session_id,
             "tool_result",
@@ -367,7 +447,13 @@ class TestSessionRestorer(unittest.TestCase):
         self.store.append_event(
             session_id,
             "message",
-            {"role": "user", "content": "继续", "message_id": "m-user", "turn_id": "t-1", "step_id": ""},
+            {
+                "role": "user",
+                "content": "继续",
+                "message_id": "m-user",
+                "turn_id": "t-1",
+                "step_id": "",
+            },
         )
         self.store.append_event(
             session_id,
@@ -403,7 +489,9 @@ class TestSessionRestorer(unittest.TestCase):
     def test_restore_stops_at_step_started_without_user_turn(self):
         session_id = "sess-invalid-step"
         self.store.append_event(session_id, "session_meta", {"current_mode": "build"})
-        self.store.append_event(session_id, "step_started", {"turn_id": "t-1", "step_id": "s-1", "step_index": 1})
+        self.store.append_event(
+            session_id, "step_started", {"turn_id": "t-1", "step_id": "s-1", "step_index": 1}
+        )
         self.store.append_event(
             session_id,
             "loop_transition",
@@ -426,7 +514,13 @@ class TestSessionRestorer(unittest.TestCase):
         self.store.append_event(
             session_id,
             "message",
-            {"role": "user", "content": "读取文件", "message_id": "m-user", "turn_id": "t-1", "step_id": ""},
+            {
+                "role": "user",
+                "content": "读取文件",
+                "message_id": "m-user",
+                "turn_id": "t-1",
+                "step_id": "",
+            },
         )
         self.store.append_event(
             session_id,
@@ -464,9 +558,17 @@ class TestSessionRestorer(unittest.TestCase):
         self.store.append_event(
             session_id,
             "message",
-            {"role": "user", "content": "读取文件", "message_id": "m-user", "turn_id": "t-1", "step_id": ""},
+            {
+                "role": "user",
+                "content": "读取文件",
+                "message_id": "m-user",
+                "turn_id": "t-1",
+                "step_id": "",
+            },
         )
-        self.store.append_event(session_id, "step_started", {"turn_id": "t-1", "step_id": "s-1", "step_index": 1})
+        self.store.append_event(
+            session_id, "step_started", {"turn_id": "t-1", "step_id": "s-1", "step_index": 1}
+        )
         self.store.append_event(
             session_id,
             "tool_call",
@@ -505,9 +607,17 @@ class TestSessionRestorer(unittest.TestCase):
         self.store.append_event(
             session_id,
             "message",
-            {"role": "user", "content": "读取文件", "message_id": "m-user", "turn_id": "t-1", "step_id": ""},
+            {
+                "role": "user",
+                "content": "读取文件",
+                "message_id": "m-user",
+                "turn_id": "t-1",
+                "step_id": "",
+            },
         )
-        self.store.append_event(session_id, "step_started", {"turn_id": "t-1", "step_id": "s-1", "step_index": 1})
+        self.store.append_event(
+            session_id, "step_started", {"turn_id": "t-1", "step_id": "s-1", "step_index": 1}
+        )
         self.store.append_event(
             session_id,
             "loop_transition",
@@ -533,9 +643,17 @@ class TestSessionRestorer(unittest.TestCase):
         self.store.append_event(
             session_id,
             "message",
-            {"role": "user", "content": "读取文件", "message_id": "m-user", "turn_id": "t-1", "step_id": ""},
+            {
+                "role": "user",
+                "content": "读取文件",
+                "message_id": "m-user",
+                "turn_id": "t-1",
+                "step_id": "",
+            },
         )
-        self.store.append_event(session_id, "step_started", {"turn_id": "t-1", "step_id": "s-1", "step_index": 1})
+        self.store.append_event(
+            session_id, "step_started", {"turn_id": "t-1", "step_id": "s-1", "step_index": 1}
+        )
         self.store.append_event(
             session_id,
             "message",
@@ -587,9 +705,17 @@ class TestSessionRestorer(unittest.TestCase):
         self.store.append_event(
             session_id,
             "message",
-            {"role": "user", "content": "读取文件", "message_id": "m-user", "turn_id": "t-1", "step_id": ""},
+            {
+                "role": "user",
+                "content": "读取文件",
+                "message_id": "m-user",
+                "turn_id": "t-1",
+                "step_id": "",
+            },
         )
-        self.store.append_event(session_id, "step_started", {"turn_id": "t-1", "step_id": "s-1", "step_index": 1})
+        self.store.append_event(
+            session_id, "step_started", {"turn_id": "t-1", "step_id": "s-1", "step_index": 1}
+        )
         self.store.append_event(
             session_id,
             "message",
@@ -655,9 +781,17 @@ class TestSessionRestorer(unittest.TestCase):
         self.store.append_event(
             session_id,
             "message",
-            {"role": "user", "content": "读取文件", "message_id": "m-user", "turn_id": "t-1", "step_id": ""},
+            {
+                "role": "user",
+                "content": "读取文件",
+                "message_id": "m-user",
+                "turn_id": "t-1",
+                "step_id": "",
+            },
         )
-        self.store.append_event(session_id, "step_started", {"turn_id": "t-1", "step_id": "s-1", "step_index": 1})
+        self.store.append_event(
+            session_id, "step_started", {"turn_id": "t-1", "step_id": "s-1", "step_index": 1}
+        )
         self.store.append_event(
             session_id,
             "message",
@@ -716,7 +850,9 @@ class TestSessionRestorer(unittest.TestCase):
         result = SessionRestorer().restore(self.store.load_events(session_id))
         self.assertEqual(len(result.session.compact_boundaries), 1)
         self.assertEqual(result.session.compact_boundaries[0].boundary_id, "cb-dup")
-        self.assertEqual(result.session.compact_boundaries[0].summary_text, "Earlier work summary 1")
+        self.assertEqual(
+            result.session.compact_boundaries[0].summary_text, "Earlier work summary 1"
+        )
         self.assertEqual(result.session.turns[0].transitions, [])
 
     def test_restore_stops_at_assistant_message_with_mismatched_turn_id(self):
@@ -725,9 +861,17 @@ class TestSessionRestorer(unittest.TestCase):
         self.store.append_event(
             session_id,
             "message",
-            {"role": "user", "content": "读取文件", "message_id": "m-user", "turn_id": "t-1", "step_id": ""},
+            {
+                "role": "user",
+                "content": "读取文件",
+                "message_id": "m-user",
+                "turn_id": "t-1",
+                "step_id": "",
+            },
         )
-        self.store.append_event(session_id, "step_started", {"turn_id": "t-1", "step_id": "s-1", "step_index": 1})
+        self.store.append_event(
+            session_id, "step_started", {"turn_id": "t-1", "step_id": "s-1", "step_index": 1}
+        )
         self.store.append_event(
             session_id,
             "message",
@@ -766,15 +910,23 @@ class TestSessionRestorer(unittest.TestCase):
         self.store.append_event(
             session_id,
             "message",
-            {"role": "user", "content": "读取文件", "message_id": "m-user", "turn_id": "t-1", "step_id": ""},
+            {
+                "role": "user",
+                "content": "读取文件",
+                "message_id": "m-user",
+                "turn_id": "t-1",
+                "step_id": "",
+            },
         )
-        self.store.append_event(session_id, "step_started", {"turn_id": "t-1", "step_id": "s-1", "step_index": 1})
+        self.store.append_event(
+            session_id, "step_started", {"turn_id": "t-1", "step_id": "s-1", "step_index": 1}
+        )
         self.store.append_event(
             session_id,
             "message",
             {
                 "role": "tool",
-                "content": "{\"success\": true, \"error\": null, \"data\": {\"path\": \"src/demo.c\"}}",
+                "content": '{"success": true, "error": null, "data": {"path": "src/demo.c"}}',
                 "message_id": "m-tool",
                 "turn_id": "t-1",
                 "step_id": "s-other",
@@ -807,12 +959,24 @@ class TestSessionRestorer(unittest.TestCase):
         self.store.append_event(
             session_id,
             "message",
-            {"role": "user", "content": "first", "message_id": "m-dup", "turn_id": "t-1", "step_id": ""},
+            {
+                "role": "user",
+                "content": "first",
+                "message_id": "m-dup",
+                "turn_id": "t-1",
+                "step_id": "",
+            },
         )
         self.store.append_event(
             session_id,
             "message",
-            {"role": "user", "content": "second", "message_id": "m-dup", "turn_id": "t-2", "step_id": ""},
+            {
+                "role": "user",
+                "content": "second",
+                "message_id": "m-dup",
+                "turn_id": "t-2",
+                "step_id": "",
+            },
         )
         self.store.append_event(
             session_id,
@@ -839,12 +1003,24 @@ class TestSessionRestorer(unittest.TestCase):
         self.store.append_event(
             session_id,
             "message",
-            {"role": "user", "content": "first", "message_id": "m-user-1", "turn_id": "t-dup", "step_id": ""},
+            {
+                "role": "user",
+                "content": "first",
+                "message_id": "m-user-1",
+                "turn_id": "t-dup",
+                "step_id": "",
+            },
         )
         self.store.append_event(
             session_id,
             "message",
-            {"role": "user", "content": "second", "message_id": "m-user-2", "turn_id": "t-dup", "step_id": ""},
+            {
+                "role": "user",
+                "content": "second",
+                "message_id": "m-user-2",
+                "turn_id": "t-dup",
+                "step_id": "",
+            },
         )
         self.store.append_event(
             session_id,
@@ -871,9 +1047,17 @@ class TestSessionRestorer(unittest.TestCase):
         self.store.append_event(
             session_id,
             "message",
-            {"role": "user", "content": "读取文件", "message_id": "m-user", "turn_id": "t-1", "step_id": ""},
+            {
+                "role": "user",
+                "content": "读取文件",
+                "message_id": "m-user",
+                "turn_id": "t-1",
+                "step_id": "",
+            },
         )
-        self.store.append_event(session_id, "step_started", {"turn_id": "t-1", "step_id": "s-1", "step_index": 1})
+        self.store.append_event(
+            session_id, "step_started", {"turn_id": "t-1", "step_id": "s-1", "step_index": 1}
+        )
         self.store.append_event(
             session_id,
             "tool_call",
@@ -924,9 +1108,17 @@ class TestSessionRestorer(unittest.TestCase):
         self.store.append_event(
             session_id,
             "message",
-            {"role": "user", "content": "first", "message_id": "m-user-1", "turn_id": "t-1", "step_id": ""},
+            {
+                "role": "user",
+                "content": "first",
+                "message_id": "m-user-1",
+                "turn_id": "t-1",
+                "step_id": "",
+            },
         )
-        self.store.append_event(session_id, "step_started", {"turn_id": "t-1", "step_id": "s-dup", "step_index": 1})
+        self.store.append_event(
+            session_id, "step_started", {"turn_id": "t-1", "step_id": "s-dup", "step_index": 1}
+        )
         self.store.append_event(
             session_id,
             "message",
@@ -944,9 +1136,17 @@ class TestSessionRestorer(unittest.TestCase):
         self.store.append_event(
             session_id,
             "message",
-            {"role": "user", "content": "second", "message_id": "m-user-2", "turn_id": "t-2", "step_id": ""},
+            {
+                "role": "user",
+                "content": "second",
+                "message_id": "m-user-2",
+                "turn_id": "t-2",
+                "step_id": "",
+            },
         )
-        self.store.append_event(session_id, "step_started", {"turn_id": "t-2", "step_id": "s-dup", "step_index": 1})
+        self.store.append_event(
+            session_id, "step_started", {"turn_id": "t-2", "step_id": "s-dup", "step_index": 1}
+        )
         self.store.append_event(
             session_id,
             "loop_transition",
@@ -973,9 +1173,17 @@ class TestSessionRestorer(unittest.TestCase):
         self.store.append_event(
             session_id,
             "message",
-            {"role": "user", "content": "继续", "message_id": "m-user", "turn_id": "t-1", "step_id": ""},
+            {
+                "role": "user",
+                "content": "继续",
+                "message_id": "m-user",
+                "turn_id": "t-1",
+                "step_id": "",
+            },
         )
-        self.store.append_event(session_id, "step_started", {"turn_id": "t-1", "step_id": "s-1", "step_index": 1})
+        self.store.append_event(
+            session_id, "step_started", {"turn_id": "t-1", "step_id": "s-1", "step_index": 1}
+        )
         self.store.append_event(
             session_id,
             "pending_interaction",
@@ -1016,7 +1224,9 @@ class TestSessionRestorer(unittest.TestCase):
         result = SessionRestorer().restore(self.store.load_events(session_id))
         self.assertIsNotNone(result.session.pending_interaction)
         self.assertEqual(result.session.pending_interaction.interaction_id, "pi-dup")
-        self.assertEqual(result.session.pending_interaction.request_payload.get("question"), "第一问")
+        self.assertEqual(
+            result.session.pending_interaction.request_payload.get("question"), "第一问"
+        )
         self.assertEqual(result.session.turns[0].transitions, [])
 
     def test_restore_stops_at_pending_resolution_with_mismatched_turn_id(self):
@@ -1025,9 +1235,17 @@ class TestSessionRestorer(unittest.TestCase):
         self.store.append_event(
             session_id,
             "message",
-            {"role": "user", "content": "继续", "message_id": "m-user", "turn_id": "t-1", "step_id": ""},
+            {
+                "role": "user",
+                "content": "继续",
+                "message_id": "m-user",
+                "turn_id": "t-1",
+                "step_id": "",
+            },
         )
-        self.store.append_event(session_id, "step_started", {"turn_id": "t-1", "step_id": "s-1", "step_index": 1})
+        self.store.append_event(
+            session_id, "step_started", {"turn_id": "t-1", "step_id": "s-1", "step_index": 1}
+        )
         self.store.append_event(
             session_id,
             "pending_interaction",
@@ -1076,9 +1294,17 @@ class TestSessionRestorer(unittest.TestCase):
         self.store.append_event(
             session_id,
             "message",
-            {"role": "user", "content": "继续", "message_id": "m-user", "turn_id": "t-1", "step_id": ""},
+            {
+                "role": "user",
+                "content": "继续",
+                "message_id": "m-user",
+                "turn_id": "t-1",
+                "step_id": "",
+            },
         )
-        self.store.append_event(session_id, "step_started", {"turn_id": "t-1", "step_id": "s-1", "step_index": 1})
+        self.store.append_event(
+            session_id, "step_started", {"turn_id": "t-1", "step_id": "s-1", "step_index": 1}
+        )
         self.store.append_event(
             session_id,
             "pending_interaction",
@@ -1127,9 +1353,17 @@ class TestSessionRestorer(unittest.TestCase):
         self.store.append_event(
             session_id,
             "message",
-            {"role": "user", "content": "继续", "message_id": "m-user", "turn_id": "t-1", "step_id": ""},
+            {
+                "role": "user",
+                "content": "继续",
+                "message_id": "m-user",
+                "turn_id": "t-1",
+                "step_id": "",
+            },
         )
-        self.store.append_event(session_id, "step_started", {"turn_id": "t-1", "step_id": "s-1", "step_index": 1})
+        self.store.append_event(
+            session_id, "step_started", {"turn_id": "t-1", "step_id": "s-1", "step_index": 1}
+        )
         self.store.append_event(
             session_id,
             "pending_interaction",
@@ -1178,9 +1412,17 @@ class TestSessionRestorer(unittest.TestCase):
         self.store.append_event(
             session_id,
             "message",
-            {"role": "user", "content": "继续", "message_id": "m-user", "turn_id": "t-1", "step_id": ""},
+            {
+                "role": "user",
+                "content": "继续",
+                "message_id": "m-user",
+                "turn_id": "t-1",
+                "step_id": "",
+            },
         )
-        self.store.append_event(session_id, "step_started", {"turn_id": "t-1", "step_id": "s-1", "step_index": 1})
+        self.store.append_event(
+            session_id, "step_started", {"turn_id": "t-1", "step_id": "s-1", "step_index": 1}
+        )
         self.store.append_event(
             session_id,
             "pending_interaction",
@@ -1231,9 +1473,17 @@ class TestSessionRestorer(unittest.TestCase):
         self.store.append_event(
             session_id,
             "message",
-            {"role": "user", "content": "读取文件", "message_id": "m-user", "turn_id": "t-1", "step_id": ""},
+            {
+                "role": "user",
+                "content": "读取文件",
+                "message_id": "m-user",
+                "turn_id": "t-1",
+                "step_id": "",
+            },
         )
-        self.store.append_event(session_id, "step_started", {"turn_id": "t-1", "step_id": "s-1", "step_index": 1})
+        self.store.append_event(
+            session_id, "step_started", {"turn_id": "t-1", "step_id": "s-1", "step_index": 1}
+        )
         self.store.append_event(
             session_id,
             "tool_call",
@@ -1289,9 +1539,17 @@ class TestSessionRestorer(unittest.TestCase):
         self.store.append_event(
             session_id,
             "message",
-            {"role": "user", "content": "读取文件", "message_id": "m-user", "turn_id": "t-1", "step_id": ""},
+            {
+                "role": "user",
+                "content": "读取文件",
+                "message_id": "m-user",
+                "turn_id": "t-1",
+                "step_id": "",
+            },
         )
-        self.store.append_event(session_id, "step_started", {"turn_id": "t-1", "step_id": "s-1", "step_index": 1})
+        self.store.append_event(
+            session_id, "step_started", {"turn_id": "t-1", "step_id": "s-1", "step_index": 1}
+        )
         self.store.append_event(
             session_id,
             "tool_call",
@@ -1348,9 +1606,17 @@ class TestSessionRestorer(unittest.TestCase):
         self.store.append_event(
             session_id,
             "message",
-            {"role": "user", "content": "读取文件", "message_id": "m-dup", "turn_id": "t-1", "step_id": ""},
+            {
+                "role": "user",
+                "content": "读取文件",
+                "message_id": "m-dup",
+                "turn_id": "t-1",
+                "step_id": "",
+            },
         )
-        self.store.append_event(session_id, "step_started", {"turn_id": "t-1", "step_id": "s-1", "step_index": 1})
+        self.store.append_event(
+            session_id, "step_started", {"turn_id": "t-1", "step_id": "s-1", "step_index": 1}
+        )
         self.store.append_event(
             session_id,
             "tool_call",
@@ -1407,7 +1673,13 @@ class TestSessionRestorer(unittest.TestCase):
         self.store.append_event(
             session_id,
             "message",
-            {"role": "user", "content": "继续", "message_id": "m-user", "turn_id": "t-1", "step_id": ""},
+            {
+                "role": "user",
+                "content": "继续",
+                "message_id": "m-user",
+                "turn_id": "t-1",
+                "step_id": "",
+            },
         )
         self.store.append_event(
             session_id,
@@ -1448,15 +1720,23 @@ class TestSessionRestorer(unittest.TestCase):
         self.store.append_event(
             session_id,
             "message",
-            {"role": "user", "content": "继续", "message_id": "m-user", "turn_id": "t-1", "step_id": ""},
+            {
+                "role": "user",
+                "content": "继续",
+                "message_id": "m-user",
+                "turn_id": "t-1",
+                "step_id": "",
+            },
         )
-        self.store.append_event(session_id, "step_started", {"turn_id": "t-1", "step_id": "s-1", "step_index": 1})
+        self.store.append_event(
+            session_id, "step_started", {"turn_id": "t-1", "step_id": "s-1", "step_index": 1}
+        )
         self.store.append_event(
             session_id,
             "message",
             {
                 "role": "tool",
-                "content": "{\"success\": true, \"error\": null, \"data\": {\"path\": \"src/demo.c\"}}",
+                "content": '{"success": true, "error": null, "data": {"path": "src/demo.c"}}',
                 "message_id": "m-tool",
                 "turn_id": "t-1",
                 "step_id": "s-1",
@@ -1501,4 +1781,3 @@ class TestSessionRestorer(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

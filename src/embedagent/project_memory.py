@@ -13,8 +13,8 @@ from embedagent.projection_db import ProjectionDb
 from embedagent.session import Observation, Session
 
 _PYTHON_REQ_RE = re.compile(r'^requires-python\s*=\s*"([^"]+)"', re.MULTILINE)
-_PRIMARY_ENV_RE = re.compile(r'Primary development environment manager:\s*`([^`]+)`')
-_FALLBACK_ENV_RE = re.compile(r'approved fallback', re.IGNORECASE)
+_PRIMARY_ENV_RE = re.compile(r"Primary development environment manager:\s*`([^`]+)`")
+_FALLBACK_ENV_RE = re.compile(r"approved fallback", re.IGNORECASE)
 
 
 def _utc_now() -> str:
@@ -24,15 +24,15 @@ def _utc_now() -> str:
 def _truncate_text(text: str, limit: int) -> str:
     if len(text) <= limit:
         return text
-    return text[:limit] + '...'
+    return text[:limit] + "..."
 
 
 def _atomic_write_json(path: str, payload: Any) -> None:
     parent = os.path.dirname(path)
     if parent and not os.path.isdir(parent):
         os.makedirs(parent, exist_ok=True)
-    tmp = path + '.%s.tmp' % uuid.uuid4().hex
-    with open(tmp, 'w', encoding='utf-8') as handle:
+    tmp = path + ".%s.tmp" % uuid.uuid4().hex
+    with open(tmp, "w", encoding="utf-8") as handle:
         json.dump(sanitize_jsonable(payload), handle, ensure_ascii=False, indent=2, sort_keys=True)
     os.replace(tmp, path)
 
@@ -41,19 +41,19 @@ class ProjectMemoryStore(object):
     def __init__(
         self,
         workspace: str,
-        relative_root: str = '.embedagent/memory/project',
+        relative_root: str = ".embedagent/memory/project",
         max_recipe_count: int = 12,
         max_issue_count: int = 12,
         max_seen_events: int = 512,
         max_resolved_issues: int = 6,
     ) -> None:
         self.workspace = os.path.realpath(workspace)
-        self.relative_root = relative_root.replace('\\', '/')
-        self.root = os.path.join(self.workspace, *self.relative_root.split('/'))
-        self.profile_path = os.path.join(self.root, 'project-profile.json')
-        self.recipes_path = os.path.join(self.root, 'command-recipes.json')
-        self.issues_path = os.path.join(self.root, 'known-issues.json')
-        self.index_path = os.path.join(self.root, 'memory-index.json')
+        self.relative_root = relative_root.replace("\\", "/")
+        self.root = os.path.join(self.workspace, *self.relative_root.split("/"))
+        self.profile_path = os.path.join(self.root, "project-profile.json")
+        self.recipes_path = os.path.join(self.root, "command-recipes.json")
+        self.issues_path = os.path.join(self.root, "known-issues.json")
+        self.index_path = os.path.join(self.root, "memory-index.json")
         self.max_recipe_count = max_recipe_count
         self.max_issue_count = max_issue_count
         self.max_seen_events = max_seen_events
@@ -74,15 +74,17 @@ class ProjectMemoryStore(object):
             profile = self._load_json(self.profile_path, self._bootstrap_profile())
             recipes = self._load_json(self.recipes_path, [])
             issues = self._load_json(self.issues_path, [])
-            index = self._load_json(self.index_path, {'processed_events': []})
-            processed_events = list(index.get('processed_events') or [])
+            index = self._load_json(self.index_path, {"processed_events": []})
+            processed_events = list(index.get("processed_events") or [])
             processed_set = set(processed_events)
 
             self._update_profile(profile, session, current_mode, session_summary_ref)
             for event_id, action_name, arguments, observation in self._iter_events(session):
                 if event_id in processed_set:
                     continue
-                self._apply_observation(recipes, issues, current_mode, action_name, arguments, observation)
+                self._apply_observation(
+                    recipes, issues, current_mode, action_name, arguments, observation
+                )
                 processed_events.append(event_id)
                 processed_set.add(event_id)
 
@@ -90,15 +92,14 @@ class ProjectMemoryStore(object):
             recipes = self._normalize_recipes(recipes)
             issues = self._normalize_issues(issues)
             index = {
-                'schema_version': 1,
-                'updated_at': _utc_now(),
-                'processed_events': processed_events,
+                "schema_version": 1,
+                "updated_at": _utc_now(),
+                "processed_events": processed_events,
             }
             self._write_json(self.profile_path, profile)
             self._write_json(self.recipes_path, recipes)
             self._write_json(self.issues_path, issues)
             self._write_json(self.index_path, index)
-
 
     def collect_stored_paths(self) -> List[str]:
         issues = self._load_json(self.issues_path, [])
@@ -134,36 +135,38 @@ class ProjectMemoryStore(object):
         issues = self._load_json(self.issues_path, [])
         if not profile:
             return None
-        lines = ['以下是项目级记忆，仅供当前任务参考；若与当前系统提示或用户明确要求冲突，以后者为准。']
+        lines = [
+            "以下是项目级记忆，仅供当前任务参考；若与当前系统提示或用户明确要求冲突，以后者为准。"
+        ]
         profile_line = self._profile_line(profile)
         if profile_line:
-            lines.append('项目概况：%s' % profile_line)
+            lines.append("项目概况：%s" % profile_line)
         selected_recipes = self._select_recipes(mode_name, recipes)
         if selected_recipes:
-            lines.append('常用命令：')
+            lines.append("常用命令：")
             for index, item in enumerate(selected_recipes, start=1):
                 lines.append(
-                    '%s. [%s] cwd=%s cmd=%s'
+                    "%s. [%s] cwd=%s cmd=%s"
                     % (
                         index,
                         self._recipe_kind(item),
-                        item.get('cwd', '.'),
-                        _truncate_text(item.get('command', ''), 120),
+                        item.get("cwd", "."),
+                        _truncate_text(item.get("command", ""), 120),
                     )
                 )
         selected_issues = self._select_issues(mode_name, issues)
         if selected_issues:
-            lines.append('已知问题：')
+            lines.append("已知问题：")
             for index, item in enumerate(selected_issues, start=1):
                 parts = [self._issue_kind(item)]
-                if item.get('path'):
-                    parts.append('path=%s' % item['path'])
-                if item.get('summary'):
-                    parts.append(_truncate_text(item['summary'], 120))
-                if item.get('status'):
-                    parts.append('status=%s' % item['status'])
-                lines.append('%s. %s' % (index, ', '.join([part for part in parts if part])))
-        text = '\n'.join(lines)
+                if item.get("path"):
+                    parts.append("path=%s" % item["path"])
+                if item.get("summary"):
+                    parts.append(_truncate_text(item["summary"], 120))
+                if item.get("status"):
+                    parts.append("status=%s" % item["status"])
+                lines.append("%s. %s" % (index, ", ".join([part for part in parts if part])))
+        text = "\n".join(lines)
         return _truncate_text(text, char_limit) if text else None
 
     def _ensure_root(self) -> None:
@@ -173,17 +176,17 @@ class ProjectMemoryStore(object):
     def _bootstrap_profile(self) -> Dict[str, Any]:
         now = _utc_now()
         profile = {
-            'schema_version': 1,
-            'workspace_name': os.path.basename(self.workspace),
-            'workspace_root': '.',
-            'created_at': now,
-            'updated_at': now,
-            'requires_python': self._read_requires_python(),
-            'primary_environment_manager': self._read_primary_environment_manager(),
-            'fallback_environment_manager': 'conda' if self._has_conda_fallback() else None,
-            'runtime_target_python': '3.8',
-            'constraints': self._read_constraints(),
-            'notes': [],
+            "schema_version": 1,
+            "workspace_name": os.path.basename(self.workspace),
+            "workspace_root": ".",
+            "created_at": now,
+            "updated_at": now,
+            "requires_python": self._read_requires_python(),
+            "primary_environment_manager": self._read_primary_environment_manager(),
+            "fallback_environment_manager": "conda" if self._has_conda_fallback() else None,
+            "runtime_target_python": "3.8",
+            "constraints": self._read_constraints(),
+            "notes": [],
         }
         return profile
 
@@ -194,20 +197,20 @@ class ProjectMemoryStore(object):
         current_mode: str,
         session_summary_ref: Optional[str],
     ) -> None:
-        profile['updated_at'] = _utc_now()
-        profile['last_session_id'] = session.session_id
-        profile['last_mode'] = current_mode
-        profile['last_summary_ref'] = session_summary_ref
-        profile['turn_count'] = len(session.turns)
-        profile['message_count'] = len(session.messages)
-        if not profile.get('requires_python'):
-            profile['requires_python'] = self._read_requires_python()
-        if not profile.get('primary_environment_manager'):
-            profile['primary_environment_manager'] = self._read_primary_environment_manager()
-        if not profile.get('fallback_environment_manager') and self._has_conda_fallback():
-            profile['fallback_environment_manager'] = 'conda'
-        if not profile.get('constraints'):
-            profile['constraints'] = self._read_constraints()
+        profile["updated_at"] = _utc_now()
+        profile["last_session_id"] = session.session_id
+        profile["last_mode"] = current_mode
+        profile["last_summary_ref"] = session_summary_ref
+        profile["turn_count"] = len(session.turns)
+        profile["message_count"] = len(session.messages)
+        if not profile.get("requires_python"):
+            profile["requires_python"] = self._read_requires_python()
+        if not profile.get("primary_environment_manager"):
+            profile["primary_environment_manager"] = self._read_primary_environment_manager()
+        if not profile.get("fallback_environment_manager") and self._has_conda_fallback():
+            profile["fallback_environment_manager"] = "conda"
+        if not profile.get("constraints"):
+            profile["constraints"] = self._read_constraints()
 
     def _iter_events(self, session: Session) -> List[Tuple[str, str, Dict[str, Any], Observation]]:
         items = []
@@ -215,7 +218,7 @@ class ProjectMemoryStore(object):
             for index, action in enumerate(turn.actions):
                 if index >= len(turn.observations):
                     continue
-                event_id = '%s:%s' % (session.session_id, action.call_id)
+                event_id = "%s:%s" % (session.session_id, action.call_id)
                 items.append((event_id, action.name, action.arguments, turn.observations[index]))
         return items
 
@@ -242,35 +245,35 @@ class ProjectMemoryStore(object):
         arguments: Dict[str, Any],
         observation: Observation,
     ) -> None:
-        if action_name not in ('run_command', 'run_recipe'):
+        if action_name not in ("run_command", "run_recipe"):
             return
         if not isinstance(observation.data, dict):
             return
-        command = observation.data.get('command') or arguments.get('command')
-        cwd = observation.data.get('cwd') or arguments.get('cwd') or '.'
+        command = observation.data.get("command") or arguments.get("command")
+        cwd = observation.data.get("cwd") or arguments.get("cwd") or "."
         if not command:
             return
         recipe_action = self._recipe_action_from(action_name, observation.data)
-        key = '%s|%s|%s' % (recipe_action or action_name, cwd, command)
+        key = "%s|%s|%s" % (recipe_action or action_name, cwd, command)
         now = _utc_now()
         for item in recipes:
-            if item.get('key') != key:
+            if item.get("key") != key:
                 continue
-            item['last_success_at'] = now
-            item['success_count'] = int(item.get('success_count') or 0) + 1
-            item['last_mode'] = current_mode
+            item["last_success_at"] = now
+            item["success_count"] = int(item.get("success_count") or 0) + 1
+            item["last_mode"] = current_mode
             return
         recipes.append(
             {
-                'key': key,
-                'tool_name': action_name,
-                'recipe_action': recipe_action,
-                'command': command,
-                'cwd': cwd,
-                'last_mode': current_mode,
-                'created_at': now,
-                'last_success_at': now,
-                'success_count': 1,
+                "key": key,
+                "tool_name": action_name,
+                "recipe_action": recipe_action,
+                "command": command,
+                "cwd": cwd,
+                "last_mode": current_mode,
+                "created_at": now,
+                "last_success_at": now,
+                "success_count": 1,
             }
         )
 
@@ -288,26 +291,26 @@ class ProjectMemoryStore(object):
         key = self._issue_key(observation, summary)
         now = _utc_now()
         for item in issues:
-            if item.get('key') != key:
+            if item.get("key") != key:
                 continue
-            item['last_seen_at'] = now
-            item['count'] = int(item.get('count') or 0) + 1
-            item['status'] = 'open'
-            item['mode_name'] = current_mode
+            item["last_seen_at"] = now
+            item["count"] = int(item.get("count") or 0) + 1
+            item["status"] = "open"
+            item["mode_name"] = current_mode
             return
         issue = {
-            'key': key,
-            'tool_name': observation.tool_name,
-            'recipe_action': self._recipe_action_from(observation.tool_name, observation.data),
-            'mode_name': current_mode,
-            'path': self._primary_path(observation),
-            'command': self._primary_command(observation),
-            'summary': summary,
-            'status': 'open',
-            'count': 1,
-            'first_seen_at': now,
-            'last_seen_at': now,
-            'stored_refs': self._stored_refs(observation),
+            "key": key,
+            "tool_name": observation.tool_name,
+            "recipe_action": self._recipe_action_from(observation.tool_name, observation.data),
+            "mode_name": current_mode,
+            "path": self._primary_path(observation),
+            "command": self._primary_command(observation),
+            "summary": summary,
+            "status": "open",
+            "count": 1,
+            "first_seen_at": now,
+            "last_seen_at": now,
+            "stored_refs": self._stored_refs(observation),
         }
         issues.append(issue)
 
@@ -318,14 +321,13 @@ class ProjectMemoryStore(object):
         if not path and not command:
             return
         for item in issues:
-            if item.get('tool_name') != tool_name or item.get('status') != 'open':
+            if item.get("tool_name") != tool_name or item.get("status") != "open":
                 continue
-            same_command = command and item.get('command') == command
-            same_path = path and item.get('path') == path
+            same_command = command and item.get("command") == command
+            same_path = path and item.get("path") == path
             if same_command or same_path:
-                item['status'] = 'resolved'
-                item['resolved_at'] = _utc_now()
-
+                item["status"] = "resolved"
+                item["resolved_at"] = _utc_now()
 
     def _cleanup_issues(self, issues: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         open_items = []
@@ -354,7 +356,10 @@ class ProjectMemoryStore(object):
     def _normalize_recipes(self, recipes: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         recipes = sorted(
             recipes,
-            key=lambda item: (item.get('last_success_at') or '', int(item.get('success_count') or 0)),
+            key=lambda item: (
+                item.get("last_success_at") or "",
+                int(item.get("success_count") or 0),
+            ),
             reverse=True,
         )
         return recipes[: self.max_recipe_count]
@@ -362,38 +367,44 @@ class ProjectMemoryStore(object):
     def _normalize_issues(self, issues: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         issues = sorted(
             issues,
-            key=lambda item: ((item.get('status') != 'open'), item.get('last_seen_at') or '', int(item.get('count') or 0)),
+            key=lambda item: (
+                (item.get("status") != "open"),
+                item.get("last_seen_at") or "",
+                int(item.get("count") or 0),
+            ),
         )
         return issues[: self.max_issue_count]
 
-    def _select_recipes(self, mode_name: str, recipes: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def _select_recipes(
+        self, mode_name: str, recipes: List[Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
         preferred = {
-            'verify': ('test', 'tidy', 'analyze', 'coverage', 'build', 'configure', 'run_command'),
-            'build': ('build', 'configure', 'test', 'run_command'),
-            'debug': ('test', 'build', 'configure', 'run_command'),
-            'explore': ('build', 'test', 'configure', 'run_command'),
-            'spec': ('build', 'test', 'configure', 'run_command'),
-        }.get(mode_name, ('build', 'test', 'run_command'))
+            "verify": ("test", "tidy", "analyze", "coverage", "build", "configure", "run_command"),
+            "build": ("build", "configure", "test", "run_command"),
+            "debug": ("test", "build", "configure", "run_command"),
+            "explore": ("build", "test", "configure", "run_command"),
+            "spec": ("build", "test", "configure", "run_command"),
+        }.get(mode_name, ("build", "test", "run_command"))
         selected = []
         seen = set()
         for recipe_action in preferred:
             for item in recipes:
-                if self._recipe_kind(item) != recipe_action or item.get('key') in seen:
+                if self._recipe_kind(item) != recipe_action or item.get("key") in seen:
                     continue
                 selected.append(item)
-                seen.add(item['key'])
+                seen.add(item["key"])
                 break
         return selected[:4]
 
     def _select_issues(self, mode_name: str, issues: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         preferred = {
-            'verify': ('quality', 'test', 'tidy', 'analyze', 'coverage', 'build'),
-            'build': ('build', 'test', 'quality', 'run_command'),
-            'debug': ('test', 'build', 'quality', 'run_command'),
+            "verify": ("quality", "test", "tidy", "analyze", "coverage", "build"),
+            "build": ("build", "test", "quality", "run_command"),
+            "debug": ("test", "build", "quality", "run_command"),
         }.get(mode_name, ())
         selected = []
         for item in issues:
-            if item.get('status') != 'open':
+            if item.get("status") != "open":
                 continue
             if preferred and self._issue_kind(item) not in preferred:
                 continue
@@ -403,80 +414,80 @@ class ProjectMemoryStore(object):
         return selected
 
     def _profile_line(self, profile: Dict[str, Any]) -> str:
-        parts = [profile.get('workspace_name', '')]
-        if profile.get('requires_python'):
-            parts.append('python=%s' % profile['requires_python'])
-        if profile.get('runtime_target_python'):
-            parts.append('runtime=%s' % profile['runtime_target_python'])
-        if profile.get('primary_environment_manager'):
-            parts.append('env=%s' % profile['primary_environment_manager'])
-        constraints = profile.get('constraints') or []
+        parts = [profile.get("workspace_name", "")]
+        if profile.get("requires_python"):
+            parts.append("python=%s" % profile["requires_python"])
+        if profile.get("runtime_target_python"):
+            parts.append("runtime=%s" % profile["runtime_target_python"])
+        if profile.get("primary_environment_manager"):
+            parts.append("env=%s" % profile["primary_environment_manager"])
+        constraints = profile.get("constraints") or []
         if constraints:
-            parts.append('constraints=%s' % ','.join(constraints[:3]))
-        return '; '.join([part for part in parts if part])
+            parts.append("constraints=%s" % ",".join(constraints[:3]))
+        return "; ".join([part for part in parts if part])
 
     def _issue_summary(self, observation: Observation) -> str:
         if observation.error:
             return observation.error
         if isinstance(observation.data, dict):
-            reasons = observation.data.get('reasons') or []
+            reasons = observation.data.get("reasons") or []
             if reasons:
                 return str(reasons[0])
-            diagnostics = observation.data.get('diagnostics') or []
-            if diagnostics and isinstance(diagnostics[0], dict) and diagnostics[0].get('message'):
-                return str(diagnostics[0]['message'])
-        return ''
+            diagnostics = observation.data.get("diagnostics") or []
+            if diagnostics and isinstance(diagnostics[0], dict) and diagnostics[0].get("message"):
+                return str(diagnostics[0]["message"])
+        return ""
 
     def _issue_key(self, observation: Observation, summary: str) -> str:
-        return '%s|%s|%s|%s' % (
+        return "%s|%s|%s|%s" % (
             observation.tool_name,
-            self._primary_path(observation) or '',
-            self._primary_command(observation) or '',
+            self._primary_path(observation) or "",
+            self._primary_command(observation) or "",
             _truncate_text(summary, 120),
         )
 
     def _primary_path(self, observation: Observation) -> Optional[str]:
         if not isinstance(observation.data, dict):
             return None
-        if observation.data.get('path'):
-            return observation.data.get('path')
-        diagnostics = observation.data.get('diagnostics') or []
+        if observation.data.get("path"):
+            return observation.data.get("path")
+        diagnostics = observation.data.get("diagnostics") or []
         if diagnostics and isinstance(diagnostics[0], dict):
-            return diagnostics[0].get('file')
+            return diagnostics[0].get("file")
         return None
 
     def _primary_command(self, observation: Observation) -> Optional[str]:
         if not isinstance(observation.data, dict):
             return None
-        return observation.data.get('command')
+        return observation.data.get("command")
 
     def _recipe_action_from(self, action_name: str, data: Dict[str, Any]) -> str:
-        if str(action_name or '') == 'run_recipe':
-            value = str((data or {}).get('recipe_action') or '').strip()
+        if str(action_name or "") == "run_recipe":
+            value = str((data or {}).get("recipe_action") or "").strip()
             if value:
                 return value
-        if str(action_name or '') == 'run_command':
-            return 'run_command'
-        return ''
+        if str(action_name or "") == "run_command":
+            return "run_command"
+        return ""
 
     def _recipe_kind(self, item: Dict[str, Any]) -> str:
-        recipe_action = str(item.get('recipe_action') or '').strip()
+        recipe_action = str(item.get("recipe_action") or "").strip()
         if recipe_action:
             return recipe_action
-        tool_name = str(item.get('tool_name') or '').strip()
-        if tool_name == 'run_command':
-            return 'run_command'
+        tool_name = str(item.get("tool_name") or "").strip()
+        if tool_name == "run_command":
+            return "run_command"
         return tool_name
 
     def _issue_kind(self, item: Dict[str, Any]) -> str:
-        tool_name = str(item.get('tool_name') or '').strip()
-        if tool_name == 'report_quality_v2':
-            return 'quality'
-        recipe_action = str(item.get('recipe_action') or '').strip()
+        tool_name = str(item.get("tool_name") or "").strip()
+        if tool_name == "report_quality_v2":
+            return "quality"
+        recipe_action = str(item.get("recipe_action") or "").strip()
         if recipe_action:
             return recipe_action
-        if tool_name == 'run_command':
-            return 'run_command'
+        if tool_name == "run_command":
+            return "run_command"
         return tool_name
 
     def _stored_refs(self, observation: Observation) -> List[str]:
@@ -484,7 +495,7 @@ class ProjectMemoryStore(object):
             return []
         refs = []
         for key, value in observation.data.items():
-            if key.endswith('_stored_path') and value:
+            if key.endswith("_stored_path") and value:
                 refs.append(value)
         return refs[:4]
 
@@ -492,7 +503,7 @@ class ProjectMemoryStore(object):
         if not os.path.isfile(path):
             return default
         try:
-            with open(path, 'r', encoding='utf-8') as handle:
+            with open(path, "r", encoding="utf-8") as handle:
                 data = json.load(handle)
         except (OSError, json.JSONDecodeError, ValueError):
             return default
@@ -502,11 +513,11 @@ class ProjectMemoryStore(object):
         _atomic_write_json(path, data)
 
     def _read_requires_python(self) -> Optional[str]:
-        path = os.path.join(self.workspace, 'pyproject.toml')
+        path = os.path.join(self.workspace, "pyproject.toml")
         if not os.path.isfile(path):
             return None
         try:
-            with open(path, 'r', encoding='utf-8') as handle:
+            with open(path, "r", encoding="utf-8") as handle:
                 content = handle.read()
         except (OSError, ValueError):
             return None
@@ -524,25 +535,25 @@ class ProjectMemoryStore(object):
         content = self._read_agents_text()
         if not content:
             return False
-        return bool(_FALLBACK_ENV_RE.search(content)) and 'conda' in content.lower()
+        return bool(_FALLBACK_ENV_RE.search(content)) and "conda" in content.lower()
 
     def _read_constraints(self) -> List[str]:
-        content = self._read_agents_text() or ''
+        content = self._read_agents_text() or ""
         constraints = []
-        if 'Windows 7 compatibility is mandatory.' in content:
-            constraints.append('windows7')
-        if 'Offline deployment is mandatory.' in content:
-            constraints.append('offline')
-        if 'zero external dependencies' in content.lower():
-            constraints.append('self-contained')
+        if "Windows 7 compatibility is mandatory." in content:
+            constraints.append("windows7")
+        if "Offline deployment is mandatory." in content:
+            constraints.append("offline")
+        if "zero external dependencies" in content.lower():
+            constraints.append("self-contained")
         return constraints
 
     def _read_agents_text(self) -> Optional[str]:
-        path = os.path.join(self.workspace, 'AGENTS.md')
+        path = os.path.join(self.workspace, "AGENTS.md")
         if not os.path.isfile(path):
             return None
         try:
-            with open(path, 'r', encoding='utf-8') as handle:
+            with open(path, "r", encoding="utf-8") as handle:
                 return handle.read()
         except (OSError, ValueError):
             return None

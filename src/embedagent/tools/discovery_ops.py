@@ -41,7 +41,9 @@ def build_tools(ctx) -> List[ToolDefinition]:
         matches = []
         for absolute_path in ctx.iter_files(path, pattern=None):
             relative = ctx.relative_path(absolute_path)
-            if fnmatch.fnmatch(os.path.basename(relative), pattern) or fnmatch.fnmatch(relative, pattern):
+            if fnmatch.fnmatch(os.path.basename(relative), pattern) or fnmatch.fnmatch(
+                relative, pattern
+            ):
                 matches.append(relative)
         items = matches[offset : offset + limit]
         return Observation(
@@ -76,7 +78,8 @@ def build_tools(ctx) -> List[ToolDefinition]:
                 if lowered and lowered not in line_text.lower():
                     continue
                 matches.append(
-                    "%s:%s:%s" % (
+                    "%s:%s:%s"
+                    % (
                         ctx.relative_path(absolute_path),
                         line_number,
                         line_text[:200],

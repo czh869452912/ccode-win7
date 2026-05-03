@@ -25,7 +25,9 @@ class TestSessionSummaryStore(unittest.TestCase):
         summary_ref = store.persist(session, "build")
         self.assertTrue(summary_ref.endswith("/summary.json"))
         self.assertFalse(
-            os.path.exists(os.path.join(self.workspace, ".embedagent", "memory", "sessions", "index.json"))
+            os.path.exists(
+                os.path.join(self.workspace, ".embedagent", "memory", "sessions", "index.json")
+            )
         )
         items = store.list_summaries(limit=5)
         self.assertEqual(len(items), 1)
@@ -100,7 +102,13 @@ class TestProjectMemoryStore(unittest.TestCase):
 
         store.refresh(session, "build", ".embedagent/memory/sessions/demo/summary.json")
 
-        with open(os.path.join(self.workspace, ".embedagent", "memory", "project", "command-recipes.json"), "r", encoding="utf-8") as handle:
+        with open(
+            os.path.join(
+                self.workspace, ".embedagent", "memory", "project", "command-recipes.json"
+            ),
+            "r",
+            encoding="utf-8",
+        ) as handle:
             recipes = json.load(handle)
         self.assertEqual(recipes[0]["tool_name"], "run_recipe")
         self.assertEqual(recipes[0]["recipe_action"], "build")
@@ -112,4 +120,3 @@ class TestProjectMemoryStore(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

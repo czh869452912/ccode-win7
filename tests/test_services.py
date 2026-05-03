@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from unittest.mock import MagicMock, patch
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from embedagent.services.event_emitter import EventEmitter
 from embedagent.services.harness_state_synchronizer import HarnessStateSynchronizer
@@ -73,6 +73,7 @@ class TestWorkspaceFileService(unittest.TestCase):
 
     def tearDown(self):
         import shutil
+
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
     def test_resolve_path_enforces_boundary(self):

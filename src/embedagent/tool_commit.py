@@ -22,7 +22,10 @@ class ToolCommitCoordinator(object):
     def _inline_preview(self, value: str) -> str:
         if len(value) <= self._inline_text_limit:
             return value
-        return value[: self._inline_text_limit] + "\n...[tool result truncated: persistence unavailable]"
+        return (
+            value[: self._inline_text_limit]
+            + "\n...[tool result truncated: persistence unavailable]"
+        )
 
     def _record_storage_warning(
         self,
@@ -129,7 +132,10 @@ class ToolCommitCoordinator(object):
                 "tool_result",
                 {
                     "turn_id": turn_id or (session.turns[-1].turn_id if session.turns else ""),
-                    "step_id": step_id or (session.current_step().step_id if session.current_step() is not None else ""),
+                    "step_id": step_id
+                    or (
+                        session.current_step().step_id if session.current_step() is not None else ""
+                    ),
                     "call_id": action.call_id,
                     "tool_name": action.name,
                     "message_id": message_id,

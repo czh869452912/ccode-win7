@@ -35,7 +35,13 @@ class WorkspaceIntelligenceProvider(object):
 class WorkingSetProvider(WorkspaceIntelligenceProvider):
     name = "working_set"
 
-    def collect(self, session: Session, mode_name: str, tools: Any, project_memory: Optional[ProjectMemoryStore] = None) -> List[IntelligenceEvidence]:
+    def collect(
+        self,
+        session: Session,
+        mode_name: str,
+        tools: Any,
+        project_memory: Optional[ProjectMemoryStore] = None,
+    ) -> List[IntelligenceEvidence]:
         modified = []
         seen = set()
         for turn in reversed(session.turns):
@@ -70,7 +76,13 @@ class WorkingSetProvider(WorkspaceIntelligenceProvider):
 class ProjectMemoryProvider(WorkspaceIntelligenceProvider):
     name = "project_memory"
 
-    def collect(self, session: Session, mode_name: str, tools: Any, project_memory: Optional[ProjectMemoryStore] = None) -> List[IntelligenceEvidence]:
+    def collect(
+        self,
+        session: Session,
+        mode_name: str,
+        tools: Any,
+        project_memory: Optional[ProjectMemoryStore] = None,
+    ) -> List[IntelligenceEvidence]:
         if project_memory is None:
             return []
         content = project_memory.build_system_message(mode_name, 1200)
@@ -90,7 +102,13 @@ class ProjectMemoryProvider(WorkspaceIntelligenceProvider):
 class RecipeProvider(WorkspaceIntelligenceProvider):
     name = "recipes"
 
-    def collect(self, session: Session, mode_name: str, tools: Any, project_memory: Optional[ProjectMemoryStore] = None) -> List[IntelligenceEvidence]:
+    def collect(
+        self,
+        session: Session,
+        mode_name: str,
+        tools: Any,
+        project_memory: Optional[ProjectMemoryStore] = None,
+    ) -> List[IntelligenceEvidence]:
         if not hasattr(tools, "workspace_recipes"):
             return []
         payload = tools.workspace_recipes() or {}
@@ -107,7 +125,8 @@ class RecipeProvider(WorkspaceIntelligenceProvider):
             selected_ids.append(str(item.get("id") or ""))
             selected_sources.append(str(item.get("source") or ""))
             selected.append(
-                "[%s] %s" % (
+                "[%s] %s"
+                % (
                     str(item.get("recipe_action") or item.get("tool_name") or ""),
                     str(item.get("id") or item.get("label") or ""),
                 )
@@ -121,13 +140,24 @@ class RecipeProvider(WorkspaceIntelligenceProvider):
                 content="工作区 recipe：%s" % "; ".join(selected),
                 priority=85 if mode_name in ("build", "verify", "debug") else 55,
                 tags=["recipe", mode_name],
-                metadata={"count": len(items), "selected_ids": selected_ids, "selected_sources": selected_sources},
+                metadata={
+                    "count": len(items),
+                    "selected_ids": selected_ids,
+                    "selected_sources": selected_sources,
+                },
             )
         ]
 
     def _rank_items(self, mode_name: str, items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         preferred = {
-            "verify": {"test": 0, "tidy": 1, "analyze": 2, "coverage": 3, "build": 4, "configure": 5},
+            "verify": {
+                "test": 0,
+                "tidy": 1,
+                "analyze": 2,
+                "coverage": 3,
+                "build": 4,
+                "configure": 5,
+            },
             "build": {"build": 0, "configure": 1, "test": 2, "tidy": 3},
             "debug": {"test": 0, "build": 1, "configure": 2, "tidy": 3, "analyze": 4},
             "explore": {"build": 0, "test": 1, "configure": 2},
@@ -166,8 +196,18 @@ class RecipeProvider(WorkspaceIntelligenceProvider):
 class CtagsProvider(WorkspaceIntelligenceProvider):
     name = "ctags"
 
-    def collect(self, session: Session, mode_name: str, tools: Any, project_memory: Optional[ProjectMemoryStore] = None) -> List[IntelligenceEvidence]:
-        runtime = tools.runtime_environment_snapshot() if hasattr(tools, "runtime_environment_snapshot") else {}
+    def collect(
+        self,
+        session: Session,
+        mode_name: str,
+        tools: Any,
+        project_memory: Optional[ProjectMemoryStore] = None,
+    ) -> List[IntelligenceEvidence]:
+        runtime = (
+            tools.runtime_environment_snapshot()
+            if hasattr(tools, "runtime_environment_snapshot")
+            else {}
+        )
         roots = runtime.get("resolved_tool_roots") if isinstance(runtime, dict) else {}
         ctags_path = str((roots or {}).get("ctags_exe") or "")
         tags_file = os.path.join(tools.workspace, "tags")
@@ -175,7 +215,13 @@ class CtagsProvider(WorkspaceIntelligenceProvider):
             entries = _load_ctags_entries(tags_file, limit=16)
             focus_paths = _focus_paths_from_session(session)
             if focus_paths:
-                entries.sort(key=lambda item: (0 if item["path"] in focus_paths else 1, item["path"], item["name"]))
+                entries.sort(
+                    key=lambda item: (
+                        0 if item["path"] in focus_paths else 1,
+                        item["path"],
+                        item["name"],
+                    )
+                )
             entries = entries[:5]
             if entries:
                 rendered = []
@@ -183,7 +229,9 @@ class CtagsProvider(WorkspaceIntelligenceProvider):
                     rendered.append("%s -> %s (%s)" % (item["name"], item["path"], item["kind"]))
                 content = "关键符号：%s" % "; ".join(rendered)
             else:
-                content = "检测到 tags 文件：%s" % os.path.relpath(tags_file, tools.workspace).replace(os.sep, "/")
+                content = "检测到 tags 文件：%s" % os.path.relpath(
+                    tags_file, tools.workspace
+                ).replace(os.sep, "/")
         elif ctags_path:
             content = "ctags 可用：%s；当前还没有预生成 tags 文件。" % ctags_path
         else:
@@ -195,7 +243,14 @@ class CtagsProvider(WorkspaceIntelligenceProvider):
                 content=content,
                 priority=80 if mode_name in ("build", "debug") else 40,
                 tags=["symbol", mode_name],
-                metadata={"ctags_available": bool(ctags_path), "tags_file": os.path.isfile(tags_file), "parsed_tags": bool(os.path.isfile(tags_file) and _load_ctags_entries(tags_file, limit=1)), "focus_paths": focus_paths if os.path.isfile(tags_file) else []},
+                metadata={
+                    "ctags_available": bool(ctags_path),
+                    "tags_file": os.path.isfile(tags_file),
+                    "parsed_tags": bool(
+                        os.path.isfile(tags_file) and _load_ctags_entries(tags_file, limit=1)
+                    ),
+                    "focus_paths": focus_paths if os.path.isfile(tags_file) else [],
+                },
             )
         ]
 
@@ -203,7 +258,13 @@ class CtagsProvider(WorkspaceIntelligenceProvider):
 class DiagnosticsProvider(WorkspaceIntelligenceProvider):
     name = "diagnostics"
 
-    def collect(self, session: Session, mode_name: str, tools: Any, project_memory: Optional[ProjectMemoryStore] = None) -> List[IntelligenceEvidence]:
+    def collect(
+        self,
+        session: Session,
+        mode_name: str,
+        tools: Any,
+        project_memory: Optional[ProjectMemoryStore] = None,
+    ) -> List[IntelligenceEvidence]:
         evidence = []
         working_paths = set(_working_set_paths_from_session(session))
         focus_paths = set(_focus_paths_from_session(session))
@@ -218,7 +279,11 @@ class DiagnosticsProvider(WorkspaceIntelligenceProvider):
                     priority=105,
                     tags=["diagnostic", mode_name] + list(pathless_summary["tool_names"]),
                     metadata={
-                        "tool_name": pathless_summary["tool_names"][0] if pathless_summary["tool_names"] else "",
+                        "tool_name": (
+                            pathless_summary["tool_names"][0]
+                            if pathless_summary["tool_names"]
+                            else ""
+                        ),
                         "tool_names": list(pathless_summary["tool_names"]),
                         "focus_match": False,
                         "path": "",
@@ -234,7 +299,8 @@ class DiagnosticsProvider(WorkspaceIntelligenceProvider):
                 IntelligenceEvidence(
                     provider=self.name,
                     title="Diagnostic Hotspot",
-                    content="诊断热点 %s：%s 条诊断，来自 %s。最新：%s" % (
+                    content="诊断热点 %s：%s 条诊断，来自 %s。最新：%s"
+                    % (
                         hotspot["path"],
                         hotspot["diagnostic_count"],
                         ", ".join(hotspot.get("tool_labels") or tool_names),
@@ -254,7 +320,10 @@ class DiagnosticsProvider(WorkspaceIntelligenceProvider):
             )
         if len(evidence) >= 2:
             return evidence
-        if pathless_summary is not None and not any(item.metadata.get("group_kind") == str(pathless_summary["group_kind"]) for item in evidence):
+        if pathless_summary is not None and not any(
+            item.metadata.get("group_kind") == str(pathless_summary["group_kind"])
+            for item in evidence
+        ):
             evidence.append(
                 IntelligenceEvidence(
                     provider=self.name,
@@ -263,7 +332,11 @@ class DiagnosticsProvider(WorkspaceIntelligenceProvider):
                     priority=95 if mode_name in ("build", "debug", "verify") else 55,
                     tags=["diagnostic", mode_name] + list(pathless_summary["tool_names"]),
                     metadata={
-                        "tool_name": pathless_summary["tool_names"][0] if pathless_summary["tool_names"] else "",
+                        "tool_name": (
+                            pathless_summary["tool_names"][0]
+                            if pathless_summary["tool_names"]
+                            else ""
+                        ),
                         "tool_names": list(pathless_summary["tool_names"]),
                         "focus_match": False,
                         "path": "",
@@ -303,7 +376,12 @@ class DiagnosticsProvider(WorkspaceIntelligenceProvider):
             focus_match = primary_path in working_paths or primary_path in focus_paths
             label = _observation_tool_label(observation)
             tags = ["diagnostic", label, mode_name]
-            metadata = {"tool_name": observation.tool_name, "focus_match": focus_match, "path": primary_path, "group_kind": "single_observation"}
+            metadata = {
+                "tool_name": observation.tool_name,
+                "focus_match": focus_match,
+                "path": primary_path,
+                "group_kind": "single_observation",
+            }
             evidence.append(
                 IntelligenceEvidence(
                     provider=self.name,
@@ -322,14 +400,24 @@ class DiagnosticsProvider(WorkspaceIntelligenceProvider):
 class GitStateProvider(WorkspaceIntelligenceProvider):
     name = "git"
 
-    def collect(self, session: Session, mode_name: str, tools: Any, project_memory: Optional[ProjectMemoryStore] = None) -> List[IntelligenceEvidence]:
+    def collect(
+        self,
+        session: Session,
+        mode_name: str,
+        tools: Any,
+        project_memory: Optional[ProjectMemoryStore] = None,
+    ) -> List[IntelligenceEvidence]:
         if mode_name not in ("explore", "spec", "build", "debug"):
             return []
         observation = tools.execute("git_status", {"path": "."})
         if not isinstance(observation.data, dict):
             return []
         branch = str(observation.data.get("branch") or "")
-        entries = observation.data.get("entries") if isinstance(observation.data.get("entries"), list) else []
+        entries = (
+            observation.data.get("entries")
+            if isinstance(observation.data.get("entries"), list)
+            else []
+        )
         return [
             IntelligenceEvidence(
                 provider=self.name,
@@ -349,7 +437,9 @@ class LlspBackend(object):
 
 class LlspFileBackend(LlspBackend):
     def __init__(self, relative_path: str = ".embedagent/llsp/evidence.json") -> None:
-        self.relative_path = str(relative_path or ".embedagent/llsp/evidence.json").replace("\\", "/")
+        self.relative_path = str(relative_path or ".embedagent/llsp/evidence.json").replace(
+            "\\", "/"
+        )
 
     def collect(self, workspace: str, session: Session, mode_name: str) -> List[Dict[str, Any]]:
         candidate = os.path.join(os.path.realpath(workspace), *self.relative_path.split("/"))
@@ -426,7 +516,13 @@ class LlspProvider(WorkspaceIntelligenceProvider):
     def __init__(self, backend: Optional[LlspBackend] = None) -> None:
         self.backend = backend or LlspFileBackend()
 
-    def collect(self, session: Session, mode_name: str, tools: Any, project_memory: Optional[ProjectMemoryStore] = None) -> List[IntelligenceEvidence]:
+    def collect(
+        self,
+        session: Session,
+        mode_name: str,
+        tools: Any,
+        project_memory: Optional[ProjectMemoryStore] = None,
+    ) -> List[IntelligenceEvidence]:
         if self.backend is None:
             return []
         items = self.backend.collect(tools.workspace, session, mode_name) or []
@@ -536,12 +632,22 @@ class WorkspaceIntelligenceBroker(object):
         message = "\n".join(lines)
         return message[:char_limit]
 
-    def _filter_for_mode(self, mode_name: str, evidence: List[IntelligenceEvidence]) -> List[IntelligenceEvidence]:
+    def _filter_for_mode(
+        self, mode_name: str, evidence: List[IntelligenceEvidence]
+    ) -> List[IntelligenceEvidence]:
         allowed_tags = {
             "explore": {"project_memory", "git", "recipe", "llsp", "symbol"},
             "spec": {"project_memory", "git", "recipe", "llsp", "symbol"},
             "build": {"working_set", "project_memory", "recipe", "symbol", "diagnostic", "llsp"},
-            "debug": {"working_set", "project_memory", "recipe", "symbol", "diagnostic", "git", "llsp"},
+            "debug": {
+                "working_set",
+                "project_memory",
+                "recipe",
+                "symbol",
+                "diagnostic",
+                "git",
+                "llsp",
+            },
             "verify": {"project_memory", "recipe", "diagnostic", "llsp"},
         }.get(mode_name)
         if not allowed_tags:
@@ -586,10 +692,16 @@ def _diagnostic_detail(observation: Observation) -> str:
         warnings = int(data.get("warning_count") or 0)
         failed = int(data.get("test_failures") or 0)
         if not bool(data.get("passed", False)):
-            return "质量门未通过：errors=%s, warnings=%s, test_failures=%s。" % (errors, warnings, failed)
+            return "质量门未通过：errors=%s, warnings=%s, test_failures=%s。" % (
+                errors,
+                warnings,
+                failed,
+            )
         return ""
     if observation.tool_name == "run_recipe" and str(data.get("recipe_action") or "") == "coverage":
-        summary = data.get("coverage_summary") if isinstance(data.get("coverage_summary"), dict) else {}
+        summary = (
+            data.get("coverage_summary") if isinstance(data.get("coverage_summary"), dict) else {}
+        )
         line_cov = summary.get("line_coverage")
         if line_cov is not None:
             return "最近覆盖率：line coverage %.2f%%。" % float(line_cov)
@@ -624,7 +736,11 @@ def _observation_primary_path(observation: Observation) -> str:
     direct = observation.data.get("path")
     if isinstance(direct, str) and direct:
         return direct.replace("\\", "/")
-    diagnostics = observation.data.get("diagnostics") if isinstance(observation.data.get("diagnostics"), list) else []
+    diagnostics = (
+        observation.data.get("diagnostics")
+        if isinstance(observation.data.get("diagnostics"), list)
+        else []
+    )
     for item in diagnostics:
         if not isinstance(item, dict):
             continue
@@ -681,7 +797,11 @@ def _focus_paths_from_session(session: Session) -> List[str]:
         if isinstance(direct, str) and direct and direct not in seen:
             seen.add(direct)
             paths.append(direct.replace("\\", "/"))
-        diagnostics = observation.data.get("diagnostics") if isinstance(observation.data.get("diagnostics"), list) else []
+        diagnostics = (
+            observation.data.get("diagnostics")
+            if isinstance(observation.data.get("diagnostics"), list)
+            else []
+        )
         for item in diagnostics:
             if not isinstance(item, dict):
                 continue
@@ -795,7 +915,9 @@ def _group_pathless_diagnostic_summary(observations: List[Observation]) -> Optio
         diagnostic_count += _observation_diagnostic_count(observation)
         if not latest_detail and detail:
             latest_detail = detail
-        if observation.tool_name == "report_quality_v2" and not bool(observation.data.get("passed", False)):
+        if observation.tool_name == "report_quality_v2" and not bool(
+            observation.data.get("passed", False)
+        ):
             has_quality_gate = True
             summary = _diagnostic_detail(observation)
             if summary and summary not in reasons:
@@ -825,7 +947,14 @@ def _group_pathless_diagnostic_summary(observations: List[Observation]) -> Optio
     if len(tool_names) < 2:
         return None
     content = "无路径诊断摘要：来自 %s。最新：%s" % (
-        ", ".join([_observation_tool_label(item) for item in observations if item.tool_name in tool_name_set][:4] or tool_names),
+        ", ".join(
+            [
+                _observation_tool_label(item)
+                for item in observations
+                if item.tool_name in tool_name_set
+            ][:4]
+            or tool_names
+        ),
         latest_detail or "最近一次检查未通过。",
     )
     return {
@@ -840,15 +969,31 @@ def _group_pathless_diagnostic_summary(observations: List[Observation]) -> Optio
 def _observation_diagnostic_count(observation: Observation) -> int:
     if not isinstance(observation.data, dict):
         return 0
-    diagnostics = observation.data.get("diagnostics") if isinstance(observation.data.get("diagnostics"), list) else []
+    diagnostics = (
+        observation.data.get("diagnostics")
+        if isinstance(observation.data.get("diagnostics"), list)
+        else []
+    )
     if diagnostics:
         return len(diagnostics)
-    if observation.tool_name == "run_recipe" and str(observation.data.get("recipe_action") or "") == "test":
-        summary = observation.data.get("test_summary") if isinstance(observation.data.get("test_summary"), dict) else {}
+    if (
+        observation.tool_name == "run_recipe"
+        and str(observation.data.get("recipe_action") or "") == "test"
+    ):
+        summary = (
+            observation.data.get("test_summary")
+            if isinstance(observation.data.get("test_summary"), dict)
+            else {}
+        )
         failed = int(summary.get("failed") or 0)
         if failed:
             return failed
-    if observation.tool_name == "report_quality_v2" and not bool(observation.data.get("passed", False)):
-        return int(observation.data.get("error_count") or 0) + int(observation.data.get("test_failures") or 0) or 1
+    if observation.tool_name == "report_quality_v2" and not bool(
+        observation.data.get("passed", False)
+    ):
+        return (
+            int(observation.data.get("error_count") or 0)
+            + int(observation.data.get("test_failures") or 0)
+            or 1
+        )
     return 1 if _diagnostic_detail(observation) else 0
-

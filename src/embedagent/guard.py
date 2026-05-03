@@ -100,6 +100,9 @@ class LoopGuard(object):
         return self.consecutive_failures >= self.max_consecutive_failures
 
     def stop_reason(self) -> str:
-        if not self.last_failed_retryable and self.same_failed_action_count >= self.max_same_non_retryable_failures:
+        if (
+            not self.last_failed_retryable
+            and self.same_failed_action_count >= self.max_same_non_retryable_failures
+        ):
             return "同一非重试型阻塞重复出现，已触发防护。"
         return "连续 %s 次工具调用失败，已触发防护。" % self.max_consecutive_failures

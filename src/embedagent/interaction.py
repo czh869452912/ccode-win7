@@ -70,7 +70,8 @@ def ask_user_schema() -> Dict[str, object]:
     for index in range(1, 5):
         properties["option_%s" % index] = {
             "type": "string",
-            "description": "第 %s 个建议选项文本。应是完整可执行的回答。示例：是，切到 build 模式并开始实现。" % index,
+            "description": "第 %s 个建议选项文本。应是完整可执行的回答。示例：是，切到 build 模式并开始实现。"
+            % index,
         }
         properties["option_%s_mode" % index] = {
             "type": "string",
@@ -107,9 +108,7 @@ def build_user_input_request(arguments: Dict[str, Any]) -> UserInputRequest:
         details={
             "question": question,
             "options": [
-                {"index": item.index, "text": item.text, "mode": item.mode}
-                for item in options
+                {"index": item.index, "text": item.text, "mode": item.mode} for item in options
             ],
         },
     )
-

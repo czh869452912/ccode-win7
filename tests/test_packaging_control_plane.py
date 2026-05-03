@@ -21,7 +21,11 @@ MOCK_CONFIG = ROOT / "tests" / "fixtures" / "package" / "mock-config.json"
 def _powershell_exe():
     candidates = [
         Path(r"C:\Program Files\PowerShell\7\pwsh.exe"),
-        Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32" / "WindowsPowerShell" / "v1.0" / "powershell.exe",
+        Path(os.environ.get("SystemRoot", r"C:\Windows"))
+        / "System32"
+        / "WindowsPowerShell"
+        / "v1.0"
+        / "powershell.exe",
     ]
     for candidate in candidates:
         if candidate.exists():
@@ -188,7 +192,13 @@ class TestStageJsonReports(unittest.TestCase):
             bundle_root = Path(tmp)
             report_path = bundle_root / "dependency-report.json"
             result = subprocess.run(
-                [sys.executable, str(CHECK_SCRIPT), str(bundle_root), "--json-report", str(report_path)],
+                [
+                    sys.executable,
+                    str(CHECK_SCRIPT),
+                    str(bundle_root),
+                    "--json-report",
+                    str(report_path),
+                ],
                 cwd=str(ROOT),
                 capture_output=True,
                 text=True,
@@ -359,7 +369,7 @@ class TestStageJsonReports(unittest.TestCase):
             bundle_root.mkdir()
             sources_root.mkdir()
             (bundle_root / "embedagent-gui.cmd").write_text(
-                "@echo off\nset \"BUNDLE_ROOT=%~dp0\"\n",
+                '@echo off\nset "BUNDLE_ROOT=%~dp0"\n',
                 encoding="ascii",
             )
             json_path = Path(tmp) / "validate-report.json"
@@ -535,11 +545,15 @@ class TestPackageDoctor(unittest.TestCase):
         self.assertIsNone(payload["final_status"])
         self.assertIn("doctor_checks", payload)
         self.assertTrue(payload["doctor_checks"])
-        config_checks = [check for check in payload["doctor_checks"] if check.get("name") == "config"]
+        config_checks = [
+            check for check in payload["doctor_checks"] if check.get("name") == "config"
+        ]
         self.assertEqual(len(config_checks), 1)
         self.assertTrue(config_checks[0]["ok"])
         self.assertIn("package.config.json", config_checks[0]["path"])
-        npm_checks = [check for check in payload["doctor_checks"] if check.get("name") == "runtime:npm"]
+        npm_checks = [
+            check for check in payload["doctor_checks"] if check.get("name") == "runtime:npm"
+        ]
         self.assertEqual(len(npm_checks), 1)
 
     def test_package_doctor_fails_for_missing_config(self):

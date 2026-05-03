@@ -204,7 +204,9 @@ class PermissionPolicy(object):
                 path_globs = [str(item.get("path") or "").strip()]
             command_patterns = self._list_of_strings(item.get("command_patterns"))
             if not command_patterns and str(item.get("command_prefix") or "").strip():
-                command_patterns = ["^%s" % re.escape(str(item.get("command_prefix") or "").strip())]
+                command_patterns = [
+                    "^%s" % re.escape(str(item.get("command_prefix") or "").strip())
+                ]
             result.append(
                 PermissionRule(
                     decision=decision,
@@ -321,7 +323,9 @@ class PermissionPolicy(object):
             args_summary.append("recipe=%s" % details.get("recipe"))
         if details.get("command"):
             args_summary.append(str(details.get("command")))
-        scope_text = str(details.get("path") or details.get("recipe") or details.get("command") or "session")
+        scope_text = str(
+            details.get("path") or details.get("recipe") or details.get("command") or "session"
+        )
         return build_permission_explanation(
             tool_name=tool_name,
             args_summary=", ".join(args_summary) or "-",

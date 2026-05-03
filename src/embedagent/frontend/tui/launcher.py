@@ -2,6 +2,7 @@
 TUI Launcher
 使用现有稳定的 bootstrap 入口启动 TUI。
 """
+
 from __future__ import annotations
 
 import argparse
@@ -47,7 +48,9 @@ def launch_tui(
     """启动 TUI。"""
     workspace = os.path.realpath(workspace)
     app_config = load_config(workspace)
-    resolved_base_url = str(_resolve_runtime_value(base_url, app_config.base_url, "http://127.0.0.1:8000/v1"))
+    resolved_base_url = str(
+        _resolve_runtime_value(base_url, app_config.base_url, "http://127.0.0.1:8000/v1")
+    )
     resolved_api_key = str(_resolve_runtime_value(api_key, app_config.api_key, ""))
     resolved_model = str(_resolve_runtime_value(model, app_config.model, ""))
     resolved_timeout = float(_resolve_runtime_value(timeout, app_config.timeout, 120.0))
@@ -86,18 +89,24 @@ def launch_tui(
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="EmbedAgent TUI")
     parser.add_argument("workspace", nargs="?", help="Workspace directory")
-    parser.add_argument("--workspace", dest="workspace_option", default="", help="Workspace directory")
+    parser.add_argument(
+        "--workspace", dest="workspace_option", default="", help="Workspace directory"
+    )
     parser.add_argument("--mode", default="build", help="Initial mode")
     parser.add_argument("--resume", default="", help="Resume session reference")
     parser.add_argument("--message", "-m", default="", help="Initial message")
     parser.add_argument("--base-url", default="", help="Model service root URL")
     parser.add_argument("--api-key", default="", help="Model service API key")
     parser.add_argument("--model", default="", help="Model name")
-    parser.add_argument("--timeout", type=float, default=None, help="Model request timeout in seconds")
+    parser.add_argument(
+        "--timeout", type=float, default=None, help="Model request timeout in seconds"
+    )
     parser.add_argument("--max-turns", type=int, default=None, help="Maximum turns per session")
     parser.add_argument("--approve-all", action="store_true", help="Auto-approve all risky actions")
     parser.add_argument("--approve-writes", action="store_true", help="Auto-approve file writes")
-    parser.add_argument("--approve-commands", action="store_true", help="Auto-approve commands and toolchain runs")
+    parser.add_argument(
+        "--approve-commands", action="store_true", help="Auto-approve commands and toolchain runs"
+    )
     parser.add_argument("--permission-rules", default="", help="Permission rules file path")
     parser.add_argument("--headless", action="store_true", help="Headless mode")
     parser.add_argument("--debug", action="store_true", help="Debug mode")
@@ -111,7 +120,7 @@ def main(argv: Optional[list] = None) -> int:
 
     logging.basicConfig(
         level=logging.DEBUG if args.debug else logging.INFO,
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
 
     workspace_arg = args.workspace_option or args.workspace or os.getcwd()
@@ -145,4 +154,3 @@ def main(argv: Optional[list] = None) -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
-

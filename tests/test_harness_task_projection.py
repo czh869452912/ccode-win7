@@ -100,7 +100,10 @@ class HarnessTaskProjectionTests(unittest.TestCase):
                 "verify:summarize",
             ],
         )
-        self.assertEqual([node.title for node in state.session.task_graph.tasks], [item["content"] for item in payload["tasks"]])
+        self.assertEqual(
+            [node.title for node in state.session.task_graph.tasks],
+            [item["content"] for item in payload["tasks"]],
+        )
 
 
 if __name__ == "__main__":

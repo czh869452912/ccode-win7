@@ -15,7 +15,9 @@ class EditorService(object):
 
     def open_buffer(self, path: str) -> EditorBuffer:
         payload = self.workspace_service.read_file(path)
-        candidate = os.path.join(self.workspace, str(payload.get("path") or path).replace("/", os.sep))
+        candidate = os.path.join(
+            self.workspace, str(payload.get("path") or path).replace("/", os.sep)
+        )
         return EditorBuffer(
             path=str(payload.get("path") or path),
             content=str(payload.get("content") or ""),

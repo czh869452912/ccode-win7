@@ -2,6 +2,7 @@
 EmbedAgent Protocol - 前后端通信协议
 定义 Agent Core 与 Frontend 之间的接口
 """
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -17,18 +18,20 @@ def _utc_now() -> datetime:
 
 class MessageType(Enum):
     """消息类型枚举"""
-    USER = auto()           # 用户输入
-    ASSISTANT = auto()      # AI 回复
-    TOOL_START = auto()     # 工具开始
-    TOOL_FINISH = auto()    # 工具完成
+
+    USER = auto()  # 用户输入
+    ASSISTANT = auto()  # AI 回复
+    TOOL_START = auto()  # 工具开始
+    TOOL_FINISH = auto()  # 工具完成
     TOOL_PROGRESS = auto()  # 工具进度
-    SYSTEM = auto()         # 系统消息
-    ERROR = auto()          # 错误消息
+    SYSTEM = auto()  # 系统消息
+    ERROR = auto()  # 错误消息
     CONTEXT_COMPACTED = auto()  # 上下文压缩
 
 
 class SessionStatus(Enum):
     """会话状态枚举"""
+
     IDLE = "idle"
     RUNNING = "running"
     WAITING_PERMISSION = "waiting_permission"
@@ -39,6 +42,7 @@ class SessionStatus(Enum):
 @dataclass
 class Message:
     """结构化消息"""
+
     id: str
     type: MessageType
     content: str
@@ -51,6 +55,7 @@ class Message:
 @dataclass
 class ToolCall:
     """工具调用信息"""
+
     tool_name: str
     arguments: Dict[str, Any]
     call_id: str
@@ -64,6 +69,7 @@ class ToolCall:
 @dataclass
 class ToolResult:
     """工具执行结果"""
+
     tool_name: str
     success: bool
     data: Dict[str, Any] = field(default_factory=dict)
@@ -80,6 +86,7 @@ class ToolResult:
 @dataclass
 class PermissionRequest:
     """权限请求"""
+
     permission_id: str
     tool_name: str
     category: str
@@ -94,6 +101,7 @@ class PermissionRequest:
 @dataclass
 class UserInputRequest:
     """用户输入请求"""
+
     request_id: str
     tool_name: str
     question: str
@@ -108,6 +116,7 @@ class UserInputRequest:
 @dataclass
 class CommandResult:
     """Slash command / workflow result"""
+
     command_name: str
     success: bool
     message: str
@@ -120,6 +129,7 @@ class CommandResult:
 @dataclass
 class PlanSnapshot:
     """当前会话的计划快照"""
+
     session_id: str
     title: str
     content: str
@@ -132,6 +142,7 @@ class PlanSnapshot:
 @dataclass
 class TimelineItem:
     """前端可消费的统一时间线条目"""
+
     id: str
     kind: str
     content: str = ""
@@ -142,6 +153,7 @@ class TimelineItem:
 @dataclass
 class AgentStepRecord:
     """单个用户 turn 下的一次 agent 迭代"""
+
     step_id: str
     step_index: int = 0
     reasoning: str = ""
@@ -156,6 +168,7 @@ class AgentStepRecord:
 @dataclass
 class TurnRecord:
     """结构化 turn 记录"""
+
     turn_id: str
     user_text: str
     reasoning: str = ""
@@ -170,6 +183,7 @@ class TurnRecord:
 @dataclass
 class RuntimeEnvironmentSnapshot:
     """托管运行环境摘要"""
+
     runtime_source: str = ""
     bundled_tools_ready: bool = False
     fallback_warnings: List[str] = field(default_factory=list)
@@ -180,6 +194,7 @@ class RuntimeEnvironmentSnapshot:
 @dataclass
 class PermissionContextView:
     """前端展示权限上下文所需的数据"""
+
     session_id: str
     rules_path: str
     categories: List[str] = field(default_factory=list)
@@ -193,6 +208,7 @@ class PermissionContextView:
 @dataclass
 class DiffPreview:
     """Diff 预览"""
+
     path: str
     old_content: str
     new_content: str
@@ -203,6 +219,7 @@ class DiffPreview:
 @dataclass
 class SessionSnapshot:
     """会话快照"""
+
     session_id: str
     status: SessionStatus
     current_mode: str
@@ -251,6 +268,7 @@ class SessionSnapshot:
 @dataclass
 class WorkspaceInfo:
     """工作区信息"""
+
     path: str
     git_branch: str = ""
     git_dirty: int = 0
@@ -259,6 +277,7 @@ class WorkspaceInfo:
 
 
 # ============ 回调接口 ============
+
 
 class FrontendCallbacks(Protocol):
     """前端回调协议 - Core 调用 Frontend"""
@@ -374,8 +393,7 @@ class CoreInterface(ABC):
         pass
 
     @abstractmethod
-    def reply_user_input(self, session_id: str, request_id: str,
-                        answer: str, **kwargs) -> None:
+    def reply_user_input(self, session_id: str, request_id: str, answer: str, **kwargs) -> None:
         """回复用户输入请求"""
         pass
 

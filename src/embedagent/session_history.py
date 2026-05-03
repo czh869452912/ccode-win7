@@ -59,14 +59,15 @@ class SessionHistoryAssembler(object):
                         "reasoning": step.reasoning,
                         "assistant_text": step.assistant_message,
                         "tool_calls": [
-                            self._serialize_tool_call(record, runtime)
-                            for record in step.tool_calls
+                            self._serialize_tool_call(record, runtime) for record in step.tool_calls
                         ],
                         "transitions": [
                             self._serialize_transition(transition)
                             for transition in step_transitions
                         ],
-                        "status": self._step_status(step, step_transition, turn_index, step_index, session),
+                        "status": self._step_status(
+                            step, step_transition, turn_index, step_index, session
+                        ),
                     }
                 )
             turns.append(
@@ -75,8 +76,7 @@ class SessionHistoryAssembler(object):
                     "user_text": turn.user_message,
                     "steps": steps,
                     "transitions": [
-                        self._serialize_transition(transition)
-                        for transition in turn.transitions
+                        self._serialize_transition(transition) for transition in turn.transitions
                     ],
                     "status": self._turn_status(turn),
                 }
@@ -94,7 +94,9 @@ class SessionHistoryAssembler(object):
             },
         }
 
-    def _serialize_tool_call(self, record: ToolCallRecord, runtime: Dict[str, Any]) -> Dict[str, Any]:
+    def _serialize_tool_call(
+        self, record: ToolCallRecord, runtime: Dict[str, Any]
+    ) -> Dict[str, Any]:
         presentation = self._resolve_tool_presentation(record)
         observation = record.observation
         return {
@@ -115,7 +117,11 @@ class SessionHistoryAssembler(object):
         }
 
     def _resolve_tool_presentation(self, record: ToolCallRecord) -> Dict[str, Any]:
-        snapshot = record.presentation if isinstance(record.presentation, ToolPresentationSnapshot) else ToolPresentationSnapshot()
+        snapshot = (
+            record.presentation
+            if isinstance(record.presentation, ToolPresentationSnapshot)
+            else ToolPresentationSnapshot()
+        )
         catalog_entry = {}
         if callable(self._tool_catalog_lookup):
             item = self._tool_catalog_lookup(record.tool_name) or {}
@@ -166,17 +172,25 @@ class SessionHistoryAssembler(object):
         if isinstance(pending, PendingInteraction):
             metadata.setdefault("interaction_id", str(pending.interaction_id or ""))
             if pending.kind == "permission":
-                metadata.setdefault("permission", dict(pending.request_payload.get("permission") or {}))
+                metadata.setdefault(
+                    "permission", dict(pending.request_payload.get("permission") or {})
+                )
             elif pending.kind == "user_input":
-                metadata.setdefault("user_input", dict(pending.request_payload.get("request") or {}))
+                metadata.setdefault(
+                    "user_input", dict(pending.request_payload.get("request") or {})
+                )
         return {
             "kind": kind,
-            "display_reason": _display_transition_reason(str(getattr(transition, "reason", "") or "")),
+            "display_reason": _display_transition_reason(
+                str(getattr(transition, "reason", "") or "")
+            ),
             "message": str(getattr(transition, "message", "") or ""),
             "metadata": metadata,
         }
 
-    def _serialize_pending_interaction(self, pending: Optional[PendingInteraction]) -> Optional[Dict[str, Any]]:
+    def _serialize_pending_interaction(
+        self, pending: Optional[PendingInteraction]
+    ) -> Optional[Dict[str, Any]]:
         if pending is None:
             return None
         return {

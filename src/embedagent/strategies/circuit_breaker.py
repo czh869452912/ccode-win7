@@ -8,6 +8,7 @@ from typing import Any, Callable, Optional
 
 class CircuitBreakerOpenError(Exception):
     """Raised when a call is attempted while the circuit breaker is OPEN."""
+
     pass
 
 

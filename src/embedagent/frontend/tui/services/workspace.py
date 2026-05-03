@@ -27,7 +27,13 @@ class WorkspaceService(object):
             dir_count += len(dir_names)
         return {
             "workspace": self.workspace,
-            "git": {"available": False, "branch": "", "dirty_count": 0, "modified_count": 0, "untracked_count": 0},
+            "git": {
+                "available": False,
+                "branch": "",
+                "dirty_count": 0,
+                "modified_count": 0,
+                "untracked_count": 0,
+            },
             "tree": {"file_count": file_count, "dir_count": dir_count},
         }
 
@@ -53,12 +59,14 @@ class WorkspaceService(object):
                 absolute = os.path.join(current_path, name)
                 if os.path.isdir(absolute) and name in SKIP_DIR_NAMES:
                     continue
-                items.append({
-                    "path": self._relative(absolute),
-                    "name": name,
-                    "kind": "dir" if os.path.isdir(absolute) else "file",
-                    "depth": depth,
-                })
+                items.append(
+                    {
+                        "path": self._relative(absolute),
+                        "name": name,
+                        "kind": "dir" if os.path.isdir(absolute) else "file",
+                        "depth": depth,
+                    }
+                )
                 if len(items) >= limit:
                     truncated[0] = True
                     return
@@ -67,7 +75,13 @@ class WorkspaceService(object):
 
         if os.path.isdir(root):
             walk(root, 0)
-        return {"root": self._relative(root), "max_depth": max_depth, "limit": limit, "truncated": truncated[0], "items": items}
+        return {
+            "root": self._relative(root),
+            "max_depth": max_depth,
+            "limit": limit,
+            "truncated": truncated[0],
+            "items": items,
+        }
 
     def read_file(self, path: str) -> Dict[str, Any]:
         method = getattr(self.adapter, "read_workspace_file", None)
@@ -141,7 +155,9 @@ class WorkspaceService(object):
         resolved = os.path.realpath(candidate)
         workspace_norm = os.path.normcase(self.workspace)
         resolved_norm = os.path.normcase(resolved)
-        if not (resolved_norm == workspace_norm or resolved_norm.startswith(workspace_norm + os.sep)):
+        if not (
+            resolved_norm == workspace_norm or resolved_norm.startswith(workspace_norm + os.sep)
+        ):
             raise ValueError("路径超出当前工作区。")
         if not allow_missing and not os.path.exists(resolved):
             raise ValueError("路径不存在：%s" % path)

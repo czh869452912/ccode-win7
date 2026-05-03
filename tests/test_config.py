@@ -1,4 +1,5 @@
 """Tests for embedagent.config module."""
+
 import json
 import os
 import sys
@@ -14,10 +15,18 @@ from embedagent.config import AppConfig, _load_json_file, _merge, load_config
 class TestAppConfigDefaults(unittest.TestCase):
     def test_all_fields_default_to_none(self):
         cfg = AppConfig()
-        for field in ("base_url", "api_key", "model", "timeout",
-                      "max_context_tokens", "reserve_output_tokens",
-                      "chars_per_token", "max_recent_turns",
-                      "max_turns", "default_mode"):
+        for field in (
+            "base_url",
+            "api_key",
+            "model",
+            "timeout",
+            "max_context_tokens",
+            "reserve_output_tokens",
+            "chars_per_token",
+            "max_recent_turns",
+            "max_turns",
+            "default_mode",
+        ):
             self.assertIsNone(getattr(cfg, field), "%s should be None" % field)
 
     def test_mode_writable_globs_default_empty(self):
@@ -138,7 +147,9 @@ class TestMerge(unittest.TestCase):
 class TestLoadConfig(unittest.TestCase):
     def test_no_config_files_returns_defaults(self):
         with tempfile.TemporaryDirectory() as workspace:
-            with tempfile.TemporaryDirectory() as user_config_dir, patch("embedagent.config._USER_CONFIG_DIR", user_config_dir):
+            with tempfile.TemporaryDirectory() as user_config_dir, patch(
+                "embedagent.config._USER_CONFIG_DIR", user_config_dir
+            ):
                 cfg = load_config(workspace)
             self.assertIsNone(cfg.model)
             self.assertEqual(cfg.mode_writable_globs, {})
@@ -151,7 +162,9 @@ class TestLoadConfig(unittest.TestCase):
             config_path = os.path.join(config_dir, "config.json")
             with open(config_path, "w") as f:
                 json.dump({"model": "project-model", "max_context_tokens": 16000}, f)
-            with tempfile.TemporaryDirectory() as user_config_dir, patch("embedagent.config._USER_CONFIG_DIR", user_config_dir):
+            with tempfile.TemporaryDirectory() as user_config_dir, patch(
+                "embedagent.config._USER_CONFIG_DIR", user_config_dir
+            ):
                 cfg = load_config(workspace)
             self.assertEqual(cfg.model, "project-model")
             self.assertEqual(cfg.max_context_tokens, 16000)
@@ -172,7 +185,9 @@ class TestLoadConfig(unittest.TestCase):
             config_path = os.path.join(config_dir, "config.json")
             with open(config_path, "w") as f:
                 f.write("{ invalid json }")
-            with tempfile.TemporaryDirectory() as user_config_dir, patch("embedagent.config._USER_CONFIG_DIR", user_config_dir):
+            with tempfile.TemporaryDirectory() as user_config_dir, patch(
+                "embedagent.config._USER_CONFIG_DIR", user_config_dir
+            ):
                 cfg = load_config(workspace)
             self.assertIsNone(cfg.model)
 
@@ -183,7 +198,9 @@ class TestLoadConfig(unittest.TestCase):
             config_path = os.path.join(config_dir, "config.json")
             with open(config_path, "w") as f:
                 json.dump({"mode_writable_globs": {"build": ["app/**/*.py"]}}, f)
-            with tempfile.TemporaryDirectory() as user_config_dir, patch("embedagent.config._USER_CONFIG_DIR", user_config_dir):
+            with tempfile.TemporaryDirectory() as user_config_dir, patch(
+                "embedagent.config._USER_CONFIG_DIR", user_config_dir
+            ):
                 cfg = load_config(workspace)
             self.assertEqual(cfg.mode_writable_globs["build"], ["app/**/*.py"])
 
@@ -194,7 +211,9 @@ class TestLoadConfig(unittest.TestCase):
             config_path = os.path.join(config_dir, "config.json")
             with open(config_path, "w") as f:
                 json.dump({"mode_extra_writable_globs": {"build": ["**/*.cmake"]}}, f)
-            with tempfile.TemporaryDirectory() as user_config_dir, patch("embedagent.config._USER_CONFIG_DIR", user_config_dir):
+            with tempfile.TemporaryDirectory() as user_config_dir, patch(
+                "embedagent.config._USER_CONFIG_DIR", user_config_dir
+            ):
                 cfg = load_config(workspace)
             self.assertEqual(cfg.mode_extra_writable_globs["build"], ["**/*.cmake"])
 
@@ -219,7 +238,9 @@ class TestLoadConfig(unittest.TestCase):
                     },
                     f,
                 )
-            with tempfile.TemporaryDirectory() as user_config_dir, patch("embedagent.config._USER_CONFIG_DIR", user_config_dir):
+            with tempfile.TemporaryDirectory() as user_config_dir, patch(
+                "embedagent.config._USER_CONFIG_DIR", user_config_dir
+            ):
                 cfg = load_config(workspace)
             self.assertEqual(cfg.base_url, "http://nested/v1")
             self.assertEqual(cfg.api_key, "nested-key")
@@ -231,4 +252,3 @@ class TestLoadConfig(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

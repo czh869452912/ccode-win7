@@ -15,6 +15,7 @@ class TestShadowGitSnapshot(unittest.TestCase):
         self.temp_dir = tempfile.mkdtemp()
         # Initialize git repo
         import subprocess
+
         subprocess.run(["git", "init"], cwd=self.temp_dir, capture_output=True)
         subprocess.run(
             ["git", "config", "user.email", "test@test.com"],
@@ -40,6 +41,7 @@ class TestShadowGitSnapshot(unittest.TestCase):
 
     def tearDown(self):
         import shutil
+
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
     def test_create_snapshot_success(self):
@@ -53,11 +55,14 @@ class TestShadowGitSnapshot(unittest.TestCase):
         self.assertTrue(len(snapshot_id) > 0)
 
         # Check metadata file exists
-        meta_path = os.path.join(self.temp_dir, ".embedagent", "snapshots", "{}.json".format(snapshot_id))
+        meta_path = os.path.join(
+            self.temp_dir, ".embedagent", "snapshots", "{}.json".format(snapshot_id)
+        )
         self.assertTrue(os.path.exists(meta_path))
 
         # Check stash entry exists
         import subprocess
+
         result = subprocess.run(
             ["git", "stash", "list"],
             cwd=self.temp_dir,
@@ -73,20 +78,21 @@ class TestShadowGitSnapshot(unittest.TestCase):
             f.write("content 1\n")
         # Stage and commit so file is tracked
         import subprocess
+
         subprocess.run(["git", "add", "."], cwd=self.temp_dir, capture_output=True)
         subprocess.run(["git", "commit", "-m", "content 1"], cwd=self.temp_dir, capture_output=True)
-        
+
         # Now modify the tracked file and create first snapshot
         with open(test_file, "w") as f:
             f.write("modified content 1\n")
         sid1 = self.snapshot.create_snapshot("reason_1")
         time.sleep(1.1)
-        
+
         # Modify again and create second snapshot
         with open(test_file, "w") as f:
             f.write("modified content 2\n")
         sid2 = self.snapshot.create_snapshot("reason_2")
-        
+
         snapshots = self.snapshot.list_snapshots()
         self.assertEqual(len(snapshots), 2)
 
@@ -131,11 +137,14 @@ class TestShadowGitSnapshot(unittest.TestCase):
         self.assertTrue(success)
 
         # Check metadata removed
-        meta_path = os.path.join(self.temp_dir, ".embedagent", "snapshots", "{}.json".format(snapshot_id))
+        meta_path = os.path.join(
+            self.temp_dir, ".embedagent", "snapshots", "{}.json".format(snapshot_id)
+        )
         self.assertFalse(os.path.exists(meta_path))
 
         # Check stash dropped
         import subprocess
+
         result = subprocess.run(
             ["git", "stash", "list"],
             cwd=self.temp_dir,
@@ -153,7 +162,9 @@ class TestShadowGitSnapshot(unittest.TestCase):
         snapshot_id = self.snapshot.create_snapshot("cleanup_test")
 
         # Mock metadata with old timestamp
-        meta_path = os.path.join(self.temp_dir, ".embedagent", "snapshots", "{}.json".format(snapshot_id))
+        meta_path = os.path.join(
+            self.temp_dir, ".embedagent", "snapshots", "{}.json".format(snapshot_id)
+        )
         with open(meta_path, "r") as f:
             metadata = __import__("json").load(f)
         metadata["created_at"] = datetime(2020, 1, 1, tzinfo=timezone.utc).isoformat()
@@ -174,6 +185,7 @@ class TestShadowGitSnapshot(unittest.TestCase):
                 ShadowGitSnapshot(non_git_dir)
         finally:
             import shutil
+
             shutil.rmtree(non_git_dir, ignore_errors=True)
 
 

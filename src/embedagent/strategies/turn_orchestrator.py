@@ -13,7 +13,6 @@ from embedagent.llm import ModelClientError
 from embedagent.permissions import PermissionPolicy, PermissionRequest
 from embedagent.session import (
     Action,
-    AssistantReply,
     LoopTransition,
     Observation,
     PendingInteraction,
@@ -178,7 +177,9 @@ class TurnOrchestrator(object):
             # Parallel batch execution
             def _execute_tool(action):
                 try:
-                    return self.tools.execute_with_interrupt(action.name, action.arguments, stop_event)
+                    return self.tools.execute_with_interrupt(
+                        action.name, action.arguments, stop_event
+                    )
                 except ToolError as exc:
                     return self._failure_observation(
                         action.name,
@@ -228,12 +229,19 @@ class TurnOrchestrator(object):
                     )
                     if suspended is not None:
                         return suspended
-                    if stop_event is not None and stop_event.is_set() and not self._is_interrupted_observation(observation):
+                    if (
+                        stop_event is not None
+                        and stop_event.is_set()
+                        and not self._is_interrupted_observation(observation)
+                    ):
                         batch_interrupted = True
                         executor.discard()
                         observation = self._interrupted_observation(update.action.name)
 
-                if isinstance(observation.data, dict) and observation.data.get("error_kind") == "discarded":
+                if (
+                    isinstance(observation.data, dict)
+                    and observation.data.get("error_kind") == "discarded"
+                ):
                     batch_discarded = True
 
                 if on_tool_finish is not None:
@@ -365,7 +373,9 @@ class TurnOrchestrator(object):
                     None,
                 )
             if decision.request is not None:
-                approved = permission_handler(decision.request) if permission_handler is not None else None
+                approved = (
+                    permission_handler(decision.request) if permission_handler is not None else None
+                )
                 if approved is None:
                     pending = PendingInteraction(
                         kind="permission",
@@ -412,7 +422,9 @@ class TurnOrchestrator(object):
                 data={"tool_name": action.name},
             )
         try:
-            observation = self.tools.execute_with_interrupt(action.name, action.arguments, stop_event)
+            observation = self.tools.execute_with_interrupt(
+                action.name, action.arguments, stop_event
+            )
             if self.tracer is not None:
                 self.tracer.record(
                     TraceEventType.TOOL_EXECUTION_END,
@@ -426,7 +438,11 @@ class TurnOrchestrator(object):
                     TraceEventType.ERROR,
                     session_id,
                     turn_id,
-                    data={"tool_name": action.name, "error_type": "ToolError", "error_message": str(exc)},
+                    data={
+                        "tool_name": action.name,
+                        "error_type": "ToolError",
+                        "error_message": str(exc),
+                    },
                 )
             observation = self._failure_observation(
                 action.name,

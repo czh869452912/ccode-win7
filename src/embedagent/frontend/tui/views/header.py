@@ -11,7 +11,11 @@ def _truncate_text(text: str, limit: int) -> str:
 
 def build_header_text(state: TerminalState) -> str:
     snapshot = state.session.current_snapshot
-    git_info = state.workspace_snapshot.get("git") if isinstance(state.workspace_snapshot.get("git"), dict) else {}
+    git_info = (
+        state.workspace_snapshot.get("git")
+        if isinstance(state.workspace_snapshot.get("git"), dict)
+        else {}
+    )
     branch = str(git_info.get("branch") or "-")
     dirty = int(git_info.get("dirty_count") or 0)
     last_error = state.session.last_error or str(snapshot.get("last_error") or "")
@@ -33,9 +37,7 @@ def build_header_text(state: TerminalState) -> str:
         second_line += "  editor=dirty"
     if last_error:
         second_line += "  error=%s" % _truncate_text(last_error, 64)
-    return (
-        "session=%s  mode=%s  status=%s  workspace=%s\n%s"
-    ) % (
+    return ("session=%s  mode=%s  status=%s  workspace=%s\n%s") % (
         str(snapshot.get("session_id") or "-")[:12],
         snapshot.get("current_mode") or state.initial_mode,
         snapshot.get("status") or "idle",

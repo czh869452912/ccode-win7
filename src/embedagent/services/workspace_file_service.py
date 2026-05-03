@@ -4,7 +4,7 @@ import difflib
 import io
 import logging
 import os
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from embedagent.tools._base import SKIP_DIR_NAMES
 
@@ -27,8 +27,7 @@ class WorkspaceFileService(object):
         workspace_norm = os.path.normcase(self.workspace_root)
         resolved_norm = os.path.normcase(resolved)
         if not (
-            resolved_norm == workspace_norm
-            or resolved_norm.startswith(workspace_norm + os.sep)
+            resolved_norm == workspace_norm or resolved_norm.startswith(workspace_norm + os.sep)
         ):
             raise ValueError("路径超出当前工作区。")
         if not allow_missing and not os.path.exists(resolved):
@@ -122,7 +121,9 @@ class WorkspaceFileService(object):
                     "path": self.relative_path(absolute),
                     "name": name,
                     "kind": kind,
-                    "has_children": self._directory_has_visible_children(absolute) if kind == "dir" else False,
+                    "has_children": (
+                        self._directory_has_visible_children(absolute) if kind == "dir" else False
+                    ),
                 }
             )
             if len(items) >= limit:

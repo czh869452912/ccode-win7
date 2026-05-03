@@ -48,9 +48,16 @@ _BUILTIN_MODES = {
             "提供 2-4 个选项（如 spec / build / debug），等待用户用 /mode 切换。"
             "不要擅自写文件。"
         ),
-        "allowed_tools": ["read_file", "list_dir", "glob_files", "grep_text",
-                          "git_status", "git_log",
-                          "task_status", "ask_user"],
+        "allowed_tools": [
+            "read_file",
+            "list_dir",
+            "glob_files",
+            "grep_text",
+            "git_status",
+            "git_log",
+            "task_status",
+            "ask_user",
+        ],
         "writable_globs": [],
     },
     "spec": {
@@ -61,8 +68,15 @@ _BUILTIN_MODES = {
             "任务开始时用 task_status 查看待办摘要。"
             "不要擅自切到实现模式；若需要实现，用 ask_user 告知用户。"
         ),
-        "allowed_tools": ["read_file", "list_dir", "glob_files", "grep_text",
-                          "write_file", "task_status", "ask_user"],
+        "allowed_tools": [
+            "read_file",
+            "list_dir",
+            "glob_files",
+            "grep_text",
+            "write_file",
+            "task_status",
+            "ask_user",
+        ],
         "writable_globs": ["**/*.md", "**/*.rst", "**/*.txt"],
     },
     "build": {
@@ -73,18 +87,46 @@ _BUILTIN_MODES = {
             "优先使用 task_status 了解当前任务阶段。"
             "应复用现有工程结构，不要假设固定目录；如遇关键分歧，用 ask_user 请求确认。"
         ),
-        "allowed_tools": ["read_file", "list_dir", "glob_files", "grep_text",
-                          "write_file", "edit_file", "run_recipe", "list_recipes",
-                          "task_status", "ask_user"],
+        "allowed_tools": [
+            "read_file",
+            "list_dir",
+            "glob_files",
+            "grep_text",
+            "write_file",
+            "edit_file",
+            "run_recipe",
+            "list_recipes",
+            "task_status",
+            "ask_user",
+        ],
         "writable_globs": [
-            "**/*.c", "**/*.cc", "**/*.cpp", "**/*.cxx",
-            "**/*.h", "**/*.hh", "**/*.hpp", "**/*.hxx",
-            "**/*.py", "**/*.pyi", "**/*.ps1", "**/*.bat",
-            "**/*.toml", "**/*.cfg", "**/*.ini",
-            "**/*.json", "**/*.yaml", "**/*.yml",
-            "**/*.cmake", "CMakeLists.txt", "**/CMakeLists.txt",
-            "Makefile", "**/Makefile", "makefile", "**/makefile",
-            "meson.build", "**/meson.build",
+            "**/*.c",
+            "**/*.cc",
+            "**/*.cpp",
+            "**/*.cxx",
+            "**/*.h",
+            "**/*.hh",
+            "**/*.hpp",
+            "**/*.hxx",
+            "**/*.py",
+            "**/*.pyi",
+            "**/*.ps1",
+            "**/*.bat",
+            "**/*.toml",
+            "**/*.cfg",
+            "**/*.ini",
+            "**/*.json",
+            "**/*.yaml",
+            "**/*.yml",
+            "**/*.cmake",
+            "CMakeLists.txt",
+            "**/CMakeLists.txt",
+            "Makefile",
+            "**/Makefile",
+            "makefile",
+            "**/makefile",
+            "meson.build",
+            "**/meson.build",
         ],
     },
     "debug": {
@@ -95,18 +137,47 @@ _BUILTIN_MODES = {
             "任务开始时用 task_status 查看当前阶段。"
             "若需要更大范围重构，用 ask_user 告知用户建议切换到 build 模式。"
         ),
-        "allowed_tools": ["read_file", "list_dir", "glob_files", "grep_text",
-                          "write_file", "edit_file", "run_recipe", "list_recipes",
-                          "record_failing_evidence", "task_status", "ask_user"],
+        "allowed_tools": [
+            "read_file",
+            "list_dir",
+            "glob_files",
+            "grep_text",
+            "write_file",
+            "edit_file",
+            "run_recipe",
+            "list_recipes",
+            "record_failing_evidence",
+            "task_status",
+            "ask_user",
+        ],
         "writable_globs": [
-            "**/*.c", "**/*.cc", "**/*.cpp", "**/*.cxx",
-            "**/*.h", "**/*.hh", "**/*.hpp", "**/*.hxx",
-            "**/*.py", "**/*.pyi", "**/*.ps1", "**/*.bat",
-            "**/*.toml", "**/*.cfg", "**/*.ini",
-            "**/*.json", "**/*.yaml", "**/*.yml",
-            "**/*.cmake", "CMakeLists.txt", "**/CMakeLists.txt",
-            "Makefile", "**/Makefile", "makefile", "**/makefile",
-            "meson.build", "**/meson.build",
+            "**/*.c",
+            "**/*.cc",
+            "**/*.cpp",
+            "**/*.cxx",
+            "**/*.h",
+            "**/*.hh",
+            "**/*.hpp",
+            "**/*.hxx",
+            "**/*.py",
+            "**/*.pyi",
+            "**/*.ps1",
+            "**/*.bat",
+            "**/*.toml",
+            "**/*.cfg",
+            "**/*.ini",
+            "**/*.json",
+            "**/*.yaml",
+            "**/*.yml",
+            "**/*.cmake",
+            "CMakeLists.txt",
+            "**/CMakeLists.txt",
+            "Makefile",
+            "**/Makefile",
+            "makefile",
+            "**/makefile",
+            "meson.build",
+            "**/meson.build",
         ],
     },
     "verify": {
@@ -116,8 +187,13 @@ _BUILTIN_MODES = {
             "本模式不改代码；发现问题时只说明证据与建议，用 ask_user 告知用户需要切换到哪个模式修复。"
             "任务开始时用 task_status 查看当前验证阶段。"
         ),
-        "allowed_tools": ["list_recipes", "run_recipe", "report_quality_v2",
-                          "task_status", "ask_user"],
+        "allowed_tools": [
+            "list_recipes",
+            "run_recipe",
+            "report_quality_v2",
+            "task_status",
+            "ask_user",
+        ],
         "writable_globs": [],
     },
 }  # type: Dict[str, Dict[str, object]]
@@ -128,6 +204,7 @@ _MODE_COMMAND_RE = re.compile(r"^/mode\s+(\w+)(?:\s+(.*))?$", re.DOTALL)
 # ---------------------------------------------------------------------------
 # Factory-based registry — replaces mutable global MODE_REGISTRY
 # ---------------------------------------------------------------------------
+
 
 def get_mode_registry(fresh: bool = False) -> Dict[str, Any]:
     """Return the mode registry.
@@ -216,6 +293,7 @@ _register_mode_factory()
 # Config-driven initialization
 # ---------------------------------------------------------------------------
 
+
 def load_modes_config(workspace: str) -> Dict[str, Dict[str, object]]:
     """Load mode overrides from user-level and project-level modes.json.
 
@@ -262,6 +340,7 @@ def load_modes_config(workspace: str) -> Dict[str, Dict[str, object]]:
 # Prompt frame loading
 # ---------------------------------------------------------------------------
 
+
 def _load_prompt_frame() -> str:
     """Return the prompt frame template, preferring ~/.embedagent/prompt_frame.txt."""
     user_frame = os.path.join(os.path.expanduser("~"), ".embedagent", "prompt_frame.txt")
@@ -291,6 +370,7 @@ def _load_project_context(workspace: str) -> str:
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
+
 
 def mode_names() -> List[str]:
     return list(MODE_REGISTRY.keys())

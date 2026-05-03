@@ -16,7 +16,8 @@ def build_tools(ctx) -> List[ToolDefinition]:
             if not isinstance(item, dict):
                 continue
             preview.append(
-                "%s[%s]" % (
+                "%s[%s]"
+                % (
                     str(item.get("id") or ""),
                     str(item.get("recipe_action") or item.get("tool_name") or ""),
                 )
@@ -109,7 +110,10 @@ def build_tools(ctx) -> List[ToolDefinition]:
             parameters={
                 "type": "object",
                 "properties": {
-                    "recipe_id": {"type": "string", "description": "recipe 标识。示例：detected:build"},
+                    "recipe_id": {
+                        "type": "string",
+                        "description": "recipe 标识。示例：detected:build",
+                    },
                 },
                 "required": ["recipe_id"],
                 "additionalProperties": False,

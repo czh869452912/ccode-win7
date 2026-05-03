@@ -27,6 +27,7 @@
         }
     }
 """
+
 from __future__ import annotations
 
 import json
@@ -79,7 +80,12 @@ def _merge(base: AppConfig, overrides: dict) -> AppConfig:
                 normalized[field_name] = llm_section.get(field_name)
     context_section = overrides.get("context")
     if isinstance(context_section, dict):
-        for field_name in ("max_context_tokens", "reserve_output_tokens", "chars_per_token", "max_recent_turns"):
+        for field_name in (
+            "max_context_tokens",
+            "reserve_output_tokens",
+            "chars_per_token",
+            "max_recent_turns",
+        ):
             if normalized.get(field_name) is None and context_section.get(field_name) is not None:
                 normalized[field_name] = context_section.get(field_name)
     session_section = overrides.get("session")
@@ -88,10 +94,17 @@ def _merge(base: AppConfig, overrides: dict) -> AppConfig:
             normalized["max_turns"] = session_section.get("max_turns")
 
     simple_fields = (
-        "base_url", "api_key", "model", "timeout",
-        "max_context_tokens", "reserve_output_tokens",
-        "chars_per_token", "max_recent_turns",
-        "max_turns", "default_mode", "allow_system_tool_fallback",
+        "base_url",
+        "api_key",
+        "model",
+        "timeout",
+        "max_context_tokens",
+        "reserve_output_tokens",
+        "chars_per_token",
+        "max_recent_turns",
+        "max_turns",
+        "default_mode",
+        "allow_system_tool_fallback",
     )
     merged_globs = dict(base.mode_writable_globs)
     merged_extra_globs = dict(base.mode_extra_writable_globs)
@@ -140,4 +153,3 @@ def load_config(workspace: str) -> AppConfig:
         cfg = _merge(cfg, _load_json_file(project_config_path))
 
     return cfg
-

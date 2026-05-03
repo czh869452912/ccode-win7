@@ -70,7 +70,9 @@ class QueryEngineBuildLiteTests(unittest.TestCase):
         )
 
         self.assertEqual(result.transition.reason, "completed")
-        system_messages = [message.content for message in result.session.messages if message.role == "system"]
+        system_messages = [
+            message.content for message in result.session.messages if message.role == "system"
+        ]
         self.assertTrue(any("Discipline: lite_spec_tdd" in content for content in system_messages))
         self.assertTrue(any("Mode: build" in content for content in system_messages))
 
@@ -88,7 +90,9 @@ class QueryEngineBuildLiteTests(unittest.TestCase):
             initial_mode="build",
             session=session,
         )
-        system_messages = [message.content for message in result.session.messages if message.role == "system"]
+        system_messages = [
+            message.content for message in result.session.messages if message.role == "system"
+        ]
         self.assertTrue(any("Mode: build" in content for content in system_messages))
         self.assertTrue(any("Core pack:" in content for content in system_messages))
 
@@ -99,8 +103,7 @@ class QueryEngineBuildLiteTests(unittest.TestCase):
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
         )
         names = sorted(
-            item["function"]["name"]
-            for item in engine._schemas_for_mode("build", "chat")
+            item["function"]["name"] for item in engine._schemas_for_mode("build", "chat")
         )
         self.assertIn("list_dir", names)
         self.assertIn("run_recipe", names)
@@ -120,7 +123,9 @@ class QueryEngineBuildLiteTests(unittest.TestCase):
         self.assertEqual(snapshot["discipline_profile"], "lite_spec_tdd")
         self.assertTrue(snapshot["current_activity"])
         state = adapter._sessions[snapshot["session_id"]]
-        system_messages = [message.content for message in state.session.messages if message.role == "system"]
+        system_messages = [
+            message.content for message in state.session.messages if message.role == "system"
+        ]
         self.assertTrue(any("Mode: build" in content for content in system_messages))
 
 

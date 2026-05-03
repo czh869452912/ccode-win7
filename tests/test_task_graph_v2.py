@@ -22,7 +22,9 @@ class TaskGraphV2Tests(unittest.TestCase):
         session = Session()
         graph = session.task_graph
 
-        runner.update_task_graph(session, "build", [Observation("run_recipe", True, None, {"recipe_id": "unit"})])
+        runner.update_task_graph(
+            session, "build", [Observation("run_recipe", True, None, {"recipe_id": "unit"})]
+        )
 
         self.assertIs(session.task_graph, graph)
         self.assertGreaterEqual(len(session.task_graph.tasks), 1)

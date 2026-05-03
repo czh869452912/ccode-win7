@@ -213,10 +213,7 @@ class ToolResultStore(object):
         candidate = os.path.realpath(candidate)
         root_norm = os.path.normcase(self.root)
         candidate_norm = os.path.normcase(candidate)
-        if not (
-            candidate_norm == root_norm
-            or candidate_norm.startswith(root_norm + os.sep)
-        ):
+        if not (candidate_norm == root_norm or candidate_norm.startswith(root_norm + os.sep)):
             raise ValueError("stored path 超出 sessions 根目录。")
         if not os.path.isfile(candidate):
             raise ValueError("stored file 不存在：%s" % reference)

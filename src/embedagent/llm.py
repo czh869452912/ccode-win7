@@ -164,7 +164,11 @@ class OpenAICompatibleClient(object):
             actions=actions,
             finish_reason=finish_reason,
             reasoning_content="".join(reasoning_parts),
-            usage={"prompt_tokens": 0, "completion_tokens": approx_tokens, "total_tokens": approx_tokens},
+            usage={
+                "prompt_tokens": 0,
+                "completion_tokens": approx_tokens,
+                "total_tokens": approx_tokens,
+            },
         )
 
     def _iter_sse_events(self, response: Any) -> Iterable[str]:
@@ -205,9 +209,7 @@ class OpenAICompatibleClient(object):
             content=self._normalize_content(message.get("content")),
             actions=actions,
             finish_reason=choice.get("finish_reason"),
-            reasoning_content=self._normalize_content(
-                message.get("reasoning_content")
-            ),
+            reasoning_content=self._normalize_content(message.get("reasoning_content")),
             usage=usage,
         )
 

@@ -16,7 +16,9 @@ _GUI_EVENT_KIND_MAP = {
 }
 
 
-def build_session_event(session_id: str, event_name: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+def build_session_event(
+    session_id: str, event_name: str, payload: Dict[str, Any]
+) -> Dict[str, Any]:
     metadata = dict(payload.get("_timeline_event") or {})
     event_payload = dict(payload)
     event_payload.pop("_timeline_event", None)

@@ -39,8 +39,16 @@ class TestMultiSearchReplaceDiffEngine(unittest.TestCase):
     def test_expected_start_line_disambiguation(self):
         content = "def foo():\n    pass\n\ndef foo():\n    pass\n"
         blocks = [
-            DiffBlock(old_text="def foo():\n    pass", new_text="def first():\n    pass", expected_start_line=0),
-            DiffBlock(old_text="def foo():\n    pass", new_text="def second():\n    pass", expected_start_line=3),
+            DiffBlock(
+                old_text="def foo():\n    pass",
+                new_text="def first():\n    pass",
+                expected_start_line=0,
+            ),
+            DiffBlock(
+                old_text="def foo():\n    pass",
+                new_text="def second():\n    pass",
+                expected_start_line=3,
+            ),
         ]
         updated, results = self.engine.apply_diff(content, blocks)
         self.assertEqual(len([r for r in results if r["status"] == "applied"]), 2)
@@ -94,21 +102,51 @@ class TestDiffSuccessRate(unittest.TestCase):
             # Import statement modification
             ("import os\n", "import os", "import sys", "import sys\n"),
             # Class method addition
-            ("class Foo:\n    pass\n", "    pass", "    def bar(self):\n        pass", "class Foo:\n    def bar(self):\n        pass\n"),
+            (
+                "class Foo:\n    pass\n",
+                "    pass",
+                "    def bar(self):\n        pass",
+                "class Foo:\n    def bar(self):\n        pass\n",
+            ),
             # Conditional branch modification
             ("if x:\n    pass\n", "if x:", "if y:", "if y:\n    pass\n"),
             # Loop variable rename
-            ("for i in range(10):\n    pass\n", "for i in range(10):", "for j in range(10):", "for j in range(10):\n    pass\n"),
+            (
+                "for i in range(10):\n    pass\n",
+                "for i in range(10):",
+                "for j in range(10):",
+                "for j in range(10):\n    pass\n",
+            ),
             # Return statement change
             ("return 1\n", "return 1", "return 2", "return 2\n"),
             # Exception handling addition
-            ("try:\n    pass\nexcept:\n    pass\n", "except:", "except ValueError:", "try:\n    pass\nexcept ValueError:\n    pass\n"),
+            (
+                "try:\n    pass\nexcept:\n    pass\n",
+                "except:",
+                "except ValueError:",
+                "try:\n    pass\nexcept ValueError:\n    pass\n",
+            ),
             # Docstring addition
-            ("def foo():\n    pass\n", "def foo():", 'def foo():\n    """Doc."""', 'def foo():\n    """Doc."""\n    pass\n'),
+            (
+                "def foo():\n    pass\n",
+                "def foo():",
+                'def foo():\n    """Doc."""',
+                'def foo():\n    """Doc."""\n    pass\n',
+            ),
             # Type hint addition
-            ("def foo(x):\n    pass\n", "def foo(x):", "def foo(x: int):", "def foo(x: int):\n    pass\n"),
+            (
+                "def foo(x):\n    pass\n",
+                "def foo(x):",
+                "def foo(x: int):",
+                "def foo(x: int):\n    pass\n",
+            ),
             # Decorator addition
-            ("def foo():\n    pass\n", "def foo():", "@decorator\ndef foo():", "@decorator\ndef foo():\n    pass\n"),
+            (
+                "def foo():\n    pass\n",
+                "def foo():",
+                "@decorator\ndef foo():",
+                "@decorator\ndef foo():\n    pass\n",
+            ),
             # Logging statement insertion
             ("x = 1\n", "x = 1", "import logging\nx = 1", "import logging\nx = 1\n"),
             # Configuration constant change
@@ -120,7 +158,12 @@ class TestDiffSuccessRate(unittest.TestCase):
             # Format string modification
             ('f"hello {name}"\n', 'f"hello {name}"', 'f"hi {name}"', 'f"hi {name}"\n'),
             # List comprehension to loop
-            ("[x for x in range(10)]\n", "[x for x in range(10)]", "for x in range(10):\n    print(x)", "for x in range(10):\n    print(x)\n"),
+            (
+                "[x for x in range(10)]\n",
+                "[x for x in range(10)]",
+                "for x in range(10):\n    print(x)",
+                "for x in range(10):\n    print(x)\n",
+            ),
             # Dictionary key rename
             ('{"old": 1}\n', '"old": 1', '"new": 1', '{"new": 1}\n'),
             # Boolean flag inversion
@@ -139,8 +182,9 @@ class TestDiffSuccessRate(unittest.TestCase):
         total = len(scenarios)
         success_rate = success_count / total
         self.assertGreaterEqual(
-            success_rate, 0.95,
-            f"Success rate {success_rate:.0%} below 95% ({success_count}/{total})"
+            success_rate,
+            0.95,
+            f"Success rate {success_rate:.0%} below 95% ({success_count}/{total})",
         )
 
     def test_backward_compatibility_single_replace(self):

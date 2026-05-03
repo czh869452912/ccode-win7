@@ -77,7 +77,9 @@ def advance_phase(current_phase, artifact_flags, discipline_value):
         if flags.get("check_passed"):
             return ExecutionPhase.HANDOFF
         return ExecutionPhase.PATCH
-    if current_phase == ExecutionPhase.SELECT_RECIPE and (flags.get("recipe_selected") or flags.get("execution_started")):
+    if current_phase == ExecutionPhase.SELECT_RECIPE and (
+        flags.get("recipe_selected") or flags.get("execution_started")
+    ):
         return ExecutionPhase.EXECUTE
     if current_phase == ExecutionPhase.EXECUTE and flags.get("quality_report_ready"):
         return ExecutionPhase.SUMMARIZE

@@ -4,7 +4,6 @@ import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from embedagent.interaction import UserInputResponse
 from embedagent.modes import DEFAULT_MODE, require_mode
 from embedagent.plan_store import PlanStore
 from embedagent.project_memory import ProjectMemoryStore
@@ -19,12 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 def _utc_now() -> str:
-    return (
-        datetime.now(timezone.utc)
-        .replace(microsecond=0)
-        .isoformat()
-        .replace("+00:00", "Z")
-    )
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 class SessionLifecycleManager(object):
@@ -68,9 +62,7 @@ class SessionLifecycleManager(object):
         transcript_path = self.summary_store.resolve_transcript_path(reference)
         events = self.transcript_store.load_events(transcript_path)
         restored = self.session_restorer.restore(events)
-        current_mode = require_mode(
-            mode or restored.current_mode or DEFAULT_MODE
-        )["slug"]
+        current_mode = require_mode(mode or restored.current_mode or DEFAULT_MODE)["slug"]
         session = restored.session
         summary_ref = ""
         try:

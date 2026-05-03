@@ -1,4 +1,5 @@
 """Validation test for HYGN-02: Verify zero bare 'except Exception:' blocks remain in source code."""
+
 import ast
 import os
 
@@ -65,13 +66,38 @@ class TestNoBareExceptBlocks:
             "src/embedagent/workspace_recipes.py": ["OSError", "JSONDecodeError", "ValueError"],
             "src/embedagent/tool_commit.py": ["OSError", "ValueError", "TypeError"],
             "src/embedagent/core/adapter.py": ["OSError", "ValueError"],
-            "src/embedagent/tools/discovery_ops.py": ["OSError", "UnicodeDecodeError", "ValueError"],
+            "src/embedagent/tools/discovery_ops.py": [
+                "OSError",
+                "UnicodeDecodeError",
+                "ValueError",
+            ],
             "src/embedagent/frontend/gui/launcher.py": ["OSError", "ValueError", "TypeError"],
-            "src/embedagent/frontend/gui/backend/server.py": ["OSError", "ValueError", "TypeError", "RuntimeError"],
-            "src/embedagent/frontend/tui/services/workspace.py": ["OSError", "ValueError", "TypeError"],
-            "src/embedagent/frontend/tui/services/sessions.py": ["OSError", "JSONDecodeError", "ValueError"],
-            "src/embedagent/frontend/tui/services/timeline.py": ["OSError", "ValueError", "TypeError"],
-            "src/embedagent/frontend/tui/services/artifacts.py": ["OSError", "ValueError", "TypeError"],
+            "src/embedagent/frontend/gui/backend/server.py": [
+                "OSError",
+                "ValueError",
+                "TypeError",
+                "RuntimeError",
+            ],
+            "src/embedagent/frontend/tui/services/workspace.py": [
+                "OSError",
+                "ValueError",
+                "TypeError",
+            ],
+            "src/embedagent/frontend/tui/services/sessions.py": [
+                "OSError",
+                "JSONDecodeError",
+                "ValueError",
+            ],
+            "src/embedagent/frontend/tui/services/timeline.py": [
+                "OSError",
+                "ValueError",
+                "TypeError",
+            ],
+            "src/embedagent/frontend/tui/services/artifacts.py": [
+                "OSError",
+                "ValueError",
+                "TypeError",
+            ],
             "src/embedagent/frontend/tui/layout.py": ["ValueError", "TypeError"],
             "src/embedagent/inprocess_adapter.py": ["OSError", "ValueError", "TypeError"],
         }
@@ -96,6 +122,4 @@ class TestNoBareExceptBlocks:
                     f"(expected one of: {', '.join(expected_exceptions)})"
                 )
 
-        assert len(violations) == 0, (
-            f"Found {len(violations)} violations: {'; '.join(violations)}"
-        )
+        assert len(violations) == 0, f"Found {len(violations)} violations: {'; '.join(violations)}"

@@ -2,15 +2,13 @@
 
 from __future__ import annotations
 
-import threading
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 from embedagent.context import ContextManager
 from embedagent.llm import OpenAICompatibleClient
 from embedagent.permissions import PermissionPolicy
 from embedagent.query_engine import QueryEngine
-from embedagent.session import QueryTurnResult
 from embedagent.tools import ToolRuntime
 
 

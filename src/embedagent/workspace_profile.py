@@ -46,7 +46,9 @@ _BUILD_FILE_NAMES = {"CMakeLists.txt", "Makefile", "makefile", "meson.build"}
 _INTERNAL_DIR_NAMES = {".embedagent", ".venv", "build"}
 
 
-def profile_workspace(workspace: str, max_depth: int = 3, max_entries: int = 400) -> Dict[str, object]:
+def profile_workspace(
+    workspace: str, max_depth: int = 3, max_entries: int = 400
+) -> Dict[str, object]:
     workspace = os.path.realpath(workspace)
     doc_roots = set()  # type: Set[str]
     code_roots = set()  # type: Set[str]
@@ -91,7 +93,9 @@ def profile_workspace(workspace: str, max_depth: int = 3, max_entries: int = 400
                 if name in SKIP_DIR_NAMES or name in _INTERNAL_DIR_NAMES:
                     continue
                 if depth < max_depth:
-                    child_relative = name if relative_root == "." else os.path.join(relative_root, name)
+                    child_relative = (
+                        name if relative_root == "." else os.path.join(relative_root, name)
+                    )
                     queue.append((child_relative, candidate, depth + 1))
                 continue
             scanned += 1
@@ -99,7 +103,10 @@ def profile_workspace(workspace: str, max_depth: int = 3, max_entries: int = 400
             lower_name = name.lower()
             if name in _BUILD_FILE_NAMES or ext in _CODE_EXTENSIONS:
                 local_has_code = True
-            if lower_name.endswith((".json", ".yaml", ".yml")) and lowered_root_name in _TEST_DIR_NAMES:
+            if (
+                lower_name.endswith((".json", ".yaml", ".yml"))
+                and lowered_root_name in _TEST_DIR_NAMES
+            ):
                 local_has_tests = True
             if ext in _CODE_EXTENSIONS and any(hint in lower_name for hint in _TEST_FILE_HINTS):
                 local_has_tests = True
@@ -123,7 +130,9 @@ def _pending_tasks_hint(workspace: str, session_id: str = "") -> str:
     return ""
 
 
-def build_workspace_profile_message(workspace: str, session_id: str = "", char_limit: int = 900) -> str:
+def build_workspace_profile_message(
+    workspace: str, session_id: str = "", char_limit: int = 900
+) -> str:
     profile = profile_workspace(workspace)
     recipe_payload = list_workspace_recipes(workspace)
     recipe_items = recipe_payload.get("items") if isinstance(recipe_payload, dict) else []

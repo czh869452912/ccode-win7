@@ -115,7 +115,11 @@ class ExecutionTracer(object):
         finally:
             duration_ms = int((time.time() - start_time) * 1000)
             self.record(
-                TraceEventType.LLM_CALL_END if event_type == TraceEventType.LLM_CALL_START else TraceEventType.TURN_END,
+                (
+                    TraceEventType.LLM_CALL_END
+                    if event_type == TraceEventType.LLM_CALL_START
+                    else TraceEventType.TURN_END
+                ),
                 session_id,
                 turn_id,
                 step_id,
@@ -130,6 +134,7 @@ class ExecutionTracer(object):
 
         # Group by session_id and date
         from collections import defaultdict
+
         events_by_file = defaultdict(list)
         for event in self._buffer:
             date_str = datetime.fromtimestamp(event.timestamp, tz=timezone.utc).strftime("%Y-%m-%d")
@@ -165,7 +170,6 @@ class ExecutionTracer(object):
         total_tool_calls = 0
         total_llm_calls = 0
         error_count = 0
-        total_duration_ms = 0
         turn_durations = []
 
         for event in traces:
