@@ -515,13 +515,13 @@ class TestQueryEngineRefactor(unittest.TestCase):
         )
         session = Session()
 
-        current_mode = engine.initialize_session(session, "build", workflow_state="chat")
+        current_mode = engine.initialize_session(session, "build", workflow_state="chat", user_text="build the project")
         self.assertEqual(current_mode, "build")
         first_messages = list(session.messages)
         self.assertGreaterEqual(len(first_messages), 2)
         self.assertTrue(any(message.kind == "harness_prompt" for message in first_messages))
 
-        current_mode = engine.initialize_session(session, "build", workflow_state="chat")
+        current_mode = engine.initialize_session(session, "build", workflow_state="chat", user_text="build the project")
         self.assertEqual(current_mode, "build")
         self.assertEqual(len(session.messages), len(first_messages))
 

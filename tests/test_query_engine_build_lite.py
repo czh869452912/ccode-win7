@@ -126,7 +126,10 @@ class QueryEngineBuildLiteTests(unittest.TestCase):
         system_messages = [
             message.content for message in state.session.messages if message.role == "system"
         ]
-        self.assertTrue(any("Mode: build" in content for content in system_messages))
+        # Harness context is only injected on explicit work requests, not on session creation
+        self.assertFalse(any("Mode: build" in content for content in system_messages))
+        # System prompt should still be present
+        self.assertTrue(any("build" in content for content in system_messages))
 
 
 if __name__ == "__main__":

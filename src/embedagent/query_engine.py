@@ -2,6 +2,7 @@ from __future__ import annotations  # noqa: I001
 
 import logging
 import os
+import re
 import threading
 import time
 import uuid
@@ -23,6 +24,7 @@ from embedagent.strategies.execution_tracer import ExecutionTracer, TraceEventTy
 from embedagent.strategies.llm_retry_wrapper import LLMClientRetryWrapper
 from embedagent.strategies.turn_orchestrator import TurnOrchestrator
 from embedagent.memory_maintenance import MemoryMaintenance
+from embedagent.harness.task_graph import TaskGraph
 from embedagent.modes import DEFAULT_MODE, build_system_prompt, is_path_writable, require_mode
 from embedagent.permissions import PermissionPolicy, PermissionRequest
 from embedagent.project_memory import ProjectMemoryStore
@@ -269,6 +271,38 @@ class QueryEngine(object):
             return current_mode, None
         return current_mode, self.tools.describe_mode(current_mode, workflow_state=workflow_state)
 
+    def _should_inject_harness(self, user_text: str, current_mode: str) -> bool:
+        """Determine if harness context should be injected.
+
+        Harness context (task graph, execution phases) should only be
+        injected when the user is explicitly requesting work, not for
+        casual conversation like 'hi' or 'what can you do?'.
+        """
+        # Never inject for explore or verify modes
+        if current_mode in ("explore", "verify"):
+            return False
+
+        # Check for explicit work indicators in user text
+        work_indicators = [
+            "build", "compile", "fix", "debug", "implement",
+            "create", "write", "generate", "refactor", "optimize",
+            "test", "verify", "check", "run", "execute",
+        ]
+
+        text_lower = (user_text or "").lower()
+        has_work_indicator = any(ind in text_lower for ind in work_indicators)
+
+        # Check for explicit non-work patterns
+        chat_patterns = [
+            r"^\s*hi\b", r"^\s*hello\b", r"^\s*hey\b",
+            r"what can you do", r"who are you", r"help\s*$",
+            r"^\s*thanks?\b", r"^\s*ok\b", r"^\s*bye\b",
+        ]
+        is_chat = any(re.search(pattern, text_lower) for pattern in chat_patterns)
+
+        # Inject harness only if work indicator present and not chat
+        return has_work_indicator and not is_chat
+
     def _allowed_tools_for_mode(self, mode_name: str, workflow_state: str = "chat") -> set:
         return set(self.tools.allowed_tool_names(mode_name, workflow_state=workflow_state))
 
@@ -317,12 +351,16 @@ class QueryEngine(object):
             )
 
     def initialize_session(
-        self, session: Session, initial_mode: str, workflow_state: str = "chat"
+        self, session: Session, initial_mode: str, workflow_state: str = "chat", user_text: str = ""
     ) -> str:
         current_mode = require_mode(initial_mode)["slug"]
-        current_mode, harness_context = self._run_harness_mode(
-            current_mode, session, workflow_state=workflow_state
-        )
+        # Only inject harness context if user text indicates work
+        if self._should_inject_harness(user_text, current_mode):
+            current_mode, harness_context = self._run_harness_mode(
+                current_mode, session, workflow_state=workflow_state
+            )
+        else:
+            harness_context = None
         if session.messages:
             self._ensure_transcript_bootstrap(session, current_mode)
             with self._session_guard():
@@ -364,11 +402,15 @@ class QueryEngine(object):
             self._append_harness_messages(session, harness_context)
         return current_mode
 
-    def apply_mode(self, session: Session, next_mode: str, workflow_state: str = "chat") -> str:
+    def apply_mode(self, session: Session, next_mode: str, workflow_state: str = "chat", user_text: str = "") -> str:
         current_mode = require_mode(next_mode)["slug"]
-        current_mode, harness_context = self._run_harness_mode(
-            current_mode, session, workflow_state=workflow_state
-        )
+        # Only inject harness context if user text indicates work
+        if self._should_inject_harness(user_text, current_mode):
+            current_mode, harness_context = self._run_harness_mode(
+                current_mode, session, workflow_state=workflow_state
+            )
+        else:
+            harness_context = None
         with self._session_guard():
             mode_message = session.add_system_message(
                 build_system_prompt(
@@ -621,7 +663,11 @@ class QueryEngine(object):
         if session is None:
             with self._session_guard():
                 session = Session()
-        current_mode = self.initialize_session(session, initial_mode, workflow_state=workflow_state)
+        current_mode = self.initialize_session(session, initial_mode, workflow_state=workflow_state, user_text=user_text)
+
+        # Only create task graph for explicit work requests
+        if session.task_graph.is_empty() and self._should_inject_harness(user_text, current_mode):
+            session.task_graph = TaskGraph.from_user_request(user_text, current_mode)
 
         turn_id = getattr(session, "current_turn_id", "") or "t-" + uuid.uuid4().hex[:12]
         session_id = getattr(session, "session_id", "") or ""
@@ -714,7 +760,7 @@ class QueryEngine(object):
         if session is None:
             with self._session_guard():
                 session = Session()
-        current_mode = self.initialize_session(session, initial_mode, workflow_state=workflow_state)
+        current_mode = self.initialize_session(session, initial_mode, workflow_state=workflow_state, user_text=user_text)
         with self._session_guard():
             command_turn_id = str(turn_id or ("t-" + uuid.uuid4().hex[:12]))
             if user_text:

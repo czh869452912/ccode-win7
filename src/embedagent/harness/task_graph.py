@@ -26,6 +26,28 @@ class TaskGraph(object):
     def empty(cls):
         return cls(mode_name="", discipline="", current_phase="", tasks=[])
 
+    def is_empty(self):
+        return not self.tasks or len(self.tasks) == 0
+
+    @classmethod
+    def from_user_request(cls, user_text, mode_name):
+        """Create task graph from explicit user request."""
+        tasks = [
+            TaskNode(
+                task_id="task-1",
+                kind="request",
+                title="%s: %s" % (str(mode_name or ""), str(user_text or "")[:50]),
+                status="in_progress",
+                source="user",
+            )
+        ]
+        return cls(
+            mode_name=str(mode_name or ""),
+            discipline="",
+            current_phase="request",
+            tasks=tasks,
+        )
+
     @classmethod
     def for_mode(cls, mode_name, discipline, track=None, current_phase=""):
         phases = []
