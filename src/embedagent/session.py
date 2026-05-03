@@ -8,6 +8,16 @@ from typing import Any, Dict, List, Optional
 
 from embedagent.harness.task_graph import TaskGraph
 
+# Message type constants for schema_version=2 transcripts
+MESSAGE_TYPE_USER = "user"
+MESSAGE_TYPE_ASSISTANT = "assistant"
+MESSAGE_TYPE_TOOL_USE = "tool_use"
+MESSAGE_TYPE_TOOL_RESULT = "tool_result"
+MESSAGE_TYPE_COMMAND_EXECUTION = "command_execution"
+MESSAGE_TYPE_FILE_CHANGE = "file_change"
+MESSAGE_TYPE_COMPACT = "compact"
+MESSAGE_TYPE_INTERACTION = "interaction"
+
 
 def _utc_now() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
@@ -546,6 +556,69 @@ class Session:
         if not self.messages:
             return ""
         return str(self.messages[-1].message_id or "")
+
+    @staticmethod
+    def validate_parent_chain(messages):
+        """Validate that parent_message_id forms an unbroken chain.
+
+        Returns (is_valid, broken_at_index, reason)
+        """
+        if not messages:
+            return True, -1, ""
+
+        seen_ids = set()
+        for index, msg in enumerate(messages):
+            msg_id = getattr(msg, "message_id", "") or ""
+            parent_id = getattr(msg, "parent_message_id", "") or ""
+
+            if index == 0:
+                # First message can have empty parent
+                if parent_id:
+                    return False, index, "first_message_has_parent"
+            else:
+                if not parent_id:
+                    return False, index, "missing_parent"
+                if parent_id not in seen_ids:
+                    return False, index, "parent_not_found:%s" % parent_id
+
+            if msg_id:
+                seen_ids.add(msg_id)
+
+        return True, -1, ""
+
+    @staticmethod
+    def get_message_chain(messages, from_index=-1):
+        """Get the parent chain from a message back to the first message.
+
+        Returns list of message indices from root to target.
+        """
+        if not messages or from_index >= len(messages):
+            return []
+
+        target = from_index if from_index >= 0 else len(messages) - 1
+        chain = [target]
+        seen = {target}
+
+        while True:
+            msg = messages[chain[0]]
+            parent_id = getattr(msg, "parent_message_id", "") or ""
+            if not parent_id:
+                break
+
+            found = False
+            for idx in range(len(messages)):
+                if idx in seen:
+                    continue
+                if getattr(messages[idx], "message_id", "") == parent_id:
+                    chain.insert(0, idx)
+                    seen.add(idx)
+                    found = True
+                    break
+
+            if not found:
+                break
+
+        return chain
 
     def trim_old_observations(self, keep_turns: int = 20) -> int:
         """Replace observation content in turns older than *keep_turns* with a stub.
