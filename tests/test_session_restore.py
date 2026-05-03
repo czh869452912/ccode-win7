@@ -34,6 +34,44 @@ class TestSessionRestorer(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.workspace, ignore_errors=True)
 
+    def _build_valid_transcript(self):
+        """Build a minimal valid transcript for restore testing."""
+        return [
+            {
+                "schema_version": 1,
+                "session_id": "sess-test",
+                "event_id": "evt-1",
+                "seq": 1,
+                "ts": "2026-04-02T00:00:00Z",
+                "type": "session_meta",
+                "payload": {"current_mode": "build", "started_at": "2026-04-02T00:00:00Z"},
+            },
+            {
+                "schema_version": 1,
+                "session_id": "sess-test",
+                "event_id": "evt-2",
+                "seq": 2,
+                "ts": "2026-04-02T00:00:01Z",
+                "type": "message",
+                "payload": {
+                    "role": "user",
+                    "content": "test",
+                    "message_id": "m-user",
+                    "turn_id": "t-1",
+                    "step_id": "",
+                },
+            },
+            {
+                "schema_version": 1,
+                "session_id": "sess-test",
+                "event_id": "evt-3",
+                "seq": 3,
+                "ts": "2026-04-02T00:00:02Z",
+                "type": "step_started",
+                "payload": {"turn_id": "t-1", "step_id": "s-1", "step_index": 1},
+            },
+        ]
+
     def test_restore_rebuilds_turn_step_and_tool_topology(self):
         session_id = "sess-restore"
         self.store.append_event(
@@ -1777,6 +1815,299 @@ class TestSessionRestorer(unittest.TestCase):
         result = SessionRestorer().restore(self.store.load_events(session_id))
         self.assertEqual(result.session.content_replacements, [])
         self.assertEqual(result.session.turns[0].transitions, [])
+
+    def test_best_effort_skips_corrupted_record(self):
+        events = self._build_valid_transcript()
+        # Add a 4th event
+        events.append({
+            "schema_version": 1,
+            "session_id": "sess-test",
+            "event_id": "evt-4",
+            "seq": 4,
+            "ts": "2026-04-02T00:00:03Z",
+            "type": "context_snapshot",
+            "payload": {"snapshot": "data"},
+        })
+        # Corrupt the 3rd event (step_started) with wrong turn_id
+        events[2]["payload"]["turn_id"] = "t-bad"
+        result = SessionRestorer().restore(events, best_effort=True)
+        self.assertEqual(result.transcript_event_count, 4)
+        self.assertEqual(result.consumed_event_count, 4)
+        self.assertEqual(result.skipped_count, 1)
+        self.assertEqual(len(result.skip_reasons), 1)
+        self.assertIn("turn_mismatch", result.skip_reasons[0]["reason"])
+        self.assertEqual(result.stop_reason, "")
+        self.assertEqual(len(result.session.turns), 1)
+
+    def test_best_effort_skips_multiple_bad_records(self):
+        events = self._build_valid_transcript()
+        # Event 4: valid user message
+        events.append({
+            "schema_version": 1,
+            "session_id": "sess-test",
+            "event_id": "evt-4",
+            "seq": 4,
+            "ts": "2026-04-02T00:00:03Z",
+            "type": "message",
+            "payload": {
+                "role": "user",
+                "content": "second",
+                "message_id": "m-user-2",
+                "turn_id": "t-2",
+                "step_id": "",
+            },
+        })
+        # Event 5: bad message with missing parent
+        events.append({
+            "schema_version": 1,
+            "session_id": "sess-test",
+            "event_id": "evt-5",
+            "seq": 5,
+            "ts": "2026-04-02T00:00:04Z",
+            "type": "message",
+            "payload": {
+                "role": "user",
+                "content": "bad parent",
+                "message_id": "m-bad",
+                "parent_message_id": "m-missing",
+                "turn_id": "t-3",
+                "step_id": "",
+            },
+        })
+        # Event 6: valid user message
+        events.append({
+            "schema_version": 1,
+            "session_id": "sess-test",
+            "event_id": "evt-6",
+            "seq": 6,
+            "ts": "2026-04-02T00:00:05Z",
+            "type": "message",
+            "payload": {
+                "role": "user",
+                "content": "third",
+                "message_id": "m-user-3",
+                "turn_id": "t-4",
+                "step_id": "",
+            },
+        })
+        # Corrupt event 3 (step_started) with wrong turn_id
+        events[2]["payload"]["turn_id"] = "t-bad"
+        result = SessionRestorer().restore(events, best_effort=True)
+        self.assertEqual(result.skipped_count, 2)
+        self.assertEqual(len(result.session.turns), 3)
+        self.assertEqual(result.session.turns[0].turn_id, "t-1")
+        self.assertEqual(result.session.turns[1].turn_id, "t-2")
+        self.assertEqual(result.session.turns[2].turn_id, "t-4")
+
+    def test_best_effort_continues_after_missing_parent(self):
+        events = self._build_valid_transcript()
+        # Add a bad message with missing parent
+        events.append({
+            "schema_version": 1,
+            "session_id": "sess-test",
+            "event_id": "evt-4",
+            "seq": 4,
+            "ts": "2026-04-02T00:00:03Z",
+            "type": "message",
+            "payload": {
+                "role": "user",
+                "content": "bad parent",
+                "message_id": "m-bad",
+                "parent_message_id": "m-missing",
+                "turn_id": "t-2",
+                "step_id": "",
+            },
+        })
+        # Add a valid message after
+        events.append({
+            "schema_version": 1,
+            "session_id": "sess-test",
+            "event_id": "evt-5",
+            "seq": 5,
+            "ts": "2026-04-02T00:00:04Z",
+            "type": "message",
+            "payload": {
+                "role": "user",
+                "content": "valid after",
+                "message_id": "m-user-2",
+                "turn_id": "t-3",
+                "step_id": "",
+            },
+        })
+        result = SessionRestorer().restore(events, best_effort=True)
+        self.assertEqual(result.skipped_count, 1)
+        self.assertIn("message_parent_missing", result.skip_reasons[0]["reason"])
+        self.assertEqual(len(result.session.turns), 2)
+        self.assertEqual(result.session.turns[0].turn_id, "t-1")
+        self.assertEqual(result.session.turns[1].turn_id, "t-3")
+
+    def test_strict_mode_stops_on_first_error(self):
+        events = self._build_valid_transcript()
+        events.append({
+            "schema_version": 1,
+            "session_id": "sess-test",
+            "event_id": "evt-4",
+            "seq": 4,
+            "ts": "2026-04-02T00:00:03Z",
+            "type": "context_snapshot",
+            "payload": {"snapshot": "data"},
+        })
+        # Corrupt the 3rd event (step_started) with wrong turn_id
+        events[2]["payload"]["turn_id"] = "t-bad"
+        result = SessionRestorer().restore(events, best_effort=False)
+        self.assertEqual(result.consumed_event_count, 2)
+        self.assertEqual(result.skipped_count, 0)
+        self.assertNotEqual(result.stop_reason, "")
+        self.assertEqual(len(result.session.turns), 1)
+
+    def test_best_effort_empty_events_raises(self):
+        with self.assertRaises(ValueError):
+            SessionRestorer().restore([], best_effort=True)
+
+    def test_best_effort_duplicate_step_id_skipped(self):
+        events = self._build_valid_transcript()
+        # Add assistant message to advance step state
+        events.append({
+            "schema_version": 1,
+            "session_id": "sess-test",
+            "event_id": "evt-4",
+            "seq": 4,
+            "ts": "2026-04-02T00:00:03Z",
+            "type": "message",
+            "payload": {
+                "role": "assistant",
+                "content": "done",
+                "message_id": "m-assistant",
+                "parent_message_id": "m-user",
+                "turn_id": "t-1",
+                "step_id": "s-1",
+                "actions": [],
+                "reasoning_content": "",
+                "finish_reason": "stop",
+            },
+        })
+        # Add duplicate step_started
+        events.append({
+            "schema_version": 1,
+            "session_id": "sess-test",
+            "event_id": "evt-5",
+            "seq": 5,
+            "ts": "2026-04-02T00:00:04Z",
+            "type": "step_started",
+            "payload": {"turn_id": "t-1", "step_id": "s-1", "step_index": 2},
+        })
+        # Add loop_transition
+        events.append({
+            "schema_version": 1,
+            "session_id": "sess-test",
+            "event_id": "evt-6",
+            "seq": 6,
+            "ts": "2026-04-02T00:00:05Z",
+            "type": "loop_transition",
+            "payload": {
+                "turn_id": "t-1",
+                "step_id": "s-1",
+                "reason": "completed",
+                "message": "assistant finished",
+                "next_mode": "build",
+                "turns_used": 1,
+                "metadata": {},
+            },
+        })
+        result = SessionRestorer().restore(events, best_effort=True)
+        self.assertEqual(result.skipped_count, 1)
+        self.assertIn("duplicate_step_id", result.skip_reasons[0]["reason"])
+        self.assertEqual(len(result.session.turns), 1)
+        self.assertEqual(len(result.session.turns[0].steps), 1)
+        self.assertEqual(result.session.turns[0].steps[0].step_id, "s-1")
+        self.assertEqual(len(result.session.turns[0].transitions), 1)
+
+    def test_best_effort_reports_all_skip_reasons(self):
+        events = self._build_valid_transcript()
+        # Event 4: bad message with missing parent
+        events.append({
+            "schema_version": 1,
+            "session_id": "sess-test",
+            "event_id": "evt-4",
+            "seq": 4,
+            "ts": "2026-04-02T00:00:03Z",
+            "type": "message",
+            "payload": {
+                "role": "user",
+                "content": "bad parent",
+                "message_id": "m-bad",
+                "parent_message_id": "m-missing",
+                "turn_id": "t-2",
+                "step_id": "",
+            },
+        })
+        # Event 5: valid user message
+        events.append({
+            "schema_version": 1,
+            "session_id": "sess-test",
+            "event_id": "evt-5",
+            "seq": 5,
+            "ts": "2026-04-02T00:00:04Z",
+            "type": "message",
+            "payload": {
+                "role": "user",
+                "content": "second",
+                "message_id": "m-user-2",
+                "turn_id": "t-3",
+                "step_id": "",
+            },
+        })
+        # Event 6: valid step_started
+        events.append({
+            "schema_version": 1,
+            "session_id": "sess-test",
+            "event_id": "evt-6",
+            "seq": 6,
+            "ts": "2026-04-02T00:00:05Z",
+            "type": "step_started",
+            "payload": {"turn_id": "t-3", "step_id": "s-1", "step_index": 1},
+        })
+        # Event 7: duplicate step_started
+        events.append({
+            "schema_version": 1,
+            "session_id": "sess-test",
+            "event_id": "evt-7",
+            "seq": 7,
+            "ts": "2026-04-02T00:00:06Z",
+            "type": "step_started",
+            "payload": {"turn_id": "t-3", "step_id": "s-1", "step_index": 2},
+        })
+        # Event 8: loop_transition
+        events.append({
+            "schema_version": 1,
+            "session_id": "sess-test",
+            "event_id": "evt-8",
+            "seq": 8,
+            "ts": "2026-04-02T00:00:07Z",
+            "type": "loop_transition",
+            "payload": {
+                "turn_id": "t-3",
+                "step_id": "s-1",
+                "reason": "completed",
+                "message": "assistant finished",
+                "next_mode": "build",
+                "turns_used": 1,
+                "metadata": {},
+            },
+        })
+        # Corrupt event 3 (step_started) with wrong turn_id
+        events[2]["payload"]["turn_id"] = "t-bad"
+        result = SessionRestorer().restore(events, best_effort=True)
+        self.assertEqual(len(result.skip_reasons), 3)
+        for reason in result.skip_reasons:
+            self.assertIn("index", reason)
+            self.assertIn("event_type", reason)
+            self.assertIn("reason", reason)
+            self.assertIn("event_id", reason)
+        reasons = [r["reason"] for r in result.skip_reasons]
+        self.assertIn("step_started_turn_mismatch", reasons)
+        self.assertIn("message_parent_missing", reasons)
+        self.assertIn("duplicate_step_id", reasons)
 
 
 if __name__ == "__main__":
