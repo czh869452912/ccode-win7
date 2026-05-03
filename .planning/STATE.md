@@ -11,10 +11,12 @@ See: .planning/PROJECT.md (updated 2026-05-03)
 
 **Milestone:** v0.2 — GUI & Harness Experience Refactor
 **Phase:** 7 — Harness Refactor
-**Status:** Complete
-**Last activity:** 2026-05-03 — All Phase 7 plans complete
+**Status:** Shipped
+**Last activity:** 2026-05-03 — PR #12 created and pushed
 
 Progress: [████████████] 100% (3 of 3 phases complete in v0.2)
+
+**Shipped:** PR #12 — https://github.com/czh869452912/ccode-win7/pull/12
 
 ## Performance Metrics
 
