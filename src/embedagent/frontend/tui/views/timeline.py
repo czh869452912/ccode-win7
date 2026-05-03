@@ -173,42 +173,6 @@ class FlatTimelineView(object):
 
         return Panel(text, border_style="dim", padding=(0, 1))
 
-    def update_command_output(self, item_id: str, text: str) -> bool:
-        """Append output text to a command_execution item and mark it running."""
-        for item in self._items:
-            if item.get("id") == item_id and item.get("type") == "command_execution":
-                existing = item.get("content", "")
-                item["content"] = existing + text
-                item["status"] = "running"
-                return True
-        return False
-
-    def mark_command_complete(self, item_id: str) -> bool:
-        """Mark a command_execution item as completed."""
-        for item in self._items:
-            if item.get("id") == item_id and item.get("type") == "command_execution":
-                item["status"] = "completed"
-                return True
-        return False
-
-    def update_command_output(self, item_id, text):
-        """Append command output text to a command_execution item by id."""
-        for item in self._items:
-            if item.get("id") == item_id and item.get("type") == "command_execution":
-                current = item.get("content", "")
-                item["content"] = current + text
-                item["status"] = "running"
-                return True
-        return False
-
-    def mark_command_complete(self, item_id):
-        """Mark a command_execution item as completed by id."""
-        for item in self._items:
-            if item.get("id") == item_id and item.get("type") == "command_execution":
-                item["status"] = "completed"
-                return True
-        return False
-
     def update_command_output(self, item_id, chunk):
         """Append output chunk to a command_execution item."""
         for item in self._items:
