@@ -4,6 +4,8 @@
 
 **Goal:** Finish slimming Agent Core so the built-in C/C++ harness remains the default hosted workflow while core execution, session state, runtime schema projection, and frontend read models stay workflow-neutral.
 
+**Execution handoff:** use `docs/superpowers/plans/2026-05-28-workflow-extension-migration-handoff.md` for file-level tasks, test-first steps, verification commands, and commit boundaries.
+
 ## Current Baseline
 
 - `QueryEngine` does not import or construct `CHarnessWorkflowExtension`.
