@@ -6,7 +6,7 @@ import unittest
 from unittest.mock import MagicMock
 
 from embedagent.llm import ModelClientError
-from embedagent.session import Action, AssistantReply, QueryTurnResult
+from embedagent.session import Action, AssistantReply, QueryTurnResult, Session
 from embedagent.strategies.context_compaction_engine import ContextCompactionEngine
 from embedagent.strategies.llm_retry_wrapper import LLMClientRetryWrapper
 
@@ -303,6 +303,60 @@ class TestTurnOrchestrator(unittest.TestCase):
         self.assertIsInstance(result, QueryTurnResult)
         # Non-retryable ToolError triggers LoopGuard after first failure
         self.assertEqual(result.transition.reason, "guard_stop")
+
+    def test_task_status_reads_workflow_projection_without_task_graph(self):
+        class ExplodingTaskGraph(object):
+            def is_empty(self):
+                raise AssertionError("TurnOrchestrator should not inspect task_graph")
+
+        llm_wrapper = MagicMock()
+        tools = MagicMock()
+        tools.allowed_tool_names.return_value = ["task_status"]
+        tools.tool_capabilities.return_value = {}
+        action = Action(name="task_status", arguments={}, call_id="call-task-status")
+        llm_wrapper.call_with_retry.return_value = AssistantReply(content="", actions=[action])
+
+        session = Session()
+        session.task_graph = ExplodingTaskGraph()
+        session.workflow_state["workflow"] = {
+            "summary": "workflow summary",
+            "items": [{"id": "task-1", "title": "Task one"}],
+            "metadata": {
+                "current_phase": "workflow-phase",
+                "discipline_profile": "workflow-discipline",
+            },
+        }
+        orchestrator = self._make_orchestrator(llm_wrapper=llm_wrapper, tools=tools)
+        observations = []
+
+        result = orchestrator.execute_turn(
+            session=session,
+            messages=[{"role": "user", "content": "status"}],
+            tool_schemas=[],
+            current_mode="build",
+            on_tool_finish=lambda action, observation: observations.append(observation),
+        )
+
+        self.assertEqual(result.transition.reason, "tool_calls")
+        observation = observations[-1]
+        self.assertEqual(observation.tool_name, "task_status")
+        self.assertEqual(observation.data["summary"], "workflow summary")
+        self.assertEqual(observation.data["current_phase"], "workflow-phase")
+        self.assertEqual(observation.data["discipline_profile"], "workflow-discipline")
+        self.assertEqual(observation.data["tasks"], [{"id": "task-1", "title": "Task one"}])
+
+    def test_turn_orchestrator_no_longer_reads_session_task_graph(self):
+        from pathlib import Path
+
+        source = (
+            Path(__file__).resolve().parent.parent
+            / "src"
+            / "embedagent"
+            / "strategies"
+            / "turn_orchestrator.py"
+        ).read_text(encoding="utf-8")
+
+        self.assertNotIn("session.task_graph", source)
 
 
 if __name__ == "__main__":

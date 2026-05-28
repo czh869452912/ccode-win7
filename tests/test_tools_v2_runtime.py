@@ -36,30 +36,43 @@ class ToolsV2RuntimeTests(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.workspace, ignore_errors=True)
 
-    def test_build_lite_pack_exposes_list_dir_and_run_recipe(self):
+    def test_build_mode_schema_defaults_to_mode_contract(self):
         from embedagent.tools import ToolRuntime
 
         runtime = ToolRuntime(self.workspace)
         names = [item["function"]["name"] for item in runtime.schemas_for_mode("build")]
+        self.assertIn("read_file", names)
         self.assertIn("list_dir", names)
-        self.assertIn("run_recipe", names)
+        self.assertIn("write_file", names)
+        self.assertIn("edit_file", names)
+        self.assertNotIn("run_recipe", names)
+        self.assertNotIn("task_status", names)
 
-    def test_debug_lite_pack_exposes_read_edit_and_run_recipe(self):
+    def test_debug_mode_schema_defaults_to_mode_contract(self):
         from embedagent.tools import ToolRuntime
 
         runtime = ToolRuntime(self.workspace)
         names = [item["function"]["name"] for item in runtime.schemas_for_mode("debug")]
         self.assertIn("read_file", names)
         self.assertIn("edit_file", names)
-        self.assertIn("run_recipe", names)
+        self.assertIn("ask_user", names)
+        self.assertNotIn("run_recipe", names)
+        self.assertNotIn("record_failing_evidence", names)
+        self.assertNotIn("task_status", names)
 
-    def test_verify_pack_exposes_run_recipe_and_list_recipes(self):
+    def test_verify_mode_schema_defaults_to_read_only_mode_contract(self):
         from embedagent.tools import ToolRuntime
 
         runtime = ToolRuntime(self.workspace)
         names = [item["function"]["name"] for item in runtime.schemas_for_mode("verify")]
-        self.assertIn("run_recipe", names)
-        self.assertIn("list_recipes", names)
+        self.assertIn("read_file", names)
+        self.assertIn("list_dir", names)
+        self.assertIn("grep_text", names)
+        self.assertIn("ask_user", names)
+        self.assertNotIn("run_recipe", names)
+        self.assertNotIn("list_recipes", names)
+        self.assertNotIn("report_quality_v2", names)
+        self.assertNotIn("task_status", names)
 
 
 if __name__ == "__main__":

@@ -179,10 +179,8 @@ class OfficialRuntimeModes(object):
         )
 
     def allowed_tool_names(self, mode_name, workflow_state="chat"):
-        context = self.describe_mode(mode_name, workflow_state=workflow_state)
-        if context is None:
-            return set(allowed_tools_for(mode_name))
-        return set(pack_tool_names(context.pack_name)) | set(allowed_tools_for(mode_name))
+        del workflow_state
+        return set(allowed_tools_for(mode_name))
 
     def pack_tool_names_for_mode(self, mode_name, workflow_state="chat"):
         context = self.describe_mode(mode_name, workflow_state=workflow_state)

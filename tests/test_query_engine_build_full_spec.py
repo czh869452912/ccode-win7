@@ -6,6 +6,7 @@ from itertools import count
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
+from embedagent.default_extensions import build_default_extension_set
 from embedagent.inprocess_adapter import InProcessAdapter
 from embedagent.permissions import PermissionPolicy
 from embedagent.query_engine import QueryEngine
@@ -56,12 +57,17 @@ class QueryEngineBuildFullSpecTests(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.workspace, ignore_errors=True)
 
-    def test_build_mode_full_spec_adds_full_harness_context(self):
-        engine = QueryEngine(
-            client=DoneClient(),
+    def _build_engine(self, client=None):
+        default_extensions = build_default_extension_set(self.tools)
+        return QueryEngine(
+            client=client or DoneClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+            extension_manager=default_extensions.manager,
         )
+
+    def test_build_mode_full_spec_adds_full_harness_context(self):
+        engine = self._build_engine()
         result = engine.submit_user_turn(
             user_text="build full spec",
             stream=False,

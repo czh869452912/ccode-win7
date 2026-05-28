@@ -323,20 +323,12 @@ class ToolRuntime(object):
         )
 
     def allowed_tool_names(self, mode_name: str, workflow_state: str = "chat") -> set:
-        return set(self._mode_runtime.allowed_tool_names(mode_name, workflow_state=workflow_state))
+        del workflow_state
+        return set(allowed_tools_for(mode_name))
 
     def schemas_for_mode(
         self, mode_name: str, workflow_state: str = "chat"
     ) -> List[Dict[str, Any]]:
-        context = self.describe_mode(mode_name, workflow_state=workflow_state)
-        if context is not None:
-            pack_names = set(
-                self._mode_runtime.pack_tool_names_for_mode(
-                    mode_name, workflow_state=workflow_state
-                )
-            )
-            allowed = pack_names | set(allowed_tools_for(mode_name))
-            return [tool.schema() for name, tool in self._tools.items() if name in allowed]
         return self.schemas_for(mode_name, workflow_state=workflow_state)
 
     def execute_for_mode(

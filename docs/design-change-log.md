@@ -1,6 +1,6 @@
 # EmbedAgent 设计与变更跟踪
 
-> 更新日期：2026-05-26
+> 更新日期：2026-05-28
 > 用途：记录关键设计变更、影响范围、关联文档和后续动作
 
 ---
@@ -43,6 +43,108 @@
 ---
 
 ## 3. 当前变更记录
+
+### DC-113
+
+- 日期：2026-05-28
+- 变更主题：Turn orchestrator task-status projection 第十一切片
+- 变更摘要：
+  - `src/embedagent/strategies/turn_orchestrator.py` 的 legacy `task_status` 兼容路径不再读取 `Session.task_graph`
+  - `task_status` observation 现在从 `Session.workflow_state["workflow"]` 的 `summary`、`items` 和 `metadata` 投影生成
+  - 新增行为测试与源码边界测试，防止 workflow-neutral strategy 重新依赖 harness task graph internals
+- 影响范围：
+  - extracted core strategy task-status path
+  - generic workflow projection read model
+  - future `Session.task_graph` shrink/removal path
+- 关联文档：
+  - `docs/superpowers/plans/2026-05-28-turn-orchestrator-task-status-projection-slice11.md`
+  - `AGENTS.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/agent-harness-v2.md`
+  - `docs/implementation-roadmap.md`
+- 是否需要 ADR：`否，属于 workflow extension boundary 的读模型收缩切片`
+
+### DC-112
+
+- 日期：2026-05-28
+- 变更主题：Session task graph lazy boundary 第十切片
+- 变更摘要：
+  - `src/embedagent/session.py` 不再在模块导入期 import `embedagent.harness.task_graph.TaskGraph`
+  - `Session.task_graph` 继续保留为默认 C harness 兼容镜像，但通过 lazy default factory 在实例化 `Session` 时按需创建
+  - 新增导入边界回归，确认 `import embedagent.session` 不会急切加载 harness task graph internals
+- 影响范围：
+  - Agent Core session import boundary
+  - default C harness compatibility mirror
+  - future `Session.task_graph` shrink/removal path
+- 关联文档：
+  - `docs/superpowers/plans/2026-05-28-session-task-graph-lazy-boundary-slice10.md`
+  - `AGENTS.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/agent-harness-v2.md`
+  - `docs/implementation-roadmap.md`
+- 是否需要 ADR：`否，属于 workflow extension boundary 的导入期耦合收缩切片`
+
+### DC-111
+
+- 日期：2026-05-28
+- 变更主题：Harness workflow projection builder 第九切片
+- 变更摘要：
+  - 新增 `src/embedagent/harness/workflow_projection.py`，集中构造默认 C harness 的通用 workflow payload
+  - `CHarnessWorkflowExtension._sync_workflow_state()` 不再内联组装 `Session.workflow_state["workflow"]`，而是委托 `build_c_harness_workflow_projection()`
+  - `TaskGraph` 仍作为默认 harness 兼容镜像保留在 harness-owned 路径内，core/frontend 继续只消费通用 workflow projection
+- 影响范围：
+  - default C harness workflow state adapter
+  - `Session.workflow_state["workflow"]` payload ownership
+  - future `Session.task_graph` compatibility-mirror shrink path
+- 关联文档：
+  - `docs/superpowers/plans/2026-05-28-harness-workflow-projection-builder-slice9.md`
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/agent-harness-v2.md`
+- 是否需要 ADR：`否，属于 workflow extension boundary 的投影适配器抽离切片`
+
+### DC-110
+
+- 日期：2026-05-28
+- 变更主题：Default harness extension factory 第八切片
+- 变更摘要：
+  - 新增 `src/embedagent/default_extensions.py`，作为 hosted runtime 默认扩展装配层
+  - `QueryEngine` 不再 import 或构造 `CHarnessWorkflowExtension`；未传入 `extension_manager` 时只创建空 `ExtensionManager`
+  - `InProcessAdapter` 继续默认启用 bundled C harness，但通过 `build_default_extension_set()` 获取共享 manager 与兼容 `harness_workflow`
+  - 直接构造 `QueryEngine` 且需要默认 C/C++ harness 行为的调用方和测试必须显式传入默认 extension manager
+- 影响范围：
+  - QueryEngine workflow extension dependency boundary
+  - hosted runtime default extension assembly
+  - direct QueryEngine test setup
+- 关联文档：
+  - `docs/superpowers/plans/2026-05-28-default-harness-extension-factory-slice8.md`
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/agent-harness-v2.md`
+- 是否需要 ADR：`否，属于 workflow extension boundary 的默认装配外移切片`
+
+### DC-109
+
+- 日期：2026-05-28
+- 变更主题：Runtime schema boundary 第七切片
+- 变更摘要：
+  - `ToolRuntime.schemas_for_mode()` 已从默认 C harness 兼容投影降级为纯 mode-contract 兼容入口
+  - `ToolRuntime.allowed_tool_names()` 与 `OfficialRuntimeModes.allowed_tool_names()` 现在只返回 `modes.py` 的 workflow-neutral allowed tools
+  - 默认 C/C++ harness-aware schema 继续由 `ExtensionManager` active tool names 显式驱动，`QueryEngine` 和 frontend tool catalog 不依赖 runtime fallback
+  - runtime tool catalog 仍注册 harness tools，避免破坏 extension-driven explicit schema projection 与 tool execution
+- 影响范围：
+  - ToolRuntime schema projection boundary
+  - legacy runtime compatibility APIs
+  - default C harness extension ownership docs
+- 关联文档：
+  - `docs/superpowers/plans/2026-05-28-runtime-schema-boundary-slice7.md`
+  - `docs/agent-harness-v2.md`
+  - `docs/mode-schema.md`
+  - `docs/tool-contracts.md`
+  - `docs/overall-solution-architecture.md`
+- 是否需要 ADR：`否，属于 workflow extension boundary 的 runtime 兼容入口收缩切片`
 
 ### DC-108
 
@@ -90,7 +192,7 @@
 - 变更摘要：
   - 内置 mode `allowed_tools` 已收缩为 workflow-neutral permission/write contract，不再直接包含 `list_recipes`、`run_recipe`、`report_quality_v2`、`record_failing_evidence`、`task_status`
   - `verify` 的 mode contract 现在是只读探测工具 + `ask_user`，默认 C harness 的 verify 执行工具继续通过 extension pack 激活
-  - `ToolRuntime.schemas_for()` 表示纯 mode contract；`schemas_for_mode()` 保留默认 harness 兼容投影，并返回 mode contract + harness pack 并集
+  - `ToolRuntime.schemas_for()` 表示纯 mode contract；`schemas_for_mode()` 当时保留默认 harness 兼容投影，并返回 mode contract + harness pack 并集（该兼容投影已在 DC-109 降级为纯 mode-contract alias）
   - `CHarnessWorkflowExtension.allowed_tool_names()` 只返回 extension pack tools，mode contract 由调用方或 extension manager fallback 合并
   - frontend tool catalog visibility 改为 mode contract + 默认 C harness extension active tools，避免 UI 元数据依赖 mode schema 泄漏 harness 工具
 - 影响范围：
@@ -126,7 +228,7 @@
 - 是否需要 ADR：`否，属于 workflow extension boundary 的局部实现切片`
 - 后续动作：
   - 继续收缩 `modes.py` 中的 harness tool 列表，使 mode schema 更接近纯权限/写入边界
-  - 保留 `ToolRuntime.schemas_for_mode()` 作为外部兼容 API，后续再评估是否降级为 adapter-only facade
+  - `ToolRuntime.schemas_for_mode()` 的兼容投影降级已在 DC-109 完成，当前仅保留纯 mode-contract alias
 
 ### DC-104
 

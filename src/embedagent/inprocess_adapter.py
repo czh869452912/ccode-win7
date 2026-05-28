@@ -9,9 +9,8 @@ from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional
 
 from embedagent.context import ContextManager
-from embedagent.extensions import ExtensionManager
+from embedagent.default_extensions import build_default_extension_set
 from embedagent.harness import task_store
-from embedagent.harness.extension import CHarnessWorkflowExtension
 from embedagent.interaction import UserInputRequest, UserInputResponse
 from embedagent.llm import OpenAICompatibleClient
 from embedagent.memory_maintenance import MemoryMaintenance
@@ -207,8 +206,9 @@ class InProcessAdapter(object):
         self.transcript_store = TranscriptStore(self.tools.workspace)
         self.session_restorer = SessionRestorer()
         self.snapshot_projector = SessionSnapshotProjector()
-        self.harness_workflow = CHarnessWorkflowExtension(tools=self.tools)
-        self.extension_manager = ExtensionManager([self.harness_workflow])
+        default_extensions = build_default_extension_set(self.tools)
+        self.harness_workflow = default_extensions.harness_workflow
+        self.extension_manager = default_extensions.manager
         initialize_modes(self.tools.workspace)
         self._sessions = {}  # type: Dict[str, ManagedSession]
         self._lock = threading.RLock()

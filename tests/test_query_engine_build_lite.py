@@ -6,6 +6,7 @@ from itertools import count
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
+from embedagent.default_extensions import build_default_extension_set
 from embedagent.inprocess_adapter import InProcessAdapter
 from embedagent.permissions import PermissionPolicy
 from embedagent.query_engine import QueryEngine
@@ -56,12 +57,17 @@ class QueryEngineBuildLiteTests(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.workspace, ignore_errors=True)
 
-    def test_build_mode_submit_turn_adds_harness_context(self):
-        engine = QueryEngine(
-            client=DoneClient(),
+    def _build_engine(self, client=None):
+        default_extensions = build_default_extension_set(self.tools)
+        return QueryEngine(
+            client=client or DoneClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+            extension_manager=default_extensions.manager,
         )
+
+    def test_build_mode_submit_turn_adds_harness_context(self):
+        engine = self._build_engine()
 
         result = engine.submit_user_turn(
             user_text="开始 build-lite",
@@ -77,11 +83,7 @@ class QueryEngineBuildLiteTests(unittest.TestCase):
         self.assertTrue(any("Mode: build" in content for content in system_messages))
 
     def test_build_mode_existing_session_gets_harness_context(self):
-        engine = QueryEngine(
-            client=DoneClient(),
-            tools=self.tools,
-            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
-        )
+        engine = self._build_engine()
         session = Session()
         session.add_system_message("seed")
         result = engine.submit_user_turn(
@@ -97,11 +99,7 @@ class QueryEngineBuildLiteTests(unittest.TestCase):
         self.assertTrue(any("Core pack:" in content for content in system_messages))
 
     def test_build_mode_schemas_use_v2_pack(self):
-        engine = QueryEngine(
-            client=DoneClient(),
-            tools=self.tools,
-            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
-        )
+        engine = self._build_engine()
         names = sorted(
             item["function"]["name"] for item in engine._schemas_for_mode("build", "chat")
         )

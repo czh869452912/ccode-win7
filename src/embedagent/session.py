@@ -6,8 +6,6 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from embedagent.harness.task_graph import TaskGraph
-
 # Message type constants for schema_version=2 transcripts
 MESSAGE_TYPE_USER = "user"
 MESSAGE_TYPE_ASSISTANT = "assistant"
@@ -25,6 +23,12 @@ def _utc_now() -> str:
 
 def _to_json(data: Any) -> str:
     return json.dumps(data, ensure_ascii=False, sort_keys=True)
+
+
+def _empty_task_graph() -> Any:
+    from embedagent.harness.task_graph import TaskGraph
+
+    return TaskGraph.empty()
 
 
 @dataclass
@@ -289,7 +293,7 @@ class Session:
     content_replacements: List[Dict[str, Any]] = field(default_factory=list)
     latest_context_snapshot: Dict[str, Any] = field(default_factory=dict)
     workflow_state: Dict[str, Any] = field(default_factory=dict)
-    task_graph: TaskGraph = field(default_factory=TaskGraph.empty)
+    task_graph: Any = field(default_factory=_empty_task_graph)
 
     def add_system_message(
         self,

@@ -116,16 +116,38 @@ def test_session_has_generic_workflow_state_alongside_task_graph():
     assert session.task_graph.is_empty()
 
 
+def test_session_import_does_not_eagerly_load_harness_task_graph():
+    script = (
+        "import sys\n"
+        "import embedagent.session\n"
+        "print('embedagent.harness.task_graph' in sys.modules)\n"
+    )
+
+    result = subprocess.run(
+        [sys.executable, "-c", script],
+        cwd=str(_REPO_ROOT),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        universal_newlines=True,
+        check=True,
+    )
+
+    assert result.stdout.strip() == "False"
+
+
 def test_c_harness_extension_preserves_build_prompt_behavior(tmp_path):
+    from embedagent.default_extensions import build_default_extension_set
     from embedagent.permissions import PermissionPolicy
     from embedagent.query_engine import QueryEngine
     from embedagent.tools import ToolRuntime
 
     tools = ToolRuntime(str(tmp_path))
+    default_extensions = build_default_extension_set(tools)
     engine = QueryEngine(
         client=DoneClient(),
         tools=tools,
         permission_policy=PermissionPolicy(auto_approve_all=True, workspace=str(tmp_path)),
+        extension_manager=default_extensions.manager,
     )
 
     result = engine.submit_user_turn(
@@ -141,11 +163,58 @@ def test_c_harness_extension_preserves_build_prompt_behavior(tmp_path):
     assert any("Discipline: lite_spec_tdd" in item for item in contents)
 
 
+def test_c_harness_workflow_projection_builder_shapes_generic_payload():
+    from embedagent.harness.task_graph import TaskGraph
+    from embedagent.harness.workflow_projection import build_c_harness_workflow_projection
+
+    graph = TaskGraph.from_user_request("build the project", "build")
+    context = type(
+        "Context",
+        (),
+        {
+            "task_summary": "context summary",
+            "task_items": [{"id": "context-task", "title": "Context task"}],
+            "current_phase": "context-phase",
+            "discipline_label": "context-discipline",
+            "current_activity": "context activity",
+        },
+    )()
+
+    workflow = build_c_harness_workflow_projection(graph, context=context)
+
+    assert workflow["id"] == "c_harness"
+    assert workflow["label"] == "C Harness"
+    assert workflow["state"] == "active"
+    assert workflow["summary"] == "context summary"
+    assert workflow["items"] == [{"id": "context-task", "title": "Context task"}]
+    assert workflow["activity"] == "context activity"
+    assert workflow["metadata"] == {
+        "current_phase": "context-phase",
+        "discipline_profile": "context-discipline",
+    }
+
+
+def test_c_harness_extension_delegates_workflow_projection_to_builder():
+    source = (_REPO_ROOT / "src" / "embedagent" / "harness" / "extension.py").read_text(
+        encoding="utf-8"
+    )
+
+    assert "build_c_harness_workflow_projection" in source
+    assert '"id": "c_harness"' not in source
+
+
 def test_query_engine_no_longer_imports_task_graph_directly():
     source = (_REPO_ROOT / "src" / "embedagent" / "query_engine.py").read_text(encoding="utf-8")
 
     assert "from embedagent.harness.task_graph import TaskGraph" not in source
     assert "TaskGraph.from_user_request" not in source
+
+
+def test_query_engine_no_longer_imports_default_harness_extension_directly():
+    source = (_REPO_ROOT / "src" / "embedagent" / "query_engine.py").read_text(encoding="utf-8")
+
+    assert "from embedagent.harness.extension import CHarnessWorkflowExtension" not in source
+    assert "CHarnessWorkflowExtension(" not in source
 
 
 def test_snapshot_projector_prefers_generic_workflow_state_over_task_graph():
@@ -230,15 +299,28 @@ def test_inprocess_adapter_no_longer_constructs_harness_runner_directly():
     assert "HarnessRunner()" not in source
 
 
+def test_inprocess_adapter_gets_default_harness_extension_from_factory():
+    source = (_REPO_ROOT / "src" / "embedagent" / "inprocess_adapter.py").read_text(
+        encoding="utf-8"
+    )
+
+    assert "from embedagent.harness.extension import CHarnessWorkflowExtension" not in source
+    assert "CHarnessWorkflowExtension(" not in source
+    assert "build_default_extension_set" in source
+
+
 def test_query_engine_tool_activation_does_not_use_runtime_harness_pack_fallback():
+    from embedagent.default_extensions import build_default_extension_set
     from embedagent.permissions import PermissionPolicy
     from embedagent.query_engine import QueryEngine
 
     tools = ToolRuntimeBoundaryProbe()
+    default_extensions = build_default_extension_set(tools)
     engine = QueryEngine(
         client=DoneClient(),
         tools=tools,
         permission_policy=PermissionPolicy(auto_approve_all=True, workspace="."),
+        extension_manager=default_extensions.manager,
     )
 
     allowed = engine._allowed_tools_for_mode("build", "chat")
@@ -297,10 +379,10 @@ def test_tool_runtime_default_schemas_follow_mode_contract_not_harness_pack(tmp_
     assert "grep_text" in default_names
     assert "run_recipe" not in default_names
     assert "task_status" not in default_names
-    assert "read_file" in harness_names
-    assert "run_recipe" in harness_names
-    assert "report_quality_v2" in harness_names
-    assert "task_status" in harness_names
+    assert harness_names == default_names
+    assert "run_recipe" not in harness_names
+    assert "report_quality_v2" not in harness_names
+    assert "task_status" not in harness_names
 
 
 def test_frontend_tool_catalog_gets_harness_tools_from_workflow_extension(tmp_path, monkeypatch):

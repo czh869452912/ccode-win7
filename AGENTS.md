@@ -105,6 +105,8 @@ Agent Core must route harness-specific prompt injection, task initialization, an
 
 `InProcessAdapter` owns the hosted runtime's shared `ExtensionManager` and passes it to session-scoped `QueryEngine` instances. Frontend tool catalog visibility must use that same manager instead of a separate adapter-only harness extension chain.
 
+Default extension assembly lives in `src/embedagent/default_extensions.py`. `QueryEngine` must not import or construct `CHarnessWorkflowExtension`; direct `QueryEngine` tests or hosts that need default C/C++ behavior must pass an explicit `ExtensionManager`.
+
 `HarnessStateSynchronizer` is a lazily exported compatibility service facade only. Product adapter paths must refresh harness state through the default harness workflow extension.
 
 ### Task System
@@ -117,7 +119,11 @@ Official task truth for the default C/C++ harness workflow is:
 
 `Session.workflow_state` is the generic workflow-state carrier. Frontend-facing task fields are projected from `Session.workflow_state["workflow"]`.
 
-`Session.task_graph` remains a default harness compatibility mirror and must stay inside harness-owned code paths. Workflow-neutral projectors and frontend task APIs must not read it directly.
+Default C/C++ workflow projection assembly lives in `src/embedagent/harness/workflow_projection.py`. Harness internals may use `TaskGraph`, but the core/frontend boundary must consume the generic workflow payload produced there.
+
+`Session.task_graph` remains a default harness compatibility mirror and must stay inside harness-owned code paths. Workflow-neutral strategies, projectors, and frontend task APIs must not read it directly.
+
+Importing `embedagent.session` must not eagerly import `embedagent.harness.task_graph`; the compatibility mirror is created lazily for `Session` instances.
 
 `manage_todos` is not part of the official workflow architecture.
 
@@ -139,6 +145,8 @@ Official default workflow tools center on:
 - `ask_user`
 
 Built-in mode `allowed_tools` are workflow-neutral permission/write contracts. Default C/C++ harness tools such as `list_recipes`, `run_recipe`, `report_quality_v2`, `record_failing_evidence`, and `task_status` are activated by the default harness workflow extension, not owned by the core mode schema.
+
+`ToolRuntime.schemas_for()`, `ToolRuntime.schemas_for_mode()`, and `ToolRuntime.allowed_tool_names()` expose workflow-neutral mode contracts only. Do not use them as a shortcut for default harness pack activation; use the shared `ExtensionManager` and pass explicit active tool names into runtime schema projection.
 
 ### Session History
 

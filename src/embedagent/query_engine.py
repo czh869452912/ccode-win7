@@ -11,7 +11,6 @@ from typing import Any, Callable, Dict, Optional, Tuple
 from embedagent.context import ContextManager
 from embedagent.extensions import ExtensionManager
 from embedagent.guard import LoopGuard
-from embedagent.harness.extension import CHarnessWorkflowExtension
 from embedagent.interaction import (
     UserInputRequest,
     UserInputResponse,
@@ -109,9 +108,7 @@ class QueryEngine(object):
         self.max_parallel_tools = max(1, int(max_parallel_tools or 1))
         self.transcript_store = transcript_store or TranscriptStore(self.tools.workspace)
         self.tracer = tracer
-        self.extension_manager = extension_manager or ExtensionManager(
-            [CHarnessWorkflowExtension(tools=self.tools)]
-        )
+        self.extension_manager = extension_manager or ExtensionManager()
         self._compaction = ContextCompactionEngine(
             context_manager=self.context_manager,
             max_tokens=8000,
@@ -171,7 +168,9 @@ class QueryEngine(object):
     ) -> None:
         if self.transcript_store is None:
             return
-        self.transcript_store.append_event(session.session_id, event_type, payload, schema_version=schema_version)
+        self.transcript_store.append_event(
+            session.session_id, event_type, payload, schema_version=schema_version
+        )
 
     def _emit_lifecycle_event(
         self, session: Session, event_type: str, payload: Dict[str, Any]
@@ -380,7 +379,9 @@ class QueryEngine(object):
             self._append_harness_messages(session, harness_prompt)
         return current_mode
 
-    def apply_mode(self, session: Session, next_mode: str, workflow_state: str = "chat", user_text: str = "") -> str:
+    def apply_mode(
+        self, session: Session, next_mode: str, workflow_state: str = "chat", user_text: str = ""
+    ) -> str:
         current_mode = require_mode(next_mode)["slug"]
         if self._should_inject_harness(user_text, current_mode):
             harness_prompt = self.extension_manager.describe_prompt(
@@ -640,7 +641,9 @@ class QueryEngine(object):
         if session is None:
             with self._session_guard():
                 session = Session()
-        current_mode = self.initialize_session(session, initial_mode, workflow_state=workflow_state, user_text=user_text)
+        current_mode = self.initialize_session(
+            session, initial_mode, workflow_state=workflow_state, user_text=user_text
+        )
 
         self.extension_manager.initialize_workflow_state(
             session,
@@ -740,7 +743,9 @@ class QueryEngine(object):
         if session is None:
             with self._session_guard():
                 session = Session()
-        current_mode = self.initialize_session(session, initial_mode, workflow_state=workflow_state, user_text=user_text)
+        current_mode = self.initialize_session(
+            session, initial_mode, workflow_state=workflow_state, user_text=user_text
+        )
         with self._session_guard():
             command_turn_id = str(turn_id or ("t-" + uuid.uuid4().hex[:12]))
             if user_text:
@@ -1147,7 +1152,9 @@ class QueryEngine(object):
                                 "message_id": "m-tool-use-" + uuid.uuid4().hex[:12],
                                 "parent_message_id": session.last_message_id(),
                                 "turn_id": session.turns[-1].turn_id if session.turns else "",
-                                "step_id": session.current_step().step_id if session.current_step() else "",
+                                "step_id": session.current_step().step_id
+                                if session.current_step()
+                                else "",
                                 "status": "started",
                             },
                         )
@@ -1188,7 +1195,9 @@ class QueryEngine(object):
                                 "message_id": "m-cmd-" + uuid.uuid4().hex[:12],
                                 "parent_message_id": session.last_message_id(),
                                 "turn_id": session.turns[-1].turn_id if session.turns else "",
-                                "step_id": session.current_step().step_id if session.current_step() else "",
+                                "step_id": session.current_step().step_id
+                                if session.current_step()
+                                else "",
                                 "status": "updated",
                             },
                         )
@@ -1240,7 +1249,9 @@ class QueryEngine(object):
                                 "message_id": "m-tool-use-" + uuid.uuid4().hex[:12],
                                 "parent_message_id": session.last_message_id(),
                                 "turn_id": session.turns[-1].turn_id if session.turns else "",
-                                "step_id": session.current_step().step_id if session.current_step() else "",
+                                "step_id": session.current_step().step_id
+                                if session.current_step()
+                                else "",
                                 "status": "started",
                             },
                         )
@@ -1294,7 +1305,9 @@ class QueryEngine(object):
                             "message_id": "m-cmd-" + uuid.uuid4().hex[:12],
                             "parent_message_id": session.last_message_id(),
                             "turn_id": session.turns[-1].turn_id if session.turns else "",
-                            "step_id": session.current_step().step_id if session.current_step() else "",
+                            "step_id": session.current_step().step_id
+                            if session.current_step()
+                            else "",
                             "status": "updated",
                         },
                     )

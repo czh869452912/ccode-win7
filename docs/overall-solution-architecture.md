@@ -40,6 +40,8 @@ This is the stable contract boundary between UI and Agent Core.
 - `src/embedagent/session_projector.py`
 - `src/embedagent/session_history.py`
 - `src/embedagent/extensions.py`
+- `src/embedagent/default_extensions.py`
+- `src/embedagent/harness/workflow_projection.py`
 - `src/embedagent/tools/`
 - `src/embedagent/context.py`
 - `src/embedagent/permissions.py`
@@ -49,6 +51,8 @@ This is the product core.
 The default C/C++ harness is now entered through the in-process workflow extension boundary. Harness internals remain bundled and enabled by default, but `QueryEngine` must not import concrete harness task classes directly.
 
 `InProcessAdapter` owns the hosted runtime's `ExtensionManager` and passes that same manager to each session-scoped `QueryEngine`. Frontend tool catalog visibility is computed from the same manager, so model-facing tools and shell metadata share one extension chain.
+
+Default bundled extension assembly is outside `QueryEngine` in `src/embedagent/default_extensions.py`. A bare `QueryEngine` receives an empty `ExtensionManager`; hosted product paths install the default C/C++ harness explicitly before constructing session engines.
 
 Harness state refresh in the product adapter path goes through the default C harness workflow extension. `HarnessStateSynchronizer` remains import-compatible as a lazy service facade, but it is no longer constructed by `InProcessAdapter`.
 
@@ -90,9 +94,11 @@ Official task truth flows through:
 - `task_status`
 - session task snapshots
 
-During the workflow-extension migration, `Session.task_graph` remains a compatibility mirror for the default harness while extension-facing state is carried through `Session.workflow_state`.
+During the workflow-extension migration, `Session.task_graph` remains a compatibility mirror for the default harness while extension-facing state is carried through `Session.workflow_state`. That mirror is lazily created for `Session` instances; importing `embedagent.session` must not eagerly load harness task graph internals.
 
-Frontend-facing task projection now comes from `Session.workflow_state["workflow"]`. The default C/C++ harness extension is responsible for keeping that projection synchronized with its internal task graph and persisted session task snapshots.
+Frontend-facing task projection now comes from `Session.workflow_state["workflow"]`. The default C/C++ harness extension is responsible for keeping that projection synchronized with its internal task graph and persisted session task snapshots. The payload assembly itself is centralized in `src/embedagent/harness/workflow_projection.py`, which is the adapter from C harness internals to generic workflow state.
+
+Workflow-neutral strategies, projectors, and frontend task APIs read task state from that generic workflow projection rather than from `Session.task_graph`.
 
 Session snapshots carry:
 
@@ -111,6 +117,8 @@ The tool runtime has one official facade:
 Harness selects focused tool packs by mode/phase, but execution still flows through one runtime object.
 
 Built-in mode allowed-tool lists are workflow-neutral permission/write contracts. Default C/C++ workflow tools are activated by the harness extension and packs, then passed to runtime schema projection as explicit active tool names.
+
+`ToolRuntime.schemas_for()` is the canonical mode-contract schema projector. `ToolRuntime.schemas_for_mode()` remains only as a legacy compatibility entry point for that same pure projection; it must not be used to activate the default harness pack.
 
 ### Official Tool Families
 

@@ -37,13 +37,16 @@ Recent workflow-boundary work has started slimming Agent Core without changing t
 - `src/embedagent/extensions.py` now provides the in-process workflow extension boundary
 - the C/C++ harness is wrapped as the default built-in workflow extension
 - `QueryEngine` no longer imports or instantiates `TaskGraph` directly
-- `Session.workflow_state` now exists as the generic workflow-state carrier while `Session.task_graph` remains a default harness compatibility mirror
+- `QueryEngine` no longer imports or constructs the default C harness extension; hosted paths install bundled extensions through `default_extensions.py`
+- `Session.workflow_state` now exists as the generic workflow-state carrier while `Session.task_graph` remains a lazy default harness compatibility mirror
 - `SessionSnapshotProjector` and live frontend task APIs now project harness task fields from `Session.workflow_state["workflow"]`
+- extracted core strategies now read task-status projection from `Session.workflow_state["workflow"]` instead of inspecting `Session.task_graph`
+- `src/embedagent/harness/workflow_projection.py` now owns the C harness to generic workflow payload adapter
 - `InProcessAdapter` no longer constructs `HarnessRunner` directly; harness refresh and task-snapshot persistence are delegated to the built-in C harness extension
 - `QueryEngine` now asks for schemas using explicit active tool names instead of `ToolRuntime.schemas_for_mode()`, so default harness pack activation is owned by the workflow extension boundary
 - `CORE_PACK` no longer contains default harness workflow tools; build/debug/verify packs keep those tools explicitly for compatibility
 - built-in mode `allowed_tools` no longer own default harness workflow tools; recipe, quality, evidence, and task-status tools are activated by the C harness extension
-- `ToolRuntime.schemas_for()` now represents the pure mode contract by default, while default-harness paths use extension-active tool names or `schemas_for_mode()` compatibility projection
+- `ToolRuntime.schemas_for()` and the legacy `schemas_for_mode()` entry point now represent the pure mode contract by default; default-harness paths use extension-active explicit tool names
 - `InProcessAdapter` now owns one `ExtensionManager` shared with session-scoped `QueryEngine` and frontend tool catalog visibility
 - `InProcessAdapter` no longer directly imports or constructs `HarnessStateSynchronizer`; the service remains lazily import-compatible while product refresh uses the harness extension directly
 - `StreamingToolExecutor` now window-schedules parallel read batches so failure/discard semantics are deterministic
@@ -77,7 +80,7 @@ Remaining cleanup should focus on:
 Near-term decoupling should continue from the new extension boundary:
 
 - remove `HarnessStateSynchronizer` once downstream compatibility tests no longer import it directly
-- remove remaining compatibility callers that still depend on `ToolRuntime.schemas_for_mode()` or harness-specific service facades
+- remove or rename remaining compatibility callers that still mention `ToolRuntime.schemas_for_mode()` after the pure mode-contract alias has settled
 - defer project-local extension discovery until the built-in shared-manager path has more real-world mileage
 
 ### 4.3 Documentation Alignment

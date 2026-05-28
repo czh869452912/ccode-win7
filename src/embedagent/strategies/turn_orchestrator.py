@@ -310,17 +310,14 @@ class TurnOrchestrator(object):
             )
 
         if action.name == "task_status":
-            summary = ""
-            phase = ""
-            discipline = ""
-            task_items = []
-            if not session.task_graph.is_empty():
-                mode_context = self.tools.describe_mode(current_mode, workflow_state=workflow_state)
-                if mode_context is not None:
-                    summary = str(getattr(mode_context, "task_summary", "") or "")
-                    phase = str(getattr(mode_context, "current_phase", "") or "")
-                    discipline = str(getattr(mode_context, "discipline_label", "") or "")
-                    task_items = list(getattr(mode_context, "task_items", []) or [])
+            workflow = self._workflow_from_session(session)
+            metadata = self._workflow_metadata(workflow)
+            summary = str(workflow.get("summary") or "")
+            phase = str(metadata.get("current_phase") or workflow.get("current_phase") or "")
+            discipline = str(
+                metadata.get("discipline_profile") or workflow.get("discipline_profile") or ""
+            )
+            task_items = list(workflow.get("items") or [])
             if not summary:
                 summary = "no active tasks"
             observation = Observation(
@@ -453,6 +450,21 @@ class TurnOrchestrator(object):
             )
 
         return observation, current_mode, None
+
+    def _workflow_from_session(self, session: Any) -> Dict[str, Any]:
+        workflow_state = getattr(session, "workflow_state", {}) or {}
+        if not isinstance(workflow_state, dict):
+            return {}
+        workflow = workflow_state.get("workflow") or {}
+        if not isinstance(workflow, dict):
+            return {}
+        return dict(workflow)
+
+    def _workflow_metadata(self, workflow: Dict[str, Any]) -> Dict[str, Any]:
+        metadata = workflow.get("metadata") or {}
+        if not isinstance(metadata, dict):
+            return {}
+        return dict(metadata)
 
     def _interrupted_observation(self, tool_name: str) -> Observation:
         return Observation(

@@ -11,6 +11,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from embedagent.config import AppConfig
 from embedagent.context import ContextManager
+from embedagent.default_extensions import build_default_extension_set
 from embedagent.inprocess_adapter import InProcessAdapter
 from embedagent.llm import ModelClientError
 from embedagent.permissions import PermissionPolicy
@@ -504,6 +505,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
 
     def test_initialize_session_injects_profile_mode_and_harness_once(self):
         transcript_store = TranscriptStore(self.workspace)
+        default_extensions = build_default_extension_set(self.tools)
         engine = QueryEngine(
             client=FakeClient(),
             tools=self.tools,
@@ -512,16 +514,21 @@ class TestQueryEngineRefactor(unittest.TestCase):
                 workspace=self.workspace,
             ),
             transcript_store=transcript_store,
+            extension_manager=default_extensions.manager,
         )
         session = Session()
 
-        current_mode = engine.initialize_session(session, "build", workflow_state="chat", user_text="build the project")
+        current_mode = engine.initialize_session(
+            session, "build", workflow_state="chat", user_text="build the project"
+        )
         self.assertEqual(current_mode, "build")
         first_messages = list(session.messages)
         self.assertGreaterEqual(len(first_messages), 2)
         self.assertTrue(any(message.kind == "harness_prompt" for message in first_messages))
 
-        current_mode = engine.initialize_session(session, "build", workflow_state="chat", user_text="build the project")
+        current_mode = engine.initialize_session(
+            session, "build", workflow_state="chat", user_text="build the project"
+        )
         self.assertEqual(current_mode, "build")
         self.assertEqual(len(session.messages), len(first_messages))
 
@@ -1457,8 +1464,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
         events = transcript_store.load_events(session.session_id)
         # Schema v2 normalizes message events to their role type
         message_events = [
-            item for item in events
-            if item["type"] in ("user", "assistant", "system", "tool")
+            item for item in events if item["type"] in ("user", "assistant", "system", "tool")
         ]
         tool_result = [item for item in events if item["type"] == "tool_result"][0]
         self.assertEqual(
@@ -2068,11 +2074,13 @@ class TestQueryEngineRefactor(unittest.TestCase):
             self.workspace,
             app_config=AppConfig(allow_system_tool_fallback=True),
         )
+        default_extensions = build_default_extension_set(interrupt_tools)
         engine = QueryEngine(
             client=SlowCommandClient(),
             tools=interrupt_tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
             transcript_store=transcript_store,
+            extension_manager=default_extensions.manager,
         )
 
         def trigger_cancel(action):

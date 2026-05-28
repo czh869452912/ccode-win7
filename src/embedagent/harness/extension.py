@@ -7,6 +7,7 @@ from embedagent.extensions import HarnessPrompt
 from embedagent.harness import task_store
 from embedagent.harness.runner import HarnessRunner
 from embedagent.harness.task_graph import TaskGraph
+from embedagent.harness.workflow_projection import build_c_harness_workflow_projection
 from embedagent.session import Observation
 from embedagent.tooling.packs import pack_tool_names
 
@@ -253,26 +254,7 @@ class CHarnessWorkflowExtension(object):
         graph = getattr(session, "task_graph", None)
         if graph is None:
             return
-        summary = str(graph.render_summary())
-        items = list(graph.to_items())
-        phase = str(getattr(graph, "current_phase", "") or "")
-        discipline = str(getattr(graph, "discipline", "") or "")
-        activity = ""
-        if context is not None:
-            summary = str(getattr(context, "task_summary", "") or summary)
-            items = list(getattr(context, "task_items", []) or items)
-            phase = str(getattr(context, "current_phase", "") or phase)
-            discipline = str(getattr(context, "discipline_label", "") or discipline)
-            activity = str(getattr(context, "current_activity", "") or "")
-        session.workflow_state["workflow"] = {
-            "id": "c_harness",
-            "label": "C Harness",
-            "state": "idle" if graph.is_empty() else "active",
-            "summary": summary,
-            "items": items,
-            "activity": activity,
-            "metadata": {
-                "current_phase": phase,
-                "discipline_profile": discipline,
-            },
-        }
+        session.workflow_state["workflow"] = build_c_harness_workflow_projection(
+            graph,
+            context=context,
+        )

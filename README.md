@@ -19,13 +19,16 @@ The repository now treats Agent Core as the workflow-neutral runtime, with the C
 - Default task system: `TaskGraph` projected through `task_status` and session task snapshots
 - Generic workflow state carrier: `Session.workflow_state`
 - Frontend workflow projection: `Session.workflow_state["workflow"]` is the source for `current_phase`, `discipline_profile`, `current_activity`, `task_summary`, and `task_items`
+- Default C/C++ workflow projection adapter: `src/embedagent/harness/workflow_projection.py` maps harness internals into the generic workflow payload
 - Official build/verify execution: `list_recipes` + `run_recipe` + `report_quality_v2`
 - Mode allowed-tool contracts are workflow-neutral; default harness tools are activated by the built-in C/C++ workflow extension
 - Official file discovery: `list_dir`, `glob_files`, `grep_text`
 - Official permission engine: `PermissionPolicy` with structured rule matching and stable explanation text
 - Official session runtime ownership: one session-scoped `QueryEngine` owns turn/step/interaction execution; adapters host and project
 - Official workflow extension hosting: `InProcessAdapter` owns one `ExtensionManager` shared with session-scoped `QueryEngine` and frontend tool catalog visibility
+- Official default extension assembly: `src/embedagent/default_extensions.py` installs the bundled C/C++ harness for hosted product paths; `QueryEngine` itself has no built-in harness import or constructor fallback
 - Official harness refresh path: the default harness workflow extension, not the `HarnessStateSynchronizer` compatibility facade
+- Official runtime schema projection: `ToolRuntime.schemas_for()` and the legacy `schemas_for_mode()` entry point expose only workflow-neutral mode contracts; default harness-aware callers must pass extension-active tool names explicitly
 - Official frontend vocabulary: `build`, `tasks`, `current_phase`, `discipline_profile`
 - Official session-history model: `transcript.jsonl -> Session -> SessionHistoryAssembler -> /api/sessions/{id}/bootstrap`
 
@@ -51,10 +54,12 @@ The product no longer treats the old `code` mode or `manage_todos`-style workflo
   The session-scoped engine that owns turn/step execution, interaction suspend/resume, context assembly, transcript integration, and the workflow extension boundary.
 - `src/embedagent/extensions.py`
   In-process extension contract and manager for workflow prompt/tool/state hooks.
+- `src/embedagent/default_extensions.py`
+  Hosted-runtime factory that installs the bundled C/C++ harness extension outside `QueryEngine`.
 - `src/embedagent/session_runtime.py` and `src/embedagent/session_projector.py`
   Runtime host state plus pure snapshot/bootstrap projection from session truth.
 - `src/embedagent/harness/`
-  Default C/C++ workflow extension internals: mode registry, discipline/phase modeling, prompt stack, task graph, and session task snapshot persistence.
+  Default C/C++ workflow extension internals: mode registry, discipline/phase modeling, prompt stack, task graph, workflow projection, and session task snapshot persistence.
 - `src/embedagent/tools/`
   Official tool runtime, catalog metadata, managed environment discovery, and tool execution.
 - `src/embedagent/context.py`
@@ -90,6 +95,8 @@ The default C/C++ workflow tool vocabulary is centered on:
 Git/status helpers and `run_command` remain available as supporting capabilities where appropriate, but the architecture no longer treats the old duplicate file/build/todo tools as first-class workflow primitives.
 
 These tools are registered in the runtime catalog. Built-in mode prompts expose only workflow-neutral permission/write contracts; the default C/C++ harness extension activates recipe, quality, evidence, and task-status tools through focused packs.
+
+Runtime schema filtering no longer activates the default harness pack on its own. Product paths that need the full default C/C++ tool set combine the mode contract with `ExtensionManager` active tools, then request schemas by explicit tool names.
 
 ## Development Constraints
 
