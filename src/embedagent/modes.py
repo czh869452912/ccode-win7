@@ -34,7 +34,8 @@ _DEFAULT_PROMPT_FRAME = (
 
 # ---------------------------------------------------------------------------
 # Built-in mode definitions (5 modes for C maintenance workflow)
-# All official modes expose task_status + ask_user; task mutation is harness-driven.
+# Built-in mode tools describe workflow-neutral permission/write boundaries.
+# Harness workflow tools are activated by workflow extensions and packs.
 # switch_mode is intentionally NOT in any mode's allowed_tools —
 # mode switching is exclusively user-driven (/mode command or ask_user options).
 # ---------------------------------------------------------------------------
@@ -55,7 +56,6 @@ _BUILTIN_MODES = {
             "grep_text",
             "git_status",
             "git_log",
-            "task_status",
             "ask_user",
         ],
         "writable_globs": [],
@@ -73,7 +73,6 @@ _BUILTIN_MODES = {
             "glob_files",
             "grep_text",
             "write_file",
-            "task_status",
             "ask_user",
         ],
         "writable_globs": ["**/*.md", "**/*.rst", "**/*.txt"],
@@ -92,9 +91,6 @@ _BUILTIN_MODES = {
             "grep_text",
             "write_file",
             "edit_file",
-            "run_recipe",
-            "list_recipes",
-            "task_status",
             "ask_user",
         ],
         "writable_globs": [
@@ -141,10 +137,6 @@ _BUILTIN_MODES = {
             "grep_text",
             "write_file",
             "edit_file",
-            "run_recipe",
-            "list_recipes",
-            "record_failing_evidence",
-            "task_status",
             "ask_user",
         ],
         "writable_globs": [
@@ -184,10 +176,10 @@ _BUILTIN_MODES = {
             "本模式不改代码；发现问题时只说明证据与建议，用 ask_user 告知用户需要切换到哪个模式修复。"
         ),
         "allowed_tools": [
-            "list_recipes",
-            "run_recipe",
-            "report_quality_v2",
-            "task_status",
+            "read_file",
+            "list_dir",
+            "glob_files",
+            "grep_text",
             "ask_user",
         ],
         "writable_globs": [],

@@ -332,7 +332,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         # No harness state pre-generated on session creation
         self.assertEqual(len(self.snapshot.get("task_items") or []), 0)
 
-    def test_session_snapshot_projects_task_fields_from_session_graph(self):
+    def test_session_snapshot_projects_task_fields_from_workflow_state(self):
         session_id = str(self.snapshot.get("session_id") or "")
         # First submit explicit work to generate task graph
         self.adapter.submit_user_message(
@@ -343,11 +343,13 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         )
 
         state = self.adapter._sessions[session_id]
-        # Verify task graph was generated
-        self.assertFalse(state.session.task_graph.is_empty())
-        expected_phase = state.session.task_graph.current_phase
+        workflow = state.session.workflow_state.get("workflow") or {}
+        metadata = workflow.get("metadata") or {}
+        self.assertTrue(workflow)
+        expected_phase = metadata.get("current_phase")
+        expected_discipline = metadata.get("discipline_profile")
 
-        # Now set stale values on state (not on task_graph)
+        # Now set stale values on state (not on workflow_state)
         stale_phase = "stale:phase"
         stale_discipline = "stale:discipline"
         stale_activity = "stale activity"
@@ -360,12 +362,41 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
 
         projected = self.adapter.get_session_snapshot(session_id)
 
-        # Snapshot should project from task_graph, not from stale state values
+        # Snapshot should project from workflow_state, not from stale state values
         self.assertEqual(projected.get("current_phase"), expected_phase)
-        self.assertEqual(projected.get("discipline_profile"), state.session.task_graph.discipline)
+        self.assertEqual(projected.get("discipline_profile"), expected_discipline)
         # task_summary should contain the track phases, not the stale summary
         self.assertNotEqual(str(projected.get("task_summary") or ""), stale_summary)
         self.assertGreaterEqual(len(projected.get("task_items") or []), 1)
+
+    def test_session_snapshot_uses_synced_workflow_without_describing_harness(self):
+        session_id = str(self.snapshot.get("session_id") or "")
+        self.adapter.submit_user_message(
+            session_id=session_id,
+            text="build the project",
+            stream=False,
+            wait=True,
+        )
+
+        state = self.adapter._sessions[session_id]
+        workflow = state.session.workflow_state.get("workflow") or {}
+        metadata = workflow.get("metadata") or {}
+        expected_phase = metadata.get("current_phase")
+
+        self.assertEqual(metadata.get("current_phase"), expected_phase)
+
+        def fail_describe_mode(*args, **kwargs):
+            raise AssertionError("get_session_snapshot should use workflow_state projection")
+
+        self.adapter.harness_workflow.harness_runner.describe_mode = fail_describe_mode
+
+        projected = self.adapter.get_session_snapshot(session_id)
+
+        self.assertEqual(projected.get("current_phase"), expected_phase)
+        self.assertEqual(
+            projected.get("workflow", {}).get("metadata", {}).get("current_phase"),
+            expected_phase,
+        )
 
     def test_session_snapshot_projector_is_side_effect_free(self):
         from embedagent.session_projector import SessionSnapshotProjector

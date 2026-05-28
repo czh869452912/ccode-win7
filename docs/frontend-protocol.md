@@ -39,6 +39,7 @@ Important session snapshot fields include:
 - `pending_interaction_valid`
 - `runtime_source`
 - `bundled_tools_ready`
+- `workflow`
 - `current_phase`
 - `discipline_profile`
 - `current_activity`
@@ -47,6 +48,10 @@ Important session snapshot fields include:
 - replay metadata fields
 
 `task_items` is the official frontend task list payload.
+
+`workflow` is the generic workflow projection. For the default C/C++ harness, `current_phase`, `discipline_profile`, `current_activity`, `task_summary`, and `task_items` are compatibility fields projected from `workflow`.
+
+Frontend shells should not read or infer default harness internals such as task graph state. They consume the snapshot fields and, where a richer shape is needed, the `workflow` payload.
 
 Session activation additionally depends on one bootstrap payload containing:
 
@@ -121,6 +126,8 @@ Frontend shells must treat these as authoritative and must not synthesize replac
 The frontend-visible tool catalog should represent the official workflow vocabulary used by the product shell.
 
 The UI should not use the catalog to reintroduce deprecated mode/tool naming.
+
+Catalog visibility is computed from workflow-neutral mode contracts plus tools activated by the hosted runtime's shared `ExtensionManager`. This lets the shell display harness tool metadata such as `task_status` while keeping `modes.py` independent from the harness pack design and avoiding a separate frontend-only extension chain.
 
 For `task_status`, the official presentation metadata is:
 

@@ -29,6 +29,23 @@ def _normalize_recent_transitions(items: List[Dict[str, Any]]) -> List[Dict[str,
     return normalized
 
 
+def _workflow_from_session(session: Any) -> Dict[str, Any]:
+    workflow_state = getattr(session, "workflow_state", {}) or {}
+    if not isinstance(workflow_state, dict):
+        return {}
+    workflow = workflow_state.get("workflow") or {}
+    if not isinstance(workflow, dict):
+        return {}
+    return dict(workflow)
+
+
+def _workflow_metadata(workflow: Dict[str, Any]) -> Dict[str, Any]:
+    metadata = workflow.get("metadata") or {}
+    if not isinstance(metadata, dict):
+        return {}
+    return dict(metadata)
+
+
 class SessionSnapshotProjector(object):
     def build_snapshot(
         self,
@@ -38,17 +55,23 @@ class SessionSnapshotProjector(object):
         pending_interaction: Optional[Dict[str, Any]] = None,
         harness_context: Optional[Any] = None,
     ) -> Dict[str, Any]:
+        del harness_context
         summary_payload = dict(summary or {})
         runtime_payload = dict(runtime or {})
         recent_transitions = _normalize_recent_transitions(
             list(summary_payload.get("recent_transitions") or [])
         )
-        graph = getattr(state.session, "task_graph", None)
-        graph_items = list(graph.to_items() if graph is not None else [])
-        graph_phase = str(getattr(graph, "current_phase", "") or "") if graph is not None else ""
-        graph_discipline = str(getattr(graph, "discipline", "") or "") if graph is not None else ""
-        graph_summary = str(graph.render_summary() if graph is not None else "")
-        activity = str(getattr(harness_context, "current_activity", "") or "")
+        workflow = _workflow_from_session(state.session)
+        metadata = _workflow_metadata(workflow)
+        workflow_items = list(workflow.get("items") or [])
+        workflow_phase = str(metadata.get("current_phase") or workflow.get("current_phase") or "")
+        workflow_discipline = str(
+            metadata.get("discipline_profile")
+            or workflow.get("discipline_profile")
+            or ""
+        )
+        workflow_summary = str(workflow.get("summary") or "")
+        workflow_activity = str(workflow.get("activity") or "")
         return {
             "session_id": state.session.session_id,
             "status": state.status,
@@ -105,11 +128,12 @@ class SessionSnapshotProjector(object):
                 "degraded" if state.restore_stop_reason == "transcript_missing" else "healthy"
             ),
             "pending_interaction_valid": bool(state.pending_permission or state.pending_user_input),
-            "current_phase": graph_phase,
-            "discipline_profile": graph_discipline,
-            "current_activity": activity,
-            "task_summary": graph_summary,
-            "task_items": graph_items,
+            "current_phase": workflow_phase,
+            "discipline_profile": workflow_discipline,
+            "current_activity": workflow_activity,
+            "task_summary": workflow_summary,
+            "task_items": workflow_items,
+            "workflow": workflow,
             "runtime_source": str(runtime_payload.get("runtime_source") or ""),
             "bundled_tools_ready": bool(runtime_payload.get("bundled_tools_ready")),
             "fallback_warnings": list(runtime_payload.get("fallback_warnings") or []),

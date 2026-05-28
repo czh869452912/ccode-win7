@@ -9,8 +9,9 @@ from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional
 
 from embedagent.context import ContextManager
+from embedagent.extensions import ExtensionManager
 from embedagent.harness import task_store
-from embedagent.harness.runner import HarnessRunner
+from embedagent.harness.extension import CHarnessWorkflowExtension
 from embedagent.interaction import UserInputRequest, UserInputResponse
 from embedagent.llm import OpenAICompatibleClient
 from embedagent.memory_maintenance import MemoryMaintenance
@@ -33,7 +34,6 @@ from embedagent.session_runtime import ManagedSession
 from embedagent.session_store import SessionSummaryStore
 from embedagent.services import (
     EventEmitter,
-    HarnessStateSynchronizer,
     SessionLifecycleManager,
     WorkspaceFileService,
 )
@@ -207,7 +207,8 @@ class InProcessAdapter(object):
         self.transcript_store = TranscriptStore(self.tools.workspace)
         self.session_restorer = SessionRestorer()
         self.snapshot_projector = SessionSnapshotProjector()
-        self.harness_runner = HarnessRunner()
+        self.harness_workflow = CHarnessWorkflowExtension(tools=self.tools)
+        self.extension_manager = ExtensionManager([self.harness_workflow])
         initialize_modes(self.tools.workspace)
         self._sessions = {}  # type: Dict[str, ManagedSession]
         self._lock = threading.RLock()
@@ -215,10 +216,6 @@ class InProcessAdapter(object):
         self._workspace_files = WorkspaceFileService(
             self.tools.workspace,
             getattr(self.tools, "_ctx", None),
-        )
-        self._harness_sync = HarnessStateSynchronizer(
-            self.harness_runner,
-            self.tools.workspace,
         )
         self._session_lifecycle = SessionLifecycleManager(
             session_store=self.summary_store,
@@ -242,6 +239,7 @@ class InProcessAdapter(object):
             memory_maintenance=self.memory_maintenance,
             maintenance_interval=self.maintenance_interval,
             transcript_store=self.transcript_store,
+            extension_manager=self.extension_manager,
         )
 
     def _append_transcript_message_event(self, session_id: str, message: Any) -> None:
@@ -263,7 +261,11 @@ class InProcessAdapter(object):
 
     def _refresh_harness_state(self, state: ManagedSession) -> None:
         observations = state.session.turns[-1].observations if state.session.turns else []
-        self._harness_sync.refresh_task_graph(state, observations=observations)
+        self.harness_workflow.refresh_managed_session(
+            state,
+            self.tools.workspace,
+            observations=observations,
+        )
 
     def create_session(
         self,
@@ -398,25 +400,11 @@ class InProcessAdapter(object):
         runtime = runtime_lookup() if callable(runtime_lookup) else {}
         with state.lock:
             summary = self._read_summary_for_state(state)
-            graph = getattr(state.session, "task_graph", None)
-            harness_context = None
-            if graph is not None and not graph.is_empty():
-                harness_context = self.harness_runner.describe_mode(
-                    state.current_mode,
-                    discipline_override=(
-                        str(getattr(graph, "discipline", "") or "")
-                    ),
-                    current_phase=(
-                        str(getattr(graph, "current_phase", "") or "")
-                    ),
-                    observations=[],
-                )
             return self.snapshot_projector.build_snapshot(
                 state,
                 summary,
                 runtime,
                 pending_interaction=_pending_interaction_payload(state),
-                harness_context=harness_context,
             )
 
     def get_workspace_snapshot(self) -> Dict[str, Any]:
@@ -580,8 +568,11 @@ class InProcessAdapter(object):
         with self._lock:
             state = self._sessions.get(session_id)
         if state is not None:
-            graph = getattr(state.session, "task_graph", None)
-            tasks = list(graph.to_items() if graph is not None else [])
+            session_workflow = getattr(state.session, "workflow_state", {}) or {}
+            workflow = {}
+            if isinstance(session_workflow, dict):
+                workflow = dict(session_workflow.get("workflow") or {})
+            tasks = list(workflow.get("items") or [])
         else:
             tasks = task_store.load_task_items(self.tools.workspace, session_id)
         return {
@@ -618,7 +609,13 @@ class InProcessAdapter(object):
         if callable(method):
             allowed = set()
             for mode_name in mode_names():
-                allowed.update(allowed_tools_for(mode_name))
+                allowed.update(
+                    self.extension_manager.allowed_tool_names(
+                        mode_name,
+                        workflow_state="chat",
+                        fallback=set(allowed_tools_for(mode_name)),
+                    )
+                )
             items = []
             for entry in method():
                 if not isinstance(entry, dict):

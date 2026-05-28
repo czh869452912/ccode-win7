@@ -22,7 +22,7 @@ class TestModeRegistry(unittest.TestCase):
     def test_all_expected_modes_present(self):
         """Verify current built-in modes are present."""
         names = mode_names()
-        # Current built-in modes: explore, spec, code, debug, verify
+        # Current built-in modes: explore, spec, build, debug, verify
         for m in ("explore", "spec", "build", "debug", "verify"):
             self.assertIn(m, names)
 
@@ -39,22 +39,22 @@ class TestAllowedTools(unittest.TestCase):
         self.assertIn("glob_files", tools)
         self.assertIn("grep_text", tools)
 
-    def test_explore_has_task_status(self):
-        self.assertIn("task_status", allowed_tools_for("explore"))
-
     def test_explore_has_git_status(self):
         # git_status and git_log were added to explore in Phase 1 (P3 fix)
         tools = allowed_tools_for("explore")
         self.assertIn("git_status", tools)
         self.assertIn("git_log", tools)
 
-    def test_build_has_task_status(self):
-        self.assertIn("task_status", allowed_tools_for("build"))
-
-    def test_build_uses_recipe_tools(self):
-        tools = allowed_tools_for("build")
-        self.assertIn("list_recipes", tools)
-        self.assertIn("run_recipe", tools)
+    def test_mode_contracts_do_not_own_harness_workflow_tools(self):
+        harness_tools = {
+            "list_recipes",
+            "run_recipe",
+            "report_quality_v2",
+            "record_failing_evidence",
+            "task_status",
+        }
+        for mode_name in ("explore", "spec", "build", "debug", "verify"):
+            self.assertEqual(set(allowed_tools_for(mode_name)) & harness_tools, set())
 
     def test_explore_is_read_only_tools(self):
         tools = allowed_tools_for("explore")
@@ -65,8 +65,15 @@ class TestAllowedTools(unittest.TestCase):
     def test_verify_has_no_edit_file(self):
         self.assertNotIn("edit_file", allowed_tools_for("verify"))
 
-    def test_code_has_write_file(self):
+    def test_build_has_write_file(self):
         self.assertIn("write_file", allowed_tools_for("build"))
+
+    def test_verify_has_read_tools(self):
+        tools = allowed_tools_for("verify")
+        self.assertIn("read_file", tools)
+        self.assertIn("list_dir", tools)
+        self.assertIn("glob_files", tools)
+        self.assertIn("grep_text", tools)
 
 
 class TestWritableGlobs(unittest.TestCase):
@@ -74,7 +81,7 @@ class TestWritableGlobs(unittest.TestCase):
         for m in ("explore", "verify"):
             self.assertEqual(get_writable_globs(m), [])
 
-    def test_code_mode_default_globs(self):
+    def test_build_mode_default_globs(self):
         globs = get_writable_globs("build")
         self.assertIn("**/*.py", globs)
         self.assertIn("**/*.c", globs)
@@ -124,13 +131,13 @@ class TestIsPathWritable(unittest.TestCase):
         self.assertTrue(is_path_writable("spec", "wiki/design.md"))
         self.assertTrue(is_path_writable("spec", "ADR/001-decision.rst"))
 
-    def test_root_toml_in_code_mode(self):
+    def test_root_toml_in_build_mode(self):
         self.assertTrue(is_path_writable("build", "pyproject.toml"))
 
-    def test_root_python_in_code_mode(self):
+    def test_root_python_in_build_mode(self):
         self.assertTrue(is_path_writable("build", "manage.py"))
 
-    def test_markdown_blocked_in_code_mode(self):
+    def test_markdown_blocked_in_build_mode(self):
         self.assertFalse(is_path_writable("build", "README.md"))
 
     def test_python_blocked_in_spec_mode(self):
@@ -160,9 +167,10 @@ class TestBuildSystemPrompt(unittest.TestCase):
         prompt = build_system_prompt("build")
         self.assertIn("build", prompt)
 
-    def test_prompt_contains_task_status_in_explore(self):
+    def test_prompt_excludes_harness_tools_in_explore(self):
         prompt = build_system_prompt("explore")
-        self.assertIn("task_status", prompt)
+        self.assertNotIn("task_status", prompt)
+        self.assertIn("ask_user", prompt)
 
     def test_prompt_shows_readonly_for_explore(self):
         prompt = build_system_prompt("explore")

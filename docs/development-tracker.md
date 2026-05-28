@@ -1,6 +1,6 @@
 # EmbedAgent 开发进度跟踪
 
-> 更新日期：2026-04-08（agent core ownership cutover）
+> 更新日期：2026-05-26（workflow extension boundary slice 2）
 > 用途：持续跟踪当前阶段、下一步任务、里程碑进度、风险与阻塞
 
 ---
@@ -36,6 +36,7 @@
 - 最新 intelligence cutover：`ProjectMemoryStore` 与 `WorkspaceIntelligence` 现已按 `run_recipe + recipe_action + report_quality_v2` 工作，历史 recipe id 也已从 `history.run_tests.1` 之类旧命名收敛为 `history.test.1`；当前 `src/` 里剩余的 live legacy 主要集中在 frontend/protocol 旧接口与 `workspace_recipes` 的内部旧名映射。`
 - 最新 shell cutover：frontend/protocol/backend 侧的 `list_files` 旧接口名已切为 `list_workspace_tree`；webapp tool labels、review 语义和 workspace recipe 数据也已移除 `legacy_tool_name` 及旧 verify 工具名。当前 `src/embedagent/` grep 已不再出现 `compile_project/run_tests/manage_todos/list_files/search_text/tools_v2/AgentLoop` 这类 legacy 词汇。`
 - 最新 agent core cutover：`QueryEngine` 已改为 session-scoped owner，`InProcessAdapter` 不再为前端事件重新生成 `step_id`；pending permission/user-input 的 resume 现已回到统一 action pipeline，`TaskGraph` 已进入 `Session` 真相层并驱动 task projection，`SessionSnapshotProjector` 已抽成纯投影器，`transcript/timeline` 追加序号也已改为缓存分配。`
+- 最新 workflow extension boundary：`src/embedagent/extensions.py` 已建立本地 workflow extension contract，默认 C/C++ harness 现在通过 `src/embedagent/harness/extension.py` 接入；`QueryEngine` 不再直接 import/实例化 `TaskGraph`，也不再通过 `ToolRuntime.schemas_for_mode()` 获得 harness pack；`SessionSnapshotProjector` 与 live frontend task API 已改为从 `Session.workflow_state["workflow"]` 投影任务字段，`InProcessAdapter` 不再直接构造 `HarnessRunner`；`Session.task_graph` 暂作为默认 harness 兼容镜像留在 harness-owned 路径内。`
 - 最新 runtime cleanup：`task_status` 前端元数据现已统一为 `tasks/task` 词汇，workspace profile 不再输出待办语义提示，运行时残留 `todos.py` 已删除。`
 - 最新归档收尾：`agent-core-cutover` 相关 design / plan / review / implementation review / follow-up plan 已迁入 `docs/archive/agent-core-cutover/`，活动 `docs/superpowers/` 入口不再保留这轮已关闭切片。`
 
@@ -287,6 +288,12 @@
 
 | 日期 | 更新内容 |
 |------|----------|
+| 2026-05-26 | Workflow extension boundary Slice 1 落地：新增 in-process extension manager、默认 C harness extension、`Session.workflow_state` 兼容位，并修复 parallel tool batch 失败后后续任务抢跑的竞态；fast/non-gui 测试通过 |
+| 2026-05-26 | Workflow extension boundary Slice 2 落地：`SessionSnapshotProjector` 与 live frontend task API 已从 `task_graph` 直读迁到 `Session.workflow_state["workflow"]`，`HarnessStateSynchronizer` 降为兼容门面，adapter 的 harness 刷新与 task snapshot 持久化委托给默认 C harness extension |
+| 2026-05-27 | Workflow extension boundary Slice 3 落地：`QueryEngine` 的 schema/allowed-tool 计算改为 mode fallback + workflow extension active tools，并通过 explicit tool names 调用 runtime；`CORE_PACK` 已移除 `run_recipe/list_recipes/task_status` 等默认 harness workflow 工具 |
+| 2026-05-27 | Workflow extension boundary Slice 4 落地：内置 mode `allowed_tools` 已收缩为 workflow-neutral permission/write contract；默认 C harness 的 recipe/quality/evidence/task-status 工具由 extension pack 激活，frontend tool catalog 改为 mode contract + extension active tools 的并集 |
+| 2026-05-27 | Workflow extension boundary Slice 5 落地：`InProcessAdapter` 现在拥有共享 `ExtensionManager`，并将同一 manager 传给 session-scoped `QueryEngine` 与 frontend tool catalog，消除 adapter/engine 各自持有 harness extension 的分叉 |
+| 2026-05-27 | Workflow extension boundary Slice 6 落地：`InProcessAdapter` 已不再直接导入或构造 `HarnessStateSynchronizer`；product harness refresh 只走默认 C harness workflow extension，synchronizer 继续作为 services 惰性导出的兼容门面保留 |
 | 2026-04-09 | 文档治理 Batch B 完成：归档 10 份 superseded 文档至 archive/，下沉 8 份操作文档（6 份 packaging 归档 + 2 份 guides/），更新 docs/README.md 和模块文档 |
 | 2026-04-09 | 文档治理 Batch A 完成：补齐 4 篇缺失模块文档，修复 tools-and-tooling 不准确引用，更新代码-文档矩阵与模块索引 |
 | 2026-04-08 | 启动文档治理基线实施：建立 docs 分层、模板、术语表、同步工作流和第一批模块文档入口 |

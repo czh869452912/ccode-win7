@@ -14,13 +14,15 @@ EmbedAgent now has one official first-class mode set:
 
 ## 2. Mode Responsibilities
 
-| Mode | Responsibility | Official Tool Focus | Write Policy |
-|------|----------------|---------------------|--------------|
-| `explore` | code reading, explanation, impact analysis, discussion | `read_file`, `list_dir`, `glob_files`, `grep_text`, `git_status`, `git_log`, `task_status`, `ask_user` | read-only |
-| `spec` | requirements, constraints, acceptance criteria, docs | `read_file`, `list_dir`, `glob_files`, `grep_text`, `write_file`, `task_status`, `ask_user` | docs/text-oriented writes |
-| `build` | implementation loop | `read_file`, `list_dir`, `glob_files`, `grep_text`, `write_file`, `edit_file`, `list_recipes`, `run_recipe`, `task_status`, `ask_user` | implementation writes |
-| `debug` | reproduction, isolation, minimal repair | `read_file`, `list_dir`, `glob_files`, `grep_text`, `write_file`, `edit_file`, `list_recipes`, `run_recipe`, `record_failing_evidence`, `task_status`, `ask_user` | implementation writes |
-| `verify` | build/test/static analysis summary without source edits | `list_recipes`, `run_recipe`, `report_quality_v2`, `task_status`, `ask_user` | read-only |
+| Mode | Responsibility | Mode-Contract Tool Focus | Write Policy |
+|------|----------------|--------------------------|--------------|
+| `explore` | code reading, explanation, impact analysis, discussion | `read_file`, `list_dir`, `glob_files`, `grep_text`, `git_status`, `git_log`, `ask_user` | read-only |
+| `spec` | requirements, constraints, acceptance criteria, docs | `read_file`, `list_dir`, `glob_files`, `grep_text`, `write_file`, `ask_user` | docs/text-oriented writes |
+| `build` | implementation loop | `read_file`, `list_dir`, `glob_files`, `grep_text`, `write_file`, `edit_file`, `ask_user` | implementation writes |
+| `debug` | reproduction, isolation, minimal repair | `read_file`, `list_dir`, `glob_files`, `grep_text`, `write_file`, `edit_file`, `ask_user` | implementation writes |
+| `verify` | build/test/static analysis summary without source edits | `read_file`, `list_dir`, `glob_files`, `grep_text`, `ask_user` | read-only |
+
+Mode-contract tool lists are workflow-neutral. Default C/C++ harness tools such as `list_recipes`, `run_recipe`, `report_quality_v2`, `record_failing_evidence`, and `task_status` are registered runtime tools, but they are activated by the default C harness workflow extension and selected tool packs, not by the built-in mode schema itself.
 
 ## 3. Switching Rules
 
@@ -40,6 +42,10 @@ Actual workflow progression is handled by:
 - `TaskGraph`
 
 That means a mode does not directly encode the whole workflow state.
+
+The C/C++ harness provides this progression through the default built-in workflow extension. Agent Core may keep `current_mode` for compatibility, but harness prompt injection, task initialization, and harness tool activation should flow through the extension boundary.
+
+`ToolRuntime.schemas_for(mode)` projects only the workflow-neutral mode contract by default. Default harness-aware paths such as `QueryEngine` extension activation and `ToolRuntime.schemas_for_mode(mode)` include the active harness pack.
 
 ## 5. Writable Scope
 

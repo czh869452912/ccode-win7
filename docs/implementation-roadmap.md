@@ -32,6 +32,22 @@ This means the repository now has one official execution spine centered on:
 - `run_recipe` / `report_quality_v2` instead of legacy duplicate verify tools in product paths
 - frontend `tasks` vocabulary instead of `todos`
 
+Recent workflow-boundary work has started slimming Agent Core without changing the default C/C++ behavior:
+
+- `src/embedagent/extensions.py` now provides the in-process workflow extension boundary
+- the C/C++ harness is wrapped as the default built-in workflow extension
+- `QueryEngine` no longer imports or instantiates `TaskGraph` directly
+- `Session.workflow_state` now exists as the generic workflow-state carrier while `Session.task_graph` remains a default harness compatibility mirror
+- `SessionSnapshotProjector` and live frontend task APIs now project harness task fields from `Session.workflow_state["workflow"]`
+- `InProcessAdapter` no longer constructs `HarnessRunner` directly; harness refresh and task-snapshot persistence are delegated to the built-in C harness extension
+- `QueryEngine` now asks for schemas using explicit active tool names instead of `ToolRuntime.schemas_for_mode()`, so default harness pack activation is owned by the workflow extension boundary
+- `CORE_PACK` no longer contains default harness workflow tools; build/debug/verify packs keep those tools explicitly for compatibility
+- built-in mode `allowed_tools` no longer own default harness workflow tools; recipe, quality, evidence, and task-status tools are activated by the C harness extension
+- `ToolRuntime.schemas_for()` now represents the pure mode contract by default, while default-harness paths use extension-active tool names or `schemas_for_mode()` compatibility projection
+- `InProcessAdapter` now owns one `ExtensionManager` shared with session-scoped `QueryEngine` and frontend tool catalog visibility
+- `InProcessAdapter` no longer directly imports or constructs `HarnessStateSynchronizer`; the service remains lazily import-compatible while product refresh uses the harness extension directly
+- `StreamingToolExecutor` now window-schedules parallel read batches so failure/discard semantics are deterministic
+
 Recent stabilization work has also completed the GUI session-history single-source cutover:
 
 - `transcript.jsonl` is now the only durable session-history truth
@@ -56,7 +72,15 @@ Remaining cleanup should focus on:
 - deleting or archiving superseded helper modules
 - removing outdated tests/manual samples that preserve non-official behavior
 
-### 4.2 Documentation Alignment
+### 4.2 Workflow Extension Decoupling
+
+Near-term decoupling should continue from the new extension boundary:
+
+- remove `HarnessStateSynchronizer` once downstream compatibility tests no longer import it directly
+- remove remaining compatibility callers that still depend on `ToolRuntime.schemas_for_mode()` or harness-specific service facades
+- defer project-local extension discovery until the built-in shared-manager path has more real-world mileage
+
+### 4.3 Documentation Alignment
 
 Current source-of-truth docs must remain aligned with the official architecture:
 
@@ -69,14 +93,14 @@ Current source-of-truth docs must remain aligned with the official architecture:
 - `docs/frontend-protocol.md`
 - `docs/agent-harness-v2.md`
 
-### 4.3 Documentation Governance Baseline
+### 4.4 Documentation Governance Baseline
 
 - establish the active docs governance scaffold
 - create module-level documentation for core code areas
 - standardize terminology, templates, and Mermaid usage
 - keep `superpowers -> global docs -> archive` synchronization as the default closure path
 
-### 4.4 Real-World Validation
+### 4.5 Real-World Validation
 
 After architecture cutover, the highest-value validation is:
 

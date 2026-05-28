@@ -14,7 +14,6 @@ import pytest
 from embedagent.llm import OpenAICompatibleClient
 from embedagent.query_engine import QueryEngine
 from embedagent.services.event_emitter import EventEmitter
-from embedagent.services.harness_state_synchronizer import HarnessStateSynchronizer
 from embedagent.services.session_lifecycle import SessionLifecycleManager
 from embedagent.services.workspace_file_service import WorkspaceFileService
 from embedagent.strategies.context_compaction_engine import ContextCompactionEngine
@@ -75,10 +74,9 @@ class TestServiceDelegation(object):
         assert hasattr(adapter, "_workspace_files")
         assert isinstance(adapter._workspace_files, WorkspaceFileService)
 
-    def test_inprocess_adapter_has_harness_sync(self, fresh_container):
+    def test_inprocess_adapter_does_not_own_harness_sync(self, fresh_container):
         adapter = self._make_adapter(fresh_container)
-        assert hasattr(adapter, "_harness_sync")
-        assert isinstance(adapter._harness_sync, HarnessStateSynchronizer)
+        assert not hasattr(adapter, "_harness_sync")
 
     def test_query_engine_has_strategies(self, fresh_container):
         client = MagicMock(spec=OpenAICompatibleClient)

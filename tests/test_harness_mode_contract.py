@@ -4,7 +4,7 @@ import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from embedagent.modes import PermissionContract, get_mode_contract
+from embedagent.modes import get_mode_contract
 
 
 class TestPermissionContract(unittest.TestCase):
@@ -38,25 +38,27 @@ class TestPermissionContract(unittest.TestCase):
 
 
 class TestHarnessInjection(unittest.TestCase):
+    def _make_extension(self):
+        from embedagent.harness.extension import CHarnessWorkflowExtension
+
+        return CHarnessWorkflowExtension()
+
     def test_chat_does_not_trigger_harness(self):
-        from embedagent.query_engine import QueryEngine
-        engine = QueryEngine.__new__(QueryEngine)
+        extension = self._make_extension()
         # Chat messages should not trigger harness
-        self.assertFalse(engine._should_inject_harness("hi", "build"))
-        self.assertFalse(engine._should_inject_harness("hello", "build"))
-        self.assertFalse(engine._should_inject_harness("what can you do?", "build"))
+        self.assertFalse(extension.should_inject_workflow("hi", "build"))
+        self.assertFalse(extension.should_inject_workflow("hello", "build"))
+        self.assertFalse(extension.should_inject_workflow("what can you do?", "build"))
 
     def test_work_request_triggers_harness(self):
-        from embedagent.query_engine import QueryEngine
-        engine = QueryEngine.__new__(QueryEngine)
+        extension = self._make_extension()
         # Work requests should trigger harness
-        self.assertTrue(engine._should_inject_harness("build the project", "build"))
-        self.assertTrue(engine._should_inject_harness("fix this bug", "debug"))
+        self.assertTrue(extension.should_inject_workflow("build the project", "build"))
+        self.assertTrue(extension.should_inject_workflow("fix this bug", "debug"))
 
     def test_explore_never_triggers_harness(self):
-        from embedagent.query_engine import QueryEngine
-        engine = QueryEngine.__new__(QueryEngine)
-        self.assertFalse(engine._should_inject_harness("build the project", "explore"))
+        extension = self._make_extension()
+        self.assertFalse(extension.should_inject_workflow("build the project", "explore"))
 
 
 if __name__ == "__main__":

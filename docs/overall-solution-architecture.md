@@ -16,7 +16,7 @@ The stable architecture assumptions are:
 
 The product is organized around one main execution spine:
 
-`Frontend -> Core Adapter -> InProcessAdapter -> Session Runtime -> QueryEngine -> Harness/ToolRuntime -> Permission/Context/Stores`
+`Frontend -> Core Adapter -> InProcessAdapter -> Session Runtime -> QueryEngine -> ExtensionManager -> Harness/ToolRuntime -> Permission/Context/Stores`
 
 ### Frontend Layer
 
@@ -39,12 +39,18 @@ This is the stable contract boundary between UI and Agent Core.
 - `src/embedagent/session_runtime.py`
 - `src/embedagent/session_projector.py`
 - `src/embedagent/session_history.py`
-- `src/embedagent/harness/`
+- `src/embedagent/extensions.py`
 - `src/embedagent/tools/`
 - `src/embedagent/context.py`
 - `src/embedagent/permissions.py`
 
 This is the product core.
+
+The default C/C++ harness is now entered through the in-process workflow extension boundary. Harness internals remain bundled and enabled by default, but `QueryEngine` must not import concrete harness task classes directly.
+
+`InProcessAdapter` owns the hosted runtime's `ExtensionManager` and passes that same manager to each session-scoped `QueryEngine`. Frontend tool catalog visibility is computed from the same manager, so model-facing tools and shell metadata share one extension chain.
+
+Harness state refresh in the product adapter path goes through the default C harness workflow extension. `HarnessStateSynchronizer` remains import-compatible as a lazy service facade, but it is no longer constructed by `InProcessAdapter`.
 
 ### Session Runtime Ownership
 
@@ -52,15 +58,17 @@ This is the product core.
 - one session-scoped `QueryEngine` is the only owner of turn/step/interactions and transcript mutation
 - `InProcessAdapter` is a host/bridge layer and must not mint duplicate workflow identities
 - `SessionSnapshotProjector` and `SessionHistoryAssembler` are projections, not workflow truth
+- `SessionSnapshotProjector` reads the generic workflow projection, not default harness internals
 
 ## 3. Official Execution Model
 
-The repository now uses one official execution model:
+The repository now uses one default C/C++ workflow model:
 
 - user-visible `mode`
 - internal `discipline_profile`
 - internal `execution_phase`
-- `TaskGraph` as workflow truth
+- `TaskGraph` as default harness workflow truth
+- `Session.workflow_state` as the generic workflow-state carrier
 
 ### Official Modes
 
@@ -74,13 +82,17 @@ The repository now uses one official execution model:
 
 ### Official Task Model
 
-The task system is no longer prompt-only.
+The default task system is no longer prompt-only.
 
 Official task truth flows through:
 
 - `TaskGraph`
 - `task_status`
 - session task snapshots
+
+During the workflow-extension migration, `Session.task_graph` remains a compatibility mirror for the default harness while extension-facing state is carried through `Session.workflow_state`.
+
+Frontend-facing task projection now comes from `Session.workflow_state["workflow"]`. The default C/C++ harness extension is responsible for keeping that projection synchronized with its internal task graph and persisted session task snapshots.
 
 Session snapshots carry:
 
@@ -97,6 +109,8 @@ The tool runtime has one official facade:
 - `src/embedagent/tools/runtime.py`
 
 Harness selects focused tool packs by mode/phase, but execution still flows through one runtime object.
+
+Built-in mode allowed-tool lists are workflow-neutral permission/write contracts. Default C/C++ workflow tools are activated by the harness extension and packs, then passed to runtime schema projection as explicit active tool names.
 
 ### Official Tool Families
 
@@ -128,9 +142,11 @@ Harness selects focused tool packs by mode/phase, but execution still flows thro
 - `git_log`
 - `run_command` as controlled fallback
 
-## 5. Harness Layer
+## 5. Workflow Extension And Harness Layer
 
-`src/embedagent/harness/` owns:
+`src/embedagent/extensions.py` owns the local in-process workflow extension contract.
+
+The default C/C++ harness extension in `src/embedagent/harness/extension.py` owns:
 
 - mode registry
 - discipline defaults
@@ -139,7 +155,7 @@ Harness selects focused tool packs by mode/phase, but execution still flows thro
 - task graph construction
 - session task snapshot persistence
 
-This keeps workflow structure out of the frontend and out of ad-hoc prompt text.
+This keeps workflow structure out of the frontend, out of ad-hoc prompt text, and out of the workflow-neutral parts of Agent Core.
 
 ## 6. Permission Layer
 

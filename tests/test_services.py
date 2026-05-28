@@ -188,6 +188,18 @@ class TestHarnessStateSynchronizer(unittest.TestCase):
         self.synchronizer.sync_mode(state, "build")
         self.assertEqual(state.current_mode, "build")
 
+    def test_build_mode_context_uses_supplied_mode(self):
+        from embedagent.session import Session
+        from embedagent.session_runtime import ManagedSession
+
+        session = Session()
+        state = ManagedSession(session=session, current_mode="explore")
+        self.synchronizer.build_mode_context(state, mode="build")
+
+        self.harness_runner.describe_mode.assert_called_once()
+        call_args = self.harness_runner.describe_mode.call_args
+        self.assertEqual(call_args[0][0], "build")
+
 
 if __name__ == "__main__":
     unittest.main()

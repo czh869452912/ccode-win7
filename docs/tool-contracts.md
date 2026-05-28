@@ -15,6 +15,12 @@ The official runtime facade is:
 
 - `src/embedagent/tools/runtime.py`
 
+Workflow extensions may activate focused subsets of registered tools for a turn. The default C/C++ harness extension owns harness-specific tool activation and `task_status` behavior, while `ask_user` remains core interaction infrastructure.
+
+`CORE_PACK` is workflow-neutral. Harness tools such as `list_recipes`, `run_recipe`, `report_quality_v2`, `record_failing_evidence`, and `task_status` must be activated by workflow packs/extensions rather than being treated as core tools.
+
+Built-in mode `allowed_tools` are workflow-neutral permission/write contracts. They must not be used as the complete default C/C++ tool list. The C harness extension reports only its active pack tools; product paths that need the default harness behavior must union the mode contract with active workflow-extension tools and request schemas by explicit active tool names.
+
 ## 2. Official Workflow Tools
 
 ### File / Discovery
@@ -41,7 +47,7 @@ The official runtime facade is:
 
 | Tool | Purpose | Core Parameters |
 |------|---------|-----------------|
-| `task_status` | expose current TaskGraph projection | none |
+| `task_status` | expose current default harness workflow projection | none |
 | `ask_user` | request explicit user input or choice | `question`, options |
 
 ### Supporting Tools
@@ -133,5 +139,6 @@ The authoritative implementation lives in:
 
 - `src/embedagent/tools/runtime.py`
 - `src/embedagent/tools/harness_runtime.py`
+- `src/embedagent/harness/extension.py`
 
 This document must stay aligned with those files.

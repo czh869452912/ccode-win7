@@ -63,7 +63,7 @@ class ToolCatalogEntry:
 _DEFAULT_TOOL_METADATA = {
     "read_file": {
         "permission_category": "read",
-        "mode_visibility": ["explore", "spec", "build", "debug"],
+        "mode_visibility": ["explore", "spec", "build", "debug", "verify"],
         "workflow_visibility": ["chat", "plan", "review", "command"],
         "user_label": "Read File",
         "progress_renderer_key": "file",
@@ -335,7 +335,8 @@ class ToolRuntime(object):
                     mode_name, workflow_state=workflow_state
                 )
             )
-            return [tool.schema() for name, tool in self._tools.items() if name in pack_names]
+            allowed = pack_names | set(allowed_tools_for(mode_name))
+            return [tool.schema() for name, tool in self._tools.items() if name in allowed]
         return self.schemas_for(mode_name, workflow_state=workflow_state)
 
     def execute_for_mode(

@@ -8,7 +8,7 @@ It exists to keep implementation and documentation aligned with the current prod
 
 - Windows 7 compatibility is mandatory.
 - Offline deployment is mandatory.
-- Agent Core is the product core; UI shells are replaceable.
+- Agent Core is the product core; UI shells and workflow extensions are replaceable.
 - The first-class target workflow is C/C++ application development with a Clang-centered toolchain.
 
 ## Quick Commands
@@ -94,26 +94,36 @@ Official first-class modes are:
 
 ### Harness
 
-Official execution semantics are:
+Official C/C++ execution semantics are provided by the default built-in harness workflow extension:
 
 - `mode`
 - `discipline_profile`
 - `execution_phase`
 - `TaskGraph`
 
+Agent Core must route harness-specific prompt injection, task initialization, and workflow tool handling through the extension boundary instead of importing harness classes directly.
+
+`InProcessAdapter` owns the hosted runtime's shared `ExtensionManager` and passes it to session-scoped `QueryEngine` instances. Frontend tool catalog visibility must use that same manager instead of a separate adapter-only harness extension chain.
+
+`HarnessStateSynchronizer` is a lazily exported compatibility service facade only. Product adapter paths must refresh harness state through the default harness workflow extension.
+
 ### Task System
 
-Official task truth is:
+Official task truth for the default C/C++ harness workflow is:
 
 - `TaskGraph`
 - `task_status`
 - session task snapshots
 
+`Session.workflow_state` is the generic workflow-state carrier. Frontend-facing task fields are projected from `Session.workflow_state["workflow"]`.
+
+`Session.task_graph` remains a default harness compatibility mirror and must stay inside harness-owned code paths. Workflow-neutral projectors and frontend task APIs must not read it directly.
+
 `manage_todos` is not part of the official workflow architecture.
 
 ### Tooling
 
-Official workflow tools center on:
+Official default workflow tools center on:
 
 - `read_file`
 - `list_dir`
@@ -127,6 +137,8 @@ Official workflow tools center on:
 - `task_status`
 - `record_failing_evidence`
 - `ask_user`
+
+Built-in mode `allowed_tools` are workflow-neutral permission/write contracts. Default C/C++ harness tools such as `list_recipes`, `run_recipe`, `report_quality_v2`, `record_failing_evidence`, and `task_status` are activated by the default harness workflow extension, not owned by the core mode schema.
 
 ### Session History
 

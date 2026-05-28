@@ -139,11 +139,22 @@ class TestToolRuntimeSchemas(unittest.TestCase):
         schemas = self.rt.schemas_for("spec", workflow_state="review")
         tool_names = [item["function"]["name"] for item in schemas]
         self.assertIn("read_file", tool_names)
-        self.assertIn("task_status", tool_names)
+        self.assertNotIn("task_status", tool_names)
         self.assertNotIn("write_file", tool_names)
 
-    def test_verify_review_workflow_keeps_quality_tools_visible(self):
+    def test_verify_review_workflow_defaults_to_read_only_mode_contract(self):
         schemas = self.rt.schemas_for("verify", workflow_state="review")
+        tool_names = [item["function"]["name"] for item in schemas]
+        self.assertIn("read_file", tool_names)
+        self.assertIn("grep_text", tool_names)
+        self.assertIn("ask_user", tool_names)
+        self.assertNotIn("list_recipes", tool_names)
+        self.assertNotIn("run_recipe", tool_names)
+        self.assertNotIn("report_quality_v2", tool_names)
+        self.assertNotIn("write_file", tool_names)
+
+    def test_verify_mode_uses_harness_pack_schema(self):
+        schemas = self.rt.schemas_for_mode("verify", workflow_state="review")
         tool_names = [item["function"]["name"] for item in schemas]
         self.assertIn("list_recipes", tool_names)
         self.assertIn("run_recipe", tool_names)

@@ -10,7 +10,7 @@ from embedagent.tools import discovery_ops, recipe_ops, session_ops
 OFFICIAL_HARNESS_TOOL_METADATA = {
     "list_dir": {
         "permission_category": "read",
-        "mode_visibility": ["build", "debug", "explore", "spec"],
+        "mode_visibility": ["build", "debug", "explore", "spec", "verify"],
         "workflow_visibility": ["chat", "plan", "review", "command"],
         "user_label": "List Dir",
         "progress_renderer_key": "list",
@@ -26,7 +26,7 @@ OFFICIAL_HARNESS_TOOL_METADATA = {
     },
     "glob_files": {
         "permission_category": "read",
-        "mode_visibility": ["build", "debug", "explore", "spec"],
+        "mode_visibility": ["build", "debug", "explore", "spec", "verify"],
         "workflow_visibility": ["chat", "plan", "review", "command"],
         "user_label": "Glob Files",
         "progress_renderer_key": "search",
@@ -42,7 +42,7 @@ OFFICIAL_HARNESS_TOOL_METADATA = {
     },
     "grep_text": {
         "permission_category": "read",
-        "mode_visibility": ["build", "debug", "explore", "spec"],
+        "mode_visibility": ["build", "debug", "explore", "spec", "verify"],
         "workflow_visibility": ["chat", "plan", "review", "command"],
         "user_label": "Grep Text",
         "progress_renderer_key": "search",

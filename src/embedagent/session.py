@@ -288,6 +288,7 @@ class Session:
     pending_interaction: Optional[PendingInteraction] = None
     content_replacements: List[Dict[str, Any]] = field(default_factory=list)
     latest_context_snapshot: Dict[str, Any] = field(default_factory=dict)
+    workflow_state: Dict[str, Any] = field(default_factory=dict)
     task_graph: TaskGraph = field(default_factory=TaskGraph.empty)
 
     def add_system_message(

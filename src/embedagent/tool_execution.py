@@ -76,8 +76,8 @@ class StreamingToolExecutor(object):
     def _run_parallel(self, actions: List[Action]):
         updates = queue.Queue()  # type: queue.Queue
         sibling_error = threading.Event()
-        semaphore = threading.Semaphore(self.max_parallel)
         threads = []
+        started_count = 0
         pending_results = {}  # type: Dict[str, ToolExecutionUpdate]
         next_result_index = 0
         yielded_results = 0
@@ -91,45 +91,50 @@ class StreamingToolExecutor(object):
             action_state[action.call_id] = {"started": False, "finished": False}
 
         def runner(action: Action) -> None:
-            with semaphore:
-                if (
-                    self._is_discarded()
-                    or sibling_error.is_set()
-                    or (self.cancel_event is not None and self.cancel_event.is_set())
-                ):
-                    updates.put(self._discarded_update(action))
-                    return
-                with action_state_lock:
-                    action_state[action.call_id]["started"] = True
-                updates.put(ToolExecutionUpdate(action=action, phase="start"))
-                try:
-                    observation = self.execute_action(action)
-                except (RuntimeError, ValueError, TypeError) as exc:
-                    observation = Observation(
-                        tool_name=action.name,
-                        success=False,
-                        error=str(exc),
-                        data={"error_kind": "tool_error", "retryable": False},
-                    )
-                with action_state_lock:
-                    action_state[action.call_id]["finished"] = True
-                updates.put(
-                    ToolExecutionUpdate(
-                        action=action,
-                        observation=observation,
-                        phase="result",
-                    )
+            if (
+                self._is_discarded()
+                or sibling_error.is_set()
+                or (self.cancel_event is not None and self.cancel_event.is_set())
+            ):
+                updates.put(self._discarded_update(action))
+                return
+            with action_state_lock:
+                action_state[action.call_id]["started"] = True
+            updates.put(ToolExecutionUpdate(action=action, phase="start"))
+            try:
+                observation = self.execute_action(action)
+            except (RuntimeError, ValueError, TypeError) as exc:
+                observation = Observation(
+                    tool_name=action.name,
+                    success=False,
+                    error=str(exc),
+                    data={"error_kind": "tool_error", "retryable": False},
                 )
-                if not observation.success:
-                    sibling_error.set()
+            with action_state_lock:
+                action_state[action.call_id]["finished"] = True
+            updates.put(
+                ToolExecutionUpdate(
+                    action=action,
+                    observation=observation,
+                    phase="result",
+                )
+            )
+            if not observation.success:
+                sibling_error.set()
 
-        for action in actions:
+        def start_next() -> None:
+            nonlocal started_count
+            if started_count >= len(actions):
+                return
+            action = actions[started_count]
+            started_count += 1
             thread = threading.Thread(target=runner, args=(action,))
             thread.daemon = True
             threads.append(thread)
-
-        for thread in threads:
             thread.start()
+
+        for _ in range(min(self.max_parallel, len(actions))):
+            start_next()
 
         while yielded_results < len(actions):
             try:
@@ -169,9 +174,18 @@ class StreamingToolExecutor(object):
                 expected_call_id = actions[next_result_index].call_id
                 if expected_call_id not in pending_results:
                     break
-                yield pending_results.pop(expected_call_id)
+                current = pending_results.pop(expected_call_id)
+                yield current
                 next_result_index += 1
                 yielded_results += 1
+                if sibling_error.is_set() or self._is_discarded():
+                    self.discard()
+                    while started_count < len(actions):
+                        action = actions[started_count]
+                        started_count += 1
+                        pending_results[action.call_id] = self._discarded_update(action)
+                    continue
+                start_next()
 
         for thread in threads:
             thread.join(self.join_timeout_seconds)

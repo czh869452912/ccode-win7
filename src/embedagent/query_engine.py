@@ -2,7 +2,6 @@ from __future__ import annotations  # noqa: I001
 
 import logging
 import os
-import re
 import threading
 import time
 import uuid
@@ -10,7 +9,9 @@ from copy import deepcopy
 from typing import Any, Callable, Dict, Optional, Tuple
 
 from embedagent.context import ContextManager
+from embedagent.extensions import ExtensionManager
 from embedagent.guard import LoopGuard
+from embedagent.harness.extension import CHarnessWorkflowExtension
 from embedagent.interaction import (
     UserInputRequest,
     UserInputResponse,
@@ -24,8 +25,13 @@ from embedagent.strategies.execution_tracer import ExecutionTracer, TraceEventTy
 from embedagent.strategies.llm_retry_wrapper import LLMClientRetryWrapper
 from embedagent.strategies.turn_orchestrator import TurnOrchestrator
 from embedagent.memory_maintenance import MemoryMaintenance
-from embedagent.harness.task_graph import TaskGraph
-from embedagent.modes import DEFAULT_MODE, build_system_prompt, is_path_writable, require_mode
+from embedagent.modes import (
+    DEFAULT_MODE,
+    allowed_tools_for,
+    build_system_prompt,
+    is_path_writable,
+    require_mode,
+)
 from embedagent.permissions import PermissionPolicy, PermissionRequest
 from embedagent.project_memory import ProjectMemoryStore
 from embedagent.session import (
@@ -82,6 +88,7 @@ class QueryEngine(object):
         max_parallel_tools: int = 3,
         transcript_store: Optional[TranscriptStore] = None,
         tracer: Optional[ExecutionTracer] = None,
+        extension_manager: Optional[ExtensionManager] = None,
     ) -> None:
         self.client = client
         self.tools = tools
@@ -102,6 +109,9 @@ class QueryEngine(object):
         self.max_parallel_tools = max(1, int(max_parallel_tools or 1))
         self.transcript_store = transcript_store or TranscriptStore(self.tools.workspace)
         self.tracer = tracer
+        self.extension_manager = extension_manager or ExtensionManager(
+            [CHarnessWorkflowExtension(tools=self.tools)]
+        )
         self._compaction = ContextCompactionEngine(
             context_manager=self.context_manager,
             max_tokens=8000,
@@ -263,75 +273,44 @@ class QueryEngine(object):
                     },
                 )
 
-    def _run_harness_mode(
-        self, current_mode: str, session: Optional[Session] = None, workflow_state: str = "chat"
-    ) -> Tuple[str, Any]:
-        del session
-        if str(current_mode or "") not in ("build", "debug", "verify"):
-            return current_mode, None
-        return current_mode, self.tools.describe_mode(current_mode, workflow_state=workflow_state)
-
     def _should_inject_harness(self, user_text: str, current_mode: str) -> bool:
-        """Determine if harness context should be injected.
-
-        Harness context (task graph, execution phases) should only be
-        injected when the user is explicitly requesting work, not for
-        casual conversation like 'hi' or 'what can you do?'.
-        """
-        # Never inject for explore or verify modes
-        if current_mode in ("explore", "verify"):
-            return False
-
-        # Check for explicit work indicators in user text
-        work_indicators = [
-            "build", "compile", "fix", "debug", "implement",
-            "create", "write", "generate", "refactor", "optimize",
-            "test", "verify", "check", "run", "execute",
-        ]
-
-        text_lower = (user_text or "").lower()
-        has_work_indicator = any(ind in text_lower for ind in work_indicators)
-
-        # Check for explicit non-work patterns
-        chat_patterns = [
-            r"^\s*hi\b", r"^\s*hello\b", r"^\s*hey\b",
-            r"what can you do", r"who are you", r"help\s*$",
-            r"^\s*thanks?\b", r"^\s*ok\b", r"^\s*bye\b",
-        ]
-        is_chat = any(re.search(pattern, text_lower) for pattern in chat_patterns)
-
-        # Inject harness only if work indicator present and not chat
-        return has_work_indicator and not is_chat
+        return bool(self.extension_manager.should_inject_workflow(user_text, current_mode))
 
     def _allowed_tools_for_mode(self, mode_name: str, workflow_state: str = "chat") -> set:
-        return set(self.tools.allowed_tool_names(mode_name, workflow_state=workflow_state))
+        return set(
+            self.extension_manager.allowed_tool_names(
+                mode_name,
+                workflow_state=workflow_state,
+                fallback=set(allowed_tools_for(mode_name)),
+            )
+        )
 
-    def _append_harness_messages(self, session: Session, harness_context: Any) -> None:
-        if harness_context is None:
+    def _append_harness_messages(self, session: Session, harness_prompt: Any) -> None:
+        if harness_prompt is None:
             return
         existing = False
         for message in list(session.messages):
             if message.role != "system" or message.kind != "harness_prompt":
                 continue
             metadata = dict(getattr(message, "metadata", {}) or {})
-            if str(metadata.get("mode_name") or "") != str(harness_context.mode_name or ""):
+            if str(metadata.get("mode_name") or "") != str(harness_prompt.mode_name or ""):
                 continue
             if str(metadata.get("discipline_label") or "") != str(
-                harness_context.discipline_label or ""
+                harness_prompt.discipline_label or ""
             ):
                 continue
             existing = True
             break
         if existing:
             return
-        for index, content in enumerate(list(getattr(harness_context, "prompt_units", []) or [])):
+        for index, content in enumerate(list(getattr(harness_prompt, "prompt_units", []) or [])):
             harness_message = session.add_system_message(
                 content,
                 kind="harness_prompt",
                 metadata={
-                    "mode_name": str(harness_context.mode_name or ""),
-                    "discipline_label": str(harness_context.discipline_label or ""),
-                    "pack_name": str(harness_context.pack_name or ""),
+                    "mode_name": str(harness_prompt.mode_name or ""),
+                    "discipline_label": str(harness_prompt.discipline_label or ""),
+                    "pack_name": str(harness_prompt.pack_name or ""),
                     "unit_index": index,
                 },
             )
@@ -354,17 +333,16 @@ class QueryEngine(object):
         self, session: Session, initial_mode: str, workflow_state: str = "chat", user_text: str = ""
     ) -> str:
         current_mode = require_mode(initial_mode)["slug"]
-        # Only inject harness context if user text indicates work
         if self._should_inject_harness(user_text, current_mode):
-            current_mode, harness_context = self._run_harness_mode(
-                current_mode, session, workflow_state=workflow_state
+            harness_prompt = self.extension_manager.describe_prompt(
+                current_mode, workflow_state=workflow_state, session=session
             )
         else:
-            harness_context = None
+            harness_prompt = None
         if session.messages:
             self._ensure_transcript_bootstrap(session, current_mode)
             with self._session_guard():
-                self._append_harness_messages(session, harness_context)
+                self._append_harness_messages(session, harness_prompt)
             return current_mode
         with self._session_guard():
             profile_message = session.add_system_message(
@@ -399,18 +377,17 @@ class QueryEngine(object):
                         "replaced_by_refs": list(message.replaced_by_refs),
                     },
                 )
-            self._append_harness_messages(session, harness_context)
+            self._append_harness_messages(session, harness_prompt)
         return current_mode
 
     def apply_mode(self, session: Session, next_mode: str, workflow_state: str = "chat", user_text: str = "") -> str:
         current_mode = require_mode(next_mode)["slug"]
-        # Only inject harness context if user text indicates work
         if self._should_inject_harness(user_text, current_mode):
-            current_mode, harness_context = self._run_harness_mode(
-                current_mode, session, workflow_state=workflow_state
+            harness_prompt = self.extension_manager.describe_prompt(
+                current_mode, workflow_state=workflow_state, session=session
             )
         else:
-            harness_context = None
+            harness_prompt = None
         with self._session_guard():
             mode_message = session.add_system_message(
                 build_system_prompt(
@@ -431,7 +408,7 @@ class QueryEngine(object):
                     "replaced_by_refs": list(mode_message.replaced_by_refs),
                 },
             )
-            self._append_harness_messages(session, harness_context)
+            self._append_harness_messages(session, harness_prompt)
         return current_mode
 
     def _record_transition(self, session: Session, transition: LoopTransition) -> None:
@@ -665,9 +642,12 @@ class QueryEngine(object):
                 session = Session()
         current_mode = self.initialize_session(session, initial_mode, workflow_state=workflow_state, user_text=user_text)
 
-        # Only create task graph for explicit work requests
-        if session.task_graph.is_empty() and self._should_inject_harness(user_text, current_mode):
-            session.task_graph = TaskGraph.from_user_request(user_text, current_mode)
+        self.extension_manager.initialize_workflow_state(
+            session,
+            user_text=user_text,
+            current_mode=current_mode,
+            workflow_state=workflow_state,
+        )
 
         turn_id = getattr(session, "current_turn_id", "") or "t-" + uuid.uuid4().hex[:12]
         session_id = getattr(session, "session_id", "") or ""
@@ -897,7 +877,9 @@ class QueryEngine(object):
         with self._session_guard():
             self._append_harness_messages(
                 session,
-                self.tools.describe_mode(current_mode, workflow_state=workflow_state),
+                self.extension_manager.describe_prompt(
+                    current_mode, workflow_state=workflow_state, session=session
+                ),
             )
         with self._session_guard():
             pending = session.pending_interaction
@@ -1409,7 +1391,16 @@ class QueryEngine(object):
         return False
 
     def _schemas_for_mode(self, mode_name: str, workflow_state: str) -> list:
-        schemas = list(self.tools.schemas_for_mode(mode_name, workflow_state=workflow_state))
+        active_tool_names = sorted(
+            self._allowed_tools_for_mode(mode_name, workflow_state=workflow_state)
+        )
+        schemas = list(
+            self.tools.schemas_for(
+                mode_name,
+                workflow_state=workflow_state,
+                tool_names=active_tool_names,
+            )
+        )
         names = set(item.get("function", {}).get("name", "") for item in schemas)
         if (
             "ask_user" in self._allowed_tools_for_mode(mode_name, workflow_state=workflow_state)
@@ -1449,38 +1440,14 @@ class QueryEngine(object):
                 None,
             )
         if action.name == "task_status":
-            summary = ""
-            phase = ""
-            discipline = ""
-            task_items = []
-            if not session.task_graph.is_empty():
-                mode_context = self.tools.describe_mode(current_mode, workflow_state=workflow_state)
-                if mode_context is not None:
-                    summary = str(getattr(mode_context, "task_summary", "") or "")
-                    phase = str(getattr(mode_context, "current_phase", "") or "")
-                    discipline = str(getattr(mode_context, "discipline_label", "") or "")
-                    task_items = list(getattr(mode_context, "task_items", []) or [])
-            if not summary:
-                summary = "no active tasks"
-            observation = Observation(
-                tool_name="task_status",
-                success=True,
-                error=None,
-                data={
-                    "summary": summary,
-                    "preview": [line for line in summary.splitlines() if line],
-                    "returned_count": len([line for line in summary.splitlines() if line]),
-                    "total_count": len([line for line in summary.splitlines() if line]),
-                    "has_more": False,
-                    "next_offset": 0,
-                    "result_ref": "",
-                    "current_mode": current_mode,
-                    "current_phase": phase,
-                    "discipline_profile": discipline,
-                    "tasks": task_items,
-                },
+            observation = self.extension_manager.handle_tool_call(
+                session,
+                tool_name=action.name,
+                current_mode=current_mode,
+                workflow_state=workflow_state,
             )
-            return observation, current_mode, None
+            if observation is not None:
+                return observation, current_mode, None
         if action.name == "ask_user":
             request = build_user_input_request(action.arguments)
             response = user_input_handler(request) if user_input_handler is not None else None
@@ -1609,7 +1576,9 @@ class QueryEngine(object):
                         )
                         self._append_harness_messages(
                             session,
-                            self.tools.describe_mode(target_mode, workflow_state=workflow_state),
+                            self.extension_manager.describe_prompt(
+                                target_mode, workflow_state=workflow_state, session=session
+                            ),
                         )
                     current_mode = target_mode
             return (
@@ -1830,7 +1799,9 @@ class QueryEngine(object):
                     )
                     self._append_harness_messages(
                         session,
-                        self.tools.describe_mode(selected_mode, workflow_state=workflow_state),
+                        self.extension_manager.describe_prompt(
+                            selected_mode, workflow_state=workflow_state, session=session
+                        ),
                     )
         return (
             Observation(

@@ -94,6 +94,60 @@ class TestStreamingToolExecutor(unittest.TestCase):
         self.assertEqual(updates[2].observation.data.get("error_kind"), "timeout")
         self.assertEqual(updates[3].observation.data.get("error_kind"), "timeout")
 
+    def test_parallel_executor_discards_unstarted_siblings_after_earlier_failure(self):
+        slow_release = threading.Event()
+        started = []
+
+        def execute_action(action):
+            started.append(action.call_id)
+            if action.call_id == "call-a":
+                slow_release.wait(1.0)
+                return Observation(
+                    action.name,
+                    False,
+                    "missing",
+                    {"error_kind": "tool_error", "retryable": False},
+                )
+            return Observation(action.name, True, None, {"call_id": action.call_id})
+
+        executor = StreamingToolExecutor(
+            execute_action,
+            max_parallel=2,
+            idle_timeout_seconds=2.0,
+            poll_interval_seconds=0.02,
+        )
+        actions = [
+            Action("read_file", {"path": "missing.c"}, "call-a"),
+            Action("read_file", {"path": "fast.c"}, "call-b"),
+            Action("read_file", {"path": "late.c"}, "call-c"),
+        ]
+
+        def release_failure():
+            time.sleep(0.1)
+            slow_release.set()
+
+        thread = threading.Thread(target=release_failure)
+        thread.start()
+        try:
+            updates = list(executor.run_batch(ToolBatch(parallel=True, actions=actions)))
+        finally:
+            thread.join(1.0)
+
+        self.assertEqual(
+            [(item.phase, item.action.call_id) for item in updates],
+            [
+                ("start", "call-a"),
+                ("start", "call-b"),
+                ("result", "call-a"),
+                ("result", "call-b"),
+                ("result", "call-c"),
+            ],
+        )
+        self.assertEqual(updates[2].observation.data.get("error_kind"), "tool_error")
+        self.assertIsNone(updates[3].observation.data.get("error_kind"))
+        self.assertEqual(updates[4].observation.data.get("error_kind"), "discarded")
+        self.assertNotIn("call-c", started)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -20,7 +20,6 @@ from embedagent.session import (
 )
 from embedagent.strategies.execution_tracer import ExecutionTracer, TraceEventType
 from embedagent.tool_execution import StreamingToolExecutor, partition_tool_actions
-from embedagent.tools import ToolRuntime
 from embedagent.tools._base import ToolError
 
 _LOG = logging.getLogger(__name__)
@@ -32,7 +31,7 @@ class TurnOrchestrator(object):
     def __init__(
         self,
         llm_wrapper: Any,
-        tools: ToolRuntime,
+        tools: Any,
         permission_policy: Optional[PermissionPolicy] = None,
         max_parallel_tools: int = 3,
         streaming_executor: Optional[Any] = None,

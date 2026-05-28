@@ -12,15 +12,20 @@ The current product baseline is:
 
 ## Current Official Architecture
 
-The repository now treats Agent Harness as the only official execution model.
+The repository now treats Agent Core as the workflow-neutral runtime, with the C/C++ Agent Harness shipped as the default built-in workflow extension.
 
 - User-visible modes: `explore`, `spec`, `build`, `debug`, `verify`
-- Internal execution model: `mode + discipline_profile + execution_phase`
-- Official task system: `TaskGraph` projected through `task_status` and session task snapshots
+- Default C/C++ execution model: `mode + discipline_profile + execution_phase`
+- Default task system: `TaskGraph` projected through `task_status` and session task snapshots
+- Generic workflow state carrier: `Session.workflow_state`
+- Frontend workflow projection: `Session.workflow_state["workflow"]` is the source for `current_phase`, `discipline_profile`, `current_activity`, `task_summary`, and `task_items`
 - Official build/verify execution: `list_recipes` + `run_recipe` + `report_quality_v2`
+- Mode allowed-tool contracts are workflow-neutral; default harness tools are activated by the built-in C/C++ workflow extension
 - Official file discovery: `list_dir`, `glob_files`, `grep_text`
 - Official permission engine: `PermissionPolicy` with structured rule matching and stable explanation text
 - Official session runtime ownership: one session-scoped `QueryEngine` owns turn/step/interaction execution; adapters host and project
+- Official workflow extension hosting: `InProcessAdapter` owns one `ExtensionManager` shared with session-scoped `QueryEngine` and frontend tool catalog visibility
+- Official harness refresh path: the default harness workflow extension, not the `HarnessStateSynchronizer` compatibility facade
 - Official frontend vocabulary: `build`, `tasks`, `current_phase`, `discipline_profile`
 - Official session-history model: `transcript.jsonl -> Session -> SessionHistoryAssembler -> /api/sessions/{id}/bootstrap`
 
@@ -43,11 +48,13 @@ The product no longer treats the old `code` mode or `manage_todos`-style workflo
 ## Main Components
 
 - `src/embedagent/query_engine.py`
-  The session-scoped engine that owns turn/step execution, interaction suspend/resume, context assembly, and transcript integration.
+  The session-scoped engine that owns turn/step execution, interaction suspend/resume, context assembly, transcript integration, and the workflow extension boundary.
+- `src/embedagent/extensions.py`
+  In-process extension contract and manager for workflow prompt/tool/state hooks.
 - `src/embedagent/session_runtime.py` and `src/embedagent/session_projector.py`
   Runtime host state plus pure snapshot/bootstrap projection from session truth.
 - `src/embedagent/harness/`
-  Mode registry, discipline/phase modeling, prompt stack, task graph, and session task snapshot persistence.
+  Default C/C++ workflow extension internals: mode registry, discipline/phase modeling, prompt stack, task graph, and session task snapshot persistence.
 - `src/embedagent/tools/`
   Official tool runtime, catalog metadata, managed environment discovery, and tool execution.
 - `src/embedagent/context.py`
@@ -65,7 +72,7 @@ The product no longer treats the old `code` mode or `manage_todos`-style workflo
 
 ## Official Tools
 
-The official user/model-facing tool vocabulary is centered on:
+The default C/C++ workflow tool vocabulary is centered on:
 
 - `read_file`
 - `list_dir`
@@ -81,6 +88,8 @@ The official user/model-facing tool vocabulary is centered on:
 - `ask_user`
 
 Git/status helpers and `run_command` remain available as supporting capabilities where appropriate, but the architecture no longer treats the old duplicate file/build/todo tools as first-class workflow primitives.
+
+These tools are registered in the runtime catalog. Built-in mode prompts expose only workflow-neutral permission/write contracts; the default C/C++ harness extension activates recipe, quality, evidence, and task-status tools through focused packs.
 
 ## Development Constraints
 
