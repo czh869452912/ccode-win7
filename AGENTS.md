@@ -121,9 +121,9 @@ Official task truth for the default C/C++ harness workflow is:
 
 Default C/C++ workflow projection assembly lives in `src/embedagent/harness/workflow_projection.py`. Harness internals may use `TaskGraph`, but the core/frontend boundary must consume the generic workflow payload produced there.
 
-`Session.task_graph` remains a default harness compatibility mirror and must stay inside harness-owned code paths. Workflow-neutral strategies, projectors, and frontend task APIs must not read it directly.
+`Session.task_graph` has been removed. Default C/C++ graph ownership lives behind `CHarnessWorkflowExtension` and its harness-owned session graph state. Workflow-neutral strategies, projectors, and frontend task APIs must consume only `Session.workflow_state["workflow"]`.
 
-Importing `embedagent.session` must not eagerly import `embedagent.harness.task_graph`; the compatibility mirror is created lazily for `Session` instances.
+Importing or instantiating `embedagent.session.Session` must not load `embedagent.harness.task_graph`; C harness graph internals stay behind the default harness workflow extension.
 
 `manage_todos` is not part of the official workflow architecture.
 

@@ -84,10 +84,10 @@ The official task system is:
 - projected into `task_status`
 - persisted as session task snapshots
 
-`Session.workflow_state` is the generic carrier introduced for workflow-neutral Agent Core. `Session.task_graph` remains the lazy compatibility mirror for this default harness, but frontend projection now reads `Session.workflow_state["workflow"]`. Importing `embedagent.session` must not eagerly import harness task graph internals.
+`Session.workflow_state` is the generic carrier for workflow-neutral Agent Core. `Session.task_graph` has been removed; the default C/C++ harness keeps `TaskGraph` state behind `CHarnessWorkflowExtension` and its harness-owned session graph state. Frontend projection reads `Session.workflow_state["workflow"]`. Importing or instantiating `embedagent.session.Session` must not import harness task graph internals.
 
 `describe_mode(...)` is read-only prompt/context description.
-`update_task_graph(...)` is the harness path that mutates workflow truth inside `Session`.
+`update_task_graph(...)` is the harness path that returns updated harness-owned graph state; the extension then projects it into `Session.workflow_state["workflow"]`.
 
 The built-in C harness workflow extension owns synchronization from harness internals into `Session.workflow_state["workflow"]`, including:
 
@@ -97,9 +97,9 @@ The built-in C harness workflow extension owns synchronization from harness inte
 - `metadata.current_phase`
 - `metadata.discipline_profile`
 
-The generic workflow payload is assembled by `src/embedagent/harness/workflow_projection.py`. This keeps the C harness `TaskGraph` shape separate from the core/frontend workflow read model and gives later migration slices a single adapter to replace when the compatibility mirror shrinks.
+The generic workflow payload is assembled by `src/embedagent/harness/workflow_projection.py`. This keeps the C harness `TaskGraph` shape separate from the core/frontend workflow read model.
 
-Workflow-neutral strategies and projectors read this generic workflow payload. They must not inspect `Session.task_graph` directly.
+Workflow-neutral strategies and projectors read this generic workflow payload. They must not inspect harness task graph internals directly.
 
 The old `HarnessStateSynchronizer` service facade has been removed. Refresh and task-snapshot persistence behavior now lives behind `CHarnessWorkflowExtension.refresh_managed_session()`, and `InProcessAdapter` reaches it through the default C harness workflow extension.
 

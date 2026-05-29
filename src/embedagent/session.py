@@ -25,12 +25,6 @@ def _to_json(data: Any) -> str:
     return json.dumps(data, ensure_ascii=False, sort_keys=True)
 
 
-def _empty_task_graph() -> Any:
-    from embedagent.harness.task_graph import TaskGraph
-
-    return TaskGraph.empty()
-
-
 @dataclass
 class Action:
     name: str
@@ -293,7 +287,6 @@ class Session:
     content_replacements: List[Dict[str, Any]] = field(default_factory=list)
     latest_context_snapshot: Dict[str, Any] = field(default_factory=dict)
     workflow_state: Dict[str, Any] = field(default_factory=dict)
-    task_graph: Any = field(default_factory=_empty_task_graph)
 
     def add_system_message(
         self,

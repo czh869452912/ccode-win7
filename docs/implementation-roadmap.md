@@ -38,7 +38,7 @@ Recent workflow-boundary work has started slimming Agent Core without changing t
 - the C/C++ harness is wrapped as the default built-in workflow extension
 - `QueryEngine` no longer imports or instantiates `TaskGraph` directly
 - `QueryEngine` no longer imports or constructs the default C harness extension; hosted paths install bundled extensions through `default_extensions.py`
-- `Session.workflow_state` now exists as the generic workflow-state carrier while `Session.task_graph` remains a lazy default harness compatibility mirror
+- `Session.workflow_state` is the generic workflow-state carrier; `Session.task_graph` has been removed and default C harness graph state is owned behind `CHarnessWorkflowExtension`
 - `SessionSnapshotProjector` and live frontend task APIs now project harness task fields from `Session.workflow_state["workflow"]`
 - extracted core strategies now read task-status projection from `Session.workflow_state["workflow"]` instead of inspecting `Session.task_graph`
 - `src/embedagent/harness/workflow_projection.py` now owns the C harness to generic workflow payload adapter

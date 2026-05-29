@@ -94,11 +94,11 @@ Official task truth flows through:
 - `task_status`
 - session task snapshots
 
-During the workflow-extension migration, `Session.task_graph` remains a compatibility mirror for the default harness while extension-facing state is carried through `Session.workflow_state`. That mirror is lazily created for `Session` instances; importing `embedagent.session` must not eagerly load harness task graph internals.
+`Session.task_graph` has been removed. The default C/C++ harness keeps `TaskGraph` ownership behind `CHarnessWorkflowExtension` and a harness-owned session graph state adapter, while the core/frontend boundary carries only `Session.workflow_state["workflow"]`. Importing or instantiating `embedagent.session.Session` must not load harness task graph internals.
 
 Frontend-facing task projection now comes from `Session.workflow_state["workflow"]`. The default C/C++ harness extension is responsible for keeping that projection synchronized with its internal task graph and persisted session task snapshots. The payload assembly itself is centralized in `src/embedagent/harness/workflow_projection.py`, which is the adapter from C harness internals to generic workflow state.
 
-Workflow-neutral strategies, projectors, and frontend task APIs read task state from that generic workflow projection rather than from `Session.task_graph`.
+Workflow-neutral strategies, projectors, and frontend task APIs read task state from that generic workflow projection rather than from harness task graph internals.
 
 Session snapshots carry:
 

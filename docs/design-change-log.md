@@ -44,6 +44,29 @@
 
 ## 3. 当前变更记录
 
+### DC-115
+
+- 日期：2026-05-29
+- 变更主题：Session task graph compatibility mirror 删除
+- 变更摘要：
+  - 删除 `src/embedagent/session.py` 的 `Session.task_graph` dataclass 字段和 `_empty_task_graph()` lazy factory
+  - 新增 `src/embedagent/harness/session_graph_state.py`，由默认 C harness workflow extension 保存 session-scoped `TaskGraph`
+  - `HarnessRunner.update_task_graph(...)` 改为接收并返回 harness-owned graph，不再读写 `Session`
+  - `CHarnessWorkflowExtension` 负责把 harness-owned graph 投影到 `Session.workflow_state["workflow"]`
+  - focused tests 改为确认 workflow-neutral modules 和 frontend read models 只消费 generic workflow projection
+- 影响范围：
+  - Agent Core session schema
+  - default C harness task graph ownership
+  - workflow extension boundary cleanup
+- 关联文档：
+  - `docs/superpowers/plans/2026-05-28-workflow-extension-migration-handoff.md`
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/agent-harness-v2.md`
+  - `docs/implementation-roadmap.md`
+- 是否需要 ADR：`否，属于既定 workflow extension migration 的兼容镜像删除切片`
+
 ### DC-114
 
 - 日期：2026-05-29

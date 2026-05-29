@@ -86,12 +86,11 @@ class HarnessRunner(object):
 
     def update_task_graph(
         self,
-        session,
+        graph,
         mode_name,
         observations=None,
         discipline_override=None,
     ):
-        graph = getattr(session, "task_graph", None)
         current_phase = ""
         if graph is not None and str(getattr(graph, "mode_name", "") or "") == str(mode_name or ""):
             current_phase = str(getattr(graph, "current_phase", "") or "")
@@ -104,8 +103,7 @@ class HarnessRunner(object):
         if context is None:
             empty = TaskGraph.empty()
             if graph is None:
-                session.task_graph = empty
-                return session.task_graph
+                return empty
             graph.replace_with(empty)
             return graph
         updated = TaskGraph.for_mode(
@@ -115,7 +113,6 @@ class HarnessRunner(object):
             current_phase=context.current_phase,
         )
         if graph is None:
-            session.task_graph = updated
-            return session.task_graph
+            return updated
         graph.replace_with(updated)
         return graph

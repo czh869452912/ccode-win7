@@ -6,16 +6,22 @@ from typing import Any, List, Optional, Set
 from embedagent.extensions import HarnessPrompt
 from embedagent.harness import task_store
 from embedagent.harness.runner import HarnessRunner
-from embedagent.harness.task_graph import TaskGraph
+from embedagent.harness.session_graph_state import HarnessSessionGraphState
 from embedagent.harness.workflow_projection import build_c_harness_workflow_projection
 from embedagent.session import Observation
 from embedagent.tooling.packs import pack_tool_names
 
 
 class CHarnessWorkflowExtension(object):
-    def __init__(self, tools: Any = None, harness_runner: Optional[HarnessRunner] = None) -> None:
+    def __init__(
+        self,
+        tools: Any = None,
+        harness_runner: Optional[HarnessRunner] = None,
+        graph_state: Optional[HarnessSessionGraphState] = None,
+    ) -> None:
         self.tools = tools
         self.harness_runner = harness_runner or HarnessRunner()
+        self.graph_state = graph_state or HarnessSessionGraphState()
 
     def should_inject_workflow(self, user_text: str, current_mode: str) -> bool:
         if current_mode in ("explore", "verify"):
@@ -79,11 +85,11 @@ class CHarnessWorkflowExtension(object):
     ) -> None:
         if not self.should_inject_workflow(user_text, current_mode):
             return
-        graph = getattr(session, "task_graph", None)
-        if graph is None or not graph.is_empty():
+        graph = self.graph_state.ensure_empty(session)
+        if not graph.is_empty():
             return
-        session.task_graph = TaskGraph.from_user_request(user_text, current_mode)
-        self._sync_workflow_state(session)
+        graph = self.graph_state.from_user_request(session, user_text, current_mode)
+        self._sync_workflow_state(session, graph=graph)
 
     def sync_session_workflow(
         self,
@@ -92,7 +98,7 @@ class CHarnessWorkflowExtension(object):
         workflow_state: str = "chat",
         observations: Optional[List[Any]] = None,
     ) -> None:
-        graph = getattr(session, "task_graph", None)
+        graph = self.graph_state.get(session)
         if graph is None:
             return
         context = None
@@ -103,7 +109,7 @@ class CHarnessWorkflowExtension(object):
                 current_phase=str(getattr(graph, "current_phase", "") or ""),
                 observations=observations or [],
             )
-        self._sync_workflow_state(session, context=context)
+        self._sync_workflow_state(session, graph=graph, context=context)
 
     def refresh_managed_session(
         self,
@@ -117,12 +123,14 @@ class CHarnessWorkflowExtension(object):
             managed_session.current_mode,
             managed_session.workflow_state,
         )
+        graph = self.graph_state.get(managed_session.session)
         graph = self.harness_runner.update_task_graph(
-            managed_session.session,
+            graph,
             managed_session.current_mode,
             observations=observations,
             discipline_override=discipline_override,
         )
+        self.graph_state.set(managed_session.session, graph)
         context = self._describe_context(
             managed_session.current_mode,
             workflow_state=managed_session.workflow_state,
@@ -131,7 +139,7 @@ class CHarnessWorkflowExtension(object):
         )
         store = task_store_module or task_store
         if context is None:
-            self._sync_workflow_state(managed_session.session)
+            self._sync_workflow_state(managed_session.session, graph=graph)
             store.save_task_snapshot(
                 workspace,
                 managed_session.session.session_id,
@@ -143,7 +151,7 @@ class CHarnessWorkflowExtension(object):
                 [],
             )
             return
-        self._sync_workflow_state(managed_session.session, context=context)
+        self._sync_workflow_state(managed_session.session, graph=graph, context=context)
         workflow = managed_session.session.workflow_state.get("workflow") or {}
         metadata = workflow.get("metadata") or {}
         store.save_task_snapshot(
@@ -163,7 +171,7 @@ class CHarnessWorkflowExtension(object):
         current_mode: str,
         workflow_state: str = "chat",
     ) -> Any:
-        graph = getattr(session, "task_graph", None)
+        graph = self.graph_state.get(session)
         return self._describe_context(
             current_mode,
             workflow_state=workflow_state,
@@ -191,7 +199,7 @@ class CHarnessWorkflowExtension(object):
         phase = ""
         discipline = ""
         task_items = []  # type: List[Any]
-        graph = getattr(session, "task_graph", None)
+        graph = self.graph_state.get(session)
         if graph is not None and not graph.is_empty():
             mode_context = self._describe_context(current_mode, workflow_state=workflow_state)
             if mode_context is not None:
@@ -250,8 +258,14 @@ class CHarnessWorkflowExtension(object):
             return "full_spec_tdd"
         return None
 
-    def _sync_workflow_state(self, session: Any, context: Any = None) -> None:
-        graph = getattr(session, "task_graph", None)
+    def _sync_workflow_state(
+        self,
+        session: Any,
+        graph: Any = None,
+        context: Any = None,
+    ) -> None:
+        if graph is None:
+            graph = self.graph_state.get(session)
         if graph is None:
             return
         session.workflow_state["workflow"] = build_c_harness_workflow_projection(

@@ -107,13 +107,21 @@ def test_fake_workflow_extension_adds_prompt_units_and_active_tools():
     assert patch.metadata == {"source": "fake"}
 
 
-def test_session_has_generic_workflow_state_alongside_task_graph():
+def test_session_has_generic_workflow_state():
     session = Session()
 
     session.workflow_state["workflow"] = {"id": "fake", "state": "active"}
 
     assert session.workflow_state["workflow"]["id"] == "fake"
-    assert session.task_graph.is_empty()
+
+
+def test_session_no_longer_has_task_graph_field():
+    from dataclasses import fields
+
+    from embedagent.session import Session
+
+    assert "task_graph" not in {field.name for field in fields(Session)}
+    assert not hasattr(Session(), "task_graph")
 
 
 def test_session_import_does_not_eagerly_load_harness_task_graph():
@@ -210,6 +218,15 @@ def test_query_engine_no_longer_imports_task_graph_directly():
     assert "TaskGraph.from_user_request" not in source
 
 
+def test_c_harness_extension_no_longer_reads_session_task_graph_directly():
+    source = (_REPO_ROOT / "src" / "embedagent" / "harness" / "extension.py").read_text(
+        encoding="utf-8"
+    )
+
+    assert "session.task_graph" not in source
+    assert 'getattr(session, "task_graph"' not in source
+
+
 def test_query_engine_no_longer_imports_default_harness_extension_directly():
     source = (_REPO_ROOT / "src" / "embedagent" / "query_engine.py").read_text(encoding="utf-8")
 
@@ -217,22 +234,11 @@ def test_query_engine_no_longer_imports_default_harness_extension_directly():
     assert "CHarnessWorkflowExtension(" not in source
 
 
-def test_snapshot_projector_prefers_generic_workflow_state_over_task_graph():
+def test_snapshot_projector_prefers_generic_workflow_state():
     from embedagent.session_projector import SessionSnapshotProjector
     from embedagent.session_runtime import ManagedSession
 
-    class ExplodingTaskGraph(object):
-        def is_empty(self):
-            raise AssertionError("projector should not inspect task_graph")
-
-        def to_items(self):
-            raise AssertionError("projector should not inspect task_graph")
-
-        def render_summary(self):
-            raise AssertionError("projector should not inspect task_graph")
-
     session = Session()
-    session.task_graph = ExplodingTaskGraph()
     session.workflow_state["workflow"] = {
         "id": "fake_workflow",
         "label": "Fake Workflow",

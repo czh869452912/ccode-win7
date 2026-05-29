@@ -19,6 +19,7 @@ The repository now treats Agent Core as the workflow-neutral runtime, with the C
 - Default task system: `TaskGraph` projected through `task_status` and session task snapshots
 - Generic workflow state carrier: `Session.workflow_state`
 - Frontend workflow projection: `Session.workflow_state["workflow"]` is the source for `current_phase`, `discipline_profile`, `current_activity`, `task_summary`, and `task_items`
+- Default C/C++ task graph ownership: `CHarnessWorkflowExtension` keeps harness graph state behind the extension boundary; `Session` no longer exposes `task_graph`
 - Default C/C++ workflow projection adapter: `src/embedagent/harness/workflow_projection.py` maps harness internals into the generic workflow payload
 - Official build/verify execution: `list_recipes` + `run_recipe` + `report_quality_v2`
 - Mode allowed-tool contracts are workflow-neutral; default harness tools are activated by the built-in C/C++ workflow extension

@@ -15,8 +15,8 @@
 - `main` contains the workflow-extension migration handoff and the synchronizer-removal slice.
 - `src/embedagent/query_engine.py` does not import or construct `CHarnessWorkflowExtension`.
 - `src/embedagent/default_extensions.py` installs the bundled C/C++ harness for hosted adapter paths.
-- `src/embedagent/session.py` still exposes `Session.task_graph`, but it is lazy and no longer imported at module import time.
 - `src/embedagent/services/harness_state_synchronizer.py` has been deleted; default harness refresh now goes through `CHarnessWorkflowExtension.refresh_managed_session()`.
+- `src/embedagent/session.py` no longer exposes `Session.task_graph`; default C harness graph state is owned behind `CHarnessWorkflowExtension`.
 - `ToolRuntime.schemas_for_mode()` and `ToolRuntime.allowed_tool_names()` still exist as compatibility wrappers around the pure mode contract.
 - `src/embedagent/strategies/turn_orchestrator.py` reads task-status data from `Session.workflow_state["workflow"]`, but it still calls `tools.allowed_tool_names(...)` for mode gating.
 
@@ -28,7 +28,7 @@
 - Do not introduce Docker, WSL, VS Code, online service, plugin marketplace, or multi-agent orchestration dependencies.
 - Do not reintroduce default harness construction inside `QueryEngine`.
 - Do not make mode schemas own default harness workflow tools again.
-- Do not let workflow-neutral modules read `Session.task_graph`.
+- Do not let workflow-neutral modules read harness task graph internals.
 - Keep each task as a separate commit.
 
 ## File Map
@@ -196,7 +196,7 @@ git add -u src/embedagent/services/harness_state_synchronizer.py
 git commit -m "refactor: remove harness state synchronizer facade"
 ```
 
-### Task 2: Move C Harness Graph Ownership Out Of `Session`
+### Task 2: Move C Harness Graph Ownership Out Of `Session` (completed 2026-05-29)
 
 **Files:**
 - Create: `src/embedagent/harness/session_graph_state.py`
@@ -207,7 +207,7 @@ git commit -m "refactor: remove harness state synchronizer facade"
 - Modify: `tests/test_workflow_extensions.py`
 - Modify docs: `README.md`, `AGENTS.md`, `docs/overall-solution-architecture.md`, `docs/agent-harness-v2.md`, `docs/implementation-roadmap.md`, `docs/development-tracker.md`, `docs/design-change-log.md`
 
-- [ ] **Step 1: Add failing tests for removing the session field**
+- [x] **Step 1: Add failing tests for removing the session field**
 
 Append this test to `tests/test_workflow_extensions.py`:
 
@@ -259,7 +259,7 @@ Replace the first two tests in `tests/test_task_graph_v2.py` with this harness-o
         self.assertTrue(workflow["items"])
 ```
 
-- [ ] **Step 2: Run tests and verify they fail**
+- [x] **Step 2: Run tests and verify they fail**
 
 Run:
 
@@ -267,9 +267,9 @@ Run:
 uv run pytest tests/test_workflow_extensions.py::test_session_no_longer_has_task_graph_field tests/test_task_graph_v2.py::TaskGraphV2Tests::test_harness_extension_owns_task_graph_without_session_field -v
 ```
 
-Expected: FAIL because `Session.task_graph` still exists and the harness extension still reads/writes it.
+Actual: FAIL because `Session.task_graph` still existed and the harness extension still read/wrote it.
 
-- [ ] **Step 3: Create harness-owned graph state**
+- [x] **Step 3: Create harness-owned graph state**
 
 Create `src/embedagent/harness/session_graph_state.py`:
 
@@ -305,7 +305,7 @@ class HarnessSessionGraphState(object):
         return self.set(session, TaskGraph.from_user_request(user_text, current_mode))
 ```
 
-- [ ] **Step 4: Change `HarnessRunner.update_task_graph` to return a graph instead of mutating `Session`**
+- [x] **Step 4: Change `HarnessRunner.update_task_graph` to return a graph instead of mutating `Session`**
 
 In `src/embedagent/harness/runner.py`, replace `update_task_graph(...)` with:
 
@@ -343,7 +343,7 @@ In `src/embedagent/harness/runner.py`, replace `update_task_graph(...)` with:
         return updated
 ```
 
-- [ ] **Step 5: Refactor `CHarnessWorkflowExtension` to use `HarnessSessionGraphState`**
+- [x] **Step 5: Refactor `CHarnessWorkflowExtension` to use `HarnessSessionGraphState`**
 
 In `src/embedagent/harness/extension.py`:
 
@@ -402,7 +402,7 @@ Change `_sync_workflow_state(...)` to accept a graph:
         )
 ```
 
-- [ ] **Step 6: Remove `Session.task_graph`**
+- [x] **Step 6: Remove `Session.task_graph`**
 
 In `src/embedagent/session.py`, delete `_empty_task_graph()` and remove this dataclass field:
 
@@ -416,7 +416,7 @@ Keep:
     workflow_state: Dict[str, Any] = field(default_factory=dict)
 ```
 
-- [ ] **Step 7: Update source-boundary tests**
+- [x] **Step 7: Update source-boundary tests**
 
 In `tests/test_workflow_extensions.py`, replace tests that assign `session.task_graph = ExplodingTaskGraph()` with workflow-projection-only assertions. Keep source checks that workflow-neutral modules do not reference `session.task_graph`.
 
@@ -435,7 +435,7 @@ def test_workflow_neutral_modules_do_not_reference_session_task_graph():
         assert "session.task_graph" not in source
 ```
 
-- [ ] **Step 8: Verify and commit**
+- [x] **Step 8: Verify and commit**
 
 Run:
 
@@ -445,7 +445,17 @@ uv run pytest tests/ -m "not slow and not gui" -v --basetemp "$tmp\basetemp-sess
 git diff --check
 ```
 
-Expected: PASS.
+Actual verification:
+
+- `uv run pytest tests/test_task_graph_v2.py::TaskGraphV2Tests::test_harness_extension_owns_task_graph_without_session_field tests/test_workflow_extensions.py::test_session_no_longer_has_task_graph_field tests/test_workflow_extensions.py::test_c_harness_extension_no_longer_reads_session_task_graph_directly -v`: `3 passed`
+- `uv run pytest tests/test_task_graph_v2.py tests/test_workflow_extensions.py tests/test_harness_task_projection.py tests/test_services.py tests/test_strategies.py -v`: `64 passed`
+- `uv run pytest tests/test_task_graph_v2.py tests/test_workflow_extensions.py tests/test_query_engine_build_lite.py tests/test_query_engine_debug_lite.py tests/test_query_engine_verify_slice.py -v`: `45 passed`
+- `uv run ruff check src/embedagent/session.py src/embedagent/harness/session_graph_state.py src/embedagent/harness/extension.py src/embedagent/harness/runner.py tests/test_task_graph_v2.py tests/test_workflow_extensions.py tests/test_harness_task_projection.py tests/test_strategies.py tests/test_services.py`: pass
+- `uv run ruff format --check src/embedagent/session.py src/embedagent/harness/session_graph_state.py src/embedagent/harness/extension.py src/embedagent/harness/runner.py tests/test_task_graph_v2.py tests/test_workflow_extensions.py tests/test_harness_task_projection.py tests/test_strategies.py tests/test_services.py`: pass
+- `git diff --check`: pass, with line-ending warnings only
+- `uv run pytest tests/ -m "not slow and not gui" -v --basetemp "$tmp\basetemp-session-task-graph-removal"`: `682 passed, 11 deselected`
+
+Note: full `uv run ruff check src/ tests/` still reports pre-existing unrelated TUI/session-history lint issues outside this slice; touched-file lint passed.
 
 Commit:
 

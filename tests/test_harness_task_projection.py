@@ -78,8 +78,8 @@ class HarnessTaskProjectionTests(unittest.TestCase):
         payload = self.adapter.list_tasks(session_id=session_id)
 
         self.assertGreaterEqual(payload["count"], 1)
-        self.assertIsNotNone(state.session.task_graph)
-        self.assertEqual(len(state.session.task_graph.tasks), payload["count"])
+        workflow = state.session.workflow_state.get("workflow") or {}
+        self.assertEqual(len(workflow.get("items") or []), payload["count"])
         self.assertTrue(os.path.isfile(task_store.task_snapshot_path(self.workspace, session_id)))
         self.assertFalse(
             os.path.exists(
@@ -111,7 +111,7 @@ class HarnessTaskProjectionTests(unittest.TestCase):
             ],
         )
         self.assertEqual(
-            [node.title for node in state.session.task_graph.tasks],
+            [item["content"] for item in state.session.workflow_state["workflow"]["items"]],
             [item["content"] for item in payload["tasks"]],
         )
 

@@ -305,10 +305,6 @@ class TestTurnOrchestrator(unittest.TestCase):
         self.assertEqual(result.transition.reason, "guard_stop")
 
     def test_task_status_reads_workflow_projection_without_task_graph(self):
-        class ExplodingTaskGraph(object):
-            def is_empty(self):
-                raise AssertionError("TurnOrchestrator should not inspect task_graph")
-
         llm_wrapper = MagicMock()
         tools = MagicMock()
         tools.allowed_tool_names.return_value = ["task_status"]
@@ -317,7 +313,6 @@ class TestTurnOrchestrator(unittest.TestCase):
         llm_wrapper.call_with_retry.return_value = AssistantReply(content="", actions=[action])
 
         session = Session()
-        session.task_graph = ExplodingTaskGraph()
         session.workflow_state["workflow"] = {
             "summary": "workflow summary",
             "items": [{"id": "task-1", "title": "Task one"}],

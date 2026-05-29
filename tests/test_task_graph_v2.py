@@ -6,29 +6,39 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 
 class TaskGraphV2Tests(unittest.TestCase):
-    def test_session_starts_with_empty_task_graph(self):
-        from embedagent.harness.task_graph import TaskGraph
-        from embedagent.session import Session
-
-        session = Session()
-        self.assertIsInstance(session.task_graph, TaskGraph)
-        self.assertEqual(session.task_graph.tasks, [])
-
-    def test_runner_update_task_graph_mutates_session_graph_in_place(self):
-        from embedagent.harness.runner import HarnessRunner
+    def test_harness_extension_owns_task_graph_without_session_field(self):
+        from embedagent.harness.extension import CHarnessWorkflowExtension
         from embedagent.session import Observation, Session
+        from embedagent.session_runtime import ManagedSession
 
-        runner = HarnessRunner()
+        extension = CHarnessWorkflowExtension()
         session = Session()
-        graph = session.task_graph
 
-        runner.update_task_graph(
-            session, "build", [Observation("run_recipe", True, None, {"recipe_id": "unit"})]
+        extension.initialize_workflow_state(
+            session,
+            user_text="build the demo program",
+            current_mode="build",
+            workflow_state="chat",
         )
 
-        self.assertIs(session.task_graph, graph)
-        self.assertGreaterEqual(len(session.task_graph.tasks), 1)
-        self.assertEqual(session.task_graph.tasks[0].status, "in_progress")
+        self.assertFalse(hasattr(session, "task_graph"))
+        self.assertIn("workflow", session.workflow_state)
+        self.assertIn("summary", session.workflow_state["workflow"])
+
+        managed = ManagedSession(
+            session=session,
+            current_mode="build",
+            workflow_state="chat",
+        )
+        extension.refresh_managed_session(
+            managed,
+            os.getcwd(),
+            observations=[Observation("run_recipe", True, None, {"recipe_id": "unit"})],
+        )
+
+        workflow = session.workflow_state["workflow"]
+        self.assertTrue(workflow["summary"])
+        self.assertTrue(workflow["items"])
 
     def test_new_graph_starts_with_single_active_task(self):
         from embedagent.harness.task_graph import TaskGraph
