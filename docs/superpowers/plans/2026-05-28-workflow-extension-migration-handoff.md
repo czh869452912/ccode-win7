@@ -17,7 +17,7 @@
 - `src/embedagent/default_extensions.py` installs the bundled C/C++ harness for hosted adapter paths.
 - `src/embedagent/services/harness_state_synchronizer.py` has been deleted; default harness refresh now goes through `CHarnessWorkflowExtension.refresh_managed_session()`.
 - `src/embedagent/session.py` no longer exposes `Session.task_graph`; default C harness graph state is owned behind `CHarnessWorkflowExtension`.
-- `ToolRuntime.schemas_for_mode()` and `ToolRuntime.allowed_tool_names()` still exist as compatibility wrappers around the pure mode contract.
+- `ToolRuntime.schemas_for_mode()` has been removed; `ToolRuntime.allowed_tool_names()` still exists as a compatibility wrapper around the pure mode contract.
 - `src/embedagent/strategies/turn_orchestrator.py` reads task-status data from `Session.workflow_state["workflow"]`, but it still calls `tools.allowed_tool_names(...)` for mode gating.
 
 ## Guardrails
@@ -464,7 +464,7 @@ git add src/embedagent/session.py src/embedagent/harness/session_graph_state.py 
 git commit -m "refactor: move task graph ownership into harness extension"
 ```
 
-### Task 3: Remove `ToolRuntime.schemas_for_mode()`
+### Task 3: Remove `ToolRuntime.schemas_for_mode()` (completed 2026-05-29)
 
 **Files:**
 - Modify: `src/embedagent/tools/runtime.py`
@@ -473,7 +473,7 @@ git commit -m "refactor: move task graph ownership into harness extension"
 - Modify: `tests/test_workflow_extensions.py`
 - Modify docs: `docs/tool-contracts.md`, `docs/mode-schema.md`, `docs/overall-solution-architecture.md`, `docs/agent-harness-v2.md`, `docs/implementation-roadmap.md`, `docs/development-tracker.md`, `docs/design-change-log.md`
 
-- [ ] **Step 1: Add source-boundary test**
+- [x] **Step 1: Add source-boundary test**
 
 Append to `tests/test_workflow_extensions.py`:
 
@@ -486,7 +486,7 @@ def test_tool_runtime_no_longer_exposes_schemas_for_mode_alias():
     assert "def schemas_for_mode" not in source
 ```
 
-- [ ] **Step 2: Replace test callsites with `schemas_for(...)`**
+- [x] **Step 2: Replace test callsites with `schemas_for(...)`**
 
 In `tests/test_tools_package.py`, rename the three `schemas_for_mode` tests and change calls:
 
@@ -506,7 +506,7 @@ names = [item["function"]["name"] for item in runtime.schemas_for("verify")]
 
 In `tests/test_workflow_extensions.py`, remove `schemas_for_mode(...)` from `ToolRuntimeBoundaryProbe`; `QueryEngine` should already use `schemas_for(...)`.
 
-- [ ] **Step 3: Run tests and verify failure before removing alias**
+- [x] **Step 3: Run tests and verify failure before removing alias**
 
 Run:
 
@@ -514,9 +514,9 @@ Run:
 uv run pytest tests/test_workflow_extensions.py::test_tool_runtime_no_longer_exposes_schemas_for_mode_alias -v
 ```
 
-Expected: FAIL because `ToolRuntime.schemas_for_mode()` still exists.
+Actual: FAIL because `ToolRuntime.schemas_for_mode()` still existed.
 
-- [ ] **Step 4: Remove the alias**
+- [x] **Step 4: Remove the alias**
 
 Delete this method from `src/embedagent/tools/runtime.py`:
 
@@ -527,7 +527,7 @@ Delete this method from `src/embedagent/tools/runtime.py`:
         return self.schemas_for(mode_name, workflow_state=workflow_state)
 ```
 
-- [ ] **Step 5: Update docs**
+- [x] **Step 5: Update docs**
 
 Replace wording that says `schemas_for_mode()` remains as a compatibility entry point. The new durable wording is:
 
@@ -535,7 +535,7 @@ Replace wording that says `schemas_for_mode()` remains as a compatibility entry 
 `ToolRuntime.schemas_for(mode, workflow_state, tool_names=...)` is the single runtime schema projection entry point. Without explicit `tool_names`, it projects only the workflow-neutral mode contract. Harness-aware callers must obtain extension-active tool names from `ExtensionManager` and pass them explicitly.
 ```
 
-- [ ] **Step 6: Verify and commit**
+- [x] **Step 6: Verify and commit**
 
 Run:
 
@@ -546,6 +546,15 @@ git diff --check
 ```
 
 Expected: PASS.
+
+Actual verification:
+
+- `uv run pytest tests/test_workflow_extensions.py::test_tool_runtime_no_longer_exposes_schemas_for_mode_alias -v`: RED before implementation
+- `uv run pytest tests/test_tools_package.py tests/test_tools_v2_runtime.py tests/test_workflow_extensions.py tests/test_query_engine_build_lite.py tests/test_query_engine_debug_lite.py tests/test_query_engine_verify_slice.py tests/test_query_engine_orchestrator.py -v`: `121 passed`
+- `uv run ruff check src/embedagent/tools/runtime.py src/embedagent/query_engine.py tests/test_tools_package.py tests/test_tools_v2_runtime.py tests/test_workflow_extensions.py tests/test_query_engine_orchestrator.py tests/test_query_engine_build_lite.py tests/test_query_engine_debug_lite.py tests/test_query_engine_verify_slice.py`: pass
+- `uv run ruff format --check src/embedagent/tools/runtime.py src/embedagent/query_engine.py tests/test_tools_package.py tests/test_tools_v2_runtime.py tests/test_workflow_extensions.py tests/test_query_engine_orchestrator.py tests/test_query_engine_build_lite.py tests/test_query_engine_debug_lite.py tests/test_query_engine_verify_slice.py`: pass
+- `rg -n "schemas_for_mode" src tests -g "*.py"`: no matches
+- `uv run pytest tests/ -m "not slow and not gui" -v --basetemp "$tmp\basetemp-remove-schemas-for-mode"`: `683 passed, 11 deselected`
 
 Commit:
 

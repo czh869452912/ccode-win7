@@ -84,7 +84,7 @@ class QueryEngineVerifySliceTests(unittest.TestCase):
     def test_verify_mode_schemas_use_v2_pack(self):
         engine = self._build_engine()
         names = sorted(
-            item["function"]["name"] for item in engine._schemas_for_mode("verify", "chat")
+            item["function"]["name"] for item in engine._schemas_for_active_tools("verify", "chat")
         )
         self.assertIn("run_recipe", names)
         self.assertIn("report_quality_v2", names)

@@ -40,7 +40,7 @@ class ToolsV2RuntimeTests(unittest.TestCase):
         from embedagent.tools import ToolRuntime
 
         runtime = ToolRuntime(self.workspace)
-        names = [item["function"]["name"] for item in runtime.schemas_for_mode("build")]
+        names = [item["function"]["name"] for item in runtime.schemas_for("build")]
         self.assertIn("read_file", names)
         self.assertIn("list_dir", names)
         self.assertIn("write_file", names)
@@ -52,7 +52,7 @@ class ToolsV2RuntimeTests(unittest.TestCase):
         from embedagent.tools import ToolRuntime
 
         runtime = ToolRuntime(self.workspace)
-        names = [item["function"]["name"] for item in runtime.schemas_for_mode("debug")]
+        names = [item["function"]["name"] for item in runtime.schemas_for("debug")]
         self.assertIn("read_file", names)
         self.assertIn("edit_file", names)
         self.assertIn("ask_user", names)
@@ -64,7 +64,7 @@ class ToolsV2RuntimeTests(unittest.TestCase):
         from embedagent.tools import ToolRuntime
 
         runtime = ToolRuntime(self.workspace)
-        names = [item["function"]["name"] for item in runtime.schemas_for_mode("verify")]
+        names = [item["function"]["name"] for item in runtime.schemas_for("verify")]
         self.assertIn("read_file", names)
         self.assertIn("list_dir", names)
         self.assertIn("grep_text", names)

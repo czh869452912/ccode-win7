@@ -21,7 +21,7 @@ Workflow extensions may activate focused subsets of registered tools for a turn.
 
 Built-in mode `allowed_tools` are workflow-neutral permission/write contracts. They must not be used as the complete default C/C++ tool list. The C harness extension reports only its active pack tools; product paths that need the default harness behavior must union the mode contract with active workflow-extension tools and request schemas by explicit active tool names.
 
-`ToolRuntime.schemas_for()` and the legacy `ToolRuntime.schemas_for_mode()` entry point both project only the workflow-neutral mode contract unless explicit `tool_names` are supplied. Harness-aware schema projection belongs to callers that have consulted the shared `ExtensionManager`.
+`ToolRuntime.schemas_for(mode, workflow_state, tool_names=...)` is the single runtime schema projection entry point. Without explicit `tool_names`, it projects only the workflow-neutral mode contract. Harness-aware schema projection belongs to callers that have consulted the shared `ExtensionManager` and pass extension-active tool names explicitly.
 
 ## 2. Official Workflow Tools
 

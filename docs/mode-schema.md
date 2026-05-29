@@ -45,7 +45,7 @@ That means a mode does not directly encode the whole workflow state.
 
 The C/C++ harness provides this progression through the default built-in workflow extension. Agent Core may keep `current_mode` for compatibility, but harness prompt injection, task initialization, and harness tool activation should flow through the extension boundary.
 
-`ToolRuntime.schemas_for(mode)` projects only the workflow-neutral mode contract by default. `ToolRuntime.schemas_for_mode(mode)` is retained as a legacy entry point for the same pure projection; it does not include the active harness pack. Default harness-aware paths such as `QueryEngine` extension activation must combine the mode contract with extension-active tools and request schemas by explicit tool names.
+`ToolRuntime.schemas_for(mode, workflow_state, tool_names=...)` is the single runtime schema projection entry point. Without explicit `tool_names`, it projects only the workflow-neutral mode contract. Default harness-aware paths such as `QueryEngine` extension activation must combine the mode contract with extension-active tools and request schemas by explicit tool names.
 
 ## 5. Writable Scope
 

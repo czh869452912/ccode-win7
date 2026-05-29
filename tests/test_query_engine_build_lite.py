@@ -101,7 +101,7 @@ class QueryEngineBuildLiteTests(unittest.TestCase):
     def test_build_mode_schemas_use_v2_pack(self):
         engine = self._build_engine()
         names = sorted(
-            item["function"]["name"] for item in engine._schemas_for_mode("build", "chat")
+            item["function"]["name"] for item in engine._schemas_for_active_tools("build", "chat")
         )
         self.assertIn("list_dir", names)
         self.assertIn("run_recipe", names)

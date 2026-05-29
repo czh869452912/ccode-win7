@@ -44,6 +44,28 @@
 
 ## 3. 当前变更记录
 
+### DC-116
+
+- 日期：2026-05-29
+- 变更主题：ToolRuntime schema projection alias 删除
+- 变更摘要：
+  - 删除 `ToolRuntime.schemas_for_mode()`
+  - `ToolRuntime.schemas_for(mode, workflow_state, tool_names=...)` 成为唯一 runtime schema projection entry point
+  - 测试调用点和 boundary probe 均改为 `schemas_for(...)`
+  - Durable docs 不再描述 `schemas_for_mode()` 兼容入口
+- 影响范围：
+  - tool runtime public schema projection surface
+  - QueryEngine explicit active-tool schema path
+  - workflow extension boundary cleanup
+- 关联文档：
+  - `docs/superpowers/plans/2026-05-28-workflow-extension-migration-handoff.md`
+  - `docs/tool-contracts.md`
+  - `docs/mode-schema.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/agent-harness-v2.md`
+  - `docs/implementation-roadmap.md`
+- 是否需要 ADR：`否，属于既定 workflow extension migration 的 runtime alias cleanup`
+
 ### DC-115
 
 - 日期：2026-05-29
@@ -258,7 +280,7 @@
 - 变更主题：Agent Core workflow extension boundary 第三切片
 - 变更摘要：
   - `QueryEngine._allowed_tools_for_mode()` 不再使用 `ToolRuntime.allowed_tool_names()` 作为 harness pack fallback，改为 mode permission contract + workflow extension active tools
-  - `QueryEngine._schemas_for_mode()` 不再调用 `ToolRuntime.schemas_for_mode()`，改为用 explicit active tool names 调用 runtime schema projection
+  - `QueryEngine` 不再调用当时的 `ToolRuntime.schemas_for_mode()`，改为用 explicit active tool names 调用 runtime schema projection
   - `CORE_PACK` 已移除 `run_recipe`、`list_recipes`、`task_status` 等默认 harness workflow 工具
   - build/debug/verify packs 继续显式包含 harness 工具，保持当前 C/C++ 默认行为兼容
 - 影响范围：

@@ -17,11 +17,10 @@
 
 ## Remaining Slices
 
-### 1. Remove Legacy Runtime Schema Aliases
+### 1. Remove Legacy Runtime Tool-Name Alias
 
-- Rename remaining tests and callers away from `ToolRuntime.schemas_for_mode()`.
-- Keep `ToolRuntime.schemas_for(mode, workflow_state, tool_names=...)` as the single schema projection entry point.
-- Remove or deprecate `ToolRuntime.allowed_tool_names()` if it remains only as a compatibility wrapper.
+- Remove `ToolRuntime.allowed_tool_names()` if it remains only as a compatibility wrapper.
+- Keep mode contracts in `src/embedagent/modes.py` and extension-active tool activation behind `ExtensionManager`.
 - Update `docs/tool-contracts.md` and `docs/mode-schema.md` after the alias is gone.
 
 ### 2. Clarify Default Extension Configuration

@@ -1015,7 +1015,7 @@ class QueryEngine(object):
                 try:
                     reply = self._call_llm_with_retry(
                         assembly.messages,
-                        self._schemas_for_mode(current_mode, workflow_state),
+                        self._schemas_for_active_tools(current_mode, workflow_state),
                         stream,
                         on_text_delta,
                         on_reasoning_delta,
@@ -1403,7 +1403,7 @@ class QueryEngine(object):
                 return True
         return False
 
-    def _schemas_for_mode(self, mode_name: str, workflow_state: str) -> list:
+    def _schemas_for_active_tools(self, mode_name: str, workflow_state: str) -> list:
         active_tool_names = sorted(
             self._allowed_tools_for_mode(mode_name, workflow_state=workflow_state)
         )

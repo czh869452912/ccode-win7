@@ -146,7 +146,7 @@ Official default workflow tools center on:
 
 Built-in mode `allowed_tools` are workflow-neutral permission/write contracts. Default C/C++ harness tools such as `list_recipes`, `run_recipe`, `report_quality_v2`, `record_failing_evidence`, and `task_status` are activated by the default harness workflow extension, not owned by the core mode schema.
 
-`ToolRuntime.schemas_for()`, `ToolRuntime.schemas_for_mode()`, and `ToolRuntime.allowed_tool_names()` expose workflow-neutral mode contracts only. Do not use them as a shortcut for default harness pack activation; use the shared `ExtensionManager` and pass explicit active tool names into runtime schema projection.
+`ToolRuntime.schemas_for(mode, workflow_state, tool_names=...)` is the single runtime schema projection entry point. Without explicit `tool_names`, it projects only the workflow-neutral mode contract. Do not use runtime mode contracts as a shortcut for default harness pack activation; use the shared `ExtensionManager` and pass explicit active tool names into runtime schema projection.
 
 ### Session History
 

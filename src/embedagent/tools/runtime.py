@@ -326,11 +326,6 @@ class ToolRuntime(object):
         del workflow_state
         return set(allowed_tools_for(mode_name))
 
-    def schemas_for_mode(
-        self, mode_name: str, workflow_state: str = "chat"
-    ) -> List[Dict[str, Any]]:
-        return self.schemas_for(mode_name, workflow_state=workflow_state)
-
     def execute_for_mode(
         self,
         mode_name: str,

@@ -118,7 +118,7 @@ Harness selects focused tool packs by mode/phase, but execution still flows thro
 
 Built-in mode allowed-tool lists are workflow-neutral permission/write contracts. Default C/C++ workflow tools are activated by the harness extension and packs, then passed to runtime schema projection as explicit active tool names.
 
-`ToolRuntime.schemas_for()` is the canonical mode-contract schema projector. `ToolRuntime.schemas_for_mode()` remains only as a legacy compatibility entry point for that same pure projection; it must not be used to activate the default harness pack.
+`ToolRuntime.schemas_for(mode, workflow_state, tool_names=...)` is the single runtime schema projection entry point. Without explicit `tool_names`, it projects only the workflow-neutral mode contract; it must not be used to activate the default harness pack implicitly.
 
 ### Official Tool Families
 

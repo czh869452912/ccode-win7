@@ -43,10 +43,10 @@ Recent workflow-boundary work has started slimming Agent Core without changing t
 - extracted core strategies now read task-status projection from `Session.workflow_state["workflow"]` instead of inspecting `Session.task_graph`
 - `src/embedagent/harness/workflow_projection.py` now owns the C harness to generic workflow payload adapter
 - `InProcessAdapter` no longer constructs `HarnessRunner` directly; harness refresh and task-snapshot persistence are delegated to the built-in C harness extension
-- `QueryEngine` now asks for schemas using explicit active tool names instead of `ToolRuntime.schemas_for_mode()`, so default harness pack activation is owned by the workflow extension boundary
+- `QueryEngine` now asks for schemas using explicit active tool names through `ToolRuntime.schemas_for(...)`, so default harness pack activation is owned by the workflow extension boundary
 - `CORE_PACK` no longer contains default harness workflow tools; build/debug/verify packs keep those tools explicitly for compatibility
 - built-in mode `allowed_tools` no longer own default harness workflow tools; recipe, quality, evidence, and task-status tools are activated by the C harness extension
-- `ToolRuntime.schemas_for()` and the legacy `schemas_for_mode()` entry point now represent the pure mode contract by default; default-harness paths use extension-active explicit tool names
+- `ToolRuntime.schemas_for(mode, workflow_state, tool_names=...)` is now the single runtime schema projection entry point; default-harness paths use extension-active explicit tool names
 - `InProcessAdapter` now owns one `ExtensionManager` shared with session-scoped `QueryEngine` and frontend tool catalog visibility
 - `HarnessStateSynchronizer` has been removed; product refresh uses `CHarnessWorkflowExtension.refresh_managed_session()` through the default harness extension directly
 - `StreamingToolExecutor` now window-schedules parallel read batches so failure/discard semantics are deterministic
@@ -79,7 +79,7 @@ Remaining cleanup should focus on:
 
 Near-term decoupling should continue from the new extension boundary:
 
-- remove or rename remaining compatibility callers that still mention `ToolRuntime.schemas_for_mode()` after the pure mode-contract alias has settled
+- remove `ToolRuntime.allowed_tool_names()` from core gating after schema projection alias cleanup has settled
 - defer project-local extension discovery until the built-in shared-manager path has more real-world mileage
 
 ### 4.3 Documentation Alignment

@@ -124,7 +124,7 @@ This keeps model tool selection tight without hard mode walls becoming unusable.
 
 The workflow-neutral `CORE_PACK` does not contain harness workflow tools. Built-in mode `allowed_tools` are also workflow-neutral permission/write contracts; they do not own `list_recipes`, `run_recipe`, `report_quality_v2`, `record_failing_evidence`, or `task_status`.
 
-The built-in C harness extension activates recipe, quality, evidence, and task-status tools through its selected workflow pack. Its active-tool hook returns pack tools only; callers union those with the mode contract when they need the full default C/C++ tool set. `QueryEngine` requests schemas by explicit active tool names. `ToolRuntime.schemas_for(mode)` is the pure mode-contract projection, and `ToolRuntime.schemas_for_mode(mode)` remains only as a legacy alias for that pure projection. Runtime schema filtering no longer activates the default harness pack by itself.
+The built-in C harness extension activates recipe, quality, evidence, and task-status tools through its selected workflow pack. Its active-tool hook returns pack tools only; callers union those with the mode contract when they need the full default C/C++ tool set. `QueryEngine` requests schemas by explicit active tool names. `ToolRuntime.schemas_for(mode, workflow_state, tool_names=...)` is the single runtime schema projection entry point. Runtime schema filtering no longer activates the default harness pack by itself.
 
 ## 8. Prompting Model
 

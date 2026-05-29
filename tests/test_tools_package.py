@@ -153,8 +153,8 @@ class TestToolRuntimeSchemas(unittest.TestCase):
         self.assertNotIn("report_quality_v2", tool_names)
         self.assertNotIn("write_file", tool_names)
 
-    def test_schemas_for_mode_defaults_to_verify_mode_contract(self):
-        schemas = self.rt.schemas_for_mode("verify", workflow_state="review")
+    def test_schemas_for_defaults_to_verify_mode_contract(self):
+        schemas = self.rt.schemas_for("verify", workflow_state="review")
         tool_names = [item["function"]["name"] for item in schemas]
         self.assertIn("read_file", tool_names)
         self.assertIn("list_dir", tool_names)
@@ -167,8 +167,8 @@ class TestToolRuntimeSchemas(unittest.TestCase):
         self.assertNotIn("task_status", tool_names)
         self.assertNotIn("write_file", tool_names)
 
-    def test_schemas_for_mode_defaults_to_build_mode_contract(self):
-        schemas = self.rt.schemas_for_mode("build", workflow_state="chat")
+    def test_schemas_for_defaults_to_build_mode_contract(self):
+        schemas = self.rt.schemas_for("build", workflow_state="chat")
         tool_names = [item["function"]["name"] for item in schemas]
         self.assertIn("read_file", tool_names)
         self.assertIn("list_dir", tool_names)
@@ -179,8 +179,8 @@ class TestToolRuntimeSchemas(unittest.TestCase):
         self.assertNotIn("task_status", tool_names)
         self.assertNotIn("list_files", tool_names)
 
-    def test_schemas_for_mode_defaults_to_debug_mode_contract(self):
-        schemas = self.rt.schemas_for_mode("debug", workflow_state="chat")
+    def test_schemas_for_defaults_to_debug_mode_contract(self):
+        schemas = self.rt.schemas_for("debug", workflow_state="chat")
         tool_names = [item["function"]["name"] for item in schemas]
         self.assertIn("read_file", tool_names)
         self.assertIn("list_dir", tool_names)

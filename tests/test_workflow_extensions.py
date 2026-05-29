@@ -74,10 +74,6 @@ class ToolRuntimeBoundaryProbe(object):
             for name in sorted(requested)
         ]
 
-    def schemas_for_mode(self, mode_name, workflow_state="chat"):
-        del mode_name, workflow_state
-        raise AssertionError("QueryEngine should request schemas for explicit tool names")
-
     def allowed_tool_names(self, mode_name, workflow_state="chat"):
         del mode_name, workflow_state
         raise AssertionError("QueryEngine should not use runtime harness pack fallback")
@@ -330,7 +326,7 @@ def test_query_engine_tool_activation_does_not_use_runtime_harness_pack_fallback
     )
 
     allowed = engine._allowed_tools_for_mode("build", "chat")
-    schemas = engine._schemas_for_mode("build", "chat")
+    schemas = engine._schemas_for_active_tools("build", "chat")
     names = set(item["function"]["name"] for item in schemas)
 
     assert "read_file" in allowed
@@ -376,19 +372,20 @@ def test_tool_runtime_default_schemas_follow_mode_contract_not_harness_pack(tmp_
     default_names = set(
         item["function"]["name"] for item in runtime.schemas_for("verify", workflow_state="review")
     )
-    harness_names = set(
-        item["function"]["name"]
-        for item in runtime.schemas_for_mode("verify", workflow_state="review")
-    )
 
     assert "read_file" in default_names
     assert "grep_text" in default_names
     assert "run_recipe" not in default_names
     assert "task_status" not in default_names
-    assert harness_names == default_names
-    assert "run_recipe" not in harness_names
-    assert "report_quality_v2" not in harness_names
-    assert "task_status" not in harness_names
+
+
+def test_tool_runtime_no_longer_exposes_legacy_schema_alias():
+    source = (_REPO_ROOT / "src" / "embedagent" / "tools" / "runtime.py").read_text(
+        encoding="utf-8"
+    )
+    legacy_alias = "def " + "schemas_for_" + "mode"
+
+    assert legacy_alias not in source
 
 
 def test_frontend_tool_catalog_gets_harness_tools_from_workflow_extension(tmp_path, monkeypatch):

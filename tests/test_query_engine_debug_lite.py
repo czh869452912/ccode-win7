@@ -112,7 +112,7 @@ class QueryEngineDebugLiteTests(unittest.TestCase):
     def test_debug_mode_schemas_use_v2_pack(self):
         engine = self._build_engine()
         names = sorted(
-            item["function"]["name"] for item in engine._schemas_for_mode("debug", "chat")
+            item["function"]["name"] for item in engine._schemas_for_active_tools("debug", "chat")
         )
         self.assertIn("record_failing_evidence", names)
         self.assertIn("run_recipe", names)
