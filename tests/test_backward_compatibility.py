@@ -38,7 +38,6 @@ class TestPublicImports(object):
     def test_import_services(self):
         from embedagent.services import (
             EventEmitter,
-            HarnessStateSynchronizer,
             SessionLifecycleManager,
             WorkspaceFileService,
         )
@@ -46,7 +45,6 @@ class TestPublicImports(object):
         assert EventEmitter is not None
         assert SessionLifecycleManager is not None
         assert WorkspaceFileService is not None
-        assert HarnessStateSynchronizer is not None
 
     def test_import_strategies(self):
         from embedagent.strategies import (

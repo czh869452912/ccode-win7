@@ -458,25 +458,27 @@ def test_inprocess_adapter_session_engine_uses_shared_extension_manager(tmp_path
     assert state.engine.extension_manager is adapter.extension_manager
 
 
-def test_inprocess_adapter_no_longer_depends_on_harness_state_synchronizer(tmp_path):
+def test_inprocess_adapter_no_longer_depends_on_removed_sync_facade(tmp_path):
     from embedagent.inprocess_adapter import InProcessAdapter
     from embedagent.tools import ToolRuntime
 
+    symbol = "Harness" + "State" + "Synchronizer"
     source = (_REPO_ROOT / "src" / "embedagent" / "inprocess_adapter.py").read_text(
         encoding="utf-8"
     )
     adapter = InProcessAdapter(tools=ToolRuntime(str(tmp_path)))
 
-    assert "HarnessStateSynchronizer" not in source
+    assert symbol not in source
     assert "_harness_sync" not in source
     assert not hasattr(adapter, "_harness_sync")
 
 
-def test_inprocess_adapter_import_does_not_eagerly_load_harness_synchronizer():
+def test_inprocess_adapter_import_does_not_load_removed_sync_module():
     script = (
         "import sys\n"
         "import embedagent.inprocess_adapter\n"
-        "print('embedagent.services.harness_state_synchronizer' in sys.modules)\n"
+        "module_name = 'embedagent.services.' + 'harness_' + 'state_' + 'synchronizer'\n"
+        "print(module_name in sys.modules)\n"
     )
 
     result = subprocess.run(
@@ -489,3 +491,19 @@ def test_inprocess_adapter_import_does_not_eagerly_load_harness_synchronizer():
     )
 
     assert result.stdout.strip() == "False"
+
+
+def test_services_no_longer_export_removed_sync_facade():
+    import embedagent.services as services
+
+    symbol = "Harness" + "State" + "Synchronizer"
+
+    assert symbol not in getattr(services, "__all__", [])
+    assert not hasattr(services, symbol)
+
+
+def test_removed_sync_facade_module_is_absent():
+    module_file = "harness_" + "state_" + "synchronizer.py"
+    path = _REPO_ROOT / "src" / "embedagent" / "services" / module_file
+
+    assert not path.exists()

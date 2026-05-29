@@ -48,7 +48,7 @@ Recent workflow-boundary work has started slimming Agent Core without changing t
 - built-in mode `allowed_tools` no longer own default harness workflow tools; recipe, quality, evidence, and task-status tools are activated by the C harness extension
 - `ToolRuntime.schemas_for()` and the legacy `schemas_for_mode()` entry point now represent the pure mode contract by default; default-harness paths use extension-active explicit tool names
 - `InProcessAdapter` now owns one `ExtensionManager` shared with session-scoped `QueryEngine` and frontend tool catalog visibility
-- `InProcessAdapter` no longer directly imports or constructs `HarnessStateSynchronizer`; the service remains lazily import-compatible while product refresh uses the harness extension directly
+- `HarnessStateSynchronizer` has been removed; product refresh uses `CHarnessWorkflowExtension.refresh_managed_session()` through the default harness extension directly
 - `StreamingToolExecutor` now window-schedules parallel read batches so failure/discard semantics are deterministic
 
 Recent stabilization work has also completed the GUI session-history single-source cutover:
@@ -79,7 +79,6 @@ Remaining cleanup should focus on:
 
 Near-term decoupling should continue from the new extension boundary:
 
-- remove `HarnessStateSynchronizer` once downstream compatibility tests no longer import it directly
 - remove or rename remaining compatibility callers that still mention `ToolRuntime.schemas_for_mode()` after the pure mode-contract alias has settled
 - defer project-local extension discovery until the built-in shared-manager path has more real-world mileage
 

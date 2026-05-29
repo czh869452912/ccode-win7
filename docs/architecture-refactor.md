@@ -15,7 +15,7 @@
 | SessionLifecycleManager | Session create/restore/teardown/list | `services/session_lifecycle.py` |
 | EventEmitter | Event serialization and broadcast | `services/event_emitter.py` |
 | WorkspaceFileService | File ops within workspace boundary | `services/workspace_file_service.py` |
-| HarnessStateSynchronizer | Task graph refresh and state sync | `services/harness_state_synchronizer.py` |
+| C harness workflow extension | Task graph refresh and state sync | `harness/extension.py` |
 
 The adapter retains core orchestration (turn execution, command dispatch, permission resolution) while delegating discrete responsibilities to services via constructor injection.
 

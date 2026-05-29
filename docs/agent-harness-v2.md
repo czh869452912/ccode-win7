@@ -101,7 +101,7 @@ The generic workflow payload is assembled by `src/embedagent/harness/workflow_pr
 
 Workflow-neutral strategies and projectors read this generic workflow payload. They must not inspect `Session.task_graph` directly.
 
-`HarnessStateSynchronizer` remains as a lazy compatibility facade for older service imports, but the refresh and task-snapshot persistence behavior now lives behind the C harness workflow extension. `InProcessAdapter` does not construct the synchronizer in the product path.
+The old `HarnessStateSynchronizer` service facade has been removed. Refresh and task-snapshot persistence behavior now lives behind `CHarnessWorkflowExtension.refresh_managed_session()`, and `InProcessAdapter` reaches it through the default C harness workflow extension.
 
 Frontends consume:
 

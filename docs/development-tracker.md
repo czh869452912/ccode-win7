@@ -1,6 +1,6 @@
 # EmbedAgent 开发进度跟踪
 
-> 更新日期：2026-05-28（default harness extension factory slice 8）
+> 更新日期：2026-05-29（workflow extension boundary synchronizer removal）
 > 用途：持续跟踪当前阶段、下一步任务、里程碑进度、风险与阻塞
 
 ---
@@ -36,7 +36,7 @@
 - 最新 intelligence cutover：`ProjectMemoryStore` 与 `WorkspaceIntelligence` 现已按 `run_recipe + recipe_action + report_quality_v2` 工作，历史 recipe id 也已从 `history.run_tests.1` 之类旧命名收敛为 `history.test.1`；当前 `src/` 里剩余的 live legacy 主要集中在 frontend/protocol 旧接口与 `workspace_recipes` 的内部旧名映射。`
 - 最新 shell cutover：frontend/protocol/backend 侧的 `list_files` 旧接口名已切为 `list_workspace_tree`；webapp tool labels、review 语义和 workspace recipe 数据也已移除 `legacy_tool_name` 及旧 verify 工具名。当前 `src/embedagent/` grep 已不再出现 `compile_project/run_tests/manage_todos/list_files/search_text/tools_v2/AgentLoop` 这类 legacy 词汇。`
 - 最新 agent core cutover：`QueryEngine` 已改为 session-scoped owner，`InProcessAdapter` 不再为前端事件重新生成 `step_id`；pending permission/user-input 的 resume 现已回到统一 action pipeline，`TaskGraph` 已进入 `Session` 真相层并驱动 task projection，`SessionSnapshotProjector` 已抽成纯投影器，`transcript/timeline` 追加序号也已改为缓存分配。`
-- 最新 workflow extension boundary：`src/embedagent/extensions.py` 已建立本地 workflow extension contract，默认 C/C++ harness 现在通过 `src/embedagent/harness/extension.py` 接入；`src/embedagent/default_extensions.py` 负责 hosted runtime 的默认扩展装配，`src/embedagent/harness/workflow_projection.py` 负责把 C harness 内部状态映射为通用 workflow payload；`QueryEngine` 不再直接 import/构造默认 C harness extension；`QueryEngine` 不再直接 import/实例化 `TaskGraph`，也不再通过 `ToolRuntime.schemas_for_mode()` 获得 harness pack；导入 `embedagent.session` 不再急切加载 `embedagent.harness.task_graph`；`ToolRuntime.schemas_for_mode()` / `allowed_tool_names()` 现已降级为纯 mode-contract 兼容入口；`SessionSnapshotProjector`、core strategy 的 `task_status` 兼容路径与 live frontend task API 已改为从 `Session.workflow_state["workflow"]` 投影任务字段，`InProcessAdapter` 不再直接构造 `HarnessRunner`；`Session.task_graph` 暂作为默认 harness 懒兼容镜像留在 harness-owned 路径内。`
+- 最新 workflow extension boundary：`src/embedagent/extensions.py` 已建立本地 workflow extension contract，默认 C/C++ harness 现在通过 `src/embedagent/harness/extension.py` 接入；`src/embedagent/default_extensions.py` 负责 hosted runtime 的默认扩展装配，`src/embedagent/harness/workflow_projection.py` 负责把 C harness 内部状态映射为通用 workflow payload；`QueryEngine` 不再直接 import/构造默认 C harness extension；`QueryEngine` 不再直接 import/实例化 `TaskGraph`，也不再通过 `ToolRuntime.schemas_for_mode()` 获得 harness pack；导入 `embedagent.session` 不再急切加载 `embedagent.harness.task_graph`；`ToolRuntime.schemas_for_mode()` / `allowed_tool_names()` 现已降级为纯 mode-contract 兼容入口；`SessionSnapshotProjector`、core strategy 的 `task_status` 兼容路径与 live frontend task API 已改为从 `Session.workflow_state["workflow"]` 投影任务字段，`InProcessAdapter` 不再直接构造 `HarnessRunner`；`HarnessStateSynchronizer` service facade 已删除，refresh 与 task snapshot persistence 只走默认 C harness workflow extension；`Session.task_graph` 暂作为默认 harness 懒兼容镜像留在 harness-owned 路径内。`
 - 最新 runtime cleanup：`task_status` 前端元数据现已统一为 `tasks/task` 词汇，workspace profile 不再输出待办语义提示，运行时残留 `todos.py` 已删除。`
 - 最新归档收尾：`agent-core-cutover` 相关 design / plan / review / implementation review / follow-up plan 已迁入 `docs/archive/agent-core-cutover/`，活动 `docs/superpowers/` 入口不再保留这轮已关闭切片。`
 
@@ -299,6 +299,7 @@
 | 2026-05-28 | Harness workflow projection builder Slice 9 落地：新增 `src/embedagent/harness/workflow_projection.py`，C harness 到 `Session.workflow_state["workflow"]` 的 payload 组装从 extension 内联逻辑抽为 harness-owned 适配器 |
 | 2026-05-28 | Session task graph lazy boundary Slice 10 落地：`embedagent.session` 不再在模块导入期加载 `embedagent.harness.task_graph`，`Session().task_graph` 仍按需创建默认 C harness 兼容镜像 |
 | 2026-05-28 | Turn orchestrator task-status projection Slice 11 落地：提取出的 core `TurnOrchestrator` 不再直读 `Session.task_graph`，legacy `task_status` 兼容响应改从 `Session.workflow_state["workflow"]` 读取 |
+| 2026-05-29 | Workflow extension boundary Task 1 收口：删除 `HarnessStateSynchronizer` service facade，focused service tests 改为覆盖 `CHarnessWorkflowExtension.refresh_managed_session()` 正式刷新路径，product refresh 不再保留并行兼容入口 |
 | 2026-04-09 | 文档治理 Batch B 完成：归档 10 份 superseded 文档至 archive/，下沉 8 份操作文档（6 份 packaging 归档 + 2 份 guides/），更新 docs/README.md 和模块文档 |
 | 2026-04-09 | 文档治理 Batch A 完成：补齐 4 篇缺失模块文档，修复 tools-and-tooling 不准确引用，更新代码-文档矩阵与模块索引 |
 | 2026-04-08 | 启动文档治理基线实施：建立 docs 分层、模板、术语表、同步工作流和第一批模块文档入口 |

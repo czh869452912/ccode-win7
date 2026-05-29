@@ -12,11 +12,11 @@
 
 ## Current Baseline
 
-- `main` contains commit `e3681d4 refactor: slim workflow extension core boundary`.
+- `main` contains the workflow-extension migration handoff and the synchronizer-removal slice.
 - `src/embedagent/query_engine.py` does not import or construct `CHarnessWorkflowExtension`.
 - `src/embedagent/default_extensions.py` installs the bundled C/C++ harness for hosted adapter paths.
 - `src/embedagent/session.py` still exposes `Session.task_graph`, but it is lazy and no longer imported at module import time.
-- `src/embedagent/services/harness_state_synchronizer.py` still exists only as a compatibility facade.
+- `src/embedagent/services/harness_state_synchronizer.py` has been deleted; default harness refresh now goes through `CHarnessWorkflowExtension.refresh_managed_session()`.
 - `ToolRuntime.schemas_for_mode()` and `ToolRuntime.allowed_tool_names()` still exist as compatibility wrappers around the pure mode contract.
 - `src/embedagent/strategies/turn_orchestrator.py` reads task-status data from `Session.workflow_state["workflow"]`, but it still calls `tools.allowed_tool_names(...)` for mode gating.
 
@@ -33,10 +33,8 @@
 
 ## File Map
 
-- `src/embedagent/services/harness_state_synchronizer.py`
-  Compatibility facade to delete in Task 1.
 - `src/embedagent/services/__init__.py`
-  Public service exports; remove lazy `HarnessStateSynchronizer` export in Task 1.
+  Public service exports; no longer exposes the old synchronizer facade.
 - `tests/test_backward_compatibility.py`
   Remove public-import expectations for `HarnessStateSynchronizer` in Task 1.
 - `src/embedagent/session.py`
@@ -78,9 +76,9 @@ git diff --check
 uv run pytest tests/ -m "not slow and not gui" -v --basetemp "$tmp\basetemp-fast"
 ```
 
-Expected fast-suite result at this baseline: `680 passed, 11 deselected`.
+Expected fast-suite result at this baseline after Task 1: `681 passed, 11 deselected`.
 
-### Task 1: Retire `HarnessStateSynchronizer`
+### Task 1: Retire `HarnessStateSynchronizer` (completed 2026-05-29)
 
 **Files:**
 - Modify: `tests/test_backward_compatibility.py`
@@ -89,7 +87,7 @@ Expected fast-suite result at this baseline: `680 passed, 11 deselected`.
 - Delete: `src/embedagent/services/harness_state_synchronizer.py`
 - Modify docs: `README.md`, `AGENTS.md`, `docs/overall-solution-architecture.md`, `docs/agent-harness-v2.md`, `docs/implementation-roadmap.md`, `docs/development-tracker.md`, `docs/design-change-log.md`
 
-- [ ] **Step 1: Replace the public import compatibility test**
+- [x] **Step 1: Replace the public import compatibility test**
 
 In `tests/test_backward_compatibility.py`, replace `test_import_services` with:
 
@@ -106,7 +104,7 @@ In `tests/test_backward_compatibility.py`, replace `test_import_services` with:
         assert WorkspaceFileService is not None
 ```
 
-- [ ] **Step 2: Add focused source-boundary tests**
+- [x] **Step 2: Add focused source-boundary tests**
 
 Append these tests to `tests/test_workflow_extensions.py`:
 
@@ -130,7 +128,7 @@ def test_harness_state_synchronizer_module_removed():
     assert not path.exists()
 ```
 
-- [ ] **Step 3: Run tests and verify they fail for the current facade**
+- [x] **Step 3: Run tests and verify they fail for the current facade**
 
 Run:
 
@@ -140,7 +138,7 @@ uv run pytest tests/test_backward_compatibility.py::TestPublicImports::test_impo
 
 Expected: FAIL because `src/embedagent/services/__init__.py` still lazy-exports `HarnessStateSynchronizer` and `src/embedagent/services/harness_state_synchronizer.py` still exists.
 
-- [ ] **Step 4: Remove the compatibility facade**
+- [x] **Step 4: Remove the compatibility facade**
 
 Replace `src/embedagent/services/__init__.py` with:
 
@@ -160,7 +158,7 @@ __all__ = [
 
 Delete `src/embedagent/services/harness_state_synchronizer.py`.
 
-- [ ] **Step 5: Update durable docs**
+- [x] **Step 5: Update durable docs**
 
 Change docs that currently say `HarnessStateSynchronizer` remains as a compatibility facade so they say it has been removed and that product refresh goes through `CHarnessWorkflowExtension.refresh_managed_session(...)`.
 
@@ -172,7 +170,7 @@ rg -n "HarnessStateSynchronizer|harness_state_synchronizer" README.md AGENTS.md 
 
 Expected remaining matches after this task: historical entries in `docs/design-change-log.md` and archived docs only, plus a new design-change entry describing the removal.
 
-- [ ] **Step 6: Verify and commit**
+- [x] **Step 6: Verify and commit**
 
 Run:
 
@@ -182,7 +180,13 @@ uv run pytest tests/ -m "not slow and not gui" -v --basetemp "$tmp\basetemp-reti
 git diff --check
 ```
 
-Expected: PASS.
+Actual verification:
+
+- `uv run pytest tests/test_backward_compatibility.py::TestPublicImports::test_import_services tests/test_workflow_extensions.py::test_services_no_longer_export_removed_sync_facade tests/test_workflow_extensions.py::test_removed_sync_facade_module_is_absent tests/test_workflow_extensions.py::test_inprocess_adapter_no_longer_depends_on_removed_sync_facade tests/test_services.py::TestHarnessWorkflowExtensionRefresh -v`: `6 passed`
+- `uv run ruff check src/embedagent/services/__init__.py tests/test_backward_compatibility.py tests/test_services.py tests/test_workflow_extensions.py`: pass
+- `uv run ruff format --check src/embedagent/services/__init__.py tests/test_backward_compatibility.py tests/test_services.py tests/test_workflow_extensions.py`: pass
+- `git diff --check`: pass, with line-ending warnings only
+- `uv run pytest tests/ -m "not slow and not gui" -v --basetemp "$tmp\basetemp-retire-synchronizer"`: `681 passed, 11 deselected`
 
 Commit:
 

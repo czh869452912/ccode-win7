@@ -1,6 +1,6 @@
 # EmbedAgent 设计与变更跟踪
 
-> 更新日期：2026-05-28
+> 更新日期：2026-05-29
 > 用途：记录关键设计变更、影响范围、关联文档和后续动作
 
 ---
@@ -43,6 +43,28 @@
 ---
 
 ## 3. 当前变更记录
+
+### DC-114
+
+- 日期：2026-05-29
+- 变更主题：HarnessStateSynchronizer 兼容门面删除
+- 变更摘要：
+  - 删除 `src/embedagent/services/harness_state_synchronizer.py`
+  - `src/embedagent/services/__init__.py` 不再 lazy export `HarnessStateSynchronizer`
+  - focused service tests 改为直接覆盖 `CHarnessWorkflowExtension.refresh_managed_session()` 与 `build_mode_context()` 正式路径
+  - product harness refresh 与 task snapshot persistence 只保留默认 C harness workflow extension 入口
+- 影响范围：
+  - services public import surface
+  - default C harness refresh ownership
+  - workflow extension boundary cleanup
+- 关联文档：
+  - `docs/superpowers/plans/2026-05-28-workflow-extension-migration-handoff.md`
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/agent-harness-v2.md`
+  - `docs/implementation-roadmap.md`
+- 是否需要 ADR：`否，属于既定 workflow extension migration 的兼容门面删除切片`
 
 ### DC-113
 

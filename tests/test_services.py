@@ -2,12 +2,12 @@ import os
 import sys
 import tempfile
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
+from embedagent.harness.extension import CHarnessWorkflowExtension
 from embedagent.services.event_emitter import EventEmitter
-from embedagent.services.harness_state_synchronizer import HarnessStateSynchronizer
 from embedagent.services.session_lifecycle import SessionLifecycleManager
 from embedagent.services.workspace_file_service import WorkspaceFileService
 
@@ -147,13 +147,10 @@ class TestSessionLifecycleManager(unittest.TestCase):
         self.assertEqual(result, "ref123")
 
 
-class TestHarnessStateSynchronizer(unittest.TestCase):
+class TestHarnessWorkflowExtensionRefresh(unittest.TestCase):
     def setUp(self):
         self.harness_runner = MagicMock()
-        self.synchronizer = HarnessStateSynchronizer(
-            harness_runner=self.harness_runner,
-            workspace="/tmp/workspace",
-        )
+        self.extension = CHarnessWorkflowExtension(harness_runner=self.harness_runner)
 
     def test_refresh_task_graph_updates_snapshot(self):
         from embedagent.session import Session
@@ -175,26 +172,20 @@ class TestHarnessStateSynchronizer(unittest.TestCase):
         self.harness_runner.update_task_graph.return_value = graph
         self.harness_runner.describe_mode.return_value = context
 
-        with patch("embedagent.services.harness_state_synchronizer.task_store") as mock_task_store:
-            self.synchronizer.refresh_task_graph(state)
-            mock_task_store.save_task_snapshot.assert_called_once()
+        mock_task_store = MagicMock()
+        self.extension.refresh_managed_session(
+            state,
+            "/tmp/workspace",
+            task_store_module=mock_task_store,
+        )
 
-    def test_sync_mode_changes_mode(self):
-        from embedagent.session import Session
-        from embedagent.session_runtime import ManagedSession
-
-        session = Session()
-        state = ManagedSession(session=session, current_mode="explore")
-        self.synchronizer.sync_mode(state, "build")
-        self.assertEqual(state.current_mode, "build")
+        mock_task_store.save_task_snapshot.assert_called_once()
 
     def test_build_mode_context_uses_supplied_mode(self):
         from embedagent.session import Session
-        from embedagent.session_runtime import ManagedSession
 
         session = Session()
-        state = ManagedSession(session=session, current_mode="explore")
-        self.synchronizer.build_mode_context(state, mode="build")
+        self.extension.build_mode_context(session, current_mode="build")
 
         self.harness_runner.describe_mode.assert_called_once()
         call_args = self.harness_runner.describe_mode.call_args

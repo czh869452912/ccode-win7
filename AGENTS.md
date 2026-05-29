@@ -107,7 +107,7 @@ Agent Core must route harness-specific prompt injection, task initialization, an
 
 Default extension assembly lives in `src/embedagent/default_extensions.py`. `QueryEngine` must not import or construct `CHarnessWorkflowExtension`; direct `QueryEngine` tests or hosts that need default C/C++ behavior must pass an explicit `ExtensionManager`.
 
-`HarnessStateSynchronizer` is a lazily exported compatibility service facade only. Product adapter paths must refresh harness state through the default harness workflow extension.
+`HarnessStateSynchronizer` has been removed. Product adapter paths must refresh harness state through `CHarnessWorkflowExtension.refresh_managed_session()` behind the default harness workflow extension.
 
 ### Task System
 
