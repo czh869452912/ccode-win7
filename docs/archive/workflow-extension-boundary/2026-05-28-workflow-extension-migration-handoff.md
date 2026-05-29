@@ -787,7 +787,7 @@ git add docs/implementation-roadmap.md docs/overall-solution-architecture.md doc
 git commit -m "docs: close default extension configuration decision"
 ```
 
-### Task 6: Archive Completed Workflow-Extension Slice Documents
+### Task 6: Archive Completed Workflow-Extension Slice Documents (completed 2026-05-29)
 
 **Files:**
 - Create: `docs/archive/workflow-extension-boundary/README.md`
@@ -806,7 +806,7 @@ git commit -m "docs: close default extension configuration decision"
 - Modify: `docs/development-tracker.md`
 - Modify: `docs/design-change-log.md`
 
-- [ ] **Step 1: Create archive index**
+- [x] **Step 1: Create archive index**
 
 Create `docs/archive/workflow-extension-boundary/README.md`:
 
@@ -828,11 +828,11 @@ Durable architecture truth now lives in:
 The active migration closed after Agent Core stopped owning default C/C++ harness construction, task graph storage, and runtime schema activation.
 ```
 
-- [ ] **Step 2: Move completed plans**
+- [x] **Step 2: Move completed plans**
 
 Use `Move-Item` with literal paths from the file list above. Keep `docs/superpowers/plans/2026-05-28-remaining-workflow-extension-migration-plan.md` active only if any release validation remains open.
 
-- [ ] **Step 3: Verify no active docs point at moved paths**
+- [x] **Step 3: Verify no active docs point at moved paths**
 
 Run:
 
@@ -842,7 +842,7 @@ rg -n "2026-05-2[678]-.*workflow-extension|runtime-schema-boundary|session-task-
 
 Expected: active docs either point to `docs/archive/workflow-extension-boundary/` or describe durable conclusions without linking old active plan paths.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 Run:
 

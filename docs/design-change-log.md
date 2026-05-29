@@ -44,6 +44,23 @@
 
 ## 3. 当前变更记录
 
+### DC-119
+
+- 日期：2026-05-29
+- 变更主题：Workflow extension boundary plans 归档
+- 变更摘要：
+  - 已完成的 workflow-extension boundary slice1-11、runtime/default-extension/session/task-status plans 和 implementation handoff 迁入 `docs/archive/workflow-extension-boundary/`
+  - 新增 `docs/archive/workflow-extension-boundary/README.md`，说明 durable architecture truth 的当前位置
+  - 活动 `docs/superpowers/plans/` 仅保留 remaining workflow-extension validation plan
+- 影响范围：
+  - docs archive layout
+  - workflow extension migration handoff discovery
+  - active planning surface
+- 关联文档：
+  - `docs/archive/workflow-extension-boundary/`
+  - `docs/superpowers/plans/2026-05-28-remaining-workflow-extension-migration-plan.md`
+- 是否需要 ADR：`否，属于完成切片归档`
+
 ### DC-118
 
 - 日期：2026-05-29
@@ -59,7 +76,7 @@
   - bare QueryEngine construction contract
   - workflow extension migration scope control
 - 关联文档：
-  - `docs/superpowers/plans/2026-05-28-workflow-extension-migration-handoff.md`
+  - `docs/archive/workflow-extension-boundary/2026-05-28-workflow-extension-migration-handoff.md`
   - `docs/overall-solution-architecture.md`
   - `docs/agent-harness-v2.md`
   - `docs/implementation-roadmap.md`
@@ -80,7 +97,7 @@
   - runtime public compatibility surface
   - workflow extension active-tool boundary
 - 关联文档：
-  - `docs/superpowers/plans/2026-05-28-workflow-extension-migration-handoff.md`
+  - `docs/archive/workflow-extension-boundary/2026-05-28-workflow-extension-migration-handoff.md`
   - `docs/tool-contracts.md`
   - `docs/mode-schema.md`
   - `docs/implementation-roadmap.md`
@@ -100,7 +117,7 @@
   - QueryEngine explicit active-tool schema path
   - workflow extension boundary cleanup
 - 关联文档：
-  - `docs/superpowers/plans/2026-05-28-workflow-extension-migration-handoff.md`
+  - `docs/archive/workflow-extension-boundary/2026-05-28-workflow-extension-migration-handoff.md`
   - `docs/tool-contracts.md`
   - `docs/mode-schema.md`
   - `docs/overall-solution-architecture.md`
@@ -123,7 +140,7 @@
   - default C harness task graph ownership
   - workflow extension boundary cleanup
 - 关联文档：
-  - `docs/superpowers/plans/2026-05-28-workflow-extension-migration-handoff.md`
+  - `docs/archive/workflow-extension-boundary/2026-05-28-workflow-extension-migration-handoff.md`
   - `README.md`
   - `AGENTS.md`
   - `docs/overall-solution-architecture.md`
@@ -145,7 +162,7 @@
   - default C harness refresh ownership
   - workflow extension boundary cleanup
 - 关联文档：
-  - `docs/superpowers/plans/2026-05-28-workflow-extension-migration-handoff.md`
+  - `docs/archive/workflow-extension-boundary/2026-05-28-workflow-extension-migration-handoff.md`
   - `README.md`
   - `AGENTS.md`
   - `docs/overall-solution-architecture.md`
@@ -166,7 +183,7 @@
   - generic workflow projection read model
   - future `Session.task_graph` shrink/removal path
 - 关联文档：
-  - `docs/superpowers/plans/2026-05-28-turn-orchestrator-task-status-projection-slice11.md`
+  - `docs/archive/workflow-extension-boundary/2026-05-28-turn-orchestrator-task-status-projection-slice11.md`
   - `AGENTS.md`
   - `docs/overall-solution-architecture.md`
   - `docs/agent-harness-v2.md`
@@ -186,7 +203,7 @@
   - default C harness compatibility mirror
   - future `Session.task_graph` shrink/removal path
 - 关联文档：
-  - `docs/superpowers/plans/2026-05-28-session-task-graph-lazy-boundary-slice10.md`
+  - `docs/archive/workflow-extension-boundary/2026-05-28-session-task-graph-lazy-boundary-slice10.md`
   - `AGENTS.md`
   - `docs/overall-solution-architecture.md`
   - `docs/agent-harness-v2.md`
@@ -206,7 +223,7 @@
   - `Session.workflow_state["workflow"]` payload ownership
   - future `Session.task_graph` compatibility-mirror shrink path
 - 关联文档：
-  - `docs/superpowers/plans/2026-05-28-harness-workflow-projection-builder-slice9.md`
+  - `docs/archive/workflow-extension-boundary/2026-05-28-harness-workflow-projection-builder-slice9.md`
   - `README.md`
   - `AGENTS.md`
   - `docs/overall-solution-architecture.md`
@@ -227,7 +244,7 @@
   - hosted runtime default extension assembly
   - direct QueryEngine test setup
 - 关联文档：
-  - `docs/superpowers/plans/2026-05-28-default-harness-extension-factory-slice8.md`
+  - `docs/archive/workflow-extension-boundary/2026-05-28-default-harness-extension-factory-slice8.md`
   - `README.md`
   - `AGENTS.md`
   - `docs/overall-solution-architecture.md`
@@ -248,7 +265,7 @@
   - legacy runtime compatibility APIs
   - default C harness extension ownership docs
 - 关联文档：
-  - `docs/superpowers/plans/2026-05-28-runtime-schema-boundary-slice7.md`
+  - `docs/archive/workflow-extension-boundary/2026-05-28-runtime-schema-boundary-slice7.md`
   - `docs/agent-harness-v2.md`
   - `docs/mode-schema.md`
   - `docs/tool-contracts.md`
@@ -270,7 +287,7 @@
   - services compatibility facade boundary
   - workflow extension ownership docs
 - 关联文档：
-  - `docs/superpowers/plans/2026-05-27-workflow-extension-boundary-slice6.md`
+  - `docs/archive/workflow-extension-boundary/2026-05-27-workflow-extension-boundary-slice6.md`
   - `docs/agent-harness-v2.md`
   - `docs/overall-solution-architecture.md`
 - 是否需要 ADR：`否，属于内部兼容门面退场切片`
@@ -289,7 +306,7 @@
   - frontend tool catalog extension visibility
   - future project-local extension readiness
 - 关联文档：
-  - `docs/superpowers/plans/2026-05-27-workflow-extension-boundary-slice5.md`
+  - `docs/archive/workflow-extension-boundary/2026-05-27-workflow-extension-boundary-slice5.md`
   - `docs/frontend-protocol.md`
   - `docs/overall-solution-architecture.md`
 - 是否需要 ADR：`否，属于内部 wiring 收口；project-local extension discovery 仍延后`
@@ -310,7 +327,7 @@
   - InProcessAdapter frontend tool catalog
   - default C harness extension ownership
 - 关联文档：
-  - `docs/superpowers/plans/2026-05-27-workflow-extension-boundary-slice4.md`
+  - `docs/archive/workflow-extension-boundary/2026-05-27-workflow-extension-boundary-slice4.md`
   - `docs/mode-schema.md`
   - `docs/tool-contracts.md`
   - `docs/agent-harness-v2.md`
@@ -330,7 +347,7 @@
   - tooling pack definitions
   - default C harness extension ownership
 - 关联文档：
-  - `docs/superpowers/plans/2026-05-27-workflow-extension-boundary-slice3.md`
+  - `docs/archive/workflow-extension-boundary/2026-05-27-workflow-extension-boundary-slice3.md`
   - `docs/tool-contracts.md`
   - `docs/mode-schema.md`
   - `docs/implementation-roadmap.md`
@@ -355,7 +372,7 @@
   - default C harness workflow extension
   - in-process adapter harness boundary
 - 关联文档：
-  - `docs/superpowers/plans/2026-05-26-workflow-extension-boundary-slice2.md`
+  - `docs/archive/workflow-extension-boundary/2026-05-26-workflow-extension-boundary-slice2.md`
   - `docs/frontend-protocol.md`
   - `docs/agent-harness-v2.md`
   - `docs/implementation-roadmap.md`
@@ -381,8 +398,7 @@
   - parallel tool execution determinism
   - source-of-truth architecture docs
 - 关联文档：
-  - `docs/superpowers/specs/2026-05-26-workflow-extension-boundary-design.md`
-  - `docs/superpowers/plans/2026-05-26-workflow-extension-boundary-slice1.md`
+  - `docs/archive/workflow-extension-boundary/2026-05-26-workflow-extension-boundary-slice1.md`
   - `README.md`
   - `AGENTS.md`
   - `docs/overall-solution-architecture.md`

@@ -304,6 +304,7 @@
 | 2026-05-29 | Workflow extension boundary Task 3 收口：删除 `ToolRuntime.schemas_for_mode()` runtime alias，runtime schema projection 统一为 `ToolRuntime.schemas_for(mode, workflow_state, tool_names=...)` |
 | 2026-05-29 | Workflow extension boundary Task 4 收口：删除 `ToolRuntime.allowed_tool_names()` 与 `OfficialRuntimeModes.allowed_tool_names()` wrappers，`TurnOrchestrator` 改为通过注入的 allowed-tool policy gating |
 | 2026-05-29 | Workflow extension boundary Task 5 收口：默认扩展配置决策关闭，hosted product paths 继续通过 `default_extensions.py` 装配 bundled C harness，bare `QueryEngine` 保持空 manager；不引入 project-local discovery、registry、marketplace 或 multi-agent orchestration |
+| 2026-05-29 | Workflow extension boundary Task 6 收口：completed slice plans 与 handoff 已迁入 `docs/archive/workflow-extension-boundary/`，活动 `docs/superpowers/plans/` 只保留 remaining validation plan |
 | 2026-04-09 | 文档治理 Batch B 完成：归档 10 份 superseded 文档至 archive/，下沉 8 份操作文档（6 份 packaging 归档 + 2 份 guides/），更新 docs/README.md 和模块文档 |
 | 2026-04-09 | 文档治理 Batch A 完成：补齐 4 篇缺失模块文档，修复 tools-and-tooling 不准确引用，更新代码-文档矩阵与模块索引 |
 | 2026-04-08 | 启动文档治理基线实施：建立 docs 分层、模板、术语表、同步工作流和第一批模块文档入口 |

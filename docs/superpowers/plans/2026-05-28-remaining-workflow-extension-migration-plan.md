@@ -4,7 +4,7 @@
 
 **Goal:** Finish slimming Agent Core so the built-in C/C++ harness remains the default hosted workflow while core execution, session state, runtime schema projection, and frontend read models stay workflow-neutral.
 
-**Execution handoff:** use `docs/superpowers/plans/2026-05-28-workflow-extension-migration-handoff.md` for file-level tasks, test-first steps, verification commands, and commit boundaries.
+**Execution handoff:** completed implementation detail is archived at `docs/archive/workflow-extension-boundary/2026-05-28-workflow-extension-migration-handoff.md`; use this active file only for remaining release validation.
 
 ## Current Baseline
 
@@ -17,12 +17,7 @@
 
 ## Remaining Slices
 
-### 1. Archive Completed Slice Documents
-
-- After this branch is merged and global docs are synchronized, move completed workflow-extension slice plans from `docs/superpowers/plans/` into `docs/archive/`.
-- Preserve durable conclusions in `README.md`, `AGENTS.md`, `docs/overall-solution-architecture.md`, `docs/agent-harness-v2.md`, and `docs/implementation-roadmap.md`.
-
-### 2. Validate On Product Targets
+### 1. Validate On Product Targets
 
 - Run the fast test suite after every slice.
 - Run real C/C++ project smoke tests for build/debug/verify flows.
