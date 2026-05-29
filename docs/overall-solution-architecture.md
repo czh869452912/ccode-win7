@@ -52,7 +52,7 @@ The default C/C++ harness is now entered through the in-process workflow extensi
 
 `InProcessAdapter` owns the hosted runtime's `ExtensionManager` and passes that same manager to each session-scoped `QueryEngine`. Frontend tool catalog visibility is computed from the same manager, so model-facing tools and shell metadata share one extension chain.
 
-Default bundled extension assembly is outside `QueryEngine` in `src/embedagent/default_extensions.py`. A bare `QueryEngine` receives an empty `ExtensionManager`; hosted product paths install the default C/C++ harness explicitly before constructing session engines.
+Default bundled extension assembly is outside `QueryEngine` in `src/embedagent/default_extensions.py`. A bare `QueryEngine` receives an empty `ExtensionManager`; hosted product paths install the default C/C++ harness explicitly before constructing session engines. This is the closed default-extension configuration decision for the current product baseline: there is no project-local extension discovery, remote registry, plugin marketplace, or multi-agent orchestration layer in scope.
 
 Harness state refresh in the product adapter path goes through `CHarnessWorkflowExtension.refresh_managed_session()` behind the default C harness workflow extension. The old `HarnessStateSynchronizer` service facade has been removed rather than kept as a parallel compatibility path.
 

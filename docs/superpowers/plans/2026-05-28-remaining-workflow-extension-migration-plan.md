@@ -17,18 +17,12 @@
 
 ## Remaining Slices
 
-### 1. Clarify Default Extension Configuration
-
-- Keep project-local extension discovery deferred.
-- Add a small host configuration point only if the built-in C harness needs to be disabled or replaced in tests.
-- Avoid adding a plugin marketplace, remote registry, or multi-agent orchestration layer.
-
-### 2. Archive Completed Slice Documents
+### 1. Archive Completed Slice Documents
 
 - After this branch is merged and global docs are synchronized, move completed workflow-extension slice plans from `docs/superpowers/plans/` into `docs/archive/`.
 - Preserve durable conclusions in `README.md`, `AGENTS.md`, `docs/overall-solution-architecture.md`, `docs/agent-harness-v2.md`, and `docs/implementation-roadmap.md`.
 
-### 3. Validate On Product Targets
+### 2. Validate On Product Targets
 
 - Run the fast test suite after every slice.
 - Run real C/C++ project smoke tests for build/debug/verify flows.

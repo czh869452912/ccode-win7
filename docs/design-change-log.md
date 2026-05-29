@@ -44,6 +44,27 @@
 
 ## 3. 当前变更记录
 
+### DC-118
+
+- 日期：2026-05-29
+- 变更主题：Default extension configuration 决策关闭
+- 变更摘要：
+  - 审计 `build_default_extension_set(...)`、`ExtensionManager`、`CHarnessWorkflowExtension` 与 adapter/engine 构造路径
+  - 当前 hosted product paths 继续通过 `src/embedagent/default_extensions.py` 装配 bundled C harness
+  - bare `QueryEngine` 保持空 `ExtensionManager` 默认值，需要默认 C/C++ 行为的 host 必须显式注入 extension manager
+  - 不新增 project-local extension discovery、remote registry、plugin marketplace 或 multi-agent orchestration layer
+  - 未发现需要新增 adapter constructor seam 的当前产品/测试需求
+- 影响范围：
+  - hosted runtime default extension assembly
+  - bare QueryEngine construction contract
+  - workflow extension migration scope control
+- 关联文档：
+  - `docs/superpowers/plans/2026-05-28-workflow-extension-migration-handoff.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/agent-harness-v2.md`
+  - `docs/implementation-roadmap.md`
+- 是否需要 ADR：`否，属于既定边界配置决策的文档收口`
+
 ### DC-117
 
 - 日期：2026-05-29

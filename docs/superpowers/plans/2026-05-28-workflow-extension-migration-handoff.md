@@ -717,7 +717,7 @@ git add src/embedagent/strategies/turn_orchestrator.py src/embedagent/query_engi
 git commit -m "refactor: inject allowed tool policy into turn orchestration"
 ```
 
-### Task 5: Close The Default Extension Configuration Decision
+### Task 5: Close The Default Extension Configuration Decision (completed 2026-05-29)
 
 **Files:**
 - Modify: `docs/implementation-roadmap.md`
@@ -727,7 +727,7 @@ git commit -m "refactor: inject allowed tool policy into turn orchestration"
 - Modify: `docs/design-change-log.md`
 - Modify tests only when the audit finds a real product need for disabling the built-in C harness.
 
-- [ ] **Step 1: Audit hosted and bare construction paths**
+- [x] **Step 1: Audit hosted and bare construction paths**
 
 Run:
 
@@ -740,7 +740,7 @@ Expected:
 - Bare `QueryEngine` construction defaults to an empty `ExtensionManager`.
 - Direct tests that need C harness behavior pass an explicit `ExtensionManager`.
 
-- [ ] **Step 2: Keep configuration deferred unless a failing product test requires it**
+- [x] **Step 2: Keep configuration deferred unless a failing product test requires it**
 
 The durable decision text for docs is:
 
@@ -748,7 +748,7 @@ The durable decision text for docs is:
 Default C/C++ harness installation is a host assembly concern, not a project-local plugin discovery mechanism. `InProcessAdapter` installs the bundled default extension set for product paths. Bare `QueryEngine` hosts receive an empty `ExtensionManager` unless they explicitly pass extensions. Project-local extension discovery, remote registries, and plugin marketplaces remain out of scope.
 ```
 
-- [ ] **Step 3: Add a focused test only when the audit finds a missing seam**
+- [x] **Step 3: Add a focused test only when the audit finds a missing seam**
 
 If a test needs a hosted adapter with no bundled harness, add this explicit constructor seam instead of adding project-local discovery:
 
@@ -761,7 +761,9 @@ adapter = InProcessAdapter(
 
 The expected behavior is that `adapter.extension_manager.allowed_tool_names("build")` returns only the supplied extension tools plus any fallback provided by the caller, not implicit bundled harness tools.
 
-- [ ] **Step 4: Verify and commit the decision**
+Audit found no current product/test need for this seam, so no code or test seam was added.
+
+- [x] **Step 4: Verify and commit the decision**
 
 Run:
 
@@ -771,6 +773,12 @@ git diff --check
 ```
 
 Expected: PASS.
+
+Actual verification:
+
+- `rg -n "build_default_extension_set|ExtensionManager\(|CHarnessWorkflowExtension\(|extension_manager" src tests -g "*.py"`: hosted paths use `build_default_extension_set(...)`; bare `QueryEngine` defaults to empty `ExtensionManager`; C harness tests pass explicit default managers where needed
+- `uv run pytest tests/test_workflow_extensions.py tests/test_query_engine_refactor.py -v`: `78 passed`
+- no code seam added; audit found no current product/test need to disable the bundled harness in hosted adapter construction
 
 Commit docs and any focused test changes:
 

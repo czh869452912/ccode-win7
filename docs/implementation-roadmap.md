@@ -80,8 +80,8 @@ Remaining cleanup should focus on:
 
 Near-term decoupling should continue from the new extension boundary:
 
-- close the default extension configuration decision without adding project-local plugin discovery
-- defer project-local extension discovery until the built-in shared-manager path has more real-world mileage
+- default extension configuration is closed for the current baseline: hosted product paths use `default_extensions.py`, while bare `QueryEngine` callers pass an `ExtensionManager` explicitly when they need bundled C harness behavior
+- keep project-local extension discovery, remote registries, plugin marketplaces, and multi-agent orchestration out of scope
 
 ### 4.3 Documentation Alignment
 

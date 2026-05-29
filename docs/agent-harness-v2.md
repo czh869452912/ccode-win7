@@ -8,7 +8,7 @@ Agent Harness is the promoted default C/C++ workflow model for EmbedAgent.
 
 The harness is now being extracted behind the in-process workflow extension boundary. It remains bundled and enabled by default, but Agent Core should interact with it through `ExtensionManager` rather than importing harness task classes directly.
 
-The hosted runtime has one adapter-owned `ExtensionManager` shared by `InProcessAdapter`, each session-scoped `QueryEngine`, and frontend tool catalog visibility. `src/embedagent/default_extensions.py` installs the bundled C harness into that manager for hosted product paths. A bare `QueryEngine` does not import or construct the default harness extension. This is internal wiring for the built-in harness boundary, not project-local extension discovery or a plugin marketplace.
+The hosted runtime has one adapter-owned `ExtensionManager` shared by `InProcessAdapter`, each session-scoped `QueryEngine`, and frontend tool catalog visibility. `src/embedagent/default_extensions.py` installs the bundled C harness into that manager for hosted product paths. A bare `QueryEngine` does not import or construct the default harness extension. This default-extension configuration is intentionally closed for the current product baseline: no project-local extension discovery, remote registry, plugin marketplace, or multi-agent orchestration layer is introduced.
 
 ## 2. Core Ideas
 
