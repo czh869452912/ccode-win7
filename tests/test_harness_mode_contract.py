@@ -2,6 +2,8 @@ import os
 import sys
 import unittest
 
+import pytest
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from embedagent.modes import get_mode_contract
@@ -37,6 +39,7 @@ class TestPermissionContract(unittest.TestCase):
         self.assertTrue(contract.read_only)
 
 
+@pytest.mark.harness
 class TestHarnessInjection(unittest.TestCase):
     def _make_extension(self):
         from embedagent.harness.extension import CHarnessWorkflowExtension

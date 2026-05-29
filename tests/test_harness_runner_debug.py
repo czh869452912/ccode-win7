@@ -2,7 +2,11 @@ import os
 import sys
 import unittest
 
+import pytest
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+
+pytestmark = pytest.mark.harness
 
 
 class HarnessRunnerDebugTests(unittest.TestCase):

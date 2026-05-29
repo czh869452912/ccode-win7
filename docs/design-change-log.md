@@ -44,6 +44,29 @@
 
 ## 3. 当前变更记录
 
+### DC-120
+
+- 日期：2026-05-29
+- 变更主题：Workflow extension release validation 收口
+- 变更摘要：
+  - 恢复官方 harness pytest marker 覆盖，`uv run pytest tests/ -m harness -v` 不再选空，现在覆盖 task_graph、phase_engine、harness runner、prompt stack 与 harness injection 组件测试
+  - workflow extension repo-side 验证通过：fast suite 为 684 passed / 11 deselected，focused C/C++ build/debug/verify workflow 回归为 15 passed，harness suite 为 23 passed / 672 deselected
+  - release bundle 验证仍阻塞：当前 worktree 缺少 `build/offline-dist/embedagent-win7-x64`，`scripts/package.ps1 verify -Profile release -Json` 返回 `bundle_root_missing`
+  - 直接运行 `scripts/validate-offline-bundle.ps1 -RequireComplete` 对目标 release 路径检查得到 37 fail / 2 warn，说明 Python embeddable runtime、vendored packages、MinGit、ripgrep、Universal Ctags、Clang runtime tools 与 GUI/WebView2 运行时均尚无可验证 release artifact
+  - clean Windows 7 unpack-and-run smoke 尚未执行，必须在生成 release bundle 后作为 release-blocking gate 补跑
+- 影响范围：
+  - workflow extension release validation evidence
+  - harness pytest marker coverage
+  - packaging / Win7 release gate handoff
+- 关联文档：
+  - `docs/development-tracker.md`
+  - `docs/superpowers/plans/2026-05-28-remaining-workflow-extension-migration-plan.md`
+  - `docs/archive/workflow-extension-boundary/2026-05-28-workflow-extension-migration-handoff.md`
+- 是否需要 ADR：`否，属于 release validation 结果与测试门禁修复记录`
+- 后续动作：
+  - 生成 `build/offline-dist/embedagent-win7-x64` release bundle，确保 `toolchains/llvm/current` 或等价 Clang runtime 被 staged
+  - 重跑 `scripts/validate-offline-bundle.ps1 -RequireComplete` 与 clean Windows 7 目标机 smoke
+
 ### DC-119
 
 - 日期：2026-05-29
