@@ -21,21 +21,20 @@
 
 Repo-side validation completed on 2026-05-29:
 
-- Fast suite: `uv run pytest tests/ -m "not slow and not gui" -v` passed with 684 passed / 11 deselected.
-- Harness suite: `uv run pytest tests/ -m harness -v` now selects real component tests and passed with 23 passed / 672 deselected after marker coverage was restored.
+- Fast suite: `uv run pytest tests/ -m "not slow and not gui" -v` passed with 685 passed / 11 deselected.
+- Harness suite: `uv run pytest tests/ -m harness -v` now selects real component tests and passed with 23 passed / 673 deselected after marker coverage was restored.
 - Focused C/C++ workflow regressions: build/debug/verify query-engine slices plus frontend CMake recipe detection passed with 15 passed.
+- Current-branch release bundle validation: rebuilt `build/offline-dist/embedagent-win7-x64` locally from offline cache, vendored site-packages, and LLVM root; `scripts/validate-offline-bundle.ps1 -RequireComplete` passed with 59 pass / 0 warn / 0 fail; `scripts/check-bundle-dependencies.py` passed; `scripts/package.ps1 verify -Profile release -Json` returned `final_status == READY`.
 
 Release validation remains open:
 
-- `scripts/package.ps1 verify -Profile release -Json` returned `bundle_root_missing` for `build/offline-dist/embedagent-win7-x64`.
-- `scripts/validate-offline-bundle.ps1 -RequireComplete` against that release path returned 37 fail / 2 warn because there is no release artifact to inspect.
-- Clean Windows 7 unpack-and-run smoke was not run because a release bundle is not present.
+- Clean Windows 7 unpack-and-run smoke was not run in this workspace.
 
 Remaining release-blocking work:
 
-- Generate `build/offline-dist/embedagent-win7-x64` with Python 3.8 embeddable runtime, vendored packages, MinGit, ripgrep, Universal Ctags, Clang runtime tools, GUI static assets, and WebView2 fixed runtime.
-- Ensure `toolchains/llvm/current` or an equivalent configured LLVM/Clang root is available before package assembly.
-- Re-run `scripts/validate-offline-bundle.ps1 -RequireComplete` and clean Windows 7 target-machine smoke before any release cut.
+- Transfer the validated bundle candidate to a clean Windows 7 target.
+- Run bundle unpack-and-run smoke, including CLI/TUI launcher checks, `validate-gui-smoke.cmd`, and `validate-gui-smoke.cmd --windowed --auto-close-seconds 8`.
+- Record renderer/runtime/toolchain results before any release cut.
 
 ## Guardrails
 

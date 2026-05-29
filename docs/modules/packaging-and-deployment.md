@@ -140,5 +140,8 @@ flowchart LR
 
 - `docs/implementation-roadmap.md`
 - `docs/guides/configuration-guide.md`
+- `docs/guides/intranet-deployment.md`
+- `docs/guides/win7-gui-validation.md`
+- `docs/guides/win7-preflight-checklist.md`
 - `docs/references/code-doc-matrix.md`
 - `docs/references/glossary.md`

@@ -571,10 +571,10 @@ Write-Host "[prepare]   App code staged to $stagedAppRoot"
 
 Write-Host "[prepare] Staging documentation..."
 
-$configurationGuide = Join-Path $projectRoot 'docs\configuration-guide.md'
-$preflightGuide = Join-Path $projectRoot 'docs\win7-preflight-checklist.md'
-$intranetGuide = Join-Path $projectRoot 'docs\intranet-deployment.md'
-$win7GuiGuide = Join-Path $projectRoot 'docs\win7-gui-validation.md'
+$configurationGuide = Join-Path $projectRoot 'docs\guides\configuration-guide.md'
+$preflightGuide = Join-Path $projectRoot 'docs\guides\win7-preflight-checklist.md'
+$intranetGuide = Join-Path $projectRoot 'docs\guides\intranet-deployment.md'
+$win7GuiGuide = Join-Path $projectRoot 'docs\guides\win7-gui-validation.md'
 if (Test-Path -LiteralPath $configurationGuide) {
     Stage-File -Source $configurationGuide -Destination (Join-Path $bundleRoot 'docs\configuration-guide.md')
 }

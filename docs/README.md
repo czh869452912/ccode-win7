@@ -45,7 +45,10 @@
 
 - `guides/README.md`
 - `guides/configuration-guide.md`
+- `guides/intranet-deployment.md`
 - `guides/llm-adapter.md`
+- `guides/win7-gui-validation.md`
+- `guides/win7-preflight-checklist.md`
 
 指南文档提供配置示例、操作步骤和兼容性记录，是对模块文档和工作流文档的补充。
 

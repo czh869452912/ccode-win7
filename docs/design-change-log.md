@@ -50,22 +50,23 @@
 - 变更主题：Workflow extension release validation 收口
 - 变更摘要：
   - 恢复官方 harness pytest marker 覆盖，`uv run pytest tests/ -m harness -v` 不再选空，现在覆盖 task_graph、phase_engine、harness runner、prompt stack 与 harness injection 组件测试
-  - workflow extension repo-side 验证通过：fast suite 为 684 passed / 11 deselected，focused C/C++ build/debug/verify workflow 回归为 15 passed，harness suite 为 23 passed / 672 deselected
-  - release bundle 验证仍阻塞：当前 worktree 缺少 `build/offline-dist/embedagent-win7-x64`，`scripts/package.ps1 verify -Profile release -Json` 返回 `bundle_root_missing`
-  - 直接运行 `scripts/validate-offline-bundle.ps1 -RequireComplete` 对目标 release 路径检查得到 37 fail / 2 warn，说明 Python embeddable runtime、vendored packages、MinGit、ripgrep、Universal Ctags、Clang runtime tools 与 GUI/WebView2 运行时均尚无可验证 release artifact
-  - clean Windows 7 unpack-and-run smoke 尚未执行，必须在生成 release bundle 后作为 release-blocking gate 补跑
+  - workflow extension repo-side 验证通过：fast suite 为 685 passed / 11 deselected，focused C/C++ build/debug/verify workflow 回归为 15 passed，harness suite 为 23 passed / 673 deselected
+  - 当前分支 release bundle 已用本机离线 cache、vendored site-packages 与 LLVM root 重新组装，`scripts/validate-offline-bundle.ps1 -RequireComplete` 通过，结果为 59 pass / 0 warn / 0 fail
+  - `scripts/check-bundle-dependencies.py` 对该 bundle 全部通过，`scripts/package.ps1 verify -Profile release -Json` 返回 `final_status == READY`
+  - 修复 `scripts/prepare-offline.ps1` 的操作指南 staging 源路径，使 bundle 从 active `docs/guides/` 获取 configuration / Win7 preflight / intranet deployment / Win7 GUI validation 文档
+  - clean Windows 7 unpack-and-run smoke 尚未执行，必须在 release cut 前作为目标机 gate 补跑
 - 影响范围：
   - workflow extension release validation evidence
   - harness pytest marker coverage
   - packaging / Win7 release gate handoff
+  - offline bundle documentation staging
 - 关联文档：
   - `docs/development-tracker.md`
   - `docs/superpowers/plans/2026-05-28-remaining-workflow-extension-migration-plan.md`
   - `docs/archive/workflow-extension-boundary/2026-05-28-workflow-extension-migration-handoff.md`
 - 是否需要 ADR：`否，属于 release validation 结果与测试门禁修复记录`
 - 后续动作：
-  - 生成 `build/offline-dist/embedagent-win7-x64` release bundle，确保 `toolchains/llvm/current` 或等价 Clang runtime 被 staged
-  - 重跑 `scripts/validate-offline-bundle.ps1 -RequireComplete` 与 clean Windows 7 目标机 smoke
+  - 在 clean Windows 7 目标机上运行 bundle unpack-and-run smoke，并记录 renderer/runtime/toolchain 结果
 
 ### DC-119
 

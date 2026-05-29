@@ -187,6 +187,18 @@ class TestGuiFrontendAssets(unittest.TestCase):
             self.assertFalse(payload["ok"])
             self.assertIn("katex.min.css", payload["missing"])
 
+    def test_prepare_offline_stages_active_packaging_docs(self):
+        script = (ROOT / "scripts" / "prepare-offline.ps1").read_text(encoding="utf-8")
+        expected_sources = [
+            "docs\\guides\\configuration-guide.md",
+            "docs\\guides\\win7-preflight-checklist.md",
+            "docs\\guides\\intranet-deployment.md",
+            "docs\\guides\\win7-gui-validation.md",
+        ]
+
+        missing = [path for path in expected_sources if path not in script]
+        self.assertEqual(missing, [])
+
 
 @unittest.skipIf(sys.platform != "win32", "Windows-only: requires PowerShell")
 class TestStageJsonReports(unittest.TestCase):

@@ -9,7 +9,10 @@
 ## 1. 当前指南
 
 - `configuration-guide.md` — 分层配置、JSON Schema 与 CLI 参数快速参考
+- `intranet-deployment.md` — 内网离线 bundle 构建、传输与部署步骤
 - `llm-adapter.md` — 已验证模型服务的兼容性记录与适配建议
+- `win7-gui-validation.md` — Win7 目标机 GUI / WebView2 bundle smoke 验证步骤
+- `win7-preflight-checklist.md` — Win7 目标机部署前检查清单
 
 ## 2. 使用说明
 
