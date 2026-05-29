@@ -132,6 +132,7 @@ class QueryEngine(object):
             permission_policy=self.permission_policy,
             max_parallel_tools=self.max_parallel_tools,
             tracer=self.tracer,
+            allowed_tool_names=self._allowed_tools_for_mode,
         )
         self._internal_stop_event = threading.Event()
 

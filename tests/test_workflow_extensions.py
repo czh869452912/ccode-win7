@@ -388,6 +388,15 @@ def test_tool_runtime_no_longer_exposes_legacy_schema_alias():
     assert legacy_alias not in source
 
 
+def test_tool_runtime_no_longer_exposes_allowed_tool_names_alias():
+    source = (_REPO_ROOT / "src" / "embedagent" / "tools" / "runtime.py").read_text(
+        encoding="utf-8"
+    )
+    legacy_alias = "def " + "allowed_tool_" + "names"
+
+    assert legacy_alias not in source
+
+
 def test_frontend_tool_catalog_gets_harness_tools_from_workflow_extension(tmp_path, monkeypatch):
     from embedagent.inprocess_adapter import InProcessAdapter
     from embedagent.tools import ToolRuntime

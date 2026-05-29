@@ -322,10 +322,6 @@ class ToolRuntime(object):
             observations=observations,
         )
 
-    def allowed_tool_names(self, mode_name: str, workflow_state: str = "chat") -> set:
-        del workflow_state
-        return set(allowed_tools_for(mode_name))
-
     def execute_for_mode(
         self,
         mode_name: str,

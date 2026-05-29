@@ -36,6 +36,7 @@ class TurnOrchestrator(object):
         max_parallel_tools: int = 3,
         streaming_executor: Optional[Any] = None,
         tracer: Optional[ExecutionTracer] = None,
+        allowed_tool_names: Optional[Callable[..., Any]] = None,
     ) -> None:
         self.llm_wrapper = llm_wrapper
         self.tools = tools
@@ -43,6 +44,9 @@ class TurnOrchestrator(object):
         self.max_parallel_tools = max(1, int(max_parallel_tools or 1))
         self.streaming_executor = streaming_executor
         self.tracer = tracer
+        self.allowed_tool_names = allowed_tool_names or (
+            lambda mode_name, workflow_state="chat": set()
+        )
 
     def execute_turn(
         self,
@@ -295,7 +299,7 @@ class TurnOrchestrator(object):
         if precomputed_observation is not None:
             return precomputed_observation, current_mode, None
 
-        allowed = set(self.tools.allowed_tool_names(current_mode, workflow_state=workflow_state))
+        allowed = set(self.allowed_tool_names(current_mode, workflow_state=workflow_state))
         if action.name not in allowed and action.name not in ("ask_user", "propose_mode_switch"):
             return (
                 self._failure_observation(

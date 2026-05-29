@@ -43,7 +43,6 @@ class TestQueryEngineBackwardCompatibility(unittest.TestCase):
         tools.workspace = "/tmp/test"
         tools.tool_result_store = MagicMock()
         tools.projection_db = MagicMock()
-        tools.allowed_tool_names.return_value = []
         tools.schemas_for.return_value = []
         tools.describe_mode.return_value = None
 
@@ -60,7 +59,6 @@ class TestQueryEngineBackwardCompatibility(unittest.TestCase):
         tools.workspace = "/tmp/test"
         tools.tool_result_store = MagicMock()
         tools.projection_db = MagicMock()
-        tools.allowed_tool_names.return_value = []
         tools.schemas_for.return_value = []
         tools.describe_mode.return_value = None
 

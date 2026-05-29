@@ -17,8 +17,8 @@
 - `src/embedagent/default_extensions.py` installs the bundled C/C++ harness for hosted adapter paths.
 - `src/embedagent/services/harness_state_synchronizer.py` has been deleted; default harness refresh now goes through `CHarnessWorkflowExtension.refresh_managed_session()`.
 - `src/embedagent/session.py` no longer exposes `Session.task_graph`; default C harness graph state is owned behind `CHarnessWorkflowExtension`.
-- `ToolRuntime.schemas_for_mode()` has been removed; `ToolRuntime.allowed_tool_names()` still exists as a compatibility wrapper around the pure mode contract.
-- `src/embedagent/strategies/turn_orchestrator.py` reads task-status data from `Session.workflow_state["workflow"]`, but it still calls `tools.allowed_tool_names(...)` for mode gating.
+- `ToolRuntime.schemas_for_mode()` and `ToolRuntime.allowed_tool_names()` have been removed.
+- `src/embedagent/strategies/turn_orchestrator.py` reads task-status data from `Session.workflow_state["workflow"]` and uses an injected allowed-tool policy for mode gating.
 
 ## Guardrails
 
@@ -563,7 +563,7 @@ git add src/embedagent/tools/runtime.py tests/test_tools_package.py tests/test_t
 git commit -m "refactor: remove schemas_for_mode runtime alias"
 ```
 
-### Task 4: Remove `ToolRuntime.allowed_tool_names()` From Core Gating
+### Task 4: Remove `ToolRuntime.allowed_tool_names()` From Core Gating (completed 2026-05-29)
 
 **Files:**
 - Modify: `src/embedagent/strategies/turn_orchestrator.py`
@@ -575,7 +575,7 @@ git commit -m "refactor: remove schemas_for_mode runtime alias"
 - Modify: `tests/test_workflow_extensions.py`
 - Modify docs: `docs/tool-contracts.md`, `docs/mode-schema.md`, `docs/implementation-roadmap.md`, `docs/development-tracker.md`, `docs/design-change-log.md`
 
-- [ ] **Step 1: Add a failing strategy boundary test**
+- [x] **Step 1: Add a failing strategy boundary test**
 
 In `tests/test_strategies.py`, add:
 
@@ -612,7 +612,7 @@ In `tests/test_strategies.py`, add:
 
 Update `_make_orchestrator(...)` in the same test class to pass `allowed_tool_names` through to `TurnOrchestrator`.
 
-- [ ] **Step 2: Run the new test and verify failure**
+- [x] **Step 2: Run the new test and verify failure**
 
 Run:
 
@@ -620,9 +620,9 @@ Run:
 uv run pytest tests/test_strategies.py::TestTurnOrchestrator::test_turn_orchestrator_uses_injected_allowed_tool_policy -v
 ```
 
-Expected: FAIL because `TurnOrchestrator` still calls `tools.allowed_tool_names(...)`.
+Actual: FAIL because `TurnOrchestrator` did not yet accept the injected `allowed_tool_names` policy.
 
-- [ ] **Step 3: Inject the allowed-tool policy**
+- [x] **Step 3: Inject the allowed-tool policy**
 
 In `src/embedagent/strategies/turn_orchestrator.py`, add a constructor parameter:
 
@@ -658,7 +658,7 @@ In `src/embedagent/query_engine.py`, pass the extension-aware policy when constr
             allowed_tool_names=self._allowed_tools_for_mode,
 ```
 
-- [ ] **Step 4: Remove runtime compatibility wrappers**
+- [x] **Step 4: Remove runtime compatibility wrappers**
 
 Delete `ToolRuntime.allowed_tool_names(...)` from `src/embedagent/tools/runtime.py`.
 
@@ -674,7 +674,7 @@ Expected remaining matches:
 - `src/embedagent/query_engine.py`
 - tests that exercise extension active tools
 
-- [ ] **Step 5: Update runtime tests**
+- [x] **Step 5: Update runtime tests**
 
 Remove `test_allowed_tool_names_default_to_mode_contract` from `tests/test_tools_package.py`.
 
@@ -689,7 +689,7 @@ def test_tool_runtime_no_longer_exposes_allowed_tool_names_alias():
     assert "def allowed_tool_names" not in source
 ```
 
-- [ ] **Step 6: Verify and commit**
+- [x] **Step 6: Verify and commit**
 
 Run:
 
@@ -700,6 +700,15 @@ git diff --check
 ```
 
 Expected: PASS.
+
+Actual verification:
+
+- `uv run pytest tests/test_strategies.py::TestTurnOrchestrator::test_turn_orchestrator_uses_injected_allowed_tool_policy -v`: RED before implementation
+- `uv run pytest tests/test_strategies.py tests/test_tools_package.py tests/test_workflow_extensions.py tests/test_query_engine_orchestrator.py -v`: `123 passed`
+- `uv run ruff check src/embedagent/strategies/turn_orchestrator.py src/embedagent/query_engine.py src/embedagent/tools/runtime.py src/embedagent/tools/harness_runtime.py tests/test_strategies.py tests/test_tools_package.py tests/test_workflow_extensions.py tests/test_query_engine_orchestrator.py`: pass
+- `uv run ruff format --check src/embedagent/strategies/turn_orchestrator.py src/embedagent/query_engine.py src/embedagent/tools/runtime.py src/embedagent/tools/harness_runtime.py tests/test_strategies.py tests/test_tools_package.py tests/test_workflow_extensions.py tests/test_query_engine_orchestrator.py`: pass
+- `rg -n "def allowed_tool_names" src/embedagent/tools src/embedagent/strategies tests -g "*.py"`: remaining matches are test fake extensions only
+- `uv run pytest tests/ -m "not slow and not gui" -v --basetemp "$tmp\basetemp-remove-allowed-tool-wrapper"`: `684 passed, 11 deselected`
 
 Commit:
 

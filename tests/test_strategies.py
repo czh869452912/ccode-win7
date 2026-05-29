@@ -6,7 +6,7 @@ import unittest
 from unittest.mock import MagicMock
 
 from embedagent.llm import ModelClientError
-from embedagent.session import Action, AssistantReply, QueryTurnResult, Session
+from embedagent.session import Action, AssistantReply, Observation, QueryTurnResult, Session
 from embedagent.strategies.context_compaction_engine import ContextCompactionEngine
 from embedagent.strategies.llm_retry_wrapper import LLMClientRetryWrapper
 
@@ -212,7 +212,13 @@ class TestLLMClientRetryWrapper(unittest.TestCase):
 
 
 class TestTurnOrchestrator(unittest.TestCase):
-    def _make_orchestrator(self, llm_wrapper=None, tools=None, permission_policy=None):
+    def _make_orchestrator(
+        self,
+        llm_wrapper=None,
+        tools=None,
+        permission_policy=None,
+        allowed_tool_names=None,
+    ):
         from embedagent.strategies.turn_orchestrator import TurnOrchestrator
 
         return TurnOrchestrator(
@@ -220,6 +226,7 @@ class TestTurnOrchestrator(unittest.TestCase):
             tools=tools or MagicMock(),
             permission_policy=permission_policy,
             max_parallel_tools=3,
+            allowed_tool_names=allowed_tool_names,
         )
 
     def test_execute_turn_returns_result(self):
@@ -246,7 +253,6 @@ class TestTurnOrchestrator(unittest.TestCase):
 
         llm_wrapper = MagicMock()
         tools = MagicMock()
-        tools.allowed_tool_names.return_value = ["edit_file"]
         tools.tool_capabilities.return_value = {}
         action = Action(name="edit_file", arguments={"path": "test.txt"}, call_id="call-1")
         expected_reply = AssistantReply(content="", actions=[action])
@@ -264,6 +270,7 @@ class TestTurnOrchestrator(unittest.TestCase):
             llm_wrapper=llm_wrapper,
             tools=tools,
             permission_policy=permission_policy,
+            allowed_tool_names=MagicMock(return_value={"edit_file"}),
         )
         session = MagicMock()
         result = orchestrator.execute_turn(
@@ -283,7 +290,6 @@ class TestTurnOrchestrator(unittest.TestCase):
 
         llm_wrapper = MagicMock()
         tools = MagicMock()
-        tools.allowed_tool_names.return_value = ["read_file"]
         tools.tool_capabilities.return_value = {}
         action = Action(name="read_file", arguments={"path": "test.txt"}, call_id="call-1")
         expected_reply = AssistantReply(content="", actions=[action])
@@ -291,7 +297,11 @@ class TestTurnOrchestrator(unittest.TestCase):
 
         tools.execute_with_interrupt.side_effect = ToolError("file not found")
 
-        orchestrator = self._make_orchestrator(llm_wrapper=llm_wrapper, tools=tools)
+        orchestrator = self._make_orchestrator(
+            llm_wrapper=llm_wrapper,
+            tools=tools,
+            allowed_tool_names=MagicMock(return_value={"read_file"}),
+        )
         session = MagicMock()
         result = orchestrator.execute_turn(
             session=session,
@@ -307,7 +317,6 @@ class TestTurnOrchestrator(unittest.TestCase):
     def test_task_status_reads_workflow_projection_without_task_graph(self):
         llm_wrapper = MagicMock()
         tools = MagicMock()
-        tools.allowed_tool_names.return_value = ["task_status"]
         tools.tool_capabilities.return_value = {}
         action = Action(name="task_status", arguments={}, call_id="call-task-status")
         llm_wrapper.call_with_retry.return_value = AssistantReply(content="", actions=[action])
@@ -321,7 +330,11 @@ class TestTurnOrchestrator(unittest.TestCase):
                 "discipline_profile": "workflow-discipline",
             },
         }
-        orchestrator = self._make_orchestrator(llm_wrapper=llm_wrapper, tools=tools)
+        orchestrator = self._make_orchestrator(
+            llm_wrapper=llm_wrapper,
+            tools=tools,
+            allowed_tool_names=MagicMock(return_value={"task_status"}),
+        )
         observations = []
 
         result = orchestrator.execute_turn(
@@ -339,6 +352,35 @@ class TestTurnOrchestrator(unittest.TestCase):
         self.assertEqual(observation.data["current_phase"], "workflow-phase")
         self.assertEqual(observation.data["discipline_profile"], "workflow-discipline")
         self.assertEqual(observation.data["tasks"], [{"id": "task-1", "title": "Task one"}])
+
+    def test_turn_orchestrator_uses_injected_allowed_tool_policy(self):
+        llm_wrapper = MagicMock()
+        tools = MagicMock()
+        tools.allowed_tool_names.side_effect = AssertionError(
+            "TurnOrchestrator must not call ToolRuntime.allowed_tool_names"
+        )
+        tools.tool_capabilities.return_value = {}
+        tools.execute_with_interrupt.return_value = Observation("read_file", True, None, {})
+        action = Action(name="read_file", arguments={"path": "test.txt"}, call_id="call-1")
+        llm_wrapper.call_with_retry.return_value = AssistantReply(content="", actions=[action])
+
+        allowed_tool_names = MagicMock(return_value={"read_file"})
+        orchestrator = self._make_orchestrator(
+            llm_wrapper=llm_wrapper,
+            tools=tools,
+            allowed_tool_names=allowed_tool_names,
+        )
+        session = Session()
+
+        result = orchestrator.execute_turn(
+            session=session,
+            messages=[{"role": "user", "content": "read"}],
+            tool_schemas=[],
+            current_mode="build",
+        )
+
+        self.assertEqual(result.transition.reason, "tool_calls")
+        allowed_tool_names.assert_called_with("build", workflow_state="chat")
 
     def test_turn_orchestrator_no_longer_reads_session_task_graph(self):
         from pathlib import Path

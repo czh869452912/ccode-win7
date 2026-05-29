@@ -47,6 +47,8 @@ The C/C++ harness provides this progression through the default built-in workflo
 
 `ToolRuntime.schemas_for(mode, workflow_state, tool_names=...)` is the single runtime schema projection entry point. Without explicit `tool_names`, it projects only the workflow-neutral mode contract. Default harness-aware paths such as `QueryEngine` extension activation must combine the mode contract with extension-active tools and request schemas by explicit tool names.
 
+Turn orchestration receives allowed-tool policy by injection rather than by calling runtime aliases. Hosted paths use the shared `ExtensionManager` to combine mode-contract tools with default C harness active tools.
+
 ## 5. Writable Scope
 
 Mode-specific writable path policy is still enforced by mode configuration plus permission policy.

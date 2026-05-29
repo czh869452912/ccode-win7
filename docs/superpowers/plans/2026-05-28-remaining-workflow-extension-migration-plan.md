@@ -17,24 +17,18 @@
 
 ## Remaining Slices
 
-### 1. Remove Legacy Runtime Tool-Name Alias
-
-- Remove `ToolRuntime.allowed_tool_names()` if it remains only as a compatibility wrapper.
-- Keep mode contracts in `src/embedagent/modes.py` and extension-active tool activation behind `ExtensionManager`.
-- Update `docs/tool-contracts.md` and `docs/mode-schema.md` after the alias is gone.
-
-### 2. Clarify Default Extension Configuration
+### 1. Clarify Default Extension Configuration
 
 - Keep project-local extension discovery deferred.
 - Add a small host configuration point only if the built-in C harness needs to be disabled or replaced in tests.
 - Avoid adding a plugin marketplace, remote registry, or multi-agent orchestration layer.
 
-### 3. Archive Completed Slice Documents
+### 2. Archive Completed Slice Documents
 
 - After this branch is merged and global docs are synchronized, move completed workflow-extension slice plans from `docs/superpowers/plans/` into `docs/archive/`.
 - Preserve durable conclusions in `README.md`, `AGENTS.md`, `docs/overall-solution-architecture.md`, `docs/agent-harness-v2.md`, and `docs/implementation-roadmap.md`.
 
-### 4. Validate On Product Targets
+### 3. Validate On Product Targets
 
 - Run the fast test suite after every slice.
 - Run real C/C++ project smoke tests for build/debug/verify flows.

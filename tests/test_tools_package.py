@@ -192,19 +192,6 @@ class TestToolRuntimeSchemas(unittest.TestCase):
         self.assertNotIn("task_status", tool_names)
         self.assertNotIn("run_command", tool_names)
 
-    def test_allowed_tool_names_default_to_mode_contract(self):
-        tool_names = self.rt.allowed_tool_names("debug", workflow_state="chat")
-        self.assertIn("read_file", tool_names)
-        self.assertIn("list_dir", tool_names)
-        self.assertIn("grep_text", tool_names)
-        self.assertIn("write_file", tool_names)
-        self.assertIn("edit_file", tool_names)
-        self.assertIn("ask_user", tool_names)
-        self.assertNotIn("record_failing_evidence", tool_names)
-        self.assertNotIn("run_recipe", tool_names)
-        self.assertNotIn("task_status", tool_names)
-        self.assertNotIn("run_command", tool_names)
-
 
 class TestToolRuntimeExecute(unittest.TestCase):
     def setUp(self):

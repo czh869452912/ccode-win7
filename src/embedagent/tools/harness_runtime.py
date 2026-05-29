@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import List
 
 from embedagent.harness.runner import HarnessRunner
-from embedagent.modes import allowed_tools_for
 from embedagent.tooling.packs import pack_tool_names
 from embedagent.tools import discovery_ops, recipe_ops, session_ops
 
@@ -177,10 +176,6 @@ class OfficialRuntimeModes(object):
             current_phase=current_phase,
             observations=observations,
         )
-
-    def allowed_tool_names(self, mode_name, workflow_state="chat"):
-        del workflow_state
-        return set(allowed_tools_for(mode_name))
 
     def pack_tool_names_for_mode(self, mode_name, workflow_state="chat"):
         context = self.describe_mode(mode_name, workflow_state=workflow_state)

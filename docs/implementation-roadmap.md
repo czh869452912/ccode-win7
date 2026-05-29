@@ -47,6 +47,7 @@ Recent workflow-boundary work has started slimming Agent Core without changing t
 - `CORE_PACK` no longer contains default harness workflow tools; build/debug/verify packs keep those tools explicitly for compatibility
 - built-in mode `allowed_tools` no longer own default harness workflow tools; recipe, quality, evidence, and task-status tools are activated by the C harness extension
 - `ToolRuntime.schemas_for(mode, workflow_state, tool_names=...)` is now the single runtime schema projection entry point; default-harness paths use extension-active explicit tool names
+- `TurnOrchestrator` receives an injected allowed-tool policy from `QueryEngine` instead of calling runtime allowed-tool aliases
 - `InProcessAdapter` now owns one `ExtensionManager` shared with session-scoped `QueryEngine` and frontend tool catalog visibility
 - `HarnessStateSynchronizer` has been removed; product refresh uses `CHarnessWorkflowExtension.refresh_managed_session()` through the default harness extension directly
 - `StreamingToolExecutor` now window-schedules parallel read batches so failure/discard semantics are deterministic
@@ -79,7 +80,7 @@ Remaining cleanup should focus on:
 
 Near-term decoupling should continue from the new extension boundary:
 
-- remove `ToolRuntime.allowed_tool_names()` from core gating after schema projection alias cleanup has settled
+- close the default extension configuration decision without adding project-local plugin discovery
 - defer project-local extension discovery until the built-in shared-manager path has more real-world mileage
 
 ### 4.3 Documentation Alignment

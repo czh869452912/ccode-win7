@@ -23,6 +23,8 @@ Built-in mode `allowed_tools` are workflow-neutral permission/write contracts. T
 
 `ToolRuntime.schemas_for(mode, workflow_state, tool_names=...)` is the single runtime schema projection entry point. Without explicit `tool_names`, it projects only the workflow-neutral mode contract. Harness-aware schema projection belongs to callers that have consulted the shared `ExtensionManager` and pass extension-active tool names explicitly.
 
+Allowed-tool gating is not a runtime wrapper. Core orchestration receives an explicit allowed-tool policy from its host; hosted product paths use `QueryEngine._allowed_tools_for_mode(...)`, which combines the mode contract with extension-active tool names from the shared `ExtensionManager`.
+
 ## 2. Official Workflow Tools
 
 ### File / Discovery

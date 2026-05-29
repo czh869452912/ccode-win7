@@ -44,6 +44,27 @@
 
 ## 3. 当前变更记录
 
+### DC-117
+
+- 日期：2026-05-29
+- 变更主题：Allowed-tool runtime wrapper 删除
+- 变更摘要：
+  - 删除 `ToolRuntime.allowed_tool_names()`
+  - 删除 `OfficialRuntimeModes.allowed_tool_names()`
+  - `TurnOrchestrator` 改为接收注入的 `allowed_tool_names` policy，不再调用 runtime wrapper
+  - `QueryEngine` 将 extension-aware `_allowed_tools_for_mode(...)` 传入 turn orchestration
+  - runtime tests 删除 wrapper 兼容断言，新增源码边界测试防止 alias 回流
+- 影响范围：
+  - core turn orchestration mode gating
+  - runtime public compatibility surface
+  - workflow extension active-tool boundary
+- 关联文档：
+  - `docs/superpowers/plans/2026-05-28-workflow-extension-migration-handoff.md`
+  - `docs/tool-contracts.md`
+  - `docs/mode-schema.md`
+  - `docs/implementation-roadmap.md`
+- 是否需要 ADR：`否，属于既定 workflow extension migration 的 runtime wrapper cleanup`
+
 ### DC-116
 
 - 日期：2026-05-29
