@@ -186,6 +186,15 @@ class CHarnessWorkflowExtension(object):
             return set()
         return set(pack_tool_names(context.pack_name))
 
+    def load_session_tasks(self, workspace: str, session_id: str) -> dict:
+        tasks = task_store.load_task_items(workspace, session_id)
+        return {
+            "count": len(tasks),
+            "tasks": tasks,
+            "path": task_store.relative_task_snapshot_path(session_id),
+            "session_id": str(session_id or ""),
+        }
+
     def handle_tool_call(
         self,
         session: Any,

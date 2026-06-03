@@ -1,6 +1,6 @@
 # EmbedAgent 设计与变更跟踪
 
-> 更新日期：2026-05-29
+> 更新日期：2026-06-03
 > 用途：记录关键设计变更、影响范围、关联文档和后续动作
 
 ---
@@ -43,6 +43,29 @@
 ---
 
 ## 3. 当前变更记录
+
+### DC-121
+
+- 日期：2026-06-03
+- 变更主题：Workflow extension 本机剩余边界清理
+- 变更摘要：
+  - 新增 `ExtensionManager.load_session_tasks(...)` 作为 frontend task snapshot fallback 的 extension hook
+  - 默认 C harness extension 继续读取自己的 task snapshot，返回 `count/tasks/path/session_id` 前端 payload
+  - `InProcessAdapter.list_tasks()` 对 active session 仍优先读取 `Session.workflow_state["workflow"]`，对 inactive session 改为通过共享 `ExtensionManager` 获取 fallback payload，不再直接 import `embedagent.harness.task_store`
+  - 新增边界测试防止 adapter 重新直连 harness task store，并保留 active session task snapshot path 行为断言
+  - `docs/guides/configuration-guide.md` 已从 pre-cutover 历史指南改写为当前正式配置指南，使用 `explore/spec/build/debug/verify` 与 `task_status` 口径，不再提供 `code` / `manage_todos` 当前使用示例
+- 影响范围：
+  - frontend task read model fallback
+  - workflow extension hook surface
+  - configuration guide handoff clarity
+- 关联文档：
+  - `docs/development-tracker.md`
+  - `docs/superpowers/plans/2026-05-28-remaining-workflow-extension-migration-plan.md`
+  - `docs/guides/configuration-guide.md`
+- 是否需要 ADR：`否，属于既定 workflow extension boundary 的本机剩余清理`
+- 后续动作：
+  - Win7 clean-machine unpack-and-run smoke 仍作为外部 release gate
+  - 真实 C/C++ 工程验证仍作为外部产品验证 gate
 
 ### DC-120
 

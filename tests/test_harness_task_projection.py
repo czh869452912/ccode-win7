@@ -78,6 +78,10 @@ class HarnessTaskProjectionTests(unittest.TestCase):
         payload = self.adapter.list_tasks(session_id=session_id)
 
         self.assertGreaterEqual(payload["count"], 1)
+        self.assertEqual(
+            payload["path"],
+            ".embedagent/memory/sessions/%s/task-graph.json" % session_id,
+        )
         workflow = state.session.workflow_state.get("workflow") or {}
         self.assertEqual(len(workflow.get("items") or []), payload["count"])
         self.assertTrue(os.path.isfile(task_store.task_snapshot_path(self.workspace, session_id)))

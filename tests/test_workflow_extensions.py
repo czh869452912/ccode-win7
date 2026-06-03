@@ -292,6 +292,15 @@ def test_inprocess_frontend_task_api_uses_workflow_state_projection():
     assert "task_graph" not in attributes
 
 
+def test_inprocess_frontend_task_api_does_not_import_harness_task_store_directly():
+    source = (_REPO_ROOT / "src" / "embedagent" / "inprocess_adapter.py").read_text(
+        encoding="utf-8"
+    )
+
+    assert "from embedagent.harness import task_store" not in source
+    assert "embedagent.harness.task_store" not in source
+
+
 def test_inprocess_adapter_no_longer_constructs_harness_runner_directly():
     source = (_REPO_ROOT / "src" / "embedagent" / "inprocess_adapter.py").read_text(
         encoding="utf-8"

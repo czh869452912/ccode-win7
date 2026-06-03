@@ -1,47 +1,44 @@
-# EmbedAgent 配置指南
+# EmbedAgent Configuration Guide
 
-> Superseded Note
->
-> 本文保留为 pre-cutover 阶段的配置与运行习惯参考，不再定义当前正式的 mode/task/workflow 架构。
-> 当前正式口径以 `README.md`、`AGENTS.md`、`docs/mode-schema.md`、`docs/permission-model.md`、`docs/frontend-protocol.md` 为准。
+EmbedAgent uses layered configuration for model connection settings, context budgets,
+loop limits, and mode write policies.
 
-EmbedAgent 通过分层配置管理 LLM 连接参数、上下文窗口设置和模式行为，
-无需修改源码即可适配不同模型和项目布局。
+This guide follows the current product baseline:
 
----
+- official modes are `explore`, `spec`, `build`, `debug`, and `verify`
+- `build` is the implementation mode
+- task state is projected from the default C/C++ harness through `task_status`
+- `code` and `manage_todos` are historical terms, not current configuration targets
 
-## 配置优先级
+## Configuration Precedence
 
-优先级从低到高：
+Configuration is resolved from low to high priority:
 
+```text
+built-in defaults
+  ^
+user config      (~/.embedagent/config.json)
+  ^
+project config   (<workspace>/.embedagent/config.json)
+  ^
+environment      (EMBEDAGENT_*)
+  ^
+CLI arguments    (--max-context-tokens, --mode, ...)
 ```
-代码内置默认值
-  ↑
-用户级配置  (~/.embedagent/config.json)
-  ↑
-项目级配置  (<workspace>/.embedagent/config.json)
-  ↑
-环境变量    (EMBEDAGENT_*)
-  ↑
-CLI 参数    (--max-context-tokens 等)
-```
 
-后者覆盖前者，CLI 参数始终优先。
+Later layers override earlier layers. CLI arguments always have the highest priority.
 
----
+## Configuration Files
 
-## 配置文件位置
+| Level | Path | Scope |
+|------|------|-------|
+| User | `~/.embedagent/config.json` | All workspaces for one user |
+| Project | `<workspace>/.embedagent/config.json` | Current workspace only |
 
-| 级别 | 路径 | 作用域 |
-|------|------|--------|
-| 用户级 | `~/.embedagent/config.json` | 对该用户所有项目生效 |
-| 项目级 | `<workspace>/.embedagent/config.json` | 仅对当前项目生效 |
+The runtime reloads these files when it starts a session or command. Editing a config
+file does not require changing source code.
 
-配置文件在 `embedagent` 启动时自动加载，**无需重启**即可修改（每次调用重新读取）。
-
----
-
-## 完整 JSON Schema
+## JSON Shape
 
 ```json
 {
@@ -64,179 +61,182 @@ CLI 参数    (--max-context-tokens 等)
 }
 ```
 
-所有字段均为可选，未设置的字段使用代码内置默认值。
+All fields are optional. Missing values use built-in defaults.
 
----
+## LLM Connection
 
-## 字段说明
+| Field | Type | Default | Meaning |
+|------|------|---------|---------|
+| `base_url` | string | `http://127.0.0.1:8000/v1` | OpenAI-compatible API base URL |
+| `api_key` | string | `""` | API key |
+| `model` | string | `""` | Model name |
+| `timeout` | number | `120` | Request timeout in seconds |
 
-### LLM 连接
+Equivalent environment variables:
 
-| 字段 | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `base_url` | string | `http://127.0.0.1:8000/v1` | 模型服务根地址 |
-| `api_key` | string | `""` | API Key |
-| `model` | string | `""` | 模型名称，**必须设置** |
-| `timeout` | number | `120` | 请求超时秒数 |
+- `EMBEDAGENT_BASE_URL`
+- `EMBEDAGENT_API_KEY`
+- `EMBEDAGENT_MODEL`
+- `EMBEDAGENT_TIMEOUT`
 
-环境变量等效：`EMBEDAGENT_BASE_URL`、`EMBEDAGENT_API_KEY`、`EMBEDAGENT_MODEL`、`EMBEDAGENT_TIMEOUT`。
+Do not commit `config/config.json` when it contains a real API key.
 
-### 上下文窗口
+## Context Budget
 
-| 字段 | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `max_context_tokens` | integer | `18000` | 总上下文 token 预算 |
-| `reserve_output_tokens` | integer | `2000` | 为模型输出预留的 token |
-| `chars_per_token` | number | `3.0` | 字符/token 估算比率 |
-| `max_recent_turns` | integer | `4` | 保留为完整历史的最近轮数 |
+| Field | Type | Default | Meaning |
+|------|------|---------|---------|
+| `max_context_tokens` | integer | `18000` | Total input context budget |
+| `reserve_output_tokens` | integer | `2000` | Reserved output budget |
+| `chars_per_token` | number | `3.0` | Approximate character-to-token ratio |
+| `max_recent_turns` | integer | `4` | Recent turns kept in full before summarization |
 
-> **提示**：使用支持 32k/128k 上下文的模型时，将 `max_context_tokens` 调大可显著
-> 减少上下文压缩频率，从而提高大文件分析的准确性。
+For larger local models, increasing `max_context_tokens` can reduce compaction
+frequency. Keep `reserve_output_tokens` large enough for tool plans and final answers.
 
-### 循环控制
+## Loop And Mode Defaults
 
-| 字段 | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `max_turns` | integer | `8` | 单次会话允许的最大工具调用轮数 |
-| `default_mode` | string | `"explore"` | 启动时的默认模式 |
+| Field | Type | Default | Meaning |
+|------|------|---------|---------|
+| `max_turns` | integer | `8` | Maximum model/tool loop turns for one request |
+| `default_mode` | string | `explore` | Initial mode for new sessions |
 
-### 模式可写路径覆盖
+Valid `default_mode` values are:
 
-`mode_writable_globs` 允许按模式自定义可写文件的 glob 匹配规则，**完全替换**该模式的内置默认值。
+- `explore`
+- `spec`
+- `build`
+- `debug`
+- `verify`
+
+Unknown mode names fail fast. `code` is not a valid first-class mode.
+
+## Writable Globs
+
+`mode_writable_globs` completely replaces the built-in write scope for a mode.
 
 ```json
 {
   "mode_writable_globs": {
-    "code": ["**/*.py", "**/*.toml", "**/*.cfg"],
-    "spec": ["**/*.md", "**/*.rst", "docs/**/*.txt"]
+    "build": ["src/**/*.c", "src/**/*.h", "CMakeLists.txt"],
+    "spec": ["docs/**/*.md"]
   }
 }
 ```
 
-- **glob 语法**：使用 Python `fnmatch` 规则，`*` 匹配任意字符（含 `/`），`?` 匹配单字符。
-- **只覆盖指定模式**：未指定的模式继续使用内置默认值。
-- **空列表 = 只读**：`"code": []` 将使 code 模式无法写入任何文件。
+Rules:
 
-`mode_extra_writable_globs` 用于在保留内置默认值的前提下，**增量追加**额外可写 glob。
+- glob matching uses Python `fnmatch` semantics
+- unspecified modes keep built-in defaults
+- an empty list makes the mode read-only
+- `explore` and `verify` should remain read-only
+
+`mode_extra_writable_globs` appends extra write scopes without replacing the built-in
+defaults.
 
 ```json
 {
   "mode_extra_writable_globs": {
-    "code": ["**/*.cmake", "CMakeLists.txt"],
-    "spec": ["**/*.adoc"]
+    "build": ["cmake/**/*.cmake", "cmake/**/*.txt"],
+    "debug": ["repro/**/*.c"]
   }
 }
 ```
 
-- **不会替换默认值**：它只在已有默认范围上追加。
-- **适合项目异构结构**：例如只想给 code 模式增加 `cmake/` 文件，而不想整份重写默认规则。
+Use replacement when you want a strict project-specific write boundary. Use append when
+the default implementation/debug scopes are acceptable but the project has extra build
+metadata paths.
 
----
+## Built-In Write Policy
 
-## 内置默认可写路径
+| Mode | Built-in write policy |
+|------|-----------------------|
+| `explore` | read-only |
+| `spec` | documentation and text artifacts |
+| `build` | implementation files and build metadata |
+| `debug` | implementation files and build metadata |
+| `verify` | read-only |
 
-| 模式 | 默认可写扩展名/文件 |
-|------|------------------|
-| `explore` | （只读） |
-| `spec` | `**/*.md`、`**/*.rst`、`**/*.txt` |
-| `code` | 常见源码、脚本、JSON/YAML、TOML/INI/CFG、CMake/Makefile 类文件 |
-| `debug` | 常见源码、脚本、JSON/YAML、TOML/INI/CFG、CMake/Makefile 类文件 |
-| `verify` | （只读） |
+Permission rules still apply after mode write filtering. A path matching the mode glob
+can still require confirmation or be denied by `PermissionPolicy`.
 
----
+## Examples
 
-## 常用场景示例
+### Local OpenAI-Compatible Model
 
-### 场景 1：大上下文模型（32k token）
-
-`~/.embedagent/config.json`:
 ```json
 {
   "base_url": "http://127.0.0.1:8000/v1",
-  "model": "qwen3.5-72b-coder",
+  "model": "qwen-coder-local",
+  "timeout": 180
+}
+```
+
+### Larger Context Model
+
+```json
+{
   "max_context_tokens": 32000,
   "reserve_output_tokens": 4000,
   "max_recent_turns": 8
 }
 ```
 
-### 场景 2：非标准项目目录结构（增量追加）
+### Restrict Build Writes To One Module
 
-项目根目录的 `.embedagent/config.json`:
+```json
+{
+  "default_mode": "build",
+  "mode_writable_globs": {
+    "build": ["src/mymodule/**/*.c", "src/mymodule/**/*.h"],
+    "debug": ["src/mymodule/**/*.c", "src/mymodule/**/*.h", "tests/**/*.c"]
+  }
+}
+```
+
+### Add Project Build Metadata Paths
+
 ```json
 {
   "mode_extra_writable_globs": {
-    "code": ["**/*.cmake", "CMakeLists.txt", "cmake/**/*.txt"],
-    "spec": ["**/*.adoc"]
+    "build": ["cmake/**/*.cmake", "toolchains/**/*.cmake", "CMakePresets.json"]
   }
 }
 ```
 
-### 场景 3：只允许修改特定子目录
+## CLI Overrides
 
-```json
-{
-  "mode_writable_globs": {
-    "code": ["src/mymodule/**/*.py"],
-    "test": ["tests/unit/**/*.py", "tests/integration/**/*.py"]
-  }
-}
+These CLI arguments override matching config fields:
+
+```text
+--max-context-tokens INT
+--reserve-output-tokens INT
+--chars-per-token FLOAT
+--max-turns INT
+--mode STR
 ```
 
----
+## Task State
 
-## CLI 参数快速参考
+Do not configure or invoke `manage_todos` for current workflows. The default C/C++
+harness owns task truth through `TaskGraph`, projects it into
+`Session.workflow_state["workflow"]`, and exposes it through `task_status` plus
+frontend task snapshots.
 
-以下 CLI 参数会覆盖配置文件中的对应值：
+Frontend payloads use:
 
-```
---max-context-tokens INT    上下文 token 总量
---reserve-output-tokens INT 输出预留 token
---chars-per-token FLOAT     字符/token 比率
---max-turns INT             最大循环轮数
---mode STR                  初始模式
-```
+- `task_summary`
+- `task_items`
+- `current_phase`
+- `discipline_profile`
+- `current_activity`
 
----
+## Source Of Truth
 
-## 历史说明：`manage_todos` 工具使用指引（已废弃）
+Keep this guide aligned with:
 
-以下内容仅用于解释历史配置与旧运行语义。当前官方任务真相已切换到 `TaskGraph` 与 `task_status`，`manage_todos` 不再属于正式工作流架构。
-
-当前默认语义已经改为**会话级隔离**：
-
-- 真实会话运行时，数据持久化到
-  `<workspace>/.embedagent/memory/sessions/<session_id>/todos.json`
-- 只有脱离会话上下文、直接调用工具运行时时，才会退回旧的
-  `<workspace>/.embedagent/todos.json`
-
-### 历史使用场景
-
-- **explore 模式**：探索代码库后用 `add` 记录发现的问题或改进点，方便后续切换到具体模式处理；
-- **code 模式**：长实现序列中用 `complete` 标记已完成项，避免遗漏；
-- **会话恢复**：恢复会话后 `list` 查看该 session 未完成项，快速回到上下文。
-
-### 历史操作示例
-
-```
-# 列出当前会话的所有任务
-manage_todos(action="list")
-
-# 添加任务
-manage_todos(action="add", content="实现 UserService.login 方法")
-manage_todos(action="add", content="为 login 编写单元测试")
-manage_todos(action="add", content="更新 API 文档")
-
-# 完成任务 (id=1)
-manage_todos(action="complete", item_id=1)
-
-# 删除任务 (id=3)
-manage_todos(action="remove", item_id=3)
-```
-
-### 历史注意事项
-
-- `todos.json` 是项目级持久化文件，可随项目 git 提交（或加入 `.gitignore`）；
-- `remove` 操作会重新编号剩余条目（从 1 开始），建议在完成前不要依赖固定 id；
-- 若前端 / Runtime 已注入 `session_id`，`manage_todos` 默认只读写当前会话的 todo 文件，不会污染其他会话；
-- 工具在所有模式下均可用；`mode_writable_globs` 仅影响 `write_file` / `edit_file` 的路径白名单，不影响 `manage_todos`。
+- `README.md`
+- `AGENTS.md`
+- `docs/mode-schema.md`
+- `docs/tool-contracts.md`
+- `docs/permission-model.md`
+- `src/embedagent/modes.py`

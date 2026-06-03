@@ -171,6 +171,16 @@ class ExtensionManager(object):
                 names.update(set(hook(mode_name, workflow_state=workflow_state) or set()))
         return names
 
+    def load_session_tasks(self, workspace: str, session_id: str) -> Dict[str, Any]:
+        for extension in list(self._extensions):
+            hook = getattr(extension, "load_session_tasks", None)
+            if not callable(hook):
+                continue
+            payload = hook(workspace=workspace, session_id=session_id)
+            if isinstance(payload, dict):
+                return dict(payload)
+        return {"count": 0, "tasks": [], "path": "", "session_id": str(session_id or "")}
+
     def handle_tool_call(
         self,
         session: Any,

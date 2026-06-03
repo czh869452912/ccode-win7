@@ -10,7 +10,6 @@ from typing import Any, Callable, Dict, List, Optional
 
 from embedagent.context import ContextManager
 from embedagent.default_extensions import build_default_extension_set
-from embedagent.harness import task_store
 from embedagent.interaction import UserInputRequest, UserInputResponse
 from embedagent.llm import OpenAICompatibleClient
 from embedagent.memory_maintenance import MemoryMaintenance
@@ -564,6 +563,7 @@ class InProcessAdapter(object):
                 "path": "",
                 "session_id": session_id,
             }
+        stored_payload = self.extension_manager.load_session_tasks(self.tools.workspace, session_id)
         state = None
         with self._lock:
             state = self._sessions.get(session_id)
@@ -574,11 +574,11 @@ class InProcessAdapter(object):
                 workflow = dict(session_workflow.get("workflow") or {})
             tasks = list(workflow.get("items") or [])
         else:
-            tasks = task_store.load_task_items(self.tools.workspace, session_id)
+            return stored_payload
         return {
             "count": len(tasks),
             "tasks": tasks,
-            "path": task_store.relative_task_snapshot_path(session_id),
+            "path": str(stored_payload.get("path") or ""),
             "session_id": session_id,
         }
 
