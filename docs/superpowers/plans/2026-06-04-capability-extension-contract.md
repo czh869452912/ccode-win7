@@ -1250,7 +1250,7 @@ git commit -m "docs: document capability extension contract"
 **Files:**
 - Verify only; no planned source edits.
 
-- [ ] **Step 1: Run focused extension and workflow tests**
+- [x] **Step 1: Run focused extension and workflow tests**
 
 Run:
 
@@ -1260,7 +1260,7 @@ uv run pytest tests/test_capability_extensions.py tests/test_workflow_extensions
 
 Expected: PASS.
 
-- [ ] **Step 2: Run query-engine focused tests**
+- [x] **Step 2: Run query-engine focused tests**
 
 Run:
 
@@ -1270,7 +1270,7 @@ uv run pytest tests/test_query_engine_refactor.py tests/test_query_engine_build_
 
 Expected: PASS.
 
-- [ ] **Step 3: Run frontend protocol tests**
+- [x] **Step 3: Run frontend protocol tests**
 
 Run:
 
@@ -1280,7 +1280,7 @@ uv run pytest tests/test_inprocess_adapter_frontend_api.py tests/test_gui_backen
 
 Expected: PASS.
 
-- [ ] **Step 4: Run fast suite**
+- [x] **Step 4: Run fast suite**
 
 Run:
 
@@ -1290,7 +1290,7 @@ uv run pytest tests/ -m "not slow and not gui" -v
 
 Expected: PASS.
 
-- [ ] **Step 5: Run lint checks**
+- [x] **Step 5: Run lint checks**
 
 Run:
 
@@ -1301,7 +1301,7 @@ uv run black --check src/ tests/
 
 Expected: PASS.
 
-- [ ] **Step 6: Inspect final diff**
+- [x] **Step 6: Inspect final diff**
 
 Run:
 
