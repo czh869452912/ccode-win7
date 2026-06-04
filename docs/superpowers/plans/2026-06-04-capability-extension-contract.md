@@ -301,7 +301,7 @@ git commit -m "feat: add extension diagnostics"
 - Modify: `src/embedagent/extensions.py`
 - Modify: `tests/test_capability_extensions.py`
 
-- [ ] **Step 1: Write failing tests for resource discovery merging**
+- [x] **Step 1: Write failing tests for resource discovery merging**
 
 Add `ResourcesDiscoverResult` to the existing top-level import from `embedagent.extensions`, then append this test code to `tests/test_capability_extensions.py`:
 
@@ -333,7 +333,7 @@ def test_resources_discover_merges_and_deduplicates_paths():
     assert result.metadata == {"source": "resource-extension"}
 ```
 
-- [ ] **Step 2: Run the focused test and verify it fails**
+- [x] **Step 2: Run the focused test and verify it fails**
 
 Run:
 
@@ -343,7 +343,7 @@ uv run pytest tests/test_capability_extensions.py::test_resources_discover_merge
 
 Expected: FAIL because `ResourcesDiscoverResult` and `discover_resources` do not exist.
 
-- [ ] **Step 3: Add resource event/result dataclasses**
+- [x] **Step 3: Add resource event/result dataclasses**
 
 In `src/embedagent/extensions.py`, add these dataclasses after `ExtensionDiagnostic`:
 
@@ -363,7 +363,7 @@ class ResourcesDiscoverResult:
     metadata: Dict[str, Any] = field(default_factory=dict)
 ```
 
-- [ ] **Step 4: Add path dedupe helper and discovery dispatcher**
+- [x] **Step 4: Add path dedupe helper and discovery dispatcher**
 
 Add these methods to `ExtensionManager`:
 
@@ -392,7 +392,7 @@ Add these methods to `ExtensionManager`:
         return merged
 ```
 
-- [ ] **Step 5: Run resource discovery test**
+- [x] **Step 5: Run resource discovery test**
 
 Run:
 
@@ -402,7 +402,7 @@ uv run pytest tests/test_capability_extensions.py::test_resources_discover_merge
 
 Expected: PASS.
 
-- [ ] **Step 6: Run all capability extension tests**
+- [x] **Step 6: Run all capability extension tests**
 
 Run:
 
@@ -412,7 +412,7 @@ uv run pytest tests/test_capability_extensions.py -v
 
 Expected: PASS.
 
-- [ ] **Step 7: Commit Task 2**
+- [x] **Step 7: Commit Task 2**
 
 ```bash
 git add src/embedagent/extensions.py tests/test_capability_extensions.py

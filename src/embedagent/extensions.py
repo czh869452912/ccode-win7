@@ -108,6 +108,21 @@ class ExtensionDiagnostic:
         }
 
 
+@dataclass
+class ResourcesDiscoverEvent:
+    cwd: str = ""
+    reason: str = "startup"
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class ResourcesDiscoverResult:
+    skill_paths: List[str] = field(default_factory=list)
+    prompt_paths: List[str] = field(default_factory=list)
+    recipe_paths: List[str] = field(default_factory=list)
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+
 class ExtensionManager(object):
     def __init__(self, extensions: Optional[List[Any]] = None) -> None:
         self._extensions = []  # type: List[Any]
@@ -171,6 +186,40 @@ class ExtensionManager(object):
             if messages:
                 merged.messages = messages
             merged.metadata.update(dict(getattr(patch, "metadata", {}) or {}))
+        return merged
+
+    def _append_unique(self, target: List[str], values: List[str]) -> None:
+        seen = set(target)
+        for value in values:
+            text = str(value or "").strip()
+            if not text or text in seen:
+                continue
+            seen.add(text)
+            target.append(text)
+
+    def discover_resources(
+        self, cwd: str, reason: str = "startup"
+    ) -> ResourcesDiscoverResult:
+        event = ResourcesDiscoverEvent(
+            cwd=str(cwd or ""),
+            reason=str(reason or "startup"),
+        )
+        context = ExtensionContext(workspace=str(cwd or ""))
+        merged = ResourcesDiscoverResult()
+        for extension in list(self._extensions):
+            result = self._call_hook(extension, "resources_discover", event, context)
+            if result is None:
+                continue
+            self._append_unique(
+                merged.skill_paths, list(getattr(result, "skill_paths", []) or [])
+            )
+            self._append_unique(
+                merged.prompt_paths, list(getattr(result, "prompt_paths", []) or [])
+            )
+            self._append_unique(
+                merged.recipe_paths, list(getattr(result, "recipe_paths", []) or [])
+            )
+            merged.metadata.update(dict(getattr(result, "metadata", {}) or {}))
         return merged
 
     def before_agent_start(

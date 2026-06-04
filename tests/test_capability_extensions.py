@@ -1,4 +1,9 @@
-from embedagent.extensions import ExtensionContext, ExtensionManager, WorkflowEvent
+from embedagent.extensions import (
+    ExtensionContext,
+    ExtensionManager,
+    ResourcesDiscoverResult,
+    WorkflowEvent,
+)
 
 
 class BrokenProjectExtension(object):
@@ -53,3 +58,30 @@ def test_builtin_extension_hook_error_is_recorded_and_raised():
     assert len(diagnostics) == 1
     assert diagnostics[0]["extension_id"] == "broken_builtin"
     assert diagnostics[0]["event"] == "context"
+
+
+class ResourceExtension(object):
+    extension_id = "resources"
+    builtin_extension = False
+
+    def resources_discover(self, event, context):
+        assert event.cwd == "."
+        assert event.reason == "startup"
+        assert context.workspace == "."
+        return ResourcesDiscoverResult(
+            skill_paths=[".embedagent/skills", ".embedagent/skills"],
+            prompt_paths=[".embedagent/prompts"],
+            recipe_paths=[".embedagent/recipes"],
+            metadata={"source": "resource-extension"},
+        )
+
+
+def test_resources_discover_merges_and_deduplicates_paths():
+    manager = ExtensionManager([ResourceExtension()])
+
+    result = manager.discover_resources(".", reason="startup")
+
+    assert result.skill_paths == [".embedagent/skills"]
+    assert result.prompt_paths == [".embedagent/prompts"]
+    assert result.recipe_paths == [".embedagent/recipes"]
+    assert result.metadata == {"source": "resource-extension"}
