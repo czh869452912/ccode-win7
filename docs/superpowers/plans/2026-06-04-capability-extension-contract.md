@@ -974,7 +974,7 @@ git commit -m "feat: add extension tool hooks"
 - Modify: `src/embedagent/inprocess_adapter.py`
 - Modify: `tests/test_capability_extensions.py`
 
-- [ ] **Step 1: Write failing snapshot projector test**
+- [x] **Step 1: Write failing snapshot projector test**
 
 Append to `tests/test_capability_extensions.py`:
 
@@ -1011,7 +1011,7 @@ def test_session_snapshot_projects_extension_state_and_diagnostics():
     assert snapshot["extension_diagnostics"][0]["error"] == "sample error"
 ```
 
-- [ ] **Step 2: Run snapshot projector test and verify it fails**
+- [x] **Step 2: Run snapshot projector test and verify it fails**
 
 Run:
 
@@ -1021,7 +1021,7 @@ uv run pytest tests/test_capability_extensions.py::test_session_snapshot_project
 
 Expected: FAIL because `build_snapshot` does not accept `extension_diagnostics`.
 
-- [ ] **Step 3: Update SessionSnapshotProjector signature and output**
+- [x] **Step 3: Update SessionSnapshotProjector signature and output**
 
 In `src/embedagent/session_projector.py`, change the method signature:
 
@@ -1055,7 +1055,7 @@ Add these fields to the returned dictionary:
             "extension_diagnostics": list(extension_diagnostics or []),
 ```
 
-- [ ] **Step 4: Run snapshot projector test**
+- [x] **Step 4: Run snapshot projector test**
 
 Run:
 
@@ -1065,7 +1065,7 @@ uv run pytest tests/test_capability_extensions.py::test_session_snapshot_project
 
 Expected: PASS.
 
-- [ ] **Step 5: Write failing InProcessAdapter snapshot test**
+- [x] **Step 5: Write failing InProcessAdapter snapshot test**
 
 Append to `tests/test_capability_extensions.py`:
 
@@ -1098,7 +1098,7 @@ def test_inprocess_snapshot_includes_extension_diagnostics(tmp_path):
     assert diagnostics[0]["error"] == "snapshot diagnostic"
 ```
 
-- [ ] **Step 6: Run InProcessAdapter snapshot test and verify it fails**
+- [x] **Step 6: Run InProcessAdapter snapshot test and verify it fails**
 
 Run:
 
@@ -1108,7 +1108,7 @@ uv run pytest tests/test_capability_extensions.py::test_inprocess_snapshot_inclu
 
 Expected: FAIL because `InProcessAdapter.get_session_snapshot` does not pass diagnostics into the projector.
 
-- [ ] **Step 7: Pass diagnostics from InProcessAdapter**
+- [x] **Step 7: Pass diagnostics from InProcessAdapter**
 
 In `src/embedagent/inprocess_adapter.py`, update the `build_snapshot` call in `get_session_snapshot`:
 
@@ -1122,7 +1122,7 @@ In `src/embedagent/inprocess_adapter.py`, update the `build_snapshot` call in `g
             )
 ```
 
-- [ ] **Step 8: Run snapshot tests**
+- [x] **Step 8: Run snapshot tests**
 
 Run:
 
@@ -1132,7 +1132,7 @@ uv run pytest tests/test_capability_extensions.py::test_session_snapshot_project
 
 Expected: PASS.
 
-- [ ] **Step 9: Run frontend adapter snapshot tests**
+- [x] **Step 9: Run frontend adapter snapshot tests**
 
 Run:
 
@@ -1142,7 +1142,7 @@ uv run pytest tests/test_inprocess_adapter_frontend_api.py tests/test_gui_backen
 
 Expected: PASS. Existing snapshot consumers tolerate the new fields.
 
-- [ ] **Step 10: Commit Task 5**
+- [x] **Step 10: Commit Task 5**
 
 ```bash
 git add src/embedagent/session_projector.py src/embedagent/inprocess_adapter.py tests/test_capability_extensions.py

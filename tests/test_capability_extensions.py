@@ -325,3 +325,62 @@ def test_query_engine_tool_result_hook_can_replace_observation(tmp_path):
 
     assert observation.success is True
     assert observation.data == {"patched_by_extension": True}
+
+
+def test_session_snapshot_projects_extension_state_and_diagnostics():
+    from embedagent.session import Session
+    from embedagent.session_projector import SessionSnapshotProjector
+    from embedagent.session_runtime import ManagedSession
+
+    session = Session()
+    session.workflow_state["extensions"] = {
+        "sample": {"state": {"enabled": True}},
+    }
+    state = ManagedSession(session=session, current_mode="build")
+
+    snapshot = SessionSnapshotProjector().build_snapshot(
+        state,
+        summary={},
+        runtime={},
+        extension_diagnostics=[
+            {
+                "extension_id": "sample",
+                "event": "context",
+                "error": "sample error",
+                "severity": "error",
+                "source": "project",
+                "metadata": {},
+            }
+        ],
+    )
+
+    assert snapshot["extensions"] == {"sample": {"state": {"enabled": True}}}
+    assert snapshot["extension_diagnostics"][0]["extension_id"] == "sample"
+    assert snapshot["extension_diagnostics"][0]["error"] == "sample error"
+
+
+class SnapshotBrokenExtension(object):
+    extension_id = "snapshot_broken"
+    builtin_extension = False
+
+    def context(self, event, context):
+        del event, context
+        raise RuntimeError("snapshot diagnostic")
+
+
+def test_inprocess_snapshot_includes_extension_diagnostics(tmp_path):
+    from embedagent.inprocess_adapter import InProcessAdapter
+    from embedagent.tools import ToolRuntime
+
+    adapter = InProcessAdapter(tools=ToolRuntime(str(tmp_path)))
+    adapter.extension_manager = ExtensionManager([SnapshotBrokenExtension()])
+    adapter.extension_manager.context(
+        WorkflowEvent(current_mode="build"),
+        ExtensionContext(workspace=str(tmp_path)),
+    )
+    snapshot = adapter.create_session(mode="build")
+
+    diagnostics = snapshot.get("extension_diagnostics") or []
+    assert diagnostics
+    assert diagnostics[0]["extension_id"] == "snapshot_broken"
+    assert diagnostics[0]["error"] == "snapshot diagnostic"

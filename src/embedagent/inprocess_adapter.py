@@ -404,6 +404,7 @@ class InProcessAdapter(object):
                 summary,
                 runtime,
                 pending_interaction=_pending_interaction_payload(state),
+                extension_diagnostics=self.extension_manager.diagnostics(),
             )
 
     def get_workspace_snapshot(self) -> Dict[str, Any]:

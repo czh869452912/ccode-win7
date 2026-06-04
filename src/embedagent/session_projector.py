@@ -54,6 +54,7 @@ class SessionSnapshotProjector(object):
         runtime: Optional[Dict[str, Any]],
         pending_interaction: Optional[Dict[str, Any]] = None,
         harness_context: Optional[Any] = None,
+        extension_diagnostics: Optional[List[Dict[str, Any]]] = None,
     ) -> Dict[str, Any]:
         del harness_context
         summary_payload = dict(summary or {})
@@ -72,6 +73,12 @@ class SessionSnapshotProjector(object):
         )
         workflow_summary = str(workflow.get("summary") or "")
         workflow_activity = str(workflow.get("activity") or "")
+        workflow_state = getattr(state.session, "workflow_state", {}) or {}
+        extensions = {}
+        if isinstance(workflow_state, dict):
+            raw_extensions = workflow_state.get("extensions") or {}
+            if isinstance(raw_extensions, dict):
+                extensions = dict(raw_extensions)
         return {
             "session_id": state.session.session_id,
             "status": state.status,
@@ -134,6 +141,8 @@ class SessionSnapshotProjector(object):
             "task_summary": workflow_summary,
             "task_items": workflow_items,
             "workflow": workflow,
+            "extensions": extensions,
+            "extension_diagnostics": list(extension_diagnostics or []),
             "runtime_source": str(runtime_payload.get("runtime_source") or ""),
             "bundled_tools_ready": bool(runtime_payload.get("bundled_tools_ready")),
             "fallback_warnings": list(runtime_payload.get("fallback_warnings") or []),
