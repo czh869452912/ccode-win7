@@ -9,7 +9,12 @@ from copy import deepcopy
 from typing import Any, Callable, Dict, Optional, Tuple
 
 from embedagent.context import ContextManager
-from embedagent.extensions import ExtensionManager
+from embedagent.extensions import (
+    ExtensionContext,
+    ExtensionManager,
+    SessionView,
+    WorkflowEvent,
+)
 from embedagent.guard import LoopGuard
 from embedagent.interaction import (
     UserInputRequest,
@@ -283,6 +288,39 @@ class QueryEngine(object):
                 workflow_state=workflow_state,
                 fallback=set(allowed_tools_for(mode_name)),
             )
+        )
+
+    def _extension_context(self, session: Session) -> ExtensionContext:
+        runtime_snapshot = {}
+        runtime_lookup = getattr(self.tools, "runtime_environment_snapshot", None)
+        if callable(runtime_lookup):
+            runtime_snapshot = runtime_lookup()
+        return ExtensionContext(
+            workspace=str(getattr(self.tools, "workspace", "") or ""),
+            runtime_environment=dict(runtime_snapshot or {}),
+            tool_registry=self.tools,
+            permission_policy=self.permission_policy,
+            session_view=SessionView.from_session(session),
+        )
+
+    def _workflow_event(
+        self,
+        session: Session,
+        current_mode: str,
+        workflow_state: str,
+        **metadata: Any,
+    ) -> WorkflowEvent:
+        turn_id = session.turns[-1].turn_id if session.turns else ""
+        step = session.current_step()
+        step_id = step.step_id if step is not None else ""
+        return WorkflowEvent(
+            session_id=session.session_id,
+            turn_id=turn_id,
+            step_id=step_id,
+            current_mode=current_mode,
+            workflow_state=dict(getattr(session, "workflow_state", {}) or {}),
+            workflow_state_name=workflow_state,
+            metadata=dict(metadata),
         )
 
     def _append_harness_messages(self, session: Session, harness_prompt: Any) -> None:
@@ -1377,23 +1415,35 @@ class QueryEngine(object):
                 force_compact=force_compact,
             )
         if isinstance(build, ContextAssemblyResult):
-            return build
-        return ContextAssemblyResult(
-            messages=build.messages,
-            used_chars=build.used_chars,
-            approx_tokens=build.approx_tokens,
-            compacted=build.compacted,
-            summarized_turns=build.summarized_turns,
-            recent_turns=build.recent_turns,
-            policy=build.policy,
-            budget=build.budget,
-            stats=build.stats,
-            summary_message=getattr(build, "summary_message", ""),
-            intelligence_sections=getattr(build, "intelligence_sections", []),
-            analysis=getattr(build, "analysis", {}),
-            replacements=getattr(build, "replacements", []),
-            pipeline_steps=getattr(build, "pipeline_steps", []),
+            assembly = build
+        else:
+            assembly = ContextAssemblyResult(
+                messages=build.messages,
+                used_chars=build.used_chars,
+                approx_tokens=build.approx_tokens,
+                compacted=build.compacted,
+                summarized_turns=build.summarized_turns,
+                recent_turns=build.recent_turns,
+                policy=build.policy,
+                budget=build.budget,
+                stats=build.stats,
+                summary_message=getattr(build, "summary_message", ""),
+                intelligence_sections=getattr(build, "intelligence_sections", []),
+                analysis=getattr(build, "analysis", {}),
+                replacements=getattr(build, "replacements", []),
+                pipeline_steps=getattr(build, "pipeline_steps", []),
+            )
+        event = self._workflow_event(
+            session,
+            mode_name,
+            workflow_state,
+            force_compact=force_compact,
         )
+        event.messages = [dict(message) for message in list(assembly.messages or [])]
+        patch = self.extension_manager.context(event, self._extension_context(session))
+        if patch.messages:
+            assembly.messages = [dict(message) for message in patch.messages]
+        return assembly
 
     def _should_retry_with_compact(self, exc: ModelClientError) -> bool:
         text = str(exc or "").lower()

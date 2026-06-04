@@ -428,7 +428,7 @@ git commit -m "feat: add extension resource discovery contract"
 - Modify: `src/embedagent/query_engine.py`
 - Modify: `tests/test_capability_extensions.py`
 
-- [ ] **Step 1: Write failing integration test for context injection**
+- [x] **Step 1: Write failing integration test for context injection**
 
 Add `AssistantReply` to the top-level imports from `embedagent.session`, then append this test code to `tests/test_capability_extensions.py`:
 
@@ -490,7 +490,7 @@ def test_query_engine_applies_extension_context_patch(tmp_path):
     assert {"role": "system", "content": "extension context note"} in client.messages
 ```
 
-- [ ] **Step 2: Run the integration test and verify it fails**
+- [x] **Step 2: Run the integration test and verify it fails**
 
 Run:
 
@@ -500,7 +500,7 @@ uv run pytest tests/test_capability_extensions.py::test_query_engine_applies_ext
 
 Expected: FAIL because `QueryEngine._build_context` does not call the extension context hook.
 
-- [ ] **Step 3: Import extension types in QueryEngine**
+- [x] **Step 3: Import extension types in QueryEngine**
 
 Modify the existing import in `src/embedagent/query_engine.py`:
 
@@ -513,7 +513,7 @@ from embedagent.extensions import (
 )
 ```
 
-- [ ] **Step 4: Add helper for extension context and event creation**
+- [x] **Step 4: Add helper for extension context and event creation**
 
 Add these methods inside `QueryEngine`, near `_allowed_tools_for_mode`:
 
@@ -551,7 +551,7 @@ Add these methods inside `QueryEngine`, near `_allowed_tools_for_mode`:
         )
 ```
 
-- [ ] **Step 5: Apply context patch in `_build_context`**
+- [x] **Step 5: Apply context patch in `_build_context`**
 
 In `QueryEngine._build_context`, after the `assembly` object is built, add:
 
@@ -570,7 +570,7 @@ In `QueryEngine._build_context`, after the `assembly` object is built, add:
 
 Keep the existing `return assembly`.
 
-- [ ] **Step 6: Run the context integration test**
+- [x] **Step 6: Run the context integration test**
 
 Run:
 
@@ -580,7 +580,7 @@ uv run pytest tests/test_capability_extensions.py::test_query_engine_applies_ext
 
 Expected: PASS.
 
-- [ ] **Step 7: Run focused query-engine workflow tests**
+- [x] **Step 7: Run focused query-engine workflow tests**
 
 Run:
 
@@ -590,7 +590,7 @@ uv run pytest tests/test_workflow_extensions.py::test_c_harness_extension_preser
 
 Expected: PASS. The C harness prompt path and existing query-engine behavior remain compatible.
 
-- [ ] **Step 8: Commit Task 3**
+- [x] **Step 8: Commit Task 3**
 
 ```bash
 git add src/embedagent/extensions.py src/embedagent/query_engine.py tests/test_capability_extensions.py
