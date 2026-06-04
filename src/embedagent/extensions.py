@@ -166,7 +166,7 @@ class ExtensionManager(object):
             return None
         try:
             return hook(*args, **kwargs)
-        except Exception as exc:
+        except (RuntimeError, ValueError, TypeError, OSError) as exc:
             self._record_hook_error(extension, event_name, exc)
             if self._is_builtin_extension(extension):
                 raise
