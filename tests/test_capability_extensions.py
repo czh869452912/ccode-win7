@@ -2,8 +2,11 @@ from embedagent.extensions import (
     ExtensionContext,
     ExtensionManager,
     ResourcesDiscoverResult,
+    ToolCallDecision,
+    ToolResultPatch,
     WorkflowEvent,
 )
+from embedagent.session import Action, AssistantReply, Observation
 
 
 class BrokenProjectExtension(object):
@@ -152,3 +155,173 @@ def test_query_engine_applies_extension_context_patch(tmp_path):
     )
 
     assert {"role": "system", "content": "extension context note"} in client.messages
+
+
+class ToolPolicyExtension(object):
+    extension_id = "tool_policy"
+    builtin_extension = False
+
+    def tool_call(self, event, context):
+        del context
+        if event.tool_name == "blocked_tool":
+            return ToolCallDecision(block=True, reason="blocked by extension")
+        updated = dict(event.tool_arguments)
+        updated["path"] = "redirected.txt"
+        return ToolCallDecision(
+            updated_arguments=updated,
+            metadata={"rewritten": True},
+        )
+
+    def tool_result(self, event, context):
+        del context
+        return ToolResultPatch(
+            observation=Observation(
+                tool_name=event.tool_name,
+                success=True,
+                error=None,
+                data={"patched": True},
+            )
+        )
+
+
+def test_tool_call_hook_blocks_or_rewrites_arguments():
+    manager = ExtensionManager([ToolPolicyExtension()])
+
+    blocked = manager.before_tool_call(
+        WorkflowEvent(tool_name="blocked_tool", tool_arguments={}),
+        ExtensionContext(workspace="."),
+    )
+    rewritten = manager.before_tool_call(
+        WorkflowEvent(
+            tool_name="read_file",
+            tool_arguments={"path": "original.txt"},
+        ),
+        ExtensionContext(workspace="."),
+    )
+
+    assert blocked.block is True
+    assert blocked.reason == "blocked by extension"
+    assert rewritten.updated_arguments == {"path": "redirected.txt"}
+    assert rewritten.metadata == {"rewritten": True}
+
+
+def test_tool_result_hook_can_replace_observation():
+    manager = ExtensionManager([ToolPolicyExtension()])
+
+    patch = manager.after_tool_result(
+        WorkflowEvent(
+            tool_name="read_file",
+            observation=Observation("read_file", True, None, {"original": True}),
+        ),
+        ExtensionContext(workspace="."),
+    )
+
+    assert patch.observation.success is True
+    assert patch.observation.data == {"patched": True}
+
+
+class ToolCallingClient(object):
+    def __init__(self, action):
+        self.action = action
+
+    def generate(self, messages, tools=None):
+        del messages, tools
+        return AssistantReply(
+            content="using tool",
+            actions=[self.action],
+            finish_reason="tool_calls",
+        )
+
+    def stream(
+        self,
+        messages,
+        tools=None,
+        on_text_delta=None,
+        on_reasoning_delta=None,
+    ):
+        reply = self.generate(messages, tools=tools)
+        if on_text_delta is not None:
+            on_text_delta(reply.content)
+        if on_reasoning_delta is not None:
+            on_reasoning_delta(reply.reasoning_content)
+        return reply
+
+
+class BlockingToolExtension(object):
+    extension_id = "blocking_tool"
+    builtin_extension = False
+
+    def tool_call(self, event, context):
+        del context
+        if event.tool_name == "read_file":
+            return ToolCallDecision(block=True, reason="blocked by extension")
+        return None
+
+
+class PatchingToolResultExtension(object):
+    extension_id = "patching_tool_result"
+    builtin_extension = False
+
+    def tool_result(self, event, context):
+        del context
+        return ToolResultPatch(
+            observation=Observation(
+                event.tool_name,
+                True,
+                None,
+                {"patched_by_extension": True},
+            )
+        )
+
+
+def test_query_engine_tool_call_hook_can_block_tool_execution(tmp_path):
+    from embedagent.permissions import PermissionPolicy
+    from embedagent.query_engine import QueryEngine
+    from embedagent.tools import ToolRuntime
+
+    target = tmp_path / "blocked.txt"
+    target.write_text("blocked", encoding="utf-8")
+    action = Action("read_file", {"path": "blocked.txt"}, "call-read")
+    engine = QueryEngine(
+        client=ToolCallingClient(action),
+        tools=ToolRuntime(str(tmp_path)),
+        permission_policy=PermissionPolicy(
+            auto_approve_all=True,
+            workspace=str(tmp_path),
+        ),
+        extension_manager=ExtensionManager([BlockingToolExtension()]),
+        max_turns=1,
+    )
+
+    result = engine.submit_user_turn("read file", stream=False, initial_mode="build")
+    observation = result.session.turns[-1].observations[-1]
+
+    assert observation.success is False
+    assert observation.error == "blocked by extension"
+    assert observation.data["error_kind"] == "extension_blocked"
+
+
+def test_query_engine_tool_result_hook_can_replace_observation(tmp_path):
+    from embedagent.permissions import PermissionPolicy
+    from embedagent.query_engine import QueryEngine
+    from embedagent.tools import ToolRuntime
+
+    target = tmp_path / "readme.txt"
+    target.write_text("hello", encoding="utf-8")
+    action = Action("read_file", {"path": "readme.txt"}, "call-read")
+    engine = QueryEngine(
+        client=ToolCallingClient(action),
+        tools=ToolRuntime(str(tmp_path)),
+        permission_policy=PermissionPolicy(
+            auto_approve_all=True,
+            workspace=str(tmp_path),
+        ),
+        extension_manager=ExtensionManager([PatchingToolResultExtension()]),
+        max_turns=1,
+    )
+
+    result = engine.submit_user_turn("read file", stream=False, initial_mode="build")
+    observation = result.session.turns[-1].observations[-1]
+
+    assert observation.success is True
+    assert observation.data == {"patched_by_extension": True}

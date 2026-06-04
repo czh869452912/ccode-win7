@@ -1151,8 +1151,12 @@ class QueryEngine(object):
                     on_step_finish(step_index, reply, "completed")
                 return QueryTurnResult(final_text, session, transition, turns_used)
             executor = StreamingToolExecutor(
-                lambda action: self.tools.execute_with_interrupt(
-                    action.name, action.arguments, stop_event
+                lambda action: self._execute_parallel_tool_action(
+                    session,
+                    action,
+                    current_mode,
+                    workflow_state,
+                    stop_event,
                 ),
                 self.max_parallel_tools,
                 cancel_event=stop_event,
@@ -1476,6 +1480,111 @@ class QueryEngine(object):
             schemas.append(propose_mode_switch_schema())
         return schemas
 
+    def _prepare_extension_tool_call(
+        self,
+        session: Session,
+        action: Action,
+        current_mode: str,
+        workflow_state: str,
+    ) -> Tuple[Optional[Observation], Action]:
+        tool_event = self._workflow_event(session, current_mode, workflow_state)
+        tool_event.tool_name = action.name
+        tool_event.tool_arguments = dict(action.arguments)
+        decision = self.extension_manager.before_tool_call(
+            tool_event,
+            self._extension_context(session),
+        )
+        if decision.block:
+            return (
+                self._failure_observation(
+                    action.name,
+                    decision.reason or "Tool call blocked by extension.",
+                    "extension_blocked",
+                    False,
+                    "extension",
+                    "Use a different tool or update the extension policy.",
+                    {"extension_metadata": dict(decision.metadata)},
+                ),
+                action,
+            )
+        if decision.updated_arguments is not None:
+            return (
+                None,
+                Action(
+                    name=action.name,
+                    arguments=dict(decision.updated_arguments),
+                    call_id=action.call_id,
+                    raw_arguments=action.raw_arguments,
+                ),
+            )
+        return None, action
+
+    def _execute_parallel_tool_action(
+        self,
+        session: Session,
+        action: Action,
+        current_mode: str,
+        workflow_state: str,
+        stop_event: Optional[threading.Event],
+    ) -> Observation:
+        if action.name in ("ask_user", "propose_mode_switch"):
+            return Observation(
+                action.name,
+                False,
+                "interactive tool requires query-engine handling",
+                {"error_kind": "interactive_precomputed_skip", "retryable": False},
+            )
+        blocked_observation, runtime_action = self._prepare_extension_tool_call(
+            session,
+            action,
+            current_mode,
+            workflow_state,
+        )
+        if blocked_observation is not None:
+            return blocked_observation
+        return self.tools.execute_with_interrupt(
+            runtime_action.name,
+            runtime_action.arguments,
+            stop_event,
+        )
+
+    def _is_extension_blocked_observation(self, observation: Optional[Observation]) -> bool:
+        if observation is None or not isinstance(observation.data, dict):
+            return False
+        return observation.data.get("error_kind") == "extension_blocked"
+
+    def _is_interactive_precomputed_skip(self, observation: Optional[Observation]) -> bool:
+        if observation is None or not isinstance(observation.data, dict):
+            return False
+        return observation.data.get("error_kind") == "interactive_precomputed_skip"
+
+    def _apply_extension_tool_result_patch(
+        self,
+        session: Session,
+        action: Action,
+        current_mode: str,
+        workflow_state: str,
+        observation: Observation,
+    ) -> Observation:
+        result_event = self._workflow_event(session, current_mode, workflow_state)
+        result_event.tool_name = action.name
+        result_event.tool_arguments = dict(action.arguments)
+        result_event.observation = observation
+        patch = self.extension_manager.after_tool_result(
+            result_event,
+            self._extension_context(session),
+        )
+        if patch.workflow_patch is not None:
+            workflow_patch = patch.workflow_patch
+            if workflow_patch.workflow:
+                session.workflow_state["workflow"] = dict(workflow_patch.workflow)
+            if workflow_patch.metadata:
+                extensions = session.workflow_state.setdefault("extensions", {})
+                extensions["last_workflow_patch"] = dict(workflow_patch.metadata)
+        if patch.observation is not None:
+            return patch.observation
+        return observation
+
     def _execute_action(
         self,
         session: Session,
@@ -1503,6 +1612,27 @@ class QueryEngine(object):
                 current_mode,
                 None,
             )
+        if precomputed_observation is not None and not self._is_interactive_precomputed_skip(
+            precomputed_observation
+        ):
+            if self._is_extension_blocked_observation(precomputed_observation):
+                return precomputed_observation, current_mode, None
+            observation = self._apply_extension_tool_result_patch(
+                session,
+                action,
+                current_mode,
+                workflow_state,
+                precomputed_observation,
+            )
+            return observation, current_mode, None
+        blocked_observation, runtime_action = self._prepare_extension_tool_call(
+            session,
+            action,
+            current_mode,
+            workflow_state,
+        )
+        if blocked_observation is not None:
+            return blocked_observation, current_mode, None
         if action.name == "task_status":
             observation = self.extension_manager.handle_tool_call(
                 session,
@@ -1513,7 +1643,7 @@ class QueryEngine(object):
             if observation is not None:
                 return observation, current_mode, None
         if action.name == "ask_user":
-            request = build_user_input_request(action.arguments)
+            request = build_user_input_request(runtime_action.arguments)
             response = user_input_handler(request) if user_input_handler is not None else None
             if response is None:
                 request_payload = {
@@ -1562,9 +1692,13 @@ class QueryEngine(object):
                 user_input_handler(
                     UserInputRequest(
                         "propose_mode_switch",
-                        str(action.arguments.get("reason") or ""),
+                        str(runtime_action.arguments.get("reason") or ""),
                         [],
-                        {"target_mode": str(action.arguments.get("target_mode") or "")},
+                        {
+                            "target_mode": str(
+                                runtime_action.arguments.get("target_mode") or ""
+                            )
+                        },
                     )
                 )
                 if user_input_handler is not None
@@ -1582,17 +1716,19 @@ class QueryEngine(object):
                     request_data={
                         "request": {
                             "tool_name": "propose_mode_switch",
-                            "question": str(action.arguments.get("reason") or ""),
+                            "question": str(runtime_action.arguments.get("reason") or ""),
                             "options": [],
                             "details": {
-                                "target_mode": str(action.arguments.get("target_mode") or "")
+                                "target_mode": str(
+                                    runtime_action.arguments.get("target_mode") or ""
+                                )
                             },
                         }
                     },
                 )
                 transition = LoopTransition(
                     "user_input_wait",
-                    str(action.arguments.get("reason") or ""),
+                    str(runtime_action.arguments.get("reason") or ""),
                     pending,
                     current_mode,
                 )
@@ -1611,7 +1747,7 @@ class QueryEngine(object):
                     QueryTurnResult("", session, transition, pending_interaction=pending),
                 )
             target_mode = str(
-                response.selected_mode or action.arguments.get("target_mode") or ""
+                response.selected_mode or runtime_action.arguments.get("target_mode") or ""
             ).strip()
             if target_mode:
                 target_mode = str(require_mode(target_mode)["slug"])
@@ -1814,14 +1950,19 @@ class QueryEngine(object):
                         current_mode,
                         None,
                     )
-        return (
-            precomputed_observation
-            or self.tools.execute_with_interrupt(
-                runtime_action.name, runtime_action.arguments, stop_event
-            ),
-            current_mode,
-            None,
+        observation = self.tools.execute_with_interrupt(
+            runtime_action.name,
+            runtime_action.arguments,
+            stop_event,
         )
+        observation = self._apply_extension_tool_result_patch(
+            session,
+            runtime_action,
+            current_mode,
+            workflow_state,
+            observation,
+        )
+        return observation, current_mode, None
 
     def _build_user_input_observation(
         self,

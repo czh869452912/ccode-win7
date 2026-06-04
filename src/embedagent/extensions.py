@@ -222,6 +222,48 @@ class ExtensionManager(object):
             merged.metadata.update(dict(getattr(result, "metadata", {}) or {}))
         return merged
 
+    def before_tool_call(
+        self,
+        event: WorkflowEvent,
+        context: ExtensionContext,
+    ) -> ToolCallDecision:
+        merged = ToolCallDecision()
+        for extension in list(self._extensions):
+            decision = self._call_hook(extension, "tool_call", event, context)
+            if decision is None:
+                continue
+            if bool(getattr(decision, "block", False)):
+                merged.block = True
+                merged.reason = str(getattr(decision, "reason", "") or "")
+                merged.metadata.update(dict(getattr(decision, "metadata", {}) or {}))
+                return merged
+            updated = getattr(decision, "updated_arguments", None)
+            if updated is not None:
+                merged.updated_arguments = dict(updated)
+                event.tool_arguments = dict(updated)
+            merged.metadata.update(dict(getattr(decision, "metadata", {}) or {}))
+        return merged
+
+    def after_tool_result(
+        self,
+        event: WorkflowEvent,
+        context: ExtensionContext,
+    ) -> ToolResultPatch:
+        merged = ToolResultPatch()
+        for extension in list(self._extensions):
+            patch = self._call_hook(extension, "tool_result", event, context)
+            if patch is None:
+                continue
+            observation = getattr(patch, "observation", None)
+            if observation is not None:
+                merged.observation = observation
+                event.observation = observation
+            workflow_patch = getattr(patch, "workflow_patch", None)
+            if workflow_patch is not None:
+                merged.workflow_patch = workflow_patch
+            merged.metadata.update(dict(getattr(patch, "metadata", {}) or {}))
+        return merged
+
     def before_agent_start(
         self,
         event: WorkflowEvent,

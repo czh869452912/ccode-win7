@@ -606,7 +606,7 @@ git commit -m "feat: route context through extension hooks"
 - Modify: `src/embedagent/query_engine.py`
 - Modify: `tests/test_capability_extensions.py`
 
-- [ ] **Step 1: Write failing manager tests for tool call and result hooks**
+- [x] **Step 1: Write failing manager tests for tool call and result hooks**
 
 Add `ToolCallDecision` and `ToolResultPatch` to the existing top-level import from `embedagent.extensions`. Add `Observation` to the top-level imports from `embedagent.session`. Then append this test code to `tests/test_capability_extensions.py`:
 
@@ -668,7 +668,7 @@ def test_tool_result_hook_can_replace_observation():
     assert patch.observation.data == {"patched": True}
 ```
 
-- [ ] **Step 2: Run manager tests and verify they fail**
+- [x] **Step 2: Run manager tests and verify they fail**
 
 Run:
 
@@ -678,7 +678,7 @@ uv run pytest tests/test_capability_extensions.py::test_tool_call_hook_blocks_or
 
 Expected: FAIL because `before_tool_call` and `after_tool_result` do not exist.
 
-- [ ] **Step 3: Add hook dispatch methods**
+- [x] **Step 3: Add hook dispatch methods**
 
 Add these methods to `ExtensionManager`:
 
@@ -724,7 +724,7 @@ Add these methods to `ExtensionManager`:
         return merged
 ```
 
-- [ ] **Step 4: Run manager tests and verify they pass**
+- [x] **Step 4: Run manager tests and verify they pass**
 
 Run:
 
@@ -734,7 +734,7 @@ uv run pytest tests/test_capability_extensions.py::test_tool_call_hook_blocks_or
 
 Expected: PASS.
 
-- [ ] **Step 5: Write failing QueryEngine integration tests**
+- [x] **Step 5: Write failing QueryEngine integration tests**
 
 Add `Action` to the top-level imports from `embedagent.session`, then append this test code to `tests/test_capability_extensions.py`:
 
@@ -836,7 +836,7 @@ def test_query_engine_tool_result_hook_can_replace_observation(tmp_path):
     assert observation.data == {"patched_by_extension": True}
 ```
 
-- [ ] **Step 6: Run integration tests and verify they fail**
+- [x] **Step 6: Run integration tests and verify they fail**
 
 Run:
 
@@ -846,7 +846,7 @@ uv run pytest tests/test_capability_extensions.py::test_query_engine_tool_call_h
 
 Expected: FAIL because `QueryEngine._execute_action` does not call the new generic hooks.
 
-- [ ] **Step 7: Apply tool call decision in `_execute_action`**
+- [x] **Step 7: Apply tool call decision in `_execute_action`**
 
 In `QueryEngine._execute_action`, after the allowed-tool check and before the `task_status` special case, add:
 
@@ -897,7 +897,7 @@ with:
 
 Replace each `action.arguments.get(...)` inside the `propose_mode_switch` block with `runtime_action.arguments.get(...)`.
 
-- [ ] **Step 8: Apply tool result patch after execution**
+- [x] **Step 8: Apply tool result patch after execution**
 
 Near the end of `QueryEngine._execute_action`, replace the final return:
 
@@ -938,7 +938,7 @@ with:
         return observation, current_mode, None
 ```
 
-- [ ] **Step 9: Run tool hook integration tests**
+- [x] **Step 9: Run tool hook integration tests**
 
 Run:
 
@@ -948,7 +948,7 @@ uv run pytest tests/test_capability_extensions.py::test_query_engine_tool_call_h
 
 Expected: PASS.
 
-- [ ] **Step 10: Run broader focused tests**
+- [x] **Step 10: Run broader focused tests**
 
 Run:
 
@@ -958,7 +958,7 @@ uv run pytest tests/test_capability_extensions.py tests/test_workflow_extensions
 
 Expected: PASS.
 
-- [ ] **Step 11: Commit Task 4**
+- [x] **Step 11: Commit Task 4**
 
 ```bash
 git add src/embedagent/extensions.py src/embedagent/query_engine.py tests/test_capability_extensions.py
