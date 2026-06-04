@@ -5,7 +5,7 @@ import json
 import os
 import re
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from embedagent.protocol import PermissionContextView
 from embedagent.session import Action
@@ -57,6 +57,9 @@ INTERACTION_TOOLS = {
     "ask_user",
     "propose_mode_switch",
 }
+OFFICIAL_PERMISSION_CATEGORIES = set(
+    ["read", "workspace_write", "shell_exec", "toolchain_exec", "git_write"]
+)
 
 
 @dataclass
@@ -95,13 +98,18 @@ class PermissionPolicy(object):
         auto_approve_commands: bool = False,
         workspace: str = "",
         rules_path: str = "",
+        category_lookup: Optional[Callable[[str], str]] = None,
     ) -> None:
         self.auto_approve_all = auto_approve_all
         self.auto_approve_writes = auto_approve_writes
         self.auto_approve_commands = auto_approve_commands
         self.workspace = os.path.realpath(workspace) if workspace else ""
+        self._category_lookup = category_lookup
         self.rules_path = self._resolve_rules_path(rules_path)
         self.rules = self._load_rules(self.rules_path)
+
+    def set_category_lookup(self, category_lookup: Optional[Callable[[str], str]]) -> None:
+        self._category_lookup = category_lookup
 
     def evaluate(self, action: Action) -> PermissionDecision:
         category = self._category_for_action(action)
@@ -377,6 +385,9 @@ class PermissionPolicy(object):
         return "该操作需要确认。"
 
     def _category_for_action(self, action: Action) -> str:
+        metadata_category = self._metadata_category_for_action(action)
+        if metadata_category:
+            return metadata_category
         if action.name in WORKSPACE_WRITE_TOOLS:
             return "workspace_write"
         if action.name in GIT_WRITE_TOOLS:
@@ -388,6 +399,18 @@ class PermissionPolicy(object):
         if action.name in READ_TOOLS:
             return "read"
         return "other"
+
+    def _metadata_category_for_action(self, action: Action) -> str:
+        lookup = self._category_lookup
+        if not callable(lookup):
+            return ""
+        try:
+            category = str(lookup(action.name) or "").strip()
+        except (RuntimeError, ValueError, TypeError):
+            return ""
+        if category in OFFICIAL_PERMISSION_CATEGORIES:
+            return category
+        return ""
 
     def _list_of_strings(self, value: Any) -> List[str]:
         if not isinstance(value, list):

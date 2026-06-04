@@ -63,6 +63,47 @@ class TestPermissionPolicy(unittest.TestCase):
         self.assertNotIn("compile_project", TOOLCHAIN_EXEC_TOOLS)
         self.assertNotIn("run_tests", TOOLCHAIN_EXEC_TOOLS)
 
+    def test_metadata_category_lookup_controls_dynamic_tool_permission(self):
+        policy = PermissionPolicy(
+            auto_approve_all=False,
+            workspace="D:\\workspace",
+            category_lookup=lambda name: "shell_exec" if name == "dynamic_shell" else "",
+        )
+
+        decision = policy.evaluate(
+            Action("dynamic_shell", {"command": "echo hello"}, "call-shell")
+        )
+
+        self.assertEqual(decision.outcome, "ask")
+        self.assertEqual(decision.request.category, "shell_exec")
+        self.assertEqual(decision.details.get("category"), "shell_exec")
+
+    def test_set_category_lookup_supports_late_tool_runtime_binding(self):
+        policy = PermissionPolicy(auto_approve_all=False, workspace="D:\\workspace")
+        policy.set_category_lookup(
+            lambda name: "workspace_write" if name == "dynamic_write" else ""
+        )
+
+        decision = policy.evaluate(
+            Action("dynamic_write", {"path": "generated.txt"}, "call-write")
+        )
+
+        self.assertEqual(decision.outcome, "ask")
+        self.assertEqual(decision.request.category, "workspace_write")
+        self.assertEqual(decision.details.get("path"), "generated.txt")
+
+    def test_invalid_metadata_category_falls_back_to_other(self):
+        policy = PermissionPolicy(
+            auto_approve_all=False,
+            workspace="D:\\workspace",
+            category_lookup=lambda name: "not_real",
+        )
+
+        decision = policy.evaluate(Action("dynamic_unknown", {}, "call-unknown"))
+
+        self.assertEqual(decision.outcome, "allow")
+        self.assertEqual(decision.details.get("category"), "other")
+
 
 if __name__ == "__main__":
     unittest.main()
