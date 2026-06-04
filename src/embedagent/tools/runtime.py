@@ -1,6 +1,7 @@
 from __future__ import annotations  # noqa: I001
 
 import os
+import re
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
@@ -12,11 +13,26 @@ from embedagent.session import Action
 from embedagent.tool_result_store import ToolResultStore
 from embedagent.tooling.packs import pack_tool_names
 from embedagent.tools import compile_ops, file_ops, git_ops, shell_ops
-from embedagent.tools._base import ToolContext, ToolError
+from embedagent.tools._base import ToolContext, ToolDefinition, ToolError
 from embedagent.tools.harness_runtime import (
     OFFICIAL_HARNESS_TOOL_METADATA,
     OfficialRuntimeModes,
     build_harness_tools,
+)
+
+_VALID_TOOL_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+_REGISTERABLE_PERMISSION_CATEGORIES = set(
+    ["read", "workspace_write", "shell_exec", "toolchain_exec", "git_write"]
+)
+_EXTENSION_REQUIRED_METADATA = (
+    "permission_category",
+    "mode_visibility",
+    "workflow_visibility",
+    "user_label",
+    "read_only",
+    "concurrency_safe",
+    "interrupt_behavior",
+    "result_budget_policy",
 )
 
 
@@ -38,6 +54,8 @@ class ToolCatalogEntry:
     result_budget_policy: str
     activity_kind: str
     context_priority: int
+    source_type: str
+    source_id: str
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -57,6 +75,8 @@ class ToolCatalogEntry:
             "result_budget_policy": self.result_budget_policy,
             "activity_kind": self.activity_kind,
             "context_priority": self.context_priority,
+            "source_type": self.source_type,
+            "source_id": self.source_id,
         }
 
 
@@ -242,43 +262,126 @@ class ToolRuntime(object):
             else ToolResultCache(tool_result_store=self.tool_result_store)
         )
         self._mode_runtime = OfficialRuntimeModes()
-        official_tools = (
+        core_tools = (
             file_ops.build_tools(self._ctx)
             + shell_ops.build_tools(self._ctx)
             + git_ops.build_tools(self._ctx)
             + compile_ops.build_tools(self._ctx)
         )
         harness_tools = build_harness_tools(self._ctx)
-        existing_names = set(tool.name for tool in official_tools)
-        official_tools.extend(tool for tool in harness_tools if tool.name not in existing_names)
         self._catalog = {}  # type: Dict[str, ToolCatalogEntry]
-        self._tools = {td.name: td for td in official_tools}  # type: Dict[str, ToolDefinition]
-        for tool in official_tools:
-            tool.metadata.update(self._build_default_metadata(tool.name))
-            tool.metadata.setdefault("read_only", tool.read_only)
-            tool.metadata.setdefault("concurrency_safe", tool.concurrency_safe)
-            tool.metadata.setdefault("interrupt_behavior", tool.interrupt_behavior)
-            tool.metadata.setdefault("result_budget_policy", tool.result_budget_policy)
-            tool.metadata.setdefault("activity_kind", tool.activity_kind)
-            tool.metadata.setdefault("context_priority", tool.context_priority)
-            self._catalog[tool.name] = ToolCatalogEntry(
-                name=tool.name,
-                description=tool.description,
-                permission_category=str(tool.metadata.get("permission_category") or "read"),
-                mode_visibility=list(tool.metadata.get("mode_visibility") or []),
-                workflow_visibility=list(tool.metadata.get("workflow_visibility") or []),
-                user_label=str(tool.metadata.get("user_label") or tool.name),
-                progress_renderer_key=str(tool.metadata.get("progress_renderer_key") or "default"),
-                result_renderer_key=str(tool.metadata.get("result_renderer_key") or "default"),
-                supports_diff_preview=bool(tool.metadata.get("supports_diff_preview")),
-                context_reducer_key=str(tool.metadata.get("context_reducer_key") or tool.name),
-                read_only=bool(tool.metadata.get("read_only")),
-                concurrency_safe=bool(tool.metadata.get("concurrency_safe")),
-                interrupt_behavior=str(tool.metadata.get("interrupt_behavior") or "block"),
-                result_budget_policy=str(tool.metadata.get("result_budget_policy") or "default"),
-                activity_kind=str(tool.metadata.get("activity_kind") or "tool"),
-                context_priority=int(tool.metadata.get("context_priority") or 50),
+        self._tools = {}  # type: Dict[str, ToolDefinition]
+        for tool in core_tools:
+            self.register_tool(
+                tool,
+                source_id="embedagent.core",
+                source_type="builtin",
             )
+        for tool in harness_tools:
+            if tool.name in self._tools:
+                continue
+            self.register_tool(
+                tool,
+                source_id="embedagent.harness",
+                source_type="harness",
+            )
+
+    def register_tool(
+        self,
+        tool: ToolDefinition,
+        source_id: str = "",
+        source_type: str = "extension",
+        replace: bool = False,
+    ) -> None:
+        source_type = str(source_type or "extension").strip()
+        source_id = str(source_id or source_type or "runtime").strip()
+        if replace:
+            raise ValueError("tool replacement is not enabled in this slice")
+        self._validate_tool_definition(tool, source_type)
+        existing = self._catalog.get(tool.name)
+        if existing is not None:
+            if not (
+                existing.source_type == source_type
+                and existing.source_id == source_id
+            ):
+                raise ValueError("tool already registered: %s" % tool.name)
+        metadata = self._metadata_for_tool(tool, source_type)
+        tool.metadata = metadata
+        tool.read_only = bool(metadata.get("read_only"))
+        tool.concurrency_safe = bool(metadata.get("concurrency_safe"))
+        tool.interrupt_behavior = str(metadata.get("interrupt_behavior") or "block")
+        tool.result_budget_policy = str(metadata.get("result_budget_policy") or "default")
+        tool.activity_kind = str(metadata.get("activity_kind") or "tool")
+        tool.context_priority = int(metadata.get("context_priority") or 50)
+        self._tools[tool.name] = tool
+        self._catalog[tool.name] = self._catalog_entry_for_tool(
+            tool,
+            metadata,
+            source_type=source_type,
+            source_id=source_id,
+        )
+
+    def _validate_tool_definition(self, tool: ToolDefinition, source_type: str) -> None:
+        if not isinstance(tool, ToolDefinition):
+            raise ValueError("registered tool must be a ToolDefinition")
+        name = str(getattr(tool, "name", "") or "").strip()
+        if not name or not _VALID_TOOL_NAME_RE.match(name):
+            raise ValueError("invalid tool name: %s" % (name or "<empty>"))
+        if not callable(getattr(tool, "handler", None)):
+            raise ValueError("tool %s is missing a callable handler" % name)
+        if not isinstance(getattr(tool, "parameters", None), dict):
+            raise ValueError("tool %s parameters must be an object schema" % name)
+        if source_type == "extension":
+            raw_metadata = dict(getattr(tool, "metadata", {}) or {})
+            missing = []
+            for key in _EXTENSION_REQUIRED_METADATA:
+                if key not in raw_metadata:
+                    missing.append(key)
+            if missing:
+                raise ValueError(
+                    "tool %s missing metadata: %s" % (name, ", ".join(sorted(missing)))
+                )
+
+    def _metadata_for_tool(self, tool: ToolDefinition, source_type: str) -> Dict[str, Any]:
+        del source_type
+        raw_metadata = dict(getattr(tool, "metadata", {}) or {})
+        metadata = self._build_default_metadata(tool.name)
+        metadata.update(raw_metadata)
+        category = str(metadata.get("permission_category") or "").strip()
+        if category not in _REGISTERABLE_PERMISSION_CATEGORIES:
+            raise ValueError(
+                "tool %s has unsupported permission category: %s"
+                % (tool.name, category or "<empty>")
+            )
+        return metadata
+
+    def _catalog_entry_for_tool(
+        self,
+        tool: ToolDefinition,
+        metadata: Dict[str, Any],
+        source_type: str,
+        source_id: str,
+    ) -> ToolCatalogEntry:
+        return ToolCatalogEntry(
+            name=tool.name,
+            description=tool.description,
+            permission_category=str(metadata.get("permission_category") or "read"),
+            mode_visibility=list(metadata.get("mode_visibility") or []),
+            workflow_visibility=list(metadata.get("workflow_visibility") or []),
+            user_label=str(metadata.get("user_label") or tool.name),
+            progress_renderer_key=str(metadata.get("progress_renderer_key") or "default"),
+            result_renderer_key=str(metadata.get("result_renderer_key") or "default"),
+            supports_diff_preview=bool(metadata.get("supports_diff_preview")),
+            context_reducer_key=str(metadata.get("context_reducer_key") or tool.name),
+            read_only=bool(metadata.get("read_only")),
+            concurrency_safe=bool(metadata.get("concurrency_safe")),
+            interrupt_behavior=str(metadata.get("interrupt_behavior") or "block"),
+            result_budget_policy=str(metadata.get("result_budget_policy") or "default"),
+            activity_kind=str(metadata.get("activity_kind") or "tool"),
+            context_priority=int(metadata.get("context_priority") or 50),
+            source_type=source_type,
+            source_id=source_id,
+        )
 
     def schemas(self) -> List[Dict[str, Any]]:
         return [td.schema() for td in self._tools.values()]
@@ -422,6 +525,8 @@ class ToolRuntime(object):
                 data.setdefault("supports_diff_preview", entry.supports_diff_preview)
                 data.setdefault("progress_renderer_key", entry.progress_renderer_key)
                 data.setdefault("result_renderer_key", entry.result_renderer_key)
+                data.setdefault("source_type", entry.source_type)
+                data.setdefault("source_id", entry.source_id)
                 observation.data = data
         return observation
 
