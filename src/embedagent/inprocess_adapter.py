@@ -10,6 +10,7 @@ from typing import Any, Callable, Dict, List, Optional
 
 from embedagent.context import ContextManager
 from embedagent.default_extensions import build_default_extension_set
+from embedagent.extensions import ExtensionContext, ToolRegistrationEvent
 from embedagent.interaction import UserInputRequest, UserInputResponse
 from embedagent.llm import OpenAICompatibleClient
 from embedagent.memory_maintenance import MemoryMaintenance
@@ -208,6 +209,9 @@ class InProcessAdapter(object):
         default_extensions = build_default_extension_set(self.tools)
         self.harness_workflow = default_extensions.harness_workflow
         self.extension_manager = default_extensions.manager
+        category_setter = getattr(self.permission_policy, "set_category_lookup", None)
+        if callable(category_setter):
+            category_setter(self._tool_permission_category)
         initialize_modes(self.tools.workspace)
         self._sessions = {}  # type: Dict[str, ManagedSession]
         self._lock = threading.RLock()
@@ -239,6 +243,39 @@ class InProcessAdapter(object):
             maintenance_interval=self.maintenance_interval,
             transcript_store=self.transcript_store,
             extension_manager=self.extension_manager,
+        )
+
+    def _tool_permission_category(self, tool_name: str) -> str:
+        lookup = getattr(self.tools, "tool_catalog_entry", None)
+        if not callable(lookup):
+            return ""
+        entry = lookup(tool_name) or {}
+        if not isinstance(entry, dict):
+            return ""
+        return str(entry.get("permission_category") or "")
+
+    def _ensure_extension_tools_registered(
+        self,
+        reason: str = "catalog",
+        mode_name: str = "",
+        workflow_state: str = "chat",
+    ) -> None:
+        runtime_snapshot = {}
+        runtime_lookup = getattr(self.tools, "runtime_environment_snapshot", None)
+        if callable(runtime_lookup):
+            runtime_snapshot = runtime_lookup()
+        self.extension_manager.register_tools(
+            ToolRegistrationEvent(
+                current_mode=str(mode_name or ""),
+                workflow_state_name=str(workflow_state or "chat"),
+                reason=str(reason or "catalog"),
+            ),
+            ExtensionContext(
+                workspace=str(getattr(self.tools, "workspace", "") or ""),
+                runtime_environment=dict(runtime_snapshot or {}),
+                tool_registry=self.tools,
+                permission_policy=self.permission_policy,
+            ),
         )
 
     def _append_transcript_message_event(self, session_id: str, message: Any) -> None:
@@ -606,6 +643,7 @@ class InProcessAdapter(object):
         return self.get_session_snapshot(session_id)
 
     def get_tool_catalog(self) -> List[Dict[str, Any]]:
+        self._ensure_extension_tools_registered(reason="catalog")
         method = getattr(self.tools, "catalog_entries", None)
         if callable(method):
             allowed = set()
@@ -1809,6 +1847,8 @@ class InProcessAdapter(object):
             "supports_diff_preview": bool(entry.get("supports_diff_preview")),
             "progress_renderer_key": entry.get("progress_renderer_key") or "",
             "result_renderer_key": entry.get("result_renderer_key") or "",
+            "source_type": entry.get("source_type") or "",
+            "source_id": entry.get("source_id") or "",
             "runtime_source": str(runtime.get("runtime_source") or ""),
             "resolved_tool_roots": dict(runtime.get("resolved_tool_roots") or {}),
             "fallback_warnings": list(runtime.get("fallback_warnings") or []),

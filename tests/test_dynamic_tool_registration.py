@@ -8,7 +8,7 @@ from embedagent.extensions import (
     ToolRegistrationEvent,
     ToolRegistrationResult,
 )
-from embedagent.session import Observation
+from embedagent.session import Action, AssistantReply, Observation, Session
 from embedagent.tools import ToolDefinition, ToolRuntime
 
 
@@ -190,3 +190,130 @@ def test_extension_tool_registration_failure_records_diagnostic(tmp_path):
     assert diagnostics[0]["event"] == "register_tools"
     assert diagnostics[0]["metadata"]["source_id"] == "invalid_tool"
     assert diagnostics[0]["metadata"]["reason"] == "test"
+
+
+class ToolCallingClient(object):
+    def __init__(self, action):
+        self.action = action
+        self.seen_tool_names = []
+
+    def generate(self, messages, tools=None):
+        del messages
+        self.seen_tool_names = [
+            item["function"]["name"]
+            for item in list(tools or [])
+            if item.get("type") == "function"
+        ]
+        return AssistantReply(
+            content="using dynamic tool",
+            actions=[self.action],
+            finish_reason="tool_calls",
+        )
+
+    def stream(self, messages, tools=None, on_text_delta=None, on_reasoning_delta=None):
+        reply = self.generate(messages, tools=tools)
+        if on_text_delta is not None:
+            on_text_delta(reply.content)
+        if on_reasoning_delta is not None:
+            on_reasoning_delta(reply.reasoning_content)
+        return reply
+
+
+def test_query_engine_dynamic_tool_schema_requires_activation(tmp_path):
+    from embedagent.permissions import PermissionPolicy
+    from embedagent.query_engine import QueryEngine
+
+    runtime = ToolRuntime(str(tmp_path))
+    session = Session()
+    inactive = DynamicToolExtension(active=False)
+    engine = QueryEngine(
+        client=ToolCallingClient(Action("dynamic_echo", {"message": "hi"}, "call-1")),
+        tools=runtime,
+        permission_policy=PermissionPolicy(auto_approve_all=True, workspace=str(tmp_path)),
+        extension_manager=ExtensionManager([inactive]),
+    )
+
+    engine.initialize_session(session, "build", workflow_state="chat", user_text="hello")
+    inactive_names = schema_names(engine._schemas_for_active_tools("build", "chat"))
+    inactive.active = True
+    active_names = schema_names(engine._schemas_for_active_tools("build", "chat"))
+
+    assert "dynamic_echo" not in inactive_names
+    assert "dynamic_echo" in active_names
+
+
+def test_query_engine_executes_active_extension_tool(tmp_path):
+    from embedagent.permissions import PermissionPolicy
+    from embedagent.query_engine import QueryEngine
+
+    action = Action("dynamic_echo", {"message": "hello"}, "call-dynamic")
+    client = ToolCallingClient(action)
+    engine = QueryEngine(
+        client=client,
+        tools=ToolRuntime(str(tmp_path)),
+        permission_policy=PermissionPolicy(auto_approve_all=True, workspace=str(tmp_path)),
+        extension_manager=ExtensionManager([DynamicToolExtension(active=True)]),
+        max_turns=1,
+    )
+
+    result = engine.submit_user_turn("use dynamic", stream=False, initial_mode="build")
+    observation = result.session.turns[-1].observations[-1]
+
+    assert "dynamic_echo" in client.seen_tool_names
+    assert observation.success is True
+    assert observation.tool_name == "dynamic_echo"
+    assert observation.data["echo"] == "hello"
+
+
+class DynamicShellExtension(DynamicToolExtension):
+    extension_id = "dynamic_shell"
+
+    def register_tools(self, event, context):
+        del event, context
+        return ToolRegistrationResult(
+            tools=[
+                make_dynamic_tool(
+                    name="dynamic_shell",
+                    permission_category="shell_exec",
+                    read_only=False,
+                )
+            ],
+            source_id=self.extension_id,
+        )
+
+
+def test_query_engine_dynamic_shell_tool_waits_for_permission(tmp_path):
+    from embedagent.permissions import PermissionPolicy
+    from embedagent.query_engine import QueryEngine
+
+    action = Action("dynamic_shell", {"message": "hello"}, "call-shell")
+    engine = QueryEngine(
+        client=ToolCallingClient(action),
+        tools=ToolRuntime(str(tmp_path)),
+        permission_policy=PermissionPolicy(auto_approve_all=False, workspace=str(tmp_path)),
+        extension_manager=ExtensionManager(
+            [DynamicShellExtension(active=True, tool_name="dynamic_shell")]
+        ),
+        max_turns=1,
+    )
+
+    result = engine.submit_user_turn("use dynamic shell", stream=False, initial_mode="build")
+
+    assert result.transition.reason == "permission_wait"
+    assert result.pending_interaction is not None
+    assert result.pending_interaction.tool_name == "dynamic_shell"
+    assert result.pending_interaction.request_payload["permission"]["category"] == "shell_exec"
+
+
+def test_inprocess_adapter_catalog_includes_active_extension_tool(tmp_path):
+    from embedagent.inprocess_adapter import InProcessAdapter
+
+    adapter = InProcessAdapter(tools=ToolRuntime(str(tmp_path)))
+    adapter.extension_manager.register(DynamicToolExtension(active=True))
+
+    catalog = adapter.get_tool_catalog()
+    entry = [item for item in catalog if item.get("name") == "dynamic_echo"][0]
+
+    assert entry["source_type"] == "extension"
+    assert entry["source_id"] == "dynamic_tools"
+    assert entry["permission_category"] == "read"

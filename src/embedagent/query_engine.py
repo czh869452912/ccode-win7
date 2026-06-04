@@ -13,6 +13,7 @@ from embedagent.extensions import (
     ExtensionContext,
     ExtensionManager,
     SessionView,
+    ToolRegistrationEvent,
     WorkflowEvent,
 )
 from embedagent.guard import LoopGuard
@@ -114,6 +115,9 @@ class QueryEngine(object):
         self.transcript_store = transcript_store or TranscriptStore(self.tools.workspace)
         self.tracer = tracer
         self.extension_manager = extension_manager or ExtensionManager()
+        category_setter = getattr(self.permission_policy, "set_category_lookup", None)
+        if callable(category_setter):
+            category_setter(self._tool_permission_category)
         self._compaction = ContextCompactionEngine(
             context_manager=self.context_manager,
             max_tokens=8000,
@@ -290,6 +294,15 @@ class QueryEngine(object):
             )
         )
 
+    def _tool_permission_category(self, tool_name: str) -> str:
+        lookup = getattr(self.tools, "tool_catalog_entry", None)
+        if not callable(lookup):
+            return ""
+        entry = lookup(tool_name) or {}
+        if not isinstance(entry, dict):
+            return ""
+        return str(entry.get("permission_category") or "")
+
     def _extension_context(self, session: Session) -> ExtensionContext:
         runtime_snapshot = {}
         runtime_lookup = getattr(self.tools, "runtime_environment_snapshot", None)
@@ -321,6 +334,23 @@ class QueryEngine(object):
             workflow_state=dict(getattr(session, "workflow_state", {}) or {}),
             workflow_state_name=workflow_state,
             metadata=dict(metadata),
+        )
+
+    def _ensure_extension_tools_registered(
+        self,
+        session: Session,
+        current_mode: str,
+        workflow_state: str,
+        reason: str = "turn",
+    ) -> None:
+        self.extension_manager.register_tools(
+            ToolRegistrationEvent(
+                current_mode=current_mode,
+                workflow_state_name=workflow_state,
+                reason=reason,
+                metadata={"session_id": session.session_id},
+            ),
+            self._extension_context(session),
         )
 
     def _append_harness_messages(self, session: Session, harness_prompt: Any) -> None:
@@ -371,6 +401,12 @@ class QueryEngine(object):
         self, session: Session, initial_mode: str, workflow_state: str = "chat", user_text: str = ""
     ) -> str:
         current_mode = require_mode(initial_mode)["slug"]
+        self._ensure_extension_tools_registered(
+            session,
+            current_mode,
+            workflow_state,
+            reason="session_start",
+        )
         if self._should_inject_harness(user_text, current_mode):
             harness_prompt = self.extension_manager.describe_prompt(
                 current_mode, workflow_state=workflow_state, session=session
