@@ -135,6 +135,13 @@ The UI should not use the catalog to reintroduce deprecated mode/tool naming.
 
 Catalog visibility is computed from workflow-neutral mode contracts plus tools activated by the hosted runtime's shared `ExtensionManager`. This lets the shell display harness tool metadata such as `task_status` while keeping `modes.py` independent from the harness pack design and avoiding a separate frontend-only extension chain.
 
+Catalog entries include tool source metadata:
+
+- `source_type`
+- `source_id`
+
+Frontends may display dynamic tool source metadata for diagnostics or future extension management. They must continue to treat tool permission behavior as backend-owned and derive permission prompts only from backend events.
+
 Extension diagnostics are frontend-visible health information. Frontends may display them, but they must not infer extension execution policy from them.
 
 For `task_status`, the official presentation metadata is:

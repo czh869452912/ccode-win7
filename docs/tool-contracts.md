@@ -32,7 +32,19 @@ The extension runtime may observe or patch tool calls through typed in-process h
 - `tool_call` can block an allowed tool call or return updated arguments before permission/tool execution continues.
 - `tool_result` can replace the structured observation or provide a workflow patch after execution.
 
-These hooks do not bypass mode contracts, `PermissionPolicy`, path write checks, or tool metadata categories. Extension-provided tools are not part of this slice.
+These hooks do not bypass mode contracts, `PermissionPolicy`, path write checks, or tool metadata categories.
+
+## Dynamic Extension Tool Registration
+
+In-process extensions may register tools into the shared `ToolRuntime` through the extension manager. Registered tools must provide:
+
+- `ToolDefinition`
+- `permission_category`
+- mode and workflow visibility metadata
+- read-only and concurrency metadata
+- source metadata supplied by the extension runtime
+
+Registration does not make a tool active by itself. A dynamic tool appears in model schemas and frontend catalog views only when its name is active through `ExtensionManager.allowed_tool_names(mode_name, workflow_state=workflow_state)`. Extensions cannot replace built-in tools in this slice.
 
 ## 2. Official Workflow Tools
 
@@ -127,6 +139,8 @@ GUI history serialization depends on a small stable presentation snapshot per to
 - `supports_diff_preview`
 - `progress_renderer_key`
 - `result_renderer_key`
+- `source_type`
+- `source_id`
 
 These fields are part of the durable session-history contract. They must remain reconstructable from transcript-backed session state even when replay logs are trimmed.
 

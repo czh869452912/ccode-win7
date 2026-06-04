@@ -44,6 +44,38 @@
 
 ## 3. 当前变更记录
 
+### DC-124
+
+- 日期：2026-06-04
+- 变更主题：Dynamic tool registration Slice 2 落地
+- 变更摘要：
+  - 接受 dynamic in-process tool registration 作为 self-extensible Agent Core 的第二实现 slice
+  - `ToolRuntime` 现在是 source-aware registry，in-process extensions 可注册带 source metadata 的 `ToolDefinition`
+  - `QueryEngine` 与 `InProcessAdapter` 在 schema/catalog 边界前同步 extension tool registration，动态工具仍必须通过 `ExtensionManager.allowed_tool_names(...)` 激活后才可见
+  - `PermissionPolicy` 通过 runtime catalog metadata 分类动态工具，privileged dynamic tools 继续走同一 ask/rule 路径
+  - built-in tool replacement、project-local Python loading 与 reload command 仍保持 deferred
+- 影响范围：
+  - `src/embedagent/tools/runtime.py`
+  - `src/embedagent/extensions.py`
+  - `src/embedagent/permissions.py`
+  - `src/embedagent/query_engine.py`
+  - `src/embedagent/inprocess_adapter.py`
+  - frontend tool catalog contract
+- 关联文档：
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/tool-contracts.md`
+  - `docs/permission-model.md`
+  - `docs/frontend-protocol.md`
+  - `docs/development-tracker.md`
+  - `docs/superpowers/specs/2026-06-04-dynamic-tool-registration-design.md`
+  - `docs/superpowers/plans/2026-06-04-dynamic-tool-registration.md`
+- 是否需要 ADR：`否，属于已批准 self-extensible Agent Core 方向的第二实现 slice`
+- 后续动作：
+  - 设计并实现 project-local extension loading 的离线安全边界
+  - 设计 extension reload command/API 与资源发现刷新
+
 ### DC-123
 
 - 日期：2026-06-04

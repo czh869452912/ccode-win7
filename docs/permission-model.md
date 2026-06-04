@@ -21,6 +21,8 @@ Actions are classified into these categories:
 
 These categories drive default allow/ask behavior and frontend explanation text.
 
+Dynamic extension tools are classified through `ToolRuntime` catalog metadata. `PermissionPolicy` may receive a category lookup bound to the active runtime; if a registered extension tool declares `workspace_write`, `shell_exec`, `toolchain_exec`, or `git_write`, the same approval and rule paths apply as for built-in tools. Unknown tools without valid metadata remain `other` and should not be used as a shortcut for privileged behavior.
+
 ## 3. Rule Shape
 
 Rules are structured objects loaded from the configured rules file.
