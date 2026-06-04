@@ -657,9 +657,9 @@ function TaskPanel({ tasks, lang }) {
       <h3>{t("tasks.title", lang)}</h3>
       {(tasks || []).length ? (
         tasks.map((task) => (
-          <div key={task.id} className="todo-row" role="listitem">
-            <span className={task.done ? "todo-mark done" : "todo-mark"}>
-              {task.done ? t("tasks.done", lang) : t("tasks.todo", lang)}
+          <div key={task.id} className="task-row" role="listitem">
+            <span className={task.done ? "task-mark done" : "task-mark"}>
+              {task.done ? t("tasks.done", lang) : t("tasks.pending", lang)}
             </span>
             <span>{task.content}</span>
           </div>

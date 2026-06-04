@@ -31,6 +31,29 @@ class _FakeCore(object):
         }
 
 
+class _ModeCaptureCore(_FakeCore):
+    def __init__(self):
+        super().__init__()
+        self.create_modes = []
+        self.resume_modes = []
+
+    def create_session(self, mode):
+        self.create_modes.append(mode)
+        return {
+            "session_id": "sess-new",
+            "status": "idle",
+            "current_mode": mode,
+        }
+
+    def resume_session(self, session_id, mode):
+        self.resume_modes.append((session_id, mode))
+        return {
+            "session_id": session_id,
+            "status": "idle",
+            "current_mode": mode or "restored",
+        }
+
+
 class _FakeCoreWithTimeline(_FakeCore):
     def get_session_bootstrap(self, session_id):
         return {
@@ -182,6 +205,44 @@ class _SnapshotCore(_FakeCore):
 
 
 class TestGuiBackendApi(unittest.TestCase):
+    def test_create_session_defaults_to_explore_mode(self):
+        with tempfile.TemporaryDirectory() as static_dir:
+            with open(os.path.join(static_dir, "index.html"), "w", encoding="utf-8") as handle:
+                handle.write("<html><body>ok</body></html>")
+            core = _ModeCaptureCore()
+            backend = GUIBackend(core, static_dir=static_dir)
+            route = None
+            for item in backend.app.routes:
+                if getattr(item, "path", "") == "/api/sessions" and "POST" in getattr(
+                    item, "methods", set()
+                ):
+                    route = item
+                    break
+            self.assertIsNotNone(route)
+            payload = asyncio.run(route.endpoint())
+        self.assertEqual(core.create_modes, ["explore"])
+        self.assertEqual(payload["current_mode"], "explore")
+
+    def test_resume_session_does_not_override_restored_mode_by_default(self):
+        with tempfile.TemporaryDirectory() as static_dir:
+            with open(os.path.join(static_dir, "index.html"), "w", encoding="utf-8") as handle:
+                handle.write("<html><body>ok</body></html>")
+            core = _ModeCaptureCore()
+            backend = GUIBackend(core, static_dir=static_dir)
+            route = None
+            for item in backend.app.routes:
+                if getattr(
+                    item, "path", ""
+                ) == "/api/sessions/{session_id}/resume" and "POST" in getattr(
+                    item, "methods", set()
+                ):
+                    route = item
+                    break
+            self.assertIsNotNone(route)
+            payload = asyncio.run(route.endpoint("sess-old"))
+        self.assertEqual(core.resume_modes, [("sess-old", "")])
+        self.assertEqual(payload["current_mode"], "restored")
+
     def test_post_interaction_response_uses_unified_endpoint(self):
         with tempfile.TemporaryDirectory() as static_dir:
             with open(os.path.join(static_dir, "index.html"), "w", encoding="utf-8") as handle:

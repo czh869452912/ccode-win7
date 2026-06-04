@@ -17,6 +17,7 @@ from fastapi.staticfiles import StaticFiles
 
 from embedagent.frontend.gui.backend.bridge import BlockingResult, ThreadsafeAsyncDispatcher
 from embedagent.frontend.gui.backend.session_events import build_session_event
+from embedagent.modes import DEFAULT_MODE
 from embedagent.protocol import (
     CommandResult,
     CoreInterface,
@@ -79,7 +80,7 @@ def _serialize_session_snapshot(snapshot: Any) -> Dict[str, Any]:
     return {
         "session_id": str(_read_value(snapshot, "session_id", "") or ""),
         "status": _read_status_value(snapshot),
-        "current_mode": str(_read_value(snapshot, "current_mode", "build") or "build"),
+        "current_mode": str(_read_value(snapshot, "current_mode", DEFAULT_MODE) or DEFAULT_MODE),
         "started_at": str(_read_value(snapshot, "started_at", "", aliases=("created_at",)) or ""),
         "updated_at": str(_read_value(snapshot, "updated_at", "") or ""),
         "workflow_state": str(_read_value(snapshot, "workflow_state", "chat") or "chat"),
@@ -609,13 +610,13 @@ class GUIBackend:
             }
 
         @app.post("/api/sessions")
-        async def create_session(mode: str = "build"):
+        async def create_session(mode: str = DEFAULT_MODE):
             snapshot = self._call_core(self.core.create_session, mode)
             self._current_session_id = str(_read_value(snapshot, "session_id", "") or "")
             return _serialize_session_snapshot(snapshot)
 
         @app.post("/api/sessions/{session_id}/resume")
-        async def resume_session(session_id: str, mode: str = "build"):
+        async def resume_session(session_id: str, mode: str = ""):
             snapshot = self._call_core(self.core.resume_session, session_id, mode)
             self._current_session_id = str(_read_value(snapshot, "session_id", "") or "")
             return _serialize_session_snapshot(snapshot)
@@ -634,7 +635,7 @@ class GUIBackend:
 
         @app.post("/api/sessions/{session_id}/mode")
         async def set_mode(session_id: str, request: Dict[str, Any]):
-            mode = request.get("mode", "build")
+            mode = request.get("mode", DEFAULT_MODE)
             self._call_core(self.core.set_mode, session_id, mode)
             return {"status": "ok"}
 

@@ -89,6 +89,10 @@ Key routes include:
 - `GET /api/artifacts`
 - file read/tree routes
 
+`POST /api/sessions` defaults to `explore` when no mode is supplied. Frontends should not use `build` as the implicit entry mode.
+
+`POST /api/sessions/{session_id}/resume` should preserve the restored session mode unless the caller explicitly supplies a mode override.
+
 ## 5. WebSocket Event Types
 
 Important pushed event types include:

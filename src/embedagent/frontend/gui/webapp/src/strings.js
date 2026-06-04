@@ -140,7 +140,7 @@ const STRINGS = {
     // Tasks
     "tasks.title": "Session Tasks",
     "tasks.done": "done",
-    "tasks.todo": "task",
+    "tasks.pending": "task",
 
     // Artifacts
     "artifacts.title": "Artifacts",
@@ -285,7 +285,7 @@ const STRINGS = {
 
     "tasks.title": "会话任务",
     "tasks.done": "完成",
-    "tasks.todo": "任务",
+    "tasks.pending": "任务",
 
     "artifacts.title": "产物",
 

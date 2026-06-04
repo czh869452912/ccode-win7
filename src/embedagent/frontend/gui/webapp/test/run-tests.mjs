@@ -15,6 +15,8 @@ import {
 import { runSessionRuntimeTests } from "./session-runtime.test.mjs";
 
 function main() {
+  assert.equal(initialState.requestedMode, "explore");
+
   const root = [createTreeNode({ path: "src", name: "src", kind: "dir", has_children: true })];
   const next = injectChildren(root, "src", [
     { path: "src/pkg", name: "pkg", kind: "dir", has_children: true },
@@ -81,6 +83,9 @@ function main() {
   assert.equal(snapshot.timeline_last_seq, 9);
   assert.equal(snapshot.timeline_integrity, "degraded");
   assert.equal(snapshot.pending_interaction_valid, false);
+
+  const defaultModeSnapshot = normalizeSessionPayload({ session_id: "sess-default" });
+  assert.equal(defaultModeSnapshot.current_mode, "explore");
 
   const structuredTimeline = timelineFromTurns([
     {
@@ -448,6 +453,16 @@ function main() {
   );
   assert.equal(inspectorSource.includes('const ALL_TABS = ["interaction",'), true);
   assert.equal(inspectorSource.includes('{inspectorTab === "interaction"'), true);
+  assert.equal(inspectorSource.includes("todo-row"), false);
+  assert.equal(inspectorSource.includes("todo-mark"), false);
+
+  const stylesSource = fs.readFileSync(
+    path.resolve("src", "embedagent", "frontend", "gui", "webapp", "src", "styles.css"),
+    "utf8",
+  );
+  assert.equal(stylesSource.includes("todo-"), false);
+  assert.equal(stylesSource.includes("mode-code"), false);
+  assert.equal(stylesSource.includes("mode-build"), true);
 
   runSessionRuntimeTests();
 

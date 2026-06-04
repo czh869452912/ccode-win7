@@ -1,5 +1,5 @@
 import React, { startTransition, useEffect, useMemo, useReducer, useRef, useState } from "react";
-import { initialState, reducer } from "./store.js";
+import { DEFAULT_MODE, initialState, reducer } from "./store.js";
 import {
   createTreeNode,
   makeEventId,
@@ -53,6 +53,7 @@ function App() {
         snapshot: state.snapshot,
         eventLog: sessionEventLog,
         bootstrapTimeline: state.timeline,
+        defaultMode: DEFAULT_MODE,
       }),
     [sessionEventLog, state.snapshot, state.timeline],
   );
@@ -866,7 +867,7 @@ function App() {
             item.user_goal ||
             item.summary_text ||
             `Session ${item.session_id.slice(0, 8)}`,
-          mode: item.current_mode || "build",
+          mode: item.current_mode || DEFAULT_MODE,
           updated,
         };
       }),

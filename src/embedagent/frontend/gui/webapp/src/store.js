@@ -1,5 +1,7 @@
 import { injectChildren, makeEventId, resolveTimelineAnchor } from "./state-helpers.js";
 
+export const DEFAULT_MODE = "explore";
+
 export const initialState = {
   sidebarTab: "chats",
   inspectorTab: "tasks",
@@ -25,7 +27,7 @@ export const initialState = {
   preview: null,
   fileTree: [],
   toolCatalog: {},
-  requestedMode: "build",
+  requestedMode: DEFAULT_MODE,
   connectionState: "connecting",
   eventLog: [],
   terminationReason: "",

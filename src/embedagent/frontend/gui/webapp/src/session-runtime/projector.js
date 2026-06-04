@@ -234,7 +234,7 @@ function resolveTransportReplayState(snapshot, eventLog) {
   return normalizeReplayState(snapshot?.timeline_replay_status, "healthy");
 }
 
-export function projectSessionRuntime({ snapshot, eventLog, bootstrapTimeline = [] }) {
+export function projectSessionRuntime({ snapshot, eventLog, bootstrapTimeline = [], defaultMode = "explore" }) {
   const currentInteraction = normalizePendingInteraction(snapshot);
   const timelineItems = mergeTimelineItems({ snapshot, eventLog, bootstrapTimeline });
   return {
@@ -248,7 +248,7 @@ export function projectSessionRuntime({ snapshot, eventLog, bootstrapTimeline = 
     sessionStatusView: {
       sessionId: snapshot?.session_id || "",
       status: snapshot?.status || "idle",
-      mode: snapshot?.current_mode || "build",
+      mode: snapshot?.current_mode || defaultMode,
     },
     timelineItems,
     timelineView: projectTurnGroups(timelineItems),

@@ -42,6 +42,7 @@ export function runSessionRuntimeTests() {
   });
   assert.equal(runtime.currentInteraction.interaction_id, "int-1");
   assert.equal(runtime.timelineView.some((item) => item.kind === "permission"), false);
+  assert.equal(runtime.sessionStatusView.mode, "explore");
 
   const replayRuntime = projectSessionRuntime({
     snapshot: {

@@ -526,7 +526,7 @@ export function timelineFromTurns(turns, events = [], options = {}) {
   return items;
 }
 
-export function normalizeSessionPayload(payload) {
+export function normalizeSessionPayload(payload, defaultMode = "explore") {
   const recentTransitions = Array.isArray(payload.recent_transitions)
     ? payload.recent_transitions.map((entry) => ({
         ...entry,
@@ -538,7 +538,7 @@ export function normalizeSessionPayload(payload) {
   return {
     session_id: payload.session_id || "",
     status: payload.status || "idle",
-    current_mode: payload.current_mode || "build",
+    current_mode: payload.current_mode || defaultMode,
     started_at: payload.started_at || payload.created_at || "",
     updated_at: payload.updated_at || "",
     workflow_state: payload.workflow_state || "chat",

@@ -98,7 +98,7 @@ body {
 }
 .mode-badge.mode-explore { color: var(--color-info);    background: rgba(56,139,253,.1);  border-color: rgba(56,139,253,.25);  }
 .mode-badge.mode-spec    { color: var(--color-accent);  background: rgba(188,140,255,.1); border-color: rgba(188,140,255,.25); }
-.mode-badge.mode-code    { color: var(--color-success); background: rgba(63,185,80,.1);   border-color: rgba(63,185,80,.25);   }
+.mode-badge.mode-build   { color: var(--color-success); background: rgba(63,185,80,.1);   border-color: rgba(63,185,80,.25);   }
 .mode-badge.mode-debug   { color: var(--color-warning); background: rgba(210,153,34,.1);  border-color: rgba(210,153,34,.25);  }
 .mode-badge.mode-verify  { color: var(--color-verify);              background: rgba(227,179,65,.1);  border-color: rgba(227,179,65,.25);  }
 
@@ -474,14 +474,6 @@ body {
 
 .inspector-body { flex: 1; overflow-y: auto; overflow-x: hidden; padding: var(--sp-3); }
 
-/* Inspector panels */
-.todo-item { display: flex; align-items: flex-start; gap: 7px; padding: 5px 7px; border-radius: var(--r-sm); }
-.todo-item:hover { background: var(--bg-subtle); }
-.todo-check { width:13px;height:13px;border-radius:3px;border:1px solid var(--border-default);flex-shrink:0;margin-top:2px; }
-.todo-check.done { background:rgba(63,185,80,.2);border-color:var(--color-success); }
-.todo-text { color: var(--text-primary); font-size: 12px; }
-.todo-text.done { color: var(--text-muted); text-decoration: line-through; }
-
 .artifact-item {
   padding: 7px var(--sp-2); border-radius: var(--r-sm); cursor: pointer;
   border: 1px solid var(--border-default); margin-bottom: var(--sp-2);
@@ -556,7 +548,7 @@ body {
 }
 .composer-mode-badge.mode-explore { color:var(--color-info);    background:rgba(56,139,253,.1);  border-color:rgba(56,139,253,.25);  }
 .composer-mode-badge.mode-spec    { color:var(--color-accent);  background:rgba(188,140,255,.1); border-color:rgba(188,140,255,.25); }
-.composer-mode-badge.mode-code    { color:var(--color-success); background:rgba(63,185,80,.1);   border-color:rgba(63,185,80,.25);   }
+.composer-mode-badge.mode-build   { color:var(--color-success); background:rgba(63,185,80,.1);   border-color:rgba(63,185,80,.25);   }
 .composer-mode-badge.mode-debug   { color:var(--color-warning); background:rgba(210,153,34,.1);  border-color:rgba(210,153,34,.25);  }
 .composer-mode-badge.mode-verify  { color:var(--color-verify);              background:rgba(227,179,65,.1);  border-color:rgba(227,179,65,.25);  }
 
@@ -706,7 +698,7 @@ body {
   padding: 2px 6px;
   border: 1px solid var(--border-default);
 }
-.thread-mode.mode-code { color: var(--color-success); border-color: rgba(63,185,80,.25); }
+.thread-mode.mode-build { color: var(--color-success); border-color: rgba(63,185,80,.25); }
 .thread-mode.mode-debug { color: var(--color-warning); border-color: rgba(210,153,34,.25); }
 .thread-mode.mode-spec { color: var(--color-accent); border-color: rgba(188,140,255,.25); }
 .thread-mode.mode-explore { color: var(--color-info); border-color: rgba(56,139,253,.25); }
@@ -999,7 +991,7 @@ body {
   color: var(--text-muted);
   font-size: 12px;
 }
-.todo-row,
+.task-row,
 .artifact-row,
 .runtime-row {
   display: flex;
@@ -1034,13 +1026,13 @@ body {
 .artifact-row:hover {
   border-color: var(--color-info);
 }
-.todo-mark {
+.task-mark {
   font-size: 10px;
   font-family: var(--font-mono);
   color: var(--text-muted);
   text-transform: uppercase;
 }
-.todo-mark.done {
+.task-mark.done {
   color: var(--color-success);
 }
 

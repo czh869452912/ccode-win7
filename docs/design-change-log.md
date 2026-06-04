@@ -1,6 +1,6 @@
 # EmbedAgent 设计与变更跟踪
 
-> 更新日期：2026-06-03
+> 更新日期：2026-06-04
 > 用途：记录关键设计变更、影响范围、关联文档和后续动作
 
 ---
@@ -43,6 +43,28 @@
 ---
 
 ## 3. 当前变更记录
+
+### DC-122
+
+- 日期：2026-06-04
+- 变更主题：GUI 默认入口与任务词汇收口到正式模式协议
+- 变更摘要：
+  - GUI backend 的 `POST /api/sessions` 默认 mode 改为共享 `DEFAULT_MODE == "explore"`，与正式模式入口保持一致
+  - GUI resume 路由默认传空 mode，让 core adapter 沿用 restored session mode，不再无意覆盖为 `build`
+  - GUI webapp 新增前端默认 mode 常量，session normalize、runtime projector、session list fallback 均使用 `explore` 兜底
+  - GUI task 面板和样式从 `todo-*` / `tasks.todo` 清理为 `task-*` / `tasks.pending`，并移除旧 `mode-code` 样式残留
+  - 已重建 `src/embedagent/frontend/gui/static/`，使实际 GUI serve 的静态产物与源码一致
+- 影响范围：
+  - GUI session create / resume 默认行为
+  - GUI task inspector 命名与样式
+  - frontend protocol mode vocabulary
+- 关联文档：
+  - `docs/development-tracker.md`
+  - `docs/frontend-protocol.md`
+- 是否需要 ADR：`否，属于既定模式/前端词汇 cutover 的收口修正`
+- 后续动作：
+  - clean Windows 7 GUI smoke 仍作为外部目标机 gate
+  - 真实 C/C++ 工程 GUI 验证仍作为产品 gate
 
 ### DC-121
 
