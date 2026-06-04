@@ -2,6 +2,12 @@ from __future__ import annotations
 
 import pytest
 
+from embedagent.extensions import (
+    ExtensionContext,
+    ExtensionManager,
+    ToolRegistrationEvent,
+    ToolRegistrationResult,
+)
 from embedagent.session import Observation
 from embedagent.tools import ToolDefinition, ToolRuntime
 
@@ -121,3 +127,66 @@ def test_builtin_and_harness_tools_have_source_metadata(tmp_path):
     assert runtime.tool_catalog_entry("read_file")["source_id"] == "embedagent.core"
     assert runtime.tool_catalog_entry("run_recipe")["source_type"] == "harness"
     assert runtime.tool_catalog_entry("run_recipe")["source_id"] == "embedagent.harness"
+
+
+class DynamicToolExtension(object):
+    extension_id = "dynamic_tools"
+    builtin_extension = False
+
+    def __init__(self, active=True, tool_name="dynamic_echo"):
+        self.active = active
+        self.tool_name = tool_name
+
+    def register_tools(self, event, context):
+        assert event.reason in ("session_start", "catalog", "test")
+        assert context.tool_registry is not None
+        return ToolRegistrationResult(
+            tools=[make_dynamic_tool(name=self.tool_name)],
+            source_id=self.extension_id,
+        )
+
+    def allowed_tool_names(self, mode_name, workflow_state="chat"):
+        if self.active and mode_name == "build" and workflow_state == "chat":
+            return {self.tool_name}
+        return set()
+
+
+class InvalidToolExtension(object):
+    extension_id = "invalid_tool"
+    builtin_extension = False
+
+    def register_tools(self, event, context):
+        del event, context
+        return ToolRegistrationResult(tools=[object()], source_id=self.extension_id)
+
+
+def test_extension_manager_registers_tools_into_runtime(tmp_path):
+    runtime = ToolRuntime(str(tmp_path))
+    manager = ExtensionManager([DynamicToolExtension()])
+
+    manager.register_tools(
+        ToolRegistrationEvent(current_mode="build", workflow_state_name="chat", reason="test"),
+        ExtensionContext(workspace=str(tmp_path), tool_registry=runtime),
+    )
+
+    entry = runtime.tool_catalog_entry("dynamic_echo")
+    assert entry["source_type"] == "extension"
+    assert entry["source_id"] == "dynamic_tools"
+    assert manager.diagnostics() == []
+
+
+def test_extension_tool_registration_failure_records_diagnostic(tmp_path):
+    runtime = ToolRuntime(str(tmp_path))
+    manager = ExtensionManager([InvalidToolExtension()])
+
+    manager.register_tools(
+        ToolRegistrationEvent(current_mode="build", workflow_state_name="chat", reason="test"),
+        ExtensionContext(workspace=str(tmp_path), tool_registry=runtime),
+    )
+
+    diagnostics = manager.diagnostics()
+    assert diagnostics
+    assert diagnostics[0]["extension_id"] == "invalid_tool"
+    assert diagnostics[0]["event"] == "register_tools"
+    assert diagnostics[0]["metadata"]["source_id"] == "invalid_tool"
+    assert diagnostics[0]["metadata"]["reason"] == "test"

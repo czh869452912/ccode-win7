@@ -123,6 +123,22 @@ class ResourcesDiscoverResult:
     metadata: Dict[str, Any] = field(default_factory=dict)
 
 
+@dataclass
+class ToolRegistrationEvent:
+    current_mode: str = ""
+    workflow_state_name: str = "chat"
+    reason: str = "startup"
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class ToolRegistrationResult:
+    tools: List[Any] = field(default_factory=list)
+    source_id: str = ""
+    source_type: str = "extension"
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+
 class ExtensionManager(object):
     def __init__(self, extensions: Optional[List[Any]] = None) -> None:
         self._extensions = []  # type: List[Any]
@@ -149,16 +165,26 @@ class ExtensionManager(object):
     def _is_builtin_extension(self, extension: Any) -> bool:
         return bool(getattr(extension, "builtin_extension", True))
 
-    def _record_hook_error(self, extension: Any, event_name: str, exc: Exception) -> None:
+    def _record_diagnostic(
+        self,
+        extension: Any,
+        event_name: str,
+        error: str,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> None:
         self._diagnostics.append(
             ExtensionDiagnostic(
                 extension_id=self._extension_id(extension),
                 event=event_name,
-                error=str(exc),
+                error=str(error or ""),
                 severity="error",
                 source="builtin" if self._is_builtin_extension(extension) else "project",
+                metadata=dict(metadata or {}),
             )
         )
+
+    def _record_hook_error(self, extension: Any, event_name: str, exc: Exception) -> None:
+        self._record_diagnostic(extension, event_name, str(exc))
 
     def _call_hook(self, extension: Any, event_name: str, *args: Any, **kwargs: Any) -> Any:
         hook = getattr(extension, event_name, None)
@@ -221,6 +247,45 @@ class ExtensionManager(object):
             )
             merged.metadata.update(dict(getattr(result, "metadata", {}) or {}))
         return merged
+
+    def register_tools(
+        self,
+        event: ToolRegistrationEvent,
+        context: ExtensionContext,
+    ) -> None:
+        registry = getattr(context, "tool_registry", None)
+        register_tool = getattr(registry, "register_tool", None)
+        if not callable(register_tool):
+            return
+        for extension in list(self._extensions):
+            result = self._call_hook(extension, "register_tools", event, context)
+            if result is None:
+                continue
+            tools = list(getattr(result, "tools", []) or [])
+            source_id = str(getattr(result, "source_id", "") or self._extension_id(extension))
+            source_type = str(getattr(result, "source_type", "") or "extension")
+            for tool in tools:
+                tool_name = str(getattr(tool, "name", "") or "")
+                try:
+                    register_tool(
+                        tool,
+                        source_id=source_id,
+                        source_type=source_type,
+                    )
+                except (RuntimeError, ValueError, TypeError, OSError) as exc:
+                    self._record_diagnostic(
+                        extension,
+                        "register_tools",
+                        str(exc),
+                        metadata={
+                            "tool_name": tool_name,
+                            "source_id": source_id,
+                            "source_type": source_type,
+                            "reason": str(event.reason or ""),
+                        },
+                    )
+                    if self._is_builtin_extension(extension):
+                        raise
 
     def before_tool_call(
         self,
