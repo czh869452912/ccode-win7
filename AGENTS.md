@@ -105,6 +105,8 @@ Agent Core must route harness-specific prompt injection, task initialization, an
 
 `InProcessAdapter` owns the hosted runtime's shared `ExtensionManager` and passes it to session-scoped `QueryEngine` instances. Frontend tool catalog visibility must use that same manager instead of a separate adapter-only harness extension chain.
 
+`ExtensionManager` is also the shared in-process capability boundary for prompt/context hooks, tool-call and tool-result hooks, resource discovery contracts, and extension diagnostics. This does not enable project-local Python extension loading; that remains a separate, explicitly guarded follow-up.
+
 Default extension assembly lives in `src/embedagent/default_extensions.py`. `QueryEngine` must not import or construct `CHarnessWorkflowExtension`; direct `QueryEngine` tests or hosts that need default C/C++ behavior must pass an explicit `ExtensionManager`.
 
 `HarnessStateSynchronizer` has been removed. Product adapter paths must refresh harness state through `CHarnessWorkflowExtension.refresh_managed_session()` behind the default harness workflow extension.

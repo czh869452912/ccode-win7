@@ -1161,7 +1161,7 @@ git commit -m "feat: project extension diagnostics in snapshots"
 - Modify: `docs/development-tracker.md`
 - Modify: `docs/design-change-log.md`
 
-- [ ] **Step 1: Update README architecture bullets**
+- [x] **Step 1: Update README architecture bullets**
 
 In `README.md`, add a bullet near the current extension-manager bullets:
 
@@ -1169,7 +1169,7 @@ In `README.md`, add a bullet near the current extension-manager bullets:
 - Official extension runtime direction: `ExtensionManager` is the shared in-process capability boundary for workflow defaults, prompt/context hooks, tool-call/tool-result hooks, resource discovery contracts, and extension diagnostics; project-local Python code loading remains deferred.
 ```
 
-- [ ] **Step 2: Update overall architecture**
+- [x] **Step 2: Update overall architecture**
 
 In `docs/overall-solution-architecture.md`, update the Agent Core Layer section with:
 
@@ -1177,7 +1177,7 @@ In `docs/overall-solution-architecture.md`, update the Agent Core Layer section 
 `ExtensionManager` is now the shared in-process capability boundary. The current default C/C++ harness remains the bundled workflow extension, while the same boundary also carries generic prompt/context hooks, tool-call and tool-result interception, resource discovery contracts, and extension diagnostics. Project-local Python extension loading is not enabled in this slice; only the contract and built-in/injected extension path are official.
 ```
 
-- [ ] **Step 3: Update tool contracts**
+- [x] **Step 3: Update tool contracts**
 
 In `docs/tool-contracts.md`, add a section after "Official Tool Contract":
 
@@ -1192,7 +1192,7 @@ The extension runtime may observe or patch tool calls through typed in-process h
 These hooks do not bypass mode contracts, `PermissionPolicy`, path write checks, or tool metadata categories. Extension-provided tools are not part of this slice.
 ```
 
-- [ ] **Step 4: Update frontend protocol**
+- [x] **Step 4: Update frontend protocol**
 
 In `docs/frontend-protocol.md`, add these snapshot fields to the Session Snapshot list:
 
@@ -1207,7 +1207,7 @@ Add a short paragraph in the Tool Catalog or Core Boundary section:
 Extension diagnostics are frontend-visible health information. Frontends may display them, but they must not infer extension execution policy from them.
 ```
 
-- [ ] **Step 5: Update tracker and change log**
+- [x] **Step 5: Update tracker and change log**
 
 Append a concise dated note to `docs/development-tracker.md`:
 
@@ -1226,7 +1226,7 @@ Append a concise dated note to `docs/design-change-log.md`:
 Accepted the Pi-inspired microkernel direction for EmbedAgent by promoting `ExtensionManager` toward a general local capability boundary. The first implementation slice keeps C/C++ harness behavior unchanged while adding generic extension diagnostics and hook contracts. Runtime loading of project-local Python extensions remains deferred behind explicit offline and permission guardrails.
 ```
 
-- [ ] **Step 6: Run documentation vocabulary checks**
+- [x] **Step 6: Run documentation vocabulary checks**
 
 Run:
 
@@ -1236,7 +1236,7 @@ rg -n "manage_todos| code mode|code mode|Session.task_graph" README.md docs/over
 
 Expected: no matches for reintroduced deprecated vocabulary in the touched sections.
 
-- [ ] **Step 7: Commit Task 6**
+- [x] **Step 7: Commit Task 6**
 
 ```bash
 git add README.md docs/overall-solution-architecture.md docs/tool-contracts.md docs/frontend-protocol.md docs/development-tracker.md docs/design-change-log.md

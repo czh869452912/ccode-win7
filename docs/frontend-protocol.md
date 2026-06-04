@@ -45,6 +45,8 @@ Important session snapshot fields include:
 - `current_activity`
 - `task_summary`
 - `task_items`
+- `extensions`
+- `extension_diagnostics`
 - replay metadata fields
 
 `task_items` is the official frontend task list payload.
@@ -132,6 +134,8 @@ The frontend-visible tool catalog should represent the official workflow vocabul
 The UI should not use the catalog to reintroduce deprecated mode/tool naming.
 
 Catalog visibility is computed from workflow-neutral mode contracts plus tools activated by the hosted runtime's shared `ExtensionManager`. This lets the shell display harness tool metadata such as `task_status` while keeping `modes.py` independent from the harness pack design and avoiding a separate frontend-only extension chain.
+
+Extension diagnostics are frontend-visible health information. Frontends may display them, but they must not infer extension execution policy from them.
 
 For `task_status`, the official presentation metadata is:
 

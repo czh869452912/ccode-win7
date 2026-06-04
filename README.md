@@ -27,6 +27,7 @@ The repository now treats Agent Core as the workflow-neutral runtime, with the C
 - Official permission engine: `PermissionPolicy` with structured rule matching and stable explanation text
 - Official session runtime ownership: one session-scoped `QueryEngine` owns turn/step/interaction execution; adapters host and project
 - Official workflow extension hosting: `InProcessAdapter` owns one `ExtensionManager` shared with session-scoped `QueryEngine` and frontend tool catalog visibility
+- Official extension runtime direction: `ExtensionManager` is the shared in-process capability boundary for workflow defaults, prompt/context hooks, tool-call/tool-result hooks, resource discovery contracts, and extension diagnostics; project-local Python code loading remains deferred
 - Official default extension assembly: `src/embedagent/default_extensions.py` installs the bundled C/C++ harness for hosted product paths; `QueryEngine` itself has no built-in harness import or constructor fallback
 - Official harness refresh path: `CHarnessWorkflowExtension.refresh_managed_session()`; the old `HarnessStateSynchronizer` service facade has been removed
 - Official runtime schema projection: `ToolRuntime.schemas_for(mode, workflow_state, tool_names=...)` is the single schema projection entry point; default harness-aware callers must pass extension-active tool names explicitly

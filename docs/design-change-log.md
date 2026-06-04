@@ -44,6 +44,35 @@
 
 ## 3. 当前变更记录
 
+### DC-123
+
+- 日期：2026-06-04
+- 变更主题：Capability extension contract Slice 1 落地
+- 变更摘要：
+  - 接受 Pi-inspired microkernel 方向，将 `ExtensionManager` 从默认 C/C++ workflow boundary 推进为共享 in-process capability boundary
+  - 新增通用 extension diagnostics、resource discovery contract、context hook、tool-call/tool-result hooks 与 session snapshot diagnostics
+  - 默认 C/C++ harness 行为保持通过 bundled workflow extension 接入，`QueryEngine` 继续不直接 import/构造默认 harness extension
+  - project-local Python extension loading、dynamic tool registration、resource reload command 仍保留为显式后续 slice
+- 影响范围：
+  - `src/embedagent/extensions.py`
+  - `src/embedagent/query_engine.py`
+  - `src/embedagent/session_projector.py`
+  - `src/embedagent/inprocess_adapter.py`
+  - frontend snapshot contract
+- 关联文档：
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/tool-contracts.md`
+  - `docs/frontend-protocol.md`
+  - `docs/development-tracker.md`
+  - `docs/superpowers/specs/2026-06-04-self-extensible-agent-core-design.md`
+  - `docs/superpowers/plans/2026-06-04-capability-extension-contract.md`
+- 是否需要 ADR：`否，属于已批准 self-extensible Agent Core 方向的第一实现 slice`
+- 后续动作：
+  - 设计并实现 project-local extension loading 的离线安全边界
+  - 将 skill/prompt/recipe discovery 与 reload command 作为后续 slice 推进
+
 ### DC-122
 
 - 日期：2026-06-04

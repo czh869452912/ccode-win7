@@ -52,6 +52,8 @@ The default C/C++ harness is now entered through the in-process workflow extensi
 
 `InProcessAdapter` owns the hosted runtime's `ExtensionManager` and passes that same manager to each session-scoped `QueryEngine`. Frontend tool catalog visibility is computed from the same manager, so model-facing tools and shell metadata share one extension chain.
 
+`ExtensionManager` is now the shared in-process capability boundary. The current default C/C++ harness remains the bundled workflow extension, while the same boundary also carries generic prompt/context hooks, tool-call and tool-result interception, resource discovery contracts, and extension diagnostics. Project-local Python extension loading is not enabled in this slice; only the contract and built-in/injected extension path are official.
+
 Default bundled extension assembly is outside `QueryEngine` in `src/embedagent/default_extensions.py`. A bare `QueryEngine` receives an empty `ExtensionManager`; hosted product paths install the default C/C++ harness explicitly before constructing session engines. This is the closed default-extension configuration decision for the current product baseline: there is no project-local extension discovery, remote registry, plugin marketplace, or multi-agent orchestration layer in scope.
 
 Harness state refresh in the product adapter path goes through `CHarnessWorkflowExtension.refresh_managed_session()` behind the default C harness workflow extension. The old `HarnessStateSynchronizer` service facade has been removed rather than kept as a parallel compatibility path.
@@ -107,6 +109,8 @@ Session snapshots carry:
 - `current_activity`
 - `task_summary`
 - `task_items`
+- `extensions`
+- `extension_diagnostics`
 
 ## 4. Tool Architecture
 
@@ -152,7 +156,7 @@ Built-in mode allowed-tool lists are workflow-neutral permission/write contracts
 
 ## 5. Workflow Extension And Harness Layer
 
-`src/embedagent/extensions.py` owns the local in-process workflow extension contract.
+`src/embedagent/extensions.py` owns the local in-process capability extension contract.
 
 The default C/C++ harness extension in `src/embedagent/harness/extension.py` owns:
 

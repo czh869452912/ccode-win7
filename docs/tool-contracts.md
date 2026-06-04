@@ -25,6 +25,15 @@ Built-in mode `allowed_tools` are workflow-neutral permission/write contracts. T
 
 Allowed-tool gating is not a runtime wrapper. Core orchestration receives an explicit allowed-tool policy from its host; hosted product paths use `QueryEngine._allowed_tools_for_mode(...)`, which combines the mode contract with extension-active tool names from the shared `ExtensionManager`.
 
+## Extension Tool Hooks
+
+The extension runtime may observe or patch tool calls through typed in-process hooks:
+
+- `tool_call` can block an allowed tool call or return updated arguments before permission/tool execution continues.
+- `tool_result` can replace the structured observation or provide a workflow patch after execution.
+
+These hooks do not bypass mode contracts, `PermissionPolicy`, path write checks, or tool metadata categories. Extension-provided tools are not part of this slice.
+
 ## 2. Official Workflow Tools
 
 ### File / Discovery
