@@ -25,6 +25,7 @@ class WorkflowEvent:
     step_id: str = ""
     current_mode: str = ""
     workflow_state: Dict[str, Any] = field(default_factory=dict)
+    workflow_state_name: str = ""
     user_text: str = ""
     tool_name: str = ""
     tool_arguments: Dict[str, Any] = field(default_factory=dict)
@@ -87,14 +88,90 @@ class WorkflowPatch:
     metadata: Dict[str, Any] = field(default_factory=dict)
 
 
+@dataclass
+class ExtensionDiagnostic:
+    extension_id: str = ""
+    event: str = ""
+    error: str = ""
+    severity: str = "error"
+    source: str = "extension"
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "extension_id": self.extension_id,
+            "event": self.event,
+            "error": self.error,
+            "severity": self.severity,
+            "source": self.source,
+            "metadata": dict(self.metadata),
+        }
+
+
 class ExtensionManager(object):
     def __init__(self, extensions: Optional[List[Any]] = None) -> None:
         self._extensions = []  # type: List[Any]
+        self._diagnostics = []  # type: List[ExtensionDiagnostic]
         for extension in list(extensions or []):
             self.register(extension)
 
     def register(self, extension: Any) -> None:
         self._extensions.append(extension)
+
+    def diagnostics(self) -> List[Dict[str, Any]]:
+        return [item.to_dict() for item in self._diagnostics]
+
+    def clear_diagnostics(self) -> None:
+        self._diagnostics = []
+
+    def _extension_id(self, extension: Any) -> str:
+        explicit = str(getattr(extension, "extension_id", "") or "").strip()
+        if explicit:
+            return explicit
+        name = getattr(extension.__class__, "__name__", "")
+        return str(name or "extension")
+
+    def _is_builtin_extension(self, extension: Any) -> bool:
+        return bool(getattr(extension, "builtin_extension", True))
+
+    def _record_hook_error(self, extension: Any, event_name: str, exc: Exception) -> None:
+        self._diagnostics.append(
+            ExtensionDiagnostic(
+                extension_id=self._extension_id(extension),
+                event=event_name,
+                error=str(exc),
+                severity="error",
+                source="builtin" if self._is_builtin_extension(extension) else "project",
+            )
+        )
+
+    def _call_hook(self, extension: Any, event_name: str, *args: Any, **kwargs: Any) -> Any:
+        hook = getattr(extension, event_name, None)
+        if not callable(hook):
+            return None
+        try:
+            return hook(*args, **kwargs)
+        except Exception as exc:
+            self._record_hook_error(extension, event_name, exc)
+            if self._is_builtin_extension(extension):
+                raise
+            return None
+
+    def context(
+        self,
+        event: WorkflowEvent,
+        context: ExtensionContext,
+    ) -> ContextPatch:
+        merged = ContextPatch()
+        for extension in list(self._extensions):
+            patch = self._call_hook(extension, "context", event, context)
+            if patch is None:
+                continue
+            messages = list(getattr(patch, "messages", []) or [])
+            if messages:
+                merged.messages = messages
+            merged.metadata.update(dict(getattr(patch, "metadata", {}) or {}))
+        return merged
 
     def before_agent_start(
         self,
