@@ -278,6 +278,79 @@ class InProcessAdapter(object):
             ),
         )
 
+    def _extension_resource_paths(self, reason: str) -> Dict[str, List[str]]:
+        result = self.extension_manager.discover_resources(
+            self.tools.workspace,
+            reason=str(reason or "reload"),
+        )
+        return {
+            "skill_paths": list(getattr(result, "skill_paths", []) or []),
+            "prompt_paths": list(getattr(result, "prompt_paths", []) or []),
+            "recipe_paths": list(getattr(result, "recipe_paths", []) or []),
+        }
+
+    def _resource_event_payload(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        return {
+            "reason": str(payload.get("reason") or ""),
+            "counts": dict(payload.get("counts") or {}),
+            "resource_paths": dict(payload.get("resource_paths") or {}),
+            "diagnostics": list(payload.get("diagnostics") or []),
+        }
+
+    def reload_resources(self, session_id: str = "", reason: str = "reload") -> Dict[str, Any]:
+        normalized_reason = str(reason or "reload")
+        paths = self._extension_resource_paths(normalized_reason)
+        reload_method = getattr(self.tools, "reload_resources", None)
+        if not callable(reload_method):
+            payload = {
+                "workspace": self.tools.workspace,
+                "reason": normalized_reason,
+                "resource_paths": paths,
+                "counts": {"skills": 0, "prompts": 0, "recipes": 0, "diagnostics": 1},
+                "skills": [],
+                "prompts": [],
+                "recipes": [],
+                "diagnostics": [
+                    {
+                        "kind": "runtime",
+                        "path": "",
+                        "error": "tool runtime does not support resource reload",
+                    }
+                ],
+            }
+        else:
+            payload = reload_method(
+                skill_paths=paths["skill_paths"],
+                prompt_paths=paths["prompt_paths"],
+                recipe_paths=paths["recipe_paths"],
+                reason=normalized_reason,
+            )
+        session_ref = str(session_id or "").strip()
+        if session_ref:
+            state = self._ensure_session_active(session_ref)
+            event_payload = self._resource_event_payload(payload)
+            self.transcript_store.append_event(
+                state.session.session_id,
+                "resource_discovered",
+                event_payload,
+            )
+            self.transcript_store.append_event(
+                state.session.session_id,
+                "resource_reloaded",
+                event_payload,
+            )
+            with state.lock:
+                extensions = state.session.workflow_state.setdefault("extensions", {})
+                extensions["local_resources"] = {
+                    "state": {
+                        "counts": dict(payload.get("counts") or {}),
+                        "resource_paths": dict(payload.get("resource_paths") or {}),
+                        "diagnostics": list(payload.get("diagnostics") or []),
+                    }
+                }
+                state.updated_at = _utc_now()
+        return dict(payload or {})
+
     def _append_transcript_message_event(self, session_id: str, message: Any) -> None:
         self.transcript_store.append_event(
             session_id,
@@ -323,9 +396,10 @@ class InProcessAdapter(object):
             current_mode,
             workflow_state=state.workflow_state,
         )
-        self._persist_state(state)
         with self._lock:
             self._sessions[session.session_id] = state
+        self.reload_resources(session_id=session.session_id, reason="session_start")
+        self._persist_state(state)
         snapshot = self.get_session_snapshot(session.session_id)
         self._emit(
             event_handler, "session_created", session.session_id, {"session_snapshot": snapshot}
@@ -1026,6 +1100,46 @@ class InProcessAdapter(object):
             state,
             CommandResult(
                 command_name="recipes",
+                success=True,
+                message="\n".join(lines),
+                data=payload,
+            ),
+        )
+        return {"handled": True, "continue_with_text": ""}
+
+    def _handle_command_resources(
+        self,
+        state: ManagedSession,
+        parsed: ParsedSlashCommand,
+        event_handler: Optional[EventHandler],
+        permission_resolver: Optional[PermissionResolver],
+    ) -> Dict[str, Any]:
+        action = parsed.args[0] if parsed.args else "list"
+        if str(action or "").strip().lower() == "reload":
+            payload = self.reload_resources(
+                session_id=state.session.session_id,
+                reason="command",
+            )
+        else:
+            lookup = getattr(self.tools, "local_resources", None)
+            payload = lookup() if callable(lookup) else self.reload_resources(
+                session_id=state.session.session_id,
+                reason="command"
+            )
+        counts = dict(payload.get("counts") or {})
+        lines = [
+            "## Local Resources",
+            "",
+            "- skills: %s" % int(counts.get("skills") or 0),
+            "- prompts: %s" % int(counts.get("prompts") or 0),
+            "- recipes: %s" % int(counts.get("recipes") or 0),
+            "- diagnostics: %s" % int(counts.get("diagnostics") or 0),
+        ]
+        self._emit_command_result(
+            event_handler,
+            state,
+            CommandResult(
+                command_name="resources",
                 success=True,
                 message="\n".join(lines),
                 data=payload,

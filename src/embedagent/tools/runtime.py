@@ -450,6 +450,23 @@ class ToolRuntime(object):
     def runtime_environment_snapshot(self) -> Dict[str, Any]:
         return self._ctx.runtime_environment_snapshot()
 
+    def reload_resources(
+        self,
+        skill_paths: Optional[List[str]] = None,
+        prompt_paths: Optional[List[str]] = None,
+        recipe_paths: Optional[List[str]] = None,
+        reason: str = "reload",
+    ) -> Dict[str, Any]:
+        return self._ctx.reload_resources(
+            skill_paths=skill_paths,
+            prompt_paths=prompt_paths,
+            recipe_paths=recipe_paths,
+            reason=reason,
+        )
+
+    def local_resources(self) -> Dict[str, Any]:
+        return self._ctx.local_resources()
+
     def workspace_recipes(self) -> Dict[str, Any]:
         return self._ctx.list_workspace_recipes()
 

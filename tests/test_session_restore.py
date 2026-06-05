@@ -164,6 +164,52 @@ class TestSessionRestorer(unittest.TestCase):
         self.assertEqual(result.consumed_event_count, 7)
         self.assertEqual(result.stop_reason, "")
 
+    def test_restore_ignores_resource_reload_events(self):
+        session_id = "sess-resource-events"
+        self.store.append_event(
+            session_id,
+            "session_meta",
+            {"current_mode": "build", "started_at": "2026-06-05T00:00:00Z"},
+        )
+        self.store.append_event(
+            session_id,
+            "resource_discovered",
+            {
+                "reason": "command",
+                "counts": {"skills": 1, "prompts": 0, "recipes": 1, "diagnostics": 0},
+                "resource_paths": {"skill_paths": [".embedagent/skills"]},
+                "diagnostics": [],
+            },
+        )
+        self.store.append_event(
+            session_id,
+            "message",
+            {
+                "role": "user",
+                "content": "继续",
+                "message_id": "m-user",
+                "turn_id": "t-1",
+                "step_id": "",
+            },
+        )
+        self.store.append_event(
+            session_id,
+            "resource_reloaded",
+            {
+                "reason": "command",
+                "counts": {"skills": 1, "prompts": 0, "recipes": 1, "diagnostics": 0},
+                "resource_paths": {"skill_paths": [".embedagent/skills"]},
+                "diagnostics": [],
+            },
+        )
+
+        result = SessionRestorer().restore(self.store.load_events(session_id))
+
+        self.assertEqual(result.stop_reason, "")
+        self.assertEqual(result.consumed_event_count, 4)
+        self.assertEqual(result.current_mode, "build")
+        self.assertEqual(len(result.session.turns), 1)
+
     def test_restore_preserves_message_parent_chain(self):
         session_id = "sess-parent-chain"
         self.store.append_event(session_id, "session_meta", {"current_mode": "build"})

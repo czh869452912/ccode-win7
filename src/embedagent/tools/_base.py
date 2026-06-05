@@ -11,6 +11,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
+from embedagent.local_resources import discover_local_resources
 from embedagent.runtime_discovery import discover_bundle_root
 from embedagent.session import Observation
 from embedagent.workspace_recipes import list_workspace_recipes, resolve_workspace_recipe
@@ -118,6 +119,12 @@ class ToolContext(object):
         self._thread_local = threading.local()
         self._bundle_root_cache = None  # type: Optional[str]
         self._bundle_root_resolved = False
+        self._resource_paths = {
+            "skill_paths": [],
+            "prompt_paths": [],
+            "recipe_paths": [],
+        }  # type: Dict[str, List[str]]
+        self._local_resources = None  # type: Optional[Dict[str, Any]]
 
     def set_interrupt_event(self, stop_event: Optional[threading.Event]) -> None:
         self._thread_local.stop_event = stop_event
@@ -444,8 +451,34 @@ class ToolContext(object):
             "allow_system_tool_fallback": self.allow_system_tool_fallback(),
         }
 
+    def reload_resources(
+        self,
+        skill_paths: Optional[List[str]] = None,
+        prompt_paths: Optional[List[str]] = None,
+        recipe_paths: Optional[List[str]] = None,
+        reason: str = "reload",
+    ) -> Dict[str, Any]:
+        self._resource_paths = {
+            "skill_paths": list(skill_paths or []),
+            "prompt_paths": list(prompt_paths or []),
+            "recipe_paths": list(recipe_paths or []),
+        }
+        self._local_resources = discover_local_resources(
+            self.workspace,
+            skill_paths=self._resource_paths["skill_paths"],
+            prompt_paths=self._resource_paths["prompt_paths"],
+            recipe_paths=self._resource_paths["recipe_paths"],
+            reason=reason,
+        )
+        return dict(self._local_resources)
+
+    def local_resources(self) -> Dict[str, Any]:
+        if self._local_resources is None:
+            self.reload_resources(reason="startup")
+        return dict(self._local_resources or {})
+
     def list_workspace_recipes(self) -> Dict[str, Any]:
-        return list_workspace_recipes(self.workspace)
+        return list_workspace_recipes(self.workspace, resource_paths=self._resource_paths)
 
     def resolve_workspace_recipe(
         self,
@@ -461,6 +494,7 @@ class ToolContext(object):
                 expected_tool_name=expected_tool_name,
                 target=target,
                 profile=profile,
+                resource_paths=self._resource_paths,
             )
         except ValueError as exc:
             raise ToolError(str(exc))

@@ -4,20 +4,36 @@ import json
 import os
 from typing import Any, Dict, List
 
+from embedagent.local_resources import discover_local_resources
+
 _PROJECT_RECIPES_RELPATH = os.path.join(".embedagent", "workspace-recipes.json")
 _HISTORY_RECIPES_RELPATH = os.path.join(".embedagent", "memory", "project", "command-recipes.json")
 
 
-def list_workspace_recipes(workspace: str) -> Dict[str, Any]:
+def list_workspace_recipes(
+    workspace: str,
+    resource_paths: Dict[str, List[str]] = None,
+) -> Dict[str, Any]:
     workspace = os.path.realpath(workspace)
     items = []  # type: List[Dict[str, Any]]
+    resource_payload = discover_local_resources(
+        workspace,
+        recipe_paths=list((resource_paths or {}).get("recipe_paths") or []),
+        reason="recipes",
+    )
     items.extend(_load_project_recipes(workspace))
+    items.extend(list(resource_payload.get("recipes") or []))
     items.extend(_detect_builtin_recipes(workspace))
     items.extend(_load_history_recipes(workspace))
     items = [_normalize_recipe_item(item) for item in items if isinstance(item, dict)]
     return {
         "workspace": workspace,
         "items": items,
+        "resources": {
+            "counts": dict(resource_payload.get("counts") or {}),
+            "diagnostics": list(resource_payload.get("diagnostics") or []),
+            "resource_paths": dict(resource_payload.get("resource_paths") or {}),
+        },
     }
 
 
@@ -27,8 +43,9 @@ def resolve_workspace_recipe(
     expected_tool_name: str = "",
     target: str = "",
     profile: str = "",
+    resource_paths: Dict[str, List[str]] = None,
 ) -> Dict[str, Any]:
-    payload = list_workspace_recipes(workspace)
+    payload = list_workspace_recipes(workspace, resource_paths=resource_paths)
     normalized_id = str(recipe_id or "").strip()
     normalized_expected = str(expected_tool_name or "").strip()
     for item in payload.get("items") or []:
