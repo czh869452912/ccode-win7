@@ -24,6 +24,8 @@ EmbedAgent now has one official first-class mode set:
 
 Mode-contract tool lists are workflow-neutral. Default C/C++ harness tools such as `list_recipes`, `run_recipe`, `report_quality_v2`, `record_failing_evidence`, and `task_status` are registered runtime tools, but they are activated by the default C harness workflow extension and selected tool packs, not by the built-in mode schema itself.
 
+Local resource reload does not alter mode contracts. Reloaded recipe JSON resources still execute only through the existing `run_recipe` tool path and its current mode/permission checks.
+
 ## 3. Switching Rules
 
 - Mode switching is user-driven.

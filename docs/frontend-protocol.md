@@ -51,6 +51,8 @@ Important session snapshot fields include:
 
 `task_items` is the official frontend task list payload.
 
+`extensions.local_resources` may contain the latest file-only resource reload state, including counts and diagnostics for `.embedagent/skills`, `.embedagent/prompts`, and `.embedagent/recipes`.
+
 `workflow` is the generic workflow projection. For the default C/C++ harness, `current_phase`, `discipline_profile`, `current_activity`, `task_summary`, and `task_items` are compatibility fields projected from `workflow`.
 
 Frontend shells should not read or infer default harness internals such as task graph state. They consume the snapshot fields and, where a richer shape is needed, the `workflow` payload.
@@ -84,6 +86,7 @@ Key routes include:
 - `GET /api/sessions/{session_id}/plan`
 - `GET /api/sessions/{session_id}/permissions`
 - `GET /api/sessions/{session_id}/events`
+- `POST /api/sessions/{session_id}/resources/reload`
 - `GET /api/workspace`
 - `GET /api/workspace/recipes`
 - `GET /api/tool-catalog`
@@ -94,6 +97,8 @@ Key routes include:
 `POST /api/sessions` defaults to `explore` when no mode is supplied. Frontends should not use `build` as the implicit entry mode.
 
 `POST /api/sessions/{session_id}/resume` should preserve the restored session mode unless the caller explicitly supplies a mode override.
+
+`POST /api/sessions/{session_id}/resources/reload` refreshes local file resources for the session and returns the backend resource snapshot. It is not a plugin execution endpoint.
 
 ## 5. WebSocket Event Types
 
@@ -118,6 +123,8 @@ Important pushed event types include:
 - `session_event`
 
 `GET /api/sessions/{session_id}/events` is transport replay only. Frontend history bootstrap must come from the structured bootstrap payload, not replay-log parsing.
+
+Resource reload may appear in replay as `resource.discovered` and `resource.reloaded` event kinds. Frontends may use those for diagnostics or refresh hints, but session history remains transcript/bootstrap-backed.
 
 All live tool/interaction/command events must preserve the engine-issued execution anchors:
 

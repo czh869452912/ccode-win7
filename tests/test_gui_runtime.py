@@ -296,6 +296,24 @@ class TestAgentCoreAdapterApi(unittest.TestCase):
         self.assertEqual(payload["history"]["session_id"], "sess-1")
         core._adapter.get_session_bootstrap.assert_called_once_with("sess-1")
 
+    def test_reload_resources_delegates_to_inner_adapter(self):
+        from embedagent.core.adapter import AgentCoreAdapter
+
+        core = AgentCoreAdapter(workspace="D:\\workspace")
+        core._adapter = MagicMock()
+        core._adapter.reload_resources.return_value = {
+            "reason": "api",
+            "counts": {"skills": 0, "prompts": 1, "recipes": 0},
+        }
+
+        payload = core.reload_resources("sess-1", reason="api")
+
+        self.assertEqual(payload["counts"]["prompts"], 1)
+        core._adapter.reload_resources.assert_called_once_with(
+            session_id="sess-1",
+            reason="api",
+        )
+
     def test_snapshot_projection_preserves_replay_metadata(self):
         from embedagent.core.adapter import AgentCoreAdapter
 

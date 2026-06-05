@@ -1,6 +1,6 @@
 # Dynamic Tool Registration Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Build Slice 2 of the self-extensible Agent Core by making tools dynamically registerable through in-process extensions while preserving active-tool gating, catalog projection, and permission enforcement.
 
@@ -72,7 +72,7 @@ Excluded:
 - Create: `tests/test_dynamic_tool_registration.py`
 - Modify: `src/embedagent/tools/runtime.py`
 
-- [ ] **Step 1: Write failing runtime registration tests**
+- [x] **Step 1: Write failing runtime registration tests**
 
 Create `tests/test_dynamic_tool_registration.py` with this content:
 
@@ -202,7 +202,7 @@ def test_builtin_and_harness_tools_have_source_metadata(tmp_path):
     assert runtime.tool_catalog_entry("run_recipe")["source_id"] == "embedagent.harness"
 ```
 
-- [ ] **Step 2: Run runtime registration tests and verify they fail**
+- [x] **Step 2: Run runtime registration tests and verify they fail**
 
 Run:
 
@@ -212,7 +212,7 @@ uv run pytest tests/test_dynamic_tool_registration.py::test_register_tool_adds_s
 
 Expected: FAIL because `ToolRuntime.register_tool()` and catalog source fields do not exist.
 
-- [ ] **Step 3: Add source fields and registration helpers**
+- [x] **Step 3: Add source fields and registration helpers**
 
 Modify imports at the top of `src/embedagent/tools/runtime.py`:
 
@@ -262,7 +262,7 @@ Add these fields to `ToolCatalogEntry.to_dict()`:
             "source_id": self.source_id,
 ```
 
-- [ ] **Step 4: Refactor ToolRuntime initialization through register_tool**
+- [x] **Step 4: Refactor ToolRuntime initialization through register_tool**
 
 Replace the construction of `official_tools`, `harness_tools`, `_catalog`, and `_tools` inside `ToolRuntime.__init__` with this block:
 
@@ -293,7 +293,7 @@ Replace the construction of `official_tools`, `harness_tools`, `_catalog`, and `
             )
 ```
 
-- [ ] **Step 5: Add register_tool and catalog entry creation**
+- [x] **Step 5: Add register_tool and catalog entry creation**
 
 Add these methods to `ToolRuntime` before `schemas()`:
 
@@ -394,7 +394,7 @@ Add these methods to `ToolRuntime` before `schemas()`:
         )
 ```
 
-- [ ] **Step 6: Include source metadata in observations**
+- [x] **Step 6: Include source metadata in observations**
 
 In `ToolRuntime.execute_with_interrupt`, inside the existing block that adds catalog metadata to `observation.data`, add:
 
@@ -405,7 +405,7 @@ In `ToolRuntime.execute_with_interrupt`, inside the existing block that adds cat
 
 The final block should include `tool_label`, `permission_category`, renderer keys, and source keys.
 
-- [ ] **Step 7: Run runtime registration tests**
+- [x] **Step 7: Run runtime registration tests**
 
 Run:
 
@@ -415,7 +415,7 @@ uv run pytest tests/test_dynamic_tool_registration.py::test_register_tool_adds_s
 
 Expected: PASS.
 
-- [ ] **Step 8: Run existing tool runtime tests**
+- [x] **Step 8: Run existing tool runtime tests**
 
 Run:
 
@@ -425,7 +425,7 @@ uv run pytest tests/test_tools_package.py -v
 
 Expected: PASS. Existing tool count remains 20 and legacy aliases stay absent.
 
-- [ ] **Step 9: Commit Task 1**
+- [x] **Step 9: Commit Task 1**
 
 ```bash
 git add src/embedagent/tools/runtime.py tests/test_dynamic_tool_registration.py
@@ -440,7 +440,7 @@ git commit -m "feat: add dynamic tool runtime registry"
 - Modify: `src/embedagent/permissions.py`
 - Modify: `tests/test_permissions.py`
 
-- [ ] **Step 1: Write failing metadata permission tests**
+- [x] **Step 1: Write failing metadata permission tests**
 
 Append these tests to `tests/test_permissions.py` inside `TestPermissionPolicy`:
 
@@ -487,7 +487,7 @@ Append these tests to `tests/test_permissions.py` inside `TestPermissionPolicy`:
         self.assertEqual(decision.details.get("category"), "other")
 ```
 
-- [ ] **Step 2: Run permission tests and verify they fail**
+- [x] **Step 2: Run permission tests and verify they fail**
 
 Run:
 
@@ -497,7 +497,7 @@ uv run pytest tests/test_permissions.py::TestPermissionPolicy::test_metadata_cat
 
 Expected: FAIL because `PermissionPolicy.__init__` does not accept `category_lookup` and `set_category_lookup()` does not exist.
 
-- [ ] **Step 3: Add official permission categories and lookup plumbing**
+- [x] **Step 3: Add official permission categories and lookup plumbing**
 
 Modify imports in `src/embedagent/permissions.py`:
 
@@ -533,7 +533,7 @@ Add this public setter after `build_request()`:
         self._category_lookup = category_lookup
 ```
 
-- [ ] **Step 4: Use metadata lookup before static tool sets**
+- [x] **Step 4: Use metadata lookup before static tool sets**
 
 Add this helper above `_category_for_action()`:
 
@@ -562,7 +562,7 @@ Update `_category_for_action()` so the first lines are:
 
 Keep the existing static set fallback after those lines.
 
-- [ ] **Step 5: Run permission tests**
+- [x] **Step 5: Run permission tests**
 
 Run:
 
@@ -572,7 +572,7 @@ uv run pytest tests/test_permissions.py -v
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit Task 2**
+- [x] **Step 6: Commit Task 2**
 
 ```bash
 git add src/embedagent/permissions.py tests/test_permissions.py
@@ -587,7 +587,7 @@ git commit -m "feat: classify dynamic tool permissions"
 - Modify: `src/embedagent/extensions.py`
 - Modify: `tests/test_dynamic_tool_registration.py`
 
-- [ ] **Step 1: Write failing extension registration tests**
+- [x] **Step 1: Write failing extension registration tests**
 
 Append this code to `tests/test_dynamic_tool_registration.py`:
 
@@ -663,7 +663,7 @@ def test_extension_tool_registration_failure_records_diagnostic(tmp_path):
     assert diagnostics[0]["metadata"]["reason"] == "test"
 ```
 
-- [ ] **Step 2: Run extension registration tests and verify they fail**
+- [x] **Step 2: Run extension registration tests and verify they fail**
 
 Run:
 
@@ -673,7 +673,7 @@ uv run pytest tests/test_dynamic_tool_registration.py::test_extension_manager_re
 
 Expected: FAIL because `ToolRegistrationEvent`, `ToolRegistrationResult`, and `ExtensionManager.register_tools()` do not exist.
 
-- [ ] **Step 3: Add registration dataclasses**
+- [x] **Step 3: Add registration dataclasses**
 
 In `src/embedagent/extensions.py`, add these dataclasses after `ResourcesDiscoverResult`:
 
@@ -694,7 +694,7 @@ class ToolRegistrationResult:
     metadata: Dict[str, Any] = field(default_factory=dict)
 ```
 
-- [ ] **Step 4: Add structured diagnostic helper**
+- [x] **Step 4: Add structured diagnostic helper**
 
 In `ExtensionManager`, replace `_record_hook_error()` with:
 
@@ -723,7 +723,7 @@ In `ExtensionManager`, replace `_record_hook_error()` with:
 
 Existing diagnostics tests should continue to pass because `to_dict()` output keeps the same top-level keys.
 
-- [ ] **Step 5: Add ExtensionManager.register_tools()**
+- [x] **Step 5: Add ExtensionManager.register_tools()**
 
 Add this method to `ExtensionManager` after `discover_resources()`:
 
@@ -768,7 +768,7 @@ Add this method to `ExtensionManager` after `discover_resources()`:
                         raise
 ```
 
-- [ ] **Step 6: Run extension registration tests**
+- [x] **Step 6: Run extension registration tests**
 
 Run:
 
@@ -778,7 +778,7 @@ uv run pytest tests/test_dynamic_tool_registration.py::test_extension_manager_re
 
 Expected: PASS.
 
-- [ ] **Step 7: Run Slice 1 capability extension tests**
+- [x] **Step 7: Run Slice 1 capability extension tests**
 
 Run:
 
@@ -788,7 +788,7 @@ uv run pytest tests/test_capability_extensions.py tests/test_workflow_extensions
 
 Expected: PASS.
 
-- [ ] **Step 8: Commit Task 3**
+- [x] **Step 8: Commit Task 3**
 
 ```bash
 git add src/embedagent/extensions.py tests/test_dynamic_tool_registration.py
@@ -804,7 +804,7 @@ git commit -m "feat: add extension tool registration hook"
 - Modify: `src/embedagent/inprocess_adapter.py`
 - Modify: `tests/test_dynamic_tool_registration.py`
 
-- [ ] **Step 1: Write failing QueryEngine and adapter tests**
+- [x] **Step 1: Write failing QueryEngine and adapter tests**
 
 Append this code to `tests/test_dynamic_tool_registration.py`:
 
@@ -937,7 +937,7 @@ def test_inprocess_adapter_catalog_includes_active_extension_tool(tmp_path):
     assert entry["permission_category"] == "read"
 ```
 
-- [ ] **Step 2: Run integration tests and verify they fail**
+- [x] **Step 2: Run integration tests and verify they fail**
 
 Run:
 
@@ -947,7 +947,7 @@ uv run pytest tests/test_dynamic_tool_registration.py::test_query_engine_dynamic
 
 Expected: FAIL because QueryEngine and InProcessAdapter do not synchronize extension tool registrations and `PermissionPolicy` is not wired to tool catalog metadata.
 
-- [ ] **Step 3: Wire QueryEngine permission category lookup**
+- [x] **Step 3: Wire QueryEngine permission category lookup**
 
 Modify the extension import in `src/embedagent/query_engine.py`:
 
@@ -982,7 +982,7 @@ Add this helper near `_extension_context()`:
         return str(entry.get("permission_category") or "")
 ```
 
-- [ ] **Step 4: Add QueryEngine extension tool synchronization**
+- [x] **Step 4: Add QueryEngine extension tool synchronization**
 
 Add this method after `_workflow_event()`:
 
@@ -1018,7 +1018,7 @@ In `initialize_session()`, after `current_mode = require_mode(initial_mode)["slu
 
 This ensures schema projection and direct command execution see extension tools before the model/tool loop starts.
 
-- [ ] **Step 5: Wire InProcessAdapter permission lookup and catalog synchronization**
+- [x] **Step 5: Wire InProcessAdapter permission lookup and catalog synchronization**
 
 Modify imports in `src/embedagent/inprocess_adapter.py`:
 
@@ -1077,7 +1077,7 @@ At the start of `get_tool_catalog()`, add:
         self._ensure_extension_tools_registered(reason="catalog")
 ```
 
-- [ ] **Step 6: Include source metadata in adapter tool events**
+- [x] **Step 6: Include source metadata in adapter tool events**
 
 In `InProcessAdapter._tool_event_metadata()`, add these keys to the returned dictionary:
 
@@ -1088,7 +1088,7 @@ In `InProcessAdapter._tool_event_metadata()`, add these keys to the returned dic
 
 Keep existing keys unchanged.
 
-- [ ] **Step 7: Run dynamic integration tests**
+- [x] **Step 7: Run dynamic integration tests**
 
 Run:
 
@@ -1098,7 +1098,7 @@ uv run pytest tests/test_dynamic_tool_registration.py -v
 
 Expected: PASS.
 
-- [ ] **Step 8: Run focused QueryEngine and adapter regression tests**
+- [x] **Step 8: Run focused QueryEngine and adapter regression tests**
 
 Run:
 
@@ -1108,7 +1108,7 @@ uv run pytest tests/test_capability_extensions.py tests/test_workflow_extensions
 
 Expected: PASS.
 
-- [ ] **Step 9: Commit Task 4**
+- [x] **Step 9: Commit Task 4**
 
 ```bash
 git add src/embedagent/query_engine.py src/embedagent/inprocess_adapter.py tests/test_dynamic_tool_registration.py
@@ -1129,7 +1129,7 @@ git commit -m "feat: wire extension tools into agent runtime"
 - Modify: `docs/development-tracker.md`
 - Modify: `docs/design-change-log.md`
 
-- [ ] **Step 1: Update README runtime direction**
+- [x] **Step 1: Update README runtime direction**
 
 In `README.md`, update the extension-runtime bullet near the top to mention dynamic tool registration:
 
@@ -1137,7 +1137,7 @@ In `README.md`, update the extension-runtime bullet near the top to mention dyna
 - Official extension runtime direction: `ExtensionManager` is the shared in-process capability boundary for workflow defaults, prompt/context hooks, tool-call/tool-result hooks, resource discovery contracts, dynamic in-process tool registration, and extension diagnostics; project-local Python code loading remains deferred
 ```
 
-- [ ] **Step 2: Update AGENTS.md architecture vocabulary**
+- [x] **Step 2: Update AGENTS.md architecture vocabulary**
 
 In `AGENTS.md`, update the `ExtensionManager` paragraph under Harness:
 
@@ -1151,7 +1151,7 @@ In the Tooling section, add this paragraph after the `ToolRuntime.schemas_for(mo
 Dynamic in-process extension tools are registered into the shared `ToolRuntime` with source metadata and explicit permission categories. A registered extension tool is model-visible only when active through the shared `ExtensionManager.allowed_tool_names(mode_name, workflow_state=workflow_state)` path and remains subject to `PermissionPolicy`.
 ```
 
-- [ ] **Step 3: Update overall architecture**
+- [x] **Step 3: Update overall architecture**
 
 In `docs/overall-solution-architecture.md`, add a short paragraph to the Agent Core Layer section:
 
@@ -1159,7 +1159,7 @@ In `docs/overall-solution-architecture.md`, add a short paragraph to the Agent C
 Slice 2 makes the tool runtime source-aware and dynamically extensible. In-process extensions can register `ToolDefinition` objects into the shared `ToolRuntime`; source metadata is projected through the existing catalog, and active-tool visibility still flows through `ExtensionManager.allowed_tool_names(mode_name, workflow_state=workflow_state)`.
 ```
 
-- [ ] **Step 4: Update tool contracts**
+- [x] **Step 4: Update tool contracts**
 
 In `docs/tool-contracts.md`, add this section after the extension tool hooks section:
 
@@ -1177,7 +1177,7 @@ In-process extensions may register tools into the shared `ToolRuntime` through t
 Registration does not make a tool active by itself. A dynamic tool appears in model schemas and frontend catalog views only when its name is active through `ExtensionManager.allowed_tool_names(mode_name, workflow_state=workflow_state)`. Extensions cannot replace built-in tools in this slice.
 ```
 
-- [ ] **Step 5: Update permission model**
+- [x] **Step 5: Update permission model**
 
 In `docs/permission-model.md`, add this paragraph to the tool categories section:
 
@@ -1185,7 +1185,7 @@ In `docs/permission-model.md`, add this paragraph to the tool categories section
 Dynamic extension tools are classified through `ToolRuntime` catalog metadata. `PermissionPolicy` may receive a category lookup bound to the active runtime; if a registered extension tool declares `workspace_write`, `shell_exec`, `toolchain_exec`, or `git_write`, the same approval and rule paths apply as for built-in tools. Unknown tools without valid metadata remain `other` and should not be used as a shortcut for privileged behavior.
 ```
 
-- [ ] **Step 6: Update frontend protocol**
+- [x] **Step 6: Update frontend protocol**
 
 In `docs/frontend-protocol.md`, update the tool catalog item documentation to include:
 
@@ -1200,7 +1200,7 @@ Add:
 Frontends may display dynamic tool source metadata for diagnostics or future extension management. They must continue to treat tool permission behavior as backend-owned and derive permission prompts only from backend events.
 ```
 
-- [ ] **Step 7: Update tracker and changelog**
+- [x] **Step 7: Update tracker and changelog**
 
 Append this section to `docs/development-tracker.md`:
 
@@ -1220,7 +1220,7 @@ Append this section to `docs/design-change-log.md`:
 Accepted dynamic in-process tool registration as the second self-extensible Agent Core slice. Tool registration is source-aware, active-tool gated, and permission-classified through runtime catalog metadata. Built-in tool replacement, project-local Python loading, and resource reload remain deferred.
 ```
 
-- [ ] **Step 8: Run documentation vocabulary check**
+- [x] **Step 8: Run documentation vocabulary check**
 
 Run:
 
@@ -1230,7 +1230,7 @@ rg -n "manage_todos| code mode|code mode|Session.task_graph" README.md AGENTS.md
 
 Expected: no matches for reintroduced deprecated vocabulary in the edited sections.
 
-- [ ] **Step 9: Commit Task 5**
+- [x] **Step 9: Commit Task 5**
 
 ```bash
 git add README.md AGENTS.md docs/overall-solution-architecture.md docs/tool-contracts.md docs/permission-model.md docs/frontend-protocol.md docs/development-tracker.md docs/design-change-log.md
@@ -1244,7 +1244,7 @@ git commit -m "docs: document dynamic tool registration"
 **Files:**
 - Verify only; no planned source edits.
 
-- [ ] **Step 1: Run dynamic and extension-focused tests**
+- [x] **Step 1: Run dynamic and extension-focused tests**
 
 Run:
 
@@ -1254,7 +1254,7 @@ uv run pytest tests/test_dynamic_tool_registration.py tests/test_capability_exte
 
 Expected: PASS.
 
-- [ ] **Step 2: Run permission and tool runtime tests**
+- [x] **Step 2: Run permission and tool runtime tests**
 
 Run:
 
@@ -1264,7 +1264,7 @@ uv run pytest tests/test_permissions.py tests/test_tools_package.py -v
 
 Expected: PASS.
 
-- [ ] **Step 3: Run QueryEngine and frontend adapter regression tests**
+- [x] **Step 3: Run QueryEngine and frontend adapter regression tests**
 
 Run:
 
@@ -1274,7 +1274,7 @@ uv run pytest tests/test_query_engine_refactor.py tests/test_query_engine_build_
 
 Expected: PASS.
 
-- [ ] **Step 4: Run fast suite with workspace temp directory**
+- [x] **Step 4: Run fast suite with workspace temp directory**
 
 Run:
 
@@ -1284,7 +1284,7 @@ $tmp = Join-Path (Get-Location) '.pytest-envtmp'; New-Item -ItemType Directory -
 
 Expected: PASS. The `TMP` and `TEMP` override avoids known ACL problems with the default user temp pytest directory on this machine.
 
-- [ ] **Step 5: Run focused lint**
+- [x] **Step 5: Run focused lint**
 
 Run:
 
@@ -1294,7 +1294,7 @@ uv run ruff check src/embedagent/tools/runtime.py src/embedagent/extensions.py s
 
 Expected: PASS.
 
-- [ ] **Step 6: Inspect final git state**
+- [x] **Step 6: Inspect final git state**
 
 Run:
 

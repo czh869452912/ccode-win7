@@ -408,6 +408,11 @@ class CoreInterface(ABC):
         pass
 
     @abstractmethod
+    def reload_resources(self, session_id: str = "", reason: str = "api") -> Dict[str, Any]:
+        """重新发现本地资源"""
+        pass
+
+    @abstractmethod
     def list_workspace_tree(self, path: str = ".", max_depth: int = 3) -> List[Dict[str, Any]]:
         """列出工作区树"""
         pass

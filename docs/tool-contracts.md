@@ -46,6 +46,18 @@ In-process extensions may register tools into the shared `ToolRuntime` through t
 
 Registration does not make a tool active by itself. A dynamic tool appears in model schemas and frontend catalog views only when its name is active through `ExtensionManager.allowed_tool_names(mode_name, workflow_state=workflow_state)`. Extensions cannot replace built-in tools in this slice.
 
+## Local Resource Reload
+
+Workspace-local resources are file-only inputs to the runtime:
+
+- `.embedagent/skills/*.md` and `.embedagent/skills/*.txt`
+- `.embedagent/prompts/*.md` and `.embedagent/prompts/*.txt`
+- `.embedagent/recipes/*.json`
+
+`ToolRuntime.reload_resources()` refreshes the cached resource snapshot. Hosted product paths expose the same operation through `InProcessAdapter.reload_resources(...)`, `/resources reload`, and `POST /api/sessions/{session_id}/resources/reload`.
+
+Recipe JSON resources feed the existing `list_recipes` and `run_recipe` contract. Skills and prompts are discovered and surfaced with diagnostics, but they are not executed as project-local Python code. Reload appends transcript-backed `resource_discovered` and `resource_reloaded` events for session-scoped auditability.
+
 ## 2. Official Workflow Tools
 
 ### File / Discovery

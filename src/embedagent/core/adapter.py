@@ -568,6 +568,9 @@ class AgentCoreAdapter(CoreInterface):
     def list_workspace_recipes(self) -> Dict[str, Any]:
         return self._adapter.list_workspace_recipes()
 
+    def reload_resources(self, session_id: str = "", reason: str = "api") -> Dict[str, Any]:
+        return self._adapter.reload_resources(session_id=session_id, reason=reason)
+
     def list_workspace_tree(self, path: str = ".", max_depth: int = 3) -> List[Dict[str, Any]]:
         result = self._adapter.list_workspace_tree(path, max_depth)
         return result.get("items", [])

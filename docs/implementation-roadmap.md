@@ -49,6 +49,8 @@ Recent workflow-boundary work has started slimming Agent Core without changing t
 - `ToolRuntime.schemas_for(mode, workflow_state, tool_names=...)` is now the single runtime schema projection entry point; default-harness paths use extension-active explicit tool names
 - `TurnOrchestrator` receives an injected allowed-tool policy from `QueryEngine` instead of calling runtime allowed-tool aliases
 - `InProcessAdapter` now owns one `ExtensionManager` shared with session-scoped `QueryEngine` and frontend tool catalog visibility
+- `ExtensionManager` now carries generic diagnostics, resource discovery hooks, context hooks, tool-call/tool-result hooks, and dynamic in-process tool registration
+- local file resources under `.embedagent/skills`, `.embedagent/prompts`, and `.embedagent/recipes` can be refreshed through the runtime, adapter, slash command, and GUI/core API; recipe JSON files feed the existing recipe contract
 - `HarnessStateSynchronizer` has been removed; product refresh uses `CHarnessWorkflowExtension.refresh_managed_session()` through the default harness extension directly
 - `StreamingToolExecutor` now window-schedules parallel read batches so failure/discard semantics are deterministic
 
@@ -81,7 +83,7 @@ Remaining cleanup should focus on:
 Near-term decoupling should continue from the new extension boundary:
 
 - default extension configuration is closed for the current baseline: hosted product paths use `default_extensions.py`, while bare `QueryEngine` callers pass an `ExtensionManager` explicitly when they need bundled C harness behavior
-- keep project-local extension discovery, remote registries, plugin marketplaces, and multi-agent orchestration out of scope
+- keep project-local Python extension loading, remote registries, plugin marketplaces, and multi-agent orchestration out of scope
 
 ### 4.3 Documentation Alignment
 

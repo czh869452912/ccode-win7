@@ -147,6 +147,21 @@ class _FakeCoreWithTimeline(_FakeCore):
         }
 
 
+class _ResourceReloadCore(_FakeCore):
+    def __init__(self):
+        super().__init__()
+        self.reload_calls = []
+
+    def reload_resources(self, session_id, reason="api"):
+        self.reload_calls.append((session_id, reason))
+        return {
+            "workspace": "D:/workspace",
+            "reason": reason,
+            "counts": {"skills": 1, "prompts": 0, "recipes": 2},
+            "diagnostics": [],
+        }
+
+
 class _ErrorCore(_FakeCore):
     def __init__(self, error_text):
         super().__init__()
@@ -379,6 +394,27 @@ class TestGuiBackendApi(unittest.TestCase):
         self.assertIn("history", payload)
         self.assertIn("plan", payload)
         self.assertIn("permission_context", payload)
+
+    def test_reload_resources_endpoint_calls_core_with_session_context(self):
+        with tempfile.TemporaryDirectory() as static_dir:
+            with open(os.path.join(static_dir, "index.html"), "w", encoding="utf-8") as handle:
+                handle.write("<html><body>ok</body></html>")
+            core = _ResourceReloadCore()
+            backend = GUIBackend(core, static_dir=static_dir)
+            route = None
+            for item in backend.app.routes:
+                if getattr(
+                    item, "path", ""
+                ) == "/api/sessions/{session_id}/resources/reload" and "POST" in getattr(
+                    item, "methods", set()
+                ):
+                    route = item
+                    break
+            self.assertIsNotNone(route)
+            payload = asyncio.run(route.endpoint("sess-1"))
+        self.assertEqual(core.reload_calls, [("sess-1", "api")])
+        self.assertEqual(payload["reason"], "api")
+        self.assertEqual(payload["counts"]["skills"], 1)
 
     def test_session_lookup_errors_return_404_instead_of_500(self):
         with tempfile.TemporaryDirectory() as static_dir:

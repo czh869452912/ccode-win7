@@ -1,6 +1,6 @@
 # EmbedAgent 设计与变更跟踪
 
-> 更新日期：2026-06-04
+> 更新日期：2026-06-05
 > 用途：记录关键设计变更、影响范围、关联文档和后续动作
 
 ---
@@ -44,6 +44,45 @@
 
 ## 3. 当前变更记录
 
+### DC-125
+
+- 日期：2026-06-05
+- 变更主题：Local resource reload Slice 3 落地
+- 变更摘要：
+  - 接受 file-only local resources 作为 self-extensible Agent Core 的第三实现 slice
+  - 新增 `src/embedagent/local_resources.py`，发现 workspace-bound `.embedagent/skills`、`.embedagent/prompts` 与 `.embedagent/recipes` 资源
+  - `.embedagent/recipes/*.json` 进入既有 workspace recipe contract，继续通过 `list_recipes` / `run_recipe` 使用
+  - `ToolRuntime.reload_resources()`、`InProcessAdapter.reload_resources(...)`、`/resources reload` 与 `POST /api/sessions/{session_id}/resources/reload` 形成显式刷新路径
+  - session-scoped reload 写入 `resource_discovered` / `resource_reloaded` transcript events，并把最新状态投影到 `Session.workflow_state["extensions"]["local_resources"]`
+  - skills/prompts 只作为文件资源发现，不执行 project-local Python code
+- 影响范围：
+  - `src/embedagent/local_resources.py`
+  - `src/embedagent/workspace_recipes.py`
+  - `src/embedagent/tools/runtime.py`
+  - `src/embedagent/tools/_base.py`
+  - `src/embedagent/inprocess_adapter.py`
+  - `src/embedagent/core/adapter.py`
+  - `src/embedagent/protocol/__init__.py`
+  - `src/embedagent/frontend/gui/backend/server.py`
+  - slash command contract
+  - frontend/core API contract
+- 关联文档：
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/tool-contracts.md`
+  - `docs/frontend-protocol.md`
+  - `docs/mode-schema.md`
+  - `docs/permission-model.md`
+  - `docs/agent-harness-v2.md`
+  - `docs/development-tracker.md`
+  - `docs/superpowers/plans/2026-06-05-local-resource-reload.md`
+- 是否需要 ADR：`否，属于已批准 self-extensible Agent Core 方向的第三实现 slice`
+- 后续动作：
+  - 归档已完成 Slice 1/2 design 与 plan 文档
+  - 另行设计 project-local Python extension loading 的离线安全边界
+
 ### DC-124
 
 - 日期：2026-06-04
@@ -53,7 +92,7 @@
   - `ToolRuntime` 现在是 source-aware registry，in-process extensions 可注册带 source metadata 的 `ToolDefinition`
   - `QueryEngine` 与 `InProcessAdapter` 在 schema/catalog 边界前同步 extension tool registration，动态工具仍必须通过 `ExtensionManager.allowed_tool_names(...)` 激活后才可见
   - `PermissionPolicy` 通过 runtime catalog metadata 分类动态工具，privileged dynamic tools 继续走同一 ask/rule 路径
-  - built-in tool replacement、project-local Python loading 与 reload command 仍保持 deferred
+  - built-in tool replacement 与 project-local Python loading 仍保持 deferred；file-only resource reload 已在 Slice 3 落地
 - 影响范围：
   - `src/embedagent/tools/runtime.py`
   - `src/embedagent/extensions.py`
@@ -69,12 +108,12 @@
   - `docs/permission-model.md`
   - `docs/frontend-protocol.md`
   - `docs/development-tracker.md`
-  - `docs/superpowers/specs/2026-06-04-dynamic-tool-registration-design.md`
-  - `docs/superpowers/plans/2026-06-04-dynamic-tool-registration.md`
+  - `docs/archive/self-extensible-agent-core/2026-06-04-dynamic-tool-registration-design.md`
+  - `docs/archive/self-extensible-agent-core/2026-06-04-dynamic-tool-registration.md`
 - 是否需要 ADR：`否，属于已批准 self-extensible Agent Core 方向的第二实现 slice`
 - 后续动作：
   - 设计并实现 project-local extension loading 的离线安全边界
-  - 设计 extension reload command/API 与资源发现刷新
+  - 评估是否允许 built-in tool replacement，并单独设计权限边界
 
 ### DC-123
 
@@ -84,7 +123,7 @@
   - 接受 Pi-inspired microkernel 方向，将 `ExtensionManager` 从默认 C/C++ workflow boundary 推进为共享 in-process capability boundary
   - 新增通用 extension diagnostics、resource discovery contract、context hook、tool-call/tool-result hooks 与 session snapshot diagnostics
   - 默认 C/C++ harness 行为保持通过 bundled workflow extension 接入，`QueryEngine` 继续不直接 import/构造默认 harness extension
-  - project-local Python extension loading、dynamic tool registration、resource reload command 仍保留为显式后续 slice
+  - project-local Python extension loading 仍保留为显式后续 slice；dynamic tool registration 与 file-only resource reload 已在后续 slices 落地
 - 影响范围：
   - `src/embedagent/extensions.py`
   - `src/embedagent/query_engine.py`
@@ -98,12 +137,12 @@
   - `docs/tool-contracts.md`
   - `docs/frontend-protocol.md`
   - `docs/development-tracker.md`
-  - `docs/superpowers/specs/2026-06-04-self-extensible-agent-core-design.md`
-  - `docs/superpowers/plans/2026-06-04-capability-extension-contract.md`
+  - `docs/archive/self-extensible-agent-core/2026-06-04-self-extensible-agent-core-design.md`
+  - `docs/archive/self-extensible-agent-core/2026-06-04-capability-extension-contract.md`
 - 是否需要 ADR：`否，属于已批准 self-extensible Agent Core 方向的第一实现 slice`
 - 后续动作：
   - 设计并实现 project-local extension loading 的离线安全边界
-  - 将 skill/prompt/recipe discovery 与 reload command 作为后续 slice 推进
+  - 基于 local resource reload 结果评估是否需要 frontend resource inspector
 
 ### DC-122
 

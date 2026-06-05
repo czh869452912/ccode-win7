@@ -18,7 +18,7 @@ Included:
 - Parse `.embedagent/recipes/*.json` recipe files into the existing workspace recipe contract.
 - Merge extension-contributed resource paths through `ExtensionManager.discover_resources(...)`.
 - Add `ToolRuntime.reload_resources()` / `local_resources()` as the runtime API.
-- Add `InProcessAdapter.reload_resources(...)` and `/resources reload` as the hosted API/command.
+- Add `InProcessAdapter.reload_resources(...)`, `/resources reload`, and the GUI/core reload route as the hosted API/command surface.
 - Append `resource_discovered` / `resource_reloaded` transcript events with counts and diagnostics.
 - Update durable architecture docs and mark Slice 1/2 governance tail items.
 
@@ -48,6 +48,9 @@ Excluded:
 - Modify `src/embedagent/inprocess_adapter.py`
   - Merge extension resource paths, update tool runtime, write transcript events, project resource state, and implement `/resources`.
 
+- Modify `src/embedagent/protocol/__init__.py`, `src/embedagent/core/adapter.py`, and `src/embedagent/frontend/gui/backend/server.py`
+  - Expose `reload_resources(...)` through the stable frontend/core API and `POST /api/sessions/{session_id}/resources/reload`.
+
 - Modify `src/embedagent/slash_commands.py`
   - Register `/resources [reload]`.
 
@@ -71,35 +74,35 @@ Excluded:
 
 ### Task 1: Local Resource Scanner
 
-- [ ] Write failing tests for skill/prompt discovery and recipe JSON parsing.
-- [ ] Implement `local_resources.discover_local_resources(...)`.
-- [ ] Run scanner tests.
-- [ ] Commit scanner.
+- [x] Write failing tests for skill/prompt discovery and recipe JSON parsing.
+- [x] Implement `local_resources.discover_local_resources(...)`.
+- [x] Run scanner tests.
+- [x] Commit scanner.
 
 ### Task 2: Runtime Recipe Integration
 
-- [ ] Write failing tests proving `.embedagent/recipes/*.json` appears in `list_workspace_recipes()` and `run_recipe`.
-- [ ] Wire resource recipe paths through `workspace_recipes.py`, `ToolContext`, and `ToolRuntime`.
-- [ ] Run recipe/runtime focused tests.
-- [ ] Commit runtime integration.
+- [x] Write failing tests proving `.embedagent/recipes/*.json` appears in `list_workspace_recipes()` and `run_recipe`.
+- [x] Wire resource recipe paths through `workspace_recipes.py`, `ToolContext`, and `ToolRuntime`.
+- [x] Run recipe/runtime focused tests.
+- [x] Commit runtime integration.
 
 ### Task 3: Adapter Reload Command/API
 
-- [ ] Write failing tests for `InProcessAdapter.reload_resources(...)`, `/resources reload`, transcript events, and extension-contributed resource paths.
-- [ ] Implement adapter reload plumbing and slash command.
-- [ ] Run adapter/resource tests.
-- [ ] Commit reload command/API.
+- [x] Write failing tests for `InProcessAdapter.reload_resources(...)`, `/resources reload`, GUI/core API, transcript events, and extension-contributed resource paths.
+- [x] Implement adapter reload plumbing, GUI/core API, and slash command.
+- [x] Run adapter/resource tests.
+- [x] Commit reload command/API.
 
 ### Task 4: Documentation And Slice Governance
 
-- [ ] Update source-of-truth docs to state local resource discovery/reload is official while Python extension loading remains deferred.
-- [ ] Mark Slice 2 plan checkboxes complete and add archive-ready notes for completed Slice 1/2 materials.
-- [ ] Add Slice 3 tracker and design-change entries.
-- [ ] Commit docs.
+- [x] Update source-of-truth docs to state local resource discovery/reload is official while Python extension loading remains deferred.
+- [x] Mark Slice 2 plan checkboxes complete and add archive-ready notes for completed Slice 1/2 materials.
+- [x] Add Slice 3 tracker and design-change entries.
+- [x] Commit docs.
 
 ### Task 5: Final Verification
 
-- [ ] Run `uv run pytest tests/test_local_resources.py tests/test_tools_package.py tests/test_inprocess_adapter_frontend_api.py tests/test_dynamic_tool_registration.py tests/test_capability_extensions.py tests/test_workflow_extensions.py -v`.
-- [ ] Run fast suite with workspace temp directory.
-- [ ] Run focused `ruff check`.
-- [ ] Inspect final git state.
+- [x] Run `uv run pytest tests/test_local_resources.py tests/test_tools_package.py tests/test_inprocess_adapter_frontend_api.py tests/test_dynamic_tool_registration.py tests/test_capability_extensions.py tests/test_workflow_extensions.py -v`.
+- [x] Run fast suite with workspace temp directory.
+- [x] Run focused `ruff check`.
+- [x] Inspect final git state.

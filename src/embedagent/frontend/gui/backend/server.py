@@ -679,6 +679,10 @@ class GUIBackend:
         async def get_workspace_recipes():
             return self.core.list_workspace_recipes()
 
+        @app.post("/api/sessions/{session_id}/resources/reload")
+        async def reload_session_resources(session_id: str):
+            return self._call_core(self.core.reload_resources, session_id, reason="api")
+
         @app.get("/api/tool-catalog")
         async def get_tool_catalog():
             return {"items": self.core.get_tool_catalog()}
