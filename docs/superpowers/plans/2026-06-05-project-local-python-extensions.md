@@ -162,7 +162,7 @@ git commit -m "feat: discover project extension manifests"
 - Modify: `src/embedagent/project_extensions.py`
 - Test: `tests/test_project_extensions.py`
 
-- [ ] **Step 1: Write failing tests for enabled extension loading and API path guards**
+- [x] **Step 1: Write failing tests for enabled extension loading and API path guards**
 
 Add tests:
 
@@ -235,7 +235,7 @@ def test_project_extension_api_blocks_path_escape(tmp_path):
     assert payload["diagnostics"] == []
 ```
 
-- [ ] **Step 2: Run tests to verify RED**
+- [x] **Step 2: Run tests to verify RED**
 
 Run:
 
@@ -245,7 +245,7 @@ uv run pytest tests/test_project_extensions.py::test_enabled_extension_create_ex
 
 Expected: FAIL because enabled import is not implemented.
 
-- [ ] **Step 3: Implement import and API**
+- [x] **Step 3: Implement import and API**
 
 Update `project_extensions.py`:
 
@@ -259,7 +259,7 @@ Update `project_extensions.py`:
 
 Catch `OSError`, `ValueError`, `RuntimeError`, `TypeError`, and `ImportError` as diagnostics with status `failed`.
 
-- [ ] **Step 4: Run tests to verify GREEN**
+- [x] **Step 4: Run tests to verify GREEN**
 
 Run:
 
@@ -269,7 +269,7 @@ uv run pytest tests/test_project_extensions.py -v
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit Task 2**
+- [x] **Step 5: Commit Task 2**
 
 ```bash
 git add src/embedagent/project_extensions.py tests/test_project_extensions.py

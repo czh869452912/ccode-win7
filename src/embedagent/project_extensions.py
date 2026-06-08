@@ -1,13 +1,56 @@
-from __future__ import annotations
-
+import importlib.util
 import json
 import os
 import re
+import sys
 from typing import Any, Dict, List, Optional
 
 DEFAULT_EXTENSION_RELPATH = os.path.join(".embedagent", "extensions")
 _VALID_EXTENSION_ID_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_.-]*$")
-_ALLOWED_PERMISSIONS = set(["read", "workspace_write", "shell_exec", "toolchain_exec", "git_write"])
+_ALLOWED_PERMISSIONS = set(
+    ["read", "workspace_write", "shell_exec", "toolchain_exec", "git_write"]
+)
+
+
+class ProjectExtensionApi(object):
+    def __init__(self, workspace: str, extension_id: str, manifest: Dict[str, Any]) -> None:
+        from embedagent.extensions import (
+            ContextPatch,
+            PromptPatch,
+            ResourcesDiscoverResult,
+            ToolCallDecision,
+            ToolRegistrationResult,
+            ToolResultPatch,
+            WorkflowPatch,
+        )
+        from embedagent.session import Observation
+        from embedagent.tools import ToolDefinition
+
+        self.workspace = os.path.realpath(workspace)
+        self.extension_id = str(extension_id or "")
+        self.manifest = dict(manifest)
+        self.permissions = list(manifest.get("permissions") or [])
+        self.ContextPatch = ContextPatch
+        self.Observation = Observation
+        self.PromptPatch = PromptPatch
+        self.ResourcesDiscoverResult = ResourcesDiscoverResult
+        self.ToolCallDecision = ToolCallDecision
+        self.ToolDefinition = ToolDefinition
+        self.ToolRegistrationResult = ToolRegistrationResult
+        self.ToolResultPatch = ToolResultPatch
+        self.WorkflowPatch = WorkflowPatch
+
+    def safe_join(self, *parts: str) -> str:
+        path = os.path.join(*[str(part or "") for part in parts]) if parts else "."
+        return _resolve_inside(self.workspace, path)
+
+    def read_text(self, relative_path: str, max_chars: int = 40000) -> str:
+        limit = int(max_chars)
+        if limit < 0:
+            raise ValueError("max_chars must be non-negative")
+        path = self.safe_join(relative_path)
+        with open(path, "r", encoding="utf-8") as handle:
+            return handle.read(limit)
 
 
 def load_project_extensions(
@@ -35,7 +78,12 @@ def load_project_extensions(
     if not os.path.isdir(root):
         return _payload(workspace_root, entries, diagnostics, loaded_extensions)
     for extension_dir in _iter_extension_dirs(root):
-        entry = _load_manifest_entry(workspace_root, extension_dir, diagnostics)
+        entry = _load_manifest_entry(
+            workspace_root,
+            extension_dir,
+            diagnostics,
+            loaded_extensions,
+        )
         entries.append(entry)
     return _payload(workspace_root, entries, diagnostics, loaded_extensions)
 
@@ -57,6 +105,7 @@ def _load_manifest_entry(
     workspace: str,
     extension_dir: str,
     diagnostics: List[Dict[str, Any]],
+    loaded_extensions: List[Any],
 ) -> Dict[str, Any]:
     manifest_path = os.path.join(extension_dir, "extension.json")
     base_entry = {
@@ -88,7 +137,66 @@ def _load_manifest_entry(
     if not bool(manifest.get("enabled", False)):
         base_entry["status"] = "disabled"
         return base_entry
-    return _failed_entry(base_entry, diagnostics, extension_id, "extension loading not implemented")
+    try:
+        extension = _load_enabled_extension(
+            workspace,
+            extension_id,
+            manifest,
+            entrypoint_path,
+        )
+    except (OSError, ValueError, RuntimeError, TypeError, ImportError) as exc:
+        return _failed_entry(base_entry, diagnostics, extension_id, str(exc))
+    loaded_extensions.append(extension)
+    base_entry["status"] = "loaded"
+    return base_entry
+
+
+def _load_enabled_extension(
+    workspace: str,
+    extension_id: str,
+    manifest: Dict[str, Any],
+    entrypoint_path: str,
+) -> Any:
+    if not os.path.isfile(entrypoint_path):
+        raise OSError("extension entrypoint does not exist: %s" % entrypoint_path)
+    module_name = _module_name(extension_id, entrypoint_path)
+    spec = importlib.util.spec_from_file_location(module_name, entrypoint_path)
+    if spec is None or spec.loader is None:
+        raise ImportError("could not create module spec for extension entrypoint")
+    module = importlib.util.module_from_spec(spec)
+    previous_module = sys.modules.get(module_name)
+    sys.modules[module_name] = module
+    try:
+        spec.loader.exec_module(module)
+    except Exception:
+        if previous_module is None:
+            sys.modules.pop(module_name, None)
+        else:
+            sys.modules[module_name] = previous_module
+        raise
+    extension = None
+    factory = getattr(module, "create_extension", None)
+    if callable(factory):
+        api = ProjectExtensionApi(workspace, extension_id, manifest)
+        extension = factory(api)
+    else:
+        extension = getattr(module, "EXTENSION", None)
+    if extension is None:
+        raise RuntimeError("extension entrypoint must define create_extension(api) or EXTENSION")
+    _mark_project_extension(extension, extension_id)
+    return extension
+
+
+def _module_name(extension_id: str, entrypoint_path: str) -> str:
+    token = re.sub(r"[^A-Za-z0-9_]", "_", str(extension_id or "project_extension"))
+    return "_embedagent_project_extension_%s_%s" % (token, abs(hash(entrypoint_path)))
+
+
+def _mark_project_extension(extension: Any, extension_id: str) -> None:
+    if not str(getattr(extension, "extension_id", "") or "").strip():
+        setattr(extension, "extension_id", extension_id)
+    setattr(extension, "builtin_extension", False)
+    setattr(extension, "project_extension", True)
 
 
 def _validate_manifest(manifest: Dict[str, Any]) -> str:
