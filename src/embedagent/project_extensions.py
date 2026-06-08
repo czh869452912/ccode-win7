@@ -10,6 +10,16 @@ _VALID_EXTENSION_ID_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_.-]*$")
 _ALLOWED_PERMISSIONS = set(
     ["read", "workspace_write", "shell_exec", "toolchain_exec", "git_write"]
 )
+_LOAD_FAILURE_TYPES = (
+    OSError,
+    ValueError,
+    RuntimeError,
+    TypeError,
+    ImportError,
+    SyntaxError,
+    AttributeError,
+    NameError,
+)
 
 
 class ProjectExtensionApi(object):
@@ -144,7 +154,7 @@ def _load_manifest_entry(
             manifest,
             entrypoint_path,
         )
-    except (OSError, ValueError, RuntimeError, TypeError, ImportError) as exc:
+    except _LOAD_FAILURE_TYPES as exc:
         return _failed_entry(base_entry, diagnostics, extension_id, str(exc))
     loaded_extensions.append(extension)
     base_entry["status"] = "loaded"
@@ -166,14 +176,16 @@ def _load_enabled_extension(
     module = importlib.util.module_from_spec(spec)
     previous_module = sys.modules.get(module_name)
     sys.modules[module_name] = module
+    loaded = False
     try:
         spec.loader.exec_module(module)
-    except Exception:
-        if previous_module is None:
-            sys.modules.pop(module_name, None)
-        else:
-            sys.modules[module_name] = previous_module
-        raise
+        loaded = True
+    finally:
+        if not loaded:
+            if previous_module is None:
+                sys.modules.pop(module_name, None)
+            else:
+                sys.modules[module_name] = previous_module
     extension = None
     factory = getattr(module, "create_extension", None)
     if callable(factory):
