@@ -155,6 +155,26 @@ class ExtensionManager(object):
     def clear_diagnostics(self) -> None:
         self._diagnostics = []
 
+    def record_diagnostic(
+        self,
+        extension_id: str,
+        event: str,
+        error: str,
+        severity: str = "error",
+        source: str = "project",
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        self._diagnostics.append(
+            ExtensionDiagnostic(
+                extension_id=str(extension_id or ""),
+                event=str(event or ""),
+                error=str(error or ""),
+                severity=str(severity or "error"),
+                source=str(source or "project"),
+                metadata=dict(metadata or {}),
+            )
+        )
+
     def _extension_id(self, extension: Any) -> str:
         explicit = str(getattr(extension, "extension_id", "") or "").strip()
         if explicit:

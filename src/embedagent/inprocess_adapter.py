@@ -237,7 +237,24 @@ class InProcessAdapter(object):
         loaded_extensions = list(payload.get("loaded_extensions") or [])
         for extension in loaded_extensions:
             self.extension_manager.register(extension)
+        self._record_project_extension_diagnostics(payload)
         return self._sanitize_project_extension_state(payload)
+
+    def _record_project_extension_diagnostics(self, payload: Dict[str, Any]) -> None:
+        record = getattr(self.extension_manager, "record_diagnostic", None)
+        if not callable(record):
+            return
+        for item in list(payload.get("diagnostics") or []):
+            if not isinstance(item, dict):
+                continue
+            record(
+                str(item.get("extension_id") or ""),
+                str(item.get("event") or "load_project_extension"),
+                str(item.get("error") or ""),
+                severity=str(item.get("severity") or "error"),
+                source=str(item.get("source") or "project"),
+                metadata=dict(item.get("metadata") or {}),
+            )
 
     def _sanitize_project_extension_state(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         return {

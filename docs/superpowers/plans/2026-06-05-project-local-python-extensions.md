@@ -367,7 +367,7 @@ git commit -m "feat: load project extensions in hosted adapter"
 - Modify: `src/embedagent/inprocess_adapter.py`
 - Test: `tests/test_project_extensions.py`
 
-- [ ] **Step 1: Write failing tests for import diagnostics and dynamic tool registration**
+- [x] **Step 1: Write failing tests for import diagnostics and dynamic tool registration**
 
 Add tests:
 
@@ -455,7 +455,7 @@ def test_project_extension_dynamic_tool_uses_existing_catalog_and_permission_flo
     assert result.data["echo"] == "hi"
 ```
 
-- [ ] **Step 2: Run tests to verify RED**
+- [x] **Step 2: Run tests to verify RED**
 
 Run:
 
@@ -465,7 +465,7 @@ uv run pytest tests/test_project_extensions.py::test_project_extension_import_fa
 
 Expected: at least one FAIL because diagnostics are not mirrored or dynamic tool flow is not fully registered.
 
-- [ ] **Step 3: Add diagnostic helper and finish adapter mirroring**
+- [x] **Step 3: Add diagnostic helper and finish adapter mirroring**
 
 In `src/embedagent/extensions.py` add:
 
@@ -478,7 +478,7 @@ Use it from adapter loader integration for loader diagnostics.
 
 Ensure `get_tool_catalog()` already calls `_ensure_extension_tools_registered(reason="catalog")`, so loaded project extension tools flow through existing dynamic registration.
 
-- [ ] **Step 4: Run tests to verify GREEN**
+- [x] **Step 4: Run tests to verify GREEN**
 
 Run:
 
@@ -488,7 +488,7 @@ uv run pytest tests/test_project_extensions.py tests/test_dynamic_tool_registrat
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit Task 4**
+- [x] **Step 5: Commit Task 4**
 
 ```bash
 git add src/embedagent/extensions.py src/embedagent/inprocess_adapter.py tests/test_project_extensions.py
