@@ -510,7 +510,7 @@ git commit -m "feat: surface project extension diagnostics"
 - Modify: `docs/design-change-log.md`
 - Modify: `docs/superpowers/plans/2026-06-05-project-local-python-extensions.md`
 
-- [ ] **Step 1: Update source-of-truth docs**
+- [x] **Step 1: Update source-of-truth docs**
 
 Document:
 
@@ -521,11 +521,11 @@ Document:
 - dynamic tools remain metadata-classified and permission-gated;
 - built-in tool replacement remains disallowed.
 
-- [ ] **Step 2: Add design-change and tracker entries**
+- [x] **Step 2: Add design-change and tracker entries**
 
 Add `DC-126` for Slice 4 and update `docs/development-tracker.md` latest self-extensible Agent Core status.
 
-- [ ] **Step 3: Run focused verification**
+- [x] **Step 3: Run focused verification**
 
 Run:
 
@@ -535,7 +535,7 @@ $tmp = Join-Path (Get-Location) '.pytest-envtmp'; New-Item -ItemType Directory -
 
 Expected: PASS.
 
-- [ ] **Step 4: Run fast suite**
+- [x] **Step 4: Run fast suite**
 
 Run:
 
@@ -545,7 +545,7 @@ $tmp = Join-Path (Get-Location) '.pytest-envtmp'; New-Item -ItemType Directory -
 
 Expected: PASS.
 
-- [ ] **Step 5: Run focused ruff**
+- [x] **Step 5: Run focused ruff**
 
 Run:
 
@@ -555,7 +555,7 @@ uv run ruff check src/embedagent/project_extensions.py src/embedagent/extensions
 
 Expected: `All checks passed!`
 
-- [ ] **Step 6: Clean temp directories and inspect final state**
+- [x] **Step 6: Clean temp directories and inspect final state**
 
 Remove only workspace-local verification dirs:
 
@@ -576,7 +576,7 @@ foreach ($path in $paths) {
 git status --short
 ```
 
-- [ ] **Step 7: Commit docs and final plan state**
+- [x] **Step 7: Commit docs and final plan state**
 
 ```bash
 git add README.md AGENTS.md docs

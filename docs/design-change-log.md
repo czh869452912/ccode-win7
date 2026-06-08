@@ -1,6 +1,6 @@
 # EmbedAgent 设计与变更跟踪
 
-> 更新日期：2026-06-05
+> 更新日期：2026-06-08
 > 用途：记录关键设计变更、影响范围、关联文档和后续动作
 
 ---
@@ -44,6 +44,42 @@
 
 ## 3. 当前变更记录
 
+### DC-126
+
+- 日期：2026-06-08
+- 变更主题：Project-local Python extensions Slice 4 落地
+- 变更摘要：
+  - 接受 manifest-gated project-local Python extension loading 作为 self-extensible Agent Core 的第四实现 slice
+  - 新增 `src/embedagent/project_extensions.py`，发现并验证 `.embedagent/extensions/<name>/extension.json`
+  - `enabled` 默认 false；启用 manifest 必须声明 permissions，并且 entrypoint 必须保持在 extension 目录内
+  - hosted `InProcessAdapter` 在默认扩展装配后加载项目扩展，并把成功加载的对象注册到同一个共享 `ExtensionManager`
+  - loader diagnostics 会进入 `project_extension_state`、`extensions.project_extensions` session snapshot state 和 `extension_diagnostics`
+  - project extension dynamic tools 继续走 `ToolRuntime` catalog metadata、`ExtensionManager.allowed_tool_names(...)` active-tool gating 与 `PermissionPolicy`
+  - 不引入依赖安装、远程 registry、plugin marketplace、built-in tool replacement 或权限绕行
+- 影响范围：
+  - `src/embedagent/project_extensions.py`
+  - `src/embedagent/extensions.py`
+  - `src/embedagent/inprocess_adapter.py`
+  - `tests/test_project_extensions.py`
+  - hosted adapter session snapshot contract
+  - frontend extension diagnostics contract
+- 关联文档：
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/tool-contracts.md`
+  - `docs/permission-model.md`
+  - `docs/frontend-protocol.md`
+  - `docs/agent-harness-v2.md`
+  - `docs/development-tracker.md`
+  - `docs/archive/self-extensible-agent-core/2026-06-05-project-local-python-extensions-design.md`
+  - `docs/archive/self-extensible-agent-core/2026-06-05-project-local-python-extensions.md`
+- 是否需要 ADR：`否，属于已批准 self-extensible Agent Core 方向的第四实现 slice`
+- 后续动作：
+  - 继续保持依赖安装、远程 registry、plugin marketplace、built-in tool replacement 与 multi-agent orchestration 不在当前产品范围内
+  - 后续如需 project extension reload 或 frontend extension inspector，应单独设计权限和可观测性边界
+
 ### DC-125
 
 - 日期：2026-06-05
@@ -81,7 +117,7 @@
 - 是否需要 ADR：`否，属于已批准 self-extensible Agent Core 方向的第三实现 slice`
 - 后续动作：
   - 归档已完成 Slice 1/2 design 与 plan 文档
-  - 另行设计 project-local Python extension loading 的离线安全边界
+  - project-local Python extension loading 的离线安全边界已由 DC-126 收口
 
 ### DC-124
 
@@ -92,7 +128,7 @@
   - `ToolRuntime` 现在是 source-aware registry，in-process extensions 可注册带 source metadata 的 `ToolDefinition`
   - `QueryEngine` 与 `InProcessAdapter` 在 schema/catalog 边界前同步 extension tool registration，动态工具仍必须通过 `ExtensionManager.allowed_tool_names(...)` 激活后才可见
   - `PermissionPolicy` 通过 runtime catalog metadata 分类动态工具，privileged dynamic tools 继续走同一 ask/rule 路径
-  - built-in tool replacement 与 project-local Python loading 仍保持 deferred；file-only resource reload 已在 Slice 3 落地
+  - built-in tool replacement 当时保持未启用；project-local Python loading 后续已由 DC-126 收口，file-only resource reload 已在 Slice 3 落地
 - 影响范围：
   - `src/embedagent/tools/runtime.py`
   - `src/embedagent/extensions.py`
@@ -123,7 +159,7 @@
   - 接受 Pi-inspired microkernel 方向，将 `ExtensionManager` 从默认 C/C++ workflow boundary 推进为共享 in-process capability boundary
   - 新增通用 extension diagnostics、resource discovery contract、context hook、tool-call/tool-result hooks 与 session snapshot diagnostics
   - 默认 C/C++ harness 行为保持通过 bundled workflow extension 接入，`QueryEngine` 继续不直接 import/构造默认 harness extension
-  - project-local Python extension loading 仍保留为显式后续 slice；dynamic tool registration 与 file-only resource reload 已在后续 slices 落地
+  - project-local Python extension loading 当时保留为显式后续 slice，后续已由 DC-126 收口；dynamic tool registration 与 file-only resource reload 已在后续 slices 落地
 - 影响范围：
   - `src/embedagent/extensions.py`
   - `src/embedagent/query_engine.py`

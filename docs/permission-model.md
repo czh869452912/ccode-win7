@@ -25,6 +25,8 @@ Dynamic extension tools are classified through `ToolRuntime` catalog metadata. `
 
 Local resource reload is a read/discovery operation and does not grant execution rights. Recipes discovered from `.embedagent/recipes/*.json` still execute through `run_recipe` and the same recipe/toolchain permission rules as bundled workspace recipes.
 
+Project-local Python extension manifests declare requested permissions, but those declarations do not bypass the runtime permission engine. Any dynamic tool registered by a project extension still needs explicit catalog metadata, active-tool visibility through `ExtensionManager.allowed_tool_names(...)`, and a normal `PermissionPolicy` decision for its permission category.
+
 ## 3. Rule Shape
 
 Rules are structured objects loaded from the configured rules file.

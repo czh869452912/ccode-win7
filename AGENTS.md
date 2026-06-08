@@ -105,7 +105,7 @@ Agent Core must route harness-specific prompt injection, task initialization, an
 
 `InProcessAdapter` owns the hosted runtime's shared `ExtensionManager` and passes it to session-scoped `QueryEngine` instances. Frontend tool catalog visibility must use that same manager instead of a separate adapter-only harness extension chain.
 
-`ExtensionManager` is also the shared in-process capability boundary for prompt/context hooks, tool-call and tool-result hooks, resource discovery contracts, dynamic in-process tool registration, and extension diagnostics. Workspace-local file resources under `.embedagent/skills`, `.embedagent/prompts`, and `.embedagent/recipes` are discoverable and reloadable, but this does not enable project-local Python extension loading; that remains a separate, explicitly guarded follow-up.
+`ExtensionManager` is also the shared in-process capability boundary for prompt/context hooks, tool-call and tool-result hooks, resource discovery contracts, dynamic in-process tool registration, extension diagnostics, and manifest-gated project-local Python extensions. Workspace-local file resources under `.embedagent/skills`, `.embedagent/prompts`, and `.embedagent/recipes` are discoverable and reloadable as file resources only. Project-local Python extensions are loaded only from enabled `.embedagent/extensions/<name>/extension.json` manifests with workspace-bound `extension.py` entrypoints, declared permissions, no dependency installation, no remote registry, and no built-in tool replacement.
 
 Default extension assembly lives in `src/embedagent/default_extensions.py`. `QueryEngine` must not import or construct `CHarnessWorkflowExtension`; direct `QueryEngine` tests or hosts that need default C/C++ behavior must pass an explicit `ExtensionManager`.
 
@@ -153,6 +153,8 @@ Built-in mode `allowed_tools` are workflow-neutral permission/write contracts. D
 Dynamic in-process extension tools are registered into the shared `ToolRuntime` with source metadata and explicit permission categories. A registered extension tool is model-visible only when active through the shared `ExtensionManager.allowed_tool_names(mode_name, workflow_state=workflow_state)` path and remains subject to `PermissionPolicy`.
 
 Local resource reload is a file discovery operation. `ToolRuntime.reload_resources()`, `InProcessAdapter.reload_resources(...)`, `/resources reload`, and `POST /api/sessions/{session_id}/resources/reload` refresh workspace-bound skills, prompts, and recipe JSON resources. Skills/prompts are surfaced as resources; `.embedagent/recipes/*.json` feeds the existing recipe contract. Reload does not execute local Python code.
+
+Project-local Python extension loading is a separate hosted adapter operation, not resource reload. Enabled project extensions are registered into the shared `ExtensionManager`; any dynamic tools they expose are visible only through `ExtensionManager.allowed_tool_names(mode_name, workflow_state=workflow_state)` and remain subject to `PermissionPolicy`.
 
 ### Session History
 

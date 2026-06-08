@@ -44,7 +44,7 @@ In-process extensions may register tools into the shared `ToolRuntime` through t
 - read-only and concurrency metadata
 - source metadata supplied by the extension runtime
 
-Registration does not make a tool active by itself. A dynamic tool appears in model schemas and frontend catalog views only when its name is active through `ExtensionManager.allowed_tool_names(mode_name, workflow_state=workflow_state)`. Extensions cannot replace built-in tools in this slice.
+Registration does not make a tool active by itself. A dynamic tool appears in model schemas and frontend catalog views only when its name is active through `ExtensionManager.allowed_tool_names(mode_name, workflow_state=workflow_state)`. Project-local Python extensions use the same registration path and source metadata. Extensions cannot replace built-in tools.
 
 ## Local Resource Reload
 
@@ -57,6 +57,12 @@ Workspace-local resources are file-only inputs to the runtime:
 `ToolRuntime.reload_resources()` refreshes the cached resource snapshot. Hosted product paths expose the same operation through `InProcessAdapter.reload_resources(...)`, `/resources reload`, and `POST /api/sessions/{session_id}/resources/reload`.
 
 Recipe JSON resources feed the existing `list_recipes` and `run_recipe` contract. Skills and prompts are discovered and surfaced with diagnostics, but they are not executed as project-local Python code. Reload appends transcript-backed `resource_discovered` and `resource_reloaded` events for session-scoped auditability.
+
+## Project-Local Python Extensions
+
+Hosted product paths may load project-local Python extensions from `.embedagent/extensions/<name>/extension.json`. `enabled` defaults to false; enabled manifests must declare permissions and may point only to a workspace-bound `extension.py` entrypoint inside the extension directory.
+
+Loaded project extensions receive a narrow API object exposing extension result dataclasses, `ToolDefinition`, `Observation`, and workspace-bound text helpers. The loader does not install dependencies, contact remote registries, execute local resources, or allow built-in tool replacement. Dynamic tools from project extensions remain subject to catalog metadata, active-tool gating, and `PermissionPolicy`.
 
 ## 2. Official Workflow Tools
 

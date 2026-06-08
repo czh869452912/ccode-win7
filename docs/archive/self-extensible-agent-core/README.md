@@ -9,8 +9,19 @@ Durable conclusions from these slices are synchronized into the active source-of
 - `docs/overall-solution-architecture.md`
 - `docs/implementation-roadmap.md`
 - `docs/tool-contracts.md`
+- `docs/permission-model.md`
 - `docs/frontend-protocol.md`
+- `docs/agent-harness-v2.md`
 - `docs/development-tracker.md`
 - `docs/design-change-log.md`
+
+Archived slices in this package:
+
+- `2026-06-04-self-extensible-agent-core-design.md`
+- `2026-06-04-capability-extension-contract.md`
+- `2026-06-04-dynamic-tool-registration-design.md`
+- `2026-06-04-dynamic-tool-registration.md`
+- `2026-06-05-project-local-python-extensions-design.md`
+- `2026-06-05-project-local-python-extensions.md`
 
 Current active planning for unfinished follow-up work belongs under `docs/superpowers/`.
