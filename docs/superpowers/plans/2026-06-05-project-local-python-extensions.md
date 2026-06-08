@@ -53,7 +53,7 @@
 - Create: `src/embedagent/project_extensions.py`
 - Test: `tests/test_project_extensions.py`
 
-- [ ] **Step 1: Write failing tests for disabled and invalid manifests**
+- [x] **Step 1: Write failing tests for disabled and invalid manifests**
 
 Add tests:
 
@@ -96,7 +96,7 @@ def test_enabled_manifest_requires_permissions(tmp_path):
     assert "permissions" in payload["diagnostics"][0]["error"]
 ```
 
-- [ ] **Step 2: Run tests to verify RED**
+- [x] **Step 2: Run tests to verify RED**
 
 Run:
 
@@ -106,7 +106,7 @@ uv run pytest tests/test_project_extensions.py::test_disabled_manifest_is_discov
 
 Expected: FAIL with `ModuleNotFoundError: No module named 'embedagent.project_extensions'`.
 
-- [ ] **Step 3: Implement manifest-only loader**
+- [x] **Step 3: Implement manifest-only loader**
 
 Create `src/embedagent/project_extensions.py` with:
 
@@ -139,7 +139,7 @@ def load_project_extensions(workspace: str, extensions_path: Optional[str] = Non
 
 Include helpers for `_iter_extension_dirs`, `_load_manifest_entry`, `_validate_manifest`, `_resolve_inside`, `_display_path`, and `_payload`. For Task 1, enabled valid manifests may return status `failed` with `extension loading not implemented` until Task 2.
 
-- [ ] **Step 4: Run tests to verify GREEN**
+- [x] **Step 4: Run tests to verify GREEN**
 
 Run:
 
@@ -149,7 +149,7 @@ uv run pytest tests/test_project_extensions.py::test_disabled_manifest_is_discov
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit Task 1**
+- [x] **Step 5: Commit Task 1**
 
 ```bash
 git add src/embedagent/project_extensions.py tests/test_project_extensions.py
