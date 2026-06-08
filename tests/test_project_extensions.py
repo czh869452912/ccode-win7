@@ -108,3 +108,37 @@ def test_project_extension_api_blocks_path_escape(tmp_path):
 
     assert payload["counts"]["loaded"] == 1
     assert payload["diagnostics"] == []
+
+
+def test_inprocess_adapter_loads_enabled_project_extension_into_shared_manager(tmp_path):
+    root = tmp_path / ".embedagent" / "extensions" / "sample"
+    root.mkdir(parents=True)
+    (root / "extension.json").write_text(
+        '{"id": "sample_extension", "enabled": true, "permissions": ["read"]}',
+        encoding="utf-8",
+    )
+    (root / "extension.py").write_text(
+        "\n".join(
+            [
+                "def create_extension(api):",
+                "    class SampleExtension(object):",
+                "        extension_id = api.extension_id",
+                "        builtin_extension = False",
+                "        def allowed_tool_names(self, mode_name, workflow_state='chat'):",
+                "            return {'project_echo'} if mode_name == 'build' else set()",
+                "    return SampleExtension()",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    from embedagent.inprocess_adapter import InProcessAdapter
+    from embedagent.tools import ToolRuntime
+
+    adapter = InProcessAdapter(tools=ToolRuntime(str(tmp_path)))
+    snapshot = adapter.create_session(mode="build")
+
+    assert adapter.project_extension_state["counts"]["loaded"] == 1
+    assert "project_extensions" in snapshot["extensions"]
+    assert snapshot["extensions"]["project_extensions"]["state"]["counts"]["loaded"] == 1
+    assert "project_echo" in adapter.extension_manager.allowed_tool_names("build")

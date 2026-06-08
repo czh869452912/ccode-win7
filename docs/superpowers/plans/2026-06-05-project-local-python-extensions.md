@@ -282,7 +282,7 @@ git commit -m "feat: load enabled project extensions"
 - Modify: `src/embedagent/inprocess_adapter.py`
 - Test: `tests/test_project_extensions.py`
 
-- [ ] **Step 1: Write failing adapter integration test**
+- [x] **Step 1: Write failing adapter integration test**
 
 Add test:
 
@@ -321,7 +321,7 @@ def test_inprocess_adapter_loads_enabled_project_extension_into_shared_manager(t
     assert "project_echo" in adapter.extension_manager.allowed_tool_names("build")
 ```
 
-- [ ] **Step 2: Run test to verify RED**
+- [x] **Step 2: Run test to verify RED**
 
 Run:
 
@@ -331,7 +331,7 @@ uv run pytest tests/test_project_extensions.py::test_inprocess_adapter_loads_ena
 
 Expected: FAIL because `InProcessAdapter` does not load project extensions.
 
-- [ ] **Step 3: Wire loader into adapter**
+- [x] **Step 3: Wire loader into adapter**
 
 In `src/embedagent/inprocess_adapter.py`:
 
@@ -343,7 +343,7 @@ In `src/embedagent/inprocess_adapter.py`:
 - Add helper `_project_extension_snapshot_state()`.
 - In `create_session()` and `resume_session()`, ensure `session.workflow_state["extensions"]["project_extensions"]` is set before snapshot projection.
 
-- [ ] **Step 4: Run adapter test to verify GREEN**
+- [x] **Step 4: Run adapter test to verify GREEN**
 
 Run:
 
@@ -353,7 +353,7 @@ uv run pytest tests/test_project_extensions.py::test_inprocess_adapter_loads_ena
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit Task 3**
+- [x] **Step 5: Commit Task 3**
 
 ```bash
 git add src/embedagent/inprocess_adapter.py tests/test_project_extensions.py

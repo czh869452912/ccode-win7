@@ -23,6 +23,7 @@ from embedagent.modes import (
 )
 from embedagent.permissions import PermissionPolicy, PermissionRequest
 from embedagent.plan_store import PlanStore
+from embedagent.project_extensions import load_project_extensions
 from embedagent.project_memory import ProjectMemoryStore
 from embedagent.protocol import CommandResult, PermissionContextView, PlanSnapshot
 from embedagent.session import Action, AssistantReply, Observation, Session
@@ -209,6 +210,7 @@ class InProcessAdapter(object):
         default_extensions = build_default_extension_set(self.tools)
         self.harness_workflow = default_extensions.harness_workflow
         self.extension_manager = default_extensions.manager
+        self.project_extension_state = self._load_project_extensions()
         category_setter = getattr(self.permission_policy, "set_category_lookup", None)
         if callable(category_setter):
             category_setter(self._tool_permission_category)
@@ -229,6 +231,40 @@ class InProcessAdapter(object):
             session_restorer=self.session_restorer,
             transcript_store=self.transcript_store,
         )
+
+    def _load_project_extensions(self) -> Dict[str, Any]:
+        payload = load_project_extensions(self.tools.workspace)
+        loaded_extensions = list(payload.get("loaded_extensions") or [])
+        for extension in loaded_extensions:
+            self.extension_manager.register(extension)
+        return self._sanitize_project_extension_state(payload)
+
+    def _sanitize_project_extension_state(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        return {
+            "workspace": str(payload.get("workspace") or self.tools.workspace),
+            "counts": dict(payload.get("counts") or {}),
+            "extensions": [dict(item) for item in list(payload.get("extensions") or [])],
+            "diagnostics": [dict(item) for item in list(payload.get("diagnostics") or [])],
+        }
+
+    def _project_extension_snapshot_state(self) -> Dict[str, Any]:
+        return {
+            "state": {
+                "counts": dict(self.project_extension_state.get("counts") or {}),
+                "extensions": [
+                    dict(item)
+                    for item in list(self.project_extension_state.get("extensions") or [])
+                ],
+                "diagnostics": [
+                    dict(item)
+                    for item in list(self.project_extension_state.get("diagnostics") or [])
+                ],
+            }
+        }
+
+    def _apply_project_extension_state(self, state: ManagedSession) -> None:
+        extensions = state.session.workflow_state.setdefault("extensions", {})
+        extensions["project_extensions"] = self._project_extension_snapshot_state()
 
     def _build_engine(self) -> QueryEngine:
         return QueryEngine(
@@ -398,6 +434,9 @@ class InProcessAdapter(object):
         )
         with self._lock:
             self._sessions[session.session_id] = state
+        with state.lock:
+            self._apply_project_extension_state(state)
+            state.updated_at = _utc_now()
         self.reload_resources(session_id=session.session_id, reason="session_start")
         self._persist_state(state)
         snapshot = self.get_session_snapshot(session.session_id)
@@ -480,6 +519,9 @@ class InProcessAdapter(object):
             state.active_plan_ref = plan.path
             state.workflow_state = "plan"
         self._refresh_harness_state(state)
+        with state.lock:
+            self._apply_project_extension_state(state)
+            state.updated_at = _utc_now()
         with self._lock:
             self._sessions[session.session_id] = state
         snapshot = self.get_session_snapshot(session.session_id)
