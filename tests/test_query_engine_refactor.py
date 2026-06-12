@@ -552,6 +552,18 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertEqual(calls[0]["current_mode"], "build")
         self.assertEqual(calls[0]["workflow_state"], "chat")
 
+    def test_query_engine_exposes_slim_agent_components(self):
+        from embedagent.agent_extension_host import AgentExtensionHost
+        from embedagent.agent_loop import AgentLoop
+        from embedagent.agent_tool_action_service import AgentToolActionService
+
+        engine = QueryEngine(client=FakeClient(), tools=self.tools, max_turns=1)
+
+        self.assertIsInstance(engine.extension_host, AgentExtensionHost)
+        self.assertIsInstance(engine._action_service, AgentToolActionService)
+        self.assertIsInstance(engine._agent_loop, AgentLoop)
+        self.assertIs(engine.extension_manager, engine.extension_host.manager)
+
     def test_projection_failure_does_not_flip_tool_success(self):
         transcript_store = TranscriptStore(self.workspace)
         self.tools.projection_db.upsert_tool_result_projection = lambda **_: (_ for _ in ()).throw(

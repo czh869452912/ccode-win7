@@ -493,6 +493,25 @@ def test_bare_query_engine_uses_empty_extension_host_without_c_harness(tmp_path)
     )
 
 
+def test_query_engine_no_longer_dispatches_extension_manager_hooks_directly():
+    source = (_REPO_ROOT / "src" / "embedagent" / "query_engine.py").read_text(
+        encoding="utf-8"
+    )
+    forbidden = [
+        ".should_inject_workflow(",
+        ".allowed_tool_names(",
+        ".register_tools(",
+        ".describe_prompt(",
+        ".initialize_workflow_state(",
+        ".context(",
+        ".before_tool_call(",
+        ".after_tool_result(",
+        ".handle_tool_call(",
+    ]
+    for needle in forbidden:
+        assert "extension_manager" + needle not in source
+
+
 def test_inprocess_adapter_no_longer_depends_on_removed_sync_facade(tmp_path):
     from embedagent.inprocess_adapter import InProcessAdapter
     from embedagent.tools import ToolRuntime
