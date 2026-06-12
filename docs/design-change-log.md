@@ -72,8 +72,8 @@
   - `docs/tool-contracts.md`
   - `docs/agent-harness-v2.md`
   - `docs/development-tracker.md`
-  - `docs/superpowers/specs/2026-06-12-query-engine-slimming-design.md`
-  - `docs/superpowers/plans/2026-06-12-query-engine-slimming.md`
+  - `docs/archive/self-extensible-agent-core/2026-06-12-query-engine-slimming-design.md`
+  - `docs/archive/self-extensible-agent-core/2026-06-12-query-engine-slimming-plan.md`
 - 是否需要 ADR：`否，属于已批准 self-extensible Agent Core 方向的第五实现 slice`
 - 后续动作：
   - 继续保持 remote registry、plugin marketplace、dependency installation、built-in tool replacement 与 multi-agent orchestration 不在当前产品范围内

@@ -1,6 +1,6 @@
 # QueryEngine Slimming Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Complete Slice 5 by slimming `QueryEngine`, moving extension hook dispatch into an explicit host boundary, moving tool action execution into a service, and extracting the turn loop while preserving transcript, permission, and default C/C++ harness behavior.
 
@@ -90,7 +90,7 @@ Excluded:
 - Modify: `tests/test_dynamic_tool_registration.py`
 - Modify: `tests/test_capability_extensions.py`
 
-- [ ] **Step 1: Write failing tests for direct host behavior**
+- [x] **Step 1: Write failing tests for direct host behavior**
 
 Add these tests to `tests/test_dynamic_tool_registration.py`:
 
@@ -197,7 +197,7 @@ def test_agent_extension_host_applies_context_and_tool_result_workflow_patch(tmp
     assert session.workflow_state["extensions"]["last_workflow_patch"]["source"] == "test"
 ```
 
-- [ ] **Step 2: Run tests and confirm they fail because the host does not exist**
+- [x] **Step 2: Run tests and confirm they fail because the host does not exist**
 
 Run:
 
@@ -207,7 +207,7 @@ uv run pytest tests/test_dynamic_tool_registration.py::test_agent_extension_host
 
 Expected: FAIL with `ModuleNotFoundError: No module named 'embedagent.agent_extension_host'`.
 
-- [ ] **Step 3: Implement `AgentExtensionHost`**
+- [x] **Step 3: Implement `AgentExtensionHost`**
 
 Create `src/embedagent/agent_extension_host.py` with this implementation skeleton and fill only the shown behavior:
 
@@ -412,7 +412,7 @@ class AgentExtensionHost(object):
         )
 ```
 
-- [ ] **Step 4: Wire `QueryEngine` through the host while keeping compatibility wrappers**
+- [x] **Step 4: Wire `QueryEngine` through the host while keeping compatibility wrappers**
 
 In `src/embedagent/query_engine.py`:
 
@@ -463,7 +463,7 @@ self.extension_host.apply_tool_result_patch(...)
 self.extension_host.handle_tool_call(...)
 ```
 
-- [ ] **Step 5: Run focused host and existing extension tests**
+- [x] **Step 5: Run focused host and existing extension tests**
 
 Run:
 
@@ -473,7 +473,7 @@ uv run pytest tests/test_dynamic_tool_registration.py tests/test_capability_exte
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit Task 1**
+- [x] **Step 6: Commit Task 1**
 
 Run:
 
@@ -492,7 +492,7 @@ git commit -m "refactor: add agent extension host"
 - Modify: `tests/test_capability_extensions.py`
 - Modify: `tests/test_dynamic_tool_registration.py`
 
-- [ ] **Step 1: Write failing service tests**
+- [x] **Step 1: Write failing service tests**
 
 Add these tests to `tests/test_query_engine_refactor.py`:
 
@@ -583,7 +583,7 @@ def test_agent_tool_action_service_executes_active_dynamic_tool(tmp_path):
     assert observation.data["echo"] == "hello"
 ```
 
-- [ ] **Step 2: Run tests and confirm they fail because the service does not exist**
+- [x] **Step 2: Run tests and confirm they fail because the service does not exist**
 
 Run:
 
@@ -593,7 +593,7 @@ uv run pytest tests/test_query_engine_refactor.py::test_agent_tool_action_servic
 
 Expected: FAIL with `ModuleNotFoundError: No module named 'embedagent.agent_tool_action_service'`.
 
-- [ ] **Step 3: Implement `AgentToolActionService`**
+- [x] **Step 3: Implement `AgentToolActionService`**
 
 Create `src/embedagent/agent_tool_action_service.py` with this structure:
 
@@ -882,7 +882,7 @@ class AgentToolActionService(object):
         return observation, current_mode, None
 ```
 
-- [ ] **Step 4: Move QueryEngine execution behavior behind the service**
+- [x] **Step 4: Move QueryEngine execution behavior behind the service**
 
 In `QueryEngine.__init__`, instantiate:
 
@@ -919,7 +919,7 @@ def _apply_extension_tool_result_patch(...):
 
 For `_execute_action(...)`, keep `ask_user` and `propose_mode_switch` interaction branches in `QueryEngine` first, then delegate the remaining permission/runtime/default path to `self._action_service.execute_action(...)`. This keeps transcript-backed pending interaction creation in `QueryEngine` for Slice 5.
 
-- [ ] **Step 5: Run focused action tests**
+- [x] **Step 5: Run focused action tests**
 
 Run:
 
@@ -929,7 +929,7 @@ uv run pytest tests/test_query_engine_refactor.py tests/test_dynamic_tool_regist
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit Task 2**
+- [x] **Step 6: Commit Task 2**
 
 Run:
 
@@ -947,7 +947,7 @@ git commit -m "refactor: extract agent tool action service"
 - Modify: `tests/test_query_engine_refactor.py`
 - Modify: `tests/test_workflow_extensions.py`
 
-- [ ] **Step 1: Write failing loop-boundary tests**
+- [x] **Step 1: Write failing loop-boundary tests**
 
 Add this test to `tests/test_query_engine_refactor.py`:
 
@@ -1005,7 +1005,7 @@ def test_bare_query_engine_uses_empty_extension_host_without_c_harness(tmp_path)
     )
 ```
 
-- [ ] **Step 2: Run tests and confirm the loop module does not exist**
+- [x] **Step 2: Run tests and confirm the loop module does not exist**
 
 Run:
 
@@ -1015,7 +1015,7 @@ uv run pytest tests/test_query_engine_refactor.py::test_agent_loop_delegates_to_
 
 Expected: FAIL with `ModuleNotFoundError: No module named 'embedagent.agent_loop'` for the first test. The second test may already pass before loop extraction; keep it as a guard.
 
-- [ ] **Step 3: Implement `AgentLoop` as a thin boundary**
+- [x] **Step 3: Implement `AgentLoop` as a thin boundary**
 
 Create `src/embedagent/agent_loop.py`:
 
@@ -1081,7 +1081,7 @@ def _run_loop(
     )
 ```
 
-- [ ] **Step 4: Run loop and QueryEngine tests**
+- [x] **Step 4: Run loop and QueryEngine tests**
 
 Run:
 
@@ -1091,7 +1091,7 @@ uv run pytest tests/test_query_engine_refactor.py::test_agent_loop_delegates_to_
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit Task 3**
+- [x] **Step 5: Commit Task 3**
 
 Run:
 
@@ -1108,7 +1108,7 @@ git commit -m "refactor: introduce agent loop boundary"
 - Modify: `tests/test_workflow_extensions.py`
 - Modify: `tests/test_query_engine_refactor.py`
 
-- [ ] **Step 1: Write source-level regression guards**
+- [x] **Step 1: Write source-level regression guards**
 
 Add this test to `tests/test_workflow_extensions.py`:
 
@@ -1148,7 +1148,7 @@ def test_query_engine_exposes_slim_agent_components(tmp_path):
     assert engine.extension_manager is engine.extension_host.manager
 ```
 
-- [ ] **Step 2: Run guard tests and confirm any remaining direct call failure**
+- [x] **Step 2: Run guard tests and confirm any remaining direct call failure**
 
 Run:
 
@@ -1158,7 +1158,7 @@ uv run pytest tests/test_workflow_extensions.py::test_query_engine_no_longer_dis
 
 Expected: FAIL if any `extension_manager.*` hook calls remain in `QueryEngine`; PASS once wrappers are fully host-backed.
 
-- [ ] **Step 3: Remove leftover direct hook calls and imports**
+- [x] **Step 3: Remove leftover direct hook calls and imports**
 
 In `src/embedagent/query_engine.py`:
 
@@ -1169,7 +1169,7 @@ In `src/embedagent/query_engine.py`:
 - Keep `ExtensionContext` import only if `_extension_context(...)` compatibility annotation remains.
 - Ensure every direct prompt/context/tool hook call goes through `self.extension_host`.
 
-- [ ] **Step 4: Run focused guard and extension suites**
+- [x] **Step 4: Run focused guard and extension suites**
 
 Run:
 
@@ -1179,7 +1179,7 @@ uv run pytest tests/test_workflow_extensions.py tests/test_query_engine_refactor
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit Task 4**
+- [x] **Step 5: Commit Task 4**
 
 Run:
 
@@ -1201,7 +1201,7 @@ git commit -m "test: guard slim query engine extension boundary"
 - Modify: `docs/tool-contracts.md`
 - Modify: `docs/agent-harness-v2.md`
 
-- [ ] **Step 1: Update docs with the new execution spine**
+- [x] **Step 1: Update docs with the new execution spine**
 
 Apply these durable wording changes:
 
@@ -1212,7 +1212,7 @@ Apply these durable wording changes:
 - Default C/C++ harness behavior remains installed through `default_extensions.py` and the shared `ExtensionManager`.
 - Bare `QueryEngine` uses an empty extension host and does not activate harness workflow tools.
 
-- [ ] **Step 2: Run doc terminology checks**
+- [x] **Step 2: Run doc terminology checks**
 
 Run:
 
@@ -1222,7 +1222,7 @@ rg "AgentLoop|AgentToolActionService|AgentExtensionHost|QueryEngine" README.md A
 
 Expected: output includes all three new component names in source-of-truth docs.
 
-- [ ] **Step 3: Run focused doc-adjacent tests**
+- [x] **Step 3: Run focused doc-adjacent tests**
 
 Run:
 
@@ -1232,7 +1232,7 @@ uv run pytest tests/test_workflow_extensions.py tests/test_query_engine_orchestr
 
 Expected: PASS.
 
-- [ ] **Step 4: Commit Task 5**
+- [x] **Step 4: Commit Task 5**
 
 Run:
 
@@ -1248,7 +1248,7 @@ git commit -m "docs: document slim agent core execution spine"
 - Move: `docs/superpowers/specs/2026-06-12-query-engine-slimming-design.md` to `docs/archive/self-extensible-agent-core/2026-06-12-query-engine-slimming-design.md`
 - Move: `docs/superpowers/plans/2026-06-12-query-engine-slimming.md` to `docs/archive/self-extensible-agent-core/2026-06-12-query-engine-slimming-plan.md`
 
-- [ ] **Step 1: Run focused verification**
+- [x] **Step 1: Run focused verification**
 
 Run:
 
@@ -1258,7 +1258,7 @@ uv run pytest tests/test_dynamic_tool_registration.py tests/test_capability_exte
 
 Expected: PASS.
 
-- [ ] **Step 2: Run full fast verification**
+- [x] **Step 2: Run full fast verification**
 
 Run:
 
@@ -1268,7 +1268,7 @@ uv run pytest tests/ -m "not slow and not gui" -v --basetemp .pytest-tmp-query-e
 
 Expected: PASS.
 
-- [ ] **Step 3: Run lint check on touched code/tests**
+- [x] **Step 3: Run lint check on touched code/tests**
 
 Run:
 
@@ -1278,7 +1278,7 @@ uv run ruff check src/embedagent/agent_extension_host.py src/embedagent/agent_to
 
 Expected: PASS.
 
-- [ ] **Step 4: Archive completed slice-local docs**
+- [x] **Step 4: Archive completed slice-local docs**
 
 Move the files:
 
@@ -1287,7 +1287,7 @@ git mv docs/superpowers/specs/2026-06-12-query-engine-slimming-design.md docs/ar
 git mv docs/superpowers/plans/2026-06-12-query-engine-slimming.md docs/archive/self-extensible-agent-core/2026-06-12-query-engine-slimming-plan.md
 ```
 
-- [ ] **Step 5: Commit final archive state**
+- [x] **Step 5: Commit final archive state**
 
 Run:
 
@@ -1296,7 +1296,7 @@ git add docs/archive/self-extensible-agent-core/2026-06-12-query-engine-slimming
 git commit -m "docs: archive query engine slimming slice"
 ```
 
-- [ ] **Step 6: Inspect final state**
+- [x] **Step 6: Inspect final state**
 
 Run:
 
