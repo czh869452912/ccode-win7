@@ -8,6 +8,7 @@ from copy import deepcopy
 from typing import Any, Callable, Dict, Optional, Tuple
 
 from embedagent.agent_extension_host import AgentExtensionHost
+from embedagent.agent_loop import AgentLoop
 from embedagent.agent_tool_action_service import AgentToolActionService
 from embedagent.context import ContextManager
 from embedagent.extensions import (
@@ -153,6 +154,7 @@ class QueryEngine(object):
             tracer=self.tracer,
             allowed_tool_names=self._allowed_tools_for_mode,
         )
+        self._agent_loop = AgentLoop(runner=self._run_loop_impl)
         self._internal_stop_event = threading.Event()
 
     def run(
@@ -988,6 +990,40 @@ class QueryEngine(object):
         return False
 
     def _run_loop(
+        self,
+        session: Session,
+        current_mode: str,
+        workflow_state: str,
+        stream: bool,
+        stop_event: Optional[threading.Event],
+        on_text_delta: Optional[Callable[[str], None]],
+        on_reasoning_delta: Optional[Callable[[str], None]],
+        on_tool_start: Optional[Callable[[Action], None]],
+        on_tool_finish: Optional[Callable[[Action, Observation], None]],
+        on_context_result: Optional[Callable[[ContextAssemblyResult], None]],
+        on_step_start: Optional[Callable[[str, int], None]],
+        on_step_finish: Optional[Callable[[int, AssistantReply, str], None]],
+        permission_handler: Optional[Callable[[PermissionRequest], Optional[bool]]],
+        user_input_handler: Optional[Callable[[UserInputRequest], Optional[UserInputResponse]]],
+    ) -> QueryTurnResult:
+        return self._agent_loop.run(
+            session=session,
+            current_mode=current_mode,
+            workflow_state=workflow_state,
+            stream=stream,
+            stop_event=stop_event,
+            on_text_delta=on_text_delta,
+            on_reasoning_delta=on_reasoning_delta,
+            on_tool_start=on_tool_start,
+            on_tool_finish=on_tool_finish,
+            on_context_result=on_context_result,
+            on_step_start=on_step_start,
+            on_step_finish=on_step_finish,
+            permission_handler=permission_handler,
+            user_input_handler=user_input_handler,
+        )
+
+    def _run_loop_impl(
         self,
         session: Session,
         current_mode: str,

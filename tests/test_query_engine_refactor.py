@@ -517,6 +517,41 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertFalse(observation.success)
         self.assertEqual(observation.data["error_kind"], "mode_tool_blocked")
 
+    def test_agent_loop_delegates_to_runner_callback(self):
+        from embedagent.agent_loop import AgentLoop
+        from embedagent.session import LoopTransition, QueryTurnResult
+
+        session = Session()
+        calls = []
+
+        def runner(**kwargs):
+            calls.append(kwargs)
+            transition = LoopTransition(reason="completed", message="runner finished")
+            return QueryTurnResult("ok", kwargs["session"], transition, turns_used=1)
+
+        loop = AgentLoop(runner=runner)
+        result = loop.run(
+            session=session,
+            current_mode="build",
+            workflow_state="chat",
+            stream=False,
+            stop_event=None,
+            on_text_delta=None,
+            on_reasoning_delta=None,
+            on_tool_start=None,
+            on_tool_finish=None,
+            on_context_result=None,
+            on_step_start=None,
+            on_step_finish=None,
+            permission_handler=None,
+            user_input_handler=None,
+        )
+
+        self.assertEqual(result.final_text, "ok")
+        self.assertIs(calls[0]["session"], session)
+        self.assertEqual(calls[0]["current_mode"], "build")
+        self.assertEqual(calls[0]["workflow_state"], "chat")
+
     def test_projection_failure_does_not_flip_tool_success(self):
         transcript_store = TranscriptStore(self.workspace)
         self.tools.projection_db.upsert_tool_result_projection = lambda **_: (_ for _ in ()).throw(
