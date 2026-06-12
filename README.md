@@ -14,6 +14,8 @@ The current product baseline is:
 
 The repository now treats Agent Core as the workflow-neutral runtime, with the C/C++ Agent Harness shipped as the default built-in workflow extension.
 
+Local offline self-extension is part of the official architecture: workspace file resources and manifest-gated project-local Python extensions can extend the hosted runtime while remote registries, online installs, dependency installation, plugin marketplaces, built-in tool replacement, and general multi-agent orchestration remain outside the product baseline.
+
 - User-visible modes: `explore`, `spec`, `build`, `debug`, `verify`
 - Default C/C++ execution model: `mode + discipline_profile + execution_phase`
 - Default task system: `TaskGraph` projected through `task_status` and session task snapshots

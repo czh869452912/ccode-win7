@@ -55,6 +55,8 @@ Important session snapshot fields include:
 
 `extensions.project_extensions` may contain the hosted adapter's latest project extension load state, including counts, manifest entries, and loader diagnostics for `.embedagent/extensions/<name>/extension.json`.
 
+`extensions.local_resources`, `extensions.project_extensions`, and `extension_diagnostics` are frontend-visible health and diagnostics state, not frontend-owned execution policy.
+
 `workflow` is the generic workflow projection. For the default C/C++ harness, `current_phase`, `discipline_profile`, `current_activity`, `task_summary`, and `task_items` are compatibility fields projected from `workflow`.
 
 Frontend shells should not read or infer default harness internals such as task graph state. They consume the snapshot fields and, where a richer shape is needed, the `workflow` payload.
