@@ -210,4 +210,3 @@ Slice 6 is complete when:
 - verification commands pass
 - this Slice 6 design and its implementation plan are archived after global docs are
   synchronized
-

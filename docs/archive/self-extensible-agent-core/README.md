@@ -26,5 +26,7 @@ Archived slices in this package:
 - `2026-06-05-project-local-python-extensions.md`
 - `2026-06-12-query-engine-slimming-design.md`
 - `2026-06-12-query-engine-slimming-plan.md`
+- `2026-06-12-self-extensible-documentation-cutover-design.md`
+- `2026-06-12-self-extensible-documentation-cutover-plan.md`
 
 Current active planning for unfinished follow-up work belongs under `docs/superpowers/`.

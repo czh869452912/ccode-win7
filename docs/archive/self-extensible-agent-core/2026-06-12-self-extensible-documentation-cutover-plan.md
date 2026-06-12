@@ -1,6 +1,6 @@
 # Self-Extensible Documentation Cutover Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Complete Slice 6 by making active documentation and module documentation reflect the completed self-extensible Agent Core architecture.
 
@@ -110,7 +110,7 @@ Excluded:
 - Modify: `docs/frontend-protocol.md`
 - Modify: `docs/agent-harness-v2.md`
 
-- [ ] **Step 1: Run an active-doc stale-scope audit**
+- [x] **Step 1: Run an active-doc stale-scope audit**
 
 Run:
 
@@ -120,7 +120,7 @@ rg -n "project-local extension discovery (is|remains) out of scope|project-local
 
 Expected: no matches. Matches in `docs/archive/` or old historical changelog entries are allowed, but this command intentionally excludes them.
 
-- [ ] **Step 2: Update root architecture language only where the audit or review shows drift**
+- [x] **Step 2: Update root architecture language only where the audit or review shows drift**
 
 Review `README.md`, `AGENTS.md`, `docs/overall-solution-architecture.md`, and `docs/agent-harness-v2.md`.
 
@@ -140,7 +140,7 @@ Remote registries, plugin marketplaces, online installs, dependency installation
 
 If a file already states the fact clearly, leave that paragraph unchanged.
 
-- [ ] **Step 3: Update roadmap language**
+- [x] **Step 3: Update roadmap language**
 
 In `docs/implementation-roadmap.md`, update the self-extensible area so it communicates that Slice 6 closes the documentation cutover. Use this sentence in the completed/recent boundary list:
 
@@ -157,7 +157,7 @@ Keep the "Remaining Near-Term Work" section focused on:
 - keeping documentation synchronized with the official extension boundaries
 ```
 
-- [ ] **Step 4: Update tool, permission, and frontend protocol docs only for missing facts**
+- [x] **Step 4: Update tool, permission, and frontend protocol docs only for missing facts**
 
 Review `docs/tool-contracts.md`, `docs/permission-model.md`, and `docs/frontend-protocol.md`.
 
@@ -175,7 +175,7 @@ Dynamic extension tools are model-visible only when active through the shared `E
 
 If the exact fact already appears with equivalent wording, keep it and avoid churn.
 
-- [ ] **Step 5: Verify source-of-truth docs**
+- [x] **Step 5: Verify source-of-truth docs**
 
 Run:
 
@@ -185,7 +185,7 @@ rg -n "local offline self-extension|manifest-gated project-local Python|AgentExt
 
 Expected: matches across the listed docs that show the current architecture terms are discoverable from active source-of-truth docs.
 
-- [ ] **Step 6: Commit source-of-truth documentation alignment**
+- [x] **Step 6: Commit source-of-truth documentation alignment**
 
 Run:
 
@@ -209,7 +209,7 @@ Expected: a commit with only active source-of-truth documentation changes.
 - Modify: `docs/modules/protocol-and-core.md`
 - Modify: `docs/modules/README.md`
 
-- [ ] **Step 1: Update `docs/modules/agent-core.md`**
+- [x] **Step 1: Update `docs/modules/agent-core.md`**
 
 Set the metadata date to:
 
@@ -261,7 +261,7 @@ Add these test entries:
 - `tests/test_workflow_extensions.py`
 ```
 
-- [ ] **Step 2: Update `docs/modules/tools-and-tooling.md`**
+- [x] **Step 2: Update `docs/modules/tools-and-tooling.md`**
 
 Set the metadata date to `2026-06-12`.
 
@@ -297,7 +297,7 @@ Add these regression entries:
 - `tests/test_workflow_extensions.py`
 ```
 
-- [ ] **Step 3: Update `docs/modules/harness.md`**
+- [x] **Step 3: Update `docs/modules/harness.md`**
 
 Set the metadata date to `2026-06-12`.
 
@@ -325,7 +325,7 @@ flowchart TD
     F --> G["task_status / session snapshot / frontend tasks"]
 ```
 
-- [ ] **Step 4: Update `docs/modules/session-runtime.md`**
+- [x] **Step 4: Update `docs/modules/session-runtime.md`**
 
 Set the metadata date to `2026-06-12`.
 
@@ -351,7 +351,7 @@ Add these regression entries:
 - `tests/test_project_extensions.py`
 ```
 
-- [ ] **Step 5: Update `docs/modules/permissions-and-context.md`**
+- [x] **Step 5: Update `docs/modules/permissions-and-context.md`**
 
 Set the metadata date to `2026-06-12`.
 
@@ -382,7 +382,7 @@ sequenceDiagram
     TR->>CM: observation
 ```
 
-- [ ] **Step 6: Update `docs/modules/protocol-and-core.md`**
+- [x] **Step 6: Update `docs/modules/protocol-and-core.md`**
 
 Set the metadata date to `2026-06-12`.
 
@@ -404,7 +404,7 @@ Add these regression entries:
 - `tests/test_capability_extensions.py`
 ```
 
-- [ ] **Step 7: Update `docs/modules/README.md`**
+- [x] **Step 7: Update `docs/modules/README.md`**
 
 Set the metadata date to `2026-06-12`.
 
@@ -414,7 +414,7 @@ Add this maintenance note under "模块文档维护规则":
 - Self-extensible Agent Core changes must update the relevant module docs in the same slice: agent core, tools/tooling, harness, session runtime, permissions/context, and protocol/core.
 ```
 
-- [ ] **Step 8: Verify module-doc discoverability**
+- [x] **Step 8: Verify module-doc discoverability**
 
 Run:
 
@@ -424,7 +424,7 @@ rg -n "AgentExtensionHost|AgentToolActionService|AgentLoop|ExtensionManager|proj
 
 Expected: matches across the updated module docs, including at least `agent-core.md`, `tools-and-tooling.md`, `session-runtime.md`, `permissions-and-context.md`, and `protocol-and-core.md`.
 
-- [ ] **Step 9: Commit module documentation cutover**
+- [x] **Step 9: Commit module documentation cutover**
 
 Run:
 
@@ -444,7 +444,7 @@ Expected: a commit with only module documentation changes.
 - Modify: `docs/archive/self-extensible-agent-core/README.md`
 - Modify: `docs/README.md`
 
-- [ ] **Step 1: Move the completed local-resource plan**
+- [x] **Step 1: Move the completed local-resource plan**
 
 Run:
 
@@ -454,7 +454,7 @@ git mv docs/superpowers/plans/2026-06-05-local-resource-reload.md docs/archive/s
 
 Expected: `git status --short` shows a rename for the local-resource plan.
 
-- [ ] **Step 2: Update the self-extensible archive README**
+- [x] **Step 2: Update the self-extensible archive README**
 
 In `docs/archive/self-extensible-agent-core/README.md`, replace the archived slices list with:
 
@@ -474,7 +474,7 @@ Archived slices in this package:
 
 Keep the final sentence saying active planning for unfinished follow-up work belongs under `docs/superpowers/`.
 
-- [ ] **Step 3: Update `docs/README.md` archive rule**
+- [x] **Step 3: Update `docs/README.md` archive rule**
 
 In `docs/README.md`, add this sentence under "Archive 使用规则":
 
@@ -482,7 +482,7 @@ In `docs/README.md`, add this sentence under "Archive 使用规则":
 - Completed self-extensible Agent Core slice materials belong under `docs/archive/self-extensible-agent-core/` after their durable conclusions are synchronized into active source-of-truth docs and module docs.
 ```
 
-- [ ] **Step 4: Verify active plan cleanup**
+- [x] **Step 4: Verify active plan cleanup**
 
 Run:
 
@@ -498,7 +498,7 @@ local resource reload plan archived
 archive target exists
 ```
 
-- [ ] **Step 5: Commit archive cleanup**
+- [x] **Step 5: Commit archive cleanup**
 
 Run:
 
@@ -517,7 +517,7 @@ Expected: a commit containing the rename and archive index changes.
 - Modify: `docs/development-tracker.md`
 - Modify: `docs/design-change-log.md`
 
-- [ ] **Step 1: Add `DC-128` to `docs/design-change-log.md`**
+- [x] **Step 1: Add `DC-128` to `docs/design-change-log.md`**
 
 Insert this entry above `DC-127`:
 
@@ -556,7 +556,7 @@ Insert this entry above `DC-127`:
 
 The associated document paths intentionally point to the final archived locations that Task 6 will create.
 
-- [ ] **Step 2: Update `docs/development-tracker.md` status**
+- [x] **Step 2: Update `docs/development-tracker.md` status**
 
 Set the header update line to:
 
@@ -576,7 +576,7 @@ Add this row at the top of "最近更新记录":
 | 2026-06-12 | Self-extensible Agent Core Slice 6 文档收口：active source-of-truth docs 与 module docs 已同步 local offline self-extension 官方口径；resource reload 与 project-local Python extension loading 的边界重新写清；completed self-extensible slice materials 已迁入 `docs/archive/self-extensible-agent-core/` |
 ```
 
-- [ ] **Step 3: Verify tracker and changelog references**
+- [x] **Step 3: Verify tracker and changelog references**
 
 Run:
 
@@ -586,7 +586,7 @@ rg -n "DC-128|Slice 6 文档收口|self-extensible Agent Core Slice 6|self-exten
 
 Expected: matches in both files.
 
-- [ ] **Step 4: Commit tracker and changelog**
+- [x] **Step 4: Commit tracker and changelog**
 
 Run:
 
@@ -604,7 +604,7 @@ Expected: a commit containing only tracker and changelog changes.
 
 - Read-only verification across docs.
 
-- [ ] **Step 1: Run whitespace verification**
+- [x] **Step 1: Run whitespace verification**
 
 Run:
 
@@ -614,7 +614,7 @@ git diff --check
 
 Expected: exit code 0. CRLF warnings are acceptable if the command still exits 0.
 
-- [ ] **Step 2: Run stale active-doc scope audit**
+- [x] **Step 2: Run stale active-doc scope audit**
 
 Run:
 
@@ -624,7 +624,7 @@ rg -n "project-local extension discovery (is|remains) out of scope|project-local
 
 Expected: no matches. This command excludes dated archive and changelog history on purpose.
 
-- [ ] **Step 3: Run current-boundary discoverability audit**
+- [x] **Step 3: Run current-boundary discoverability audit**
 
 Run:
 
@@ -634,7 +634,7 @@ rg -n "local offline self-extension|manifest-gated project-local Python|AgentExt
 
 Expected: matches across active source-of-truth docs, module docs, tracker, and changelog.
 
-- [ ] **Step 4: Run archive cleanup audit**
+- [x] **Step 4: Run archive cleanup audit**
 
 Run:
 
@@ -646,7 +646,7 @@ rg -n "2026-06-05-local-resource-reload|2026-06-12-query-engine-slimming-design|
 
 Expected: no PowerShell errors and archive README matches all listed completed materials.
 
-- [ ] **Step 5: Decide whether pytest is required**
+- [x] **Step 5: Decide whether pytest is required**
 
 Run:
 
@@ -670,7 +670,7 @@ If the output is documentation-only, record that pytest was not required for thi
 - Move: `docs/superpowers/plans/2026-06-12-self-extensible-documentation-cutover.md` to `docs/archive/self-extensible-agent-core/2026-06-12-self-extensible-documentation-cutover-plan.md`
 - Modify: `docs/archive/self-extensible-agent-core/README.md`
 
-- [ ] **Step 1: Mark this implementation plan complete before archiving**
+- [x] **Step 1: Mark this implementation plan complete before archiving**
 
 Run:
 
@@ -684,7 +684,7 @@ $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 
 Expected: task checkboxes in this plan are marked complete.
 
-- [ ] **Step 2: Move Slice 6 design and plan into the archive**
+- [x] **Step 2: Move Slice 6 design and plan into the archive**
 
 Run:
 
@@ -695,7 +695,7 @@ git mv docs/superpowers/plans/2026-06-12-self-extensible-documentation-cutover.m
 
 Expected: `git status --short` shows two renames.
 
-- [ ] **Step 3: Add Slice 6 files to the archive README**
+- [x] **Step 3: Add Slice 6 files to the archive README**
 
 In `docs/archive/self-extensible-agent-core/README.md`, append these files to the archived slices list:
 
@@ -704,7 +704,7 @@ In `docs/archive/self-extensible-agent-core/README.md`, append these files to th
 - `2026-06-12-self-extensible-documentation-cutover-plan.md`
 ```
 
-- [ ] **Step 4: Verify no completed self-extensible Slice 6 files remain active**
+- [x] **Step 4: Verify no completed self-extensible Slice 6 files remain active**
 
 Run:
 
@@ -718,7 +718,7 @@ rg -n "self-extensible-documentation-cutover" docs\archive\self-extensible-agent
 
 Expected: no PowerShell errors and matches in archive README plus design change log.
 
-- [ ] **Step 5: Final verification after archive**
+- [x] **Step 5: Final verification after archive**
 
 Run:
 
@@ -729,7 +729,7 @@ git status --short
 
 Expected: `git diff --check` exits 0. `git status --short` shows only the Slice 6 archive renames and archive README update.
 
-- [ ] **Step 6: Commit Slice 6 archive**
+- [x] **Step 6: Commit Slice 6 archive**
 
 Run:
 
@@ -740,7 +740,7 @@ git commit -m "docs: archive self extensible documentation cutover"
 
 Expected: a final archive commit.
 
-- [ ] **Step 7: Final branch status**
+- [x] **Step 7: Final branch status**
 
 Run:
 
@@ -750,4 +750,3 @@ git log --oneline -8
 ```
 
 Expected: clean branch with commits for design, plan, source docs, module docs, archive cleanup, tracker/changelog, and final Slice 6 archive.
-
