@@ -192,6 +192,49 @@ def test_extension_tool_registration_failure_records_diagnostic(tmp_path):
     assert diagnostics[0]["metadata"]["reason"] == "test"
 
 
+def test_agent_extension_host_registers_dynamic_tools_and_projects_active_schemas(tmp_path):
+    from embedagent.agent_extension_host import AgentExtensionHost
+    from embedagent.modes import allowed_tools_for
+    from embedagent.permissions import PermissionPolicy
+
+    runtime = ToolRuntime(str(tmp_path))
+    session = Session()
+    extension = DynamicToolExtension(active=True)
+    host = AgentExtensionHost(
+        manager=ExtensionManager([extension]),
+        tools=runtime,
+        permission_policy=PermissionPolicy(auto_approve_all=True, workspace=str(tmp_path)),
+        mode_allowed_tools=allowed_tools_for,
+    )
+
+    host.register_tools(session, "build", "chat", reason="session_start")
+    names = set(item["function"]["name"] for item in host.schemas_for_active_tools("build", "chat"))
+
+    assert "dynamic_echo" in names
+    assert runtime.tool_catalog_entry("dynamic_echo")["source_id"] == "dynamic_tools"
+
+
+def test_agent_extension_host_uses_mode_contract_as_active_tool_fallback(tmp_path):
+    from embedagent.agent_extension_host import AgentExtensionHost
+    from embedagent.modes import allowed_tools_for
+    from embedagent.permissions import PermissionPolicy
+
+    runtime = ToolRuntime(str(tmp_path))
+    host = AgentExtensionHost(
+        manager=ExtensionManager(),
+        tools=runtime,
+        permission_policy=PermissionPolicy(auto_approve_all=True, workspace=str(tmp_path)),
+        mode_allowed_tools=allowed_tools_for,
+    )
+
+    host.register_tools(Session(), "build", "chat", reason="session_start")
+    names = set(item["function"]["name"] for item in host.schemas_for_active_tools("build", "chat"))
+
+    assert "read_file" in names
+    assert "write_file" in names
+    assert "propose_mode_switch" in names
+
+
 class ToolCallingClient(object):
     def __init__(self, action):
         self.action = action

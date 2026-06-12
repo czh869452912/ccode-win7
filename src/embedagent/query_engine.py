@@ -8,21 +8,18 @@ import uuid
 from copy import deepcopy
 from typing import Any, Callable, Dict, Optional, Tuple
 
+from embedagent.agent_extension_host import AgentExtensionHost
 from embedagent.context import ContextManager
 from embedagent.extensions import (
     ExtensionContext,
     ExtensionManager,
-    SessionView,
-    ToolRegistrationEvent,
     WorkflowEvent,
 )
 from embedagent.guard import LoopGuard
 from embedagent.interaction import (
     UserInputRequest,
     UserInputResponse,
-    ask_user_schema,
     build_user_input_request,
-    propose_mode_switch_schema,
 )
 from embedagent.llm import ModelClientError, OpenAICompatibleClient
 from embedagent.strategies.context_compaction_engine import ContextCompactionEngine
@@ -114,7 +111,13 @@ class QueryEngine(object):
         self.max_parallel_tools = max(1, int(max_parallel_tools or 1))
         self.transcript_store = transcript_store or TranscriptStore(self.tools.workspace)
         self.tracer = tracer
-        self.extension_manager = extension_manager or ExtensionManager()
+        self.extension_host = AgentExtensionHost(
+            manager=extension_manager or ExtensionManager(),
+            tools=self.tools,
+            permission_policy=self.permission_policy,
+            mode_allowed_tools=allowed_tools_for,
+        )
+        self.extension_manager = self.extension_host.manager
         category_setter = getattr(self.permission_policy, "set_category_lookup", None)
         if callable(category_setter):
             category_setter(self._tool_permission_category)
@@ -283,16 +286,10 @@ class QueryEngine(object):
                 )
 
     def _should_inject_harness(self, user_text: str, current_mode: str) -> bool:
-        return bool(self.extension_manager.should_inject_workflow(user_text, current_mode))
+        return self.extension_host.should_inject_workflow(user_text, current_mode)
 
     def _allowed_tools_for_mode(self, mode_name: str, workflow_state: str = "chat") -> set:
-        return set(
-            self.extension_manager.allowed_tool_names(
-                mode_name,
-                workflow_state=workflow_state,
-                fallback=set(allowed_tools_for(mode_name)),
-            )
-        )
+        return set(self.extension_host.allowed_tool_names(mode_name, workflow_state=workflow_state))
 
     def _tool_permission_category(self, tool_name: str) -> str:
         lookup = getattr(self.tools, "tool_catalog_entry", None)
@@ -304,17 +301,7 @@ class QueryEngine(object):
         return str(entry.get("permission_category") or "")
 
     def _extension_context(self, session: Session) -> ExtensionContext:
-        runtime_snapshot = {}
-        runtime_lookup = getattr(self.tools, "runtime_environment_snapshot", None)
-        if callable(runtime_lookup):
-            runtime_snapshot = runtime_lookup()
-        return ExtensionContext(
-            workspace=str(getattr(self.tools, "workspace", "") or ""),
-            runtime_environment=dict(runtime_snapshot or {}),
-            tool_registry=self.tools,
-            permission_policy=self.permission_policy,
-            session_view=SessionView.from_session(session),
-        )
+        return self.extension_host.context_for(session)
 
     def _workflow_event(
         self,
@@ -323,17 +310,11 @@ class QueryEngine(object):
         workflow_state: str,
         **metadata: Any,
     ) -> WorkflowEvent:
-        turn_id = session.turns[-1].turn_id if session.turns else ""
-        step = session.current_step()
-        step_id = step.step_id if step is not None else ""
-        return WorkflowEvent(
-            session_id=session.session_id,
-            turn_id=turn_id,
-            step_id=step_id,
-            current_mode=current_mode,
-            workflow_state=dict(getattr(session, "workflow_state", {}) or {}),
-            workflow_state_name=workflow_state,
-            metadata=dict(metadata),
+        return self.extension_host.workflow_event(
+            session,
+            current_mode,
+            workflow_state,
+            **metadata,
         )
 
     def _ensure_extension_tools_registered(
@@ -343,15 +324,7 @@ class QueryEngine(object):
         workflow_state: str,
         reason: str = "turn",
     ) -> None:
-        self.extension_manager.register_tools(
-            ToolRegistrationEvent(
-                current_mode=current_mode,
-                workflow_state_name=workflow_state,
-                reason=reason,
-                metadata={"session_id": session.session_id},
-            ),
-            self._extension_context(session),
-        )
+        self.extension_host.register_tools(session, current_mode, workflow_state, reason=reason)
 
     def _append_harness_messages(self, session: Session, harness_prompt: Any) -> None:
         if harness_prompt is None:
@@ -408,7 +381,7 @@ class QueryEngine(object):
             reason="session_start",
         )
         if self._should_inject_harness(user_text, current_mode):
-            harness_prompt = self.extension_manager.describe_prompt(
+            harness_prompt = self.extension_host.describe_prompt(
                 current_mode, workflow_state=workflow_state, session=session
             )
         else:
@@ -459,7 +432,7 @@ class QueryEngine(object):
     ) -> str:
         current_mode = require_mode(next_mode)["slug"]
         if self._should_inject_harness(user_text, current_mode):
-            harness_prompt = self.extension_manager.describe_prompt(
+            harness_prompt = self.extension_host.describe_prompt(
                 current_mode, workflow_state=workflow_state, session=session
             )
         else:
@@ -720,7 +693,7 @@ class QueryEngine(object):
             session, initial_mode, workflow_state=workflow_state, user_text=user_text
         )
 
-        self.extension_manager.initialize_workflow_state(
+        self.extension_host.initialize_workflow_state(
             session,
             user_text=user_text,
             current_mode=current_mode,
@@ -957,7 +930,7 @@ class QueryEngine(object):
         with self._session_guard():
             self._append_harness_messages(
                 session,
-                self.extension_manager.describe_prompt(
+                self.extension_host.describe_prompt(
                     current_mode, workflow_state=workflow_state, session=session
                 ),
             )
@@ -1473,17 +1446,13 @@ class QueryEngine(object):
                 replacements=getattr(build, "replacements", []),
                 pipeline_steps=getattr(build, "pipeline_steps", []),
             )
-        event = self._workflow_event(
+        return self.extension_host.apply_context_patch(
             session,
             mode_name,
             workflow_state,
+            assembly,
             force_compact=force_compact,
         )
-        event.messages = [dict(message) for message in list(assembly.messages or [])]
-        patch = self.extension_manager.context(event, self._extension_context(session))
-        if patch.messages:
-            assembly.messages = [dict(message) for message in patch.messages]
-        return assembly
 
     def _should_retry_with_compact(self, exc: ModelClientError) -> bool:
         text = str(exc or "").lower()
@@ -1495,26 +1464,7 @@ class QueryEngine(object):
         return False
 
     def _schemas_for_active_tools(self, mode_name: str, workflow_state: str) -> list:
-        active_tool_names = sorted(
-            self._allowed_tools_for_mode(mode_name, workflow_state=workflow_state)
-        )
-        schemas = list(
-            self.tools.schemas_for(
-                mode_name,
-                workflow_state=workflow_state,
-                tool_names=active_tool_names,
-            )
-        )
-        names = set(item.get("function", {}).get("name", "") for item in schemas)
-        if (
-            "ask_user" in self._allowed_tools_for_mode(mode_name, workflow_state=workflow_state)
-            and "ask_user" not in names
-        ):
-            schemas.append(ask_user_schema())
-            names.add("ask_user")
-        if "propose_mode_switch" not in names:
-            schemas.append(propose_mode_switch_schema())
-        return schemas
+        return self.extension_host.schemas_for_active_tools(mode_name, workflow_state)
 
     def _prepare_extension_tool_call(
         self,
@@ -1523,12 +1473,11 @@ class QueryEngine(object):
         current_mode: str,
         workflow_state: str,
     ) -> Tuple[Optional[Observation], Action]:
-        tool_event = self._workflow_event(session, current_mode, workflow_state)
-        tool_event.tool_name = action.name
-        tool_event.tool_arguments = dict(action.arguments)
-        decision = self.extension_manager.before_tool_call(
-            tool_event,
-            self._extension_context(session),
+        decision, runtime_action = self.extension_host.prepare_tool_call(
+            session,
+            action,
+            current_mode,
+            workflow_state,
         )
         if decision.block:
             return (
@@ -1543,17 +1492,7 @@ class QueryEngine(object):
                 ),
                 action,
             )
-        if decision.updated_arguments is not None:
-            return (
-                None,
-                Action(
-                    name=action.name,
-                    arguments=dict(decision.updated_arguments),
-                    call_id=action.call_id,
-                    raw_arguments=action.raw_arguments,
-                ),
-            )
-        return None, action
+        return None, runtime_action
 
     def _execute_parallel_tool_action(
         self,
@@ -1602,24 +1541,13 @@ class QueryEngine(object):
         workflow_state: str,
         observation: Observation,
     ) -> Observation:
-        result_event = self._workflow_event(session, current_mode, workflow_state)
-        result_event.tool_name = action.name
-        result_event.tool_arguments = dict(action.arguments)
-        result_event.observation = observation
-        patch = self.extension_manager.after_tool_result(
-            result_event,
-            self._extension_context(session),
+        return self.extension_host.apply_tool_result_patch(
+            session,
+            action,
+            current_mode,
+            workflow_state,
+            observation,
         )
-        if patch.workflow_patch is not None:
-            workflow_patch = patch.workflow_patch
-            if workflow_patch.workflow:
-                session.workflow_state["workflow"] = dict(workflow_patch.workflow)
-            if workflow_patch.metadata:
-                extensions = session.workflow_state.setdefault("extensions", {})
-                extensions["last_workflow_patch"] = dict(workflow_patch.metadata)
-        if patch.observation is not None:
-            return patch.observation
-        return observation
 
     def _execute_action(
         self,
@@ -1670,7 +1598,7 @@ class QueryEngine(object):
         if blocked_observation is not None:
             return blocked_observation, current_mode, None
         if action.name == "task_status":
-            observation = self.extension_manager.handle_tool_call(
+            observation = self.extension_host.handle_tool_call(
                 session,
                 tool_name=action.name,
                 current_mode=current_mode,
@@ -1812,7 +1740,7 @@ class QueryEngine(object):
                         )
                         self._append_harness_messages(
                             session,
-                            self.extension_manager.describe_prompt(
+                            self.extension_host.describe_prompt(
                                 target_mode, workflow_state=workflow_state, session=session
                             ),
                         )
@@ -2040,7 +1968,7 @@ class QueryEngine(object):
                     )
                     self._append_harness_messages(
                         session,
-                        self.extension_manager.describe_prompt(
+                        self.extension_host.describe_prompt(
                             selected_mode, workflow_state=workflow_state, session=session
                         ),
                     )
