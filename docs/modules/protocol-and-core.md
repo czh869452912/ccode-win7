@@ -5,7 +5,7 @@
 > 状态：`active`
 > 类型：`module`
 > 负责人：`project maintainers`
-> 最后同步日期：`2026-04-09`
+> 最后同步日期：`2026-06-12`
 > 对应代码范围：`src/embedagent/protocol/`, `src/embedagent/core/`
 
 ## 1. Purpose And Scope
@@ -19,6 +19,9 @@
 - 把遗留内部字典翻译成协议快照和事件
 - 把引擎回调按正确类型和元数据转发给前端
 - 在变更型工具完成后触发前端数据刷新
+- expose resource reload through the stable core API
+- carry `extensions.local_resources`, `extensions.project_extensions`, and `extension_diagnostics` through snapshots
+- keep tool catalog visibility aligned with the hosted runtime's shared `ExtensionManager`
 
 ## 3. Code Mapping
 
@@ -29,7 +32,7 @@
   - `core/adapter.py` — `AgentCoreAdapter`、`CallbackBridge`
 - 上游依赖：`InProcessAdapter`（旧引擎）
 - 下游影响：`frontend/tui/frontend_adapter.py`、`frontend/gui/backend/server.py`
-- 相关测试：`tests/test_architecture.py`、`tests/test_gui_sync.py`、`tests/test_gui_runtime.py`
+- 相关测试：`tests/test_architecture.py`、`tests/test_gui_sync.py`、`tests/test_gui_runtime.py`、`tests/test_gui_backend_api.py`、`tests/test_local_resources.py`、`tests/test_project_extensions.py`、`tests/test_capability_extensions.py`
 - 相关契约：`docs/frontend-protocol.md`、`docs/overall-solution-architecture.md`
 
 ## 4. Dependencies And Consumers
@@ -67,6 +70,7 @@ flowchart LR
 - `protocol` 只依赖标准库，不耦合后端内部实现。
 - `AgentCoreAdapter` 是 `CoreInterface` 的唯一实现，负责所有翻译逻辑。
 - `CallbackBridge` 不知道内部引擎细节，只使用协议类型。
+- resource reload、project extension state 和 extension diagnostics 只作为 backend-owned health/diagnostics state 透出；前端不拥有 extension execution policy。
 
 ## 6. Verification And Tests
 
@@ -75,8 +79,12 @@ flowchart LR
 - `tests/test_architecture.py` — 协议对象创建、`MockFrontend`、导入检查
 - `tests/test_gui_sync.py` — `CallbackBridge` 事件翻译、刷新推送语义、端到端交互路由
 - `tests/test_gui_runtime.py` — 适配器 API、`WebSocketFrontend` 广播与错误处理、启动器连线
+- `tests/test_gui_backend_api.py`
+- `tests/test_local_resources.py`
+- `tests/test_project_extensions.py`
+- `tests/test_capability_extensions.py`
 
-当新增事件类型、会话快照字段或前端刷新触发条件变化时，应优先重跑这些测试。
+当新增事件类型、会话快照字段、resource reload API、extension diagnostics 字段或前端刷新触发条件变化时，应优先重跑这些测试。
 
 ## 7. Change Triggers
 
@@ -84,6 +92,7 @@ flowchart LR
 
 - `InProcessAdapter` 新增事件类型，需要在 `CallbackBridge.emit` 中补充映射
 - 会话快照字段变化，需要更新 `_session_snapshot_from_dict` 和 `SessionSnapshot`
+- resource reload 或 extension diagnostics API/字段变化
 - 新增应在完成后触发 UI 刷新的工具，需要加入 `_TASK_REFRESH_TOOLS` 或 `_ARTIFACT_TOOLS`
 - 新增前端形态（CLI、移动端等）需要实现 `FrontendCallbacks`
 - `CoreInterface` 或 `FrontendCallbacks` 接口签名变化

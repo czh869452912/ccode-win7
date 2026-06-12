@@ -79,3 +79,4 @@
 - `archive` 只保存历史材料，不承载当前官方口径。
 - 活动文档不得依赖 `archive` 作为当前真相源。
 - 每轮切片完成后，应先同步全局项目文档和模块文档，再归档对应 `superpowers` 材料。
+- Completed self-extensible Agent Core slice materials belong under `docs/archive/self-extensible-agent-core/` after their durable conclusions are synchronized into active source-of-truth docs and module docs.

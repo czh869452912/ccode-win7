@@ -44,6 +44,37 @@
 
 ## 3. 当前变更记录
 
+### DC-128
+
+- 日期：2026-06-12
+- 变更主题：Self-extensible Agent Core documentation cutover Slice 6 落地
+- 变更摘要：
+  - 接受 documentation cutover 作为 self-extensible Agent Core 的第六实现 slice
+  - 将 active source-of-truth docs 与 module docs 同步到当前官方口径：local offline self-extension 已是架构 baseline，默认 C/C++ harness 是 hosted paths 安装的 bundled built-in extension，`QueryEngine` 保持 session facade
+  - 明确 resource reload 与 project-local Python extension loading 是两条不同路径：前者 file-only，后者 manifest-gated hosted adapter loading
+  - 将完成的 self-extensible slice-local materials 从 active `docs/superpowers/` 迁入 `docs/archive/self-extensible-agent-core/`
+  - 继续保持 remote registry、plugin marketplace、online install、dependency installation、built-in tool replacement 与 multi-agent orchestration 不在当前产品范围内
+- 影响范围：
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/tool-contracts.md`
+  - `docs/permission-model.md`
+  - `docs/frontend-protocol.md`
+  - `docs/agent-harness-v2.md`
+  - `docs/modules/`
+  - `docs/archive/self-extensible-agent-core/README.md`
+  - `docs/README.md`
+  - `docs/development-tracker.md`
+- 关联文档：
+  - `docs/archive/self-extensible-agent-core/2026-06-12-self-extensible-documentation-cutover-design.md`
+  - `docs/archive/self-extensible-agent-core/2026-06-12-self-extensible-documentation-cutover-plan.md`
+- 是否需要 ADR：`否，属于已批准 self-extensible Agent Core 方向的第六实现 slice`
+- 后续动作：
+  - 后续如果新增 extension authoring guide 或 sample extension，应作为独立 slice 设计，不混入本次 documentation cutover
+  - 继续通过 active docs 与 module docs 维护 local offline self-extension 的边界，避免重新把 marketplace 或 dependency installation 写入产品 baseline
+
 ### DC-127
 
 - 日期：2026-06-12

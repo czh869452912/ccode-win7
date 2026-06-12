@@ -55,6 +55,7 @@ Recent workflow-boundary work has started slimming Agent Core without changing t
 - `AgentExtensionHost` now centralizes QueryEngine-side extension dispatch, dynamic tool registration, extension-aware active schema projection, context patches, tool-call hooks, tool-result hooks, workflow patches, and extension-owned tool handling
 - `AgentToolActionService` now owns non-LLM tool action execution, including active-tool checks, extension pre/post hooks, `PermissionPolicy`, path write guards, runtime dispatch, and extension-owned tool calls
 - `AgentLoop` now provides the turn-loop boundary behind `QueryEngine`, while `QueryEngine` remains the session-scoped facade and transcript/session mutation owner
+- Slice 6 completed the documentation cutover for self-extensible Agent Core: active source-of-truth docs and module docs now treat local offline self-extension as official architecture while keeping marketplaces, online installs, dependency installation, built-in tool replacement, and multi-agent orchestration out of scope
 - `HarnessStateSynchronizer` has been removed; product refresh uses `CHarnessWorkflowExtension.refresh_managed_session()` through the default harness extension directly
 - `StreamingToolExecutor` now window-schedules parallel read batches so failure/discard semantics are deterministic
 
@@ -81,6 +82,7 @@ Remaining cleanup should focus on:
 - removing dead compatibility shims that are no longer part of product paths
 - deleting or archiving superseded helper modules
 - removing outdated tests/manual samples that preserve non-official behavior
+- validating real C/C++ projects and the Win7/offline bundle while keeping documentation synchronized with the official extension boundaries
 
 ### 4.2 Workflow Extension Decoupling
 
