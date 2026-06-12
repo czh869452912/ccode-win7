@@ -21,9 +21,9 @@ Workflow extensions may activate focused subsets of registered tools for a turn.
 
 Built-in mode `allowed_tools` are workflow-neutral permission/write contracts. They must not be used as the complete default C/C++ tool list. The C harness extension reports only its active pack tools; product paths that need the default harness behavior must union the mode contract with active workflow-extension tools and request schemas by explicit active tool names.
 
-`ToolRuntime.schemas_for(mode, workflow_state, tool_names=...)` is the single runtime schema projection entry point. Without explicit `tool_names`, it projects only the workflow-neutral mode contract. Harness-aware schema projection belongs to callers that have consulted the shared `ExtensionManager` and pass extension-active tool names explicitly.
+`ToolRuntime.schemas_for(mode, workflow_state, tool_names=...)` is the single runtime schema projection entry point. Without explicit `tool_names`, it projects only the workflow-neutral mode contract. Harness-aware schema projection belongs to `AgentExtensionHost`, which consults the shared `ExtensionManager`, combines active extension tools with the mode contract, and passes explicit active tool names into runtime schema projection.
 
-Allowed-tool gating is not a runtime wrapper. Core orchestration receives an explicit allowed-tool policy from its host; hosted product paths use `QueryEngine._allowed_tools_for_mode(...)`, which combines the mode contract with extension-active tool names from the shared `ExtensionManager`.
+Allowed-tool gating is not a runtime wrapper. Core orchestration receives an explicit allowed-tool policy from its host; hosted product paths use `QueryEngine._allowed_tools_for_mode(...)` as a compatibility facade over `AgentExtensionHost.allowed_tool_names(...)`.
 
 ## Extension Tool Hooks
 
@@ -33,6 +33,8 @@ The extension runtime may observe or patch tool calls through typed in-process h
 - `tool_result` can replace the structured observation or provide a workflow patch after execution.
 
 These hooks do not bypass mode contracts, `PermissionPolicy`, path write checks, or tool metadata categories.
+
+`AgentToolActionService` is the Agent Core boundary that applies those hooks around non-LLM tool action execution. It keeps extension pre/post hooks, permission checks, path write guards, extension-owned tool handling, and `ToolRuntime` dispatch in one pipeline.
 
 ## Dynamic Extension Tool Registration
 
@@ -44,7 +46,7 @@ In-process extensions may register tools into the shared `ToolRuntime` through t
 - read-only and concurrency metadata
 - source metadata supplied by the extension runtime
 
-Registration does not make a tool active by itself. A dynamic tool appears in model schemas and frontend catalog views only when its name is active through `ExtensionManager.allowed_tool_names(mode_name, workflow_state=workflow_state)`. Project-local Python extensions use the same registration path and source metadata. Extensions cannot replace built-in tools.
+Registration does not make a tool active by itself. A dynamic tool appears in model schemas and frontend catalog views only when its name is active through `ExtensionManager.allowed_tool_names(mode_name, workflow_state=workflow_state)` as consumed by `AgentExtensionHost`. Project-local Python extensions use the same registration path and source metadata. Extensions cannot replace built-in tools.
 
 ## Local Resource Reload
 

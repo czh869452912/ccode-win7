@@ -25,7 +25,7 @@ The repository now treats Agent Core as the workflow-neutral runtime, with the C
 - Mode allowed-tool contracts are workflow-neutral; default harness tools are activated by the built-in C/C++ workflow extension
 - Official file discovery: `list_dir`, `glob_files`, `grep_text`
 - Official permission engine: `PermissionPolicy` with structured rule matching and stable explanation text
-- Official session runtime ownership: one session-scoped `QueryEngine` owns turn/step/interaction execution; adapters host and project
+- Official session runtime ownership: one session-scoped `QueryEngine` remains the facade and transcript/session mutation owner, while `AgentLoop`, `AgentToolActionService`, and `AgentExtensionHost` own turn orchestration, non-LLM tool action execution, and extension hook dispatch
 - Official workflow extension hosting: `InProcessAdapter` owns one `ExtensionManager` shared with session-scoped `QueryEngine` and frontend tool catalog visibility
 - Official extension runtime direction: `ExtensionManager` is the shared in-process capability boundary for workflow defaults, prompt/context hooks, tool-call/tool-result hooks, resource discovery contracts, dynamic in-process tool registration, extension diagnostics, and manifest-gated project-local Python extensions
 - Official local resources: `.embedagent/skills`, `.embedagent/prompts`, and `.embedagent/recipes` are discovered as workspace-bound file resources and can be refreshed through `ToolRuntime.reload_resources()`, `InProcessAdapter.reload_resources(...)`, `/resources reload`, or `POST /api/sessions/{id}/resources/reload`
@@ -55,7 +55,13 @@ The product no longer treats the old `code` mode or `manage_todos`-style workflo
 ## Main Components
 
 - `src/embedagent/query_engine.py`
-  The session-scoped engine that owns turn/step execution, interaction suspend/resume, context assembly, transcript integration, and the workflow extension boundary.
+  The session-scoped facade that owns session initialization, interaction suspend/resume, transcript integration, and live session mutation.
+- `src/embedagent/agent_loop.py`
+  Thin turn-loop boundary used by `QueryEngine` to run the LLM/tool loop without making the facade own every loop detail.
+- `src/embedagent/agent_tool_action_service.py`
+  Non-LLM action executor for active-tool checks, extension pre/post hooks, permission-gated runtime dispatch, path write guards, and extension-owned tool calls.
+- `src/embedagent/agent_extension_host.py`
+  QueryEngine-side extension host for prompt/context hooks, workflow state initialization, dynamic tool registration, explicit active schema projection, tool-call/tool-result hooks, and workflow patches.
 - `src/embedagent/extensions.py`
   In-process extension contract and manager for workflow prompt/tool/state hooks.
 - `src/embedagent/default_extensions.py`

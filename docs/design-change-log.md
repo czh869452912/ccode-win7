@@ -1,6 +1,6 @@
 # EmbedAgent 设计与变更跟踪
 
-> 更新日期：2026-06-08
+> 更新日期：2026-06-12
 > 用途：记录关键设计变更、影响范围、关联文档和后续动作
 
 ---
@@ -43,6 +43,41 @@
 ---
 
 ## 3. 当前变更记录
+
+### DC-127
+
+- 日期：2026-06-12
+- 变更主题：QueryEngine slimming Slice 5 落地
+- 变更摘要：
+  - 接受 QueryEngine slimming 作为 self-extensible Agent Core 的第五实现 slice
+  - 新增 `src/embedagent/agent_extension_host.py`，集中 QueryEngine-side extension context/event 构造、workflow state 初始化、context patch、dynamic tool registration、extension-aware active schema projection、tool-call hook、tool-result hook、workflow patch 与 extension-owned tool handling
+  - 新增 `src/embedagent/agent_tool_action_service.py`，集中非 LLM tool action execution，包括 active-tool gating、extension pre/post hooks、`PermissionPolicy`、path write guards、runtime dispatch 与 extension-owned tools
+  - 新增 `src/embedagent/agent_loop.py`，作为 `QueryEngine` 背后的 turn-loop 边界
+  - `QueryEngine` 保持 session-scoped facade、transcript/session mutation owner 与 interaction suspend/resume owner；兼容 `engine.extension_manager` 仍指向共享 manager
+  - bare `QueryEngine` 继续使用空 extension host，不激活默认 C harness workflow tools；hosted product paths 仍通过 `default_extensions.py` 与共享 `ExtensionManager` 获得默认 C/C++ 行为
+- 影响范围：
+  - `src/embedagent/query_engine.py`
+  - `src/embedagent/agent_extension_host.py`
+  - `src/embedagent/agent_tool_action_service.py`
+  - `src/embedagent/agent_loop.py`
+  - `tests/test_dynamic_tool_registration.py`
+  - `tests/test_capability_extensions.py`
+  - `tests/test_query_engine_refactor.py`
+  - `tests/test_workflow_extensions.py`
+- 关联文档：
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/tool-contracts.md`
+  - `docs/agent-harness-v2.md`
+  - `docs/development-tracker.md`
+  - `docs/superpowers/specs/2026-06-12-query-engine-slimming-design.md`
+  - `docs/superpowers/plans/2026-06-12-query-engine-slimming.md`
+- 是否需要 ADR：`否，属于已批准 self-extensible Agent Core 方向的第五实现 slice`
+- 后续动作：
+  - 继续保持 remote registry、plugin marketplace、dependency installation、built-in tool replacement 与 multi-agent orchestration 不在当前产品范围内
+  - 后续如果继续压缩 `QueryEngine`，应沿 `AgentLoop` / `AgentToolActionService` / `AgentExtensionHost` 边界推进，而不是恢复 direct hook dispatch
 
 ### DC-126
 
