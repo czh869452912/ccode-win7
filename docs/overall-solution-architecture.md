@@ -16,7 +16,7 @@ The stable architecture assumptions are:
 
 The product is organized around one main execution spine:
 
-`Frontend -> Core Adapter -> InProcessAdapter -> Session Runtime -> QueryEngine -> ExtensionManager -> Harness/ToolRuntime -> Permission/Context/Stores`
+`Frontend -> Core Adapter -> InProcessAdapter -> Session Runtime -> QueryEngine -> AgentLoop -> AgentToolActionService -> AgentExtensionHost / ToolRuntime / PermissionPolicy -> Context/Stores`
 
 ### Frontend Layer
 
@@ -36,6 +36,9 @@ This is the stable contract boundary between UI and Agent Core.
 
 - `src/embedagent/inprocess_adapter.py`
 - `src/embedagent/query_engine.py`
+- `src/embedagent/agent_loop.py`
+- `src/embedagent/agent_tool_action_service.py`
+- `src/embedagent/agent_extension_host.py`
 - `src/embedagent/session_runtime.py`
 - `src/embedagent/session_projector.py`
 - `src/embedagent/session_history.py`
@@ -54,6 +57,10 @@ The default C/C++ harness is now entered through the in-process workflow extensi
 
 `ExtensionManager` is now the shared in-process capability boundary. The current default C/C++ harness remains the bundled workflow extension, while the same boundary also carries generic prompt/context hooks, tool-call and tool-result interception, resource discovery contracts, dynamic in-process tool registration, extension diagnostics, and manifest-gated project-local Python extensions. Workspace-local file resources under `.embedagent/skills`, `.embedagent/prompts`, and `.embedagent/recipes` are official discoverable resources.
 
+`AgentExtensionHost` is the session-engine side of that boundary. It builds extension contexts and workflow events, initializes workflow state, applies prompt/context hooks, registers dynamic tools, computes extension-aware active tool names, requests explicit tool schemas, applies tool-call/tool-result hooks, and handles extension-owned tool calls. `QueryEngine` keeps a compatibility `extension_manager` reference, but extension hook dispatch is centralized in `AgentExtensionHost`.
+
+`AgentToolActionService` owns non-LLM tool action execution: active-tool checks, extension pre/post hooks, permission evaluation, path write guards, runtime dispatch, and extension-owned tool calls. `AgentLoop` owns the turn loop boundary. `QueryEngine` remains the public session facade and keeps ownership of transcript-backed session mutation and interaction suspend/resume behavior.
+
 Default bundled extension assembly is outside `QueryEngine` in `src/embedagent/default_extensions.py`. A bare `QueryEngine` receives an empty `ExtensionManager`; hosted product paths install the default C/C++ harness explicitly before constructing session engines. Hosted product paths may additionally load project-local extensions from `.embedagent/extensions/<name>/extension.json` when the manifest is explicitly enabled and declares permissions. Remote registries, plugin marketplaces, dependency installation, built-in tool replacement, and multi-agent orchestration remain out of scope.
 
 Harness state refresh in the product adapter path goes through `CHarnessWorkflowExtension.refresh_managed_session()` behind the default C harness workflow extension. The old `HarnessStateSynchronizer` service facade has been removed rather than kept as a parallel compatibility path.
@@ -61,7 +68,7 @@ Harness state refresh in the product adapter path goes through `CHarnessWorkflow
 ### Session Runtime Ownership
 
 - `ManagedSession` hosts thread/lock/status and durable `Session` references
-- one session-scoped `QueryEngine` is the only owner of turn/step/interactions and transcript mutation
+- one session-scoped `QueryEngine` is the facade and transcript/session mutation owner; `AgentLoop`, `AgentToolActionService`, and `AgentExtensionHost` own loop, action, and extension dispatch internals
 - `InProcessAdapter` is a host/bridge layer and must not mint duplicate workflow identities
 - `SessionSnapshotProjector` and `SessionHistoryAssembler` are projections, not workflow truth
 - `SessionSnapshotProjector` reads the generic workflow projection, not default harness internals

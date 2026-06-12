@@ -8,7 +8,7 @@ Agent Harness is the promoted default C/C++ workflow model for EmbedAgent.
 
 The harness is now being extracted behind the in-process workflow extension boundary. It remains bundled and enabled by default, but Agent Core should interact with it through `ExtensionManager` rather than importing harness task classes directly.
 
-The hosted runtime has one adapter-owned `ExtensionManager` shared by `InProcessAdapter`, each session-scoped `QueryEngine`, and frontend tool catalog visibility. `src/embedagent/default_extensions.py` installs the bundled C harness into that manager for hosted product paths. A bare `QueryEngine` does not import or construct the default harness extension. Hosted product paths may load manifest-gated project-local Python extensions into the same manager, but local file resources, remote registries, plugin marketplaces, dependency installation, built-in tool replacement, and multi-agent orchestration remain outside the harness baseline.
+The hosted runtime has one adapter-owned `ExtensionManager` shared by `InProcessAdapter`, each session-scoped `QueryEngine`, and frontend tool catalog visibility. `QueryEngine` consumes that manager through `AgentExtensionHost`, which centralizes prompt/context hooks, active tool names, dynamic tool registration, explicit schema projection, tool-call hooks, tool-result hooks, and extension-owned tool handling. `src/embedagent/default_extensions.py` installs the bundled C harness into that manager for hosted product paths. A bare `QueryEngine` does not import or construct the default harness extension. Hosted product paths may load manifest-gated project-local Python extensions into the same manager, but local file resources, remote registries, plugin marketplaces, dependency installation, built-in tool replacement, and multi-agent orchestration remain outside the harness baseline.
 
 ## 2. Core Ideas
 
@@ -25,8 +25,7 @@ It does that by separating three concerns:
 - internal `discipline_profile`
 - internal `execution_phase`
 
-Execution ownership is concentrated in one session-scoped `QueryEngine`.
-Harness updates workflow truth inside that engine-owned session through the default workflow extension; it is not a second runtime.
+Execution ownership is concentrated in one session-scoped `QueryEngine` facade. `AgentLoop` owns turn-loop orchestration behind it, while `AgentToolActionService` owns non-LLM tool action execution and `AgentExtensionHost` owns extension dispatch. Harness updates workflow truth inside that engine-owned session through the default workflow extension; it is not a second runtime.
 
 ## 3. Official Modes
 
@@ -124,7 +123,7 @@ This keeps model tool selection tight without hard mode walls becoming unusable.
 
 The workflow-neutral `CORE_PACK` does not contain harness workflow tools. Built-in mode `allowed_tools` are also workflow-neutral permission/write contracts; they do not own `list_recipes`, `run_recipe`, `report_quality_v2`, `record_failing_evidence`, or `task_status`.
 
-The built-in C harness extension activates recipe, quality, evidence, and task-status tools through its selected workflow pack. Its active-tool hook returns pack tools only; callers union those with the mode contract when they need the full default C/C++ tool set. `QueryEngine` requests schemas by explicit active tool names. `ToolRuntime.schemas_for(mode, workflow_state, tool_names=...)` is the single runtime schema projection entry point. Runtime schema filtering no longer activates the default harness pack by itself.
+The built-in C harness extension activates recipe, quality, evidence, and task-status tools through its selected workflow pack. Its active-tool hook returns pack tools only; `AgentExtensionHost` unions those with the mode contract when the engine needs the full default C/C++ tool set. `AgentExtensionHost` requests schemas by explicit active tool names through `ToolRuntime.schemas_for(mode, workflow_state, tool_names=...)`. Runtime schema filtering no longer activates the default harness pack by itself.
 
 ## 8. Prompting Model
 

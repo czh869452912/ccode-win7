@@ -478,6 +478,92 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertIn("content", result.data)
         self.assertNotIn("content_stored_path", result.data)
 
+    def test_agent_tool_action_service_rejects_inactive_tool(self):
+        from embedagent.agent_extension_host import AgentExtensionHost
+        from embedagent.agent_tool_action_service import AgentToolActionService
+        from embedagent.extensions import ExtensionManager
+
+        policy = PermissionPolicy(auto_approve_all=True, workspace=self.workspace)
+        host = AgentExtensionHost(
+            manager=ExtensionManager(),
+            tools=self.tools,
+            permission_policy=policy,
+            mode_allowed_tools=lambda mode_name: [],
+        )
+        engine = QueryEngine(
+            client=FakeClient(),
+            tools=self.tools,
+            permission_policy=policy,
+        )
+        service = AgentToolActionService(
+            tools=self.tools,
+            permission_policy=policy,
+            extension_host=host,
+            app_config_provider=lambda: None,
+            failure_observation_factory=engine._failure_observation,
+        )
+
+        observation, current_mode, suspended = service.execute_action(
+            Session(),
+            Action("read_file", {"path": "missing.txt"}, "call-read"),
+            "build",
+            "chat",
+            permission_handler=None,
+            user_input_handler=None,
+        )
+
+        self.assertEqual(current_mode, "build")
+        self.assertIsNone(suspended)
+        self.assertFalse(observation.success)
+        self.assertEqual(observation.data["error_kind"], "mode_tool_blocked")
+
+    def test_agent_loop_delegates_to_runner_callback(self):
+        from embedagent.agent_loop import AgentLoop
+        from embedagent.session import LoopTransition, QueryTurnResult
+
+        session = Session()
+        calls = []
+
+        def runner(**kwargs):
+            calls.append(kwargs)
+            transition = LoopTransition(reason="completed", message="runner finished")
+            return QueryTurnResult("ok", kwargs["session"], transition, turns_used=1)
+
+        loop = AgentLoop(runner=runner)
+        result = loop.run(
+            session=session,
+            current_mode="build",
+            workflow_state="chat",
+            stream=False,
+            stop_event=None,
+            on_text_delta=None,
+            on_reasoning_delta=None,
+            on_tool_start=None,
+            on_tool_finish=None,
+            on_context_result=None,
+            on_step_start=None,
+            on_step_finish=None,
+            permission_handler=None,
+            user_input_handler=None,
+        )
+
+        self.assertEqual(result.final_text, "ok")
+        self.assertIs(calls[0]["session"], session)
+        self.assertEqual(calls[0]["current_mode"], "build")
+        self.assertEqual(calls[0]["workflow_state"], "chat")
+
+    def test_query_engine_exposes_slim_agent_components(self):
+        from embedagent.agent_extension_host import AgentExtensionHost
+        from embedagent.agent_loop import AgentLoop
+        from embedagent.agent_tool_action_service import AgentToolActionService
+
+        engine = QueryEngine(client=FakeClient(), tools=self.tools, max_turns=1)
+
+        self.assertIsInstance(engine.extension_host, AgentExtensionHost)
+        self.assertIsInstance(engine._action_service, AgentToolActionService)
+        self.assertIsInstance(engine._agent_loop, AgentLoop)
+        self.assertIs(engine.extension_manager, engine.extension_host.manager)
+
     def test_projection_failure_does_not_flip_tool_success(self):
         transcript_store = TranscriptStore(self.workspace)
         self.tools.projection_db.upsert_tool_result_projection = lambda **_: (_ for _ in ()).throw(

@@ -107,6 +107,10 @@ Agent Core must route harness-specific prompt injection, task initialization, an
 
 `ExtensionManager` is also the shared in-process capability boundary for prompt/context hooks, tool-call and tool-result hooks, resource discovery contracts, dynamic in-process tool registration, extension diagnostics, and manifest-gated project-local Python extensions. Workspace-local file resources under `.embedagent/skills`, `.embedagent/prompts`, and `.embedagent/recipes` are discoverable and reloadable as file resources only. Project-local Python extensions are loaded only from enabled `.embedagent/extensions/<name>/extension.json` manifests with workspace-bound `extension.py` entrypoints, declared permissions, no dependency installation, no remote registry, and no built-in tool replacement.
 
+`AgentExtensionHost` is the QueryEngine-side extension dispatch boundary. `QueryEngine` must not scatter direct `ExtensionManager` hook calls for prompt injection, context patching, dynamic tool registration, active-tool schema projection, tool-call hooks, tool-result hooks, or extension-owned tool handling.
+
+`AgentToolActionService` owns non-LLM tool action execution behind `QueryEngine`: active-tool checks, extension pre/post hooks, `PermissionPolicy` evaluation, path write guards, runtime dispatch, and extension-owned tool calls. `AgentLoop` owns turn-loop orchestration behind the session facade. `QueryEngine` remains the session-scoped facade and transcript/session mutation owner.
+
 Default extension assembly lives in `src/embedagent/default_extensions.py`. `QueryEngine` must not import or construct `CHarnessWorkflowExtension`; direct `QueryEngine` tests or hosts that need default C/C++ behavior must pass an explicit `ExtensionManager`.
 
 `HarnessStateSynchronizer` has been removed. Product adapter paths must refresh harness state through `CHarnessWorkflowExtension.refresh_managed_session()` behind the default harness workflow extension.
@@ -148,7 +152,7 @@ Official default workflow tools center on:
 
 Built-in mode `allowed_tools` are workflow-neutral permission/write contracts. Default C/C++ harness tools such as `list_recipes`, `run_recipe`, `report_quality_v2`, `record_failing_evidence`, and `task_status` are activated by the default harness workflow extension, not owned by the core mode schema.
 
-`ToolRuntime.schemas_for(mode, workflow_state, tool_names=...)` is the single runtime schema projection entry point. Without explicit `tool_names`, it projects only the workflow-neutral mode contract. Do not use runtime mode contracts as a shortcut for default harness pack activation; use the shared `ExtensionManager` and pass explicit active tool names into runtime schema projection.
+`ToolRuntime.schemas_for(mode, workflow_state, tool_names=...)` is the single runtime schema projection entry point. Without explicit `tool_names`, it projects only the workflow-neutral mode contract. Do not use runtime mode contracts as a shortcut for default harness pack activation; use `AgentExtensionHost` over the shared `ExtensionManager` and pass explicit active tool names into runtime schema projection.
 
 Dynamic in-process extension tools are registered into the shared `ToolRuntime` with source metadata and explicit permission categories. A registered extension tool is model-visible only when active through the shared `ExtensionManager.allowed_tool_names(mode_name, workflow_state=workflow_state)` path and remains subject to `PermissionPolicy`.
 

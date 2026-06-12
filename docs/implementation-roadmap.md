@@ -52,6 +52,9 @@ Recent workflow-boundary work has started slimming Agent Core without changing t
 - `ExtensionManager` now carries generic diagnostics, resource discovery hooks, context hooks, tool-call/tool-result hooks, and dynamic in-process tool registration
 - local file resources under `.embedagent/skills`, `.embedagent/prompts`, and `.embedagent/recipes` can be refreshed through the runtime, adapter, slash command, and GUI/core API; recipe JSON files feed the existing recipe contract
 - manifest-gated project-local Python extensions can be loaded from enabled `.embedagent/extensions/<name>/extension.json` manifests by hosted product paths and are registered into the shared `ExtensionManager`
+- `AgentExtensionHost` now centralizes QueryEngine-side extension dispatch, dynamic tool registration, extension-aware active schema projection, context patches, tool-call hooks, tool-result hooks, workflow patches, and extension-owned tool handling
+- `AgentToolActionService` now owns non-LLM tool action execution, including active-tool checks, extension pre/post hooks, `PermissionPolicy`, path write guards, runtime dispatch, and extension-owned tool calls
+- `AgentLoop` now provides the turn-loop boundary behind `QueryEngine`, while `QueryEngine` remains the session-scoped facade and transcript/session mutation owner
 - `HarnessStateSynchronizer` has been removed; product refresh uses `CHarnessWorkflowExtension.refresh_managed_session()` through the default harness extension directly
 - `StreamingToolExecutor` now window-schedules parallel read batches so failure/discard semantics are deterministic
 
@@ -84,6 +87,7 @@ Remaining cleanup should focus on:
 Near-term decoupling should continue from the new extension boundary:
 
 - default extension configuration is closed for the current baseline: hosted product paths use `default_extensions.py`, while bare `QueryEngine` callers pass an `ExtensionManager` explicitly when they need bundled C harness behavior
+- `QueryEngine` should remain a facade over `AgentLoop`, `AgentToolActionService`, and `AgentExtensionHost`; new extension hook dispatch should not be added directly back to `QueryEngine`
 - keep remote registries, plugin marketplaces, dependency installation, built-in tool replacement, and multi-agent orchestration out of scope; project-local Python extensions stay limited to explicit enabled manifests under `.embedagent/extensions/<name>/`
 
 ### 4.3 Documentation Alignment

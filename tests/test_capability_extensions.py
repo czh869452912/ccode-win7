@@ -327,6 +327,66 @@ def test_query_engine_tool_result_hook_can_replace_observation(tmp_path):
     assert observation.data == {"patched_by_extension": True}
 
 
+def test_agent_extension_host_applies_context_and_tool_result_workflow_patch(tmp_path):
+    from embedagent.agent_extension_host import AgentExtensionHost
+    from embedagent.extensions import ContextPatch, WorkflowPatch
+    from embedagent.permissions import PermissionPolicy
+    from embedagent.session import ContextAssemblyResult, Session
+    from embedagent.tools import ToolRuntime
+
+    class ContextAndPatchExtension(object):
+        extension_id = "context_and_patch"
+        builtin_extension = False
+
+        def context(self, event, context):
+            del context
+            messages = list(event.messages)
+            messages.append({"role": "system", "content": "extension context"})
+            return ContextPatch(messages=messages)
+
+        def tool_result(self, event, context):
+            del context
+            return ToolResultPatch(
+                workflow_patch=WorkflowPatch(
+                    workflow={"task_summary": {"total": 1}},
+                    metadata={"source": "test"},
+                )
+            )
+
+    session = Session()
+    runtime = ToolRuntime(str(tmp_path))
+    host = AgentExtensionHost(
+        manager=ExtensionManager([ContextAndPatchExtension()]),
+        tools=runtime,
+        permission_policy=PermissionPolicy(auto_approve_all=True, workspace=str(tmp_path)),
+    )
+    assembly = ContextAssemblyResult(
+        messages=[{"role": "user", "content": "hello"}],
+        used_chars=0,
+        approx_tokens=0,
+        compacted=False,
+        summarized_turns=0,
+        recent_turns=0,
+        policy=None,
+        budget=None,
+        stats={},
+    )
+
+    patched = host.apply_context_patch(session, "build", "chat", assembly, force_compact=False)
+    observation = host.apply_tool_result_patch(
+        session,
+        Action("read_file", {"path": "a.txt"}, "call-read"),
+        "build",
+        "chat",
+        Observation("read_file", True, None, {"content": "ok"}),
+    )
+
+    assert patched.messages[-1]["content"] == "extension context"
+    assert observation.success is True
+    assert session.workflow_state["workflow"]["task_summary"]["total"] == 1
+    assert session.workflow_state["extensions"]["last_workflow_patch"]["source"] == "test"
+
+
 def test_session_snapshot_projects_extension_state_and_diagnostics():
     from embedagent.session import Session
     from embedagent.session_projector import SessionSnapshotProjector

@@ -192,6 +192,49 @@ def test_extension_tool_registration_failure_records_diagnostic(tmp_path):
     assert diagnostics[0]["metadata"]["reason"] == "test"
 
 
+def test_agent_extension_host_registers_dynamic_tools_and_projects_active_schemas(tmp_path):
+    from embedagent.agent_extension_host import AgentExtensionHost
+    from embedagent.modes import allowed_tools_for
+    from embedagent.permissions import PermissionPolicy
+
+    runtime = ToolRuntime(str(tmp_path))
+    session = Session()
+    extension = DynamicToolExtension(active=True)
+    host = AgentExtensionHost(
+        manager=ExtensionManager([extension]),
+        tools=runtime,
+        permission_policy=PermissionPolicy(auto_approve_all=True, workspace=str(tmp_path)),
+        mode_allowed_tools=allowed_tools_for,
+    )
+
+    host.register_tools(session, "build", "chat", reason="session_start")
+    names = set(item["function"]["name"] for item in host.schemas_for_active_tools("build", "chat"))
+
+    assert "dynamic_echo" in names
+    assert runtime.tool_catalog_entry("dynamic_echo")["source_id"] == "dynamic_tools"
+
+
+def test_agent_extension_host_uses_mode_contract_as_active_tool_fallback(tmp_path):
+    from embedagent.agent_extension_host import AgentExtensionHost
+    from embedagent.modes import allowed_tools_for
+    from embedagent.permissions import PermissionPolicy
+
+    runtime = ToolRuntime(str(tmp_path))
+    host = AgentExtensionHost(
+        manager=ExtensionManager(),
+        tools=runtime,
+        permission_policy=PermissionPolicy(auto_approve_all=True, workspace=str(tmp_path)),
+        mode_allowed_tools=allowed_tools_for,
+    )
+
+    host.register_tools(Session(), "build", "chat", reason="session_start")
+    names = set(item["function"]["name"] for item in host.schemas_for_active_tools("build", "chat"))
+
+    assert "read_file" in names
+    assert "write_file" in names
+    assert "propose_mode_switch" in names
+
+
 class ToolCallingClient(object):
     def __init__(self, action):
         self.action = action
@@ -262,6 +305,48 @@ def test_query_engine_executes_active_extension_tool(tmp_path):
     assert "dynamic_echo" in client.seen_tool_names
     assert observation.success is True
     assert observation.tool_name == "dynamic_echo"
+    assert observation.data["echo"] == "hello"
+
+
+def test_agent_tool_action_service_executes_active_dynamic_tool(tmp_path):
+    from embedagent.agent_extension_host import AgentExtensionHost
+    from embedagent.agent_tool_action_service import AgentToolActionService
+    from embedagent.permissions import PermissionPolicy
+    from embedagent.query_engine import QueryEngine
+
+    runtime = ToolRuntime(str(tmp_path))
+    policy = PermissionPolicy(auto_approve_all=True, workspace=str(tmp_path))
+    host = AgentExtensionHost(
+        manager=ExtensionManager([DynamicToolExtension(active=True)]),
+        tools=runtime,
+        permission_policy=policy,
+    )
+    session = Session()
+    host.register_tools(session, "build", "chat", reason="session_start")
+    service = AgentToolActionService(
+        tools=runtime,
+        permission_policy=policy,
+        extension_host=host,
+        app_config_provider=lambda: None,
+        failure_observation_factory=QueryEngine(
+            client=ToolCallingClient(Action("dynamic_echo", {"message": "hi"}, "call-client")),
+            tools=runtime,
+            permission_policy=policy,
+        )._failure_observation,
+    )
+
+    observation, current_mode, suspended = service.execute_action(
+        session,
+        Action("dynamic_echo", {"message": "hello"}, "call-dynamic"),
+        "build",
+        "chat",
+        permission_handler=None,
+        user_input_handler=None,
+    )
+
+    assert suspended is None
+    assert current_mode == "build"
+    assert observation.success is True
     assert observation.data["echo"] == "hello"
 
 
