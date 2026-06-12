@@ -308,6 +308,48 @@ def test_query_engine_executes_active_extension_tool(tmp_path):
     assert observation.data["echo"] == "hello"
 
 
+def test_agent_tool_action_service_executes_active_dynamic_tool(tmp_path):
+    from embedagent.agent_extension_host import AgentExtensionHost
+    from embedagent.agent_tool_action_service import AgentToolActionService
+    from embedagent.permissions import PermissionPolicy
+    from embedagent.query_engine import QueryEngine
+
+    runtime = ToolRuntime(str(tmp_path))
+    policy = PermissionPolicy(auto_approve_all=True, workspace=str(tmp_path))
+    host = AgentExtensionHost(
+        manager=ExtensionManager([DynamicToolExtension(active=True)]),
+        tools=runtime,
+        permission_policy=policy,
+    )
+    session = Session()
+    host.register_tools(session, "build", "chat", reason="session_start")
+    service = AgentToolActionService(
+        tools=runtime,
+        permission_policy=policy,
+        extension_host=host,
+        app_config_provider=lambda: None,
+        failure_observation_factory=QueryEngine(
+            client=ToolCallingClient(Action("dynamic_echo", {"message": "hi"}, "call-client")),
+            tools=runtime,
+            permission_policy=policy,
+        )._failure_observation,
+    )
+
+    observation, current_mode, suspended = service.execute_action(
+        session,
+        Action("dynamic_echo", {"message": "hello"}, "call-dynamic"),
+        "build",
+        "chat",
+        permission_handler=None,
+        user_input_handler=None,
+    )
+
+    assert suspended is None
+    assert current_mode == "build"
+    assert observation.success is True
+    assert observation.data["echo"] == "hello"
+
+
 class DynamicShellExtension(DynamicToolExtension):
     extension_id = "dynamic_shell"
 

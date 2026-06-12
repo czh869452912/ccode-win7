@@ -1,7 +1,6 @@
 from __future__ import annotations  # noqa: I001
 
 import logging
-import os
 import threading
 import time
 import uuid
@@ -9,6 +8,7 @@ from copy import deepcopy
 from typing import Any, Callable, Dict, Optional, Tuple
 
 from embedagent.agent_extension_host import AgentExtensionHost
+from embedagent.agent_tool_action_service import AgentToolActionService
 from embedagent.context import ContextManager
 from embedagent.extensions import (
     ExtensionContext,
@@ -29,9 +29,8 @@ from embedagent.strategies.turn_orchestrator import TurnOrchestrator
 from embedagent.memory_maintenance import MemoryMaintenance
 from embedagent.modes import (
     DEFAULT_MODE,
-    allowed_tools_for,
     build_system_prompt,
-    is_path_writable,
+    allowed_tools_for,
     require_mode,
 )
 from embedagent.permissions import PermissionPolicy, PermissionRequest
@@ -53,7 +52,6 @@ from embedagent.session_store import SessionSummaryStore
 from embedagent.tool_commit import ToolCommitCoordinator
 from embedagent.tool_execution import StreamingToolExecutor, partition_tool_actions
 from embedagent.tools import ToolRuntime
-from embedagent.tools._base import ToolError
 from embedagent.transcript_store import TranscriptStore
 from embedagent.workspace_intelligence import WorkspaceIntelligenceBroker
 from embedagent.workspace_profile import build_workspace_profile_message
@@ -121,6 +119,15 @@ class QueryEngine(object):
         category_setter = getattr(self.permission_policy, "set_category_lookup", None)
         if callable(category_setter):
             category_setter(self._tool_permission_category)
+        self._action_service = AgentToolActionService(
+            tools=self.tools,
+            permission_policy=self.permission_policy,
+            extension_host=self.extension_host,
+            app_config_provider=lambda: getattr(self.tools, "app_config", None),
+            failure_observation_factory=self._failure_observation,
+            permission_pending_handler=self._build_permission_pending_result,
+            permission_rejected_handler=self._record_permission_rejection,
+        )
         self._compaction = ContextCompactionEngine(
             context_manager=self.context_manager,
             max_tokens=8000,
@@ -1473,26 +1480,12 @@ class QueryEngine(object):
         current_mode: str,
         workflow_state: str,
     ) -> Tuple[Optional[Observation], Action]:
-        decision, runtime_action = self.extension_host.prepare_tool_call(
+        return self._action_service.prepare_extension_tool_call(
             session,
             action,
             current_mode,
             workflow_state,
         )
-        if decision.block:
-            return (
-                self._failure_observation(
-                    action.name,
-                    decision.reason or "Tool call blocked by extension.",
-                    "extension_blocked",
-                    False,
-                    "extension",
-                    "Use a different tool or update the extension policy.",
-                    {"extension_metadata": dict(decision.metadata)},
-                ),
-                action,
-            )
-        return None, runtime_action
 
     def _execute_parallel_tool_action(
         self,
@@ -1502,36 +1495,19 @@ class QueryEngine(object):
         workflow_state: str,
         stop_event: Optional[threading.Event],
     ) -> Observation:
-        if action.name in ("ask_user", "propose_mode_switch"):
-            return Observation(
-                action.name,
-                False,
-                "interactive tool requires query-engine handling",
-                {"error_kind": "interactive_precomputed_skip", "retryable": False},
-            )
-        blocked_observation, runtime_action = self._prepare_extension_tool_call(
+        return self._action_service.execute_parallel_tool_action(
             session,
             action,
             current_mode,
             workflow_state,
-        )
-        if blocked_observation is not None:
-            return blocked_observation
-        return self.tools.execute_with_interrupt(
-            runtime_action.name,
-            runtime_action.arguments,
             stop_event,
         )
 
     def _is_extension_blocked_observation(self, observation: Optional[Observation]) -> bool:
-        if observation is None or not isinstance(observation.data, dict):
-            return False
-        return observation.data.get("error_kind") == "extension_blocked"
+        return self._action_service.is_extension_blocked_observation(observation)
 
     def _is_interactive_precomputed_skip(self, observation: Optional[Observation]) -> bool:
-        if observation is None or not isinstance(observation.data, dict):
-            return False
-        return observation.data.get("error_kind") == "interactive_precomputed_skip"
+        return self._action_service.is_interactive_precomputed_skip(observation)
 
     def _apply_extension_tool_result_patch(
         self,
@@ -1541,13 +1517,63 @@ class QueryEngine(object):
         workflow_state: str,
         observation: Observation,
     ) -> Observation:
-        return self.extension_host.apply_tool_result_patch(
+        return self._action_service.apply_extension_tool_result_patch(
             session,
             action,
             current_mode,
             workflow_state,
             observation,
         )
+
+    def _record_permission_rejection(self, session: Session, action: Action) -> None:
+        self._emit_lifecycle_event(
+            session,
+            "interaction",
+            {
+                "role": "interaction",
+                "tool_name": action.name,
+                "call_id": action.call_id,
+                "message_id": "m-reject-" + uuid.uuid4().hex[:12],
+                "parent_message_id": session.last_message_id(),
+                "turn_id": session.turns[-1].turn_id if session.turns else "",
+                "step_id": session.current_step().step_id if session.current_step() else "",
+                "status": "rejected",
+                "reason": "permission_denied",
+            },
+        )
+
+    def _build_permission_pending_result(
+        self,
+        session: Session,
+        action: Action,
+        request: PermissionRequest,
+        current_mode: str,
+    ) -> QueryTurnResult:
+        permission_payload = {
+            "tool_name": request.tool_name,
+            "category": request.category,
+            "reason": request.reason,
+            "details": dict(request.details),
+        }
+        pending = PendingInteraction(
+            kind="permission",
+            tool_name=action.name,
+        )
+        pending.request_payload = self._interaction_checkpoint_payload(
+            session,
+            action,
+            pending,
+            request_data={"permission": permission_payload},
+        )
+        pending.request_payload["permission"] = permission_payload
+        transition = LoopTransition(
+            "permission_wait",
+            request.reason,
+            pending,
+            current_mode,
+        )
+        self._record_transition(session, transition)
+        return QueryTurnResult("", session, transition, pending_interaction=pending)
 
     def _execute_action(
         self,
@@ -1560,22 +1586,18 @@ class QueryEngine(object):
         precomputed_observation: Optional[Observation] = None,
         stop_event: Optional[threading.Event] = None,
     ) -> Tuple[Observation, str, Optional[QueryTurnResult]]:
-        runtime_action = action
-        if action.name not in self._allowed_tools_for_mode(
-            current_mode, workflow_state=workflow_state
-        ) and action.name not in ("ask_user", "propose_mode_switch"):
-            return (
-                self._failure_observation(
-                    action.name,
-                    "当前模式 %s 不允许调用工具 %s。" % (current_mode, action.name),
-                    "mode_tool_blocked",
-                    False,
-                    current_mode,
-                    "请改用当前模式允许的工具。",
-                ),
+        if action.name not in ("ask_user", "propose_mode_switch"):
+            return self._action_service.execute_action(
+                session,
+                action,
                 current_mode,
-                None,
+                workflow_state,
+                permission_handler,
+                user_input_handler,
+                precomputed_observation=precomputed_observation,
+                stop_event=stop_event,
             )
+        runtime_action = action
         if precomputed_observation is not None and not self._is_interactive_precomputed_skip(
             precomputed_observation
         ):
@@ -1597,15 +1619,6 @@ class QueryEngine(object):
         )
         if blocked_observation is not None:
             return blocked_observation, current_mode, None
-        if action.name == "task_status":
-            observation = self.extension_host.handle_tool_call(
-                session,
-                tool_name=action.name,
-                current_mode=current_mode,
-                workflow_state=workflow_state,
-            )
-            if observation is not None:
-                return observation, current_mode, None
         if action.name == "ask_user":
             request = build_user_input_request(runtime_action.arguments)
             response = user_input_handler(request) if user_input_handler is not None else None
@@ -1755,178 +1768,6 @@ class QueryEngine(object):
                 current_mode,
                 None,
             )
-        decision = self.permission_policy.evaluate(runtime_action)
-        if decision.outcome == "deny":
-            self._emit_lifecycle_event(
-                session,
-                "interaction",
-                {
-                    "role": "interaction",
-                    "tool_name": action.name,
-                    "call_id": action.call_id,
-                    "message_id": "m-reject-" + uuid.uuid4().hex[:12],
-                    "parent_message_id": session.last_message_id(),
-                    "turn_id": session.turns[-1].turn_id if session.turns else "",
-                    "step_id": session.current_step().step_id if session.current_step() else "",
-                    "status": "rejected",
-                    "reason": "permission_denied",
-                },
-            )
-            return (
-                self._failure_observation(
-                    action.name,
-                    decision.error or "权限规则拒绝该操作。",
-                    "permission_denied",
-                    False,
-                    "permission_policy",
-                    "修改权限规则，或由用户手动放行后重试。",
-                    {"permission_required": True, "permission_decision": "deny"},
-                ),
-                current_mode,
-                None,
-            )
-        if decision.request is not None:
-            approved = (
-                permission_handler(decision.request) if permission_handler is not None else None
-            )
-            if approved is None:
-                permission_payload = {
-                    "tool_name": decision.request.tool_name,
-                    "category": decision.request.category,
-                    "reason": decision.request.reason,
-                    "details": dict(decision.request.details),
-                }
-                pending = PendingInteraction(
-                    kind="permission",
-                    tool_name=action.name,
-                )
-                pending.request_payload = self._interaction_checkpoint_payload(
-                    session,
-                    action,
-                    pending,
-                    request_data={"permission": permission_payload},
-                )
-                pending.request_payload["permission"] = permission_payload
-                transition = LoopTransition(
-                    "permission_wait", decision.request.reason, pending, current_mode
-                )
-                self._record_transition(session, transition)
-                return (
-                    self._failure_observation(
-                        action.name,
-                        "waiting permission",
-                        "pending_interaction",
-                        False,
-                        "permission",
-                        "等待用户批准。",
-                        {"pending": True},
-                    ),
-                    current_mode,
-                    QueryTurnResult("", session, transition, pending_interaction=pending),
-                )
-            if not approved:
-                self._emit_lifecycle_event(
-                    session,
-                    "interaction",
-                    {
-                        "role": "interaction",
-                        "tool_name": action.name,
-                        "call_id": action.call_id,
-                        "message_id": "m-reject-" + uuid.uuid4().hex[:12],
-                        "parent_message_id": session.last_message_id(),
-                        "turn_id": session.turns[-1].turn_id if session.turns else "",
-                        "step_id": session.current_step().step_id if session.current_step() else "",
-                        "status": "rejected",
-                        "reason": "permission_denied",
-                    },
-                )
-                return (
-                    self._failure_observation(
-                        action.name,
-                        "操作未获批准，已跳过执行。",
-                        "permission_denied",
-                        False,
-                        "user_confirmation",
-                        "等待用户批准，或改为不需要该权限的方案。",
-                        {"permission_required": True, "permission_decision": "deny"},
-                    ),
-                    current_mode,
-                    None,
-                )
-        if action.name in ("edit_file", "write_file"):
-            path = str(runtime_action.arguments.get("path") or "")
-            if not path:
-                return (
-                    self._failure_observation(
-                        action.name,
-                        "%s 缺少 path 参数。" % action.name,
-                        "invalid_arguments",
-                        False,
-                        "arguments",
-                        "补充一个相对于工作区的 path 参数。",
-                    ),
-                    current_mode,
-                    None,
-                )
-            if not is_path_writable(
-                current_mode, path.replace("\\", "/"), getattr(self.tools, "app_config", None)
-            ):
-                return (
-                    self._failure_observation(
-                        action.name,
-                        "当前模式 %s 不允许修改 %s。" % (current_mode, path.replace("\\", "/")),
-                        "mode_path_blocked",
-                        False,
-                        current_mode,
-                        "请改用当前模式允许的文件类型，或切换模式。",
-                    ),
-                    current_mode,
-                    None,
-                )
-            if action.name == "edit_file":
-                try:
-                    resolved_path = self.tools._ctx.resolve_path(
-                        path.replace("\\", "/"), allow_missing=True
-                    )
-                except ToolError as exc:
-                    return (
-                        self._failure_observation(
-                            action.name,
-                            str(exc),
-                            "path_invalid",
-                            False,
-                            "workspace",
-                            "改用工作区内的相对路径。",
-                        ),
-                        current_mode,
-                        None,
-                    )
-                if not resolved_path or not os.path.exists(resolved_path):
-                    return (
-                        self._failure_observation(
-                            action.name,
-                            "目标文件不存在，edit_file 只能修改已存在的文件。",
-                            "file_missing",
-                            False,
-                            "filesystem",
-                            "若要新建文件，请改用 write_file。",
-                        ),
-                        current_mode,
-                        None,
-                    )
-        observation = self.tools.execute_with_interrupt(
-            runtime_action.name,
-            runtime_action.arguments,
-            stop_event,
-        )
-        observation = self._apply_extension_tool_result_patch(
-            session,
-            runtime_action,
-            current_mode,
-            workflow_state,
-            observation,
-        )
-        return observation, current_mode, None
 
     def _build_user_input_observation(
         self,

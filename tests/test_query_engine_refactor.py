@@ -478,6 +478,45 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertIn("content", result.data)
         self.assertNotIn("content_stored_path", result.data)
 
+    def test_agent_tool_action_service_rejects_inactive_tool(self):
+        from embedagent.agent_extension_host import AgentExtensionHost
+        from embedagent.agent_tool_action_service import AgentToolActionService
+        from embedagent.extensions import ExtensionManager
+
+        policy = PermissionPolicy(auto_approve_all=True, workspace=self.workspace)
+        host = AgentExtensionHost(
+            manager=ExtensionManager(),
+            tools=self.tools,
+            permission_policy=policy,
+            mode_allowed_tools=lambda mode_name: [],
+        )
+        engine = QueryEngine(
+            client=FakeClient(),
+            tools=self.tools,
+            permission_policy=policy,
+        )
+        service = AgentToolActionService(
+            tools=self.tools,
+            permission_policy=policy,
+            extension_host=host,
+            app_config_provider=lambda: None,
+            failure_observation_factory=engine._failure_observation,
+        )
+
+        observation, current_mode, suspended = service.execute_action(
+            Session(),
+            Action("read_file", {"path": "missing.txt"}, "call-read"),
+            "build",
+            "chat",
+            permission_handler=None,
+            user_input_handler=None,
+        )
+
+        self.assertEqual(current_mode, "build")
+        self.assertIsNone(suspended)
+        self.assertFalse(observation.success)
+        self.assertEqual(observation.data["error_kind"], "mode_tool_blocked")
+
     def test_projection_failure_does_not_flip_tool_success(self):
         transcript_store = TranscriptStore(self.workspace)
         self.tools.projection_db.upsert_tool_result_projection = lambda **_: (_ for _ in ()).throw(
