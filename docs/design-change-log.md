@@ -44,6 +44,39 @@
 
 ## 3. 当前变更记录
 
+### DC-131
+
+- 日期：2026-06-13
+- 变更主题：Operation lifecycle 明确切为 durable operation truth
+- 变更摘要：
+  - 接受“项目未上线，可以大胆动刀”的产品阶段判断，将 operation state 主路径从 legacy transcript 推断切为显式 lifecycle 事件
+  - `OperationLogReducer` 现在只消费 schema_v2 `operation_started`、`operation_finished`、`operation_interrupted`，不再从 `step_started`、`tool_call`、`tool_result`、`loop_transition` 推断 runtime operation 状态
+  - legacy transcript 事件继续用于 session replay、history、tool topology 和 GUI bootstrap，不再承担 operation-state truth
+  - `QueryEngine` 已为 context assembly、provider request 和 save point 写入显式 operation lifecycle；既有 agent step 与 tool call lifecycle 继续保留
+  - `SessionRestorer` 会消费显式 operation lifecycle 事件，使 `SessionRestoreResult.operation_state` 能解释运行中断点、完成的 provider/context/savepoint 与未完成 operation
+- 影响范围：
+  - `src/embedagent/session_operation_log.py`
+  - `src/embedagent/session_restore.py`
+  - `src/embedagent/query_engine.py`
+  - `tests/test_session_operation_log.py`
+  - `tests/test_query_engine_refactor.py`
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/pi-inspired-agent-core-blueprint.md`
+  - `docs/development-tracker.md`
+  - `docs/design-change-log.md`
+  - `docs/superpowers/plans/2026-06-13-durable-operation-log.md`
+- 关联文档：
+  - `docs/pi-inspired-agent-core-blueprint.md`
+  - `docs/superpowers/plans/2026-06-13-durable-operation-log.md`
+- 是否需要 ADR：`否，本次仍是 Pi-inspired minimal Core Phase A 的 implementation slice；AgentKernel 生命周期边界硬切时再评估 ADR`
+- 后续动作：
+  - 补 turn lifecycle、pending interaction lifecycle、workflow patch lifecycle 的显式 operation/事件覆盖
+  - 评估把 `operation_state` 投影到 session snapshot / diagnostics，供前端和恢复诊断消费
+  - 继续推进 HookBus/reducer registry，让扩展 reducer 明确 source metadata 与 merge/cancel 语义
+
 ### DC-130
 
 - 日期：2026-06-13
@@ -69,9 +102,9 @@
   - `docs/superpowers/plans/2026-06-13-durable-operation-log.md`
 - 是否需要 ADR：`否，本次是目标蓝图下的增量实现切片；完整 AgentKernel lifecycle boundary 提取前再评估 ADR`
 - 后续动作：
-  - 将 provider request、context snapshot、workflow patch 与 save point 事件纳入 operation reducer
+  - 将 turn lifecycle、pending interaction lifecycle 与 workflow patch 事件纳入显式 operation/log lifecycle
   - 评估是否把 operation_state 投影到 session snapshot / diagnostics，供前端或恢复诊断消费
-  - 继续保持旧 transcript 事件兼容，直到 source-of-truth docs 明确切换到显式 operation lifecycle 作为主路径
+  - 继续保持旧 transcript 事件作为 session replay/history 输入，但 operation state 必须来自显式 lifecycle 事件
 
 ### DC-129
 

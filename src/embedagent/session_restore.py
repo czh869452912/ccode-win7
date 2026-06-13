@@ -107,6 +107,8 @@ class SessionRestorer(object):
             # Skip lifecycle events that do not carry restore-relevant state
             if event_type in ("tool_use", "command_execution", "interaction"):
                 continue
+            if event_type in ("operation_started", "operation_finished", "operation_interrupted"):
+                continue
             if event_type == "step_started":
                 if not session.turns:
                     if _maybe_skip("step_started_without_turn"):

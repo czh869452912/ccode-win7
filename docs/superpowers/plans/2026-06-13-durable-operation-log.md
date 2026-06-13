@@ -4,7 +4,7 @@
 
 **Goal:** Build the first Pi-inspired durable operation log slice so restore can explain completed and interrupted runtime operations without changing hosted C/C++ behavior.
 
-**Architecture:** Keep `TranscriptStore` as the append-only JSONL ledger. Add a pure operation reducer over transcript events, then attach its output to `SessionRestoreResult`. The first slice must consume current durable events (`tool_call`, `tool_result`, `step_started`, `loop_transition`) and also understand future explicit `operation_started` / `operation_finished` / `operation_interrupted` events.
+**Architecture:** Keep `TranscriptStore` as the append-only JSONL ledger. Add a pure operation reducer over explicit schema_v2 operation lifecycle events, then attach its output to `SessionRestoreResult`. The initial slice first proved additive runtime emission, then hard-cut operation state so it no longer infers from legacy replay events (`tool_call`, `tool_result`, `step_started`, `loop_transition`). Those events remain session replay/history inputs; explicit `operation_started` / `operation_finished` / `operation_interrupted` is the operation-state truth.
 
 **Tech Stack:** Python 3.8, dataclasses, unittest/pytest, existing `TranscriptStore` and `SessionRestorer`.
 
@@ -99,7 +99,7 @@ class OperationRecord(object):
     result: Dict[str, Any] = field(default_factory=dict)
 ```
 
-`OperationLogReducer.reduce(events)` must start operations from explicit `operation_started` and legacy `tool_call` / `step_started`, finish them from explicit `operation_finished`, `operation_interrupted`, `tool_result`, and terminal `loop_transition`, then mark remaining started operations interrupted with `retryable=False` by default.
+`OperationLogReducer.reduce(events)` must start operations from explicit `operation_started`, finish them from explicit `operation_finished` / `operation_interrupted`, then mark remaining started operations interrupted with `retryable=False` by default. It must not infer operation state from legacy replay/history events.
 
 - [ ] **Step 4: Run tests to verify pass**
 
@@ -227,3 +227,20 @@ Expected: no whitespace errors and the new slice is traceable.
 - Spec coverage: Phase A from `docs/pi-inspired-agent-core-blueprint.md` starts with durable runtime state, interrupted operations, and non-idempotent tool-call retry safety. Tasks 1 and 2 implement the reducer and restore state; Task 3 starts additive runtime emission; Task 4 keeps source-of-truth docs synchronized.
 - Placeholder scan: no placeholder markers or "implement later" phrasing are used.
 - Type consistency: `OperationRecord`, `OperationLogState`, and `OperationLogReducer` are introduced in Task 1 and reused by Task 2.
+
+---
+
+## Implementation Update: Explicit Lifecycle Main Path
+
+After the first additive slice landed, the project direction changed to remove compatibility baggage while the product is still pre-launch. The implemented main path is now:
+
+- `OperationLogReducer` consumes only explicit schema_v2 `operation_started`, `operation_finished`, and `operation_interrupted` events.
+- `SessionRestorer` consumes explicit operation lifecycle events as part of the valid transcript prefix, but does not apply them directly to `Session`; `operation_state` is a separate reducer projection.
+- `QueryEngine` emits explicit lifecycle for agent steps, context assembly, provider requests, tool calls, and save points.
+- Legacy replay events still rebuild structured session history and tool topology, but they are not operation-state inputs.
+
+Remaining work for Phase A:
+
+- Add explicit lifecycle coverage for turn start/finish.
+- Add pending interaction lifecycle and workflow patch events.
+- Project `operation_state` into diagnostics or session snapshots when the frontend needs it.

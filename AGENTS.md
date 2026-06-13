@@ -180,6 +180,14 @@ Official session-history truth is:
 
 `timeline.jsonl` is transport/replay infrastructure only. It is not a historical database.
 
+Official durable operation truth is:
+
+- schema v2 `operation_started`
+- schema v2 `operation_finished`
+- schema v2 `operation_interrupted`
+
+`OperationLogReducer` must derive operation state only from those explicit lifecycle events. `step_started`, `tool_call`, `tool_result`, and `loop_transition` remain session replay/history events; do not reintroduce operation-state inference from them. Current `QueryEngine` operation families include agent steps, context assembly, provider requests, tool calls, and save points.
+
 ## Mode Policy
 
 - Modes are product contracts, not UI decorations.

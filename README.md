@@ -39,6 +39,7 @@ The next long-term architecture direction is captured in `docs/pi-inspired-agent
 - Official runtime schema projection: `ToolRuntime.schemas_for(mode, workflow_state, tool_names=...)` is the single schema projection entry point; default harness-aware callers must pass extension-active tool names explicitly
 - Official frontend vocabulary: `build`, `tasks`, `current_phase`, `discipline_profile`
 - Official session-history model: `transcript.jsonl -> Session -> SessionHistoryAssembler -> /api/sessions/{id}/bootstrap`
+- Official session-operation model: schema v2 `operation_started` / `operation_finished` / `operation_interrupted` events are the durable runtime operation truth; legacy `step_started`, `tool_call`, `tool_result`, and `loop_transition` events remain session replay/history events, not operation-state inference inputs
 
 The product no longer treats the old `code` mode or `manage_todos`-style workflow as the architecture baseline.
 

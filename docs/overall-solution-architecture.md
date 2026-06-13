@@ -246,6 +246,16 @@ Official session-history ownership is:
 
 Historical turns must never be rebuilt from replay-log tails.
 
+### Durable Operation State Rule
+
+Durable runtime operation state is projected from explicit schema v2 lifecycle events:
+
+- `operation_started`
+- `operation_finished`
+- `operation_interrupted`
+
+`OperationLogReducer` consumes the validated transcript prefix and must not infer operation state from legacy replay/history events such as `step_started`, `tool_call`, `tool_result`, or `loop_transition`. Those events still rebuild structured session history and tool topology. Operation lifecycle events explain runtime execution units such as agent steps, context assembly, provider requests, tool calls, and save points.
+
 ## 9. Frontend Contract
 
 The frontend-facing vocabulary is now:

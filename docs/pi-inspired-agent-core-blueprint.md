@@ -61,7 +61,7 @@ The kernel should not own C/C++ phases, recipes, task graphs, or quality gates.
 
 The append-only durable state ledger.
 
-The session log should record not only messages, but also operation state:
+The session log should record not only messages, but also explicit operation lifecycle state:
 
 - operation started, finished, interrupted
 - turn started, finished
@@ -73,7 +73,7 @@ The session log should record not only messages, but also operation state:
 - compaction boundary written
 - extension custom entry appended
 
-Live `Session` state should become a reducer output of this log. Direct state patching should shrink over time.
+Live `Session` state should become a reducer output of this log. Direct state patching should shrink over time. Legacy replay events can continue to rebuild historical session topology, but durable runtime operation status should come from explicit lifecycle events rather than inferred side effects.
 
 ### CapabilityRegistry
 
@@ -270,6 +270,8 @@ Outcomes:
 - restore reduces the log into a self-consistent live session prefix
 - unfinished operations are marked interrupted by default
 - non-idempotent tool calls are not retried automatically
+
+Current implementation status: the first operation reducer slice exists and uses explicit schema v2 `operation_started`, `operation_finished`, and `operation_interrupted` events as the operation-state truth. Current runtime emissions cover agent steps, context assembly, provider requests, tool calls, and save points. Remaining Phase A work is to broaden explicit lifecycle coverage for turn-level events, pending interaction lifecycle, workflow patches, and frontend/diagnostic projections.
 
 ### Phase B: HookBus And Reducers
 

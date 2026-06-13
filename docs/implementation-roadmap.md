@@ -88,9 +88,10 @@ The current self-extensible Agent Core baseline remains valid. The next program 
 
 1. **Durable operation log and reducers**
    - extend transcript truth from session history into durable runtime state
-   - record operation, turn, provider request, tool call, pending interaction, context snapshot, workflow patch, and interruption events
+   - record explicit operation lifecycle events for agent steps, context assembly, provider requests, tool calls, save points, pending interaction, context snapshot, workflow patch, and interruptions
    - restore by reducing a self-consistent log prefix
    - mark unfinished operations interrupted by default and avoid automatic retry of non-idempotent tool calls
+   - keep legacy session replay events out of operation-state inference; they rebuild history, not runtime operation status
 
 2. **Source-aware HookBus and reducer registry**
    - separate passive observers from result-producing reducers

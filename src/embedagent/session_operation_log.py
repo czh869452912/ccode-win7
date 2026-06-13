@@ -58,14 +58,6 @@ class OperationLogReducer(object):
                 self._finish_operation(state, payload, timestamp)
             elif event_type == "operation_interrupted":
                 self._interrupt_operation(state, payload, timestamp)
-            elif event_type == "step_started":
-                self._start_step_operation(state, payload, timestamp)
-            elif event_type == "tool_call":
-                self._start_tool_operation(state, payload, timestamp)
-            elif event_type == "tool_result":
-                self._finish_tool_operation(state, payload, timestamp)
-            elif event_type == "loop_transition":
-                self._finish_step_on_terminal_transition(state, payload, timestamp)
         self._interrupt_unfinished_operations(state)
         return state
 
@@ -105,54 +97,6 @@ class OperationLogReducer(object):
                 started_at=str(payload.get("started_at") or timestamp),
                 retryable=bool(payload.get("retryable")),
                 metadata=dict(payload.get("metadata") or {}),
-            ),
-        )
-
-    def _start_step_operation(
-        self, state: OperationLogState, payload: Dict[str, Any], timestamp: str
-    ) -> None:
-        step_id = str(payload.get("step_id") or "").strip()
-        if not step_id:
-            return
-        self._remember(
-            state,
-            OperationRecord(
-                operation_id="step:%s" % step_id,
-                kind="agent_step",
-                turn_id=str(payload.get("turn_id") or ""),
-                step_id=step_id,
-                started_at=timestamp,
-                metadata={"step_index": payload.get("step_index")},
-            ),
-        )
-
-    def _start_tool_operation(
-        self, state: OperationLogState, payload: Dict[str, Any], timestamp: str
-    ) -> None:
-        call_id = str(payload.get("call_id") or "").strip()
-        if not call_id:
-            return
-        metadata = {
-            "tool_name": str(payload.get("tool_name") or ""),
-            "arguments": dict(payload.get("arguments") or {}),
-        }
-        if isinstance(payload.get("presentation"), dict):
-            metadata["presentation"] = dict(payload.get("presentation") or {})
-        self._remember(
-            state,
-            OperationRecord(
-                operation_id="tool:%s" % call_id,
-                kind="tool_call",
-                turn_id=str(payload.get("turn_id") or ""),
-                step_id=str(payload.get("step_id") or ""),
-                tool_call_id=call_id,
-                parent_operation_id=(
-                    "step:%s" % str(payload.get("step_id") or "").strip()
-                    if str(payload.get("step_id") or "").strip()
-                    else ""
-                ),
-                started_at=timestamp,
-                metadata=metadata,
             ),
         )
 
@@ -200,54 +144,6 @@ class OperationLogReducer(object):
         )
         record.retryable = bool(payload.get("retryable"))
         record.result = dict(payload.get("result") or {})
-
-    def _finish_tool_operation(
-        self, state: OperationLogState, payload: Dict[str, Any], timestamp: str
-    ) -> None:
-        call_id = str(payload.get("call_id") or "").strip()
-        if not call_id:
-            return
-        operation_id = "tool:%s" % call_id
-        record = state.operations.get(operation_id)
-        if record is None:
-            record = self._remember(
-                state,
-                OperationRecord(
-                    operation_id=operation_id,
-                    kind="tool_call",
-                    turn_id=str(payload.get("turn_id") or ""),
-                    step_id=str(payload.get("step_id") or ""),
-                    tool_call_id=call_id,
-                    started_at=timestamp,
-                ),
-            )
-        record.status = _FINISHED
-        record.finished_at = str(payload.get("finished_at") or timestamp)
-        record.result = dict(payload.get("observation") or {})
-        record.interrupted_reason = ""
-
-    def _finish_step_on_terminal_transition(
-        self, state: OperationLogState, payload: Dict[str, Any], timestamp: str
-    ) -> None:
-        reason = str(payload.get("reason") or "")
-        if reason not in ("completed", "aborted", "guard_stop", "max_turns"):
-            return
-        step_id = str(payload.get("step_id") or "").strip()
-        if not step_id:
-            return
-        record = state.operations.get("step:%s" % step_id)
-        if record is None:
-            return
-        record.status = _FINISHED if reason == "completed" else _INTERRUPTED
-        record.finished_at = timestamp
-        record.result = {
-            "reason": reason,
-            "message": str(payload.get("message") or ""),
-            "turns_used": payload.get("turns_used"),
-        }
-        if record.status == _INTERRUPTED:
-            record.interrupted_reason = reason
-            record.retryable = False
 
     def _interrupt_unfinished_operations(self, state: OperationLogState) -> None:
         for operation_id in state.order:

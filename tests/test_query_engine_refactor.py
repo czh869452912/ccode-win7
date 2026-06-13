@@ -674,6 +674,64 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertIn("tool:call-read-demo", started_ids)
         self.assertIn("tool:call-read-demo", finished_ids)
 
+    def test_query_engine_emits_core_runtime_operation_events(self):
+        transcript_store = TranscriptStore(self.workspace)
+        engine = QueryEngine(
+            client=ToolClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(
+                auto_approve_all=True,
+                workspace=self.workspace,
+            ),
+            transcript_store=transcript_store,
+        )
+        session = Session()
+        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：build")
+
+        result = engine.submit_user_turn(
+            user_text="读取文件",
+            stream=False,
+            initial_mode="build",
+            session=session,
+        )
+
+        self.assertEqual(result.transition.reason, "completed")
+        events = transcript_store.load_events(session.session_id)
+        started = [item for item in events if item["type"] == "operation_started"]
+        finished = [item for item in events if item["type"] == "operation_finished"]
+        started_by_kind = {}
+        finished_by_kind = {}
+        for item in started:
+            started_by_kind.setdefault(item["payload"].get("kind"), []).append(item["payload"])
+        for item in finished:
+            finished_by_kind.setdefault(item["payload"].get("kind"), []).append(item["payload"])
+
+        self.assertIn("context_assembly", started_by_kind)
+        self.assertIn("context_assembly", finished_by_kind)
+        self.assertIn("provider_request", started_by_kind)
+        self.assertIn("provider_request", finished_by_kind)
+        self.assertIn("save_point", started_by_kind)
+        self.assertIn("save_point", finished_by_kind)
+
+        context_start = started_by_kind["context_assembly"][0]
+        context_finish = finished_by_kind["context_assembly"][0]
+        provider_start = started_by_kind["provider_request"][0]
+        provider_finish = finished_by_kind["provider_request"][0]
+        savepoint_start = started_by_kind["save_point"][-1]
+        savepoint_finish = finished_by_kind["save_point"][-1]
+
+        self.assertTrue(context_start["operation_id"].startswith("context:"))
+        self.assertTrue(context_finish["operation_id"].startswith("context:"))
+        self.assertEqual(context_start["metadata"]["mode_name"], "build")
+        self.assertIn("approx_tokens", context_finish["result"])
+        self.assertTrue(provider_start["operation_id"].startswith("provider:"))
+        self.assertTrue(provider_finish["operation_id"].startswith("provider:"))
+        self.assertEqual(provider_start["metadata"]["mode_name"], "build")
+        self.assertIn("finish_reason", provider_finish["result"])
+        self.assertTrue(savepoint_start["operation_id"].startswith("savepoint:"))
+        self.assertTrue(savepoint_finish["operation_id"].startswith("savepoint:"))
+        self.assertEqual(savepoint_finish["result"]["reason"], "completed")
+
     def test_tool_result_store_failure_degrades_without_breaking_tool_pairing(self):
         transcript_store = TranscriptStore(self.workspace)
         with open(os.path.join(self.workspace, "src", "demo.c"), "w", encoding="utf-8") as handle:
@@ -1693,7 +1751,8 @@ class TestQueryEngineRefactor(unittest.TestCase):
         events = transcript_store.load_events(session.session_id)
         event_types = [item["type"] for item in events]
         self.assertIn("pending_interaction", event_types)
-        self.assertEqual(events[-1]["type"], "loop_transition")
+        loop_transitions = [item for item in events if item["type"] == "loop_transition"]
+        self.assertEqual(loop_transitions[-1]["payload"]["reason"], "user_input_wait")
 
     def test_query_engine_resume_pending_persists_resolution_and_tool_result(self):
         session = Session()

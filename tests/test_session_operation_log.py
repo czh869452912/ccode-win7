@@ -28,7 +28,7 @@ def _make_workspace(name):
 
 
 class TestOperationLogReducer(unittest.TestCase):
-    def test_unfinished_tool_call_is_interrupted_and_not_retryable(self):
+    def test_unfinished_explicit_tool_operation_is_interrupted_and_not_retryable(self):
         events = [
             {
                 "schema_version": 2,
@@ -36,13 +36,17 @@ class TestOperationLogReducer(unittest.TestCase):
                 "event_id": "evt-tool",
                 "seq": 1,
                 "ts": "2026-06-13T00:00:00Z",
-                "type": "tool_call",
+                "type": "operation_started",
                 "payload": {
+                    "operation_id": "tool:call-read",
+                    "kind": "tool_call",
                     "turn_id": "t-1",
                     "step_id": "s-1",
-                    "call_id": "call-read",
-                    "tool_name": "read_file",
-                    "arguments": {"path": "src/demo.c"},
+                    "tool_call_id": "call-read",
+                    "metadata": {
+                        "tool_name": "read_file",
+                        "arguments": {"path": "src/demo.c"},
+                    },
                 },
             }
         ]
@@ -56,7 +60,54 @@ class TestOperationLogReducer(unittest.TestCase):
         self.assertEqual(record.interrupted_reason, "restore_incomplete_operation")
         self.assertEqual(state.interrupted_count, 1)
 
-    def test_tool_result_finishes_matching_tool_call(self):
+    def test_explicit_operation_finished_finishes_matching_tool_operation(self):
+        events = [
+            {
+                "schema_version": 2,
+                "session_id": "sess-op",
+                "event_id": "evt-tool",
+                "seq": 1,
+                "ts": "2026-06-13T00:00:00Z",
+                "type": "operation_started",
+                "payload": {
+                    "operation_id": "tool:call-read",
+                    "kind": "tool_call",
+                    "turn_id": "t-1",
+                    "step_id": "s-1",
+                    "tool_call_id": "call-read",
+                    "metadata": {
+                        "tool_name": "read_file",
+                        "arguments": {"path": "src/demo.c"},
+                    },
+                },
+            },
+            {
+                "schema_version": 2,
+                "session_id": "sess-op",
+                "event_id": "evt-result",
+                "seq": 2,
+                "ts": "2026-06-13T00:00:01Z",
+                "type": "operation_finished",
+                "payload": {
+                    "operation_id": "tool:call-read",
+                    "kind": "tool_call",
+                    "turn_id": "t-1",
+                    "step_id": "s-1",
+                    "tool_call_id": "call-read",
+                    "finished_at": "2026-06-13T00:00:01Z",
+                    "result": {"success": True, "error": None},
+                },
+            },
+        ]
+
+        state = OperationLogReducer().reduce(events)
+
+        record = state.operations["tool:call-read"]
+        self.assertEqual(record.status, "finished")
+        self.assertEqual(record.finished_at, "2026-06-13T00:00:01Z")
+        self.assertEqual(state.interrupted_count, 0)
+
+    def test_legacy_tool_events_do_not_create_operation_state(self):
         events = [
             {
                 "schema_version": 2,
@@ -85,18 +136,14 @@ class TestOperationLogReducer(unittest.TestCase):
                     "step_id": "s-1",
                     "call_id": "call-read",
                     "tool_name": "read_file",
-                    "finished_at": "2026-06-13T00:00:01Z",
-                    "observation": {"success": True, "error": None, "data": {"path": "src/demo.c"}},
+                    "observation": {"success": True, "error": None, "data": {}},
                 },
             },
         ]
 
         state = OperationLogReducer().reduce(events)
 
-        record = state.operations["tool:call-read"]
-        self.assertEqual(record.status, "finished")
-        self.assertEqual(record.finished_at, "2026-06-13T00:00:01Z")
-        self.assertEqual(state.interrupted_count, 0)
+        self.assertEqual(state.operations, {})
 
     def test_explicit_operation_events_override_legacy_events(self):
         events = [
@@ -148,8 +195,70 @@ class TestOperationLogRestoreIntegration(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.workspace, ignore_errors=True)
 
-    def test_restore_exposes_interrupted_operation_state(self):
+    def test_restore_exposes_explicit_interrupted_operation_state(self):
         session_id = "sess-op-restore"
+        self.store.append_event(session_id, "session_meta", {"current_mode": "build"})
+        self.store.append_event(
+            session_id,
+            "message",
+            {
+                "role": "user",
+                "content": "读取文件",
+                "message_id": "m-user",
+                "turn_id": "t-1",
+                "step_id": "",
+            },
+        )
+        self.store.append_event(
+            session_id,
+            "step_started",
+            {"turn_id": "t-1", "step_id": "s-1", "step_index": 1},
+        )
+        self.store.append_event(
+            session_id,
+            "tool_call",
+            {
+                "turn_id": "t-1",
+                "step_id": "s-1",
+                "call_id": "call-read",
+                "tool_name": "read_file",
+                "arguments": {"path": "src/demo.c"},
+            },
+        )
+        self.store.append_event(
+            session_id,
+            "operation_started",
+            {
+                "operation_id": "step:s-1",
+                "kind": "agent_step",
+                "turn_id": "t-1",
+                "step_id": "s-1",
+            },
+            schema_version=2,
+        )
+        self.store.append_event(
+            session_id,
+            "operation_started",
+            {
+                "operation_id": "tool:call-read",
+                "kind": "tool_call",
+                "turn_id": "t-1",
+                "step_id": "s-1",
+                "tool_call_id": "call-read",
+            },
+            schema_version=2,
+        )
+
+        result = SessionRestorer().restore(self.store.load_events(session_id))
+
+        step_record = result.operation_state.operations["step:s-1"]
+        tool_record = result.operation_state.operations["tool:call-read"]
+        self.assertEqual(step_record.status, "interrupted")
+        self.assertEqual(tool_record.status, "interrupted")
+        self.assertEqual(result.operation_state.interrupted_count, 2)
+
+    def test_restore_does_not_infer_operation_state_from_legacy_events(self):
+        session_id = "sess-op-legacy"
         self.store.append_event(session_id, "session_meta", {"current_mode": "build"})
         self.store.append_event(
             session_id,
@@ -181,11 +290,7 @@ class TestOperationLogRestoreIntegration(unittest.TestCase):
 
         result = SessionRestorer().restore(self.store.load_events(session_id))
 
-        step_record = result.operation_state.operations["step:s-1"]
-        tool_record = result.operation_state.operations["tool:call-read"]
-        self.assertEqual(step_record.status, "interrupted")
-        self.assertEqual(tool_record.status, "interrupted")
-        self.assertEqual(result.operation_state.interrupted_count, 2)
+        self.assertEqual(result.operation_state.operations, {})
 
 
 if __name__ == "__main__":

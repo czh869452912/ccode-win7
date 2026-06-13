@@ -71,6 +71,7 @@ _COMPACT_RETRY_ERROR_MARKERS = (
     "上下文",
     "超出上下文",
 )
+_OPERATION_RUNTIME_ERRORS = (OSError, RuntimeError, ValueError, TypeError, KeyError, AttributeError)
 
 
 class QueryEngine(object):
@@ -282,6 +283,151 @@ class QueryEngine(object):
                 "result": dict(result or {}),
             },
         )
+
+    def _turn_id(self, session: Session) -> str:
+        return session.turns[-1].turn_id if session.turns else ""
+
+    def _context_operation_metadata(
+        self, mode_name: str, workflow_state: str, force_compact: bool
+    ) -> Dict[str, Any]:
+        return {
+            "mode_name": mode_name,
+            "workflow_state": workflow_state,
+            "force_compact": bool(force_compact),
+        }
+
+    def _context_operation_result(self, assembly: ContextAssemblyResult) -> Dict[str, Any]:
+        return {
+            "approx_tokens": assembly.approx_tokens,
+            "used_chars": assembly.used_chars,
+            "compacted": assembly.compacted,
+            "summarized_turns": assembly.summarized_turns,
+            "recent_turns": assembly.recent_turns,
+            "pipeline_steps": list(assembly.pipeline_steps),
+            "replacements": len(assembly.replacements),
+        }
+
+    def _provider_operation_result(self, reply: AssistantReply) -> Dict[str, Any]:
+        return {
+            "finish_reason": reply.finish_reason,
+            "action_count": len(reply.actions),
+            "content_length": len(reply.content or ""),
+            "reasoning_length": len(reply.reasoning_content or ""),
+        }
+
+    def _build_context_operation(
+        self,
+        session: Session,
+        current_mode: str,
+        workflow_state: str,
+        force_compact: bool,
+        turn_id: str,
+        step_id: str,
+        operation_id: str,
+    ) -> ContextAssemblyResult:
+        self._emit_operation_started(
+            session,
+            operation_id,
+            "context_assembly",
+            turn_id=turn_id,
+            step_id=step_id,
+            parent_operation_id="step:%s" % step_id if step_id else "",
+            metadata=self._context_operation_metadata(current_mode, workflow_state, force_compact),
+        )
+        try:
+            assembly = self._build_context(
+                session, current_mode, workflow_state, force_compact=force_compact
+            )
+        except _OPERATION_RUNTIME_ERRORS as exc:
+            self._emit_operation_interrupted(
+                session,
+                operation_id,
+                kind="context_assembly",
+                turn_id=turn_id,
+                step_id=step_id,
+                reason="context_assembly_error",
+                result={"error": str(exc)},
+            )
+            raise
+        self._emit_operation_finished(
+            session,
+            operation_id,
+            kind="context_assembly",
+            turn_id=turn_id,
+            step_id=step_id,
+            result=self._context_operation_result(assembly),
+        )
+        return assembly
+
+    def _call_provider_operation(
+        self,
+        session: Session,
+        operation_id: str,
+        turn_id: str,
+        step_id: str,
+        current_mode: str,
+        workflow_state: str,
+        messages: list,
+        tool_schemas: list,
+        stream: bool,
+        on_text_delta: Optional[Callable[[str], None]],
+        on_reasoning_delta: Optional[Callable[[str], None]],
+    ) -> AssistantReply:
+        self._emit_operation_started(
+            session,
+            operation_id,
+            "provider_request",
+            turn_id=turn_id,
+            step_id=step_id,
+            parent_operation_id="step:%s" % step_id if step_id else "",
+            retryable=True,
+            metadata={
+                "mode_name": current_mode,
+                "workflow_state": workflow_state,
+                "message_count": len(messages),
+                "tool_schema_count": len(tool_schemas),
+                "stream": bool(stream),
+            },
+        )
+        try:
+            reply = self._call_llm_with_retry(
+                messages,
+                tool_schemas,
+                stream,
+                on_text_delta,
+                on_reasoning_delta,
+            )
+        except ModelClientError as exc:
+            self._emit_operation_interrupted(
+                session,
+                operation_id,
+                kind="provider_request",
+                turn_id=turn_id,
+                step_id=step_id,
+                reason="model_client_error",
+                result={"error": str(exc)},
+            )
+            raise
+        except _OPERATION_RUNTIME_ERRORS as exc:
+            self._emit_operation_interrupted(
+                session,
+                operation_id,
+                kind="provider_request",
+                turn_id=turn_id,
+                step_id=step_id,
+                reason="provider_request_error",
+                result={"error": str(exc)},
+            )
+            raise
+        self._emit_operation_finished(
+            session,
+            operation_id,
+            kind="provider_request",
+            turn_id=turn_id,
+            step_id=step_id,
+            result=self._provider_operation_result(reply),
+        )
+        return reply
 
     def _append_message_event(self, session: Session, payload: Dict[str, Any]) -> None:
         self._append_transcript_event(session, "message", payload)
@@ -552,7 +698,20 @@ class QueryEngine(object):
     def _record_transition(self, session: Session, transition: LoopTransition) -> None:
         with self._session_guard():
             step_id = session.current_step().step_id if session.current_step() is not None else ""
-            turn_id = session.turns[-1].turn_id if session.turns else ""
+            turn_id = self._turn_id(session)
+            savepoint_index = len(session.turns[-1].transitions) + 1 if session.turns else 1
+            savepoint_id = "savepoint:%s:%s:%s" % (
+                turn_id or "session",
+                step_id or "turn",
+                savepoint_index,
+            )
+            savepoint_result = {
+                "reason": transition.reason,
+                "message": transition.message,
+                "next_mode": transition.next_mode,
+                "turns_used": transition.turns_used,
+                "metadata": dict(transition.metadata),
+            }
             if transition.pending_interaction is not None:
                 self._append_transcript_event(
                     session,
@@ -566,6 +725,15 @@ class QueryEngine(object):
                         "request_payload": dict(transition.pending_interaction.request_payload),
                     },
                 )
+            self._emit_operation_started(
+                session,
+                savepoint_id,
+                "save_point",
+                turn_id=turn_id,
+                step_id=step_id,
+                parent_operation_id="step:%s" % step_id if step_id else "",
+                metadata={"transition_reason": transition.reason},
+            )
             self._append_transcript_event(
                 session,
                 "loop_transition",
@@ -578,6 +746,14 @@ class QueryEngine(object):
                     "turns_used": transition.turns_used,
                     "metadata": dict(transition.metadata),
                 },
+            )
+            self._emit_operation_finished(
+                session,
+                savepoint_id,
+                kind="save_point",
+                turn_id=turn_id,
+                step_id=step_id,
+                result=savepoint_result,
             )
             if step_id and transition.reason in ("completed", "aborted", "guard_stop", "max_turns"):
                 if transition.reason == "completed":
@@ -1012,7 +1188,15 @@ class QueryEngine(object):
                 record.presentation = presentation
         if on_step_start is not None:
             on_step_start(step_id, step_index)
-        assembly = self._build_context(session, current_mode, workflow_state)
+        assembly = self._build_context_operation(
+            session,
+            current_mode,
+            workflow_state,
+            False,
+            command_turn_id,
+            step_id,
+            "context:%s:1" % step_id,
+        )
         if on_context_result is not None:
             on_context_result(assembly)
         reply = AssistantReply(content="", actions=[action], finish_reason="tool_calls")
@@ -1239,9 +1423,20 @@ class QueryEngine(object):
             force_compact = False
             compact_retry_used = False
             compact_boundary_recorded = False
+            operation_attempt = 0
             while True:
-                assembly = self._build_context(
-                    session, current_mode, workflow_state, force_compact=force_compact
+                operation_attempt += 1
+                turn_id = self._turn_id(session)
+                context_operation_id = "context:%s:%s" % (step_id, operation_attempt)
+                provider_operation_id = "provider:%s:%s" % (step_id, operation_attempt)
+                assembly = self._build_context_operation(
+                    session,
+                    current_mode,
+                    workflow_state,
+                    force_compact,
+                    turn_id,
+                    step_id,
+                    context_operation_id,
                 )
                 with self._session_guard():
                     session.record_context_snapshot(
@@ -1274,10 +1469,17 @@ class QueryEngine(object):
                 if on_context_result is not None:
                     on_context_result(assembly)
                 self._persist_summary(session, current_mode, assembly)
+                tool_schemas = self._schemas_for_active_tools(current_mode, workflow_state)
                 try:
-                    reply = self._call_llm_with_retry(
+                    reply = self._call_provider_operation(
+                        session,
+                        provider_operation_id,
+                        turn_id,
+                        step_id,
+                        current_mode,
+                        workflow_state,
                         assembly.messages,
-                        self._schemas_for_active_tools(current_mode, workflow_state),
+                        tool_schemas,
                         stream,
                         on_text_delta,
                         on_reasoning_delta,
