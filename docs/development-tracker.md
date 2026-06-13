@@ -1,6 +1,6 @@
 # EmbedAgent 开发进度跟踪
 
-> 更新日期：2026-06-12（Self-extensible Agent Core Slice 6 文档收口）
+> 更新日期：2026-06-13（Pi-inspired minimal Agent Core 长期蓝图建立）
 > 用途：持续跟踪当前阶段、下一步任务、里程碑进度、风险与阻塞
 
 ---
@@ -26,9 +26,9 @@
 
 ### 总阶段
 
-- 当前阶段：`Phase 4 真实工程验证 + Phase 6 GUI / Win7 收口`
+- 当前阶段：`Phase 4 真实工程验证 + Phase 6 GUI / Win7 收口 + Pi-inspired minimal Core 规划`
 - 总体状态：`进行中`
-- 当前重点：`Agent Harness V2 official cutover 六步程序与文档治理 Batch A 已完成。模块文档（protocol/core、TUI、GUI、packaging）已补齐，代码-文档矩阵已同步。workflow extension boundary 代码迁移、repo-side 回归、本机 release bundle 验证和本机剩余边界清理已收口；下一步重点是在真实 Win7 目标机重跑离线 bundle smoke，并继续真实 C/C++ 工程验证。`
+- 当前重点：`Agent Harness V2 official cutover 六步程序与文档治理 Batch A 已完成。模块文档（protocol/core、TUI、GUI、packaging）已补齐，代码-文档矩阵已同步。workflow extension boundary 代码迁移、repo-side 回归、本机 release bundle 验证和本机剩余边界清理已收口；下一步重点是在真实 Win7 目标机重跑离线 bundle smoke、继续真实 C/C++ 工程验证，并按 Pi-inspired minimal Core 蓝图启动 durable operation log / reducer 第一阶段设计。`
 - 最新 session-history 收口：`GUI session activation 已切到单一 `/api/sessions/{id}/bootstrap` 合约；历史 turns 现在只从 `transcript.jsonl -> Session -> SessionHistoryAssembler` 生成，`timeline.jsonl` 仅保留 transport replay 角色，raw fallback 不再是正式 GUI 恢复模式。`
 - 最新稳定化收口：`set_session_mode()` 现在会先重置旧 phase 再刷新 Harness snapshot，避免 build/debug/verify 跨 mode 切换时把上一模式的 phase 残留到新会话快照；同时 `Context` 高优先级工具、reducer registry 与 `/review` 文案已统一到 `run_recipe/report_quality_v2/task_status` 正式词汇。`
 - 最新 dead-code 清理：`tools_v2/` 中仍被正式主路径使用的 discovery/recipe/session 模块已迁入官方 `src/embedagent/tools/`；旧 `tools_v2/*.py` 与已无人引用的 legacy `loop.py` 已删除，产品源码不再直接 import `tools_v2`。当前 `src/embedagent/agent_loop.py` 是 Slice 5 新增的正式 turn-loop 边界。`
@@ -38,6 +38,7 @@
 - 最新 agent core cutover：`QueryEngine` 已改为 session-scoped owner，`InProcessAdapter` 不再为前端事件重新生成 `step_id`；pending permission/user-input 的 resume 现已回到统一 action pipeline，`TaskGraph` 已进入 `Session` 真相层并驱动 task projection，`SessionSnapshotProjector` 已抽成纯投影器，`transcript/timeline` 追加序号也已改为缓存分配。`
 - 最新 workflow extension boundary：`src/embedagent/extensions.py` 已建立本地 workflow extension contract，默认 C/C++ harness 现在通过 `src/embedagent/harness/extension.py` 接入；`src/embedagent/default_extensions.py` 负责 hosted runtime 的默认扩展装配，`src/embedagent/harness/workflow_projection.py` 负责把 C harness 内部状态映射为通用 workflow payload；`QueryEngine` 不再直接 import/构造默认 C harness extension；`QueryEngine` 不再直接 import/实例化 `TaskGraph`，schema 投影统一走 `ToolRuntime.schemas_for(mode, workflow_state, tool_names=...)`；导入和实例化 `embedagent.session.Session` 不再加载 `embedagent.harness.task_graph`；`ToolRuntime.allowed_tool_names()` 与 `OfficialRuntimeModes.allowed_tool_names()` 已删除，`TurnOrchestrator` 通过 `QueryEngine` 注入的 allowed-tool policy 做 gating；`SessionSnapshotProjector`、core strategy 的 `task_status` 兼容路径与 live frontend task API 已改为从 `Session.workflow_state["workflow"]` 投影任务字段，`InProcessAdapter` 不再直接构造 `HarnessRunner`；`HarnessStateSynchronizer` service facade 已删除，refresh 与 task snapshot persistence 只走默认 C harness workflow extension；`Session.task_graph` 已删除，默认 C harness 图状态由 `CHarnessWorkflowExtension` 背后的 harness-owned session graph state 持有。`
 - 最新 self-extensible Agent Core：`ExtensionManager` 已从默认 C/C++ workflow extension 边界扩展为共享 in-process capability boundary，新增通用 extension diagnostics、resource discovery contract、context hook、tool-call/tool-result hooks、dynamic in-process tool registration、frontend snapshot diagnostics 与 manifest-gated project-local Python extension loading；`.embedagent/skills`、`.embedagent/prompts`、`.embedagent/recipes` 本地文件资源已可通过 runtime、adapter、slash command 与 GUI/core API reload；`.embedagent/extensions/<name>/extension.json` 可在 `enabled: true` 且声明 permissions 时加载 workspace-bound `extension.py`，并继续禁止依赖安装、远程 registry、built-in tool replacement 与权限绕行。Slice 5 已将 `QueryEngine` 瘦身为 session facade：`AgentExtensionHost` 集中 extension hook dispatch 与 active schema projection，`AgentToolActionService` 集中非 LLM tool action execution，`AgentLoop` 承担 turn-loop 边界。Slice 6 已将 active source-of-truth docs、module docs 与 self-extensible archive index 同步到当前官方口径，completed self-extensible slice materials 归档到 `docs/archive/self-extensible-agent-core/`。`
+- 最新 Pi-inspired minimal Core 蓝图：`docs/pi-inspired-agent-core-blueprint.md` 已建立为下一阶段长期目标蓝图，同时学习 Pi 的功能设计和架构哲学；目标是把 Agent Core 继续收敛为更小的 Agent Kernel、durable SessionLog/reducer、source-aware HookBus、CapabilityRegistry、Policy Boundary 与默认 C/C++ workflow package。当前官方 baseline 不变，后续按 durable operation log、HookBus/reducer registry、AgentKernel lifecycle extraction、default C/C++ workflow package、self-extension authoring loop 和 offline validation 渐进推进。`
 - 最新 workflow extension cleanup：`InProcessAdapter.list_tasks()` 的 inactive-session task snapshot fallback 已改为通过共享 `ExtensionManager.load_session_tasks(...)` 查询，默认 C harness extension 继续负责读取自己的 task snapshot；adapter 不再直接 import `embedagent.harness.task_store`。`
 - 最新 workflow extension validation：`2026-05-29 repo-side 验证已通过：fast suite 为 685 passed / 11 deselected，focused C/C++ build/debug/verify workflow 回归为 15 passed。官方 harness 门禁已修复 marker 漏标问题，uv run pytest tests/ -m harness -v 现在会选中并通过 23 个 task_graph / phase_engine / harness runner / prompt stack / harness injection 测试。本机 release bundle 已用当前分支源码重建并通过：validate-offline-bundle.ps1 -RequireComplete 为 59 pass / 0 warn / 0 fail，check-bundle-dependencies.py 全部通过，scripts/package.ps1 verify -Profile release -Json 返回 final_status READY。clean Windows 7 unpack-and-run smoke 尚未执行。`
 - 最新 documentation cleanup：`docs/guides/configuration-guide.md` 已改写为当前正式配置指南，使用 `explore/spec/build/debug/verify` 与 `build` 实现模式口径，不再把 `code` 或 `manage_todos` 作为当前配置/工作流示例。`
@@ -175,7 +176,7 @@
 - 已完成 dist/source GUI 布局重新对齐：重建后的离线 bundle 已携带 `static/assets`、Fixed Version WebView2 109、无 `__editable__.embedagent-*.pth` 泄漏，且 bundle 级 `validate-offline-bundle.ps1`、`validate-gui-smoke.py`、`check-bundle-dependencies.py` 全部通过
 - Phase 7 打包链路已开始切换到声明式控制面：`scripts/package.config.json`、`scripts/package-lib.ps1` 与 `scripts/package.ps1` 已落地；当前 `doctor/deps/assemble/verify/release` 已可通过 mocked orchestration contract 运行，并统一写入 `build/offline-reports/`
 
-项目下一步：继续推进 Phase 4 真实工程验证，在 Win7 bundle 中验证 Fixed Version WebView2 109 路径，并把 Phase 7 的 site-packages 精简、真实 release pipeline 验收和 Win7 bundle 验收接上。
+项目下一步：继续推进 Phase 4 真实工程验证，在 Win7 bundle 中验证 Fixed Version WebView2 109 路径，并把 Phase 7 的 site-packages 精简、真实 release pipeline 验收和 Win7 bundle 验收接上；同时启动 Pi-inspired minimal Core 的第一阶段 durable operation log / reducer 设计，确保长期架构改造从可恢复、可观测、可渐进迁移的状态真相开始。
 
 ---
 
@@ -186,6 +187,7 @@
 1. 推进 Phase 4 的真实 C 工程与 Win7 验证
 2. 在 Win7 bundle 中完成 GUI Chromium 基线实机验证并记录结果
 3. 为当前 `package.ps1 release` 路径评估并收敛 `site-packages` 的精简导出方案
+4. 为 Pi-inspired minimal Core 第一阶段补设计与测试计划：durable operation log、restore reducer、interrupted operation 语义和非幂等工具不自动重试规则
 
 实现备注：
 
@@ -205,6 +207,7 @@
 3. 评估终端前端稳定后是否推进 stdio JSON-RPC adapter
 4. 决定是否从 `.venv\Lib\site-packages` 继续直拷，还是切到更精简的运行时导出策略
 5. 在 Win7 虚拟机上对当前四类核心资产 bundle 做一次真实验收
+6. 将 Pi-inspired minimal Core 后续切片拆成可独立验证的 tracker tasks，避免一次性大改 `QueryEngine` / `ExtensionManager`
 
 ---
 
@@ -240,6 +243,7 @@
 | T-025 | 零依赖打包：内网配置模板 | `completed` | 已新增 `config/config.json.template`，预配置内网大模型服务示例 |
 | T-027 | Phase 7 打包控制面收口 | `in_progress` | `scripts/package.ps1`、`scripts/package.config.json`、`scripts/package-lib.ps1` 与 `tests/test_packaging_control_plane.py` 已打通 `doctor/deps/assemble/verify/release` mocked orchestration；下一步是完成文档迁移并在真实 bundle 路径上验收 |
 | T-028 | Query / Context 内核重构切片 | `completed` | 已落地 `QueryEngine`、transcript/event 模型、workspace intelligence broker、tool capability metadata、batch tool orchestration、pending interaction resume、`transcript_store.py`、`session_restore.py`、transcript-truth resume、`parent_message_id` 因果链、timeline `seq` 顺序、parallel tool timeout/cancel 收口、single-writer tool commit、session-local tool-result store、SQLite projection cutover，以及 websocket/session-lock 竞态硬化；相关 transcript-truth cutover 设计/计划/分析/复核文档已归档到 `docs/archive/transcript-truth-tool-result-cutover/` |
+| T-029 | Pi-inspired minimal Core 第一阶段：durable operation log / reducer | `planned` | 以 `docs/pi-inspired-agent-core-blueprint.md` 为目标蓝图，先设计 operation / turn / provider request / tool call / pending interaction / context snapshot / workflow patch / interruption 事件与 restore reducer，不改变当前 hosted C/C++ 行为 |
 
 ---
 
@@ -286,6 +290,7 @@
 | R-022 | 当前 mode / tool / permission 强耦合导致真实任务频繁切模式、奇怪拒绝和工具调用退化 | 高 | 已建立 `docs/agent-harness-v2.md` 作为整体重构基线；后续优先按 harness / tool contract / permission DSL 的顺序做切片，而不是继续在旧机制上打补丁 |
 | R-023 | 架构 cutover 已完成，但若后续新增功能绕过 Harness/Protocol/Permission 的正式边界，仍可能重新引入平行术语和隐式兼容层 | 中 | 继续把 `README` / `AGENTS` / architecture docs 作为唯一 source of truth；新增功能优先复用 Harness、TaskGraph、recipe runtime 和 session snapshot，而不是再建第二套路径 |
 | R-024 | 文档分层、模块映射和同步流程尚未完全建立 | 高 | Batch B 已完成：遗留文档已归档，操作指南已下沉，模块文档与 guides/ 索引已同步 |
+| R-025 | Pi-inspired minimal Core 若被理解成一次性重写，可能破坏已收口的 hosted C/C++ workflow、Win7 bundle 和 self-extension baseline | 高 | 按 durable operation log -> HookBus/reducer -> AgentKernel -> default workflow package 的顺序做小切片；每片保持当前行为回归通过，并在 source-of-truth docs 中明确“目标蓝图”和“已实现 baseline”的边界 |
 
 ---
 
@@ -293,6 +298,7 @@
 
 | 日期 | 更新内容 |
 |------|----------|
+| 2026-06-13 | Pi-inspired minimal Agent Core 长期蓝图建立：新增 `docs/pi-inspired-agent-core-blueprint.md`，同时学习 Pi 的功能设计和架构哲学；README、AGENTS、overall architecture、roadmap 与 tracker 已同步“当前 baseline 不变、后续渐进改造”的口径 |
 | 2026-06-12 | Self-extensible Agent Core Slice 6 文档收口：active source-of-truth docs 与 module docs 已同步 local offline self-extension 官方口径；resource reload 与 project-local Python extension loading 的边界重新写清；completed self-extensible slice materials 已迁入 `docs/archive/self-extensible-agent-core/` |
 | 2026-06-12 | QueryEngine slimming Slice 5 落地：新增 `AgentExtensionHost`、`AgentToolActionService` 与 `AgentLoop`，将 extension hook dispatch、active schema projection、非 LLM tool action execution 与 turn-loop 边界从 `QueryEngine` 中抽出；bare `QueryEngine` 继续不启用默认 C harness，hosted 路径仍通过共享 `ExtensionManager` 获得默认 C/C++ 行为 |
 | 2026-06-08 | Project-local Python extensions Slice 4 落地：新增 manifest-gated loader，hosted `InProcessAdapter` 可加载启用的 `.embedagent/extensions/<name>/extension.json` + workspace-bound `extension.py`，并注册到共享 `ExtensionManager`；loader diagnostics 投影到 `extensions.project_extensions` 与 `extension_diagnostics`，动态工具继续走 catalog metadata、active-tool gating 与 `PermissionPolicy` |

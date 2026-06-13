@@ -15,6 +15,7 @@
 ## 2. 项目级官方文档
 
 - `overall-solution-architecture.md`
+- `pi-inspired-agent-core-blueprint.md`
 - `implementation-roadmap.md`
 - `development-tracker.md`
 - `design-change-log.md`

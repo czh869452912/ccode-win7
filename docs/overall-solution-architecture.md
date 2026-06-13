@@ -275,3 +275,16 @@ When changing architecture:
 - promote the new path to the only official path
 - then delete or archive the old path
 - keep current docs describing only the official architecture
+
+## 12. Next Architecture Direction
+
+The current official architecture remains the baseline described above. The next architecture program is defined by `pi-inspired-agent-core-blueprint.md`.
+
+That program keeps learning from Pi at two levels:
+
+- functional design: extensions, resources, durable sessions, compaction, command surfaces, model capability metadata, observability, and self-extension workflows
+- architecture philosophy: a smaller core, capability registration, event reducers, turn snapshots, save points, and replaceable workflow packages
+
+The intended long-term direction is that Agent Core can be described without C/C++ workflow vocabulary. The bundled C/C++ harness remains the default product workflow, but it should continue moving toward a first-party workflow package loaded through the same capability boundary as other local extensions.
+
+This is a gradual direction, not a statement that the target state is already implemented. Near-term changes should preserve the current hosted behavior while extracting durable session-log reducers, a source-aware hook bus, and a real AgentKernel lifecycle boundary.

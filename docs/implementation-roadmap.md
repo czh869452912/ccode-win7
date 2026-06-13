@@ -75,7 +75,52 @@ Recent stabilization work has also completed the agent-core ownership cutover:
 
 ## 4. Remaining Near-Term Work
 
-### 4.1 Legacy Helper Deletion
+### 4.1 Pi-Inspired Minimal Core Program
+
+The next long-term architecture program is documented in `docs/pi-inspired-agent-core-blueprint.md`.
+
+It has two goals:
+
+- keep learning Pi's functional design: extensions, resources, durable sessions, compaction, commands, model capability metadata, observability, and self-extension workflows
+- keep learning Pi's architecture philosophy: a small Agent Core, capability registration, source-aware event reducers, explicit turn snapshots, save points, and replaceable workflow packages
+
+The current self-extensible Agent Core baseline remains valid. The next program should advance it in gradual slices:
+
+1. **Durable operation log and reducers**
+   - extend transcript truth from session history into durable runtime state
+   - record operation, turn, provider request, tool call, pending interaction, context snapshot, workflow patch, and interruption events
+   - restore by reducing a self-consistent log prefix
+   - mark unfinished operations interrupted by default and avoid automatic retry of non-idempotent tool calls
+
+2. **Source-aware HookBus and reducer registry**
+   - separate passive observers from result-producing reducers
+   - encode reducer semantics per event instead of scattering merge behavior across the manager
+   - attach source metadata, cleanup, diagnostics, and reload behavior to registrations
+   - keep built-in workflow extensions and project-local extensions on the same internal event boundary
+
+3. **AgentKernel lifecycle extraction**
+   - turn `AgentLoop` from a thin wrapper into the owner of turn snapshots, save points, suspend/resume, abort, compact retry, and failure cleanup
+   - keep `QueryEngine` as the session facade and compatibility surface while shrinking direct orchestration logic
+   - keep non-LLM action execution behind `AgentToolActionService`
+
+4. **Default C/C++ workflow package**
+   - continue moving C/C++ task graph, prompts, recipes, quality gates, task status, and workflow tool activation behind the first-party bundled workflow package
+   - keep frontend shells consuming generic workflow projections
+   - ensure bare Agent Core can run without the C/C++ package
+
+5. **Self-extension authoring loop**
+   - let the agent generate local skills, prompts, recipes, extension manifests, extension code, docs, and validation recipes
+   - keep resource reload separate from executable extension loading
+   - require manifests, declared permissions, workspace-bound entrypoints, diagnostics, and normal `PermissionPolicy` enforcement
+
+6. **Offline bundle validation**
+   - keep all invoked runtime tools bundled
+   - keep extension loading dependency-free at runtime
+   - preserve clean Windows 7 unpack-and-run smoke as a release gate
+
+This program must not introduce online extension marketplaces, dependency installation, remote registries, built-in tool replacement by project-local code, container requirements, WSL requirements, VS Code dependency, or general multi-agent orchestration in Agent Core.
+
+### 4.2 Legacy Helper Deletion
 
 Remaining cleanup should focus on:
 
@@ -84,7 +129,7 @@ Remaining cleanup should focus on:
 - removing outdated tests/manual samples that preserve non-official behavior
 - validating real C/C++ projects and the Win7/offline bundle while keeping documentation synchronized with the official extension boundaries
 
-### 4.2 Workflow Extension Decoupling
+### 4.3 Workflow Extension Decoupling
 
 Near-term decoupling should continue from the new extension boundary:
 
@@ -92,7 +137,7 @@ Near-term decoupling should continue from the new extension boundary:
 - `QueryEngine` should remain a facade over `AgentLoop`, `AgentToolActionService`, and `AgentExtensionHost`; new extension hook dispatch should not be added directly back to `QueryEngine`
 - keep remote registries, plugin marketplaces, dependency installation, built-in tool replacement, and multi-agent orchestration out of scope; project-local Python extensions stay limited to explicit enabled manifests under `.embedagent/extensions/<name>/`
 
-### 4.3 Documentation Alignment
+### 4.4 Documentation Alignment
 
 Current source-of-truth docs must remain aligned with the official architecture:
 
@@ -104,15 +149,16 @@ Current source-of-truth docs must remain aligned with the official architecture:
 - `docs/permission-model.md`
 - `docs/frontend-protocol.md`
 - `docs/agent-harness-v2.md`
+- `docs/pi-inspired-agent-core-blueprint.md`
 
-### 4.4 Documentation Governance Baseline
+### 4.5 Documentation Governance Baseline
 
 - establish the active docs governance scaffold
 - create module-level documentation for core code areas
 - standardize terminology, templates, and Mermaid usage
 - keep `superpowers -> global docs -> archive` synchronization as the default closure path
 
-### 4.5 Real-World Validation
+### 4.6 Real-World Validation
 
 After architecture cutover, the highest-value validation is:
 

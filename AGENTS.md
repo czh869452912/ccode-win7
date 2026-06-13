@@ -10,6 +10,7 @@ It exists to keep implementation and documentation aligned with the current prod
 - Offline deployment is mandatory.
 - Agent Core is the product core; UI shells and workflow extensions are replaceable.
 - The first-class target workflow is C/C++ application development with a Clang-centered toolchain.
+- The next architecture program learns Pi's functional design and architecture philosophy by moving toward a minimal, extensible, self-extensible Agent Core without weakening the offline, Windows 7, Python 3.8, or C/C++ constraints.
 
 ## Quick Commands
 
@@ -79,6 +80,12 @@ If a clean Windows 7 machine cannot unpack and run the bundle without preinstall
 ## Official Product Vocabulary
 
 The repository now has one official architecture vocabulary.
+
+### Next Architecture Direction
+
+The current baseline remains authoritative. `docs/pi-inspired-agent-core-blueprint.md` is the long-term target blueprint for making Agent Core more Pi-like in both function and philosophy: smaller kernel, durable session-log reducers, source-aware hooks, explicit turn snapshots, replaceable workflow packages, and local self-extension.
+
+Do not treat blueprint target terms such as `AgentKernel`, `SessionLog`, or `HookBus` as implemented public APIs until a specific implementation slice lands and updates the source-of-truth docs. Near-term work must preserve the hosted C/C++ product behavior while extracting those boundaries gradually.
 
 ### Modes
 

@@ -16,6 +16,8 @@ The repository now treats Agent Core as the workflow-neutral runtime, with the C
 
 Local offline self-extension is part of the official architecture: workspace file resources and manifest-gated project-local Python extensions can extend the hosted runtime while remote registries, online installs, dependency installation, plugin marketplaces, built-in tool replacement, and general multi-agent orchestration remain outside the product baseline.
 
+The next long-term architecture direction is captured in `docs/pi-inspired-agent-core-blueprint.md`: continue learning from Pi's functional design and architecture philosophy while preserving EmbedAgent's offline, Windows 7, Python 3.8, and C/C++ engineering constraints. The current baseline remains valid; the blueprint guides gradual work toward a smaller Agent Kernel, durable session-log reducers, source-aware hooks, and a default C/C++ workflow package loaded through the same capability boundary as local extensions.
+
 - User-visible modes: `explore`, `spec`, `build`, `debug`, `verify`
 - Default C/C++ execution model: `mode + discipline_profile + execution_phase`
 - Default task system: `TaskGraph` projected through `task_status` and session task snapshots

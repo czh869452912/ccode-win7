@@ -1,6 +1,6 @@
 # EmbedAgent 设计与变更跟踪
 
-> 更新日期：2026-06-12
+> 更新日期：2026-06-13
 > 用途：记录关键设计变更、影响范围、关联文档和后续动作
 
 ---
@@ -43,6 +43,34 @@
 ---
 
 ## 3. 当前变更记录
+
+### DC-129
+
+- 日期：2026-06-13
+- 变更主题：Pi-inspired minimal Agent Core 长期蓝图建立
+- 变更摘要：
+  - 新增 `docs/pi-inspired-agent-core-blueprint.md`，将下一阶段架构程序明确为同时学习 Pi 的功能设计与架构哲学
+  - 功能设计学习重点包括 extensions、resources、durable sessions、compaction、commands、model capability metadata、observability 与 self-extension workflows
+  - 架构哲学学习重点包括 minimal Agent Core、capability registration、source-aware event reducers、explicit turn snapshots、save points 与 replaceable workflow packages
+  - 明确当前 self-extensible Agent Core baseline 仍然有效；`AgentKernel`、`SessionLog`、`HookBus` 等是目标边界，不是已实现公共 API
+  - 后续改造按 durable operation log / reducers、source-aware HookBus、AgentKernel lifecycle extraction、default C/C++ workflow package、self-extension authoring loop、offline validation 分阶段推进
+  - 继续保持 offline、Windows 7、Python 3.8、C/C++ first、no Docker/WSL/VS Code runtime dependency、no online registry、no dependency installation、no plugin marketplace、no built-in tool replacement by project-local code 的产品约束
+- 影响范围：
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/README.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/design-change-log.md`
+  - `docs/pi-inspired-agent-core-blueprint.md`
+- 关联文档：
+  - `docs/pi-inspired-agent-core-blueprint.md`
+- 是否需要 ADR：`否，本次是长期目标蓝图与路线图更新；后续 hard-to-reverse implementation slice 需要按具体设计判断是否新增 ADR`
+- 后续动作：
+  - 为 durable operation log / reducer 第一阶段补设计与测试计划
+  - 将后续 HookBus、AgentKernel、default C/C++ workflow package 等改造拆成可独立验证的小切片
+  - 每个实现切片都必须保持当前 hosted C/C++ 行为、Win7/offline 约束和 source-of-truth docs 同步
 
 ### DC-128
 
