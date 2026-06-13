@@ -9,6 +9,94 @@ from embedagent.extensions import (
 from embedagent.session import Action, AssistantReply, Observation
 
 
+def test_agent_event_bus_reduces_in_source_order():
+    from embedagent.agent_event_bus import AgentEvent, AgentEventBus
+
+    bus = AgentEventBus()
+    calls = []
+
+    def first(event, context):
+        calls.append((event.event_type, context["workspace"], "first"))
+        return {"source": "first"}
+
+    def second(event, context):
+        calls.append((event.event_type, context["workspace"], "second"))
+        return {"source": "second"}
+
+    bus.register_reducer("extension.context", "builtin_context", "builtin", first)
+    bus.register_reducer("extension.context", "project_context", "project", second)
+
+    result = bus.dispatch(
+        AgentEvent(
+            event_type="extension.context",
+            payload={"mode": "build"},
+            metadata={"reason": "test"},
+        ),
+        {"workspace": "."},
+    )
+
+    assert calls == [
+        ("extension.context", ".", "first"),
+        ("extension.context", ".", "second"),
+    ]
+    assert [item["source_id"] for item in result.reducer_results] == [
+        "builtin_context",
+        "project_context",
+    ]
+    assert [item["value"]["source"] for item in result.reducer_results] == [
+        "first",
+        "second",
+    ]
+    assert result.diagnostics == []
+
+
+def test_agent_event_bus_records_project_reducer_diagnostics():
+    from embedagent.agent_event_bus import AgentEvent, AgentEventBus
+
+    bus = AgentEventBus()
+
+    def broken(event, context):
+        del event, context
+        raise RuntimeError("project reducer failed")
+
+    bus.register_reducer("extension.context", "broken_project", "project", broken)
+
+    result = bus.dispatch(AgentEvent(event_type="extension.context"))
+
+    assert result.reducer_results == []
+    assert len(result.diagnostics) == 1
+    assert result.diagnostics[0]["source_id"] == "broken_project"
+    assert result.diagnostics[0]["source_type"] == "project"
+    assert result.diagnostics[0]["event_type"] == "extension.context"
+    assert result.diagnostics[0]["error"] == "project reducer failed"
+
+
+def test_agent_event_bus_observers_run_before_reducers_without_results():
+    from embedagent.agent_event_bus import AgentEvent, AgentEventBus
+
+    bus = AgentEventBus()
+    calls = []
+
+    def observer(event, context):
+        del event, context
+        calls.append("observer")
+        return {"ignored": True}
+
+    def reducer(event, context):
+        del event, context
+        calls.append("reducer")
+        return {"kept": True}
+
+    bus.register_reducer("extension.context", "context_reducer", "project", reducer)
+    bus.register_observer("extension.context", "context_observer", "project", observer)
+
+    result = bus.dispatch(AgentEvent(event_type="extension.context"))
+
+    assert calls == ["observer", "reducer"]
+    assert result.observer_results == []
+    assert [item["value"] for item in result.reducer_results] == [{"kept": True}]
+
+
 class BrokenProjectExtension(object):
     extension_id = "broken_project"
     builtin_extension = False
@@ -42,6 +130,8 @@ def test_project_extension_hook_error_is_recorded_and_isolated():
     assert diagnostics[0]["event"] == "context"
     assert diagnostics[0]["error"] == "project hook failed"
     assert diagnostics[0]["severity"] == "error"
+    assert diagnostics[0]["metadata"]["agent_event_type"] == "extension.context"
+    assert diagnostics[0]["metadata"]["handler_kind"] == "reducer"
 
 
 def test_builtin_extension_hook_error_is_recorded_and_raised():
@@ -61,6 +151,7 @@ def test_builtin_extension_hook_error_is_recorded_and_raised():
     assert len(diagnostics) == 1
     assert diagnostics[0]["extension_id"] == "broken_builtin"
     assert diagnostics[0]["event"] == "context"
+    assert diagnostics[0]["metadata"]["agent_event_type"] == "extension.context"
 
 
 class ResourceExtension(object):
@@ -218,6 +309,35 @@ def test_tool_result_hook_can_replace_observation():
 
     assert patch.observation.success is True
     assert patch.observation.data == {"patched": True}
+
+
+class BrokenToolResultExtension(object):
+    extension_id = "broken_tool_result"
+    builtin_extension = False
+
+    def tool_result(self, event, context):
+        del event, context
+        raise RuntimeError("tool result reducer failed")
+
+
+def test_tool_result_hook_error_records_bus_metadata():
+    manager = ExtensionManager([BrokenToolResultExtension()])
+
+    patch = manager.after_tool_result(
+        WorkflowEvent(
+            tool_name="read_file",
+            observation=Observation("read_file", True, None, {"original": True}),
+        ),
+        ExtensionContext(workspace="."),
+    )
+
+    diagnostics = manager.diagnostics()
+    assert patch.observation is None
+    assert len(diagnostics) == 1
+    assert diagnostics[0]["extension_id"] == "broken_tool_result"
+    assert diagnostics[0]["event"] == "tool_result"
+    assert diagnostics[0]["metadata"]["agent_event_type"] == "extension.tool_result"
+    assert diagnostics[0]["metadata"]["handler_kind"] == "reducer"
 
 
 class ToolCallingClient(object):

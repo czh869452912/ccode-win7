@@ -53,6 +53,7 @@ Recent workflow-boundary work has started slimming Agent Core without changing t
 - local file resources under `.embedagent/skills`, `.embedagent/prompts`, and `.embedagent/recipes` can be refreshed through the runtime, adapter, slash command, and GUI/core API; recipe JSON files feed the existing recipe contract
 - manifest-gated project-local Python extensions can be loaded from enabled `.embedagent/extensions/<name>/extension.json` manifests by hosted product paths and are registered into the shared `ExtensionManager`
 - `AgentExtensionHost` now centralizes QueryEngine-side extension dispatch, dynamic tool registration, extension-aware active schema projection, context patches, tool-call hooks, tool-result hooks, workflow patches, and extension-owned tool handling
+- `AgentEventBus` now provides the first internal source-aware observer/reducer boundary for migrated extension hooks; context and tool-result hooks are bus-backed while the public extension APIs remain unchanged
 - `AgentToolActionService` now owns non-LLM tool action execution, including active-tool checks, extension pre/post hooks, `PermissionPolicy`, path write guards, runtime dispatch, and extension-owned tool calls
 - `AgentLoop` now provides the turn-loop boundary behind `QueryEngine`, while `QueryEngine` remains the session-scoped facade and transcript/session mutation owner
 - Slice 6 completed the documentation cutover for self-extensible Agent Core: active source-of-truth docs and module docs now treat local offline self-extension as official architecture while keeping marketplaces, online installs, dependency installation, built-in tool replacement, and multi-agent orchestration out of scope
@@ -98,6 +99,8 @@ The current self-extensible Agent Core baseline remains valid. The next program 
    - encode reducer semantics per event instead of scattering merge behavior across the manager
    - attach source metadata, cleanup, diagnostics, and reload behavior to registrations
    - keep built-in workflow extensions and project-local extensions on the same internal event boundary
+   - current implementation status: first slice landed as `AgentEventBus`, with `ExtensionManager.context(...)` and `ExtensionManager.after_tool_result(...)` routed through source-aware reducer dispatch
+   - remaining Phase B work: migrate tool-call, resource discovery, dynamic tool registration, operation lifecycle emitters, cleanup, and reload semantics onto the same bus
 
 3. **AgentKernel lifecycle extraction**
    - turn `AgentLoop` from a thin wrapper into the owner of turn snapshots, save points, suspend/resume, abort, compact retry, and failure cleanup

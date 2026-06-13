@@ -44,6 +44,36 @@
 
 ## 3. 当前变更记录
 
+### DC-134
+
+- 日期：2026-06-13
+- 变更主题：Pi-inspired minimal Core Phase B AgentEventBus 第一切片
+- 变更摘要：
+  - 新增 `src/embedagent/agent_event_bus.py`，建立内部 source-aware `AgentEventBus`、`AgentEvent`、observer/reducer registration、dispatch diagnostics 与 trusted fail-closed 异常传播
+  - `ExtensionManager.context(...)` 与 `ExtensionManager.after_tool_result(...)` 保持公共 API 不变，但内部改为通过 `extension.context` / `extension.tool_result` reducer event 合并 `ContextPatch` 与 `ToolResultPatch`
+  - extension diagnostics 现在会附带 `agent_event_type`、`handler_kind` 与 source metadata，后续可把更多 hook family 迁入同一 reducer 边界
+  - observer 语义明确为被动监听；observer 返回值不参与 reducer 结果
+  - 本次不是 Phase B 全量完成；tool-call decisions、resource discovery、dynamic tool registration、operation lifecycle emitters、cleanup 与 reload semantics 仍是后续切片
+- 影响范围：
+  - `src/embedagent/agent_event_bus.py`
+  - `src/embedagent/extensions.py`
+  - `tests/test_capability_extensions.py`
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/pi-inspired-agent-core-blueprint.md`
+  - `docs/development-tracker.md`
+  - `docs/design-change-log.md`
+- 关联文档：
+  - `docs/pi-inspired-agent-core-blueprint.md`
+  - `docs/superpowers/plans/2026-06-13-phase-b-hookbus-first-slice.md`
+- 是否需要 ADR：`否，本次是 Phase B 的第一实现切片；当 HookBus 成为所有 extension hooks 与 lifecycle reducers 的唯一边界时再评估 ADR`
+- 后续动作：
+  - 迁移 `tool_call` hook 到 bus，并明确 block/update argument 的 reducer 语义
+  - 迁移 resource discovery 与 dynamic tool registration，同时保留 resource reload 与 executable extension loading 的分离
+  - 评估 operation lifecycle emitters 是否通过同一 bus 暴露给 diagnostics/observability observer
+
 ### DC-133
 
 - 日期：2026-06-13

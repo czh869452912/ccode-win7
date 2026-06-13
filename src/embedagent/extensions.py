@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Set
 
+from embedagent.agent_event_bus import AgentEvent, AgentEventBus, AgentEventDispatchError
+
 
 @dataclass
 class SessionView:
@@ -143,11 +145,13 @@ class ExtensionManager(object):
     def __init__(self, extensions: Optional[List[Any]] = None) -> None:
         self._extensions = []  # type: List[Any]
         self._diagnostics = []  # type: List[ExtensionDiagnostic]
+        self._event_bus = AgentEventBus()
         for extension in list(extensions or []):
             self.register(extension)
 
     def register(self, extension: Any) -> None:
         self._extensions.append(extension)
+        self._register_bus_reducers(extension)
 
     def diagnostics(self) -> List[Dict[str, Any]]:
         return [item.to_dict() for item in self._diagnostics]
@@ -206,6 +210,49 @@ class ExtensionManager(object):
     def _record_hook_error(self, extension: Any, event_name: str, exc: Exception) -> None:
         self._record_diagnostic(extension, event_name, str(exc))
 
+    def _register_bus_reducers(self, extension: Any) -> None:
+        source_id = self._extension_id(extension)
+        source_type = "builtin" if self._is_builtin_extension(extension) else "project"
+        fail_closed = self._is_builtin_extension(extension)
+        if callable(getattr(extension, "context", None)):
+            self._event_bus.register_reducer(
+                "extension.context",
+                source_id,
+                source_type,
+                lambda event, context, ext=extension: ext.context(
+                    event.payload["workflow_event"], context
+                ),
+                fail_closed=fail_closed,
+                metadata={"hook_name": "context"},
+            )
+        if callable(getattr(extension, "tool_result", None)):
+            self._event_bus.register_reducer(
+                "extension.tool_result",
+                source_id,
+                source_type,
+                lambda event, context, ext=extension: ext.tool_result(
+                    event.payload["workflow_event"], context
+                ),
+                fail_closed=fail_closed,
+                metadata={"hook_name": "tool_result"},
+            )
+
+    def _record_bus_diagnostics(self, dispatch_result: Any, event_name: str) -> None:
+        for diagnostic in list(getattr(dispatch_result, "diagnostics", []) or []):
+            metadata = dict(diagnostic.get("metadata") or {})
+            metadata["agent_event_type"] = str(diagnostic.get("event_type") or "")
+            metadata["handler_kind"] = str(diagnostic.get("kind") or "")
+            self._diagnostics.append(
+                ExtensionDiagnostic(
+                    extension_id=str(diagnostic.get("source_id") or ""),
+                    event=event_name,
+                    error=str(diagnostic.get("error") or ""),
+                    severity="error",
+                    source=str(diagnostic.get("source_type") or "project"),
+                    metadata=metadata,
+                )
+            )
+
     def _call_hook(self, extension: Any, event_name: str, *args: Any, **kwargs: Any) -> Any:
         hook = getattr(extension, event_name, None)
         if not callable(hook):
@@ -224,10 +271,21 @@ class ExtensionManager(object):
         context: ExtensionContext,
     ) -> ContextPatch:
         merged = ContextPatch()
-        for extension in list(self._extensions):
-            patch = self._call_hook(extension, "context", event, context)
-            if patch is None:
-                continue
+        try:
+            dispatch = self._event_bus.dispatch(
+                AgentEvent(
+                    event_type="extension.context",
+                    payload={"workflow_event": event},
+                    metadata={"current_mode": event.current_mode},
+                ),
+                context,
+            )
+        except AgentEventDispatchError as exc:
+            self._record_bus_diagnostics(exc, "context")
+            raise exc.original
+        self._record_bus_diagnostics(dispatch, "context")
+        for item in dispatch.reducer_results:
+            patch = item.get("value")
             messages = list(getattr(patch, "messages", []) or [])
             if messages:
                 merged.messages = messages
@@ -243,9 +301,7 @@ class ExtensionManager(object):
             seen.add(text)
             target.append(text)
 
-    def discover_resources(
-        self, cwd: str, reason: str = "startup"
-    ) -> ResourcesDiscoverResult:
+    def discover_resources(self, cwd: str, reason: str = "startup") -> ResourcesDiscoverResult:
         event = ResourcesDiscoverEvent(
             cwd=str(cwd or ""),
             reason=str(reason or "startup"),
@@ -256,9 +312,7 @@ class ExtensionManager(object):
             result = self._call_hook(extension, "resources_discover", event, context)
             if result is None:
                 continue
-            self._append_unique(
-                merged.skill_paths, list(getattr(result, "skill_paths", []) or [])
-            )
+            self._append_unique(merged.skill_paths, list(getattr(result, "skill_paths", []) or []))
             self._append_unique(
                 merged.prompt_paths, list(getattr(result, "prompt_paths", []) or [])
             )
@@ -335,10 +389,21 @@ class ExtensionManager(object):
         context: ExtensionContext,
     ) -> ToolResultPatch:
         merged = ToolResultPatch()
-        for extension in list(self._extensions):
-            patch = self._call_hook(extension, "tool_result", event, context)
-            if patch is None:
-                continue
+        try:
+            dispatch = self._event_bus.dispatch(
+                AgentEvent(
+                    event_type="extension.tool_result",
+                    payload={"workflow_event": event},
+                    metadata={"tool_name": event.tool_name},
+                ),
+                context,
+            )
+        except AgentEventDispatchError as exc:
+            self._record_bus_diagnostics(exc, "tool_result")
+            raise exc.original
+        self._record_bus_diagnostics(dispatch, "tool_result")
+        for item in dispatch.reducer_results:
+            patch = item.get("value")
             observation = getattr(patch, "observation", None)
             if observation is not None:
                 merged.observation = observation

@@ -39,6 +39,7 @@ This is the stable contract boundary between UI and Agent Core.
 - `src/embedagent/agent_loop.py`
 - `src/embedagent/agent_tool_action_service.py`
 - `src/embedagent/agent_extension_host.py`
+- `src/embedagent/agent_event_bus.py`
 - `src/embedagent/session_runtime.py`
 - `src/embedagent/session_projector.py`
 - `src/embedagent/session_history.py`
@@ -55,7 +56,7 @@ The default C/C++ harness is now entered through the in-process workflow extensi
 
 `InProcessAdapter` owns the hosted runtime's `ExtensionManager` and passes that same manager to each session-scoped `QueryEngine`. Frontend tool catalog visibility is computed from the same manager, so model-facing tools and shell metadata share one extension chain.
 
-`ExtensionManager` is now the shared in-process capability boundary. The current default C/C++ harness remains the bundled workflow extension, while the same boundary also carries generic prompt/context hooks, tool-call and tool-result interception, resource discovery contracts, dynamic in-process tool registration, extension diagnostics, and manifest-gated project-local Python extensions. Workspace-local file resources under `.embedagent/skills`, `.embedagent/prompts`, and `.embedagent/recipes` are official discoverable resources.
+`ExtensionManager` is now the shared in-process capability boundary. The current default C/C++ harness remains the bundled workflow extension, while the same boundary also carries generic prompt/context hooks, tool-call and tool-result interception, resource discovery contracts, dynamic in-process tool registration, extension diagnostics, and manifest-gated project-local Python extensions. Migrated hook internals dispatch through `AgentEventBus`, the source-aware observer/reducer bus introduced in Phase B; context and tool-result hooks are the first bus-backed reducers, while tool-call, resources, dynamic tools, and lifecycle emitters remain later migration slices. Workspace-local file resources under `.embedagent/skills`, `.embedagent/prompts`, and `.embedagent/recipes` are official discoverable resources.
 
 `AgentExtensionHost` is the session-engine side of that boundary. It builds extension contexts and workflow events, initializes workflow state, applies prompt/context hooks, registers dynamic tools, computes extension-aware active tool names, requests explicit tool schemas, applies tool-call/tool-result hooks, and handles extension-owned tool calls. `QueryEngine` keeps a compatibility `extension_manager` reference, but extension hook dispatch is centralized in `AgentExtensionHost`.
 
@@ -297,4 +298,4 @@ That program keeps learning from Pi at two levels:
 
 The intended long-term direction is that Agent Core can be described without C/C++ workflow vocabulary. The bundled C/C++ harness remains the default product workflow, but it should continue moving toward a first-party workflow package loaded through the same capability boundary as other local extensions.
 
-This is a gradual direction, not a statement that the target state is already implemented. Near-term changes should preserve the current hosted behavior while extracting durable session-log reducers, a source-aware hook bus, and a real AgentKernel lifecycle boundary.
+This is a gradual direction, not a statement that the target state is fully implemented. Phase A durable operation reducers are complete, and Phase B has started with `AgentEventBus` backing context and tool-result reducers. Near-term changes should preserve the current hosted behavior while finishing the remaining hook-bus migrations and then extracting a real AgentKernel lifecycle boundary.
