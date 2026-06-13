@@ -153,3 +153,40 @@ class OperationLogReducer(object):
             record.status = _INTERRUPTED
             record.interrupted_reason = "restore_incomplete_operation"
             record.retryable = False
+
+
+def operation_diagnostics(state: OperationLogState) -> Dict[str, Any]:
+    kinds: Dict[str, Dict[str, int]] = {}
+    interrupted: List[Dict[str, Any]] = []
+    active: List[Dict[str, Any]] = []
+    latest: List[Dict[str, Any]] = []
+    for operation_id in state.order:
+        record = state.operations[operation_id]
+        kind = record.kind or "operation"
+        counts = kinds.setdefault(kind, {"started": 0, "finished": 0, "interrupted": 0, "total": 0})
+        counts["total"] += 1
+        counts[record.status] = counts.get(record.status, 0) + 1
+        entry = {
+            "operation_id": record.operation_id,
+            "kind": record.kind,
+            "status": record.status,
+            "turn_id": record.turn_id,
+            "step_id": record.step_id,
+            "tool_call_id": record.tool_call_id,
+            "interrupted_reason": record.interrupted_reason,
+        }
+        if record.status == _INTERRUPTED:
+            interrupted.append(entry)
+        elif record.status == _STARTED:
+            active.append(entry)
+        latest.append(entry)
+    return {
+        "total_count": len(state.operations),
+        "started_count": state.started_count,
+        "finished_count": state.finished_count,
+        "interrupted_count": state.interrupted_count,
+        "kinds": kinds,
+        "active": active[-8:],
+        "interrupted": interrupted[-8:],
+        "latest": latest[-12:],
+    }

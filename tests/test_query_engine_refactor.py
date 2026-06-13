@@ -732,6 +732,45 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertTrue(savepoint_finish["operation_id"].startswith("savepoint:"))
         self.assertEqual(savepoint_finish["result"]["reason"], "completed")
 
+    def test_query_engine_emits_turn_operation_lifecycle(self):
+        transcript_store = TranscriptStore(self.workspace)
+        engine = QueryEngine(
+            client=ToolClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(
+                auto_approve_all=True,
+                workspace=self.workspace,
+            ),
+            transcript_store=transcript_store,
+        )
+        session = Session()
+        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：build")
+
+        result = engine.submit_user_turn(
+            user_text="读取文件",
+            stream=False,
+            initial_mode="build",
+            session=session,
+        )
+
+        self.assertEqual(result.transition.reason, "completed")
+        events = transcript_store.load_events(session.session_id)
+        started = [
+            item["payload"]
+            for item in events
+            if item["type"] == "operation_started" and item["payload"].get("kind") == "turn"
+        ]
+        finished = [
+            item["payload"]
+            for item in events
+            if item["type"] == "operation_finished" and item["payload"].get("kind") == "turn"
+        ]
+        self.assertEqual(len(started), 1)
+        self.assertEqual(len(finished), 1)
+        self.assertTrue(started[0]["operation_id"].startswith("turn:"))
+        self.assertEqual(finished[0]["operation_id"], started[0]["operation_id"])
+        self.assertEqual(finished[0]["result"]["transition_reason"], "completed")
+
     def test_tool_result_store_failure_degrades_without_breaking_tool_pairing(self):
         transcript_store = TranscriptStore(self.workspace)
         with open(os.path.join(self.workspace, "src", "demo.c"), "w", encoding="utf-8") as handle:
@@ -1754,6 +1793,39 @@ class TestQueryEngineRefactor(unittest.TestCase):
         loop_transitions = [item for item in events if item["type"] == "loop_transition"]
         self.assertEqual(loop_transitions[-1]["payload"]["reason"], "user_input_wait")
 
+    def test_query_engine_emits_pending_interaction_operation_lifecycle(self):
+        session = Session()
+        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：spec")
+        transcript_store = TranscriptStore(self.workspace)
+        engine = QueryEngine(
+            client=AskThenDoneClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+            transcript_store=transcript_store,
+        )
+
+        result = engine.submit_user_turn(
+            user_text="继续",
+            stream=False,
+            initial_mode="spec",
+            session=session,
+            user_input_handler=None,
+        )
+
+        self.assertEqual(result.transition.reason, "user_input_wait")
+        interaction_id = result.pending_interaction.interaction_id
+        events = transcript_store.load_events(session.session_id)
+        pending_starts = [
+            item["payload"]
+            for item in events
+            if item["type"] == "operation_started"
+            and item["payload"].get("kind") == "pending_interaction"
+        ]
+        self.assertEqual(len(pending_starts), 1)
+        self.assertEqual(pending_starts[0]["operation_id"], "pending:%s" % interaction_id)
+        self.assertEqual(pending_starts[0]["metadata"]["kind"], "user_input")
+        self.assertEqual(pending_starts[0]["metadata"]["tool_name"], "ask_user")
+
     def test_query_engine_resume_pending_persists_resolution_and_tool_result(self):
         session = Session()
         session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：build")
@@ -1785,6 +1857,14 @@ class TestQueryEngineRefactor(unittest.TestCase):
         events = transcript_store.load_events(session.session_id)
         event_types = [item["type"] for item in events]
         self.assertIn("pending_resolution", event_types)
+        pending_finishes = [
+            item["payload"]
+            for item in events
+            if item["type"] == "operation_finished"
+            and item["payload"].get("kind") == "pending_interaction"
+        ]
+        self.assertEqual(len(pending_finishes), 1)
+        self.assertEqual(pending_finishes[0]["result"]["resolution_status"], "resolved")
         tool_results = [item for item in events if item["type"] == "tool_result"]
         self.assertTrue(any(item["payload"].get("call_id") == "write-1" for item in tool_results))
 

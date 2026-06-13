@@ -67,9 +67,7 @@ class SessionSnapshotProjector(object):
         workflow_items = list(workflow.get("items") or [])
         workflow_phase = str(metadata.get("current_phase") or workflow.get("current_phase") or "")
         workflow_discipline = str(
-            metadata.get("discipline_profile")
-            or workflow.get("discipline_profile")
-            or ""
+            metadata.get("discipline_profile") or workflow.get("discipline_profile") or ""
         )
         workflow_summary = str(workflow.get("summary") or "")
         workflow_activity = str(workflow.get("activity") or "")
@@ -126,6 +124,7 @@ class SessionSnapshotProjector(object):
             "restore_stop_reason": state.restore_stop_reason,
             "restore_consumed_event_count": state.restore_consumed_event_count,
             "restore_transcript_event_count": state.restore_transcript_event_count,
+            "operation_diagnostics": dict(getattr(state, "operation_diagnostics", {}) or {}),
             "timeline_replay_status": (
                 "degraded" if state.restore_stop_reason == "transcript_missing" else "replay"
             ),

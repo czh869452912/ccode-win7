@@ -1082,6 +1082,33 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         )
         self.assertGreater(restored["restore_transcript_event_count"], 0)
 
+    def test_resume_session_projects_operation_diagnostics(self):
+        adapter = InProcessAdapter(
+            client=ToolClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+        )
+        snapshot = adapter.create_session("build")
+        session_id = str(snapshot.get("session_id") or "")
+        adapter.submit_user_message(
+            session_id=session_id,
+            text="读取文件",
+            stream=False,
+            wait=True,
+            permission_resolver=lambda ticket: True,
+            event_handler=lambda event_name, current_session_id, payload: None,
+        )
+        restored = adapter.resume_session(session_id, "build")
+
+        diagnostics = restored.get("operation_diagnostics") or {}
+        self.assertGreater(diagnostics.get("total_count"), 0)
+        self.assertEqual(diagnostics.get("interrupted_count"), 0)
+        self.assertGreaterEqual(diagnostics.get("finished_count"), 1)
+        kinds = diagnostics.get("kinds") or {}
+        self.assertIn("turn", kinds)
+        self.assertIn("provider_request", kinds)
+        self.assertIn("save_point", kinds)
+
     def test_resume_session_exposes_restore_diagnostics_for_truncated_replay(self):
         adapter = InProcessAdapter(
             client=ToolClient(),

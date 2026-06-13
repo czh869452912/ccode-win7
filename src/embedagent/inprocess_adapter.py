@@ -28,6 +28,7 @@ from embedagent.project_memory import ProjectMemoryStore
 from embedagent.protocol import CommandResult, PermissionContextView, PlanSnapshot
 from embedagent.session import Action, AssistantReply, Observation, Session
 from embedagent.session_history import SessionHistoryAssembler
+from embedagent.session_operation_log import operation_diagnostics
 from embedagent.session_projector import SessionSnapshotProjector
 from embedagent.session_restore import SessionRestorer
 from embedagent.session_runtime import ManagedSession
@@ -489,6 +490,7 @@ class InProcessAdapter(object):
             restore_stop_reason=str(restored.stop_reason or ""),
             restore_consumed_event_count=int(restored.consumed_event_count or 0),
             restore_transcript_event_count=int(restored.transcript_event_count or 0),
+            operation_diagnostics=operation_diagnostics(restored.operation_state),
         )
         state.engine = self._build_engine()
         state.current_mode = state.engine.initialize_session(
@@ -1181,9 +1183,10 @@ class InProcessAdapter(object):
             )
         else:
             lookup = getattr(self.tools, "local_resources", None)
-            payload = lookup() if callable(lookup) else self.reload_resources(
-                session_id=state.session.session_id,
-                reason="command"
+            payload = (
+                lookup()
+                if callable(lookup)
+                else self.reload_resources(session_id=state.session.session_id, reason="command")
             )
         counts = dict(payload.get("counts") or {})
         lines = [

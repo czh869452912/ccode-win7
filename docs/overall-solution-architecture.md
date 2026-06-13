@@ -254,7 +254,7 @@ Durable runtime operation state is projected from explicit schema v2 lifecycle e
 - `operation_finished`
 - `operation_interrupted`
 
-`OperationLogReducer` consumes the validated transcript prefix and must not infer operation state from legacy replay/history events such as `step_started`, `tool_call`, `tool_result`, or `loop_transition`. Those events still rebuild structured session history and tool topology. Operation lifecycle events explain runtime execution units such as agent steps, context assembly, provider requests, tool calls, and save points.
+`OperationLogReducer` consumes the validated transcript prefix and must not infer operation state from legacy replay/history events such as `step_started`, `tool_call`, `tool_result`, or `loop_transition`. Those events still rebuild structured session history and tool topology. Operation lifecycle events explain runtime execution units such as turns, agent steps, context assembly, provider requests, tool calls, pending interactions, and save points. Restore diagnostics such as `operation_diagnostics` are reducer projections over this operation state and must not become a second session-history source.
 
 ## 9. Frontend Contract
 

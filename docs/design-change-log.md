@@ -44,6 +44,40 @@
 
 ## 3. 当前变更记录
 
+### DC-132
+
+- 日期：2026-06-13
+- 变更主题：Turn / pending lifecycle 纳入 durable operation truth
+- 变更摘要：
+  - `QueryEngine` 现在为 user、command 与 resume turn 写入显式 `turn` operation lifecycle，turn operation 结果记录 transition reason、next mode、workflow state 与 turns used
+  - pending permission / user input 创建时写入 `pending_interaction` operation start，恢复处理时写入 operation finish，避免 pending lifecycle 只靠 legacy interaction event 推断
+  - agent step 在 `tool_calls`、`permission_wait`、`user_input_wait` 等非最终 completed 状态下也会写入明确 finish/interruption，restore 不再把正常等待或工具批次边界误判为 incomplete operation
+  - 新增 `operation_diagnostics(...)` 作为 reducer-backed 诊断投影；`InProcessAdapter.resume_session(...)` 会把 restore-time operation diagnostics 放入 session snapshot
+  - 本次仍不把 operation diagnostics 升级为 live UI 历史源；GUI/history 继续消费 `SessionHistoryAssembler` 与正式 session snapshot 字段
+- 影响范围：
+  - `src/embedagent/query_engine.py`
+  - `src/embedagent/session_operation_log.py`
+  - `src/embedagent/session_runtime.py`
+  - `src/embedagent/session_projector.py`
+  - `src/embedagent/inprocess_adapter.py`
+  - `tests/test_query_engine_refactor.py`
+  - `tests/test_inprocess_adapter_frontend_api.py`
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/pi-inspired-agent-core-blueprint.md`
+  - `docs/development-tracker.md`
+  - `docs/design-change-log.md`
+- 关联文档：
+  - `docs/pi-inspired-agent-core-blueprint.md`
+  - `docs/development-tracker.md`
+- 是否需要 ADR：`否，本次仍属于 Pi-inspired minimal Core Phase A 的 operation lifecycle 覆盖切片；HookBus/reducer registry 或 AgentKernel 边界硬切时再评估 ADR`
+- 后续动作：
+  - 补 workflow patch / context snapshot lifecycle 的显式 operation 或 reducer event 覆盖
+  - 将 operation reducer 从 restore-time projection 推进到 live reducer projection，并明确和前端 history/session snapshot 的边界
+  - 为 resume attempt 是否需要独立子 operation 建立 AgentKernel lifecycle 设计规则
+
 ### DC-131
 
 - 日期：2026-06-13
