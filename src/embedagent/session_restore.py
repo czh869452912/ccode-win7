@@ -282,6 +282,15 @@ class SessionRestorer(object):
             if event_type == "context_snapshot":
                 session.record_context_snapshot(dict(payload))
                 continue
+            if event_type == "workflow_patch":
+                workflow = payload.get("workflow") or {}
+                metadata = payload.get("metadata") or {}
+                if isinstance(workflow, dict) and workflow:
+                    session.workflow_state["workflow"] = dict(workflow)
+                if isinstance(metadata, dict) and metadata:
+                    extensions = session.workflow_state.setdefault("extensions", {})
+                    extensions["last_workflow_patch"] = dict(metadata)
+                continue
             if event_type == "compact_boundary":
                 if not self._is_valid_compact_boundary(session, payload):
                     if _maybe_skip("compact_boundary_invalid_preserved_segment"):

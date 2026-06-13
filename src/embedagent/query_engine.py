@@ -307,6 +307,148 @@ class QueryEngine(object):
             "replacements": len(assembly.replacements),
         }
 
+    def _context_snapshot_payload(
+        self, current_mode: str, assembly: ContextAssemblyResult
+    ) -> Dict[str, Any]:
+        return {
+            "mode_name": current_mode,
+            "pipeline_steps": list(assembly.pipeline_steps),
+            "analysis": dict(assembly.analysis),
+            "approx_tokens": assembly.approx_tokens,
+            "summary_message": assembly.summary_message,
+        }
+
+    def _record_context_snapshot_operation(
+        self,
+        session: Session,
+        current_mode: str,
+        workflow_state: str,
+        turn_id: str,
+        step_id: str,
+        operation_id: str,
+        assembly: ContextAssemblyResult,
+    ) -> None:
+        snapshot = self._context_snapshot_payload(current_mode, assembly)
+        self._emit_operation_started(
+            session,
+            operation_id,
+            "context_snapshot",
+            turn_id=turn_id,
+            step_id=step_id,
+            parent_operation_id="context:%s" % step_id if step_id else "",
+            metadata={
+                "mode_name": current_mode,
+                "workflow_state": workflow_state,
+            },
+        )
+        session.record_context_snapshot(snapshot)
+        self._append_transcript_event(session, "context_snapshot", snapshot)
+        self._emit_operation_finished(
+            session,
+            operation_id,
+            kind="context_snapshot",
+            turn_id=turn_id,
+            step_id=step_id,
+            result=snapshot,
+        )
+
+    def _workflow_patch_snapshot(self, session: Session) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+        workflow_root = getattr(session, "workflow_state", {}) or {}
+        workflow = {}
+        metadata = {}
+        if isinstance(workflow_root, dict):
+            workflow = dict(workflow_root.get("workflow") or {})
+            extensions = workflow_root.get("extensions") or {}
+            if isinstance(extensions, dict):
+                metadata = dict(extensions.get("last_workflow_patch") or {})
+        return workflow, metadata
+
+    def _workflow_patch_payload(
+        self,
+        session: Session,
+        current_mode: str,
+        workflow_state: str,
+        turn_id: str,
+        step_id: str,
+        tool_call_id: str,
+    ) -> Dict[str, Any]:
+        workflow, metadata = self._workflow_patch_snapshot(session)
+        return {
+            "turn_id": turn_id,
+            "step_id": step_id,
+            "tool_call_id": tool_call_id,
+            "mode_name": current_mode,
+            "workflow_state_name": workflow_state,
+            "workflow": workflow,
+            "metadata": metadata,
+        }
+
+    def _workflow_patch_changed(
+        self,
+        before_workflow: Dict[str, Any],
+        before_metadata: Dict[str, Any],
+        payload: Dict[str, Any],
+    ) -> bool:
+        workflow = dict(payload.get("workflow") or {})
+        metadata = dict(payload.get("metadata") or {})
+        return bool(workflow or metadata) and (
+            workflow != before_workflow or metadata != before_metadata
+        )
+
+    def _persist_workflow_patch(self, session: Session, payload: Dict[str, Any]) -> None:
+        turn_id = str(payload.get("turn_id") or "")
+        step_id = str(payload.get("step_id") or "")
+        tool_call_id = str(payload.get("tool_call_id") or "")
+        operation_id = "workflow_patch:%s:%s" % (step_id or "session", tool_call_id or "patch")
+        self._emit_operation_started(
+            session,
+            operation_id,
+            "workflow_patch",
+            turn_id=turn_id,
+            step_id=step_id,
+            tool_call_id=tool_call_id,
+            parent_operation_id="tool:%s" % tool_call_id if tool_call_id else "",
+            metadata={
+                "mode_name": str(payload.get("mode_name") or ""),
+                "workflow_state_name": str(payload.get("workflow_state_name") or ""),
+            },
+        )
+        self._append_transcript_event(session, "workflow_patch", dict(payload), schema_version=2)
+        self._emit_operation_finished(
+            session,
+            operation_id,
+            kind="workflow_patch",
+            turn_id=turn_id,
+            step_id=step_id,
+            tool_call_id=tool_call_id,
+            result={
+                "workflow": dict(payload.get("workflow") or {}),
+                "metadata": dict(payload.get("metadata") or {}),
+            },
+        )
+
+    def _capture_workflow_patch_if_changed(
+        self,
+        session: Session,
+        action: Action,
+        current_mode: str,
+        workflow_state: str,
+        before_workflow: Dict[str, Any],
+        before_metadata: Dict[str, Any],
+    ) -> None:
+        turn_id = session.turns[-1].turn_id if session.turns else ""
+        step_id = session.current_step().step_id if session.current_step() is not None else ""
+        payload = self._workflow_patch_payload(
+            session,
+            current_mode,
+            workflow_state,
+            turn_id,
+            step_id,
+            action.call_id,
+        )
+        if self._workflow_patch_changed(before_workflow, before_metadata, payload):
+            self._persist_workflow_patch(session, payload)
+
     def _provider_operation_result(self, reply: AssistantReply) -> Dict[str, Any]:
         return {
             "finish_reason": reply.finish_reason,
@@ -1675,25 +1817,14 @@ class QueryEngine(object):
                     context_operation_id,
                 )
                 with self._session_guard():
-                    session.record_context_snapshot(
-                        {
-                            "mode_name": current_mode,
-                            "pipeline_steps": list(assembly.pipeline_steps),
-                            "analysis": dict(assembly.analysis),
-                            "approx_tokens": assembly.approx_tokens,
-                            "summary_message": assembly.summary_message,
-                        }
-                    )
-                    self._append_transcript_event(
+                    self._record_context_snapshot_operation(
                         session,
-                        "context_snapshot",
-                        {
-                            "mode_name": current_mode,
-                            "pipeline_steps": list(assembly.pipeline_steps),
-                            "analysis": dict(assembly.analysis),
-                            "approx_tokens": assembly.approx_tokens,
-                            "summary_message": assembly.summary_message,
-                        },
+                        current_mode,
+                        workflow_state,
+                        turn_id,
+                        step_id,
+                        "context_snapshot:%s:%s" % (step_id, operation_attempt),
+                        assembly,
                     )
                     for replacement in assembly.replacements:
                         session.record_content_replacement(dict(replacement))
@@ -2183,13 +2314,23 @@ class QueryEngine(object):
         workflow_state: str,
         observation: Observation,
     ) -> Observation:
-        return self._action_service.apply_extension_tool_result_patch(
+        before_workflow, before_metadata = self._workflow_patch_snapshot(session)
+        patched = self._action_service.apply_extension_tool_result_patch(
             session,
             action,
             current_mode,
             workflow_state,
             observation,
         )
+        self._capture_workflow_patch_if_changed(
+            session,
+            action,
+            current_mode,
+            workflow_state,
+            before_workflow,
+            before_metadata,
+        )
+        return patched
 
     def _record_permission_rejection(self, session: Session, action: Action) -> None:
         self._emit_lifecycle_event(
@@ -2253,7 +2394,8 @@ class QueryEngine(object):
         stop_event: Optional[threading.Event] = None,
     ) -> Tuple[Observation, str, Optional[QueryTurnResult]]:
         if action.name not in ("ask_user", "propose_mode_switch"):
-            return self._action_service.execute_action(
+            before_workflow, before_metadata = self._workflow_patch_snapshot(session)
+            result = self._action_service.execute_action(
                 session,
                 action,
                 current_mode,
@@ -2263,6 +2405,15 @@ class QueryEngine(object):
                 precomputed_observation=precomputed_observation,
                 stop_event=stop_event,
             )
+            self._capture_workflow_patch_if_changed(
+                session,
+                action,
+                current_mode,
+                workflow_state,
+                before_workflow,
+                before_metadata,
+            )
+            return result
         runtime_action = action
         if precomputed_observation is not None and not self._is_interactive_precomputed_skip(
             precomputed_observation

@@ -1109,6 +1109,30 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertIn("provider_request", kinds)
         self.assertIn("save_point", kinds)
 
+    def test_live_session_snapshot_projects_operation_diagnostics(self):
+        adapter = InProcessAdapter(
+            client=ToolClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+        )
+        snapshot = adapter.create_session("build")
+        session_id = str(snapshot.get("session_id") or "")
+        adapter.submit_user_message(
+            session_id=session_id,
+            text="读取文件",
+            stream=False,
+            wait=True,
+            permission_resolver=lambda ticket: True,
+            event_handler=lambda event_name, current_session_id, payload: None,
+        )
+        refreshed = adapter.get_session_snapshot(session_id)
+
+        diagnostics = refreshed.get("operation_diagnostics") or {}
+        self.assertGreater(diagnostics.get("total_count"), 0)
+        self.assertEqual(diagnostics.get("interrupted_count"), 0)
+        self.assertIn("turn", diagnostics.get("kinds") or {})
+        self.assertIn("provider_request", diagnostics.get("kinds") or {})
+
     def test_resume_session_exposes_restore_diagnostics_for_truncated_replay(self):
         adapter = InProcessAdapter(
             client=ToolClient(),

@@ -12,6 +12,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 from embedagent.config import AppConfig
 from embedagent.context import ContextManager
 from embedagent.default_extensions import build_default_extension_set
+from embedagent.extensions import ExtensionManager, ToolResultPatch, WorkflowPatch
 from embedagent.inprocess_adapter import InProcessAdapter
 from embedagent.llm import ModelClientError
 from embedagent.permissions import PermissionPolicy
@@ -170,6 +171,24 @@ class ToolClient(object):
         if on_text_delta is not None and reply.content:
             on_text_delta(reply.content)
         return reply
+
+
+class WorkflowPatchExtension(object):
+    extension_id = "workflow_patch_test"
+    builtin_extension = False
+
+    def tool_result(self, event, context):
+        del event, context
+        return ToolResultPatch(
+            workflow_patch=WorkflowPatch(
+                workflow={
+                    "id": "patch-test",
+                    "items": [{"id": "task-1", "title": "patched task"}],
+                    "task_summary": {"total": 1},
+                },
+                metadata={"source": "workflow_patch_test"},
+            )
+        )
 
 
 class SpecCodeWriteClient(object):
@@ -1915,6 +1934,60 @@ class TestQueryEngineRefactor(unittest.TestCase):
         events = transcript_store.load_events(session.session_id)
         event_types = [item["type"] for item in events]
         self.assertIn("context_snapshot", event_types)
+        context_snapshot_operations = [
+            item["payload"]
+            for item in events
+            if item["type"] == "operation_finished"
+            and item["payload"].get("kind") == "context_snapshot"
+        ]
+        self.assertGreaterEqual(len(context_snapshot_operations), 1)
+        self.assertEqual(
+            context_snapshot_operations[-1]["result"]["approx_tokens"],
+            session.latest_context_snapshot["approx_tokens"],
+        )
+
+    def test_query_engine_persists_and_restores_workflow_patch_events(self):
+        session = Session()
+        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：build")
+        transcript_store = TranscriptStore(self.workspace)
+        engine = QueryEngine(
+            client=ToolClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+            transcript_store=transcript_store,
+            extension_manager=ExtensionManager([WorkflowPatchExtension()]),
+        )
+
+        result = engine.submit_user_turn(
+            user_text="读取文件",
+            stream=False,
+            initial_mode="build",
+            session=session,
+        )
+
+        self.assertEqual(result.transition.reason, "completed")
+        self.assertEqual(session.workflow_state["workflow"]["id"], "patch-test")
+        events = transcript_store.load_events(session.session_id)
+        workflow_patch_events = [item for item in events if item["type"] == "workflow_patch"]
+        self.assertEqual(len(workflow_patch_events), 1)
+        workflow_patch_operations = [
+            item["payload"]
+            for item in events
+            if item["type"] == "operation_finished"
+            and item["payload"].get("kind") == "workflow_patch"
+        ]
+        self.assertEqual(len(workflow_patch_operations), 1)
+        self.assertEqual(
+            workflow_patch_operations[0]["result"]["metadata"]["source"],
+            "workflow_patch_test",
+        )
+
+        restored = SessionRestorer().restore(events)
+        self.assertEqual(restored.session.workflow_state["workflow"]["id"], "patch-test")
+        self.assertEqual(
+            restored.session.workflow_state["extensions"]["last_workflow_patch"]["source"],
+            "workflow_patch_test",
+        )
 
     def test_context_manager_uses_persisted_replacement_text_without_regeneration(self):
         session = Session()

@@ -44,6 +44,37 @@
 
 ## 3. 当前变更记录
 
+### DC-133
+
+- 日期：2026-06-13
+- 变更主题：Pi-inspired minimal Core Phase A durable operation log 收口
+- 变更摘要：
+  - context snapshot 现在通过显式 `context_snapshot` operation lifecycle 写入，`context_snapshot` transcript 事件继续作为 session restore 的上下文快照输入
+  - extension workflow patch 不再只是 live `session.workflow_state` 修改；`QueryEngine` 会在工具结果 hook 修改 workflow state 后写入 schema v2 `workflow_patch` transcript 事件与 `workflow_patch` operation lifecycle
+  - `SessionRestorer` 会回放 `workflow_patch`，恢复 `Session.workflow_state["workflow"]` 与 `extensions.last_workflow_patch`
+  - `InProcessAdapter.get_session_snapshot(...)` 会从 transcript reducer 刷新 live `operation_diagnostics`，restore-time 与 live snapshot 都能解释 operation family 的 finished/interrupted/active 状态
+  - Phase A durable operation log 已覆盖 turn、agent step、context assembly、context snapshot、provider request、tool call、pending interaction、workflow patch 与 save point；后续应进入 Phase B HookBus/reducer registry，不继续把 reducer 语义散落在 facade helper 中
+- 影响范围：
+  - `src/embedagent/query_engine.py`
+  - `src/embedagent/session_restore.py`
+  - `src/embedagent/inprocess_adapter.py`
+  - `tests/test_query_engine_refactor.py`
+  - `tests/test_inprocess_adapter_frontend_api.py`
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/pi-inspired-agent-core-blueprint.md`
+  - `docs/development-tracker.md`
+  - `docs/design-change-log.md`
+- 关联文档：
+  - `docs/pi-inspired-agent-core-blueprint.md`
+  - `docs/development-tracker.md`
+- 是否需要 ADR：`否，本次关闭既有 Phase A implementation slice；Phase B HookBus/reducer registry 设计开始时再评估 ADR`
+- 后续动作：
+  - 启动 Phase B HookBus/reducer registry 设计，把 lifecycle/reducer 语义集中到 source-aware event boundary
+  - 评估 AgentKernel extraction 时是否将 resume attempt 作为 turn operation 的子 operation
+  - 保持 operation diagnostics 为诊断投影，不替代 session history、timeline replay 或 frontend workflow projection
+
 ### DC-132
 
 - 日期：2026-06-13
@@ -74,8 +105,8 @@
   - `docs/development-tracker.md`
 - 是否需要 ADR：`否，本次仍属于 Pi-inspired minimal Core Phase A 的 operation lifecycle 覆盖切片；HookBus/reducer registry 或 AgentKernel 边界硬切时再评估 ADR`
 - 后续动作：
-  - 补 workflow patch / context snapshot lifecycle 的显式 operation 或 reducer event 覆盖
-  - 将 operation reducer 从 restore-time projection 推进到 live reducer projection，并明确和前端 history/session snapshot 的边界
+  - 已由 DC-133 收口 workflow patch / context snapshot lifecycle 与 live diagnostics projection
+  - 下一步进入 Phase B HookBus/reducer registry 设计
   - 为 resume attempt 是否需要独立子 operation 建立 AgentKernel lifecycle 设计规则
 
 ### DC-131

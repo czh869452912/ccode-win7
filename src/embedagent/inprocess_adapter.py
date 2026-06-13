@@ -28,7 +28,7 @@ from embedagent.project_memory import ProjectMemoryStore
 from embedagent.protocol import CommandResult, PermissionContextView, PlanSnapshot
 from embedagent.session import Action, AssistantReply, Observation, Session
 from embedagent.session_history import SessionHistoryAssembler
-from embedagent.session_operation_log import operation_diagnostics
+from embedagent.session_operation_log import OperationLogReducer, operation_diagnostics
 from embedagent.session_projector import SessionSnapshotProjector
 from embedagent.session_restore import SessionRestorer
 from embedagent.session_runtime import ManagedSession
@@ -570,6 +570,7 @@ class InProcessAdapter(object):
         runtime_lookup = getattr(self.tools, "runtime_environment_snapshot", None)
         runtime = runtime_lookup() if callable(runtime_lookup) else {}
         with state.lock:
+            self._refresh_operation_diagnostics(state)
             summary = self._read_summary_for_state(state)
             return self.snapshot_projector.build_snapshot(
                 state,
@@ -578,6 +579,13 @@ class InProcessAdapter(object):
                 pending_interaction=_pending_interaction_payload(state),
                 extension_diagnostics=self.extension_manager.diagnostics(),
             )
+
+    def _refresh_operation_diagnostics(self, state: ManagedSession) -> None:
+        try:
+            events = self.transcript_store.load_events(state.session.session_id)
+        except (OSError, ValueError, TypeError):
+            return
+        state.operation_diagnostics = operation_diagnostics(OperationLogReducer().reduce(events))
 
     def get_workspace_snapshot(self) -> Dict[str, Any]:
         counts = self._count_workspace_items()

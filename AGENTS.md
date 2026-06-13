@@ -186,7 +186,7 @@ Official durable operation truth is:
 - schema v2 `operation_finished`
 - schema v2 `operation_interrupted`
 
-`OperationLogReducer` must derive operation state only from those explicit lifecycle events. `step_started`, `tool_call`, `tool_result`, and `loop_transition` remain session replay/history events; do not reintroduce operation-state inference from them. Current `QueryEngine` operation families include turns, agent steps, context assembly, provider requests, tool calls, pending interactions, and save points. Restored session snapshots may expose `operation_diagnostics` projected from the same reducer state; live UI behavior must still rely on the official session/history projections until live reducer projection is explicitly promoted.
+`OperationLogReducer` must derive operation state only from those explicit lifecycle events. `step_started`, `tool_call`, `tool_result`, and `loop_transition` remain session replay/history events; do not reintroduce operation-state inference from them. Current `QueryEngine` operation families include turns, agent steps, context assembly, context snapshots, provider requests, tool calls, pending interactions, workflow patches, and save points. Session snapshots may expose `operation_diagnostics` projected from the same reducer state; operation diagnostics remain diagnostic state, not a second session-history source.
 
 ## Mode Policy
 
