@@ -26,8 +26,16 @@ from embedagent.plan_store import PlanStore
 from embedagent.project_extensions import load_project_extensions
 from embedagent.project_memory import ProjectMemoryStore
 from embedagent.protocol import CommandResult, PermissionContextView, PlanSnapshot
-from embedagent.session import Action, AssistantReply, Observation, Session
+from embedagent.session import (
+    Action,
+    AssistantReply,
+    LoopTransition,
+    Observation,
+    PendingInteraction,
+    Session,
+)
 from embedagent.session_history import SessionHistoryAssembler
+from embedagent.session_operation_log import OperationLogReducer, operation_diagnostics
 from embedagent.session_projector import SessionSnapshotProjector
 from embedagent.session_restore import SessionRestorer
 from embedagent.session_runtime import ManagedSession
@@ -489,6 +497,7 @@ class InProcessAdapter(object):
             restore_stop_reason=str(restored.stop_reason or ""),
             restore_consumed_event_count=int(restored.consumed_event_count or 0),
             restore_transcript_event_count=int(restored.transcript_event_count or 0),
+            operation_diagnostics=operation_diagnostics(restored.operation_state),
         )
         state.engine = self._build_engine()
         state.current_mode = state.engine.initialize_session(
@@ -568,6 +577,7 @@ class InProcessAdapter(object):
         runtime_lookup = getattr(self.tools, "runtime_environment_snapshot", None)
         runtime = runtime_lookup() if callable(runtime_lookup) else {}
         with state.lock:
+            self._refresh_operation_diagnostics(state)
             summary = self._read_summary_for_state(state)
             return self.snapshot_projector.build_snapshot(
                 state,
@@ -576,6 +586,14 @@ class InProcessAdapter(object):
                 pending_interaction=_pending_interaction_payload(state),
                 extension_diagnostics=self.extension_manager.diagnostics(),
             )
+
+    def _refresh_operation_diagnostics(self, state: ManagedSession) -> None:
+        try:
+            events = self.transcript_store.load_events(state.session.session_id)
+        except (OSError, ValueError, TypeError):
+            return
+        operation_state = OperationLogReducer(close_unfinished=False).reduce(events)
+        state.operation_diagnostics = operation_diagnostics(operation_state)
 
     def get_workspace_snapshot(self) -> Dict[str, Any]:
         counts = self._count_workspace_items()
@@ -1181,9 +1199,10 @@ class InProcessAdapter(object):
             )
         else:
             lookup = getattr(self.tools, "local_resources", None)
-            payload = lookup() if callable(lookup) else self.reload_resources(
-                session_id=state.session.session_id,
-                reason="command"
+            payload = (
+                lookup()
+                if callable(lookup)
+                else self.reload_resources(session_id=state.session.session_id, reason="command")
             )
         counts = dict(payload.get("counts") or {})
         lines = [
@@ -2066,13 +2085,14 @@ class InProcessAdapter(object):
                 not bool(snapshot.get("pending_interaction_valid"))
                 and snapshot.get("status") != "waiting_permission"
                 and snapshot.get("status") != "waiting_user_input"
+                and snapshot.get("status") != "running"
             ):
                 return snapshot
             state = self._require_session(session_id)
             with state.lock:
                 active = state.active_thread
             if active is not None and not active.is_alive():
-                return snapshot
+                return self.get_session_snapshot(session_id)
             time.sleep(0.05)
         return snapshot
 
@@ -2654,6 +2674,26 @@ class InProcessAdapter(object):
         with state.lock:
             state.pending_permission = ticket
             state.pending_result = None
+            if state.session.pending_interaction is None:
+                permission_payload = {
+                    "tool_name": request.tool_name,
+                    "category": request.category,
+                    "reason": request.reason,
+                    "details": dict(request.details),
+                }
+                pending = PendingInteraction(
+                    kind="permission",
+                    tool_name=request.tool_name,
+                    request_payload={"permission": permission_payload},
+                )
+                state.session.record_transition(
+                    LoopTransition(
+                        reason="permission_wait",
+                        message=request.reason,
+                        pending_interaction=pending,
+                        next_mode=state.current_mode,
+                    )
+                )
             state.updated_at = _utc_now()
         return ticket
 

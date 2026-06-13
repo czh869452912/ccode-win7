@@ -85,7 +85,7 @@ The repository now has one official architecture vocabulary.
 
 The current baseline remains authoritative. `docs/pi-inspired-agent-core-blueprint.md` is the long-term target blueprint for making Agent Core more Pi-like in both function and philosophy: smaller kernel, durable session-log reducers, source-aware hooks, explicit turn snapshots, replaceable workflow packages, and local self-extension.
 
-Do not treat blueprint target terms such as `AgentKernel`, `SessionLog`, or `HookBus` as implemented public APIs until a specific implementation slice lands and updates the source-of-truth docs. Near-term work must preserve the hosted C/C++ product behavior while extracting those boundaries gradually.
+Do not treat blueprint target terms such as `AgentKernel`, `SessionLog`, or `HookBus` as implemented public APIs until a specific implementation slice lands and updates the source-of-truth docs. `AgentEventBus` is now the internal source-aware event/reducer boundary for public extension hook dispatch; it is not a public extension API. Near-term work must preserve the hosted C/C++ product behavior while extracting AgentKernel lifecycle boundaries gradually.
 
 ### Modes
 
@@ -114,7 +114,7 @@ Local offline self-extension is an official architecture capability, limited to 
 
 `InProcessAdapter` owns the hosted runtime's shared `ExtensionManager` and passes it to session-scoped `QueryEngine` instances. Frontend tool catalog visibility must use that same manager instead of a separate adapter-only harness extension chain.
 
-`ExtensionManager` is also the shared in-process capability boundary for prompt/context hooks, tool-call and tool-result hooks, resource discovery contracts, dynamic in-process tool registration, extension diagnostics, and manifest-gated project-local Python extensions. Workspace-local file resources under `.embedagent/skills`, `.embedagent/prompts`, and `.embedagent/recipes` are discoverable and reloadable as file resources only. Project-local Python extensions are loaded only from enabled `.embedagent/extensions/<name>/extension.json` manifests with workspace-bound `extension.py` entrypoints, declared permissions, no dependency installation, no remote registry, and no built-in tool replacement.
+`ExtensionManager` is also the shared in-process capability boundary for prompt/context hooks, tool-call and tool-result hooks, resource discovery contracts, dynamic in-process tool registration, extension diagnostics, and manifest-gated project-local Python extensions. Its hook internals dispatch through `AgentEventBus` with source metadata, observer/reducer separation, event-specific merge/stop semantics, and diagnostics; do not add new extension hook merge semantics outside that bus. Workspace-local file resources under `.embedagent/skills`, `.embedagent/prompts`, and `.embedagent/recipes` are discoverable and reloadable as file resources only. Project-local Python extensions are loaded only from enabled `.embedagent/extensions/<name>/extension.json` manifests with workspace-bound `extension.py` entrypoints, declared permissions, no dependency installation, no remote registry, and no built-in tool replacement.
 
 `AgentExtensionHost` is the QueryEngine-side extension dispatch boundary. `QueryEngine` must not scatter direct `ExtensionManager` hook calls for prompt injection, context patching, dynamic tool registration, active-tool schema projection, tool-call hooks, tool-result hooks, or extension-owned tool handling.
 
@@ -179,6 +179,14 @@ Official session-history truth is:
 - `GET /api/sessions/{id}/bootstrap` as the only GUI activation bootstrap contract
 
 `timeline.jsonl` is transport/replay infrastructure only. It is not a historical database.
+
+Official durable operation truth is:
+
+- schema v2 `operation_started`
+- schema v2 `operation_finished`
+- schema v2 `operation_interrupted`
+
+`OperationLogReducer` must derive operation state only from those explicit lifecycle events. `step_started`, `tool_call`, `tool_result`, and `loop_transition` remain session replay/history events; do not reintroduce operation-state inference from them. Current `QueryEngine` operation families include turns, agent steps, context assembly, context snapshots, provider requests, tool calls, pending interactions, workflow patches, and save points. Restore-time projections close unfinished operations as interrupted; live session snapshots must preserve unfinished operations as active. Session snapshots may expose `operation_diagnostics` projected from the same reducer state; operation diagnostics remain diagnostic state, not a second session-history source.
 
 ## Mode Policy
 

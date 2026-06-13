@@ -44,6 +44,224 @@
 
 ## 3. 当前变更记录
 
+### DC-136
+
+- 日期：2026-06-14
+- 变更主题：Phase A/B 收尾：live operation diagnostics 保留 active 状态
+- 变更摘要：
+  - `OperationLogReducer` 新增 `close_unfinished` 选项，默认保持 restore-time 行为：未完成 operation 关闭为 `interrupted`
+  - `InProcessAdapter.get_session_snapshot(...)` 的 live diagnostics 使用 `close_unfinished=False`，避免把正在运行的 provider/tool/turn operation 误报为 `restore_incomplete_operation`
+  - 新增 reducer 与 adapter 回归测试，明确 restore-time 与 live snapshot 的 operation 语义差异
+  - 删除 Phase B 后遗留的未使用 `_record_diagnostic` helper
+  - 同步 source-of-truth docs，把 Phase A/T-029 残留的“下一步进入 Phase B”口径修正为 Phase B 已收口、Phase C 继续抽 AgentKernel lifecycle boundary
+- 影响范围：
+  - `src/embedagent/session_operation_log.py`
+  - `src/embedagent/inprocess_adapter.py`
+  - `src/embedagent/extensions.py`
+  - `tests/test_session_operation_log.py`
+  - `tests/test_inprocess_adapter_frontend_api.py`
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/pi-inspired-agent-core-blueprint.md`
+  - `docs/development-tracker.md`
+  - `docs/design-change-log.md`
+- 关联文档：
+  - `docs/pi-inspired-agent-core-blueprint.md`
+  - `docs/development-tracker.md`
+- 是否需要 ADR：`否，属于 Phase A/B 收尾语义修正；AgentKernel lifecycle boundary 硬切时再评估 ADR`
+- 后续动作：
+  - Phase C 抽 AgentKernel lifecycle 时继续保持 restore-time close 与 live active 两种 reducer 投影视角
+
+### DC-135
+
+- 日期：2026-06-14
+- 变更主题：Pi-inspired minimal Core Phase B HookBus/reducer registry 收口
+- 变更摘要：
+  - `AgentEventBus.dispatch(...)` 新增 event-specific `reducer_stop`，用于表达 first-block-wins、first-result-wins 等 reducer 停止语义
+  - `ExtensionManager` 公开 extension hook family 已统一通过 `AgentEventBus` 分发，公共 extension API 不变
+  - bus-backed hook families 包括 context patch、resource discovery、dynamic tool registration、tool-call decision、tool-result patch、prompt patch、workflow injection decision、prompt description、workflow initialization、active tool names、session task snapshot loading 与 extension-owned tool handling
+  - tool-call reducer 保留旧语义：sequential argument rewrites 会更新同一个 `WorkflowEvent`，第一个 blocking decision 停止后续 reducer
+  - extension diagnostics 统一携带 `agent_event_type`、`handler_kind`、source metadata 与安全事件 metadata
+  - 删除 `ExtensionManager` 内部旧 `_call_hook` 分发路径，避免 Phase B 收口后继续存在平行 hook dispatch
+  - operation lifecycle 编排迁移不在本次完成范围内；它归入 Phase C AgentKernel lifecycle extraction，并应复用已建立的 bus boundary
+- 影响范围：
+  - `src/embedagent/agent_event_bus.py`
+  - `src/embedagent/extensions.py`
+  - `tests/test_capability_extensions.py`
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/pi-inspired-agent-core-blueprint.md`
+  - `docs/development-tracker.md`
+  - `docs/design-change-log.md`
+- 关联文档：
+  - `docs/pi-inspired-agent-core-blueprint.md`
+  - `docs/superpowers/plans/2026-06-14-phase-b-hookbus-closeout.md`
+- 是否需要 ADR：`否，本次是已批准 Pi-inspired minimal Core Phase B 的实现收口；AgentKernel lifecycle boundary 硬切时再评估 ADR`
+- 后续动作：
+  - 启动 Phase C AgentKernel lifecycle extraction 设计
+  - 在 Phase C 中把 turn snapshot、save point、suspend/resume、abort、compact retry 与 cleanup 迁出 session facade
+  - 后续生命周期 observer/reducer 应复用 `AgentEventBus`，不要恢复 direct facade hooks
+
+### DC-134
+
+- 日期：2026-06-13
+- 变更主题：Pi-inspired minimal Core Phase B AgentEventBus 第一切片
+- 变更摘要：
+  - 新增 `src/embedagent/agent_event_bus.py`，建立内部 source-aware `AgentEventBus`、`AgentEvent`、observer/reducer registration、dispatch diagnostics 与 trusted fail-closed 异常传播
+  - `ExtensionManager.context(...)` 与 `ExtensionManager.after_tool_result(...)` 保持公共 API 不变，但内部改为通过 `extension.context` / `extension.tool_result` reducer event 合并 `ContextPatch` 与 `ToolResultPatch`
+  - extension diagnostics 现在会附带 `agent_event_type`、`handler_kind` 与 source metadata，后续可把更多 hook family 迁入同一 reducer 边界
+  - observer 语义明确为被动监听；observer 返回值不参与 reducer 结果
+  - 本次不是 Phase B 全量完成；tool-call decisions、resource discovery、dynamic tool registration、operation lifecycle emitters、cleanup 与 reload semantics 仍是后续切片
+- 影响范围：
+  - `src/embedagent/agent_event_bus.py`
+  - `src/embedagent/extensions.py`
+  - `tests/test_capability_extensions.py`
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/pi-inspired-agent-core-blueprint.md`
+  - `docs/development-tracker.md`
+  - `docs/design-change-log.md`
+- 关联文档：
+  - `docs/pi-inspired-agent-core-blueprint.md`
+  - `docs/superpowers/plans/2026-06-13-phase-b-hookbus-first-slice.md`
+- 是否需要 ADR：`否，本次是 Phase B 的第一实现切片；当 HookBus 成为所有 extension hooks 与 lifecycle reducers 的唯一边界时再评估 ADR`
+- 后续动作：
+  - 迁移 `tool_call` hook 到 bus，并明确 block/update argument 的 reducer 语义
+  - 迁移 resource discovery 与 dynamic tool registration，同时保留 resource reload 与 executable extension loading 的分离
+  - 评估 operation lifecycle emitters 是否通过同一 bus 暴露给 diagnostics/observability observer
+
+### DC-133
+
+- 日期：2026-06-13
+- 变更主题：Pi-inspired minimal Core Phase A durable operation log 收口
+- 变更摘要：
+  - context snapshot 现在通过显式 `context_snapshot` operation lifecycle 写入，`context_snapshot` transcript 事件继续作为 session restore 的上下文快照输入
+  - extension workflow patch 不再只是 live `session.workflow_state` 修改；`QueryEngine` 会在工具结果 hook 修改 workflow state 后写入 schema v2 `workflow_patch` transcript 事件与 `workflow_patch` operation lifecycle
+  - `SessionRestorer` 会回放 `workflow_patch`，恢复 `Session.workflow_state["workflow"]` 与 `extensions.last_workflow_patch`
+  - `InProcessAdapter.get_session_snapshot(...)` 会从 transcript reducer 刷新 live `operation_diagnostics`，restore-time 与 live snapshot 都能解释 operation family 的 finished/interrupted/active 状态
+  - Phase A durable operation log 已覆盖 turn、agent step、context assembly、context snapshot、provider request、tool call、pending interaction、workflow patch 与 save point；后续应进入 Phase B HookBus/reducer registry，不继续把 reducer 语义散落在 facade helper 中
+- 影响范围：
+  - `src/embedagent/query_engine.py`
+  - `src/embedagent/session_restore.py`
+  - `src/embedagent/inprocess_adapter.py`
+  - `tests/test_query_engine_refactor.py`
+  - `tests/test_inprocess_adapter_frontend_api.py`
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/pi-inspired-agent-core-blueprint.md`
+  - `docs/development-tracker.md`
+  - `docs/design-change-log.md`
+- 关联文档：
+  - `docs/pi-inspired-agent-core-blueprint.md`
+  - `docs/development-tracker.md`
+- 是否需要 ADR：`否，本次关闭既有 Phase A implementation slice；Phase B HookBus/reducer registry 设计开始时再评估 ADR`
+- 后续动作：
+  - 启动 Phase B HookBus/reducer registry 设计，把 lifecycle/reducer 语义集中到 source-aware event boundary
+  - 评估 AgentKernel extraction 时是否将 resume attempt 作为 turn operation 的子 operation
+  - 保持 operation diagnostics 为诊断投影，不替代 session history、timeline replay 或 frontend workflow projection
+
+### DC-132
+
+- 日期：2026-06-13
+- 变更主题：Turn / pending lifecycle 纳入 durable operation truth
+- 变更摘要：
+  - `QueryEngine` 现在为 user、command 与 resume turn 写入显式 `turn` operation lifecycle，turn operation 结果记录 transition reason、next mode、workflow state 与 turns used
+  - pending permission / user input 创建时写入 `pending_interaction` operation start，恢复处理时写入 operation finish，避免 pending lifecycle 只靠 legacy interaction event 推断
+  - agent step 在 `tool_calls`、`permission_wait`、`user_input_wait` 等非最终 completed 状态下也会写入明确 finish/interruption，restore 不再把正常等待或工具批次边界误判为 incomplete operation
+  - 新增 `operation_diagnostics(...)` 作为 reducer-backed 诊断投影；`InProcessAdapter.resume_session(...)` 会把 restore-time operation diagnostics 放入 session snapshot
+  - 本次仍不把 operation diagnostics 升级为 live UI 历史源；GUI/history 继续消费 `SessionHistoryAssembler` 与正式 session snapshot 字段
+- 影响范围：
+  - `src/embedagent/query_engine.py`
+  - `src/embedagent/session_operation_log.py`
+  - `src/embedagent/session_runtime.py`
+  - `src/embedagent/session_projector.py`
+  - `src/embedagent/inprocess_adapter.py`
+  - `tests/test_query_engine_refactor.py`
+  - `tests/test_inprocess_adapter_frontend_api.py`
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/pi-inspired-agent-core-blueprint.md`
+  - `docs/development-tracker.md`
+  - `docs/design-change-log.md`
+- 关联文档：
+  - `docs/pi-inspired-agent-core-blueprint.md`
+  - `docs/development-tracker.md`
+- 是否需要 ADR：`否，本次仍属于 Pi-inspired minimal Core Phase A 的 operation lifecycle 覆盖切片；HookBus/reducer registry 或 AgentKernel 边界硬切时再评估 ADR`
+- 后续动作：
+  - 已由 DC-133 收口 workflow patch / context snapshot lifecycle 与 live diagnostics projection
+  - 下一步进入 Phase B HookBus/reducer registry 设计
+  - 为 resume attempt 是否需要独立子 operation 建立 AgentKernel lifecycle 设计规则
+
+### DC-131
+
+- 日期：2026-06-13
+- 变更主题：Operation lifecycle 明确切为 durable operation truth
+- 变更摘要：
+  - 接受“项目未上线，可以大胆动刀”的产品阶段判断，将 operation state 主路径从 legacy transcript 推断切为显式 lifecycle 事件
+  - `OperationLogReducer` 现在只消费 schema_v2 `operation_started`、`operation_finished`、`operation_interrupted`，不再从 `step_started`、`tool_call`、`tool_result`、`loop_transition` 推断 runtime operation 状态
+  - legacy transcript 事件继续用于 session replay、history、tool topology 和 GUI bootstrap，不再承担 operation-state truth
+  - `QueryEngine` 已为 context assembly、provider request 和 save point 写入显式 operation lifecycle；既有 agent step 与 tool call lifecycle 继续保留
+  - `SessionRestorer` 会消费显式 operation lifecycle 事件，使 `SessionRestoreResult.operation_state` 能解释运行中断点、完成的 provider/context/savepoint 与未完成 operation
+- 影响范围：
+  - `src/embedagent/session_operation_log.py`
+  - `src/embedagent/session_restore.py`
+  - `src/embedagent/query_engine.py`
+  - `tests/test_session_operation_log.py`
+  - `tests/test_query_engine_refactor.py`
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/pi-inspired-agent-core-blueprint.md`
+  - `docs/development-tracker.md`
+  - `docs/design-change-log.md`
+  - `docs/superpowers/plans/2026-06-13-durable-operation-log.md`
+- 关联文档：
+  - `docs/pi-inspired-agent-core-blueprint.md`
+  - `docs/superpowers/plans/2026-06-13-durable-operation-log.md`
+- 是否需要 ADR：`否，本次仍是 Pi-inspired minimal Core Phase A 的 implementation slice；AgentKernel 生命周期边界硬切时再评估 ADR`
+- 后续动作：
+  - 补 turn lifecycle、pending interaction lifecycle、workflow patch lifecycle 的显式 operation/事件覆盖
+  - 评估把 `operation_state` 投影到 session snapshot / diagnostics，供前端和恢复诊断消费
+  - 继续推进 HookBus/reducer registry，让扩展 reducer 明确 source metadata 与 merge/cancel 语义
+
+### DC-130
+
+- 日期：2026-06-13
+- 变更主题：Durable operation log reducer Slice 1 落地
+- 变更摘要：
+  - 接受 Pi-inspired minimal Core 的第一实现切片：先让 session transcript 具备可 reducer 的 operation lifecycle 状态，而不是直接重写 `QueryEngine` 或提取完整 `AgentKernel`
+  - 新增 `src/embedagent/session_operation_log.py`，提供纯 `OperationLogReducer`、`OperationRecord` 与 `OperationLogState`
+  - `SessionRestorer` 现在暴露 `operation_state`，并只对严格恢复已消费的 transcript 前缀做 operation reducer，避免损坏尾部参与状态推断
+  - reducer 兼容现有 `step_started`、`tool_call`、`tool_result`、`loop_transition` 事件，也支持新的显式 `operation_started`、`operation_finished`、`operation_interrupted` 事件
+  - `QueryEngine` 在保持旧 transcript 事件不变的前提下，附加写入 schema_v2 operation lifecycle 事件；未完成 operation 在 restore 语义中默认标为 `interrupted` 且 `retryable=false`
+- 影响范围：
+  - `src/embedagent/session_operation_log.py`
+  - `src/embedagent/session_restore.py`
+  - `src/embedagent/query_engine.py`
+  - `tests/test_session_operation_log.py`
+  - `tests/test_session_restore.py`
+  - `tests/test_query_engine_refactor.py`
+  - `docs/development-tracker.md`
+  - `docs/design-change-log.md`
+  - `docs/superpowers/plans/2026-06-13-durable-operation-log.md`
+- 关联文档：
+  - `docs/pi-inspired-agent-core-blueprint.md`
+  - `docs/superpowers/plans/2026-06-13-durable-operation-log.md`
+- 是否需要 ADR：`否，本次是目标蓝图下的增量实现切片；完整 AgentKernel lifecycle boundary 提取前再评估 ADR`
+- 后续动作：
+  - 将 turn lifecycle、pending interaction lifecycle 与 workflow patch 事件纳入显式 operation/log lifecycle
+  - 评估是否把 operation_state 投影到 session snapshot / diagnostics，供前端或恢复诊断消费
+  - 继续保持旧 transcript 事件作为 session replay/history 输入，但 operation state 必须来自显式 lifecycle 事件
+
 ### DC-129
 
 - 日期：2026-06-13

@@ -61,7 +61,7 @@ The kernel should not own C/C++ phases, recipes, task graphs, or quality gates.
 
 The append-only durable state ledger.
 
-The session log should record not only messages, but also operation state:
+The session log should record not only messages, but also explicit operation lifecycle state:
 
 - operation started, finished, interrupted
 - turn started, finished
@@ -73,7 +73,7 @@ The session log should record not only messages, but also operation state:
 - compaction boundary written
 - extension custom entry appended
 
-Live `Session` state should become a reducer output of this log. Direct state patching should shrink over time.
+Live `Session` state should become a reducer output of this log. Direct state patching should shrink over time. Legacy replay events can continue to rebuild historical session topology, but durable runtime operation status should come from explicit lifecycle events rather than inferred side effects.
 
 ### CapabilityRegistry
 
@@ -271,6 +271,8 @@ Outcomes:
 - unfinished operations are marked interrupted by default
 - non-idempotent tool calls are not retried automatically
 
+Current implementation status: Phase A is complete. The operation reducer uses explicit schema v2 `operation_started`, `operation_finished`, and `operation_interrupted` events as the operation-state truth. Runtime emissions cover turns, agent steps, context assembly, context snapshots, provider requests, tool calls, pending interaction start/finish, workflow patches, and save points. Restore snapshots close unfinished operations as interrupted, while live session snapshots preserve currently active operations in reducer-backed `operation_diagnostics`. Phase B has promoted extension hook dispatch into a source-aware HookBus/reducer registry; Phase C should now move operation lifecycle orchestration behind an AgentKernel boundary instead of growing one-off lifecycle helpers inside the session facade.
+
 ### Phase B: HookBus And Reducers
 
 Replace method-name hook dispatch with a source-aware hook bus.
@@ -282,6 +284,8 @@ Outcomes:
 - extension source metadata is attached to registrations
 - cleanup and reload behavior are deterministic
 - built-in workflow extension and project-local extensions use the same internal bus
+
+Current implementation status: Phase B is complete for extension hook dispatch. `src/embedagent/agent_event_bus.py` defines the internal source-aware event bus, observer/reducer registrations, dispatch diagnostics, event-specific reducer stopping, and fail-closed behavior for trusted reducers. `ExtensionManager` keeps its public APIs but routes public extension hook families through `AgentEventBus`, including context patches, tool-call decisions, tool-result patches, resource discovery, dynamic tool registration, prompt patches, active tool names, workflow initialization, task snapshot loading, and extension-owned tool handling. Operation lifecycle orchestration remains Phase C AgentKernel work; future lifecycle observers should use the bus boundary rather than adding direct facade hooks.
 
 ### Phase C: AgentKernel Extraction
 

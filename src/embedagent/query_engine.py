@@ -71,6 +71,7 @@ _COMPACT_RETRY_ERROR_MARKERS = (
     "上下文",
     "超出上下文",
 )
+_OPERATION_RUNTIME_ERRORS = (OSError, RuntimeError, ValueError, TypeError, KeyError, AttributeError)
 
 
 class QueryEngine(object):
@@ -202,6 +203,544 @@ class QueryEngine(object):
             self._append_transcript_event(session, event_type, payload, schema_version=2)
         except (OSError, ValueError, TypeError) as exc:  # pragma: no cover
             _LOG.warning("lifecycle event emission failed (%s): %s", event_type, exc)
+
+    def _emit_operation_started(
+        self,
+        session: Session,
+        operation_id: str,
+        kind: str,
+        turn_id: str = "",
+        step_id: str = "",
+        tool_call_id: str = "",
+        parent_operation_id: str = "",
+        retryable: bool = False,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        self._emit_lifecycle_event(
+            session,
+            "operation_started",
+            {
+                "operation_id": operation_id,
+                "kind": kind,
+                "turn_id": turn_id,
+                "step_id": step_id,
+                "tool_call_id": tool_call_id,
+                "parent_operation_id": parent_operation_id,
+                "retryable": bool(retryable),
+                "metadata": dict(metadata or {}),
+            },
+        )
+
+    def _emit_operation_finished(
+        self,
+        session: Session,
+        operation_id: str,
+        kind: str = "",
+        turn_id: str = "",
+        step_id: str = "",
+        tool_call_id: str = "",
+        finished_at: str = "",
+        result: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        self._emit_lifecycle_event(
+            session,
+            "operation_finished",
+            {
+                "operation_id": operation_id,
+                "kind": kind,
+                "turn_id": turn_id,
+                "step_id": step_id,
+                "tool_call_id": tool_call_id,
+                "finished_at": finished_at,
+                "result": dict(result or {}),
+            },
+        )
+
+    def _emit_operation_interrupted(
+        self,
+        session: Session,
+        operation_id: str,
+        kind: str = "",
+        turn_id: str = "",
+        step_id: str = "",
+        tool_call_id: str = "",
+        reason: str = "",
+        finished_at: str = "",
+        result: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        self._emit_lifecycle_event(
+            session,
+            "operation_interrupted",
+            {
+                "operation_id": operation_id,
+                "kind": kind,
+                "turn_id": turn_id,
+                "step_id": step_id,
+                "tool_call_id": tool_call_id,
+                "reason": reason or "operation_interrupted",
+                "finished_at": finished_at,
+                "retryable": False,
+                "result": dict(result or {}),
+            },
+        )
+
+    def _turn_id(self, session: Session) -> str:
+        return session.turns[-1].turn_id if session.turns else ""
+
+    def _context_operation_metadata(
+        self, mode_name: str, workflow_state: str, force_compact: bool
+    ) -> Dict[str, Any]:
+        return {
+            "mode_name": mode_name,
+            "workflow_state": workflow_state,
+            "force_compact": bool(force_compact),
+        }
+
+    def _context_operation_result(self, assembly: ContextAssemblyResult) -> Dict[str, Any]:
+        return {
+            "approx_tokens": assembly.approx_tokens,
+            "used_chars": assembly.used_chars,
+            "compacted": assembly.compacted,
+            "summarized_turns": assembly.summarized_turns,
+            "recent_turns": assembly.recent_turns,
+            "pipeline_steps": list(assembly.pipeline_steps),
+            "replacements": len(assembly.replacements),
+        }
+
+    def _context_snapshot_payload(
+        self, current_mode: str, assembly: ContextAssemblyResult
+    ) -> Dict[str, Any]:
+        return {
+            "mode_name": current_mode,
+            "pipeline_steps": list(assembly.pipeline_steps),
+            "analysis": dict(assembly.analysis),
+            "approx_tokens": assembly.approx_tokens,
+            "summary_message": assembly.summary_message,
+        }
+
+    def _record_context_snapshot_operation(
+        self,
+        session: Session,
+        current_mode: str,
+        workflow_state: str,
+        turn_id: str,
+        step_id: str,
+        operation_id: str,
+        assembly: ContextAssemblyResult,
+    ) -> None:
+        snapshot = self._context_snapshot_payload(current_mode, assembly)
+        self._emit_operation_started(
+            session,
+            operation_id,
+            "context_snapshot",
+            turn_id=turn_id,
+            step_id=step_id,
+            parent_operation_id="context:%s" % step_id if step_id else "",
+            metadata={
+                "mode_name": current_mode,
+                "workflow_state": workflow_state,
+            },
+        )
+        session.record_context_snapshot(snapshot)
+        self._append_transcript_event(session, "context_snapshot", snapshot)
+        self._emit_operation_finished(
+            session,
+            operation_id,
+            kind="context_snapshot",
+            turn_id=turn_id,
+            step_id=step_id,
+            result=snapshot,
+        )
+
+    def _workflow_patch_snapshot(self, session: Session) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+        workflow_root = getattr(session, "workflow_state", {}) or {}
+        workflow = {}
+        metadata = {}
+        if isinstance(workflow_root, dict):
+            workflow = dict(workflow_root.get("workflow") or {})
+            extensions = workflow_root.get("extensions") or {}
+            if isinstance(extensions, dict):
+                metadata = dict(extensions.get("last_workflow_patch") or {})
+        return workflow, metadata
+
+    def _workflow_patch_payload(
+        self,
+        session: Session,
+        current_mode: str,
+        workflow_state: str,
+        turn_id: str,
+        step_id: str,
+        tool_call_id: str,
+    ) -> Dict[str, Any]:
+        workflow, metadata = self._workflow_patch_snapshot(session)
+        return {
+            "turn_id": turn_id,
+            "step_id": step_id,
+            "tool_call_id": tool_call_id,
+            "mode_name": current_mode,
+            "workflow_state_name": workflow_state,
+            "workflow": workflow,
+            "metadata": metadata,
+        }
+
+    def _workflow_patch_changed(
+        self,
+        before_workflow: Dict[str, Any],
+        before_metadata: Dict[str, Any],
+        payload: Dict[str, Any],
+    ) -> bool:
+        workflow = dict(payload.get("workflow") or {})
+        metadata = dict(payload.get("metadata") or {})
+        return bool(workflow or metadata) and (
+            workflow != before_workflow or metadata != before_metadata
+        )
+
+    def _persist_workflow_patch(self, session: Session, payload: Dict[str, Any]) -> None:
+        turn_id = str(payload.get("turn_id") or "")
+        step_id = str(payload.get("step_id") or "")
+        tool_call_id = str(payload.get("tool_call_id") or "")
+        operation_id = "workflow_patch:%s:%s" % (step_id or "session", tool_call_id or "patch")
+        self._emit_operation_started(
+            session,
+            operation_id,
+            "workflow_patch",
+            turn_id=turn_id,
+            step_id=step_id,
+            tool_call_id=tool_call_id,
+            parent_operation_id="tool:%s" % tool_call_id if tool_call_id else "",
+            metadata={
+                "mode_name": str(payload.get("mode_name") or ""),
+                "workflow_state_name": str(payload.get("workflow_state_name") or ""),
+            },
+        )
+        self._append_transcript_event(session, "workflow_patch", dict(payload), schema_version=2)
+        self._emit_operation_finished(
+            session,
+            operation_id,
+            kind="workflow_patch",
+            turn_id=turn_id,
+            step_id=step_id,
+            tool_call_id=tool_call_id,
+            result={
+                "workflow": dict(payload.get("workflow") or {}),
+                "metadata": dict(payload.get("metadata") or {}),
+            },
+        )
+
+    def _capture_workflow_patch_if_changed(
+        self,
+        session: Session,
+        action: Action,
+        current_mode: str,
+        workflow_state: str,
+        before_workflow: Dict[str, Any],
+        before_metadata: Dict[str, Any],
+    ) -> None:
+        turn_id = session.turns[-1].turn_id if session.turns else ""
+        step_id = session.current_step().step_id if session.current_step() is not None else ""
+        payload = self._workflow_patch_payload(
+            session,
+            current_mode,
+            workflow_state,
+            turn_id,
+            step_id,
+            action.call_id,
+        )
+        if self._workflow_patch_changed(before_workflow, before_metadata, payload):
+            self._persist_workflow_patch(session, payload)
+
+    def _provider_operation_result(self, reply: AssistantReply) -> Dict[str, Any]:
+        return {
+            "finish_reason": reply.finish_reason,
+            "action_count": len(reply.actions),
+            "content_length": len(reply.content or ""),
+            "reasoning_length": len(reply.reasoning_content or ""),
+        }
+
+    def _emit_turn_started(
+        self,
+        session: Session,
+        turn_id: str,
+        current_mode: str,
+        workflow_state: str,
+        source: str,
+    ) -> None:
+        self._emit_operation_started(
+            session,
+            "turn:%s" % turn_id,
+            "turn",
+            turn_id=turn_id,
+            metadata={
+                "mode_name": current_mode,
+                "workflow_state": workflow_state,
+                "source": source,
+            },
+        )
+
+    def _emit_turn_finished(
+        self,
+        session: Session,
+        turn_id: str,
+        transition: LoopTransition,
+        current_mode: str,
+        workflow_state: str,
+    ) -> None:
+        self._emit_operation_finished(
+            session,
+            "turn:%s" % turn_id,
+            kind="turn",
+            turn_id=turn_id,
+            result={
+                "transition_reason": transition.reason,
+                "message": transition.message,
+                "next_mode": transition.next_mode or current_mode,
+                "workflow_state": workflow_state,
+                "turns_used": transition.turns_used,
+            },
+        )
+
+    def _emit_turn_interrupted(
+        self,
+        session: Session,
+        turn_id: str,
+        reason: str,
+        current_mode: str,
+        workflow_state: str,
+        error: str = "",
+    ) -> None:
+        self._emit_operation_interrupted(
+            session,
+            "turn:%s" % turn_id,
+            kind="turn",
+            turn_id=turn_id,
+            reason=reason,
+            result={
+                "mode_name": current_mode,
+                "workflow_state": workflow_state,
+                "error": error,
+            },
+        )
+
+    def _pending_operation_metadata(self, pending: PendingInteraction) -> Dict[str, Any]:
+        metadata = {
+            "kind": pending.kind,
+            "tool_name": pending.tool_name,
+            "interaction_id": pending.interaction_id,
+        }
+        request_payload = dict(pending.request_payload or {})
+        if "permission" in request_payload and isinstance(request_payload.get("permission"), dict):
+            permission_payload = dict(request_payload.get("permission") or {})
+            metadata["category"] = str(permission_payload.get("category") or "")
+            metadata["reason"] = str(permission_payload.get("reason") or "")
+        if "request" in request_payload and isinstance(request_payload.get("request"), dict):
+            request = dict(request_payload.get("request") or {})
+            metadata["question"] = str(request.get("question") or "")
+        return metadata
+
+    def _emit_pending_started(
+        self,
+        session: Session,
+        pending: PendingInteraction,
+        turn_id: str,
+        step_id: str,
+    ) -> None:
+        if not pending.interaction_id:
+            return
+        self._emit_operation_started(
+            session,
+            "pending:%s" % pending.interaction_id,
+            "pending_interaction",
+            turn_id=turn_id,
+            step_id=step_id,
+            parent_operation_id="step:%s" % step_id if step_id else "",
+            metadata=self._pending_operation_metadata(pending),
+        )
+
+    def _emit_pending_finished(
+        self,
+        session: Session,
+        pending: PendingInteraction,
+        turn_id: str,
+        step_id: str,
+        resolution_status: str,
+    ) -> None:
+        if not pending.interaction_id:
+            return
+        self._emit_operation_finished(
+            session,
+            "pending:%s" % pending.interaction_id,
+            kind="pending_interaction",
+            turn_id=turn_id,
+            step_id=step_id,
+            result={
+                "resolution_status": resolution_status,
+                "kind": pending.kind,
+                "tool_name": pending.tool_name,
+            },
+        )
+
+    def _emit_step_finished(
+        self,
+        session: Session,
+        turn_id: str,
+        step_id: str,
+        reason: str,
+        message: str = "",
+        turns_used: int = 0,
+    ) -> None:
+        if not step_id:
+            return
+        self._emit_operation_finished(
+            session,
+            "step:%s" % step_id,
+            kind="agent_step",
+            turn_id=turn_id,
+            step_id=step_id,
+            result={
+                "reason": reason,
+                "message": message,
+                "turns_used": turns_used,
+            },
+        )
+
+    def _emit_step_interrupted(
+        self,
+        session: Session,
+        turn_id: str,
+        step_id: str,
+        reason: str,
+        message: str = "",
+        turns_used: int = 0,
+    ) -> None:
+        if not step_id:
+            return
+        self._emit_operation_interrupted(
+            session,
+            "step:%s" % step_id,
+            kind="agent_step",
+            turn_id=turn_id,
+            step_id=step_id,
+            reason=reason,
+            result={
+                "reason": reason,
+                "message": message,
+                "turns_used": turns_used,
+            },
+        )
+
+    def _build_context_operation(
+        self,
+        session: Session,
+        current_mode: str,
+        workflow_state: str,
+        force_compact: bool,
+        turn_id: str,
+        step_id: str,
+        operation_id: str,
+    ) -> ContextAssemblyResult:
+        self._emit_operation_started(
+            session,
+            operation_id,
+            "context_assembly",
+            turn_id=turn_id,
+            step_id=step_id,
+            parent_operation_id="step:%s" % step_id if step_id else "",
+            metadata=self._context_operation_metadata(current_mode, workflow_state, force_compact),
+        )
+        try:
+            assembly = self._build_context(
+                session, current_mode, workflow_state, force_compact=force_compact
+            )
+        except _OPERATION_RUNTIME_ERRORS as exc:
+            self._emit_operation_interrupted(
+                session,
+                operation_id,
+                kind="context_assembly",
+                turn_id=turn_id,
+                step_id=step_id,
+                reason="context_assembly_error",
+                result={"error": str(exc)},
+            )
+            raise
+        self._emit_operation_finished(
+            session,
+            operation_id,
+            kind="context_assembly",
+            turn_id=turn_id,
+            step_id=step_id,
+            result=self._context_operation_result(assembly),
+        )
+        return assembly
+
+    def _call_provider_operation(
+        self,
+        session: Session,
+        operation_id: str,
+        turn_id: str,
+        step_id: str,
+        current_mode: str,
+        workflow_state: str,
+        messages: list,
+        tool_schemas: list,
+        stream: bool,
+        on_text_delta: Optional[Callable[[str], None]],
+        on_reasoning_delta: Optional[Callable[[str], None]],
+    ) -> AssistantReply:
+        self._emit_operation_started(
+            session,
+            operation_id,
+            "provider_request",
+            turn_id=turn_id,
+            step_id=step_id,
+            parent_operation_id="step:%s" % step_id if step_id else "",
+            retryable=True,
+            metadata={
+                "mode_name": current_mode,
+                "workflow_state": workflow_state,
+                "message_count": len(messages),
+                "tool_schema_count": len(tool_schemas),
+                "stream": bool(stream),
+            },
+        )
+        try:
+            reply = self._call_llm_with_retry(
+                messages,
+                tool_schemas,
+                stream,
+                on_text_delta,
+                on_reasoning_delta,
+            )
+        except ModelClientError as exc:
+            self._emit_operation_interrupted(
+                session,
+                operation_id,
+                kind="provider_request",
+                turn_id=turn_id,
+                step_id=step_id,
+                reason="model_client_error",
+                result={"error": str(exc)},
+            )
+            raise
+        except _OPERATION_RUNTIME_ERRORS as exc:
+            self._emit_operation_interrupted(
+                session,
+                operation_id,
+                kind="provider_request",
+                turn_id=turn_id,
+                step_id=step_id,
+                reason="provider_request_error",
+                result={"error": str(exc)},
+            )
+            raise
+        self._emit_operation_finished(
+            session,
+            operation_id,
+            kind="provider_request",
+            turn_id=turn_id,
+            step_id=step_id,
+            result=self._provider_operation_result(reply),
+        )
+        return reply
 
     def _append_message_event(self, session: Session, payload: Dict[str, Any]) -> None:
         self._append_transcript_event(session, "message", payload)
@@ -472,7 +1011,20 @@ class QueryEngine(object):
     def _record_transition(self, session: Session, transition: LoopTransition) -> None:
         with self._session_guard():
             step_id = session.current_step().step_id if session.current_step() is not None else ""
-            turn_id = session.turns[-1].turn_id if session.turns else ""
+            turn_id = self._turn_id(session)
+            savepoint_index = len(session.turns[-1].transitions) + 1 if session.turns else 1
+            savepoint_id = "savepoint:%s:%s:%s" % (
+                turn_id or "session",
+                step_id or "turn",
+                savepoint_index,
+            )
+            savepoint_result = {
+                "reason": transition.reason,
+                "message": transition.message,
+                "next_mode": transition.next_mode,
+                "turns_used": transition.turns_used,
+                "metadata": dict(transition.metadata),
+            }
             if transition.pending_interaction is not None:
                 self._append_transcript_event(
                     session,
@@ -486,6 +1038,21 @@ class QueryEngine(object):
                         "request_payload": dict(transition.pending_interaction.request_payload),
                     },
                 )
+                self._emit_pending_started(
+                    session,
+                    transition.pending_interaction,
+                    turn_id,
+                    step_id,
+                )
+            self._emit_operation_started(
+                session,
+                savepoint_id,
+                "save_point",
+                turn_id=turn_id,
+                step_id=step_id,
+                parent_operation_id="step:%s" % step_id if step_id else "",
+                metadata={"transition_reason": transition.reason},
+            )
             self._append_transcript_event(
                 session,
                 "loop_transition",
@@ -499,6 +1066,35 @@ class QueryEngine(object):
                     "metadata": dict(transition.metadata),
                 },
             )
+            self._emit_operation_finished(
+                session,
+                savepoint_id,
+                kind="save_point",
+                turn_id=turn_id,
+                step_id=step_id,
+                result=savepoint_result,
+            )
+            finished_step_reasons = ("completed", "permission_wait", "user_input_wait")
+            interrupted_step_reasons = ("aborted", "guard_stop", "max_turns")
+            if step_id and transition.reason in (finished_step_reasons + interrupted_step_reasons):
+                if transition.reason in finished_step_reasons:
+                    self._emit_step_finished(
+                        session,
+                        turn_id,
+                        step_id,
+                        transition.reason,
+                        message=transition.message,
+                        turns_used=transition.turns_used,
+                    )
+                else:
+                    self._emit_step_interrupted(
+                        session,
+                        turn_id,
+                        step_id,
+                        transition.reason,
+                        message=transition.message,
+                        turns_used=transition.turns_used,
+                    )
             session.record_transition(transition)
 
     def record_command_result(
@@ -651,6 +1247,39 @@ class QueryEngine(object):
                 step_id=step_id,
                 finished_at=finished_at,
             )
+            operation_result = {
+                "success": committed.success,
+                "error": committed.error,
+                "error_kind": (
+                    committed.data.get("error_kind") if isinstance(committed.data, dict) else ""
+                ),
+            }
+            if self._is_interrupted_observation(committed) or (
+                isinstance(committed.data, dict)
+                and str(committed.data.get("error_kind") or "") == "discarded"
+            ):
+                self._emit_operation_interrupted(
+                    session,
+                    "tool:%s" % action.call_id,
+                    kind="tool_call",
+                    turn_id=turn_id,
+                    step_id=step_id,
+                    tool_call_id=action.call_id,
+                    reason=str(operation_result.get("error_kind") or "tool_interrupted"),
+                    finished_at=finished_at,
+                    result=operation_result,
+                )
+            else:
+                self._emit_operation_finished(
+                    session,
+                    "tool:%s" % action.call_id,
+                    kind="tool_call",
+                    turn_id=turn_id,
+                    step_id=step_id,
+                    tool_call_id=action.call_id,
+                    finished_at=finished_at,
+                    result=operation_result,
+                )
         self._persist_summary(session, current_mode, assembly)
         if on_tool_finish is not None:
             on_tool_finish(action, committed)
@@ -711,6 +1340,7 @@ class QueryEngine(object):
 
         turn_id = getattr(session, "current_turn_id", "") or "t-" + uuid.uuid4().hex[:12]
         session_id = getattr(session, "session_id", "") or ""
+        self._emit_turn_started(session, turn_id, current_mode, workflow_state, "user")
 
         if self.tracer is not None:
             self.tracer.record(
@@ -766,8 +1396,23 @@ class QueryEngine(object):
                     data={"transition_reason": getattr(result.transition, "reason", "")},
                 )
                 self.tracer.flush()
+            self._emit_turn_finished(
+                session,
+                turn_id,
+                result.transition,
+                current_mode,
+                workflow_state,
+            )
             return result
         except BaseException as exc:
+            self._emit_turn_interrupted(
+                session,
+                turn_id,
+                "turn_error",
+                current_mode,
+                workflow_state,
+                error=str(exc),
+            )
             if self.tracer is not None:
                 self.tracer.record(
                     TraceEventType.ERROR,
@@ -803,8 +1448,9 @@ class QueryEngine(object):
         current_mode = self.initialize_session(
             session, initial_mode, workflow_state=workflow_state, user_text=user_text
         )
+        command_turn_id = str(turn_id or ("t-" + uuid.uuid4().hex[:12]))
+        self._emit_turn_started(session, command_turn_id, current_mode, workflow_state, "command")
         with self._session_guard():
-            command_turn_id = str(turn_id or ("t-" + uuid.uuid4().hex[:12]))
             if user_text:
                 message_id = "m-" + uuid.uuid4().hex[:12]
                 parent_message_id = session.last_message_id()
@@ -828,6 +1474,14 @@ class QueryEngine(object):
             step = session.begin_step()
             step_id = step.step_id
             step_index = step.step_index
+            self._emit_operation_started(
+                session,
+                "step:%s" % step_id,
+                "agent_step",
+                turn_id=command_turn_id,
+                step_id=step_id,
+                metadata={"step_index": step_index},
+            )
             presentation = self._tool_presentation_snapshot(action.name)
             self._append_transcript_event(
                 session,
@@ -842,6 +1496,20 @@ class QueryEngine(object):
                     "presentation": presentation.to_dict(),
                 },
             )
+            self._emit_operation_started(
+                session,
+                "tool:%s" % action.call_id,
+                "tool_call",
+                turn_id=command_turn_id,
+                step_id=step_id,
+                tool_call_id=action.call_id,
+                parent_operation_id="step:%s" % step_id,
+                metadata={
+                    "tool_name": action.name,
+                    "arguments": dict(action.arguments),
+                    "presentation": presentation.to_dict(),
+                },
+            )
             record = session._find_tool_call(action.call_id)
             if record is None:
                 session.record_tool_call(action, presentation)
@@ -849,7 +1517,15 @@ class QueryEngine(object):
                 record.presentation = presentation
         if on_step_start is not None:
             on_step_start(step_id, step_index)
-        assembly = self._build_context(session, current_mode, workflow_state)
+        assembly = self._build_context_operation(
+            session,
+            current_mode,
+            workflow_state,
+            False,
+            command_turn_id,
+            step_id,
+            "context:%s:1" % step_id,
+        )
         if on_context_result is not None:
             on_context_result(assembly)
         reply = AssistantReply(content="", actions=[action], finish_reason="tool_calls")
@@ -882,6 +1558,13 @@ class QueryEngine(object):
             self._persist_summary(session, current_mode, assembly)
             if on_step_finish is not None:
                 on_step_finish(step_index, reply, "aborted")
+            self._emit_turn_finished(
+                session,
+                command_turn_id,
+                result.transition,
+                current_mode,
+                workflow_state,
+            )
             return result, committed
         observation, current_mode, suspended = self._execute_action(
             session,
@@ -896,6 +1579,13 @@ class QueryEngine(object):
             self._persist_summary(session, current_mode, assembly)
             if on_step_finish is not None:
                 on_step_finish(step_index, reply, suspended.transition.reason)
+            self._emit_turn_finished(
+                session,
+                command_turn_id,
+                suspended.transition,
+                current_mode,
+                workflow_state,
+            )
             return suspended, None
         committed = self._record_tool_observation(
             session,
@@ -913,6 +1603,13 @@ class QueryEngine(object):
         self._persist_summary(session, current_mode, assembly)
         if on_step_finish is not None:
             on_step_finish(step_index, reply, "completed")
+        self._emit_turn_finished(
+            session,
+            command_turn_id,
+            transition,
+            current_mode,
+            workflow_state,
+        )
         return QueryTurnResult("", session, transition, turns_used=1), committed
 
     def resume_interaction(
@@ -936,6 +1633,8 @@ class QueryEngine(object):
         ] = None,
     ) -> QueryTurnResult:
         current_mode = require_mode(initial_mode)["slug"]
+        resume_turn_id = self._turn_id(session) or ("t-" + uuid.uuid4().hex[:12])
+        self._emit_turn_started(session, resume_turn_id, current_mode, workflow_state, "resume")
         with self._session_guard():
             self._append_harness_messages(
                 session,
@@ -948,6 +1647,13 @@ class QueryEngine(object):
         if pending is None:
             transition = LoopTransition(reason="completed", message="no pending interaction")
             self._record_transition(session, transition)
+            self._emit_turn_finished(
+                session,
+                resume_turn_id,
+                transition,
+                current_mode,
+                workflow_state,
+            )
             return QueryTurnResult("", session, transition)
         current_mode = self._resume_interaction(
             session,
@@ -958,22 +1664,41 @@ class QueryEngine(object):
             on_tool_start,
             on_tool_finish,
         )
-        return self._run_loop(
+        try:
+            result = self._run_loop(
+                session,
+                current_mode,
+                workflow_state,
+                stream,
+                stop_event,
+                on_text_delta,
+                on_reasoning_delta,
+                on_tool_start,
+                on_tool_finish,
+                on_context_result,
+                on_step_start,
+                on_step_finish,
+                permission_handler,
+                user_input_handler,
+            )
+        except BaseException as exc:
+            self._emit_turn_interrupted(
+                session,
+                resume_turn_id,
+                "resume_error",
+                current_mode,
+                workflow_state,
+                error=str(exc),
+            )
+            raise
+        self._emit_turn_finished(
             session,
+            resume_turn_id,
+            result.transition,
             current_mode,
             workflow_state,
-            stream,
-            stop_event,
-            on_text_delta,
-            on_reasoning_delta,
-            on_tool_start,
-            on_tool_finish,
-            on_context_result,
-            on_step_start,
-            on_step_finish,
-            permission_handler,
-            user_input_handler,
         )
+        return result
 
     def _is_completion_signal(self, reply, session) -> bool:
         """Detect if agent is signaling task completion.
@@ -1063,35 +1788,43 @@ class QueryEngine(object):
                     },
                 )
                 session.begin_step(step_id=step_id)
+                self._emit_operation_started(
+                    session,
+                    "step:%s" % step_id,
+                    "agent_step",
+                    turn_id=session.turns[-1].turn_id if session.turns else "",
+                    step_id=step_id,
+                    metadata={"step_index": step_index},
+                )
             if on_step_start is not None:
                 on_step_start(step_id, step_index)
             force_compact = False
             compact_retry_used = False
             compact_boundary_recorded = False
+            operation_attempt = 0
             while True:
-                assembly = self._build_context(
-                    session, current_mode, workflow_state, force_compact=force_compact
+                operation_attempt += 1
+                turn_id = self._turn_id(session)
+                context_operation_id = "context:%s:%s" % (step_id, operation_attempt)
+                provider_operation_id = "provider:%s:%s" % (step_id, operation_attempt)
+                assembly = self._build_context_operation(
+                    session,
+                    current_mode,
+                    workflow_state,
+                    force_compact,
+                    turn_id,
+                    step_id,
+                    context_operation_id,
                 )
                 with self._session_guard():
-                    session.record_context_snapshot(
-                        {
-                            "mode_name": current_mode,
-                            "pipeline_steps": list(assembly.pipeline_steps),
-                            "analysis": dict(assembly.analysis),
-                            "approx_tokens": assembly.approx_tokens,
-                            "summary_message": assembly.summary_message,
-                        }
-                    )
-                    self._append_transcript_event(
+                    self._record_context_snapshot_operation(
                         session,
-                        "context_snapshot",
-                        {
-                            "mode_name": current_mode,
-                            "pipeline_steps": list(assembly.pipeline_steps),
-                            "analysis": dict(assembly.analysis),
-                            "approx_tokens": assembly.approx_tokens,
-                            "summary_message": assembly.summary_message,
-                        },
+                        current_mode,
+                        workflow_state,
+                        turn_id,
+                        step_id,
+                        "context_snapshot:%s:%s" % (step_id, operation_attempt),
+                        assembly,
                     )
                     for replacement in assembly.replacements:
                         session.record_content_replacement(dict(replacement))
@@ -1103,10 +1836,17 @@ class QueryEngine(object):
                 if on_context_result is not None:
                     on_context_result(assembly)
                 self._persist_summary(session, current_mode, assembly)
+                tool_schemas = self._schemas_for_active_tools(current_mode, workflow_state)
                 try:
-                    reply = self._call_llm_with_retry(
+                    reply = self._call_provider_operation(
+                        session,
+                        provider_operation_id,
+                        turn_id,
+                        step_id,
+                        current_mode,
+                        workflow_state,
                         assembly.messages,
-                        self._schemas_for_active_tools(current_mode, workflow_state),
+                        tool_schemas,
                         stream,
                         on_text_delta,
                         on_reasoning_delta,
@@ -1182,6 +1922,20 @@ class QueryEngine(object):
                             "presentation": presentation.to_dict(),
                         },
                     )
+                    self._emit_operation_started(
+                        session,
+                        "tool:%s" % action.call_id,
+                        "tool_call",
+                        turn_id=session.turns[-1].turn_id if session.turns else "",
+                        step_id=step_id,
+                        tool_call_id=action.call_id,
+                        parent_operation_id="step:%s" % step_id,
+                        metadata={
+                            "tool_name": action.name,
+                            "arguments": dict(action.arguments),
+                            "presentation": presentation.to_dict(),
+                        },
+                    )
                     record = session._find_tool_call(action.call_id)
                     if record is not None:
                         record.presentation = presentation
@@ -1247,9 +2001,9 @@ class QueryEngine(object):
                                 "message_id": "m-tool-use-" + uuid.uuid4().hex[:12],
                                 "parent_message_id": session.last_message_id(),
                                 "turn_id": session.turns[-1].turn_id if session.turns else "",
-                                "step_id": session.current_step().step_id
-                                if session.current_step()
-                                else "",
+                                "step_id": (
+                                    session.current_step().step_id if session.current_step() else ""
+                                ),
                                 "status": "started",
                             },
                         )
@@ -1290,9 +2044,9 @@ class QueryEngine(object):
                                 "message_id": "m-cmd-" + uuid.uuid4().hex[:12],
                                 "parent_message_id": session.last_message_id(),
                                 "turn_id": session.turns[-1].turn_id if session.turns else "",
-                                "step_id": session.current_step().step_id
-                                if session.current_step()
-                                else "",
+                                "step_id": (
+                                    session.current_step().step_id if session.current_step() else ""
+                                ),
                                 "status": "updated",
                             },
                         )
@@ -1344,9 +2098,9 @@ class QueryEngine(object):
                                 "message_id": "m-tool-use-" + uuid.uuid4().hex[:12],
                                 "parent_message_id": session.last_message_id(),
                                 "turn_id": session.turns[-1].turn_id if session.turns else "",
-                                "step_id": session.current_step().step_id
-                                if session.current_step()
-                                else "",
+                                "step_id": (
+                                    session.current_step().step_id if session.current_step() else ""
+                                ),
                                 "status": "started",
                             },
                         )
@@ -1400,9 +2154,9 @@ class QueryEngine(object):
                             "message_id": "m-cmd-" + uuid.uuid4().hex[:12],
                             "parent_message_id": session.last_message_id(),
                             "turn_id": session.turns[-1].turn_id if session.turns else "",
-                            "step_id": session.current_step().step_id
-                            if session.current_step()
-                            else "",
+                            "step_id": (
+                                session.current_step().step_id if session.current_step() else ""
+                            ),
                             "status": "updated",
                         },
                     )
@@ -1450,6 +2204,13 @@ class QueryEngine(object):
                     discard_remaining_batches = True
             if on_step_finish is not None:
                 on_step_finish(step_index, reply, "tool_calls")
+            self._emit_step_finished(
+                session,
+                self._turn_id(session),
+                step_id,
+                "tool_calls",
+                turns_used=turns_used,
+            )
         transition = LoopTransition(
             reason="max_turns",
             message="reached max turns without completion signal",
@@ -1553,13 +2314,23 @@ class QueryEngine(object):
         workflow_state: str,
         observation: Observation,
     ) -> Observation:
-        return self._action_service.apply_extension_tool_result_patch(
+        before_workflow, before_metadata = self._workflow_patch_snapshot(session)
+        patched = self._action_service.apply_extension_tool_result_patch(
             session,
             action,
             current_mode,
             workflow_state,
             observation,
         )
+        self._capture_workflow_patch_if_changed(
+            session,
+            action,
+            current_mode,
+            workflow_state,
+            before_workflow,
+            before_metadata,
+        )
+        return patched
 
     def _record_permission_rejection(self, session: Session, action: Action) -> None:
         self._emit_lifecycle_event(
@@ -1623,7 +2394,8 @@ class QueryEngine(object):
         stop_event: Optional[threading.Event] = None,
     ) -> Tuple[Observation, str, Optional[QueryTurnResult]]:
         if action.name not in ("ask_user", "propose_mode_switch"):
-            return self._action_service.execute_action(
+            before_workflow, before_metadata = self._workflow_patch_snapshot(session)
+            result = self._action_service.execute_action(
                 session,
                 action,
                 current_mode,
@@ -1633,6 +2405,15 @@ class QueryEngine(object):
                 precomputed_observation=precomputed_observation,
                 stop_event=stop_event,
             )
+            self._capture_workflow_patch_if_changed(
+                session,
+                action,
+                current_mode,
+                workflow_state,
+                before_workflow,
+                before_metadata,
+            )
+            return result
         runtime_action = action
         if precomputed_observation is not None and not self._is_interactive_precomputed_skip(
             precomputed_observation
@@ -1707,11 +2488,7 @@ class QueryEngine(object):
                         "propose_mode_switch",
                         str(runtime_action.arguments.get("reason") or ""),
                         [],
-                        {
-                            "target_mode": str(
-                                runtime_action.arguments.get("target_mode") or ""
-                            )
-                        },
+                        {"target_mode": str(runtime_action.arguments.get("target_mode") or "")},
                     )
                 )
                 if user_input_handler is not None
@@ -1891,6 +2668,13 @@ class QueryEngine(object):
                     "resolution_payload": dict(resolution or {}),
                 },
             )
+            self._emit_pending_finished(
+                session,
+                pending,
+                turn_id,
+                step_id,
+                "resolved",
+            )
             session.resolve_pending_interaction(resolution)
         action_payload = (
             pending.request_payload.get("action")
@@ -1978,6 +2762,24 @@ class QueryEngine(object):
                 turn_id=turn_id,
                 step_id=step_id,
                 finished_at=finished_at,
+            )
+            self._emit_operation_finished(
+                session,
+                "tool:%s" % action.call_id,
+                kind="tool_call",
+                turn_id=turn_id,
+                step_id=step_id,
+                tool_call_id=action.call_id,
+                finished_at=finished_at,
+                result={
+                    "success": observation.success,
+                    "error": observation.error,
+                    "error_kind": (
+                        observation.data.get("error_kind")
+                        if isinstance(observation.data, dict)
+                        else ""
+                    ),
+                },
             )
         if on_tool_finish is not None:
             on_tool_finish(action, observation)

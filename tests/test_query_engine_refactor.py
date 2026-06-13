@@ -12,6 +12,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 from embedagent.config import AppConfig
 from embedagent.context import ContextManager
 from embedagent.default_extensions import build_default_extension_set
+from embedagent.extensions import ExtensionManager, ToolResultPatch, WorkflowPatch
 from embedagent.inprocess_adapter import InProcessAdapter
 from embedagent.llm import ModelClientError
 from embedagent.permissions import PermissionPolicy
@@ -170,6 +171,24 @@ class ToolClient(object):
         if on_text_delta is not None and reply.content:
             on_text_delta(reply.content)
         return reply
+
+
+class WorkflowPatchExtension(object):
+    extension_id = "workflow_patch_test"
+    builtin_extension = False
+
+    def tool_result(self, event, context):
+        del event, context
+        return ToolResultPatch(
+            workflow_patch=WorkflowPatch(
+                workflow={
+                    "id": "patch-test",
+                    "items": [{"id": "task-1", "title": "patched task"}],
+                    "task_summary": {"total": 1},
+                },
+                metadata={"source": "workflow_patch_test"},
+            )
+        )
 
 
 class SpecCodeWriteClient(object):
@@ -643,6 +662,133 @@ class TestQueryEngineRefactor(unittest.TestCase):
         presentation = tool_call_events[0]["payload"]["presentation"]
         self.assertIn("tool_label", presentation)
         self.assertIn("progress_renderer_key", presentation)
+
+    def test_query_engine_emits_explicit_operation_events_for_tool_execution(self):
+        transcript_store = TranscriptStore(self.workspace)
+        engine = QueryEngine(
+            client=ToolClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(
+                auto_approve_all=True,
+                workspace=self.workspace,
+            ),
+            transcript_store=transcript_store,
+        )
+        session = Session()
+        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：build")
+
+        result = engine.submit_user_turn(
+            user_text="读取文件",
+            stream=False,
+            initial_mode="build",
+            session=session,
+        )
+
+        self.assertEqual(result.transition.reason, "completed")
+        events = transcript_store.load_events(session.session_id)
+        started = [item for item in events if item["type"] == "operation_started"]
+        finished = [item for item in events if item["type"] == "operation_finished"]
+        started_ids = [item["payload"].get("operation_id") for item in started]
+        finished_ids = [item["payload"].get("operation_id") for item in finished]
+        self.assertIn("tool:call-read-demo", started_ids)
+        self.assertIn("tool:call-read-demo", finished_ids)
+
+    def test_query_engine_emits_core_runtime_operation_events(self):
+        transcript_store = TranscriptStore(self.workspace)
+        engine = QueryEngine(
+            client=ToolClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(
+                auto_approve_all=True,
+                workspace=self.workspace,
+            ),
+            transcript_store=transcript_store,
+        )
+        session = Session()
+        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：build")
+
+        result = engine.submit_user_turn(
+            user_text="读取文件",
+            stream=False,
+            initial_mode="build",
+            session=session,
+        )
+
+        self.assertEqual(result.transition.reason, "completed")
+        events = transcript_store.load_events(session.session_id)
+        started = [item for item in events if item["type"] == "operation_started"]
+        finished = [item for item in events if item["type"] == "operation_finished"]
+        started_by_kind = {}
+        finished_by_kind = {}
+        for item in started:
+            started_by_kind.setdefault(item["payload"].get("kind"), []).append(item["payload"])
+        for item in finished:
+            finished_by_kind.setdefault(item["payload"].get("kind"), []).append(item["payload"])
+
+        self.assertIn("context_assembly", started_by_kind)
+        self.assertIn("context_assembly", finished_by_kind)
+        self.assertIn("provider_request", started_by_kind)
+        self.assertIn("provider_request", finished_by_kind)
+        self.assertIn("save_point", started_by_kind)
+        self.assertIn("save_point", finished_by_kind)
+
+        context_start = started_by_kind["context_assembly"][0]
+        context_finish = finished_by_kind["context_assembly"][0]
+        provider_start = started_by_kind["provider_request"][0]
+        provider_finish = finished_by_kind["provider_request"][0]
+        savepoint_start = started_by_kind["save_point"][-1]
+        savepoint_finish = finished_by_kind["save_point"][-1]
+
+        self.assertTrue(context_start["operation_id"].startswith("context:"))
+        self.assertTrue(context_finish["operation_id"].startswith("context:"))
+        self.assertEqual(context_start["metadata"]["mode_name"], "build")
+        self.assertIn("approx_tokens", context_finish["result"])
+        self.assertTrue(provider_start["operation_id"].startswith("provider:"))
+        self.assertTrue(provider_finish["operation_id"].startswith("provider:"))
+        self.assertEqual(provider_start["metadata"]["mode_name"], "build")
+        self.assertIn("finish_reason", provider_finish["result"])
+        self.assertTrue(savepoint_start["operation_id"].startswith("savepoint:"))
+        self.assertTrue(savepoint_finish["operation_id"].startswith("savepoint:"))
+        self.assertEqual(savepoint_finish["result"]["reason"], "completed")
+
+    def test_query_engine_emits_turn_operation_lifecycle(self):
+        transcript_store = TranscriptStore(self.workspace)
+        engine = QueryEngine(
+            client=ToolClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(
+                auto_approve_all=True,
+                workspace=self.workspace,
+            ),
+            transcript_store=transcript_store,
+        )
+        session = Session()
+        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：build")
+
+        result = engine.submit_user_turn(
+            user_text="读取文件",
+            stream=False,
+            initial_mode="build",
+            session=session,
+        )
+
+        self.assertEqual(result.transition.reason, "completed")
+        events = transcript_store.load_events(session.session_id)
+        started = [
+            item["payload"]
+            for item in events
+            if item["type"] == "operation_started" and item["payload"].get("kind") == "turn"
+        ]
+        finished = [
+            item["payload"]
+            for item in events
+            if item["type"] == "operation_finished" and item["payload"].get("kind") == "turn"
+        ]
+        self.assertEqual(len(started), 1)
+        self.assertEqual(len(finished), 1)
+        self.assertTrue(started[0]["operation_id"].startswith("turn:"))
+        self.assertEqual(finished[0]["operation_id"], started[0]["operation_id"])
+        self.assertEqual(finished[0]["result"]["transition_reason"], "completed")
 
     def test_tool_result_store_failure_degrades_without_breaking_tool_pairing(self):
         transcript_store = TranscriptStore(self.workspace)
@@ -1528,7 +1674,8 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertIn("step_started", event_types)
         self.assertIn("tool_call", event_types)
         self.assertIn("tool_result", event_types)
-        self.assertEqual(event_types[-1], "loop_transition")
+        loop_transitions = [item for item in events if item["type"] == "loop_transition"]
+        self.assertEqual(loop_transitions[-1]["payload"]["reason"], "completed")
 
     def test_query_engine_persists_message_parent_ids_in_transcript(self):
         session = Session()
@@ -1662,7 +1809,41 @@ class TestQueryEngineRefactor(unittest.TestCase):
         events = transcript_store.load_events(session.session_id)
         event_types = [item["type"] for item in events]
         self.assertIn("pending_interaction", event_types)
-        self.assertEqual(events[-1]["type"], "loop_transition")
+        loop_transitions = [item for item in events if item["type"] == "loop_transition"]
+        self.assertEqual(loop_transitions[-1]["payload"]["reason"], "user_input_wait")
+
+    def test_query_engine_emits_pending_interaction_operation_lifecycle(self):
+        session = Session()
+        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：spec")
+        transcript_store = TranscriptStore(self.workspace)
+        engine = QueryEngine(
+            client=AskThenDoneClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+            transcript_store=transcript_store,
+        )
+
+        result = engine.submit_user_turn(
+            user_text="继续",
+            stream=False,
+            initial_mode="spec",
+            session=session,
+            user_input_handler=None,
+        )
+
+        self.assertEqual(result.transition.reason, "user_input_wait")
+        interaction_id = result.pending_interaction.interaction_id
+        events = transcript_store.load_events(session.session_id)
+        pending_starts = [
+            item["payload"]
+            for item in events
+            if item["type"] == "operation_started"
+            and item["payload"].get("kind") == "pending_interaction"
+        ]
+        self.assertEqual(len(pending_starts), 1)
+        self.assertEqual(pending_starts[0]["operation_id"], "pending:%s" % interaction_id)
+        self.assertEqual(pending_starts[0]["metadata"]["kind"], "user_input")
+        self.assertEqual(pending_starts[0]["metadata"]["tool_name"], "ask_user")
 
     def test_query_engine_resume_pending_persists_resolution_and_tool_result(self):
         session = Session()
@@ -1695,6 +1876,14 @@ class TestQueryEngineRefactor(unittest.TestCase):
         events = transcript_store.load_events(session.session_id)
         event_types = [item["type"] for item in events]
         self.assertIn("pending_resolution", event_types)
+        pending_finishes = [
+            item["payload"]
+            for item in events
+            if item["type"] == "operation_finished"
+            and item["payload"].get("kind") == "pending_interaction"
+        ]
+        self.assertEqual(len(pending_finishes), 1)
+        self.assertEqual(pending_finishes[0]["result"]["resolution_status"], "resolved")
         tool_results = [item for item in events if item["type"] == "tool_result"]
         self.assertTrue(any(item["payload"].get("call_id") == "write-1" for item in tool_results))
 
@@ -1745,6 +1934,60 @@ class TestQueryEngineRefactor(unittest.TestCase):
         events = transcript_store.load_events(session.session_id)
         event_types = [item["type"] for item in events]
         self.assertIn("context_snapshot", event_types)
+        context_snapshot_operations = [
+            item["payload"]
+            for item in events
+            if item["type"] == "operation_finished"
+            and item["payload"].get("kind") == "context_snapshot"
+        ]
+        self.assertGreaterEqual(len(context_snapshot_operations), 1)
+        self.assertEqual(
+            context_snapshot_operations[-1]["result"]["approx_tokens"],
+            session.latest_context_snapshot["approx_tokens"],
+        )
+
+    def test_query_engine_persists_and_restores_workflow_patch_events(self):
+        session = Session()
+        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：build")
+        transcript_store = TranscriptStore(self.workspace)
+        engine = QueryEngine(
+            client=ToolClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+            transcript_store=transcript_store,
+            extension_manager=ExtensionManager([WorkflowPatchExtension()]),
+        )
+
+        result = engine.submit_user_turn(
+            user_text="读取文件",
+            stream=False,
+            initial_mode="build",
+            session=session,
+        )
+
+        self.assertEqual(result.transition.reason, "completed")
+        self.assertEqual(session.workflow_state["workflow"]["id"], "patch-test")
+        events = transcript_store.load_events(session.session_id)
+        workflow_patch_events = [item for item in events if item["type"] == "workflow_patch"]
+        self.assertEqual(len(workflow_patch_events), 1)
+        workflow_patch_operations = [
+            item["payload"]
+            for item in events
+            if item["type"] == "operation_finished"
+            and item["payload"].get("kind") == "workflow_patch"
+        ]
+        self.assertEqual(len(workflow_patch_operations), 1)
+        self.assertEqual(
+            workflow_patch_operations[0]["result"]["metadata"]["source"],
+            "workflow_patch_test",
+        )
+
+        restored = SessionRestorer().restore(events)
+        self.assertEqual(restored.session.workflow_state["workflow"]["id"], "patch-test")
+        self.assertEqual(
+            restored.session.workflow_state["extensions"]["last_workflow_patch"]["source"],
+            "workflow_patch_test",
+        )
 
     def test_context_manager_uses_persisted_replacement_text_without_regeneration(self):
         session = Session()

@@ -39,6 +39,7 @@ This is the stable contract boundary between UI and Agent Core.
 - `src/embedagent/agent_loop.py`
 - `src/embedagent/agent_tool_action_service.py`
 - `src/embedagent/agent_extension_host.py`
+- `src/embedagent/agent_event_bus.py`
 - `src/embedagent/session_runtime.py`
 - `src/embedagent/session_projector.py`
 - `src/embedagent/session_history.py`
@@ -55,7 +56,7 @@ The default C/C++ harness is now entered through the in-process workflow extensi
 
 `InProcessAdapter` owns the hosted runtime's `ExtensionManager` and passes that same manager to each session-scoped `QueryEngine`. Frontend tool catalog visibility is computed from the same manager, so model-facing tools and shell metadata share one extension chain.
 
-`ExtensionManager` is now the shared in-process capability boundary. The current default C/C++ harness remains the bundled workflow extension, while the same boundary also carries generic prompt/context hooks, tool-call and tool-result interception, resource discovery contracts, dynamic in-process tool registration, extension diagnostics, and manifest-gated project-local Python extensions. Workspace-local file resources under `.embedagent/skills`, `.embedagent/prompts`, and `.embedagent/recipes` are official discoverable resources.
+`ExtensionManager` is now the shared in-process capability boundary. The current default C/C++ harness remains the bundled workflow extension, while the same boundary also carries generic prompt/context hooks, tool-call and tool-result interception, resource discovery contracts, dynamic in-process tool registration, extension diagnostics, and manifest-gated project-local Python extensions. Extension hook internals dispatch through `AgentEventBus`, the source-aware observer/reducer bus introduced and closed out in Phase B. Event-specific reducer semantics cover merge, union, first-result, first-block-wins, sequential argument rewrite, and trusted fail-closed diagnostics. Workspace-local file resources under `.embedagent/skills`, `.embedagent/prompts`, and `.embedagent/recipes` are official discoverable resources.
 
 `AgentExtensionHost` is the session-engine side of that boundary. It builds extension contexts and workflow events, initializes workflow state, applies prompt/context hooks, registers dynamic tools, computes extension-aware active tool names, requests explicit tool schemas, applies tool-call/tool-result hooks, and handles extension-owned tool calls. `QueryEngine` keeps a compatibility `extension_manager` reference, but extension hook dispatch is centralized in `AgentExtensionHost`.
 
@@ -246,6 +247,16 @@ Official session-history ownership is:
 
 Historical turns must never be rebuilt from replay-log tails.
 
+### Durable Operation State Rule
+
+Durable runtime operation state is projected from explicit schema v2 lifecycle events:
+
+- `operation_started`
+- `operation_finished`
+- `operation_interrupted`
+
+`OperationLogReducer` consumes the validated transcript prefix and must not infer operation state from legacy replay/history events such as `step_started`, `tool_call`, `tool_result`, or `loop_transition`. Those events still rebuild structured session history and tool topology. Operation lifecycle events explain runtime execution units such as turns, agent steps, context assembly, context snapshots, provider requests, tool calls, pending interactions, workflow patches, and save points. Restore-time projections close unfinished operations as interrupted, while live snapshot projections preserve unfinished operations as active. Diagnostics such as `operation_diagnostics` are reducer projections over this operation state and must not become a second session-history source.
+
 ## 9. Frontend Contract
 
 The frontend-facing vocabulary is now:
@@ -287,4 +298,4 @@ That program keeps learning from Pi at two levels:
 
 The intended long-term direction is that Agent Core can be described without C/C++ workflow vocabulary. The bundled C/C++ harness remains the default product workflow, but it should continue moving toward a first-party workflow package loaded through the same capability boundary as other local extensions.
 
-This is a gradual direction, not a statement that the target state is already implemented. Near-term changes should preserve the current hosted behavior while extracting durable session-log reducers, a source-aware hook bus, and a real AgentKernel lifecycle boundary.
+This is a gradual direction, not a statement that the target state is fully implemented. Phase A durable operation reducers are complete, and Phase B has closed the extension hook bus boundary with `AgentEventBus`. Near-term changes should preserve the current hosted behavior while extracting a real AgentKernel lifecycle boundary.

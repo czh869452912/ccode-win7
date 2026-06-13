@@ -53,6 +53,7 @@ Recent workflow-boundary work has started slimming Agent Core without changing t
 - local file resources under `.embedagent/skills`, `.embedagent/prompts`, and `.embedagent/recipes` can be refreshed through the runtime, adapter, slash command, and GUI/core API; recipe JSON files feed the existing recipe contract
 - manifest-gated project-local Python extensions can be loaded from enabled `.embedagent/extensions/<name>/extension.json` manifests by hosted product paths and are registered into the shared `ExtensionManager`
 - `AgentExtensionHost` now centralizes QueryEngine-side extension dispatch, dynamic tool registration, extension-aware active schema projection, context patches, tool-call hooks, tool-result hooks, workflow patches, and extension-owned tool handling
+- `AgentEventBus` now provides the internal source-aware observer/reducer boundary for public extension hook dispatch while the public extension APIs remain unchanged
 - `AgentToolActionService` now owns non-LLM tool action execution, including active-tool checks, extension pre/post hooks, `PermissionPolicy`, path write guards, runtime dispatch, and extension-owned tool calls
 - `AgentLoop` now provides the turn-loop boundary behind `QueryEngine`, while `QueryEngine` remains the session-scoped facade and transcript/session mutation owner
 - Slice 6 completed the documentation cutover for self-extensible Agent Core: active source-of-truth docs and module docs now treat local offline self-extension as official architecture while keeping marketplaces, online installs, dependency installation, built-in tool replacement, and multi-agent orchestration out of scope
@@ -88,15 +89,18 @@ The current self-extensible Agent Core baseline remains valid. The next program 
 
 1. **Durable operation log and reducers**
    - extend transcript truth from session history into durable runtime state
-   - record operation, turn, provider request, tool call, pending interaction, context snapshot, workflow patch, and interruption events
+   - record explicit operation lifecycle events for turns, agent steps, context assembly, provider requests, tool calls, save points, pending interaction, context snapshot, workflow patch, and interruptions
    - restore by reducing a self-consistent log prefix
    - mark unfinished operations interrupted by default and avoid automatic retry of non-idempotent tool calls
+   - keep legacy session replay events out of operation-state inference; they rebuild history, not runtime operation status
 
 2. **Source-aware HookBus and reducer registry**
    - separate passive observers from result-producing reducers
    - encode reducer semantics per event instead of scattering merge behavior across the manager
    - attach source metadata, cleanup, diagnostics, and reload behavior to registrations
    - keep built-in workflow extensions and project-local extensions on the same internal event boundary
+   - current implementation status: Phase B is complete for extension hook dispatch; `ExtensionManager` routes public hook families through `AgentEventBus` and preserves existing public extension APIs
+   - next lifecycle work belongs to Phase C: use the bus boundary when extracting AgentKernel turn snapshots, save points, cleanup, and lifecycle observers
 
 3. **AgentKernel lifecycle extraction**
    - turn `AgentLoop` from a thin wrapper into the owner of turn snapshots, save points, suspend/resume, abort, compact retry, and failure cleanup

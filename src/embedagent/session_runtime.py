@@ -41,6 +41,7 @@ class ManagedSession(object):
     restore_stop_reason: str = ""
     restore_consumed_event_count: int = 0
     restore_transcript_event_count: int = 0
+    operation_diagnostics: Dict[str, Any] = field(default_factory=dict)
     remembered_permission_categories: Set[str] = field(default_factory=set)
     stop_event: threading.Event = field(default_factory=threading.Event, repr=False)
     lock: threading.RLock = field(default_factory=threading.RLock, repr=False)
