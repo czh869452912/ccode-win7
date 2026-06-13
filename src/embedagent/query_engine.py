@@ -203,6 +203,86 @@ class QueryEngine(object):
         except (OSError, ValueError, TypeError) as exc:  # pragma: no cover
             _LOG.warning("lifecycle event emission failed (%s): %s", event_type, exc)
 
+    def _emit_operation_started(
+        self,
+        session: Session,
+        operation_id: str,
+        kind: str,
+        turn_id: str = "",
+        step_id: str = "",
+        tool_call_id: str = "",
+        parent_operation_id: str = "",
+        retryable: bool = False,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        self._emit_lifecycle_event(
+            session,
+            "operation_started",
+            {
+                "operation_id": operation_id,
+                "kind": kind,
+                "turn_id": turn_id,
+                "step_id": step_id,
+                "tool_call_id": tool_call_id,
+                "parent_operation_id": parent_operation_id,
+                "retryable": bool(retryable),
+                "metadata": dict(metadata or {}),
+            },
+        )
+
+    def _emit_operation_finished(
+        self,
+        session: Session,
+        operation_id: str,
+        kind: str = "",
+        turn_id: str = "",
+        step_id: str = "",
+        tool_call_id: str = "",
+        finished_at: str = "",
+        result: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        self._emit_lifecycle_event(
+            session,
+            "operation_finished",
+            {
+                "operation_id": operation_id,
+                "kind": kind,
+                "turn_id": turn_id,
+                "step_id": step_id,
+                "tool_call_id": tool_call_id,
+                "finished_at": finished_at,
+                "result": dict(result or {}),
+            },
+        )
+
+    def _emit_operation_interrupted(
+        self,
+        session: Session,
+        operation_id: str,
+        kind: str = "",
+        turn_id: str = "",
+        step_id: str = "",
+        tool_call_id: str = "",
+        reason: str = "",
+        finished_at: str = "",
+        result: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        self._emit_lifecycle_event(
+            session,
+            "operation_interrupted",
+            {
+                "operation_id": operation_id,
+                "kind": kind,
+                "turn_id": turn_id,
+                "step_id": step_id,
+                "tool_call_id": tool_call_id,
+                "reason": reason or "operation_interrupted",
+                "finished_at": finished_at,
+                "retryable": False,
+                "result": dict(result or {}),
+            },
+        )
+
     def _append_message_event(self, session: Session, payload: Dict[str, Any]) -> None:
         self._append_transcript_event(session, "message", payload)
 
@@ -499,6 +579,34 @@ class QueryEngine(object):
                     "metadata": dict(transition.metadata),
                 },
             )
+            if step_id and transition.reason in ("completed", "aborted", "guard_stop", "max_turns"):
+                if transition.reason == "completed":
+                    self._emit_operation_finished(
+                        session,
+                        "step:%s" % step_id,
+                        kind="agent_step",
+                        turn_id=turn_id,
+                        step_id=step_id,
+                        result={
+                            "reason": transition.reason,
+                            "message": transition.message,
+                            "turns_used": transition.turns_used,
+                        },
+                    )
+                else:
+                    self._emit_operation_interrupted(
+                        session,
+                        "step:%s" % step_id,
+                        kind="agent_step",
+                        turn_id=turn_id,
+                        step_id=step_id,
+                        reason=transition.reason,
+                        result={
+                            "reason": transition.reason,
+                            "message": transition.message,
+                            "turns_used": transition.turns_used,
+                        },
+                    )
             session.record_transition(transition)
 
     def record_command_result(
@@ -651,6 +759,39 @@ class QueryEngine(object):
                 step_id=step_id,
                 finished_at=finished_at,
             )
+            operation_result = {
+                "success": committed.success,
+                "error": committed.error,
+                "error_kind": (
+                    committed.data.get("error_kind") if isinstance(committed.data, dict) else ""
+                ),
+            }
+            if self._is_interrupted_observation(committed) or (
+                isinstance(committed.data, dict)
+                and str(committed.data.get("error_kind") or "") == "discarded"
+            ):
+                self._emit_operation_interrupted(
+                    session,
+                    "tool:%s" % action.call_id,
+                    kind="tool_call",
+                    turn_id=turn_id,
+                    step_id=step_id,
+                    tool_call_id=action.call_id,
+                    reason=str(operation_result.get("error_kind") or "tool_interrupted"),
+                    finished_at=finished_at,
+                    result=operation_result,
+                )
+            else:
+                self._emit_operation_finished(
+                    session,
+                    "tool:%s" % action.call_id,
+                    kind="tool_call",
+                    turn_id=turn_id,
+                    step_id=step_id,
+                    tool_call_id=action.call_id,
+                    finished_at=finished_at,
+                    result=operation_result,
+                )
         self._persist_summary(session, current_mode, assembly)
         if on_tool_finish is not None:
             on_tool_finish(action, committed)
@@ -828,6 +969,14 @@ class QueryEngine(object):
             step = session.begin_step()
             step_id = step.step_id
             step_index = step.step_index
+            self._emit_operation_started(
+                session,
+                "step:%s" % step_id,
+                "agent_step",
+                turn_id=command_turn_id,
+                step_id=step_id,
+                metadata={"step_index": step_index},
+            )
             presentation = self._tool_presentation_snapshot(action.name)
             self._append_transcript_event(
                 session,
@@ -839,6 +988,20 @@ class QueryEngine(object):
                     "tool_name": action.name,
                     "arguments": dict(action.arguments),
                     "status": "pending",
+                    "presentation": presentation.to_dict(),
+                },
+            )
+            self._emit_operation_started(
+                session,
+                "tool:%s" % action.call_id,
+                "tool_call",
+                turn_id=command_turn_id,
+                step_id=step_id,
+                tool_call_id=action.call_id,
+                parent_operation_id="step:%s" % step_id,
+                metadata={
+                    "tool_name": action.name,
+                    "arguments": dict(action.arguments),
                     "presentation": presentation.to_dict(),
                 },
             )
@@ -1063,6 +1226,14 @@ class QueryEngine(object):
                     },
                 )
                 session.begin_step(step_id=step_id)
+                self._emit_operation_started(
+                    session,
+                    "step:%s" % step_id,
+                    "agent_step",
+                    turn_id=session.turns[-1].turn_id if session.turns else "",
+                    step_id=step_id,
+                    metadata={"step_index": step_index},
+                )
             if on_step_start is not None:
                 on_step_start(step_id, step_index)
             force_compact = False
@@ -1182,6 +1353,20 @@ class QueryEngine(object):
                             "presentation": presentation.to_dict(),
                         },
                     )
+                    self._emit_operation_started(
+                        session,
+                        "tool:%s" % action.call_id,
+                        "tool_call",
+                        turn_id=session.turns[-1].turn_id if session.turns else "",
+                        step_id=step_id,
+                        tool_call_id=action.call_id,
+                        parent_operation_id="step:%s" % step_id,
+                        metadata={
+                            "tool_name": action.name,
+                            "arguments": dict(action.arguments),
+                            "presentation": presentation.to_dict(),
+                        },
+                    )
                     record = session._find_tool_call(action.call_id)
                     if record is not None:
                         record.presentation = presentation
@@ -1247,9 +1432,9 @@ class QueryEngine(object):
                                 "message_id": "m-tool-use-" + uuid.uuid4().hex[:12],
                                 "parent_message_id": session.last_message_id(),
                                 "turn_id": session.turns[-1].turn_id if session.turns else "",
-                                "step_id": session.current_step().step_id
-                                if session.current_step()
-                                else "",
+                                "step_id": (
+                                    session.current_step().step_id if session.current_step() else ""
+                                ),
                                 "status": "started",
                             },
                         )
@@ -1290,9 +1475,9 @@ class QueryEngine(object):
                                 "message_id": "m-cmd-" + uuid.uuid4().hex[:12],
                                 "parent_message_id": session.last_message_id(),
                                 "turn_id": session.turns[-1].turn_id if session.turns else "",
-                                "step_id": session.current_step().step_id
-                                if session.current_step()
-                                else "",
+                                "step_id": (
+                                    session.current_step().step_id if session.current_step() else ""
+                                ),
                                 "status": "updated",
                             },
                         )
@@ -1344,9 +1529,9 @@ class QueryEngine(object):
                                 "message_id": "m-tool-use-" + uuid.uuid4().hex[:12],
                                 "parent_message_id": session.last_message_id(),
                                 "turn_id": session.turns[-1].turn_id if session.turns else "",
-                                "step_id": session.current_step().step_id
-                                if session.current_step()
-                                else "",
+                                "step_id": (
+                                    session.current_step().step_id if session.current_step() else ""
+                                ),
                                 "status": "started",
                             },
                         )
@@ -1400,9 +1585,9 @@ class QueryEngine(object):
                             "message_id": "m-cmd-" + uuid.uuid4().hex[:12],
                             "parent_message_id": session.last_message_id(),
                             "turn_id": session.turns[-1].turn_id if session.turns else "",
-                            "step_id": session.current_step().step_id
-                            if session.current_step()
-                            else "",
+                            "step_id": (
+                                session.current_step().step_id if session.current_step() else ""
+                            ),
                             "status": "updated",
                         },
                     )
@@ -1707,11 +1892,7 @@ class QueryEngine(object):
                         "propose_mode_switch",
                         str(runtime_action.arguments.get("reason") or ""),
                         [],
-                        {
-                            "target_mode": str(
-                                runtime_action.arguments.get("target_mode") or ""
-                            )
-                        },
+                        {"target_mode": str(runtime_action.arguments.get("target_mode") or "")},
                     )
                 )
                 if user_input_handler is not None
@@ -1978,6 +2159,24 @@ class QueryEngine(object):
                 turn_id=turn_id,
                 step_id=step_id,
                 finished_at=finished_at,
+            )
+            self._emit_operation_finished(
+                session,
+                "tool:%s" % action.call_id,
+                kind="tool_call",
+                turn_id=turn_id,
+                step_id=step_id,
+                tool_call_id=action.call_id,
+                finished_at=finished_at,
+                result={
+                    "success": observation.success,
+                    "error": observation.error,
+                    "error_kind": (
+                        observation.data.get("error_kind")
+                        if isinstance(observation.data, dict)
+                        else ""
+                    ),
+                },
             )
         if on_tool_finish is not None:
             on_tool_finish(action, observation)

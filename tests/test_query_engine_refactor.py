@@ -644,6 +644,36 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertIn("tool_label", presentation)
         self.assertIn("progress_renderer_key", presentation)
 
+    def test_query_engine_emits_explicit_operation_events_for_tool_execution(self):
+        transcript_store = TranscriptStore(self.workspace)
+        engine = QueryEngine(
+            client=ToolClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(
+                auto_approve_all=True,
+                workspace=self.workspace,
+            ),
+            transcript_store=transcript_store,
+        )
+        session = Session()
+        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：build")
+
+        result = engine.submit_user_turn(
+            user_text="读取文件",
+            stream=False,
+            initial_mode="build",
+            session=session,
+        )
+
+        self.assertEqual(result.transition.reason, "completed")
+        events = transcript_store.load_events(session.session_id)
+        started = [item for item in events if item["type"] == "operation_started"]
+        finished = [item for item in events if item["type"] == "operation_finished"]
+        started_ids = [item["payload"].get("operation_id") for item in started]
+        finished_ids = [item["payload"].get("operation_id") for item in finished]
+        self.assertIn("tool:call-read-demo", started_ids)
+        self.assertIn("tool:call-read-demo", finished_ids)
+
     def test_tool_result_store_failure_degrades_without_breaking_tool_pairing(self):
         transcript_store = TranscriptStore(self.workspace)
         with open(os.path.join(self.workspace, "src", "demo.c"), "w", encoding="utf-8") as handle:
@@ -1528,7 +1558,8 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertIn("step_started", event_types)
         self.assertIn("tool_call", event_types)
         self.assertIn("tool_result", event_types)
-        self.assertEqual(event_types[-1], "loop_transition")
+        loop_transitions = [item for item in events if item["type"] == "loop_transition"]
+        self.assertEqual(loop_transitions[-1]["payload"]["reason"], "completed")
 
     def test_query_engine_persists_message_parent_ids_in_transcript(self):
         session = Session()

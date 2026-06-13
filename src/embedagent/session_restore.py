@@ -15,7 +15,7 @@ from embedagent.session import (
     ToolPresentationSnapshot,
     TranscriptMessage,
 )
-
+from embedagent.session_operation_log import OperationLogReducer, OperationLogState
 
 _LOG = logging.getLogger(__name__)
 
@@ -29,10 +29,13 @@ class SessionRestoreResult:
     stop_reason: str = ""
     skipped_count: int = 0
     skip_reasons: List[Dict[str, Any]] = field(default_factory=list)
+    operation_state: OperationLogState = field(default_factory=OperationLogState)
 
 
 class SessionRestorer(object):
-    def restore(self, events: List[Dict[str, Any]], best_effort: bool = False) -> SessionRestoreResult:
+    def restore(
+        self, events: List[Dict[str, Any]], best_effort: bool = False
+    ) -> SessionRestoreResult:
         if not events:
             raise ValueError("cannot restore an empty transcript")
         session_id = str(events[0].get("session_id") or "")
@@ -54,15 +57,20 @@ class SessionRestorer(object):
             nonlocal skipped_count, skip_reasons, consumed_event_count, stop_reason
             if best_effort and self._should_skip_error(error_reason):
                 skipped_count += 1
-                skip_reasons.append({
-                    "index": index,
-                    "event_type": event_type,
-                    "reason": error_reason,
-                    "event_id": str(event.get("event_id", "")),
-                })
+                skip_reasons.append(
+                    {
+                        "index": index,
+                        "event_type": event_type,
+                        "reason": error_reason,
+                        "event_id": str(event.get("event_id", "")),
+                    }
+                )
                 _LOG.warning(
                     "Session restore skipped record %d (type=%s, id=%s): %s",
-                    index, event_type, event.get("event_id", ""), error_reason
+                    index,
+                    event_type,
+                    event.get("event_id", ""),
+                    error_reason,
                 )
                 return True
             consumed_event_count = index
@@ -316,6 +324,7 @@ class SessionRestorer(object):
                 session.record_transition(transition)
                 if transition.next_mode:
                     current_mode = transition.next_mode
+        operation_state = OperationLogReducer().reduce(events[:consumed_event_count])
         return SessionRestoreResult(
             session=session,
             current_mode=current_mode,
@@ -324,6 +333,7 @@ class SessionRestorer(object):
             stop_reason=stop_reason,
             skipped_count=skipped_count,
             skip_reasons=skip_reasons,
+            operation_state=operation_state,
         )
 
     def _should_skip_error(self, error_reason: str) -> bool:

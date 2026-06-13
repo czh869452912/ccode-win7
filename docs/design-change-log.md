@@ -44,6 +44,35 @@
 
 ## 3. 当前变更记录
 
+### DC-130
+
+- 日期：2026-06-13
+- 变更主题：Durable operation log reducer Slice 1 落地
+- 变更摘要：
+  - 接受 Pi-inspired minimal Core 的第一实现切片：先让 session transcript 具备可 reducer 的 operation lifecycle 状态，而不是直接重写 `QueryEngine` 或提取完整 `AgentKernel`
+  - 新增 `src/embedagent/session_operation_log.py`，提供纯 `OperationLogReducer`、`OperationRecord` 与 `OperationLogState`
+  - `SessionRestorer` 现在暴露 `operation_state`，并只对严格恢复已消费的 transcript 前缀做 operation reducer，避免损坏尾部参与状态推断
+  - reducer 兼容现有 `step_started`、`tool_call`、`tool_result`、`loop_transition` 事件，也支持新的显式 `operation_started`、`operation_finished`、`operation_interrupted` 事件
+  - `QueryEngine` 在保持旧 transcript 事件不变的前提下，附加写入 schema_v2 operation lifecycle 事件；未完成 operation 在 restore 语义中默认标为 `interrupted` 且 `retryable=false`
+- 影响范围：
+  - `src/embedagent/session_operation_log.py`
+  - `src/embedagent/session_restore.py`
+  - `src/embedagent/query_engine.py`
+  - `tests/test_session_operation_log.py`
+  - `tests/test_session_restore.py`
+  - `tests/test_query_engine_refactor.py`
+  - `docs/development-tracker.md`
+  - `docs/design-change-log.md`
+  - `docs/superpowers/plans/2026-06-13-durable-operation-log.md`
+- 关联文档：
+  - `docs/pi-inspired-agent-core-blueprint.md`
+  - `docs/superpowers/plans/2026-06-13-durable-operation-log.md`
+- 是否需要 ADR：`否，本次是目标蓝图下的增量实现切片；完整 AgentKernel lifecycle boundary 提取前再评估 ADR`
+- 后续动作：
+  - 将 provider request、context snapshot、workflow patch 与 save point 事件纳入 operation reducer
+  - 评估是否把 operation_state 投影到 session snapshot / diagnostics，供前端或恢复诊断消费
+  - 继续保持旧 transcript 事件兼容，直到 source-of-truth docs 明确切换到显式 operation lifecycle 作为主路径
+
 ### DC-129
 
 - 日期：2026-06-13
