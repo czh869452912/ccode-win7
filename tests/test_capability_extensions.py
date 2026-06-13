@@ -3,6 +3,7 @@ from embedagent.extensions import (
     ExtensionManager,
     ResourcesDiscoverResult,
     ToolCallDecision,
+    ToolRegistrationEvent,
     ToolResultPatch,
     WorkflowEvent,
 )
@@ -181,6 +182,29 @@ def test_resources_discover_merges_and_deduplicates_paths():
     assert result.metadata == {"source": "resource-extension"}
 
 
+class BrokenResourceExtension(object):
+    extension_id = "broken_resources"
+    builtin_extension = False
+
+    def resources_discover(self, event, context):
+        del event, context
+        raise RuntimeError("resource hook failed")
+
+
+def test_resources_discover_error_records_bus_metadata():
+    manager = ExtensionManager([BrokenResourceExtension()])
+
+    result = manager.discover_resources(".", reason="reload")
+
+    diagnostics = manager.diagnostics()
+    assert result.skill_paths == []
+    assert len(diagnostics) == 1
+    assert diagnostics[0]["extension_id"] == "broken_resources"
+    assert diagnostics[0]["event"] == "resources_discover"
+    assert diagnostics[0]["metadata"]["agent_event_type"] == "extension.resources_discover"
+    assert diagnostics[0]["metadata"]["handler_kind"] == "reducer"
+
+
 class CapturingClient(object):
     def __init__(self):
         self.messages = []
@@ -296,6 +320,98 @@ def test_tool_call_hook_blocks_or_rewrites_arguments():
     assert rewritten.metadata == {"rewritten": True}
 
 
+class FirstRewriteToolExtension(object):
+    extension_id = "first_rewrite"
+    builtin_extension = False
+
+    def tool_call(self, event, context):
+        del context
+        updated = dict(event.tool_arguments)
+        updated["path"] = "first.txt"
+        return ToolCallDecision(updated_arguments=updated, metadata={"first": True})
+
+
+class SecondRewriteThenBlockToolExtension(object):
+    extension_id = "second_rewrite"
+    builtin_extension = False
+
+    def tool_call(self, event, context):
+        del context
+        assert event.tool_arguments["path"] == "first.txt"
+        updated = dict(event.tool_arguments)
+        updated["path"] = "second.txt"
+        return ToolCallDecision(updated_arguments=updated, metadata={"second": True})
+
+
+class BlockingAfterRewriteToolExtension(object):
+    extension_id = "block_after_rewrite"
+    builtin_extension = False
+
+    def tool_call(self, event, context):
+        del context
+        assert event.tool_arguments["path"] == "second.txt"
+        return ToolCallDecision(
+            block=True,
+            reason="blocked after rewrite",
+            metadata={"blocked": True},
+        )
+
+
+class ShouldNotRunToolExtension(object):
+    extension_id = "should_not_run"
+    builtin_extension = False
+
+    def tool_call(self, event, context):
+        del event, context
+        raise AssertionError("first blocking tool decision must stop the chain")
+
+
+def test_tool_call_hook_preserves_sequential_rewrites_and_first_block_wins():
+    event = WorkflowEvent(tool_name="read_file", tool_arguments={"path": "original.txt"})
+    manager = ExtensionManager(
+        [
+            FirstRewriteToolExtension(),
+            SecondRewriteThenBlockToolExtension(),
+            BlockingAfterRewriteToolExtension(),
+            ShouldNotRunToolExtension(),
+        ]
+    )
+
+    decision = manager.before_tool_call(event, ExtensionContext(workspace="."))
+
+    assert decision.block is True
+    assert decision.reason == "blocked after rewrite"
+    assert decision.updated_arguments == {"path": "second.txt"}
+    assert decision.metadata == {"first": True, "second": True, "blocked": True}
+    assert event.tool_arguments == {"path": "second.txt"}
+
+
+class BrokenToolCallExtension(object):
+    extension_id = "broken_tool_call"
+    builtin_extension = False
+
+    def tool_call(self, event, context):
+        del event, context
+        raise RuntimeError("tool call reducer failed")
+
+
+def test_tool_call_hook_error_records_bus_metadata():
+    manager = ExtensionManager([BrokenToolCallExtension()])
+
+    decision = manager.before_tool_call(
+        WorkflowEvent(tool_name="read_file", tool_arguments={"path": "a.txt"}),
+        ExtensionContext(workspace="."),
+    )
+
+    diagnostics = manager.diagnostics()
+    assert decision.block is False
+    assert len(diagnostics) == 1
+    assert diagnostics[0]["extension_id"] == "broken_tool_call"
+    assert diagnostics[0]["event"] == "tool_call"
+    assert diagnostics[0]["metadata"]["agent_event_type"] == "extension.tool_call"
+    assert diagnostics[0]["metadata"]["handler_kind"] == "reducer"
+
+
 def test_tool_result_hook_can_replace_observation():
     manager = ExtensionManager([ToolPolicyExtension()])
 
@@ -337,6 +453,37 @@ def test_tool_result_hook_error_records_bus_metadata():
     assert diagnostics[0]["extension_id"] == "broken_tool_result"
     assert diagnostics[0]["event"] == "tool_result"
     assert diagnostics[0]["metadata"]["agent_event_type"] == "extension.tool_result"
+    assert diagnostics[0]["metadata"]["handler_kind"] == "reducer"
+
+
+class BrokenRegisterToolsExtension(object):
+    extension_id = "broken_register_tools"
+    builtin_extension = False
+
+    def register_tools(self, event, context):
+        del event, context
+        raise RuntimeError("register tools hook failed")
+
+
+def test_register_tools_hook_error_records_bus_metadata(tmp_path):
+    from embedagent.tools import ToolRuntime
+
+    manager = ExtensionManager([BrokenRegisterToolsExtension()])
+
+    manager.register_tools(
+        ToolRegistrationEvent(
+            current_mode="build",
+            workflow_state_name="chat",
+            reason="test",
+        ),
+        ExtensionContext(workspace=str(tmp_path), tool_registry=ToolRuntime(str(tmp_path))),
+    )
+
+    diagnostics = manager.diagnostics()
+    assert len(diagnostics) == 1
+    assert diagnostics[0]["extension_id"] == "broken_register_tools"
+    assert diagnostics[0]["event"] == "register_tools"
+    assert diagnostics[0]["metadata"]["agent_event_type"] == "extension.register_tools"
     assert diagnostics[0]["metadata"]["handler_kind"] == "reducer"
 
 

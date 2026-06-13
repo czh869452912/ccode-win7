@@ -85,7 +85,12 @@ class AgentEventBus(object):
             )
         )
 
-    def dispatch(self, event: AgentEvent, context: Any = None) -> EventDispatchResult:
+    def dispatch(
+        self,
+        event: AgentEvent,
+        context: Any = None,
+        reducer_stop: Optional[Callable[[Any], bool]] = None,
+    ) -> EventDispatchResult:
         result = EventDispatchResult()
         event_type = str(event.event_type or "")
         for registration in list(self._observers):
@@ -96,6 +101,10 @@ class AgentEventBus(object):
             if registration.event_type != event_type:
                 continue
             self._call_registration(registration, event, context, result)
+            if result.reducer_results and reducer_stop is not None:
+                value = result.reducer_results[-1].get("value")
+                if bool(reducer_stop(value)):
+                    break
         return result
 
     def _call_registration(
@@ -108,13 +117,15 @@ class AgentEventBus(object):
         try:
             value = registration.handler(event, context)
         except (RuntimeError, ValueError, TypeError, OSError) as exc:
+            metadata = dict(event.metadata)
+            metadata.update(dict(registration.metadata))
             diagnostic = {
                 "source_id": registration.source_id,
                 "source_type": registration.source_type,
                 "event_type": registration.event_type,
                 "kind": registration.kind,
                 "error": str(exc),
-                "metadata": dict(registration.metadata),
+                "metadata": metadata,
             }
             result.diagnostics.append(diagnostic)
             if registration.fail_closed:

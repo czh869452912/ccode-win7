@@ -285,7 +285,7 @@ Outcomes:
 - cleanup and reload behavior are deterministic
 - built-in workflow extension and project-local extensions use the same internal bus
 
-Current implementation status: Phase B has started. `src/embedagent/agent_event_bus.py` now defines the internal source-aware event bus, observer/reducer registrations, dispatch diagnostics, and fail-closed behavior for trusted reducers. `ExtensionManager.context(...)` and `ExtensionManager.after_tool_result(...)` keep their public APIs but now route through `AgentEventBus` as `extension.context` and `extension.tool_result` reducer events. Remaining Phase B work is to migrate tool-call decisions, resource discovery, dynamic tool registration, operation lifecycle emitters, cleanup, and reload behavior onto the same event boundary.
+Current implementation status: Phase B is complete for extension hook dispatch. `src/embedagent/agent_event_bus.py` defines the internal source-aware event bus, observer/reducer registrations, dispatch diagnostics, event-specific reducer stopping, and fail-closed behavior for trusted reducers. `ExtensionManager` keeps its public APIs but routes public extension hook families through `AgentEventBus`, including context patches, tool-call decisions, tool-result patches, resource discovery, dynamic tool registration, prompt patches, active tool names, workflow initialization, task snapshot loading, and extension-owned tool handling. Operation lifecycle orchestration remains Phase C AgentKernel work; future lifecycle observers should use the bus boundary rather than adding direct facade hooks.
 
 ### Phase C: AgentKernel Extraction
 

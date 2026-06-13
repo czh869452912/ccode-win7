@@ -207,34 +207,172 @@ class ExtensionManager(object):
             )
         )
 
-    def _record_hook_error(self, extension: Any, event_name: str, exc: Exception) -> None:
-        self._record_diagnostic(extension, event_name, str(exc))
-
     def _register_bus_reducers(self, extension: Any) -> None:
         source_id = self._extension_id(extension)
         source_type = "builtin" if self._is_builtin_extension(extension) else "project"
         fail_closed = self._is_builtin_extension(extension)
-        if callable(getattr(extension, "context", None)):
+        self._register_extension_reducer(
+            extension,
+            source_id,
+            source_type,
+            fail_closed,
+            "context",
+            "extension.context",
+            lambda event, context, ext=extension: ext.context(
+                event.payload["workflow_event"], context
+            ),
+        )
+        self._register_extension_reducer(
+            extension,
+            source_id,
+            source_type,
+            fail_closed,
+            "resources_discover",
+            "extension.resources_discover",
+            lambda event, context, ext=extension: ext.resources_discover(
+                event.payload["resources_event"], context
+            ),
+        )
+        self._register_extension_reducer(
+            extension,
+            source_id,
+            source_type,
+            fail_closed,
+            "register_tools",
+            "extension.register_tools",
+            lambda event, context, ext=extension: ext.register_tools(
+                event.payload["tool_registration_event"], context
+            ),
+        )
+        self._register_extension_reducer(
+            extension,
+            source_id,
+            source_type,
+            fail_closed,
+            "tool_call",
+            "extension.tool_call",
+            lambda event, context, ext=extension: self._call_tool_call_reducer(
+                ext, event.payload["workflow_event"], context
+            ),
+        )
+        self._register_extension_reducer(
+            extension,
+            source_id,
+            source_type,
+            fail_closed,
+            "tool_result",
+            "extension.tool_result",
+            lambda event, context, ext=extension: ext.tool_result(
+                event.payload["workflow_event"], context
+            ),
+        )
+        self._register_extension_reducer(
+            extension,
+            source_id,
+            source_type,
+            fail_closed,
+            "before_agent_start",
+            "extension.before_agent_start",
+            lambda event, context, ext=extension: ext.before_agent_start(
+                event.payload["workflow_event"], context
+            ),
+        )
+        self._register_extension_reducer(
+            extension,
+            source_id,
+            source_type,
+            fail_closed,
+            "should_inject_workflow",
+            "extension.should_inject_workflow",
+            lambda event, context, ext=extension: ext.should_inject_workflow(
+                event.payload["user_text"],
+                event.payload["current_mode"],
+            ),
+        )
+        self._register_extension_reducer(
+            extension,
+            source_id,
+            source_type,
+            fail_closed,
+            "describe_prompt",
+            "extension.describe_prompt",
+            lambda event, context, ext=extension: ext.describe_prompt(
+                event.payload["current_mode"],
+                workflow_state=event.payload["workflow_state"],
+                session=event.payload.get("session"),
+            ),
+        )
+        self._register_extension_reducer(
+            extension,
+            source_id,
+            source_type,
+            fail_closed,
+            "initialize_workflow_state",
+            "extension.initialize_workflow_state",
+            lambda event, context, ext=extension: ext.initialize_workflow_state(
+                event.payload["session"],
+                user_text=event.payload["user_text"],
+                current_mode=event.payload["current_mode"],
+                workflow_state=event.payload["workflow_state"],
+            ),
+        )
+        self._register_extension_reducer(
+            extension,
+            source_id,
+            source_type,
+            fail_closed,
+            "allowed_tool_names",
+            "extension.allowed_tool_names",
+            lambda event, context, ext=extension: ext.allowed_tool_names(
+                event.payload["mode_name"],
+                workflow_state=event.payload["workflow_state"],
+            ),
+        )
+        self._register_extension_reducer(
+            extension,
+            source_id,
+            source_type,
+            fail_closed,
+            "load_session_tasks",
+            "extension.load_session_tasks",
+            lambda event, context, ext=extension: ext.load_session_tasks(
+                workspace=event.payload["workspace"],
+                session_id=event.payload["session_id"],
+            ),
+        )
+        self._register_extension_reducer(
+            extension,
+            source_id,
+            source_type,
+            fail_closed,
+            "handle_tool_call",
+            "extension.handle_tool_call",
+            lambda event, context, ext=extension: ext.handle_tool_call(
+                event.payload["session"],
+                tool_name=event.payload["tool_name"],
+                current_mode=event.payload["current_mode"],
+                workflow_state=event.payload["workflow_state"],
+            ),
+        )
+
+    def _register_extension_reducer(
+        self,
+        extension: Any,
+        source_id: str,
+        source_type: str,
+        fail_closed: bool,
+        hook_name: str,
+        event_type: str,
+        reducer: Any,
+    ) -> None:
+        if callable(getattr(extension, hook_name, None)):
             self._event_bus.register_reducer(
-                "extension.context",
+                event_type,
                 source_id,
                 source_type,
-                lambda event, context, ext=extension: ext.context(
-                    event.payload["workflow_event"], context
-                ),
+                reducer,
                 fail_closed=fail_closed,
-                metadata={"hook_name": "context"},
-            )
-        if callable(getattr(extension, "tool_result", None)):
-            self._event_bus.register_reducer(
-                "extension.tool_result",
-                source_id,
-                source_type,
-                lambda event, context, ext=extension: ext.tool_result(
-                    event.payload["workflow_event"], context
-                ),
-                fail_closed=fail_closed,
-                metadata={"hook_name": "tool_result"},
+                metadata={"hook_name": hook_name},
             )
 
     def _record_bus_diagnostics(self, dispatch_result: Any, event_name: str) -> None:
@@ -253,17 +391,43 @@ class ExtensionManager(object):
                 )
             )
 
-    def _call_hook(self, extension: Any, event_name: str, *args: Any, **kwargs: Any) -> Any:
-        hook = getattr(extension, event_name, None)
-        if not callable(hook):
-            return None
+    def _call_tool_call_reducer(
+        self,
+        extension: Any,
+        workflow_event: WorkflowEvent,
+        context: ExtensionContext,
+    ) -> Any:
+        decision = extension.tool_call(workflow_event, context)
+        updated = getattr(decision, "updated_arguments", None)
+        if updated is not None:
+            workflow_event.tool_arguments = dict(updated)
+        return decision
+
+    def _dispatch_event(
+        self,
+        event_type: str,
+        payload: Dict[str, Any],
+        context: Any = None,
+        event_name: str = "",
+        metadata: Optional[Dict[str, Any]] = None,
+        reducer_stop: Any = None,
+    ) -> Any:
+        hook_event_name = str(event_name or event_type.rsplit(".", 1)[-1])
         try:
-            return hook(*args, **kwargs)
-        except (RuntimeError, ValueError, TypeError, OSError) as exc:
-            self._record_hook_error(extension, event_name, exc)
-            if self._is_builtin_extension(extension):
-                raise
-            return None
+            dispatch = self._event_bus.dispatch(
+                AgentEvent(
+                    event_type=event_type,
+                    payload=dict(payload or {}),
+                    metadata=dict(metadata or {}),
+                ),
+                context,
+                reducer_stop=reducer_stop,
+            )
+        except AgentEventDispatchError as exc:
+            self._record_bus_diagnostics(exc, hook_event_name)
+            raise exc.original
+        self._record_bus_diagnostics(dispatch, hook_event_name)
+        return dispatch
 
     def context(
         self,
@@ -271,19 +435,13 @@ class ExtensionManager(object):
         context: ExtensionContext,
     ) -> ContextPatch:
         merged = ContextPatch()
-        try:
-            dispatch = self._event_bus.dispatch(
-                AgentEvent(
-                    event_type="extension.context",
-                    payload={"workflow_event": event},
-                    metadata={"current_mode": event.current_mode},
-                ),
-                context,
-            )
-        except AgentEventDispatchError as exc:
-            self._record_bus_diagnostics(exc, "context")
-            raise exc.original
-        self._record_bus_diagnostics(dispatch, "context")
+        dispatch = self._dispatch_event(
+            "extension.context",
+            {"workflow_event": event},
+            context,
+            event_name="context",
+            metadata={"current_mode": event.current_mode},
+        )
         for item in dispatch.reducer_results:
             patch = item.get("value")
             messages = list(getattr(patch, "messages", []) or [])
@@ -308,10 +466,15 @@ class ExtensionManager(object):
         )
         context = ExtensionContext(workspace=str(cwd or ""))
         merged = ResourcesDiscoverResult()
-        for extension in list(self._extensions):
-            result = self._call_hook(extension, "resources_discover", event, context)
-            if result is None:
-                continue
+        dispatch = self._dispatch_event(
+            "extension.resources_discover",
+            {"resources_event": event},
+            context,
+            event_name="resources_discover",
+            metadata={"reason": event.reason},
+        )
+        for item in dispatch.reducer_results:
+            result = item.get("value")
             self._append_unique(merged.skill_paths, list(getattr(result, "skill_paths", []) or []))
             self._append_unique(
                 merged.prompt_paths, list(getattr(result, "prompt_paths", []) or [])
@@ -331,12 +494,21 @@ class ExtensionManager(object):
         register_tool = getattr(registry, "register_tool", None)
         if not callable(register_tool):
             return
-        for extension in list(self._extensions):
-            result = self._call_hook(extension, "register_tools", event, context)
-            if result is None:
-                continue
+        dispatch = self._dispatch_event(
+            "extension.register_tools",
+            {"tool_registration_event": event},
+            context,
+            event_name="register_tools",
+            metadata={
+                "current_mode": event.current_mode,
+                "workflow_state_name": event.workflow_state_name,
+                "reason": event.reason,
+            },
+        )
+        for item in dispatch.reducer_results:
+            result = item.get("value")
             tools = list(getattr(result, "tools", []) or [])
-            source_id = str(getattr(result, "source_id", "") or self._extension_id(extension))
+            source_id = str(getattr(result, "source_id", "") or item.get("source_id") or "")
             source_type = str(getattr(result, "source_type", "") or "extension")
             for tool in tools:
                 tool_name = str(getattr(tool, "name", "") or "")
@@ -347,10 +519,12 @@ class ExtensionManager(object):
                         source_type=source_type,
                     )
                 except (RuntimeError, ValueError, TypeError, OSError) as exc:
-                    self._record_diagnostic(
-                        extension,
+                    self.record_diagnostic(
+                        str(item.get("source_id") or ""),
                         "register_tools",
                         str(exc),
+                        severity="error",
+                        source=str(item.get("source_type") or "project"),
                         metadata={
                             "tool_name": tool_name,
                             "source_id": source_id,
@@ -358,7 +532,7 @@ class ExtensionManager(object):
                             "reason": str(event.reason or ""),
                         },
                     )
-                    if self._is_builtin_extension(extension):
+                    if str(item.get("source_type") or "") == "builtin":
                         raise
 
     def before_tool_call(
@@ -367,19 +541,26 @@ class ExtensionManager(object):
         context: ExtensionContext,
     ) -> ToolCallDecision:
         merged = ToolCallDecision()
-        for extension in list(self._extensions):
-            decision = self._call_hook(extension, "tool_call", event, context)
-            if decision is None:
-                continue
+        dispatch = self._dispatch_event(
+            "extension.tool_call",
+            {"workflow_event": event},
+            context,
+            event_name="tool_call",
+            metadata={"tool_name": event.tool_name},
+            reducer_stop=lambda value: bool(getattr(value, "block", False)),
+        )
+        for item in dispatch.reducer_results:
+            decision = item.get("value")
             if bool(getattr(decision, "block", False)):
                 merged.block = True
                 merged.reason = str(getattr(decision, "reason", "") or "")
+                if getattr(decision, "updated_arguments", None) is not None:
+                    merged.updated_arguments = dict(getattr(decision, "updated_arguments"))
                 merged.metadata.update(dict(getattr(decision, "metadata", {}) or {}))
                 return merged
             updated = getattr(decision, "updated_arguments", None)
             if updated is not None:
                 merged.updated_arguments = dict(updated)
-                event.tool_arguments = dict(updated)
             merged.metadata.update(dict(getattr(decision, "metadata", {}) or {}))
         return merged
 
@@ -389,19 +570,13 @@ class ExtensionManager(object):
         context: ExtensionContext,
     ) -> ToolResultPatch:
         merged = ToolResultPatch()
-        try:
-            dispatch = self._event_bus.dispatch(
-                AgentEvent(
-                    event_type="extension.tool_result",
-                    payload={"workflow_event": event},
-                    metadata={"tool_name": event.tool_name},
-                ),
-                context,
-            )
-        except AgentEventDispatchError as exc:
-            self._record_bus_diagnostics(exc, "tool_result")
-            raise exc.original
-        self._record_bus_diagnostics(dispatch, "tool_result")
+        dispatch = self._dispatch_event(
+            "extension.tool_result",
+            {"workflow_event": event},
+            context,
+            event_name="tool_result",
+            metadata={"tool_name": event.tool_name},
+        )
         for item in dispatch.reducer_results:
             patch = item.get("value")
             observation = getattr(patch, "observation", None)
@@ -420,13 +595,15 @@ class ExtensionManager(object):
         context: ExtensionContext,
     ) -> PromptPatch:
         merged = PromptPatch()
-        for extension in list(self._extensions):
-            hook = getattr(extension, "before_agent_start", None)
-            if not callable(hook):
-                continue
-            patch = hook(event, context)
-            if patch is None:
-                continue
+        dispatch = self._dispatch_event(
+            "extension.before_agent_start",
+            {"workflow_event": event},
+            context,
+            event_name="before_agent_start",
+            metadata={"current_mode": event.current_mode},
+        )
+        for item in dispatch.reducer_results:
+            patch = item.get("value")
             merged.prompt_units.extend(list(getattr(patch, "prompt_units", []) or []))
             append = str(getattr(patch, "system_prompt_append", "") or "")
             if append:
@@ -438,9 +615,16 @@ class ExtensionManager(object):
         return merged
 
     def should_inject_workflow(self, user_text: str, current_mode: str) -> bool:
-        for extension in list(self._extensions):
-            hook = getattr(extension, "should_inject_workflow", None)
-            if callable(hook) and bool(hook(user_text, current_mode)):
+        dispatch = self._dispatch_event(
+            "extension.should_inject_workflow",
+            {"user_text": user_text, "current_mode": current_mode},
+            None,
+            event_name="should_inject_workflow",
+            metadata={"current_mode": current_mode},
+            reducer_stop=lambda value: bool(value),
+        )
+        for item in dispatch.reducer_results:
+            if bool(item.get("value")):
                 return True
         return False
 
@@ -450,11 +634,20 @@ class ExtensionManager(object):
         workflow_state: str = "chat",
         session: Any = None,
     ) -> Optional[HarnessPrompt]:
-        for extension in list(self._extensions):
-            hook = getattr(extension, "describe_prompt", None)
-            if not callable(hook):
-                continue
-            prompt = hook(current_mode, workflow_state=workflow_state, session=session)
+        dispatch = self._dispatch_event(
+            "extension.describe_prompt",
+            {
+                "current_mode": current_mode,
+                "workflow_state": workflow_state,
+                "session": session,
+            },
+            None,
+            event_name="describe_prompt",
+            metadata={"current_mode": current_mode, "workflow_state": workflow_state},
+            reducer_stop=lambda value: value is not None,
+        )
+        for item in dispatch.reducer_results:
+            prompt = item.get("value")
             if prompt is not None:
                 return prompt
         return None
@@ -466,15 +659,18 @@ class ExtensionManager(object):
         current_mode: str,
         workflow_state: str = "chat",
     ) -> None:
-        for extension in list(self._extensions):
-            hook = getattr(extension, "initialize_workflow_state", None)
-            if callable(hook):
-                hook(
-                    session,
-                    user_text=user_text,
-                    current_mode=current_mode,
-                    workflow_state=workflow_state,
-                )
+        self._dispatch_event(
+            "extension.initialize_workflow_state",
+            {
+                "session": session,
+                "user_text": user_text,
+                "current_mode": current_mode,
+                "workflow_state": workflow_state,
+            },
+            None,
+            event_name="initialize_workflow_state",
+            metadata={"current_mode": current_mode, "workflow_state": workflow_state},
+        )
 
     def allowed_tool_names(
         self,
@@ -483,18 +679,28 @@ class ExtensionManager(object):
         fallback: Optional[Set[str]] = None,
     ) -> Set[str]:
         names = set(fallback or set())
-        for extension in list(self._extensions):
-            hook = getattr(extension, "allowed_tool_names", None)
-            if callable(hook):
-                names.update(set(hook(mode_name, workflow_state=workflow_state) or set()))
+        dispatch = self._dispatch_event(
+            "extension.allowed_tool_names",
+            {"mode_name": mode_name, "workflow_state": workflow_state},
+            None,
+            event_name="allowed_tool_names",
+            metadata={"mode_name": mode_name, "workflow_state": workflow_state},
+        )
+        for item in dispatch.reducer_results:
+            names.update(set(item.get("value") or set()))
         return names
 
     def load_session_tasks(self, workspace: str, session_id: str) -> Dict[str, Any]:
-        for extension in list(self._extensions):
-            hook = getattr(extension, "load_session_tasks", None)
-            if not callable(hook):
-                continue
-            payload = hook(workspace=workspace, session_id=session_id)
+        dispatch = self._dispatch_event(
+            "extension.load_session_tasks",
+            {"workspace": workspace, "session_id": session_id},
+            None,
+            event_name="load_session_tasks",
+            metadata={"session_id": session_id},
+            reducer_stop=lambda value: isinstance(value, dict),
+        )
+        for item in dispatch.reducer_results:
+            payload = item.get("value")
             if isinstance(payload, dict):
                 return dict(payload)
         return {"count": 0, "tasks": [], "path": "", "session_id": str(session_id or "")}
@@ -506,16 +712,21 @@ class ExtensionManager(object):
         current_mode: str,
         workflow_state: str = "chat",
     ) -> Optional[Any]:
-        for extension in list(self._extensions):
-            hook = getattr(extension, "handle_tool_call", None)
-            if not callable(hook):
-                continue
-            observation = hook(
-                session,
-                tool_name=tool_name,
-                current_mode=current_mode,
-                workflow_state=workflow_state,
-            )
+        dispatch = self._dispatch_event(
+            "extension.handle_tool_call",
+            {
+                "session": session,
+                "tool_name": tool_name,
+                "current_mode": current_mode,
+                "workflow_state": workflow_state,
+            },
+            None,
+            event_name="handle_tool_call",
+            metadata={"tool_name": tool_name, "current_mode": current_mode},
+            reducer_stop=lambda value: value is not None,
+        )
+        for item in dispatch.reducer_results:
+            observation = item.get("value")
             if observation is not None:
                 return observation
         return None

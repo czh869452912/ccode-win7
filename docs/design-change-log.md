@@ -44,6 +44,38 @@
 
 ## 3. 当前变更记录
 
+### DC-135
+
+- 日期：2026-06-14
+- 变更主题：Pi-inspired minimal Core Phase B HookBus/reducer registry 收口
+- 变更摘要：
+  - `AgentEventBus.dispatch(...)` 新增 event-specific `reducer_stop`，用于表达 first-block-wins、first-result-wins 等 reducer 停止语义
+  - `ExtensionManager` 公开 extension hook family 已统一通过 `AgentEventBus` 分发，公共 extension API 不变
+  - bus-backed hook families 包括 context patch、resource discovery、dynamic tool registration、tool-call decision、tool-result patch、prompt patch、workflow injection decision、prompt description、workflow initialization、active tool names、session task snapshot loading 与 extension-owned tool handling
+  - tool-call reducer 保留旧语义：sequential argument rewrites 会更新同一个 `WorkflowEvent`，第一个 blocking decision 停止后续 reducer
+  - extension diagnostics 统一携带 `agent_event_type`、`handler_kind`、source metadata 与安全事件 metadata
+  - 删除 `ExtensionManager` 内部旧 `_call_hook` 分发路径，避免 Phase B 收口后继续存在平行 hook dispatch
+  - operation lifecycle 编排迁移不在本次完成范围内；它归入 Phase C AgentKernel lifecycle extraction，并应复用已建立的 bus boundary
+- 影响范围：
+  - `src/embedagent/agent_event_bus.py`
+  - `src/embedagent/extensions.py`
+  - `tests/test_capability_extensions.py`
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/pi-inspired-agent-core-blueprint.md`
+  - `docs/development-tracker.md`
+  - `docs/design-change-log.md`
+- 关联文档：
+  - `docs/pi-inspired-agent-core-blueprint.md`
+  - `docs/superpowers/plans/2026-06-14-phase-b-hookbus-closeout.md`
+- 是否需要 ADR：`否，本次是已批准 Pi-inspired minimal Core Phase B 的实现收口；AgentKernel lifecycle boundary 硬切时再评估 ADR`
+- 后续动作：
+  - 启动 Phase C AgentKernel lifecycle extraction 设计
+  - 在 Phase C 中把 turn snapshot、save point、suspend/resume、abort、compact retry 与 cleanup 迁出 session facade
+  - 后续生命周期 observer/reducer 应复用 `AgentEventBus`，不要恢复 direct facade hooks
+
 ### DC-134
 
 - 日期：2026-06-13
