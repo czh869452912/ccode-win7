@@ -26,7 +26,14 @@ from embedagent.plan_store import PlanStore
 from embedagent.project_extensions import load_project_extensions
 from embedagent.project_memory import ProjectMemoryStore
 from embedagent.protocol import CommandResult, PermissionContextView, PlanSnapshot
-from embedagent.session import Action, AssistantReply, Observation, Session
+from embedagent.session import (
+    Action,
+    AssistantReply,
+    LoopTransition,
+    Observation,
+    PendingInteraction,
+    Session,
+)
 from embedagent.session_history import SessionHistoryAssembler
 from embedagent.session_operation_log import OperationLogReducer, operation_diagnostics
 from embedagent.session_projector import SessionSnapshotProjector
@@ -585,7 +592,8 @@ class InProcessAdapter(object):
             events = self.transcript_store.load_events(state.session.session_id)
         except (OSError, ValueError, TypeError):
             return
-        state.operation_diagnostics = operation_diagnostics(OperationLogReducer().reduce(events))
+        operation_state = OperationLogReducer(close_unfinished=False).reduce(events)
+        state.operation_diagnostics = operation_diagnostics(operation_state)
 
     def get_workspace_snapshot(self) -> Dict[str, Any]:
         counts = self._count_workspace_items()
@@ -2077,13 +2085,14 @@ class InProcessAdapter(object):
                 not bool(snapshot.get("pending_interaction_valid"))
                 and snapshot.get("status") != "waiting_permission"
                 and snapshot.get("status") != "waiting_user_input"
+                and snapshot.get("status") != "running"
             ):
                 return snapshot
             state = self._require_session(session_id)
             with state.lock:
                 active = state.active_thread
             if active is not None and not active.is_alive():
-                return snapshot
+                return self.get_session_snapshot(session_id)
             time.sleep(0.05)
         return snapshot
 
@@ -2665,6 +2674,26 @@ class InProcessAdapter(object):
         with state.lock:
             state.pending_permission = ticket
             state.pending_result = None
+            if state.session.pending_interaction is None:
+                permission_payload = {
+                    "tool_name": request.tool_name,
+                    "category": request.category,
+                    "reason": request.reason,
+                    "details": dict(request.details),
+                }
+                pending = PendingInteraction(
+                    kind="permission",
+                    tool_name=request.tool_name,
+                    request_payload={"permission": permission_payload},
+                )
+                state.session.record_transition(
+                    LoopTransition(
+                        reason="permission_wait",
+                        message=request.reason,
+                        pending_interaction=pending,
+                        next_mode=state.current_mode,
+                    )
+                )
             state.updated_at = _utc_now()
         return ticket
 

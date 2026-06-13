@@ -11,7 +11,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from embedagent.inprocess_adapter import InProcessAdapter
 from embedagent.llm import ModelClientError
-from embedagent.permissions import PermissionPolicy
+from embedagent.permissions import PermissionPolicy, PermissionRequest
 from embedagent.session import Action, AssistantReply
 from embedagent.tools import ToolRuntime
 
@@ -1133,6 +1133,69 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertIn("turn", diagnostics.get("kinds") or {})
         self.assertIn("provider_request", diagnostics.get("kinds") or {})
 
+    def test_live_session_snapshot_keeps_unfinished_operation_active(self):
+        adapter = InProcessAdapter(
+            client=ToolClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+        )
+        snapshot = adapter.create_session("build")
+        session_id = str(snapshot.get("session_id") or "")
+        adapter.transcript_store.append_event(
+            session_id,
+            "operation_started",
+            {
+                "operation_id": "provider:req-live",
+                "kind": "provider_request",
+                "turn_id": "turn-live",
+                "step_id": "step-live",
+                "retryable": True,
+            },
+            schema_version=2,
+        )
+
+        refreshed = adapter.get_session_snapshot(session_id)
+
+        diagnostics = refreshed.get("operation_diagnostics") or {}
+        self.assertEqual(diagnostics.get("started_count"), 1)
+        self.assertEqual(diagnostics.get("interrupted_count"), 0)
+        active = diagnostics.get("active") or []
+        self.assertEqual(active[0].get("operation_id"), "provider:req-live")
+        self.assertEqual(active[0].get("status"), "started")
+
+    def test_permission_ticket_records_pending_session_history_before_engine_returns(self):
+        adapter = InProcessAdapter(
+            client=ToolClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+        )
+        snapshot = adapter.create_session("build")
+        session_id = str(snapshot.get("session_id") or "")
+        state = adapter._require_session(session_id)
+        state.session.add_user_message("run recipe", turn_id="turn-live")
+        state.session.begin_step(step_id="step-live")
+        request = PermissionRequest(
+            tool_name="run_recipe",
+            category="toolchain_exec",
+            reason="需要执行 recipe",
+            details={"recipe_id": "custom.build"},
+        )
+
+        ticket = adapter._create_permission_ticket(
+            state,
+            request,
+            turn_id="turn-live",
+            step_id="step-live",
+            step_index=1,
+        )
+
+        self.assertTrue(ticket.permission_id)
+        payload = adapter.build_session_history(session_id)
+        turn = payload["turns"][0]
+        self.assertEqual(turn["status"], "waiting_permission")
+        self.assertEqual(turn["steps"][0]["status"], "permission_wait")
+        self.assertEqual(turn["transitions"][0]["kind"], "permission_required")
+
     def test_resume_session_exposes_restore_diagnostics_for_truncated_replay(self):
         adapter = InProcessAdapter(
             client=ToolClient(),
@@ -1446,6 +1509,95 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             else:
                 adapter.cancel_session(session_id)
             worker.join(3.0)
+
+    def test_slash_run_permission_snapshot_and_history_wait_are_atomic(self):
+        os.makedirs(os.path.join(self.workspace, ".embedagent"), exist_ok=True)
+        with open(
+            os.path.join(self.workspace, ".embedagent", "workspace-recipes.json"),
+            "w",
+            encoding="utf-8",
+        ) as handle:
+            handle.write(
+                '[{"id":"custom.build","tool_name":"run_recipe","recipe_action":"build","label":"Custom Build","command":"cmd /c echo build-ok","cwd":"."}]'
+            )
+        adapter = InProcessAdapter(
+            client=FakeClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=False, workspace=self.workspace),
+        )
+        snapshot = adapter.create_session("build")
+        session_id = str(snapshot.get("session_id") or "")
+        worker = threading.Thread(
+            target=adapter.submit_user_message,
+            kwargs={
+                "session_id": session_id,
+                "text": "/run custom.build",
+                "stream": False,
+                "wait": True,
+                "event_handler": lambda event_name, current_session_id, payload: None,
+            },
+        )
+        worker.start()
+        deadline = time.time() + 3.0
+        waiting = adapter.get_session_snapshot(session_id)
+        while time.time() < deadline:
+            waiting = adapter.get_session_snapshot(session_id)
+            if waiting.get("status") == "waiting_permission":
+                break
+            time.sleep(0.001)
+        permission_id = str((waiting.get("pending_permission") or {}).get("permission_id") or "")
+        try:
+            self.assertEqual(waiting["status"], "waiting_permission")
+            for _ in range(20):
+                payload = adapter.build_session_history(session_id)
+                turn = payload["turns"][0]
+                self.assertEqual(turn["status"], "waiting_permission")
+                self.assertTrue(turn.get("transitions"))
+        finally:
+            if permission_id:
+                adapter.approve_permission(session_id, permission_id)
+            else:
+                adapter.cancel_session(session_id)
+            worker.join(3.0)
+
+    def test_wait_for_command_resolution_does_not_return_running_snapshot(self):
+        adapter = InProcessAdapter(
+            client=FakeClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=False, workspace=self.workspace),
+        )
+        snapshot = adapter.create_session("build")
+        session_id = str(snapshot.get("session_id") or "")
+        snapshots = [
+            {"status": "waiting_permission", "pending_interaction_valid": True},
+            {"status": "running", "pending_interaction_valid": False},
+            {
+                "status": "idle",
+                "pending_interaction_valid": False,
+                "has_pending_permission": False,
+            },
+        ]
+        original_get_snapshot = adapter.get_session_snapshot
+        calls = []
+
+        def fake_get_session_snapshot(current_session_id):
+            calls.append(current_session_id)
+            if snapshots:
+                return snapshots.pop(0)
+            return {
+                "status": "idle",
+                "pending_interaction_valid": False,
+                "has_pending_permission": False,
+            }
+
+        adapter.get_session_snapshot = fake_get_session_snapshot
+        try:
+            resolved = adapter._wait_for_command_resolution(session_id, timeout_s=0.2)
+        finally:
+            adapter.get_session_snapshot = original_get_snapshot
+
+        self.assertEqual(resolved["status"], "idle")
+        self.assertGreaterEqual(len(calls), 3)
 
     def test_slash_run_passes_target_and_profile_to_recipe(self):
         with open(os.path.join(self.workspace, "CMakeLists.txt"), "w", encoding="utf-8") as handle:

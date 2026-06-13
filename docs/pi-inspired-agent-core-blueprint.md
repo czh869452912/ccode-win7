@@ -271,7 +271,7 @@ Outcomes:
 - unfinished operations are marked interrupted by default
 - non-idempotent tool calls are not retried automatically
 
-Current implementation status: Phase A is complete. The operation reducer uses explicit schema v2 `operation_started`, `operation_finished`, and `operation_interrupted` events as the operation-state truth. Runtime emissions cover turns, agent steps, context assembly, context snapshots, provider requests, tool calls, pending interaction start/finish, workflow patches, and save points. Restore and live session snapshots expose reducer-backed `operation_diagnostics` for diagnosis. Phase B should now promote this pattern into a source-aware HookBus/reducer registry instead of growing one-off lifecycle helpers inside the session facade.
+Current implementation status: Phase A is complete. The operation reducer uses explicit schema v2 `operation_started`, `operation_finished`, and `operation_interrupted` events as the operation-state truth. Runtime emissions cover turns, agent steps, context assembly, context snapshots, provider requests, tool calls, pending interaction start/finish, workflow patches, and save points. Restore snapshots close unfinished operations as interrupted, while live session snapshots preserve currently active operations in reducer-backed `operation_diagnostics`. Phase B has promoted extension hook dispatch into a source-aware HookBus/reducer registry; Phase C should now move operation lifecycle orchestration behind an AgentKernel boundary instead of growing one-off lifecycle helpers inside the session facade.
 
 ### Phase B: HookBus And Reducers
 

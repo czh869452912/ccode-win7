@@ -60,6 +60,32 @@ class TestOperationLogReducer(unittest.TestCase):
         self.assertEqual(record.interrupted_reason, "restore_incomplete_operation")
         self.assertEqual(state.interrupted_count, 1)
 
+    def test_live_reducer_keeps_unfinished_operation_active(self):
+        events = [
+            {
+                "schema_version": 2,
+                "session_id": "sess-op",
+                "event_id": "evt-provider",
+                "seq": 1,
+                "ts": "2026-06-13T00:00:00Z",
+                "type": "operation_started",
+                "payload": {
+                    "operation_id": "provider:req-1",
+                    "kind": "provider_request",
+                    "turn_id": "t-1",
+                    "step_id": "s-1",
+                    "retryable": True,
+                },
+            }
+        ]
+
+        state = OperationLogReducer(close_unfinished=False).reduce(events)
+
+        record = state.operations["provider:req-1"]
+        self.assertEqual(record.status, "started")
+        self.assertEqual(state.started_count, 1)
+        self.assertEqual(state.interrupted_count, 0)
+
     def test_explicit_operation_finished_finishes_matching_tool_operation(self):
         events = [
             {

@@ -46,6 +46,9 @@ class OperationLogState(object):
 class OperationLogReducer(object):
     """Reduce transcript lifecycle events into durable operation state."""
 
+    def __init__(self, close_unfinished: bool = True) -> None:
+        self.close_unfinished = bool(close_unfinished)
+
     def reduce(self, events: List[Dict[str, Any]]) -> OperationLogState:
         state = OperationLogState()
         for event in events:
@@ -58,7 +61,8 @@ class OperationLogReducer(object):
                 self._finish_operation(state, payload, timestamp)
             elif event_type == "operation_interrupted":
                 self._interrupt_operation(state, payload, timestamp)
-        self._interrupt_unfinished_operations(state)
+        if self.close_unfinished:
+            self._interrupt_unfinished_operations(state)
         return state
 
     def _remember(self, state: OperationLogState, record: OperationRecord) -> OperationRecord:

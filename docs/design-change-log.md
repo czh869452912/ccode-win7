@@ -44,6 +44,35 @@
 
 ## 3. 当前变更记录
 
+### DC-136
+
+- 日期：2026-06-14
+- 变更主题：Phase A/B 收尾：live operation diagnostics 保留 active 状态
+- 变更摘要：
+  - `OperationLogReducer` 新增 `close_unfinished` 选项，默认保持 restore-time 行为：未完成 operation 关闭为 `interrupted`
+  - `InProcessAdapter.get_session_snapshot(...)` 的 live diagnostics 使用 `close_unfinished=False`，避免把正在运行的 provider/tool/turn operation 误报为 `restore_incomplete_operation`
+  - 新增 reducer 与 adapter 回归测试，明确 restore-time 与 live snapshot 的 operation 语义差异
+  - 删除 Phase B 后遗留的未使用 `_record_diagnostic` helper
+  - 同步 source-of-truth docs，把 Phase A/T-029 残留的“下一步进入 Phase B”口径修正为 Phase B 已收口、Phase C 继续抽 AgentKernel lifecycle boundary
+- 影响范围：
+  - `src/embedagent/session_operation_log.py`
+  - `src/embedagent/inprocess_adapter.py`
+  - `src/embedagent/extensions.py`
+  - `tests/test_session_operation_log.py`
+  - `tests/test_inprocess_adapter_frontend_api.py`
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/pi-inspired-agent-core-blueprint.md`
+  - `docs/development-tracker.md`
+  - `docs/design-change-log.md`
+- 关联文档：
+  - `docs/pi-inspired-agent-core-blueprint.md`
+  - `docs/development-tracker.md`
+- 是否需要 ADR：`否，属于 Phase A/B 收尾语义修正；AgentKernel lifecycle boundary 硬切时再评估 ADR`
+- 后续动作：
+  - Phase C 抽 AgentKernel lifecycle 时继续保持 restore-time close 与 live active 两种 reducer 投影视角
+
 ### DC-135
 
 - 日期：2026-06-14

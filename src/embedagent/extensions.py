@@ -189,24 +189,6 @@ class ExtensionManager(object):
     def _is_builtin_extension(self, extension: Any) -> bool:
         return bool(getattr(extension, "builtin_extension", True))
 
-    def _record_diagnostic(
-        self,
-        extension: Any,
-        event_name: str,
-        error: str,
-        metadata: Optional[Dict[str, Any]] = None,
-    ) -> None:
-        self._diagnostics.append(
-            ExtensionDiagnostic(
-                extension_id=self._extension_id(extension),
-                event=event_name,
-                error=str(error or ""),
-                severity="error",
-                source="builtin" if self._is_builtin_extension(extension) else "project",
-                metadata=dict(metadata or {}),
-            )
-        )
-
     def _register_bus_reducers(self, extension: Any) -> None:
         source_id = self._extension_id(extension)
         source_type = "builtin" if self._is_builtin_extension(extension) else "project"
