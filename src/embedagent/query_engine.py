@@ -8,6 +8,7 @@ from copy import deepcopy
 from typing import Any, Callable, Dict, Optional, Tuple
 
 from embedagent.agent_extension_host import AgentExtensionHost
+from embedagent.agent_kernel import AgentKernel
 from embedagent.agent_lifecycle import AgentLifecycleJournal
 from embedagent.agent_loop import AgentLoop
 from embedagent.agent_tool_action_service import AgentToolActionService
@@ -146,6 +147,7 @@ class QueryEngine(object):
             append_event=self._append_transcript_event,
             session_guard=self._session_guard,
         )
+        self.kernel = AgentKernel(lifecycle=self.lifecycle)
         self.tool_commit = ToolCommitCoordinator(
             self.tools.tool_result_store,
             self.tools.projection_db,
@@ -1149,7 +1151,7 @@ class QueryEngine(object):
 
         turn_id = getattr(session, "current_turn_id", "") or "t-" + uuid.uuid4().hex[:12]
         session_id = getattr(session, "session_id", "") or ""
-        self._emit_turn_started(session, turn_id, current_mode, workflow_state, "user")
+        turn_frame = self.kernel.begin_turn(session, turn_id, current_mode, workflow_state, "user")
 
         if self.tracer is not None:
             self.tracer.record(
@@ -1205,23 +1207,10 @@ class QueryEngine(object):
                     data={"transition_reason": getattr(result.transition, "reason", "")},
                 )
                 self.tracer.flush()
-            self._emit_turn_finished(
-                session,
-                turn_id,
-                result.transition,
-                current_mode,
-                workflow_state,
-            )
+            turn_frame.finish(result.transition)
             return result
         except BaseException as exc:
-            self._emit_turn_interrupted(
-                session,
-                turn_id,
-                "turn_error",
-                current_mode,
-                workflow_state,
-                error=str(exc),
-            )
+            turn_frame.interrupt("turn_error", error=str(exc))
             if self.tracer is not None:
                 self.tracer.record(
                     TraceEventType.ERROR,
@@ -1258,7 +1247,9 @@ class QueryEngine(object):
             session, initial_mode, workflow_state=workflow_state, user_text=user_text
         )
         command_turn_id = str(turn_id or ("t-" + uuid.uuid4().hex[:12]))
-        self._emit_turn_started(session, command_turn_id, current_mode, workflow_state, "command")
+        turn_frame = self.kernel.begin_turn(
+            session, command_turn_id, current_mode, workflow_state, "command"
+        )
         with self._session_guard():
             if user_text:
                 message_id = "m-" + uuid.uuid4().hex[:12]
@@ -1367,13 +1358,7 @@ class QueryEngine(object):
             self._persist_summary(session, current_mode, assembly)
             if on_step_finish is not None:
                 on_step_finish(step_index, reply, "aborted")
-            self._emit_turn_finished(
-                session,
-                command_turn_id,
-                result.transition,
-                current_mode,
-                workflow_state,
-            )
+            turn_frame.finish(result.transition)
             return result, committed
         observation, current_mode, suspended = self._execute_action(
             session,
@@ -1388,13 +1373,7 @@ class QueryEngine(object):
             self._persist_summary(session, current_mode, assembly)
             if on_step_finish is not None:
                 on_step_finish(step_index, reply, suspended.transition.reason)
-            self._emit_turn_finished(
-                session,
-                command_turn_id,
-                suspended.transition,
-                current_mode,
-                workflow_state,
-            )
+            turn_frame.finish(suspended.transition)
             return suspended, None
         committed = self._record_tool_observation(
             session,
@@ -1412,13 +1391,7 @@ class QueryEngine(object):
         self._persist_summary(session, current_mode, assembly)
         if on_step_finish is not None:
             on_step_finish(step_index, reply, "completed")
-        self._emit_turn_finished(
-            session,
-            command_turn_id,
-            transition,
-            current_mode,
-            workflow_state,
-        )
+        turn_frame.finish(transition)
         return QueryTurnResult("", session, transition, turns_used=1), committed
 
     def resume_interaction(
@@ -1443,7 +1416,9 @@ class QueryEngine(object):
     ) -> QueryTurnResult:
         current_mode = require_mode(initial_mode)["slug"]
         resume_turn_id = self._turn_id(session) or ("t-" + uuid.uuid4().hex[:12])
-        self._emit_turn_started(session, resume_turn_id, current_mode, workflow_state, "resume")
+        turn_frame = self.kernel.begin_turn(
+            session, resume_turn_id, current_mode, workflow_state, "resume"
+        )
         with self._session_guard():
             self._append_harness_messages(
                 session,
@@ -1456,13 +1431,7 @@ class QueryEngine(object):
         if pending is None:
             transition = LoopTransition(reason="completed", message="no pending interaction")
             self._record_transition(session, transition)
-            self._emit_turn_finished(
-                session,
-                resume_turn_id,
-                transition,
-                current_mode,
-                workflow_state,
-            )
+            turn_frame.finish(transition)
             return QueryTurnResult("", session, transition)
         current_mode = self._resume_interaction(
             session,
@@ -1491,22 +1460,9 @@ class QueryEngine(object):
                 user_input_handler,
             )
         except BaseException as exc:
-            self._emit_turn_interrupted(
-                session,
-                resume_turn_id,
-                "resume_error",
-                current_mode,
-                workflow_state,
-                error=str(exc),
-            )
+            turn_frame.interrupt("resume_error", error=str(exc))
             raise
-        self._emit_turn_finished(
-            session,
-            resume_turn_id,
-            result.transition,
-            current_mode,
-            workflow_state,
-        )
+        turn_frame.finish(result.transition)
         return result
 
     def _is_completion_signal(self, reply, session) -> bool:

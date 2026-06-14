@@ -293,6 +293,55 @@ class RecordingSessionLock(object):
         return self._depth > 0
 
 
+class SpyTurnFrame(object):
+    def __init__(self, kernel, turn_id, source):
+        self._kernel = kernel
+        self.turn_id = turn_id
+        self.source = source
+
+    def finish(self, transition, current_mode=None, workflow_state=None):
+        self._kernel.finished.append(
+            {
+                "turn_id": self.turn_id,
+                "source": self.source,
+                "reason": transition.reason,
+                "current_mode": current_mode,
+                "workflow_state": workflow_state,
+            }
+        )
+
+    def interrupt(self, reason, error="", current_mode=None, workflow_state=None):
+        self._kernel.interrupted.append(
+            {
+                "turn_id": self.turn_id,
+                "source": self.source,
+                "reason": reason,
+                "error": error,
+                "current_mode": current_mode,
+                "workflow_state": workflow_state,
+            }
+        )
+
+
+class SpyKernel(object):
+    def __init__(self):
+        self.started = []
+        self.finished = []
+        self.interrupted = []
+
+    def begin_turn(self, session, turn_id, current_mode, workflow_state, source):
+        del session
+        self.started.append(
+            {
+                "turn_id": turn_id,
+                "current_mode": current_mode,
+                "workflow_state": workflow_state,
+                "source": source,
+            }
+        )
+        return SpyTurnFrame(self, turn_id, source)
+
+
 class LockCheckingContextManager(ContextManager):
     def __init__(self, lock, *args, **kwargs):
         super(LockCheckingContextManager, self).__init__(*args, **kwargs)
@@ -789,6 +838,92 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertTrue(started[0]["operation_id"].startswith("turn:"))
         self.assertEqual(finished[0]["operation_id"], started[0]["operation_id"])
         self.assertEqual(finished[0]["result"]["transition_reason"], "completed")
+
+    def test_query_engine_user_turn_uses_kernel_turn_frame(self):
+        engine = QueryEngine(
+            client=FakeClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+        )
+        spy_kernel = SpyKernel()
+        engine.kernel = spy_kernel
+        session = Session()
+        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：build")
+
+        result = engine.submit_user_turn(
+            user_text="继续",
+            stream=False,
+            initial_mode="build",
+            session=session,
+        )
+
+        self.assertEqual(result.transition.reason, "completed")
+        self.assertEqual([item["source"] for item in spy_kernel.started], ["user"])
+        self.assertEqual([item["source"] for item in spy_kernel.finished], ["user"])
+        self.assertEqual(spy_kernel.finished[0]["reason"], "completed")
+        self.assertEqual(spy_kernel.interrupted, [])
+
+    def test_query_engine_command_turn_uses_kernel_turn_frame(self):
+        engine = QueryEngine(
+            client=FakeClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+        )
+        spy_kernel = SpyKernel()
+        engine.kernel = spy_kernel
+        session = Session()
+        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：build")
+
+        result, observation = engine.submit_command_turn(
+            user_text="/read",
+            action=Action("read_file", {"path": "src/demo.c"}, "cmd-read"),
+            initial_mode="build",
+            session=session,
+        )
+
+        self.assertEqual(result.transition.reason, "completed")
+        self.assertTrue(observation.success)
+        self.assertEqual([item["source"] for item in spy_kernel.started], ["command"])
+        self.assertEqual([item["source"] for item in spy_kernel.finished], ["command"])
+        self.assertEqual(spy_kernel.finished[0]["reason"], "completed")
+        self.assertEqual(spy_kernel.interrupted, [])
+
+    def test_query_engine_resume_turn_uses_kernel_turn_frame(self):
+        session = Session()
+        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：spec")
+        engine = QueryEngine(
+            client=AskThenDoneClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+        )
+        first = engine.submit_user_turn(
+            user_text="继续",
+            stream=False,
+            initial_mode="spec",
+            session=session,
+            user_input_handler=None,
+        )
+        self.assertEqual(first.transition.reason, "user_input_wait")
+        spy_kernel = SpyKernel()
+        engine.kernel = spy_kernel
+
+        resumed = engine.resume_interaction(
+            session=session,
+            initial_mode="spec",
+            stream=False,
+            interaction_resolution={
+                "answer": "切到 debug 模式继续排查",
+                "selected_index": 1,
+                "selected_mode": "debug",
+                "selected_option_text": "切到 debug 模式继续排查",
+            },
+        )
+
+        self.assertEqual(resumed.transition.reason, "completed")
+        self.assertEqual([item["source"] for item in spy_kernel.started], ["resume"])
+        self.assertEqual([item["source"] for item in spy_kernel.finished], ["resume"])
+        self.assertEqual(spy_kernel.finished[0]["reason"], "completed")
+        self.assertEqual(spy_kernel.interrupted, [])
 
     def test_tool_result_store_failure_degrades_without_breaking_tool_pairing(self):
         transcript_store = TranscriptStore(self.workspace)

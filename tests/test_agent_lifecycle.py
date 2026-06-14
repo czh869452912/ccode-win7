@@ -5,6 +5,7 @@ import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
+from embedagent.agent_kernel import AgentKernel
 from embedagent.agent_lifecycle import AgentLifecycleJournal
 from embedagent.session import LoopTransition, PendingInteraction, Session
 
@@ -131,6 +132,54 @@ class TestAgentLifecycleJournal(unittest.TestCase):
         self.assertEqual(events[0]["payload"]["operation_id"], "pending:pi-1")
         self.assertEqual(events[0]["payload"]["kind"], "pending_interaction")
         self.assertEqual(events[0]["payload"]["result"]["resolution_status"], "resolved")
+
+    def test_kernel_turn_frame_records_finish_and_interrupt(self):
+        session = Session(session_id="sess-kernel")
+        events = []
+        journal = AgentLifecycleJournal(
+            append_event=lambda session, event_type, payload, schema_version=1: events.append(
+                {
+                    "type": event_type,
+                    "payload": payload,
+                    "schema_version": schema_version,
+                }
+            ),
+            session_guard=lambda: contextlib.nullcontext(),
+        )
+        kernel = AgentKernel(lifecycle=journal)
+
+        frame = kernel.begin_turn(
+            session,
+            turn_id="turn-1",
+            current_mode="build",
+            workflow_state="chat",
+            source="user",
+        )
+        frame.finish(LoopTransition(reason="completed", message="done", turns_used=1))
+        interrupted = kernel.begin_turn(
+            session,
+            turn_id="turn-2",
+            current_mode="debug",
+            workflow_state="chat",
+            source="resume",
+        )
+        interrupted.interrupt("resume_error", error="boom")
+
+        self.assertEqual(
+            [item["type"] for item in events],
+            [
+                "operation_started",
+                "operation_finished",
+                "operation_started",
+                "operation_interrupted",
+            ],
+        )
+        self.assertEqual(events[0]["payload"]["operation_id"], "turn:turn-1")
+        self.assertEqual(events[0]["payload"]["metadata"]["source"], "user")
+        self.assertEqual(events[1]["payload"]["result"]["transition_reason"], "completed")
+        self.assertEqual(events[2]["payload"]["metadata"]["source"], "resume")
+        self.assertEqual(events[3]["payload"]["reason"], "resume_error")
+        self.assertEqual(events[3]["payload"]["result"]["error"], "boom")
 
 
 if __name__ == "__main__":
