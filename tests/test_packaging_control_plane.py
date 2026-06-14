@@ -351,9 +351,7 @@ class TestStageJsonReports(unittest.TestCase):
             external = [item for item in payload["checks"] if item["name"] == "External Tools"][0]
             self.assertFalse(external["ok"])
             self.assertTrue(any("runtime_tool.git" in error for error in external["errors"]))
-            self.assertTrue(
-                any("runtime_tool.llvm.clang" in error for error in external["errors"])
-            )
+            self.assertTrue(any("runtime_tool.llvm.clang" in error for error in external["errors"]))
             self.assertEqual(payload["runtime_contract"]["schema_version"], 1)
 
     def test_dependency_checker_accepts_runtime_contract_complete_mock_bundle(self):

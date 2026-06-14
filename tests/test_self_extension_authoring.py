@@ -135,12 +135,7 @@ def test_generated_extension_validation_recipe_uses_managed_python_command(tmp_p
         AuthoringRequest(kind="extension", name="Compile Check", summary="Validate code.")
     )
     recipe_path = (
-        tmp_path
-        / ".embedagent"
-        / "extensions"
-        / "compile-check"
-        / "recipes"
-        / "validate.json"
+        tmp_path / ".embedagent" / "extensions" / "compile-check" / "recipes" / "validate.json"
     )
     recipe = json.loads(recipe_path.read_text(encoding="utf-8"))
 
