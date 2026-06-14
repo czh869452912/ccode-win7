@@ -324,10 +324,14 @@ class SpyTurnFrame(object):
 
 
 class SpyKernel(object):
-    def __init__(self):
+    def __init__(self, delegate=None):
+        self._delegate = delegate
         self.started = []
         self.finished = []
         self.interrupted = []
+        self.pending_permissions = []
+        self.pending_user_inputs = []
+        self.resolved_pending = []
 
     def begin_turn(self, session, turn_id, current_mode, workflow_state, source):
         del session
@@ -340,6 +344,49 @@ class SpyKernel(object):
             }
         )
         return SpyTurnFrame(self, turn_id, source)
+
+    def record_pending_permission(self, session, action, permission_payload, current_mode):
+        self.pending_permissions.append(
+            {
+                "tool_name": action.name,
+                "permission_payload": dict(permission_payload),
+                "current_mode": current_mode,
+            }
+        )
+        return self._delegate.record_pending_permission(
+            session, action, permission_payload, current_mode
+        )
+
+    def record_pending_user_input(
+        self, session, action, tool_name, request_payload, message, current_mode
+    ):
+        self.pending_user_inputs.append(
+            {
+                "tool_name": tool_name,
+                "request_payload": dict(request_payload),
+                "message": message,
+                "current_mode": current_mode,
+            }
+        )
+        return self._delegate.record_pending_user_input(
+            session,
+            action,
+            tool_name,
+            request_payload,
+            message,
+            current_mode,
+        )
+
+    def resolve_pending_interaction(self, session, pending, resolution):
+        self.resolved_pending.append(
+            {
+                "interaction_id": pending.interaction_id,
+                "kind": pending.kind,
+                "tool_name": pending.tool_name,
+                "resolution": dict(resolution),
+            }
+        )
+        return self._delegate.resolve_pending_interaction(session, pending, resolution)
 
 
 class LockCheckingContextManager(ContextManager):
@@ -845,7 +892,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
         )
-        spy_kernel = SpyKernel()
+        spy_kernel = SpyKernel(delegate=engine.kernel)
         engine.kernel = spy_kernel
         session = Session()
         session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：build")
@@ -869,7 +916,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
         )
-        spy_kernel = SpyKernel()
+        spy_kernel = SpyKernel(delegate=engine.kernel)
         engine.kernel = spy_kernel
         session = Session()
         session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：build")
@@ -904,7 +951,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
             user_input_handler=None,
         )
         self.assertEqual(first.transition.reason, "user_input_wait")
-        spy_kernel = SpyKernel()
+        spy_kernel = SpyKernel(delegate=engine.kernel)
         engine.kernel = spy_kernel
 
         resumed = engine.resume_interaction(
@@ -1979,6 +2026,89 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertEqual(pending_starts[0]["operation_id"], "pending:%s" % interaction_id)
         self.assertEqual(pending_starts[0]["metadata"]["kind"], "user_input")
         self.assertEqual(pending_starts[0]["metadata"]["tool_name"], "ask_user")
+
+    def test_query_engine_permission_wait_uses_kernel_pending_boundary(self):
+        session = Session()
+        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：build")
+        engine = QueryEngine(
+            client=WriteThenDoneClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=False, workspace=self.workspace),
+        )
+        spy_kernel = SpyKernel(delegate=engine.kernel)
+        engine.kernel = spy_kernel
+
+        result = engine.submit_user_turn(
+            user_text="写文件",
+            stream=False,
+            initial_mode="build",
+            session=session,
+            permission_handler=None,
+        )
+
+        self.assertEqual(result.transition.reason, "permission_wait")
+        self.assertEqual(len(spy_kernel.pending_permissions), 1)
+        self.assertEqual(spy_kernel.pending_permissions[0]["tool_name"], "write_file")
+        self.assertEqual(
+            spy_kernel.pending_permissions[0]["permission_payload"]["tool_name"], "write_file"
+        )
+
+    def test_query_engine_user_input_wait_uses_kernel_pending_boundary(self):
+        session = Session()
+        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：spec")
+        engine = QueryEngine(
+            client=AskThenDoneClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+        )
+        spy_kernel = SpyKernel(delegate=engine.kernel)
+        engine.kernel = spy_kernel
+
+        result = engine.submit_user_turn(
+            user_text="继续",
+            stream=False,
+            initial_mode="spec",
+            session=session,
+            user_input_handler=None,
+        )
+
+        self.assertEqual(result.transition.reason, "user_input_wait")
+        self.assertEqual(len(spy_kernel.pending_user_inputs), 1)
+        self.assertEqual(spy_kernel.pending_user_inputs[0]["tool_name"], "ask_user")
+        self.assertEqual(
+            spy_kernel.pending_user_inputs[0]["request_payload"]["question"], "下一步怎么做？"
+        )
+
+    def test_query_engine_resume_uses_kernel_pending_resolution_boundary(self):
+        session = Session()
+        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：build")
+        engine = QueryEngine(
+            client=WriteThenDoneClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=False, workspace=self.workspace),
+        )
+        first = engine.submit_user_turn(
+            user_text="写文件",
+            stream=False,
+            initial_mode="build",
+            session=session,
+            permission_handler=None,
+        )
+        self.assertEqual(first.transition.reason, "permission_wait")
+        spy_kernel = SpyKernel(delegate=engine.kernel)
+        engine.kernel = spy_kernel
+
+        resumed = engine.resume_interaction(
+            session=session,
+            initial_mode="build",
+            stream=False,
+            interaction_resolution={"approved": True},
+        )
+
+        self.assertEqual(resumed.transition.reason, "completed")
+        self.assertEqual(len(spy_kernel.resolved_pending), 1)
+        self.assertEqual(spy_kernel.resolved_pending[0]["kind"], "permission")
+        self.assertEqual(spy_kernel.resolved_pending[0]["resolution"], {"approved": True})
 
     def test_query_engine_resume_pending_persists_resolution_and_tool_result(self):
         session = Session()

@@ -42,7 +42,6 @@ from embedagent.session import (
     Action,
     AssistantReply,
     ContextAssemblyResult,
-    InteractionCheckpoint,
     LoopResult,
     LoopTransition,
     Observation,
@@ -965,22 +964,12 @@ class QueryEngine(object):
         pending: PendingInteraction,
         request_data: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
-        turn_id = session.turns[-1].turn_id if session.turns else ""
-        step = session.current_step()
-        step_id = step.step_id if step is not None else ""
-        payload = InteractionCheckpoint(
-            action={
-                "name": action.name,
-                "arguments": dict(action.arguments),
-                "call_id": action.call_id,
-            },
-            turn_id=turn_id,
-            step_id=step_id,
-            interaction_id=pending.interaction_id,
-            kind=pending.kind,
+        return self.kernel.interaction_checkpoint_payload(
+            session,
+            action,
+            pending,
             request_data=dict(request_data or {}),
-        ).to_dict()
-        return payload
+        )
 
     def _interrupted_observation(self, tool_name: str) -> Observation:
         return Observation(
@@ -2127,24 +2116,12 @@ class QueryEngine(object):
             "reason": request.reason,
             "details": dict(request.details),
         }
-        pending = PendingInteraction(
-            kind="permission",
-            tool_name=action.name,
-        )
-        pending.request_payload = self._interaction_checkpoint_payload(
+        pending, transition = self.kernel.record_pending_permission(
             session,
             action,
-            pending,
-            request_data={"permission": permission_payload},
-        )
-        pending.request_payload["permission"] = permission_payload
-        transition = LoopTransition(
-            "permission_wait",
-            request.reason,
-            pending,
+            permission_payload,
             current_mode,
         )
-        self._record_transition(session, transition)
         return QueryTurnResult("", session, transition, pending_interaction=pending)
 
     def _execute_action(
@@ -2214,21 +2191,14 @@ class QueryEngine(object):
                     ],
                     "details": dict(request.details),
                 }
-                pending = PendingInteraction(
-                    kind="user_input",
-                    tool_name="ask_user",
-                )
-                pending.request_payload = self._interaction_checkpoint_payload(
+                pending, transition = self.kernel.record_pending_user_input(
                     session,
                     action,
-                    pending,
-                    request_data={"request": request_payload},
+                    "ask_user",
+                    request_payload,
+                    request.question,
+                    current_mode,
                 )
-                pending.request_payload["request"] = request_payload
-                transition = LoopTransition(
-                    "user_input_wait", request.question, pending, current_mode
-                )
-                self._record_transition(session, transition)
                 return (
                     self._failure_observation(
                         "ask_user",
@@ -2260,34 +2230,22 @@ class QueryEngine(object):
                 else None
             )
             if response is None:
-                pending = PendingInteraction(
-                    kind="user_input",
-                    tool_name="propose_mode_switch",
-                )
-                pending.request_payload = self._interaction_checkpoint_payload(
+                request_payload = {
+                    "tool_name": "propose_mode_switch",
+                    "question": str(runtime_action.arguments.get("reason") or ""),
+                    "options": [],
+                    "details": {
+                        "target_mode": str(runtime_action.arguments.get("target_mode") or "")
+                    },
+                }
+                pending, transition = self.kernel.record_pending_user_input(
                     session,
                     action,
-                    pending,
-                    request_data={
-                        "request": {
-                            "tool_name": "propose_mode_switch",
-                            "question": str(runtime_action.arguments.get("reason") or ""),
-                            "options": [],
-                            "details": {
-                                "target_mode": str(
-                                    runtime_action.arguments.get("target_mode") or ""
-                                )
-                            },
-                        }
-                    },
-                )
-                transition = LoopTransition(
-                    "user_input_wait",
+                    "propose_mode_switch",
+                    request_payload,
                     str(runtime_action.arguments.get("reason") or ""),
-                    pending,
                     current_mode,
                 )
-                self._record_transition(session, transition)
                 return (
                     self._failure_observation(
                         action.name,
@@ -2421,26 +2379,7 @@ class QueryEngine(object):
         with self._session_guard():
             turn_id = session.turns[-1].turn_id if session.turns else ""
             step_id = session.current_step().step_id if session.current_step() is not None else ""
-            self._append_transcript_event(
-                session,
-                "pending_resolution",
-                {
-                    "turn_id": turn_id,
-                    "step_id": step_id,
-                    "interaction_id": pending.interaction_id,
-                    "kind": pending.kind,
-                    "tool_name": pending.tool_name,
-                    "resolution_payload": dict(resolution or {}),
-                },
-            )
-            self._emit_pending_finished(
-                session,
-                pending,
-                turn_id,
-                step_id,
-                "resolved",
-            )
-            session.resolve_pending_interaction(resolution)
+            self.kernel.resolve_pending_interaction(session, pending, resolution)
         action_payload = (
             pending.request_payload.get("action")
             if isinstance(pending.request_payload, dict)
