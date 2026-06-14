@@ -12,6 +12,7 @@ from embedagent.strategies.tool_cache import ToolResultCache
 from embedagent.session import Action
 from embedagent.tool_result_store import ToolResultStore
 from embedagent.tools import (
+    authoring_ops,
     compile_ops,
     discovery_ops,
     file_ops,
@@ -306,6 +307,22 @@ _DEFAULT_TOOL_METADATA = {
         "activity_kind": "interaction",
         "context_priority": 99,
     },
+    "author_local_capability": {
+        "permission_category": "workspace_write",
+        "mode_visibility": ["build", "debug"],
+        "workflow_visibility": ["chat", "plan", "command"],
+        "user_label": "Author Local Capability",
+        "progress_renderer_key": "file_write",
+        "result_renderer_key": "file_write",
+        "supports_diff_preview": True,
+        "context_reducer_key": "author_local_capability",
+        "read_only": False,
+        "concurrency_safe": False,
+        "interrupt_behavior": "block",
+        "result_budget_policy": "compact-preview",
+        "activity_kind": "edit",
+        "context_priority": 82,
+    },
 }
 
 
@@ -329,6 +346,7 @@ class ToolRuntime(object):
             file_ops.build_tools(self._ctx)
             + discovery_ops.build_tools(self._ctx)
             + session_ops.build_interaction_tools(self._ctx)
+            + authoring_ops.build_tools(self._ctx)
             + shell_ops.build_tools(self._ctx)
             + git_ops.build_tools(self._ctx)
             + compile_ops.build_tools(self._ctx)

@@ -81,7 +81,7 @@ class TestToolRuntimeSchemas(unittest.TestCase):
         shutil.rmtree(self.workspace, ignore_errors=True)
 
     def test_total_tool_count(self):
-        self.assertEqual(len(self.schemas), 15)
+        self.assertEqual(len(self.schemas), 16)
 
     def test_official_tool_catalog_excludes_legacy_duplicate_tools(self):
         expected = [
@@ -195,6 +195,45 @@ class TestToolRuntimeSchemas(unittest.TestCase):
         self.assertNotIn("run_recipe", tool_names)
         self.assertNotIn("task_status", tool_names)
         self.assertNotIn("run_command", tool_names)
+
+    def test_author_local_capability_schema_is_build_debug_only(self):
+        build_names = [
+            item["function"]["name"] for item in self.rt.schemas_for("build", workflow_state="chat")
+        ]
+        debug_names = [
+            item["function"]["name"] for item in self.rt.schemas_for("debug", workflow_state="chat")
+        ]
+        verify_names = [
+            item["function"]["name"]
+            for item in self.rt.schemas_for("verify", workflow_state="review")
+        ]
+
+        self.assertIn("author_local_capability", build_names)
+        self.assertIn("author_local_capability", debug_names)
+        self.assertNotIn("author_local_capability", verify_names)
+
+    def test_author_local_capability_writes_skill_artifact(self):
+        obs = self.rt.execute(
+            "author_local_capability",
+            {
+                "kind": "skill",
+                "name": "Review Helper",
+                "summary": "Review local changes.",
+            },
+        )
+
+        self.assertTrue(obs.success)
+        self.assertEqual(obs.data["kind"], "skill")
+        self.assertTrue(
+            os.path.isfile(
+                os.path.join(
+                    self.workspace,
+                    ".embedagent",
+                    "skills",
+                    "review-helper.md",
+                )
+            )
+        )
 
 
 class TestToolRuntimeExecute(unittest.TestCase):

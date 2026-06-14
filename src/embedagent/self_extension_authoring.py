@@ -203,8 +203,7 @@ class SelfExtensionAuthoringService(object):
                     "tool_name": "run_recipe",
                     "recipe_action": "test",
                     "label": "Validate %s" % name,
-                    "command": "python -m py_compile .embedagent/extensions/%s/extension.py"
-                    % slug,
+                    "command": "python -m py_compile .embedagent/extensions/%s/extension.py" % slug,
                     "cwd": ".",
                     "timeout_sec": 120,
                 },
@@ -256,9 +255,7 @@ class SelfExtensionAuthoringService(object):
         path = _resolve_inside(self.workspace, relative_path)
         display_path = _display_path(self.workspace, path)
         if os.path.exists(path) and not overwrite:
-            diagnostics.append(
-                {"kind": kind, "path": display_path, "error": "file already exists"}
-            )
+            diagnostics.append({"kind": kind, "path": display_path, "error": "file already exists"})
             return AuthoredFile(display_path, kind, "skipped")
         parent = os.path.dirname(path)
         if parent and not os.path.isdir(parent):
@@ -312,7 +309,7 @@ def _next_actions(kind: str) -> List[str]:
 
 
 def _extension_template() -> str:
-    return '''from __future__ import annotations
+    return """from __future__ import annotations
 
 
 def create_extension(api):
@@ -329,4 +326,4 @@ def create_extension(api):
         #     return set()
 
     return ProjectExtension()
-'''
+"""

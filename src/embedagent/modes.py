@@ -91,6 +91,7 @@ _BUILTIN_MODES = {
             "grep_text",
             "write_file",
             "edit_file",
+            "author_local_capability",
             "ask_user",
         ],
         "writable_globs": [
@@ -137,6 +138,7 @@ _BUILTIN_MODES = {
             "grep_text",
             "write_file",
             "edit_file",
+            "author_local_capability",
             "ask_user",
         ],
         "writable_globs": [
