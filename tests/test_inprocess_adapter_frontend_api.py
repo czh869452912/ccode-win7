@@ -12,7 +12,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 from embedagent.inprocess_adapter import InProcessAdapter
 from embedagent.llm import ModelClientError
 from embedagent.permissions import PermissionPolicy, PermissionRequest
-from embedagent.session import Action, AssistantReply
+from embedagent.session import Action, AssistantReply, Observation
 from embedagent.tools import ToolRuntime
 
 _COUNTER = count(1)
@@ -603,6 +603,57 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertIn("context_analysis", refreshed)
         self.assertIn("compact_boundary_count", refreshed)
         self.assertIsInstance(refreshed["context_analysis"], dict)
+
+    def test_session_snapshot_includes_compaction_state(self):
+        adapter = InProcessAdapter(
+            client=CompactRetryClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+        )
+        snapshot = adapter.create_session("build")
+        session_id = str(snapshot.get("session_id") or "")
+        state = adapter._require_session(session_id)
+        with state.lock:
+            session = state.session
+            for index in range(5):
+                session.add_user_message("old user %s %s" % (index, "u" * 400))
+                session.add_assistant_reply(
+                    AssistantReply(
+                        content="old assistant %s %s" % (index, "a" * 300),
+                        actions=[],
+                        finish_reason="stop",
+                    )
+                )
+                session.add_observation(
+                    Action("read_file", {"path": "src/pkg/demo.c"}, "read-old-%s" % index),
+                    Observation(
+                        "read_file",
+                        True,
+                        None,
+                        {
+                            "path": "src/pkg/demo.c",
+                            "content": "int demo(void) {\n%s\n}\n" % ("x" * 1200),
+                            "content_stored_path": ".embedagent/memory/sessions/%s/tool-results/demo-%s/content.txt"
+                            % (session_id, index),
+                        },
+                    ),
+                )
+        adapter.submit_user_message(
+            session_id=session_id,
+            text="继续分析",
+            stream=False,
+            wait=True,
+            permission_resolver=lambda ticket: True,
+            event_handler=lambda event_name, current_session_id, payload: None,
+        )
+        refreshed = adapter.get_session_snapshot(session_id)
+
+        self.assertIn("compaction_state", refreshed)
+        self.assertEqual(refreshed["compaction_state"]["boundary_count"], 1)
+        self.assertIn(
+            "src/pkg/demo.c",
+            refreshed["compaction_state"]["latest_boundary"]["file_activity"]["read_files"],
+        )
 
     def test_session_snapshot_includes_workspace_intelligence_projection(self):
         with open(os.path.join(self.workspace, "tags"), "w", encoding="utf-8") as handle:

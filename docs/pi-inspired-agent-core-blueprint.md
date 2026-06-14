@@ -198,7 +198,7 @@ Reloading resources must not execute Python code.
 
 Pi's strongest durable design idea is that session storage is not only history. It is the durable state model for model choice, active tools, compaction, branch summaries, labels, extension state, and recovery markers.
 
-EmbedAgent should extend transcript truth in that direction. `transcript.jsonl` should become the reducer input for all durable session state that matters after restart. Phase H starts this beyond operation state by reducing safe runtime configuration from transcript events.
+EmbedAgent should extend transcript truth in that direction. `transcript.jsonl` should become the reducer input for all durable session state that matters after restart. Phase H starts this beyond operation state by reducing safe runtime configuration from transcript events, and Phase J extends the same pattern to structured compaction state.
 
 ### Turn Snapshot And Save Point Discipline
 
@@ -214,7 +214,7 @@ EmbedAgent should adopt this invariant:
 
 Pi's compaction design tracks what was summarized, what remains, and file activity metadata.
 
-EmbedAgent should evolve compact boundaries into structured durable entries with:
+EmbedAgent has evolved compact boundaries into structured durable entries with:
 
 - first kept message or event anchor
 - tokens before and after
@@ -223,6 +223,8 @@ EmbedAgent should evolve compact boundaries into structured durable entries with
 - modified files
 - evidence sources
 - extension-provided summary flag
+
+Current implementation status: Phase J is complete. `CompactionStateReducer` projects structured compaction state from `compact_boundary` events. `QueryEngine` emits safe token/message counts, preserved message anchors, file activity paths, evidence refs, and extension-summary flags. Restore results, managed sessions, protocol snapshots, and session snapshots expose `compaction_state`. The projection is diagnostic/replay state only and does not select context, execute extensions, reload resources, or bypass permissions.
 
 ### Model Capability Metadata
 
@@ -397,6 +399,20 @@ Outcomes:
 
 Current implementation status: Phase I is complete. `src/embedagent/workflow_package_manifest.py` defines the generic manifest read model. The bundled C/C++ package exposes its manifest through `CHarnessWorkflowExtension.package_manifest()` and `ExtensionManager.package_manifests()`. `CapabilityRegistry` now includes `workflow_package` descriptors, and `InProcessAdapter.capability_snapshot()` includes the bundled C/C++ package descriptor through the shared extension manager rather than through a direct adapter-to-harness dependency.
 
+### Phase J: Structured Compaction State
+
+Make compact boundaries reducer-backed durable state rather than only live session compatibility records.
+
+Outcomes:
+
+- `compact_boundary` events carry safe structured metadata for preserved message anchors, token/message counts, file activity paths, evidence refs, and extension-summary flags
+- `CompactionStateReducer` projects latest boundary, boundary history, aggregate summarized turns, and duplicate/malformed diagnostics
+- restore results, managed sessions, protocol snapshots, and frontend session snapshots expose `compaction_state`
+- `Session.compact_boundaries` remains live context compatibility state
+- compaction projection stays read-only and does not select context, execute tools, load extensions, grant permissions, or replace session history
+
+Current implementation status: Phase J is complete. `src/embedagent/compaction_state.py` defines the reducer and serializable read model; `QueryEngine` enriches `compact_boundary` transcript events; `SessionRestorer` reduces the consumed transcript prefix; `InProcessAdapter` refreshes `ManagedSession.compaction_state`; `SessionSnapshotProjector` and the protocol/core adapter expose the projection.
+
 ## 9. Acceptance Criteria For The Direction
 
 The blueprint is working when:
@@ -408,6 +424,7 @@ The blueprint is working when:
 - workflow packages can be inspected through read-only manifests without making manifests the activation policy
 - durable restore can explain where an interrupted run stopped
 - durable restore can explain which safe runtime configuration a provider request used
+- durable restore can explain what compaction boundary was written and which safe metadata it carried
 - project-local extensions can add useful behavior without bypassing permissions
 - resource reload and extension loading remain separate operations
 - frontend shells consume projections, not workflow internals

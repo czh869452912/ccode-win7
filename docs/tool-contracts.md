@@ -31,6 +31,8 @@ Built-in mode `allowed_tools` are workflow-neutral permission/write contracts. T
 
 `RuntimeConfigReducer` is a transcript-backed read model, not a tool runtime. It describes replayable runtime configuration such as credential-free model profile metadata, active model-visible tool names, local resource revision metadata, capability counts, and provider snapshot records. Reducer state does not make a tool active, execute a tool, reload resources, load project extensions, or bypass permission policy.
 
+`CompactionStateReducer` is a transcript-backed read model, not a tool runtime. It describes compact boundary diagnostics such as token/message counts, preserved message anchors, safe file activity paths, evidence refs, and duplicate/malformed diagnostics. Reducer state does not make a tool active, execute a tool, reload resources, load project extensions, select context, or bypass permission policy.
+
 Allowed-tool gating is not a runtime wrapper. Core orchestration receives an explicit allowed-tool policy from its host; hosted product paths use `QueryEngine._allowed_tools_for_mode(...)` as a compatibility facade over `AgentExtensionHost.allowed_tool_names(...)`.
 
 `author_local_capability` is a workflow-neutral write tool for local self-extension authoring. It creates workspace-bound skills, prompts, recipes, and disabled-by-default project extension skeletons under `.embedagent`; it does not reload resource caches and does not load, enable, import, or trust generated Python extension code.

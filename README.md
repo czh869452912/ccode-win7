@@ -16,7 +16,7 @@ The repository now treats Agent Core as the workflow-neutral runtime, with the C
 
 Local offline self-extension is part of the official architecture: workspace file resources and manifest-gated project-local Python extensions can extend the hosted runtime while remote registries, online installs, dependency installation, plugin marketplaces, built-in tool replacement, and general multi-agent orchestration remain outside the product baseline.
 
-The next long-term architecture direction is captured in `docs/pi-inspired-agent-core-blueprint.md`: continue learning from Pi's functional design and architecture philosophy while preserving EmbedAgent's offline, Windows 7, Python 3.8, and C/C++ engineering constraints. The current baseline remains valid; the blueprint guides gradual work toward a smaller Agent Kernel, durable session-log reducers, source-aware hooks, explicit turn snapshots, replayable runtime configuration, and a default C/C++ workflow package loaded through the same capability boundary as local extensions. Phase A durable operation truth, Phase B source-aware extension hook dispatch, Phase C AgentKernel lifecycle extraction, Phase D default C/C++ workflow package ownership, Phase E local self-extension authoring, Phase F repo-side offline bundle validation, Phase G turn snapshot / capability registry foundation, Phase H runtime configuration reducer, and Phase I workflow package manifest/read model are complete. The next architecture work should focus on structured compaction state, real Win7 bundle smoke validation, real C/C++ project validation, and deleting stale compatibility paths.
+The next long-term architecture direction is captured in `docs/pi-inspired-agent-core-blueprint.md`: continue learning from Pi's functional design and architecture philosophy while preserving EmbedAgent's offline, Windows 7, Python 3.8, and C/C++ engineering constraints. The current baseline remains valid; the blueprint guides gradual work toward a smaller Agent Kernel, durable session-log reducers, source-aware hooks, explicit turn snapshots, replayable runtime configuration, structured compaction state, and a default C/C++ workflow package loaded through the same capability boundary as local extensions. Phase A durable operation truth, Phase B source-aware extension hook dispatch, Phase C AgentKernel lifecycle extraction, Phase D default C/C++ workflow package ownership, Phase E local self-extension authoring, Phase F repo-side offline bundle validation, Phase G turn snapshot / capability registry foundation, Phase H runtime configuration reducer, Phase I workflow package manifest/read model, and Phase J structured compaction state are complete. The next architecture work should focus on real Win7 bundle smoke validation, real C/C++ project validation, and deleting stale compatibility paths.
 
 - User-visible modes: `explore`, `spec`, `build`, `debug`, `verify`
 - Default C/C++ execution model: `mode + discipline_profile + execution_phase`
@@ -43,6 +43,7 @@ The next long-term architecture direction is captured in `docs/pi-inspired-agent
 - Official workflow package manifest read model: `WorkflowPackageManifest` describes package identity, supported modes/workflow states, tools, packs, resources, and diagnostics. The bundled C/C++ package manifest is derived from package-owned constants and exposed through `ExtensionManager`; it is not a public extension API and does not activate tools.
 - Official capability read model: `CapabilityRegistry` describes tools, local file resources, slash commands, model profiles, and workflow packages with provenance metadata. It does not activate tools, execute tools, load extensions, or replace `PermissionPolicy`.
 - Official runtime configuration read model: `RuntimeConfigReducer` projects safe replayable runtime configuration from `transcript.jsonl`, including credential-free model profile metadata, model-visible active tool names, local resource revision metadata, capability counts, and provider snapshot records. It is diagnostic/replay state and does not replace extension activation, tool execution, resource reload, project extension loading, or permission policy.
+- Official compaction read model: `CompactionStateReducer` projects structured compact boundary state from `compact_boundary` transcript events, including token/message counts, preserved message anchors, safe file activity, evidence refs, extension-summary flags, and diagnostics. It feeds restore results, managed sessions, protocol snapshots, and session snapshots, but it does not drive context selection or become a second history source.
 - Official offline runtime contract: `scripts/offline-runtime-contract.json` lists every runtime-invoked bundled external tool, including Python, MinGit, ripgrep, Universal Ctags, and the LLVM/Clang child executables. Bundle validators consume this contract instead of maintaining separate hard-coded tool lists.
 - Official frontend vocabulary: `build`, `tasks`, `current_phase`, `discipline_profile`
 - Official session-history model: `transcript.jsonl -> Session -> SessionHistoryAssembler -> /api/sessions/{id}/bootstrap`
@@ -86,6 +87,8 @@ The product no longer treats the old `code` mode or `manage_todos`-style workflo
   Non-executing capability read model for runtime tools, local file resources, slash commands, and model profiles.
 - `src/embedagent/runtime_config.py`
   Reducer-backed runtime configuration projection for model profile metadata, active tool names, local resource revisions, capability counts, and provider snapshot diagnostics.
+- `src/embedagent/compaction_state.py`
+  Reducer-backed compaction projection for compact boundary metadata, safe file activity, evidence refs, and restore diagnostics.
 - `src/embedagent/extensions.py`
   In-process extension contract and manager for workflow prompt/tool/state hooks.
 - `src/embedagent/default_extensions.py`
@@ -176,7 +179,8 @@ Current architecture cutover status:
 - Pi-inspired minimal Core Phase G turn snapshot / capability registry foundation: completed
 - Pi-inspired minimal Core Phase H runtime configuration reducer: completed
 - Pi-inspired minimal Core Phase I workflow package manifest/read model: completed
-- Remaining work: structured compaction state, clean Win7 bundle smoke, real C project validation, and stale compatibility cleanup
+- Pi-inspired minimal Core Phase J structured compaction state: completed
+- Remaining work: clean Win7 bundle smoke, real C project validation, and stale compatibility cleanup
 
 ## Verification
 

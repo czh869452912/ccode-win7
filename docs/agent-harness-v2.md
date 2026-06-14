@@ -29,6 +29,8 @@ Execution ownership is concentrated in one session-scoped `QueryEngine` facade. 
 
 Provider requests consume an explicit `TurnSnapshot` built by `QueryEngine` after context assembly and active schema projection. The snapshot records the harness-influenced workflow state and active schemas as frozen inputs, but it does not decide harness phase, active packs, permissions, or tool execution.
 
+Structured compaction state is reducer-backed diagnostics, not harness workflow truth. `compaction_state` may explain compact boundaries and safe file/evidence metadata after restore, but harness phase, task graph state, active packs, permissions, and tool execution remain owned by their existing harness/core boundaries.
+
 ## 3. Official Modes
 
 - `explore`

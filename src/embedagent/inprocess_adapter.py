@@ -14,6 +14,7 @@ from embedagent.capabilities import (
     model_profile_capability_descriptor,
     workflow_package_capability_descriptors,
 )
+from embedagent.compaction_state import CompactionStateReducer
 from embedagent.context import ContextManager
 from embedagent.default_extensions import build_default_extension_set
 from embedagent.extensions import ExtensionContext, ToolRegistrationEvent
@@ -385,6 +386,13 @@ class InProcessAdapter(object):
             return
         state.runtime_config = RuntimeConfigReducer().reduce(events).to_dict()
 
+    def _refresh_compaction_state(self, state: ManagedSession) -> None:
+        try:
+            events = self.transcript_store.load_events(state.session.session_id)
+        except (OSError, ValueError, TypeError):
+            return
+        state.compaction_state = CompactionStateReducer().reduce(events).to_dict()
+
     def _tool_permission_category(self, tool_name: str) -> str:
         lookup = getattr(self.tools, "tool_catalog_entry", None)
         if not callable(lookup):
@@ -494,6 +502,7 @@ class InProcessAdapter(object):
                     }
                 }
                 self._refresh_runtime_config(state)
+                self._refresh_compaction_state(state)
                 state.updated_at = _utc_now()
         return dict(payload or {})
 
@@ -550,6 +559,7 @@ class InProcessAdapter(object):
         self.reload_resources(session_id=session.session_id, reason="session_start")
         with state.lock:
             self._refresh_runtime_config(state)
+            self._refresh_compaction_state(state)
         self._persist_state(state)
         snapshot = self.get_session_snapshot(session.session_id)
         self._emit(
@@ -585,6 +595,7 @@ class InProcessAdapter(object):
             restore_consumed_event_count=int(restored.consumed_event_count or 0),
             restore_transcript_event_count=int(restored.transcript_event_count or 0),
             operation_diagnostics=operation_diagnostics(restored.operation_state),
+            compaction_state=restored.compaction_state.to_dict(),
             runtime_config=RuntimeConfigReducer()
             .reduce(events[: int(restored.consumed_event_count or 0)])
             .to_dict(),
@@ -638,6 +649,7 @@ class InProcessAdapter(object):
         with state.lock:
             self._apply_project_extension_state(state)
             self._refresh_runtime_config(state)
+            self._refresh_compaction_state(state)
             state.updated_at = _utc_now()
         with self._lock:
             self._sessions[session.session_id] = state
@@ -670,6 +682,7 @@ class InProcessAdapter(object):
         with state.lock:
             self._refresh_operation_diagnostics(state)
             self._refresh_runtime_config(state)
+            self._refresh_compaction_state(state)
             summary = self._read_summary_for_state(state)
             return self.snapshot_projector.build_snapshot(
                 state,

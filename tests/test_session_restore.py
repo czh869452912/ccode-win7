@@ -939,6 +939,74 @@ class TestSessionRestorer(unittest.TestCase):
         )
         self.assertEqual(result.session.turns[0].transitions, [])
 
+    def test_restore_projects_compaction_state(self):
+        session_id = "sess-compaction-state"
+        self.store.append_event(session_id, "session_meta", {"current_mode": "build"})
+        self.store.append_event(
+            session_id,
+            "message",
+            {
+                "role": "user",
+                "content": "读取文件",
+                "message_id": "m-user",
+                "turn_id": "t-1",
+                "step_id": "",
+            },
+        )
+        self.store.append_event(
+            session_id, "step_started", {"turn_id": "t-1", "step_id": "s-1", "step_index": 1}
+        )
+        self.store.append_event(
+            session_id,
+            "message",
+            {
+                "role": "assistant",
+                "content": "已压缩",
+                "message_id": "m-assistant",
+                "turn_id": "t-1",
+                "step_id": "s-1",
+                "actions": [],
+                "reasoning_content": "",
+                "finish_reason": "stop",
+            },
+        )
+        self.store.append_event(
+            session_id,
+            "compact_boundary",
+            {
+                "boundary_id": "cb-state",
+                "summary_text": "Earlier work summary",
+                "compacted_turn_count": 1,
+                "created_at": "2026-06-14T00:00:00Z",
+                "mode_name": "build",
+                "preserved_head_message_id": "m-user",
+                "preserved_tail_message_id": "m-assistant",
+                "metadata": {"approx_tokens": 900},
+                "token_counts": {"approx_before": 2400, "approx_after": 900},
+                "message_counts": {
+                    "before": 4,
+                    "after": 2,
+                    "summarized_turns": 1,
+                    "recent_turns": 1,
+                },
+                "file_activity": {"read_files": ["src/demo.c"], "modified_files": []},
+                "evidence_refs": [
+                    ".embedagent/memory/sessions/sess/tool-results/read-1/content.txt"
+                ],
+                "extension_summary": False,
+            },
+        )
+
+        result = SessionRestorer().restore(self.store.load_events(session_id))
+        compaction = result.compaction_state.to_dict()
+
+        self.assertEqual(compaction["boundary_count"], 1)
+        self.assertEqual(compaction["latest_boundary_id"], "cb-state")
+        self.assertEqual(compaction["latest_boundary"]["token_counts"]["approx_after"], 900)
+        self.assertEqual(
+            compaction["latest_boundary"]["file_activity"]["read_files"], ["src/demo.c"]
+        )
+
     def test_restore_stops_at_assistant_message_with_mismatched_turn_id(self):
         session_id = "sess-invalid-assistant-message"
         self.store.append_event(session_id, "session_meta", {"current_mode": "build"})

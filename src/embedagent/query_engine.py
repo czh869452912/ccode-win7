@@ -5,7 +5,7 @@ import threading
 import time
 import uuid
 from copy import deepcopy
-from typing import Any, Callable, Dict, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from embedagent.agent_extension_host import AgentExtensionHost
 from embedagent.agent_kernel import AgentKernel
@@ -2211,6 +2211,63 @@ class QueryEngine(object):
                 _LOG.warning("session trim failed: %s", exc)
         self._maybe_maintain_memory()
 
+    def _compaction_token_counts(self, assembly: ContextAssemblyResult) -> Dict[str, int]:
+        stats = getattr(assembly, "stats", None)
+        return {
+            "approx_before": int(getattr(stats, "approx_tokens_before", 0) or 0),
+            "approx_after": int(
+                getattr(stats, "approx_tokens_after", 0) or assembly.approx_tokens or 0
+            ),
+        }
+
+    def _compaction_message_counts(self, assembly: ContextAssemblyResult) -> Dict[str, int]:
+        stats = getattr(assembly, "stats", None)
+        total_messages = int(getattr(stats, "total_session_messages", 0) or 0)
+        selected_messages = int(getattr(stats, "selected_messages", 0) or len(assembly.messages))
+        summarized_turns = int(
+            getattr(stats, "summarized_turns", 0) or assembly.summarized_turns or 0
+        )
+        recent_turns = int(getattr(stats, "recent_turns", 0) or assembly.recent_turns or 0)
+        return {
+            "before": total_messages,
+            "after": selected_messages,
+            "summarized_turns": summarized_turns,
+            "recent_turns": recent_turns,
+        }
+
+    def _compaction_file_activity(self, assembly: ContextAssemblyResult) -> Dict[str, List[str]]:
+        analysis = getattr(assembly, "analysis", {}) or {}
+        if not isinstance(analysis, dict):
+            analysis = {}
+        read_files = []
+        seen = set()
+        for item in list(analysis.get("top_hot_files") or []):
+            if not isinstance(item, dict):
+                continue
+            path = str(item.get("path") or "").strip()
+            if not path or path in seen:
+                continue
+            seen.add(path)
+            read_files.append(path)
+        return {
+            "read_files": sorted(read_files),
+            "modified_files": [],
+        }
+
+    def _compaction_evidence_refs(self, assembly: ContextAssemblyResult) -> List[str]:
+        refs = []
+        seen = set()
+        for replacement in list(getattr(assembly, "replacements", []) or []):
+            if not isinstance(replacement, dict):
+                continue
+            for item in list(replacement.get("stored_refs") or []):
+                ref = str(item or "").strip()
+                if not ref or ref in seen:
+                    continue
+                seen.add(ref)
+                refs.append(ref)
+        return sorted(refs)
+
     def _maybe_record_compact_boundary(
         self, session: Session, current_mode: str, assembly: ContextAssemblyResult
     ) -> bool:
@@ -2236,6 +2293,10 @@ class QueryEngine(object):
                 preserved_head_message_id=preserved_head_message_id,
                 preserved_tail_message_id=preserved_tail_message_id,
             )
+            token_counts = self._compaction_token_counts(assembly)
+            message_counts = self._compaction_message_counts(assembly)
+            file_activity = self._compaction_file_activity(assembly)
+            evidence_refs = self._compaction_evidence_refs(assembly)
             self._append_transcript_event(
                 session,
                 "compact_boundary",
@@ -2248,6 +2309,11 @@ class QueryEngine(object):
                     "preserved_head_message_id": boundary.preserved_head_message_id,
                     "preserved_tail_message_id": boundary.preserved_tail_message_id,
                     "metadata": dict(boundary.metadata),
+                    "token_counts": token_counts,
+                    "message_counts": message_counts,
+                    "file_activity": file_activity,
+                    "evidence_refs": evidence_refs,
+                    "extension_summary": False,
                 },
             )
             return True

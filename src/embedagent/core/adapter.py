@@ -174,6 +174,7 @@ def _session_snapshot_from_dict(snapshot: Dict[str, Any]) -> SessionSnapshot:
         restore_stop_reason=str(snapshot.get("restore_stop_reason") or ""),
         restore_consumed_event_count=int(snapshot.get("restore_consumed_event_count") or 0),
         restore_transcript_event_count=int(snapshot.get("restore_transcript_event_count") or 0),
+        compaction_state=dict(snapshot.get("compaction_state") or {}),
         pending_interaction=(
             dict(snapshot.get("pending_interaction") or {})
             if isinstance(snapshot.get("pending_interaction"), dict)

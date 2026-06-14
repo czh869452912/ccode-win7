@@ -60,7 +60,7 @@ Recent workflow-boundary work has started slimming Agent Core without changing t
 - `AgentLoop` now owns turn-loop orchestration behind `QueryEngine`, including agent steps, context/provider attempts, compact retry, tool batch interruption, guard stops, abort, and max-turn transitions; `QueryEngine` no longer owns `_run_loop_impl`
 - `ToolRuntime` construction is now workflow-neutral; the bundled C/C++ workflow package registers recipe, quality, evidence, and task-status tools with metadata through `CHarnessWorkflowExtension.register_tools(...)`
 - C/C++ workflow pack definitions now live under `src/embedagent/harness/packs.py`; `src/embedagent/tooling/packs.py` is only a compatibility export
-- Pi-inspired minimal Core Phase A durable operation log, Phase B HookBus/reducer registry, Phase C AgentKernel lifecycle extraction, Phase D default C/C++ workflow package ownership, Phase E self-extension authoring loop, Phase F repo-side offline bundle validation, Phase G turn snapshot / capability registry foundation, Phase H runtime configuration reducer, and Phase I workflow package manifest/read model are complete
+- Pi-inspired minimal Core Phase A durable operation log, Phase B HookBus/reducer registry, Phase C AgentKernel lifecycle extraction, Phase D default C/C++ workflow package ownership, Phase E self-extension authoring loop, Phase F repo-side offline bundle validation, Phase G turn snapshot / capability registry foundation, Phase H runtime configuration reducer, Phase I workflow package manifest/read model, and Phase J structured compaction state are complete
 - `TurnSnapshot` is now the explicit frozen provider-request input; `QueryEngine` builds it after context assembly and active schema projection, then provider requests consume `snapshot.messages` and `snapshot.tool_schemas`
 - `CapabilityRegistry` is now the non-executing read model for tools, local file resources, slash commands, model profiles, and workflow packages; activation and execution remain owned by `AgentExtensionHost` / `ExtensionManager` and `ToolRuntime` / `AgentToolActionService`
 - `RuntimeConfigReducer` now projects safe runtime configuration from transcript events, including model profile metadata, active model-visible tool names, local resource revision metadata, capability counts, and provider snapshot records
@@ -158,7 +158,13 @@ The current self-extensible Agent Core baseline remains valid. The next program 
    - the bundled C/C++ workflow package manifest is derived from its package-owned metadata and pack constants, then exposed through `CHarnessWorkflowExtension.package_manifest()` and `ExtensionManager.package_manifests()`
    - `CapabilityRegistry` now projects `workflow_package` descriptors for diagnostics and future reducer work
    - manifest projection is read-only; it does not activate tools, execute tools, grant permissions, reload resources, or load extensions
-   - next candidate: structured compaction state
+
+10. **Structured compaction state**
+   - current implementation status: Phase J is complete
+   - `compact_boundary` events now carry safe structured metadata: token/message counts, preserved message anchors, file activity paths, evidence refs, and extension-summary flag
+   - `CompactionStateReducer` projects reducer-backed compaction state from transcript events, including latest boundary and duplicate/malformed diagnostics
+   - restore results, managed sessions, protocol snapshots, and session snapshots expose `compaction_state`
+   - projection remains read-only diagnostics/replay state; context selection, summary generation, extension loading, tool execution, and permissions remain owned by their existing boundaries
 
 This program must not introduce online extension marketplaces, dependency installation, remote registries, built-in tool replacement by project-local code, container requirements, WSL requirements, VS Code dependency, or general multi-agent orchestration in Agent Core.
 

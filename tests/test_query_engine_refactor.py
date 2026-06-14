@@ -1885,6 +1885,21 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertTrue(boundary.preserved_tail_message_id)
         events = transcript_store.load_events(session.session_id)
         self.assertIn("compact_boundary", [item["type"] for item in events])
+        compact_events = [item for item in events if item["type"] == "compact_boundary"]
+        self.assertEqual(len(compact_events), 1)
+        compact_payload = compact_events[0]["payload"]
+        self.assertGreater(int(compact_payload["token_counts"]["approx_after"]), 0)
+        self.assertEqual(
+            compact_payload["message_counts"]["summarized_turns"], boundary.compacted_turn_count
+        )
+        self.assertEqual(
+            compact_payload["message_counts"]["recent_turns"],
+            len(session.turns) - boundary.compacted_turn_count,
+        )
+        self.assertIn("src/demo.c", compact_payload["file_activity"]["read_files"])
+        self.assertEqual(compact_payload["file_activity"]["modified_files"], [])
+        self.assertTrue(compact_payload["evidence_refs"])
+        self.assertEqual(compact_payload["extension_summary"], False)
 
         restored = SessionRestorer().restore(events)
         restored_boundary = restored.session.latest_compact_boundary()
@@ -1896,6 +1911,13 @@ class TestQueryEngineRefactor(unittest.TestCase):
         )
         self.assertEqual(
             restored_boundary.preserved_tail_message_id, boundary.preserved_tail_message_id
+        )
+        restored_compaction = restored.compaction_state.to_dict()
+        self.assertEqual(restored_compaction["boundary_count"], 1)
+        self.assertEqual(restored_compaction["latest_boundary_id"], boundary.boundary_id)
+        self.assertIn(
+            "src/demo.c",
+            restored_compaction["latest_boundary"]["file_activity"]["read_files"],
         )
 
     def test_query_engine_writes_transcript_for_completed_turn(self):

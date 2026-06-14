@@ -30,6 +30,8 @@ Reducer-backed runtime configuration does not alter mode contracts. `runtime_con
 
 Workflow package manifests do not alter mode contracts. They describe package-supported modes and package-owned packs for diagnostics/control-plane inspection, but active tool selection still flows through the current mode contract plus `ExtensionManager` / `AgentExtensionHost`.
 
+Reducer-backed compaction state does not alter mode contracts. `compaction_state` records structured compact boundary diagnostics for restore/debug visibility, but context selection still flows through the current context manager and active tool selection still flows through mode contracts plus `ExtensionManager` / `AgentExtensionHost`.
+
 ## 3. Switching Rules
 
 - Mode switching is user-driven.

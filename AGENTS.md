@@ -83,9 +83,9 @@ The repository now has one official architecture vocabulary.
 
 ### Next Architecture Direction
 
-The current baseline remains authoritative. `docs/pi-inspired-agent-core-blueprint.md` is the long-term target blueprint for making Agent Core more Pi-like in both function and philosophy: smaller kernel, durable session-log reducers, source-aware hooks, explicit turn snapshots, replayable runtime configuration, capability read models, replaceable workflow packages, and local self-extension.
+The current baseline remains authoritative. `docs/pi-inspired-agent-core-blueprint.md` is the long-term target blueprint for making Agent Core more Pi-like in both function and philosophy: smaller kernel, durable session-log reducers, source-aware hooks, explicit turn snapshots, replayable runtime configuration, structured compaction state, capability read models, replaceable workflow packages, and local self-extension.
 
-Do not treat blueprint target terms such as `SessionLog` or public `HookBus` as implemented public APIs until a specific implementation slice lands and updates the source-of-truth docs. `AgentEventBus` is now the internal source-aware event/reducer boundary for public extension hook dispatch; it is not a public extension API. `AgentLifecycleJournal`, `AgentKernel`, `AgentLoop`, `TurnSnapshot`, `CapabilityRegistry`, `RuntimeConfigReducer`, and `WorkflowPackageManifest` are implemented internal Agent Core boundaries/read models, not public extension APIs. The bundled default C/C++ workflow package now owns its workflow tool registration, metadata, packs, and read-only package manifest behind `CHarnessWorkflowExtension`; local self-extension authoring is available through `SelfExtensionAuthoringService` and `author_local_capability`; repo-side offline bundle validation is contract-backed through `scripts/offline-runtime-contract.json`; near-term work must preserve hosted C/C++ behavior while advancing structured compaction state, real Win7 bundle smoke validation, and real C/C++ project validation.
+Do not treat blueprint target terms such as `SessionLog` or public `HookBus` as implemented public APIs until a specific implementation slice lands and updates the source-of-truth docs. `AgentEventBus` is now the internal source-aware event/reducer boundary for public extension hook dispatch; it is not a public extension API. `AgentLifecycleJournal`, `AgentKernel`, `AgentLoop`, `TurnSnapshot`, `CapabilityRegistry`, `RuntimeConfigReducer`, `WorkflowPackageManifest`, and `CompactionStateReducer` are implemented internal Agent Core boundaries/read models, not public extension APIs. The bundled default C/C++ workflow package now owns its workflow tool registration, metadata, packs, and read-only package manifest behind `CHarnessWorkflowExtension`; local self-extension authoring is available through `SelfExtensionAuthoringService` and `author_local_capability`; repo-side offline bundle validation is contract-backed through `scripts/offline-runtime-contract.json`; near-term work must preserve hosted C/C++ behavior while advancing real Win7 bundle smoke validation and real C/C++ project validation.
 
 ### Modes
 
@@ -127,6 +127,8 @@ Local offline self-extension is an official architecture capability, limited to 
 `CapabilityRegistry` is a non-executing read model for tools, local file resources, slash commands, model profiles, and workflow packages. Registration records provenance and metadata only. Tool activation remains owned by `ExtensionManager` / `AgentExtensionHost`, execution remains owned by `ToolRuntime` / `AgentToolActionService`, and permission decisions remain owned by `PermissionPolicy`.
 
 `RuntimeConfigReducer` is the transcript-backed read model for safe replayable runtime configuration. It reduces `runtime_configured`, `resource_reloaded`, and provider-request `operation_started` snapshot metadata into credential-free model profile metadata, model-visible active tool names, local resource revision metadata, capability counts, and provider snapshot records. It must not decide tool activation, execute tools, reload resources, load project extensions, or bypass `PermissionPolicy`.
+
+`CompactionStateReducer` is the transcript-backed read model for structured compact boundary state. It reduces `compact_boundary` events into safe boundary records with token/message counts, preserved message anchors, file activity paths, evidence refs, extension-summary flags, duplicate/malformed diagnostics, and latest-boundary metadata. It must not select context, rewrite summaries, execute extension code, infer history from `timeline.jsonl`, or become a second session-history source.
 
 Default extension assembly lives in `src/embedagent/default_extensions.py`. `QueryEngine` must not import or construct `CHarnessWorkflowExtension`; direct `QueryEngine` tests or hosts that need default C/C++ behavior must pass an explicit `ExtensionManager`.
 
@@ -208,6 +210,12 @@ Official durable runtime-configuration truth is reducer-backed:
 - schema v2 provider-request `operation_started` metadata containing safe `turn_snapshot` fields
 
 `RuntimeConfigReducer` must derive runtime configuration only from these safe transcript events. `resource_discovered` remains discovery/replay diagnostics only and must not advance resource revision state. Runtime configuration projections may appear in session snapshots as `runtime_config`; that field remains diagnostic/replay state, not a frontend-owned execution policy.
+
+Official durable compaction truth is reducer-backed:
+
+- schema v1/v2 `compact_boundary`
+
+`CompactionStateReducer` must derive structured compaction state only from `compact_boundary` transcript events. `Session.compact_boundaries` remains live context compatibility state, while restore results and session snapshots may expose `compaction_state` as diagnostic/replay state. That projection must not drive active context selection, extension loading, permission decisions, or frontend-owned execution policy.
 
 ## Mode Policy
 

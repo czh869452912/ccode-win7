@@ -44,6 +44,47 @@
 
 ## 3. 当前变更记录
 
+### DC-144
+
+- 日期：2026-06-14
+- 变更主题：Pi-inspired minimal Core Phase J structured compaction state 收口
+- 变更摘要：
+  - 新增 `src/embedagent/compaction_state.py`，由 `CompactionStateReducer` 从 `compact_boundary` transcript events 投影 replayable structured compaction state
+  - `compact_boundary` payload 现在携带 safe token/message counts、preserved message anchors、file activity paths、evidence refs 与 extension-summary flag
+  - `SessionRestorer` 暴露 `compaction_state`，并只对已消费的 self-consistent transcript prefix 做 reducer 投影
+  - `ManagedSession`、`SessionSnapshotProjector`、protocol `SessionSnapshot` 与 core adapter snapshot conversion 现在暴露 reducer-backed `compaction_state`
+  - compaction projection 保持 diagnostics/replay state，不驱动 context selection、summary generation、extension loading、tool execution 或 permission policy
+- 影响范围：
+  - `src/embedagent/compaction_state.py`
+  - `src/embedagent/query_engine.py`
+  - `src/embedagent/session_restore.py`
+  - `src/embedagent/session_runtime.py`
+  - `src/embedagent/session_projector.py`
+  - `src/embedagent/inprocess_adapter.py`
+  - `src/embedagent/protocol/__init__.py`
+  - `src/embedagent/core/adapter.py`
+  - `tests/test_compaction_state.py`
+  - `tests/test_query_engine_refactor.py`
+  - `tests/test_session_restore.py`
+  - `tests/test_inprocess_adapter_frontend_api.py`
+  - `tests/test_architecture.py`
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/frontend-protocol.md`
+  - `docs/pi-inspired-agent-core-blueprint.md`
+- 关联文档：
+  - `docs/pi-inspired-agent-core-blueprint.md`
+  - `docs/archive/phase-j-structured-compaction/2026-06-14-phase-j-structured-compaction-design.md`
+  - `docs/archive/phase-j-structured-compaction/2026-06-14-phase-j-structured-compaction.md`
+- 是否需要 ADR：`否，本次是已批准 Phase J 的内部 reducer/read-model 收口；不新增公共 extension API，不改变 context selection 算法`
+- 后续动作：
+  - 在真实 Win7 目标机执行 clean offline bundle smoke
+  - 继续真实 C/C++ 工程验证，观察 compaction_state 是否足以解释长会话压缩边界
+  - 删除剩余 stale compatibility paths
+
 ### DC-143
 
 - 日期：2026-06-14
@@ -82,7 +123,7 @@
   - `docs/archive/phase-i-workflow-package-manifest/2026-06-14-phase-i-workflow-package-manifest.md`
 - 是否需要 ADR：`否，本次是已批准 Phase I 的内部 manifest/read-model 收口；公共 extension API 未新增稳定承诺，frontend 只获得诊断型 capability descriptor`
 - 后续动作：
-  - 设计 structured compaction state，让 compact boundary 与摘要元数据也成为可恢复 reducer state
+  - structured compaction state 已由 DC-144 / Phase J 收口
   - 在更多真实 C/C++ 工程中验证默认 workflow package manifest 与 tool/catalog 诊断信息是否足够解释问题
   - 继续真实 Win7 bundle smoke 与剩余 stale compatibility paths 删除
 
@@ -122,7 +163,7 @@
 - 是否需要 ADR：`否，本次是已批准 Phase H 的内部 reducer/read-model 收口；公共 extension API 未新增，frontend 只获得诊断型 snapshot 字段`
 - 后续动作：
   - workflow package manifest/read model 已由 DC-143 / Phase I 收口
-  - 设计 structured compaction state，让 compact boundary 与摘要元数据也成为可恢复 reducer state
+  - structured compaction state 已由 DC-144 / Phase J 收口
   - 继续真实 Win7 bundle smoke 与真实 C/C++ 工程验证
 
 ### DC-141

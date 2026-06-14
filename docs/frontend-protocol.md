@@ -48,6 +48,7 @@ Important session snapshot fields include:
 - `extensions`
 - `extension_diagnostics`
 - `runtime_config`
+- `compaction_state`
 - replay metadata fields
 
 `task_items` is the official frontend task list payload.
@@ -61,6 +62,8 @@ Important session snapshot fields include:
 Capability projections are also diagnostics/read-model state. `InProcessAdapter.capability_snapshot()` may expose tools, local file resources, slash commands, workflow package manifests, and model profile metadata for future frontend inspection, but frontends must not treat that projection as active-tool policy or permission state.
 
 `runtime_config` is reducer-backed diagnostics/read-model state. It may expose credential-free model profile metadata, active model-visible tool names, local resource revision metadata, capability counts, and provider snapshot records. Frontends may display this for restore/debug visibility, but they must not use it as active-tool policy, permission state, resource reload authority, or project extension load state.
+
+`compaction_state` is reducer-backed diagnostics/read-model state. It may expose compact boundary counts, latest boundary metadata, token/message counts, preserved message anchors, safe file activity paths, evidence refs, extension-summary flag, and diagnostics. Frontends may display this for restore/debug visibility, but they must not use it as context-selection policy, history truth, extension execution policy, permission state, or a trigger for resource reload.
 
 `workflow` is the generic workflow projection. For the default C/C++ harness, `current_phase`, `discipline_profile`, `current_activity`, `task_summary`, and `task_items` are compatibility fields projected from `workflow`.
 
@@ -137,6 +140,8 @@ Resource reload may appear in replay as `resource.discovered` and `resource.relo
 
 Reducer-backed `runtime_config.resource_revision` advances from transcript `resource_reloaded` events. `resource.discovered` events remain diagnostics and should not be treated as a new active resource revision by frontend code.
 
+Reducer-backed `compaction_state` advances from transcript `compact_boundary` events. Frontends should not infer compaction from replay transport events, summary text alone, or timeline entries.
+
 All live tool/interaction/command events must preserve the engine-issued execution anchors:
 
 - `turn_id`
@@ -165,6 +170,8 @@ Extension diagnostics are frontend-visible health information. Frontends may dis
 Project extension loader failures are mirrored into `extension_diagnostics`. Frontends may display the health information and project extension source metadata, but permission prompts and execution policy remain backend-owned.
 
 Provider turn snapshot metadata may appear in operation diagnostics as `snapshot_id`, mode/workflow state, active tool names, credential-free model profile metadata, resource revision metadata, and capability counts. Frontends may display this for debugging, but full prompts, file contents, raw tool outputs, and API keys are not part of the frontend protocol.
+
+Compaction metadata may appear in `compaction_state` as safe counts, message ids, file paths, and stored evidence refs. Frontends may display this for debugging, but full compacted prompts, raw file contents, raw tool outputs, and API keys are not part of the frontend protocol.
 
 For `task_status`, the official presentation metadata is:
 

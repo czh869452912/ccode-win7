@@ -8,6 +8,7 @@ import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
+from embedagent.core.adapter import _session_snapshot_from_dict
 from embedagent.protocol import (
     CommandResult,
     FrontendCallbacks,
@@ -98,6 +99,23 @@ class TestProtocol(unittest.TestCase):
         )
         self.assertEqual(snap.session_id, "sess_001")
         self.assertEqual(snap.status, SessionStatus.IDLE)
+
+    def test_session_snapshot_from_dict_preserves_compaction_state(self):
+        snap = _session_snapshot_from_dict(
+            {
+                "session_id": "sess_001",
+                "status": "idle",
+                "current_mode": "build",
+                "started_at": "2026-03-30T10:00:00",
+                "updated_at": "2026-03-30T10:00:00",
+                "compaction_state": {
+                    "boundary_count": 1,
+                    "latest_boundary_id": "cb-1",
+                },
+            }
+        )
+        self.assertEqual(snap.compaction_state["boundary_count"], 1)
+        self.assertEqual(snap.compaction_state["latest_boundary_id"], "cb-1")
 
     def test_tool_call(self):
         call = ToolCall(tool_name="read_file", arguments={"path": "test.py"}, call_id="call_001")
