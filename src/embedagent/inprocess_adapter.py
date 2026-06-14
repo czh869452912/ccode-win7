@@ -31,6 +31,7 @@ from embedagent.plan_store import PlanStore
 from embedagent.project_extensions import load_project_extensions
 from embedagent.project_memory import ProjectMemoryStore
 from embedagent.protocol import CommandResult, PermissionContextView, PlanSnapshot
+from embedagent.runtime_config import RuntimeConfigReducer
 from embedagent.session import (
     Action,
     AssistantReply,
@@ -83,6 +84,19 @@ def _normalize_recent_transitions(items: List[Dict[str, Any]]) -> List[Dict[str,
             entry["display_reason"] = _display_transition_reason(reason)
         normalized.append(entry)
     return normalized
+
+
+def _stable_names(names: Any) -> List[str]:
+    if not isinstance(names, list):
+        return []
+    result = []
+    seen = set()
+    for name in names:
+        text = str(name or "").strip()
+        if text and text not in seen:
+            seen.add(text)
+            result.append(text)
+    return sorted(result)
 
 
 PermissionResolver = Callable[[Dict[str, Any]], bool]
@@ -320,6 +334,53 @@ class InProcessAdapter(object):
         registry.register(model_profile_capability_descriptor(self.client))
         return registry.snapshot().to_dict()
 
+    def _runtime_config_payload(
+        self,
+        reason: str,
+        active_tool_names: Optional[List[str]] = None,
+        resource_payload: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        capability_snapshot = self.capability_snapshot()
+        model_descriptor = model_profile_capability_descriptor(self.client)
+        payload = {
+            "reason": str(reason or ""),
+            "model_profile": {
+                "name": model_descriptor.name,
+                "source_type": model_descriptor.source_type,
+                "source_id": model_descriptor.source_id,
+                "metadata": dict(model_descriptor.metadata or {}),
+            },
+            "active_tool_names": _stable_names(active_tool_names),
+            "capability_counts": dict(capability_snapshot.get("counts") or {}),
+        }
+        if isinstance(resource_payload, dict) and "revision" in resource_payload:
+            payload["resource_revision"] = self._resource_event_payload(resource_payload)
+        return payload
+
+    def _append_runtime_configured(
+        self,
+        state: ManagedSession,
+        reason: str,
+        active_tool_names: Optional[List[str]] = None,
+        resource_payload: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        self.transcript_store.append_event(
+            state.session.session_id,
+            "runtime_configured",
+            self._runtime_config_payload(
+                reason,
+                active_tool_names=active_tool_names,
+                resource_payload=resource_payload,
+            ),
+        )
+
+    def _refresh_runtime_config(self, state: ManagedSession) -> None:
+        try:
+            events = self.transcript_store.load_events(state.session.session_id)
+        except (OSError, ValueError, TypeError):
+            return
+        state.runtime_config = RuntimeConfigReducer().reduce(events).to_dict()
+
     def _tool_permission_category(self, tool_name: str) -> str:
         lookup = getattr(self.tools, "tool_catalog_entry", None)
         if not callable(lookup):
@@ -414,6 +475,11 @@ class InProcessAdapter(object):
                 "resource_reloaded",
                 event_payload,
             )
+            self._append_runtime_configured(
+                state,
+                normalized_reason,
+                resource_payload=payload,
+            )
             with state.lock:
                 extensions = state.session.workflow_state.setdefault("extensions", {})
                 extensions["local_resources"] = {
@@ -423,6 +489,7 @@ class InProcessAdapter(object):
                         "diagnostics": list(payload.get("diagnostics") or []),
                     }
                 }
+                self._refresh_runtime_config(state)
                 state.updated_at = _utc_now()
         return dict(payload or {})
 
@@ -477,6 +544,8 @@ class InProcessAdapter(object):
             self._apply_project_extension_state(state)
             state.updated_at = _utc_now()
         self.reload_resources(session_id=session.session_id, reason="session_start")
+        with state.lock:
+            self._refresh_runtime_config(state)
         self._persist_state(state)
         snapshot = self.get_session_snapshot(session.session_id)
         self._emit(
@@ -512,6 +581,9 @@ class InProcessAdapter(object):
             restore_consumed_event_count=int(restored.consumed_event_count or 0),
             restore_transcript_event_count=int(restored.transcript_event_count or 0),
             operation_diagnostics=operation_diagnostics(restored.operation_state),
+            runtime_config=RuntimeConfigReducer()
+            .reduce(events[: int(restored.consumed_event_count or 0)])
+            .to_dict(),
         )
         state.engine = self._build_engine()
         state.current_mode = state.engine.initialize_session(
@@ -561,6 +633,7 @@ class InProcessAdapter(object):
         self._refresh_harness_state(state)
         with state.lock:
             self._apply_project_extension_state(state)
+            self._refresh_runtime_config(state)
             state.updated_at = _utc_now()
         with self._lock:
             self._sessions[session.session_id] = state
@@ -592,6 +665,7 @@ class InProcessAdapter(object):
         runtime = runtime_lookup() if callable(runtime_lookup) else {}
         with state.lock:
             self._refresh_operation_diagnostics(state)
+            self._refresh_runtime_config(state)
             summary = self._read_summary_for_state(state)
             return self.snapshot_projector.build_snapshot(
                 state,

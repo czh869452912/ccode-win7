@@ -46,6 +46,7 @@ class TurnSnapshot:
     tool_schemas: List[Dict[str, Any]] = field(default_factory=list)
     active_tool_names: List[str] = field(default_factory=list)
     model_profile: Dict[str, Any] = field(default_factory=dict)
+    resource_revision: Dict[str, Any] = field(default_factory=dict)
     runtime_environment: Dict[str, Any] = field(default_factory=dict)
     capabilities: Dict[str, Any] = field(default_factory=dict)
     context_stats: Dict[str, Any] = field(default_factory=dict)
@@ -62,6 +63,7 @@ class TurnSnapshot:
         self.tool_schemas = _copy_list(self.tool_schemas)
         self.active_tool_names = _stable_names(self.active_tool_names)
         self.model_profile = _copy_dict(self.model_profile)
+        self.resource_revision = _copy_dict(self.resource_revision)
         self.runtime_environment = _copy_dict(self.runtime_environment)
         self.capabilities = _copy_dict(self.capabilities)
         self.context_stats = _copy_dict(self.context_stats)
@@ -79,6 +81,7 @@ class TurnSnapshot:
             "tool_schemas": deepcopy(self.tool_schemas),
             "active_tool_names": list(self.active_tool_names),
             "model_profile": deepcopy(self.model_profile),
+            "resource_revision": deepcopy(self.resource_revision),
             "runtime_environment": deepcopy(self.runtime_environment),
             "capabilities": deepcopy(self.capabilities),
             "context_stats": deepcopy(self.context_stats),
@@ -98,6 +101,7 @@ class TurnSnapshotBuilder(object):
         tool_schemas: List[Dict[str, Any]],
         active_tool_names: Optional[List[str]] = None,
         model_profile: Optional[Dict[str, Any]] = None,
+        resource_revision: Optional[Dict[str, Any]] = None,
         runtime_environment: Optional[Dict[str, Any]] = None,
         capabilities: Optional[Dict[str, Any]] = None,
         context_stats: Optional[Dict[str, Any]] = None,
@@ -113,6 +117,7 @@ class TurnSnapshotBuilder(object):
             tool_schemas=tool_schemas,
             active_tool_names=active_tool_names or [],
             model_profile=model_profile or {},
+            resource_revision=resource_revision or {},
             runtime_environment=runtime_environment or {},
             capabilities=capabilities or {},
             context_stats=context_stats or {},

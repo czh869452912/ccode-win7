@@ -60,9 +60,10 @@ Recent workflow-boundary work has started slimming Agent Core without changing t
 - `AgentLoop` now owns turn-loop orchestration behind `QueryEngine`, including agent steps, context/provider attempts, compact retry, tool batch interruption, guard stops, abort, and max-turn transitions; `QueryEngine` no longer owns `_run_loop_impl`
 - `ToolRuntime` construction is now workflow-neutral; the bundled C/C++ workflow package registers recipe, quality, evidence, and task-status tools with metadata through `CHarnessWorkflowExtension.register_tools(...)`
 - C/C++ workflow pack definitions now live under `src/embedagent/harness/packs.py`; `src/embedagent/tooling/packs.py` is only a compatibility export
-- Pi-inspired minimal Core Phase A durable operation log, Phase B HookBus/reducer registry, Phase C AgentKernel lifecycle extraction, Phase D default C/C++ workflow package ownership, Phase E self-extension authoring loop, Phase F repo-side offline bundle validation, and Phase G turn snapshot / capability registry foundation are complete
+- Pi-inspired minimal Core Phase A durable operation log, Phase B HookBus/reducer registry, Phase C AgentKernel lifecycle extraction, Phase D default C/C++ workflow package ownership, Phase E self-extension authoring loop, Phase F repo-side offline bundle validation, Phase G turn snapshot / capability registry foundation, and Phase H runtime configuration reducer are complete
 - `TurnSnapshot` is now the explicit frozen provider-request input; `QueryEngine` builds it after context assembly and active schema projection, then provider requests consume `snapshot.messages` and `snapshot.tool_schemas`
 - `CapabilityRegistry` is now the non-executing read model for tools, local file resources, slash commands, and model profiles; activation and execution remain owned by `AgentExtensionHost` / `ExtensionManager` and `ToolRuntime` / `AgentToolActionService`
+- `RuntimeConfigReducer` now projects safe runtime configuration from transcript events, including model profile metadata, active model-visible tool names, local resource revision metadata, capability counts, and provider snapshot records
 - `SelfExtensionAuthoringService` and `author_local_capability` can generate local skills, prompts, recipes, and disabled-by-default project extension skeletons without reloading resources or loading Python code
 - `scripts/offline-runtime-contract.json` is now the single repo-side contract for runtime-invoked bundled external tools; `validate-offline-bundle.ps1` and `check-bundle-dependencies.py` consume it for Python, MinGit, ripgrep, Universal Ctags, and LLVM/Clang child executable validation
 - Slice 6 completed the documentation cutover for self-extensible Agent Core: active source-of-truth docs and module docs now treat local offline self-extension as official architecture while keeping marketplaces, online installs, dependency installation, built-in tool replacement, and multi-agent orchestration out of scope
@@ -142,7 +143,14 @@ The current self-extensible Agent Core baseline remains valid. The next program 
    - `TurnSnapshot` freezes provider-request messages, tool schemas, active tool names, workflow state, model profile, runtime metadata, capability projection, and context stats
    - `CapabilityRegistry` projects tools, local file resources, slash commands, and model profiles as JSON-serializable descriptors with provenance
    - provider request diagnostics record safe snapshot metadata only, not prompt bodies, file contents, raw tool outputs, or credentials
-   - next candidate: durable runtime configuration reducer for active capability state, model profile selection, and local resource revision metadata
+
+8. **Runtime configuration reducer**
+   - current implementation status: Phase H is complete
+   - `RuntimeConfigReducer` reduces `runtime_configured`, `resource_reloaded`, and provider-request `operation_started` snapshot metadata from the transcript
+   - session snapshots expose reducer-backed `runtime_config` for diagnostics and restore visibility
+   - `TurnSnapshot` records reducer-backed model profile and local resource revision metadata when available
+   - activation, execution, resource reload, extension loading, and permissions remain owned by their existing boundaries
+   - next candidate: capability/workflow-package control-plane manifests and structured compaction state
 
 This program must not introduce online extension marketplaces, dependency installation, remote registries, built-in tool replacement by project-local code, container requirements, WSL requirements, VS Code dependency, or general multi-agent orchestration in Agent Core.
 

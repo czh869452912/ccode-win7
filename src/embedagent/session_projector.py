@@ -125,6 +125,7 @@ class SessionSnapshotProjector(object):
             "restore_consumed_event_count": state.restore_consumed_event_count,
             "restore_transcript_event_count": state.restore_transcript_event_count,
             "operation_diagnostics": dict(getattr(state, "operation_diagnostics", {}) or {}),
+            "runtime_config": dict(getattr(state, "runtime_config", {}) or {}),
             "timeline_replay_status": (
                 "degraded" if state.restore_stop_reason == "transcript_missing" else "replay"
             ),

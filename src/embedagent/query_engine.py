@@ -42,6 +42,7 @@ from embedagent.modes import (
     require_mode,
 )
 from embedagent.permissions import PermissionPolicy, PermissionRequest
+from embedagent.runtime_config import RuntimeConfigReducer
 from embedagent.project_memory import ProjectMemoryStore
 from embedagent.session import (
     Action,
@@ -97,6 +98,7 @@ class QueryEngine(object):
         transcript_store: Optional[TranscriptStore] = None,
         tracer: Optional[ExecutionTracer] = None,
         extension_manager: Optional[ExtensionManager] = None,
+        runtime_config_provider: Optional[Callable[[Session], Dict[str, Any]]] = None,
     ) -> None:
         self.client = client
         self.tools = tools
@@ -117,6 +119,7 @@ class QueryEngine(object):
         self.max_parallel_tools = max(1, int(max_parallel_tools or 1))
         self.transcript_store = transcript_store or TranscriptStore(self.tools.workspace)
         self.tracer = tracer
+        self._runtime_config_provider = runtime_config_provider
         self.extension_host = AgentExtensionHost(
             manager=extension_manager or ExtensionManager(),
             tools=self.tools,
@@ -635,7 +638,31 @@ class QueryEngine(object):
             registry.register(descriptor)
         return registry.snapshot().to_dict()
 
-    def _model_profile_snapshot(self) -> Dict[str, Any]:
+    def _runtime_config_snapshot(self, session: Session) -> Dict[str, Any]:
+        if callable(self._runtime_config_provider):
+            try:
+                return dict(self._runtime_config_provider(session) or {})
+            except (OSError, RuntimeError, ValueError, TypeError):
+                return {}
+        try:
+            events = self.transcript_store.load_events(session.session_id)
+        except (OSError, ValueError, TypeError):
+            return {}
+        return RuntimeConfigReducer().reduce(events).to_dict()
+
+    def _model_profile_snapshot(
+        self, runtime_config: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        config_profile = {}
+        if isinstance(runtime_config, dict):
+            config_profile = dict(runtime_config.get("model_profile") or {})
+        if config_profile:
+            return {
+                "name": str(config_profile.get("name") or ""),
+                "source_type": str(config_profile.get("source_type") or ""),
+                "source_id": str(config_profile.get("source_id") or ""),
+                "metadata": dict(config_profile.get("metadata") or {}),
+            }
         descriptor = model_profile_capability_descriptor(self.client)
         return {
             "name": descriptor.name,
@@ -643,6 +670,14 @@ class QueryEngine(object):
             "source_id": descriptor.source_id,
             "metadata": dict(descriptor.metadata or {}),
         }
+
+    def _resource_revision_snapshot(
+        self, runtime_config: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        if not isinstance(runtime_config, dict):
+            return {}
+        revision = runtime_config.get("resource_revision") or {}
+        return dict(revision) if isinstance(revision, dict) else {}
 
     def _runtime_environment_snapshot(self) -> Dict[str, Any]:
         runtime_snapshot = getattr(self.tools, "runtime_environment_snapshot", None)
@@ -663,6 +698,7 @@ class QueryEngine(object):
             "workflow_state": snapshot.workflow_state,
             "active_tool_names": list(snapshot.active_tool_names),
             "model_profile": dict(snapshot.model_profile or {}),
+            "resource_revision": dict(snapshot.resource_revision or {}),
             "capability_counts": dict(capabilities.get("counts") or {}),
         }
 
@@ -682,6 +718,7 @@ class QueryEngine(object):
     ) -> AssistantReply:
         active_tool_names = self._active_tool_names_from_schemas(tool_schemas)
         capabilities = self._capability_snapshot_for_provider(active_tool_names)
+        runtime_config = self._runtime_config_snapshot(session)
         snapshot = self._turn_snapshot_builder.build(
             session_id=session.session_id,
             turn_id=turn_id,
@@ -691,7 +728,8 @@ class QueryEngine(object):
             messages=messages,
             tool_schemas=tool_schemas,
             active_tool_names=active_tool_names,
-            model_profile=self._model_profile_snapshot(),
+            model_profile=self._model_profile_snapshot(runtime_config),
+            resource_revision=self._resource_revision_snapshot(runtime_config),
             runtime_environment=self._runtime_environment_snapshot(),
             capabilities=capabilities,
             context_stats=self._context_stats_for_snapshot(messages),

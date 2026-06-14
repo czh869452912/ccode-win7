@@ -83,9 +83,9 @@ The repository now has one official architecture vocabulary.
 
 ### Next Architecture Direction
 
-The current baseline remains authoritative. `docs/pi-inspired-agent-core-blueprint.md` is the long-term target blueprint for making Agent Core more Pi-like in both function and philosophy: smaller kernel, durable session-log reducers, source-aware hooks, explicit turn snapshots, capability read models, replaceable workflow packages, and local self-extension.
+The current baseline remains authoritative. `docs/pi-inspired-agent-core-blueprint.md` is the long-term target blueprint for making Agent Core more Pi-like in both function and philosophy: smaller kernel, durable session-log reducers, source-aware hooks, explicit turn snapshots, replayable runtime configuration, capability read models, replaceable workflow packages, and local self-extension.
 
-Do not treat blueprint target terms such as `SessionLog` or public `HookBus` as implemented public APIs until a specific implementation slice lands and updates the source-of-truth docs. `AgentEventBus` is now the internal source-aware event/reducer boundary for public extension hook dispatch; it is not a public extension API. `AgentLifecycleJournal`, `AgentKernel`, `AgentLoop`, `TurnSnapshot`, and `CapabilityRegistry` are implemented internal Agent Core boundaries/read models, not public extension APIs. The bundled default C/C++ workflow package now owns its workflow tool registration, metadata, and packs behind `CHarnessWorkflowExtension`; local self-extension authoring is available through `SelfExtensionAuthoringService` and `author_local_capability`; repo-side offline bundle validation is contract-backed through `scripts/offline-runtime-contract.json`; near-term work must preserve hosted C/C++ behavior while completing durable runtime configuration reducers and real Win7 bundle smoke validation.
+Do not treat blueprint target terms such as `SessionLog` or public `HookBus` as implemented public APIs until a specific implementation slice lands and updates the source-of-truth docs. `AgentEventBus` is now the internal source-aware event/reducer boundary for public extension hook dispatch; it is not a public extension API. `AgentLifecycleJournal`, `AgentKernel`, `AgentLoop`, `TurnSnapshot`, `CapabilityRegistry`, and `RuntimeConfigReducer` are implemented internal Agent Core boundaries/read models, not public extension APIs. The bundled default C/C++ workflow package now owns its workflow tool registration, metadata, and packs behind `CHarnessWorkflowExtension`; local self-extension authoring is available through `SelfExtensionAuthoringService` and `author_local_capability`; repo-side offline bundle validation is contract-backed through `scripts/offline-runtime-contract.json`; near-term work must preserve hosted C/C++ behavior while advancing capability/workflow-package control-plane manifests, structured compaction state, and real Win7 bundle smoke validation.
 
 ### Modes
 
@@ -123,6 +123,8 @@ Local offline self-extension is an official architecture capability, limited to 
 `TurnSnapshot` is the explicit frozen provider-request input. `QueryEngine` builds it after context assembly and active tool schema projection, then provider requests consume `snapshot.messages` and `snapshot.tool_schemas`. Snapshot diagnostics may record `snapshot_id`, mode/workflow state, active tool names, credential-free model profile metadata, and capability counts; they must not record full prompt bodies, file contents, raw tool outputs, or API keys.
 
 `CapabilityRegistry` is a non-executing read model for tools, local file resources, slash commands, and model profiles. Registration records provenance and metadata only. Tool activation remains owned by `ExtensionManager` / `AgentExtensionHost`, execution remains owned by `ToolRuntime` / `AgentToolActionService`, and permission decisions remain owned by `PermissionPolicy`.
+
+`RuntimeConfigReducer` is the transcript-backed read model for safe replayable runtime configuration. It reduces `runtime_configured`, `resource_reloaded`, and provider-request `operation_started` snapshot metadata into credential-free model profile metadata, model-visible active tool names, local resource revision metadata, capability counts, and provider snapshot records. It must not decide tool activation, execute tools, reload resources, load project extensions, or bypass `PermissionPolicy`.
 
 Default extension assembly lives in `src/embedagent/default_extensions.py`. `QueryEngine` must not import or construct `CHarnessWorkflowExtension`; direct `QueryEngine` tests or hosts that need default C/C++ behavior must pass an explicit `ExtensionManager`.
 
@@ -196,6 +198,14 @@ Official durable operation truth is:
 - schema v2 `operation_interrupted`
 
 `OperationLogReducer` must derive operation state only from those explicit lifecycle events. `step_started`, `tool_call`, `tool_result`, and `loop_transition` remain session replay/history events; do not reintroduce operation-state inference from them. Current lifecycle operation families include turns, agent steps, context assembly, context snapshots, provider requests, tool calls, pending interactions, workflow patches, and save points. Restore-time projections close unfinished operations as interrupted; live session snapshots must preserve unfinished operations as active. Session snapshots may expose `operation_diagnostics` projected from the same reducer state; operation diagnostics remain diagnostic state, not a second session-history source.
+
+Official durable runtime-configuration truth is reducer-backed:
+
+- schema v2 `runtime_configured`
+- schema v2 `resource_reloaded`
+- schema v2 provider-request `operation_started` metadata containing safe `turn_snapshot` fields
+
+`RuntimeConfigReducer` must derive runtime configuration only from these safe transcript events. `resource_discovered` remains discovery/replay diagnostics only and must not advance resource revision state. Runtime configuration projections may appear in session snapshots as `runtime_config`; that field remains diagnostic/replay state, not a frontend-owned execution policy.
 
 ## Mode Policy
 

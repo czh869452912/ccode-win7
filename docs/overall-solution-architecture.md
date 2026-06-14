@@ -44,6 +44,7 @@ This is the stable contract boundary between UI and Agent Core.
 - `src/embedagent/agent_event_bus.py`
 - `src/embedagent/turn_snapshot.py`
 - `src/embedagent/capabilities.py`
+- `src/embedagent/runtime_config.py`
 - `src/embedagent/session_runtime.py`
 - `src/embedagent/session_projector.py`
 - `src/embedagent/session_history.py`
@@ -70,6 +71,8 @@ The default C/C++ harness is now entered through the in-process workflow extensi
 
 `CapabilityRegistry` is a non-executing read model for runtime tools, local file resources, slash commands, and model profiles. It records provenance and metadata for diagnostics and future reducer work. It does not decide active tools, execute tools, reload resources, load extensions, or replace permission checks; those responsibilities remain with `AgentExtensionHost` / `ExtensionManager`, `ToolRuntime` / `AgentToolActionService`, resource reload paths, project extension loading, and `PermissionPolicy`.
 
+`RuntimeConfigReducer` is the replayable runtime configuration read model. It reduces safe transcript events into credential-free model profile metadata, model-visible active tool names, local resource revision metadata, capability counts, and provider snapshot records. It feeds `ManagedSession.runtime_config`, session snapshots, and provider `TurnSnapshot` resource revision/model metadata when available. It remains diagnostic/replay state and must not become an active-tool selector, resource loader, extension loader, tool executor, or permission engine.
+
 Default bundled extension assembly is outside `QueryEngine` in `src/embedagent/default_extensions.py`. A bare `QueryEngine` receives an empty `ExtensionManager`; hosted product paths install the default C/C++ harness explicitly before constructing session engines. Hosted product paths may additionally load project-local extensions from `.embedagent/extensions/<name>/extension.json` when the manifest is explicitly enabled and declares permissions. Remote registries, plugin marketplaces, dependency installation, built-in tool replacement, and multi-agent orchestration remain out of scope.
 
 Harness state refresh in the product adapter path goes through `CHarnessWorkflowExtension.refresh_managed_session()` behind the default C harness workflow extension. The old `HarnessStateSynchronizer` service facade has been removed rather than kept as a parallel compatibility path.
@@ -81,6 +84,7 @@ Harness state refresh in the product adapter path goes through `CHarnessWorkflow
 - `InProcessAdapter` is a host/bridge layer and must not mint duplicate workflow identities
 - `SessionSnapshotProjector` and `SessionHistoryAssembler` are projections, not workflow truth
 - `SessionSnapshotProjector` reads the generic workflow projection, not default harness internals
+- `runtime_config` in session snapshots is reducer-backed diagnostic state, not frontend-owned policy
 
 ## 3. Official Execution Model
 
@@ -151,6 +155,8 @@ Project-local Python extensions are loaded by hosted adapters through `src/embed
 Runtime-invoked external binaries are part of the tool architecture even when they are not model-visible tools. `scripts/offline-runtime-contract.json` is the repo-side contract for bundled Python, MinGit, ripgrep, Universal Ctags, and LLVM/Clang child executables. Packaging validators consume this contract so the runtime, bundle gate, and dependency checker share one external-tool truth.
 
 Capability projections are read-only. `ToolRuntime.capability_descriptors()` projects registered tools and cached local file resources; `InProcessAdapter.capability_snapshot()` combines runtime capabilities, slash commands, and the active model profile. These projections are not active-tool policy and must not be used to bypass `AgentExtensionHost`, `ExtensionManager`, or `PermissionPolicy`.
+
+Runtime configuration projections are also read-only. `runtime_configured`, `resource_reloaded`, and provider-request snapshot metadata are reduced by `RuntimeConfigReducer` so restore and frontend diagnostics can explain model profile metadata, active model-visible tool names, local resource revision, and capability counts. `resource_discovered` remains discovery/replay diagnostics only and does not advance runtime resource revision state.
 
 ### Official Tool Families
 
@@ -271,6 +277,16 @@ Durable runtime operation state is projected from explicit schema v2 lifecycle e
 
 `OperationLogReducer` consumes the validated transcript prefix and must not infer operation state from legacy replay/history events such as `step_started`, `tool_call`, `tool_result`, or `loop_transition`. Those events still rebuild structured session history and tool topology. Operation lifecycle events explain runtime execution units such as turns, agent steps, context assembly, context snapshots, provider requests, tool calls, pending interactions, workflow patches, and save points. Restore-time projections close unfinished operations as interrupted, while live snapshot projections preserve unfinished operations as active. Diagnostics such as `operation_diagnostics` are reducer projections over this operation state and must not become a second session-history source.
 
+### Runtime Configuration State Rule
+
+Replayable runtime configuration is projected from safe schema v2 events:
+
+- `runtime_configured`
+- `resource_reloaded`
+- provider-request `operation_started` metadata containing safe `turn_snapshot` fields
+
+`RuntimeConfigReducer` consumes the validated transcript prefix and must not infer runtime configuration from frontend replay, `resource_discovered`, prompts, raw tool outputs, or local extension code. Session snapshots may expose `runtime_config` for diagnostics and restore visibility; that projection does not activate tools, execute tools, reload resources, load project extensions, or bypass permissions.
+
 ## 9. Frontend Contract
 
 The frontend-facing vocabulary is now:
@@ -314,4 +330,4 @@ That program keeps learning from Pi at two levels:
 
 The intended long-term direction is that Agent Core can be described without C/C++ workflow vocabulary. The bundled C/C++ harness remains the default product workflow, but it should continue moving toward a first-party workflow package loaded through the same capability boundary as other local extensions.
 
-This is a gradual direction, not a statement that the target state is fully implemented. Phase A durable operation reducers, Phase B extension hook bus dispatch, Phase C AgentKernel lifecycle extraction, Phase D default C/C++ workflow package ownership, Phase E local self-extension authoring, Phase F repo-side offline bundle validation, and Phase G turn snapshot / capability registry foundation are complete. Near-term changes should preserve the current hosted behavior while adding durable runtime configuration reducers, completing real Win7 smoke validation, and continuing real C/C++ project validation.
+This is a gradual direction, not a statement that the target state is fully implemented. Phase A durable operation reducers, Phase B extension hook bus dispatch, Phase C AgentKernel lifecycle extraction, Phase D default C/C++ workflow package ownership, Phase E local self-extension authoring, Phase F repo-side offline bundle validation, Phase G turn snapshot / capability registry foundation, and Phase H runtime configuration reducer are complete. Near-term changes should preserve the current hosted behavior while adding capability/workflow-package control-plane manifests, structured compaction state, completing real Win7 smoke validation, and continuing real C/C++ project validation.

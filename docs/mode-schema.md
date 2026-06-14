@@ -26,6 +26,8 @@ Mode-contract tool lists are workflow-neutral. Default C/C++ harness tools such 
 
 Local resource reload does not alter mode contracts. Reloaded recipe JSON resources still execute only through the existing `run_recipe` tool path and its current mode/permission checks.
 
+Reducer-backed runtime configuration does not alter mode contracts. `runtime_config.active_tool_names` records model-visible tool names after backend activation for diagnostics/replay, but future activation still flows through the mode contract plus `ExtensionManager` / `AgentExtensionHost`.
+
 ## 3. Switching Rules
 
 - Mode switching is user-driven.

@@ -129,6 +129,8 @@ The built-in C harness extension registers and activates recipe, quality, eviden
 
 `CapabilityRegistry` can project harness-registered tools through the shared runtime catalog for diagnostics and future reducer work. That projection is not the harness pack activation mechanism; active C/C++ workflow tools still come from the default harness extension and `ExtensionManager.allowed_tool_names(...)`.
 
+`RuntimeConfigReducer` can project the harness-influenced active model-visible tool names and local resource revision metadata after those decisions have been emitted to the transcript. That projection is not the harness pack activation mechanism; the default C/C++ extension still owns pack selection and `AgentExtensionHost` still owns schema projection.
+
 Harness recipes and quality flows must invoke only bundled external tools described by `scripts/offline-runtime-contract.json`. The packaging gate validates Python, MinGit, ripgrep, Universal Ctags, and LLVM/Clang child executables from that shared contract, so adding a harness runtime binary requires updating the contract and tests in the same change.
 
 ## 8. Prompting Model

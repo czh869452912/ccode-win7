@@ -211,11 +211,45 @@ class TestLocalResources(unittest.TestCase):
         payload = adapter.reload_resources(session_id=session_id, reason="test")
         recipes = adapter.list_workspace_recipes()
         events = adapter.transcript_store.load_events(session_id)
+        projected = adapter.get_session_snapshot(session_id)
+        runtime_config = projected.get("runtime_config") or {}
+        resource_revision = runtime_config.get("resource_revision") or {}
 
         self.assertEqual(payload["counts"]["recipes"], 1)
         self.assertIn("extra.recipe", [item["id"] for item in recipes["items"]])
         self.assertTrue(any(item["type"] == "resource_discovered" for item in events))
         self.assertTrue(any(item["type"] == "resource_reloaded" for item in events))
+        self.assertTrue(any(item["type"] == "runtime_configured" for item in events))
+        self.assertEqual(resource_revision["revision"], 2)
+        self.assertEqual(resource_revision["reason"], "test")
+        self.assertEqual(resource_revision["counts"]["recipes"], 1)
+
+    def test_resumed_session_projects_runtime_config_from_transcript(self):
+        adapter = InProcessAdapter(
+            client=FakeClient(),
+            tools=ToolRuntime(self.workspace),
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+        )
+        snapshot = adapter.create_session("build")
+        session_id = str(snapshot.get("session_id") or "")
+        _write_text(
+            os.path.join(self.workspace, ".embedagent", "skills", "local.md"),
+            "# Local Skill\n",
+        )
+        adapter.reload_resources(session_id=session_id, reason="test")
+
+        reloaded = InProcessAdapter(
+            client=FakeClient(),
+            tools=ToolRuntime(self.workspace),
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+        )
+        resumed = reloaded.resume_session(session_id, "build")
+        runtime_config = resumed.get("runtime_config") or {}
+        resource_revision = runtime_config.get("resource_revision") or {}
+
+        self.assertEqual(resource_revision["revision"], 2)
+        self.assertEqual(resource_revision["reason"], "test")
+        self.assertEqual(resource_revision["counts"]["skills"], 1)
 
     def test_slash_resources_reload_emits_command_result(self):
         adapter = InProcessAdapter(

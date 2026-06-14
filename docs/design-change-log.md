@@ -44,6 +44,45 @@
 
 ## 3. 当前变更记录
 
+### DC-142
+
+- 日期：2026-06-14
+- 变更主题：Pi-inspired minimal Core Phase H runtime configuration reducer 收口
+- 变更摘要：
+  - 新增 `src/embedagent/runtime_config.py`，由 `RuntimeConfigReducer` 从 transcript events 投影 replayable runtime configuration
+  - reducer 消费 `runtime_configured`、`resource_reloaded` 与 provider-request `operation_started` safe turn snapshot metadata，投影 credential-free model profile、active model-visible tool names、local resource revision metadata、capability counts 与 provider snapshot records
+  - `InProcessAdapter` 在 session start / resource reload / resume / snapshot 路径刷新 `ManagedSession.runtime_config`，session snapshots 现在暴露 reducer-backed `runtime_config`
+  - `TurnSnapshot` 增加 `resource_revision`，`QueryEngine` 可从 reducer-backed runtime config 读取 model profile 与 resource revision metadata，并继续只把 safe snapshot metadata 写入 provider operation diagnostics
+  - `resource_discovered` 保持 discovery/replay diagnostics，不推进 resource revision；tool activation、execution、resource reload、extension loading 与 permission policy 仍由原边界负责
+- 影响范围：
+  - `src/embedagent/runtime_config.py`
+  - `src/embedagent/inprocess_adapter.py`
+  - `src/embedagent/query_engine.py`
+  - `src/embedagent/turn_snapshot.py`
+  - `src/embedagent/session_runtime.py`
+  - `src/embedagent/session_projector.py`
+  - `tests/test_runtime_config.py`
+  - `tests/test_local_resources.py`
+  - `tests/test_query_engine_refactor.py`
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/tool-contracts.md`
+  - `docs/frontend-protocol.md`
+  - `docs/agent-harness-v2.md`
+  - `docs/pi-inspired-agent-core-blueprint.md`
+- 关联文档：
+  - `docs/pi-inspired-agent-core-blueprint.md`
+  - `docs/archive/phase-h-runtime-config-reducer/2026-06-14-phase-h-runtime-config-reducer-design.md`
+  - `docs/archive/phase-h-runtime-config-reducer/2026-06-14-phase-h-runtime-config-reducer.md`
+- 是否需要 ADR：`否，本次是已批准 Phase H 的内部 reducer/read-model 收口；公共 extension API 未新增，frontend 只获得诊断型 snapshot 字段`
+- 后续动作：
+  - 设计 capability/workflow-package control-plane manifests，继续把隐式包能力收敛为本地可审计控制面
+  - 设计 structured compaction state，让 compact boundary 与摘要元数据也成为可恢复 reducer state
+  - 继续真实 Win7 bundle smoke 与真实 C/C++ 工程验证
+
 ### DC-141
 
 - 日期：2026-06-14
@@ -79,7 +118,7 @@
   - `docs/archive/phase-g-turn-snapshot-capability-registry/2026-06-14-phase-g-turn-snapshot-capability-registry.md`
 - 是否需要 ADR：`否，本次是已批准 Phase G 的内部 provider-request boundary 与 read-model foundation；公共 frontend protocol 与 extension API 未新增必需字段`
 - 后续动作：
-  - 设计 durable runtime configuration reducer，覆盖 active capability state、model profile selection 与 local resource revision metadata
+  - durable runtime configuration reducer 已由 DC-142 / Phase H 收口
   - 继续真实 Win7 bundle smoke 与真实 C/C++ 工程验证
 
 ### DC-140

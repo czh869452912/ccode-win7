@@ -27,6 +27,8 @@ Built-in mode `allowed_tools` are workflow-neutral permission/write contracts. T
 
 `CapabilityRegistry` is a read model, not a tool runtime. It can describe registered tools, local file resources, slash commands, and the active model profile with provenance metadata. Registration in the registry does not make a tool active, does not execute a tool, does not reload resources, does not load project extensions, and does not bypass permission policy.
 
+`RuntimeConfigReducer` is a transcript-backed read model, not a tool runtime. It describes replayable runtime configuration such as credential-free model profile metadata, active model-visible tool names, local resource revision metadata, capability counts, and provider snapshot records. Reducer state does not make a tool active, execute a tool, reload resources, load project extensions, or bypass permission policy.
+
 Allowed-tool gating is not a runtime wrapper. Core orchestration receives an explicit allowed-tool policy from its host; hosted product paths use `QueryEngine._allowed_tools_for_mode(...)` as a compatibility facade over `AgentExtensionHost.allowed_tool_names(...)`.
 
 `author_local_capability` is a workflow-neutral write tool for local self-extension authoring. It creates workspace-bound skills, prompts, recipes, and disabled-by-default project extension skeletons under `.embedagent`; it does not reload resource caches and does not load, enable, import, or trust generated Python extension code.
@@ -58,6 +60,8 @@ Registration does not make a tool active by itself. A dynamic tool appears in mo
 
 `ToolRuntime.capability_descriptors()` may project these catalog entries for diagnostics and future reducer work. It must stay read-only and must not become an active-tool policy shortcut.
 
+`runtime_config.active_tool_names` records tools that were model-visible after activation had already happened. It is audit/replay data only. New tool gating must continue to use `ExtensionManager.allowed_tool_names(...)` through `AgentExtensionHost`.
+
 ## Local Resource Reload
 
 Workspace-local resources are file-only inputs to the runtime:
@@ -68,7 +72,7 @@ Workspace-local resources are file-only inputs to the runtime:
 
 `ToolRuntime.reload_resources()` refreshes the cached resource snapshot. Hosted product paths expose the same operation through `InProcessAdapter.reload_resources(...)`, `/resources reload`, and `POST /api/sessions/{session_id}/resources/reload`.
 
-Recipe JSON resources feed the existing `list_recipes` and `run_recipe` contract. Skills and prompts are discovered and surfaced with diagnostics, but they are not executed as project-local Python code. Reload appends transcript-backed `resource_discovered` and `resource_reloaded` events for session-scoped auditability.
+Recipe JSON resources feed the existing `list_recipes` and `run_recipe` contract. Skills and prompts are discovered and surfaced with diagnostics, but they are not executed as project-local Python code. Reload appends transcript-backed `resource_discovered` and `resource_reloaded` events for session-scoped auditability. `resource_reloaded` advances reducer-backed local resource revision metadata; `resource_discovered` remains discovery/replay diagnostics and must not advance runtime resource revision.
 
 ## Project-Local Python Extensions
 

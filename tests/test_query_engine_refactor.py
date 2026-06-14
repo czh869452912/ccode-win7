@@ -850,6 +850,19 @@ class TestQueryEngineRefactor(unittest.TestCase):
             ),
             transcript_store=transcript_store,
             max_turns=1,
+            runtime_config_provider=lambda session: {
+                "model_profile": {
+                    "name": "reduced-local-model",
+                    "source_type": "configured",
+                    "source_id": "llm",
+                    "metadata": {"base_url": "http://localhost:11434/v1"},
+                },
+                "resource_revision": {
+                    "revision": 7,
+                    "event_id": "evt-resource-7",
+                    "reason": "test",
+                },
+            },
         )
         session = Session()
         session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：build")
@@ -868,6 +881,8 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertEqual(client.messages[0], snapshot.messages)
         self.assertEqual(client.tools[0], snapshot.tool_schemas)
         self.assertIn("read_file", snapshot.active_tool_names)
+        self.assertEqual(snapshot.model_profile["name"], "reduced-local-model")
+        self.assertEqual(snapshot.resource_revision["revision"], 7)
 
         events = transcript_store.load_events(session.session_id)
         started = [
@@ -892,6 +907,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
             sorted(snapshot.active_tool_names),
         )
         self.assertIn("capability_counts", metadata["turn_snapshot"])
+        self.assertEqual(metadata["turn_snapshot"]["resource_revision"]["revision"], 7)
         self.assertEqual(
             result_payload["turn_snapshot"]["snapshot_id"],
             metadata["turn_snapshot"]["snapshot_id"],

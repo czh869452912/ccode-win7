@@ -47,6 +47,7 @@ Important session snapshot fields include:
 - `task_items`
 - `extensions`
 - `extension_diagnostics`
+- `runtime_config`
 - replay metadata fields
 
 `task_items` is the official frontend task list payload.
@@ -58,6 +59,8 @@ Important session snapshot fields include:
 `extensions.local_resources`, `extensions.project_extensions`, and `extension_diagnostics` are frontend-visible health and diagnostics state, not frontend-owned execution policy.
 
 Capability projections are also diagnostics/read-model state. `InProcessAdapter.capability_snapshot()` may expose tools, local file resources, slash commands, and model profile metadata for future frontend inspection, but frontends must not treat that projection as active-tool policy or permission state.
+
+`runtime_config` is reducer-backed diagnostics/read-model state. It may expose credential-free model profile metadata, active model-visible tool names, local resource revision metadata, capability counts, and provider snapshot records. Frontends may display this for restore/debug visibility, but they must not use it as active-tool policy, permission state, resource reload authority, or project extension load state.
 
 `workflow` is the generic workflow projection. For the default C/C++ harness, `current_phase`, `discipline_profile`, `current_activity`, `task_summary`, and `task_items` are compatibility fields projected from `workflow`.
 
@@ -132,6 +135,8 @@ Important pushed event types include:
 
 Resource reload may appear in replay as `resource.discovered` and `resource.reloaded` event kinds. Frontends may use those for diagnostics or refresh hints, but session history remains transcript/bootstrap-backed.
 
+Reducer-backed `runtime_config.resource_revision` advances from transcript `resource_reloaded` events. `resource.discovered` events remain diagnostics and should not be treated as a new active resource revision by frontend code.
+
 All live tool/interaction/command events must preserve the engine-issued execution anchors:
 
 - `turn_id`
@@ -159,7 +164,7 @@ Extension diagnostics are frontend-visible health information. Frontends may dis
 
 Project extension loader failures are mirrored into `extension_diagnostics`. Frontends may display the health information and project extension source metadata, but permission prompts and execution policy remain backend-owned.
 
-Provider turn snapshot metadata may appear in operation diagnostics as `snapshot_id`, mode/workflow state, active tool names, credential-free model profile metadata, and capability counts. Frontends may display this for debugging, but full prompts, file contents, raw tool outputs, and API keys are not part of the frontend protocol.
+Provider turn snapshot metadata may appear in operation diagnostics as `snapshot_id`, mode/workflow state, active tool names, credential-free model profile metadata, resource revision metadata, and capability counts. Frontends may display this for debugging, but full prompts, file contents, raw tool outputs, and API keys are not part of the frontend protocol.
 
 For `task_status`, the official presentation metadata is:
 

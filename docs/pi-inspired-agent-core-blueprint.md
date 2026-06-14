@@ -35,7 +35,7 @@ The long-term boundary is:
 Frontend Shells
   -> Hosted Adapter
   -> AgentKernel
-  -> SessionLog + CapabilityRegistry + HookBus + ToolRuntime + PermissionPolicy
+  -> SessionLog + CapabilityRegistry + RuntimeConfigReducer + HookBus + ToolRuntime + PermissionPolicy
   -> Default C/C++ Workflow Package and project-local extensions
 ```
 
@@ -89,6 +89,18 @@ The shared registry for model-visible and host-visible capabilities:
 - diagnostics providers
 
 Registration should not imply activation. Visibility is decided by mode contract, workflow state, extension policy, and permission metadata.
+
+### RuntimeConfigReducer
+
+The reducer-backed runtime configuration read model for one session:
+
+- credential-free model profile metadata
+- model-visible active tool names after backend activation
+- local resource revision metadata
+- capability counts
+- provider snapshot records
+
+It is a replay/diagnostic projection over transcript events. It should explain what configuration a turn used without becoming the source of future activation, execution, resource reload, extension loading, or permission decisions.
 
 ### HookBus
 
@@ -173,7 +185,7 @@ Reloading resources must not execute Python code.
 
 Pi's strongest durable design idea is that session storage is not only history. It is the durable state model for model choice, active tools, compaction, branch summaries, labels, extension state, and recovery markers.
 
-EmbedAgent should extend transcript truth in that direction. `transcript.jsonl` should become the reducer input for all durable session state that matters after restart.
+EmbedAgent should extend transcript truth in that direction. `transcript.jsonl` should become the reducer input for all durable session state that matters after restart. Phase H starts this beyond operation state by reducing safe runtime configuration from transcript events.
 
 ### Turn Snapshot And Save Point Discipline
 
@@ -344,6 +356,20 @@ Current implementation status: Phase F is complete for repo-side validation. `sc
 
 Current implementation status: Phase G is complete. `TurnSnapshot` is now the explicit frozen provider-request input built after context assembly and active schema projection; provider calls consume `snapshot.messages` and `snapshot.tool_schemas`. `CapabilityRegistry` is now a non-executing read model for tools, local file resources, slash commands, and model profiles. Activation still belongs to `ExtensionManager` / `AgentExtensionHost`, execution still belongs to `ToolRuntime` / `AgentToolActionService`, and provider diagnostics record only safe snapshot metadata.
 
+### Phase H: Runtime Configuration Reducer
+
+Promote the smallest useful runtime configuration state from live read models to transcript-backed reducers.
+
+Outcomes:
+
+- `runtime_configured` records safe model profile, active tool names, and capability counts
+- `resource_reloaded` advances local resource revision metadata
+- provider-request `operation_started` metadata records safe `turn_snapshot` anchors
+- session snapshots expose reducer-backed `runtime_config`
+- `TurnSnapshot` can carry reducer-backed model profile and resource revision metadata
+
+Current implementation status: Phase H is complete. `src/embedagent/runtime_config.py` defines `RuntimeConfigReducer` and serializable state objects. `InProcessAdapter` emits and refreshes runtime config during session creation, local resource reload, resume, and snapshot projection. `QueryEngine` can consume reducer-backed runtime configuration while building provider turn snapshots. The reducer ignores `resource_discovered` for revision advancement, strips unsafe provider inputs, and leaves activation, execution, resource reload, extension loading, and permission checks with their existing owners.
+
 ## 9. Acceptance Criteria For The Direction
 
 The blueprint is working when:
@@ -353,6 +379,7 @@ The blueprint is working when:
 - a bare engine can run with an empty workflow package set
 - tools and resources are registered once and activated through capability policy
 - durable restore can explain where an interrupted run stopped
+- durable restore can explain which safe runtime configuration a provider request used
 - project-local extensions can add useful behavior without bypassing permissions
 - resource reload and extension loading remain separate operations
 - frontend shells consume projections, not workflow internals
