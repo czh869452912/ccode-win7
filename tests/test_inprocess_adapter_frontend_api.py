@@ -398,6 +398,14 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             expected_phase,
         )
 
+    def test_tool_catalog_includes_default_c_workflow_tools(self):
+        items = self.adapter.get_tool_catalog()
+        names = set(item["name"] for item in items)
+
+        self.assertIn("run_recipe", names)
+        self.assertIn("task_status", names)
+        self.assertIn("report_quality_v2", names)
+
     def test_session_snapshot_projector_is_side_effect_free(self):
         from embedagent.session_projector import SessionSnapshotProjector
 

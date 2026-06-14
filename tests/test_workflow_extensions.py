@@ -465,6 +465,26 @@ def test_harness_package_owns_c_workflow_packs():
     assert "task_status" in pack_tool_names("verify")
 
 
+def test_importing_tool_runtime_does_not_import_harness_runtime_modules():
+    script = (
+        "import sys\n"
+        "import embedagent.tools.runtime\n"
+        "for name in ('embedagent.tools.harness_runtime', 'embedagent.harness.runner'):\n"
+        "    print(name, name in sys.modules)\n"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", script],
+        cwd=str(_REPO_ROOT),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        check=True,
+    )
+
+    assert "embedagent.tools.harness_runtime False" in result.stdout
+    assert "embedagent.harness.runner False" in result.stdout
+
+
 def test_tool_runtime_no_longer_exposes_legacy_schema_alias():
     source = (_REPO_ROOT / "src" / "embedagent" / "tools" / "runtime.py").read_text(
         encoding="utf-8"
