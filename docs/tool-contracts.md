@@ -19,6 +19,8 @@ Workflow extensions may activate focused subsets of registered tools for a turn.
 
 `CORE_PACK` is workflow-neutral. Harness tools such as `list_recipes`, `run_recipe`, `report_quality_v2`, `record_failing_evidence`, and `task_status` must be activated by workflow packs/extensions rather than being treated as core tools.
 
+Bundled C/C++ workflow pack definitions are owned only by `src/embedagent/harness/packs.py`. The old `embedagent.tooling.packs` re-export and `embedagent.tooling` package-root pack aliases have been removed and must not be treated as official tool contracts.
+
 Built-in mode `allowed_tools` are workflow-neutral permission/write contracts. They must not be used as the complete default C/C++ tool list. The C harness extension reports only its active pack tools; product paths that need the default harness behavior must union the mode contract with active workflow-extension tools and request schemas by explicit active tool names.
 
 `ToolRuntime.schemas_for(mode, workflow_state, tool_names=...)` is the single runtime schema projection entry point. Without explicit `tool_names`, it projects only the workflow-neutral mode contract. Harness-aware schema projection belongs to `AgentExtensionHost`, which consults the shared `ExtensionManager`, combines active extension tools with the mode contract, and passes explicit active tool names into runtime schema projection.

@@ -44,6 +44,37 @@
 
 ## 3. 当前变更记录
 
+### DC-146
+
+- 日期：2026-06-14
+- 变更主题：Pi-inspired minimal Core Phase L pack compatibility cleanup 收口
+- 变更摘要：
+  - 删除 `src/embedagent/tooling/packs.py`，移除历史 C/C++ workflow pack compatibility re-export
+  - `src/embedagent/tooling/__init__.py` 不再 re-export `BUILD_LITE_PACK`、`CORE_PACK`、`DEBUG_LITE_PACK`、`VERIFY_PACK`、`PACKS` 或 `pack_tool_names`
+  - workflow pack ownership 只保留在 `src/embedagent/harness/packs.py`
+  - active tool selection、runtime schema projection、permission policy 与 hosted C/C++ behavior 不变
+- 影响范围：
+  - `src/embedagent/tooling/__init__.py`
+  - `src/embedagent/tooling/packs.py`
+  - `tests/test_workflow_extensions.py`
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/tool-contracts.md`
+  - `docs/agent-harness-v2.md`
+  - `docs/pi-inspired-agent-core-blueprint.md`
+- 关联文档：
+  - `docs/pi-inspired-agent-core-blueprint.md`
+  - `docs/archive/phase-l-pack-compat-cleanup/2026-06-14-phase-l-pack-compat-cleanup-design.md`
+  - `docs/archive/phase-l-pack-compat-cleanup/2026-06-14-phase-l-pack-compat-cleanup.md`
+- 是否需要 ADR：`否，本次是已批准架构方向下的 stale compatibility path 删除；不改变默认 C/C++ workflow 行为或公共 extension API`
+- 后续动作：
+  - 在真实 Win7 目标机执行 clean offline bundle smoke
+  - 继续真实 C/C++ 工程验证
+  - 继续删除已证明不属于当前正式架构的 stale compatibility paths
+
 ### DC-145
 
 - 日期：2026-06-14
@@ -322,7 +353,7 @@
   - bare `ToolRuntime` 构造恢复为 workflow-neutral，只注册文件、发现、shell/git/build-env 等 core tools
   - `CHarnessWorkflowExtension.register_tools(...)` 现在通过共享 `ExtensionManager` / `AgentEventBus` 注册默认 C/C++ workflow tools
   - C/C++ workflow tool metadata 迁入 `src/embedagent/harness/tool_metadata.py`
-  - C/C++ workflow pack 定义迁入 `src/embedagent/harness/packs.py`，`src/embedagent/tooling/packs.py` 仅保留兼容 re-export
+  - C/C++ workflow pack 定义迁入 `src/embedagent/harness/packs.py`；当时 `src/embedagent/tooling/packs.py` 仅保留兼容 re-export，后续已由 DC-146 删除
   - 删除旧 runtime-side facade `src/embedagent/tools/harness_runtime.py`
   - 新增 guardrails，证明 importing bare `ToolRuntime` 不加载 harness runtime/runner，hosted adapter catalog 仍默认暴露 C/C++ workflow tools
 - 影响范围：
@@ -332,7 +363,7 @@
   - `src/embedagent/harness/packs.py`
   - `src/embedagent/harness/runner.py`
   - `src/embedagent/tools/runtime.py`
-  - `src/embedagent/tooling/packs.py`
+  - `src/embedagent/tooling/packs.py`（历史兼容出口，后续已由 DC-146 删除）
   - `tests/test_workflow_extensions.py`
   - `tests/test_inprocess_adapter_frontend_api.py`
   - `README.md`

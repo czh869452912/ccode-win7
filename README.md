@@ -16,7 +16,7 @@ The repository now treats Agent Core as the workflow-neutral runtime, with the C
 
 Local offline self-extension is part of the official architecture: workspace file resources and manifest-gated project-local Python extensions can extend the hosted runtime while remote registries, online installs, dependency installation, plugin marketplaces, built-in tool replacement, and general multi-agent orchestration remain outside the product baseline.
 
-The next long-term architecture direction is captured in `docs/pi-inspired-agent-core-blueprint.md`: continue learning from Pi's functional design and architecture philosophy while preserving EmbedAgent's offline, Windows 7, Python 3.8, and C/C++ engineering constraints. The current baseline remains valid; the blueprint guides gradual work toward a smaller Agent Kernel, durable session-log reducers, source-aware hooks, explicit turn snapshots, replayable runtime configuration, structured compaction state, recovery markers, and a default C/C++ workflow package loaded through the same capability boundary as local extensions. Phase A durable operation truth, Phase B source-aware extension hook dispatch, Phase C AgentKernel lifecycle extraction, Phase D default C/C++ workflow package ownership, Phase E local self-extension authoring, Phase F repo-side offline bundle validation, Phase G turn snapshot / capability registry foundation, Phase H runtime configuration reducer, Phase I workflow package manifest/read model, Phase J structured compaction state, and Phase K recovery state are complete. The next architecture work should focus on real Win7 bundle smoke validation, real C/C++ project validation, and deleting stale compatibility paths.
+The next long-term architecture direction is captured in `docs/pi-inspired-agent-core-blueprint.md`: continue learning from Pi's functional design and architecture philosophy while preserving EmbedAgent's offline, Windows 7, Python 3.8, and C/C++ engineering constraints. The current baseline remains valid; the blueprint guides gradual work toward a smaller Agent Kernel, durable session-log reducers, source-aware hooks, explicit turn snapshots, replayable runtime configuration, structured compaction state, recovery markers, and a default C/C++ workflow package loaded through the same capability boundary as local extensions. Phase A durable operation truth, Phase B source-aware extension hook dispatch, Phase C AgentKernel lifecycle extraction, Phase D default C/C++ workflow package ownership, Phase E local self-extension authoring, Phase F repo-side offline bundle validation, Phase G turn snapshot / capability registry foundation, Phase H runtime configuration reducer, Phase I workflow package manifest/read model, Phase J structured compaction state, Phase K recovery state, and Phase L pack compatibility cleanup are complete. The next architecture work should focus on real Win7 bundle smoke validation, real C/C++ project validation, and deleting remaining stale compatibility paths.
 
 - User-visible modes: `explore`, `spec`, `build`, `debug`, `verify`
 - Default C/C++ execution model: `mode + discipline_profile + execution_phase`
@@ -28,6 +28,7 @@ The next long-term architecture direction is captured in `docs/pi-inspired-agent
 - Official build/verify execution: `list_recipes` + `run_recipe` + `report_quality_v2`
 - Mode allowed-tool contracts are workflow-neutral; default harness tools are activated by the built-in C/C++ workflow extension
 - Bare `ToolRuntime` construction is workflow-neutral; the bundled C/C++ workflow package registers recipe, quality, evidence, and task-status tools through `CHarnessWorkflowExtension.register_tools(...)`
+- C/C++ workflow pack definitions live only under `src/embedagent/harness/packs.py`; the obsolete `embedagent.tooling.packs` compatibility re-export has been removed
 - Official file discovery: `list_dir`, `glob_files`, `grep_text`
 - Official permission engine: `PermissionPolicy` with structured rule matching and stable explanation text
 - Official session runtime ownership: one session-scoped `QueryEngine` remains the facade and transcript/session mutation owner, while `AgentLifecycleJournal`, `AgentKernel`, `AgentLoop`, `AgentToolActionService`, and `AgentExtensionHost` own durable lifecycle writes, turn frames and suspend/resume boundaries, turn-loop orchestration, non-LLM tool action execution, and extension hook dispatch
@@ -184,7 +185,8 @@ Current architecture cutover status:
 - Pi-inspired minimal Core Phase I workflow package manifest/read model: completed
 - Pi-inspired minimal Core Phase J structured compaction state: completed
 - Pi-inspired minimal Core Phase K recovery state: completed
-- Remaining work: clean Win7 bundle smoke, real C project validation, and stale compatibility cleanup
+- Pi-inspired minimal Core Phase L pack compatibility cleanup: completed
+- Remaining work: clean Win7 bundle smoke, real C project validation, and remaining stale compatibility cleanup
 
 ## Verification
 

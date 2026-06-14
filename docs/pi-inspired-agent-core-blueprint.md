@@ -428,6 +428,19 @@ Outcomes:
 
 Current implementation status: Phase K is complete. `src/embedagent/recovery_state.py` defines the reducer and serializable read model; `InProcessAdapter.resume_session(...)` appends safe `recovery_marker` events after restore; `SessionRestorer` reduces recovery markers from the consumed transcript prefix; `ManagedSession`, `SessionSnapshotProjector`, and the protocol/core adapter expose `recovery_state`.
 
+### Phase L: Pack Compatibility Cleanup
+
+Delete stale C/C++ workflow pack import surfaces now that the default workflow package owns its pack definitions.
+
+Outcomes:
+
+- `src/embedagent/tooling/packs.py` is removed
+- `embedagent.tooling` no longer re-exports C/C++ workflow pack aliases
+- bundled C/C++ workflow pack truth is available only from `src/embedagent/harness/packs.py`
+- active tool selection, schema projection, permissions, and hosted C/C++ behavior remain unchanged
+
+Current implementation status: Phase L is complete. The historical `embedagent.tooling.packs` re-export has been deleted, package-root pack aliases have been removed from `embedagent.tooling`, and architecture tests guard the single harness-owned pack import path.
+
 ## 9. Acceptance Criteria For The Direction
 
 The blueprint is working when:
@@ -441,6 +454,7 @@ The blueprint is working when:
 - durable restore can explain which safe runtime configuration a provider request used
 - durable restore can explain what compaction boundary was written and which safe metadata it carried
 - durable restore can explain hosted resume recovery markers and trusted transcript prefixes
+- stale compatibility import paths are deleted once official package ownership is established
 - project-local extensions can add useful behavior without bypassing permissions
 - resource reload and extension loading remain separate operations
 - frontend shells consume projections, not workflow internals

@@ -1,4 +1,5 @@
 import ast
+import importlib.util
 import subprocess
 import sys
 from pathlib import Path
@@ -379,17 +380,37 @@ def test_query_engine_tool_activation_does_not_use_runtime_harness_pack_fallback
 
 
 def test_core_pack_no_longer_contains_harness_workflow_tools():
-    from embedagent.tooling.packs import BUILD_LITE_PACK, CORE_PACK, DEBUG_LITE_PACK, VERIFY_PACK
+    from embedagent.harness.packs import (
+        C_WORKFLOW_BUILD_LITE_PACK,
+        C_WORKFLOW_CORE_PACK,
+        C_WORKFLOW_DEBUG_LITE_PACK,
+        C_WORKFLOW_VERIFY_PACK,
+    )
 
-    assert "run_recipe" not in CORE_PACK
-    assert "list_recipes" not in CORE_PACK
-    assert "task_status" not in CORE_PACK
-    assert "run_recipe" in BUILD_LITE_PACK
-    assert "task_status" in BUILD_LITE_PACK
-    assert "run_recipe" in DEBUG_LITE_PACK
-    assert "task_status" in DEBUG_LITE_PACK
-    assert "run_recipe" in VERIFY_PACK
-    assert "task_status" in VERIFY_PACK
+    assert "run_recipe" not in C_WORKFLOW_CORE_PACK
+    assert "list_recipes" not in C_WORKFLOW_CORE_PACK
+    assert "task_status" not in C_WORKFLOW_CORE_PACK
+    assert "run_recipe" in C_WORKFLOW_BUILD_LITE_PACK
+    assert "task_status" in C_WORKFLOW_BUILD_LITE_PACK
+    assert "run_recipe" in C_WORKFLOW_DEBUG_LITE_PACK
+    assert "task_status" in C_WORKFLOW_DEBUG_LITE_PACK
+    assert "run_recipe" in C_WORKFLOW_VERIFY_PACK
+    assert "task_status" in C_WORKFLOW_VERIFY_PACK
+
+
+def test_tooling_package_no_longer_reexports_c_workflow_packs():
+    import embedagent.tooling as tooling
+
+    assert importlib.util.find_spec("embedagent.tooling.packs") is None
+    for name in (
+        "BUILD_LITE_PACK",
+        "CORE_PACK",
+        "DEBUG_LITE_PACK",
+        "VERIFY_PACK",
+        "PACKS",
+        "pack_tool_names",
+    ):
+        assert not hasattr(tooling, name)
 
 
 def test_mode_allowed_tools_no_longer_own_harness_workflow_tools():
