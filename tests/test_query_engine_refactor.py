@@ -632,40 +632,12 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertFalse(observation.success)
         self.assertEqual(observation.data["error_kind"], "mode_tool_blocked")
 
-    def test_agent_loop_delegates_to_runner_callback(self):
+    def test_agent_loop_can_be_constructed_without_runner_callback(self):
         from embedagent.agent_loop import AgentLoop
-        from embedagent.session import LoopTransition, QueryTurnResult
 
-        session = Session()
-        calls = []
+        loop = AgentLoop()
 
-        def runner(**kwargs):
-            calls.append(kwargs)
-            transition = LoopTransition(reason="completed", message="runner finished")
-            return QueryTurnResult("ok", kwargs["session"], transition, turns_used=1)
-
-        loop = AgentLoop(runner=runner)
-        result = loop.run(
-            session=session,
-            current_mode="build",
-            workflow_state="chat",
-            stream=False,
-            stop_event=None,
-            on_text_delta=None,
-            on_reasoning_delta=None,
-            on_tool_start=None,
-            on_tool_finish=None,
-            on_context_result=None,
-            on_step_start=None,
-            on_step_finish=None,
-            permission_handler=None,
-            user_input_handler=None,
-        )
-
-        self.assertEqual(result.final_text, "ok")
-        self.assertIs(calls[0]["session"], session)
-        self.assertEqual(calls[0]["current_mode"], "build")
-        self.assertEqual(calls[0]["workflow_state"], "chat")
+        self.assertFalse(hasattr(loop, "_runner"))
 
     def test_query_engine_exposes_slim_agent_components(self):
         from embedagent.agent_extension_host import AgentExtensionHost
@@ -677,6 +649,8 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertIsInstance(engine.extension_host, AgentExtensionHost)
         self.assertIsInstance(engine._action_service, AgentToolActionService)
         self.assertIsInstance(engine._agent_loop, AgentLoop)
+        self.assertFalse(hasattr(engine._agent_loop, "_runner"))
+        self.assertFalse(hasattr(QueryEngine, "_run_loop_impl"))
         self.assertIs(engine.extension_manager, engine.extension_host.manager)
 
     def test_projection_failure_does_not_flip_tool_success(self):
