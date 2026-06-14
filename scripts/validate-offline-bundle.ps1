@@ -5,6 +5,7 @@ param(
     [string]$ZipPath = "",
     [string]$SourcesRoot = "",
     [string]$JsonOutputPath = "",
+    [string]$RuntimeContractPath = "",
     [switch]$RequireComplete,
     [switch]$SkipDynamicChecks
 )
@@ -244,6 +245,163 @@ function Validate-PthFile {
     }
 }
 
+function Read-RuntimeContract {
+    param(
+        [string]$Path
+    )
+
+    if (-not (Test-Path -LiteralPath $Path)) {
+        throw "Runtime contract not found: $Path"
+    }
+    return (Get-Content -LiteralPath $Path -Raw | ConvertFrom-Json)
+}
+
+function Test-JsonProperty {
+    param(
+        [object]$Object,
+        [string]$Name
+    )
+
+    return ($null -ne $Object) -and ($Object.PSObject.Properties.Name -contains $Name)
+}
+
+function Get-JsonPropertyValue {
+    param(
+        [object]$Object,
+        [string]$Name
+    )
+
+    if (Test-JsonProperty -Object $Object -Name $Name) {
+        return $Object.PSObject.Properties[$Name].Value
+    }
+    return $null
+}
+
+function Test-ContractPathSet {
+    param(
+        [string]$BundleRoot,
+        [object[]]$RelativePaths
+    )
+
+    foreach ($relative in @($RelativePaths)) {
+        $normalized = ([string]$relative).Replace('/', '\')
+        $candidate = Join-Path $BundleRoot $normalized
+        if (-not (Test-Path -LiteralPath $candidate)) {
+            return $false
+        }
+    }
+    return $true
+}
+
+function Test-ContractAlternatives {
+    param(
+        [string]$BundleRoot,
+        [object[]]$Alternatives
+    )
+
+    foreach ($alternative in @($Alternatives)) {
+        if (Test-ContractPathSet -BundleRoot $BundleRoot -RelativePaths @(Get-JsonPropertyValue -Object $alternative -Name 'paths')) {
+            return $true
+        }
+    }
+    return $false
+}
+
+function Get-ContractPrimaryPath {
+    param(
+        [string]$BundleRoot,
+        [object]$Tool
+    )
+
+    if (Test-JsonProperty -Object $Tool -Name 'alternatives') {
+        foreach ($alternative in @(Get-JsonPropertyValue -Object $Tool -Name 'alternatives')) {
+            $alternativePaths = @(Get-JsonPropertyValue -Object $alternative -Name 'paths')
+            if (Test-ContractPathSet -BundleRoot $BundleRoot -RelativePaths $alternativePaths) {
+                $firstPath = $alternativePaths | Select-Object -First 1
+                return Join-Path $BundleRoot ([string]$firstPath).Replace('/', '\')
+            }
+        }
+        return ''
+    }
+    $paths = @(Get-JsonPropertyValue -Object $Tool -Name 'paths')
+    if ($paths.Count -eq 0) {
+        return ''
+    }
+    return Join-Path $BundleRoot ([string]$paths[0]).Replace('/', '\')
+}
+
+function Test-RuntimeContract {
+    param(
+        [System.Collections.ArrayList]$Results,
+        [string]$BundleRoot,
+        [object]$Contract
+    )
+
+    foreach ($tool in @($Contract.required_tools)) {
+        $toolId = [string]$tool.id
+        $present = $false
+        if (Test-JsonProperty -Object $tool -Name 'alternatives') {
+            $present = Test-ContractAlternatives -BundleRoot $BundleRoot -Alternatives @(Get-JsonPropertyValue -Object $tool -Name 'alternatives')
+        }
+        else {
+            $present = Test-ContractPathSet -BundleRoot $BundleRoot -RelativePaths @(Get-JsonPropertyValue -Object $tool -Name 'paths')
+        }
+
+        $level = if ($present) { 'pass' } elseif ($RequireComplete) { 'fail' } else { 'warn' }
+        $message = if ($present) {
+            "Runtime tool present: $toolId"
+        }
+        else {
+            "Runtime tool missing: $toolId"
+        }
+        Add-Result -Results $Results -Level $level -Code ('runtime_tool.' + $toolId) -Message $message
+
+        foreach ($child in @(Get-JsonPropertyValue -Object $tool -Name 'children')) {
+            if ($null -eq $child) {
+                continue
+            }
+            $childPath = Join-Path $BundleRoot ([string]$child.path).Replace('/', '\')
+            $childPresent = Test-Path -LiteralPath $childPath
+            $childLevel = if ($childPresent) { 'pass' } elseif ($RequireComplete) { 'fail' } else { 'warn' }
+            $childMessage = if ($childPresent) {
+                "Runtime tool child present: $toolId/$($child.id)"
+            }
+            else {
+                "Runtime tool child missing: $toolId/$($child.id) at $($child.path)"
+            }
+            Add-Result -Results $Results -Level $childLevel -Code ('runtime_tool.' + $toolId + '.' + [string]$child.id) -Message $childMessage
+        }
+    }
+}
+
+function Invoke-RuntimeContractDynamicChecks {
+    param(
+        [System.Collections.ArrayList]$Results,
+        [string]$BundleRoot,
+        [object]$Contract
+    )
+
+    foreach ($tool in @($Contract.required_tools)) {
+        $toolId = [string]$tool.id
+        if (Test-JsonProperty -Object $tool -Name 'dynamic_check') {
+            $toolPath = Get-ContractPrimaryPath -BundleRoot $BundleRoot -Tool $tool
+            if ($toolPath) {
+                Invoke-CommandCheck -Results $Results -FilePath $toolPath -Arguments @(Get-JsonPropertyValue -Object $tool -Name 'dynamic_check') -Code ('dynamic.runtime_tool.' + $toolId) -TreatAsCompleteGate $true
+            }
+        }
+        foreach ($child in @(Get-JsonPropertyValue -Object $tool -Name 'children')) {
+            if ($null -eq $child) {
+                continue
+            }
+            if (-not (Test-JsonProperty -Object $child -Name 'dynamic_check')) {
+                continue
+            }
+            $childPath = Join-Path $BundleRoot ([string]$child.path).Replace('/', '\')
+            Invoke-CommandCheck -Results $Results -FilePath $childPath -Arguments @(Get-JsonPropertyValue -Object $child -Name 'dynamic_check') -Code ('dynamic.runtime_tool.' + $toolId + '.' + [string]$child.id) -TreatAsCompleteGate $true
+        }
+    }
+}
+
 function Test-NoEditableBundleLinks {
     param(
         [System.Collections.ArrayList]$Results,
@@ -270,6 +428,10 @@ $defaultBundleRoot = Join-Path $projectRoot ('build\offline-dist\' + $ArtifactNa
 $defaultZipPath = Join-Path $projectRoot ('build\offline-dist\' + $ArtifactName + '.zip')
 $defaultSourcesRoot = Join-Path $projectRoot ('build\offline-dist\' + $ArtifactName + '-sources')
 
+if (-not $RuntimeContractPath) {
+    $RuntimeContractPath = Join-Path $projectRoot 'scripts\offline-runtime-contract.json'
+}
+
 if (-not $BundleRoot) {
     $BundleRoot = $defaultBundleRoot
 }
@@ -281,6 +443,7 @@ if (-not $SourcesRoot) {
 }
 
 $results = New-Object System.Collections.ArrayList
+$runtimeContract = Read-RuntimeContract -Path $RuntimeContractPath
 
 if (-not (Test-Path -LiteralPath $BundleRoot)) {
     Add-Result -Results $results -Level 'fail' -Code 'bundle.root' -Message ('Bundle root not found: {0}' -f $BundleRoot)
@@ -324,6 +487,7 @@ Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'tools\validation
 Test-StaticPath -Results $results -Path $SourcesRoot -Code 'sources.root' -Message 'Sources seed directory present.' -TreatAsCompleteGate $true
 Test-StaticPath -Results $results -Path $sourcesManifestPath -Code 'sources.manifest' -Message 'assets-manifest.json present.' -TreatAsCompleteGate $true
 Test-StaticPath -Results $results -Path $sourcesChecksumsPath -Code 'sources.checksums' -Message 'sources checksums.txt present.' -TreatAsCompleteGate $true
+Test-RuntimeContract -Results $results -BundleRoot $BundleRoot -Contract $runtimeContract
 
 if (Test-Path -LiteralPath $ZipPath) {
     Add-Result -Results $results -Level 'pass' -Code 'bundle.zip' -Message ('Zip artifact present: {0}' -f $ZipPath)
@@ -345,7 +509,7 @@ if (Test-Path -LiteralPath $manifestPath) {
 }
 
 if ($manifest -ne $null) {
-    $completeGateComponents = @('python_runtime', 'python_packages', 'mingit_portable', 'ripgrep', 'universal_ctags', 'webview2_fixed_runtime')
+    $completeGateComponents = @('python_runtime', 'python_packages', 'mingit_portable', 'ripgrep', 'universal_ctags', 'llvm_clang_bundle', 'webview2_fixed_runtime')
     foreach ($component in @($manifest.components)) {
         if (-not $component.required) {
             continue
@@ -392,6 +556,7 @@ if (Test-Path -LiteralPath (Join-Path $BundleRoot 'runtime\python')) {
 Test-NoEditableBundleLinks -Results $results -SitePackagesRoot (Join-Path $BundleRoot 'runtime\site-packages')
 
 if (-not $SkipDynamicChecks) {
+    Invoke-RuntimeContractDynamicChecks -Results $results -BundleRoot $BundleRoot -Contract $runtimeContract
     Invoke-CommandCheck -Results $results -FilePath $pythonExe -Arguments @('--version') -Code 'dynamic.python' -TreatAsCompleteGate $true
     if ($gitExe) {
         Invoke-CommandCheck -Results $results -FilePath $gitExe -Arguments @('--version') -Code 'dynamic.git' -TreatAsCompleteGate $true
@@ -464,6 +629,10 @@ $summaryPayload = [ordered]@{
     sources_root = $SourcesRoot
     require_complete = [bool]$RequireComplete
     skip_dynamic_checks = [bool]$SkipDynamicChecks
+    runtime_contract = [ordered]@{
+        path = $RuntimeContractPath
+        schema_version = $runtimeContract.schema_version
+    }
     pass_count = $passCount
     warn_count = $warnCount
     fail_count = $failCount

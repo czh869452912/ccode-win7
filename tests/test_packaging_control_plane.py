@@ -409,6 +409,93 @@ class TestStageJsonReports(unittest.TestCase):
             self.assertEqual(payload["fail_count"], 0)
             self.assertTrue(isinstance(payload["results"], list))
 
+    def test_validate_offline_bundle_fails_strict_for_missing_runtime_contract_tool(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            bundle_root = Path(tmp) / "bundle"
+            sources_root = Path(tmp) / "sources"
+            (bundle_root / "app" / "embedagent").mkdir(parents=True)
+            (bundle_root / "runtime" / "python").mkdir(parents=True)
+            (bundle_root / "bin" / "llvm" / "bin").mkdir(parents=True)
+            sources_root.mkdir()
+            json_path = Path(tmp) / "validate-report.json"
+            result = subprocess.run(
+                [
+                    _powershell_exe(),
+                    "-NoProfile",
+                    "-File",
+                    str(VALIDATE_SCRIPT),
+                    "-BundleRoot",
+                    str(bundle_root),
+                    "-SourcesRoot",
+                    str(sources_root),
+                    "-ZipPath",
+                    str(Path(tmp) / "bundle.zip"),
+                    "-SkipDynamicChecks",
+                    "-RequireComplete",
+                    "-JsonOutputPath",
+                    str(json_path),
+                ],
+                cwd=str(ROOT),
+                capture_output=True,
+                text=True,
+            )
+            self.assertNotEqual(result.returncode, 0)
+            payload = json.loads(json_path.read_text(encoding="utf-8"))
+            result_codes = [item["code"] for item in payload["results"]]
+            self.assertIn("runtime_tool.git", result_codes)
+            self.assertIn("runtime_tool.llvm.clang", result_codes)
+
+    def test_validate_offline_bundle_passes_static_runtime_contract_for_mock_bundle(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            bundle_root = Path(tmp) / "bundle"
+            sources_root = Path(tmp) / "sources"
+            for path in [
+                "app/embedagent/__init__.py",
+                "runtime/python/python.exe",
+                "bin/git/cmd/git.exe",
+                "bin/rg/rg.exe",
+                "bin/ctags/ctags.exe",
+                "bin/llvm/bin/clang.exe",
+                "bin/llvm/bin/clang++.exe",
+                "bin/llvm/bin/clang-cl.exe",
+                "bin/llvm/bin/clang-tidy.exe",
+                "bin/llvm/bin/clang-analyzer.bat",
+                "bin/llvm/bin/llvm-profdata.exe",
+                "bin/llvm/bin/llvm-cov.exe",
+            ]:
+                target = bundle_root / Path(path)
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text("stub", encoding="ascii")
+            sources_root.mkdir()
+            json_path = Path(tmp) / "validate-report.json"
+            result = subprocess.run(
+                [
+                    _powershell_exe(),
+                    "-NoProfile",
+                    "-File",
+                    str(VALIDATE_SCRIPT),
+                    "-BundleRoot",
+                    str(bundle_root),
+                    "-SourcesRoot",
+                    str(sources_root),
+                    "-ZipPath",
+                    str(Path(tmp) / "bundle.zip"),
+                    "-SkipDynamicChecks",
+                    "-JsonOutputPath",
+                    str(json_path),
+                ],
+                cwd=str(ROOT),
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            payload = json.loads(json_path.read_text(encoding="utf-8"))
+            result_codes = [item["code"] for item in payload["results"]]
+            self.assertIn("runtime_tool.python", result_codes)
+            self.assertIn("runtime_tool.git", result_codes)
+            self.assertIn("runtime_tool.llvm.clang_tidy", result_codes)
+            self.assertEqual(payload["runtime_contract"]["schema_version"], 1)
+
     def test_validate_offline_bundle_flags_gui_launcher_contract_drift(self):
         with tempfile.TemporaryDirectory() as tmp:
             bundle_root = Path(tmp) / "bundle"
