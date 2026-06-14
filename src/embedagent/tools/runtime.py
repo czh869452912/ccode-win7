@@ -12,12 +12,11 @@ from embedagent.strategies.tool_cache import ToolResultCache
 from embedagent.session import Action
 from embedagent.tool_result_store import ToolResultStore
 from embedagent.tooling.packs import pack_tool_names
-from embedagent.tools import compile_ops, file_ops, git_ops, shell_ops
+from embedagent.tools import compile_ops, discovery_ops, file_ops, git_ops, shell_ops
 from embedagent.tools._base import ToolContext, ToolDefinition, ToolError
 from embedagent.tools.harness_runtime import (
     OFFICIAL_HARNESS_TOOL_METADATA,
     OfficialRuntimeModes,
-    build_harness_tools,
 )
 
 _VALID_TOOL_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
@@ -264,11 +263,11 @@ class ToolRuntime(object):
         self._mode_runtime = OfficialRuntimeModes()
         core_tools = (
             file_ops.build_tools(self._ctx)
+            + discovery_ops.build_tools(self._ctx)
             + shell_ops.build_tools(self._ctx)
             + git_ops.build_tools(self._ctx)
             + compile_ops.build_tools(self._ctx)
         )
-        harness_tools = build_harness_tools(self._ctx)
         self._catalog = {}  # type: Dict[str, ToolCatalogEntry]
         self._tools = {}  # type: Dict[str, ToolDefinition]
         for tool in core_tools:
@@ -276,14 +275,6 @@ class ToolRuntime(object):
                 tool,
                 source_id="embedagent.core",
                 source_type="builtin",
-            )
-        for tool in harness_tools:
-            if tool.name in self._tools:
-                continue
-            self.register_tool(
-                tool,
-                source_id="embedagent.harness",
-                source_type="harness",
             )
 
     def register_tool(

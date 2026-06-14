@@ -388,6 +388,38 @@ def test_tool_runtime_default_schemas_follow_mode_contract_not_harness_pack(tmp_
     assert "task_status" not in default_names
 
 
+def test_bare_tool_runtime_does_not_register_default_c_workflow_tools(tmp_path):
+    from embedagent.tools import ToolRuntime
+
+    runtime = ToolRuntime(str(tmp_path))
+    names = set(item["name"] for item in runtime.catalog_entries())
+
+    assert "read_file" in names
+    assert "list_recipes" not in names
+    assert "run_recipe" not in names
+    assert "task_status" not in names
+    assert "report_quality_v2" not in names
+
+
+def test_default_c_workflow_extension_registers_workflow_tools(tmp_path):
+    from embedagent.default_extensions import build_default_extension_set
+    from embedagent.extensions import ExtensionContext, ToolRegistrationEvent
+    from embedagent.tools import ToolRuntime
+
+    runtime = ToolRuntime(str(tmp_path))
+    default_set = build_default_extension_set(runtime)
+    default_set.manager.register_tools(
+        ToolRegistrationEvent(current_mode="build", workflow_state_name="chat", reason="test"),
+        ExtensionContext(workspace=str(tmp_path), tool_registry=runtime),
+    )
+    names = set(item["name"] for item in runtime.catalog_entries())
+
+    assert "list_recipes" in names
+    assert "run_recipe" in names
+    assert "task_status" in names
+    assert "record_failing_evidence" in names
+
+
 def test_tool_runtime_no_longer_exposes_legacy_schema_alias():
     source = (_REPO_ROOT / "src" / "embedagent" / "tools" / "runtime.py").read_text(
         encoding="utf-8"

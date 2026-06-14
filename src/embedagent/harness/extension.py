@@ -3,10 +3,11 @@ from __future__ import annotations
 import re
 from typing import Any, List, Optional, Set
 
-from embedagent.extensions import HarnessPrompt
+from embedagent.extensions import HarnessPrompt, ToolRegistrationResult
 from embedagent.harness import task_store
 from embedagent.harness.runner import HarnessRunner
 from embedagent.harness.session_graph_state import HarnessSessionGraphState
+from embedagent.harness.tool_registry import build_c_workflow_tools
 from embedagent.harness.workflow_projection import build_c_harness_workflow_projection
 from embedagent.session import Observation
 from embedagent.tooling.packs import pack_tool_names
@@ -185,6 +186,22 @@ class CHarnessWorkflowExtension(object):
         if context is None:
             return set()
         return set(pack_tool_names(context.pack_name))
+
+    def register_tools(self, event: Any, context: Any) -> ToolRegistrationResult:
+        del event
+        registry = getattr(context, "tool_registry", None)
+        tool_context = getattr(registry, "_ctx", None)
+        if tool_context is None:
+            return ToolRegistrationResult(
+                tools=[],
+                source_id="embedagent.harness",
+                source_type="harness",
+            )
+        return ToolRegistrationResult(
+            tools=build_c_workflow_tools(tool_context),
+            source_id="embedagent.harness",
+            source_type="harness",
+        )
 
     def load_session_tasks(self, workspace: str, session_id: str) -> dict:
         tasks = task_store.load_task_items(workspace, session_id)
