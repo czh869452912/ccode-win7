@@ -441,6 +441,26 @@ Outcomes:
 
 Current implementation status: Phase L is complete. The historical `embedagent.tooling.packs` re-export has been deleted, package-root pack aliases have been removed from `embedagent.tooling`, and architecture tests guard the single harness-owned pack import path.
 
+### Phase M: Core Alias Cleanup
+
+Delete stale core-level compatibility aliases now that official factory/accessor
+entry points are established.
+
+Outcomes:
+
+- mode registry access uses `get_mode_registry()` / `initialize_modes()`
+- command sanitizer access uses `get_command_sanitizer()`
+- hosted adapter class lookup uses `get_inprocess_adapter()`
+- legacy names such as `MODE_REGISTRY`, `_DEFAULT_SANITIZER`,
+  `get_default_sanitizer()`, `_inprocess_adapter`, and `_get_adapter_class()`
+  are no longer exported or used
+- mode behavior, shell sanitizer behavior, adapter lifecycle, permissions, and
+  hosted C/C++ behavior remain unchanged
+
+Current implementation status: Phase M is complete. The remaining core
+compatibility aliases for mode registry, command sanitizer, and adapter class
+lookup have been removed, and tests guard the explicit accessor boundary.
+
 ## 9. Acceptance Criteria For The Direction
 
 The blueprint is working when:
@@ -454,7 +474,7 @@ The blueprint is working when:
 - durable restore can explain which safe runtime configuration a provider request used
 - durable restore can explain what compaction boundary was written and which safe metadata it carried
 - durable restore can explain hosted resume recovery markers and trusted transcript prefixes
-- stale compatibility import paths are deleted once official package ownership is established
+- stale compatibility import paths and aliases are deleted once official ownership/accessor boundaries are established
 - project-local extensions can add useful behavior without bypassing permissions
 - resource reload and extension loading remain separate operations
 - frontend shells consume projections, not workflow internals

@@ -43,6 +43,10 @@ Allowed-tool gating is not a runtime wrapper. Core orchestration receives an exp
 
 Runtime-invoked external binaries are governed by `scripts/offline-runtime-contract.json`. If a tool implementation, recipe path, or workflow package starts invoking a new bundled binary, the runtime contract and packaging validators must be updated in the same change. The contract currently covers Python, MinGit, ripgrep, Universal Ctags, and LLVM/Clang child executables.
 
+Shell tooling uses `get_command_sanitizer()` directly. Do not depend on or
+recreate legacy sanitizer aliases such as `_DEFAULT_SANITIZER` or
+`get_default_sanitizer()`.
+
 ## Extension Tool Hooks
 
 The extension runtime may observe or patch tool calls through typed in-process hooks:

@@ -23,6 +23,11 @@ The stable contract boundary is:
 
 Frontends should only rely on this boundary, not on internal session or query-engine details.
 
+The core adapter boundary uses `get_inprocess_adapter()` internally for hosted
+adapter class lookup. Legacy adapter compatibility accessors such as
+`_inprocess_adapter` and `_get_adapter_class()` are not frontend protocol
+contracts and have been removed.
+
 ## 3. Session Snapshot
 
 Important session snapshot fields include:

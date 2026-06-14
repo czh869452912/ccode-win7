@@ -39,6 +39,11 @@ Project-local Python extension manifests declare requested permissions, but thos
 
 Project-local extension loading does not grant dependency installation rights. The loader must not invoke installers or package managers while importing enabled manifests; any command execution still has to enter through an official tool/recipe path, use bundled runtime commands, and pass the normal permission policy.
 
+Command sanitization must enter through `get_command_sanitizer()`. The old
+`_DEFAULT_SANITIZER` proxy and `get_default_sanitizer()` wrapper have been
+removed; reintroducing them would create a second apparent command-safety
+surface outside the official accessor.
+
 ## 3. Rule Shape
 
 Rules are structured objects loaded from the configured rules file.

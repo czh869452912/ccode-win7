@@ -5,6 +5,12 @@
 
 ## Changes
 
+> Historical note: this document records the Phase 3 refactor. The
+> backward-compatible global aliases described below were later removed by
+> Pi-inspired minimal Core Phase M. Current code should use
+> `get_mode_registry()`, `get_command_sanitizer()`, and
+> `get_inprocess_adapter()` directly.
+
 ### InProcessAdapter Extraction (Plan 03-01)
 
 **Before:** `InProcessAdapter` — 2,446 lines in single file
@@ -55,18 +61,20 @@ QueryEngine instantiates all three strategies and provides backward-compatible `
 - LLM retry behavior
 
 ### Backward Compatibility Tests (`tests/test_backward_compatibility.py`)
-- 23 tests verifying public API stability
+- 25 tests verifying public API stability and removed legacy alias boundaries
 - Import verification for all modules
 - Instantiation with expected signatures
 - Global state isolation via `fresh=True`
 
-## Backward Compatibility
+## Current Compatibility Boundary
 
-All public APIs remain unchanged:
+The current public APIs are:
 - `InProcessAdapter(client, tools, ...)` — same constructor signature
 - `QueryEngine(client, tools, ...)` — same constructor signature, plus new `run()`/`stop()`
 - `mode_names()`, `require_mode(mode)`, `initialize_modes()` — same signatures
-- `from embedagent.modes import MODE_REGISTRY` — still works (returns alias to current registry)
+
+The old `from embedagent.modes import MODE_REGISTRY` compatibility alias no
+longer exists. Use `get_mode_registry()` instead.
 
 ## Migration Guide
 

@@ -64,16 +64,6 @@ def _register_adapter_factory() -> None:
 _register_adapter_factory()
 
 
-# Backward-compatible alias — calls get_inprocess_adapter().
-# Deprecated: use get_inprocess_adapter() directly.
-_inprocess_adapter = None
-
-
-def _get_adapter_class():
-    """Backward-compatible adapter class accessor."""
-    return get_inprocess_adapter()
-
-
 def _status_from_snapshot(snapshot: Dict[str, Any]) -> SessionStatus:
     status_map = {
         "idle": SessionStatus.IDLE,

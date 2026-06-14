@@ -1,7 +1,7 @@
 # Phase M Design: Core Alias Cleanup
 
 Date: 2026-06-14
-Status: Proposed
+Status: Completed
 
 ## Context
 
@@ -97,4 +97,3 @@ suite, but Phase M changes the relevant assertions from "old alias works" to
 - Focused tests cover the removed aliases and official accessors.
 - Fast non-GUI test suite and lint checks pass under the existing Python 3.8
   constraints.
-

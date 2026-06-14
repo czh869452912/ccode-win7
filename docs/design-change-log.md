@@ -44,6 +44,43 @@
 
 ## 3. 当前变更记录
 
+### DC-147
+
+- 日期：2026-06-14
+- 变更主题：Pi-inspired minimal Core Phase M core alias cleanup 收口
+- 变更摘要：
+  - 删除 `embedagent.modes.MODE_REGISTRY` 兼容代理，mode helpers 直接通过 `get_mode_registry()` 读取 registry
+  - 删除 `embedagent.command_sanitizer._DEFAULT_SANITIZER` 与 `get_default_sanitizer()`，shell tooling 改为直接使用 `get_command_sanitizer()`
+  - 删除 `embedagent.core.adapter` 内的 `_inprocess_adapter` / `_get_adapter_class()` 兼容访问器，adapter class lookup 只保留 `get_inprocess_adapter()`
+  - mode behavior、command sanitizer behavior、adapter lifecycle、permission policy 与 hosted C/C++ behavior 不变
+- 影响范围：
+  - `src/embedagent/modes.py`
+  - `src/embedagent/command_sanitizer.py`
+  - `src/embedagent/tools/shell_ops.py`
+  - `src/embedagent/core/adapter.py`
+  - `tests/test_backward_compatibility.py`
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/mode-schema.md`
+  - `docs/permission-model.md`
+  - `docs/tool-contracts.md`
+  - `docs/frontend-protocol.md`
+  - `docs/agent-harness-v2.md`
+  - `docs/pi-inspired-agent-core-blueprint.md`
+  - `docs/architecture-refactor.md`
+- 关联文档：
+  - `docs/pi-inspired-agent-core-blueprint.md`
+  - `docs/archive/phase-m-core-alias-cleanup/2026-06-14-phase-m-core-alias-cleanup-design.md`
+  - `docs/archive/phase-m-core-alias-cleanup/2026-06-14-phase-m-core-alias-cleanup.md`
+- 是否需要 ADR：`否，本次是已批准 minimal Core 方向下的 stale compatibility alias 删除；不改变运行时行为或公共 extension API`
+- 后续动作：
+  - 在真实 Win7 目标机执行 clean offline bundle smoke
+  - 继续真实 C/C++ 工程验证
+  - 继续按 source-of-truth docs 审计剩余 compatibility/deprecated 路径
+
 ### DC-146
 
 - 日期：2026-06-14

@@ -85,7 +85,7 @@ The repository now has one official architecture vocabulary.
 
 The current baseline remains authoritative. `docs/pi-inspired-agent-core-blueprint.md` is the long-term target blueprint for making Agent Core more Pi-like in both function and philosophy: smaller kernel, durable session-log reducers, source-aware hooks, explicit turn snapshots, replayable runtime configuration, structured compaction state, recovery markers, capability read models, replaceable workflow packages, and local self-extension.
 
-Do not treat blueprint target terms such as `SessionLog` or public `HookBus` as implemented public APIs until a specific implementation slice lands and updates the source-of-truth docs. `AgentEventBus` is now the internal source-aware event/reducer boundary for public extension hook dispatch; it is not a public extension API. `AgentLifecycleJournal`, `AgentKernel`, `AgentLoop`, `TurnSnapshot`, `CapabilityRegistry`, `RuntimeConfigReducer`, `WorkflowPackageManifest`, `CompactionStateReducer`, and `RecoveryStateReducer` are implemented internal Agent Core boundaries/read models, not public extension APIs. The bundled default C/C++ workflow package now owns its workflow tool registration, metadata, packs, and read-only package manifest behind `CHarnessWorkflowExtension`; the obsolete `embedagent.tooling.packs` compatibility re-export has been removed, so C/C++ workflow pack truth lives only in `embedagent.harness.packs`; local self-extension authoring is available through `SelfExtensionAuthoringService` and `author_local_capability`; repo-side offline bundle validation is contract-backed through `scripts/offline-runtime-contract.json`; near-term work must preserve hosted C/C++ behavior while advancing real Win7 bundle smoke validation and real C/C++ project validation.
+Do not treat blueprint target terms such as `SessionLog` or public `HookBus` as implemented public APIs until a specific implementation slice lands and updates the source-of-truth docs. `AgentEventBus` is now the internal source-aware event/reducer boundary for public extension hook dispatch; it is not a public extension API. `AgentLifecycleJournal`, `AgentKernel`, `AgentLoop`, `TurnSnapshot`, `CapabilityRegistry`, `RuntimeConfigReducer`, `WorkflowPackageManifest`, `CompactionStateReducer`, and `RecoveryStateReducer` are implemented internal Agent Core boundaries/read models, not public extension APIs. The bundled default C/C++ workflow package now owns its workflow tool registration, metadata, packs, and read-only package manifest behind `CHarnessWorkflowExtension`; the obsolete `embedagent.tooling.packs` compatibility re-export has been removed, so C/C++ workflow pack truth lives only in `embedagent.harness.packs`. Core singleton-like access must use explicit accessors (`get_mode_registry()`, `get_command_sanitizer()`, `get_inprocess_adapter()`); stale global/proxy aliases such as `MODE_REGISTRY`, `_DEFAULT_SANITIZER`, `get_default_sanitizer()`, `_inprocess_adapter`, and `_get_adapter_class()` must not be reintroduced. Local self-extension authoring is available through `SelfExtensionAuthoringService` and `author_local_capability`; repo-side offline bundle validation is contract-backed through `scripts/offline-runtime-contract.json`; near-term work must preserve hosted C/C++ behavior while advancing real Win7 bundle smoke validation and real C/C++ project validation.
 
 ### Modes
 
@@ -98,6 +98,10 @@ Official first-class modes are:
 - `verify`
 
 `code` is no longer a first-class mode.
+
+Mode registry access must go through `get_mode_registry()` / `initialize_modes()`.
+Do not reintroduce a module-level `MODE_REGISTRY` proxy or make mode helpers depend
+on mutable compatibility aliases.
 
 ### Harness
 
@@ -177,6 +181,10 @@ Built-in mode `allowed_tools` are workflow-neutral permission/write contracts. D
 `ToolRuntime.schemas_for(mode, workflow_state, tool_names=...)` is the single runtime schema projection entry point. Without explicit `tool_names`, it projects only the workflow-neutral mode contract. Do not use runtime mode contracts as a shortcut for default harness pack activation; use `AgentExtensionHost` over the shared `ExtensionManager` and pass explicit active tool names into runtime schema projection.
 
 C/C++ workflow pack definitions live only in `src/embedagent/harness/packs.py`. Do not reintroduce `src/embedagent/tooling/packs.py`, `embedagent.tooling.packs`, or package-root pack aliases on `embedagent.tooling`; those were stale compatibility paths and are no longer part of the product contract.
+
+Command sanitization uses `get_command_sanitizer()` directly. Do not reintroduce
+`get_default_sanitizer()` or `_DEFAULT_SANITIZER`; shell execution must continue
+through the official sanitizer accessor and normal permission policy.
 
 Dynamic in-process extension tools are registered into the shared `ToolRuntime` with source metadata and explicit permission categories. The default C/C++ workflow package uses the same registration boundary for recipe, quality, evidence, and task-status tools. A registered extension tool is model-visible only when active through the shared `ExtensionManager.allowed_tool_names(mode_name, workflow_state=workflow_state)` path and remains subject to `PermissionPolicy`.
 

@@ -60,7 +60,8 @@ Recent workflow-boundary work has started slimming Agent Core without changing t
 - `AgentLoop` now owns turn-loop orchestration behind `QueryEngine`, including agent steps, context/provider attempts, compact retry, tool batch interruption, guard stops, abort, and max-turn transitions; `QueryEngine` no longer owns `_run_loop_impl`
 - `ToolRuntime` construction is now workflow-neutral; the bundled C/C++ workflow package registers recipe, quality, evidence, and task-status tools with metadata through `CHarnessWorkflowExtension.register_tools(...)`
 - C/C++ workflow pack definitions now live only under `src/embedagent/harness/packs.py`; the obsolete `src/embedagent/tooling/packs.py` compatibility export has been removed
-- Pi-inspired minimal Core Phase A durable operation log, Phase B HookBus/reducer registry, Phase C AgentKernel lifecycle extraction, Phase D default C/C++ workflow package ownership, Phase E self-extension authoring loop, Phase F repo-side offline bundle validation, Phase G turn snapshot / capability registry foundation, Phase H runtime configuration reducer, Phase I workflow package manifest/read model, Phase J structured compaction state, Phase K recovery state, and Phase L pack compatibility cleanup are complete
+- Pi-inspired minimal Core Phase A durable operation log, Phase B HookBus/reducer registry, Phase C AgentKernel lifecycle extraction, Phase D default C/C++ workflow package ownership, Phase E self-extension authoring loop, Phase F repo-side offline bundle validation, Phase G turn snapshot / capability registry foundation, Phase H runtime configuration reducer, Phase I workflow package manifest/read model, Phase J structured compaction state, Phase K recovery state, Phase L pack compatibility cleanup, and Phase M core alias cleanup are complete
+- stale core compatibility aliases have been removed; current code uses `get_mode_registry()`, `get_command_sanitizer()`, and `get_inprocess_adapter()` directly instead of `MODE_REGISTRY`, `_DEFAULT_SANITIZER`, `get_default_sanitizer()`, `_inprocess_adapter`, or `_get_adapter_class()`
 - `TurnSnapshot` is now the explicit frozen provider-request input; `QueryEngine` builds it after context assembly and active schema projection, then provider requests consume `snapshot.messages` and `snapshot.tool_schemas`
 - `CapabilityRegistry` is now the non-executing read model for tools, local file resources, slash commands, model profiles, and workflow packages; activation and execution remain owned by `AgentExtensionHost` / `ExtensionManager` and `ToolRuntime` / `AgentToolActionService`
 - `RuntimeConfigReducer` now projects safe runtime configuration from transcript events, including model profile metadata, active model-visible tool names, local resource revision metadata, capability counts, and provider snapshot records
@@ -179,6 +180,13 @@ The current self-extensible Agent Core baseline remains valid. The next program 
    - `embedagent.tooling` no longer re-exports C/C++ workflow pack aliases
    - bundled C/C++ workflow pack truth is available only from `src/embedagent/harness/packs.py`
    - active tool selection, schema projection, permissions, and default hosted C/C++ behavior remain unchanged
+
+13. **Core alias cleanup**
+   - current implementation status: Phase M is complete
+   - mode registry access goes through `get_mode_registry()` / `initialize_modes()`
+   - command sanitization access goes through `get_command_sanitizer()`
+   - adapter class lookup goes through `get_inprocess_adapter()`
+   - stale compatibility names `MODE_REGISTRY`, `_DEFAULT_SANITIZER`, `get_default_sanitizer()`, `_inprocess_adapter`, and `_get_adapter_class()` have been removed
 
 This program must not introduce online extension marketplaces, dependency installation, remote registries, built-in tool replacement by project-local code, container requirements, WSL requirements, VS Code dependency, or general multi-agent orchestration in Agent Core.
 

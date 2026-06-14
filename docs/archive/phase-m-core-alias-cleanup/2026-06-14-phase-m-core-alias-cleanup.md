@@ -1,7 +1,7 @@
 # Phase M Plan: Core Alias Cleanup
 
 Date: 2026-06-14
-Status: Proposed
+Status: Completed
 
 ## Objective
 
@@ -58,4 +58,3 @@ entry points.
 - Verification commands pass.
 - The Phase M branch is committed, fast-forward merged to `main`, and the
   temporary worktree is removed.
-

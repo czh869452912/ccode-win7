@@ -170,26 +170,3 @@ def _register_sanitizer_factory() -> None:
 
 
 _register_sanitizer_factory()
-
-
-# Backward-compatible alias — calls get_command_sanitizer().
-# Deprecated: use get_command_sanitizer() directly.
-class _DefaultSanitizerAlias(object):
-    """Property-like alias for backward compatibility."""
-
-    def __call__(self, *args, **kwargs):
-        return get_command_sanitizer()
-
-    def __getattr__(self, name):
-        return getattr(get_command_sanitizer(), name)
-
-    def __setattr__(self, name, value):
-        return setattr(get_command_sanitizer(), name, value)
-
-
-_DEFAULT_SANITIZER = _DefaultSanitizerAlias()
-
-
-def get_default_sanitizer() -> CommandSanitizer:
-    """Backward-compatible alias for get_command_sanitizer()."""
-    return get_command_sanitizer()

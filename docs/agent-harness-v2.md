@@ -133,6 +133,11 @@ The built-in C harness extension registers and activates recipe, quality, eviden
 
 The old `embedagent.tooling.packs` compatibility export has been removed. Current code must import bundled C/C++ workflow pack definitions from `embedagent.harness.packs`.
 
+Harness code should also consume current core accessors directly. The old
+`MODE_REGISTRY` and sanitizer compatibility aliases are not harness contracts;
+mode registry and shell command sanitizer access now go through
+`get_mode_registry()` and `get_command_sanitizer()`.
+
 The built-in C harness extension also exposes a read-only workflow package manifest. The manifest describes package identity, supported modes/workflow states, declared workflow tools, packs, and recipe resource scope from harness-owned constants. It is control-plane metadata only and is not the harness pack activation mechanism.
 
 `CapabilityRegistry` can project harness-registered tools through the shared runtime catalog and the C workflow package manifest through `workflow_package` descriptors for diagnostics and future reducer work. That projection is not the harness pack activation mechanism; active C/C++ workflow tools still come from the default harness extension and `ExtensionManager.allowed_tool_names(...)`.

@@ -1,14 +1,14 @@
-"""Backward compatibility tests for Phase 3 architecture refactor.
+"""Compatibility and boundary tests for architecture refactors.
 
-These tests verify that existing code can import and use EmbedAgent
-components exactly as before the refactor.
+These tests verify that current public APIs remain usable while stale
+compatibility aliases stay removed.
 """
 
 from unittest.mock import MagicMock
 
 
 class TestPublicImports(object):
-    """Verify all public imports still work."""
+    """Verify public imports and removed-alias boundaries."""
 
     def test_import_inprocess_adapter(self):
         from embedagent.inprocess_adapter import InProcessAdapter
@@ -63,11 +63,18 @@ class TestPublicImports(object):
         assert DIContainer is not None
         assert callable(get_default_container)
 
-    def test_import_mode_registry_alias(self):
-        from embedagent.modes import MODE_REGISTRY
+    def test_mode_registry_alias_removed(self):
+        import embedagent.modes as modes
 
-        assert MODE_REGISTRY is not None
-        assert "explore" in MODE_REGISTRY
+        assert not hasattr(modes, "MODE_REGISTRY")
+        assert "explore" in modes.get_mode_registry()
+
+    def test_core_adapter_legacy_accessor_removed(self):
+        import embedagent.core.adapter as adapter
+
+        assert not hasattr(adapter, "_inprocess_adapter")
+        assert not hasattr(adapter, "_get_adapter_class")
+        assert adapter.get_inprocess_adapter() is not None
 
 
 class TestInProcessAdapterCompatibility(object):
@@ -204,6 +211,13 @@ class TestGlobalStateIsolation(object):
         s1 = get_command_sanitizer(fresh=True)
         s2 = get_command_sanitizer(fresh=True)
         assert s1 is not s2
+
+    def test_command_sanitizer_legacy_aliases_removed(self):
+        import embedagent.command_sanitizer as command_sanitizer
+
+        assert not hasattr(command_sanitizer, "_DEFAULT_SANITIZER")
+        assert not hasattr(command_sanitizer, "get_default_sanitizer")
+        assert command_sanitizer.get_command_sanitizer() is not None
 
     def test_get_inprocess_adapter_returns_class(self):
         from embedagent.core.adapter import get_inprocess_adapter

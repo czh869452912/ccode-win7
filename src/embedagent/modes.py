@@ -268,7 +268,7 @@ def get_mode_contract(mode_name: str) -> PermissionContract:
 
 
 # ---------------------------------------------------------------------------
-# Factory-based registry — replaces mutable global MODE_REGISTRY
+# Factory-based registry
 # ---------------------------------------------------------------------------
 
 
@@ -308,39 +308,6 @@ def initialize_modes(
         for name, definition in _BUILTIN_MODES.items():
             registry[name] = definition
         return registry
-
-
-# Backward-compatible alias — calls get_mode_registry() on each access.
-# Deprecated: use get_mode_registry() directly.
-class _ModeRegistryAlias(object):
-    """Property-like alias for backward compatibility."""
-
-    def __getitem__(self, key):
-        return get_mode_registry()[key]
-
-    def __setitem__(self, key, value):
-        get_mode_registry()[key] = value
-
-    def __contains__(self, key):
-        return key in get_mode_registry()
-
-    def keys(self):
-        return get_mode_registry().keys()
-
-    def get(self, key, default=None):
-        return get_mode_registry().get(key, default)
-
-    def items(self):
-        return get_mode_registry().items()
-
-    def values(self):
-        return get_mode_registry().values()
-
-    def __repr__(self):
-        return repr(get_mode_registry())
-
-
-MODE_REGISTRY = _ModeRegistryAlias()
 
 
 # Register factory on module load
@@ -439,7 +406,7 @@ def _load_project_context(workspace: str) -> str:
 
 
 def mode_names() -> List[str]:
-    return list(MODE_REGISTRY.keys())
+    return list(get_mode_registry().keys())
 
 
 def require_mode(mode_name: str) -> Dict[str, object]:
@@ -447,8 +414,9 @@ def require_mode(mode_name: str) -> Dict[str, object]:
 
     Unknown mode slugs raise ``ValueError`` immediately.
     """
-    if mode_name in MODE_REGISTRY:
-        return MODE_REGISTRY[mode_name]
+    registry = get_mode_registry()
+    if mode_name in registry:
+        return registry[mode_name]
     raise ValueError("Unknown mode %r" % (mode_name,))
 
 

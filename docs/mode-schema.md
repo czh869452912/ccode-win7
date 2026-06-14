@@ -34,6 +34,10 @@ Reducer-backed compaction state does not alter mode contracts. `compaction_state
 
 Reducer-backed recovery state does not alter mode contracts. `recovery_state` records hosted resume diagnostics for restore/debug visibility, but mode selection remains user/host driven and active tool selection still flows through mode contracts plus `ExtensionManager` / `AgentExtensionHost`.
 
+Mode registry access is explicit. Code should use `get_mode_registry()` or
+`initialize_modes()` from `src/embedagent/modes.py`; the old `MODE_REGISTRY`
+proxy alias has been removed and must not be reintroduced.
+
 ## 3. Switching Rules
 
 - Mode switching is user-driven.
