@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 from embedagent.harness.contracts import HarnessModeContext
+from embedagent.harness.packs import pack_tool_names
 from embedagent.harness.phase_engine import advance_until_stable, artifact_flags_from_observations
 from embedagent.harness.prompt_stack import build_prompt_units
 from embedagent.harness.registry import build_default_registry
 from embedagent.harness.task_graph import TaskGraph
-from embedagent.tooling.packs import pack_tool_names
 
 
 class HarnessRunner(object):

@@ -5,12 +5,12 @@ from typing import Any, List, Optional, Set
 
 from embedagent.extensions import HarnessPrompt, ToolRegistrationResult
 from embedagent.harness import task_store
+from embedagent.harness.packs import pack_tool_names
 from embedagent.harness.runner import HarnessRunner
 from embedagent.harness.session_graph_state import HarnessSessionGraphState
 from embedagent.harness.tool_registry import build_c_workflow_tools
 from embedagent.harness.workflow_projection import build_c_harness_workflow_projection
 from embedagent.session import Observation
-from embedagent.tooling.packs import pack_tool_names
 
 
 class CHarnessWorkflowExtension(object):

@@ -448,6 +448,23 @@ def test_default_c_workflow_tool_metadata_survives_package_registration(tmp_path
     assert entry["interrupt_behavior"] == "cancel"
 
 
+def test_tool_runtime_no_longer_imports_harness_mode_describer():
+    source = (_REPO_ROOT / "src" / "embedagent" / "tools" / "runtime.py").read_text(
+        encoding="utf-8"
+    )
+
+    assert "OfficialRuntimeModes" not in source
+    assert "pack_tool_names" not in source
+
+
+def test_harness_package_owns_c_workflow_packs():
+    from embedagent.harness.packs import C_WORKFLOW_CORE_PACK, pack_tool_names
+
+    assert "run_recipe" not in C_WORKFLOW_CORE_PACK
+    assert "run_recipe" in pack_tool_names("build_lite")
+    assert "task_status" in pack_tool_names("verify")
+
+
 def test_tool_runtime_no_longer_exposes_legacy_schema_alias():
     source = (_REPO_ROOT / "src" / "embedagent" / "tools" / "runtime.py").read_text(
         encoding="utf-8"
