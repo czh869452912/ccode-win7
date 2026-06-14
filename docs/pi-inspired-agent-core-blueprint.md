@@ -325,6 +325,8 @@ Outcomes:
 - hosts show load state, diagnostics, and trust decisions
 - reload paths remain separate for resources and executable extensions
 
+Current implementation status: Phase E is complete for the local authoring loop. `src/embedagent/self_extension_authoring.py` defines `SelfExtensionAuthoringService` for workspace-bound generation of `.embedagent/skills`, `.embedagent/prompts`, `.embedagent/recipes`, and disabled-by-default `.embedagent/extensions/<name>` skeletons with manifests, docs, and validation recipes. The workflow-neutral `author_local_capability` tool exposes authoring in build/debug mode with `workspace_write` permission. Authoring writes files only; resource reload and executable project-extension loading remain separate explicit operations.
+
 ### Phase F: Offline Bundle Validation
 
 Keep the new architecture compatible with offline delivery.

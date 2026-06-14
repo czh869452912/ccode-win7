@@ -25,6 +25,8 @@ Built-in mode `allowed_tools` are workflow-neutral permission/write contracts. T
 
 Allowed-tool gating is not a runtime wrapper. Core orchestration receives an explicit allowed-tool policy from its host; hosted product paths use `QueryEngine._allowed_tools_for_mode(...)` as a compatibility facade over `AgentExtensionHost.allowed_tool_names(...)`.
 
+`author_local_capability` is a workflow-neutral write tool for local self-extension authoring. It creates workspace-bound skills, prompts, recipes, and disabled-by-default project extension skeletons under `.embedagent`; it does not reload resource caches and does not load, enable, import, or trust generated Python extension code.
+
 ## Extension Tool Hooks
 
 The extension runtime may observe or patch tool calls through typed in-process hooks:
@@ -66,6 +68,8 @@ Hosted product paths may load project-local Python extensions from `.embedagent/
 
 Loaded project extensions receive a narrow API object exposing extension result dataclasses, `ToolDefinition`, `Observation`, and workspace-bound text helpers. The loader does not install dependencies, contact remote registries, execute local resources, or allow built-in tool replacement. Dynamic tools from project extensions remain subject to catalog metadata, active-tool gating, and `PermissionPolicy`.
 
+Generated extension skeletons from `author_local_capability` start disabled. They become executable only through the existing hosted project-extension loading path after a manifest is explicitly enabled and passes validation.
+
 ## 2. Official Workflow Tools
 
 ### File / Discovery
@@ -78,6 +82,7 @@ Loaded project extensions receive a narrow API object exposing extension result 
 | `grep_text` | text content search | `path`, `query`, `limit`, `offset` |
 | `write_file` | write whole-file content | `path`, `content`, `overwrite` |
 | `edit_file` | replace a precise text span | `path`, `old_text`, `new_text` |
+| `author_local_capability` | create local self-extension artifacts | `kind`, `name`, optional `summary`, `body`, `command`, `recipe_action`, `permissions`, `overwrite` |
 
 ### Build / Verify
 

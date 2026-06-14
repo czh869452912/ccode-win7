@@ -16,7 +16,7 @@ The repository now treats Agent Core as the workflow-neutral runtime, with the C
 
 Local offline self-extension is part of the official architecture: workspace file resources and manifest-gated project-local Python extensions can extend the hosted runtime while remote registries, online installs, dependency installation, plugin marketplaces, built-in tool replacement, and general multi-agent orchestration remain outside the product baseline.
 
-The next long-term architecture direction is captured in `docs/pi-inspired-agent-core-blueprint.md`: continue learning from Pi's functional design and architecture philosophy while preserving EmbedAgent's offline, Windows 7, Python 3.8, and C/C++ engineering constraints. The current baseline remains valid; the blueprint guides gradual work toward a smaller Agent Kernel, durable session-log reducers, source-aware hooks, and a default C/C++ workflow package loaded through the same capability boundary as local extensions. Phase A durable operation truth, Phase B source-aware extension hook dispatch, Phase C AgentKernel lifecycle extraction, and Phase D default C/C++ workflow package ownership are complete. The next architecture work should focus on the safe local self-extension authoring loop.
+The next long-term architecture direction is captured in `docs/pi-inspired-agent-core-blueprint.md`: continue learning from Pi's functional design and architecture philosophy while preserving EmbedAgent's offline, Windows 7, Python 3.8, and C/C++ engineering constraints. The current baseline remains valid; the blueprint guides gradual work toward a smaller Agent Kernel, durable session-log reducers, source-aware hooks, and a default C/C++ workflow package loaded through the same capability boundary as local extensions. Phase A durable operation truth, Phase B source-aware extension hook dispatch, Phase C AgentKernel lifecycle extraction, Phase D default C/C++ workflow package ownership, and Phase E local self-extension authoring are complete. The next architecture work should focus on offline bundle validation for the new boundaries.
 
 - User-visible modes: `explore`, `spec`, `build`, `debug`, `verify`
 - Default C/C++ execution model: `mode + discipline_profile + execution_phase`
@@ -34,6 +34,7 @@ The next long-term architecture direction is captured in `docs/pi-inspired-agent
 - Official workflow extension hosting: `InProcessAdapter` owns one `ExtensionManager` shared with session-scoped `QueryEngine` and frontend tool catalog visibility
 - Official extension runtime direction: `ExtensionManager` is the shared in-process capability boundary for workflow defaults, prompt/context hooks, tool-call/tool-result hooks, resource discovery contracts, dynamic in-process tool registration, extension diagnostics, and manifest-gated project-local Python extensions. Internally, public extension hook families dispatch through the source-aware `AgentEventBus` with event-specific reducer semantics and diagnostics.
 - Official local resources: `.embedagent/skills`, `.embedagent/prompts`, and `.embedagent/recipes` are discovered as workspace-bound file resources and can be refreshed through `ToolRuntime.reload_resources()`, `InProcessAdapter.reload_resources(...)`, `/resources reload`, or `POST /api/sessions/{id}/resources/reload`
+- Official local self-extension authoring: `SelfExtensionAuthoringService` and the `author_local_capability` tool generate workspace-bound skills, prompts, recipes, and disabled-by-default project extension skeletons. Authoring writes files only; it does not reload resources or load Python extension code.
 - Official project extension loading: hosted product paths may load enabled `.embedagent/extensions/<name>/extension.json` manifests with workspace-bound `extension.py` entrypoints; `enabled` defaults to false, enabled manifests must declare permissions, no dependency installation or remote registry is allowed, and loaded extensions register through the same shared `ExtensionManager`
 - Official default extension assembly: `src/embedagent/default_extensions.py` installs the bundled C/C++ harness for hosted product paths; `QueryEngine` itself has no built-in harness import or constructor fallback
 - Official harness refresh path: `CHarnessWorkflowExtension.refresh_managed_session()`; the old `HarnessStateSynchronizer` service facade has been removed
@@ -107,6 +108,7 @@ The default C/C++ workflow tool vocabulary is centered on:
 - `grep_text`
 - `write_file`
 - `edit_file`
+- `author_local_capability`
 - `list_recipes`
 - `run_recipe`
 - `report_quality_v2`
@@ -122,7 +124,7 @@ Runtime schema filtering no longer activates the default harness pack on its own
 
 In-process extensions may register additional `ToolDefinition` objects into the shared runtime catalog. Registration records `source_type` and `source_id`, but a dynamic tool is model-visible only when activated through the shared `ExtensionManager` active-tool path and remains subject to `PermissionPolicy`.
 
-Local resource reload is file-only. Skills and prompts are surfaced as discovered resources, while `.embedagent/recipes/*.json` contributes recipe definitions to the existing `list_recipes` / `run_recipe` path. Reloading resources records transcript-backed diagnostics and does not execute project-local Python code.
+Local resource reload is file-only. Skills and prompts are surfaced as discovered resources, while `.embedagent/recipes/*.json` contributes recipe definitions to the existing `list_recipes` / `run_recipe` path. Reloading resources records transcript-backed diagnostics and does not execute project-local Python code. `author_local_capability` can create local resource files and disabled extension skeletons, but the caller must still use resource reload or explicit extension loading as separate follow-up operations.
 
 Project-local Python extensions are a separate, explicit opt-in path under `.embedagent/extensions/<name>/`. They require `extension.json` with `enabled: true` and a permissions list, load only a workspace-bound `extension.py` entrypoint, receive a narrow API object, and are surfaced in session snapshots under `extensions.project_extensions`. They cannot replace built-in tools and any dynamic tools they register remain metadata-classified and permission-gated.
 

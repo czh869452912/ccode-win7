@@ -44,6 +44,39 @@
 
 ## 3. 当前变更记录
 
+### DC-139
+
+- 日期：2026-06-14
+- 变更主题：Pi-inspired minimal Core Phase E self-extension authoring loop 收口
+- 变更摘要：
+  - 新增 `src/embedagent/self_extension_authoring.py`，由 `SelfExtensionAuthoringService` 统一生成 workspace-bound local self-extension artifacts
+  - 新增 `author_local_capability` workflow-neutral built-in tool，在 build/debug mode 下以 `workspace_write` 权限生成 skills/prompts/recipes/disabled project extension skeletons
+  - generated project extension manifest 默认 `enabled: false`，并包含 workspace-bound `extension.py`、README 与 validation recipe
+  - resource reload 与 executable project extension loading 继续分离；authoring 不 reload resources，不 load/import Python extension code
+  - 补充回归测试覆盖 authoring artifact generation、overwrite/permission guard、resource snapshot reload boundary 与 disabled extension non-import boundary
+- 影响范围：
+  - `src/embedagent/self_extension_authoring.py`
+  - `src/embedagent/tools/authoring_ops.py`
+  - `src/embedagent/tools/runtime.py`
+  - `src/embedagent/modes.py`
+  - `tests/test_self_extension_authoring.py`
+  - `tests/test_tools_package.py`
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/pi-inspired-agent-core-blueprint.md`
+  - `docs/development-tracker.md`
+  - `docs/tool-contracts.md`
+  - `docs/permission-model.md`
+- 关联文档：
+  - `docs/pi-inspired-agent-core-blueprint.md`
+  - `docs/archive/phase-e-self-extension-authoring/2026-06-14-phase-e-self-extension-authoring-design.md`
+  - `docs/archive/phase-e-self-extension-authoring/2026-06-14-phase-e-self-extension-authoring.md`
+- 是否需要 ADR：`否，本次是已批准 Phase E 的 local authoring workflow extraction；公共 frontend protocol 未新增 endpoint`
+- 后续动作：
+  - 进入 Phase F offline bundle validation，确认 authoring tool 与 generated validation recipe 在离线/Win7 bundle 约束下可解释、可验证
+
 ### DC-138
 
 - 日期：2026-06-14

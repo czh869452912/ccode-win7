@@ -85,7 +85,7 @@ The repository now has one official architecture vocabulary.
 
 The current baseline remains authoritative. `docs/pi-inspired-agent-core-blueprint.md` is the long-term target blueprint for making Agent Core more Pi-like in both function and philosophy: smaller kernel, durable session-log reducers, source-aware hooks, explicit turn snapshots, replaceable workflow packages, and local self-extension.
 
-Do not treat blueprint target terms such as `SessionLog` or public `HookBus` as implemented public APIs until a specific implementation slice lands and updates the source-of-truth docs. `AgentEventBus` is now the internal source-aware event/reducer boundary for public extension hook dispatch; it is not a public extension API. `AgentLifecycleJournal`, `AgentKernel`, and `AgentLoop` are implemented internal lifecycle boundaries, not public extension APIs. The bundled default C/C++ workflow package now owns its workflow tool registration, metadata, and packs behind `CHarnessWorkflowExtension`; near-term work must preserve hosted C/C++ behavior while advancing the local self-extension authoring loop.
+Do not treat blueprint target terms such as `SessionLog` or public `HookBus` as implemented public APIs until a specific implementation slice lands and updates the source-of-truth docs. `AgentEventBus` is now the internal source-aware event/reducer boundary for public extension hook dispatch; it is not a public extension API. `AgentLifecycleJournal`, `AgentKernel`, and `AgentLoop` are implemented internal lifecycle boundaries, not public extension APIs. The bundled default C/C++ workflow package now owns its workflow tool registration, metadata, and packs behind `CHarnessWorkflowExtension`; local self-extension authoring is available through `SelfExtensionAuthoringService` and `author_local_capability`; near-term work must preserve hosted C/C++ behavior while validating the offline bundle boundary.
 
 ### Modes
 
@@ -114,7 +114,7 @@ Local offline self-extension is an official architecture capability, limited to 
 
 `InProcessAdapter` owns the hosted runtime's shared `ExtensionManager` and passes it to session-scoped `QueryEngine` instances. Frontend tool catalog visibility must use that same manager instead of a separate adapter-only harness extension chain.
 
-`ExtensionManager` is also the shared in-process capability boundary for prompt/context hooks, tool-call and tool-result hooks, resource discovery contracts, dynamic in-process tool registration, extension diagnostics, and manifest-gated project-local Python extensions. Its hook internals dispatch through `AgentEventBus` with source metadata, observer/reducer separation, event-specific merge/stop semantics, and diagnostics; do not add new extension hook merge semantics outside that bus. Workspace-local file resources under `.embedagent/skills`, `.embedagent/prompts`, and `.embedagent/recipes` are discoverable and reloadable as file resources only. Project-local Python extensions are loaded only from enabled `.embedagent/extensions/<name>/extension.json` manifests with workspace-bound `extension.py` entrypoints, declared permissions, no dependency installation, no remote registry, and no built-in tool replacement.
+`ExtensionManager` is also the shared in-process capability boundary for prompt/context hooks, tool-call and tool-result hooks, resource discovery contracts, dynamic in-process tool registration, extension diagnostics, and manifest-gated project-local Python extensions. Its hook internals dispatch through `AgentEventBus` with source metadata, observer/reducer separation, event-specific merge/stop semantics, and diagnostics; do not add new extension hook merge semantics outside that bus. Workspace-local file resources under `.embedagent/skills`, `.embedagent/prompts`, and `.embedagent/recipes` are discoverable and reloadable as file resources only. `author_local_capability` may generate those resources and disabled extension skeletons, but it must not reload resources or load Python extension code. Project-local Python extensions are loaded only from enabled `.embedagent/extensions/<name>/extension.json` manifests with workspace-bound `extension.py` entrypoints, declared permissions, no dependency installation, no remote registry, and no built-in tool replacement.
 
 `AgentExtensionHost` is the QueryEngine-side extension dispatch boundary. `QueryEngine` must not scatter direct `ExtensionManager` hook calls for prompt injection, context patching, dynamic tool registration, active-tool schema projection, tool-call hooks, tool-result hooks, or extension-owned tool handling.
 
@@ -152,6 +152,7 @@ Official default workflow tools center on:
 - `grep_text`
 - `write_file`
 - `edit_file`
+- `author_local_capability`
 - `list_recipes`
 - `run_recipe`
 - `report_quality_v2`
@@ -165,7 +166,7 @@ Built-in mode `allowed_tools` are workflow-neutral permission/write contracts. D
 
 Dynamic in-process extension tools are registered into the shared `ToolRuntime` with source metadata and explicit permission categories. The default C/C++ workflow package uses the same registration boundary for recipe, quality, evidence, and task-status tools. A registered extension tool is model-visible only when active through the shared `ExtensionManager.allowed_tool_names(mode_name, workflow_state=workflow_state)` path and remains subject to `PermissionPolicy`.
 
-Local resource reload is a file discovery operation. `ToolRuntime.reload_resources()`, `InProcessAdapter.reload_resources(...)`, `/resources reload`, and `POST /api/sessions/{session_id}/resources/reload` refresh workspace-bound skills, prompts, and recipe JSON resources. Skills/prompts are surfaced as resources; `.embedagent/recipes/*.json` feeds the existing recipe contract. Reload does not execute local Python code.
+Local resource reload is a file discovery operation. `ToolRuntime.reload_resources()`, `InProcessAdapter.reload_resources(...)`, `/resources reload`, and `POST /api/sessions/{session_id}/resources/reload` refresh workspace-bound skills, prompts, and recipe JSON resources. Skills/prompts are surfaced as resources; `.embedagent/recipes/*.json` feeds the existing recipe contract. Reload does not execute local Python code. `author_local_capability` writes local self-extension artifacts under `.embedagent` and reports next actions; it does not implicitly reload resources or enable/load project extensions.
 
 Project-local Python extension loading is a separate hosted adapter operation, not resource reload. Enabled project extensions are registered into the shared `ExtensionManager`; any dynamic tools they expose are visible only through `ExtensionManager.allowed_tool_names(mode_name, workflow_state=workflow_state)` and remain subject to `PermissionPolicy`.
 

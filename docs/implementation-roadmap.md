@@ -60,7 +60,8 @@ Recent workflow-boundary work has started slimming Agent Core without changing t
 - `AgentLoop` now owns turn-loop orchestration behind `QueryEngine`, including agent steps, context/provider attempts, compact retry, tool batch interruption, guard stops, abort, and max-turn transitions; `QueryEngine` no longer owns `_run_loop_impl`
 - `ToolRuntime` construction is now workflow-neutral; the bundled C/C++ workflow package registers recipe, quality, evidence, and task-status tools with metadata through `CHarnessWorkflowExtension.register_tools(...)`
 - C/C++ workflow pack definitions now live under `src/embedagent/harness/packs.py`; `src/embedagent/tooling/packs.py` is only a compatibility export
-- Pi-inspired minimal Core Phase A durable operation log, Phase B HookBus/reducer registry, Phase C AgentKernel lifecycle extraction, and Phase D default C/C++ workflow package ownership are complete
+- Pi-inspired minimal Core Phase A durable operation log, Phase B HookBus/reducer registry, Phase C AgentKernel lifecycle extraction, Phase D default C/C++ workflow package ownership, and Phase E self-extension authoring loop are complete
+- `SelfExtensionAuthoringService` and `author_local_capability` can generate local skills, prompts, recipes, and disabled-by-default project extension skeletons without reloading resources or loading Python code
 - Slice 6 completed the documentation cutover for self-extensible Agent Core: active source-of-truth docs and module docs now treat local offline self-extension as official architecture while keeping marketplaces, online installs, dependency installation, built-in tool replacement, and multi-agent orchestration out of scope
 - `HarnessStateSynchronizer` has been removed; product refresh uses `CHarnessWorkflowExtension.refresh_managed_session()` through the default harness extension directly
 - `StreamingToolExecutor` now window-schedules parallel read batches so failure/discard semantics are deterministic
@@ -120,12 +121,14 @@ The current self-extensible Agent Core baseline remains valid. The next program 
    - ensure bare Agent Core can run without the C/C++ package
 
 5. **Self-extension authoring loop**
-   - next implementation phase
-   - let the agent generate local skills, prompts, recipes, extension manifests, extension code, docs, and validation recipes
-   - keep resource reload separate from executable extension loading
-   - require manifests, declared permissions, workspace-bound entrypoints, diagnostics, and normal `PermissionPolicy` enforcement
+   - current implementation status: Phase E is complete
+   - `SelfExtensionAuthoringService` generates local skills, prompts, recipes, extension manifests, extension code, docs, and validation recipes under `.embedagent`
+   - `author_local_capability` exposes this as a build/debug `workspace_write` tool
+   - resource reload remains separate from executable extension loading
+   - generated project extensions are disabled by default and still require manifests, declared permissions, workspace-bound entrypoints, diagnostics, and normal `PermissionPolicy` enforcement
 
 6. **Offline bundle validation**
+   - next implementation phase
    - keep all invoked runtime tools bundled
    - keep extension loading dependency-free at runtime
    - preserve clean Windows 7 unpack-and-run smoke as a release gate
