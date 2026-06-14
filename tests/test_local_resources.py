@@ -249,6 +249,40 @@ class TestLocalResources(unittest.TestCase):
         self.assertTrue(command_results[0]["success"])
         self.assertEqual(command_results[0]["data"]["counts"]["skills"], 1)
 
+    def test_adapter_capability_snapshot_combines_tools_resources_commands_and_model(self):
+        _write_text(
+            os.path.join(self.workspace, ".embedagent", "prompts", "triage.md"),
+            "# Triage\n",
+        )
+        client = FakeClient()
+        client.model = "local-test-model"
+        client.base_url = "http://localhost:11434/v1"
+        client.api_key = "secret-value"
+        adapter = InProcessAdapter(
+            client=client,
+            tools=ToolRuntime(self.workspace),
+            permission_policy=PermissionPolicy(
+                auto_approve_all=True,
+                workspace=self.workspace,
+            ),
+        )
+        adapter.reload_resources(reason="test")
+
+        payload = adapter.capability_snapshot()
+        by_kind = {}
+        for item in payload["descriptors"]:
+            by_kind.setdefault(item["kind"], []).append(item)
+
+        self.assertTrue(any(item["name"] == "read_file" for item in by_kind["tool"]))
+        self.assertTrue(
+            any(item["name"] == ".embedagent/prompts/triage.md" for item in by_kind["resource"])
+        )
+        self.assertTrue(any(item["name"] == "help" for item in by_kind["command"]))
+        self.assertEqual(by_kind["model_profile"][0]["name"], "local-test-model")
+        self.assertNotIn("api_key", by_kind["model_profile"][0]["metadata"])
+        self.assertIn("tool", payload["counts"])
+        self.assertIn("resource", payload["counts"])
+
 
 if __name__ == "__main__":
     unittest.main()
