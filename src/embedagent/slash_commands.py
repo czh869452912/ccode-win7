@@ -29,7 +29,9 @@ _COMMAND_SPECS = [
     SlashCommandSpec("plan", "/plan [content]", "查看或更新当前会话计划。"),
     SlashCommandSpec("review", "/review", "基于最近证据生成只读审查结论。"),
     SlashCommandSpec("recipes", "/recipes", "查看当前工作区可用的 build/test recipe。"),
-    SlashCommandSpec("resources", "/resources [reload]", "查看或重载本地 skill/prompt/recipe 资源。"),
+    SlashCommandSpec(
+        "resources", "/resources [reload]", "查看或重载本地 skill/prompt/recipe 资源。"
+    ),
     SlashCommandSpec("diff", "/diff", "查看当前工作区 Git diff。"),
     SlashCommandSpec("permissions", "/permissions", "查看当前会话权限上下文。"),
     SlashCommandSpec("tasks", "/tasks", "查看当前会话任务。"),

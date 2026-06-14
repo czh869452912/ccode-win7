@@ -7,7 +7,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Callable, Dict, Optional
 
-from embedagent.frontend.tui.views.timeline import FlatTimelineView
 from embedagent.protocol import (
     CommandResult,
     FrontendCallbacks,
@@ -39,8 +38,15 @@ class TUIFrontend(FrontendCallbacks):
         self._pending_permission_callbacks: Dict[str, Callable[[bool], None]] = {}
         self._pending_input_callbacks: Dict[str, Callable[[Optional[str]], None]] = {}
 
-    def get_timeline_data(self, session, history_source="live", integrity_status="healthy",
-                          restore_stop_reason="", consumed_event_count=0, transcript_event_count=0):
+    def get_timeline_data(
+        self,
+        session,
+        history_source="live",
+        integrity_status="healthy",
+        restore_stop_reason="",
+        consumed_event_count=0,
+        transcript_event_count=0,
+    ):
         """Fetch timeline data using flat timeline builder when available."""
         if self.assembler is not None:
             try:
@@ -243,8 +249,15 @@ class TUIFrontend(FrontendCallbacks):
         """Set the SessionHistoryAssembler for flat timeline generation."""
         self._assembler = assembler
 
-    def update_flat_timeline(self, session, history_source="live", integrity_status="healthy",
-                             restore_stop_reason="", consumed_event_count=0, transcript_event_count=0):
+    def update_flat_timeline(
+        self,
+        session,
+        history_source="live",
+        integrity_status="healthy",
+        restore_stop_reason="",
+        consumed_event_count=0,
+        transcript_event_count=0,
+    ):
         """Update flat timeline view using build_flat_timeline() if available.
 
         Falls back to build() for backward compatibility.

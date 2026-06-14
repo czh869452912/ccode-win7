@@ -494,9 +494,7 @@ def test_bare_query_engine_uses_empty_extension_host_without_c_harness(tmp_path)
 
 
 def test_query_engine_no_longer_dispatches_extension_manager_hooks_directly():
-    source = (_REPO_ROOT / "src" / "embedagent" / "query_engine.py").read_text(
-        encoding="utf-8"
-    )
+    source = (_REPO_ROOT / "src" / "embedagent" / "query_engine.py").read_text(encoding="utf-8")
     forbidden = [
         ".should_inject_workflow(",
         ".allowed_tool_names(",

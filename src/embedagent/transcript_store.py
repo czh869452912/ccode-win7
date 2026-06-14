@@ -155,7 +155,9 @@ class TranscriptStore(object):
         """Normalize schema_v1 event to schema_v2 structure."""
         if event.get("schema_version") == 1:
             payload = dict(event.get("payload") or {})
-            event_type = payload.get("role") or payload.get("event_type") or event.get("type") or "unknown"
+            event_type = (
+                payload.get("role") or payload.get("event_type") or event.get("type") or "unknown"
+            )
             return {
                 "schema_version": 2,
                 "session_id": event.get("session_id", ""),
@@ -178,9 +180,12 @@ class TranscriptStore(object):
         except ValueError:
             return {"valid": False, "breaks": [{"index": -1, "reason": "transcript_not_found"}]}
 
-        message_events = [e for e in events if e.get("type") in (
-            "user", "assistant", "tool_use", "tool_result", "command_execution", "file_change"
-        )]
+        message_events = [
+            e
+            for e in events
+            if e.get("type")
+            in ("user", "assistant", "tool_use", "tool_result", "command_execution", "file_change")
+        ]
 
         seen_ids: set = set()
         breaks = []

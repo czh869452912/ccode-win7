@@ -259,7 +259,10 @@ MODE_CONTRACTS = _build_mode_contracts()
 
 def get_mode_contract(mode_name: str) -> PermissionContract:
     """Get the permission contract for a mode."""
-    return MODE_CONTRACTS.get(mode_name, MODE_CONTRACTS.get("explore", PermissionContract(mode_name="explore", read_only=True)))
+    return MODE_CONTRACTS.get(
+        mode_name,
+        MODE_CONTRACTS.get("explore", PermissionContract(mode_name="explore", read_only=True)),
+    )
 
 
 # ---------------------------------------------------------------------------

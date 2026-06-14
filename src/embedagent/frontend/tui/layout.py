@@ -107,51 +107,7 @@ class TerminalLayout(object):
     def toggle_auxiliary_panels(self):
         """Toggle visibility of explorer and inspector panels."""
         self._aux_panels_visible = not self._aux_panels_visible
-        editor_container = ConditionalContainer(
-            content=self.editor,
-            filter=Condition(lambda: self.owner.state.main_view == "editor"),
-        )
-        header_window = Window(
-            content=FormattedTextControl(text=lambda: self.header.text),
-            height=2,
-        )
-        explorer_container = ConditionalContainer(
-            content=VSplit(
-                [
-                    self.explorer,
-                    Window(width=1, char=self.owner.theme.vertical),
-                ]
-            ),
-            filter=Condition(lambda: self._aux_visible),
-        )
-        inspector_container = ConditionalContainer(
-            content=VSplit(
-                [
-                    Window(width=1, char=self.owner.theme.vertical),
-                    self.inspector,
-                ]
-            ),
-            filter=Condition(lambda: self._aux_visible),
-        )
-        body = VSplit(
-            [
-                explorer_container,
-                preview_container,
-                editor_container,
-                inspector_container,
-            ]
-        )
-        return Layout(
-            HSplit(
-                [
-                    header_window,
-                    Window(height=1, char=self.owner.theme.horizontal),
-                    body,
-                    Window(height=1, char=self.owner.theme.horizontal),
-                    self.composer,
-                ]
-            )
-        )
+        self.application.invalidate()
 
     def _build_key_bindings(self):
         bindings = KeyBindings()

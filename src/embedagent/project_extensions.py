@@ -7,9 +7,7 @@ from typing import Any, Dict, List, Optional
 
 DEFAULT_EXTENSION_RELPATH = os.path.join(".embedagent", "extensions")
 _VALID_EXTENSION_ID_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_.-]*$")
-_ALLOWED_PERMISSIONS = set(
-    ["read", "workspace_write", "shell_exec", "toolchain_exec", "git_write"]
-)
+_ALLOWED_PERMISSIONS = set(["read", "workspace_write", "shell_exec", "toolchain_exec", "git_write"])
 _LOAD_FAILURE_TYPES = (
     OSError,
     ValueError,
@@ -131,7 +129,9 @@ def _load_manifest_entry(
     except (OSError, ValueError) as exc:
         return _failed_entry(base_entry, diagnostics, "manifest", str(exc))
     if not isinstance(manifest, dict):
-        return _failed_entry(base_entry, diagnostics, "manifest", "extension manifest must be an object")
+        return _failed_entry(
+            base_entry, diagnostics, "manifest", "extension manifest must be an object"
+        )
     error = _validate_manifest(manifest)
     extension_id = str(manifest.get("id") or base_entry["id"]).strip()
     base_entry["id"] = extension_id

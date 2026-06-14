@@ -162,7 +162,7 @@ class QueryEngine(object):
         self._agent_loop = AgentLoop(
             max_turns=self.max_turns,
             max_parallel_tools=self.max_parallel_tools,
-            tool_capabilities=self.tools.tool_capabilities,
+            tool_capabilities=getattr(self.tools, "tool_capabilities", None),
             session_guard=self._session_guard,
             append_transcript_event=self._append_transcript_event,
             append_message_event=self._append_message_event,

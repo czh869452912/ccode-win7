@@ -228,9 +228,7 @@ def _iter_resource_files(roots: List[str], extensions: tuple) -> List[str]:
         if not os.path.isdir(root):
             continue
         for current_root, dir_names, file_names in os.walk(root):
-            dir_names[:] = sorted(
-                name for name in dir_names if name not in (".git", "__pycache__")
-            )
+            dir_names[:] = sorted(name for name in dir_names if name not in (".git", "__pycache__"))
             for file_name in sorted(file_names):
                 absolute_path = os.path.join(current_root, file_name)
                 if absolute_path.lower().endswith(extensions):

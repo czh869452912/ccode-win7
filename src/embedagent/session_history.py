@@ -276,9 +276,11 @@ class SessionHistoryAssembler(object):
     def _find_message_for_turn_step(self, session, turn_id, step_id, role):
         """Find the transcript message matching turn_id, step_id, and role."""
         for msg in session.messages:
-            if (getattr(msg, "turn_id", "") == turn_id
-                    and getattr(msg, "step_id", "") == step_id
-                    and getattr(msg, "role", "") == role):
+            if (
+                getattr(msg, "turn_id", "") == turn_id
+                and getattr(msg, "step_id", "") == step_id
+                and getattr(msg, "role", "") == role
+            ):
                 return msg
         return None
 
@@ -336,21 +338,25 @@ class SessionHistoryAssembler(object):
                 parent_id = ""
                 # Find matching transcript message
                 for msg in session.messages:
-                    if (getattr(msg, "turn_id", "") == turn.turn_id
-                            and getattr(msg, "role", "") == "user"):
+                    if (
+                        getattr(msg, "turn_id", "") == turn.turn_id
+                        and getattr(msg, "role", "") == "user"
+                    ):
                         user_msg_id = getattr(msg, "message_id", "")
                         parent_id = getattr(msg, "parent_message_id", "")
                         break
 
-                items.append({
-                    "type": "user",
-                    "id": user_msg_id or ("m-user-%d" % turn_index),
-                    "content": turn.user_message,
-                    "status": "completed",
-                    "parent_id": parent_id,
-                    "turn_id": turn.turn_id,
-                    "step_id": "",
-                })
+                items.append(
+                    {
+                        "type": "user",
+                        "id": user_msg_id or ("m-user-%d" % turn_index),
+                        "content": turn.user_message,
+                        "status": "completed",
+                        "parent_id": parent_id,
+                        "turn_id": turn.turn_id,
+                        "step_id": "",
+                    }
+                )
 
             # Process each step in the turn
             for step_index, step in enumerate(turn.steps):
@@ -359,108 +365,135 @@ class SessionHistoryAssembler(object):
                     assistant_msg_id = ""
                     parent_id = ""
                     for msg in session.messages:
-                        if (getattr(msg, "turn_id", "") == turn.turn_id
-                                and getattr(msg, "step_id", "") == step.step_id
-                                and getattr(msg, "role", "") == "assistant"):
+                        if (
+                            getattr(msg, "turn_id", "") == turn.turn_id
+                            and getattr(msg, "step_id", "") == step.step_id
+                            and getattr(msg, "role", "") == "assistant"
+                        ):
                             assistant_msg_id = getattr(msg, "message_id", "")
                             parent_id = getattr(msg, "parent_message_id", "")
                             break
 
-                    items.append({
-                        "type": "assistant",
-                        "id": assistant_msg_id or ("m-assistant-%d-%d" % (turn_index, step_index)),
-                        "content": step.assistant_message,
-                        "status": self._step_status(step, step.transition, turn_index, step_index, session),
-                        "parent_id": parent_id,
-                        "turn_id": turn.turn_id,
-                        "step_id": step.step_id,
-                        "reasoning": step.reasoning,
-                    })
+                    items.append(
+                        {
+                            "type": "assistant",
+                            "id": assistant_msg_id
+                            or ("m-assistant-%d-%d" % (turn_index, step_index)),
+                            "content": step.assistant_message,
+                            "status": self._step_status(
+                                step, step.transition, turn_index, step_index, session
+                            ),
+                            "parent_id": parent_id,
+                            "turn_id": turn.turn_id,
+                            "step_id": step.step_id,
+                            "reasoning": step.reasoning,
+                        }
+                    )
 
                 # Tool call items
                 for record in step.tool_calls:
                     # tool_use item (the call itself)
                     tool_use_parent = ""
                     for msg in session.messages:
-                        if (getattr(msg, "tool_call_id", "") == record.call_id
-                                and getattr(msg, "role", "") == "assistant"):
+                        if (
+                            getattr(msg, "tool_call_id", "") == record.call_id
+                            and getattr(msg, "role", "") == "assistant"
+                        ):
                             tool_use_parent = getattr(msg, "message_id", "")
                             break
 
-                    items.append({
-                        "type": "tool_use",
-                        "id": "tu-%s" % record.call_id,
-                        "content": "",
-                        "status": "started",
-                        "parent_id": tool_use_parent,
-                        "turn_id": turn.turn_id,
-                        "step_id": step.step_id,
-                        "tool_name": record.tool_name,
-                        "call_id": record.call_id,
-                        "arguments": dict(record.arguments),
-                    })
+                    items.append(
+                        {
+                            "type": "tool_use",
+                            "id": "tu-%s" % record.call_id,
+                            "content": "",
+                            "status": "started",
+                            "parent_id": tool_use_parent,
+                            "turn_id": turn.turn_id,
+                            "step_id": step.step_id,
+                            "tool_name": record.tool_name,
+                            "call_id": record.call_id,
+                            "arguments": dict(record.arguments),
+                        }
+                    )
 
                     # tool_result item (the observation)
                     observation = record.observation
                     if observation is not None:
-                        items.append({
-                            "type": "tool_result",
-                            "id": "tr-%s" % record.call_id,
-                            "content": str(observation.data) if observation.data is not None else "",
-                            "status": "success" if observation.success else "error",
-                            "parent_id": "tu-%s" % record.call_id,
-                            "turn_id": turn.turn_id,
-                            "step_id": step.step_id,
-                            "tool_name": record.tool_name,
-                            "call_id": record.call_id,
-                            "data": observation.data,
-                            "error": observation.error or "",
-                        })
+                        items.append(
+                            {
+                                "type": "tool_result",
+                                "id": "tr-%s" % record.call_id,
+                                "content": (
+                                    str(observation.data) if observation.data is not None else ""
+                                ),
+                                "status": "success" if observation.success else "error",
+                                "parent_id": "tu-%s" % record.call_id,
+                                "turn_id": turn.turn_id,
+                                "step_id": step.step_id,
+                                "tool_name": record.tool_name,
+                                "call_id": record.call_id,
+                                "data": observation.data,
+                                "error": observation.error or "",
+                            }
+                        )
                     else:
                         # Pending tool result
-                        items.append({
-                            "type": "tool_result",
-                            "id": "tr-%s" % record.call_id,
-                            "content": "",
-                            "status": "running",
-                            "parent_id": "tu-%s" % record.call_id,
-                            "turn_id": turn.turn_id,
-                            "step_id": step.step_id,
-                            "tool_name": record.tool_name,
-                            "call_id": record.call_id,
-                            "data": None,
-                            "error": "",
-                        })
+                        items.append(
+                            {
+                                "type": "tool_result",
+                                "id": "tr-%s" % record.call_id,
+                                "content": "",
+                                "status": "running",
+                                "parent_id": "tu-%s" % record.call_id,
+                                "turn_id": turn.turn_id,
+                                "step_id": step.step_id,
+                                "tool_name": record.tool_name,
+                                "call_id": record.call_id,
+                                "data": None,
+                                "error": "",
+                            }
+                        )
 
             # Turn-level transitions (completion, guard, etc.)
             for transition in turn.transitions:
-                if transition.reason in ("completed", "max_turns", "guard_stop", "aborted", "error"):
-                    items.append({
-                        "type": "interaction",
-                        "id": "tx-%s-%s" % (turn.turn_id, transition.reason),
-                        "content": transition.message,
-                        "status": transition.reason,
-                        "parent_id": items[-1]["id"] if items else "",
-                        "turn_id": turn.turn_id,
-                        "step_id": "",
-                        "kind": "transition",
-                    })
+                if transition.reason in (
+                    "completed",
+                    "max_turns",
+                    "guard_stop",
+                    "aborted",
+                    "error",
+                ):
+                    items.append(
+                        {
+                            "type": "interaction",
+                            "id": "tx-%s-%s" % (turn.turn_id, transition.reason),
+                            "content": transition.message,
+                            "status": transition.reason,
+                            "parent_id": items[-1]["id"] if items else "",
+                            "turn_id": turn.turn_id,
+                            "step_id": "",
+                            "kind": "transition",
+                        }
+                    )
 
         # Compact boundaries
         for boundary in session.compact_boundaries:
-            items.append({
-                "type": "compact",
-                "id": boundary.boundary_id,
-                "content": boundary.summary_text,
-                "status": "completed",
-                "parent_id": "",
-                "turn_id": "",
-                "step_id": "",
-                "boundary_id": boundary.boundary_id,
-                "summary_text": boundary.summary_text,
-                "compacted_turn_count": boundary.compacted_turn_count,
-                "mode_name": boundary.mode_name,
-            })
+            items.append(
+                {
+                    "type": "compact",
+                    "id": boundary.boundary_id,
+                    "content": boundary.summary_text,
+                    "status": "completed",
+                    "parent_id": "",
+                    "turn_id": "",
+                    "step_id": "",
+                    "boundary_id": boundary.boundary_id,
+                    "summary_text": boundary.summary_text,
+                    "compacted_turn_count": boundary.compacted_turn_count,
+                    "mode_name": boundary.mode_name,
+                }
+            )
 
         return {
             "session_id": session.session_id,

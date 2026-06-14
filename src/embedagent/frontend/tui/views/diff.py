@@ -1,9 +1,6 @@
 import difflib
-from typing import Any, Dict, List, Optional
 
-from rich.console import Console
 from rich.panel import Panel
-from rich.syntax import Syntax
 from rich.table import Table
 from rich.text import Text
 
@@ -63,12 +60,8 @@ class DiffView(object):
 
         table = Table(show_header=False, box=None, padding=(0, 0))
         table.add_column("gutter", width=3, style=self._gutter_style)
-        table.add_column(
-            "old_line", width=4, justify="right", style=self._line_number_style
-        )
-        table.add_column(
-            "new_line", width=4, justify="right", style=self._line_number_style
-        )
+        table.add_column("old_line", width=4, justify="right", style=self._line_number_style)
+        table.add_column("new_line", width=4, justify="right", style=self._line_number_style)
         table.add_column("content", ratio=1)
 
         old_line_num = 0

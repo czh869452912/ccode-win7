@@ -26,6 +26,7 @@ class TestCompletionSignal(unittest.TestCase):
 
     def test_tool_calls_no_completion(self):
         from embedagent.session import Action
+
         reply = AssistantReply(
             content="Let me check",
             actions=[Action(name="read_file", arguments={}, call_id="c1")],

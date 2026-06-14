@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
-
 
 class FlatTimelineView(object):
     """Render a flat timeline of items for the conversation UI."""
@@ -20,7 +18,6 @@ class FlatTimelineView(object):
         """Render the flat timeline as rich console output."""
         from rich.panel import Panel
         from rich.table import Table
-        from rich.text import Text
 
         if not self._items:
             return Panel("No conversation yet", title="Timeline")
@@ -161,6 +158,7 @@ class FlatTimelineView(object):
     def _render_compact_item(self, item):
         from rich.panel import Panel
         from rich.text import Text
+
         summary = item.get("summary_text", "")
         count = item.get("compacted_turn_count", 0)
 
@@ -281,12 +279,17 @@ def format_timeline_records(records):
             permission = (
                 payload.get("permission") if isinstance(payload.get("permission"), dict) else {}
             )
-            lines.append("[permission] %s" % (permission.get("reason") or "\u9700\u8981\u786e\u8ba4"))
+            lines.append(
+                "[permission] %s" % (permission.get("reason") or "\u9700\u8981\u786e\u8ba4")
+            )
         elif event == "user_input_required":
             request = (
                 payload.get("user_input") if isinstance(payload.get("user_input"), dict) else {}
             )
-            lines.append("[question] %s" % (request.get("question") or "\u9700\u8981\u7528\u6237\u56de\u7b54"))
+            lines.append(
+                "[question] %s"
+                % (request.get("question") or "\u9700\u8981\u7528\u6237\u56de\u7b54")
+            )
         elif event == "context_compacted":
             lines.append(format_context_line(payload))
         elif event == "session_error":
@@ -299,7 +302,9 @@ def format_timeline_records(records):
                 if isinstance(payload.get("session_snapshot"), dict)
                 else {}
             )
-            lines.append("[system] \u5df2\u521b\u5efa\u4f1a\u8bdd %s" % (snapshot.get("session_id") or ""))
+            lines.append(
+                "[system] \u5df2\u521b\u5efa\u4f1a\u8bdd %s" % (snapshot.get("session_id") or "")
+            )
         elif event == "session_finished":
             text = str(payload.get("final_text") or "").strip()
             if text:

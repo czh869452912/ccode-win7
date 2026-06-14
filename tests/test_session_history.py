@@ -9,7 +9,6 @@ from embedagent.session import (
     AssistantReply,
     Observation,
     Session,
-    ToolPresentationSnapshot,
 )
 from embedagent.session_history import SessionHistoryAssembler
 
@@ -43,18 +42,14 @@ class TestSessionHistoryAssemblerFlatTimeline(unittest.TestCase):
         )
 
     def test_flat_timeline_returns_items_array(self):
-        turn = self._add_user_turn("hello")
-        result = self.assembler.build_flat_timeline(
-            self.session, "live", "healthy"
-        )
+        self._add_user_turn("hello")
+        result = self.assembler.build_flat_timeline(self.session, "live", "healthy")
         self.assertIn("items", result)
         self.assertIsInstance(result["items"], list)
 
     def test_flat_timeline_user_item_structure(self):
-        turn = self._add_user_turn("test message")
-        result = self.assembler.build_flat_timeline(
-            self.session, "live", "healthy"
-        )
+        self._add_user_turn("test message")
+        result = self.assembler.build_flat_timeline(self.session, "live", "healthy")
         items = result["items"]
         self.assertTrue(len(items) >= 1)
         user_item = items[0]
@@ -67,10 +62,8 @@ class TestSessionHistoryAssemblerFlatTimeline(unittest.TestCase):
 
     def test_flat_timeline_assistant_item_structure(self):
         turn = self._add_user_turn("hello")
-        step = self._add_assistant_step(turn, content="hi there", reasoning="thinking")
-        result = self.assembler.build_flat_timeline(
-            self.session, "live", "healthy"
-        )
+        self._add_assistant_step(turn, content="hi there", reasoning="thinking")
+        result = self.assembler.build_flat_timeline(self.session, "live", "healthy")
         items = result["items"]
         assistant_items = [i for i in items if i["type"] == "assistant"]
         self.assertEqual(len(assistant_items), 1)
@@ -83,13 +76,11 @@ class TestSessionHistoryAssemblerFlatTimeline(unittest.TestCase):
 
     def test_flat_timeline_tool_use_item(self):
         turn = self._add_user_turn("read file")
-        step = self._add_assistant_step(
+        self._add_assistant_step(
             turn,
             actions=[Action(name="read_file", arguments={"path": "test.txt"}, call_id="call-1")],
         )
-        result = self.assembler.build_flat_timeline(
-            self.session, "live", "healthy"
-        )
+        result = self.assembler.build_flat_timeline(self.session, "live", "healthy")
         items = result["items"]
         tool_items = [i for i in items if i["type"] == "tool_use"]
         self.assertEqual(len(tool_items), 1)
@@ -106,9 +97,7 @@ class TestSessionHistoryAssemblerFlatTimeline(unittest.TestCase):
             actions=[Action(name="read_file", arguments={"path": "test.txt"}, call_id="call-1")],
         )
         self._add_tool_result(turn, step, "read_file", "call-1", success=True, data="file content")
-        result = self.assembler.build_flat_timeline(
-            self.session, "live", "healthy"
-        )
+        result = self.assembler.build_flat_timeline(self.session, "live", "healthy")
         items = result["items"]
         result_items = [i for i in items if i["type"] == "tool_result"]
         self.assertEqual(len(result_items), 1)
@@ -126,29 +115,23 @@ class TestSessionHistoryAssemblerFlatTimeline(unittest.TestCase):
             actions=[Action(name="tool", arguments={}, call_id="c1")],
         )
         self._add_tool_result(turn, step, "tool", "c1", success=True, data="ok")
-        result = self.assembler.build_flat_timeline(
-            self.session, "live", "healthy"
-        )
+        result = self.assembler.build_flat_timeline(self.session, "live", "healthy")
         items = result["items"]
 
         # Find items
-        user_item = [i for i in items if i["type"] == "user"][0]
-        assistant_item = [i for i in items if i["type"] == "assistant"][0]
         tool_use = [i for i in items if i["type"] == "tool_use"][0]
         tool_result = [i for i in items if i["type"] == "tool_result"][0]
 
-        # Parent chain: user -> assistant -> tool_use -> tool_result
+        # Parent chain: tool_use -> tool_result
         self.assertEqual(tool_result["parent_id"], tool_use["id"])
 
     def test_flat_timeline_empty_session(self):
-        result = self.assembler.build_flat_timeline(
-            Session(session_id=""), "live", "healthy"
-        )
+        result = self.assembler.build_flat_timeline(Session(session_id=""), "live", "healthy")
         self.assertEqual(result["items"], [])
         self.assertEqual(result["session_id"], "")
 
     def test_flat_timeline_integrity_info(self):
-        turn = self._add_user_turn("test")
+        self._add_user_turn("test")
         result = self.assembler.build_flat_timeline(
             self.session,
             "restored",

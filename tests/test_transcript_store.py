@@ -253,7 +253,12 @@ class TestTranscriptStore(unittest.TestCase):
         store.append_event(
             "sess-valid",
             "assistant",
-            {"role": "assistant", "content": "second", "message_id": "m-2", "parent_message_id": "m-1"},
+            {
+                "role": "assistant",
+                "content": "second",
+                "message_id": "m-2",
+                "parent_message_id": "m-1",
+            },
             schema_version=2,
         )
         store.append_event(
@@ -277,7 +282,12 @@ class TestTranscriptStore(unittest.TestCase):
         store.append_event(
             "sess-broken",
             "assistant",
-            {"role": "assistant", "content": "second", "message_id": "m-2", "parent_message_id": "m-nonexistent"},
+            {
+                "role": "assistant",
+                "content": "second",
+                "message_id": "m-2",
+                "parent_message_id": "m-nonexistent",
+            },
             schema_version=2,
         )
         result = store.validate_transcript_chain("sess-broken")

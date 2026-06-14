@@ -110,11 +110,7 @@ def test_register_tool_is_idempotent_for_same_source(tmp_path):
         source_type="extension",
     )
 
-    entries = [
-        item
-        for item in runtime.catalog_entries()
-        if item.get("name") == "dynamic_echo"
-    ]
+    entries = [item for item in runtime.catalog_entries() if item.get("name") == "dynamic_echo"]
 
     assert len(entries) == 1
     assert entries[0]["source_id"] == "test.extension"
@@ -243,9 +239,7 @@ class ToolCallingClient(object):
     def generate(self, messages, tools=None):
         del messages
         self.seen_tool_names = [
-            item["function"]["name"]
-            for item in list(tools or [])
-            if item.get("type") == "function"
+            item["function"]["name"] for item in list(tools or []) if item.get("type") == "function"
         ]
         return AssistantReply(
             content="using dynamic tool",

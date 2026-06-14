@@ -44,11 +44,7 @@ class AgentExtensionHost(object):
         )
 
     def workflow_event(
-        self,
-        session: Session,
-        current_mode: str,
-        workflow_state_name: str,
-        **metadata: Any
+        self, session: Session, current_mode: str, workflow_state_name: str, **metadata: Any
     ) -> WorkflowEvent:
         turn_id = session.turns[-1].turn_id if session.turns else ""
         step = session.current_step()

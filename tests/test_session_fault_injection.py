@@ -29,7 +29,7 @@ def _make_workspace(name):
 
 class TestSessionFaultInjection(unittest.TestCase):
     """Fault injection tests for session restore resilience."""
-    
+
     def setUp(self):
         self.workspace = _make_workspace("session-fault")
         self.store = TranscriptStore(self.workspace)
@@ -51,12 +51,12 @@ class TestSessionFaultInjection(unittest.TestCase):
         session_id = "sess-trunc"
         self.store.append_event(session_id, "session_meta", {"current_mode": "build"})
         self.store.append_event(session_id, "message", {"role": "user", "content": "hi"})
-        
+
         # Append truncated JSON
         path = self.store.resolve_transcript_path(session_id)
         with open(path, "a", encoding="utf-8") as f:
             f.write('{"bad json')
-        
+
         # Should load valid events and ignore truncated tail
         events = self.store.load_events(session_id)
         self.assertEqual(len(events), 2)
@@ -81,7 +81,12 @@ class TestSessionFaultInjection(unittest.TestCase):
                 "seq": 2,
                 "ts": "2026-04-02T00:00:01Z",
                 "type": "message",
-                "payload": {"role": "user", "content": "first", "message_id": "m-1", "turn_id": "t-1"},
+                "payload": {
+                    "role": "user",
+                    "content": "first",
+                    "message_id": "m-1",
+                    "turn_id": "t-1",
+                },
             },
             # Corrupted: bad parent message id
             {
@@ -91,7 +96,13 @@ class TestSessionFaultInjection(unittest.TestCase):
                 "seq": 3,
                 "ts": "2026-04-02T00:00:02Z",
                 "type": "message",
-                "payload": {"role": "user", "content": "corrupted", "message_id": "m-bad", "parent_message_id": "nonexistent", "turn_id": "t-bad"},
+                "payload": {
+                    "role": "user",
+                    "content": "corrupted",
+                    "message_id": "m-bad",
+                    "parent_message_id": "nonexistent",
+                    "turn_id": "t-bad",
+                },
             },
             {
                 "schema_version": 1,
@@ -100,12 +111,18 @@ class TestSessionFaultInjection(unittest.TestCase):
                 "seq": 4,
                 "ts": "2026-04-02T00:00:03Z",
                 "type": "message",
-                "payload": {"role": "user", "content": "second", "message_id": "m-2", "parent_message_id": "m-1", "turn_id": "t-2"},
+                "payload": {
+                    "role": "user",
+                    "content": "second",
+                    "message_id": "m-2",
+                    "parent_message_id": "m-1",
+                    "turn_id": "t-2",
+                },
             },
         ]
-        
+
         result = self.restorer.restore(events, best_effort=True)
-        
+
         # Should have processed events 1, 2, and 4; skipped 3
         self.assertTrue(result.consumed_event_count >= 3)
         self.assertEqual(result.skipped_count, 1)
@@ -129,7 +146,12 @@ class TestSessionFaultInjection(unittest.TestCase):
                 "event_id": "evt-2",
                 "seq": 2,
                 "type": "message",
-                "payload": {"role": "user", "content": "first", "message_id": "m-1", "turn_id": "t-1"},
+                "payload": {
+                    "role": "user",
+                    "content": "first",
+                    "message_id": "m-1",
+                    "turn_id": "t-1",
+                },
             },
             {
                 "schema_version": 1,
@@ -137,10 +159,15 @@ class TestSessionFaultInjection(unittest.TestCase):
                 "event_id": "evt-3",
                 "seq": 3,
                 "type": "message",
-                "payload": {"role": "user", "content": "dup", "message_id": "m-2", "turn_id": "t-1"},  # DUPLICATE turn_id
+                "payload": {
+                    "role": "user",
+                    "content": "dup",
+                    "message_id": "m-2",
+                    "turn_id": "t-1",
+                },  # DUPLICATE turn_id
             },
         ]
-        
+
         result = self.restorer.restore(events, best_effort=True)
         self.assertEqual(result.skipped_count, 1)
         # Note: duplicate turn_id is detected by _apply_message
@@ -200,9 +227,9 @@ class TestSessionFaultInjection(unittest.TestCase):
                 },
             },
         ]
-        
+
         result = self.restorer.restore(events, best_effort=True)
-        
+
         # Should skip the assistant message with bad parent
         self.assertEqual(result.skipped_count, 1)
         # But should continue to process user message m-3
@@ -226,7 +253,12 @@ class TestSessionFaultInjection(unittest.TestCase):
                 "event_id": "evt-2",
                 "seq": 2,
                 "type": "message",
-                "payload": {"role": "user", "content": "do something", "message_id": "m-1", "turn_id": "t-1"},
+                "payload": {
+                    "role": "user",
+                    "content": "do something",
+                    "message_id": "m-1",
+                    "turn_id": "t-1",
+                },
             },
             {
                 "schema_version": 1,
@@ -242,7 +274,12 @@ class TestSessionFaultInjection(unittest.TestCase):
                 "event_id": "evt-4",
                 "seq": 4,
                 "type": "tool_call",
-                "payload": {"turn_id": "t-1", "step_id": "s-1", "call_id": "c1", "tool_name": "write_file"},
+                "payload": {
+                    "turn_id": "t-1",
+                    "step_id": "s-1",
+                    "call_id": "c1",
+                    "tool_name": "write_file",
+                },
             },
             {
                 "schema_version": 1,
@@ -265,12 +302,18 @@ class TestSessionFaultInjection(unittest.TestCase):
                 "event_id": "evt-6",
                 "seq": 6,
                 "type": "message",
-                "payload": {"role": "user", "content": "continue", "message_id": "m-2", "parent_message_id": "m-1", "turn_id": "t-2"},
+                "payload": {
+                    "role": "user",
+                    "content": "continue",
+                    "message_id": "m-2",
+                    "parent_message_id": "m-1",
+                    "turn_id": "t-2",
+                },
             },
         ]
-        
+
         result = self.restorer.restore(events, best_effort=True)
-        
+
         # Should skip stale interaction
         self.assertEqual(result.skipped_count, 1)
         self.assertTrue(result.consumed_event_count >= 5)
@@ -298,7 +341,12 @@ class TestSessionFaultInjection(unittest.TestCase):
                 "event_id": "evt-2",
                 "seq": 2,
                 "type": "message",
-                "payload": {"role": "user", "content": "first", "message_id": "m-1", "turn_id": "t-1"},
+                "payload": {
+                    "role": "user",
+                    "content": "first",
+                    "message_id": "m-1",
+                    "turn_id": "t-1",
+                },
             },
             {
                 "schema_version": 1,
@@ -321,12 +369,18 @@ class TestSessionFaultInjection(unittest.TestCase):
                 "event_id": "evt-4",
                 "seq": 4,
                 "type": "message",
-                "payload": {"role": "user", "content": "second", "message_id": "m-3", "parent_message_id": "m-1", "turn_id": "t-2"},
+                "payload": {
+                    "role": "user",
+                    "content": "second",
+                    "message_id": "m-3",
+                    "parent_message_id": "m-1",
+                    "turn_id": "t-2",
+                },
             },
         ]
-        
+
         result = self.restorer.restore(events, best_effort=False)
-        
+
         self.assertEqual(result.consumed_event_count, 2)  # Stopped before bad event
         self.assertEqual(result.skipped_count, 0)
         self.assertTrue(len(result.stop_reason) > 0)
@@ -336,12 +390,12 @@ class TestSessionFaultInjection(unittest.TestCase):
         session_id = "sess-file-corrupt"
         self.store.append_event(session_id, "session_meta", {"current_mode": "build"})
         self.store.append_event(session_id, "message", {"role": "user", "content": "first"})
-        
+
         # Corrupt by adding bad line in middle
         path = self.store.resolve_transcript_path(session_id)
         with open(path, "a", encoding="utf-8") as f:
             f.write("this is not json\n")
-        
+
         # Should load events before corruption
         events = self.store.load_events(session_id)
         self.assertEqual(len(events), 2)

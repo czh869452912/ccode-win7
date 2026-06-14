@@ -70,9 +70,7 @@ class TestPermissionPolicy(unittest.TestCase):
             category_lookup=lambda name: "shell_exec" if name == "dynamic_shell" else "",
         )
 
-        decision = policy.evaluate(
-            Action("dynamic_shell", {"command": "echo hello"}, "call-shell")
-        )
+        decision = policy.evaluate(Action("dynamic_shell", {"command": "echo hello"}, "call-shell"))
 
         self.assertEqual(decision.outcome, "ask")
         self.assertEqual(decision.request.category, "shell_exec")
@@ -84,9 +82,7 @@ class TestPermissionPolicy(unittest.TestCase):
             lambda name: "workspace_write" if name == "dynamic_write" else ""
         )
 
-        decision = policy.evaluate(
-            Action("dynamic_write", {"path": "generated.txt"}, "call-write")
-        )
+        decision = policy.evaluate(Action("dynamic_write", {"path": "generated.txt"}, "call-write"))
 
         self.assertEqual(decision.outcome, "ask")
         self.assertEqual(decision.request.category, "workspace_write")

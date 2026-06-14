@@ -7,7 +7,6 @@ from itertools import count
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from embedagent.session import Session
 from embedagent.session_history import SessionHistoryAssembler
 from embedagent.session_restore import SessionRestorer
 from embedagent.transcript_store import TranscriptStore
@@ -31,13 +30,13 @@ def _make_workspace(name):
 
 class TestSessionPerformance(unittest.TestCase):
     """Performance benchmarks for session infrastructure."""
-    
+
     # Thresholds
     MAX_APPEND_MS = 10  # per event
-    MAX_LOAD_MS = 50    # per 100 events
+    MAX_LOAD_MS = 50  # per 100 events
     MAX_RESTORE_MS = 100  # per 100 events
     MAX_TIMELINE_MS = 100  # per 100 items
-    
+
     def setUp(self):
         self.workspace = _make_workspace("session-perf")
         self.store = TranscriptStore(self.workspace)
@@ -51,7 +50,7 @@ class TestSessionPerformance(unittest.TestCase):
         """Generate a sequence of realistic events."""
         events = []
         parent_id = ""
-        
+
         for i in range(count):
             if i % 4 == 0:
                 # User message
@@ -137,15 +136,15 @@ class TestSessionPerformance(unittest.TestCase):
                     },
                 }
                 parent_id = msg_id
-            
+
             events.append(event)
-        
+
         return events
 
     def test_append_performance_100_events(self):
         session_id = "sess-perf-100"
         events = self._generate_events(100, session_id)
-        
+
         start = time.time()
         for event in events:
             self.store.append_event(
@@ -157,15 +156,18 @@ class TestSessionPerformance(unittest.TestCase):
                 schema_version=2,
             )
         elapsed_ms = (time.time() - start) * 1000
-        
+
         per_event_ms = elapsed_ms / len(events)
-        self.assertLess(per_event_ms, self.MAX_APPEND_MS,
-                        "Append took %.2fms per event (max %.2fms)" % (per_event_ms, self.MAX_APPEND_MS))
+        self.assertLess(
+            per_event_ms,
+            self.MAX_APPEND_MS,
+            "Append took %.2fms per event (max %.2fms)" % (per_event_ms, self.MAX_APPEND_MS),
+        )
 
     def test_load_performance_1000_events(self):
         session_id = "sess-perf-1000"
         events = self._generate_events(1000, session_id)
-        
+
         # Write all events
         for event in events:
             self.store.append_event(
@@ -176,59 +178,67 @@ class TestSessionPerformance(unittest.TestCase):
                 ts=event["ts"],
                 schema_version=2,
             )
-        
+
         start = time.time()
         loaded = self.store.load_events(session_id)
         elapsed_ms = (time.time() - start) * 1000
-        
+
         per_hundred_ms = elapsed_ms / (len(events) / 100)
-        self.assertLess(per_hundred_ms, self.MAX_LOAD_MS,
-                        "Load took %.2fms per 100 events (max %.2fms)" % (per_hundred_ms, self.MAX_LOAD_MS))
+        self.assertLess(
+            per_hundred_ms,
+            self.MAX_LOAD_MS,
+            "Load took %.2fms per 100 events (max %.2fms)" % (per_hundred_ms, self.MAX_LOAD_MS),
+        )
         self.assertEqual(len(loaded), len(events))
 
     def test_restore_performance_1000_events(self):
         session_id = "sess-perf-1000"
         events = self._generate_events(1000, session_id)
-        
+
         start = time.time()
         result = self.restorer.restore(events, best_effort=True)
         elapsed_ms = (time.time() - start) * 1000
-        
+
         per_hundred_ms = elapsed_ms / (len(events) / 100)
-        self.assertLess(per_hundred_ms, self.MAX_RESTORE_MS,
-                        "Restore took %.2fms per 100 events (max %.2fms)" % (per_hundred_ms, self.MAX_RESTORE_MS))
+        self.assertLess(
+            per_hundred_ms,
+            self.MAX_RESTORE_MS,
+            "Restore took %.2fms per 100 events (max %.2fms)"
+            % (per_hundred_ms, self.MAX_RESTORE_MS),
+        )
         self.assertEqual(result.transcript_event_count, len(events))
 
     def test_flat_timeline_performance_1000_items(self):
         session_id = "sess-perf-1000"
         events = self._generate_events(1000, session_id)
         result = self.restorer.restore(events, best_effort=True)
-        
+
         start = time.time()
-        timeline = self.assembler.build_flat_timeline(
-            result.session, "restored", "healthy"
-        )
+        timeline = self.assembler.build_flat_timeline(result.session, "restored", "healthy")
         elapsed_ms = (time.time() - start) * 1000
-        
+
         items = timeline["items"]
         per_hundred_ms = elapsed_ms / (len(items) / 100)
-        self.assertLess(per_hundred_ms, self.MAX_TIMELINE_MS,
-                        "Timeline took %.2fms per 100 items (max %.2fms)" % (per_hundred_ms, self.MAX_TIMELINE_MS))
+        self.assertLess(
+            per_hundred_ms,
+            self.MAX_TIMELINE_MS,
+            "Timeline took %.2fms per 100 items (max %.2fms)"
+            % (per_hundred_ms, self.MAX_TIMELINE_MS),
+        )
 
     def test_large_session_memory_usage(self):
         """Ensure no excessive memory growth with large sessions."""
-        import sys as sys_module
-        
+
         session_id = "sess-perf-mem"
         events = self._generate_events(500, session_id)
-        
+
         # Measure memory before
         # Note: This is a coarse check; real memory profiling would use tracemalloc
         result = self.restorer.restore(events, best_effort=True)
-        
+
         # Session should have reasonable number of turns
         self.assertTrue(len(result.session.turns) <= 125)  # 500 / 4 = 125 turns
-        
+
         timeline = self.assembler.build_flat_timeline(result.session, "restored", "healthy")
         self.assertTrue(len(timeline["items"]) >= 500)
 

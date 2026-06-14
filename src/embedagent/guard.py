@@ -37,7 +37,7 @@ class LoopGuard(object):
         if self._user_override:
             return False
         # Check for repeated tool calls (runaway loop detection)
-        recent_calls = self.tool_call_history[-self.max_repeated_tool_calls:]
+        recent_calls = self.tool_call_history[-self.max_repeated_tool_calls :]
         if len(recent_calls) >= self.max_repeated_tool_calls:
             if all(c == action.name for c in recent_calls):
                 return True
@@ -125,7 +125,7 @@ class LoopGuard(object):
             and self.same_failed_action_count >= self.max_same_non_retryable_failures
         ):
             return "同一非重试型阻塞重复出现，已触发防护。"
-        recent_calls = self.tool_call_history[-self.max_repeated_tool_calls:]
+        recent_calls = self.tool_call_history[-self.max_repeated_tool_calls :]
         if len(recent_calls) >= self.max_repeated_tool_calls:
             if len(set(recent_calls)) == 1:
                 return "repeated tool calls: %s" % recent_calls[0]

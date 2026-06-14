@@ -300,10 +300,7 @@ class ToolRuntime(object):
         self._validate_tool_definition(tool, source_type)
         existing = self._catalog.get(tool.name)
         if existing is not None:
-            if not (
-                existing.source_type == source_type
-                and existing.source_id == source_id
-            ):
+            if not (existing.source_type == source_type and existing.source_id == source_id):
                 raise ValueError("tool already registered: %s" % tool.name)
         metadata = self._metadata_for_tool(tool, source_type)
         tool.metadata = metadata
