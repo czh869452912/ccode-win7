@@ -57,6 +57,8 @@ Important session snapshot fields include:
 
 `extensions.local_resources`, `extensions.project_extensions`, and `extension_diagnostics` are frontend-visible health and diagnostics state, not frontend-owned execution policy.
 
+Capability projections are also diagnostics/read-model state. `InProcessAdapter.capability_snapshot()` may expose tools, local file resources, slash commands, and model profile metadata for future frontend inspection, but frontends must not treat that projection as active-tool policy or permission state.
+
 `workflow` is the generic workflow projection. For the default C/C++ harness, `current_phase`, `discipline_profile`, `current_activity`, `task_summary`, and `task_items` are compatibility fields projected from `workflow`.
 
 Frontend shells should not read or infer default harness internals such as task graph state. They consume the snapshot fields and, where a richer shape is needed, the `workflow` payload.
@@ -156,6 +158,8 @@ Frontends may display dynamic tool source metadata for diagnostics or future ext
 Extension diagnostics are frontend-visible health information. Frontends may display them, but they must not infer extension execution policy from them.
 
 Project extension loader failures are mirrored into `extension_diagnostics`. Frontends may display the health information and project extension source metadata, but permission prompts and execution policy remain backend-owned.
+
+Provider turn snapshot metadata may appear in operation diagnostics as `snapshot_id`, mode/workflow state, active tool names, credential-free model profile metadata, and capability counts. Frontends may display this for debugging, but full prompts, file contents, raw tool outputs, and API keys are not part of the frontend protocol.
 
 For `task_status`, the official presentation metadata is:
 

@@ -44,6 +44,44 @@
 
 ## 3. 当前变更记录
 
+### DC-141
+
+- 日期：2026-06-14
+- 变更主题：Pi-inspired minimal Core Phase G turn snapshot / capability registry 收口
+- 变更摘要：
+  - 新增 `src/embedagent/turn_snapshot.py`，由 `TurnSnapshot` / `TurnSnapshotBuilder` 表示一次 provider request 的冻结输入
+  - `QueryEngine` 现在在 context assembly 与 active tool schema projection 后构造 turn snapshot，并以 `snapshot.messages` / `snapshot.tool_schemas` 调用 provider
+  - provider request operation metadata/result 只记录 safe snapshot metadata：`snapshot_id`、mode/workflow state、active tool names、credential-free model profile 与 capability counts
+  - 新增 `src/embedagent/capabilities.py`，由 `CapabilityRegistry` 作为非执行型 read model 投影 tools、local file resources、slash commands 与 model profiles
+  - `ToolRuntime.capability_descriptors()` 与 `InProcessAdapter.capability_snapshot()` 暴露只读 capability projection；tool activation 仍归 `ExtensionManager` / `AgentExtensionHost`，execution 仍归 `ToolRuntime` / `AgentToolActionService`
+- 影响范围：
+  - `src/embedagent/turn_snapshot.py`
+  - `src/embedagent/capabilities.py`
+  - `src/embedagent/query_engine.py`
+  - `src/embedagent/tools/runtime.py`
+  - `src/embedagent/slash_commands.py`
+  - `src/embedagent/inprocess_adapter.py`
+  - `tests/test_turn_snapshot.py`
+  - `tests/test_capability_registry.py`
+  - `tests/test_query_engine_refactor.py`
+  - `tests/test_local_resources.py`
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/tool-contracts.md`
+  - `docs/frontend-protocol.md`
+  - `docs/agent-harness-v2.md`
+- 关联文档：
+  - `docs/pi-inspired-agent-core-blueprint.md`
+  - `docs/archive/phase-g-turn-snapshot-capability-registry/2026-06-14-phase-g-turn-snapshot-capability-registry-design.md`
+  - `docs/archive/phase-g-turn-snapshot-capability-registry/2026-06-14-phase-g-turn-snapshot-capability-registry.md`
+- 是否需要 ADR：`否，本次是已批准 Phase G 的内部 provider-request boundary 与 read-model foundation；公共 frontend protocol 与 extension API 未新增必需字段`
+- 后续动作：
+  - 设计 durable runtime configuration reducer，覆盖 active capability state、model profile selection 与 local resource revision metadata
+  - 继续真实 Win7 bundle smoke 与真实 C/C++ 工程验证
+
 ### DC-140
 
 - 日期：2026-06-14

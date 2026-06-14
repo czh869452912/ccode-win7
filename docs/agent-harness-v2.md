@@ -27,6 +27,8 @@ It does that by separating three concerns:
 
 Execution ownership is concentrated in one session-scoped `QueryEngine` facade. `AgentKernel` owns turn frames and pending interaction lifecycle boundaries, `AgentLifecycleJournal` owns durable lifecycle operation writes and save points, `AgentLoop` owns turn-loop orchestration, `AgentToolActionService` owns non-LLM tool action execution, and `AgentExtensionHost` owns extension dispatch. Harness updates workflow truth inside that engine-owned session through the default workflow extension; it is not a second runtime.
 
+Provider requests consume an explicit `TurnSnapshot` built by `QueryEngine` after context assembly and active schema projection. The snapshot records the harness-influenced workflow state and active schemas as frozen inputs, but it does not decide harness phase, active packs, permissions, or tool execution.
+
 ## 3. Official Modes
 
 - `explore`
@@ -124,6 +126,8 @@ This keeps model tool selection tight without hard mode walls becoming unusable.
 The workflow-neutral `CORE_PACK` does not contain harness workflow tools. Built-in mode `allowed_tools` are also workflow-neutral permission/write contracts; they do not own `list_recipes`, `run_recipe`, `report_quality_v2`, `record_failing_evidence`, or `task_status`.
 
 The built-in C harness extension registers and activates recipe, quality, evidence, and task-status tools through the shared extension capability boundary. Tool definitions are assembled in `src/embedagent/harness/tool_registry.py`, their metadata lives in `src/embedagent/harness/tool_metadata.py`, and pack ownership lives in `src/embedagent/harness/packs.py`. Its active-tool hook returns pack tools only; `AgentExtensionHost` unions those with the mode contract when the engine needs the full default C/C++ tool set. `AgentExtensionHost` requests schemas by explicit active tool names through `ToolRuntime.schemas_for(mode, workflow_state, tool_names=...)`. Runtime schema filtering no longer activates the default harness pack by itself, and bare `ToolRuntime` construction does not register default C/C++ workflow tools.
+
+`CapabilityRegistry` can project harness-registered tools through the shared runtime catalog for diagnostics and future reducer work. That projection is not the harness pack activation mechanism; active C/C++ workflow tools still come from the default harness extension and `ExtensionManager.allowed_tool_names(...)`.
 
 Harness recipes and quality flows must invoke only bundled external tools described by `scripts/offline-runtime-contract.json`. The packaging gate validates Python, MinGit, ripgrep, Universal Ctags, and LLVM/Clang child executables from that shared contract, so adding a harness runtime binary requires updating the contract and tests in the same change.
 

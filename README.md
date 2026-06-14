@@ -16,7 +16,7 @@ The repository now treats Agent Core as the workflow-neutral runtime, with the C
 
 Local offline self-extension is part of the official architecture: workspace file resources and manifest-gated project-local Python extensions can extend the hosted runtime while remote registries, online installs, dependency installation, plugin marketplaces, built-in tool replacement, and general multi-agent orchestration remain outside the product baseline.
 
-The next long-term architecture direction is captured in `docs/pi-inspired-agent-core-blueprint.md`: continue learning from Pi's functional design and architecture philosophy while preserving EmbedAgent's offline, Windows 7, Python 3.8, and C/C++ engineering constraints. The current baseline remains valid; the blueprint guides gradual work toward a smaller Agent Kernel, durable session-log reducers, source-aware hooks, and a default C/C++ workflow package loaded through the same capability boundary as local extensions. Phase A durable operation truth, Phase B source-aware extension hook dispatch, Phase C AgentKernel lifecycle extraction, Phase D default C/C++ workflow package ownership, Phase E local self-extension authoring, and Phase F repo-side offline bundle validation are complete. The next architecture work should focus on real Win7 bundle smoke validation, real C/C++ project validation, and deleting stale compatibility paths.
+The next long-term architecture direction is captured in `docs/pi-inspired-agent-core-blueprint.md`: continue learning from Pi's functional design and architecture philosophy while preserving EmbedAgent's offline, Windows 7, Python 3.8, and C/C++ engineering constraints. The current baseline remains valid; the blueprint guides gradual work toward a smaller Agent Kernel, durable session-log reducers, source-aware hooks, explicit turn snapshots, and a default C/C++ workflow package loaded through the same capability boundary as local extensions. Phase A durable operation truth, Phase B source-aware extension hook dispatch, Phase C AgentKernel lifecycle extraction, Phase D default C/C++ workflow package ownership, Phase E local self-extension authoring, Phase F repo-side offline bundle validation, and Phase G turn snapshot / capability registry foundation are complete. The next architecture work should focus on durable runtime configuration reducers, real Win7 bundle smoke validation, real C/C++ project validation, and deleting stale compatibility paths.
 
 - User-visible modes: `explore`, `spec`, `build`, `debug`, `verify`
 - Default C/C++ execution model: `mode + discipline_profile + execution_phase`
@@ -39,6 +39,8 @@ The next long-term architecture direction is captured in `docs/pi-inspired-agent
 - Official default extension assembly: `src/embedagent/default_extensions.py` installs the bundled C/C++ harness for hosted product paths; `QueryEngine` itself has no built-in harness import or constructor fallback
 - Official harness refresh path: `CHarnessWorkflowExtension.refresh_managed_session()`; the old `HarnessStateSynchronizer` service facade has been removed
 - Official runtime schema projection: `ToolRuntime.schemas_for(mode, workflow_state, tool_names=...)` is the single schema projection entry point; default harness-aware callers must pass extension-active tool names explicitly
+- Official turn snapshot boundary: `QueryEngine` builds a `TurnSnapshot` after context assembly and active schema projection; provider requests consume `snapshot.messages` and `snapshot.tool_schemas`
+- Official capability read model: `CapabilityRegistry` describes tools, local file resources, slash commands, and model profiles with provenance metadata. It does not activate tools, execute tools, load extensions, or replace `PermissionPolicy`.
 - Official offline runtime contract: `scripts/offline-runtime-contract.json` lists every runtime-invoked bundled external tool, including Python, MinGit, ripgrep, Universal Ctags, and the LLVM/Clang child executables. Bundle validators consume this contract instead of maintaining separate hard-coded tool lists.
 - Official frontend vocabulary: `build`, `tasks`, `current_phase`, `discipline_profile`
 - Official session-history model: `transcript.jsonl -> Session -> SessionHistoryAssembler -> /api/sessions/{id}/bootstrap`
@@ -76,6 +78,10 @@ The product no longer treats the old `code` mode or `manage_todos`-style workflo
   QueryEngine-side extension host for prompt/context hooks, workflow state initialization, dynamic tool registration, explicit active schema projection, tool-call/tool-result hooks, and workflow patches.
 - `src/embedagent/agent_event_bus.py`
   Source-aware internal event bus for extension observer/reducer dispatch and event-specific reducer stopping.
+- `src/embedagent/turn_snapshot.py`
+  Frozen provider-request input built from context messages, active schemas, workflow state, runtime metadata, and capability projections.
+- `src/embedagent/capabilities.py`
+  Non-executing capability read model for runtime tools, local file resources, slash commands, and model profiles.
 - `src/embedagent/extensions.py`
   In-process extension contract and manager for workflow prompt/tool/state hooks.
 - `src/embedagent/default_extensions.py`
@@ -163,7 +169,8 @@ Current architecture cutover status:
 - Pi-inspired minimal Core Phase D default C/C++ workflow package ownership: completed
 - Pi-inspired minimal Core Phase E local self-extension authoring: completed
 - Pi-inspired minimal Core Phase F repo-side offline bundle validation: completed
-- Remaining work: keep deleting stale shell-only labels/helpers, run clean Win7 bundle smoke, and keep validating on real C projects
+- Pi-inspired minimal Core Phase G turn snapshot / capability registry foundation: completed
+- Remaining work: durable runtime configuration reducers, clean Win7 bundle smoke, real C project validation, and stale compatibility cleanup
 
 ## Verification
 

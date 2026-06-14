@@ -340,6 +340,10 @@ Outcomes:
 
 Current implementation status: Phase F is complete for repo-side validation. `scripts/offline-runtime-contract.json` is the single contract for runtime-invoked bundled external tools, including Python, MinGit, ripgrep, Universal Ctags, and LLVM/Clang child executables. `scripts/validate-offline-bundle.ps1` and `scripts/check-bundle-dependencies.py` consume the same contract and report `runtime_contract` metadata. Project extension loading remains dependency-install-free, generated extension validation recipes use managed Python commands, and the final clean Windows 7 unpack-and-run smoke remains a release gate outside the repository test suite.
 
+### Phase G: Turn Snapshot / Capability Registry Foundation
+
+Current implementation status: Phase G is complete. `TurnSnapshot` is now the explicit frozen provider-request input built after context assembly and active schema projection; provider calls consume `snapshot.messages` and `snapshot.tool_schemas`. `CapabilityRegistry` is now a non-executing read model for tools, local file resources, slash commands, and model profiles. Activation still belongs to `ExtensionManager` / `AgentExtensionHost`, execution still belongs to `ToolRuntime` / `AgentToolActionService`, and provider diagnostics record only safe snapshot metadata.
+
 ## 9. Acceptance Criteria For The Direction
 
 The blueprint is working when:

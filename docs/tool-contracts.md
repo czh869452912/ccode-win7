@@ -23,6 +23,10 @@ Built-in mode `allowed_tools` are workflow-neutral permission/write contracts. T
 
 `ToolRuntime.schemas_for(mode, workflow_state, tool_names=...)` is the single runtime schema projection entry point. Without explicit `tool_names`, it projects only the workflow-neutral mode contract. Harness-aware schema projection belongs to `AgentExtensionHost`, which consults the shared `ExtensionManager`, combines active extension tools with the mode contract, and passes explicit active tool names into runtime schema projection.
 
+`TurnSnapshot` is the provider-request boundary for model-visible tools. After `AgentExtensionHost` projects active tool schemas, `QueryEngine` freezes the messages and schemas into a turn snapshot and calls the provider with `snapshot.messages` and `snapshot.tool_schemas`.
+
+`CapabilityRegistry` is a read model, not a tool runtime. It can describe registered tools, local file resources, slash commands, and the active model profile with provenance metadata. Registration in the registry does not make a tool active, does not execute a tool, does not reload resources, does not load project extensions, and does not bypass permission policy.
+
 Allowed-tool gating is not a runtime wrapper. Core orchestration receives an explicit allowed-tool policy from its host; hosted product paths use `QueryEngine._allowed_tools_for_mode(...)` as a compatibility facade over `AgentExtensionHost.allowed_tool_names(...)`.
 
 `author_local_capability` is a workflow-neutral write tool for local self-extension authoring. It creates workspace-bound skills, prompts, recipes, and disabled-by-default project extension skeletons under `.embedagent`; it does not reload resource caches and does not load, enable, import, or trust generated Python extension code.
@@ -51,6 +55,8 @@ In-process extensions may register tools into the shared `ToolRuntime` through t
 - source metadata supplied by the extension runtime
 
 Registration does not make a tool active by itself. A dynamic tool appears in model schemas and frontend catalog views only when its name is active through `ExtensionManager.allowed_tool_names(mode_name, workflow_state=workflow_state)` as consumed by `AgentExtensionHost`. Project-local Python extensions use the same registration path and source metadata. Extensions cannot replace built-in tools.
+
+`ToolRuntime.capability_descriptors()` may project these catalog entries for diagnostics and future reducer work. It must stay read-only and must not become an active-tool policy shortcut.
 
 ## Local Resource Reload
 
