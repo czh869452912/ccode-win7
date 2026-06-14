@@ -117,7 +117,10 @@ def test_register_tool_is_idempotent_for_same_source(tmp_path):
 
 
 def test_builtin_and_harness_tools_have_source_metadata(tmp_path):
+    from conftest import register_default_c_workflow_tools
+
     runtime = ToolRuntime(str(tmp_path))
+    register_default_c_workflow_tools(runtime, str(tmp_path))
 
     assert runtime.tool_catalog_entry("read_file")["source_type"] == "builtin"
     assert runtime.tool_catalog_entry("read_file")["source_id"] == "embedagent.core"

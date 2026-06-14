@@ -44,6 +44,44 @@
 
 ## 3. 当前变更记录
 
+### DC-138
+
+- 日期：2026-06-14
+- 变更主题：Pi-inspired minimal Core Phase D default C/C++ workflow package 收口
+- 变更摘要：
+  - bare `ToolRuntime` 构造恢复为 workflow-neutral，只注册文件、发现、shell/git/build-env 等 core tools
+  - `CHarnessWorkflowExtension.register_tools(...)` 现在通过共享 `ExtensionManager` / `AgentEventBus` 注册默认 C/C++ workflow tools
+  - C/C++ workflow tool metadata 迁入 `src/embedagent/harness/tool_metadata.py`
+  - C/C++ workflow pack 定义迁入 `src/embedagent/harness/packs.py`，`src/embedagent/tooling/packs.py` 仅保留兼容 re-export
+  - 删除旧 runtime-side facade `src/embedagent/tools/harness_runtime.py`
+  - 新增 guardrails，证明 importing bare `ToolRuntime` 不加载 harness runtime/runner，hosted adapter catalog 仍默认暴露 C/C++ workflow tools
+- 影响范围：
+  - `src/embedagent/harness/extension.py`
+  - `src/embedagent/harness/tool_registry.py`
+  - `src/embedagent/harness/tool_metadata.py`
+  - `src/embedagent/harness/packs.py`
+  - `src/embedagent/harness/runner.py`
+  - `src/embedagent/tools/runtime.py`
+  - `src/embedagent/tooling/packs.py`
+  - `tests/test_workflow_extensions.py`
+  - `tests/test_inprocess_adapter_frontend_api.py`
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/pi-inspired-agent-core-blueprint.md`
+  - `docs/development-tracker.md`
+  - `docs/tool-contracts.md`
+  - `docs/agent-harness-v2.md`
+- 关联文档：
+  - `docs/pi-inspired-agent-core-blueprint.md`
+  - `docs/archive/phase-d-workflow-package/2026-06-14-phase-d-workflow-package-design.md`
+  - `docs/archive/phase-d-workflow-package/2026-06-14-phase-d-workflow-package.md`
+- 是否需要 ADR：`否，本次是已批准 Phase D 的默认 workflow package ownership extraction；公共 frontend protocol 与 project extension API 未变`
+- 后续动作：
+  - 启动 Phase E self-extension authoring loop
+  - 继续保持 resource reload 与 executable project extension loading 的安全边界
+
 ### DC-137
 
 - 日期：2026-06-14

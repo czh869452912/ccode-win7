@@ -16,5 +16,5 @@ def _attach_metadata(tool):
 def build_c_workflow_tools(ctx) -> List[object]:
     definitions = []
     definitions.extend(recipe_ops.build_tools(ctx))
-    definitions.extend(session_ops.build_tools(ctx))
+    definitions.extend(session_ops.build_workflow_tools(ctx))
     return [_attach_metadata(tool) for tool in definitions]

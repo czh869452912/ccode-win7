@@ -312,7 +312,7 @@ Outcomes:
 - frontend projections consume generic workflow state
 - bare AgentKernel works without the C/C++ package
 
-Current implementation status: Phase D is the next architecture phase.
+Current implementation status: Phase D is complete for default C/C++ workflow capability ownership. `ToolRuntime` construction is workflow-neutral and no longer imports the harness runtime facade. `CHarnessWorkflowExtension.register_tools(...)` registers recipe, quality, evidence, and task-status tools into the shared runtime with source metadata. C/C++ workflow tool metadata lives in `src/embedagent/harness/tool_metadata.py`; C/C++ workflow packs live in `src/embedagent/harness/packs.py`; hosted product paths still load the bundled package through `src/embedagent/default_extensions.py`, while bare Agent Core does not expose C/C++ workflow tools unless that package is installed.
 
 ### Phase E: Self-Extension Authoring Loop
 

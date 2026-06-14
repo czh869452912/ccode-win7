@@ -3,6 +3,17 @@ from pathlib import Path
 import pytest
 
 
+def register_default_c_workflow_tools(runtime, workspace: str, reason: str = "test") -> None:
+    from embedagent.default_extensions import build_default_extension_set
+    from embedagent.extensions import ExtensionContext, ToolRegistrationEvent
+
+    default_set = build_default_extension_set(runtime)
+    default_set.manager.register_tools(
+        ToolRegistrationEvent(current_mode="build", workflow_state_name="chat", reason=reason),
+        ExtensionContext(workspace=str(workspace or ""), tool_registry=runtime),
+    )
+
+
 @pytest.fixture(scope="session")
 def project_root():
     return Path(__file__).parent.parent

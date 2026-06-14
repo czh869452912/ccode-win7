@@ -7,7 +7,32 @@ from embedagent.session import Observation
 from embedagent.tools._base import ToolDefinition
 
 
-def build_tools(ctx) -> List[ToolDefinition]:
+def build_interaction_tools(ctx) -> List[ToolDefinition]:
+    del ctx
+
+    def _ask_user(arguments: Dict[str, Any]) -> Observation:
+        del arguments
+        return Observation(
+            tool_name="ask_user",
+            success=False,
+            error="ask_user 由 QueryEngine 交互链路处理，runtime 不直接执行。",
+            data={"error_kind": "interaction_only"},
+        )
+
+    ask_schema = ask_user_schema()
+    return [
+        ToolDefinition(
+            name="ask_user",
+            description=str(ask_schema.get("function", {}).get("description") or ""),
+            parameters=dict(ask_schema.get("function", {}).get("parameters") or {}),
+            handler=_ask_user,
+        ),
+    ]
+
+
+def build_workflow_tools(ctx) -> List[ToolDefinition]:
+    del ctx
+
     def _task_status(arguments: Dict[str, Any]) -> Observation:
         del arguments
         return Observation(
@@ -24,15 +49,6 @@ def build_tools(ctx) -> List[ToolDefinition]:
             },
         )
 
-    def _ask_user(arguments: Dict[str, Any]) -> Observation:
-        del arguments
-        return Observation(
-            tool_name="ask_user",
-            success=False,
-            error="ask_user 由 QueryEngine 交互链路处理，runtime 不直接执行。",
-            data={"error_kind": "interaction_only"},
-        )
-
     def _record_failing_evidence(arguments: Dict[str, Any]) -> Observation:
         summary = str(arguments.get("summary") or "").strip()
         return Observation(
@@ -46,7 +62,6 @@ def build_tools(ctx) -> List[ToolDefinition]:
             },
         )
 
-    ask_schema = ask_user_schema()
     return [
         ToolDefinition(
             name="task_status",
@@ -60,12 +75,6 @@ def build_tools(ctx) -> List[ToolDefinition]:
             handler=_task_status,
             read_only=True,
             concurrency_safe=True,
-        ),
-        ToolDefinition(
-            name="ask_user",
-            description=str(ask_schema.get("function", {}).get("description") or ""),
-            parameters=dict(ask_schema.get("function", {}).get("parameters") or {}),
-            handler=_ask_user,
         ),
         ToolDefinition(
             name="record_failing_evidence",
@@ -86,3 +95,10 @@ def build_tools(ctx) -> List[ToolDefinition]:
             concurrency_safe=True,
         ),
     ]
+
+
+def build_tools(ctx) -> List[ToolDefinition]:
+    definitions = []
+    definitions.extend(build_workflow_tools(ctx))
+    definitions.extend(build_interaction_tools(ctx))
+    return definitions

@@ -10,7 +10,7 @@ from embedagent.default_extensions import build_default_extension_set
 from embedagent.inprocess_adapter import InProcessAdapter
 from embedagent.permissions import PermissionPolicy
 from embedagent.query_engine import QueryEngine
-from embedagent.session import Action, AssistantReply
+from embedagent.session import Action, AssistantReply, Session
 from embedagent.tools import ToolRuntime
 
 _COUNTER = count(1)
@@ -111,6 +111,8 @@ class QueryEngineDebugLiteTests(unittest.TestCase):
 
     def test_debug_mode_schemas_use_v2_pack(self):
         engine = self._build_engine()
+        session = Session()
+        engine._ensure_extension_tools_registered(session, "debug", "chat", reason="test")
         names = sorted(
             item["function"]["name"] for item in engine._schemas_for_active_tools("debug", "chat")
         )

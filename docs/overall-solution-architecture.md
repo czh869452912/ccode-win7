@@ -134,7 +134,7 @@ Built-in mode allowed-tool lists are workflow-neutral permission/write contracts
 
 `ToolRuntime.schemas_for(mode, workflow_state, tool_names=...)` is the single runtime schema projection entry point. Without explicit `tool_names`, it projects only the workflow-neutral mode contract; it must not be used to activate the default harness pack implicitly.
 
-The tool runtime is source-aware and dynamically extensible. In-process extensions can register `ToolDefinition` objects into the shared `ToolRuntime`; source metadata is projected through the existing catalog, and active-tool visibility still flows through `ExtensionManager.allowed_tool_names(mode_name, workflow_state=workflow_state)`.
+The tool runtime is source-aware and dynamically extensible. A bare `ToolRuntime` registers workflow-neutral built-ins only. In-process extensions can register `ToolDefinition` objects into the shared runtime; the bundled C/C++ workflow package uses this same boundary for recipe, quality, evidence, and task-status tools. Source metadata is projected through the existing catalog, and active-tool visibility still flows through `ExtensionManager.allowed_tool_names(mode_name, workflow_state=workflow_state)`.
 
 The tool runtime also owns a file-only local resource cache. `ToolRuntime.reload_resources()` refreshes workspace-bound `.embedagent/skills`, `.embedagent/prompts`, and `.embedagent/recipes` resources. Recipe JSON files feed the existing recipe contract, while skills and prompts are surfaced as resources but not executed as local code.
 
@@ -300,4 +300,4 @@ That program keeps learning from Pi at two levels:
 
 The intended long-term direction is that Agent Core can be described without C/C++ workflow vocabulary. The bundled C/C++ harness remains the default product workflow, but it should continue moving toward a first-party workflow package loaded through the same capability boundary as other local extensions.
 
-This is a gradual direction, not a statement that the target state is fully implemented. Phase A durable operation reducers, Phase B extension hook bus dispatch, and Phase C AgentKernel lifecycle extraction are complete. Near-term changes should preserve the current hosted behavior while moving more default C/C++ workflow package behavior behind the same capability boundary.
+This is a gradual direction, not a statement that the target state is fully implemented. Phase A durable operation reducers, Phase B extension hook bus dispatch, Phase C AgentKernel lifecycle extraction, and Phase D default C/C++ workflow package ownership are complete. Near-term changes should preserve the current hosted behavior while building the local self-extension authoring loop.

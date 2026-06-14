@@ -9,6 +9,8 @@ from unittest.mock import patch
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
+from conftest import register_default_c_workflow_tools
+
 from embedagent.tools import ToolDefinition, ToolRuntime
 from embedagent.tools._base import ToolContext
 
@@ -79,7 +81,7 @@ class TestToolRuntimeSchemas(unittest.TestCase):
         shutil.rmtree(self.workspace, ignore_errors=True)
 
     def test_total_tool_count(self):
-        self.assertEqual(len(self.schemas), 20)
+        self.assertEqual(len(self.schemas), 15)
 
     def test_official_tool_catalog_excludes_legacy_duplicate_tools(self):
         expected = [
@@ -111,7 +113,9 @@ class TestToolRuntimeSchemas(unittest.TestCase):
                 name, self.tool_names, "Legacy tool leaked into official catalog: %s" % name
             )
 
-    def test_harness_tools_present(self):
+    def test_default_c_workflow_package_tools_present_after_registration(self):
+        register_default_c_workflow_tools(self.rt, self.workspace)
+        tool_names = [s["function"]["name"] for s in self.rt.schemas()]
         for name in (
             "list_dir",
             "glob_files",
@@ -123,7 +127,7 @@ class TestToolRuntimeSchemas(unittest.TestCase):
             "ask_user",
             "record_failing_evidence",
         ):
-            self.assertIn(name, self.tool_names, "Missing harness tool: %s" % name)
+            self.assertIn(name, tool_names, "Missing workflow tool: %s" % name)
 
     def test_schema_structure(self):
         for schema in self.schemas:
@@ -709,6 +713,7 @@ class TestWorkspaceRecipes(unittest.TestCase):
                 '[{"id":"custom.build","tool_name":"run_recipe","recipe_action":"build","label":"Custom Build","command":"cmd /c echo build-ok","cwd":"."}]'
             )
         runtime = ToolRuntime(self.workspace)
+        register_default_c_workflow_tools(runtime, self.workspace)
         obs = runtime.execute("run_recipe", {"recipe_id": "custom.build"})
         self.assertTrue(obs.success)
         self.assertEqual(obs.data["recipe_id"], "custom.build")
@@ -748,6 +753,7 @@ class TestWorkspaceRecipes(unittest.TestCase):
                 + "]"
             )
         runtime = ToolRuntime(self.workspace)
+        register_default_c_workflow_tools(runtime, self.workspace)
         tidy_obs = runtime.execute("run_recipe", {"recipe_id": "custom.tidy"})
         analyze_obs = runtime.execute("run_recipe", {"recipe_id": "custom.analyze"})
         coverage_obs = runtime.execute("run_recipe", {"recipe_id": "custom.coverage"})

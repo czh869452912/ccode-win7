@@ -11,7 +11,14 @@ from embedagent.session import Observation
 from embedagent.strategies.tool_cache import ToolResultCache
 from embedagent.session import Action
 from embedagent.tool_result_store import ToolResultStore
-from embedagent.tools import compile_ops, discovery_ops, file_ops, git_ops, shell_ops
+from embedagent.tools import (
+    compile_ops,
+    discovery_ops,
+    file_ops,
+    git_ops,
+    session_ops,
+    shell_ops,
+)
 from embedagent.tools._base import ToolContext, ToolDefinition, ToolError
 
 _VALID_TOOL_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
@@ -321,6 +328,7 @@ class ToolRuntime(object):
         core_tools = (
             file_ops.build_tools(self._ctx)
             + discovery_ops.build_tools(self._ctx)
+            + session_ops.build_interaction_tools(self._ctx)
             + shell_ops.build_tools(self._ctx)
             + git_ops.build_tools(self._ctx)
             + compile_ops.build_tools(self._ctx)

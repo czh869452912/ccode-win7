@@ -32,9 +32,12 @@ class DebugEvidenceV2Tests(unittest.TestCase):
         shutil.rmtree(self.workspace, ignore_errors=True)
 
     def test_record_failing_evidence_returns_structured_payload(self):
+        from conftest import register_default_c_workflow_tools
+
         from embedagent.tools import ToolRuntime
 
         runtime = ToolRuntime(self.workspace)
+        register_default_c_workflow_tools(runtime, self.workspace)
         result = runtime.execute(
             "record_failing_evidence",
             {"summary": "reproduced failure in src/demo.c"},

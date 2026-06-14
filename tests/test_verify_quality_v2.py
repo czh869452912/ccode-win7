@@ -32,9 +32,12 @@ class VerifyQualityV2Tests(unittest.TestCase):
         shutil.rmtree(self.workspace, ignore_errors=True)
 
     def test_report_quality_v2_returns_structured_summary(self):
+        from conftest import register_default_c_workflow_tools
+
         from embedagent.tools import ToolRuntime
 
         runtime = ToolRuntime(self.workspace)
+        register_default_c_workflow_tools(runtime, self.workspace)
         result = runtime.execute(
             "report_quality_v2",
             {"error_count": 0, "warning_count": 1, "test_failures": 0},

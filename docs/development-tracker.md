@@ -1,6 +1,6 @@
 # EmbedAgent 开发进度跟踪
 
-> 更新日期：2026-06-14（Pi-inspired minimal Core Phase C AgentKernel 收口）
+> 更新日期：2026-06-14（Pi-inspired minimal Core Phase D workflow package 收口）
 > 用途：持续跟踪当前阶段、下一步任务、里程碑进度、风险与阻塞
 
 ---
@@ -26,9 +26,9 @@
 
 ### 总阶段
 
-- 当前阶段：`Phase 4 真实工程验证 + Phase 6 GUI / Win7 收口 + Pi-inspired minimal Core Phase D 准备`
+- 当前阶段：`Phase 4 真实工程验证 + Phase 6 GUI / Win7 收口 + Pi-inspired minimal Core Phase E 准备`
 - 总体状态：`进行中`
-- 当前重点：`Agent Harness V2 official cutover 六步程序与文档治理 Batch A 已完成。模块文档（protocol/core、TUI、GUI、packaging）已补齐，代码-文档矩阵已同步。workflow extension boundary 代码迁移、repo-side 回归、本机 release bundle 验证和本机剩余边界清理已收口；下一步重点是在真实 Win7 目标机重跑离线 bundle smoke、继续真实 C/C++ 工程验证，并按 Pi-inspired minimal Core 蓝图从 Phase C AgentKernel lifecycle extraction 转入 Phase D default C/C++ workflow package。`
+- 当前重点：`Agent Harness V2 official cutover 六步程序与文档治理 Batch A 已完成。模块文档（protocol/core、TUI、GUI、packaging）已补齐，代码-文档矩阵已同步。workflow extension boundary 代码迁移、repo-side 回归、本机 release bundle 验证和本机剩余边界清理已收口；下一步重点是在真实 Win7 目标机重跑离线 bundle smoke、继续真实 C/C++ 工程验证，并按 Pi-inspired minimal Core 蓝图从 Phase D default C/C++ workflow package 转入 Phase E self-extension authoring loop。`
 - 最新 session-history 收口：`GUI session activation 已切到单一 `/api/sessions/{id}/bootstrap` 合约；历史 turns 现在只从 `transcript.jsonl -> Session -> SessionHistoryAssembler` 生成，`timeline.jsonl` 仅保留 transport replay 角色，raw fallback 不再是正式 GUI 恢复模式。`
 - 最新稳定化收口：`set_session_mode()` 现在会先重置旧 phase 再刷新 Harness snapshot，避免 build/debug/verify 跨 mode 切换时把上一模式的 phase 残留到新会话快照；同时 `Context` 高优先级工具、reducer registry 与 `/review` 文案已统一到 `run_recipe/report_quality_v2/task_status` 正式词汇。`
 - 最新 dead-code 清理：`tools_v2/` 中仍被正式主路径使用的 discovery/recipe/session 模块已迁入官方 `src/embedagent/tools/`；旧 `tools_v2/*.py` 与已无人引用的 legacy `loop.py` 已删除，产品源码不再直接 import `tools_v2`。当前 `src/embedagent/agent_loop.py` 是 Slice 5 新增的正式 turn-loop 边界。`
@@ -41,7 +41,8 @@
 - 最新 Pi-inspired minimal Core 蓝图：`docs/pi-inspired-agent-core-blueprint.md` 已建立为下一阶段长期目标蓝图，同时学习 Pi 的功能设计和架构哲学；目标是把 Agent Core 继续收敛为更小的 Agent Kernel、durable SessionLog/reducer、source-aware HookBus、CapabilityRegistry、Policy Boundary 与默认 C/C++ workflow package。当前官方 baseline 不变，后续按 durable operation log、HookBus/reducer registry、AgentKernel lifecycle extraction、default C/C++ workflow package、self-extension authoring loop 和 offline validation 渐进推进。`
 - 最新 durable operation log 切片：`Phase A 已完成`。`src/embedagent/session_operation_log.py` 已新增纯 `OperationLogReducer`，并已硬切为只从 schema_v2 `operation_started/operation_finished/operation_interrupted` 推导 operation state；`step_started/tool_call/tool_result/loop_transition` 继续服务 session replay/history，不再参与 operation 推断。`SessionRestorer` 已暴露 `operation_state` 并消费显式 operation lifecycle 事件；`QueryEngine` 已为 turn、agent step、context assembly、context snapshot、provider request、tool call、pending interaction、workflow patch 与 save point 写入显式 operation lifecycle；restore-time 与 live session snapshot 均已投影 reducer-backed `operation_diagnostics`。`
 - 最新 HookBus/reducer registry 切片：`Phase B 已收口`。`src/embedagent/agent_event_bus.py` 已建立 source-aware `AgentEventBus`、observer/reducer registration、event-specific reducer stopping、dispatch diagnostics 与 trusted fail-closed 行为；`ExtensionManager` 公开 extension hook family 已通过 `AgentEventBus` 分发，包括 context、tool-call、tool-result、resource discovery、dynamic tool registration、prompt patch、workflow initialization、active tool names、task snapshot loading 与 extension-owned tool handling。公共 extension API 不变；后续 operation lifecycle 编排已由 Phase C AgentKernel extraction 收口。`
-- 最新 AgentKernel lifecycle extraction 切片：`Phase C 已收口`。`src/embedagent/agent_lifecycle.py` 已建立 `AgentLifecycleJournal`，集中 durable lifecycle operation 写入、transition save point、pending interaction lifecycle 与 context operation payload helper；`src/embedagent/agent_kernel.py` 已建立 `AgentKernel` / `AgentTurnFrame`，统一 user/command/resume turn frame 与 pending create/resolve boundary；`src/embedagent/agent_loop.py` 已从 runner callback 包装器升级为 turn-loop owner，负责 agent step、context/provider attempt、compact retry、tool batch interruption、guard-stop、abort 与 max-turn transition。`QueryEngine` 不再拥有 `_run_loop_impl`，继续作为 session-scoped facade 与 transcript/session mutation 兼容面。下一步进入 Phase D default C/C++ workflow package。`
+- 最新 AgentKernel lifecycle extraction 切片：`Phase C 已收口`。`src/embedagent/agent_lifecycle.py` 已建立 `AgentLifecycleJournal`，集中 durable lifecycle operation 写入、transition save point、pending interaction lifecycle 与 context operation payload helper；`src/embedagent/agent_kernel.py` 已建立 `AgentKernel` / `AgentTurnFrame`，统一 user/command/resume turn frame 与 pending create/resolve boundary；`src/embedagent/agent_loop.py` 已从 runner callback 包装器升级为 turn-loop owner，负责 agent step、context/provider attempt、compact retry、tool batch interruption、guard-stop、abort 与 max-turn transition。`QueryEngine` 不再拥有 `_run_loop_impl`，继续作为 session-scoped facade 与 transcript/session mutation 兼容面；后续 Phase D default C/C++ workflow package 已由下一切片收口。`
+- 最新 default C/C++ workflow package 切片：`Phase D 已收口`。bare `ToolRuntime` 构造现在只注册 workflow-neutral built-ins；默认 C/C++ workflow package 通过 `CHarnessWorkflowExtension.register_tools(...)` 注册 recipe、quality、evidence 与 `task_status` 工具；workflow tool metadata 已迁到 `src/embedagent/harness/tool_metadata.py`，workflow packs 已迁到 `src/embedagent/harness/packs.py`，旧 `src/embedagent/tools/harness_runtime.py` 已删除。hosted adapter 仍通过 `default_extensions.py` 默认装载 C/C++ package，bare Agent Core 不再加载 harness runtime facade。下一步进入 Phase E self-extension authoring loop。`
 - 最新 workflow extension cleanup：`InProcessAdapter.list_tasks()` 的 inactive-session task snapshot fallback 已改为通过共享 `ExtensionManager.load_session_tasks(...)` 查询，默认 C harness extension 继续负责读取自己的 task snapshot；adapter 不再直接 import `embedagent.harness.task_store`。`
 - 最新 workflow extension validation：`2026-05-29 repo-side 验证已通过：fast suite 为 685 passed / 11 deselected，focused C/C++ build/debug/verify workflow 回归为 15 passed。官方 harness 门禁已修复 marker 漏标问题，uv run pytest tests/ -m harness -v 现在会选中并通过 23 个 task_graph / phase_engine / harness runner / prompt stack / harness injection 测试。本机 release bundle 已用当前分支源码重建并通过：validate-offline-bundle.ps1 -RequireComplete 为 59 pass / 0 warn / 0 fail，check-bundle-dependencies.py 全部通过，scripts/package.ps1 verify -Profile release -Json 返回 final_status READY。clean Windows 7 unpack-and-run smoke 尚未执行。`
 - 最新 documentation cleanup：`docs/guides/configuration-guide.md` 已改写为当前正式配置指南，使用 `explore/spec/build/debug/verify` 与 `build` 实现模式口径，不再把 `code` 或 `manage_todos` 作为当前配置/工作流示例。`
@@ -179,7 +180,7 @@
 - 已完成 dist/source GUI 布局重新对齐：重建后的离线 bundle 已携带 `static/assets`、Fixed Version WebView2 109、无 `__editable__.embedagent-*.pth` 泄漏，且 bundle 级 `validate-offline-bundle.ps1`、`validate-gui-smoke.py`、`check-bundle-dependencies.py` 全部通过
 - Phase 7 打包链路已开始切换到声明式控制面：`scripts/package.config.json`、`scripts/package-lib.ps1` 与 `scripts/package.ps1` 已落地；当前 `doctor/deps/assemble/verify/release` 已可通过 mocked orchestration contract 运行，并统一写入 `build/offline-reports/`
 
-项目下一步：继续推进 Phase 4 真实工程验证，在 Win7 bundle 中验证 Fixed Version WebView2 109 路径，并把 Phase 7 的 site-packages 精简、真实 release pipeline 验收和 Win7 bundle 验收接上；同时继续推进 Pi-inspired minimal Core：Phase A durable operation log、Phase B HookBus/reducer registry 与 Phase C AgentKernel lifecycle extraction 已收口，下一步进入 Phase D default C/C++ workflow package。
+项目下一步：继续推进 Phase 4 真实工程验证，在 Win7 bundle 中验证 Fixed Version WebView2 109 路径，并把 Phase 7 的 site-packages 精简、真实 release pipeline 验收和 Win7 bundle 验收接上；同时继续推进 Pi-inspired minimal Core：Phase A durable operation log、Phase B HookBus/reducer registry、Phase C AgentKernel lifecycle extraction 与 Phase D default C/C++ workflow package 已收口，下一步进入 Phase E self-extension authoring loop。
 
 ---
 
@@ -190,7 +191,7 @@
 1. 推进 Phase 4 的真实 C 工程与 Win7 验证
 2. 在 Win7 bundle 中完成 GUI Chromium 基线实机验证并记录结果
 3. 为当前 `package.ps1 release` 路径评估并收敛 `site-packages` 的精简导出方案
-4. 推进 Pi-inspired minimal Core 后续切片：Phase D default C/C++ workflow package
+4. 推进 Pi-inspired minimal Core 后续切片：Phase E self-extension authoring loop
 
 实现备注：
 
@@ -249,7 +250,8 @@
 | T-029 | Pi-inspired minimal Core 第一阶段：durable operation log / reducer | `completed` | Phase A 已收口：新增 `OperationLogReducer`、`SessionRestoreResult.operation_state`，并将 operation reducer 硬切为只消费显式 schema_v2 lifecycle；`QueryEngine` 已覆盖 turn、agent step、context assembly、context snapshot、provider request、tool call、pending interaction、workflow patch 与 save point；restore-time snapshot 会关闭未完成 operation，live snapshot 会保留 active operation，二者均已投影 `operation_diagnostics`；Phase B HookBus/reducer registry 已由 T-030 收口 |
 | T-030 | Pi-inspired minimal Core Phase B：HookBus / reducer registry | `completed` | Phase B 已收口：新增 `AgentEventBus`，`ExtensionManager` 公开 extension hook family 已迁到 source-aware reducer dispatch，并保留公共 extension API；后续 operation lifecycle 编排已由 Phase C AgentKernel lifecycle extraction 收口 |
 | T-031 | Pi-inspired minimal Core Phase C：AgentKernel lifecycle extraction | `completed` | Phase C 已收口：新增 `AgentLifecycleJournal`、`AgentKernel` / `AgentTurnFrame`，并将 `AgentLoop` 升级为 turn-loop owner；turn frames、save points、pending create/resolve、abort、compact retry、guard-stop 与 max-turn transition 均已通过 lifecycle boundary；`QueryEngine` 不再拥有 `_run_loop_impl` |
-| T-032 | Pi-inspired minimal Core Phase D：default C/C++ workflow package | `pending` | 下一步继续把默认 C/C++ task graph、prompt units、recipes、quality gates、task_status 与 workflow tool activation 移到 first-party bundled workflow package；bare Agent Core 必须继续不依赖 C harness internals |
+| T-032 | Pi-inspired minimal Core Phase D：default C/C++ workflow package | `completed` | Phase D 已收口：bare `ToolRuntime` 不再注册默认 C/C++ workflow tools，也不再 import `tools/harness_runtime.py`；默认 C/C++ package 通过 `CHarnessWorkflowExtension.register_tools(...)` 注册 recipe、quality、evidence 与 `task_status` 工具，metadata/packs 归属 `src/embedagent/harness/`；hosted adapter catalog 仍默认暴露 C/C++ workflow tools |
+| T-033 | Pi-inspired minimal Core Phase E：self-extension authoring loop | `pending` | 下一步建立安全的本地 self-extension authoring workflow：生成 skills/prompts/recipes/extension manifests/code/docs/validation recipes，同时保持 resource reload 与 executable extension loading 分离 |
 
 ---
 
@@ -304,6 +306,7 @@
 
 | 日期 | 更新内容 |
 |------|----------|
+| 2026-06-14 | Pi-inspired minimal Core Phase D 收口：bare `ToolRuntime` 已恢复 workflow-neutral 构造；默认 C/C++ workflow package 通过 `CHarnessWorkflowExtension.register_tools(...)` 注册 workflow tools，并在 `src/embedagent/harness/tool_metadata.py` / `src/embedagent/harness/packs.py` 内拥有 metadata 与 pack 定义；旧 `src/embedagent/tools/harness_runtime.py` 已删除。下一步进入 Phase E self-extension authoring loop |
 | 2026-06-14 | Pi-inspired minimal Core Phase C 收口：新增 `AgentLifecycleJournal`、`AgentKernel` / `AgentTurnFrame`，`AgentLoop` 已成为 turn-loop owner；`QueryEngine` 继续作为 session facade，但不再拥有 `_run_loop_impl`。下一步进入 Phase D default C/C++ workflow package |
 | 2026-06-14 | Pi-inspired minimal Core Phase B 收口：`AgentEventBus` 现在承载 `ExtensionManager` 公开 extension hook family 的 source-aware reducer dispatch；tool-call block/update、resource discovery、dynamic tool registration、prompt patch、active tools、workflow init、task snapshot 与 extension-owned tool handling 均保留公共 API 并统一诊断。Phase C AgentKernel lifecycle extraction 已由后续收口记录完成 |
 | 2026-06-13 | Pi-inspired minimal Core Phase B 第一切片启动：新增 source-aware `AgentEventBus`，`ExtensionManager.context(...)` 与 `after_tool_result(...)` 已迁到 `extension.context` / `extension.tool_result` reducer event；公共 extension API 不变，后续继续迁移 tool-call/resource/dynamic-tool/lifecycle hook 家族 |

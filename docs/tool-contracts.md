@@ -185,7 +185,8 @@ Examples of duplicates that should not be reintroduced:
 The authoritative implementation lives in:
 
 - `src/embedagent/tools/runtime.py`
-- `src/embedagent/tools/harness_runtime.py`
 - `src/embedagent/harness/extension.py`
+- `src/embedagent/harness/tool_registry.py`
+- `src/embedagent/harness/tool_metadata.py`
 
 This document must stay aligned with those files.

@@ -123,7 +123,7 @@ This keeps model tool selection tight without hard mode walls becoming unusable.
 
 The workflow-neutral `CORE_PACK` does not contain harness workflow tools. Built-in mode `allowed_tools` are also workflow-neutral permission/write contracts; they do not own `list_recipes`, `run_recipe`, `report_quality_v2`, `record_failing_evidence`, or `task_status`.
 
-The built-in C harness extension activates recipe, quality, evidence, and task-status tools through its selected workflow pack. Its active-tool hook returns pack tools only; `AgentExtensionHost` unions those with the mode contract when the engine needs the full default C/C++ tool set. `AgentExtensionHost` requests schemas by explicit active tool names through `ToolRuntime.schemas_for(mode, workflow_state, tool_names=...)`. Runtime schema filtering no longer activates the default harness pack by itself.
+The built-in C harness extension registers and activates recipe, quality, evidence, and task-status tools through the shared extension capability boundary. Tool definitions are assembled in `src/embedagent/harness/tool_registry.py`, their metadata lives in `src/embedagent/harness/tool_metadata.py`, and pack ownership lives in `src/embedagent/harness/packs.py`. Its active-tool hook returns pack tools only; `AgentExtensionHost` unions those with the mode contract when the engine needs the full default C/C++ tool set. `AgentExtensionHost` requests schemas by explicit active tool names through `ToolRuntime.schemas_for(mode, workflow_state, tool_names=...)`. Runtime schema filtering no longer activates the default harness pack by itself, and bare `ToolRuntime` construction does not register default C/C++ workflow tools.
 
 ## 8. Prompting Model
 
