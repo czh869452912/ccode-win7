@@ -60,8 +60,9 @@ Recent workflow-boundary work has started slimming Agent Core without changing t
 - `AgentLoop` now owns turn-loop orchestration behind `QueryEngine`, including agent steps, context/provider attempts, compact retry, tool batch interruption, guard stops, abort, and max-turn transitions; `QueryEngine` no longer owns `_run_loop_impl`
 - `ToolRuntime` construction is now workflow-neutral; the bundled C/C++ workflow package registers recipe, quality, evidence, and task-status tools with metadata through `CHarnessWorkflowExtension.register_tools(...)`
 - C/C++ workflow pack definitions now live under `src/embedagent/harness/packs.py`; `src/embedagent/tooling/packs.py` is only a compatibility export
-- Pi-inspired minimal Core Phase A durable operation log, Phase B HookBus/reducer registry, Phase C AgentKernel lifecycle extraction, Phase D default C/C++ workflow package ownership, and Phase E self-extension authoring loop are complete
+- Pi-inspired minimal Core Phase A durable operation log, Phase B HookBus/reducer registry, Phase C AgentKernel lifecycle extraction, Phase D default C/C++ workflow package ownership, Phase E self-extension authoring loop, and Phase F repo-side offline bundle validation are complete
 - `SelfExtensionAuthoringService` and `author_local_capability` can generate local skills, prompts, recipes, and disabled-by-default project extension skeletons without reloading resources or loading Python code
+- `scripts/offline-runtime-contract.json` is now the single repo-side contract for runtime-invoked bundled external tools; `validate-offline-bundle.ps1` and `check-bundle-dependencies.py` consume it for Python, MinGit, ripgrep, Universal Ctags, and LLVM/Clang child executable validation
 - Slice 6 completed the documentation cutover for self-extensible Agent Core: active source-of-truth docs and module docs now treat local offline self-extension as official architecture while keeping marketplaces, online installs, dependency installation, built-in tool replacement, and multi-agent orchestration out of scope
 - `HarnessStateSynchronizer` has been removed; product refresh uses `CHarnessWorkflowExtension.refresh_managed_session()` through the default harness extension directly
 - `StreamingToolExecutor` now window-schedules parallel read batches so failure/discard semantics are deterministic
@@ -128,10 +129,11 @@ The current self-extensible Agent Core baseline remains valid. The next program 
    - generated project extensions are disabled by default and still require manifests, declared permissions, workspace-bound entrypoints, diagnostics, and normal `PermissionPolicy` enforcement
 
 6. **Offline bundle validation**
-   - next implementation phase
-   - keep all invoked runtime tools bundled
-   - keep extension loading dependency-free at runtime
-   - preserve clean Windows 7 unpack-and-run smoke as a release gate
+   - current implementation status: Phase F is complete for repo-side validation
+   - `scripts/offline-runtime-contract.json` lists all runtime-invoked bundled external tools
+   - PowerShell and Python bundle validators consume the same runtime contract, including LLVM/Clang child executable checks
+   - extension loading remains dependency-free at runtime and generated validation recipes use managed bundle commands
+   - clean Windows 7 unpack-and-run smoke remains a release gate
 
 This program must not introduce online extension marketplaces, dependency installation, remote registries, built-in tool replacement by project-local code, container requirements, WSL requirements, VS Code dependency, or general multi-agent orchestration in Agent Core.
 
@@ -143,6 +145,7 @@ Remaining cleanup should focus on:
 - deleting or archiving superseded helper modules
 - removing outdated tests/manual samples that preserve non-official behavior
 - validating real C/C++ projects and the Win7/offline bundle while keeping documentation synchronized with the official extension boundaries
+- keeping `scripts/offline-runtime-contract.json`, packaging validators, and the Win7 preflight checklist aligned when runtime-invoked tools change
 
 ### 4.3 Workflow Extension Decoupling
 
@@ -181,6 +184,7 @@ After architecture cutover, the highest-value validation is:
 - recipe discovery quality
 - Clang diagnostics quality
 - Win7 bundle runtime validation
+- clean Win7 unpack-and-run smoke for the contract-backed offline bundle
 
 ## 5. Product Areas
 
@@ -218,6 +222,6 @@ The repository is now past the architecture cutover stage and into stabilization
 
 - keep deleting dead compatibility layers
 - keep validating on real C projects
-- keep tightening offline bundle behavior
+- keep tightening offline bundle behavior around the shared runtime contract
 - keep the transcript-backed session-history path as the only official history model
 - do not reopen old dual-path architecture

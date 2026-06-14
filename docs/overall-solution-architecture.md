@@ -142,6 +142,8 @@ The tool runtime also owns a file-only local resource cache. `ToolRuntime.reload
 
 Project-local Python extensions are loaded by hosted adapters through `src/embedagent/project_extensions.py`, not by resource reload. The loader validates `extension.json`, keeps entrypoints inside the extension directory, passes a narrow workspace-bound API object, registers loaded objects into the shared `ExtensionManager`, and projects load state under `Session.workflow_state["extensions"]["project_extensions"]`.
 
+Runtime-invoked external binaries are part of the tool architecture even when they are not model-visible tools. `scripts/offline-runtime-contract.json` is the repo-side contract for bundled Python, MinGit, ripgrep, Universal Ctags, and LLVM/Clang child executables. Packaging validators consume this contract so the runtime, bundle gate, and dependency checker share one external-tool truth.
+
 ### Official Tool Families
 
 #### File / Discovery
@@ -281,6 +283,8 @@ The shipped product is expected to be a self-contained offline bundle.
 
 The architecture therefore assumes runtime discovery for bundled tools, not global machine dependencies.
 
+`scripts/offline-runtime-contract.json` enumerates the bundled external tools that runtime flows may invoke. The release bundle validation gate and dependency checker must consume this contract rather than maintaining independent hard-coded lists. A clean Windows 7 unpack-and-run smoke remains the final release proof that the contract-backed bundle is actually portable.
+
 ## 11. Design Rule
 
 Do not reintroduce parallel V1/V2 execution paths.
@@ -302,4 +306,4 @@ That program keeps learning from Pi at two levels:
 
 The intended long-term direction is that Agent Core can be described without C/C++ workflow vocabulary. The bundled C/C++ harness remains the default product workflow, but it should continue moving toward a first-party workflow package loaded through the same capability boundary as other local extensions.
 
-This is a gradual direction, not a statement that the target state is fully implemented. Phase A durable operation reducers, Phase B extension hook bus dispatch, Phase C AgentKernel lifecycle extraction, Phase D default C/C++ workflow package ownership, and Phase E local self-extension authoring are complete. Near-term changes should preserve the current hosted behavior while validating the offline bundle boundary.
+This is a gradual direction, not a statement that the target state is fully implemented. Phase A durable operation reducers, Phase B extension hook bus dispatch, Phase C AgentKernel lifecycle extraction, Phase D default C/C++ workflow package ownership, Phase E local self-extension authoring, and Phase F repo-side offline bundle validation are complete. Near-term changes should preserve the current hosted behavior while completing real Win7 smoke validation and real C/C++ project validation.

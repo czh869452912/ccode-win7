@@ -29,6 +29,8 @@ Local resource reload is a read/discovery operation and does not grant execution
 
 Project-local Python extension manifests declare requested permissions, but those declarations do not bypass the runtime permission engine. Any dynamic tool registered by a project extension still needs explicit catalog metadata, active-tool visibility through `ExtensionManager.allowed_tool_names(...)`, and a normal `PermissionPolicy` decision for its permission category.
 
+Project-local extension loading does not grant dependency installation rights. The loader must not invoke installers or package managers while importing enabled manifests; any command execution still has to enter through an official tool/recipe path, use bundled runtime commands, and pass the normal permission policy.
+
 ## 3. Rule Shape
 
 Rules are structured objects loaded from the configured rules file.

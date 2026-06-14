@@ -338,6 +338,8 @@ Outcomes:
 - generated local capabilities remain workspace-bound
 - clean Windows 7 bundle smoke remains a release gate
 
+Current implementation status: Phase F is complete for repo-side validation. `scripts/offline-runtime-contract.json` is the single contract for runtime-invoked bundled external tools, including Python, MinGit, ripgrep, Universal Ctags, and LLVM/Clang child executables. `scripts/validate-offline-bundle.ps1` and `scripts/check-bundle-dependencies.py` consume the same contract and report `runtime_contract` metadata. Project extension loading remains dependency-install-free, generated extension validation recipes use managed Python commands, and the final clean Windows 7 unpack-and-run smoke remains a release gate outside the repository test suite.
+
 ## 9. Acceptance Criteria For The Direction
 
 The blueprint is working when:

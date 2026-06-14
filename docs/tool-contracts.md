@@ -27,6 +27,8 @@ Allowed-tool gating is not a runtime wrapper. Core orchestration receives an exp
 
 `author_local_capability` is a workflow-neutral write tool for local self-extension authoring. It creates workspace-bound skills, prompts, recipes, and disabled-by-default project extension skeletons under `.embedagent`; it does not reload resource caches and does not load, enable, import, or trust generated Python extension code.
 
+Runtime-invoked external binaries are governed by `scripts/offline-runtime-contract.json`. If a tool implementation, recipe path, or workflow package starts invoking a new bundled binary, the runtime contract and packaging validators must be updated in the same change. The contract currently covers Python, MinGit, ripgrep, Universal Ctags, and LLVM/Clang child executables.
+
 ## Extension Tool Hooks
 
 The extension runtime may observe or patch tool calls through typed in-process hooks:
@@ -69,6 +71,8 @@ Hosted product paths may load project-local Python extensions from `.embedagent/
 Loaded project extensions receive a narrow API object exposing extension result dataclasses, `ToolDefinition`, `Observation`, and workspace-bound text helpers. The loader does not install dependencies, contact remote registries, execute local resources, or allow built-in tool replacement. Dynamic tools from project extensions remain subject to catalog metadata, active-tool gating, and `PermissionPolicy`.
 
 Generated extension skeletons from `author_local_capability` start disabled. They become executable only through the existing hosted project-extension loading path after a manifest is explicitly enabled and passes validation.
+
+Generated extension validation recipes must remain offline-friendly. They should execute through `run_recipe` and managed bundle commands such as `python -m py_compile ...`, not through dependency installers or remote package managers.
 
 ## 2. Official Workflow Tools
 

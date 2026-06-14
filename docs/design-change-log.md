@@ -44,6 +44,40 @@
 
 ## 3. 当前变更记录
 
+### DC-140
+
+- 日期：2026-06-14
+- 变更主题：Pi-inspired minimal Core Phase F offline bundle validation 收口
+- 变更摘要：
+  - 新增 `scripts/offline-runtime-contract.json` 作为 runtime-invoked bundled external tools 的 repo-side 单一契约
+  - `scripts/validate-offline-bundle.ps1` 现在消费 runtime contract，对 Python、MinGit、ripgrep、Universal Ctags 与 LLVM/Clang child executables 做静态与动态 bundle gate 检查
+  - `scripts/check-bundle-dependencies.py` 现在消费同一 runtime contract，并在结构化报告中输出 `runtime_contract` 元数据与 `runtime_tool.*` 外部工具错误
+  - 补充回归测试锁定 project extension loading 不调用 dependency installers，generated extension validation recipe 使用 managed Python command
+  - clean Windows 7 unpack-and-run smoke 保持为发布门禁，repo-side validation 不替代实机验收
+- 影响范围：
+  - `scripts/offline-runtime-contract.json`
+  - `scripts/validate-offline-bundle.ps1`
+  - `scripts/check-bundle-dependencies.py`
+  - `tests/test_packaging_control_plane.py`
+  - `tests/test_tools_package.py`
+  - `tests/test_project_extensions.py`
+  - `tests/test_self_extension_authoring.py`
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/pi-inspired-agent-core-blueprint.md`
+  - `docs/modules/packaging-and-deployment.md`
+  - `docs/guides/win7-preflight-checklist.md`
+- 关联文档：
+  - `docs/pi-inspired-agent-core-blueprint.md`
+  - `docs/archive/phase-f-offline-bundle-validation/2026-06-14-phase-f-offline-bundle-validation-design.md`
+  - `docs/archive/phase-f-offline-bundle-validation/2026-06-14-phase-f-offline-bundle-validation.md`
+- 是否需要 ADR：`否，本次是已批准 Phase F 的 repo-side offline bundle validation 收口；真实 Win7 smoke 仍由发布验收记录承载`
+- 后续动作：
+  - 在干净 Windows 7 目标机重跑 contract-backed bundle smoke
+  - 用真实 C/C++ 工程继续验证默认 harness workflow 与 LLVM/Clang bundle
+
 ### DC-139
 
 - 日期：2026-06-14
@@ -75,7 +109,7 @@
   - `docs/archive/phase-e-self-extension-authoring/2026-06-14-phase-e-self-extension-authoring.md`
 - 是否需要 ADR：`否，本次是已批准 Phase E 的 local authoring workflow extraction；公共 frontend protocol 未新增 endpoint`
 - 后续动作：
-  - 进入 Phase F offline bundle validation，确认 authoring tool 与 generated validation recipe 在离线/Win7 bundle 约束下可解释、可验证
+  - Phase F 已完成 repo-side offline bundle validation；后续继续真实 Win7 smoke 与真实 C/C++ 工程验证
 
 ### DC-138
 

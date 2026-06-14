@@ -16,7 +16,7 @@ The repository now treats Agent Core as the workflow-neutral runtime, with the C
 
 Local offline self-extension is part of the official architecture: workspace file resources and manifest-gated project-local Python extensions can extend the hosted runtime while remote registries, online installs, dependency installation, plugin marketplaces, built-in tool replacement, and general multi-agent orchestration remain outside the product baseline.
 
-The next long-term architecture direction is captured in `docs/pi-inspired-agent-core-blueprint.md`: continue learning from Pi's functional design and architecture philosophy while preserving EmbedAgent's offline, Windows 7, Python 3.8, and C/C++ engineering constraints. The current baseline remains valid; the blueprint guides gradual work toward a smaller Agent Kernel, durable session-log reducers, source-aware hooks, and a default C/C++ workflow package loaded through the same capability boundary as local extensions. Phase A durable operation truth, Phase B source-aware extension hook dispatch, Phase C AgentKernel lifecycle extraction, Phase D default C/C++ workflow package ownership, and Phase E local self-extension authoring are complete. The next architecture work should focus on offline bundle validation for the new boundaries.
+The next long-term architecture direction is captured in `docs/pi-inspired-agent-core-blueprint.md`: continue learning from Pi's functional design and architecture philosophy while preserving EmbedAgent's offline, Windows 7, Python 3.8, and C/C++ engineering constraints. The current baseline remains valid; the blueprint guides gradual work toward a smaller Agent Kernel, durable session-log reducers, source-aware hooks, and a default C/C++ workflow package loaded through the same capability boundary as local extensions. Phase A durable operation truth, Phase B source-aware extension hook dispatch, Phase C AgentKernel lifecycle extraction, Phase D default C/C++ workflow package ownership, Phase E local self-extension authoring, and Phase F repo-side offline bundle validation are complete. The next architecture work should focus on real Win7 bundle smoke validation, real C/C++ project validation, and deleting stale compatibility paths.
 
 - User-visible modes: `explore`, `spec`, `build`, `debug`, `verify`
 - Default C/C++ execution model: `mode + discipline_profile + execution_phase`
@@ -39,6 +39,7 @@ The next long-term architecture direction is captured in `docs/pi-inspired-agent
 - Official default extension assembly: `src/embedagent/default_extensions.py` installs the bundled C/C++ harness for hosted product paths; `QueryEngine` itself has no built-in harness import or constructor fallback
 - Official harness refresh path: `CHarnessWorkflowExtension.refresh_managed_session()`; the old `HarnessStateSynchronizer` service facade has been removed
 - Official runtime schema projection: `ToolRuntime.schemas_for(mode, workflow_state, tool_names=...)` is the single schema projection entry point; default harness-aware callers must pass extension-active tool names explicitly
+- Official offline runtime contract: `scripts/offline-runtime-contract.json` lists every runtime-invoked bundled external tool, including Python, MinGit, ripgrep, Universal Ctags, and the LLVM/Clang child executables. Bundle validators consume this contract instead of maintaining separate hard-coded tool lists.
 - Official frontend vocabulary: `build`, `tasks`, `current_phase`, `discipline_profile`
 - Official session-history model: `transcript.jsonl -> Session -> SessionHistoryAssembler -> /api/sessions/{id}/bootstrap`
 - Official session-operation model: schema v2 `operation_started` / `operation_finished` / `operation_interrupted` events are the durable runtime operation truth; legacy `step_started`, `tool_call`, `tool_result`, and `loop_transition` events remain session replay/history events, not operation-state inference inputs. Current operation families include turns, agent steps, context assembly, context snapshots, provider requests, tool calls, pending interactions, workflow patches, and save points. Restore projections close unfinished operations as interrupted, while live session snapshots preserve active operations in `operation_diagnostics`.
@@ -133,6 +134,7 @@ Project-local Python extensions are a separate, explicit opt-in path under `.emb
 - Do not require Docker, WSL, VS Code, Node.js-at-runtime, or online services.
 - Keep runtime compatible with Python `>=3.8,<3.9`.
 - The offline bundle must contain every runtime dependency it uses.
+- Runtime-invoked external tools must be represented in `scripts/offline-runtime-contract.json` and validated by the packaging gates.
 - A clean Windows 7 machine must be able to unpack and run the bundle without preinstalled tools.
 
 ## Read In This Order
@@ -159,7 +161,9 @@ Current architecture cutover status:
 - Pi-inspired minimal Core Phase B HookBus/reducer registry: completed
 - Pi-inspired minimal Core Phase C AgentKernel lifecycle extraction: completed
 - Pi-inspired minimal Core Phase D default C/C++ workflow package ownership: completed
-- Remaining work: keep deleting stale shell-only labels/helpers and keep validating on real C projects and Win7 bundle targets
+- Pi-inspired minimal Core Phase E local self-extension authoring: completed
+- Pi-inspired minimal Core Phase F repo-side offline bundle validation: completed
+- Remaining work: keep deleting stale shell-only labels/helpers, run clean Win7 bundle smoke, and keep validating on real C projects
 
 ## Verification
 

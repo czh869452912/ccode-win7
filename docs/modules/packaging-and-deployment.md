@@ -5,7 +5,7 @@
 > 状态：`active`
 > 类型：`module`
 > 负责人：`project maintainers`
-> 最后同步日期：`2026-04-09`
+> 最后同步日期：`2026-06-14`
 > 对应代码范围：`scripts/`
 
 ## 1. Purpose And Scope
@@ -18,6 +18,7 @@
 - 分级 bundle assembly 与清单生成（`prepare-offline.ps1`）
 - 分发制品、zip 与 sources seed 生成（`build-offline-bundle.ps1`）
 - 包完整性静态与动态校验（`validate-offline-bundle.ps1`）
+- runtime-invoked bundled external tool 契约维护（`offline-runtime-contract.json`）
 - GUI 端到端冒烟验收（`validate-gui-smoke.py`）
 - 统一编排与结构化报告输出（`package.ps1`）
 
@@ -30,6 +31,7 @@
   - `prepare-offline.ps1` — 分级 bundle assembly
   - `build-offline-bundle.ps1` — 分发制品 + zip + sources seed
   - `validate-offline-bundle.ps1` — 静态与动态校验门禁
+  - `offline-runtime-contract.json` — runtime-invoked bundled external tools 单一契约
   - `validate-gui-smoke.py` — headless/windowed 端到端 GUI 验收
   - `package-lib.ps1` — PowerShell 共享库（配置解析、报告构建、GUI asset 检查）
 - bundle 目录布局：
@@ -63,9 +65,9 @@
   | MinGit portable | `bin/git/` | integrated |
   | ripgrep | `bin/rg/` | integrated |
   | Universal Ctags | `bin/ctags/` | integrated |
-  | LLVM/Clang bundle | `bin/llvm/` | provisional |
+  | LLVM/Clang bundle | `bin/llvm/` | contract-validated |
   | Fixed Version WebView2 109 | `runtime/webview2-fixed-runtime/` | Win7 GUI 必需 |
-- 上游依赖：`src/embedagent/`、GUI 静态资源、`scripts/offline-assets.json`、`scripts/package.config.json`
+- 上游依赖：`src/embedagent/`、GUI 静态资源、`scripts/offline-assets.json`、`scripts/package.config.json`、`scripts/offline-runtime-contract.json`
 - 下游影响：`build/offline-dist/<artifact>.zip`、内网目标机
 - 相关验证：`validate-offline-bundle.ps1`、`validate-gui-smoke.py`、Win7 目标机部署前检查
 - 相关契约：`README.md`、`docs/implementation-roadmap.md`
@@ -78,6 +80,7 @@
 - PowerShell、Python venv
 - `scripts/offline-assets.json`（第三方资产清单）
 - `scripts/package.config.json`（打包配置）
+- `scripts/offline-runtime-contract.json`（运行时外部工具契约）
 - 第三方资产 URL 或本地归档
 - GUI 额外 Python 依赖：`pywebview`、`fastapi`、`uvicorn`、`websockets`
 - Win7 GUI 需携带 Fixed Version WebView2 109 运行时
@@ -108,14 +111,15 @@ flowchart LR
 
 - `package.ps1` 是人类/CI 唯一-facing 的入口。
 - `prepare-offline.ps1` 生成中间分级树，不直接产出最终 zip。
-- `validate-offline-bundle.ps1` 是 release-ready 的强制门禁。
+- `validate-offline-bundle.ps1` 是 release-ready 的强制门禁，并消费 `offline-runtime-contract.json` 验证所有 runtime-invoked bundled external tools。
 - `validate-gui-smoke.py` 在目标机或 CI 上运行，验证 GUI 真实可用。
 
 ## 6. Verification And Tests
 
 推荐回归入口：
 
-- `scripts/validate-offline-bundle.ps1` — 文件完整性、manifest 可解析性、checksum、launcher 合约、Python `.pth` 补丁、editable link 清除
+- `scripts/validate-offline-bundle.ps1` — 文件完整性、manifest 可解析性、checksum、launcher 合约、Python `.pth` 补丁、editable link 清除、runtime contract 静态/动态检查
+- `scripts/check-bundle-dependencies.py` — Python 依赖、manifest、runtime contract 与外部工具存在性检查
 - `scripts/validate-gui-smoke.py` — 模拟 OpenAI 服务器、GUI 启动、WebSocket 会话、工具调用、权限/用户输入流、`/review`
 - Win7 GUI 验收标准（窗口模式）：
   - `renderer_report.renderer == "edgechromium"`
@@ -123,7 +127,7 @@ flowchart LR
   - `assistant_text` 包含预期回复，工具事件完整
 - Win7 目标机部署前检查：静态文件完整、launcher 可启动、各二进制可输出版本
 
-当 `src/embedagent/`、GUI 前端代码、`offline-assets.json`、`package.config.json`、第三方工具版本或 Win7 兼容性策略变化时，应优先重跑这些验证。
+当 `src/embedagent/`、GUI 前端代码、`offline-assets.json`、`package.config.json`、`offline-runtime-contract.json`、第三方工具版本或 Win7 兼容性策略变化时，应优先重跑这些验证。
 
 ## 7. Change Triggers
 
@@ -131,6 +135,7 @@ flowchart LR
 
 - `scripts/` 下打包脚本职责或入口变化
 - `offline-assets.json` 或 `package.config.json` 结构变化
+- `offline-runtime-contract.json` 的工具、路径、动态检查或 LLVM child executable 列表变化
 - 新增或移除第三方依赖/工具
 - Win7 兼容性策略或 WebView2 版本策略变化
 - 部署目录结构或配置模板变化

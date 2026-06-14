@@ -1,6 +1,6 @@
 # EmbedAgent Win7 部署前检查清单
 
-> 更新日期：2026-05-29
+> 更新日期：2026-06-14
 > 适用阶段：Phase 7 目标机验收
 
 ---
@@ -53,6 +53,8 @@
 6. `app/embedagent/` 存在。
 7. `bin/git/`、`bin/rg/`、`bin/ctags/`、`bin/llvm/` 存在。
 8. `config/config.json` 与 `config/permission-rules.json` 模板存在。
+9. 构建机已运行 `scripts/validate-offline-bundle.ps1 -RequireComplete`，并确认报告中的 `runtime_contract.schema_version == 1`。
+10. 构建机已运行 `scripts/check-bundle-dependencies.py <bundle-root>`，并确认 External Tools / runtime contract 检查通过。
 
 ---
 
@@ -67,6 +69,7 @@
    - `embedagent-tui.cmd`
 4. `runtime/python/` 下的 Python 文件完整存在。
 5. `bin/llvm/bin/`、`bin/git/`、`bin/rg/`、`bin/ctags/` 下的可执行文件存在。
+6. `bin/llvm/bin/clang.exe`、`clang++.exe`、`clang-cl.exe`、`clang-tidy.exe`、`clang-analyzer.bat`、`llvm-profdata.exe`、`llvm-cov.exe` 均存在。
 
 ---
 
@@ -78,6 +81,11 @@
 embedagent.cmd --help
 embedagent.cmd --list-sessions --workspace .\workspace-smoke
 bin\llvm\bin\clang.exe --version
+bin\llvm\bin\clang++.exe --version
+bin\llvm\bin\clang-cl.exe --version
+bin\llvm\bin\clang-tidy.exe --version
+bin\llvm\bin\llvm-profdata.exe --version
+bin\llvm\bin\llvm-cov.exe --version
 bin\rg\rg.exe --version
 bin\ctags\ctags.exe --version
 ```
@@ -91,7 +99,8 @@ bin\git\cmd\git.exe --version
 检查目标：
 
 - CLI 可以启动，不报缺少 Python 或模块导入错误。
-- 每个 bundle 内工具都能独立输出版本号。
+- 每个 bundle 内带动态检查的工具都能独立输出版本号。
+- `clang-analyzer.bat` 存在且路径与 `scripts/offline-runtime-contract.json` 一致。
 - launcher 已正确设置 PATH，不依赖系统环境。
 
 ---
