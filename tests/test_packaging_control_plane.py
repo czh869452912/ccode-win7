@@ -15,6 +15,7 @@ EXPORT_SCRIPT = ROOT / "scripts" / "export-dependencies.py"
 CHECK_SCRIPT = ROOT / "scripts" / "check-bundle-dependencies.py"
 VALIDATE_SCRIPT = ROOT / "scripts" / "validate-offline-bundle.ps1"
 PACKAGE_SCRIPT = ROOT / "scripts" / "package.ps1"
+RUNTIME_CONTRACT = ROOT / "scripts" / "offline-runtime-contract.json"
 MOCK_CONFIG = ROOT / "tests" / "fixtures" / "package" / "mock-config.json"
 
 
@@ -198,6 +199,37 @@ class TestGuiFrontendAssets(unittest.TestCase):
 
         missing = [path for path in expected_sources if path not in script]
         self.assertEqual(missing, [])
+
+
+class TestRuntimeBundleContract(unittest.TestCase):
+    def test_runtime_contract_lists_managed_tools(self):
+        payload = json.loads(RUNTIME_CONTRACT.read_text(encoding="utf-8"))
+
+        self.assertEqual(payload["schema_version"], 1)
+        tool_ids = [item["id"] for item in payload["required_tools"]]
+        self.assertEqual(tool_ids, ["python", "git", "rg", "ctags", "llvm"])
+        for item in payload["required_tools"]:
+            self.assertTrue(item["component"])
+            self.assertTrue(item["category"])
+            self.assertTrue(item.get("paths") or item.get("alternatives"))
+
+    def test_runtime_contract_lists_current_llvm_children(self):
+        payload = json.loads(RUNTIME_CONTRACT.read_text(encoding="utf-8"))
+        llvm = [item for item in payload["required_tools"] if item["id"] == "llvm"][0]
+        child_paths = [child["path"] for child in llvm["children"]]
+
+        self.assertEqual(
+            child_paths,
+            [
+                "bin/llvm/bin/clang.exe",
+                "bin/llvm/bin/clang++.exe",
+                "bin/llvm/bin/clang-cl.exe",
+                "bin/llvm/bin/clang-tidy.exe",
+                "bin/llvm/bin/clang-analyzer.bat",
+                "bin/llvm/bin/llvm-profdata.exe",
+                "bin/llvm/bin/llvm-cov.exe",
+            ],
+        )
 
 
 @unittest.skipIf(sys.platform != "win32", "Windows-only: requires PowerShell")

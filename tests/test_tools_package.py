@@ -1,5 +1,6 @@
 """Tests for the tools/ package refactoring and ToolRuntime."""
 
+import json
 import os
 import shutil
 import sys
@@ -703,6 +704,56 @@ class TestManagedRuntimeEnvironment(unittest.TestCase):
         self.assertEqual(snapshot["tool_sources"]["ctags"], "bundle")
         self.assertEqual(snapshot["tool_sources"]["llvm"], "bundle")
         self.assertTrue(snapshot["resolved_tool_roots"]["bundle_root"].endswith("portable-bundle"))
+
+
+class TestRuntimeContractAlignment(unittest.TestCase):
+    def setUp(self):
+        self.workspace = _make_workspace("runtime-contract")
+
+    def tearDown(self):
+        shutil.rmtree(self.workspace, ignore_errors=True)
+
+    def _load_contract(self):
+        contract_path = os.path.join(
+            os.path.dirname(__file__),
+            "..",
+            "scripts",
+            "offline-runtime-contract.json",
+        )
+        with open(contract_path, "r", encoding="utf-8") as handle:
+            return json.load(handle)
+
+    def test_runtime_contract_matches_managed_tool_keys(self):
+        payload = self._load_contract()
+        from embedagent.tools._base import MANAGED_RUNTIME_TOOL_KEYS
+
+        self.assertEqual(
+            [item["id"] for item in payload["required_tools"]],
+            list(MANAGED_RUNTIME_TOOL_KEYS),
+        )
+
+    def test_runtime_contract_commands_are_classified_as_managed(self):
+        payload = self._load_contract()
+        ctx = ToolContext(self.workspace)
+
+        names = []
+        for item in payload["required_tools"]:
+            names.extend(item.get("command_names") or [])
+            for child in item.get("children") or []:
+                names.extend(child.get("command_names") or [])
+
+        classified = {name: ctx.classify_managed_command(name) for name in names}
+        self.assertEqual(classified["python"], "python")
+        self.assertEqual(classified["git"], "git")
+        self.assertEqual(classified["rg"], "rg")
+        self.assertEqual(classified["ctags"], "ctags")
+        self.assertEqual(classified["clang"], "llvm")
+        self.assertEqual(classified["clang++"], "llvm")
+        self.assertEqual(classified["clang-cl"], "llvm")
+        self.assertEqual(classified["clang-tidy"], "llvm")
+        self.assertEqual(classified["clang-analyzer"], "llvm")
+        self.assertEqual(classified["llvm-profdata"], "llvm")
+        self.assertEqual(classified["llvm-cov"], "llvm")
 
 
 class TestWorkspaceRecipes(unittest.TestCase):

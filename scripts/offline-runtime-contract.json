@@ -1,0 +1,170 @@
+{
+  "schema_version": 1,
+  "description": "Runtime-invoked tools that must be present in the offline portable bundle.",
+  "required_tools": [
+    {
+      "id": "python",
+      "component": "python_runtime",
+      "category": "runtime",
+      "paths": [
+        "runtime/python/python.exe"
+      ],
+      "command_names": [
+        "python",
+        "python.exe"
+      ],
+      "dynamic_check": [
+        "--version"
+      ],
+      "notes": "Used by launchers and generated local validation recipes."
+    },
+    {
+      "id": "git",
+      "component": "mingit_portable",
+      "category": "vcs",
+      "alternatives": [
+        {
+          "paths": [
+            "bin/git/cmd/git.exe"
+          ]
+        },
+        {
+          "paths": [
+            "bin/git/bin/git.exe"
+          ]
+        },
+        {
+          "paths": [
+            "bin/git/git.exe"
+          ]
+        }
+      ],
+      "command_names": [
+        "git",
+        "git.exe"
+      ],
+      "dynamic_check": [
+        "--version"
+      ],
+      "notes": "Used by built-in git tools and workspace intelligence."
+    },
+    {
+      "id": "rg",
+      "component": "ripgrep",
+      "category": "search",
+      "paths": [
+        "bin/rg/rg.exe"
+      ],
+      "command_names": [
+        "rg",
+        "rg.exe"
+      ],
+      "dynamic_check": [
+        "--version"
+      ],
+      "notes": "Used by search and discovery workflows."
+    },
+    {
+      "id": "ctags",
+      "component": "universal_ctags",
+      "category": "symbols",
+      "paths": [
+        "bin/ctags/ctags.exe"
+      ],
+      "command_names": [
+        "ctags",
+        "ctags.exe"
+      ],
+      "dynamic_check": [
+        "--version"
+      ],
+      "notes": "Used by symbol intelligence."
+    },
+    {
+      "id": "llvm",
+      "component": "llvm_clang_bundle",
+      "category": "toolchain",
+      "paths": [
+        "bin/llvm/bin"
+      ],
+      "command_names": [],
+      "children": [
+        {
+          "id": "clang",
+          "path": "bin/llvm/bin/clang.exe",
+          "command_names": [
+            "clang",
+            "clang.exe"
+          ],
+          "dynamic_check": [
+            "--version"
+          ]
+        },
+        {
+          "id": "clangxx",
+          "path": "bin/llvm/bin/clang++.exe",
+          "command_names": [
+            "clang++",
+            "clang++.exe"
+          ],
+          "dynamic_check": [
+            "--version"
+          ]
+        },
+        {
+          "id": "clang_cl",
+          "path": "bin/llvm/bin/clang-cl.exe",
+          "command_names": [
+            "clang-cl",
+            "clang-cl.exe"
+          ],
+          "dynamic_check": [
+            "--version"
+          ]
+        },
+        {
+          "id": "clang_tidy",
+          "path": "bin/llvm/bin/clang-tidy.exe",
+          "command_names": [
+            "clang-tidy",
+            "clang-tidy.exe"
+          ],
+          "dynamic_check": [
+            "--version"
+          ]
+        },
+        {
+          "id": "clang_analyzer",
+          "path": "bin/llvm/bin/clang-analyzer.bat",
+          "command_names": [
+            "clang-analyzer",
+            "clang-analyzer.bat"
+          ]
+        },
+        {
+          "id": "llvm_profdata",
+          "path": "bin/llvm/bin/llvm-profdata.exe",
+          "command_names": [
+            "llvm-profdata",
+            "llvm-profdata.exe"
+          ],
+          "dynamic_check": [
+            "--version"
+          ]
+        },
+        {
+          "id": "llvm_cov",
+          "path": "bin/llvm/bin/llvm-cov.exe",
+          "command_names": [
+            "llvm-cov",
+            "llvm-cov.exe"
+          ],
+          "dynamic_check": [
+            "--version"
+          ]
+        }
+      ],
+      "notes": "Used by C/C++ build, static analysis, and coverage workflows."
+    }
+  ]
+}
