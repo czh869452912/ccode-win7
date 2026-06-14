@@ -316,6 +316,19 @@ class TestLocalResources(unittest.TestCase):
         self.assertNotIn("api_key", by_kind["model_profile"][0]["metadata"])
         self.assertIn("tool", payload["counts"])
         self.assertIn("resource", payload["counts"])
+        self.assertIn("workflow_package", payload["counts"])
+
+        package_items = [
+            item for item in payload["descriptors"] if item["kind"] == "workflow_package"
+        ]
+
+        self.assertEqual(len(package_items), 1)
+        self.assertEqual(package_items[0]["name"], "embedagent.c_workflow")
+        self.assertEqual(package_items[0]["metadata"]["label"], "C/C++ Workflow")
+        self.assertIn(
+            "build_lite",
+            [item["name"] for item in package_items[0]["metadata"]["packs"]],
+        )
 
 
 if __name__ == "__main__":

@@ -12,6 +12,7 @@ from embedagent.capabilities import (
     CapabilityRegistry,
     command_capability_descriptors,
     model_profile_capability_descriptor,
+    workflow_package_capability_descriptors,
 )
 from embedagent.context import ContextManager
 from embedagent.default_extensions import build_default_extension_set
@@ -331,6 +332,9 @@ class InProcessAdapter(object):
         if callable(runtime_capabilities):
             registry.extend(runtime_capabilities())
         registry.extend(command_capability_descriptors(self.command_registry))
+        package_manifests = getattr(self.extension_manager, "package_manifests", None)
+        if callable(package_manifests):
+            registry.extend(workflow_package_capability_descriptors(package_manifests()))
         registry.register(model_profile_capability_descriptor(self.client))
         return registry.snapshot().to_dict()
 

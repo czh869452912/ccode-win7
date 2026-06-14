@@ -44,6 +44,48 @@
 
 ## 3. 当前变更记录
 
+### DC-143
+
+- 日期：2026-06-14
+- 变更主题：Pi-inspired minimal Core Phase I workflow package manifest 收口
+- 变更摘要：
+  - 新增 `src/embedagent/workflow_package_manifest.py`，由 `WorkflowPackageManifest` / `WorkflowToolDeclaration` / `WorkflowPackDeclaration` 表示 workflow package 的只读 manifest/read model
+  - 新增默认 C/C++ workflow package manifest builder，从 harness-owned tool metadata 与 pack constants 派生 package identity、supported modes/workflow states、tool declarations、packs 与 `.embedagent/recipes` resource scope
+  - `CHarnessWorkflowExtension.package_manifest()` 暴露 bundled manifest，`ExtensionManager.package_manifests()` 通过共享 extension manager 通用收集 package manifests
+  - `CapabilityRegistry` 新增 `workflow_package` capability kind，`InProcessAdapter.capability_snapshot()` 现在通过 shared `ExtensionManager` 投影 bundled workflow package descriptor
+  - manifest projection 保持只读诊断/控制面状态，不驱动 active tools、tool execution、resource reload、extension loading 或 permission policy
+- 影响范围：
+  - `src/embedagent/workflow_package_manifest.py`
+  - `src/embedagent/harness/package_manifest.py`
+  - `src/embedagent/harness/extension.py`
+  - `src/embedagent/extensions.py`
+  - `src/embedagent/capabilities.py`
+  - `src/embedagent/inprocess_adapter.py`
+  - `tests/test_workflow_package_manifest.py`
+  - `tests/test_capability_registry.py`
+  - `tests/test_local_resources.py`
+  - `tests/test_workflow_extensions.py`
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/mode-schema.md`
+  - `docs/tool-contracts.md`
+  - `docs/permission-model.md`
+  - `docs/frontend-protocol.md`
+  - `docs/agent-harness-v2.md`
+  - `docs/pi-inspired-agent-core-blueprint.md`
+- 关联文档：
+  - `docs/pi-inspired-agent-core-blueprint.md`
+  - `docs/archive/phase-i-workflow-package-manifest/2026-06-14-phase-i-workflow-package-manifest-design.md`
+  - `docs/archive/phase-i-workflow-package-manifest/2026-06-14-phase-i-workflow-package-manifest.md`
+- 是否需要 ADR：`否，本次是已批准 Phase I 的内部 manifest/read-model 收口；公共 extension API 未新增稳定承诺，frontend 只获得诊断型 capability descriptor`
+- 后续动作：
+  - 设计 structured compaction state，让 compact boundary 与摘要元数据也成为可恢复 reducer state
+  - 在更多真实 C/C++ 工程中验证默认 workflow package manifest 与 tool/catalog 诊断信息是否足够解释问题
+  - 继续真实 Win7 bundle smoke 与剩余 stale compatibility paths 删除
+
 ### DC-142
 
 - 日期：2026-06-14
@@ -79,7 +121,7 @@
   - `docs/archive/phase-h-runtime-config-reducer/2026-06-14-phase-h-runtime-config-reducer.md`
 - 是否需要 ADR：`否，本次是已批准 Phase H 的内部 reducer/read-model 收口；公共 extension API 未新增，frontend 只获得诊断型 snapshot 字段`
 - 后续动作：
-  - 设计 capability/workflow-package control-plane manifests，继续把隐式包能力收敛为本地可审计控制面
+  - workflow package manifest/read model 已由 DC-143 / Phase I 收口
   - 设计 structured compaction state，让 compact boundary 与摘要元数据也成为可恢复 reducer state
   - 继续真实 Win7 bundle smoke 与真实 C/C++ 工程验证
 

@@ -42,6 +42,21 @@ class CatalogExtension(object):
         return set()
 
 
+class ManifestExtension(object):
+    extension_id = "fake.workflow"
+    builtin_extension = False
+
+    def package_manifest(self):
+        return {
+            "package_id": "fake.workflow",
+            "label": "Fake Workflow",
+            "source_type": "project",
+            "source_id": "fake.workflow",
+            "tools": [],
+            "packs": [],
+        }
+
+
 class ToolRuntimeBoundaryProbe(object):
     workspace = "."
     tool_result_store = None
@@ -101,6 +116,25 @@ def test_fake_workflow_extension_adds_prompt_units_and_active_tools():
     assert patch.prompt_units == ["fake prompt"]
     assert patch.active_tool_names == ["fake_tool"]
     assert patch.metadata == {"source": "fake"}
+
+
+def test_extension_manager_collects_package_manifests_from_extensions():
+    from embedagent.extensions import ExtensionManager
+
+    manager = ExtensionManager([ManifestExtension()])
+
+    manifests = manager.package_manifests()
+
+    assert manifests == [
+        {
+            "package_id": "fake.workflow",
+            "label": "Fake Workflow",
+            "source_type": "project",
+            "source_id": "fake.workflow",
+            "tools": [],
+            "packs": [],
+        }
+    ]
 
 
 def test_session_has_generic_workflow_state():
@@ -540,6 +574,20 @@ def test_c_harness_extension_is_inactive_for_non_harness_modes():
 
     assert extension.allowed_tool_names("explore") == set()
     assert extension.allowed_tool_names("spec") == set()
+
+
+def test_c_harness_package_manifest_does_not_drive_active_tools():
+    from embedagent.harness.extension import CHarnessWorkflowExtension
+
+    extension = CHarnessWorkflowExtension()
+    manifest = extension.package_manifest()
+
+    assert manifest["package_id"] == "embedagent.c_workflow"
+    assert "read_file" in [
+        name for pack in manifest["packs"] if pack["name"] == "core" for name in pack["tool_names"]
+    ]
+    assert extension.allowed_tool_names("explore") == set()
+    assert "run_recipe" in extension.allowed_tool_names("build")
 
 
 def test_inprocess_adapter_tool_catalog_uses_shared_extension_manager(tmp_path):

@@ -4,7 +4,7 @@ from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
-CAPABILITY_KINDS = ("command", "model_profile", "resource", "tool")
+CAPABILITY_KINDS = ("command", "model_profile", "resource", "tool", "workflow_package")
 
 
 def _clean_text(value: Any, default: str = "") -> str:
@@ -202,6 +202,31 @@ def command_capability_descriptors(command_registry: Any) -> List[CapabilityDesc
             )
         )
     return descriptors
+
+
+def workflow_package_capability_descriptors(manifests: Any) -> List[CapabilityDescriptor]:
+    descriptors = []
+    for manifest in list(manifests or []):
+        if hasattr(manifest, "to_dict"):
+            payload = manifest.to_dict()
+        elif isinstance(manifest, dict):
+            payload = dict(manifest)
+        else:
+            continue
+        name = _clean_text(payload.get("package_id"))
+        if not name:
+            continue
+        descriptors.append(
+            CapabilityDescriptor(
+                name=name,
+                kind="workflow_package",
+                source_type=_clean_text(payload.get("source_type"), "workflow_package"),
+                source_id=_clean_text(payload.get("source_id"), name),
+                metadata=payload,
+                active=True,
+            )
+        )
+    return sorted(descriptors, key=lambda item: item.key())
 
 
 def model_profile_capability_descriptor(config_or_client: Any) -> CapabilityDescriptor:

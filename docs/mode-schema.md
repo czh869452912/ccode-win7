@@ -28,6 +28,8 @@ Local resource reload does not alter mode contracts. Reloaded recipe JSON resour
 
 Reducer-backed runtime configuration does not alter mode contracts. `runtime_config.active_tool_names` records model-visible tool names after backend activation for diagnostics/replay, but future activation still flows through the mode contract plus `ExtensionManager` / `AgentExtensionHost`.
 
+Workflow package manifests do not alter mode contracts. They describe package-supported modes and package-owned packs for diagnostics/control-plane inspection, but active tool selection still flows through the current mode contract plus `ExtensionManager` / `AgentExtensionHost`.
+
 ## 3. Switching Rules
 
 - Mode switching is user-driven.

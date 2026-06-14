@@ -25,7 +25,9 @@ Built-in mode `allowed_tools` are workflow-neutral permission/write contracts. T
 
 `TurnSnapshot` is the provider-request boundary for model-visible tools. After `AgentExtensionHost` projects active tool schemas, `QueryEngine` freezes the messages and schemas into a turn snapshot and calls the provider with `snapshot.messages` and `snapshot.tool_schemas`.
 
-`CapabilityRegistry` is a read model, not a tool runtime. It can describe registered tools, local file resources, slash commands, and the active model profile with provenance metadata. Registration in the registry does not make a tool active, does not execute a tool, does not reload resources, does not load project extensions, and does not bypass permission policy.
+`WorkflowPackageManifest` is a read model, not a tool runtime. It describes workflow package identity, declared tools, packs, supported modes/workflow states, resource scopes, and diagnostics. The bundled C/C++ manifest is derived from package-owned constants and exposed through the extension manager. Manifest entries do not make tools active, execute tools, reload resources, load project extensions, or bypass permission policy.
+
+`CapabilityRegistry` is a read model, not a tool runtime. It can describe registered tools, local file resources, slash commands, the active model profile, and workflow packages with provenance metadata. Registration in the registry does not make a tool active, does not execute a tool, does not reload resources, does not load project extensions, and does not bypass permission policy.
 
 `RuntimeConfigReducer` is a transcript-backed read model, not a tool runtime. It describes replayable runtime configuration such as credential-free model profile metadata, active model-visible tool names, local resource revision metadata, capability counts, and provider snapshot records. Reducer state does not make a tool active, execute a tool, reload resources, load project extensions, or bypass permission policy.
 

@@ -58,7 +58,7 @@ Important session snapshot fields include:
 
 `extensions.local_resources`, `extensions.project_extensions`, and `extension_diagnostics` are frontend-visible health and diagnostics state, not frontend-owned execution policy.
 
-Capability projections are also diagnostics/read-model state. `InProcessAdapter.capability_snapshot()` may expose tools, local file resources, slash commands, and model profile metadata for future frontend inspection, but frontends must not treat that projection as active-tool policy or permission state.
+Capability projections are also diagnostics/read-model state. `InProcessAdapter.capability_snapshot()` may expose tools, local file resources, slash commands, workflow package manifests, and model profile metadata for future frontend inspection, but frontends must not treat that projection as active-tool policy or permission state.
 
 `runtime_config` is reducer-backed diagnostics/read-model state. It may expose credential-free model profile metadata, active model-visible tool names, local resource revision metadata, capability counts, and provider snapshot records. Frontends may display this for restore/debug visibility, but they must not use it as active-tool policy, permission state, resource reload authority, or project extension load state.
 

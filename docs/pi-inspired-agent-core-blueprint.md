@@ -35,7 +35,7 @@ The long-term boundary is:
 Frontend Shells
   -> Hosted Adapter
   -> AgentKernel
-  -> SessionLog + CapabilityRegistry + RuntimeConfigReducer + HookBus + ToolRuntime + PermissionPolicy
+  -> SessionLog + CapabilityRegistry + RuntimeConfigReducer + WorkflowPackageManifest + HookBus + ToolRuntime + PermissionPolicy
   -> Default C/C++ Workflow Package and project-local extensions
 ```
 
@@ -89,6 +89,19 @@ The shared registry for model-visible and host-visible capabilities:
 - diagnostics providers
 
 Registration should not imply activation. Visibility is decided by mode contract, workflow state, extension policy, and permission metadata.
+
+### WorkflowPackageManifest
+
+The read-only package control-plane model:
+
+- package identity and label
+- supported modes and workflow states
+- declared workflow tools and permission categories
+- tool packs
+- local resource scopes
+- package diagnostics
+
+Manifest projection should explain what a workflow package can provide without loading code, activating tools, executing tools, or granting permissions.
 
 ### RuntimeConfigReducer
 
@@ -370,6 +383,20 @@ Outcomes:
 
 Current implementation status: Phase H is complete. `src/embedagent/runtime_config.py` defines `RuntimeConfigReducer` and serializable state objects. `InProcessAdapter` emits and refreshes runtime config during session creation, local resource reload, resume, and snapshot projection. `QueryEngine` can consume reducer-backed runtime configuration while building provider turn snapshots. The reducer ignores `resource_discovered` for revision advancement, strips unsafe provider inputs, and leaves activation, execution, resource reload, extension loading, and permission checks with their existing owners.
 
+### Phase I: Workflow Package Manifest / Read Model
+
+Make workflow package identity and package-owned capabilities explicit without making manifests executable.
+
+Outcomes:
+
+- workflow package manifests validate package identity, supported modes/workflow states, tool declarations, packs, resource scopes, and diagnostics
+- the bundled C/C++ workflow package exposes a manifest derived from its package-owned tool metadata and pack constants
+- the shared extension manager can collect package manifests from registered extensions
+- the capability registry projects `workflow_package` descriptors for diagnostics and future reducer work
+- manifest projection stays read-only and does not activate tools, execute tools, grant permissions, reload resources, or load extensions
+
+Current implementation status: Phase I is complete. `src/embedagent/workflow_package_manifest.py` defines the generic manifest read model. The bundled C/C++ package exposes its manifest through `CHarnessWorkflowExtension.package_manifest()` and `ExtensionManager.package_manifests()`. `CapabilityRegistry` now includes `workflow_package` descriptors, and `InProcessAdapter.capability_snapshot()` includes the bundled C/C++ package descriptor through the shared extension manager rather than through a direct adapter-to-harness dependency.
+
 ## 9. Acceptance Criteria For The Direction
 
 The blueprint is working when:
@@ -378,6 +405,7 @@ The blueprint is working when:
 - hosted product paths still load the bundled C/C++ workflow by default
 - a bare engine can run with an empty workflow package set
 - tools and resources are registered once and activated through capability policy
+- workflow packages can be inspected through read-only manifests without making manifests the activation policy
 - durable restore can explain where an interrupted run stopped
 - durable restore can explain which safe runtime configuration a provider request used
 - project-local extensions can add useful behavior without bypassing permissions

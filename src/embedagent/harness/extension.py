@@ -5,6 +5,7 @@ from typing import Any, List, Optional, Set
 
 from embedagent.extensions import HarnessPrompt, ToolRegistrationResult
 from embedagent.harness import task_store
+from embedagent.harness.package_manifest import c_workflow_package_manifest_dict
 from embedagent.harness.packs import pack_tool_names
 from embedagent.harness.runner import HarnessRunner
 from embedagent.harness.session_graph_state import HarnessSessionGraphState
@@ -180,6 +181,9 @@ class CHarnessWorkflowExtension(object):
                 str(getattr(graph, "current_phase", "") or "") if graph is not None else ""
             ),
         )
+
+    def package_manifest(self) -> dict:
+        return c_workflow_package_manifest_dict()
 
     def allowed_tool_names(self, mode_name: str, workflow_state: str = "chat") -> Set[str]:
         context = self._describe_context(mode_name, workflow_state=workflow_state)

@@ -7,6 +7,7 @@ from embedagent.capabilities import (
     model_profile_capability_descriptor,
     resource_capability_descriptors,
     runtime_tool_capability_descriptors,
+    workflow_package_capability_descriptors,
 )
 from embedagent.slash_commands import SlashCommandRegistry
 from embedagent.tools import ToolRuntime
@@ -43,6 +44,7 @@ def test_registry_registers_descriptors_and_serializes_snapshot():
         "model_profile": 0,
         "resource": 0,
         "tool": 1,
+        "workflow_package": 0,
     }
     assert payload["active_names_by_kind"]["tool"] == ["read_file"]
     assert payload["active_names_by_kind"]["command"] == []
@@ -160,4 +162,24 @@ def test_command_and_model_profile_descriptors_are_serializable():
     assert model_items[0]["name"] == "local-qwen"
     assert model_items[0]["metadata"]["base_url"] == "http://localhost:11434/v1"
     assert "api_key" not in model_items[0]["metadata"]
+    json.dumps(payload, sort_keys=True)
+
+
+def test_workflow_package_capability_descriptors_project_manifest():
+    from embedagent.harness.package_manifest import build_c_workflow_package_manifest
+
+    descriptors = workflow_package_capability_descriptors([build_c_workflow_package_manifest()])
+    registry = CapabilityRegistry(descriptors)
+    payload = registry.snapshot().to_dict()
+
+    assert payload["counts"]["workflow_package"] == 1
+    item = payload["descriptors"][0]
+    assert item["kind"] == "workflow_package"
+    assert item["name"] == "embedagent.c_workflow"
+    assert item["source_type"] == "builtin"
+    assert item["source_id"] == "embedagent.harness"
+    assert item["active"] is True
+    assert item["metadata"]["label"] == "C/C++ Workflow"
+    assert "packs" in item["metadata"]
+    assert "tools" in item["metadata"]
     json.dumps(payload, sort_keys=True)

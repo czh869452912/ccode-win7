@@ -179,6 +179,31 @@ class ExtensionManager(object):
             )
         )
 
+    def package_manifests(self) -> List[Dict[str, Any]]:
+        manifests = []
+        for extension in self._extensions:
+            manifest_method = getattr(extension, "package_manifest", None)
+            if not callable(manifest_method):
+                continue
+            extension_id = self._extension_id(extension)
+            source = "builtin" if self._is_builtin_extension(extension) else "project"
+            try:
+                payload = manifest_method()
+            except (RuntimeError, ValueError, TypeError, OSError) as exc:
+                self.record_diagnostic(
+                    extension_id,
+                    "package_manifest",
+                    str(exc),
+                    severity="error",
+                    source=source,
+                )
+                if source == "builtin":
+                    raise
+                continue
+            if isinstance(payload, dict):
+                manifests.append(dict(payload))
+        return manifests
+
     def _extension_id(self, extension: Any) -> str:
         explicit = str(getattr(extension, "extension_id", "") or "").strip()
         if explicit:
