@@ -31,6 +31,8 @@ Workflow package manifests are diagnostic/control-plane state and do not grant e
 
 Reducer-backed compaction state is diagnostic/replay state and does not grant execution rights. `compaction_state` records compact boundary metadata for restore/debug visibility, but permission checks for future actions still flow through `PermissionPolicy` with the current runtime category lookup.
 
+Reducer-backed recovery state is diagnostic/replay state and does not grant execution rights. `recovery_state` records hosted resume metadata for restore/debug visibility, but permission checks for future actions still flow through `PermissionPolicy` with the current runtime category lookup.
+
 `author_local_capability` is a `workspace_write` action. It can create local skills, prompts, recipes, and disabled-by-default project extension skeletons under `.embedagent`, but it does not grant execution rights, reload resources, enable manifests, or load Python extension code.
 
 Project-local Python extension manifests declare requested permissions, but those declarations do not bypass the runtime permission engine. Any dynamic tool registered by a project extension still needs explicit catalog metadata, active-tool visibility through `ExtensionManager.allowed_tool_names(...)`, and a normal `PermissionPolicy` decision for its permission category.

@@ -60,7 +60,7 @@ Recent workflow-boundary work has started slimming Agent Core without changing t
 - `AgentLoop` now owns turn-loop orchestration behind `QueryEngine`, including agent steps, context/provider attempts, compact retry, tool batch interruption, guard stops, abort, and max-turn transitions; `QueryEngine` no longer owns `_run_loop_impl`
 - `ToolRuntime` construction is now workflow-neutral; the bundled C/C++ workflow package registers recipe, quality, evidence, and task-status tools with metadata through `CHarnessWorkflowExtension.register_tools(...)`
 - C/C++ workflow pack definitions now live under `src/embedagent/harness/packs.py`; `src/embedagent/tooling/packs.py` is only a compatibility export
-- Pi-inspired minimal Core Phase A durable operation log, Phase B HookBus/reducer registry, Phase C AgentKernel lifecycle extraction, Phase D default C/C++ workflow package ownership, Phase E self-extension authoring loop, Phase F repo-side offline bundle validation, Phase G turn snapshot / capability registry foundation, Phase H runtime configuration reducer, Phase I workflow package manifest/read model, and Phase J structured compaction state are complete
+- Pi-inspired minimal Core Phase A durable operation log, Phase B HookBus/reducer registry, Phase C AgentKernel lifecycle extraction, Phase D default C/C++ workflow package ownership, Phase E self-extension authoring loop, Phase F repo-side offline bundle validation, Phase G turn snapshot / capability registry foundation, Phase H runtime configuration reducer, Phase I workflow package manifest/read model, Phase J structured compaction state, and Phase K recovery state are complete
 - `TurnSnapshot` is now the explicit frozen provider-request input; `QueryEngine` builds it after context assembly and active schema projection, then provider requests consume `snapshot.messages` and `snapshot.tool_schemas`
 - `CapabilityRegistry` is now the non-executing read model for tools, local file resources, slash commands, model profiles, and workflow packages; activation and execution remain owned by `AgentExtensionHost` / `ExtensionManager` and `ToolRuntime` / `AgentToolActionService`
 - `RuntimeConfigReducer` now projects safe runtime configuration from transcript events, including model profile metadata, active model-visible tool names, local resource revision metadata, capability counts, and provider snapshot records
@@ -165,6 +165,13 @@ The current self-extensible Agent Core baseline remains valid. The next program 
    - `CompactionStateReducer` projects reducer-backed compaction state from transcript events, including latest boundary and duplicate/malformed diagnostics
    - restore results, managed sessions, protocol snapshots, and session snapshots expose `compaction_state`
    - projection remains read-only diagnostics/replay state; context selection, summary generation, extension loading, tool execution, and permissions remain owned by their existing boundaries
+
+11. **Recovery state**
+   - current implementation status: Phase K is complete
+   - hosted resume appends safe `recovery_marker` events after restoring a trusted transcript prefix
+   - `RecoveryStateReducer` projects reducer-backed recovery state from transcript events, including latest marker, trusted-prefix counts, stop reasons, operation/compaction/runtime summaries, and diagnostics
+   - restore results, managed sessions, protocol snapshots, and session snapshots expose `recovery_state`
+   - projection remains read-only diagnostics/replay state; restore validation, mode selection, tool activation, context selection, extension loading, tool execution, and permissions remain owned by their existing boundaries
 
 This program must not introduce online extension marketplaces, dependency installation, remote registries, built-in tool replacement by project-local code, container requirements, WSL requirements, VS Code dependency, or general multi-agent orchestration in Agent Core.
 

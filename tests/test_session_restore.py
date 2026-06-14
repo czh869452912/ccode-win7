@@ -1007,6 +1007,36 @@ class TestSessionRestorer(unittest.TestCase):
             compaction["latest_boundary"]["file_activity"]["read_files"], ["src/demo.c"]
         )
 
+    def test_restore_projects_recovery_state(self):
+        session_id = "sess-recovery-state"
+        self.store.append_event(session_id, "session_meta", {"current_mode": "build"})
+        self.store.append_event(
+            session_id,
+            "recovery_marker",
+            {
+                "marker_id": "rm-restore",
+                "created_at": "2026-06-14T00:00:00Z",
+                "reason": "resume",
+                "status": "partial",
+                "current_mode": "build",
+                "trusted_event_count": 8,
+                "transcript_event_count": 10,
+                "stop_reason": "duplicate_compact_boundary_id",
+                "skipped_count": 0,
+                "skip_reasons": [],
+                "operation_summary": {"interrupted_count": 1},
+                "compaction_summary": {"boundary_count": 1, "latest_boundary_id": "cb-1"},
+                "runtime_summary": {"active_tool_count": 4, "resource_revision": 2},
+            },
+        )
+
+        result = SessionRestorer().restore(self.store.load_events(session_id))
+        recovery = result.recovery_state.to_dict()
+
+        self.assertEqual(recovery["marker_count"], 1)
+        self.assertEqual(recovery["latest_marker_id"], "rm-restore")
+        self.assertEqual(recovery["latest_marker"]["status"], "partial")
+
     def test_restore_stops_at_assistant_message_with_mismatched_turn_id(self):
         session_id = "sess-invalid-assistant-message"
         self.store.append_event(session_id, "session_meta", {"current_mode": "build"})

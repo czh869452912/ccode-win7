@@ -198,7 +198,7 @@ Reloading resources must not execute Python code.
 
 Pi's strongest durable design idea is that session storage is not only history. It is the durable state model for model choice, active tools, compaction, branch summaries, labels, extension state, and recovery markers.
 
-EmbedAgent should extend transcript truth in that direction. `transcript.jsonl` should become the reducer input for all durable session state that matters after restart. Phase H starts this beyond operation state by reducing safe runtime configuration from transcript events, and Phase J extends the same pattern to structured compaction state.
+EmbedAgent should extend transcript truth in that direction. `transcript.jsonl` should become the reducer input for all durable session state that matters after restart. Phase H starts this beyond operation state by reducing safe runtime configuration from transcript events, Phase J extends the same pattern to structured compaction state, and Phase K adds recovery markers for hosted resume attempts.
 
 ### Turn Snapshot And Save Point Discipline
 
@@ -257,6 +257,7 @@ Initial event families should include:
 - transcript append
 - extension hook
 - workflow patch
+- recovery marker
 
 Default payloads must avoid prompts, file contents, tool outputs, credentials, request bodies, and response bodies.
 
@@ -413,6 +414,20 @@ Outcomes:
 
 Current implementation status: Phase J is complete. `src/embedagent/compaction_state.py` defines the reducer and serializable read model; `QueryEngine` enriches `compact_boundary` transcript events; `SessionRestorer` reduces the consumed transcript prefix; `InProcessAdapter` refreshes `ManagedSession.compaction_state`; `SessionSnapshotProjector` and the protocol/core adapter expose the projection.
 
+### Phase K: Recovery State
+
+Make hosted resume attempts durable, replayable diagnostic state.
+
+Outcomes:
+
+- hosted resume appends safe `recovery_marker` events after restoring a trusted transcript prefix
+- `RecoveryStateReducer` projects latest marker, marker history, trusted-prefix counts, stop reasons, skip summaries, operation/compaction/runtime summaries, and duplicate/malformed diagnostics
+- restore results, managed sessions, protocol snapshots, and frontend session snapshots expose `recovery_state`
+- restore validation, transcript repair, mode selection, tool activation, context selection, extension loading, tool execution, and permissions remain owned by existing boundaries
+- recovery projection stays read-only and does not replace session history or frontend bootstrap truth
+
+Current implementation status: Phase K is complete. `src/embedagent/recovery_state.py` defines the reducer and serializable read model; `InProcessAdapter.resume_session(...)` appends safe `recovery_marker` events after restore; `SessionRestorer` reduces recovery markers from the consumed transcript prefix; `ManagedSession`, `SessionSnapshotProjector`, and the protocol/core adapter expose `recovery_state`.
+
 ## 9. Acceptance Criteria For The Direction
 
 The blueprint is working when:
@@ -425,6 +440,7 @@ The blueprint is working when:
 - durable restore can explain where an interrupted run stopped
 - durable restore can explain which safe runtime configuration a provider request used
 - durable restore can explain what compaction boundary was written and which safe metadata it carried
+- durable restore can explain hosted resume recovery markers and trusted transcript prefixes
 - project-local extensions can add useful behavior without bypassing permissions
 - resource reload and extension loading remain separate operations
 - frontend shells consume projections, not workflow internals

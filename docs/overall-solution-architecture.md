@@ -46,6 +46,7 @@ This is the stable contract boundary between UI and Agent Core.
 - `src/embedagent/capabilities.py`
 - `src/embedagent/runtime_config.py`
 - `src/embedagent/compaction_state.py`
+- `src/embedagent/recovery_state.py`
 - `src/embedagent/workflow_package_manifest.py`
 - `src/embedagent/session_runtime.py`
 - `src/embedagent/session_projector.py`
@@ -79,6 +80,8 @@ The default C/C++ harness is now entered through the in-process workflow extensi
 
 `CompactionStateReducer` is the replayable structured compaction read model. It reduces `compact_boundary` transcript events into safe boundary records with preserved message anchors, token/message counts, file activity paths, evidence refs, extension-summary flags, and duplicate/malformed diagnostics. It feeds restore results, `ManagedSession.compaction_state`, protocol snapshots, and session snapshots. It remains diagnostic/replay state and must not become a context selector, summary generator, extension executor, permission engine, or second session-history source.
 
+`RecoveryStateReducer` is the replayable hosted recovery read model. It reduces `recovery_marker` transcript events into safe recovery records with trusted-prefix counts, stop reasons, skip summaries, operation/compaction/runtime summaries, and duplicate/malformed diagnostics. It feeds restore results, `ManagedSession.recovery_state`, protocol snapshots, and session snapshots. It remains diagnostic/replay state and must not change restore validation, retry tool calls, select modes, activate tools, load extensions, bypass permissions, or become frontend-owned policy.
+
 Default bundled extension assembly is outside `QueryEngine` in `src/embedagent/default_extensions.py`. A bare `QueryEngine` receives an empty `ExtensionManager`; hosted product paths install the default C/C++ harness explicitly before constructing session engines. Hosted product paths may additionally load project-local extensions from `.embedagent/extensions/<name>/extension.json` when the manifest is explicitly enabled and declares permissions. Remote registries, plugin marketplaces, dependency installation, built-in tool replacement, and multi-agent orchestration remain out of scope.
 
 Harness state refresh in the product adapter path goes through `CHarnessWorkflowExtension.refresh_managed_session()` behind the default C harness workflow extension. The old `HarnessStateSynchronizer` service facade has been removed rather than kept as a parallel compatibility path.
@@ -92,6 +95,7 @@ Harness state refresh in the product adapter path goes through `CHarnessWorkflow
 - `SessionSnapshotProjector` reads the generic workflow projection, not default harness internals
 - `runtime_config` in session snapshots is reducer-backed diagnostic state, not frontend-owned policy
 - `compaction_state` in session snapshots is reducer-backed diagnostic state, not frontend-owned context policy
+- `recovery_state` in session snapshots is reducer-backed diagnostic state, not frontend-owned recovery policy
 
 ## 3. Official Execution Model
 
@@ -302,6 +306,14 @@ Replayable compaction state is projected from compact boundary events:
 
 `CompactionStateReducer` consumes the validated transcript prefix and must not infer compaction state from `timeline.jsonl`, prompts, raw tool outputs, or local extension code. Session snapshots may expose `compaction_state` for diagnostics and restore visibility; that projection does not select active context, rewrite summaries, load extensions, execute tools, or bypass permissions. `Session.compact_boundaries` remains live context compatibility state, not a separate durable truth.
 
+### Recovery State Rule
+
+Replayable hosted recovery state is projected from recovery marker events:
+
+- `recovery_marker`
+
+`RecoveryStateReducer` consumes the validated transcript prefix and must not infer recovery state from `timeline.jsonl`, prompts, raw tool outputs, or local extension code. Hosted resume may append safe recovery markers after restoring a trusted prefix. Session snapshots may expose `recovery_state` for diagnostics and restore visibility; that projection does not change restore validation, retry tool calls, select modes, activate tools, select context, load extensions, or bypass permissions.
+
 ## 9. Frontend Contract
 
 The frontend-facing vocabulary is now:
@@ -345,4 +357,4 @@ That program keeps learning from Pi at two levels:
 
 The intended long-term direction is that Agent Core can be described without C/C++ workflow vocabulary. The bundled C/C++ harness remains the default product workflow, but it should continue moving toward a first-party workflow package loaded through the same capability boundary as other local extensions.
 
-This is a gradual direction, not a statement that the target state is fully implemented. Phase A durable operation reducers, Phase B extension hook bus dispatch, Phase C AgentKernel lifecycle extraction, Phase D default C/C++ workflow package ownership, Phase E local self-extension authoring, Phase F repo-side offline bundle validation, Phase G turn snapshot / capability registry foundation, Phase H runtime configuration reducer, Phase I workflow package manifest/read model, and Phase J structured compaction state are complete. Near-term changes should preserve the current hosted behavior while completing real Win7 smoke validation and continuing real C/C++ project validation.
+This is a gradual direction, not a statement that the target state is fully implemented. Phase A durable operation reducers, Phase B extension hook bus dispatch, Phase C AgentKernel lifecycle extraction, Phase D default C/C++ workflow package ownership, Phase E local self-extension authoring, Phase F repo-side offline bundle validation, Phase G turn snapshot / capability registry foundation, Phase H runtime configuration reducer, Phase I workflow package manifest/read model, Phase J structured compaction state, and Phase K recovery state are complete. Near-term changes should preserve the current hosted behavior while completing real Win7 smoke validation and continuing real C/C++ project validation.

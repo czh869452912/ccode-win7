@@ -655,6 +655,31 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             refreshed["compaction_state"]["latest_boundary"]["file_activity"]["read_files"],
         )
 
+    def test_resume_appends_recovery_marker_and_snapshot_projects_recovery_state(self):
+        adapter = InProcessAdapter(
+            client=FakeClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+        )
+        snapshot = adapter.create_session("build")
+        session_id = str(snapshot.get("session_id") or "")
+
+        resumed_adapter = InProcessAdapter(
+            client=FakeClient(),
+            tools=ToolRuntime(self.workspace),
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+        )
+        resumed = resumed_adapter.resume_session(session_id, "build")
+        events = resumed_adapter.transcript_store.load_events(session_id)
+        recovery_events = [item for item in events if item.get("type") == "recovery_marker"]
+
+        self.assertEqual(len(recovery_events), 1)
+        self.assertEqual(recovery_events[0]["payload"]["status"], "clean")
+        self.assertIn("recovery_state", resumed)
+        self.assertEqual(resumed["recovery_state"]["marker_count"], 1)
+        self.assertEqual(resumed["recovery_state"]["latest_marker"]["status"], "clean")
+        self.assertEqual(resumed["recovery_state"]["latest_marker"]["reason"], "resume")
+
     def test_session_snapshot_includes_workspace_intelligence_projection(self):
         with open(os.path.join(self.workspace, "tags"), "w", encoding="utf-8") as handle:
             handle.write("!_TAG_FILE_FORMAT\t2\t/extended format/\n")

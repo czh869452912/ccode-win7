@@ -117,6 +117,23 @@ class TestProtocol(unittest.TestCase):
         self.assertEqual(snap.compaction_state["boundary_count"], 1)
         self.assertEqual(snap.compaction_state["latest_boundary_id"], "cb-1")
 
+    def test_session_snapshot_from_dict_preserves_recovery_state(self):
+        snap = _session_snapshot_from_dict(
+            {
+                "session_id": "sess_001",
+                "status": "idle",
+                "current_mode": "build",
+                "started_at": "2026-03-30T10:00:00",
+                "updated_at": "2026-03-30T10:00:00",
+                "recovery_state": {
+                    "marker_count": 1,
+                    "latest_marker_id": "rm-1",
+                },
+            }
+        )
+        self.assertEqual(snap.recovery_state["marker_count"], 1)
+        self.assertEqual(snap.recovery_state["latest_marker_id"], "rm-1")
+
     def test_tool_call(self):
         call = ToolCall(tool_name="read_file", arguments={"path": "test.py"}, call_id="call_001")
         self.assertEqual(call.tool_name, "read_file")

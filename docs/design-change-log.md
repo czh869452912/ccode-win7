@@ -44,6 +44,49 @@
 
 ## 3. 当前变更记录
 
+### DC-145
+
+- 日期：2026-06-14
+- 变更主题：Pi-inspired minimal Core Phase K recovery state 收口
+- 变更摘要：
+  - 新增 `src/embedagent/recovery_state.py`，由 `RecoveryStateReducer` 从 `recovery_marker` transcript events 投影 replayable hosted recovery state
+  - `InProcessAdapter.resume_session(...)` 在 restore 出可信 transcript prefix 后追加 safe `recovery_marker`，记录 trusted/transcript event counts、stop reason、skip reasons、operation summary、compaction summary 与 runtime summary
+  - `SessionRestorer` 暴露 `recovery_state`，并只对已消费的 self-consistent transcript prefix 做 reducer 投影
+  - `ManagedSession`、`SessionSnapshotProjector`、protocol `SessionSnapshot` 与 core adapter snapshot conversion 现在暴露 reducer-backed `recovery_state`
+  - recovery projection 保持 diagnostics/replay state，不改变 restore validation、mode/tool/context policy、extension loading、tool execution 或 permission policy
+- 影响范围：
+  - `src/embedagent/recovery_state.py`
+  - `src/embedagent/inprocess_adapter.py`
+  - `src/embedagent/session_restore.py`
+  - `src/embedagent/session_runtime.py`
+  - `src/embedagent/session_projector.py`
+  - `src/embedagent/protocol/__init__.py`
+  - `src/embedagent/core/adapter.py`
+  - `tests/test_recovery_state.py`
+  - `tests/test_session_restore.py`
+  - `tests/test_inprocess_adapter_frontend_api.py`
+  - `tests/test_architecture.py`
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/mode-schema.md`
+  - `docs/tool-contracts.md`
+  - `docs/permission-model.md`
+  - `docs/frontend-protocol.md`
+  - `docs/agent-harness-v2.md`
+  - `docs/pi-inspired-agent-core-blueprint.md`
+- 关联文档：
+  - `docs/pi-inspired-agent-core-blueprint.md`
+  - `docs/archive/phase-k-recovery-state/2026-06-14-phase-k-recovery-state-design.md`
+  - `docs/archive/phase-k-recovery-state/2026-06-14-phase-k-recovery-state.md`
+- 是否需要 ADR：`否，本次是已批准 Phase K 的内部 reducer/read-model 收口；不新增公共 extension API，不改变 restore validation 或自动恢复策略`
+- 后续动作：
+  - 在真实 Win7 目标机执行 clean offline bundle smoke
+  - 继续真实 C/C++ 工程验证，观察 recovery_state 是否足以解释 restore/resume 降级路径
+  - 删除剩余 stale compatibility paths
+
 ### DC-144
 
 - 日期：2026-06-14

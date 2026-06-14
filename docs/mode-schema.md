@@ -32,6 +32,8 @@ Workflow package manifests do not alter mode contracts. They describe package-su
 
 Reducer-backed compaction state does not alter mode contracts. `compaction_state` records structured compact boundary diagnostics for restore/debug visibility, but context selection still flows through the current context manager and active tool selection still flows through mode contracts plus `ExtensionManager` / `AgentExtensionHost`.
 
+Reducer-backed recovery state does not alter mode contracts. `recovery_state` records hosted resume diagnostics for restore/debug visibility, but mode selection remains user/host driven and active tool selection still flows through mode contracts plus `ExtensionManager` / `AgentExtensionHost`.
+
 ## 3. Switching Rules
 
 - Mode switching is user-driven.

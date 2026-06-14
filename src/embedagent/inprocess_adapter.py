@@ -33,6 +33,7 @@ from embedagent.plan_store import PlanStore
 from embedagent.project_extensions import load_project_extensions
 from embedagent.project_memory import ProjectMemoryStore
 from embedagent.protocol import CommandResult, PermissionContextView, PlanSnapshot
+from embedagent.recovery_state import RecoveryStateReducer
 from embedagent.runtime_config import RuntimeConfigReducer
 from embedagent.session import (
     Action,
@@ -393,6 +394,68 @@ class InProcessAdapter(object):
             return
         state.compaction_state = CompactionStateReducer().reduce(events).to_dict()
 
+    def _refresh_recovery_state(self, state: ManagedSession) -> None:
+        try:
+            events = self.transcript_store.load_events(state.session.session_id)
+        except (OSError, ValueError, TypeError):
+            return
+        state.recovery_state = RecoveryStateReducer().reduce(events).to_dict()
+
+    def _runtime_summary_for_recovery(self, runtime_config: Dict[str, Any]) -> Dict[str, Any]:
+        resource_revision = runtime_config.get("resource_revision")
+        if not isinstance(resource_revision, dict):
+            resource_revision = {}
+        model_profile = runtime_config.get("model_profile")
+        if not isinstance(model_profile, dict):
+            model_profile = {}
+        return {
+            "active_tool_count": len(list(runtime_config.get("active_tool_names") or [])),
+            "resource_revision": int(resource_revision.get("revision") or 0),
+            "model_profile_name": str(model_profile.get("name") or ""),
+        }
+
+    def _append_recovery_marker(
+        self,
+        state: ManagedSession,
+        restored: Any,
+        current_mode: str,
+        runtime_config: Dict[str, Any],
+    ) -> None:
+        consumed = int(getattr(restored, "consumed_event_count", 0) or 0)
+        total = int(getattr(restored, "transcript_event_count", 0) or 0)
+        stop_reason = str(getattr(restored, "stop_reason", "") or "")
+        status = "clean" if not stop_reason and consumed == total else "partial"
+        operation_summary = operation_diagnostics(restored.operation_state)
+        compaction_summary = restored.compaction_state.to_dict()
+        self.transcript_store.append_event(
+            state.session.session_id,
+            "recovery_marker",
+            {
+                "marker_id": "recovery-%s" % uuid.uuid4().hex,
+                "created_at": _utc_now(),
+                "reason": "resume",
+                "status": status,
+                "current_mode": current_mode,
+                "trusted_event_count": consumed,
+                "transcript_event_count": total,
+                "stop_reason": stop_reason,
+                "skipped_count": int(getattr(restored, "skipped_count", 0) or 0),
+                "skip_reasons": list(getattr(restored, "skip_reasons", []) or []),
+                "operation_summary": {
+                    "total_count": int(operation_summary.get("total_count") or 0),
+                    "started_count": int(operation_summary.get("started_count") or 0),
+                    "finished_count": int(operation_summary.get("finished_count") or 0),
+                    "interrupted_count": int(operation_summary.get("interrupted_count") or 0),
+                },
+                "compaction_summary": {
+                    "boundary_count": int(compaction_summary.get("boundary_count") or 0),
+                    "latest_boundary_id": str(compaction_summary.get("latest_boundary_id") or ""),
+                },
+                "runtime_summary": self._runtime_summary_for_recovery(runtime_config),
+                "metadata": {"source": "resume_session"},
+            },
+        )
+
     def _tool_permission_category(self, tool_name: str) -> str:
         lookup = getattr(self.tools, "tool_catalog_entry", None)
         if not callable(lookup):
@@ -503,6 +566,7 @@ class InProcessAdapter(object):
                 }
                 self._refresh_runtime_config(state)
                 self._refresh_compaction_state(state)
+                self._refresh_recovery_state(state)
                 state.updated_at = _utc_now()
         return dict(payload or {})
 
@@ -560,6 +624,7 @@ class InProcessAdapter(object):
         with state.lock:
             self._refresh_runtime_config(state)
             self._refresh_compaction_state(state)
+            self._refresh_recovery_state(state)
         self._persist_state(state)
         snapshot = self.get_session_snapshot(session.session_id)
         self._emit(
@@ -596,6 +661,7 @@ class InProcessAdapter(object):
             restore_transcript_event_count=int(restored.transcript_event_count or 0),
             operation_diagnostics=operation_diagnostics(restored.operation_state),
             compaction_state=restored.compaction_state.to_dict(),
+            recovery_state=restored.recovery_state.to_dict(),
             runtime_config=RuntimeConfigReducer()
             .reduce(events[: int(restored.consumed_event_count or 0)])
             .to_dict(),
@@ -646,13 +712,15 @@ class InProcessAdapter(object):
             state.active_plan_ref = plan.path
             state.workflow_state = "plan"
         self._refresh_harness_state(state)
-        with state.lock:
-            self._apply_project_extension_state(state)
-            self._refresh_runtime_config(state)
-            self._refresh_compaction_state(state)
-            state.updated_at = _utc_now()
         with self._lock:
             self._sessions[session.session_id] = state
+        with state.lock:
+            self._apply_project_extension_state(state)
+            self._append_recovery_marker(state, restored, current_mode, state.runtime_config)
+            self._refresh_runtime_config(state)
+            self._refresh_compaction_state(state)
+            self._refresh_recovery_state(state)
+            state.updated_at = _utc_now()
         snapshot = self.get_session_snapshot(session.session_id)
         self._emit(
             event_handler,
@@ -683,6 +751,7 @@ class InProcessAdapter(object):
             self._refresh_operation_diagnostics(state)
             self._refresh_runtime_config(state)
             self._refresh_compaction_state(state)
+            self._refresh_recovery_state(state)
             summary = self._read_summary_for_state(state)
             return self.snapshot_projector.build_snapshot(
                 state,

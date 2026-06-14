@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List
 
 from embedagent.compaction_state import CompactionState, CompactionStateReducer
+from embedagent.recovery_state import RecoveryState, RecoveryStateReducer
 from embedagent.session import (
     Action,
     AssistantReply,
@@ -32,6 +33,7 @@ class SessionRestoreResult:
     skip_reasons: List[Dict[str, Any]] = field(default_factory=list)
     operation_state: OperationLogState = field(default_factory=OperationLogState)
     compaction_state: CompactionState = field(default_factory=CompactionState)
+    recovery_state: RecoveryState = field(default_factory=RecoveryState)
 
 
 class SessionRestorer(object):
@@ -340,6 +342,7 @@ class SessionRestorer(object):
         consumed_events = events[:consumed_event_count]
         operation_state = OperationLogReducer().reduce(consumed_events)
         compaction_state = CompactionStateReducer().reduce(consumed_events)
+        recovery_state = RecoveryStateReducer().reduce(consumed_events)
         return SessionRestoreResult(
             session=session,
             current_mode=current_mode,
@@ -350,6 +353,7 @@ class SessionRestorer(object):
             skip_reasons=skip_reasons,
             operation_state=operation_state,
             compaction_state=compaction_state,
+            recovery_state=recovery_state,
         )
 
     def _should_skip_error(self, error_reason: str) -> bool:

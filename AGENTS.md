@@ -83,9 +83,9 @@ The repository now has one official architecture vocabulary.
 
 ### Next Architecture Direction
 
-The current baseline remains authoritative. `docs/pi-inspired-agent-core-blueprint.md` is the long-term target blueprint for making Agent Core more Pi-like in both function and philosophy: smaller kernel, durable session-log reducers, source-aware hooks, explicit turn snapshots, replayable runtime configuration, structured compaction state, capability read models, replaceable workflow packages, and local self-extension.
+The current baseline remains authoritative. `docs/pi-inspired-agent-core-blueprint.md` is the long-term target blueprint for making Agent Core more Pi-like in both function and philosophy: smaller kernel, durable session-log reducers, source-aware hooks, explicit turn snapshots, replayable runtime configuration, structured compaction state, recovery markers, capability read models, replaceable workflow packages, and local self-extension.
 
-Do not treat blueprint target terms such as `SessionLog` or public `HookBus` as implemented public APIs until a specific implementation slice lands and updates the source-of-truth docs. `AgentEventBus` is now the internal source-aware event/reducer boundary for public extension hook dispatch; it is not a public extension API. `AgentLifecycleJournal`, `AgentKernel`, `AgentLoop`, `TurnSnapshot`, `CapabilityRegistry`, `RuntimeConfigReducer`, `WorkflowPackageManifest`, and `CompactionStateReducer` are implemented internal Agent Core boundaries/read models, not public extension APIs. The bundled default C/C++ workflow package now owns its workflow tool registration, metadata, packs, and read-only package manifest behind `CHarnessWorkflowExtension`; local self-extension authoring is available through `SelfExtensionAuthoringService` and `author_local_capability`; repo-side offline bundle validation is contract-backed through `scripts/offline-runtime-contract.json`; near-term work must preserve hosted C/C++ behavior while advancing real Win7 bundle smoke validation and real C/C++ project validation.
+Do not treat blueprint target terms such as `SessionLog` or public `HookBus` as implemented public APIs until a specific implementation slice lands and updates the source-of-truth docs. `AgentEventBus` is now the internal source-aware event/reducer boundary for public extension hook dispatch; it is not a public extension API. `AgentLifecycleJournal`, `AgentKernel`, `AgentLoop`, `TurnSnapshot`, `CapabilityRegistry`, `RuntimeConfigReducer`, `WorkflowPackageManifest`, `CompactionStateReducer`, and `RecoveryStateReducer` are implemented internal Agent Core boundaries/read models, not public extension APIs. The bundled default C/C++ workflow package now owns its workflow tool registration, metadata, packs, and read-only package manifest behind `CHarnessWorkflowExtension`; local self-extension authoring is available through `SelfExtensionAuthoringService` and `author_local_capability`; repo-side offline bundle validation is contract-backed through `scripts/offline-runtime-contract.json`; near-term work must preserve hosted C/C++ behavior while advancing real Win7 bundle smoke validation and real C/C++ project validation.
 
 ### Modes
 
@@ -129,6 +129,8 @@ Local offline self-extension is an official architecture capability, limited to 
 `RuntimeConfigReducer` is the transcript-backed read model for safe replayable runtime configuration. It reduces `runtime_configured`, `resource_reloaded`, and provider-request `operation_started` snapshot metadata into credential-free model profile metadata, model-visible active tool names, local resource revision metadata, capability counts, and provider snapshot records. It must not decide tool activation, execute tools, reload resources, load project extensions, or bypass `PermissionPolicy`.
 
 `CompactionStateReducer` is the transcript-backed read model for structured compact boundary state. It reduces `compact_boundary` events into safe boundary records with token/message counts, preserved message anchors, file activity paths, evidence refs, extension-summary flags, duplicate/malformed diagnostics, and latest-boundary metadata. It must not select context, rewrite summaries, execute extension code, infer history from `timeline.jsonl`, or become a second session-history source.
+
+`RecoveryStateReducer` is the transcript-backed read model for hosted resume recovery markers. It reduces `recovery_marker` events into safe records with trusted-prefix counts, stop reasons, skip summaries, operation/compaction/runtime summaries, duplicate/malformed diagnostics, and latest-marker metadata. It must not change restore validation, retry tool calls, select modes, activate tools, bypass permissions, infer history from `timeline.jsonl`, or become frontend-owned policy.
 
 Default extension assembly lives in `src/embedagent/default_extensions.py`. `QueryEngine` must not import or construct `CHarnessWorkflowExtension`; direct `QueryEngine` tests or hosts that need default C/C++ behavior must pass an explicit `ExtensionManager`.
 
@@ -216,6 +218,12 @@ Official durable compaction truth is reducer-backed:
 - schema v1/v2 `compact_boundary`
 
 `CompactionStateReducer` must derive structured compaction state only from `compact_boundary` transcript events. `Session.compact_boundaries` remains live context compatibility state, while restore results and session snapshots may expose `compaction_state` as diagnostic/replay state. That projection must not drive active context selection, extension loading, permission decisions, or frontend-owned execution policy.
+
+Official durable recovery truth is reducer-backed:
+
+- schema v1/v2 `recovery_marker`
+
+`RecoveryStateReducer` must derive recovery state only from `recovery_marker` transcript events. Hosted resume may append safe recovery markers after restoring a trusted prefix. Restore results and session snapshots may expose `recovery_state` as diagnostic/replay state. That projection must not change restore stop rules, retry tool calls, drive active mode/tool/context selection, load extensions, bypass permissions, or become frontend-owned execution policy.
 
 ## Mode Policy
 

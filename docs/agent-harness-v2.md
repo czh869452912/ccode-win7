@@ -31,6 +31,8 @@ Provider requests consume an explicit `TurnSnapshot` built by `QueryEngine` afte
 
 Structured compaction state is reducer-backed diagnostics, not harness workflow truth. `compaction_state` may explain compact boundaries and safe file/evidence metadata after restore, but harness phase, task graph state, active packs, permissions, and tool execution remain owned by their existing harness/core boundaries.
 
+Recovery state is reducer-backed diagnostics, not harness workflow truth. `recovery_state` may explain hosted resume attempts and trusted transcript prefixes after restore, but harness phase, task graph state, active packs, permissions, and tool execution remain owned by their existing harness/core boundaries.
+
 ## 3. Official Modes
 
 - `explore`

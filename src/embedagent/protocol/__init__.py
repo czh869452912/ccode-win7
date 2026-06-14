@@ -253,6 +253,7 @@ class SessionSnapshot:
     restore_consumed_event_count: int = 0
     restore_transcript_event_count: int = 0
     compaction_state: Dict[str, Any] = field(default_factory=dict)
+    recovery_state: Dict[str, Any] = field(default_factory=dict)
     pending_interaction: Optional[Dict[str, Any]] = None
     timeline_replay_status: str = "replay"
     timeline_first_seq: int = 0
