@@ -13,6 +13,7 @@ from typing import Dict, List, Optional, Tuple
 
 
 ROOT = Path(__file__).resolve().parents[1]
+CONTRACT = ROOT / "scripts" / "offline-runtime-contract.json"
 for candidate in (ROOT / "src", ROOT / "app"):
     if candidate.exists():
         sys.path.insert(0, str(candidate))
@@ -45,6 +46,23 @@ def write_json_report(path: str, payload: Dict) -> None:
     report_path.parent.mkdir(parents=True, exist_ok=True)
     with open(report_path, "w", encoding="utf-8") as handle:
         json.dump(payload, handle, indent=2, sort_keys=True)
+
+
+def load_runtime_contract() -> Dict:
+    with open(CONTRACT, "r", encoding="utf-8") as handle:
+        payload = json.load(handle)
+    if not isinstance(payload, dict):
+        raise ValueError("runtime contract must be a JSON object")
+    if not isinstance(payload.get("required_tools"), list):
+        raise ValueError("runtime contract missing required_tools array")
+    return payload
+
+
+def runtime_contract_summary(contract: Dict) -> Dict:
+    return {
+        "path": str(CONTRACT),
+        "schema_version": contract.get("schema_version"),
+    }
 
 
 def get_bundle_root() -> Optional[Path]:
@@ -139,21 +157,52 @@ def check_site_packages(bundle_root: Path) -> Tuple[bool, List[str]]:
     return len(errors) == 0, errors
 
 
+def _paths_exist(bundle_root: Path, paths: List[str]) -> bool:
+    for relative_path in paths:
+        if not bundle_root.joinpath(*str(relative_path or "").replace("\\", "/").split("/")).exists():
+            return False
+    return True
+
+
+def _alternative_exists(bundle_root: Path, alternatives: List[Dict]) -> bool:
+    for alternative in alternatives:
+        paths = alternative.get("paths") if isinstance(alternative, dict) else []
+        if _paths_exist(bundle_root, list(paths or [])):
+            return True
+    return False
+
+
+def _contract_path(bundle_root: Path, relative_path: str) -> Path:
+    return bundle_root.joinpath(*str(relative_path or "").replace("\\", "/").split("/"))
+
+
 def check_external_tools(bundle_root: Path) -> Tuple[bool, List[str]]:
     """Check external binary tools."""
     errors = []
-    tools = {
-        "git": ["bin", "git", "cmd", "git.exe"],
-        "rg": ["bin", "rg", "rg.exe"],
-        "ctags": ["bin", "ctags", "ctags.exe"],
-        "clang": ["bin", "llvm", "bin", "clang.exe"],
-        "clang-tidy": ["bin", "llvm", "bin", "clang-tidy.exe"],
-    }
-    
-    for name, path_parts in tools.items():
-        tool_path = bundle_root.joinpath(*path_parts)
-        if not tool_path.exists():
-            errors.append(f"Missing tool: {name} ({tool_path})")
+    contract = load_runtime_contract()
+
+    for tool in contract.get("required_tools") or []:
+        if not isinstance(tool, dict):
+            continue
+        tool_id = str(tool.get("id") or "")
+        alternatives = tool.get("alternatives")
+        if isinstance(alternatives, list):
+            if not _alternative_exists(bundle_root, alternatives):
+                errors.append(
+                    "runtime_tool.%s missing: alternatives not found" % tool_id
+                )
+        elif not _paths_exist(bundle_root, list(tool.get("paths") or [])):
+            errors.append("runtime_tool.%s missing: required paths not found" % tool_id)
+
+        for child in tool.get("children") or []:
+            if not isinstance(child, dict):
+                continue
+            child_id = str(child.get("id") or "")
+            child_path = str(child.get("path") or "")
+            if child_path and not _contract_path(bundle_root, child_path).exists():
+                errors.append(
+                    "runtime_tool.%s.%s missing: %s" % (tool_id, child_id, child_path)
+                )
     
     return len(errors) == 0, errors
 
@@ -248,6 +297,7 @@ def check_manifest(bundle_root: Path) -> Tuple[bool, List[str]]:
 
 def main():
     args = parse_args()
+    contract = load_runtime_contract()
     if args.bundle_root:
         bundle_root = Path(args.bundle_root)
     else:
@@ -259,6 +309,7 @@ def main():
                     "ok": False,
                     "bundle_root": "",
                     "checks": [],
+                    "runtime_contract": runtime_contract_summary(contract),
                     "error": "Cannot find bundle root. Please provide path as argument.",
                 },
             )
@@ -289,6 +340,7 @@ def main():
             "ok": all_passed,
             "bundle_root": str(bundle_root),
             "checks": check_payloads,
+            "runtime_contract": runtime_contract_summary(contract),
         },
     )
 

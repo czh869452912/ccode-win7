@@ -327,6 +327,115 @@ class TestStageJsonReports(unittest.TestCase):
         finally:
             shutil.rmtree(test_root, ignore_errors=True)
 
+    def test_dependency_checker_reports_runtime_contract_missing_tools(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            bundle_root = Path(tmp)
+            (bundle_root / "app" / "embedagent").mkdir(parents=True)
+            (bundle_root / "runtime" / "python").mkdir(parents=True)
+            (bundle_root / "bin").mkdir()
+            report_path = bundle_root / "dependency-report.json"
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(CHECK_SCRIPT),
+                    str(bundle_root),
+                    "--json-report",
+                    str(report_path),
+                ],
+                cwd=str(ROOT),
+                capture_output=True,
+                text=True,
+            )
+            self.assertNotEqual(result.returncode, 0)
+            payload = json.loads(report_path.read_text(encoding="utf-8"))
+            external = [item for item in payload["checks"] if item["name"] == "External Tools"][0]
+            self.assertFalse(external["ok"])
+            self.assertTrue(any("runtime_tool.git" in error for error in external["errors"]))
+            self.assertTrue(
+                any("runtime_tool.llvm.clang" in error for error in external["errors"])
+            )
+            self.assertEqual(payload["runtime_contract"]["schema_version"], 1)
+
+    def test_dependency_checker_accepts_runtime_contract_complete_mock_bundle(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            bundle_root = Path(tmp)
+            for path in [
+                "app/embedagent/__init__.py",
+                "runtime/python/python.exe",
+                "runtime/site-packages/embedagent/__init__.py",
+                "runtime/site-packages/prompt_toolkit/__init__.py",
+                "runtime/site-packages/rich/__init__.py",
+                "runtime/site-packages/webview/__init__.py",
+                "runtime/site-packages/fastapi/__init__.py",
+                "runtime/site-packages/uvicorn/__init__.py",
+                "runtime/site-packages/websockets/__init__.py",
+                "runtime/site-packages/starlette/__init__.py",
+                "runtime/site-packages/pydantic/__init__.py",
+                "runtime/site-packages/anyio/__init__.py",
+                "runtime/site-packages/sniffio/__init__.py",
+                "runtime/site-packages/h11/__init__.py",
+                "runtime/site-packages/idna/__init__.py",
+                "runtime/site-packages/click/__init__.py",
+                "runtime/site-packages/typing_extensions.py",
+                "runtime/site-packages/colorama/__init__.py",
+                "runtime/site-packages/pygments/__init__.py",
+                "runtime/site-packages/wcwidth/__init__.py",
+                "runtime/site-packages/extra_a/__init__.py",
+                "runtime/site-packages/extra_b/__init__.py",
+                "runtime/site-packages/extra_c/__init__.py",
+                "bin/git/cmd/git.exe",
+                "bin/rg/rg.exe",
+                "bin/ctags/ctags.exe",
+                "bin/llvm/bin/clang.exe",
+                "bin/llvm/bin/clang++.exe",
+                "bin/llvm/bin/clang-cl.exe",
+                "bin/llvm/bin/clang-tidy.exe",
+                "bin/llvm/bin/clang-analyzer.bat",
+                "bin/llvm/bin/llvm-profdata.exe",
+                "bin/llvm/bin/llvm-cov.exe",
+                "embedagent.cmd",
+                "embedagent-tui.cmd",
+                "embedagent-gui.cmd",
+                "config/config.json",
+                "config/config.json.template",
+                "config/permission-rules.json",
+                "docs/configuration-guide.md",
+                "docs/win7-preflight-checklist.md",
+                "docs/intranet-deployment.md",
+                "app/embedagent/frontend/gui/static/index.html",
+                "app/embedagent/frontend/gui/static/assets/app.js",
+                "manifests/bundle-manifest.json",
+            ]:
+                target = bundle_root / Path(path)
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text("{}", encoding="ascii")
+            (bundle_root / "manifests" / "bundle-manifest.json").write_text(
+                json.dumps(
+                    {
+                        "schema_version": 2,
+                        "artifact_name": "mock",
+                        "components": [],
+                    }
+                ),
+                encoding="ascii",
+            )
+            report_path = bundle_root / "dependency-report.json"
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(CHECK_SCRIPT),
+                    str(bundle_root),
+                    "--json-report",
+                    str(report_path),
+                ],
+                cwd=str(ROOT),
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            payload = json.loads(report_path.read_text(encoding="utf-8"))
+            self.assertTrue(payload["ok"])
+
     def test_export_verify_only_writes_json_report(self):
         with tempfile.TemporaryDirectory() as tmp:
             export_root = Path(tmp)
