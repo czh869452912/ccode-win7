@@ -271,7 +271,7 @@ Outcomes:
 - unfinished operations are marked interrupted by default
 - non-idempotent tool calls are not retried automatically
 
-Current implementation status: Phase A is complete. The operation reducer uses explicit schema v2 `operation_started`, `operation_finished`, and `operation_interrupted` events as the operation-state truth. Runtime emissions cover turns, agent steps, context assembly, context snapshots, provider requests, tool calls, pending interaction start/finish, workflow patches, and save points. Restore snapshots close unfinished operations as interrupted, while live session snapshots preserve currently active operations in reducer-backed `operation_diagnostics`. Phase B has promoted extension hook dispatch into a source-aware HookBus/reducer registry; Phase C should now move operation lifecycle orchestration behind an AgentKernel boundary instead of growing one-off lifecycle helpers inside the session facade.
+Current implementation status: Phase A is complete. The operation reducer uses explicit schema v2 `operation_started`, `operation_finished`, and `operation_interrupted` events as the operation-state truth. Runtime emissions cover turns, agent steps, context assembly, context snapshots, provider requests, tool calls, pending interaction start/finish, workflow patches, and save points. Restore snapshots close unfinished operations as interrupted, while live session snapshots preserve currently active operations in reducer-backed `operation_diagnostics`. Phase B has promoted extension hook dispatch into a source-aware HookBus/reducer registry. Phase C has moved lifecycle orchestration behind `AgentLifecycleJournal`, `AgentKernel`, and `AgentLoop` instead of growing one-off lifecycle helpers inside the session facade.
 
 ### Phase B: HookBus And Reducers
 
@@ -285,11 +285,11 @@ Outcomes:
 - cleanup and reload behavior are deterministic
 - built-in workflow extension and project-local extensions use the same internal bus
 
-Current implementation status: Phase B is complete for extension hook dispatch. `src/embedagent/agent_event_bus.py` defines the internal source-aware event bus, observer/reducer registrations, dispatch diagnostics, event-specific reducer stopping, and fail-closed behavior for trusted reducers. `ExtensionManager` keeps its public APIs but routes public extension hook families through `AgentEventBus`, including context patches, tool-call decisions, tool-result patches, resource discovery, dynamic tool registration, prompt patches, active tool names, workflow initialization, task snapshot loading, and extension-owned tool handling. Operation lifecycle orchestration remains Phase C AgentKernel work; future lifecycle observers should use the bus boundary rather than adding direct facade hooks.
+Current implementation status: Phase B is complete for extension hook dispatch. `src/embedagent/agent_event_bus.py` defines the internal source-aware event bus, observer/reducer registrations, dispatch diagnostics, event-specific reducer stopping, and fail-closed behavior for trusted reducers. `ExtensionManager` keeps its public APIs but routes public extension hook families through `AgentEventBus`, including context patches, tool-call decisions, tool-result patches, resource discovery, dynamic tool registration, prompt patches, active tool names, workflow initialization, task snapshot loading, and extension-owned tool handling. Lifecycle orchestration is now behind the Phase C kernel/journal/loop boundaries; future lifecycle observers should use the bus boundary rather than adding direct facade hooks.
 
 ### Phase C: AgentKernel Extraction
 
-Turn the current facade and thin loop boundary into a real lifecycle module.
+Keep lifecycle orchestration behind the extracted kernel, journal, and loop modules.
 
 Outcomes:
 
@@ -298,6 +298,8 @@ Outcomes:
 - suspend, resume, abort, compact retry, and failure cleanup share one lifecycle path
 - the public session facade shrinks
 - tool action execution remains behind the action service
+
+Current implementation status: Phase C is complete. `src/embedagent/agent_lifecycle.py` defines `AgentLifecycleJournal` for durable lifecycle operation events, context operation payload helpers, pending interaction lifecycle events, and transition save points. `src/embedagent/agent_kernel.py` defines `AgentKernel` and `AgentTurnFrame` for user, command, and resume turn lifecycle plus pending interaction create/resolve boundaries. `src/embedagent/agent_loop.py` now owns turn-loop orchestration, including agent steps, context/provider attempts, compact retry, tool batch interruption, guard stops, aborts, and max-turn transitions. `QueryEngine` remains the session-scoped facade and transcript/session mutation compatibility surface.
 
 ### Phase D: Default C/C++ Workflow Package
 
@@ -309,6 +311,8 @@ Outcomes:
 - workflow prompts, tool packs, resources, recipes, task status, and quality gates register as package capabilities
 - frontend projections consume generic workflow state
 - bare AgentKernel works without the C/C++ package
+
+Current implementation status: Phase D is the next architecture phase.
 
 ### Phase E: Self-Extension Authoring Loop
 

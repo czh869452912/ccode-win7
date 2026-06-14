@@ -16,7 +16,7 @@ The stable architecture assumptions are:
 
 The product is organized around one main execution spine:
 
-`Frontend -> Core Adapter -> InProcessAdapter -> Session Runtime -> QueryEngine -> AgentLoop -> AgentToolActionService -> AgentExtensionHost / ToolRuntime / PermissionPolicy -> Context/Stores`
+`Frontend -> Core Adapter -> InProcessAdapter -> Session Runtime -> QueryEngine -> AgentKernel -> AgentLoop / AgentLifecycleJournal -> AgentToolActionService -> AgentExtensionHost / ToolRuntime / PermissionPolicy -> Context/Stores`
 
 ### Frontend Layer
 
@@ -36,6 +36,8 @@ This is the stable contract boundary between UI and Agent Core.
 
 - `src/embedagent/inprocess_adapter.py`
 - `src/embedagent/query_engine.py`
+- `src/embedagent/agent_lifecycle.py`
+- `src/embedagent/agent_kernel.py`
 - `src/embedagent/agent_loop.py`
 - `src/embedagent/agent_tool_action_service.py`
 - `src/embedagent/agent_extension_host.py`
@@ -60,7 +62,7 @@ The default C/C++ harness is now entered through the in-process workflow extensi
 
 `AgentExtensionHost` is the session-engine side of that boundary. It builds extension contexts and workflow events, initializes workflow state, applies prompt/context hooks, registers dynamic tools, computes extension-aware active tool names, requests explicit tool schemas, applies tool-call/tool-result hooks, and handles extension-owned tool calls. `QueryEngine` keeps a compatibility `extension_manager` reference, but extension hook dispatch is centralized in `AgentExtensionHost`.
 
-`AgentToolActionService` owns non-LLM tool action execution: active-tool checks, extension pre/post hooks, permission evaluation, path write guards, runtime dispatch, and extension-owned tool calls. `AgentLoop` owns the turn loop boundary. `QueryEngine` remains the public session facade and keeps ownership of transcript-backed session mutation and interaction suspend/resume behavior.
+`AgentLifecycleJournal` owns durable lifecycle writes for schema v2 operation events, transition save points, pending interaction lifecycle events, and context operation payload helpers. `AgentKernel` owns turn frames and pending interaction create/resolve boundaries. `AgentToolActionService` owns non-LLM tool action execution: active-tool checks, extension pre/post hooks, permission evaluation, path write guards, runtime dispatch, and extension-owned tool calls. `AgentLoop` owns turn-loop orchestration: agent step lifecycle, context/provider attempts, compact retry, tool batch interruption, guard-stop, abort, and max-turn transitions. `QueryEngine` remains the public session facade and keeps ownership of transcript-backed session mutation compatibility.
 
 Default bundled extension assembly is outside `QueryEngine` in `src/embedagent/default_extensions.py`. A bare `QueryEngine` receives an empty `ExtensionManager`; hosted product paths install the default C/C++ harness explicitly before constructing session engines. Hosted product paths may additionally load project-local extensions from `.embedagent/extensions/<name>/extension.json` when the manifest is explicitly enabled and declares permissions. Remote registries, plugin marketplaces, dependency installation, built-in tool replacement, and multi-agent orchestration remain out of scope.
 
@@ -69,7 +71,7 @@ Harness state refresh in the product adapter path goes through `CHarnessWorkflow
 ### Session Runtime Ownership
 
 - `ManagedSession` hosts thread/lock/status and durable `Session` references
-- one session-scoped `QueryEngine` is the facade and transcript/session mutation owner; `AgentLoop`, `AgentToolActionService`, and `AgentExtensionHost` own loop, action, and extension dispatch internals
+- one session-scoped `QueryEngine` is the facade and transcript/session mutation owner; `AgentKernel`, `AgentLifecycleJournal`, `AgentLoop`, `AgentToolActionService`, and `AgentExtensionHost` own lifecycle, journal, loop, action, and extension dispatch internals
 - `InProcessAdapter` is a host/bridge layer and must not mint duplicate workflow identities
 - `SessionSnapshotProjector` and `SessionHistoryAssembler` are projections, not workflow truth
 - `SessionSnapshotProjector` reads the generic workflow projection, not default harness internals
@@ -298,4 +300,4 @@ That program keeps learning from Pi at two levels:
 
 The intended long-term direction is that Agent Core can be described without C/C++ workflow vocabulary. The bundled C/C++ harness remains the default product workflow, but it should continue moving toward a first-party workflow package loaded through the same capability boundary as other local extensions.
 
-This is a gradual direction, not a statement that the target state is fully implemented. Phase A durable operation reducers are complete, and Phase B has closed the extension hook bus boundary with `AgentEventBus`. Near-term changes should preserve the current hosted behavior while extracting a real AgentKernel lifecycle boundary.
+This is a gradual direction, not a statement that the target state is fully implemented. Phase A durable operation reducers, Phase B extension hook bus dispatch, and Phase C AgentKernel lifecycle extraction are complete. Near-term changes should preserve the current hosted behavior while moving more default C/C++ workflow package behavior behind the same capability boundary.

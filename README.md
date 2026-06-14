@@ -16,7 +16,7 @@ The repository now treats Agent Core as the workflow-neutral runtime, with the C
 
 Local offline self-extension is part of the official architecture: workspace file resources and manifest-gated project-local Python extensions can extend the hosted runtime while remote registries, online installs, dependency installation, plugin marketplaces, built-in tool replacement, and general multi-agent orchestration remain outside the product baseline.
 
-The next long-term architecture direction is captured in `docs/pi-inspired-agent-core-blueprint.md`: continue learning from Pi's functional design and architecture philosophy while preserving EmbedAgent's offline, Windows 7, Python 3.8, and C/C++ engineering constraints. The current baseline remains valid; the blueprint guides gradual work toward a smaller Agent Kernel, durable session-log reducers, source-aware hooks, and a default C/C++ workflow package loaded through the same capability boundary as local extensions. Phase A durable operation truth is complete. Phase B has closed the extension hook bus boundary with an internal `AgentEventBus`; Phase C should now focus on AgentKernel lifecycle extraction.
+The next long-term architecture direction is captured in `docs/pi-inspired-agent-core-blueprint.md`: continue learning from Pi's functional design and architecture philosophy while preserving EmbedAgent's offline, Windows 7, Python 3.8, and C/C++ engineering constraints. The current baseline remains valid; the blueprint guides gradual work toward a smaller Agent Kernel, durable session-log reducers, source-aware hooks, and a default C/C++ workflow package loaded through the same capability boundary as local extensions. Phase A durable operation truth, Phase B source-aware extension hook dispatch, and Phase C AgentKernel lifecycle extraction are complete. The next architecture work should move more default C/C++ workflow behavior behind the bundled workflow package.
 
 - User-visible modes: `explore`, `spec`, `build`, `debug`, `verify`
 - Default C/C++ execution model: `mode + discipline_profile + execution_phase`
@@ -29,7 +29,7 @@ The next long-term architecture direction is captured in `docs/pi-inspired-agent
 - Mode allowed-tool contracts are workflow-neutral; default harness tools are activated by the built-in C/C++ workflow extension
 - Official file discovery: `list_dir`, `glob_files`, `grep_text`
 - Official permission engine: `PermissionPolicy` with structured rule matching and stable explanation text
-- Official session runtime ownership: one session-scoped `QueryEngine` remains the facade and transcript/session mutation owner, while `AgentLoop`, `AgentToolActionService`, and `AgentExtensionHost` own turn orchestration, non-LLM tool action execution, and extension hook dispatch
+- Official session runtime ownership: one session-scoped `QueryEngine` remains the facade and transcript/session mutation owner, while `AgentLifecycleJournal`, `AgentKernel`, `AgentLoop`, `AgentToolActionService`, and `AgentExtensionHost` own durable lifecycle writes, turn frames and suspend/resume boundaries, turn-loop orchestration, non-LLM tool action execution, and extension hook dispatch
 - Official workflow extension hosting: `InProcessAdapter` owns one `ExtensionManager` shared with session-scoped `QueryEngine` and frontend tool catalog visibility
 - Official extension runtime direction: `ExtensionManager` is the shared in-process capability boundary for workflow defaults, prompt/context hooks, tool-call/tool-result hooks, resource discovery contracts, dynamic in-process tool registration, extension diagnostics, and manifest-gated project-local Python extensions. Internally, public extension hook families dispatch through the source-aware `AgentEventBus` with event-specific reducer semantics and diagnostics.
 - Official local resources: `.embedagent/skills`, `.embedagent/prompts`, and `.embedagent/recipes` are discovered as workspace-bound file resources and can be refreshed through `ToolRuntime.reload_resources()`, `InProcessAdapter.reload_resources(...)`, `/resources reload`, or `POST /api/sessions/{id}/resources/reload`
@@ -61,8 +61,12 @@ The product no longer treats the old `code` mode or `manage_todos`-style workflo
 
 - `src/embedagent/query_engine.py`
   The session-scoped facade that owns session initialization, interaction suspend/resume, transcript integration, and live session mutation.
+- `src/embedagent/agent_lifecycle.py`
+  Durable lifecycle journal for schema v2 operation events, save points, pending interaction lifecycle, and context operation payload helpers.
+- `src/embedagent/agent_kernel.py`
+  Internal lifecycle kernel for turn frames and pending interaction creation/resolution boundaries.
 - `src/embedagent/agent_loop.py`
-  Thin turn-loop boundary used by `QueryEngine` to run the LLM/tool loop without making the facade own every loop detail.
+  Turn-loop owner for agent steps, provider/context attempts, compact retry, tool batches, guard stops, abort transitions, and max-turn termination.
 - `src/embedagent/agent_tool_action_service.py`
   Non-LLM action executor for active-tool checks, extension pre/post hooks, permission-gated runtime dispatch, path write guards, and extension-owned tool calls.
 - `src/embedagent/agent_extension_host.py`
@@ -148,6 +152,9 @@ Current architecture cutover status:
 - Agent core ownership cutover: completed
 - Frontend/protocol officialization: completed
 - Session-history single-source cutover: completed
+- Pi-inspired minimal Core Phase A durable operation log: completed
+- Pi-inspired minimal Core Phase B HookBus/reducer registry: completed
+- Pi-inspired minimal Core Phase C AgentKernel lifecycle extraction: completed
 - Remaining work: keep deleting stale shell-only labels/helpers and keep validating on real C projects and Win7 bundle targets
 
 ## Verification

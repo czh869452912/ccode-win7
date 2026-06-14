@@ -25,7 +25,7 @@ It does that by separating three concerns:
 - internal `discipline_profile`
 - internal `execution_phase`
 
-Execution ownership is concentrated in one session-scoped `QueryEngine` facade. `AgentLoop` owns turn-loop orchestration behind it, while `AgentToolActionService` owns non-LLM tool action execution and `AgentExtensionHost` owns extension dispatch. Harness updates workflow truth inside that engine-owned session through the default workflow extension; it is not a second runtime.
+Execution ownership is concentrated in one session-scoped `QueryEngine` facade. `AgentKernel` owns turn frames and pending interaction lifecycle boundaries, `AgentLifecycleJournal` owns durable lifecycle operation writes and save points, `AgentLoop` owns turn-loop orchestration, `AgentToolActionService` owns non-LLM tool action execution, and `AgentExtensionHost` owns extension dispatch. Harness updates workflow truth inside that engine-owned session through the default workflow extension; it is not a second runtime.
 
 ## 3. Official Modes
 

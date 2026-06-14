@@ -1,6 +1,6 @@
 # EmbedAgent 设计与变更跟踪
 
-> 更新日期：2026-06-13
+> 更新日期：2026-06-14
 > 用途：记录关键设计变更、影响范围、关联文档和后续动作
 
 ---
@@ -43,6 +43,39 @@
 ---
 
 ## 3. 当前变更记录
+
+### DC-137
+
+- 日期：2026-06-14
+- 变更主题：Pi-inspired minimal Core Phase C AgentKernel lifecycle extraction 收口
+- 变更摘要：
+  - 新增 `AgentLifecycleJournal`，集中 schema v2 lifecycle operation 写入、transition save point、pending interaction lifecycle、context operation payload helper
+  - 新增 `AgentKernel` / `AgentTurnFrame`，统一 user、command、resume turn frame，并把 permission/user-input pending 创建与 resolution 边界迁出 `QueryEngine`
+  - `AgentLoop` 从 runner callback 包装器升级为 turn-loop owner，负责 agent step lifecycle、context/provider attempt、compact retry、tool batch interruption、guard-stop、abort 与 max-turn transition
+  - `QueryEngine` 保持 session-scoped facade 与 transcript/session mutation 兼容面，但不再拥有 `_run_loop_impl`
+  - Phase C working design/plan 已从 `docs/superpowers/` 归档到 `docs/archive/phase-c-agent-kernel/`
+- 影响范围：
+  - `src/embedagent/agent_lifecycle.py`
+  - `src/embedagent/agent_kernel.py`
+  - `src/embedagent/agent_loop.py`
+  - `src/embedagent/query_engine.py`
+  - `tests/test_agent_lifecycle.py`
+  - `tests/test_query_engine_refactor.py`
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/pi-inspired-agent-core-blueprint.md`
+  - `docs/development-tracker.md`
+  - `docs/design-change-log.md`
+- 关联文档：
+  - `docs/pi-inspired-agent-core-blueprint.md`
+  - `docs/archive/phase-c-agent-kernel/2026-06-14-phase-c-agent-kernel-design.md`
+  - `docs/archive/phase-c-agent-kernel/2026-06-14-phase-c-agent-kernel.md`
+- 是否需要 ADR：`否，本次是已批准 Phase C 的内部 lifecycle boundary extraction；公共 extension API 与 frontend protocol 未变`
+- 后续动作：
+  - 启动 Phase D default C/C++ workflow package 设计
+  - 继续保持 `AgentToolActionService`、`AgentExtensionHost`、`AgentEventBus` 与 `AgentKernel` 的边界清晰，避免把 lifecycle 或 workflow package 逻辑加回 `QueryEngine`
 
 ### DC-136
 

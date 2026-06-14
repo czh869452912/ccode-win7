@@ -85,7 +85,7 @@ The repository now has one official architecture vocabulary.
 
 The current baseline remains authoritative. `docs/pi-inspired-agent-core-blueprint.md` is the long-term target blueprint for making Agent Core more Pi-like in both function and philosophy: smaller kernel, durable session-log reducers, source-aware hooks, explicit turn snapshots, replaceable workflow packages, and local self-extension.
 
-Do not treat blueprint target terms such as `AgentKernel`, `SessionLog`, or `HookBus` as implemented public APIs until a specific implementation slice lands and updates the source-of-truth docs. `AgentEventBus` is now the internal source-aware event/reducer boundary for public extension hook dispatch; it is not a public extension API. Near-term work must preserve the hosted C/C++ product behavior while extracting AgentKernel lifecycle boundaries gradually.
+Do not treat blueprint target terms such as `SessionLog` or public `HookBus` as implemented public APIs until a specific implementation slice lands and updates the source-of-truth docs. `AgentEventBus` is now the internal source-aware event/reducer boundary for public extension hook dispatch; it is not a public extension API. `AgentLifecycleJournal`, `AgentKernel`, and `AgentLoop` are implemented internal lifecycle boundaries, not public extension APIs. Near-term work must preserve the hosted C/C++ product behavior while moving the default C/C++ workflow package behind the same capability boundary.
 
 ### Modes
 
@@ -118,7 +118,7 @@ Local offline self-extension is an official architecture capability, limited to 
 
 `AgentExtensionHost` is the QueryEngine-side extension dispatch boundary. `QueryEngine` must not scatter direct `ExtensionManager` hook calls for prompt injection, context patching, dynamic tool registration, active-tool schema projection, tool-call hooks, tool-result hooks, or extension-owned tool handling.
 
-`AgentToolActionService` owns non-LLM tool action execution behind `QueryEngine`: active-tool checks, extension pre/post hooks, `PermissionPolicy` evaluation, path write guards, runtime dispatch, and extension-owned tool calls. `AgentLoop` owns turn-loop orchestration behind the session facade. `QueryEngine` remains the session-scoped facade and transcript/session mutation owner.
+`AgentLifecycleJournal` owns durable lifecycle event emission, transition save points, pending interaction lifecycle operation events, and context operation payload helpers. `AgentKernel` owns turn frames plus pending interaction creation/resolution boundaries. `AgentToolActionService` owns non-LLM tool action execution behind `QueryEngine`: active-tool checks, extension pre/post hooks, `PermissionPolicy` evaluation, path write guards, runtime dispatch, and extension-owned tool calls. `AgentLoop` owns turn-loop orchestration behind the session facade, including agent steps, provider/context attempts, compact retry, guard-stop, abort, and max-turn transitions. `QueryEngine` remains the session-scoped facade and transcript/session mutation owner.
 
 Default extension assembly lives in `src/embedagent/default_extensions.py`. `QueryEngine` must not import or construct `CHarnessWorkflowExtension`; direct `QueryEngine` tests or hosts that need default C/C++ behavior must pass an explicit `ExtensionManager`.
 
@@ -186,7 +186,7 @@ Official durable operation truth is:
 - schema v2 `operation_finished`
 - schema v2 `operation_interrupted`
 
-`OperationLogReducer` must derive operation state only from those explicit lifecycle events. `step_started`, `tool_call`, `tool_result`, and `loop_transition` remain session replay/history events; do not reintroduce operation-state inference from them. Current `QueryEngine` operation families include turns, agent steps, context assembly, context snapshots, provider requests, tool calls, pending interactions, workflow patches, and save points. Restore-time projections close unfinished operations as interrupted; live session snapshots must preserve unfinished operations as active. Session snapshots may expose `operation_diagnostics` projected from the same reducer state; operation diagnostics remain diagnostic state, not a second session-history source.
+`OperationLogReducer` must derive operation state only from those explicit lifecycle events. `step_started`, `tool_call`, `tool_result`, and `loop_transition` remain session replay/history events; do not reintroduce operation-state inference from them. Current lifecycle operation families include turns, agent steps, context assembly, context snapshots, provider requests, tool calls, pending interactions, workflow patches, and save points. Restore-time projections close unfinished operations as interrupted; live session snapshots must preserve unfinished operations as active. Session snapshots may expose `operation_diagnostics` projected from the same reducer state; operation diagnostics remain diagnostic state, not a second session-history source.
 
 ## Mode Policy
 

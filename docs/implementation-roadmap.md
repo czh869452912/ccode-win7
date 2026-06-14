@@ -54,8 +54,11 @@ Recent workflow-boundary work has started slimming Agent Core without changing t
 - manifest-gated project-local Python extensions can be loaded from enabled `.embedagent/extensions/<name>/extension.json` manifests by hosted product paths and are registered into the shared `ExtensionManager`
 - `AgentExtensionHost` now centralizes QueryEngine-side extension dispatch, dynamic tool registration, extension-aware active schema projection, context patches, tool-call hooks, tool-result hooks, workflow patches, and extension-owned tool handling
 - `AgentEventBus` now provides the internal source-aware observer/reducer boundary for public extension hook dispatch while the public extension APIs remain unchanged
+- `AgentLifecycleJournal` now owns durable lifecycle operation writes, transition save points, pending interaction lifecycle operation events, and context operation payload helpers
+- `AgentKernel` now owns user/command/resume turn frames and pending interaction create/resolve boundaries behind the session facade
 - `AgentToolActionService` now owns non-LLM tool action execution, including active-tool checks, extension pre/post hooks, `PermissionPolicy`, path write guards, runtime dispatch, and extension-owned tool calls
-- `AgentLoop` now provides the turn-loop boundary behind `QueryEngine`, while `QueryEngine` remains the session-scoped facade and transcript/session mutation owner
+- `AgentLoop` now owns turn-loop orchestration behind `QueryEngine`, including agent steps, context/provider attempts, compact retry, tool batch interruption, guard stops, abort, and max-turn transitions; `QueryEngine` no longer owns `_run_loop_impl`
+- Pi-inspired minimal Core Phase A durable operation log, Phase B HookBus/reducer registry, and Phase C AgentKernel lifecycle extraction are complete
 - Slice 6 completed the documentation cutover for self-extensible Agent Core: active source-of-truth docs and module docs now treat local offline self-extension as official architecture while keeping marketplaces, online installs, dependency installation, built-in tool replacement, and multi-agent orchestration out of scope
 - `HarnessStateSynchronizer` has been removed; product refresh uses `CHarnessWorkflowExtension.refresh_managed_session()` through the default harness extension directly
 - `StreamingToolExecutor` now window-schedules parallel read batches so failure/discard semantics are deterministic
@@ -100,14 +103,16 @@ The current self-extensible Agent Core baseline remains valid. The next program 
    - attach source metadata, cleanup, diagnostics, and reload behavior to registrations
    - keep built-in workflow extensions and project-local extensions on the same internal event boundary
    - current implementation status: Phase B is complete for extension hook dispatch; `ExtensionManager` routes public hook families through `AgentEventBus` and preserves existing public extension APIs
-   - next lifecycle work belongs to Phase C: use the bus boundary when extracting AgentKernel turn snapshots, save points, cleanup, and lifecycle observers
 
 3. **AgentKernel lifecycle extraction**
-   - turn `AgentLoop` from a thin wrapper into the owner of turn snapshots, save points, suspend/resume, abort, compact retry, and failure cleanup
-   - keep `QueryEngine` as the session facade and compatibility surface while shrinking direct orchestration logic
-   - keep non-LLM action execution behind `AgentToolActionService`
+   - current implementation status: Phase C is complete
+   - `AgentLifecycleJournal` owns durable lifecycle operation writes and save points
+   - `AgentKernel` owns turn frames and pending interaction create/resolve boundaries
+   - `AgentLoop` owns turn-loop orchestration and `QueryEngine` remains the session facade
+   - non-LLM action execution remains behind `AgentToolActionService`
 
 4. **Default C/C++ workflow package**
+   - next implementation phase
    - continue moving C/C++ task graph, prompts, recipes, quality gates, task status, and workflow tool activation behind the first-party bundled workflow package
    - keep frontend shells consuming generic workflow projections
    - ensure bare Agent Core can run without the C/C++ package
