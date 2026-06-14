@@ -69,3 +69,57 @@ def test_authoring_rejects_empty_names_invalid_permissions_and_no_overwrite(tmp_
     assert second.files[0].status == "skipped"
     assert overwrite.success is True
     assert overwrite.files[0].status == "written"
+
+
+def test_generated_recipe_updates_resource_snapshot_after_runtime_reload(tmp_path):
+    from embedagent.self_extension_authoring import (
+        AuthoringRequest,
+        SelfExtensionAuthoringService,
+    )
+    from embedagent.tools import ToolRuntime
+
+    runtime = ToolRuntime(str(tmp_path))
+    before_resources = runtime.local_resources()
+    result = SelfExtensionAuthoringService(str(tmp_path)).author(
+        AuthoringRequest(
+            kind="recipe",
+            name="Author Verify",
+            command="cmd /c echo author-verify",
+            recipe_action="test",
+        )
+    )
+    after_write_resources = runtime.local_resources()
+    reloaded = runtime.reload_resources(reason="authoring-test")
+    after_reload_resources = runtime.local_resources()
+    recipes = runtime.workspace_recipes()
+
+    assert result.success is True
+    assert before_resources["counts"]["recipes"] == 0
+    assert after_write_resources["counts"]["recipes"] == 0
+    assert reloaded["counts"]["recipes"] == 1
+    assert after_reload_resources["counts"]["recipes"] == 1
+    assert "local.author_verify" in [item["id"] for item in recipes["items"]]
+
+
+def test_generated_extension_is_disabled_and_not_imported(tmp_path):
+    from embedagent.project_extensions import load_project_extensions
+    from embedagent.self_extension_authoring import (
+        AuthoringRequest,
+        SelfExtensionAuthoringService,
+    )
+
+    result = SelfExtensionAuthoringService(str(tmp_path)).author(
+        AuthoringRequest(kind="extension", name="Safe Extension", summary="Safe by default.")
+    )
+    extension_py = tmp_path / ".embedagent" / "extensions" / "safe-extension" / "extension.py"
+    extension_py.write_text(
+        "raise RuntimeError('should not import while disabled')\n",
+        encoding="utf-8",
+    )
+
+    payload = load_project_extensions(str(tmp_path))
+
+    assert result.success is True
+    assert payload["counts"]["disabled"] == 1
+    assert payload["counts"]["loaded"] == 0
+    assert payload["diagnostics"] == []
