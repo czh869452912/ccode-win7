@@ -230,3 +230,42 @@ def test_project_extension_dynamic_tool_uses_existing_catalog_and_permission_flo
     assert entry["source_id"] == "project_tools"
     assert any(item["name"] == "project_echo" for item in catalog)
     assert result.data["echo"] == "hi"
+
+
+def test_project_extension_loading_does_not_invoke_dependency_installers(tmp_path, monkeypatch):
+    root = tmp_path / ".embedagent" / "extensions" / "sample"
+    root.mkdir(parents=True)
+    (root / "extension.json").write_text(
+        '{"id": "sample_extension", "enabled": true, "permissions": ["read"]}',
+        encoding="utf-8",
+    )
+    (root / "extension.py").write_text(
+        "\n".join(
+            [
+                "def create_extension(api):",
+                "    class SampleExtension(object):",
+                "        extension_id = api.extension_id",
+                "        builtin_extension = False",
+                "    return SampleExtension()",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    calls = []
+
+    def blocked(*args, **kwargs):
+        calls.append((args, kwargs))
+        raise AssertionError("extension loader must not invoke subprocess installers")
+
+    import subprocess
+
+    monkeypatch.setattr(subprocess, "run", blocked)
+    monkeypatch.setattr(subprocess, "Popen", blocked)
+
+    from embedagent.project_extensions import load_project_extensions
+
+    payload = load_project_extensions(str(tmp_path))
+
+    assert payload["counts"]["loaded"] == 1
+    assert calls == []

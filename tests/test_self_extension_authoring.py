@@ -123,3 +123,28 @@ def test_generated_extension_is_disabled_and_not_imported(tmp_path):
     assert payload["counts"]["disabled"] == 1
     assert payload["counts"]["loaded"] == 0
     assert payload["diagnostics"] == []
+
+
+def test_generated_extension_validation_recipe_uses_managed_python_command(tmp_path):
+    from embedagent.self_extension_authoring import (
+        AuthoringRequest,
+        SelfExtensionAuthoringService,
+    )
+
+    result = SelfExtensionAuthoringService(str(tmp_path)).author(
+        AuthoringRequest(kind="extension", name="Compile Check", summary="Validate code.")
+    )
+    recipe_path = (
+        tmp_path
+        / ".embedagent"
+        / "extensions"
+        / "compile-check"
+        / "recipes"
+        / "validate.json"
+    )
+    recipe = json.loads(recipe_path.read_text(encoding="utf-8"))
+
+    assert result.success is True
+    assert recipe["tool_name"] == "run_recipe"
+    assert recipe["recipe_action"] == "test"
+    assert recipe["command"].startswith("python -m py_compile ")
