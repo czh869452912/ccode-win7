@@ -122,3 +122,105 @@ class CapabilityRegistry(object):
 
     def snapshot(self) -> CapabilitySnapshot:
         return CapabilitySnapshot(self.descriptors())
+
+
+def runtime_tool_capability_descriptors(runtime: Any) -> List[CapabilityDescriptor]:
+    catalog = []
+    catalog_method = getattr(runtime, "catalog_entries", None)
+    if callable(catalog_method):
+        catalog = list(catalog_method() or [])
+    descriptors = []
+    for entry in catalog:
+        if not isinstance(entry, dict):
+            continue
+        name = _clean_text(entry.get("name"))
+        if not name:
+            continue
+        descriptors.append(
+            CapabilityDescriptor(
+                name=name,
+                kind="tool",
+                source_type=_clean_text(entry.get("source_type"), "runtime"),
+                source_id=_clean_text(entry.get("source_id"), "runtime"),
+                metadata=dict(entry),
+                active=False,
+            )
+        )
+    return descriptors
+
+
+def resource_capability_descriptors(resources: Dict[str, Any]) -> List[CapabilityDescriptor]:
+    descriptors = []
+    if not isinstance(resources, dict):
+        return descriptors
+    resource_groups = (
+        ("skills", "skill", "path"),
+        ("prompts", "prompt", "path"),
+        ("recipes", "recipe", "id"),
+    )
+    for group_name, source_id, name_key in resource_groups:
+        for item in list(resources.get(group_name) or []):
+            if not isinstance(item, dict):
+                continue
+            name = _clean_text(item.get(name_key))
+            if not name:
+                continue
+            metadata = dict(item)
+            metadata["resource_group"] = group_name
+            descriptors.append(
+                CapabilityDescriptor(
+                    name=name,
+                    kind="resource",
+                    source_type=_clean_text(item.get("source"), "local_resource"),
+                    source_id=source_id,
+                    metadata=metadata,
+                    active=True,
+                )
+            )
+    return sorted(descriptors, key=lambda item: item.key())
+
+
+def command_capability_descriptors(command_registry: Any) -> List[CapabilityDescriptor]:
+    specs_method = getattr(command_registry, "specs", None)
+    specs = list(specs_method() or []) if callable(specs_method) else []
+    descriptors = []
+    for spec in specs:
+        name = _clean_text(getattr(spec, "name", ""))
+        if not name:
+            continue
+        descriptors.append(
+            CapabilityDescriptor(
+                name=name,
+                kind="command",
+                source_type="builtin",
+                source_id="slash_commands",
+                metadata={
+                    "usage": str(getattr(spec, "usage", "") or ""),
+                    "summary": str(getattr(spec, "summary", "") or ""),
+                },
+                active=True,
+            )
+        )
+    return descriptors
+
+
+def model_profile_capability_descriptor(config_or_client: Any) -> CapabilityDescriptor:
+    model = ""
+    base_url = ""
+    if isinstance(config_or_client, dict):
+        model = _clean_text(config_or_client.get("model"))
+        base_url = _clean_text(config_or_client.get("base_url"))
+    else:
+        model = _clean_text(getattr(config_or_client, "model", ""))
+        base_url = _clean_text(getattr(config_or_client, "base_url", ""))
+    metadata = {}
+    if base_url:
+        metadata["base_url"] = base_url
+    return CapabilityDescriptor(
+        name=model or "default-model",
+        kind="model_profile",
+        source_type="configured",
+        source_id="llm",
+        metadata=metadata,
+        active=True,
+    )

@@ -8,6 +8,11 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional
 
+from embedagent.capabilities import (
+    CapabilityRegistry,
+    command_capability_descriptors,
+    model_profile_capability_descriptor,
+)
 from embedagent.context import ContextManager
 from embedagent.default_extensions import build_default_extension_set
 from embedagent.extensions import ExtensionContext, ToolRegistrationEvent
@@ -305,6 +310,15 @@ class InProcessAdapter(object):
             transcript_store=self.transcript_store,
             extension_manager=self.extension_manager,
         )
+
+    def capability_snapshot(self) -> Dict[str, Any]:
+        registry = CapabilityRegistry()
+        runtime_capabilities = getattr(self.tools, "capability_descriptors", None)
+        if callable(runtime_capabilities):
+            registry.extend(runtime_capabilities())
+        registry.extend(command_capability_descriptors(self.command_registry))
+        registry.register(model_profile_capability_descriptor(self.client))
+        return registry.snapshot().to_dict()
 
     def _tool_permission_category(self, tool_name: str) -> str:
         lookup = getattr(self.tools, "tool_catalog_entry", None)

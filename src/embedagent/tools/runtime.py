@@ -5,6 +5,10 @@ import re
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
+from embedagent.capabilities import (
+    resource_capability_descriptors,
+    runtime_tool_capability_descriptors,
+)
 from embedagent.modes import allowed_tools_for
 from embedagent.projection_db import ProjectionDb
 from embedagent.session import Observation
@@ -519,6 +523,11 @@ class ToolRuntime(object):
 
     def local_resources(self) -> Dict[str, Any]:
         return self._ctx.local_resources()
+
+    def capability_descriptors(self) -> List[Any]:
+        descriptors = runtime_tool_capability_descriptors(self)
+        descriptors.extend(resource_capability_descriptors(self.local_resources()))
+        return descriptors
 
     def workspace_recipes(self) -> Dict[str, Any]:
         return self._ctx.list_workspace_recipes()

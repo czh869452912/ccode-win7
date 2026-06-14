@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import List, Optional
 
+from embedagent.capabilities import command_capability_descriptors
+
 
 @dataclass
 class ParsedSlashCommand:
@@ -55,6 +57,9 @@ class SlashCommandRegistry(object):
 
     def get(self, name: str) -> Optional[SlashCommandSpec]:
         return _COMMAND_LOOKUP.get(str(name or "").strip().lower())
+
+    def capability_descriptors(self):
+        return command_capability_descriptors(self)
 
     def help_markdown(self) -> str:
         lines = [
