@@ -12,6 +12,12 @@ from embedagent.agent_kernel import AgentKernel
 from embedagent.agent_lifecycle import AgentLifecycleJournal
 from embedagent.agent_loop import AgentLoop
 from embedagent.agent_tool_action_service import AgentToolActionService
+from embedagent.capabilities import (
+    CapabilityRegistry,
+    model_profile_capability_descriptor,
+    resource_capability_descriptors,
+    runtime_tool_capability_descriptors,
+)
 from embedagent.context import ContextManager
 from embedagent.extensions import (
     ExtensionContext,
@@ -53,6 +59,7 @@ from embedagent.session_store import SessionSummaryStore
 from embedagent.tool_commit import ToolCommitCoordinator
 from embedagent.tools import ToolRuntime
 from embedagent.transcript_store import TranscriptStore
+from embedagent.turn_snapshot import TurnSnapshot, TurnSnapshotBuilder
 from embedagent.workspace_intelligence import WorkspaceIntelligenceBroker
 from embedagent.workspace_profile import build_workspace_profile_message
 
@@ -139,6 +146,8 @@ class QueryEngine(object):
             max_retries=_LLM_MAX_RETRIES,
             base_delay=_LLM_RETRY_BASE_DELAY,
         )
+        self._turn_snapshot_builder = TurnSnapshotBuilder()
+        self._last_turn_snapshot = None  # type: Optional[TurnSnapshot]
         self._session_lock = threading.RLock()
         self.lifecycle = AgentLifecycleJournal(
             append_event=self._append_transcript_event,
@@ -214,6 +223,9 @@ class QueryEngine(object):
     def stop(self) -> None:
         """Signal the current run() to stop at the earliest opportunity."""
         self._internal_stop_event.set()
+
+    def last_turn_snapshot(self) -> Optional[TurnSnapshot]:
+        return self._last_turn_snapshot
 
     def _session_guard(self):
         return self._session_lock
@@ -594,6 +606,66 @@ class QueryEngine(object):
         )
         return assembly
 
+    def _active_tool_names_from_schemas(self, tool_schemas: list) -> list:
+        names = []
+        for schema in list(tool_schemas or []):
+            if not isinstance(schema, dict):
+                continue
+            function = schema.get("function")
+            if not isinstance(function, dict):
+                continue
+            name = str(function.get("name") or "").strip()
+            if name:
+                names.append(name)
+        return sorted(set(names))
+
+    def _capability_snapshot_for_provider(self, active_tool_names: list) -> Dict[str, Any]:
+        registry = CapabilityRegistry()
+        registry.extend(runtime_tool_capability_descriptors(self.tools))
+        local_resources = {}
+        local_resources_method = getattr(self.tools, "local_resources", None)
+        if callable(local_resources_method):
+            local_resources = local_resources_method()
+        registry.extend(resource_capability_descriptors(local_resources))
+        registry.register(model_profile_capability_descriptor(self.client))
+
+        active_set = set(active_tool_names or [])
+        for descriptor in registry.descriptors(kind="tool"):
+            descriptor.active = descriptor.name in active_set
+            registry.register(descriptor)
+        return registry.snapshot().to_dict()
+
+    def _model_profile_snapshot(self) -> Dict[str, Any]:
+        descriptor = model_profile_capability_descriptor(self.client)
+        return {
+            "name": descriptor.name,
+            "source_type": descriptor.source_type,
+            "source_id": descriptor.source_id,
+            "metadata": dict(descriptor.metadata or {}),
+        }
+
+    def _runtime_environment_snapshot(self) -> Dict[str, Any]:
+        runtime_snapshot = getattr(self.tools, "runtime_environment_snapshot", None)
+        if not callable(runtime_snapshot):
+            return {}
+        return dict(runtime_snapshot() or {})
+
+    def _context_stats_for_snapshot(self, messages: list) -> Dict[str, Any]:
+        return {
+            "message_count": len(messages or []),
+        }
+
+    def _turn_snapshot_metadata(self, snapshot: TurnSnapshot) -> Dict[str, Any]:
+        capabilities = dict(snapshot.capabilities or {})
+        return {
+            "snapshot_id": snapshot.snapshot_id,
+            "mode_name": snapshot.mode_name,
+            "workflow_state": snapshot.workflow_state,
+            "active_tool_names": list(snapshot.active_tool_names),
+            "model_profile": dict(snapshot.model_profile or {}),
+            "capability_counts": dict(capabilities.get("counts") or {}),
+        }
+
     def _call_provider_operation(
         self,
         session: Session,
@@ -608,6 +680,24 @@ class QueryEngine(object):
         on_text_delta: Optional[Callable[[str], None]],
         on_reasoning_delta: Optional[Callable[[str], None]],
     ) -> AssistantReply:
+        active_tool_names = self._active_tool_names_from_schemas(tool_schemas)
+        capabilities = self._capability_snapshot_for_provider(active_tool_names)
+        snapshot = self._turn_snapshot_builder.build(
+            session_id=session.session_id,
+            turn_id=turn_id,
+            step_id=step_id,
+            mode_name=current_mode,
+            workflow_state=workflow_state,
+            messages=messages,
+            tool_schemas=tool_schemas,
+            active_tool_names=active_tool_names,
+            model_profile=self._model_profile_snapshot(),
+            runtime_environment=self._runtime_environment_snapshot(),
+            capabilities=capabilities,
+            context_stats=self._context_stats_for_snapshot(messages),
+        )
+        self._last_turn_snapshot = snapshot
+        snapshot_metadata = self._turn_snapshot_metadata(snapshot)
         self._emit_operation_started(
             session,
             operation_id,
@@ -619,15 +709,16 @@ class QueryEngine(object):
             metadata={
                 "mode_name": current_mode,
                 "workflow_state": workflow_state,
-                "message_count": len(messages),
-                "tool_schema_count": len(tool_schemas),
+                "message_count": len(snapshot.messages),
+                "tool_schema_count": len(snapshot.tool_schemas),
                 "stream": bool(stream),
+                "turn_snapshot": snapshot_metadata,
             },
         )
         try:
             reply = self._call_llm_with_retry(
-                messages,
-                tool_schemas,
+                snapshot.messages,
+                snapshot.tool_schemas,
                 stream,
                 on_text_delta,
                 on_reasoning_delta,
@@ -660,7 +751,10 @@ class QueryEngine(object):
             kind="provider_request",
             turn_id=turn_id,
             step_id=step_id,
-            result=self._provider_operation_result(reply),
+            result=dict(
+                self._provider_operation_result(reply),
+                turn_snapshot=snapshot_metadata,
+            ),
         )
         return reply
 

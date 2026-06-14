@@ -233,6 +233,23 @@ class FakeClient(object):
         return reply
 
 
+class SnapshotInspectingClient(object):
+    def __init__(self):
+        self.messages = []
+        self.tools = []
+
+    def generate(self, messages, tools=None):
+        self.messages.append(messages)
+        self.tools.append(tools or [])
+        return AssistantReply(content="done", actions=[], finish_reason="stop")
+
+    def stream(self, messages, tools=None, on_text_delta=None, on_reasoning_delta=None):
+        reply = self.generate(messages, tools=tools)
+        if on_text_delta is not None:
+            on_text_delta(reply.content)
+        return reply
+
+
 class UnsafeToolCallIdClient(object):
     def __init__(self):
         self.calls = 0
@@ -820,6 +837,67 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertTrue(savepoint_start["operation_id"].startswith("savepoint:"))
         self.assertTrue(savepoint_finish["operation_id"].startswith("savepoint:"))
         self.assertEqual(savepoint_finish["result"]["reason"], "completed")
+
+    def test_provider_request_consumes_turn_snapshot_and_records_safe_metadata(self):
+        transcript_store = TranscriptStore(self.workspace)
+        client = SnapshotInspectingClient()
+        engine = QueryEngine(
+            client=client,
+            tools=self.tools,
+            permission_policy=PermissionPolicy(
+                auto_approve_all=True,
+                workspace=self.workspace,
+            ),
+            transcript_store=transcript_store,
+            max_turns=1,
+        )
+        session = Session()
+        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：build")
+
+        result = engine.submit_user_turn(
+            user_text="检查项目",
+            stream=False,
+            initial_mode="build",
+            session=session,
+        )
+
+        snapshot = engine.last_turn_snapshot()
+        self.assertEqual(result.transition.reason, "completed")
+        self.assertEqual(len(client.messages), 1)
+        self.assertIsNotNone(snapshot)
+        self.assertEqual(client.messages[0], snapshot.messages)
+        self.assertEqual(client.tools[0], snapshot.tool_schemas)
+        self.assertIn("read_file", snapshot.active_tool_names)
+
+        events = transcript_store.load_events(session.session_id)
+        started = [
+            item["payload"]
+            for item in events
+            if item["type"] == "operation_started"
+            and item["payload"].get("kind") == "provider_request"
+        ]
+        finished = [
+            item["payload"]
+            for item in events
+            if item["type"] == "operation_finished"
+            and item["payload"].get("kind") == "provider_request"
+        ]
+
+        metadata = started[0]["metadata"]
+        result_payload = finished[0]["result"]
+
+        self.assertTrue(metadata["turn_snapshot"]["snapshot_id"].startswith("ts-"))
+        self.assertEqual(
+            metadata["turn_snapshot"]["active_tool_names"],
+            sorted(snapshot.active_tool_names),
+        )
+        self.assertIn("capability_counts", metadata["turn_snapshot"])
+        self.assertEqual(
+            result_payload["turn_snapshot"]["snapshot_id"],
+            metadata["turn_snapshot"]["snapshot_id"],
+        )
+        self.assertNotIn("messages", metadata["turn_snapshot"])
+        self.assertNotIn("tool_schemas", metadata["turn_snapshot"])
 
     def test_query_engine_emits_turn_operation_lifecycle(self):
         transcript_store = TranscriptStore(self.workspace)
