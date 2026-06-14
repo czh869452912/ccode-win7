@@ -11,13 +11,8 @@ from embedagent.session import Observation
 from embedagent.strategies.tool_cache import ToolResultCache
 from embedagent.session import Action
 from embedagent.tool_result_store import ToolResultStore
-from embedagent.tooling.packs import pack_tool_names
 from embedagent.tools import compile_ops, discovery_ops, file_ops, git_ops, shell_ops
 from embedagent.tools._base import ToolContext, ToolDefinition, ToolError
-from embedagent.tools.harness_runtime import (
-    OFFICIAL_HARNESS_TOOL_METADATA,
-    OfficialRuntimeModes,
-)
 
 _VALID_TOOL_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 _REGISTERABLE_PERMISSION_CATEGORIES = set(
@@ -240,8 +235,71 @@ _DEFAULT_TOOL_METADATA = {
         "activity_kind": "command",
         "context_priority": 87,
     },
+    "list_dir": {
+        "permission_category": "read",
+        "mode_visibility": ["build", "debug", "explore", "spec", "verify"],
+        "workflow_visibility": ["chat", "plan", "review", "command"],
+        "user_label": "List Dir",
+        "progress_renderer_key": "list",
+        "result_renderer_key": "list",
+        "supports_diff_preview": False,
+        "context_reducer_key": "list_dir",
+        "read_only": True,
+        "concurrency_safe": True,
+        "interrupt_behavior": "block",
+        "result_budget_policy": "compact-preview",
+        "activity_kind": "list",
+        "context_priority": 72,
+    },
+    "glob_files": {
+        "permission_category": "read",
+        "mode_visibility": ["build", "debug", "explore", "spec", "verify"],
+        "workflow_visibility": ["chat", "plan", "review", "command"],
+        "user_label": "Glob Files",
+        "progress_renderer_key": "search",
+        "result_renderer_key": "search",
+        "supports_diff_preview": False,
+        "context_reducer_key": "glob_files",
+        "read_only": True,
+        "concurrency_safe": True,
+        "interrupt_behavior": "block",
+        "result_budget_policy": "compact-preview",
+        "activity_kind": "search",
+        "context_priority": 78,
+    },
+    "grep_text": {
+        "permission_category": "read",
+        "mode_visibility": ["build", "debug", "explore", "spec", "verify"],
+        "workflow_visibility": ["chat", "plan", "review", "command"],
+        "user_label": "Grep Text",
+        "progress_renderer_key": "search",
+        "result_renderer_key": "search",
+        "supports_diff_preview": False,
+        "context_reducer_key": "grep_text",
+        "read_only": True,
+        "concurrency_safe": True,
+        "interrupt_behavior": "block",
+        "result_budget_policy": "compact-preview",
+        "activity_kind": "search",
+        "context_priority": 86,
+    },
+    "ask_user": {
+        "permission_category": "read",
+        "mode_visibility": ["explore", "spec", "build", "debug", "verify"],
+        "workflow_visibility": ["chat", "plan", "review", "command"],
+        "user_label": "Ask User",
+        "progress_renderer_key": "interaction",
+        "result_renderer_key": "interaction",
+        "supports_diff_preview": False,
+        "context_reducer_key": "ask_user",
+        "read_only": True,
+        "concurrency_safe": True,
+        "interrupt_behavior": "block",
+        "result_budget_policy": "compact-preview",
+        "activity_kind": "interaction",
+        "context_priority": 99,
+    },
 }
-_DEFAULT_TOOL_METADATA.update(OFFICIAL_HARNESS_TOOL_METADATA)
 
 
 class ToolRuntime(object):
@@ -260,7 +318,6 @@ class ToolRuntime(object):
             if cache is not None
             else ToolResultCache(tool_result_store=self.tool_result_store)
         )
-        self._mode_runtime = OfficialRuntimeModes()
         core_tools = (
             file_ops.build_tools(self._ctx)
             + discovery_ops.build_tools(self._ctx)
@@ -394,24 +451,6 @@ class ToolRuntime(object):
                     continue
             schemas.append(tool.schema())
         return schemas
-
-    def schemas_for_pack(self, pack_name: str) -> List[Dict[str, Any]]:
-        allowed = set(pack_tool_names(pack_name))
-        return [tool.schema() for name, tool in self._tools.items() if name in allowed]
-
-    def describe_mode(
-        self,
-        mode_name: str,
-        workflow_state: str = "chat",
-        current_phase: str = "",
-        observations: Optional[List[Observation]] = None,
-    ):
-        return self._mode_runtime.describe_mode(
-            mode_name,
-            workflow_state=workflow_state,
-            current_phase=current_phase,
-            observations=observations,
-        )
 
     def execute_for_mode(
         self,

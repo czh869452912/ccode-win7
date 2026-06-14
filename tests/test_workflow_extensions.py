@@ -420,6 +420,34 @@ def test_default_c_workflow_extension_registers_workflow_tools(tmp_path):
     assert "record_failing_evidence" in names
 
 
+def test_tool_runtime_no_longer_imports_harness_runtime_metadata():
+    source = (_REPO_ROOT / "src" / "embedagent" / "tools" / "runtime.py").read_text(
+        encoding="utf-8"
+    )
+
+    assert "OFFICIAL_HARNESS_TOOL_METADATA" not in source
+    assert "embedagent.tools.harness_runtime" not in source
+
+
+def test_default_c_workflow_tool_metadata_survives_package_registration(tmp_path):
+    from embedagent.default_extensions import build_default_extension_set
+    from embedagent.extensions import ExtensionContext, ToolRegistrationEvent
+    from embedagent.tools import ToolRuntime
+
+    runtime = ToolRuntime(str(tmp_path))
+    default_set = build_default_extension_set(runtime)
+    default_set.manager.register_tools(
+        ToolRegistrationEvent(current_mode="verify", workflow_state_name="chat", reason="test"),
+        ExtensionContext(workspace=str(tmp_path), tool_registry=runtime),
+    )
+
+    entry = runtime.tool_catalog_entry("run_recipe")
+    assert entry["permission_category"] == "toolchain_exec"
+    assert entry["source_type"] == "harness"
+    assert entry["activity_kind"] == "diagnostic"
+    assert entry["interrupt_behavior"] == "cancel"
+
+
 def test_tool_runtime_no_longer_exposes_legacy_schema_alias():
     source = (_REPO_ROOT / "src" / "embedagent" / "tools" / "runtime.py").read_text(
         encoding="utf-8"
