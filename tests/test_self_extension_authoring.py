@@ -4,6 +4,7 @@ import json
 
 
 def test_authors_skill_prompt_recipe_and_disabled_extension(tmp_path):
+    from embedagent.local_resources import discover_local_resources
     from embedagent.self_extension_authoring import (
         AuthoringRequest,
         SelfExtensionAuthoringService,
@@ -33,7 +34,13 @@ def test_authors_skill_prompt_recipe_and_disabled_extension(tmp_path):
     assert prompt.success is True
     assert recipe.success is True
     assert extension.success is True
-    assert (tmp_path / ".embedagent" / "skills" / "code-review.md").is_file()
+    skill_path = tmp_path / ".embedagent" / "skills" / "code-review.md"
+    assert skill_path.is_file()
+    skill_text = skill_path.read_text(encoding="utf-8")
+    assert skill_text.startswith("---\n")
+    assert "name: code-review\n" in skill_text
+    assert "description: Review local C changes.\n" in skill_text
+    assert "disable-model-invocation: false\n" in skill_text
     assert (tmp_path / ".embedagent" / "prompts" / "triage-prompt.md").is_file()
     assert (tmp_path / ".embedagent" / "recipes" / "local-verify.json").is_file()
     manifest_path = tmp_path / ".embedagent" / "extensions" / "project-echo" / "extension.json"
@@ -42,6 +49,10 @@ def test_authors_skill_prompt_recipe_and_disabled_extension(tmp_path):
     assert manifest["id"] == "project_echo"
     assert manifest["enabled"] is False
     assert manifest["permissions"] == ["read"]
+    resources = discover_local_resources(str(tmp_path))
+    assert resources["skills"][0]["name"] == "code-review"
+    assert resources["skills"][0]["description"] == "Review local C changes."
+    assert resources["skills"][0]["prompt_visible"] is True
 
 
 def test_authoring_rejects_empty_names_invalid_permissions_and_no_overwrite(tmp_path):

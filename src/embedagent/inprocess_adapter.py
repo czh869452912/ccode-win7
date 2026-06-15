@@ -55,6 +55,7 @@ from embedagent.services import (
     WorkspaceFileService,
 )
 from embedagent.query_engine import QueryEngine
+from embedagent.skills import expand_skill_invocation
 from embedagent.session_timeline import SessionTimelineStore
 from embedagent.slash_commands import ParsedSlashCommand, SlashCommandRegistry, parse_slash_command
 from embedagent.tools import ToolRuntime
@@ -1131,6 +1132,8 @@ class InProcessAdapter(object):
         parsed = parse_slash_command(text)
         if parsed is None:
             return {"handled": False, "continue_with_text": text}
+        if parsed.name.startswith("skill:"):
+            return self._dispatch_skill_command(state, parsed, event_handler)
         spec = self.command_registry.get(parsed.name)
         if spec is None:
             self._emit_command_result(
@@ -1165,6 +1168,30 @@ class InProcessAdapter(object):
             )
             return {"handled": True, "continue_with_text": ""}
         return handler(state, parsed, event_handler, permission_resolver)
+
+    def _dispatch_skill_command(
+        self,
+        state: ManagedSession,
+        parsed: ParsedSlashCommand,
+        event_handler: Optional[EventHandler],
+    ) -> Dict[str, Any]:
+        resources = self.tools.local_resources()
+        expanded_text, error = expand_skill_invocation(
+            "/%s %s" % (parsed.name, parsed.raw_args), resources, self.tools.workspace
+        )
+        if error:
+            self._emit_command_result(
+                event_handler,
+                state,
+                CommandResult(
+                    command_name=parsed.name,
+                    success=False,
+                    message=error,
+                    data={"raw_args": parsed.raw_args},
+                ),
+            )
+            return {"handled": True, "continue_with_text": ""}
+        return {"handled": True, "continue_with_text": expanded_text}
 
     def _handle_command_help(
         self,

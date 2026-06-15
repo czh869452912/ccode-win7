@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
 from embedagent.di_container import get_default_container
+from embedagent.skills import format_skills_for_prompt
 
 _LOG = logging.getLogger(__name__)
 
@@ -448,7 +449,7 @@ def get_writable_globs(mode_name: str, config=None) -> List[str]:
     return deduped
 
 
-def build_system_prompt(mode_name: str, config=None, workspace: str = "") -> str:
+def build_system_prompt(mode_name: str, config=None, workspace: str = "", local_resources=None) -> str:
     cfg = require_mode(mode_name)
     allowed_tools = list(cfg["allowed_tools"])  # type: ignore[index]
     writable_globs = get_writable_globs(mode_name, config)
@@ -470,6 +471,11 @@ def build_system_prompt(mode_name: str, config=None, workspace: str = "") -> str
     ctx = _load_project_context(workspace)
     if ctx:
         result += "\n\n## Project Context\n" + ctx
+    skills_prompt = ""
+    if isinstance(local_resources, dict):
+        skills_prompt = format_skills_for_prompt(list(local_resources.get("skills") or []))
+    if skills_prompt:
+        result += "\n\n## Local Skills\n" + skills_prompt
     return result
 
 

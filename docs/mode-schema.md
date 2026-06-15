@@ -24,7 +24,7 @@ EmbedAgent now has one official first-class mode set:
 
 Mode-contract tool lists are workflow-neutral. Default C/C++ harness tools such as `list_recipes`, `run_recipe`, `report_quality_v2`, `record_failing_evidence`, and `task_status` are registered runtime tools, but they are activated by the default C harness workflow extension and selected tool packs, not by the built-in mode schema itself.
 
-Local resource reload does not alter mode contracts. Reloaded recipe JSON resources still execute only through the existing `run_recipe` tool path and its current mode/permission checks.
+Local resource reload does not alter mode contracts. Reloaded recipe JSON resources still execute only through the existing `run_recipe` tool path and its current mode/permission checks. Reloaded skills may appear in system prompts or be explicitly expanded through `/skill:<name> [args]`, but that expansion is normal Markdown context and does not add tools to the mode.
 
 Reducer-backed runtime configuration does not alter mode contracts. `runtime_config.active_tool_names` records model-visible tool names after backend activation for diagnostics/replay, but future activation still flows through the mode contract plus `ExtensionManager` / `AgentExtensionHost`.
 

@@ -78,13 +78,17 @@ Registration does not make a tool active by itself. A dynamic tool appears in mo
 
 Workspace-local resources are file-only inputs to the runtime:
 
-- `.embedagent/skills/*.md` and `.embedagent/skills/*.txt`
+- `.embedagent/skills/*.md`, `.embedagent/skills/*.txt`, and directory-local `.embedagent/skills/<name>/SKILL.md`
 - `.embedagent/prompts/*.md` and `.embedagent/prompts/*.txt`
 - `.embedagent/recipes/*.json`
 
 `ToolRuntime.reload_resources()` refreshes the cached resource snapshot. Hosted product paths expose the same operation through `InProcessAdapter.reload_resources(...)`, `/resources reload`, and `POST /api/sessions/{session_id}/resources/reload`.
 
-Recipe JSON resources feed the existing `list_recipes` and `run_recipe` contract. Skills and prompts are discovered and surfaced with diagnostics, but they are not executed as project-local Python code. Reload appends transcript-backed `resource_discovered` and `resource_reloaded` events for session-scoped auditability. `resource_reloaded` advances reducer-backed local resource revision metadata; `resource_discovered` remains discovery/replay diagnostics and must not advance runtime resource revision.
+Recipe JSON resources feed the existing `list_recipes` and `run_recipe` contract. Skills and prompts are discovered and surfaced with diagnostics, but they are not executed as project-local Python code. Skill Markdown may include Agent Skills-style frontmatter (`name`, `description`, `disable-model-invocation`). Skills with valid names, descriptions, and no disable flag are listed in system prompts as available skills; disabled skills remain discoverable resources but are omitted from model-invocation listings.
+
+`/skill:<name> [args]` is an explicit local skill invocation command. It resolves the named workspace-bound skill resource, strips frontmatter, wraps the Markdown body in a `<skill ...>` context block, appends optional args, and continues as a normal user turn. It does not execute code, load project extensions, grant permissions, or bypass active-tool policy.
+
+Reload appends transcript-backed `resource_discovered` and `resource_reloaded` events for session-scoped auditability. `resource_reloaded` advances reducer-backed local resource revision metadata; `resource_discovered` remains discovery/replay diagnostics and must not advance runtime resource revision.
 
 ## Project-Local Python Extensions
 

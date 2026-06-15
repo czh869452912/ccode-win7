@@ -99,14 +99,20 @@ class SelfExtensionAuthoringService(object):
         request: AuthoringRequest,
         diagnostics: List[Dict[str, Any]],
     ) -> List[AuthoredFile]:
+        description = request.summary or "Describe the local skill purpose."
         content = (
+            "---\n"
+            "name: %s\n"
+            "description: %s\n"
+            "disable-model-invocation: false\n"
+            "---\n\n"
             "# %s\n\n"
             "## Purpose\n\n%s\n\n"
             "## When To Use\n\nDescribe when this local skill should guide the agent.\n\n"
             "## Inputs\n\n- Workspace context\n- User request\n\n"
             "## Output Contract\n\nState the expected output clearly.\n\n"
             "## Validation\n\nReload local resources after editing this file.\n"
-        ) % (name, request.summary or "Describe the local skill purpose.")
+        ) % (slug, _frontmatter_value(description), name, description)
         return [
             self._write_file(
                 ".embedagent/skills/%s.md" % slug,
@@ -278,6 +284,11 @@ def _failed(kind: str, name: str, slug: str, error: str) -> AuthoringResult:
 def _slugify(name: str) -> str:
     text = re.sub(r"[^A-Za-z0-9]+", "-", str(name or "").strip().lower())
     return text.strip("-")
+
+
+def _frontmatter_value(value: str) -> str:
+    text = str(value or "").replace("\r", " ").replace("\n", " ").strip()
+    return text or "Describe the local skill purpose."
 
 
 def _resolve_inside(workspace: str, relative_path: str) -> str:

@@ -4,11 +4,12 @@ import json
 import os
 from typing import Any, Dict, List, Optional
 
+from embedagent.skills import discover_skill_resources
+
 DEFAULT_SKILL_RELPATH = os.path.join(".embedagent", "skills")
 DEFAULT_PROMPT_RELPATH = os.path.join(".embedagent", "prompts")
 DEFAULT_RECIPE_RELPATH = os.path.join(".embedagent", "recipes")
 
-SKILL_EXTENSIONS = (".md", ".txt")
 PROMPT_EXTENSIONS = (".md", ".txt")
 RECIPE_EXTENSIONS = (".json",)
 
@@ -40,11 +41,10 @@ def discover_local_resources(
         diagnostics,
         "recipe",
     )
-    skills = _discover_text_resources(
+    skills = discover_skill_resources(
         workspace_root,
         resolved_skill_paths,
-        SKILL_EXTENSIONS,
-        "skill",
+        diagnostics,
     )
     prompts = _discover_text_resources(
         workspace_root,

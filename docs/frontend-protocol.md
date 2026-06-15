@@ -59,7 +59,7 @@ Important session snapshot fields include:
 
 `task_items` is the official frontend task list payload.
 
-`extensions.local_resources` may contain the latest file-only resource reload state, including counts and diagnostics for `.embedagent/skills`, `.embedagent/prompts`, and `.embedagent/recipes`.
+`extensions.local_resources` may contain the latest file-only resource reload state, including counts and diagnostics for `.embedagent/skills`, `.embedagent/prompts`, and `.embedagent/recipes`. Skill resource entries may include Agent Skills-style metadata such as `name`, `description`, `base_dir`, `disable_model_invocation`, and `prompt_visible`.
 
 `extensions.project_extensions` may contain the hosted adapter's latest project extension load state, including counts, manifest entries, and loader diagnostics for `.embedagent/extensions/<name>/extension.json`.
 
@@ -119,6 +119,8 @@ Key routes include:
 `POST /api/sessions/{session_id}/resume` should preserve the restored session mode unless the caller explicitly supplies a mode override.
 
 `POST /api/sessions/{session_id}/resources/reload` refreshes local file resources for the session and returns the backend resource snapshot. It is not a plugin execution endpoint.
+
+`/skill:<name> [args]` is handled through the normal message submission path, not a separate HTTP endpoint. On success the backend expands the workspace-bound skill Markdown into the user turn; on failure it emits a normal `command_result` for the skill command.
 
 ## 5. WebSocket Event Types
 

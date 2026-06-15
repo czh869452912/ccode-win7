@@ -972,6 +972,18 @@ class QueryEngine(object):
                 },
             )
 
+    def _build_system_prompt(self, mode_name: str) -> str:
+        resources = {}
+        local_resources = getattr(self.tools, "local_resources", None)
+        if callable(local_resources):
+            resources = local_resources()
+        return build_system_prompt(
+            mode_name,
+            getattr(self.tools, "app_config", None),
+            getattr(self.tools, "workspace", ""),
+            local_resources=resources,
+        )
+
     def initialize_session(
         self, session: Session, initial_mode: str, workflow_state: str = "chat", user_text: str = ""
     ) -> str:
@@ -998,9 +1010,7 @@ class QueryEngine(object):
                 build_workspace_profile_message(self.tools.workspace, session.session_id)
             )
             system_message = session.add_system_message(
-                build_system_prompt(
-                    current_mode, getattr(self.tools, "app_config", None), self.tools.workspace
-                )
+                self._build_system_prompt(current_mode)
             )
             self._append_transcript_event(
                 session,
@@ -1041,9 +1051,7 @@ class QueryEngine(object):
             harness_prompt = None
         with self._session_guard():
             mode_message = session.add_system_message(
-                build_system_prompt(
-                    current_mode, getattr(self.tools, "app_config", None), self.tools.workspace
-                )
+                self._build_system_prompt(current_mode)
             )
             self._append_message_event(
                 session,
@@ -1954,11 +1962,7 @@ class QueryEngine(object):
                 if target_mode != current_mode:
                     with self._session_guard():
                         mode_message = session.add_system_message(
-                            build_system_prompt(
-                                target_mode,
-                                getattr(self.tools, "app_config", None),
-                                getattr(self.tools, "workspace", ""),
-                            )
+                            self._build_system_prompt(target_mode)
                         )
                         self._append_message_event(
                             session,
@@ -2010,11 +2014,7 @@ class QueryEngine(object):
                 mode_changed = True
                 with self._session_guard():
                     mode_message = session.add_system_message(
-                        build_system_prompt(
-                            selected_mode,
-                            getattr(self.tools, "app_config", None),
-                            getattr(self.tools, "workspace", ""),
-                        )
+                        self._build_system_prompt(selected_mode)
                     )
                     self._append_message_event(
                         session,

@@ -1,6 +1,6 @@
 # EmbedAgent 设计与变更跟踪
 
-> 更新日期：2026-06-14
+> 更新日期：2026-06-15
 > 用途：记录关键设计变更、影响范围、关联文档和后续动作
 
 ---
@@ -43,6 +43,43 @@
 ---
 
 ## 3. 当前变更记录
+
+### DC-148
+
+- 日期：2026-06-15
+- 变更主题：Pi-inspired local skill resource invocation slice 收口
+- 变更摘要：
+  - 新增 `src/embedagent/skills.py`，支持 Agent Skills-style frontmatter（`name`、`description`、`disable-model-invocation`）、workspace-bound skill discovery metadata 与 system prompt 可见列表格式化
+  - `.embedagent/skills/<name>/SKILL.md` 与 legacy `.md` / `.txt` skill 文件继续作为 file-only local resources 发现；visible skills 进入系统提示词，disabled skills 仍可作为资源发现但不进入 model invocation listing
+  - 新增 `/skill:<name> [args]` 显式调用路径，读取 workspace-bound Markdown skill、剥离 frontmatter、包装为普通 user turn context；不执行 Python、不加载 project extension、不绕过权限或 active-tool policy
+  - `SelfExtensionAuthoringService` 生成的 skill 模板现在带 frontmatter，便于 reload 后进入 prompt listing
+- 影响范围：
+  - `src/embedagent/skills.py`
+  - `src/embedagent/local_resources.py`
+  - `src/embedagent/modes.py`
+  - `src/embedagent/query_engine.py`
+  - `src/embedagent/inprocess_adapter.py`
+  - `src/embedagent/self_extension_authoring.py`
+  - `tests/test_local_resources.py`
+  - `tests/test_self_extension_authoring.py`
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/mode-schema.md`
+  - `docs/tool-contracts.md`
+  - `docs/permission-model.md`
+  - `docs/frontend-protocol.md`
+  - `docs/agent-harness-v2.md`
+- 关联文档：
+  - `docs/superpowers/plans/2026-06-15-pi-style-local-skills.md`
+  - `docs/pi-inspired-agent-core-blueprint.md`
+- 是否需要 ADR：`否，本次是 Pi-inspired local self-extension 方向下的资源语义增强；不新增执行型 extension API`
+- 后续动作：
+  - 继续清理 remaining harness-named prompt injection internals
+  - 在真实 Win7 目标机执行 clean offline bundle smoke
+  - 继续真实 C/C++ 工程验证
 
 ### DC-147
 

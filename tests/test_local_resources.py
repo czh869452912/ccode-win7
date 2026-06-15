@@ -10,6 +10,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 from embedagent.extensions import ResourcesDiscoverResult
 from embedagent.inprocess_adapter import InProcessAdapter
 from embedagent.permissions import PermissionPolicy
+from embedagent.query_engine import QueryEngine
 from embedagent.session import AssistantReply
 from embedagent.tools import ToolRuntime
 
@@ -41,6 +42,22 @@ def _write_text(path, content):
 class FakeClient(object):
     def generate(self, messages, tools=None):
         del messages, tools
+        return AssistantReply(content="ok", actions=[], finish_reason="stop")
+
+    def stream(self, messages, tools=None, on_text_delta=None, on_reasoning_delta=None):
+        reply = self.generate(messages, tools=tools)
+        if on_text_delta is not None:
+            on_text_delta(reply.content)
+        return reply
+
+
+class CapturingClient(object):
+    def __init__(self):
+        self.messages = []
+
+    def generate(self, messages, tools=None):
+        del tools
+        self.messages.append(messages)
         return AssistantReply(content="ok", actions=[], finish_reason="stop")
 
     def stream(self, messages, tools=None, on_text_delta=None, on_reasoning_delta=None):
@@ -108,6 +125,160 @@ class TestLocalResources(unittest.TestCase):
         self.assertEqual(payload["recipes"][0]["id"], "local.build")
         self.assertEqual(payload["recipes"][0]["source"], "local_resource")
         self.assertEqual(payload["diagnostics"], [])
+
+    def test_discovers_pi_style_skill_frontmatter(self):
+        from embedagent.local_resources import discover_local_resources
+        from embedagent.skills import format_skills_for_prompt
+
+        _write_text(
+            os.path.join(self.workspace, ".embedagent", "skills", "review", "SKILL.md"),
+            "---\n"
+            "name: code-review\n"
+            "description: Review local C changes for correctness and risk.\n"
+            "disable-model-invocation: false\n"
+            "---\n"
+            "# Code Review\n\n"
+            "Use compiler evidence and cite files.\n",
+        )
+        _write_text(
+            os.path.join(self.workspace, ".embedagent", "skills", "private", "SKILL.md"),
+            "---\n"
+            "name: private-audit\n"
+            "description: Internal checklist that must be invoked explicitly.\n"
+            "disable-model-invocation: true\n"
+            "---\n"
+            "# Private Audit\n",
+        )
+
+        payload = discover_local_resources(self.workspace)
+        by_name = dict((item["name"], item) for item in payload["skills"])
+        prompt_text = format_skills_for_prompt(payload["skills"])
+
+        self.assertEqual(payload["counts"]["skills"], 2)
+        self.assertEqual(
+            by_name["code-review"]["description"],
+            "Review local C changes for correctness and risk.",
+        )
+        self.assertEqual(by_name["code-review"]["path"], ".embedagent/skills/review/SKILL.md")
+        self.assertEqual(by_name["code-review"]["base_dir"], ".embedagent/skills/review")
+        self.assertFalse(by_name["code-review"]["disable_model_invocation"])
+        self.assertTrue(by_name["code-review"]["prompt_visible"])
+        self.assertTrue(by_name["private-audit"]["disable_model_invocation"])
+        self.assertFalse(by_name["private-audit"]["prompt_visible"])
+        self.assertIn("<available_skills>", prompt_text)
+        self.assertIn("<name>code-review</name>", prompt_text)
+        self.assertIn(
+            "<description>Review local C changes for correctness and risk.</description>",
+            prompt_text,
+        )
+        self.assertIn("<location>.embedagent/skills/review/SKILL.md</location>", prompt_text)
+        self.assertNotIn("private-audit", prompt_text)
+
+    def test_expand_skill_invocation_includes_body_and_arguments(self):
+        from embedagent.local_resources import discover_local_resources
+        from embedagent.skills import expand_skill_invocation
+
+        _write_text(
+            os.path.join(self.workspace, ".embedagent", "skills", "review", "SKILL.md"),
+            "---\n"
+            "name: code-review\n"
+            "description: Review local C changes.\n"
+            "---\n"
+            "# Code Review\n\n"
+            "Use compiler evidence and cite files.\n",
+        )
+
+        resources = discover_local_resources(self.workspace)
+        expanded, error = expand_skill_invocation(
+            "/skill:code-review focus on ownership", resources, self.workspace
+        )
+
+        self.assertEqual(error, "")
+        self.assertIn(
+            '<skill name="code-review" location=".embedagent/skills/review/SKILL.md">',
+            expanded,
+        )
+        self.assertIn("References are relative to .embedagent/skills/review.", expanded)
+        self.assertIn("# Code Review", expanded)
+        self.assertIn("Use compiler evidence and cite files.", expanded)
+        self.assertIn("focus on ownership", expanded)
+        self.assertNotIn("description: Review local C changes.", expanded)
+
+    def test_slash_skill_command_continues_as_user_turn(self):
+        _write_text(
+            os.path.join(self.workspace, ".embedagent", "skills", "review", "SKILL.md"),
+            "---\n"
+            "name: code-review\n"
+            "description: Review local C changes.\n"
+            "---\n"
+            "# Code Review\n\n"
+            "Use compiler evidence and cite files.\n",
+        )
+        client = CapturingClient()
+        adapter = InProcessAdapter(
+            client=client,
+            tools=ToolRuntime(self.workspace),
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+        )
+        snapshot = adapter.create_session("build")
+        session_id = str(snapshot.get("session_id") or "")
+        events = []
+
+        adapter.submit_user_message(
+            session_id=session_id,
+            text="/skill:code-review focus on ownership",
+            stream=False,
+            wait=True,
+            event_handler=lambda event_name, current_session_id, payload: events.append(
+                (event_name, payload)
+            ),
+        )
+
+        self.assertTrue(client.messages)
+        user_messages = [
+            item
+            for item in client.messages[0]
+            if item.get("role") == "user" and "<skill name=" in str(item.get("content") or "")
+        ]
+        command_results = [
+            payload for event_name, payload in events if event_name == "command_result"
+        ]
+        self.assertEqual(command_results, [])
+        self.assertEqual(len(user_messages), 1)
+        self.assertIn("code-review", user_messages[0]["content"])
+        self.assertIn("focus on ownership", user_messages[0]["content"])
+
+    def test_query_engine_system_prompt_lists_visible_skills(self):
+        _write_text(
+            os.path.join(self.workspace, ".embedagent", "skills", "review", "SKILL.md"),
+            "---\n"
+            "name: code-review\n"
+            "description: Review local C changes.\n"
+            "---\n"
+            "# Code Review\n",
+        )
+        _write_text(
+            os.path.join(self.workspace, ".embedagent", "skills", "private", "SKILL.md"),
+            "---\n"
+            "name: private-audit\n"
+            "description: Internal checklist.\n"
+            "disable-model-invocation: true\n"
+            "---\n"
+            "# Private Audit\n",
+        )
+        engine = QueryEngine(FakeClient(), ToolRuntime(self.workspace))
+        session = engine.submit_user_turn(
+            "inspect the change", stream=False, initial_mode="build"
+        ).session
+        system_text = "\n\n".join(
+            message.content for message in session.messages if message.role == "system"
+        )
+
+        self.assertIn("<available_skills>", system_text)
+        self.assertIn("<name>code-review</name>", system_text)
+        self.assertIn("<description>Review local C changes.</description>", system_text)
+        self.assertIn("<location>.embedagent/skills/review/SKILL.md</location>", system_text)
+        self.assertNotIn("private-audit", system_text)
 
     def test_recipe_file_diagnostics_do_not_block_other_resources(self):
         from embedagent.local_resources import discover_local_resources
