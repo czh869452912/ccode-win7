@@ -9,6 +9,7 @@ import {
 import { appendSessionEvent, capRetryAttempt, createSessionEventLog } from "./session-runtime/event-log.js";
 import { createDiffSurfaceState } from "./session-runtime/diff-model.js";
 import { projectSessionRuntime } from "./session-runtime/projector.js";
+import { shouldReconnectSocket } from "./session-runtime/websocket-lifecycle.js";
 import { LangContext } from "./LangContext.js";
 import { t } from "./strings.js";
 import Sidebar from "./components/Sidebar.jsx";
@@ -47,6 +48,8 @@ function App() {
   const [userAnswer, setUserAnswer] = useState("");
   const [sessionEventLog, setSessionEventLog] = useState(() => createSessionEventLog());
   const wsRef = useRef(null);
+  const wsTokenRef = useRef(0);
+  const wsClosingRef = useRef(false);
   const timelineRef = useRef(null);
   const wsRetryRef = useRef(0);
   const isAtBottomRef = useRef(true);
@@ -115,7 +118,11 @@ function App() {
   // websocket lifecycle
   useEffect(() => {
     connectWebSocket();
-    return () => wsRef.current?.close();
+    return () => {
+      wsClosingRef.current = true;
+      wsRef.current?.close();
+      wsRef.current = null;
+    };
   }, []);
 
   // Escape key cancels running session
@@ -467,6 +474,9 @@ function App() {
   // ── WebSocket ──────────────────────────────────────────────────────
 
   function connectWebSocket() {
+    wsClosingRef.current = false;
+    const socketToken = wsTokenRef.current + 1;
+    wsTokenRef.current = socketToken;
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const socket = new WebSocket(`${protocol}//${window.location.host}/ws`);
     wsRef.current = socket;
@@ -481,6 +491,15 @@ function App() {
     socket.onclose = () => {
       dispatch({ type: "set_connection", value: "disconnected" });
       updateSessionEventLog((current) => ({ ...current, connectionState: "disconnected" }));
+      if (
+        !shouldReconnectSocket({
+          activeToken: wsTokenRef.current,
+          socketToken,
+          manualClose: wsClosingRef.current,
+        })
+      ) {
+        return;
+      }
       const nextAttempt = capRetryAttempt(wsRetryRef.current + 1);
       const delay = Math.min(1500 * Math.pow(2, Math.max(nextAttempt - 1, 0)), 30000);
       wsRetryRef.current = nextAttempt;

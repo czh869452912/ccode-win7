@@ -17,6 +17,8 @@ import { runDiffModelTests } from "./diff-model.test.mjs";
 import { runInteractionModelTests } from "./interaction-model.test.mjs";
 import { runSessionRuntimeTests } from "./session-runtime.test.mjs";
 import { runT3TimelineTests } from "./t3-timeline.test.mjs";
+import { runVisualDebugRunnerTests } from "./visual-debug-runner.test.mjs";
+import { runWebSocketLifecycleTests } from "./websocket-lifecycle.test.mjs";
 import { runWorkbenchStateTests } from "./workbench-state.test.mjs";
 
 const WEBAPP_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -25,7 +27,7 @@ function webappSourcePath(...parts) {
   return path.join(WEBAPP_ROOT, "src", ...parts);
 }
 
-function main() {
+async function main() {
   assert.equal(initialState.requestedMode, "explore");
 
   const root = [createTreeNode({ path: "src", name: "src", kind: "dir", has_children: true })];
@@ -578,8 +580,10 @@ function main() {
   runT3TimelineTests();
   runInteractionModelTests();
   runDiffModelTests();
+  runWebSocketLifecycleTests();
+  await runVisualDebugRunnerTests();
 
   console.log("frontend helper checks passed");
 }
 
-main();
+await main();

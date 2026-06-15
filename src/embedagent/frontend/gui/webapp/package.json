@@ -8,7 +8,8 @@
     "build": "node build.mjs",
     "build:vite": "vite build",
     "preview": "vite preview",
-    "test": "node test/run-tests.mjs"
+    "test": "node test/run-tests.mjs",
+    "visual:gui": "node ../../../../../scripts/gui-visual-debug.mjs"
   },
   "dependencies": {
     "diff2html": "^3.4.52",
@@ -25,6 +26,7 @@
     "@rollup/rollup-win32-x64-msvc": "^4.60.1",
     "@vitejs/plugin-react": "^4.3.4",
     "esbuild": "^0.21.5",
+    "playwright": "^1.61.0",
     "vite": "^5.4.10"
   }
 }

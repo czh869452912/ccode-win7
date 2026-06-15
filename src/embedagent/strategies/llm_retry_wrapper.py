@@ -102,9 +102,9 @@ class LLMClientRetryWrapper(object):
                         usage.get("total_tokens", 0),
                     )
 
-                if on_reasoning_delta and reply.reasoning_content:
+                if not stream and on_reasoning_delta and reply.reasoning_content:
                     on_reasoning_delta(reply.reasoning_content)
-                if on_text_delta and reply.content:
+                if not stream and on_text_delta and reply.content:
                     on_text_delta(reply.content)
                 return reply
             except CircuitBreakerOpenError:
