@@ -15,6 +15,11 @@ from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
+from embedagent.frontend.gui.backend.app_host import (
+    GUIAppHost,
+    NoActiveWorkspaceError,
+    SingleWorkspaceAppHost,
+)
 from embedagent.frontend.gui.backend.bridge import BlockingResult, ThreadsafeAsyncDispatcher
 from embedagent.frontend.gui.backend.session_events import build_session_event
 from embedagent.modes import DEFAULT_MODE
@@ -32,6 +37,14 @@ from embedagent.protocol import (
 )
 
 _LOGGER = logging.getLogger(__name__)
+
+
+class _ActiveCoreProxy(object):
+    def __init__(self, backend: "GUIBackend") -> None:
+        self._backend = backend
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._backend._require_core(), name)
 
 
 def _to_mapping(value: Any) -> Optional[Dict[str, Any]]:
@@ -534,21 +547,35 @@ class WebSocketFrontend(FrontendCallbacks):
 class GUIBackend:
     """GUI 后端服务"""
 
-    def __init__(self, core: CoreInterface, static_dir: str):
-        self.core = core
+    def __init__(
+        self,
+        core: Optional[CoreInterface] = None,
+        static_dir: str = "",
+        app_host: Optional[GUIAppHost] = None,
+    ):
+        if core is None and app_host is None:
+            raise ValueError("core_or_app_host_required")
         self.static_dir = static_dir
         self.frontend = WebSocketFrontend()
+        self.app_host = app_host if app_host is not None else SingleWorkspaceAppHost(core)
+        self.app_host.bind_frontend(self.frontend)
+        self.core = _ActiveCoreProxy(self)  # Compatibility for existing route code.
         self.app = self._create_app()
         self._current_session_id: Optional[str] = None
-
-        # 注册前端回调
-        self.core.register_frontend(self.frontend)
 
     def _call_core(self, func, *args, **kwargs):
         try:
             return func(*args, **kwargs)
+        except NoActiveWorkspaceError:
+            raise HTTPException(status_code=409, detail="no_active_workspace")
         except ValueError as exc:
             raise _translate_value_error(exc)
+
+    def _require_core(self) -> CoreInterface:
+        try:
+            return self.app_host.require_core()
+        except NoActiveWorkspaceError:
+            raise HTTPException(status_code=409, detail="no_active_workspace")
 
     def _wait_for_interaction_resolution(
         self, session_id: str, interaction_id: str, timeout_seconds: float = 2.0
@@ -574,7 +601,7 @@ class GUIBackend:
             _LOGGER.info("GUI Backend starting...")
             yield
             _LOGGER.info("GUI Backend shutting down...")
-            self.core.shutdown()
+            self.app_host.shutdown()
 
         app = FastAPI(title="EmbedAgent GUI", lifespan=lifespan)
 
@@ -585,6 +612,40 @@ class GUIBackend:
         @app.get("/")
         async def root():
             return FileResponse(f"{self.static_dir}/index.html")
+
+        @app.get("/api/app/bootstrap")
+        async def get_app_bootstrap():
+            return self.app_host.bootstrap()
+
+        @app.get("/api/app/workspaces")
+        async def list_app_workspaces():
+            return self.app_host.list_workspaces()
+
+        @app.post("/api/app/workspaces")
+        async def open_app_workspace(request: Dict[str, Any]):
+            path = str(request.get("path") or "").strip()
+            label = str(request.get("label") or "").strip()
+            if not path:
+                raise HTTPException(status_code=422, detail="workspace_path_required")
+            try:
+                return self.app_host.open_workspace_path(path, label=label)
+            except ValueError as exc:
+                detail = str(exc or "").strip() or "workspace_open_failed"
+                status = 404 if detail == "workspace_not_found" else 422
+                raise HTTPException(status_code=status, detail=detail)
+
+        @app.post("/api/app/workspaces/{workspace_id}/activate")
+        async def activate_app_workspace(workspace_id: str):
+            try:
+                return self.app_host.activate_workspace(workspace_id)
+            except ValueError as exc:
+                detail = str(exc or "").strip() or "workspace_activate_failed"
+                status = 404 if detail == "workspace_not_found" else 422
+                raise HTTPException(status_code=status, detail=detail)
+
+        @app.delete("/api/app/workspaces/{workspace_id}")
+        async def remove_app_workspace(workspace_id: str):
+            return self.app_host.remove_workspace(workspace_id)
 
         # API 路由
         @app.get("/api/sessions")
@@ -718,6 +779,8 @@ class GUIBackend:
         async def read_file(path: str):
             try:
                 return self.core.read_file(path)
+            except HTTPException:
+                raise
             except (OSError, ValueError, TypeError) as e:
                 return {"error": str(e)}
 
@@ -777,9 +840,14 @@ class GUIBackend:
             remember = bool(data.get("remember", False))
             category = str(data.get("category") or "")
             if remember and approved and category and self._current_session_id:
-                remember_method = getattr(self.core, "remember_permission_category", None)
-                if callable(remember_method):
-                    remember_method(self._current_session_id, category)
+                try:
+                    core = self._require_core()
+                except HTTPException:
+                    core = None
+                if core is not None:
+                    remember_method = getattr(core, "remember_permission_category", None)
+                    if callable(remember_method):
+                        remember_method(self._current_session_id, category)
             self.frontend.handle_permission_response(perm_id, approved)
 
         elif msg_type == "user_input_response":
