@@ -65,18 +65,21 @@ export default function Inspector({
   onFocusDiffFile,
   onRespondInteraction,
   onUserAnswerChange,
+  showTabs = true,
 }) {
   const lang = useLang();
 
   return (
     <aside className="inspector" role="complementary" aria-label="Inspector" data-testid="inspector">
-      <InspectorTabs
-        active={inspectorTab}
-        onChange={onTabChange}
-        interactionCount={currentInteraction || interactionNotice ? 1 : 0}
-        tasksCount={tasks.length}
-        artifactsCount={artifacts.length}
-      />
+      {showTabs ? (
+        <InspectorTabs
+          active={inspectorTab}
+          onChange={onTabChange}
+          interactionCount={currentInteraction || interactionNotice ? 1 : 0}
+          tasksCount={tasks.length}
+          artifactsCount={artifacts.length}
+        />
+      ) : null}
       <div className="inspector-body">
         {inspectorTab === "interaction" && (
           <InteractionPanel

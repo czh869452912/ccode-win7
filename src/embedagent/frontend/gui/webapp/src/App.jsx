@@ -659,7 +659,7 @@ function App() {
       });
       updateSessionEventLog((current) =>
         appendSessionEvent(current, {
-          session_id: data.session_id || state.currentSessionId || "",
+          session_id: data.session_id || currentSessionIdRef.current || "",
           event_id: data.permission_id || makeEventId("evt"),
           seq: current.lastAppliedSeq + 1,
           created_at: new Date().toISOString(),
@@ -693,7 +693,7 @@ function App() {
       });
       updateSessionEventLog((current) =>
         appendSessionEvent(current, {
-          session_id: data.session_id || state.currentSessionId || "",
+          session_id: data.session_id || currentSessionIdRef.current || "",
           event_id: data.request_id || makeEventId("evt"),
           seq: current.lastAppliedSeq + 1,
           created_at: new Date().toISOString(),
@@ -851,12 +851,14 @@ function App() {
         });
       }
       loadSessions();
-      if (state.currentSessionId) loadTasks(state.currentSessionId);
+      const activeSessionId = currentSessionIdRef.current;
+      if (activeSessionId) loadTasks(activeSessionId);
       logEvent("session_finished", "");
       return;
     }
     if (type === "tasks_refresh") {
-      if (state.currentSessionId) loadTasks(state.currentSessionId);
+      const activeSessionId = currentSessionIdRef.current;
+      if (activeSessionId) loadTasks(activeSessionId);
       return;
     }
     if (type === "artifacts_refresh") {
@@ -1130,6 +1132,7 @@ function App() {
             onFocusDiffFile={(filePath) => dispatch({ type: "diff_file_focused", filePath })}
             onUserAnswerChange={setUserAnswer}
             onRespondInteraction={respondToInteraction}
+            showTabs={false}
           />
         </RightPanelTabs>
       }

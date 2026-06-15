@@ -515,6 +515,8 @@ async function main() {
     "utf8",
   );
   assert.equal(inspectorSource.includes("RIGHT_PANEL_SURFACES"), true);
+  assert.equal(inspectorSource.includes("showTabs = true"), true);
+  assert.equal(inspectorSource.includes("{showTabs ? ("), true);
   assert.equal(inspectorSource.includes('{inspectorTab === "interaction"'), true);
   assert.equal(inspectorSource.includes('{inspectorTab === "diff"'), true);
   assert.equal(inspectorSource.includes("todo-row"), false);
@@ -534,6 +536,9 @@ async function main() {
   );
   assert.equal(appSource.includes("AppSidebarLayout"), true);
   assert.equal(appSource.includes("WorkbenchHeader"), true);
+  assert.equal(appSource.includes("showTabs={false}"), true);
+  assert.equal(appSource.includes("data.session_id || currentSessionIdRef.current || \"\""), true);
+  assert.equal(appSource.includes("const activeSessionId = currentSessionIdRef.current;"), true);
 
   const workbenchHeaderSource = fs.readFileSync(
     webappSourcePath("components", "workbench", "WorkbenchHeader.jsx"),

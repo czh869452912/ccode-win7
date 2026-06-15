@@ -16,10 +16,16 @@ export async function runVisualDebugRunnerTests() {
   );
 
   const runner = await import(pathToFileURL(path.join(REPO_ROOT, "scripts", "gui-visual-debug.mjs")));
+  const runnerSource = fs.readFileSync(path.join(REPO_ROOT, "scripts", "gui-visual-debug.mjs"), "utf8");
 
   assert.deepEqual(runner.parseScenarioList("load,chat"), ["load", "chat"]);
-  assert.deepEqual(runner.parseScenarioList("all"), ["load", "chat", "diff"]);
+  assert.deepEqual(runner.parseScenarioList("all"), ["load", "chat", "diff", "responsive"]);
   assert.throws(() => runner.parseScenarioList("load,unknown"), /Unknown GUI visual scenario/);
+  assert.deepEqual(runner.parseViewportList("700x640,520x720"), [
+    { name: "700x640", width: 700, height: 640 },
+    { name: "520x720", width: 520, height: 720 },
+  ]);
+  assert.throws(() => runner.parseViewportList("700"), /Invalid viewport/);
 
   const args = runner.parseVisualDebugArgs([
     "--scenario",
@@ -32,6 +38,8 @@ export async function runVisualDebugRunnerTests() {
     "C:/bundle",
     "--output",
     "C:/tmp/gui-visual",
+    "--viewports",
+    "900x640,700x640",
     "--headed",
   ]);
   assert.equal(args.scenario, "diff");
@@ -39,7 +47,14 @@ export async function runVisualDebugRunnerTests() {
   assert.equal(args.port, 54321);
   assert.equal(args.bundleRoot, "C:/bundle");
   assert.equal(args.output, "C:/tmp/gui-visual");
+  assert.equal(args.viewports, "900x640,700x640");
   assert.equal(args.headlessBrowser, false);
+  assert.equal(args.buildWebapp, true);
+  assert.equal(runnerSource.includes('"cmd.exe"'), true);
+  assert.equal(runnerSource.includes('"npm.cmd"'), false);
+
+  const noBuildArgs = runner.parseVisualDebugArgs(["--no-build"]);
+  assert.equal(noBuildArgs.buildWebapp, false);
 
   const launch = runner.buildGuiLaunchConfig({
     repoRoot: "C:/repo",

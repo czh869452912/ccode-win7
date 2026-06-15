@@ -22,7 +22,7 @@ export default function AppSidebarLayout({
       <div className="workbench-body">
         <div className="workbench-sidebar-slot">{sidebar}</div>
         <div
-          className="resize-handle"
+          className="resize-handle sidebar-resize-handle"
           onPointerDown={onResizeSidebar}
           aria-hidden="true"
         />
@@ -33,7 +33,7 @@ export default function AppSidebarLayout({
           ) : null}
         </div>
         <div
-          className="resize-handle"
+          className="resize-handle right-resize-handle"
           onPointerDown={onResizeRightPanel}
           aria-hidden="true"
         />

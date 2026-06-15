@@ -8,7 +8,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { createRequire } from "node:module";
 
-export const SCENARIOS = ["load", "chat", "diff"];
+export const SCENARIOS = ["load", "chat", "diff", "responsive"];
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_REPO_ROOT = path.resolve(SCRIPT_DIR, "..");
@@ -28,6 +28,25 @@ export function parseScenarioList(value = "load") {
     throw new Error(`Unknown GUI visual scenario: ${unknown.join(", ")}`);
   }
   return Array.from(new Set(scenarios));
+}
+
+export function parseViewportList(value = "1280x720,900x640,700x640,520x720") {
+  return String(value || "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .map((item) => {
+      const match = item.match(/^(\d+)x(\d+)$/i);
+      if (!match) {
+        throw new Error(`Invalid viewport: ${item}`);
+      }
+      const width = Number(match[1]);
+      const height = Number(match[2]);
+      if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+        throw new Error(`Invalid viewport: ${item}`);
+      }
+      return { name: `${width}x${height}`, width, height };
+    });
 }
 
 function readOption(argv, index) {
@@ -52,6 +71,8 @@ export function parseVisualDebugArgs(argv = process.argv.slice(2)) {
     python: "",
     headlessBrowser: true,
     keepServer: false,
+    viewports: "1280x720,900x640,700x640,520x720",
+    buildWebapp: true,
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -93,6 +114,11 @@ export function parseVisualDebugArgs(argv = process.argv.slice(2)) {
       options.headlessBrowser = false;
     } else if (arg === "--keep-server") {
       options.keepServer = true;
+    } else if (arg === "--viewports") {
+      options.viewports = readOption(argv, index);
+      index += 1;
+    } else if (arg === "--no-build") {
+      options.buildWebapp = false;
     } else if (arg === "--help" || arg === "-h") {
       options.help = true;
     } else {
@@ -113,7 +139,27 @@ export function parseVisualDebugArgs(argv = process.argv.slice(2)) {
     throw new Error("--max-turns must be a positive number");
   }
   parseScenarioList(options.scenario);
+  parseViewportList(options.viewports);
   return options;
+}
+
+function buildWebappStatic(repoRoot) {
+  const webappRoot = path.dirname(resolveWebappPackageJson(repoRoot));
+  const command = process.platform === "win32" ? "cmd.exe" : "npm";
+  const args = process.platform === "win32"
+    ? ["/d", "/s", "/c", "npm run build"]
+    : ["run", "build"];
+  const result = spawnSync(command, args, {
+    cwd: webappRoot,
+    stdio: "inherit",
+    env: process.env,
+  });
+  if (result.error) {
+    throw new Error(`Failed to build GUI webapp: ${result.error.message}`);
+  }
+  if (result.status !== 0) {
+    throw new Error(`GUI webapp build failed with exit code ${result.status}`);
+  }
 }
 
 export function buildGuiLaunchConfig({
@@ -413,6 +459,92 @@ async function runDiffScenario(page) {
   };
 }
 
+async function measureResponsiveLayout(page) {
+  return await page.evaluate(() => {
+    const rect = (selector) => {
+      const element = document.querySelector(selector);
+      if (!element) return null;
+      const box = element.getBoundingClientRect();
+      return {
+        left: Math.round(box.left),
+        top: Math.round(box.top),
+        right: Math.round(box.right),
+        bottom: Math.round(box.bottom),
+        width: Math.round(box.width),
+        height: Math.round(box.height),
+      };
+    };
+    const visibleTabs = Array.from(document.querySelectorAll('[role="tab"]')).filter((element) => {
+      const style = window.getComputedStyle(element);
+      const box = element.getBoundingClientRect();
+      return style.display !== "none" && style.visibility !== "hidden" && box.width > 0 && box.height > 0;
+    });
+    const visibleTabText = visibleTabs.map((element) => element.textContent.trim().replace(/\s+/g, " "));
+    const headerButtons = Array.from(document.querySelectorAll(".app-header button")).map((element) => {
+      const box = element.getBoundingClientRect();
+      return {
+        text: element.textContent.trim().replace(/\s+/g, " "),
+        width: Math.round(box.width),
+        height: Math.round(box.height),
+      };
+    });
+    return {
+      viewport: { width: window.innerWidth, height: window.innerHeight },
+      documentWidth: document.documentElement.scrollWidth,
+      center: rect(".workbench-center"),
+      right: rect(".workbench-right-slot"),
+      composer: rect(".composer"),
+      input: rect('[data-testid="composer-input"]'),
+      visibleTabText,
+      headerButtons,
+      inspectorTabCount: Array.from(document.querySelectorAll(".insp-tab")).filter((element) => {
+        const style = window.getComputedStyle(element);
+        const box = element.getBoundingClientRect();
+        return style.display !== "none" && style.visibility !== "hidden" && box.width > 0 && box.height > 0;
+      }).length,
+    };
+  });
+}
+
+async function runResponsiveScenario(page, options, outputDir) {
+  const viewports = parseViewportList(options.viewports);
+  const results = [];
+  for (const viewport of viewports) {
+    await page.setViewportSize({ width: viewport.width, height: viewport.height });
+    await page.waitForSelector('[data-testid="workbench-layout"]', { timeout: 10000 });
+    await page.waitForSelector('[data-testid="composer-input"]', { timeout: 10000, state: "attached" });
+    await page.waitForTimeout(250);
+    const metrics = await measureResponsiveLayout(page);
+    const minimumCenterWidth = viewport.width <= 720 ? 360 : 360;
+    if (!metrics.center || metrics.center.width < minimumCenterWidth) {
+      throw new Error(
+        `Responsive center too narrow at ${viewport.name}: ${metrics.center ? metrics.center.width : "missing"}`,
+      );
+    }
+    if (!metrics.input || metrics.input.width < 160) {
+      throw new Error(
+        `Composer input too narrow at ${viewport.name}: ${metrics.input ? metrics.input.width : "missing"}`,
+      );
+    }
+    if (metrics.documentWidth > viewport.width + 1) {
+      throw new Error(`Horizontal document overflow at ${viewport.name}: ${metrics.documentWidth}`);
+    }
+    if (metrics.inspectorTabCount !== 0) {
+      throw new Error(`Nested inspector tabs are visible at ${viewport.name}`);
+    }
+    const tallHeaderButton = metrics.headerButtons.find((button) => button.height > 32);
+    if (tallHeaderButton) {
+      throw new Error(
+        `Header button wrapped at ${viewport.name}: ${tallHeaderButton.text} ${tallHeaderButton.height}px`,
+      );
+    }
+    const screenshot = path.join(outputDir, `responsive-${viewport.name}.png`);
+    await page.screenshot({ path: screenshot, fullPage: false });
+    results.push({ ...metrics, name: viewport.name, screenshot });
+  }
+  return { viewports: results };
+}
+
 async function runScenarios(options, repoRoot, outputDir) {
   const requireFromWebapp = createRequire(pathToFileURL(resolveWebappPackageJson(repoRoot)));
   const { chromium } = requireFromWebapp("playwright");
@@ -438,8 +570,12 @@ async function runScenarios(options, repoRoot, outputDir) {
         results.chat = await runChatScenario(page);
       } else if (scenario === "diff") {
         results.diff = await runDiffScenario(page);
+      } else if (scenario === "responsive") {
+        results.responsive = await runResponsiveScenario(page, options, outputDir);
       }
-      results[scenario].screenshot = await captureScenario({ page, scenario, outputDir });
+      if (scenario !== "responsive") {
+        results[scenario].screenshot = await captureScenario({ page, scenario, outputDir });
+      }
     }
   } finally {
     await browser.close();
@@ -455,15 +591,35 @@ function printHelp() {
   console.log(`Usage: node scripts/gui-visual-debug.mjs [options]
 
 Options:
-  --scenario load|chat|diff|all   Scenario list to run (default: load)
+  --scenario load|chat|diff|responsive|all
+                                   Scenario list to run (default: load)
   --workspace PATH                Existing workspace; temp workspace by default
   --output PATH                   Output dir for screenshots and summary JSON
   --bundle-root PATH              Optional offline bundle root for bundled tools
   --port N                        GUI port; 0 picks a free port
   --model-port N                  Fake model port; 0 picks a free port
+  --viewports LIST                Responsive viewport list, e.g. 1280x720,700x640
+  --no-build                      Reuse existing frontend/gui/static assets
   --headed                        Show the Playwright browser
   --keep-server                   Leave GUI server running after the run
 `);
+}
+
+function collectScreenshots(results) {
+  const screenshots = [];
+  for (const result of Object.values(results || {})) {
+    if (result && typeof result.screenshot === "string") {
+      screenshots.push(result.screenshot);
+    }
+    if (result && Array.isArray(result.viewports)) {
+      for (const viewport of result.viewports) {
+        if (viewport && typeof viewport.screenshot === "string") {
+          screenshots.push(viewport.screenshot);
+        }
+      }
+    }
+  }
+  return screenshots;
 }
 
 export async function runVisualDebug(options = parseVisualDebugArgs()) {
@@ -472,6 +628,9 @@ export async function runVisualDebug(options = parseVisualDebugArgs()) {
     return { help: true };
   }
   const repoRoot = DEFAULT_REPO_ROOT;
+  if (options.buildWebapp) {
+    buildWebappStatic(repoRoot);
+  }
   const outputDir = path.resolve(options.output);
   ensureDir(outputDir);
   const workspace = path.resolve(
@@ -516,7 +675,7 @@ export async function runVisualDebug(options = parseVisualDebugArgs()) {
     await waitForHttp(summary.url, 20000);
     const run = await runScenarios({ ...options, port }, repoRoot, outputDir);
     Object.assign(summary, run, {
-      screenshots: Object.values(run.results).map((result) => result.screenshot),
+      screenshots: collectScreenshots(run.results),
     });
     fs.writeFileSync(path.join(outputDir, "summary.json"), JSON.stringify(summary, null, 2), "utf8");
     if (summary.console.count > 0) {
