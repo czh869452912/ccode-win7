@@ -454,6 +454,120 @@ class TestLocalResources(unittest.TestCase):
         self.assertTrue(command_results[0]["success"])
         self.assertEqual(command_results[0]["data"]["counts"]["skills"], 1)
 
+    def test_reload_resources_refreshes_current_session_skill_prompt(self):
+        adapter = InProcessAdapter(
+            client=FakeClient(),
+            tools=ToolRuntime(self.workspace),
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+        )
+        snapshot = adapter.create_session("build")
+        session_id = str(snapshot.get("session_id") or "")
+        state = adapter._require_session(session_id)
+        initial_system = "\n\n".join(
+            message.content for message in state.session.messages if message.role == "system"
+        )
+        self.assertNotIn("code-review", initial_system)
+
+        _write_text(
+            os.path.join(self.workspace, ".embedagent", "skills", "review", "SKILL.md"),
+            "---\n"
+            "name: code-review\n"
+            "description: Review local C changes.\n"
+            "---\n"
+            "# Code Review\n",
+        )
+        adapter.reload_resources(session_id=session_id, reason="test")
+
+        skill_prompts = [
+            message
+            for message in state.session.messages
+            if message.role == "system" and message.kind == "local_skills_prompt"
+        ]
+        events = adapter.transcript_store.load_events(session_id)
+        message_events = [item for item in events if item["type"] == "message"]
+
+        self.assertEqual(len(skill_prompts), 1)
+        self.assertIn("<name>code-review</name>", skill_prompts[0].content)
+        self.assertEqual(skill_prompts[0].metadata["reason"], "test")
+        self.assertTrue(
+            any(
+                str((item.get("payload") or {}).get("kind") or "") == "local_skills_prompt"
+                for item in message_events
+            )
+        )
+
+        _write_text(
+            os.path.join(self.workspace, ".embedagent", "skills", "review", "SKILL.md"),
+            "---\n"
+            "name: code-review-v2\n"
+            "description: Review local C changes with ownership notes.\n"
+            "---\n"
+            "# Code Review\n",
+        )
+        adapter.reload_resources(session_id=session_id, reason="test-second")
+        skill_prompts = [
+            message
+            for message in state.session.messages
+            if message.role == "system" and message.kind == "local_skills_prompt"
+        ]
+
+        self.assertEqual(len(skill_prompts), 1)
+        self.assertIn("<name>code-review-v2</name>", skill_prompts[0].content)
+        self.assertNotIn("<name>code-review</name>", skill_prompts[0].content)
+        self.assertEqual(skill_prompts[0].metadata["reason"], "test-second")
+
+    def test_help_and_capability_snapshot_include_visible_skill_commands(self):
+        _write_text(
+            os.path.join(self.workspace, ".embedagent", "skills", "review", "SKILL.md"),
+            "---\n"
+            "name: code-review\n"
+            "description: Review local C changes.\n"
+            "---\n"
+            "# Code Review\n",
+        )
+        _write_text(
+            os.path.join(self.workspace, ".embedagent", "skills", "private", "SKILL.md"),
+            "---\n"
+            "name: private-audit\n"
+            "description: Hidden checklist.\n"
+            "disable-model-invocation: true\n"
+            "---\n"
+            "# Private Audit\n",
+        )
+        adapter = InProcessAdapter(
+            client=FakeClient(),
+            tools=ToolRuntime(self.workspace),
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+        )
+        adapter.reload_resources(reason="test")
+        snapshot = adapter.create_session("build")
+        session_id = str(snapshot.get("session_id") or "")
+        events = []
+
+        adapter.submit_user_message(
+            session_id=session_id,
+            text="/help",
+            stream=False,
+            wait=True,
+            event_handler=lambda event_name, current_session_id, payload: events.append(
+                (event_name, payload)
+            ),
+        )
+        command_results = [
+            payload for event_name, payload in events if event_name == "command_result"
+        ]
+        capabilities = adapter.capability_snapshot()
+        command_names = [
+            item["name"] for item in capabilities["descriptors"] if item["kind"] == "command"
+        ]
+
+        self.assertEqual(len(command_results), 1)
+        self.assertIn("/skill:code-review [args]", command_results[0]["message"])
+        self.assertIn("Review local C changes.", command_results[0]["message"])
+        self.assertNotIn("private-audit", command_results[0]["message"])
+        self.assertIn("skill:code-review", command_names)
+        self.assertNotIn("skill:private-audit", command_names)
+
     def test_adapter_capability_snapshot_combines_tools_resources_commands_and_model(self):
         _write_text(
             os.path.join(self.workspace, ".embedagent", "prompts", "triage.md"),

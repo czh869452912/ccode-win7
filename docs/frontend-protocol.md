@@ -120,7 +120,7 @@ Key routes include:
 
 `POST /api/sessions/{session_id}/resources/reload` refreshes local file resources for the session and returns the backend resource snapshot. It is not a plugin execution endpoint.
 
-`/skill:<name> [args]` is handled through the normal message submission path, not a separate HTTP endpoint. On success the backend expands the workspace-bound skill Markdown into the user turn; on failure it emits a normal `command_result` for the skill command.
+`/skill:<name> [args]` is handled through the normal message submission path, not a separate HTTP endpoint. On success the backend expands the workspace-bound skill Markdown into the user turn; on failure it emits a normal `command_result` for the skill command. Visible skill commands may appear in `/help` output and command capability snapshots as `skill:<name>`.
 
 ## 5. WebSocket Event Types
 

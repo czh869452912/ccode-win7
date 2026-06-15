@@ -52,6 +52,7 @@
   - 新增 `src/embedagent/skills.py`，支持 Agent Skills-style frontmatter（`name`、`description`、`disable-model-invocation`）、workspace-bound skill discovery metadata 与 system prompt 可见列表格式化
   - `.embedagent/skills/<name>/SKILL.md` 与 legacy `.md` / `.txt` skill 文件继续作为 file-only local resources 发现；visible skills 进入系统提示词，disabled skills 仍可作为资源发现但不进入 model invocation listing
   - 新增 `/skill:<name> [args]` 显式调用路径，读取 workspace-bound Markdown skill、剥离 frontmatter、包装为普通 user turn context；不执行 Python、不加载 project extension、不绕过权限或 active-tool policy
+  - session-scoped resource reload 会刷新当前会话的 `local_skills_prompt` system message；visible skill commands 也会进入 `/help` 与 command capability projection
   - `SelfExtensionAuthoringService` 生成的 skill 模板现在带 frontmatter，便于 reload 后进入 prompt listing
 - 影响范围：
   - `src/embedagent/skills.py`

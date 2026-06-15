@@ -49,11 +49,13 @@ class SlashCommandRegistry(object):
     def __init__(self) -> None:
         self._commands = list(_COMMAND_SPECS)
 
-    def command_names(self) -> List[str]:
-        return [item.name for item in self._commands]
+    def command_names(self, extra_specs: Optional[List[SlashCommandSpec]] = None) -> List[str]:
+        return [item.name for item in self.specs(extra_specs=extra_specs)]
 
-    def specs(self) -> List[SlashCommandSpec]:
-        return list(self._commands)
+    def specs(self, extra_specs: Optional[List[SlashCommandSpec]] = None) -> List[SlashCommandSpec]:
+        commands = list(self._commands)
+        commands.extend(list(extra_specs or []))
+        return commands
 
     def get(self, name: str) -> Optional[SlashCommandSpec]:
         return _COMMAND_LOOKUP.get(str(name or "").strip().lower())
@@ -61,12 +63,12 @@ class SlashCommandRegistry(object):
     def capability_descriptors(self):
         return command_capability_descriptors(self)
 
-    def help_markdown(self) -> str:
+    def help_markdown(self, extra_specs: Optional[List[SlashCommandSpec]] = None) -> str:
         lines = [
             "## Slash Commands",
             "",
         ]
-        for item in self._commands:
+        for item in self.specs(extra_specs=extra_specs):
             lines.append("- `%s` - %s" % (item.usage, item.summary))
         return "\n".join(lines)
 

@@ -180,9 +180,18 @@ def resource_capability_descriptors(resources: Dict[str, Any]) -> List[Capabilit
     return sorted(descriptors, key=lambda item: item.key())
 
 
-def command_capability_descriptors(command_registry: Any) -> List[CapabilityDescriptor]:
+def command_capability_descriptors(
+    command_registry: Any,
+    extra_specs: Any = None,
+) -> List[CapabilityDescriptor]:
     specs_method = getattr(command_registry, "specs", None)
-    specs = list(specs_method() or []) if callable(specs_method) else []
+    if callable(specs_method):
+        try:
+            specs = list(specs_method(extra_specs=extra_specs) or [])
+        except TypeError:
+            specs = list(specs_method() or [])
+    else:
+        specs = []
     descriptors = []
     for spec in specs:
         name = _clean_text(getattr(spec, "name", ""))

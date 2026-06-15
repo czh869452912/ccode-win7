@@ -86,9 +86,9 @@ Workspace-local resources are file-only inputs to the runtime:
 
 Recipe JSON resources feed the existing `list_recipes` and `run_recipe` contract. Skills and prompts are discovered and surfaced with diagnostics, but they are not executed as project-local Python code. Skill Markdown may include Agent Skills-style frontmatter (`name`, `description`, `disable-model-invocation`). Skills with valid names, descriptions, and no disable flag are listed in system prompts as available skills; disabled skills remain discoverable resources but are omitted from model-invocation listings.
 
-`/skill:<name> [args]` is an explicit local skill invocation command. It resolves the named workspace-bound skill resource, strips frontmatter, wraps the Markdown body in a `<skill ...>` context block, appends optional args, and continues as a normal user turn. It does not execute code, load project extensions, grant permissions, or bypass active-tool policy.
+`/skill:<name> [args]` is an explicit local skill invocation command. It resolves the named workspace-bound skill resource, strips frontmatter, wraps the Markdown body in a `<skill ...>` context block, appends optional args, and continues as a normal user turn. Visible skill commands are projected into `/help` and command capability descriptors as `skill:<name>`. They do not execute code, load project extensions, grant permissions, or bypass active-tool policy.
 
-Reload appends transcript-backed `resource_discovered` and `resource_reloaded` events for session-scoped auditability. `resource_reloaded` advances reducer-backed local resource revision metadata; `resource_discovered` remains discovery/replay diagnostics and must not advance runtime resource revision.
+Reload appends transcript-backed `resource_discovered` and `resource_reloaded` events for session-scoped auditability. Session-scoped reload also refreshes the current session's `local_skills_prompt` system message so newly visible skills can be discovered without starting a new session. `resource_reloaded` advances reducer-backed local resource revision metadata; `resource_discovered` remains discovery/replay diagnostics and must not advance runtime resource revision.
 
 ## Project-Local Python Extensions
 

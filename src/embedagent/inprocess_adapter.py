@@ -55,9 +55,14 @@ from embedagent.services import (
     WorkspaceFileService,
 )
 from embedagent.query_engine import QueryEngine
-from embedagent.skills import expand_skill_invocation
+from embedagent.skills import expand_skill_invocation, format_skills_for_prompt
 from embedagent.session_timeline import SessionTimelineStore
-from embedagent.slash_commands import ParsedSlashCommand, SlashCommandRegistry, parse_slash_command
+from embedagent.slash_commands import (
+    ParsedSlashCommand,
+    SlashCommandRegistry,
+    SlashCommandSpec,
+    parse_slash_command,
+)
 from embedagent.tools import ToolRuntime
 from embedagent.transcript_store import TranscriptStore
 
@@ -334,12 +339,38 @@ class InProcessAdapter(object):
         runtime_capabilities = getattr(self.tools, "capability_descriptors", None)
         if callable(runtime_capabilities):
             registry.extend(runtime_capabilities())
-        registry.extend(command_capability_descriptors(self.command_registry))
+        registry.extend(
+            command_capability_descriptors(
+                self.command_registry,
+                extra_specs=self._skill_command_specs(),
+            )
+        )
         package_manifests = getattr(self.extension_manager, "package_manifests", None)
         if callable(package_manifests):
             registry.extend(workflow_package_capability_descriptors(package_manifests()))
         registry.register(model_profile_capability_descriptor(self.client))
         return registry.snapshot().to_dict()
+
+    def _skill_command_specs(self) -> List[SlashCommandSpec]:
+        resources = self.tools.local_resources()
+        specs = []  # type: List[SlashCommandSpec]
+        for item in list(resources.get("skills") or []):
+            if not isinstance(item, dict):
+                continue
+            if not bool(item.get("prompt_visible", False)):
+                continue
+            name = str(item.get("name") or "").strip()
+            description = str(item.get("description") or "").strip()
+            if not name or not description:
+                continue
+            specs.append(
+                SlashCommandSpec(
+                    "skill:%s" % name,
+                    "/skill:%s [args]" % name,
+                    description,
+                )
+            )
+        return sorted(specs, key=lambda item: item.name)
 
     def _runtime_config_payload(
         self,
@@ -565,11 +596,40 @@ class InProcessAdapter(object):
                         "diagnostics": list(payload.get("diagnostics") or []),
                     }
                 }
+                self._refresh_local_skills_prompt_locked(
+                    state,
+                    payload,
+                    normalized_reason,
+                )
                 self._refresh_runtime_config(state)
                 self._refresh_compaction_state(state)
                 self._refresh_recovery_state(state)
                 state.updated_at = _utc_now()
         return dict(payload or {})
+
+    def _refresh_local_skills_prompt_locked(
+        self,
+        state: ManagedSession,
+        payload: Dict[str, Any],
+        reason: str,
+    ) -> None:
+        prompt = format_skills_for_prompt(list(payload.get("skills") or []))
+        state.session.messages = [
+            message
+            for message in state.session.messages
+            if not (message.role == "system" and message.kind == "local_skills_prompt")
+        ]
+        if not prompt:
+            return
+        message = state.session.add_system_message(
+            "## Local Skills\n" + prompt,
+            kind="local_skills_prompt",
+            metadata={
+                "reason": str(reason or ""),
+                "resource_revision": int((payload.get("counts") or {}).get("skills") or 0),
+            },
+        )
+        self._append_transcript_message_event(state.session.session_id, message)
 
     def _append_transcript_message_event(self, session_id: str, message: Any) -> None:
         self.transcript_store.append_event(
@@ -1206,8 +1266,17 @@ class InProcessAdapter(object):
             CommandResult(
                 command_name="help",
                 success=True,
-                message=self.command_registry.help_markdown(),
-                data={"commands": [item.name for item in self.command_registry.specs()]},
+                message=self.command_registry.help_markdown(
+                    extra_specs=self._skill_command_specs()
+                ),
+                data={
+                    "commands": [
+                        item.name
+                        for item in self.command_registry.specs(
+                            extra_specs=self._skill_command_specs()
+                        )
+                    ]
+                },
             ),
         )
         return {"handled": True, "continue_with_text": ""}
