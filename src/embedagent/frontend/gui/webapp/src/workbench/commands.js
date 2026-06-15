@@ -10,6 +10,7 @@ export const COMMAND_GROUPS = [
 
 export const WORKBENCH_COMMANDS = [
   { id: "session.new", group: "session", label: "New Session", slash: "/new", visibleWhen: "always" },
+  { id: "thread.new", group: "session", label: "New Thread", slash: "", visibleWhen: "always", keywords: ["session", "chat"] },
   { id: "session.refresh", group: "session", label: "Refresh Sessions", slash: "/sessions", visibleWhen: "always" },
   { id: "session.resume", group: "session", label: "Resume Session", slash: "/resume", visibleWhen: "always" },
   { id: "message.send", group: "message", label: "Send Message", slash: "", visibleWhen: "composer_ready" },
@@ -31,6 +32,9 @@ export const WORKBENCH_COMMANDS = [
   { id: "surface.preview", group: "surface", label: "Open Preview", slash: "", surface: "preview", visibleWhen: "always" },
   { id: "surface.log", group: "surface", label: "Open Log", slash: "", surface: "log", visibleWhen: "always" },
   { id: "drawer.run_output", group: "surface", label: "Toggle Run Output", slash: "", drawer: "run_output", visibleWhen: "always" },
+  { id: "workspace.open", group: "workspace", label: "Open Workspace", slash: "", visibleWhen: "always", keywords: ["project", "folder"] },
+  { id: "workspace.refresh", group: "workspace", label: "Refresh Workspaces", slash: "", visibleWhen: "always", keywords: ["reload", "recent"] },
+  { id: "workspace.remove_current", group: "workspace", label: "Remove Current Workspace From Recents", slash: "", visibleWhen: "always", keywords: ["forget", "recent"] },
   { id: "workspace.files", group: "workspace", label: "Open Files", slash: "/workspace", visibleWhen: "always" },
   { id: "workflow.diff", group: "workflow", label: "Review Diff", slash: "/diff", visibleWhen: "has_session" },
   { id: "view.toggle_right_panel", group: "view", label: "Toggle Right Panel", slash: "", visibleWhen: "always" },
@@ -62,5 +66,9 @@ function isVisible(command, context) {
 }
 
 export function visibleCommands(context) {
-  return WORKBENCH_COMMANDS.filter((command) => isVisible(command, context || {}));
+  const view = context || {};
+  return WORKBENCH_COMMANDS.filter((command) => {
+    if (command.id === "workspace.remove_current" && !view.hasWorkspace) return false;
+    return isVisible(command, view);
+  });
 }

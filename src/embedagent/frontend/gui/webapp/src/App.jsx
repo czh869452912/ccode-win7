@@ -467,8 +467,29 @@ function App() {
       await createSession(currentMode);
       return;
     }
+    if (command.id === "thread.new") {
+      await createSession(currentMode);
+      return;
+    }
     if (command.id === "session.refresh") {
       await loadSessions();
+      return;
+    }
+    if (command.id === "workspace.open") {
+      dispatch({ type: "set_sidebar", value: "chats" });
+      window.setTimeout(() => {
+        document.querySelector('[data-testid="sidebar-workspace-path-input"]')?.focus();
+      }, 0);
+      return;
+    }
+    if (command.id === "workspace.refresh") {
+      await loadAppBootstrap();
+      return;
+    }
+    if (command.id === "workspace.remove_current") {
+      if (state.app.activeWorkspace?.id) {
+        await removeWorkspace(state.app.activeWorkspace.id);
+      }
       return;
     }
     if (command.id === "message.send") {
@@ -1271,6 +1292,7 @@ function App() {
       selectedIndex={state.workbench.commandPalette.selectedIndex}
       context={{
         hasSession: Boolean(state.currentSessionId),
+        hasWorkspace: Boolean(state.app.hasActiveWorkspace),
         isRunning: currentStatus === "running" || currentStatus === "waiting_user_input",
         paletteOpen: state.workbench.commandPalette.open,
       }}

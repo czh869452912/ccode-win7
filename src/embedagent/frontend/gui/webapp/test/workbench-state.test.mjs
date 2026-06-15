@@ -81,7 +81,12 @@ export function runWorkbenchStateTests() {
 
   assert.equal(COMMAND_GROUPS.includes("session"), true);
   assert.equal(COMMAND_GROUPS.includes("surface"), true);
+  assert.equal(COMMAND_GROUPS.includes("workspace"), true);
   assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "surface.tasks"), true);
+  assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "workspace.open"), true);
+  assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "workspace.refresh"), true);
+  assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "workspace.remove_current"), true);
+  assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "thread.new"), true);
   assert.equal(WORKBENCH_COMMANDS.some((item) => item.id.includes("code")), false);
   assert.equal(commandById("message.send").slash, "");
 
