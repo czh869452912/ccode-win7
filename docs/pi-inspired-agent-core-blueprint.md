@@ -480,6 +480,11 @@ EmbedAgent adopts that shape with stricter product constraints:
 - telemetry is a passive observer over safe lifecycle/capability/diagnostic
   events; it must not export prompts, source files, raw tool outputs, API keys,
   or approval secrets
+- `network` and `telemetry` are explicit permission categories for future
+  adapters and are recognized by runtime/project-extension metadata; this is a
+  guardrail, not a built-in network integration
+- `embedagent.telemetry` provides local safe-envelope construction for future
+  sinks; it performs redaction/summarization and does not upload data
 - organization-local catalogs may help administrators assemble offline bundles
   or trusted capability sets, but they must not become runtime dependency
   installation, public marketplace behavior, or a permission grant

@@ -78,9 +78,9 @@ Registration does not make a tool active by itself. A dynamic tool appears in mo
 
 Intranet Git operations, custom service calls, model/provider gateways, organization-local catalog actions, and telemetry uploaders are not hidden Core tools. They must enter through explicit provider, extension, workflow-package, or passive sink boundaries with source metadata, structured configuration, timeout/fallback behavior, and normal `PermissionPolicy` checks.
 
-Dynamic networked tools must declare a permission category recognized by the runtime catalog and permission model. A future dedicated network/intranet category requires a coordinated update across `permissions.py`, tool metadata, frontend explanations, this document, and `docs/permission-model.md`; do not hide network side effects behind generic `read` or unclassified `other` behavior.
+Dynamic networked tools must declare a permission category recognized by the runtime catalog and permission model. `network` is the official category for tools that reach intranet/custom services. `telemetry` is the official category for explicit telemetry flush/upload actions. Do not hide network side effects behind generic `read` or unclassified `other` behavior.
 
-Telemetry sinks observe safe structured lifecycle/capability/diagnostic events only. They must not receive full prompts, skill bodies, source file contents, raw tool outputs, API keys, approval secrets, or permission tokens. Sink failures are diagnostics, not tool failures, unless a future explicit user action is specifically invoking the sink as a tool.
+Telemetry sinks observe safe structured lifecycle/capability/diagnostic events only. `src/embedagent/telemetry.py` builds local safe envelopes for future sinks by redacting or summarizing sensitive metadata. Sinks must not receive full prompts, skill bodies, source file contents, raw tool outputs, API keys, approval secrets, permission payloads, or permission tokens. Sink failures are diagnostics, not tool failures, unless a future explicit user action is specifically invoking the sink as a tool.
 
 ## Local Resource Reload
 
@@ -194,6 +194,8 @@ Official categories are:
 - `shell_exec`
 - `toolchain_exec`
 - `git_write`
+- `network`
+- `telemetry`
 
 Each catalog entry must identify one permission category.
 

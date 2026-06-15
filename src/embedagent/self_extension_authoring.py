@@ -6,8 +6,10 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Dict, List
 
+from embedagent.permissions import OFFICIAL_PERMISSION_CATEGORIES
+
 _VALID_KIND = set(["skill", "prompt", "recipe", "extension"])
-_VALID_PERMISSION = set(["read", "workspace_write", "shell_exec", "toolchain_exec", "git_write"])
+_VALID_PERMISSION = OFFICIAL_PERMISSION_CATEGORIES
 
 
 @dataclass

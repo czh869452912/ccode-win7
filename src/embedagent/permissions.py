@@ -57,9 +57,16 @@ INTERACTION_TOOLS = {
     "ask_user",
     "propose_mode_switch",
 }
-OFFICIAL_PERMISSION_CATEGORIES = set(
-    ["read", "workspace_write", "shell_exec", "toolchain_exec", "git_write"]
+OFFICIAL_PERMISSION_CATEGORY_ORDER = (
+    "read",
+    "workspace_write",
+    "shell_exec",
+    "toolchain_exec",
+    "git_write",
+    "network",
+    "telemetry",
 )
+OFFICIAL_PERMISSION_CATEGORIES = frozenset(OFFICIAL_PERMISSION_CATEGORY_ORDER)
 
 
 @dataclass
@@ -157,6 +164,17 @@ class PermissionPolicy(object):
         if category in ("shell_exec", "toolchain_exec"):
             if self.auto_approve_commands:
                 return PermissionDecision(outcome="allow", details=details)
+            return PermissionDecision(
+                outcome="ask",
+                request=PermissionRequest(
+                    tool_name=action.name,
+                    category=category,
+                    reason=self._default_reason(category),
+                    details=details,
+                ),
+                details=details,
+            )
+        if category in ("network", "telemetry"):
             return PermissionDecision(
                 outcome="ask",
                 request=PermissionRequest(
@@ -382,6 +400,10 @@ class PermissionPolicy(object):
             return "该操作会执行 shell 命令。"
         if category == "toolchain_exec":
             return "该操作会执行构建或验证工具链。"
+        if category == "network":
+            return "该操作会访问网络或内网服务。"
+        if category == "telemetry":
+            return "该操作会发送或刷新遥测诊断数据。"
         return "该操作需要确认。"
 
     def _category_for_action(self, action: Action) -> str:
@@ -427,13 +449,7 @@ class PermissionPolicy(object):
         session_id: str = "",
         remembered_categories: Optional[List[str]] = None,
     ) -> PermissionContextView:
-        categories = [
-            "read",
-            "workspace_write",
-            "shell_exec",
-            "toolchain_exec",
-            "git_write",
-        ]
+        categories = list(OFFICIAL_PERMISSION_CATEGORY_ORDER)
         rules = []
         for rule in self.rules:
             rules.append(

@@ -33,6 +33,7 @@ The next long-term architecture direction is captured in `docs/pi-inspired-agent
 - C/C++ workflow pack definitions live only under `src/embedagent/harness/packs.py`; the obsolete `embedagent.tooling.packs` compatibility re-export has been removed
 - Official file discovery: `list_dir`, `glob_files`, `grep_text`
 - Official permission engine: `PermissionPolicy` with structured rule matching and stable explanation text
+- Official enterprise permission categories: `network` and `telemetry` exist for optional intranet/custom-service tools and telemetry flush/sink actions; both require explicit metadata and default to confirmation
 - Official session runtime ownership: one session-scoped `QueryEngine` remains the facade and transcript/session mutation owner, while `AgentLifecycleJournal`, `AgentKernel`, `AgentLoop`, `AgentToolActionService`, and `AgentExtensionHost` own durable lifecycle writes, turn frames and suspend/resume boundaries, turn-loop orchestration, non-LLM tool action execution, and extension hook dispatch
 - Official workflow extension hosting: `InProcessAdapter` owns one `ExtensionManager` shared with session-scoped `QueryEngine` and frontend tool catalog visibility
 - Official extension runtime direction: `ExtensionManager` is the shared in-process capability boundary for workflow defaults, prompt/context hooks, tool-call/tool-result hooks, resource discovery contracts, dynamic in-process tool registration, extension diagnostics, and manifest-gated project-local Python extensions. Internally, public extension hook families dispatch through the source-aware `AgentEventBus` with event-specific reducer semantics and diagnostics.
@@ -97,6 +98,8 @@ The product no longer treats the old `code` mode or `manage_todos`-style workflo
   Reducer-backed compaction projection for compact boundary metadata, safe file activity, evidence refs, and restore diagnostics.
 - `src/embedagent/recovery_state.py`
   Reducer-backed recovery projection for hosted resume markers, trusted prefix metadata, and restore diagnostics.
+- `src/embedagent/telemetry.py`
+  Local-only safe telemetry envelope helper that redacts prompt/source/output/credential fields before future sinks see metadata.
 - `src/embedagent/extensions.py`
   In-process extension contract and manager for workflow prompt/tool/state hooks.
 - `src/embedagent/default_extensions.py`

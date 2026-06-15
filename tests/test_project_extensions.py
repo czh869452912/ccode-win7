@@ -42,6 +42,35 @@ def test_enabled_manifest_requires_permissions(tmp_path):
     assert "permissions" in payload["diagnostics"][0]["error"]
 
 
+def test_enabled_manifest_accepts_network_and_telemetry_permissions(tmp_path):
+    root = tmp_path / ".embedagent" / "extensions" / "enterprise"
+    root.mkdir(parents=True)
+    (root / "extension.json").write_text(
+        '{"id": "enterprise_extension", "enabled": true, "permissions": ["network", "telemetry"]}',
+        encoding="utf-8",
+    )
+    (root / "extension.py").write_text(
+        "\n".join(
+            [
+                "def create_extension(api):",
+                "    class EnterpriseExtension(object):",
+                "        extension_id = api.extension_id",
+                "        builtin_extension = False",
+                "    return EnterpriseExtension()",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    from embedagent.project_extensions import load_project_extensions
+
+    payload = load_project_extensions(str(tmp_path))
+
+    assert payload["counts"]["loaded"] == 1
+    assert payload["extensions"][0]["permissions"] == ["network", "telemetry"]
+    assert payload["diagnostics"] == []
+
+
 def test_enabled_extension_create_extension_receives_narrow_api(tmp_path):
     root = tmp_path / ".embedagent" / "extensions" / "sample"
     root.mkdir(parents=True)

@@ -88,6 +88,8 @@ Default bundled extension assembly is outside `QueryEngine` in `src/embedagent/d
 
 Optional enterprise/intranet integrations are hosted capabilities, not Agent Core responsibilities. Intranet Git adapters, custom service providers, model gateways, organization-local catalogs, and telemetry sinks must be explicitly configured, trusted, disableable, and failure-tolerant. They attach through provider, extension, workflow-package, or passive sink boundaries with source metadata and normal permission checks; they must not make startup, default C/C++ workflows, restore, resource reload, or session history depend on network availability.
 
+The foundation for that boundary is implemented as metadata and policy, not as network behavior. `network` and `telemetry` are official permission categories recognized by `PermissionPolicy`, dynamic tool registration, project extension manifests, self-extension authoring, frontend permission context, and tool catalogs. `src/embedagent/telemetry.py` builds local safe envelopes for future sinks by redacting or summarizing prompt/source/output/credential metadata; it does not upload data or create a telemetry service.
+
 Harness state refresh in the product adapter path goes through `CHarnessWorkflowExtension.refresh_managed_session()` behind the default C harness workflow extension. The old `HarnessStateSynchronizer` service facade has been removed rather than kept as a parallel compatibility path.
 
 ### Session Runtime Ownership
@@ -342,7 +344,7 @@ The architecture therefore assumes runtime discovery for bundled tools, not glob
 
 `scripts/offline-runtime-contract.json` enumerates the bundled external tools that runtime flows may invoke. The release bundle validation gate and dependency checker must consume this contract rather than maintaining independent hard-coded lists. A clean Windows 7 unpack-and-run smoke remains the final release proof that the contract-backed bundle is actually portable.
 
-Offline-first does not forbid explicitly configured intranet use. It means network services are optional adapters with timeouts, local fallback/disable paths, and safe diagnostics. Telemetry, when present, is a passive sink over safe structured lifecycle/capability/diagnostic events and must not export prompts, source text, raw tool outputs, API keys, or approval secrets.
+Offline-first does not forbid explicitly configured intranet use. It means network services are optional adapters with timeouts, local fallback/disable paths, and safe diagnostics. Telemetry, when present, is a passive sink over safe structured lifecycle/capability/diagnostic events and must not export prompts, source text, raw tool outputs, API keys, permission payloads, tokens, or approval secrets. The current code has only the permission/category and safe-envelope foundation for those future adapters; it does not ship a network uploader.
 
 ## 11. Design Rule
 

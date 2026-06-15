@@ -10,6 +10,7 @@ from embedagent.capabilities import (
     runtime_tool_capability_descriptors,
 )
 from embedagent.modes import allowed_tools_for
+from embedagent.permissions import OFFICIAL_PERMISSION_CATEGORIES
 from embedagent.projection_db import ProjectionDb
 from embedagent.session import Observation
 from embedagent.strategies.tool_cache import ToolResultCache
@@ -27,9 +28,7 @@ from embedagent.tools import (
 from embedagent.tools._base import ToolContext, ToolDefinition, ToolError
 
 _VALID_TOOL_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
-_REGISTERABLE_PERMISSION_CATEGORIES = set(
-    ["read", "workspace_write", "shell_exec", "toolchain_exec", "git_write"]
-)
+_REGISTERABLE_PERMISSION_CATEGORIES = OFFICIAL_PERMISSION_CATEGORIES
 _EXTENSION_REQUIRED_METADATA = (
     "permission_category",
     "mode_visibility",

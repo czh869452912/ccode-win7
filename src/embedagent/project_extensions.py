@@ -5,9 +5,11 @@ import re
 import sys
 from typing import Any, Dict, List, Optional
 
+from embedagent.permissions import OFFICIAL_PERMISSION_CATEGORIES
+
 DEFAULT_EXTENSION_RELPATH = os.path.join(".embedagent", "extensions")
 _VALID_EXTENSION_ID_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_.-]*$")
-_ALLOWED_PERMISSIONS = set(["read", "workspace_write", "shell_exec", "toolchain_exec", "git_write"])
+_ALLOWED_PERMISSIONS = OFFICIAL_PERMISSION_CATEGORIES
 _LOAD_FAILURE_TYPES = (
     OSError,
     ValueError,

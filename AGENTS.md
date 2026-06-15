@@ -200,7 +200,7 @@ Project-local Python extension loading is a separate hosted adapter operation, n
 
 Runtime-invoked external tools are governed by `scripts/offline-runtime-contract.json`. Keep this contract aligned with bundled Python, MinGit, ripgrep, Universal Ctags, and LLVM/Clang child executables whenever a runtime flow starts invoking a new binary. `validate-offline-bundle.ps1` and `check-bundle-dependencies.py` consume this contract; do not add a separate hard-coded bundle tool list.
 
-Enterprise/intranet tools must not be introduced as hidden Core calls. Intranet Git operations, custom service calls, model/provider gateways, or telemetry uploaders must enter through explicit provider/extension/workflow-package/sink boundaries, source metadata, structured configuration, timeout/fallback behavior, and normal `PermissionPolicy` checks. Telemetry may observe safe lifecycle/capability/diagnostic events only; it must not export prompts, source files, raw tool outputs, API keys, or approval secrets.
+Enterprise/intranet tools must not be introduced as hidden Core calls. Intranet Git operations, custom service calls, model/provider gateways, or telemetry uploaders must enter through explicit provider/extension/workflow-package/sink boundaries, source metadata, structured configuration, timeout/fallback behavior, and normal `PermissionPolicy` checks. `network` and `telemetry` are official permission categories for those optional capabilities and default to confirmation unless policy rules say otherwise. Telemetry may observe safe lifecycle/capability/diagnostic events only; `src/embedagent/telemetry.py` provides the local safe-envelope helper and must not export prompts, source files, raw tool outputs, API keys, permission payloads, tokens, or approval secrets.
 
 ### Session History
 
@@ -259,7 +259,7 @@ One official permission engine only:
 
 Permission rules are structured data, not free-form prompt behavior.
 When changing permission behavior, keep rule matching, decision categories, and explanation text aligned.
-Do not hide network or intranet side effects behind `read` or generic `other` behavior. Any future network/intranet permission category must be added deliberately across `permissions.py`, tool metadata, frontend explanations, and the active permission documentation.
+Do not hide network or intranet side effects behind `read` or generic `other` behavior. Use the official `network` or `telemetry` categories when a tool reaches intranet/custom services or sends telemetry diagnostics, and keep frontend explanations plus active permission documentation aligned when semantics change.
 
 ## Frontend / Protocol Policy
 

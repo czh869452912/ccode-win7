@@ -100,6 +100,60 @@ class TestPermissionPolicy(unittest.TestCase):
         self.assertEqual(decision.outcome, "allow")
         self.assertEqual(decision.details.get("category"), "other")
 
+    def test_dynamic_network_tool_requires_permission(self):
+        policy = PermissionPolicy(
+            auto_approve_all=False,
+            workspace="D:\\workspace",
+            category_lookup=lambda name: "network" if name == "intranet_fetch" else "",
+        )
+
+        decision = policy.evaluate(
+            Action("intranet_fetch", {"url": "https://git.internal/api"}, "call-network")
+        )
+
+        self.assertEqual(decision.outcome, "ask")
+        self.assertEqual(decision.request.category, "network")
+        self.assertEqual(decision.details.get("category"), "network")
+        self.assertIn("network", decision.details.get("explanation"))
+
+    def test_dynamic_telemetry_tool_requires_permission(self):
+        policy = PermissionPolicy(
+            auto_approve_all=False,
+            workspace="D:\\workspace",
+            category_lookup=lambda name: "telemetry" if name == "flush_telemetry" else "",
+        )
+
+        decision = policy.evaluate(Action("flush_telemetry", {}, "call-telemetry"))
+
+        self.assertEqual(decision.outcome, "ask")
+        self.assertEqual(decision.request.category, "telemetry")
+        self.assertEqual(decision.details.get("category"), "telemetry")
+
+    def test_auto_approve_commands_does_not_allow_network_or_telemetry(self):
+        policy = PermissionPolicy(
+            auto_approve_all=False,
+            auto_approve_commands=True,
+            workspace="D:\\workspace",
+            category_lookup=lambda name: {
+                "intranet_fetch": "network",
+                "flush_telemetry": "telemetry",
+            }.get(name, ""),
+        )
+
+        network = policy.evaluate(Action("intranet_fetch", {}, "call-network"))
+        telemetry = policy.evaluate(Action("flush_telemetry", {}, "call-telemetry"))
+
+        self.assertEqual(network.outcome, "ask")
+        self.assertEqual(telemetry.outcome, "ask")
+
+    def test_permission_context_includes_network_and_telemetry_categories(self):
+        policy = PermissionPolicy(auto_approve_all=False, workspace="D:\\workspace")
+
+        view = policy.build_context_view(session_id="session-1")
+
+        self.assertIn("network", view.categories)
+        self.assertIn("telemetry", view.categories)
+
 
 if __name__ == "__main__":
     unittest.main()

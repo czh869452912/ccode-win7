@@ -65,7 +65,7 @@ def test_authoring_rejects_empty_names_invalid_permissions_and_no_overwrite(tmp_
 
     empty = service.author(AuthoringRequest(kind="skill", name=""))
     invalid_permission = service.author(
-        AuthoringRequest(kind="extension", name="Bad Permission", permissions=["network"])
+        AuthoringRequest(kind="extension", name="Bad Permission", permissions=["remote_install"])
     )
     first = service.author(AuthoringRequest(kind="skill", name="Duplicate"))
     second = service.author(AuthoringRequest(kind="skill", name="Duplicate"))
@@ -80,6 +80,29 @@ def test_authoring_rejects_empty_names_invalid_permissions_and_no_overwrite(tmp_
     assert second.files[0].status == "skipped"
     assert overwrite.success is True
     assert overwrite.files[0].status == "written"
+
+
+def test_authoring_accepts_network_and_telemetry_extension_permissions(tmp_path):
+    from embedagent.self_extension_authoring import (
+        AuthoringRequest,
+        SelfExtensionAuthoringService,
+    )
+
+    result = SelfExtensionAuthoringService(str(tmp_path)).author(
+        AuthoringRequest(
+            kind="extension",
+            name="Enterprise Bridge",
+            permissions=["network", "telemetry"],
+        )
+    )
+
+    manifest_path = (
+        tmp_path / ".embedagent" / "extensions" / "enterprise-bridge" / "extension.json"
+    )
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+
+    assert result.success is True
+    assert manifest["permissions"] == ["network", "telemetry"]
 
 
 def test_generated_recipe_updates_resource_snapshot_after_runtime_reload(tmp_path):

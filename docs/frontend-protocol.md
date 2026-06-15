@@ -67,6 +67,8 @@ Important session snapshot fields include:
 
 Future intranet/custom-service/provider/telemetry health, if exposed, belongs in diagnostics/read-model fields such as `extensions`, `extension_diagnostics`, `runtime_config`, or capability projections. Frontends may display service availability, last error, buffered telemetry counts, or source metadata, but must not decide network activation, permission policy, retry policy, extension loading, or telemetry redaction.
 
+Permission context and tool catalog payloads may include `network` and `telemetry` permission categories. Frontends may display those categories and remember approvals through the existing backend-owned permission flow, but they must not reinterpret them as `read` or auto-run them from catalog metadata.
+
 Capability projections are also diagnostics/read-model state. `InProcessAdapter.capability_snapshot()` may expose tools, local file resources, slash commands, workflow package manifests, and model profile metadata for future frontend inspection, but frontends must not treat that projection as active-tool policy or permission state.
 
 Visible skills are projected to frontend-adjacent surfaces through the internal `SkillIndex` read model as local `resource` descriptors and `skill:<name>` slash-command descriptors. There is no first-class frontend `skill` capability kind yet; frontends should continue treating skill files as file-only local resources plus optional commands.

@@ -399,3 +399,29 @@ def test_inprocess_adapter_catalog_includes_active_extension_tool(tmp_path):
     assert entry["source_type"] == "extension"
     assert entry["source_id"] == "dynamic_tools"
     assert entry["permission_category"] == "read"
+
+
+def test_dynamic_tool_registration_accepts_network_and_telemetry_categories(tmp_path):
+    runtime = ToolRuntime(str(tmp_path))
+
+    runtime.register_tool(
+        make_dynamic_tool(
+            name="intranet_fetch",
+            permission_category="network",
+            read_only=False,
+        ),
+        source_type="extension",
+        source_id="enterprise_tools",
+    )
+    runtime.register_tool(
+        make_dynamic_tool(
+            name="flush_telemetry",
+            permission_category="telemetry",
+            read_only=False,
+        ),
+        source_type="extension",
+        source_id="enterprise_tools",
+    )
+
+    assert runtime.tool_catalog_entry("intranet_fetch")["permission_category"] == "network"
+    assert runtime.tool_catalog_entry("flush_telemetry")["permission_category"] == "telemetry"

@@ -44,6 +44,45 @@
 
 ## 3. 当前变更记录
 
+### DC-154
+
+- 日期：2026-06-15
+- 变更主题：Enterprise boundary foundation implementation
+- 变更摘要：
+  - 新增正式 permission categories：`network` 与 `telemetry`
+  - `PermissionPolicy`、dynamic tool registration、project extension manifest validation 和 `SelfExtensionAuthoringService` 已共享这些类别
+  - `network` / `telemetry` 默认需要确认，不能通过未分类 `other` 或 `read` 隐藏内网/遥测副作用
+  - 新增 `src/embedagent/telemetry.py`，提供本地 safe telemetry envelope helper，剔除或摘要 prompt、source text、raw tool output、API key、permission payload、token、secret 等敏感 metadata
+  - 本次没有新增真实内网 Git/custom service、telemetry uploader、remote catalog 或 runtime dependency installation
+- 影响范围：
+  - `src/embedagent/permissions.py`
+  - `src/embedagent/tools/runtime.py`
+  - `src/embedagent/project_extensions.py`
+  - `src/embedagent/self_extension_authoring.py`
+  - `src/embedagent/telemetry.py`
+  - `tests/test_permissions.py`
+  - `tests/test_dynamic_tool_registration.py`
+  - `tests/test_project_extensions.py`
+  - `tests/test_self_extension_authoring.py`
+  - `tests/test_telemetry.py`
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/pi-inspired-agent-core-blueprint.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/tool-contracts.md`
+  - `docs/permission-model.md`
+  - `docs/frontend-protocol.md`
+- 关联文档：
+  - `docs/superpowers/specs/2026-06-15-enterprise-boundary-foundation-design.md`
+  - `docs/superpowers/plans/2026-06-15-enterprise-boundary-foundation.md`
+  - `docs/pi-inspired-agent-core-blueprint.md`
+  - `docs/tool-contracts.md`
+  - `docs/permission-model.md`
+- 是否需要 ADR：`否，本次是既有 extension/tool/permission 边界的类别与安全投影补强；不新增网络运行时或外部依赖`
+- 后续动作：
+  - 后续真实内网 Git/custom service/telemetry sink 必须作为独立 extension/provider/sink slice 实施，并复用本次 permission 与 safe envelope 边界
+
 ### DC-153
 
 - 日期：2026-06-15
