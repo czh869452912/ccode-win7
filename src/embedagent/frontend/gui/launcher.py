@@ -116,6 +116,16 @@ def create_core(workspace: str, config: Optional[Dict[str, Any]] = None):
     return core
 
 
+def _resolve_initial_workspace(workspace_option: str = "", workspace_arg: str = "") -> str:
+    raw = str(workspace_option or workspace_arg or "").strip()
+    if not raw:
+        return ""
+    workspace = os.path.realpath(os.path.abspath(raw))
+    if not os.path.isdir(workspace):
+        raise ValueError("Workspace not found: %s" % workspace)
+    return workspace
+
+
 def _detect_windows_renderer() -> Dict[str, Any]:
     if sys.platform != "win32":
         return {"platform": sys.platform, "renderer": "non-win32"}
@@ -233,7 +243,7 @@ def _write_renderer_report(path: str, report: Dict[str, Any]) -> None:
 
 
 def launch_gui(
-    workspace: str,
+    workspace: str = "",
     host: str = "127.0.0.1",
     port: int = 0,  # 0 表示自动选择端口
     mode: str = "build",
@@ -269,7 +279,7 @@ def launch_gui(
     import uvicorn
     import webview
 
-    workspace = os.path.realpath(workspace)
+    workspace = os.path.realpath(workspace) if workspace else ""
     runtime_info = (
         _configure_webview_runtime()
         if sys.platform == "win32"
@@ -289,30 +299,33 @@ def launch_gui(
         port = sock.getsockname()[1]
         sock.close()
 
-    # 创建 Core
-    _LOGGER.info(f"Initializing Agent Core for workspace: {workspace}")
-    core = create_core(
-        workspace,
-        {
-            "base_url": base_url,
-            "api_key": api_key,
-            "model": model,
-            "timeout": timeout,
-            "max_turns": max_turns,
-            "approve_all": approve_all,
-            "approve_writes": approve_writes,
-            "approve_commands": approve_commands,
-            "permission_rules": permission_rules,
-        },
-    )
-
+    runtime_config = {
+        "base_url": base_url,
+        "api_key": api_key,
+        "model": model,
+        "timeout": timeout,
+        "max_turns": max_turns,
+        "approve_all": approve_all,
+        "approve_writes": approve_writes,
+        "approve_commands": approve_commands,
+        "permission_rules": permission_rules,
+    }
+    app_host = None
     try:
         # 创建 GUI Backend
         static_dir = os.path.join(os.path.dirname(__file__), "static")
 
+        from embedagent.frontend.gui.backend.app_host import GUIAppHost
         from embedagent.frontend.gui.backend.server import GUIBackend
 
-        backend = GUIBackend(core=core, static_dir=static_dir)
+        def core_factory(path: str):
+            _LOGGER.info("Initializing Agent Core for workspace: %s", path)
+            return create_core(path, runtime_config)
+
+        app_host = GUIAppHost(core_factory=core_factory)
+        backend = GUIBackend(core=None, static_dir=static_dir, app_host=app_host)
+        if workspace:
+            app_host.open_workspace_path(workspace)
 
         # 启动 FastAPI 服务器（在后台线程）
         server_url = f"http://{host}:{port}"
@@ -343,7 +356,9 @@ def launch_gui(
                 return
 
         # 创建 PyWebView 窗口
-        window_title = f"EmbedAgent - {os.path.basename(workspace)}"
+        window_title = (
+            "EmbedAgent - %s" % os.path.basename(workspace) if workspace else "EmbedAgent"
+        )
 
         # Windows 7 兼容性设置
         webview_settings = {
@@ -382,7 +397,8 @@ def launch_gui(
             webview.start(debug=debug)
     finally:
         _LOGGER.info("Shutting down...")
-        core.shutdown()
+        if app_host is not None:
+            app_host.shutdown()
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -428,12 +444,10 @@ def main(argv: Optional[list] = None) -> int:
     """命令行入口"""
     parser = build_parser()
     args = parser.parse_args(argv)
-    workspace_arg = args.workspace_option or args.workspace or os.getcwd()
-
-    # 验证工作区
-    workspace = os.path.abspath(workspace_arg)
-    if not os.path.isdir(workspace):
-        _LOGGER.error(f"Workspace not found: {workspace}")
+    try:
+        workspace = _resolve_initial_workspace(args.workspace_option, args.workspace)
+    except ValueError as exc:
+        _LOGGER.error(str(exc))
         return 1
 
     try:
