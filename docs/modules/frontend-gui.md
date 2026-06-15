@@ -20,7 +20,7 @@
 - FastAPI 后端与静态资源服务（`backend/server.py`）
 - 协议回调到 WebSocket 广播的实时转换（`backend/server.py`）
 - WebSocket 断线重连与会话事件回放恢复（`webapp/`）
-- T3code-inspired Agent timeline rows、composer interaction panel、Diff right-panel surface（`webapp/src/session-runtime/`、`webapp/src/components/`）
+- T3code-inspired Agent timeline rows、composer interaction panel、Diff right-panel surface、neutral workbench visual language（`webapp/src/session-runtime/`、`webapp/src/components/`、`webapp/src/styles.css`）
 - 开发机可视调试 harness：启动真实 GUI、执行场景、截图、检查 console/DOM（`scripts/gui-visual-debug.mjs`）
 
 ## 3. Code Mapping
@@ -93,6 +93,13 @@ Version 109 and Windows 7 compatibility. GUI runtime deployment must remain
 offline and must not require Electron, CDN assets, runtime Node, Docker, WSL,
 VS Code, or external online services.
 
+The visual language is intentionally close to T3code without copying its
+implementation stack. The current GUI uses plain CSS tokens for neutral dark
+workbench surfaces, soft borders, compact tabs, centered timeline width,
+rounded composer shell, and restrained right-panel/diff chrome. This is a shell
+style contract only; workflow semantics remain owned by Agent Core and
+frontend-facing read models.
+
 ## 7. Timeline, Interaction, And Diff Surfaces
 
 `webapp/src/session-runtime/t3-timeline.js` projects existing session/runtime
@@ -119,7 +126,7 @@ execution remains backend/tool-owned.
 - `tests/test_gui_backend_api.py` — API 合约、错误翻译、bootstrap、事件回放
 - `tests/test_gui_runtime.py` — 启动器、阻塞等待器、调度器、WebSocket 生命周期、适配器快照投影
 - `tests/test_gui_sync.py` — 端到端待处理输入解析、`CallbackBridge` 刷新行为、元数据保留
-- `cd src/embedagent/frontend/gui/webapp && npm test` — frontend reducer、timeline、interaction、diff、workbench 和 visual harness helper 合约
+- `cd src/embedagent/frontend/gui/webapp && npm test` — frontend reducer、timeline、interaction、diff、workbench、T3 visual-language CSS contract 和 visual harness helper 合约
 - `cd src/embedagent/frontend/gui/webapp && npm run visual:gui -- --scenario all --bundle-root <bundle-root>` — dev-only Playwright visual harness；启动真实 GUI、执行 load/chat/diff、生成截图和 `summary.json`，并检查 console warning/error
 
 当新增 Core 回调、会话事件 schema、WebView2/渲染器策略或 React 前端状态结构变化时，应优先重跑这些测试。
@@ -137,7 +144,7 @@ PyWebView/WebView2 Fixed Version 109 运行，且不要求 Node 或 Playwright�
 - WebView2/运行时策略变化
 - FastAPI 路由或 WebSocket 广播协议变化
 - `FrontendCallbacks` 或 `CoreInterface` 接口签名变化
-- Timeline row、composer interaction、diff surface 或 visual harness 场景变化
+- Timeline row、composer interaction、diff surface、visual language tokens/rules 或 visual harness 场景变化
 
 ## 10. Related Documents
 

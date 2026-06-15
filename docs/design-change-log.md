@@ -44,6 +44,31 @@
 
 ## 3. 当前变更记录
 
+### DC-157
+
+- 日期：2026-06-15
+- 变更主题：T3code-inspired GUI neutral visual language
+- 变更摘要：
+  - GUI 在不更换技术栈、不复制 T3code 代码的前提下，将视觉语言向 T3code neutral workbench 收敛。
+  - 全局 CSS token 从 GitHub-dark 风格调整为 neutral dark workbench；timeline 增加 centered shell，message/work rows、composer、right-panel tabs、diff panel 统一使用更柔和的边框、圆角、面板层级与更克制的状态色。
+  - 新增 frontend CSS contract 测试，锁定 T3-style token、timeline shell、composer fade、diff/right-panel shell 等关键视觉规则。
+  - 本次只改变 GUI shell 显示语言，不改变 Agent Core、permission policy、workflow package、session history 或 protocol truth。
+- 影响范围：
+  - `src/embedagent/frontend/gui/webapp/src/styles.css`
+  - `src/embedagent/frontend/gui/webapp/src/components/Timeline.jsx`
+  - `src/embedagent/frontend/gui/webapp/test/visual-language-css.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `src/embedagent/frontend/gui/static/assets/`
+  - `docs/modules/frontend-gui.md`
+  - `docs/development-tracker.md`
+- 关联文档：
+  - `docs/archive/t3-parity-gui-debug/2026-06-15-t3-visual-language.md`
+  - `docs/modules/frontend-gui.md`
+- 是否需要 ADR：否；这是 GUI shell 视觉语言收敛，不改变长期架构边界。
+- 后续动作：
+  - 继续用 `npm run visual:gui -- --scenario all` 作为 GUI polish 的默认可视回归入口。
+  - 后续细化编辑闭环、timeline 折叠和 diff review 交互时继续按 T3code 参考收敛。
+
 ### DC-156
 
 - 日期：2026-06-15

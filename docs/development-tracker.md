@@ -1,6 +1,6 @@
 # EmbedAgent 开发进度跟踪
 
-> 更新日期：2026-06-15（T3code GUI core experience + visual debug harness）
+> 更新日期：2026-06-15（T3code GUI core experience + visual language + visual debug harness）
 > 用途：持续跟踪当前阶段、下一步任务、里程碑进度、风险与阻塞
 
 ---
@@ -27,6 +27,7 @@
 ### 2026-06-15 - T3code Timeline / Diff / Visual Debug Harness
 
 - GUI 已在既有 React/WebView2 技术栈内补齐 T3code-style timeline row projection/rendering、composer-local permission/user-input interaction panel、right-panel Diff surface。
+- GUI 视觉语言已向 T3code neutral workbench 收敛：全局 token、timeline 宽度、message/work rows、composer shell、right-panel tabs 和 diff chrome 均已从 GitHub-dark 风格调整为更克制的 T3-style 工作台语言；实现仍使用 Win7/WebView2 109 兼容的 plain CSS。
 - 新增 dev-only `scripts/gui-visual-debug.mjs` / `npm run visual:gui`，可在当前 Win10/Win11 开发机启动真实 GUI、执行 load/chat/diff 场景、截图、检查 console warning/error 与 DOM 状态；Playwright 不进入 Win7 离线运行时依赖。
 - visual harness 抓出并已修复 streaming assistant 文本重复问题：`LLMClientRetryWrapper` 不再在 streaming client 已发 delta 后重放 final content；同时 GUI WebSocket lifecycle 增加 token/manual-close guard，避免 React StrictMode cleanup 触发旧连接重连。
 
@@ -72,7 +73,7 @@
 - 最新 workflow extension validation：`2026-05-29 repo-side 验证已通过：fast suite 为 685 passed / 11 deselected，focused C/C++ build/debug/verify workflow 回归为 15 passed。官方 harness 门禁已修复 marker 漏标问题，uv run pytest tests/ -m harness -v 现在会选中并通过 23 个 task_graph / phase_engine / harness runner / prompt stack / harness injection 测试。本机 release bundle 已用当前分支源码重建并通过：validate-offline-bundle.ps1 -RequireComplete 为 59 pass / 0 warn / 0 fail，check-bundle-dependencies.py 全部通过，scripts/package.ps1 verify -Profile release -Json 返回 final_status READY。clean Windows 7 unpack-and-run smoke 尚未执行。`
 - 最新 documentation cleanup：`docs/guides/configuration-guide.md` 已改写为当前正式配置指南，使用 `explore/spec/build/debug/verify` 与 `build` 实现模式口径，不再把 `code` 或 `manage_todos` 作为当前配置/工作流示例。`
 - 最新 runtime cleanup：`task_status` 前端元数据现已统一为 `tasks/task` 词汇，workspace profile 不再输出待办语义提示，运行时残留 `todos.py` 已删除。`
-- 最新 GUI closeout：`GUI backend 与 webapp 默认新建会话入口已统一为 `explore`，resume 默认不再强制覆盖 restored mode；GUI task 面板、样式和静态产物已清理 `todo-*` / `tasks.todo` 与 `mode-code` 残留，保留正式 `tasks/task` 与 `mode-build` 词汇。T3code-style timeline rows、composer interaction panel、Diff right-panel surface 与 dev-only visual debug harness 已落地；harness 已覆盖 load/chat/diff 并修复 streaming assistant 文本重复问题。`
+- 最新 GUI closeout：GUI backend 与 webapp 默认新建会话入口已统一为 `explore`，resume 默认不再强制覆盖 restored mode；GUI task 面板、样式和静态产物已清理 `todo-*` / `tasks.todo` 与 `mode-code` 残留，保留正式 `tasks/task` 与 `mode-build` 词汇。T3code-style timeline rows、composer interaction panel、Diff right-panel surface、neutral workbench visual language 与 dev-only visual debug harness 已落地；harness 已覆盖 load/chat/diff 并修复 streaming assistant 文本重复问题。
 - 最新归档收尾：`agent-core-cutover` 相关 design / plan / review / implementation review / follow-up plan 已迁入 `docs/archive/agent-core-cutover/`，活动 `docs/superpowers/` 入口不再保留这轮已关闭切片。`
 
 ### 当前判断

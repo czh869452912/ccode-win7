@@ -289,22 +289,24 @@ const Timeline = forwardRef(function Timeline(
         aria-atomic="false"
         aria-label="Conversation"
       >
-        {historyIntegrity?.status === "partial" ? (
-          <div className="system-card context" role="status">
-            <strong>history partially restored</strong>: {historyIntegrity.restoreStopReason || historyIntegrity.restore_stop_reason || "restore stopped early"}
-          </div>
-        ) : null}
-        {historyIntegrity?.status === "unavailable" ? (
-          <div className="system-card error" role="alert">
-            session history unavailable
-          </div>
-        ) : null}
-        <TimelineRows rows={rows} onOpenDiff={onOpenDiff} markdownComponents={markdownComponents} />
-        {terminationCard && (
-          <div className={`system-card ${terminationCard.tone}`} role={terminationCard.tone === "error" ? "alert" : "status"}>
-            {terminationCard.content}
-          </div>
-        )}
+        <div className="timeline-shell">
+          {historyIntegrity?.status === "partial" ? (
+            <div className="system-card context" role="status">
+              <strong>history partially restored</strong>: {historyIntegrity.restoreStopReason || historyIntegrity.restore_stop_reason || "restore stopped early"}
+            </div>
+          ) : null}
+          {historyIntegrity?.status === "unavailable" ? (
+            <div className="system-card error" role="alert">
+              session history unavailable
+            </div>
+          ) : null}
+          <TimelineRows rows={rows} onOpenDiff={onOpenDiff} markdownComponents={markdownComponents} />
+          {terminationCard && (
+            <div className={`system-card ${terminationCard.tone}`} role={terminationCard.tone === "error" ? "alert" : "status"}>
+              {terminationCard.content}
+            </div>
+          )}
+        </div>
       </div>
     );
   }
@@ -319,37 +321,39 @@ const Timeline = forwardRef(function Timeline(
       aria-atomic="false"
       aria-label="Conversation"
     >
-      {historyIntegrity?.status === "partial" ? (
-        <div className="system-card context" role="status">
-          <strong>history partially restored</strong>: {historyIntegrity.restoreStopReason || historyIntegrity.restore_stop_reason || "restore stopped early"}
-        </div>
-      ) : null}
-      {historyIntegrity?.status === "unavailable" ? (
-        <div className="system-card error" role="alert">
-          session history unavailable
-        </div>
-      ) : null}
-      {projectionNotice ? (
-        <div className={`system-card ${projectionNotice.tone || "context"}`} role="status">
-          <strong>{projectionNotice.title}</strong>: {projectionNotice.detail}
-        </div>
-      ) : null}
-      {groups.map((group, idx) => (
-        <TurnGroup
-          key={group.turnId || group.userItem?.id || `anon-${idx}`}
-          group={group}
-          toolCatalog={toolCatalog}
-          isLast={idx === lastIdx}
-          thinkingActive={thinkingActive}
-          streamingReasoningId={streamingReasoningId}
-          lang={lang}
-        />
-      ))}
-      {terminationCard && (
-        <div className={`system-card ${terminationCard.tone}`} role={terminationCard.tone === "error" ? "alert" : "status"}>
-          {terminationCard.content}
-        </div>
-      )}
+      <div className="timeline-shell">
+        {historyIntegrity?.status === "partial" ? (
+          <div className="system-card context" role="status">
+            <strong>history partially restored</strong>: {historyIntegrity.restoreStopReason || historyIntegrity.restore_stop_reason || "restore stopped early"}
+          </div>
+        ) : null}
+        {historyIntegrity?.status === "unavailable" ? (
+          <div className="system-card error" role="alert">
+            session history unavailable
+          </div>
+        ) : null}
+        {projectionNotice ? (
+          <div className={`system-card ${projectionNotice.tone || "context"}`} role="status">
+            <strong>{projectionNotice.title}</strong>: {projectionNotice.detail}
+          </div>
+        ) : null}
+        {groups.map((group, idx) => (
+          <TurnGroup
+            key={group.turnId || group.userItem?.id || `anon-${idx}`}
+            group={group}
+            toolCatalog={toolCatalog}
+            isLast={idx === lastIdx}
+            thinkingActive={thinkingActive}
+            streamingReasoningId={streamingReasoningId}
+            lang={lang}
+          />
+        ))}
+        {terminationCard && (
+          <div className={`system-card ${terminationCard.tone}`} role={terminationCard.tone === "error" ? "alert" : "status"}>
+            {terminationCard.content}
+          </div>
+        )}
+      </div>
     </div>
   );
 });
