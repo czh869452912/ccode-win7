@@ -117,6 +117,41 @@ def test_provider_request_snapshot_records_safe_turn_snapshot_metadata():
     assert "tool_schemas" not in provider
 
 
+def test_provider_request_snapshot_records_safe_prompt_units():
+    event = _event(
+        "operation_started",
+        {
+            "operation_id": "provider:s-1",
+            "kind": "provider_request",
+            "metadata": {
+                "turn_snapshot": {
+                    "snapshot_id": "ts-123",
+                    "prompt_units": [
+                        {
+                            "kind": "local_skill_listing",
+                            "visible_skill_names": ["code-review"],
+                            "visible_skill_count": 1,
+                            "text": "secret prompt body",
+                        }
+                    ],
+                }
+            },
+        },
+    )
+
+    state = RuntimeConfigReducer().reduce([event])
+    provider = state.to_dict()["provider_requests"][0]
+
+    assert provider["prompt_units"] == [
+        {
+            "kind": "local_skill_listing",
+            "visible_skill_names": ["code-review"],
+            "visible_skill_count": 1,
+        }
+    ]
+    assert "secret prompt body" not in str(provider)
+
+
 def test_runtime_config_state_is_json_serializable_when_empty():
     payload = RuntimeConfigReducer().reduce([]).to_dict()
 

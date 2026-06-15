@@ -370,7 +370,7 @@ Current implementation status: Phase F is complete for repo-side validation. `sc
 
 ### Phase G: Turn Snapshot / Capability Registry Foundation
 
-Current implementation status: Phase G is complete. `TurnSnapshot` is now the explicit frozen provider-request input built after context assembly and active schema projection; provider calls consume `snapshot.messages` and `snapshot.tool_schemas`. `CapabilityRegistry` is now a non-executing read model for tools, local file resources, slash commands, and model profiles. Activation still belongs to `ExtensionManager` / `AgentExtensionHost`, execution still belongs to `ToolRuntime` / `AgentToolActionService`, and provider diagnostics record only safe snapshot metadata.
+Current implementation status: Phase G is complete. `TurnSnapshot` is now the explicit frozen provider-request input built after context assembly and active schema projection; provider calls consume `snapshot.messages` and `snapshot.tool_schemas`. `CapabilityRegistry` is now a non-executing read model for tools, local file resources, slash commands, and model profiles. `TurnSnapshot` can also carry safe prompt-unit metadata, currently including local skill listing names and counts without skill bodies or full prompt text. Activation still belongs to `ExtensionManager` / `AgentExtensionHost`, execution still belongs to `ToolRuntime` / `AgentToolActionService`, and provider diagnostics record only safe snapshot metadata.
 
 ### Phase H: Runtime Configuration Reducer
 
@@ -380,11 +380,11 @@ Outcomes:
 
 - `runtime_configured` records safe model profile, active tool names, and capability counts
 - `resource_reloaded` advances local resource revision metadata
-- provider-request `operation_started` metadata records safe `turn_snapshot` anchors
+- provider-request `operation_started` metadata records safe `turn_snapshot` anchors and prompt-unit summaries
 - session snapshots expose reducer-backed `runtime_config`
-- `TurnSnapshot` can carry reducer-backed model profile and resource revision metadata
+- `TurnSnapshot` can carry reducer-backed model profile, resource revision metadata, and safe prompt-unit metadata
 
-Current implementation status: Phase H is complete. `src/embedagent/runtime_config.py` defines `RuntimeConfigReducer` and serializable state objects. `InProcessAdapter` emits and refreshes runtime config during session creation, local resource reload, resume, and snapshot projection. `QueryEngine` can consume reducer-backed runtime configuration while building provider turn snapshots. The reducer ignores `resource_discovered` for revision advancement, strips unsafe provider inputs, and leaves activation, execution, resource reload, extension loading, and permission checks with their existing owners.
+Current implementation status: Phase H is complete. `src/embedagent/runtime_config.py` defines `RuntimeConfigReducer` and serializable state objects. `InProcessAdapter` emits and refreshes runtime config during session creation, local resource reload, resume, and snapshot projection. `QueryEngine` can consume reducer-backed runtime configuration while building provider turn snapshots. Provider snapshot records now preserve safe prompt-unit summaries such as local skill listing names/counts while stripping unsafe provider inputs. The reducer ignores `resource_discovered` for revision advancement and leaves activation, execution, resource reload, extension loading, and permission checks with their existing owners.
 
 ### Phase I: Workflow Package Manifest / Read Model
 

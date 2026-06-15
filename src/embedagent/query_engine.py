@@ -57,6 +57,7 @@ from embedagent.session import (
     ToolPresentationSnapshot,
 )
 from embedagent.session_store import SessionSummaryStore
+from embedagent.skill_index import build_skill_index
 from embedagent.tool_commit import ToolCommitCoordinator
 from embedagent.tools import ToolRuntime
 from embedagent.transcript_store import TranscriptStore
@@ -79,6 +80,17 @@ _COMPACT_RETRY_ERROR_MARKERS = (
     "超出上下文",
 )
 _OPERATION_RUNTIME_ERRORS = (OSError, RuntimeError, ValueError, TypeError, KeyError, AttributeError)
+
+
+def _has_meaningful_resource_revision(value: Dict[str, Any]) -> bool:
+    if not isinstance(value, dict):
+        return False
+    if int(value.get("revision") or 0) > 0:
+        return True
+    for key in ("event_id", "reason", "ts"):
+        if str(value.get(key) or "").strip():
+            return True
+    return False
 
 
 class QueryEngine(object):
@@ -679,6 +691,30 @@ class QueryEngine(object):
         revision = runtime_config.get("resource_revision") or {}
         return dict(revision) if isinstance(revision, dict) else {}
 
+    def _prompt_units_for_snapshot(
+        self, runtime_config: Optional[Dict[str, Any]] = None
+    ) -> List[Dict[str, Any]]:
+        local_resources = {}
+        local_resources_method = getattr(self.tools, "local_resources", None)
+        if callable(local_resources_method):
+            try:
+                local_resources = local_resources_method()
+            except (OSError, RuntimeError, ValueError, TypeError):
+                local_resources = {}
+        summary = build_skill_index(local_resources).safe_summary()
+        visible_skill_count = int(summary.get("visible_skill_count") or 0)
+        if visible_skill_count <= 0:
+            return []
+        prompt_unit = {
+            "kind": "local_skill_listing",
+            "visible_skill_names": list(summary.get("visible_skill_names") or []),
+            "visible_skill_count": visible_skill_count,
+        }
+        resource_revision = self._resource_revision_snapshot(runtime_config)
+        if _has_meaningful_resource_revision(resource_revision):
+            prompt_unit["resource_revision"] = resource_revision
+        return [prompt_unit]
+
     def _runtime_environment_snapshot(self) -> Dict[str, Any]:
         runtime_snapshot = getattr(self.tools, "runtime_environment_snapshot", None)
         if not callable(runtime_snapshot):
@@ -699,6 +735,7 @@ class QueryEngine(object):
             "active_tool_names": list(snapshot.active_tool_names),
             "model_profile": dict(snapshot.model_profile or {}),
             "resource_revision": dict(snapshot.resource_revision or {}),
+            "prompt_units": [dict(item) for item in list(snapshot.prompt_units or [])],
             "capability_counts": dict(capabilities.get("counts") or {}),
         }
 
@@ -730,6 +767,7 @@ class QueryEngine(object):
             active_tool_names=active_tool_names,
             model_profile=self._model_profile_snapshot(runtime_config),
             resource_revision=self._resource_revision_snapshot(runtime_config),
+            prompt_units=self._prompt_units_for_snapshot(runtime_config),
             runtime_environment=self._runtime_environment_snapshot(),
             capabilities=capabilities,
             context_stats=self._context_stats_for_snapshot(messages),

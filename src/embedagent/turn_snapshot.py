@@ -47,6 +47,7 @@ class TurnSnapshot:
     active_tool_names: List[str] = field(default_factory=list)
     model_profile: Dict[str, Any] = field(default_factory=dict)
     resource_revision: Dict[str, Any] = field(default_factory=dict)
+    prompt_units: List[Dict[str, Any]] = field(default_factory=list)
     runtime_environment: Dict[str, Any] = field(default_factory=dict)
     capabilities: Dict[str, Any] = field(default_factory=dict)
     context_stats: Dict[str, Any] = field(default_factory=dict)
@@ -64,6 +65,7 @@ class TurnSnapshot:
         self.active_tool_names = _stable_names(self.active_tool_names)
         self.model_profile = _copy_dict(self.model_profile)
         self.resource_revision = _copy_dict(self.resource_revision)
+        self.prompt_units = _safe_prompt_units(self.prompt_units)
         self.runtime_environment = _copy_dict(self.runtime_environment)
         self.capabilities = _copy_dict(self.capabilities)
         self.context_stats = _copy_dict(self.context_stats)
@@ -82,6 +84,7 @@ class TurnSnapshot:
             "active_tool_names": list(self.active_tool_names),
             "model_profile": deepcopy(self.model_profile),
             "resource_revision": deepcopy(self.resource_revision),
+            "prompt_units": deepcopy(self.prompt_units),
             "runtime_environment": deepcopy(self.runtime_environment),
             "capabilities": deepcopy(self.capabilities),
             "context_stats": deepcopy(self.context_stats),
@@ -102,6 +105,7 @@ class TurnSnapshotBuilder(object):
         active_tool_names: Optional[List[str]] = None,
         model_profile: Optional[Dict[str, Any]] = None,
         resource_revision: Optional[Dict[str, Any]] = None,
+        prompt_units: Optional[List[Dict[str, Any]]] = None,
         runtime_environment: Optional[Dict[str, Any]] = None,
         capabilities: Optional[Dict[str, Any]] = None,
         context_stats: Optional[Dict[str, Any]] = None,
@@ -118,7 +122,30 @@ class TurnSnapshotBuilder(object):
             active_tool_names=active_tool_names or [],
             model_profile=model_profile or {},
             resource_revision=resource_revision or {},
+            prompt_units=prompt_units or [],
             runtime_environment=runtime_environment or {},
             capabilities=capabilities or {},
             context_stats=context_stats or {},
         )
+
+
+def _safe_prompt_units(value: Optional[List[Dict[str, Any]]]) -> List[Dict[str, Any]]:
+    if not isinstance(value, list):
+        return []
+    result = []
+    for item in value:
+        if not isinstance(item, dict):
+            continue
+        kind = str(item.get("kind") or "").strip()
+        if not kind:
+            continue
+        entry = {"kind": kind}  # type: Dict[str, Any]
+        if kind == "local_skill_listing":
+            names = _stable_names(item.get("visible_skill_names"))  # type: ignore[arg-type]
+            entry["visible_skill_names"] = names
+            entry["visible_skill_count"] = int(item.get("visible_skill_count") or len(names))
+            revision = item.get("resource_revision")
+            if isinstance(revision, dict):
+                entry["resource_revision"] = _copy_dict(revision)
+        result.append(entry)
+    return result

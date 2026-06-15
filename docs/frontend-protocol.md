@@ -183,7 +183,7 @@ Extension diagnostics are frontend-visible health information. Frontends may dis
 
 Project extension loader failures are mirrored into `extension_diagnostics`. Frontends may display the health information and project extension source metadata, but permission prompts and execution policy remain backend-owned.
 
-Provider turn snapshot metadata may appear in operation diagnostics as `snapshot_id`, mode/workflow state, active tool names, credential-free model profile metadata, resource revision metadata, and capability counts. Frontends may display this for debugging, but full prompts, file contents, raw tool outputs, and API keys are not part of the frontend protocol.
+Provider turn snapshot metadata may appear in operation diagnostics as `snapshot_id`, mode/workflow state, active tool names, credential-free model profile metadata, resource revision metadata, safe prompt units such as `local_skill_listing`, and capability counts. Frontends may display this for debugging, but full prompts, skill bodies, file contents, raw tool outputs, and API keys are not part of the frontend protocol.
 
 Compaction metadata may appear in `compaction_state` as safe counts, message ids, file paths, and stored evidence refs. Frontends may display this for debugging, but full compacted prompts, raw file contents, raw tool outputs, and API keys are not part of the frontend protocol.
 

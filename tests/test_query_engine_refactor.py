@@ -951,6 +951,125 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertNotIn("messages", metadata["turn_snapshot"])
         self.assertNotIn("tool_schemas", metadata["turn_snapshot"])
 
+    def test_turn_snapshot_records_safe_local_skill_prompt_unit_metadata(self):
+        skill_dir = os.path.join(self.workspace, ".embedagent", "skills", "review")
+        os.makedirs(skill_dir, exist_ok=True)
+        with open(os.path.join(skill_dir, "SKILL.md"), "w", encoding="utf-8") as handle:
+            handle.write(
+                "---\n"
+                "name: code-review\n"
+                "description: Review local C changes.\n"
+                "---\n"
+                "# Secret Body\n"
+            )
+        self.tools.reload_resources(reason="test")
+        transcript_store = TranscriptStore(self.workspace)
+        engine = QueryEngine(
+            client=SnapshotInspectingClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(
+                auto_approve_all=True,
+                workspace=self.workspace,
+            ),
+            transcript_store=transcript_store,
+            max_turns=1,
+        )
+        session = Session()
+
+        result = engine.submit_user_turn(
+            user_text="inspect",
+            stream=False,
+            initial_mode="build",
+            session=session,
+        )
+
+        self.assertEqual(result.transition.reason, "completed")
+        snapshot_events = [
+            event
+            for event in transcript_store.load_events(session.session_id)
+            if event["type"] == "operation_started"
+            and (event.get("payload") or {}).get("kind") == "provider_request"
+        ]
+        metadata = (snapshot_events[0].get("payload") or {}).get("metadata") or {}
+        prompt_units = metadata["turn_snapshot"]["prompt_units"]
+
+        self.assertEqual(
+            prompt_units,
+            [
+                {
+                    "kind": "local_skill_listing",
+                    "visible_skill_names": ["code-review"],
+                    "visible_skill_count": 1,
+                }
+            ],
+        )
+        self.assertNotIn("Secret Body", str(metadata))
+
+    def test_resource_reload_updates_only_future_prompt_unit_snapshots(self):
+        transcript_store = TranscriptStore(self.workspace)
+        engine = QueryEngine(
+            client=SnapshotInspectingClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(
+                auto_approve_all=True,
+                workspace=self.workspace,
+            ),
+            transcript_store=transcript_store,
+            max_turns=1,
+        )
+        session = Session()
+
+        first = engine.submit_user_turn(
+            user_text="first",
+            stream=False,
+            initial_mode="build",
+            session=session,
+        )
+
+        skill_dir = os.path.join(self.workspace, ".embedagent", "skills", "review")
+        os.makedirs(skill_dir, exist_ok=True)
+        with open(os.path.join(skill_dir, "SKILL.md"), "w", encoding="utf-8") as handle:
+            handle.write(
+                "---\n"
+                "name: code-review\n"
+                "description: Review local C changes.\n"
+                "---\n"
+                "# Reloaded Secret Body\n"
+            )
+        self.tools.reload_resources(reason="test")
+
+        second = engine.submit_user_turn(
+            user_text="second",
+            stream=False,
+            initial_mode="build",
+            session=session,
+        )
+
+        self.assertEqual(first.transition.reason, "completed")
+        self.assertEqual(second.transition.reason, "completed")
+        snapshot_events = [
+            event
+            for event in transcript_store.load_events(session.session_id)
+            if event["type"] == "operation_started"
+            and (event.get("payload") or {}).get("kind") == "provider_request"
+        ]
+        first_metadata = (snapshot_events[0].get("payload") or {}).get("metadata") or {}
+        second_metadata = (snapshot_events[1].get("payload") or {}).get("metadata") or {}
+
+        self.assertEqual(first_metadata["turn_snapshot"]["prompt_units"], [])
+        self.assertEqual(
+            second_metadata["turn_snapshot"]["prompt_units"],
+            [
+                {
+                    "kind": "local_skill_listing",
+                    "visible_skill_names": ["code-review"],
+                    "visible_skill_count": 1,
+                }
+            ],
+        )
+        self.assertNotIn("Reloaded Secret Body", str(first_metadata))
+        self.assertNotIn("Reloaded Secret Body", str(second_metadata))
+
     def test_query_engine_emits_turn_operation_lifecycle(self):
         transcript_store = TranscriptStore(self.workspace)
         engine = QueryEngine(

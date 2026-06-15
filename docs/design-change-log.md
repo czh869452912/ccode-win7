@@ -44,6 +44,33 @@
 
 ## 3. 当前变更记录
 
+### DC-152
+
+- 日期：2026-06-15
+- 变更主题：Prompt-unit snapshot safe metadata
+- 变更摘要：
+  - `TurnSnapshot` 新增安全 `prompt_units` 元数据，用于记录 local skill listing 的 visible skill names/counts 和可选 resource revision
+  - `QueryEngine` provider request operation metadata 现在写入 `turn_snapshot.prompt_units`，不记录 skill body、完整 prompt、文件内容、工具输出或凭据
+  - `RuntimeConfigReducer` provider snapshot records 会保留安全 prompt-unit summary，resource reload 只影响后续 provider request snapshot
+- 影响范围：
+  - `src/embedagent/query_engine.py`
+  - `src/embedagent/turn_snapshot.py`
+  - `src/embedagent/runtime_config.py`
+  - `tests/test_query_engine_refactor.py`
+  - `tests/test_runtime_config.py`
+  - `docs/pi-inspired-agent-core-blueprint.md`
+  - `docs/tool-contracts.md`
+  - `docs/frontend-protocol.md`
+  - `docs/design-change-log.md`
+- 关联文档：
+  - `docs/superpowers/plans/2026-06-15-remaining-pi-architecture-gaps.md`
+  - `docs/pi-inspired-agent-core-blueprint.md`
+  - `docs/tool-contracts.md`
+  - `docs/frontend-protocol.md`
+- 是否需要 ADR：`否，本次是现有 TurnSnapshot / RuntimeConfigReducer 安全诊断字段扩展；不新增执行型 API`
+- 后续动作：
+  - 继续用完整 fast subset 验证本轮剩余 Pi architecture slice 收口情况
+
 ### DC-151
 
 - 日期：2026-06-15

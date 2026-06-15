@@ -80,6 +80,7 @@ class ProviderRequestSnapshotRecord(object):
     model_profile: Dict[str, Any] = field(default_factory=dict)
     capability_counts: Dict[str, Any] = field(default_factory=dict)
     resource_revision: Dict[str, Any] = field(default_factory=dict)
+    prompt_units: List[Dict[str, Any]] = field(default_factory=list)
     event_id: str = ""
     seq: int = 0
     ts: str = ""
@@ -94,6 +95,7 @@ class ProviderRequestSnapshotRecord(object):
             "model_profile": _copy_dict(self.model_profile),
             "capability_counts": _copy_dict(self.capability_counts),
             "resource_revision": _copy_dict(self.resource_revision),
+            "prompt_units": [dict(item) for item in list(self.prompt_units or [])],
             "event_id": self.event_id,
             "seq": int(self.seq or 0),
             "ts": self.ts,
@@ -202,6 +204,7 @@ class RuntimeConfigReducer(object):
                 model_profile=model_profile,
                 capability_counts=capability_counts,
                 resource_revision=_copy_dict(snapshot.get("resource_revision")),
+                prompt_units=_safe_prompt_units(snapshot.get("prompt_units")),
                 event_id=_clean_text(event.get("event_id")),
                 seq=int(event.get("seq") or 0),
                 ts=_clean_text(event.get("ts")),
@@ -233,3 +236,26 @@ class RuntimeConfigReducer(object):
         state.last_event_id = _clean_text(event.get("event_id"))
         state.last_seq = int(event.get("seq") or 0)
         state.last_ts = _clean_text(event.get("ts"))
+
+
+def _safe_prompt_units(value: Any) -> List[Dict[str, Any]]:
+    if not isinstance(value, list):
+        return []
+    result = []
+    for item in value:
+        if not isinstance(item, dict):
+            continue
+        kind = _clean_text(item.get("kind"))
+        if kind != "local_skill_listing":
+            continue
+        names = _stable_names(item.get("visible_skill_names"))
+        entry = {
+            "kind": kind,
+            "visible_skill_names": names,
+            "visible_skill_count": int(item.get("visible_skill_count") or len(names)),
+        }
+        revision = item.get("resource_revision")
+        if isinstance(revision, dict):
+            entry["resource_revision"] = _copy_dict(revision)
+        result.append(entry)
+    return result
