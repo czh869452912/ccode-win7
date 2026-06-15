@@ -28,6 +28,19 @@ adapter class lookup. Legacy adapter compatibility accessors such as
 `_inprocess_adapter` and `_get_adapter_class()` are not frontend protocol
 contracts and have been removed.
 
+### Workbench Shell State
+
+GUI and TUI may keep local workbench shell state for sidebar selection,
+right-panel surfaces, bottom drawers, command-palette query, keybindings, and
+layout density. This state is not session-history truth and is not an
+activation or permission policy.
+
+Frontend shell state must not decide tool visibility, execute tools, approve
+permissions, change durable modes, infer transcript history, load extensions,
+or mutate workflow state. Those decisions remain owned by Agent Core,
+ExtensionManager, PermissionPolicy, SessionHistoryAssembler, and the existing
+session/bootstrap protocol.
+
 ## 3. Session Snapshot
 
 Important session snapshot fields include:

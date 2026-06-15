@@ -71,7 +71,25 @@ flowchart TD
 - `BlockingResult` 用于同步阻塞 Core 线程等待用户响应。
 - React SPA 负责自动重连和会话事件回放恢复。
 
-## 6. Verification And Tests
+## 6. Workbench Shell
+
+The GUI shell is a T3code-inspired workbench composed of a thread/project
+sidebar, central Agent timeline, rich composer, thread-scoped right-panel
+surfaces, optional bottom drawer, command palette, and keybinding resolver.
+
+The workbench contract lives under
+`src/embedagent/frontend/gui/webapp/src/workbench/` and is frontend-local. It
+consumes existing backend snapshots, bootstrap history, runtime projections,
+task projections, permission context, artifacts, file trees, recipes, and tool
+catalog read models. It does not own workflow policy, permission decisions,
+tool activation, transcript history, extension loading, or provider behavior.
+
+The webapp build continues to target `chrome109` for bundled WebView2 Fixed
+Version 109 and Windows 7 compatibility. GUI runtime deployment must remain
+offline and must not require Electron, CDN assets, runtime Node, Docker, WSL,
+VS Code, or external online services.
+
+## 7. Verification And Tests
 
 推荐回归入口：
 
@@ -81,7 +99,7 @@ flowchart TD
 
 当新增 Core 回调、会话事件 schema、WebView2/渲染器策略或 React 前端状态结构变化时，应优先重跑这些测试。
 
-## 7. Change Triggers
+## 8. Change Triggers
 
 以下变化必须同步更新本文件：
 
@@ -91,7 +109,7 @@ flowchart TD
 - FastAPI 路由或 WebSocket 广播协议变化
 - `FrontendCallbacks` 或 `CoreInterface` 接口签名变化
 
-## 8. Related Documents
+## 9. Related Documents
 
 - `docs/frontend-protocol.md`
 - `docs/overall-solution-architecture.md`

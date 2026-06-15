@@ -77,7 +77,19 @@ flowchart TD
 - `reducer.py` 保持纯函数，不直接依赖后端对象。
 - `bootstrap.py` 负责把所有后端依赖安全装配到 `TerminalApp`。
 
-## 6. Verification And Tests
+## 6. Workbench Shell
+
+The TUI mirrors the GUI workbench vocabulary using prompt_toolkit: shared
+command IDs, slash names, right-panel surfaces, bottom-drawer names, command
+palette state, and keyboard-first overlays.
+
+The TUI remains usable in raw console and low-color hosts. Pi-inspired
+overlays and selectors are implemented as prompt_toolkit layout surfaces over
+the existing reducer/controller/service boundaries. They do not change Agent
+Core policy, workflow package ownership, tool activation, permission rules, or
+session-history truth.
+
+## 7. Verification And Tests
 
 推荐回归入口：
 
@@ -86,7 +98,7 @@ flowchart TD
 
 当 TUI 命令、布局、键绑定、`prompt_toolkit`/`rich` 版本或后端会话/时间线 API 变化时，应优先重跑这些测试。
 
-## 7. Change Triggers
+## 8. Change Triggers
 
 以下变化必须同步更新本文件：
 
@@ -96,7 +108,7 @@ flowchart TD
 - 新增权限或用户输入交互模式
 - `prompt_toolkit` 或 `rich` 版本升级可能影响布局或 headless 模式
 
-## 8. Related Documents
+## 9. Related Documents
 
 - `docs/frontend-protocol.md`
 - `docs/agent-harness-v2.md`

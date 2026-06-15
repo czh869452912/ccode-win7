@@ -44,6 +44,33 @@
 
 ## 3. 当前变更记录
 
+### DC-155
+
+- 日期：2026-06-15
+- 变更主题：T3code-inspired Pi-bounded workbench shell
+- 变更摘要：
+  - Adopted T3code's workbench product shape for frontend shell interaction: thread/project sidebar, central Agent timeline, rich composer, thread-scoped right-panel surfaces, optional bottom drawer, command palette, and keybinding rules.
+  - Preserved Pi-style decoupling by keeping this state frontend-local and read-model driven.
+  - Agent Core, ExtensionManager, PermissionPolicy, SessionHistoryAssembler, workflow packages, transcript history, and tool runtime policy remain authoritative.
+  - No source code was copied from `reference/t3code`; this implementation recreates the shell model with project-local React and prompt_toolkit code.
+- 影响范围：
+  - `src/embedagent/frontend/gui/webapp/src/workbench/`
+  - `src/embedagent/frontend/gui/webapp/src/components/workbench/`
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/tui/workbench.py`
+  - `src/embedagent/frontend/tui/layout.py`
+  - `src/embedagent/frontend/tui/views/command_palette.py`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/modules/frontend-tui.md`
+- 关联文档：
+  - `docs/superpowers/specs/2026-06-15-t3code-pi-workbench-design.md`
+  - `docs/superpowers/plans/2026-06-15-t3code-pi-workbench.md`
+- 是否需要 ADR：否
+- 后续动作：
+  - 在真实 Win7 WebView2 109 环境执行 GUI smoke。
+  - 继续打磨 C/C++ workflow 的 run output、problem、diff surfaces。
+
 ### DC-154
 
 - 日期：2026-06-15

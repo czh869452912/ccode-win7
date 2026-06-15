@@ -89,6 +89,10 @@ Recent stabilization work has also completed the agent-core ownership cutover:
 
 ## 4. Remaining Near-Term Work
 
+- Continue polishing the T3code/Pi workbench shell with real Win7 WebView2 109
+  smoke validation, narrow-width GUI layout validation, TUI raw-console
+  validation, and C/C++ workflow task/run surface refinement.
+
 ### 4.1 Pi-Inspired Minimal Core Program
 
 The next long-term architecture program is documented in `docs/pi-inspired-agent-core-blueprint.md`.

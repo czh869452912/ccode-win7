@@ -1,6 +1,6 @@
 # EmbedAgent 开发进度跟踪
 
-> 更新日期：2026-06-15（Pi-style enterprise/intranet capability boundary foundation 收口）
+> 更新日期：2026-06-15（T3code/Pi Workbench shell 切片）
 > 用途：持续跟踪当前阶段、下一步任务、里程碑进度、风险与阻塞
 
 ---
@@ -23,6 +23,15 @@
 ---
 
 ## 2. 当前阶段
+
+### 2026-06-15 - T3code/Pi Workbench Shell
+
+- Added frontend-local workbench shell contracts for GUI surfaces, commands,
+  keybindings, command palette, right panel, and bottom drawer.
+- Migrated GUI layout toward a T3code-style Agent workbench while preserving
+  existing protocol/Core boundaries.
+- Added TUI workbench command/surface state and Pi-style command palette
+  overlay without changing Agent Core workflow policy.
 
 ### 总阶段
 
