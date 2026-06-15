@@ -1,6 +1,6 @@
 # EmbedAgent 开发进度跟踪
 
-> 更新日期：2026-06-15（T3code/Pi Workbench shell 切片）
+> 更新日期：2026-06-15（T3code GUI core experience + visual debug harness）
 > 用途：持续跟踪当前阶段、下一步任务、里程碑进度、风险与阻塞
 
 ---
@@ -23,6 +23,12 @@
 ---
 
 ## 2. 当前阶段
+
+### 2026-06-15 - T3code Timeline / Diff / Visual Debug Harness
+
+- GUI 已在既有 React/WebView2 技术栈内补齐 T3code-style timeline row projection/rendering、composer-local permission/user-input interaction panel、right-panel Diff surface。
+- 新增 dev-only `scripts/gui-visual-debug.mjs` / `npm run visual:gui`，可在当前 Win10/Win11 开发机启动真实 GUI、执行 load/chat/diff 场景、截图、检查 console warning/error 与 DOM 状态；Playwright 不进入 Win7 离线运行时依赖。
+- visual harness 抓出并已修复 streaming assistant 文本重复问题：`LLMClientRetryWrapper` 不再在 streaming client 已发 delta 后重放 final content；同时 GUI WebSocket lifecycle 增加 token/manual-close guard，避免 React StrictMode cleanup 触发旧连接重连。
 
 ### 2026-06-15 - T3code/Pi Workbench Shell
 
@@ -66,7 +72,7 @@
 - 最新 workflow extension validation：`2026-05-29 repo-side 验证已通过：fast suite 为 685 passed / 11 deselected，focused C/C++ build/debug/verify workflow 回归为 15 passed。官方 harness 门禁已修复 marker 漏标问题，uv run pytest tests/ -m harness -v 现在会选中并通过 23 个 task_graph / phase_engine / harness runner / prompt stack / harness injection 测试。本机 release bundle 已用当前分支源码重建并通过：validate-offline-bundle.ps1 -RequireComplete 为 59 pass / 0 warn / 0 fail，check-bundle-dependencies.py 全部通过，scripts/package.ps1 verify -Profile release -Json 返回 final_status READY。clean Windows 7 unpack-and-run smoke 尚未执行。`
 - 最新 documentation cleanup：`docs/guides/configuration-guide.md` 已改写为当前正式配置指南，使用 `explore/spec/build/debug/verify` 与 `build` 实现模式口径，不再把 `code` 或 `manage_todos` 作为当前配置/工作流示例。`
 - 最新 runtime cleanup：`task_status` 前端元数据现已统一为 `tasks/task` 词汇，workspace profile 不再输出待办语义提示，运行时残留 `todos.py` 已删除。`
-- 最新 GUI closeout：`GUI backend 与 webapp 默认新建会话入口已统一为 `explore`，resume 默认不再强制覆盖 restored mode；GUI task 面板、样式和静态产物已清理 `todo-*` / `tasks.todo` 与 `mode-code` 残留，保留正式 `tasks/task` 与 `mode-build` 词汇。`
+- 最新 GUI closeout：`GUI backend 与 webapp 默认新建会话入口已统一为 `explore`，resume 默认不再强制覆盖 restored mode；GUI task 面板、样式和静态产物已清理 `todo-*` / `tasks.todo` 与 `mode-code` 残留，保留正式 `tasks/task` 与 `mode-build` 词汇。T3code-style timeline rows、composer interaction panel、Diff right-panel surface 与 dev-only visual debug harness 已落地；harness 已覆盖 load/chat/diff 并修复 streaming assistant 文本重复问题。`
 - 最新归档收尾：`agent-core-cutover` 相关 design / plan / review / implementation review / follow-up plan 已迁入 `docs/archive/agent-core-cutover/`，活动 `docs/superpowers/` 入口不再保留这轮已关闭切片。`
 
 ### 当前判断
@@ -293,7 +299,7 @@
 | Phase 3 | 模式系统 v2 | `completed` | 5 模式配置驱动（explore/spec/code/debug/verify）、initialize_modes、工具过滤、/mode 已完成；switch_mode LLM 工具已移除 |
 | Phase 4 | Clang 工具链 | `in_progress` | 已有项目内闭环工具链，待真实工程与 Win7 验证 |
 | Phase 5 | 质量保障层 | `completed` | 权限、上下文、记忆、恢复与 cleanup 已落地；修复根目录文件写入边界后，专项验证脚本已复验通过 |
-| Phase 6 | CLI / TUI / GUI | `in_progress` | InProcessAdapter 已扩展 workspace / timeline / artifact / todo 前端接口；终端前端已拆为 `frontend/tui` 子模块；GUI 已切换到 React/Vite webapp + PyWebView 宿主，当前环境 smoke 已覆盖 tool / permission / ask_user / todo 隔离；待 Win7 Chromium 实机验证与 diff/编辑闭环细化 |
+| Phase 6 | CLI / TUI / GUI | `in_progress` | InProcessAdapter 已扩展 workspace / timeline / artifact / task 前端接口；终端前端已拆为 `frontend/tui` 子模块；GUI 已切换到 React/Vite webapp + PyWebView 宿主，并已补 T3code-style timeline/composer/diff surfaces；当前环境 smoke 覆盖 tool / permission / ask_user / task 隔离，dev-only visual harness 覆盖 load/chat/diff；待 Win7 Chromium 实机验证与编辑闭环细化 |
 | Phase 7 | 打包与离线交付 | `in_progress` | 设计基线、ADR、`prepare/build/validate` 三段脚本骨架已完成；Python/MinGit/rg/ctags 真实资产接入已完成；`package.ps1` 控制面已接上 mocked orchestration；GUI 依赖与 bundle-local smoke 已进入交付物，`validate-offline-bundle -RequireComplete`、`check-bundle-dependencies.py` 与 bundle 级 windowed GUI smoke 已通过；待真实 release pipeline 与 Win7 bundle 实机验收 |
 
 ---
@@ -334,6 +340,7 @@
 
 | 日期 | 更新内容 |
 |------|----------|
+| 2026-06-15 | T3code GUI 核心体验切片落地：新增 T3-style timeline rows、composer 内 permission/user-input panel、right-panel Diff surface 与 dev-only Playwright visual harness；`npm run visual:gui -- --scenario all --bundle-root <bundle-root>` 已可启动真实 GUI、截图并检查 console/DOM；同时修复 streaming final content 重放导致的 assistant 文本重复问题；completed working docs 已迁入 `docs/archive/t3-parity-gui-debug/` |
 | 2026-06-14 | Pi-inspired minimal Core Phase D 收口：bare `ToolRuntime` 已恢复 workflow-neutral 构造；默认 C/C++ workflow package 通过 `CHarnessWorkflowExtension.register_tools(...)` 注册 workflow tools，并在 `src/embedagent/harness/tool_metadata.py` / `src/embedagent/harness/packs.py` 内拥有 metadata 与 pack 定义；旧 `src/embedagent/tools/harness_runtime.py` 已删除。下一步进入 Phase E self-extension authoring loop |
 | 2026-06-14 | Pi-inspired minimal Core Phase C 收口：新增 `AgentLifecycleJournal`、`AgentKernel` / `AgentTurnFrame`，`AgentLoop` 已成为 turn-loop owner；`QueryEngine` 继续作为 session facade，但不再拥有 `_run_loop_impl`。下一步进入 Phase D default C/C++ workflow package |
 | 2026-06-14 | Pi-inspired minimal Core Phase B 收口：`AgentEventBus` 现在承载 `ExtensionManager` 公开 extension hook family 的 source-aware reducer dispatch；tool-call block/update、resource discovery、dynamic tool registration、prompt patch、active tools、workflow init、task snapshot 与 extension-owned tool handling 均保留公共 API 并统一诊断。Phase C AgentKernel lifecycle extraction 已由后续收口记录完成 |
