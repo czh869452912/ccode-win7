@@ -146,6 +146,74 @@ body {
   overflow: hidden;
 }
 
+.workbench-layout {
+  display: grid;
+  grid-template-rows: var(--header-h) 1fr;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--bg-canvas);
+}
+
+.workbench-header-slot {
+  min-width: 0;
+}
+
+.workbench-body {
+  display: grid;
+  grid-template-columns: clamp(180px, var(--sidebar-w-raw), 380px) 4px minmax(0, 1fr) 4px clamp(220px, var(--inspector-w-raw), 520px);
+  min-height: 0;
+  overflow: hidden;
+}
+
+.workbench-layout.right-closed .workbench-body {
+  grid-template-columns: clamp(180px, var(--sidebar-w-raw), 380px) 4px minmax(0, 1fr) 4px 0;
+}
+
+.workbench-sidebar-slot,
+.workbench-main-slot,
+.workbench-right-slot {
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.workbench-center {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.workbench-layout.drawer-open .workbench-center {
+  grid-template-rows: minmax(0, 1fr) 220px;
+}
+
+.workbench-bottom-slot {
+  min-height: 0;
+  border-top: 1px solid var(--border-default);
+  background: var(--bg-default);
+  overflow: auto;
+}
+
+.workbench-right-collapsed {
+  background: var(--bg-default);
+  border-left: 1px solid var(--bg-subtle);
+}
+
+.workbench-drawer-empty {
+  height: 100%;
+  padding: var(--sp-3);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.drawer-toggle.active {
+  color: var(--color-success);
+  border-color: var(--color-success);
+}
+
 .resize-handle {
   background: var(--bg-default);
   cursor: col-resize;

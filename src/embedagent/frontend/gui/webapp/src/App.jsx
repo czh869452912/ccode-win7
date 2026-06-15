@@ -14,6 +14,8 @@ import Sidebar from "./components/Sidebar.jsx";
 import Timeline from "./components/Timeline.jsx";
 import Inspector from "./components/Inspector.jsx";
 import Composer from "./components/Composer.jsx";
+import AppSidebarLayout from "./components/workbench/AppSidebarLayout.jsx";
+import WorkbenchHeader from "./components/workbench/WorkbenchHeader.jsx";
 
 const MODES = ["explore", "spec", "build", "debug", "verify"];
 const SLASH_COMMAND_HINTS = [
@@ -906,47 +908,25 @@ function App() {
 
   return (
     <LangContext.Provider value={state.lang}>
-    <div className="app-shell">
-      {/* ── Global Header ── */}
-      <header className="app-header">
-        <span className="app-logo">EmbedAgent</span>
-        <span className={`mode-badge mode-${currentMode}`}>{currentMode}</span>
-        <div className="header-right">
-          <span className={`status-dot ${currentStatus}`} title={currentStatus} />
-          <span className={`status-label ${currentStatus === "idle" ? "idle" : currentStatus === "error" ? "error" : ""}`}>
-            {currentStatus}
-          </span>
-          {state.currentSessionId && (
-            <span className="meta-text">{state.currentSessionId.slice(0, 8)}</span>
-          )}
-          {state.turnsUsed > 0 && (
-            <span className="meta-text">turns {state.turnsUsed}/{state.maxTurns}</span>
-          )}
-          <button className="ghost" onClick={loadSessions} aria-label={t("header.refresh", state.lang)} data-testid="refresh-sessions">
-            {t("header.refresh", state.lang)}
-          </button>
-          <button
-            className="ghost lang-toggle"
-            onClick={() => dispatch({ type: "set_lang", value: state.lang === "en" ? "zh" : "en" })}
-            aria-label="Toggle language"
-            data-testid="lang-toggle"
-          >
-            {t("lang.toggle", state.lang)}
-          </button>
-          <button
-            className={`ghost inspector-toggle${state.inspectorOpen ? " active" : ""}`}
-            onClick={() => dispatch({ type: "toggle_inspector" })}
-            title={t("header.toggleInspector", state.lang)}
-            aria-pressed={state.inspectorOpen}
-            data-testid="inspector-toggle"
-          >
-            ⊞
-          </button>
-        </div>
-      </header>
-
-      {/* ── Workspace ── */}
-      <div className="workspace">
+    <AppSidebarLayout
+      header={
+        <WorkbenchHeader
+          lang={state.lang}
+          currentMode={currentMode}
+          currentStatus={currentStatus}
+          currentSessionId={state.currentSessionId}
+          turnsUsed={state.turnsUsed}
+          maxTurns={state.maxTurns}
+          rightPanelOpen={state.workbench.rightPanel.open}
+          bottomDrawerOpen={state.workbench.bottomDrawer.open}
+          onRefresh={loadSessions}
+          onToggleLang={() => dispatch({ type: "set_lang", value: state.lang === "en" ? "zh" : "en" })}
+          onToggleRightPanel={() => dispatch({ type: "workbench_right_panel_toggled" })}
+          onToggleBottomDrawer={() => dispatch({ type: "workbench_bottom_drawer_toggled" })}
+          onOpenPalette={() => dispatch({ type: "workbench_command_palette_opened" })}
+        />
+      }
+      sidebar={
         <Sidebar
           sidebarTab={state.sidebarTab}
           sessions={sessionCards}
@@ -960,13 +940,8 @@ function App() {
           onOpenFile={openFile}
           onLoadFileChildren={loadFileChildren}
         />
-
-        <div
-          className="resize-handle"
-          onPointerDown={(e) => startResize(e, "--sidebar-w-raw", RESIZE_RIGHT)}
-          aria-hidden="true"
-        />
-
+      }
+      main={
         <main className="main-chat">
           <Timeline
             ref={timelineRef}
@@ -992,42 +967,44 @@ function App() {
             commandHints={SLASH_COMMAND_HINTS}
           />
         </main>
-
-        <div
-          className="resize-handle"
-          onPointerDown={(e) => startResize(e, "--inspector-w-raw", RESIZE_LEFT)}
-          aria-hidden="true"
+      }
+      rightPanel={
+        <Inspector
+          inspectorTab={state.inspectorTab}
+          tasks={state.tasks}
+          artifacts={state.artifacts}
+          plan={state.plan}
+          review={state.review}
+          recipes={state.recipes}
+          timeline={runtimeState.timelineItems}
+          currentInteraction={runtimeState.currentInteraction}
+          interactionNotice={interactionNotice}
+          permissionContext={state.permissionContext}
+          preview={state.preview}
+          snapshot={state.snapshot}
+          userAnswer={userAnswer}
+          eventLog={state.eventLog}
+          onTabChange={(v) => {
+            dispatch({ type: "set_inspector", value: v });
+            dispatch({ type: "workbench_surface_activated", placement: "right", kind: v });
+          }}
+          onOpenArtifact={openArtifact}
+          onOpenReviewEvidence={openReviewEvidence}
+          onRunRecipe={runRecipe}
+          onUserAnswerChange={setUserAnswer}
+          onRespondInteraction={respondToInteraction}
         />
-
-        {state.inspectorOpen ? (
-          <Inspector
-            inspectorTab={state.inspectorTab}
-            tasks={state.tasks}
-            artifacts={state.artifacts}
-            plan={state.plan}
-            review={state.review}
-            recipes={state.recipes}
-            timeline={runtimeState.timelineItems}
-            currentInteraction={runtimeState.currentInteraction}
-            interactionNotice={interactionNotice}
-            permissionContext={state.permissionContext}
-            preview={state.preview}
-            snapshot={state.snapshot}
-            userAnswer={userAnswer}
-            eventLog={state.eventLog}
-            onTabChange={(v) => dispatch({ type: "set_inspector", value: v })}
-            onOpenArtifact={openArtifact}
-            onOpenReviewEvidence={openReviewEvidence}
-            onRunRecipe={runRecipe}
-            onUserAnswerChange={setUserAnswer}
-            onRespondInteraction={respondToInteraction}
-          />
-        ) : (
-          <div style={{ background: "var(--bg-default)", borderLeft: "1px solid var(--bg-subtle)" }} />
-        )}
-      </div>
-
-    </div>
+      }
+      bottomDrawer={
+        <div className="workbench-drawer-empty" data-testid="workbench-drawer">
+          Run output and long diagnostics
+        </div>
+      }
+      rightPanelOpen={state.workbench.rightPanel.open}
+      bottomDrawerOpen={state.workbench.bottomDrawer.open}
+      onResizeSidebar={(e) => startResize(e, "--sidebar-w-raw", RESIZE_RIGHT)}
+      onResizeRightPanel={(e) => startResize(e, "--inspector-w-raw", RESIZE_LEFT)}
+    />
     </LangContext.Provider>
   );
 }

@@ -472,6 +472,26 @@ function main() {
   assert.equal(stylesSource.includes("mode-code"), false);
   assert.equal(stylesSource.includes("mode-build"), true);
 
+  const appSource = fs.readFileSync(
+    webappSourcePath("App.jsx"),
+    "utf8",
+  );
+  assert.equal(appSource.includes("AppSidebarLayout"), true);
+  assert.equal(appSource.includes("WorkbenchHeader"), true);
+
+  const workbenchHeaderSource = fs.readFileSync(
+    webappSourcePath("components", "workbench", "WorkbenchHeader.jsx"),
+    "utf8",
+  );
+  assert.equal(workbenchHeaderSource.includes("mode-code"), false);
+  assert.equal(workbenchHeaderSource.includes("mode-${currentMode}"), true);
+
+  const appSidebarLayoutSource = fs.readFileSync(
+    webappSourcePath("components", "workbench", "AppSidebarLayout.jsx"),
+    "utf8",
+  );
+  assert.equal(appSidebarLayoutSource.includes("workbench-layout"), true);
+
   runWorkbenchStateTests();
   runSessionRuntimeTests();
 
