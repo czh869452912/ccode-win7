@@ -10,6 +10,7 @@ import { appendSessionEvent, capRetryAttempt, createSessionEventLog } from "./se
 import { createDiffSurfaceState } from "./session-runtime/diff-model.js";
 import { projectSessionRuntime } from "./session-runtime/projector.js";
 import { shouldReconnectSocket } from "./session-runtime/websocket-lifecycle.js";
+import { canSwitchWorkspace, normalizeAppBootstrap } from "./app-workspaces.js";
 import { LangContext } from "./LangContext.js";
 import { t } from "./strings.js";
 import Sidebar from "./components/Sidebar.jsx";
@@ -105,14 +106,9 @@ function App() {
     });
   }
 
-  // initial data load
+  // initial app/workspace data load
   useEffect(() => {
-    loadSessions();
-    loadArtifacts();
-    loadTasks("");
-    loadFileChildren(".");
-    loadToolCatalog();
-    loadWorkspaceRecipes();
+    loadAppBootstrap();
   }, []);
 
   // websocket lifecycle
@@ -155,12 +151,100 @@ function App() {
     const res = await fetch(url, options);
     const payload = await res.json().catch(() => null);
     if (!res.ok) {
-      const error = new Error(payload?.detail || `HTTP ${res.status}`);
+      const detail =
+        typeof payload?.detail === "string" ? payload.detail : JSON.stringify(payload?.detail || "");
+      const error = new Error(detail || `HTTP ${res.status}`);
       error.status = res.status;
-      error.detail = payload?.detail || "";
+      error.detail = detail;
       throw error;
     }
     return payload;
+  }
+
+  async function loadAppBootstrap() {
+    const payload = await fetchJson("/api/app/bootstrap");
+    const bootstrap = normalizeAppBootstrap(payload || {});
+    dispatch({ type: "app_bootstrap_loaded", bootstrap });
+    if (bootstrap.hasActiveWorkspace) {
+      await loadActiveWorkspaceData("");
+    }
+    return bootstrap;
+  }
+
+  async function loadActiveWorkspaceData(sessionId = state.currentSessionId || "") {
+    await Promise.all([
+      loadSessions(),
+      loadArtifacts(),
+      loadTasks(sessionId || ""),
+      loadFileChildren("."),
+      loadToolCatalog(),
+      loadWorkspaceRecipes(),
+    ]);
+  }
+
+  function workspaceErrorFrom(error) {
+    return String(error?.detail || error?.message || "workspace_open_failed");
+  }
+
+  async function openWorkspace(path) {
+    const targetPath = String(path || state.app.workspacePathInput || "").trim();
+    if (!targetPath) {
+      dispatch({ type: "workspace_activation_failed", error: "workspace_path_required" });
+      return;
+    }
+    const switchState = canSwitchWorkspace(state);
+    if (!switchState.allowed) {
+      dispatch({ type: "workspace_activation_failed", error: switchState.reason });
+      return;
+    }
+    dispatch({ type: "workspace_activation_started" });
+    try {
+      const payload = await fetchJson("/api/app/workspaces", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path: targetPath }),
+      });
+      const bootstrap = normalizeAppBootstrap(payload || {});
+      dispatch({ type: "workspace_switched", bootstrap });
+      if (bootstrap.hasActiveWorkspace) {
+        await loadActiveWorkspaceData("");
+      }
+    } catch (error) {
+      dispatch({ type: "workspace_activation_failed", error: workspaceErrorFrom(error) });
+    }
+  }
+
+  async function activateWorkspace(workspaceId) {
+    const switchState = canSwitchWorkspace(state);
+    if (!switchState.allowed) {
+      dispatch({ type: "workspace_activation_failed", error: switchState.reason });
+      return;
+    }
+    dispatch({ type: "workspace_activation_started" });
+    try {
+      const payload = await fetchJson(
+        `/api/app/workspaces/${encodeURIComponent(workspaceId)}/activate`,
+        { method: "POST" },
+      );
+      const bootstrap = normalizeAppBootstrap(payload || {});
+      dispatch({ type: "workspace_switched", bootstrap });
+      if (bootstrap.hasActiveWorkspace) {
+        await loadActiveWorkspaceData("");
+      }
+    } catch (error) {
+      dispatch({ type: "workspace_activation_failed", error: workspaceErrorFrom(error) });
+    }
+  }
+
+  async function removeWorkspace(workspaceId) {
+    const payload = await fetchJson(`/api/app/workspaces/${encodeURIComponent(workspaceId)}`, {
+      method: "DELETE",
+    });
+    const bootstrap = normalizeAppBootstrap(payload || {});
+    dispatch({ type: "workspace_switched", bootstrap });
+    if (bootstrap.hasActiveWorkspace) {
+      await loadActiveWorkspaceData("");
+    }
   }
 
   async function loadSessions() {
@@ -339,6 +423,10 @@ function App() {
   async function submitText(rawText) {
     const text = (rawText || "").trim();
     if (!text) return;
+    if (!state.app.hasActiveWorkspace) {
+      dispatch({ type: "workspace_activation_failed", error: "no_active_workspace" });
+      return;
+    }
     isAtBottomRef.current = true;
     dispatch({ type: "stream_completed" });
     dispatch({ type: "local_user_message", text });
@@ -533,6 +621,14 @@ function App() {
   }
 
   function handleSocketMessage(type, data) {
+    if (type === "workspace_changed") {
+      const bootstrap = normalizeAppBootstrap(data || {});
+      dispatch({ type: "workspace_switched", bootstrap });
+      if (bootstrap.hasActiveWorkspace) {
+        void loadActiveWorkspaceData("");
+      }
+      return;
+    }
     if (type === "session_event") {
       const nextLog = updateSessionEventLog((current) => appendSessionEvent(current, data || {}));
       if (

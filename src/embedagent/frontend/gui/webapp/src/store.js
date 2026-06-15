@@ -1,6 +1,7 @@
 import { injectChildren, makeEventId, resolveTimelineAnchor } from "./state-helpers.js";
 import { focusDiffFile } from "./session-runtime/diff-model.js";
 import { createWorkbenchState, reduceWorkbenchState } from "./workbench/surfaces.js";
+import { normalizeAppBootstrap, resetWorkspaceScopedState } from "./app-workspaces.js";
 
 export const DEFAULT_MODE = "explore";
 
@@ -43,6 +44,15 @@ export const initialState = {
   activeStepIndex: 0,
   historyIntegrity: null,
   workbench: createWorkbenchState(),
+  app: {
+    bootstrapLoaded: false,
+    workspaces: [],
+    activeWorkspace: null,
+    hasActiveWorkspace: false,
+    workspacePathInput: "",
+    workspaceError: "",
+    activatingWorkspace: false,
+  },
 };
 
 function liveProjectionMeta() {
@@ -85,6 +95,65 @@ export function reducer(state, action) {
       return { ...state, composer: action.value };
     case "set_connection":
       return { ...state, connectionState: action.value };
+    case "app_bootstrap_loaded": {
+      const bootstrap = normalizeAppBootstrap(action.bootstrap || {});
+      return {
+        ...state,
+        app: {
+          ...state.app,
+          bootstrapLoaded: true,
+          workspaces: bootstrap.workspaces,
+          activeWorkspace: bootstrap.activeWorkspace,
+          hasActiveWorkspace: bootstrap.hasActiveWorkspace,
+          workspaceError: bootstrap.lastError || "",
+          activatingWorkspace: false,
+        },
+      };
+    }
+    case "workspace_path_changed":
+      return {
+        ...state,
+        app: {
+          ...state.app,
+          workspacePathInput: action.value || "",
+          workspaceError: "",
+        },
+      };
+    case "workspace_activation_started":
+      return {
+        ...state,
+        app: {
+          ...state.app,
+          activatingWorkspace: true,
+          workspaceError: "",
+        },
+      };
+    case "workspace_activation_failed":
+      return {
+        ...state,
+        app: {
+          ...state.app,
+          activatingWorkspace: false,
+          workspaceError: action.error || "workspace_open_failed",
+        },
+      };
+    case "workspace_switched": {
+      const bootstrap = normalizeAppBootstrap(action.bootstrap || {});
+      const reset = resetWorkspaceScopedState(state);
+      return {
+        ...reset,
+        app: {
+          ...reset.app,
+          bootstrapLoaded: true,
+          workspaces: bootstrap.workspaces,
+          activeWorkspace: bootstrap.activeWorkspace,
+          hasActiveWorkspace: bootstrap.hasActiveWorkspace,
+          workspacePathInput: "",
+          workspaceError: bootstrap.lastError || "",
+          activatingWorkspace: false,
+        },
+      };
+    }
     case "sessions_loaded":
       return { ...state, sessions: action.sessions };
     case "session_activated":

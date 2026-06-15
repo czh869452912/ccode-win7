@@ -31,6 +31,62 @@ function webappSourcePath(...parts) {
 
 async function main() {
   assert.equal(initialState.requestedMode, "explore");
+  assert.equal(initialState.app.bootstrapLoaded, false);
+  assert.equal(initialState.app.hasActiveWorkspace, false);
+  assert.equal(initialState.app.activeWorkspace, null);
+
+  const appLoadedState = reducer(initialState, {
+    type: "app_bootstrap_loaded",
+    bootstrap: {
+      workspaces: [
+        {
+          id: "ws-1",
+          path: "D:/work/demo",
+          label: "demo",
+          exists: true,
+          created_at: "",
+          last_opened_at: "",
+        },
+      ],
+      activeWorkspace: {
+        id: "ws-1",
+        path: "D:/work/demo",
+        label: "demo",
+        exists: true,
+        created_at: "",
+        last_opened_at: "",
+      },
+      hasActiveWorkspace: true,
+      lastError: "",
+    },
+  });
+  assert.equal(appLoadedState.app.bootstrapLoaded, true);
+  assert.equal(appLoadedState.app.activeWorkspace.id, "ws-1");
+  assert.equal(appLoadedState.app.hasActiveWorkspace, true);
+
+  const switchedWorkspaceState = reducer(
+    {
+      ...appLoadedState,
+      currentSessionId: "sess-old",
+      sessions: [{ session_id: "sess-old" }],
+      timeline: [{ id: "row-old" }],
+      fileTree: [{ id: "src" }],
+    },
+    {
+      type: "workspace_switched",
+      bootstrap: {
+        workspaces: [],
+        activeWorkspace: null,
+        hasActiveWorkspace: false,
+        lastError: "",
+      },
+    },
+  );
+  assert.equal(switchedWorkspaceState.currentSessionId, "");
+  assert.deepEqual(switchedWorkspaceState.sessions, []);
+  assert.deepEqual(switchedWorkspaceState.timeline, []);
+  assert.deepEqual(switchedWorkspaceState.fileTree, []);
+  assert.equal(switchedWorkspaceState.app.hasActiveWorkspace, false);
 
   const root = [createTreeNode({ path: "src", name: "src", kind: "dir", has_children: true })];
   const next = injectChildren(root, "src", [
@@ -540,6 +596,11 @@ async function main() {
   assert.equal(appSource.includes("showTabs={false}"), true);
   assert.equal(appSource.includes("data.session_id || currentSessionIdRef.current || \"\""), true);
   assert.equal(appSource.includes("const activeSessionId = currentSessionIdRef.current;"), true);
+  assert.equal(appSource.includes("loadAppBootstrap"), true);
+  assert.equal(appSource.includes("openWorkspace"), true);
+  assert.equal(appSource.includes("activateWorkspace"), true);
+  assert.equal(appSource.includes("workspace_changed"), true);
+  assert.equal(appSource.includes("no_active_workspace"), true);
 
   const workbenchHeaderSource = fs.readFileSync(
     webappSourcePath("components", "workbench", "WorkbenchHeader.jsx"),

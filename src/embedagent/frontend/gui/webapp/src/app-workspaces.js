@@ -21,14 +21,17 @@ export function normalizeAppBootstrap(payload = {}) {
   const workspaces = Array.isArray(payload.workspaces)
     ? payload.workspaces.map(normalizeWorkspaceRecord).filter((item) => item.id)
     : [];
-  const activeWorkspace = payload.active_workspace
-    ? normalizeWorkspaceRecord(payload.active_workspace)
+  const activePayload = payload.active_workspace || payload.activeWorkspace || null;
+  const activeWorkspace = activePayload
+    ? normalizeWorkspaceRecord(activePayload)
     : null;
   return {
     workspaces,
     activeWorkspace: activeWorkspace && activeWorkspace.id ? activeWorkspace : null,
-    hasActiveWorkspace: Boolean(payload.has_active_workspace && activeWorkspace),
-    lastError: String(payload.last_error || ""),
+    hasActiveWorkspace: Boolean(
+      (payload.has_active_workspace || payload.hasActiveWorkspace) && activeWorkspace,
+    ),
+    lastError: String(payload.last_error || payload.lastError || ""),
   };
 }
 
