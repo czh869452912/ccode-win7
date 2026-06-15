@@ -707,6 +707,219 @@ body {
   font-family: var(--font-mono);
 }
 
+.t3-timeline {
+  padding: 16px 18px;
+  gap: 8px;
+}
+
+.t3-message-row {
+  display: flex;
+  margin: 4px 0;
+  min-width: 0;
+}
+
+.t3-message-row.user {
+  justify-content: flex-end;
+}
+
+.t3-message-row.assistant {
+  align-self: stretch;
+  max-width: min(900px, 100%);
+  color: var(--text-primary);
+}
+
+.t3-user-bubble {
+  max-width: min(720px, 78%);
+  border: 1px solid var(--border-default);
+  background: var(--bg-subtle);
+  border-radius: var(--r-md);
+  padding: 8px 10px;
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+
+.t3-work-row {
+  margin: 2px 0 2px 18px;
+  border-left: 1px solid var(--border-default);
+  padding-left: 10px;
+}
+
+.t3-work-summary {
+  width: 100%;
+  min-height: 28px;
+  display: grid;
+  grid-template-columns: 18px minmax(90px, auto) minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.t3-work-summary:hover {
+  color: var(--text-primary);
+}
+
+.t3-work-icon {
+  width: 18px;
+  height: 18px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
+.t3-work-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.t3-work-preview,
+.t3-work-status,
+.t3-work-changes,
+.t3-diff-stats {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.t3-work-row.running .t3-work-status {
+  color: var(--color-warning);
+}
+
+.t3-work-row.error .t3-work-status {
+  color: var(--color-error);
+}
+
+.t3-work-row.interrupted .t3-work-status,
+.t3-work-row.discarded .t3-work-status {
+  color: var(--color-warning);
+}
+
+.t3-work-detail {
+  margin: 4px 0 8px 26px;
+  border: 1px solid var(--border-default);
+  background: var(--bg-default);
+  border-radius: var(--r-sm);
+  padding: 8px;
+}
+
+.t3-work-detail pre {
+  margin: 0;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  white-space: pre-wrap;
+}
+
+.t3-work-file-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.t3-work-file {
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-sm);
+  padding: 2px 6px;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
+.t3-turn-fold-row,
+.t3-changed-files-card,
+.t3-interaction-row,
+.t3-working-row {
+  margin-left: 18px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-sm);
+  background: var(--bg-default);
+}
+
+.t3-turn-fold-summary,
+.t3-changed-files-title,
+.t3-changed-file {
+  width: 100%;
+  min-height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+  padding: 5px 9px;
+}
+
+.t3-turn-fold-summary:hover,
+.t3-changed-files-title:hover,
+.t3-changed-file:hover {
+  color: var(--text-primary);
+  background: rgba(139,148,158,.08);
+}
+
+.t3-turn-fold-body {
+  border-top: 1px solid var(--border-default);
+  padding: 4px 0;
+}
+
+.t3-changed-files-list {
+  border-top: 1px solid var(--border-default);
+}
+
+.t3-changed-file {
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.t3-interaction-row,
+.t3-working-row {
+  min-height: 30px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.t3-interaction-row.pending {
+  border-color: rgba(210,153,34,.35);
+}
+
+.t3-interaction-row.resolved {
+  border-color: rgba(63,185,80,.25);
+}
+
+.t3-interaction-status {
+  color: var(--text-muted);
+  margin-left: auto;
+}
+
+.t3-interaction-detail {
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
 .stream-cursor {
   display: inline-block; width: 2px; height: 12px;

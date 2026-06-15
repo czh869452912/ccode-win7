@@ -119,4 +119,41 @@ export function runT3TimelineTests() {
   assert.deepEqual(changed.files.map((file) => file.path), ["src/demo.c", "README.md"]);
   assert.equal(changed.additions, 2);
   assert.equal(changed.deletions, 2);
+
+  const interruptedRows = projectT3TimelineRows({
+    turnGroups: [
+      {
+        turnId: "turn-interrupted",
+        userItem: { id: "u2", kind: "user", content: "stop", turnId: "turn-interrupted" },
+        steps: [
+          {
+            stepId: "step-2",
+            stepIndex: 1,
+            activityItems: [
+              {
+                id: "tool-2",
+                kind: "tool",
+                toolName: "run_recipe",
+                status: "error",
+                error: "cancelled",
+                data: { error_kind: "interrupted" },
+                turnId: "turn-interrupted",
+                stepId: "step-2",
+              },
+            ],
+            assistantItem: null,
+          },
+        ],
+        trailingTurnItems: [],
+        leadingSystemItems: [],
+        sessionFallbackItems: [],
+      },
+    ],
+    currentStatus: "idle",
+    activeTurnId: "",
+    currentInteraction: null,
+  });
+
+  assert.equal(interruptedRows.some((row) => row.kind === "turn_fold"), false);
+  assert.equal(interruptedRows[1].tone, "interrupted");
 }

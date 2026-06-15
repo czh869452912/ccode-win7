@@ -133,7 +133,7 @@ function App() {
     if (isAtBottomRef.current && timelineRef.current) {
       timelineRef.current.scrollTop = timelineRef.current.scrollHeight;
     }
-  }, [runtimeState.timelineView, state.thinkingActive, runtimeState.currentInteraction]);
+  }, [runtimeState.t3TimelineRows, state.thinkingActive, runtimeState.currentInteraction]);
 
   function handleTimelineScroll() {
     const el = timelineRef.current;
@@ -271,6 +271,23 @@ function App() {
         title: entry?.title || "Review Evidence",
         content: entry?.content || "",
       },
+      inspectorTab: "preview",
+    });
+  }
+
+  function openDiffSurface({ turnId = "", filePath = "" } = {}) {
+    const item = runtimeState.timelineItems.find((candidate) => {
+      if (turnId && candidate.turnId !== turnId) return false;
+      const data = candidate.data || {};
+      const args = candidate.arguments || {};
+      if (filePath && data.path !== filePath && args.path !== filePath) return false;
+      return typeof data.diff === "string" || typeof data.diff_preview === "string";
+    });
+    const diff = item?.data?.diff || item?.data?.diff_preview || "";
+    if (!diff) return;
+    dispatch({
+      type: "preview_loaded",
+      preview: { kind: "diff", title: filePath || "Diff", diff, content: "" },
       inspectorTab: "preview",
     });
   }
@@ -1014,6 +1031,7 @@ function App() {
           <Timeline
             ref={timelineRef}
             timeline={runtimeState.timelineView}
+            rows={runtimeState.t3TimelineRows}
             toolCatalog={state.toolCatalog}
             historyIntegrity={state.historyIntegrity}
             thinkingActive={state.thinkingActive}
@@ -1024,6 +1042,7 @@ function App() {
             turnsUsed={state.turnsUsed}
             maxTurns={state.maxTurns}
             onScroll={handleTimelineScroll}
+            onOpenDiff={openDiffSurface}
           />
           <Composer
             value={state.composer}

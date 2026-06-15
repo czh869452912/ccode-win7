@@ -172,6 +172,9 @@ function detailTextFor(item) {
 }
 
 function toneForWork(item, status) {
+  const errorKind = stringValue(item?.data?.error_kind);
+  if (errorKind === "interrupted") return "interrupted";
+  if (errorKind === "discarded") return "discarded";
   if (status === "error") return "error";
   if (status === "running") return "running";
   return "neutral";

@@ -16,6 +16,7 @@ import { useLang } from "../LangContext.js";
 import { t } from "../strings.js";
 import { describeProjectionBadge, describeTimelineProjectionNotice, summarizeTimelineProjection } from "../state-helpers.js";
 import DiffView from "./DiffView.jsx";
+import TimelineRows from "./timeline/TimelineRows.jsx";
 
 hljs.registerLanguage("c", hljsC);
 hljs.registerLanguage("cpp", hljsCpp);
@@ -223,10 +224,10 @@ function flattenTurnGroups(groups) {
 
 const Timeline = forwardRef(function Timeline(
   {
-    timeline, toolCatalog, historyIntegrity, thinkingActive, streamingReasoningId,
+    timeline, rows, toolCatalog, historyIntegrity, thinkingActive, streamingReasoningId,
     terminationReason, terminationDisplayReason, terminationMessage,
     turnsUsed, maxTurns,
-    onScroll,
+    onScroll, onOpenDiff,
   },
   ref,
 ) {
@@ -255,6 +256,57 @@ const Timeline = forwardRef(function Timeline(
       tone: "context",
       content: terminationMessage ? `${label}: ${terminationMessage}` : label,
     };
+  }
+
+  const markdownComponents = {
+    pre(props) {
+      const child = React.Children.toArray(props.children)[0];
+      if (React.isValidElement(child) && child.props?.className) {
+        return <CodeBlock className={child.props.className}>{child.props.children}</CodeBlock>;
+      }
+      return <pre {...props} />;
+    },
+    code(props) {
+      const { node, inline, className, children, ...rest } = props;
+      if (inline) {
+        return <code className={`inline-code ${className || ""}`} {...rest}>{children}</code>;
+      }
+      return <code className={className} {...rest}>{children}</code>;
+    },
+    a(props) {
+      return <a {...props} target="_blank" rel="noopener noreferrer" />;
+    },
+  };
+
+  if (Array.isArray(rows) && rows.length > 0) {
+    return (
+      <div
+        className="timeline t3-timeline"
+        ref={ref}
+        onScroll={onScroll}
+        role="log"
+        aria-live="polite"
+        aria-atomic="false"
+        aria-label="Conversation"
+      >
+        {historyIntegrity?.status === "partial" ? (
+          <div className="system-card context" role="status">
+            <strong>history partially restored</strong>: {historyIntegrity.restoreStopReason || historyIntegrity.restore_stop_reason || "restore stopped early"}
+          </div>
+        ) : null}
+        {historyIntegrity?.status === "unavailable" ? (
+          <div className="system-card error" role="alert">
+            session history unavailable
+          </div>
+        ) : null}
+        <TimelineRows rows={rows} onOpenDiff={onOpenDiff} markdownComponents={markdownComponents} />
+        {terminationCard && (
+          <div className={`system-card ${terminationCard.tone}`} role={terminationCard.tone === "error" ? "alert" : "status"}>
+            {terminationCard.content}
+          </div>
+        )}
+      </div>
+    );
   }
 
   return (
