@@ -64,8 +64,8 @@
   - `docs/modules/frontend-gui.md`
   - `docs/modules/frontend-tui.md`
 - 关联文档：
-  - `docs/superpowers/specs/2026-06-15-t3code-pi-workbench-design.md`
-  - `docs/superpowers/plans/2026-06-15-t3code-pi-workbench.md`
+  - `docs/archive/t3code-pi-workbench/2026-06-15-t3code-pi-workbench-design.md`
+  - `docs/archive/t3code-pi-workbench/2026-06-15-t3code-pi-workbench.md`
 - 是否需要 ADR：否
 - 后续动作：
   - 在真实 Win7 WebView2 109 环境执行 GUI smoke。
