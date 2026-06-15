@@ -280,6 +280,51 @@ class TestLocalResources(unittest.TestCase):
         self.assertIn("<location>.embedagent/skills/review/SKILL.md</location>", system_text)
         self.assertNotIn("private-audit", system_text)
 
+    def test_skill_discovery_honors_ignore_files(self):
+        from embedagent.local_resources import discover_local_resources
+
+        _write_text(
+            os.path.join(self.workspace, ".embedagent", "skills", ".gitignore"),
+            "ignored/\n*.tmp.md\n",
+        )
+        _write_text(
+            os.path.join(self.workspace, ".embedagent", "skills", "visible", "SKILL.md"),
+            "---\nname: visible-skill\ndescription: Visible skill.\n---\n# Visible\n",
+        )
+        _write_text(
+            os.path.join(self.workspace, ".embedagent", "skills", "ignored", "SKILL.md"),
+            "---\nname: ignored-skill\ndescription: Ignored skill.\n---\n# Ignored\n",
+        )
+        _write_text(
+            os.path.join(self.workspace, ".embedagent", "skills", "draft.tmp.md"),
+            "---\nname: draft-skill\ndescription: Draft skill.\n---\n# Draft\n",
+        )
+
+        payload = discover_local_resources(self.workspace)
+        names = [item["name"] for item in payload["skills"]]
+
+        self.assertEqual(names, ["visible-skill"])
+
+    def test_skill_discovery_ignore_negation_can_reinclude_file(self):
+        from embedagent.local_resources import discover_local_resources
+
+        _write_text(
+            os.path.join(self.workspace, ".embedagent", "skills", ".ignore"),
+            "*.md\n!keep.md\n",
+        )
+        _write_text(
+            os.path.join(self.workspace, ".embedagent", "skills", "keep.md"),
+            "---\nname: keep-skill\ndescription: Keep skill.\n---\n# Keep\n",
+        )
+        _write_text(
+            os.path.join(self.workspace, ".embedagent", "skills", "drop.md"),
+            "---\nname: drop-skill\ndescription: Drop skill.\n---\n# Drop\n",
+        )
+
+        payload = discover_local_resources(self.workspace)
+
+        self.assertEqual([item["name"] for item in payload["skills"]], ["keep-skill"])
+
     def test_recipe_file_diagnostics_do_not_block_other_resources(self):
         from embedagent.local_resources import discover_local_resources
 

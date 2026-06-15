@@ -44,6 +44,27 @@
 
 ## 3. 当前变更记录
 
+### DC-150
+
+- 日期：2026-06-15
+- 变更主题：Pi-compatible skill discovery ignore rules
+- 变更摘要：
+  - `.embedagent/skills` 扫描现在会读取本地 `.gitignore`、`.ignore`、`.fdignore`
+  - ignore 语义保持轻量和离线：支持空行、`#` 注释、相对路径、目录规则、`fnmatch` glob 和 `!` negation
+  - ignore 只影响 skill file discovery，不执行代码、不加载 extension、不改变 workspace-bound path check 或权限策略
+- 影响范围：
+  - `src/embedagent/skills.py`
+  - `tests/test_local_resources.py`
+  - `docs/tool-contracts.md`
+  - `docs/design-change-log.md`
+- 关联文档：
+  - `docs/superpowers/plans/2026-06-15-remaining-pi-architecture-gaps.md`
+  - `docs/tool-contracts.md`
+- 是否需要 ADR：`否，本次是本地文件发现过滤语义补齐；不新增 public extension API`
+- 后续动作：
+  - 继续内部 `SkillIndex` read model，统一 prompt listing、command projection 与显式 invocation lookup
+  - 继续 prompt-unit snapshot safe metadata
+
 ### DC-149
 
 - 日期：2026-06-15

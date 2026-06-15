@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import fnmatch
 import os
 import re
 from typing import Any, Dict, List, Optional, Tuple
@@ -211,19 +212,108 @@ def _iter_skill_files(roots: List[str]) -> List[str]:
             continue
         if not os.path.isdir(root):
             continue
+        ignore_rules = _load_ignore_rules(root)
         for current_root, dir_names, file_names in os.walk(root):
-            dir_names[:] = sorted(name for name in dir_names if name not in (".git", "__pycache__"))
+            dir_names[:] = sorted(
+                name
+                for name in dir_names
+                if name not in (".git", "__pycache__")
+                and not _is_ignored(
+                    _relative_resource_path(root, os.path.join(current_root, name)),
+                    True,
+                    ignore_rules,
+                )
+            )
             skill_md = _find_skill_md(current_root, file_names)
-            if skill_md:
+            if skill_md and not _is_ignored(
+                _relative_resource_path(root, skill_md),
+                False,
+                ignore_rules,
+            ):
                 files.append(skill_md)
                 dir_names[:] = []
                 continue
             for file_name in sorted(file_names):
                 absolute_path = os.path.join(current_root, file_name)
+                relative_path = _relative_resource_path(root, absolute_path)
+                if _is_ignored(relative_path, False, ignore_rules):
+                    continue
                 if absolute_path.lower().endswith(SKILL_EXTENSIONS):
                     files.append(os.path.realpath(absolute_path))
     files.sort()
     return files
+
+
+def _load_ignore_rules(root: str) -> List[Dict[str, Any]]:
+    rules = []  # type: List[Dict[str, Any]]
+    for file_name in (".gitignore", ".ignore", ".fdignore"):
+        path = os.path.join(root, file_name)
+        if not os.path.isfile(path):
+            continue
+        try:
+            with open(path, "r", encoding="utf-8") as handle:
+                lines = handle.readlines()
+        except OSError:
+            continue
+        for line in lines:
+            pattern = str(line or "").strip()
+            if not pattern or pattern.startswith("#"):
+                continue
+            negated = pattern.startswith("!")
+            if negated:
+                pattern = pattern[1:].strip()
+            if not pattern:
+                continue
+            directory_only = pattern.endswith("/")
+            pattern = pattern.strip("/")
+            if not pattern:
+                continue
+            rules.append(
+                {
+                    "pattern": pattern.replace("\\", "/"),
+                    "negated": negated,
+                    "directory_only": directory_only,
+                }
+            )
+    return rules
+
+
+def _is_ignored(relative_path: str, is_dir: bool, rules: List[Dict[str, Any]]) -> bool:
+    normalized = str(relative_path or "").replace("\\", "/").strip("/")
+    if not normalized:
+        return False
+    ignored = False
+    for rule in rules:
+        if bool(rule.get("directory_only")) and not is_dir:
+            continue
+        pattern = str(rule.get("pattern") or "")
+        if not pattern:
+            continue
+        if _ignore_rule_matches(normalized, pattern, is_dir):
+            ignored = not bool(rule.get("negated"))
+    return ignored
+
+
+def _ignore_rule_matches(relative_path: str, pattern: str, is_dir: bool) -> bool:
+    del is_dir
+    normalized = str(relative_path or "").replace("\\", "/").strip("/")
+    pattern = str(pattern or "").replace("\\", "/").strip("/")
+    if not normalized or not pattern:
+        return False
+    if "/" in pattern:
+        return fnmatch.fnmatch(normalized, pattern) or normalized == pattern
+    parts = normalized.split("/")
+    if any(fnmatch.fnmatch(part, pattern) for part in parts):
+        return True
+    return fnmatch.fnmatch(normalized, pattern) or normalized == pattern
+
+
+def _relative_resource_path(root: str, path: str) -> str:
+    try:
+        relative = os.path.relpath(path, root)
+    except ValueError:
+        return os.path.realpath(path).replace(os.sep, "/")
+    return "." if relative == "." else relative.replace(os.sep, "/")
 
 
 def _find_skill_md(current_root: str, file_names: List[str]) -> str:
