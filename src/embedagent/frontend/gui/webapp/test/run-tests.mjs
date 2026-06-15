@@ -459,7 +459,7 @@ function main() {
     webappSourcePath("components", "Inspector.jsx"),
     "utf8",
   );
-  assert.equal(inspectorSource.includes('const ALL_TABS = ["interaction",'), true);
+  assert.equal(inspectorSource.includes("RIGHT_PANEL_SURFACES"), true);
   assert.equal(inspectorSource.includes('{inspectorTab === "interaction"'), true);
   assert.equal(inspectorSource.includes("todo-row"), false);
   assert.equal(inspectorSource.includes("todo-mark"), false);
@@ -491,6 +491,19 @@ function main() {
     "utf8",
   );
   assert.equal(appSidebarLayoutSource.includes("workbench-layout"), true);
+
+  const rightPanelTabsSource = fs.readFileSync(
+    webappSourcePath("components", "workbench", "RightPanelTabs.jsx"),
+    "utf8",
+  );
+  assert.equal(rightPanelTabsSource.includes("RIGHT_PANEL_SURFACES"), true);
+  assert.equal(rightPanelTabsSource.includes("todos"), false);
+
+  const bottomDrawerSource = fs.readFileSync(
+    webappSourcePath("components", "workbench", "BottomDrawer.jsx"),
+    "utf8",
+  );
+  assert.equal(bottomDrawerSource.includes("run_output"), true);
 
   runWorkbenchStateTests();
   runSessionRuntimeTests();

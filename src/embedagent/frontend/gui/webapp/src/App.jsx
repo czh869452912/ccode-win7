@@ -15,6 +15,8 @@ import Timeline from "./components/Timeline.jsx";
 import Inspector from "./components/Inspector.jsx";
 import Composer from "./components/Composer.jsx";
 import AppSidebarLayout from "./components/workbench/AppSidebarLayout.jsx";
+import BottomDrawer from "./components/workbench/BottomDrawer.jsx";
+import RightPanelTabs from "./components/workbench/RightPanelTabs.jsx";
 import WorkbenchHeader from "./components/workbench/WorkbenchHeader.jsx";
 
 const MODES = ["explore", "spec", "build", "debug", "verify"];
@@ -969,36 +971,52 @@ function App() {
         </main>
       }
       rightPanel={
-        <Inspector
-          inspectorTab={state.inspectorTab}
-          tasks={state.tasks}
-          artifacts={state.artifacts}
-          plan={state.plan}
-          review={state.review}
-          recipes={state.recipes}
-          timeline={runtimeState.timelineItems}
-          currentInteraction={runtimeState.currentInteraction}
-          interactionNotice={interactionNotice}
-          permissionContext={state.permissionContext}
-          preview={state.preview}
-          snapshot={state.snapshot}
-          userAnswer={userAnswer}
-          eventLog={state.eventLog}
-          onTabChange={(v) => {
-            dispatch({ type: "set_inspector", value: v });
-            dispatch({ type: "workbench_surface_activated", placement: "right", kind: v });
+        <RightPanelTabs
+          activeKind={state.inspectorTab}
+          counts={{
+            interaction: runtimeState.currentInteraction || interactionNotice ? 1 : 0,
+            tasks: state.tasks.length,
+            artifacts: state.artifacts.length,
           }}
-          onOpenArtifact={openArtifact}
-          onOpenReviewEvidence={openReviewEvidence}
-          onRunRecipe={runRecipe}
-          onUserAnswerChange={setUserAnswer}
-          onRespondInteraction={respondToInteraction}
-        />
+          onSelect={(kind) => {
+            dispatch({ type: "set_inspector", value: kind });
+            dispatch({ type: "workbench_surface_activated", placement: "right", kind });
+          }}
+        >
+          <Inspector
+            inspectorTab={state.inspectorTab}
+            tasks={state.tasks}
+            artifacts={state.artifacts}
+            plan={state.plan}
+            review={state.review}
+            recipes={state.recipes}
+            timeline={runtimeState.timelineItems}
+            currentInteraction={runtimeState.currentInteraction}
+            interactionNotice={interactionNotice}
+            permissionContext={state.permissionContext}
+            preview={state.preview}
+            snapshot={state.snapshot}
+            userAnswer={userAnswer}
+            eventLog={state.eventLog}
+            onTabChange={(v) => {
+              dispatch({ type: "set_inspector", value: v });
+              dispatch({ type: "workbench_surface_activated", placement: "right", kind: v });
+            }}
+            onOpenArtifact={openArtifact}
+            onOpenReviewEvidence={openReviewEvidence}
+            onRunRecipe={runRecipe}
+            onUserAnswerChange={setUserAnswer}
+            onRespondInteraction={respondToInteraction}
+          />
+        </RightPanelTabs>
       }
       bottomDrawer={
-        <div className="workbench-drawer-empty" data-testid="workbench-drawer">
-          Run output and long diagnostics
-        </div>
+        <BottomDrawer
+          activeKind={state.workbench.bottomDrawer.activeKind}
+          eventLog={state.eventLog}
+          terminationReason={state.terminationDisplayReason || state.terminationReason}
+          terminationMessage={state.terminationMessage}
+        />
       }
       rightPanelOpen={state.workbench.rightPanel.open}
       bottomDrawerOpen={state.workbench.bottomDrawer.open}
@@ -1010,4 +1028,3 @@ function App() {
 }
 
 export default App;
-

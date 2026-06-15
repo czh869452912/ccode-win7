@@ -2,10 +2,11 @@ import React from "react";
 import { useLang } from "../LangContext.js";
 import { t } from "../strings.js";
 import { summarizeTimelineProjection } from "../state-helpers.js";
+import { RIGHT_PANEL_SURFACES } from "../workbench/surfaces.js";
 import DiffView from "./DiffView.jsx";
 import InteractionPanel from "./InteractionPanel.jsx";
 
-const ALL_TABS = ["interaction", "tasks", "plan", "artifacts", "run", "problems", "review", "permissions", "runtime", "preview", "log"];
+const ALL_TABS = RIGHT_PANEL_SURFACES;
 
 function InspectorTabs({ active, onChange, interactionCount, tasksCount, artifactsCount }) {
   const lang = useLang();

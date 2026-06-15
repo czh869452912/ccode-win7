@@ -214,6 +214,121 @@ body {
   border-color: var(--color-success);
 }
 
+.right-panel {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  background: var(--bg-default);
+  border-left: 1px solid var(--bg-subtle);
+}
+
+.right-panel-tabs {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 34px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--border-default);
+  padding: 0 var(--sp-2);
+}
+
+.right-panel-tab {
+  height: 32px;
+  padding: 0 8px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.right-panel-tab:hover {
+  color: var(--text-secondary);
+}
+
+.right-panel-tab.active {
+  color: var(--color-success);
+  border-bottom-color: var(--color-success);
+}
+
+.right-panel-body {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.right-panel-body .inspector {
+  border-left: 0;
+}
+
+.right-panel-body .inspector-tabs {
+  display: none;
+}
+
+.bottom-drawer {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--bg-default);
+}
+
+.bottom-drawer-tabs {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  border-bottom: 1px solid var(--border-default);
+  padding: 0 var(--sp-2);
+  height: 30px;
+  flex-shrink: 0;
+}
+
+.bottom-drawer-tab {
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  height: 30px;
+}
+
+.bottom-drawer-tab.active {
+  color: var(--color-success);
+  border-bottom-color: var(--color-success);
+}
+
+.bottom-drawer-body {
+  flex: 1;
+  overflow: auto;
+  padding: var(--sp-2) var(--sp-3);
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
+.drawer-line {
+  display: flex;
+  gap: var(--sp-2);
+  padding: 2px 0;
+  color: var(--text-secondary);
+  border-bottom: 1px solid rgba(139, 148, 158, 0.12);
+}
+
+.drawer-line.muted {
+  color: var(--text-muted);
+}
+
+.drawer-label {
+  color: var(--color-info);
+  min-width: 120px;
+}
+
 .resize-handle {
   background: var(--bg-default);
   cursor: col-resize;
