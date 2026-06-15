@@ -120,7 +120,7 @@ def _resolve_initial_workspace(workspace_option: str = "", workspace_arg: str = 
     raw = str(workspace_option or workspace_arg or "").strip()
     if not raw:
         return ""
-    workspace = os.path.realpath(os.path.abspath(raw))
+    workspace = os.path.abspath(raw)
     if not os.path.isdir(workspace):
         raise ValueError("Workspace not found: %s" % workspace)
     return workspace

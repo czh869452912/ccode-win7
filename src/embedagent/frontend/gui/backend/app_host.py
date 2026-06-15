@@ -82,7 +82,7 @@ class GUIAppHost(object):
                 next_core = self._core_factory(path)
                 if self._frontend is not None:
                     next_core.register_frontend(self._frontend)
-            except Exception as exc:
+            except (OSError, RuntimeError, TypeError, ValueError) as exc:
                 self._last_error = str(exc)
                 raise
             if previous is not None:

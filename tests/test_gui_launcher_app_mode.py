@@ -19,7 +19,7 @@ class TestGuiLauncherAppMode(unittest.TestCase):
 
             resolved = _resolve_initial_workspace(workspace, "")
 
-        self.assertEqual(resolved, os.path.realpath(os.path.abspath(workspace)))
+        self.assertEqual(resolved, os.path.abspath(workspace))
 
     def test_workspace_option_takes_precedence(self):
         with tempfile.TemporaryDirectory() as root:
@@ -30,7 +30,7 @@ class TestGuiLauncherAppMode(unittest.TestCase):
 
             resolved = _resolve_initial_workspace(option, positional)
 
-        self.assertEqual(resolved, os.path.realpath(os.path.abspath(option)))
+        self.assertEqual(resolved, os.path.abspath(option))
 
     def test_missing_explicit_workspace_raises_value_error(self):
         with tempfile.TemporaryDirectory() as root:
