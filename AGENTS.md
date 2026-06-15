@@ -77,15 +77,17 @@ Required bundled runtime assets include:
 
 If a clean Windows 7 machine cannot unpack and run the bundle without preinstalled tools, it is a defect.
 
+Offline deployment means the base product can start, run, and execute the default C/C++ workflow with no network. Optional intranet Git, custom-service, provider, or telemetry integrations may exist only when explicitly configured and trusted; they must remain disableable, failure-tolerant, manifest/config gated, and outside Agent Core. A missing or unreachable network service must not break default offline operation.
+
 ## Official Product Vocabulary
 
 The repository now has one official architecture vocabulary.
 
 ### Next Architecture Direction
 
-The current baseline remains authoritative. `docs/pi-inspired-agent-core-blueprint.md` is the long-term target blueprint for making Agent Core more Pi-like in both function and philosophy: smaller kernel, durable session-log reducers, source-aware hooks, explicit turn snapshots, replayable runtime configuration, structured compaction state, recovery markers, capability read models, replaceable workflow packages, and local self-extension.
+The current baseline remains authoritative. `docs/pi-inspired-agent-core-blueprint.md` is the long-term target blueprint for making Agent Core more Pi-like in both function and philosophy: smaller kernel, durable session-log reducers, source-aware hooks, explicit turn snapshots, replayable runtime configuration, structured compaction state, recovery markers, capability read models, replaceable workflow packages, local self-extension, and optional enterprise adapters that do not thicken Core.
 
-Do not treat blueprint target terms such as `SessionLog` or public `HookBus` as implemented public APIs until a specific implementation slice lands and updates the source-of-truth docs. `AgentEventBus` is now the internal source-aware event/reducer boundary for public extension hook dispatch; it is not a public extension API. `AgentLifecycleJournal`, `AgentKernel`, `AgentLoop`, `TurnSnapshot`, `CapabilityRegistry`, `RuntimeConfigReducer`, `WorkflowPackageManifest`, `CompactionStateReducer`, and `RecoveryStateReducer` are implemented internal Agent Core boundaries/read models, not public extension APIs. The bundled default C/C++ workflow package now owns its workflow tool registration, metadata, packs, and read-only package manifest behind `CHarnessWorkflowExtension`; the obsolete `embedagent.tooling.packs` compatibility re-export has been removed, so C/C++ workflow pack truth lives only in `embedagent.harness.packs`. Core singleton-like access must use explicit accessors (`get_mode_registry()`, `get_command_sanitizer()`, `get_inprocess_adapter()`); stale global/proxy aliases such as `MODE_REGISTRY`, `_DEFAULT_SANITIZER`, `get_default_sanitizer()`, `_inprocess_adapter`, and `_get_adapter_class()` must not be reintroduced. Local self-extension authoring is available through `SelfExtensionAuthoringService` and `author_local_capability`; repo-side offline bundle validation is contract-backed through `scripts/offline-runtime-contract.json`; near-term work must preserve hosted C/C++ behavior while advancing real Win7 bundle smoke validation and real C/C++ project validation.
+Do not treat blueprint target terms such as `SessionLog` or public `HookBus` as implemented public APIs until a specific implementation slice lands and updates the source-of-truth docs. `AgentEventBus` is now the internal source-aware event/reducer boundary for public extension hook dispatch; it is not a public extension API. `AgentLifecycleJournal`, `AgentKernel`, `AgentLoop`, `TurnSnapshot`, `CapabilityRegistry`, `RuntimeConfigReducer`, `WorkflowPackageManifest`, `CompactionStateReducer`, and `RecoveryStateReducer` are implemented internal Agent Core boundaries/read models, not public extension APIs. The bundled default C/C++ workflow package now owns its workflow tool registration, metadata, packs, and read-only package manifest behind `CHarnessWorkflowExtension`; the obsolete `embedagent.tooling.packs` compatibility re-export has been removed, so C/C++ workflow pack truth lives only in `embedagent.harness.packs`. Core singleton-like access must use explicit accessors (`get_mode_registry()`, `get_command_sanitizer()`, `get_inprocess_adapter()`); stale global/proxy aliases such as `MODE_REGISTRY`, `_DEFAULT_SANITIZER`, `get_default_sanitizer()`, `_inprocess_adapter`, and `_get_adapter_class()` must not be reintroduced. Local self-extension authoring is available through `SelfExtensionAuthoringService` and `author_local_capability`; repo-side offline bundle validation is contract-backed through `scripts/offline-runtime-contract.json`; near-term work must preserve hosted C/C++ behavior while advancing real Win7 bundle smoke validation and real C/C++ project validation. Future intranet Git, custom service, provider, or telemetry work must follow Pi's adapter style rather than copying Pi's full openness: Core emits safe events/read models and enforces capability/permission boundaries, while networked behavior lives in optional hosted extensions, providers, workflow packages, or passive telemetry sinks.
 
 ### Modes
 
@@ -114,7 +116,7 @@ Official C/C++ execution semantics are provided by the default built-in harness 
 
 Agent Core must route harness-specific prompt injection, task initialization, and workflow tool handling through the extension boundary instead of importing harness classes directly.
 
-Local offline self-extension is an official architecture capability, limited to workspace file resources and manifest-gated project-local Python extensions. Remote registries, online extension installs, dependency installation, plugin marketplaces, built-in tool replacement, and general multi-agent orchestration remain out of scope.
+Local offline self-extension is an official architecture capability, limited to workspace file resources and manifest-gated project-local Python extensions. Public remote registries, online extension installs, runtime dependency installation, plugin marketplaces, built-in tool replacement, and general multi-agent orchestration remain out of scope. Organization-local catalogs, intranet Git sources, custom service providers, and telemetry sinks may be considered only as trusted/admin-provisioned optional capabilities outside Agent Core; they must not grant execution rights, install dependencies at runtime, or become required for offline operation.
 
 `InProcessAdapter` owns the hosted runtime's shared `ExtensionManager` and passes it to session-scoped `QueryEngine` instances. Frontend tool catalog visibility must use that same manager instead of a separate adapter-only harness extension chain.
 
@@ -198,6 +200,8 @@ Project-local Python extension loading is a separate hosted adapter operation, n
 
 Runtime-invoked external tools are governed by `scripts/offline-runtime-contract.json`. Keep this contract aligned with bundled Python, MinGit, ripgrep, Universal Ctags, and LLVM/Clang child executables whenever a runtime flow starts invoking a new binary. `validate-offline-bundle.ps1` and `check-bundle-dependencies.py` consume this contract; do not add a separate hard-coded bundle tool list.
 
+Enterprise/intranet tools must not be introduced as hidden Core calls. Intranet Git operations, custom service calls, model/provider gateways, or telemetry uploaders must enter through explicit provider/extension/workflow-package/sink boundaries, source metadata, structured configuration, timeout/fallback behavior, and normal `PermissionPolicy` checks. Telemetry may observe safe lifecycle/capability/diagnostic events only; it must not export prompts, source files, raw tool outputs, API keys, or approval secrets.
+
 ### Session History
 
 Official session-history truth is:
@@ -255,6 +259,7 @@ One official permission engine only:
 
 Permission rules are structured data, not free-form prompt behavior.
 When changing permission behavior, keep rule matching, decision categories, and explanation text aligned.
+Do not hide network or intranet side effects behind `read` or generic `other` behavior. Any future network/intranet permission category must be added deliberately across `permissions.py`, tool metadata, frontend explanations, and the active permission documentation.
 
 ## Frontend / Protocol Policy
 
@@ -302,7 +307,8 @@ The repository is not currently trying to become:
 - a browser automation agent
 - a web search system
 - a heavyweight RAG platform
-- a plugin marketplace
+- a public plugin marketplace or runtime online installer
+- a mandatory network-connected control plane
 - a general multi-agent orchestration framework
 
 The product is a focused native Agent IDE core for offline C engineering work.

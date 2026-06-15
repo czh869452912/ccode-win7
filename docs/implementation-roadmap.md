@@ -61,6 +61,7 @@ Recent workflow-boundary work has started slimming Agent Core without changing t
 - `ToolRuntime` construction is now workflow-neutral; the bundled C/C++ workflow package registers recipe, quality, evidence, and task-status tools with metadata through `CHarnessWorkflowExtension.register_tools(...)`
 - C/C++ workflow pack definitions now live only under `src/embedagent/harness/packs.py`; the obsolete `src/embedagent/tooling/packs.py` compatibility export has been removed
 - Pi-inspired minimal Core Phase A durable operation log, Phase B HookBus/reducer registry, Phase C AgentKernel lifecycle extraction, Phase D default C/C++ workflow package ownership, Phase E self-extension authoring loop, Phase F repo-side offline bundle validation, Phase G turn snapshot / capability registry foundation, Phase H runtime configuration reducer, Phase I workflow package manifest/read model, Phase J structured compaction state, Phase K recovery state, Phase L pack compatibility cleanup, Phase M core alias cleanup, and the local skill resource invocation slice are complete
+- the Pi-style enterprise/intranet capability boundary is documented: future intranet Git, custom service, provider, organization-local catalog, and telemetry work stays optional and outside Agent Core
 - stale core compatibility aliases have been removed; current code uses `get_mode_registry()`, `get_command_sanitizer()`, and `get_inprocess_adapter()` directly instead of `MODE_REGISTRY`, `_DEFAULT_SANITIZER`, `get_default_sanitizer()`, `_inprocess_adapter`, or `_get_adapter_class()`
 - `TurnSnapshot` is now the explicit frozen provider-request input; `QueryEngine` builds it after context assembly and active schema projection, then provider requests consume `snapshot.messages` and `snapshot.tool_schemas`
 - `CapabilityRegistry` is now the non-executing read model for tools, local file resources, slash commands, model profiles, and workflow packages; activation and execution remain owned by `AgentExtensionHost` / `ExtensionManager` and `ToolRuntime` / `AgentToolActionService`
@@ -95,7 +96,7 @@ The next long-term architecture program is documented in `docs/pi-inspired-agent
 It has two goals:
 
 - keep learning Pi's functional design: extensions, resources, durable sessions, compaction, commands, model capability metadata, observability, and self-extension workflows
-- keep learning Pi's architecture philosophy: a small Agent Core, capability registration, source-aware event reducers, explicit turn snapshots, save points, and replaceable workflow packages
+- keep learning Pi's architecture philosophy: a small Agent Core, capability registration, source-aware event reducers, explicit turn snapshots, save points, replaceable workflow packages, and environment-specific adapters outside Core
 
 The current self-extensible Agent Core baseline remains valid. The next program should advance it in gradual slices:
 
@@ -188,7 +189,7 @@ The current self-extensible Agent Core baseline remains valid. The next program 
    - adapter class lookup goes through `get_inprocess_adapter()`
    - stale compatibility names `MODE_REGISTRY`, `_DEFAULT_SANITIZER`, `get_default_sanitizer()`, `_inprocess_adapter`, and `_get_adapter_class()` have been removed
 
-This program must not introduce online extension marketplaces, dependency installation, remote registries, built-in tool replacement by project-local code, container requirements, WSL requirements, VS Code dependency, or general multi-agent orchestration in Agent Core.
+This program must not introduce public online extension marketplaces, runtime dependency installation, public remote registries, built-in tool replacement by project-local code, container requirements, WSL requirements, VS Code dependency, or general multi-agent orchestration in Agent Core. Optional intranet Git/custom-service/provider/catalog/telemetry integrations may be considered only as trusted, explicitly configured hosted capabilities with disable/fallback behavior, safe diagnostics, source metadata, and normal permission checks.
 
 ### 4.2 Legacy Helper Deletion
 
@@ -199,6 +200,7 @@ Remaining cleanup should focus on:
 - removing outdated tests/manual samples that preserve non-official behavior
 - validating real C/C++ projects and the Win7/offline bundle while keeping documentation synchronized with the official extension boundaries
 - keeping `scripts/offline-runtime-contract.json`, packaging validators, and the Win7 preflight checklist aligned when runtime-invoked tools change
+- keeping future intranet or telemetry work out of Core by treating it as optional provider/extension/workflow-package/sink behavior
 
 ### 4.3 Workflow Extension Decoupling
 
@@ -206,7 +208,7 @@ Near-term decoupling should continue from the new extension boundary:
 
 - default extension configuration is closed for the current baseline: hosted product paths use `default_extensions.py`, while bare `QueryEngine` callers pass an `ExtensionManager` explicitly when they need bundled C harness behavior
 - `QueryEngine` should remain a facade over `AgentLoop`, `AgentToolActionService`, and `AgentExtensionHost`; new extension hook dispatch should not be added directly back to `QueryEngine`
-- keep remote registries, plugin marketplaces, dependency installation, built-in tool replacement, and multi-agent orchestration out of scope; project-local Python extensions stay limited to explicit enabled manifests under `.embedagent/extensions/<name>/`
+- keep public remote registries, plugin marketplaces, runtime dependency installation, built-in tool replacement, and multi-agent orchestration out of scope; project-local Python extensions stay limited to explicit enabled manifests under `.embedagent/extensions/<name>/`, and future intranet capabilities must use the same explicit hosted boundary discipline
 
 ### 4.4 Documentation Alignment
 

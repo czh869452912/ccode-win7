@@ -65,6 +65,8 @@ Important session snapshot fields include:
 
 `extensions.local_resources`, `extensions.project_extensions`, and `extension_diagnostics` are frontend-visible health and diagnostics state, not frontend-owned execution policy.
 
+Future intranet/custom-service/provider/telemetry health, if exposed, belongs in diagnostics/read-model fields such as `extensions`, `extension_diagnostics`, `runtime_config`, or capability projections. Frontends may display service availability, last error, buffered telemetry counts, or source metadata, but must not decide network activation, permission policy, retry policy, extension loading, or telemetry redaction.
+
 Capability projections are also diagnostics/read-model state. `InProcessAdapter.capability_snapshot()` may expose tools, local file resources, slash commands, workflow package manifests, and model profile metadata for future frontend inspection, but frontends must not treat that projection as active-tool policy or permission state.
 
 Visible skills are projected to frontend-adjacent surfaces through the internal `SkillIndex` read model as local `resource` descriptors and `skill:<name>` slash-command descriptors. There is no first-class frontend `skill` capability kind yet; frontends should continue treating skill files as file-only local resources plus optional commands.
@@ -184,6 +186,8 @@ Extension diagnostics are frontend-visible health information. Frontends may dis
 Project extension loader failures are mirrored into `extension_diagnostics`. Frontends may display the health information and project extension source metadata, but permission prompts and execution policy remain backend-owned.
 
 Provider turn snapshot metadata may appear in operation diagnostics as `snapshot_id`, mode/workflow state, active tool names, credential-free model profile metadata, resource revision metadata, safe prompt units such as `local_skill_listing`, and capability counts. Frontends may display this for debugging, but full prompts, skill bodies, file contents, raw tool outputs, and API keys are not part of the frontend protocol.
+
+Telemetry and intranet sink status, if later surfaced, is frontend-visible health only. Frontend protocols must not carry prompts, source text, raw tool outputs, API keys, approval secrets, or permission tokens for telemetry export.
 
 Compaction metadata may appear in `compaction_state` as safe counts, message ids, file paths, and stored evidence refs. Frontends may display this for debugging, but full compacted prompts, raw file contents, raw tool outputs, and API keys are not part of the frontend protocol.
 

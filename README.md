@@ -16,6 +16,8 @@ The repository now treats Agent Core as the workflow-neutral runtime, with the C
 
 Local offline self-extension is part of the official architecture: workspace file resources and manifest-gated project-local Python extensions can extend the hosted runtime while remote registries, online installs, dependency installation, plugin marketplaces, built-in tool replacement, and general multi-agent orchestration remain outside the product baseline.
 
+Optional enterprise/intranet integrations follow the same minimal-core rule: they may exist as trusted providers, workflow packages, project extensions, or telemetry sinks, but Agent Core must not depend on network availability. Intranet Git, custom service, and telemetry features must be explicit, disableable, manifest/config gated, permission-checked, and failure-tolerant; they must not send prompts, source text, raw tool outputs, or credentials through diagnostics or telemetry.
+
 The next long-term architecture direction is captured in `docs/pi-inspired-agent-core-blueprint.md`: continue learning from Pi's functional design and architecture philosophy while preserving EmbedAgent's offline, Windows 7, Python 3.8, and C/C++ engineering constraints. The current baseline remains valid; the blueprint guides gradual work toward a smaller Agent Kernel, durable session-log reducers, source-aware hooks, explicit turn snapshots, replayable runtime configuration, structured compaction state, recovery markers, and a default C/C++ workflow package loaded through the same capability boundary as local extensions. Phase A durable operation truth, Phase B source-aware extension hook dispatch, Phase C AgentKernel lifecycle extraction, Phase D default C/C++ workflow package ownership, Phase E local self-extension authoring, Phase F repo-side offline bundle validation, Phase G turn snapshot / capability registry foundation, Phase H runtime configuration reducer, Phase I workflow package manifest/read model, Phase J structured compaction state, Phase K recovery state, Phase L pack compatibility cleanup, and Phase M core alias cleanup are complete. The next architecture work should focus on real Win7 bundle smoke validation, real C/C++ project validation, and continuing stale compatibility audits.
 
 - User-visible modes: `explore`, `spec`, `build`, `debug`, `verify`
@@ -153,6 +155,7 @@ Project-local Python extensions are a separate, explicit opt-in path under `.emb
 - Do not require Docker, WSL, VS Code, Node.js-at-runtime, or online services.
 - Keep runtime compatible with Python `>=3.8,<3.9`.
 - The offline bundle must contain every runtime dependency it uses.
+- Optional intranet integrations must stay opt-in extension/provider/sink capabilities; network failure must not prevent offline use.
 - Runtime-invoked external tools must be represented in `scripts/offline-runtime-contract.json` and validated by the packaging gates.
 - A clean Windows 7 machine must be able to unpack and run the bundle without preinstalled tools.
 

@@ -44,6 +44,36 @@
 
 ## 3. 当前变更记录
 
+### DC-153
+
+- 日期：2026-06-15
+- 变更主题：Pi-style enterprise/intranet capability boundary
+- 变更摘要：
+  - 参考 Pi 的 custom provider、package 与 observability adapter 结构，但保持 EmbedAgent Core 极简、离线优先和 Win7 约束
+  - 明确未来内网 Git、custom service、provider gateway、组织内 catalog 与 telemetry sink 只能作为显式配置、受信、可关闭、可降级的 hosted extension/provider/workflow-package/sink
+  - 明确 telemetry 只能观察安全 lifecycle/capability/diagnostic 事件，不得导出 prompt、源码、原始工具输出、API key、审批 secret 或 permission token
+  - 将 public marketplace、runtime online install、public remote registry、mandatory network control plane 继续固定为非目标
+- 影响范围：
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/pi-inspired-agent-core-blueprint.md`
+  - `docs/tool-contracts.md`
+  - `docs/permission-model.md`
+  - `docs/frontend-protocol.md`
+  - `docs/design-change-log.md`
+- 关联文档：
+  - `docs/pi-inspired-agent-core-blueprint.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/tool-contracts.md`
+  - `docs/permission-model.md`
+  - `docs/frontend-protocol.md`
+- 是否需要 ADR：`否，本次是长期架构边界和非目标澄清；不新增执行型 API 或运行时依赖`
+- 后续动作：
+  - 后续若实施内网 Git/custom service/telemetry slice，必须先补齐显式 permission/category、配置、redaction、超时降级和离线 bundle/admin provisioning 方案
+
 ### DC-152
 
 - 日期：2026-06-15

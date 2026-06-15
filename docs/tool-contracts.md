@@ -74,6 +74,14 @@ Registration does not make a tool active by itself. A dynamic tool appears in mo
 
 `runtime_config.active_tool_names` records tools that were model-visible after activation had already happened. It is audit/replay data only. New tool gating must continue to use `ExtensionManager.allowed_tool_names(...)` through `AgentExtensionHost`.
 
+## Enterprise/Intranet Tool Boundary
+
+Intranet Git operations, custom service calls, model/provider gateways, organization-local catalog actions, and telemetry uploaders are not hidden Core tools. They must enter through explicit provider, extension, workflow-package, or passive sink boundaries with source metadata, structured configuration, timeout/fallback behavior, and normal `PermissionPolicy` checks.
+
+Dynamic networked tools must declare a permission category recognized by the runtime catalog and permission model. A future dedicated network/intranet category requires a coordinated update across `permissions.py`, tool metadata, frontend explanations, this document, and `docs/permission-model.md`; do not hide network side effects behind generic `read` or unclassified `other` behavior.
+
+Telemetry sinks observe safe structured lifecycle/capability/diagnostic events only. They must not receive full prompts, skill bodies, source file contents, raw tool outputs, API keys, approval secrets, or permission tokens. Sink failures are diagnostics, not tool failures, unless a future explicit user action is specifically invoking the sink as a tool.
+
 ## Local Resource Reload
 
 Workspace-local resources are file-only inputs to the runtime:

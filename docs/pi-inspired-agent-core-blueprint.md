@@ -461,7 +461,35 @@ Current implementation status: Phase M is complete. The remaining core
 compatibility aliases for mode registry, command sanitizer, and adapter class
 lookup have been removed, and tests guard the explicit accessor boundary.
 
-## 9. Acceptance Criteria For The Direction
+## 9. Enterprise/Intranet Capability Boundary
+
+Pi's useful lesson for enterprise environments is not to put every integration
+into core. Its custom providers, packages, and observability adapters show a
+small-core shape: core defines stable boundaries, while environment-specific
+behavior lives behind adapters.
+
+EmbedAgent adopts that shape with stricter product constraints:
+
+- the base product remains offline-capable and Windows 7 compatible
+- intranet Git, custom APIs, model gateways, organization-local catalogs, and
+  telemetry sinks are optional hosted capabilities, not Agent Core features
+- these capabilities must be explicitly configured, trusted, disableable, and
+  failure-tolerant
+- activation flows through provider, extension, workflow-package, or passive
+  sink boundaries with source metadata and normal permission checks
+- telemetry is a passive observer over safe lifecycle/capability/diagnostic
+  events; it must not export prompts, source files, raw tool outputs, API keys,
+  or approval secrets
+- organization-local catalogs may help administrators assemble offline bundles
+  or trusted capability sets, but they must not become runtime dependency
+  installation, public marketplace behavior, or a permission grant
+- frontend shells may display health/diagnostic projections for these
+  capabilities, but policy remains backend-owned
+
+This keeps the Pi-style extensibility philosophy while preserving EmbedAgent's
+offline deployment and focused C/C++ engineering baseline.
+
+## 10. Acceptance Criteria For The Direction
 
 The blueprint is working when:
 
@@ -477,18 +505,23 @@ The blueprint is working when:
 - stale compatibility import paths and aliases are deleted once official ownership/accessor boundaries are established
 - project-local extensions can add useful behavior without bypassing permissions
 - resource reload and extension loading remain separate operations
+- optional intranet capabilities can be absent without changing default offline
+  behavior
+- telemetry, if configured, is safe/passive diagnostics and never a control
+  plane
 - frontend shells consume projections, not workflow internals
 
-## 10. Non-Goals
+## 11. Non-Goals
 
 The next architecture program should not introduce:
 
-- online extension marketplaces
+- public online extension marketplaces
 - runtime dependency installation
-- remote extension registries
+- public remote extension registries
 - container or WSL requirements
 - VS Code dependency
 - general multi-agent orchestration in Agent Core
 - replacement of built-in tools by project-local code
+- mandatory network-connected control planes
 
 These may be useful in other products. They are outside the EmbedAgent baseline.

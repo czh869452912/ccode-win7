@@ -39,6 +39,10 @@ Project-local Python extension manifests declare requested permissions, but thos
 
 Project-local extension loading does not grant dependency installation rights. The loader must not invoke installers or package managers while importing enabled manifests; any command execution still has to enter through an official tool/recipe path, use bundled runtime commands, and pass the normal permission policy.
 
+Optional intranet/network capabilities do not create an implicit allow path. Intranet Git adapters, custom service tools, provider gateways, organization-local catalog actions, and telemetry uploaders must use explicit tool/provider/sink boundaries with recognized permission metadata. A future dedicated network/intranet category must update `permissions.py`, tool metadata, frontend explanation text, and this document together; until then, unclassified network side effects must not be hidden behind `read` or treated as harmless `other` behavior.
+
+Telemetry permission scope is intentionally narrow. Passive telemetry may observe only safe lifecycle/capability/diagnostic events and must not export prompts, source contents, raw tool outputs, API keys, approval secrets, or permission tokens. Telemetry sink failures should surface as diagnostics without changing normal permission decisions or default offline execution.
+
 Command sanitization must enter through `get_command_sanitizer()`. The old
 `_DEFAULT_SANITIZER` proxy and `get_default_sanitizer()` wrapper have been
 removed; reintroducing them would create a second apparent command-safety

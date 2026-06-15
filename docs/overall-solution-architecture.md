@@ -84,7 +84,9 @@ Workflow-package prompt units are appended as generic `workflow_prompt` system m
 
 `RecoveryStateReducer` is the replayable hosted recovery read model. It reduces `recovery_marker` transcript events into safe recovery records with trusted-prefix counts, stop reasons, skip summaries, operation/compaction/runtime summaries, and duplicate/malformed diagnostics. It feeds restore results, `ManagedSession.recovery_state`, protocol snapshots, and session snapshots. It remains diagnostic/replay state and must not change restore validation, retry tool calls, select modes, activate tools, load extensions, bypass permissions, or become frontend-owned policy.
 
-Default bundled extension assembly is outside `QueryEngine` in `src/embedagent/default_extensions.py`. A bare `QueryEngine` receives an empty `ExtensionManager`; hosted product paths install the default C/C++ harness explicitly before constructing session engines. Hosted product paths may additionally load project-local extensions from `.embedagent/extensions/<name>/extension.json` when the manifest is explicitly enabled and declares permissions. Remote registries, plugin marketplaces, dependency installation, built-in tool replacement, and multi-agent orchestration remain out of scope.
+Default bundled extension assembly is outside `QueryEngine` in `src/embedagent/default_extensions.py`. A bare `QueryEngine` receives an empty `ExtensionManager`; hosted product paths install the default C/C++ harness explicitly before constructing session engines. Hosted product paths may additionally load project-local extensions from `.embedagent/extensions/<name>/extension.json` when the manifest is explicitly enabled and declares permissions. Public remote registries, plugin marketplaces, runtime dependency installation, built-in tool replacement, and multi-agent orchestration remain out of scope.
+
+Optional enterprise/intranet integrations are hosted capabilities, not Agent Core responsibilities. Intranet Git adapters, custom service providers, model gateways, organization-local catalogs, and telemetry sinks must be explicitly configured, trusted, disableable, and failure-tolerant. They attach through provider, extension, workflow-package, or passive sink boundaries with source metadata and normal permission checks; they must not make startup, default C/C++ workflows, restore, resource reload, or session history depend on network availability.
 
 Harness state refresh in the product adapter path goes through `CHarnessWorkflowExtension.refresh_managed_session()` behind the default C harness workflow extension. The old `HarnessStateSynchronizer` service facade has been removed rather than kept as a parallel compatibility path.
 
@@ -340,6 +342,8 @@ The architecture therefore assumes runtime discovery for bundled tools, not glob
 
 `scripts/offline-runtime-contract.json` enumerates the bundled external tools that runtime flows may invoke. The release bundle validation gate and dependency checker must consume this contract rather than maintaining independent hard-coded lists. A clean Windows 7 unpack-and-run smoke remains the final release proof that the contract-backed bundle is actually portable.
 
+Offline-first does not forbid explicitly configured intranet use. It means network services are optional adapters with timeouts, local fallback/disable paths, and safe diagnostics. Telemetry, when present, is a passive sink over safe structured lifecycle/capability/diagnostic events and must not export prompts, source text, raw tool outputs, API keys, or approval secrets.
+
 ## 11. Design Rule
 
 Do not reintroduce parallel V1/V2 execution paths.
@@ -358,6 +362,8 @@ That program keeps learning from Pi at two levels:
 
 - functional design: extensions, resources, durable sessions, compaction, command surfaces, model capability metadata, observability, and self-extension workflows
 - architecture philosophy: a smaller core, capability registration, event reducers, turn snapshots, save points, and replaceable workflow packages
+
+The Pi lesson for enterprise capabilities is structural rather than permissive: keep Core small, expose stable capability/event/provider boundaries, and let optional adapters carry environment-specific behavior. EmbedAgent keeps the stricter offline and Windows 7 baseline, so intranet integrations must stay outside Core and must degrade cleanly when absent.
 
 The intended long-term direction is that Agent Core can be described without C/C++ workflow vocabulary. The bundled C/C++ harness remains the default product workflow, but it should continue moving toward a first-party workflow package loaded through the same capability boundary as other local extensions.
 
