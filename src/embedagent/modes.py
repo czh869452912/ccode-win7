@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
 from embedagent.di_container import get_default_container
-from embedagent.skills import format_skills_for_prompt
+from embedagent.skill_index import build_skill_index
 
 _LOG = logging.getLogger(__name__)
 
@@ -473,7 +473,7 @@ def build_system_prompt(mode_name: str, config=None, workspace: str = "", local_
         result += "\n\n## Project Context\n" + ctx
     skills_prompt = ""
     if isinstance(local_resources, dict):
-        skills_prompt = format_skills_for_prompt(list(local_resources.get("skills") or []))
+        skills_prompt = build_skill_index(local_resources).prompt_text()
     if skills_prompt:
         result += "\n\n## Local Skills\n" + skills_prompt
     return result

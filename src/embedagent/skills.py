@@ -3,8 +3,10 @@ from __future__ import annotations
 import fnmatch
 import os
 import re
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Tuple
 from xml.sax.saxutils import escape
+
+from embedagent.skill_index import build_skill_index
 
 SKILL_EXTENSIONS = (".md", ".txt")
 _VALID_SKILL_NAME = re.compile(r"^[a-z0-9][a-z0-9-]{0,62}[a-z0-9]$")
@@ -54,40 +56,7 @@ def discover_skill_resources(
 
 
 def format_skills_for_prompt(skills: List[Dict[str, Any]]) -> str:
-    visible = []
-    for item in list(skills or []):
-        if not isinstance(item, dict):
-            continue
-        if not bool(item.get("prompt_visible", False)):
-            continue
-        name = str(item.get("name") or "").strip()
-        description = str(item.get("description") or "").strip()
-        location = str(item.get("path") or "").strip()
-        if not name or not description or not location:
-            continue
-        visible.append((name, description, location))
-    if not visible:
-        return ""
-    visible.sort(key=lambda item: item[0])
-    lines = [
-        "The following workspace-local skills provide specialized instructions for specific tasks.",
-        "Use read_file to load a skill file when the task matches its description.",
-        "When a skill file references a relative path, resolve it against the skill directory.",
-        "",
-        "<available_skills>",
-    ]
-    for name, description, location in visible:
-        lines.extend(
-            [
-                "  <skill>",
-                "    <name>%s</name>" % escape(name),
-                "    <description>%s</description>" % escape(description),
-                "    <location>%s</location>" % escape(location),
-                "  </skill>",
-            ]
-        )
-    lines.append("</available_skills>")
-    return "\n".join(lines)
+    return build_skill_index({"skills": list(skills or [])}).prompt_text()
 
 
 def expand_skill_invocation(
@@ -98,12 +67,12 @@ def expand_skill_invocation(
     command_name, arguments = _parse_skill_command(text)
     if not command_name:
         return "", "not a skill invocation"
-    skill = _find_skill(resources, command_name)
+    skill = build_skill_index(resources).record_by_name(command_name)
     if not skill:
         return "", "未找到本地 skill：%s" % command_name
-    path = _resolve_inside(workspace, str(skill.get("path") or ""))
+    path = _resolve_inside(workspace, skill.path)
     if not path:
-        return "", "skill 路径不在工作区内：%s" % skill.get("path", "")
+        return "", "skill 路径不在工作区内：%s" % skill.path
     try:
         with open(path, "r", encoding="utf-8") as handle:
             text_body = handle.read()
@@ -111,8 +80,8 @@ def expand_skill_invocation(
         return "", "读取 skill 失败：%s" % exc
     _metadata, body = parse_skill_document(text_body)
     body = body.strip()
-    display_path = str(skill.get("path") or _display_path(os.path.realpath(workspace), path))
-    base_dir = str(skill.get("base_dir") or _display_path(os.path.realpath(workspace), os.path.dirname(path)))
+    display_path = skill.path or _display_path(os.path.realpath(workspace), path)
+    base_dir = skill.base_dir or _display_path(os.path.realpath(workspace), os.path.dirname(path))
     lines = [
         '<skill name="%s" location="%s">' % (_attribute_escape(command_name), _attribute_escape(display_path)),
         "References are relative to %s." % base_dir,
@@ -371,17 +340,6 @@ def _parse_skill_command(text: str) -> Tuple[str, str]:
         return "", ""
     parts = remainder.split(None, 1)
     return parts[0].strip().lower(), (parts[1].strip() if len(parts) > 1 else "")
-
-
-def _find_skill(resources: Dict[str, Any], name: str) -> Optional[Dict[str, Any]]:
-    target = str(name or "").strip().lower()
-    for item in list(resources.get("skills") or []):
-        if not isinstance(item, dict):
-            continue
-        item_name = str(item.get("name") or "").strip().lower()
-        if item_name == target:
-            return item
-    return None
 
 
 def _resolve_inside(workspace: str, relative_or_absolute: str) -> str:

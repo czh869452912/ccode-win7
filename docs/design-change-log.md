@@ -44,6 +44,31 @@
 
 ## 3. 当前变更记录
 
+### DC-151
+
+- 日期：2026-06-15
+- 变更主题：Internal SkillIndex read model
+- 变更摘要：
+  - 新增 `SkillIndex` / `SkillRecord` 内部只读模型，统一 local skill prompt listing、`/skill:<name>` lookup、visible skill slash-command projection 与 safe summary
+  - `modes.build_system_prompt`、`InProcessAdapter` skill command/help 投影、session-scoped local skills prompt refresh 和 `expand_skill_invocation` 已切到同一个 read model
+  - `SkillIndex` 不执行 skill、不 reload resource、不决定权限或 active-tool policy，也不新增 frontend `skill` capability kind
+- 影响范围：
+  - `src/embedagent/skill_index.py`
+  - `src/embedagent/skills.py`
+  - `src/embedagent/inprocess_adapter.py`
+  - `src/embedagent/modes.py`
+  - `tests/test_local_resources.py`
+  - `docs/tool-contracts.md`
+  - `docs/frontend-protocol.md`
+  - `docs/design-change-log.md`
+- 关联文档：
+  - `docs/superpowers/plans/2026-06-15-remaining-pi-architecture-gaps.md`
+  - `docs/tool-contracts.md`
+  - `docs/frontend-protocol.md`
+- 是否需要 ADR：`否，本次是内部 read model 收口；不改变 public frontend protocol kind 或 extension execution contract`
+- 后续动作：
+  - 继续 prompt-unit snapshot safe metadata，把 visible skill listing 作为安全 prompt unit 记录到 provider snapshot metadata
+
 ### DC-150
 
 - 日期：2026-06-15

@@ -325,6 +325,34 @@ class TestLocalResources(unittest.TestCase):
 
         self.assertEqual([item["name"] for item in payload["skills"]], ["keep-skill"])
 
+    def test_skill_index_projects_prompt_commands_and_lookup(self):
+        from embedagent.local_resources import discover_local_resources
+        from embedagent.skill_index import build_skill_index
+
+        _write_text(
+            os.path.join(self.workspace, ".embedagent", "skills", "review", "SKILL.md"),
+            "---\nname: code-review\ndescription: Review local C changes.\n---\n# Review\n",
+        )
+        _write_text(
+            os.path.join(self.workspace, ".embedagent", "skills", "private", "SKILL.md"),
+            (
+                "---\n"
+                "name: private-audit\n"
+                "description: Hidden.\n"
+                "disable-model-invocation: true\n"
+                "---\n"
+                "# Private\n"
+            ),
+        )
+
+        index = build_skill_index(discover_local_resources(self.workspace))
+
+        self.assertEqual([item.name for item in index.visible_records()], ["code-review"])
+        self.assertEqual(index.record_by_name("code-review").base_dir, ".embedagent/skills/review")
+        self.assertFalse(index.record_by_name("private-audit").prompt_visible)
+        self.assertIn("<name>code-review</name>", index.prompt_text())
+        self.assertEqual([spec.name for spec in index.command_specs()], ["skill:code-review"])
+
     def test_recipe_file_diagnostics_do_not_block_other_resources(self):
         from embedagent.local_resources import discover_local_resources
 

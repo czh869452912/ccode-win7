@@ -55,8 +55,9 @@ from embedagent.services import (
     WorkspaceFileService,
 )
 from embedagent.query_engine import QueryEngine
-from embedagent.skills import expand_skill_invocation, format_skills_for_prompt
 from embedagent.session_timeline import SessionTimelineStore
+from embedagent.skill_index import build_skill_index
+from embedagent.skills import expand_skill_invocation
 from embedagent.slash_commands import (
     ParsedSlashCommand,
     SlashCommandRegistry,
@@ -352,25 +353,7 @@ class InProcessAdapter(object):
         return registry.snapshot().to_dict()
 
     def _skill_command_specs(self) -> List[SlashCommandSpec]:
-        resources = self.tools.local_resources()
-        specs = []  # type: List[SlashCommandSpec]
-        for item in list(resources.get("skills") or []):
-            if not isinstance(item, dict):
-                continue
-            if not bool(item.get("prompt_visible", False)):
-                continue
-            name = str(item.get("name") or "").strip()
-            description = str(item.get("description") or "").strip()
-            if not name or not description:
-                continue
-            specs.append(
-                SlashCommandSpec(
-                    "skill:%s" % name,
-                    "/skill:%s [args]" % name,
-                    description,
-                )
-            )
-        return sorted(specs, key=lambda item: item.name)
+        return build_skill_index(self.tools.local_resources()).command_specs()
 
     def _runtime_config_payload(
         self,
@@ -613,7 +596,7 @@ class InProcessAdapter(object):
         payload: Dict[str, Any],
         reason: str,
     ) -> None:
-        prompt = format_skills_for_prompt(list(payload.get("skills") or []))
+        prompt = build_skill_index(payload).prompt_text()
         state.session.messages = [
             message
             for message in state.session.messages

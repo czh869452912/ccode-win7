@@ -67,6 +67,8 @@ Important session snapshot fields include:
 
 Capability projections are also diagnostics/read-model state. `InProcessAdapter.capability_snapshot()` may expose tools, local file resources, slash commands, workflow package manifests, and model profile metadata for future frontend inspection, but frontends must not treat that projection as active-tool policy or permission state.
 
+Visible skills are projected to frontend-adjacent surfaces through the internal `SkillIndex` read model as local `resource` descriptors and `skill:<name>` slash-command descriptors. There is no first-class frontend `skill` capability kind yet; frontends should continue treating skill files as file-only local resources plus optional commands.
+
 `runtime_config` is reducer-backed diagnostics/read-model state. It may expose credential-free model profile metadata, active model-visible tool names, local resource revision metadata, capability counts, and provider snapshot records. Frontends may display this for restore/debug visibility, but they must not use it as active-tool policy, permission state, resource reload authority, or project extension load state.
 
 `compaction_state` is reducer-backed diagnostics/read-model state. It may expose compact boundary counts, latest boundary metadata, token/message counts, preserved message anchors, safe file activity paths, evidence refs, extension-summary flag, and diagnostics. Frontends may display this for restore/debug visibility, but they must not use it as context-selection policy, history truth, extension execution policy, permission state, or a trigger for resource reload.
