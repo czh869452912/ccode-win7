@@ -1,6 +1,17 @@
 import assert from "node:assert/strict";
 
 import {
+  COMMAND_GROUPS,
+  WORKBENCH_COMMANDS,
+  commandById,
+  visibleCommands,
+} from "../src/workbench/commands.js";
+import {
+  DEFAULT_KEYBINDINGS,
+  eventToKey,
+  resolveKeybinding,
+} from "../src/workbench/keybindings.js";
+import {
   BOTTOM_DRAWER_SURFACES,
   RIGHT_PANEL_SURFACES,
   activateSurface,
@@ -67,4 +78,39 @@ export function runWorkbenchStateTests() {
   });
   assert.equal(reduced.rightPanel.activeKind, "runtime");
   assert.equal(reduced.surfacesBySession["sess-2"].right[0].kind, "runtime");
+
+  assert.equal(COMMAND_GROUPS.includes("session"), true);
+  assert.equal(COMMAND_GROUPS.includes("surface"), true);
+  assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "surface.tasks"), true);
+  assert.equal(WORKBENCH_COMMANDS.some((item) => item.id.includes("code")), false);
+  assert.equal(commandById("message.send").slash, "");
+
+  const visibleWhenIdle = visibleCommands({ hasSession: true, isRunning: false });
+  assert.equal(visibleWhenIdle.some((item) => item.id === "message.send"), true);
+  assert.equal(visibleWhenIdle.some((item) => item.id === "message.stop"), false);
+
+  const visibleWhenRunning = visibleCommands({ hasSession: true, isRunning: true });
+  assert.equal(visibleWhenRunning.some((item) => item.id === "message.stop"), true);
+
+  const syntheticEvent = {
+    key: "k",
+    ctrlKey: true,
+    metaKey: false,
+    altKey: false,
+    shiftKey: false,
+  };
+  assert.equal(eventToKey(syntheticEvent), "mod+k");
+  assert.equal(DEFAULT_KEYBINDINGS.some((item) => item.key === "mod+k"), true);
+
+  const command = resolveKeybinding(DEFAULT_KEYBINDINGS, "mod+k", {
+    paletteOpen: false,
+    isRunning: false,
+  });
+  assert.equal(command.id, "palette.open");
+
+  const blocked = resolveKeybinding(DEFAULT_KEYBINDINGS, "enter", {
+    paletteOpen: false,
+    composerFocused: false,
+  });
+  assert.equal(blocked, null);
 }

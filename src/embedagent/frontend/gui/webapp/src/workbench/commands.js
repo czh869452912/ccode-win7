@@ -1,0 +1,66 @@
+export const COMMAND_GROUPS = [
+  "session",
+  "message",
+  "mode",
+  "surface",
+  "workspace",
+  "workflow",
+  "view",
+];
+
+export const WORKBENCH_COMMANDS = [
+  { id: "session.new", group: "session", label: "New Session", slash: "/new", visibleWhen: "always" },
+  { id: "session.refresh", group: "session", label: "Refresh Sessions", slash: "/sessions", visibleWhen: "always" },
+  { id: "session.resume", group: "session", label: "Resume Session", slash: "/resume", visibleWhen: "always" },
+  { id: "message.send", group: "message", label: "Send Message", slash: "", visibleWhen: "composer_ready" },
+  { id: "message.stop", group: "message", label: "Stop Running Turn", slash: "", visibleWhen: "running" },
+  { id: "mode.explore", group: "mode", label: "Mode: Explore", slash: "/mode explore", visibleWhen: "has_session" },
+  { id: "mode.spec", group: "mode", label: "Mode: Spec", slash: "/mode spec", visibleWhen: "has_session" },
+  { id: "mode.build", group: "mode", label: "Mode: Build", slash: "/mode build", visibleWhen: "has_session" },
+  { id: "mode.debug", group: "mode", label: "Mode: Debug", slash: "/mode debug", visibleWhen: "has_session" },
+  { id: "mode.verify", group: "mode", label: "Mode: Verify", slash: "/mode verify", visibleWhen: "has_session" },
+  { id: "surface.interaction", group: "surface", label: "Open Interaction", slash: "", surface: "interaction", visibleWhen: "always" },
+  { id: "surface.tasks", group: "surface", label: "Open Tasks", slash: "/tasks", surface: "tasks", visibleWhen: "always" },
+  { id: "surface.plan", group: "surface", label: "Open Plan", slash: "/plan", surface: "plan", visibleWhen: "always" },
+  { id: "surface.artifacts", group: "surface", label: "Open Artifacts", slash: "/artifacts", surface: "artifacts", visibleWhen: "always" },
+  { id: "surface.run", group: "surface", label: "Open Run", slash: "/recipes", surface: "run", visibleWhen: "always" },
+  { id: "surface.problems", group: "surface", label: "Open Problems", slash: "", surface: "problems", visibleWhen: "always" },
+  { id: "surface.review", group: "surface", label: "Open Review", slash: "/review", surface: "review", visibleWhen: "always" },
+  { id: "surface.permissions", group: "surface", label: "Open Permissions", slash: "/permissions", surface: "permissions", visibleWhen: "has_session" },
+  { id: "surface.runtime", group: "surface", label: "Open Runtime", slash: "/snapshot", surface: "runtime", visibleWhen: "has_session" },
+  { id: "surface.preview", group: "surface", label: "Open Preview", slash: "", surface: "preview", visibleWhen: "always" },
+  { id: "surface.log", group: "surface", label: "Open Log", slash: "", surface: "log", visibleWhen: "always" },
+  { id: "drawer.run_output", group: "surface", label: "Toggle Run Output", slash: "", drawer: "run_output", visibleWhen: "always" },
+  { id: "workspace.files", group: "workspace", label: "Open Files", slash: "/workspace", visibleWhen: "always" },
+  { id: "workflow.diff", group: "workflow", label: "Review Diff", slash: "/diff", visibleWhen: "has_session" },
+  { id: "view.toggle_right_panel", group: "view", label: "Toggle Right Panel", slash: "", visibleWhen: "always" },
+  { id: "view.toggle_bottom_drawer", group: "view", label: "Toggle Bottom Drawer", slash: "", visibleWhen: "always" },
+  { id: "palette.open", group: "view", label: "Open Command Palette", slash: "", visibleWhen: "always" },
+  { id: "palette.close", group: "view", label: "Close Command Palette", slash: "", visibleWhen: "palette_open" },
+];
+
+export function commandById(id) {
+  return WORKBENCH_COMMANDS.find((item) => item.id === id) || null;
+}
+
+function isVisible(command, context) {
+  const view = context || {};
+  switch (command.visibleWhen) {
+    case "always":
+      return true;
+    case "has_session":
+      return Boolean(view.hasSession);
+    case "running":
+      return Boolean(view.isRunning);
+    case "composer_ready":
+      return !view.isRunning;
+    case "palette_open":
+      return Boolean(view.paletteOpen);
+    default:
+      return false;
+  }
+}
+
+export function visibleCommands(context) {
+  return WORKBENCH_COMMANDS.filter((command) => isVisible(command, context || {}));
+}
