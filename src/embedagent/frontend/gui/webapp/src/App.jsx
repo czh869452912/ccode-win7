@@ -16,8 +16,11 @@ import Inspector from "./components/Inspector.jsx";
 import Composer from "./components/Composer.jsx";
 import AppSidebarLayout from "./components/workbench/AppSidebarLayout.jsx";
 import BottomDrawer from "./components/workbench/BottomDrawer.jsx";
+import CommandPalette from "./components/workbench/CommandPalette.jsx";
 import RightPanelTabs from "./components/workbench/RightPanelTabs.jsx";
 import WorkbenchHeader from "./components/workbench/WorkbenchHeader.jsx";
+import { commandById } from "./workbench/commands.js";
+import { DEFAULT_KEYBINDINGS, eventToKey, resolveKeybinding } from "./workbench/keybindings.js";
 
 const MODES = ["explore", "spec", "build", "debug", "verify"];
 const SLASH_COMMAND_HINTS = [
@@ -329,6 +332,69 @@ function App() {
     if (profile) parts.push(profile);
     await submitText(parts.join(" "));
   }
+
+  async function executeWorkbenchCommand(command) {
+    if (!command) return;
+    if (command.id === "palette.open") {
+      dispatch({ type: "workbench_command_palette_opened" });
+      return;
+    }
+    if (command.id === "palette.close") {
+      dispatch({ type: "workbench_command_palette_closed" });
+      return;
+    }
+    if (command.id === "session.new") {
+      await createSession(currentMode);
+      return;
+    }
+    if (command.id === "session.refresh") {
+      await loadSessions();
+      return;
+    }
+    if (command.id === "message.send") {
+      await sendMessage();
+      return;
+    }
+    if (command.id === "message.stop") {
+      await cancelSession();
+      return;
+    }
+    if (command.id === "view.toggle_right_panel") {
+      dispatch({ type: "workbench_right_panel_toggled" });
+      return;
+    }
+    if (command.id === "view.toggle_bottom_drawer") {
+      dispatch({ type: "workbench_bottom_drawer_toggled" });
+      return;
+    }
+    if (command.surface) {
+      dispatch({ type: "set_inspector", value: command.surface });
+      dispatch({ type: "workbench_surface_activated", placement: "right", kind: command.surface });
+      return;
+    }
+    if (command.drawer) {
+      dispatch({ type: "workbench_surface_activated", placement: "bottom", kind: command.drawer });
+      return;
+    }
+    if (command.slash) {
+      await submitText(command.slash);
+    }
+  }
+
+  useEffect(() => {
+    function onWorkbenchKeyDown(event) {
+      const command = resolveKeybinding(DEFAULT_KEYBINDINGS, eventToKey(event), {
+        paletteOpen: state.workbench.commandPalette.open,
+        isRunning: currentStatus === "running" || currentStatus === "waiting_user_input",
+        composerFocused: document.activeElement?.dataset?.testid === "composer-input",
+      });
+      if (!command) return;
+      event.preventDefault();
+      void executeWorkbenchCommand(command);
+    }
+    window.addEventListener("keydown", onWorkbenchKeyDown);
+    return () => window.removeEventListener("keydown", onWorkbenchKeyDown);
+  }, [state.workbench.commandPalette.open, currentStatus, state.composer, state.currentSessionId]);
 
   async function recoverSessionReplay(sessionId, logState = sessionEventLogRef.current) {
     if (!sessionId) return;
@@ -963,12 +1029,13 @@ function App() {
             value={state.composer}
             onChange={(v) => dispatch({ type: "set_composer", value: v })}
             onSend={sendMessage}
-            onStop={cancelSession}
-            isRunning={currentStatus === "running" || currentStatus === "waiting_user_input"}
-            currentMode={currentMode}
-            commandHints={SLASH_COMMAND_HINTS}
-          />
-        </main>
+          onStop={cancelSession}
+          isRunning={currentStatus === "running" || currentStatus === "waiting_user_input"}
+          currentMode={currentMode}
+          commandHints={SLASH_COMMAND_HINTS}
+          onOpenCommandPalette={() => dispatch({ type: "workbench_command_palette_opened" })}
+        />
+      </main>
       }
       rightPanel={
         <RightPanelTabs
@@ -1022,6 +1089,22 @@ function App() {
       bottomDrawerOpen={state.workbench.bottomDrawer.open}
       onResizeSidebar={(e) => startResize(e, "--sidebar-w-raw", RESIZE_RIGHT)}
       onResizeRightPanel={(e) => startResize(e, "--inspector-w-raw", RESIZE_LEFT)}
+    />
+    <CommandPalette
+      open={state.workbench.commandPalette.open}
+      query={state.workbench.commandPalette.query}
+      selectedIndex={state.workbench.commandPalette.selectedIndex}
+      context={{
+        hasSession: Boolean(state.currentSessionId),
+        isRunning: currentStatus === "running" || currentStatus === "waiting_user_input",
+        paletteOpen: state.workbench.commandPalette.open,
+      }}
+      onQueryChange={(query) => dispatch({ type: "workbench_command_palette_query_changed", query })}
+      onClose={() => dispatch({ type: "workbench_command_palette_closed" })}
+      onSelect={(command) => {
+        dispatch({ type: "workbench_command_palette_closed" });
+        void executeWorkbenchCommand(commandById(command.id));
+      }}
     />
     </LangContext.Provider>
   );

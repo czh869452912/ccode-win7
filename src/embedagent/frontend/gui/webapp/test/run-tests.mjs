@@ -505,6 +505,19 @@ function main() {
   );
   assert.equal(bottomDrawerSource.includes("run_output"), true);
 
+  const commandPaletteSource = fs.readFileSync(
+    webappSourcePath("components", "workbench", "CommandPalette.jsx"),
+    "utf8",
+  );
+  assert.equal(commandPaletteSource.includes("visibleCommands"), true);
+  assert.equal(commandPaletteSource.includes("cmd-palette"), true);
+
+  const composerSource = fs.readFileSync(
+    webappSourcePath("components", "Composer.jsx"),
+    "utf8",
+  );
+  assert.equal(composerSource.includes("onOpenCommandPalette"), true);
+
   runWorkbenchStateTests();
   runSessionRuntimeTests();
 

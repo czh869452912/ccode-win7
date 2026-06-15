@@ -329,6 +329,104 @@ body {
   min-width: 120px;
 }
 
+.composer-tool {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-sm);
+  background: var(--bg-subtle);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  cursor: pointer;
+}
+
+.composer-tool:hover {
+  color: var(--text-primary);
+  border-color: var(--border-focus);
+}
+
+.cmd-palette-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(1, 4, 9, 0.42);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 12vh;
+}
+
+.cmd-palette {
+  width: min(680px, calc(100vw - 32px));
+  max-height: min(520px, calc(100vh - 96px));
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-md);
+  background: var(--bg-default);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+}
+
+.cmd-palette-input {
+  height: 42px;
+  border: 0;
+  border-bottom: 1px solid var(--border-default);
+  background: var(--bg-default);
+  color: var(--text-primary);
+  padding: 0 var(--sp-3);
+  font-size: 14px;
+  outline: none;
+}
+
+.cmd-palette-list {
+  overflow: auto;
+  padding: var(--sp-2);
+}
+
+.cmd-palette-item {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--sp-3);
+  align-items: center;
+  min-height: 34px;
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  text-align: left;
+  padding: 0 var(--sp-2);
+  cursor: pointer;
+}
+
+.cmd-palette-item:hover,
+.cmd-palette-item.active {
+  border-color: var(--border-focus);
+  background: var(--bg-subtle);
+  color: var(--text-primary);
+}
+
+.cmd-palette-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cmd-palette-meta {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
+.cmd-palette-empty {
+  color: var(--text-muted);
+  padding: var(--sp-3);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
 .resize-handle {
   background: var(--bg-default);
   cursor: col-resize;

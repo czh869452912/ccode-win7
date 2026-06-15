@@ -10,6 +10,7 @@ export default function Composer({
   isRunning,
   currentMode,
   commandHints = [],
+  onOpenCommandPalette,
 }) {
   const lang = useLang();
   const showHints = !isRunning && value.trim().startsWith("/");
@@ -57,6 +58,16 @@ export default function Composer({
             ))}
           </div>
         )}
+        <button
+          className="composer-tool"
+          type="button"
+          onClick={onOpenCommandPalette}
+          aria-label="Open command palette"
+          disabled={isRunning}
+          data-testid="composer-command-palette"
+        >
+          /
+        </button>
         {isRunning ? (
           <button className="stop" onClick={onStop} aria-label={t("composer.stop", lang)} data-testid="stop-button">
             {t("composer.stop", lang)}
