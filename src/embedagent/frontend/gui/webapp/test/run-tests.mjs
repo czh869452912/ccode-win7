@@ -21,6 +21,7 @@ import { runVisualLanguageCssTests } from "./visual-language-css.test.mjs";
 import { runVisualDebugRunnerTests } from "./visual-debug-runner.test.mjs";
 import { runWebSocketLifecycleTests } from "./websocket-lifecycle.test.mjs";
 import { runWorkbenchStateTests } from "./workbench-state.test.mjs";
+import { runAppWorkspaceTests } from "./app-workspaces.test.mjs";
 
 const WEBAPP_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -582,6 +583,7 @@ async function main() {
   assert.equal(composerSource.includes("ComposerInteractionPanel"), true);
 
   runWorkbenchStateTests();
+  runAppWorkspaceTests();
   runSessionRuntimeTests();
   runT3TimelineTests();
   runVisualLanguageCssTests();
