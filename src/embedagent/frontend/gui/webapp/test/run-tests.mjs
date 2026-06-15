@@ -13,7 +13,13 @@ import {
   timelineFromEvents,
   timelineFromTurns,
 } from "../src/state-helpers.js";
+import { runDiffModelTests } from "./diff-model.test.mjs";
+import { runInteractionModelTests } from "./interaction-model.test.mjs";
 import { runSessionRuntimeTests } from "./session-runtime.test.mjs";
+import { runT3TimelineTests } from "./t3-timeline.test.mjs";
+import { runVisualLanguageCssTests } from "./visual-language-css.test.mjs";
+import { runVisualDebugRunnerTests } from "./visual-debug-runner.test.mjs";
+import { runWebSocketLifecycleTests } from "./websocket-lifecycle.test.mjs";
 import { runWorkbenchStateTests } from "./workbench-state.test.mjs";
 
 const WEBAPP_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -22,7 +28,7 @@ function webappSourcePath(...parts) {
   return path.join(WEBAPP_ROOT, "src", ...parts);
 }
 
-function main() {
+async function main() {
   assert.equal(initialState.requestedMode, "explore");
 
   const root = [createTreeNode({ path: "src", name: "src", kind: "dir", has_children: true })];
@@ -214,6 +220,41 @@ function main() {
   assert.equal(liveState.timeline[3].projectionSource, "step_events");
   assert.equal(liveState.timeline.length, 4);
 
+  let streamedAssistantState = reducer(initialState, {
+    type: "local_user_message",
+    text: "visual ask",
+  });
+  streamedAssistantState = reducer(streamedAssistantState, {
+    type: "turn_started",
+    turnId: "turn-stream",
+    userText: "visual ask",
+  });
+  streamedAssistantState = reducer(streamedAssistantState, {
+    type: "step_started",
+    turnId: "turn-stream",
+    stepId: "step-stream",
+    stepIndex: 2,
+  });
+  streamedAssistantState = reducer(streamedAssistantState, {
+    type: "assistant_delta",
+    text: "ask flow ok",
+    turnId: "turn-stream",
+    stepId: "step-stream",
+    stepIndex: 2,
+  });
+  streamedAssistantState = reducer(streamedAssistantState, {
+    type: "step_ended",
+    turnId: "turn-stream",
+    stepId: "step-stream",
+    stepIndex: 2,
+    assistantText: "ask flow ok",
+  });
+  assert.equal(
+    streamedAssistantState.timeline.filter((item) => item.kind === "assistant").length,
+    1,
+  );
+  assert.equal(streamedAssistantState.timeline[1].content, "ask flow ok");
+
   let modeCommandState = reducer(initialState, {
     type: "local_user_message",
     text: "/mode debug",
@@ -275,6 +316,20 @@ function main() {
   assert.equal(reviewState.timeline[0].kind, "command_result");
   assert.equal(reviewState.timeline[0].projectionSource, "raw_events");
   assert.equal(reviewState.review.summary, "quality summary");
+
+  const diffSurfaceState = reducer(initialState, {
+    type: "diff_surface_opened",
+    diffSurface: {
+      title: "Git Diff",
+      rawDiff: "--- a/demo.c\n+++ b/demo.c\n",
+      files: [{ path: "demo.c", diff: "--- a/demo.c\n+++ b/demo.c\n" }],
+      focusedFilePath: "demo.c",
+      focusedDiff: "--- a/demo.c\n+++ b/demo.c\n",
+    },
+  });
+  assert.equal(diffSurfaceState.inspectorTab, "diff");
+  assert.equal(diffSurfaceState.workbench.rightPanel.activeKind, "diff");
+  assert.equal(diffSurfaceState.diffSurface.title, "Git Diff");
 
   const sessionErrorState = reducer(initialState, {
     type: "session_error",
@@ -461,6 +516,7 @@ function main() {
   );
   assert.equal(inspectorSource.includes("RIGHT_PANEL_SURFACES"), true);
   assert.equal(inspectorSource.includes('{inspectorTab === "interaction"'), true);
+  assert.equal(inspectorSource.includes('{inspectorTab === "diff"'), true);
   assert.equal(inspectorSource.includes("todo-row"), false);
   assert.equal(inspectorSource.includes("todo-mark"), false);
 
@@ -497,6 +553,7 @@ function main() {
     "utf8",
   );
   assert.equal(rightPanelTabsSource.includes("RIGHT_PANEL_SURFACES"), true);
+  assert.equal(rightPanelTabsSource.includes("diff: \"Diff\""), true);
   assert.equal(rightPanelTabsSource.includes("todos"), false);
 
   const bottomDrawerSource = fs.readFileSync(
@@ -517,11 +574,18 @@ function main() {
     "utf8",
   );
   assert.equal(composerSource.includes("onOpenCommandPalette"), true);
+  assert.equal(composerSource.includes("ComposerInteractionPanel"), true);
 
   runWorkbenchStateTests();
   runSessionRuntimeTests();
+  runT3TimelineTests();
+  runVisualLanguageCssTests();
+  runInteractionModelTests();
+  runDiffModelTests();
+  runWebSocketLifecycleTests();
+  await runVisualDebugRunnerTests();
 
   console.log("frontend helper checks passed");
 }
 
-main();
+await main();

@@ -44,6 +44,60 @@
 
 ## 3. 当前变更记录
 
+### DC-157
+
+- 日期：2026-06-15
+- 变更主题：T3code-inspired GUI neutral visual language
+- 变更摘要：
+  - GUI 在不更换技术栈、不复制 T3code 代码的前提下，将视觉语言向 T3code neutral workbench 收敛。
+  - 全局 CSS token 从 GitHub-dark 风格调整为 neutral dark workbench；timeline 增加 centered shell，message/work rows、composer、right-panel tabs、diff panel 统一使用更柔和的边框、圆角、面板层级与更克制的状态色。
+  - 新增 frontend CSS contract 测试，锁定 T3-style token、timeline shell、composer fade、diff/right-panel shell 等关键视觉规则。
+  - 本次只改变 GUI shell 显示语言，不改变 Agent Core、permission policy、workflow package、session history 或 protocol truth。
+- 影响范围：
+  - `src/embedagent/frontend/gui/webapp/src/styles.css`
+  - `src/embedagent/frontend/gui/webapp/src/components/Timeline.jsx`
+  - `src/embedagent/frontend/gui/webapp/test/visual-language-css.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `src/embedagent/frontend/gui/static/assets/`
+  - `docs/modules/frontend-gui.md`
+  - `docs/development-tracker.md`
+- 关联文档：
+  - `docs/archive/t3-parity-gui-debug/2026-06-15-t3-visual-language.md`
+  - `docs/modules/frontend-gui.md`
+- 是否需要 ADR：否；这是 GUI shell 视觉语言收敛，不改变长期架构边界。
+- 后续动作：
+  - 继续用 `npm run visual:gui -- --scenario all` 作为 GUI polish 的默认可视回归入口。
+  - 后续细化编辑闭环、timeline 折叠和 diff review 交互时继续按 T3code 参考收敛。
+
+### DC-156
+
+- 日期：2026-06-15
+- 变更主题：T3code-style GUI core surfaces and Codex visual debug harness
+- 变更摘要：
+  - GUI 在既有 React/Vite + PyWebView/WebView2 技术栈内新增 T3-style timeline row projection/rendering、composer-local permission/user-input interaction panel、right-panel Diff surface。
+  - 新增 dev-only `scripts/gui-visual-debug.mjs` 与 `npm run visual:gui`，可在 Win10/Win11 开发机启动真实 GUI、执行 load/chat/diff 场景、生成截图和 `summary.json`，并检查 console warning/error 与关键 DOM 状态。
+  - Visual harness 发现并推动修复 streaming assistant 文本重复：`LLMClientRetryWrapper` 在 `stream=True` 时不再重放 final content delta；GUI WebSocket lifecycle 增加 token/manual-close guard，避免旧连接 cleanup 后安排重连。
+  - Playwright 是 webapp devDependency，仅用于开发机可视调试；Win7 离线运行时仍不依赖 Node、Playwright、Electron、外部浏览器自动化服务或在线资源。
+- 影响范围：
+  - `scripts/gui-visual-debug.mjs`
+  - `src/embedagent/frontend/gui/webapp/src/session-runtime/`
+  - `src/embedagent/frontend/gui/webapp/src/components/timeline/`
+  - `src/embedagent/frontend/gui/webapp/src/components/composer/`
+  - `src/embedagent/frontend/gui/webapp/src/components/diff/`
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/strategies/llm_retry_wrapper.py`
+  - `tests/test_llm_resilience.py`
+  - `docs/modules/frontend-gui.md`
+  - `docs/development-tracker.md`
+- 关联文档：
+  - `docs/archive/t3-parity-gui-debug/2026-06-15-t3-parity-gui-debug-design.md`
+  - `docs/archive/t3-parity-gui-debug/2026-06-15-t3-parity-gui-debug.md`
+  - `docs/modules/frontend-gui.md`
+- 是否需要 ADR：否；本次是 GUI shell/display surface 与开发调试能力切片，不改变 Agent Core、permission、workflow 或离线 runtime 架构边界。
+- 后续动作：
+  - 继续按 T3code 参考细化 timeline/diff/编辑闭环。
+  - 后续可为 TUI 增加低优先级的 headless visual/state capture，但不得引入 runtime 在线依赖。
+
 ### DC-155
 
 - 日期：2026-06-15

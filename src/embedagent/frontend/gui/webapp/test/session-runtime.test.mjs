@@ -93,6 +93,53 @@ export function runSessionRuntimeTests() {
   assert.equal(interactionRuntime.currentInteraction.interaction_id, "int-2");
   assert.equal(interactionRuntime.timelineItems[0].kind, "interaction_requested");
 
+  const dedupedInteractionRuntime = projectSessionRuntime({
+    snapshot: {
+      session_id: "sess-1",
+      status: "waiting_user_input",
+      pending_interaction: {
+        interaction_id: "ask-dedup",
+        kind: "user_input",
+        tool_name: "ask_user",
+        question: "Continue?",
+      },
+    },
+    eventLog: {
+      ...createSessionEventLog(),
+      events: [
+        {
+          session_id: "sess-1",
+          event_id: "evt-dedup",
+          seq: 1,
+          event_kind: "interaction.created",
+          created_at: "2026-04-04T00:01:10Z",
+          payload: {
+            interaction_id: "ask-dedup",
+            kind: "user_input",
+            tool_name: "ask_user",
+            question: "Continue?",
+          },
+        },
+      ],
+    },
+    bootstrapTimeline: [
+      {
+        id: "local-user-input",
+        kind: "user_input",
+        request: {
+          request_id: "ask-dedup",
+          tool_name: "ask_user",
+          question: "Continue?",
+        },
+      },
+    ],
+  });
+  assert.equal(
+    dedupedInteractionRuntime.timelineItems.filter((item) => item.kind === "interaction_requested").length,
+    1,
+  );
+  assert.equal(dedupedInteractionRuntime.t3TimelineRows.filter((row) => row.kind === "interaction").length, 1);
+
   const commandRuntime = projectSessionRuntime({
     snapshot: {
       session_id: "sess-1",

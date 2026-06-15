@@ -101,6 +101,44 @@ class TestLLMResilienceIntegration(unittest.TestCase):
         wrapper.call_with_retry([{"role": "user", "content": "hi"}], [])
         self.assertEqual(tokens, [(0, 0, 0)])
 
+    def test_streaming_does_not_replay_final_content_delta(self):
+        mock_client = Mock()
+
+        def stream(messages, tools, on_text_delta=None, on_reasoning_delta=None):
+            if on_text_delta is not None:
+                on_text_delta("hello")
+            return AssistantReply(content="hello", finish_reason="stop")
+
+        mock_client.stream.side_effect = stream
+        wrapper = LLMClientRetryWrapper(mock_client)
+        deltas = []
+
+        reply = wrapper.call_with_retry(
+            [{"role": "user", "content": "hi"}],
+            [],
+            stream=True,
+            on_text_delta=deltas.append,
+        )
+
+        self.assertEqual(reply.content, "hello")
+        self.assertEqual(deltas, ["hello"])
+
+    def test_non_streaming_can_emit_final_content_delta(self):
+        mock_client = Mock()
+        mock_client.generate.return_value = AssistantReply(content="hello", finish_reason="stop")
+        wrapper = LLMClientRetryWrapper(mock_client)
+        deltas = []
+
+        reply = wrapper.call_with_retry(
+            [{"role": "user", "content": "hi"}],
+            [],
+            stream=False,
+            on_text_delta=deltas.append,
+        )
+
+        self.assertEqual(reply.content, "hello")
+        self.assertEqual(deltas, ["hello"])
+
 
 if __name__ == "__main__":
     unittest.main()

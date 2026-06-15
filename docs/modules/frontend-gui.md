@@ -5,7 +5,7 @@
 > 状态：`active`
 > 类型：`module`
 > 负责人：`project maintainers`
-> 最后同步日期：`2026-04-09`
+> 最后同步日期：`2026-06-15`
 > 对应代码范围：`src/embedagent/frontend/gui/`
 
 ## 1. Purpose And Scope
@@ -20,6 +20,8 @@
 - FastAPI 后端与静态资源服务（`backend/server.py`）
 - 协议回调到 WebSocket 广播的实时转换（`backend/server.py`）
 - WebSocket 断线重连与会话事件回放恢复（`webapp/`）
+- T3code-inspired Agent timeline rows、composer interaction panel、Diff right-panel surface、neutral workbench visual language（`webapp/src/session-runtime/`、`webapp/src/components/`、`webapp/src/styles.css`）
+- 开发机可视调试 harness：启动真实 GUI、执行场景、截图、检查 console/DOM（`scripts/gui-visual-debug.mjs`）
 
 ## 3. Code Mapping
 
@@ -34,7 +36,8 @@
   - `BlockingResult` / `ThreadsafeAsyncDispatcher` — 线程安全阻塞与异步调度
 - 上游依赖：`embedagent.cli` 调用 `launch_gui`
 - 下游影响：`AgentCoreAdapter`、`OpenAICompatibleClient`、`ToolRuntime`、`PermissionPolicy`、`ProjectMemoryStore`
-- 相关测试：`tests/test_gui_backend_api.py`、`tests/test_gui_runtime.py`、`tests/test_gui_sync.py`
+- 相关测试：`tests/test_gui_backend_api.py`、`tests/test_gui_runtime.py`、`tests/test_gui_sync.py`、`src/embedagent/frontend/gui/webapp/test/`
+- 相关开发脚本：`scripts/gui-visual-debug.mjs`、`npm run visual:gui`
 - 相关契约：`docs/frontend-protocol.md`、`docs/overall-solution-architecture.md`
 
 ## 4. Dependencies And Consumers
@@ -74,8 +77,9 @@ flowchart TD
 ## 6. Workbench Shell
 
 The GUI shell is a T3code-inspired workbench composed of a thread/project
-sidebar, central Agent timeline, rich composer, thread-scoped right-panel
-surfaces, optional bottom drawer, command palette, and keybinding resolver.
+sidebar, central Agent timeline, rich composer, composer-local interaction
+panel, thread-scoped right-panel surfaces, optional bottom drawer, command
+palette, and keybinding resolver.
 
 The workbench contract lives under
 `src/embedagent/frontend/gui/webapp/src/workbench/` and is frontend-local. It
@@ -89,17 +93,49 @@ Version 109 and Windows 7 compatibility. GUI runtime deployment must remain
 offline and must not require Electron, CDN assets, runtime Node, Docker, WSL,
 VS Code, or external online services.
 
-## 7. Verification And Tests
+The visual language is intentionally close to T3code without copying its
+implementation stack. The current GUI uses plain CSS tokens for neutral dark
+workbench surfaces, soft borders, compact tabs, centered timeline width,
+rounded composer shell, and restrained right-panel/diff chrome. This is a shell
+style contract only; workflow semantics remain owned by Agent Core and
+frontend-facing read models.
+
+## 7. Timeline, Interaction, And Diff Surfaces
+
+`webapp/src/session-runtime/t3-timeline.js` projects existing session/runtime
+items into T3-style rows. The projection is frontend-only: it groups user,
+assistant, work, changed-file, interaction, and turn-fold rows without changing
+session history truth or backend policy.
+
+Pending permission and user-input interactions render in the composer through
+`components/composer/ComposerInteractionPanel.jsx`. The inspector can still
+show interaction diagnostics, but the primary decision surface stays near the
+next user action.
+
+The Diff surface is a right-panel surface (`kind = "diff"`) backed by
+`session-runtime/diff-model.js` and `components/diff/DiffPanel.jsx`. `/diff`
+command results and diff-capable timeline entries open this surface with parsed
+unified-diff file summaries. Rendering uses the existing `DiffView` wrapper
+with a raw fallback for malformed diffs. This surface is display-only; Git
+execution remains backend/tool-owned.
+
+## 8. Verification And Tests
 
 推荐回归入口：
 
 - `tests/test_gui_backend_api.py` — API 合约、错误翻译、bootstrap、事件回放
 - `tests/test_gui_runtime.py` — 启动器、阻塞等待器、调度器、WebSocket 生命周期、适配器快照投影
 - `tests/test_gui_sync.py` — 端到端待处理输入解析、`CallbackBridge` 刷新行为、元数据保留
+- `cd src/embedagent/frontend/gui/webapp && npm test` — frontend reducer、timeline、interaction、diff、workbench、T3 visual-language CSS contract 和 visual harness helper 合约
+- `cd src/embedagent/frontend/gui/webapp && npm run visual:gui -- --scenario all --bundle-root <bundle-root>` — dev-only Playwright visual harness；启动真实 GUI、执行 load/chat/diff、生成截图和 `summary.json`，并检查 console warning/error
 
 当新增 Core 回调、会话事件 schema、WebView2/渲染器策略或 React 前端状态结构变化时，应优先重跑这些测试。
 
-## 8. Change Triggers
+`npm run visual:gui` 是开发机调试入口，不是产品运行时依赖。Playwright
+和浏览器缓存只用于当前 Win10/Win11 开发流程；离线 Win7 bundle 仍通过
+PyWebView/WebView2 Fixed Version 109 运行，且不要求 Node 或 Playwright。
+
+## 9. Change Triggers
 
 以下变化必须同步更新本文件：
 
@@ -108,8 +144,9 @@ VS Code, or external online services.
 - WebView2/运行时策略变化
 - FastAPI 路由或 WebSocket 广播协议变化
 - `FrontendCallbacks` 或 `CoreInterface` 接口签名变化
+- Timeline row、composer interaction、diff surface、visual language tokens/rules 或 visual harness 场景变化
 
-## 9. Related Documents
+## 10. Related Documents
 
 - `docs/frontend-protocol.md`
 - `docs/overall-solution-architecture.md`

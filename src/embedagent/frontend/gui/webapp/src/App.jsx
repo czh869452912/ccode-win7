@@ -7,7 +7,9 @@ import {
   timelineFromTurns,
 } from "./state-helpers.js";
 import { appendSessionEvent, capRetryAttempt, createSessionEventLog } from "./session-runtime/event-log.js";
+import { createDiffSurfaceState } from "./session-runtime/diff-model.js";
 import { projectSessionRuntime } from "./session-runtime/projector.js";
+import { shouldReconnectSocket } from "./session-runtime/websocket-lifecycle.js";
 import { LangContext } from "./LangContext.js";
 import { t } from "./strings.js";
 import Sidebar from "./components/Sidebar.jsx";
@@ -46,6 +48,8 @@ function App() {
   const [userAnswer, setUserAnswer] = useState("");
   const [sessionEventLog, setSessionEventLog] = useState(() => createSessionEventLog());
   const wsRef = useRef(null);
+  const wsTokenRef = useRef(0);
+  const wsClosingRef = useRef(false);
   const timelineRef = useRef(null);
   const wsRetryRef = useRef(0);
   const isAtBottomRef = useRef(true);
@@ -114,7 +118,11 @@ function App() {
   // websocket lifecycle
   useEffect(() => {
     connectWebSocket();
-    return () => wsRef.current?.close();
+    return () => {
+      wsClosingRef.current = true;
+      wsRef.current?.close();
+      wsRef.current = null;
+    };
   }, []);
 
   // Escape key cancels running session
@@ -133,7 +141,7 @@ function App() {
     if (isAtBottomRef.current && timelineRef.current) {
       timelineRef.current.scrollTop = timelineRef.current.scrollHeight;
     }
-  }, [runtimeState.timelineView, state.thinkingActive, runtimeState.currentInteraction]);
+  }, [runtimeState.t3TimelineRows, state.thinkingActive, runtimeState.currentInteraction]);
 
   function handleTimelineScroll() {
     const el = timelineRef.current;
@@ -253,14 +261,12 @@ function App() {
     }
     if (entry?.diff) {
       dispatch({
-        type: "preview_loaded",
-        preview: {
-          kind: entry?.kind || "diff",
+        type: "diff_surface_opened",
+        diffSurface: createDiffSurfaceState({
           title: entry?.title || "Review Diff",
           diff: entry.diff,
-          content: "",
-        },
-        inspectorTab: "preview",
+          source: entry?.kind || "review",
+        }),
       });
       return;
     }
@@ -272,6 +278,31 @@ function App() {
         content: entry?.content || "",
       },
       inspectorTab: "preview",
+    });
+  }
+
+  function openDiffSurface({ title = "Diff", diff = "", turnId = "", filePath = "" } = {}) {
+    let resolvedDiff = diff;
+    if (!resolvedDiff) {
+      const item = runtimeState.timelineItems.find((candidate) => {
+        if (turnId && candidate.turnId !== turnId) return false;
+        const data = candidate.data || {};
+        const args = candidate.arguments || {};
+        if (filePath && data.path !== filePath && args.path !== filePath) return false;
+        return typeof data.diff === "string" || typeof data.diff_preview === "string";
+      });
+      resolvedDiff = item?.data?.diff || item?.data?.diff_preview || "";
+    }
+    if (!resolvedDiff) return;
+    dispatch({
+      type: "diff_surface_opened",
+      diffSurface: createDiffSurfaceState({
+        title: filePath || title || "Diff",
+        diff: resolvedDiff,
+        source: "gui",
+        turnId,
+        filePath,
+      }),
     });
   }
 
@@ -443,6 +474,9 @@ function App() {
   // ── WebSocket ──────────────────────────────────────────────────────
 
   function connectWebSocket() {
+    wsClosingRef.current = false;
+    const socketToken = wsTokenRef.current + 1;
+    wsTokenRef.current = socketToken;
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const socket = new WebSocket(`${protocol}//${window.location.host}/ws`);
     wsRef.current = socket;
@@ -457,6 +491,15 @@ function App() {
     socket.onclose = () => {
       dispatch({ type: "set_connection", value: "disconnected" });
       updateSessionEventLog((current) => ({ ...current, connectionState: "disconnected" }));
+      if (
+        !shouldReconnectSocket({
+          activeToken: wsTokenRef.current,
+          socketToken,
+          manualClose: wsClosingRef.current,
+        })
+      ) {
+        return;
+      }
       const nextAttempt = capRetryAttempt(wsRetryRef.current + 1);
       const delay = Math.min(1500 * Math.pow(2, Math.max(nextAttempt - 1, 0)), 30000);
       wsRetryRef.current = nextAttempt;
@@ -687,9 +730,13 @@ function App() {
       }
       if (data.command_name === "diff" && typeof data.data?.diff === "string" && data.data.diff) {
         dispatch({
-          type: "preview_loaded",
-          preview: { kind: "diff", title: "Git Diff", diff: data.data.diff, content: "" },
-          inspectorTab: "preview",
+          type: "diff_surface_opened",
+          diffSurface: createDiffSurfaceState({
+            title: "Git Diff",
+            diff: data.data.diff,
+            source: "command",
+            turnId: data.turn_id || "",
+          }),
         });
       }
       if (data.command_name === "workspace") {
@@ -1014,6 +1061,7 @@ function App() {
           <Timeline
             ref={timelineRef}
             timeline={runtimeState.timelineView}
+            rows={runtimeState.t3TimelineRows}
             toolCatalog={state.toolCatalog}
             historyIntegrity={state.historyIntegrity}
             thinkingActive={state.thinkingActive}
@@ -1024,18 +1072,24 @@ function App() {
             turnsUsed={state.turnsUsed}
             maxTurns={state.maxTurns}
             onScroll={handleTimelineScroll}
+            onOpenDiff={openDiffSurface}
           />
           <Composer
             value={state.composer}
             onChange={(v) => dispatch({ type: "set_composer", value: v })}
             onSend={sendMessage}
-          onStop={cancelSession}
-          isRunning={currentStatus === "running" || currentStatus === "waiting_user_input"}
-          currentMode={currentMode}
-          commandHints={SLASH_COMMAND_HINTS}
-          onOpenCommandPalette={() => dispatch({ type: "workbench_command_palette_opened" })}
-        />
-      </main>
+            onStop={cancelSession}
+            isRunning={currentStatus === "running" || currentStatus === "waiting_user_input"}
+            currentMode={currentMode}
+            commandHints={SLASH_COMMAND_HINTS}
+            onOpenCommandPalette={() => dispatch({ type: "workbench_command_palette_opened" })}
+            interaction={runtimeState.currentInteraction}
+            interactionNotice={interactionNotice}
+            answerValue={userAnswer}
+            onAnswerChange={setUserAnswer}
+            onRespondInteraction={respondToInteraction}
+          />
+        </main>
       }
       rightPanel={
         <RightPanelTabs
@@ -1062,6 +1116,7 @@ function App() {
             interactionNotice={interactionNotice}
             permissionContext={state.permissionContext}
             preview={state.preview}
+            diffSurface={state.diffSurface}
             snapshot={state.snapshot}
             userAnswer={userAnswer}
             eventLog={state.eventLog}
@@ -1072,6 +1127,7 @@ function App() {
             onOpenArtifact={openArtifact}
             onOpenReviewEvidence={openReviewEvidence}
             onRunRecipe={runRecipe}
+            onFocusDiffFile={(filePath) => dispatch({ type: "diff_file_focused", filePath })}
             onUserAnswerChange={setUserAnswer}
             onRespondInteraction={respondToInteraction}
           />

@@ -1,4 +1,5 @@
 import { injectChildren, makeEventId, resolveTimelineAnchor } from "./state-helpers.js";
+import { focusDiffFile } from "./session-runtime/diff-model.js";
 import { createWorkbenchState, reduceWorkbenchState } from "./workbench/surfaces.js";
 
 export const DEFAULT_MODE = "explore";
@@ -26,6 +27,7 @@ export const initialState = {
   recipes: [],
   permissionContext: null,
   preview: null,
+  diffSurface: null,
   fileTree: [],
   toolCatalog: {},
   requestedMode: DEFAULT_MODE,
@@ -487,6 +489,22 @@ export function reducer(state, action) {
         ...state,
         preview: action.preview,
         inspectorTab: action.inspectorTab || state.inspectorTab,
+      };
+    case "diff_surface_opened":
+      return {
+        ...state,
+        diffSurface: action.diffSurface || null,
+        inspectorTab: "diff",
+        workbench: reduceWorkbenchState(state.workbench, {
+          type: "workbench_surface_activated",
+          placement: "right",
+          kind: "diff",
+        }),
+      };
+    case "diff_file_focused":
+      return {
+        ...state,
+        diffSurface: focusDiffFile(state.diffSurface, action.filePath || ""),
       };
     case "plan_loaded":
       return {

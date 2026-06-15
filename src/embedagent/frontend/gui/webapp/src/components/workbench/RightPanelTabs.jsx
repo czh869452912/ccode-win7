@@ -9,6 +9,7 @@ const LABELS = {
   run: "Run",
   problems: "Problems",
   review: "Review",
+  diff: "Diff",
   permissions: "Permissions",
   runtime: "Runtime",
   preview: "Preview",

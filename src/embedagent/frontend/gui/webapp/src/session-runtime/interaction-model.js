@@ -1,0 +1,143 @@
+const FILE_CHANGE_TOOLS = new Set(["write_file", "edit_file", "git_commit", "git_reset"]);
+const FILE_READ_TOOLS = new Set(["read_file", "list_dir", "glob_files", "grep_text"]);
+
+function cleanString(value) {
+  return String(value || "").trim();
+}
+
+function permissionRequestKind(interaction) {
+  const category = cleanString(interaction?.category);
+  const toolName = cleanString(interaction?.tool_name || interaction?.toolName);
+  if (category === "command" || category === "shell" || toolName === "run_recipe") {
+    return "command";
+  }
+  if (FILE_READ_TOOLS.has(toolName)) {
+    return "file-read";
+  }
+  if (FILE_CHANGE_TOOLS.has(toolName) || category.indexOf("write") >= 0) {
+    return "file-change";
+  }
+  return "file-change";
+}
+
+function summaryForPermission(kind) {
+  if (kind === "command") return "Command approval requested";
+  if (kind === "file-read") return "File-read approval requested";
+  return "File-change approval requested";
+}
+
+function detailRowsFor(details) {
+  if (!details || typeof details !== "object" || Array.isArray(details)) {
+    return [];
+  }
+  return Object.keys(details)
+    .sort()
+    .map((key) => ({
+      label: key,
+      value:
+        typeof details[key] === "string"
+          ? details[key]
+          : JSON.stringify(details[key]),
+    }))
+    .filter((row) => cleanString(row.value));
+}
+
+function normalizeOptions(options) {
+  return (Array.isArray(options) ? options : []).map((option, index) => {
+    const selectedIndex = Number(option?.index || index + 1);
+    return {
+      index: selectedIndex,
+      text: cleanString(option?.text || option?.label || option?.value),
+      description: cleanString(option?.description),
+      mode: cleanString(option?.mode || option?.selected_mode),
+      shortcut: selectedIndex >= 1 && selectedIndex <= 9 ? String(selectedIndex) : "",
+    };
+  }).filter((option) => option.text);
+}
+
+export function interactionNoticeView(notice) {
+  if (!notice) return null;
+  const kind = cleanString(notice.kind);
+  if (kind === "expired") {
+    return {
+      kind: "notice",
+      tone: "expired",
+      title: "Interaction expired",
+      body: "This request is no longer active. Trigger the action again to continue.",
+      detail: cleanString(notice.detail),
+    };
+  }
+  if (kind === "conflict") {
+    return {
+      kind: "notice",
+      tone: "conflict",
+      title: "Interaction already handled",
+      body: "This request changed in another flow. Refresh the current interaction and try again if needed.",
+      detail: cleanString(notice.detail),
+    };
+  }
+  return null;
+}
+
+export function normalizeComposerInteraction(interaction, notice = null) {
+  const noticeView = interactionNoticeView(notice);
+  if (noticeView) return noticeView;
+  if (!interaction) return null;
+  const kind = cleanString(interaction.kind);
+  if (kind === "permission") {
+    const requestKind = permissionRequestKind(interaction);
+    return {
+      kind: "permission",
+      interactionId: cleanString(interaction.interaction_id || interaction.permission_id),
+      requestKind,
+      summary: summaryForPermission(requestKind),
+      toolName: cleanString(interaction.tool_name || interaction.toolName),
+      category: cleanString(interaction.category),
+      reason: cleanString(interaction.reason),
+      details: interaction.details || {},
+      detailRows: detailRowsFor(interaction.details),
+      primaryLabel: "Approve",
+      secondaryLabel: "Deny",
+      rememberLabel: "Remember for this session",
+      rawInteraction: interaction,
+    };
+  }
+  return {
+    kind: "user_input",
+    interactionId: cleanString(interaction.interaction_id || interaction.request_id),
+    summary: "Input requested",
+    toolName: cleanString(interaction.tool_name || interaction.toolName),
+    question: cleanString(interaction.question),
+    options: normalizeOptions(interaction.options),
+    customPlaceholder: "Or type a custom answer...",
+    submitLabel: "Submit",
+    rawInteraction: interaction,
+  };
+}
+
+export function buildPermissionResponse(interaction, options = {}) {
+  const approved = Boolean(options.decision);
+  return {
+    response_kind: approved ? "approve" : "deny",
+    decision: approved,
+    remember: approved ? Boolean(options.remember) : false,
+    category: cleanString(interaction?.category),
+  };
+}
+
+export function buildUserInputResponse(interaction, options = {}) {
+  const selected = options.option || null;
+  if (selected) {
+    return {
+      response_kind: "answer",
+      answer: selected.text || "",
+      selected_index: selected.index || null,
+      selected_mode: selected.mode || "",
+      selected_option_text: selected.text || "",
+    };
+  }
+  return {
+    response_kind: "answer",
+    answer: cleanString(options.answer),
+  };
+}
