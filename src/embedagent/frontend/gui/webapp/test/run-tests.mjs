@@ -13,6 +13,7 @@ import {
   timelineFromEvents,
   timelineFromTurns,
 } from "../src/state-helpers.js";
+import { runInteractionModelTests } from "./interaction-model.test.mjs";
 import { runSessionRuntimeTests } from "./session-runtime.test.mjs";
 import { runT3TimelineTests } from "./t3-timeline.test.mjs";
 import { runWorkbenchStateTests } from "./workbench-state.test.mjs";
@@ -214,6 +215,41 @@ function main() {
   assert.equal(liveState.timeline[2].projectionSource, "step_events");
   assert.equal(liveState.timeline[3].projectionSource, "step_events");
   assert.equal(liveState.timeline.length, 4);
+
+  let streamedAssistantState = reducer(initialState, {
+    type: "local_user_message",
+    text: "visual ask",
+  });
+  streamedAssistantState = reducer(streamedAssistantState, {
+    type: "turn_started",
+    turnId: "turn-stream",
+    userText: "visual ask",
+  });
+  streamedAssistantState = reducer(streamedAssistantState, {
+    type: "step_started",
+    turnId: "turn-stream",
+    stepId: "step-stream",
+    stepIndex: 2,
+  });
+  streamedAssistantState = reducer(streamedAssistantState, {
+    type: "assistant_delta",
+    text: "ask flow ok",
+    turnId: "turn-stream",
+    stepId: "step-stream",
+    stepIndex: 2,
+  });
+  streamedAssistantState = reducer(streamedAssistantState, {
+    type: "step_ended",
+    turnId: "turn-stream",
+    stepId: "step-stream",
+    stepIndex: 2,
+    assistantText: "ask flow ok",
+  });
+  assert.equal(
+    streamedAssistantState.timeline.filter((item) => item.kind === "assistant").length,
+    1,
+  );
+  assert.equal(streamedAssistantState.timeline[1].content, "ask flow ok");
 
   let modeCommandState = reducer(initialState, {
     type: "local_user_message",
@@ -518,10 +554,12 @@ function main() {
     "utf8",
   );
   assert.equal(composerSource.includes("onOpenCommandPalette"), true);
+  assert.equal(composerSource.includes("ComposerInteractionPanel"), true);
 
   runWorkbenchStateTests();
   runSessionRuntimeTests();
   runT3TimelineTests();
+  runInteractionModelTests();
 
   console.log("frontend helper checks passed");
 }

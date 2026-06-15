@@ -1048,13 +1048,18 @@ function App() {
             value={state.composer}
             onChange={(v) => dispatch({ type: "set_composer", value: v })}
             onSend={sendMessage}
-          onStop={cancelSession}
-          isRunning={currentStatus === "running" || currentStatus === "waiting_user_input"}
-          currentMode={currentMode}
-          commandHints={SLASH_COMMAND_HINTS}
-          onOpenCommandPalette={() => dispatch({ type: "workbench_command_palette_opened" })}
-        />
-      </main>
+            onStop={cancelSession}
+            isRunning={currentStatus === "running" || currentStatus === "waiting_user_input"}
+            currentMode={currentMode}
+            commandHints={SLASH_COMMAND_HINTS}
+            onOpenCommandPalette={() => dispatch({ type: "workbench_command_palette_opened" })}
+            interaction={runtimeState.currentInteraction}
+            interactionNotice={interactionNotice}
+            answerValue={userAnswer}
+            onAnswerChange={setUserAnswer}
+            onRespondInteraction={respondToInteraction}
+          />
+        </main>
       }
       rightPanel={
         <RightPanelTabs

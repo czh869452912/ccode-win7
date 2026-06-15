@@ -11,12 +11,24 @@ function normalizeReplayState(value, fallback = "healthy") {
 
 function toInteractionTimelineItem(source) {
   const payload = source?.payload || source || {};
-  const interactionId = payload.interaction_id || payload.request_id || payload.permission_id || source?.id || "";
+  const nestedRequest = source?.request || {};
+  const interactionId =
+    payload.interaction_id ||
+    payload.request_id ||
+    payload.permission_id ||
+    nestedRequest.interaction_id ||
+    nestedRequest.request_id ||
+    nestedRequest.permission_id ||
+    source?.interactionId ||
+    "";
   const interactionKind = payload.kind || source?.interactionKind || "interaction";
   const label =
     payload.tool_name ||
+    nestedRequest.tool_name ||
     payload.question ||
+    nestedRequest.question ||
     payload.reason ||
+    nestedRequest.reason ||
     payload.selected_option_text ||
     interactionKind;
   return {
@@ -26,7 +38,14 @@ function toInteractionTimelineItem(source) {
     interactionId,
     interactionKind,
     label,
-    detail: payload.reason || payload.question || payload.answerText || payload.answer || "",
+    detail:
+      payload.reason ||
+      nestedRequest.reason ||
+      payload.question ||
+      nestedRequest.question ||
+      payload.answerText ||
+      payload.answer ||
+      "",
   };
 }
 
@@ -63,7 +82,20 @@ function buildInteractionNotice(snapshot, currentInteraction) {
 function projectBootstrapTimeline(bootstrapTimeline = []) {
   return (bootstrapTimeline || []).map((item) => {
     if (item?.kind === "permission" || item?.kind === "user_input" || item?.kind === "mode_switch_proposal") {
-      return toInteractionTimelineItem(item);
+      return toInteractionTimelineItem({
+        ...item,
+        payload: {
+          ...(item?.request || {}),
+          interaction_id:
+            item?.request?.interaction_id ||
+            item?.request?.request_id ||
+            item?.request?.permission_id ||
+            item?.interactionId ||
+            item?.id ||
+            "",
+          kind: item?.kind === "permission" ? "permission" : "user_input",
+        },
+      });
     }
     return { ...(item || {}) };
   });

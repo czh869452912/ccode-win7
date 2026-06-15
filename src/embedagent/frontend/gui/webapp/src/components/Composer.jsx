@@ -1,6 +1,7 @@
 import React from "react";
 import { useLang } from "../LangContext.js";
 import { t } from "../strings.js";
+import ComposerInteractionPanel from "./composer/ComposerInteractionPanel.jsx";
 
 export default function Composer({
   value,
@@ -11,9 +12,16 @@ export default function Composer({
   currentMode,
   commandHints = [],
   onOpenCommandPalette,
+  interaction = null,
+  interactionNotice = null,
+  answerValue = "",
+  onAnswerChange,
+  onRespondInteraction,
 }) {
   const lang = useLang();
-  const showHints = !isRunning && value.trim().startsWith("/");
+  const hasInteraction = Boolean(interaction || interactionNotice);
+  const composerDisabled = Boolean(isRunning || hasInteraction);
+  const showHints = !composerDisabled && value.trim().startsWith("/");
   const hints = showHints
     ? commandHints
         .filter((item) =>
@@ -24,6 +32,13 @@ export default function Composer({
 
   return (
     <footer className="composer">
+      <ComposerInteractionPanel
+        interaction={interaction}
+        notice={interactionNotice}
+        answerValue={answerValue}
+        onAnswerChange={onAnswerChange}
+        onRespond={onRespondInteraction}
+      />
       <div className="composer-inner" style={{ position: "relative" }}>
         {currentMode && (
           <span className={`composer-mode-badge mode-${currentMode}`}>
@@ -36,12 +51,12 @@ export default function Composer({
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
-              if (!isRunning) onSend();
+              if (!composerDisabled) onSend();
             }
           }}
           placeholder={t("composer.placeholder", lang)}
           aria-label={t("composer.placeholder", lang)}
-          disabled={isRunning}
+          disabled={composerDisabled}
           rows={1}
           data-testid="composer-input"
         />
@@ -63,7 +78,7 @@ export default function Composer({
           type="button"
           onClick={onOpenCommandPalette}
           aria-label="Open command palette"
-          disabled={isRunning}
+          disabled={composerDisabled}
           data-testid="composer-command-palette"
         >
           /
@@ -76,7 +91,7 @@ export default function Composer({
           <button
             className="send"
             onClick={onSend}
-            disabled={!value.trim()}
+            disabled={composerDisabled || !value.trim()}
             aria-label={t("composer.send", lang)}
             data-testid="send-button"
           >
@@ -90,6 +105,9 @@ export default function Composer({
         <span className="hint-text">Shift+Enter 换行</span>
         {isRunning && (
           <span className="hint-text running-hint">● running 时禁用</span>
+        )}
+        {hasInteraction && !isRunning && (
+          <span className="hint-text running-hint">● interaction pending</span>
         )}
       </div>
     </footer>

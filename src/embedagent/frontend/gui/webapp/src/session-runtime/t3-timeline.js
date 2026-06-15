@@ -303,12 +303,13 @@ export function isTurnFoldedByDefault(group, context = {}) {
 
 function pushLooseItem(rows, item) {
   if (!item) return;
-  if (item.kind === "assistant") rows.push(messageRow(item, "assistant"));
-  else if (item.kind === "user") rows.push(messageRow(item, "user"));
-  else if (item.kind === "tool") rows.push(normalizeWorkEntry(item));
+  const push = (row) => rows.push(row);
+  if (item.kind === "assistant") push(messageRow(item, "assistant"));
+  else if (item.kind === "user") push(messageRow(item, "user"));
+  else if (item.kind === "tool") push(normalizeWorkEntry(item));
   else if (item.kind === "interaction_requested" || item.kind === "interaction_resolved") {
-    rows.push(interactionRow(item));
-  } else rows.push(systemNoticeRow(item));
+    push(interactionRow(item));
+  } else push(systemNoticeRow(item));
 }
 
 function diffSummaryRow(group) {
@@ -331,20 +332,30 @@ export function projectT3TimelineRows({
   activeTurnId = "",
   currentInteraction = null,
   interactionNotice = null,
-} = {}) {
+  } = {}) {
   const rows = [];
   const context = { currentStatus, activeTurnId };
+  const seenInteractionIds = new Set();
+  function pushRow(row) {
+    if (!row) return;
+    if (row.kind === T3_ROW_KINDS.INTERACTION) {
+      const key = row.interactionId || row.id || "";
+      if (key && seenInteractionIds.has(key)) return;
+      if (key) seenInteractionIds.add(key);
+    }
+    rows.push(row);
+  }
   for (const group of turnGroups || []) {
-    if (group?.userItem) rows.push(messageRow(group.userItem, "user"));
+    if (group?.userItem) pushRow(messageRow(group.userItem, "user"));
     for (const item of group?.leadingSystemItems || group?.systemItems || []) {
-      pushLooseItem(rows, item);
+      pushLooseItem({ push: pushRow }, item);
     }
 
     const entries = turnWorkEntries(group);
     const shouldFold = isTurnFoldedByDefault(group, context);
     if (entries.length > 0) {
       if (shouldFold) {
-        rows.push({
+        pushRow({
           id: `turn-fold-${group.turnId || rows.length}`,
           kind: T3_ROW_KINDS.TURN_FOLD,
           turnId: stringValue(group.turnId),
@@ -354,25 +365,25 @@ export function projectT3TimelineRows({
           entries,
         });
       } else {
-        rows.push(...entries);
+        for (const entry of entries) pushRow(entry);
       }
     }
 
     const changedRow = diffSummaryRow(group);
-    if (changedRow) rows.push(changedRow);
+    if (changedRow) pushRow(changedRow);
 
-    rows.push(...assistantRowsForTurn(group));
+    for (const row of assistantRowsForTurn(group)) pushRow(row);
 
     for (const item of group?.trailingTurnItems || group?.detachedItems || []) {
       if (item?.kind !== "tool" && item?.kind !== "interaction_requested" && item?.kind !== "interaction_resolved") {
-        pushLooseItem(rows, item);
+        pushLooseItem({ push: pushRow }, item);
       }
     }
-    for (const item of group?.sessionFallbackItems || []) pushLooseItem(rows, item);
+    for (const item of group?.sessionFallbackItems || []) pushLooseItem({ push: pushRow }, item);
   }
 
   if (currentInteraction) {
-    rows.push(
+    pushRow(
       interactionRow(currentInteraction, {
         id: currentInteraction.interaction_id,
         kind: currentInteraction.kind,
@@ -381,7 +392,7 @@ export function projectT3TimelineRows({
       }),
     );
   } else if (interactionNotice) {
-    rows.push({
+    pushRow({
       id: `interaction-notice-${interactionNotice.interactionId || interactionNotice.kind || "notice"}`,
       kind: T3_ROW_KINDS.SYSTEM_NOTICE,
       tone: interactionNotice.kind === "expired" ? "context" : "warning",
@@ -391,7 +402,7 @@ export function projectT3TimelineRows({
   }
 
   if (currentStatus === "running" && rows.length === 0) {
-    rows.push({
+    pushRow({
       id: "working",
       kind: T3_ROW_KINDS.WORKING,
       label: "Working",

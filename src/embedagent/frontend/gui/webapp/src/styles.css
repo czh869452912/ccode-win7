@@ -1025,6 +1025,134 @@ body {
   position: relative;
 }
 
+.composer-interaction-panel {
+  margin: 0 0 var(--sp-2);
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-md);
+  background: var(--bg-default);
+  padding: 10px 12px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.18);
+}
+.composer-interaction-panel.notice {
+  border-color: rgba(210,153,34,.35);
+  background: rgba(210,153,34,.08);
+}
+.composer-interaction-panel.notice.conflict {
+  border-color: rgba(56,139,253,.35);
+  background: rgba(56,139,253,.08);
+}
+.composer-interaction-heading {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+}
+.composer-interaction-kicker {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+}
+.composer-interaction-summary {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+.composer-interaction-text,
+.composer-interaction-body {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  margin-top: 6px;
+  color: var(--text-secondary);
+}
+.composer-interaction-body code,
+.composer-interaction-details code {
+  color: var(--color-success);
+  background: rgba(139,148,158,.15);
+  border-radius: var(--r-sm);
+  padding: 1px 4px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+.composer-interaction-details {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  margin-top: 8px;
+}
+.composer-interaction-details span {
+  display: inline-flex; align-items: center; gap: 5px;
+  max-width: 100%;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+.composer-interaction-actions {
+  display: flex; align-items: center; justify-content: flex-end;
+  gap: 8px;
+  margin-top: 10px;
+}
+.composer-remember {
+  display: inline-flex; align-items: center; gap: 6px;
+  margin-right: auto;
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+.composer-option-list {
+  display: grid; gap: 6px;
+  margin-top: 10px;
+}
+.composer-option {
+  display: grid;
+  grid-template-columns: 22px minmax(0,1fr) auto;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  background: var(--bg-subtle);
+  color: var(--text-primary);
+  cursor: pointer;
+  padding: 7px 9px;
+  text-align: left;
+}
+.composer-option:hover { border-color: var(--border-focus); }
+.composer-option kbd {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 20px; height: 20px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-sm);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+.composer-option span {
+  display: flex; min-width: 0; flex-direction: column;
+}
+.composer-option strong {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.composer-option small,
+.composer-option em {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-style: normal;
+}
+.composer-custom-answer {
+  display: grid;
+  grid-template-columns: minmax(0,1fr) auto;
+  gap: 8px;
+  align-items: end;
+  margin-top: 10px;
+}
+.composer-custom-answer textarea {
+  min-height: 38px;
+  resize: vertical;
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-sm);
+  background: var(--bg-canvas);
+  color: var(--text-primary);
+  padding: 7px 9px;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  line-height: 1.45;
+  outline: none;
+}
+.composer-custom-answer textarea:focus { border-color: var(--border-focus); }
+
 .composer-inner {
   display: flex; align-items: flex-end; gap: var(--sp-2);
   background: var(--bg-default);
@@ -1046,15 +1174,15 @@ body {
 .composer-mode-badge.mode-debug   { color:var(--color-warning); background:rgba(210,153,34,.1);  border-color:rgba(210,153,34,.25);  }
 .composer-mode-badge.mode-verify  { color:var(--color-verify);              background:rgba(227,179,65,.1);  border-color:rgba(227,179,65,.25);  }
 
-.composer textarea {
+.composer-inner textarea {
   flex: 1; background: none; border: none; outline: none;
   color: var(--text-primary); font-family: var(--font-sans);
   font-size: 13px; resize: none;
   min-height: 20px; max-height: 160px;
   padding: 0; line-height: 1.5;
 }
-.composer textarea::placeholder { color: var(--text-muted); }
-.composer textarea:disabled      { opacity: .5; cursor: not-allowed; }
+.composer-inner textarea::placeholder { color: var(--text-muted); }
+.composer-inner textarea:disabled      { opacity: .5; cursor: not-allowed; }
 
 .composer-hint-bar { display: flex; gap: var(--sp-3); margin-top: var(--sp-1); padding: 0 2px; }
 .hint-text { color: var(--text-muted); font-size: 9px; font-family: var(--font-mono); }
