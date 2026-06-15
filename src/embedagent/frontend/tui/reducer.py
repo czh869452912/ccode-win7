@@ -4,6 +4,12 @@ from typing import Dict, Iterable, Optional
 
 from embedagent.frontend.tui.models import ArtifactRow, EditorBuffer, ExplorerItem
 from embedagent.frontend.tui.state import TerminalState
+from embedagent.frontend.tui.workbench import (
+    close_palette,
+    open_drawer,
+    open_palette,
+    open_surface,
+)
 
 
 def set_snapshot(state: TerminalState, snapshot: Dict[str, object]) -> None:
@@ -148,3 +154,20 @@ def update_editor_content(state: TerminalState, content: str) -> None:
 
 def set_follow_output(state: TerminalState, enabled: bool) -> None:
     state.timeline.follow_output = bool(enabled)
+
+
+def set_workbench_surface(state: TerminalState, surface: str) -> None:
+    state.workbench = open_surface(state.workbench, surface)
+    state.inspector.tab = surface
+
+
+def set_workbench_drawer(state: TerminalState, drawer: str) -> None:
+    state.workbench = open_drawer(state.workbench, drawer)
+
+
+def show_command_palette(state: TerminalState) -> None:
+    state.workbench = open_palette(state.workbench)
+
+
+def hide_command_palette(state: TerminalState) -> None:
+    state.workbench = close_palette(state.workbench)

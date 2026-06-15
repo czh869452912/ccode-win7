@@ -51,6 +51,40 @@ class TestTerminalFrontendModules(unittest.TestCase):
         items = self._complete("session:sess")
         self.assertIn("sess-001", items)
 
+    def test_tui_workbench_commands_and_surfaces(self):
+        from embedagent.frontend.tui.workbench import (
+            RIGHT_PANEL_SURFACES,
+            WorkbenchState,
+            command_by_id,
+            open_surface,
+            slash_command_names,
+        )
+
+        self.assertIn("tasks", RIGHT_PANEL_SURFACES)
+        self.assertIn("preview", RIGHT_PANEL_SURFACES)
+        self.assertEqual(command_by_id("surface.tasks").slash, "/tasks")
+        self.assertEqual(command_by_id("message.send").slash, "")
+        self.assertNotIn("code", [item.slash.lstrip("/") for item in slash_command_names()])
+
+        state = WorkbenchState()
+        self.assertIs(state.right_panel_open, True)
+        self.assertEqual(state.active_surface, "tasks")
+        next_state = open_surface(state, "preview")
+        self.assertIsNot(next_state, state)
+        self.assertEqual(next_state.active_surface, "preview")
+        self.assertIs(next_state.right_panel_open, True)
+
+    def test_tui_slash_completion_uses_workbench_registry(self):
+        from embedagent.frontend.tui.commands import command_names
+
+        names = command_names()
+        self.assertIn("tasks", names)
+        self.assertIn("artifacts", names)
+        self.assertIn("open", names)
+        self.assertIn("edit", names)
+        self.assertIn("save", names)
+        self.assertNotIn("code", names)
+
 
 if __name__ == "__main__":
     unittest.main()

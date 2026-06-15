@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import List
 
+from embedagent.frontend.tui.workbench import slash_name_strings
+
 
 @dataclass
 class ParsedCommand:
@@ -10,34 +12,8 @@ class ParsedCommand:
     args: List[str]
 
 
-_COMMANDS = [
-    "help",
-    "new",
-    "resume",
-    "sessions",
-    "snapshot",
-    "mode",
-    "plan",
-    "review",
-    "diff",
-    "permissions",
-    "close",
-    "workspace",
-    "tasks",
-    "artifacts",
-    "artifact",
-    "open",
-    "edit",
-    "save",
-    "explorer",
-    "inspector",
-    "follow",
-    "quit",
-]
-
-
 def command_names() -> List[str]:
-    return list(_COMMANDS)
+    return slash_name_strings()
 
 
 def parse_command(text: str) -> ParsedCommand:

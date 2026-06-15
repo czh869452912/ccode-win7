@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
 from embedagent.frontend.tui.models import ArtifactRow, EditorBuffer, ExplorerItem
+from embedagent.frontend.tui.workbench import WorkbenchState
 
 
 @dataclass
@@ -79,3 +80,4 @@ class TerminalState:
     main_view: str = "timeline"
     help_text: str = ""
     status_message: str = ""
+    workbench: WorkbenchState = field(default_factory=WorkbenchState)
