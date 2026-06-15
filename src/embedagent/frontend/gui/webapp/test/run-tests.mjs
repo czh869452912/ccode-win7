@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { initialState, reducer } from "../src/store.js";
 import {
@@ -13,6 +14,12 @@ import {
   timelineFromTurns,
 } from "../src/state-helpers.js";
 import { runSessionRuntimeTests } from "./session-runtime.test.mjs";
+
+const WEBAPP_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+
+function webappSourcePath(...parts) {
+  return path.join(WEBAPP_ROOT, "src", ...parts);
+}
 
 function main() {
   assert.equal(initialState.requestedMode, "explore");
@@ -433,7 +440,7 @@ function main() {
   assert.equal(dedupedToolState.historyIntegrity.status, "partial");
 
   const timelineSource = fs.readFileSync(
-    path.resolve("src", "embedagent", "frontend", "gui", "webapp", "src", "components", "Timeline.jsx"),
+    webappSourcePath("components", "Timeline.jsx"),
     "utf8",
   );
   assert.equal(timelineSource.includes("pre(props)"), true);
@@ -442,13 +449,13 @@ function main() {
   assert.equal(timelineSource.includes("session history unavailable"), true);
 
   const interactionPanelSource = fs.readFileSync(
-    path.resolve("src", "embedagent", "frontend", "gui", "webapp", "src", "components", "InteractionPanel.jsx"),
+    webappSourcePath("components", "InteractionPanel.jsx"),
     "utf8",
   );
   assert.equal(interactionPanelSource.includes("notice?.kind"), true);
 
   const inspectorSource = fs.readFileSync(
-    path.resolve("src", "embedagent", "frontend", "gui", "webapp", "src", "components", "Inspector.jsx"),
+    webappSourcePath("components", "Inspector.jsx"),
     "utf8",
   );
   assert.equal(inspectorSource.includes('const ALL_TABS = ["interaction",'), true);
@@ -457,7 +464,7 @@ function main() {
   assert.equal(inspectorSource.includes("todo-mark"), false);
 
   const stylesSource = fs.readFileSync(
-    path.resolve("src", "embedagent", "frontend", "gui", "webapp", "src", "styles.css"),
+    webappSourcePath("styles.css"),
     "utf8",
   );
   assert.equal(stylesSource.includes("todo-"), false);
