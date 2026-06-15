@@ -19,7 +19,9 @@ export async function runVisualDebugRunnerTests() {
   const runnerSource = fs.readFileSync(path.join(REPO_ROOT, "scripts", "gui-visual-debug.mjs"), "utf8");
 
   assert.deepEqual(runner.parseScenarioList("load,chat"), ["load", "chat"]);
-  assert.deepEqual(runner.parseScenarioList("all"), ["load", "chat", "diff", "responsive"]);
+  assert.deepEqual(runner.parseScenarioList("all"), ["app", "load", "chat", "diff", "responsive"]);
+  assert.deepEqual(runner.parseScenarioList("app"), ["app"]);
+  assert.deepEqual(runner.parseScenarioList("load,app"), ["app", "load"]);
   assert.throws(() => runner.parseScenarioList("load,unknown"), /Unknown GUI visual scenario/);
   assert.deepEqual(runner.parseViewportList("700x640,520x720"), [
     { name: "700x640", width: 700, height: 640 },
@@ -77,6 +79,20 @@ export async function runVisualDebugRunnerTests() {
   assert.equal(launch.args.includes("54321"), true);
   assert.equal(launch.env.PYTHONPATH, path.join("C:/repo", "src"));
   assert.equal(launch.env.EMBEDAGENT_BUNDLE_ROOT, "C:/bundle");
+
+  const appLaunch = runner.buildGuiLaunchConfig({
+    repoRoot: "C:/repo",
+    workspace: "",
+    port: 54321,
+    mode: "build",
+    baseUrl: "http://127.0.0.1:45678/v1",
+    model: "visual-debug-model",
+    timeout: 9,
+    maxTurns: 3,
+    bundleRoot: "",
+    python: "C:/python/python.exe",
+  });
+  assert.equal(appLaunch.args.includes("--workspace"), false);
 
   const summary = runner.summarizeConsoleMessages([
     { type: "log", text: "hello" },

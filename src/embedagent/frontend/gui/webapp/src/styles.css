@@ -2132,7 +2132,9 @@ body {
 .thread-list {
   display: flex;
   flex-direction: column;
+  flex: 1;
   gap: 6px;
+  min-height: 32px;
   overflow-y: auto;
 }
 .thread-card {

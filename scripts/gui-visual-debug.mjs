@@ -8,7 +8,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { createRequire } from "node:module";
 
-export const SCENARIOS = ["load", "chat", "diff", "responsive"];
+export const SCENARIOS = ["load", "chat", "diff", "responsive", "app"];
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_REPO_ROOT = path.resolve(SCRIPT_DIR, "..");
@@ -27,7 +27,11 @@ export function parseScenarioList(value = "load") {
   if (unknown.length > 0) {
     throw new Error(`Unknown GUI visual scenario: ${unknown.join(", ")}`);
   }
-  return Array.from(new Set(scenarios));
+  const unique = Array.from(new Set(scenarios));
+  if (unique.includes("app")) {
+    return ["app", ...unique.filter((item) => item !== "app")];
+  }
+  return unique;
 }
 
 export function parseViewportList(value = "1280x720,900x640,700x640,520x720") {
@@ -182,29 +186,30 @@ export function buildGuiLaunchConfig({
   if (bundleRoot) {
     env.EMBEDAGENT_BUNDLE_ROOT = bundleRoot;
   }
+  const args = ["-m", "embedagent.frontend.gui.launcher"];
+  if (workspace) {
+    args.push("--workspace", workspace);
+  }
+  args.push(
+    "--mode",
+    mode,
+    "--model",
+    model,
+    "--base-url",
+    baseUrl,
+    "--port",
+    String(port),
+    "--timeout",
+    String(timeout),
+    "--max-turns",
+    String(maxTurns),
+    "--headless",
+    "--auto-close-seconds",
+    "300",
+  );
   return {
     command,
-    args: [
-      "-m",
-      "embedagent.frontend.gui.launcher",
-      "--workspace",
-      workspace,
-      "--mode",
-      mode,
-      "--model",
-      model,
-      "--base-url",
-      baseUrl,
-      "--port",
-      String(port),
-      "--timeout",
-      String(timeout),
-      "--max-turns",
-      String(maxTurns),
-      "--headless",
-      "--auto-close-seconds",
-      "300",
-    ],
+    args,
     env,
   };
 }
@@ -459,6 +464,38 @@ async function runDiffScenario(page) {
   };
 }
 
+async function runAppScenario(page, options) {
+  const first = options.appWorkspaceA;
+  const second = options.appWorkspaceB;
+  await page.waitForSelector('[data-testid="no-workspace-state"]', { timeout: 10000 });
+  await page.fill('[data-testid="workspace-path-input"]', first);
+  await page.click('[data-testid="open-workspace-button"]');
+  await page.waitForSelector('[data-testid="workbench-layout"]', { timeout: 10000 });
+  await page.waitForSelector('[data-testid="workspace-switcher"]', { timeout: 10000 });
+  await page.waitForSelector('[data-testid="thread-list"]', { timeout: 10000 });
+  await page.fill('[data-testid="sidebar-workspace-path-input"]', second);
+  await page.keyboard.press("Enter");
+  const secondLabel = path.basename(second);
+  await page.waitForFunction(
+    (expectedLabel) => {
+      const header = document.querySelector(".workspace-header-label");
+      const active = document.querySelector(".workspace-row.active");
+      return Boolean(
+        header?.textContent?.includes(expectedLabel)
+        && active?.textContent?.includes(expectedLabel),
+      );
+    },
+    secondLabel,
+    { timeout: 10000 },
+  );
+  const staleSessionSelected = await page.locator(".thread-card.selected").count();
+  return {
+    openedFirstWorkspace: true,
+    switchedSecondWorkspace: true,
+    staleSessionSelected,
+  };
+}
+
 async function measureResponsiveLayout(page) {
   return await page.evaluate(() => {
     const rect = (selector) => {
@@ -564,7 +601,9 @@ async function runScenarios(options, repoRoot, outputDir) {
     await page.goto(url, { waitUntil: "domcontentloaded" });
     const scenarios = parseScenarioList(options.scenario);
     for (const scenario of scenarios) {
-      if (scenario === "load") {
+      if (scenario === "app") {
+        results.app = await runAppScenario(page, options);
+      } else if (scenario === "load") {
         results.load = await runLoadScenario(page);
       } else if (scenario === "chat") {
         results.chat = await runChatScenario(page);
@@ -591,7 +630,7 @@ function printHelp() {
   console.log(`Usage: node scripts/gui-visual-debug.mjs [options]
 
 Options:
-  --scenario load|chat|diff|responsive|all
+  --scenario load|chat|diff|responsive|app|all
                                    Scenario list to run (default: load)
   --workspace PATH                Existing workspace; temp workspace by default
   --output PATH                   Output dir for screenshots and summary JSON
@@ -633,21 +672,32 @@ export async function runVisualDebug(options = parseVisualDebugArgs()) {
   }
   const outputDir = path.resolve(options.output);
   ensureDir(outputDir);
+  const scenarios = parseScenarioList(options.scenario);
   const workspace = path.resolve(
     options.workspace || path.join(os.tmpdir(), `embedagent-gui-visual-workspace-${Date.now()}`),
   );
-  if (parseScenarioList(options.scenario).includes("diff")) {
+  if (scenarios.includes("diff")) {
     createDiffWorkspace(workspace, resolveGitExecutable({ bundleRoot: options.bundleRoot }));
   } else {
     createWorkspace(workspace);
   }
+  const appWorkspaceA = createWorkspace(
+    path.join(os.tmpdir(), `embedagent-gui-app-a-${Date.now()}`),
+  );
+  const appWorkspaceB = scenarios.includes("diff")
+    ? createDiffWorkspace(
+        path.join(os.tmpdir(), `embedagent-gui-app-b-${Date.now()}`),
+        resolveGitExecutable({ bundleRoot: options.bundleRoot }),
+      )
+    : createWorkspace(path.join(os.tmpdir(), `embedagent-gui-app-b-${Date.now()}`));
+  const launchWorkspace = scenarios.includes("app") ? "" : workspace;
 
   const port = options.port || await freePort();
   const modelPort = options.modelPort || await freePort();
   const modelServer = await startFakeModelServer(modelPort);
   const launch = buildGuiLaunchConfig({
     repoRoot,
-    workspace,
+    workspace: launchWorkspace,
     port,
     mode: options.mode,
     baseUrl: `http://127.0.0.1:${modelPort}/v1`,
@@ -663,7 +713,11 @@ export async function runVisualDebug(options = parseVisualDebugArgs()) {
     url: `http://127.0.0.1:${port}/`,
     workspace,
     outputDir,
-    scenarios: parseScenarioList(options.scenario),
+    scenarios,
+    appWorkspaces: {
+      first: appWorkspaceA,
+      second: appWorkspaceB,
+    },
     screenshots: [],
     console: { count: 0, relevant: [] },
     guiLogs: {
@@ -673,7 +727,11 @@ export async function runVisualDebug(options = parseVisualDebugArgs()) {
   };
   try {
     await waitForHttp(summary.url, 20000);
-    const run = await runScenarios({ ...options, port }, repoRoot, outputDir);
+    const run = await runScenarios(
+      { ...options, port, appWorkspaceA, appWorkspaceB },
+      repoRoot,
+      outputDir,
+    );
     Object.assign(summary, run, {
       screenshots: collectScreenshots(run.results),
     });
