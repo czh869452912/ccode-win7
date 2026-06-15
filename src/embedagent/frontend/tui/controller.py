@@ -11,6 +11,7 @@ from embedagent.frontend.tui.views.timeline import (
     format_observation_line,
     format_timeline_records,
 )
+from embedagent.frontend.tui.workbench import command_by_id
 
 
 class TerminalController(object):
@@ -172,6 +173,9 @@ class TerminalController(object):
             return
         if name == "help":
             self.show_help()
+            return
+        if name == "palette":
+            self.open_command_palette()
             return
         if name == "new":
             self.create_new_session(args[0] if args else self.owner.initial_mode)
@@ -425,6 +429,30 @@ class TerminalController(object):
     def toggle_follow_output(self) -> None:
         reducer.set_follow_output(self.owner.state, not self.owner.state.timeline.follow_output)
         self.owner.refresh_views()
+
+    def open_command_palette(self) -> None:
+        reducer.show_command_palette(self.owner.state)
+        self.owner.refresh_views()
+
+    def close_command_palette(self) -> None:
+        reducer.hide_command_palette(self.owner.state)
+        self.owner.refresh_views()
+
+    def execute_workbench_command(self, command_id: str) -> None:
+        command = command_by_id(command_id)
+        if not command.id:
+            return
+        if command.surface:
+            reducer.set_workbench_surface(self.owner.state, command.surface)
+            self.refresh_inspector(command.surface)
+            self.owner.refresh_views()
+            return
+        if command.drawer:
+            reducer.set_workbench_drawer(self.owner.state, command.drawer)
+            self.owner.refresh_views()
+            return
+        if command.slash:
+            self.handle_command(command.slash)
 
     def on_editor_text_changed(self, _buffer) -> None:
         if self.owner.state.main_view != "editor":

@@ -4,7 +4,7 @@ from prompt_toolkit.application import Application
 from prompt_toolkit.filters import Condition, has_focus
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.layout import HSplit, Layout, VSplit
-from prompt_toolkit.layout.containers import ConditionalContainer, Window
+from prompt_toolkit.layout.containers import ConditionalContainer, Float, FloatContainer, Window
 from prompt_toolkit.layout.controls import FormattedTextControl
 from prompt_toolkit.widgets import TextArea
 
@@ -28,6 +28,14 @@ class TerminalLayout(object):
         self.editor = TextArea(read_only=False, focusable=True, scrollbar=True, wrap_lines=False)
         self.inspector = TextArea(
             read_only=True, focusable=True, width=44, scrollbar=True, wrap_lines=True
+        )
+        self.command_palette = TextArea(
+            read_only=True,
+            focusable=True,
+            width=72,
+            height=16,
+            scrollbar=True,
+            wrap_lines=False,
         )
         self.composer = TextArea(
             multiline=False,
@@ -92,15 +100,30 @@ class TerminalLayout(object):
                 inspector_container,
             ]
         )
+        base_layout_content = HSplit(
+            [
+                header_window,
+                Window(height=1, char=self.owner.theme.horizontal),
+                body,
+                Window(height=1, char=self.owner.theme.horizontal),
+                self.composer,
+            ]
+        )
         return Layout(
-            HSplit(
-                [
-                    header_window,
-                    Window(height=1, char=self.owner.theme.horizontal),
-                    body,
-                    Window(height=1, char=self.owner.theme.horizontal),
-                    self.composer,
-                ]
+            FloatContainer(
+                content=base_layout_content,
+                floats=[
+                    Float(
+                        content=ConditionalContainer(
+                            content=self.command_palette,
+                            filter=Condition(
+                                lambda: self.owner.state.workbench.command_palette.open
+                            ),
+                        ),
+                        top=3,
+                        left=8,
+                    )
+                ],
             )
         )
 
@@ -185,5 +208,16 @@ class TerminalLayout(object):
         def _(event):
             self.toggle_auxiliary_panels()
             event.app.invalidate()
+
+        @bindings.add("c-k")
+        def _(event):
+            self.owner.controller.open_command_palette()
+
+        @bindings.add(
+            "escape",
+            filter=Condition(lambda: self.owner.state.workbench.command_palette.open),
+        )
+        def _(event):
+            self.owner.controller.close_command_palette()
 
         return bindings

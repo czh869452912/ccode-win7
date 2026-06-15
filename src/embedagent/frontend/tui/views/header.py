@@ -19,10 +19,10 @@ def build_header_text(state: TerminalState) -> str:
     branch = str(git_info.get("branch") or "-")
     dirty = int(git_info.get("dirty_count") or 0)
     last_error = state.session.last_error or str(snapshot.get("last_error") or "")
-    second_line = "host=%s  explorer=%s  inspector=%s  main=%s  branch=%s  dirty=%s" % (
+    second_line = "host=%s  explorer=%s  surface=%s  main=%s  branch=%s  dirty=%s" % (
         state.capability.host_mode,
         state.explorer.tab,
-        state.inspector.tab,
+        state.workbench.active_surface,
         state.main_view,
         branch,
         dirty,
@@ -33,6 +33,8 @@ def build_header_text(state: TerminalState) -> str:
         second_line += "  user_input=waiting"
     if not state.timeline.follow_output:
         second_line += "  follow=off"
+    if state.workbench.command_palette.open:
+        second_line += "  palette=open"
     if state.editor.buffer.dirty:
         second_line += "  editor=dirty"
     if last_error:

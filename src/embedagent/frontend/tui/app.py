@@ -16,6 +16,7 @@ from embedagent.frontend.tui.services import (
 from embedagent.frontend.tui.state import TerminalState
 from embedagent.frontend.tui.theme import default_theme
 from embedagent.frontend.tui.views import (
+    build_command_palette_text,
     build_explorer_text,
     build_header_text,
     build_inspector_text,
@@ -133,6 +134,7 @@ class TerminalApp(object):
         )
         self.side_panel.text = inspector_text
         self.composer.prompt = build_prompt(self.state)
+        self.layout.command_palette.text = build_command_palette_text(self.state)
         if self.state.main_view == "editor":
             if self.editor_panel.text != self.state.editor.buffer.content:
                 self.editor_panel.text = self.state.editor.buffer.content

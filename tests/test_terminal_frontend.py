@@ -85,6 +85,17 @@ class TestTerminalFrontendModules(unittest.TestCase):
         self.assertIn("save", names)
         self.assertNotIn("code", names)
 
+    def test_tui_command_palette_rendering_filters_commands(self):
+        from embedagent.frontend.tui.views.command_palette import build_command_palette_text
+
+        state = TerminalState(workspace=".", initial_mode="explore")
+        state.workbench.command_palette.open = True
+        state.workbench.command_palette.query = "tasks"
+        text = build_command_palette_text(state)
+        self.assertIn("Open Tasks", text)
+        self.assertIn("/tasks", text)
+        self.assertNotIn("Mode: Build", text)
+
 
 if __name__ == "__main__":
     unittest.main()
