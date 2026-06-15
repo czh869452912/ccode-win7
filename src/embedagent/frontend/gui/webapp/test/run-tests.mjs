@@ -14,6 +14,7 @@ import {
   timelineFromTurns,
 } from "../src/state-helpers.js";
 import { runSessionRuntimeTests } from "./session-runtime.test.mjs";
+import { runT3TimelineTests } from "./t3-timeline.test.mjs";
 import { runWorkbenchStateTests } from "./workbench-state.test.mjs";
 
 const WEBAPP_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -520,6 +521,7 @@ function main() {
 
   runWorkbenchStateTests();
   runSessionRuntimeTests();
+  runT3TimelineTests();
 
   console.log("frontend helper checks passed");
 }

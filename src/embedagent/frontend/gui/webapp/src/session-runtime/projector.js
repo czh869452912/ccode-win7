@@ -1,3 +1,5 @@
+import { projectT3TimelineRows } from "./t3-timeline.js";
+
 const VALID_REPLAY_STATES = new Set(["healthy", "replay_needed", "reload_required", "degraded"]);
 
 function normalizeReplayState(value, fallback = "healthy") {
@@ -236,10 +238,12 @@ function resolveTransportReplayState(snapshot, eventLog) {
 
 export function projectSessionRuntime({ snapshot, eventLog, bootstrapTimeline = [], defaultMode = "explore" }) {
   const currentInteraction = normalizePendingInteraction(snapshot);
+  const interactionNotice = buildInteractionNotice(snapshot, currentInteraction);
   const timelineItems = mergeTimelineItems({ snapshot, eventLog, bootstrapTimeline });
+  const timelineView = projectTurnGroups(timelineItems);
   return {
     currentInteraction,
-    interactionNotice: buildInteractionNotice(snapshot, currentInteraction),
+    interactionNotice,
     transportView: {
       connectionState: eventLog?.connectionState || "connecting",
       replayState: resolveTransportReplayState(snapshot, eventLog),
@@ -251,7 +255,14 @@ export function projectSessionRuntime({ snapshot, eventLog, bootstrapTimeline = 
       mode: snapshot?.current_mode || defaultMode,
     },
     timelineItems,
-    timelineView: projectTurnGroups(timelineItems),
+    timelineView,
+    t3TimelineRows: projectT3TimelineRows({
+      turnGroups: timelineView,
+      currentStatus: snapshot?.status || "idle",
+      activeTurnId: snapshot?.active_turn_id || "",
+      currentInteraction,
+      interactionNotice,
+    }),
   };
 }
 
