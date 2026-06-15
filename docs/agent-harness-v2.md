@@ -10,6 +10,8 @@ The harness is now being extracted behind the in-process workflow extension boun
 
 The hosted runtime has one adapter-owned `ExtensionManager` shared by `InProcessAdapter`, each session-scoped `QueryEngine`, and frontend tool catalog visibility. `QueryEngine` consumes that manager through `AgentExtensionHost`, which centralizes prompt/context hooks, active tool names, dynamic tool registration, explicit schema projection, tool-call hooks, tool-result hooks, and extension-owned tool handling. `src/embedagent/default_extensions.py` installs the bundled C harness into that manager for hosted product paths. A bare `QueryEngine` does not import or construct the default harness extension. Hosted product paths may load manifest-gated project-local Python extensions into the same manager. Local file resources, including Agent Skills-style Markdown skills and `/skill:<name>` expansion, remain file-only Agent Core resources rather than harness package execution; remote registries, plugin marketplaces, dependency installation, built-in tool replacement, and multi-agent orchestration remain outside the harness baseline.
 
+The C harness contributes workflow prompt units through the generic workflow prompt boundary. Newly appended prompt messages use `kind="workflow_prompt"`; `kind="harness_prompt"` is accepted only to avoid duplicating historical messages restored from older sessions.
+
 ## 2. Core Ideas
 
 Harness exists to balance:

@@ -887,7 +887,7 @@ class QueryEngine(object):
                     },
                 )
 
-    def _should_inject_harness(self, user_text: str, current_mode: str) -> bool:
+    def _should_inject_workflow_prompt(self, user_text: str, current_mode: str) -> bool:
         return self.extension_host.should_inject_workflow(user_text, current_mode)
 
     def _allowed_tools_for_mode(self, mode_name: str, workflow_state: str = "chat") -> set:
@@ -928,47 +928,50 @@ class QueryEngine(object):
     ) -> None:
         self.extension_host.register_tools(session, current_mode, workflow_state, reason=reason)
 
-    def _append_harness_messages(self, session: Session, harness_prompt: Any) -> None:
-        if harness_prompt is None:
+    def _append_workflow_prompt_messages(self, session: Session, workflow_prompt: Any) -> None:
+        if workflow_prompt is None:
             return
         existing = False
         for message in list(session.messages):
-            if message.role != "system" or message.kind != "harness_prompt":
+            if message.role != "system" or message.kind not in (
+                "workflow_prompt",
+                "harness_prompt",
+            ):
                 continue
             metadata = dict(getattr(message, "metadata", {}) or {})
-            if str(metadata.get("mode_name") or "") != str(harness_prompt.mode_name or ""):
+            if str(metadata.get("mode_name") or "") != str(workflow_prompt.mode_name or ""):
                 continue
             if str(metadata.get("discipline_label") or "") != str(
-                harness_prompt.discipline_label or ""
+                workflow_prompt.discipline_label or ""
             ):
                 continue
             existing = True
             break
         if existing:
             return
-        for index, content in enumerate(list(getattr(harness_prompt, "prompt_units", []) or [])):
-            harness_message = session.add_system_message(
+        for index, content in enumerate(list(getattr(workflow_prompt, "prompt_units", []) or [])):
+            workflow_message = session.add_system_message(
                 content,
-                kind="harness_prompt",
+                kind="workflow_prompt",
                 metadata={
-                    "mode_name": str(harness_prompt.mode_name or ""),
-                    "discipline_label": str(harness_prompt.discipline_label or ""),
-                    "pack_name": str(harness_prompt.pack_name or ""),
+                    "mode_name": str(workflow_prompt.mode_name or ""),
+                    "discipline_label": str(workflow_prompt.discipline_label or ""),
+                    "pack_name": str(workflow_prompt.pack_name or ""),
                     "unit_index": index,
                 },
             )
             self._append_message_event(
                 session,
                 {
-                    "role": harness_message.role,
-                    "content": harness_message.content,
-                    "message_id": harness_message.message_id,
-                    "parent_message_id": harness_message.parent_message_id,
-                    "turn_id": harness_message.turn_id,
-                    "step_id": harness_message.step_id,
-                    "kind": harness_message.kind,
-                    "metadata": dict(harness_message.metadata),
-                    "replaced_by_refs": list(harness_message.replaced_by_refs),
+                    "role": workflow_message.role,
+                    "content": workflow_message.content,
+                    "message_id": workflow_message.message_id,
+                    "parent_message_id": workflow_message.parent_message_id,
+                    "turn_id": workflow_message.turn_id,
+                    "step_id": workflow_message.step_id,
+                    "kind": workflow_message.kind,
+                    "metadata": dict(workflow_message.metadata),
+                    "replaced_by_refs": list(workflow_message.replaced_by_refs),
                 },
             )
 
@@ -994,16 +997,16 @@ class QueryEngine(object):
             workflow_state,
             reason="session_start",
         )
-        if self._should_inject_harness(user_text, current_mode):
-            harness_prompt = self.extension_host.describe_prompt(
+        if self._should_inject_workflow_prompt(user_text, current_mode):
+            workflow_prompt = self.extension_host.describe_prompt(
                 current_mode, workflow_state=workflow_state, session=session
             )
         else:
-            harness_prompt = None
+            workflow_prompt = None
         if session.messages:
             self._ensure_transcript_bootstrap(session, current_mode)
             with self._session_guard():
-                self._append_harness_messages(session, harness_prompt)
+                self._append_workflow_prompt_messages(session, workflow_prompt)
             return current_mode
         with self._session_guard():
             profile_message = session.add_system_message(
@@ -1036,19 +1039,19 @@ class QueryEngine(object):
                         "replaced_by_refs": list(message.replaced_by_refs),
                     },
                 )
-            self._append_harness_messages(session, harness_prompt)
+            self._append_workflow_prompt_messages(session, workflow_prompt)
         return current_mode
 
     def apply_mode(
         self, session: Session, next_mode: str, workflow_state: str = "chat", user_text: str = ""
     ) -> str:
         current_mode = require_mode(next_mode)["slug"]
-        if self._should_inject_harness(user_text, current_mode):
-            harness_prompt = self.extension_host.describe_prompt(
+        if self._should_inject_workflow_prompt(user_text, current_mode):
+            workflow_prompt = self.extension_host.describe_prompt(
                 current_mode, workflow_state=workflow_state, session=session
             )
         else:
-            harness_prompt = None
+            workflow_prompt = None
         with self._session_guard():
             mode_message = session.add_system_message(
                 self._build_system_prompt(current_mode)
@@ -1067,7 +1070,7 @@ class QueryEngine(object):
                     "replaced_by_refs": list(mode_message.replaced_by_refs),
                 },
             )
-            self._append_harness_messages(session, harness_prompt)
+            self._append_workflow_prompt_messages(session, workflow_prompt)
         return current_mode
 
     def _record_transition(self, session: Session, transition: LoopTransition) -> None:
@@ -1575,7 +1578,7 @@ class QueryEngine(object):
             session, resume_turn_id, current_mode, workflow_state, "resume"
         )
         with self._session_guard():
-            self._append_harness_messages(
+            self._append_workflow_prompt_messages(
                 session,
                 self.extension_host.describe_prompt(
                     current_mode, workflow_state=workflow_state, session=session
@@ -1978,7 +1981,7 @@ class QueryEngine(object):
                                 "replaced_by_refs": list(mode_message.replaced_by_refs),
                             },
                         )
-                        self._append_harness_messages(
+                        self._append_workflow_prompt_messages(
                             session,
                             self.extension_host.describe_prompt(
                                 target_mode, workflow_state=workflow_state, session=session
@@ -2030,7 +2033,7 @@ class QueryEngine(object):
                             "replaced_by_refs": list(mode_message.replaced_by_refs),
                         },
                     )
-                    self._append_harness_messages(
+                    self._append_workflow_prompt_messages(
                         session,
                         self.extension_host.describe_prompt(
                             selected_mode, workflow_state=workflow_state, session=session

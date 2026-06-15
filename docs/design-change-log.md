@@ -44,6 +44,31 @@
 
 ## 3. 当前变更记录
 
+### DC-149
+
+- 日期：2026-06-15
+- 变更主题：Workflow prompt kind generic cleanup 收口
+- 变更摘要：
+  - `QueryEngine` 内部 workflow prompt 注入 helper 已改为 `_should_inject_workflow_prompt` / `_append_workflow_prompt_messages`
+  - 新增的 workflow prompt system message 使用 `kind="workflow_prompt"`，不再使用 harness-shaped `harness_prompt`
+  - 旧 `kind="harness_prompt"` 仅作为历史 session/transcript 去重兼容保留，hosted C/C++ prompt content 与 activation 行为不变
+- 影响范围：
+  - `src/embedagent/query_engine.py`
+  - `tests/test_query_engine_refactor.py`
+  - `tests/test_workflow_extensions.py`
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/agent-harness-v2.md`
+  - `docs/design-change-log.md`
+- 关联文档：
+  - `docs/superpowers/plans/2026-06-15-remaining-pi-architecture-gaps.md`
+  - `docs/pi-inspired-agent-core-blueprint.md`
+- 是否需要 ADR：`否，本次是内部命名与 message kind 清理；不改变 public extension API 或默认 C/C++ workflow 行为`
+- 后续动作：
+  - 继续 Pi-compatible skill discovery ignore rules
+  - 继续内部 SkillIndex read model
+
 ### DC-148
 
 - 日期：2026-06-15

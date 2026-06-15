@@ -195,11 +195,41 @@ def test_c_harness_extension_preserves_build_prompt_behavior(tmp_path):
         initial_mode="build",
     )
     contents = [
-        message.content for message in result.session.messages if message.kind == "harness_prompt"
+        message.content for message in result.session.messages if message.kind == "workflow_prompt"
     ]
 
     assert any("Mode: build" in item for item in contents)
     assert any("Discipline: lite_spec_tdd" in item for item in contents)
+
+
+def test_c_harness_extension_uses_generic_workflow_prompt_kind(tmp_path):
+    from embedagent.default_extensions import build_default_extension_set
+    from embedagent.permissions import PermissionPolicy
+    from embedagent.query_engine import QueryEngine
+    from embedagent.tools import ToolRuntime
+
+    tools = ToolRuntime(str(tmp_path))
+    default_extensions = build_default_extension_set(tools)
+    engine = QueryEngine(
+        client=DoneClient(),
+        tools=tools,
+        permission_policy=PermissionPolicy(auto_approve_all=True, workspace=str(tmp_path)),
+        extension_manager=default_extensions.manager,
+    )
+
+    result = engine.submit_user_turn(
+        user_text="build the project",
+        stream=False,
+        initial_mode="build",
+    )
+    prompt_kinds = [
+        message.kind
+        for message in result.session.messages
+        if message.role == "system" and "Mode: build" in message.content
+    ]
+
+    assert "workflow_prompt" in prompt_kinds
+    assert "harness_prompt" not in prompt_kinds
 
 
 def test_c_harness_workflow_projection_builder_shapes_generic_payload():

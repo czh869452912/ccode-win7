@@ -716,13 +716,49 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertEqual(current_mode, "build")
         first_messages = list(session.messages)
         self.assertGreaterEqual(len(first_messages), 2)
-        self.assertTrue(any(message.kind == "harness_prompt" for message in first_messages))
+        self.assertTrue(any(message.kind == "workflow_prompt" for message in first_messages))
 
         current_mode = engine.initialize_session(
             session, "build", workflow_state="chat", user_text="build the project"
         )
         self.assertEqual(current_mode, "build")
         self.assertEqual(len(session.messages), len(first_messages))
+
+    def test_workflow_prompt_dedupe_accepts_legacy_harness_prompt_kind(self):
+        transcript_store = TranscriptStore(self.workspace)
+        default_extensions = build_default_extension_set(self.tools)
+        engine = QueryEngine(
+            client=FakeClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(
+                auto_approve_all=True,
+                workspace=self.workspace,
+            ),
+            transcript_store=transcript_store,
+            extension_manager=default_extensions.manager,
+        )
+        session = Session()
+        session.add_system_message(
+            "legacy prompt",
+            kind="harness_prompt",
+            metadata={
+                "mode_name": "build",
+                "discipline_label": "lite_spec_tdd",
+            },
+        )
+
+        current_mode = engine.initialize_session(
+            session, "build", workflow_state="chat", user_text="build the project"
+        )
+        prompt_messages = [
+            message
+            for message in session.messages
+            if message.kind in ("harness_prompt", "workflow_prompt")
+        ]
+
+        self.assertEqual(current_mode, "build")
+        self.assertEqual(len(prompt_messages), 1)
+        self.assertEqual(prompt_messages[0].kind, "harness_prompt")
 
     def test_query_engine_writes_tool_presentation_into_tool_call_event(self):
         transcript_store = TranscriptStore(self.workspace)
