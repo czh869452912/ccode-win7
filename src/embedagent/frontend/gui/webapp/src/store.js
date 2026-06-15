@@ -1,4 +1,5 @@
 import { injectChildren, makeEventId, resolveTimelineAnchor } from "./state-helpers.js";
+import { createWorkbenchState, reduceWorkbenchState } from "./workbench/surfaces.js";
 
 export const DEFAULT_MODE = "explore";
 
@@ -39,6 +40,7 @@ export const initialState = {
   activeStepId: "",
   activeStepIndex: 0,
   historyIntegrity: null,
+  workbench: createWorkbenchState(),
 };
 
 function liveProjectionMeta() {
@@ -615,6 +617,15 @@ export function reducer(state, action) {
           : [...state.eventLog, entry];
       return { ...state, eventLog };
     }
+    case "workbench_surface_opened":
+    case "workbench_surface_activated":
+    case "workbench_surface_closed":
+    case "workbench_command_palette_opened":
+    case "workbench_command_palette_closed":
+    case "workbench_command_palette_query_changed":
+    case "workbench_right_panel_toggled":
+    case "workbench_bottom_drawer_toggled":
+      return { ...state, workbench: reduceWorkbenchState(state.workbench, action) };
     default:
       return state;
   }
