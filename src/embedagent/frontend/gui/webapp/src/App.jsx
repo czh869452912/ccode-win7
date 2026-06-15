@@ -7,6 +7,7 @@ import {
   timelineFromTurns,
 } from "./state-helpers.js";
 import { appendSessionEvent, capRetryAttempt, createSessionEventLog } from "./session-runtime/event-log.js";
+import { createDiffSurfaceState } from "./session-runtime/diff-model.js";
 import { projectSessionRuntime } from "./session-runtime/projector.js";
 import { LangContext } from "./LangContext.js";
 import { t } from "./strings.js";
@@ -253,14 +254,12 @@ function App() {
     }
     if (entry?.diff) {
       dispatch({
-        type: "preview_loaded",
-        preview: {
-          kind: entry?.kind || "diff",
+        type: "diff_surface_opened",
+        diffSurface: createDiffSurfaceState({
           title: entry?.title || "Review Diff",
           diff: entry.diff,
-          content: "",
-        },
-        inspectorTab: "preview",
+          source: entry?.kind || "review",
+        }),
       });
       return;
     }
@@ -275,20 +274,28 @@ function App() {
     });
   }
 
-  function openDiffSurface({ turnId = "", filePath = "" } = {}) {
-    const item = runtimeState.timelineItems.find((candidate) => {
-      if (turnId && candidate.turnId !== turnId) return false;
-      const data = candidate.data || {};
-      const args = candidate.arguments || {};
-      if (filePath && data.path !== filePath && args.path !== filePath) return false;
-      return typeof data.diff === "string" || typeof data.diff_preview === "string";
-    });
-    const diff = item?.data?.diff || item?.data?.diff_preview || "";
-    if (!diff) return;
+  function openDiffSurface({ title = "Diff", diff = "", turnId = "", filePath = "" } = {}) {
+    let resolvedDiff = diff;
+    if (!resolvedDiff) {
+      const item = runtimeState.timelineItems.find((candidate) => {
+        if (turnId && candidate.turnId !== turnId) return false;
+        const data = candidate.data || {};
+        const args = candidate.arguments || {};
+        if (filePath && data.path !== filePath && args.path !== filePath) return false;
+        return typeof data.diff === "string" || typeof data.diff_preview === "string";
+      });
+      resolvedDiff = item?.data?.diff || item?.data?.diff_preview || "";
+    }
+    if (!resolvedDiff) return;
     dispatch({
-      type: "preview_loaded",
-      preview: { kind: "diff", title: filePath || "Diff", diff, content: "" },
-      inspectorTab: "preview",
+      type: "diff_surface_opened",
+      diffSurface: createDiffSurfaceState({
+        title: filePath || title || "Diff",
+        diff: resolvedDiff,
+        source: "gui",
+        turnId,
+        filePath,
+      }),
     });
   }
 
@@ -704,9 +711,13 @@ function App() {
       }
       if (data.command_name === "diff" && typeof data.data?.diff === "string" && data.data.diff) {
         dispatch({
-          type: "preview_loaded",
-          preview: { kind: "diff", title: "Git Diff", diff: data.data.diff, content: "" },
-          inspectorTab: "preview",
+          type: "diff_surface_opened",
+          diffSurface: createDiffSurfaceState({
+            title: "Git Diff",
+            diff: data.data.diff,
+            source: "command",
+            turnId: data.turn_id || "",
+          }),
         });
       }
       if (data.command_name === "workspace") {
@@ -1086,6 +1097,7 @@ function App() {
             interactionNotice={interactionNotice}
             permissionContext={state.permissionContext}
             preview={state.preview}
+            diffSurface={state.diffSurface}
             snapshot={state.snapshot}
             userAnswer={userAnswer}
             eventLog={state.eventLog}
@@ -1096,6 +1108,7 @@ function App() {
             onOpenArtifact={openArtifact}
             onOpenReviewEvidence={openReviewEvidence}
             onRunRecipe={runRecipe}
+            onFocusDiffFile={(filePath) => dispatch({ type: "diff_file_focused", filePath })}
             onUserAnswerChange={setUserAnswer}
             onRespondInteraction={respondToInteraction}
           />

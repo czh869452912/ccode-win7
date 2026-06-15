@@ -5,6 +5,7 @@ import { summarizeTimelineProjection } from "../state-helpers.js";
 import { RIGHT_PANEL_SURFACES } from "../workbench/surfaces.js";
 import DiffView from "./DiffView.jsx";
 import InteractionPanel from "./InteractionPanel.jsx";
+import DiffPanel from "./diff/DiffPanel.jsx";
 
 const ALL_TABS = RIGHT_PANEL_SURFACES;
 
@@ -53,6 +54,7 @@ export default function Inspector({
   interactionNotice,
   permissionContext,
   preview,
+  diffSurface,
   snapshot,
   userAnswer,
   eventLog,
@@ -60,6 +62,7 @@ export default function Inspector({
   onOpenArtifact,
   onOpenReviewEvidence,
   onRunRecipe,
+  onFocusDiffFile,
   onRespondInteraction,
   onUserAnswerChange,
 }) {
@@ -92,6 +95,9 @@ export default function Inspector({
         {inspectorTab === "run" && <RunPanel recipes={recipes} lang={lang} onRunRecipe={onRunRecipe} />}
         {inspectorTab === "problems" && <ProblemsPanel timeline={timeline} lang={lang} />}
         {inspectorTab === "review" && <ReviewPanel review={review} lang={lang} onOpenReviewEvidence={onOpenReviewEvidence} />}
+        {inspectorTab === "diff" && (
+          <DiffPanel surface={diffSurface} onFocusFile={onFocusDiffFile} />
+        )}
         {inspectorTab === "permissions" && (
           <PermissionsPanel permissionContext={permissionContext} lang={lang} />
         )}

@@ -13,6 +13,7 @@ import {
   timelineFromEvents,
   timelineFromTurns,
 } from "../src/state-helpers.js";
+import { runDiffModelTests } from "./diff-model.test.mjs";
 import { runInteractionModelTests } from "./interaction-model.test.mjs";
 import { runSessionRuntimeTests } from "./session-runtime.test.mjs";
 import { runT3TimelineTests } from "./t3-timeline.test.mjs";
@@ -313,6 +314,20 @@ function main() {
   assert.equal(reviewState.timeline[0].projectionSource, "raw_events");
   assert.equal(reviewState.review.summary, "quality summary");
 
+  const diffSurfaceState = reducer(initialState, {
+    type: "diff_surface_opened",
+    diffSurface: {
+      title: "Git Diff",
+      rawDiff: "--- a/demo.c\n+++ b/demo.c\n",
+      files: [{ path: "demo.c", diff: "--- a/demo.c\n+++ b/demo.c\n" }],
+      focusedFilePath: "demo.c",
+      focusedDiff: "--- a/demo.c\n+++ b/demo.c\n",
+    },
+  });
+  assert.equal(diffSurfaceState.inspectorTab, "diff");
+  assert.equal(diffSurfaceState.workbench.rightPanel.activeKind, "diff");
+  assert.equal(diffSurfaceState.diffSurface.title, "Git Diff");
+
   const sessionErrorState = reducer(initialState, {
     type: "session_error",
     error: "loop exploded",
@@ -498,6 +513,7 @@ function main() {
   );
   assert.equal(inspectorSource.includes("RIGHT_PANEL_SURFACES"), true);
   assert.equal(inspectorSource.includes('{inspectorTab === "interaction"'), true);
+  assert.equal(inspectorSource.includes('{inspectorTab === "diff"'), true);
   assert.equal(inspectorSource.includes("todo-row"), false);
   assert.equal(inspectorSource.includes("todo-mark"), false);
 
@@ -534,6 +550,7 @@ function main() {
     "utf8",
   );
   assert.equal(rightPanelTabsSource.includes("RIGHT_PANEL_SURFACES"), true);
+  assert.equal(rightPanelTabsSource.includes("diff: \"Diff\""), true);
   assert.equal(rightPanelTabsSource.includes("todos"), false);
 
   const bottomDrawerSource = fs.readFileSync(
@@ -560,6 +577,7 @@ function main() {
   runSessionRuntimeTests();
   runT3TimelineTests();
   runInteractionModelTests();
+  runDiffModelTests();
 
   console.log("frontend helper checks passed");
 }

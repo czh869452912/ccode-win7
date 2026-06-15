@@ -8,12 +8,26 @@ import { html as diffHtml } from "diff2html";
 export default function DiffView({ diff, title }) {
   if (!diff || typeof diff !== "string") return null;
 
-  const rendered = diffHtml(diff, {
-    drawFileList: false,
-    matching: "lines",
-    outputFormat: "line-by-line",
-    highlight: false,
-  });
+  let rendered = "";
+  try {
+    rendered = diffHtml(diff, {
+      drawFileList: false,
+      matching: "lines",
+      outputFormat: "line-by-line",
+      highlight: false,
+    });
+  } catch (_) {
+    rendered = "";
+  }
+
+  if (!rendered) {
+    return (
+      <div className="diff-view">
+        {title ? <div className="diff-view-title">{title}</div> : null}
+        <pre className="diff-raw-fallback">{diff}</pre>
+      </div>
+    );
+  }
 
   return (
     <div className="diff-view">
