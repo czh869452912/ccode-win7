@@ -1970,6 +1970,156 @@ body {
   font-size: 10px;
   margin-top: 2px;
 }
+.workspace-switcher {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 10px 12px;
+  border-bottom: 1px solid var(--border-default);
+}
+.workspace-current {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+.workspace-current-label,
+.workspace-row span,
+.recent-workspace-row span {
+  overflow: hidden;
+  color: var(--text-primary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.workspace-current-path,
+.workspace-row small,
+.recent-workspace-row small {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.workspace-mini-form,
+.workspace-open-form {
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+}
+.workspace-mini-form input,
+.workspace-path-input {
+  min-width: 0;
+  flex: 1;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-sm);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  padding: 8px 9px;
+}
+.workspace-mini-form input:focus,
+.workspace-path-input:focus {
+  border-color: var(--border-focus);
+  outline: none;
+}
+.workspace-list,
+.recent-workspaces {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.workspace-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 28px;
+  align-items: center;
+  gap: 4px;
+}
+.workspace-row > button:first-child,
+.recent-workspace-row {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: stretch;
+  padding: 7px 8px;
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+.workspace-row > button:first-child:hover,
+.recent-workspace-row:hover {
+  border-color: var(--border-default);
+  background: var(--bg-subtle);
+}
+.workspace-row.active > button:first-child {
+  border-color: var(--border-focus);
+  background: var(--bg-subtle);
+}
+.workspace-row.active > button:first-child span {
+  font-weight: 650;
+}
+.workspace-remove {
+  width: 24px;
+  height: 24px;
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--text-muted);
+}
+.workspace-remove:hover {
+  border-color: var(--border-default);
+  color: var(--text-primary);
+}
+.workspace-error {
+  color: var(--color-danger, #ff7b72);
+  font-size: 12px;
+}
+.workspace-error.compact {
+  line-height: 1.3;
+}
+.no-workspace {
+  display: grid;
+  min-height: 100%;
+  place-items: center;
+  padding: 24px;
+  background: var(--bg-canvas);
+}
+.no-workspace-inner {
+  width: min(560px, 100%);
+}
+.no-workspace-kicker {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+}
+.no-workspace-title {
+  margin: 10px 0 0;
+  color: var(--text-primary);
+  font-size: 22px;
+  font-weight: 650;
+}
+.no-workspace-subtitle {
+  margin: 6px 0 18px;
+  color: var(--text-secondary);
+  line-height: 1.55;
+}
+.recent-workspaces {
+  margin-top: 18px;
+}
+.workspace-header-label {
+  max-width: 180px;
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .thread-panel,
 .files-panel {
   display: flex;

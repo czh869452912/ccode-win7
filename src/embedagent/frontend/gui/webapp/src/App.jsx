@@ -13,6 +13,7 @@ import { shouldReconnectSocket } from "./session-runtime/websocket-lifecycle.js"
 import { canSwitchWorkspace, normalizeAppBootstrap } from "./app-workspaces.js";
 import { LangContext } from "./LangContext.js";
 import { t } from "./strings.js";
+import NoWorkspaceState from "./components/NoWorkspaceState.jsx";
 import Sidebar from "./components/Sidebar.jsx";
 import Timeline from "./components/Timeline.jsx";
 import Inspector from "./components/Inspector.jsx";
@@ -1128,6 +1129,7 @@ function App() {
           currentMode={currentMode}
           currentStatus={currentStatus}
           currentSessionId={state.currentSessionId}
+          activeWorkspace={state.app.activeWorkspace}
           turnsUsed={state.turnsUsed}
           maxTurns={state.maxTurns}
           rightPanelOpen={state.workbench.rightPanel.open}
@@ -1141,53 +1143,71 @@ function App() {
       }
       sidebar={
         <Sidebar
+          app={state.app}
           sidebarTab={state.sidebarTab}
           sessions={sessionCards}
           currentSessionId={state.currentSessionId}
           fileTree={state.fileTree}
           treeHeight={treeHeight}
           currentMode={currentMode}
+          workspacePathInput={state.app.workspacePathInput}
+          onWorkspacePathChange={(value) => dispatch({ type: "workspace_path_changed", value })}
           onTabChange={(v) => dispatch({ type: "set_sidebar", value: v })}
           onLoadSession={loadSession}
           onCreateSession={createSession}
+          onOpenWorkspace={openWorkspace}
+          onActivateWorkspace={activateWorkspace}
+          onRemoveWorkspace={removeWorkspace}
           onOpenFile={openFile}
           onLoadFileChildren={loadFileChildren}
         />
       }
       main={
-        <main className="main-chat">
-          <Timeline
-            ref={timelineRef}
-            timeline={runtimeState.timelineView}
-            rows={runtimeState.t3TimelineRows}
-            toolCatalog={state.toolCatalog}
-            historyIntegrity={state.historyIntegrity}
-            thinkingActive={state.thinkingActive}
-            streamingReasoningId={state.streamingReasoningId}
-            terminationReason={state.terminationReason}
-            terminationDisplayReason={state.terminationDisplayReason}
-            terminationMessage={state.terminationMessage}
-            turnsUsed={state.turnsUsed}
-            maxTurns={state.maxTurns}
-            onScroll={handleTimelineScroll}
-            onOpenDiff={openDiffSurface}
+        state.app.hasActiveWorkspace ? (
+          <main className="main-chat">
+            <Timeline
+              ref={timelineRef}
+              timeline={runtimeState.timelineView}
+              rows={runtimeState.t3TimelineRows}
+              toolCatalog={state.toolCatalog}
+              historyIntegrity={state.historyIntegrity}
+              thinkingActive={state.thinkingActive}
+              streamingReasoningId={state.streamingReasoningId}
+              terminationReason={state.terminationReason}
+              terminationDisplayReason={state.terminationDisplayReason}
+              terminationMessage={state.terminationMessage}
+              turnsUsed={state.turnsUsed}
+              maxTurns={state.maxTurns}
+              onScroll={handleTimelineScroll}
+              onOpenDiff={openDiffSurface}
+            />
+            <Composer
+              value={state.composer}
+              onChange={(v) => dispatch({ type: "set_composer", value: v })}
+              onSend={sendMessage}
+              onStop={cancelSession}
+              isRunning={currentStatus === "running" || currentStatus === "waiting_user_input"}
+              currentMode={currentMode}
+              commandHints={SLASH_COMMAND_HINTS}
+              onOpenCommandPalette={() => dispatch({ type: "workbench_command_palette_opened" })}
+              interaction={runtimeState.currentInteraction}
+              interactionNotice={interactionNotice}
+              answerValue={userAnswer}
+              onAnswerChange={setUserAnswer}
+              onRespondInteraction={respondToInteraction}
+            />
+          </main>
+        ) : (
+          <NoWorkspaceState
+            value={state.app.workspacePathInput}
+            error={state.app.workspaceError}
+            activating={state.app.activatingWorkspace}
+            workspaces={state.app.workspaces}
+            onChange={(value) => dispatch({ type: "workspace_path_changed", value })}
+            onOpen={openWorkspace}
+            onActivate={activateWorkspace}
           />
-          <Composer
-            value={state.composer}
-            onChange={(v) => dispatch({ type: "set_composer", value: v })}
-            onSend={sendMessage}
-            onStop={cancelSession}
-            isRunning={currentStatus === "running" || currentStatus === "waiting_user_input"}
-            currentMode={currentMode}
-            commandHints={SLASH_COMMAND_HINTS}
-            onOpenCommandPalette={() => dispatch({ type: "workbench_command_palette_opened" })}
-            interaction={runtimeState.currentInteraction}
-            interactionNotice={interactionNotice}
-            answerValue={userAnswer}
-            onAnswerChange={setUserAnswer}
-            onRespondInteraction={respondToInteraction}
-          />
-        </main>
+        )
       }
       rightPanel={
         <RightPanelTabs

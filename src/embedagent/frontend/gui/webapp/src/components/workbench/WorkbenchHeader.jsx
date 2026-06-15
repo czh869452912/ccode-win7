@@ -6,6 +6,7 @@ export default function WorkbenchHeader({
   currentMode,
   currentStatus,
   currentSessionId,
+  activeWorkspace,
   turnsUsed,
   maxTurns,
   rightPanelOpen,
@@ -20,6 +21,11 @@ export default function WorkbenchHeader({
     <header className="app-header workbench-header" data-testid="workbench-header">
       <span className="app-logo">EmbedAgent</span>
       <span className={`mode-badge mode-${currentMode}`}>{currentMode}</span>
+      {activeWorkspace ? (
+        <span className="workspace-header-label" title={activeWorkspace.path}>
+          {activeWorkspace.label}
+        </span>
+      ) : null}
       <div className="header-right">
         <span className={`status-dot ${currentStatus}`} title={currentStatus} />
         <span

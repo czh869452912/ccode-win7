@@ -602,6 +602,23 @@ async function main() {
   assert.equal(appSource.includes("workspace_changed"), true);
   assert.equal(appSource.includes("no_active_workspace"), true);
 
+  const noWorkspaceSource = fs.readFileSync(
+    webappSourcePath("components", "NoWorkspaceState.jsx"),
+    "utf8",
+  );
+  assert.equal(noWorkspaceSource.includes('data-testid="no-workspace-state"'), true);
+  assert.equal(noWorkspaceSource.includes('data-testid="workspace-path-input"'), true);
+  assert.equal(noWorkspaceSource.includes('data-testid="open-workspace-button"'), true);
+
+  const sidebarSource = fs.readFileSync(
+    webappSourcePath("components", "Sidebar.jsx"),
+    "utf8",
+  );
+  assert.equal(sidebarSource.includes('data-testid="workspace-switcher"'), true);
+  assert.equal(sidebarSource.includes('data-testid={`workspace-row--'), true);
+  assert.equal(sidebarSource.includes('data-testid="thread-list"'), true);
+  assert.equal(sidebarSource.includes("Threads"), true);
+
   const workbenchHeaderSource = fs.readFileSync(
     webappSourcePath("components", "workbench", "WorkbenchHeader.jsx"),
     "utf8",
