@@ -21,11 +21,138 @@ function numberValue(value, fallback = 0) {
   return Number.isFinite(number) ? number : fallback;
 }
 
+const SORT_LOCALE_OPTIONS = { numeric: true, sensitivity: "base" };
+
 function pathFromDiffHeader(line) {
   const value = stringValue(line).replace(/^(---|\+\+\+)\s+/, "").trim();
   if (!value || value === "/dev/null") return "";
   const first = value.split(/\s+/)[0];
   return first.replace(/^[ab]\//, "");
+}
+
+function normalizePathSegments(pathValue) {
+  return stringValue(pathValue)
+    .replace(/\\/g, "/")
+    .split("/")
+    .filter((segment) => segment.length > 0);
+}
+
+function normalizeChangedFilePath(pathValue) {
+  return normalizePathSegments(pathValue).join("/");
+}
+
+function compareByName(left, right) {
+  return stringValue(left?.name).localeCompare(stringValue(right?.name), undefined, SORT_LOCALE_OPTIONS);
+}
+
+function readDiffStat(file) {
+  const additions = numberValue(file?.additions, NaN);
+  const deletions = numberValue(file?.deletions, NaN);
+  if (!Number.isFinite(additions) || !Number.isFinite(deletions)) return null;
+  return { additions, deletions };
+}
+
+function compactDirectoryNode(node) {
+  const compactedChildren = (node.children || []).map((child) =>
+    child.kind === "directory" ? compactDirectoryNode(child) : child,
+  );
+  let compactedNode = {
+    ...node,
+    children: compactedChildren,
+  };
+  while (compactedNode.children.length === 1 && compactedNode.children[0]?.kind === "directory") {
+    const onlyChild = compactedNode.children[0];
+    compactedNode = {
+      kind: "directory",
+      name: `${compactedNode.name}/${onlyChild.name}`,
+      path: onlyChild.path,
+      stat: onlyChild.stat,
+      children: onlyChild.children,
+    };
+  }
+  return compactedNode;
+}
+
+function toChangedFileTreeNodes(directory) {
+  const subdirectories = Array.from(directory.directories.values())
+    .sort(compareByName)
+    .map((subdirectory) =>
+      compactDirectoryNode({
+        kind: "directory",
+        name: subdirectory.name,
+        path: subdirectory.path,
+        stat: {
+          additions: subdirectory.stat.additions,
+          deletions: subdirectory.stat.deletions,
+        },
+        children: toChangedFileTreeNodes(subdirectory),
+      }),
+    );
+  const files = directory.files.slice().sort(compareByName);
+  return subdirectories.concat(files);
+}
+
+export function summarizeDiffStats(files = []) {
+  return (files || []).reduce(
+    (acc, file) => {
+      const stat = readDiffStat(file);
+      if (!stat) return acc;
+      return {
+        additions: acc.additions + stat.additions,
+        deletions: acc.deletions + stat.deletions,
+      };
+    },
+    { additions: 0, deletions: 0 },
+  );
+}
+
+export function buildChangedFilesTree(files = []) {
+  const root = {
+    name: "",
+    path: "",
+    stat: { additions: 0, deletions: 0 },
+    directories: new Map(),
+    files: [],
+  };
+  for (const file of files || []) {
+    const segments = normalizePathSegments(file?.path);
+    if (segments.length === 0) continue;
+    const fileName = segments[segments.length - 1];
+    const filePath = segments.join("/");
+    const stat = readDiffStat(file);
+    const ancestors = [root];
+    let currentDirectory = root;
+    for (const segment of segments.slice(0, -1)) {
+      const nextPath = currentDirectory.path ? `${currentDirectory.path}/${segment}` : segment;
+      let nextDirectory = currentDirectory.directories.get(segment);
+      if (!nextDirectory) {
+        nextDirectory = {
+          name: segment,
+          path: nextPath,
+          stat: { additions: 0, deletions: 0 },
+          directories: new Map(),
+          files: [],
+        };
+        currentDirectory.directories.set(segment, nextDirectory);
+      }
+      currentDirectory = nextDirectory;
+      ancestors.push(currentDirectory);
+    }
+    currentDirectory.files.push({
+      kind: "file",
+      name: fileName,
+      path: filePath,
+      stat,
+      source: file,
+    });
+    if (stat) {
+      for (const ancestor of ancestors) {
+        ancestor.stat.additions += stat.additions;
+        ancestor.stat.deletions += stat.deletions;
+      }
+    }
+  }
+  return toChangedFileTreeNodes(root);
 }
 
 function parseDiffFiles(diff) {
@@ -67,7 +194,7 @@ function parseDiffFiles(diff) {
 }
 
 function mergeFileStats(fileMap, file) {
-  const path = stringValue(file.path);
+  const path = normalizeChangedFilePath(file.path);
   if (!path) return;
   const existing = fileMap.get(path) || {
     path,
@@ -270,7 +397,13 @@ function turnWorkEntries(group) {
       }
     }
   }
-  for (const item of group?.trailingTurnItems || group?.detachedItems || []) {
+  for (const item of group?.trailingTurnItems || []) {
+    if (item?.kind === "tool") entries.push(normalizeWorkEntry(item));
+    if (item?.kind === "interaction_requested" || item?.kind === "interaction_resolved") {
+      entries.push(interactionRow(item));
+    }
+  }
+  for (const item of group?.detachedItems || []) {
     if (item?.kind === "tool") entries.push(normalizeWorkEntry(item));
     if (item?.kind === "interaction_requested" || item?.kind === "interaction_resolved") {
       entries.push(interactionRow(item));
@@ -301,9 +434,8 @@ export function isTurnFoldedByDefault(group, context = {}) {
   return assistantRowsForTurn(group).length > 0;
 }
 
-function pushLooseItem(rows, item) {
+function pushLooseItem(push, item) {
   if (!item) return;
-  const push = (row) => rows.push(row);
   if (item.kind === "assistant") push(messageRow(item, "assistant"));
   else if (item.kind === "user") push(messageRow(item, "user"));
   else if (item.kind === "tool") push(normalizeWorkEntry(item));
@@ -332,7 +464,7 @@ export function projectT3TimelineRows({
   activeTurnId = "",
   currentInteraction = null,
   interactionNotice = null,
-  } = {}) {
+} = {}) {
   const rows = [];
   const context = { currentStatus, activeTurnId };
   const seenInteractionIds = new Set();
@@ -347,8 +479,11 @@ export function projectT3TimelineRows({
   }
   for (const group of turnGroups || []) {
     if (group?.userItem) pushRow(messageRow(group.userItem, "user"));
-    for (const item of group?.leadingSystemItems || group?.systemItems || []) {
-      pushLooseItem({ push: pushRow }, item);
+    for (const item of group?.leadingSystemItems || []) {
+      pushLooseItem(pushRow, item);
+    }
+    for (const item of group?.systemItems || []) {
+      pushLooseItem(pushRow, item);
     }
 
     const entries = turnWorkEntries(group);
@@ -374,12 +509,12 @@ export function projectT3TimelineRows({
 
     for (const row of assistantRowsForTurn(group)) pushRow(row);
 
-    for (const item of group?.trailingTurnItems || group?.detachedItems || []) {
+    for (const item of (group?.trailingTurnItems || []).concat(group?.detachedItems || [])) {
       if (item?.kind !== "tool" && item?.kind !== "interaction_requested" && item?.kind !== "interaction_resolved") {
-        pushLooseItem({ push: pushRow }, item);
+        pushLooseItem(pushRow, item);
       }
     }
-    for (const item of group?.sessionFallbackItems || []) pushLooseItem({ push: pushRow }, item);
+    for (const item of group?.sessionFallbackItems || []) pushLooseItem(pushRow, item);
   }
 
   if (currentInteraction) {

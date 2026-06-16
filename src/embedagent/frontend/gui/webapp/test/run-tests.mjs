@@ -601,6 +601,8 @@ async function main() {
   assert.equal(appSource.includes("activateWorkspace"), true);
   assert.equal(appSource.includes("workspace_changed"), true);
   assert.equal(appSource.includes("no_active_workspace"), true);
+  assert.equal(appSource.includes("__EMBEDAGENT_VISUAL_DEBUG__"), true);
+  assert.equal(appSource.includes("visual_debug"), true);
 
   const noWorkspaceSource = fs.readFileSync(
     webappSourcePath("components", "NoWorkspaceState.jsx"),
@@ -625,6 +627,8 @@ async function main() {
   );
   assert.equal(workbenchHeaderSource.includes("mode-code"), false);
   assert.equal(workbenchHeaderSource.includes("mode-${currentMode}"), true);
+  assert.equal(workbenchHeaderSource.includes("header-status-group"), true);
+  assert.equal(workbenchHeaderSource.includes("header-action-group"), true);
 
   const appSidebarLayoutSource = fs.readFileSync(
     webappSourcePath("components", "workbench", "AppSidebarLayout.jsx"),
@@ -639,6 +643,21 @@ async function main() {
   assert.equal(rightPanelTabsSource.includes("RIGHT_PANEL_SURFACES"), true);
   assert.equal(rightPanelTabsSource.includes("diff: \"Diff\""), true);
   assert.equal(rightPanelTabsSource.includes("todos"), false);
+
+  const changedFilesCardSource = fs.readFileSync(
+    webappSourcePath("components", "timeline", "ChangedFilesCard.jsx"),
+    "utf8",
+  );
+  assert.equal(changedFilesCardSource.includes("buildChangedFilesTree"), true);
+  assert.equal(changedFilesCardSource.includes('data-testid="changed-files-tree"'), true);
+  assert.equal(changedFilesCardSource.includes("View diff"), true);
+
+  const diffPanelSource = fs.readFileSync(
+    webappSourcePath("components", "diff", "DiffPanel.jsx"),
+    "utf8",
+  );
+  assert.equal(diffPanelSource.includes('data-testid="diff-file-rail"'), true);
+  assert.equal(diffPanelSource.includes("diff-panel-viewport"), true);
 
   const bottomDrawerSource = fs.readFileSync(
     webappSourcePath("components", "workbench", "BottomDrawer.jsx"),

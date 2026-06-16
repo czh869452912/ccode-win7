@@ -1,6 +1,6 @@
 # EmbedAgent 设计与变更跟踪
 
-> 更新日期：2026-06-15
+> 更新日期：2026-06-16
 > 用途：记录关键设计变更、影响范围、关联文档和后续动作
 
 ---
@@ -43,6 +43,37 @@
 ---
 
 ## 3. 当前变更记录
+
+### DC-158
+
+- 日期：2026-06-16
+- 变更主题：T3code-style GUI timeline/diff refinement and fixture-backed visual debugging
+- 变更摘要：
+  - GUI timeline changed-files card 从平铺列表升级为 T3code-like 目录树，支持目录折叠/展开、目录级 diff 统计、路径归一化与 `View diff` 入口。
+  - Diff right-panel 改为 header + changed-file rail + diff viewport；右栏和窄屏布局自动单列堆叠，避免文件列表挤压 diff 内容。
+  - `scripts/gui-visual-debug.mjs` 的 diff 场景不再依赖后端 `/diff` 链路是否产出 diff，而是在显式 `?visual_debug=1` 下通过 `window.__EMBEDAGENT_VISUAL_DEBUG__` 打开离线 unified-diff fixture，稳定验证真实 GUI 的 DiffPanel、file rail、截图和 console 状态。
+  - 修复 frontend T3 timeline projection 中 loose system item callback 错误，以及 detached/trailing item 合并丢失问题。
+  - 本次仍未复制 T3code 源码，未改变 Agent Core、permission policy、workflow package、session history truth、HTTP/WebSocket 产品协议或 Win7/offline runtime 依赖。
+- 影响范围：
+  - `scripts/gui-visual-debug.mjs`
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/session-runtime/t3-timeline.js`
+  - `src/embedagent/frontend/gui/webapp/src/components/timeline/ChangedFilesCard.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/components/diff/DiffPanel.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/components/workbench/WorkbenchHeader.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/styles.css`
+  - `src/embedagent/frontend/gui/static/assets/`
+  - `src/embedagent/frontend/gui/webapp/test/`
+  - `docs/modules/frontend-gui.md`
+  - `docs/development-tracker.md`
+- 关联文档：
+  - `docs/modules/frontend-gui.md`
+  - `docs/development-tracker.md`
+  - `docs/archive/t3-parity-gui-debug/2026-06-15-t3-parity-gui-debug-design.md`
+- 是否需要 ADR：否；这是 GUI shell/display surface 与开发机 visual harness 细化，不改变长期架构边界。
+- 后续动作：
+  - 继续按 T3code 参考细化编辑闭环、timeline fold/scroll anchoring 和 review diff 交互。
+  - 视觉回归默认使用 `npm run visual:gui -- --scenario all`，必要时单独运行 `--scenario diff,responsive` 检查 file rail 和窄屏布局。
 
 ### DC-157
 
