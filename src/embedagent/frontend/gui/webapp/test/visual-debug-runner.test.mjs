@@ -19,8 +19,9 @@ export async function runVisualDebugRunnerTests() {
   const runnerSource = fs.readFileSync(path.join(REPO_ROOT, "scripts", "gui-visual-debug.mjs"), "utf8");
 
   assert.deepEqual(runner.parseScenarioList("load,chat"), ["load", "chat"]);
+  assert.deepEqual(runner.parseScenarioList("thread"), ["thread"]);
   assert.deepEqual(runner.parseScenarioList("timeline,interaction"), ["timeline", "interaction"]);
-  assert.deepEqual(runner.parseScenarioList("all"), ["app", "load", "chat", "diff", "responsive", "timeline", "interaction"]);
+  assert.deepEqual(runner.parseScenarioList("all"), ["app", "load", "chat", "diff", "responsive", "thread", "timeline", "interaction"]);
   assert.deepEqual(runner.parseScenarioList("app"), ["app"]);
   assert.deepEqual(runner.parseScenarioList("load,app"), ["app", "load"]);
   assert.throws(() => runner.parseScenarioList("load,unknown"), /Unknown GUI visual scenario/);
@@ -59,8 +60,10 @@ export async function runVisualDebugRunnerTests() {
   assert.equal(runnerSource.includes("__EMBEDAGENT_VISUAL_DEBUG__"), true);
   assert.equal(runnerSource.includes("runTimelineScenario"), true);
   assert.equal(runnerSource.includes("runInteractionScenario"), true);
+  assert.equal(runnerSource.includes("runThreadScenario"), true);
   assert.equal(runnerSource.includes("loadTimelineFixture"), true);
   assert.equal(runnerSource.includes("loadInteractionFixture"), true);
+  assert.equal(runnerSource.includes("loadThreadLifecycleFixture"), true);
 
   const noBuildArgs = runner.parseVisualDebugArgs(["--no-build"]);
   assert.equal(noBuildArgs.buildWebapp, false);

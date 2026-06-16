@@ -16,6 +16,7 @@ export default function Sidebar({
   onTabChange,
   onLoadSession,
   onCreateSession,
+  onThreadLifecycleAction,
   onOpenWorkspace,
   onActivateWorkspace,
   onRemoveWorkspace,
@@ -121,8 +122,13 @@ export default function Sidebar({
         </button>
       </div>
       {sidebarTab === "chats" ? (
-        <div className="thread-panel" role="tabpanel" aria-label={t("sidebar.chats", lang)}>
-          <div className="thread-panel-header">
+        <div
+          className="thread-panel"
+          role="tabpanel"
+          aria-label={t("sidebar.chats", lang)}
+          data-testid="thread-lifecycle-panel"
+        >
+          <div className="thread-panel-header" data-testid="thread-panel-header">
             <div>
               <span className="thread-panel-kicker">Threads</span>
               <span className="thread-panel-count">{threadModel.count || 0}</span>
@@ -144,22 +150,51 @@ export default function Sidebar({
               </div>
             ) : null}
             {threads.map((session) => (
-              <button
+              <div
                 key={session.id}
                 role="listitem"
                 className={`thread-card ${currentSessionId === session.id ? "selected" : ""}`}
-                aria-pressed={currentSessionId === session.id}
-                onClick={() => onLoadSession(session.id)}
                 data-testid={`session-card--${session.id}`}
               >
-                <span className="thread-title">{session.title}</span>
-                <span className="thread-meta">
-                  <span className={`thread-mode mode-${session.mode}`}>{session.mode}</span>
-                  {session.updated ? (
-                    <span className="thread-detail">{session.updated}</span>
-                  ) : null}
-                </span>
-              </button>
+                <button
+                  type="button"
+                  className="thread-open"
+                  aria-pressed={currentSessionId === session.id}
+                  onClick={() => onLoadSession(session.id)}
+                  data-testid={`session-open--${session.id}`}
+                >
+                  <span className="thread-title">{session.title}</span>
+                  <span className="thread-meta">
+                    <span className={`thread-mode mode-${session.mode}`}>{session.mode}</span>
+                    {session.isActive ? (
+                      <span className="thread-state">active</span>
+                    ) : null}
+                    {session.updated ? (
+                      <span className="thread-detail">{session.updated}</span>
+                    ) : null}
+                  </span>
+                </button>
+                <div
+                  className="thread-actions"
+                  aria-label={`Thread actions for ${session.title}`}
+                  data-testid={`thread-actions--${session.id}`}
+                >
+                  {(session.actions || []).map((action) => (
+                    <button
+                      key={action.id}
+                      type="button"
+                      className="thread-action"
+                      disabled={!action.enabled}
+                      title={action.reasonLabel || action.label}
+                      aria-label={`${action.label} ${session.title}`}
+                      onClick={() => onThreadLifecycleAction?.(action.id, session.id)}
+                      data-testid={`thread-action--${action.id}--${session.id}`}
+                    >
+                      {action.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
             ))}
           </div>
         </div>

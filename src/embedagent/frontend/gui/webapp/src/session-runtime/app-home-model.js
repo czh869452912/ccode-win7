@@ -11,6 +11,24 @@ function workspaceLabel(workspace = {}) {
     || "Workspace";
 }
 
+export const THREAD_LIFECYCLE_ACTIONS = Object.freeze([
+  Object.freeze({
+    id: "rename",
+    label: "Rename",
+    capability: "rename",
+  }),
+  Object.freeze({
+    id: "fork",
+    label: "Fork",
+    capability: "fork",
+  }),
+  Object.freeze({
+    id: "archive",
+    label: "Archive",
+    capability: "archive",
+  }),
+]);
+
 export function formatSessionUpdatedLabel(value) {
   const text = String(value || "").trim();
   if (!text) return "";
@@ -28,11 +46,33 @@ export function formatSessionUpdatedLabel(value) {
   }
 }
 
+export function buildThreadLifecycleActions(session, capabilities = {}) {
+  const sessionId = String(session?.session_id || session?.id || "").trim();
+  return THREAD_LIFECYCLE_ACTIONS.map((action) => {
+    const hasCapability = Boolean(capabilities?.[action.capability]);
+    const enabled = Boolean(sessionId && hasCapability);
+    const reason = enabled ? "" : sessionId ? "backend_not_available" : "missing_session";
+    return {
+      ...action,
+      sessionId,
+      enabled,
+      reason,
+      reasonLabel:
+        reason === "backend_not_available"
+          ? "Backend lifecycle API is not available yet"
+          : reason === "missing_session"
+            ? "Thread is missing"
+            : "",
+    };
+  });
+}
+
 export function buildAppHomeModel({
   app = {},
   sessions = [],
   currentSessionId = "",
   defaultMode = "explore",
+  threadLifecycleCapabilities = {},
 } = {}) {
   const activeWorkspace = app.activeWorkspace || null;
   const activatingWorkspace = Boolean(app.activatingWorkspace);
@@ -65,6 +105,7 @@ export function buildAppHomeModel({
         mode: String(session.current_mode || defaultMode || "explore"),
         updated: formatSessionUpdatedLabel(session.updated_at),
         isActive: sessionId === currentSessionId,
+        actions: buildThreadLifecycleActions(session, threadLifecycleCapabilities),
       };
     });
 

@@ -8,7 +8,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { createRequire } from "node:module";
 
-export const SCENARIOS = ["load", "chat", "diff", "responsive", "app", "timeline", "interaction"];
+export const SCENARIOS = ["load", "chat", "diff", "responsive", "app", "thread", "timeline", "interaction"];
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_REPO_ROOT = path.resolve(SCRIPT_DIR, "..");
@@ -537,6 +537,80 @@ async function runInteractionScenario(page) {
   };
 }
 
+async function runThreadScenario(page) {
+  await page.waitForFunction(() => Boolean(window.__EMBEDAGENT_VISUAL_DEBUG__), null, { timeout: 10000 });
+  await page.waitForSelector('[data-testid="workbench-layout"]', { timeout: 10000 });
+  await page.waitForSelector('[data-testid="thread-list"]', { timeout: 10000 });
+  await page.waitForFunction(() => {
+    return Boolean(
+      document.querySelector('[data-testid="thread-empty-state"]')
+      || document.querySelector(".thread-card"),
+    );
+  }, null, { timeout: 10000 });
+  await page.evaluate(() => {
+    window.__EMBEDAGENT_VISUAL_DEBUG__.loadThreadLifecycleFixture();
+  });
+  await page.waitForSelector('[data-testid="thread-lifecycle-panel"]', { timeout: 10000 });
+  await page.waitForSelector('[data-testid="session-card--visual-thread-active"]', { timeout: 10000 });
+  await page.waitForSelector('[data-testid="thread-action--rename--visual-thread-active"]', { timeout: 10000 });
+  const rowCount = await page.locator(".thread-card").count();
+  const actionCount = await page.locator(".thread-action").count();
+  const disabledActionCount = await page.locator(".thread-action:disabled").count();
+  const selectedCount = await page.locator(".thread-card.selected").count();
+  const layout = await page.evaluate(() => {
+    const sidebar = document.querySelector('[data-testid="sidebar"]');
+    const rows = Array.from(document.querySelectorAll(".thread-card"));
+    const actions = Array.from(document.querySelectorAll(".thread-actions"));
+    const rect = (element) => {
+      if (!element) return null;
+      const box = element.getBoundingClientRect();
+      return {
+        left: Math.round(box.left),
+        right: Math.round(box.right),
+        top: Math.round(box.top),
+        bottom: Math.round(box.bottom),
+        width: Math.round(box.width),
+        height: Math.round(box.height),
+      };
+    };
+    const sidebarRect = rect(sidebar);
+    return {
+      sidebar: sidebarRect,
+      rows: rows.map(rect),
+      actions: actions.map(rect),
+      rowText: rows.map((row) => row.textContent.trim().replace(/\s+/g, " ")),
+    };
+  });
+  if (rowCount < 3) {
+    throw new Error(`Thread lifecycle fixture expected at least 3 rows, saw ${rowCount}`);
+  }
+  if (actionCount !== rowCount * 3) {
+    throw new Error(`Thread lifecycle fixture expected 3 actions per row, saw ${actionCount}`);
+  }
+  if (disabledActionCount !== actionCount) {
+    throw new Error("Thread lifecycle actions should remain disabled until backend API exists");
+  }
+  if (selectedCount !== 1) {
+    throw new Error(`Thread lifecycle fixture expected one active thread, saw ${selectedCount}`);
+  }
+  if (!layout.sidebar) {
+    throw new Error("Thread lifecycle scenario could not measure sidebar");
+  }
+  const overflowing = layout.rows
+    .concat(layout.actions)
+    .filter((item) => item && item.right > layout.sidebar.right + 1);
+  if (overflowing.length > 0) {
+    throw new Error("Thread lifecycle controls overflow the sidebar");
+  }
+  return {
+    rowCount,
+    actionCount,
+    disabledActionCount,
+    selectedCount,
+    layout,
+  };
+}
+
 async function runAppScenario(page, options) {
   const first = options.appWorkspaceA;
   const second = options.appWorkspaceB;
@@ -709,6 +783,9 @@ async function runScenarios(options, repoRoot, outputDir) {
     await page.goto(url, { waitUntil: "domcontentloaded" });
     const scenarios = parseScenarioList(options.scenario);
     for (const scenario of scenarios) {
+      if (scenario !== "app") {
+        await page.reload({ waitUntil: "domcontentloaded" });
+      }
       if (scenario === "app") {
         results.app = await runAppScenario(page, options);
       } else if (scenario === "load") {
@@ -717,6 +794,8 @@ async function runScenarios(options, repoRoot, outputDir) {
         results.chat = await runChatScenario(page);
       } else if (scenario === "diff") {
         results.diff = await runDiffScenario(page);
+      } else if (scenario === "thread") {
+        results.thread = await runThreadScenario(page);
       } else if (scenario === "timeline") {
         results.timeline = await runTimelineScenario(page);
       } else if (scenario === "interaction") {
@@ -742,7 +821,7 @@ function printHelp() {
   console.log(`Usage: node scripts/gui-visual-debug.mjs [options]
 
 Options:
-  --scenario load|chat|diff|responsive|app|timeline|interaction|all
+  --scenario load|chat|diff|responsive|app|thread|timeline|interaction|all
                                    Scenario list to run (default: load)
   --workspace PATH                Existing workspace; temp workspace by default
   --output PATH                   Output dir for screenshots and summary JSON

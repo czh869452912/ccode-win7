@@ -109,6 +109,14 @@ truth, workspace registry persistence, workflow policy, or Core lifecycle.
 The project list is locally scroll-bounded so accumulated recent projects do
 not push thread management out of the visible workbench.
 
+Thread lifecycle controls are shaped by the same frontend-local read model.
+Thread rows now expose a compact action rail for `Rename`, `Fork`, and
+`Archive`, with action enablement gated by explicit lifecycle capabilities.
+Because the current backend/Core contract does not yet expose persistent
+thread rename/fork/archive APIs, those actions default to disabled display
+affordances. The GUI must not simulate persistent thread metadata locally or
+make the frontend a second session-history source.
+
 ## 7. Timeline, Interaction, And Diff Surfaces
 
 `webapp/src/session-runtime/t3-timeline.js` projects existing session/runtime
@@ -155,13 +163,13 @@ PyWebView/WebView2 Fixed Version 109 运行，且不要求 Node 或 Playwright�
 The visual harness opens the GUI with `?visual_debug=1`. Only under that
 explicit query parameter does the React app expose
 `window.__EMBEDAGENT_VISUAL_DEBUG__`. The visual harness now includes
-deterministic `timeline` and `interaction` fixtures in addition to
+deterministic `timeline`, `interaction`, and `thread` fixtures in addition to
 app/load/chat/diff/responsive. These fixtures open controlled T3-style timeline
-rows, changed-file summaries, and composer-local pending interaction states so
-Codex can inspect real rendered GUI states. This hook is a development-only
-visual QA affordance. It is not a frontend protocol contract, not backend
-policy, not an Agent Core capability, and not available through normal product
-navigation.
+rows, changed-file summaries, composer-local pending interaction states, and
+thread lifecycle action rails so Codex can inspect real rendered GUI states.
+This hook is a development-only visual QA affordance. It is not a frontend
+protocol contract, not backend policy, not an Agent Core capability, and not
+available through normal product navigation.
 
 The visual runner also launches the GUI with an isolated
 `EMBEDAGENT_GUI_APP_HOME` under its output directory. This keeps temporary

@@ -90,6 +90,19 @@ async function main() {
   assert.deepEqual(switchedWorkspaceState.fileTree, []);
   assert.equal(switchedWorkspaceState.app.hasActiveWorkspace, false);
 
+  const threadLifecycleFixtureState = reducer(initialState, {
+    type: "visual_thread_lifecycle_fixture_loaded",
+    sessionId: "visual-thread-active",
+    sessions: [
+      { session_id: "visual-thread-active", user_goal: "Fix parser recovery" },
+      { session_id: "visual-thread-followup", user_goal: "Verify parser recovery" },
+    ],
+  });
+  assert.equal(threadLifecycleFixtureState.sidebarTab, "chats");
+  assert.equal(threadLifecycleFixtureState.currentSessionId, "visual-thread-active");
+  assert.equal(threadLifecycleFixtureState.sessions.length, 2);
+  assert.equal(threadLifecycleFixtureState.app.hasActiveWorkspace, true);
+
   const root = [createTreeNode({ path: "src", name: "src", kind: "dir", has_children: true })];
   const next = injectChildren(root, "src", [
     { path: "src/pkg", name: "pkg", kind: "dir", has_children: true },
@@ -626,8 +639,10 @@ async function main() {
   assert.equal(appSource.includes("visual_debug"), true);
   assert.equal(appSource.includes("loadTimelineFixture"), true);
   assert.equal(appSource.includes("loadInteractionFixture"), true);
+  assert.equal(appSource.includes("loadThreadLifecycleFixture"), true);
   assert.equal(appSource.includes("visual_timeline_fixture_loaded"), true);
   assert.equal(appSource.includes("visual_interaction_fixture_loaded"), true);
+  assert.equal(appSource.includes("visual_thread_lifecycle_fixture_loaded"), true);
 
   const storeSource = fs.readFileSync(
     webappSourcePath("store.js"),
@@ -635,6 +650,7 @@ async function main() {
   );
   assert.equal(storeSource.includes("visual_timeline_fixture_loaded"), true);
   assert.equal(storeSource.includes("visual_interaction_fixture_loaded"), true);
+  assert.equal(storeSource.includes("visual_thread_lifecycle_fixture_loaded"), true);
 
   const noWorkspaceSource = fs.readFileSync(
     webappSourcePath("components", "NoWorkspaceState.jsx"),
@@ -652,12 +668,21 @@ async function main() {
   assert.equal(sidebarSource.includes('data-testid="workspace-current-card"'), true);
   assert.equal(sidebarSource.includes('data-testid={`workspace-row--'), true);
   assert.equal(sidebarSource.includes('data-testid="thread-list"'), true);
+  assert.equal(sidebarSource.includes('data-testid="thread-lifecycle-panel"'), true);
   assert.equal(sidebarSource.includes('data-testid="thread-empty-state"'), true);
+  assert.equal(sidebarSource.includes('data-testid={`thread-action--'), true);
+  assert.equal(sidebarSource.includes("onThreadLifecycleAction"), true);
   assert.equal(sidebarSource.includes("appHome?.workspace"), true);
   assert.equal(sidebarSource.includes("appHome?.threads"), true);
   assert.equal(sidebarSource.includes("new Date("), false);
   assert.equal(sidebarSource.includes("state.sessions.map"), false);
   assert.equal(fs.existsSync(webappSourcePath("session-runtime", "app-home-model.js")), true);
+  const appHomeModelSource = fs.readFileSync(
+    webappSourcePath("session-runtime", "app-home-model.js"),
+    "utf8",
+  );
+  assert.equal(appHomeModelSource.includes("THREAD_LIFECYCLE_ACTIONS"), true);
+  assert.equal(appHomeModelSource.includes("buildThreadLifecycleActions"), true);
   assert.equal(sidebarSource.includes("Threads"), true);
 
   const workbenchHeaderSource = fs.readFileSync(

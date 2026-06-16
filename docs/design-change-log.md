@@ -44,6 +44,32 @@
 
 ## 3. 当前变更记录
 
+### DC-161
+
+- 日期：2026-06-16
+- 变更主题：GUI thread lifecycle surface and visual fixture
+- 变更摘要：
+  - Extended frontend-local `app-home-model` with explicit thread lifecycle action descriptors for `Rename`, `Fork`, and `Archive`.
+  - Sidebar thread rows now render a T3code-like action rail without nesting secondary action buttons inside the primary open-thread button.
+  - Action enablement is gated by explicit lifecycle capabilities; because the backend/Core contract does not yet expose persistent thread rename/fork/archive APIs, actions default to disabled instead of creating frontend-owned session metadata.
+  - `scripts/gui-visual-debug.mjs` gained a `thread` scenario and a `loadThreadLifecycleFixture()` visual-debug hook to validate real rendered thread rows, action counts, disabled state, sidebar bounds, screenshots, and console cleanliness.
+  - 本次继续保持 T3code-style shell 借鉴与 Pi-style Core decoupling：没有复制 T3code 源码，没有新增 Agent Core、permission policy、workflow package、session history truth 或 Win7/offline runtime 依赖。
+- 影响范围：
+  - `src/embedagent/frontend/gui/webapp/src/session-runtime/app-home-model.js`
+  - `src/embedagent/frontend/gui/webapp/src/components/Sidebar.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/store.js`
+  - `src/embedagent/frontend/gui/webapp/src/styles.css`
+  - `scripts/gui-visual-debug.mjs`
+  - `docs/modules/frontend-gui.md`
+  - `docs/development-tracker.md`
+- 关联文档：
+  - `docs/modules/frontend-gui.md`
+- 是否需要 ADR：否；这是 GUI shell display/read-model refinement and dev visual harness expansion，不改变长期架构边界。
+- 后续动作：
+  - Add backend/Core lifecycle API slices for persistent rename/fork/archive before enabling these controls.
+  - Keep `npm run visual:gui -- --scenario app,thread` as the focused regression for app-level thread management.
+
 ### DC-160
 
 - 日期：2026-06-16

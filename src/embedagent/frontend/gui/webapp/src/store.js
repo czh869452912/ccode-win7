@@ -565,6 +565,40 @@ export function reducer(state, action) {
         }),
       };
     }
+    case "visual_thread_lifecycle_fixture_loaded": {
+      const sessionId = action.sessionId || "visual-thread-active";
+      return {
+        ...state,
+        sidebarTab: "chats",
+        currentSessionId: sessionId,
+        sessions: Array.isArray(action.sessions) ? action.sessions : [],
+        snapshot: {
+          ...(state.snapshot || {}),
+          session_id: sessionId,
+          status: "idle",
+          current_mode: state.snapshot?.current_mode || state.requestedMode || DEFAULT_MODE,
+          pending_interaction_valid: false,
+        },
+        permission: null,
+        userInput: null,
+        interactionNotice: null,
+        app: {
+          ...state.app,
+          bootstrapLoaded: true,
+          hasActiveWorkspace: true,
+          activeWorkspace: state.app.activeWorkspace || {
+            id: "visual-debug-workspace",
+            path: "D:/visual-debug",
+            label: "visual-debug",
+            exists: true,
+            created_at: "",
+            last_opened_at: "",
+          },
+          workspaceError: "",
+          activatingWorkspace: false,
+        },
+      };
+    }
     case "permission_request":
       return {
         ...state,

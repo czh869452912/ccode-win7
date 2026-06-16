@@ -2563,18 +2563,35 @@ body {
   flex-direction: column;
   gap: 6px;
   width: 100%;
-  padding: 9px 10px;
+  padding: 0;
   background: var(--bg-subtle);
   border: 1px solid var(--border-default);
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
   color: var(--text-primary);
   text-align: left;
-  cursor: pointer;
+  overflow: hidden;
 }
 .thread-card:hover,
 .thread-card.selected {
   border-color: var(--border-focus);
   background: var(--bg-elevated);
+}
+.thread-open {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 6px;
+  padding: 9px 10px 2px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.thread-open:focus-visible,
+.thread-action:focus-visible {
+  outline: 1px solid var(--border-focus);
+  outline-offset: -1px;
 }
 .thread-title {
   overflow: hidden;
@@ -2596,12 +2613,50 @@ body {
   padding: 2px 6px;
   border: 1px solid var(--border-default);
 }
+.thread-state {
+  color: var(--text-success);
+}
 .thread-mode.mode-build { color: var(--color-success); border-color: rgba(63,185,80,.25); }
 .thread-mode.mode-debug { color: var(--color-warning); border-color: rgba(210,153,34,.25); }
 .thread-mode.mode-spec { color: var(--color-accent); border-color: rgba(188,140,255,.25); }
 .thread-mode.mode-explore { color: var(--color-info); border-color: rgba(56,139,253,.25); }
 .thread-mode.mode-verify { color: var(--color-verify); border-color: rgba(227,179,65,.25); }
 .thread-detail { margin-left: auto; }
+.thread-actions {
+  display: flex;
+  min-width: 0;
+  gap: 4px;
+  padding: 0 8px 8px;
+}
+.thread-action {
+  min-width: 0;
+  flex: 1 1 0;
+  height: 22px;
+  overflow: hidden;
+  padding: 0 5px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-sm);
+  background: rgba(255,255,255,.025);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 20px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.thread-action:not(:disabled) {
+  cursor: pointer;
+}
+.thread-action:not(:disabled):hover {
+  border-color: var(--border-focus);
+  color: var(--text-primary);
+}
+.thread-action:disabled {
+  background: transparent;
+  color: var(--text-muted);
+  cursor: not-allowed;
+  opacity: .55;
+}
 
 .tree-row {
   display: flex;

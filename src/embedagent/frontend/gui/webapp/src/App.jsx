@@ -493,6 +493,33 @@ function App() {
     });
   }
 
+  function loadThreadLifecycleFixture() {
+    dispatch({
+      type: "visual_thread_lifecycle_fixture_loaded",
+      sessionId: "visual-thread-active",
+      sessions: [
+        {
+          session_id: "visual-thread-active",
+          user_goal: "Fix parser recovery",
+          current_mode: "build",
+          updated_at: "2026-06-16T09:30:00Z",
+        },
+        {
+          session_id: "visual-thread-spec",
+          summary_text: "Plan tokenizer cleanup",
+          current_mode: "spec",
+          updated_at: "2026-06-15T17:10:00Z",
+        },
+        {
+          session_id: "visual-thread-verify",
+          user_goal: "Verify offline bundle smoke",
+          current_mode: "verify",
+          updated_at: "2026-06-14T08:00:00Z",
+        },
+      ],
+    });
+  }
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search || "");
     if (params.get("visual_debug") !== "1") return undefined;
@@ -502,6 +529,7 @@ function App() {
       },
       loadTimelineFixture,
       loadInteractionFixture,
+      loadThreadLifecycleFixture,
     };
     return () => {
       if (window.__EMBEDAGENT_VISUAL_DEBUG__) {
@@ -519,6 +547,17 @@ function App() {
     replaceSessionEventLog(createRuntimeEventLog(snapshot));
     await Promise.all([loadSessions(), loadTasks(snapshot.session_id), loadPermissionContext(snapshot.session_id)]);
     return snapshot.session_id;
+  }
+
+  function handleThreadLifecycleAction(actionId, sessionId) {
+    dispatch({
+      type: "interaction_notice_set",
+      notice: {
+        kind: "thread_lifecycle",
+        title: "Thread lifecycle",
+        body: `${actionId} is waiting for the backend lifecycle API for ${sessionId}.`,
+      },
+    });
   }
 
   async function setMode(mode) {
@@ -1276,6 +1315,7 @@ function App() {
           onTabChange={(v) => dispatch({ type: "set_sidebar", value: v })}
           onLoadSession={loadSession}
           onCreateSession={createSession}
+          onThreadLifecycleAction={handleThreadLifecycleAction}
           onOpenWorkspace={openWorkspace}
           onActivateWorkspace={activateWorkspace}
           onRemoveWorkspace={removeWorkspace}
