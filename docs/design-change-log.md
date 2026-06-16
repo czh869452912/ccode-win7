@@ -44,6 +44,33 @@
 
 ## 3. 当前变更记录
 
+### DC-159
+
+- 日期：2026-06-16
+- 变更主题：GUI timeline interaction polish and visual fixture expansion
+- 变更摘要：
+  - Timeline work row / turn fold expansion became frontend-local controlled UI state.
+  - Visual harness gained deterministic timeline and interaction fixture scenarios.
+  - The fixture hook remains gated by `?visual_debug=1` and is not product protocol or Agent Core capability.
+  - 本次保持 T3code-style shell 借鉴与 Pi-style Core decoupling：没有复制 T3code 源码，没有新增 Agent Core、permission policy、workflow package、session history truth 或 Win7/offline runtime 依赖。
+- 影响范围：
+  - `src/embedagent/frontend/gui/webapp/src/session-runtime/timeline-ui-state.js`
+  - `src/embedagent/frontend/gui/webapp/src/components/Timeline.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/components/timeline/`
+  - `src/embedagent/frontend/gui/webapp/src/components/composer/ComposerInteractionPanel.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/store.js`
+  - `scripts/gui-visual-debug.mjs`
+  - `docs/modules/frontend-gui.md`
+  - `docs/development-tracker.md`
+- 关联文档：
+  - `docs/superpowers/specs/2026-06-16-gui-timeline-interaction-polish-design.md`
+  - `docs/superpowers/plans/2026-06-16-gui-timeline-interaction-polish.md`
+- 是否需要 ADR：否；这是 GUI shell and dev harness refinement，不改变长期架构边界。
+- 后续动作：
+  - Continue later with Diff panel split/wrap review polish.
+  - 视觉回归默认使用 `npm run visual:gui -- --scenario all`；定位 timeline / pending interaction 问题时可单独运行 `--scenario timeline,interaction`。
+
 ### DC-158
 
 - 日期：2026-06-16

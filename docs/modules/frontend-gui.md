@@ -135,7 +135,7 @@ remains backend/tool-owned.
 - `tests/test_gui_runtime.py` — 启动器、阻塞等待器、调度器、WebSocket 生命周期、适配器快照投影
 - `tests/test_gui_sync.py` — 端到端待处理输入解析、`CallbackBridge` 刷新行为、元数据保留
 - `cd src/embedagent/frontend/gui/webapp && npm test` — frontend reducer、timeline、interaction、diff、workbench、T3 visual-language CSS contract 和 visual harness helper 合约
-- `cd src/embedagent/frontend/gui/webapp && npm run visual:gui -- --scenario all --bundle-root <bundle-root>` — dev-only Playwright visual harness；启动真实 GUI、执行 load/chat/diff、生成截图和 `summary.json`，并检查 console warning/error
+- `cd src/embedagent/frontend/gui/webapp && npm run visual:gui -- --scenario all --bundle-root <bundle-root>` — dev-only Playwright visual harness；启动真实 GUI、执行 app/load/chat/diff/responsive/timeline/interaction、生成截图和 `summary.json`，并检查 console warning/error
 
 当新增 Core 回调、会话事件 schema、WebView2/渲染器策略或 React 前端状态结构变化时，应优先重跑这些测试。
 
@@ -145,10 +145,14 @@ PyWebView/WebView2 Fixed Version 109 运行，且不要求 Node 或 Playwright�
 
 The visual harness opens the GUI with `?visual_debug=1`. Only under that
 explicit query parameter does the React app expose
-`window.__EMBEDAGENT_VISUAL_DEBUG__`, currently used to open an offline
-unified-diff fixture for the `diff` scenario. This hook is a development-only
-visual QA affordance. It is not a frontend protocol contract, not an Agent Core
-capability, and not available through normal product navigation.
+`window.__EMBEDAGENT_VISUAL_DEBUG__`. The visual harness now includes
+deterministic `timeline` and `interaction` fixtures in addition to
+app/load/chat/diff/responsive. These fixtures open controlled T3-style timeline
+rows, changed-file summaries, and composer-local pending interaction states so
+Codex can inspect real rendered GUI states. This hook is a development-only
+visual QA affordance. It is not a frontend protocol contract, not backend
+policy, not an Agent Core capability, and not available through normal product
+navigation.
 
 ## 9. Change Triggers
 

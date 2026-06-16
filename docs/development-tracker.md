@@ -348,6 +348,7 @@
 
 | 日期 | 更新内容 |
 |------|----------|
+| 2026-06-16 | GUI timeline interaction polish slice: timeline work row / turn fold expansion 改为 frontend-local controlled UI state；`?visual_debug=1` hook 新增 deterministic `timeline` / `interaction` fixtures；`scripts/gui-visual-debug.mjs --scenario timeline,interaction` 可由 Codex 自动加载真实 GUI 状态、点击展开、截图并检查 console/DOM，不改变 Agent Core、产品协议或 Win7/offline runtime 依赖。 |
 | 2026-06-16 | T3code GUI timeline/diff refinement 收口：changed-files card 改为目录树，Diff right-panel 改为 file rail + diff viewport，窄栏/移动端自动单列；`scripts/gui-visual-debug.mjs --scenario diff` 改用显式 `?visual_debug=1` fixture hook 稳定打开真实 DiffPanel 并检查 file rail/DOM/console；修复 T3 timeline projection 的 loose system item 与 detached item 丢失问题。 |
 | 2026-06-15 | T3code GUI 核心体验切片落地：新增 T3-style timeline rows、composer 内 permission/user-input panel、right-panel Diff surface 与 dev-only Playwright visual harness；`npm run visual:gui -- --scenario all --bundle-root <bundle-root>` 已可启动真实 GUI、截图并检查 console/DOM；同时修复 streaming final content 重放导致的 assistant 文本重复问题；completed working docs 已迁入 `docs/archive/t3-parity-gui-debug/` |
 | 2026-06-14 | Pi-inspired minimal Core Phase D 收口：bare `ToolRuntime` 已恢复 workflow-neutral 构造；默认 C/C++ workflow package 通过 `CHarnessWorkflowExtension.register_tools(...)` 注册 workflow tools，并在 `src/embedagent/harness/tool_metadata.py` / `src/embedagent/harness/packs.py` 内拥有 metadata 与 pack 定义；旧 `src/embedagent/tools/harness_runtime.py` 已删除。下一步进入 Phase E self-extension authoring loop |
