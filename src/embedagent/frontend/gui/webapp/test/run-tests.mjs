@@ -23,6 +23,7 @@ import { runVisualDebugRunnerTests } from "./visual-debug-runner.test.mjs";
 import { runWebSocketLifecycleTests } from "./websocket-lifecycle.test.mjs";
 import { runWorkbenchStateTests } from "./workbench-state.test.mjs";
 import { runAppWorkspaceTests } from "./app-workspaces.test.mjs";
+import { runAppHomeModelTests } from "./app-home-model.test.mjs";
 
 const WEBAPP_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -648,8 +649,15 @@ async function main() {
     "utf8",
   );
   assert.equal(sidebarSource.includes('data-testid="workspace-switcher"'), true);
+  assert.equal(sidebarSource.includes('data-testid="workspace-current-card"'), true);
   assert.equal(sidebarSource.includes('data-testid={`workspace-row--'), true);
   assert.equal(sidebarSource.includes('data-testid="thread-list"'), true);
+  assert.equal(sidebarSource.includes('data-testid="thread-empty-state"'), true);
+  assert.equal(sidebarSource.includes("appHome?.workspace"), true);
+  assert.equal(sidebarSource.includes("appHome?.threads"), true);
+  assert.equal(sidebarSource.includes("new Date("), false);
+  assert.equal(sidebarSource.includes("state.sessions.map"), false);
+  assert.equal(fs.existsSync(webappSourcePath("session-runtime", "app-home-model.js")), true);
   assert.equal(sidebarSource.includes("Threads"), true);
 
   const workbenchHeaderSource = fs.readFileSync(
@@ -712,6 +720,7 @@ async function main() {
 
   runWorkbenchStateTests();
   runAppWorkspaceTests();
+  runAppHomeModelTests();
   runSessionRuntimeTests();
   runT3TimelineTests();
   runTimelineUiStateTests();

@@ -190,6 +190,7 @@ export function buildGuiLaunchConfig({
   timeout = 12,
   maxTurns = 4,
   bundleRoot = "",
+  appHome = "",
   python = "",
 } = {}) {
   const command = resolvePython({ repoRoot, python });
@@ -199,6 +200,9 @@ export function buildGuiLaunchConfig({
   };
   if (bundleRoot) {
     env.EMBEDAGENT_BUNDLE_ROOT = bundleRoot;
+  }
+  if (appHome) {
+    env.EMBEDAGENT_GUI_APP_HOME = appHome;
   }
   const args = ["-m", "embedagent.frontend.gui.launcher"];
   if (workspace) {
@@ -541,7 +545,10 @@ async function runAppScenario(page, options) {
   await page.click('[data-testid="open-workspace-button"]');
   await page.waitForSelector('[data-testid="workbench-layout"]', { timeout: 10000 });
   await page.waitForSelector('[data-testid="workspace-switcher"]', { timeout: 10000 });
+  await page.waitForSelector('[data-testid="workspace-current-card"]', { timeout: 10000 });
   await page.waitForSelector('[data-testid="thread-list"]', { timeout: 10000 });
+  await page.waitForSelector(".thread-panel-header", { timeout: 10000 });
+  await page.waitForSelector('[data-testid="thread-empty-state"]', { timeout: 10000 });
   await page.fill('[data-testid="sidebar-workspace-path-input"]', second);
   await page.keyboard.press("Enter");
   const secondLabel = path.basename(second);
@@ -558,10 +565,42 @@ async function runAppScenario(page, options) {
     { timeout: 10000 },
   );
   const staleSessionSelected = await page.locator(".thread-card.selected").count();
+  const projectManagerVisible = await page.locator('[data-testid="workspace-current-card"]').isVisible();
+  const threadManagerVisible = await page.locator(".thread-panel-header").isVisible();
+  const emptyThreadVisible = await page.locator('[data-testid="thread-empty-state"]').isVisible();
+  const sidebarLayout = await page.evaluate(() => {
+    const sidebar = document.querySelector('[data-testid="sidebar"]');
+    const project = document.querySelector('[data-testid="workspace-switcher"]');
+    const thread = document.querySelector(".thread-panel-header");
+    const rect = (element) => {
+      if (!element) return null;
+      const box = element.getBoundingClientRect();
+      return {
+        top: Math.round(box.top),
+        bottom: Math.round(box.bottom),
+        height: Math.round(box.height),
+      };
+    };
+    return {
+      sidebar: rect(sidebar),
+      project: rect(project),
+      thread: rect(thread),
+    };
+  });
+  if (!sidebarLayout.thread || !sidebarLayout.sidebar) {
+    throw new Error("App scenario could not measure sidebar thread manager");
+  }
+  if (sidebarLayout.thread.bottom > sidebarLayout.sidebar.bottom) {
+    throw new Error("Thread manager is pushed outside the visible sidebar");
+  }
   return {
     openedFirstWorkspace: true,
     switchedSecondWorkspace: true,
     staleSessionSelected,
+    projectManagerVisible,
+    threadManagerVisible,
+    emptyThreadVisible,
+    sidebarLayout,
   };
 }
 
@@ -745,6 +784,8 @@ export async function runVisualDebug(options = parseVisualDebugArgs()) {
   }
   const outputDir = path.resolve(options.output);
   ensureDir(outputDir);
+  const appHome = path.join(outputDir, "app-home");
+  ensureDir(appHome);
   const scenarios = parseScenarioList(options.scenario);
   const workspace = path.resolve(
     options.workspace || path.join(os.tmpdir(), `embedagent-gui-visual-workspace-${Date.now()}`),
@@ -778,6 +819,7 @@ export async function runVisualDebug(options = parseVisualDebugArgs()) {
     timeout: options.timeout,
     maxTurns: options.maxTurns,
     bundleRoot: options.bundleRoot,
+    appHome,
     python: options.python,
   });
   const child = startGuiProcess(launch, outputDir);
@@ -786,6 +828,7 @@ export async function runVisualDebug(options = parseVisualDebugArgs()) {
     url: `http://127.0.0.1:${port}/`,
     workspace,
     outputDir,
+    appHome,
     scenarios,
     appWorkspaces: {
       first: appWorkspaceA,

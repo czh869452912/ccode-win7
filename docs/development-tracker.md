@@ -1,6 +1,6 @@
 # EmbedAgent 开发进度跟踪
 
-> 更新日期：2026-06-16（T3code GUI timeline/diff refinement + visual debug fixture hook）
+> 更新日期：2026-06-16（T3code GUI app workspace/thread management polish）
 > 用途：持续跟踪当前阶段、下一步任务、里程碑进度、风险与阻塞
 
 ---
@@ -37,6 +37,12 @@
 - Diff right-panel 已改为 T3code-like header + changed-file rail + diff viewport；在窄右栏和移动布局下自动单列堆叠，避免文件 rail 挤坏 diff 内容。
 - `scripts/gui-visual-debug.mjs` 的 diff 场景改为通过显式 `?visual_debug=1` 页面参数启用的 `window.__EMBEDAGENT_VISUAL_DEBUG__` fixture hook 打开离线 unified diff，稳定验证真实 GUI 的 diff panel、file rail、截图和 console 状态；该 hook 仅用于开发机 visual harness，不是产品协议、Agent Core 能力或 Win7 runtime 依赖。
 - 修复 timeline T3 投影中的 loose system item callback 错误与 detached/trailing item 合并丢失问题；补充 helper 测试锁定 system notice、detached work row、changed-files tree 和 diff stats。
+
+### 2026-06-16 - T3code App Workspace / Thread Management
+
+- GUI sidebar/no-workspace home 已增加 frontend-local `app-home-model` read model，将现有 app bootstrap workspace records 与 session summaries 投影成 T3code-like project/thread 管理表面；该模型只负责 label、count、active/missing/disabled 状态和紧凑时间展示，不改变 workspace registry、session truth 或 Agent Core lifecycle。
+- Project 管理区改为局部滚动并限制高度，避免最近项目累积时把 Threads 管理区挤出首屏；visual harness 的 app 场景已加入 sidebar bounding-rect 检查，确保 project manager、thread manager 和 empty-thread state 均在真实 GUI 中可见。
+- `scripts/gui-visual-debug.mjs` 现在为每次 run 设置隔离的 `EMBEDAGENT_GUI_APP_HOME=<output>/app-home`，继续走真实 GUI backend registry/app host 路径，但不会污染开发机正常最近项目列表。
 
 ### 2026-06-15 - T3code/Pi Workbench Shell
 
@@ -348,6 +354,7 @@
 
 | 日期 | 更新内容 |
 |------|----------|
+| 2026-06-16 | GUI app-level workspace/thread management polish: 新增 frontend-local `app-home-model`，Sidebar 与 NoWorkspaceState 共享 project/thread 展示投影；project recents 局部滚动，Threads 管理区保持可见；visual harness app 场景改用隔离 `EMBEDAGENT_GUI_APP_HOME` 并检查 project/thread 管理表面可见，不改变 Agent Core、产品协议或 Win7/offline runtime 依赖。 |
 | 2026-06-16 | GUI timeline interaction polish slice: timeline work row / turn fold expansion 改为 frontend-local controlled UI state；`?visual_debug=1` hook 新增 deterministic `timeline` / `interaction` fixtures；`scripts/gui-visual-debug.mjs --scenario timeline,interaction` 可由 Codex 自动加载真实 GUI 状态、点击展开、截图并检查 console/DOM，不改变 Agent Core、产品协议或 Win7/offline runtime 依赖。 |
 | 2026-06-16 | T3code GUI timeline/diff refinement 收口：changed-files card 改为目录树，Diff right-panel 改为 file rail + diff viewport，窄栏/移动端自动单列；`scripts/gui-visual-debug.mjs --scenario diff` 改用显式 `?visual_debug=1` fixture hook 稳定打开真实 DiffPanel 并检查 file rail/DOM/console；修复 T3 timeline projection 的 loose system item 与 detached item 丢失问题。 |
 | 2026-06-15 | T3code GUI 核心体验切片落地：新增 T3-style timeline rows、composer 内 permission/user-input panel、right-panel Diff surface 与 dev-only Playwright visual harness；`npm run visual:gui -- --scenario all --bundle-root <bundle-root>` 已可启动真实 GUI、截图并检查 console/DOM；同时修复 streaming final content 重放导致的 assistant 文本重复问题；completed working docs 已迁入 `docs/archive/t3-parity-gui-debug/` |

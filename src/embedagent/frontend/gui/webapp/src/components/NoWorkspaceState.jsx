@@ -5,11 +5,16 @@ export default function NoWorkspaceState({
   error,
   activating,
   workspaces,
+  appHome,
   onChange,
   onOpen,
   onActivate,
 }) {
-  const recentWorkspaces = Array.isArray(workspaces) ? workspaces : [];
+  const recentWorkspaces = Array.isArray(appHome?.workspace?.rows)
+    ? appHome.workspace.rows
+    : Array.isArray(workspaces)
+      ? workspaces
+      : [];
 
   function handleSubmit(event) {
     event.preventDefault();
@@ -20,9 +25,9 @@ export default function NoWorkspaceState({
     <main className="no-workspace" data-testid="no-workspace-state">
       <section className="no-workspace-inner" aria-label="Open workspace">
         <div className="no-workspace-kicker">EmbedAgent</div>
-        <h1 className="no-workspace-title">Open a workspace</h1>
+        <h1 className="no-workspace-title">Open a project</h1>
         <p className="no-workspace-subtitle">
-          Choose a local project folder to start managing threads, files, tasks, and agent runs.
+          Choose a local C/C++ workspace to manage threads, files, tasks, and agent runs.
         </p>
         <form className="workspace-open-form" onSubmit={handleSubmit}>
           <input
@@ -44,13 +49,17 @@ export default function NoWorkspaceState({
         </form>
         {error ? <div className="workspace-error">{error}</div> : null}
         {recentWorkspaces.length ? (
-          <div className="recent-workspaces" aria-label="Recent workspaces">
+          <div className="recent-workspaces app-home-recents" aria-label="Recent workspaces">
+            <div className="recent-workspaces-heading">
+              <span>Recent projects</span>
+              <small>{recentWorkspaces.length}</small>
+            </div>
             {recentWorkspaces.map((workspace) => (
               <button
                 key={workspace.id}
                 type="button"
-                className="recent-workspace-row"
-                disabled={activating || !workspace.exists}
+                className={`recent-workspace-row ${workspace.status || ""}`}
+                disabled={workspace.disabled || activating || !workspace.exists}
                 onClick={() => onActivate(workspace.id)}
               >
                 <span>{workspace.label}</span>

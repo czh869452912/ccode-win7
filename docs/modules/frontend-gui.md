@@ -100,6 +100,15 @@ rounded composer shell, and restrained right-panel/diff chrome. This is a shell
 style contract only; workflow semantics remain owned by Agent Core and
 frontend-facing read models.
 
+The app-level project/thread management surface is also frontend-local. The
+shared `webapp/src/session-runtime/app-home-model.js` read model projects
+existing app bootstrap workspace records and session summaries into the sidebar
+and no-workspace home state. It may shape labels, counts, disabled rows, active
+selection, and compact timestamps for display, but it does not own session
+truth, workspace registry persistence, workflow policy, or Core lifecycle.
+The project list is locally scroll-bounded so accumulated recent projects do
+not push thread management out of the visible workbench.
+
 ## 7. Timeline, Interaction, And Diff Surfaces
 
 `webapp/src/session-runtime/t3-timeline.js` projects existing session/runtime
@@ -153,6 +162,12 @@ Codex can inspect real rendered GUI states. This hook is a development-only
 visual QA affordance. It is not a frontend protocol contract, not backend
 policy, not an Agent Core capability, and not available through normal product
 navigation.
+
+The visual runner also launches the GUI with an isolated
+`EMBEDAGENT_GUI_APP_HOME` under its output directory. This keeps temporary
+app/workspace scenarios from polluting the developer machine's normal recent
+project registry while still exercising the real backend registry and GUI app
+host paths.
 
 ## 9. Change Triggers
 

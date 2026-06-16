@@ -5,8 +5,8 @@ import { t } from "../strings.js";
 
 export default function Sidebar({
   app,
+  appHome,
   sidebarTab,
-  sessions,
   currentSessionId,
   fileTree,
   treeHeight,
@@ -23,8 +23,10 @@ export default function Sidebar({
   onLoadFileChildren,
 }) {
   const lang = useLang();
-  const workspaces = Array.isArray(app?.workspaces) ? app.workspaces : [];
-  const activeWorkspace = app?.activeWorkspace || null;
+  const workspaceModel = appHome?.workspace || {};
+  const threadModel = appHome?.threads || {};
+  const workspaces = Array.isArray(workspaceModel.rows) ? workspaceModel.rows : [];
+  const threads = Array.isArray(threadModel.rows) ? threadModel.rows : [];
   const activatingWorkspace = Boolean(app?.activatingWorkspace);
 
   function handleOpenWorkspace(event) {
@@ -34,17 +36,21 @@ export default function Sidebar({
 
   return (
     <aside className="sidebar" role="navigation" aria-label="Sidebar" data-testid="sidebar">
-      <div className="brand">
+      <div className="brand app-nav-brand">
         <div className="brand-mark">EmbedAgent</div>
         <div className="brand-sub">{t("brand.sub", lang)}</div>
       </div>
-      <div className="workspace-switcher" data-testid="workspace-switcher">
-        <div className="workspace-current">
+      <div className="workspace-switcher app-workspace-manager" data-testid="workspace-switcher">
+        <div className="workspace-section-header">
+          <span className="workspace-section-title">Project</span>
+          <span className="workspace-count">{workspaces.length}</span>
+        </div>
+        <div className="workspace-current" data-testid="workspace-current-card">
           <span className="workspace-current-label">
-            {activeWorkspace ? activeWorkspace.label : "No workspace"}
+            {workspaceModel.activeLabel || "No workspace"}
           </span>
           <span className="workspace-current-path">
-            {activeWorkspace ? activeWorkspace.path : "Open a local project"}
+            {workspaceModel.activePath || "Open a local project"}
           </span>
         </div>
         <form className="workspace-mini-form" onSubmit={handleOpenWorkspace}>
@@ -67,14 +73,14 @@ export default function Sidebar({
             {workspaces.map((workspace) => (
               <div
                 key={workspace.id}
-                className={`workspace-row${
-                  activeWorkspace?.id === workspace.id ? " active" : ""
+                className={`workspace-row ${workspace.status || "available"}${
+                  workspace.isActive ? " active" : ""
                 }`}
                 data-testid={`workspace-row--${workspace.id}`}
               >
                 <button
                   type="button"
-                  disabled={activatingWorkspace || !workspace.exists}
+                  disabled={workspace.disabled}
                   onClick={() => onActivateWorkspace(workspace.id)}
                 >
                   <span>{workspace.label}</span>
@@ -116,15 +122,28 @@ export default function Sidebar({
       </div>
       {sidebarTab === "chats" ? (
         <div className="thread-panel" role="tabpanel" aria-label={t("sidebar.chats", lang)}>
-          <button
-            className="primary wide"
-            onClick={() => onCreateSession(currentMode)}
-            data-testid="new-session-btn"
-          >
-            <span data-testid="new-thread-btn">New Thread</span>
-          </button>
+          <div className="thread-panel-header">
+            <div>
+              <span className="thread-panel-kicker">Threads</span>
+              <span className="thread-panel-count">{threadModel.count || 0}</span>
+            </div>
+            <button
+              className="primary compact"
+              onClick={() => onCreateSession(currentMode)}
+              disabled={!threadModel.canCreateThread}
+              data-testid="new-session-btn"
+            >
+              <span data-testid="new-thread-btn">New</span>
+            </button>
+          </div>
           <div className="thread-list" role="list" data-testid="thread-list">
-            {sessions.map((session) => (
+            {threadModel.empty ? (
+              <div className="thread-empty" data-testid="thread-empty-state">
+                <span>No threads yet</span>
+                <small>Start one for this project.</small>
+              </div>
+            ) : null}
+            {threads.map((session) => (
               <button
                 key={session.id}
                 role="listitem"

@@ -44,6 +44,32 @@
 
 ## 3. 当前变更记录
 
+### DC-160
+
+- 日期：2026-06-16
+- 变更主题：GUI app-level workspace/thread management polish
+- 变更摘要：
+  - Added frontend-local `app-home-model` to project app bootstrap workspace records and session summaries into Sidebar and NoWorkspaceState display state.
+  - The GUI sidebar now presents a T3code-like project manager plus thread manager without making the frontend own workspace registry persistence, session truth, workflow policy, or Core lifecycle.
+  - Project recents are locally scroll-bounded so accumulated recent projects cannot push the Threads manager out of view.
+  - `scripts/gui-visual-debug.mjs` now launches with isolated `EMBEDAGENT_GUI_APP_HOME=<output>/app-home`, so app/workspace visual scenarios exercise the real backend registry path without polluting the developer machine's normal recent-project list.
+  - 本次继续保持 T3code-style shell 借鉴与 Pi-style Core decoupling：没有复制 T3code 源码，没有新增 Agent Core、permission policy、workflow package、session history truth 或 Win7/offline runtime 依赖。
+- 影响范围：
+  - `src/embedagent/frontend/gui/webapp/src/session-runtime/app-home-model.js`
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/components/Sidebar.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/components/NoWorkspaceState.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/styles.css`
+  - `scripts/gui-visual-debug.mjs`
+  - `docs/modules/frontend-gui.md`
+  - `docs/development-tracker.md`
+- 关联文档：
+  - `docs/modules/frontend-gui.md`
+- 是否需要 ADR：否；这是 GUI shell display/read-model refinement and dev harness isolation，不改变长期架构边界。
+- 后续动作：
+  - Continue toward richer T3code-like thread lifecycle management: rename/archive/fork metadata and per-project thread grouping, still through existing Core/protocol boundaries.
+  - Keep `npm run visual:gui -- --scenario all` as the default GUI visual regression entry.
+
 ### DC-159
 
 - 日期：2026-06-16

@@ -75,6 +75,7 @@ export async function runVisualDebugRunnerTests() {
     timeout: 9,
     maxTurns: 3,
     bundleRoot: "C:/bundle",
+    appHome: "C:/tmp/gui-app-home",
     python: "C:/python/python.exe",
   });
   assert.equal(launch.command, "C:/python/python.exe");
@@ -86,6 +87,7 @@ export async function runVisualDebugRunnerTests() {
   assert.equal(launch.args.includes("54321"), true);
   assert.equal(launch.env.PYTHONPATH, path.join("C:/repo", "src"));
   assert.equal(launch.env.EMBEDAGENT_BUNDLE_ROOT, "C:/bundle");
+  assert.equal(launch.env.EMBEDAGENT_GUI_APP_HOME, "C:/tmp/gui-app-home");
 
   const appLaunch = runner.buildGuiLaunchConfig({
     repoRoot: "C:/repo",
@@ -100,6 +102,7 @@ export async function runVisualDebugRunnerTests() {
     python: "C:/python/python.exe",
   });
   assert.equal(appLaunch.args.includes("--workspace"), false);
+  assert.equal(runnerSource.includes("EMBEDAGENT_GUI_APP_HOME"), true);
 
   const summary = runner.summarizeConsoleMessages([
     { type: "log", text: "hello" },

@@ -8,6 +8,7 @@ import {
 } from "./state-helpers.js";
 import { appendSessionEvent, capRetryAttempt, createSessionEventLog } from "./session-runtime/event-log.js";
 import { createDiffSurfaceState } from "./session-runtime/diff-model.js";
+import { buildAppHomeModel } from "./session-runtime/app-home-model.js";
 import { projectSessionRuntime } from "./session-runtime/projector.js";
 import { shouldReconnectSocket } from "./session-runtime/websocket-lifecycle.js";
 import { canSwitchWorkspace, normalizeAppBootstrap } from "./app-workspaces.js";
@@ -1200,33 +1201,14 @@ function App() {
     logEvent("interaction_response", (payload?.answer || payload?.selected_option_text || "").slice(0, 40));
   }
 
-  const sessionCards = useMemo(
-    () =>
-      state.sessions.map((item) => {
-        let updated = null;
-        if (item.updated_at) {
-          try {
-            updated = new Date(item.updated_at).toLocaleString(undefined, {
-              month: "short",
-              day: "numeric",
-              hour: "2-digit",
-              minute: "2-digit",
-            });
-          } catch (_) {
-            updated = item.updated_at;
-          }
-        }
-        return {
-          id: item.session_id,
-          title:
-            item.user_goal ||
-            item.summary_text ||
-            `Session ${item.session_id.slice(0, 8)}`,
-          mode: item.current_mode || DEFAULT_MODE,
-          updated,
-        };
-      }),
-    [state.sessions],
+  const appHomeModel = useMemo(
+    () => buildAppHomeModel({
+      app: state.app,
+      sessions: state.sessions,
+      currentSessionId: state.currentSessionId,
+      defaultMode: DEFAULT_MODE,
+    }),
+    [state.app, state.sessions, state.currentSessionId],
   );
 
   const RESIZE_RIGHT = 1;   // sidebar: drag right = expand
@@ -1283,8 +1265,8 @@ function App() {
       sidebar={
         <Sidebar
           app={state.app}
+          appHome={appHomeModel}
           sidebarTab={state.sidebarTab}
-          sessions={sessionCards}
           currentSessionId={state.currentSessionId}
           fileTree={state.fileTree}
           treeHeight={treeHeight}
@@ -1342,6 +1324,7 @@ function App() {
             error={state.app.workspaceError}
             activating={state.app.activatingWorkspace}
             workspaces={state.app.workspaces}
+            appHome={appHomeModel}
             onChange={(value) => dispatch({ type: "workspace_path_changed", value })}
             onOpen={openWorkspace}
             onActivate={activateWorkspace}
