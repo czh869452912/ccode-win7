@@ -4,6 +4,7 @@ import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 
+import { rowUiKey as defaultRowUiKey } from "../../session-runtime/timeline-ui-state.js";
 import ChangedFilesCard from "./ChangedFilesCard.jsx";
 import WorkRow from "./WorkRow.jsx";
 
@@ -35,27 +36,42 @@ function MessageRow({ row, markdownComponents }) {
   );
 }
 
-function TurnFoldRow({ row }) {
+function TurnFoldRow({ row, rowUiState, onToggleRow, rowKeyFor }) {
   const entries = Array.isArray(row.entries) ? row.entries : [];
-  const [open, setOpen] = React.useState(Boolean(row.defaultOpen));
+  const key = rowKeyFor(row);
+  const open = Boolean(rowUiState?.expanded?.[key]);
   return (
-    <section className="t3-turn-fold-row" data-testid="timeline-turn-fold" data-row-kind="turn_fold">
+    <section
+      className="t3-turn-fold-row"
+      data-testid="timeline-turn-fold"
+      data-row-kind="turn_fold"
+      data-row-key={key}
+    >
       <button
         type="button"
         className="t3-turn-fold-summary"
         aria-expanded={open}
-        onClick={() => setOpen((value) => !value)}
+        onClick={() => onToggleRow && onToggleRow(key)}
       >
         <span>{row.label || "Worked for this turn"}</span>
         <span>{row.workCount || entries.length} steps</span>
       </button>
       {open ? (
         <div className="t3-turn-fold-body">
-          {entries.map((entry) =>
-            entry.kind === "interaction"
+          {entries.map((entry) => {
+            const entryKey = rowKeyFor(entry);
+            return entry.kind === "interaction"
               ? <InteractionRow key={entry.id} row={entry} />
-              : <WorkRow key={entry.id} row={entry} />,
-          )}
+              : (
+                <WorkRow
+                  key={entry.id}
+                  row={entry}
+                  rowKey={entryKey}
+                  expanded={Boolean(rowUiState?.expanded?.[entryKey])}
+                  onToggle={onToggleRow}
+                />
+              );
+          })}
         </div>
       ) : null}
     </section>
@@ -80,7 +96,14 @@ function SystemNoticeRow({ row }) {
   );
 }
 
-export default function TimelineRows({ rows, onOpenDiff, markdownComponents }) {
+export default function TimelineRows({
+  rows,
+  onOpenDiff,
+  markdownComponents,
+  rowUiState = null,
+  onToggleRow = null,
+  rowKeyFor = defaultRowUiKey,
+}) {
   return (
     <>
       {(rows || []).map((row) => {
@@ -88,10 +111,27 @@ export default function TimelineRows({ rows, onOpenDiff, markdownComponents }) {
           return <MessageRow key={row.id} row={row} markdownComponents={markdownComponents} />;
         }
         if (row.kind === "work") {
-          return <WorkRow key={row.id} row={row} />;
+          const key = rowKeyFor(row);
+          return (
+            <WorkRow
+              key={row.id}
+              row={row}
+              rowKey={key}
+              expanded={Boolean(rowUiState?.expanded?.[key])}
+              onToggle={onToggleRow}
+            />
+          );
         }
         if (row.kind === "turn_fold") {
-          return <TurnFoldRow key={row.id} row={row} />;
+          return (
+            <TurnFoldRow
+              key={row.id}
+              row={row}
+              rowUiState={rowUiState}
+              onToggleRow={onToggleRow}
+              rowKeyFor={rowKeyFor}
+            />
+          );
         }
         if (row.kind === "interaction") {
           return <InteractionRow key={row.id} row={row} />;

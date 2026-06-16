@@ -1,5 +1,3 @@
-import React from "react";
-
 const TOOL_ICONS = {
   read_file: "R",
   list_dir: "L",
@@ -22,20 +20,28 @@ function statusLabel(row) {
   return row.status || "running";
 }
 
-export default function WorkRow({ row }) {
-  const [open, setOpen] = React.useState(row.status === "error");
+export default function WorkRow({ row, expanded = false, onToggle = null, rowKey = "" }) {
   const hasDetail = Boolean(
     row.detail || row.commandPreview || (Array.isArray(row.changedFiles) && row.changedFiles.length > 0),
   );
   const icon = TOOL_ICONS[row.toolName] || "*";
 
+  function handleToggle() {
+    if (hasDetail && onToggle) onToggle(rowKey);
+  }
+
   return (
-    <div className={`t3-work-row ${row.tone || "neutral"}`} data-testid="timeline-work-row" data-row-kind="work">
+    <div
+      className={`t3-work-row ${row.tone || "neutral"}`}
+      data-testid="timeline-work-row"
+      data-row-kind="work"
+      data-row-key={rowKey}
+    >
       <button
         className="t3-work-summary"
         type="button"
-        onClick={() => hasDetail && setOpen((value) => !value)}
-        aria-expanded={open}
+        onClick={handleToggle}
+        aria-expanded={expanded}
         title={row.toolName || row.label}
       >
         <span className="t3-work-icon" aria-hidden="true">{icon}</span>
@@ -46,8 +52,8 @@ export default function WorkRow({ row }) {
         ) : null}
         <span className={`t3-work-status ${row.status || "running"}`}>{statusLabel(row)}</span>
       </button>
-      {open && hasDetail ? (
-        <div className="t3-work-detail">
+      {expanded && hasDetail ? (
+        <div className="t3-work-detail" data-testid="timeline-work-detail">
           {row.detail ? <pre>{row.detail}</pre> : null}
           {Array.isArray(row.changedFiles) && row.changedFiles.length > 0 ? (
             <div className="t3-work-file-list">

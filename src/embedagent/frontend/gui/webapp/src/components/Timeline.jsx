@@ -15,6 +15,13 @@ import { toolLabel, STATUS_ICON } from "../store.js";
 import { useLang } from "../LangContext.js";
 import { t } from "../strings.js";
 import { describeProjectionBadge, describeTimelineProjectionNotice, summarizeTimelineProjection } from "../state-helpers.js";
+import {
+  createTimelineUiState,
+  restoreAnchorScroll,
+  rowUiKey,
+  shouldPinToBottom,
+  toggleTimelineRow,
+} from "../session-runtime/timeline-ui-state.js";
 import DiffView from "./DiffView.jsx";
 import TimelineRows from "./timeline/TimelineRows.jsx";
 
@@ -236,6 +243,51 @@ const Timeline = forwardRef(function Timeline(
   const projectionSummary = summarizeTimelineProjection(flattenTurnGroups(groups));
   const projectionNotice = describeTimelineProjectionNotice(projectionSummary);
   const lastIdx = groups.length - 1;
+  const timelineNodeRef = React.useRef(null);
+  const pendingAnchorRef = React.useRef(null);
+  const [timelineUiState, setTimelineUiState] = React.useState(() => createTimelineUiState(rows || []));
+
+  React.useEffect(() => {
+    setTimelineUiState((previous) => createTimelineUiState(rows || [], previous));
+  }, [rows]);
+
+  React.useLayoutEffect(() => {
+    const pending = pendingAnchorRef.current;
+    const node = timelineNodeRef.current;
+    if (!pending || !node) return;
+    pendingAnchorRef.current = null;
+    window.requestAnimationFrame(() => {
+      const target = node.querySelector(`[data-row-key="${pending.rowKey}"]`);
+      if (!target) return;
+      const after = target.getBoundingClientRect();
+      node.scrollTop = restoreAnchorScroll({
+        before: pending.rect,
+        after,
+        scrollTop: pending.scrollTop,
+      });
+    });
+  });
+
+  function setTimelineNode(node) {
+    timelineNodeRef.current = node;
+    if (typeof ref === "function") ref(node);
+    else if (ref) ref.current = node;
+  }
+
+  function handleToggleTimelineRow(rowKey) {
+    const node = timelineNodeRef.current;
+    if (node && !shouldPinToBottom(node)) {
+      const target = node.querySelector(`[data-row-key="${rowKey}"]`);
+      if (target) {
+        pendingAnchorRef.current = {
+          rowKey,
+          rect: target.getBoundingClientRect(),
+          scrollTop: node.scrollTop,
+        };
+      }
+    }
+    setTimelineUiState((previous) => toggleTimelineRow(previous, rowKey));
+  }
 
   // Derive termination card props
   let terminationCard = null;
@@ -282,7 +334,7 @@ const Timeline = forwardRef(function Timeline(
     return (
       <div
         className="timeline t3-timeline"
-        ref={ref}
+        ref={setTimelineNode}
         onScroll={onScroll}
         role="log"
         aria-live="polite"
@@ -300,7 +352,14 @@ const Timeline = forwardRef(function Timeline(
               session history unavailable
             </div>
           ) : null}
-          <TimelineRows rows={rows} onOpenDiff={onOpenDiff} markdownComponents={markdownComponents} />
+          <TimelineRows
+            rows={rows}
+            onOpenDiff={onOpenDiff}
+            markdownComponents={markdownComponents}
+            rowUiState={timelineUiState}
+            onToggleRow={handleToggleTimelineRow}
+            rowKeyFor={rowUiKey}
+          />
           {terminationCard && (
             <div className={`system-card ${terminationCard.tone}`} role={terminationCard.tone === "error" ? "alert" : "status"}>
               {terminationCard.content}
@@ -314,7 +373,7 @@ const Timeline = forwardRef(function Timeline(
   return (
     <div
       className="timeline"
-      ref={ref}
+      ref={setTimelineNode}
       onScroll={onScroll}
       role="log"
       aria-live="polite"

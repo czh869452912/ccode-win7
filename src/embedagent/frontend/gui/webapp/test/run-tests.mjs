@@ -562,6 +562,22 @@ async function main() {
   assert.equal(timelineSource.includes("history partially restored"), true);
   assert.equal(timelineSource.includes("session history unavailable"), true);
 
+  const timelineRowsSource = fs.readFileSync(
+    webappSourcePath("components", "timeline", "TimelineRows.jsx"),
+    "utf8",
+  );
+  assert.equal(timelineRowsSource.includes("rowUiState"), true);
+  assert.equal(timelineRowsSource.includes("onToggleRow"), true);
+  assert.equal(timelineRowsSource.includes("rowKeyFor"), true);
+
+  const workRowSource = fs.readFileSync(
+    webappSourcePath("components", "timeline", "WorkRow.jsx"),
+    "utf8",
+  );
+  assert.equal(workRowSource.includes("expanded"), true);
+  assert.equal(workRowSource.includes("onToggle"), true);
+  assert.equal(workRowSource.includes("useState(row.status === \"error\")"), false);
+
   const interactionPanelSource = fs.readFileSync(
     webappSourcePath("components", "InteractionPanel.jsx"),
     "utf8",
