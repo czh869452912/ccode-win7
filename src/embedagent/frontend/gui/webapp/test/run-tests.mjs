@@ -620,6 +620,17 @@ async function main() {
   assert.equal(appSource.includes("no_active_workspace"), true);
   assert.equal(appSource.includes("__EMBEDAGENT_VISUAL_DEBUG__"), true);
   assert.equal(appSource.includes("visual_debug"), true);
+  assert.equal(appSource.includes("loadTimelineFixture"), true);
+  assert.equal(appSource.includes("loadInteractionFixture"), true);
+  assert.equal(appSource.includes("visual_timeline_fixture_loaded"), true);
+  assert.equal(appSource.includes("visual_interaction_fixture_loaded"), true);
+
+  const storeSource = fs.readFileSync(
+    webappSourcePath("store.js"),
+    "utf8",
+  );
+  assert.equal(storeSource.includes("visual_timeline_fixture_loaded"), true);
+  assert.equal(storeSource.includes("visual_interaction_fixture_loaded"), true);
 
   const noWorkspaceSource = fs.readFileSync(
     webappSourcePath("components", "NoWorkspaceState.jsx"),

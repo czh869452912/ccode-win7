@@ -391,6 +391,107 @@ function App() {
     });
   }
 
+  function loadTimelineFixture() {
+    dispatch({
+      type: "visual_timeline_fixture_loaded",
+      sessionId: "visual-debug-timeline",
+      inspectorTab: "tasks",
+      timeline: [
+        {
+          id: "visual-user-1",
+          kind: "user",
+          content: "Refine the parser and show the changed files.",
+          turnId: "visual-turn-1",
+        },
+        {
+          id: "visual-read-1",
+          kind: "tool",
+          toolName: "read_file",
+          label: "Read File",
+          status: "success",
+          arguments: { path: "src/parser.c" },
+          data: { summary: "Read parser entry point." },
+          turnId: "visual-turn-1",
+          stepId: "visual-step-1",
+          stepIndex: 1,
+        },
+        {
+          id: "visual-edit-1",
+          kind: "tool",
+          toolName: "edit_file",
+          label: "Edit File",
+          status: "success",
+          arguments: { path: "src/parser.c" },
+          data: {
+            path: "src/parser.c",
+            diff_preview: "--- a/src/parser.c\n+++ b/src/parser.c\n@@ -1 +1,2 @@\n-int parse(void) { return 0; }\n+int parse(void) { return 1; }\n+int parse_extra(void) { return 2; }\n",
+          },
+          turnId: "visual-turn-1",
+          stepId: "visual-step-1",
+          stepIndex: 1,
+        },
+        {
+          id: "visual-run-1",
+          kind: "tool",
+          toolName: "run_recipe",
+          label: "Run Recipe",
+          status: "error",
+          arguments: { recipe_id: "test" },
+          error: "test_parser_handles_empty_input failed",
+          turnId: "visual-turn-1",
+          stepId: "visual-step-2",
+          stepIndex: 2,
+        },
+        {
+          id: "visual-assistant-1",
+          kind: "assistant",
+          content: "Parser change is staged, but one focused test still fails.",
+          turnId: "visual-turn-1",
+          stepId: "visual-step-2",
+          stepIndex: 2,
+        },
+      ],
+    });
+  }
+
+  function loadInteractionFixture(kind = "permission") {
+    const permission = kind === "permission"
+      ? {
+          interaction_id: "visual-permission-1",
+          kind: "permission",
+          tool_name: "edit_file",
+          category: "workspace_write",
+          reason: "Allow editing src/parser.c",
+          details: { path: "src/parser.c" },
+          turn_id: "visual-turn-1",
+          step_id: "visual-step-2",
+          step_index: 2,
+        }
+      : null;
+    const userInput = kind === "user_input"
+      ? {
+          interaction_id: "visual-input-1",
+          request_id: "visual-input-1",
+          kind: "user_input",
+          tool_name: "ask_user",
+          question: "Which parser behavior should be preserved?",
+          options: [
+            { index: 1, text: "Keep strict parsing" },
+            { index: 2, text: "Accept empty input" },
+          ],
+          turn_id: "visual-turn-1",
+          step_id: "visual-step-2",
+          step_index: 2,
+        }
+      : null;
+    dispatch({
+      type: "visual_interaction_fixture_loaded",
+      sessionId: "visual-debug-interaction",
+      permission,
+      userInput,
+    });
+  }
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search || "");
     if (params.get("visual_debug") !== "1") return undefined;
@@ -398,6 +499,8 @@ function App() {
       openDiffFixture({ title = "Visual Debug Diff", diff = "", filePath = "" } = {}) {
         openDiffSurface({ title, diff, filePath });
       },
+      loadTimelineFixture,
+      loadInteractionFixture,
     };
     return () => {
       if (window.__EMBEDAGENT_VISUAL_DEBUG__) {

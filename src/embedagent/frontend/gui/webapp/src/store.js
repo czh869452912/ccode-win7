@@ -481,6 +481,90 @@ export function reducer(state, action) {
     }
     case "append_timeline_item":
       return { ...state, timeline: state.timeline.concat(action.item) };
+    case "visual_timeline_fixture_loaded":
+      return {
+        ...state,
+        currentSessionId: action.sessionId || "visual-debug-session",
+        snapshot: action.snapshot || {
+          session_id: action.sessionId || "visual-debug-session",
+          status: "idle",
+          current_mode: state.requestedMode || DEFAULT_MODE,
+          pending_interaction_valid: false,
+        },
+        timeline: Array.isArray(action.timeline) ? action.timeline : [],
+        streamingAssistantId: "",
+        streamingReasoningId: "",
+        thinkingActive: false,
+        permission: null,
+        userInput: null,
+        interactionNotice: null,
+        inspectorTab: action.inspectorTab || state.inspectorTab,
+        inspectorOpen: true,
+        historyIntegrity: null,
+        app: {
+          ...state.app,
+          bootstrapLoaded: true,
+          hasActiveWorkspace: true,
+          activeWorkspace: state.app.activeWorkspace || {
+            id: "visual-debug-workspace",
+            path: "D:/visual-debug",
+            label: "visual-debug",
+            exists: true,
+            created_at: "",
+            last_opened_at: "",
+          },
+          workspaceError: "",
+          activatingWorkspace: false,
+        },
+        workbench: reduceWorkbenchState(state.workbench, {
+          type: "workbench_surface_activated",
+          placement: "right",
+          kind: action.inspectorTab || state.inspectorTab,
+        }),
+      };
+    case "visual_interaction_fixture_loaded": {
+      const pendingInteraction = action.permission || action.userInput || null;
+      return {
+        ...state,
+        currentSessionId: action.sessionId || "visual-debug-session",
+        snapshot: {
+          ...(state.snapshot || {}),
+          session_id: action.sessionId || "visual-debug-session",
+          status: pendingInteraction?.kind === "user_input" ? "waiting_user_input" : "waiting_permission",
+          current_mode: state.snapshot?.current_mode || state.requestedMode || DEFAULT_MODE,
+          pending_interaction_valid: Boolean(pendingInteraction),
+          pending_interaction: pendingInteraction,
+          pending_permission: action.permission || null,
+          pending_user_input: action.userInput || null,
+          has_pending_permission: Boolean(action.permission),
+        },
+        permission: action.permission || null,
+        userInput: action.userInput || null,
+        interactionNotice: null,
+        inspectorTab: "interaction",
+        inspectorOpen: true,
+        app: {
+          ...state.app,
+          bootstrapLoaded: true,
+          hasActiveWorkspace: true,
+          activeWorkspace: state.app.activeWorkspace || {
+            id: "visual-debug-workspace",
+            path: "D:/visual-debug",
+            label: "visual-debug",
+            exists: true,
+            created_at: "",
+            last_opened_at: "",
+          },
+          workspaceError: "",
+          activatingWorkspace: false,
+        },
+        workbench: reduceWorkbenchState(state.workbench, {
+          type: "workbench_surface_activated",
+          placement: "right",
+          kind: "interaction",
+        }),
+      };
+    }
     case "permission_request":
       return {
         ...state,
