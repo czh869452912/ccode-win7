@@ -12,6 +12,20 @@ export const SCENARIOS = ["load", "chat", "diff", "responsive", "app"];
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_REPO_ROOT = path.resolve(SCRIPT_DIR, "..");
+const VISUAL_DEBUG_DIFF_FIXTURE = [
+  "--- a/demo.c",
+  "+++ b/demo.c",
+  "@@ -1,3 +1,3 @@",
+  " int main(void) {",
+  "-    return 0;",
+  "+    return 1;",
+  " }",
+  "--- a/src/app/util.c",
+  "+++ b/src/app/util.c",
+  "@@ -1 +1,2 @@",
+  "+int util(void) { return 1; }",
+  "",
+].join("\n");
 
 function boolEnv(name) {
   const value = String(process.env[name] || "").trim().toLowerCase();
@@ -445,9 +459,16 @@ async function runChatScenario(page) {
 }
 
 async function runDiffScenario(page) {
-  await page.fill('[data-testid="composer-input"]', "/diff");
-  await page.click('[data-testid="send-button"]');
+  await page.waitForFunction(() => Boolean(window.__EMBEDAGENT_VISUAL_DEBUG__), null, { timeout: 10000 });
+  await page.evaluate((diff) => {
+    window.__EMBEDAGENT_VISUAL_DEBUG__.openDiffFixture({
+      title: "Visual Debug Diff",
+      diff,
+      filePath: "demo.c",
+    });
+  }, VISUAL_DEBUG_DIFF_FIXTURE);
   await page.waitForSelector('[data-testid="diff-panel"]', { timeout: 15000 });
+  await page.waitForSelector('[data-testid="diff-file-rail"]', { timeout: 15000 });
   await page.waitForSelector('[data-testid="diff-file--demo.c"]', { timeout: 15000 });
   const panelText = await page.locator('[data-testid="diff-panel"]').innerText();
   const activeTab = await page.locator('[data-testid="right-panel-tab--diff"]').getAttribute("aria-selected");
@@ -459,6 +480,7 @@ async function runDiffScenario(page) {
   if (!noOverlap) throw new Error("Right panel tabs overlap in diff scenario");
   return {
     activeTab: activeTab === "true",
+    hasFileRail: await page.locator('[data-testid="diff-file-rail"]').isVisible(),
     hasDemoDiff: panelText.includes("demo.c") && panelText.includes("return 1"),
     rightTabsDoNotOverlap: noOverlap,
   };
@@ -597,7 +619,7 @@ async function runScenarios(options, repoRoot, outputDir) {
   });
   const results = {};
   try {
-    const url = `http://127.0.0.1:${options.port}/`;
+    const url = `http://127.0.0.1:${options.port}/?visual_debug=1`;
     await page.goto(url, { waitUntil: "domcontentloaded" });
     const scenarios = parseScenarioList(options.scenario);
     for (const scenario of scenarios) {

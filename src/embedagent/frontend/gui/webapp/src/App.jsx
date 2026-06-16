@@ -391,6 +391,21 @@ function App() {
     });
   }
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search || "");
+    if (params.get("visual_debug") !== "1") return undefined;
+    window.__EMBEDAGENT_VISUAL_DEBUG__ = {
+      openDiffFixture({ title = "Visual Debug Diff", diff = "", filePath = "" } = {}) {
+        openDiffSurface({ title, diff, filePath });
+      },
+    };
+    return () => {
+      if (window.__EMBEDAGENT_VISUAL_DEBUG__) {
+        delete window.__EMBEDAGENT_VISUAL_DEBUG__;
+      }
+    };
+  }, [runtimeState.timelineItems]);
+
   async function createSession(mode) {
     const payload = await fetchJson(`/api/sessions?mode=${encodeURIComponent(mode)}`, {
       method: "POST",

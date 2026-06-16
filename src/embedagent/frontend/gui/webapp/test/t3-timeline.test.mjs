@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
 
 import {
+  buildChangedFilesTree,
   projectT3TimelineRows,
   summarizeChangedFiles,
+  summarizeDiffStats,
 } from "../src/session-runtime/t3-timeline.js";
 
 export function runT3TimelineTests() {
@@ -156,4 +158,63 @@ export function runT3TimelineTests() {
 
   assert.equal(interruptedRows.some((row) => row.kind === "turn_fold"), false);
   assert.equal(interruptedRows[1].tone, "interrupted");
+
+  const systemRows = projectT3TimelineRows({
+    turnGroups: [
+      {
+        turnId: "turn-system",
+        userItem: { id: "u-system", kind: "user", content: "show context", turnId: "turn-system" },
+        leadingSystemItems: [
+          {
+            id: "sys-1",
+            kind: "system",
+            tone: "context",
+            content: "history partially restored",
+            turnId: "turn-system",
+          },
+        ],
+        steps: [],
+        detachedItems: [
+          {
+            id: "detached-tool",
+            kind: "tool",
+            toolName: "grep_text",
+            label: "Search",
+            status: "success",
+            arguments: { pattern: "main" },
+            turnId: "turn-system",
+          },
+        ],
+        trailingTurnItems: [],
+        sessionFallbackItems: [],
+      },
+    ],
+  });
+
+  assert.equal(systemRows[1].kind, "system_notice");
+  assert.equal(systemRows[1].content, "history partially restored");
+  assert.equal(systemRows[2].kind, "work");
+  assert.equal(systemRows[2].id, "detached-tool");
+
+  const tree = buildChangedFilesTree([
+    { path: "src/app/main.c", additions: 2, deletions: 1 },
+    { path: "src/app/util.c", additions: 1, deletions: 0 },
+    { path: "README.md", additions: 0, deletions: 1 },
+  ]);
+  assert.equal(tree.length, 2);
+  assert.equal(tree[0].kind, "directory");
+  assert.equal(tree[0].name, "src/app");
+  assert.equal(tree[0].stat.additions, 3);
+  assert.equal(tree[0].stat.deletions, 1);
+  assert.deepEqual(tree[0].children.map((node) => node.path), ["src/app/main.c", "src/app/util.c"]);
+  assert.equal(tree[1].kind, "file");
+  assert.equal(tree[1].path, "README.md");
+
+  assert.deepEqual(
+    summarizeDiffStats([
+      { path: "a.c", additions: 3, deletions: 0 },
+      { path: "b.c", additions: 0, deletions: 2 },
+    ]),
+    { additions: 3, deletions: 2 },
+  );
 }

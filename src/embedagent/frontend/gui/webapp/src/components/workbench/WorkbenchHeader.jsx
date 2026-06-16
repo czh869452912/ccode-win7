@@ -27,52 +27,56 @@ export default function WorkbenchHeader({
         </span>
       ) : null}
       <div className="header-right">
-        <span className={`status-dot ${currentStatus}`} title={currentStatus} />
-        <span
-          className={`status-label ${
-            currentStatus === "idle" ? "idle" : currentStatus === "error" ? "error" : ""
-          }`}
-        >
-          {currentStatus}
-        </span>
-        {currentSessionId ? (
-          <span className="meta-text">{currentSessionId.slice(0, 8)}</span>
-        ) : null}
-        {turnsUsed > 0 ? (
-          <span className="meta-text">turns {turnsUsed}/{maxTurns}</span>
-        ) : null}
-        <button className="ghost" onClick={onOpenPalette} data-testid="open-command-palette">
-          Cmd
-        </button>
-        <button className="ghost" onClick={onRefresh} aria-label={t("header.refresh", lang)} data-testid="refresh-sessions">
-          {t("header.refresh", lang)}
-        </button>
-        <button
-          className="ghost lang-toggle"
-          onClick={onToggleLang}
-          aria-label="Toggle language"
-          data-testid="lang-toggle"
-        >
-          {t("lang.toggle", lang)}
-        </button>
-        <button
-          className={`ghost drawer-toggle${bottomDrawerOpen ? " active" : ""}`}
-          onClick={onToggleBottomDrawer}
-          aria-pressed={bottomDrawerOpen}
-          title="Toggle run output"
-          data-testid="drawer-toggle"
-        >
-          Run
-        </button>
-        <button
-          className={`ghost inspector-toggle${rightPanelOpen ? " active" : ""}`}
-          onClick={onToggleRightPanel}
-          title={t("header.toggleInspector", lang)}
-          aria-pressed={rightPanelOpen}
-          data-testid="inspector-toggle"
-        >
-          Panel
-        </button>
+        <div className="header-status-group">
+          <span className={`status-dot ${currentStatus}`} title={currentStatus} />
+          <span
+            className={`status-label ${
+              currentStatus === "idle" ? "idle" : currentStatus === "error" ? "error" : ""
+            }`}
+          >
+            {currentStatus}
+          </span>
+          {currentSessionId ? (
+            <span className="meta-text">{currentSessionId.slice(0, 8)}</span>
+          ) : null}
+          {turnsUsed > 0 ? (
+            <span className="meta-text">turns {turnsUsed}/{maxTurns}</span>
+          ) : null}
+        </div>
+        <div className="header-action-group">
+          <button className="ghost" onClick={onOpenPalette} data-testid="open-command-palette">
+            Cmd
+          </button>
+          <button className="ghost" onClick={onRefresh} aria-label={t("header.refresh", lang)} data-testid="refresh-sessions">
+            {t("header.refresh", lang)}
+          </button>
+          <button
+            className="ghost lang-toggle"
+            onClick={onToggleLang}
+            aria-label="Toggle language"
+            data-testid="lang-toggle"
+          >
+            {t("lang.toggle", lang)}
+          </button>
+          <button
+            className={`ghost drawer-toggle${bottomDrawerOpen ? " active" : ""}`}
+            onClick={onToggleBottomDrawer}
+            aria-pressed={bottomDrawerOpen}
+            title="Toggle run output"
+            data-testid="drawer-toggle"
+          >
+            Run
+          </button>
+          <button
+            className={`ghost inspector-toggle${rightPanelOpen ? " active" : ""}`}
+            onClick={onToggleRightPanel}
+            title={t("header.toggleInspector", lang)}
+            aria-pressed={rightPanelOpen}
+            data-testid="inspector-toggle"
+          >
+            Panel
+          </button>
+        </div>
       </div>
     </header>
   );

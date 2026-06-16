@@ -5,7 +5,7 @@
 > 状态：`active`
 > 类型：`module`
 > 负责人：`project maintainers`
-> 最后同步日期：`2026-06-15`
+> 最后同步日期：`2026-06-16`
 > 对应代码范围：`src/embedagent/frontend/gui/`
 
 ## 1. Purpose And Scope
@@ -112,12 +112,20 @@ Pending permission and user-input interactions render in the composer through
 show interaction diagnostics, but the primary decision surface stays near the
 next user action.
 
+Changed-files rows render a T3code-like directory tree derived by
+`t3-timeline.js`. The tree is a frontend-local projection over existing
+timeline items: it normalizes path separators, compacts single-child
+directories, rolls additions/deletions up to directory rows, and keeps file
+clicks wired to the Diff surface.
+
 The Diff surface is a right-panel surface (`kind = "diff"`) backed by
 `session-runtime/diff-model.js` and `components/diff/DiffPanel.jsx`. `/diff`
 command results and diff-capable timeline entries open this surface with parsed
-unified-diff file summaries. Rendering uses the existing `DiffView` wrapper
-with a raw fallback for malformed diffs. This surface is display-only; Git
-execution remains backend/tool-owned.
+unified-diff file summaries. It uses a T3code-like header, changed-file rail,
+and focused diff viewport; narrow right panels and mobile layouts stack the rail
+above the diff viewport. Rendering uses the existing `DiffView` wrapper with a
+raw fallback for malformed diffs. This surface is display-only; Git execution
+remains backend/tool-owned.
 
 ## 8. Verification And Tests
 
@@ -134,6 +142,13 @@ execution remains backend/tool-owned.
 `npm run visual:gui` 是开发机调试入口，不是产品运行时依赖。Playwright
 和浏览器缓存只用于当前 Win10/Win11 开发流程；离线 Win7 bundle 仍通过
 PyWebView/WebView2 Fixed Version 109 运行，且不要求 Node 或 Playwright。
+
+The visual harness opens the GUI with `?visual_debug=1`. Only under that
+explicit query parameter does the React app expose
+`window.__EMBEDAGENT_VISUAL_DEBUG__`, currently used to open an offline
+unified-diff fixture for the `diff` scenario. This hook is a development-only
+visual QA affordance. It is not a frontend protocol contract, not an Agent Core
+capability, and not available through normal product navigation.
 
 ## 9. Change Triggers
 

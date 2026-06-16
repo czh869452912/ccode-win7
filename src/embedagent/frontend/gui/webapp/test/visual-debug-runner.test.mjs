@@ -54,6 +54,8 @@ export async function runVisualDebugRunnerTests() {
   assert.equal(args.buildWebapp, true);
   assert.equal(runnerSource.includes('"cmd.exe"'), true);
   assert.equal(runnerSource.includes('"npm.cmd"'), false);
+  assert.equal(runnerSource.includes("visual_debug=1"), true);
+  assert.equal(runnerSource.includes("__EMBEDAGENT_VISUAL_DEBUG__"), true);
 
   const noBuildArgs = runner.parseVisualDebugArgs(["--no-build"]);
   assert.equal(noBuildArgs.buildWebapp, false);
