@@ -17,6 +17,7 @@ import { runDiffModelTests } from "./diff-model.test.mjs";
 import { runInteractionModelTests } from "./interaction-model.test.mjs";
 import { runSessionRuntimeTests } from "./session-runtime.test.mjs";
 import { runT3TimelineTests } from "./t3-timeline.test.mjs";
+import { runTimelineUiStateTests } from "./timeline-ui-state.test.mjs";
 import { runVisualLanguageCssTests } from "./visual-language-css.test.mjs";
 import { runVisualDebugRunnerTests } from "./visual-debug-runner.test.mjs";
 import { runWebSocketLifecycleTests } from "./websocket-lifecycle.test.mjs";
@@ -683,6 +684,7 @@ async function main() {
   runAppWorkspaceTests();
   runSessionRuntimeTests();
   runT3TimelineTests();
+  runTimelineUiStateTests();
   runVisualLanguageCssTests();
   runInteractionModelTests();
   runDiffModelTests();
