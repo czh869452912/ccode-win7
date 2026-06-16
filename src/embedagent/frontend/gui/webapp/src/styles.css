@@ -853,6 +853,14 @@ body {
   color: var(--text-primary);
 }
 
+.t3-work-row.running .t3-work-summary {
+  color: var(--color-warning);
+}
+
+.t3-work-row.error .t3-work-summary {
+  color: var(--color-error);
+}
+
 .t3-work-icon {
   width: 18px;
   height: 18px;
@@ -903,6 +911,10 @@ body {
   background: var(--bg-default);
   border-radius: var(--r-sm);
   padding: 8px;
+}
+
+.timeline-work-detail {
+  scroll-margin-top: 16px;
 }
 
 .t3-work-detail pre {

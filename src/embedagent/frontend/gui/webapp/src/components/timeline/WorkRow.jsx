@@ -53,7 +53,7 @@ export default function WorkRow({ row, expanded = false, onToggle = null, rowKey
         <span className={`t3-work-status ${row.status || "running"}`}>{statusLabel(row)}</span>
       </button>
       {expanded && hasDetail ? (
-        <div className="t3-work-detail" data-testid="timeline-work-detail">
+        <div className="t3-work-detail timeline-work-detail" data-testid="timeline-work-detail">
           {row.detail ? <pre>{row.detail}</pre> : null}
           {Array.isArray(row.changedFiles) && row.changedFiles.length > 0 ? (
             <div className="t3-work-file-list">

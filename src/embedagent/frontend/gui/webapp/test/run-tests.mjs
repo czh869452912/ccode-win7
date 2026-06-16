@@ -603,6 +603,9 @@ async function main() {
   assert.equal(stylesSource.includes("todo-"), false);
   assert.equal(stylesSource.includes("mode-code"), false);
   assert.equal(stylesSource.includes("mode-build"), true);
+  assert.equal(stylesSource.includes(".t3-work-row.error"), true);
+  assert.equal(stylesSource.includes(".t3-work-row.running"), true);
+  assert.equal(stylesSource.includes("timeline-work-detail"), true);
 
   const appSource = fs.readFileSync(
     webappSourcePath("App.jsx"),
