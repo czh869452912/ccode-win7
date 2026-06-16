@@ -63,7 +63,7 @@ function PermissionPanel({ view, remember, onRememberChange, onRespond }) {
       className="composer-interaction-panel permission"
       role="dialog"
       aria-label={view.summary}
-      data-testid="composer-permission-panel"
+      data-testid="composer-interaction-panel"
     >
       <div className="composer-interaction-heading">
         <span className="composer-interaction-kicker">PENDING APPROVAL</span>
@@ -120,7 +120,7 @@ function UserInputPanel({ view, answerValue, onAnswerChange, onRespond }) {
       className="composer-interaction-panel user-input"
       role="dialog"
       aria-label={view.summary}
-      data-testid="composer-user-input-panel"
+      data-testid="composer-interaction-panel"
     >
       <div className="composer-interaction-heading">
         <span className="composer-interaction-kicker">INPUT REQUIRED</span>

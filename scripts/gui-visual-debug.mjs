@@ -8,7 +8,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { createRequire } from "node:module";
 
-export const SCENARIOS = ["load", "chat", "diff", "responsive", "app"];
+export const SCENARIOS = ["load", "chat", "diff", "responsive", "app", "timeline", "interaction"];
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_REPO_ROOT = path.resolve(SCRIPT_DIR, "..");
@@ -486,6 +486,53 @@ async function runDiffScenario(page) {
   };
 }
 
+async function runTimelineScenario(page) {
+  await page.waitForFunction(() => Boolean(window.__EMBEDAGENT_VISUAL_DEBUG__), null, { timeout: 10000 });
+  await page.evaluate(() => {
+    window.__EMBEDAGENT_VISUAL_DEBUG__.loadTimelineFixture();
+  });
+  await page.waitForSelector('[data-testid="timeline-user-message"]', { timeout: 10000 });
+  await page.waitForSelector('[data-testid="changed-files-card"]', { timeout: 10000 });
+  const firstFold = page.locator('[data-testid="timeline-turn-fold"] button[aria-expanded="false"]').first();
+  if (await firstFold.count()) {
+    await firstFold.click();
+  }
+  await page.waitForSelector('[data-testid="timeline-work-row"]', { timeout: 10000 });
+  const firstCollapsed = page.locator('[data-testid="timeline-work-row"] button[aria-expanded="false"]').first();
+  if (await firstCollapsed.count()) {
+    await firstCollapsed.click();
+  }
+  await page.waitForSelector('[data-testid="timeline-work-detail"]', { timeout: 10000 });
+  const rowCount = await page.locator("[data-row-kind]").count();
+  const noOverlap = await assertNoOverlap(page);
+  if (!noOverlap) throw new Error("Right panel tabs overlap in timeline scenario");
+  return {
+    rowCount,
+    hasChangedFiles: await page.locator('[data-testid="changed-files-card"]').isVisible(),
+    hasExpandedDetail: await page.locator('[data-testid="timeline-work-detail"]').first().isVisible(),
+    rightTabsDoNotOverlap: noOverlap,
+  };
+}
+
+async function runInteractionScenario(page) {
+  await page.waitForFunction(() => Boolean(window.__EMBEDAGENT_VISUAL_DEBUG__), null, { timeout: 10000 });
+  await page.evaluate(() => {
+    window.__EMBEDAGENT_VISUAL_DEBUG__.loadInteractionFixture("permission");
+  });
+  await page.waitForSelector('[data-testid="composer-interaction-panel"]', { timeout: 10000 });
+  const panelText = await page.locator('[data-testid="composer-interaction-panel"]').innerText();
+  const noOverlap = await assertNoOverlap(page);
+  if (!panelText.includes("edit_file") && !panelText.includes("parser.c")) {
+    throw new Error("Interaction fixture did not render permission details");
+  }
+  if (!noOverlap) throw new Error("Right panel tabs overlap in interaction scenario");
+  return {
+    hasInteractionPanel: true,
+    panelText,
+    rightTabsDoNotOverlap: noOverlap,
+  };
+}
+
 async function runAppScenario(page, options) {
   const first = options.appWorkspaceA;
   const second = options.appWorkspaceB;
@@ -631,6 +678,10 @@ async function runScenarios(options, repoRoot, outputDir) {
         results.chat = await runChatScenario(page);
       } else if (scenario === "diff") {
         results.diff = await runDiffScenario(page);
+      } else if (scenario === "timeline") {
+        results.timeline = await runTimelineScenario(page);
+      } else if (scenario === "interaction") {
+        results.interaction = await runInteractionScenario(page);
       } else if (scenario === "responsive") {
         results.responsive = await runResponsiveScenario(page, options, outputDir);
       }
@@ -652,7 +703,7 @@ function printHelp() {
   console.log(`Usage: node scripts/gui-visual-debug.mjs [options]
 
 Options:
-  --scenario load|chat|diff|responsive|app|all
+  --scenario load|chat|diff|responsive|app|timeline|interaction|all
                                    Scenario list to run (default: load)
   --workspace PATH                Existing workspace; temp workspace by default
   --output PATH                   Output dir for screenshots and summary JSON
