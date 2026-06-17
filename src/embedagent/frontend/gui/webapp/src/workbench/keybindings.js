@@ -5,6 +5,7 @@ export const DEFAULT_KEYBINDINGS = [
   { key: "escape", commandId: "palette.close", when: "palette" },
   { key: "escape", commandId: "message.stop", when: "running" },
   { key: "mod+b", commandId: "view.toggle_right_panel", when: "always" },
+  { key: "mod+,", commandId: "app.settings", when: "always" },
   { key: "mod+j", commandId: "view.toggle_bottom_drawer", when: "always" },
   { key: "mod+1", commandId: "surface.tasks", when: "always" },
   { key: "mod+2", commandId: "surface.plan", when: "always" },

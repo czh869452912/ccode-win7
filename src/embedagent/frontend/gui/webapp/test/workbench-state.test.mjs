@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 
 import {
+  APP_COMMANDS,
+  isAppCommand,
+} from "../src/app-shell/commands.js";
+import {
   COMMAND_GROUPS,
   WORKBENCH_COMMANDS,
   commandById,
@@ -24,6 +28,8 @@ import {
 export function runWorkbenchStateTests() {
   assert.equal(RIGHT_PANEL_SURFACES.includes("tasks"), true);
   assert.equal(RIGHT_PANEL_SURFACES.includes("preview"), true);
+  assert.equal(RIGHT_PANEL_SURFACES.includes("settings"), true);
+  assert.equal(RIGHT_PANEL_SURFACES.includes("diagnostics"), true);
   assert.equal(BOTTOM_DRAWER_SURFACES.includes("run_output"), true);
 
   const initial = createWorkbenchState();
@@ -80,8 +86,15 @@ export function runWorkbenchStateTests() {
   assert.equal(reduced.surfacesBySession["sess-2"].right[0].kind, "runtime");
 
   assert.equal(COMMAND_GROUPS.includes("session"), true);
+  assert.equal(COMMAND_GROUPS.includes("app"), true);
   assert.equal(COMMAND_GROUPS.includes("surface"), true);
   assert.equal(COMMAND_GROUPS.includes("workspace"), true);
+  assert.equal(APP_COMMANDS.some((item) => item.id === "app.settings"), true);
+  assert.equal(isAppCommand("app.diagnostics"), true);
+  assert.equal(isAppCommand("workspace.open"), false);
+  assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "app.settings"), true);
+  assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "app.diagnostics"), true);
+  assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "app.reload"), true);
   assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "surface.tasks"), true);
   assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "workspace.open"), true);
   assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "workspace.refresh"), true);
@@ -91,8 +104,13 @@ export function runWorkbenchStateTests() {
   assert.equal(commandById("message.send").slash, "");
 
   const visibleWhenIdle = visibleCommands({ hasSession: true, isRunning: false });
+  assert.equal(visibleWhenIdle.some((item) => item.id === "app.settings"), true);
   assert.equal(visibleWhenIdle.some((item) => item.id === "message.send"), true);
   assert.equal(visibleWhenIdle.some((item) => item.id === "message.stop"), false);
+
+  const visibleWithoutSession = visibleCommands({ hasSession: false, isRunning: false });
+  assert.equal(visibleWithoutSession.some((item) => item.id === "app.settings"), true);
+  assert.equal(visibleWithoutSession.some((item) => item.id === "mode.build"), false);
 
   const visibleWhenRunning = visibleCommands({ hasSession: true, isRunning: true });
   assert.equal(visibleWhenRunning.some((item) => item.id === "message.stop"), true);
@@ -106,12 +124,19 @@ export function runWorkbenchStateTests() {
   };
   assert.equal(eventToKey(syntheticEvent), "mod+k");
   assert.equal(DEFAULT_KEYBINDINGS.some((item) => item.key === "mod+k"), true);
+  assert.equal(DEFAULT_KEYBINDINGS.some((item) => item.key === "mod+," && item.commandId === "app.settings"), true);
 
   const command = resolveKeybinding(DEFAULT_KEYBINDINGS, "mod+k", {
     paletteOpen: false,
     isRunning: false,
   });
   assert.equal(command.id, "palette.open");
+
+  const settingsCommand = resolveKeybinding(DEFAULT_KEYBINDINGS, "mod+,", {
+    paletteOpen: false,
+    isRunning: false,
+  });
+  assert.equal(settingsCommand.id, "app.settings");
 
   const blocked = resolveKeybinding(DEFAULT_KEYBINDINGS, "enter", {
     paletteOpen: false,

@@ -9,6 +9,8 @@ export const RIGHT_PANEL_SURFACES = [
   "diff",
   "permissions",
   "runtime",
+  "settings",
+  "diagnostics",
   "preview",
   "log",
 ];

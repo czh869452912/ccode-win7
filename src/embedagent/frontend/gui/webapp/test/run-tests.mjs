@@ -35,6 +35,8 @@ function webappSourcePath(...parts) {
 async function main() {
   assert.equal(initialState.requestedMode, "explore");
   assert.equal(initialState.app.bootstrapLoaded, false);
+  assert.equal(initialState.app.app.protocol, "gui_app_shell_v1");
+  assert.equal(initialState.app.settings.confirm_workspace_switch, true);
   assert.equal(initialState.app.hasActiveWorkspace, false);
   assert.equal(initialState.app.activeWorkspace, null);
 
@@ -67,9 +69,31 @@ async function main() {
   assert.equal(appLoadedState.app.activeWorkspace.id, "ws-1");
   assert.equal(appLoadedState.app.hasActiveWorkspace, true);
 
+  const appSettingsState = reducer(appLoadedState, {
+    type: "app_shell_settings_changed",
+    patch: { confirm_workspace_switch: false, unknown: true },
+  });
+  assert.equal(appSettingsState.app.settings.confirm_workspace_switch, false);
+  assert.equal(appSettingsState.app.settings.unknown, undefined);
+
+  const directAppLoadedState = reducer(initialState, {
+    type: "app_shell_bootstrap_loaded",
+    bootstrap: {
+      app: { shell_version: 1, product_name: "EmbedAgent", protocol: "gui_app_shell_v1" },
+      workspaces: [],
+      active_workspace: null,
+      has_active_workspace: false,
+      diagnostics: { host: { platform: "win32" } },
+      capabilities: { app_commands: ["app.settings"] },
+      settings: { confirm_workspace_switch: true },
+    },
+  });
+  assert.equal(directAppLoadedState.app.bootstrapLoaded, true);
+  assert.equal(directAppLoadedState.app.diagnostics.host.platform, "win32");
+
   const switchedWorkspaceState = reducer(
     {
-      ...appLoadedState,
+      ...appSettingsState,
       currentSessionId: "sess-old",
       sessions: [{ session_id: "sess-old" }],
       timeline: [{ id: "row-old" }],
@@ -90,6 +114,7 @@ async function main() {
   assert.deepEqual(switchedWorkspaceState.timeline, []);
   assert.deepEqual(switchedWorkspaceState.fileTree, []);
   assert.equal(switchedWorkspaceState.app.hasActiveWorkspace, false);
+  assert.equal(switchedWorkspaceState.app.settings.confirm_workspace_switch, true);
 
   const threadLifecycleFixtureState = reducer(initialState, {
     type: "visual_thread_lifecycle_fixture_loaded",

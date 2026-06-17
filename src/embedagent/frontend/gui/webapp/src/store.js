@@ -1,7 +1,9 @@
 import { injectChildren, makeEventId, resolveTimelineAnchor } from "./state-helpers.js";
 import { focusDiffFile } from "./session-runtime/diff-model.js";
+import { createAppShellState } from "./app-shell/model.js";
+import { reduceAppShellState } from "./app-shell/reducer.js";
 import { createWorkbenchState, reduceWorkbenchState } from "./workbench/surfaces.js";
-import { normalizeAppBootstrap, resetWorkspaceScopedState } from "./app-workspaces.js";
+import { resetWorkspaceScopedState } from "./app-workspaces.js";
 
 export const DEFAULT_MODE = "explore";
 
@@ -44,15 +46,7 @@ export const initialState = {
   activeStepIndex: 0,
   historyIntegrity: null,
   workbench: createWorkbenchState(),
-  app: {
-    bootstrapLoaded: false,
-    workspaces: [],
-    activeWorkspace: null,
-    hasActiveWorkspace: false,
-    workspacePathInput: "",
-    workspaceError: "",
-    activatingWorkspace: false,
-  },
+  app: createAppShellState(),
 };
 
 function liveProjectionMeta() {
@@ -95,65 +89,57 @@ export function reducer(state, action) {
       return { ...state, composer: action.value };
     case "set_connection":
       return { ...state, connectionState: action.value };
-    case "app_bootstrap_loaded": {
-      const bootstrap = normalizeAppBootstrap(action.bootstrap || {});
+    case "app_bootstrap_loaded":
       return {
         ...state,
-        app: {
-          ...state.app,
-          bootstrapLoaded: true,
-          workspaces: bootstrap.workspaces,
-          activeWorkspace: bootstrap.activeWorkspace,
-          hasActiveWorkspace: bootstrap.hasActiveWorkspace,
-          workspaceError: bootstrap.lastError || "",
-          activatingWorkspace: false,
-        },
+        app: reduceAppShellState(state.app, {
+          type: "app_shell_bootstrap_loaded",
+          bootstrap: action.bootstrap || {},
+        }),
       };
-    }
     case "workspace_path_changed":
       return {
         ...state,
-        app: {
-          ...state.app,
-          workspacePathInput: action.value || "",
-          workspaceError: "",
-        },
+        app: reduceAppShellState(state.app, {
+          type: "app_shell_workspace_path_changed",
+          value: action.value,
+        }),
       };
     case "workspace_activation_started":
       return {
         ...state,
-        app: {
-          ...state.app,
-          activatingWorkspace: true,
-          workspaceError: "",
-        },
+        app: reduceAppShellState(state.app, {
+          type: "app_shell_workspace_activation_started",
+        }),
       };
     case "workspace_activation_failed":
       return {
         ...state,
-        app: {
-          ...state.app,
-          activatingWorkspace: false,
-          workspaceError: action.error || "workspace_open_failed",
-        },
+        app: reduceAppShellState(state.app, {
+          type: "app_shell_workspace_activation_failed",
+          error: action.error,
+        }),
       };
     case "workspace_switched": {
-      const bootstrap = normalizeAppBootstrap(action.bootstrap || {});
       const reset = resetWorkspaceScopedState(state);
       return {
         ...reset,
-        app: {
-          ...reset.app,
-          bootstrapLoaded: true,
-          workspaces: bootstrap.workspaces,
-          activeWorkspace: bootstrap.activeWorkspace,
-          hasActiveWorkspace: bootstrap.hasActiveWorkspace,
-          workspacePathInput: "",
-          workspaceError: bootstrap.lastError || "",
-          activatingWorkspace: false,
-        },
+        app: reduceAppShellState(reset.app, {
+          type: "app_shell_workspace_switched",
+          bootstrap: action.bootstrap || {},
+        }),
       };
     }
+    case "app_shell_bootstrap_loaded":
+    case "app_shell_workspace_path_changed":
+    case "app_shell_workspace_activation_started":
+    case "app_shell_workspace_activation_failed":
+    case "app_shell_workspace_switched":
+    case "app_shell_settings_changed":
+      return {
+        ...state,
+        app: reduceAppShellState(state.app, action),
+      };
     case "sessions_loaded":
       return { ...state, sessions: action.sessions };
     case "session_activated":

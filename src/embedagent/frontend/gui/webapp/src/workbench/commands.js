@@ -1,4 +1,7 @@
+import { APP_COMMANDS } from "../app-shell/commands.js";
+
 export const COMMAND_GROUPS = [
+  "app",
   "session",
   "message",
   "mode",
@@ -9,6 +12,7 @@ export const COMMAND_GROUPS = [
 ];
 
 export const WORKBENCH_COMMANDS = [
+  ...APP_COMMANDS,
   { id: "session.new", group: "session", label: "New Session", slash: "/new", visibleWhen: "always" },
   { id: "thread.new", group: "session", label: "New Thread", slash: "", visibleWhen: "always", keywords: ["session", "chat"] },
   { id: "session.refresh", group: "session", label: "Refresh Sessions", slash: "/sessions", visibleWhen: "always" },
