@@ -24,6 +24,7 @@ from embedagent.frontend.gui.backend.app_host import (
 from embedagent.frontend.gui.backend.app_shell import AppShellService
 from embedagent.frontend.gui.backend.bridge import BlockingResult, ThreadsafeAsyncDispatcher
 from embedagent.frontend.gui.backend.session_events import build_session_event
+from embedagent.frontend.gui.backend.source_control_service import SourceControlService
 from embedagent.frontend.gui.backend.terminal_service import TerminalService
 from embedagent.modes import DEFAULT_MODE
 from embedagent.protocol import (
@@ -259,6 +260,13 @@ def _terminal_http_error(exc: ValueError) -> HTTPException:
     if detail.startswith("terminal_start_failed"):
         return HTTPException(status_code=422, detail=detail)
     return HTTPException(status_code=422, detail=detail)
+
+
+def _source_control_http_error(exc: ValueError) -> HTTPException:
+    detail = str(exc or "").strip() or "source_control_failed"
+    if detail in ("invalid_diff_scope", "path_outside_workspace"):
+        return HTTPException(status_code=422, detail=detail)
+    return HTTPException(status_code=422, detail=detail or "source_control_failed")
 
 
 class WebSocketFrontend(FrontendCallbacks):
@@ -611,6 +619,7 @@ class GUIBackend:
         app_host: Optional[GUIAppHost] = None,
         host_diagnostics: Optional[Dict[str, Any]] = None,
         terminal_service: Optional[Any] = None,
+        source_control_service: Optional[Any] = None,
     ):
         if core is None and app_host is None:
             raise ValueError("core_or_app_host_required")
@@ -625,6 +634,9 @@ class GUIBackend:
         self.terminal_service = terminal_service
         self._terminal_service_injected = terminal_service is not None
         self._terminal_workspace_path = ""
+        self.source_control_service = source_control_service
+        self._source_control_service_injected = source_control_service is not None
+        self._source_control_workspace_path = ""
         if self.terminal_service is not None and hasattr(self.terminal_service, "set_event_sink"):
             self.terminal_service.set_event_sink(self._emit_terminal_event)
         self.core = _ActiveCoreProxy(self)  # Compatibility for existing route code.
@@ -672,6 +684,33 @@ class GUIBackend:
                 event_sink=self._emit_terminal_event,
             )
         return self.terminal_service
+
+    def _active_workspace_path(self) -> str:
+        self._require_core()
+        host_state = self.app_host.bootstrap()
+        active_workspace = (
+            host_state.get("active_workspace") if isinstance(host_state, dict) else None
+        )
+        workspace_path = ""
+        if isinstance(active_workspace, dict):
+            workspace_path = str(active_workspace.get("path") or "")
+        if not workspace_path:
+            raise HTTPException(status_code=409, detail="no_active_workspace")
+        return os.path.realpath(workspace_path)
+
+    def _source_control(self) -> Any:
+        real_workspace = self._active_workspace_path()
+        if (
+            self.source_control_service is not None
+            and not self._source_control_service_injected
+            and self._source_control_workspace_path
+            and real_workspace != self._source_control_workspace_path
+        ):
+            self.source_control_service = None
+        if self.source_control_service is None:
+            self._source_control_workspace_path = real_workspace
+            self.source_control_service = SourceControlService(workspace_root=real_workspace)
+        return self.source_control_service
 
     def _emit_terminal_event(self, event: Dict[str, Any]) -> None:
         self.frontend._dispatch_message({"type": "terminal_event", "data": {"event": dict(event)}})
@@ -747,6 +786,25 @@ class GUIBackend:
         @app.delete("/api/app/workspaces/{workspace_id}")
         async def remove_app_workspace(workspace_id: str):
             return self.app_shell.remove_workspace(workspace_id)
+
+        @app.get("/api/app/source-control/status")
+        async def get_source_control_status():
+            source_control = self._source_control()
+            return {"source_control": source_control.status()}
+
+        @app.post("/api/app/source-control/refresh")
+        async def refresh_source_control_status():
+            source_control = self._source_control()
+            return {"source_control": source_control.status()}
+
+        @app.get("/api/app/source-control/diff")
+        async def get_source_control_diff(path: str, scope: str = "unstaged"):
+            source_control = self._source_control()
+            try:
+                payload = source_control.diff(path, scope=scope)
+            except ValueError as exc:
+                raise _source_control_http_error(exc)
+            return {"diff": payload}
 
         # API 路由
         @app.get("/api/sessions")

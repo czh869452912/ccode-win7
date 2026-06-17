@@ -87,9 +87,22 @@ class TestGuiAppShellService(unittest.TestCase):
         self.assertIn("app.reload", payload["capabilities"]["app_commands"])
         self.assertIn("settings", payload["capabilities"]["surfaces"]["right_panel"])
         self.assertIn("diagnostics", payload["capabilities"]["surfaces"]["right_panel"])
+        self.assertIn("source_control", payload["capabilities"]["surfaces"]["right_panel"])
         self.assertEqual(
             payload["capabilities"]["thread_lifecycle"],
             {"rename": True, "fork": True, "archive": True},
+        )
+        self.assertEqual(
+            payload["capabilities"]["source_control"],
+            {
+                "enabled": True,
+                "vcs": ["git"],
+                "read_only": True,
+                "remote_providers": False,
+                "network": False,
+                "checkpoints": False,
+                "requires_active_workspace": True,
+            },
         )
         self.assertEqual(
             payload["capabilities"]["terminal"],

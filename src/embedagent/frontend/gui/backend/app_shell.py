@@ -104,8 +104,17 @@ class AppShellService(object):
                 "workspace.remove_current",
             ],
             "surfaces": {
-                "right_panel": ["settings", "diagnostics"],
+                "right_panel": ["settings", "diagnostics", "source_control"],
                 "bottom_drawer": ["terminal", "run_output", "logs"],
+            },
+            "source_control": {
+                "enabled": True,
+                "vcs": ["git"],
+                "read_only": True,
+                "remote_providers": False,
+                "network": False,
+                "checkpoints": False,
+                "requires_active_workspace": True,
             },
             "terminal": {
                 "enabled": True,
