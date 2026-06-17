@@ -676,6 +676,12 @@ async function main() {
   assert.equal(appSource.includes("visual_timeline_fixture_loaded"), true);
   assert.equal(appSource.includes("visual_interaction_fixture_loaded"), true);
   assert.equal(appSource.includes("visual_thread_lifecycle_fixture_loaded"), true);
+  assert.equal(appSource.includes("renameThread"), true);
+  assert.equal(appSource.includes("archiveThread"), true);
+  assert.equal(appSource.includes("forkThread"), true);
+  assert.equal(appSource.includes("/rename"), true);
+  assert.equal(appSource.includes("/archive"), true);
+  assert.equal(appSource.includes("/fork"), true);
   assert.equal(appSource.includes('command.id === "app.settings"'), true);
   assert.equal(appSource.includes('command.id === "app.diagnostics"'), true);
   assert.equal(appSource.includes('command.id === "app.reload"'), true);
@@ -720,6 +726,7 @@ async function main() {
   );
   assert.equal(appHomeModelSource.includes("THREAD_LIFECYCLE_ACTIONS"), true);
   assert.equal(appHomeModelSource.includes("buildThreadLifecycleActions"), true);
+  assert.equal(appHomeModelSource.includes("session.thread?.title"), true);
   assert.equal(sidebarSource.includes("Threads"), true);
 
   const workbenchHeaderSource = fs.readFileSync(

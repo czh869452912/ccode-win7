@@ -99,7 +99,9 @@ export function buildAppHomeModel({
       return {
         id: sessionId,
         title:
-          String(session.user_goal || "").trim()
+          String(session.thread?.title || "").trim()
+          || String(session.title || "").trim()
+          || String(session.user_goal || "").trim()
           || String(session.summary_text || "").trim()
           || `Session ${sessionId.slice(0, 8)}`,
         mode: String(session.current_mode || defaultMode || "explore"),
