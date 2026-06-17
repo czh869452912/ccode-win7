@@ -30,6 +30,7 @@ export function runWorkbenchStateTests() {
   assert.equal(RIGHT_PANEL_SURFACES.includes("preview"), true);
   assert.equal(RIGHT_PANEL_SURFACES.includes("settings"), true);
   assert.equal(RIGHT_PANEL_SURFACES.includes("diagnostics"), true);
+  assert.equal(RIGHT_PANEL_SURFACES.includes("source_control"), true);
   assert.equal(BOTTOM_DRAWER_SURFACES.includes("terminal"), true);
   assert.equal(BOTTOM_DRAWER_SURFACES.includes("run_output"), true);
 
@@ -97,6 +98,7 @@ export function runWorkbenchStateTests() {
   assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "app.diagnostics"), true);
   assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "app.reload"), true);
   assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "surface.tasks"), true);
+  assert.equal(commandById("surface.source_control").surface, "source_control");
   assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "workspace.open"), true);
   assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "workspace.refresh"), true);
   assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "workspace.remove_current"), true);

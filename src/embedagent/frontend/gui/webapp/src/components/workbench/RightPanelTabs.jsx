@@ -10,6 +10,7 @@ const LABELS = {
   problems: "Problems",
   review: "Review",
   diff: "Diff",
+  source_control: "Source",
   permissions: "Permissions",
   runtime: "Runtime",
   settings: "Settings",

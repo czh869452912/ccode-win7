@@ -76,6 +76,22 @@ function normalizeTerminalCapability(input = {}) {
   };
 }
 
+function normalizeSourceControlCapability(input = {}) {
+  const raw = input.source_control || input.sourceControl || {};
+  const value = raw && typeof raw === "object" ? raw : {};
+  return {
+    enabled: value.enabled === true,
+    vcs: Array.isArray(value.vcs) ? value.vcs.map(String) : [],
+    readOnly: value.read_only !== false && value.readOnly !== false,
+    remoteProviders:
+      value.remote_providers === true || value.remoteProviders === true,
+    network: value.network === true,
+    checkpoints: value.checkpoints === true,
+    requiresActiveWorkspace:
+      value.requires_active_workspace === true || value.requiresActiveWorkspace === true,
+  };
+}
+
 export function normalizeAppCapabilities(input = {}) {
   const surfaces = input.surfaces && typeof input.surfaces === "object" ? input.surfaces : {};
   return {
@@ -101,6 +117,7 @@ export function normalizeAppCapabilities(input = {}) {
           ? surfaces.bottomDrawer.map(String)
           : [],
     },
+    sourceControl: normalizeSourceControlCapability(input),
     terminal: normalizeTerminalCapability(input),
     threadLifecycle: normalizeThreadLifecycle(input),
   };

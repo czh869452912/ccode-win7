@@ -7,6 +7,7 @@ export const RIGHT_PANEL_SURFACES = [
   "problems",
   "review",
   "diff",
+  "source_control",
   "permissions",
   "runtime",
   "settings",

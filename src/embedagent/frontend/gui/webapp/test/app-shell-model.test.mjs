@@ -29,6 +29,8 @@ export function runAppShellModelTests() {
   assert.equal(initial.capabilities.terminal.enabled, false);
   assert.equal(initial.capabilities.terminal.pty, false);
   assert.equal(initial.capabilities.terminal.resize, false);
+  assert.equal(initial.capabilities.sourceControl.enabled, false);
+  assert.equal(initial.capabilities.sourceControl.readOnly, true);
   assert.equal(initial.capabilities.threadLifecycle.rename, false);
   assert.equal(initial.capabilities.threadLifecycle.fork, false);
   assert.equal(initial.capabilities.threadLifecycle.archive, false);
@@ -70,7 +72,16 @@ export function runAppShellModelTests() {
     capabilities: {
       app_commands: ["app.settings", "app.diagnostics", "app.reload"],
       workspace_commands: ["workspace.open"],
-      surfaces: { right_panel: ["settings", "diagnostics"], bottom_drawer: ["terminal"] },
+      surfaces: { right_panel: ["settings", "diagnostics", "source_control"], bottom_drawer: ["terminal"] },
+      source_control: {
+        enabled: true,
+        vcs: ["git"],
+        read_only: true,
+        remote_providers: false,
+        network: false,
+        checkpoints: false,
+        requires_active_workspace: true,
+      },
       terminal: {
         enabled: true,
         pty: false,
@@ -98,7 +109,15 @@ export function runAppShellModelTests() {
   assert.equal(bootstrap.capabilities.appCommands.includes("app.reload"), true);
   assert.equal(bootstrap.capabilities.workspaceCommands.includes("workspace.open"), true);
   assert.equal(bootstrap.capabilities.surfaces.rightPanel.includes("settings"), true);
+  assert.equal(bootstrap.capabilities.surfaces.rightPanel.includes("source_control"), true);
   assert.equal(bootstrap.capabilities.surfaces.bottomDrawer.includes("terminal"), true);
+  assert.equal(bootstrap.capabilities.sourceControl.enabled, true);
+  assert.deepEqual(bootstrap.capabilities.sourceControl.vcs, ["git"]);
+  assert.equal(bootstrap.capabilities.sourceControl.readOnly, true);
+  assert.equal(bootstrap.capabilities.sourceControl.remoteProviders, false);
+  assert.equal(bootstrap.capabilities.sourceControl.network, false);
+  assert.equal(bootstrap.capabilities.sourceControl.checkpoints, false);
+  assert.equal(bootstrap.capabilities.sourceControl.requiresActiveWorkspace, true);
   assert.equal(bootstrap.capabilities.terminal.enabled, true);
   assert.equal(bootstrap.capabilities.terminal.pty, false);
   assert.equal(bootstrap.capabilities.terminal.resize, false);

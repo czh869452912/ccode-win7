@@ -31,6 +31,7 @@ export const WORKBENCH_COMMANDS = [
   { id: "surface.run", group: "surface", label: "Open Run", slash: "/recipes", surface: "run", visibleWhen: "always" },
   { id: "surface.problems", group: "surface", label: "Open Problems", slash: "", surface: "problems", visibleWhen: "always" },
   { id: "surface.review", group: "surface", label: "Open Review", slash: "/review", surface: "review", visibleWhen: "always" },
+  { id: "surface.source_control", group: "surface", label: "Open Source Control", slash: "", surface: "source_control", visibleWhen: "always", keywords: ["git", "changes", "diff"] },
   { id: "surface.permissions", group: "surface", label: "Open Permissions", slash: "/permissions", surface: "permissions", visibleWhen: "has_session" },
   { id: "surface.runtime", group: "surface", label: "Open Runtime", slash: "/snapshot", surface: "runtime", visibleWhen: "has_session" },
   { id: "surface.preview", group: "surface", label: "Open Preview", slash: "", surface: "preview", visibleWhen: "always" },
