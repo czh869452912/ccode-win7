@@ -41,6 +41,23 @@ async function main() {
   assert.equal(initialState.app.settings.confirm_workspace_switch, true);
   assert.equal(initialState.app.hasActiveWorkspace, false);
   assert.equal(initialState.app.activeWorkspace, null);
+  const storeTerminalSurface = reducer(initialState, {
+    type: "workbench_surface_opened",
+    placement: "right",
+    kind: "terminal",
+    terminalId: "term-1",
+    resourceId: "term-1",
+  });
+  const storeSplitTerminalSurface = reducer(storeTerminalSurface, {
+    type: "workbench_terminal_surface_split",
+    placement: "right",
+    surfaceId: "right:terminal:term-1",
+    terminalId: "term-2",
+  });
+  assert.deepEqual(storeSplitTerminalSurface.workbench.rightPanel.surfaces[0].terminalIds, [
+    "term-1",
+    "term-2",
+  ]);
 
   const appLoadedState = reducer(initialState, {
     type: "app_bootstrap_loaded",
@@ -897,6 +914,15 @@ async function main() {
   assert.equal(filePreviewSurfaceSource.includes("right-panel-file-loading"), true);
   assert.equal(filePreviewSurfaceSource.includes("right-panel-file-error"), true);
   assert.equal(filePreviewSurfaceSource.includes("right-panel-file-content"), true);
+
+  const repoRoot = path.resolve(WEBAPP_ROOT, "..", "..", "..", "..", "..");
+  const visualDebugSource = fs.readFileSync(
+    path.join(repoRoot, "scripts", "gui-visual-debug.mjs"),
+    "utf8",
+  );
+  assert.equal(visualDebugSource.includes('"terminal"'), true);
+  assert.equal(visualDebugSource.includes("runTerminalScenario"), true);
+  assert.equal(visualDebugSource.includes("right-panel-terminal-surface"), true);
 
   const commandPaletteSource = fs.readFileSync(
     webappSourcePath("components", "workbench", "CommandPalette.jsx"),

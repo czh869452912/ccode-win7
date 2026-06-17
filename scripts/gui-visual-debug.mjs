@@ -8,7 +8,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { createRequire } from "node:module";
 
-export const SCENARIOS = ["load", "chat", "diff", "file", "responsive", "app", "thread", "timeline", "interaction"];
+export const SCENARIOS = ["load", "chat", "diff", "file", "terminal", "responsive", "app", "thread", "timeline", "interaction"];
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_REPO_ROOT = path.resolve(SCRIPT_DIR, "..");
@@ -516,6 +516,46 @@ async function runFileScenario(page) {
   };
 }
 
+async function runTerminalScenario(page) {
+  await page.waitForSelector('[data-testid="new-session-btn"]', { timeout: 10000 });
+  if (await page.locator(".thread-card.selected").count() === 0) {
+    await page.click('[data-testid="new-session-btn"]');
+    await page.waitForSelector(".thread-card.selected", { timeout: 15000 });
+  }
+  await page.waitForSelector('[data-testid="right-panel-empty-surface--terminal"]', { timeout: 10000 });
+  await page.click('[data-testid="right-panel-empty-surface--terminal"]');
+  await page.waitForSelector('[data-testid="right-panel-terminal-surface"]', { timeout: 15000 });
+  await page.waitForSelector('[data-testid^="right-panel-terminal-pane--"]', { timeout: 15000 });
+  await page.click('[data-testid="right-panel-terminal-surface"] button[title="Split terminal horizontally"]');
+  try {
+    await page.waitForFunction(() => {
+      return document.querySelectorAll('[data-testid^="right-panel-terminal-pane--"]').length >= 2;
+    }, null, { timeout: 15000 });
+  } catch (error) {
+    const details = await page.evaluate(() => ({
+      paneIds: Array.from(document.querySelectorAll('[data-testid^="right-panel-terminal-pane--"]')).map((element) => element.getAttribute("data-testid")),
+      surfaceText: document.querySelector('[data-testid="right-panel-terminal-surface"]')?.textContent || "",
+      notice: document.querySelector(".interaction-notice")?.textContent || "",
+      selectedThreadCount: document.querySelectorAll(".thread-card.selected").length,
+    }));
+    throw new Error(`Terminal split did not create a second pane: ${JSON.stringify(details)} (${error.message})`);
+  }
+  const activeTab = await page.locator('[data-testid="right-panel-surface-tab--terminal"] [role="tab"]').getAttribute("aria-selected");
+  const paneCount = await page.locator('[data-testid^="right-panel-terminal-pane--"]').count();
+  const splitDirection = await page.locator('[data-testid="right-panel-terminal-surface"]').getAttribute("data-split-direction");
+  const noOverlap = await assertNoOverlap(page);
+  if (activeTab !== "true") throw new Error("Terminal tab did not become active");
+  if (paneCount < 2) throw new Error(`Expected split terminal panes, saw ${paneCount}`);
+  if (splitDirection !== "horizontal") throw new Error(`Expected horizontal split, saw ${splitDirection}`);
+  if (!noOverlap) throw new Error("Right panel tabs overlap in terminal scenario");
+  return {
+    activeTab: activeTab === "true",
+    paneCount,
+    splitDirection,
+    rightTabsDoNotOverlap: noOverlap,
+  };
+}
+
 async function runTimelineScenario(page) {
   await page.waitForFunction(() => Boolean(window.__EMBEDAGENT_VISUAL_DEBUG__), null, { timeout: 10000 });
   await page.evaluate(() => {
@@ -822,6 +862,8 @@ async function runScenarios(options, repoRoot, outputDir) {
         results.diff = await runDiffScenario(page);
       } else if (scenario === "file") {
         results.file = await runFileScenario(page);
+      } else if (scenario === "terminal") {
+        results.terminal = await runTerminalScenario(page);
       } else if (scenario === "thread") {
         results.thread = await runThreadScenario(page);
       } else if (scenario === "timeline") {
@@ -849,7 +891,7 @@ function printHelp() {
   console.log(`Usage: node scripts/gui-visual-debug.mjs [options]
 
 Options:
-  --scenario load|chat|diff|file|responsive|app|thread|timeline|interaction|all
+  --scenario load|chat|diff|file|terminal|responsive|app|thread|timeline|interaction|all
                                    Scenario list to run (default: load)
   --workspace PATH                Existing workspace; temp workspace by default
   --output PATH                   Output dir for screenshots and summary JSON

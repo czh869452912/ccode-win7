@@ -22,7 +22,7 @@ export async function runVisualDebugRunnerTests() {
   assert.deepEqual(runner.parseScenarioList("load,file"), ["load", "file"]);
   assert.deepEqual(runner.parseScenarioList("thread"), ["thread"]);
   assert.deepEqual(runner.parseScenarioList("timeline,interaction"), ["timeline", "interaction"]);
-  assert.deepEqual(runner.parseScenarioList("all"), ["app", "load", "chat", "diff", "file", "responsive", "thread", "timeline", "interaction"]);
+  assert.deepEqual(runner.parseScenarioList("all"), ["app", "load", "chat", "diff", "file", "terminal", "responsive", "thread", "timeline", "interaction"]);
   assert.deepEqual(runner.parseScenarioList("app"), ["app"]);
   assert.deepEqual(runner.parseScenarioList("load,app"), ["app", "load"]);
   assert.throws(() => runner.parseScenarioList("load,unknown"), /Unknown GUI visual scenario/);
@@ -64,6 +64,8 @@ export async function runVisualDebugRunnerTests() {
   assert.equal(runnerSource.includes("runFileScenario"), true);
   assert.equal(runnerSource.includes("right-panel-file-surface"), true);
   assert.equal(runnerSource.includes("right-panel-surface-tab--file"), true);
+  assert.equal(runnerSource.includes("runTerminalScenario"), true);
+  assert.equal(runnerSource.includes("right-panel-terminal-surface"), true);
   assert.equal(runnerSource.includes("right-panel-tab--diff"), false);
   assert.equal(runnerSource.includes("runTimelineScenario"), true);
   assert.equal(runnerSource.includes("runInteractionScenario"), true);

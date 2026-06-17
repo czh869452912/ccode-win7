@@ -893,6 +893,9 @@ export function reducer(state, action) {
     case "workbench_surface_close_others":
     case "workbench_surface_close_to_right":
     case "workbench_surface_close_all":
+    case "workbench_terminal_surface_split":
+    case "workbench_terminal_surface_terminal_activated":
+    case "workbench_terminal_surface_terminal_closed":
     case "workbench_command_palette_opened":
     case "workbench_command_palette_closed":
     case "workbench_command_palette_query_changed":
