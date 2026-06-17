@@ -22,6 +22,7 @@ import { runVisualLanguageCssTests } from "./visual-language-css.test.mjs";
 import { runVisualDebugRunnerTests } from "./visual-debug-runner.test.mjs";
 import { runWebSocketLifecycleTests } from "./websocket-lifecycle.test.mjs";
 import { runWorkbenchStateTests } from "./workbench-state.test.mjs";
+import { runAppShellModelTests } from "./app-shell-model.test.mjs";
 import { runAppWorkspaceTests } from "./app-workspaces.test.mjs";
 import { runAppHomeModelTests } from "./app-home-model.test.mjs";
 
@@ -744,6 +745,7 @@ async function main() {
   assert.equal(composerSource.includes("ComposerInteractionPanel"), true);
 
   runWorkbenchStateTests();
+  runAppShellModelTests();
   runAppWorkspaceTests();
   runAppHomeModelTests();
   runSessionRuntimeTests();

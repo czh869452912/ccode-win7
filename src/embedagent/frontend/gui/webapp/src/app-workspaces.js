@@ -1,39 +1,4 @@
-function basename(path) {
-  const text = String(path || "").replace(/\\/g, "/");
-  const parts = text.split("/").filter(Boolean);
-  return parts.length > 0 ? parts[parts.length - 1] : text;
-}
-
-export function normalizeWorkspaceRecord(input = {}) {
-  const path = String(input.path || "");
-  const label = String(input.label || "").trim() || basename(path) || path || "Workspace";
-  return {
-    id: String(input.id || ""),
-    path,
-    label,
-    exists: input.exists !== false,
-    created_at: String(input.created_at || ""),
-    last_opened_at: String(input.last_opened_at || ""),
-  };
-}
-
-export function normalizeAppBootstrap(payload = {}) {
-  const workspaces = Array.isArray(payload.workspaces)
-    ? payload.workspaces.map(normalizeWorkspaceRecord).filter((item) => item.id)
-    : [];
-  const activePayload = payload.active_workspace || payload.activeWorkspace || null;
-  const activeWorkspace = activePayload
-    ? normalizeWorkspaceRecord(activePayload)
-    : null;
-  return {
-    workspaces,
-    activeWorkspace: activeWorkspace && activeWorkspace.id ? activeWorkspace : null,
-    hasActiveWorkspace: Boolean(
-      (payload.has_active_workspace || payload.hasActiveWorkspace) && activeWorkspace,
-    ),
-    lastError: String(payload.last_error || payload.lastError || ""),
-  };
-}
+export { normalizeAppBootstrap, normalizeWorkspaceRecord } from "./app-shell/model.js";
 
 export function canSwitchWorkspace(state = {}) {
   const snapshot = state.snapshot || {};
