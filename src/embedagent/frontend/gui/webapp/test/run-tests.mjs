@@ -429,6 +429,7 @@ async function main() {
   });
   assert.equal(diffSurfaceState.inspectorTab, "diff");
   assert.equal(diffSurfaceState.workbench.rightPanel.activeKind, "diff");
+  assert.equal(diffSurfaceState.workbench.rightPanel.activeSurfaceId, "right:diff:current");
   assert.equal(diffSurfaceState.diffSurface.title, "Git Diff");
 
   const sessionErrorState = reducer(initialState, {
@@ -669,7 +670,6 @@ async function main() {
   assert.equal(appSource.includes("ensureTerminalOpen"), true);
   assert.equal(appSource.includes("AppSidebarLayout"), true);
   assert.equal(appSource.includes("WorkbenchHeader"), true);
-  assert.equal(appSource.includes("showTabs={false}"), true);
   assert.equal(appSource.includes("data.session_id || currentSessionIdRef.current || \"\""), true);
   assert.equal(appSource.includes("const activeSessionId = currentSessionIdRef.current;"), true);
   assert.equal(appSource.includes("loadAppBootstrap"), true);
@@ -697,8 +697,14 @@ async function main() {
   assert.equal(appSource.includes("getSourceControlStatus"), true);
   assert.equal(appSource.includes("loadSourceControlStatus"), true);
   assert.equal(appSource.includes("openSourceControlFile"), true);
-  assert.equal(appSource.includes('command.id === "surface.source_control"'), true);
-  assert.equal(appSource.includes("appShell={state.app}"), true);
+  assert.equal(appSource.includes("RightPanelSurfaceBody"), true);
+  assert.equal(appSource.includes("activeRightPanelSurface"), true);
+  assert.equal(appSource.includes("workbench_surface_close_others"), true);
+  assert.equal(appSource.includes("workbench_surface_close_to_right"), true);
+  assert.equal(appSource.includes("workbench_surface_close_all"), true);
+  assert.equal(appSource.includes("showTabs={false}"), false);
+  assert.equal(appSource.includes("activeKind={state.inspectorTab}"), false);
+  assert.equal(appSource.includes("appShell: state.app"), true);
 
   const storeSource = fs.readFileSync(
     webappSourcePath("store.js"),

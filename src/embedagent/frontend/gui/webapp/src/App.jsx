@@ -31,11 +31,11 @@ import {
 import NoWorkspaceState from "./components/NoWorkspaceState.jsx";
 import Sidebar from "./components/Sidebar.jsx";
 import Timeline from "./components/Timeline.jsx";
-import Inspector from "./components/Inspector.jsx";
 import Composer from "./components/Composer.jsx";
 import AppSidebarLayout from "./components/workbench/AppSidebarLayout.jsx";
 import BottomDrawer from "./components/workbench/BottomDrawer.jsx";
 import CommandPalette from "./components/workbench/CommandPalette.jsx";
+import RightPanelSurfaceBody from "./components/workbench/RightPanelSurfaceBody.jsx";
 import RightPanelTabs from "./components/workbench/RightPanelTabs.jsx";
 import WorkbenchHeader from "./components/workbench/WorkbenchHeader.jsx";
 import { commandById } from "./workbench/commands.js";
@@ -836,6 +836,43 @@ function App() {
     dispatch({ type: "workbench_surface_activated", placement: "bottom", kind });
   }
 
+  function rightPanelSurfaceTitle(kind, fallback = "") {
+    const label = String(fallback || "").replace(/^Open\s+/i, "").trim();
+    if (label) return label;
+    switch (kind) {
+      case "diff":
+        return "Diff";
+      case "files":
+        return "Files";
+      case "terminal":
+        return "Terminal";
+      case "plan":
+        return "Plan";
+      default:
+        return String(kind || "");
+    }
+  }
+
+  function openRightPanelSurface(kind, title = "") {
+    const surfaceKind = String(kind || "");
+    const terminalId =
+      surfaceKind === "terminal"
+        ? state.terminal.activeTerminalId || nextTerminalId(state.terminal.terminalIds)
+        : "";
+    dispatch({
+      type: "workbench_surface_opened",
+      placement: "right",
+      kind: surfaceKind,
+      title: rightPanelSurfaceTitle(surfaceKind, title),
+      resourceId: surfaceKind === "diff" ? "current" : terminalId,
+      terminalId,
+    });
+    dispatch({ type: "set_inspector", value: surfaceKind });
+    if (surfaceKind === "terminal") {
+      void ensureTerminalOpen(terminalId);
+    }
+  }
+
   async function executeWorkbenchCommand(command) {
     if (!command) return;
     if (command.id === "palette.open") {
@@ -889,12 +926,6 @@ function App() {
       await loadAppBootstrap();
       return;
     }
-    if (command.id === "surface.source_control") {
-      dispatch({ type: "set_inspector", value: "source_control" });
-      dispatch({ type: "workbench_surface_activated", placement: "right", kind: "source_control" });
-      await loadSourceControlStatus();
-      return;
-    }
     if (command.id === "message.send") {
       await sendMessage();
       return;
@@ -912,8 +943,7 @@ function App() {
       return;
     }
     if (command.surface) {
-      dispatch({ type: "set_inspector", value: command.surface });
-      dispatch({ type: "workbench_surface_activated", placement: "right", kind: command.surface });
+      openRightPanelSurface(command.surface, command.label);
       return;
     }
     if (command.drawer) {
@@ -1506,6 +1536,41 @@ function App() {
     [state.app, state.sessions, state.currentSessionId],
   );
 
+  const rightPanelSurfaces = state.workbench.rightPanel.surfaces || [];
+  const activeRightPanelSurface =
+    rightPanelSurfaces.find((surface) => surface.id === state.workbench.rightPanel.activeSurfaceId) || null;
+  const inspectorProps = {
+    tasks: state.tasks,
+    artifacts: state.artifacts,
+    plan: state.plan,
+    review: state.review,
+    recipes: state.recipes,
+    timeline: runtimeState.timelineItems,
+    currentInteraction: runtimeState.currentInteraction,
+    interactionNotice,
+    permissionContext: state.permissionContext,
+    preview: state.preview,
+    diffSurface: state.diffSurface,
+    sourceControl: state.sourceControl,
+    snapshot: state.snapshot,
+    appShell: state.app,
+    userAnswer,
+    eventLog: state.eventLog,
+    onTabChange: (v) => {
+      dispatch({ type: "set_inspector", value: v });
+      openRightPanelSurface(v);
+    },
+    onOpenArtifact: openArtifact,
+    onOpenReviewEvidence: openReviewEvidence,
+    onRunRecipe: runRecipe,
+    onFocusDiffFile: (filePath) => dispatch({ type: "diff_file_focused", filePath }),
+    onRefreshSourceControl: () => loadSourceControlStatus(true),
+    onSelectSourceControlFile: openSourceControlFile,
+    onAppSettingsChange: (patch) => dispatch({ type: "app_shell_settings_changed", patch }),
+    onUserAnswerChange: setUserAnswer,
+    onRespondInteraction: respondToInteraction,
+  };
+
   const RESIZE_RIGHT = 1;   // sidebar: drag right = expand
   const RESIZE_LEFT  = -1;  // inspector: drag right = shrink
 
@@ -1629,53 +1694,62 @@ function App() {
       }
       rightPanel={
         <RightPanelTabs
-          activeKind={state.inspectorTab}
-          counts={{
-            interaction: runtimeState.currentInteraction || interactionNotice ? 1 : 0,
-            tasks: state.tasks.length,
-            artifacts: state.artifacts.length,
-            source_control: state.sourceControl?.data?.counts?.total || 0,
-          }}
-          onSelect={(kind) => {
-            dispatch({ type: "set_inspector", value: kind });
-            dispatch({ type: "workbench_surface_activated", placement: "right", kind });
-            if (kind === "source_control") {
-              void loadSourceControlStatus();
+          surfaces={rightPanelSurfaces}
+          activeSurfaceId={state.workbench.rightPanel.activeSurfaceId}
+          onActivateSurface={(surface) => {
+            dispatch({
+              type: "workbench_surface_activated",
+              placement: "right",
+              surfaceId: surface.id,
+              kind: surface.kind,
+            });
+            dispatch({ type: "set_inspector", value: surface.kind });
+            if (surface.kind === "terminal" && surface.terminalId) {
+              void ensureTerminalOpen(surface.terminalId);
             }
           }}
+          onCloseSurface={(surface) => {
+            dispatch({
+              type: "workbench_surface_closed",
+              placement: "right",
+              surfaceId: surface.id,
+              kind: surface.kind,
+              resourceId: surface.resourceId,
+            });
+          }}
+          onCloseOtherSurfaces={(surface) => {
+            dispatch({
+              type: "workbench_surface_close_others",
+              placement: "right",
+              surfaceId: surface.id,
+            });
+          }}
+          onCloseSurfacesToRight={(surface) => {
+            dispatch({
+              type: "workbench_surface_close_to_right",
+              placement: "right",
+              surfaceId: surface.id,
+            });
+          }}
+          onCloseAllSurfaces={() => {
+            dispatch({ type: "workbench_surface_close_all", placement: "right" });
+          }}
+          onAddSurface={(kind) => openRightPanelSurface(kind)}
         >
-          <Inspector
-            inspectorTab={state.inspectorTab}
-            tasks={state.tasks}
-            artifacts={state.artifacts}
-            plan={state.plan}
-            review={state.review}
-            recipes={state.recipes}
-            timeline={runtimeState.timelineItems}
-            currentInteraction={runtimeState.currentInteraction}
-            interactionNotice={interactionNotice}
-            permissionContext={state.permissionContext}
-            preview={state.preview}
-            diffSurface={state.diffSurface}
-            sourceControl={state.sourceControl}
-            snapshot={state.snapshot}
-            appShell={state.app}
-            userAnswer={userAnswer}
-            eventLog={state.eventLog}
-            onTabChange={(v) => {
-              dispatch({ type: "set_inspector", value: v });
-              dispatch({ type: "workbench_surface_activated", placement: "right", kind: v });
-            }}
-            onOpenArtifact={openArtifact}
-            onOpenReviewEvidence={openReviewEvidence}
-            onRunRecipe={runRecipe}
-            onFocusDiffFile={(filePath) => dispatch({ type: "diff_file_focused", filePath })}
-            onRefreshSourceControl={() => loadSourceControlStatus(true)}
-            onSelectSourceControlFile={openSourceControlFile}
-            onAppSettingsChange={(patch) => dispatch({ type: "app_shell_settings_changed", patch })}
-            onUserAnswerChange={setUserAnswer}
-            onRespondInteraction={respondToInteraction}
-            showTabs={false}
+          <RightPanelSurfaceBody
+            surface={activeRightPanelSurface}
+            inspectorProps={inspectorProps}
+            fileTree={state.fileTree}
+            treeHeight={treeHeight}
+            onOpenFile={openFile}
+            onLoadFileChildren={loadFileChildren}
+            terminal={state.terminal}
+            onTerminalNew={() => ensureTerminalOpen(nextTerminalId(state.terminal.terminalIds))}
+            onTerminalSelect={(terminalId) => dispatch({ type: "terminal_active_set", terminalId })}
+            onTerminalSend={sendTerminalInput}
+            onTerminalClear={clearActiveTerminal}
+            onTerminalRestart={restartActiveTerminal}
+            onTerminalClose={closeActiveTerminal}
           />
         </RightPanelTabs>
       }

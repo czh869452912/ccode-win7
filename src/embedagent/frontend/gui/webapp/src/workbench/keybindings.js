@@ -7,9 +7,9 @@ export const DEFAULT_KEYBINDINGS = [
   { key: "mod+b", commandId: "view.toggle_right_panel", when: "always" },
   { key: "mod+,", commandId: "app.settings", when: "always" },
   { key: "mod+j", commandId: "view.toggle_bottom_drawer", when: "always" },
-  { key: "mod+1", commandId: "surface.tasks", when: "always" },
-  { key: "mod+2", commandId: "surface.plan", when: "always" },
-  { key: "mod+3", commandId: "surface.preview", when: "always" },
+  { key: "mod+1", commandId: "surface.files", when: "always" },
+  { key: "mod+2", commandId: "surface.terminal", when: "always" },
+  { key: "mod+3", commandId: "surface.diff", when: "always" },
   { key: "mod+enter", commandId: "message.send", when: "composer" },
 ];
 

@@ -153,8 +153,8 @@ export function runWorkbenchStateTests() {
   assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "app.settings"), true);
   assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "app.diagnostics"), true);
   assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "app.reload"), true);
-  assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "surface.tasks"), true);
-  assert.equal(commandById("surface.source_control").surface, "source_control");
+  assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "surface.files"), true);
+  assert.equal(commandById("surface.diff").surface, "diff");
   assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "workspace.open"), true);
   assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "workspace.refresh"), true);
   assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "workspace.remove_current"), true);
@@ -185,6 +185,9 @@ export function runWorkbenchStateTests() {
   assert.equal(eventToKey(syntheticEvent), "mod+k");
   assert.equal(DEFAULT_KEYBINDINGS.some((item) => item.key === "mod+k"), true);
   assert.equal(DEFAULT_KEYBINDINGS.some((item) => item.key === "mod+," && item.commandId === "app.settings"), true);
+  assert.equal(DEFAULT_KEYBINDINGS.some((item) => item.key === "mod+1" && item.commandId === "surface.files"), true);
+  assert.equal(DEFAULT_KEYBINDINGS.some((item) => item.key === "mod+2" && item.commandId === "surface.terminal"), true);
+  assert.equal(DEFAULT_KEYBINDINGS.some((item) => item.key === "mod+3" && item.commandId === "surface.diff"), true);
 
   const command = resolveKeybinding(DEFAULT_KEYBINDINGS, "mod+k", {
     paletteOpen: false,

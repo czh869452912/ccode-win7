@@ -693,9 +693,11 @@ export function reducer(state, action) {
         diffSurface: action.diffSurface || null,
         inspectorTab: "diff",
         workbench: reduceWorkbenchState(state.workbench, {
-          type: "workbench_surface_activated",
+          type: "workbench_surface_opened",
           placement: "right",
           kind: "diff",
+          title: action.diffSurface?.title || "Diff",
+          resourceId: "current",
         }),
       };
     case "diff_file_focused":
@@ -835,6 +837,9 @@ export function reducer(state, action) {
     case "workbench_surface_opened":
     case "workbench_surface_activated":
     case "workbench_surface_closed":
+    case "workbench_surface_close_others":
+    case "workbench_surface_close_to_right":
+    case "workbench_surface_close_all":
     case "workbench_command_palette_opened":
     case "workbench_command_palette_closed":
     case "workbench_command_palette_query_changed":
