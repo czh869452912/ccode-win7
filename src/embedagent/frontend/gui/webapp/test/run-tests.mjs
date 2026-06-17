@@ -874,6 +874,16 @@ async function main() {
   assert.equal(rightPanelSurfaceBodySource.includes("surface.kind === \"terminal\""), true);
   assert.equal(rightPanelSurfaceBodySource.includes("filePreviewsByPath"), true);
 
+  const rightPanelTerminalSurfaceSource = fs.readFileSync(
+    webappSourcePath("components", "workbench", "RightPanelTerminalSurface.jsx"),
+    "utf8",
+  );
+  assert.equal(rightPanelTerminalSurfaceSource.includes('data-testid="right-panel-terminal-surface"'), true);
+  assert.equal(rightPanelTerminalSurfaceSource.includes("surface.terminalIds"), true);
+  assert.equal(rightPanelTerminalSurfaceSource.includes("splitDirection"), true);
+  assert.equal(rightPanelTerminalSurfaceSource.includes("onSplitVertical"), true);
+  assert.equal(rightPanelSurfaceBodySource.includes("RightPanelTerminalSurface"), true);
+
   const filePreviewSurfaceSource = fs.readFileSync(
     webappSourcePath("components", "workbench", "FilePreviewSurface.jsx"),
     "utf8",

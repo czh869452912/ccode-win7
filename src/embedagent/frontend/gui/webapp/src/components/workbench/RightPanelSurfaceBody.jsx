@@ -2,7 +2,7 @@ import React from "react";
 import Inspector from "../Inspector.jsx";
 import FilePreviewSurface from "./FilePreviewSurface.jsx";
 import FilesSurface from "./FilesSurface.jsx";
-import { TerminalSurface } from "./BottomDrawer.jsx";
+import RightPanelTerminalSurface from "./RightPanelTerminalSurface.jsx";
 
 function inspectorKindForSurface(surface) {
   if (!surface) return "";
@@ -21,6 +21,8 @@ export default function RightPanelSurfaceBody({
   onLoadFileChildren,
   terminal,
   onTerminalNew,
+  onTerminalSplit,
+  onTerminalSplitVertical,
   onTerminalSelect,
   onTerminalSend,
   onTerminalClear,
@@ -52,9 +54,12 @@ export default function RightPanelSurfaceBody({
   }
   if (surface.kind === "terminal") {
     return (
-      <TerminalSurface
+      <RightPanelTerminalSurface
+        surface={surface}
         terminal={terminal}
         onNew={onTerminalNew}
+        onSplit={onTerminalSplit}
+        onSplitVertical={onTerminalSplitVertical}
         onSelect={onTerminalSelect}
         onSend={onTerminalSend}
         onClear={onTerminalClear}
