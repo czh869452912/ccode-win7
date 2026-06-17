@@ -1,6 +1,6 @@
 # EmbedAgent 开发进度跟踪
 
-> 更新日期：2026-06-17（GUI thread lifecycle boundary）
+> 更新日期：2026-06-17（GUI terminal bottom drawer）
 > 用途：持续跟踪当前阶段、下一步任务、里程碑进度、风险与阻塞
 
 ---
@@ -24,6 +24,13 @@
 
 ## 2. 当前阶段
 
+### 2026-06-17 - GUI Terminal Bottom Drawer
+
+- GUI backend 新增 `TerminalService`，以 active workspace 为根目录启动线程作用域 terminal，并通过 Python stdlib subprocess pipes 读取 stdout/stderr、写 stdin、维护有限内存 history buffer。
+- GUI backend 新增 `/api/sessions/{id}/terminals*` HTTP routes 与 `terminal_event` WebSocket 推送；app-shell capabilities 暴露 `terminal` 限制元数据和 `bottom_drawer` surfaces。
+- React webapp 新增 `webapp/src/terminal/` model/API helpers，并把 Terminal 接入 bottom drawer tabs、toolbar、buffer 和输入行；terminal 状态仍是 GUI-local display state，不进入 transcript、workflow、telemetry、permission、extension 或 source-control/checkpoint truth。
+- 该实现保持 Win7/offline 底线：不引入 ConPTY、`node-pty`、`pywinpty`、`pexpect`、Electron、runtime Node、Docker、WSL、VS Code 或在线服务依赖；当前能力不是 full PTY。
+
 ### 2026-06-17 - GUI Thread Lifecycle Boundary
 
 - Session lifecycle facade 现在暴露 `rename` / `archive` / `fork`：rename 只更新 summary/projection thread title metadata，archive 默认隐藏 thread 但保留 transcript、summary 和外置 artifact/tool-result 引用，fork 复制 transcript 到新 session id 并写入 fork provenance。
@@ -35,7 +42,7 @@
 - GUI backend 新增 `AppShellService`，`/api/app/bootstrap` 与 `/api/app/workspaces*` 现在返回 GUI-owned app-shell envelope：workspace registry projection、active workspace metadata、safe host/runtime/renderer diagnostics、app commands、app surfaces 和 local shell settings。
 - React webapp 新增 `webapp/src/app-shell/` 纯 read-model/reducer helpers，并把现有 app bootstrap / workspace switch legacy actions 统一路由到 app-shell reducer；root `resetWorkspaceScopedState` 仍只负责清空 session/timeline/task 等 workspace-scoped GUI 状态。
 - Right panel 新增 Settings / Diagnostics 两个 app-level surfaces，命令 palette 新增 `app.settings` / `app.diagnostics` / `app.reload`，并保持这些命令与 session/workflow commands 分离。
-- 该切片只补齐 T3code-like standalone app shell 的第一层边界；terminal、source-control、checkpoint 仍是后续 slices，且不得把 Agent Core 加厚为 GUI-owned policy layer。
+- 该切片补齐 T3code-like standalone app shell 的第一层边界；terminal 已由后续 bottom-drawer slice 补齐，source-control/checkpoint 仍是未来 slices，且不得把 Agent Core 加厚为 GUI-owned policy layer。
 
 ### 2026-06-15 - T3code Timeline / Diff / Visual Debug Harness
 

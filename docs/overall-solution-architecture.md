@@ -41,6 +41,17 @@ update session summary/projection metadata used by app thread lists; they do
 not rewrite transcript history, own workflow state, activate tools, decide
 permissions, load extensions, or create source-control checkpoints.
 
+The GUI terminal bottom drawer is also app-shell hosted. `GUIBackend` owns an
+in-memory terminal service bound to the active workspace and exposes
+thread-scoped terminal HTTP routes plus `terminal_event` WebSocket messages.
+The service uses Python stdlib subprocess pipes for Windows 7 compatibility and
+offline deployment; it is not a full PTY and does not introduce ConPTY,
+`node-pty`, `pywinpty`, `pexpect`, runtime Node, Electron, Docker, WSL, VS Code,
+or online-service dependencies. Terminal buffers are GUI-local display state
+only and must not become transcript history, workflow state, telemetry,
+permission policy, runtime reducer truth, source-control checkpoints, or Agent
+Core behavior.
+
 ### Protocol / Core Layer
 
 - `src/embedagent/protocol/`

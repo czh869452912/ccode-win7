@@ -59,6 +59,16 @@ Current app-shell v1 fields include `app`, `workspaces`,
 `active_workspace`, `has_active_workspace`, `diagnostics`, `capabilities`,
 `settings`, and `last_error`. Diagnostics are safe read-model fields for host,
 runtime, renderer, workspace registry, and active-core presence only.
+`capabilities.surfaces.bottom_drawer` may include `terminal`, `run_output`,
+and `logs`; `capabilities.terminal` describes the GUI terminal limitations
+(`enabled`, `pty`, `resize`, `history_persistent`, and `max_buffer_bytes`).
+
+The GUI terminal bottom drawer is app-shell hosted and workspace-bound. It is
+implemented with Windows 7-compatible Python stdlib subprocess pipes, not a
+full PTY. Its buffer and tab state are frontend/backend GUI display state only:
+they are not transcript history, workflow truth, telemetry, provider/runtime
+configuration, permission policy, source-control checkpoint state, or Agent
+Core state.
 
 GUI thread lifecycle operations (`rename`, `fork`, and `archive`) are exposed
 through session lifecycle endpoints and reflected in session summary/projection
@@ -162,6 +172,14 @@ Key routes include:
 - `GET /api/sessions/{session_id}/permissions`
 - `GET /api/sessions/{session_id}/events`
 - `POST /api/sessions/{session_id}/resources/reload`
+- `GET /api/sessions/{session_id}/terminals`
+- `POST /api/sessions/{session_id}/terminals/{terminal_id}/open`
+- `GET /api/sessions/{session_id}/terminals/{terminal_id}/snapshot`
+- `POST /api/sessions/{session_id}/terminals/{terminal_id}/write`
+- `POST /api/sessions/{session_id}/terminals/{terminal_id}/clear`
+- `POST /api/sessions/{session_id}/terminals/{terminal_id}/restart`
+- `POST /api/sessions/{session_id}/terminals/{terminal_id}/resize`
+- `POST /api/sessions/{session_id}/terminals/{terminal_id}/close`
 - `GET /api/workspace`
 - `GET /api/workspace/recipes`
 - `GET /api/tool-catalog`
@@ -179,6 +197,13 @@ snapshot, structured history, plan, permission context, and replay metadata.
 `POST /api/sessions/{session_id}/resume` should preserve the restored session mode unless the caller explicitly supplies a mode override.
 
 `POST /api/sessions/{session_id}/resources/reload` refreshes local file resources for the session and returns the backend resource snapshot. It is not a plugin execution endpoint.
+
+Terminal routes require an active GUI workspace and are scoped by
+`session_id` plus a client-chosen `terminal_id`. They expose snapshots,
+summaries, limited history buffers, and non-PTY lifecycle operations for the
+GUI bottom drawer only. `write` sends user text to the GUI-owned subprocess
+stdin; it is not a model tool call, permission approval, transcript append, or
+workflow action.
 
 `/skill:<name> [args]` is handled through the normal message submission path, not a separate HTTP endpoint. On success the backend expands the workspace-bound skill Markdown into the user turn; on failure it emits a normal `command_result` for the skill command. Visible skill commands may appear in `/help` output and command capability snapshots as `skill:<name>`.
 
@@ -203,8 +228,14 @@ Important pushed event types include:
 - `artifacts_refresh`
 - `message`
 - `session_event`
+- `terminal_event`
 
 `GET /api/sessions/{session_id}/events` is transport replay only. Frontend history bootstrap must come from the structured bootstrap payload, not replay-log parsing.
+
+`terminal_event` carries GUI terminal output/lifecycle deltas for the bottom
+drawer. It is intentionally not part of session replay/history and must not be
+reduced into `Session`, `SessionHistoryAssembler`, `RuntimeConfigReducer`,
+`CompactionStateReducer`, or `RecoveryStateReducer`.
 
 Resource reload may appear in replay as `resource.discovered` and `resource.reloaded` event kinds. Frontends may use those for diagnostics or refresh hints, but session history remains transcript/bootstrap-backed.
 

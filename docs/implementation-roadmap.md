@@ -91,6 +91,10 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   rename updates summary/projection title metadata, archive hides a session from
   default thread lists without deleting transcript/summary/artifact references,
   and fork copies the transcript to a new session id with fork provenance
+- GUI terminal bottom drawer is now an app-shell hosted, thread-scoped surface:
+  the backend owns a workspace-bound in-memory terminal service using Python
+  stdlib subprocess pipes for Win7/offline compatibility, while the React
+  terminal reducer/API/UI keep terminal buffers as GUI-local display state
 - this is explicitly separate from Agent Core session truth, workflow state,
   tool activation, permission policy, extension loading, provider config, and
   `/api/sessions/{id}/bootstrap`
@@ -108,7 +112,7 @@ Recent stabilization work has also completed the agent-core ownership cutover:
 - Continue polishing the T3code/Pi workbench shell with real Win7 WebView2 109
   smoke validation, narrow-width GUI layout validation, TUI raw-console
   validation, C/C++ workflow task/run surface refinement, and future
-  terminal/source-control/checkpoint slices outside Agent Core.
+  source-control/checkpoint slices outside Agent Core.
 
 ### 4.1 Pi-Inspired Minimal Core Program
 

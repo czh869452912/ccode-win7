@@ -8,7 +8,6 @@ import threading
 import time
 from typing import Any, Callable, Dict, List, Optional
 
-
 TERMINAL_HISTORY_LIMIT = 128 * 1024
 TERMINAL_ID_RE = re.compile(r"^[A-Za-z0-9_.-]{1,128}$")
 STATUS_STARTING = "starting"
@@ -310,7 +309,7 @@ class TerminalService(object):
             self._emit(event)
         try:
             pipe.close()
-        except Exception:
+        except (OSError, ValueError, AttributeError):
             pass
         process = state["process"]
         exit_code = process.poll()
@@ -335,18 +334,18 @@ class TerminalService(object):
             try:
                 process.terminate()
                 process.wait(timeout=1.0)
-            except Exception:
+            except (OSError, ValueError, subprocess.TimeoutExpired, RuntimeError):
                 try:
                     process.kill()
                     process.wait(timeout=1.0)
-                except Exception:
+                except (OSError, ValueError, subprocess.TimeoutExpired, RuntimeError):
                     pass
         state["exit_code"] = process.poll()
         stdin = getattr(process, "stdin", None)
         if stdin is not None:
             try:
                 stdin.close()
-            except Exception:
+            except (OSError, ValueError, AttributeError):
                 pass
 
     def _event_locked(

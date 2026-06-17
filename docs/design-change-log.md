@@ -44,6 +44,41 @@
 
 ## 3. 当前变更记录
 
+### DC-166
+
+- 日期：2026-06-17
+- 变更主题：GUI terminal bottom drawer as app-shell hosted surface
+- 变更摘要：
+  - GUI backend 新增 `TerminalService` 和 `/api/sessions/{id}/terminals*` routes，使用 workspace-bound Python stdlib subprocess pipes 提供 thread-scoped terminal open/list/snapshot/write/clear/restart/resize/close 能力。
+  - GUI WebSocket 新增 `terminal_event` 推送，React webapp 新增 `webapp/src/terminal/` reducer/API helpers，并把 Terminal 接入 bottom drawer tabs、toolbar、buffer 和输入行。
+  - app-shell capabilities 新增 `surfaces.bottom_drawer` 与 `terminal` 限制元数据，明确当前能力不是 full PTY，`resize`/persistent history 仅作为 limitation metadata 暴露。
+  - 该边界保持 T3 Code-like independent app 与 Agent Core 分离：terminal 输出是 GUI-local display state，不进入 transcript、workflow state、telemetry、permission/runtime reducers、extension loading、provider config、source-control checkpoints 或 Agent Core policy。
+- 影响范围：
+  - `src/embedagent/frontend/gui/backend/terminal_service.py`
+  - `src/embedagent/frontend/gui/backend/server.py`
+  - `src/embedagent/frontend/gui/backend/app_shell.py`
+  - `src/embedagent/frontend/gui/webapp/src/terminal/`
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/components/workbench/BottomDrawer.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/store.js`
+  - `src/embedagent/frontend/gui/webapp/src/styles.css`
+  - `tests/test_gui_terminal_service.py`
+  - `tests/test_gui_terminal_api.py`
+  - `src/embedagent/frontend/gui/webapp/test/`
+- 关联文档：
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/archive/gui-terminal-bottom-drawer/`
+- 是否需要 ADR：暂不需要；该切片实现既有 GUI app-shell 边界内的 hosted surface，不改变 Agent Core 架构。
+- 后续动作：
+  - 在真实 Win7/WebView2 109 离线 bundle 上补 smoke validation。
+  - 继续规划 source-control/checkpoint GUI surfaces，保持它们在 app-shell/hosted extension 边界外接入，不加厚 Agent Core。
+
 ### DC-165
 
 - 日期：2026-06-17

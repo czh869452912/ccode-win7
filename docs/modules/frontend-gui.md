@@ -133,6 +133,16 @@ help the GUI feel like a standalone app, but it must not own Agent Core
 sessions, workflow truth, transcript history, tool activation, permission
 policy, extension loading, provider settings, or runtime reducer state.
 
+The terminal bottom drawer is a GUI app-shell hosted surface implemented by
+`backend/terminal_service.py`, terminal HTTP routes on `GUIBackend`, and the
+React `webapp/src/terminal/` model/API helpers. It starts workspace-bound
+subprocesses with Python stdlib pipes for Windows 7/offline compatibility and
+streams `terminal_event` messages to the GUI. It is not a full PTY and does not
+add ConPTY, `node-pty`, `pywinpty`, `pexpect`, runtime Node, Electron, Docker,
+WSL, VS Code, or online-service dependencies. Terminal history buffers are
+ephemeral GUI display state; they must not be written to transcript history,
+telemetry, workflow state, source-control checkpoints, or Agent Core reducers.
+
 ## 7. Timeline, Interaction, And Diff Surfaces
 
 `webapp/src/session-runtime/t3-timeline.js` projects existing session/runtime
@@ -165,6 +175,7 @@ remains backend/tool-owned.
 推荐回归入口：
 
 - `tests/test_gui_backend_api.py` — API 合约、错误翻译、bootstrap、事件回放
+- `tests/test_gui_terminal_service.py`、`tests/test_gui_terminal_api.py` — GUI terminal service、workspace/cwd guard、HTTP routes、event broadcast 和错误映射
 - `tests/test_gui_runtime.py` — 启动器、阻塞等待器、调度器、WebSocket 生命周期、适配器快照投影
 - `tests/test_gui_sync.py` — 端到端待处理输入解析、`CallbackBridge` 刷新行为、元数据保留
 - `cd src/embedagent/frontend/gui/webapp && npm test` — frontend reducer、timeline、interaction、diff、workbench、T3 visual-language CSS contract 和 visual harness helper 合约
