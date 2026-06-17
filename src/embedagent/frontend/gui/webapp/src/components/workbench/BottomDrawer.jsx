@@ -23,7 +23,7 @@ function RunOutputDrawer({ eventLog, terminationReason, terminationMessage }) {
   );
 }
 
-function TerminalSurface({ terminal, onNew, onSelect, onSend, onClear, onRestart, onClose }) {
+export function TerminalSurface({ terminal, onNew, onSelect, onSend, onClear, onRestart, onClose }) {
   const [draft, setDraft] = useState("");
   const state = terminal || { sessions: {}, terminalIds: [], activeTerminalId: "" };
   const active = state.sessions[state.activeTerminalId] || null;

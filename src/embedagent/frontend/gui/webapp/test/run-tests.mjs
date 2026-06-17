@@ -804,6 +804,24 @@ async function main() {
   assert.equal(bottomDrawerSource.includes("TerminalSurface"), true);
   assert.equal(bottomDrawerSource.includes("terminal-drawer"), true);
   assert.equal(bottomDrawerSource.includes("run_output"), true);
+  assert.equal(bottomDrawerSource.includes("export function TerminalSurface"), true);
+
+  const filesSurfaceSource = fs.readFileSync(
+    webappSourcePath("components", "workbench", "FilesSurface.jsx"),
+    "utf8",
+  );
+  assert.equal(filesSurfaceSource.includes("react-arborist"), true);
+  assert.equal(filesSurfaceSource.includes('data-testid="right-panel-files-surface"'), true);
+  assert.equal(filesSurfaceSource.includes("onLoadFileChildren"), true);
+
+  const rightPanelSurfaceBodySource = fs.readFileSync(
+    webappSourcePath("components", "workbench", "RightPanelSurfaceBody.jsx"),
+    "utf8",
+  );
+  assert.equal(rightPanelSurfaceBodySource.includes("FilesSurface"), true);
+  assert.equal(rightPanelSurfaceBodySource.includes("TerminalSurface"), true);
+  assert.equal(rightPanelSurfaceBodySource.includes("Inspector"), true);
+  assert.equal(rightPanelSurfaceBodySource.includes("surface.kind === \"terminal\""), true);
 
   const commandPaletteSource = fs.readFileSync(
     webappSourcePath("components", "workbench", "CommandPalette.jsx"),
