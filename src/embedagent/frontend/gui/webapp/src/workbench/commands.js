@@ -36,6 +36,7 @@ export const WORKBENCH_COMMANDS = [
   { id: "surface.preview", group: "surface", label: "Open Preview", slash: "", surface: "preview", visibleWhen: "always" },
   { id: "surface.log", group: "surface", label: "Open Log", slash: "", surface: "log", visibleWhen: "always" },
   { id: "drawer.run_output", group: "surface", label: "Toggle Run Output", slash: "", drawer: "run_output", visibleWhen: "always" },
+  { id: "drawer.terminal", group: "surface", label: "Open Terminal", slash: "", drawer: "terminal", visibleWhen: "has_session" },
   { id: "workspace.open", group: "workspace", label: "Open Workspace", slash: "", visibleWhen: "always", keywords: ["project", "folder"] },
   { id: "workspace.refresh", group: "workspace", label: "Refresh Workspaces", slash: "", visibleWhen: "always", keywords: ["reload", "recent"] },
   { id: "workspace.remove_current", group: "workspace", label: "Remove Current Workspace From Recents", slash: "", visibleWhen: "always", keywords: ["forget", "recent"] },

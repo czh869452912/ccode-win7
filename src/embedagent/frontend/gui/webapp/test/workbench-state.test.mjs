@@ -30,6 +30,7 @@ export function runWorkbenchStateTests() {
   assert.equal(RIGHT_PANEL_SURFACES.includes("preview"), true);
   assert.equal(RIGHT_PANEL_SURFACES.includes("settings"), true);
   assert.equal(RIGHT_PANEL_SURFACES.includes("diagnostics"), true);
+  assert.equal(BOTTOM_DRAWER_SURFACES.includes("terminal"), true);
   assert.equal(BOTTOM_DRAWER_SURFACES.includes("run_output"), true);
 
   const initial = createWorkbenchState();
@@ -100,6 +101,7 @@ export function runWorkbenchStateTests() {
   assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "workspace.refresh"), true);
   assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "workspace.remove_current"), true);
   assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "thread.new"), true);
+  assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "drawer.terminal"), true);
   assert.equal(WORKBENCH_COMMANDS.some((item) => item.id.includes("code")), false);
   assert.equal(commandById("message.send").slash, "");
 

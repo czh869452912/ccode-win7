@@ -26,6 +26,9 @@ export function runAppShellModelTests() {
   assert.deepEqual(initial.diagnostics.host, {});
   assert.equal(initial.capabilities.appCommands.includes("app.settings"), true);
   assert.equal(initial.capabilities.surfaces.rightPanel.includes("diagnostics"), true);
+  assert.equal(initial.capabilities.terminal.enabled, false);
+  assert.equal(initial.capabilities.terminal.pty, false);
+  assert.equal(initial.capabilities.terminal.resize, false);
   assert.equal(initial.capabilities.threadLifecycle.rename, false);
   assert.equal(initial.capabilities.threadLifecycle.fork, false);
   assert.equal(initial.capabilities.threadLifecycle.archive, false);
@@ -67,7 +70,14 @@ export function runAppShellModelTests() {
     capabilities: {
       app_commands: ["app.settings", "app.diagnostics", "app.reload"],
       workspace_commands: ["workspace.open"],
-      surfaces: { right_panel: ["settings", "diagnostics"] },
+      surfaces: { right_panel: ["settings", "diagnostics"], bottom_drawer: ["terminal"] },
+      terminal: {
+        enabled: true,
+        pty: false,
+        resize: false,
+        history_persistent: false,
+        max_buffer_bytes: 131072,
+      },
       thread_lifecycle: { rename: true, fork: true, archive: true },
     },
     settings: {
@@ -88,6 +98,12 @@ export function runAppShellModelTests() {
   assert.equal(bootstrap.capabilities.appCommands.includes("app.reload"), true);
   assert.equal(bootstrap.capabilities.workspaceCommands.includes("workspace.open"), true);
   assert.equal(bootstrap.capabilities.surfaces.rightPanel.includes("settings"), true);
+  assert.equal(bootstrap.capabilities.surfaces.bottomDrawer.includes("terminal"), true);
+  assert.equal(bootstrap.capabilities.terminal.enabled, true);
+  assert.equal(bootstrap.capabilities.terminal.pty, false);
+  assert.equal(bootstrap.capabilities.terminal.resize, false);
+  assert.equal(bootstrap.capabilities.terminal.historyPersistent, false);
+  assert.equal(bootstrap.capabilities.terminal.maxBufferBytes, 131072);
   assert.equal(bootstrap.capabilities.threadLifecycle.rename, true);
   assert.equal(bootstrap.capabilities.threadLifecycle.fork, true);
   assert.equal(bootstrap.capabilities.threadLifecycle.archive, true);
@@ -120,11 +136,15 @@ export function runAppShellModelTests() {
     app_commands: ["app.settings"],
     workspace_commands: ["workspace.open"],
     surfaces: { right_panel: ["settings"], bottom_drawer: ["logs"] },
+    terminal: { enabled: true, pty: false, resize: false },
   });
   assert.deepEqual(capabilities.appCommands, ["app.settings"]);
   assert.deepEqual(capabilities.workspaceCommands, ["workspace.open"]);
   assert.deepEqual(capabilities.surfaces.rightPanel, ["settings"]);
   assert.deepEqual(capabilities.surfaces.bottomDrawer, ["logs"]);
+  assert.equal(capabilities.terminal.enabled, true);
+  assert.equal(capabilities.terminal.pty, false);
+  assert.equal(capabilities.terminal.resize, false);
 
   const reduced = reduceAppShellState(initial, {
     type: "app_shell_bootstrap_loaded",
