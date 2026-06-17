@@ -135,6 +135,27 @@ def _serialize_session_snapshot(snapshot: Any) -> Dict[str, Any]:
     }
 
 
+def _serialize_session_summary(payload: Any) -> Dict[str, Any]:
+    data = dict(payload or {})
+    thread = data.get("thread") if isinstance(data.get("thread"), dict) else {}
+    safe_thread = {
+        "title": str(thread.get("title") or ""),
+        "archived": bool(thread.get("archived")),
+        "archived_at": str(thread.get("archived_at") or ""),
+        "forked_from": str(thread.get("forked_from") or ""),
+        "forked_at": str(thread.get("forked_at") or ""),
+    }
+    return {
+        "session_id": str(data.get("session_id") or ""),
+        "title": str(data.get("title") or safe_thread.get("title") or ""),
+        "current_mode": str(data.get("current_mode") or ""),
+        "updated_at": str(data.get("updated_at") or ""),
+        "summary_ref": str(data.get("summary_ref") or ""),
+        "transcript_ref": str(data.get("transcript_ref") or ""),
+        "thread": safe_thread,
+    }
+
+
 def _serialize_replay_payload(session_id: str, payload: Any) -> Dict[str, Any]:
     if isinstance(payload, dict):
         events = payload.get("events")
@@ -203,6 +224,17 @@ def _translate_value_error(exc: ValueError) -> HTTPException:
     if detail == "interaction_conflict":
         return HTTPException(status_code=409, detail=detail)
     return HTTPException(status_code=422, detail=detail or "invalid_request")
+
+
+def _thread_lifecycle_http_error(exc: ValueError) -> HTTPException:
+    detail = str(exc or "").strip() or "thread_lifecycle_failed"
+    if "session_id 不存在" in detail or detail == "session_not_found":
+        return HTTPException(status_code=404, detail="session_not_found")
+    if detail == "invalid_thread_title":
+        return HTTPException(status_code=422, detail=detail)
+    if detail == "session_fork_failed":
+        return HTTPException(status_code=422, detail=detail)
+    return HTTPException(status_code=422, detail=detail)
 
 
 class WebSocketFrontend(FrontendCallbacks):
@@ -687,6 +719,40 @@ class GUIBackend:
             snapshot = self._call_core(self.core.resume_session, session_id, mode)
             self._current_session_id = str(_read_value(snapshot, "session_id", "") or "")
             return _serialize_session_snapshot(snapshot)
+
+        @app.post("/api/sessions/{session_id}/rename")
+        async def rename_session(session_id: str, request: Dict[str, Any]):
+            core = self._require_core()
+            try:
+                summary = core.rename_session(
+                    session_id,
+                    str(request.get("title") or ""),
+                )
+            except ValueError as exc:
+                raise _thread_lifecycle_http_error(exc)
+            return {"session": _serialize_session_summary(summary)}
+
+        @app.post("/api/sessions/{session_id}/archive")
+        async def archive_session(session_id: str):
+            core = self._require_core()
+            try:
+                summary = core.archive_session(session_id)
+            except ValueError as exc:
+                raise _thread_lifecycle_http_error(exc)
+            return {"session": _serialize_session_summary(summary)}
+
+        @app.post("/api/sessions/{session_id}/fork")
+        async def fork_session(session_id: str, request: Dict[str, Any]):
+            core = self._require_core()
+            try:
+                summary = core.fork_session(
+                    session_id,
+                    str(request.get("title") or ""),
+                )
+            except ValueError as exc:
+                raise _thread_lifecycle_http_error(exc)
+            payload = _serialize_session_summary(summary)
+            return {"session_id": payload["session_id"], "session": payload}
 
         @app.post("/api/sessions/{session_id}/message")
         async def send_message(session_id: str, request: Dict[str, Any]):
