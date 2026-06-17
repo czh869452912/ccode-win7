@@ -2,6 +2,7 @@ import { injectChildren, makeEventId, resolveTimelineAnchor } from "./state-help
 import { focusDiffFile } from "./session-runtime/diff-model.js";
 import { createAppShellState } from "./app-shell/model.js";
 import { reduceAppShellState } from "./app-shell/reducer.js";
+import { createSourceControlState, reduceSourceControlState } from "./source-control/source-control-state.js";
 import { createTerminalState, reduceTerminalState } from "./terminal/terminal-state.js";
 import { createWorkbenchState, reduceWorkbenchState } from "./workbench/surfaces.js";
 import { resetWorkspaceScopedState } from "./app-workspaces.js";
@@ -48,6 +49,7 @@ export const initialState = {
   historyIntegrity: null,
   workbench: createWorkbenchState(),
   app: createAppShellState(),
+  sourceControl: createSourceControlState(),
   terminal: createTerminalState(),
 };
 
@@ -149,6 +151,18 @@ export function reducer(state, action) {
       return {
         ...state,
         terminal: reduceTerminalState(state.terminal, action),
+      };
+    case "source_control_reset":
+    case "source_control_load_started":
+    case "source_control_load_failed":
+    case "source_control_status_loaded":
+    case "source_control_file_selected":
+    case "source_control_diff_started":
+    case "source_control_diff_failed":
+    case "source_control_diff_loaded":
+      return {
+        ...state,
+        sourceControl: reduceSourceControlState(state.sourceControl, action),
       };
     case "sessions_loaded":
       return { ...state, sessions: action.sessions };

@@ -65,6 +65,7 @@ export function runAppWorkspaceTests() {
     permissionContext: { session_id: "sess-1" },
     eventLog: [{ label: "old" }],
     activeTurnId: "turn-1",
+    sourceControl: { status: "ready", selectedPath: "src/main.c" },
   });
   assert.deepEqual(reset.sessions, []);
   assert.equal(reset.currentSessionId, "");
@@ -79,4 +80,6 @@ export function runAppWorkspaceTests() {
   assert.equal(reset.permissionContext, null);
   assert.deepEqual(reset.eventLog, []);
   assert.equal(reset.activeTurnId, "");
+  assert.equal(reset.sourceControl.status, "idle");
+  assert.equal(reset.sourceControl.selectedPath, "");
 }

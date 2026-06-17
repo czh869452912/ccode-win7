@@ -1,4 +1,5 @@
 export { normalizeAppBootstrap, normalizeWorkspaceRecord } from "./app-shell/model.js";
+import { createSourceControlState } from "./source-control/source-control-state.js";
 import { createTerminalState } from "./terminal/terminal-state.js";
 
 export function canSwitchWorkspace(state = {}) {
@@ -45,6 +46,7 @@ export function resetWorkspaceScopedState(state = {}) {
     activeStepId: "",
     activeStepIndex: 0,
     historyIntegrity: null,
+    sourceControl: createSourceControlState(),
     terminal: createTerminalState(),
   };
 }
