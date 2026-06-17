@@ -55,6 +55,9 @@ class CompactionBoundaryRecord(object):
     mode_name: str = ""
     preserved_head_message_id: str = ""
     preserved_tail_message_id: str = ""
+    trigger: str = ""
+    phase: str = ""
+    context_window_generation: int = 0
     token_counts: Dict[str, int] = field(default_factory=dict)
     message_counts: Dict[str, int] = field(default_factory=dict)
     file_activity: Dict[str, List[str]] = field(default_factory=dict)
@@ -74,6 +77,9 @@ class CompactionBoundaryRecord(object):
             "mode_name": self.mode_name,
             "preserved_head_message_id": self.preserved_head_message_id,
             "preserved_tail_message_id": self.preserved_tail_message_id,
+            "trigger": self.trigger,
+            "phase": self.phase,
+            "context_window_generation": int(self.context_window_generation or 0),
             "token_counts": dict(self.token_counts),
             "message_counts": dict(self.message_counts),
             "file_activity": {
@@ -169,6 +175,12 @@ class CompactionStateReducer(object):
             mode_name=_clean_text(payload.get("mode_name")),
             preserved_head_message_id=_clean_text(payload.get("preserved_head_message_id")),
             preserved_tail_message_id=_clean_text(payload.get("preserved_tail_message_id")),
+            trigger=_clean_text(payload.get("trigger") or metadata.get("trigger")),
+            phase=_clean_text(payload.get("phase") or metadata.get("phase")),
+            context_window_generation=_safe_int(
+                payload.get("context_window_generation")
+                or metadata.get("context_window_generation")
+            ),
             token_counts=token_counts,
             message_counts=message_counts,
             file_activity={

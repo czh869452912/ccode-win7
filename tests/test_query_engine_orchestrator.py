@@ -33,7 +33,7 @@ class TestQueryEngineBackwardCompatibility(unittest.TestCase):
         self.assertIsNotNone(engine)
         self.assertEqual(engine.max_turns, 8)
         self.assertIsNotNone(engine._llm_wrapper)
-        self.assertIsNotNone(engine._compaction)
+        self.assertFalse(hasattr(engine, "_compaction"))
         self.assertIsNotNone(engine._turn_orchestrator)
 
     def test_query_engine_run_signature(self):

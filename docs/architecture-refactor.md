@@ -27,16 +27,21 @@ The adapter retains core orchestration (turn execution, command dispatch, permis
 
 ### QueryEngine Extraction (Plan 03-02)
 
+> Historical note: later Agent Core work moved main-path context assembly and
+> compact retry into `ContextManager` / `AgentLoop`. `ContextCompactionEngine`
+> remains as a legacy strategy available to `LLMClientRetryWrapper` when
+> injected directly, but `QueryEngine` no longer constructs or owns it.
+
 **Before:** `QueryEngine` — 1,530 lines in single file
 **After:** Orchestrator with 3 extracted strategies
 
 | Strategy | Responsibility | File |
 |----------|----------------|------|
 | LLMClientRetryWrapper | Retry with backoff, context compaction trigger | `strategies/llm_retry_wrapper.py` |
-| ContextCompactionEngine | Token budget enforcement and compaction | `strategies/context_compaction_engine.py` |
+| Legacy ContextCompactionEngine | Optional wrapper-level token compaction when injected directly | `strategies/context_compaction_engine.py` |
 | TurnOrchestrator | Single turn: prompt -> LLM -> tools -> observations | `strategies/turn_orchestrator.py` |
 
-QueryEngine instantiates all three strategies and provides backward-compatible `run()` and `stop()` convenience methods.
+QueryEngine instantiates the retry wrapper and turn orchestrator, while context compaction on the main path is owned by `ContextManager` and `AgentLoop`. It provides backward-compatible `run()` and `stop()` convenience methods.
 
 ### Global State Elimination (Plan 03-03)
 

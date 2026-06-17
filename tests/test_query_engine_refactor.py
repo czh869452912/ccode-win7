@@ -2055,6 +2055,12 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertEqual(compact_payload["file_activity"]["modified_files"], [])
         self.assertTrue(compact_payload["evidence_refs"])
         self.assertEqual(compact_payload["extension_summary"], False)
+        self.assertEqual(compact_payload["trigger"], "reactive_retry")
+        self.assertEqual(compact_payload["phase"], "provider_retry")
+        self.assertEqual(compact_payload["context_window_generation"], 1)
+        self.assertEqual(boundary.metadata.get("trigger"), "reactive_retry")
+        self.assertEqual(boundary.metadata.get("phase"), "provider_retry")
+        self.assertEqual(boundary.metadata.get("context_window_generation"), 1)
 
         restored = SessionRestorer().restore(events)
         restored_boundary = restored.session.latest_compact_boundary()
@@ -2067,9 +2073,15 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertEqual(
             restored_boundary.preserved_tail_message_id, boundary.preserved_tail_message_id
         )
+        self.assertEqual(restored_boundary.metadata.get("trigger"), "reactive_retry")
+        self.assertEqual(restored_boundary.metadata.get("phase"), "provider_retry")
+        self.assertEqual(restored_boundary.metadata.get("context_window_generation"), 1)
         restored_compaction = restored.compaction_state.to_dict()
         self.assertEqual(restored_compaction["boundary_count"], 1)
         self.assertEqual(restored_compaction["latest_boundary_id"], boundary.boundary_id)
+        self.assertEqual(restored_compaction["latest_boundary"]["trigger"], "reactive_retry")
+        self.assertEqual(restored_compaction["latest_boundary"]["phase"], "provider_retry")
+        self.assertEqual(restored_compaction["latest_boundary"]["context_window_generation"], 1)
         self.assertIn(
             "src/demo.c",
             restored_compaction["latest_boundary"]["file_activity"]["read_files"],

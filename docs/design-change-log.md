@@ -44,6 +44,41 @@
 
 ## 3. 当前变更记录
 
+### DC-162
+
+- 日期：2026-06-17
+- 变更主题：Pre-provider auto compact and compact-boundary diagnostics
+- 变更摘要：
+  - `ContextManager` now supports a conservative `auto_compact_threshold_ratio` setting. When a normal context assembly is near the input budget and older turns can be summarized, it rebuilds once with the internal compact policy before the provider call.
+  - The auto compact path is represented as the `auto_compact_threshold` context pipeline step. Reactive provider-error retry continues to use `reactive_compact_retry`.
+  - `QueryEngine` now writes compact-boundary `trigger`, `phase`, and `context_window_generation` diagnostics into both the transcript payload and boundary metadata; `CompactionStateReducer` projects those fields as read-model state.
+  - `ContextWindowState` centralizes those diagnostic derivation rules as an internal value object; it is not a new durable history source or policy engine.
+  - `QueryEngine` no longer constructs the legacy `ContextCompactionEngine`; wrapper-level compaction remains available only when injected into `LLMClientRetryWrapper` directly.
+  - `SessionRestorer` preserves those diagnostics when replaying compact boundaries.
+- 影响范围：
+  - `src/embedagent/context.py`
+  - `src/embedagent/config.py`
+  - `src/embedagent/context_window.py`
+  - `src/embedagent/agent_loop.py`
+  - `src/embedagent/query_engine.py`
+  - `src/embedagent/compaction_state.py`
+  - `src/embedagent/session_restore.py`
+  - `tests/test_context_config.py`
+  - `tests/test_context_window_state.py`
+  - `tests/test_compaction_state.py`
+  - `tests/test_query_engine_refactor.py`
+- 关联文档：
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/frontend-protocol.md`
+- 是否需要 ADR：否；这是既有 context/compaction 边界内的 deterministic policy refinement，没有新增公共 extension API 或新的 session-history truth。
+- 后续动作：
+  - Observe real C/C++ long-session traces and tune the default threshold only with evidence.
+  - If future slices add richer context-window state, keep it reducer-backed diagnostics unless a separate policy slice explicitly moves ownership.
+
 ### DC-161
 
 - 日期：2026-06-16

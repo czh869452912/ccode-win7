@@ -222,6 +222,8 @@ class AgentLoop(object):
                         raise
                     compact_retry_used = True
                     force_compact = True
+                    if "reactive_compact_retry" not in assembly.pipeline_steps:
+                        assembly.pipeline_steps.insert(0, "reactive_compact_retry")
                     compact_boundary_recorded = (
                         self._maybe_record_compact_boundary(session, current_mode, assembly)
                         or compact_boundary_recorded

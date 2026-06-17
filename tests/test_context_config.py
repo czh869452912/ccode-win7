@@ -15,7 +15,7 @@ from embedagent.context import (
     ReducerRegistry,
     make_context_config,
 )
-from embedagent.session import Observation, Session
+from embedagent.session import AssistantReply, Observation, Session
 
 
 class TestMakeContextConfig(unittest.TestCase):
@@ -44,6 +44,10 @@ class TestMakeContextConfig(unittest.TestCase):
     def test_max_recent_turns_override(self):
         cfg = make_context_config(AppConfig(max_recent_turns=8))
         self.assertEqual(cfg.default_max_recent_turns, 8)
+
+    def test_auto_compact_threshold_ratio_override(self):
+        cfg = make_context_config(AppConfig(auto_compact_threshold_ratio=0.77))
+        self.assertAlmostEqual(cfg.auto_compact_threshold_ratio, 0.77)
 
     def test_unset_fields_use_defaults(self):
         cfg = make_context_config(AppConfig(max_context_tokens=32000))
@@ -197,6 +201,45 @@ class TestContextCompactionSignal(unittest.TestCase):
         with mock.patch.object(manager, "_measure_messages", return_value=100):
             result = manager.build_messages(session, mode_name="build")
         self.assertFalse(result.compacted)
+
+    def test_near_full_window_uses_compact_policy_before_provider(self):
+        cfg = ContextConfig(auto_compact_threshold_ratio=0.01)
+        cfg.mode_overrides["build"].update(
+            {
+                "max_context_tokens": 50000,
+                "reserve_output_tokens": 0,
+                "reserve_reasoning_tokens": 0,
+                "max_recent_turns": 4,
+            }
+        )
+        cfg.mode_overrides["compact"].update(
+            {
+                "max_context_tokens": 15000,
+                "reserve_output_tokens": 0,
+                "reserve_reasoning_tokens": 0,
+                "max_recent_turns": 2,
+                "max_summary_turns": 6,
+            }
+        )
+        manager = ContextManager(config=cfg)
+        session = Session(session_id="sess-auto-compact")
+        session.add_system_message("mode: build")
+        for index in range(5):
+            session.add_user_message("old user %s %s" % (index, "u" * 900))
+            session.add_assistant_reply(
+                AssistantReply(
+                    content="old assistant %s %s" % (index, "a" * 700),
+                    actions=[],
+                    finish_reason="stop",
+                )
+            )
+
+        result = manager.build_messages(session, mode_name="build")
+
+        self.assertEqual(result.policy.mode_name, "compact")
+        self.assertIn("auto_compact_threshold", result.pipeline_steps)
+        self.assertNotIn("reactive_compact_retry", result.pipeline_steps)
+        self.assertGreater(result.summarized_turns, 0)
 
 
 if __name__ == "__main__":

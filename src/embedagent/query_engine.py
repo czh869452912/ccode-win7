@@ -19,6 +19,7 @@ from embedagent.capabilities import (
     runtime_tool_capability_descriptors,
 )
 from embedagent.context import ContextManager
+from embedagent.context_window import ContextWindowState
 from embedagent.extensions import (
     ExtensionContext,
     ExtensionManager,
@@ -30,7 +31,6 @@ from embedagent.interaction import (
     build_user_input_request,
 )
 from embedagent.llm import ModelClientError, OpenAICompatibleClient
-from embedagent.strategies.context_compaction_engine import ContextCompactionEngine
 from embedagent.strategies.execution_tracer import ExecutionTracer, TraceEventType
 from embedagent.strategies.llm_retry_wrapper import LLMClientRetryWrapper
 from embedagent.strategies.turn_orchestrator import TurnOrchestrator
@@ -150,11 +150,6 @@ class QueryEngine(object):
             failure_observation_factory=self._failure_observation,
             permission_pending_handler=self._build_permission_pending_result,
             permission_rejected_handler=self._record_permission_rejection,
-        )
-        self._compaction = ContextCompactionEngine(
-            context_manager=self.context_manager,
-            max_tokens=8000,
-            reserve_tokens=1000,
         )
         self._llm_wrapper = LLMClientRetryWrapper(
             client=client,
@@ -904,6 +899,7 @@ class QueryEngine(object):
             for message in list(getattr(session, "messages", []) or []):
                 self._append_message_event(session, self._message_event_payload(message))
             for boundary in list(getattr(session, "compact_boundaries", []) or []):
+                boundary_metadata = dict(getattr(boundary, "metadata", {}) or {})
                 self._append_transcript_event(
                     session,
                     "compact_boundary",
@@ -921,7 +917,12 @@ class QueryEngine(object):
                         "preserved_tail_message_id": str(
                             getattr(boundary, "preserved_tail_message_id", "") or ""
                         ),
-                        "metadata": dict(getattr(boundary, "metadata", {}) or {}),
+                        "trigger": str(boundary_metadata.get("trigger") or ""),
+                        "phase": str(boundary_metadata.get("phase") or ""),
+                        "context_window_generation": int(
+                            boundary_metadata.get("context_window_generation") or 0
+                        ),
+                        "metadata": boundary_metadata,
                     },
                 )
 
@@ -2322,15 +2323,21 @@ class QueryEngine(object):
             preserved_head_message_id, preserved_tail_message_id = (
                 session.preserved_segment_message_ids(assembly.recent_turns)
             )
+            window_state = ContextWindowState.from_pipeline_steps(
+                list(getattr(assembly, "pipeline_steps", []) or []),
+                len(getattr(session, "compact_boundaries", []) or []),
+            )
+            metadata = {
+                "approx_tokens": assembly.approx_tokens,
+                "replacements": len(assembly.replacements),
+                "pipeline_steps": list(assembly.pipeline_steps),
+            }
+            metadata = window_state.extend_metadata(metadata)
             boundary = session.add_compact_boundary(
                 assembly.summary_message,
                 compacted_turn_count,
                 current_mode,
-                {
-                    "approx_tokens": assembly.approx_tokens,
-                    "replacements": len(assembly.replacements),
-                    "pipeline_steps": list(assembly.pipeline_steps),
-                },
+                metadata,
                 preserved_head_message_id=preserved_head_message_id,
                 preserved_tail_message_id=preserved_tail_message_id,
             )
@@ -2349,6 +2356,9 @@ class QueryEngine(object):
                     "mode_name": boundary.mode_name,
                     "preserved_head_message_id": boundary.preserved_head_message_id,
                     "preserved_tail_message_id": boundary.preserved_tail_message_id,
+                    "trigger": window_state.trigger,
+                    "phase": window_state.phase,
+                    "context_window_generation": window_state.context_window_generation,
                     "metadata": dict(boundary.metadata),
                     "token_counts": token_counts,
                     "message_counts": message_counts,

@@ -66,6 +66,7 @@ class ContextConfig:
     default_hard_message_chars: int = 1200
     default_hard_tool_chars: int = 800
     default_project_memory_chars: int = 1600
+    auto_compact_threshold_ratio: float = 0.9
     mode_overrides: Dict[str, Dict[str, int]] = field(
         default_factory=lambda: {
             "spec": {
@@ -141,6 +142,8 @@ def make_context_config(app_config=None):
         kwargs["estimated_chars_per_token"] = float(app_config.chars_per_token)
     if getattr(app_config, "max_recent_turns", None) is not None:
         kwargs["default_max_recent_turns"] = int(app_config.max_recent_turns)
+    if getattr(app_config, "auto_compact_threshold_ratio", None) is not None:
+        kwargs["auto_compact_threshold_ratio"] = float(app_config.auto_compact_threshold_ratio)
     return ContextConfig(**kwargs)
 
 
@@ -744,6 +747,7 @@ class ContextManager(object):
         workflow_state: str = "chat",
         intelligence_broker: Optional[WorkspaceIntelligenceBroker] = None,
         force_compact: bool = False,
+        compact_trigger: str = "",
     ) -> ContextBuildResult:
         resolved_mode = mode_name or self._detect_mode_name(session) or "build"
         policy = self._policy_for_mode("compact" if force_compact else resolved_mode)
@@ -807,8 +811,9 @@ class ContextManager(object):
                 "summary/compact",
                 "prompt_render",
             ]
-            if force_compact:
-                pipeline_steps.insert(0, "reactive_compact_retry")
+            compact_step = self._compact_pipeline_step(force_compact, compact_trigger)
+            if compact_step:
+                pipeline_steps.insert(0, compact_step)
             return ContextBuildResult(
                 messages,
                 used_chars,
@@ -843,8 +848,20 @@ class ContextManager(object):
             )
             best = candidate
             if not candidate.budget.over_budget:
-                if force_compact and "reactive_compact_retry" not in candidate.pipeline_steps:
-                    candidate.pipeline_steps.insert(0, "reactive_compact_retry")
+                if self._should_auto_compact(candidate, force_compact):
+                    return ContextManager.build_messages(
+                        self,
+                        session,
+                        mode_name=resolved_mode,
+                        tools=tools,
+                        workflow_state=workflow_state,
+                        intelligence_broker=intelligence_broker,
+                        force_compact=True,
+                        compact_trigger="auto_threshold",
+                    )
+                compact_step = self._compact_pipeline_step(force_compact, compact_trigger)
+                if compact_step and compact_step not in candidate.pipeline_steps:
+                    candidate.pipeline_steps.insert(0, compact_step)
                 return candidate
             recent_turns -= 1
             shrinks += 1
@@ -859,9 +876,34 @@ class ContextManager(object):
         best.stats.selected_messages = len(best.messages)
         best.stats.dropped_messages += dropped_messages
         best.stats.hard_trimmed = True
-        if force_compact and "reactive_compact_retry" not in best.pipeline_steps:
-            best.pipeline_steps.insert(0, "reactive_compact_retry")
+        compact_step = self._compact_pipeline_step(force_compact, compact_trigger)
+        if compact_step and compact_step not in best.pipeline_steps:
+            best.pipeline_steps.insert(0, compact_step)
         return best
+
+    def _compact_pipeline_step(self, force_compact: bool, compact_trigger: str) -> str:
+        if not force_compact:
+            return ""
+        trigger = str(compact_trigger or "").strip()
+        if trigger == "auto_threshold":
+            return "auto_compact_threshold"
+        return "reactive_compact_retry"
+
+    def _should_auto_compact(self, candidate: ContextBuildResult, force_compact: bool) -> bool:
+        if force_compact:
+            return False
+        if candidate.policy.mode_name == "compact":
+            return False
+        if candidate.summarized_turns <= 0:
+            return False
+        ratio = float(getattr(self.config, "auto_compact_threshold_ratio", 0.0) or 0.0)
+        if ratio <= 0.0 or ratio >= 1.0:
+            return False
+        max_input_tokens = int(getattr(candidate.budget, "max_input_tokens", 0) or 0)
+        input_tokens = int(getattr(candidate.budget, "input_tokens", 0) or 0)
+        if max_input_tokens <= 0:
+            return False
+        return input_tokens >= int(max_input_tokens * ratio)
 
     def _build_candidate(
         self,

@@ -16,6 +16,7 @@
         "reserve_output_tokens": 3000,
         "chars_per_token": 3.0,
         "max_recent_turns": 4,
+        "auto_compact_threshold_ratio": 0.9,
         "max_turns": 8,
         "default_mode": "build",
         "mode_writable_globs": {
@@ -51,6 +52,7 @@ class AppConfig:
     reserve_output_tokens: Optional[int] = None
     chars_per_token: Optional[float] = None
     max_recent_turns: Optional[int] = None
+    auto_compact_threshold_ratio: Optional[float] = None
     # 循环控制
     max_turns: Optional[int] = None
     default_mode: Optional[str] = None
@@ -85,6 +87,7 @@ def _merge(base: AppConfig, overrides: dict) -> AppConfig:
             "reserve_output_tokens",
             "chars_per_token",
             "max_recent_turns",
+            "auto_compact_threshold_ratio",
         ):
             if normalized.get(field_name) is None and context_section.get(field_name) is not None:
                 normalized[field_name] = context_section.get(field_name)
@@ -102,6 +105,7 @@ def _merge(base: AppConfig, overrides: dict) -> AppConfig:
         "reserve_output_tokens",
         "chars_per_token",
         "max_recent_turns",
+        "auto_compact_threshold_ratio",
         "max_turns",
         "default_mode",
         "allow_system_tool_fallback",

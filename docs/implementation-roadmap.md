@@ -167,7 +167,8 @@ The current self-extensible Agent Core baseline remains valid. The next program 
 
 10. **Structured compaction state**
    - current implementation status: Phase J is complete
-   - `compact_boundary` events now carry safe structured metadata: token/message counts, preserved message anchors, file activity paths, evidence refs, and extension-summary flag
+   - `ContextManager` can now perform deterministic pre-provider compact-policy rebuilds when assembled input reaches `auto_compact_threshold_ratio` and older turns can be summarized; reactive provider-error compact retry remains in `AgentLoop`
+   - `compact_boundary` events now carry safe structured metadata: token/message counts, preserved message anchors, trigger/phase/window-generation diagnostics, file activity paths, evidence refs, and extension-summary flag
    - `CompactionStateReducer` projects reducer-backed compaction state from transcript events, including latest boundary and duplicate/malformed diagnostics
    - restore results, managed sessions, protocol snapshots, and session snapshots expose `compaction_state`
    - projection remains read-only diagnostics/replay state; context selection, summary generation, extension loading, tool execution, and permissions remain owned by their existing boundaries

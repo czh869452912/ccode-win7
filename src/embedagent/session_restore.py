@@ -305,11 +305,15 @@ class SessionRestorer(object):
                     if _maybe_skip("duplicate_compact_boundary_id"):
                         continue
                     break
+                boundary_metadata = dict(payload.get("metadata") or {})
+                for metadata_key in ("trigger", "phase", "context_window_generation"):
+                    if payload.get(metadata_key) is not None:
+                        boundary_metadata[metadata_key] = payload.get(metadata_key)
                 session.add_compact_boundary(
                     str(payload.get("summary_text") or ""),
                     int(payload.get("compacted_turn_count") or 0),
                     str(payload.get("mode_name") or ""),
-                    dict(payload.get("metadata") or {}),
+                    boundary_metadata,
                     boundary_id=boundary_id,
                     created_at=str(payload.get("created_at") or ""),
                     preserved_head_message_id=str(payload.get("preserved_head_message_id") or ""),

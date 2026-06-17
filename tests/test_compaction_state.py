@@ -20,6 +20,9 @@ class TestCompactionStateReducer(unittest.TestCase):
                     "mode_name": "build",
                     "preserved_head_message_id": "m-head",
                     "preserved_tail_message_id": "m-tail",
+                    "trigger": "auto_threshold",
+                    "phase": "pre_provider",
+                    "context_window_generation": 2,
                     "metadata": {"pipeline_steps": ["select", "compact"]},
                     "token_counts": {"approx_before": 1800, "approx_after": 520},
                     "message_counts": {
@@ -51,6 +54,9 @@ class TestCompactionStateReducer(unittest.TestCase):
         self.assertEqual(payload["latest_boundary"]["token_counts"]["approx_after"], 520)
         self.assertEqual(payload["latest_boundary"]["message_counts"]["summarized_turns"], 4)
         self.assertEqual(payload["latest_boundary"]["message_counts"]["recent_turns"], 2)
+        self.assertEqual(payload["latest_boundary"]["trigger"], "auto_threshold")
+        self.assertEqual(payload["latest_boundary"]["phase"], "pre_provider")
+        self.assertEqual(payload["latest_boundary"]["context_window_generation"], 2)
         self.assertEqual(
             payload["latest_boundary"]["file_activity"]["read_files"],
             ["include/demo.h", "src/demo.c"],
