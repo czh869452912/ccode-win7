@@ -764,10 +764,13 @@ async function main() {
     webappSourcePath("components", "workbench", "RightPanelTabs.jsx"),
     "utf8",
   );
-  assert.equal(rightPanelTabsSource.includes("RIGHT_PANEL_SURFACES"), true);
-  assert.equal(rightPanelTabsSource.includes("diff: \"Diff\""), true);
-  assert.equal(rightPanelTabsSource.includes("settings: \"Settings\""), true);
-  assert.equal(rightPanelTabsSource.includes("diagnostics: \"Diagnostics\""), true);
+  assert.equal(rightPanelTabsSource.includes("right-panel-empty-state"), true);
+  assert.equal(rightPanelTabsSource.includes("right-panel-add-surface"), true);
+  assert.equal(rightPanelTabsSource.includes("onCloseOtherSurfaces"), true);
+  assert.equal(rightPanelTabsSource.includes("onCloseSurfacesToRight"), true);
+  assert.equal(rightPanelTabsSource.includes("onCloseAllSurfaces"), true);
+  assert.equal(rightPanelTabsSource.includes("RIGHT_PANEL_SURFACES.map"), false);
+  assert.equal(rightPanelTabsSource.includes("source_control: \"Source\""), false);
   assert.equal(rightPanelTabsSource.includes("todos"), false);
 
   const changedFilesCardSource = fs.readFileSync(
