@@ -1202,6 +1202,73 @@ body {
 .log-msg.success { color: var(--color-success); }
 .log-msg.error   { color: var(--color-error); }
 
+.app-settings-grid {
+  display: grid;
+  gap: var(--sp-2);
+}
+
+.app-setting-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-height: 30px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.app-setting-check {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+}
+
+.diagnostics-table {
+  display: grid;
+  gap: 1px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-sm);
+  overflow: hidden;
+}
+
+.diagnostics-row {
+  display: grid;
+  grid-template-columns: minmax(72px, .8fr) minmax(72px, .8fr) minmax(0, 1.4fr);
+  gap: var(--sp-2);
+  align-items: center;
+  min-height: 28px;
+  padding: 5px 7px;
+  background: var(--bg-subtle);
+  font-size: 11px;
+}
+
+.diagnostics-group {
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.diagnostics-key {
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.diagnostics-value {
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
+.rule-chip.muted {
+  color: var(--text-muted);
+  border-color: var(--border-default);
+}
+
 /* Inspector user input prompt */
 .prompt-panel {
   background: var(--bg-subtle);

@@ -12,6 +12,8 @@ const LABELS = {
   diff: "Diff",
   permissions: "Permissions",
   runtime: "Runtime",
+  settings: "Settings",
+  diagnostics: "Diagnostics",
   preview: "Preview",
   log: "Log",
 };

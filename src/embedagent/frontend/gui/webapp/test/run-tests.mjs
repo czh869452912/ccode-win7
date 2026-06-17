@@ -633,6 +633,11 @@ async function main() {
   assert.equal(inspectorSource.includes("{showTabs ? ("), true);
   assert.equal(inspectorSource.includes('{inspectorTab === "interaction"'), true);
   assert.equal(inspectorSource.includes('{inspectorTab === "diff"'), true);
+  assert.equal(inspectorSource.includes("formatDiagnosticsRows"), true);
+  assert.equal(inspectorSource.includes("SettingsPanel"), true);
+  assert.equal(inspectorSource.includes("DiagnosticsPanel"), true);
+  assert.equal(inspectorSource.includes("appShell"), true);
+  assert.equal(inspectorSource.includes("onAppSettingsChange"), true);
   assert.equal(inspectorSource.includes("todo-row"), false);
   assert.equal(inspectorSource.includes("todo-mark"), false);
 
@@ -646,6 +651,8 @@ async function main() {
   assert.equal(stylesSource.includes(".t3-work-row.error"), true);
   assert.equal(stylesSource.includes(".t3-work-row.running"), true);
   assert.equal(stylesSource.includes("timeline-work-detail"), true);
+  assert.equal(stylesSource.includes(".app-settings-grid"), true);
+  assert.equal(stylesSource.includes(".diagnostics-table"), true);
 
   const appSource = fs.readFileSync(
     webappSourcePath("App.jsx"),
@@ -669,6 +676,10 @@ async function main() {
   assert.equal(appSource.includes("visual_timeline_fixture_loaded"), true);
   assert.equal(appSource.includes("visual_interaction_fixture_loaded"), true);
   assert.equal(appSource.includes("visual_thread_lifecycle_fixture_loaded"), true);
+  assert.equal(appSource.includes('command.id === "app.settings"'), true);
+  assert.equal(appSource.includes('command.id === "app.diagnostics"'), true);
+  assert.equal(appSource.includes('command.id === "app.reload"'), true);
+  assert.equal(appSource.includes("appShell={state.app}"), true);
 
   const storeSource = fs.readFileSync(
     webappSourcePath("store.js"),
@@ -732,6 +743,8 @@ async function main() {
   );
   assert.equal(rightPanelTabsSource.includes("RIGHT_PANEL_SURFACES"), true);
   assert.equal(rightPanelTabsSource.includes("diff: \"Diff\""), true);
+  assert.equal(rightPanelTabsSource.includes("settings: \"Settings\""), true);
+  assert.equal(rightPanelTabsSource.includes("diagnostics: \"Diagnostics\""), true);
   assert.equal(rightPanelTabsSource.includes("todos"), false);
 
   const changedFilesCardSource = fs.readFileSync(

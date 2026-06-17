@@ -650,6 +650,20 @@ function App() {
       }
       return;
     }
+    if (command.id === "app.settings") {
+      dispatch({ type: "set_inspector", value: "settings" });
+      dispatch({ type: "workbench_surface_activated", placement: "right", kind: "settings" });
+      return;
+    }
+    if (command.id === "app.diagnostics") {
+      dispatch({ type: "set_inspector", value: "diagnostics" });
+      dispatch({ type: "workbench_surface_activated", placement: "right", kind: "diagnostics" });
+      return;
+    }
+    if (command.id === "app.reload") {
+      await loadAppBootstrap();
+      return;
+    }
     if (command.id === "message.send") {
       await sendMessage();
       return;
@@ -1398,6 +1412,7 @@ function App() {
             preview={state.preview}
             diffSurface={state.diffSurface}
             snapshot={state.snapshot}
+            appShell={state.app}
             userAnswer={userAnswer}
             eventLog={state.eventLog}
             onTabChange={(v) => {
@@ -1408,6 +1423,7 @@ function App() {
             onOpenReviewEvidence={openReviewEvidence}
             onRunRecipe={runRecipe}
             onFocusDiffFile={(filePath) => dispatch({ type: "diff_file_focused", filePath })}
+            onAppSettingsChange={(patch) => dispatch({ type: "app_shell_settings_changed", patch })}
             onUserAnswerChange={setUserAnswer}
             onRespondInteraction={respondToInteraction}
             showTabs={false}
