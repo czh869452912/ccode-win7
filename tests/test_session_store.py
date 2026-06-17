@@ -81,6 +81,29 @@ class TestSessionSummaryStore(unittest.TestCase):
         self.assertEqual(with_archived[0]["session_id"], session.session_id)
         self.assertTrue(with_archived[0]["thread"]["archived"])
 
+    def test_collect_stored_paths_keeps_archived_session_refs(self):
+        store = SessionSummaryStore(self.workspace)
+        session = Session()
+        session.add_user_message("archive refs")
+        action = Action("read_file", {}, "call-archive-ref")
+        session.add_assistant_reply(AssistantReply("", [action]))
+        session.add_observation(
+            action,
+            Observation(
+                "read_file",
+                True,
+                None,
+                {"output_stored_path": ".embedagent/tool-results/result-1.json"},
+            ),
+        )
+        store.persist(session, "build")
+        store.archive_session(session.session_id)
+
+        self.assertEqual(
+            store.collect_stored_paths(),
+            [".embedagent/tool-results/result-1.json"],
+        )
+
     def test_cleanup_keeps_archived_sessions(self):
         store = SessionSummaryStore(self.workspace)
         archived_session = Session()

@@ -163,7 +163,10 @@ class SessionSummaryStore(object):
     def collect_stored_paths(self, limit_sessions: Optional[int] = None) -> List[str]:
         refs = []
         seen = set()
-        summaries = self.list_summaries(limit=limit_sessions or self.max_retained_sessions)
+        summaries = self.list_summaries(
+            limit=limit_sessions or self.max_retained_sessions,
+            include_archived=True,
+        )
         for item in summaries:
             summary_ref = item.get("summary_ref") if isinstance(item, dict) else None
             if not summary_ref:
