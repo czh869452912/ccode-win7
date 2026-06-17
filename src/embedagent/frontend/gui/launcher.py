@@ -310,6 +310,17 @@ def launch_gui(
         "approve_commands": approve_commands,
         "permission_rules": permission_rules,
     }
+    host_diagnostics = {
+        "host": {
+            "platform": sys.platform,
+            "headless": bool(headless),
+            "debug": bool(debug),
+            "server_host": host,
+            "server_port": int(port),
+        },
+        "runtime": runtime_info,
+        "renderer": {},
+    }
     app_host = None
     try:
         # 创建 GUI Backend
@@ -323,7 +334,12 @@ def launch_gui(
             return create_core(path, runtime_config)
 
         app_host = GUIAppHost(core_factory=core_factory)
-        backend = GUIBackend(core=None, static_dir=static_dir, app_host=app_host)
+        backend = GUIBackend(
+            core=None,
+            static_dir=static_dir,
+            app_host=app_host,
+            host_diagnostics=host_diagnostics,
+        )
         if workspace:
             app_host.open_workspace_path(workspace)
 
@@ -340,6 +356,7 @@ def launch_gui(
 
         renderer_info = _detect_windows_renderer()
         renderer_info.update(runtime_info)
+        host_diagnostics["renderer"] = renderer_info
         _LOGGER.info("GUI renderer detection: %s", renderer_info.get("renderer"))
         _write_renderer_report(renderer_report, renderer_info)
 

@@ -20,6 +20,7 @@ from embedagent.frontend.gui.backend.app_host import (
     NoActiveWorkspaceError,
     SingleWorkspaceAppHost,
 )
+from embedagent.frontend.gui.backend.app_shell import AppShellService
 from embedagent.frontend.gui.backend.bridge import BlockingResult, ThreadsafeAsyncDispatcher
 from embedagent.frontend.gui.backend.session_events import build_session_event
 from embedagent.modes import DEFAULT_MODE
@@ -552,6 +553,7 @@ class GUIBackend:
         core: Optional[CoreInterface] = None,
         static_dir: str = "",
         app_host: Optional[GUIAppHost] = None,
+        host_diagnostics: Optional[Dict[str, Any]] = None,
     ):
         if core is None and app_host is None:
             raise ValueError("core_or_app_host_required")
@@ -559,6 +561,10 @@ class GUIBackend:
         self.frontend = WebSocketFrontend()
         self.app_host = app_host if app_host is not None else SingleWorkspaceAppHost(core)
         self.app_host.bind_frontend(self.frontend)
+        self.app_shell = AppShellService(
+            self.app_host,
+            host_diagnostics=host_diagnostics or {},
+        )
         self.core = _ActiveCoreProxy(self)  # Compatibility for existing route code.
         self.app = self._create_app()
         self._current_session_id: Optional[str] = None
@@ -615,11 +621,11 @@ class GUIBackend:
 
         @app.get("/api/app/bootstrap")
         async def get_app_bootstrap():
-            return self.app_host.bootstrap()
+            return self.app_shell.bootstrap()
 
         @app.get("/api/app/workspaces")
         async def list_app_workspaces():
-            return self.app_host.list_workspaces()
+            return self.app_shell.list_workspaces()
 
         @app.post("/api/app/workspaces")
         async def open_app_workspace(request: Dict[str, Any]):
@@ -628,7 +634,7 @@ class GUIBackend:
             if not path:
                 raise HTTPException(status_code=422, detail="workspace_path_required")
             try:
-                return self.app_host.open_workspace_path(path, label=label)
+                return self.app_shell.open_workspace_path(path, label=label)
             except ValueError as exc:
                 detail = str(exc or "").strip() or "workspace_open_failed"
                 status = 404 if detail == "workspace_not_found" else 422
@@ -637,7 +643,7 @@ class GUIBackend:
         @app.post("/api/app/workspaces/{workspace_id}/activate")
         async def activate_app_workspace(workspace_id: str):
             try:
-                return self.app_host.activate_workspace(workspace_id)
+                return self.app_shell.activate_workspace(workspace_id)
             except ValueError as exc:
                 detail = str(exc or "").strip() or "workspace_activate_failed"
                 status = 404 if detail == "workspace_not_found" else 422
@@ -645,7 +651,7 @@ class GUIBackend:
 
         @app.delete("/api/app/workspaces/{workspace_id}")
         async def remove_app_workspace(workspace_id: str):
-            return self.app_host.remove_workspace(workspace_id)
+            return self.app_shell.remove_workspace(workspace_id)
 
         # API 路由
         @app.get("/api/sessions")

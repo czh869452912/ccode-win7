@@ -13,6 +13,16 @@ from embedagent.frontend.gui.backend.server import GUIBackend
 from embedagent.frontend.gui.backend.workspace_registry import WorkspaceRegistry
 
 
+def _assert_app_shell_payload(testcase, payload):
+    testcase.assertEqual(payload["app"]["shell_version"], 1)
+    testcase.assertEqual(payload["app"]["protocol"], "gui_app_shell_v1")
+    testcase.assertIn("diagnostics", payload)
+    testcase.assertIn("capabilities", payload)
+    testcase.assertIn("settings", payload)
+    testcase.assertIn("app.settings", payload["capabilities"]["app_commands"])
+    testcase.assertIn("settings", payload["capabilities"]["surfaces"]["right_panel"])
+
+
 class _FakeCore(object):
     def __init__(self, workspace):
         self.workspace = workspace
@@ -46,7 +56,7 @@ def _route(app, path, method):
 
 
 class TestGuiAppHost(unittest.TestCase):
-    def _backend(self, registry, created):
+    def _backend(self, registry, created, host_diagnostics=None):
         def factory(path):
             core = _FakeCore(path)
             created.append(core)
@@ -56,7 +66,12 @@ class TestGuiAppHost(unittest.TestCase):
         with open(os.path.join(static_dir, "index.html"), "w", encoding="utf-8") as handle:
             handle.write("<html><body>ok</body></html>")
         host = GUIAppHost(core_factory=factory, registry=registry)
-        backend = GUIBackend(core=None, static_dir=static_dir, app_host=host)
+        backend = GUIBackend(
+            core=None,
+            static_dir=static_dir,
+            app_host=host,
+            host_diagnostics=host_diagnostics or {"host": {"platform": "test"}},
+        )
         return backend, host
 
     def test_bootstrap_without_active_workspace(self):
@@ -68,11 +83,29 @@ class TestGuiAppHost(unittest.TestCase):
 
             payload = asyncio.run(route.endpoint())
 
+        _assert_app_shell_payload(self, payload)
         self.assertEqual(payload["has_active_workspace"], False)
         self.assertEqual(payload["active_workspace"], None)
         self.assertEqual(payload["workspaces"], [])
+        self.assertEqual(payload["diagnostics"]["host"]["platform"], "test")
         self.assertEqual(created, [])
         self.assertIs(host.current_core(), None)
+
+    def test_list_workspaces_route_returns_app_shell_payload(self):
+        with tempfile.TemporaryDirectory() as root:
+            registry = WorkspaceRegistry(storage_path=os.path.join(root, "workspaces.json"))
+            workspace = os.path.join(root, "project-a")
+            os.mkdir(workspace)
+            registry.upsert_path(workspace)
+            backend, _host = self._backend(registry, [])
+            route = _route(backend.app, "/api/app/workspaces", "GET")
+
+            payload = asyncio.run(route.endpoint())
+
+        _assert_app_shell_payload(self, payload)
+        self.assertEqual(payload["workspaces"][0]["path"], os.path.realpath(workspace))
+        self.assertIsNone(payload["active_workspace"])
+        self.assertEqual(payload["diagnostics"]["workspace_registry"]["count"], 1)
 
     def test_workspace_bound_route_returns_409_without_active_workspace(self):
         with tempfile.TemporaryDirectory() as root:
@@ -98,7 +131,9 @@ class TestGuiAppHost(unittest.TestCase):
 
             payload = asyncio.run(route.endpoint({"path": workspace}))
 
+        _assert_app_shell_payload(self, payload)
         self.assertEqual(payload["active_workspace"]["path"], os.path.realpath(workspace))
+        self.assertEqual(payload["diagnostics"]["active_core"]["present"], True)
         self.assertEqual(len(created), 1)
         self.assertIs(created[0].frontend, backend.frontend)
         self.assertIs(host.current_core(), created[0])
@@ -115,8 +150,9 @@ class TestGuiAppHost(unittest.TestCase):
             open_route = _route(backend.app, "/api/app/workspaces", "POST")
 
             asyncio.run(open_route.endpoint({"path": first}))
-            asyncio.run(open_route.endpoint({"path": second}))
+            payload = asyncio.run(open_route.endpoint({"path": second}))
 
+        _assert_app_shell_payload(self, payload)
         self.assertEqual(len(created), 2)
         self.assertEqual(created[0].shutdown_calls, 1)
         self.assertEqual(created[1].shutdown_calls, 0)
@@ -135,6 +171,7 @@ class TestGuiAppHost(unittest.TestCase):
 
             payload = asyncio.run(delete_route.endpoint(opened["active_workspace"]["id"]))
 
+            _assert_app_shell_payload(self, payload)
             self.assertEqual(payload["removed"], True)
             self.assertEqual(payload["workspaces"], [])
             self.assertTrue(os.path.isdir(workspace))
