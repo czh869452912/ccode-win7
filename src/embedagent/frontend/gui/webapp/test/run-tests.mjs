@@ -696,6 +696,11 @@ async function main() {
   assert.equal(appSource.includes("openTerminal"), true);
   assert.equal(appSource.includes("terminal_event"), true);
   assert.equal(appSource.includes("ensureTerminalOpen"), true);
+  assert.equal(appSource.includes("openRightPanelTerminalSurface"), true);
+  assert.equal(appSource.includes("splitRightPanelTerminalSurface"), true);
+  assert.equal(appSource.includes("closeRightPanelTerminalPane"), true);
+  assert.equal(appSource.includes("workbench_terminal_surface_split"), true);
+  assert.equal(appSource.includes("workbench_surface_activated\", placement: \"bottom\", kind: \"terminal\""), true);
   assert.equal(appSource.includes("AppSidebarLayout"), true);
   assert.equal(appSource.includes("WorkbenchHeader"), true);
   assert.equal(appSource.includes("data.session_id || currentSessionIdRef.current || \"\""), true);

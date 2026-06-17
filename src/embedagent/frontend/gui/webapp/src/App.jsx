@@ -796,6 +796,23 @@ function App() {
     }
   }
 
+  async function openTerminalSession(terminalId) {
+    if (!state.currentSessionId) {
+      dispatch({ type: "interaction_notice_set", notice: "Open a session before using the terminal." });
+      return null;
+    }
+    const targetTerminalId = String(terminalId || nextTerminalId(state.terminal.terminalIds));
+    try {
+      const payload = await openTerminal(state.currentSessionId, targetTerminalId, { cols: 100, rows: 30 });
+      dispatch({ type: "terminal_snapshot_loaded", snapshot: payload.terminal });
+      dispatch({ type: "terminal_active_set", terminalId: targetTerminalId });
+      return targetTerminalId;
+    } catch (error) {
+      dispatch({ type: "interaction_notice_set", notice: error.message || "Terminal failed to open." });
+      return null;
+    }
+  }
+
   async function refreshTerminals() {
     if (!state.currentSessionId) return;
     try {
@@ -807,20 +824,30 @@ function App() {
   }
 
   async function sendTerminalInput(text) {
-    const terminalId = state.terminal.activeTerminalId;
-    if (!state.currentSessionId || !terminalId) return;
+    await sendTerminalInputTo(state.terminal.activeTerminalId, text);
+  }
+
+  async function sendTerminalInputTo(terminalId, text) {
+    const targetTerminalId = String(terminalId || "");
+    if (!state.currentSessionId || !targetTerminalId) return;
     try {
-      await writeTerminal(state.currentSessionId, terminalId, text);
+      dispatch({ type: "terminal_active_set", terminalId: targetTerminalId });
+      await writeTerminal(state.currentSessionId, targetTerminalId, text);
     } catch (error) {
       dispatch({ type: "interaction_notice_set", notice: error.message || "Terminal write failed." });
     }
   }
 
   async function clearActiveTerminal() {
-    const terminalId = state.terminal.activeTerminalId;
-    if (!state.currentSessionId || !terminalId) return;
+    await clearTerminalById(state.terminal.activeTerminalId);
+  }
+
+  async function clearTerminalById(terminalId) {
+    const targetTerminalId = String(terminalId || "");
+    if (!state.currentSessionId || !targetTerminalId) return;
     try {
-      const payload = await clearTerminal(state.currentSessionId, terminalId);
+      dispatch({ type: "terminal_active_set", terminalId: targetTerminalId });
+      const payload = await clearTerminal(state.currentSessionId, targetTerminalId);
       dispatch({ type: "terminal_snapshot_loaded", snapshot: payload.terminal });
     } catch (error) {
       dispatch({ type: "interaction_notice_set", notice: error.message || "Terminal clear failed." });
@@ -828,10 +855,15 @@ function App() {
   }
 
   async function restartActiveTerminal() {
-    const terminalId = state.terminal.activeTerminalId;
-    if (!state.currentSessionId || !terminalId) return;
+    await restartTerminalById(state.terminal.activeTerminalId);
+  }
+
+  async function restartTerminalById(terminalId) {
+    const targetTerminalId = String(terminalId || "");
+    if (!state.currentSessionId || !targetTerminalId) return;
     try {
-      const payload = await restartTerminal(state.currentSessionId, terminalId, { cols: 100, rows: 30 });
+      dispatch({ type: "terminal_active_set", terminalId: targetTerminalId });
+      const payload = await restartTerminal(state.currentSessionId, targetTerminalId, { cols: 100, rows: 30 });
       dispatch({ type: "terminal_snapshot_loaded", snapshot: payload.terminal });
     } catch (error) {
       dispatch({ type: "interaction_notice_set", notice: error.message || "Terminal restart failed." });
@@ -888,25 +920,95 @@ function App() {
     return parts[parts.length - 1] || normalized;
   }
 
+  function allKnownTerminalIds() {
+    const panelIds = (state.workbench.rightPanel.surfaces || [])
+      .filter((surface) => surface.kind === "terminal")
+      .flatMap((surface) => surface.terminalIds || [surface.terminalId].filter(Boolean));
+    return Array.from(new Set([...(state.terminal.terminalIds || []), ...panelIds]));
+  }
+
+  async function openRightPanelTerminalSurface(preferredId = "") {
+    const terminalId = String(preferredId || nextTerminalId(allKnownTerminalIds()));
+    const openedTerminalId = await openTerminalSession(terminalId);
+    if (!openedTerminalId) return;
+    dispatch({
+      type: "workbench_surface_opened",
+      placement: "right",
+      kind: "terminal",
+      title: "Terminal",
+      resourceId: openedTerminalId,
+      terminalId: openedTerminalId,
+      terminalIds: [openedTerminalId],
+      activeTerminalId: openedTerminalId,
+    });
+    dispatch({ type: "set_inspector", value: "terminal" });
+  }
+
+  async function splitRightPanelTerminalSurface(surface, splitDirection = "horizontal") {
+    if (!surface || surface.kind !== "terminal") return;
+    const terminalId = nextTerminalId(allKnownTerminalIds());
+    const openedTerminalId = await openTerminalSession(terminalId);
+    if (!openedTerminalId) return;
+    dispatch({
+      type: "workbench_terminal_surface_split",
+      placement: "right",
+      surfaceId: surface.id,
+      terminalId: openedTerminalId,
+      splitDirection,
+    });
+  }
+
+  function activateRightPanelTerminalPane(surface, terminalId) {
+    if (!surface || surface.kind !== "terminal") return;
+    dispatch({
+      type: "workbench_terminal_surface_terminal_activated",
+      placement: "right",
+      surfaceId: surface.id,
+      terminalId,
+    });
+    dispatch({ type: "terminal_active_set", terminalId });
+  }
+
+  async function closeRightPanelTerminalPane(surface, terminalId) {
+    if (!surface || surface.kind !== "terminal") return;
+    const targetTerminalId = String(terminalId || "");
+    if (!targetTerminalId) return;
+    if (!state.currentSessionId) {
+      dispatch({ type: "interaction_notice_set", notice: "Open a session before using the terminal." });
+      return;
+    }
+    try {
+      await closeTerminal(state.currentSessionId, targetTerminalId);
+      dispatch({
+        type: "terminal_event",
+        event: { type: "closed", session_id: state.currentSessionId, terminal_id: targetTerminalId },
+      });
+      dispatch({
+        type: "workbench_terminal_surface_terminal_closed",
+        placement: "right",
+        surfaceId: surface.id,
+        terminalId: targetTerminalId,
+      });
+    } catch (error) {
+      dispatch({ type: "interaction_notice_set", notice: error.message || "Terminal close failed." });
+    }
+  }
+
   function openRightPanelSurface(kind, title = "") {
     const surfaceKind = String(kind || "");
     if (surfaceKind === "file") return;
-    const terminalId =
-      surfaceKind === "terminal"
-        ? state.terminal.activeTerminalId || nextTerminalId(state.terminal.terminalIds)
-        : "";
+    if (surfaceKind === "terminal") {
+      void openRightPanelTerminalSurface();
+      return;
+    }
     dispatch({
       type: "workbench_surface_opened",
       placement: "right",
       kind: surfaceKind,
       title: rightPanelSurfaceTitle(surfaceKind, title),
-      resourceId: surfaceKind === "diff" ? "current" : terminalId,
-      terminalId,
+      resourceId: surfaceKind === "diff" ? "current" : "",
     });
     dispatch({ type: "set_inspector", value: surfaceKind });
-    if (surfaceKind === "terminal") {
-      void ensureTerminalOpen(terminalId);
-    }
   }
 
   async function executeWorkbenchCommand(command) {
@@ -1740,8 +1842,8 @@ function App() {
               kind: surface.kind,
             });
             dispatch({ type: "set_inspector", value: surface.kind });
-            if (surface.kind === "terminal" && surface.terminalId) {
-              void ensureTerminalOpen(surface.terminalId);
+            if (surface.kind === "terminal" && surface.activeTerminalId) {
+              void openTerminalSession(surface.activeTerminalId);
             }
           }}
           onCloseSurface={(surface) => {
@@ -1781,12 +1883,14 @@ function App() {
             onOpenFile={openFile}
             onLoadFileChildren={loadFileChildren}
             terminal={state.terminal}
-            onTerminalNew={() => ensureTerminalOpen(nextTerminalId(state.terminal.terminalIds))}
-            onTerminalSelect={(terminalId) => dispatch({ type: "terminal_active_set", terminalId })}
-            onTerminalSend={sendTerminalInput}
-            onTerminalClear={clearActiveTerminal}
-            onTerminalRestart={restartActiveTerminal}
-            onTerminalClose={closeActiveTerminal}
+            onTerminalNew={() => openRightPanelTerminalSurface()}
+            onTerminalSplit={() => splitRightPanelTerminalSurface(activeRightPanelSurface)}
+            onTerminalSplitVertical={() => splitRightPanelTerminalSurface(activeRightPanelSurface, "vertical")}
+            onTerminalSelect={(terminalId) => activateRightPanelTerminalPane(activeRightPanelSurface, terminalId)}
+            onTerminalSend={sendTerminalInputTo}
+            onTerminalClear={clearTerminalById}
+            onTerminalRestart={restartTerminalById}
+            onTerminalClose={(terminalId) => closeRightPanelTerminalPane(activeRightPanelSurface, terminalId)}
           />
         </RightPanelTabs>
       }
