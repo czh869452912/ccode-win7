@@ -67,6 +67,11 @@ class ProjectionDb(object):
                         "user_goal": "TEXT",
                         "transcript_ref": "TEXT",
                         "summary_ref": "TEXT",
+                        "title": "TEXT",
+                        "archived": "INTEGER NOT NULL DEFAULT 0",
+                        "archived_at": "TEXT",
+                        "forked_from": "TEXT",
+                        "forked_at": "TEXT",
                     },
                 )
                 connection.commit()
@@ -98,8 +103,9 @@ class ProjectionDb(object):
                     INSERT INTO session_projection (
                       session_id, updated_at, current_mode, started_at, turn_count, message_count,
                       user_goal, transcript_ref, summary_ref,
-                      last_transition_reason, last_transition_message, summary_text
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                      last_transition_reason, last_transition_message, summary_text,
+                      title, archived, archived_at, forked_from, forked_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ON CONFLICT(session_id) DO UPDATE SET
                       updated_at=excluded.updated_at,
                       current_mode=excluded.current_mode,
@@ -111,7 +117,12 @@ class ProjectionDb(object):
                       summary_ref=excluded.summary_ref,
                       last_transition_reason=excluded.last_transition_reason,
                       last_transition_message=excluded.last_transition_message,
-                      summary_text=excluded.summary_text
+                      summary_text=excluded.summary_text,
+                      title=excluded.title,
+                      archived=excluded.archived,
+                      archived_at=excluded.archived_at,
+                      forked_from=excluded.forked_from,
+                      forked_at=excluded.forked_at
                     """,
                     (
                         payload["session_id"],
@@ -126,6 +137,11 @@ class ProjectionDb(object):
                         payload.get("last_transition_reason"),
                         payload.get("last_transition_message"),
                         payload.get("summary_text"),
+                        payload.get("title"),
+                        1 if payload.get("archived") else 0,
+                        payload.get("archived_at"),
+                        payload.get("forked_from"),
+                        payload.get("forked_at"),
                     ),
                 )
                 connection.commit()
@@ -145,15 +161,27 @@ class ProjectionDb(object):
             finally:
                 connection.close()
 
-    def list_session_projections(self, limit: int = 10) -> List[Dict[str, Any]]:
+    def list_session_projections(
+        self,
+        limit: int = 10,
+        include_archived: bool = False,
+    ) -> List[Dict[str, Any]]:
         self.initialize()
         with self._lock:
             connection = self._connect()
             try:
-                rows = connection.execute(
-                    "SELECT * FROM session_projection ORDER BY updated_at DESC LIMIT ?",
-                    (int(limit),),
-                ).fetchall()
+                if include_archived:
+                    rows = connection.execute(
+                        "SELECT * FROM session_projection ORDER BY updated_at DESC LIMIT ?",
+                        (int(limit),),
+                    ).fetchall()
+                else:
+                    rows = connection.execute(
+                        "SELECT * FROM session_projection "
+                        "WHERE COALESCE(archived, 0) = 0 "
+                        "ORDER BY updated_at DESC LIMIT ?",
+                        (int(limit),),
+                    ).fetchall()
                 return [dict(row) for row in rows]
             finally:
                 connection.close()

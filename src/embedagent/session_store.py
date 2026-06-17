@@ -34,6 +34,7 @@ def _atomic_write_json(path: str, payload: Any) -> None:
 
 
 _MODE_RE = re.compile(r"当前模式：(\w+)")
+THREAD_TITLE_LIMIT = 120
 
 
 def _utc_now() -> str:
@@ -100,6 +101,8 @@ class SessionSummaryStore(object):
             summary_path = os.path.join(directory, "summary.json")
             previous = self._read_json(summary_path)
             payload = self._build_payload(session, current_mode, context_result)
+            if previous is not None and isinstance(previous.get("thread"), dict):
+                payload["thread"] = self._normalize_thread_metadata(previous.get("thread"))
             if context_result is None and previous is not None:
                 for key in (
                     "context_policy",
@@ -113,8 +116,10 @@ class SessionSummaryStore(object):
                 ):
                     if key in previous and key not in payload:
                         payload[key] = previous[key]
+            payload["title"] = self._display_title(payload)
             _atomic_write_json(summary_path, payload)
             summary_ref = os.path.relpath(summary_path, self.workspace).replace(os.sep, "/")
+            payload["summary_ref"] = summary_ref
             self.projection_db.upsert_session_projection(
                 session_id=payload.get("session_id"),
                 updated_at=payload.get("updated_at"),
@@ -128,19 +133,31 @@ class SessionSummaryStore(object):
                 last_transition_reason=payload.get("last_transition_reason"),
                 last_transition_message=payload.get("last_transition_message"),
                 summary_text=payload.get("summary_text"),
+                title=payload.get("title"),
+                archived=bool(payload.get("thread", {}).get("archived")),
+                archived_at=payload.get("thread", {}).get("archived_at"),
+                forked_from=payload.get("thread", {}).get("forked_from"),
+                forked_at=payload.get("thread", {}).get("forked_at"),
             )
             return summary_ref
 
-    def list_summaries(self, limit: int = 10) -> List[Dict[str, Any]]:
+    def list_summaries(
+        self,
+        limit: int = 10,
+        include_archived: bool = False,
+    ) -> List[Dict[str, Any]]:
         with self._lock:
-            items = self.projection_db.list_session_projections(limit=limit)
+            items = self.projection_db.list_session_projections(
+                limit=limit,
+                include_archived=include_archived,
+            )
             if not items:
-                items = self._scan_summaries()
+                items = self._scan_summaries(include_archived=include_archived)
             normalized = []
             for item in items[:limit]:
                 if not isinstance(item, dict):
                     continue
-                normalized.append(dict(item))
+                normalized.append(self._summary_projection(dict(item)))
             return normalized
 
     def collect_stored_paths(self, limit_sessions: Optional[int] = None) -> List[str]:
@@ -158,18 +175,27 @@ class SessionSummaryStore(object):
     def cleanup(self, max_sessions: Optional[int] = None) -> Dict[str, int]:
         with self._lock:
             keep_count = max_sessions or self.max_retained_sessions
-            summaries = self.list_summaries(limit=self.max_index_entries)
+            summaries = self.list_summaries(
+                limit=self.max_index_entries,
+                include_archived=True,
+            )
             keep = []
             keep_ids = set()
+            active_keep_count = 0
             for item in summaries:
                 if not isinstance(item, dict):
                     continue
                 session_id = item.get("session_id")
                 if not session_id or session_id in keep_ids:
                     continue
-                if len(keep) < keep_count:
+                if item.get("archived"):
                     keep.append(item)
                     keep_ids.add(session_id)
+                    continue
+                if active_keep_count < keep_count:
+                    keep.append(item)
+                    keep_ids.add(session_id)
+                    active_keep_count += 1
             deleted = 0
             if os.path.isdir(self.root):
                 for name in os.listdir(self.root):
@@ -193,6 +219,112 @@ class SessionSummaryStore(object):
             raise ValueError("未找到可用的会话摘要：%s" % reference)
         payload["summary_ref"] = os.path.relpath(summary_path, self.workspace).replace(os.sep, "/")
         return payload
+
+    def rename_session(self, session_id: str, title: str) -> Dict[str, Any]:
+        normalized_title = self._normalize_thread_title(title)
+        with self._lock:
+            summary = self.load_summary(session_id)
+            thread = self._normalize_thread_metadata(summary.get("thread"))
+            thread["title"] = normalized_title
+            summary["thread"] = thread
+            summary["updated_at"] = _utc_now()
+            return self._write_summary_payload(summary)
+
+    def archive_session(self, session_id: str) -> Dict[str, Any]:
+        with self._lock:
+            summary = self.load_summary(session_id)
+            thread = self._normalize_thread_metadata(summary.get("thread"))
+            thread["archived"] = True
+            thread["archived_at"] = _utc_now()
+            summary["thread"] = thread
+            summary["updated_at"] = _utc_now()
+            return self._write_summary_payload(summary)
+
+    def _write_summary_payload(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        session_id = str(payload.get("session_id") or "").strip()
+        if not session_id:
+            raise ValueError("session_not_found")
+        directory = os.path.join(self.root, session_id)
+        if not os.path.isdir(directory):
+            os.makedirs(directory)
+        summary_path = os.path.join(directory, "summary.json")
+        thread = self._normalize_thread_metadata(payload.get("thread"))
+        payload["thread"] = thread
+        payload["title"] = self._display_title(payload)
+        payload["summary_ref"] = os.path.relpath(summary_path, self.workspace).replace(os.sep, "/")
+        _atomic_write_json(summary_path, sanitize_jsonable(payload))
+        self._upsert_projection_from_summary(payload)
+        return self._summary_projection(payload)
+
+    def _upsert_projection_from_summary(self, payload: Dict[str, Any]) -> None:
+        thread = self._normalize_thread_metadata(payload.get("thread"))
+        self.projection_db.upsert_session_projection(
+            session_id=payload.get("session_id"),
+            updated_at=payload.get("updated_at") or _utc_now(),
+            current_mode=payload.get("current_mode") or "explore",
+            started_at=payload.get("started_at"),
+            turn_count=int(payload.get("turn_count") or 0),
+            message_count=int(payload.get("message_count") or 0),
+            user_goal=payload.get("user_goal"),
+            transcript_ref=payload.get("transcript_ref"),
+            summary_ref=payload.get("summary_ref"),
+            last_transition_reason=payload.get("last_transition_reason"),
+            last_transition_message=payload.get("last_transition_message"),
+            summary_text=payload.get("summary_text"),
+            title=self._display_title(payload),
+            archived=bool(thread.get("archived")),
+            archived_at=thread.get("archived_at"),
+            forked_from=thread.get("forked_from"),
+            forked_at=thread.get("forked_at"),
+        )
+
+    def _summary_projection(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        raw_thread = payload.get("thread") if isinstance(payload.get("thread"), dict) else {}
+        if not raw_thread:
+            raw_thread = {
+                "title": payload.get("title"),
+                "archived": bool(payload.get("archived")),
+                "archived_at": payload.get("archived_at"),
+                "forked_from": payload.get("forked_from"),
+                "forked_at": payload.get("forked_at"),
+            }
+        thread = self._normalize_thread_metadata(raw_thread)
+        projection = dict(payload)
+        projection["thread"] = thread
+        projection["title"] = self._display_title(projection)
+        projection["archived"] = bool(thread.get("archived"))
+        projection["archived_at"] = str(thread.get("archived_at") or "")
+        projection["forked_from"] = str(thread.get("forked_from") or "")
+        projection["forked_at"] = str(thread.get("forked_at") or "")
+        return projection
+
+    def _display_title(self, payload: Dict[str, Any]) -> str:
+        thread = self._normalize_thread_metadata(payload.get("thread"))
+        return (
+            str(thread.get("title") or "").strip()
+            or str(payload.get("user_goal") or "").strip()
+            or str(payload.get("summary_text") or "").strip()
+            or ("Session %s" % str(payload.get("session_id") or "")[:8])
+        )
+
+    def _normalize_thread_title(self, title: str) -> str:
+        normalized = str(title or "").strip()
+        if not normalized:
+            raise ValueError("invalid_thread_title")
+        return _truncate_text(normalized, THREAD_TITLE_LIMIT)
+
+    def _normalize_thread_metadata(self, value: Any) -> Dict[str, Any]:
+        raw = value if isinstance(value, dict) else {}
+        title = str(raw.get("title") or "").strip()
+        if title:
+            title = _truncate_text(title, THREAD_TITLE_LIMIT)
+        return {
+            "title": title,
+            "archived": bool(raw.get("archived")),
+            "archived_at": str(raw.get("archived_at") or ""),
+            "forked_from": str(raw.get("forked_from") or ""),
+            "forked_at": str(raw.get("forked_at") or ""),
+        }
 
     def resolve_summary_path(self, reference: str) -> str:
         raw = (reference or "").strip()
@@ -305,7 +437,7 @@ class SessionSummaryStore(object):
             return None
         return data if isinstance(data, dict) else None
 
-    def _scan_summaries(self) -> List[Dict[str, Any]]:
+    def _scan_summaries(self, include_archived: bool = False) -> List[Dict[str, Any]]:
         if not os.path.isdir(self.root):
             return []
         records = []
@@ -316,21 +448,27 @@ class SessionSummaryStore(object):
             payload = self._read_json(summary_path)
             if not payload:
                 continue
+            thread = self._normalize_thread_metadata(payload.get("thread"))
+            if thread.get("archived") and not include_archived:
+                continue
             records.append(
-                {
-                    "session_id": payload.get("session_id") or session_id,
-                    "started_at": payload.get("started_at"),
-                    "updated_at": payload.get("updated_at"),
-                    "current_mode": payload.get("current_mode"),
-                    "turn_count": payload.get("turn_count"),
-                    "message_count": payload.get("message_count"),
-                    "user_goal": payload.get("user_goal"),
-                    "summary_text": payload.get("summary_text"),
-                    "transcript_ref": payload.get("transcript_ref"),
-                    "summary_ref": os.path.relpath(summary_path, self.workspace).replace(
-                        os.sep, "/"
-                    ),
-                }
+                self._summary_projection(
+                    {
+                        "session_id": payload.get("session_id") or session_id,
+                        "started_at": payload.get("started_at"),
+                        "updated_at": payload.get("updated_at"),
+                        "current_mode": payload.get("current_mode"),
+                        "turn_count": payload.get("turn_count"),
+                        "message_count": payload.get("message_count"),
+                        "user_goal": payload.get("user_goal"),
+                        "summary_text": payload.get("summary_text"),
+                        "transcript_ref": payload.get("transcript_ref"),
+                        "summary_ref": os.path.relpath(summary_path, self.workspace).replace(
+                            os.sep, "/"
+                        ),
+                        "thread": thread,
+                    }
+                )
             )
         records.sort(key=lambda item: item.get("updated_at") or "", reverse=True)
         return records

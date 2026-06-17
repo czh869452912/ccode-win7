@@ -35,6 +35,67 @@ class TestSessionSummaryStore(unittest.TestCase):
         self.assertEqual(items[0].get("summary_ref"), summary_ref)
         self.assertTrue(str(items[0].get("transcript_ref") or "").endswith("/transcript.jsonl"))
 
+    def test_rename_session_updates_thread_title_and_projection(self):
+        store = SessionSummaryStore(self.workspace)
+        session = Session()
+        session.add_user_message("original goal")
+        summary_ref = store.persist(session, "build")
+
+        result = store.rename_session(session.session_id, "  Renamed Thread  ")
+
+        self.assertEqual(result["session_id"], session.session_id)
+        self.assertEqual(result["thread"]["title"], "Renamed Thread")
+        self.assertEqual(result["title"], "Renamed Thread")
+        summary = store.load_summary(summary_ref)
+        self.assertEqual(summary["thread"]["title"], "Renamed Thread")
+        self.assertEqual(summary["user_goal"], "original goal")
+        listed = store.list_summaries(limit=5)
+        self.assertEqual(listed[0]["title"], "Renamed Thread")
+        self.assertEqual(listed[0]["thread"]["title"], "Renamed Thread")
+
+    def test_rename_session_rejects_empty_title(self):
+        store = SessionSummaryStore(self.workspace)
+        session = Session()
+        session.add_user_message("original goal")
+        store.persist(session, "build")
+
+        with self.assertRaises(ValueError) as raised:
+            store.rename_session(session.session_id, "   ")
+
+        self.assertEqual(str(raised.exception), "invalid_thread_title")
+
+    def test_archive_session_hides_from_default_list_but_keeps_explicit_listing(self):
+        store = SessionSummaryStore(self.workspace)
+        session = Session()
+        session.add_user_message("archive me")
+        store.persist(session, "build")
+
+        archived = store.archive_session(session.session_id)
+
+        self.assertTrue(archived["thread"]["archived"])
+        self.assertTrue(archived["thread"]["archived_at"])
+        self.assertEqual(store.list_summaries(limit=5), [])
+        with_archived = store.list_summaries(limit=5, include_archived=True)
+        self.assertEqual(len(with_archived), 1)
+        self.assertEqual(with_archived[0]["session_id"], session.session_id)
+        self.assertTrue(with_archived[0]["thread"]["archived"])
+
+    def test_cleanup_keeps_archived_sessions(self):
+        store = SessionSummaryStore(self.workspace)
+        archived_session = Session()
+        archived_session.add_user_message("archived")
+        active_session = Session()
+        active_session.add_user_message("active")
+        store.persist(archived_session, "build")
+        store.persist(active_session, "build")
+        store.archive_session(archived_session.session_id)
+
+        result = store.cleanup(max_sessions=1)
+
+        self.assertEqual(result["deleted"], 0)
+        self.assertTrue(os.path.isfile(store.resolve_summary_path(archived_session.session_id)))
+        self.assertTrue(os.path.isfile(store.resolve_summary_path(active_session.session_id)))
+
 
 class TestProjectMemoryStore(unittest.TestCase):
     def setUp(self):
