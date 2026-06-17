@@ -44,6 +44,35 @@
 
 ## 3. 当前变更记录
 
+### DC-169
+
+- 日期：2026-06-17
+- 变更主题：GUI T3 Code-style right-panel file surfaces
+- 变更摘要：
+  - React webapp right panel 新增 T3 Code-style `file` surface，workspace 文件动作会打开/复用路径对应的右侧 file tab，而不是继续写入旧 Inspector preview。
+  - `file` 被纳入 right-panel allowed surface kinds，但保持在 generic add-surface menu 之外；文件 tab 由文件树/文件动作创建，`diff`、`files`、`terminal`、`plan` 仍是手动可添加 surface。
+  - `workbench/surfaces.js` 只保存 file surface 的 path/resource/reveal metadata，文件内容由 GUI-local `filePreviewsByPath` 管理，`FilePreviewSurface` 渲染 loading/error/content 状态。
+  - 该变更只影响 GUI-local state、presentation、visual debug harness 和既有 `/api/files/{path}` 消费路径，不写 transcript、workflow state、permission/runtime reducers、telemetry、provider config、extension loading、source-control checkpoints 或 Agent Core policy。
+- 影响范围：
+  - `src/embedagent/frontend/gui/webapp/src/workbench/surfaces.js`
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/store.js`
+  - `src/embedagent/frontend/gui/webapp/src/app-workspaces.js`
+  - `src/embedagent/frontend/gui/webapp/src/components/workbench/FilePreviewSurface.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/components/workbench/RightPanelSurfaceBody.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/components/workbench/RightPanelTabs.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/styles.css`
+  - `scripts/gui-visual-debug.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/`
+- 关联文档：
+  - `docs/development-tracker.md`
+  - `docs/design-change-log.md`
+  - `docs/superpowers/specs/2026-06-17-t3-right-panel-file-surface-design.md`
+  - `docs/superpowers/plans/2026-06-17-t3-right-panel-file-surface.md`
+- 是否需要 ADR：否；属于已批准的 GUI standalone app-shell / T3 Code parity program 内部 surface parity 切片，不改变 Agent Core public architecture。
+- 后续动作：
+  - 继续按 `reference/t3code` 规划 terminal grouping/split、browser preview 或 checkpoint diff 等后续 surface slices，每项继续保持 Win7/offline 和 GUI/Core separation 约束。
+
 ### DC-168
 
 - 日期：2026-06-17

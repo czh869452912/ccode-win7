@@ -1,6 +1,6 @@
 # EmbedAgent 开发进度跟踪
 
-> 更新日期：2026-06-17（T3 right-panel surface tabs）
+> 更新日期：2026-06-17（T3 right-panel file surface）
 > 用途：持续跟踪当前阶段、下一步任务、里程碑进度、风险与阻塞
 
 ---
@@ -23,6 +23,13 @@
 ---
 
 ## 2. 当前阶段
+
+### 2026-06-17 - T3 Right-Panel File Surface
+
+- GUI right panel 已新增 T3 Code-style `file` surface：文件树点击文件会打开/复用路径对应的右侧 file tab，tab title 使用文件 basename，重复打开同一文件刷新 reveal request 而不创建重复 tab。
+- `file` 被加入 right-panel allowed surface kinds，但不进入 generic add-surface menu；加号/empty state 仍只提供 `diff`、`files`、`terminal`、`plan`，文件 surface 只能由文件动作打开。
+- 文件内容现在存放在 GUI-local `filePreviewsByPath`，surface descriptor 只保存 path/resource/reveal metadata；`FilePreviewSurface` 负责 loading/error/content 三种展示状态。
+- 该切片继续保持 GUI app-shell 与 Agent Core 分离：不写 transcript、workflow state、permission/runtime reducers、telemetry、provider config、extension loading、source-control checkpoints 或 Agent Core policy。
 
 ### 2026-06-17 - T3 Right-Panel Surface Tabs
 
