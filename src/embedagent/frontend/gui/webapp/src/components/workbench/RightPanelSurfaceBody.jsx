@@ -1,5 +1,6 @@
 import React from "react";
 import Inspector from "../Inspector.jsx";
+import FilePreviewSurface from "./FilePreviewSurface.jsx";
 import FilesSurface from "./FilesSurface.jsx";
 import { TerminalSurface } from "./BottomDrawer.jsx";
 
@@ -13,6 +14,7 @@ function inspectorKindForSurface(surface) {
 export default function RightPanelSurfaceBody({
   surface,
   inspectorProps,
+  filePreviewsByPath,
   fileTree,
   treeHeight,
   onOpenFile,
@@ -35,6 +37,16 @@ export default function RightPanelSurfaceBody({
         treeHeight={treeHeight}
         onOpenFile={onOpenFile}
         onLoadFileChildren={onLoadFileChildren}
+      />
+    );
+  }
+  if (surface.kind === "file") {
+    const filePath = surface.filePath || surface.resourceId || "";
+    return (
+      <FilePreviewSurface
+        surface={surface}
+        filePreview={(filePreviewsByPath || {})[filePath]}
+        onReload={onOpenFile}
       />
     );
   }

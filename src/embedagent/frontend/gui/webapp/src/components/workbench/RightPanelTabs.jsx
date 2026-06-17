@@ -12,6 +12,11 @@ const SURFACE_COPY = {
     label: "Files",
     description: "Browse workspace files.",
   },
+  file: {
+    icon: "F",
+    label: "File",
+    description: "View a workspace file.",
+  },
   terminal: {
     icon: "T",
     label: "Terminal",
@@ -22,6 +27,10 @@ const SURFACE_COPY = {
     label: "Plan",
     description: "Inspect the current plan.",
   },
+};
+
+const SURFACE_TAB_TEST_IDS = {
+  file: "right-panel-surface-tab--file",
 };
 
 function surfaceTitle(surface) {
@@ -193,7 +202,7 @@ export default function RightPanelTabs({
                 key={surface.id}
                 className={`right-panel-surface-tab${active ? " active" : ""}`}
                 data-active-tab={active ? "true" : "false"}
-                data-testid={`right-panel-surface-tab--${surface.kind}`}
+                data-testid={SURFACE_TAB_TEST_IDS[surface.kind] || `right-panel-surface-tab--${surface.kind}`}
               >
                 <button
                   type="button"

@@ -686,6 +686,8 @@ async function main() {
   assert.equal(stylesSource.includes(".diagnostics-table"), true);
   assert.equal(stylesSource.includes(".source-control-panel"), true);
   assert.equal(stylesSource.includes(".source-control-file.active"), true);
+  assert.equal(stylesSource.includes(".right-panel-file-surface"), true);
+  assert.equal(stylesSource.includes(".right-panel-file-content"), true);
 
   const appSource = fs.readFileSync(
     webappSourcePath("App.jsx"),
@@ -814,6 +816,8 @@ async function main() {
   assert.equal(rightPanelTabsSource.includes("onCloseSurfacesToRight"), true);
   assert.equal(rightPanelTabsSource.includes("onCloseAllSurfaces"), true);
   assert.equal(rightPanelTabsSource.includes("RIGHT_PANEL_SURFACES.map"), false);
+  assert.equal(rightPanelTabsSource.includes("file:"), true);
+  assert.equal(rightPanelTabsSource.includes("right-panel-surface-tab--file"), true);
   assert.equal(rightPanelTabsSource.includes("source_control: \"Source\""), false);
   assert.equal(rightPanelTabsSource.includes("todos"), false);
 
@@ -863,9 +867,21 @@ async function main() {
     "utf8",
   );
   assert.equal(rightPanelSurfaceBodySource.includes("FilesSurface"), true);
+  assert.equal(rightPanelSurfaceBodySource.includes("FilePreviewSurface"), true);
   assert.equal(rightPanelSurfaceBodySource.includes("TerminalSurface"), true);
   assert.equal(rightPanelSurfaceBodySource.includes("Inspector"), true);
+  assert.equal(rightPanelSurfaceBodySource.includes('surface.kind === "file"'), true);
   assert.equal(rightPanelSurfaceBodySource.includes("surface.kind === \"terminal\""), true);
+  assert.equal(rightPanelSurfaceBodySource.includes("filePreviewsByPath"), true);
+
+  const filePreviewSurfaceSource = fs.readFileSync(
+    webappSourcePath("components", "workbench", "FilePreviewSurface.jsx"),
+    "utf8",
+  );
+  assert.equal(filePreviewSurfaceSource.includes('data-testid="right-panel-file-surface"'), true);
+  assert.equal(filePreviewSurfaceSource.includes("right-panel-file-loading"), true);
+  assert.equal(filePreviewSurfaceSource.includes("right-panel-file-error"), true);
+  assert.equal(filePreviewSurfaceSource.includes("right-panel-file-content"), true);
 
   const commandPaletteSource = fs.readFileSync(
     webappSourcePath("components", "workbench", "CommandPalette.jsx"),
