@@ -419,6 +419,127 @@ body {
   min-width: 120px;
 }
 
+.terminal-drawer-surface {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  min-height: 0;
+  height: 100%;
+  color: var(--text-primary);
+}
+
+.terminal-tabbar,
+.terminal-toolbar,
+.terminal-input-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+}
+
+.terminal-tabbar {
+  min-height: 32px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.terminal-tab,
+.terminal-icon-button,
+.terminal-toolbar button {
+  height: 26px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-subtle);
+  color: var(--text-secondary);
+  border-radius: var(--r-sm);
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
+.terminal-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 160px;
+  padding: 0 9px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.terminal-tab.active {
+  color: var(--text-primary);
+  background: var(--bg-elevated);
+  border-color: var(--border-focus);
+}
+
+.terminal-icon-button {
+  width: 26px;
+  flex: 0 0 26px;
+}
+
+.terminal-status-dot {
+  width: 6px;
+  height: 6px;
+  flex: 0 0 6px;
+  border-radius: 999px;
+  background: var(--text-muted);
+}
+
+.terminal-status-dot.running,
+.terminal-status-dot.starting {
+  background: var(--color-success);
+}
+
+.terminal-status-dot.error {
+  background: var(--color-error);
+}
+
+.terminal-toolbar {
+  min-height: 30px;
+  justify-content: flex-end;
+  color: var(--text-muted);
+  font-size: 10px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.terminal-toolbar span:first-child {
+  margin-right: auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.terminal-toolbar button:disabled {
+  opacity: .45;
+}
+
+.terminal-buffer {
+  min-height: 0;
+  margin: 0;
+  padding: var(--sp-2);
+  overflow: auto;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  color: var(--text-primary);
+  background: var(--bg-canvas);
+}
+
+.terminal-input-row {
+  min-height: 34px;
+  border-top: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+}
+
+.terminal-input-row input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  font-family: var(--font-mono);
+}
+
 .composer-tool {
   width: 28px;
   height: 28px;
