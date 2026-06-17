@@ -106,6 +106,11 @@ class AppShellService(object):
             "surfaces": {
                 "right_panel": ["settings", "diagnostics"],
             },
+            "thread_lifecycle": {
+                "rename": True,
+                "fork": True,
+                "archive": True,
+            },
         }
 
     def _settings_payload(self) -> Dict[str, Any]:

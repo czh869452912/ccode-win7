@@ -87,6 +87,10 @@ class TestGuiAppShellService(unittest.TestCase):
         self.assertIn("app.reload", payload["capabilities"]["app_commands"])
         self.assertIn("settings", payload["capabilities"]["surfaces"]["right_panel"])
         self.assertIn("diagnostics", payload["capabilities"]["surfaces"]["right_panel"])
+        self.assertEqual(
+            payload["capabilities"]["thread_lifecycle"],
+            {"rename": True, "fork": True, "archive": True},
+        )
         self.assertTrue(payload["settings"]["confirm_workspace_switch"])
         self.assertIn("host", payload["diagnostics"])
         self.assertIn("runtime", payload["diagnostics"])

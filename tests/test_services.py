@@ -126,8 +126,41 @@ class TestSessionLifecycleManager(unittest.TestCase):
     def test_list_sessions_delegates_to_store(self):
         self.summary_store.list_summaries.return_value = [{"id": "1"}]
         result = self.manager.list_sessions(limit=5)
-        self.summary_store.list_summaries.assert_called_once_with(limit=5)
+        self.summary_store.list_summaries.assert_called_once_with(
+            limit=5,
+            include_archived=False,
+        )
         self.assertEqual(result, [{"id": "1"}])
+
+    def test_thread_lifecycle_delegates_to_summary_store(self):
+        self.summary_store.rename_session.return_value = {"session_id": "sess-1", "title": "Renamed"}
+        self.summary_store.archive_session.return_value = {
+            "session_id": "sess-1",
+            "thread": {"archived": True},
+        }
+        self.summary_store.fork_session.return_value = {"session_id": "sess-2"}
+
+        renamed = self.manager.rename_session("sess-1", "Renamed")
+        archived = self.manager.archive_session("sess-1")
+        forked = self.manager.fork_session("sess-1", "Copy")
+
+        self.summary_store.rename_session.assert_called_once_with("sess-1", "Renamed")
+        self.summary_store.archive_session.assert_called_once_with("sess-1")
+        self.summary_store.fork_session.assert_called_once_with("sess-1", title="Copy")
+        self.assertEqual(renamed["title"], "Renamed")
+        self.assertTrue(archived["thread"]["archived"])
+        self.assertEqual(forked["session_id"], "sess-2")
+
+    def test_list_sessions_passes_include_archived(self):
+        self.summary_store.list_summaries.return_value = [{"id": "archived"}]
+
+        result = self.manager.list_sessions(limit=20, include_archived=True)
+
+        self.summary_store.list_summaries.assert_called_once_with(
+            limit=20,
+            include_archived=True,
+        )
+        self.assertEqual(result, [{"id": "archived"}])
 
     def test_create_session_state_returns_managed_session(self):
         self.plan_store.load.return_value = None

@@ -54,6 +54,16 @@ export function normalizeAppSettings(input = {}) {
   };
 }
 
+function normalizeThreadLifecycle(input = {}) {
+  const raw = snakeOrCamel(input, "thread_lifecycle", "threadLifecycle", {});
+  const value = raw && typeof raw === "object" ? raw : {};
+  return {
+    rename: value.rename === true,
+    fork: value.fork === true,
+    archive: value.archive === true,
+  };
+}
+
 export function normalizeAppCapabilities(input = {}) {
   const surfaces = input.surfaces && typeof input.surfaces === "object" ? input.surfaces : {};
   return {
@@ -79,6 +89,7 @@ export function normalizeAppCapabilities(input = {}) {
           ? surfaces.bottomDrawer.map(String)
           : [],
     },
+    threadLifecycle: normalizeThreadLifecycle(input),
   };
 }
 

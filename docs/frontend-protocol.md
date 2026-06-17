@@ -60,6 +60,14 @@ Current app-shell v1 fields include `app`, `workspaces`,
 `settings`, and `last_error`. Diagnostics are safe read-model fields for host,
 runtime, renderer, workspace registry, and active-core presence only.
 
+GUI thread lifecycle operations (`rename`, `fork`, and `archive`) are exposed
+through session lifecycle endpoints and reflected in session summary/projection
+metadata for app thread lists. Frontends may display and invoke these actions,
+but they must not persist their own rename/archive/fork sidecar state or treat
+these metadata fields as transcript history, workflow truth, tool activation
+policy, permission policy, extension loading policy, or source-control
+checkpoints.
+
 GUI app-shell settings are local shell preferences unless a later documented
 backend contract promotes a specific setting into durable runtime
 configuration. They must not be interpreted as Agent Core policy.

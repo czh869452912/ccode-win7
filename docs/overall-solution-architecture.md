@@ -35,6 +35,12 @@ Core: it must not own sessions, transcript history, workflow state, mode/tool
 policy, permission decisions, extension loading, provider configuration, or
 runtime reducers.
 
+GUI thread lifecycle operations (`rename`, `fork`, and `archive`) are exposed
+through the session lifecycle facade and consumed by the GUI app shell. They
+update session summary/projection metadata used by app thread lists; they do
+not rewrite transcript history, own workflow state, activate tools, decide
+permissions, load extensions, or create source-control checkpoints.
+
 ### Protocol / Core Layer
 
 - `src/embedagent/protocol/`

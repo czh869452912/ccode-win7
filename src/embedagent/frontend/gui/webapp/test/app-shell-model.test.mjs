@@ -26,6 +26,9 @@ export function runAppShellModelTests() {
   assert.deepEqual(initial.diagnostics.host, {});
   assert.equal(initial.capabilities.appCommands.includes("app.settings"), true);
   assert.equal(initial.capabilities.surfaces.rightPanel.includes("diagnostics"), true);
+  assert.equal(initial.capabilities.threadLifecycle.rename, false);
+  assert.equal(initial.capabilities.threadLifecycle.fork, false);
+  assert.equal(initial.capabilities.threadLifecycle.archive, false);
 
   const bootstrap = normalizeAppBootstrap({
     app: {
@@ -65,6 +68,7 @@ export function runAppShellModelTests() {
       app_commands: ["app.settings", "app.diagnostics", "app.reload"],
       workspace_commands: ["workspace.open"],
       surfaces: { right_panel: ["settings", "diagnostics"] },
+      thread_lifecycle: { rename: true, fork: true, archive: true },
     },
     settings: {
       confirm_workspace_switch: false,
@@ -84,6 +88,9 @@ export function runAppShellModelTests() {
   assert.equal(bootstrap.capabilities.appCommands.includes("app.reload"), true);
   assert.equal(bootstrap.capabilities.workspaceCommands.includes("workspace.open"), true);
   assert.equal(bootstrap.capabilities.surfaces.rightPanel.includes("settings"), true);
+  assert.equal(bootstrap.capabilities.threadLifecycle.rename, true);
+  assert.equal(bootstrap.capabilities.threadLifecycle.fork, true);
+  assert.equal(bootstrap.capabilities.threadLifecycle.archive, true);
   assert.equal(bootstrap.diagnostics.host.platform, "win32");
   assert.equal(bootstrap.diagnostics.host.api_key, undefined);
   assert.equal(bootstrap.diagnostics.host.nested.token, undefined);

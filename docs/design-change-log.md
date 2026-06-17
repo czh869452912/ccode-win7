@@ -44,6 +44,44 @@
 
 ## 3. 当前变更记录
 
+### DC-165
+
+- 日期：2026-06-17
+- 变更主题：GUI thread lifecycle boundary through session facade
+- 变更摘要：
+  - `SessionSummaryStore` 与 session projection 增加 thread metadata：`title`、`archived`、`archived_at`、`forked_from`、`forked_at`；默认 thread list 隐藏 archived sessions，但 cleanup 和 stored artifact reference collection 保留 archived session 资产。
+  - `SessionLifecycleManager` / `InProcessAdapter` 暴露 `rename_session`、`archive_session`、`fork_session` facade；fork 复制 transcript 到新 session id 并重写同源 session_id payload 字段，仍让 `transcript.jsonl` 保持唯一 durable history truth。
+  - GUI backend 新增 `POST /api/sessions/{id}/rename`、`/archive`、`/fork`，app-shell capabilities 暴露 `thread_lifecycle`；React thread action rail 调用 backend lifecycle API 并刷新 session list/current session。
+  - 该边界保持 T3code-like independent app 与 Agent Core 分离：GUI 不拥有 transcript、workflow/task truth、permission policy、tool activation、extension loading、provider config、source-control 或 checkpoint policy。
+- 影响范围：
+  - `src/embedagent/projection_db.py`
+  - `src/embedagent/session_store.py`
+  - `src/embedagent/services/session_lifecycle.py`
+  - `src/embedagent/inprocess_adapter.py`
+  - `src/embedagent/frontend/gui/backend/app_shell.py`
+  - `src/embedagent/frontend/gui/backend/server.py`
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/app-shell/model.js`
+  - `src/embedagent/frontend/gui/webapp/src/session-runtime/app-home-model.js`
+  - `tests/test_session_store.py`
+  - `tests/test_services.py`
+  - `tests/test_characterization.py`
+  - `tests/test_gui_backend_api.py`
+  - `tests/test_gui_app_shell.py`
+  - `src/embedagent/frontend/gui/webapp/test/`
+- 关联文档：
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/archive/gui-thread-lifecycle-boundary/`
+- 是否需要 ADR：否；属于 GUI standalone shell program 的第二层 session lifecycle facade 实现，未改变 Agent Core durable truth 或 public extension API。
+- 后续动作：
+  - 继续把 terminal、source-control 与 checkpoint slices 放在 GUI hosted boundary 或显式 extension/provider/workflow-package/sink 边界外侧，避免把 Agent Core 加厚为 GUI-owned app policy layer。
+
 ### DC-164
 
 - 日期：2026-06-17

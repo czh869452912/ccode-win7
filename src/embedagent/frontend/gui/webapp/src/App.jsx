@@ -549,15 +549,86 @@ function App() {
     return snapshot.session_id;
   }
 
-  function handleThreadLifecycleAction(actionId, sessionId) {
+  async function renameThread(sessionId) {
+    const current = (state.sessions || []).find((item) => item.session_id === sessionId) || {};
+    const initialTitle = current.thread?.title || current.title || current.user_goal || "";
+    const title = window.prompt("Rename thread", initialTitle);
+    if (title === null) return;
+    const normalizedTitle = String(title || "").trim();
+    if (!normalizedTitle) {
+      dispatch({
+        type: "interaction_notice_set",
+        notice: {
+          kind: "thread_lifecycle",
+          title: "Rename failed",
+          body: "Thread title cannot be empty.",
+        },
+      });
+      return;
+    }
+    await fetchJson(`/api/sessions/${encodeURIComponent(sessionId)}/rename`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: normalizedTitle }),
+    });
+    await loadSessions();
+  }
+
+  async function archiveThread(sessionId) {
+    const ok = window.confirm("Archive this thread?");
+    if (!ok) return;
+    await fetchJson(`/api/sessions/${encodeURIComponent(sessionId)}/archive`, {
+      method: "POST",
+    });
+    await loadSessions();
     dispatch({
       type: "interaction_notice_set",
       notice: {
         kind: "thread_lifecycle",
-        title: "Thread lifecycle",
-        body: `${actionId} is waiting for the backend lifecycle API for ${sessionId}.`,
+        title: "Thread archived",
+        body: "The thread was archived and hidden from the normal thread list.",
       },
     });
+  }
+
+  async function forkThread(sessionId) {
+    const title = window.prompt("Fork thread title", "");
+    if (title === null) return;
+    const payload = await fetchJson(`/api/sessions/${encodeURIComponent(sessionId)}/fork`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: String(title || "").trim() }),
+    });
+    await loadSessions();
+    if (payload.session_id) {
+      await loadSession(payload.session_id);
+    }
+  }
+
+  async function handleThreadLifecycleAction(actionId, sessionId) {
+    try {
+      if (actionId === "rename") {
+        await renameThread(sessionId);
+        return;
+      }
+      if (actionId === "archive") {
+        await archiveThread(sessionId);
+        return;
+      }
+      if (actionId === "fork") {
+        await forkThread(sessionId);
+        return;
+      }
+    } catch (error) {
+      dispatch({
+        type: "interaction_notice_set",
+        notice: {
+          kind: "thread_lifecycle",
+          title: "Thread action failed",
+          body: error?.message || String(error || "thread_lifecycle_failed"),
+        },
+      });
+    }
   }
 
   async function setMode(mode) {
@@ -1260,6 +1331,7 @@ function App() {
       sessions: state.sessions,
       currentSessionId: state.currentSessionId,
       defaultMode: DEFAULT_MODE,
+      threadLifecycleCapabilities: state.app.capabilities?.threadLifecycle || {},
     }),
     [state.app, state.sessions, state.currentSessionId],
   );

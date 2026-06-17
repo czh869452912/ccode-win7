@@ -87,6 +87,10 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   app surfaces, and GUI-local settings
 - frontend app-shell normalization/reducer helpers live under
   `webapp/src/app-shell/` and drive Settings/Diagnostics right-panel surfaces
+- GUI thread lifecycle actions now route through the session lifecycle facade:
+  rename updates summary/projection title metadata, archive hides a session from
+  default thread lists without deleting transcript/summary/artifact references,
+  and fork copies the transcript to a new session id with fork provenance
 - this is explicitly separate from Agent Core session truth, workflow state,
   tool activation, permission policy, extension loading, provider config, and
   `/api/sessions/{id}/bootstrap`

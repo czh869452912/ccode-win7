@@ -45,9 +45,18 @@ export function runAppHomeModelTests() {
         current_mode: "",
         updated_at: "",
       },
+      {
+        session_id: "sess-renamed",
+        title: "Manual title",
+        thread: { title: "Thread metadata title" },
+        user_goal: "Should not win",
+        current_mode: "verify",
+        updated_at: "",
+      },
     ],
     currentSessionId: "sess-active",
     defaultMode: "explore",
+    threadLifecycleCapabilities: { rename: true, fork: true, archive: true },
   });
 
   assert.equal(model.workspace.hasActiveWorkspace, true);
@@ -58,7 +67,7 @@ export function runAppHomeModelTests() {
   assert.equal(model.workspace.rows[1].status, "missing");
   assert.equal(model.workspace.rows[1].disabled, true);
   assert.equal(model.threads.canCreateThread, true);
-  assert.equal(model.threads.count, 2);
+  assert.equal(model.threads.count, 3);
   assert.equal(model.threads.rows[0].title, "Fix parser recovery");
   assert.equal(model.threads.rows[0].isActive, true);
   assert.equal(model.threads.rows[0].mode, "build");
@@ -67,9 +76,11 @@ export function runAppHomeModelTests() {
     model.threads.rows[0].actions.map((action) => action.id),
     ["rename", "fork", "archive"],
   );
-  assert.equal(model.threads.rows[0].actions[0].enabled, false);
-  assert.equal(model.threads.rows[0].actions[0].reason, "backend_not_available");
+  assert.equal(model.threads.rows[0].actions[0].enabled, true);
+  assert.equal(model.threads.rows[0].actions[0].reason, "");
   assert.equal(model.threads.rows[1].mode, "explore");
+  assert.equal(model.threads.rows[2].title, "Thread metadata title");
+  assert.equal(model.threads.rows[2].mode, "verify");
 
   const emptyHome = buildAppHomeModel({
     app: {

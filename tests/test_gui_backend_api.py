@@ -162,6 +162,53 @@ class _ResourceReloadCore(_FakeCore):
         }
 
 
+class _ThreadLifecycleCore(_FakeCore):
+    def __init__(self):
+        super().__init__()
+        self.calls = []
+
+    def rename_session(self, session_id, title):
+        self.calls.append(("rename", session_id, title))
+        return {
+            "session_id": session_id,
+            "title": title,
+            "thread": {
+                "title": title,
+                "archived": False,
+                "archived_at": "",
+                "forked_from": "",
+                "forked_at": "",
+            },
+        }
+
+    def archive_session(self, session_id):
+        self.calls.append(("archive", session_id))
+        return {
+            "session_id": session_id,
+            "thread": {
+                "title": "",
+                "archived": True,
+                "archived_at": "2026-06-17T00:00:00Z",
+                "forked_from": "",
+                "forked_at": "",
+            },
+        }
+
+    def fork_session(self, session_id, title=""):
+        self.calls.append(("fork", session_id, title))
+        return {
+            "session_id": "sess-fork",
+            "title": title or "Copy",
+            "thread": {
+                "title": title or "Copy",
+                "archived": False,
+                "archived_at": "",
+                "forked_from": session_id,
+                "forked_at": "2026-06-17T00:00:00Z",
+            },
+        }
+
+
 class _ErrorCore(_FakeCore):
     def __init__(self, error_text):
         super().__init__()
@@ -171,6 +218,9 @@ class _ErrorCore(_FakeCore):
         raise ValueError(self.error_text)
 
     def respond_to_interaction(self, session_id, interaction_id, payload):
+        raise ValueError(self.error_text)
+
+    def rename_session(self, session_id, title):
         raise ValueError(self.error_text)
 
 
@@ -257,6 +307,68 @@ class TestGuiBackendApi(unittest.TestCase):
             payload = asyncio.run(route.endpoint("sess-old"))
         self.assertEqual(core.resume_modes, [("sess-old", "")])
         self.assertEqual(payload["current_mode"], "restored")
+
+    def test_thread_lifecycle_routes_call_core(self):
+        with tempfile.TemporaryDirectory() as static_dir:
+            with open(os.path.join(static_dir, "index.html"), "w", encoding="utf-8") as handle:
+                handle.write("<html><body>ok</body></html>")
+            core = _ThreadLifecycleCore()
+            backend = GUIBackend(core, static_dir=static_dir)
+
+            routes = {}
+            for item in backend.app.routes:
+                path = getattr(item, "path", "")
+                if path in (
+                    "/api/sessions/{session_id}/rename",
+                    "/api/sessions/{session_id}/archive",
+                    "/api/sessions/{session_id}/fork",
+                ):
+                    routes[path] = item
+
+            rename_payload = asyncio.run(
+                routes["/api/sessions/{session_id}/rename"].endpoint(
+                    "sess-1",
+                    {"title": "Renamed"},
+                )
+            )
+            archive_payload = asyncio.run(
+                routes["/api/sessions/{session_id}/archive"].endpoint("sess-1")
+            )
+            fork_payload = asyncio.run(
+                routes["/api/sessions/{session_id}/fork"].endpoint(
+                    "sess-1",
+                    {"title": "Copy"},
+                )
+            )
+
+        self.assertEqual(
+            core.calls,
+            [
+                ("rename", "sess-1", "Renamed"),
+                ("archive", "sess-1"),
+                ("fork", "sess-1", "Copy"),
+            ],
+        )
+        self.assertEqual(rename_payload["session"]["title"], "Renamed")
+        self.assertTrue(archive_payload["session"]["thread"]["archived"])
+        self.assertEqual(fork_payload["session_id"], "sess-fork")
+        self.assertEqual(fork_payload["session"]["thread"]["forked_from"], "sess-1")
+
+    def test_thread_lifecycle_errors_map_to_http_status(self):
+        with tempfile.TemporaryDirectory() as static_dir:
+            with open(os.path.join(static_dir, "index.html"), "w", encoding="utf-8") as handle:
+                handle.write("<html><body>ok</body></html>")
+            backend = GUIBackend(_ErrorCore("invalid_thread_title"), static_dir=static_dir)
+            route = None
+            for item in backend.app.routes:
+                if getattr(item, "path", "") == "/api/sessions/{session_id}/rename":
+                    route = item
+                    break
+            self.assertIsNotNone(route)
+            with self.assertRaises(HTTPException) as raised:
+                asyncio.run(route.endpoint("sess-1", {"title": ""}))
+        self.assertEqual(raised.exception.status_code, 422)
+        self.assertEqual(raised.exception.detail, "invalid_thread_title")
 
     def test_post_interaction_response_uses_unified_endpoint(self):
         with tempfile.TemporaryDirectory() as static_dir:
