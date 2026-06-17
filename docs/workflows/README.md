@@ -3,7 +3,7 @@
 > 状态：`active`
 > 类型：`workflow`
 > 负责人：`project maintainers`
-> 最后同步日期：`2026-04-08`
+> 最后同步日期：`2026-06-17`
 > 对应代码范围：`docs/workflows/`
 
 ## 1. Code-Doc Sync
@@ -23,3 +23,9 @@
 入口文档：`release-doc-checklist.md`
 
 用于定义发布、交付和阶段收口前的文档检查项。
+
+## 4. Archive Closeout
+
+入口文档：`code-doc-sync.md` 与 `release-doc-checklist.md`
+
+用于确认完成切片已经回写长期文档、移入 `docs/archive/<topic>/`，并更新 `docs/archive/README.md` 或主题包 README。

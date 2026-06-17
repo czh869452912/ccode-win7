@@ -3,7 +3,7 @@
 > 状态：`active`
 > 类型：`workflow`
 > 负责人：`project maintainers`
-> 最后同步日期：`2026-04-08`
+> 最后同步日期：`2026-06-17`
 > 对应代码范围：`README.md`, `AGENTS.md`, `docs/`, `src/embedagent/`
 
 ## 1. Trigger Conditions
@@ -71,3 +71,4 @@ flowchart TD
 - 切片关闭前先回写全局文档与模块文档
 - 再把 `docs/superpowers/` 下该切片文档移动到 `docs/archive/<topic>/`
 - archive README 应保留主题索引和关闭说明
+- 如果活动 docs 根目录存在阶段性历史说明，应在长期结论已进入 source-of-truth 后迁入合适的 `docs/archive/<topic>/`

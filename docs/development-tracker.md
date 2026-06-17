@@ -1,6 +1,6 @@
 # EmbedAgent 开发进度跟踪
 
-> 更新日期：2026-06-16（T3code GUI thread lifecycle surface）
+> 更新日期：2026-06-17（documentation archive closeout）
 > 用途：持续跟踪当前阶段、下一步任务、里程碑进度、风险与阻塞
 
 ---
@@ -89,7 +89,7 @@
 - 最新 documentation cleanup：`docs/guides/configuration-guide.md` 已改写为当前正式配置指南，使用 `explore/spec/build/debug/verify` 与 `build` 实现模式口径，不再把 `code` 或 `manage_todos` 作为当前配置/工作流示例。`
 - 最新 runtime cleanup：`task_status` 前端元数据现已统一为 `tasks/task` 词汇，workspace profile 不再输出待办语义提示，运行时残留 `todos.py` 已删除。`
 - 最新 GUI closeout：GUI backend 与 webapp 默认新建会话入口已统一为 `explore`，resume 默认不再强制覆盖 restored mode；GUI task 面板、样式和静态产物已清理 `todo-*` / `tasks.todo` 与 `mode-code` 残留，保留正式 `tasks/task` 与 `mode-build` 词汇。T3code-style timeline rows、composer interaction panel、Diff right-panel surface、neutral workbench visual language 与 dev-only visual debug harness 已落地；changed-files card 已升级为目录树，Diff panel 已具备 file rail + viewport 布局，project/thread 管理表面和 thread lifecycle action rail 已进入 GUI read-model 层；visual harness 通过 `?visual_debug=1` fixture hook 稳定验证真实 GUI diff/thread surfaces；harness 已覆盖 app/thread/load/chat/diff/responsive/timeline/interaction 并修复 streaming assistant 文本重复问题。
-- 最新归档收尾：`agent-core-cutover` 相关 design / plan / review / implementation review / follow-up plan 已迁入 `docs/archive/agent-core-cutover/`，活动 `docs/superpowers/` 入口不再保留这轮已关闭切片。`
+- 最新归档收尾：已关闭的 documentation governance baseline、workflow extension boundary follow-up、Pi-inspired minimal Core Phase A/B、enterprise boundary foundation、local skills / remaining Pi architecture gap materials、GUI IDE redesign 旧设计和根目录历史 refactor notes 已迁入对应 `docs/archive/<topic>/`；`docs/archive/README.md` 与主题包 README 已补索引。活动 `docs/superpowers/` 入口现在只保留 GUI standalone workspace/thread app 与 GUI timeline interaction polish 两组进行中材料。`
 
 ### 当前判断
 

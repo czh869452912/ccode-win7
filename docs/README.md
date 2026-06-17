@@ -3,12 +3,12 @@
 > 状态：`active`
 > 类型：`reference`
 > 负责人：`project maintainers`
-> 最后同步日期：`2026-04-09`
+> 最后同步日期：`2026-06-17`
 > 对应代码范围：`README.md`, `AGENTS.md`, `docs/`
 
 ## 1. 文档分层
 
-- `docs/superpowers/`：当前切片说明书，服务本轮设计、计划、实施与 review。
+- `docs/superpowers/`：当前切片说明书，服务本轮设计、计划、实施与 review；截至 `2026-06-17`，活动入口只保留 GUI standalone workspace/thread app 与 GUI timeline interaction polish 两组进行中材料。
 - `docs/` 活动文档：长期 `source-of-truth`，记录当前官方口径、模块边界和维护规则。
 - `docs/archive/`：历史留痕，保存已完成切片的设计、计划、分析和复盘材料。
 
@@ -62,7 +62,7 @@
 
 工作流文档定义“怎么做事”，例如怎样从 `superpowers` 设计回写到全局文档，以及发布前如何检查文档完整性。
 
-## 5. 参考与模板
+## 6. 参考与模板
 
 - `references/glossary.md`
 - `references/code-doc-matrix.md`
@@ -75,9 +75,21 @@
 
 参考文档提供统一语言和约束，模板文档提供统一骨架和最小结构。
 
-## 6. Archive 使用规则
+## 7. ADR
 
+- `adrs/README.md`
+- `adrs/0000-template.md`
+- `adrs/0001-offline-portable-bundle-baseline.md`
+- `adrs/0002-gui-workflow-shell-clean-room.md`
+- `adrs/0003-agent-step-timeline-and-managed-runtime-shell.md`
+- `adrs/0004-packaging-control-plane-redesign.md`
+
+## 8. Archive 使用规则
+
+- `archive/README.md` 是历史材料索引入口。
 - `archive` 只保存历史材料，不承载当前官方口径。
 - 活动文档不得依赖 `archive` 作为当前真相源。
 - 每轮切片完成后，应先同步全局项目文档和模块文档，再归档对应 `superpowers` 材料。
 - Completed self-extensible Agent Core slice materials belong under `docs/archive/self-extensible-agent-core/` after their durable conclusions are synchronized into active source-of-truth docs and module docs.
+- Completed Pi-inspired minimal Core phase materials belong under their phase-specific `docs/archive/phase-*/` package after active docs record the implemented boundary.
+- Historical root-level refactor notes belong under `docs/archive/agent-core-refactor-history/`, not as active docs root entries.

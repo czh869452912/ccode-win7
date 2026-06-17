@@ -3,7 +3,7 @@
 > 状态：`active`
 > 类型：`workflow`
 > 负责人：`project maintainers`
-> 最后同步日期：`2026-04-08`
+> 最后同步日期：`2026-06-17`
 > 对应代码范围：`README.md`, `docs/`, `scripts/`
 
 ## 1. Scope Confirmation
@@ -35,3 +35,4 @@
 - 本轮 `superpowers` 文档是否已完成全局回写
 - 已关闭切片是否已归档
 - 活动入口是否只保留当前有效文档
+- `docs/archive/README.md` 和对应主题包 README 是否列出新增归档材料

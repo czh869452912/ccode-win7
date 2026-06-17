@@ -3,7 +3,7 @@
 > 状态：`active`
 > 类型：`reference`
 > 负责人：`project maintainers`
-> 最后同步日期：`2026-04-08`
+> 最后同步日期：`2026-06-17`
 > 对应代码范围：`README.md`, `AGENTS.md`, `docs/`, `src/embedagent/`
 
 ## 1. Official Product Vocabulary
@@ -41,6 +41,8 @@
 | `todos` | 禁止作为前端正式词汇使用 | 使用 `tasks` |
 | `manage_todos` | 禁止作为官方任务工作流语义使用 | 使用 `TaskGraph`、`task_status` |
 | `timeline.jsonl` 作为历史数据库 | 禁止 | 仅保留 transport / replay 角色 |
+| 完成切片 plan/spec 停留在 `docs/superpowers/` | 禁止 | 回写长期文档后归档到 `docs/archive/<topic>/` |
+| 历史阶段说明停留在 docs 根目录 | 禁止 | 迁入合适的 `docs/archive/<topic>/` |
 
 ## 4. Usage Rules
 

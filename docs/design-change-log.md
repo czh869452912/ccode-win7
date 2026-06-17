@@ -1,6 +1,6 @@
 # EmbedAgent 设计与变更跟踪
 
-> 更新日期：2026-06-16
+> 更新日期：2026-06-17
 > 用途：记录关键设计变更、影响范围、关联文档和后续动作
 
 ---
@@ -43,6 +43,32 @@
 ---
 
 ## 3. 当前变更记录
+
+### DC-163
+
+- 日期：2026-06-17
+- 变更主题：Documentation archive closeout and active docs index maintenance
+- 变更摘要：
+  - 已将完成切片材料从 `docs/superpowers/` 移入对应 `docs/archive/<topic>/`，覆盖 documentation governance baseline、workflow extension boundary follow-up、Pi-inspired minimal Core Phase A/B、enterprise boundary foundation、local skills / remaining Pi architecture gap materials 和 GUI IDE redesign 旧设计。
+  - 已将历史阶段说明 `agent-state-machine.md` 与 `architecture-refactor.md` 从活动 docs 根目录迁入 `docs/archive/agent-core-refactor-history/`，避免历史 refactor 记录继续停留在当前 source-of-truth 入口。
+  - 新增 `docs/archive/README.md`，并补齐新建或扩充主题包 README，使 archive 有明确索引和当前 source-of-truth 指向。
+  - 更新 `docs/README.md`、documentation governance/workflow/reference 文档，明确活动 `docs/superpowers/` 当前只保留两个 GUI 进行中切片，并把完成 plan/spec 留在活动区列为禁止状态。
+- 影响范围：
+  - `docs/README.md`
+  - `docs/documentation-governance.md`
+  - `docs/documentation-style-guide.md`
+  - `docs/workflows/`
+  - `docs/references/`
+  - `docs/archive/`
+  - `docs/superpowers/`
+- 关联文档：
+  - `docs/archive/README.md`
+  - `docs/workflows/code-doc-sync.md`
+  - `docs/workflows/release-doc-checklist.md`
+  - `docs/references/glossary.md`
+- 是否需要 ADR：否；这是文档治理和历史材料归档收口，不改变产品架构、协议或运行时边界。
+- 后续动作：
+  - GUI standalone workspace/thread app 与 GUI timeline interaction polish 收口后，按同一规则先回写长期文档，再移入对应 archive 包。
 
 ### DC-162
 
@@ -300,8 +326,8 @@
   - `docs/permission-model.md`
   - `docs/frontend-protocol.md`
 - 关联文档：
-  - `docs/superpowers/specs/2026-06-15-enterprise-boundary-foundation-design.md`
-  - `docs/superpowers/plans/2026-06-15-enterprise-boundary-foundation.md`
+  - `docs/archive/enterprise-boundary-foundation/2026-06-15-enterprise-boundary-foundation-design.md`
+  - `docs/archive/enterprise-boundary-foundation/2026-06-15-enterprise-boundary-foundation.md`
   - `docs/pi-inspired-agent-core-blueprint.md`
   - `docs/tool-contracts.md`
   - `docs/permission-model.md`
@@ -358,7 +384,7 @@
   - `docs/frontend-protocol.md`
   - `docs/design-change-log.md`
 - 关联文档：
-  - `docs/superpowers/plans/2026-06-15-remaining-pi-architecture-gaps.md`
+  - `docs/archive/self-extensible-agent-core/2026-06-15-remaining-pi-architecture-gaps.md`
   - `docs/pi-inspired-agent-core-blueprint.md`
   - `docs/tool-contracts.md`
   - `docs/frontend-protocol.md`
@@ -384,7 +410,7 @@
   - `docs/frontend-protocol.md`
   - `docs/design-change-log.md`
 - 关联文档：
-  - `docs/superpowers/plans/2026-06-15-remaining-pi-architecture-gaps.md`
+  - `docs/archive/self-extensible-agent-core/2026-06-15-remaining-pi-architecture-gaps.md`
   - `docs/tool-contracts.md`
   - `docs/frontend-protocol.md`
 - 是否需要 ADR：`否，本次是内部 read model 收口；不改变 public frontend protocol kind 或 extension execution contract`
@@ -405,7 +431,7 @@
   - `docs/tool-contracts.md`
   - `docs/design-change-log.md`
 - 关联文档：
-  - `docs/superpowers/plans/2026-06-15-remaining-pi-architecture-gaps.md`
+  - `docs/archive/self-extensible-agent-core/2026-06-15-remaining-pi-architecture-gaps.md`
   - `docs/tool-contracts.md`
 - 是否需要 ADR：`否，本次是本地文件发现过滤语义补齐；不新增 public extension API`
 - 后续动作：
@@ -430,7 +456,7 @@
   - `docs/agent-harness-v2.md`
   - `docs/design-change-log.md`
 - 关联文档：
-  - `docs/superpowers/plans/2026-06-15-remaining-pi-architecture-gaps.md`
+  - `docs/archive/self-extensible-agent-core/2026-06-15-remaining-pi-architecture-gaps.md`
   - `docs/pi-inspired-agent-core-blueprint.md`
 - 是否需要 ADR：`否，本次是内部命名与 message kind 清理；不改变 public extension API 或默认 C/C++ workflow 行为`
 - 后续动作：
@@ -467,7 +493,7 @@
   - `docs/frontend-protocol.md`
   - `docs/agent-harness-v2.md`
 - 关联文档：
-  - `docs/superpowers/plans/2026-06-15-pi-style-local-skills.md`
+  - `docs/archive/self-extensible-agent-core/2026-06-15-pi-style-local-skills.md`
   - `docs/pi-inspired-agent-core-blueprint.md`
 - 是否需要 ADR：`否，本次是 Pi-inspired local self-extension 方向下的资源语义增强；不新增执行型 extension API`
 - 后续动作：
@@ -501,7 +527,7 @@
   - `docs/frontend-protocol.md`
   - `docs/agent-harness-v2.md`
   - `docs/pi-inspired-agent-core-blueprint.md`
-  - `docs/architecture-refactor.md`
+  - `docs/archive/agent-core-refactor-history/architecture-refactor.md`
 - 关联文档：
   - `docs/pi-inspired-agent-core-blueprint.md`
   - `docs/archive/phase-m-core-alias-cleanup/2026-06-14-phase-m-core-alias-cleanup-design.md`
@@ -938,7 +964,7 @@
   - `docs/design-change-log.md`
 - 关联文档：
   - `docs/pi-inspired-agent-core-blueprint.md`
-  - `docs/superpowers/plans/2026-06-14-phase-b-hookbus-closeout.md`
+  - `docs/archive/phase-b-hookbus-reducer-registry/2026-06-14-phase-b-hookbus-closeout.md`
 - 是否需要 ADR：`否，本次是已批准 Pi-inspired minimal Core Phase B 的实现收口；AgentKernel lifecycle boundary 硬切时再评估 ADR`
 - 后续动作：
   - 启动 Phase C AgentKernel lifecycle extraction 设计
@@ -968,7 +994,7 @@
   - `docs/design-change-log.md`
 - 关联文档：
   - `docs/pi-inspired-agent-core-blueprint.md`
-  - `docs/superpowers/plans/2026-06-13-phase-b-hookbus-first-slice.md`
+  - `docs/archive/phase-b-hookbus-reducer-registry/2026-06-13-phase-b-hookbus-first-slice.md`
 - 是否需要 ADR：`否，本次是 Phase B 的第一实现切片；当 HookBus 成为所有 extension hooks 与 lifecycle reducers 的唯一边界时再评估 ADR`
 - 后续动作：
   - 迁移 `tool_call` hook 到 bus，并明确 block/update argument 的 reducer 语义
@@ -1063,10 +1089,10 @@
   - `docs/pi-inspired-agent-core-blueprint.md`
   - `docs/development-tracker.md`
   - `docs/design-change-log.md`
-  - `docs/superpowers/plans/2026-06-13-durable-operation-log.md`
+  - `docs/archive/phase-a-durable-operation-log/2026-06-13-durable-operation-log.md`
 - 关联文档：
   - `docs/pi-inspired-agent-core-blueprint.md`
-  - `docs/superpowers/plans/2026-06-13-durable-operation-log.md`
+  - `docs/archive/phase-a-durable-operation-log/2026-06-13-durable-operation-log.md`
 - 是否需要 ADR：`否，本次仍是 Pi-inspired minimal Core Phase A 的 implementation slice；AgentKernel 生命周期边界硬切时再评估 ADR`
 - 后续动作：
   - 补 turn lifecycle、pending interaction lifecycle、workflow patch lifecycle 的显式 operation/事件覆盖
@@ -1092,10 +1118,10 @@
   - `tests/test_query_engine_refactor.py`
   - `docs/development-tracker.md`
   - `docs/design-change-log.md`
-  - `docs/superpowers/plans/2026-06-13-durable-operation-log.md`
+  - `docs/archive/phase-a-durable-operation-log/2026-06-13-durable-operation-log.md`
 - 关联文档：
   - `docs/pi-inspired-agent-core-blueprint.md`
-  - `docs/superpowers/plans/2026-06-13-durable-operation-log.md`
+  - `docs/archive/phase-a-durable-operation-log/2026-06-13-durable-operation-log.md`
 - 是否需要 ADR：`否，本次是目标蓝图下的增量实现切片；完整 AgentKernel lifecycle boundary 提取前再评估 ADR`
 - 后续动作：
   - 将 turn lifecycle、pending interaction lifecycle 与 workflow patch 事件纳入显式 operation/log lifecycle
@@ -1370,7 +1396,7 @@
   - configuration guide handoff clarity
 - 关联文档：
   - `docs/development-tracker.md`
-  - `docs/superpowers/plans/2026-05-28-remaining-workflow-extension-migration-plan.md`
+  - `docs/archive/workflow-extension-boundary/2026-05-28-remaining-workflow-extension-migration-plan.md`
   - `docs/guides/configuration-guide.md`
 - 是否需要 ADR：`否，属于既定 workflow extension boundary 的本机剩余清理`
 - 后续动作：
@@ -1395,7 +1421,7 @@
   - offline bundle documentation staging
 - 关联文档：
   - `docs/development-tracker.md`
-  - `docs/superpowers/plans/2026-05-28-remaining-workflow-extension-migration-plan.md`
+  - `docs/archive/workflow-extension-boundary/2026-05-28-remaining-workflow-extension-migration-plan.md`
   - `docs/archive/workflow-extension-boundary/2026-05-28-workflow-extension-migration-handoff.md`
 - 是否需要 ADR：`否，属于 release validation 结果与测试门禁修复记录`
 - 后续动作：
@@ -1415,7 +1441,7 @@
   - active planning surface
 - 关联文档：
   - `docs/archive/workflow-extension-boundary/`
-  - `docs/superpowers/plans/2026-05-28-remaining-workflow-extension-migration-plan.md`
+  - `docs/archive/workflow-extension-boundary/2026-05-28-remaining-workflow-extension-migration-plan.md`
 - 是否需要 ADR：`否，属于完成切片归档`
 
 ### DC-118
@@ -1790,7 +1816,7 @@
   - docs/archive/clang-integration/
   - docs/archive/phase6-validation/
 - 关联文档：
-  - docs/superpowers/specs/2026-04-08-documentation-governance-baseline-design.md
+  - docs/archive/documentation-governance-baseline/2026-04-08-documentation-governance-baseline-design.md
 - 是否需要 ADR：否，先作为文档治理基线实施
 - 后续动作：
   - 继续按 doc-impact-first 工作流执行后续切片
@@ -1815,7 +1841,7 @@
   - `docs/references/code-doc-matrix.md`
   - `docs/development-tracker.md`
 - 关联文档：
-  - `docs/superpowers/specs/2026-04-08-documentation-governance-baseline-design.md`
+  - `docs/archive/documentation-governance-baseline/2026-04-08-documentation-governance-baseline-design.md`
 - 是否需要 ADR：`否，先作为文档治理基线实施`
 - 后续动作：
   - 继续推进 Batch B：归档遗留活动文档并下沉操作指南
@@ -1839,7 +1865,7 @@
   - `docs/templates/`
   - `docs/modules/`
 - 关联文档：
-  - `docs/superpowers/specs/2026-04-08-documentation-governance-baseline-design.md`
+  - `docs/archive/documentation-governance-baseline/2026-04-08-documentation-governance-baseline-design.md`
 - 是否需要 ADR：`否，先作为文档治理基线实施`
 - 后续动作：
   - 继续补齐协议、前端、交付模块文档

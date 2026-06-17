@@ -3,7 +3,7 @@
 > 状态：`active`
 > 类型：`workflow`
 > 负责人：`project maintainers`
-> 最后同步日期：`2026-04-08`
+> 最后同步日期：`2026-06-17`
 > 对应代码范围：`README.md`, `AGENTS.md`, `docs/`
 
 ## 1. Purpose
@@ -74,6 +74,8 @@
 - 已完成切片的 `superpowers` 文档应移动到 `docs/archive/<topic>/`。
 - 归档前必须先完成全局文档和模块文档回写。
 - archive 应包含主题索引，便于回溯，但活动文档不应把 archive 当成当前真相依赖。
+- `docs/archive/README.md` 维护 archive package 总索引；每个新增或扩充的主题包应维护本包 `README.md`。
+- 活动 docs 根目录只保留长期 source-of-truth 文档。阶段性设计、历史 refactor 记录、完成的 slice plan/spec 不应长期停留在活动根目录或 `docs/superpowers/`。
 
 ## 8. Related Documents
 

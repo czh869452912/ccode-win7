@@ -3,7 +3,7 @@
 > 状态：`active`
 > 类型：`workflow`
 > 负责人：`project maintainers`
-> 最后同步日期：`2026-04-08`
+> 最后同步日期：`2026-06-17`
 > 对应代码范围：`README.md`, `AGENTS.md`, `docs/`, `src/embedagent/`
 
 ## 1. When This Workflow Applies
