@@ -41,7 +41,11 @@ export function runVisualLanguageCssTests() {
   assertIncludes(styles, "max-width: 860px;", "timeline shell should use a T3-like centered width");
   assertIncludes(styles, ".composer::before", "composer should have a top fade like T3");
   assertIncludes(styles, "border-radius: var(--r-lg);", "composer should use the large radius token");
-  assertIncludes(styles, ".right-panel-tab.active", "right panel active tab styling should remain explicit");
+  assertIncludes(styles, ".right-panel-surface-tab.active", "right panel active surface styling should remain explicit");
+  assertIncludes(styles, ".right-panel-tab-scroll", "right panel should use a horizontally scrollable surface tab list");
+  assertIncludes(styles, ".right-panel-add-menu-popup", "right panel add-surface menu should be styled");
+  assertIncludes(styles, ".right-panel-empty-card", "right panel empty-state surface cards should be styled");
+  assertIncludes(styles, ".right-panel-files-surface", "right panel files surface should own a bounded shell");
   assertIncludes(styles, ".diff-panel", "diff panel should keep a dedicated shell");
   assertIncludes(
     styles,

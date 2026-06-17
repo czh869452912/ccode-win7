@@ -1,6 +1,6 @@
 # EmbedAgent 开发进度跟踪
 
-> 更新日期：2026-06-17（GUI source-control foundation）
+> 更新日期：2026-06-17（T3 right-panel surface tabs）
 > 用途：持续跟踪当前阶段、下一步任务、里程碑进度、风险与阻塞
 
 ---
@@ -23,6 +23,13 @@
 ---
 
 ## 2. 当前阶段
+
+### 2026-06-17 - T3 Right-Panel Surface Tabs
+
+- React webapp right panel 已从固定 Inspector tab 列表改为 T3 Code-like ordered surface descriptors：当前首批 right-panel surfaces 为 `diff`、`files`、`terminal`、`plan`，由 `activeSurfaceId` 驱动激活、关闭、close others、close to right 和 close all。
+- `RightPanelTabs` 现在复制 T3 的 surface tabbar / add menu / empty-state cards 结构；`RightPanelSurfaceBody` 负责把 Diff/Plan 复用 Inspector 内容，把 Files/Terminal 挂到 GUI app-shell hosted surfaces。
+- Command palette 与默认 keybindings 已收敛到 T3 surface workflow：`mod+1` files、`mod+2` terminal、`mod+3` diff；旧 source-control/tasks 作为固定 right-panel tab 的入口不再属于本组 surface shell。
+- 该切片只改变 GUI-local app-shell state 与 presentation，不写 transcript、workflow state、permission/runtime reducers、telemetry、provider config、extension loading、checkpoint/source-control mutation 或 Agent Core policy。
 
 ### 2026-06-17 - GUI Source Control Foundation
 
@@ -115,7 +122,7 @@
 - 最新 workflow extension validation：`2026-05-29 repo-side 验证已通过：fast suite 为 685 passed / 11 deselected，focused C/C++ build/debug/verify workflow 回归为 15 passed。官方 harness 门禁已修复 marker 漏标问题，uv run pytest tests/ -m harness -v 现在会选中并通过 23 个 task_graph / phase_engine / harness runner / prompt stack / harness injection 测试。本机 release bundle 已用当前分支源码重建并通过：validate-offline-bundle.ps1 -RequireComplete 为 59 pass / 0 warn / 0 fail，check-bundle-dependencies.py 全部通过，scripts/package.ps1 verify -Profile release -Json 返回 final_status READY。clean Windows 7 unpack-and-run smoke 尚未执行。`
 - 最新 documentation cleanup：`docs/guides/configuration-guide.md` 已改写为当前正式配置指南，使用 `explore/spec/build/debug/verify` 与 `build` 实现模式口径，不再把 `code` 或 `manage_todos` 作为当前配置/工作流示例。`
 - 最新 runtime cleanup：`task_status` 前端元数据现已统一为 `tasks/task` 词汇，workspace profile 不再输出待办语义提示，运行时残留 `todos.py` 已删除。`
-- 最新 GUI closeout：GUI backend 与 webapp 默认新建会话入口已统一为 `explore`，resume 默认不再强制覆盖 restored mode；GUI task 面板、样式和静态产物已清理 `todo-*` / `tasks.todo` 与 `mode-code` 残留，保留正式 `tasks/task` 与 `mode-build` 词汇。T3code-style timeline rows、composer interaction panel、Diff right-panel surface、neutral workbench visual language 与 dev-only visual debug harness 已落地；changed-files card 已升级为目录树，Diff panel 已具备 file rail + viewport 布局，project/thread 管理表面和 backend-backed thread lifecycle action rail 已进入正式 GUI/Core 边界；`AppShellService` 与 frontend `app-shell` read model 已补齐 standalone app shell 第一层边界，Settings/Diagnostics app surfaces 与 app commands 已接入；visual harness 通过 `?visual_debug=1` fixture hook 稳定验证真实 GUI diff/thread surfaces；harness 已覆盖 app/thread/load/chat/diff/responsive/timeline/interaction 并修复 streaming assistant 文本重复问题。
+- 最新 GUI closeout：GUI backend 与 webapp 默认新建会话入口已统一为 `explore`，resume 默认不再强制覆盖 restored mode；GUI task 面板、样式和静态产物已清理 `todo-*` / `tasks.todo` 与 `mode-code` 残留，保留正式 `tasks/task` 与 `mode-build` 词汇。T3code-style timeline rows、composer interaction panel、Diff right-panel surface、neutral workbench visual language 与 dev-only visual debug harness 已落地；changed-files card 已升级为目录树，Diff panel 已具备 file rail + viewport 布局，project/thread 管理表面和 backend-backed thread lifecycle action rail 已进入正式 GUI/Core 边界；`AppShellService` 与 frontend `app-shell` read model 已补齐 standalone app shell 第一层边界，Settings/Diagnostics app surfaces 与 app commands 已接入；right panel 已继续收敛到 T3 Code-like ordered surface descriptors / surface tabs / add menu / empty-state cards，首批 surface 为 `diff/files/terminal/plan`；visual harness 通过 `?visual_debug=1` fixture hook 稳定验证真实 GUI diff/thread surfaces；harness 已覆盖 app/thread/load/chat/diff/responsive/timeline/interaction 并修复 streaming assistant 文本重复问题。
 - 最新归档收尾：已关闭的 documentation governance baseline、workflow extension boundary follow-up、Pi-inspired minimal Core Phase A/B、enterprise boundary foundation、local skills / remaining Pi architecture gap materials、GUI IDE redesign 旧设计、GUI app-shell boundary、GUI thread lifecycle boundary 和根目录历史 refactor notes 已迁入对应 `docs/archive/<topic>/`；`docs/archive/README.md` 与主题包 README 已补索引。活动 `docs/superpowers/` 入口现在只保留 GUI standalone workspace/thread app 与 GUI timeline interaction polish 两组进行中材料。`
 
 ### 当前判断

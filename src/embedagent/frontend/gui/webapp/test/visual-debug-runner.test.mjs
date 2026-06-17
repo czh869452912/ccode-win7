@@ -58,6 +58,9 @@ export async function runVisualDebugRunnerTests() {
   assert.equal(runnerSource.includes('"npm.cmd"'), false);
   assert.equal(runnerSource.includes("visual_debug=1"), true);
   assert.equal(runnerSource.includes("__EMBEDAGENT_VISUAL_DEBUG__"), true);
+  assert.equal(runnerSource.includes(".right-panel-surface-tab"), true);
+  assert.equal(runnerSource.includes("right-panel-surface-tab--diff"), true);
+  assert.equal(runnerSource.includes("right-panel-tab--diff"), false);
   assert.equal(runnerSource.includes("runTimelineScenario"), true);
   assert.equal(runnerSource.includes("runInteractionScenario"), true);
   assert.equal(runnerSource.includes("runThreadScenario"), true);

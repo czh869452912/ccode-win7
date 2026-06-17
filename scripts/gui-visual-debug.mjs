@@ -429,7 +429,7 @@ async function captureScenario({ page, scenario, outputDir }) {
 
 async function assertNoOverlap(page) {
   return await page.evaluate(() => {
-    const rects = Array.from(document.querySelectorAll(".right-panel-tab")).map((el) => {
+    const rects = Array.from(document.querySelectorAll(".right-panel-surface-tab")).map((el) => {
       const rect = el.getBoundingClientRect();
       return { text: el.textContent.trim(), x: rect.x, width: rect.width };
     });
@@ -475,7 +475,7 @@ async function runDiffScenario(page) {
   await page.waitForSelector('[data-testid="diff-file-rail"]', { timeout: 15000 });
   await page.waitForSelector('[data-testid="diff-file--demo.c"]', { timeout: 15000 });
   const panelText = await page.locator('[data-testid="diff-panel"]').innerText();
-  const activeTab = await page.locator('[data-testid="right-panel-tab--diff"]').getAttribute("aria-selected");
+  const activeTab = await page.locator('[data-testid="right-panel-surface-tab--diff"] [role="tab"]').getAttribute("aria-selected");
   const noOverlap = await assertNoOverlap(page);
   if (activeTab !== "true") throw new Error("Diff tab did not become active");
   if (!panelText.includes("demo.c") || !panelText.includes("return 1")) {

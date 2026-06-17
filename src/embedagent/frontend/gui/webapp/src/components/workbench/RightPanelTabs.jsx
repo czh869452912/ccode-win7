@@ -93,6 +93,45 @@ function SurfaceTabMenu({
   );
 }
 
+function SurfaceAddMenu({ onAddSurface }) {
+  const [open, setOpen] = React.useState(false);
+  const availableSurfaces = RIGHT_PANEL_SURFACES.slice();
+  return (
+    <span className="right-panel-add-menu">
+      <button
+        type="button"
+        className="right-panel-add-surface"
+        aria-label="Add panel surface"
+        onClick={() => setOpen((value) => !value)}
+        title="Add panel surface"
+      >
+        +
+      </button>
+      {open ? (
+        <span className="right-panel-add-menu-popup" role="menu">
+          {availableSurfaces.map((kind) => {
+            const copy = SURFACE_COPY[kind];
+            return (
+              <button
+                key={kind}
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setOpen(false);
+                  onAddSurface(kind);
+                }}
+              >
+                <SurfaceIcon kind={kind} />
+                <span>{copy.label}</span>
+              </button>
+            );
+          })}
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
 function RightPanelEmptyState({ onAddSurface }) {
   const availableSurfaces = RIGHT_PANEL_SURFACES.slice();
   return (
@@ -136,10 +175,16 @@ export default function RightPanelTabs({
 }) {
   const items = Array.isArray(surfaces) ? surfaces : [];
   const activeSurface = items.find((surface) => surface.id === activeSurfaceId) || null;
+  const tabListRef = React.useRef(null);
+  React.useEffect(() => {
+    const activeTab = tabListRef.current?.querySelector("[data-active-tab='true']");
+    activeTab?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [activeSurfaceId]);
+
   return (
     <aside className="right-panel" role="complementary" aria-label="Right panel" data-testid="right-panel">
       <div className="right-panel-tabs" role="tablist" data-testid="right-panel-surface-tabs">
-        <div className="right-panel-tab-scroll">
+        <div className="right-panel-tab-scroll" ref={tabListRef} data-right-panel-tab-list>
           {items.map((surface) => {
             const active = surface.id === activeSurfaceId;
             const title = surfaceTitle(surface);
@@ -178,15 +223,7 @@ export default function RightPanelTabs({
               </div>
             );
           })}
-          <button
-            type="button"
-            className="right-panel-add-surface"
-            aria-label="Add panel surface"
-            onClick={() => onAddSurface("files")}
-            title="Add panel surface"
-          >
-            +
-          </button>
+          {items.length > 0 ? <SurfaceAddMenu onAddSurface={onAddSurface} /> : null}
         </div>
       </div>
       <div className="right-panel-body">

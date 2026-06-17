@@ -44,6 +44,35 @@
 
 ## 3. 当前变更记录
 
+### DC-168
+
+- 日期：2026-06-17
+- 变更主题：T3 Code-like right-panel surface tabs
+- 变更摘要：
+  - React webapp right panel 从固定 Inspector tab 列表切到 T3 Code-like ordered surface descriptors，首批 surface 为 `diff`、`files`、`terminal`、`plan`。
+  - `RightPanelTabs` 采用 surface tabbar、add-surface menu、empty-state cards、active tab scroll 和 close/close others/close right/close all 操作；`RightPanelSurfaceBody` 负责把 Diff/Plan 复用 Inspector 内容，把 Files/Terminal 挂到 GUI-local app-shell hosted surfaces。
+  - Command palette 与 keybindings 对齐该 surface shell：`surface.files`、`surface.terminal`、`surface.diff`、`surface.plan` 与 `mod+1/mod+2/mod+3` 分别打开 files/terminal/diff。
+  - 该变更只影响 GUI-local state、presentation 和 command routing，不写 transcript、workflow state、permission/runtime reducers、telemetry、provider config、extension loading、checkpoint/source-control mutation 或 Agent Core policy。
+- 影响范围：
+  - `src/embedagent/frontend/gui/webapp/src/workbench/surfaces.js`
+  - `src/embedagent/frontend/gui/webapp/src/workbench/commands.js`
+  - `src/embedagent/frontend/gui/webapp/src/workbench/keybindings.js`
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/store.js`
+  - `src/embedagent/frontend/gui/webapp/src/components/workbench/RightPanelTabs.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/components/workbench/RightPanelSurfaceBody.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/components/workbench/FilesSurface.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/styles.css`
+  - `src/embedagent/frontend/gui/webapp/test/`
+- 关联文档：
+  - `docs/development-tracker.md`
+  - `docs/design-change-log.md`
+  - `docs/superpowers/specs/2026-06-17-t3-right-panel-surface-tabs-design.md`
+  - `docs/superpowers/plans/2026-06-17-t3-right-panel-surface-tabs.md`
+- 是否需要 ADR：否；属于已批准的 GUI standalone app-shell / T3 Code parity program 内部 UI shell 收敛，不改变 Agent Core public architecture。
+- 后续动作：
+  - 继续按 `reference/t3code` 逐步补齐 browser/file preview/terminal grouping/checkpoint diff 等 surface，但每项必须保持 Win7/offline 和 GUI/Core separation 约束。
+
 ### DC-167
 
 - 日期：2026-06-17

@@ -49,7 +49,7 @@
 - Modify: `src/embedagent/frontend/gui/webapp/test/workbench-state.test.mjs`
 - Modify: `src/embedagent/frontend/gui/webapp/src/workbench/surfaces.js`
 
-- [ ] **Step 1: Write the failing reducer tests**
+- [x] **Step 1: Write the failing reducer tests**
 
 Replace the right-panel surface section in `runWorkbenchStateTests()` with these assertions, leaving command/keybinding assertions below it in place:
 
@@ -176,7 +176,7 @@ import {
 } from "../src/workbench/surfaces.js";
 ```
 
-- [ ] **Step 2: Run the focused test to verify it fails**
+- [x] **Step 2: Run the focused test to verify it fails**
 
 Run:
 
@@ -187,7 +187,7 @@ node test/run-tests.mjs
 
 Expected: FAIL with an assertion showing the old right-panel defaults, or an import error for `closeOtherSurfaces`, `closeSurfacesToRight`, or `closeAllSurfaces`.
 
-- [ ] **Step 3: Implement the surface reducer**
+- [x] **Step 3: Implement the surface reducer**
 
 In `src/embedagent/frontend/gui/webapp/src/workbench/surfaces.js`, replace the old right-panel surface implementation with this model while keeping bottom drawer compatibility:
 
@@ -528,7 +528,7 @@ export function reduceWorkbenchState(state, action) {
 }
 ```
 
-- [ ] **Step 4: Run the focused test to verify it passes**
+- [x] **Step 4: Run the focused test to verify it passes**
 
 Run:
 
@@ -539,7 +539,7 @@ node test/run-tests.mjs
 
 Expected: remaining failures may come from `run-tests.mjs` source assertions that still expect the old fixed right-panel tab component. Reducer assertions from `runWorkbenchStateTests()` should pass.
 
-- [ ] **Step 5: Commit Task 1**
+- [x] **Step 5: Commit Task 1**
 
 ```bash
 git add src/embedagent/frontend/gui/webapp/src/workbench/surfaces.js src/embedagent/frontend/gui/webapp/test/workbench-state.test.mjs
@@ -554,7 +554,7 @@ git commit -m "gui: add t3 right panel surface state"
 - Modify: `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
 - Modify: `src/embedagent/frontend/gui/webapp/src/components/workbench/RightPanelTabs.jsx`
 
-- [ ] **Step 1: Write the failing source assertions**
+- [x] **Step 1: Write the failing source assertions**
 
 In `run-tests.mjs`, replace the current `rightPanelTabsSource` assertions with:
 
@@ -573,7 +573,7 @@ In `run-tests.mjs`, replace the current `rightPanelTabsSource` assertions with:
   assert.equal(rightPanelTabsSource.includes("todos"), false);
 ```
 
-- [ ] **Step 2: Run the focused test to verify it fails**
+- [x] **Step 2: Run the focused test to verify it fails**
 
 Run:
 
@@ -584,7 +584,7 @@ node test/run-tests.mjs
 
 Expected: FAIL because `RightPanelTabs.jsx` still maps `RIGHT_PANEL_SURFACES` as fixed inspector tabs.
 
-- [ ] **Step 3: Replace `RightPanelTabs.jsx` with T3-style surface tabs**
+- [x] **Step 3: Replace `RightPanelTabs.jsx` with T3-style surface tabs**
 
 Use this component:
 
@@ -787,7 +787,7 @@ export default function RightPanelTabs({
 }
 ```
 
-- [ ] **Step 4: Run the focused test to verify it passes**
+- [x] **Step 4: Run the focused test to verify it passes**
 
 Run:
 
@@ -798,7 +798,7 @@ node test/run-tests.mjs
 
 Expected: component source assertions pass. App integration assertions may fail because `App.jsx` still passes old props.
 
-- [ ] **Step 5: Commit Task 2**
+- [x] **Step 5: Commit Task 2**
 
 ```bash
 git add src/embedagent/frontend/gui/webapp/src/components/workbench/RightPanelTabs.jsx src/embedagent/frontend/gui/webapp/test/run-tests.mjs
@@ -815,7 +815,7 @@ git commit -m "gui: render t3 right panel surface tabs"
 - Create: `src/embedagent/frontend/gui/webapp/src/components/workbench/RightPanelSurfaceBody.jsx`
 - Modify: `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
 
-- [ ] **Step 1: Write failing source assertions for body components**
+- [x] **Step 1: Write failing source assertions for body components**
 
 Add these assertions after the `bottomDrawerSource` assertions in `run-tests.mjs`:
 
@@ -840,7 +840,7 @@ Add these assertions after the `bottomDrawerSource` assertions in `run-tests.mjs
   assert.equal(rightPanelSurfaceBodySource.includes("surface.kind === \"terminal\""), true);
 ```
 
-- [ ] **Step 2: Run the focused test to verify it fails**
+- [x] **Step 2: Run the focused test to verify it fails**
 
 Run:
 
@@ -851,7 +851,7 @@ node test/run-tests.mjs
 
 Expected: FAIL because `FilesSurface.jsx` and `RightPanelSurfaceBody.jsx` do not exist and `TerminalSurface` is not exported.
 
-- [ ] **Step 3: Export `TerminalSurface` from `BottomDrawer.jsx`**
+- [x] **Step 3: Export `TerminalSurface` from `BottomDrawer.jsx`**
 
 Change:
 
@@ -865,7 +865,7 @@ to:
 export function TerminalSurface({ terminal, onNew, onSelect, onSend, onClear, onRestart, onClose }) {
 ```
 
-- [ ] **Step 4: Create `FilesSurface.jsx`**
+- [x] **Step 4: Create `FilesSurface.jsx`**
 
 Add `src/embedagent/frontend/gui/webapp/src/components/workbench/FilesSurface.jsx`:
 
@@ -930,7 +930,7 @@ export default function FilesSurface({
 }
 ```
 
-- [ ] **Step 5: Create `RightPanelSurfaceBody.jsx`**
+- [x] **Step 5: Create `RightPanelSurfaceBody.jsx`**
 
 Add `src/embedagent/frontend/gui/webapp/src/components/workbench/RightPanelSurfaceBody.jsx`:
 
@@ -998,7 +998,7 @@ export default function RightPanelSurfaceBody({
 }
 ```
 
-- [ ] **Step 6: Run the focused test to verify it passes**
+- [x] **Step 6: Run the focused test to verify it passes**
 
 Run:
 
@@ -1009,7 +1009,7 @@ node test/run-tests.mjs
 
 Expected: body source assertions pass. App integration assertions may still fail until Task 4.
 
-- [ ] **Step 7: Commit Task 3**
+- [x] **Step 7: Commit Task 3**
 
 ```bash
 git add src/embedagent/frontend/gui/webapp/src/components/workbench/BottomDrawer.jsx src/embedagent/frontend/gui/webapp/src/components/workbench/FilesSurface.jsx src/embedagent/frontend/gui/webapp/src/components/workbench/RightPanelSurfaceBody.jsx src/embedagent/frontend/gui/webapp/test/run-tests.mjs
@@ -1028,7 +1028,7 @@ git commit -m "gui: add right panel surface bodies"
 - Modify: `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
 - Modify: `src/embedagent/frontend/gui/webapp/test/workbench-state.test.mjs`
 
-- [ ] **Step 1: Write failing App/source assertions**
+- [x] **Step 1: Write failing App/source assertions**
 
 Update `run-tests.mjs` App source assertions:
 
@@ -1058,7 +1058,7 @@ Update keybinding assertions in `workbench-state.test.mjs`:
   assert.equal(DEFAULT_KEYBINDINGS.some((item) => item.key === "mod+3" && item.commandId === "surface.diff"), true);
 ```
 
-- [ ] **Step 2: Run the focused test to verify it fails**
+- [x] **Step 2: Run the focused test to verify it fails**
 
 Run:
 
@@ -1069,7 +1069,7 @@ node test/run-tests.mjs
 
 Expected: FAIL because `App.jsx` still renders `Inspector` directly under old `RightPanelTabs` props.
 
-- [ ] **Step 3: Update command and keybinding surface list**
+- [x] **Step 3: Update command and keybinding surface list**
 
 In `commands.js`, replace fixed inspector-oriented surface commands with:
 
@@ -1098,7 +1098,7 @@ with:
   { key: "mod+3", commandId: "surface.diff", when: "always" },
 ```
 
-- [ ] **Step 4: Update store actions that open right-panel surfaces**
+- [x] **Step 4: Update store actions that open right-panel surfaces**
 
 In `store.js`, change `diff_surface_opened` to open a real surface:
 
@@ -1128,7 +1128,7 @@ Add the new reducer action cases:
 
 to the existing workbench action group.
 
-- [ ] **Step 5: Import the surface body in `App.jsx`**
+- [x] **Step 5: Import the surface body in `App.jsx`**
 
 Add:
 
@@ -1136,7 +1136,7 @@ Add:
 import RightPanelSurfaceBody from "./components/workbench/RightPanelSurfaceBody.jsx";
 ```
 
-- [ ] **Step 6: Add active surface helpers in `App.jsx`**
+- [x] **Step 6: Add active surface helpers in `App.jsx`**
 
 Before `return`, add:
 
@@ -1146,7 +1146,7 @@ Before `return`, add:
     rightPanelSurfaces.find((surface) => surface.id === state.workbench.rightPanel.activeSurfaceId) || null;
 ```
 
-- [ ] **Step 7: Replace the old `RightPanelTabs` usage in `App.jsx`**
+- [x] **Step 7: Replace the old `RightPanelTabs` usage in `App.jsx`**
 
 Replace the current `rightPanel={<RightPanelTabs ...>...` block with:
 
@@ -1249,7 +1249,7 @@ Replace the current `rightPanel={<RightPanelTabs ...>...` block with:
       }
 ```
 
-- [ ] **Step 8: Update `executeWorkbenchCommand()` in `App.jsx`**
+- [x] **Step 8: Update `executeWorkbenchCommand()` in `App.jsx`**
 
 Replace the old `command.surface` branch with:
 
@@ -1272,7 +1272,7 @@ Replace the old `command.surface` branch with:
 
 Remove the special `surface.source_control` branch because this slice's T3 surface set uses `diff` for change review.
 
-- [ ] **Step 9: Run the focused test to verify it passes**
+- [x] **Step 9: Run the focused test to verify it passes**
 
 Run:
 
@@ -1283,7 +1283,7 @@ node test/run-tests.mjs
 
 Expected: all helper checks pass.
 
-- [ ] **Step 10: Commit Task 4**
+- [x] **Step 10: Commit Task 4**
 
 ```bash
 git add src/embedagent/frontend/gui/webapp/src/App.jsx src/embedagent/frontend/gui/webapp/src/store.js src/embedagent/frontend/gui/webapp/src/workbench/commands.js src/embedagent/frontend/gui/webapp/src/workbench/keybindings.js src/embedagent/frontend/gui/webapp/test/run-tests.mjs src/embedagent/frontend/gui/webapp/test/workbench-state.test.mjs
@@ -1299,7 +1299,7 @@ git commit -m "gui: wire t3 right panel surfaces"
 - Modify: `docs/development-tracker.md`
 - Modify: `docs/design-change-log.md`
 
-- [ ] **Step 1: Write failing CSS/source assertions**
+- [x] **Step 1: Write failing CSS/source assertions**
 
 In `run-tests.mjs`, add these style assertions near the existing style checks:
 
@@ -1310,7 +1310,7 @@ In `run-tests.mjs`, add these style assertions near the existing style checks:
   assert.equal(stylesSource.includes(".right-panel-tab-menu-popup"), true);
 ```
 
-- [ ] **Step 2: Run the focused test to verify it fails**
+- [x] **Step 2: Run the focused test to verify it fails**
 
 Run:
 
@@ -1321,7 +1321,7 @@ node test/run-tests.mjs
 
 Expected: FAIL because the new classes are not styled yet.
 
-- [ ] **Step 3: Add CSS for T3-style surface tabs**
+- [x] **Step 3: Add CSS for T3-style surface tabs**
 
 Add this CSS near the existing right-panel rules:
 
@@ -1517,7 +1517,7 @@ Add this CSS near the existing right-panel rules:
 }
 ```
 
-- [ ] **Step 4: Add development tracker note**
+- [x] **Step 4: Add development tracker note**
 
 At the top of `docs/development-tracker.md`, add a new current-stage entry:
 
@@ -1529,7 +1529,7 @@ At the top of `docs/development-tracker.md`, add a new current-stage entry:
 - Existing local body panes are reused for the first slice: Diff maps to the current diff view, Files hosts the workspace tree, Terminal reuses the GUI-local terminal display, and Plan maps to the existing plan panel.
 ```
 
-- [ ] **Step 5: Add design change log entry**
+- [x] **Step 5: Add design change log entry**
 
 At the top of `docs/design-change-log.md` current records, add:
 
@@ -1560,7 +1560,7 @@ At the top of `docs/design-change-log.md` current records, add:
   - 继续按 T3 Code 参考实现 right-panel terminal split/file preview/browser preview 能力，但每个能力必须保持 Windows 7/offline constraints 和 GUI/Core 边界。
 ```
 
-- [ ] **Step 6: Run focused webapp tests**
+- [x] **Step 6: Run focused webapp tests**
 
 Run:
 
@@ -1571,7 +1571,7 @@ npm test
 
 Expected: `frontend helper checks passed`.
 
-- [ ] **Step 7: Build GUI assets**
+- [x] **Step 7: Build GUI assets**
 
 Run:
 
@@ -1582,7 +1582,7 @@ npm run build
 
 Expected: Vite build succeeds and updates `src/embedagent/frontend/gui/static/assets/app.js` and `src/embedagent/frontend/gui/static/assets/app.css`.
 
-- [ ] **Step 8: Run focused Python GUI tests**
+- [x] **Step 8: Run focused Python GUI tests**
 
 Run:
 
@@ -1592,7 +1592,7 @@ uv run pytest tests/test_gui_app_shell.py tests/test_gui_source_control_api.py t
 
 Expected: all selected tests pass. These are guard tests confirming app-shell, source-control, and terminal backend contracts did not move.
 
-- [ ] **Step 9: Commit Task 5**
+- [x] **Step 9: Commit Task 5**
 
 ```bash
 git add src/embedagent/frontend/gui/webapp/src/styles.css src/embedagent/frontend/gui/webapp/test/run-tests.mjs docs/development-tracker.md docs/design-change-log.md src/embedagent/frontend/gui/static/assets/app.js src/embedagent/frontend/gui/static/assets/app.css

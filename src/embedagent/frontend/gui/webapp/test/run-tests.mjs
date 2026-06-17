@@ -772,6 +772,9 @@ async function main() {
   );
   assert.equal(rightPanelTabsSource.includes("right-panel-empty-state"), true);
   assert.equal(rightPanelTabsSource.includes("right-panel-add-surface"), true);
+  assert.equal(rightPanelTabsSource.includes("right-panel-add-menu-popup"), true);
+  assert.equal(rightPanelTabsSource.includes("scrollIntoView"), true);
+  assert.equal(rightPanelTabsSource.includes("data-right-panel-tab-list"), true);
   assert.equal(rightPanelTabsSource.includes("onCloseOtherSurfaces"), true);
   assert.equal(rightPanelTabsSource.includes("onCloseSurfacesToRight"), true);
   assert.equal(rightPanelTabsSource.includes("onCloseAllSurfaces"), true);
