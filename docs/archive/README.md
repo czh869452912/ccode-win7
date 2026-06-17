@@ -23,6 +23,7 @@ Archive 不承载当前官方口径。当前真相以 `README.md`、`AGENTS.md`�
 - `enterprise-boundary-foundation/`
 - `gui-redesign/`
 - `gui-app-shell-boundary/`
+- `gui-thread-lifecycle-boundary/`
 - `gui-runtime-hardening/`
 - `gui-timeline-event-anchors/`
 - `issues/`

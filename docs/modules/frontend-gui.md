@@ -114,10 +114,13 @@ not push thread management out of the visible workbench.
 Thread lifecycle controls are shaped by the same frontend-local read model.
 Thread rows now expose a compact action rail for `Rename`, `Fork`, and
 `Archive`, with action enablement gated by explicit lifecycle capabilities.
-Because the current backend/Core contract does not yet expose persistent
-thread rename/fork/archive APIs, those actions default to disabled display
-affordances. The GUI must not simulate persistent thread metadata locally or
-make the frontend a second session-history source.
+Those actions now call backend session lifecycle endpoints that update
+summary/projection metadata for app thread lists. Rename changes display
+metadata only, archive hides the thread from normal recent-thread navigation
+without deleting transcript history, and fork copies transcript history into a
+new session id. The GUI must not simulate persistent thread metadata locally,
+rewrite transcripts, create source-control checkpoints, or make the frontend a
+second session-history source.
 
 The GUI app-shell boundary is the desktop/app layer above workspaces and
 sessions. `AppShellService` wraps the existing GUI app host and returns a

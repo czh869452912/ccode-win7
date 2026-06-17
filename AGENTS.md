@@ -213,6 +213,8 @@ Official session-history truth is:
 
 `GET /api/app/bootstrap` is the GUI app-shell activation bootstrap only. It may expose GUI-owned workspace registry projection, safe host/runtime/renderer diagnostics, app-level commands, app surfaces, and local shell settings; it must not become session history truth, workflow truth, provider/runtime policy, permission policy, extension loading policy, or a replacement for `GET /api/sessions/{id}/bootstrap`.
 
+GUI thread lifecycle operations (`rename`, `fork`, and `archive`) must flow through the session lifecycle facade and update session summary/projection metadata used by app thread lists. They must not rewrite transcript history, own workflow state, activate tools, decide permissions, load extensions, or create source-control checkpoints.
+
 `timeline.jsonl` is transport/replay infrastructure only. It is not a historical database.
 
 Official durable operation truth is:
