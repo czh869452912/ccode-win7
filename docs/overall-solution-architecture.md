@@ -52,6 +52,15 @@ only and must not become transcript history, workflow state, telemetry,
 permission policy, runtime reducer truth, source-control checkpoints, or Agent
 Core behavior.
 
+The GUI Source Control right-panel is another app-shell hosted surface.
+`GUIBackend` owns an active-workspace-bound `SourceControlService` that invokes
+only read-only local Git status/diff commands through bundled or workspace
+MinGit. The React source-control model displays local changes and opens the
+existing Diff surface for selected files. This slice does not stage, commit,
+push, pull, contact remote providers, create checkpoints, or write transcript
+history, workflow state, telemetry, permission policy, runtime reducer truth,
+provider configuration, extension loading state, or Agent Core behavior.
+
 ### Protocol / Core Layer
 
 - `src/embedagent/protocol/`

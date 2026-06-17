@@ -1,6 +1,6 @@
 # EmbedAgent 开发进度跟踪
 
-> 更新日期：2026-06-17（GUI terminal bottom drawer）
+> 更新日期：2026-06-17（GUI source-control foundation）
 > 用途：持续跟踪当前阶段、下一步任务、里程碑进度、风险与阻塞
 
 ---
@@ -24,6 +24,13 @@
 
 ## 2. 当前阶段
 
+### 2026-06-17 - GUI Source Control Foundation
+
+- GUI backend 新增 active-workspace-bound `SourceControlService`，通过 bundled/workspace MinGit 执行 read-only local status/diff 命令，并对 workspace path escape、invalid diff scope、Git unavailable、not-a-repo 做安全映射。
+- GUI backend 新增 `/api/app/source-control/status`、`/api/app/source-control/refresh`、`/api/app/source-control/diff` routes；app-shell capabilities 暴露 `source_control` 为 read-only/local/offline surface，明确不含 remote providers、network、checkpoints。
+- React webapp 新增 `webapp/src/source-control/` model/API/presentation helpers 与 `SourceControlPanel` right-panel surface，显示 grouped local changes 并复用现有 Diff surface 打开 staged/unstaged unified diff。
+- 该实现继续保持 T3 Code-like independent app 与 Agent Core 分离：不写 transcript、workflow state、telemetry、permission/runtime reducers、provider config、extension loading 或 checkpoint truth，也不实现 push/pull/stage/commit。
+
 ### 2026-06-17 - GUI Terminal Bottom Drawer
 
 - GUI backend 新增 `TerminalService`，以 active workspace 为根目录启动线程作用域 terminal，并通过 Python stdlib subprocess pipes 读取 stdout/stderr、写 stdin、维护有限内存 history buffer。
@@ -42,7 +49,7 @@
 - GUI backend 新增 `AppShellService`，`/api/app/bootstrap` 与 `/api/app/workspaces*` 现在返回 GUI-owned app-shell envelope：workspace registry projection、active workspace metadata、safe host/runtime/renderer diagnostics、app commands、app surfaces 和 local shell settings。
 - React webapp 新增 `webapp/src/app-shell/` 纯 read-model/reducer helpers，并把现有 app bootstrap / workspace switch legacy actions 统一路由到 app-shell reducer；root `resetWorkspaceScopedState` 仍只负责清空 session/timeline/task 等 workspace-scoped GUI 状态。
 - Right panel 新增 Settings / Diagnostics 两个 app-level surfaces，命令 palette 新增 `app.settings` / `app.diagnostics` / `app.reload`，并保持这些命令与 session/workflow commands 分离。
-- 该切片补齐 T3code-like standalone app shell 的第一层边界；terminal 已由后续 bottom-drawer slice 补齐，source-control/checkpoint 仍是未来 slices，且不得把 Agent Core 加厚为 GUI-owned policy layer。
+- 该切片补齐 T3code-like standalone app shell 的第一层边界；terminal 已由后续 bottom-drawer slice 补齐，source-control foundation 已由后续 right-panel slice 补齐，后续 mutation/checkpoint 仍不得把 Agent Core 加厚为 GUI-owned policy layer。
 
 ### 2026-06-15 - T3code Timeline / Diff / Visual Debug Harness
 
@@ -79,7 +86,7 @@
 
 - 当前阶段：`Phase 4 真实工程验证 + Phase 6 GUI / Win7 收口 + Pi-inspired minimal Core enterprise boundary 收口`
 - 总体状态：`进行中`
-- 当前重点：`Agent Harness V2 official cutover 六步程序与文档治理 Batch A 已完成。模块文档（protocol/core、TUI、GUI、packaging）已补齐，代码-文档矩阵已同步。workflow extension boundary 代码迁移、repo-side 回归、本机 release bundle 验证和本机剩余边界清理已收口；Pi-inspired minimal Core Phase M core alias cleanup 与 enterprise/intranet capability boundary foundation 已完成。下一步重点是在真实 Win7 目标机重跑离线 bundle smoke、继续真实 C/C++ 工程验证，并继续 stale compatibility audit。`
+- 当前重点：`Agent Harness V2 official cutover 六步程序与文档治理 Batch A 已完成。模块文档（protocol/core、TUI、GUI、packaging）已补齐，代码-文档矩阵已同步。workflow extension boundary 代码迁移、repo-side 回归、本机 release bundle 验证和本机剩余边界清理已收口；Pi-inspired minimal Core Phase M core alias cleanup、enterprise/intranet capability boundary foundation、GUI terminal bottom drawer 与 GUI source-control foundation 已完成。下一步重点是在真实 Win7 目标机重跑离线 bundle smoke、继续真实 C/C++ 工程验证，并继续 stale compatibility audit。`
 - 最新 session-history 收口：`GUI session activation 已切到单一 `/api/sessions/{id}/bootstrap` 合约；历史 turns 现在只从 `transcript.jsonl -> Session -> SessionHistoryAssembler` 生成，`timeline.jsonl` 仅保留 transport replay 角色，raw fallback 不再是正式 GUI 恢复模式。`
 - 最新稳定化收口：`set_session_mode()` 现在会先重置旧 phase 再刷新 Harness snapshot，避免 build/debug/verify 跨 mode 切换时把上一模式的 phase 残留到新会话快照；同时 `Context` 高优先级工具、reducer registry 与 `/review` 文案已统一到 `run_recipe/report_quality_v2/task_status` 正式词汇。`
 - 最新 dead-code 清理：`tools_v2/` 中仍被正式主路径使用的 discovery/recipe/session 模块已迁入官方 `src/embedagent/tools/`；旧 `tools_v2/*.py` 与已无人引用的 legacy `loop.py` 已删除，产品源码不再直接 import `tools_v2`。当前 `src/embedagent/agent_loop.py` 是 Slice 5 新增的正式 turn-loop 边界。`

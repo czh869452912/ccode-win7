@@ -283,6 +283,8 @@ Frontend session activation must not reintroduce split snapshot/timeline bootstr
 
 The GUI terminal bottom drawer is an app-shell hosted surface, not Agent Core. It uses Windows 7-compatible Python stdlib subprocess pipes, is not a full PTY, and must not depend on ConPTY, `node-pty`, `pywinpty`, `pexpect`, Electron, runtime Node, Docker, WSL, VS Code, or online services. Terminal output is GUI-local display state only: it must not be written to `transcript.jsonl`, telemetry, workflow state, source-control checkpoints, or permission/runtime reducer truth.
 
+The GUI Source Control right-panel is an app-shell hosted, active-workspace surface, not Agent Core and not the default C/C++ workflow package. It may use bundled/workspace MinGit through the GUI backend for read-only local `status` and `diff` views. It must remain local/offline by default and must not implement remote providers, push/pull, staging, commit, checkpoint mutation, transcript writes, workflow state, telemetry, permission policy, runtime reducer truth, provider configuration, extension loading, or hidden network behavior. Future source-control mutations or remote/intranet Git work must enter through explicit hosted extension/provider/workflow-package boundaries with normal permission categories and must not weaken Win7/offline support.
+
 ## Documentation Maintenance
 
 When changing architecture or workflow assumptions, update the matching source-of-truth documents in the same change:

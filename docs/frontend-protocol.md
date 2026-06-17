@@ -62,6 +62,10 @@ runtime, renderer, workspace registry, and active-core presence only.
 `capabilities.surfaces.bottom_drawer` may include `terminal`, `run_output`,
 and `logs`; `capabilities.terminal` describes the GUI terminal limitations
 (`enabled`, `pty`, `resize`, `history_persistent`, and `max_buffer_bytes`).
+`capabilities.surfaces.right_panel` may include `source_control`, and
+`capabilities.source_control` describes the local source-control surface:
+`enabled`, `vcs`, `read_only`, `remote_providers`, `network`, `checkpoints`,
+and `requires_active_workspace`.
 
 The GUI terminal bottom drawer is app-shell hosted and workspace-bound. It is
 implemented with Windows 7-compatible Python stdlib subprocess pipes, not a
@@ -69,6 +73,16 @@ full PTY. Its buffer and tab state are frontend/backend GUI display state only:
 they are not transcript history, workflow truth, telemetry, provider/runtime
 configuration, permission policy, source-control checkpoint state, or Agent
 Core state.
+
+The GUI Source Control right-panel is app-shell hosted and active-workspace
+bound. It is read-only and local-only in the current contract: the GUI backend
+may invoke bundled/workspace MinGit for local `status` and `diff` views, and
+the frontend may display file paths, counts, and explicitly requested unified
+diff text. These payloads are not app bootstrap diagnostics, transcript
+history, workflow truth, telemetry, provider/runtime configuration, permission
+policy, checkpoint state, extension loading policy, or Agent Core state. The
+current contract does not include remote providers, push/pull, staging, commit,
+or checkpoint mutation.
 
 GUI thread lifecycle operations (`rename`, `fork`, and `archive`) are exposed
 through session lifecycle endpoints and reflected in session summary/projection
@@ -160,6 +174,9 @@ Key routes include:
 - `POST /api/app/workspaces`
 - `POST /api/app/workspaces/{workspace_id}/activate`
 - `DELETE /api/app/workspaces/{workspace_id}`
+- `GET /api/app/source-control/status`
+- `POST /api/app/source-control/refresh`
+- `GET /api/app/source-control/diff?path=<path>&scope=<scope>`
 - `GET /api/sessions`
 - `GET /api/sessions/{session_id}`
 - `POST /api/sessions`
@@ -204,6 +221,13 @@ summaries, limited history buffers, and non-PTY lifecycle operations for the
 GUI bottom drawer only. `write` sends user text to the GUI-owned subprocess
 stdin; it is not a model tool call, permission approval, transcript append, or
 workflow action.
+
+Source-control routes require an active GUI workspace. `status` and `refresh`
+return a local Git status read model; `diff` returns a read-only unified diff
+for a workspace-contained file path and `unstaged` or `staged` scope. These
+routes are GUI display routes, not model tool calls, permission approvals,
+transcript appends, workflow actions, remote Git providers, or checkpoint
+mutations.
 
 `/skill:<name> [args]` is handled through the normal message submission path, not a separate HTTP endpoint. On success the backend expands the workspace-bound skill Markdown into the user turn; on failure it emits a normal `command_result` for the skill command. Visible skill commands may appear in `/help` output and command capability snapshots as `skill:<name>`.
 

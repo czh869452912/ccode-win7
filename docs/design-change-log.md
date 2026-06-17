@@ -44,6 +44,42 @@
 
 ## 3. 当前变更记录
 
+### DC-167
+
+- 日期：2026-06-17
+- 变更主题：GUI source-control foundation as read-only app-shell surface
+- 变更摘要：
+  - GUI backend 新增 `SourceControlService` 和 `/api/app/source-control/*` routes，通过 bundled/workspace MinGit 提供 active-workspace-bound local status、refresh 和 staged/unstaged diff 读模型。
+  - app-shell capabilities 新增 `source_control` 限制元数据，并把 `source_control` 暴露为 right-panel surface；当前明确为 read-only、local-only、offline-friendly，不含 remote providers、network、checkpoints。
+  - React webapp 新增 `webapp/src/source-control/` model/API/presentation helpers 与 `SourceControlPanel`，显示 grouped changed files、数量徽标和 refresh，并复用既有 Diff right-panel 打开文件 diff。
+  - 该边界保持 T3 Code-like independent app 与 Agent Core 分离：不写 transcript、workflow state、telemetry、permission/runtime reducers、provider config、extension loading 或 checkpoint truth，也不实现 push/pull/stage/commit。
+- 影响范围：
+  - `src/embedagent/frontend/gui/backend/source_control_service.py`
+  - `src/embedagent/frontend/gui/backend/server.py`
+  - `src/embedagent/frontend/gui/backend/app_shell.py`
+  - `src/embedagent/frontend/gui/webapp/src/source-control/`
+  - `src/embedagent/frontend/gui/webapp/src/components/source-control/`
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/components/Inspector.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/store.js`
+  - `src/embedagent/frontend/gui/webapp/src/styles.css`
+  - `tests/test_gui_source_control_service.py`
+  - `tests/test_gui_source_control_api.py`
+  - `src/embedagent/frontend/gui/webapp/test/`
+- 关联文档：
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/archive/gui-source-control-foundation/`
+- 是否需要 ADR：暂不需要；该切片实现既有 GUI app-shell 边界内的 hosted read-only surface，不改变 Agent Core 架构、公开 extension API 或 permission policy。
+- 后续动作：
+  - 在真实 Win7/WebView2 109 离线 bundle 上补 GUI Source Control smoke validation。
+  - 若后续实现 stage/commit/checkpoint/remote/intranet Git，必须作为新的显式 hosted boundary，并通过 normal permission categories 与 disable/fallback 设计进入。
+
 ### DC-166
 
 - 日期：2026-06-17
@@ -77,7 +113,7 @@
 - 是否需要 ADR：暂不需要；该切片实现既有 GUI app-shell 边界内的 hosted surface，不改变 Agent Core 架构。
 - 后续动作：
   - 在真实 Win7/WebView2 109 离线 bundle 上补 smoke validation。
-  - 继续规划 source-control/checkpoint GUI surfaces，保持它们在 app-shell/hosted extension 边界外接入，不加厚 Agent Core。
+  - 继续规划 source-control mutation/checkpoint GUI surfaces，保持它们在 app-shell/hosted extension 边界外接入，不加厚 Agent Core。
 
 ### DC-165
 

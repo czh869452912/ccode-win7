@@ -19,6 +19,7 @@
 - WebView2 运行时检测与渲染器策略（`launcher.py`）
 - FastAPI 后端与静态资源服务（`backend/server.py`）
 - GUI app-shell bootstrap/read model（`backend/app_shell.py`、`webapp/src/app-shell/`）
+- GUI app-shell hosted source-control read model（`backend/source_control_service.py`、`webapp/src/source-control/`）
 - 协议回调到 WebSocket 广播的实时转换（`backend/server.py`）
 - WebSocket 断线重连与会话事件回放恢复（`webapp/`）
 - T3code-inspired Agent timeline rows、composer interaction panel、Diff right-panel surface、neutral workbench visual language（`webapp/src/session-runtime/`、`webapp/src/components/`、`webapp/src/styles.css`）
@@ -34,6 +35,7 @@
   - `launch_gui()`（`launcher.py`）— 解析端口、启动 `GUIBackend`、打开 `pywebview` 窗口
   - `GUIBackend` — FastAPI 后端包装
   - `AppShellService` — GUI-local app bootstrap/read-model boundary
+  - `SourceControlService` — active-workspace-bound, read-only local Git status/diff service
   - `WebSocketFrontend` — `FrontendCallbacks` 的 WebSocket 实现
   - `BlockingResult` / `ThreadsafeAsyncDispatcher` — 线程安全阻塞与异步调度
 - 上游依赖：`embedagent.cli` 调用 `launch_gui`
@@ -143,6 +145,18 @@ WSL, VS Code, or online-service dependencies. Terminal history buffers are
 ephemeral GUI display state; they must not be written to transcript history,
 telemetry, workflow state, source-control checkpoints, or Agent Core reducers.
 
+The Source Control right-panel is a GUI app-shell hosted surface implemented by
+`backend/source_control_service.py`, app-level source-control HTTP routes on
+`GUIBackend`, and the React `webapp/src/source-control/` model/API helpers plus
+`components/source-control/SourceControlPanel.jsx`. It is active-workspace
+bound and read-only: the backend invokes bundled/workspace MinGit for local
+status and staged/unstaged diff views, while the frontend displays grouped
+changes and opens the existing Diff surface for selected files. It does not
+implement remote providers, push/pull, staging, commit, checkpoint mutation, or
+network behavior, and it must not write transcript history, workflow state,
+telemetry, permission policy, provider/runtime configuration, extension loading
+state, or Agent Core reducers.
+
 ## 7. Timeline, Interaction, And Diff Surfaces
 
 `webapp/src/session-runtime/t3-timeline.js` projects existing session/runtime
@@ -175,6 +189,7 @@ remains backend/tool-owned.
 推荐回归入口：
 
 - `tests/test_gui_backend_api.py` — API 合约、错误翻译、bootstrap、事件回放
+- `tests/test_gui_source_control_service.py`、`tests/test_gui_source_control_api.py` — GUI source-control service、workspace path guard、read-only Git status/diff routes 和错误映射
 - `tests/test_gui_terminal_service.py`、`tests/test_gui_terminal_api.py` — GUI terminal service、workspace/cwd guard、HTTP routes、event broadcast 和错误映射
 - `tests/test_gui_runtime.py` — 启动器、阻塞等待器、调度器、WebSocket 生命周期、适配器快照投影
 - `tests/test_gui_sync.py` — 端到端待处理输入解析、`CallbackBridge` 刷新行为、元数据保留
@@ -212,6 +227,7 @@ host paths.
 - 会话事件 schema 变化影响 `session_events.py`、`state-helpers.js`、`event-log.js`
 - WebView2/运行时策略变化
 - FastAPI 路由或 WebSocket 广播协议变化
+- Source Control app-shell routes、capability metadata、read-only Git service 或 right-panel surface 变化
 - `FrontendCallbacks` 或 `CoreInterface` 接口签名变化
 - Timeline row、composer interaction、diff surface、visual language tokens/rules 或 visual harness 场景变化
 
