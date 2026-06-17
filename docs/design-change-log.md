@@ -44,6 +44,38 @@
 
 ## 3. 当前变更记录
 
+### DC-164
+
+- 日期：2026-06-17
+- 变更主题：GUI app-shell boundary for standalone app state
+- 变更摘要：
+  - GUI backend 新增 `AppShellService`，将 `/api/app/bootstrap` 与 `/api/app/workspaces*` 收敛为 GUI-owned app-shell envelope，包含 workspace registry projection、active workspace metadata、safe host/runtime/renderer diagnostics、app command metadata、app surfaces 和 local shell settings。
+  - React webapp 新增 `webapp/src/app-shell/` pure model/reducer/diagnostics helpers，现有 app bootstrap / workspace switch actions 通过 app-shell reducer 归一化；root workspace reset 仍负责清空 session/timeline/task/artifact 等 workspace-scoped GUI state。
+  - Workbench commands 新增 `app.settings`、`app.diagnostics`、`app.reload` 与 `app` group，right panel 新增 Settings / Diagnostics surfaces。
+  - 该边界保持 T3code-like standalone app shell 与 Agent Core 分离；它不拥有 session history、workflow truth、tool activation、permission policy、extension loading、provider configuration 或 runtime reducers。
+- 影响范围：
+  - `src/embedagent/frontend/gui/backend/app_shell.py`
+  - `src/embedagent/frontend/gui/backend/server.py`
+  - `src/embedagent/frontend/gui/launcher.py`
+  - `src/embedagent/frontend/gui/webapp/src/app-shell/`
+  - `src/embedagent/frontend/gui/webapp/src/store.js`
+  - `src/embedagent/frontend/gui/webapp/src/components/Inspector.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/workbench/`
+  - `tests/test_gui_app_shell.py`
+  - `tests/test_gui_app_host.py`
+  - `src/embedagent/frontend/gui/webapp/test/`
+- 关联文档：
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+- 是否需要 ADR：否；这是既定 T3code/Pi GUI shell 方向下的一层边界实现，未改变 Agent Core ownership 或公开扩展 API。
+- 后续动作：
+  - 后续 terminal/source-control/checkpoint slices 继续放在 GUI hosted boundary 或显式 extension/provider/workflow-package boundary 外侧，不把 Agent Core 加厚为 GUI-owned app policy layer。
+
 ### DC-163
 
 - 日期：2026-06-17

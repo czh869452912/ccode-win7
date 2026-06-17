@@ -25,6 +25,16 @@ The product is organized around one main execution spine:
 
 These are shells only. They do not own workflow semantics.
 
+The GUI shell has a replaceable app-shell boundary for desktop-host state:
+`src/embedagent/frontend/gui/backend/app_shell.py` wraps the GUI app host and
+projects recent workspaces, active workspace metadata, safe host/runtime/
+renderer diagnostics, app-level command metadata, and GUI-local settings. The
+matching frontend model lives under
+`src/embedagent/frontend/gui/webapp/src/app-shell/`. This boundary is not Agent
+Core: it must not own sessions, transcript history, workflow state, mode/tool
+policy, permission decisions, extension loading, provider configuration, or
+runtime reducers.
+
 ### Protocol / Core Layer
 
 - `src/embedagent/protocol/`

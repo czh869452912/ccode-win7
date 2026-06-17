@@ -211,6 +211,8 @@ Official session-history truth is:
 - `SessionHistoryAssembler` as the only GUI history serializer
 - `GET /api/sessions/{id}/bootstrap` as the only GUI activation bootstrap contract
 
+`GET /api/app/bootstrap` is the GUI app-shell activation bootstrap only. It may expose GUI-owned workspace registry projection, safe host/runtime/renderer diagnostics, app-level commands, app surfaces, and local shell settings; it must not become session history truth, workflow truth, provider/runtime policy, permission policy, extension loading policy, or a replacement for `GET /api/sessions/{id}/bootstrap`.
+
 `timeline.jsonl` is transport/replay infrastructure only. It is not a historical database.
 
 Official durable operation truth is:

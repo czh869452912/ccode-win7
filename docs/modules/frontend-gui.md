@@ -5,7 +5,7 @@
 > 状态：`active`
 > 类型：`module`
 > 负责人：`project maintainers`
-> 最后同步日期：`2026-06-16`
+> 最后同步日期：`2026-06-17`
 > 对应代码范围：`src/embedagent/frontend/gui/`
 
 ## 1. Purpose And Scope
@@ -18,6 +18,7 @@
 - 运行时配置解析与 `AgentCoreAdapter` 装配（`launcher.py`）
 - WebView2 运行时检测与渲染器策略（`launcher.py`）
 - FastAPI 后端与静态资源服务（`backend/server.py`）
+- GUI app-shell bootstrap/read model（`backend/app_shell.py`、`webapp/src/app-shell/`）
 - 协议回调到 WebSocket 广播的实时转换（`backend/server.py`）
 - WebSocket 断线重连与会话事件回放恢复（`webapp/`）
 - T3code-inspired Agent timeline rows、composer interaction panel、Diff right-panel surface、neutral workbench visual language（`webapp/src/session-runtime/`、`webapp/src/components/`、`webapp/src/styles.css`）
@@ -32,6 +33,7 @@
   - `create_core()` — 装配 Agent Core
   - `launch_gui()`（`launcher.py`）— 解析端口、启动 `GUIBackend`、打开 `pywebview` 窗口
   - `GUIBackend` — FastAPI 后端包装
+  - `AppShellService` — GUI-local app bootstrap/read-model boundary
   - `WebSocketFrontend` — `FrontendCallbacks` 的 WebSocket 实现
   - `BlockingResult` / `ThreadsafeAsyncDispatcher` — 线程安全阻塞与异步调度
 - 上游依赖：`embedagent.cli` 调用 `launch_gui`
@@ -116,6 +118,17 @@ Because the current backend/Core contract does not yet expose persistent
 thread rename/fork/archive APIs, those actions default to disabled display
 affordances. The GUI must not simulate persistent thread metadata locally or
 make the frontend a second session-history source.
+
+The GUI app-shell boundary is the desktop/app layer above workspaces and
+sessions. `AppShellService` wraps the existing GUI app host and returns a
+credential-free envelope for `/api/app/bootstrap` and `/api/app/workspaces*`:
+workspace registry projection, active workspace metadata, safe host/runtime/
+renderer diagnostics, app command metadata, right-panel app surfaces, and
+GUI-local settings. The React app-shell model normalizes that envelope and
+drives the Settings and Diagnostics right-panel surfaces. This boundary may
+help the GUI feel like a standalone app, but it must not own Agent Core
+sessions, workflow truth, transcript history, tool activation, permission
+policy, extension loading, provider settings, or runtime reducer state.
 
 ## 7. Timeline, Interaction, And Diff Surfaces
 

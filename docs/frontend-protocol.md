@@ -41,6 +41,29 @@ or mutate workflow state. Those decisions remain owned by Agent Core,
 ExtensionManager, PermissionPolicy, SessionHistoryAssembler, and the existing
 session/bootstrap protocol.
 
+### GUI App-Shell State
+
+The GUI may expose a local app-shell read model for desktop-host concerns:
+recent workspaces, the active workspace record, safe host/runtime/renderer
+diagnostics, app-level command metadata, and GUI-local settings. The canonical
+app activation bootstrap route is `GET /api/app/bootstrap`; app workspace
+routes return the same envelope after mutations.
+
+This state is owned by the GUI host and frontend shell. It is not session
+history, workflow truth, tool activation policy, permission policy, extension
+loading policy, provider configuration, or transcript state. It must not
+include API keys, prompt bodies, source files, raw tool outputs, permission
+payload secrets, or transcript entries.
+
+Current app-shell v1 fields include `app`, `workspaces`,
+`active_workspace`, `has_active_workspace`, `diagnostics`, `capabilities`,
+`settings`, and `last_error`. Diagnostics are safe read-model fields for host,
+runtime, renderer, workspace registry, and active-core presence only.
+
+GUI app-shell settings are local shell preferences unless a later documented
+backend contract promotes a specific setting into durable runtime
+configuration. They must not be interpreted as Agent Core policy.
+
 ## 3. Session Snapshot
 
 Important session snapshot fields include:
@@ -114,6 +137,11 @@ Session activation additionally depends on one bootstrap payload containing:
 
 Key routes include:
 
+- `GET /api/app/bootstrap`
+- `GET /api/app/workspaces`
+- `POST /api/app/workspaces`
+- `POST /api/app/workspaces/{workspace_id}/activate`
+- `DELETE /api/app/workspaces/{workspace_id}`
 - `GET /api/sessions`
 - `GET /api/sessions/{session_id}`
 - `POST /api/sessions`
@@ -132,6 +160,11 @@ Key routes include:
 - `GET /api/tasks`
 - `GET /api/artifacts`
 - file read/tree routes
+
+`GET /api/app/bootstrap` is the GUI app activation bootstrap contract. It
+reports app-shell state only. Session activation remains exclusively
+`GET /api/sessions/{session_id}/bootstrap`, whose payload contains session
+snapshot, structured history, plan, permission context, and replay metadata.
 
 `POST /api/sessions` defaults to `explore` when no mode is supplied. Frontends should not use `build` as the implicit entry mode.
 

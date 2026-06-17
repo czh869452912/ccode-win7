@@ -79,6 +79,18 @@ Recent stabilization work has also completed the GUI session-history single-sour
 - GUI history is serialized from transcript-backed `Session` state
 - GUI activation now uses one `/api/sessions/{id}/bootstrap` payload instead of split snapshot/timeline fetches
 
+Recent GUI app-shell work has established the first standalone-app boundary:
+
+- `/api/app/bootstrap` and `/api/app/workspaces*` now return a GUI-owned
+  app-shell envelope for workspace registry projection, active workspace
+  metadata, safe host/runtime/renderer diagnostics, app-level command metadata,
+  app surfaces, and GUI-local settings
+- frontend app-shell normalization/reducer helpers live under
+  `webapp/src/app-shell/` and drive Settings/Diagnostics right-panel surfaces
+- this is explicitly separate from Agent Core session truth, workflow state,
+  tool activation, permission policy, extension loading, provider config, and
+  `/api/sessions/{id}/bootstrap`
+
 Recent stabilization work has also completed the agent-core ownership cutover:
 
 - `QueryEngine` is now session-scoped and owns session mutation for the lifetime of a conversation
@@ -91,7 +103,8 @@ Recent stabilization work has also completed the agent-core ownership cutover:
 
 - Continue polishing the T3code/Pi workbench shell with real Win7 WebView2 109
   smoke validation, narrow-width GUI layout validation, TUI raw-console
-  validation, and C/C++ workflow task/run surface refinement.
+  validation, C/C++ workflow task/run surface refinement, and future
+  terminal/source-control/checkpoint slices outside Agent Core.
 
 ### 4.1 Pi-Inspired Minimal Core Program
 

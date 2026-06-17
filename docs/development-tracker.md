@@ -1,6 +1,6 @@
 # EmbedAgent 开发进度跟踪
 
-> 更新日期：2026-06-17（documentation archive closeout）
+> 更新日期：2026-06-17（GUI app-shell boundary）
 > 用途：持续跟踪当前阶段、下一步任务、里程碑进度、风险与阻塞
 
 ---
@@ -23,6 +23,13 @@
 ---
 
 ## 2. 当前阶段
+
+### 2026-06-17 - T3code App-Shell Boundary
+
+- GUI backend 新增 `AppShellService`，`/api/app/bootstrap` 与 `/api/app/workspaces*` 现在返回 GUI-owned app-shell envelope：workspace registry projection、active workspace metadata、safe host/runtime/renderer diagnostics、app commands、app surfaces 和 local shell settings。
+- React webapp 新增 `webapp/src/app-shell/` 纯 read-model/reducer helpers，并把现有 app bootstrap / workspace switch legacy actions 统一路由到 app-shell reducer；root `resetWorkspaceScopedState` 仍只负责清空 session/timeline/task 等 workspace-scoped GUI 状态。
+- Right panel 新增 Settings / Diagnostics 两个 app-level surfaces，命令 palette 新增 `app.settings` / `app.diagnostics` / `app.reload`，并保持这些命令与 session/workflow commands 分离。
+- 该切片只补齐 T3code-like standalone app shell 的第一层边界；terminal、source-control、checkpoint 仍是后续 slices，且不得把 Agent Core 加厚为 GUI-owned policy layer。
 
 ### 2026-06-15 - T3code Timeline / Diff / Visual Debug Harness
 
@@ -88,7 +95,7 @@
 - 最新 workflow extension validation：`2026-05-29 repo-side 验证已通过：fast suite 为 685 passed / 11 deselected，focused C/C++ build/debug/verify workflow 回归为 15 passed。官方 harness 门禁已修复 marker 漏标问题，uv run pytest tests/ -m harness -v 现在会选中并通过 23 个 task_graph / phase_engine / harness runner / prompt stack / harness injection 测试。本机 release bundle 已用当前分支源码重建并通过：validate-offline-bundle.ps1 -RequireComplete 为 59 pass / 0 warn / 0 fail，check-bundle-dependencies.py 全部通过，scripts/package.ps1 verify -Profile release -Json 返回 final_status READY。clean Windows 7 unpack-and-run smoke 尚未执行。`
 - 最新 documentation cleanup：`docs/guides/configuration-guide.md` 已改写为当前正式配置指南，使用 `explore/spec/build/debug/verify` 与 `build` 实现模式口径，不再把 `code` 或 `manage_todos` 作为当前配置/工作流示例。`
 - 最新 runtime cleanup：`task_status` 前端元数据现已统一为 `tasks/task` 词汇，workspace profile 不再输出待办语义提示，运行时残留 `todos.py` 已删除。`
-- 最新 GUI closeout：GUI backend 与 webapp 默认新建会话入口已统一为 `explore`，resume 默认不再强制覆盖 restored mode；GUI task 面板、样式和静态产物已清理 `todo-*` / `tasks.todo` 与 `mode-code` 残留，保留正式 `tasks/task` 与 `mode-build` 词汇。T3code-style timeline rows、composer interaction panel、Diff right-panel surface、neutral workbench visual language 与 dev-only visual debug harness 已落地；changed-files card 已升级为目录树，Diff panel 已具备 file rail + viewport 布局，project/thread 管理表面和 thread lifecycle action rail 已进入 GUI read-model 层；visual harness 通过 `?visual_debug=1` fixture hook 稳定验证真实 GUI diff/thread surfaces；harness 已覆盖 app/thread/load/chat/diff/responsive/timeline/interaction 并修复 streaming assistant 文本重复问题。
+- 最新 GUI closeout：GUI backend 与 webapp 默认新建会话入口已统一为 `explore`，resume 默认不再强制覆盖 restored mode；GUI task 面板、样式和静态产物已清理 `todo-*` / `tasks.todo` 与 `mode-code` 残留，保留正式 `tasks/task` 与 `mode-build` 词汇。T3code-style timeline rows、composer interaction panel、Diff right-panel surface、neutral workbench visual language 与 dev-only visual debug harness 已落地；changed-files card 已升级为目录树，Diff panel 已具备 file rail + viewport 布局，project/thread 管理表面和 thread lifecycle action rail 已进入 GUI read-model 层；`AppShellService` 与 frontend `app-shell` read model 已补齐 standalone app shell 第一层边界，Settings/Diagnostics app surfaces 与 app commands 已接入；visual harness 通过 `?visual_debug=1` fixture hook 稳定验证真实 GUI diff/thread surfaces；harness 已覆盖 app/thread/load/chat/diff/responsive/timeline/interaction 并修复 streaming assistant 文本重复问题。
 - 最新归档收尾：已关闭的 documentation governance baseline、workflow extension boundary follow-up、Pi-inspired minimal Core Phase A/B、enterprise boundary foundation、local skills / remaining Pi architecture gap materials、GUI IDE redesign 旧设计和根目录历史 refactor notes 已迁入对应 `docs/archive/<topic>/`；`docs/archive/README.md` 与主题包 README 已补索引。活动 `docs/superpowers/` 入口现在只保留 GUI standalone workspace/thread app 与 GUI timeline interaction polish 两组进行中材料。`
 
 ### 当前判断
