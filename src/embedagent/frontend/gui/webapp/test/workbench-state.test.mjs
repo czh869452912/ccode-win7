@@ -168,6 +168,96 @@ export function runWorkbenchStateTests() {
   assert.equal(emptyRight.rightPanel.activeKind, "");
   assert.equal(emptyRight.rightPanel.open, true);
 
+  const terminalOne = openSurface(initial, {
+    placement: "right",
+    kind: "terminal",
+    terminalId: "term-1",
+    resourceId: "term-1",
+  });
+  const terminalTwo = openSurface(terminalOne, {
+    placement: "right",
+    kind: "terminal",
+    terminalId: "term-2",
+    resourceId: "term-2",
+  });
+  assert.deepEqual(terminalTwo.rightPanel.surfaces, [
+    {
+      id: "right:terminal:term-1",
+      placement: "right",
+      kind: "terminal",
+      title: "Terminal",
+      resourceId: "term-1",
+      filePath: "",
+      terminalId: "term-1",
+      terminalIds: ["term-1"],
+      activeTerminalId: "term-1",
+      revealLine: null,
+      revealRequestId: 0,
+    },
+    {
+      id: "right:terminal:term-2",
+      placement: "right",
+      kind: "terminal",
+      title: "Terminal",
+      resourceId: "term-2",
+      filePath: "",
+      terminalId: "term-2",
+      terminalIds: ["term-2"],
+      activeTerminalId: "term-2",
+      revealLine: null,
+      revealRequestId: 0,
+    },
+  ]);
+  assert.equal(terminalTwo.rightPanel.activeSurfaceId, "right:terminal:term-2");
+
+  const splitTerminal = reduceWorkbenchState(terminalOne, {
+    type: "workbench_terminal_surface_split",
+    placement: "right",
+    surfaceId: "right:terminal:term-1",
+    terminalId: "term-2",
+  });
+  assert.deepEqual(splitTerminal.rightPanel.surfaces[0].terminalIds, ["term-1", "term-2"]);
+  assert.equal(splitTerminal.rightPanel.surfaces[0].activeTerminalId, "term-2");
+  assert.equal(splitTerminal.rightPanel.surfaces[0].splitDirection, undefined);
+  assert.equal(splitTerminal.rightPanel.activeSurfaceId, "right:terminal:term-1");
+
+  const activatedPane = reduceWorkbenchState(splitTerminal, {
+    type: "workbench_terminal_surface_terminal_activated",
+    placement: "right",
+    surfaceId: "right:terminal:term-1",
+    terminalId: "term-1",
+  });
+  assert.equal(activatedPane.rightPanel.surfaces[0].activeTerminalId, "term-1");
+
+  const closedPane = reduceWorkbenchState(activatedPane, {
+    type: "workbench_terminal_surface_terminal_closed",
+    placement: "right",
+    surfaceId: "right:terminal:term-1",
+    terminalId: "term-1",
+  });
+  assert.deepEqual(closedPane.rightPanel.surfaces[0].terminalIds, ["term-2"]);
+  assert.equal(closedPane.rightPanel.surfaces[0].activeTerminalId, "term-2");
+
+  const verticalSplit = reduceWorkbenchState(terminalOne, {
+    type: "workbench_terminal_surface_split",
+    placement: "right",
+    surfaceId: "right:terminal:term-1",
+    terminalId: "term-2",
+    splitDirection: "vertical",
+  });
+  assert.equal(verticalSplit.rightPanel.surfaces[0].splitDirection, "vertical");
+
+  const finalClosedPane = reduceWorkbenchState(terminalOne, {
+    type: "workbench_terminal_surface_terminal_closed",
+    placement: "right",
+    surfaceId: "right:terminal:term-1",
+    terminalId: "term-1",
+  });
+  assert.deepEqual(finalClosedPane.rightPanel.surfaces, []);
+  assert.equal(finalClosedPane.rightPanel.activeSurfaceId, null);
+  assert.equal(finalClosedPane.rightPanel.activeKind, "");
+  assert.equal(finalClosedPane.rightPanel.open, true);
+
   const withRunOutput = openSurface(withFiles, {
     sessionId: "sess-1",
     placement: "bottom",

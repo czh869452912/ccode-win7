@@ -38,6 +38,17 @@ function normalizeRevealLine(line) {
   return Math.max(1, Math.trunc(value));
 }
 
+function uniqueTerminalIds(ids) {
+  const result = [];
+  for (const id of ids || []) {
+    const value = String(id || "").trim();
+    if (value && !result.includes(value)) {
+      result.push(value);
+    }
+  }
+  return result;
+}
+
 function surfaceIdFor(input) {
   const placement = normalizePlacement(input && input.placement);
   const kind = String((input && input.kind) || defaultActiveKind(placement));
@@ -55,22 +66,52 @@ function makeSurface(input) {
       : String((input && input.filePath) || "");
   const resourceId =
     kind === "file" ? filePath : String((input && input.resourceId) || "");
-  return {
-    id: String((input && input.surfaceId) || surfaceIdFor({ ...input, filePath, resourceId })),
+  const terminalIds =
+    kind === "terminal"
+      ? uniqueTerminalIds(
+          Array.isArray(input && input.terminalIds)
+            ? input.terminalIds
+            : [input && (input.terminalId || input.resourceId)],
+        )
+      : [];
+  const activeTerminalId =
+    kind === "terminal"
+      ? String((input && input.activeTerminalId) || terminalIds[0] || "")
+      : "";
+  const terminalId =
+    kind === "terminal"
+      ? String((input && input.terminalId) || resourceId || terminalIds[0] || activeTerminalId)
+      : String((input && input.terminalId) || resourceId || "");
+  const effectiveResourceId = kind === "terminal" ? terminalId : resourceId;
+  const base = {
+    id: String(
+      (input && input.surfaceId) ||
+        surfaceIdFor({ ...input, filePath, resourceId: effectiveResourceId }),
+    ),
     placement,
     kind,
     title: String(
       (input && input.title) ||
         (kind === "file" ? basenameForPath(filePath) : titleForSurfaceKind(kind)),
     ),
-    resourceId,
+    resourceId: effectiveResourceId,
     filePath,
-    terminalId: String((input && input.terminalId) || resourceId || ""),
+    terminalId,
     revealLine: kind === "file" ? normalizeRevealLine(input && input.revealLine) : null,
     revealRequestId:
       kind === "file" && Number.isSafeInteger(Number(input && input.revealRequestId))
         ? Number(input.revealRequestId)
         : 0,
+  };
+  if (kind !== "terminal") {
+    return base;
+  }
+  const normalizedTerminalIds = terminalIds.length > 0 ? terminalIds : [terminalId].filter(Boolean);
+  return {
+    ...base,
+    terminalIds: normalizedTerminalIds,
+    activeTerminalId: activeTerminalId || terminalId,
+    ...(input && input.splitDirection === "vertical" ? { splitDirection: "vertical" } : {}),
   };
 }
 
@@ -346,6 +387,89 @@ export function closeAllSurfaces(state, input) {
   };
 }
 
+function splitTerminalSurface(state, input) {
+  const current = state || createWorkbenchState();
+  if (normalizePlacement(input && input.placement) !== "right") return current;
+  const surfaceId = String((input && input.surfaceId) || "");
+  const terminalId = String((input && input.terminalId) || "").trim();
+  if (!surfaceId || !terminalId) return current;
+  const surfaces = (current.rightPanel.surfaces || []).map((surface) => {
+    if (surface.id !== surfaceId || surface.kind !== "terminal") return surface;
+    const terminalIds = uniqueTerminalIds([...(surface.terminalIds || []), terminalId]);
+    const nextSurface = {
+      ...surface,
+      terminalIds,
+      activeTerminalId: terminalId,
+    };
+    if (input && input.splitDirection === "vertical") {
+      return { ...nextSurface, splitDirection: "vertical" };
+    }
+    const { splitDirection, ...withoutDirection } = nextSurface;
+    return withoutDirection;
+  });
+  const active = activeSurfaceFrom(surfaces, surfaceId);
+  if (!active) return current;
+  return {
+    ...current,
+    rightPanel: activateRightPanelSurface({ ...current.rightPanel, surfaces }, active),
+  };
+}
+
+function activateTerminalPane(state, input) {
+  const current = state || createWorkbenchState();
+  if (normalizePlacement(input && input.placement) !== "right") return current;
+  const surfaceId = String((input && input.surfaceId) || "");
+  const terminalId = String((input && input.terminalId) || "").trim();
+  if (!surfaceId || !terminalId) return current;
+  const surfaces = (current.rightPanel.surfaces || []).map((surface) =>
+    surface.id === surfaceId &&
+    surface.kind === "terminal" &&
+    Array.isArray(surface.terminalIds) &&
+    surface.terminalIds.includes(terminalId)
+      ? { ...surface, activeTerminalId: terminalId }
+      : surface,
+  );
+  const active = activeSurfaceFrom(surfaces, surfaceId);
+  if (!active) return current;
+  return {
+    ...current,
+    rightPanel: activateRightPanelSurface({ ...current.rightPanel, surfaces }, active),
+  };
+}
+
+function closeTerminalPane(state, input) {
+  const current = state || createWorkbenchState();
+  if (normalizePlacement(input && input.placement) !== "right") return current;
+  const surfaceId = String((input && input.surfaceId) || "");
+  const terminalId = String((input && input.terminalId) || "").trim();
+  const items = current.rightPanel.surfaces || [];
+  const index = items.findIndex((surface) => surface.id === surfaceId && surface.kind === "terminal");
+  if (index < 0 || !terminalId) return current;
+  const surface = items[index];
+  const terminalIds = (surface.terminalIds || []).filter((id) => id !== terminalId);
+  if (terminalIds.length === 0) {
+    return closeSurface(current, {
+      placement: "right",
+      surfaceId,
+      kind: "terminal",
+      resourceId: surface.resourceId,
+    });
+  }
+  const nextSurface = {
+    ...surface,
+    terminalIds,
+    activeTerminalId:
+      surface.activeTerminalId === terminalId
+        ? terminalIds[terminalIds.length - 1] || terminalIds[0]
+        : surface.activeTerminalId,
+  };
+  const surfaces = items.map((item, itemIndex) => (itemIndex === index ? nextSurface : item));
+  return {
+    ...current,
+    rightPanel: activateRightPanelSurface({ ...current.rightPanel, surfaces }, nextSurface),
+  };
+}
+
 export function reduceWorkbenchState(state, action) {
   const current = state || createWorkbenchState();
   switch (action.type) {
@@ -361,6 +485,12 @@ export function reduceWorkbenchState(state, action) {
       return closeSurfacesToRight(current, action);
     case "workbench_surface_close_all":
       return closeAllSurfaces(current, action);
+    case "workbench_terminal_surface_split":
+      return splitTerminalSurface(current, action);
+    case "workbench_terminal_surface_terminal_activated":
+      return activateTerminalPane(current, action);
+    case "workbench_terminal_surface_terminal_closed":
+      return closeTerminalPane(current, action);
     case "workbench_command_palette_opened":
       return {
         ...current,
