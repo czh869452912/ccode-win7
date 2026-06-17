@@ -1,3 +1,4 @@
+export const RIGHT_PANEL_KINDS = ["diff", "files", "file", "terminal", "plan"];
 export const RIGHT_PANEL_SURFACES = ["diff", "files", "terminal", "plan"];
 export const BOTTOM_DRAWER_SURFACES = ["terminal", "run_output", "logs"];
 
@@ -17,27 +18,59 @@ function defaultActiveKind(placement) {
 }
 
 function allowedKinds(placement) {
-  return placement === "bottom" ? BOTTOM_DRAWER_SURFACES : RIGHT_PANEL_SURFACES;
+  return placement === "bottom" ? BOTTOM_DRAWER_SURFACES : RIGHT_PANEL_KINDS;
+}
+
+function normalizeFilePath(path) {
+  return String(path || "").replace(/\\/g, "/").replace(/^\/+/, "");
+}
+
+function basenameForPath(path) {
+  const normalized = normalizeFilePath(path);
+  if (!normalized) return "";
+  const parts = normalized.split("/");
+  return parts[parts.length - 1] || normalized;
+}
+
+function normalizeRevealLine(line) {
+  const value = Number(line);
+  if (!Number.isFinite(value)) return null;
+  return Math.max(1, Math.trunc(value));
 }
 
 function surfaceIdFor(input) {
   const placement = normalizePlacement(input && input.placement);
   const kind = String((input && input.kind) || defaultActiveKind(placement));
-  const resourceId = String((input && input.resourceId) || "");
+  const filePath = kind === "file" ? normalizeFilePath(input && (input.filePath || input.resourceId)) : "";
+  const resourceId = filePath || String((input && input.resourceId) || "");
   return resourceId ? `${placement}:${kind}:${resourceId}` : `${placement}:${kind}`;
 }
 
 function makeSurface(input) {
   const placement = normalizePlacement(input && input.placement);
   const kind = String((input && input.kind) || defaultActiveKind(placement));
+  const filePath =
+    kind === "file"
+      ? normalizeFilePath(input && (input.filePath || input.resourceId))
+      : String((input && input.filePath) || "");
+  const resourceId =
+    kind === "file" ? filePath : String((input && input.resourceId) || "");
   return {
-    id: String((input && input.surfaceId) || surfaceIdFor(input)),
+    id: String((input && input.surfaceId) || surfaceIdFor({ ...input, filePath, resourceId })),
     placement,
     kind,
-    title: String((input && input.title) || titleForSurfaceKind(kind)),
-    resourceId: String((input && input.resourceId) || ""),
-    filePath: String((input && input.filePath) || ""),
-    terminalId: String((input && input.terminalId) || (input && input.resourceId) || ""),
+    title: String(
+      (input && input.title) ||
+        (kind === "file" ? basenameForPath(filePath) : titleForSurfaceKind(kind)),
+    ),
+    resourceId,
+    filePath,
+    terminalId: String((input && input.terminalId) || resourceId || ""),
+    revealLine: kind === "file" ? normalizeRevealLine(input && input.revealLine) : null,
+    revealRequestId:
+      kind === "file" && Number.isSafeInteger(Number(input && input.revealRequestId))
+        ? Number(input.revealRequestId)
+        : 0,
   };
 }
 
@@ -47,6 +80,8 @@ export function titleForSurfaceKind(kind) {
       return "Diff";
     case "files":
       return "Files";
+    case "file":
+      return "File";
     case "terminal":
       return "Terminal";
     case "plan":
@@ -142,12 +177,39 @@ export function openSurface(state, input) {
     return current;
   }
   if (placement === "right") {
-    const surfaces = upsertSurface(current.rightPanel.surfaces || [], surface);
+    const currentItems = current.rightPanel.surfaces || [];
+    const filePath =
+      surface.kind === "file"
+        ? normalizeFilePath(surface.filePath || surface.resourceId)
+        : "";
+    const existingFile = filePath
+      ? currentItems.find(
+          (item) =>
+            item.kind === "file" &&
+            normalizeFilePath(item.filePath || item.resourceId) === filePath,
+        )
+      : null;
+    const nextSurface =
+      surface.kind === "file"
+        ? makeSurface({
+            ...input,
+            placement: "right",
+            kind: "file",
+            filePath,
+            resourceId: filePath,
+            revealRequestId: Number((existingFile && existingFile.revealRequestId) || 0) + 1,
+          })
+        : surface;
+    const sourceItems =
+      nextSurface.kind === "file"
+        ? currentItems.filter((item) => item.kind !== "files")
+        : currentItems;
+    const surfaces = upsertSurface(sourceItems, nextSurface);
     return {
       ...current,
       rightPanel: activateRightPanelSurface(
         { ...current.rightPanel, surfaces },
-        surface,
+        nextSurface,
       ),
     };
   }

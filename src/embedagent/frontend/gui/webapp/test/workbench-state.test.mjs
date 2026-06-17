@@ -17,6 +17,7 @@ import {
 } from "../src/workbench/keybindings.js";
 import {
   BOTTOM_DRAWER_SURFACES,
+  RIGHT_PANEL_KINDS,
   RIGHT_PANEL_SURFACES,
   activateSurface,
   closeAllSurfaces,
@@ -29,6 +30,7 @@ import {
 } from "../src/workbench/surfaces.js";
 
 export function runWorkbenchStateTests() {
+  assert.deepEqual(RIGHT_PANEL_KINDS, ["diff", "files", "file", "terminal", "plan"]);
   assert.deepEqual(RIGHT_PANEL_SURFACES, ["diff", "files", "terminal", "plan"]);
   assert.equal(BOTTOM_DRAWER_SURFACES.includes("terminal"), true);
   assert.equal(BOTTOM_DRAWER_SURFACES.includes("run_output"), true);
@@ -51,6 +53,49 @@ export function runWorkbenchStateTests() {
   assert.equal(withFiles.rightPanel.activeSurfaceId, "right:files");
   assert.equal(withFiles.rightPanel.surfaces.length, 1);
   assert.equal(withFiles.rightPanel.surfaces[0].id, "right:files");
+
+  const withFile = openSurface(withFiles, {
+    placement: "right",
+    kind: "file",
+    filePath: "src/main.c",
+  });
+  assert.equal(withFile.rightPanel.activeKind, "file");
+  assert.equal(withFile.rightPanel.activeSurfaceId, "right:file:src/main.c");
+  assert.deepEqual(withFile.rightPanel.surfaces.map((surface) => surface.kind), ["file"]);
+  assert.equal(withFile.rightPanel.surfaces[0].title, "main.c");
+  assert.equal(withFile.rightPanel.surfaces[0].resourceId, "src/main.c");
+  assert.equal(withFile.rightPanel.surfaces[0].filePath, "src/main.c");
+  assert.equal(withFile.rightPanel.surfaces[0].revealLine, null);
+  assert.equal(withFile.rightPanel.surfaces[0].revealRequestId, 1);
+
+  const revealedFile = openSurface(withFile, {
+    placement: "right",
+    kind: "file",
+    filePath: "src/main.c",
+    revealLine: 42,
+  });
+  assert.equal(revealedFile.rightPanel.surfaces.length, 1);
+  assert.equal(revealedFile.rightPanel.surfaces[0].revealLine, 42);
+  assert.equal(revealedFile.rightPanel.surfaces[0].revealRequestId, 2);
+
+  const resetRevealFile = openSurface(revealedFile, {
+    placement: "right",
+    kind: "file",
+    filePath: "src/main.c",
+  });
+  assert.equal(resetRevealFile.rightPanel.surfaces[0].revealLine, null);
+  assert.equal(resetRevealFile.rightPanel.surfaces[0].revealRequestId, 3);
+
+  const secondFile = openSurface(resetRevealFile, {
+    placement: "right",
+    kind: "file",
+    filePath: "README.md",
+  });
+  assert.deepEqual(secondFile.rightPanel.surfaces.map((surface) => surface.id), [
+    "right:file:src/main.c",
+    "right:file:README.md",
+  ]);
+  assert.equal(secondFile.rightPanel.activeSurfaceId, "right:file:README.md");
 
   const withDiff = openSurface(withFiles, {
     placement: "right",
@@ -142,6 +187,13 @@ export function runWorkbenchStateTests() {
   });
   assert.equal(reduced.rightPanel.activeKind, "plan");
   assert.equal(reduced.rightPanel.surfaces[0].kind, "plan");
+
+  const unknownRightSurface = openSurface(initial, {
+    placement: "right",
+    kind: "settings",
+    title: "Settings",
+  });
+  assert.equal(unknownRightSurface, initial);
 
   assert.equal(COMMAND_GROUPS.includes("session"), true);
   assert.equal(COMMAND_GROUPS.includes("app"), true);
