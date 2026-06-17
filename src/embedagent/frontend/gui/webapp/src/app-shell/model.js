@@ -64,6 +64,18 @@ function normalizeThreadLifecycle(input = {}) {
   };
 }
 
+function normalizeTerminalCapability(input = {}) {
+  const value = input.terminal && typeof input.terminal === "object" ? input.terminal : {};
+  return {
+    enabled: value.enabled === true,
+    pty: value.pty === true,
+    resize: value.resize === true,
+    historyPersistent:
+      value.history_persistent === true || value.historyPersistent === true,
+    maxBufferBytes: Number(value.max_buffer_bytes || value.maxBufferBytes || 0),
+  };
+}
+
 export function normalizeAppCapabilities(input = {}) {
   const surfaces = input.surfaces && typeof input.surfaces === "object" ? input.surfaces : {};
   return {
@@ -89,6 +101,7 @@ export function normalizeAppCapabilities(input = {}) {
           ? surfaces.bottomDrawer.map(String)
           : [],
     },
+    terminal: normalizeTerminalCapability(input),
     threadLifecycle: normalizeThreadLifecycle(input),
   };
 }

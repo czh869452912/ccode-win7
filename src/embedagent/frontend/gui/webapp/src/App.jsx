@@ -14,6 +14,15 @@ import { shouldReconnectSocket } from "./session-runtime/websocket-lifecycle.js"
 import { canSwitchWorkspace, normalizeAppBootstrap } from "./app-workspaces.js";
 import { LangContext } from "./LangContext.js";
 import { t } from "./strings.js";
+import {
+  clearTerminal,
+  closeTerminal,
+  listTerminals,
+  openTerminal,
+  restartTerminal,
+  writeTerminal,
+} from "./terminal/terminal-api.js";
+import { nextTerminalId } from "./terminal/terminal-labels.js";
 import NoWorkspaceState from "./components/NoWorkspaceState.jsx";
 import Sidebar from "./components/Sidebar.jsx";
 import Timeline from "./components/Timeline.jsx";
@@ -290,6 +299,12 @@ function App() {
     replaceSessionEventLog(createRuntimeEventLog(snapshot));
     dispatch({ type: "plan_loaded", plan: payload.plan || null });
     dispatch({ type: "permission_context_loaded", context: payload.permission_context || null });
+    try {
+      const terminals = await listTerminals(sessionId);
+      dispatch({ type: "terminal_summaries_loaded", terminals: terminals.terminals || [] });
+    } catch (_) {
+      dispatch({ type: "terminal_summaries_loaded", terminals: [] });
+    }
     await Promise.all([loadTasks(sessionId), loadArtifacts()]);
   }
 
@@ -682,6 +697,87 @@ function App() {
     await submitText(parts.join(" "));
   }
 
+  async function ensureTerminalOpen(preferredId = "") {
+    if (!state.currentSessionId) {
+      dispatch({ type: "interaction_notice_set", notice: "Open a session before using the terminal." });
+      return;
+    }
+    const terminalId =
+      preferredId || state.terminal.activeTerminalId || nextTerminalId(state.terminal.terminalIds);
+    try {
+      const payload = await openTerminal(state.currentSessionId, terminalId, { cols: 100, rows: 30 });
+      dispatch({ type: "terminal_snapshot_loaded", snapshot: payload.terminal });
+      dispatch({ type: "terminal_active_set", terminalId });
+      dispatch({ type: "workbench_surface_activated", placement: "bottom", kind: "terminal" });
+    } catch (error) {
+      dispatch({ type: "interaction_notice_set", notice: error.message || "Terminal failed to open." });
+    }
+  }
+
+  async function refreshTerminals() {
+    if (!state.currentSessionId) return;
+    try {
+      const payload = await listTerminals(state.currentSessionId);
+      dispatch({ type: "terminal_summaries_loaded", terminals: payload.terminals || [] });
+    } catch (_) {
+      return;
+    }
+  }
+
+  async function sendTerminalInput(text) {
+    const terminalId = state.terminal.activeTerminalId;
+    if (!state.currentSessionId || !terminalId) return;
+    try {
+      await writeTerminal(state.currentSessionId, terminalId, text);
+    } catch (error) {
+      dispatch({ type: "interaction_notice_set", notice: error.message || "Terminal write failed." });
+    }
+  }
+
+  async function clearActiveTerminal() {
+    const terminalId = state.terminal.activeTerminalId;
+    if (!state.currentSessionId || !terminalId) return;
+    try {
+      const payload = await clearTerminal(state.currentSessionId, terminalId);
+      dispatch({ type: "terminal_snapshot_loaded", snapshot: payload.terminal });
+    } catch (error) {
+      dispatch({ type: "interaction_notice_set", notice: error.message || "Terminal clear failed." });
+    }
+  }
+
+  async function restartActiveTerminal() {
+    const terminalId = state.terminal.activeTerminalId;
+    if (!state.currentSessionId || !terminalId) return;
+    try {
+      const payload = await restartTerminal(state.currentSessionId, terminalId, { cols: 100, rows: 30 });
+      dispatch({ type: "terminal_snapshot_loaded", snapshot: payload.terminal });
+    } catch (error) {
+      dispatch({ type: "interaction_notice_set", notice: error.message || "Terminal restart failed." });
+    }
+  }
+
+  async function closeActiveTerminal() {
+    const terminalId = state.terminal.activeTerminalId;
+    if (!state.currentSessionId || !terminalId) return;
+    try {
+      await closeTerminal(state.currentSessionId, terminalId);
+      dispatch({
+        type: "terminal_event",
+        event: { type: "closed", session_id: state.currentSessionId, terminal_id: terminalId },
+      });
+    } catch (error) {
+      dispatch({ type: "interaction_notice_set", notice: error.message || "Terminal close failed." });
+    }
+  }
+
+  async function selectBottomDrawerKind(kind) {
+    if (kind === "terminal") {
+      await ensureTerminalOpen();
+      return;
+    }
+    dispatch({ type: "workbench_surface_activated", placement: "bottom", kind });
+  }
+
   async function executeWorkbenchCommand(command) {
     if (!command) return;
     if (command.id === "palette.open") {
@@ -757,6 +853,10 @@ function App() {
       return;
     }
     if (command.drawer) {
+      if (command.drawer === "terminal") {
+        await ensureTerminalOpen();
+        return;
+      }
       dispatch({ type: "workbench_surface_activated", placement: "bottom", kind: command.drawer });
       return;
     }
@@ -892,6 +992,10 @@ function App() {
       if (bootstrap.hasActiveWorkspace) {
         void loadActiveWorkspaceData("");
       }
+      return;
+    }
+    if (type === "terminal_event") {
+      dispatch({ type: "terminal_event", event: data?.event || data || {} });
       return;
     }
     if (type === "session_event") {
@@ -1508,6 +1612,16 @@ function App() {
           eventLog={state.eventLog}
           terminationReason={state.terminationDisplayReason || state.terminationReason}
           terminationMessage={state.terminationMessage}
+          terminal={state.terminal}
+          onKindSelect={(kind) => {
+            void selectBottomDrawerKind(kind);
+          }}
+          onTerminalNew={() => ensureTerminalOpen(nextTerminalId(state.terminal.terminalIds))}
+          onTerminalSelect={(terminalId) => dispatch({ type: "terminal_active_set", terminalId })}
+          onTerminalSend={sendTerminalInput}
+          onTerminalClear={clearActiveTerminal}
+          onTerminalRestart={restartActiveTerminal}
+          onTerminalClose={closeActiveTerminal}
         />
       }
       rightPanelOpen={state.workbench.rightPanel.open}

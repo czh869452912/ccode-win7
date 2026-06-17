@@ -2,6 +2,7 @@ import { injectChildren, makeEventId, resolveTimelineAnchor } from "./state-help
 import { focusDiffFile } from "./session-runtime/diff-model.js";
 import { createAppShellState } from "./app-shell/model.js";
 import { reduceAppShellState } from "./app-shell/reducer.js";
+import { createTerminalState, reduceTerminalState } from "./terminal/terminal-state.js";
 import { createWorkbenchState, reduceWorkbenchState } from "./workbench/surfaces.js";
 import { resetWorkspaceScopedState } from "./app-workspaces.js";
 
@@ -47,6 +48,7 @@ export const initialState = {
   historyIntegrity: null,
   workbench: createWorkbenchState(),
   app: createAppShellState(),
+  terminal: createTerminalState(),
 };
 
 function liveProjectionMeta() {
@@ -139,6 +141,14 @@ export function reducer(state, action) {
       return {
         ...state,
         app: reduceAppShellState(state.app, action),
+      };
+    case "terminal_snapshot_loaded":
+    case "terminal_summaries_loaded":
+    case "terminal_event":
+    case "terminal_active_set":
+      return {
+        ...state,
+        terminal: reduceTerminalState(state.terminal, action),
       };
     case "sessions_loaded":
       return { ...state, sessions: action.sessions };

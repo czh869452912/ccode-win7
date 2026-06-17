@@ -1,4 +1,5 @@
 export { normalizeAppBootstrap, normalizeWorkspaceRecord } from "./app-shell/model.js";
+import { createTerminalState } from "./terminal/terminal-state.js";
 
 export function canSwitchWorkspace(state = {}) {
   const snapshot = state.snapshot || {};
@@ -44,5 +45,6 @@ export function resetWorkspaceScopedState(state = {}) {
     activeStepId: "",
     activeStepIndex: 0,
     historyIntegrity: null,
+    terminal: createTerminalState(),
   };
 }

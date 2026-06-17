@@ -17,6 +17,7 @@ import { runDiffModelTests } from "./diff-model.test.mjs";
 import { runInteractionModelTests } from "./interaction-model.test.mjs";
 import { runSessionRuntimeTests } from "./session-runtime.test.mjs";
 import { runT3TimelineTests } from "./t3-timeline.test.mjs";
+import { runTerminalStateTests } from "./terminal-state.test.mjs";
 import { runTimelineUiStateTests } from "./timeline-ui-state.test.mjs";
 import { runVisualLanguageCssTests } from "./visual-language-css.test.mjs";
 import { runVisualDebugRunnerTests } from "./visual-debug-runner.test.mjs";
@@ -658,6 +659,9 @@ async function main() {
     webappSourcePath("App.jsx"),
     "utf8",
   );
+  assert.equal(appSource.includes("openTerminal"), true);
+  assert.equal(appSource.includes("terminal_event"), true);
+  assert.equal(appSource.includes("ensureTerminalOpen"), true);
   assert.equal(appSource.includes("AppSidebarLayout"), true);
   assert.equal(appSource.includes("WorkbenchHeader"), true);
   assert.equal(appSource.includes("showTabs={false}"), true);
@@ -691,6 +695,9 @@ async function main() {
     webappSourcePath("store.js"),
     "utf8",
   );
+  assert.equal(storeSource.includes("createTerminalState"), true);
+  assert.equal(storeSource.includes("reduceTerminalState"), true);
+  assert.equal(storeSource.includes("terminal_snapshot_loaded"), true);
   assert.equal(storeSource.includes("visual_timeline_fixture_loaded"), true);
   assert.equal(storeSource.includes("visual_interaction_fixture_loaded"), true);
   assert.equal(storeSource.includes("visual_thread_lifecycle_fixture_loaded"), true);
@@ -773,6 +780,8 @@ async function main() {
     webappSourcePath("components", "workbench", "BottomDrawer.jsx"),
     "utf8",
   );
+  assert.equal(bottomDrawerSource.includes("TerminalSurface"), true);
+  assert.equal(bottomDrawerSource.includes("terminal-drawer"), true);
   assert.equal(bottomDrawerSource.includes("run_output"), true);
 
   const commandPaletteSource = fs.readFileSync(
@@ -793,6 +802,7 @@ async function main() {
   runAppShellModelTests();
   runAppWorkspaceTests();
   runAppHomeModelTests();
+  runTerminalStateTests();
   runSessionRuntimeTests();
   runT3TimelineTests();
   runTimelineUiStateTests();

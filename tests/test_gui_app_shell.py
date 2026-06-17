@@ -91,6 +91,17 @@ class TestGuiAppShellService(unittest.TestCase):
             payload["capabilities"]["thread_lifecycle"],
             {"rename": True, "fork": True, "archive": True},
         )
+        self.assertEqual(
+            payload["capabilities"]["terminal"],
+            {
+                "enabled": True,
+                "pty": False,
+                "resize": False,
+                "history_persistent": False,
+                "max_buffer_bytes": 131072,
+            },
+        )
+        self.assertIn("terminal", payload["capabilities"]["surfaces"]["bottom_drawer"])
         self.assertTrue(payload["settings"]["confirm_workspace_switch"])
         self.assertIn("host", payload["diagnostics"])
         self.assertIn("runtime", payload["diagnostics"])
