@@ -32,6 +32,7 @@ export const initialState = {
   recipes: [],
   permissionContext: null,
   preview: null,
+  filePreviewsByPath: {},
   diffSurface: null,
   fileTree: [],
   toolCatalog: {},
@@ -687,6 +688,58 @@ export function reducer(state, action) {
         preview: action.preview,
         inspectorTab: action.inspectorTab || state.inspectorTab,
       };
+    case "file_preview_load_started": {
+      const path = String(action.path || "");
+      if (!path) return state;
+      return {
+        ...state,
+        filePreviewsByPath: {
+          ...state.filePreviewsByPath,
+          [path]: {
+            status: "loading",
+            path,
+            title: path,
+            content: "",
+            error: "",
+          },
+        },
+      };
+    }
+    case "file_preview_loaded": {
+      const path = String(action.path || "");
+      if (!path) return state;
+      const preview = action.preview || {};
+      return {
+        ...state,
+        filePreviewsByPath: {
+          ...state.filePreviewsByPath,
+          [path]: {
+            status: "loaded",
+            path,
+            title: String(preview.title || path),
+            content: String(preview.content || ""),
+            error: "",
+          },
+        },
+      };
+    }
+    case "file_preview_load_failed": {
+      const path = String(action.path || "");
+      if (!path) return state;
+      return {
+        ...state,
+        filePreviewsByPath: {
+          ...state.filePreviewsByPath,
+          [path]: {
+            status: "error",
+            path,
+            title: path,
+            content: "",
+            error: String(action.error || "File unavailable"),
+          },
+        },
+      };
+    }
     case "diff_surface_opened":
       return {
         ...state,

@@ -391,13 +391,37 @@ function App() {
     }
   }
 
-  async function openFile(path) {
-    const payload = await fetchJson(`/api/files/${encodeURIComponent(path)}`);
+  async function openFile(path, line) {
+    const filePath = normalizeFileSurfacePath(path);
+    if (!filePath) return;
     dispatch({
-      type: "preview_loaded",
-      preview: { kind: "file", title: payload.path || path, content: payload.content || "" },
-      inspectorTab: "preview",
+      type: "workbench_surface_opened",
+      placement: "right",
+      kind: "file",
+      title: fileSurfaceTitle(filePath),
+      resourceId: filePath,
+      filePath,
+      revealLine: line,
     });
+    dispatch({ type: "file_preview_load_started", path: filePath });
+    try {
+      const payload = await fetchJson(`/api/files/${encodeURIComponent(filePath)}`);
+      dispatch({
+        type: "file_preview_loaded",
+        path: filePath,
+        preview: {
+          kind: "file",
+          title: payload.path || filePath,
+          content: payload.content || "",
+        },
+      });
+    } catch (error) {
+      dispatch({
+        type: "file_preview_load_failed",
+        path: filePath,
+        error: error.message || "File unavailable",
+      });
+    }
   }
 
   async function openArtifact(reference) {
@@ -853,8 +877,20 @@ function App() {
     }
   }
 
+  function normalizeFileSurfacePath(path) {
+    return String(path || "").replace(/\\/g, "/").replace(/^\/+/, "");
+  }
+
+  function fileSurfaceTitle(path) {
+    const normalized = normalizeFileSurfacePath(path);
+    if (!normalized) return "File";
+    const parts = normalized.split("/");
+    return parts[parts.length - 1] || normalized;
+  }
+
   function openRightPanelSurface(kind, title = "") {
     const surfaceKind = String(kind || "");
+    if (surfaceKind === "file") return;
     const terminalId =
       surfaceKind === "terminal"
         ? state.terminal.activeTerminalId || nextTerminalId(state.terminal.terminalIds)
@@ -1739,6 +1775,7 @@ function App() {
           <RightPanelSurfaceBody
             surface={activeRightPanelSurface}
             inspectorProps={inspectorProps}
+            filePreviewsByPath={state.filePreviewsByPath}
             fileTree={state.fileTree}
             treeHeight={treeHeight}
             onOpenFile={openFile}

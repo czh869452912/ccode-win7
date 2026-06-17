@@ -432,6 +432,32 @@ async function main() {
   assert.equal(diffSurfaceState.workbench.rightPanel.activeSurfaceId, "right:diff:current");
   assert.equal(diffSurfaceState.diffSurface.title, "Git Diff");
 
+  const filePreviewLoadingState = reducer(initialState, {
+    type: "file_preview_load_started",
+    path: "src/main.c",
+  });
+  assert.equal(filePreviewLoadingState.filePreviewsByPath["src/main.c"].status, "loading");
+  assert.equal(filePreviewLoadingState.filePreviewsByPath["src/main.c"].path, "src/main.c");
+  assert.equal(filePreviewLoadingState.preview, null);
+
+  const filePreviewLoadedState = reducer(filePreviewLoadingState, {
+    type: "file_preview_loaded",
+    path: "src/main.c",
+    preview: { kind: "file", title: "main.c", content: "int main(void) { return 0; }" },
+  });
+  assert.equal(filePreviewLoadedState.filePreviewsByPath["src/main.c"].status, "loaded");
+  assert.equal(filePreviewLoadedState.filePreviewsByPath["src/main.c"].title, "main.c");
+  assert.equal(filePreviewLoadedState.filePreviewsByPath["src/main.c"].content.includes("return 0"), true);
+  assert.equal(filePreviewLoadedState.preview, null);
+
+  const filePreviewFailedState = reducer(filePreviewLoadedState, {
+    type: "file_preview_load_failed",
+    path: "src/main.c",
+    error: "not found",
+  });
+  assert.equal(filePreviewFailedState.filePreviewsByPath["src/main.c"].status, "error");
+  assert.equal(filePreviewFailedState.filePreviewsByPath["src/main.c"].error, "not found");
+
   const sessionErrorState = reducer(initialState, {
     type: "session_error",
     error: "loop exploded",
@@ -702,6 +728,11 @@ async function main() {
   assert.equal(appSource.includes("workbench_surface_close_others"), true);
   assert.equal(appSource.includes("workbench_surface_close_to_right"), true);
   assert.equal(appSource.includes("workbench_surface_close_all"), true);
+  assert.equal(appSource.includes("file_preview_load_started"), true);
+  assert.equal(appSource.includes("file_preview_loaded"), true);
+  assert.equal(appSource.includes("file_preview_load_failed"), true);
+  assert.equal(appSource.includes('kind: "file"'), true);
+  assert.equal(appSource.includes('preview: { kind: "file"'), false);
   assert.equal(appSource.includes("showTabs={false}"), false);
   assert.equal(appSource.includes("activeKind={state.inspectorTab}"), false);
   assert.equal(appSource.includes("appShell: state.app"), true);
@@ -716,6 +747,10 @@ async function main() {
   assert.equal(storeSource.includes("visual_timeline_fixture_loaded"), true);
   assert.equal(storeSource.includes("visual_interaction_fixture_loaded"), true);
   assert.equal(storeSource.includes("visual_thread_lifecycle_fixture_loaded"), true);
+  assert.equal(storeSource.includes("filePreviewsByPath"), true);
+  assert.equal(storeSource.includes("file_preview_load_started"), true);
+  assert.equal(storeSource.includes("file_preview_loaded"), true);
+  assert.equal(storeSource.includes("file_preview_load_failed"), true);
 
   const noWorkspaceSource = fs.readFileSync(
     webappSourcePath("components", "NoWorkspaceState.jsx"),

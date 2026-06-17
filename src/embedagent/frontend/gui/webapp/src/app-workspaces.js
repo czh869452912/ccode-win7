@@ -34,6 +34,7 @@ export function resetWorkspaceScopedState(state = {}) {
     recipes: [],
     permissionContext: null,
     preview: null,
+    filePreviewsByPath: {},
     diffSurface: null,
     fileTree: [],
     toolCatalog: {},
