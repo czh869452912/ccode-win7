@@ -1,21 +1,4 @@
-export const RIGHT_PANEL_SURFACES = [
-  "interaction",
-  "tasks",
-  "plan",
-  "artifacts",
-  "run",
-  "problems",
-  "review",
-  "diff",
-  "source_control",
-  "permissions",
-  "runtime",
-  "settings",
-  "diagnostics",
-  "preview",
-  "log",
-];
-
+export const RIGHT_PANEL_SURFACES = ["diff", "files", "terminal", "plan"];
 export const BOTTOM_DRAWER_SURFACES = ["terminal", "run_output", "logs"];
 
 const DEFAULT_SESSION_KEY = "__global__";
@@ -30,23 +13,47 @@ function normalizePlacement(placement) {
 }
 
 function defaultActiveKind(placement) {
-  return placement === "bottom" ? "run_output" : "tasks";
+  return placement === "bottom" ? "run_output" : "";
 }
 
 function allowedKinds(placement) {
   return placement === "bottom" ? BOTTOM_DRAWER_SURFACES : RIGHT_PANEL_SURFACES;
 }
 
+function surfaceIdFor(input) {
+  const placement = normalizePlacement(input && input.placement);
+  const kind = String((input && input.kind) || defaultActiveKind(placement));
+  const resourceId = String((input && input.resourceId) || "");
+  return resourceId ? `${placement}:${kind}:${resourceId}` : `${placement}:${kind}`;
+}
+
 function makeSurface(input) {
   const placement = normalizePlacement(input && input.placement);
   const kind = String((input && input.kind) || defaultActiveKind(placement));
   return {
-    id: `${placement}:${kind}:${String((input && input.resourceId) || "")}`,
+    id: String((input && input.surfaceId) || surfaceIdFor(input)),
     placement,
     kind,
-    title: String((input && input.title) || kind),
+    title: String((input && input.title) || titleForSurfaceKind(kind)),
     resourceId: String((input && input.resourceId) || ""),
+    filePath: String((input && input.filePath) || ""),
+    terminalId: String((input && input.terminalId) || (input && input.resourceId) || ""),
   };
+}
+
+export function titleForSurfaceKind(kind) {
+  switch (kind) {
+    case "diff":
+      return "Diff";
+    case "files":
+      return "Files";
+    case "terminal":
+      return "Terminal";
+    case "plan":
+      return "Plan";
+    default:
+      return String(kind || "");
+  }
 }
 
 function emptySessionSurfaces() {
@@ -69,8 +76,27 @@ function upsertSurface(items, nextSurface) {
   return items.map((item, index) => (index === existingIndex ? nextSurface : item));
 }
 
-function removeSurface(items, surface) {
-  return items.filter((item) => item.id !== surface.id);
+function removeSurface(items, surfaceId) {
+  return items.filter((item) => item.id !== surfaceId);
+}
+
+function activeSurfaceFrom(items, activeSurfaceId) {
+  return items.find((item) => item.id === activeSurfaceId) || null;
+}
+
+function activateRightPanelSurface(panel, surface) {
+  return {
+    ...panel,
+    open: true,
+    activeKind: surface ? surface.kind : "",
+    activeSurfaceId: surface ? surface.id : null,
+  };
+}
+
+function nextActiveAfterClose(items, closedIndex) {
+  if (items.length === 0) return null;
+  const boundedIndex = Math.max(0, Math.min(closedIndex, items.length - 1));
+  return items[boundedIndex] || items[items.length - 1] || null;
 }
 
 export function createWorkbenchState() {
@@ -81,7 +107,9 @@ export function createWorkbenchState() {
     },
     rightPanel: {
       open: true,
-      activeKind: "tasks",
+      activeKind: "",
+      activeSurfaceId: null,
+      surfaces: [],
       width: 320,
     },
     bottomDrawer: {
@@ -113,11 +141,21 @@ export function openSurface(state, input) {
   if (!allowedKinds(placement).includes(surface.kind)) {
     return current;
   }
+  if (placement === "right") {
+    const surfaces = upsertSurface(current.rightPanel.surfaces || [], surface);
+    return {
+      ...current,
+      rightPanel: activateRightPanelSurface(
+        { ...current.rightPanel, surfaces },
+        surface,
+      ),
+    };
+  }
   const key = normalizeSessionId(input && input.sessionId);
   const existing = sessionSurfaces(current, key);
   const nextSessionSurfaces = {
     ...existing,
-    [placement]: upsertSurface(existing[placement], surface),
+    bottom: upsertSurface(existing.bottom, surface),
   };
   return {
     ...current,
@@ -125,70 +163,124 @@ export function openSurface(state, input) {
       ...current.surfacesBySession,
       [key]: nextSessionSurfaces,
     },
-    rightPanel:
-      placement === "right"
-        ? { ...current.rightPanel, open: true, activeKind: surface.kind }
-        : current.rightPanel,
-    bottomDrawer:
-      placement === "bottom"
-        ? { ...current.bottomDrawer, open: true, activeKind: surface.kind }
-        : current.bottomDrawer,
+    bottomDrawer: { ...current.bottomDrawer, open: true, activeKind: surface.kind },
   };
 }
 
 export function activateSurface(state, input) {
   const current = state || createWorkbenchState();
   const placement = normalizePlacement(input && input.placement);
-  const kind = String((input && input.kind) || defaultActiveKind(placement));
-  if (!allowedKinds(placement).includes(kind)) {
-    return current;
-  }
   if (placement === "bottom") {
+    const kind = String((input && input.kind) || defaultActiveKind(placement));
+    if (!allowedKinds(placement).includes(kind)) return current;
     return {
       ...current,
       bottomDrawer: { ...current.bottomDrawer, open: true, activeKind: kind },
     };
   }
-  return {
-    ...current,
-    rightPanel: { ...current.rightPanel, open: true, activeKind: kind },
-  };
+  const surfaceId = String((input && input.surfaceId) || "");
+  const existing = surfaceId
+    ? activeSurfaceFrom(current.rightPanel.surfaces || [], surfaceId)
+    : null;
+  if (existing) {
+    return {
+      ...current,
+      rightPanel: activateRightPanelSurface(current.rightPanel, existing),
+    };
+  }
+  return openSurface(current, {
+    placement: "right",
+    kind: input && input.kind,
+    title: input && input.title,
+    resourceId: input && input.resourceId,
+    filePath: input && input.filePath,
+    terminalId: input && input.terminalId,
+  });
 }
 
 export function closeSurface(state, input) {
   const current = state || createWorkbenchState();
+  const placement = normalizePlacement(input && input.placement);
   const surface = makeSurface(input || {});
-  const placement = normalizePlacement(surface.placement);
-  const key = normalizeSessionId(input && input.sessionId);
-  const existing = sessionSurfaces(current, key);
-  const nextItems = removeSurface(existing[placement], surface);
-  const nextSessionSurfaces = {
-    ...existing,
-    [placement]: nextItems,
-  };
-  const nextState = {
-    ...current,
-    surfacesBySession: {
-      ...current.surfacesBySession,
-      [key]: nextSessionSurfaces,
-    },
-  };
   if (placement === "bottom") {
+    const key = normalizeSessionId(input && input.sessionId);
+    const existing = sessionSurfaces(current, key);
+    const nextItems = removeSurface(existing.bottom, surface.id);
+    const nextSessionSurfaces = { ...existing, bottom: nextItems };
     return {
-      ...nextState,
+      ...current,
+      surfacesBySession: {
+        ...current.surfacesBySession,
+        [key]: nextSessionSurfaces,
+      },
       bottomDrawer: {
-        ...nextState.bottomDrawer,
+        ...current.bottomDrawer,
         open: nextItems.length > 0,
         activeKind: nextItems.length > 0 ? nextItems[0].kind : defaultActiveKind(placement),
       },
     };
   }
+  const items = current.rightPanel.surfaces || [];
+  const closedIndex = Math.max(0, items.findIndex((item) => item.id === surface.id));
+  const nextItems = removeSurface(items, surface.id);
+  const shouldReplaceActive = current.rightPanel.activeSurfaceId === surface.id;
+  const nextActive = shouldReplaceActive
+    ? nextActiveAfterClose(nextItems, closedIndex)
+    : activeSurfaceFrom(nextItems, current.rightPanel.activeSurfaceId);
   return {
-    ...nextState,
-    rightPanel: {
-      ...nextState.rightPanel,
-      activeKind: nextItems.length > 0 ? nextItems[0].kind : defaultActiveKind(placement),
-    },
+    ...current,
+    rightPanel: activateRightPanelSurface(
+      { ...current.rightPanel, surfaces: nextItems },
+      nextActive,
+    ),
+  };
+}
+
+export function closeOtherSurfaces(state, input) {
+  const current = state || createWorkbenchState();
+  const placement = normalizePlacement(input && input.placement);
+  if (placement !== "right") return current;
+  const surfaceId = String((input && input.surfaceId) || "");
+  const active = activeSurfaceFrom(current.rightPanel.surfaces || [], surfaceId);
+  if (!active) return current;
+  return {
+    ...current,
+    rightPanel: activateRightPanelSurface(
+      { ...current.rightPanel, surfaces: [active] },
+      active,
+    ),
+  };
+}
+
+export function closeSurfacesToRight(state, input) {
+  const current = state || createWorkbenchState();
+  const placement = normalizePlacement(input && input.placement);
+  if (placement !== "right") return current;
+  const surfaceId = String((input && input.surfaceId) || "");
+  const items = current.rightPanel.surfaces || [];
+  const index = items.findIndex((item) => item.id === surfaceId);
+  if (index < 0) return current;
+  const nextItems = items.slice(0, index + 1);
+  const active = activeSurfaceFrom(nextItems, surfaceId) || nextItems[nextItems.length - 1] || null;
+  return {
+    ...current,
+    rightPanel: activateRightPanelSurface(
+      { ...current.rightPanel, surfaces: nextItems },
+      active,
+    ),
+  };
+}
+
+export function closeAllSurfaces(state, input) {
+  const current = state || createWorkbenchState();
+  const placement = normalizePlacement(input && input.placement);
+  if (placement !== "right") return current;
+  return {
+    ...current,
+    rightPanel: activateRightPanelSurface(
+      { ...current.rightPanel, surfaces: [] },
+      null,
+    ),
   };
 }
 
@@ -201,6 +293,12 @@ export function reduceWorkbenchState(state, action) {
       return activateSurface(current, action);
     case "workbench_surface_closed":
       return closeSurface(current, action);
+    case "workbench_surface_close_others":
+      return closeOtherSurfaces(current, action);
+    case "workbench_surface_close_to_right":
+      return closeSurfacesToRight(current, action);
+    case "workbench_surface_close_all":
+      return closeAllSurfaces(current, action);
     case "workbench_command_palette_opened":
       return {
         ...current,

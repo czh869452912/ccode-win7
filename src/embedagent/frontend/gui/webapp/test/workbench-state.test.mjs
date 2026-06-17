@@ -19,40 +19,111 @@ import {
   BOTTOM_DRAWER_SURFACES,
   RIGHT_PANEL_SURFACES,
   activateSurface,
+  closeAllSurfaces,
+  closeOtherSurfaces,
   closeSurface,
+  closeSurfacesToRight,
   createWorkbenchState,
   openSurface,
   reduceWorkbenchState,
 } from "../src/workbench/surfaces.js";
 
 export function runWorkbenchStateTests() {
-  assert.equal(RIGHT_PANEL_SURFACES.includes("tasks"), true);
-  assert.equal(RIGHT_PANEL_SURFACES.includes("preview"), true);
-  assert.equal(RIGHT_PANEL_SURFACES.includes("settings"), true);
-  assert.equal(RIGHT_PANEL_SURFACES.includes("diagnostics"), true);
-  assert.equal(RIGHT_PANEL_SURFACES.includes("source_control"), true);
+  assert.deepEqual(RIGHT_PANEL_SURFACES, ["diff", "files", "terminal", "plan"]);
   assert.equal(BOTTOM_DRAWER_SURFACES.includes("terminal"), true);
   assert.equal(BOTTOM_DRAWER_SURFACES.includes("run_output"), true);
 
   const initial = createWorkbenchState();
   assert.equal(initial.rightPanel.open, true);
-  assert.equal(initial.rightPanel.activeKind, "tasks");
+  assert.equal(initial.rightPanel.activeSurfaceId, null);
+  assert.equal(initial.rightPanel.activeKind, "");
+  assert.deepEqual(initial.rightPanel.surfaces, []);
   assert.equal(initial.bottomDrawer.open, false);
 
-  const withPreview = openSurface(initial, {
-    sessionId: "sess-1",
+  const withFiles = openSurface(initial, {
     placement: "right",
-    kind: "preview",
-    title: "README.md",
-    resourceId: "README.md",
+    kind: "files",
+    title: "Files",
   });
-  assert.notEqual(withPreview, initial);
-  assert.equal(withPreview.rightPanel.open, true);
-  assert.equal(withPreview.rightPanel.activeKind, "preview");
-  assert.equal(withPreview.surfacesBySession["sess-1"].right.length, 1);
-  assert.equal(withPreview.surfacesBySession["sess-1"].right[0].resourceId, "README.md");
+  assert.notEqual(withFiles, initial);
+  assert.equal(withFiles.rightPanel.open, true);
+  assert.equal(withFiles.rightPanel.activeKind, "files");
+  assert.equal(withFiles.rightPanel.activeSurfaceId, "right:files");
+  assert.equal(withFiles.rightPanel.surfaces.length, 1);
+  assert.equal(withFiles.rightPanel.surfaces[0].id, "right:files");
 
-  const withRunOutput = openSurface(withPreview, {
+  const withDiff = openSurface(withFiles, {
+    placement: "right",
+    kind: "diff",
+    title: "Diff",
+    resourceId: "current",
+  });
+  assert.equal(withDiff.rightPanel.activeKind, "diff");
+  assert.equal(withDiff.rightPanel.activeSurfaceId, "right:diff:current");
+  assert.deepEqual(withDiff.rightPanel.surfaces.map((surface) => surface.kind), ["files", "diff"]);
+
+  const reusedDiff = openSurface(withDiff, {
+    placement: "right",
+    kind: "diff",
+    title: "Diff",
+    resourceId: "current",
+  });
+  assert.equal(reusedDiff.rightPanel.surfaces.length, 2);
+  assert.equal(reusedDiff.rightPanel.activeSurfaceId, "right:diff:current");
+
+  const activatedFiles = activateSurface(reusedDiff, {
+    placement: "right",
+    surfaceId: "right:files",
+  });
+  assert.equal(activatedFiles.rightPanel.activeKind, "files");
+  assert.equal(activatedFiles.rightPanel.activeSurfaceId, "right:files");
+
+  const withTerminal = openSurface(activatedFiles, {
+    placement: "right",
+    kind: "terminal",
+    title: "Terminal",
+    resourceId: "terminal-1",
+  });
+  const withPlan = openSurface(withTerminal, {
+    placement: "right",
+    kind: "plan",
+    title: "Plan",
+  });
+  assert.deepEqual(withPlan.rightPanel.surfaces.map((surface) => surface.kind), [
+    "files",
+    "diff",
+    "terminal",
+    "plan",
+  ]);
+
+  const closedPlan = closeSurface(withPlan, {
+    placement: "right",
+    surfaceId: "right:plan",
+  });
+  assert.equal(closedPlan.rightPanel.activeKind, "terminal");
+  assert.equal(closedPlan.rightPanel.activeSurfaceId, "right:terminal:terminal-1");
+
+  const onlyTerminal = closeOtherSurfaces(withPlan, {
+    placement: "right",
+    surfaceId: "right:terminal:terminal-1",
+  });
+  assert.deepEqual(onlyTerminal.rightPanel.surfaces.map((surface) => surface.kind), ["terminal"]);
+  assert.equal(onlyTerminal.rightPanel.activeKind, "terminal");
+
+  const leftPair = closeSurfacesToRight(withPlan, {
+    placement: "right",
+    surfaceId: "right:diff:current",
+  });
+  assert.deepEqual(leftPair.rightPanel.surfaces.map((surface) => surface.kind), ["files", "diff"]);
+  assert.equal(leftPair.rightPanel.activeKind, "diff");
+
+  const emptyRight = closeAllSurfaces(withPlan, { placement: "right" });
+  assert.deepEqual(emptyRight.rightPanel.surfaces, []);
+  assert.equal(emptyRight.rightPanel.activeSurfaceId, null);
+  assert.equal(emptyRight.rightPanel.activeKind, "");
+  assert.equal(emptyRight.rightPanel.open, true);
+
+  const withRunOutput = openSurface(withFiles, {
     sessionId: "sess-1",
     placement: "bottom",
     kind: "run_output",
@@ -62,30 +133,15 @@ export function runWorkbenchStateTests() {
   assert.equal(withRunOutput.bottomDrawer.activeKind, "run_output");
   assert.equal(withRunOutput.surfacesBySession["sess-1"].bottom[0].kind, "run_output");
 
-  const activated = activateSurface(withRunOutput, {
-    placement: "right",
-    kind: "tasks",
-  });
-  assert.equal(activated.rightPanel.activeKind, "tasks");
-
-  const closed = closeSurface(withRunOutput, {
-    sessionId: "sess-1",
-    placement: "right",
-    kind: "preview",
-    resourceId: "README.md",
-  });
-  assert.equal(closed.surfacesBySession["sess-1"].right.length, 0);
-  assert.equal(closed.rightPanel.activeKind, "tasks");
-
   const reduced = reduceWorkbenchState(initial, {
     type: "workbench_surface_opened",
     sessionId: "sess-2",
     placement: "right",
-    kind: "runtime",
-    title: "Runtime",
+    kind: "plan",
+    title: "Plan",
   });
-  assert.equal(reduced.rightPanel.activeKind, "runtime");
-  assert.equal(reduced.surfacesBySession["sess-2"].right[0].kind, "runtime");
+  assert.equal(reduced.rightPanel.activeKind, "plan");
+  assert.equal(reduced.rightPanel.surfaces[0].kind, "plan");
 
   assert.equal(COMMAND_GROUPS.includes("session"), true);
   assert.equal(COMMAND_GROUPS.includes("app"), true);
