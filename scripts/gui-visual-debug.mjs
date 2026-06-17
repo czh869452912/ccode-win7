@@ -8,7 +8,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { createRequire } from "node:module";
 
-export const SCENARIOS = ["load", "chat", "diff", "responsive", "app", "thread", "timeline", "interaction"];
+export const SCENARIOS = ["load", "chat", "diff", "file", "responsive", "app", "thread", "timeline", "interaction"];
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_REPO_ROOT = path.resolve(SCRIPT_DIR, "..");
@@ -490,6 +490,32 @@ async function runDiffScenario(page) {
   };
 }
 
+async function runFileScenario(page) {
+  await page.waitForSelector('[data-testid="right-panel-empty-surface--files"]', { timeout: 10000 });
+  await page.click('[data-testid="right-panel-empty-surface--files"]');
+  await page.waitForSelector('[data-testid="right-panel-files-surface"]', { timeout: 10000 });
+  await page.waitForSelector('[data-testid="right-panel-file-node--README.md"]', { timeout: 10000 });
+  await page.click('[data-testid="right-panel-file-node--README.md"]');
+  await page.waitForSelector('[data-testid="right-panel-file-surface"]', { timeout: 15000 });
+  await page.waitForSelector('[data-testid="right-panel-file-content"]', { timeout: 15000 });
+  const panelText = await page.locator('[data-testid="right-panel-file-surface"]').innerText();
+  const activeTab = await page.locator('[data-testid="right-panel-surface-tab--file"] [role="tab"]').getAttribute("aria-selected");
+  const filesTabs = await page.locator('[data-testid="right-panel-surface-tab--files"]').count();
+  const noOverlap = await assertNoOverlap(page);
+  if (activeTab !== "true") throw new Error("File tab did not become active");
+  if (filesTabs !== 0) throw new Error("Standalone files surface was not replaced by file surface");
+  if (!panelText.includes("Visual Debug Workspace")) {
+    throw new Error("File surface did not show README.md fixture content");
+  }
+  if (!noOverlap) throw new Error("Right panel tabs overlap in file scenario");
+  return {
+    activeTab: activeTab === "true",
+    filesSurfaceReplaced: filesTabs === 0,
+    hasReadmeContent: panelText.includes("Visual Debug Workspace"),
+    rightTabsDoNotOverlap: noOverlap,
+  };
+}
+
 async function runTimelineScenario(page) {
   await page.waitForFunction(() => Boolean(window.__EMBEDAGENT_VISUAL_DEBUG__), null, { timeout: 10000 });
   await page.evaluate(() => {
@@ -794,6 +820,8 @@ async function runScenarios(options, repoRoot, outputDir) {
         results.chat = await runChatScenario(page);
       } else if (scenario === "diff") {
         results.diff = await runDiffScenario(page);
+      } else if (scenario === "file") {
+        results.file = await runFileScenario(page);
       } else if (scenario === "thread") {
         results.thread = await runThreadScenario(page);
       } else if (scenario === "timeline") {
@@ -821,7 +849,7 @@ function printHelp() {
   console.log(`Usage: node scripts/gui-visual-debug.mjs [options]
 
 Options:
-  --scenario load|chat|diff|responsive|app|thread|timeline|interaction|all
+  --scenario load|chat|diff|file|responsive|app|thread|timeline|interaction|all
                                    Scenario list to run (default: load)
   --workspace PATH                Existing workspace; temp workspace by default
   --output PATH                   Output dir for screenshots and summary JSON
