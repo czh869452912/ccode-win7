@@ -640,6 +640,8 @@ async function main() {
   assert.equal(inspectorSource.includes("DiagnosticsPanel"), true);
   assert.equal(inspectorSource.includes("appShell"), true);
   assert.equal(inspectorSource.includes("onAppSettingsChange"), true);
+  assert.equal(inspectorSource.includes("SourceControlPanel"), true);
+  assert.equal(inspectorSource.includes("sourceControl={sourceControl}"), true);
   assert.equal(inspectorSource.includes("todo-row"), false);
   assert.equal(inspectorSource.includes("todo-mark"), false);
 
@@ -655,6 +657,8 @@ async function main() {
   assert.equal(stylesSource.includes("timeline-work-detail"), true);
   assert.equal(stylesSource.includes(".app-settings-grid"), true);
   assert.equal(stylesSource.includes(".diagnostics-table"), true);
+  assert.equal(stylesSource.includes(".source-control-panel"), true);
+  assert.equal(stylesSource.includes(".source-control-file.active"), true);
 
   const appSource = fs.readFileSync(
     webappSourcePath("App.jsx"),
@@ -690,6 +694,10 @@ async function main() {
   assert.equal(appSource.includes('command.id === "app.settings"'), true);
   assert.equal(appSource.includes('command.id === "app.diagnostics"'), true);
   assert.equal(appSource.includes('command.id === "app.reload"'), true);
+  assert.equal(appSource.includes("getSourceControlStatus"), true);
+  assert.equal(appSource.includes("loadSourceControlStatus"), true);
+  assert.equal(appSource.includes("openSourceControlFile"), true);
+  assert.equal(appSource.includes('command.id === "surface.source_control"'), true);
   assert.equal(appSource.includes("appShell={state.app}"), true);
 
   const storeSource = fs.readFileSync(
@@ -776,6 +784,15 @@ async function main() {
   );
   assert.equal(diffPanelSource.includes('data-testid="diff-file-rail"'), true);
   assert.equal(diffPanelSource.includes("diff-panel-viewport"), true);
+
+  const sourceControlPanelSource = fs.readFileSync(
+    webappSourcePath("components", "source-control", "SourceControlPanel.jsx"),
+    "utf8",
+  );
+  assert.equal(sourceControlPanelSource.includes('data-testid="source-control-panel"'), true);
+  assert.equal(sourceControlPanelSource.includes("groupSourceControlFiles"), true);
+  assert.equal(sourceControlPanelSource.includes("fileStatusLabel"), true);
+  assert.equal(sourceControlPanelSource.includes("onRefresh"), true);
 
   const bottomDrawerSource = fs.readFileSync(
     webappSourcePath("components", "workbench", "BottomDrawer.jsx"),

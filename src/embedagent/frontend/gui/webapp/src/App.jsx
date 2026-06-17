@@ -23,6 +23,11 @@ import {
   writeTerminal,
 } from "./terminal/terminal-api.js";
 import { nextTerminalId } from "./terminal/terminal-labels.js";
+import {
+  getSourceControlDiff,
+  getSourceControlStatus,
+  refreshSourceControlStatus,
+} from "./source-control/source-control-api.js";
 import NoWorkspaceState from "./components/NoWorkspaceState.jsx";
 import Sidebar from "./components/Sidebar.jsx";
 import Timeline from "./components/Timeline.jsx";
@@ -177,12 +182,14 @@ function App() {
     const bootstrap = normalizeAppBootstrap(payload || {});
     dispatch({ type: "app_bootstrap_loaded", bootstrap });
     if (bootstrap.hasActiveWorkspace) {
-      await loadActiveWorkspaceData("");
+      await loadActiveWorkspaceData("", true);
+    } else {
+      dispatch({ type: "source_control_reset" });
     }
     return bootstrap;
   }
 
-  async function loadActiveWorkspaceData(sessionId = state.currentSessionId || "") {
+  async function loadActiveWorkspaceData(sessionId = state.currentSessionId || "", assumeWorkspace = state.app.hasActiveWorkspace) {
     await Promise.all([
       loadSessions(),
       loadArtifacts(),
@@ -190,7 +197,52 @@ function App() {
       loadFileChildren("."),
       loadToolCatalog(),
       loadWorkspaceRecipes(),
+      loadSourceControlStatus(false, assumeWorkspace),
     ]);
+  }
+
+  async function loadSourceControlStatus(refresh = false, assumeWorkspace = state.app.hasActiveWorkspace) {
+    if (!assumeWorkspace) {
+      dispatch({ type: "source_control_reset" });
+      return null;
+    }
+    dispatch({ type: "source_control_load_started" });
+    try {
+      const payload = refresh ? await refreshSourceControlStatus() : await getSourceControlStatus();
+      dispatch({ type: "source_control_status_loaded", status: payload });
+      return payload;
+    } catch (error) {
+      dispatch({ type: "source_control_load_failed", error: error.message || "Source control unavailable" });
+      return null;
+    }
+  }
+
+  async function openSourceControlFile(file, scope = "unstaged") {
+    const path = file?.path || "";
+    if (!path) return;
+    const selectedScope = scope || file?.diffScopes?.[0] || "unstaged";
+    dispatch({ type: "source_control_file_selected", path, scope: selectedScope });
+    dispatch({ type: "source_control_diff_started" });
+    try {
+      const diff = await getSourceControlDiff(path, selectedScope);
+      dispatch({ type: "source_control_diff_loaded", diff });
+      if (diff.available && diff.diff) {
+        dispatch({
+          type: "diff_surface_opened",
+          diffSurface: createDiffSurfaceState({
+            title: `Git Diff: ${path}`,
+            diff: diff.diff,
+            source: "source-control",
+            filePath: path,
+          }),
+        });
+        dispatch({ type: "set_inspector", value: "diff" });
+      } else {
+        dispatch({ type: "source_control_diff_failed", error: diff.reason || "Diff unavailable" });
+      }
+    } catch (error) {
+      dispatch({ type: "source_control_diff_failed", error: error.message || "Diff unavailable" });
+    }
   }
 
   function workspaceErrorFrom(error) {
@@ -218,7 +270,9 @@ function App() {
       const bootstrap = normalizeAppBootstrap(payload || {});
       dispatch({ type: "workspace_switched", bootstrap });
       if (bootstrap.hasActiveWorkspace) {
-        await loadActiveWorkspaceData("");
+        await loadActiveWorkspaceData("", true);
+      } else {
+        dispatch({ type: "source_control_reset" });
       }
     } catch (error) {
       dispatch({ type: "workspace_activation_failed", error: workspaceErrorFrom(error) });
@@ -240,7 +294,9 @@ function App() {
       const bootstrap = normalizeAppBootstrap(payload || {});
       dispatch({ type: "workspace_switched", bootstrap });
       if (bootstrap.hasActiveWorkspace) {
-        await loadActiveWorkspaceData("");
+        await loadActiveWorkspaceData("", true);
+      } else {
+        dispatch({ type: "source_control_reset" });
       }
     } catch (error) {
       dispatch({ type: "workspace_activation_failed", error: workspaceErrorFrom(error) });
@@ -254,7 +310,9 @@ function App() {
     const bootstrap = normalizeAppBootstrap(payload || {});
     dispatch({ type: "workspace_switched", bootstrap });
     if (bootstrap.hasActiveWorkspace) {
-      await loadActiveWorkspaceData("");
+      await loadActiveWorkspaceData("", true);
+    } else {
+      dispatch({ type: "source_control_reset" });
     }
   }
 
@@ -831,6 +889,12 @@ function App() {
       await loadAppBootstrap();
       return;
     }
+    if (command.id === "surface.source_control") {
+      dispatch({ type: "set_inspector", value: "source_control" });
+      dispatch({ type: "workbench_surface_activated", placement: "right", kind: "source_control" });
+      await loadSourceControlStatus();
+      return;
+    }
     if (command.id === "message.send") {
       await sendMessage();
       return;
@@ -990,7 +1054,9 @@ function App() {
       const bootstrap = normalizeAppBootstrap(data || {});
       dispatch({ type: "workspace_switched", bootstrap });
       if (bootstrap.hasActiveWorkspace) {
-        void loadActiveWorkspaceData("");
+        void loadActiveWorkspaceData("", true);
+      } else {
+        dispatch({ type: "source_control_reset" });
       }
       return;
     }
@@ -1568,10 +1634,14 @@ function App() {
             interaction: runtimeState.currentInteraction || interactionNotice ? 1 : 0,
             tasks: state.tasks.length,
             artifacts: state.artifacts.length,
+            source_control: state.sourceControl?.data?.counts?.total || 0,
           }}
           onSelect={(kind) => {
             dispatch({ type: "set_inspector", value: kind });
             dispatch({ type: "workbench_surface_activated", placement: "right", kind });
+            if (kind === "source_control") {
+              void loadSourceControlStatus();
+            }
           }}
         >
           <Inspector
@@ -1587,6 +1657,7 @@ function App() {
             permissionContext={state.permissionContext}
             preview={state.preview}
             diffSurface={state.diffSurface}
+            sourceControl={state.sourceControl}
             snapshot={state.snapshot}
             appShell={state.app}
             userAnswer={userAnswer}
@@ -1599,6 +1670,8 @@ function App() {
             onOpenReviewEvidence={openReviewEvidence}
             onRunRecipe={runRecipe}
             onFocusDiffFile={(filePath) => dispatch({ type: "diff_file_focused", filePath })}
+            onRefreshSourceControl={() => loadSourceControlStatus(true)}
+            onSelectSourceControlFile={openSourceControlFile}
             onAppSettingsChange={(patch) => dispatch({ type: "app_shell_settings_changed", patch })}
             onUserAnswerChange={setUserAnswer}
             onRespondInteraction={respondToInteraction}

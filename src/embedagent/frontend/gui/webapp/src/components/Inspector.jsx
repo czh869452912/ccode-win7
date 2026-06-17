@@ -7,6 +7,7 @@ import { RIGHT_PANEL_SURFACES } from "../workbench/surfaces.js";
 import DiffView from "./DiffView.jsx";
 import InteractionPanel from "./InteractionPanel.jsx";
 import DiffPanel from "./diff/DiffPanel.jsx";
+import SourceControlPanel from "./source-control/SourceControlPanel.jsx";
 
 const ALL_TABS = RIGHT_PANEL_SURFACES;
 
@@ -56,6 +57,7 @@ export default function Inspector({
   permissionContext,
   preview,
   diffSurface,
+  sourceControl,
   snapshot,
   appShell,
   userAnswer,
@@ -65,6 +67,8 @@ export default function Inspector({
   onOpenReviewEvidence,
   onRunRecipe,
   onFocusDiffFile,
+  onRefreshSourceControl,
+  onSelectSourceControlFile,
   onAppSettingsChange,
   onRespondInteraction,
   onUserAnswerChange,
@@ -103,6 +107,13 @@ export default function Inspector({
         {inspectorTab === "review" && <ReviewPanel review={review} lang={lang} onOpenReviewEvidence={onOpenReviewEvidence} />}
         {inspectorTab === "diff" && (
           <DiffPanel surface={diffSurface} onFocusFile={onFocusDiffFile} />
+        )}
+        {inspectorTab === "source_control" && (
+          <SourceControlPanel
+            sourceControl={sourceControl}
+            onRefresh={onRefreshSourceControl}
+            onSelectFile={onSelectSourceControlFile}
+          />
         )}
         {inspectorTab === "permissions" && (
           <PermissionsPanel permissionContext={permissionContext} lang={lang} />
