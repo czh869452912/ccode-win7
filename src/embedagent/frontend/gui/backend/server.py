@@ -6,6 +6,7 @@ GUI Backend - FastAPI + WebSocket 服务
 from __future__ import annotations
 
 import logging
+import os
 import threading
 import time
 from contextlib import asynccontextmanager
@@ -23,6 +24,7 @@ from embedagent.frontend.gui.backend.app_host import (
 from embedagent.frontend.gui.backend.app_shell import AppShellService
 from embedagent.frontend.gui.backend.bridge import BlockingResult, ThreadsafeAsyncDispatcher
 from embedagent.frontend.gui.backend.session_events import build_session_event
+from embedagent.frontend.gui.backend.terminal_service import TerminalService
 from embedagent.modes import DEFAULT_MODE
 from embedagent.protocol import (
     CommandResult,
@@ -233,6 +235,28 @@ def _thread_lifecycle_http_error(exc: ValueError) -> HTTPException:
     if detail == "invalid_thread_title":
         return HTTPException(status_code=422, detail=detail)
     if detail == "session_fork_failed":
+        return HTTPException(status_code=422, detail=detail)
+    return HTTPException(status_code=422, detail=detail)
+
+
+def _terminal_http_error(exc: ValueError) -> HTTPException:
+    detail = str(exc or "").strip() or "terminal_failed"
+    if detail == "terminal_not_found":
+        return HTTPException(status_code=404, detail=detail)
+    if detail == "terminal_not_running":
+        return HTTPException(status_code=409, detail=detail)
+    if detail in (
+        "invalid_session_id",
+        "invalid_terminal_id",
+        "terminal_write_empty",
+        "terminal_write_too_large",
+        "terminal_cwd_outside_workspace",
+        "terminal_cwd_not_found",
+        "terminal_cwd_not_directory",
+        "terminal_shell_unavailable",
+    ):
+        return HTTPException(status_code=422, detail=detail)
+    if detail.startswith("terminal_start_failed"):
         return HTTPException(status_code=422, detail=detail)
     return HTTPException(status_code=422, detail=detail)
 
@@ -586,6 +610,7 @@ class GUIBackend:
         static_dir: str = "",
         app_host: Optional[GUIAppHost] = None,
         host_diagnostics: Optional[Dict[str, Any]] = None,
+        terminal_service: Optional[Any] = None,
     ):
         if core is None and app_host is None:
             raise ValueError("core_or_app_host_required")
@@ -597,6 +622,11 @@ class GUIBackend:
             self.app_host,
             host_diagnostics=host_diagnostics or {},
         )
+        self.terminal_service = terminal_service
+        self._terminal_service_injected = terminal_service is not None
+        self._terminal_workspace_path = ""
+        if self.terminal_service is not None and hasattr(self.terminal_service, "set_event_sink"):
+            self.terminal_service.set_event_sink(self._emit_terminal_event)
         self.core = _ActiveCoreProxy(self)  # Compatibility for existing route code.
         self.app = self._create_app()
         self._current_session_id: Optional[str] = None
@@ -614,6 +644,37 @@ class GUIBackend:
             return self.app_host.require_core()
         except NoActiveWorkspaceError:
             raise HTTPException(status_code=409, detail="no_active_workspace")
+
+    def _terminal(self) -> Any:
+        self._require_core()
+        host_state = self.app_host.bootstrap()
+        active_workspace = (
+            host_state.get("active_workspace") if isinstance(host_state, dict) else None
+        )
+        workspace_path = ""
+        if isinstance(active_workspace, dict):
+            workspace_path = str(active_workspace.get("path") or "")
+        if not workspace_path:
+            raise HTTPException(status_code=409, detail="no_active_workspace")
+        real_workspace = os.path.realpath(workspace_path)
+        if (
+            self.terminal_service is not None
+            and not self._terminal_service_injected
+            and self._terminal_workspace_path
+            and real_workspace != self._terminal_workspace_path
+        ):
+            self.terminal_service.shutdown()
+            self.terminal_service = None
+        if self.terminal_service is None:
+            self._terminal_workspace_path = real_workspace
+            self.terminal_service = TerminalService(
+                workspace_root=workspace_path,
+                event_sink=self._emit_terminal_event,
+            )
+        return self.terminal_service
+
+    def _emit_terminal_event(self, event: Dict[str, Any]) -> None:
+        self.frontend._dispatch_message({"type": "terminal_event", "data": {"event": dict(event)}})
 
     def _wait_for_interaction_resolution(
         self, session_id: str, interaction_id: str, timeout_seconds: float = 2.0
@@ -639,6 +700,8 @@ class GUIBackend:
             _LOGGER.info("GUI Backend starting...")
             yield
             _LOGGER.info("GUI Backend shutting down...")
+            if self.terminal_service is not None:
+                self.terminal_service.shutdown()
             self.app_host.shutdown()
 
         app = FastAPI(title="EmbedAgent GUI", lifespan=lifespan)
@@ -753,6 +816,91 @@ class GUIBackend:
                 raise _thread_lifecycle_http_error(exc)
             payload = _serialize_session_summary(summary)
             return {"session_id": payload["session_id"], "session": payload}
+
+        @app.get("/api/sessions/{session_id}/terminals")
+        async def list_session_terminals(session_id: str):
+            terminal = self._terminal()
+            return {"terminals": terminal.list_sessions(session_id)}
+
+        @app.post("/api/sessions/{session_id}/terminals/{terminal_id}/open")
+        async def open_terminal(session_id: str, terminal_id: str, request: Dict[str, Any]):
+            terminal = self._terminal()
+            try:
+                snapshot = terminal.open_or_attach(
+                    session_id,
+                    terminal_id,
+                    cwd=str(request.get("cwd") or ""),
+                    cols=int(request.get("cols") or 80),
+                    rows=int(request.get("rows") or 24),
+                )
+            except ValueError as exc:
+                raise _terminal_http_error(exc)
+            return {"terminal": snapshot}
+
+        @app.get("/api/sessions/{session_id}/terminals/{terminal_id}/snapshot")
+        async def get_terminal_snapshot(session_id: str, terminal_id: str):
+            terminal = self._terminal()
+            try:
+                snapshot = terminal.snapshot(session_id, terminal_id)
+            except ValueError as exc:
+                raise _terminal_http_error(exc)
+            return {"terminal": snapshot}
+
+        @app.post("/api/sessions/{session_id}/terminals/{terminal_id}/write")
+        async def write_terminal(session_id: str, terminal_id: str, request: Dict[str, Any]):
+            terminal = self._terminal()
+            try:
+                snapshot = terminal.write(session_id, terminal_id, str(request.get("data") or ""))
+            except ValueError as exc:
+                raise _terminal_http_error(exc)
+            return {"terminal": snapshot}
+
+        @app.post("/api/sessions/{session_id}/terminals/{terminal_id}/clear")
+        async def clear_terminal(session_id: str, terminal_id: str):
+            terminal = self._terminal()
+            try:
+                snapshot = terminal.clear(session_id, terminal_id)
+            except ValueError as exc:
+                raise _terminal_http_error(exc)
+            return {"terminal": snapshot}
+
+        @app.post("/api/sessions/{session_id}/terminals/{terminal_id}/restart")
+        async def restart_terminal(session_id: str, terminal_id: str, request: Dict[str, Any]):
+            terminal = self._terminal()
+            try:
+                snapshot = terminal.restart(
+                    session_id,
+                    terminal_id,
+                    cwd=str(request.get("cwd") or ""),
+                    cols=int(request.get("cols") or 80),
+                    rows=int(request.get("rows") or 24),
+                )
+            except ValueError as exc:
+                raise _terminal_http_error(exc)
+            return {"terminal": snapshot}
+
+        @app.post("/api/sessions/{session_id}/terminals/{terminal_id}/resize")
+        async def resize_terminal(session_id: str, terminal_id: str, request: Dict[str, Any]):
+            terminal = self._terminal()
+            try:
+                snapshot = terminal.resize(
+                    session_id,
+                    terminal_id,
+                    cols=int(request.get("cols") or 80),
+                    rows=int(request.get("rows") or 24),
+                )
+            except ValueError as exc:
+                raise _terminal_http_error(exc)
+            return {"terminal": snapshot}
+
+        @app.post("/api/sessions/{session_id}/terminals/{terminal_id}/close")
+        async def close_terminal(session_id: str, terminal_id: str):
+            terminal = self._terminal()
+            try:
+                snapshot = terminal.close(session_id, terminal_id)
+            except ValueError as exc:
+                raise _terminal_http_error(exc)
+            return {"terminal": snapshot}
 
         @app.post("/api/sessions/{session_id}/message")
         async def send_message(session_id: str, request: Dict[str, Any]):

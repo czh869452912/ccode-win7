@@ -105,6 +105,14 @@ class AppShellService(object):
             ],
             "surfaces": {
                 "right_panel": ["settings", "diagnostics"],
+                "bottom_drawer": ["terminal", "run_output", "logs"],
+            },
+            "terminal": {
+                "enabled": True,
+                "pty": False,
+                "resize": False,
+                "history_persistent": False,
+                "max_buffer_bytes": 131072,
             },
             "thread_lifecycle": {
                 "rename": True,
