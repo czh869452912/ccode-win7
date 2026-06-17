@@ -1,6 +1,6 @@
 # EmbedAgent 开发进度跟踪
 
-> 更新日期：2026-06-17（T3 right-panel file surface）
+> 更新日期：2026-06-17（T3 right-panel terminal group surface）
 > 用途：持续跟踪当前阶段、下一步任务、里程碑进度、风险与阻塞
 
 ---
@@ -23,6 +23,13 @@
 ---
 
 ## 2. 当前阶段
+
+### 2026-06-17 - T3 Right-Panel Terminal Group Surface
+
+- GUI right panel 已新增 T3 Code-style terminal group surface：terminal surface descriptor 现在拥有 `terminalIds`、`activeTerminalId` 和可选 `splitDirection`，可在同一 right-panel terminal tab 内 split、activate 和 close pane。
+- 右侧 terminal surface 现在按 surface-scoped terminal ids 渲染 panes，不再直接展示全局 active terminal；bottom drawer terminal 保持独立入口和既有行为。
+- right-panel terminal actions 继续复用现有 GUI terminal backend routes，terminal process state/output buffer 仍属于 GUI-local terminal runtime state。
+- 该切片继续保持 GUI app-shell 与 Agent Core 分离：不写 transcript、workflow state、permission/runtime reducers、telemetry、provider config、extension loading、source-control checkpoints 或 Agent Core policy。
 
 ### 2026-06-17 - T3 Right-Panel File Surface
 
