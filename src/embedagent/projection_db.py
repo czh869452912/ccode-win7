@@ -172,14 +172,15 @@ class ProjectionDb(object):
             try:
                 if include_archived:
                     rows = connection.execute(
-                        "SELECT * FROM session_projection ORDER BY updated_at DESC LIMIT ?",
+                        "SELECT * FROM session_projection "
+                        "ORDER BY updated_at DESC, rowid DESC LIMIT ?",
                         (int(limit),),
                     ).fetchall()
                 else:
                     rows = connection.execute(
                         "SELECT * FROM session_projection "
                         "WHERE COALESCE(archived, 0) = 0 "
-                        "ORDER BY updated_at DESC LIMIT ?",
+                        "ORDER BY updated_at DESC, rowid DESC LIMIT ?",
                         (int(limit),),
                     ).fetchall()
                 return [dict(row) for row in rows]

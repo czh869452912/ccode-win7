@@ -240,6 +240,77 @@ class SessionSummaryStore(object):
             summary["updated_at"] = _utc_now()
             return self._write_summary_payload(summary)
 
+    def fork_session(self, session_id: str, title: str = "") -> Dict[str, Any]:
+        with self._lock:
+            source = self.load_summary(session_id)
+            source_id = str(source.get("session_id") or session_id).strip()
+            if not source_id:
+                raise ValueError("session_not_found")
+            new_session_id = uuid.uuid4().hex
+            now = _utc_now()
+            source_transcript = self.transcript_store.resolve_transcript_path(source_id)
+            target_transcript = self.transcript_store.resolve_transcript_path(new_session_id)
+            if not os.path.isfile(source_transcript):
+                raise ValueError("session_fork_failed")
+            target_dir = os.path.dirname(target_transcript)
+            if not os.path.isdir(target_dir):
+                os.makedirs(target_dir)
+            self._copy_transcript_for_fork(
+                source_transcript,
+                target_transcript,
+                source_id,
+                new_session_id,
+            )
+            fork_thread = self._normalize_thread_metadata(source.get("thread"))
+            fork_title = str(title or "").strip()
+            if fork_title:
+                fork_thread["title"] = self._normalize_thread_title(fork_title)
+            elif fork_thread.get("title"):
+                fork_thread["title"] = self._normalize_thread_title(
+                    "%s Copy" % fork_thread.get("title")
+                )
+            fork_thread["archived"] = False
+            fork_thread["archived_at"] = ""
+            fork_thread["forked_from"] = source_id
+            fork_thread["forked_at"] = now
+            payload = dict(source)
+            payload["session_id"] = new_session_id
+            payload["updated_at"] = now
+            payload["transcript_ref"] = self.transcript_ref_for_session(new_session_id)
+            payload["thread"] = fork_thread
+            payload["title"] = self._display_title(payload)
+            return self._write_summary_payload(payload)
+
+    def _copy_transcript_for_fork(
+        self,
+        source_path: str,
+        target_path: str,
+        source_session_id: str,
+        target_session_id: str,
+    ) -> None:
+        with open(source_path, "r", encoding="utf-8") as source_handle:
+            lines = source_handle.readlines()
+        with open(target_path, "w", encoding="utf-8", newline="\n") as target_handle:
+            for line in lines:
+                text = line.strip()
+                if not text:
+                    continue
+                try:
+                    event = json.loads(text)
+                except (TypeError, ValueError):
+                    raise ValueError("session_fork_failed")
+                if not isinstance(event, dict):
+                    raise ValueError("session_fork_failed")
+                if str(event.get("session_id") or "") == source_session_id:
+                    event["session_id"] = target_session_id
+                payload = event.get("payload")
+                if (
+                    isinstance(payload, dict)
+                    and str(payload.get("session_id") or "") == source_session_id
+                ):
+                    payload["session_id"] = target_session_id
+                target_handle.write(json.dumps(event, ensure_ascii=False, sort_keys=True) + "\n")
+
     def _write_summary_payload(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         session_id = str(payload.get("session_id") or "").strip()
         if not session_id:

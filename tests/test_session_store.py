@@ -11,6 +11,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 from embedagent.project_memory import ProjectMemoryStore
 from embedagent.session import Action, AssistantReply, Observation, Session
 from embedagent.session_store import SessionSummaryStore
+from embedagent.transcript_store import TranscriptStore
 
 
 class TestSessionSummaryStore(unittest.TestCase):
@@ -95,6 +96,45 @@ class TestSessionSummaryStore(unittest.TestCase):
         self.assertEqual(result["deleted"], 0)
         self.assertTrue(os.path.isfile(store.resolve_summary_path(archived_session.session_id)))
         self.assertTrue(os.path.isfile(store.resolve_summary_path(active_session.session_id)))
+
+    def test_fork_session_copies_transcript_with_new_session_id_and_thread_metadata(self):
+        store = SessionSummaryStore(self.workspace)
+        transcript_store = TranscriptStore(self.workspace)
+        session = Session()
+        session.add_user_message("source goal")
+        summary_ref = store.persist(session, "debug")
+        transcript_store.append_event(
+            session.session_id,
+            "session_meta",
+            {"current_mode": "debug", "session_id": session.session_id},
+        )
+        transcript_store.append_event(
+            session.session_id,
+            "user",
+            {
+                "role": "user",
+                "content": "source goal",
+                "message_id": "m-source",
+                "session_id": session.session_id,
+            },
+        )
+        store.rename_session(session.session_id, "Source Title")
+
+        forked = store.fork_session(session.session_id, title="Fork Title")
+
+        self.assertNotEqual(forked["session_id"], session.session_id)
+        self.assertEqual(forked["thread"]["title"], "Fork Title")
+        self.assertEqual(forked["thread"]["forked_from"], session.session_id)
+        self.assertTrue(forked["thread"]["forked_at"])
+        source_summary = store.load_summary(summary_ref)
+        self.assertEqual(source_summary["thread"]["title"], "Source Title")
+        fork_events = transcript_store.load_events(forked["session_id"])
+        self.assertEqual(fork_events[0]["session_id"], forked["session_id"])
+        self.assertEqual(fork_events[0]["payload"]["session_id"], forked["session_id"])
+        self.assertEqual(fork_events[1]["session_id"], forked["session_id"])
+        self.assertEqual(fork_events[1]["payload"]["session_id"], forked["session_id"])
+        listed = store.list_summaries(limit=5)
+        self.assertEqual(listed[0]["session_id"], forked["session_id"])
 
 
 class TestProjectMemoryStore(unittest.TestCase):
