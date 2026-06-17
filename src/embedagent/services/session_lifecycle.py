@@ -121,8 +121,24 @@ class SessionLifecycleManager(object):
             state.workflow_state = "plan"
         return state
 
-    def list_sessions(self, limit: int = 10) -> List[Dict[str, Any]]:
-        return self.summary_store.list_summaries(limit=limit)
+    def list_sessions(
+        self,
+        limit: int = 10,
+        include_archived: bool = False,
+    ) -> List[Dict[str, Any]]:
+        return self.summary_store.list_summaries(
+            limit=limit,
+            include_archived=include_archived,
+        )
+
+    def rename_session(self, session_id: str, title: str) -> Dict[str, Any]:
+        return self.summary_store.rename_session(session_id, title)
+
+    def archive_session(self, session_id: str) -> Dict[str, Any]:
+        return self.summary_store.archive_session(session_id)
+
+    def fork_session(self, session_id: str, title: str = "") -> Dict[str, Any]:
+        return self.summary_store.fork_session(session_id, title=title)
 
     def persist_state(self, session: Session, current_mode: str, state: ManagedSession) -> str:
         try:

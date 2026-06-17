@@ -784,8 +784,24 @@ class InProcessAdapter(object):
         session_id = str(snapshot.get("session_id") or "")
         return self._require_session(session_id)
 
-    def list_sessions(self, limit: int = 10) -> List[Dict[str, Any]]:
-        return self._session_lifecycle.list_sessions(limit=limit)
+    def list_sessions(
+        self,
+        limit: int = 10,
+        include_archived: bool = False,
+    ) -> List[Dict[str, Any]]:
+        return self._session_lifecycle.list_sessions(
+            limit=limit,
+            include_archived=include_archived,
+        )
+
+    def rename_session(self, session_id: str, title: str) -> Dict[str, Any]:
+        return self._session_lifecycle.rename_session(session_id, title)
+
+    def archive_session(self, session_id: str) -> Dict[str, Any]:
+        return self._session_lifecycle.archive_session(session_id)
+
+    def fork_session(self, session_id: str, title: str = "") -> Dict[str, Any]:
+        return self._session_lifecycle.fork_session(session_id, title=title)
 
     def get_session_snapshot(self, session_id: str) -> Dict[str, Any]:
         state = self._ensure_session_active(session_id)

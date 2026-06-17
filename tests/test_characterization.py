@@ -63,6 +63,13 @@ class TestServiceDelegation(object):
         assert hasattr(adapter, "_session_lifecycle")
         assert isinstance(adapter._session_lifecycle, SessionLifecycleManager)
 
+    def test_inprocess_adapter_exposes_thread_lifecycle_facade(self, fresh_container):
+        adapter = self._make_adapter(fresh_container)
+
+        assert callable(adapter.rename_session)
+        assert callable(adapter.archive_session)
+        assert callable(adapter.fork_session)
+
     def test_inprocess_adapter_has_event_emitter(self, fresh_container):
         adapter = self._make_adapter(fresh_container)
         assert hasattr(adapter, "_event_emitter")
