@@ -24,6 +24,7 @@ import { runVisualLanguageCssTests } from "./visual-language-css.test.mjs";
 import { runVisualDebugRunnerTests } from "./visual-debug-runner.test.mjs";
 import { runWebSocketLifecycleTests } from "./websocket-lifecycle.test.mjs";
 import { runSocketMessageEffectsTests } from "./socket-message-effects.test.mjs";
+import { runVisualDebugFixturesTests } from "./visual-debug-fixtures.test.mjs";
 import { runWorkbenchStateTests } from "./workbench-state.test.mjs";
 import { runAppShellModelTests } from "./app-shell-model.test.mjs";
 import { runAppWorkspaceTests } from "./app-workspaces.test.mjs";
@@ -981,6 +982,7 @@ async function main() {
   runDiffModelTests();
   runWebSocketLifecycleTests();
   runSocketMessageEffectsTests();
+  runVisualDebugFixturesTests();
   await runVisualDebugRunnerTests();
 
   console.log("frontend helper checks passed");
