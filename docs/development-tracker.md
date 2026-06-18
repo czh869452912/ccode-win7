@@ -1,6 +1,6 @@
 # EmbedAgent 开发进度跟踪
 
-> 更新日期：2026-06-18（T3 composer command menu and context tokens）
+> 更新日期：2026-06-18（T3 command palette root/submenu parity）
 > 用途：持续跟踪当前阶段、下一步任务、里程碑进度、风险与阻塞
 
 ---
@@ -23,6 +23,15 @@
 ---
 
 ## 2. 当前阶段
+
+### 2026-06-18 - T3 Command Palette Root/Submenu Parity
+
+- GUI command palette now uses a T3code-style grouped root model instead of the previous flat `visibleCommands(...).filter(...)` list.
+- Root results project existing visible commands, recent sessions, and workspaces into rich rows with descriptions, metadata, shortcut hints, active/current labels, disabled missing-workspace rows, and command category submenu entries.
+- Submenu view supports command-group navigation, keyboard-owned highlight movement, Enter execution, Escape close, and Backspace return from an empty submenu query.
+- Command rows still execute through existing workbench command IDs; session/workspace rows route only through existing `App.jsx` callbacks (`loadSession` / `activateWorkspace`).
+- Visual debug coverage now exercises root groups, session/workspace rows, submenu search, keyboard Enter execution, and overflow guardrails across `1280x720`, `700x640`, and `520x720`.
+- This slice stays in the GUI app shell: no Agent Core, backend protocol, transcript history, workflow state, permission policy, runtime reducer, provider configuration, extension loading, source-control mutation, checkpoint, telemetry, or terminal execution semantics changed.
 
 ### 2026-06-18 - T3 Composer Command Menu And Context Tokens
 

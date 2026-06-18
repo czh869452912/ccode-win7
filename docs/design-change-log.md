@@ -44,6 +44,37 @@
 
 ## 3. 当前变更记录
 
+### DC-180
+
+- 日期：2026-06-18
+- 变更主题：GUI T3 command palette root/submenu parity
+- 变更摘要：
+  - `command-palette-model.js` now projects visible workbench commands, recent sessions, workspaces, and keybindings into T3code-style grouped palette rows.
+  - `CommandPalette.jsx` now owns GUI-local root/submenu view state, highlight state, keyboard navigation, and descriptor activation while rendering through `CommandPaletteResults.jsx`.
+  - Command rows still route through existing workbench command IDs; session and workspace rows route through existing `App.jsx` callbacks (`loadSession` and `activateWorkspace`).
+  - `scripts/gui-visual-debug.mjs` now includes a `palette` scenario covering root groups, session/workspace rows, submenu search, keyboard Enter execution, and narrow viewport guardrails.
+- 影响范围：
+  - `src/embedagent/frontend/gui/webapp/src/workbench/command-palette-model.js`
+  - `src/embedagent/frontend/gui/webapp/src/components/workbench/CommandPalette.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/components/workbench/CommandPaletteResults.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/styles.css`
+  - `scripts/gui-visual-debug.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/`
+  - `docs/development-tracker.md`
+  - `docs/design-change-log.md`
+- 关联文档：
+  - `reference/t3code/apps/web/src/components/CommandPalette.tsx`
+  - `reference/t3code/apps/web/src/components/CommandPaletteResults.tsx`
+  - `reference/t3code/apps/web/src/components/CommandPalette.logic.ts`
+  - `reference/t3code/apps/web/src/components/ui/command.tsx`
+  - `reference/t3code/apps/web/src/keybindings.ts`
+  - `docs/superpowers/specs/2026-06-18-t3-command-palette-root-submenu-design.md`
+  - `docs/superpowers/plans/2026-06-18-t3-command-palette-root-submenu.md`
+- 是否需要 ADR：否；该变更是 GUI app-shell presentation/read-model parity work，不改变 Agent Core、backend protocol、session-history truth、workflow package contracts、permission policy、runtime reducers、provider configuration、source-control mutation policy 或 public extension API。
+- 后续动作：
+  - Continue one-to-one T3code parity with branch/environment mutation boundaries, source-control mutation affordances, and file/editor chrome after validating hosted/offline constraints.
+
 ### DC-179
 
 - 日期：2026-06-18

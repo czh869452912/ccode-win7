@@ -622,7 +622,12 @@ async function runPaletteScenario(page, options, outputDir) {
   const results = [];
   for (const viewport of viewports) {
     await page.setViewportSize({ width: viewport.width, height: viewport.height });
+    await page.waitForFunction(() => Boolean(window.__EMBEDAGENT_VISUAL_DEBUG__), null, { timeout: 10000 });
     await page.waitForSelector('[data-testid="workbench-layout"]', { timeout: 10000 });
+    await page.evaluate(() => {
+      window.__EMBEDAGENT_VISUAL_DEBUG__.loadThreadLifecycleFixture();
+    });
+    await page.waitForSelector(".thread-card.selected", { state: "attached", timeout: 10000 });
 
     await page.keyboard.press(process.platform === "darwin" ? "Meta+K" : "Control+K");
     await page.waitForSelector('[data-testid="command-palette"]', { timeout: 10000 });
@@ -631,7 +636,8 @@ async function runPaletteScenario(page, options, outputDir) {
     await page.waitForSelector('[data-testid^="command-palette-workspace--"]', { timeout: 10000 });
 
     const rootText = await page.locator('[data-testid="command-palette"]').innerText();
-    if (!rootText.includes("Commands") || !rootText.includes("Sessions") || !rootText.includes("Workspaces")) {
+    const normalizedRootText = rootText.toLowerCase();
+    if (!normalizedRootText.includes("commands") || !normalizedRootText.includes("sessions") || !normalizedRootText.includes("workspaces")) {
       throw new Error(`Palette root groups missing at ${viewport.name}: ${rootText}`);
     }
 
