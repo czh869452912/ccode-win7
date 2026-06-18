@@ -32,6 +32,7 @@ import { runAppShellModelTests } from "./app-shell-model.test.mjs";
 import { runAppWorkspaceTests } from "./app-workspaces.test.mjs";
 import { runAppHomeModelTests } from "./app-home-model.test.mjs";
 import { runBranchToolbarModelTests } from "./branch-toolbar-model.test.mjs";
+import { runComposerCommandSearchTests } from "./composer-command-search.test.mjs";
 import { runComposerTriggerTests } from "./composer-trigger.test.mjs";
 
 const WEBAPP_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -1122,6 +1123,7 @@ async function main() {
   runAppHomeModelTests();
   runBranchToolbarModelTests();
   runComposerTriggerTests();
+  runComposerCommandSearchTests();
   runSourceControlStateTests();
   runTerminalStateTests();
   await runTerminalControllerTests();
