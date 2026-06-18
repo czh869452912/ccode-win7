@@ -34,7 +34,7 @@ The next long-term architecture direction is captured in `docs/pi-inspired-agent
 - Official file discovery: `list_dir`, `glob_files`, `grep_text`
 - Official permission engine: `PermissionPolicy` with structured rule matching and stable explanation text
 - Official enterprise permission categories: `network` and `telemetry` exist for optional intranet/custom-service tools and telemetry flush/sink actions; both require explicit metadata and default to confirmation
-- Official session runtime ownership: one session-scoped `QueryEngine` remains the facade and transcript/session mutation owner, while `AgentLifecycleJournal`, `AgentKernel`, `AgentLoop`, `AgentToolActionService`, and `AgentExtensionHost` own durable lifecycle writes, turn frames and suspend/resume boundaries, turn-loop orchestration, non-LLM tool action execution, and extension hook dispatch
+- Official session runtime ownership: one session-scoped `QueryEngine` remains the facade and transcript/session mutation owner, while `AgentLifecycleJournal`, `AgentKernel`, `AgentLoop`, `AgentToolActionService`, and `AgentExtensionHost` own durable lifecycle writes, turn frames and suspend/resume boundaries, open turn-loop continuation, non-LLM tool action execution, and extension hook dispatch
 - Official workflow extension hosting: `InProcessAdapter` owns one `ExtensionManager` shared with session-scoped `QueryEngine` and frontend tool catalog visibility
 - Official extension runtime direction: `ExtensionManager` is the shared in-process capability boundary for workflow defaults, prompt/context hooks, tool-call/tool-result hooks, resource discovery contracts, dynamic in-process tool registration, extension diagnostics, and manifest-gated project-local Python extensions. Internally, public extension hook families dispatch through the source-aware `AgentEventBus` with event-specific reducer semantics and diagnostics.
 - Official workflow prompt boundary: workflow-package prompt units are appended as `workflow_prompt` system messages. Legacy `harness_prompt` messages are accepted only for historical session/transcript dedupe compatibility.
@@ -85,7 +85,9 @@ The product no longer treats the old `code` mode or `manage_todos`-style workflo
 - `src/embedagent/agent_kernel.py`
   Internal lifecycle kernel for turn frames and pending interaction creation/resolution boundaries.
 - `src/embedagent/agent_loop.py`
-  Turn-loop owner for agent steps, provider/context attempts, compact retry, tool batches, guard stops, abort transitions, and max-turn termination.
+  Pi-style open continuation loop for agent steps, provider/context attempts, compact retry, tool batches, guard stops, abort transitions, and explicit loop safety-limit compatibility transitions.
+- `src/embedagent/agent_loop_continuation.py`
+  Internal continuation decision policy for open-loop stop, continue, abort, and safety-limit behavior.
 - `src/embedagent/agent_tool_action_service.py`
   Non-LLM action executor for active-tool checks, extension pre/post hooks, permission-gated runtime dispatch, path write guards, and extension-owned tool calls.
 - `src/embedagent/agent_extension_host.py`

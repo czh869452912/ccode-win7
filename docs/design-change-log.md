@@ -44,6 +44,31 @@
 
 ## 3. 当前变更记录
 
+### DC-176
+
+- 日期：2026-06-18
+- 变更主题：Pi-style agent loop continuation
+- 变更摘要：
+  - `AgentLoop` now runs as an open continuation loop instead of the previous fixed-count loop.
+  - The default hosted path no longer synthesizes an eight-cycle safety value; omitted `max_turns` means no fixed turn-count cutoff.
+  - Explicit positive `max_turns` values remain supported as a loop safety fuse and continue to emit compatibility `max_turns` transitions with `loop_safety_limit` metadata.
+  - `AgentLoopContinuationPolicy` is an internal Agent Core boundary, not a public extension API.
+- 影响范围：
+  - `src/embedagent/agent_loop.py`
+  - `src/embedagent/agent_loop_continuation.py`
+  - `src/embedagent/query_engine.py`
+  - `src/embedagent/inprocess_adapter.py`
+  - `src/embedagent/core/adapter.py`
+  - `src/embedagent/frontend/tui/`
+  - `src/embedagent/frontend/gui/`
+  - `docs/`
+- 关联文档：
+  - `docs/superpowers/specs/2026-06-18-pi-style-agent-loop-continuation-design.md`
+  - `docs/superpowers/plans/2026-06-18-pi-style-agent-loop-continuation.md`
+- 是否需要 ADR：否；该变更实现既有 Pi-inspired blueprint 的小切片，不引入公共 extension API。
+- 后续动作：
+  - Continue real Win7 bundle smoke validation and real C/C++ project validation with the new continuation behavior.
+
 ### DC-175
 
 - 日期：2026-06-18
@@ -1236,7 +1261,7 @@
 - 变更摘要：
   - 新增 `AgentLifecycleJournal`，集中 schema v2 lifecycle operation 写入、transition save point、pending interaction lifecycle、context operation payload helper
   - 新增 `AgentKernel` / `AgentTurnFrame`，统一 user、command、resume turn frame，并把 permission/user-input pending 创建与 resolution 边界迁出 `QueryEngine`
-  - `AgentLoop` 从 runner callback 包装器升级为 turn-loop owner，负责 agent step lifecycle、context/provider attempt、compact retry、tool batch interruption、guard-stop、abort 与 max-turn transition
+  - `AgentLoop` 从 runner callback 包装器升级为 turn-loop owner，负责 agent step lifecycle、context/provider attempt、compact retry、tool batch interruption、guard-stop、abort 与 safety-limit compatibility transition
   - `QueryEngine` 保持 session-scoped facade 与 transcript/session mutation 兼容面，但不再拥有 `_run_loop_impl`
   - Phase C working design/plan 已从 `docs/superpowers/` 归档到 `docs/archive/phase-c-agent-kernel/`
 - 影响范围：

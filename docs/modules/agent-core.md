@@ -15,7 +15,7 @@
 ## 2. Responsibilities
 
 - session-scoped `QueryEngine` facade and transcript/session mutation owner
-- `AgentLoop` turn-loop boundary
+- `AgentLoop` Pi-style open turn-loop continuation boundary
 - `AgentToolActionService` non-LLM tool action execution boundary
 - `AgentExtensionHost` extension dispatch and active schema projection boundary
 - hosted `InProcessAdapter` shared `ExtensionManager` ownership
@@ -55,7 +55,7 @@
 
 ## 5. Data / Control Flow
 
-`QueryEngine` 是 session-scoped facade，保留 transcript/session mutation 与 interaction suspend/resume ownership。`AgentLoop` 承担 turn-loop 边界，`AgentToolActionService` 承担非 LLM tool action execution，`AgentExtensionHost` 承担 extension dispatch、dynamic tool registration、active schema projection 与 workflow patching。`InProcessAdapter` 负责把 CLI/TUI/GUI 的请求接到 session owner 上，并持有 hosted runtime 的 shared `ExtensionManager`。
+`QueryEngine` 是 session-scoped facade，保留 transcript/session mutation 与 interaction suspend/resume ownership。`AgentLoop` 承担 Pi-style open turn-loop continuation 边界，负责 agent step、context/provider attempt、compact retry、guard-stop、abort 与显式 loop safety-limit 兼容 transition；默认 hosted 路径不再因为 8 个 model/tool cycles 被截断。`AgentToolActionService` 承担非 LLM tool action execution，`AgentExtensionHost` 承担 extension dispatch、dynamic tool registration、active schema projection 与 workflow patching。`InProcessAdapter` 负责把 CLI/TUI/GUI 的请求接到 session owner 上，并持有 hosted runtime 的 shared `ExtensionManager`。
 
 ```mermaid
 flowchart TD

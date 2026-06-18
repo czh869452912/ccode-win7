@@ -17,7 +17,7 @@
         "chars_per_token": 3.0,
         "max_recent_turns": 4,
         "auto_compact_threshold_ratio": 0.9,
-        "max_turns": 8,
+        "max_turns": null,
         "default_mode": "build",
         "mode_writable_globs": {
             "build": ["**/*.py", "**/*.toml", "**/*.cfg"],
