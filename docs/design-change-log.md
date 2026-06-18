@@ -44,6 +44,29 @@
 
 ## 3. 当前变更记录
 
+### DC-173
+
+- 日期：2026-06-18
+- 变更主题：GUI session/app loader runtime boundary
+- 变更摘要：
+  - React webapp 新增 `webapp/src/app-runtime/session-loaders.js`，集中管理 GUI-private loader request vocabulary、防御性 loader request executor 与 session bootstrap projection helper。
+  - `socket-message-effects.js` 改为共享 `session-loaders.js` 的 loader vocabulary，避免 socket effect derivation 和 loader execution 维护两份私有请求名。
+  - `App.jsx` 继续拥有实际 HTTP route calls、reducer dispatch、event-log reset、terminal summary loading、task/artifact refreshes 和 render composition，但不再承载 loader request switch 或 session bootstrap projection 细节。
+- 影响范围：
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/session-loaders.js`
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/socket-message-effects.js`
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/test/`
+  - `docs/modules/frontend-gui.md`
+  - `docs/development-tracker.md`
+  - `docs/design-change-log.md`
+- 关联文档：
+  - `docs/superpowers/specs/2026-06-18-gui-session-app-loader-runtime-boundary-design.md`
+  - `docs/superpowers/plans/2026-06-18-gui-session-app-loader-runtime-boundary.md`
+- 是否需要 ADR：否；该边界是 GUI app-shell implementation detail，不是 backend protocol、session-history truth 或 Agent Core extension API。
+- 后续动作：
+  - 可在后续切片继续把 command routing、terminal action helpers、source-control action helpers 或 file preview loading 从 `App.jsx` 抽到更小 controller/hook 中。
+
 ### DC-172
 
 - 日期：2026-06-18

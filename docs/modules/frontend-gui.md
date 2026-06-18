@@ -19,7 +19,7 @@
 - WebView2 运行时检测与渲染器策略（`launcher.py`）
 - FastAPI 后端与静态资源服务（`backend/server.py`）
 - GUI app-shell bootstrap/read model（`backend/app_shell.py`、`webapp/src/app-shell/`）
-- GUI app-runtime boundary for frontend-only socket effect derivation and dev-only visual fixtures（`webapp/src/app-runtime/`）
+- GUI app-runtime boundary for frontend-only socket effect derivation, session/app loader request orchestration, session bootstrap projection, and dev-only visual fixtures（`webapp/src/app-runtime/`）
 - GUI app-shell hosted source-control read model（`backend/source_control_service.py`、`webapp/src/source-control/`）
 - 协议回调到 WebSocket 广播的实时转换（`backend/server.py`）
 - WebSocket 断线重连与会话事件回放恢复（`webapp/`）
@@ -175,13 +175,18 @@ session history truth or backend policy.
 ### GUI App Runtime Boundary
 
 `webapp/src/app-runtime/` owns frontend-only runtime interpretation helpers.
-`socket-message-effects.js` maps existing WebSocket messages into private
-webapp descriptors: reducer actions, session event-log entries, and loader
-requests. `App.jsx` remains the executor of those descriptors and continues to
-own HTTP loader calls in this slice. `visual-debug-fixtures.js` owns the
-development-only `?visual_debug=1` fixtures used by the visual harness. This
-boundary is not a backend protocol, not session-history truth, and does not
-change Agent Core, workflow packages, permission policy, or runtime reducers.
+`session-loaders.js` owns private loader request vocabulary, loader request
+execution against injected GUI callbacks, and session bootstrap projection from
+the official `/api/sessions/{id}/bootstrap` payload. `socket-message-effects.js`
+maps existing WebSocket messages into private webapp descriptors: reducer
+actions, session event-log entries, and loader requests. `App.jsx` remains the
+executor of HTTP route calls, reducer dispatch, event-log reset, terminal
+summary loading, task/artifact refreshes, and render composition in this slice.
+`visual-debug-fixtures.js` owns the development-only `?visual_debug=1` fixtures
+used by the visual harness. This boundary is not a backend protocol, not
+session-history truth, and does not change Agent Core, workflow packages,
+permission policy, terminal execution, source-control execution, provider
+configuration, extension loading, or runtime reducers.
 
 Pending permission and user-input interactions render in the composer through
 `components/composer/ComposerInteractionPanel.jsx`. The inspector can still

@@ -1,6 +1,6 @@
 # EmbedAgent 开发进度跟踪
 
-> 更新日期：2026-06-18（GUI app runtime controller boundary）
+> 更新日期：2026-06-18（GUI session/app loader runtime boundary）
 > 用途：持续跟踪当前阶段、下一步任务、里程碑进度、风险与阻塞
 
 ---
@@ -23,6 +23,13 @@
 ---
 
 ## 2. 当前阶段
+
+### 2026-06-18 - GUI Session/App Loader Runtime Boundary
+
+- React webapp `webapp/src/app-runtime/session-loaders.js` now owns the GUI-private loader request vocabulary, defensive loader request executor, and session bootstrap projection helper.
+- `socket-message-effects.js` shares that loader vocabulary instead of defining a second copy, while remaining a pure frontend effect derivation module.
+- `App.jsx` now delegates session bootstrap projection and loader request execution branching to the app-runtime boundary, but still owns concrete HTTP route calls, reducer dispatch, event-log reset, terminal summary loading, task/artifact refreshes, and render composition.
+- This slice stays in the GUI app shell: no Agent Core, backend protocol, workflow package, permission policy, transcript, runtime reducer, operation reducer, compaction reducer, recovery reducer, terminal execution, or source-control execution semantics changed.
 
 ### 2026-06-18 - GUI App Runtime Controller Boundary
 
