@@ -53,8 +53,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--max-turns",
         type=int,
-        default=8,
-        help="单次会话允许的最大循环轮数。示例：8",
+        default=None,
+        help="Optional model/tool loop safety limit; omit for open continuation",
     )
     parser.add_argument(
         "--mode",

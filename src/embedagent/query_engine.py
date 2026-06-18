@@ -98,7 +98,7 @@ class QueryEngine(object):
         self,
         client: OpenAICompatibleClient,
         tools: ToolRuntime,
-        max_turns: int = 8,
+        max_turns: Optional[int] = None,
         permission_policy: Optional[PermissionPolicy] = None,
         context_manager: Optional[ContextManager] = None,
         summary_store: Optional[SessionSummaryStore] = None,

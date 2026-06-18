@@ -427,7 +427,7 @@ class AgentCoreAdapter(CoreInterface):
         adapter_kwargs = {
             "client": client,
             "tools": tools,
-            "max_turns": kwargs.get("max_turns", 8),
+            "max_turns": kwargs.get("max_turns"),
             "permission_policy": kwargs.get("permission_policy"),
             "event_handler": self._on_adapter_event,
         }
