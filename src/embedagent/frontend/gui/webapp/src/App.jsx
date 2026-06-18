@@ -4,17 +4,17 @@ import {
   createTreeNode,
   makeEventId,
   normalizeSessionPayload,
-  timelineFromTurns,
 } from "./state-helpers.js";
 import { appendSessionEvent, capRetryAttempt, createSessionEventLog } from "./session-runtime/event-log.js";
 import { createDiffSurfaceState } from "./session-runtime/diff-model.js";
 import { buildAppHomeModel } from "./session-runtime/app-home-model.js";
 import { projectSessionRuntime } from "./session-runtime/projector.js";
 import { shouldReconnectSocket } from "./session-runtime/websocket-lifecycle.js";
+import { deriveSocketMessageEffects } from "./app-runtime/socket-message-effects.js";
 import {
-  LOADER_REQUESTS,
-  deriveSocketMessageEffects,
-} from "./app-runtime/socket-message-effects.js";
+  createLoaderRequestExecutor,
+  deriveSessionActivation,
+} from "./app-runtime/session-loaders.js";
 import { installVisualDebugFixtures } from "./app-runtime/visual-debug-fixtures.js";
 import { canSwitchWorkspace, normalizeAppBootstrap } from "./app-workspaces.js";
 import { LangContext } from "./LangContext.js";
@@ -350,20 +350,17 @@ function App() {
 
   async function loadSession(sessionId) {
     const payload = await fetchJson(`/api/sessions/${encodeURIComponent(sessionId)}/bootstrap`);
-    const snapshot = normalizeSessionPayload(payload.snapshot || {});
-    const history = payload.history || {};
+    const activation = deriveSessionActivation(payload, sessionId, { defaultMode: DEFAULT_MODE });
     dispatch({
       type: "session_activated",
-      sessionId,
-      snapshot,
-      timeline: timelineFromTurns(history.turns || [], [], {
-        projectionSource: history.history_source || "",
-      }),
-      historyIntegrity: history.integrity || null,
+      sessionId: activation.sessionId,
+      snapshot: activation.snapshot,
+      timeline: activation.timeline,
+      historyIntegrity: activation.historyIntegrity,
     });
-    replaceSessionEventLog(createRuntimeEventLog(snapshot));
-    dispatch({ type: "plan_loaded", plan: payload.plan || null });
-    dispatch({ type: "permission_context_loaded", context: payload.permission_context || null });
+    replaceSessionEventLog(createRuntimeEventLog(activation.snapshot));
+    dispatch({ type: "plan_loaded", plan: activation.plan });
+    dispatch({ type: "permission_context_loaded", context: activation.permissionContext });
     try {
       const terminals = await listTerminals(sessionId);
       dispatch({ type: "terminal_summaries_loaded", terminals: terminals.terminals || [] });
@@ -1088,33 +1085,16 @@ function App() {
     dispatch({ type: "log_event", label, detail });
   }
 
-  function executeLoaderRequest(request = {}) {
-    if (request.name === LOADER_REQUESTS.LOAD_APP_BOOTSTRAP) {
-      return loadAppBootstrap();
-    }
-    if (request.name === LOADER_REQUESTS.LOAD_ACTIVE_WORKSPACE_DATA) {
-      return loadActiveWorkspaceData(request.sessionId || "", Boolean(request.assumeWorkspace));
-    }
-    if (request.name === LOADER_REQUESTS.LOAD_SESSIONS) {
-      return loadSessions();
-    }
-    if (request.name === LOADER_REQUESTS.LOAD_SESSION && request.sessionId) {
-      return loadSession(request.sessionId);
-    }
-    if (request.name === LOADER_REQUESTS.LOAD_TASKS && request.sessionId) {
-      return loadTasks(request.sessionId);
-    }
-    if (request.name === LOADER_REQUESTS.LOAD_ARTIFACTS) {
-      return loadArtifacts();
-    }
-    if (request.name === LOADER_REQUESTS.LOAD_PERMISSION_CONTEXT && request.sessionId) {
-      return loadPermissionContext(request.sessionId);
-    }
-    if (request.name === LOADER_REQUESTS.LOAD_FILE_CHILDREN) {
-      return loadFileChildren(request.path || ".");
-    }
-    return Promise.resolve();
-  }
+  const executeLoaderRequest = createLoaderRequestExecutor({
+    loadAppBootstrap,
+    loadActiveWorkspaceData,
+    loadSessions,
+    loadSession,
+    loadTasks,
+    loadArtifacts,
+    loadPermissionContext,
+    loadFileChildren,
+  });
 
   function executeSocketEffects(effects = {}) {
     const eventLogEntries = effects.eventLogEntries || [];

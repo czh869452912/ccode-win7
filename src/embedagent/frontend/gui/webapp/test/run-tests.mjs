@@ -750,6 +750,10 @@ async function main() {
   assert.equal(appSource.includes("executeSocketEffects"), true);
   assert.equal(appSource.includes("executeLoaderRequest"), true);
   assert.equal(appSource.includes("installVisualDebugFixtures"), true);
+  assert.equal(appSource.includes("createLoaderRequestExecutor"), true);
+  assert.equal(appSource.includes("deriveSessionActivation"), true);
+  assert.equal(appSource.includes("function executeLoaderRequest(request = {})"), false);
+  assert.equal(appSource.includes("request.name === LOADER_REQUESTS"), false);
   assert.equal(appSource.includes("__EMBEDAGENT_VISUAL_DEBUG__"), false);
   assert.equal(appSource.includes("visual_timeline_fixture_loaded"), false);
   assert.equal(appSource.includes("activeTurnId: state.activeTurnId"), true);
