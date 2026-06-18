@@ -31,6 +31,7 @@ import { runWorkbenchStateTests } from "./workbench-state.test.mjs";
 import { runAppShellModelTests } from "./app-shell-model.test.mjs";
 import { runAppWorkspaceTests } from "./app-workspaces.test.mjs";
 import { runAppHomeModelTests } from "./app-home-model.test.mjs";
+import { runBranchToolbarModelTests } from "./branch-toolbar-model.test.mjs";
 
 const WEBAPP_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -1101,6 +1102,7 @@ async function main() {
   runAppShellModelTests();
   runAppWorkspaceTests();
   runAppHomeModelTests();
+  runBranchToolbarModelTests();
   runSourceControlStateTests();
   runTerminalStateTests();
   await runTerminalControllerTests();
