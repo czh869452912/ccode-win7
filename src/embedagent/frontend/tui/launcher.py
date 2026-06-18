@@ -54,7 +54,8 @@ def launch_tui(
     resolved_api_key = str(_resolve_runtime_value(api_key, app_config.api_key, ""))
     resolved_model = str(_resolve_runtime_value(model, app_config.model, ""))
     resolved_timeout = float(_resolve_runtime_value(timeout, app_config.timeout, 120.0))
-    resolved_max_turns = int(_resolve_runtime_value(max_turns, app_config.max_turns, 8))
+    raw_max_turns = _resolve_runtime_value(max_turns, app_config.max_turns, None)
+    resolved_max_turns = int(raw_max_turns) if raw_max_turns is not None else None
     if not resolved_model:
         raise ValueError("必须通过 --model 或配置文件提供模型名称。")
 
@@ -101,7 +102,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--timeout", type=float, default=None, help="Model request timeout in seconds"
     )
-    parser.add_argument("--max-turns", type=int, default=None, help="Maximum turns per session")
+    parser.add_argument(
+        "--max-turns",
+        type=int,
+        default=None,
+        help="Optional model/tool loop safety limit; omit for open continuation",
+    )
     parser.add_argument("--approve-all", action="store_true", help="Auto-approve all risky actions")
     parser.add_argument("--approve-writes", action="store_true", help="Auto-approve file writes")
     parser.add_argument(

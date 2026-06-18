@@ -327,7 +327,7 @@ Outcomes:
 - the public session facade shrinks
 - tool action execution remains behind the action service
 
-Current implementation status: Phase C is complete. `src/embedagent/agent_lifecycle.py` defines `AgentLifecycleJournal` for durable lifecycle operation events, context operation payload helpers, pending interaction lifecycle events, and transition save points. `src/embedagent/agent_kernel.py` defines `AgentKernel` and `AgentTurnFrame` for user, command, and resume turn lifecycle plus pending interaction create/resolve boundaries. `src/embedagent/agent_loop.py` now owns turn-loop orchestration, including agent steps, context/provider attempts, compact retry, tool batch interruption, guard stops, aborts, and max-turn transitions. `QueryEngine` remains the session-scoped facade and transcript/session mutation compatibility surface.
+Current implementation status: Phase C is complete and the follow-on continuation slice has landed. `src/embedagent/agent_lifecycle.py` defines `AgentLifecycleJournal` for durable lifecycle operation events, context operation payload helpers, pending interaction lifecycle events, and transition save points. `src/embedagent/agent_kernel.py` defines `AgentKernel` and `AgentTurnFrame` for user, command, and resume turn lifecycle plus pending interaction create/resolve boundaries. `src/embedagent/agent_loop.py` now owns Pi-style open turn-loop continuation, including agent steps, context/provider attempts, compact retry, tool batch interruption, guard stops, aborts, and explicit loop safety-limit compatibility transitions. `QueryEngine` remains the session-scoped facade and transcript/session mutation compatibility surface.
 
 ### Phase D: Default C/C++ Workflow Package
 

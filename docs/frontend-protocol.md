@@ -127,6 +127,8 @@ Important session snapshot fields include:
 
 `task_items` is the official frontend task list payload.
 
+`max_turns`, where present in snapshots or turn-end events, is a compatibility projection for the optional loop safety limit. A missing or null value means the default Pi-style continuation path has no fixed turn-count cutoff. Frontends may display the value for diagnostics, but they must not treat it as a required session budget or infer loop policy from it.
+
 `extensions.local_resources` may contain the latest file-only resource reload state, including counts and diagnostics for `.embedagent/skills`, `.embedagent/prompts`, and `.embedagent/recipes`. Skill resource entries may include Agent Skills-style metadata such as `name`, `description`, `base_dir`, `disable_model_invocation`, and `prompt_visible`.
 
 `extensions.project_extensions` may contain the hosted adapter's latest project extension load state, including counts, manifest entries, and loader diagnostics for `.embedagent/extensions/<name>/extension.json`.

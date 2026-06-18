@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from typing import Optional
 
 from embedagent.config import load_config
 from embedagent.context import ContextManager, make_context_config
@@ -40,7 +41,7 @@ def run_tui(
     model: str,
     workspace: str,
     timeout: float,
-    max_turns: int,
+    max_turns: Optional[int],
     mode: str,
     resume: str,
     approve_all: bool,

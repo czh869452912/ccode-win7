@@ -50,7 +50,7 @@ file does not require changing source code.
   "reserve_output_tokens": 2000,
   "chars_per_token": 3.0,
   "max_recent_turns": 4,
-  "max_turns": 8,
+  "max_turns": null,
   "default_mode": "explore",
   "mode_writable_globs": {
     "<mode_name>": ["glob_pattern", "..."]
@@ -97,7 +97,7 @@ frequency. Keep `reserve_output_tokens` large enough for tool plans and final an
 
 | Field | Type | Default | Meaning |
 |------|------|---------|---------|
-| `max_turns` | integer | `8` | Maximum model/tool loop turns for one request |
+| `max_turns` | integer or null | `null` | Optional model/tool loop safety limit; omit or set null for Pi-style open continuation |
 | `default_mode` | string | `explore` | Initial mode for new sessions |
 
 Valid `default_mode` values are:

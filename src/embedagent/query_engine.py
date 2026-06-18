@@ -98,7 +98,7 @@ class QueryEngine(object):
         self,
         client: OpenAICompatibleClient,
         tools: ToolRuntime,
-        max_turns: int = 8,
+        max_turns: Optional[int] = None,
         permission_policy: Optional[PermissionPolicy] = None,
         context_manager: Optional[ContextManager] = None,
         summary_store: Optional[SessionSummaryStore] = None,
@@ -1051,9 +1051,7 @@ class QueryEngine(object):
             profile_message = session.add_system_message(
                 build_workspace_profile_message(self.tools.workspace, session.session_id)
             )
-            system_message = session.add_system_message(
-                self._build_system_prompt(current_mode)
-            )
+            system_message = session.add_system_message(self._build_system_prompt(current_mode))
             self._append_transcript_event(
                 session,
                 "session_meta",
@@ -1092,9 +1090,7 @@ class QueryEngine(object):
         else:
             workflow_prompt = None
         with self._session_guard():
-            mode_message = session.add_system_message(
-                self._build_system_prompt(current_mode)
-            )
+            mode_message = session.add_system_message(self._build_system_prompt(current_mode))
             self._append_message_event(
                 session,
                 {

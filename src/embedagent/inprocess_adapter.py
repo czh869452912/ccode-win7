@@ -204,7 +204,7 @@ class InProcessAdapter(object):
         self,
         client: Optional[OpenAICompatibleClient] = None,
         tools: Optional[ToolRuntime] = None,
-        max_turns: int = 8,
+        max_turns: Optional[int] = None,
         permission_policy: Optional[PermissionPolicy] = None,
         summary_store: Optional[SessionSummaryStore] = None,
         project_memory_store: Optional[ProjectMemoryStore] = None,

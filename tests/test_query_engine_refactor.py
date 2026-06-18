@@ -173,6 +173,38 @@ class ToolClient(object):
         return reply
 
 
+class LongToolThenDoneClient(object):
+    def __init__(self, tool_turns):
+        self.calls = 0
+        self.tool_turns = int(tool_turns)
+
+    def generate(self, messages, tools=None):
+        self.calls += 1
+        if self.calls <= self.tool_turns:
+            return AssistantReply(
+                content="",
+                actions=[
+                    Action(
+                        name="read_file",
+                        arguments={"path": "src/step_%02d.c" % self.calls},
+                        call_id="read-step-%02d" % self.calls,
+                    )
+                ],
+                finish_reason="tool_calls",
+            )
+        return AssistantReply(
+            content="done after %s tool turns" % self.tool_turns,
+            actions=[],
+            finish_reason="stop",
+        )
+
+    def stream(self, messages, tools=None, on_text_delta=None, on_reasoning_delta=None):
+        reply = self.generate(messages, tools=tools)
+        if on_text_delta is not None and reply.content:
+            on_text_delta(reply.content)
+        return reply
+
+
 class WorkflowPatchExtension(object):
     extension_id = "workflow_patch_test"
     builtin_extension = False
@@ -586,6 +618,13 @@ class TestQueryEngineRefactor(unittest.TestCase):
         os.makedirs(os.path.join(self.workspace, "src"), exist_ok=True)
         with open(os.path.join(self.workspace, "src", "demo.c"), "w", encoding="utf-8") as handle:
             handle.write("int demo(void) {\n    return 0;\n}\n")
+        for index in range(1, 11):
+            with open(
+                os.path.join(self.workspace, "src", "step_%02d.c" % index),
+                "w",
+                encoding="utf-8",
+            ) as handle:
+                handle.write("int step_%02d(void) {\n    return %d;\n}\n" % (index, index))
         with open(os.path.join(self.workspace, "CMakeLists.txt"), "w", encoding="utf-8") as handle:
             handle.write("cmake_minimum_required(VERSION 3.20)\nproject(demo C)\n")
         self.tools = ToolRuntime(self.workspace)
@@ -651,10 +690,14 @@ class TestQueryEngineRefactor(unittest.TestCase):
 
     def test_agent_loop_can_be_constructed_without_runner_callback(self):
         from embedagent.agent_loop import AgentLoop
+        from embedagent.agent_loop_continuation import DefaultAgentLoopContinuationPolicy
 
         loop = AgentLoop()
 
         self.assertFalse(hasattr(loop, "_runner"))
+        self.assertIsInstance(loop.continuation_policy, DefaultAgentLoopContinuationPolicy)
+        self.assertIsNone(loop.loop_safety_limit)
+        self.assertIsNone(loop.max_turns)
 
     def test_query_engine_exposes_slim_agent_components(self):
         from embedagent.agent_extension_host import AgentExtensionHost
@@ -669,6 +712,58 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertFalse(hasattr(engine._agent_loop, "_runner"))
         self.assertFalse(hasattr(QueryEngine, "_run_loop_impl"))
         self.assertIs(engine.extension_manager, engine.extension_host.manager)
+
+    def test_default_agent_loop_continues_past_eight_tool_steps(self):
+        client = LongToolThenDoneClient(tool_turns=9)
+        engine = QueryEngine(
+            client=client,
+            tools=self.tools,
+            permission_policy=PermissionPolicy(
+                auto_approve_all=True,
+                workspace=self.workspace,
+            ),
+        )
+        session = Session()
+        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：build")
+
+        result = engine.submit_user_turn(
+            user_text="读取多个文件后完成",
+            stream=False,
+            initial_mode="build",
+            session=session,
+        )
+
+        self.assertEqual(result.transition.reason, "completed")
+        self.assertEqual(result.turns_used, 10)
+        self.assertEqual(client.calls, 10)
+        self.assertGreater(result.turns_used, 8)
+
+    def test_explicit_loop_safety_limit_still_stops_after_configured_step_count(self):
+        client = LongToolThenDoneClient(tool_turns=2)
+        engine = QueryEngine(
+            client=client,
+            tools=self.tools,
+            max_turns=1,
+            permission_policy=PermissionPolicy(
+                auto_approve_all=True,
+                workspace=self.workspace,
+            ),
+        )
+        session = Session()
+        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：build")
+
+        result = engine.submit_user_turn(
+            user_text="读取多个文件但安全限制为一步",
+            stream=False,
+            initial_mode="build",
+            session=session,
+        )
+
+        self.assertEqual(result.transition.reason, "max_turns")
+        self.assertEqual(result.turns_used, 1)
+        self.assertEqual(result.transition.metadata.get("loop_safety_limit"), 1)
+        self.assertEqual(result.transition.metadata.get("turns_used"), 1)
+        self.assertEqual(client.calls, 1)
 
     def test_projection_failure_does_not_flip_tool_success(self):
         transcript_store = TranscriptStore(self.workspace)
