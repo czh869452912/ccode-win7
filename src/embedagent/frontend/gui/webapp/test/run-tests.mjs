@@ -833,6 +833,31 @@ async function main() {
   assert.equal(sessionLoadersSource.includes("useEffect"), false);
   assert.equal(sessionLoadersSource.includes("import React"), false);
 
+  const terminalControllerSource = fs.readFileSync(
+    webappSourcePath("app-runtime", "terminal-controller.js"),
+    "utf8",
+  );
+  assert.equal(terminalControllerSource.includes("createTerminalController"), true);
+  assert.equal(terminalControllerSource.includes("TERMINAL_DIMENSIONS"), true);
+  assert.equal(terminalControllerSource.includes("Open a session before using the terminal."), true);
+  assert.equal(terminalControllerSource.includes("workbench_surface_opened"), true);
+  assert.equal(terminalControllerSource.includes("workbench_terminal_surface_split"), true);
+  assert.equal(terminalControllerSource.includes("workbench_terminal_surface_terminal_closed"), true);
+  assert.equal(terminalControllerSource.includes("fetch("), false);
+  assert.equal(terminalControllerSource.includes("new WebSocket"), false);
+  assert.equal(terminalControllerSource.includes("useEffect"), false);
+  assert.equal(terminalControllerSource.includes("import React"), false);
+  assert.equal(terminalControllerSource.includes("from \"../terminal/terminal-api"), false);
+  assert.equal(terminalControllerSource.includes("from \"../terminal/terminal-state"), false);
+  assert.equal(terminalControllerSource.includes("embedagent"), false);
+
+  const terminalApiSource = fs.readFileSync(
+    webappSourcePath("terminal", "terminal-api.js"),
+    "utf8",
+  );
+  assert.equal(terminalApiSource.includes("/api/sessions/"), true);
+  assert.equal(terminalApiSource.includes("fetch("), true);
+
   const visualDebugFixturesSource = fs.readFileSync(
     webappSourcePath("app-runtime", "visual-debug-fixtures.js"),
     "utf8",
