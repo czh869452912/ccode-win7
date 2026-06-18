@@ -45,7 +45,7 @@ import CommandPalette from "./components/workbench/CommandPalette.jsx";
 import RightPanelSurfaceBody from "./components/workbench/RightPanelSurfaceBody.jsx";
 import RightPanelTabs from "./components/workbench/RightPanelTabs.jsx";
 import WorkbenchHeader from "./components/workbench/WorkbenchHeader.jsx";
-import { commandById } from "./workbench/commands.js";
+import { commandById, visibleCommands } from "./workbench/commands.js";
 import { DEFAULT_KEYBINDINGS, eventToKey, resolveKeybinding } from "./workbench/keybindings.js";
 
 const MODES = ["explore", "spec", "build", "debug", "verify"];
@@ -84,6 +84,18 @@ function App() {
 
   const currentMode = state.snapshot?.current_mode || state.requestedMode;
   const currentStatus = state.snapshot?.status || "idle";
+  const commandContext = useMemo(() => ({
+    hasSession: Boolean(state.currentSessionId),
+    hasWorkspace: Boolean(state.app.hasActiveWorkspace),
+    isRunning: currentStatus === "running" || currentStatus === "waiting_user_input",
+    paletteOpen: state.workbench.commandPalette.open,
+  }), [
+    currentStatus,
+    state.app.hasActiveWorkspace,
+    state.currentSessionId,
+    state.workbench.commandPalette.open,
+  ]);
+  const composerCommands = useMemo(() => visibleCommands(commandContext), [commandContext]);
   const runtimeState = useMemo(
     () =>
       projectSessionRuntime({
@@ -1195,6 +1207,8 @@ function App() {
               isRunning={currentStatus === "running" || currentStatus === "waiting_user_input"}
               currentMode={currentMode}
               commandHints={SLASH_COMMAND_HINTS}
+              commands={composerCommands}
+              fileTree={state.fileTree}
               onOpenCommandPalette={() => dispatch({ type: "workbench_command_palette_opened" })}
               interaction={runtimeState.currentInteraction}
               interactionNotice={interactionNotice}
@@ -1315,12 +1329,7 @@ function App() {
       open={state.workbench.commandPalette.open}
       query={state.workbench.commandPalette.query}
       selectedIndex={state.workbench.commandPalette.selectedIndex}
-      context={{
-        hasSession: Boolean(state.currentSessionId),
-        hasWorkspace: Boolean(state.app.hasActiveWorkspace),
-        isRunning: currentStatus === "running" || currentStatus === "waiting_user_input",
-        paletteOpen: state.workbench.commandPalette.open,
-      }}
+      context={commandContext}
       onQueryChange={(query) => dispatch({ type: "workbench_command_palette_query_changed", query })}
       onClose={() => dispatch({ type: "workbench_command_palette_closed" })}
       onSelect={(command) => {

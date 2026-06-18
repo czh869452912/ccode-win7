@@ -34,6 +34,7 @@ import { runAppHomeModelTests } from "./app-home-model.test.mjs";
 import { runBranchToolbarModelTests } from "./branch-toolbar-model.test.mjs";
 import { runComposerCommandSearchTests } from "./composer-command-search.test.mjs";
 import { runComposerComponentsSourceTests } from "./composer-components-source.test.mjs";
+import { runComposerIntegrationSourceTests } from "./composer-integration-source.test.mjs";
 import { runComposerPathContextTests } from "./composer-path-context.test.mjs";
 import { runComposerTriggerTests } from "./composer-trigger.test.mjs";
 
@@ -1128,6 +1129,7 @@ async function main() {
   runComposerCommandSearchTests();
   runComposerPathContextTests();
   runComposerComponentsSourceTests();
+  runComposerIntegrationSourceTests();
   runSourceControlStateTests();
   runTerminalStateTests();
   await runTerminalControllerTests();
