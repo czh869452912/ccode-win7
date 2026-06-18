@@ -80,6 +80,17 @@ export function runSocketMessageEffectsTests() {
   assert.equal(transitionEvent.actions[0].terminationDisplayReason, "max turns reached");
   assert.equal(transitionEvent.actions[0].turnsUsed, 8);
 
+  const turnEndWithoutSafetyLimit = derive("turn_end", {
+    termination_reason: "completed",
+    display_reason: "completed",
+    message: "Done.",
+    turns_used: 10,
+  });
+  assert.equal(turnEndWithoutSafetyLimit.actions[0].type, "turn_ended");
+  assert.equal(turnEndWithoutSafetyLimit.actions[0].maxTurns, null);
+  assert.equal(turnEndWithoutSafetyLimit.actions[0].turnsUsed, 10);
+  assert.equal(turnEndWithoutSafetyLimit.actions[0].terminationReason, "completed");
+
   const streamDelta = derive("stream_delta", {
     text: "hello",
     turn_id: "turn-1",

@@ -155,7 +155,7 @@ export function deriveSocketMessageEffects({
           payload.payload?.display_reason || payload.payload?.termination_reason || "",
         terminationMessage: payload.payload?.message || payload.payload?.error || "",
         turnsUsed: payload.payload?.turns_used || 0,
-        maxTurns: payload.payload?.max_turns || 8,
+        maxTurns: payload.payload?.max_turns ?? null,
       });
     }
     return effects;
@@ -351,7 +351,7 @@ export function deriveSocketMessageEffects({
       terminationDisplayReason: payload?.display_reason || payload?.termination_reason || "",
       terminationMessage: payload?.message || "",
       turnsUsed: payload?.turns_used || 0,
-      maxTurns: payload?.max_turns || 8,
+      maxTurns: payload?.max_turns ?? null,
     });
     effects.actions.push(logAction("turn_end", `reason=${payload?.termination_reason} turns=${payload?.turns_used}`));
     return effects;
