@@ -26,7 +26,21 @@ export function runCommandPaletteSourceTests() {
   assert.equal(resultsSource.includes("embedagent"), false);
 
   const paletteSource = readSource("components", "workbench", "CommandPalette.jsx");
-  assert.equal(paletteSource.includes("CommandPaletteResults"), false);
+  assert.equal(paletteSource.includes("CommandPaletteResults"), true);
+  assert.equal(paletteSource.includes("buildCommandPaletteRootGroups"), true);
+  assert.equal(paletteSource.includes("buildCommandPaletteSubmenuGroups"), true);
+  assert.equal(paletteSource.includes("flattenPaletteGroups"), true);
+  assert.equal(paletteSource.includes("viewKind"), true);
+  assert.equal(paletteSource.includes("submenuId"), true);
+  assert.equal(paletteSource.includes("handleKeyDown"), true);
+  assert.equal(paletteSource.includes('event.key === "ArrowDown"'), true);
+  assert.equal(paletteSource.includes('event.key === "ArrowUp"'), true);
+  assert.equal(paletteSource.includes('event.key === "Enter"'), true);
+  assert.equal(paletteSource.includes('event.key === "Backspace"'), true);
+  assert.equal(paletteSource.includes("activateItem"), true);
+  assert.equal(paletteSource.includes("onSelectSession"), true);
+  assert.equal(paletteSource.includes("onSelectWorkspace"), true);
+  assert.equal(paletteSource.includes("visibleCommands"), false);
 
   const modelSource = readSource("workbench", "command-palette-model.js");
   assert.equal(modelSource.includes("buildCommandPaletteRootGroups"), true);

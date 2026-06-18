@@ -1,59 +1,189 @@
-import React from "react";
-import { visibleCommands } from "../../workbench/commands.js";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import {
+  buildCommandPaletteRootGroups,
+  buildCommandPaletteSubmenuGroups,
+  flattenPaletteGroups,
+} from "../../workbench/command-palette-model.js";
+import CommandPaletteResults from "./CommandPaletteResults.jsx";
 
-function matchesQuery(command, query) {
-  const normalized = String(query || "").trim().toLowerCase();
-  if (!normalized) return true;
-  return (
-    command.id.toLowerCase().includes(normalized) ||
-    command.label.toLowerCase().includes(normalized) ||
-    command.group.toLowerCase().includes(normalized) ||
-    String(command.slash || "").toLowerCase().includes(normalized)
-  );
+function clampIndex(index, length) {
+  if (length <= 0) return 0;
+  return Math.max(0, Math.min(index, length - 1));
+}
+
+function firstEnabledIndex(items) {
+  const index = (items || []).findIndex((item) => !item.disabled);
+  return index < 0 ? 0 : index;
 }
 
 export default function CommandPalette({
   open,
   query,
-  selectedIndex,
-  context,
+  commands = [],
+  sessions = [],
+  currentSessionId = "",
+  workspaces = [],
+  activeWorkspaceId = "",
+  keybindings = [],
   onQueryChange,
   onClose,
   onSelect,
+  onSelectSession,
+  onSelectWorkspace,
 }) {
+  const [viewKind, setViewKind] = useState("root");
+  const [submenuId, setSubmenuId] = useState("");
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    setViewKind("root");
+    setSubmenuId("");
+    setSelectedIndex(0);
+    window.setTimeout(() => inputRef.current?.focus(), 0);
+  }, [open]);
+
+  const groups = useMemo(() => {
+    if (viewKind === "submenu") {
+      return buildCommandPaletteSubmenuGroups({
+        commands,
+        keybindings,
+        groupId: submenuId,
+        query,
+      });
+    }
+    return buildCommandPaletteRootGroups({
+      commands,
+      sessions,
+      currentSessionId,
+      workspaces,
+      activeWorkspaceId,
+      keybindings,
+      query,
+    });
+  }, [activeWorkspaceId, commands, currentSessionId, keybindings, query, sessions, submenuId, viewKind, workspaces]);
+
+  const items = useMemo(() => flattenPaletteGroups(groups), [groups]);
+  const activeIndex = clampIndex(selectedIndex, items.length);
+  const activeItem = items[activeIndex] || null;
+  const activeItemId = activeItem ? activeItem.id : "";
+
+  useEffect(() => {
+    setSelectedIndex(firstEnabledIndex(items));
+  }, [items, viewKind]);
+
   if (!open) return null;
-  const commands = visibleCommands(context || {}).filter((command) => matchesQuery(command, query));
-  const selected = Math.max(0, Math.min(selectedIndex || 0, Math.max(commands.length - 1, 0)));
+
+  function returnToRoot() {
+    setViewKind("root");
+    setSubmenuId("");
+    onQueryChange("");
+    setSelectedIndex(0);
+  }
+
+  function activateItem(item) {
+    if (!item || item.disabled) return;
+    if (item.type === "submenu") {
+      setViewKind("submenu");
+      setSubmenuId(item.submenuId);
+      onQueryChange("");
+      setSelectedIndex(0);
+      return;
+    }
+    onClose();
+    if (item.type === "command") {
+      onSelect({ id: item.commandId });
+    } else if (item.type === "session") {
+      onSelectSession(item.sessionId);
+    } else if (item.type === "workspace") {
+      onSelectWorkspace(item.workspaceId);
+    }
+  }
+
+  function moveSelection(delta) {
+    if (items.length === 0) return;
+    let next = activeIndex;
+    for (let step = 0; step < items.length; step += 1) {
+      next = (next + delta + items.length) % items.length;
+      if (!items[next].disabled) {
+        setSelectedIndex(next);
+        return;
+      }
+    }
+  }
+
+  function handleKeyDown(event) {
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      moveSelection(1);
+      return;
+    }
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      moveSelection(-1);
+      return;
+    }
+    if (event.key === "Enter") {
+      event.preventDefault();
+      activateItem(activeItem);
+      return;
+    }
+    if (event.key === "Escape") {
+      event.preventDefault();
+      onClose();
+      return;
+    }
+    if (event.key === "Backspace" && !query && viewKind === "submenu") {
+      event.preventDefault();
+      returnToRoot();
+    }
+  }
+
+  const title = viewKind === "submenu" ? "Command group" : "Command palette";
+
   return (
     <div className="cmd-palette-backdrop" role="presentation" onMouseDown={onClose}>
-      <div className="cmd-palette" role="dialog" aria-label="Command palette" onMouseDown={(event) => event.stopPropagation()}>
+      <div
+        className="cmd-palette"
+        role="dialog"
+        aria-label="Command palette"
+        onMouseDown={(event) => event.stopPropagation()}
+        data-testid="command-palette"
+      >
+        {viewKind === "submenu" ? (
+          <div className="cmd-palette-submenu-header">
+            <button type="button" className="cmd-palette-back" onClick={returnToRoot} data-testid="command-palette-back">
+              ←
+            </button>
+            <span>{title}</span>
+          </div>
+        ) : null}
         <input
+          ref={inputRef}
           className="cmd-palette-input"
           value={query}
           onChange={(event) => onQueryChange(event.target.value)}
+          onKeyDown={handleKeyDown}
           autoFocus
           aria-label="Command search"
+          placeholder={viewKind === "submenu" ? "Search this group" : "Search commands, sessions, workspaces"}
           data-testid="command-palette-input"
         />
-        <div className="cmd-palette-list" role="listbox">
-          {commands.map((command, index) => (
-            <button
-              key={command.id}
-              type="button"
-              className={`cmd-palette-item${index === selected ? " active" : ""}`}
-              onClick={() => onSelect(command)}
-              role="option"
-              aria-selected={index === selected}
-              data-testid={`command-palette-item--${command.id}`}
-            >
-              <span className="cmd-palette-title">{command.label}</span>
-              <span className="cmd-palette-meta">{command.slash || command.id}</span>
-            </button>
-          ))}
-          {commands.length === 0 ? (
-            <div className="cmd-palette-empty">No matching command</div>
-          ) : null}
-        </div>
+        <CommandPaletteResults
+          groups={groups}
+          activeItemId={activeItemId}
+          onHoverItem={(id) => {
+            const nextIndex = items.findIndex((item) => item.id === id);
+            if (nextIndex >= 0) setSelectedIndex(nextIndex);
+          }}
+          onSelectItem={activateItem}
+          emptyLabel={
+            viewKind === "submenu"
+              ? "No matching commands in this group"
+              : "No matching commands, sessions, or workspaces"
+          }
+        />
       </div>
     </div>
   );

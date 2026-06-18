@@ -1126,7 +1126,9 @@ async function main() {
     webappSourcePath("components", "workbench", "CommandPalette.jsx"),
     "utf8",
   );
-  assert.equal(commandPaletteSource.includes("visibleCommands"), true);
+  assert.equal(commandPaletteSource.includes("CommandPaletteResults"), true);
+  assert.equal(commandPaletteSource.includes("buildCommandPaletteRootGroups"), true);
+  assert.equal(commandPaletteSource.includes("visibleCommands"), false);
   assert.equal(commandPaletteSource.includes("cmd-palette"), true);
 
   const composerSource = fs.readFileSync(
