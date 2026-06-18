@@ -19,6 +19,7 @@ import { runSessionRuntimeTests } from "./session-runtime.test.mjs";
 import { runT3TimelineTests } from "./t3-timeline.test.mjs";
 import { runSourceControlStateTests } from "./source-control-state.test.mjs";
 import { runTerminalStateTests } from "./terminal-state.test.mjs";
+import { runTerminalControllerTests } from "./terminal-controller.test.mjs";
 import { runTimelineUiStateTests } from "./timeline-ui-state.test.mjs";
 import { runVisualLanguageCssTests } from "./visual-language-css.test.mjs";
 import { runVisualDebugRunnerTests } from "./visual-debug-runner.test.mjs";
@@ -1018,6 +1019,7 @@ async function main() {
   runAppHomeModelTests();
   runSourceControlStateTests();
   runTerminalStateTests();
+  await runTerminalControllerTests();
   runSessionRuntimeTests();
   runT3TimelineTests();
   runTimelineUiStateTests();
