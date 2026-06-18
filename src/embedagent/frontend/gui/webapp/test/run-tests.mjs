@@ -710,6 +710,14 @@ async function main() {
   assert.equal(stylesSource.includes(".t3-work-row.error"), true);
   assert.equal(stylesSource.includes(".t3-work-row.running"), true);
   assert.equal(stylesSource.includes("timeline-work-detail"), true);
+  assert.equal(stylesSource.includes(".t3-reasoning-row"), true);
+  assert.equal(stylesSource.includes(".t3-thinking-row"), true);
+  assert.equal(stylesSource.includes(".t3-compact-row"), true);
+  assert.equal(stylesSource.includes(".t3-command-result-row"), true);
+  assert.equal(stylesSource.includes(".t3-review-result-row"), true);
+  assert.equal(stylesSource.includes("overflow-wrap: anywhere"), true);
+  assert.equal(stylesSource.includes("grid-template-columns: minmax(0, 1fr)"), true);
+  assert.equal(stylesSource.includes("@media (max-width: 560px)"), true);
   assert.equal(stylesSource.includes(".app-settings-grid"), true);
   assert.equal(stylesSource.includes(".diagnostics-table"), true);
   assert.equal(stylesSource.includes(".source-control-panel"), true);
