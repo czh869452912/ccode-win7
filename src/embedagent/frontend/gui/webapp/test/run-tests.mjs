@@ -814,6 +814,9 @@ async function main() {
   assert.equal(appSource.includes("getSourceControlStatus"), true);
   assert.equal(appSource.includes("loadSourceControlStatus"), true);
   assert.equal(appSource.includes("openSourceControlFile"), true);
+  assert.equal(appSource.includes("buildBranchToolbarModel"), true);
+  assert.equal(appSource.includes("branchToolbarModel"), true);
+  assert.equal(appSource.includes("onRefreshSourceControl"), true);
   assert.equal(appSource.includes("RightPanelSurfaceBody"), true);
   assert.equal(appSource.includes("activeRightPanelSurface"), true);
   assert.equal(appSource.includes("workbench_surface_close_others"), true);
@@ -1108,6 +1111,9 @@ async function main() {
   );
   assert.equal(composerSource.includes("onOpenCommandPalette"), true);
   assert.equal(composerSource.includes("ComposerInteractionPanel"), true);
+  assert.equal(composerSource.includes("BranchToolbar"), true);
+  assert.equal(composerSource.includes("branchToolbar"), true);
+  assert.equal(composerSource.includes("onRefreshSourceControl"), true);
 
   runWorkbenchStateTests();
   runAppShellModelTests();
