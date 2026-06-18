@@ -71,6 +71,9 @@ export async function runVisualDebugRunnerTests() {
   assert.equal(runnerSource.includes("runInteractionScenario"), true);
   assert.equal(runnerSource.includes("runThreadScenario"), true);
   assert.equal(runnerSource.includes("loadTimelineFixture"), true);
+  assert.equal(runnerSource.includes("timeline-reasoning-row"), true);
+  assert.equal(runnerSource.includes("timeline-thinking-row"), true);
+  assert.equal(runnerSource.includes("timeline-review-result-row"), true);
   assert.equal(runnerSource.includes("loadInteractionFixture"), true);
   assert.equal(runnerSource.includes("loadThreadLifecycleFixture"), true);
 
