@@ -165,6 +165,14 @@ export function reducer(state, action) {
         ...state,
         sourceControl: reduceSourceControlState(state.sourceControl, action),
       };
+    case "visual_source_control_fixture_loaded":
+      return {
+        ...state,
+        sourceControl: reduceSourceControlState(state.sourceControl, {
+          type: "source_control_status_loaded",
+          status: action.status || {},
+        }),
+      };
     case "sessions_loaded":
       return { ...state, sessions: action.sessions };
     case "session_activated":
