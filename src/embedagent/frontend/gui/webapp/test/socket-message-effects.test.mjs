@@ -1,9 +1,7 @@
 import assert from "node:assert/strict";
 
-import {
-  LOADER_REQUESTS,
-  deriveSocketMessageEffects,
-} from "../src/app-runtime/socket-message-effects.js";
+import { LOADER_REQUESTS } from "../src/app-runtime/session-loaders.js";
+import { deriveSocketMessageEffects } from "../src/app-runtime/socket-message-effects.js";
 
 function makeDeterministicIdFactory() {
   const counts = new Map();

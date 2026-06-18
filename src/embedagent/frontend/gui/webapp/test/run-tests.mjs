@@ -23,6 +23,7 @@ import { runTimelineUiStateTests } from "./timeline-ui-state.test.mjs";
 import { runVisualLanguageCssTests } from "./visual-language-css.test.mjs";
 import { runVisualDebugRunnerTests } from "./visual-debug-runner.test.mjs";
 import { runWebSocketLifecycleTests } from "./websocket-lifecycle.test.mjs";
+import { runSessionLoadersTests } from "./session-loaders.test.mjs";
 import { runSocketMessageEffectsTests } from "./socket-message-effects.test.mjs";
 import { runVisualDebugFixturesTests } from "./visual-debug-fixtures.test.mjs";
 import { runWorkbenchStateTests } from "./workbench-state.test.mjs";
@@ -1004,6 +1005,7 @@ async function main() {
   runInteractionModelTests();
   runDiffModelTests();
   runWebSocketLifecycleTests();
+  await runSessionLoadersTests();
   runSocketMessageEffectsTests();
   runVisualDebugFixturesTests();
   await runVisualDebugRunnerTests();
