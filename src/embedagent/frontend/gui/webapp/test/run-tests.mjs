@@ -1023,6 +1023,17 @@ async function main() {
   assert.equal(sourceControlPanelSource.includes("fileStatusLabel"), true);
   assert.equal(sourceControlPanelSource.includes("onRefresh"), true);
 
+  const branchToolbarSource = fs.readFileSync(
+    webappSourcePath("components", "workbench", "BranchToolbar.jsx"),
+    "utf8",
+  );
+  assert.equal(branchToolbarSource.includes('data-testid="branch-toolbar"'), true);
+  assert.equal(branchToolbarSource.includes('data-testid="branch-toolbar-mode"'), true);
+  assert.equal(branchToolbarSource.includes('data-testid="branch-toolbar-branch"'), true);
+  assert.equal(branchToolbarSource.includes("onRefresh"), true);
+  assert.equal(branchToolbarSource.includes("fetch("), false);
+  assert.equal(branchToolbarSource.includes("transcript"), false);
+
   const bottomDrawerSource = fs.readFileSync(
     webappSourcePath("components", "workbench", "BottomDrawer.jsx"),
     "utf8",
