@@ -95,7 +95,9 @@ function App() {
     state.currentSessionId,
     state.workbench.commandPalette.open,
   ]);
-  const composerCommands = useMemo(() => visibleCommands(commandContext), [commandContext]);
+  const paletteCommands = useMemo(() => visibleCommands(commandContext), [commandContext]);
+  const composerCommands = paletteCommands;
+  const activeWorkspaceId = state.app.activeWorkspace?.id || "";
   const runtimeState = useMemo(
     () =>
       projectSessionRuntime({
@@ -1328,13 +1330,25 @@ function App() {
     <CommandPalette
       open={state.workbench.commandPalette.open}
       query={state.workbench.commandPalette.query}
-      selectedIndex={state.workbench.commandPalette.selectedIndex}
-      context={commandContext}
+      commands={paletteCommands}
+      sessions={state.sessions}
+      currentSessionId={state.currentSessionId}
+      workspaces={state.app.workspaces}
+      activeWorkspaceId={activeWorkspaceId}
+      keybindings={DEFAULT_KEYBINDINGS}
       onQueryChange={(query) => dispatch({ type: "workbench_command_palette_query_changed", query })}
       onClose={() => dispatch({ type: "workbench_command_palette_closed" })}
       onSelect={(command) => {
         dispatch({ type: "workbench_command_palette_closed" });
         void executeWorkbenchCommand(commandById(command.id));
+      }}
+      onSelectSession={(sessionId) => {
+        dispatch({ type: "workbench_command_palette_closed" });
+        void loadSession(sessionId);
+      }}
+      onSelectWorkspace={(workspaceId) => {
+        dispatch({ type: "workbench_command_palette_closed" });
+        void activateWorkspace(workspaceId);
       }}
     />
     </LangContext.Provider>

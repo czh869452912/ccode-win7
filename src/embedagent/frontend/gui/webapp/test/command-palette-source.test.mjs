@@ -47,4 +47,16 @@ export function runCommandPaletteSourceTests() {
   assert.equal(modelSource.includes("buildCommandPaletteSubmenuGroups"), true);
   assert.equal(modelSource.includes("fetch("), false);
   assert.equal(modelSource.includes("transcript"), false);
+
+  const appSource = readSource("App.jsx");
+  assert.equal(appSource.includes("paletteCommands"), true);
+  assert.equal(appSource.includes("activeWorkspaceId"), true);
+  assert.equal(appSource.includes("sessions={state.sessions}"), true);
+  assert.equal(appSource.includes("currentSessionId={state.currentSessionId}"), true);
+  assert.equal(appSource.includes("workspaces={state.app.workspaces}"), true);
+  assert.equal(appSource.includes("keybindings={DEFAULT_KEYBINDINGS}"), true);
+  assert.equal(appSource.includes("onSelectSession={(sessionId) =>"), true);
+  assert.equal(appSource.includes("void loadSession(sessionId)"), true);
+  assert.equal(appSource.includes("onSelectWorkspace={(workspaceId) =>"), true);
+  assert.equal(appSource.includes("void activateWorkspace(workspaceId)"), true);
 }
