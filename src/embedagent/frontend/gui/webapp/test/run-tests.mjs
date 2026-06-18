@@ -38,6 +38,10 @@ function webappSourcePath(...parts) {
   return path.join(WEBAPP_ROOT, "src", ...parts);
 }
 
+function readWebappSourceText(...parts) {
+  return fs.readFileSync(webappSourcePath(...parts), "utf8").replace(/\r\n?/g, "\n");
+}
+
 async function main() {
   assert.equal(initialState.requestedMode, "explore");
   assert.equal(initialState.app.bootstrapLoaded, false);
@@ -717,10 +721,7 @@ async function main() {
   assert.equal(inspectorSource.includes("todo-row"), false);
   assert.equal(inspectorSource.includes("todo-mark"), false);
 
-  const stylesSource = fs.readFileSync(
-    webappSourcePath("styles.css"),
-    "utf8",
-  );
+  const stylesSource = readWebappSourceText("styles.css");
   assert.equal(stylesSource.includes("todo-"), false);
   assert.equal(stylesSource.includes("mode-code"), false);
   assert.equal(stylesSource.includes("mode-build"), true);
