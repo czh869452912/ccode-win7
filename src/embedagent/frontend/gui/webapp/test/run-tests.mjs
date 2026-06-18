@@ -733,13 +733,28 @@ async function main() {
     webappSourcePath("App.jsx"),
     "utf8",
   );
-  assert.equal(appSource.includes("openTerminal"), true);
-  assert.equal(appSource.includes("ensureTerminalOpen"), true);
-  assert.equal(appSource.includes("openRightPanelTerminalSurface"), true);
-  assert.equal(appSource.includes("splitRightPanelTerminalSurface"), true);
-  assert.equal(appSource.includes("closeRightPanelTerminalPane"), true);
-  assert.equal(appSource.includes("workbench_terminal_surface_split"), true);
-  assert.equal(appSource.includes("workbench_surface_activated\", placement: \"bottom\", kind: \"terminal\""), true);
+  assert.equal(appSource.includes("createTerminalController"), true);
+  assert.equal(appSource.includes("stateRef.current = state"), true);
+  assert.equal(appSource.includes("terminalController.ensureOpen"), true);
+  assert.equal(appSource.includes("terminalController.openSession"), true);
+  assert.equal(appSource.includes("terminalController.openRightPanelSurface"), true);
+  assert.equal(appSource.includes("terminalController.splitRightPanelSurface"), true);
+  assert.equal(appSource.includes("terminalController.closeRightPanelPane"), true);
+  assert.equal(appSource.includes("async function ensureTerminalOpen"), false);
+  assert.equal(appSource.includes("async function openTerminalSession"), false);
+  assert.equal(appSource.includes("async function refreshTerminals"), false);
+  assert.equal(appSource.includes("async function sendTerminalInput"), false);
+  assert.equal(appSource.includes("async function sendTerminalInputTo"), false);
+  assert.equal(appSource.includes("async function clearActiveTerminal"), false);
+  assert.equal(appSource.includes("async function clearTerminalById"), false);
+  assert.equal(appSource.includes("async function restartActiveTerminal"), false);
+  assert.equal(appSource.includes("async function restartTerminalById"), false);
+  assert.equal(appSource.includes("async function closeActiveTerminal"), false);
+  assert.equal(appSource.includes("async function openRightPanelTerminalSurface"), false);
+  assert.equal(appSource.includes("async function splitRightPanelTerminalSurface"), false);
+  assert.equal(appSource.includes("function activateRightPanelTerminalPane"), false);
+  assert.equal(appSource.includes("async function closeRightPanelTerminalPane"), false);
+  assert.equal(appSource.includes("function allKnownTerminalIds"), false);
   assert.equal(appSource.includes("AppSidebarLayout"), true);
   assert.equal(appSource.includes("WorkbenchHeader"), true);
   assert.equal(appSource.includes("currentSessionId: currentSessionIdRef.current"), true);
