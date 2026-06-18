@@ -501,7 +501,15 @@ async function runChatScenario(page) {
   if (assistantText !== "GUI visual debug reply") {
     throw new Error(`Expected one assistant reply, got: ${assistantText}`);
   }
-  return { assistantText };
+  await page.evaluate(() => {
+    window.__EMBEDAGENT_VISUAL_DEBUG__?.loadSourceControlFixture?.();
+  });
+  await page.waitForSelector('[data-testid="branch-toolbar"]', { timeout: 10000 });
+  const branchToolbar = await page.locator('[data-testid="branch-toolbar"]').innerText();
+  if (!branchToolbar.includes("feature/t3-toolbar") || !branchToolbar.includes("4 changes")) {
+    throw new Error(`Branch toolbar did not show fixture state: ${branchToolbar}`);
+  }
+  return { assistantText, branchToolbar };
 }
 
 async function runDiffScenario(page) {
@@ -869,6 +877,7 @@ async function measureResponsiveLayout(page) {
       center: rect(".workbench-center"),
       right: rect(".workbench-right-slot"),
       composer: rect(".composer"),
+      branchToolbar: rect('[data-testid="branch-toolbar"]'),
       input: rect('[data-testid="composer-input"]'),
       visibleTabText,
       headerButtons,
@@ -888,6 +897,10 @@ async function runResponsiveScenario(page, options, outputDir) {
     await page.setViewportSize({ width: viewport.width, height: viewport.height });
     await page.waitForSelector('[data-testid="workbench-layout"]', { timeout: 10000 });
     await page.waitForSelector('[data-testid="composer-input"]', { timeout: 10000, state: "attached" });
+    await page.evaluate(() => {
+      window.__EMBEDAGENT_VISUAL_DEBUG__?.loadSourceControlFixture?.();
+    });
+    await page.waitForSelector('[data-testid="branch-toolbar"]', { timeout: 10000 });
     await page.waitForTimeout(250);
     const metrics = await measureResponsiveLayout(page);
     const minimumCenterWidth = viewport.width <= 720 ? 360 : 360;
@@ -899,6 +912,11 @@ async function runResponsiveScenario(page, options, outputDir) {
     if (!metrics.input || metrics.input.width < 160) {
       throw new Error(
         `Composer input too narrow at ${viewport.name}: ${metrics.input ? metrics.input.width : "missing"}`,
+      );
+    }
+    if (!metrics.branchToolbar || metrics.branchToolbar.width < 260) {
+      throw new Error(
+        `Branch toolbar too narrow at ${viewport.name}: ${metrics.branchToolbar ? metrics.branchToolbar.width : "missing"}`,
       );
     }
     if (metrics.documentWidth > viewport.width + 1) {

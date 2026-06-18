@@ -31,6 +31,7 @@ import { runWorkbenchStateTests } from "./workbench-state.test.mjs";
 import { runAppShellModelTests } from "./app-shell-model.test.mjs";
 import { runAppWorkspaceTests } from "./app-workspaces.test.mjs";
 import { runAppHomeModelTests } from "./app-home-model.test.mjs";
+import { runBranchToolbarModelTests } from "./branch-toolbar-model.test.mjs";
 
 const WEBAPP_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -813,6 +814,9 @@ async function main() {
   assert.equal(appSource.includes("getSourceControlStatus"), true);
   assert.equal(appSource.includes("loadSourceControlStatus"), true);
   assert.equal(appSource.includes("openSourceControlFile"), true);
+  assert.equal(appSource.includes("buildBranchToolbarModel"), true);
+  assert.equal(appSource.includes("branchToolbarModel"), true);
+  assert.equal(appSource.includes("onRefreshSourceControl"), true);
   assert.equal(appSource.includes("RightPanelSurfaceBody"), true);
   assert.equal(appSource.includes("activeRightPanelSurface"), true);
   assert.equal(appSource.includes("workbench_surface_close_others"), true);
@@ -1022,6 +1026,17 @@ async function main() {
   assert.equal(sourceControlPanelSource.includes("fileStatusLabel"), true);
   assert.equal(sourceControlPanelSource.includes("onRefresh"), true);
 
+  const branchToolbarSource = fs.readFileSync(
+    webappSourcePath("components", "workbench", "BranchToolbar.jsx"),
+    "utf8",
+  );
+  assert.equal(branchToolbarSource.includes('data-testid="branch-toolbar"'), true);
+  assert.equal(branchToolbarSource.includes('data-testid="branch-toolbar-mode"'), true);
+  assert.equal(branchToolbarSource.includes('data-testid="branch-toolbar-branch"'), true);
+  assert.equal(branchToolbarSource.includes("onRefresh"), true);
+  assert.equal(branchToolbarSource.includes("fetch("), false);
+  assert.equal(branchToolbarSource.includes("transcript"), false);
+
   const bottomDrawerSource = fs.readFileSync(
     webappSourcePath("components", "workbench", "BottomDrawer.jsx"),
     "utf8",
@@ -1096,11 +1111,15 @@ async function main() {
   );
   assert.equal(composerSource.includes("onOpenCommandPalette"), true);
   assert.equal(composerSource.includes("ComposerInteractionPanel"), true);
+  assert.equal(composerSource.includes("BranchToolbar"), true);
+  assert.equal(composerSource.includes("branchToolbar"), true);
+  assert.equal(composerSource.includes("onRefreshSourceControl"), true);
 
   runWorkbenchStateTests();
   runAppShellModelTests();
   runAppWorkspaceTests();
   runAppHomeModelTests();
+  runBranchToolbarModelTests();
   runSourceControlStateTests();
   runTerminalStateTests();
   await runTerminalControllerTests();

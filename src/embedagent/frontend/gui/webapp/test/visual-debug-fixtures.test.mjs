@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 
 import {
   buildInteractionFixtureAction,
+  buildSourceControlFixtureAction,
   buildThreadLifecycleFixtureAction,
   buildTimelineFixtureAction,
   installVisualDebugFixtures,
@@ -35,6 +36,12 @@ export function runVisualDebugFixturesTests() {
   assert.equal(threadAction.sessionId, "visual-thread-active");
   assert.equal(threadAction.sessions.length, 3);
 
+  const sourceControlAction = buildSourceControlFixtureAction();
+  assert.equal(sourceControlAction.type, "visual_source_control_fixture_loaded");
+  assert.equal(sourceControlAction.status.branch, "feature/t3-toolbar");
+  assert.equal(sourceControlAction.status.counts.total, 4);
+  assert.equal(sourceControlAction.status.files.length, 4);
+
   const skippedWindow = {};
   const skippedCleanup = installVisualDebugFixtures({
     windowObject: skippedWindow,
@@ -61,6 +68,7 @@ export function runVisualDebugFixturesTests() {
   assert.equal(typeof cleanup, "function");
   assert.equal(typeof windowObject.__EMBEDAGENT_VISUAL_DEBUG__.loadTimelineFixture, "function");
   windowObject.__EMBEDAGENT_VISUAL_DEBUG__.loadTimelineFixture();
+  windowObject.__EMBEDAGENT_VISUAL_DEBUG__.loadSourceControlFixture();
   windowObject.__EMBEDAGENT_VISUAL_DEBUG__.loadInteractionFixture("user_input");
   windowObject.__EMBEDAGENT_VISUAL_DEBUG__.loadThreadLifecycleFixture();
   windowObject.__EMBEDAGENT_VISUAL_DEBUG__.openDiffFixture({
@@ -72,6 +80,7 @@ export function runVisualDebugFixturesTests() {
     dispatched.map((action) => action.type),
     [
       "visual_timeline_fixture_loaded",
+      "visual_source_control_fixture_loaded",
       "visual_interaction_fixture_loaded",
       "visual_thread_lifecycle_fixture_loaded",
     ],

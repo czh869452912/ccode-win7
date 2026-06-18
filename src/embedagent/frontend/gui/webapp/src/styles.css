@@ -3000,6 +3000,123 @@ body {
   padding: 5px 6px 0;
 }
 
+.branch-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 860px;
+  min-height: 38px;
+  margin: 8px auto 0;
+  padding: 5px;
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+  background: rgba(255,255,255,.026);
+  color: var(--text-secondary);
+  box-shadow: 0 8px 24px rgba(0,0,0,.12);
+}
+
+.branch-toolbar-context,
+.branch-toolbar-branch {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+}
+
+.branch-toolbar-context {
+  color: var(--text-primary);
+}
+
+.branch-toolbar-branch {
+  border-color: var(--border-subtle);
+  background: rgba(255,255,255,.035);
+}
+
+.branch-toolbar-branch.tone-clean {
+  color: var(--color-success);
+}
+
+.branch-toolbar-branch.tone-attention {
+  color: var(--color-warning);
+}
+
+.branch-toolbar-branch.tone-muted,
+.branch-toolbar.repo-no_repo .branch-toolbar-branch,
+.branch-toolbar.repo-git_unavailable .branch-toolbar-branch {
+  color: var(--text-muted);
+}
+
+.branch-toolbar-icon {
+  flex: 0 0 auto;
+  color: currentColor;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1;
+  opacity: .84;
+}
+
+.branch-toolbar-main {
+  display: inline-flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.branch-toolbar-label,
+.branch-toolbar-subtle {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.branch-toolbar-label {
+  color: currentColor;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.branch-toolbar-subtle {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 9px;
+}
+
+.branch-toolbar-spacer {
+  flex: 1 1 auto;
+  min-width: 8px;
+}
+
+.branch-toolbar-button {
+  flex: 0 0 auto;
+  min-height: 28px;
+  padding: 0 9px;
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  background: rgba(255,255,255,.035);
+  color: var(--text-secondary);
+  font-size: 11px;
+  line-height: 1;
+}
+
+.branch-toolbar-button:not(:disabled) {
+  cursor: pointer;
+}
+
+.branch-toolbar-button:not(:disabled):hover {
+  border-color: var(--border-focus);
+  background: rgba(255,255,255,.065);
+  color: var(--text-primary);
+}
+
+.branch-toolbar-button:disabled {
+  cursor: default;
+  opacity: .46;
+}
+
 .composer-hints {
   border-color: var(--border-default);
   border-radius: 14px;
@@ -3327,6 +3444,24 @@ body {
   .diff-panel-meta {
     width: 100%;
     justify-content: flex-start;
+  }
+
+  .branch-toolbar {
+    align-items: stretch;
+    flex-wrap: wrap;
+  }
+
+  .branch-toolbar-context,
+  .branch-toolbar-branch {
+    flex: 1 1 46%;
+  }
+
+  .branch-toolbar-spacer {
+    display: none;
+  }
+
+  .branch-toolbar-button {
+    flex: 1 1 auto;
   }
 }
 

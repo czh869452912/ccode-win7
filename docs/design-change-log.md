@@ -44,6 +44,36 @@
 
 ## 3. 当前变更记录
 
+### DC-178
+
+- 日期：2026-06-18
+- 变更主题：GUI T3 branch toolbar run context
+- 变更摘要：
+  - React webapp now derives a `BranchToolbar` read model from active workspace and source-control state, mirroring T3code's branch/run-context strip under the composer.
+  - `BranchToolbar.jsx` renders mode/workspace context, branch or detached/no-repo state, provider label, and change/conflict count while keeping Worktree/Branch mutation affordances disabled in the current read-only GUI shell.
+  - `App.jsx` wires the toolbar through `Composer.jsx` using existing source-control refresh behavior; the component does not fetch, write transcript history, or own backend policy.
+  - Visual debug fixtures and `scripts/gui-visual-debug.mjs` now assert a deterministic `feature/t3-toolbar` / `4 changes` toolbar state in chat and responsive scenarios.
+- 影响范围：
+  - `src/embedagent/frontend/gui/webapp/src/source-control/branch-toolbar-model.js`
+  - `src/embedagent/frontend/gui/webapp/src/components/workbench/BranchToolbar.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/components/Composer.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/visual-debug-fixtures.js`
+  - `src/embedagent/frontend/gui/webapp/src/store.js`
+  - `src/embedagent/frontend/gui/webapp/src/styles.css`
+  - `scripts/gui-visual-debug.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/`
+  - `docs/development-tracker.md`
+  - `docs/design-change-log.md`
+- 关联文档：
+  - `reference/t3code/apps/web/src/components/BranchToolbar.tsx`
+  - `reference/t3code/apps/web/src/components/BranchToolbarActions.tsx`
+  - `docs/superpowers/specs/2026-06-18-t3-branch-toolbar-run-context-design.md`
+  - `docs/superpowers/plans/2026-06-18-t3-branch-toolbar-run-context.md`
+- 是否需要 ADR：否；该变更是 GUI app-shell presentation/read-model parity work，不改变 Agent Core、backend protocol、session-history truth、workflow package contracts、permission policy、runtime reducers、provider configuration、source-control mutation policy 或 public extension API。
+- 后续动作：
+  - Continue one-to-one T3code parity for command routing, branch/worktree action surfacing behind explicit hosted boundaries, and file/editor chrome while preserving the small Agent Core boundary.
+
 ### DC-177
 
 - 日期：2026-06-18

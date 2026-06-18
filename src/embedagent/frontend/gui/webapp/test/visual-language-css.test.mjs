@@ -41,6 +41,11 @@ export function runVisualLanguageCssTests() {
   assertIncludes(styles, "max-width: 860px;", "timeline shell should use a T3-like centered width");
   assertIncludes(styles, ".composer::before", "composer should have a top fade like T3");
   assertIncludes(styles, "border-radius: var(--r-lg);", "composer should use the large radius token");
+  assertIncludes(styles, ".branch-toolbar", "branch toolbar should be styled");
+  assertIncludes(styles, ".branch-toolbar-context", "branch toolbar context group should be styled");
+  assertIncludes(styles, ".branch-toolbar-branch", "branch toolbar branch group should be styled");
+  assertIncludes(styles, ".branch-toolbar-button", "branch toolbar controls should be styled");
+  assertIncludes(styles, "@media (max-width: 720px)", "mobile guardrails should exist");
   assertIncludes(styles, ".right-panel-surface-tab.active", "right panel active surface styling should remain explicit");
   assertIncludes(styles, ".right-panel-tab-scroll", "right panel should use a horizontally scrollable surface tab list");
   assertIncludes(styles, ".right-panel-add-menu-popup", "right panel add-surface menu should be styled");

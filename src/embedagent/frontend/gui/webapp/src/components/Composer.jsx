@@ -2,6 +2,7 @@ import React from "react";
 import { useLang } from "../LangContext.js";
 import { t } from "../strings.js";
 import ComposerInteractionPanel from "./composer/ComposerInteractionPanel.jsx";
+import BranchToolbar from "./workbench/BranchToolbar.jsx";
 
 export default function Composer({
   value,
@@ -17,6 +18,8 @@ export default function Composer({
   answerValue = "",
   onAnswerChange,
   onRespondInteraction,
+  branchToolbar = null,
+  onRefreshSourceControl,
 }) {
   const lang = useLang();
   const hasInteraction = Boolean(interaction || interactionNotice);
@@ -110,6 +113,7 @@ export default function Composer({
           <span className="hint-text running-hint">● interaction pending</span>
         )}
       </div>
+      <BranchToolbar model={branchToolbar} onRefresh={onRefreshSourceControl} />
     </footer>
   );
 }

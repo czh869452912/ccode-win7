@@ -24,6 +24,13 @@
 
 ## 2. 当前阶段
 
+### 2026-06-18 - T3 Branch Toolbar Run Context
+
+- GUI composer footer now includes a T3code-style branch/run-context toolbar derived from the existing app-shell source-control state.
+- The toolbar shows active workspace, mode context, local branch/detached/no-repo state, provider label, and change/conflict count, with disabled Worktree/Branch mutation affordances and a read-only refresh action.
+- Visual debug fixtures now provide a deterministic `feature/t3-toolbar` local Git state so chat and responsive visual scenarios assert the toolbar renders with `4 changes`.
+- This slice stays in the GUI app shell: no Agent Core, backend protocol, transcript history, workflow state, permission policy, runtime reducer, provider configuration, extension loading, source-control mutation, checkpoint, telemetry, or terminal execution semantics changed.
+
 ### 2026-06-18 - T3 Timeline Parity Shell
 
 - GUI timeline work rows now render through a T3code-style `WorkGroupSection`: consecutive work/tool rows are grouped, collapsed groups show only the latest entry by default, and `+N previous tool calls` expands older entries while preserving scroll position.

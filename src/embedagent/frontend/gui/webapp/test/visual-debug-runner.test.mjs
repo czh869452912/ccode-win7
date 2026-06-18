@@ -76,6 +76,8 @@ export async function runVisualDebugRunnerTests() {
   assert.equal(runnerSource.includes("timeline-review-result-row"), true);
   assert.equal(runnerSource.includes("loadInteractionFixture"), true);
   assert.equal(runnerSource.includes("loadThreadLifecycleFixture"), true);
+  assert.equal(runnerSource.includes("loadSourceControlFixture"), true);
+  assert.equal(runnerSource.includes("branch-toolbar"), true);
 
   const noBuildArgs = runner.parseVisualDebugArgs(["--no-build"]);
   assert.equal(noBuildArgs.buildWebapp, false);

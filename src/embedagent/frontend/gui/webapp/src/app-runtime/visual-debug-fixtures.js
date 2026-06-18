@@ -228,6 +228,78 @@ export function buildThreadLifecycleFixtureAction() {
   };
 }
 
+export function buildSourceControlFixtureAction() {
+  return {
+    type: "visual_source_control_fixture_loaded",
+    status: {
+      workspace_root: "D:/visual-debug/demo",
+      is_repo: true,
+      git_available: true,
+      git_executable: "git",
+      runtime_source: "visual-debug-fixture",
+      branch: "feature/t3-toolbar",
+      head: "abc1234",
+      has_primary_remote: true,
+      provider: {
+        kind: "github",
+        name: "GitHub",
+        remote_host: "github.com",
+      },
+      is_dirty: true,
+      counts: {
+        staged: 1,
+        unstaged: 2,
+        untracked: 1,
+        conflicted: 0,
+        total: 4,
+      },
+      files: [
+        {
+          path: "src/parser.c",
+          display_path: "src/parser.c",
+          group: "unstaged",
+          status: "modified",
+          worktree_status: "M",
+          insertions: 12,
+          deletions: 4,
+          diff_scopes: ["unstaged"],
+        },
+        {
+          path: "src/parser.h",
+          display_path: "src/parser.h",
+          group: "staged",
+          status: "modified",
+          index_status: "M",
+          insertions: 3,
+          deletions: 1,
+          diff_scopes: ["staged"],
+        },
+        {
+          path: "tests/parser_recovery_test.c",
+          display_path: "tests/parser_recovery_test.c",
+          group: "unstaged",
+          status: "modified",
+          worktree_status: "M",
+          insertions: 18,
+          deletions: 2,
+          diff_scopes: ["unstaged"],
+        },
+        {
+          path: "notes/t3-toolbar.md",
+          display_path: "notes/t3-toolbar.md",
+          group: "untracked",
+          status: "untracked",
+          worktree_status: "?",
+          insertions: 9,
+          deletions: 0,
+          diff_scopes: ["untracked"],
+        },
+      ],
+      updated_at: "2026-06-18T09:30:00Z",
+    },
+  };
+}
+
 export function installVisualDebugFixtures({
   windowObject,
   locationSearch = "",
@@ -246,6 +318,9 @@ export function installVisualDebugFixtures({
     },
     loadTimelineFixture() {
       dispatch(buildTimelineFixtureAction({ currentMode }));
+    },
+    loadSourceControlFixture() {
+      dispatch(buildSourceControlFixtureAction());
     },
     loadLongTimelineFixture() {
       dispatch(buildLongTimelineFixtureAction({ currentMode }));

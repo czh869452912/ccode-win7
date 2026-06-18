@@ -34,6 +34,7 @@ import {
   getSourceControlStatus,
   refreshSourceControlStatus,
 } from "./source-control/source-control-api.js";
+import { buildBranchToolbarModel } from "./source-control/branch-toolbar-model.js";
 import NoWorkspaceState from "./components/NoWorkspaceState.jsx";
 import Sidebar from "./components/Sidebar.jsx";
 import Timeline from "./components/Timeline.jsx";
@@ -1056,6 +1057,14 @@ function App() {
     }),
     [state.app, state.sessions, state.currentSessionId],
   );
+  const branchToolbarModel = useMemo(
+    () =>
+      buildBranchToolbarModel({
+        activeWorkspace: state.app.activeWorkspace,
+        sourceControl: state.sourceControl,
+      }),
+    [state.app.activeWorkspace, state.sourceControl],
+  );
 
   const rightPanelSurfaces = state.workbench.rightPanel.surfaces || [];
   const activeRightPanelSurface =
@@ -1192,6 +1201,8 @@ function App() {
               answerValue={userAnswer}
               onAnswerChange={setUserAnswer}
               onRespondInteraction={respondToInteraction}
+              branchToolbar={branchToolbarModel}
+              onRefreshSourceControl={() => loadSourceControlStatus(true)}
             />
           </main>
         ) : (
