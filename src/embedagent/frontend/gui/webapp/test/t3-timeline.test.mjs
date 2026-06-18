@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 
 import {
+  T3_ROW_KINDS,
   buildChangedFilesTree,
   projectT3TimelineRows,
   summarizeChangedFiles,
@@ -195,6 +196,174 @@ export function runT3TimelineTests() {
   assert.equal(systemRows[1].content, "history partially restored");
   assert.equal(systemRows[2].kind, "work");
   assert.equal(systemRows[2].id, "detached-tool");
+
+  const richRows = projectT3TimelineRows({
+    turnGroups: [
+      {
+        turnId: "turn-rich",
+        userItem: { id: "u-rich", kind: "user", content: "review parser", turnId: "turn-rich" },
+        leadingSystemItems: [
+          {
+            id: "compact-rich",
+            kind: "compact",
+            content: "older turns summarized",
+            summarizedTurns: 6,
+            recentTurns: 3,
+            approxTokensAfter: 4200,
+            turnId: "turn-rich",
+          },
+        ],
+        steps: [
+          {
+            stepId: "step-rich",
+            stepIndex: 1,
+            activityItems: [
+              {
+                id: "reason-rich",
+                kind: "reasoning",
+                content: "Inspect parser recovery path before editing.",
+                streaming: false,
+                turnId: "turn-rich",
+                stepId: "step-rich",
+                stepIndex: 1,
+              },
+              {
+                id: "tool-rich",
+                kind: "tool",
+                toolName: "read_file",
+                label: "Read File",
+                status: "success",
+                arguments: { path: "src/parser.c" },
+                turnId: "turn-rich",
+                stepId: "step-rich",
+                stepIndex: 1,
+              },
+            ],
+            assistantItem: {
+              id: "a-rich",
+              kind: "assistant",
+              content: "Parser recovery reviewed.",
+              turnId: "turn-rich",
+              stepId: "step-rich",
+              stepIndex: 1,
+            },
+          },
+        ],
+        trailingTurnItems: [
+          {
+            id: "cmd-rich",
+            kind: "command_result",
+            commandName: "diff",
+            success: true,
+            content: "Diff is clean.",
+            turnId: "turn-rich",
+          },
+          {
+            id: "review-rich",
+            kind: "command_result",
+            commandName: "review",
+            success: false,
+            content: "Review found one issue.",
+            data: {
+              review: {
+                findings: [
+                  {
+                    id: "finding-1",
+                    severity: "high",
+                    priority: 1,
+                    title: "Parser can drop EOF",
+                    body: "EOF handling should preserve diagnostics.",
+                    file: "src/parser.c",
+                    line: 42,
+                  },
+                ],
+                residual_risks: ["No integration fixture covers EOF recovery."],
+              },
+            },
+            turnId: "turn-rich",
+          },
+        ],
+        sessionFallbackItems: [],
+      },
+    ],
+    currentStatus: "idle",
+    activeTurnId: "",
+  });
+
+  assert.equal(richRows[1].kind, T3_ROW_KINDS.COMPACT);
+  const richFold = richRows.find((row) => row.kind === T3_ROW_KINDS.TURN_FOLD);
+  assert.ok(richFold);
+  assert.equal(richFold.workCount, 1);
+  assert.equal(richFold.reasoningCount, 1);
+  assert.deepEqual(
+    richFold.entries.map((entry) => entry.kind),
+    [T3_ROW_KINDS.REASONING, T3_ROW_KINDS.WORK],
+  );
+  assert.equal(richFold.entries[0].content, "Inspect parser recovery path before editing.");
+  assert.equal(richFold.entries[0].wordCount, 6);
+  assert.equal(richRows.some((row) => row.kind === T3_ROW_KINDS.COMMAND_RESULT), true);
+  const reviewRow = richRows.find((row) => row.kind === T3_ROW_KINDS.REVIEW_RESULT);
+  assert.ok(reviewRow);
+  assert.equal(reviewRow.success, false);
+  assert.equal(reviewRow.findings.length, 1);
+  assert.equal(reviewRow.findings[0].title, "Parser can drop EOF");
+
+  const thinkingRows = projectT3TimelineRows({
+    turnGroups: [
+      {
+        turnId: "turn-thinking",
+        userItem: { id: "u-thinking", kind: "user", content: "think first", turnId: "turn-thinking" },
+        leadingSystemItems: [],
+        steps: [],
+        trailingTurnItems: [],
+        sessionFallbackItems: [],
+      },
+    ],
+    currentStatus: "running",
+    activeTurnId: "turn-thinking",
+    thinkingActive: true,
+  });
+  assert.equal(thinkingRows.some((row) => row.kind === T3_ROW_KINDS.THINKING), true);
+  const thinkingRow = thinkingRows.find((row) => row.kind === T3_ROW_KINDS.THINKING);
+  assert.equal(thinkingRow.turnId, "turn-thinking");
+  assert.equal(thinkingRow.label, "Thinking");
+
+  const streamingReasoningRows = projectT3TimelineRows({
+    turnGroups: [
+      {
+        turnId: "turn-stream",
+        userItem: { id: "u-stream", kind: "user", content: "stream", turnId: "turn-stream" },
+        leadingSystemItems: [],
+        steps: [
+          {
+            stepId: "step-stream",
+            stepIndex: 1,
+            activityItems: [
+              {
+                id: "reason-stream",
+                kind: "reasoning",
+                content: "Streaming hidden chain summary",
+                streaming: true,
+                turnId: "turn-stream",
+                stepId: "step-stream",
+                stepIndex: 1,
+              },
+            ],
+            assistantItem: null,
+          },
+        ],
+        trailingTurnItems: [],
+        sessionFallbackItems: [],
+      },
+    ],
+    currentStatus: "running",
+    activeTurnId: "turn-stream",
+    thinkingActive: true,
+  });
+  assert.equal(streamingReasoningRows.some((row) => row.kind === T3_ROW_KINDS.THINKING), false);
+  const streamingReasoning = streamingReasoningRows.find((row) => row.kind === T3_ROW_KINDS.REASONING);
+  assert.ok(streamingReasoning);
+  assert.equal(streamingReasoning.streaming, true);
 
   const tree = buildChangedFilesTree([
     { path: "src/app/main.c", additions: 2, deletions: 1 },
