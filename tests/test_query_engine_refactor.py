@@ -689,8 +689,8 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertEqual(observation.data["error_kind"], "mode_tool_blocked")
 
     def test_agent_loop_can_be_constructed_without_runner_callback(self):
-        from embedagent.agent_loop_continuation import DefaultAgentLoopContinuationPolicy
         from embedagent.agent_loop import AgentLoop
+        from embedagent.agent_loop_continuation import DefaultAgentLoopContinuationPolicy
 
         loop = AgentLoop()
 

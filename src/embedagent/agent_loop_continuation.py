@@ -36,16 +36,12 @@ class AgentLoopContinuationDecision:
 
 
 class AgentLoopContinuationPolicy(object):
-    def decide_after_step(
-        self, facts: AgentLoopContinuationFacts
-    ) -> AgentLoopContinuationDecision:
+    def decide_after_step(self, facts: AgentLoopContinuationFacts) -> AgentLoopContinuationDecision:
         raise NotImplementedError
 
 
 class DefaultAgentLoopContinuationPolicy(AgentLoopContinuationPolicy):
-    def decide_after_step(
-        self, facts: AgentLoopContinuationFacts
-    ) -> AgentLoopContinuationDecision:
+    def decide_after_step(self, facts: AgentLoopContinuationFacts) -> AgentLoopContinuationDecision:
         if facts.stop_event_set:
             return AgentLoopContinuationDecision(
                 kind=CONTINUATION_ABORT,
