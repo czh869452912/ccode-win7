@@ -655,6 +655,17 @@ async function main() {
   assert.equal(timelineRowsSource.includes("rowUiState"), true);
   assert.equal(timelineRowsSource.includes("onToggleRow"), true);
   assert.equal(timelineRowsSource.includes("rowKeyFor"), true);
+  assert.equal(timelineRowsSource.includes("ReasoningRow"), true);
+  assert.equal(timelineRowsSource.includes("ThinkingRow"), true);
+  assert.equal(timelineRowsSource.includes("CompactRow"), true);
+  assert.equal(timelineRowsSource.includes("CommandResultRow"), true);
+  assert.equal(timelineRowsSource.includes("ReviewResultRow"), true);
+  assert.equal(timelineRowsSource.includes("TimelineRowSwitch"), true);
+  assert.equal(timelineRowsSource.includes('data-testid="timeline-reasoning-row"'), true);
+  assert.equal(timelineRowsSource.includes('data-testid="timeline-thinking-row"'), true);
+  assert.equal(timelineRowsSource.includes('data-testid="timeline-compact-row"'), true);
+  assert.equal(timelineRowsSource.includes('data-testid="timeline-command-result-row"'), true);
+  assert.equal(timelineRowsSource.includes('data-testid="timeline-review-result-row"'), true);
 
   const workRowSource = fs.readFileSync(
     webappSourcePath("components", "timeline", "WorkRow.jsx"),

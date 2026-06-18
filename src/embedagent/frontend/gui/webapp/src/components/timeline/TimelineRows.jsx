@@ -58,20 +58,15 @@ function TurnFoldRow({ row, rowUiState, onToggleRow, rowKeyFor }) {
       </button>
       {open ? (
         <div className="t3-turn-fold-body">
-          {entries.map((entry) => {
-            const entryKey = rowKeyFor(entry);
-            return entry.kind === "interaction"
-              ? <InteractionRow key={entry.id} row={entry} />
-              : (
-                <WorkRow
-                  key={entry.id}
-                  row={entry}
-                  rowKey={entryKey}
-                  expanded={Boolean(rowUiState?.expanded?.[entryKey])}
-                  onToggle={onToggleRow}
-                />
-              );
-          })}
+          {entries.map((entry) => (
+            <TimelineRowSwitch
+              key={entry.id}
+              row={entry}
+              rowUiState={rowUiState}
+              onToggleRow={onToggleRow}
+              rowKeyFor={rowKeyFor}
+            />
+          ))}
         </div>
       ) : null}
     </section>
@@ -88,12 +83,211 @@ function InteractionRow({ row }) {
   );
 }
 
+function ExpandableShell({ row, rowKeyFor, rowUiState, onToggleRow, className, label, meta, children, ...domProps }) {
+  const key = rowKeyFor(row);
+  const open = Boolean(rowUiState?.expanded?.[key]);
+  return (
+    <section {...domProps} className={className} data-row-kind={row.kind} data-row-key={key}>
+      <button
+        type="button"
+        className="t3-rich-row-summary"
+        aria-expanded={open}
+        onClick={() => onToggleRow && onToggleRow(key)}
+      >
+        <span className="t3-rich-row-label">{label}</span>
+        {meta ? <span className="t3-rich-row-meta">{meta}</span> : null}
+      </button>
+      {open ? <div className="t3-rich-row-body">{children}</div> : null}
+    </section>
+  );
+}
+
+function ReasoningRow({ row, rowUiState, onToggleRow, rowKeyFor }) {
+  const meta = row.streaming ? "streaming" : `${row.wordCount || 0} words`;
+  return (
+    <ExpandableShell
+      row={row}
+      rowUiState={rowUiState}
+      onToggleRow={onToggleRow}
+      rowKeyFor={rowKeyFor}
+      className={`t3-reasoning-row${row.streaming ? " streaming" : ""}`}
+      data-testid="timeline-reasoning-row"
+      label={row.label || "Thinking"}
+      meta={meta}
+    >
+      <pre>{row.content || ""}</pre>
+    </ExpandableShell>
+  );
+}
+
+function ThinkingRow({ row }) {
+  return (
+    <div className="t3-thinking-row" data-testid="timeline-thinking-row" data-row-kind="thinking" aria-live="polite">
+      <span className="t3-thinking-pulse" aria-hidden="true" />
+      <span>{row.label || "Thinking"}</span>
+    </div>
+  );
+}
+
+function CompactRow({ row }) {
+  const parts = [];
+  if (row.summarizedTurns !== undefined) parts.push(`${row.summarizedTurns} summarized`);
+  if (row.recentTurns !== undefined) parts.push(`${row.recentTurns} retained`);
+  if (row.approxTokensAfter !== undefined) parts.push(`~${Number(row.approxTokensAfter).toLocaleString()} tokens`);
+  return (
+    <div className="t3-compact-row system-card context" data-testid="timeline-compact-row" data-row-kind="compact" role="status">
+      <span>{row.content || "Context compacted"}</span>
+      {parts.length > 0 ? <span className="t3-rich-row-meta">{parts.join(" / ")}</span> : null}
+    </div>
+  );
+}
+
+function CommandResultRow({ row, markdownComponents, rowUiState, onToggleRow, rowKeyFor }) {
+  return (
+    <ExpandableShell
+      row={row}
+      rowUiState={rowUiState}
+      onToggleRow={onToggleRow}
+      rowKeyFor={rowKeyFor}
+      className={`t3-command-result-row ${row.success === false ? "error" : "success"}`}
+      data-testid="timeline-command-result-row"
+      label={row.label || `/${row.commandName || "command"}`}
+      meta={row.success === false ? "failed" : "completed"}
+    >
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm, remarkMath]}
+        rehypePlugins={[rehypeKatex]}
+        className="markdown-body"
+        components={markdownComponents}
+      >
+        {row.content || ""}
+      </ReactMarkdown>
+    </ExpandableShell>
+  );
+}
+
+function ReviewResultRow({ row, markdownComponents, rowUiState, onToggleRow, rowKeyFor }) {
+  const findingCount = Array.isArray(row.findings) ? row.findings.length : 0;
+  return (
+    <ExpandableShell
+      row={row}
+      rowUiState={rowUiState}
+      onToggleRow={onToggleRow}
+      rowKeyFor={rowKeyFor}
+      className={`t3-review-result-row ${row.success === false ? "error" : "success"}`}
+      data-testid="timeline-review-result-row"
+      label="/review"
+      meta={findingCount === 1 ? "1 finding" : `${findingCount} findings`}
+    >
+      {row.content ? (
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm, remarkMath]}
+          rehypePlugins={[rehypeKatex]}
+          className="markdown-body"
+          components={markdownComponents}
+        >
+          {row.content}
+        </ReactMarkdown>
+      ) : null}
+      {findingCount > 0 ? (
+        <div className="t3-review-findings">
+          {row.findings.map((finding) => (
+            <article key={finding.id} className="t3-review-finding">
+              <div className="t3-review-finding-title">{finding.title}</div>
+              <div className="t3-review-finding-meta">
+                {[finding.severity, finding.file, finding.line ? `:${finding.line}` : ""].filter(Boolean).join(" ")}
+              </div>
+              {finding.body ? <p>{finding.body}</p> : null}
+            </article>
+          ))}
+        </div>
+      ) : null}
+      {Array.isArray(row.residualRisks) && row.residualRisks.length > 0 ? (
+        <ul className="t3-review-risks">
+          {row.residualRisks.map((risk) => <li key={risk}>{risk}</li>)}
+        </ul>
+      ) : null}
+    </ExpandableShell>
+  );
+}
+
 function SystemNoticeRow({ row }) {
   return (
     <div className={`system-card ${row.tone || "context"}`} role={row.tone === "error" ? "alert" : "status"} data-row-kind="system_notice">
       {row.content || row.label || ""}
     </div>
   );
+}
+
+function TimelineRowSwitch({
+  row,
+  onOpenDiff,
+  markdownComponents,
+  rowUiState,
+  onToggleRow,
+  rowKeyFor,
+}) {
+  if (row.kind === "message") {
+    return <MessageRow row={row} markdownComponents={markdownComponents} />;
+  }
+  if (row.kind === "work") {
+    const key = rowKeyFor(row);
+    return (
+      <WorkRow
+        row={row}
+        rowKey={key}
+        expanded={Boolean(rowUiState?.expanded?.[key])}
+        onToggle={onToggleRow}
+      />
+    );
+  }
+  if (row.kind === "turn_fold") {
+    return (
+      <TurnFoldRow
+        row={row}
+        rowUiState={rowUiState}
+        onToggleRow={onToggleRow}
+        rowKeyFor={rowKeyFor}
+      />
+    );
+  }
+  if (row.kind === "interaction") return <InteractionRow row={row} />;
+  if (row.kind === "diff_summary") return <ChangedFilesCard row={row} onOpenDiff={onOpenDiff} />;
+  if (row.kind === "reasoning") {
+    return <ReasoningRow row={row} rowUiState={rowUiState} onToggleRow={onToggleRow} rowKeyFor={rowKeyFor} />;
+  }
+  if (row.kind === "thinking") return <ThinkingRow row={row} />;
+  if (row.kind === "compact") return <CompactRow row={row} />;
+  if (row.kind === "command_result") {
+    return (
+      <CommandResultRow
+        row={row}
+        markdownComponents={markdownComponents}
+        rowUiState={rowUiState}
+        onToggleRow={onToggleRow}
+        rowKeyFor={rowKeyFor}
+      />
+    );
+  }
+  if (row.kind === "review_result") {
+    return (
+      <ReviewResultRow
+        row={row}
+        markdownComponents={markdownComponents}
+        rowUiState={rowUiState}
+        onToggleRow={onToggleRow}
+        rowKeyFor={rowKeyFor}
+      />
+    );
+  }
+  if (row.kind === "working") {
+    return (
+      <div className="t3-working-row" data-testid="timeline-working-row" data-row-kind="working">
+        {row.label || "Working"}
+      </div>
+    );
+  }
+  return <SystemNoticeRow row={row} />;
 }
 
 export default function TimelineRows({
@@ -106,48 +300,17 @@ export default function TimelineRows({
 }) {
   return (
     <>
-      {(rows || []).map((row) => {
-        if (row.kind === "message") {
-          return <MessageRow key={row.id} row={row} markdownComponents={markdownComponents} />;
-        }
-        if (row.kind === "work") {
-          const key = rowKeyFor(row);
-          return (
-            <WorkRow
-              key={row.id}
-              row={row}
-              rowKey={key}
-              expanded={Boolean(rowUiState?.expanded?.[key])}
-              onToggle={onToggleRow}
-            />
-          );
-        }
-        if (row.kind === "turn_fold") {
-          return (
-            <TurnFoldRow
-              key={row.id}
-              row={row}
-              rowUiState={rowUiState}
-              onToggleRow={onToggleRow}
-              rowKeyFor={rowKeyFor}
-            />
-          );
-        }
-        if (row.kind === "interaction") {
-          return <InteractionRow key={row.id} row={row} />;
-        }
-        if (row.kind === "diff_summary") {
-          return <ChangedFilesCard key={row.id} row={row} onOpenDiff={onOpenDiff} />;
-        }
-        if (row.kind === "working") {
-          return (
-            <div key={row.id} className="t3-working-row" data-testid="timeline-working-row" data-row-kind="working">
-              {row.label || "Working"}
-            </div>
-          );
-        }
-        return <SystemNoticeRow key={row.id} row={row} />;
-      })}
+      {(rows || []).map((row) => (
+        <TimelineRowSwitch
+          key={row.id}
+          row={row}
+          onOpenDiff={onOpenDiff}
+          markdownComponents={markdownComponents}
+          rowUiState={rowUiState}
+          onToggleRow={onToggleRow}
+          rowKeyFor={rowKeyFor}
+        />
+      ))}
     </>
   );
 }
