@@ -82,8 +82,10 @@ function App() {
         eventLog: sessionEventLog,
         bootstrapTimeline: state.timeline,
         defaultMode: DEFAULT_MODE,
+        activeTurnId: state.activeTurnId,
+        thinkingActive: state.thinkingActive,
       }),
-    [sessionEventLog, state.snapshot, state.timeline],
+    [sessionEventLog, state.activeTurnId, state.snapshot, state.thinkingActive, state.timeline],
   );
   const interactionNotice = state.interactionNotice || runtimeState.interactionNotice;
 

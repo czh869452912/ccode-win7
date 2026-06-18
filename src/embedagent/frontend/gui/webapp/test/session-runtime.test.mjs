@@ -161,6 +161,26 @@ export function runSessionRuntimeTests() {
   });
   assert.equal(commandRuntime.timelineView[0].sessionFallbackItems[0].kind, "command_result_fallback");
 
+  const thinkingRuntime = projectSessionRuntime({
+    snapshot: {
+      session_id: "sess-thinking",
+      status: "running",
+      current_mode: "build",
+    },
+    eventLog: createSessionEventLog(),
+    bootstrapTimeline: [
+      {
+        id: "u-thinking-runtime",
+        kind: "user",
+        content: "think in runtime",
+        turnId: "turn-runtime",
+      },
+    ],
+    activeTurnId: "turn-runtime",
+    thinkingActive: true,
+  });
+  assert.equal(thinkingRuntime.t3TimelineRows.some((row) => row.kind === "thinking"), true);
+
   const detachedRuntime = projectSessionRuntime({
     snapshot: {
       session_id: "sess-1",

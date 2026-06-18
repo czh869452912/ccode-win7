@@ -268,7 +268,14 @@ function resolveTransportReplayState(snapshot, eventLog) {
   return normalizeReplayState(snapshot?.timeline_replay_status, "healthy");
 }
 
-export function projectSessionRuntime({ snapshot, eventLog, bootstrapTimeline = [], defaultMode = "explore" }) {
+export function projectSessionRuntime({
+  snapshot,
+  eventLog,
+  bootstrapTimeline = [],
+  defaultMode = "explore",
+  activeTurnId = "",
+  thinkingActive = false,
+} = {}) {
   const currentInteraction = normalizePendingInteraction(snapshot);
   const interactionNotice = buildInteractionNotice(snapshot, currentInteraction);
   const timelineItems = mergeTimelineItems({ snapshot, eventLog, bootstrapTimeline });
@@ -291,9 +298,10 @@ export function projectSessionRuntime({ snapshot, eventLog, bootstrapTimeline = 
     t3TimelineRows: projectT3TimelineRows({
       turnGroups: timelineView,
       currentStatus: snapshot?.status || "idle",
-      activeTurnId: snapshot?.active_turn_id || "",
+      activeTurnId: activeTurnId || snapshot?.active_turn_id || "",
       currentInteraction,
       interactionNotice,
+      thinkingActive,
     }),
   };
 }
