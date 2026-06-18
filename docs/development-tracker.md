@@ -1,6 +1,6 @@
 # EmbedAgent 开发进度跟踪
 
-> 更新日期：2026-06-17（T3 right-panel terminal group surface）
+> 更新日期：2026-06-18（T3 timeline rich projection）
 > 用途：持续跟踪当前阶段、下一步任务、里程碑进度、风险与阻塞
 
 ---
@@ -23,6 +23,13 @@
 ---
 
 ## 2. 当前阶段
+
+### 2026-06-18 - T3 Timeline Rich Projection
+
+- GUI T3-style timeline now projects and renders thinking, reasoning, compact, command-result, and review-result rows in the active row renderer instead of relying on the legacy grouped fallback.
+- `projectSessionRuntime(...)` receives GUI-local `activeTurnId` / `thinkingActive` state so live `thinking_state` and `reasoning_delta` events are visible without new backend protocol.
+- Timeline expansion defaults and visual fixtures now cover rich row kinds, and responsive CSS guardrails reduce clipping under narrow or zoomed layouts.
+- This slice remains GUI app-shell display/read-model work only: no transcript writes, workflow-state ownership, permission/runtime reducer changes, provider configuration, extension loading, source-control checkpoints, or Agent Core policy changes.
 
 ### 2026-06-17 - T3 Right-Panel Terminal Group Surface
 

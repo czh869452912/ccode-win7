@@ -5,7 +5,7 @@
 > 状态：`active`
 > 类型：`module`
 > 负责人：`project maintainers`
-> 最后同步日期：`2026-06-17`
+> 最后同步日期：`2026-06-18`
 > 对应代码范围：`src/embedagent/frontend/gui/`
 
 ## 1. Purpose And Scope
@@ -163,6 +163,13 @@ state, or Agent Core reducers.
 items into T3-style rows. The projection is frontend-only: it groups user,
 assistant, work, changed-file, interaction, and turn-fold rows without changing
 session history truth or backend policy.
+
+### T3 Timeline Rich Projection
+
+- The React webapp owns a frontend-local T3 timeline row projection in `webapp/src/session-runtime/t3-timeline.js`.
+- Thinking, reasoning, compact boundaries, command results, review results, tool/work rows, diff summaries, interactions, and system notices are display rows derived from existing session bootstrap/timeline/WebSocket state.
+- `TimelineRows.jsx` renders these rows; `timeline-ui-state.js` owns transient expansion state only.
+- This projection is not session-history truth, does not write `transcript.jsonl`, does not read `timeline.jsonl` as history, and does not change Agent Core, workflow packages, permission policy, or runtime reducers.
 
 Pending permission and user-input interactions render in the composer through
 `components/composer/ComposerInteractionPanel.jsx`. The inspector can still
