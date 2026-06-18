@@ -582,7 +582,7 @@ body {
   font-size: 11px;
 }
 
-.right-panel-files-surface .file-tree {
+.right-panel-file-tree-scroll {
   flex: 1;
   min-height: 0;
   overflow: auto;
@@ -1483,6 +1483,106 @@ body {
   font-family: var(--font-mono);
   font-size: 10px;
   white-space: pre-wrap;
+}
+
+.t3-tool-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.t3-tool-detail-grid {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 4px 10px;
+  margin: 0;
+}
+
+.t3-tool-detail-grid dt {
+  color: var(--text-muted);
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.t3-tool-detail-grid dd {
+  min-width: 0;
+  margin: 0;
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.t3-tool-detail-grid dd.mono {
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
+.t3-tool-detail-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.t3-tool-detail-section-title {
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 650;
+  text-transform: uppercase;
+}
+
+.t3-tool-detail-section pre {
+  max-height: 220px;
+  overflow: auto;
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-sm);
+  background: var(--bg-subtle);
+  padding: 7px;
+}
+
+.t3-tool-detail-section pre.diff {
+  color: var(--text-primary);
+}
+
+.t3-tool-detail-section.error pre,
+.t3-tool-detail-section.stderr pre {
+  color: var(--color-error);
+}
+
+.t3-tool-detail-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.t3-tool-detail-item {
+  display: grid;
+  grid-template-columns: minmax(96px, max-content) minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+  min-width: 0;
+  color: var(--text-secondary);
+}
+
+.t3-tool-detail-item-path {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  overflow-wrap: anywhere;
+}
+
+.t3-tool-detail-item code {
+  min-width: 0;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.t3-tool-detail-files {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
 .t3-work-file-list {
@@ -2483,8 +2583,7 @@ body {
 }
 
 .sidebar-content,
-.thread-panel,
-.files-panel {
+.thread-panel {
   padding: 10px;
 }
 
@@ -3336,8 +3435,7 @@ body {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.thread-panel,
-.files-panel {
+.thread-panel {
   display: flex;
   flex-direction: column;
   gap: var(--sp-2);

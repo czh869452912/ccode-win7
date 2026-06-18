@@ -95,6 +95,121 @@ export function runT3TimelineTests() {
   assert.equal(runningRows[1].status, "running");
   assert.equal(runningRows.some((row) => row.kind === "turn_fold"), false);
 
+  const detailRows = projectT3TimelineRows({
+    turnGroups: [
+      {
+        turnId: "turn-detail",
+        userItem: { id: "u-detail", kind: "user", content: "inspect tools", turnId: "turn-detail" },
+        steps: [
+          {
+            stepId: "step-detail",
+            stepIndex: 1,
+            activityItems: [
+              {
+                id: "read-detail",
+                kind: "tool",
+                toolName: "read_file",
+                label: "Read File",
+                status: "success",
+                arguments: { path: "src/parser.c", _permission_category: "read" },
+                data: {
+                  path: "src/parser.c",
+                  line_count: 12,
+                  content_preview: "int parse(void);",
+                },
+                turnId: "turn-detail",
+                stepId: "step-detail",
+                stepIndex: 1,
+              },
+              {
+                id: "grep-detail",
+                kind: "tool",
+                toolName: "grep_text",
+                label: "Search",
+                status: "success",
+                arguments: { pattern: "parse", path: "src" },
+                data: {
+                  pattern: "parse",
+                  path: "src",
+                  match_count: 2,
+                  matches: [
+                    { path: "src/parser.c", line: 7, text: "int parse(void);" },
+                    { path: "src/parser_test.c", line: 21, text: "assert(parse());" },
+                  ],
+                },
+                turnId: "turn-detail",
+                stepId: "step-detail",
+                stepIndex: 1,
+              },
+              {
+                id: "edit-detail",
+                kind: "tool",
+                toolName: "edit_file",
+                label: "Edit File",
+                status: "success",
+                arguments: { path: "src/parser.c" },
+                data: {
+                  path: "src/parser.c",
+                  diff_preview: "--- a/src/parser.c\n+++ b/src/parser.c\n@@ -1 +1 @@\n-old\n+new\n",
+                },
+                turnId: "turn-detail",
+                stepId: "step-detail",
+                stepIndex: 1,
+              },
+              {
+                id: "recipe-detail",
+                kind: "tool",
+                toolName: "run_recipe",
+                label: "Run Recipe",
+                status: "error",
+                error: "build failed",
+                arguments: { recipe_id: "build-debug", target: "parser" },
+                data: {
+                  recipe_id: "build-debug",
+                  command: "clang -Wall src/parser.c",
+                  exit_code: 1,
+                  stdout_preview: "Compiling parser",
+                  stderr_preview: "parser.c:7: error: expected ';'",
+                },
+                turnId: "turn-detail",
+                stepId: "step-detail",
+                stepIndex: 1,
+              },
+            ],
+            assistantItem: null,
+          },
+        ],
+        trailingTurnItems: [],
+        leadingSystemItems: [],
+        sessionFallbackItems: [],
+      },
+    ],
+    currentStatus: "running",
+    activeTurnId: "turn-detail",
+  });
+
+  const detailWorkRows = detailRows.filter((row) => row.kind === T3_ROW_KINDS.WORK);
+  assert.equal(detailWorkRows.length, 4);
+  const readDetail = detailWorkRows.find((row) => row.toolName === "read_file").detailModel;
+  assert.equal(readDetail.kind, "tool_detail");
+  assert.equal(readDetail.fields.find((field) => field.label === "path").value, "src/parser.c");
+  assert.equal(readDetail.fields.find((field) => field.label === "lines").value, "12");
+  assert.equal(readDetail.sections.find((section) => section.kind === "preview").content, "int parse(void);");
+  assert.equal(readDetail.rawJson, undefined);
+
+  const grepDetail = detailWorkRows.find((row) => row.toolName === "grep_text").detailModel;
+  assert.equal(grepDetail.fields.find((field) => field.label === "pattern").value, "parse");
+  assert.equal(grepDetail.sections.find((section) => section.kind === "matches").items.length, 2);
+
+  const editDetail = detailWorkRows.find((row) => row.toolName === "edit_file").detailModel;
+  assert.equal(editDetail.sections.find((section) => section.kind === "diff").content.includes("@@ -1 +1 @@"), true);
+  assert.equal(detailWorkRows.find((row) => row.toolName === "edit_file").changedFiles[0].path, "src/parser.c");
+
+  const recipeDetail = detailWorkRows.find((row) => row.toolName === "run_recipe").detailModel;
+  assert.equal(recipeDetail.fields.find((field) => field.label === "recipe").value, "build-debug");
+  assert.equal(recipeDetail.fields.find((field) => field.label === "exit").value, "1");
+  assert.equal(recipeDetail.sections.find((section) => section.kind === "stderr").content.includes("expected"), true);
+
   const changed = summarizeChangedFiles([
     {
       id: "write-1",

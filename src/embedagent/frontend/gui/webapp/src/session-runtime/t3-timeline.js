@@ -15,6 +15,7 @@ export const T3_ROW_KINDS = Object.freeze({
 
 const WRITE_TOOLS = new Set(["write_file", "edit_file", "git_diff"]);
 const META_ARG_PREFIX = "_";
+const DETAIL_TEXT_LIMIT = 4000;
 
 function stringValue(value, fallback = "") {
   if (value == null) return fallback;
@@ -288,6 +289,212 @@ function publicArgs(args) {
   return result;
 }
 
+function truncateText(value, limit = DETAIL_TEXT_LIMIT) {
+  const text = stringValue(value);
+  if (text.length <= limit) return text;
+  return `${text.slice(0, limit)}\n...[truncated]`;
+}
+
+function pushField(fields, label, value, options = {}) {
+  if (value == null || value === "") return;
+  fields.push({
+    label,
+    value: stringValue(value),
+    mono: options.mono !== false,
+  });
+}
+
+function firstString(...values) {
+  for (const value of values) {
+    if (typeof value === "string" && value) return value;
+  }
+  return "";
+}
+
+function publicValuePairs(args = {}, data = {}) {
+  const keys = [];
+  for (const key of Object.keys(args || {})) {
+    if (!keys.includes(key)) keys.push(key);
+  }
+  for (const key of Object.keys(data || {})) {
+    if (!keys.includes(key)) keys.push(key);
+  }
+  const hidden = new Set([
+    "content",
+    "content_preview",
+    "preview",
+    "matches",
+    "files",
+    "stdout",
+    "stdout_preview",
+    "stderr",
+    "stderr_preview",
+    "diff",
+    "diff_preview",
+    "unified_diff",
+    "summary",
+    "message",
+    "error_kind",
+  ]);
+  return keys
+    .filter((key) => !key.startsWith(META_ARG_PREFIX) && !hidden.has(key))
+    .map((key) => [key, data[key] != null ? data[key] : args[key]])
+    .filter(([, value]) => value != null && value !== "" && typeof value !== "object");
+}
+
+function matchItems(data) {
+  const source = Array.isArray(data?.matches)
+    ? data.matches
+    : Array.isArray(data?.preview)
+      ? data.preview
+      : [];
+  return source.slice(0, 12).map((item, index) => {
+    if (item && typeof item === "object") {
+      return {
+        id: stringValue(item.id || `${item.path || "match"}-${item.line || index}`),
+        path: stringValue(item.path),
+        line: item.line !== undefined ? stringValue(item.line) : "",
+        text: truncateText(item.text || item.content || item.preview || "", 320),
+      };
+    }
+    return {
+      id: `match-${index + 1}`,
+      path: "",
+      line: "",
+      text: truncateText(item, 320),
+    };
+  });
+}
+
+function fileItems(data) {
+  const source = Array.isArray(data?.files)
+    ? data.files
+    : Array.isArray(data?.preview)
+      ? data.preview
+      : [];
+  return source.slice(0, 20).map((item, index) => {
+    if (item && typeof item === "object") {
+      return {
+        id: stringValue(item.path || item.name || `file-${index + 1}`),
+        path: stringValue(item.path || item.name || item.file),
+        text: stringValue(item.kind || item.type),
+      };
+    }
+    return {
+      id: `file-${index + 1}`,
+      path: stringValue(item),
+      text: "",
+    };
+  }).filter((item) => item.path);
+}
+
+function buildToolDetailModel(item, args, changed) {
+  const data = item?.data && typeof item.data === "object" ? item.data : {};
+  const toolName = stringValue(item?.toolName || item?.tool_name);
+  const fields = [];
+  const sections = [];
+  const path = stringValue(data.path || data.file || args.path || args.file);
+  const pattern = stringValue(data.pattern || data.query || args.pattern || args.query);
+  const command = stringValue(data.command || args.command);
+  const recipe = stringValue(data.recipe_id || data.recipeId || args.recipe_id || args.recipeId);
+  const target = stringValue(data.target || args.target);
+  const preview = firstString(data.content_preview, data.preview, data.summary, data.message);
+  const stdout = firstString(data.stdout_preview, data.stdout);
+  const stderr = firstString(data.stderr_preview, data.stderr);
+  const diff = diffTextFromItem(item);
+  const matches = matchItems(data);
+  const files = fileItems(data);
+
+  if (path) pushField(fields, "path", path);
+  if (pattern) pushField(fields, "pattern", pattern);
+  if (recipe) pushField(fields, "recipe", recipe);
+  if (target) pushField(fields, "target", target);
+  if (command) pushField(fields, "command", command);
+  if (data.cwd || args.cwd) pushField(fields, "cwd", data.cwd || args.cwd);
+  if (data.exit_code !== undefined) pushField(fields, "exit", data.exit_code);
+  if (data.line_count !== undefined) pushField(fields, "lines", data.line_count);
+  if (data.char_count !== undefined) pushField(fields, "chars", data.char_count);
+  if (data.match_count !== undefined) pushField(fields, "matches", data.match_count);
+  if (data.returned_count !== undefined && data.total_count !== undefined) {
+    pushField(fields, "returned", `${data.returned_count}/${data.total_count}`);
+  }
+  for (const [key, value] of publicValuePairs(args, data)) {
+    if (fields.some((field) => field.label === key)) continue;
+    pushField(fields, key, value);
+  }
+
+  if (item?.error) {
+    sections.push({
+      kind: "error",
+      title: "Error",
+      content: truncateText(item.error),
+    });
+  }
+  if (preview) {
+    sections.push({
+      kind: "preview",
+      title: toolName === "read_file" ? "Preview" : "Summary",
+      content: truncateText(preview),
+    });
+  }
+  if (matches.length > 0) {
+    sections.push({
+      kind: "matches",
+      title: "Matches",
+      items: matches,
+    });
+  }
+  if (files.length > 0) {
+    sections.push({
+      kind: "files",
+      title: "Files",
+      items: files,
+    });
+  }
+  if (stdout) {
+    sections.push({
+      kind: "stdout",
+      title: "stdout",
+      content: truncateText(stdout),
+    });
+  }
+  if (stderr) {
+    sections.push({
+      kind: "stderr",
+      title: "stderr",
+      content: truncateText(stderr),
+    });
+  }
+  if (diff) {
+    sections.push({
+      kind: "diff",
+      title: "Diff",
+      content: truncateText(diff),
+    });
+  }
+  if (Array.isArray(changed?.files) && changed.files.length > 0) {
+    sections.push({
+      kind: "changed_files",
+      title: "Changed files",
+      items: changed.files.map((file) => ({
+        id: file.path,
+        path: file.path,
+        additions: numberValue(file.additions),
+        deletions: numberValue(file.deletions),
+      })),
+    });
+  }
+
+  if (fields.length === 0 && sections.length === 0) return null;
+  return {
+    kind: "tool_detail",
+    toolName,
+    status: stringValue(item?.status || "running"),
+    fields,
+    sections,
+  };
+}
+
 function detailTextFor(item) {
   if (item?.error) return stringValue(item.error).slice(0, 4000);
   const data = item?.data;
@@ -296,11 +503,7 @@ function detailTextFor(item) {
   if (typeof data.summary === "string") return data.summary.slice(0, 4000);
   if (typeof data.message === "string") return data.message.slice(0, 4000);
   if (typeof data.diff_preview === "string") return data.diff_preview.slice(0, 4000);
-  try {
-    return JSON.stringify(data, null, 2).slice(0, 4000);
-  } catch (_) {
-    return "";
-  }
+  return "";
 }
 
 function toneForWork(item, status) {
@@ -331,6 +534,7 @@ export function normalizeWorkEntry(item) {
     commandPreview: commandPreviewFor(toolName, args),
     args,
     detail: detailTextFor(item),
+    detailModel: buildToolDetailModel(item, args, changed),
     changedFiles: changed.files,
     additions: changed.additions,
     deletions: changed.deletions,

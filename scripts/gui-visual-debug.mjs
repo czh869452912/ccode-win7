@@ -437,6 +437,48 @@ async function assertNoOverlap(page) {
   });
 }
 
+async function scrollContainerMetrics(page, selectors = []) {
+  return await page.evaluate((items) => {
+    const metrics = {};
+    for (const [name, selector] of items) {
+      const element = document.querySelector(selector);
+      if (!element) {
+        metrics[name] = { present: false };
+        continue;
+      }
+      const style = window.getComputedStyle(element);
+      const before = element.scrollTop;
+      element.scrollTop = Math.min(48, Math.max(0, element.scrollHeight - element.clientHeight));
+      const after = element.scrollTop;
+      element.scrollTop = before;
+      metrics[name] = {
+        present: true,
+        overflowY: style.overflowY,
+        clientHeight: Math.round(element.clientHeight),
+        scrollHeight: Math.round(element.scrollHeight),
+        canScroll: after > before || element.scrollHeight > element.clientHeight + 1,
+      };
+    }
+    return metrics;
+  }, selectors);
+}
+
+function assertScrollContainer(metrics, name, { requireScrollable = false } = {}) {
+  const item = metrics[name];
+  if (!item?.present) {
+    throw new Error(`Missing scroll container: ${name}`);
+  }
+  if (!["auto", "scroll"].includes(item.overflowY)) {
+    throw new Error(`Expected ${name} to allow vertical scrolling, saw overflow-y=${item.overflowY}`);
+  }
+  if (item.clientHeight <= 0) {
+    throw new Error(`Scroll container ${name} has no visible height`);
+  }
+  if (requireScrollable && !item.canScroll) {
+    throw new Error(`Expected ${name} to be scrollable with fixture content`);
+  }
+}
+
 async function runLoadScenario(page) {
   await page.waitForSelector('[data-testid="workbench-layout"]', { timeout: 10000 });
   await page.waitForSelector('[data-testid="composer-input"]', { timeout: 10000 });
@@ -492,9 +534,15 @@ async function runDiffScenario(page) {
 
 async function runFileScenario(page) {
   await page.waitForSelector('[data-testid="right-panel-empty-surface--files"]', { timeout: 10000 });
+  const leftFilesTabCount = await page.locator('[data-testid="sidebar-tab--files"]').count();
+  const leftFileTreeCount = await page.locator('[data-testid^="file-tree-node--"]').count();
   await page.click('[data-testid="right-panel-empty-surface--files"]');
   await page.waitForSelector('[data-testid="right-panel-files-surface"]', { timeout: 10000 });
   await page.waitForSelector('[data-testid="right-panel-file-node--README.md"]', { timeout: 10000 });
+  const filesMetrics = await scrollContainerMetrics(page, [
+    ["filesSurface", '[data-testid="right-panel-file-tree-scroll"]'],
+    ["rightPanelBody", ".right-panel-body"],
+  ]);
   await page.click('[data-testid="right-panel-file-node--README.md"]');
   await page.waitForSelector('[data-testid="right-panel-file-surface"]', { timeout: 15000 });
   await page.waitForSelector('[data-testid="right-panel-file-content"]', { timeout: 15000 });
@@ -502,6 +550,9 @@ async function runFileScenario(page) {
   const activeTab = await page.locator('[data-testid="right-panel-surface-tab--file"] [role="tab"]').getAttribute("aria-selected");
   const filesTabs = await page.locator('[data-testid="right-panel-surface-tab--files"]').count();
   const noOverlap = await assertNoOverlap(page);
+  if (leftFilesTabCount !== 0) throw new Error("Left sidebar still exposes a Files tab");
+  if (leftFileTreeCount !== 0) throw new Error("Left sidebar still renders file tree nodes");
+  assertScrollContainer(filesMetrics, "filesSurface");
   if (activeTab !== "true") throw new Error("File tab did not become active");
   if (filesTabs !== 0) throw new Error("Standalone files surface was not replaced by file surface");
   if (!panelText.includes("Visual Debug Workspace")) {
@@ -512,6 +563,9 @@ async function runFileScenario(page) {
     activeTab: activeTab === "true",
     filesSurfaceReplaced: filesTabs === 0,
     hasReadmeContent: panelText.includes("Visual Debug Workspace"),
+    leftFilesTabAbsent: leftFilesTabCount === 0,
+    leftFileTreeAbsent: leftFileTreeCount === 0,
+    scrollContainers: filesMetrics,
     rightTabsDoNotOverlap: noOverlap,
   };
 }
@@ -576,8 +630,18 @@ async function runTimelineScenario(page) {
     await firstCollapsed.click();
   }
   await page.waitForSelector('[data-testid="timeline-work-detail"]', { timeout: 10000 });
+  await page.waitForSelector('[data-testid="timeline-tool-detail"]', { timeout: 10000 });
   const rowCount = await page.locator("[data-row-kind]").count();
+  const detailText = await page.locator('[data-testid="timeline-work-detail"]').first().innerText();
+  const rawJsonVisible = detailText.trim().startsWith("{") || detailText.includes('"path":');
+  const detailFieldCount = await page.locator(".t3-tool-detail-grid dt").count();
+  const scrollMetrics = await scrollContainerMetrics(page, [
+    ["timeline", ".timeline"],
+  ]);
   const noOverlap = await assertNoOverlap(page);
+  assertScrollContainer(scrollMetrics, "timeline");
+  if (rawJsonVisible) throw new Error("Timeline work detail still exposes raw JSON");
+  if (detailFieldCount === 0) throw new Error("Timeline work detail did not render structured fields");
   if (!noOverlap) throw new Error("Right panel tabs overlap in timeline scenario");
   return {
     rowCount,
@@ -586,6 +650,9 @@ async function runTimelineScenario(page) {
     hasReview: await page.locator('[data-testid="timeline-review-result-row"]').first().isVisible(),
     hasThinking: await page.locator('[data-testid="timeline-thinking-row"]').first().isVisible(),
     hasExpandedDetail: await page.locator('[data-testid="timeline-work-detail"]').first().isVisible(),
+    hasStructuredToolDetail: detailFieldCount > 0,
+    rawJsonVisible,
+    scrollContainers: scrollMetrics,
     rightTabsDoNotOverlap: noOverlap,
   };
 }
@@ -627,8 +694,10 @@ async function runThreadScenario(page) {
   await page.waitForSelector('[data-testid="thread-action--rename--visual-thread-active"]', { timeout: 10000 });
   const rowCount = await page.locator(".thread-card").count();
   const actionCount = await page.locator(".thread-action").count();
-  const disabledActionCount = await page.locator(".thread-action:disabled").count();
   const selectedCount = await page.locator(".thread-card.selected").count();
+  const scrollMetrics = await scrollContainerMetrics(page, [
+    ["threadList", ".thread-list"],
+  ]);
   const layout = await page.evaluate(() => {
     const sidebar = document.querySelector('[data-testid="sidebar"]');
     const rows = Array.from(document.querySelectorAll(".thread-card"));
@@ -659,15 +728,13 @@ async function runThreadScenario(page) {
   if (actionCount !== rowCount * 3) {
     throw new Error(`Thread lifecycle fixture expected 3 actions per row, saw ${actionCount}`);
   }
-  if (disabledActionCount !== actionCount) {
-    throw new Error("Thread lifecycle actions should remain disabled until backend API exists");
-  }
   if (selectedCount !== 1) {
     throw new Error(`Thread lifecycle fixture expected one active thread, saw ${selectedCount}`);
   }
   if (!layout.sidebar) {
     throw new Error("Thread lifecycle scenario could not measure sidebar");
   }
+  assertScrollContainer(scrollMetrics, "threadList");
   const overflowing = layout.rows
     .concat(layout.actions)
     .filter((item) => item && item.right > layout.sidebar.right + 1);
@@ -677,8 +744,9 @@ async function runThreadScenario(page) {
   return {
     rowCount,
     actionCount,
-    disabledActionCount,
+    enabledActionCount: actionCount - await page.locator(".thread-action:disabled").count(),
     selectedCount,
+    scrollContainers: scrollMetrics,
     layout,
   };
 }

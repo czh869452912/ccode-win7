@@ -1,6 +1,6 @@
 # EmbedAgent 开发进度跟踪
 
-> 更新日期：2026-06-18（GUI terminal runtime controller boundary）
+> 更新日期：2026-06-18（T3 workbench IA and tool details）
 > 用途：持续跟踪当前阶段、下一步任务、里程碑进度、风险与阻塞
 
 ---
@@ -23,6 +23,14 @@
 ---
 
 ## 2. 当前阶段
+
+### 2026-06-18 - T3 Workbench IA And Tool Details
+
+- GUI left sidebar now owns workspace/thread navigation only; duplicate left Files tab and file tree rendering have been removed.
+- The right-panel `FilesSurface` is the sole file browsing surface and now has an explicit scroll wrapper for long file trees.
+- T3 timeline work rows now project frontend-local `detailModel` data and render structured tool details through `ToolDetail.jsx` instead of falling back to raw JSON for normal tool data.
+- Visual harness coverage now asserts timeline/file/thread scroll containers, absence of the left Files tree, and absence of raw JSON in expanded tool details.
+- This slice stays in the GUI app shell: no Agent Core, backend protocol, workflow package, permission policy, transcript, runtime reducer, provider configuration, extension loading, terminal execution, source-control execution, or telemetry semantics changed.
 
 ### 2026-06-18 - GUI Terminal Runtime Controller Boundary
 

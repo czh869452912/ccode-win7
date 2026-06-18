@@ -678,6 +678,10 @@ async function main() {
   assert.equal(workRowSource.includes("expanded"), true);
   assert.equal(workRowSource.includes("onToggle"), true);
   assert.equal(workRowSource.includes("useState(row.status === \"error\")"), false);
+  assert.equal(workRowSource.includes("ToolDetail"), true);
+  assert.equal(workRowSource.includes("row.detailModel"), true);
+  assert.equal(workRowSource.includes("<pre>{row.detail}</pre>"), false);
+  assert.equal(fs.existsSync(webappSourcePath("components", "timeline", "ToolDetail.jsx")), true);
 
   const interactionPanelSource = fs.readFileSync(
     webappSourcePath("components", "InteractionPanel.jsx"),
@@ -714,6 +718,8 @@ async function main() {
   assert.equal(stylesSource.includes(".t3-work-row.error"), true);
   assert.equal(stylesSource.includes(".t3-work-row.running"), true);
   assert.equal(stylesSource.includes("timeline-work-detail"), true);
+  assert.equal(stylesSource.includes(".t3-tool-detail-grid"), true);
+  assert.equal(stylesSource.includes(".t3-tool-detail-section"), true);
   assert.equal(stylesSource.includes(".t3-reasoning-row"), true);
   assert.equal(stylesSource.includes(".t3-thinking-row"), true);
   assert.equal(stylesSource.includes(".t3-compact-row"), true);
@@ -915,6 +921,11 @@ async function main() {
   assert.equal(sidebarSource.includes("appHome?.threads"), true);
   assert.equal(sidebarSource.includes("new Date("), false);
   assert.equal(sidebarSource.includes("state.sessions.map"), false);
+  assert.equal(sidebarSource.includes('data-testid="sidebar-tab--files"'), false);
+  assert.equal(sidebarSource.includes("file-tree-node--"), false);
+  assert.equal(sidebarSource.includes("react-arborist"), false);
+  assert.equal(sidebarSource.includes("onLoadFileChildren"), false);
+  assert.equal(sidebarSource.includes("onOpenFile"), false);
   assert.equal(fs.existsSync(webappSourcePath("session-runtime", "app-home-model.js")), true);
   const appHomeModelSource = fs.readFileSync(
     webappSourcePath("session-runtime", "app-home-model.js"),
@@ -997,6 +1008,8 @@ async function main() {
   );
   assert.equal(filesSurfaceSource.includes("react-arborist"), true);
   assert.equal(filesSurfaceSource.includes('data-testid="right-panel-files-surface"'), true);
+  assert.equal(filesSurfaceSource.includes('data-testid="right-panel-file-tree-scroll"'), true);
+  assert.equal(filesSurfaceSource.includes("right-panel-file-node--"), true);
   assert.equal(filesSurfaceSource.includes("onLoadFileChildren"), true);
 
   const rightPanelSurfaceBodySource = fs.readFileSync(

@@ -1147,22 +1147,16 @@ function App() {
         <Sidebar
           app={state.app}
           appHome={appHomeModel}
-          sidebarTab={state.sidebarTab}
           currentSessionId={state.currentSessionId}
-          fileTree={state.fileTree}
-          treeHeight={treeHeight}
           currentMode={currentMode}
           workspacePathInput={state.app.workspacePathInput}
           onWorkspacePathChange={(value) => dispatch({ type: "workspace_path_changed", value })}
-          onTabChange={(v) => dispatch({ type: "set_sidebar", value: v })}
           onLoadSession={loadSession}
           onCreateSession={createSession}
           onThreadLifecycleAction={handleThreadLifecycleAction}
           onOpenWorkspace={openWorkspace}
           onActivateWorkspace={activateWorkspace}
           onRemoveWorkspace={removeWorkspace}
-          onOpenFile={openFile}
-          onLoadFileChildren={loadFileChildren}
         />
       }
       main={

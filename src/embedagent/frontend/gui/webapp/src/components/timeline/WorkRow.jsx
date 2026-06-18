@@ -1,3 +1,5 @@
+import ToolDetail from "./ToolDetail.jsx";
+
 const TOOL_ICONS = {
   read_file: "R",
   list_dir: "L",
@@ -22,7 +24,7 @@ function statusLabel(row) {
 
 export default function WorkRow({ row, expanded = false, onToggle = null, rowKey = "" }) {
   const hasDetail = Boolean(
-    row.detail || row.commandPreview || (Array.isArray(row.changedFiles) && row.changedFiles.length > 0),
+    row.detailModel || row.detail || row.commandPreview || (Array.isArray(row.changedFiles) && row.changedFiles.length > 0),
   );
   const icon = TOOL_ICONS[row.toolName] || "*";
 
@@ -54,7 +56,8 @@ export default function WorkRow({ row, expanded = false, onToggle = null, rowKey
       </button>
       {expanded && hasDetail ? (
         <div className="t3-work-detail timeline-work-detail" data-testid="timeline-work-detail">
-          {row.detail ? <pre>{row.detail}</pre> : null}
+          {row.detailModel ? <ToolDetail model={row.detailModel} /> : null}
+          {!row.detailModel && row.detail ? <pre className="t3-work-detail-text">{row.detail}</pre> : null}
           {Array.isArray(row.changedFiles) && row.changedFiles.length > 0 ? (
             <div className="t3-work-file-list">
               {row.changedFiles.map((file) => (

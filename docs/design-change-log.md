@@ -44,6 +44,34 @@
 
 ## 3. 当前变更记录
 
+### DC-175
+
+- 日期：2026-06-18
+- 变更主题：GUI T3 workbench IA and timeline tool details
+- 变更摘要：
+  - React webapp left sidebar no longer renders a Files tab or file tree; workspace/thread navigation remains the sidebar's only responsibility.
+  - Right-panel `FilesSurface` is now the single file browsing surface and owns an explicit scroll container for long trees.
+  - T3 timeline work rows now project `detailModel` data in `t3-timeline.js`, and `ToolDetail.jsx` renders structured tool-aware fields and sections instead of raw JSON fallback for normal tool data.
+  - Visual harness assertions now cover timeline/file/thread scroll containers, right-panel-only file tree ownership, and no raw JSON in expanded tool details.
+- 影响范围：
+  - `src/embedagent/frontend/gui/webapp/src/session-runtime/t3-timeline.js`
+  - `src/embedagent/frontend/gui/webapp/src/components/timeline/ToolDetail.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/components/timeline/WorkRow.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/components/Sidebar.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/components/workbench/FilesSurface.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/styles.css`
+  - `scripts/gui-visual-debug.mjs`
+  - `docs/modules/frontend-gui.md`
+  - `docs/development-tracker.md`
+  - `docs/design-change-log.md`
+- 关联文档：
+  - `docs/superpowers/specs/2026-06-18-t3-workbench-ia-tool-details-design.md`
+  - `docs/superpowers/plans/2026-06-18-t3-workbench-ia-tool-details.md`
+- 是否需要 ADR：否；该变更是 GUI app-shell display/read-model refinement，不是 backend protocol、session-history truth、workflow policy、permission policy 或 Agent Core extension API。
+- 后续动作：
+  - Continue T3 parity slices for command routing, source-control action surfacing, file editor layout polish, and deeper responsive workbench behavior while keeping Agent Core small and separate.
+
 ### DC-174
 
 - 日期：2026-06-18

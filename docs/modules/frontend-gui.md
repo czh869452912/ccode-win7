@@ -23,7 +23,7 @@
 - GUI app-shell hosted source-control read model（`backend/source_control_service.py`、`webapp/src/source-control/`）
 - 协议回调到 WebSocket 广播的实时转换（`backend/server.py`）
 - WebSocket 断线重连与会话事件回放恢复（`webapp/`）
-- T3code-inspired Agent timeline rows、composer interaction panel、Diff right-panel surface、neutral workbench visual language（`webapp/src/session-runtime/`、`webapp/src/components/`、`webapp/src/styles.css`）
+- T3code-inspired Agent timeline rows、structured tool detail expansion、composer interaction panel、Diff / Files right-panel surfaces、neutral workbench visual language（`webapp/src/session-runtime/`、`webapp/src/components/`、`webapp/src/styles.css`）
 - 开发机可视调试 harness：启动真实 GUI、执行场景、截图、检查 console/DOM（`scripts/gui-visual-debug.mjs`）
 
 ## 3. Code Mapping
@@ -114,6 +114,12 @@ truth, workspace registry persistence, workflow policy, or Core lifecycle.
 The project list is locally scroll-bounded so accumulated recent projects do
 not push thread management out of the visible workbench.
 
+The left sidebar owns workspace and thread navigation only. File browsing is
+owned by the right-panel `FilesSurface`, which renders the single file tree and
+opens file preview tabs through right-panel surface descriptors. The sidebar
+must not render a second Files tab or duplicate file tree; file navigation
+remains GUI app-shell display state and must not become workflow truth.
+
 Thread lifecycle controls are shaped by the same frontend-local read model.
 Thread rows now expose a compact action rail for `Rename`, `Fork`, and
 `Archive`, with action enablement gated by explicit lifecycle capabilities.
@@ -169,6 +175,7 @@ session history truth or backend policy.
 
 - The React webapp owns a frontend-local T3 timeline row projection in `webapp/src/session-runtime/t3-timeline.js`.
 - Thinking, reasoning, compact boundaries, command results, review results, tool/work rows, diff summaries, interactions, and system notices are display rows derived from existing session bootstrap/timeline/WebSocket state.
+- Tool/work rows project a frontend-local `detailModel` for tool-aware fields and sections; `components/timeline/ToolDetail.jsx` renders paths, grep matches, file previews, recipe output, diff/change summaries, stdout, and stderr as structured details instead of raw JSON for normal tool data. Plain text fallback is reserved for simple error/string summaries.
 - `TimelineRows.jsx` renders these rows; `timeline-ui-state.js` owns transient expansion state only.
 - This projection is not session-history truth, does not write `transcript.jsonl`, does not read `timeline.jsonl` as history, and does not change Agent Core, workflow packages, permission policy, or runtime reducers.
 

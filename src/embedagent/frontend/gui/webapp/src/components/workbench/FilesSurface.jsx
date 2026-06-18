@@ -14,45 +14,47 @@ export default function FilesSurface({
         <strong>Files</strong>
         <span>{nodes.length}</span>
       </div>
-      <Tree
-        data={nodes}
-        width={320}
-        height={treeHeight || 640}
-        rowHeight={30}
-        indent={18}
-        onActivate={(node) => {
-          if (node.data.kind === "file") {
-            onOpenFile(node.data.path);
-          } else if (!node.data.childrenLoaded && node.data.hasChildren) {
-            onLoadFileChildren(node.data.path);
-          }
-        }}
-      >
-        {({ node, style }) => (
-          <div
-            style={style}
-            className={`tree-row ${node.data.kind}`}
-            role="treeitem"
-            aria-expanded={node.data.kind === "dir" ? node.isOpen : undefined}
-            onClick={() => {
-              if (node.data.kind === "dir") {
-                if (!node.data.childrenLoaded && node.data.hasChildren) {
-                  onLoadFileChildren(node.data.path);
+      <div className="right-panel-file-tree-scroll" data-testid="right-panel-file-tree-scroll">
+        <Tree
+          data={nodes}
+          width={320}
+          height={treeHeight || 640}
+          rowHeight={30}
+          indent={18}
+          onActivate={(node) => {
+            if (node.data.kind === "file") {
+              onOpenFile(node.data.path);
+            } else if (!node.data.childrenLoaded && node.data.hasChildren) {
+              onLoadFileChildren(node.data.path);
+            }
+          }}
+        >
+          {({ node, style }) => (
+            <div
+              style={style}
+              className={`tree-row ${node.data.kind}`}
+              role="treeitem"
+              aria-expanded={node.data.kind === "dir" ? node.isOpen : undefined}
+              onClick={() => {
+                if (node.data.kind === "dir") {
+                  if (!node.data.childrenLoaded && node.data.hasChildren) {
+                    onLoadFileChildren(node.data.path);
+                  }
+                  node.toggle();
+                } else {
+                  onOpenFile(node.data.path);
                 }
-                node.toggle();
-              } else {
-                onOpenFile(node.data.path);
-              }
-            }}
-            data-testid={`right-panel-file-node--${node.data.path}`}
-          >
-            <span className="tree-icon" aria-hidden="true">
-              {node.data.kind === "dir" ? (node.isOpen ? "v" : ">") : "."}
-            </span>
-            <span className="tree-label">{node.data.name}</span>
-          </div>
-        )}
-      </Tree>
+              }}
+              data-testid={`right-panel-file-node--${node.data.path}`}
+            >
+              <span className="tree-icon" aria-hidden="true">
+                {node.data.kind === "dir" ? (node.isOpen ? "v" : ">") : "."}
+              </span>
+              <span className="tree-label">{node.data.name}</span>
+            </div>
+          )}
+        </Tree>
+      </div>
     </div>
   );
 }
