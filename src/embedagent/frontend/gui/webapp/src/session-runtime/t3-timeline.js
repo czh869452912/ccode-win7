@@ -688,10 +688,12 @@ export function projectT3TimelineRows({
 
   const hasVisibleReasoning = rows.some(
     (row) =>
-      row.kind === T3_ROW_KINDS.REASONING ||
+      (row.kind === T3_ROW_KINDS.REASONING && (!activeTurnId || row.turnId === activeTurnId)) ||
       (row.kind === T3_ROW_KINDS.TURN_FOLD &&
         Array.isArray(row.entries) &&
-        row.entries.some((entry) => entry.kind === T3_ROW_KINDS.REASONING)),
+        row.entries.some(
+          (entry) => entry.kind === T3_ROW_KINDS.REASONING && (!activeTurnId || entry.turnId === activeTurnId),
+        )),
   );
   const hasActiveTurnRow = rows.some(
     (row) =>

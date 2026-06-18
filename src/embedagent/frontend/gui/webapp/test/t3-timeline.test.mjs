@@ -365,6 +365,60 @@ export function runT3TimelineTests() {
   assert.ok(streamingReasoning);
   assert.equal(streamingReasoning.streaming, true);
 
+  const priorReasoningActiveThinkingRows = projectT3TimelineRows({
+    turnGroups: [
+      {
+        turnId: "turn-prior",
+        userItem: { id: "u-prior", kind: "user", content: "prior", turnId: "turn-prior" },
+        leadingSystemItems: [],
+        steps: [
+          {
+            stepId: "step-prior",
+            stepIndex: 1,
+            activityItems: [
+              {
+                id: "reason-prior",
+                kind: "reasoning",
+                content: "Prior completed reasoning",
+                streaming: false,
+                turnId: "turn-prior",
+                stepId: "step-prior",
+                stepIndex: 1,
+              },
+            ],
+            assistantItem: {
+              id: "a-prior",
+              kind: "assistant",
+              content: "prior done",
+              turnId: "turn-prior",
+              stepId: "step-prior",
+              stepIndex: 1,
+            },
+          },
+        ],
+        trailingTurnItems: [],
+        sessionFallbackItems: [],
+      },
+      {
+        turnId: "turn-active-thinking",
+        userItem: {
+          id: "u-active-thinking",
+          kind: "user",
+          content: "think now",
+          turnId: "turn-active-thinking",
+        },
+        leadingSystemItems: [],
+        steps: [],
+        trailingTurnItems: [],
+        sessionFallbackItems: [],
+      },
+    ],
+    currentStatus: "running",
+    activeTurnId: "turn-active-thinking",
+    thinkingActive: true,
+  });
+  assert.equal(priorReasoningActiveThinkingRows.some((row) => row.kind === T3_ROW_KINDS.THINKING), true);
+
   const tree = buildChangedFilesTree([
     { path: "src/app/main.c", additions: 2, deletions: 1 },
     { path: "src/app/util.c", additions: 1, deletions: 0 },
