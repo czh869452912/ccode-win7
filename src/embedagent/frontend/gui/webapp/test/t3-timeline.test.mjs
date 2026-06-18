@@ -57,6 +57,53 @@ export function runT3TimelineTests() {
   assert.equal(settledRows[2].kind, "message");
   assert.equal(settledRows[2].role, "assistant");
 
+  const timedFoldRows = projectT3TimelineRows({
+    turnGroups: [
+      {
+        turnId: "turn-timed",
+        userItem: {
+          id: "u-timed",
+          kind: "user",
+          content: "timed",
+          turnId: "turn-timed",
+          createdAt: "2026-06-18T00:00:00.000Z",
+        },
+        steps: [
+          {
+            stepId: "step-timed",
+            stepIndex: 1,
+            activityItems: [
+              {
+                id: "tool-timed",
+                kind: "tool",
+                toolName: "read_file",
+                status: "success",
+                createdAt: "2026-06-18T00:00:01.000Z",
+                completedAt: "2026-06-18T00:00:03.000Z",
+                turnId: "turn-timed",
+                stepId: "step-timed",
+              },
+            ],
+            assistantItem: {
+              id: "a-timed",
+              kind: "assistant",
+              content: "timed done",
+              createdAt: "2026-06-18T00:00:04.000Z",
+              turnId: "turn-timed",
+              stepId: "step-timed",
+            },
+          },
+        ],
+        trailingTurnItems: [],
+        leadingSystemItems: [],
+        sessionFallbackItems: [],
+      },
+    ],
+    currentStatus: "idle",
+  });
+  assert.equal(timedFoldRows[1].kind, T3_ROW_KINDS.TURN_FOLD);
+  assert.equal(timedFoldRows[1].label, "Worked for 4s");
+
   const runningRows = projectT3TimelineRows({
     turnGroups: [
       {

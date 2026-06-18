@@ -643,16 +643,32 @@ async function runTimelineScenario(page) {
   if (rawJsonVisible) throw new Error("Timeline work detail still exposes raw JSON");
   if (detailFieldCount === 0) throw new Error("Timeline work detail did not render structured fields");
   if (!noOverlap) throw new Error("Right panel tabs overlap in timeline scenario");
-  return {
-    rowCount,
+  const richTimelineState = {
     hasChangedFiles: await page.locator('[data-testid="changed-files-card"]').isVisible(),
     hasReasoning: await page.locator('[data-testid="timeline-reasoning-row"]').first().isVisible(),
     hasReview: await page.locator('[data-testid="timeline-review-result-row"]').first().isVisible(),
     hasThinking: await page.locator('[data-testid="timeline-thinking-row"]').first().isVisible(),
     hasExpandedDetail: await page.locator('[data-testid="timeline-work-detail"]').first().isVisible(),
+  };
+  await page.evaluate(() => {
+    window.__EMBEDAGENT_VISUAL_DEBUG__.loadLongTimelineFixture();
+  });
+  await page.waitForFunction(
+    () => document.querySelectorAll('[data-testid="timeline-user-message"]').length > 20,
+    null,
+    { timeout: 10000 },
+  );
+  const longScrollMetrics = await scrollContainerMetrics(page, [
+    ["timeline", ".timeline"],
+  ]);
+  assertScrollContainer(longScrollMetrics, "timeline", { requireScrollable: true });
+  return {
+    rowCount,
+    ...richTimelineState,
     hasStructuredToolDetail: detailFieldCount > 0,
     rawJsonVisible,
     scrollContainers: scrollMetrics,
+    longScrollContainers: longScrollMetrics,
     rightTabsDoNotOverlap: noOverlap,
   };
 }

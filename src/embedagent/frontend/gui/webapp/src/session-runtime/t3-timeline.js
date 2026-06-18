@@ -22,6 +22,16 @@ function stringValue(value, fallback = "") {
   return String(value);
 }
 
+function timestampValue(...values) {
+  for (const value of values) {
+    const text = stringValue(value);
+    if (!text) continue;
+    const parsed = Date.parse(text);
+    if (Number.isFinite(parsed)) return text;
+  }
+  return "";
+}
+
 function numberValue(value, fallback = 0) {
   const number = Number(value);
   return Number.isFinite(number) ? number : fallback;
@@ -526,6 +536,8 @@ export function normalizeWorkEntry(item) {
     turnId: stringValue(item?.turnId || item?.turn_id),
     stepId: stringValue(item?.stepId || item?.step_id),
     stepIndex: numberValue(item?.stepIndex || item?.step_index),
+    createdAt: timestampValue(item?.createdAt, item?.created_at, item?.startedAt, item?.started_at),
+    completedAt: timestampValue(item?.completedAt, item?.completed_at, item?.finishedAt, item?.finished_at),
     toolName,
     label: stringValue(item?.label || item?.tool_label || toolName || "Work"),
     status,
@@ -550,6 +562,8 @@ function messageRow(item, role) {
     turnId: stringValue(item?.turnId || item?.turn_id),
     stepId: stringValue(item?.stepId || item?.step_id),
     stepIndex: numberValue(item?.stepIndex || item?.step_index),
+    createdAt: timestampValue(item?.createdAt, item?.created_at),
+    completedAt: timestampValue(item?.completedAt, item?.completed_at),
     content: stringValue(item?.content),
     streaming: Boolean(item?.streaming),
     rawItem: item || {},
@@ -568,6 +582,7 @@ function reasoningRow(item) {
     turnId: stringValue(item?.turnId || item?.turn_id),
     stepId: stringValue(item?.stepId || item?.step_id),
     stepIndex: numberValue(item?.stepIndex || item?.step_index),
+    createdAt: timestampValue(item?.createdAt, item?.created_at),
     label: stringValue(item?.label || "Thinking"),
     content,
     wordCount: wordCountFor(content),
@@ -581,6 +596,7 @@ function compactRow(item) {
     id: stringValue(item?.id || `compact-${item?.turnId || item?.turn_id || "row"}`),
     kind: T3_ROW_KINDS.COMPACT,
     turnId: stringValue(item?.turnId || item?.turn_id),
+    createdAt: timestampValue(item?.createdAt, item?.created_at),
     tone: stringValue(item?.tone || "context"),
     content: stringValue(item?.content || item?.summary || "Context compacted"),
     summarizedTurns:
@@ -622,6 +638,7 @@ function commandResultRow(item) {
     id: stringValue(item?.id || `command-${commandName}-${item?.turnId || item?.turn_id || "row"}`),
     kind: T3_ROW_KINDS.COMMAND_RESULT,
     turnId: stringValue(item?.turnId || item?.turn_id),
+    createdAt: timestampValue(item?.createdAt, item?.created_at),
     commandName,
     label: `/${commandName}`,
     success: item?.success !== false,
@@ -664,11 +681,12 @@ function reviewResultRow(item) {
   };
 }
 
-function thinkingRow({ activeTurnId, idSuffix = "active" } = {}) {
+function thinkingRow({ activeTurnId, idSuffix = "active", createdAt = "" } = {}) {
   return {
     id: `thinking-${activeTurnId || idSuffix || "active"}`,
     kind: T3_ROW_KINDS.THINKING,
     turnId: stringValue(activeTurnId),
+    createdAt: timestampValue(createdAt),
     label: "Thinking",
     streaming: true,
   };
@@ -679,6 +697,7 @@ function systemNoticeRow(item) {
     id: stringValue(item?.id || "system-notice"),
     kind: T3_ROW_KINDS.SYSTEM_NOTICE,
     turnId: stringValue(item?.turnId || item?.turn_id),
+    createdAt: timestampValue(item?.createdAt, item?.created_at),
     tone: stringValue(item?.tone || "context"),
     content: stringValue(item?.content || item?.label),
     rawItem: item || {},
@@ -690,6 +709,7 @@ function interactionRow(item, fallback = {}) {
     id: stringValue(item?.id || item?.interactionId || fallback.id || "interaction"),
     kind: T3_ROW_KINDS.INTERACTION,
     turnId: stringValue(item?.turnId || item?.turn_id || fallback.turnId),
+    createdAt: timestampValue(item?.createdAt, item?.created_at, fallback.createdAt),
     interactionId: stringValue(item?.interactionId || item?.interaction_id || item?.id),
     interactionKind: stringValue(item?.interactionKind || item?.kind || fallback.kind),
     status: item?.kind === "interaction_resolved" || item?.resolved ? "resolved" : "pending",
@@ -771,6 +791,85 @@ function hasInterruptedWork(entries) {
   return entries.some((entry) => entry.tone === "interrupted" || entry.tone === "discarded");
 }
 
+function timestampMs(value) {
+  const parsed = Date.parse(stringValue(value));
+  return Number.isFinite(parsed) ? parsed : NaN;
+}
+
+function minTimestamp(...values) {
+  let best = "";
+  let bestMs = NaN;
+  for (const value of values.flat()) {
+    const text = stringValue(value);
+    const parsed = timestampMs(text);
+    if (!Number.isFinite(parsed)) continue;
+    if (!Number.isFinite(bestMs) || parsed < bestMs) {
+      best = text;
+      bestMs = parsed;
+    }
+  }
+  return best;
+}
+
+function maxTimestamp(...values) {
+  let best = "";
+  let bestMs = NaN;
+  for (const value of values.flat()) {
+    const text = stringValue(value);
+    const parsed = timestampMs(text);
+    if (!Number.isFinite(parsed)) continue;
+    if (!Number.isFinite(bestMs) || parsed > bestMs) {
+      best = text;
+      bestMs = parsed;
+    }
+  }
+  return best;
+}
+
+function formatElapsedDuration(startIso, endIso) {
+  const start = timestampMs(startIso);
+  const end = timestampMs(endIso);
+  if (!Number.isFinite(start) || !Number.isFinite(end)) return "";
+  const totalSeconds = Math.max(0, Math.floor((end - start) / 1000));
+  if (totalSeconds < 60) return `${totalSeconds}s`;
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  if (minutes < 60) return `${minutes}m ${seconds}s`;
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  return `${hours}h ${remainingMinutes}m`;
+}
+
+function turnStartTimestamp(group, entries) {
+  const candidates = [
+    group?.startedAt,
+    group?.started_at,
+    group?.userItem?.createdAt,
+    group?.userItem?.created_at,
+    ...(entries || []).map((entry) => entry.createdAt),
+  ];
+  return minTimestamp(candidates);
+}
+
+function turnEndTimestamp(group, entries) {
+  const assistantRows = assistantRowsForTurn(group);
+  const candidates = [
+    group?.completedAt,
+    group?.completed_at,
+    ...assistantRows.map((row) => row.completedAt || row.createdAt),
+    ...(entries || []).map((entry) => entry.completedAt || entry.createdAt),
+  ];
+  return maxTimestamp(candidates);
+}
+
+function turnFoldLabel(group, entries) {
+  const duration = formatElapsedDuration(turnStartTimestamp(group, entries), turnEndTimestamp(group, entries));
+  if (hasInterruptedWork(entries)) {
+    return duration ? `You stopped after ${duration}` : "You stopped this response";
+  }
+  return duration ? `Worked for ${duration}` : "Worked for this turn";
+}
+
 export function isTurnFoldedByDefault(group, context = {}) {
   const entries = turnActivityEntries(group);
   const workEntries = entries.filter((entry) => entry.kind === T3_ROW_KINDS.WORK);
@@ -846,7 +945,8 @@ export function projectT3TimelineRows({
           id: `turn-fold-${group.turnId || rows.length}`,
           kind: T3_ROW_KINDS.TURN_FOLD,
           turnId: stringValue(group.turnId),
-          label: "Worked for this turn",
+          createdAt: turnStartTimestamp(group, entries),
+          label: turnFoldLabel(group, entries),
           workCount: entries.filter((entry) => entry.kind === T3_ROW_KINDS.WORK).length,
           reasoningCount: entries.filter((entry) => entry.kind === T3_ROW_KINDS.REASONING).length,
           entryCount: entries.length,
@@ -907,7 +1007,12 @@ export function projectT3TimelineRows({
         row.entries.some((entry) => entry.turnId === activeTurnId)),
   );
   if (currentStatus === "running" && thinkingActive && !hasVisibleReasoning && (activeTurnId || hasActiveTurnRow)) {
-    pushRow(thinkingRow({ activeTurnId, idSuffix: rows.length }));
+    const activeCreatedAt = minTimestamp(
+      rows
+        .filter((row) => row.turnId === activeTurnId)
+        .map((row) => row.createdAt),
+    );
+    pushRow(thinkingRow({ activeTurnId, idSuffix: rows.length, createdAt: activeCreatedAt }));
   }
 
   if (currentStatus === "running" && rows.length === 0) {
@@ -915,6 +1020,7 @@ export function projectT3TimelineRows({
       id: "working",
       kind: T3_ROW_KINDS.WORKING,
       label: "Working",
+      createdAt: "",
     });
   }
 

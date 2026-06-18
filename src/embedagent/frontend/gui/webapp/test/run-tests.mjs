@@ -665,11 +665,20 @@ async function main() {
   assert.equal(timelineRowsSource.includes("CommandResultRow"), true);
   assert.equal(timelineRowsSource.includes("ReviewResultRow"), true);
   assert.equal(timelineRowsSource.includes("TimelineRowSwitch"), true);
+  assert.equal(timelineRowsSource.includes("MAX_VISIBLE_WORK_LOG_ENTRIES"), true);
+  assert.equal(timelineRowsSource.includes("WorkGroupSection"), true);
+  assert.equal(timelineRowsSource.includes("findNearestVerticalScroller"), true);
+  assert.equal(timelineRowsSource.includes("timeline-work-overflow-toggle"), true);
+  assert.equal(timelineRowsSource.includes("WorkingTimer"), true);
+  assert.equal(timelineRowsSource.includes("formatWorkingTimer"), true);
+  assert.equal(timelineRowsSource.includes("timeline-working-dots"), true);
   assert.equal(timelineRowsSource.includes('data-testid="timeline-reasoning-row"'), true);
   assert.equal(timelineRowsSource.includes('data-testid="timeline-thinking-row"'), true);
   assert.equal(timelineRowsSource.includes('data-testid="timeline-compact-row"'), true);
   assert.equal(timelineRowsSource.includes('data-testid="timeline-command-result-row"'), true);
   assert.equal(timelineRowsSource.includes('data-testid="timeline-review-result-row"'), true);
+  assert.equal(timelineRowsSource.includes('data-testid="timeline-work-group"'), true);
+  assert.equal(timelineRowsSource.includes('data-testid="timeline-working-row"'), true);
 
   const workRowSource = fs.readFileSync(
     webappSourcePath("components", "timeline", "WorkRow.jsx"),
@@ -725,6 +734,17 @@ async function main() {
   assert.equal(stylesSource.includes(".t3-compact-row"), true);
   assert.equal(stylesSource.includes(".t3-command-result-row"), true);
   assert.equal(stylesSource.includes(".t3-review-result-row"), true);
+  assert.equal(stylesSource.includes(".timeline-work-group"), true);
+  assert.equal(stylesSource.includes(".timeline-work-overflow-toggle"), true);
+  assert.equal(stylesSource.includes(".timeline-working-dots"), true);
+  assert.equal(stylesSource.includes("scrollbar-gutter: stable both-edges"), true);
+  assert.equal(stylesSource.includes("scrollbar-width: thin"), true);
+  assert.equal(stylesSource.includes("minmax(360px, 1fr)"), false);
+  assert.equal(stylesSource.includes(".workbench-main-slot {\n  display: flex;"), true);
+  assert.equal(stylesSource.includes("height: 100%;\n  min-height: 0;\n  min-width: 0;"), true);
+  assert.equal(stylesSource.includes(".right-panel-empty-state"), true);
+  assert.equal(stylesSource.includes("overflow: auto;\n  padding: var(--sp-4);"), true);
+  assert.equal(stylesSource.includes(".right-panel-surface-tab {\n  position: relative;\n  flex: 1 1 clamp(76px, 34%, 176px);\n  min-width: 0;"), true);
   assert.equal(stylesSource.includes("overflow-wrap: anywhere"), true);
   assert.equal(stylesSource.includes("grid-template-columns: minmax(0, 1fr)"), true);
   assert.equal(stylesSource.includes("@media (max-width: 560px)"), true);
@@ -806,6 +826,13 @@ async function main() {
   assert.equal(appSource.includes("activeKind={state.inspectorTab}"), false);
   assert.equal(appSource.includes("appShell: state.app"), true);
 
+  const visualFixturesSource = fs.readFileSync(
+    webappSourcePath("app-runtime", "visual-debug-fixtures.js"),
+    "utf8",
+  );
+  assert.equal(visualFixturesSource.includes("buildLongTimelineFixtureAction"), true);
+  assert.equal(visualFixturesSource.includes("loadLongTimelineFixture"), true);
+
   const socketMessageEffectsSource = fs.readFileSync(
     webappSourcePath("app-runtime", "socket-message-effects.js"),
     "utf8",
@@ -822,6 +849,7 @@ async function main() {
   assert.equal(socketMessageEffectsSource.includes("command_result"), true);
   assert.equal(socketMessageEffectsSource.includes("data?.session_id || currentSession(options)"), true);
   assert.equal(socketMessageEffectsSource.includes("fetch("), false);
+
   assert.equal(socketMessageEffectsSource.includes("new WebSocket"), false);
   assert.equal(socketMessageEffectsSource.includes("useEffect"), false);
 
@@ -1051,6 +1079,8 @@ async function main() {
   assert.equal(visualDebugSource.includes('"terminal"'), true);
   assert.equal(visualDebugSource.includes("runTerminalScenario"), true);
   assert.equal(visualDebugSource.includes("right-panel-terminal-surface"), true);
+  assert.equal(visualDebugSource.includes("loadLongTimelineFixture"), true);
+  assert.equal(visualDebugSource.includes("requireScrollable: true"), true);
 
   const commandPaletteSource = fs.readFileSync(
     webappSourcePath("components", "workbench", "CommandPalette.jsx"),

@@ -107,6 +107,60 @@ export function buildTimelineFixtureAction({ currentMode = "explore" } = {}) {
   };
 }
 
+export function buildLongTimelineFixtureAction({ currentMode = "explore", turnCount = 36 } = {}) {
+  const timeline = [];
+  for (let index = 0; index < turnCount; index += 1) {
+    const turnId = `visual-long-turn-${index + 1}`;
+    const stepId = `visual-long-step-${index + 1}`;
+    timeline.push({
+      id: `visual-long-user-${index + 1}`,
+      kind: "user",
+      content: `Inspect long timeline item ${index + 1}.`,
+      turnId,
+    });
+    timeline.push({
+      id: `visual-long-tool-${index + 1}`,
+      kind: "tool",
+      toolName: index % 2 === 0 ? "read_file" : "grep_text",
+      label: index % 2 === 0 ? "Read File" : "Search",
+      status: "success",
+      arguments: index % 2 === 0
+        ? { path: `src/file_${index + 1}.c` }
+        : { pattern: "parse", path: "src" },
+      data: index % 2 === 0
+        ? { path: `src/file_${index + 1}.c`, content_preview: "int main(void);" }
+        : { pattern: "parse", match_count: 1, matches: [{ path: "src/parser.c", line: index + 1, text: "parse();" }] },
+      turnId,
+      stepId,
+      stepIndex: 1,
+    });
+    timeline.push({
+      id: `visual-long-assistant-${index + 1}`,
+      kind: "assistant",
+      content: `Long timeline item ${index + 1} completed.`,
+      turnId,
+      stepId,
+      stepIndex: 1,
+    });
+  }
+  return {
+    type: "visual_timeline_fixture_loaded",
+    sessionId: "visual-debug-long-timeline",
+    inspectorTab: "tasks",
+    timeline,
+    snapshot: {
+      session_id: "visual-debug-long-timeline",
+      status: "idle",
+      current_mode: currentMode || "explore",
+      pending_interaction_valid: false,
+    },
+    activeTurnId: "",
+    activeStepId: "",
+    activeStepIndex: 0,
+    thinkingActive: false,
+  };
+}
+
 export function buildInteractionFixtureAction(kind = "permission") {
   const permission =
     kind === "permission"
@@ -192,6 +246,9 @@ export function installVisualDebugFixtures({
     },
     loadTimelineFixture() {
       dispatch(buildTimelineFixtureAction({ currentMode }));
+    },
+    loadLongTimelineFixture() {
+      dispatch(buildLongTimelineFixtureAction({ currentMode }));
     },
     loadInteractionFixture(kind = "permission") {
       dispatch(buildInteractionFixtureAction(kind));

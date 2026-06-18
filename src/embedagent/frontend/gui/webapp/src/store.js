@@ -260,12 +260,13 @@ export function reducer(state, action) {
           .map((item) => (item.streaming ? { ...item, streaming: false } : item))
           .concat({
             id: pendingTurnId,
-            kind: "user",
-            content: action.text,
-            turnId: "",
-            pendingTurnId,
-            ...liveProjectionMeta(),
-          }),
+          kind: "user",
+          content: action.text,
+          turnId: "",
+          pendingTurnId,
+          createdAt: new Date().toISOString(),
+          ...liveProjectionMeta(),
+        }),
         composer: "",
         interactionNotice: null,
         streamingAssistantId: "",
@@ -287,6 +288,7 @@ export function reducer(state, action) {
             turnId,
             pendingTurnId: "",
             content: action.userText || item.content,
+            createdAt: item.createdAt || action.createdAt || "",
           };
         }
         return item;
@@ -304,6 +306,7 @@ export function reducer(state, action) {
           kind: "user",
           content: action.userText || "",
           turnId,
+          createdAt: action.createdAt || "",
           ...liveProjectionMeta(),
         });
       }
@@ -348,6 +351,7 @@ export function reducer(state, action) {
           turnId,
           stepId,
           stepIndex,
+          createdAt: action.createdAt || "",
           ...liveProjectionMeta(),
         });
       } else {
@@ -377,6 +381,7 @@ export function reducer(state, action) {
           turnId,
           stepId,
           stepIndex,
+          createdAt: action.createdAt || "",
           ...liveProjectionMeta(),
         });
       } else {
@@ -424,6 +429,7 @@ export function reducer(state, action) {
             resultRendererKey: action.resultRendererKey || "",
             runtimeSource: action.runtimeSource || "",
             resolvedToolRoots: action.resolvedToolRoots || {},
+            completedAt: action.completedAt || "",
             ...liveProjectionMeta(),
           },
           (item) => item.kind === "tool" && item.id === action.callId,
@@ -452,6 +458,7 @@ export function reducer(state, action) {
             resultRendererKey: action.resultRendererKey || "",
             runtimeSource: action.runtimeSource || "",
             resolvedToolRoots: action.resolvedToolRoots || {},
+            createdAt: action.createdAt || "",
             ...liveProjectionMeta(),
           },
           (item) => item.kind === "tool" && item.id === action.callId,
@@ -477,6 +484,7 @@ export function reducer(state, action) {
           stepId,
           stepIndex,
           streaming: false,
+          createdAt: action.createdAt || "",
           ...liveProjectionMeta(),
         });
       }
@@ -853,12 +861,13 @@ export function reducer(state, action) {
               commandName: action.commandName,
               content: action.message,
               data: action.data || {},
-              success: action.success,
-              turnId,
-              stepId: action.stepId || "",
-              stepIndex: action.stepIndex || 0,
-              ...rawProjectionMeta(),
-            });
+          success: action.success,
+          turnId,
+          stepId: action.stepId || "",
+          stepIndex: action.stepIndex || 0,
+          createdAt: action.createdAt || "",
+          ...rawProjectionMeta(),
+        });
       return {
         ...state,
         timeline,

@@ -44,6 +44,32 @@
 
 ## 3. 当前变更记录
 
+### DC-177
+
+- 日期：2026-06-18
+- 变更主题：GUI T3 timeline parity shell
+- 变更摘要：
+  - `TimelineRows.jsx` now mirrors T3code's work-log grouping shape: consecutive work rows are owned by a local `WorkGroupSection`, collapsed groups show one latest entry, and the overflow control expands older tool calls while preserving the nearest scroll container position.
+  - Running timeline display now uses T3code-style pulsing dots and a self-updating `WorkingTimer` label when GUI-local timestamps exist.
+  - GUI timeline/right-panel CSS now keeps stable scrollbars visible, removes fixed `360px` narrow-layout pressure, and lets right-panel surface tabs/source-control actions shrink or wrap instead of overflowing.
+  - GUI socket/reducer display actions carry frontend-local `createdAt` / `completedAt` fields so fold labels can render `Worked for ...`; these fields are not transcript history, backend protocol truth, workflow policy, permission policy, or Agent Core state.
+- 影响范围：
+  - `src/embedagent/frontend/gui/webapp/src/components/timeline/TimelineRows.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/session-runtime/t3-timeline.js`
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/socket-message-effects.js`
+  - `src/embedagent/frontend/gui/webapp/src/store.js`
+  - `src/embedagent/frontend/gui/webapp/src/styles.css`
+  - `src/embedagent/frontend/gui/webapp/test/`
+  - `docs/modules/frontend-gui.md`
+  - `docs/development-tracker.md`
+  - `docs/design-change-log.md`
+- 关联文档：
+  - `reference/t3code/apps/web/src/components/chat/MessagesTimeline.tsx`
+  - `reference/t3code/apps/web/src/components/chat/MessagesTimeline.logic.ts`
+- 是否需要 ADR：否；该变更是 GUI app-shell presentation/read-model parity work，不改变 Agent Core、backend session-history truth、workflow package contracts、permission policy、runtime reducers、provider configuration 或 public extension API。
+- 后续动作：
+  - Continue one-to-one T3code parity on command routing, right-panel file/editor chrome, source-control action surfacing, and deeper visual QA while preserving the small Agent Core boundary.
+
 ### DC-176
 
 - 日期：2026-06-18

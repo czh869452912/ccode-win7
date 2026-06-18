@@ -61,7 +61,12 @@ export function runSocketMessageEffectsTests() {
   assert.equal(turnEvent.eventLogEntries.length, 1);
   assert.equal(turnEvent.eventLogEntries[0].event_id, "evt-turn");
   assert.deepEqual(turnEvent.actions, [
-    { type: "turn_started", turnId: "turn-1", userText: "inspect parser" },
+    {
+      type: "turn_started",
+      turnId: "turn-1",
+      userText: "inspect parser",
+      createdAt: "2026-06-18T00:00:00.000Z",
+    },
   ]);
 
   const transitionEvent = derive("session_event", {
@@ -104,6 +109,7 @@ export function runSocketMessageEffectsTests() {
       turnId: "turn-1",
       stepId: "step-1",
       stepIndex: 2,
+      createdAt: "2026-06-18T00:00:00.000Z",
     },
   ]);
 
@@ -119,6 +125,7 @@ export function runSocketMessageEffectsTests() {
   });
   assert.equal(toolFinish.actions[0].type, "tool_finished");
   assert.equal(toolFinish.actions[0].toolName, "edit_file");
+  assert.equal(toolFinish.actions[0].completedAt, "2026-06-18T00:00:00.000Z");
   assert.deepEqual(toolFinish.loaderRequests, [
     { name: LOADER_REQUESTS.LOAD_FILE_CHILDREN, path: "." },
   ]);
@@ -164,6 +171,7 @@ export function runSocketMessageEffectsTests() {
     turn_id: "turn-1",
   });
   assert.equal(commandDiff.actions[0].type, "command_result");
+  assert.equal(commandDiff.actions[0].createdAt, "2026-06-18T00:00:00.000Z");
   assert.equal(commandDiff.actions[1].type, "diff_surface_opened");
   assert.equal(commandDiff.actions[1].diffSurface.title, "Git Diff");
   assert.deepEqual(commandDiff.actions[commandDiff.actions.length - 1], {

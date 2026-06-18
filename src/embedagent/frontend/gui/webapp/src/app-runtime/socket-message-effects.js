@@ -53,6 +53,7 @@ function commandResultEffects(data, options) {
     turnId: data?.turn_id || "",
     stepId: data?.step_id || "",
     stepIndex: data?.step_index || 0,
+    createdAt: data?.created_at || nowValue(options.nowIso),
   });
   if (commandName === "resume" && data?.data?.switch_session_id) {
     effects.loaderRequests.push({
@@ -146,6 +147,7 @@ export function deriveSocketMessageEffects({
         type: "turn_started",
         turnId: payload.payload?.turn_id || "",
         userText: payload.payload?.user_text || "",
+        createdAt: payload?.created_at || nowValue(options.nowIso),
       });
     } else if (payload?.event_kind === "transition.recorded") {
       effects.actions.push({
@@ -183,6 +185,7 @@ export function deriveSocketMessageEffects({
       turnId: payload?.turn_id || "",
       stepId: payload?.step_id || "",
       stepIndex: payload?.step_index || 0,
+      createdAt: nowValue(options.nowIso),
     });
     return effects;
   }
@@ -194,6 +197,7 @@ export function deriveSocketMessageEffects({
       turnId: payload?.turn_id || "",
       stepId: payload?.step_id || "",
       stepIndex: payload?.step_index || 0,
+      createdAt: nowValue(options.nowIso),
     });
     return effects;
   }
@@ -220,6 +224,7 @@ export function deriveSocketMessageEffects({
       turnId: payload?.turn_id || "",
       stepId: payload?.step_id || "",
       stepIndex: payload?.step_index || 0,
+      createdAt: payload?.created_at || nowValue(options.nowIso),
     });
     effects.actions.push(
       logAction(`tool: ${payload?.tool_name || "?"}`, JSON.stringify(payload?.arguments || {}).slice(0, 80)),
@@ -245,6 +250,7 @@ export function deriveSocketMessageEffects({
       turnId: payload?.turn_id || "",
       stepId: payload?.step_id || "",
       stepIndex: payload?.step_index || 0,
+      completedAt: payload?.completed_at || payload?.created_at || nowValue(options.nowIso),
     });
     effects.actions.push(
       logAction(
@@ -358,7 +364,12 @@ export function deriveSocketMessageEffects({
   }
 
   if (type === "turn_start") {
-    effects.actions.push({ type: "turn_started", turnId: payload?.turn_id || "", userText: payload?.user_text || "" });
+    effects.actions.push({
+      type: "turn_started",
+      turnId: payload?.turn_id || "",
+      userText: payload?.user_text || "",
+      createdAt: payload?.created_at || nowValue(options.nowIso),
+    });
     effects.actions.push(logAction("turn_start", payload?.turn_id || ""));
     return effects;
   }
