@@ -16,10 +16,30 @@ export const T3_ROW_KINDS = Object.freeze({
 const WRITE_TOOLS = new Set(["write_file", "edit_file", "git_diff"]);
 const META_ARG_PREFIX = "_";
 const DETAIL_TEXT_LIMIT = 4000;
+const TOOL_LIFECYCLE_STATUSES = new Set(["inProgress", "completed", "failed", "declined", "stopped"]);
+const TOOL_ITEM_TYPES = new Set([
+  "command_execution",
+  "file_change",
+  "web_search",
+  "image_view",
+  "mcp_tool_call",
+  "dynamic_tool_call",
+  "collab_agent_tool_call",
+]);
 
 function stringValue(value, fallback = "") {
   if (value == null) return fallback;
   return String(value);
+}
+
+export function normalizeCompactToolLabel(value) {
+  return stringValue(value).replace(/\s+(?:complete|completed|started)\s*$/i, "").trim();
+}
+
+function capitalizePhrase(value) {
+  const trimmed = stringValue(value).trim();
+  if (!trimmed) return trimmed;
+  return `${trimmed.charAt(0).toUpperCase()}${trimmed.slice(1)}`;
 }
 
 function timestampValue(...values) {
@@ -243,9 +263,40 @@ function changedPathFromItem(item) {
   return stringValue(data.path || data.file || args.path || args.file || item?.path);
 }
 
+function normalizeChangedFileEntry(entry) {
+  if (typeof entry === "string") {
+    const path = normalizeChangedFilePath(entry);
+    return path ? { path, additions: 0, deletions: 0 } : null;
+  }
+  if (!entry || typeof entry !== "object") return null;
+  const path = normalizeChangedFilePath(entry.path || entry.file || entry.filePath || entry.relativePath);
+  if (!path) return null;
+  return {
+    path,
+    additions: numberValue(entry.additions),
+    deletions: numberValue(entry.deletions),
+    diff: stringValue(entry.diff || entry.patch),
+  };
+}
+
+function explicitChangedFiles(item) {
+  const data = item?.data && typeof item.data === "object" ? item.data : {};
+  const source =
+    item?.changedFiles ||
+    item?.changed_files ||
+    data.changedFiles ||
+    data.changed_files ||
+    data.files_changed;
+  if (!Array.isArray(source)) return [];
+  return source.map(normalizeChangedFileEntry).filter(Boolean);
+}
+
 export function summarizeChangedFiles(items = []) {
   const fileMap = new Map();
   for (const item of items || []) {
+    for (const file of explicitChangedFiles(item)) {
+      mergeFileStats(fileMap, { ...file, sourceId: item?.id || item?.call_id || "" });
+    }
     const toolName = stringValue(item?.toolName || item?.tool_name);
     const commandName = stringValue(item?.commandName || item?.command_name);
     const diffText = diffTextFromItem(item);
@@ -288,6 +339,201 @@ function commandPreviewFor(toolName, args) {
     return stringValue(args.path);
   }
   return "";
+}
+
+function permissionCategoryToRequestKind(value) {
+  const text = stringValue(value);
+  if (text === "command" || text === "shell" || text === "process") return "command";
+  if (text === "file-read" || text === "read" || text === "workspace_read") return "file-read";
+  if (text === "file-change" || text === "write" || text === "workspace_write") return "file-change";
+  return "";
+}
+
+function toolNameRequestKind(toolName) {
+  if (toolName === "run_command" || toolName === "run_recipe" || toolName === "shell" || toolName === "bash") {
+    return "command";
+  }
+  if (toolName === "read_file" || toolName === "list_dir" || toolName === "glob_files" || toolName === "grep_text") {
+    return "file-read";
+  }
+  if (toolName === "write_file" || toolName === "edit_file") return "file-change";
+  return "";
+}
+
+function normalizeRequestKind(value) {
+  const text = stringValue(value);
+  if (text === "command" || text === "file-read" || text === "file-change") return text;
+  return permissionCategoryToRequestKind(text);
+}
+
+function normalizeItemType(value) {
+  const text = stringValue(value);
+  return TOOL_ITEM_TYPES.has(text) ? text : "";
+}
+
+function normalizeLifecycleStatus(value) {
+  const text = stringValue(value);
+  return TOOL_LIFECYCLE_STATUSES.has(text) ? text : "";
+}
+
+function changedFilePaths(files = []) {
+  return (files || [])
+    .map((file) => (typeof file === "string" ? file : file?.path))
+    .map((path) => normalizeChangedFilePath(path))
+    .filter(Boolean);
+}
+
+function normalizeEquivalentValue(value) {
+  const trimmed = stringValue(value).trim();
+  if (!trimmed) return "";
+  return normalizeCompactToolLabel(trimmed).replace(/\s+/g, " ").toLowerCase();
+}
+
+function valuesEquivalent(left, right) {
+  const normalizedLeft = normalizeEquivalentValue(left);
+  const normalizedRight = normalizeEquivalentValue(right);
+  return Boolean(normalizedLeft && normalizedLeft === normalizedRight);
+}
+
+function workLogEntryIsToolLike(entry) {
+  if (entry?.tone === "tool" || entry?.tone === "thinking" || entry?.tone === "error") return true;
+  if (stringValue(entry?.command).trim()) return true;
+  if (stringValue(entry?.requestKind).trim()) return true;
+  return Boolean(normalizeItemType(entry?.itemType));
+}
+
+function toolDetailTextLooksLikeFailure(text) {
+  const value = stringValue(text).toLowerCase();
+  if (!value) return false;
+  if (value.includes("file not found")) return true;
+  if (value.includes("no files found")) return true;
+  if (value.includes("enoent") || value.includes("no such file or directory") || value.includes("no such file")) {
+    return true;
+  }
+  if (value.includes("cannot find path") && value.includes("because it does not exist")) return true;
+  if (value.includes("commandnotfoundexception")) return true;
+  if (value.includes("is not recognized as the name of a cmdlet")) return true;
+  if (value.includes("is not recognized") && value.includes("the term '")) return true;
+  if (value.includes("a parameter cannot be found that matches parameter name")) return true;
+  if (value.includes("command not found")) return true;
+  if (/<exited with exit code\s+[1-9]\d*\s*>/i.test(text)) return true;
+  if (/exit(?:ed)? with exit code\s+[1-9]\d*/i.test(text)) return true;
+  if (/exit code\s*[:\s]\s*[1-9]\d*\b/i.test(text)) return true;
+  return false;
+}
+
+function workEntryIndicatesToolFailure(entry) {
+  if (entry?.tone === "error" || entry?.status === "error") return true;
+  const lifecycleStatus = normalizeLifecycleStatus(entry?.toolLifecycleStatus);
+  if (lifecycleStatus === "failed" || lifecycleStatus === "declined") return true;
+  if (!workLogEntryIsToolLike(entry)) return false;
+  const blob = [entry?.detail, entry?.command].map(stringValue).filter(Boolean).join("\n");
+  return blob ? toolDetailTextLooksLikeFailure(blob) : false;
+}
+
+function workEntryIndicatesToolSuccess(entry) {
+  if (!workLogEntryIsToolLike(entry)) return false;
+  if (workEntryIndicatesToolFailure(entry)) return false;
+  if (entry?.tone === "thinking") return false;
+  const lifecycleStatus = normalizeLifecycleStatus(entry?.toolLifecycleStatus);
+  if (lifecycleStatus === "failed" || lifecycleStatus === "declined") return false;
+  if (lifecycleStatus === "inProgress" || lifecycleStatus === "stopped") return false;
+  if (entry?.status === "running") return false;
+  return true;
+}
+
+function workEntryIndicatesToolNeutralStatus(entry) {
+  if (!workLogEntryIsToolLike(entry)) return false;
+  if (workEntryIndicatesToolFailure(entry)) return false;
+  if (workEntryIndicatesToolSuccess(entry)) return false;
+  return true;
+}
+
+function workEntryPreview(entry) {
+  if (entry?.command) return stringValue(entry.command);
+  if (entry?.detail) return stringValue(entry.detail);
+  const paths = changedFilePaths(entry?.changedFiles);
+  if (paths.length === 0) return "";
+  return paths.length === 1 ? paths[0] : `${paths[0]} +${paths.length - 1} more`;
+}
+
+function workEntryRawCommand(entry) {
+  const rawCommand = stringValue(entry?.rawCommand).trim();
+  const command = stringValue(entry?.command).trim();
+  if (!rawCommand || !command) return "";
+  return rawCommand === command ? "" : rawCommand;
+}
+
+function buildToolCallExpandedBody(entry) {
+  const blocks = [];
+  if (normalizeItemType(entry?.itemType) === "mcp_tool_call" && entry?.toolData !== undefined) {
+    blocks.push(`MCP call\n${JSON.stringify(entry.toolData, null, 2)}`);
+  }
+  const raw = workEntryRawCommand(entry);
+  if (raw) {
+    blocks.push(raw);
+  } else if (stringValue(entry?.command).trim()) {
+    blocks.push(stringValue(entry.command).trim());
+  }
+  if (stringValue(entry?.detail).trim()) {
+    blocks.push(stringValue(entry.detail).trim());
+  }
+  const paths = changedFilePaths(entry?.changedFiles);
+  if (paths.length > 0) {
+    blocks.push(paths.join("\n"));
+  }
+  return blocks.length > 0 ? blocks.join("\n\n") : "";
+}
+
+function workEntryIconName(entry) {
+  if (entry?.sourceActivityKind === "runtime.warning") return "x";
+  if (entry?.sourceActivityKind === "user-input.requested" || entry?.sourceActivityKind === "user-input.resolved") {
+    return "message-circle";
+  }
+  if (entry?.requestKind === "command") return "terminal";
+  if (entry?.requestKind === "file-read") return "eye";
+  if (entry?.requestKind === "file-change") return "square-pen";
+  const itemType = normalizeItemType(entry?.itemType);
+  if (itemType === "command_execution" || stringValue(entry?.command).trim()) return "terminal";
+  if (itemType === "file_change" || changedFilePaths(entry?.changedFiles).length > 0) return "square-pen";
+  if (itemType === "web_search") return "globe";
+  if (itemType === "image_view") return "eye";
+  if (itemType === "mcp_tool_call") return "wrench";
+  if (itemType === "dynamic_tool_call" || itemType === "collab_agent_tool_call") return "hammer";
+  if (entry?.tone === "thinking") return "bot";
+  if (entry?.tone === "info") return "check";
+  return "zap";
+}
+
+function workEntryHeading(entry) {
+  const base = entry?.toolTitle ? entry.toolTitle : entry?.label;
+  return capitalizePhrase(normalizeCompactToolLabel(base || "Tool"));
+}
+
+export function buildWorkPresentation(entry = {}) {
+  const heading = workEntryHeading(entry);
+  const rawPreview = workEntryPreview(entry);
+  const preview = rawPreview && !valuesEquivalent(rawPreview, heading) ? rawPreview : "";
+  const expandedBody = buildToolCallExpandedBody(entry);
+  const failure = workEntryIndicatesToolFailure(entry);
+  const warning = entry?.sourceActivityKind === "runtime.warning";
+  const statusIndicator = failure
+    ? "failure"
+    : workEntryIndicatesToolSuccess(entry)
+      ? "success"
+      : workEntryIndicatesToolNeutralStatus(entry)
+        ? "neutral"
+        : "";
+  return {
+    heading,
+    preview,
+    iconName: workEntryIconName(entry),
+    statusIndicator,
+    headingTone: warning ? "warning" : failure ? "error" : "normal",
+    iconTone: warning ? "warning" : failure ? "error" : "normal",
+    canExpand: Boolean(expandedBody),
+    expandedBody,
+  };
 }
 
 function publicArgs(args) {
@@ -530,6 +776,55 @@ export function normalizeWorkEntry(item) {
   const toolName = stringValue(item?.toolName || item?.tool_name);
   const status = stringValue(item?.status || "running");
   const changed = summarizeChangedFiles([item]);
+  const data = item?.data && typeof item.data === "object" ? item.data : {};
+  const requestKind =
+    normalizeRequestKind(item?.requestKind || item?.request_kind || data.requestKind || data.request_kind) ||
+    normalizeRequestKind(item?.permissionCategory || item?.permission_category) ||
+    toolNameRequestKind(toolName);
+  const command =
+    firstString(item?.command, item?.rawCommand ? "" : "", data.command, args.command) ||
+    commandPreviewFor(toolName, args);
+  const rawCommand = firstString(item?.rawCommand, item?.raw_command, data.rawCommand, data.raw_command);
+  const detail = firstString(item?.detail, data.detail) || detailTextFor(item);
+  const itemType = normalizeItemType(item?.itemType || item?.item_type || data.itemType || data.item_type);
+  const toolLifecycleStatus = normalizeLifecycleStatus(
+    item?.toolLifecycleStatus ||
+      item?.tool_lifecycle_status ||
+      data.toolLifecycleStatus ||
+      data.tool_lifecycle_status ||
+      (status === "success" ? "completed" : ""),
+  );
+  const toolData = item?.toolData !== undefined
+    ? item.toolData
+    : item?.tool_data !== undefined
+      ? item.tool_data
+      : data.toolData !== undefined
+        ? data.toolData
+        : data.tool_data !== undefined
+          ? data.tool_data
+          : itemType === "mcp_tool_call" && data.item !== undefined
+            ? data.item
+            : undefined;
+  const workEntry = {
+    label: stringValue(item?.label || item?.tool_label || item?.toolTitle || item?.tool_title || toolName || "Work"),
+    detail,
+    command,
+    rawCommand,
+    changedFiles: changed.files,
+    tone: status === "error" ? "error" : "tool",
+    toolTitle: firstString(item?.toolTitle, item?.tool_title, data.toolTitle, data.tool_title),
+    toolData,
+    itemType,
+    requestKind,
+    toolLifecycleStatus,
+    sourceActivityKind: firstString(
+      item?.sourceActivityKind,
+      item?.source_activity_kind,
+      data.sourceActivityKind,
+      data.source_activity_kind,
+    ),
+    status,
+  };
   return {
     id: stringValue(item?.id || item?.call_id || toolName || "work"),
     kind: T3_ROW_KINDS.WORK,
@@ -539,17 +834,25 @@ export function normalizeWorkEntry(item) {
     createdAt: timestampValue(item?.createdAt, item?.created_at, item?.startedAt, item?.started_at),
     completedAt: timestampValue(item?.completedAt, item?.completed_at, item?.finishedAt, item?.finished_at),
     toolName,
-    label: stringValue(item?.label || item?.tool_label || toolName || "Work"),
+    label: workEntry.label,
     status,
     tone: toneForWork(item, status),
-    requestKind: stringValue(item?.permissionCategory || item?.permission_category),
-    commandPreview: commandPreviewFor(toolName, args),
+    requestKind,
+    command,
+    rawCommand,
+    commandPreview: command || commandPreviewFor(toolName, args),
     args,
-    detail: detailTextFor(item),
+    detail,
     detailModel: buildToolDetailModel(item, args, changed),
     changedFiles: changed.files,
     additions: changed.additions,
     deletions: changed.deletions,
+    toolTitle: workEntry.toolTitle,
+    toolData,
+    itemType,
+    toolLifecycleStatus,
+    sourceActivityKind: workEntry.sourceActivityKind,
+    presentation: buildWorkPresentation(workEntry),
     rawItem: item || {},
   };
 }

@@ -717,6 +717,12 @@ async function main() {
   assert.equal(workRowSource.includes("useState(row.status === \"error\")"), false);
   assert.equal(workRowSource.includes("ToolDetail"), true);
   assert.equal(workRowSource.includes("row.detailModel"), true);
+  assert.equal(workRowSource.includes("WORK_ENTRY_ICONS"), true);
+  assert.equal(workRowSource.includes("row.presentation"), true);
+  assert.equal(workRowSource.includes("data-icon-name={presentation.iconName}"), true);
+  assert.equal(workRowSource.includes("data-status-indicator={presentation.statusIndicator}"), true);
+  assert.equal(workRowSource.includes("presentation.expandedBody"), true);
+  assert.equal(workRowSource.includes("TOOL_ICONS"), false);
   assert.equal(workRowSource.includes("<pre>{row.detail}</pre>"), false);
   assert.equal(fs.existsSync(webappSourcePath("components", "timeline", "ToolDetail.jsx")), true);
 

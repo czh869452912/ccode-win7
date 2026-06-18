@@ -795,6 +795,13 @@ async function runTimelineScenario(page) {
   const detailText = await page.locator('[data-testid="timeline-work-detail"]').first().innerText();
   const rawJsonVisible = detailText.trim().startsWith("{") || detailText.includes('"path":');
   const detailFieldCount = await page.locator(".t3-tool-detail-grid dt").count();
+  const workPresentation = await page.evaluate(() =>
+    Array.from(document.querySelectorAll('[data-testid="timeline-work-row"]')).map((row) => ({
+      iconName: row.getAttribute("data-icon-name") || "",
+      statusIndicator: row.getAttribute("data-status-indicator") || "",
+      text: (row.textContent || "").replace(/\s+/g, " ").trim(),
+    })),
+  );
   const scrollMetrics = await scrollContainerMetrics(page, [
     ["timeline", ".timeline"],
   ]);
@@ -802,6 +809,15 @@ async function runTimelineScenario(page) {
   assertScrollContainer(scrollMetrics, "timeline");
   if (rawJsonVisible) throw new Error("Timeline work detail still exposes raw JSON");
   if (detailFieldCount === 0) throw new Error("Timeline work detail did not render structured fields");
+  const iconNames = new Set(workPresentation.map((entry) => entry.iconName));
+  for (const expectedIcon of ["eye", "square-pen", "terminal", "wrench"]) {
+    if (!iconNames.has(expectedIcon)) {
+      throw new Error(`Timeline work rows missing ${expectedIcon} presentation icon: ${JSON.stringify(workPresentation)}`);
+    }
+  }
+  if (!workPresentation.some((entry) => entry.statusIndicator === "success")) {
+    throw new Error(`Timeline work rows missing success status indicator: ${JSON.stringify(workPresentation)}`);
+  }
   if (!noOverlap) throw new Error("Right panel tabs overlap in timeline scenario");
   const richTimelineState = {
     hasChangedFiles: await page.locator('[data-testid="changed-files-card"]').isVisible(),
@@ -809,6 +825,7 @@ async function runTimelineScenario(page) {
     hasReview: await page.locator('[data-testid="timeline-review-result-row"]').first().isVisible(),
     hasThinking: await page.locator('[data-testid="timeline-thinking-row"]').first().isVisible(),
     hasExpandedDetail: await page.locator('[data-testid="timeline-work-detail"]').first().isVisible(),
+    workPresentation,
   };
   await page.evaluate(() => {
     window.__EMBEDAGENT_VISUAL_DEBUG__.loadLongTimelineFixture();

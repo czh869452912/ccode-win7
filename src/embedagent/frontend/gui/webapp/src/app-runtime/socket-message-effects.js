@@ -21,6 +21,41 @@ function logAction(label, detail = "") {
   return { type: "log_event", label, detail };
 }
 
+function pickToolPresentationPayload(payload = {}) {
+  return {
+    itemType: payload?.item_type || payload?.itemType || payload?.data?.item_type || payload?.data?.itemType || "",
+    requestKind: payload?.request_kind || payload?.requestKind || payload?.data?.request_kind || payload?.data?.requestKind || "",
+    toolTitle: payload?.tool_title || payload?.toolTitle || payload?.data?.tool_title || payload?.data?.toolTitle || "",
+    toolLifecycleStatus:
+      payload?.tool_lifecycle_status ||
+      payload?.toolLifecycleStatus ||
+      payload?.data?.tool_lifecycle_status ||
+      payload?.data?.toolLifecycleStatus ||
+      "",
+    command: payload?.command || payload?.data?.command || "",
+    rawCommand: payload?.raw_command || payload?.rawCommand || payload?.data?.raw_command || payload?.data?.rawCommand || "",
+    detail: payload?.detail || payload?.data?.detail || "",
+    sourceActivityKind:
+      payload?.source_activity_kind ||
+      payload?.sourceActivityKind ||
+      payload?.data?.source_activity_kind ||
+      payload?.data?.sourceActivityKind ||
+      "",
+    changedFiles:
+      payload?.changed_files ||
+      payload?.changedFiles ||
+      payload?.data?.changed_files ||
+      payload?.data?.changedFiles ||
+      [],
+    toolData:
+      payload?.tool_data ||
+      payload?.toolData ||
+      payload?.data?.tool_data ||
+      payload?.data?.toolData ||
+      payload?.data?.item,
+  };
+}
+
 function nextSeq(sessionEventLog) {
   return Number(sessionEventLog?.lastAppliedSeq || 0) + 1;
 }
@@ -221,6 +256,7 @@ export function deriveSocketMessageEffects({
       resultRendererKey: payload?.result_renderer_key || "",
       runtimeSource: payload?.runtime_source || "",
       resolvedToolRoots: payload?.resolved_tool_roots || {},
+      ...pickToolPresentationPayload(payload),
       turnId: payload?.turn_id || "",
       stepId: payload?.step_id || "",
       stepIndex: payload?.step_index || 0,
@@ -247,6 +283,7 @@ export function deriveSocketMessageEffects({
       resultRendererKey: payload?.result_renderer_key || "",
       runtimeSource: payload?.runtime_source || "",
       resolvedToolRoots: payload?.resolved_tool_roots || {},
+      ...pickToolPresentationPayload(payload),
       turnId: payload?.turn_id || "",
       stepId: payload?.step_id || "",
       stepIndex: payload?.step_index || 0,

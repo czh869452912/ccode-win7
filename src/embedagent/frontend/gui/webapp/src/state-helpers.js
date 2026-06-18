@@ -33,6 +33,44 @@ export function injectChildren(nodes, targetPath, children) {
   });
 }
 
+function snakeOrCamel(input, snakeKey, camelKey, fallback = undefined) {
+  if (!input || typeof input !== "object") return fallback;
+  if (Object.prototype.hasOwnProperty.call(input, snakeKey)) return input[snakeKey];
+  if (Object.prototype.hasOwnProperty.call(input, camelKey)) return input[camelKey];
+  return fallback;
+}
+
+function projectToolPresentationFields(source = {}) {
+  const data = source.data && typeof source.data === "object" ? source.data : {};
+  return {
+    itemType: snakeOrCamel(source, "item_type", "itemType", snakeOrCamel(data, "item_type", "itemType", "")),
+    requestKind: snakeOrCamel(source, "request_kind", "requestKind", snakeOrCamel(data, "request_kind", "requestKind", "")),
+    toolTitle: snakeOrCamel(source, "tool_title", "toolTitle", snakeOrCamel(data, "tool_title", "toolTitle", "")),
+    toolLifecycleStatus: snakeOrCamel(
+      source,
+      "tool_lifecycle_status",
+      "toolLifecycleStatus",
+      snakeOrCamel(data, "tool_lifecycle_status", "toolLifecycleStatus", ""),
+    ),
+    command: snakeOrCamel(source, "command", "command", snakeOrCamel(data, "command", "command", "")),
+    rawCommand: snakeOrCamel(source, "raw_command", "rawCommand", snakeOrCamel(data, "raw_command", "rawCommand", "")),
+    detail: snakeOrCamel(source, "detail", "detail", snakeOrCamel(data, "detail", "detail", "")),
+    sourceActivityKind: snakeOrCamel(
+      source,
+      "source_activity_kind",
+      "sourceActivityKind",
+      snakeOrCamel(data, "source_activity_kind", "sourceActivityKind", ""),
+    ),
+    changedFiles: snakeOrCamel(
+      source,
+      "changed_files",
+      "changedFiles",
+      snakeOrCamel(data, "changed_files", "changedFiles", []),
+    ),
+    toolData: snakeOrCamel(source, "tool_data", "toolData", snakeOrCamel(data, "tool_data", "toolData", data.item)),
+  };
+}
+
 export function findLatestPendingUserTurnKey(timeline) {
   for (let index = (timeline || []).length - 1; index >= 0; index -= 1) {
     const item = timeline[index];
@@ -183,6 +221,7 @@ export function timelineFromEvents(events) {
         supportsDiffPreview: Boolean(payload.supports_diff_preview),
         progressRendererKey: payload.progress_renderer_key || "",
         resultRendererKey: payload.result_renderer_key || "",
+        ...projectToolPresentationFields(payload),
         projectionSource: "raw_events",
       };
       toolIndex[item.id] = items.length;
@@ -206,6 +245,7 @@ export function timelineFromEvents(events) {
         supportsDiffPreview: Boolean(payload.supports_diff_preview),
         progressRendererKey: payload.progress_renderer_key || "",
         resultRendererKey: payload.result_renderer_key || "",
+        ...projectToolPresentationFields(payload),
         projectionSource: "raw_events",
       };
       if (index === undefined) {
@@ -430,6 +470,7 @@ export function timelineFromTurns(turns, events = [], options = {}) {
         resultRendererKey: tc.result_renderer_key || "",
         runtimeSource: tc.runtime_source || "",
         resolvedToolRoots: tc.resolved_tool_roots || {},
+        ...projectToolPresentationFields(tc),
         turnId,
         stepId: "",
         stepIndex: 0,
@@ -486,6 +527,7 @@ export function timelineFromTurns(turns, events = [], options = {}) {
           resultRendererKey: tc.result_renderer_key || "",
           runtimeSource: tc.runtime_source || "",
           resolvedToolRoots: tc.resolved_tool_roots || {},
+          ...projectToolPresentationFields(tc),
           turnId,
           stepId,
           stepIndex,

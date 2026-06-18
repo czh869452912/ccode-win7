@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   T3_ROW_KINDS,
   buildChangedFilesTree,
+  buildWorkPresentation,
   projectT3TimelineRows,
   summarizeChangedFiles,
   summarizeDiffStats,
@@ -141,6 +142,129 @@ export function runT3TimelineTests() {
   assert.equal(runningRows[1].kind, "work");
   assert.equal(runningRows[1].status, "running");
   assert.equal(runningRows.some((row) => row.kind === "turn_fold"), false);
+
+  const actionPresentationRows = projectT3TimelineRows({
+    turnGroups: [
+      {
+        turnId: "turn-action-presentation",
+        userItem: {
+          id: "u-action-presentation",
+          kind: "user",
+          content: "inspect action presentation",
+          turnId: "turn-action-presentation",
+        },
+        steps: [
+          {
+            stepId: "step-action-presentation",
+            stepIndex: 1,
+            activityItems: [
+              {
+                id: "cmd-action",
+                kind: "tool",
+                label: "Bash Complete",
+                toolTitle: "Ran command",
+                itemType: "command_execution",
+                requestKind: "command",
+                toolLifecycleStatus: "completed",
+                command: "uv run pytest tests/",
+                rawCommand: "python -m pytest tests/",
+                status: "success",
+                turnId: "turn-action-presentation",
+                stepId: "step-action-presentation",
+              },
+              {
+                id: "read-action",
+                kind: "tool",
+                label: "Read File Complete",
+                toolTitle: "Read File",
+                itemType: "dynamic_tool_call",
+                requestKind: "file-read",
+                toolLifecycleStatus: "completed",
+                detail: "src/main.c",
+                status: "success",
+                turnId: "turn-action-presentation",
+                stepId: "step-action-presentation",
+              },
+              {
+                id: "mcp-action",
+                kind: "tool",
+                label: "Tool call complete",
+                toolTitle: "t3-code · preview_status",
+                itemType: "mcp_tool_call",
+                toolData: { name: "preview_status", input: { url: "http://localhost:5173" } },
+                status: "success",
+                turnId: "turn-action-presentation",
+                stepId: "step-action-presentation",
+              },
+              {
+                id: "warn-action",
+                kind: "tool",
+                label: "Runtime warning",
+                sourceActivityKind: "runtime.warning",
+                status: "success",
+                detail: "stale pending user-input request",
+                turnId: "turn-action-presentation",
+                stepId: "step-action-presentation",
+              },
+            ],
+            assistantItem: null,
+          },
+        ],
+        trailingTurnItems: [],
+        leadingSystemItems: [],
+        sessionFallbackItems: [],
+      },
+    ],
+    currentStatus: "running",
+    activeTurnId: "turn-action-presentation",
+  });
+
+  const actionRows = actionPresentationRows.filter((row) => row.kind === T3_ROW_KINDS.WORK);
+  assert.equal(actionRows.length, 4);
+  const commandPresentation = actionRows.find((row) => row.id === "cmd-action").presentation;
+  assert.equal(commandPresentation.heading, "Ran command");
+  assert.equal(commandPresentation.preview, "uv run pytest tests/");
+  assert.equal(commandPresentation.iconName, "terminal");
+  assert.equal(commandPresentation.statusIndicator, "success");
+  assert.equal(commandPresentation.expandedBody.includes("python -m pytest tests/"), true);
+  assert.equal(commandPresentation.expandedBody.includes("uv run pytest tests/"), false);
+
+  const readPresentation = actionRows.find((row) => row.id === "read-action").presentation;
+  assert.equal(readPresentation.heading, "Read File");
+  assert.equal(readPresentation.preview, "src/main.c");
+  assert.equal(readPresentation.iconName, "eye");
+
+  const mcpPresentation = actionRows.find((row) => row.id === "mcp-action").presentation;
+  assert.equal(mcpPresentation.heading, "T3-code · preview_status");
+  assert.equal(mcpPresentation.iconName, "wrench");
+  assert.equal(mcpPresentation.expandedBody.includes("MCP call"), true);
+  assert.equal(mcpPresentation.expandedBody.includes("preview_status"), true);
+
+  const warningPresentation = actionRows.find((row) => row.id === "warn-action").presentation;
+  assert.equal(warningPresentation.iconName, "x");
+  assert.equal(warningPresentation.statusIndicator, "success");
+  assert.equal(warningPresentation.headingTone, "warning");
+
+  assert.deepEqual(
+    buildWorkPresentation({
+      label: "Search Complete",
+      toolTitle: "grep",
+      itemType: "web_search",
+      detail: "TODO",
+      status: "running",
+      toolLifecycleStatus: "inProgress",
+    }),
+    {
+      heading: "Grep",
+      preview: "TODO",
+      iconName: "globe",
+      statusIndicator: "neutral",
+      headingTone: "normal",
+      iconTone: "normal",
+      canExpand: true,
+      expandedBody: "TODO",
+    },
+  );
 
   const detailRows = projectT3TimelineRows({
     turnGroups: [

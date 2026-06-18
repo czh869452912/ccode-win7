@@ -40,6 +40,58 @@ test("timelineFromEvents preserves tool lifecycle and final assistant text", () 
   assert.equal(timeline[2].content, "done");
 });
 
+test("timelineFromEvents preserves T3 work presentation metadata", () => {
+  const timeline = timelineFromEvents([
+    {
+      event_id: "evt-start",
+      event: "tool_started",
+      payload: {
+        call_id: "call-meta",
+        tool_name: "run_command",
+        tool_label: "Bash Started",
+        item_type: "command_execution",
+        request_kind: "command",
+        tool_title: "Ran command",
+        tool_lifecycle_status: "inProgress",
+        command: "uv run pytest tests/",
+        raw_command: "python -m pytest tests/",
+        source_activity_kind: "tool.updated",
+      },
+    },
+    {
+      event_id: "evt-finish",
+      event: "tool_finished",
+      payload: {
+        call_id: "call-meta",
+        tool_name: "run_command",
+        tool_label: "Bash Complete",
+        item_type: "command_execution",
+        request_kind: "command",
+        tool_title: "Ran command",
+        tool_lifecycle_status: "completed",
+        command: "uv run pytest tests/",
+        raw_command: "python -m pytest tests/",
+        source_activity_kind: "tool.completed",
+        success: true,
+        data: {
+          changed_files: ["src/main.c"],
+          item: { input: { command: "uv run pytest tests/" } },
+        },
+      },
+    },
+  ]);
+  assert.equal(timeline[0].id, "call-meta");
+  assert.equal(timeline[0].itemType, "command_execution");
+  assert.equal(timeline[0].requestKind, "command");
+  assert.equal(timeline[0].toolTitle, "Ran command");
+  assert.equal(timeline[0].toolLifecycleStatus, "completed");
+  assert.equal(timeline[0].command, "uv run pytest tests/");
+  assert.equal(timeline[0].rawCommand, "python -m pytest tests/");
+  assert.equal(timeline[0].sourceActivityKind, "tool.completed");
+  assert.deepEqual(timeline[0].changedFiles, ["src/main.c"]);
+  assert.deepEqual(timeline[0].toolData, { input: { command: "uv run pytest tests/" } });
+});
+
 test("timelineFromEvents keeps command results for review workflows", () => {
   const timeline = timelineFromEvents([
     {
@@ -192,6 +244,47 @@ test("timelineFromTurns expands one user turn into multiple agent steps", () => 
   assert.equal(timeline[3].kind, "reasoning");
   assert.equal(timeline[4].stepId, "step-2");
   assert.equal(timeline[4].kind, "assistant");
+});
+
+test("timelineFromTurns preserves T3 work presentation metadata", () => {
+  const timeline = timelineFromTurns([
+    {
+      turn_id: "turn-meta",
+      user_text: "run checks",
+      steps: [
+        {
+          step_id: "step-meta",
+          tool_calls: [
+            {
+              call_id: "call-meta",
+              tool_name: "run_command",
+              tool_label: "Bash Complete",
+              status: "success",
+              item_type: "command_execution",
+              request_kind: "command",
+              tool_title: "Ran command",
+              tool_lifecycle_status: "completed",
+              command: "uv run pytest tests/",
+              raw_command: "python -m pytest tests/",
+              source_activity_kind: "tool.completed",
+              changed_files: ["src/main.c"],
+              tool_data: { input: { command: "uv run pytest tests/" } },
+            },
+          ],
+        },
+      ],
+    },
+  ]);
+  const tool = timeline.find((item) => item.kind === "tool");
+  assert.equal(tool.itemType, "command_execution");
+  assert.equal(tool.requestKind, "command");
+  assert.equal(tool.toolTitle, "Ran command");
+  assert.equal(tool.toolLifecycleStatus, "completed");
+  assert.equal(tool.command, "uv run pytest tests/");
+  assert.equal(tool.rawCommand, "python -m pytest tests/");
+  assert.equal(tool.sourceActivityKind, "tool.completed");
+  assert.deepEqual(tool.changedFiles, ["src/main.c"]);
+  assert.deepEqual(tool.toolData, { input: { command: "uv run pytest tests/" } });
 });
 
 test("timelineFromTurns preserves synthetic step projection metadata", () => {

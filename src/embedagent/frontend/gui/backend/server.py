@@ -138,6 +138,33 @@ def _serialize_session_snapshot(snapshot: Any) -> Dict[str, Any]:
     }
 
 
+def _tool_presentation_payload(source: Any) -> Dict[str, Any]:
+    if not isinstance(source, dict):
+        return {}
+    data = source.get("data") if isinstance(source.get("data"), dict) else {}
+
+    def pick(*keys: str) -> Any:
+        for key in keys:
+            if key in source and source.get(key) not in (None, ""):
+                return source.get(key)
+            if isinstance(data, dict) and key in data and data.get(key) not in (None, ""):
+                return data.get(key)
+        return ""
+
+    return {
+        "item_type": pick("item_type", "itemType"),
+        "request_kind": pick("request_kind", "requestKind"),
+        "tool_title": pick("tool_title", "toolTitle"),
+        "tool_lifecycle_status": pick("tool_lifecycle_status", "toolLifecycleStatus", "status"),
+        "command": pick("command"),
+        "raw_command": pick("raw_command", "rawCommand"),
+        "detail": pick("detail"),
+        "source_activity_kind": pick("source_activity_kind", "sourceActivityKind"),
+        "changed_files": pick("changed_files", "changedFiles") or [],
+        "tool_data": pick("tool_data", "toolData", "item"),
+    }
+
+
 def _serialize_session_summary(payload: Any) -> Dict[str, Any]:
     data = dict(payload or {})
     thread = data.get("thread") if isinstance(data.get("thread"), dict) else {}
@@ -381,6 +408,7 @@ class WebSocketFrontend(FrontendCallbacks):
                     ),
                     "runtime_source": call.runtime_source,
                     "resolved_tool_roots": call.resolved_tool_roots,
+                    **_tool_presentation_payload(call.arguments),
                 },
             }
         )
@@ -433,6 +461,7 @@ class WebSocketFrontend(FrontendCallbacks):
                         if isinstance(result.data, dict)
                         else {}
                     ),
+                    **_tool_presentation_payload(result.data),
                 },
             }
         )
