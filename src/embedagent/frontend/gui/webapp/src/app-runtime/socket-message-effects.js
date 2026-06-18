@@ -1,17 +1,7 @@
 import { normalizeAppBootstrap } from "../app-workspaces.js";
 import { createDiffSurfaceState } from "../session-runtime/diff-model.js";
 import { makeEventId, normalizeSessionPayload } from "../state-helpers.js";
-
-export const LOADER_REQUESTS = Object.freeze({
-  LOAD_APP_BOOTSTRAP: "load_app_bootstrap",
-  LOAD_ACTIVE_WORKSPACE_DATA: "load_active_workspace_data",
-  LOAD_SESSIONS: "load_sessions",
-  LOAD_SESSION: "load_session",
-  LOAD_TASKS: "load_tasks",
-  LOAD_ARTIFACTS: "load_artifacts",
-  LOAD_PERMISSION_CONTEXT: "load_permission_context",
-  LOAD_FILE_CHILDREN: "load_file_children",
-});
+import { LOADER_REQUESTS } from "./session-loaders.js";
 
 const FS_REFRESH_TOOLS = new Set(["write_file", "edit_file", "git_commit", "git_reset"]);
 

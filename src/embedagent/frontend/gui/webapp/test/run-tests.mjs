@@ -786,6 +786,8 @@ async function main() {
   );
   assert.equal(socketMessageEffectsSource.includes("deriveSocketMessageEffects"), true);
   assert.equal(socketMessageEffectsSource.includes("LOADER_REQUESTS"), true);
+  assert.equal(socketMessageEffectsSource.includes('from "./session-loaders.js"'), true);
+  assert.equal(socketMessageEffectsSource.includes("export const LOADER_REQUESTS"), false);
   assert.equal(socketMessageEffectsSource.includes("workspace_changed"), true);
   assert.equal(socketMessageEffectsSource.includes("terminal_event"), true);
   assert.equal(socketMessageEffectsSource.includes("session_event"), true);
@@ -796,6 +798,20 @@ async function main() {
   assert.equal(socketMessageEffectsSource.includes("fetch("), false);
   assert.equal(socketMessageEffectsSource.includes("new WebSocket"), false);
   assert.equal(socketMessageEffectsSource.includes("useEffect"), false);
+
+  const sessionLoadersSource = fs.readFileSync(
+    webappSourcePath("app-runtime", "session-loaders.js"),
+    "utf8",
+  );
+  assert.equal(sessionLoadersSource.includes("createLoaderRequestExecutor"), true);
+  assert.equal(sessionLoadersSource.includes("deriveSessionActivation"), true);
+  assert.equal(sessionLoadersSource.includes("LOADER_REQUESTS"), true);
+  assert.equal(sessionLoadersSource.includes("timelineFromTurns"), true);
+  assert.equal(sessionLoadersSource.includes("normalizeSessionPayload"), true);
+  assert.equal(sessionLoadersSource.includes("fetch("), false);
+  assert.equal(sessionLoadersSource.includes("new WebSocket"), false);
+  assert.equal(sessionLoadersSource.includes("useEffect"), false);
+  assert.equal(sessionLoadersSource.includes("import React"), false);
 
   const visualDebugFixturesSource = fs.readFileSync(
     webappSourcePath("app-runtime", "visual-debug-fixtures.js"),
