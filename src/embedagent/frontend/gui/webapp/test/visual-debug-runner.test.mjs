@@ -20,9 +20,11 @@ export async function runVisualDebugRunnerTests() {
 
   assert.deepEqual(runner.parseScenarioList("load,chat"), ["load", "chat"]);
   assert.deepEqual(runner.parseScenarioList("load,file"), ["load", "file"]);
+  assert.deepEqual(runner.parseScenarioList("composer"), ["composer"]);
+  assert.deepEqual(runner.parseScenarioList("load,composer"), ["load", "composer"]);
   assert.deepEqual(runner.parseScenarioList("thread"), ["thread"]);
   assert.deepEqual(runner.parseScenarioList("timeline,interaction"), ["timeline", "interaction"]);
-  assert.deepEqual(runner.parseScenarioList("all"), ["app", "load", "chat", "diff", "file", "terminal", "responsive", "thread", "timeline", "interaction"]);
+  assert.deepEqual(runner.parseScenarioList("all"), ["app", "load", "chat", "composer", "diff", "file", "terminal", "responsive", "thread", "timeline", "interaction"]);
   assert.deepEqual(runner.parseScenarioList("app"), ["app"]);
   assert.deepEqual(runner.parseScenarioList("load,app"), ["app", "load"]);
   assert.throws(() => runner.parseScenarioList("load,unknown"), /Unknown GUI visual scenario/);
@@ -77,6 +79,11 @@ export async function runVisualDebugRunnerTests() {
   assert.equal(runnerSource.includes("loadInteractionFixture"), true);
   assert.equal(runnerSource.includes("loadThreadLifecycleFixture"), true);
   assert.equal(runnerSource.includes("loadSourceControlFixture"), true);
+  assert.equal(runnerSource.includes("runComposerScenario"), true);
+  assert.equal(runnerSource.includes("loadComposerFileTreeFixture"), true);
+  assert.equal(runnerSource.includes("composer-command-menu"), true);
+  assert.equal(runnerSource.includes("composer-primary-action"), true);
+  assert.equal(runnerSource.includes("@src/parser.c"), true);
   assert.equal(runnerSource.includes("branch-toolbar"), true);
 
   const noBuildArgs = runner.parseVisualDebugArgs(["--no-build"]);

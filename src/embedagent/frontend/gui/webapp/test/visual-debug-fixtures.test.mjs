@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 
 import {
+  buildComposerFileTreeFixtureAction,
   buildInteractionFixtureAction,
   buildSourceControlFixtureAction,
   buildThreadLifecycleFixtureAction,
@@ -42,6 +43,11 @@ export function runVisualDebugFixturesTests() {
   assert.equal(sourceControlAction.status.counts.total, 4);
   assert.equal(sourceControlAction.status.files.length, 4);
 
+  const composerAction = buildComposerFileTreeFixtureAction();
+  assert.equal(composerAction.type, "visual_composer_file_tree_fixture_loaded");
+  assert.equal(composerAction.nodes[0].path, "src");
+  assert.equal(composerAction.nodes[0].children.some((node) => node.path === "src/parser.c"), true);
+
   const skippedWindow = {};
   const skippedCleanup = installVisualDebugFixtures({
     windowObject: skippedWindow,
@@ -71,6 +77,7 @@ export function runVisualDebugFixturesTests() {
   windowObject.__EMBEDAGENT_VISUAL_DEBUG__.loadSourceControlFixture();
   windowObject.__EMBEDAGENT_VISUAL_DEBUG__.loadInteractionFixture("user_input");
   windowObject.__EMBEDAGENT_VISUAL_DEBUG__.loadThreadLifecycleFixture();
+  windowObject.__EMBEDAGENT_VISUAL_DEBUG__.loadComposerFileTreeFixture();
   windowObject.__EMBEDAGENT_VISUAL_DEBUG__.openDiffFixture({
     title: "Debug Diff",
     diff: "--- a/a.c\n+++ b/a.c\n",
@@ -83,6 +90,7 @@ export function runVisualDebugFixturesTests() {
       "visual_source_control_fixture_loaded",
       "visual_interaction_fixture_loaded",
       "visual_thread_lifecycle_fixture_loaded",
+      "visual_composer_file_tree_fixture_loaded",
     ],
   );
   assert.equal(dispatched[0].snapshot.current_mode, "verify");

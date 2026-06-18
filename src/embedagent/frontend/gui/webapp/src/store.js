@@ -173,6 +173,26 @@ export function reducer(state, action) {
           status: action.status || {},
         }),
       };
+    case "visual_composer_file_tree_fixture_loaded":
+      return {
+        ...state,
+        fileTree: Array.isArray(action.nodes) ? action.nodes : [],
+        app: {
+          ...state.app,
+          bootstrapLoaded: true,
+          hasActiveWorkspace: true,
+          activeWorkspace: state.app.activeWorkspace || {
+            id: "visual-debug-workspace",
+            path: "D:/visual-debug",
+            label: "visual-debug",
+            exists: true,
+            created_at: "",
+            last_opened_at: "",
+          },
+          workspaceError: "",
+          activatingWorkspace: false,
+        },
+      };
     case "sessions_loaded":
       return { ...state, sessions: action.sessions };
     case "session_activated":

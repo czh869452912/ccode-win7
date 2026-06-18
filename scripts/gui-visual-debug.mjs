@@ -8,7 +8,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { createRequire } from "node:module";
 
-export const SCENARIOS = ["load", "chat", "diff", "file", "terminal", "responsive", "app", "thread", "timeline", "interaction"];
+export const SCENARIOS = ["load", "chat", "composer", "diff", "file", "terminal", "responsive", "app", "thread", "timeline", "interaction"];
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_REPO_ROOT = path.resolve(SCRIPT_DIR, "..");
@@ -490,7 +490,7 @@ async function runLoadScenario(page) {
 
 async function runChatScenario(page) {
   await page.fill('[data-testid="composer-input"]', "visual debug chat");
-  await page.click('[data-testid="send-button"]');
+  await page.click('[data-testid="composer-primary-action"]');
   await page.waitForSelector('[data-testid="timeline-user-message"]', { timeout: 10000 });
   await page.waitForSelector('[data-testid="timeline-assistant-message"]', { timeout: 15000 });
   await page.waitForFunction(() => {
@@ -510,6 +510,96 @@ async function runChatScenario(page) {
     throw new Error(`Branch toolbar did not show fixture state: ${branchToolbar}`);
   }
   return { assistantText, branchToolbar };
+}
+
+async function composerMenuMetrics(page) {
+  return await page.evaluate(() => {
+    const menu = document.querySelector('[data-testid="composer-command-menu"]');
+    const input = document.querySelector('[data-testid="composer-input"]');
+    const menuBox = menu?.getBoundingClientRect();
+    const inputBox = input?.getBoundingClientRect();
+    return {
+      viewportWidth: window.innerWidth,
+      documentWidth: document.documentElement.scrollWidth,
+      menu: menuBox ? {
+        left: Math.round(menuBox.left),
+        right: Math.round(menuBox.right),
+        width: Math.round(menuBox.width),
+        height: Math.round(menuBox.height),
+      } : null,
+      input: inputBox ? {
+        left: Math.round(inputBox.left),
+        right: Math.round(inputBox.right),
+        width: Math.round(inputBox.width),
+      } : null,
+      activeItems: document.querySelectorAll(".composer-menu-item.active").length,
+    };
+  });
+}
+
+async function runComposerScenario(page, options, outputDir) {
+  const viewports = parseViewportList(options.viewports);
+  const results = [];
+  for (const viewport of viewports) {
+    await page.setViewportSize({ width: viewport.width, height: viewport.height });
+    await page.waitForFunction(() => Boolean(window.__EMBEDAGENT_VISUAL_DEBUG__), null, { timeout: 10000 });
+    await page.evaluate(() => {
+      window.__EMBEDAGENT_VISUAL_DEBUG__.loadComposerFileTreeFixture();
+    });
+    await page.waitForSelector('[data-testid="composer-input"]', { timeout: 10000 });
+    const input = page.locator('[data-testid="composer-input"]');
+
+    await input.fill("/di");
+    await page.waitForSelector('[data-testid="composer-command-menu"]', { timeout: 10000 });
+    await page.keyboard.press("ArrowDown");
+    const slashMenuText = await page.locator('[data-testid="composer-command-menu"]').innerText();
+    if (!slashMenuText.includes("/diff")) {
+      throw new Error(`Composer slash menu did not show /diff at ${viewport.name}: ${slashMenuText}`);
+    }
+    const slashMetrics = await composerMenuMetrics(page);
+    if (slashMetrics.documentWidth > slashMetrics.viewportWidth + 1) {
+      throw new Error(`Composer slash menu caused horizontal overflow at ${viewport.name}: ${slashMetrics.documentWidth}`);
+    }
+    if (!slashMetrics.menu || slashMetrics.menu.left < 0 || slashMetrics.menu.right > slashMetrics.viewportWidth + 1) {
+      throw new Error(`Composer slash menu escaped viewport at ${viewport.name}: ${JSON.stringify(slashMetrics.menu)}`);
+    }
+    if (slashMetrics.activeItems !== 1) {
+      throw new Error(`Composer slash menu should have one active item at ${viewport.name}`);
+    }
+    await page.keyboard.press("Enter");
+    const slashValue = await input.inputValue();
+    if (!slashValue.startsWith("/diff ")) {
+      throw new Error(`Composer slash selection did not insert /diff: ${slashValue}`);
+    }
+
+    await input.fill("@par");
+    await page.waitForSelector('[data-testid="composer-command-menu"]', { timeout: 10000 });
+    const pathMenuText = await page.locator('[data-testid="composer-command-menu"]').innerText();
+    if (!pathMenuText.includes("src/parser.c")) {
+      throw new Error(`Composer path menu did not show src/parser.c at ${viewport.name}: ${pathMenuText}`);
+    }
+    const pathMetrics = await composerMenuMetrics(page);
+    if (pathMetrics.documentWidth > pathMetrics.viewportWidth + 1) {
+      throw new Error(`Composer path menu caused horizontal overflow at ${viewport.name}: ${pathMetrics.documentWidth}`);
+    }
+    await page.keyboard.press("Enter");
+    const pathValue = await input.inputValue();
+    if (pathValue !== "@src/parser.c ") {
+      throw new Error(`Composer path selection did not insert @src/parser.c: ${pathValue}`);
+    }
+
+    const screenshot = path.join(outputDir, `composer-${viewport.name}.png`);
+    await page.screenshot({ path: screenshot, fullPage: false });
+    results.push({
+      name: viewport.name,
+      slashMenu: slashMetrics,
+      pathMenu: pathMetrics,
+      slashValue,
+      pathValue,
+      screenshot,
+    });
+  }
+  return { viewports: results };
 }
 
 async function runDiffScenario(page) {
@@ -966,6 +1056,8 @@ async function runScenarios(options, repoRoot, outputDir) {
         results.load = await runLoadScenario(page);
       } else if (scenario === "chat") {
         results.chat = await runChatScenario(page);
+      } else if (scenario === "composer") {
+        results.composer = await runComposerScenario(page, options, outputDir);
       } else if (scenario === "diff") {
         results.diff = await runDiffScenario(page);
       } else if (scenario === "file") {
@@ -999,7 +1091,7 @@ function printHelp() {
   console.log(`Usage: node scripts/gui-visual-debug.mjs [options]
 
 Options:
-  --scenario load|chat|diff|file|terminal|responsive|app|thread|timeline|interaction|all
+  --scenario load|chat|composer|diff|file|terminal|responsive|app|thread|timeline|interaction|all
                                    Scenario list to run (default: load)
   --workspace PATH                Existing workspace; temp workspace by default
   --output PATH                   Output dir for screenshots and summary JSON
@@ -1121,7 +1213,7 @@ export async function runVisualDebug(options = parseVisualDebugArgs()) {
   }
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   runVisualDebug()
     .then((summary) => {
       if (!summary.help) {

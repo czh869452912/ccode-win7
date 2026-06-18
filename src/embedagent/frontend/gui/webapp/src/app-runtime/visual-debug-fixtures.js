@@ -300,6 +300,38 @@ export function buildSourceControlFixtureAction() {
   };
 }
 
+export function buildComposerFileTreeFixtureAction() {
+  return {
+    type: "visual_composer_file_tree_fixture_loaded",
+    nodes: [
+      {
+        id: "src",
+        path: "src",
+        name: "src",
+        kind: "dir",
+        has_children: true,
+        childrenLoaded: true,
+        children: [
+          { id: "src/main.c", path: "src/main.c", name: "main.c", kind: "file", has_children: false },
+          { id: "src/parser.c", path: "src/parser.c", name: "parser.c", kind: "file", has_children: false },
+          {
+            id: "src/include",
+            path: "src/include",
+            name: "include",
+            kind: "dir",
+            has_children: true,
+            childrenLoaded: true,
+            children: [
+              { id: "src/include/parser.h", path: "src/include/parser.h", name: "parser.h", kind: "file", has_children: false },
+            ],
+          },
+        ],
+      },
+      { id: "README.md", path: "README.md", name: "README.md", kind: "file", has_children: false },
+    ],
+  };
+}
+
 export function installVisualDebugFixtures({
   windowObject,
   locationSearch = "",
@@ -321,6 +353,9 @@ export function installVisualDebugFixtures({
     },
     loadSourceControlFixture() {
       dispatch(buildSourceControlFixtureAction());
+    },
+    loadComposerFileTreeFixture() {
+      dispatch(buildComposerFileTreeFixtureAction());
     },
     loadLongTimelineFixture() {
       dispatch(buildLongTimelineFixtureAction({ currentMode }));

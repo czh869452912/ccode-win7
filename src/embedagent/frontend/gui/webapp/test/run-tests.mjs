@@ -162,6 +162,22 @@ async function main() {
   assert.equal(threadLifecycleFixtureState.sessions.length, 2);
   assert.equal(threadLifecycleFixtureState.app.hasActiveWorkspace, true);
 
+  const composerFixtureState = reducer(initialState, {
+    type: "visual_composer_file_tree_fixture_loaded",
+    nodes: [
+      {
+        id: "src",
+        path: "src",
+        name: "src",
+        kind: "dir",
+        childrenLoaded: true,
+        children: [{ id: "src/parser.c", path: "src/parser.c", name: "parser.c", kind: "file" }],
+      },
+    ],
+  });
+  assert.equal(composerFixtureState.fileTree[0].children[0].path, "src/parser.c");
+  assert.equal(composerFixtureState.app.hasActiveWorkspace, true);
+
   const root = [createTreeNode({ path: "src", name: "src", kind: "dir", has_children: true })];
   const next = injectChildren(root, "src", [
     { path: "src/pkg", name: "pkg", kind: "dir", has_children: true },
@@ -930,6 +946,7 @@ async function main() {
   assert.equal(storeSource.includes("action.streamingReasoningId"), true);
   assert.equal(storeSource.includes("visual_interaction_fixture_loaded"), true);
   assert.equal(storeSource.includes("visual_thread_lifecycle_fixture_loaded"), true);
+  assert.equal(storeSource.includes("visual_composer_file_tree_fixture_loaded"), true);
   assert.equal(storeSource.includes("filePreviewsByPath"), true);
   assert.equal(storeSource.includes("file_preview_load_started"), true);
   assert.equal(storeSource.includes("file_preview_loaded"), true);
