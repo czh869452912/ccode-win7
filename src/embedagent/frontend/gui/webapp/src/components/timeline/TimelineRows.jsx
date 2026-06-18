@@ -8,6 +8,180 @@ import { rowUiKey as defaultRowUiKey } from "../../session-runtime/timeline-ui-s
 import ChangedFilesCard from "./ChangedFilesCard.jsx";
 import WorkRow from "./WorkRow.jsx";
 
+const MAX_VISIBLE_WORK_LOG_ENTRIES = 1;
+
+function findNearestVerticalScroller(element) {
+  let parent = element?.parentElement || null;
+  while (parent) {
+    const { overflowY } = window.getComputedStyle(parent);
+    if (
+      (overflowY === "auto" || overflowY === "scroll" || overflowY === "overlay") &&
+      parent.scrollHeight > parent.clientHeight
+    ) {
+      return parent;
+    }
+    parent = parent.parentElement;
+  }
+  return null;
+}
+
+function splitRowsIntoSections(rows = []) {
+  const sections = [];
+  for (const row of rows || []) {
+    const previous = sections[sections.length - 1];
+    if (row?.kind === "work") {
+      if (previous?.kind === "work_group") {
+        previous.rows.push(row);
+      } else {
+        sections.push({ kind: "work_group", id: `work-group-${row.id}`, rows: [row] });
+      }
+      continue;
+    }
+    sections.push({ kind: "row", id: row?.id || `row-${sections.length}`, row });
+  }
+  return sections;
+}
+
+function workGroupLabel(rows) {
+  const count = rows.length;
+  if (count === 1) return "1 tool call";
+  return `${count} tool calls`;
+}
+
+function WorkGroupSection({ rows, rowUiState, onToggleRow, rowKeyFor }) {
+  const sectionRef = React.useRef(null);
+  const anchorBottomBeforeToggleRef = React.useRef(null);
+  const [isExpanded, setIsExpanded] = React.useState(false);
+  const hasOverflow = rows.length > MAX_VISIBLE_WORK_LOG_ENTRIES;
+  const visibleRows =
+    hasOverflow && !isExpanded
+      ? rows.slice(-MAX_VISIBLE_WORK_LOG_ENTRIES)
+      : rows;
+  const hiddenCount = rows.length - visibleRows.length;
+
+  React.useLayoutEffect(() => {
+    const before = anchorBottomBeforeToggleRef.current;
+    anchorBottomBeforeToggleRef.current = null;
+    if (before == null) return;
+    const section = sectionRef.current;
+    if (!section) return;
+    const delta = section.getBoundingClientRect().bottom - before;
+    if (Math.abs(delta) < 0.5) return;
+    const scroller = findNearestVerticalScroller(section);
+    if (scroller) {
+      scroller.scrollTop += delta;
+    } else {
+      window.scrollBy(0, delta);
+    }
+  }, [isExpanded]);
+
+  function toggleExpanded() {
+    anchorBottomBeforeToggleRef.current =
+      sectionRef.current?.getBoundingClientRect().bottom ?? null;
+    setIsExpanded((value) => !value);
+  }
+
+  if (!Array.isArray(rows) || rows.length === 0) return null;
+
+  return (
+    <section
+      ref={sectionRef}
+      className="timeline-work-group"
+      data-testid="timeline-work-group"
+      aria-label={workGroupLabel(rows)}
+    >
+      <div className="timeline-work-group-items">
+        {visibleRows.map((row) => {
+          const key = rowKeyFor(row);
+          return (
+            <WorkRow
+              key={row.id}
+              row={row}
+              rowKey={key}
+              expanded={Boolean(rowUiState?.expanded?.[key])}
+              onToggle={onToggleRow}
+            />
+          );
+        })}
+      </div>
+      {hasOverflow ? (
+        <button
+          type="button"
+          className="timeline-work-overflow-toggle"
+          data-testid="timeline-work-overflow-toggle"
+          aria-expanded={isExpanded}
+          onClick={toggleExpanded}
+        >
+          <span aria-hidden="true">{isExpanded ? "^" : "v"}</span>
+          <span>
+            {isExpanded
+              ? "Show fewer tool calls"
+              : `+${hiddenCount} previous tool ${hiddenCount === 1 ? "call" : "calls"}`}
+          </span>
+        </button>
+      ) : null}
+    </section>
+  );
+}
+
+function formatWorkingTimer(startIso, endIso = new Date().toISOString()) {
+  const start = Date.parse(startIso);
+  const end = Date.parse(endIso);
+  if (!Number.isFinite(start) || !Number.isFinite(end)) return "0s";
+  const totalSeconds = Math.max(0, Math.floor((end - start) / 1000));
+  if (totalSeconds < 60) return `${totalSeconds}s`;
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  if (minutes < 60) return `${minutes}m ${seconds}s`;
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  return `${hours}h ${remainingMinutes}m`;
+}
+
+function WorkingTimer({ createdAt }) {
+  const textRef = React.useRef(null);
+  const initialText = createdAt ? formatWorkingTimer(createdAt) : "0s";
+
+  React.useEffect(() => {
+    if (!createdAt) return undefined;
+    function updateText() {
+      if (textRef.current) {
+        textRef.current.textContent = formatWorkingTimer(createdAt);
+      }
+    }
+    updateText();
+    const timerId = window.setInterval(updateText, 1000);
+    return () => window.clearInterval(timerId);
+  }, [createdAt]);
+
+  return (
+    <span ref={textRef} className="timeline-working-timer">
+      {initialText}
+    </span>
+  );
+}
+
+function WorkingRow({ row }) {
+  return (
+    <div className="t3-working-row" data-testid="timeline-working-row" data-row-kind="working">
+      <span className="timeline-working-dots" aria-hidden="true">
+        <span />
+        <span />
+        <span />
+      </span>
+      <span>
+        {row.createdAt ? (
+          <>
+            Working for <WorkingTimer createdAt={row.createdAt} />
+          </>
+        ) : (
+          "Working..."
+        )}
+      </span>
+    </div>
+  );
+}
+
 function MessageRow({ row, markdownComponents }) {
   if (row.role === "assistant") {
     return (
@@ -281,11 +455,7 @@ function TimelineRowSwitch({
     );
   }
   if (row.kind === "working") {
-    return (
-      <div className="t3-working-row" data-testid="timeline-working-row" data-row-kind="working">
-        {row.label || "Working"}
-      </div>
-    );
+    return <WorkingRow row={row} />;
   }
   return <SystemNoticeRow row={row} />;
 }
@@ -298,19 +468,33 @@ export default function TimelineRows({
   onToggleRow = null,
   rowKeyFor = defaultRowUiKey,
 }) {
+  const sections = React.useMemo(() => splitRowsIntoSections(rows || []), [rows]);
   return (
     <>
-      {(rows || []).map((row) => (
-        <TimelineRowSwitch
-          key={row.id}
-          row={row}
-          onOpenDiff={onOpenDiff}
-          markdownComponents={markdownComponents}
-          rowUiState={rowUiState}
-          onToggleRow={onToggleRow}
-          rowKeyFor={rowKeyFor}
-        />
-      ))}
+      {sections.map((section) => {
+        if (section.kind === "work_group") {
+          return (
+            <WorkGroupSection
+              key={section.id}
+              rows={section.rows}
+              rowUiState={rowUiState}
+              onToggleRow={onToggleRow}
+              rowKeyFor={rowKeyFor}
+            />
+          );
+        }
+        return (
+          <TimelineRowSwitch
+            key={section.id}
+            row={section.row}
+            onOpenDiff={onOpenDiff}
+            markdownComponents={markdownComponents}
+            rowUiState={rowUiState}
+            onToggleRow={onToggleRow}
+            rowKeyFor={rowKeyFor}
+          />
+        );
+      })}
     </>
   );
 }

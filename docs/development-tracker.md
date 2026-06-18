@@ -24,6 +24,13 @@
 
 ## 2. 当前阶段
 
+### 2026-06-18 - T3 Timeline Parity Shell
+
+- GUI timeline work rows now render through a T3code-style `WorkGroupSection`: consecutive work/tool rows are grouped, collapsed groups show only the latest entry by default, and `+N previous tool calls` expands older entries while preserving scroll position.
+- Running timeline state now uses T3code-style pulsing dots plus a self-updating `Working for ...` timer when GUI-local timestamps are available.
+- Timeline and right-panel layout guardrails now expose stable scrollbars, avoid the previous fixed `360px` narrow-layout center column, and let right-panel surface tabs/source-control actions shrink or wrap instead of overflowing the sidebar.
+- GUI socket/reducer display state now carries frontend-local `createdAt` / `completedAt` timestamps for duration labels; these fields remain GUI display/read-model state and do not alter transcript history, backend protocol truth, Agent Core policy, workflow state, permission policy, runtime reducers, provider configuration, extension loading, terminal execution, source-control execution, or telemetry semantics.
+
 ### 2026-06-18 - Pi-Style Agent Loop Continuation
 
 - `AgentLoop` has moved from the previous fixed eight-cycle product ceiling to a Pi-style open continuation loop with a small internal `AgentLoopContinuationPolicy`.

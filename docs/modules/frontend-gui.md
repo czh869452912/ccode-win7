@@ -176,8 +176,11 @@ session history truth or backend policy.
 - The React webapp owns a frontend-local T3 timeline row projection in `webapp/src/session-runtime/t3-timeline.js`.
 - Thinking, reasoning, compact boundaries, command results, review results, tool/work rows, diff summaries, interactions, and system notices are display rows derived from existing session bootstrap/timeline/WebSocket state.
 - Tool/work rows project a frontend-local `detailModel` for tool-aware fields and sections; `components/timeline/ToolDetail.jsx` renders paths, grep matches, file previews, recipe output, diff/change summaries, stdout, and stderr as structured details instead of raw JSON for normal tool data. Plain text fallback is reserved for simple error/string summaries.
+- `TimelineRows.jsx` mirrors T3code's work-log grouping behavior for visible work rows: consecutive work/tool rows are rendered by a local `WorkGroupSection`, collapsed groups show the latest entry, `+N previous tool calls` expands older entries, and the component preserves the nearest vertical scroller's anchor during expand/collapse.
+- Running timeline display uses T3code-style pulsing dots and a self-updating `WorkingTimer` label when GUI-local timestamps are available. Fold labels may show `Worked for ...` from frontend display timestamps, falling back to the existing static label when timing data is unavailable.
+- Timeline and right-panel CSS keep stable scrollbars visible, avoid fixed narrow-layout center-column pressure, and allow surface tabs/source-control actions to shrink or wrap under zoomed or narrow layouts.
 - `TimelineRows.jsx` renders these rows; `timeline-ui-state.js` owns transient expansion state only.
-- This projection is not session-history truth, does not write `transcript.jsonl`, does not read `timeline.jsonl` as history, and does not change Agent Core, workflow packages, permission policy, or runtime reducers.
+- Frontend-local `createdAt` / `completedAt` values used by these labels are GUI display/read-model state only. This projection is not session-history truth, does not write `transcript.jsonl`, does not read `timeline.jsonl` as history, and does not change Agent Core, backend protocol truth, workflow packages, permission policy, provider configuration, extension loading, telemetry, or runtime reducers.
 
 ### GUI App Runtime Boundary
 
