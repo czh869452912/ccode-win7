@@ -1,0 +1,36 @@
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const WEBAPP_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+
+function sourcePath(...parts) {
+  return path.join(WEBAPP_ROOT, "src", ...parts);
+}
+
+function readSource(...parts) {
+  return fs.readFileSync(sourcePath(...parts), "utf8").replace(/\r\n?/g, "\n");
+}
+
+export function runCommandPaletteSourceTests() {
+  const resultsSource = readSource("components", "workbench", "CommandPaletteResults.jsx");
+  assert.equal(resultsSource.includes("export default function CommandPaletteResults"), true);
+  assert.equal(resultsSource.includes("cmd-palette-group"), true);
+  assert.equal(resultsSource.includes("cmd-palette-row"), true);
+  assert.equal(resultsSource.includes("cmd-palette-row-shortcut"), true);
+  assert.equal(resultsSource.includes("cmd-palette-row-chevron"), true);
+  assert.equal(resultsSource.includes("aria-disabled"), true);
+  assert.equal(resultsSource.includes("fetch("), false);
+  assert.equal(resultsSource.includes("transcript"), false);
+  assert.equal(resultsSource.includes("embedagent"), false);
+
+  const paletteSource = readSource("components", "workbench", "CommandPalette.jsx");
+  assert.equal(paletteSource.includes("CommandPaletteResults"), false);
+
+  const modelSource = readSource("workbench", "command-palette-model.js");
+  assert.equal(modelSource.includes("buildCommandPaletteRootGroups"), true);
+  assert.equal(modelSource.includes("buildCommandPaletteSubmenuGroups"), true);
+  assert.equal(modelSource.includes("fetch("), false);
+  assert.equal(modelSource.includes("transcript"), false);
+}
