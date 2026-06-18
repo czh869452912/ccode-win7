@@ -19,6 +19,7 @@
 - WebView2 运行时检测与渲染器策略（`launcher.py`）
 - FastAPI 后端与静态资源服务（`backend/server.py`）
 - GUI app-shell bootstrap/read model（`backend/app_shell.py`、`webapp/src/app-shell/`）
+- GUI app-runtime boundary for frontend-only socket effect derivation and dev-only visual fixtures（`webapp/src/app-runtime/`）
 - GUI app-shell hosted source-control read model（`backend/source_control_service.py`、`webapp/src/source-control/`）
 - 协议回调到 WebSocket 广播的实时转换（`backend/server.py`）
 - WebSocket 断线重连与会话事件回放恢复（`webapp/`）
@@ -170,6 +171,17 @@ session history truth or backend policy.
 - Thinking, reasoning, compact boundaries, command results, review results, tool/work rows, diff summaries, interactions, and system notices are display rows derived from existing session bootstrap/timeline/WebSocket state.
 - `TimelineRows.jsx` renders these rows; `timeline-ui-state.js` owns transient expansion state only.
 - This projection is not session-history truth, does not write `transcript.jsonl`, does not read `timeline.jsonl` as history, and does not change Agent Core, workflow packages, permission policy, or runtime reducers.
+
+### GUI App Runtime Boundary
+
+`webapp/src/app-runtime/` owns frontend-only runtime interpretation helpers.
+`socket-message-effects.js` maps existing WebSocket messages into private
+webapp descriptors: reducer actions, session event-log entries, and loader
+requests. `App.jsx` remains the executor of those descriptors and continues to
+own HTTP loader calls in this slice. `visual-debug-fixtures.js` owns the
+development-only `?visual_debug=1` fixtures used by the visual harness. This
+boundary is not a backend protocol, not session-history truth, and does not
+change Agent Core, workflow packages, permission policy, or runtime reducers.
 
 Pending permission and user-input interactions render in the composer through
 `components/composer/ComposerInteractionPanel.jsx`. The inspector can still

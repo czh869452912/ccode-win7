@@ -1,6 +1,6 @@
 # EmbedAgent 开发进度跟踪
 
-> 更新日期：2026-06-18（T3 timeline rich projection）
+> 更新日期：2026-06-18（GUI app runtime controller boundary）
 > 用途：持续跟踪当前阶段、下一步任务、里程碑进度、风险与阻塞
 
 ---
@@ -23,6 +23,12 @@
 ---
 
 ## 2. 当前阶段
+
+### 2026-06-18 - GUI App Runtime Controller Boundary
+
+- React webapp now has a GUI-only `webapp/src/app-runtime/` boundary: socket messages are interpreted by pure descriptor derivation before `App.jsx` executes reducer actions, session event-log entries, and existing loader requests.
+- Dev-only visual timeline/interaction/thread fixtures moved out of `App.jsx` into `visual-debug-fixtures.js`, while remaining gated by `?visual_debug=1`.
+- This slice stays in the GUI app shell: no Agent Core, backend protocol, workflow package, permission policy, transcript, runtime reducer, operation reducer, compaction reducer, recovery reducer, terminal execution, or source-control execution semantics changed.
 
 ### 2026-06-18 - T3 Timeline Rich Projection
 
