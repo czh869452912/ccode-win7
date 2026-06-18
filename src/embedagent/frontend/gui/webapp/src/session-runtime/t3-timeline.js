@@ -787,6 +787,42 @@ function assistantRowsForTurn(group) {
   return rows;
 }
 
+function orderedOpenRowsForTurn(group) {
+  const rows = [];
+  for (const step of group?.steps || []) {
+    for (const item of step?.activityItems || []) {
+      const row = activityRowForItem(item);
+      if (row) rows.push(row);
+    }
+    if (step?.assistantItem) {
+      rows.push(messageRow(step.assistantItem, "assistant"));
+    }
+  }
+  for (const item of (group?.trailingTurnItems || []).concat(group?.detachedItems || [])) {
+    if (item?.kind === "tool" || item?.kind === "interaction_requested" || item?.kind === "interaction_resolved") {
+      const row = activityRowForItem(item);
+      if (row) rows.push(row);
+    }
+  }
+  return rows;
+}
+
+function terminalAssistantItemForTurn(group) {
+  for (let index = (group?.steps || []).length - 1; index >= 0; index -= 1) {
+    const item = group.steps[index]?.assistantItem;
+    if (item) return item;
+  }
+  return null;
+}
+
+function foldEntriesForTurn(group) {
+  const terminalAssistantItem = terminalAssistantItemForTurn(group);
+  return orderedOpenRowsForTurn(group).filter((row) => {
+    if (row.kind !== T3_ROW_KINDS.MESSAGE || row.role !== "assistant") return true;
+    return row.id !== stringValue(terminalAssistantItem?.id);
+  });
+}
+
 function hasInterruptedWork(entries) {
   return entries.some((entry) => entry.tone === "interrupted" || entry.tone === "discarded");
 }
@@ -872,8 +908,9 @@ function turnFoldLabel(group, entries) {
 
 export function isTurnFoldedByDefault(group, context = {}) {
   const entries = turnActivityEntries(group);
+  const foldEntries = foldEntriesForTurn(group);
   const workEntries = entries.filter((entry) => entry.kind === T3_ROW_KINDS.WORK);
-  if (entries.length === 0) return false;
+  if (foldEntries.length === 0) return false;
   if (hasInterruptedWork(workEntries)) return false;
   if (workEntries.some((entry) => entry.status === "running" || entry.tone === "running")) return false;
   if (workEntries.some((entry) => entry.status === "error" || entry.tone === "error")) return false;
@@ -938,8 +975,10 @@ export function projectT3TimelineRows({
     }
 
     const entries = turnActivityEntries(group);
+    const assistantRows = assistantRowsForTurn(group);
     const shouldFold = isTurnFoldedByDefault(group, context);
-    if (entries.length > 0) {
+    const foldEntries = shouldFold ? foldEntriesForTurn(group) : [];
+    if (entries.length > 0 || foldEntries.length > 0) {
       if (shouldFold) {
         pushRow({
           id: `turn-fold-${group.turnId || rows.length}`,
@@ -949,19 +988,25 @@ export function projectT3TimelineRows({
           label: turnFoldLabel(group, entries),
           workCount: entries.filter((entry) => entry.kind === T3_ROW_KINDS.WORK).length,
           reasoningCount: entries.filter((entry) => entry.kind === T3_ROW_KINDS.REASONING).length,
-          entryCount: entries.length,
+          entryCount: foldEntries.length,
           defaultOpen: false,
-          entries,
+          entries: foldEntries,
         });
       } else {
-        for (const entry of entries) pushRow(entry);
+        for (const row of orderedOpenRowsForTurn(group)) pushRow(row);
       }
     }
 
     const changedRow = diffSummaryRow(group);
     if (changedRow) pushRow(changedRow);
 
-    for (const row of assistantRowsForTurn(group)) pushRow(row);
+    if (entries.length === 0 || shouldFold) {
+      const terminalAssistantItem = shouldFold ? terminalAssistantItemForTurn(group) : null;
+      for (const row of assistantRows) {
+        if (terminalAssistantItem && row.id !== stringValue(terminalAssistantItem.id)) continue;
+        pushRow(row);
+      }
+    }
 
     for (const item of (group?.trailingTurnItems || []).concat(group?.detachedItems || [])) {
       if (item?.kind !== "tool" && item?.kind !== "interaction_requested" && item?.kind !== "interaction_resolved") {

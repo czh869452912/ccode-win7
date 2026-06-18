@@ -581,6 +581,309 @@ export function runT3TimelineTests() {
   });
   assert.equal(priorReasoningActiveThinkingRows.some((row) => row.kind === T3_ROW_KINDS.THINKING), true);
 
+  const interleavedRows = projectT3TimelineRows({
+    turnGroups: [
+      {
+        turnId: "turn-interleaved",
+        userItem: {
+          id: "u-interleaved",
+          kind: "user",
+          content: "inspect and summarize",
+          turnId: "turn-interleaved",
+        },
+        leadingSystemItems: [],
+        steps: [
+          {
+            stepId: "step-1",
+            stepIndex: 1,
+            activityItems: [
+              {
+                id: "reason-1",
+                kind: "reasoning",
+                content: "Need to inspect the entry point.",
+                streaming: false,
+                turnId: "turn-interleaved",
+                stepId: "step-1",
+                stepIndex: 1,
+              },
+              {
+                id: "tool-1",
+                kind: "tool",
+                toolName: "read_file",
+                label: "Read File",
+                status: "success",
+                arguments: { path: "src/main.c" },
+                turnId: "turn-interleaved",
+                stepId: "step-1",
+                stepIndex: 1,
+              },
+            ],
+            assistantItem: {
+              id: "assistant-1",
+              kind: "assistant",
+              content: "I found the entry point.",
+              turnId: "turn-interleaved",
+              stepId: "step-1",
+              stepIndex: 1,
+            },
+          },
+          {
+            stepId: "step-2",
+            stepIndex: 2,
+            activityItems: [
+              {
+                id: "reason-2",
+                kind: "reasoning",
+                content: "Now inspect the helper.",
+                streaming: false,
+                turnId: "turn-interleaved",
+                stepId: "step-2",
+                stepIndex: 2,
+              },
+              {
+                id: "tool-2",
+                kind: "tool",
+                toolName: "grep_text",
+                label: "Search",
+                status: "success",
+                arguments: { pattern: "helper" },
+                turnId: "turn-interleaved",
+                stepId: "step-2",
+                stepIndex: 2,
+              },
+            ],
+            assistantItem: {
+              id: "assistant-2",
+              kind: "assistant",
+              content: "The helper is called from main.",
+              turnId: "turn-interleaved",
+              stepId: "step-2",
+              stepIndex: 2,
+            },
+          },
+        ],
+        trailingTurnItems: [],
+        sessionFallbackItems: [],
+      },
+    ],
+    currentStatus: "running",
+    activeTurnId: "turn-interleaved",
+  });
+  assert.deepEqual(
+    interleavedRows.map((row) => row.id),
+    [
+      "u-interleaved",
+      "reason-1",
+      "tool-1",
+      "assistant-1",
+      "reason-2",
+      "tool-2",
+      "assistant-2",
+    ],
+  );
+
+  const multiCycleRows = projectT3TimelineRows({
+    turnGroups: [
+      {
+        turnId: "turn-multi-cycle",
+        userItem: {
+          id: "u-multi-cycle",
+          kind: "user",
+          content: "inspect, search, explain, then continue",
+          turnId: "turn-multi-cycle",
+        },
+        leadingSystemItems: [],
+        steps: [
+          {
+            stepId: "cycle-step-1",
+            stepIndex: 1,
+            activityItems: [
+              {
+                id: "cycle-thinking-1",
+                kind: "reasoning",
+                content: "First decide what to inspect.",
+                streaming: false,
+                turnId: "turn-multi-cycle",
+                stepId: "cycle-step-1",
+                stepIndex: 1,
+              },
+              {
+                id: "cycle-tool-1",
+                kind: "tool",
+                toolName: "read_file",
+                label: "Read File",
+                status: "success",
+                arguments: { path: "src/main.c" },
+                turnId: "turn-multi-cycle",
+                stepId: "cycle-step-1",
+                stepIndex: 1,
+              },
+              {
+                id: "cycle-tool-2",
+                kind: "tool",
+                toolName: "grep_text",
+                label: "Search",
+                status: "success",
+                arguments: { pattern: "TODO" },
+                turnId: "turn-multi-cycle",
+                stepId: "cycle-step-1",
+                stepIndex: 1,
+              },
+            ],
+            assistantItem: {
+              id: "cycle-output-1",
+              kind: "assistant",
+              content: "The first pass found one TODO.",
+              turnId: "turn-multi-cycle",
+              stepId: "cycle-step-1",
+              stepIndex: 1,
+            },
+          },
+          {
+            stepId: "cycle-step-2",
+            stepIndex: 2,
+            activityItems: [
+              {
+                id: "cycle-thinking-2",
+                kind: "reasoning",
+                content: "Now inspect the helper before the final answer.",
+                streaming: false,
+                turnId: "turn-multi-cycle",
+                stepId: "cycle-step-2",
+                stepIndex: 2,
+              },
+              {
+                id: "cycle-tool-3",
+                kind: "tool",
+                toolName: "read_file",
+                label: "Read File",
+                status: "success",
+                arguments: { path: "src/helper.c" },
+                turnId: "turn-multi-cycle",
+                stepId: "cycle-step-2",
+                stepIndex: 2,
+              },
+              {
+                id: "cycle-thinking-3",
+                kind: "reasoning",
+                content: "Synthesize the result.",
+                streaming: false,
+                turnId: "turn-multi-cycle",
+                stepId: "cycle-step-2",
+                stepIndex: 2,
+              },
+            ],
+            assistantItem: {
+              id: "cycle-output-2",
+              kind: "assistant",
+              content: "The helper confirms the final behavior.",
+              turnId: "turn-multi-cycle",
+              stepId: "cycle-step-2",
+              stepIndex: 2,
+            },
+          },
+        ],
+        trailingTurnItems: [],
+        sessionFallbackItems: [],
+      },
+    ],
+    currentStatus: "running",
+    activeTurnId: "turn-multi-cycle",
+  });
+  assert.deepEqual(
+    multiCycleRows.map((row) => row.id),
+    [
+      "u-multi-cycle",
+      "cycle-thinking-1",
+      "cycle-tool-1",
+      "cycle-tool-2",
+      "cycle-output-1",
+      "cycle-thinking-2",
+      "cycle-tool-3",
+      "cycle-thinking-3",
+      "cycle-output-2",
+    ],
+  );
+
+  const settledInterleavedRows = projectT3TimelineRows({
+    turnGroups: [
+      {
+        turnId: "turn-settled-interleaved",
+        userItem: {
+          id: "u-settled-interleaved",
+          kind: "user",
+          content: "inspect twice and summarize",
+          turnId: "turn-settled-interleaved",
+        },
+        leadingSystemItems: [],
+        steps: [
+          {
+            stepId: "step-settled-1",
+            stepIndex: 1,
+            activityItems: [
+              {
+                id: "tool-settled-1",
+                kind: "tool",
+                toolName: "read_file",
+                label: "Read File",
+                status: "success",
+                arguments: { path: "src/main.c" },
+                turnId: "turn-settled-interleaved",
+                stepId: "step-settled-1",
+                stepIndex: 1,
+              },
+            ],
+            assistantItem: {
+              id: "assistant-settled-commentary",
+              kind: "assistant",
+              content: "I found main.",
+              turnId: "turn-settled-interleaved",
+              stepId: "step-settled-1",
+              stepIndex: 1,
+            },
+          },
+          {
+            stepId: "step-settled-2",
+            stepIndex: 2,
+            activityItems: [
+              {
+                id: "tool-settled-2",
+                kind: "tool",
+                toolName: "grep_text",
+                label: "Search",
+                status: "success",
+                arguments: { pattern: "helper" },
+                turnId: "turn-settled-interleaved",
+                stepId: "step-settled-2",
+                stepIndex: 2,
+              },
+            ],
+            assistantItem: {
+              id: "assistant-settled-terminal",
+              kind: "assistant",
+              content: "Main calls helper.",
+              turnId: "turn-settled-interleaved",
+              stepId: "step-settled-2",
+              stepIndex: 2,
+            },
+          },
+        ],
+        trailingTurnItems: [],
+        sessionFallbackItems: [],
+      },
+    ],
+    currentStatus: "idle",
+    activeTurnId: "",
+  });
+  assert.deepEqual(
+    settledInterleavedRows.map((row) => row.id),
+    ["u-settled-interleaved", "turn-fold-turn-settled-interleaved", "assistant-settled-terminal"],
+  );
+  assert.deepEqual(
+    settledInterleavedRows[1].entries.map((entry) => entry.id),
+    ["tool-settled-1", "assistant-settled-commentary", "tool-settled-2"],
+  );
+
   const tree = buildChangedFilesTree([
     { path: "src/app/main.c", additions: 2, deletions: 1 },
     { path: "src/app/util.c", additions: 1, deletions: 0 },
