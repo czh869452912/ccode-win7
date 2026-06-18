@@ -1,6 +1,6 @@
 # EmbedAgent 开发进度跟踪
 
-> 更新日期：2026-06-18（GUI session/app loader runtime boundary）
+> 更新日期：2026-06-18（GUI terminal runtime controller boundary）
 > 用途：持续跟踪当前阶段、下一步任务、里程碑进度、风险与阻塞
 
 ---
@@ -23,6 +23,13 @@
 ---
 
 ## 2. 当前阶段
+
+### 2026-06-18 - GUI Terminal Runtime Controller Boundary
+
+- React webapp `webapp/src/app-runtime/terminal-controller.js` now owns GUI terminal action orchestration for bottom-drawer terminal actions and right-panel terminal open/split/activate/close behavior.
+- `App.jsx` wires the controller through injected state, dispatch, terminal API helpers, and terminal id generation, while root render composition and command routing remain incremental follow-on work.
+- Existing terminal HTTP helpers remain in `webapp/src/terminal/terminal-api.js`, and terminal snapshot/event normalization remains in `webapp/src/terminal/terminal-state.js`.
+- This slice stays in the GUI app shell: no Agent Core, backend protocol, terminal backend service, workflow package, permission policy, transcript, source-control, provider configuration, extension loading, telemetry, or runtime reducer semantics changed.
 
 ### 2026-06-18 - GUI Session/App Loader Runtime Boundary
 

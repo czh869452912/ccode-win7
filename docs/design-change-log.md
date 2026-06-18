@@ -44,6 +44,30 @@
 
 ## 3. 当前变更记录
 
+### DC-174
+
+- 日期：2026-06-18
+- 变更主题：GUI terminal runtime controller boundary
+- 变更摘要：
+  - React webapp 新增 `webapp/src/app-runtime/terminal-controller.js`，集中管理 GUI terminal action orchestration，包括 bottom drawer terminal open/send/clear/restart/close 和 right-panel terminal open/split/activate/close。
+  - `App.jsx` 通过注入 state reader、dispatch、terminal API helpers 和 `nextTerminalId` 来装配 controller，不再承载大段 inline terminal action cluster。
+  - Terminal HTTP route helpers 仍位于 `webapp/src/terminal/terminal-api.js`，terminal snapshot/event normalization 仍位于 `webapp/src/terminal/terminal-state.js`。
+- 影响范围：
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/terminal-controller.js`
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/terminal/terminal-api.js`
+  - `src/embedagent/frontend/gui/webapp/src/terminal/terminal-state.js`
+  - `src/embedagent/frontend/gui/webapp/test/`
+  - `docs/modules/frontend-gui.md`
+  - `docs/development-tracker.md`
+  - `docs/design-change-log.md`
+- 关联文档：
+  - `docs/superpowers/specs/2026-06-18-gui-terminal-runtime-controller-boundary-design.md`
+  - `docs/superpowers/plans/2026-06-18-gui-terminal-runtime-controller-boundary.md`
+- 是否需要 ADR：否；该 controller 是 GUI app-shell implementation detail，不是 backend protocol、terminal execution owner、session-history truth 或 Agent Core extension API。
+- 后续动作：
+  - 可继续按相同模式规划 command router、source-control action controller 或 file preview controller 切片，让 `App.jsx` 进一步收敛为 composition shell。
+
 ### DC-173
 
 - 日期：2026-06-18
