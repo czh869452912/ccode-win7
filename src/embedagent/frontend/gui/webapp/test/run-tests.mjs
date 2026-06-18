@@ -32,6 +32,7 @@ import { runAppShellModelTests } from "./app-shell-model.test.mjs";
 import { runAppWorkspaceTests } from "./app-workspaces.test.mjs";
 import { runAppHomeModelTests } from "./app-home-model.test.mjs";
 import { runBranchToolbarModelTests } from "./branch-toolbar-model.test.mjs";
+import { runCommandPaletteModelTests } from "./command-palette-model.test.mjs";
 import { runComposerCommandSearchTests } from "./composer-command-search.test.mjs";
 import { runComposerComponentsSourceTests } from "./composer-components-source.test.mjs";
 import { runComposerIntegrationSourceTests } from "./composer-integration-source.test.mjs";
@@ -1142,6 +1143,7 @@ async function main() {
   runAppWorkspaceTests();
   runAppHomeModelTests();
   runBranchToolbarModelTests();
+  runCommandPaletteModelTests();
   runComposerTriggerTests();
   runComposerCommandSearchTests();
   runComposerPathContextTests();
