@@ -744,6 +744,12 @@ async function main() {
   assert.equal(appSource.includes("loadInteractionFixture"), true);
   assert.equal(appSource.includes("loadThreadLifecycleFixture"), true);
   assert.equal(appSource.includes("visual_timeline_fixture_loaded"), true);
+  assert.equal(appSource.includes('kind: "reasoning"'), true);
+  assert.equal(appSource.includes('kind: "compact"'), true);
+  assert.equal(appSource.includes('commandName: "review"'), true);
+  assert.equal(appSource.includes("thinkingActive: true"), true);
+  assert.equal(appSource.includes("activeTurnId: state.activeTurnId"), true);
+  assert.equal(appSource.includes("thinkingActive: state.thinkingActive"), true);
   assert.equal(appSource.includes("visual_interaction_fixture_loaded"), true);
   assert.equal(appSource.includes("visual_thread_lifecycle_fixture_loaded"), true);
   assert.equal(appSource.includes("renameThread"), true);
@@ -780,6 +786,9 @@ async function main() {
   assert.equal(storeSource.includes("reduceTerminalState"), true);
   assert.equal(storeSource.includes("terminal_snapshot_loaded"), true);
   assert.equal(storeSource.includes("visual_timeline_fixture_loaded"), true);
+  assert.equal(storeSource.includes("action.activeTurnId"), true);
+  assert.equal(storeSource.includes("action.thinkingActive"), true);
+  assert.equal(storeSource.includes("action.streamingReasoningId"), true);
   assert.equal(storeSource.includes("visual_interaction_fixture_loaded"), true);
   assert.equal(storeSource.includes("visual_thread_lifecycle_fixture_loaded"), true);
   assert.equal(storeSource.includes("filePreviewsByPath"), true);
