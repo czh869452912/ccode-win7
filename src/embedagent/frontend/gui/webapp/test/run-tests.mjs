@@ -655,6 +655,17 @@ async function main() {
   assert.equal(timelineRowsSource.includes("rowUiState"), true);
   assert.equal(timelineRowsSource.includes("onToggleRow"), true);
   assert.equal(timelineRowsSource.includes("rowKeyFor"), true);
+  assert.equal(timelineRowsSource.includes("ReasoningRow"), true);
+  assert.equal(timelineRowsSource.includes("ThinkingRow"), true);
+  assert.equal(timelineRowsSource.includes("CompactRow"), true);
+  assert.equal(timelineRowsSource.includes("CommandResultRow"), true);
+  assert.equal(timelineRowsSource.includes("ReviewResultRow"), true);
+  assert.equal(timelineRowsSource.includes("TimelineRowSwitch"), true);
+  assert.equal(timelineRowsSource.includes('data-testid="timeline-reasoning-row"'), true);
+  assert.equal(timelineRowsSource.includes('data-testid="timeline-thinking-row"'), true);
+  assert.equal(timelineRowsSource.includes('data-testid="timeline-compact-row"'), true);
+  assert.equal(timelineRowsSource.includes('data-testid="timeline-command-result-row"'), true);
+  assert.equal(timelineRowsSource.includes('data-testid="timeline-review-result-row"'), true);
 
   const workRowSource = fs.readFileSync(
     webappSourcePath("components", "timeline", "WorkRow.jsx"),
@@ -699,6 +710,14 @@ async function main() {
   assert.equal(stylesSource.includes(".t3-work-row.error"), true);
   assert.equal(stylesSource.includes(".t3-work-row.running"), true);
   assert.equal(stylesSource.includes("timeline-work-detail"), true);
+  assert.equal(stylesSource.includes(".t3-reasoning-row"), true);
+  assert.equal(stylesSource.includes(".t3-thinking-row"), true);
+  assert.equal(stylesSource.includes(".t3-compact-row"), true);
+  assert.equal(stylesSource.includes(".t3-command-result-row"), true);
+  assert.equal(stylesSource.includes(".t3-review-result-row"), true);
+  assert.equal(stylesSource.includes("overflow-wrap: anywhere"), true);
+  assert.equal(stylesSource.includes("grid-template-columns: minmax(0, 1fr)"), true);
+  assert.equal(stylesSource.includes("@media (max-width: 560px)"), true);
   assert.equal(stylesSource.includes(".app-settings-grid"), true);
   assert.equal(stylesSource.includes(".diagnostics-table"), true);
   assert.equal(stylesSource.includes(".source-control-panel"), true);
@@ -733,6 +752,12 @@ async function main() {
   assert.equal(appSource.includes("loadInteractionFixture"), true);
   assert.equal(appSource.includes("loadThreadLifecycleFixture"), true);
   assert.equal(appSource.includes("visual_timeline_fixture_loaded"), true);
+  assert.equal(appSource.includes('kind: "reasoning"'), true);
+  assert.equal(appSource.includes('kind: "compact"'), true);
+  assert.equal(appSource.includes('commandName: "review"'), true);
+  assert.equal(appSource.includes("thinkingActive: true"), true);
+  assert.equal(appSource.includes("activeTurnId: state.activeTurnId"), true);
+  assert.equal(appSource.includes("thinkingActive: state.thinkingActive"), true);
   assert.equal(appSource.includes("visual_interaction_fixture_loaded"), true);
   assert.equal(appSource.includes("visual_thread_lifecycle_fixture_loaded"), true);
   assert.equal(appSource.includes("renameThread"), true);
@@ -769,6 +794,9 @@ async function main() {
   assert.equal(storeSource.includes("reduceTerminalState"), true);
   assert.equal(storeSource.includes("terminal_snapshot_loaded"), true);
   assert.equal(storeSource.includes("visual_timeline_fixture_loaded"), true);
+  assert.equal(storeSource.includes("action.activeTurnId"), true);
+  assert.equal(storeSource.includes("action.thinkingActive"), true);
+  assert.equal(storeSource.includes("action.streamingReasoningId"), true);
   assert.equal(storeSource.includes("visual_interaction_fixture_loaded"), true);
   assert.equal(storeSource.includes("visual_thread_lifecycle_fixture_loaded"), true);
   assert.equal(storeSource.includes("filePreviewsByPath"), true);

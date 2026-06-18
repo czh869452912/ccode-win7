@@ -50,6 +50,29 @@ export function runTimelineUiStateTests() {
   assert.equal(updated.expanded[rowUiKey(rows[0])], true);
   assert.equal(updated.touched[rowUiKey(rows[0])], true);
 
+  const richRows = [
+    { id: "reason-done", kind: "reasoning", turnId: "turn-1", stepId: "step-1", streaming: false },
+    { id: "reason-stream", kind: "reasoning", turnId: "turn-1", stepId: "step-2", streaming: true },
+    { id: "cmd-ok", kind: "command_result", turnId: "turn-1", success: true },
+    { id: "cmd-fail", kind: "command_result", turnId: "turn-1", success: false, content: "failed" },
+    { id: "review-fail", kind: "review_result", turnId: "turn-1", success: false, findings: [{ id: "f1" }] },
+    { id: "compact-1", kind: "compact", turnId: "turn-1" },
+    { id: "thinking-turn-1", kind: "thinking", turnId: "turn-1" },
+  ];
+  const richState = createTimelineUiState(richRows);
+  assert.equal(rowUiKey(richRows[0]), "reasoning:turn-1:step-1:reason-done");
+  assert.equal(rowUiKey(richRows[2]), "command_result:turn-1:cmd-ok");
+  assert.equal(rowUiKey(richRows[4]), "review_result:turn-1:review-fail");
+  assert.equal(rowUiKey(richRows[5]), "compact:turn-1:compact-1");
+  assert.equal(rowUiKey(richRows[6]), "thinking:turn-1:thinking-turn-1");
+  assert.equal(richState.expanded[rowUiKey(richRows[0])], false);
+  assert.equal(richState.expanded[rowUiKey(richRows[1])], true);
+  assert.equal(richState.expanded[rowUiKey(richRows[2])], false);
+  assert.equal(richState.expanded[rowUiKey(richRows[3])], true);
+  assert.equal(richState.expanded[rowUiKey(richRows[4])], true);
+  assert.equal(richState.expanded[rowUiKey(richRows[5])], false);
+  assert.equal(richState.expanded[rowUiKey(richRows[6])], true);
+
   assert.equal(shouldPinToBottom({ scrollTop: 90, clientHeight: 100, scrollHeight: 200 }), true);
   assert.equal(shouldPinToBottom({ scrollTop: 40, clientHeight: 100, scrollHeight: 200 }), false);
   assert.equal(

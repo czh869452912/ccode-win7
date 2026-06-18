@@ -24,12 +24,36 @@ export function rowUiKey(row) {
       stringValue(row?.id),
     ].join(":");
   }
+  if (kind === "reasoning") {
+    return [
+      "reasoning",
+      stringValue(row?.turnId || row?.turn_id),
+      stringValue(row?.stepId || row?.step_id),
+      stringValue(row?.id),
+    ].join(":");
+  }
+  if (kind === "command_result" || kind === "review_result" || kind === "compact" || kind === "thinking") {
+    return [
+      kind,
+      stringValue(row?.turnId || row?.turn_id),
+      stringValue(row?.id || "row"),
+    ].join(":");
+  }
   return `${kind}:${stringValue(row?.id || row?.turnId || row?.turn_id || "row")}`;
 }
 
 function defaultExpanded(row) {
   if (!row) return false;
   if (row.kind === "turn_fold") return booleanValue(row.defaultOpen, false);
+  if (row.kind === "thinking") return true;
+  if (row.kind === "reasoning") return Boolean(row.streaming);
+  if (row.kind === "command_result") {
+    return row.success === false && Boolean(row.content || row.detail || row.data);
+  }
+  if (row.kind === "review_result") {
+    return row.success === false || (Array.isArray(row.findings) && row.findings.length > 0);
+  }
+  if (row.kind === "compact") return false;
   if (row.kind !== "work") return false;
   if (row.tone === "interrupted" || row.tone === "discarded") return true;
   if (row.status === "error" || row.tone === "error") return true;

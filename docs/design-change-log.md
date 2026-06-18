@@ -1,6 +1,6 @@
 # EmbedAgent 设计与变更跟踪
 
-> 更新日期：2026-06-17
+> 更新日期：2026-06-18
 > 用途：记录关键设计变更、影响范围、关联文档和后续动作
 
 ---
@@ -43,6 +43,35 @@
 ---
 
 ## 3. 当前变更记录
+
+### DC-171
+
+- 日期：2026-06-18
+- 变更主题：GUI T3 Code-style rich timeline projection
+- 变更摘要：
+  - React webapp 的 T3 timeline row projection 现在覆盖 thinking、reasoning、compact、command result、review result、tool/work、diff summary、interaction 和 system notice。
+  - live thinking/reasoning display 由 GUI reducer state 传入 `projectSessionRuntime(...)`，不新增 backend/Core 协议。
+  - `TimelineRows.jsx` 成为 active T3 row renderer 的富格式入口，legacy grouped renderer 不再是 reasoning/compact/command/review 的唯一显示路径。
+  - 该变更只影响 GUI-local projection、presentation、visual debug harness 和文档，不写 transcript、workflow state、permission/runtime reducers、telemetry、provider config、extension loading、source-control checkpoints 或 Agent Core policy。
+- 影响范围：
+  - `src/embedagent/frontend/gui/webapp/src/session-runtime/t3-timeline.js`
+  - `src/embedagent/frontend/gui/webapp/src/session-runtime/projector.js`
+  - `src/embedagent/frontend/gui/webapp/src/session-runtime/timeline-ui-state.js`
+  - `src/embedagent/frontend/gui/webapp/src/components/timeline/TimelineRows.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/store.js`
+  - `src/embedagent/frontend/gui/webapp/src/styles.css`
+  - `scripts/gui-visual-debug.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/`
+- 关联文档：
+  - `docs/modules/frontend-gui.md`
+  - `docs/development-tracker.md`
+  - `docs/design-change-log.md`
+  - `docs/superpowers/specs/2026-06-18-t3-timeline-rich-projection-design.md`
+  - `docs/superpowers/plans/2026-06-18-t3-timeline-rich-projection.md`
+- 是否需要 ADR：否；属于已批准的 GUI/T3 Code parity program 内部 timeline rendering slice，不改变 Agent Core public architecture。
+- 后续动作：
+  - 继续拆分 `App.jsx` 的 session runtime bridge、visual debug hooks、workbench shell composition，让 GUI 架构继续靠近 T3 Code 的 frontend-owned domain model，同时保持 Agent Core 小核心。
 
 ### DC-170
 

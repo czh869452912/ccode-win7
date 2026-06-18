@@ -4,6 +4,11 @@ export const T3_ROW_KINDS = Object.freeze({
   TURN_FOLD: "turn_fold",
   INTERACTION: "interaction",
   DIFF_SUMMARY: "diff_summary",
+  THINKING: "thinking",
+  REASONING: "reasoning",
+  COMPACT: "compact",
+  COMMAND_RESULT: "command_result",
+  REVIEW_RESULT: "review_result",
   WORKING: "working",
   SYSTEM_NOTICE: "system_notice",
 });
@@ -347,6 +352,124 @@ function messageRow(item, role) {
   };
 }
 
+function wordCountFor(text) {
+  return stringValue(text).split(/\s+/).filter(Boolean).length;
+}
+
+function reasoningRow(item) {
+  const content = stringValue(item?.content || item?.text || item?.summary);
+  return {
+    id: stringValue(item?.id || `reasoning-${item?.turnId || item?.turn_id || "row"}`),
+    kind: T3_ROW_KINDS.REASONING,
+    turnId: stringValue(item?.turnId || item?.turn_id),
+    stepId: stringValue(item?.stepId || item?.step_id),
+    stepIndex: numberValue(item?.stepIndex || item?.step_index),
+    label: stringValue(item?.label || "Thinking"),
+    content,
+    wordCount: wordCountFor(content),
+    streaming: Boolean(item?.streaming),
+    rawItem: item || {},
+  };
+}
+
+function compactRow(item) {
+  return {
+    id: stringValue(item?.id || `compact-${item?.turnId || item?.turn_id || "row"}`),
+    kind: T3_ROW_KINDS.COMPACT,
+    turnId: stringValue(item?.turnId || item?.turn_id),
+    tone: stringValue(item?.tone || "context"),
+    content: stringValue(item?.content || item?.summary || "Context compacted"),
+    summarizedTurns:
+      item?.summarizedTurns !== undefined
+        ? numberValue(item.summarizedTurns)
+        : item?.summarized_turns !== undefined
+          ? numberValue(item.summarized_turns)
+          : undefined,
+    recentTurns:
+      item?.recentTurns !== undefined
+        ? numberValue(item.recentTurns)
+        : item?.recent_turns !== undefined
+          ? numberValue(item.recent_turns)
+          : undefined,
+    approxTokensAfter:
+      item?.approxTokensAfter !== undefined
+        ? numberValue(item.approxTokensAfter)
+        : item?.approx_tokens_after !== undefined
+          ? numberValue(item.approx_tokens_after)
+          : undefined,
+    rawItem: item || {},
+  };
+}
+
+function commandResultContent(item) {
+  return stringValue(
+    item?.content ||
+      item?.message ||
+      item?.summary ||
+      item?.data?.message ||
+      item?.data?.summary ||
+      "",
+  );
+}
+
+function commandResultRow(item) {
+  const commandName = stringValue(item?.commandName || item?.command_name || "command");
+  return {
+    id: stringValue(item?.id || `command-${commandName}-${item?.turnId || item?.turn_id || "row"}`),
+    kind: T3_ROW_KINDS.COMMAND_RESULT,
+    turnId: stringValue(item?.turnId || item?.turn_id),
+    commandName,
+    label: `/${commandName}`,
+    success: item?.success !== false,
+    tone: item?.success === false ? "error" : "context",
+    content: commandResultContent(item),
+    data: item?.data || {},
+    rawItem: item || {},
+  };
+}
+
+function normalizeReviewFinding(finding, index) {
+  return {
+    id: stringValue(finding?.id || `finding-${index + 1}`),
+    severity: stringValue(finding?.severity || ""),
+    priority: finding?.priority !== undefined ? numberValue(finding.priority) : undefined,
+    title: stringValue(finding?.title || finding?.message || "Review finding"),
+    body: stringValue(finding?.body || finding?.detail || finding?.description || ""),
+    file: stringValue(finding?.file || finding?.path || ""),
+    line: finding?.line !== undefined ? numberValue(finding.line) : undefined,
+  };
+}
+
+function reviewResultRow(item) {
+  const review = item?.data?.review || item?.review || {};
+  const findings = Array.isArray(review.findings)
+    ? review.findings.map((finding, index) => normalizeReviewFinding(finding, index))
+    : [];
+  const residualRisks = Array.isArray(review.residual_risks)
+    ? review.residual_risks.map((risk) => stringValue(risk)).filter(Boolean)
+    : Array.isArray(review.residualRisks)
+      ? review.residualRisks.map((risk) => stringValue(risk)).filter(Boolean)
+      : [];
+  return {
+    ...commandResultRow(item),
+    kind: T3_ROW_KINDS.REVIEW_RESULT,
+    commandName: "review",
+    label: "/review",
+    findings,
+    residualRisks,
+  };
+}
+
+function thinkingRow({ activeTurnId, idSuffix = "active" } = {}) {
+  return {
+    id: `thinking-${activeTurnId || idSuffix || "active"}`,
+    kind: T3_ROW_KINDS.THINKING,
+    turnId: stringValue(activeTurnId),
+    label: "Thinking",
+    streaming: true,
+  };
+}
+
 function systemNoticeRow(item) {
   return {
     id: stringValue(item?.id || "system-notice"),
@@ -372,6 +495,25 @@ function interactionRow(item, fallback = {}) {
   };
 }
 
+function activityRowForItem(item) {
+  if (!item) return null;
+  if (item.kind === "tool") return normalizeWorkEntry(item);
+  if (item.kind === "interaction_requested" || item.kind === "interaction_resolved") {
+    return interactionRow(item);
+  }
+  if (item.kind === "reasoning") return reasoningRow(item);
+  if (item.kind === "compact") return compactRow(item);
+  if (item.kind === "command_result" || item.kind === "command_result_fallback") {
+    const commandName = stringValue(item?.commandName || item?.command_name);
+    if (commandName === "review" || item?.data?.review || item?.review) {
+      return reviewResultRow(item);
+    }
+    return commandResultRow(item);
+  }
+  if (item.kind === "system") return systemNoticeRow(item);
+  return null;
+}
+
 function allTurnItems(group) {
   const items = [];
   if (group?.userItem) items.push(group.userItem);
@@ -387,26 +529,27 @@ function allTurnItems(group) {
   return items;
 }
 
-function turnWorkEntries(group) {
+function turnActivityEntries(group) {
   const entries = [];
+  function pushActivity(item) {
+    const row = activityRowForItem(item);
+    if (row) entries.push(row);
+  }
   for (const step of group?.steps || []) {
     for (const item of step?.activityItems || []) {
-      if (item?.kind === "tool") entries.push(normalizeWorkEntry(item));
-      else if (item?.kind === "interaction_requested" || item?.kind === "interaction_resolved") {
-        entries.push(interactionRow(item));
-      }
+      pushActivity(item);
     }
   }
   for (const item of group?.trailingTurnItems || []) {
-    if (item?.kind === "tool") entries.push(normalizeWorkEntry(item));
+    if (item?.kind === "tool") pushActivity(item);
     if (item?.kind === "interaction_requested" || item?.kind === "interaction_resolved") {
-      entries.push(interactionRow(item));
+      pushActivity(item);
     }
   }
   for (const item of group?.detachedItems || []) {
-    if (item?.kind === "tool") entries.push(normalizeWorkEntry(item));
+    if (item?.kind === "tool") pushActivity(item);
     if (item?.kind === "interaction_requested" || item?.kind === "interaction_resolved") {
-      entries.push(interactionRow(item));
+      pushActivity(item);
     }
   }
   return entries;
@@ -425,9 +568,13 @@ function hasInterruptedWork(entries) {
 }
 
 export function isTurnFoldedByDefault(group, context = {}) {
-  const entries = turnWorkEntries(group).filter((entry) => entry.kind === T3_ROW_KINDS.WORK);
+  const entries = turnActivityEntries(group);
+  const workEntries = entries.filter((entry) => entry.kind === T3_ROW_KINDS.WORK);
   if (entries.length === 0) return false;
-  if (hasInterruptedWork(entries)) return false;
+  if (hasInterruptedWork(workEntries)) return false;
+  if (workEntries.some((entry) => entry.status === "running" || entry.tone === "running")) return false;
+  if (workEntries.some((entry) => entry.status === "error" || entry.tone === "error")) return false;
+  if (entries.some((entry) => entry.kind === T3_ROW_KINDS.REASONING && entry.streaming)) return false;
   if (context.currentStatus === "running" && group?.turnId && group.turnId === context.activeTurnId) {
     return false;
   }
@@ -438,10 +585,10 @@ function pushLooseItem(push, item) {
   if (!item) return;
   if (item.kind === "assistant") push(messageRow(item, "assistant"));
   else if (item.kind === "user") push(messageRow(item, "user"));
-  else if (item.kind === "tool") push(normalizeWorkEntry(item));
-  else if (item.kind === "interaction_requested" || item.kind === "interaction_resolved") {
-    push(interactionRow(item));
-  } else push(systemNoticeRow(item));
+  else {
+    const row = activityRowForItem(item);
+    push(row || systemNoticeRow(item));
+  }
 }
 
 function diffSummaryRow(group) {
@@ -464,6 +611,7 @@ export function projectT3TimelineRows({
   activeTurnId = "",
   currentInteraction = null,
   interactionNotice = null,
+  thinkingActive = false,
 } = {}) {
   const rows = [];
   const context = { currentStatus, activeTurnId };
@@ -486,7 +634,7 @@ export function projectT3TimelineRows({
       pushLooseItem(pushRow, item);
     }
 
-    const entries = turnWorkEntries(group);
+    const entries = turnActivityEntries(group);
     const shouldFold = isTurnFoldedByDefault(group, context);
     if (entries.length > 0) {
       if (shouldFold) {
@@ -496,6 +644,8 @@ export function projectT3TimelineRows({
           turnId: stringValue(group.turnId),
           label: "Worked for this turn",
           workCount: entries.filter((entry) => entry.kind === T3_ROW_KINDS.WORK).length,
+          reasoningCount: entries.filter((entry) => entry.kind === T3_ROW_KINDS.REASONING).length,
+          entryCount: entries.length,
           defaultOpen: false,
           entries,
         });
@@ -534,6 +684,26 @@ export function projectT3TimelineRows({
       content: interactionNotice.detail || interactionNotice.kind || "interaction",
       rawItem: interactionNotice,
     });
+  }
+
+  const hasVisibleReasoning = rows.some(
+    (row) =>
+      (row.kind === T3_ROW_KINDS.REASONING && (!activeTurnId || row.turnId === activeTurnId)) ||
+      (row.kind === T3_ROW_KINDS.TURN_FOLD &&
+        Array.isArray(row.entries) &&
+        row.entries.some(
+          (entry) => entry.kind === T3_ROW_KINDS.REASONING && (!activeTurnId || entry.turnId === activeTurnId),
+        )),
+  );
+  const hasActiveTurnRow = rows.some(
+    (row) =>
+      row.turnId === activeTurnId ||
+      (row.kind === T3_ROW_KINDS.TURN_FOLD &&
+        Array.isArray(row.entries) &&
+        row.entries.some((entry) => entry.turnId === activeTurnId)),
+  );
+  if (currentStatus === "running" && thinkingActive && !hasVisibleReasoning && (activeTurnId || hasActiveTurnRow)) {
+    pushRow(thinkingRow({ activeTurnId, idSuffix: rows.length }));
   }
 
   if (currentStatus === "running" && rows.length === 0) {
