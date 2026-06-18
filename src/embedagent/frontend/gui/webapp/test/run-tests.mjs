@@ -23,6 +23,7 @@ import { runTimelineUiStateTests } from "./timeline-ui-state.test.mjs";
 import { runVisualLanguageCssTests } from "./visual-language-css.test.mjs";
 import { runVisualDebugRunnerTests } from "./visual-debug-runner.test.mjs";
 import { runWebSocketLifecycleTests } from "./websocket-lifecycle.test.mjs";
+import { runSocketMessageEffectsTests } from "./socket-message-effects.test.mjs";
 import { runWorkbenchStateTests } from "./workbench-state.test.mjs";
 import { runAppShellModelTests } from "./app-shell-model.test.mjs";
 import { runAppWorkspaceTests } from "./app-workspaces.test.mjs";
@@ -979,6 +980,7 @@ async function main() {
   runInteractionModelTests();
   runDiffModelTests();
   runWebSocketLifecycleTests();
+  runSocketMessageEffectsTests();
   await runVisualDebugRunnerTests();
 
   console.log("frontend helper checks passed");
