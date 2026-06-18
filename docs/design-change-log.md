@@ -44,6 +44,28 @@
 
 ## 3. 当前变更记录
 
+### DC-172
+
+- 日期：2026-06-18
+- 变更主题：GUI app-runtime boundary for socket effects and visual fixtures
+- 变更摘要：
+  - React webapp 新增 `webapp/src/app-runtime/socket-message-effects.js`，把现有 WebSocket message 转换成私有 GUI descriptors：reducer actions、session event-log entries 和 loader requests。
+  - `App.jsx` 继续执行现有 HTTP loader、session event-log append 和 reducer dispatch，但不再承载完整 socket message 分支解释。
+  - React webapp 新增 `webapp/src/app-runtime/visual-debug-fixtures.js`，集中管理 `?visual_debug=1` 下的 timeline、interaction 和 thread lifecycle fixtures。
+- 影响范围：
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/`
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/test/`
+  - `docs/modules/frontend-gui.md`
+  - `docs/development-tracker.md`
+  - `docs/design-change-log.md`
+- 关联文档：
+  - `docs/superpowers/specs/2026-06-18-gui-app-runtime-controller-boundary-design.md`
+  - `docs/superpowers/plans/2026-06-18-gui-app-runtime-controller-boundary.md`
+- 是否需要 ADR：否；该边界是 GUI app-shell implementation detail，不是 backend protocol、session-history truth 或 Agent Core extension API。
+- 后续动作：
+  - 可在后续切片继续把 app/session/bootstrap loaders 和 command routing 从 `App.jsx` 抽到更小 controller/hook 中。
+
 ### DC-171
 
 - 日期：2026-06-18
