@@ -4,6 +4,16 @@ import threading
 import uuid
 from typing import Any, Callable, Optional
 
+from embedagent.agent_loop_continuation import (
+    CONTINUATION_ABORT,
+    CONTINUATION_COMPACT_THEN_CONTINUE,
+    CONTINUATION_CONTINUE,
+    CONTINUATION_STOP,
+    AgentLoopContinuationDecision,
+    AgentLoopContinuationFacts,
+    AgentLoopContinuationPolicy,
+    DefaultAgentLoopContinuationPolicy,
+)
 from embedagent.guard import LoopGuard
 from embedagent.interaction import UserInputRequest, UserInputResponse
 from embedagent.llm import ModelClientError
@@ -25,9 +35,10 @@ class AgentLoop(object):
 
     def __init__(
         self,
-        max_turns: int = 8,
+        max_turns: Optional[int] = None,
         max_parallel_tools: int = 3,
         tool_capabilities: Optional[dict] = None,
+        continuation_policy: Optional[AgentLoopContinuationPolicy] = None,
         session_guard: Optional[Callable[[], Any]] = None,
         append_transcript_event: Optional[Callable[..., Any]] = None,
         append_message_event: Optional[Callable[..., Any]] = None,
@@ -53,9 +64,11 @@ class AgentLoop(object):
         interrupted_observation: Optional[Callable[..., Any]] = None,
         is_interrupted_observation: Optional[Callable[..., Any]] = None,
     ) -> None:
-        self.max_turns = max_turns
+        self.loop_safety_limit = self._normalize_safety_limit(max_turns)
+        self.max_turns = self.loop_safety_limit
         self.max_parallel_tools = max(1, int(max_parallel_tools or 1))
         self.tool_capabilities = tool_capabilities or {}
+        self.continuation_policy = continuation_policy or DefaultAgentLoopContinuationPolicy()
         self._session_guard = session_guard
         self._append_transcript_event = append_transcript_event
         self._append_message_event = append_message_event
@@ -80,6 +93,37 @@ class AgentLoop(object):
         self._discarded_observation = discarded_observation
         self._interrupted_observation = interrupted_observation
         self._is_interrupted_observation = is_interrupted_observation
+
+    @staticmethod
+    def _normalize_safety_limit(value: Optional[int]) -> Optional[int]:
+        if value is None:
+            return None
+        limit = int(value)
+        if limit <= 0:
+            return None
+        return limit
+
+    def _safety_limit_reached(self, completed_steps: int) -> bool:
+        return (
+            self.loop_safety_limit is not None
+            and int(completed_steps or 0) >= self.loop_safety_limit
+        )
+
+    def _transition_from_decision(
+        self,
+        decision: AgentLoopContinuationDecision,
+        fallback_reason: str,
+        fallback_message: str,
+        turns_used: int,
+        fallback_next_mode: str = "",
+    ) -> LoopTransition:
+        return LoopTransition(
+            reason=decision.reason or fallback_reason,
+            message=decision.message or fallback_message,
+            next_mode=decision.next_mode or fallback_next_mode,
+            turns_used=turns_used,
+            metadata=dict(decision.metadata or {}),
+        )
 
     def _ensure_configured(self) -> None:
         required = (
@@ -133,14 +177,48 @@ class AgentLoop(object):
         final_text = ""
         loop_guard = LoopGuard()
         turns_used = 0
-        for turn_index in range(self.max_turns):
+        turn_index = 0
+        force_compact_next_step = False
+        while True:
             if stop_event is not None and stop_event.is_set():
-                transition = LoopTransition(
-                    reason="aborted", message="stop_event set", turns_used=turns_used
+                decision = self.continuation_policy.decide_after_step(
+                    AgentLoopContinuationFacts(
+                        step_index=turn_index,
+                        turns_used=turns_used,
+                        mode_name=current_mode,
+                        workflow_state=workflow_state,
+                        stop_event_set=True,
+                    )
+                )
+                transition = self._transition_from_decision(
+                    decision,
+                    fallback_reason="aborted",
+                    fallback_message="stop_event set",
+                    turns_used=turns_used,
                 )
                 self._record_transition(session, transition)
                 return QueryTurnResult(final_text, session, transition, turns_used)
-            step_index = turn_index + 1
+            if self._safety_limit_reached(turn_index):
+                decision = self.continuation_policy.decide_after_step(
+                    AgentLoopContinuationFacts(
+                        step_index=turn_index,
+                        turns_used=turns_used,
+                        mode_name=current_mode,
+                        workflow_state=workflow_state,
+                        safety_limit=self.loop_safety_limit,
+                        safety_limit_reached=True,
+                    )
+                )
+                transition = self._transition_from_decision(
+                    decision,
+                    fallback_reason="max_turns",
+                    fallback_message="reached loop safety limit without completion signal",
+                    turns_used=turns_used,
+                )
+                self._record_transition(session, transition)
+                return QueryTurnResult(final_text, session, transition, turns_used)
+            turn_index += 1
+            step_index = turn_index
             step_id = "s-" + uuid.uuid4().hex[:12]
             with self._session_guard():
                 self._append_transcript_event(
@@ -163,7 +241,8 @@ class AgentLoop(object):
                 )
             if on_step_start is not None:
                 on_step_start(step_id, step_index)
-            force_compact = False
+            force_compact = force_compact_next_step
+            force_compact_next_step = False
             compact_retry_used = False
             compact_boundary_recorded = False
             operation_attempt = 0
@@ -309,11 +388,30 @@ class AgentLoop(object):
             final_text = reply.content
             turns_used = step_index
             if self._is_completion_signal(reply, session):
-                transition = LoopTransition(
-                    reason="completed",
-                    message="agent signaled completion",
-                    next_mode=current_mode,
+                decision = self.continuation_policy.decide_after_step(
+                    AgentLoopContinuationFacts(
+                        step_index=step_index,
+                        turns_used=turns_used,
+                        mode_name=current_mode,
+                        workflow_state=workflow_state,
+                        has_tool_calls=bool(reply.actions),
+                        completion_signal=True,
+                        compacted=bool(compact_boundary_recorded),
+                    )
+                )
+                if decision.kind == CONTINUATION_CONTINUE:
+                    continue
+                if decision.kind == CONTINUATION_COMPACT_THEN_CONTINUE:
+                    force_compact_next_step = True
+                    continue
+                if decision.kind not in (CONTINUATION_STOP, CONTINUATION_ABORT):
+                    raise RuntimeError("Unsupported continuation decision: %s" % decision.kind)
+                transition = self._transition_from_decision(
+                    decision,
+                    fallback_reason="completed",
+                    fallback_message="agent signaled completion",
                     turns_used=turns_used,
+                    fallback_next_mode=current_mode,
                 )
                 self._record_transition(session, transition)
                 self._persist_summary(session, current_mode, assembly)
@@ -321,7 +419,7 @@ class AgentLoop(object):
                     self._maybe_record_compact_boundary(session, current_mode, assembly)
                 self._maybe_maintain_memory(True)
                 if on_step_finish is not None:
-                    on_step_finish(step_index, reply, "completed")
+                    on_step_finish(step_index, reply, transition.reason)
                 return QueryTurnResult(final_text, session, transition, turns_used)
             executor = StreamingToolExecutor(
                 lambda action: self._execute_parallel_tool_action(
@@ -578,10 +676,29 @@ class AgentLoop(object):
                 "tool_calls",
                 turns_used=turns_used,
             )
-        transition = LoopTransition(
-            reason="max_turns",
-            message="reached max turns without completion signal",
-            turns_used=turns_used,
-        )
-        self._record_transition(session, transition)
-        return QueryTurnResult(final_text, session, transition, turns_used)
+            decision = self.continuation_policy.decide_after_step(
+                AgentLoopContinuationFacts(
+                    step_index=step_index,
+                    turns_used=turns_used,
+                    mode_name=current_mode,
+                    workflow_state=workflow_state,
+                    has_tool_calls=bool(reply.actions),
+                    completion_signal=False,
+                    compacted=bool(compact_boundary_recorded),
+                )
+            )
+            if decision.kind == CONTINUATION_CONTINUE:
+                continue
+            if decision.kind == CONTINUATION_COMPACT_THEN_CONTINUE:
+                force_compact_next_step = True
+                continue
+            if decision.kind in (CONTINUATION_STOP, CONTINUATION_ABORT):
+                transition = self._transition_from_decision(
+                    decision,
+                    fallback_reason=decision.reason or "aborted",
+                    fallback_message=decision.message or "",
+                    turns_used=turns_used,
+                )
+                self._record_transition(session, transition)
+                return QueryTurnResult(final_text, session, transition, turns_used)
+            raise RuntimeError("Unsupported continuation decision: %s" % decision.kind)

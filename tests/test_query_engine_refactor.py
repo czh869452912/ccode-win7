@@ -650,11 +650,15 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertEqual(observation.data["error_kind"], "mode_tool_blocked")
 
     def test_agent_loop_can_be_constructed_without_runner_callback(self):
+        from embedagent.agent_loop_continuation import DefaultAgentLoopContinuationPolicy
         from embedagent.agent_loop import AgentLoop
 
         loop = AgentLoop()
 
         self.assertFalse(hasattr(loop, "_runner"))
+        self.assertIsInstance(loop.continuation_policy, DefaultAgentLoopContinuationPolicy)
+        self.assertIsNone(loop.loop_safety_limit)
+        self.assertIsNone(loop.max_turns)
 
     def test_query_engine_exposes_slim_agent_components(self):
         from embedagent.agent_extension_host import AgentExtensionHost
