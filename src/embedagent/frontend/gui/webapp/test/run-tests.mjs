@@ -732,7 +732,6 @@ async function main() {
     "utf8",
   );
   assert.equal(appSource.includes("openTerminal"), true);
-  assert.equal(appSource.includes("terminal_event"), true);
   assert.equal(appSource.includes("ensureTerminalOpen"), true);
   assert.equal(appSource.includes("openRightPanelTerminalSurface"), true);
   assert.equal(appSource.includes("splitRightPanelTerminalSurface"), true);
@@ -741,27 +740,19 @@ async function main() {
   assert.equal(appSource.includes("workbench_surface_activated\", placement: \"bottom\", kind: \"terminal\""), true);
   assert.equal(appSource.includes("AppSidebarLayout"), true);
   assert.equal(appSource.includes("WorkbenchHeader"), true);
-  assert.equal(appSource.includes("data.session_id || currentSessionIdRef.current || \"\""), true);
-  assert.equal(appSource.includes("const activeSessionId = currentSessionIdRef.current;"), true);
+  assert.equal(appSource.includes("currentSessionId: currentSessionIdRef.current"), true);
   assert.equal(appSource.includes("loadAppBootstrap"), true);
   assert.equal(appSource.includes("openWorkspace"), true);
   assert.equal(appSource.includes("activateWorkspace"), true);
-  assert.equal(appSource.includes("workspace_changed"), true);
   assert.equal(appSource.includes("no_active_workspace"), true);
-  assert.equal(appSource.includes("__EMBEDAGENT_VISUAL_DEBUG__"), true);
-  assert.equal(appSource.includes("visual_debug"), true);
-  assert.equal(appSource.includes("loadTimelineFixture"), true);
-  assert.equal(appSource.includes("loadInteractionFixture"), true);
-  assert.equal(appSource.includes("loadThreadLifecycleFixture"), true);
-  assert.equal(appSource.includes("visual_timeline_fixture_loaded"), true);
-  assert.equal(appSource.includes('kind: "reasoning"'), true);
-  assert.equal(appSource.includes('kind: "compact"'), true);
-  assert.equal(appSource.includes('commandName: "review"'), true);
-  assert.equal(appSource.includes("thinkingActive: true"), true);
+  assert.equal(appSource.includes("deriveSocketMessageEffects"), true);
+  assert.equal(appSource.includes("executeSocketEffects"), true);
+  assert.equal(appSource.includes("executeLoaderRequest"), true);
+  assert.equal(appSource.includes("installVisualDebugFixtures"), true);
+  assert.equal(appSource.includes("__EMBEDAGENT_VISUAL_DEBUG__"), false);
+  assert.equal(appSource.includes("visual_timeline_fixture_loaded"), false);
   assert.equal(appSource.includes("activeTurnId: state.activeTurnId"), true);
   assert.equal(appSource.includes("thinkingActive: state.thinkingActive"), true);
-  assert.equal(appSource.includes("visual_interaction_fixture_loaded"), true);
-  assert.equal(appSource.includes("visual_thread_lifecycle_fixture_loaded"), true);
   assert.equal(appSource.includes("renameThread"), true);
   assert.equal(appSource.includes("archiveThread"), true);
   assert.equal(appSource.includes("forkThread"), true);
@@ -787,6 +778,38 @@ async function main() {
   assert.equal(appSource.includes("showTabs={false}"), false);
   assert.equal(appSource.includes("activeKind={state.inspectorTab}"), false);
   assert.equal(appSource.includes("appShell: state.app"), true);
+
+  const socketMessageEffectsSource = fs.readFileSync(
+    webappSourcePath("app-runtime", "socket-message-effects.js"),
+    "utf8",
+  );
+  assert.equal(socketMessageEffectsSource.includes("deriveSocketMessageEffects"), true);
+  assert.equal(socketMessageEffectsSource.includes("LOADER_REQUESTS"), true);
+  assert.equal(socketMessageEffectsSource.includes("workspace_changed"), true);
+  assert.equal(socketMessageEffectsSource.includes("terminal_event"), true);
+  assert.equal(socketMessageEffectsSource.includes("session_event"), true);
+  assert.equal(socketMessageEffectsSource.includes("permission_request"), true);
+  assert.equal(socketMessageEffectsSource.includes("user_input_request"), true);
+  assert.equal(socketMessageEffectsSource.includes("command_result"), true);
+  assert.equal(socketMessageEffectsSource.includes("data?.session_id || currentSession(options)"), true);
+  assert.equal(socketMessageEffectsSource.includes("fetch("), false);
+  assert.equal(socketMessageEffectsSource.includes("new WebSocket"), false);
+  assert.equal(socketMessageEffectsSource.includes("useEffect"), false);
+
+  const visualDebugFixturesSource = fs.readFileSync(
+    webappSourcePath("app-runtime", "visual-debug-fixtures.js"),
+    "utf8",
+  );
+  assert.equal(visualDebugFixturesSource.includes("__EMBEDAGENT_VISUAL_DEBUG__"), true);
+  assert.equal(visualDebugFixturesSource.includes("visual_debug"), true);
+  assert.equal(visualDebugFixturesSource.includes("loadTimelineFixture"), true);
+  assert.equal(visualDebugFixturesSource.includes("loadInteractionFixture"), true);
+  assert.equal(visualDebugFixturesSource.includes("loadThreadLifecycleFixture"), true);
+  assert.equal(visualDebugFixturesSource.includes("visual_timeline_fixture_loaded"), true);
+  assert.equal(visualDebugFixturesSource.includes('kind: "reasoning"'), true);
+  assert.equal(visualDebugFixturesSource.includes('kind: "compact"'), true);
+  assert.equal(visualDebugFixturesSource.includes('commandName: "review"'), true);
+  assert.equal(visualDebugFixturesSource.includes("thinkingActive: true"), true);
 
   const storeSource = fs.readFileSync(
     webappSourcePath("store.js"),

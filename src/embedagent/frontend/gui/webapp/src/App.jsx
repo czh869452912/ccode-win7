@@ -11,6 +11,11 @@ import { createDiffSurfaceState } from "./session-runtime/diff-model.js";
 import { buildAppHomeModel } from "./session-runtime/app-home-model.js";
 import { projectSessionRuntime } from "./session-runtime/projector.js";
 import { shouldReconnectSocket } from "./session-runtime/websocket-lifecycle.js";
+import {
+  LOADER_REQUESTS,
+  deriveSocketMessageEffects,
+} from "./app-runtime/socket-message-effects.js";
+import { installVisualDebugFixtures } from "./app-runtime/visual-debug-fixtures.js";
 import { canSwitchWorkspace, normalizeAppBootstrap } from "./app-workspaces.js";
 import { LangContext } from "./LangContext.js";
 import { t } from "./strings.js";
@@ -491,197 +496,15 @@ function App() {
     });
   }
 
-  function loadTimelineFixture() {
-    dispatch({
-      type: "visual_timeline_fixture_loaded",
-      sessionId: "visual-debug-timeline",
-      inspectorTab: "tasks",
-      timeline: [
-        {
-          id: "visual-user-1",
-          kind: "user",
-          content: "Review parser recovery and show the work.",
-          turnId: "visual-turn-1",
-        },
-        {
-          id: "visual-compact-1",
-          kind: "compact",
-          content: "Earlier setup turns were compacted.",
-          summarizedTurns: 5,
-          recentTurns: 2,
-          approxTokensAfter: 3600,
-          turnId: "visual-turn-1",
-        },
-        {
-          id: "visual-reasoning-1",
-          kind: "reasoning",
-          content: "Inspect the parser recovery path, then verify the changed diagnostic flow.",
-          streaming: false,
-          turnId: "visual-turn-1",
-          stepId: "visual-step-1",
-          stepIndex: 1,
-        },
-        {
-          id: "visual-read-1",
-          kind: "tool",
-          toolName: "read_file",
-          label: "Read File",
-          status: "success",
-          arguments: { path: "src/parser.c" },
-          data: { summary: "Read parser entry point." },
-          turnId: "visual-turn-1",
-          stepId: "visual-step-1",
-          stepIndex: 1,
-        },
-        {
-          id: "visual-edit-1",
-          kind: "tool",
-          toolName: "edit_file",
-          label: "Edit File",
-          status: "success",
-          arguments: { path: "src/parser.c" },
-          data: {
-            path: "src/parser.c",
-            diff_preview: "--- a/src/parser.c\n+++ b/src/parser.c\n@@ -1 +1,2 @@\n-int parse(void) { return 0; }\n+int parse(void) { return 1; }\n+int parse_extra(void) { return 2; }\n",
-          },
-          turnId: "visual-turn-1",
-          stepId: "visual-step-1",
-          stepIndex: 1,
-        },
-        {
-          id: "visual-review-result",
-          kind: "command_result",
-          commandName: "review",
-          success: false,
-          content: "Review found one follow-up item.",
-          data: {
-            review: {
-              findings: [
-                {
-                  id: "visual-finding-1",
-                  severity: "medium",
-                  priority: 2,
-                  title: "Add EOF recovery fixture",
-                  body: "The parser recovery path is not covered by a fixture yet.",
-                  file: "tests/parser_recovery_test.c",
-                  line: 18,
-                },
-              ],
-              residual_risks: ["Visual fixture only checks rendering, not parser behavior."],
-            },
-          },
-          turnId: "visual-turn-1",
-        },
-        {
-          id: "visual-assistant-1",
-          kind: "assistant",
-          content: "Parser recovery was updated and review found one fixture follow-up.",
-          turnId: "visual-turn-1",
-          stepId: "visual-step-1",
-          stepIndex: 1,
-        },
-        {
-          id: "visual-user-2",
-          kind: "user",
-          content: "Think through the next verification step.",
-          turnId: "visual-turn-2",
-        },
-      ],
-      snapshot: {
-        session_id: "visual-debug-timeline",
-        status: "running",
-        current_mode: state.requestedMode || DEFAULT_MODE,
-        pending_interaction_valid: false,
-      },
-      activeTurnId: "visual-turn-2",
-      activeStepId: "visual-step-2",
-      activeStepIndex: 1,
-      thinkingActive: true,
-    });
-  }
-
-  function loadInteractionFixture(kind = "permission") {
-    const permission = kind === "permission"
-      ? {
-          interaction_id: "visual-permission-1",
-          kind: "permission",
-          tool_name: "edit_file",
-          category: "workspace_write",
-          reason: "Allow editing src/parser.c",
-          details: { path: "src/parser.c" },
-          turn_id: "visual-turn-1",
-          step_id: "visual-step-2",
-          step_index: 2,
-        }
-      : null;
-    const userInput = kind === "user_input"
-      ? {
-          interaction_id: "visual-input-1",
-          request_id: "visual-input-1",
-          kind: "user_input",
-          tool_name: "ask_user",
-          question: "Which parser behavior should be preserved?",
-          options: [
-            { index: 1, text: "Keep strict parsing" },
-            { index: 2, text: "Accept empty input" },
-          ],
-          turn_id: "visual-turn-1",
-          step_id: "visual-step-2",
-          step_index: 2,
-        }
-      : null;
-    dispatch({
-      type: "visual_interaction_fixture_loaded",
-      sessionId: "visual-debug-interaction",
-      permission,
-      userInput,
-    });
-  }
-
-  function loadThreadLifecycleFixture() {
-    dispatch({
-      type: "visual_thread_lifecycle_fixture_loaded",
-      sessionId: "visual-thread-active",
-      sessions: [
-        {
-          session_id: "visual-thread-active",
-          user_goal: "Fix parser recovery",
-          current_mode: "build",
-          updated_at: "2026-06-16T09:30:00Z",
-        },
-        {
-          session_id: "visual-thread-spec",
-          summary_text: "Plan tokenizer cleanup",
-          current_mode: "spec",
-          updated_at: "2026-06-15T17:10:00Z",
-        },
-        {
-          session_id: "visual-thread-verify",
-          user_goal: "Verify offline bundle smoke",
-          current_mode: "verify",
-          updated_at: "2026-06-14T08:00:00Z",
-        },
-      ],
-    });
-  }
-
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search || "");
-    if (params.get("visual_debug") !== "1") return undefined;
-    window.__EMBEDAGENT_VISUAL_DEBUG__ = {
-      openDiffFixture({ title = "Visual Debug Diff", diff = "", filePath = "" } = {}) {
-        openDiffSurface({ title, diff, filePath });
-      },
-      loadTimelineFixture,
-      loadInteractionFixture,
-      loadThreadLifecycleFixture,
-    };
-    return () => {
-      if (window.__EMBEDAGENT_VISUAL_DEBUG__) {
-        delete window.__EMBEDAGENT_VISUAL_DEBUG__;
-      }
-    };
-  }, [runtimeState.timelineItems]);
+    return installVisualDebugFixtures({
+      windowObject: typeof window === "undefined" ? null : window,
+      locationSearch: typeof window === "undefined" ? "" : window.location.search || "",
+      dispatch,
+      openDiffFixture: openDiffSurface,
+      currentMode: state.requestedMode || DEFAULT_MODE,
+    });
+  }, [runtimeState.timelineItems, state.requestedMode]);
 
   async function createSession(mode) {
     const payload = await fetchJson(`/api/sessions?mode=${encodeURIComponent(mode)}`, {
@@ -1265,382 +1088,81 @@ function App() {
     dispatch({ type: "log_event", label, detail });
   }
 
-  function handleSocketMessage(type, data) {
-    if (type === "workspace_changed") {
-      const bootstrap = normalizeAppBootstrap(data || {});
-      dispatch({ type: "workspace_switched", bootstrap });
-      if (bootstrap.hasActiveWorkspace) {
-        void loadActiveWorkspaceData("", true);
-      } else {
-        dispatch({ type: "source_control_reset" });
-      }
-      return;
+  function executeLoaderRequest(request = {}) {
+    if (request.name === LOADER_REQUESTS.LOAD_APP_BOOTSTRAP) {
+      return loadAppBootstrap();
     }
-    if (type === "terminal_event") {
-      dispatch({ type: "terminal_event", event: data?.event || data || {} });
-      return;
+    if (request.name === LOADER_REQUESTS.LOAD_ACTIVE_WORKSPACE_DATA) {
+      return loadActiveWorkspaceData(request.sessionId || "", Boolean(request.assumeWorkspace));
     }
-    if (type === "session_event") {
-      const nextLog = updateSessionEventLog((current) => appendSessionEvent(current, data || {}));
+    if (request.name === LOADER_REQUESTS.LOAD_SESSIONS) {
+      return loadSessions();
+    }
+    if (request.name === LOADER_REQUESTS.LOAD_SESSION && request.sessionId) {
+      return loadSession(request.sessionId);
+    }
+    if (request.name === LOADER_REQUESTS.LOAD_TASKS && request.sessionId) {
+      return loadTasks(request.sessionId);
+    }
+    if (request.name === LOADER_REQUESTS.LOAD_ARTIFACTS) {
+      return loadArtifacts();
+    }
+    if (request.name === LOADER_REQUESTS.LOAD_PERMISSION_CONTEXT && request.sessionId) {
+      return loadPermissionContext(request.sessionId);
+    }
+    if (request.name === LOADER_REQUESTS.LOAD_FILE_CHILDREN) {
+      return loadFileChildren(request.path || ".");
+    }
+    return Promise.resolve();
+  }
+
+  function executeSocketEffects(effects = {}) {
+    const eventLogEntries = effects.eventLogEntries || [];
+    if (eventLogEntries.length) {
+      const nextLog = updateSessionEventLog((current) => {
+        let next = current;
+        for (const entry of eventLogEntries) {
+          next = appendSessionEvent(next, entry || {});
+        }
+        return next;
+      });
       if (
         (nextLog.replayState === "replay_needed" || nextLog.replayState === "degraded") &&
         currentSessionIdRef.current
       ) {
         void recoverSessionReplay(currentSessionIdRef.current, nextLog);
       }
-      if (data?.event_kind === "turn.started") {
-        dispatch({
-          type: "turn_started",
-          turnId: data.payload?.turn_id || "",
-          userText: data.payload?.user_text || "",
-        });
-      } else if (data?.event_kind === "transition.recorded") {
-        dispatch({
-          type: "turn_ended",
-          terminationReason: data.payload?.termination_reason || "",
-          terminationDisplayReason: data.payload?.display_reason || data.payload?.termination_reason || "",
-          terminationMessage: data.payload?.message || data.payload?.error || "",
-          turnsUsed: data.payload?.turns_used || 0,
-          maxTurns: data.payload?.max_turns || 8,
-        });
-      }
-      return;
-    }
-    if (type === "session_status") {
-      const snap = data.session_snapshot || data;
-      dispatch({ type: "session_snapshot", snapshot: normalizeSessionPayload(snap) });
-      if (snap.timeline_replay_status && snap.timeline_replay_status !== "replay") {
-        updateSessionEventLog((current) => ({
-          ...current,
-          replayState: snap.timeline_replay_status,
-        }));
-      }
-      if (snap.session_id) loadSessions();
-      logEvent("session_status", snap.status || "");
-      return;
-    }
-    if (type === "stream_delta") {
-      dispatch({
-        type: "assistant_delta",
-        text: data.text || "",
-        turnId: data.turn_id || "",
-        stepId: data.step_id || "",
-        stepIndex: data.step_index || 0,
-      });
-      return;
-    }
-    if (type === "reasoning_delta") {
-      dispatch({
-        type: "reasoning_delta",
-        text: data.text || "",
-        turnId: data.turn_id || "",
-        stepId: data.step_id || "",
-        stepIndex: data.step_index || 0,
-      });
-      return;
-    }
-    if (type === "thinking_state") {
-      dispatch({ type: "thinking_state", active: data.active });
-      logEvent("thinking", data.active ? "started" : "stopped");
-      return;
-    }
-    if (type === "tool_start") {
-      const callId = data.call_id || makeEventId("tool");
-      dispatch({
-        type: "tool_started",
-        callId,
-        toolName: data.tool_name || "",
-        label: data.tool_label || data.tool_name || "",
-        arguments: data.arguments || {},
-        permissionCategory: data.permission_category || "",
-        supportsDiffPreview: Boolean(data.supports_diff_preview),
-        progressRendererKey: data.progress_renderer_key || "",
-        resultRendererKey: data.result_renderer_key || "",
-        runtimeSource: data.runtime_source || "",
-        resolvedToolRoots: data.resolved_tool_roots || {},
-        turnId: data.turn_id || "",
-        stepId: data.step_id || "",
-        stepIndex: data.step_index || 0,
-      });
-      logEvent(`tool: ${data.tool_name || "?"}`, JSON.stringify(data.arguments || {}).slice(0, 80));
-      return;
-    }
-    if (type === "tool_finish") {
-      dispatch({
-        type: "tool_finished",
-        callId: data.call_id || "",
-        success: Boolean(data.success),
-        error: data.error || "",
-        data: data.data || {},
-        label: data.tool_label || data.tool_name || "",
-        permissionCategory: data.permission_category || "",
-        supportsDiffPreview: Boolean(data.supports_diff_preview),
-        progressRendererKey: data.progress_renderer_key || "",
-        resultRendererKey: data.result_renderer_key || "",
-        runtimeSource: data.runtime_source || "",
-        resolvedToolRoots: data.resolved_tool_roots || {},
-        turnId: data.turn_id || "",
-        stepId: data.step_id || "",
-        stepIndex: data.step_index || 0,
-      });
-      logEvent(
-        `tool done: ${data.call_id || "?"}`,
-        data.success ? "success" : `error: ${data.error || ""}`,
-      );
-      const FS_TOOLS = ["write_file", "edit_file", "git_commit", "git_reset"];
-      if (FS_TOOLS.includes(data.tool_name || "")) {
-        loadFileChildren(".");
-      }
-      return;
-    }
-    if (type === "permission_request") {
-      dispatch({
-        type: "permission_request",
-        permission: {
-          ...data,
-          turn_id: data.turn_id || "",
-          step_id: data.step_id || "",
-          step_index: data.step_index || 0,
-        },
-        inspectorTab: "interaction",
-      });
-      updateSessionEventLog((current) =>
-        appendSessionEvent(current, {
-          session_id: data.session_id || currentSessionIdRef.current || "",
-          event_id: data.permission_id || makeEventId("evt"),
-          seq: current.lastAppliedSeq + 1,
-          created_at: new Date().toISOString(),
-          event_kind: "interaction.created",
-          payload: {
-            interaction_id: data.permission_id || "",
-            kind: "permission",
-            tool_name: data.tool_name || "",
-            category: data.category || "",
-            reason: data.reason || "",
-            details: data.details || {},
-            turn_id: data.turn_id || "",
-            step_id: data.step_id || "",
-            step_index: data.step_index || 0,
-          },
-        }),
-      );
-      logEvent("permission_request", data.reason || "");
-      return;
-    }
-    if (type === "user_input_request") {
-      setUserAnswer("");
-      dispatch({
-        type: "user_input_request",
-        request: {
-          ...data,
-          turn_id: data.turn_id || "",
-          step_id: data.step_id || "",
-          step_index: data.step_index || 0,
-        },
-      });
-      updateSessionEventLog((current) =>
-        appendSessionEvent(current, {
-          session_id: data.session_id || currentSessionIdRef.current || "",
-          event_id: data.request_id || makeEventId("evt"),
-          seq: current.lastAppliedSeq + 1,
-          created_at: new Date().toISOString(),
-          event_kind: "interaction.created",
-          payload: {
-            interaction_id: data.request_id || "",
-            kind: "user_input",
-            tool_name: data.tool_name || "",
-            question: data.question || "",
-            options: data.options || [],
-            turn_id: data.turn_id || "",
-            step_id: data.step_id || "",
-            step_index: data.step_index || 0,
-          },
-        }),
-      );
-      logEvent("user_input_request", data.question || "");
-      return;
-    }
-    if (type === "command_result") {
-      dispatch({
-        type: "command_result",
-        id: makeEventId("cmd"),
-        commandName: data.command_name || "",
-        success: Boolean(data.success),
-        message: data.message || "",
-        data: data.data || {},
-        turnId: data.turn_id || "",
-        stepId: data.step_id || "",
-        stepIndex: data.step_index || 0,
-      });
-      if (data.command_name === "resume" && data.data?.switch_session_id) {
-        loadSession(data.data.switch_session_id);
-      }
-      if (data.command_name === "diff" && typeof data.data?.diff === "string" && data.data.diff) {
-        dispatch({
-          type: "diff_surface_opened",
-          diffSurface: createDiffSurfaceState({
-            title: "Git Diff",
-            diff: data.data.diff,
-            source: "command",
-            turnId: data.turn_id || "",
-          }),
-        });
-      }
-      if (data.command_name === "workspace") {
-        dispatch({
-          type: "preview_loaded",
-          preview: {
-            kind: "workspace",
-            title: "Workspace",
-            content: JSON.stringify(data.data || {}, null, 2),
-          },
-          inspectorTab: "preview",
-        });
-      }
-      if (data.command_name === "recipes") {
-        dispatch({
-          type: "recipes_loaded",
-          items: data.data?.items || [],
-        });
-        dispatch({ type: "set_inspector", value: "run" });
-      }
-      if (data.command_name === "run") {
-        dispatch({ type: "set_inspector", value: "problems" });
-      }
-      if (data.command_name === "permissions") {
-        dispatch({
-          type: "permission_context_loaded",
-          context: data.data || {},
-          inspectorTab: "permissions",
-        });
-      }
-      if (data.command_name === "review" && data.data?.review) {
-        dispatch({
-          type: "review_loaded",
-          review: data.data.review,
-          inspectorTab: "review",
-        });
-      }
-      logEvent(`command: /${data.command_name || "?"}`, data.success ? "ok" : "error");
-      return;
-    }
-    if (type === "session_error") {
-      dispatch({
-        type: "session_error",
-        id: data.event_id || makeEventId("error"),
-        error: data.error || "",
-        turnId: data.turn_id || "",
-        stepId: data.step_id || "",
-        stepIndex: data.step_index || 0,
-      });
-      logEvent("session_error", data.error || "");
-      return;
-    }
-    if (type === "plan_updated") {
-      dispatch({
-        type: "plan_loaded",
-        plan: data.plan || null,
-        inspectorTab: "plan",
-      });
-      logEvent("plan_updated", data.plan?.title || "");
-      return;
-    }
-    if (type === "turn_end") {
-      dispatch({
-        type: "turn_ended",
-        terminationReason: data.termination_reason || "",
-        terminationDisplayReason: data.display_reason || data.termination_reason || "",
-        terminationMessage: data.message || "",
-        turnsUsed: data.turns_used || 0,
-        maxTurns: data.max_turns || 8,
-      });
-      logEvent("turn_end", `reason=${data.termination_reason} turns=${data.turns_used}`);
-      return;
-    }
-    if (type === "turn_start") {
-      dispatch({
-        type: "turn_started",
-        turnId: data.turn_id || "",
-        userText: data.user_text || "",
-      });
-      logEvent("turn_start", data.turn_id || "");
-      return;
-    }
-    if (type === "step_start") {
-      dispatch({
-        type: "step_started",
-        turnId: data.turn_id || "",
-        stepId: data.step_id || "",
-        stepIndex: data.step_index || 0,
-      });
-      logEvent("step_start", data.step_id || "");
-      return;
-    }
-    if (type === "step_end") {
-      dispatch({
-        type: "step_ended",
-        turnId: data.turn_id || "",
-        stepId: data.step_id || "",
-        stepIndex: data.step_index || 0,
-        assistantText: data.assistant_text || "",
-        status: data.status || "",
-      });
-      logEvent("step_end", data.step_id || "");
-      return;
     }
 
-    if (type === "session_finished") {
-      dispatch({ type: "stream_completed" });
-      if (data.session_snapshot) {
-        dispatch({
-          type: "session_snapshot",
-          snapshot: normalizeSessionPayload(data.session_snapshot),
-        });
+    for (const action of effects.actions || []) {
+      if (action.type === "user_input_request" && action.resetUserAnswer) {
+        setUserAnswer("");
       }
-      loadSessions();
-      const activeSessionId = currentSessionIdRef.current;
-      if (activeSessionId) loadTasks(activeSessionId);
-      logEvent("session_finished", "");
-      return;
+      if (action.type === "session_snapshot" && action.replayStatePatch) {
+        updateSessionEventLog((current) => ({
+          ...current,
+          replayState: action.replayStatePatch,
+        }));
+      }
+      dispatch(action);
     }
-    if (type === "tasks_refresh") {
-      const activeSessionId = currentSessionIdRef.current;
-      if (activeSessionId) loadTasks(activeSessionId);
-      return;
-    }
-    if (type === "artifacts_refresh") {
-      loadArtifacts();
-      return;
-    }
-    if (type === "message" && data.type === "ERROR") {
-      dispatch({
-        type: "session_error",
-        id: data.id || makeEventId("error"),
-        error: data.content || "Error",
-        turnId: data.metadata?.turn_id || "",
-        stepId: data.metadata?.step_id || "",
-        stepIndex: data.metadata?.step_index || 0,
-      });
-      logEvent("error", data.content || "");
-      return;
-    }
-    if (type === "message" && data.type === "CONTEXT_COMPACTED") {
-      const metadata = data.metadata || {};
-      dispatch({
-        type: "context_compacted",
-        id: data.id || makeEventId("context"),
-        content: data.content || "",
-        recentTurns: metadata.recent_turns,
-        summarizedTurns: metadata.summarized_turns,
-        approxTokensAfter: metadata.approx_tokens_after,
-        turnId: metadata.turn_id || "",
-        stepId: metadata.step_id || "",
-        stepIndex: metadata.step_index || 0,
-      });
-      logEvent("context_compacted", data.content || "");
+
+    for (const request of effects.loaderRequests || []) {
+      void executeLoaderRequest(request);
     }
   }
 
+  function handleSocketMessage(type, data) {
+    const effects = deriveSocketMessageEffects({
+      type,
+      data: data || {},
+      currentSessionId: currentSessionIdRef.current,
+      sessionEventLog: sessionEventLogRef.current,
+      makeId: makeEventId,
+      nowIso: () => new Date().toISOString(),
+    });
+    executeSocketEffects(effects);
+  }
   async function respondToInteraction(payload) {
     const interaction = runtimeState.currentInteraction;
     if (!interaction || !state.currentSessionId) return;
