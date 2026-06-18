@@ -8,7 +8,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { createRequire } from "node:module";
 
-export const SCENARIOS = ["load", "chat", "composer", "diff", "file", "terminal", "responsive", "app", "thread", "timeline", "interaction"];
+export const SCENARIOS = ["load", "chat", "composer", "palette", "diff", "file", "terminal", "responsive", "app", "thread", "timeline", "interaction"];
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_REPO_ROOT = path.resolve(SCRIPT_DIR, "..");
@@ -617,6 +617,47 @@ async function runComposerScenario(page, options, outputDir) {
   return { viewports: results };
 }
 
+async function runPaletteScenario(page, options, outputDir) {
+  const viewports = parseViewportList(options.viewports);
+  const results = [];
+  for (const viewport of viewports) {
+    await page.setViewportSize({ width: viewport.width, height: viewport.height });
+    await page.waitForSelector('[data-testid="workbench-layout"]', { timeout: 10000 });
+
+    await page.keyboard.press(process.platform === "darwin" ? "Meta+K" : "Control+K");
+    await page.waitForSelector('[data-testid="command-palette"]', { timeout: 10000 });
+    await page.waitForSelector('[data-testid="command-palette-group--commands"]', { timeout: 10000 });
+    await page.waitForSelector('[data-testid^="command-palette-session--"]', { timeout: 10000 });
+    await page.waitForSelector('[data-testid^="command-palette-workspace--"]', { timeout: 10000 });
+
+    const rootText = await page.locator('[data-testid="command-palette"]').innerText();
+    if (!rootText.includes("Commands") || !rootText.includes("Sessions") || !rootText.includes("Workspaces")) {
+      throw new Error(`Palette root groups missing at ${viewport.name}: ${rootText}`);
+    }
+
+    await page.keyboard.press("ArrowDown");
+    const activeRowsAfterArrow = await page.locator(".cmd-palette-row.active").count();
+    if (activeRowsAfterArrow !== 1) {
+      throw new Error(`Palette should have one active row after ArrowDown at ${viewport.name}`);
+    }
+
+    await page.click('[data-testid="command-palette-submenu--surface"]');
+    await page.waitForSelector('[data-testid="command-palette-back"]', { timeout: 10000 });
+    await page.fill('[data-testid="command-palette-input"]', "diff");
+    await page.waitForSelector('[data-testid="command-palette-command--surface.diff"]', { timeout: 10000 });
+    await page.keyboard.press("Enter");
+    await page.waitForSelector('[data-testid="right-panel-surface-tab--diff"]', { timeout: 10000 });
+
+    const noOverlap = await assertNoOverlap(page);
+    if (!noOverlap) throw new Error(`Palette scenario overlapped layout at ${viewport.name}`);
+
+    const screenshot = path.join(outputDir, `palette-${viewport.name}.png`);
+    await page.screenshot({ path: screenshot, fullPage: true });
+    results.push({ name: viewport.name, noOverlap, screenshot });
+  }
+  return { viewports: results };
+}
+
 async function runDiffScenario(page) {
   await page.waitForFunction(() => Boolean(window.__EMBEDAGENT_VISUAL_DEBUG__), null, { timeout: 10000 });
   await page.evaluate((diff) => {
@@ -1073,6 +1114,8 @@ async function runScenarios(options, repoRoot, outputDir) {
         results.chat = await runChatScenario(page);
       } else if (scenario === "composer") {
         results.composer = await runComposerScenario(page, options, outputDir);
+      } else if (scenario === "palette") {
+        results.palette = await runPaletteScenario(page, options, outputDir);
       } else if (scenario === "diff") {
         results.diff = await runDiffScenario(page);
       } else if (scenario === "file") {

@@ -22,9 +22,11 @@ export async function runVisualDebugRunnerTests() {
   assert.deepEqual(runner.parseScenarioList("load,file"), ["load", "file"]);
   assert.deepEqual(runner.parseScenarioList("composer"), ["composer"]);
   assert.deepEqual(runner.parseScenarioList("load,composer"), ["load", "composer"]);
+  assert.deepEqual(runner.parseScenarioList("palette"), ["palette"]);
+  assert.deepEqual(runner.parseScenarioList("load,palette"), ["load", "palette"]);
   assert.deepEqual(runner.parseScenarioList("thread"), ["thread"]);
   assert.deepEqual(runner.parseScenarioList("timeline,interaction"), ["timeline", "interaction"]);
-  assert.deepEqual(runner.parseScenarioList("all"), ["app", "load", "chat", "composer", "diff", "file", "terminal", "responsive", "thread", "timeline", "interaction"]);
+  assert.deepEqual(runner.parseScenarioList("all"), ["app", "load", "chat", "composer", "palette", "diff", "file", "terminal", "responsive", "thread", "timeline", "interaction"]);
   assert.deepEqual(runner.parseScenarioList("app"), ["app"]);
   assert.deepEqual(runner.parseScenarioList("load,app"), ["app", "load"]);
   assert.throws(() => runner.parseScenarioList("load,unknown"), /Unknown GUI visual scenario/);
@@ -85,6 +87,13 @@ export async function runVisualDebugRunnerTests() {
   assert.equal(runnerSource.includes("composer-primary-action"), true);
   assert.equal(runnerSource.includes("@src/parser.c"), true);
   assert.equal(runnerSource.includes("branch-toolbar"), true);
+  assert.equal(runnerSource.includes('"palette"'), true);
+  assert.equal(runnerSource.includes("runPaletteScenario"), true);
+  assert.equal(runnerSource.includes("command-palette-group--commands"), true);
+  assert.equal(runnerSource.includes("command-palette-submenu--surface"), true);
+  assert.equal(runnerSource.includes("command-palette-command--surface.diff"), true);
+  assert.equal(runnerSource.includes("command-palette-session--"), true);
+  assert.equal(runnerSource.includes("command-palette-workspace--"), true);
 
   const noBuildArgs = runner.parseVisualDebugArgs(["--no-build"]);
   assert.equal(noBuildArgs.buildWebapp, false);
