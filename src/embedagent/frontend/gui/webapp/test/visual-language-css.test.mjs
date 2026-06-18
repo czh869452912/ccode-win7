@@ -49,6 +49,17 @@ export function runVisualLanguageCssTests() {
   assertIncludes(styles, ".composer-stop-action", "composer stop action should be styled");
   assertNotIncludes(styles, ".composer-hints", "old slash hint container should be removed");
   assertNotIncludes(styles, ".composer-hint {", "old slash hint button should be removed");
+  assertIncludes(styles, ".cmd-palette-results", "command palette should render grouped results");
+  assertIncludes(styles, ".cmd-palette-group", "command palette should style groups");
+  assertIncludes(styles, ".cmd-palette-group-title", "command palette should style group titles");
+  assertIncludes(styles, ".cmd-palette-row", "command palette should style rich rows");
+  assertIncludes(styles, ".cmd-palette-row-leading", "command palette should style leading markers");
+  assertIncludes(styles, ".cmd-palette-row-description", "command palette should style row descriptions");
+  assertIncludes(styles, ".cmd-palette-row-shortcut", "command palette should style shortcut hints");
+  assertIncludes(styles, ".cmd-palette-row-chevron", "command palette should style submenu chevrons");
+  assertIncludes(styles, ".cmd-palette-submenu-header", "command palette should style submenu header");
+  assertIncludes(styles, ".cmd-palette-back", "command palette should style submenu back button");
+  assertIncludes(styles, ".cmd-palette-row.disabled", "command palette should style disabled rows");
   assertIncludes(styles, ".branch-toolbar", "branch toolbar should be styled");
   assertIncludes(styles, ".branch-toolbar-context", "branch toolbar context group should be styled");
   assertIncludes(styles, ".branch-toolbar-branch", "branch toolbar branch group should be styled");
