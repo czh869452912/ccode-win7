@@ -1,6 +1,6 @@
 # EmbedAgent 开发进度跟踪
 
-> 更新日期：2026-06-18（Pi-style agent loop continuation）
+> 更新日期：2026-06-18（T3 composer command menu and context tokens）
 > 用途：持续跟踪当前阶段、下一步任务、里程碑进度、风险与阻塞
 
 ---
@@ -23,6 +23,15 @@
 ---
 
 ## 2. 当前阶段
+
+### 2026-06-18 - T3 Composer Command Menu And Context Tokens
+
+- GUI composer now owns a T3code-style grouped command menu instead of the previous inline slash hint list.
+- Slash command search is ranked through frontend-only pure helpers, and selecting a command inserts the existing executable slash text such as `/diff ` into the prompt.
+- `@` file context search now projects currently loaded GUI file-tree nodes into plain-text path insertions such as `@src/parser.c ` without adding backend attachment protocol.
+- Composer primary send/stop controls now use compact T3-style action buttons while preserving existing `onSend` / `onStop` behavior.
+- Visual debug coverage now exercises slash selection, path selection, keyboard highlight state, and overflow guardrails at `1280x720`, `700x640`, and `520x720`.
+- This slice stays in the GUI app shell: no Agent Core, backend protocol, transcript history, workflow state, permission policy, runtime reducer, provider configuration, extension loading, source-control mutation, checkpoint, telemetry, or terminal execution semantics changed.
 
 ### 2026-06-18 - T3 Branch Toolbar Run Context
 

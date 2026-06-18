@@ -44,6 +44,41 @@
 
 ## 3. 当前变更记录
 
+### DC-179
+
+- 日期：2026-06-18
+- 变更主题：GUI T3 composer command menu and context tokens
+- 变更摘要：
+  - `Composer.jsx` now owns trigger detection, menu highlight state, keyboard selection, and text insertion for T3code-style slash and `@` context flows.
+  - Frontend-only composer helpers now provide trigger parsing, ranked slash-command search, and loaded-file path context projection from GUI file-tree state.
+  - `ComposerCommandMenu.jsx` renders the grouped floating menu, and `ComposerPrimaryActions.jsx` renders compact send/stop controls while preserving the existing send/stop callbacks.
+  - Visual debug fixtures and `scripts/gui-visual-debug.mjs` now assert slash command insertion, `@src/parser.c` insertion, active menu item state, and no horizontal overflow across desktop and narrow viewports.
+- 影响范围：
+  - `src/embedagent/frontend/gui/webapp/src/composer/`
+  - `src/embedagent/frontend/gui/webapp/src/components/Composer.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/components/composer/ComposerCommandMenu.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/components/composer/ComposerPrimaryActions.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/visual-debug-fixtures.js`
+  - `src/embedagent/frontend/gui/webapp/src/store.js`
+  - `src/embedagent/frontend/gui/webapp/src/styles.css`
+  - `scripts/gui-visual-debug.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/`
+  - `docs/development-tracker.md`
+  - `docs/design-change-log.md`
+- 关联文档：
+  - `reference/t3code/apps/web/src/components/chat/ChatComposer.tsx`
+  - `reference/t3code/apps/web/src/components/chat/ComposerCommandMenu.tsx`
+  - `reference/t3code/apps/web/src/components/chat/composerSlashCommandSearch.ts`
+  - `reference/t3code/apps/web/src/components/chat/ComposerPrimaryActions.tsx`
+  - `reference/t3code/packages/shared/src/composerTrigger.ts`
+  - `reference/t3code/packages/client-runtime/src/composerPathSearchState.ts`
+  - `docs/superpowers/specs/2026-06-18-t3-composer-command-menu-context-design.md`
+  - `docs/superpowers/plans/2026-06-18-t3-composer-command-menu-context.md`
+- 是否需要 ADR：否；该变更是 GUI app-shell presentation/read-model parity work，不改变 Agent Core、backend protocol、session-history truth、workflow package contracts、permission policy、runtime reducers、provider configuration、source-control mutation policy 或 public extension API。
+- 后续动作：
+  - Continue one-to-one T3code parity for command palette depth, branch/worktree selectors behind explicit hosted boundaries, source-control mutation affordances, and file/editor chrome.
+
 ### DC-178
 
 - 日期：2026-06-18

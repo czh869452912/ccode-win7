@@ -537,15 +537,35 @@ async function composerMenuMetrics(page) {
   });
 }
 
+async function loadComposerFixture(page) {
+  await page.evaluate(() => {
+    window.__EMBEDAGENT_VISUAL_DEBUG__.loadComposerFileTreeFixture();
+  });
+}
+
+async function openComposerPathMenu(page, input, viewportName) {
+  let lastMenuText = "";
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    await loadComposerFixture(page);
+    await input.fill("@par");
+    await page.waitForSelector('[data-testid="composer-command-menu"]', { timeout: 10000 });
+    lastMenuText = await page.locator('[data-testid="composer-command-menu"]').innerText();
+    if (lastMenuText.includes("src/parser.c")) {
+      return lastMenuText;
+    }
+    await input.fill("");
+  }
+  throw new Error(`Composer path menu did not show src/parser.c at ${viewportName}: ${lastMenuText}`);
+}
+
 async function runComposerScenario(page, options, outputDir) {
   const viewports = parseViewportList(options.viewports);
   const results = [];
   for (const viewport of viewports) {
     await page.setViewportSize({ width: viewport.width, height: viewport.height });
     await page.waitForFunction(() => Boolean(window.__EMBEDAGENT_VISUAL_DEBUG__), null, { timeout: 10000 });
-    await page.evaluate(() => {
-      window.__EMBEDAGENT_VISUAL_DEBUG__.loadComposerFileTreeFixture();
-    });
+    await page.waitForSelector('[data-testid="workbench-layout"]', { timeout: 10000 });
+    await loadComposerFixture(page);
     await page.waitForSelector('[data-testid="composer-input"]', { timeout: 10000 });
     const input = page.locator('[data-testid="composer-input"]');
 
@@ -572,12 +592,7 @@ async function runComposerScenario(page, options, outputDir) {
       throw new Error(`Composer slash selection did not insert /diff: ${slashValue}`);
     }
 
-    await input.fill("@par");
-    await page.waitForSelector('[data-testid="composer-command-menu"]', { timeout: 10000 });
-    const pathMenuText = await page.locator('[data-testid="composer-command-menu"]').innerText();
-    if (!pathMenuText.includes("src/parser.c")) {
-      throw new Error(`Composer path menu did not show src/parser.c at ${viewport.name}: ${pathMenuText}`);
-    }
+    await openComposerPathMenu(page, input, viewport.name);
     const pathMetrics = await composerMenuMetrics(page);
     if (pathMetrics.documentWidth > pathMetrics.viewportWidth + 1) {
       throw new Error(`Composer path menu caused horizontal overflow at ${viewport.name}: ${pathMetrics.documentWidth}`);
