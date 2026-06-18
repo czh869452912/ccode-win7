@@ -2375,23 +2375,99 @@ body {
 .hint-text { color: var(--text-muted); font-size: 9px; font-family: var(--font-mono); }
 .hint-text.running-hint { color: var(--color-warning); margin-left: auto; }
 
-.composer-hints {
-  position: absolute; bottom: 100%; left: 0; right: 0;
-  background: var(--bg-default);
+.composer-command-menu {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(100% + 8px);
+  z-index: 70;
+  max-height: min(320px, 52vh);
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 6px;
   border: 1px solid var(--border-default);
-  border-radius: var(--r-md);
-  padding: var(--sp-1); margin-bottom: 4px;
-  max-height: 180px; overflow-y: auto;
-  z-index: 50;
+  border-radius: 14px;
+  background: var(--bg-elevated);
+  box-shadow: var(--surface-shadow);
 }
-.composer-hint {
-  display: block; width: 100%;
-  padding: 5px 10px; text-align: left;
-  color: var(--text-secondary); font-family: var(--font-mono); font-size: 12px;
-  background: none; border: none; cursor: pointer;
-  border-radius: var(--r-sm);
+
+.composer-menu-empty {
+  padding: 10px 12px;
+  color: var(--text-muted);
+  font-size: 12px;
 }
-.composer-hint:hover { background: var(--bg-subtle); color: var(--text-primary); }
+
+.composer-menu-group + .composer-menu-group {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.composer-menu-group-label {
+  padding: 4px 8px 5px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.composer-menu-group-items {
+  display: grid;
+  gap: 2px;
+}
+
+.composer-menu-item {
+  display: grid;
+  grid-template-columns: minmax(0,1fr) auto;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 34px;
+  padding: 7px 8px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-secondary);
+  text-align: left;
+  cursor: pointer;
+}
+
+.composer-menu-item:hover,
+.composer-menu-item.active {
+  border-color: var(--border-default);
+  background: rgba(255,255,255,.055);
+  color: var(--text-primary);
+}
+
+.composer-menu-item-main {
+  display: grid;
+  min-width: 0;
+  gap: 1px;
+}
+
+.composer-menu-item-label,
+.composer-menu-item-detail {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.composer-menu-item-label {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.composer-menu-item-detail {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
+.composer-menu-item-kind {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
 
 .send {
   background: none;
@@ -2409,6 +2485,46 @@ body {
   font-size: 11px; padding: 4px 10px; flex-shrink: 0;
 }
 .stop:hover { background: rgba(248,81,73,.2); }
+
+.composer-primary-action,
+.composer-stop-action {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--border-default);
+  border-radius: 10px;
+  background: rgba(255,255,255,.045);
+  color: var(--text-primary);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  transition-property: background, border-color, color, transform;
+  transition-duration: .14s;
+}
+
+.composer-primary-action:not(:disabled):hover,
+.composer-stop-action:hover {
+  border-color: var(--border-focus);
+  background: rgba(255,255,255,.075);
+}
+
+.composer-primary-action:active,
+.composer-stop-action:active {
+  transform: scale(.96);
+}
+
+.composer-primary-action:disabled {
+  cursor: not-allowed;
+  opacity: .42;
+}
+
+.composer-stop-action {
+  border-color: rgba(255,123,114,.35);
+  background: rgba(255,123,114,.1);
+  color: var(--color-error);
+}
 
 /* ═══════════════════════════════════════════
    PERMISSION MODAL
@@ -3117,13 +3233,6 @@ body {
   opacity: .46;
 }
 
-.composer-hints {
-  border-color: var(--border-default);
-  border-radius: 14px;
-  background: var(--bg-elevated);
-  box-shadow: var(--surface-shadow);
-}
-
 .right-panel,
 .inspector {
   background: var(--bg-panel);
@@ -3462,6 +3571,19 @@ body {
 
   .branch-toolbar-button {
     flex: 1 1 auto;
+  }
+
+  .composer-command-menu {
+    bottom: calc(100% + 6px);
+    max-height: min(280px, 46vh);
+  }
+
+  .composer-menu-item {
+    grid-template-columns: minmax(0,1fr);
+  }
+
+  .composer-menu-item-kind {
+    display: none;
   }
 }
 

@@ -41,6 +41,14 @@ export function runVisualLanguageCssTests() {
   assertIncludes(styles, "max-width: 860px;", "timeline shell should use a T3-like centered width");
   assertIncludes(styles, ".composer::before", "composer should have a top fade like T3");
   assertIncludes(styles, "border-radius: var(--r-lg);", "composer should use the large radius token");
+  assertIncludes(styles, ".composer-command-menu", "composer command menu should be styled");
+  assertIncludes(styles, ".composer-menu-group", "composer menu groups should be styled");
+  assertIncludes(styles, ".composer-menu-item", "composer menu items should be styled");
+  assertIncludes(styles, ".composer-menu-item.active", "composer active item should be styled");
+  assertIncludes(styles, ".composer-primary-action", "composer primary action should be styled");
+  assertIncludes(styles, ".composer-stop-action", "composer stop action should be styled");
+  assertNotIncludes(styles, ".composer-hints", "old slash hint container should be removed");
+  assertNotIncludes(styles, ".composer-hint {", "old slash hint button should be removed");
   assertIncludes(styles, ".branch-toolbar", "branch toolbar should be styled");
   assertIncludes(styles, ".branch-toolbar-context", "branch toolbar context group should be styled");
   assertIncludes(styles, ".branch-toolbar-branch", "branch toolbar branch group should be styled");
