@@ -1282,6 +1282,7 @@ function App() {
             surface={activeRightPanelSurface}
             inspectorProps={inspectorProps}
             filePreviewsByPath={state.filePreviewsByPath}
+            projectName={state.app.activeWorkspace?.label || ""}
             fileTree={state.fileTree}
             treeHeight={treeHeight}
             onOpenFile={openFile}

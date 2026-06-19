@@ -705,7 +705,15 @@ async function runFileScenario(page) {
   ]);
   await page.click('[data-testid="right-panel-file-node--README.md"]');
   await page.waitForSelector('[data-testid="right-panel-file-surface"]', { timeout: 15000 });
+  await page.waitForSelector('[data-testid="file-preview-breadcrumbs"]', { timeout: 15000 });
+  // README.md is a markdown file, so the T3 file chrome defaults to the rendered preview.
+  await page.waitForSelector('[data-testid="file-preview-markdown"]', { timeout: 15000 });
+  await page.waitForSelector('[data-testid="file-preview-mode-toggle"]', { timeout: 15000 });
+  const breadcrumbText = await page.locator('[data-testid="file-preview-breadcrumbs"]').innerText();
+  // Switch to the code view to exercise the numbered gutter.
+  await page.click('[data-testid="file-preview-mode-toggle"] >> text=Code');
   await page.waitForSelector('[data-testid="right-panel-file-content"]', { timeout: 15000 });
+  await page.waitForSelector('[data-testid="file-preview-gutter"]', { timeout: 15000 });
   const panelText = await page.locator('[data-testid="right-panel-file-surface"]').innerText();
   const activeTab = await page.locator('[data-testid="right-panel-surface-tab--file"] [role="tab"]').getAttribute("aria-selected");
   const filesTabs = await page.locator('[data-testid="right-panel-surface-tab--files"]').count();
@@ -715,6 +723,9 @@ async function runFileScenario(page) {
   assertScrollContainer(filesMetrics, "filesSurface");
   if (activeTab !== "true") throw new Error("File tab did not become active");
   if (filesTabs !== 0) throw new Error("Standalone files surface was not replaced by file surface");
+  if (!breadcrumbText.includes("README.md")) {
+    throw new Error("File surface breadcrumbs did not show the file name");
+  }
   if (!panelText.includes("Visual Debug Workspace")) {
     throw new Error("File surface did not show README.md fixture content");
   }
@@ -723,6 +734,7 @@ async function runFileScenario(page) {
     activeTab: activeTab === "true",
     filesSurfaceReplaced: filesTabs === 0,
     hasReadmeContent: panelText.includes("Visual Debug Workspace"),
+    hasBreadcrumbs: breadcrumbText.includes("README.md"),
     leftFilesTabAbsent: leftFilesTabCount === 0,
     leftFileTreeAbsent: leftFileTreeCount === 0,
     scrollContainers: filesMetrics,

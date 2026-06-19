@@ -39,6 +39,7 @@ import { runComposerComponentsSourceTests } from "./composer-components-source.t
 import { runComposerIntegrationSourceTests } from "./composer-integration-source.test.mjs";
 import { runComposerPathContextTests } from "./composer-path-context.test.mjs";
 import { runComposerTriggerTests } from "./composer-trigger.test.mjs";
+import { runFilePreviewModelTests } from "./file-preview-model.test.mjs";
 
 const WEBAPP_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -769,6 +770,10 @@ async function main() {
   assert.equal(stylesSource.includes(".timeline-work-overflow-toggle"), true);
   assert.equal(stylesSource.includes(".timeline-working-dots"), true);
   assert.equal(stylesSource.includes("scrollbar-gutter: stable both-edges"), true);
+  assert.equal(stylesSource.includes(".file-preview-breadcrumbs"), true);
+  assert.equal(stylesSource.includes(".file-preview-gutter"), true);
+  assert.equal(stylesSource.includes(".file-preview-mode-toggle"), true);
+  assert.equal(stylesSource.includes(".file-preview-code"), true);
   assert.equal(stylesSource.includes("scrollbar-width: thin"), true);
   assert.equal(stylesSource.includes("minmax(360px, 1fr)"), false);
   assert.equal(stylesSource.includes(".workbench-main-slot {\n  display: flex;"), true);
@@ -1107,6 +1112,7 @@ async function main() {
   assert.equal(rightPanelTerminalSurfaceSource.includes("splitDirection"), true);
   assert.equal(rightPanelTerminalSurfaceSource.includes("onSplitVertical"), true);
   assert.equal(rightPanelSurfaceBodySource.includes("RightPanelTerminalSurface"), true);
+  assert.equal(rightPanelSurfaceBodySource.includes("projectName={projectName}"), true);
 
   const filePreviewSurfaceSource = fs.readFileSync(
     webappSourcePath("components", "workbench", "FilePreviewSurface.jsx"),
@@ -1116,6 +1122,15 @@ async function main() {
   assert.equal(filePreviewSurfaceSource.includes("right-panel-file-loading"), true);
   assert.equal(filePreviewSurfaceSource.includes("right-panel-file-error"), true);
   assert.equal(filePreviewSurfaceSource.includes("right-panel-file-content"), true);
+  assert.equal(filePreviewSurfaceSource.includes("fileBreadcrumbs"), true);
+  assert.equal(filePreviewSurfaceSource.includes("numberFileLines"), true);
+  assert.equal(filePreviewSurfaceSource.includes("isMarkdownPreviewFile"), true);
+  assert.equal(filePreviewSurfaceSource.includes("filePreviewMeta"), true);
+  assert.equal(filePreviewSurfaceSource.includes("ReactMarkdown"), true);
+  assert.equal(filePreviewSurfaceSource.includes('data-testid="file-preview-breadcrumbs"'), true);
+  assert.equal(filePreviewSurfaceSource.includes('data-testid="file-preview-gutter"'), true);
+  assert.equal(filePreviewSurfaceSource.includes('data-testid="file-preview-mode-toggle"'), true);
+  assert.equal(filePreviewSurfaceSource.includes('data-testid="file-preview-markdown"'), true);
 
   const repoRoot = path.resolve(WEBAPP_ROOT, "..", "..", "..", "..", "..");
   const visualDebugSource = fs.readFileSync(
@@ -1168,6 +1183,7 @@ async function main() {
   runVisualLanguageCssTests();
   runInteractionModelTests();
   runDiffModelTests();
+  runFilePreviewModelTests();
   runWebSocketLifecycleTests();
   await runSessionLoadersTests();
   runSocketMessageEffectsTests();

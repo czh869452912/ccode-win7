@@ -15,6 +15,7 @@ export default function RightPanelSurfaceBody({
   surface,
   inspectorProps,
   filePreviewsByPath,
+  projectName,
   fileTree,
   treeHeight,
   onOpenFile,
@@ -48,6 +49,7 @@ export default function RightPanelSurfaceBody({
       <FilePreviewSurface
         surface={surface}
         filePreview={(filePreviewsByPath || {})[filePath]}
+        projectName={projectName}
         onReload={onOpenFile}
       />
     );

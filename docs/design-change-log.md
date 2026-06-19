@@ -44,6 +44,35 @@
 
 ## 3. 当前变更记录
 
+### DC-181
+
+- 日期：2026-06-19
+- 变更主题：GUI T3 Code-style file preview chrome parity
+- 变更摘要：
+  - 新增 frontend-only 纯模块 `webapp/src/session-runtime/file-preview-model.js`，提供 `fileBreadcrumbs`、`isMarkdownPreviewFile`、`defaultFilePreviewMode`、`fileLanguageForPath`、`numberFileLines` 与 `filePreviewMeta`；breadcrumb 与 markdown-mode helper 一比一移植自 `reference/t3code/apps/web/src/components/files/filePath.ts` 与 `filePreviewMode.ts`。
+  - `FilePreviewSurface.jsx` 现在渲染 T3code-style file viewer：project/dir/file 面包屑、language + 行数 metadata、带行号的 code gutter，以及对 `.md`/`.mdx` 默认进入 rendered preview 的 code/markdown 模式切换。
+  - active workspace label 经 `App.jsx` -> `RightPanelSurfaceBody` -> `FilePreviewSurface` 仅作为面包屑 project name 传入，不新增 backend 字段。
+  - `scripts/gui-visual-debug.mjs` 的 `file` scenario 现在断言面包屑、markdown preview、模式切换，并在切到 code view 后断言行号 gutter。
+  - 该变更只影响 GUI-local projection / presentation / visual debug harness / 文档；T3 的文件编辑、save coordinator、comment annotation 与 `@pierre/diffs` editor 刻意不在范围内。
+- 影响范围：
+  - `src/embedagent/frontend/gui/webapp/src/session-runtime/file-preview-model.js`
+  - `src/embedagent/frontend/gui/webapp/src/components/workbench/FilePreviewSurface.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/components/workbench/RightPanelSurfaceBody.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/styles.css`
+  - `scripts/gui-visual-debug.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/`
+  - `docs/modules/frontend-gui.md`
+  - `docs/development-tracker.md`
+  - `docs/design-change-log.md`
+- 关联文档：
+  - `reference/t3code/apps/web/src/components/files/FilePreviewPanel.tsx`
+  - `reference/t3code/apps/web/src/components/files/filePath.ts`
+  - `reference/t3code/apps/web/src/components/files/filePreviewMode.ts`
+- 是否需要 ADR：否；该变更是 GUI app-shell presentation/read-model parity work，不改变 Agent Core、backend protocol、session-history truth、workflow package contracts、permission policy、runtime reducers、provider configuration、source-control mutation policy 或 public extension API。
+- 后续动作：
+  - 继续一比一推进 T3code parity：评估在 hosted/offline 约束下的 file reveal-line 高亮、editor/diff chrome 深化，以及 source-control / branch mutation 边界。
+
 ### DC-180
 
 - 日期：2026-06-18

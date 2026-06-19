@@ -120,6 +120,23 @@ opens file preview tabs through right-panel surface descriptors. The sidebar
 must not render a second Files tab or duplicate file tree; file navigation
 remains GUI app-shell display state and must not become workflow truth.
 
+### T3 File Preview Chrome
+
+- The right-panel `FilePreviewSurface` renders a T3code-style file viewer over an
+  already-loaded file preview: a project/directory/file breadcrumb trail, a
+  language/line-count metadata line, a numbered code gutter, and a code/markdown
+  preview mode toggle for `.md`/`.mdx` files (markdown defaults to the rendered
+  preview).
+- Breadcrumb, mode, gutter, and metadata logic live in the frontend-local pure
+  module `webapp/src/session-runtime/file-preview-model.js`; the breadcrumb and
+  markdown-mode helpers are ported one-to-one from
+  `reference/t3code/apps/web/src/components/files/`.
+- This is GUI app-shell display/read-model work only: it renders existing file
+  preview content and never edits/saves files, writes transcript history, or
+  changes Agent Core, backend protocol, workflow state, permission policy, or
+  runtime reducers. T3's editing, save coordinator, comment annotation, and
+  `@pierre/diffs` editor surfaces are intentionally out of scope.
+
 Thread lifecycle controls are shaped by the same frontend-local read model.
 Thread rows now expose a compact action rail for `Rename`, `Fork`, and
 `Archive`, with action enablement gated by explicit lifecycle capabilities.

@@ -1,6 +1,6 @@
 # EmbedAgent 开发进度跟踪
 
-> 更新日期：2026-06-18（T3 command palette root/submenu parity）
+> 更新日期：2026-06-19（T3 file preview chrome parity）
 > 用途：持续跟踪当前阶段、下一步任务、里程碑进度、风险与阻塞
 
 ---
@@ -23,6 +23,14 @@
 ---
 
 ## 2. 当前阶段
+
+### 2026-06-19 - T3 File Preview Chrome Parity
+
+- GUI right-panel `FilePreviewSurface` now renders a T3code-style file viewer: project/directory/file breadcrumbs, a language + line-count metadata line, a numbered code gutter, and a code/markdown preview mode toggle that defaults `.md`/`.mdx` files to the rendered preview.
+- Breadcrumb, markdown-mode, gutter, language, and metadata logic live in a new frontend-only pure module `webapp/src/session-runtime/file-preview-model.js`, with breadcrumb and markdown-mode helpers ported one-to-one from `reference/t3code/apps/web/src/components/files/`.
+- The active workspace label flows through `App.jsx` -> `RightPanelSurfaceBody` -> `FilePreviewSurface` only as the breadcrumb project name; no new backend field is added.
+- Visual debug `file` scenario now asserts breadcrumbs, the markdown preview, the mode toggle, and the numbered gutter after switching to code view; webapp unit/source tests and focused Python GUI backend tests pass.
+- This slice stays in the GUI app shell: T3's file editing, save coordinator, comment annotation, and `@pierre/diffs` editor are intentionally out of scope, and no Agent Core, backend protocol, transcript history, workflow state, permission policy, runtime reducer, provider configuration, extension loading, source-control mutation, checkpoint, telemetry, or terminal execution semantics changed.
 
 ### 2026-06-18 - T3 Command Palette Root/Submenu Parity
 
