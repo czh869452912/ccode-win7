@@ -1287,6 +1287,7 @@ function App() {
             fileTree={state.fileTree}
             treeHeight={treeHeight}
             onOpenFile={openFile}
+            onOpenFilesSurface={() => openRightPanelSurface("files")}
             onLoadFileChildren={loadFileChildren}
             terminal={state.terminal}
             onTerminalNew={() => terminalController.openRightPanelSurface()}

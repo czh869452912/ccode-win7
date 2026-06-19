@@ -19,6 +19,7 @@ export default function RightPanelSurfaceBody({
   fileTree,
   treeHeight,
   onOpenFile,
+  onOpenFilesSurface,
   onLoadFileChildren,
   terminal,
   onTerminalNew,
@@ -51,6 +52,7 @@ export default function RightPanelSurfaceBody({
         filePreview={(filePreviewsByPath || {})[filePath]}
         projectName={projectName}
         onReload={onOpenFile}
+        onOpenFilesSurface={onOpenFilesSurface}
       />
     );
   }

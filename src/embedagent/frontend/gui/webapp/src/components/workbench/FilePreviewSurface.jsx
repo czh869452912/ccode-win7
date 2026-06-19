@@ -24,7 +24,11 @@ function FilePreviewBreadcrumbs({ projectName, filePath }) {
   return (
     <nav className="file-preview-breadcrumbs" data-testid="file-preview-breadcrumbs" aria-label="File path">
       {crumbs.map((crumb, index) => (
-        <span key={crumb.path || `crumb-${index}`} className={`file-preview-crumb ${crumb.kind}`}>
+        <span
+          key={crumb.path || `crumb-${index}`}
+          className={`file-preview-crumb ${crumb.kind}`}
+          data-current-file-crumb={crumb.kind === "file" ? "true" : "false"}
+        >
           {index > 0 ? <span className="file-preview-crumb-sep" aria-hidden="true">/</span> : null}
           <span className="file-preview-crumb-label">{crumb.label}</span>
         </span>
@@ -79,15 +83,27 @@ function FilePreviewCode({ content, revealLine, revealRequestId }) {
   );
 }
 
-export default function FilePreviewSurface({ surface, filePreview, projectName, onReload }) {
+export default function FilePreviewSurface({
+  surface,
+  filePreview,
+  projectName,
+  onReload,
+  onOpenFilesSurface,
+}) {
   const filePath = normalizeFilePath(surface?.filePath || surface?.resourceId);
   const status = statusForPreview(filePreview);
   const title = filePreview?.title || surface?.title || fileNameForPath(filePath);
   const markdown = isMarkdownPreviewFile(filePath);
+  const breadcrumbRef = useRef(null);
 
   const [mode, setMode] = useState(() => defaultFilePreviewMode(filePath));
   useEffect(() => {
     setMode(defaultFilePreviewMode(filePath));
+  }, [filePath]);
+
+  useEffect(() => {
+    const currentCrumb = breadcrumbRef.current?.querySelector("[data-current-file-crumb='true']");
+    currentCrumb?.scrollIntoView({ block: "nearest", inline: "end" });
   }, [filePath]);
 
   const content = filePreview?.content || "";
@@ -95,37 +111,55 @@ export default function FilePreviewSurface({ surface, filePreview, projectName, 
   const showPreview = markdown && mode === FILE_PREVIEW_MODES.PREVIEW;
   const revealLine = fileRevealLine(content, surface?.revealLine);
   const revealRequestId = surface?.revealRequestId || 0;
+  const handleCopyPath = () => {
+    if (!filePath || !navigator?.clipboard?.writeText) return;
+    void navigator.clipboard.writeText(filePath).catch(() => {});
+  };
 
   return (
     <div className="right-panel-file-surface" data-testid="right-panel-file-surface" data-file-path={filePath}>
-      <div className="right-panel-file-header">
-        <FilePreviewBreadcrumbs projectName={projectName} filePath={filePath} />
-        <div className="file-preview-header-row">
-          <strong className="file-preview-title">{title}</strong>
-          <span className="file-preview-meta">
-            {meta.language} · {meta.lineCount} {meta.lineCount === 1 ? "line" : "lines"}
-          </span>
+      <div className="surface-subheader file-preview-subheader" data-surface-subheader>
+        <div ref={breadcrumbRef} className="file-preview-breadcrumb-scroll" data-file-breadcrumbs>
+          <FilePreviewBreadcrumbs projectName={projectName} filePath={filePath} />
         </div>
+        <span className="file-preview-meta" title={`${meta.language}, ${meta.lineCount} lines`}>
+          {meta.language} · {meta.lineCount}
+        </span>
+        <button
+          type="button"
+          className="file-preview-action-icon"
+          data-testid="file-preview-open-action"
+          title={`Copy ${title} path`}
+          aria-label={`Copy ${title} path`}
+          onClick={handleCopyPath}
+        >
+          O
+        </button>
         {markdown ? (
-          <div className="file-preview-mode-toggle" data-testid="file-preview-mode-toggle" role="group" aria-label="Preview mode">
-            <button
-              type="button"
-              className={mode === FILE_PREVIEW_MODES.PREVIEW ? "active" : ""}
-              aria-pressed={mode === FILE_PREVIEW_MODES.PREVIEW}
-              onClick={() => setMode(FILE_PREVIEW_MODES.PREVIEW)}
-            >
-              Preview
-            </button>
-            <button
-              type="button"
-              className={mode === FILE_PREVIEW_MODES.CODE ? "active" : ""}
-              aria-pressed={mode === FILE_PREVIEW_MODES.CODE}
-              onClick={() => setMode(FILE_PREVIEW_MODES.CODE)}
-            >
-              Code
-            </button>
-          </div>
+          <button
+            type="button"
+            className={`file-preview-action-icon file-preview-mode-toggle${showPreview ? " active" : ""}`}
+            data-testid="file-preview-mode-toggle"
+            aria-pressed={showPreview}
+            title={showPreview ? "Show markdown source" : "Show rendered markdown"}
+            aria-label={showPreview ? "Show markdown source" : "Show rendered markdown"}
+            onClick={() =>
+              setMode(showPreview ? FILE_PREVIEW_MODES.CODE : FILE_PREVIEW_MODES.PREVIEW)
+            }
+          >
+            {showPreview ? "C" : "P"}
+          </button>
         ) : null}
+        <button
+          type="button"
+          className="file-preview-action-icon"
+          data-testid="file-preview-explorer-toggle"
+          title="Show file explorer"
+          aria-label="Show file explorer"
+          onClick={() => onOpenFilesSurface && onOpenFilesSurface()}
+        >
+          F
+        </button>
       </div>
       {status === "loading" ? (
         <div className="right-panel-file-loading">Loading file...</div>
