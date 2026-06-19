@@ -1065,6 +1065,13 @@ async function main() {
   );
   assert.equal(diffPanelSource.includes('data-testid="diff-file-rail"'), true);
   assert.equal(diffPanelSource.includes("diff-panel-viewport"), true);
+  assert.equal(diffPanelSource.includes("surface-subheader"), true);
+  assert.equal(diffPanelSource.includes('data-testid="diff-mode-toggle--stacked"'), true);
+  assert.equal(diffPanelSource.includes('data-testid="diff-mode-toggle--split"'), true);
+  assert.equal(diffPanelSource.includes('data-testid="diff-wrap-toggle"'), true);
+  assert.equal(diffPanelSource.includes('data-testid="diff-whitespace-toggle"'), true);
+  assert.equal(diffPanelSource.includes("collapsedDiffFilePaths"), true);
+  assert.equal(diffPanelSource.includes("diff-selection-chip-strip"), true);
 
   const sourceControlPanelSource = fs.readFileSync(
     webappSourcePath("components", "source-control", "SourceControlPanel.jsx"),
@@ -1149,6 +1156,12 @@ async function main() {
   assert.equal(filePreviewSurfaceSource.includes('data-testid="file-preview-gutter"'), true);
   assert.equal(filePreviewSurfaceSource.includes('data-testid="file-preview-mode-toggle"'), true);
   assert.equal(filePreviewSurfaceSource.includes('data-testid="file-preview-markdown"'), true);
+  assert.equal(filePreviewSurfaceSource.includes("surface-subheader"), true);
+  assert.equal(filePreviewSurfaceSource.includes('data-testid="file-preview-open-action"'), true);
+  assert.equal(filePreviewSurfaceSource.includes('data-testid="file-preview-explorer-toggle"'), true);
+  assert.equal(filePreviewSurfaceSource.includes("file-preview-action-icon"), true);
+  assert.equal(filePreviewSurfaceSource.includes("breadcrumbRef"), true);
+  assert.equal(filePreviewSurfaceSource.includes("onOpenFilesSurface"), true);
 
   const repoRoot = path.resolve(WEBAPP_ROOT, "..", "..", "..", "..", "..");
   const visualDebugSource = fs.readFileSync(

@@ -70,10 +70,14 @@ export async function runVisualDebugRunnerTests() {
   assert.equal(runnerSource.includes("right-panel-surface-tab--file"), true);
   assert.equal(runnerSource.includes("file-preview-breadcrumbs"), true);
   assert.equal(runnerSource.includes("file-preview-mode-toggle"), true);
+  assert.equal(runnerSource.includes("filePreviewChromeState"), true);
+  assert.equal(runnerSource.includes("file-preview-open-action"), true);
   assert.equal(runnerSource.includes("file-preview-gutter"), true);
   assert.equal(runnerSource.includes("file-preview-markdown"), true);
   assert.equal(runnerSource.includes("loadFilePreviewRevealFixture"), true);
   assert.equal(runnerSource.includes("data-file-link-reveal"), true);
+  assert.equal(runnerSource.includes("diffChromeState"), true);
+  assert.equal(runnerSource.includes("diff-mode-toggle--split"), true);
   assert.equal(runnerSource.includes("runTerminalScenario"), true);
   assert.equal(runnerSource.includes("right-panel-terminal-surface"), true);
   assert.equal(runnerSource.includes("right-panel-tab--diff"), false);
