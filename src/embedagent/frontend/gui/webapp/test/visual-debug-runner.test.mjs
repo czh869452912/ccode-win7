@@ -65,6 +65,8 @@ export async function runVisualDebugRunnerTests() {
   assert.equal(runnerSource.includes('"npm.cmd"'), false);
   assert.equal(runnerSource.includes("visual_debug=1"), true);
   assert.equal(runnerSource.includes("__EMBEDAGENT_VISUAL_DEBUG__"), true);
+  assert.equal(runnerSource.includes("resetScenarioViewport"), true);
+  assert.equal(runnerSource.includes("await resetScenarioViewport(page);"), true);
   assert.equal(runnerSource.includes(".right-panel-surface-tab"), true);
   assert.equal(runnerSource.includes("right-panel-surface-tab--diff"), true);
   assert.equal(runnerSource.includes("runFileScenario"), true);

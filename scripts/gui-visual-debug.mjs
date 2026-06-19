@@ -12,6 +12,7 @@ export const SCENARIOS = ["load", "chat", "composer", "palette", "preview", "dif
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_REPO_ROOT = path.resolve(SCRIPT_DIR, "..");
+const DEFAULT_SCENARIO_VIEWPORT = Object.freeze({ width: 1280, height: 720 });
 const VISUAL_DEBUG_DIFF_FIXTURE = [
   "--- a/demo.c",
   "+++ b/demo.c",
@@ -1271,11 +1272,15 @@ async function runResponsiveScenario(page, options, outputDir) {
   return { viewports: results };
 }
 
+async function resetScenarioViewport(page) {
+  await page.setViewportSize(DEFAULT_SCENARIO_VIEWPORT);
+}
+
 async function runScenarios(options, repoRoot, outputDir) {
   const requireFromWebapp = createRequire(pathToFileURL(resolveWebappPackageJson(repoRoot)));
   const { chromium } = requireFromWebapp("playwright");
   const browser = await chromium.launch({ headless: options.headlessBrowser });
-  const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
+  const page = await browser.newPage({ viewport: DEFAULT_SCENARIO_VIEWPORT });
   const consoleMessages = [];
   page.on("console", (message) => {
     consoleMessages.push({
@@ -1290,6 +1295,9 @@ async function runScenarios(options, repoRoot, outputDir) {
     await page.goto(url, { waitUntil: "domcontentloaded" });
     const scenarios = parseScenarioList(options.scenario);
     for (const scenario of scenarios) {
+      if (scenario !== "responsive") {
+        await resetScenarioViewport(page);
+      }
       if (scenario !== "app") {
         await page.reload({ waitUntil: "domcontentloaded" });
       }
