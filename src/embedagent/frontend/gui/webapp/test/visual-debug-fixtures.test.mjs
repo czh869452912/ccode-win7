@@ -16,6 +16,15 @@ export function runVisualDebugFixturesTests() {
   assert.equal(timelineAction.sessionId, "visual-debug-timeline");
   assert.equal(timelineAction.snapshot.current_mode, "build");
   assert.equal(timelineAction.thinkingActive, true);
+  assert.equal(timelineAction.previews["src/parser.c"].content.includes("line 4 reveal target"), true);
+  assert.equal(
+    timelineAction.timeline.some((item) => item.data?.matches?.some((match) => match.path === "src/parser.c" && match.line === 4)),
+    true,
+  );
+  assert.equal(
+    timelineAction.timeline.some((item) => String(item.content || "").includes("[src/parser.c:4](src/parser.c#L4)")),
+    true,
+  );
   assert.equal(timelineAction.timeline.some((item) => item.kind === "reasoning"), true);
   assert.equal(timelineAction.timeline.some((item) => item.kind === "compact"), true);
   assert.equal(

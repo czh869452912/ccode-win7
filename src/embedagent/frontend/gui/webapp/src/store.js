@@ -589,7 +589,18 @@ export function reducer(state, action) {
     }
     case "append_timeline_item":
       return { ...state, timeline: state.timeline.concat(action.item) };
-    case "visual_timeline_fixture_loaded":
+    case "visual_timeline_fixture_loaded": {
+      const previewEntries = Object.entries(action.previews || {}).reduce((acc, [path, preview]) => {
+        acc[path] = {
+          status: "loaded",
+          path,
+          title: preview.title || path,
+          content: preview.content || "",
+          kind: preview.kind || "file",
+          error: "",
+        };
+        return acc;
+      }, {});
       return {
         ...state,
         currentSessionId: action.sessionId || "visual-debug-session",
@@ -602,6 +613,10 @@ export function reducer(state, action) {
         timeline: Array.isArray(action.timeline) ? action.timeline : [],
         streamingAssistantId: action.streamingAssistantId || "",
         streamingReasoningId: action.streamingReasoningId || "",
+        filePreviewsByPath: {
+          ...state.filePreviewsByPath,
+          ...previewEntries,
+        },
         thinkingActive: Boolean(action.thinkingActive),
         permission: null,
         userInput: null,
@@ -633,6 +648,7 @@ export function reducer(state, action) {
           kind: action.inspectorTab || state.inspectorTab,
         }),
       };
+    }
     case "visual_interaction_fixture_loaded": {
       const pendingInteraction = action.permission || action.userInput || null;
       return {

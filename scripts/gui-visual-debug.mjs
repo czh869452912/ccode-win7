@@ -306,6 +306,22 @@ function createWorkspace(targetRoot) {
   if (!fs.existsSync(readme)) {
     fs.writeFileSync(readme, "# Visual Debug Workspace\n\nFixture file for GUI visual debugging.\n", "utf8");
   }
+  const srcDir = path.join(targetRoot, "src");
+  ensureDir(srcDir);
+  const parser = path.join(srcDir, "parser.c");
+  if (!fs.existsSync(parser)) {
+    fs.writeFileSync(
+      parser,
+      [
+        "int parse_value(void) {",
+        "  return 0;",
+        "}",
+        "line 4 reveal target",
+        "void recover(void) {}",
+      ].join("\n"),
+      "utf8",
+    );
+  }
   return targetRoot;
 }
 
@@ -828,12 +844,34 @@ async function runTimelineScenario(page) {
   await page.waitForSelector('[data-testid="timeline-review-result-row"]', { timeout: 10000 });
   await page.waitForSelector('[data-testid="timeline-thinking-row"]', { timeout: 10000 });
   await page.waitForSelector('[data-testid="timeline-work-row"]', { timeout: 10000 });
-  const firstCollapsed = page.locator('[data-testid="timeline-work-row"] button[aria-expanded="false"]').first();
-  if (await firstCollapsed.count()) {
-    await firstCollapsed.click();
+  for (let index = 0; index < 20; index += 1) {
+    const collapsedWorkRow = page.locator('[data-testid="timeline-work-row"] button[aria-expanded="false"]').first();
+    if (!(await collapsedWorkRow.count())) break;
+    await collapsedWorkRow.click();
   }
   await page.waitForSelector('[data-testid="timeline-work-detail"]', { timeout: 10000 });
   await page.waitForSelector('[data-testid="timeline-tool-detail"]', { timeout: 10000 });
+  const fileLink = page.locator('[data-testid="timeline-tool-file-link--src/parser.c"]').filter({ hasText: "src/parser.c:4" }).first();
+  if (await fileLink.count()) {
+    await fileLink.click();
+  } else {
+    await page.locator('[data-testid="timeline-file-link--src/parser.c"]').first().click();
+  }
+  await page.waitForSelector('[data-testid="right-panel-file-surface"]', { timeout: 10000 });
+  await page.waitForSelector("[data-file-link-reveal]", { timeout: 10000 });
+  const timelineLinkRevealState = await page.evaluate(() => {
+    const revealed = Array.from(document.querySelectorAll("[data-file-link-reveal]"));
+    const target = document.querySelector('[data-file-line="4"]');
+    const gutter = document.querySelector('[data-file-line-number="4"]');
+    return {
+      count: revealed.length,
+      targetText: target?.textContent || "",
+      gutterText: gutter?.textContent || "",
+    };
+  });
+  if (timelineLinkRevealState.count !== 2 || !timelineLinkRevealState.targetText.includes("line 4 reveal target")) {
+    throw new Error(`Timeline file link did not reveal target line: ${JSON.stringify(timelineLinkRevealState)}`);
+  }
   const rowCount = await page.locator("[data-row-kind]").count();
   const detailText = await page.locator('[data-testid="timeline-work-detail"]').first().innerText();
   const rawJsonVisible = detailText.trim().startsWith("{") || detailText.includes('"path":');
@@ -868,6 +906,7 @@ async function runTimelineScenario(page) {
     hasReview: await page.locator('[data-testid="timeline-review-result-row"]').first().isVisible(),
     hasThinking: await page.locator('[data-testid="timeline-thinking-row"]').first().isVisible(),
     hasExpandedDetail: await page.locator('[data-testid="timeline-work-detail"]').first().isVisible(),
+    timelineLinkRevealState,
     workPresentation,
   };
   await page.evaluate(() => {
