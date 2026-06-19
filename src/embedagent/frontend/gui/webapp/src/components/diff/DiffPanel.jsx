@@ -102,7 +102,7 @@ export default function DiffPanel({ surface, onFocusFile }) {
             title={diffIgnoreWhitespace ? "Show whitespace changes" : "Hide whitespace changes"}
             onClick={() => setDiffIgnoreWhitespace((value) => !value)}
           >
-            ¶
+            WS
           </button>
         </div>
       </header>

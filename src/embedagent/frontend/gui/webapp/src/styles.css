@@ -627,7 +627,7 @@ body {
   gap: 6px;
   padding: 0 10px;
   border-bottom: 1px solid var(--border-subtle);
-  background: color-mix(in srgb, var(--bg-panel) 94%, var(--text-primary));
+  background: var(--bg-panel);
 }
 
 .right-panel-file-header {
