@@ -1037,6 +1037,8 @@ class TestQueryEngineRefactor(unittest.TestCase):
             metadata["turn_snapshot"]["active_tool_names"],
             sorted(snapshot.active_tool_names),
         )
+        self.assertIn("registered_tool_names", metadata["turn_snapshot"])
+        self.assertIn("read_file", metadata["turn_snapshot"]["registered_tool_names"])
         self.assertIn("capability_counts", metadata["turn_snapshot"])
         self.assertEqual(metadata["turn_snapshot"]["resource_revision"]["revision"], 7)
         self.assertEqual(

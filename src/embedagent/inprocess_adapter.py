@@ -30,6 +30,7 @@ from embedagent.modes import (
 )
 from embedagent.permissions import PermissionPolicy, PermissionRequest
 from embedagent.plan_store import PlanStore
+from embedagent.prompts import expand_prompt_invocation, prompt_command_specs
 from embedagent.project_extensions import load_project_extensions
 from embedagent.project_memory import ProjectMemoryStore
 from embedagent.protocol import CommandResult, PermissionContextView, PlanSnapshot
@@ -352,8 +353,33 @@ class InProcessAdapter(object):
         registry.register(model_profile_capability_descriptor(self.client))
         return registry.snapshot().to_dict()
 
+    def _registered_tool_names_from_snapshot(self, snapshot: Dict[str, Any]) -> List[str]:
+        names = []
+        for item in list(snapshot.get("descriptors") or []):
+            if not isinstance(item, dict):
+                continue
+            if str(item.get("kind") or "") != "tool":
+                continue
+            names.append(str(item.get("name") or ""))
+        return _stable_names(names)
+
+    def _active_tool_names_for_state(self, state: ManagedSession) -> List[str]:
+        names = self.extension_manager.allowed_tool_names(
+            state.current_mode,
+            workflow_state=state.workflow_state,
+            fallback=set(allowed_tools_for(state.current_mode)),
+        )
+        return _stable_names(list(names))
+
+    def _resource_command_specs(self) -> List[SlashCommandSpec]:
+        resources = self.tools.local_resources()
+        specs = []  # type: List[SlashCommandSpec]
+        specs.extend(build_skill_index(resources).command_specs())
+        specs.extend(prompt_command_specs(resources))
+        return specs
+
     def _skill_command_specs(self) -> List[SlashCommandSpec]:
-        return build_skill_index(self.tools.local_resources()).command_specs()
+        return self._resource_command_specs()
 
     def _runtime_config_payload(
         self,
@@ -372,6 +398,7 @@ class InProcessAdapter(object):
                 "metadata": dict(model_descriptor.metadata or {}),
             },
             "active_tool_names": _stable_names(active_tool_names),
+            "registered_tool_names": self._registered_tool_names_from_snapshot(capability_snapshot),
             "capability_counts": dict(capability_snapshot.get("counts") or {}),
         }
         if isinstance(resource_payload, dict) and "revision" in resource_payload:
@@ -390,7 +417,7 @@ class InProcessAdapter(object):
             "runtime_configured",
             self._runtime_config_payload(
                 reason,
-                active_tool_names=active_tool_names,
+                active_tool_names=active_tool_names or self._active_tool_names_for_state(state),
                 resource_payload=resource_payload,
             ),
         )
@@ -1193,6 +1220,8 @@ class InProcessAdapter(object):
             return {"handled": False, "continue_with_text": text}
         if parsed.name.startswith("skill:"):
             return self._dispatch_skill_command(state, parsed, event_handler)
+        if parsed.name.startswith("prompt:"):
+            return self._dispatch_prompt_command(state, parsed, event_handler)
         spec = self.command_registry.get(parsed.name)
         if spec is None:
             self._emit_command_result(
@@ -1236,6 +1265,30 @@ class InProcessAdapter(object):
     ) -> Dict[str, Any]:
         resources = self.tools.local_resources()
         expanded_text, error = expand_skill_invocation(
+            "/%s %s" % (parsed.name, parsed.raw_args), resources, self.tools.workspace
+        )
+        if error:
+            self._emit_command_result(
+                event_handler,
+                state,
+                CommandResult(
+                    command_name=parsed.name,
+                    success=False,
+                    message=error,
+                    data={"raw_args": parsed.raw_args},
+                ),
+            )
+            return {"handled": True, "continue_with_text": ""}
+        return {"handled": True, "continue_with_text": expanded_text}
+
+    def _dispatch_prompt_command(
+        self,
+        state: ManagedSession,
+        parsed: ParsedSlashCommand,
+        event_handler: Optional[EventHandler],
+    ) -> Dict[str, Any]:
+        resources = self.tools.local_resources()
+        expanded_text, error = expand_prompt_invocation(
             "/%s %s" % (parsed.name, parsed.raw_args), resources, self.tools.workspace
         )
         if error:

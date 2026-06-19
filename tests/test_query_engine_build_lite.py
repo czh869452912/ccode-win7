@@ -96,7 +96,7 @@ class QueryEngineBuildLiteTests(unittest.TestCase):
             message.content for message in result.session.messages if message.role == "system"
         ]
         self.assertTrue(any("Mode: build" in content for content in system_messages))
-        self.assertTrue(any("Core pack:" in content for content in system_messages))
+        self.assertFalse(any("Core pack:" in content for content in system_messages))
 
     def test_build_mode_schemas_use_v2_pack(self):
         engine = self._build_engine()

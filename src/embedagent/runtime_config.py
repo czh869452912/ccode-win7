@@ -77,6 +77,7 @@ class ProviderRequestSnapshotRecord(object):
     mode_name: str = ""
     workflow_state: str = ""
     active_tool_names: List[str] = field(default_factory=list)
+    registered_tool_names: List[str] = field(default_factory=list)
     model_profile: Dict[str, Any] = field(default_factory=dict)
     capability_counts: Dict[str, Any] = field(default_factory=dict)
     resource_revision: Dict[str, Any] = field(default_factory=dict)
@@ -92,6 +93,7 @@ class ProviderRequestSnapshotRecord(object):
             "mode_name": self.mode_name,
             "workflow_state": self.workflow_state,
             "active_tool_names": list(self.active_tool_names),
+            "registered_tool_names": list(self.registered_tool_names),
             "model_profile": _copy_dict(self.model_profile),
             "capability_counts": _copy_dict(self.capability_counts),
             "resource_revision": _copy_dict(self.resource_revision),
@@ -106,6 +108,7 @@ class ProviderRequestSnapshotRecord(object):
 class RuntimeConfigState(object):
     model_profile: Dict[str, Any] = field(default_factory=dict)
     active_tool_names: List[str] = field(default_factory=list)
+    registered_tool_names: List[str] = field(default_factory=list)
     capability_counts: Dict[str, Any] = field(default_factory=dict)
     resource_revision: ResourceRevision = field(default_factory=ResourceRevision)
     provider_requests: List[ProviderRequestSnapshotRecord] = field(default_factory=list)
@@ -118,6 +121,7 @@ class RuntimeConfigState(object):
         return {
             "model_profile": _copy_dict(self.model_profile),
             "active_tool_names": list(self.active_tool_names),
+            "registered_tool_names": list(self.registered_tool_names),
             "capability_counts": _copy_dict(self.capability_counts),
             "resource_revision": self.resource_revision.to_dict(),
             "provider_requests": [item.to_dict() for item in list(self.provider_requests or [])],
@@ -154,6 +158,8 @@ class RuntimeConfigReducer(object):
             state.model_profile = model_profile
         if "active_tool_names" in payload:
             state.active_tool_names = _stable_names(payload.get("active_tool_names"))
+        if "registered_tool_names" in payload:
+            state.registered_tool_names = _stable_names(payload.get("registered_tool_names"))
         if isinstance(payload.get("capability_counts"), dict):
             state.capability_counts = _copy_dict(payload.get("capability_counts"))
         resource_revision = payload.get("resource_revision")
@@ -187,9 +193,12 @@ class RuntimeConfigReducer(object):
         if not isinstance(snapshot, dict):
             return
         active_tool_names = _stable_names(snapshot.get("active_tool_names"))
+        registered_tool_names = _stable_names(snapshot.get("registered_tool_names"))
         model_profile = _safe_model_profile(snapshot.get("model_profile"))
         capability_counts = _copy_dict(snapshot.get("capability_counts"))
         state.active_tool_names = active_tool_names
+        if registered_tool_names:
+            state.registered_tool_names = registered_tool_names
         if model_profile:
             state.model_profile = model_profile
         if capability_counts:
@@ -201,6 +210,7 @@ class RuntimeConfigReducer(object):
                 mode_name=_clean_text(snapshot.get("mode_name")),
                 workflow_state=_clean_text(snapshot.get("workflow_state")),
                 active_tool_names=active_tool_names,
+                registered_tool_names=registered_tool_names,
                 model_profile=model_profile,
                 capability_counts=capability_counts,
                 resource_revision=_copy_dict(snapshot.get("resource_revision")),

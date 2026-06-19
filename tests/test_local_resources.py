@@ -204,6 +204,29 @@ class TestLocalResources(unittest.TestCase):
         self.assertIn("focus on ownership", expanded)
         self.assertNotIn("description: Review local C changes.", expanded)
 
+    def test_expand_prompt_invocation_includes_body_and_arguments(self):
+        from embedagent.local_resources import discover_local_resources
+        from embedagent.prompts import expand_prompt_invocation
+
+        _write_text(
+            os.path.join(self.workspace, ".embedagent", "prompts", "triage.md"),
+            "# Triage Prompt\n\nCollect logs and summarize the failure.\n",
+        )
+
+        resources = discover_local_resources(self.workspace)
+        expanded, error = expand_prompt_invocation(
+            "/prompt:triage focus on startup", resources, self.workspace
+        )
+
+        self.assertEqual(error, "")
+        self.assertIn(
+            '<prompt name="triage" location=".embedagent/prompts/triage.md">',
+            expanded,
+        )
+        self.assertIn("# Triage Prompt", expanded)
+        self.assertIn("Collect logs and summarize the failure.", expanded)
+        self.assertIn("focus on startup", expanded)
+
     def test_slash_skill_command_continues_as_user_turn(self):
         _write_text(
             os.path.join(self.workspace, ".embedagent", "skills", "review", "SKILL.md"),
@@ -248,7 +271,64 @@ class TestLocalResources(unittest.TestCase):
         self.assertIn("code-review", user_messages[0]["content"])
         self.assertIn("focus on ownership", user_messages[0]["content"])
 
-    def test_query_engine_system_prompt_lists_visible_skills(self):
+    def test_slash_prompt_command_continues_as_user_turn(self):
+        _write_text(
+            os.path.join(self.workspace, ".embedagent", "prompts", "triage.md"),
+            "# Triage Prompt\n\nCollect logs and summarize the failure.\n",
+        )
+        client = CapturingClient()
+        adapter = InProcessAdapter(
+            client=client,
+            tools=ToolRuntime(self.workspace),
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+        )
+        snapshot = adapter.create_session("build")
+        session_id = str(snapshot.get("session_id") or "")
+        events = []
+
+        adapter.submit_user_message(
+            session_id=session_id,
+            text="/prompt:triage focus on startup",
+            stream=False,
+            wait=True,
+            event_handler=lambda event_name, current_session_id, payload: events.append(
+                (event_name, payload)
+            ),
+        )
+
+        self.assertTrue(client.messages)
+        user_messages = [
+            item
+            for item in client.messages[0]
+            if item.get("role") == "user" and "<prompt name=" in str(item.get("content") or "")
+        ]
+        command_results = [
+            payload for event_name, payload in events if event_name == "command_result"
+        ]
+        self.assertEqual(command_results, [])
+        self.assertEqual(len(user_messages), 1)
+        self.assertIn("triage", user_messages[0]["content"])
+        self.assertIn("focus on startup", user_messages[0]["content"])
+
+    def test_prompt_resources_are_not_inlined_into_system_prompt(self):
+        _write_text(
+            os.path.join(self.workspace, ".embedagent", "prompts", "triage.md"),
+            "# Triage Prompt\n\nCollect logs and summarize the failure.\n",
+        )
+        runtime = ToolRuntime(self.workspace)
+        runtime.reload_resources(reason="test")
+        engine = QueryEngine(FakeClient(), runtime)
+        session = engine.submit_user_turn(
+            "inspect the change", stream=False, initial_mode="build"
+        ).session
+        system_text = "\n\n".join(
+            message.content for message in session.messages if message.role == "system"
+        )
+
+        self.assertNotIn("# Triage Prompt", system_text)
+        self.assertNotIn("Collect logs and summarize the failure.", system_text)
+
+    def test_query_engine_system_prompt_does_not_inline_visible_skills(self):
         _write_text(
             os.path.join(self.workspace, ".embedagent", "skills", "review", "SKILL.md"),
             "---\n"
@@ -257,16 +337,9 @@ class TestLocalResources(unittest.TestCase):
             "---\n"
             "# Code Review\n",
         )
-        _write_text(
-            os.path.join(self.workspace, ".embedagent", "skills", "private", "SKILL.md"),
-            "---\n"
-            "name: private-audit\n"
-            "description: Internal checklist.\n"
-            "disable-model-invocation: true\n"
-            "---\n"
-            "# Private Audit\n",
-        )
-        engine = QueryEngine(FakeClient(), ToolRuntime(self.workspace))
+        runtime = ToolRuntime(self.workspace)
+        runtime.reload_resources(reason="test")
+        engine = QueryEngine(FakeClient(), runtime)
         session = engine.submit_user_turn(
             "inspect the change", stream=False, initial_mode="build"
         ).session
@@ -274,11 +347,8 @@ class TestLocalResources(unittest.TestCase):
             message.content for message in session.messages if message.role == "system"
         )
 
-        self.assertIn("<available_skills>", system_text)
-        self.assertIn("<name>code-review</name>", system_text)
-        self.assertIn("<description>Review local C changes.</description>", system_text)
-        self.assertIn("<location>.embedagent/skills/review/SKILL.md</location>", system_text)
-        self.assertNotIn("private-audit", system_text)
+        self.assertNotIn("<available_skills>", system_text)
+        self.assertNotIn("<name>code-review</name>", system_text)
 
     def test_skill_discovery_honors_ignore_files(self):
         from embedagent.local_resources import discover_local_resources
@@ -468,6 +538,22 @@ class TestLocalResources(unittest.TestCase):
         self.assertEqual(resource_revision["reason"], "test")
         self.assertEqual(resource_revision["counts"]["recipes"], 1)
 
+    def test_session_runtime_config_records_registered_and_active_tool_names(self):
+        adapter = InProcessAdapter(
+            client=FakeClient(),
+            tools=ToolRuntime(self.workspace),
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+        )
+        snapshot = adapter.create_session("build")
+        runtime_config = snapshot.get("runtime_config") or {}
+        registered_tool_names = runtime_config.get("registered_tool_names") or []
+        active_tool_names = runtime_config.get("active_tool_names") or []
+
+        self.assertIn("read_file", registered_tool_names)
+        self.assertIn("run_recipe", registered_tool_names)
+        self.assertIn("read_file", active_tool_names)
+        self.assertIn("run_recipe", active_tool_names)
+
     def test_resumed_session_projects_runtime_config_from_transcript(self):
         adapter = InProcessAdapter(
             client=FakeClient(),
@@ -526,6 +612,44 @@ class TestLocalResources(unittest.TestCase):
         self.assertEqual(command_results[0]["command_name"], "resources")
         self.assertTrue(command_results[0]["success"])
         self.assertEqual(command_results[0]["data"]["counts"]["skills"], 1)
+
+    def test_session_start_skill_prompt_is_single_prompt_surface(self):
+        _write_text(
+            os.path.join(self.workspace, ".embedagent", "skills", "review", "SKILL.md"),
+            "---\n"
+            "name: code-review\n"
+            "description: Review local C changes.\n"
+            "---\n"
+            "# Code Review\n",
+        )
+        adapter = InProcessAdapter(
+            client=FakeClient(),
+            tools=ToolRuntime(self.workspace),
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+        )
+
+        snapshot = adapter.create_session("build")
+        state = adapter._require_session(str(snapshot.get("session_id") or ""))
+        skill_prompts = [
+            message
+            for message in state.session.messages
+            if message.role == "system" and message.kind == "local_skills_prompt"
+        ]
+        system_prompt_text = "\n\n".join(
+            message.content
+            for message in state.session.messages
+            if message.role == "system" and message.kind != "local_skills_prompt"
+        )
+
+        self.assertEqual(len(skill_prompts), 1)
+        self.assertIn("<name>code-review</name>", skill_prompts[0].content)
+        self.assertNotIn("<name>code-review</name>", system_prompt_text)
+        self.assertEqual(
+            "\n\n".join(message.content for message in state.session.messages).count(
+                "<name>code-review</name>"
+            ),
+            1,
+        )
 
     def test_reload_resources_refreshes_current_session_skill_prompt(self):
         adapter = InProcessAdapter(
@@ -640,6 +764,52 @@ class TestLocalResources(unittest.TestCase):
         self.assertNotIn("private-audit", command_results[0]["message"])
         self.assertIn("skill:code-review", command_names)
         self.assertNotIn("skill:private-audit", command_names)
+
+    def test_help_and_capability_snapshot_include_visible_resource_commands(self):
+        _write_text(
+            os.path.join(self.workspace, ".embedagent", "skills", "review", "SKILL.md"),
+            "---\n"
+            "name: code-review\n"
+            "description: Review local C changes.\n"
+            "---\n"
+            "# Code Review\n",
+        )
+        _write_text(
+            os.path.join(self.workspace, ".embedagent", "prompts", "triage.md"),
+            "# Triage Prompt\n\nCollect logs and summarize the failure.\n",
+        )
+        adapter = InProcessAdapter(
+            client=FakeClient(),
+            tools=ToolRuntime(self.workspace),
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+        )
+        adapter.reload_resources(reason="test")
+        snapshot = adapter.create_session("build")
+        session_id = str(snapshot.get("session_id") or "")
+        events = []
+
+        adapter.submit_user_message(
+            session_id=session_id,
+            text="/help",
+            stream=False,
+            wait=True,
+            event_handler=lambda event_name, current_session_id, payload: events.append(
+                (event_name, payload)
+            ),
+        )
+        command_results = [
+            payload for event_name, payload in events if event_name == "command_result"
+        ]
+        capabilities = adapter.capability_snapshot()
+        command_names = [
+            item["name"] for item in capabilities["descriptors"] if item["kind"] == "command"
+        ]
+
+        self.assertEqual(len(command_results), 1)
+        self.assertIn("/skill:code-review [args]", command_results[0]["message"])
+        self.assertIn("/prompt:triage [args]", command_results[0]["message"])
+        self.assertIn("skill:code-review", command_names)
+        self.assertIn("prompt:triage", command_names)
 
     def test_adapter_capability_snapshot_combines_tools_resources_commands_and_model(self):
         _write_text(

@@ -710,6 +710,18 @@ class QueryEngine(object):
             prompt_unit["resource_revision"] = resource_revision
         return [prompt_unit]
 
+    def _registered_tool_names_from_capabilities(self, capabilities: Dict[str, Any]) -> list:
+        names = []
+        for item in list(capabilities.get("descriptors") or []):
+            if not isinstance(item, dict):
+                continue
+            if str(item.get("kind") or "") != "tool":
+                continue
+            name = str(item.get("name") or "").strip()
+            if name:
+                names.append(name)
+        return sorted(set(names))
+
     def _runtime_environment_snapshot(self) -> Dict[str, Any]:
         runtime_snapshot = getattr(self.tools, "runtime_environment_snapshot", None)
         if not callable(runtime_snapshot):
@@ -728,6 +740,7 @@ class QueryEngine(object):
             "mode_name": snapshot.mode_name,
             "workflow_state": snapshot.workflow_state,
             "active_tool_names": list(snapshot.active_tool_names),
+            "registered_tool_names": self._registered_tool_names_from_capabilities(capabilities),
             "model_profile": dict(snapshot.model_profile or {}),
             "resource_revision": dict(snapshot.resource_revision or {}),
             "prompt_units": [dict(item) for item in list(snapshot.prompt_units or [])],

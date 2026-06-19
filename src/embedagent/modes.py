@@ -9,7 +9,6 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
 from embedagent.di_container import get_default_container
-from embedagent.skill_index import build_skill_index
 
 _LOG = logging.getLogger(__name__)
 
@@ -27,10 +26,9 @@ _DEFAULT_PROMPT_FRAME = (
     "工程结构是可探测的软约定，不是你必须强推的模板。\n\n"
     "当前模式：{mode_name}\n"
     "模式说明：{mode_description}\n"
-    "模式切换规则：你不能主动切换模式。若需要切换，用 ask_user 向用户提供选项（含 option_N_mode 字段），由用户确认后切换；或建议用户使用 /mode 命令。\n"
+    "模式切换规则：你不能主动切换模式。若需要切换，向用户提供明确选项并等待确认；或建议用户使用 /mode 命令。\n"
     "用户确认规则：{ask_rule}\n"
-    "允许工具：{allowed_tools}\n"
-    "可写范围：{writable_globs}"
+    "写入边界：{writable_globs}"
 )
 
 # ---------------------------------------------------------------------------
@@ -46,7 +44,7 @@ _BUILTIN_MODES = {
         "system_prompt": (
             "你当前处于 explore 模式（默认模式）。"
             "负责阅读代码、解释逻辑、讨论设计方案，以及帮助用户理清思路。"
-            "当用户需要修改文件时，用 ask_user 询问应切换到哪个模式，"
+            "当用户需要修改文件时，询问应切换到哪个模式，"
             "提供 2-4 个选项（如 spec / build / debug），等待用户用 /mode 切换。"
             "不要擅自写文件。"
         ),
@@ -66,7 +64,7 @@ _BUILTIN_MODES = {
         "system_prompt": (
             "你当前处于 spec 模式，负责整理需求、边界条件、验收标准和文档。"
             "先用 list_dir / glob_files 探测现有文档目录；若工作区为空或无文档目录，可在 docs/ 下创建。"
-            "不要擅自切到实现模式；若需要实现，用 ask_user 告知用户。"
+            "不要擅自切到实现模式；若需要实现，告知用户需要切换模式。"
         ),
         "allowed_tools": [
             "read_file",
@@ -83,7 +81,7 @@ _BUILTIN_MODES = {
         "system_prompt": (
             "你当前处于 build 模式，负责完成开发闭环。"
             "当前阶段先以 lite_spec_tdd 方式推进：理解、收敛约束、实现、检查。"
-            "应复用现有工程结构，不要假设固定目录；如遇关键分歧，用 ask_user 请求确认。"
+            "应复用现有工程结构，不要假设固定目录；如遇关键分歧，请求用户确认。"
         ),
         "allowed_tools": [
             "read_file",
@@ -130,7 +128,7 @@ _BUILTIN_MODES = {
         "system_prompt": (
             "你当前处于 debug 模式，负责复现问题、定位根因并做最小修复。"
             "先根据当前工程结构和诊断缩小范围，不要假设固定目录。"
-            "若需要更大范围重构，用 ask_user 告知用户建议切换到 build 模式。"
+            "若需要更大范围重构，告知用户建议切换到 build 模式。"
         ),
         "allowed_tools": [
             "read_file",
@@ -176,7 +174,7 @@ _BUILTIN_MODES = {
         "slug": "verify",
         "system_prompt": (
             "你当前处于 verify 模式，负责执行构建、测试、静态检查并给出质量门结论。"
-            "本模式不改代码；发现问题时只说明证据与建议，用 ask_user 告知用户需要切换到哪个模式修复。"
+            "本模式不改代码；发现问题时只说明证据与建议，并告知用户需要切换到哪个模式修复。"
         ),
         "allowed_tools": [
             "read_file",
@@ -449,14 +447,16 @@ def get_writable_globs(mode_name: str, config=None) -> List[str]:
     return deduped
 
 
-def build_system_prompt(mode_name: str, config=None, workspace: str = "", local_resources=None) -> str:
+def build_system_prompt(
+    mode_name: str, config=None, workspace: str = "", local_resources=None
+) -> str:
     cfg = require_mode(mode_name)
     allowed_tools = list(cfg["allowed_tools"])  # type: ignore[index]
     writable_globs = get_writable_globs(mode_name, config)
     writable_text = ", ".join(writable_globs) if writable_globs else "只读"
     can_ask_user = "ask_user" in allowed_tools
     ask_rule = (
-        "当缺少关键决策时，优先用 ask_user 提供 2 到 4 个明确选项（可含 option_N_mode 触发模式切换）。"
+        "当缺少关键决策时，向用户提供 2 到 4 个明确选项并等待确认。"
         if can_ask_user
         else "当需要用户决策时，用自然语言说明建议并等待用户输入。"
     )
@@ -471,11 +471,7 @@ def build_system_prompt(mode_name: str, config=None, workspace: str = "", local_
     ctx = _load_project_context(workspace)
     if ctx:
         result += "\n\n## Project Context\n" + ctx
-    skills_prompt = ""
-    if isinstance(local_resources, dict):
-        skills_prompt = build_skill_index(local_resources).prompt_text()
-    if skills_prompt:
-        result += "\n\n## Local Skills\n" + skills_prompt
+    del local_resources  # Resource listings are injected by the hosted prompt surface.
     return result
 
 

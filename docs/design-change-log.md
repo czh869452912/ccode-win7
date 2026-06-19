@@ -44,6 +44,39 @@
 
 ## 3. 当前变更记录
 
+### DC-186
+
+- 日期：2026-06-19
+- 变更主题：Pi-style Agent Core prompt/resource/runtime-state alignment
+- 变更摘要：
+  - 系统提示词表面收窄：mode prompt 不再列出 active tool directory，C workflow prompt units 不再暴露 pack tool lists，visible local skills 只通过一个 hosted `local_skills_prompt` listing unit 出现。
+  - `RuntimeConfigReducer` 与 provider turn snapshot metadata 现在区分 `registered_tool_names` 和 `active_tool_names`，用于诊断/重放，不参与 active-tool policy。
+  - `.embedagent/skills` 与 `.embedagent/prompts` 保持 file-only resources；`/skill:<name> [args]` 和 `/prompt:<name-or-path> [args]` 显式展开正文到普通 user turn，resource reload 只做索引/诊断/资源版本推进。
+  - `WorkflowPackageManifest` 增加测试守住 non-executing control-plane 边界：manifest 不包含 entrypoint/enabled/autoload/dependencies/permissions 等执行或授权字段。
+- 影响范围：
+  - `src/embedagent/modes.py`
+  - `src/embedagent/harness/runner.py`
+  - `src/embedagent/inprocess_adapter.py`
+  - `src/embedagent/query_engine.py`
+  - `src/embedagent/runtime_config.py`
+  - `src/embedagent/prompts.py`
+  - `tests/test_modes.py`
+  - `tests/test_workflow_extensions.py`
+  - `tests/test_query_engine_build_lite.py`
+  - `tests/test_runtime_config.py`
+  - `tests/test_local_resources.py`
+  - `tests/test_query_engine_refactor.py`
+  - `tests/test_workflow_package_manifest.py`
+  - `README.md` / `AGENTS.md` / `docs/` source-of-truth files
+- 关联文档：
+  - `docs/pi-inspired-agent-core-blueprint.md`
+  - `docs/tool-contracts.md`
+  - `docs/overall-solution-architecture.md`
+- 是否需要 ADR：否；该变更是既有 Pi-inspired minimal Agent Core blueprint 的收口切片，不引入 public extension API、remote registry、runtime dependency installation、built-in tool replacement 或新的 permission engine。
+- 后续动作：
+  - Continue real Win7 bundle smoke validation and real C/C++ project validation while keeping future intranet/provider/catalog/telemetry work outside Agent Core.
+
+
 ### DC-185
 
 - 日期：2026-06-19

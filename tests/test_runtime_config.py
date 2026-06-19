@@ -27,6 +27,12 @@ def test_runtime_configured_sets_safe_model_profile_and_active_tools():
                     "api_key": "secret-value",
                 },
                 "active_tool_names": ["write_file", "read_file", "read_file"],
+                "registered_tool_names": [
+                    "write_file",
+                    "read_file",
+                    "run_recipe",
+                    "read_file",
+                ],
                 "capability_counts": {"tool": 4, "resource": 1},
             },
         )
@@ -39,6 +45,7 @@ def test_runtime_configured_sets_safe_model_profile_and_active_tools():
     assert payload["model_profile"]["metadata"]["base_url"] == "http://localhost:11434/v1"
     assert "api_key" not in payload["model_profile"]
     assert payload["active_tool_names"] == ["read_file", "write_file"]
+    assert payload["registered_tool_names"] == ["read_file", "run_recipe", "write_file"]
     assert payload["capability_counts"] == {"resource": 1, "tool": 4}
     assert payload["last_reason"] == "session_start"
 
@@ -91,6 +98,7 @@ def test_provider_request_snapshot_records_safe_turn_snapshot_metadata():
                     "mode_name": "build",
                     "workflow_state": "chat",
                     "active_tool_names": ["read_file"],
+                    "registered_tool_names": ["write_file", "read_file", "read_file"],
                     "model_profile": {"name": "local-qwen"},
                     "capability_counts": {"tool": 3},
                     "resource_revision": {"revision": 2, "event_id": "evt-reload"},
@@ -109,8 +117,10 @@ def test_provider_request_snapshot_records_safe_turn_snapshot_metadata():
     assert provider["snapshot_id"] == "ts-123"
     assert provider["mode_name"] == "build"
     assert provider["active_tool_names"] == ["read_file"]
+    assert provider["registered_tool_names"] == ["read_file", "write_file"]
     assert provider["resource_revision"]["revision"] == 2
     assert payload["active_tool_names"] == ["read_file"]
+    assert payload["registered_tool_names"] == ["read_file", "write_file"]
     assert payload["model_profile"]["name"] == "local-qwen"
     assert payload["capability_counts"]["tool"] == 3
     assert "messages" not in provider
@@ -157,5 +167,6 @@ def test_runtime_config_state_is_json_serializable_when_empty():
 
     assert payload["model_profile"] == {}
     assert payload["active_tool_names"] == []
+    assert payload["registered_tool_names"] == []
     assert payload["resource_revision"]["revision"] == 0
     assert payload["provider_requests"] == []

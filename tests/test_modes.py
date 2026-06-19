@@ -167,10 +167,17 @@ class TestBuildSystemPrompt(unittest.TestCase):
         prompt = build_system_prompt("build")
         self.assertIn("build", prompt)
 
-    def test_prompt_excludes_harness_tools_in_explore(self):
+    def test_prompt_excludes_tool_directory_in_explore(self):
         prompt = build_system_prompt("explore")
         self.assertNotIn("task_status", prompt)
-        self.assertIn("ask_user", prompt)
+        self.assertNotIn("ask_user", prompt)
+
+    def test_prompt_does_not_list_active_tool_directory(self):
+        prompt = build_system_prompt("build")
+        self.assertNotIn("允许工具：", prompt)
+        self.assertNotIn("read_file", prompt)
+        self.assertNotIn("write_file", prompt)
+        self.assertNotIn("ask_user", prompt)
 
     def test_prompt_shows_readonly_for_explore(self):
         prompt = build_system_prompt("explore")

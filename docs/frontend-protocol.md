@@ -141,9 +141,9 @@ Permission context and tool catalog payloads may include `network` and `telemetr
 
 Capability projections are also diagnostics/read-model state. `InProcessAdapter.capability_snapshot()` may expose tools, local file resources, slash commands, workflow package manifests, and model profile metadata for future frontend inspection, but frontends must not treat that projection as active-tool policy or permission state.
 
-Visible skills are projected to frontend-adjacent surfaces through the internal `SkillIndex` read model as local `resource` descriptors and `skill:<name>` slash-command descriptors. There is no first-class frontend `skill` capability kind yet; frontends should continue treating skill files as file-only local resources plus optional commands.
+Visible skills and prompt files are projected to frontend-adjacent surfaces as local `resource` descriptors plus explicit slash-command descriptors (`skill:<name>` and `prompt:<name>`). There is no first-class frontend `skill` or `prompt` capability kind yet; frontends should continue treating these files as file-only local resources plus optional commands.
 
-`runtime_config` is reducer-backed diagnostics/read-model state. It may expose credential-free model profile metadata, active model-visible tool names, local resource revision metadata, capability counts, and provider snapshot records. Frontends may display this for restore/debug visibility, but they must not use it as active-tool policy, permission state, resource reload authority, or project extension load state.
+`runtime_config` is reducer-backed diagnostics/read-model state. It may expose credential-free model profile metadata, registered tool names, active model-visible tool names, local resource revision metadata, capability counts, and provider snapshot records. Frontends may display this for restore/debug visibility, but they must not use it as active-tool policy, permission state, resource reload authority, or project extension load state.
 
 `compaction_state` is reducer-backed diagnostics/read-model state. It may expose compact boundary counts, latest boundary metadata, token/message counts, preserved message anchors, trigger/phase/window-generation diagnostics, safe file activity paths, evidence refs, extension-summary flag, and diagnostics. Frontends may display this for restore/debug visibility, but they must not use it as context-selection policy, history truth, extension execution policy, permission state, or a trigger for resource reload.
 
@@ -231,7 +231,7 @@ routes are GUI display routes, not model tool calls, permission approvals,
 transcript appends, workflow actions, remote Git providers, or checkpoint
 mutations.
 
-`/skill:<name> [args]` is handled through the normal message submission path, not a separate HTTP endpoint. On success the backend expands the workspace-bound skill Markdown into the user turn; on failure it emits a normal `command_result` for the skill command. Visible skill commands may appear in `/help` output and command capability snapshots as `skill:<name>`.
+`/skill:<name> [args]` and `/prompt:<name-or-path> [args]` are handled through the normal message submission path, not separate HTTP endpoints. On success the backend expands the workspace-bound Markdown/text resource into the user turn; on failure it emits a normal `command_result` for the resource command. Visible resource commands may appear in `/help` output and command capability snapshots as `skill:<name>` or `prompt:<name>`.
 
 ## 5. WebSocket Event Types
 
@@ -298,7 +298,7 @@ Extension diagnostics are frontend-visible health information. Frontends may dis
 
 Project extension loader failures are mirrored into `extension_diagnostics`. Frontends may display the health information and project extension source metadata, but permission prompts and execution policy remain backend-owned.
 
-Provider turn snapshot metadata may appear in operation diagnostics as `snapshot_id`, mode/workflow state, active tool names, credential-free model profile metadata, resource revision metadata, safe prompt units such as `local_skill_listing`, and capability counts. Frontends may display this for debugging, but full prompts, skill bodies, file contents, raw tool outputs, and API keys are not part of the frontend protocol.
+Provider turn snapshot metadata may appear in operation diagnostics as `snapshot_id`, mode/workflow state, registered tool names, active tool names, credential-free model profile metadata, resource revision metadata, safe prompt units such as `local_skill_listing`, and capability counts. Frontends may display this for debugging, but full prompts, skill bodies, prompt bodies, file contents, raw tool outputs, and API keys are not part of the frontend protocol.
 
 Telemetry and intranet sink status, if later surfaced, is frontend-visible health only. Frontend protocols must not carry prompts, source text, raw tool outputs, API keys, approval secrets, or permission tokens for telemetry export.
 

@@ -200,6 +200,7 @@ def test_c_harness_extension_preserves_build_prompt_behavior(tmp_path):
 
     assert any("Mode: build" in item for item in contents)
     assert any("Discipline: lite_spec_tdd" in item for item in contents)
+    assert not any("Core pack:" in item for item in contents)
 
 
 def test_c_harness_extension_uses_generic_workflow_prompt_kind(tmp_path):

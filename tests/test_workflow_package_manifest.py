@@ -51,6 +51,35 @@ def test_workflow_package_manifest_serializes_stable_safe_payload():
     json.dumps(payload, sort_keys=True)
 
 
+def test_workflow_package_manifest_is_non_executing_control_plane():
+    manifest = WorkflowPackageManifest(
+        package_id="local.workflow",
+        label="Local Workflow",
+        tools=[WorkflowToolDeclaration(name="local_tool")],
+        packs=[WorkflowPackDeclaration(name="local_pack", tool_names=["local_tool"])],
+        resource_scopes=[".embedagent/recipes"],
+    )
+
+    payload = manifest.to_dict()
+
+    assert set(payload.keys()) == {
+        "package_id",
+        "label",
+        "version",
+        "source_type",
+        "source_id",
+        "supported_modes",
+        "supported_workflow_states",
+        "tools",
+        "packs",
+        "resource_scopes",
+        "diagnostics",
+    }
+    forbidden = ("entrypoint", "enabled", "autoload", "permissions", "dependencies")
+    assert not any(key in payload for key in forbidden)
+    assert not any(key in payload["tools"][0] for key in forbidden)
+
+
 def test_workflow_package_manifest_rejects_missing_identity():
     with pytest.raises(WorkflowPackageManifestError):
         WorkflowPackageManifest(package_id="", label="Missing")

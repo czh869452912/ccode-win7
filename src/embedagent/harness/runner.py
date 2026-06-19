@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from embedagent.harness.contracts import HarnessModeContext
-from embedagent.harness.packs import pack_tool_names
 from embedagent.harness.phase_engine import advance_until_stable, artifact_flags_from_observations
 from embedagent.harness.prompt_stack import build_prompt_units
 from embedagent.harness.registry import build_default_registry
@@ -44,9 +43,6 @@ class HarnessRunner(object):
             next_phase = advance_until_stable(phase_value, flags, discipline_label)
             phase_value = str(getattr(next_phase, "value", next_phase) or phase_value)
         checklist_lines = ["[ ] %s" % phase.value for phase in track]
-        tool_prompt_lines = [
-            "Core pack: %s" % ", ".join(pack_tool_names(self._pack_name_for(mode.slug))),
-        ]
         task_graph = TaskGraph.for_mode(
             mode.slug,
             discipline_label,
@@ -59,7 +55,7 @@ class HarnessRunner(object):
             mode_name=mode.slug,
             discipline_label=discipline_label,
             checklist_lines=checklist_lines,
-            tool_prompt_lines=tool_prompt_lines + ["Tasks:", task_summary],
+            tool_prompt_lines=["Tasks:", task_summary],
             runtime_nudges=list(runtime_nudges or []),
         )
         return HarnessModeContext(

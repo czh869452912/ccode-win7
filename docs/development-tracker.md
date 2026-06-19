@@ -1,6 +1,6 @@
 # EmbedAgent 开发进度跟踪
 
-> 更新日期：2026-06-19（T3 right-panel preview runtime boundary）
+> 更新日期：2026-06-19（Pi-style Agent Core prompt/resource/runtime-state alignment）
 > 用途：持续跟踪当前阶段、下一步任务、里程碑进度、风险与阻塞
 
 ---
@@ -23,6 +23,15 @@
 ---
 
 ## 2. 当前阶段
+
+### 2026-06-19 - Pi-Style Agent Core Prompt/Resource/Runtime-State Alignment
+
+- Agent Core prompt surface is slimmer: built-in mode prompts no longer enumerate active tool directories, C workflow prompt units no longer expose pack tool lists, and visible local skills are summarized through a single hosted `local_skills_prompt` listing unit instead of being duplicated inside mode prompts.
+- Runtime state now records registered tool names separately from model-visible active tool names through `runtime_configured` and provider turn snapshot metadata. This is diagnostic/replay state only; active-tool policy still flows through `ExtensionManager` / `AgentExtensionHost`.
+- Workspace resources remain file-only. Skill bodies expand only through `/skill:<name> [args]`; prompt bodies expand only through `/prompt:<name-or-path> [args]`; reload indexes resources and updates reducer-backed resource revision metadata without executing local Python code.
+- Workflow package manifests are guarded as non-executing control-plane data: identity, supported modes/workflow states, tools, packs, resource scopes, and diagnostics only. They do not activate tools, grant permissions, load code, or become a public extension API.
+- Focused coverage now asserts prompt-surface diet, registered-vs-active tool state, explicit resource invocation, and workflow manifest non-execution boundaries.
+
 
 ### 2026-06-19 - T3 Right-Panel Preview Runtime Boundary
 
@@ -620,8 +629,4 @@
 | 2026-03-31 | 已补 workflow/filtering 回归测试，并把 `scripts/validate-gui-smoke.py` 扩展到 `/review` workflow；源码路径 smoke 已通过，但当前 `build/offline-dist/` bundle 仍呈现旧 GUI 布局并在 bundle smoke / validate 中暴露出与最新 validator 的结构漂移 |
 | 2026-03-31 | 已定位并修复 dist/source GUI 漂移：原因是旧 dist 未在 GUI 静态产物迁移后重建、WebView2 资产未纳入 prepare/build、以及 `.venv` 里的 `__editable__.embedagent-0.1.0.pth` 被直接带入 bundle；当前已重建 bundle，并通过 `validate-offline-bundle.ps1`、bundle 级 `validate-gui-smoke.py` 与 `check-bundle-dependencies.py` |
 | 2026-04-02 | 已启动 Query / Context 激进重构切片：新增 `QueryEngine`、transcript/event 模型、workspace intelligence broker、tool capability metadata、batch tool orchestration、pending interaction resume 与 focused regression tests；`tests.test_context_config` / `tests.test_guard` / `tests.test_modes` / `tests.test_session_timeline` / `tests.test_query_engine_refactor` 已复验通过 |
-
-
-
-
 
