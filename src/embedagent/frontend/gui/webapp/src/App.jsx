@@ -1200,6 +1200,7 @@ function App() {
               maxTurns={state.maxTurns}
               onScroll={handleTimelineScroll}
               onOpenDiff={openDiffSurface}
+              onOpenFile={openFile}
             />
             <Composer
               value={state.composer}

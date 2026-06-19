@@ -48,7 +48,7 @@ function workGroupLabel(rows) {
   return `${count} tool calls`;
 }
 
-function WorkGroupSection({ rows, rowUiState, onToggleRow, rowKeyFor }) {
+function WorkGroupSection({ rows, rowUiState, onToggleRow, rowKeyFor, onOpenFile }) {
   const sectionRef = React.useRef(null);
   const anchorBottomBeforeToggleRef = React.useRef(null);
   const [isExpanded, setIsExpanded] = React.useState(false);
@@ -100,6 +100,7 @@ function WorkGroupSection({ rows, rowUiState, onToggleRow, rowKeyFor }) {
               rowKey={key}
               expanded={Boolean(rowUiState?.expanded?.[key])}
               onToggle={onToggleRow}
+              onOpenFile={onOpenFile}
             />
           );
         })}
@@ -210,7 +211,7 @@ function MessageRow({ row, markdownComponents }) {
   );
 }
 
-function TurnFoldRow({ row, rowUiState, onToggleRow, rowKeyFor }) {
+function TurnFoldRow({ row, rowUiState, onToggleRow, rowKeyFor, onOpenDiff, onOpenFile, markdownComponents }) {
   const entries = Array.isArray(row.entries) ? row.entries : [];
   const key = rowKeyFor(row);
   const open = Boolean(rowUiState?.expanded?.[key]);
@@ -236,6 +237,9 @@ function TurnFoldRow({ row, rowUiState, onToggleRow, rowKeyFor }) {
             <TimelineRowSwitch
               key={entry.id}
               row={entry}
+              onOpenDiff={onOpenDiff}
+              onOpenFile={onOpenFile}
+              markdownComponents={markdownComponents}
               rowUiState={rowUiState}
               onToggleRow={onToggleRow}
               rowKeyFor={rowKeyFor}
@@ -316,7 +320,7 @@ function CompactRow({ row }) {
   );
 }
 
-function CommandResultRow({ row, markdownComponents, rowUiState, onToggleRow, rowKeyFor }) {
+function CommandResultRow({ row, markdownComponents, rowUiState, onToggleRow, rowKeyFor, onOpenFile }) {
   return (
     <ExpandableShell
       row={row}
@@ -340,7 +344,7 @@ function CommandResultRow({ row, markdownComponents, rowUiState, onToggleRow, ro
   );
 }
 
-function ReviewResultRow({ row, markdownComponents, rowUiState, onToggleRow, rowKeyFor }) {
+function ReviewResultRow({ row, markdownComponents, rowUiState, onToggleRow, rowKeyFor, onOpenFile }) {
   const findingCount = Array.isArray(row.findings) ? row.findings.length : 0;
   return (
     <ExpandableShell
@@ -396,6 +400,7 @@ function SystemNoticeRow({ row }) {
 function TimelineRowSwitch({
   row,
   onOpenDiff,
+  onOpenFile,
   markdownComponents,
   rowUiState,
   onToggleRow,
@@ -412,6 +417,7 @@ function TimelineRowSwitch({
         rowKey={key}
         expanded={Boolean(rowUiState?.expanded?.[key])}
         onToggle={onToggleRow}
+        onOpenFile={onOpenFile}
       />
     );
   }
@@ -422,6 +428,9 @@ function TimelineRowSwitch({
         rowUiState={rowUiState}
         onToggleRow={onToggleRow}
         rowKeyFor={rowKeyFor}
+        onOpenDiff={onOpenDiff}
+        onOpenFile={onOpenFile}
+        markdownComponents={markdownComponents}
       />
     );
   }
@@ -440,6 +449,7 @@ function TimelineRowSwitch({
         rowUiState={rowUiState}
         onToggleRow={onToggleRow}
         rowKeyFor={rowKeyFor}
+        onOpenFile={onOpenFile}
       />
     );
   }
@@ -451,6 +461,7 @@ function TimelineRowSwitch({
         rowUiState={rowUiState}
         onToggleRow={onToggleRow}
         rowKeyFor={rowKeyFor}
+        onOpenFile={onOpenFile}
       />
     );
   }
@@ -463,6 +474,7 @@ function TimelineRowSwitch({
 export default function TimelineRows({
   rows,
   onOpenDiff,
+  onOpenFile,
   markdownComponents,
   rowUiState = null,
   onToggleRow = null,
@@ -480,6 +492,7 @@ export default function TimelineRows({
               rowUiState={rowUiState}
               onToggleRow={onToggleRow}
               rowKeyFor={rowKeyFor}
+              onOpenFile={onOpenFile}
             />
           );
         }
@@ -488,6 +501,7 @@ export default function TimelineRows({
             key={section.id}
             row={section.row}
             onOpenDiff={onOpenDiff}
+            onOpenFile={onOpenFile}
             markdownComponents={markdownComponents}
             rowUiState={rowUiState}
             onToggleRow={onToggleRow}

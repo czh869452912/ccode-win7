@@ -43,7 +43,7 @@ function StatusIndicator({ indicator }) {
   return null;
 }
 
-export default function WorkRow({ row, expanded = false, onToggle = null, rowKey = "" }) {
+export default function WorkRow({ row, expanded = false, onToggle = null, rowKey = "", onOpenFile = null }) {
   const presentation = row.presentation || {
     heading: row.label || row.toolName || "Work",
     preview: row.commandPreview || "",
@@ -96,7 +96,7 @@ export default function WorkRow({ row, expanded = false, onToggle = null, rowKey
       </button>
       {expanded && hasDetail ? (
         <div className="t3-work-detail timeline-work-detail" data-testid="timeline-work-detail">
-          {row.detailModel ? <ToolDetail model={row.detailModel} /> : null}
+          {row.detailModel ? <ToolDetail model={row.detailModel} onOpenFile={onOpenFile} /> : null}
           {presentation.expandedBody ? <pre className="t3-work-detail-text">{presentation.expandedBody}</pre> : null}
           {!row.detailModel && !presentation.expandedBody && row.detail ? (
             <pre className="t3-work-detail-text">{row.detail}</pre>

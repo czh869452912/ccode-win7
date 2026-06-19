@@ -229,12 +229,23 @@ function flattenTurnGroups(groups) {
   return items;
 }
 
+function parseTimelineFileHref(href) {
+  const value = String(href || "").trim();
+  if (!value || /^[a-z][a-z0-9+.-]*:/i.test(value) || value.startsWith("#")) return null;
+  const [pathPart, hashPart = ""] = value.split("#", 2);
+  const normalizedPath = pathPart.replace(/\\/g, "/").replace(/^\/+/, "");
+  if (!normalizedPath) return null;
+  const lineMatch = hashPart.match(/(?:^|[&?])L?(\d+)\b/i) || hashPart.match(/^L?(\d+)$/i);
+  const line = lineMatch ? Number(lineMatch[1]) : undefined;
+  return { path: normalizedPath, line: Number.isFinite(line) ? line : undefined };
+}
+
 const Timeline = forwardRef(function Timeline(
   {
     timeline, rows, toolCatalog, historyIntegrity, thinkingActive, streamingReasoningId,
     terminationReason, terminationDisplayReason, terminationMessage,
     turnsUsed, maxTurns,
-    onScroll, onOpenDiff,
+    onScroll, onOpenDiff, onOpenFile,
   },
   ref,
 ) {
@@ -289,6 +300,14 @@ const Timeline = forwardRef(function Timeline(
     setTimelineUiState((previous) => toggleTimelineRow(previous, rowKey));
   }
 
+  function handleTimelineFileLink(event, href) {
+    const target = parseTimelineFileHref(href);
+    if (!target || !onOpenFile) return false;
+    event.preventDefault();
+    onOpenFile(target.path, target.line);
+    return true;
+  }
+
   // Derive termination card props
   let terminationCard = null;
   if (terminationReason === "max_turns") {
@@ -326,6 +345,19 @@ const Timeline = forwardRef(function Timeline(
       return <code className={className} {...rest}>{children}</code>;
     },
     a(props) {
+      const target = parseTimelineFileHref(props.href);
+      if (target) {
+        return (
+          <button
+            type="button"
+            className="timeline-file-link"
+            data-testid={`timeline-file-link--${target.path}`}
+            onClick={(event) => handleTimelineFileLink(event, props.href)}
+          >
+            {props.children}
+          </button>
+        );
+      }
       return <a {...props} target="_blank" rel="noopener noreferrer" />;
     },
   };
@@ -355,6 +387,7 @@ const Timeline = forwardRef(function Timeline(
           <TimelineRows
             rows={rows}
             onOpenDiff={onOpenDiff}
+            onOpenFile={onOpenFile}
             markdownComponents={markdownComponents}
             rowUiState={timelineUiState}
             onToggleRow={handleToggleTimelineRow}

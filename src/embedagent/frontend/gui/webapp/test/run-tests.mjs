@@ -678,6 +678,9 @@ async function main() {
   );
   assert.equal(timelineSource.includes("pre(props)"), true);
   assert.equal(timelineSource.includes("if (inline)"), true);
+  assert.equal(timelineSource.includes("onOpenFile"), true);
+  assert.equal(timelineSource.includes("handleTimelineFileLink"), true);
+  assert.equal(timelineSource.includes("parseTimelineFileHref"), true);
   assert.equal(timelineSource.includes("history partially restored"), true);
   assert.equal(timelineSource.includes("session history unavailable"), true);
 
@@ -687,6 +690,7 @@ async function main() {
   );
   assert.equal(timelineRowsSource.includes("rowUiState"), true);
   assert.equal(timelineRowsSource.includes("onToggleRow"), true);
+  assert.equal(timelineRowsSource.includes("onOpenFile"), true);
   assert.equal(timelineRowsSource.includes("rowKeyFor"), true);
   assert.equal(timelineRowsSource.includes("ReasoningRow"), true);
   assert.equal(timelineRowsSource.includes("ThinkingRow"), true);
@@ -715,6 +719,7 @@ async function main() {
   );
   assert.equal(workRowSource.includes("expanded"), true);
   assert.equal(workRowSource.includes("onToggle"), true);
+  assert.equal(workRowSource.includes("onOpenFile"), true);
   assert.equal(workRowSource.includes("useState(row.status === \"error\")"), false);
   assert.equal(workRowSource.includes("ToolDetail"), true);
   assert.equal(workRowSource.includes("row.detailModel"), true);
@@ -852,6 +857,7 @@ async function main() {
   assert.equal(appSource.includes("branchToolbarModel"), true);
   assert.equal(appSource.includes("onRefreshSourceControl"), true);
   assert.equal(appSource.includes("RightPanelSurfaceBody"), true);
+  assert.equal(appSource.includes("onOpenFile={openFile}"), true);
   assert.equal(appSource.includes("activeRightPanelSurface"), true);
   assert.equal(appSource.includes("workbench_surface_close_others"), true);
   assert.equal(appSource.includes("workbench_surface_close_to_right"), true);
