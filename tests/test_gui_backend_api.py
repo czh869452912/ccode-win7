@@ -82,6 +82,29 @@ class _FakeCoreWithTimeline(_FakeCore):
                 "timeline_integrity": "healthy",
                 "pending_interaction_valid": False,
                 "restore_stop_reason": "",
+                "compact_summary_text": "summary kept for diagnostics",
+                "context_analysis": {"approx_tokens": 1200},
+                "compact_boundary_count": 1,
+                "workspace_intelligence": [{"kind": "file", "path": "main.c"}],
+                "context_pipeline_steps": ["assemble", "compact"],
+                "last_transition_reason": "aborted",
+                "last_transition_message": "cancelled by user",
+                "last_transition_display_reason": "cancelled",
+                "recent_transition_reasons": ["permission_wait", "aborted"],
+                "recent_transitions": [
+                    {
+                        "reason": "aborted",
+                        "display_reason": "cancelled",
+                        "message": "cancelled by user",
+                    }
+                ],
+                "compact_retry_count": 2,
+                "restore_consumed_event_count": 7,
+                "restore_transcript_event_count": 8,
+                "operation_diagnostics": {"active_operations": 0},
+                "runtime_config": {"resource_revision": {"revision": 3}},
+                "compaction_state": {"boundary_count": 1, "latest_boundary_id": "cb-1"},
+                "recovery_state": {"marker_count": 1, "latest_marker_id": "rm-1"},
                 "current_phase": "implement",
                 "discipline_profile": "lite_spec_tdd",
                 "current_activity": "build harness active (implement)",
@@ -160,6 +183,16 @@ class _ResourceReloadCore(_FakeCore):
             "counts": {"skills": 1, "prompts": 0, "recipes": 2},
             "diagnostics": [],
         }
+
+
+class _FileWriteCore(_FakeCore):
+    def __init__(self):
+        super().__init__()
+        self.write_calls = []
+
+    def write_file(self, path, content):
+        self.write_calls.append((path, content))
+        return {"path": path, "content": content}
 
 
 class _ThreadLifecycleCore(_FakeCore):
@@ -507,6 +540,38 @@ class TestGuiBackendApi(unittest.TestCase):
         self.assertIn("plan", payload)
         self.assertIn("permission_context", payload)
 
+    def test_bootstrap_snapshot_preserves_agent_diagnostics(self):
+        with tempfile.TemporaryDirectory() as static_dir:
+            with open(os.path.join(static_dir, "index.html"), "w", encoding="utf-8") as handle:
+                handle.write("<html><body>ok</body></html>")
+            backend = GUIBackend(_FakeCoreWithTimeline(), static_dir=static_dir)
+            route = None
+            for item in backend.app.routes:
+                if getattr(
+                    item, "path", ""
+                ) == "/api/sessions/{session_id}/bootstrap" and "GET" in getattr(
+                    item, "methods", set()
+                ):
+                    route = item
+                    break
+            self.assertIsNotNone(route)
+            payload = asyncio.run(route.endpoint("sess-1"))
+        snapshot = payload["snapshot"]
+        self.assertEqual(snapshot["compact_summary_text"], "summary kept for diagnostics")
+        self.assertEqual(snapshot["context_analysis"], {"approx_tokens": 1200})
+        self.assertEqual(snapshot["workspace_intelligence"][0]["path"], "main.c")
+        self.assertEqual(snapshot["context_pipeline_steps"], ["assemble", "compact"])
+        self.assertEqual(snapshot["last_transition_display_reason"], "cancelled")
+        self.assertEqual(snapshot["recent_transition_reasons"], ["permission_wait", "aborted"])
+        self.assertEqual(snapshot["recent_transitions"][0]["reason"], "aborted")
+        self.assertEqual(snapshot["compact_retry_count"], 2)
+        self.assertEqual(snapshot["restore_consumed_event_count"], 7)
+        self.assertEqual(snapshot["restore_transcript_event_count"], 8)
+        self.assertEqual(snapshot["operation_diagnostics"], {"active_operations": 0})
+        self.assertEqual(snapshot["runtime_config"]["resource_revision"]["revision"], 3)
+        self.assertEqual(snapshot["compaction_state"]["latest_boundary_id"], "cb-1")
+        self.assertEqual(snapshot["recovery_state"]["latest_marker_id"], "rm-1")
+
     def test_reload_resources_endpoint_calls_core_with_session_context(self):
         with tempfile.TemporaryDirectory() as static_dir:
             with open(os.path.join(static_dir, "index.html"), "w", encoding="utf-8") as handle:
@@ -527,6 +592,26 @@ class TestGuiBackendApi(unittest.TestCase):
         self.assertEqual(core.reload_calls, [("sess-1", "api")])
         self.assertEqual(payload["reason"], "api")
         self.assertEqual(payload["counts"]["skills"], 1)
+
+    def test_file_write_route_is_disabled_until_manual_editor_contract(self):
+        with tempfile.TemporaryDirectory() as static_dir:
+            with open(os.path.join(static_dir, "index.html"), "w", encoding="utf-8") as handle:
+                handle.write("<html><body>ok</body></html>")
+            core = _FileWriteCore()
+            backend = GUIBackend(core, static_dir=static_dir)
+            route = None
+            for item in backend.app.routes:
+                if getattr(item, "path", "") == "/api/files/{path:path}" and "POST" in getattr(
+                    item, "methods", set()
+                ):
+                    route = item
+                    break
+            self.assertIsNotNone(route)
+            with self.assertRaises(HTTPException) as raised:
+                asyncio.run(route.endpoint("README.md", {"content": "changed"}))
+        self.assertEqual(raised.exception.status_code, 405)
+        self.assertEqual(raised.exception.detail, "file_write_disabled")
+        self.assertEqual(core.write_calls, [])
 
     def test_session_lookup_errors_return_404_instead_of_500(self):
         with tempfile.TemporaryDirectory() as static_dir:

@@ -114,6 +114,21 @@ def _serialize_session_snapshot(snapshot: Any) -> Dict[str, Any]:
         "bundled_tools_ready": bool(_read_value(snapshot, "bundled_tools_ready", False)),
         "fallback_warnings": list(_read_value(snapshot, "fallback_warnings", []) or []),
         "runtime_environment": runtime_environment,
+        "compact_summary_text": str(_read_value(snapshot, "compact_summary_text", "") or ""),
+        "context_analysis": dict(_read_value(snapshot, "context_analysis", {}) or {}),
+        "compact_boundary_count": int(_read_value(snapshot, "compact_boundary_count", 0) or 0),
+        "workspace_intelligence": list(_read_value(snapshot, "workspace_intelligence", []) or []),
+        "context_pipeline_steps": list(_read_value(snapshot, "context_pipeline_steps", []) or []),
+        "last_transition_reason": str(_read_value(snapshot, "last_transition_reason", "") or ""),
+        "last_transition_message": str(_read_value(snapshot, "last_transition_message", "") or ""),
+        "last_transition_display_reason": str(
+            _read_value(snapshot, "last_transition_display_reason", "") or ""
+        ),
+        "recent_transition_reasons": list(
+            _read_value(snapshot, "recent_transition_reasons", []) or []
+        ),
+        "recent_transitions": list(_read_value(snapshot, "recent_transitions", []) or []),
+        "compact_retry_count": int(_read_value(snapshot, "compact_retry_count", 0) or 0),
         "timeline_replay_status": str(
             _read_value(snapshot, "timeline_replay_status", "replay") or "replay"
         ),
@@ -130,6 +145,12 @@ def _serialize_session_snapshot(snapshot: Any) -> Dict[str, Any]:
         "restore_transcript_event_count": int(
             _read_value(snapshot, "restore_transcript_event_count", 0) or 0
         ),
+        "operation_diagnostics": dict(
+            _read_value(snapshot, "operation_diagnostics", {}) or {}
+        ),
+        "runtime_config": dict(_read_value(snapshot, "runtime_config", {}) or {}),
+        "compaction_state": dict(_read_value(snapshot, "compaction_state", {}) or {}),
+        "recovery_state": dict(_read_value(snapshot, "recovery_state", {}) or {}),
         "current_phase": str(_read_value(snapshot, "current_phase", "") or ""),
         "discipline_profile": str(_read_value(snapshot, "discipline_profile", "") or ""),
         "current_activity": str(_read_value(snapshot, "current_activity", "") or ""),
@@ -1093,8 +1114,7 @@ class GUIBackend:
 
         @app.post("/api/files/{path:path}")
         async def write_file(path: str, request: Dict[str, Any]):
-            content = request.get("content", "")
-            return self.core.write_file(path, content)
+            raise HTTPException(status_code=405, detail="file_write_disabled")
 
         @app.post("/api/diff")
         async def get_diff(request: Dict[str, Any]):
@@ -1146,7 +1166,14 @@ class GUIBackend:
             approved = data.get("approved", False)
             remember = bool(data.get("remember", False))
             category = str(data.get("category") or "")
-            if remember and approved and category and self._current_session_id:
+            session_id = str(data.get("session_id") or "")
+            if (
+                remember
+                and approved
+                and category
+                and self._current_session_id
+                and session_id == self._current_session_id
+            ):
                 try:
                     core = self._require_core()
                 except HTTPException:
