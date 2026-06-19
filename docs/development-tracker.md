@@ -1,6 +1,6 @@
 # EmbedAgent 开发进度跟踪
 
-> 更新日期：2026-06-19（T3 right-panel editor/diff chrome parity）
+> 更新日期：2026-06-19（T3 right-panel preview surface shell parity）
 > 用途：持续跟踪当前阶段、下一步任务、里程碑进度、风险与阻塞
 
 ---
@@ -23,6 +23,14 @@
 ---
 
 ## 2. 当前阶段
+
+### 2026-06-19 - T3 Right-Panel Preview Surface Shell Parity
+
+- GUI right panel now exposes `Preview` as the first manually addable T3code-style surface, with `surface.preview`, `/preview`, and default `mod+4` command/keybinding coverage.
+- The new `PreviewSurface` renders compact URL chrome, local-server empty-state cards, concrete URL tabs, and an embedded-preview unavailable state while staying inside the GUI app-shell.
+- `preview-surface-model.js` owns frontend-only URL normalization, display formatting, and local-server empty-state projection; opening a local server replaces the empty `right:preview` placeholder instead of leaving duplicate preview tabs.
+- Visual debug `preview` now asserts the right-panel preview shell, URL input, local server cards, placeholder viewport, URL-tab replacement, and right-panel tab non-overlap.
+- This slice does not add a browser runtime, browser automation, Electron APIs, remote calls, source-control mutation, or Agent Core behavior. It does not write transcript history, workflow state, permission policy, runtime reducers, provider configuration, extension loading, telemetry, or checkpoints.
 
 ### 2026-06-19 - T3 Right-Panel Editor/Diff Chrome Parity
 

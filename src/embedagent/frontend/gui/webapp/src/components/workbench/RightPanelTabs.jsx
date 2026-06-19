@@ -2,6 +2,11 @@ import React from "react";
 import { RIGHT_PANEL_SURFACES, titleForSurfaceKind } from "../../workbench/surfaces.js";
 
 const SURFACE_COPY = {
+  preview: {
+    icon: "B",
+    label: "Preview",
+    description: "Open a local browser preview.",
+  },
   diff: {
     icon: "D",
     label: "Diff",
@@ -30,6 +35,7 @@ const SURFACE_COPY = {
 };
 
 const SURFACE_TAB_TEST_IDS = {
+  preview: "right-panel-surface-tab--preview",
   file: "right-panel-surface-tab--file",
 };
 

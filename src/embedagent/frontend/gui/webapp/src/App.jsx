@@ -780,6 +780,10 @@ function App() {
       await loadAppBootstrap();
       return;
     }
+    if (command.id === "surface.preview") {
+      openRightPanelSurface("preview", command.label);
+      return;
+    }
     if (command.id === "message.send") {
       await sendMessage();
       return;
@@ -1083,6 +1087,18 @@ function App() {
   const rightPanelSurfaces = state.workbench.rightPanel.surfaces || [];
   const activeRightPanelSurface =
     rightPanelSurfaces.find((surface) => surface.id === state.workbench.rightPanel.activeSurfaceId) || null;
+
+  function openPreviewUrl(url) {
+    dispatch({
+      type: "workbench_surface_opened",
+      placement: "right",
+      kind: "preview",
+      title: url,
+      resourceId: url,
+    });
+    dispatch({ type: "set_inspector", value: "preview" });
+  }
+
   const inspectorProps = {
     tasks: state.tasks,
     artifacts: state.artifacts,
@@ -1304,6 +1320,7 @@ function App() {
             onTerminalClose={(terminalId) =>
               terminalController.closeRightPanelPane(activeRightPanelSurface, terminalId)
             }
+            onPreviewOpenUrl={openPreviewUrl}
           />
         </RightPanelTabs>
       }

@@ -24,6 +24,7 @@ export const WORKBENCH_COMMANDS = [
   { id: "mode.build", group: "mode", label: "Mode: Build", slash: "/mode build", visibleWhen: "has_session" },
   { id: "mode.debug", group: "mode", label: "Mode: Debug", slash: "/mode debug", visibleWhen: "has_session" },
   { id: "mode.verify", group: "mode", label: "Mode: Verify", slash: "/mode verify", visibleWhen: "has_session" },
+  { id: "surface.preview", group: "surface", label: "Open Preview", slash: "/preview", surface: "preview", visibleWhen: "always", keywords: ["browser", "localhost", "web"] },
   { id: "surface.files", group: "surface", label: "Open Files", slash: "/workspace", surface: "files", visibleWhen: "always" },
   { id: "surface.terminal", group: "surface", label: "Open Terminal", slash: "", surface: "terminal", visibleWhen: "has_session" },
   { id: "surface.diff", group: "surface", label: "Open Diff", slash: "/diff", surface: "diff", visibleWhen: "always", keywords: ["git", "changes", "diff"] },

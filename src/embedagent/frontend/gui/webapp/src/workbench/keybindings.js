@@ -10,6 +10,7 @@ export const DEFAULT_KEYBINDINGS = [
   { key: "mod+1", commandId: "surface.files", when: "always" },
   { key: "mod+2", commandId: "surface.terminal", when: "always" },
   { key: "mod+3", commandId: "surface.diff", when: "always" },
+  { key: "mod+4", commandId: "surface.preview", when: "always" },
   { key: "mod+enter", commandId: "message.send", when: "composer" },
 ];
 

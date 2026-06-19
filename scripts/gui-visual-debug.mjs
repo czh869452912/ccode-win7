@@ -8,7 +8,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { createRequire } from "node:module";
 
-export const SCENARIOS = ["load", "chat", "composer", "palette", "diff", "file", "terminal", "responsive", "app", "thread", "timeline", "interaction"];
+export const SCENARIOS = ["load", "chat", "composer", "palette", "preview", "diff", "file", "terminal", "responsive", "app", "thread", "timeline", "interaction"];
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_REPO_ROOT = path.resolve(SCRIPT_DIR, "..");
@@ -680,6 +680,45 @@ async function runPaletteScenario(page, options, outputDir) {
   return { viewports: results };
 }
 
+async function runPreviewScenario(page) {
+  await page.waitForSelector('[data-testid="right-panel-empty-surface--preview"]', { timeout: 10000 });
+  await page.click('[data-testid="right-panel-empty-surface--preview"]');
+  await page.waitForSelector('[data-testid="right-panel-preview-surface"]', { timeout: 10000 });
+  await page.waitForSelector('[data-testid="preview-url-input"]', { timeout: 10000 });
+  await page.waitForSelector('[data-testid="preview-empty-state"]', { timeout: 10000 });
+  await page.waitForSelector('[data-testid="preview-local-server-card"]', { timeout: 10000 });
+  const emptyText = await page.locator('[data-testid="right-panel-preview-surface"]').innerText();
+  const localServerCount = await page.locator('[data-testid="preview-local-server-card"]').count();
+  await page.locator('[data-testid="preview-local-server-card"]').first().click();
+  await page.waitForSelector('[data-testid="preview-viewport"]', { timeout: 10000 });
+  const activeTab = await page.locator('[data-testid="right-panel-surface-tab--preview"] [role="tab"]').getAttribute("aria-selected");
+  const previewTabs = await page.locator('[data-testid="right-panel-surface-tab--preview"]').count();
+  const urlValue = await page.locator('[data-testid="preview-url-input"]').inputValue();
+  const viewportText = await page.locator('[data-testid="preview-viewport"]').innerText();
+  const noOverlap = await assertNoOverlap(page);
+  if (activeTab !== "true") throw new Error("Preview tab did not become active");
+  if (previewTabs !== 1) throw new Error(`Preview URL should replace the empty preview tab, saw ${previewTabs} tabs`);
+  if (localServerCount < 1) throw new Error("Preview empty state did not expose local server cards");
+  if (!emptyText.includes("Local servers") || !emptyText.includes("localhost:5173")) {
+    throw new Error(`Preview empty state was incomplete: ${emptyText}`);
+  }
+  if (!urlValue.includes("localhost:5173")) {
+    throw new Error(`Preview URL field did not use the local server URL: ${urlValue}`);
+  }
+  if (!viewportText.includes("Preview unavailable")) {
+    throw new Error(`Preview viewport did not show the embedded-preview placeholder: ${viewportText}`);
+  }
+  if (!noOverlap) throw new Error("Right panel tabs overlap in preview scenario");
+  return {
+    activeTab: activeTab === "true",
+    previewTabs,
+    localServerCount,
+    urlValue,
+    hasViewport: true,
+    rightTabsDoNotOverlap: noOverlap,
+  };
+}
+
 async function runDiffScenario(page) {
   await page.waitForFunction(() => Boolean(window.__EMBEDAGENT_VISUAL_DEBUG__), null, { timeout: 10000 });
   await page.evaluate((diff) => {
@@ -1256,6 +1295,8 @@ async function runScenarios(options, repoRoot, outputDir) {
         results.composer = await runComposerScenario(page, options, outputDir);
       } else if (scenario === "palette") {
         results.palette = await runPaletteScenario(page, options, outputDir);
+      } else if (scenario === "preview") {
+        results.preview = await runPreviewScenario(page);
       } else if (scenario === "diff") {
         results.diff = await runDiffScenario(page);
       } else if (scenario === "file") {
@@ -1289,7 +1330,7 @@ function printHelp() {
   console.log(`Usage: node scripts/gui-visual-debug.mjs [options]
 
 Options:
-  --scenario load|chat|composer|diff|file|terminal|responsive|app|thread|timeline|interaction|all
+  --scenario load|chat|composer|palette|preview|diff|file|terminal|responsive|app|thread|timeline|interaction|all
                                    Scenario list to run (default: load)
   --workspace PATH                Existing workspace; temp workspace by default
   --output PATH                   Output dir for screenshots and summary JSON

@@ -2,6 +2,7 @@ import React from "react";
 import Inspector from "../Inspector.jsx";
 import FilePreviewSurface from "./FilePreviewSurface.jsx";
 import FilesSurface from "./FilesSurface.jsx";
+import PreviewSurface from "./PreviewSurface.jsx";
 import RightPanelTerminalSurface from "./RightPanelTerminalSurface.jsx";
 
 function inspectorKindForSurface(surface) {
@@ -30,6 +31,7 @@ export default function RightPanelSurfaceBody({
   onTerminalClear,
   onTerminalRestart,
   onTerminalClose,
+  onPreviewOpenUrl,
 }) {
   if (!surface) {
     return null;
@@ -55,6 +57,9 @@ export default function RightPanelSurfaceBody({
         onOpenFilesSurface={onOpenFilesSurface}
       />
     );
+  }
+  if (surface.kind === "preview") {
+    return <PreviewSurface surface={surface} onOpenUrl={onPreviewOpenUrl} />;
   }
   if (surface.kind === "terminal") {
     return (

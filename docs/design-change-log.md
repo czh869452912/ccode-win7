@@ -44,6 +44,41 @@
 
 ## 3. 当前变更记录
 
+### DC-184
+
+- 日期：2026-06-19
+- 变更主题：GUI T3 Code-style right-panel preview surface shell parity
+- 变更摘要：
+  - `RIGHT_PANEL_SURFACES` now exposes `preview` as the first manually addable right-panel surface, while `RIGHT_PANEL_KINDS` keeps `file` as an action-opened surface.
+  - `WORKBENCH_COMMANDS` / `DEFAULT_KEYBINDINGS` now include `surface.preview`, `/preview`, and `mod+4`.
+  - `PreviewSurface.jsx` renders compact T3code-style preview chrome, URL input, local-server cards, concrete URL viewport state, and embedded-preview unavailable feedback.
+  - `preview-surface-model.js` owns frontend-only URL normalization, display formatting, and local-server empty-state projection.
+  - `openSurface(...)` replaces the empty `right:preview` placeholder when a concrete preview URL opens, avoiding duplicate Preview tabs.
+  - `scripts/gui-visual-debug.mjs` now includes a `preview` scenario that verifies the shell, local server card activation, URL tab replacement, and right-panel tab non-overlap.
+- 影响范围：
+  - `src/embedagent/frontend/gui/webapp/src/workbench/surfaces.js`
+  - `src/embedagent/frontend/gui/webapp/src/workbench/commands.js`
+  - `src/embedagent/frontend/gui/webapp/src/workbench/keybindings.js`
+  - `src/embedagent/frontend/gui/webapp/src/components/workbench/PreviewSurface.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/components/workbench/RightPanelSurfaceBody.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/components/workbench/RightPanelTabs.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/session-runtime/preview-surface-model.js`
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/styles.css`
+  - `scripts/gui-visual-debug.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/`
+  - `src/embedagent/frontend/gui/static/assets/`
+  - `docs/modules/frontend-gui.md`
+  - `docs/development-tracker.md`
+  - `docs/design-change-log.md`
+- 关联文档：
+  - `reference/t3code/apps/web/src/components/RightPanelTabs.tsx`
+  - `reference/t3code/apps/web/src/rightPanelStore.ts`
+  - `docs/modules/frontend-gui.md`
+- 是否需要 ADR：否；该变更是 GUI app-shell presentation/read-model parity work，不改变 Agent Core、backend protocol、session-history truth、workflow package contracts、permission policy、runtime reducers、provider configuration、source-control mutation policy、terminal execution、telemetry 或 public extension API。
+- 后续动作：
+  - 继续一比一推进 T3code parity：下一片建议实现 hosted/local preview runtime boundary（仍保持 Win7/offline、可禁用、不进入 Agent Core），然后再推进 editor annotation/comment 或 source-control mutation affordance boundaries。
+
 ### DC-183
 
 - 日期：2026-06-19

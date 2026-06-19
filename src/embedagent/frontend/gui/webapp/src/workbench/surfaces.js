@@ -1,5 +1,5 @@
-export const RIGHT_PANEL_KINDS = ["diff", "files", "file", "terminal", "plan"];
-export const RIGHT_PANEL_SURFACES = ["diff", "files", "terminal", "plan"];
+export const RIGHT_PANEL_KINDS = ["preview", "diff", "files", "file", "terminal", "plan"];
+export const RIGHT_PANEL_SURFACES = ["preview", "files", "terminal", "diff", "plan"];
 export const BOTTOM_DRAWER_SURFACES = ["terminal", "run_output", "logs"];
 
 const DEFAULT_SESSION_KEY = "__global__";
@@ -119,6 +119,8 @@ export function titleForSurfaceKind(kind) {
   switch (kind) {
     case "diff":
       return "Diff";
+    case "preview":
+      return "Preview";
     case "files":
       return "Files";
     case "file":
@@ -241,10 +243,13 @@ export function openSurface(state, input) {
             revealRequestId: Number((existingFile && existingFile.revealRequestId) || 0) + 1,
           })
         : surface;
+    const hasPreviewResource = nextSurface.kind === "preview" && Boolean(nextSurface.resourceId);
     const sourceItems =
       nextSurface.kind === "file"
         ? currentItems.filter((item) => item.kind !== "files")
-        : currentItems;
+        : hasPreviewResource
+          ? currentItems.filter((item) => !(item.kind === "preview" && !item.resourceId))
+          : currentItems;
     const surfaces = upsertSurface(sourceItems, nextSurface);
     return {
       ...current,

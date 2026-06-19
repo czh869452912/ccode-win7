@@ -23,7 +23,7 @@
 - GUI app-shell hosted source-control read model（`backend/source_control_service.py`、`webapp/src/source-control/`）
 - 协议回调到 WebSocket 广播的实时转换（`backend/server.py`）
 - WebSocket 断线重连与会话事件回放恢复（`webapp/`）
-- T3code-inspired Agent timeline rows、structured tool detail expansion、timeline file-link activation、composer interaction panel、File/Diff / Files right-panel surface chrome、neutral workbench visual language（`webapp/src/session-runtime/`、`webapp/src/components/`、`webapp/src/styles.css`）
+- T3code-inspired Agent timeline rows、structured tool detail expansion、timeline file-link activation、composer interaction panel、Preview/File/Diff/Files right-panel surface chrome、neutral workbench visual language（`webapp/src/session-runtime/`、`webapp/src/components/`、`webapp/src/styles.css`）
 - 开发机可视调试 harness：启动真实 GUI、执行场景、截图、检查 console/DOM（`scripts/gui-visual-debug.mjs`）
 
 ## 3. Code Mapping
@@ -145,6 +145,27 @@ remains GUI app-shell display state and must not become workflow truth.
   changes Agent Core, backend protocol, workflow state, permission policy, or
   runtime reducers. T3's editing, save coordinator, comment annotation, and
   `@pierre/diffs` editor surfaces are intentionally out of scope.
+
+### T3 Preview Surface Shell
+
+- The right-panel `PreviewSurface` is a T3code-style browser/preview shell in
+  the GUI app-shell. It is a manually addable right-panel surface, command
+  palette command (`surface.preview` / `/preview`), and default keybinding
+  target (`mod+4`).
+- `webapp/src/session-runtime/preview-surface-model.js` owns frontend-only URL
+  normalization, display formatting, and local-server empty-state projection.
+  Opening a local server replaces the empty `right:preview` placeholder with a
+  concrete URL surface descriptor, matching T3's tab behavior without creating a
+  second session-history source.
+- The current shell renders compact URL chrome, refresh/open/annotation
+  affordances, deterministic local-server cards, and an embedded-preview
+  unavailable state. It does not execute browser automation, embed an external
+  browser runtime, call remote services, or depend on Electron.
+- This is GUI app-shell display/read-model work only: preview surface state does
+  not write `transcript.jsonl`, workflow state, runtime reducers, permission
+  policy, provider configuration, source-control checkpoints, telemetry, or
+  Agent Core state. Future live-preview runtime work must remain optional,
+  local/offline, Windows 7 compatible, and outside Agent Core.
 
 Thread lifecycle controls are shaped by the same frontend-local read model.
 Thread rows now expose a compact action rail for `Rename`, `Fork`, and
