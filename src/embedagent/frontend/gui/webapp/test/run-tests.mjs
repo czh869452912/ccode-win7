@@ -1126,6 +1126,10 @@ async function main() {
   assert.equal(filePreviewSurfaceSource.includes("numberFileLines"), true);
   assert.equal(filePreviewSurfaceSource.includes("isMarkdownPreviewFile"), true);
   assert.equal(filePreviewSurfaceSource.includes("filePreviewMeta"), true);
+  assert.equal(filePreviewSurfaceSource.includes("fileRevealLine"), true);
+  assert.equal(filePreviewSurfaceSource.includes("data-file-link-reveal"), true);
+  assert.equal(filePreviewSurfaceSource.includes("data-file-line-number"), true);
+  assert.equal(filePreviewSurfaceSource.includes("scrollIntoView"), true);
   assert.equal(filePreviewSurfaceSource.includes("ReactMarkdown"), true);
   assert.equal(filePreviewSurfaceSource.includes('data-testid="file-preview-breadcrumbs"'), true);
   assert.equal(filePreviewSurfaceSource.includes('data-testid="file-preview-gutter"'), true);

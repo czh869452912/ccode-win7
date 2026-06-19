@@ -193,6 +193,47 @@ export function reducer(state, action) {
           activatingWorkspace: false,
         },
       };
+    case "visual_file_preview_reveal_fixture_loaded": {
+      const path = String(action.path || "README.md");
+      const preview = action.preview || {};
+      return {
+        ...state,
+        filePreviewsByPath: {
+          ...state.filePreviewsByPath,
+          [path]: {
+            status: "loaded",
+            path,
+            title: String(preview.title || action.title || path),
+            content: String(preview.content || ""),
+            error: "",
+          },
+        },
+        workbench: reduceWorkbenchState(state.workbench, {
+          type: "workbench_surface_opened",
+          placement: "right",
+          kind: "file",
+          title: action.title || path,
+          resourceId: path,
+          filePath: path,
+          revealLine: action.revealLine,
+        }),
+        app: {
+          ...state.app,
+          bootstrapLoaded: true,
+          hasActiveWorkspace: true,
+          activeWorkspace: state.app.activeWorkspace || {
+            id: "visual-debug-workspace",
+            path: "D:/visual-debug",
+            label: "visual-debug",
+            exists: true,
+            created_at: "",
+            last_opened_at: "",
+          },
+          workspaceError: "",
+          activatingWorkspace: false,
+        },
+      };
+    }
     case "sessions_loaded":
       return { ...state, sessions: action.sessions };
     case "session_activated":

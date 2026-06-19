@@ -96,6 +96,17 @@ export function numberFileLines(content) {
   return body.split("\n").map((line, index) => ({ number: index + 1, text: line }));
 }
 
+// Mirrors T3code's clampFileLine behavior for file-link reveal requests:
+// invalid/no request means no reveal, otherwise clamp to the visible file range.
+export function fileRevealLine(content, requestedLine) {
+  if (requestedLine === null || requestedLine === undefined || requestedLine === "") return null;
+  const value = Number(requestedLine);
+  if (!Number.isFinite(value)) return null;
+  const lines = numberFileLines(content);
+  if (lines.length === 0) return null;
+  return Math.min(Math.max(1, Math.trunc(value)), lines.length);
+}
+
 export function filePreviewMeta(content, path) {
   const lines = numberFileLines(content);
   return {

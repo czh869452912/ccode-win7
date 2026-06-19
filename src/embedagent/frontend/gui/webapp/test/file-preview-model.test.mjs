@@ -7,6 +7,7 @@ import {
   fileLanguageForPath,
   fileNameForPath,
   filePreviewMeta,
+  fileRevealLine,
   isMarkdownPreviewFile,
   normalizeFilePath,
   numberFileLines,
@@ -55,6 +56,11 @@ export function runFilePreviewModelTests() {
     { number: 2, text: "b" },
   ]);
   assert.equal(numberFileLines("only").length, 1);
+  assert.equal(fileRevealLine("a\nb\nc\n", 2), 2);
+  assert.equal(fileRevealLine("a\nb\nc\n", 99), 3);
+  assert.equal(fileRevealLine("a\r\nb\rc", -4), 1);
+  assert.equal(fileRevealLine("", 4), null);
+  assert.equal(fileRevealLine("one", null), null);
 
   const meta = filePreviewMeta("int main(void);\nreturn 0;\n", "src/main.c");
   assert.equal(meta.lineCount, 2);

@@ -51,8 +51,9 @@
 - 变更摘要：
   - 新增 frontend-only 纯模块 `webapp/src/session-runtime/file-preview-model.js`，提供 `fileBreadcrumbs`、`isMarkdownPreviewFile`、`defaultFilePreviewMode`、`fileLanguageForPath`、`numberFileLines` 与 `filePreviewMeta`；breadcrumb 与 markdown-mode helper 一比一移植自 `reference/t3code/apps/web/src/components/files/filePath.ts` 与 `filePreviewMode.ts`。
   - `FilePreviewSurface.jsx` 现在渲染 T3code-style file viewer：project/dir/file 面包屑、language + 行数 metadata、带行号的 code gutter，以及对 `.md`/`.mdx` 默认进入 rendered preview 的 code/markdown 模式切换。
+  - file-link reveal 请求现在复用 T3code 的 clamp/highlight 语义：`fileRevealLine(...)` 将目标行限制到已加载文件范围内，code view 同时给 gutter 行和内容行标记 `data-file-link-reveal`，并在 reveal request 变化时把目标行滚入视图。
   - active workspace label 经 `App.jsx` -> `RightPanelSurfaceBody` -> `FilePreviewSurface` 仅作为面包屑 project name 传入，不新增 backend 字段。
-  - `scripts/gui-visual-debug.mjs` 的 `file` scenario 现在断言面包屑、markdown preview、模式切换，并在切到 code view 后断言行号 gutter。
+  - `scripts/gui-visual-debug.mjs` 的 `file` scenario 现在断言面包屑、markdown preview、模式切换、行号 gutter、reveal marker pair 与目标行可见性。
   - 该变更只影响 GUI-local projection / presentation / visual debug harness / 文档；T3 的文件编辑、save coordinator、comment annotation 与 `@pierre/diffs` editor 刻意不在范围内。
 - 影响范围：
   - `src/embedagent/frontend/gui/webapp/src/session-runtime/file-preview-model.js`
@@ -71,7 +72,7 @@
   - `reference/t3code/apps/web/src/components/files/filePreviewMode.ts`
 - 是否需要 ADR：否；该变更是 GUI app-shell presentation/read-model parity work，不改变 Agent Core、backend protocol、session-history truth、workflow package contracts、permission policy、runtime reducers、provider configuration、source-control mutation policy 或 public extension API。
 - 后续动作：
-  - 继续一比一推进 T3code parity：评估在 hosted/offline 约束下的 file reveal-line 高亮、editor/diff chrome 深化，以及 source-control / branch mutation 边界。
+  - 继续一比一推进 T3code parity：在 hosted/offline 约束下深化 editor/diff chrome，以及 source-control / branch mutation 边界。
 
 ### DC-180
 

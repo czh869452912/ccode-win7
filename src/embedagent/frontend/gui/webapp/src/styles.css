@@ -800,6 +800,34 @@ body {
   overflow-x: auto;
 }
 
+.file-preview-gutter-row,
+.file-preview-line {
+  min-height: 1.55em;
+  white-space: pre;
+}
+
+.file-preview-gutter-row {
+  padding: 0 4px;
+  border-radius: 3px 0 0 3px;
+}
+
+.file-preview-line {
+  margin: 0 -12px;
+  padding: 0 12px;
+  border-radius: 0 3px 3px 0;
+}
+
+.file-preview-gutter-row.revealed,
+.file-preview-line.revealed,
+[data-file-link-reveal] {
+  background: rgba(88, 166, 255, .18);
+}
+
+.file-preview-gutter-row.revealed {
+  color: #c9d1d9;
+  background: rgba(88, 166, 255, .24);
+}
+
 .file-preview-markdown {
   flex: 1;
   min-height: 0;

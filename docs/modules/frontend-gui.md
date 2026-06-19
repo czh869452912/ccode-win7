@@ -131,6 +131,10 @@ remains GUI app-shell display state and must not become workflow truth.
   module `webapp/src/session-runtime/file-preview-model.js`; the breadcrumb and
   markdown-mode helpers are ported one-to-one from
   `reference/t3code/apps/web/src/components/files/`.
+- File-link reveal requests reuse T3code's clamp/highlight semantics: the
+  frontend clamps requested lines to the loaded file range, marks both the
+  gutter row and content row with `data-file-link-reveal`, and scrolls the
+  target row into view when the surface reveal request changes.
 - This is GUI app-shell display/read-model work only: it renders existing file
   preview content and never edits/saves files, writes transcript history, or
   changes Agent Core, backend protocol, workflow state, permission policy, or

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
@@ -8,6 +8,7 @@ import {
   fileBreadcrumbs,
   fileNameForPath,
   filePreviewMeta,
+  fileRevealLine,
   isMarkdownPreviewFile,
   normalizeFilePath,
   numberFileLines,
@@ -32,16 +33,48 @@ function FilePreviewBreadcrumbs({ projectName, filePath }) {
   );
 }
 
-function FilePreviewCode({ content }) {
+function FilePreviewCode({ content, revealLine, revealRequestId }) {
   const lines = numberFileLines(content);
+  const revealRef = useRef(null);
+
+  useEffect(() => {
+    if (!revealLine || !revealRef.current) return;
+    revealRef.current.scrollIntoView({ block: "center", inline: "nearest" });
+  }, [revealLine, revealRequestId]);
+
   return (
     <div className="file-preview-code" data-testid="right-panel-file-content">
-      <pre className="file-preview-gutter" data-testid="file-preview-gutter" aria-hidden="true">
-        {lines.map((line) => `${line.number}\n`).join("")}
-      </pre>
-      <pre className="file-preview-lines">
-        {lines.map((line) => `${line.text}\n`).join("")}
-      </pre>
+      <div className="file-preview-gutter" data-testid="file-preview-gutter" aria-hidden="true">
+        {lines.map((line) => {
+          const revealed = line.number === revealLine;
+          return (
+            <div
+              key={line.number}
+              className={`file-preview-gutter-row${revealed ? " revealed" : ""}`}
+              data-file-line-number={line.number}
+              {...(revealed ? { "data-file-link-reveal": "" } : {})}
+            >
+              {line.number}
+            </div>
+          );
+        })}
+      </div>
+      <div className="file-preview-lines">
+        {lines.map((line) => {
+          const revealed = line.number === revealLine;
+          return (
+            <div
+              key={line.number}
+              ref={revealed ? revealRef : null}
+              className={`file-preview-line${revealed ? " revealed" : ""}`}
+              data-file-line={line.number}
+              {...(revealed ? { "data-file-link-reveal": "" } : {})}
+            >
+              {line.text || " "}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -60,6 +93,8 @@ export default function FilePreviewSurface({ surface, filePreview, projectName, 
   const content = filePreview?.content || "";
   const meta = filePreviewMeta(content, filePath);
   const showPreview = markdown && mode === FILE_PREVIEW_MODES.PREVIEW;
+  const revealLine = fileRevealLine(content, surface?.revealLine);
+  const revealRequestId = surface?.revealRequestId || 0;
 
   return (
     <div className="right-panel-file-surface" data-testid="right-panel-file-surface" data-file-path={filePath}>
@@ -111,7 +146,11 @@ export default function FilePreviewSurface({ surface, filePreview, projectName, 
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
           </div>
         ) : (
-          <FilePreviewCode content={content} />
+          <FilePreviewCode
+            content={content}
+            revealLine={revealLine}
+            revealRequestId={revealRequestId}
+          />
         )
       ) : null}
     </div>

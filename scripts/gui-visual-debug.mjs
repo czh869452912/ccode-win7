@@ -715,6 +715,30 @@ async function runFileScenario(page) {
   await page.waitForSelector('[data-testid="right-panel-file-content"]', { timeout: 15000 });
   await page.waitForSelector('[data-testid="file-preview-gutter"]', { timeout: 15000 });
   const panelText = await page.locator('[data-testid="right-panel-file-surface"]').innerText();
+  await page.evaluate(() => {
+    window.__EMBEDAGENT_VISUAL_DEBUG__?.loadFilePreviewRevealFixture?.();
+  });
+  await page.waitForSelector('[data-testid="right-panel-file-content"]', { timeout: 15000 });
+  await page.waitForSelector('[data-file-link-reveal]', { timeout: 15000 });
+  const revealState = await page.evaluate(() => {
+    const revealed = Array.from(document.querySelectorAll("[data-file-link-reveal]"));
+    const target = document.querySelector('[data-file-line="4"]');
+    const gutter = document.querySelector('[data-file-line-number="4"]');
+    const content = document.querySelector('[data-testid="right-panel-file-content"]');
+    const targetRect = target?.getBoundingClientRect();
+    const contentRect = content?.getBoundingClientRect();
+    return {
+      count: revealed.length,
+      targetText: target?.textContent || "",
+      gutterText: gutter?.textContent || "",
+      targetVisible: Boolean(
+        targetRect &&
+          contentRect &&
+          targetRect.top >= contentRect.top &&
+          targetRect.bottom <= contentRect.bottom,
+      ),
+    };
+  });
   const activeTab = await page.locator('[data-testid="right-panel-surface-tab--file"] [role="tab"]').getAttribute("aria-selected");
   const filesTabs = await page.locator('[data-testid="right-panel-surface-tab--files"]').count();
   const noOverlap = await assertNoOverlap(page);
@@ -729,6 +753,12 @@ async function runFileScenario(page) {
   if (!panelText.includes("Visual Debug Workspace")) {
     throw new Error("File surface did not show README.md fixture content");
   }
+  if (revealState.count !== 2 || !revealState.targetText.includes("line 4 reveal target")) {
+    throw new Error(`File reveal marker did not target README.md line 4: ${JSON.stringify(revealState)}`);
+  }
+  if (!revealState.targetVisible) {
+    throw new Error("File reveal target was not visible after scrollIntoView");
+  }
   if (!noOverlap) throw new Error("Right panel tabs overlap in file scenario");
   return {
     activeTab: activeTab === "true",
@@ -737,6 +767,7 @@ async function runFileScenario(page) {
     hasBreadcrumbs: breadcrumbText.includes("README.md"),
     leftFilesTabAbsent: leftFilesTabCount === 0,
     leftFileTreeAbsent: leftFileTreeCount === 0,
+    revealState,
     scrollContainers: filesMetrics,
     rightTabsDoNotOverlap: noOverlap,
   };

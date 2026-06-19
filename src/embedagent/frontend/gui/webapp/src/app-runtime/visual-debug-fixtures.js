@@ -376,6 +376,28 @@ export function buildComposerFileTreeFixtureAction() {
   };
 }
 
+export function buildFilePreviewRevealFixtureAction() {
+  return {
+    type: "visual_file_preview_reveal_fixture_loaded",
+    path: "README.md",
+    title: "README.md",
+    revealLine: 4,
+    preview: {
+      kind: "file",
+      title: "README.md",
+      content: [
+        "# Visual Debug Workspace",
+        "",
+        "line 3",
+        "line 4 reveal target",
+        "line 5",
+        "line 6",
+        "",
+      ].join("\n"),
+    },
+  };
+}
+
 export function installVisualDebugFixtures({
   windowObject,
   locationSearch = "",
@@ -400,6 +422,9 @@ export function installVisualDebugFixtures({
     },
     loadComposerFileTreeFixture() {
       dispatch(buildComposerFileTreeFixtureAction());
+    },
+    loadFilePreviewRevealFixture() {
+      dispatch(buildFilePreviewRevealFixtureAction());
     },
     loadLongTimelineFixture() {
       dispatch(buildLongTimelineFixtureAction({ currentMode }));
