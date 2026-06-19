@@ -1,6 +1,6 @@
 # EmbedAgent 设计与变更跟踪
 
-> 更新日期：2026-06-18
+> 更新日期：2026-06-19
 > 用途：记录关键设计变更、影响范围、关联文档和后续动作
 
 ---
@@ -43,6 +43,40 @@
 ---
 
 ## 3. 当前变更记录
+
+### DC-182
+
+- 日期：2026-06-19
+- 变更主题：GUI T3 Code-style timeline file-link activation parity
+- 变更摘要：
+  - `Timeline.jsx` now treats workspace-relative markdown links as T3code-style file preview links and calls the existing GUI `openFile(path, line)` callback; remote URLs and hash-only anchors remain ordinary markdown links.
+  - `TimelineRows.jsx` / `WorkRow.jsx` now thread `onOpenFile` through work groups, turn folds, structured command/review rows, and `ToolDetail.jsx`.
+  - `ToolDetail.jsx` renders grep match rows, file rows, and changed-file rows as quiet file-link buttons when a path is present; review findings can also open the target file/line.
+  - `t3-timeline.js` preserves numeric match `line` values plus display labels, so reveal requests do not depend on parsing rendered text.
+  - `scripts/gui-visual-debug.mjs` now creates a real `src/parser.c` fixture, clicks a timeline file link, and asserts the right-panel file preview receives the T3 reveal marker pair on line 4.
+  - 该变更只影响 GUI-local projection / presentation / visual debug harness / 文档；file-link activation still uses existing GUI file preview loading and does not add backend protocol fields.
+- 影响范围：
+  - `src/embedagent/frontend/gui/webapp/src/components/Timeline.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/components/timeline/TimelineRows.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/components/timeline/WorkRow.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/components/timeline/ToolDetail.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/session-runtime/t3-timeline.js`
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/visual-debug-fixtures.js`
+  - `src/embedagent/frontend/gui/webapp/src/store.js`
+  - `src/embedagent/frontend/gui/webapp/src/styles.css`
+  - `scripts/gui-visual-debug.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/`
+  - `docs/modules/frontend-gui.md`
+  - `docs/development-tracker.md`
+  - `docs/design-change-log.md`
+- 关联文档：
+  - `reference/t3code/apps/web/src/components/ChatMarkdown.tsx`
+  - `reference/t3code/apps/web/src/rightPanelStore.ts`
+  - `reference/t3code/apps/web/src/components/files/FilePreviewPanel.tsx`
+  - `docs/superpowers/plans/2026-06-19-t3-timeline-file-link-activation.md`
+- 是否需要 ADR：否；该变更是 GUI app-shell presentation/read-model parity work，不改变 Agent Core、backend protocol、session-history truth、workflow package contracts、permission policy、runtime reducers、provider configuration、source-control mutation policy、terminal execution、telemetry 或 public extension API。
+- 后续动作：
+  - 继续一比一推进 T3code parity：深化 editor/diff chrome，并梳理 source-control / branch mutation affordance 在 offline/Win7 约束下的 hosted-extension 边界。
 
 ### DC-181
 

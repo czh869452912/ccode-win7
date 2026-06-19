@@ -5,7 +5,7 @@
 > 状态：`active`
 > 类型：`module`
 > 负责人：`project maintainers`
-> 最后同步日期：`2026-06-18`
+> 最后同步日期：`2026-06-19`
 > 对应代码范围：`src/embedagent/frontend/gui/`
 
 ## 1. Purpose And Scope
@@ -23,7 +23,7 @@
 - GUI app-shell hosted source-control read model（`backend/source_control_service.py`、`webapp/src/source-control/`）
 - 协议回调到 WebSocket 广播的实时转换（`backend/server.py`）
 - WebSocket 断线重连与会话事件回放恢复（`webapp/`）
-- T3code-inspired Agent timeline rows、structured tool detail expansion、composer interaction panel、Diff / Files right-panel surfaces、neutral workbench visual language（`webapp/src/session-runtime/`、`webapp/src/components/`、`webapp/src/styles.css`）
+- T3code-inspired Agent timeline rows、structured tool detail expansion、timeline file-link activation、composer interaction panel、Diff / Files right-panel surfaces、neutral workbench visual language（`webapp/src/session-runtime/`、`webapp/src/components/`、`webapp/src/styles.css`）
 - 开发机可视调试 harness：启动真实 GUI、执行场景、截图、检查 console/DOM（`scripts/gui-visual-debug.mjs`）
 
 ## 3. Code Mapping
@@ -197,6 +197,7 @@ session history truth or backend policy.
 - The React webapp owns a frontend-local T3 timeline row projection in `webapp/src/session-runtime/t3-timeline.js`.
 - Thinking, reasoning, compact boundaries, command results, review results, tool/work rows, diff summaries, interactions, and system notices are display rows derived from existing session bootstrap/timeline/WebSocket state.
 - Tool/work rows project a frontend-local `detailModel` for tool-aware fields and sections; `components/timeline/ToolDetail.jsx` renders paths, grep matches, file previews, recipe output, diff/change summaries, stdout, and stderr as structured details instead of raw JSON for normal tool data. Plain text fallback is reserved for simple error/string summaries.
+- Timeline markdown file links, grep match rows, changed-file/file rows, and review findings may call the existing GUI `openFile(path, line)` callback and open the right-panel `FilePreviewSurface` with the T3code-style reveal-line marker pair. Remote URLs and hash-only anchors remain normal markdown links.
 - `TimelineRows.jsx` mirrors T3code's work-log grouping behavior for visible work rows: consecutive work/tool rows are rendered by a local `WorkGroupSection`, collapsed groups show the latest entry, `+N previous tool calls` expands older entries, and the component preserves the nearest vertical scroller's anchor during expand/collapse.
 - Running timeline display uses T3code-style pulsing dots and a self-updating `WorkingTimer` label when GUI-local timestamps are available. Fold labels may show `Worked for ...` from frontend display timestamps, falling back to the existing static label when timing data is unavailable.
 - Timeline and right-panel CSS keep stable scrollbars visible, avoid fixed narrow-layout center-column pressure, and allow surface tabs/source-control actions to shrink or wrap under zoomed or narrow layouts.

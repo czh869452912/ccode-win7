@@ -1,6 +1,6 @@
 # EmbedAgent 开发进度跟踪
 
-> 更新日期：2026-06-19（T3 file preview reveal parity）
+> 更新日期：2026-06-19（T3 timeline file-link activation parity）
 > 用途：持续跟踪当前阶段、下一步任务、里程碑进度、风险与阻塞
 
 ---
@@ -23,6 +23,14 @@
 ---
 
 ## 2. 当前阶段
+
+### 2026-06-19 - T3 Timeline File-Link Activation Parity
+
+- Timeline markdown file links, grep match rows, structured tool file rows, changed-file rows, and review findings can now open the right-panel `FilePreviewSurface` through the existing GUI `openFile(path, line)` path.
+- `t3-timeline.js` now preserves numeric match line targets and display line labels so click sources can pass a real reveal line instead of parsing display text.
+- `Timeline.jsx` handles workspace-relative markdown file links while leaving remote URLs and hash-only anchors as normal links; `TimelineRows.jsx` and `WorkRow.jsx` thread the `onOpenFile` callback down to `ToolDetail.jsx` and review findings.
+- Visual debug timeline fixtures now include a real `src/parser.c` workspace file, a grep match at line 4, a markdown file link, a review finding, and a preloaded preview record; the `timeline` visual scenario clicks the file link and asserts the T3 reveal marker pair plus target text.
+- This slice stays in the GUI app shell: it does not write transcript history, change workflow state, mutate source control, alter backend protocol truth, or touch Agent Core, permission policy, runtime reducers, provider configuration, extension loading, telemetry, or terminal execution semantics.
 
 ### 2026-06-19 - T3 File Preview Reveal Parity
 
