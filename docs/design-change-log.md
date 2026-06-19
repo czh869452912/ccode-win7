@@ -44,6 +44,81 @@
 
 ## 3. 当前变更记录
 
+### DC-185
+
+- 日期：2026-06-19
+- 变更主题：GUI T3 Code-style preview runtime boundary
+- 变更摘要：
+  - 新增 GUI app-shell `PreviewService`，提供 local-only URL normalization、loopback HTTP probe、in-memory preview tab snapshots、refresh、close 与 open-in-system-browser actions。
+  - `GUIBackend` 新增 `/api/sessions/{id}/preview*` 与 `/api/app/preview/open-external` routes；remote、non-HTTP、无端口或过长 URL 在发起网络连接前被拒绝。
+  - `webapp/src/preview/preview-api.js` 与 `preview-surface-model.js` 将 backend snapshots 映射为 T3code-style `idle` / `loading` / `success` / `failed` runtime state。
+  - `PreviewSurface.jsx` 现在接入 backend open/refresh/open-external，渲染 loading、unreachable、refresh/open-external enabled states，并在失败时保持在 right-panel surface 内部。
+  - `scripts/gui-visual-debug.mjs` 的 `preview` scenario 现在验证 local-card flow、URL-tab replacement、runtime action enablement、failed/unreachable feedback 与 right-panel tab non-overlap。
+- 影响范围：
+  - `src/embedagent/frontend/gui/backend/preview_service.py`
+  - `src/embedagent/frontend/gui/backend/server.py`
+  - `src/embedagent/frontend/gui/webapp/src/preview/preview-api.js`
+  - `src/embedagent/frontend/gui/webapp/src/session-runtime/preview-surface-model.js`
+  - `src/embedagent/frontend/gui/webapp/src/components/workbench/PreviewSurface.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/components/workbench/RightPanelSurfaceBody.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/workbench/surfaces.js`
+  - `src/embedagent/frontend/gui/webapp/src/styles.css`
+  - `scripts/gui-visual-debug.mjs`
+  - `tests/test_gui_backend_api.py`
+  - `src/embedagent/frontend/gui/webapp/test/`
+  - `src/embedagent/frontend/gui/static/assets/`
+  - `README.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/development-tracker.md`
+  - `docs/design-change-log.md`
+- 关联文档：
+  - `reference/t3code/packages/contracts/src/preview.ts`
+  - `reference/t3code/apps/web/src/previewStateStore.ts`
+  - `reference/t3code/apps/web/src/components/preview/PreviewPanel.tsx`
+  - `reference/t3code/apps/web/src/components/preview/PreviewUnreachable.tsx`
+  - `docs/modules/frontend-gui.md`
+- 是否需要 ADR：否；该变更是 GUI app-shell local preview boundary，不改变 Agent Core、session-history truth、workflow package contracts、permission policy、runtime reducers、provider configuration、telemetry、terminal execution、source-control mutation policy 或 public extension API。
+- 后续动作：
+  - 下一片建议做 Win7/offline embedded preview feasibility：验证 WebView2 109 或可替代本地 renderer 的打包/安装/降级策略，在不引入 Electron、runtime Node、online service 或 Agent Core coupling 的前提下替换当前 unavailable viewport。
+
+### DC-184
+
+- 日期：2026-06-19
+- 变更主题：GUI T3 Code-style right-panel preview surface shell parity
+- 变更摘要：
+  - `RIGHT_PANEL_SURFACES` now exposes `preview` as the first manually addable right-panel surface, while `RIGHT_PANEL_KINDS` keeps `file` as an action-opened surface.
+  - `WORKBENCH_COMMANDS` / `DEFAULT_KEYBINDINGS` now include `surface.preview`, `/preview`, and `mod+4`.
+  - `PreviewSurface.jsx` renders compact T3code-style preview chrome, URL input, local-server cards, concrete URL viewport state, and embedded-preview unavailable feedback.
+  - `preview-surface-model.js` owns frontend-only URL normalization, display formatting, and local-server empty-state projection.
+  - `openSurface(...)` replaces the empty `right:preview` placeholder when a concrete preview URL opens, avoiding duplicate Preview tabs.
+  - `scripts/gui-visual-debug.mjs` now includes a `preview` scenario that verifies the shell, local server card activation, URL tab replacement, and right-panel tab non-overlap.
+- 影响范围：
+  - `src/embedagent/frontend/gui/webapp/src/workbench/surfaces.js`
+  - `src/embedagent/frontend/gui/webapp/src/workbench/commands.js`
+  - `src/embedagent/frontend/gui/webapp/src/workbench/keybindings.js`
+  - `src/embedagent/frontend/gui/webapp/src/components/workbench/PreviewSurface.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/components/workbench/RightPanelSurfaceBody.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/components/workbench/RightPanelTabs.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/session-runtime/preview-surface-model.js`
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/styles.css`
+  - `scripts/gui-visual-debug.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/`
+  - `src/embedagent/frontend/gui/static/assets/`
+  - `docs/modules/frontend-gui.md`
+  - `docs/development-tracker.md`
+  - `docs/design-change-log.md`
+- 关联文档：
+  - `reference/t3code/apps/web/src/components/RightPanelTabs.tsx`
+  - `reference/t3code/apps/web/src/rightPanelStore.ts`
+  - `docs/modules/frontend-gui.md`
+- 是否需要 ADR：否；该变更是 GUI app-shell presentation/read-model parity work，不改变 Agent Core、backend protocol、session-history truth、workflow package contracts、permission policy、runtime reducers、provider configuration、source-control mutation policy、terminal execution、telemetry 或 public extension API。
+- 后续动作：
+  - 继续一比一推进 T3code parity：下一片建议实现 hosted/local preview runtime boundary（仍保持 Win7/offline、可禁用、不进入 Agent Core），然后再推进 editor annotation/comment 或 source-control mutation affordance boundaries。
+
 ### DC-183
 
 - 日期：2026-06-19

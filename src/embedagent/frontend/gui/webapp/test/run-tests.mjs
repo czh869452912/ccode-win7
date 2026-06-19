@@ -40,6 +40,8 @@ import { runComposerIntegrationSourceTests } from "./composer-integration-source
 import { runComposerPathContextTests } from "./composer-path-context.test.mjs";
 import { runComposerTriggerTests } from "./composer-trigger.test.mjs";
 import { runFilePreviewModelTests } from "./file-preview-model.test.mjs";
+import { runPreviewSurfaceModelTests } from "./preview-surface-model.test.mjs";
+import { runPreviewApiTests } from "./preview-api.test.mjs";
 
 const WEBAPP_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -803,6 +805,9 @@ async function main() {
   assert.equal(stylesSource.includes(".source-control-file.active"), true);
   assert.equal(stylesSource.includes(".right-panel-file-surface"), true);
   assert.equal(stylesSource.includes(".right-panel-file-content"), true);
+  assert.equal(stylesSource.includes(".right-panel-preview-surface"), true);
+  assert.equal(stylesSource.includes(".preview-chrome-row"), true);
+  assert.equal(stylesSource.includes(".preview-local-server-card"), true);
 
   const appSource = fs.readFileSync(
     webappSourcePath("App.jsx"),
@@ -864,6 +869,7 @@ async function main() {
   assert.equal(appSource.includes("buildBranchToolbarModel"), true);
   assert.equal(appSource.includes("branchToolbarModel"), true);
   assert.equal(appSource.includes("onRefreshSourceControl"), true);
+  assert.equal(appSource.includes('command.id === "surface.preview"'), true);
   assert.equal(appSource.includes("RightPanelSurfaceBody"), true);
   assert.equal(appSource.includes("onOpenFile={openFile}"), true);
   assert.equal(appSource.includes("activeRightPanelSurface"), true);
@@ -1048,6 +1054,7 @@ async function main() {
   assert.equal(rightPanelTabsSource.includes("RIGHT_PANEL_SURFACES.map"), false);
   assert.equal(rightPanelTabsSource.includes("file:"), true);
   assert.equal(rightPanelTabsSource.includes("right-panel-surface-tab--file"), true);
+  assert.equal(rightPanelTabsSource.includes("right-panel-surface-tab--preview"), true);
   assert.equal(rightPanelTabsSource.includes("source_control: \"Source\""), false);
   assert.equal(rightPanelTabsSource.includes("todos"), false);
 
@@ -1118,9 +1125,11 @@ async function main() {
   );
   assert.equal(rightPanelSurfaceBodySource.includes("FilesSurface"), true);
   assert.equal(rightPanelSurfaceBodySource.includes("FilePreviewSurface"), true);
+  assert.equal(rightPanelSurfaceBodySource.includes("PreviewSurface"), true);
   assert.equal(rightPanelSurfaceBodySource.includes("TerminalSurface"), true);
   assert.equal(rightPanelSurfaceBodySource.includes("Inspector"), true);
   assert.equal(rightPanelSurfaceBodySource.includes('surface.kind === "file"'), true);
+  assert.equal(rightPanelSurfaceBodySource.includes('surface.kind === "preview"'), true);
   assert.equal(rightPanelSurfaceBodySource.includes("surface.kind === \"terminal\""), true);
   assert.equal(rightPanelSurfaceBodySource.includes("filePreviewsByPath"), true);
 
@@ -1163,12 +1172,38 @@ async function main() {
   assert.equal(filePreviewSurfaceSource.includes("breadcrumbRef"), true);
   assert.equal(filePreviewSurfaceSource.includes("onOpenFilesSurface"), true);
 
+  const previewSurfaceSource = fs.readFileSync(
+    webappSourcePath("components", "workbench", "PreviewSurface.jsx"),
+    "utf8",
+  );
+  assert.equal(previewSurfaceSource.includes('data-testid="right-panel-preview-surface"'), true);
+  assert.equal(previewSurfaceSource.includes('data-testid="preview-url-input"'), true);
+  assert.equal(previewSurfaceSource.includes('data-testid="preview-local-server-card"'), true);
+  assert.equal(previewSurfaceSource.includes("PreviewChromeRow"), true);
+  assert.equal(previewSurfaceSource.includes("PreviewEmptyState"), true);
+  assert.equal(previewSurfaceSource.includes("PreviewUnreachable"), true);
+  assert.equal(previewSurfaceSource.includes("buildPreviewRuntimeState"), true);
+  assert.equal(previewSurfaceSource.includes("onRefresh"), true);
+  assert.equal(previewSurfaceSource.includes("onOpenExternal"), true);
+  assert.equal(previewSurfaceSource.includes("onOpenUrl"), true);
+
+  const previewApiSource = fs.readFileSync(
+    webappSourcePath("preview", "preview-api.js"),
+    "utf8",
+  );
+  assert.equal(previewApiSource.includes("/api/sessions/"), true);
+  assert.equal(previewApiSource.includes("/preview/open"), true);
+  assert.equal(previewApiSource.includes("/api/app/preview/open-external"), true);
+
   const repoRoot = path.resolve(WEBAPP_ROOT, "..", "..", "..", "..", "..");
   const visualDebugSource = fs.readFileSync(
     path.join(repoRoot, "scripts", "gui-visual-debug.mjs"),
     "utf8",
   );
   assert.equal(visualDebugSource.includes('"terminal"'), true);
+  assert.equal(visualDebugSource.includes('"preview"'), true);
+  assert.equal(visualDebugSource.includes("runPreviewScenario"), true);
+  assert.equal(visualDebugSource.includes("right-panel-preview-surface"), true);
   assert.equal(visualDebugSource.includes("runTerminalScenario"), true);
   assert.equal(visualDebugSource.includes("right-panel-terminal-surface"), true);
   assert.equal(visualDebugSource.includes("loadLongTimelineFixture"), true);
@@ -1215,6 +1250,8 @@ async function main() {
   runInteractionModelTests();
   runDiffModelTests();
   runFilePreviewModelTests();
+  runPreviewSurfaceModelTests();
+  await runPreviewApiTests();
   runWebSocketLifecycleTests();
   await runSessionLoadersTests();
   runSocketMessageEffectsTests();

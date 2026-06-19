@@ -61,6 +61,15 @@ push, pull, contact remote providers, create checkpoints, or write transcript
 history, workflow state, telemetry, permission policy, runtime reducer truth,
 provider configuration, extension loading state, or Agent Core behavior.
 
+The GUI Preview right-panel is app-shell hosted as well. `GUIBackend` owns a
+workspace-bound `PreviewService` that accepts local loopback HTTP URLs only,
+probes them through Python stdlib networking, and may open the same local URL
+in the system browser. It does not embed an online browser service, execute
+browser automation, contact remote hosts, mutate source control, write
+transcript history, workflow state, telemetry, permission policy, runtime
+reducer truth, provider configuration, extension loading state, or Agent Core
+behavior.
+
 ### Protocol / Core Layer
 
 - `src/embedagent/protocol/`

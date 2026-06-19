@@ -26,7 +26,9 @@ export async function runVisualDebugRunnerTests() {
   assert.deepEqual(runner.parseScenarioList("load,palette"), ["load", "palette"]);
   assert.deepEqual(runner.parseScenarioList("thread"), ["thread"]);
   assert.deepEqual(runner.parseScenarioList("timeline,interaction"), ["timeline", "interaction"]);
-  assert.deepEqual(runner.parseScenarioList("all"), ["app", "load", "chat", "composer", "palette", "diff", "file", "terminal", "responsive", "thread", "timeline", "interaction"]);
+  assert.deepEqual(runner.parseScenarioList("all"), ["app", "load", "chat", "composer", "palette", "preview", "diff", "file", "terminal", "responsive", "thread", "timeline", "interaction"]);
+  assert.deepEqual(runner.parseScenarioList("preview"), ["preview"]);
+  assert.deepEqual(runner.parseScenarioList("load,preview"), ["load", "preview"]);
   assert.deepEqual(runner.parseScenarioList("app"), ["app"]);
   assert.deepEqual(runner.parseScenarioList("load,app"), ["app", "load"]);
   assert.throws(() => runner.parseScenarioList("load,unknown"), /Unknown GUI visual scenario/);
@@ -78,6 +80,14 @@ export async function runVisualDebugRunnerTests() {
   assert.equal(runnerSource.includes("data-file-link-reveal"), true);
   assert.equal(runnerSource.includes("diffChromeState"), true);
   assert.equal(runnerSource.includes("diff-mode-toggle--split"), true);
+  assert.equal(runnerSource.includes('"preview"'), true);
+  assert.equal(runnerSource.includes("runPreviewScenario"), true);
+  assert.equal(runnerSource.includes("right-panel-preview-surface"), true);
+  assert.equal(runnerSource.includes("preview-url-input"), true);
+  assert.equal(runnerSource.includes("preview-local-server-card"), true);
+  assert.equal(runnerSource.includes("preview-open-external-action"), true);
+  assert.equal(runnerSource.includes("preview-refresh-action"), true);
+  assert.equal(runnerSource.includes("Preview unavailable"), true);
   assert.equal(runnerSource.includes("runTerminalScenario"), true);
   assert.equal(runnerSource.includes("right-panel-terminal-surface"), true);
   assert.equal(runnerSource.includes("right-panel-tab--diff"), false);

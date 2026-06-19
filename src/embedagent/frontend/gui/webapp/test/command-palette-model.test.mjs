@@ -10,6 +10,7 @@ import {
 
 const commands = [
   { id: "session.new", group: "session", label: "New Session", slash: "/new", visibleWhen: "always" },
+  { id: "surface.preview", group: "surface", label: "Open Preview", slash: "/preview", visibleWhen: "always", keywords: ["browser", "localhost"] },
   { id: "surface.diff", group: "surface", label: "Open Diff", slash: "/diff", visibleWhen: "always", keywords: ["changes"] },
   { id: "mode.build", group: "mode", label: "Mode: Build", slash: "/mode build", visibleWhen: "has_session" },
   { id: "view.toggle_right_panel", group: "view", label: "Toggle Right Panel", slash: "", visibleWhen: "always" },
@@ -42,6 +43,7 @@ const workspaces = [
 const keybindings = [
   { key: "mod+k", commandId: "palette.open", when: "not_palette" },
   { key: "mod+3", commandId: "surface.diff", when: "always" },
+  { key: "mod+4", commandId: "surface.preview", when: "always" },
   { key: "mod+b", commandId: "view.toggle_right_panel", when: "always" },
 ];
 
@@ -65,14 +67,14 @@ export function runCommandPaletteModelTests() {
 
   const commandItems = root.find((group) => group.id === "commands").items;
   assert.equal(commandItems.some((item) => item.type === "submenu" && item.id === "submenu:surface"), true);
-  assert.equal(commandItems.some((item) => item.type === "command" && item.commandId === "surface.diff"), true);
+  assert.equal(commandItems.some((item) => item.type === "command" && item.commandId === "surface.preview"), true);
   assert.equal(
-    commandItems.find((item) => item.commandId === "surface.diff").shortcut,
-    "Ctrl+3",
+    commandItems.find((item) => item.commandId === "surface.preview").shortcut,
+    "Ctrl+4",
   );
   assert.equal(
     commandItems.find((item) => item.id === "submenu:surface").trailing,
-    "1",
+    "2",
   );
 
   const sessionItems = root.find((group) => group.id === "sessions").items;
@@ -111,14 +113,14 @@ export function runCommandPaletteModelTests() {
     commands,
     keybindings,
     groupId: "surface",
-    query: "changes",
+    query: "browser",
   });
   assert.deepEqual(submenu.map((group) => group.id), ["surface"]);
   assert.equal(submenu[0].title, "Surface");
   assert.equal(submenu[0].items.length, 1);
-  assert.equal(submenu[0].items[0].commandId, "surface.diff");
-  assert.equal(submenu[0].items[0].meta, "/diff");
-  assert.equal(submenu[0].items[0].shortcut, "Ctrl+3");
+  assert.equal(submenu[0].items[0].commandId, "surface.preview");
+  assert.equal(submenu[0].items[0].meta, "/preview");
+  assert.equal(submenu[0].items[0].shortcut, "Ctrl+4");
 
   assert.deepEqual(buildCommandPaletteSubmenuGroups({ commands, groupId: "missing" }), []);
   assert.deepEqual(flattenPaletteGroups([{ id: "x", items: [{ id: "a" }, { id: "b" }] }]).map((item) => item.id), ["a", "b"]);

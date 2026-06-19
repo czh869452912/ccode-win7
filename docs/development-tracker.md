@@ -1,6 +1,6 @@
 # EmbedAgent 开发进度跟踪
 
-> 更新日期：2026-06-19（T3 right-panel editor/diff chrome parity）
+> 更新日期：2026-06-19（T3 right-panel preview runtime boundary）
 > 用途：持续跟踪当前阶段、下一步任务、里程碑进度、风险与阻塞
 
 ---
@@ -23,6 +23,22 @@
 ---
 
 ## 2. 当前阶段
+
+### 2026-06-19 - T3 Right-Panel Preview Runtime Boundary
+
+- GUI preview now has an app-shell hosted `PreviewService` with local-only URL normalization, loopback HTTP probing, in-memory preview tab snapshots, refresh, close, and open-in-system-browser actions.
+- `GUIBackend` exposes preview routes under `/api/sessions/{id}/preview*` plus `/api/app/preview/open-external`; these routes are workspace/session scoped and reject remote or non-HTTP preview URLs before opening network connections.
+- React preview API/model helpers now map backend snapshots into T3code-style `idle` / `loading` / `success` / `failed` state, and `PreviewSurface` renders refresh/open-external controls plus an unreachable state for failed local targets.
+- Visual debug `preview` now asserts the local-card flow, URL-tab replacement, runtime action enablement, failed/unreachable feedback, and right-panel tab non-overlap.
+- This slice still does not add an embedded browser runtime, browser automation, Electron, remote calls, source-control mutation, or Agent Core behavior. It does not write transcript history, workflow state, permission policy, runtime reducers, provider configuration, extension loading, telemetry, or checkpoints.
+
+### 2026-06-19 - T3 Right-Panel Preview Surface Shell Parity
+
+- GUI right panel now exposes `Preview` as the first manually addable T3code-style surface, with `surface.preview`, `/preview`, and default `mod+4` command/keybinding coverage.
+- The new `PreviewSurface` renders compact URL chrome, local-server empty-state cards, concrete URL tabs, and an embedded-preview unavailable state while staying inside the GUI app-shell.
+- `preview-surface-model.js` owns frontend-only URL normalization, display formatting, and local-server empty-state projection; opening a local server replaces the empty `right:preview` placeholder instead of leaving duplicate preview tabs.
+- Visual debug `preview` now asserts the right-panel preview shell, URL input, local server cards, placeholder viewport, URL-tab replacement, and right-panel tab non-overlap.
+- This slice does not add a browser runtime, browser automation, Electron APIs, remote calls, source-control mutation, or Agent Core behavior. It does not write transcript history, workflow state, permission policy, runtime reducers, provider configuration, extension loading, telemetry, or checkpoints.
 
 ### 2026-06-19 - T3 Right-Panel Editor/Diff Chrome Parity
 

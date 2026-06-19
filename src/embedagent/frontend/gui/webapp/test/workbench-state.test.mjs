@@ -30,8 +30,8 @@ import {
 } from "../src/workbench/surfaces.js";
 
 export function runWorkbenchStateTests() {
-  assert.deepEqual(RIGHT_PANEL_KINDS, ["diff", "files", "file", "terminal", "plan"]);
-  assert.deepEqual(RIGHT_PANEL_SURFACES, ["diff", "files", "terminal", "plan"]);
+  assert.deepEqual(RIGHT_PANEL_KINDS, ["preview", "diff", "files", "file", "terminal", "plan"]);
+  assert.deepEqual(RIGHT_PANEL_SURFACES, ["preview", "files", "terminal", "diff", "plan"]);
   assert.equal(BOTTOM_DRAWER_SURFACES.includes("terminal"), true);
   assert.equal(BOTTOM_DRAWER_SURFACES.includes("run_output"), true);
 
@@ -96,6 +96,26 @@ export function runWorkbenchStateTests() {
     "right:file:README.md",
   ]);
   assert.equal(secondFile.rightPanel.activeSurfaceId, "right:file:README.md");
+
+  const withPreview = openSurface(withFiles, {
+    placement: "right",
+    kind: "preview",
+    title: "Preview",
+  });
+  assert.equal(withPreview.rightPanel.activeKind, "preview");
+  assert.equal(withPreview.rightPanel.activeSurfaceId, "right:preview");
+  assert.equal(withPreview.rightPanel.surfaces.at(-1).title, "Preview");
+  assert.equal(withPreview.rightPanel.surfaces.at(-1).resourceId, "");
+
+  const withPreviewUrl = openSurface(withPreview, {
+    placement: "right",
+    kind: "preview",
+    title: "localhost:5173",
+    resourceId: "http://127.0.0.1:5173",
+  });
+  assert.equal(withPreviewUrl.rightPanel.activeSurfaceId, "right:preview:http://127.0.0.1:5173");
+  assert.equal(withPreviewUrl.rightPanel.surfaces.at(-1).resourceId, "http://127.0.0.1:5173");
+  assert.equal(withPreviewUrl.rightPanel.surfaces.some((surface) => surface.id === "right:preview"), false);
 
   const withDiff = openSurface(withFiles, {
     placement: "right",
@@ -296,6 +316,8 @@ export function runWorkbenchStateTests() {
   assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "app.diagnostics"), true);
   assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "app.reload"), true);
   assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "surface.files"), true);
+  assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "surface.preview"), true);
+  assert.equal(commandById("surface.preview").surface, "preview");
   assert.equal(commandById("surface.diff").surface, "diff");
   assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "workspace.open"), true);
   assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "workspace.refresh"), true);
@@ -330,6 +352,7 @@ export function runWorkbenchStateTests() {
   assert.equal(DEFAULT_KEYBINDINGS.some((item) => item.key === "mod+1" && item.commandId === "surface.files"), true);
   assert.equal(DEFAULT_KEYBINDINGS.some((item) => item.key === "mod+2" && item.commandId === "surface.terminal"), true);
   assert.equal(DEFAULT_KEYBINDINGS.some((item) => item.key === "mod+3" && item.commandId === "surface.diff"), true);
+  assert.equal(DEFAULT_KEYBINDINGS.some((item) => item.key === "mod+4" && item.commandId === "surface.preview"), true);
 
   const command = resolveKeybinding(DEFAULT_KEYBINDINGS, "mod+k", {
     paletteOpen: false,
