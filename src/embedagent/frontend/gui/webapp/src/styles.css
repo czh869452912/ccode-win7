@@ -1993,6 +1993,24 @@ body {
   overflow-wrap: anywhere;
 }
 
+.timeline-file-link {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+}
+
+.timeline-file-link:hover,
+.timeline-file-link:focus-visible {
+  color: var(--accent-strong);
+  text-decoration: underline;
+  outline: none;
+}
+
 .t3-tool-detail-item code {
   min-width: 0;
   color: var(--text-secondary);

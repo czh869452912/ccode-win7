@@ -373,7 +373,18 @@ function ReviewResultRow({ row, markdownComponents, rowUiState, onToggleRow, row
             <article key={finding.id} className="t3-review-finding">
               <div className="t3-review-finding-title">{finding.title}</div>
               <div className="t3-review-finding-meta">
-                {[finding.severity, finding.file, finding.line ? `:${finding.line}` : ""].filter(Boolean).join(" ")}
+                {finding.file && onOpenFile ? (
+                  <button
+                    type="button"
+                    className="timeline-file-link"
+                    data-testid={`timeline-review-file-link--${finding.file}`}
+                    onClick={() => onOpenFile(finding.file, finding.line || undefined)}
+                  >
+                    {[finding.severity, finding.file, finding.line ? `:${finding.line}` : ""].filter(Boolean).join(" ")}
+                  </button>
+                ) : (
+                  [finding.severity, finding.file, finding.line ? `:${finding.line}` : ""].filter(Boolean).join(" ")
+                )}
               </div>
               {finding.body ? <p>{finding.body}</p> : null}
             </article>

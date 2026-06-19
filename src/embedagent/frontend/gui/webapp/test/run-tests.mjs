@@ -731,6 +731,14 @@ async function main() {
   assert.equal(workRowSource.includes("TOOL_ICONS"), false);
   assert.equal(workRowSource.includes("<pre>{row.detail}</pre>"), false);
   assert.equal(fs.existsSync(webappSourcePath("components", "timeline", "ToolDetail.jsx")), true);
+  const toolDetailSource = fs.readFileSync(
+    webappSourcePath("components", "timeline", "ToolDetail.jsx"),
+    "utf8",
+  );
+  assert.equal(toolDetailSource.includes("timeline-file-link"), true);
+  assert.equal(toolDetailSource.includes("data-testid={`timeline-tool-file-link--"), true);
+  assert.equal(toolDetailSource.includes("onOpenFile(item.path, item.line || undefined)"), true);
+  assert.equal(timelineRowsSource.includes("onOpenFile={onOpenFile}"), true);
 
   const interactionPanelSource = fs.readFileSync(
     webappSourcePath("components", "InteractionPanel.jsx"),
