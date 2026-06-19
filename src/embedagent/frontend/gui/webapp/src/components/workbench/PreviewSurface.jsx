@@ -2,8 +2,10 @@ import React, { useMemo, useState } from "react";
 
 import {
   buildPreviewEmptyStateModel,
+  buildPreviewRuntimeState,
   formatPreviewUrlDisplay,
   normalizePreviewUrl,
+  previewSnapshotFromApi,
 } from "../../session-runtime/preview-surface-model.js";
 
 const DEFAULT_LOCAL_SERVERS = [
@@ -14,7 +16,11 @@ const DEFAULT_LOCAL_SERVERS = [
 function PreviewChromeRow({
   url,
   onOpenUrl,
+  onRefresh,
+  onOpenExternal,
   loading = false,
+  canRefresh = false,
+  canOpenExternal = false,
 }) {
   const [draft, setDraft] = useState(url || "");
 
@@ -36,8 +42,9 @@ function PreviewChromeRow({
         className="preview-chrome-button"
         title={loading ? "Loading..." : "Refresh"}
         aria-label={loading ? "Loading preview" : "Refresh preview"}
-        disabled={!url}
-        onClick={() => url && onOpenUrl(url)}
+        disabled={!canRefresh}
+        onClick={() => onRefresh && onRefresh()}
+        data-testid="preview-refresh-action"
       >
         R
       </button>
@@ -64,7 +71,9 @@ function PreviewChromeRow({
         className="preview-chrome-button"
         title="Open in system browser"
         aria-label="Open in system browser"
-        disabled={!url}
+        disabled={!canOpenExternal}
+        onClick={() => onOpenExternal && onOpenExternal()}
+        data-testid="preview-open-external-action"
       >
         O
       </button>
@@ -152,30 +161,123 @@ function PreviewViewport({ url }) {
   );
 }
 
+function PreviewUnreachable({ snapshot, onRefresh }) {
+  const displayUrl = formatPreviewUrlDisplay(snapshot?.url || "");
+  const description = snapshot?.errorDescription || "The local preview target did not respond.";
+  return (
+    <div className="preview-unreachable" data-testid="preview-unreachable">
+      <h3>Preview unavailable</h3>
+      <p>
+        <strong>{displayUrl}</strong>: {description}
+      </p>
+      <button
+        type="button"
+        className="preview-unreachable-action"
+        onClick={() => onRefresh && onRefresh()}
+      >
+        Reload
+      </button>
+    </div>
+  );
+}
+
+function previewErrorMessage(error, fallback) {
+  if (error instanceof Error && error.message) return error.message;
+  return fallback;
+}
+
+function failedPreviewSnapshot(url, error, base = {}) {
+  return previewSnapshotFromApi({
+    ...base,
+    url,
+    status: "failed",
+    title: base.title || "",
+    canGoBack: false,
+    canGoForward: false,
+    errorCode: base.errorCode || -1,
+    errorDescription: previewErrorMessage(error, "Preview failed"),
+    updatedAt: base.updatedAt || "",
+  });
+}
+
 export default function PreviewSurface({
   surface,
   servers = DEFAULT_LOCAL_SERVERS,
   onOpenUrl,
+  onRefresh,
+  onOpenExternal,
 }) {
   const initialUrl = normalizePreviewUrl(surface?.resourceId || "");
   const [activeUrl, setActiveUrl] = useState(initialUrl);
+  const [snapshot, setSnapshot] = useState(surface?.previewSnapshot || null);
+  const [loading, setLoading] = useState(false);
 
   React.useEffect(() => {
     setActiveUrl(initialUrl);
   }, [initialUrl]);
 
-  function openUrl(url) {
+  React.useEffect(() => {
+    setSnapshot(surface?.previewSnapshot || null);
+  }, [surface?.previewSnapshot]);
+
+  async function openUrl(url) {
     const next = normalizePreviewUrl(url);
     if (!next) return;
     setActiveUrl(next);
-    if (onOpenUrl) onOpenUrl(next);
+    setLoading(true);
+    try {
+      const result = onOpenUrl ? await onOpenUrl(next) : null;
+      const nextSnapshot = result?.preview || result || null;
+      if (nextSnapshot) setSnapshot(previewSnapshotFromApi(nextSnapshot));
+    } catch (error) {
+      setSnapshot(failedPreviewSnapshot(next, error));
+    } finally {
+      setLoading(false);
+    }
   }
+
+  async function refresh() {
+    if (!snapshot || !onRefresh) {
+      await openUrl(activeUrl);
+      return;
+    }
+    setLoading(true);
+    try {
+      const result = await onRefresh(snapshot);
+      const nextSnapshot = result?.preview || result || null;
+      if (nextSnapshot) setSnapshot(previewSnapshotFromApi(nextSnapshot));
+    } catch (error) {
+      setSnapshot(failedPreviewSnapshot(activeUrl || snapshot.url, error, snapshot));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function openExternal() {
+    if (onOpenExternal && activeUrl) {
+      void Promise.resolve(onOpenExternal(activeUrl)).catch(() => {});
+    }
+  }
+
+  const runtime = buildPreviewRuntimeState({ snapshot });
+  const effectiveLoading = loading || runtime.loading;
+  const effectiveUrl = snapshot?.url || activeUrl;
 
   return (
     <section className="right-panel-preview-surface" data-testid="right-panel-preview-surface">
-      <PreviewChromeRow url={activeUrl} onOpenUrl={openUrl} />
-      {activeUrl ? (
-        <PreviewViewport url={activeUrl} />
+      <PreviewChromeRow
+        url={effectiveUrl}
+        onOpenUrl={openUrl}
+        onRefresh={refresh}
+        onOpenExternal={openExternal}
+        loading={effectiveLoading}
+        canRefresh={runtime.canRefresh || Boolean(activeUrl)}
+        canOpenExternal={runtime.canOpenExternal || Boolean(activeUrl)}
+      />
+      {runtime.unreachable ? (
+        <PreviewUnreachable snapshot={snapshot} onRefresh={refresh} />
+      ) : effectiveUrl ? (
+        <PreviewViewport url={effectiveUrl} />
       ) : (
         <PreviewEmptyState servers={servers} onOpenUrl={openUrl} />
       )}

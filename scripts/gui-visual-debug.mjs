@@ -690,11 +690,15 @@ async function runPreviewScenario(page) {
   const emptyText = await page.locator('[data-testid="right-panel-preview-surface"]').innerText();
   const localServerCount = await page.locator('[data-testid="preview-local-server-card"]').count();
   await page.locator('[data-testid="preview-local-server-card"]').first().click();
-  await page.waitForSelector('[data-testid="preview-viewport"]', { timeout: 10000 });
+  await page.waitForSelector('[data-testid="preview-refresh-action"]', { timeout: 10000 });
+  await page.waitForSelector('[data-testid="preview-open-external-action"]', { timeout: 10000 });
+  await page.waitForSelector('[data-testid="preview-unreachable"], [data-testid="preview-viewport"]', { timeout: 10000 });
   const activeTab = await page.locator('[data-testid="right-panel-surface-tab--preview"] [role="tab"]').getAttribute("aria-selected");
   const previewTabs = await page.locator('[data-testid="right-panel-surface-tab--preview"]').count();
   const urlValue = await page.locator('[data-testid="preview-url-input"]').inputValue();
-  const viewportText = await page.locator('[data-testid="preview-viewport"]').innerText();
+  const refreshDisabled = await page.locator('[data-testid="preview-refresh-action"]').isDisabled();
+  const openExternalDisabled = await page.locator('[data-testid="preview-open-external-action"]').isDisabled();
+  const surfaceText = await page.locator('[data-testid="right-panel-preview-surface"]').innerText();
   const noOverlap = await assertNoOverlap(page);
   if (activeTab !== "true") throw new Error("Preview tab did not become active");
   if (previewTabs !== 1) throw new Error(`Preview URL should replace the empty preview tab, saw ${previewTabs} tabs`);
@@ -705,8 +709,11 @@ async function runPreviewScenario(page) {
   if (!urlValue.includes("localhost:5173")) {
     throw new Error(`Preview URL field did not use the local server URL: ${urlValue}`);
   }
-  if (!viewportText.includes("Preview unavailable")) {
-    throw new Error(`Preview viewport did not show the embedded-preview placeholder: ${viewportText}`);
+  if (refreshDisabled || openExternalDisabled) {
+    throw new Error("Preview runtime actions should be enabled after opening a local URL");
+  }
+  if (!surfaceText.includes("Preview unavailable")) {
+    throw new Error(`Preview runtime did not show the expected unavailable state: ${surfaceText}`);
   }
   if (!noOverlap) throw new Error("Right panel tabs overlap in preview scenario");
   return {
@@ -714,6 +721,7 @@ async function runPreviewScenario(page) {
     previewTabs,
     localServerCount,
     urlValue,
+    runtimeActionsEnabled: !refreshDisabled && !openExternalDisabled,
     hasViewport: true,
     rightTabsDoNotOverlap: noOverlap,
   };

@@ -8,6 +8,7 @@ from fastapi import HTTPException
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
+from embedagent.frontend.gui.backend.preview_service import PreviewService
 from embedagent.frontend.gui.backend.server import GUIBackend
 
 
@@ -303,6 +304,12 @@ class _SnapshotCore(_FakeCore):
 
 
 class TestGuiBackendApi(unittest.TestCase):
+    def _route(self, backend, path, method):
+        for item in backend.app.routes:
+            if getattr(item, "path", "") == path and method in getattr(item, "methods", set()):
+                return item
+        return None
+
     def test_create_session_defaults_to_explore_mode(self):
         with tempfile.TemporaryDirectory() as static_dir:
             with open(os.path.join(static_dir, "index.html"), "w", encoding="utf-8") as handle:
@@ -592,6 +599,99 @@ class TestGuiBackendApi(unittest.TestCase):
         self.assertEqual(core.reload_calls, [("sess-1", "api")])
         self.assertEqual(payload["reason"], "api")
         self.assertEqual(payload["counts"]["skills"], 1)
+
+    def test_preview_routes_open_probe_refresh_external_and_close_local_session(self):
+        with tempfile.TemporaryDirectory() as static_dir:
+            with open(os.path.join(static_dir, "index.html"), "w", encoding="utf-8") as handle:
+                handle.write("<html><body>ok</body></html>")
+
+            def probe(url, timeout_sec):
+                return {
+                    "reachable": True,
+                    "status_code": 204,
+                    "title": "Local App",
+                    "error": "",
+                }
+
+            opened = []
+            service = PreviewService(
+                workspace_root=static_dir,
+                probe_runner=probe,
+                external_opener=lambda url: opened.append(url) or True,
+            )
+            backend = GUIBackend(_FakeCore(), static_dir=static_dir, preview_service=service)
+
+            open_route = self._route(
+                backend,
+                "/api/sessions/{session_id}/preview/open",
+                "POST",
+            )
+            list_route = self._route(
+                backend,
+                "/api/sessions/{session_id}/preview",
+                "GET",
+            )
+            refresh_route = self._route(
+                backend,
+                "/api/sessions/{session_id}/preview/{tab_id}/refresh",
+                "POST",
+            )
+            external_route = self._route(
+                backend,
+                "/api/app/preview/open-external",
+                "POST",
+            )
+            close_route = self._route(
+                backend,
+                "/api/sessions/{session_id}/preview/{tab_id}/close",
+                "POST",
+            )
+
+            for route in (open_route, list_route, refresh_route, external_route, close_route):
+                self.assertIsNotNone(route)
+
+            opened_payload = asyncio.run(open_route.endpoint("sess-1", {"url": "localhost:5173"}))
+            tab = opened_payload["preview"]
+            listed_payload = asyncio.run(list_route.endpoint("sess-1"))
+            refreshed_payload = asyncio.run(refresh_route.endpoint("sess-1", tab["tab_id"]))
+            external_payload = asyncio.run(
+                external_route.endpoint({"url": "http://localhost:5173"})
+            )
+            closed_payload = asyncio.run(close_route.endpoint("sess-1", tab["tab_id"]))
+
+        self.assertEqual(tab["thread_id"], "sess-1")
+        self.assertEqual(tab["url"], "http://localhost:5173")
+        self.assertEqual(tab["status"], "success")
+        self.assertEqual(tab["title"], "Local App")
+        self.assertEqual(tab["can_go_back"], False)
+        self.assertEqual(tab["can_go_forward"], False)
+        self.assertEqual(listed_payload["preview"]["active_tab_id"], tab["tab_id"])
+        self.assertEqual(refreshed_payload["preview"]["status"], "success")
+        self.assertEqual(external_payload["opened"], True)
+        self.assertEqual(opened, ["http://localhost:5173"])
+        self.assertEqual(closed_payload["preview"]["status"], "closed")
+
+    def test_preview_route_rejects_remote_urls_before_opening_network(self):
+        with tempfile.TemporaryDirectory() as static_dir:
+            with open(os.path.join(static_dir, "index.html"), "w", encoding="utf-8") as handle:
+                handle.write("<html><body>ok</body></html>")
+            probe_calls = []
+            service = PreviewService(
+                workspace_root=static_dir,
+                probe_runner=lambda url, timeout_sec: probe_calls.append(url),
+            )
+            backend = GUIBackend(_FakeCore(), static_dir=static_dir, preview_service=service)
+            route = self._route(
+                backend,
+                "/api/sessions/{session_id}/preview/open",
+                "POST",
+            )
+            self.assertIsNotNone(route)
+            with self.assertRaises(HTTPException) as raised:
+                asyncio.run(route.endpoint("sess-1", {"url": "https://example.com"}))
+        self.assertEqual(raised.exception.status_code, 422)
+        self.assertEqual(raised.exception.detail, "preview_url_not_local")
+        self.assertEqual(probe_calls, [])
 
     def test_file_write_route_is_disabled_until_manual_editor_contract(self):
         with tempfile.TemporaryDirectory() as static_dir:

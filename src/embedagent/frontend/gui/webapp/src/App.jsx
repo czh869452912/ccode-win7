@@ -34,6 +34,11 @@ import {
   getSourceControlStatus,
   refreshSourceControlStatus,
 } from "./source-control/source-control-api.js";
+import {
+  openPreviewExternal,
+  openPreviewSession,
+  refreshPreviewSession,
+} from "./preview/preview-api.js";
 import { buildBranchToolbarModel } from "./source-control/branch-toolbar-model.js";
 import NoWorkspaceState from "./components/NoWorkspaceState.jsx";
 import Sidebar from "./components/Sidebar.jsx";
@@ -1088,15 +1093,70 @@ function App() {
   const activeRightPanelSurface =
     rightPanelSurfaces.find((surface) => surface.id === state.workbench.rightPanel.activeSurfaceId) || null;
 
-  function openPreviewUrl(url) {
-    dispatch({
-      type: "workbench_surface_opened",
-      placement: "right",
-      kind: "preview",
-      title: url,
-      resourceId: url,
-    });
-    dispatch({ type: "set_inspector", value: "preview" });
+  async function openPreviewUrl(url) {
+    if (!stateRef.current.currentSessionId) {
+      dispatch({ type: "interaction_notice_set", notice: "Open a session before using preview." });
+      return null;
+    }
+    try {
+      const result = await openPreviewSession(stateRef.current.currentSessionId, url);
+      const snapshot = result.preview || null;
+      const resourceId = snapshot?.url || url;
+      dispatch({
+        type: "workbench_surface_opened",
+        placement: "right",
+        kind: "preview",
+        title: resourceId,
+        resourceId,
+        previewSnapshot: snapshot,
+      });
+      dispatch({ type: "set_inspector", value: "preview" });
+      return result;
+    } catch (error) {
+      dispatch({
+        type: "interaction_notice_set",
+        notice: error instanceof Error ? error.message : "Preview failed",
+      });
+      throw error;
+    }
+  }
+
+  async function refreshPreview(snapshot) {
+    const sessionId = stateRef.current.currentSessionId;
+    const tabId = snapshot?.tabId || snapshot?.tab_id || "";
+    if (!sessionId || !tabId) return null;
+    try {
+      const result = await refreshPreviewSession(sessionId, tabId);
+      const nextSnapshot = result.preview || null;
+      const resourceId = nextSnapshot?.url || snapshot?.url || "";
+      dispatch({
+        type: "workbench_surface_opened",
+        placement: "right",
+        kind: "preview",
+        title: resourceId,
+        resourceId,
+        previewSnapshot: nextSnapshot,
+      });
+      return result;
+    } catch (error) {
+      dispatch({
+        type: "interaction_notice_set",
+        notice: error instanceof Error ? error.message : "Preview refresh failed",
+      });
+      throw error;
+    }
+  }
+
+  async function openPreviewInSystemBrowser(url) {
+    try {
+      return await openPreviewExternal(url);
+    } catch (error) {
+      dispatch({
+        type: "interaction_notice_set",
+        notice: error instanceof Error ? error.message : "Open preview failed",
+      });
+      throw error;
+    }
   }
 
   const inspectorProps = {
@@ -1321,6 +1381,8 @@ function App() {
               terminalController.closeRightPanelPane(activeRightPanelSurface, terminalId)
             }
             onPreviewOpenUrl={openPreviewUrl}
+            onPreviewRefresh={refreshPreview}
+            onPreviewOpenExternal={openPreviewInSystemBrowser}
           />
         </RightPanelTabs>
       }

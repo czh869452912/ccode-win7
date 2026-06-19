@@ -103,6 +103,15 @@ function makeSurface(input) {
         ? Number(input.revealRequestId)
         : 0,
   };
+  if (kind === "preview") {
+    return {
+      ...base,
+      previewSnapshot:
+        input && input.previewSnapshot && typeof input.previewSnapshot === "object"
+          ? { ...input.previewSnapshot }
+          : null,
+    };
+  }
   if (kind !== "terminal") {
     return base;
   }

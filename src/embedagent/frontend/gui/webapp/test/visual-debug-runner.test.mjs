@@ -85,6 +85,9 @@ export async function runVisualDebugRunnerTests() {
   assert.equal(runnerSource.includes("right-panel-preview-surface"), true);
   assert.equal(runnerSource.includes("preview-url-input"), true);
   assert.equal(runnerSource.includes("preview-local-server-card"), true);
+  assert.equal(runnerSource.includes("preview-open-external-action"), true);
+  assert.equal(runnerSource.includes("preview-refresh-action"), true);
+  assert.equal(runnerSource.includes("Preview unavailable"), true);
   assert.equal(runnerSource.includes("runTerminalScenario"), true);
   assert.equal(runnerSource.includes("right-panel-terminal-surface"), true);
   assert.equal(runnerSource.includes("right-panel-tab--diff"), false);

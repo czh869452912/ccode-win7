@@ -24,6 +24,49 @@ export function formatPreviewUrlDisplay(value) {
   }
 }
 
+export function previewSnapshotFromApi(input) {
+  const data = input && typeof input === "object" ? input : {};
+  return {
+    threadId: String(data.thread_id || data.threadId || ""),
+    tabId: String(data.tab_id || data.tabId || ""),
+    url: normalizePreviewUrl(data.url || ""),
+    status: String(data.status || "idle"),
+    title: String(data.title || ""),
+    canGoBack: Boolean(data.can_go_back ?? data.canGoBack),
+    canGoForward: Boolean(data.can_go_forward ?? data.canGoForward),
+    errorCode: Number(data.error_code ?? data.errorCode ?? 0) || 0,
+    errorDescription: String(data.error_description || data.errorDescription || ""),
+    updatedAt: String(data.updated_at || data.updatedAt || ""),
+  };
+}
+
+export function buildPreviewRuntimeState({ snapshot = null } = {}) {
+  const normalized = snapshot ? previewSnapshotFromApi(snapshot) : null;
+  const status = normalized ? normalized.status : "idle";
+  const loading = status === "loading";
+  const unreachable = status === "failed";
+  const displayTitle = normalized
+    ? (normalized.title || formatPreviewUrlDisplay(normalized.url))
+    : "";
+  const statusLabel =
+    status === "loading"
+      ? "Loading"
+      : status === "success"
+        ? "Ready"
+        : status === "failed"
+          ? (normalized.errorDescription || "Preview unavailable")
+          : "Idle";
+  return {
+    hasSnapshot: Boolean(normalized),
+    loading,
+    unreachable,
+    canRefresh: Boolean(normalized && normalized.url),
+    canOpenExternal: Boolean(normalized && normalized.url),
+    displayTitle,
+    statusLabel,
+  };
+}
+
 function normalizeServer(input) {
   if (!input || typeof input !== "object") return null;
   const url = normalizePreviewUrl(input.url || input.href || "");

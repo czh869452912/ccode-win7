@@ -2,8 +2,10 @@ import assert from "node:assert/strict";
 
 import {
   buildPreviewEmptyStateModel,
+  buildPreviewRuntimeState,
   formatPreviewUrlDisplay,
   normalizePreviewUrl,
+  previewSnapshotFromApi,
 } from "../src/session-runtime/preview-surface-model.js";
 
 export function runPreviewSurfaceModelTests() {
@@ -15,6 +17,60 @@ export function runPreviewSurfaceModelTests() {
   assert.equal(formatPreviewUrlDisplay("http://127.0.0.1:5173/"), "127.0.0.1:5173");
   assert.equal(formatPreviewUrlDisplay("https://example.test/docs"), "example.test/docs");
   assert.equal(formatPreviewUrlDisplay("not a url"), "not a url");
+
+  const snapshot = previewSnapshotFromApi({
+    thread_id: "sess-1",
+    tab_id: "preview-1",
+    url: "http://localhost:5173",
+    status: "success",
+    title: "Local App",
+    can_go_back: true,
+    can_go_forward: false,
+    error_code: 0,
+    error_description: "",
+    updated_at: "2026-06-19T00:00:00Z",
+  });
+  assert.deepEqual(snapshot, {
+    threadId: "sess-1",
+    tabId: "preview-1",
+    url: "http://localhost:5173",
+    status: "success",
+    title: "Local App",
+    canGoBack: true,
+    canGoForward: false,
+    errorCode: 0,
+    errorDescription: "",
+    updatedAt: "2026-06-19T00:00:00Z",
+  });
+
+  assert.deepEqual(buildPreviewRuntimeState({ snapshot }), {
+    hasSnapshot: true,
+    loading: false,
+    unreachable: false,
+    canRefresh: true,
+    canOpenExternal: true,
+    displayTitle: "Local App",
+    statusLabel: "Ready",
+  });
+  assert.deepEqual(
+    buildPreviewRuntimeState({
+      snapshot: {
+        ...snapshot,
+        status: "failed",
+        title: "",
+        errorDescription: "connection refused",
+      },
+    }),
+    {
+      hasSnapshot: true,
+      loading: false,
+      unreachable: true,
+      canRefresh: true,
+      canOpenExternal: true,
+      displayTitle: "localhost:5173",
+      statusLabel: "connection refused",
+    },
+  );
 
   const empty = buildPreviewEmptyStateModel({ servers: [] });
   assert.equal(empty.hasServers, false);

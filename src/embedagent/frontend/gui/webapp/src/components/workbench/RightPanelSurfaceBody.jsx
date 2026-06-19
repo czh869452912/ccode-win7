@@ -32,6 +32,8 @@ export default function RightPanelSurfaceBody({
   onTerminalRestart,
   onTerminalClose,
   onPreviewOpenUrl,
+  onPreviewRefresh,
+  onPreviewOpenExternal,
 }) {
   if (!surface) {
     return null;
@@ -59,7 +61,14 @@ export default function RightPanelSurfaceBody({
     );
   }
   if (surface.kind === "preview") {
-    return <PreviewSurface surface={surface} onOpenUrl={onPreviewOpenUrl} />;
+    return (
+      <PreviewSurface
+        surface={surface}
+        onOpenUrl={onPreviewOpenUrl}
+        onRefresh={onPreviewRefresh}
+        onOpenExternal={onPreviewOpenExternal}
+      />
+    );
   }
   if (surface.kind === "terminal") {
     return (

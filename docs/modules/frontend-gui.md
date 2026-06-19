@@ -152,15 +152,24 @@ remains GUI app-shell display state and must not become workflow truth.
   the GUI app-shell. It is a manually addable right-panel surface, command
   palette command (`surface.preview` / `/preview`), and default keybinding
   target (`mod+4`).
-- `webapp/src/session-runtime/preview-surface-model.js` owns frontend-only URL
-  normalization, display formatting, and local-server empty-state projection.
+- `backend/preview_service.py` owns the GUI-local preview runtime boundary:
+  local-only URL normalization, loopback HTTP probing, in-memory preview tab
+  snapshots, refresh/close, and open-in-system-browser actions. The backend
+  routes live under `/api/sessions/{id}/preview*` and
+  `/api/app/preview/open-external`.
+- `webapp/src/preview/preview-api.js` and
+  `webapp/src/session-runtime/preview-surface-model.js` own frontend API
+  helpers, URL display formatting, local-server empty-state projection, and
+  T3code-style `idle` / `loading` / `success` / `failed` runtime-state mapping.
   Opening a local server replaces the empty `right:preview` placeholder with a
   concrete URL surface descriptor, matching T3's tab behavior without creating a
   second session-history source.
 - The current shell renders compact URL chrome, refresh/open/annotation
-  affordances, deterministic local-server cards, and an embedded-preview
-  unavailable state. It does not execute browser automation, embed an external
-  browser runtime, call remote services, or depend on Electron.
+  affordances, deterministic local-server cards, local preview loading and
+  unreachable states, and an embedded-preview unavailable state. It rejects
+  remote/non-HTTP URLs before probing, does not execute browser automation,
+  embed an external browser runtime, call remote services, or depend on
+  Electron.
 - This is GUI app-shell display/read-model work only: preview surface state does
   not write `transcript.jsonl`, workflow state, runtime reducers, permission
   policy, provider configuration, source-control checkpoints, telemetry, or

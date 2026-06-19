@@ -24,6 +24,7 @@ from embedagent.frontend.gui.backend.app_host import (
 from embedagent.frontend.gui.backend.app_shell import AppShellService
 from embedagent.frontend.gui.backend.bridge import BlockingResult, ThreadsafeAsyncDispatcher
 from embedagent.frontend.gui.backend.session_events import build_session_event
+from embedagent.frontend.gui.backend.preview_service import PreviewService
 from embedagent.frontend.gui.backend.source_control_service import SourceControlService
 from embedagent.frontend.gui.backend.terminal_service import TerminalService
 from embedagent.modes import DEFAULT_MODE
@@ -315,6 +316,21 @@ def _source_control_http_error(exc: ValueError) -> HTTPException:
     if detail in ("invalid_diff_scope", "path_outside_workspace"):
         return HTTPException(status_code=422, detail=detail)
     return HTTPException(status_code=422, detail=detail or "source_control_failed")
+
+
+def _preview_http_error(exc: ValueError) -> HTTPException:
+    detail = str(exc or "").strip() or "preview_failed"
+    if detail == "preview_tab_not_found":
+        return HTTPException(status_code=404, detail=detail)
+    if detail in (
+        "invalid_session_id",
+        "invalid_preview_tab_id",
+        "preview_url_required",
+        "preview_url_too_long",
+        "preview_url_not_local",
+    ):
+        return HTTPException(status_code=422, detail=detail)
+    return HTTPException(status_code=422, detail=detail or "preview_failed")
 
 
 class WebSocketFrontend(FrontendCallbacks):
@@ -670,6 +686,7 @@ class GUIBackend:
         host_diagnostics: Optional[Dict[str, Any]] = None,
         terminal_service: Optional[Any] = None,
         source_control_service: Optional[Any] = None,
+        preview_service: Optional[Any] = None,
     ):
         if core is None and app_host is None:
             raise ValueError("core_or_app_host_required")
@@ -687,6 +704,9 @@ class GUIBackend:
         self.source_control_service = source_control_service
         self._source_control_service_injected = source_control_service is not None
         self._source_control_workspace_path = ""
+        self.preview_service = preview_service
+        self._preview_service_injected = preview_service is not None
+        self._preview_workspace_path = ""
         if self.terminal_service is not None and hasattr(self.terminal_service, "set_event_sink"):
             self.terminal_service.set_event_sink(self._emit_terminal_event)
         self.core = _ActiveCoreProxy(self)  # Compatibility for existing route code.
@@ -761,6 +781,21 @@ class GUIBackend:
             self._source_control_workspace_path = real_workspace
             self.source_control_service = SourceControlService(workspace_root=real_workspace)
         return self.source_control_service
+
+    def _preview(self) -> Any:
+        if self.preview_service is not None and self._preview_service_injected:
+            return self.preview_service
+        real_workspace = self._active_workspace_path()
+        if (
+            self.preview_service is not None
+            and self._preview_workspace_path
+            and real_workspace != self._preview_workspace_path
+        ):
+            self.preview_service = None
+        if self.preview_service is None:
+            self._preview_workspace_path = real_workspace
+            self.preview_service = PreviewService(workspace_root=real_workspace)
+        return self.preview_service
 
     def _emit_terminal_event(self, event: Dict[str, Any]) -> None:
         self.frontend._dispatch_message({"type": "terminal_event", "data": {"event": dict(event)}})
@@ -856,6 +891,15 @@ class GUIBackend:
                 raise _source_control_http_error(exc)
             return {"diff": payload}
 
+        @app.post("/api/app/preview/open-external")
+        async def open_preview_external(request: Dict[str, Any]):
+            preview = self._preview()
+            try:
+                payload = preview.open_external(str(request.get("url") or ""))
+            except ValueError as exc:
+                raise _preview_http_error(exc)
+            return payload
+
         # API 路由
         @app.get("/api/sessions")
         async def list_sessions(limit: int = 10):
@@ -924,6 +968,42 @@ class GUIBackend:
                 raise _thread_lifecycle_http_error(exc)
             payload = _serialize_session_summary(summary)
             return {"session_id": payload["session_id"], "session": payload}
+
+        @app.get("/api/sessions/{session_id}/preview")
+        async def list_preview_sessions(session_id: str):
+            preview = self._preview()
+            try:
+                payload = preview.list_sessions(session_id)
+            except ValueError as exc:
+                raise _preview_http_error(exc)
+            return {"preview": payload}
+
+        @app.post("/api/sessions/{session_id}/preview/open")
+        async def open_preview(session_id: str, request: Dict[str, Any]):
+            preview = self._preview()
+            try:
+                payload = preview.open(session_id, str(request.get("url") or ""))
+            except ValueError as exc:
+                raise _preview_http_error(exc)
+            return {"preview": payload}
+
+        @app.post("/api/sessions/{session_id}/preview/{tab_id}/refresh")
+        async def refresh_preview(session_id: str, tab_id: str):
+            preview = self._preview()
+            try:
+                payload = preview.refresh(session_id, tab_id)
+            except ValueError as exc:
+                raise _preview_http_error(exc)
+            return {"preview": payload}
+
+        @app.post("/api/sessions/{session_id}/preview/{tab_id}/close")
+        async def close_preview(session_id: str, tab_id: str):
+            preview = self._preview()
+            try:
+                payload = preview.close(session_id, tab_id)
+            except ValueError as exc:
+                raise _preview_http_error(exc)
+            return {"preview": payload}
 
         @app.get("/api/sessions/{session_id}/terminals")
         async def list_session_terminals(session_id: str):

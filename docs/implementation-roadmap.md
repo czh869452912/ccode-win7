@@ -99,6 +99,10 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   surface: the backend owns a read-only `SourceControlService` over bundled or
   workspace MinGit, while the React source-control model/panel displays local
   status and opens existing Diff views for selected files
+- GUI Preview runtime boundary is now app-shell hosted and local-only: the
+  backend owns a `PreviewService` that opens/probes loopback HTTP URLs, while
+  the React preview model/API/chrome surface renders loading, success, and
+  unreachable states without adding browser automation or Agent Core behavior
 - this is explicitly separate from Agent Core session truth, workflow state,
   tool activation, permission policy, extension loading, provider config, and
   `/api/sessions/{id}/bootstrap`
@@ -114,9 +118,9 @@ Recent stabilization work has also completed the agent-core ownership cutover:
 ## 4. Remaining Near-Term Work
 
 - Continue polishing the T3code/Pi workbench shell with real Win7 WebView2 109
-  smoke validation, narrow-width GUI layout validation, TUI raw-console
-  validation, C/C++ workflow task/run surface refinement, and future
-  source-control mutation/checkpoint slices outside Agent Core.
+  preview feasibility validation, narrow-width GUI layout validation, TUI
+  raw-console validation, C/C++ workflow task/run surface refinement, and
+  future source-control mutation/checkpoint slices outside Agent Core.
 
 ### 4.1 Pi-Inspired Minimal Core Program
 

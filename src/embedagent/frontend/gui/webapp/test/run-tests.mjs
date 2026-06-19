@@ -41,6 +41,7 @@ import { runComposerPathContextTests } from "./composer-path-context.test.mjs";
 import { runComposerTriggerTests } from "./composer-trigger.test.mjs";
 import { runFilePreviewModelTests } from "./file-preview-model.test.mjs";
 import { runPreviewSurfaceModelTests } from "./preview-surface-model.test.mjs";
+import { runPreviewApiTests } from "./preview-api.test.mjs";
 
 const WEBAPP_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -1180,7 +1181,19 @@ async function main() {
   assert.equal(previewSurfaceSource.includes('data-testid="preview-local-server-card"'), true);
   assert.equal(previewSurfaceSource.includes("PreviewChromeRow"), true);
   assert.equal(previewSurfaceSource.includes("PreviewEmptyState"), true);
+  assert.equal(previewSurfaceSource.includes("PreviewUnreachable"), true);
+  assert.equal(previewSurfaceSource.includes("buildPreviewRuntimeState"), true);
+  assert.equal(previewSurfaceSource.includes("onRefresh"), true);
+  assert.equal(previewSurfaceSource.includes("onOpenExternal"), true);
   assert.equal(previewSurfaceSource.includes("onOpenUrl"), true);
+
+  const previewApiSource = fs.readFileSync(
+    webappSourcePath("preview", "preview-api.js"),
+    "utf8",
+  );
+  assert.equal(previewApiSource.includes("/api/sessions/"), true);
+  assert.equal(previewApiSource.includes("/preview/open"), true);
+  assert.equal(previewApiSource.includes("/api/app/preview/open-external"), true);
 
   const repoRoot = path.resolve(WEBAPP_ROOT, "..", "..", "..", "..", "..");
   const visualDebugSource = fs.readFileSync(
@@ -1238,6 +1251,7 @@ async function main() {
   runDiffModelTests();
   runFilePreviewModelTests();
   runPreviewSurfaceModelTests();
+  await runPreviewApiTests();
   runWebSocketLifecycleTests();
   await runSessionLoadersTests();
   runSocketMessageEffectsTests();

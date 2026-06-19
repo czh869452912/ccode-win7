@@ -1105,6 +1105,56 @@ body {
   font-size: 12px;
 }
 
+.preview-unreachable {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  align-content: center;
+  justify-items: start;
+  gap: var(--sp-3);
+  overflow: auto;
+  padding: var(--sp-6);
+  background: var(--bg-default);
+  color: var(--text-muted);
+}
+
+.preview-unreachable h3 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.preview-unreachable p {
+  max-width: 360px;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.preview-unreachable strong {
+  color: var(--text-primary);
+}
+
+.preview-unreachable-action {
+  min-height: 28px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-sm);
+  background: var(--bg-panel);
+  color: var(--text-primary);
+  padding: 0 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.preview-unreachable-action:hover,
+.preview-unreachable-action:focus-visible {
+  border-color: var(--border-focus);
+  background: var(--bg-elevated);
+  outline: none;
+}
+
 .bottom-drawer {
   height: 100%;
   display: flex;
