@@ -32,6 +32,18 @@ function stringValue(value, fallback = "") {
   return String(value);
 }
 
+function lineNumberValue(value) {
+  if (value === null || value === undefined || value === "") return null;
+  const number = Number(value);
+  if (!Number.isFinite(number)) return null;
+  return Math.max(1, Math.trunc(number));
+}
+
+function lineDisplayValue(value) {
+  const number = lineNumberValue(value);
+  return number === null ? "" : String(number);
+}
+
 export function normalizeCompactToolLabel(value) {
   return stringValue(value).replace(/\s+(?:complete|completed|started)\s*$/i, "").trim();
 }
@@ -606,10 +618,12 @@ function matchItems(data) {
       : [];
   return source.slice(0, 12).map((item, index) => {
     if (item && typeof item === "object") {
+      const line = lineNumberValue(item.line);
       return {
-        id: stringValue(item.id || `${item.path || "match"}-${item.line || index}`),
+        id: stringValue(item.id || `${item.path || "match"}-${line || index}`),
         path: stringValue(item.path),
-        line: item.line !== undefined ? stringValue(item.line) : "",
+        line,
+        displayLine: lineDisplayValue(item.line),
         text: truncateText(item.text || item.content || item.preview || "", 320),
       };
     }
@@ -617,6 +631,7 @@ function matchItems(data) {
       id: `match-${index + 1}`,
       path: "",
       line: "",
+      displayLine: "",
       text: truncateText(item, 320),
     };
   });

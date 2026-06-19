@@ -143,6 +143,48 @@ export function runT3TimelineTests() {
   assert.equal(runningRows[1].status, "running");
   assert.equal(runningRows.some((row) => row.kind === "turn_fold"), false);
 
+  const grepRows = projectT3TimelineRows({
+    turnGroups: [
+      {
+        turnId: "turn-grep-link",
+        userItem: { id: "u-grep-link", kind: "user", content: "find parser", turnId: "turn-grep-link" },
+        steps: [
+          {
+            stepId: "step-grep-link",
+            stepIndex: 1,
+            activityItems: [
+              {
+                id: "grep-link",
+                kind: "tool",
+                toolName: "grep_text",
+                status: "success",
+                arguments: { pattern: "parse", path: "src" },
+                data: {
+                  pattern: "parse",
+                  match_count: 1,
+                  matches: [{ path: "src/parser.c", line: 4, text: "line 4 reveal target" }],
+                },
+                turnId: "turn-grep-link",
+                stepId: "step-grep-link",
+              },
+            ],
+            assistantItem: null,
+          },
+        ],
+        trailingTurnItems: [],
+        leadingSystemItems: [],
+        sessionFallbackItems: [],
+      },
+    ],
+    currentStatus: "running",
+    activeTurnId: "turn-grep-link",
+  });
+  const grepWork = grepRows.find((row) => row.id === "grep-link");
+  const matchSection = grepWork.detailModel.sections.find((section) => section.kind === "matches");
+  assert.equal(matchSection.items[0].path, "src/parser.c");
+  assert.equal(matchSection.items[0].line, 4);
+  assert.equal(matchSection.items[0].displayLine, "4");
+
   const actionPresentationRows = projectT3TimelineRows({
     turnGroups: [
       {
