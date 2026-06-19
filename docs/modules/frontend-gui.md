@@ -23,7 +23,7 @@
 - GUI app-shell hosted source-control read model（`backend/source_control_service.py`、`webapp/src/source-control/`）
 - 协议回调到 WebSocket 广播的实时转换（`backend/server.py`）
 - WebSocket 断线重连与会话事件回放恢复（`webapp/`）
-- T3code-inspired Agent timeline rows、structured tool detail expansion、timeline file-link activation、composer interaction panel、Diff / Files right-panel surfaces、neutral workbench visual language（`webapp/src/session-runtime/`、`webapp/src/components/`、`webapp/src/styles.css`）
+- T3code-inspired Agent timeline rows、structured tool detail expansion、timeline file-link activation、composer interaction panel、File/Diff / Files right-panel surface chrome、neutral workbench visual language（`webapp/src/session-runtime/`、`webapp/src/components/`、`webapp/src/styles.css`）
 - 开发机可视调试 harness：启动真实 GUI、执行场景、截图、检查 console/DOM（`scripts/gui-visual-debug.mjs`）
 
 ## 3. Code Mapping
@@ -123,8 +123,9 @@ remains GUI app-shell display state and must not become workflow truth.
 ### T3 File Preview Chrome
 
 - The right-panel `FilePreviewSurface` renders a T3code-style file viewer over an
-  already-loaded file preview: a project/directory/file breadcrumb trail, a
-  language/line-count metadata line, a numbered code gutter, and a code/markdown
+  already-loaded file preview: a compact `surface-subheader`, horizontally
+  scrollable project/directory/file breadcrumbs, language/line-count metadata,
+  icon-style app-shell actions, a numbered code gutter, and a code/markdown
   preview mode toggle for `.md`/`.mdx` files (markdown defaults to the rendered
   preview).
 - Breadcrumb, mode, gutter, and metadata logic live in the frontend-local pure
@@ -135,6 +136,10 @@ remains GUI app-shell display state and must not become workflow truth.
   frontend clamps requested lines to the loaded file range, marks both the
   gutter row and content row with `data-file-link-reveal`, and scrolls the
   target row into view when the surface reveal request changes.
+- The open/explorer affordances are GUI-local app-shell controls. The open
+  action copies the workspace-relative path when browser clipboard access is
+  available; the explorer action opens the existing right-panel `FilesSurface`.
+  They do not call external editors, mutate source control, or require Electron.
 - This is GUI app-shell display/read-model work only: it renders existing file
   preview content and never edits/saves files, writes transcript history, or
   changes Agent Core, backend protocol, workflow state, permission policy, or
@@ -237,11 +242,15 @@ clicks wired to the Diff surface.
 The Diff surface is a right-panel surface (`kind = "diff"`) backed by
 `session-runtime/diff-model.js` and `components/diff/DiffPanel.jsx`. `/diff`
 command results and diff-capable timeline entries open this surface with parsed
-unified-diff file summaries. It uses a T3code-like header, changed-file rail,
-and focused diff viewport; narrow right panels and mobile layouts stack the rail
-above the diff viewport. Rendering uses the existing `DiffView` wrapper with a
-raw fallback for malformed diffs. This surface is display-only; Git execution
-remains backend/tool-owned.
+unified-diff file summaries. It now copies T3code's right-panel chrome more
+closely: a `surface-subheader`, a horizontal diff-selection chip strip,
+stacked/split view controls, line-wrap and whitespace display toggles, a
+collapsible changed-file rail, and a focused scrollable diff viewport. Rendering
+still uses the existing `DiffView` wrapper with a raw fallback for malformed
+diffs. Split/whitespace controls are GUI-local presentation state in this
+slice; Git execution and diff generation remain backend/tool-owned. This
+surface is display-only and does not stage, commit, checkpoint, or write
+transcript/workflow truth.
 
 ## 8. Verification And Tests
 

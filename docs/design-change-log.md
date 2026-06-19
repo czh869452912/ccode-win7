@@ -44,6 +44,39 @@
 
 ## 3. 当前变更记录
 
+### DC-183
+
+- 日期：2026-06-19
+- 变更主题：GUI T3 Code-style right-panel editor/diff chrome parity
+- 变更摘要：
+  - `FilePreviewSurface.jsx` now uses a T3code-style `surface-subheader` with horizontally scrollable breadcrumbs, compact metadata, icon-style open/markdown/explorer actions, and the existing code/markdown content surface below it.
+  - `RightPanelSurfaceBody.jsx` / `App.jsx` pass an app-shell `onOpenFilesSurface` callback so the file explorer affordance reuses the existing right-panel `FilesSurface`.
+  - `DiffPanel.jsx` now uses a T3code-style subheader, diff-selection chip strip, stacked/split display controls, line-wrap and whitespace toggles, collapsible file rail, and focused scrollable viewport.
+  - `scripts/gui-visual-debug.mjs` now verifies file and diff chrome states, control toggles, reveal markers, scroll containers, and right-panel tab non-overlap in the `diff,file` scenario.
+  - This slice intentionally does not import T3's `@pierre/diffs` editor runtime, Electron context menus, browser preview runtime, online/editor integrations, or source-control mutation behavior.
+- 影响范围：
+  - `src/embedagent/frontend/gui/webapp/src/components/workbench/FilePreviewSurface.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/components/workbench/RightPanelSurfaceBody.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/components/diff/DiffPanel.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/styles.css`
+  - `scripts/gui-visual-debug.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/`
+  - `src/embedagent/frontend/gui/static/assets/`
+  - `docs/modules/frontend-gui.md`
+  - `docs/development-tracker.md`
+  - `docs/design-change-log.md`
+- 关联文档：
+  - `reference/t3code/apps/web/src/components/files/FilePreviewPanel.tsx`
+  - `reference/t3code/apps/web/src/components/DiffPanelShell.tsx`
+  - `reference/t3code/apps/web/src/components/DiffPanel.tsx`
+  - `reference/t3code/apps/web/src/components/RightPanelTabs.tsx`
+  - `docs/superpowers/specs/2026-06-19-t3-right-panel-editor-diff-chrome-design.md`
+  - `docs/superpowers/plans/2026-06-19-t3-right-panel-editor-diff-chrome.md`
+- 是否需要 ADR：否；该变更是 GUI app-shell presentation/read-model parity work，不改变 Agent Core、backend protocol、session-history truth、workflow package contracts、permission policy、runtime reducers、provider configuration、source-control mutation policy、terminal execution、telemetry 或 public extension API。
+- 后续动作：
+  - 继续一比一推进 T3code parity：source-control/branch mutation affordance boundaries、right-panel browser/preview shell、以及更深的 file editor 行为需要继续按 Win7/offline/hosted-extension 边界拆片。
+
 ### DC-182
 
 - 日期：2026-06-19

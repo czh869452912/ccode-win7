@@ -1,6 +1,6 @@
 # EmbedAgent 开发进度跟踪
 
-> 更新日期：2026-06-19（T3 timeline file-link activation parity）
+> 更新日期：2026-06-19（T3 right-panel editor/diff chrome parity）
 > 用途：持续跟踪当前阶段、下一步任务、里程碑进度、风险与阻塞
 
 ---
@@ -23,6 +23,14 @@
 ---
 
 ## 2. 当前阶段
+
+### 2026-06-19 - T3 Right-Panel Editor/Diff Chrome Parity
+
+- GUI right-panel file preview now uses a T3code-style `surface-subheader` with horizontally scrollable breadcrumbs, compact metadata, icon-style open/markdown/explorer controls, and the existing reveal-line code surface below it.
+- GUI right-panel diff now uses a T3code-style subheader with selection chips, stacked/split display controls, line-wrap and whitespace toggles, a collapsible file rail, and a focused scrollable diff viewport.
+- The file explorer affordance reuses the existing right-panel `FilesSurface`; the open affordance stays GUI-local and only copies the workspace-relative path when clipboard access is available.
+- Visual debug `diff,file` now asserts both chrome states, control toggles, reveal markers, scroll containers, and right-panel tab non-overlap.
+- This slice stays in the GUI app shell: it does not change Agent Core, backend protocol truth, transcript history, workflow state, permission policy, runtime reducers, provider configuration, extension loading, source-control mutation/checkpoints, telemetry, terminal execution, or offline/Win7 runtime constraints.
 
 ### 2026-06-19 - T3 Timeline File-Link Activation Parity
 
