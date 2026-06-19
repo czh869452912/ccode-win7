@@ -694,16 +694,41 @@ async function runDiffScenario(page) {
   await page.waitForSelector('[data-testid="diff-file--demo.c"]', { timeout: 15000 });
   const panelText = await page.locator('[data-testid="diff-panel"]').innerText();
   const activeTab = await page.locator('[data-testid="right-panel-surface-tab--diff"] [role="tab"]').getAttribute("aria-selected");
+  const diffChromeState = await page.evaluate(() => ({
+    hasSubheader: Boolean(document.querySelector(".diff-panel [data-surface-subheader]")),
+    hasChipStrip: Boolean(document.querySelector(".diff-selection-chip-strip")),
+    hasStacked: Boolean(document.querySelector('[data-testid="diff-mode-toggle--stacked"]')),
+    hasSplit: Boolean(document.querySelector('[data-testid="diff-mode-toggle--split"]')),
+    hasWrap: Boolean(document.querySelector('[data-testid="diff-wrap-toggle"]')),
+    hasWhitespace: Boolean(document.querySelector('[data-testid="diff-whitespace-toggle"]')),
+  }));
+  await page.click('[data-testid="diff-mode-toggle--split"]');
+  await page.click('[data-testid="diff-wrap-toggle"]');
+  const diffChromeToggleState = await page.evaluate(() => {
+    const viewport = document.querySelector(".diff-panel-viewport");
+    return {
+      split: Boolean(viewport?.classList.contains("split")),
+      wordWrap: Boolean(viewport?.classList.contains("word-wrap")),
+    };
+  });
   const noOverlap = await assertNoOverlap(page);
   if (activeTab !== "true") throw new Error("Diff tab did not become active");
   if (!panelText.includes("demo.c") || !panelText.includes("return 1")) {
     throw new Error("Diff panel did not show the expected demo.c change");
+  }
+  if (!Object.values(diffChromeState).every(Boolean)) {
+    throw new Error(`Diff panel chrome is incomplete: ${JSON.stringify(diffChromeState)}`);
+  }
+  if (!diffChromeToggleState.split || !diffChromeToggleState.wordWrap) {
+    throw new Error(`Diff panel controls did not update viewport classes: ${JSON.stringify(diffChromeToggleState)}`);
   }
   if (!noOverlap) throw new Error("Right panel tabs overlap in diff scenario");
   return {
     activeTab: activeTab === "true",
     hasFileRail: await page.locator('[data-testid="diff-file-rail"]').isVisible(),
     hasDemoDiff: panelText.includes("demo.c") && panelText.includes("return 1"),
+    diffChromeState,
+    diffChromeToggleState,
     rightTabsDoNotOverlap: noOverlap,
   };
 }
@@ -726,8 +751,14 @@ async function runFileScenario(page) {
   await page.waitForSelector('[data-testid="file-preview-markdown"]', { timeout: 15000 });
   await page.waitForSelector('[data-testid="file-preview-mode-toggle"]', { timeout: 15000 });
   const breadcrumbText = await page.locator('[data-testid="file-preview-breadcrumbs"]').innerText();
+  const filePreviewChromeState = await page.evaluate(() => ({
+    hasSubheader: Boolean(document.querySelector(".right-panel-file-surface [data-surface-subheader]")),
+    hasOpenAction: Boolean(document.querySelector('[data-testid="file-preview-open-action"]')),
+    hasExplorerToggle: Boolean(document.querySelector('[data-testid="file-preview-explorer-toggle"]')),
+    hasBreadcrumbs: Boolean(document.querySelector("[data-file-breadcrumbs]")),
+  }));
   // Switch to the code view to exercise the numbered gutter.
-  await page.click('[data-testid="file-preview-mode-toggle"] >> text=Code');
+  await page.click('[data-testid="file-preview-mode-toggle"]');
   await page.waitForSelector('[data-testid="right-panel-file-content"]', { timeout: 15000 });
   await page.waitForSelector('[data-testid="file-preview-gutter"]', { timeout: 15000 });
   const panelText = await page.locator('[data-testid="right-panel-file-surface"]').innerText();
@@ -766,6 +797,9 @@ async function runFileScenario(page) {
   if (!breadcrumbText.includes("README.md")) {
     throw new Error("File surface breadcrumbs did not show the file name");
   }
+  if (!Object.values(filePreviewChromeState).every(Boolean)) {
+    throw new Error(`File preview chrome is incomplete: ${JSON.stringify(filePreviewChromeState)}`);
+  }
   if (!panelText.includes("Visual Debug Workspace")) {
     throw new Error("File surface did not show README.md fixture content");
   }
@@ -781,6 +815,7 @@ async function runFileScenario(page) {
     filesSurfaceReplaced: filesTabs === 0,
     hasReadmeContent: panelText.includes("Visual Debug Workspace"),
     hasBreadcrumbs: breadcrumbText.includes("README.md"),
+    filePreviewChromeState,
     leftFilesTabAbsent: leftFilesTabCount === 0,
     leftFileTreeAbsent: leftFileTreeCount === 0,
     revealState,
