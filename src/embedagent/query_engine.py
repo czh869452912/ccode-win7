@@ -139,6 +139,7 @@ class QueryEngine(object):
             mode_allowed_tools=allowed_tools_for,
         )
         self.extension_manager = self.extension_host.manager
+        self.extension_manager.register_context_reducers(self.context_manager.reducers)
         category_setter = getattr(self.permission_policy, "set_category_lookup", None)
         if callable(category_setter):
             category_setter(self._tool_permission_category)
@@ -177,6 +178,7 @@ class QueryEngine(object):
             max_parallel_tools=self.max_parallel_tools,
             tracer=self.tracer,
             allowed_tool_names=self._allowed_tools_for_mode,
+            extension_tool_handler=self._handle_extension_tool_call,
         )
         self._agent_loop = AgentLoop(
             max_turns=self.max_turns,
@@ -944,6 +946,20 @@ class QueryEngine(object):
 
     def _allowed_tools_for_mode(self, mode_name: str, workflow_state: str = "chat") -> set:
         return set(self.extension_host.allowed_tool_names(mode_name, workflow_state=workflow_state))
+
+    def _handle_extension_tool_call(
+        self,
+        session: Session,
+        action: Action,
+        current_mode: str,
+        workflow_state: str,
+    ) -> Optional[Observation]:
+        return self.extension_host.handle_tool_call(
+            session,
+            tool_name=action.name,
+            current_mode=current_mode,
+            workflow_state=workflow_state,
+        )
 
     def _tool_permission_category(self, tool_name: str) -> str:
         lookup = getattr(self.tools, "tool_catalog_entry", None)
@@ -1749,6 +1765,7 @@ class QueryEngine(object):
                 analysis=getattr(build, "analysis", {}),
                 replacements=getattr(build, "replacements", []),
                 pipeline_steps=getattr(build, "pipeline_steps", []),
+                plan=getattr(build, "plan", None),
             )
         return self.extension_host.apply_context_patch(
             session,
@@ -2341,6 +2358,10 @@ class QueryEngine(object):
                 "replacements": len(assembly.replacements),
                 "pipeline_steps": list(assembly.pipeline_steps),
             }
+            plan = getattr(assembly, "plan", None)
+            plan_metadata = getattr(plan, "to_boundary_metadata", None)
+            if callable(plan_metadata):
+                metadata.update(dict(plan_metadata()))
             metadata = window_state.extend_metadata(metadata)
             boundary = session.add_compact_boundary(
                 assembly.summary_message,
@@ -2350,8 +2371,13 @@ class QueryEngine(object):
                 preserved_head_message_id=preserved_head_message_id,
                 preserved_tail_message_id=preserved_tail_message_id,
             )
+            plan_payload = {}
+            plan_payload_fields = getattr(plan, "to_boundary_payload_fields", None)
+            if callable(plan_payload_fields):
+                plan_payload = dict(plan_payload_fields())
             token_counts = self._compaction_token_counts(assembly)
             message_counts = self._compaction_message_counts(assembly)
+            message_counts.update(dict(plan_payload.get("message_counts") or {}))
             file_activity = self._compaction_file_activity(assembly)
             evidence_refs = self._compaction_evidence_refs(assembly)
             self._append_transcript_event(

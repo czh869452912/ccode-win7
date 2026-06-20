@@ -137,6 +137,7 @@ class AgentLifecycleJournal(object):
             "recent_turns": assembly.recent_turns,
             "pipeline_steps": list(assembly.pipeline_steps),
             "replacements": len(assembly.replacements),
+            "context_plan": self._context_plan_payload(assembly),
         }
 
     def context_snapshot_payload(
@@ -148,7 +149,17 @@ class AgentLifecycleJournal(object):
             "analysis": dict(assembly.analysis),
             "approx_tokens": assembly.approx_tokens,
             "summary_message": assembly.summary_message,
+            "context_plan": self._context_plan_payload(assembly),
         }
+
+    def _context_plan_payload(self, assembly: ContextAssemblyResult) -> Dict[str, Any]:
+        plan = getattr(assembly, "plan", None)
+        if plan is None:
+            return {}
+        to_metadata = getattr(plan, "to_boundary_metadata", None)
+        if callable(to_metadata):
+            return dict(to_metadata())
+        return {}
 
     def emit_turn_started(
         self,

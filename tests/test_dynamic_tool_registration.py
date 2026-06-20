@@ -59,6 +59,34 @@ def make_dynamic_tool(name="dynamic_echo", permission_category="read", read_only
     )
 
 
+def make_minimal_dynamic_tool(name="minimal_echo", permission_category="read", read_only=True):
+    def handler(arguments):
+        return Observation(
+            name,
+            True,
+            None,
+            {"echo": str(arguments.get("message") or "")},
+        )
+
+    return ToolDefinition(
+        name=name,
+        description="Echo a message from a minimally declared extension tool.",
+        parameters={
+            "type": "object",
+            "properties": {"message": {"type": "string"}},
+            "required": ["message"],
+        },
+        handler=handler,
+        metadata={"permission_category": permission_category},
+        read_only=read_only,
+        concurrency_safe=True,
+        interrupt_behavior="block",
+        result_budget_policy="compact-preview",
+        activity_kind="tool",
+        context_priority=50,
+    )
+
+
 def schema_names(schemas):
     return [item["function"]["name"] for item in schemas]
 
@@ -84,6 +112,86 @@ def test_register_tool_adds_schema_catalog_and_execution_metadata(tmp_path):
     assert observation.data["echo"] == "hello"
     assert observation.data["tool_label"] == "Dynamic Echo"
     assert observation.data["permission_category"] == "read"
+
+
+def test_register_tool_defaults_extension_presentation_metadata(tmp_path):
+    runtime = ToolRuntime(str(tmp_path))
+    runtime.register_tool(
+        make_minimal_dynamic_tool(),
+        source_id="minimal.extension",
+        source_type="extension",
+    )
+
+    entry = runtime.tool_catalog_entry("minimal_echo")
+    observation = runtime.execute("minimal_echo", {"message": "hello"})
+
+    assert entry["permission_category"] == "read"
+    assert entry["mode_visibility"] == ["explore", "spec", "build", "debug", "verify"]
+    assert entry["workflow_visibility"] == ["chat", "plan", "review", "command"]
+    assert entry["user_label"] == "minimal_echo"
+    assert entry["progress_renderer_key"] == "default"
+    assert entry["result_renderer_key"] == "default"
+    assert entry["context_reducer_key"] == "minimal_echo"
+    assert entry["read_only"] is True
+    assert entry["concurrency_safe"] is True
+    assert entry["interrupt_behavior"] == "block"
+    assert entry["result_budget_policy"] == "compact-preview"
+    assert entry["activity_kind"] == "tool"
+    assert entry["context_priority"] == 50
+    assert observation.success is True
+    assert observation.data["tool_label"] == "minimal_echo"
+
+
+def test_tool_catalog_entry_keeps_internal_metadata_facets_behind_legacy_payload(tmp_path):
+    runtime = ToolRuntime(str(tmp_path))
+    runtime.register_tool(
+        make_minimal_dynamic_tool(),
+        source_id="minimal.extension",
+        source_type="extension",
+    )
+
+    internal_entry = runtime._catalog["minimal_echo"]
+    payload = runtime.tool_catalog_entry("minimal_echo")
+
+    assert internal_entry.execution.read_only is True
+    assert internal_entry.execution.concurrency_safe is True
+    assert internal_entry.execution.interrupt_behavior == "block"
+    assert internal_entry.presentation.user_label == "minimal_echo"
+    assert internal_entry.presentation.progress_renderer_key == "default"
+    assert internal_entry.context_policy.context_reducer_key == "minimal_echo"
+    assert internal_entry.context_policy.context_priority == 50
+    assert payload["read_only"] is True
+    assert payload["concurrency_safe"] is True
+    assert payload["user_label"] == "minimal_echo"
+    assert payload["context_reducer_key"] == "minimal_echo"
+
+
+def test_tool_runtime_execution_reads_presentation_facets_internally():
+    import inspect
+
+    from embedagent.tools.runtime import ToolRuntime
+
+    source = inspect.getsource(ToolRuntime.execute_with_interrupt)
+
+    assert "entry.presentation.user_label" in source
+    assert "entry.presentation.supports_diff_preview" in source
+    assert "entry.presentation.progress_renderer_key" in source
+    assert "entry.presentation.result_renderer_key" in source
+    assert "entry.user_label" not in source
+    assert "entry.supports_diff_preview" not in source
+
+
+def test_register_tool_requires_extension_permission_category(tmp_path):
+    runtime = ToolRuntime(str(tmp_path))
+    tool = make_minimal_dynamic_tool()
+    tool.metadata = {}
+
+    with pytest.raises(ValueError) as exc:
+        runtime.register_tool(tool, source_id="minimal.extension", source_type="extension")
+
+    assert "permission_category" in str(exc.value)
+    assert "mode_visibility" not in str(exc.value)
+    assert "progress_renderer_key" not in str(exc.value)
 
 
 def test_register_tool_rejects_builtin_name_from_extension_source(tmp_path):
@@ -147,6 +255,38 @@ class DynamicToolExtension(object):
     def allowed_tool_names(self, mode_name, workflow_state="chat"):
         if self.active and mode_name == "build" and workflow_state == "chat":
             return {self.tool_name}
+        return set()
+
+
+class OwnedToolExtension(object):
+    extension_id = "owned_tool"
+    builtin_extension = False
+
+    def allowed_tool_names(self, mode_name, workflow_state="chat"):
+        if mode_name == "build" and workflow_state == "chat":
+            return {"owned_status"}
+        return set()
+
+    def handle_tool_call(self, session, tool_name, current_mode, workflow_state="chat"):
+        del session, current_mode, workflow_state
+        if tool_name != "owned_status":
+            return None
+        return Observation(
+            tool_name="owned_status",
+            success=True,
+            error=None,
+            data={"owned": True},
+        )
+
+
+class ModeSwitchToolExtension(object):
+    extension_id = "mode_switch_tool"
+    builtin_extension = False
+
+    def allowed_tool_names(self, mode_name, workflow_state="chat"):
+        del workflow_state
+        if mode_name == "explore":
+            return {"propose_mode_switch"}
         return set()
 
 
@@ -231,6 +371,24 @@ def test_agent_extension_host_uses_mode_contract_as_active_tool_fallback(tmp_pat
 
     assert "read_file" in names
     assert "write_file" in names
+    assert "propose_mode_switch" not in names
+
+
+def test_agent_extension_host_projects_mode_switch_only_when_active(tmp_path):
+    from embedagent.agent_extension_host import AgentExtensionHost
+    from embedagent.permissions import PermissionPolicy
+
+    host = AgentExtensionHost(
+        manager=ExtensionManager([ModeSwitchToolExtension()]),
+        tools=ToolRuntime(str(tmp_path)),
+        permission_policy=PermissionPolicy(auto_approve_all=True, workspace=str(tmp_path)),
+    )
+
+    names = set(
+        item["function"]["name"]
+        for item in host.schemas_for_active_tools("explore", workflow_state="chat")
+    )
+
     assert "propose_mode_switch" in names
 
 
@@ -345,6 +503,47 @@ def test_agent_tool_action_service_executes_active_dynamic_tool(tmp_path):
     assert current_mode == "build"
     assert observation.success is True
     assert observation.data["echo"] == "hello"
+
+
+def test_agent_tool_action_service_dispatches_extension_owned_tool(tmp_path):
+    from embedagent.agent_extension_host import AgentExtensionHost
+    from embedagent.agent_tool_action_service import AgentToolActionService
+    from embedagent.permissions import PermissionPolicy
+    from embedagent.query_engine import QueryEngine
+
+    runtime = ToolRuntime(str(tmp_path))
+    policy = PermissionPolicy(auto_approve_all=True, workspace=str(tmp_path))
+    host = AgentExtensionHost(
+        manager=ExtensionManager([OwnedToolExtension()]),
+        tools=runtime,
+        permission_policy=policy,
+    )
+    service = AgentToolActionService(
+        tools=runtime,
+        permission_policy=policy,
+        extension_host=host,
+        app_config_provider=lambda: None,
+        failure_observation_factory=QueryEngine(
+            client=ToolCallingClient(Action("owned_status", {}, "call-client")),
+            tools=runtime,
+            permission_policy=policy,
+        )._failure_observation,
+    )
+
+    observation, current_mode, suspended = service.execute_action(
+        Session(),
+        Action("owned_status", {}, "call-owned"),
+        "build",
+        "chat",
+        permission_handler=None,
+        user_input_handler=None,
+    )
+
+    assert suspended is None
+    assert current_mode == "build"
+    assert observation.success is True
+    assert observation.tool_name == "owned_status"
+    assert observation.data["owned"] is True
 
 
 class DynamicShellExtension(DynamicToolExtension):

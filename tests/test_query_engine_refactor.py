@@ -2148,6 +2148,16 @@ class TestQueryEngineRefactor(unittest.TestCase):
             compact_payload["message_counts"]["recent_turns"],
             len(session.turns) - boundary.compacted_turn_count,
         )
+        self.assertGreater(compact_payload["message_counts"]["after"], 0)
+        self.assertGreater(compact_payload["message_counts"]["before"], 0)
+        self.assertEqual(
+            boundary.metadata.get("selected_message_count"),
+            compact_payload["message_counts"]["after"],
+        )
+        self.assertEqual(
+            boundary.metadata.get("summarized_turns"),
+            compact_payload["message_counts"]["summarized_turns"],
+        )
         self.assertIn("src/demo.c", compact_payload["file_activity"]["read_files"])
         self.assertEqual(compact_payload["file_activity"]["modified_files"], [])
         self.assertTrue(compact_payload["evidence_refs"])

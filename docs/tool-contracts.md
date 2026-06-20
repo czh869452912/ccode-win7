@@ -15,9 +15,9 @@ The official runtime facade is:
 
 - `src/embedagent/tools/runtime.py`
 
-Workflow extensions may activate focused subsets of registered tools for a turn. The default C/C++ harness extension owns harness-specific tool activation and `task_status` behavior, while `ask_user` remains core interaction infrastructure.
+Workflow extensions may activate focused subsets of registered tools for a turn. The default C/C++ harness extension owns harness-specific tool activation, build helper registration, context reducers, and `task_status` behavior, while `ask_user` remains core interaction infrastructure.
 
-`CORE_PACK` is workflow-neutral. Harness tools such as `list_recipes`, `run_recipe`, `report_quality_v2`, `record_failing_evidence`, and `task_status` must be activated by workflow packs/extensions rather than being treated as core tools.
+`CORE_PACK` is workflow-neutral. Harness tools such as `list_compilers`, `configure_build_env`, `run_build`, `list_recipes`, `run_recipe`, `report_quality_v2`, `record_failing_evidence`, and `task_status` must be registered/activated by workflow packs/extensions rather than being treated as bare Core tools.
 
 Bundled C/C++ workflow pack definitions are owned only by `src/embedagent/harness/packs.py`. The old `embedagent.tooling.packs` re-export and `embedagent.tooling` package-root pack aliases have been removed and must not be treated as official tool contracts.
 
@@ -64,11 +64,13 @@ In-process extensions may register tools into the shared `ToolRuntime` through t
 
 - `ToolDefinition`
 - `permission_category`
-- mode and workflow visibility metadata
-- read-only and concurrency metadata
+- mode and workflow visibility metadata when they need to override defaults
+- read-only and concurrency metadata through either the `ToolDefinition` or explicit metadata
 - source metadata supplied by the extension runtime
 
 Registration does not make a tool active by itself. A dynamic tool appears in model schemas and frontend catalog views only when its name is active through `ExtensionManager.allowed_tool_names(mode_name, workflow_state=workflow_state)` as consumed by `AgentExtensionHost`. Project-local Python extensions use the same registration path and source metadata. Extensions cannot replace built-in tools.
+
+Internally the runtime catalog is faceted into execution, presentation, and context-policy metadata while preserving the legacy flat `tool_catalog_entry(...)` payload for protocol/frontend compatibility. Extension tool declarations only require a valid `permission_category`; the runtime derives conservative defaults for the remaining facets unless the tool metadata overrides them.
 
 `ToolRuntime.capability_descriptors()` may project these catalog entries for diagnostics and future reducer work. It must stay read-only and must not become an active-tool policy shortcut.
 
@@ -132,6 +134,9 @@ Generated extension validation recipes must remain offline-friendly. They should
 
 | Tool | Purpose | Core Parameters |
 |------|---------|-----------------|
+| `list_compilers` | enumerate available bundled/workspace/system C/C++ compilers | none |
+| `configure_build_env` | suggest build flags/environment for a selected compiler/profile | optional `compiler`, `build_type`, `target` |
+| `run_build` | run a build command with diagnostics/artifact reporting | `command`, optional `cwd`, `timeout_sec`, `diagnostic` |
 | `list_recipes` | enumerate runnable workspace recipes | none |
 | `run_recipe` | execute a workspace recipe | `recipe_id` |
 | `report_quality_v2` | summarize minimal quality gate state | `error_count`, `warning_count`, `test_failures` |

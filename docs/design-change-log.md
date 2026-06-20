@@ -1,6 +1,6 @@
 # EmbedAgent 设计与变更跟踪
 
-> 更新日期：2026-06-19
+> 更新日期：2026-06-20
 > 用途：记录关键设计变更、影响范围、关联文档和后续动作
 
 ---
@@ -43,6 +43,41 @@
 ---
 
 ## 3. 当前变更记录
+
+### DC-187
+
+- 日期：2026-06-20
+- 变更主题：Pi-style Agent Core boundary slimming for workflow tools and context reducers
+- 变更摘要：
+  - C/C++ workflow context reducers 从 Core `ReducerRegistry` 物理迁出，改由 `src/embedagent/harness/context_reducers.py` 通过 `CHarnessWorkflowExtension.register_context_reducers(...)` 注册。
+  - bare `ToolRuntime` 不再默认注册 `list_compilers`、`configure_build_env`、`run_build`；这些 build helpers 现在随 C workflow extension 注册、metadata、pack 和 manifest 一起归属默认 C/C++ workflow package。
+  - 新 prompt descriptor 使用 `WorkflowPrompt`，新系统消息保持 `kind="workflow_prompt"`；`HarnessPrompt` / `harness_prompt` 仅保留兼容旧源码和历史 transcript 去重。
+  - `propose_mode_switch` 不再无条件进入 provider tool schema，只有通过 active-tool boundary 显式激活时才投影。
+  - `ToolCatalogEntry` 内部继续向 execution / presentation / context-policy facets 收敛，同时保持 flat catalog payload 兼容前端和协议。
+  - 新增 provider request 前的最小 `ContextPlan` read model，用于记录 selected-message counts、recent/summarized turns、token/char summary、pipeline steps、preserved message ids 与 replacement refs；`CompactionStateReducer` 继续只做 transcript-backed diagnostics/replay projection。
+- 影响范围：
+  - `src/embedagent/context.py`
+  - `src/embedagent/harness/context_reducers.py`
+  - `src/embedagent/harness/extension.py`
+  - `src/embedagent/harness/tool_registry.py`
+  - `src/embedagent/harness/tool_metadata.py`
+  - `src/embedagent/harness/packs.py`
+  - `src/embedagent/tools/runtime.py`
+  - `src/embedagent/extensions.py`
+  - `src/embedagent/agent_extension_host.py`
+  - `tests/test_context_config.py`
+  - `tests/test_tools_package.py`
+  - `tests/test_workflow_extensions.py`
+  - `tests/test_dynamic_tool_registration.py`
+  - `docs/` source-of-truth files
+- 关联文档：
+  - `docs/overall-solution-architecture.md`
+  - `docs/tool-contracts.md`
+  - `docs/agent-harness-v2.md`
+  - `docs/implementation-roadmap.md`
+- 是否需要 ADR：否；这是既有 Pi-inspired minimal Core 方向下的边界瘦身，不引入公共 extension API、远程 registry、运行时依赖安装、权限引擎或新的 session-history truth。
+- 后续动作：
+  - 继续丰富 `ContextPlan` 的 context-window generation、file activity refs、evidence refs 和 compact summary inputs，并在真实 C/C++ 项目与 Win7 离线 bundle 上验证 build helpers 通过 workflow extension 激活后的行为。
 
 ### DC-186
 

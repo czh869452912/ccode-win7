@@ -130,7 +130,7 @@ class AgentExtensionHost(object):
         if "ask_user" in allowed and "ask_user" not in names:
             schemas.append(ask_user_schema())
             names.add("ask_user")
-        if "propose_mode_switch" not in names:
+        if "propose_mode_switch" in allowed and "propose_mode_switch" not in names:
             schemas.append(propose_mode_switch_schema())
         return schemas
 

@@ -4,7 +4,7 @@ import json
 import math
 import re
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from embedagent.project_memory import ProjectMemoryStore
 from embedagent.session import Action, Message, Observation, Session, Turn
@@ -12,17 +12,6 @@ from embedagent.workspace_intelligence import WorkspaceIntelligenceBroker
 
 _MODE_RE = re.compile(r"当前模式：(\w+)")
 _MODE_PROMPT_PREFIX = "你是 EmbedAgent 的受控模式原型。"
-
-# Tool messages from these tools carry diagnostic/build results that are
-# especially valuable for the LLM. They are skipped when hard-trim needs
-# to drop messages to fit within the token budget, so that a failing
-# recipe/quality result is not discarded before a trivial directory listing.
-_HIGH_PRIORITY_TOOLS = frozenset(
-    {
-        "run_recipe",
-        "report_quality_v2",
-    }
-)
 
 
 @dataclass
@@ -196,6 +185,68 @@ class ContextBuildResult:
     analysis: Dict[str, Any] = field(default_factory=dict)
     replacements: List[Dict[str, Any]] = field(default_factory=list)
     pipeline_steps: List[str] = field(default_factory=list)
+    plan: Any = None
+
+    def __post_init__(self) -> None:
+        if self.plan is None:
+            self.plan = ContextPlan.from_build_result(self)
+
+
+@dataclass(frozen=True)
+class ContextPlan:
+    mode_name: str
+    selected_message_count: int
+    total_session_messages: int
+    recent_turns: int
+    summarized_turns: int
+    approx_tokens: int
+    used_chars: int
+    pipeline_steps: List[str] = field(default_factory=list)
+    preserved_message_ids: List[str] = field(default_factory=list)
+    replacement_refs: List[str] = field(default_factory=list)
+
+    @classmethod
+    def from_build_result(cls, result: ContextBuildResult) -> "ContextPlan":
+        stats = getattr(result, "stats", None)
+        return cls(
+            mode_name=str(getattr(getattr(result, "policy", None), "mode_name", "") or ""),
+            selected_message_count=int(len(getattr(result, "messages", []) or [])),
+            total_session_messages=int(getattr(stats, "total_session_messages", 0) or 0),
+            recent_turns=int(getattr(result, "recent_turns", 0) or 0),
+            summarized_turns=int(getattr(result, "summarized_turns", 0) or 0),
+            approx_tokens=int(getattr(result, "approx_tokens", 0) or 0),
+            used_chars=int(getattr(result, "used_chars", 0) or 0),
+            pipeline_steps=list(getattr(result, "pipeline_steps", []) or []),
+            preserved_message_ids=_context_plan_message_ids(
+                list(getattr(result, "messages", []) or [])
+            ),
+            replacement_refs=_context_plan_replacement_refs(
+                list(getattr(result, "replacements", []) or [])
+            ),
+        )
+
+    def to_boundary_metadata(self) -> Dict[str, Any]:
+        return {
+            "approx_tokens": self.approx_tokens,
+            "used_chars": self.used_chars,
+            "pipeline_steps": list(self.pipeline_steps),
+            "selected_message_count": self.selected_message_count,
+            "recent_turns": self.recent_turns,
+            "summarized_turns": self.summarized_turns,
+            "replacement_refs": list(self.replacement_refs),
+        }
+
+    def to_boundary_payload_fields(self) -> Dict[str, Any]:
+        return {
+            "message_counts": {
+                "after": self.selected_message_count,
+                "before": self.total_session_messages,
+                "recent_turns": self.recent_turns,
+                "summarized_turns": self.summarized_turns,
+            },
+            "preserved_message_ids": list(self.preserved_message_ids),
+            "replacement_refs": list(self.replacement_refs),
+        }
 
 
 class TokenEstimator(object):
@@ -224,13 +275,32 @@ class ReducerRegistry(object):
             "git_status": self._reduce_git_status,
             "git_diff": self._reduce_git_diff,
             "git_log": self._reduce_git_log,
-            "list_recipes": self._reduce_list,
-            "run_recipe": self._reduce_recipe_result,
-            "report_quality_v2": self._reduce_quality,
             "ask_user": self._reduce_ask_user,
-            "task_status": self._reduce_tasks,
-            "record_failing_evidence": self._reduce_generic,
         }
+        self._high_priority_tools = set()
+
+    def register_reducer(
+        self,
+        tool_name: str,
+        reducer: Callable[[Dict[str, Any], bool, ContextPolicy], Dict[str, Any]],
+    ) -> None:
+        name = str(tool_name or "").strip()
+        if not name:
+            raise ValueError("tool_name is required")
+        if not callable(reducer):
+            raise TypeError("reducer must be callable")
+        self._reducers[name] = reducer
+
+    def register_high_priority_tool(self, tool_name: str) -> None:
+        name = str(tool_name or "").strip()
+        if name:
+            self._high_priority_tools.add(name)
+
+    def high_priority_tool_names(self) -> List[str]:
+        return sorted(self._high_priority_tools)
+
+    def is_high_priority_tool(self, tool_name: str) -> bool:
+        return str(tool_name or "").strip() in self._high_priority_tools
 
     def reduce_tool_message(
         self, tool_name: str, payload: Dict[str, Any], detailed: bool, policy: ContextPolicy
@@ -423,77 +493,6 @@ class ReducerRegistry(object):
             result["stderr_preview"] = _truncate_text(data["stderr"], preview)
         return result
 
-    def _reduce_diagnostics_tool(
-        self, data: Dict[str, Any], detailed: bool, policy: ContextPolicy
-    ) -> Dict[str, Any]:
-        result = self._reduce_command(data, detailed, policy)
-        result.update(
-            self._copy(
-                data,
-                "error_count",
-                "warning_count",
-                "note_count",
-                "diagnostic_count",
-                "diagnostics_stored_path",
-                "diagnostics_item_count",
-            )
-        )
-        result["diagnostics"] = self._diagnostics(data.get("diagnostics") or [], detailed)
-        return result
-
-    def _reduce_recipe_result(
-        self, data: Dict[str, Any], detailed: bool, policy: ContextPolicy
-    ) -> Dict[str, Any]:
-        result = self._reduce_diagnostics_tool(data, detailed, policy)
-        result.update(
-            self._copy(
-                data,
-                "recipe_id",
-                "recipe_label",
-                "recipe_source",
-                "recipe_action",
-                "family",
-                "stage",
-                "target",
-                "profile",
-            )
-        )
-        if isinstance(data.get("test_summary"), dict):
-            summary = self._copy(data["test_summary"], "total", "passed", "failed", "skipped")
-            summary["failures"] = self._simple_list(
-                data["test_summary"].get("failures") or [], 5 if detailed else 3
-            )
-            result["test_summary"] = summary
-        if isinstance(data.get("coverage_summary"), dict):
-            result["coverage_summary"] = self._copy(
-                data["coverage_summary"],
-                "line_coverage",
-                "region_coverage",
-                "function_coverage",
-                "lines_covered",
-                "lines_total",
-                "functions_covered",
-                "functions_total",
-                "regions_covered",
-                "regions_total",
-            )
-        return result
-
-    def _reduce_quality(
-        self, data: Dict[str, Any], detailed: bool, policy: ContextPolicy
-    ) -> Dict[str, Any]:
-        result = self._copy(
-            data,
-            "passed",
-            "error_count",
-            "warning_count",
-            "test_failures",
-            "line_coverage",
-            "min_line_coverage",
-        )
-        result["reasons"] = self._simple_list(data.get("reasons") or [], 6 if detailed else 3)
-        return result
-
     def _reduce_git_status(
         self, data: Dict[str, Any], detailed: bool, policy: ContextPolicy
     ) -> Dict[str, Any]:
@@ -566,34 +565,6 @@ class ReducerRegistry(object):
                 options.append(self._copy(item, "index", "text", "mode"))
         if options:
             result["options"] = options
-        return result
-
-    def _reduce_tasks(
-        self, data: Dict[str, Any], detailed: bool, policy: ContextPolicy
-    ) -> Dict[str, Any]:
-        result = self._copy(
-            data,
-            "action",
-            "count",
-            "id",
-            "content",
-            "removed_id",
-            "remaining",
-            "summary",
-            "failing_evidence_ready",
-            "returned_count",
-            "total_count",
-            "has_more",
-            "next_offset",
-            "result_ref",
-        )
-        tasks = data.get("tasks")
-        if isinstance(tasks, list):
-            limit = 12 if detailed else 6
-            result["tasks"] = self._simple_list(tasks, limit)
-        preview = data.get("preview")
-        if isinstance(preview, list):
-            result["preview"] = self._simple_list(preview, 12 if detailed else 6)
         return result
 
     def _reduce_generic(
@@ -1435,13 +1406,15 @@ class ContextManager(object):
                 continue
             tool_calls = message.get("tool_calls") or []
             if message.get("role") == "assistant" and any(
-                str(((call or {}).get("function") or {}).get("name") or "") in _HIGH_PRIORITY_TOOLS
+                self.reducers.is_high_priority_tool(
+                    str(((call or {}).get("function") or {}).get("name") or "")
+                )
                 for call in tool_calls
                 if isinstance(call, dict)
             ):
                 continue
             tool_name = message.get("name") or ""
-            if message.get("role") == "tool" and tool_name in _HIGH_PRIORITY_TOOLS:
+            if message.get("role") == "tool" and self.reducers.is_high_priority_tool(tool_name):
                 continue
             return index
         # Second pass (fallback): drop any non-system message.
@@ -1555,3 +1528,32 @@ def _truncate_text(text: str, limit: int) -> str:
 
 def _single_line(text: str) -> str:
     return " ".join(text.split())
+
+
+def _context_plan_message_ids(messages: List[Dict[str, Any]]) -> List[str]:
+    result = []
+    seen = set()
+    for message in messages:
+        if not isinstance(message, dict):
+            continue
+        message_id = str(message.get("message_id") or "").strip()
+        if not message_id or message_id in seen:
+            continue
+        seen.add(message_id)
+        result.append(message_id)
+    return result
+
+
+def _context_plan_replacement_refs(replacements: List[Dict[str, Any]]) -> List[str]:
+    result = []
+    seen = set()
+    for replacement in replacements:
+        if not isinstance(replacement, dict):
+            continue
+        for item in list(replacement.get("stored_refs") or []):
+            ref = str(item or "").strip()
+            if not ref or ref in seen:
+                continue
+            seen.add(ref)
+            result.append(ref)
+    return result

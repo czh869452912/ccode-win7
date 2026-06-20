@@ -11,6 +11,9 @@ C_WORKFLOW_CORE_PACK = [
 
 C_WORKFLOW_BUILD_LITE_PACK = C_WORKFLOW_CORE_PACK + [
     "glob_files",
+    "list_compilers",
+    "configure_build_env",
+    "run_build",
     "list_recipes",
     "run_recipe",
     "task_status",
@@ -22,6 +25,9 @@ C_WORKFLOW_DEBUG_LITE_PACK = [
     "grep_text",
     "edit_file",
     "write_file",
+    "list_compilers",
+    "configure_build_env",
+    "run_build",
     "run_recipe",
     "ask_user",
     "task_status",
@@ -31,6 +37,8 @@ C_WORKFLOW_DEBUG_LITE_PACK = [
 ]
 
 C_WORKFLOW_VERIFY_PACK = [
+    "list_compilers",
+    "run_build",
     "list_recipes",
     "run_recipe",
     "report_quality_v2",

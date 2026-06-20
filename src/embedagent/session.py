@@ -242,6 +242,7 @@ class ContextAssemblyResult:
     analysis: Dict[str, Any] = field(default_factory=dict)
     replacements: List[Dict[str, Any]] = field(default_factory=list)
     pipeline_steps: List[str] = field(default_factory=list)
+    plan: Any = None
 
 
 @dataclass

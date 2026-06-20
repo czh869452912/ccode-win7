@@ -248,6 +248,7 @@ class InProcessAdapter(object):
         default_extensions = build_default_extension_set(self.tools)
         self.harness_workflow = default_extensions.harness_workflow
         self.extension_manager = default_extensions.manager
+        self.extension_manager.register_context_reducers(self.context_manager.reducers)
         self.project_extension_state = self._load_project_extensions()
         category_setter = getattr(self.permission_policy, "set_category_lookup", None)
         if callable(category_setter):
@@ -275,6 +276,7 @@ class InProcessAdapter(object):
         loaded_extensions = list(payload.get("loaded_extensions") or [])
         for extension in loaded_extensions:
             self.extension_manager.register(extension)
+        self.extension_manager.register_context_reducers(self.context_manager.reducers)
         self._record_project_extension_diagnostics(payload)
         return self._sanitize_project_extension_state(payload)
 
