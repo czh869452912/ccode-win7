@@ -1,6 +1,6 @@
 # EmbedAgent 开发进度跟踪
 
-> 更新日期：2026-06-19（Pi-style Agent Core prompt/resource/runtime-state alignment）
+> 更新日期：2026-06-20（Pi/T3 residual contract cleanup）
 > 用途：持续跟踪当前阶段、下一步任务、里程碑进度、风险与阻塞
 
 ---
@@ -23,6 +23,15 @@
 ---
 
 ## 2. 当前阶段
+
+### 2026-06-20 - Pi/T3 Residual Contract Cleanup
+
+- GUI smoke validation now follows the current T3-style app-shell task contract: `build` sessions, `/api/tasks`, `task_status`, permission/user-input flows, and `/review`; stale `mode=code`, `/api/todos`, and `manage_todos` references are guarded by a focused contract test.
+- Agent Core prompt behavior is slimmer and more Pi-like: build mode no longer hard-codes a `lite_spec_tdd` phase prescription in the base mode prompt, leaving workflow package prompt injection behind the extension boundary.
+- C harness workflow injection now recognizes common Chinese development/debug/verification requests while keeping casual chat in build/debug from initializing workflow state.
+- Tool result cache documentation and stats now describe only implemented cache tiers; the unused L3 projection placeholder has been removed instead of being treated as a public capability.
+- `AgentCoreAdapter.shutdown()` now detaches frontend state and either delegates to runtime shutdown or cancels known sessions, keeping GUI workspace switching/app shutdown from depending on a no-op core cleanup path.
+- Offline staging no longer ships stale `code` / fixed-eight-turn defaults: generated bundle configs use `default_mode: explore` and `max_turns: null`, and the workspace template is now a tiny buildable C smoke project instead of a placeholder directory.
 
 ### 2026-06-19 - Pi-Style Agent Core Prompt/Resource/Runtime-State Alignment
 

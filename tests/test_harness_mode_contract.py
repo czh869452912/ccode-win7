@@ -52,12 +52,17 @@ class TestHarnessInjection(unittest.TestCase):
         self.assertFalse(extension.should_inject_workflow("hi", "build"))
         self.assertFalse(extension.should_inject_workflow("hello", "build"))
         self.assertFalse(extension.should_inject_workflow("what can you do?", "build"))
+        self.assertFalse(extension.should_inject_workflow("你好", "build"))
+        self.assertFalse(extension.should_inject_workflow("你能做什么？", "debug"))
 
     def test_work_request_triggers_harness(self):
         extension = self._make_extension()
         # Work requests should trigger harness
         self.assertTrue(extension.should_inject_workflow("build the project", "build"))
         self.assertTrue(extension.should_inject_workflow("fix this bug", "debug"))
+        self.assertTrue(extension.should_inject_workflow("帮我实现一个排序函数", "build"))
+        self.assertTrue(extension.should_inject_workflow("帮我定位这个崩溃", "debug"))
+        self.assertTrue(extension.should_inject_workflow("运行测试并检查失败原因", "build"))
 
     def test_explore_never_triggers_harness(self):
         extension = self._make_extension()

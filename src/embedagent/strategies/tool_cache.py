@@ -1,4 +1,4 @@
-"""3-tier tool result caching with TTL invalidation."""
+"""Tool result caching with TTL invalidation."""
 
 from __future__ import annotations
 
@@ -15,7 +15,6 @@ from embedagent.session import Action, Observation
 class CacheTier(Enum):
     L1_MEMORY = "l1_memory"
     L2_DISK = "l2_disk"
-    L3_PROJECTION = "l3_projection"
 
 
 class CacheEntry(object):
@@ -36,7 +35,7 @@ class CacheEntry(object):
 
 
 class ToolResultCache(object):
-    """3-tier cache: L1 memory (fast), L2 disk (persistent), L3 projection (DB)."""
+    """Two-tier cache: L1 memory plus optional L2 persisted entries."""
 
     def __init__(
         self,
@@ -85,8 +84,6 @@ class ToolResultCache(object):
                 self._put_l1(key, entry)
                 return l2_value
 
-        # L3 Lookup (placeholder - projection DB integration)
-        # For now, L3 is not implemented as it requires projection_db integration
         return None
 
     def put(
@@ -200,6 +197,5 @@ class ToolResultCache(object):
         return {
             "l1_size": len(self._l1),
             "l2_size": 0,  # Would need filesystem scan
-            "l3_size": 0,  # Not implemented
             "total_hits": self._total_hits,
         }

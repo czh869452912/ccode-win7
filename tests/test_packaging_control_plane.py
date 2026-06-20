@@ -232,6 +232,25 @@ class TestRuntimeBundleContract(unittest.TestCase):
         )
 
 
+class TestPrepareOfflineContract(unittest.TestCase):
+    def _script_text(self):
+        return (ROOT / "scripts" / "prepare-offline.ps1").read_text(encoding="utf-8")
+
+    def test_prepare_offline_uses_current_default_mode(self):
+        script = self._script_text()
+        self.assertNotIn('"default_mode": "code"', script)
+        self.assertIn('"default_mode": "explore"', script)
+        self.assertNotIn('"max_turns": 8', script)
+        self.assertIn('"max_turns": null', script)
+
+    def test_prepare_offline_stages_real_c_workspace_template(self):
+        script = self._script_text()
+        self.assertNotIn("This directory is a placeholder", script)
+        self.assertIn("data\\workspace-template\\main.c", script)
+        self.assertIn("data\\workspace-template\\README.md", script)
+        self.assertIn("int main(void)", script)
+
+
 @unittest.skipIf(sys.platform != "win32", "Windows-only: requires PowerShell")
 class TestStageJsonReports(unittest.TestCase):
     def test_dependency_checker_writes_json_report(self):

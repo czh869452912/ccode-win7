@@ -629,5 +629,36 @@ class AgentCoreAdapter(CoreInterface):
 
     def shutdown(self) -> None:
         """关闭 Core"""
-        # 清理资源
-        pass
+        with self._lock:
+            adapter = self._adapter
+            self._adapter = None
+            self._frontend = None
+            self._callback_bridge = None
+        if adapter is None:
+            return
+        shutdown = getattr(adapter, "shutdown", None)
+        if callable(shutdown):
+            try:
+                shutdown()
+            except (RuntimeError, ValueError, TypeError):
+                return
+            return
+        list_sessions = getattr(adapter, "list_sessions", None)
+        cancel_session = getattr(adapter, "cancel_session", None)
+        if not callable(list_sessions) or not callable(cancel_session):
+            return
+        try:
+            sessions = list_sessions(limit=1000)
+        except (RuntimeError, ValueError, TypeError):
+            return
+        for item in list(sessions or []):
+            if isinstance(item, dict):
+                session_id = str(item.get("session_id") or "")
+            else:
+                session_id = str(getattr(item, "session_id", "") or "")
+            if not session_id:
+                continue
+            try:
+                cancel_session(session_id)
+            except (RuntimeError, ValueError, TypeError):
+                continue

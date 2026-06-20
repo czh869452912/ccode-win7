@@ -29,7 +29,31 @@ class CHarnessWorkflowExtension(object):
     def should_inject_workflow(self, user_text: str, current_mode: str) -> bool:
         if current_mode in ("explore", "verify"):
             return False
-        work_indicators = [
+        text = str(user_text or "").strip()
+        text_lower = text.lower()
+        chat_patterns = [
+            r"^\s*hi\b",
+            r"^\s*hello\b",
+            r"^\s*hey\b",
+            r"what can you do",
+            r"who are you",
+            r"help\s*$",
+            r"^\s*thanks?\b",
+            r"^\s*ok\b",
+            r"^\s*bye\b",
+            r"^\s*你好[！!。？?]*\s*$",
+            r"^\s*嗨[！!。？?]*\s*$",
+            r"^\s*你能做什么[？?]?\s*$",
+            r"^\s*你是谁[？?]?\s*$",
+            r"^\s*帮助[！!。？?]*\s*$",
+            r"^\s*谢谢[！!。？?]*\s*$",
+            r"^\s*好的[！!。？?]*\s*$",
+            r"^\s*再见[！!。？?]*\s*$",
+        ]
+        is_chat = any(re.search(pattern, text_lower) for pattern in chat_patterns)
+        if is_chat:
+            return False
+        english_work_indicators = [
             "build",
             "compile",
             "fix",
@@ -46,21 +70,33 @@ class CHarnessWorkflowExtension(object):
             "run",
             "execute",
         ]
-        text_lower = (user_text or "").lower()
-        has_work_indicator = any(ind in text_lower for ind in work_indicators)
-        chat_patterns = [
-            r"^\s*hi\b",
-            r"^\s*hello\b",
-            r"^\s*hey\b",
-            r"what can you do",
-            r"who are you",
-            r"help\s*$",
-            r"^\s*thanks?\b",
-            r"^\s*ok\b",
-            r"^\s*bye\b",
+        chinese_work_indicators = [
+            "构建",
+            "编译",
+            "修复",
+            "调试",
+            "实现",
+            "创建",
+            "新增",
+            "写",
+            "生成",
+            "重构",
+            "优化",
+            "测试",
+            "验证",
+            "检查",
+            "运行",
+            "执行",
+            "定位",
+            "崩溃",
+            "报错",
+            "失败",
+            "函数",
+            "项目",
         ]
-        is_chat = any(re.search(pattern, text_lower) for pattern in chat_patterns)
-        return has_work_indicator and not is_chat
+        return any(ind in text_lower for ind in english_work_indicators) or any(
+            ind in text for ind in chinese_work_indicators
+        )
 
     def describe_prompt(
         self,

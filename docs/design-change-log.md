@@ -44,6 +44,34 @@
 
 ## 3. 当前变更记录
 
+### DC-190
+
+- 日期：2026-06-20
+- 变更主题：Pi/T3 residual contract cleanup
+- 变更摘要：
+  - GUI smoke validation now uses the current `build` / `/api/tasks` / `task_status` contract and no longer invokes historical `mode=code`, `/api/todos`, or `manage_todos` paths.
+  - Build mode prompt text no longer prescribes a fixed `lite_spec_tdd` phase track; workflow-specific prompt units remain owned by the default C/C++ workflow extension.
+  - C harness workflow injection recognizes Chinese work requests such as implementation, debugging, running tests, and failure triage, while casual chat remains non-triggering.
+  - Tool result cache stats and documentation now expose only implemented L1/L2 tiers, removing the unused L3 projection placeholder.
+  - `AgentCoreAdapter.shutdown()` now detaches frontend callback state and performs best-effort runtime/session cleanup for GUI host shutdown and workspace switching.
+  - `prepare-offline.ps1` generated configs now use `default_mode: explore` and `max_turns: null`; the staged workspace template is now a tiny buildable C smoke project instead of a placeholder directory.
+- 影响范围：
+  - `scripts/prepare-offline.ps1`
+  - `scripts/validate-gui-smoke.py`
+  - `src/embedagent/core/adapter.py`
+  - `src/embedagent/harness/extension.py`
+  - `src/embedagent/modes.py`
+  - `src/embedagent/strategies/tool_cache.py`
+  - `tests/test_core_adapter_shutdown.py`
+  - `tests/test_gui_smoke_contract.py`
+  - `tests/test_harness_mode_contract.py`
+  - `tests/test_modes.py`
+  - `tests/test_packaging_control_plane.py`
+  - `tests/test_tool_cache.py`
+- 关联文档：
+  - `docs/development-tracker.md`
+- 是否需要 ADR：否；该变更是既有 Pi-style core boundary 和 T3 GUI contract 的残留清理，不改变 session-history truth、permission engine、extension loading policy 或 GUI app-shell ownership。
+
 ### DC-189
 
 - 日期：2026-06-20

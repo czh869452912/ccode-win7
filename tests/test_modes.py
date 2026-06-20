@@ -188,6 +188,11 @@ class TestBuildSystemPrompt(unittest.TestCase):
         prompt = build_system_prompt("build", cfg)
         self.assertIn("custom/**/*.py", prompt)
 
+    def test_build_prompt_does_not_prescribe_workflow_track(self):
+        prompt = build_system_prompt("build")
+        self.assertNotIn("lite_spec_tdd", prompt)
+        self.assertNotIn("当前阶段先以", prompt)
+
 
 class TestParseModeCommand(unittest.TestCase):
     def test_mode_command_parsed(self):

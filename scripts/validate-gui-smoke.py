@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-import asyncio
 import argparse
+import asyncio
 import json
 import os
 import socket
@@ -16,7 +16,6 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Dict, List, Optional
 
 import websockets
-
 
 REPO_ROOT = os.path.realpath(os.path.join(os.path.dirname(__file__), ".."))
 PYTHON_EXE = os.path.join(REPO_ROOT, ".venv", "Scripts", "python.exe")
@@ -103,7 +102,9 @@ class FakeOpenAIHandler(BaseHTTPRequestHandler):
                                             "id": tool_call["id"],
                                             "function": {
                                                 "name": tool_call["name"],
-                                                "arguments": json.dumps(tool_call["arguments"], ensure_ascii=False),
+                                                "arguments": json.dumps(
+                                                    tool_call["arguments"], ensure_ascii=False
+                                                ),
                                             },
                                         }
                                     ]
@@ -156,7 +157,9 @@ class FakeOpenAIHandler(BaseHTTPRequestHandler):
                                         "type": "function",
                                         "function": {
                                             "name": tool_call["name"],
-                                            "arguments": json.dumps(tool_call["arguments"], ensure_ascii=False),
+                                            "arguments": json.dumps(
+                                                tool_call["arguments"], ensure_ascii=False
+                                            ),
                                         },
                                     }
                                 ],
@@ -194,11 +197,11 @@ class FakeOpenAIHandler(BaseHTTPRequestHandler):
                     "option_2_mode": "debug",
                 },
             }
-        if "todo" in text:
+        if "task" in text:
             return {
-                "id": "call-todo",
-                "name": "manage_todos",
-                "arguments": {"action": "add", "content": "smoke todo"},
+                "id": "call-task",
+                "name": "task_status",
+                "arguments": {},
             }
         if "tool" in text:
             return {
@@ -214,8 +217,8 @@ class FakeOpenAIHandler(BaseHTTPRequestHandler):
             return "permission flow ok"
         if "ask" in text:
             return "ask flow ok"
-        if "todo" in text:
-            return "todo flow ok"
+        if "task" in text:
+            return "task flow ok"
         return self.assistant_text
 
 
@@ -233,7 +236,9 @@ def _wait_for_http(url: str, timeout: float) -> None:
     raise RuntimeError("Timed out waiting for %s: %s" % (url, last_error))
 
 
-def _json_request(url: str, method: str = "GET", payload: Dict[str, object] = None) -> Dict[str, object]:
+def _json_request(
+    url: str, method: str = "GET", payload: Dict[str, object] = None
+) -> Dict[str, object]:
     data = None
     headers = {}
     if payload is not None:
@@ -254,45 +259,69 @@ async def _consume_until_idle(websocket, session_id: str, summary: Dict[str, obj
         payload = json.loads(raw)
         msg_type = payload.get("type")
         data = payload.get("data") or {}
-        snapshot = data.get("session_snapshot") if isinstance(data.get("session_snapshot"), dict) else {}
+        snapshot = (
+            data.get("session_snapshot") if isinstance(data.get("session_snapshot"), dict) else {}
+        )
         target_session = str(snapshot.get("session_id") or data.get("session_id") or "")
         if target_session and target_session != session_id:
             continue
         if msg_type == "stream_delta":
             summary["stream_deltas"].append(str(data.get("text") or ""))
         elif msg_type == "tool_start":
-            summary["tool_events"].append({"type": "tool_start", "call_id": data.get("call_id"), "tool_name": data.get("tool_name")})
+            summary["tool_events"].append(
+                {
+                    "type": "tool_start",
+                    "call_id": data.get("call_id"),
+                    "tool_name": data.get("tool_name"),
+                }
+            )
         elif msg_type == "tool_finish":
-            summary["tool_events"].append({"type": "tool_finish", "call_id": data.get("call_id"), "tool_name": data.get("tool_name")})
+            summary["tool_events"].append(
+                {
+                    "type": "tool_finish",
+                    "call_id": data.get("call_id"),
+                    "tool_name": data.get("tool_name"),
+                }
+            )
         elif msg_type == "command_result":
             saw_command_result = True
-            summary["command_results"].append({
-                "command_name": data.get("command_name"),
-                "success": bool(data.get("success")),
-                "message": data.get("message") or "",
-                "data": data.get("data") or {},
-            })
+            summary["command_results"].append(
+                {
+                    "command_name": data.get("command_name"),
+                    "success": bool(data.get("success")),
+                    "message": data.get("message") or "",
+                    "data": data.get("data") or {},
+                }
+            )
             if not saw_running:
                 return
         elif msg_type == "permission_request":
             summary["permission_requests"] += 1
-            await websocket.send(json.dumps({
-                "type": "permission_response",
-                "permission_id": data.get("permission_id"),
-                "approved": True,
-            }))
+            await websocket.send(
+                json.dumps(
+                    {
+                        "type": "permission_response",
+                        "permission_id": data.get("permission_id"),
+                        "approved": True,
+                    }
+                )
+            )
         elif msg_type == "user_input_request":
             summary["user_input_requests"] += 1
             options = data.get("options") or []
             selected = options[1] if len(options) > 1 else (options[0] if options else {})
-            await websocket.send(json.dumps({
-                "type": "user_input_response",
-                "request_id": data.get("request_id"),
-                "answer": selected.get("text") or "继续当前方案",
-                "selected_index": selected.get("index"),
-                "selected_mode": selected.get("mode") or "",
-                "selected_option_text": selected.get("text") or "",
-            }))
+            await websocket.send(
+                json.dumps(
+                    {
+                        "type": "user_input_response",
+                        "request_id": data.get("request_id"),
+                        "answer": selected.get("text") or "继续当前方案",
+                        "selected_index": selected.get("index"),
+                        "selected_mode": selected.get("mode") or "",
+                        "selected_option_text": selected.get("text") or "",
+                    }
+                )
+            )
         elif msg_type == "session_status":
             status = str(data.get("status") or snapshot.get("status") or "")
             summary["session_statuses"].append(status)
@@ -317,39 +346,61 @@ async def _exercise_gui(gui_port: int) -> Dict[str, object]:
         "user_input_requests": 0,
     }
     async with websockets.connect(websocket_url) as websocket:
-        session = _json_request(api_root + "/api/sessions?mode=code", method="POST")
+        session = _json_request(api_root + "/api/sessions?mode=build", method="POST")
         session_id = str(session.get("session_id") or "")
         if not session_id:
             raise RuntimeError("GUI session creation returned no session_id")
-        _json_request(api_root + "/api/sessions/%s/message" % session_id, method="POST", payload={"text": "tool smoke"})
+        _json_request(
+            api_root + "/api/sessions/%s/message" % session_id,
+            method="POST",
+            payload={"text": "tool smoke"},
+        )
         await _consume_until_idle(websocket, session_id, summary)
 
-        _json_request(api_root + "/api/sessions/%s/message" % session_id, method="POST", payload={"text": "todo smoke"})
+        _json_request(
+            api_root + "/api/sessions/%s/message" % session_id,
+            method="POST",
+            payload={"text": "task smoke"},
+        )
         await _consume_until_idle(websocket, session_id, summary)
 
-        _json_request(api_root + "/api/sessions/%s/message" % session_id, method="POST", payload={"text": "ask smoke"})
+        _json_request(
+            api_root + "/api/sessions/%s/message" % session_id,
+            method="POST",
+            payload={"text": "ask smoke"},
+        )
         await _consume_until_idle(websocket, session_id, summary)
 
-        _json_request(api_root + "/api/sessions/%s/message" % session_id, method="POST", payload={"text": "permission smoke"})
+        _json_request(
+            api_root + "/api/sessions/%s/message" % session_id,
+            method="POST",
+            payload={"text": "permission smoke"},
+        )
         await _consume_until_idle(websocket, session_id, summary)
 
-        _json_request(api_root + "/api/sessions/%s/message" % session_id, method="POST", payload={"text": "/review"})
+        _json_request(
+            api_root + "/api/sessions/%s/message" % session_id,
+            method="POST",
+            payload={"text": "/review"},
+        )
         await _consume_until_idle(websocket, session_id, summary)
 
-        first_todos = _json_request(api_root + "/api/todos?session_id=%s" % session_id)
-        second_session = _json_request(api_root + "/api/sessions?mode=code", method="POST")
+        first_tasks = _json_request(api_root + "/api/tasks?session_id=%s" % session_id)
+        second_session = _json_request(api_root + "/api/sessions?mode=build", method="POST")
         second_session_id = str(second_session.get("session_id") or "")
-        second_todos = _json_request(api_root + "/api/todos?session_id=%s" % second_session_id)
+        second_tasks = _json_request(api_root + "/api/tasks?session_id=%s" % second_session_id)
 
         summary["session_id"] = session_id
         summary["assistant_text"] = "".join(summary["stream_deltas"])
-        summary["first_session_todos"] = len(first_todos.get("todos") or [])
-        summary["second_session_todos"] = len(second_todos.get("todos") or [])
+        summary["first_session_tasks"] = len(first_tasks.get("tasks") or [])
+        summary["second_session_tasks"] = len(second_tasks.get("tasks") or [])
         summary["second_session_id"] = second_session_id
         return summary
 
 
-def _build_command(bundle_root: Optional[str], workspace_dir: str, model_port: int, gui_port: int) -> Dict[str, object]:
+def _build_command(
+    bundle_root: Optional[str], workspace_dir: str, model_port: int, gui_port: int
+) -> Dict[str, object]:
     if bundle_root:
         launcher = os.path.join(bundle_root, "embedagent-gui.cmd")
         if not os.path.isfile(launcher):
@@ -379,22 +430,22 @@ def _build_command(bundle_root: Optional[str], workspace_dir: str, model_port: i
     env = dict(os.environ)
     env["PYTHONPATH"] = os.path.join(REPO_ROOT, "src")
     return {
-            "command": [
-                PYTHON_EXE,
-                "-m",
-                "embedagent.frontend.gui.launcher",
-                "--workspace",
+        "command": [
+            PYTHON_EXE,
+            "-m",
+            "embedagent.frontend.gui.launcher",
+            "--workspace",
             workspace_dir,
             "--model",
             "gui-smoke-model",
-                "--base-url",
-                "http://127.0.0.1:%d/v1" % model_port,
-                "--port",
-                str(gui_port),
-                "--timeout",
-                "20",
-                "--max-turns",
-                "2",
+            "--base-url",
+            "http://127.0.0.1:%d/v1" % model_port,
+            "--port",
+            str(gui_port),
+            "--timeout",
+            "20",
+            "--max-turns",
+            "2",
         ],
         "cwd": REPO_ROOT,
         "env": env,
@@ -403,10 +454,20 @@ def _build_command(bundle_root: Optional[str], workspace_dir: str, model_port: i
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Validate GUI smoke flow.")
-    parser.add_argument("--bundle-root", default="", help="Optional offline bundle root to launch instead of source tree")
-    parser.add_argument("--workspace", default="", help="Optional workspace path to use during smoke validation")
-    parser.add_argument("--windowed", action="store_true", help="Launch a real GUI window and auto-close it")
-    parser.add_argument("--auto-close-seconds", type=float, default=8.0, help="Auto-close delay for windowed smoke")
+    parser.add_argument(
+        "--bundle-root",
+        default="",
+        help="Optional offline bundle root to launch instead of source tree",
+    )
+    parser.add_argument(
+        "--workspace", default="", help="Optional workspace path to use during smoke validation"
+    )
+    parser.add_argument(
+        "--windowed", action="store_true", help="Launch a real GUI window and auto-close it"
+    )
+    parser.add_argument(
+        "--auto-close-seconds", type=float, default=8.0, help="Auto-close delay for windowed smoke"
+    )
     return parser
 
 
@@ -422,7 +483,11 @@ def main(argv: Optional[List[str]] = None) -> int:
     server_thread.start()
 
     process = None
-    workspace_dir = os.path.realpath(args.workspace) if args.workspace else tempfile.mkdtemp(prefix="embedagent-gui-smoke-")
+    workspace_dir = (
+        os.path.realpath(args.workspace)
+        if args.workspace
+        else tempfile.mkdtemp(prefix="embedagent-gui-smoke-")
+    )
     if not os.path.isdir(workspace_dir):
         os.makedirs(workspace_dir)
     try:
@@ -447,36 +512,47 @@ def main(argv: Optional[List[str]] = None) -> int:
         if not FakeOpenAIHandler.requests_seen:
             raise RuntimeError("Fake model server did not receive any request")
         if summary.get("permission_requests", 0) < 1 or summary.get("user_input_requests", 0) < 1:
-            raise RuntimeError("GUI smoke did not exercise permission/user-input flows: %s" % summary)
+            raise RuntimeError(
+                "GUI smoke did not exercise permission/user-input flows: %s" % summary
+            )
         tool_event_types = [item.get("type") for item in summary.get("tool_events", [])]
         if "tool_start" not in tool_event_types or "tool_finish" not in tool_event_types:
             raise RuntimeError("GUI smoke did not exercise tool events: %s" % summary)
         review_commands = [
-            item for item in summary.get("command_results", [])
+            item
+            for item in summary.get("command_results", [])
             if item.get("command_name") == "review"
         ]
         if not review_commands or not review_commands[0].get("success"):
             raise RuntimeError("GUI smoke did not exercise /review workflow: %s" % summary)
-        if summary.get("first_session_todos") != 1 or summary.get("second_session_todos") != 0:
-            raise RuntimeError("GUI smoke todo isolation failed: %s" % summary)
+        if "first_session_tasks" not in summary or "second_session_tasks" not in summary:
+            raise RuntimeError("GUI smoke task API check failed: %s" % summary)
         renderer_report = {}
         if os.path.isfile(renderer_report_path):
             with open(renderer_report_path, "r", encoding="utf-8") as handle:
                 renderer_report = json.load(handle)
         if bundle_root and renderer_report.get("runtime_source") != "bundle":
-            raise RuntimeError("Bundle GUI did not use bundled Chromium runtime: %s" % renderer_report)
-        print(json.dumps({
-            "bundle_root": bundle_root or "",
-            "workspace": workspace_dir,
-            "gui_port": gui_port,
-            "model_port": model_port,
-            "assistant_text": summary.get("assistant_text"),
-            "session_statuses": summary.get("session_statuses"),
-            "tool_events": summary.get("tool_events"),
-            "command_results": summary.get("command_results"),
-            "model_requests": len(FakeOpenAIHandler.requests_seen),
-            "renderer_report": renderer_report,
-        }, ensure_ascii=False, indent=2))
+            raise RuntimeError(
+                "Bundle GUI did not use bundled Chromium runtime: %s" % renderer_report
+            )
+        print(
+            json.dumps(
+                {
+                    "bundle_root": bundle_root or "",
+                    "workspace": workspace_dir,
+                    "gui_port": gui_port,
+                    "model_port": model_port,
+                    "assistant_text": summary.get("assistant_text"),
+                    "session_statuses": summary.get("session_statuses"),
+                    "tool_events": summary.get("tool_events"),
+                    "command_results": summary.get("command_results"),
+                    "model_requests": len(FakeOpenAIHandler.requests_seen),
+                    "renderer_report": renderer_report,
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
         return 0
     finally:
         model_server.shutdown()

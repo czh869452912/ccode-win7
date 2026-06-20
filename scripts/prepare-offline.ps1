@@ -603,8 +603,8 @@ $defaultConfig = @'
   "max_context_tokens": 32000,
   "reserve_output_tokens": 3000,
   "chars_per_token": 3.0,
-  "max_turns": 8,
-  "default_mode": "code"
+  "max_turns": null,
+  "default_mode": "explore"
 }
 '@
 Write-TextFile -Path (Join-Path $bundleRoot 'config\config.json.template') -Content ($defaultConfig.Trim() + "`r`n")
@@ -616,7 +616,8 @@ $minimalConfig = @'
   "api_key": "",
   "model": "",
   "timeout": 120,
-  "default_mode": "code"
+  "max_turns": null,
+  "default_mode": "explore"
 }
 '@
 Write-TextFile -Path (Join-Path $bundleRoot 'config\config.json') -Content ($minimalConfig.Trim() + "`r`n")
@@ -630,10 +631,40 @@ $defaultPermissionRules = @'
 Write-TextFile -Path (Join-Path $bundleRoot 'config\permission-rules.json') -Content ($defaultPermissionRules.Trim() + "`r`n")
 
 $workspaceTemplateReadme = @'
-This directory is a placeholder for an unpacked demo or smoke-test workspace.
-Copy or replace it with a real project before first use.
+# EmbedAgent Offline C Smoke Workspace
+
+This workspace is a tiny C project for validating the bundled offline runtime.
+It can be replaced with a real project, but it is intentionally buildable as-is.
+
+Suggested first prompt:
+
+```
+/mode build 构建这个 C 项目并解释结果
+```
+
+Manual clang smoke command from this directory:
+
+```
+..\..\bin\llvm\bin\clang.exe main.c -o embedagent-smoke.exe
+```
 '@
-Write-TextFile -Path (Join-Path $bundleRoot 'data\workspace-template\README.txt') -Content ($workspaceTemplateReadme.Trim() + "`r`n")
+Write-TextFile -Path (Join-Path $bundleRoot 'data\workspace-template\README.md') -Content ($workspaceTemplateReadme.Trim() + "`r`n")
+
+$workspaceTemplateMain = @'
+#include <stdio.h>
+
+static int add(int left, int right)
+{
+    return left + right;
+}
+
+int main(void)
+{
+    printf("embedagent smoke: %d\n", add(2, 3));
+    return 0;
+}
+'@
+Write-TextFile -Path (Join-Path $bundleRoot 'data\workspace-template\main.c') -Content ($workspaceTemplateMain.Trim() + "`r`n")
 
 $launcherCli = @'
 @echo off

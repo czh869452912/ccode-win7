@@ -1,4 +1,4 @@
-"""Tests for 3-tier tool result caching."""
+"""Tests for tool result caching."""
 
 import time
 import unittest
@@ -112,6 +112,11 @@ class TestToolResultCache(unittest.TestCase):
         stats = self.cache.stats()
         self.assertEqual(stats["l1_size"], 1)
         self.assertEqual(stats["total_hits"], 1)
+
+    def test_stats_only_reports_implemented_tiers(self):
+        stats = self.cache.stats()
+        self.assertEqual(set(stats.keys()), {"l1_size", "l2_size", "total_hits"})
+        self.assertFalse(hasattr(CacheTier, "L3_PROJECTION"))
 
 
 class TestCacheEntry(unittest.TestCase):
