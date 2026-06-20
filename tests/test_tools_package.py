@@ -82,7 +82,7 @@ class TestToolRuntimeSchemas(unittest.TestCase):
         shutil.rmtree(self.workspace, ignore_errors=True)
 
     def test_total_tool_count(self):
-        self.assertEqual(len(self.schemas), 16)
+        self.assertEqual(len(self.schemas), 13)
 
     def test_official_tool_catalog_excludes_legacy_duplicate_tools(self):
         expected = [
@@ -93,13 +93,13 @@ class TestToolRuntimeSchemas(unittest.TestCase):
             "git_status",
             "git_diff",
             "git_log",
-            "list_compilers",
-            "configure_build_env",
-            "run_build",
         ]
         for name in expected:
             self.assertIn(name, self.tool_names, "Missing tool: %s" % name)
         for name in (
+            "list_compilers",
+            "configure_build_env",
+            "run_build",
             "list_files",
             "search_text",
             "compile_project",
@@ -127,8 +127,15 @@ class TestToolRuntimeSchemas(unittest.TestCase):
             "task_status",
             "ask_user",
             "record_failing_evidence",
+            "list_compilers",
+            "configure_build_env",
+            "run_build",
         ):
             self.assertIn(name, tool_names, "Missing workflow tool: %s" % name)
+        for name in ("list_compilers", "configure_build_env", "run_build"):
+            entry = self.rt.tool_catalog_entry(name)
+            self.assertEqual(entry["source_type"], "harness", name)
+            self.assertEqual(entry["source_id"], "embedagent.harness", name)
 
     def test_schema_structure(self):
         for schema in self.schemas:
@@ -245,6 +252,9 @@ class TestToolRuntimeExecute(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.workspace, ignore_errors=True)
 
+    def _register_default_c_workflow_tools(self):
+        register_default_c_workflow_tools(self.rt, self.workspace)
+
     def test_unknown_tool_returns_error(self):
         obs = self.rt.execute("nonexistent_tool", {})
         self.assertFalse(obs.success)
@@ -343,7 +353,14 @@ class TestToolRuntimeExecute(unittest.TestCase):
         self.assertEqual(obs.data["progress_renderer_key"], "file_write")
         self.assertEqual(obs.data["result_renderer_key"], "file_write")
 
+    def test_bare_runtime_rejects_c_workflow_build_tools(self):
+        for tool_name in ("list_compilers", "configure_build_env", "run_build"):
+            obs = self.rt.execute(tool_name, {})
+            self.assertFalse(obs.success, tool_name)
+            self.assertEqual(obs.tool_name, tool_name)
+
     def test_list_compilers_returns_observation(self):
+        self._register_default_c_workflow_tools()
         obs = self.rt.execute("list_compilers", {})
         self.assertTrue(obs.success)
         self.assertEqual(obs.tool_name, "list_compilers")
@@ -353,6 +370,7 @@ class TestToolRuntimeExecute(unittest.TestCase):
         self.assertIsInstance(obs.data["count"], int)
 
     def test_list_compilers_includes_catalog_metadata(self):
+        self._register_default_c_workflow_tools()
         obs = self.rt.execute("list_compilers", {})
         self.assertTrue(obs.success)
         self.assertEqual(obs.data["tool_label"], "List Compilers")
@@ -360,6 +378,7 @@ class TestToolRuntimeExecute(unittest.TestCase):
         self.assertFalse(obs.data["supports_diff_preview"])
 
     def test_configure_build_env_returns_observation(self):
+        self._register_default_c_workflow_tools()
         obs = self.rt.execute("configure_build_env", {})
         self.assertTrue(obs.success)
         self.assertEqual(obs.tool_name, "configure_build_env")
@@ -375,6 +394,7 @@ class TestToolRuntimeExecute(unittest.TestCase):
         self.assertEqual(obs.data["build_type"], "debug")
 
     def test_configure_build_env_with_build_type(self):
+        self._register_default_c_workflow_tools()
         obs = self.rt.execute("configure_build_env", {"build_type": "release"})
         self.assertTrue(obs.success)
         self.assertEqual(obs.data["build_type"], "release")
@@ -382,6 +402,7 @@ class TestToolRuntimeExecute(unittest.TestCase):
         self.assertEqual(obs.data["cxx_flags"], "-O3 -DNDEBUG")
 
     def test_configure_build_env_includes_catalog_metadata(self):
+        self._register_default_c_workflow_tools()
         obs = self.rt.execute("configure_build_env", {})
         self.assertTrue(obs.success)
         self.assertEqual(obs.data["tool_label"], "Configure Build Env")
@@ -390,6 +411,7 @@ class TestToolRuntimeExecute(unittest.TestCase):
 
     @unittest.skipIf(sys.platform != "win32", "Windows-only: requires cmd.exe")
     def test_run_build_returns_observation(self):
+        self._register_default_c_workflow_tools()
         obs = self.rt.execute("run_build", {"command": "cmd /c echo build-ok"})
         self.assertTrue(obs.success)
         self.assertEqual(obs.tool_name, "run_build")
@@ -401,12 +423,14 @@ class TestToolRuntimeExecute(unittest.TestCase):
         self.assertIsInstance(obs.data["streaming_progress_count"], int)
 
     def test_run_build_requires_command(self):
+        self._register_default_c_workflow_tools()
         obs = self.rt.execute("run_build", {})
         self.assertFalse(obs.success)
         self.assertIsNotNone(obs.error)
 
     @unittest.skipIf(sys.platform != "win32", "Windows-only: requires cmd.exe")
     def test_run_build_parses_diagnostics(self):
+        self._register_default_c_workflow_tools()
         # Write a helper batch file that prints a compiler-style diagnostic line
         bat_path = os.path.join(self.workspace, "emit_diag.bat")
         with open(bat_path, "w", encoding="utf-8") as f:
@@ -420,6 +444,7 @@ class TestToolRuntimeExecute(unittest.TestCase):
 
     @unittest.skipIf(sys.platform != "win32", "Windows-only: requires cmd.exe")
     def test_run_build_includes_catalog_metadata(self):
+        self._register_default_c_workflow_tools()
         obs = self.rt.execute("run_build", {"command": "cmd /c echo ok"})
         self.assertTrue(obs.success)
         self.assertEqual(obs.data["tool_label"], "Run Build")
@@ -913,6 +938,7 @@ class TestBuildArtifactReporting(unittest.TestCase):
     def setUp(self):
         self.workspace = _make_workspace("artifacts")
         self.rt = ToolRuntime(self.workspace)
+        register_default_c_workflow_tools(self.rt, self.workspace)
 
     def tearDown(self):
         shutil.rmtree(self.workspace, ignore_errors=True)

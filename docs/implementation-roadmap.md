@@ -58,7 +58,11 @@ Recent workflow-boundary work has started slimming Agent Core without changing t
 - `AgentKernel` now owns user/command/resume turn frames and pending interaction create/resolve boundaries behind the session facade
 - `AgentToolActionService` now owns non-LLM tool action execution, including active-tool checks, extension pre/post hooks, `PermissionPolicy`, path write guards, runtime dispatch, and extension-owned tool calls
 - `AgentLoop` now owns Pi-style open turn-loop continuation behind `QueryEngine`, including agent steps, context/provider attempts, compact retry, tool batch interruption, guard stops, abort, and explicit loop safety-limit compatibility transitions; `QueryEngine` no longer owns `_run_loop_impl`, and hosted defaults no longer stop merely because eight model/tool cycles were used
-- `ToolRuntime` construction is now workflow-neutral; the bundled C/C++ workflow package registers recipe, quality, evidence, and task-status tools with metadata through `CHarnessWorkflowExtension.register_tools(...)`
+- `ToolRuntime` construction is now workflow-neutral; the bundled C/C++ workflow package registers compiler/build helpers, recipe, quality, evidence, and task-status tools with metadata through `CHarnessWorkflowExtension.register_tools(...)`
+- C/C++ workflow context reducers have moved out of Core `ReducerRegistry`; harness-owned reducers now cover build diagnostics, recipe results, quality reports, and task status through `CHarnessWorkflowExtension.register_context_reducers(...)`
+- workflow prompt descriptors now use generic `WorkflowPrompt` naming and new prompt messages use `workflow_prompt`; old harness prompt names are compatibility-only
+- `propose_mode_switch` is no longer projected as an unconditional model tool; it appears only when explicitly activated through the active-tool boundary
+- `ToolCatalogEntry` now keeps internal execution, presentation, and context-policy facets while preserving the legacy flat catalog payload for protocol/frontend compatibility
 - C/C++ workflow pack definitions now live only under `src/embedagent/harness/packs.py`; the obsolete `src/embedagent/tooling/packs.py` compatibility export has been removed
 - Pi-inspired minimal Core Phase A durable operation log, Phase B HookBus/reducer registry, Phase C AgentKernel lifecycle extraction, Phase D default C/C++ workflow package ownership, Phase E self-extension authoring loop, Phase F repo-side offline bundle validation, Phase G turn snapshot / capability registry foundation, Phase H runtime configuration reducer, Phase I workflow package manifest/read model, Phase J structured compaction state, Phase K recovery state, Phase L pack compatibility cleanup, Phase M core alias cleanup, and the Pi-style prompt-surface/resource/runtime-state alignment slice are complete
 - the Pi-style enterprise/intranet capability boundary foundation is implemented: `network` and `telemetry` permission categories are recognized by policy/runtime/extension metadata, and `embedagent.telemetry` provides local safe telemetry envelopes while future intranet Git, custom service, provider, organization-local catalog, and sink work stays optional and outside Agent Core
@@ -201,6 +205,8 @@ The current self-extensible Agent Core baseline remains valid. The next program 
    - `CompactionStateReducer` projects reducer-backed compaction state from transcript events, including latest boundary and duplicate/malformed diagnostics
    - restore results, managed sessions, protocol snapshots, and session snapshots expose `compaction_state`
    - projection remains read-only diagnostics/replay state; context selection, summary generation, extension loading, tool execution, and permissions remain owned by their existing boundaries
+   - `ContextPlan` now provides a minimal explicit read model before provider requests for selected-message counts, recent/summarized turns, token/character summaries, pipeline steps, preserved message ids when available, and replacement refs
+   - next implementation direction: enrich `ContextPlan` with context-window generation, file activity refs, evidence refs, and compact summary inputs from the same boundary while keeping `CompactionStateReducer` read-only and out of active planning
 
 11. **Recovery state**
    - current implementation status: Phase K is complete

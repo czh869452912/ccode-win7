@@ -54,12 +54,15 @@ class PromptPatch:
 
 
 @dataclass
-class HarnessPrompt:
+class WorkflowPrompt:
     mode_name: str = ""
     discipline_label: str = ""
     pack_name: str = ""
     prompt_units: List[str] = field(default_factory=list)
     metadata: Dict[str, Any] = field(default_factory=dict)
+
+
+HarnessPrompt = WorkflowPrompt
 
 
 @dataclass
@@ -542,6 +545,26 @@ class ExtensionManager(object):
                     if str(item.get("source_type") or "") == "builtin":
                         raise
 
+    def register_context_reducers(self, reducer_registry: Any) -> None:
+        for extension in self._extensions:
+            register = getattr(extension, "register_context_reducers", None)
+            if not callable(register):
+                continue
+            extension_id = self._extension_id(extension)
+            source = "builtin" if self._is_builtin_extension(extension) else "project"
+            try:
+                register(reducer_registry)
+            except (RuntimeError, ValueError, TypeError, OSError) as exc:
+                self.record_diagnostic(
+                    extension_id,
+                    "register_context_reducers",
+                    str(exc),
+                    severity="error",
+                    source=source,
+                )
+                if source == "builtin":
+                    raise
+
     def before_tool_call(
         self,
         event: WorkflowEvent,
@@ -640,7 +663,7 @@ class ExtensionManager(object):
         current_mode: str,
         workflow_state: str = "chat",
         session: Any = None,
-    ) -> Optional[HarnessPrompt]:
+    ) -> Optional[WorkflowPrompt]:
         dispatch = self._dispatch_event(
             "extension.describe_prompt",
             {

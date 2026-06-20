@@ -233,6 +233,20 @@ def test_c_harness_extension_uses_generic_workflow_prompt_kind(tmp_path):
     assert "harness_prompt" not in prompt_kinds
 
 
+def test_workflow_prompt_descriptor_uses_generic_name():
+    extensions_source = (_REPO_ROOT / "src" / "embedagent" / "extensions.py").read_text(
+        encoding="utf-8"
+    )
+    harness_source = (_REPO_ROOT / "src" / "embedagent" / "harness" / "extension.py").read_text(
+        encoding="utf-8"
+    )
+
+    assert "class WorkflowPrompt" in extensions_source
+    assert "HarnessPrompt = WorkflowPrompt" in extensions_source
+    assert "HarnessPrompt(" not in harness_source
+    assert "from embedagent.extensions import HarnessPrompt" not in harness_source
+
+
 def test_c_harness_workflow_projection_builder_shapes_generic_payload():
     from embedagent.harness.task_graph import TaskGraph
     from embedagent.harness.workflow_projection import build_c_harness_workflow_projection
@@ -407,7 +421,7 @@ def test_query_engine_tool_activation_does_not_use_runtime_harness_pack_fallback
     assert "read_file" in allowed
     assert "run_recipe" in allowed
     assert "run_recipe" in names
-    assert "propose_mode_switch" in names
+    assert "propose_mode_switch" not in names
 
 
 def test_core_pack_no_longer_contains_harness_workflow_tools():
@@ -504,6 +518,24 @@ def test_default_c_workflow_extension_registers_workflow_tools(tmp_path):
     assert "run_recipe" in names
     assert "task_status" in names
     assert "record_failing_evidence" in names
+
+
+def test_default_c_workflow_extension_registers_context_reducers(tmp_path):
+    from embedagent.context import ContextManager
+    from embedagent.default_extensions import build_default_extension_set
+    from embedagent.tools import ToolRuntime
+
+    runtime = ToolRuntime(str(tmp_path))
+    context_manager = ContextManager()
+    default_set = build_default_extension_set(runtime)
+    default_set.manager.register_context_reducers(context_manager.reducers)
+
+    reducers = context_manager.reducers
+    assert "run_recipe" in reducers._reducers
+    assert "report_quality_v2" in reducers._reducers
+    assert "task_status" in reducers._reducers
+    assert "run_recipe" in reducers.high_priority_tool_names()
+    assert "report_quality_v2" in reducers.high_priority_tool_names()
 
 
 def test_tool_runtime_no_longer_imports_harness_runtime_metadata():
@@ -685,7 +717,7 @@ def test_bare_query_engine_uses_empty_extension_host_without_c_harness(tmp_path)
     assert engine.extension_manager.diagnostics() == []
     assert "run_recipe" not in engine._allowed_tools_for_mode("build", "chat")
     assert "task_status" not in engine._allowed_tools_for_mode("build", "chat")
-    assert "propose_mode_switch" in set(
+    assert "propose_mode_switch" not in set(
         item["function"]["name"] for item in engine._schemas_for_active_tools("build", "chat")
     )
 

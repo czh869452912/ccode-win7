@@ -113,7 +113,7 @@ The default C/C++ harness is now entered through the in-process workflow extensi
 
 `AgentExtensionHost` is the session-engine side of that boundary. It builds extension contexts and workflow events, initializes workflow state, applies prompt/context hooks, registers dynamic tools, computes extension-aware active tool names, requests explicit tool schemas, applies tool-call/tool-result hooks, and handles extension-owned tool calls. `QueryEngine` keeps a compatibility `extension_manager` reference, but extension hook dispatch is centralized in `AgentExtensionHost`.
 
-Workflow-package prompt units are appended as generic `workflow_prompt` system messages. Historical `harness_prompt` messages remain recognized only for session/transcript dedupe compatibility; new Agent Core prompt injection should not use harness-shaped message kinds.
+Workflow-package prompt units are described by the generic `WorkflowPrompt` descriptor and appended as generic `workflow_prompt` system messages. Historical `HarnessPrompt` / `harness_prompt` names remain recognized only for source and session/transcript compatibility; new Agent Core prompt injection should use the generic workflow naming.
 
 `AgentLifecycleJournal` owns durable lifecycle writes for schema v2 operation events, transition save points, pending interaction lifecycle events, and context operation payload helpers. `AgentKernel` owns turn frames and pending interaction create/resolve boundaries. `AgentToolActionService` owns non-LLM tool action execution: active-tool checks, extension pre/post hooks, permission evaluation, path write guards, runtime dispatch, and extension-owned tool calls. `AgentLoop` owns Pi-style open turn-loop continuation: agent step lifecycle, context/provider attempts, compact retry, tool batch interruption, guard-stop, abort, and explicit loop safety-limit compatibility transitions. The optional safety fuse is still configured through the legacy `max_turns` field, but the hosted default no longer stops merely because eight model/tool cycles were used. `QueryEngine` remains the public session facade and keeps ownership of transcript-backed session mutation compatibility.
 
@@ -125,7 +125,9 @@ Workflow-package prompt units are appended as generic `workflow_prompt` system m
 
 `RuntimeConfigReducer` is the replayable runtime configuration read model. It reduces safe transcript events into credential-free model profile metadata, registered tool names, model-visible active tool names, local resource revision metadata, capability counts, and provider snapshot records. It feeds `ManagedSession.runtime_config`, session snapshots, and provider `TurnSnapshot` resource revision/model metadata when available. It remains diagnostic/replay state and must not become an active-tool selector, resource loader, extension loader, tool executor, or permission engine.
 
-`ContextManager` owns deterministic context assembly. In addition to reactive compact retry after provider context-limit errors, it may pre-provider rebuild with the internal compact policy when the assembled input approaches `auto_compact_threshold_ratio` and there is older turn history to summarize. That trigger is expressed as a context pipeline step and compact-boundary diagnostic metadata, not as a new public extension API. `ContextWindowState` is a small internal value object that derives safe trigger/phase/window-generation diagnostics from context pipeline steps; it is not a durable history source or policy engine.
+`ContextManager` owns deterministic context assembly. Core context reducers are workflow-neutral; C/C++ workflow reducers for recipe results, build diagnostics, quality reports, and task status are registered by the bundled workflow extension from harness-owned modules. In addition to reactive compact retry after provider context-limit errors, `ContextManager` may pre-provider rebuild with the internal compact policy when the assembled input approaches `auto_compact_threshold_ratio` and there is older turn history to summarize. That trigger is expressed as a context pipeline step and compact-boundary diagnostic metadata, not as a new public extension API. `ContextWindowState` is a small internal value object that derives safe trigger/phase/window-generation diagnostics from context pipeline steps; it is not a durable history source or policy engine.
+
+`ContextPlan` is the explicit read model for one provider request's assembled context. The current implementation records safe selected-message counts, recent/summarized turn counts, pipeline steps, token/character summaries, preserved message ids when present, and replacement refs; compact-boundary metadata can reuse that plan instead of re-inferring basic counts. Future slices may enrich it with context window generation, file activity refs, evidence refs, and compact summary inputs from the same boundary semantics that later emit `compact_boundary` diagnostics. `CompactionStateReducer` remains a replay/diagnostic projection and must not become the planner, context selector, or summary generator.
 
 `CompactionStateReducer` is the replayable structured compaction read model. It reduces `compact_boundary` transcript events into safe boundary records with preserved message anchors, token/message counts, trigger/phase/window-generation diagnostics, file activity paths, evidence refs, extension-summary flags, and duplicate/malformed diagnostics. It feeds restore results, `ManagedSession.compaction_state`, protocol snapshots, and session snapshots. It remains diagnostic/replay state and must not become a context selector, summary generator, extension executor, permission engine, or second session-history source.
 
@@ -208,7 +210,7 @@ Built-in mode allowed-tool lists are workflow-neutral permission/write contracts
 
 `ToolRuntime.schemas_for(mode, workflow_state, tool_names=...)` is the single runtime schema projection entry point. Without explicit `tool_names`, it projects only the workflow-neutral mode contract; it must not be used to activate the default harness pack implicitly.
 
-The tool runtime is source-aware and dynamically extensible. A bare `ToolRuntime` registers workflow-neutral built-ins only. In-process extensions can register `ToolDefinition` objects into the shared runtime; the bundled C/C++ workflow package uses this same boundary for recipe, quality, evidence, and task-status tools. Source metadata is projected through the existing catalog, and active-tool visibility still flows through `ExtensionManager.allowed_tool_names(mode_name, workflow_state=workflow_state)`.
+The tool runtime is source-aware and dynamically extensible. A bare `ToolRuntime` registers workflow-neutral built-ins only. In-process extensions can register `ToolDefinition` objects into the shared runtime; the bundled C/C++ workflow package uses this same boundary for compiler/build helpers, recipe execution, quality reporting, evidence capture, and task-status tools. Source metadata is projected through the existing catalog, and active-tool visibility still flows through `ExtensionManager.allowed_tool_names(mode_name, workflow_state=workflow_state)`.
 
 C/C++ workflow pack definitions live only in `src/embedagent/harness/packs.py`. The obsolete `src/embedagent/tooling/packs.py` re-export and package-root pack aliases have been removed so Agent Core no longer carries a second pack import surface.
 
@@ -237,6 +239,9 @@ Runtime configuration projections are also read-only. `runtime_configured`, `res
 
 #### Build / Verify
 
+- `list_compilers`
+- `configure_build_env`
+- `run_build`
 - `list_recipes`
 - `run_recipe`
 - `report_quality_v2`
@@ -288,17 +293,16 @@ The frontend should never infer permission policy from mode alone.
 `src/embedagent/context.py` and `src/embedagent/workspace_intelligence.py` own:
 
 - context budgets
-- reducer registry
+- workflow-neutral reducer registry
 - tool-result replacement
 - summary assembly
 - workspace intelligence evidence
 
-The context system is aligned to the official harness vocabulary, especially:
+The default C/C++ workflow extension registers harness-owned context reducers for:
 
-- `build`
-- `list_dir`
-- `glob_files`
-- `grep_text`
+- `list_compilers`
+- `configure_build_env`
+- `run_build`
 - `run_recipe`
 - `report_quality_v2`
 - `task_status`

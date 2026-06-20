@@ -218,6 +218,7 @@ class TestTurnOrchestrator(unittest.TestCase):
         tools=None,
         permission_policy=None,
         allowed_tool_names=None,
+        extension_tool_handler=None,
     ):
         from embedagent.strategies.turn_orchestrator import TurnOrchestrator
 
@@ -227,6 +228,7 @@ class TestTurnOrchestrator(unittest.TestCase):
             permission_policy=permission_policy,
             max_parallel_tools=3,
             allowed_tool_names=allowed_tool_names,
+            extension_tool_handler=extension_tool_handler,
         )
 
     def test_execute_turn_returns_result(self):
@@ -314,7 +316,7 @@ class TestTurnOrchestrator(unittest.TestCase):
         # Non-retryable ToolError triggers LoopGuard after first failure
         self.assertEqual(result.transition.reason, "guard_stop")
 
-    def test_task_status_reads_workflow_projection_without_task_graph(self):
+    def test_extension_tool_handler_reads_task_status_projection(self):
         llm_wrapper = MagicMock()
         tools = MagicMock()
         tools.tool_capabilities.return_value = {}
@@ -330,10 +332,24 @@ class TestTurnOrchestrator(unittest.TestCase):
                 "discipline_profile": "workflow-discipline",
             },
         }
+        extension_tool_handler = MagicMock(
+            return_value=Observation(
+                "task_status",
+                True,
+                None,
+                {
+                    "summary": "workflow summary",
+                    "current_phase": "workflow-phase",
+                    "discipline_profile": "workflow-discipline",
+                    "tasks": [{"id": "task-1", "title": "Task one"}],
+                },
+            )
+        )
         orchestrator = self._make_orchestrator(
             llm_wrapper=llm_wrapper,
             tools=tools,
             allowed_tool_names=MagicMock(return_value={"task_status"}),
+            extension_tool_handler=extension_tool_handler,
         )
         observations = []
 
@@ -352,6 +368,12 @@ class TestTurnOrchestrator(unittest.TestCase):
         self.assertEqual(observation.data["current_phase"], "workflow-phase")
         self.assertEqual(observation.data["discipline_profile"], "workflow-discipline")
         self.assertEqual(observation.data["tasks"], [{"id": "task-1", "title": "Task one"}])
+        extension_tool_handler.assert_called_once_with(
+            session,
+            action,
+            "build",
+            "chat",
+        )
 
     def test_turn_orchestrator_uses_injected_allowed_tool_policy(self):
         llm_wrapper = MagicMock()
@@ -394,6 +416,7 @@ class TestTurnOrchestrator(unittest.TestCase):
         ).read_text(encoding="utf-8")
 
         self.assertNotIn("session.task_graph", source)
+        self.assertNotIn('action.name == "task_status"', source)
 
 
 if __name__ == "__main__":

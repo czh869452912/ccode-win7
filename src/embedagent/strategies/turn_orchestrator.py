@@ -37,6 +37,9 @@ class TurnOrchestrator(object):
         streaming_executor: Optional[Any] = None,
         tracer: Optional[ExecutionTracer] = None,
         allowed_tool_names: Optional[Callable[..., Any]] = None,
+        extension_tool_handler: Optional[
+            Callable[[Any, Action, str, str], Optional[Observation]]
+        ] = None,
     ) -> None:
         self.llm_wrapper = llm_wrapper
         self.tools = tools
@@ -47,6 +50,7 @@ class TurnOrchestrator(object):
         self.allowed_tool_names = allowed_tool_names or (
             lambda mode_name, workflow_state="chat": set()
         )
+        self.extension_tool_handler = extension_tool_handler
 
     def execute_turn(
         self,
@@ -313,39 +317,18 @@ class TurnOrchestrator(object):
                 None,
             )
 
-        if action.name == "task_status":
-            workflow = self._workflow_from_session(session)
-            metadata = self._workflow_metadata(workflow)
-            summary = str(workflow.get("summary") or "")
-            phase = str(metadata.get("current_phase") or workflow.get("current_phase") or "")
-            discipline = str(
-                metadata.get("discipline_profile") or workflow.get("discipline_profile") or ""
+        if self.extension_tool_handler is not None:
+            observation = self.extension_tool_handler(
+                session,
+                action,
+                current_mode,
+                workflow_state,
             )
-            task_items = list(workflow.get("items") or [])
-            if not summary:
-                summary = "no active tasks"
-            observation = Observation(
-                tool_name="task_status",
-                success=True,
-                error=None,
-                data={
-                    "summary": summary,
-                    "preview": [line for line in summary.splitlines() if line],
-                    "returned_count": len([line for line in summary.splitlines() if line]),
-                    "total_count": len([line for line in summary.splitlines() if line]),
-                    "has_more": False,
-                    "next_offset": 0,
-                    "result_ref": "",
-                    "current_mode": current_mode,
-                    "current_phase": phase,
-                    "discipline_profile": discipline,
-                    "tasks": task_items,
-                },
-            )
-            return observation, current_mode, None
+            if observation is not None:
+                return observation, current_mode, None
 
         # Permission check for non-special tools
-        if action.name not in ("ask_user", "propose_mode_switch", "task_status"):
+        if action.name not in ("ask_user", "propose_mode_switch"):
             if self.tracer is not None:
                 self.tracer.record(
                     TraceEventType.PERMISSION_REQUEST,
@@ -454,21 +437,6 @@ class TurnOrchestrator(object):
             )
 
         return observation, current_mode, None
-
-    def _workflow_from_session(self, session: Any) -> Dict[str, Any]:
-        workflow_state = getattr(session, "workflow_state", {}) or {}
-        if not isinstance(workflow_state, dict):
-            return {}
-        workflow = workflow_state.get("workflow") or {}
-        if not isinstance(workflow, dict):
-            return {}
-        return dict(workflow)
-
-    def _workflow_metadata(self, workflow: Dict[str, Any]) -> Dict[str, Any]:
-        metadata = workflow.get("metadata") or {}
-        if not isinstance(metadata, dict):
-            return {}
-        return dict(metadata)
 
     def _interrupted_observation(self, tool_name: str) -> Observation:
         return Observation(

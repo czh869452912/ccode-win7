@@ -9,12 +9,12 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from embedagent.config import AppConfig
 from embedagent.context import (
-    _HIGH_PRIORITY_TOOLS,
     ContextConfig,
     ContextManager,
     ReducerRegistry,
     make_context_config,
 )
+from embedagent.harness.extension import CHarnessWorkflowExtension
 from embedagent.session import AssistantReply, Observation, Session
 
 
@@ -96,11 +96,39 @@ class TestReducerRegistryTasks(unittest.TestCase):
             ),
         )
 
-    def test_official_task_reducer_registered(self):
-        self.assertIn("task_status", self.registry._reducers)
+    def _register_default_c_workflow_context(self):
+        CHarnessWorkflowExtension().register_context_reducers(self.registry)
+
+    def test_bare_registry_omits_c_workflow_reducers(self):
+        self.assertNotIn("list_recipes", self.registry._reducers)
+        self.assertNotIn("run_recipe", self.registry._reducers)
+        self.assertNotIn("report_quality_v2", self.registry._reducers)
+        self.assertNotIn("task_status", self.registry._reducers)
+        self.assertNotIn("record_failing_evidence", self.registry._reducers)
+        self.assertNotIn("list_compilers", self.registry._reducers)
+        self.assertNotIn("configure_build_env", self.registry._reducers)
+        self.assertNotIn("run_build", self.registry._reducers)
         self.assertNotIn("manage_todos", self.registry._reducers)
 
+    def test_bare_registry_does_not_define_c_workflow_reducer_methods(self):
+        self.assertFalse(hasattr(self.registry, "_reduce_recipe_result"))
+        self.assertFalse(hasattr(self.registry, "_reduce_quality"))
+        self.assertFalse(hasattr(self.registry, "_reduce_tasks"))
+
+    def test_default_c_workflow_extension_registers_context_reducers(self):
+        self._register_default_c_workflow_context()
+
+        self.assertIn("list_recipes", self.registry._reducers)
+        self.assertIn("run_recipe", self.registry._reducers)
+        self.assertIn("report_quality_v2", self.registry._reducers)
+        self.assertIn("task_status", self.registry._reducers)
+        self.assertIn("record_failing_evidence", self.registry._reducers)
+        self.assertIn("list_compilers", self.registry._reducers)
+        self.assertIn("configure_build_env", self.registry._reducers)
+        self.assertIn("run_build", self.registry._reducers)
+
     def test_reduce_task_status_list_action(self):
+        self._register_default_c_workflow_context()
         policy = self._make_policy()
         data = {
             "action": "list",
@@ -116,6 +144,7 @@ class TestReducerRegistryTasks(unittest.TestCase):
         self.assertIn("tasks", result)
 
     def test_reduce_task_status_add_action(self):
+        self._register_default_c_workflow_context()
         policy = self._make_policy()
         data = {"action": "add", "id": 3, "content": "新任务"}
         result = self.registry.reduce_tool_data("task_status", data, detailed=True, policy=policy)
@@ -124,6 +153,7 @@ class TestReducerRegistryTasks(unittest.TestCase):
         self.assertEqual(result["content"], "新任务")
 
     def test_reduce_task_status_remove_action(self):
+        self._register_default_c_workflow_context()
         policy = self._make_policy()
         data = {"action": "remove", "removed_id": 2, "remaining": 1}
         result = self.registry.reduce_tool_data("task_status", data, detailed=False, policy=policy)
@@ -131,6 +161,7 @@ class TestReducerRegistryTasks(unittest.TestCase):
         self.assertEqual(result["remaining"], 1)
 
     def test_summarize_task_status_observation(self):
+        self._register_default_c_workflow_context()
         policy = self._make_policy()
         obs = Observation(
             tool_name="task_status",
@@ -158,6 +189,7 @@ class TestReducerRegistryTasks(unittest.TestCase):
         self.assertIn("main.c", result["files"][0])
 
     def test_reduce_report_quality_v2(self):
+        self._register_default_c_workflow_context()
         policy = self._make_policy()
         data = {"passed": False, "error_count": 1, "warning_count": 2, "test_failures": 3}
         result = self.registry.reduce_tool_data(
@@ -167,11 +199,18 @@ class TestReducerRegistryTasks(unittest.TestCase):
         self.assertEqual(result["error_count"], 1)
         self.assertEqual(result["test_failures"], 3)
 
-    def test_high_priority_tools_use_official_verify_vocabulary(self):
-        self.assertIn("run_recipe", _HIGH_PRIORITY_TOOLS)
-        self.assertIn("report_quality_v2", _HIGH_PRIORITY_TOOLS)
-        self.assertNotIn("compile_project", _HIGH_PRIORITY_TOOLS)
-        self.assertNotIn("report_quality", _HIGH_PRIORITY_TOOLS)
+    def test_bare_registry_has_no_c_workflow_priority_tools(self):
+        self.assertNotIn("run_recipe", self.registry.high_priority_tool_names())
+        self.assertNotIn("report_quality_v2", self.registry.high_priority_tool_names())
+
+    def test_default_c_workflow_extension_registers_priority_tools(self):
+        self._register_default_c_workflow_context()
+
+        self.assertIn("run_build", self.registry.high_priority_tool_names())
+        self.assertIn("run_recipe", self.registry.high_priority_tool_names())
+        self.assertIn("report_quality_v2", self.registry.high_priority_tool_names())
+        self.assertNotIn("compile_project", self.registry.high_priority_tool_names())
+        self.assertNotIn("report_quality", self.registry.high_priority_tool_names())
 
 
 class TestContextConfigModeOverrides(unittest.TestCase):
@@ -201,6 +240,25 @@ class TestContextCompactionSignal(unittest.TestCase):
         with mock.patch.object(manager, "_measure_messages", return_value=100):
             result = manager.build_messages(session, mode_name="build")
         self.assertFalse(result.compacted)
+
+    def test_build_messages_returns_explicit_context_plan(self):
+        manager = ContextManager()
+        session = Session(session_id="sess-context-plan")
+        session.add_system_message("mode: build")
+        session.add_user_message("hello", turn_id="turn-1")
+        session.add_assistant_reply(
+            AssistantReply(content="world", actions=[], finish_reason="stop")
+        )
+
+        result = manager.build_messages(session, mode_name="build")
+
+        self.assertTrue(hasattr(result, "plan"))
+        self.assertEqual(result.plan.mode_name, result.policy.mode_name)
+        self.assertEqual(result.plan.approx_tokens, result.approx_tokens)
+        self.assertEqual(result.plan.selected_message_count, len(result.messages))
+        self.assertEqual(result.plan.pipeline_steps, result.pipeline_steps)
+        self.assertEqual(result.plan.to_boundary_metadata()["approx_tokens"], result.approx_tokens)
+        self.assertIn("message_counts", result.plan.to_boundary_payload_fields())
 
     def test_near_full_window_uses_compact_policy_before_provider(self):
         cfg = ContextConfig(auto_compact_threshold_ratio=0.01)

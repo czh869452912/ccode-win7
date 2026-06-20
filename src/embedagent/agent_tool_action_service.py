@@ -169,15 +169,14 @@ class AgentToolActionService(object):
         )
         if blocked_observation is not None:
             return blocked_observation, current_mode, None
-        if action.name == "task_status":
-            observation = self.extension_host.handle_tool_call(
-                session,
-                tool_name=action.name,
-                current_mode=current_mode,
-                workflow_state=workflow_state,
-            )
-            if observation is not None:
-                return observation, current_mode, None
+        observation = self.extension_host.handle_tool_call(
+            session,
+            tool_name=action.name,
+            current_mode=current_mode,
+            workflow_state=workflow_state,
+        )
+        if observation is not None:
+            return observation, current_mode, None
         decision = self.permission_policy.evaluate(runtime_action)
         if decision.outcome == "deny":
             if self._permission_rejected_handler is not None:

@@ -18,7 +18,6 @@ from embedagent.session import Action
 from embedagent.tool_result_store import ToolResultStore
 from embedagent.tools import (
     authoring_ops,
-    compile_ops,
     discovery_ops,
     file_ops,
     git_ops,
@@ -29,16 +28,30 @@ from embedagent.tools._base import ToolContext, ToolDefinition, ToolError
 
 _VALID_TOOL_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 _REGISTERABLE_PERMISSION_CATEGORIES = OFFICIAL_PERMISSION_CATEGORIES
-_EXTENSION_REQUIRED_METADATA = (
-    "permission_category",
-    "mode_visibility",
-    "workflow_visibility",
-    "user_label",
-    "read_only",
-    "concurrency_safe",
-    "interrupt_behavior",
-    "result_budget_policy",
-)
+_EXTENSION_REQUIRED_PERMISSION_METADATA = ("permission_category",)
+
+
+@dataclass
+class ToolExecutionSpec:
+    read_only: bool
+    concurrency_safe: bool
+    interrupt_behavior: str
+    result_budget_policy: str
+
+
+@dataclass
+class ToolPresentation:
+    user_label: str
+    progress_renderer_key: str
+    result_renderer_key: str
+    supports_diff_preview: bool
+
+
+@dataclass
+class ToolContextPolicy:
+    context_reducer_key: str
+    activity_kind: str
+    context_priority: int
 
 
 @dataclass
@@ -48,19 +61,55 @@ class ToolCatalogEntry:
     permission_category: str
     mode_visibility: List[str]
     workflow_visibility: List[str]
-    user_label: str
-    progress_renderer_key: str
-    result_renderer_key: str
-    supports_diff_preview: bool
-    context_reducer_key: str
-    read_only: bool
-    concurrency_safe: bool
-    interrupt_behavior: str
-    result_budget_policy: str
-    activity_kind: str
-    context_priority: int
+    execution: ToolExecutionSpec
+    presentation: ToolPresentation
+    context_policy: ToolContextPolicy
     source_type: str
     source_id: str
+
+    @property
+    def user_label(self) -> str:
+        return self.presentation.user_label
+
+    @property
+    def progress_renderer_key(self) -> str:
+        return self.presentation.progress_renderer_key
+
+    @property
+    def result_renderer_key(self) -> str:
+        return self.presentation.result_renderer_key
+
+    @property
+    def supports_diff_preview(self) -> bool:
+        return self.presentation.supports_diff_preview
+
+    @property
+    def context_reducer_key(self) -> str:
+        return self.context_policy.context_reducer_key
+
+    @property
+    def read_only(self) -> bool:
+        return self.execution.read_only
+
+    @property
+    def concurrency_safe(self) -> bool:
+        return self.execution.concurrency_safe
+
+    @property
+    def interrupt_behavior(self) -> str:
+        return self.execution.interrupt_behavior
+
+    @property
+    def result_budget_policy(self) -> str:
+        return self.execution.result_budget_policy
+
+    @property
+    def activity_kind(self) -> str:
+        return self.context_policy.activity_kind
+
+    @property
+    def context_priority(self) -> int:
+        return self.context_policy.context_priority
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -198,54 +247,6 @@ _DEFAULT_TOOL_METADATA = {
         "activity_kind": "git",
         "context_priority": 55,
     },
-    "list_compilers": {
-        "permission_category": "read",
-        "mode_visibility": ["explore", "spec", "build", "debug", "verify"],
-        "workflow_visibility": ["chat", "plan", "review", "command"],
-        "user_label": "List Compilers",
-        "progress_renderer_key": "list",
-        "result_renderer_key": "list",
-        "supports_diff_preview": False,
-        "context_reducer_key": "list_compilers",
-        "read_only": True,
-        "concurrency_safe": True,
-        "interrupt_behavior": "block",
-        "result_budget_policy": "compact-preview",
-        "activity_kind": "tool",
-        "context_priority": 65,
-    },
-    "configure_build_env": {
-        "permission_category": "read",
-        "mode_visibility": ["explore", "spec", "build", "debug", "verify"],
-        "workflow_visibility": ["chat", "plan", "review", "command"],
-        "user_label": "Configure Build Env",
-        "progress_renderer_key": "list",
-        "result_renderer_key": "list",
-        "supports_diff_preview": False,
-        "context_reducer_key": "configure_build_env",
-        "read_only": True,
-        "concurrency_safe": True,
-        "interrupt_behavior": "block",
-        "result_budget_policy": "compact-preview",
-        "activity_kind": "tool",
-        "context_priority": 64,
-    },
-    "run_build": {
-        "permission_category": "shell_exec",
-        "mode_visibility": ["build", "debug", "verify"],
-        "workflow_visibility": ["chat", "command"],
-        "user_label": "Run Build",
-        "progress_renderer_key": "command",
-        "result_renderer_key": "command",
-        "supports_diff_preview": False,
-        "context_reducer_key": "run_build",
-        "read_only": False,
-        "concurrency_safe": False,
-        "interrupt_behavior": "cancel",
-        "result_budget_policy": "artifact-first",
-        "activity_kind": "command",
-        "context_priority": 87,
-    },
     "list_dir": {
         "permission_category": "read",
         "mode_visibility": ["build", "debug", "explore", "spec", "verify"],
@@ -352,7 +353,6 @@ class ToolRuntime(object):
             + authoring_ops.build_tools(self._ctx)
             + shell_ops.build_tools(self._ctx)
             + git_ops.build_tools(self._ctx)
-            + compile_ops.build_tools(self._ctx)
         )
         self._catalog = {}  # type: Dict[str, ToolCatalogEntry]
         self._tools = {}  # type: Dict[str, ToolDefinition]
@@ -408,7 +408,7 @@ class ToolRuntime(object):
         if source_type == "extension":
             raw_metadata = dict(getattr(tool, "metadata", {}) or {})
             missing = []
-            for key in _EXTENSION_REQUIRED_METADATA:
+            for key in _EXTENSION_REQUIRED_PERMISSION_METADATA:
                 if key not in raw_metadata:
                     missing.append(key)
             if missing:
@@ -420,6 +420,19 @@ class ToolRuntime(object):
         del source_type
         raw_metadata = dict(getattr(tool, "metadata", {}) or {})
         metadata = self._build_default_metadata(tool.name)
+        if tool.name not in _DEFAULT_TOOL_METADATA:
+            metadata.update(
+                {
+                    "read_only": bool(getattr(tool, "read_only", False)),
+                    "concurrency_safe": bool(getattr(tool, "concurrency_safe", False)),
+                    "interrupt_behavior": str(getattr(tool, "interrupt_behavior", "") or "block"),
+                    "result_budget_policy": str(
+                        getattr(tool, "result_budget_policy", "") or "default"
+                    ),
+                    "activity_kind": str(getattr(tool, "activity_kind", "") or "tool"),
+                    "context_priority": int(getattr(tool, "context_priority", 50) or 50),
+                }
+            )
         metadata.update(raw_metadata)
         category = str(metadata.get("permission_category") or "").strip()
         if category not in _REGISTERABLE_PERMISSION_CATEGORIES:
@@ -442,17 +455,23 @@ class ToolRuntime(object):
             permission_category=str(metadata.get("permission_category") or "read"),
             mode_visibility=list(metadata.get("mode_visibility") or []),
             workflow_visibility=list(metadata.get("workflow_visibility") or []),
-            user_label=str(metadata.get("user_label") or tool.name),
-            progress_renderer_key=str(metadata.get("progress_renderer_key") or "default"),
-            result_renderer_key=str(metadata.get("result_renderer_key") or "default"),
-            supports_diff_preview=bool(metadata.get("supports_diff_preview")),
-            context_reducer_key=str(metadata.get("context_reducer_key") or tool.name),
-            read_only=bool(metadata.get("read_only")),
-            concurrency_safe=bool(metadata.get("concurrency_safe")),
-            interrupt_behavior=str(metadata.get("interrupt_behavior") or "block"),
-            result_budget_policy=str(metadata.get("result_budget_policy") or "default"),
-            activity_kind=str(metadata.get("activity_kind") or "tool"),
-            context_priority=int(metadata.get("context_priority") or 50),
+            execution=ToolExecutionSpec(
+                read_only=bool(metadata.get("read_only")),
+                concurrency_safe=bool(metadata.get("concurrency_safe")),
+                interrupt_behavior=str(metadata.get("interrupt_behavior") or "block"),
+                result_budget_policy=str(metadata.get("result_budget_policy") or "default"),
+            ),
+            presentation=ToolPresentation(
+                user_label=str(metadata.get("user_label") or tool.name),
+                progress_renderer_key=str(metadata.get("progress_renderer_key") or "default"),
+                result_renderer_key=str(metadata.get("result_renderer_key") or "default"),
+                supports_diff_preview=bool(metadata.get("supports_diff_preview")),
+            ),
+            context_policy=ToolContextPolicy(
+                context_reducer_key=str(metadata.get("context_reducer_key") or tool.name),
+                activity_kind=str(metadata.get("activity_kind") or "tool"),
+                context_priority=int(metadata.get("context_priority") or 50),
+            ),
             source_type=source_type,
             source_id=source_id,
         )
@@ -598,11 +617,14 @@ class ToolRuntime(object):
             entry = self._catalog.get(name)
             if entry is not None:
                 data = dict(observation.data)
-                data.setdefault("tool_label", entry.user_label)
+                data.setdefault("tool_label", entry.presentation.user_label)
                 data.setdefault("permission_category", entry.permission_category)
-                data.setdefault("supports_diff_preview", entry.supports_diff_preview)
-                data.setdefault("progress_renderer_key", entry.progress_renderer_key)
-                data.setdefault("result_renderer_key", entry.result_renderer_key)
+                data.setdefault(
+                    "supports_diff_preview",
+                    entry.presentation.supports_diff_preview,
+                )
+                data.setdefault("progress_renderer_key", entry.presentation.progress_renderer_key)
+                data.setdefault("result_renderer_key", entry.presentation.result_renderer_key)
                 data.setdefault("source_type", entry.source_type)
                 data.setdefault("source_id", entry.source_id)
                 observation.data = data

@@ -3,8 +3,9 @@ from __future__ import annotations
 import re
 from typing import Any, List, Optional, Set
 
-from embedagent.extensions import HarnessPrompt, ToolRegistrationResult
+from embedagent.extensions import ToolRegistrationResult, WorkflowPrompt
 from embedagent.harness import task_store
+from embedagent.harness.context_reducers import register_c_workflow_context_reducers
 from embedagent.harness.package_manifest import c_workflow_package_manifest_dict
 from embedagent.harness.packs import pack_tool_names
 from embedagent.harness.runner import HarnessRunner
@@ -66,12 +67,12 @@ class CHarnessWorkflowExtension(object):
         current_mode: str,
         workflow_state: str = "chat",
         session: Any = None,
-    ) -> Optional[HarnessPrompt]:
+    ) -> Optional[WorkflowPrompt]:
         context = self._describe_context(current_mode, workflow_state=workflow_state)
         if context is None:
             return None
         del session
-        return HarnessPrompt(
+        return WorkflowPrompt(
             mode_name=str(context.mode_name or ""),
             discipline_label=str(context.discipline_label or ""),
             pack_name=str(context.pack_name or ""),
@@ -206,6 +207,9 @@ class CHarnessWorkflowExtension(object):
             source_id="embedagent.harness",
             source_type="harness",
         )
+
+    def register_context_reducers(self, reducer_registry: Any) -> None:
+        register_c_workflow_context_reducers(reducer_registry)
 
     def load_session_tasks(self, workspace: str, session_id: str) -> dict:
         tasks = task_store.load_task_items(workspace, session_id)
