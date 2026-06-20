@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, List
 
+from embedagent.compacted_history import CompactedHistoryReducer
 from embedagent.compaction_state import CompactionState, CompactionStateReducer
 from embedagent.recovery_state import RecoveryState, RecoveryStateReducer
 from embedagent.session import (
@@ -52,6 +53,7 @@ class SessionRestorer(object):
         seen_step_ids = set()
         seen_interaction_ids = set()
         seen_boundary_ids = set()
+        seen_compacted_history_ids = set()
         consumed_event_count = len(events)
         stop_reason = ""
         skipped_count = 0
@@ -322,6 +324,25 @@ class SessionRestorer(object):
                 if boundary_id:
                     seen_boundary_ids.add(boundary_id)
                 continue
+            if event_type == "compacted_history":
+                compacted_history_state = CompactedHistoryReducer().reduce([event])
+                checkpoint = compacted_history_state.latest_checkpoint
+                if checkpoint is None:
+                    if _maybe_skip("compacted_history_invalid"):
+                        continue
+                    break
+                if not self._is_valid_compacted_history(session, checkpoint):
+                    if _maybe_skip("compacted_history_invalid_anchor"):
+                        continue
+                    break
+                checkpoint_id = str(getattr(checkpoint, "checkpoint_id", "") or "")
+                if checkpoint_id in seen_compacted_history_ids:
+                    if _maybe_skip("duplicate_compacted_history_id"):
+                        continue
+                    break
+                session.record_compacted_history(checkpoint)
+                seen_compacted_history_ids.add(checkpoint_id)
+                continue
             if event_type == "loop_transition":
                 if not self._matches_current_turn(session, str(payload.get("turn_id") or "")):
                     if _maybe_skip("loop_transition_turn_mismatch"):
@@ -503,6 +524,26 @@ class SessionRestorer(object):
         if head_index < 0 or tail_index < 0:
             return False
         return head_index <= tail_index
+
+    def _is_valid_compacted_history(self, session: Session, checkpoint: Any) -> bool:
+        if not str(getattr(checkpoint, "checkpoint_id", "") or "").strip():
+            return False
+        replacement_messages = list(getattr(checkpoint, "replacement_messages", []) or [])
+        if not replacement_messages:
+            return False
+        first_kept_message_id = str(getattr(checkpoint, "first_kept_message_id", "") or "").strip()
+        if first_kept_message_id and self._message_index(session, first_kept_message_id) < 0:
+            return False
+        for message in replacement_messages:
+            if not isinstance(message, dict):
+                return False
+            role = str(message.get("role") or "").strip()
+            content = str(message.get("content") or "").strip()
+            if role not in ("system", "user", "assistant"):
+                return False
+            if not content:
+                return False
+        return True
 
     def _message_index(self, session: Session, message_id: str) -> int:
         target = str(message_id or "").strip()

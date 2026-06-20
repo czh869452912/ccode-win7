@@ -132,6 +132,42 @@ class TestCompactionStateReducer(unittest.TestCase):
         self.assertEqual(payload["diagnostics"][0]["reason"], "duplicate_boundary_id")
         self.assertEqual(payload["diagnostics"][0]["boundary_id"], "cb-dup")
 
+    def test_compaction_state_projects_compacted_history_without_replacing_boundaries(self):
+        events = [
+            {
+                "type": "compact_boundary",
+                "event_id": "evt-boundary",
+                "seq": 1,
+                "payload": {
+                    "boundary_id": "cb-1",
+                    "summary_text": "Boundary summary",
+                    "compacted_turn_count": 2,
+                },
+            },
+            {
+                "type": "compacted_history",
+                "event_id": "evt-history",
+                "seq": 2,
+                "payload": {
+                    "checkpoint_id": "ch-1",
+                    "boundary_id": "cb-1",
+                    "summary_text": "Checkpoint summary",
+                    "first_kept_message_id": "m-kept",
+                    "replacement_messages": [{"role": "system", "content": "Checkpoint summary"}],
+                },
+            },
+        ]
+
+        payload = CompactionStateReducer().reduce(events).to_dict()
+
+        self.assertEqual(payload["boundary_count"], 1)
+        self.assertEqual(payload["latest_boundary_id"], "cb-1")
+        self.assertEqual(payload["compacted_history"]["checkpoint_count"], 1)
+        self.assertEqual(
+            payload["compacted_history"]["latest_checkpoint"]["checkpoint_id"],
+            "ch-1",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

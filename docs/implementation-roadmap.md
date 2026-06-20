@@ -202,11 +202,16 @@ The current self-extensible Agent Core baseline remains valid. The next program 
    - current implementation status: Phase J is complete
    - `ContextManager` can now perform deterministic pre-provider compact-policy rebuilds when assembled input reaches `auto_compact_threshold_ratio` and older turns can be summarized; reactive provider-error compact retry remains in `AgentLoop`
    - `compact_boundary` events now carry safe structured metadata: token/message counts, preserved message anchors, trigger/phase/window-generation diagnostics, file activity paths, evidence refs, and extension-summary flag
-   - `CompactionStateReducer` projects reducer-backed compaction state from transcript events, including latest boundary and duplicate/malformed diagnostics
+   - `compacted_history` events now carry a safe checkpoint payload: summary text, first-kept message anchor, replacement messages, trigger/phase metadata, token/message counts, file activity refs, and evidence refs
+   - `CompactionStateReducer` projects reducer-backed compaction state from transcript events, including latest boundary, compacted-history checkpoints, and duplicate/malformed diagnostics
    - restore results, managed sessions, protocol snapshots, and session snapshots expose `compaction_state`
-   - projection remains read-only diagnostics/replay state; context selection, summary generation, extension loading, tool execution, and permissions remain owned by their existing boundaries
+   - `SessionRestorer` validates compacted-history ids, anchors, and replacement-message shape before restoring live session checkpoint state
+   - `ContextManager` can rebuild provider history from the latest valid compacted-history replacement checkpoint plus the newer transcript suffix, while still applying compact-policy shrinking on retry paths
+   - projection remains read-only diagnostics/replay state; active context assembly, summary generation, extension loading, tool execution, and permissions remain owned by their existing boundaries
    - `ContextPlan` now provides a minimal explicit read model before provider requests for selected-message counts, recent/summarized turns, token/character summaries, pipeline steps, preserved message ids when available, and replacement refs
-   - next implementation direction: enrich `ContextPlan` with context-window generation, file activity refs, evidence refs, and compact summary inputs from the same boundary while keeping `CompactionStateReducer` read-only and out of active planning
+   - near-term follow-up direction: broaden validation and UX diagnostics around compacted-history checkpoints, without moving checkpoint projection into permission, extension, or workflow-package policy
+   - keep deterministic local summary generation as the offline fallback; any provider-generated or extension-supplied compact summary must fail closed to the deterministic strategy and must not create a mandatory network dependency
+   - keep `CompactionStateReducer` read-only and out of active planning, summary generation, replacement-history installation, extension loading, tool execution, and permission decisions
 
 11. **Recovery state**
    - current implementation status: Phase K is complete

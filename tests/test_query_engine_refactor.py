@@ -2168,6 +2168,25 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertEqual(boundary.metadata.get("trigger"), "reactive_retry")
         self.assertEqual(boundary.metadata.get("phase"), "provider_retry")
         self.assertEqual(boundary.metadata.get("context_window_generation"), 1)
+        compacted_history_events = [item for item in events if item["type"] == "compacted_history"]
+        self.assertEqual(len(compacted_history_events), 1)
+        history_payload = compacted_history_events[0]["payload"]
+        self.assertTrue(history_payload["checkpoint_id"].startswith("ch-"))
+        self.assertEqual(history_payload["boundary_id"], boundary.boundary_id)
+        self.assertEqual(history_payload["summary_text"], boundary.summary_text)
+        self.assertEqual(
+            history_payload["first_kept_message_id"],
+            boundary.preserved_head_message_id,
+        )
+        self.assertEqual(history_payload["replacement_messages"][0]["role"], "system")
+        self.assertIn(
+            boundary.summary_text,
+            history_payload["replacement_messages"][0]["content"],
+        )
+        self.assertEqual(history_payload["trigger"], compact_payload["trigger"])
+        self.assertEqual(history_payload["phase"], compact_payload["phase"])
+        self.assertEqual(history_payload["token_counts"], compact_payload["token_counts"])
+        self.assertEqual(history_payload["message_counts"], compact_payload["message_counts"])
 
         restored = SessionRestorer().restore(events)
         restored_boundary = restored.session.latest_compact_boundary()
@@ -2192,6 +2211,12 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertIn(
             "src/demo.c",
             restored_compaction["latest_boundary"]["file_activity"]["read_files"],
+        )
+        restored_checkpoint = restored.session.latest_compacted_history()
+        self.assertIsNotNone(restored_checkpoint)
+        self.assertEqual(restored_checkpoint.boundary_id, boundary.boundary_id)
+        self.assertEqual(
+            restored.compaction_state.to_dict()["compacted_history"]["checkpoint_count"], 1
         )
 
     def test_query_engine_writes_transcript_for_completed_turn(self):

@@ -44,6 +44,56 @@
 
 ## 3. 当前变更记录
 
+### DC-189
+
+- 日期：2026-06-20
+- 变更主题：Compacted-history checkpoints implemented
+- 变更摘要：
+  - 新增 `compacted_history` transcript event projection、`CompactedHistoryReducer`、live `Session.compacted_history` checkpoint state 和 `DeterministicCompactor` payload builder。
+  - `QueryEngine` 在记录 `compact_boundary` 后写入对应 compacted-history checkpoint，并通过 reducer 自校验后更新 live session state。
+  - `SessionRestorer` 验证 checkpoint id、first-kept anchor 和 replacement message shape 后恢复 checkpoint；重复 checkpoint id 或缺失 anchor 在 best-effort restore 中可被跳过。
+  - `ContextManager` 可从最新有效 checkpoint 的 replacement messages 加 newer transcript suffix 重建 provider history，并在 compact retry 路径继续应用 compact policy 收缩。
+  - `CompactionStateReducer` 现在把 compacted-history checkpoints 作为诊断/read-model projection 暴露，但不接管权限、工具执行、扩展加载或 session-history truth。
+- 影响范围：
+  - `src/embedagent/compacted_history.py`
+  - `src/embedagent/compactor.py`
+  - `src/embedagent/compaction_state.py`
+  - `src/embedagent/context.py`
+  - `src/embedagent/query_engine.py`
+  - `src/embedagent/session.py`
+  - `src/embedagent/session_restore.py`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/tool-contracts.md`
+  - `docs/agent-harness-v2.md`
+- 关联文档：
+  - `docs/superpowers/plans/2026-06-20-compacted-history-checkpoints.md`
+  - `docs/superpowers/specs/2026-06-20-pi-style-minimal-core-and-compaction-design.md`
+- 是否需要 ADR：否；该变更实现既有 compact/recovery 方向，未改变 session-history truth、permission engine、tool contract 或 extension loading policy。
+
+### DC-188
+
+- 日期：2026-06-20
+- 变更主题：Pi/Codex-inspired compacted-history direction documented
+- 变更摘要：
+  - 在 durable architecture docs 中明确下一步 compact 方向：从 diagnostic-only `compact_boundary` 走向 durable compacted-history checkpoint，记录 summary、first-kept anchor、replacement messages、trigger/phase、file activity refs 与 evidence refs。
+  - 明确未来 context assembly 可从最新有效 replacement checkpoint 加 newer transcript suffix 重建 provider history，同时 `transcript.jsonl` 继续是审计日志。
+  - 保留 deterministic local summary 作为离线 fallback；provider-generated 或 extension-supplied summary 只能是可替换策略，失败时必须回落，不能引入强制网络依赖。
+  - 继续约束 `CompactionStateReducer` 为 transcript-backed diagnostics/replay projection，不能接管 active context selection、summary generation、replacement-history installation、extension loading、tool execution 或 permission decisions。
+- 影响范围：
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/tool-contracts.md`
+  - `docs/agent-harness-v2.md`
+  - `docs/design-change-log.md`
+  - `docs/superpowers/specs/2026-06-20-pi-style-minimal-core-and-compaction-design.md`
+- 关联文档：
+  - `docs/pi-inspired-agent-core-blueprint.md`
+  - `docs/superpowers/specs/2026-06-20-pi-style-minimal-core-and-compaction-design.md`
+- 是否需要 ADR：否；这是现有 Pi-inspired compact/recovery program 的下一步实现方向，不改变当前 session-history truth、permission engine、tool contract 或 extension loading policy。
+- 后续动作：
+  - 后续实现应先新增 compacted-history event contract 与 reducer projection，再抽取 compactor interface，最后让 context assembly 使用 replacement checkpoint 加 suffix 的恢复模型。
+
 ### DC-187
 
 - 日期：2026-06-20

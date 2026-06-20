@@ -4,6 +4,8 @@ from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
+from embedagent.compacted_history import CompactedHistoryReducer, CompactedHistoryState
+
 
 def _clean_text(value: Any) -> str:
     return str(value or "").strip()
@@ -99,6 +101,7 @@ class CompactionBoundaryRecord(object):
 class CompactionState(object):
     boundaries: List[CompactionBoundaryRecord] = field(default_factory=list)
     diagnostics: List[Dict[str, Any]] = field(default_factory=list)
+    compacted_history: CompactedHistoryState = field(default_factory=CompactedHistoryState)
 
     @property
     def latest_boundary(self) -> Optional[CompactionBoundaryRecord]:
@@ -119,6 +122,7 @@ class CompactionState(object):
             "boundaries": [record.to_dict() for record in self.boundaries],
             "summarized_turn_count": summarized_turns,
             "diagnostics": [dict(item) for item in self.diagnostics],
+            "compacted_history": self.compacted_history.to_dict(),
             "status": "ready" if self.boundaries else "empty",
         }
 
@@ -149,6 +153,7 @@ class CompactionStateReducer(object):
                 continue
             seen_boundary_ids.add(boundary_id)
             state.boundaries.append(self._record_from_payload(boundary_id, payload, event))
+        state.compacted_history = CompactedHistoryReducer().reduce(events)
         return state
 
     def _record_from_payload(

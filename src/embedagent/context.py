@@ -751,6 +751,88 @@ class ContextManager(object):
                 if intelligence_message
                 else []
             )
+        compacted_history = self._latest_compacted_history(session)
+        if compacted_history is not None:
+            suffix_turns = self._turns_after_first_kept(
+                session,
+                getattr(compacted_history, "first_kept_message_id", ""),
+            )
+            if suffix_turns:
+                recent_turn_count = min(policy.max_recent_turns, len(suffix_turns))
+                old_suffix_turns = (
+                    suffix_turns[:-recent_turn_count]
+                    if recent_turn_count < len(suffix_turns)
+                    else []
+                )
+                suffix_summary_message, summarized_observations, _summary_text = (
+                    self._build_summary_message(old_suffix_turns, policy)
+                )
+                recent_messages, reduced_tool_messages, replacements = self._build_recent_messages(
+                    session,
+                    suffix_turns,
+                    recent_turn_count,
+                    policy,
+                )
+                messages = []
+                latest_system = self._latest_system_message(session)
+                if latest_system is not None:
+                    messages.append(self._compact_system_message(latest_system, policy))
+                if intelligence_message:
+                    messages.append({"role": "system", "content": intelligence_message})
+                messages.extend(
+                    [dict(item) for item in list(compacted_history.replacement_messages or [])]
+                )
+                if suffix_summary_message is not None:
+                    messages.append(suffix_summary_message)
+                messages.extend(recent_messages)
+                used_chars = self._measure_messages(messages)
+                budget = self._budget_for_chars(policy, used_chars)
+                message_counts = getattr(compacted_history, "message_counts", {})
+                summarized_turns = 0
+                if isinstance(message_counts, dict):
+                    summarized_turns = int(message_counts.get("summarized_turns") or 0)
+                summarized_turns += len(old_suffix_turns)
+                compact_step = self._compact_pipeline_step(force_compact, compact_trigger)
+                stats = ContextStats(
+                    mode_name=resolved_mode,
+                    total_session_messages=len(session.messages),
+                    selected_messages=len(messages),
+                    total_turns=len(session.turns),
+                    recent_turns=recent_turn_count,
+                    summarized_turns=summarized_turns,
+                    summarized_observations=summarized_observations,
+                    reduced_tool_messages=reduced_tool_messages,
+                    characters_before=chars_before,
+                    characters_after=used_chars,
+                    approx_tokens_before=tokens_before,
+                    approx_tokens_after=budget.input_tokens,
+                    dropped_messages=max(0, len(session.messages) - len(recent_messages)),
+                    recent_window_shrinks=0,
+                    hard_trimmed=False,
+                    summary_message_included=True,
+                    project_memory_included=bool(intelligence_message),
+                )
+                return ContextBuildResult(
+                    messages,
+                    used_chars,
+                    budget.input_tokens,
+                    used_chars < chars_before,
+                    summarized_turns,
+                    recent_turn_count,
+                    policy,
+                    budget,
+                    stats,
+                    summary_message=str(getattr(compacted_history, "summary_text", "") or ""),
+                    intelligence_sections=intelligence_sections,
+                    analysis=self._analyze_context(session),
+                    replacements=replacements,
+                    pipeline_steps=([compact_step] if compact_step else [])
+                    + [
+                        "compacted_history_checkpoint",
+                        "working_set",
+                        "prompt_render",
+                    ],
+                )
         if not visible_turns:
             messages = [self._compact_message(message, policy) for message in session.messages]
             if intelligence_message:
@@ -875,6 +957,35 @@ class ContextManager(object):
         if max_input_tokens <= 0:
             return False
         return input_tokens >= int(max_input_tokens * ratio)
+
+    def _latest_compacted_history(self, session: Session) -> Any:
+        latest = getattr(session, "latest_compacted_history", None)
+        if not callable(latest):
+            return None
+        checkpoint = latest()
+        if checkpoint is None:
+            return None
+        if not list(getattr(checkpoint, "replacement_messages", []) or []):
+            return None
+        return checkpoint
+
+    def _turns_after_first_kept(self, session: Session, first_kept_message_id: str) -> List[Turn]:
+        target = str(first_kept_message_id or "").strip()
+        if not target:
+            return []
+        target_index = -1
+        for index, message in enumerate(list(getattr(session, "messages", []) or [])):
+            if str(getattr(message, "message_id", "") or "") == target:
+                target_index = index
+                break
+        if target_index < 0:
+            return []
+        turns = []
+        for turn in list(getattr(session, "turns", []) or []):
+            end_index = int(getattr(turn, "message_end_index", 0) or 0)
+            if end_index >= target_index:
+                turns.append(turn)
+        return turns
 
     def _build_candidate(
         self,

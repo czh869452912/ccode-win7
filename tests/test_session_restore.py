@@ -6,6 +6,7 @@ from itertools import count
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
+from embedagent.context import ContextManager
 from embedagent.session_restore import SessionRestorer
 from embedagent.transcript_store import TranscriptStore
 
@@ -1006,6 +1007,155 @@ class TestSessionRestorer(unittest.TestCase):
         self.assertEqual(
             compaction["latest_boundary"]["file_activity"]["read_files"], ["src/demo.c"]
         )
+
+    def test_restore_replays_valid_compacted_history_checkpoint(self):
+        events = self._build_valid_transcript()
+        events.append(
+            {
+                "schema_version": 2,
+                "session_id": "sess-test",
+                "event_id": "evt-4",
+                "seq": 4,
+                "ts": "2026-06-20T00:00:00Z",
+                "type": "compacted_history",
+                "payload": {
+                    "checkpoint_id": "ch-1",
+                    "summary_text": "Earlier work summary",
+                    "first_kept_message_id": "m-user",
+                    "replacement_messages": [
+                        {
+                            "role": "system",
+                            "content": "Earlier work summary",
+                            "kind": "compacted_history_summary",
+                        }
+                    ],
+                },
+            }
+        )
+
+        result = SessionRestorer().restore(events)
+
+        checkpoint = result.session.latest_compacted_history()
+        self.assertIsNotNone(checkpoint)
+        self.assertEqual(checkpoint.checkpoint_id, "ch-1")
+        self.assertEqual(checkpoint.first_kept_message_id, "m-user")
+        self.assertEqual(len(checkpoint.replacement_messages), 1)
+        self.assertEqual(
+            result.compaction_state.to_dict()["compacted_history"]["checkpoint_count"], 1
+        )
+
+    def test_restore_rejects_compacted_history_with_missing_first_kept_anchor(self):
+        events = self._build_valid_transcript()
+        events.append(
+            {
+                "schema_version": 2,
+                "session_id": "sess-test",
+                "event_id": "evt-4",
+                "seq": 4,
+                "ts": "2026-06-20T00:00:00Z",
+                "type": "compacted_history",
+                "payload": {
+                    "checkpoint_id": "ch-bad-anchor",
+                    "summary_text": "Bad anchor",
+                    "first_kept_message_id": "m-missing",
+                    "replacement_messages": [{"role": "system", "content": "Bad anchor"}],
+                },
+            }
+        )
+
+        result = SessionRestorer().restore(events, best_effort=True)
+
+        self.assertIsNone(result.session.latest_compacted_history())
+        self.assertEqual(result.skipped_count, 1)
+        self.assertIn("compacted_history_invalid_anchor", result.skip_reasons[0]["reason"])
+
+    def test_restore_rejects_duplicate_compacted_history_id(self):
+        events = self._build_valid_transcript()
+        payload = {
+            "checkpoint_id": "ch-dup",
+            "summary_text": "Summary",
+            "first_kept_message_id": "m-user",
+            "replacement_messages": [{"role": "system", "content": "Summary"}],
+        }
+        events.append(
+            {
+                "schema_version": 2,
+                "session_id": "sess-test",
+                "event_id": "evt-4",
+                "seq": 4,
+                "ts": "2026-06-20T00:00:00Z",
+                "type": "compacted_history",
+                "payload": dict(payload),
+            }
+        )
+        events.append(
+            {
+                "schema_version": 2,
+                "session_id": "sess-test",
+                "event_id": "evt-5",
+                "seq": 5,
+                "ts": "2026-06-20T00:00:01Z",
+                "type": "compacted_history",
+                "payload": dict(payload),
+            }
+        )
+
+        result = SessionRestorer().restore(events, best_effort=True)
+
+        self.assertEqual(len(result.session.compacted_history), 1)
+        self.assertEqual(result.skipped_count, 1)
+        self.assertIn("duplicate_compacted_history_id", result.skip_reasons[0]["reason"])
+
+    def test_restored_compacted_history_can_drive_context_assembly(self):
+        events = self._build_valid_transcript()
+        events.append(
+            {
+                "schema_version": 2,
+                "session_id": "sess-test",
+                "event_id": "evt-4",
+                "seq": 4,
+                "ts": "2026-06-20T00:00:00Z",
+                "type": "message",
+                "payload": {
+                    "role": "user",
+                    "content": "new user",
+                    "message_id": "m-new-user",
+                    "turn_id": "t-2",
+                    "step_id": "",
+                },
+            }
+        )
+        events.append(
+            {
+                "schema_version": 2,
+                "session_id": "sess-test",
+                "event_id": "evt-5",
+                "seq": 5,
+                "ts": "2026-06-20T00:00:01Z",
+                "type": "compacted_history",
+                "payload": {
+                    "checkpoint_id": "ch-restored-context",
+                    "summary_text": "Old work was compacted.",
+                    "first_kept_message_id": "m-new-user",
+                    "replacement_messages": [
+                        {
+                            "role": "system",
+                            "content": "Compacted history summary:\nOld work was compacted.",
+                            "kind": "compacted_history_summary",
+                        }
+                    ],
+                },
+            }
+        )
+
+        restored = SessionRestorer().restore(events)
+        result = ContextManager().build_messages(restored.session, mode_name="build")
+        contents = [item.get("content") for item in result.messages]
+
+        self.assertIn("Compacted history summary:\nOld work was compacted.", contents)
+        self.assertIn("new user", contents)
+        self.assertNotIn("hello", contents)
+        self.assertIn("compacted_history_checkpoint", result.pipeline_steps)
 
     def test_restore_projects_recovery_state(self):
         session_id = "sess-recovery-state"

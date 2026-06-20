@@ -6,6 +6,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
+from embedagent.compacted_history import CompactedHistoryCheckpoint
+
 # Message type constants for schema_version=2 transcripts
 MESSAGE_TYPE_USER = "user"
 MESSAGE_TYPE_ASSISTANT = "assistant"
@@ -285,6 +287,7 @@ class Session:
     messages: List[TranscriptMessage] = field(default_factory=list)
     turns: List[Turn] = field(default_factory=list)
     compact_boundaries: List[CompactBoundary] = field(default_factory=list)
+    compacted_history: List[CompactedHistoryCheckpoint] = field(default_factory=list)
     pending_interaction: Optional[PendingInteraction] = None
     content_replacements: List[Dict[str, Any]] = field(default_factory=list)
     latest_context_snapshot: Dict[str, Any] = field(default_factory=dict)
@@ -548,6 +551,22 @@ class Session:
         if not self.compact_boundaries:
             return None
         return self.compact_boundaries[-1]
+
+    def record_compacted_history(self, checkpoint: CompactedHistoryCheckpoint) -> None:
+        checkpoint_id = str(getattr(checkpoint, "checkpoint_id", "") or "").strip()
+        if not checkpoint_id:
+            return
+        self.compacted_history = [
+            item
+            for item in self.compacted_history
+            if str(getattr(item, "checkpoint_id", "") or "") != checkpoint_id
+        ]
+        self.compacted_history.append(checkpoint)
+
+    def latest_compacted_history(self) -> Optional[CompactedHistoryCheckpoint]:
+        if not self.compacted_history:
+            return None
+        return self.compacted_history[-1]
 
     def api_messages(self) -> List[Dict[str, Any]]:
         return [message.to_api_dict() for message in self.messages]

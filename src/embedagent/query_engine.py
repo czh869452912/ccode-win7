@@ -18,6 +18,8 @@ from embedagent.capabilities import (
     resource_capability_descriptors,
     runtime_tool_capability_descriptors,
 )
+from embedagent.compacted_history import CompactedHistoryReducer
+from embedagent.compactor import DeterministicCompactor
 from embedagent.context import ContextManager
 from embedagent.context_window import ContextWindowState
 from embedagent.extensions import (
@@ -120,6 +122,7 @@ class QueryEngine(object):
         self.context_manager = context_manager or ContextManager(
             project_memory=self.project_memory_store
         )
+        self.compactor = DeterministicCompactor()
         self.summary_store = summary_store or SessionSummaryStore(self.tools.workspace)
         self.memory_maintenance = memory_maintenance or MemoryMaintenance(
             summary_store=self.summary_store,
@@ -2336,6 +2339,33 @@ class QueryEngine(object):
                 refs.append(ref)
         return sorted(refs)
 
+    def _compacted_history_payload(
+        self,
+        boundary: Any,
+        assembly: ContextAssemblyResult,
+        window_state: ContextWindowState,
+        token_counts: Dict[str, int],
+        message_counts: Dict[str, int],
+        file_activity: Dict[str, List[str]],
+        evidence_refs: List[str],
+    ) -> Dict[str, Any]:
+        return self.compactor.build_checkpoint_payload(
+            boundary_id=str(getattr(boundary, "boundary_id", "") or ""),
+            summary_text=str(getattr(boundary, "summary_text", "") or ""),
+            created_at=str(getattr(boundary, "created_at", "") or ""),
+            first_kept_message_id=str(getattr(boundary, "preserved_head_message_id", "") or ""),
+            trigger=window_state.trigger,
+            phase=window_state.phase,
+            token_counts=token_counts,
+            message_counts=message_counts,
+            file_activity=file_activity,
+            evidence_refs=evidence_refs,
+            metadata={
+                "pipeline_steps": list(getattr(assembly, "pipeline_steps", []) or []),
+                "source_boundary_id": str(getattr(boundary, "boundary_id", "") or ""),
+            },
+        )
+
     def _maybe_record_compact_boundary(
         self, session: Session, current_mode: str, assembly: ContextAssemblyResult
     ) -> bool:
@@ -2402,6 +2432,31 @@ class QueryEngine(object):
                     "extension_summary": False,
                 },
             )
+            compacted_history_payload = self._compacted_history_payload(
+                boundary,
+                assembly,
+                window_state,
+                token_counts,
+                message_counts,
+                file_activity,
+                evidence_refs,
+            )
+            compacted_history_state = CompactedHistoryReducer().reduce(
+                [
+                    {
+                        "type": "compacted_history",
+                        "payload": compacted_history_payload,
+                    }
+                ]
+            )
+            checkpoint = compacted_history_state.latest_checkpoint
+            if checkpoint is not None:
+                session.record_compacted_history(checkpoint)
+                self._append_transcript_event(
+                    session,
+                    "compacted_history",
+                    compacted_history_payload,
+                )
             return True
 
     def _maybe_maintain_memory(self, force: bool = False) -> None:

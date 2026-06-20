@@ -7,6 +7,7 @@ from unittest import mock
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
+from embedagent.compacted_history import CompactedHistoryCheckpoint
 from embedagent.config import AppConfig
 from embedagent.context import (
     ContextConfig,
@@ -259,6 +260,40 @@ class TestContextCompactionSignal(unittest.TestCase):
         self.assertEqual(result.plan.pipeline_steps, result.pipeline_steps)
         self.assertEqual(result.plan.to_boundary_metadata()["approx_tokens"], result.approx_tokens)
         self.assertIn("message_counts", result.plan.to_boundary_payload_fields())
+
+    def test_build_messages_uses_latest_compacted_history_checkpoint_as_base(self):
+        manager = ContextManager()
+        session = Session(session_id="sess-checkpoint-context")
+        session.add_system_message("mode: build", message_id="m-system")
+        session.add_user_message("old user", turn_id="turn-old", message_id="m-old-user")
+        session.add_assistant_reply(
+            AssistantReply(content="old assistant", actions=[], finish_reason="stop"),
+            message_id="m-old-assistant",
+        )
+        session.add_user_message("new user", turn_id="turn-new", message_id="m-new-user")
+        session.record_compacted_history(
+            CompactedHistoryCheckpoint(
+                checkpoint_id="ch-ctx",
+                summary_text="Old work was compacted.",
+                first_kept_message_id="m-new-user",
+                replacement_messages=[
+                    {
+                        "role": "system",
+                        "content": "Compacted history summary:\nOld work was compacted.",
+                        "kind": "compacted_history_summary",
+                    }
+                ],
+            )
+        )
+
+        result = manager.build_messages(session, mode_name="build")
+        contents = [item.get("content") for item in result.messages]
+
+        self.assertIn("Compacted history summary:\nOld work was compacted.", contents)
+        self.assertIn("new user", contents)
+        self.assertNotIn("old user", contents)
+        self.assertNotIn("old assistant", contents)
+        self.assertIn("compacted_history_checkpoint", result.pipeline_steps)
 
     def test_near_full_window_uses_compact_policy_before_provider(self):
         cfg = ContextConfig(auto_compact_threshold_ratio=0.01)
