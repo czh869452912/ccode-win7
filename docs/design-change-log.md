@@ -67,8 +67,8 @@
   - `docs/tool-contracts.md`
   - `docs/agent-harness-v2.md`
 - 关联文档：
-  - `docs/superpowers/plans/2026-06-20-compacted-history-checkpoints.md`
-  - `docs/superpowers/specs/2026-06-20-pi-style-minimal-core-and-compaction-design.md`
+  - `docs/archive/pi-like-agent-core-boundary/2026-06-20-compacted-history-checkpoints.md`
+  - `docs/archive/pi-like-agent-core-boundary/2026-06-20-pi-style-minimal-core-and-compaction-design.md`
 - 是否需要 ADR：否；该变更实现既有 compact/recovery 方向，未改变 session-history truth、permission engine、tool contract 或 extension loading policy。
 
 ### DC-188
@@ -86,10 +86,10 @@
   - `docs/tool-contracts.md`
   - `docs/agent-harness-v2.md`
   - `docs/design-change-log.md`
-  - `docs/superpowers/specs/2026-06-20-pi-style-minimal-core-and-compaction-design.md`
+  - `docs/archive/pi-like-agent-core-boundary/2026-06-20-pi-style-minimal-core-and-compaction-design.md`
 - 关联文档：
   - `docs/pi-inspired-agent-core-blueprint.md`
-  - `docs/superpowers/specs/2026-06-20-pi-style-minimal-core-and-compaction-design.md`
+  - `docs/archive/pi-like-agent-core-boundary/2026-06-20-pi-style-minimal-core-and-compaction-design.md`
 - 是否需要 ADR：否；这是现有 Pi-inspired compact/recovery program 的下一步实现方向，不改变当前 session-history truth、permission engine、tool contract 或 extension loading policy。
 - 后续动作：
   - 后续实现应先新增 compacted-history event contract 与 reducer projection，再抽取 compactor interface，最后让 context assembly 使用 replacement checkpoint 加 suffix 的恢复模型。

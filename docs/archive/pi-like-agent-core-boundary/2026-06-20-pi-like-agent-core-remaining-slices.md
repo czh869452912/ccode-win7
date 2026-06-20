@@ -6,7 +6,7 @@
 
 **Architecture:** Preserve the current product baseline while moving C/C++ workflow-specific behavior behind `CHarnessWorkflowExtension` and package-owned modules. Keep public/frontend payloads compatible while simplifying internal contracts. Treat compact/recovery reducers as read-only transcript-backed state, and document the future context planner direction without turning reducers into policy engines.
 
-**Related Design:** `docs/superpowers/specs/2026-06-20-pi-style-minimal-core-and-compaction-design.md` captures the Pi/Codex comparison and the target compacted-history direction behind these slices.
+**Related Design:** `2026-06-20-pi-style-minimal-core-and-compaction-design.md` captures the Pi/Codex comparison and the target compacted-history direction behind these slices.
 
 **Tech Stack:** Python 3.8, pytest, ruff, black, existing `embedagent` extension/runtime/context architecture.
 
