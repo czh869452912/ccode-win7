@@ -402,9 +402,13 @@ def _build_command(
     bundle_root: Optional[str], workspace_dir: str, model_port: int, gui_port: int
 ) -> Dict[str, object]:
     if bundle_root:
-        launcher = os.path.join(bundle_root, "embedagent-gui.cmd")
+        native_launcher = os.path.join(bundle_root, "embedagent-gui.exe")
+        cmd_launcher = os.path.join(bundle_root, "embedagent-gui.cmd")
+        launcher = native_launcher if os.path.isfile(native_launcher) else cmd_launcher
         if not os.path.isfile(launcher):
-            raise RuntimeError("GUI launcher not found in bundle: %s" % launcher)
+            raise RuntimeError(
+                "GUI launcher not found in bundle: %s or %s" % (native_launcher, cmd_launcher)
+            )
         return {
             "command": [
                 launcher,

@@ -429,6 +429,8 @@ class TestStageJsonReports(unittest.TestCase):
                 "bin/llvm/bin/clang-analyzer.bat",
                 "bin/llvm/bin/llvm-profdata.exe",
                 "bin/llvm/bin/llvm-cov.exe",
+                "EmbedAgent.exe",
+                "embedagent-gui.exe",
                 "embedagent.cmd",
                 "embedagent-tui.cmd",
                 "embedagent-gui.cmd",

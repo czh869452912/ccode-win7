@@ -402,6 +402,37 @@ function Invoke-RuntimeContractDynamicChecks {
     }
 }
 
+function Invoke-GuiHelpCheck {
+    param(
+        [System.Collections.ArrayList]$Results,
+        [string]$BundleRoot,
+        [string]$LauncherFile,
+        [string]$Code
+    )
+
+    $launcher = Join-Path $BundleRoot $LauncherFile
+    if (-not (Test-Path -LiteralPath $launcher)) {
+        return
+    }
+    Push-Location $BundleRoot
+    try {
+        $output = & $launcher --help 2>&1
+        $exitCode = $LASTEXITCODE
+        if ($exitCode -eq 0) {
+            Add-Result -Results $Results -Level 'pass' -Code $Code -Message ("{0} --help succeeded." -f $LauncherFile)
+        }
+        else {
+            Add-Result -Results $Results -Level 'fail' -Code $Code -Message ("{0} --help failed ({1}): {2}" -f $LauncherFile, $exitCode, ($output | Out-String).Trim())
+        }
+    }
+    catch {
+        Add-Result -Results $Results -Level 'fail' -Code $Code -Message ("{0} --help threw: {1}" -f $LauncherFile, $_.Exception.Message)
+    }
+    finally {
+        Pop-Location
+    }
+}
+
 function Test-NoEditableBundleLinks {
     param(
         [System.Collections.ArrayList]$Results,
@@ -466,6 +497,8 @@ Test-StaticPath -Results $results -Path $checksumsPath -Code 'bundle.checksums' 
 Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'embedagent.cmd') -Code 'bundle.launcher.cli' -Message 'CLI launcher present.' -TreatAsCompleteGate $true
 Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'embedagent-tui.cmd') -Code 'bundle.launcher.tui' -Message 'TUI launcher present.' -TreatAsCompleteGate $true
 Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'embedagent-gui.cmd') -Code 'bundle.launcher.gui' -Message 'GUI launcher present.' -TreatAsCompleteGate $true
+Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'EmbedAgent.exe') -Code 'bundle.launcher.gui_exe_user' -Message 'Native GUI user launcher present.' -TreatAsCompleteGate $true
+Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'embedagent-gui.exe') -Code 'bundle.launcher.gui_exe_cli' -Message 'Native GUI CLI launcher present.' -TreatAsCompleteGate $true
 Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'validate-gui-smoke.cmd') -Code 'bundle.launcher.gui_smoke' -Message 'GUI smoke launcher present.' -TreatAsCompleteGate $true
 Validate-LauncherContract -Results $results -Path (Join-Path $BundleRoot 'embedagent.cmd') -Code 'bundle.launcher.cli_contract' -RequiredMarkers @(
     'EMBEDAGENT_BUNDLE_ROOT',
@@ -509,7 +542,7 @@ if (Test-Path -LiteralPath $manifestPath) {
 }
 
 if ($manifest -ne $null) {
-    $completeGateComponents = @('python_runtime', 'python_packages', 'mingit_portable', 'ripgrep', 'universal_ctags', 'llvm_clang_bundle', 'webview2_fixed_runtime')
+    $completeGateComponents = @('python_runtime', 'python_packages', 'mingit_portable', 'ripgrep', 'universal_ctags', 'llvm_clang_bundle', 'webview2_fixed_runtime', 'gui_launcher_exe')
     foreach ($component in @($manifest.components)) {
         if (-not $component.required) {
             continue
@@ -567,6 +600,10 @@ if (-not $SkipDynamicChecks) {
     }
     Invoke-CommandCheck -Results $results -FilePath $ripgrepExe -Arguments @('--version') -Code 'dynamic.ripgrep' -TreatAsCompleteGate $true
     Invoke-CommandCheck -Results $results -FilePath $ctagsExe -Arguments @('--version') -Code 'dynamic.ctags' -TreatAsCompleteGate $true
+
+    # Dynamic checks: EmbedAgent.exe --help and embedagent-gui.exe --help.
+    Invoke-GuiHelpCheck -Results $results -BundleRoot $BundleRoot -LauncherFile 'EmbedAgent.exe' -Code 'dynamic.gui_launcher_exe_user'
+    Invoke-GuiHelpCheck -Results $results -BundleRoot $BundleRoot -LauncherFile 'embedagent-gui.exe' -Code 'dynamic.gui_launcher_exe_cli'
 
     $launcher = Join-Path $BundleRoot 'embedagent.cmd'
     if (Test-Path -LiteralPath $launcher) {

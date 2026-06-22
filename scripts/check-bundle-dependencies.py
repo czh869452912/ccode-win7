@@ -208,9 +208,11 @@ def check_external_tools(bundle_root: Path) -> Tuple[bool, List[str]]:
 
 
 def check_launchers(bundle_root: Path) -> Tuple[bool, List[str]]:
-    """Check launcher scripts exist."""
+    """Check launcher entry points exist."""
     errors = []
     launchers = [
+        "EmbedAgent.exe",
+        "embedagent-gui.exe",
         "embedagent.cmd",
         "embedagent-tui.cmd",
         "embedagent-gui.cmd",
