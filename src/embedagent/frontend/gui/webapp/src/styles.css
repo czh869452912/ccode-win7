@@ -2458,13 +2458,14 @@ body {
   50% { opacity: 1; transform: scale(1); }
 }
 
-.t3-compact-row {
+.t3-context-summary-row {
   display: flex;
-  min-width: 0;
-  gap: 10px;
   align-items: center;
   justify-content: space-between;
-  overflow-wrap: anywhere;
+  gap: var(--sp-2);
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: 10px;
 }
 
 .t3-command-result-row.error,

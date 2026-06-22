@@ -307,14 +307,14 @@ function ThinkingRow({ row }) {
   );
 }
 
-function CompactRow({ row }) {
+function ContextSummaryRow({ row }) {
   const parts = [];
   if (row.summarizedTurns !== undefined) parts.push(`${row.summarizedTurns} summarized`);
   if (row.recentTurns !== undefined) parts.push(`${row.recentTurns} retained`);
   if (row.approxTokensAfter !== undefined) parts.push(`~${Number(row.approxTokensAfter).toLocaleString()} tokens`);
   return (
-    <div className="t3-compact-row system-card context" data-testid="timeline-compact-row" data-row-kind="compact" role="status">
-      <span>{row.content || "Context compacted"}</span>
+    <div className="t3-context-summary-row system-card context" data-testid="timeline-context-summary-row" data-row-kind="context_summary" role="status">
+      <span>{row.content || "Context updated"}</span>
       {parts.length > 0 ? <span className="t3-rich-row-meta">{parts.join(" / ")}</span> : null}
     </div>
   );
@@ -451,7 +451,7 @@ function TimelineRowSwitch({
     return <ReasoningRow row={row} rowUiState={rowUiState} onToggleRow={onToggleRow} rowKeyFor={rowKeyFor} />;
   }
   if (row.kind === "thinking") return <ThinkingRow row={row} />;
-  if (row.kind === "compact") return <CompactRow row={row} />;
+  if (row.kind === "context_summary") return <ContextSummaryRow row={row} />;
   if (row.kind === "command_result") {
     return (
       <CommandResultRow

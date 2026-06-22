@@ -694,8 +694,8 @@ async function main() {
     webappSourcePath("components", "Timeline.jsx"),
     "utf8",
   );
-  assert.equal(timelineSource.includes("pre(props)"), true);
-  assert.equal(timelineSource.includes("if (inline)"), true);
+  assert.equal(timelineSource.includes("TimelineRows"), true);
+  assert.equal(timelineSource.includes("function TurnGroup"), false);
   assert.equal(timelineSource.includes("onOpenFile"), true);
   assert.equal(timelineSource.includes("handleTimelineFileLink"), true);
   assert.equal(timelineSource.includes("parseTimelineFileHref"), true);
@@ -712,7 +712,7 @@ async function main() {
   assert.equal(timelineRowsSource.includes("rowKeyFor"), true);
   assert.equal(timelineRowsSource.includes("ReasoningRow"), true);
   assert.equal(timelineRowsSource.includes("ThinkingRow"), true);
-  assert.equal(timelineRowsSource.includes("CompactRow"), true);
+  assert.equal(timelineRowsSource.includes("ContextSummaryRow"), true);
   assert.equal(timelineRowsSource.includes("CommandResultRow"), true);
   assert.equal(timelineRowsSource.includes("ReviewResultRow"), true);
   assert.equal(timelineRowsSource.includes("TimelineRowSwitch"), true);
@@ -725,7 +725,7 @@ async function main() {
   assert.equal(timelineRowsSource.includes("timeline-working-dots"), true);
   assert.equal(timelineRowsSource.includes('data-testid="timeline-reasoning-row"'), true);
   assert.equal(timelineRowsSource.includes('data-testid="timeline-thinking-row"'), true);
-  assert.equal(timelineRowsSource.includes('data-testid="timeline-compact-row"'), true);
+  assert.equal(timelineRowsSource.includes('data-testid="timeline-context-summary-row"'), true);
   assert.equal(timelineRowsSource.includes('data-testid="timeline-command-result-row"'), true);
   assert.equal(timelineRowsSource.includes('data-testid="timeline-review-result-row"'), true);
   assert.equal(timelineRowsSource.includes('data-testid="timeline-work-group"'), true);
@@ -794,7 +794,7 @@ async function main() {
   assert.equal(stylesSource.includes(".t3-tool-detail-section"), true);
   assert.equal(stylesSource.includes(".t3-reasoning-row"), true);
   assert.equal(stylesSource.includes(".t3-thinking-row"), true);
-  assert.equal(stylesSource.includes(".t3-compact-row"), true);
+  assert.equal(stylesSource.includes(".t3-context-summary-row"), true);
   assert.equal(stylesSource.includes(".t3-command-result-row"), true);
   assert.equal(stylesSource.includes(".t3-review-result-row"), true);
   assert.equal(stylesSource.includes(".timeline-work-group"), true);

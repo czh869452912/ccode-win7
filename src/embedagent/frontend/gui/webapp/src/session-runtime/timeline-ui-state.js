@@ -9,55 +9,45 @@ function booleanValue(value, fallback = false) {
 
 export function rowUiKey(row) {
   const kind = stringValue(row?.kind, "row");
+  const turnId = stringValue(row?.turnId || row?.turn_id);
+  const id = stringValue(row?.id);
   if (kind === "work") {
     return [
       "work",
-      stringValue(row?.turnId || row?.turn_id),
+      turnId,
       stringValue(row?.stepId || row?.step_id),
-      stringValue(row?.id || row?.toolName || row?.tool_name),
+      stringValue(id || row?.toolName || row?.tool_name),
     ].join(":");
   }
   if (kind === "turn_fold") {
     return [
       "turn_fold",
-      stringValue(row?.turnId || row?.turn_id),
-      stringValue(row?.id),
+      turnId,
+      id,
     ].join(":");
   }
-  if (kind === "reasoning") {
-    return [
-      "reasoning",
-      stringValue(row?.turnId || row?.turn_id),
-      stringValue(row?.stepId || row?.step_id),
-      stringValue(row?.id),
-    ].join(":");
+  if (turnId && id) {
+    return `${kind}:${turnId}:${id}`;
   }
-  if (kind === "command_result" || kind === "review_result" || kind === "compact" || kind === "thinking") {
-    return [
-      kind,
-      stringValue(row?.turnId || row?.turn_id),
-      stringValue(row?.id || "row"),
-    ].join(":");
+  if (id) {
+    return `${kind}:${id}`;
   }
-  return `${kind}:${stringValue(row?.id || row?.turnId || row?.turn_id || "row")}`;
+  return `${kind}:unknown`;
 }
 
-function defaultExpanded(row) {
+export function isRowExpandedByDefault(row) {
   if (!row) return false;
   if (row.kind === "turn_fold") return booleanValue(row.defaultOpen, false);
-  if (row.kind === "thinking") return true;
-  if (row.kind === "reasoning") return Boolean(row.streaming);
   if (row.kind === "command_result") {
-    return row.success === false && Boolean(row.content || row.detail || row.data);
+    return row.success === false;
   }
   if (row.kind === "review_result") {
-    return row.success === false || (Array.isArray(row.findings) && row.findings.length > 0);
+    return row.success === false;
   }
-  if (row.kind === "compact") return false;
+  if (row.kind === "context_summary") return false;
   if (row.kind !== "work") return false;
   if (row.tone === "interrupted" || row.tone === "discarded") return true;
   if (row.status === "error" || row.tone === "error") return true;
-  if (row.status === "running" || row.tone === "running") return true;
   return false;
 }
 
@@ -84,7 +74,7 @@ export function createTimelineUiState(rows = [], previousState = null) {
       expanded[key] = Boolean(previousExpanded[key]);
       touched[key] = true;
     } else {
-      expanded[key] = defaultExpanded(row);
+      expanded[key] = isRowExpandedByDefault(row);
     }
   }
   return { expanded, touched };

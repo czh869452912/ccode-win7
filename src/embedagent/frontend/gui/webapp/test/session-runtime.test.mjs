@@ -179,7 +179,7 @@ export function runSessionRuntimeTests() {
     activeTurnId: "turn-runtime",
     thinkingActive: true,
   });
-  assert.equal(thinkingRuntime.t3TimelineRows.some((row) => row.kind === "thinking"), true);
+  assert.equal(thinkingRuntime.t3TimelineRows.some((row) => row.kind === "working"), true);
 
   const detachedRuntime = projectSessionRuntime({
     snapshot: {

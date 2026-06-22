@@ -10,6 +10,170 @@ import {
 } from "../src/session-runtime/t3-timeline.js";
 
 export function runT3TimelineTests() {
+  {
+    const rows = projectT3TimelineRows({
+      currentStatus: "idle",
+      activeTurnId: "",
+      turnGroups: [
+        {
+          turnId: "turn-settled",
+          startedAt: "2026-06-22T00:00:00.000Z",
+          completedAt: "2026-06-22T00:00:08.000Z",
+          userItem: {
+            id: "user-settled",
+            kind: "user",
+            role: "user",
+            content: "inspect",
+            createdAt: "2026-06-22T00:00:00.000Z",
+            turnId: "turn-settled",
+          },
+          steps: [
+            {
+              activityItems: [
+                {
+                  id: "reasoning-settled",
+                  kind: "reasoning",
+                  content: "I will inspect files.",
+                  createdAt: "2026-06-22T00:00:01.000Z",
+                  turnId: "turn-settled",
+                },
+                {
+                  id: "tool-read",
+                  kind: "tool",
+                  toolName: "read_file",
+                  label: "Read File",
+                  status: "success",
+                  createdAt: "2026-06-22T00:00:02.000Z",
+                  completedAt: "2026-06-22T00:00:03.000Z",
+                  args: { path: "src/main.c" },
+                  turnId: "turn-settled",
+                },
+                {
+                  id: "compact-settled",
+                  kind: "compact",
+                  content: "Context compacted",
+                  summarizedTurns: 4,
+                  recentTurns: 2,
+                  createdAt: "2026-06-22T00:00:04.000Z",
+                  turnId: "turn-settled",
+                },
+              ],
+              assistantItem: {
+                id: "assistant-settled",
+                kind: "assistant",
+                role: "assistant",
+                content: "done",
+                createdAt: "2026-06-22T00:00:08.000Z",
+                completedAt: "2026-06-22T00:00:08.000Z",
+                turnId: "turn-settled",
+              },
+            },
+          ],
+        },
+      ],
+    });
+    assert.deepEqual(rows.map((row) => row.kind), ["message", "turn_fold", "message"]);
+    const fold = rows.find((row) => row.kind === "turn_fold");
+    assert.equal(fold.label, "Worked for 8s");
+    assert.equal(fold.entries.some((entry) => entry.kind === "work"), true);
+    assert.equal(fold.entries.some((entry) => entry.kind === "context_summary"), true);
+    assert.equal(rows.some((row) => row.kind === "compact"), false);
+  }
+
+  {
+    const rows = projectT3TimelineRows({
+      currentStatus: "running",
+      activeTurnId: "turn-active",
+      thinkingActive: true,
+      turnGroups: [
+        {
+          turnId: "turn-active",
+          startedAt: "2026-06-22T00:01:00.000Z",
+          userItem: {
+            id: "user-active",
+            kind: "user",
+            role: "user",
+            content: "build",
+            createdAt: "2026-06-22T00:01:00.000Z",
+            turnId: "turn-active",
+          },
+          steps: [
+            {
+              activityItems: [
+                {
+                  id: "tool-running",
+                  kind: "tool",
+                  toolName: "run_recipe",
+                  label: "Run Recipe",
+                  status: "running",
+                  tone: "running",
+                  createdAt: "2026-06-22T00:01:03.000Z",
+                  turnId: "turn-active",
+                },
+                {
+                  id: "compact-active",
+                  kind: "compact",
+                  content: "Context compacted",
+                  createdAt: "2026-06-22T00:01:04.000Z",
+                  turnId: "turn-active",
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+    assert.deepEqual(rows.map((row) => row.kind), ["message", "work", "system_notice", "working"]);
+    assert.equal(rows.find((row) => row.kind === "system_notice").placement, "active_turn_boundary");
+    assert.equal(rows.find((row) => row.kind === "work").status, "running");
+  }
+
+  {
+    const rows = projectT3TimelineRows({
+      currentStatus: "idle",
+      activeTurnId: "",
+      turnGroups: [
+        {
+          turnId: "turn-failed",
+          userItem: {
+            id: "user-failed",
+            kind: "user",
+            role: "user",
+            content: "verify",
+            createdAt: "2026-06-22T00:02:00.000Z",
+            turnId: "turn-failed",
+          },
+          steps: [
+            {
+              activityItems: [
+                {
+                  id: "tool-failed",
+                  kind: "tool",
+                  toolName: "run_recipe",
+                  label: "Run Recipe",
+                  status: "error",
+                  tone: "error",
+                  createdAt: "2026-06-22T00:02:02.000Z",
+                  turnId: "turn-failed",
+                },
+              ],
+              assistantItem: {
+                id: "assistant-failed",
+                kind: "assistant",
+                role: "assistant",
+                content: "build failed",
+                createdAt: "2026-06-22T00:02:05.000Z",
+                turnId: "turn-failed",
+              },
+            },
+          ],
+        },
+      ],
+    });
+    assert.deepEqual(rows.map((row) => row.kind), ["message", "work", "message"]);
+    assert.equal(rows.some((row) => row.kind === "turn_fold"), false);
+  }
+
   const settledRows = projectT3TimelineRows({
     turnGroups: [
       {
@@ -618,17 +782,15 @@ export function runT3TimelineTests() {
     activeTurnId: "",
   });
 
-  assert.equal(richRows[1].kind, T3_ROW_KINDS.COMPACT);
   const richFold = richRows.find((row) => row.kind === T3_ROW_KINDS.TURN_FOLD);
   assert.ok(richFold);
   assert.equal(richFold.workCount, 1);
-  assert.equal(richFold.reasoningCount, 1);
+  assert.equal(richFold.reasoningCount, 0);
   assert.deepEqual(
     richFold.entries.map((entry) => entry.kind),
-    [T3_ROW_KINDS.REASONING, T3_ROW_KINDS.WORK],
+    [T3_ROW_KINDS.CONTEXT_SUMMARY, T3_ROW_KINDS.WORK],
   );
-  assert.equal(richFold.entries[0].content, "Inspect parser recovery path before editing.");
-  assert.equal(richFold.entries[0].wordCount, 6);
+  assert.equal(richFold.entries[0].content, "older turns summarized");
   assert.equal(richRows.some((row) => row.kind === T3_ROW_KINDS.COMMAND_RESULT), true);
   const reviewRow = richRows.find((row) => row.kind === T3_ROW_KINDS.REVIEW_RESULT);
   assert.ok(reviewRow);
@@ -651,10 +813,10 @@ export function runT3TimelineTests() {
     activeTurnId: "turn-thinking",
     thinkingActive: true,
   });
-  assert.equal(thinkingRows.some((row) => row.kind === T3_ROW_KINDS.THINKING), true);
-  const thinkingRow = thinkingRows.find((row) => row.kind === T3_ROW_KINDS.THINKING);
+  assert.equal(thinkingRows.some((row) => row.kind === T3_ROW_KINDS.WORKING), true);
+  const thinkingRow = thinkingRows.find((row) => row.kind === T3_ROW_KINDS.WORKING);
   assert.equal(thinkingRow.turnId, "turn-thinking");
-  assert.equal(thinkingRow.label, "Thinking");
+  assert.equal(thinkingRow.label, "Working");
 
   const streamingReasoningRows = projectT3TimelineRows({
     turnGroups: [
@@ -688,10 +850,8 @@ export function runT3TimelineTests() {
     activeTurnId: "turn-stream",
     thinkingActive: true,
   });
-  assert.equal(streamingReasoningRows.some((row) => row.kind === T3_ROW_KINDS.THINKING), false);
-  const streamingReasoning = streamingReasoningRows.find((row) => row.kind === T3_ROW_KINDS.REASONING);
-  assert.ok(streamingReasoning);
-  assert.equal(streamingReasoning.streaming, true);
+  assert.equal(streamingReasoningRows.some((row) => row.kind === "reasoning"), false);
+  assert.equal(streamingReasoningRows.some((row) => row.kind === T3_ROW_KINDS.WORKING), true);
 
   const priorReasoningActiveThinkingRows = projectT3TimelineRows({
     turnGroups: [
@@ -745,7 +905,7 @@ export function runT3TimelineTests() {
     activeTurnId: "turn-active-thinking",
     thinkingActive: true,
   });
-  assert.equal(priorReasoningActiveThinkingRows.some((row) => row.kind === T3_ROW_KINDS.THINKING), true);
+  assert.equal(priorReasoningActiveThinkingRows.some((row) => row.kind === T3_ROW_KINDS.WORKING), true);
 
   const interleavedRows = projectT3TimelineRows({
     turnGroups: [
@@ -839,10 +999,8 @@ export function runT3TimelineTests() {
     interleavedRows.map((row) => row.id),
     [
       "u-interleaved",
-      "reason-1",
       "tool-1",
       "assistant-1",
-      "reason-2",
       "tool-2",
       "assistant-2",
     ],
@@ -960,13 +1118,10 @@ export function runT3TimelineTests() {
     multiCycleRows.map((row) => row.id),
     [
       "u-multi-cycle",
-      "cycle-thinking-1",
       "cycle-tool-1",
       "cycle-tool-2",
       "cycle-output-1",
-      "cycle-thinking-2",
       "cycle-tool-3",
-      "cycle-thinking-3",
       "cycle-output-2",
     ],
   );

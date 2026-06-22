@@ -4,9 +4,7 @@ export const T3_ROW_KINDS = Object.freeze({
   TURN_FOLD: "turn_fold",
   INTERACTION: "interaction",
   DIFF_SUMMARY: "diff_summary",
-  THINKING: "thinking",
-  REASONING: "reasoning",
-  COMPACT: "compact",
+  CONTEXT_SUMMARY: "context_summary",
   COMMAND_RESULT: "command_result",
   REVIEW_RESULT: "review_result",
   WORKING: "working",
@@ -888,34 +886,15 @@ function messageRow(item, role) {
   };
 }
 
-function wordCountFor(text) {
-  return stringValue(text).split(/\s+/).filter(Boolean).length;
-}
-
-function reasoningRow(item) {
-  const content = stringValue(item?.content || item?.text || item?.summary);
+function contextSummaryRow(item, placement = "fold_body") {
   return {
-    id: stringValue(item?.id || `reasoning-${item?.turnId || item?.turn_id || "row"}`),
-    kind: T3_ROW_KINDS.REASONING,
-    turnId: stringValue(item?.turnId || item?.turn_id),
-    stepId: stringValue(item?.stepId || item?.step_id),
-    stepIndex: numberValue(item?.stepIndex || item?.step_index),
-    createdAt: timestampValue(item?.createdAt, item?.created_at),
-    label: stringValue(item?.label || "Thinking"),
-    content,
-    wordCount: wordCountFor(content),
-    streaming: Boolean(item?.streaming),
-    rawItem: item || {},
-  };
-}
-
-function compactRow(item) {
-  return {
-    id: stringValue(item?.id || `compact-${item?.turnId || item?.turn_id || "row"}`),
-    kind: T3_ROW_KINDS.COMPACT,
+    id: stringValue(item?.id || `context-${item?.turnId || item?.turn_id || "row"}`),
+    kind: T3_ROW_KINDS.CONTEXT_SUMMARY,
     turnId: stringValue(item?.turnId || item?.turn_id),
     createdAt: timestampValue(item?.createdAt, item?.created_at),
-    tone: stringValue(item?.tone || "context"),
+    placement,
+    tone: "context",
+    label: stringValue(item?.label || "Context"),
     content: stringValue(item?.content || item?.summary || "Context compacted"),
     summarizedTurns:
       item?.summarizedTurns !== undefined
@@ -999,13 +978,13 @@ function reviewResultRow(item) {
   };
 }
 
-function thinkingRow({ activeTurnId, idSuffix = "active", createdAt = "" } = {}) {
+function workingRow({ activeTurnId, idSuffix = "active", createdAt = "" } = {}) {
   return {
-    id: `thinking-${activeTurnId || idSuffix || "active"}`,
-    kind: T3_ROW_KINDS.THINKING,
+    id: `working-${activeTurnId || idSuffix || "active"}`,
+    kind: T3_ROW_KINDS.WORKING,
     turnId: stringValue(activeTurnId),
     createdAt: timestampValue(createdAt),
-    label: "Thinking",
+    label: "Working",
     streaming: true,
   };
 }
@@ -1043,8 +1022,8 @@ function activityRowForItem(item) {
   if (item.kind === "interaction_requested" || item.kind === "interaction_resolved") {
     return interactionRow(item);
   }
-  if (item.kind === "reasoning") return reasoningRow(item);
-  if (item.kind === "compact") return compactRow(item);
+  if (item.kind === "reasoning") return null;
+  if (item.kind === "compact") return contextSummaryRow(item);
   if (item.kind === "command_result" || item.kind === "command_result_fallback") {
     const commandName = stringValue(item?.commandName || item?.command_name);
     if (commandName === "review" || item?.data?.review || item?.review) {
@@ -1077,20 +1056,32 @@ function turnActivityEntries(group) {
     const row = activityRowForItem(item);
     if (row) entries.push(row);
   }
+  for (const item of (group?.leadingSystemItems || []).concat(group?.systemItems || [])) {
+    if (item?.kind === "compact") pushActivity(item);
+  }
   for (const step of group?.steps || []) {
     for (const item of step?.activityItems || []) {
+      if (item?.kind === "reasoning") continue;
       pushActivity(item);
     }
   }
   for (const item of group?.trailingTurnItems || []) {
-    if (item?.kind === "tool") pushActivity(item);
-    if (item?.kind === "interaction_requested" || item?.kind === "interaction_resolved") {
+    if (
+      item?.kind === "tool" ||
+      item?.kind === "compact" ||
+      item?.kind === "interaction_requested" ||
+      item?.kind === "interaction_resolved"
+    ) {
       pushActivity(item);
     }
   }
   for (const item of group?.detachedItems || []) {
-    if (item?.kind === "tool") pushActivity(item);
-    if (item?.kind === "interaction_requested" || item?.kind === "interaction_resolved") {
+    if (
+      item?.kind === "tool" ||
+      item?.kind === "compact" ||
+      item?.kind === "interaction_requested" ||
+      item?.kind === "interaction_resolved"
+    ) {
       pushActivity(item);
     }
   }
@@ -1105,21 +1096,39 @@ function assistantRowsForTurn(group) {
   return rows;
 }
 
-function orderedOpenRowsForTurn(group) {
+function rowForOpenPlacement(row, context) {
+  if (context && row?.kind === T3_ROW_KINDS.CONTEXT_SUMMARY) {
+    return { ...row, kind: T3_ROW_KINDS.SYSTEM_NOTICE, placement: "active_turn_boundary" };
+  }
+  return row;
+}
+
+function orderedOpenRowsForTurn(group, context = null) {
   const rows = [];
+  for (const item of (group?.leadingSystemItems || []).concat(group?.systemItems || [])) {
+    if (item?.kind !== "compact") continue;
+    const row = activityRowForItem(item);
+    if (row) rows.push(rowForOpenPlacement(row, context));
+  }
   for (const step of group?.steps || []) {
     for (const item of step?.activityItems || []) {
+      if (item?.kind === "reasoning") continue;
       const row = activityRowForItem(item);
-      if (row) rows.push(row);
+      if (row) rows.push(rowForOpenPlacement(row, context));
     }
     if (step?.assistantItem) {
       rows.push(messageRow(step.assistantItem, "assistant"));
     }
   }
   for (const item of (group?.trailingTurnItems || []).concat(group?.detachedItems || [])) {
-    if (item?.kind === "tool" || item?.kind === "interaction_requested" || item?.kind === "interaction_resolved") {
+    if (
+      item?.kind === "tool" ||
+      item?.kind === "compact" ||
+      item?.kind === "interaction_requested" ||
+      item?.kind === "interaction_resolved"
+    ) {
       const row = activityRowForItem(item);
-      if (row) rows.push(row);
+      if (row) rows.push(rowForOpenPlacement(row, context));
     }
   }
   return rows;
@@ -1229,13 +1238,12 @@ export function isTurnFoldedByDefault(group, context = {}) {
   const foldEntries = foldEntriesForTurn(group);
   const workEntries = entries.filter((entry) => entry.kind === T3_ROW_KINDS.WORK);
   if (foldEntries.length === 0) return false;
+  if (group?.turnId && group.turnId === context.activeTurnId && context.currentStatus === "running") {
+    return false;
+  }
   if (hasInterruptedWork(workEntries)) return false;
   if (workEntries.some((entry) => entry.status === "running" || entry.tone === "running")) return false;
   if (workEntries.some((entry) => entry.status === "error" || entry.tone === "error")) return false;
-  if (entries.some((entry) => entry.kind === T3_ROW_KINDS.REASONING && entry.streaming)) return false;
-  if (context.currentStatus === "running" && group?.turnId && group.turnId === context.activeTurnId) {
-    return false;
-  }
   return assistantRowsForTurn(group).length > 0;
 }
 
@@ -1286,9 +1294,11 @@ export function projectT3TimelineRows({
   for (const group of turnGroups || []) {
     if (group?.userItem) pushRow(messageRow(group.userItem, "user"));
     for (const item of group?.leadingSystemItems || []) {
+      if (item?.kind === "compact") continue;
       pushLooseItem(pushRow, item);
     }
     for (const item of group?.systemItems || []) {
+      if (item?.kind === "compact") continue;
       pushLooseItem(pushRow, item);
     }
 
@@ -1305,13 +1315,13 @@ export function projectT3TimelineRows({
           createdAt: turnStartTimestamp(group, entries),
           label: turnFoldLabel(group, entries),
           workCount: entries.filter((entry) => entry.kind === T3_ROW_KINDS.WORK).length,
-          reasoningCount: entries.filter((entry) => entry.kind === T3_ROW_KINDS.REASONING).length,
+          reasoningCount: entries.filter((entry) => entry.kind === "reasoning").length,
           entryCount: foldEntries.length,
           defaultOpen: false,
           entries: foldEntries,
         });
       } else {
-        for (const row of orderedOpenRowsForTurn(group)) pushRow(row);
+        for (const row of orderedOpenRowsForTurn(group, context)) pushRow(row);
       }
     }
 
@@ -1328,6 +1338,7 @@ export function projectT3TimelineRows({
 
     for (const item of (group?.trailingTurnItems || []).concat(group?.detachedItems || [])) {
       if (item?.kind !== "tool" && item?.kind !== "interaction_requested" && item?.kind !== "interaction_resolved") {
+        if (item?.kind === "compact") continue;
         pushLooseItem(pushRow, item);
       }
     }
@@ -1353,15 +1364,6 @@ export function projectT3TimelineRows({
     });
   }
 
-  const hasVisibleReasoning = rows.some(
-    (row) =>
-      (row.kind === T3_ROW_KINDS.REASONING && (!activeTurnId || row.turnId === activeTurnId)) ||
-      (row.kind === T3_ROW_KINDS.TURN_FOLD &&
-        Array.isArray(row.entries) &&
-        row.entries.some(
-          (entry) => entry.kind === T3_ROW_KINDS.REASONING && (!activeTurnId || entry.turnId === activeTurnId),
-        )),
-  );
   const hasActiveTurnRow = rows.some(
     (row) =>
       row.turnId === activeTurnId ||
@@ -1369,13 +1371,13 @@ export function projectT3TimelineRows({
         Array.isArray(row.entries) &&
         row.entries.some((entry) => entry.turnId === activeTurnId)),
   );
-  if (currentStatus === "running" && thinkingActive && !hasVisibleReasoning && (activeTurnId || hasActiveTurnRow)) {
+  if (currentStatus === "running" && thinkingActive && (activeTurnId || hasActiveTurnRow)) {
     const activeCreatedAt = minTimestamp(
       rows
         .filter((row) => row.turnId === activeTurnId)
         .map((row) => row.createdAt),
     );
-    pushRow(thinkingRow({ activeTurnId, idSuffix: rows.length, createdAt: activeCreatedAt }));
+    pushRow(workingRow({ activeTurnId, idSuffix: rows.length, createdAt: activeCreatedAt }));
   }
 
   if (currentStatus === "running" && rows.length === 0) {
