@@ -1,5 +1,6 @@
 import React from "react";
 import { RIGHT_PANEL_SURFACES, titleForSurfaceKind } from "../../workbench/surfaces.js";
+import FloatingMenu from "./FloatingMenu.jsx";
 
 const SURFACE_COPY = {
   preview: {
@@ -67,17 +68,21 @@ function SurfaceIcon({ kind }) {
 
 function SurfaceTabMenu({
   surface,
+  onCloseSurface,
   onCloseOtherSurfaces,
   onCloseSurfacesToRight,
   onCloseAllSurfaces,
 }) {
   const [open, setOpen] = React.useState(false);
+  const buttonRef = React.useRef(null);
   return (
     <span className="right-panel-tab-menu">
       <button
+        ref={buttonRef}
         type="button"
         className="right-panel-tab-menu-button"
         aria-label={`Surface actions for ${surfaceTitle(surface)}`}
+        aria-expanded={open}
         onClick={(event) => {
           event.stopPropagation();
           setOpen((value) => !value);
@@ -85,8 +90,22 @@ function SurfaceTabMenu({
       >
         ...
       </button>
-      {open ? (
-        <span className="right-panel-tab-menu-popup" role="menu">
+      <FloatingMenu
+        open={open}
+        anchorRef={buttonRef}
+        onClose={() => setOpen(false)}
+        className="right-panel-tab-menu-popup"
+      >
+        <button
+          type="button"
+          role="menuitem"
+          onClick={() => {
+            setOpen(false);
+            onCloseSurface(surface);
+          }}
+        >
+          Close
+        </button>
           <button
             type="button"
             role="menuitem"
@@ -117,47 +136,52 @@ function SurfaceTabMenu({
           >
             Close all
           </button>
-        </span>
-      ) : null}
+      </FloatingMenu>
     </span>
   );
 }
 
 function SurfaceAddMenu({ onAddSurface }) {
   const [open, setOpen] = React.useState(false);
+  const buttonRef = React.useRef(null);
   const availableSurfaces = RIGHT_PANEL_SURFACES.slice();
   return (
     <span className="right-panel-add-menu">
       <button
+        ref={buttonRef}
         type="button"
         className="right-panel-add-surface"
         aria-label="Add panel surface"
+        aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
         title="Add panel surface"
       >
         +
       </button>
-      {open ? (
-        <span className="right-panel-add-menu-popup" role="menu">
-          {availableSurfaces.map((kind) => {
-            const copy = SURFACE_COPY[kind];
-            return (
-              <button
-                key={kind}
-                type="button"
-                role="menuitem"
-                onClick={() => {
-                  setOpen(false);
-                  onAddSurface(kind);
-                }}
-              >
-                <SurfaceIcon kind={kind} />
-                <span>{copy.label}</span>
-              </button>
-            );
-          })}
-        </span>
-      ) : null}
+      <FloatingMenu
+        open={open}
+        anchorRef={buttonRef}
+        onClose={() => setOpen(false)}
+        className="right-panel-add-menu-popup"
+      >
+        {availableSurfaces.map((kind) => {
+          const copy = SURFACE_COPY[kind];
+          return (
+            <button
+              key={kind}
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                onAddSurface(kind);
+              }}
+            >
+              <SurfaceIcon kind={kind} />
+              <span>{copy.label}</span>
+            </button>
+          );
+        })}
+      </FloatingMenu>
     </span>
   );
 }
@@ -215,45 +239,48 @@ export default function RightPanelTabs({
     <aside className="right-panel" role="complementary" aria-label="Right panel" data-testid="right-panel">
       <div className="right-panel-tabs" role="tablist" data-testid="right-panel-surface-tabs">
         <div className="right-panel-tab-scroll" ref={tabListRef} data-right-panel-tab-list>
-          {items.map((surface) => {
-            const active = surface.id === activeSurfaceId;
-            const title = surfaceTitle(surface);
-            return (
-              <div
-                key={surface.id}
-                className={`right-panel-surface-tab${active ? " active" : ""}`}
-                data-active-tab={active ? "true" : "false"}
-                data-testid={SURFACE_TAB_TEST_IDS[surface.kind] || `right-panel-surface-tab--${surface.kind}`}
-              >
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={active}
-                  className="right-panel-surface-tab-main"
-                  title={title}
-                  onClick={() => onActivateSurface(surface)}
+          <div className="right-panel-tab-strip">
+            {items.map((surface) => {
+              const active = surface.id === activeSurfaceId;
+              const title = surfaceTitle(surface);
+              return (
+                <div
+                  key={surface.id}
+                  className={`right-panel-surface-tab${active ? " active" : ""}`}
+                  data-active-tab={active ? "true" : "false"}
+                  data-testid={SURFACE_TAB_TEST_IDS[surface.kind] || `right-panel-surface-tab--${surface.kind}`}
                 >
-                  <SurfaceIcon kind={surface.kind} />
-                  <span>{title}</span>
-                </button>
-                <SurfaceTabMenu
-                  surface={surface}
-                  onCloseOtherSurfaces={onCloseOtherSurfaces}
-                  onCloseSurfacesToRight={onCloseSurfacesToRight}
-                  onCloseAllSurfaces={onCloseAllSurfaces}
-                />
-                <button
-                  type="button"
-                  className="right-panel-tab-close"
-                  aria-label={`Close ${title}`}
-                  onClick={() => onCloseSurface(surface)}
-                >
-                  x
-                </button>
-              </div>
-            );
-          })}
-          {items.length > 0 ? <SurfaceAddMenu onAddSurface={onAddSurface} /> : null}
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={active}
+                    className="right-panel-surface-tab-main"
+                    title={title}
+                    onClick={() => onActivateSurface(surface)}
+                  >
+                    <SurfaceIcon kind={surface.kind} />
+                    <span>{title}</span>
+                  </button>
+                  <SurfaceTabMenu
+                    surface={surface}
+                    onCloseSurface={onCloseSurface}
+                    onCloseOtherSurfaces={onCloseOtherSurfaces}
+                    onCloseSurfacesToRight={onCloseSurfacesToRight}
+                    onCloseAllSurfaces={onCloseAllSurfaces}
+                  />
+                  <button
+                    type="button"
+                    className="right-panel-tab-close"
+                    aria-label={`Close ${title}`}
+                    onClick={() => onCloseSurface(surface)}
+                  >
+                    x
+                  </button>
+                </div>
+              );
+            })}
+            {items.length > 0 ? <SurfaceAddMenu onAddSurface={onAddSurface} /> : null}
+          </div>
         </div>
       </div>
       <div className="right-panel-body">

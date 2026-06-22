@@ -44,6 +44,7 @@ import { runFilePreviewModelTests } from "./file-preview-model.test.mjs";
 import { runPreviewSurfaceModelTests } from "./preview-surface-model.test.mjs";
 import { runPreviewApiTests } from "./preview-api.test.mjs";
 import { runRightPanelStoreParityTests } from "./right-panel-store-parity.test.mjs";
+import { runRightPanelTabsSourceTests } from "./right-panel-tabs-source.test.mjs";
 
 const WEBAPP_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -809,7 +810,7 @@ async function main() {
   assert.equal(stylesSource.includes("height: 100%;\n  min-height: 0;\n  min-width: 0;"), true);
   assert.equal(stylesSource.includes(".right-panel-empty-state"), true);
   assert.equal(stylesSource.includes("overflow: auto;\n  padding: var(--sp-4);"), true);
-  assert.equal(stylesSource.includes(".right-panel-surface-tab {\n  position: relative;\n  flex: 1 1 clamp(76px, 34%, 176px);\n  min-width: 0;"), true);
+  assert.equal(stylesSource.includes(".right-panel-surface-tab {\n  position: relative;\n  flex: 0 0 auto;\n  width: clamp(96px, 13vw, 176px);"), true);
   assert.equal(stylesSource.includes("overflow-wrap: anywhere"), true);
   assert.equal(stylesSource.includes("grid-template-columns: minmax(0, 1fr)"), true);
   assert.equal(stylesSource.includes("@media (max-width: 560px)"), true);
@@ -1248,6 +1249,7 @@ async function main() {
 
   runWorkbenchStateTests();
   runWorkbenchUiStateTests();
+  runRightPanelTabsSourceTests();
   runRightPanelStoreParityTests();
   runAppShellModelTests();
   runAppWorkspaceTests();
