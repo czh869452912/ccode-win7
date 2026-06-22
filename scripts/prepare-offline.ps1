@@ -10,6 +10,7 @@ param(
     [string]$CtagsPath = "",
     [string]$WebView2RuntimeRoot = "",
     [string]$LlvmRoot = "",
+    [string]$GuiLauncherExePath = "",
     [switch]$SkipBuild,
     [switch]$Clean
 )
@@ -106,6 +107,32 @@ function Stage-File {
     $parent = Split-Path -Parent $Destination
     Ensure-Directory -Path $parent
     Copy-Item -LiteralPath $Source -Destination $Destination -Force
+}
+
+function Stage-GuiLauncherExe {
+    param(
+        [string]$Source,
+        [string]$BundleRoot
+    )
+
+    if (-not $Source) {
+        return [ordered]@{
+            status = 'missing'
+            source_path = ''
+            notes = 'Native GUI launcher executable was not provided. Run package.ps1 assemble/release so build-gui-launcher.ps1 can produce it.'
+        }
+    }
+    if (-not (Test-Path -LiteralPath $Source)) {
+        throw "Native GUI launcher executable not found: $Source"
+    }
+
+    Stage-File -Source $Source -Destination (Join-Path $BundleRoot 'EmbedAgent.exe')
+    Stage-File -Source $Source -Destination (Join-Path $BundleRoot 'embedagent-gui.exe')
+    return [ordered]@{
+        status = 'staged'
+        source_path = $Source
+        notes = 'Staged native GUI launcher as EmbedAgent.exe and embedagent-gui.exe.'
+    }
 }
 
 function Remove-TransientPythonArtifacts {
@@ -759,11 +786,14 @@ $ripgrepResolved = Resolve-ProjectPath -ProjectRoot $projectRoot -Value $Ripgrep
 $ctagsResolved = Resolve-ProjectPath -ProjectRoot $projectRoot -Value $CtagsPath
 $webView2RuntimePath = Resolve-ProjectPath -ProjectRoot $projectRoot -Value $WebView2RuntimeRoot
 $llvmPath = Resolve-ProjectPath -ProjectRoot $projectRoot -Value $LlvmRoot
+$guiLauncherExeResolved = Resolve-ProjectPath -ProjectRoot $projectRoot -Value $GuiLauncherExePath
+$guiLauncherResult = Stage-GuiLauncherExe -Source $guiLauncherExeResolved -BundleRoot $bundleRoot
 
 $components += New-ComponentRecord -Name 'app_code' -StagedPath 'app\embedagent' -Required $true -Status 'staged' -SourcePath $sourceAppRoot -Notes 'Copied from src/embedagent.' -AssetId ''
 $components += New-ComponentRecord -Name 'docs_bundle' -StagedPath 'docs' -Required $true -Status 'staged' -SourcePath (Join-Path $projectRoot 'docs') -Notes 'Copied configuration, preflight, intranet, and Win7 GUI validation docs.' -AssetId ''
 $components += New-ComponentRecord -Name 'config_templates' -StagedPath 'config' -Required $true -Status 'staged' -SourcePath '' -Notes 'Generated default config and permission rules templates.' -AssetId ''
 $components += New-ComponentRecord -Name 'launcher_scripts' -StagedPath '.' -Required $true -Status 'staged' -SourcePath '' -Notes 'Generated embedagent.cmd, embedagent-tui.cmd, embedagent-gui.cmd, and validate-gui-smoke.cmd.' -AssetId ''
+$components += New-ComponentRecord -Name 'gui_launcher_exe' -StagedPath 'EmbedAgent.exe;embedagent-gui.exe' -Required $true -Status $guiLauncherResult.status -SourcePath $guiLauncherResult.source_path -Notes $guiLauncherResult.notes -AssetId ''
 $components += New-ComponentRecord -Name 'validation_tools' -StagedPath 'tools\validation' -Required $true -Status 'staged' -SourcePath $guiSmokeScript -Notes 'Copied bundle-local GUI smoke validation script.' -AssetId ''
 
 Write-Host "[prepare] Resolving runtime assets..."
