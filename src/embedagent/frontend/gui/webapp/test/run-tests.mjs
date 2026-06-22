@@ -79,6 +79,18 @@ async function main() {
     "term-2",
   ]);
 
+  for (const kind of ["settings", "diagnostics", "source_control"]) {
+    const appShellSurfaceState = reducer(initialState, {
+      type: "workbench_surface_opened",
+      placement: "right",
+      kind,
+    });
+    assert.equal(appShellSurfaceState.workbench.rightPanel.activeKind, kind);
+    assert.equal(appShellSurfaceState.workbench.rightPanel.surfaces.length, 1);
+    assert.equal(appShellSurfaceState.workbench.rightPanel.surfaces[0].kind, kind);
+    assert.equal(appShellSurfaceState.workbench.rightPanel.activeSurfaceId, `right:${kind}`);
+  }
+
   const appLoadedState = reducer(initialState, {
     type: "app_bootstrap_loaded",
     bootstrap: {
@@ -863,6 +875,7 @@ async function main() {
   assert.equal(appSource.includes("/fork"), true);
   assert.equal(appSource.includes('command.id === "app.settings"'), true);
   assert.equal(appSource.includes('command.id === "app.diagnostics"'), true);
+  assert.equal(appSource.includes('command.id === "app.source_control"'), true);
   assert.equal(appSource.includes('command.id === "app.reload"'), true);
   assert.equal(appSource.includes("getSourceControlStatus"), true);
   assert.equal(appSource.includes("loadSourceControlStatus"), true);
@@ -1056,7 +1069,10 @@ async function main() {
   assert.equal(rightPanelTabsSource.includes("file:"), true);
   assert.equal(rightPanelTabsSource.includes("right-panel-surface-tab--file"), true);
   assert.equal(rightPanelTabsSource.includes("right-panel-surface-tab--preview"), true);
-  assert.equal(rightPanelTabsSource.includes("source_control: \"Source\""), false);
+  assert.equal(rightPanelTabsSource.includes("source_control:"), true);
+  assert.equal(rightPanelTabsSource.includes("Source Control"), true);
+  assert.equal(rightPanelTabsSource.includes("Settings"), true);
+  assert.equal(rightPanelTabsSource.includes("Diagnostics"), true);
   assert.equal(rightPanelTabsSource.includes("todos"), false);
 
   const changedFilesCardSource = fs.readFileSync(

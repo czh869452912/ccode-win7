@@ -30,8 +30,27 @@ import {
 } from "../src/workbench/surfaces.js";
 
 export function runWorkbenchStateTests() {
-  assert.deepEqual(RIGHT_PANEL_KINDS, ["preview", "diff", "files", "file", "terminal", "plan"]);
-  assert.deepEqual(RIGHT_PANEL_SURFACES, ["preview", "files", "terminal", "diff", "plan"]);
+  assert.deepEqual(RIGHT_PANEL_KINDS, [
+    "preview",
+    "diff",
+    "files",
+    "file",
+    "terminal",
+    "plan",
+    "source_control",
+    "settings",
+    "diagnostics",
+  ]);
+  assert.deepEqual(RIGHT_PANEL_SURFACES, [
+    "preview",
+    "files",
+    "terminal",
+    "diff",
+    "plan",
+    "source_control",
+    "settings",
+    "diagnostics",
+  ]);
   assert.equal(BOTTOM_DRAWER_SURFACES.includes("terminal"), true);
   assert.equal(BOTTOM_DRAWER_SURFACES.includes("run_output"), true);
 
@@ -298,10 +317,19 @@ export function runWorkbenchStateTests() {
   assert.equal(reduced.rightPanel.activeKind, "plan");
   assert.equal(reduced.rightPanel.surfaces[0].kind, "plan");
 
-  const unknownRightSurface = openSurface(initial, {
+  const appShellSurface = openSurface(initial, {
     placement: "right",
     kind: "settings",
     title: "Settings",
+  });
+  assert.equal(appShellSurface.rightPanel.activeKind, "settings");
+  assert.equal(appShellSurface.rightPanel.activeSurfaceId, "right:settings");
+  assert.equal(appShellSurface.rightPanel.surfaces[0].title, "Settings");
+
+  const unknownRightSurface = openSurface(initial, {
+    placement: "right",
+    kind: "unknown",
+    title: "Unknown",
   });
   assert.equal(unknownRightSurface, initial);
 
@@ -311,9 +339,11 @@ export function runWorkbenchStateTests() {
   assert.equal(COMMAND_GROUPS.includes("workspace"), true);
   assert.equal(APP_COMMANDS.some((item) => item.id === "app.settings"), true);
   assert.equal(isAppCommand("app.diagnostics"), true);
+  assert.equal(isAppCommand("app.source_control"), true);
   assert.equal(isAppCommand("workspace.open"), false);
   assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "app.settings"), true);
   assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "app.diagnostics"), true);
+  assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "app.source_control"), true);
   assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "app.reload"), true);
   assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "surface.files"), true);
   assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "surface.preview"), true);
@@ -329,6 +359,7 @@ export function runWorkbenchStateTests() {
 
   const visibleWhenIdle = visibleCommands({ hasSession: true, isRunning: false });
   assert.equal(visibleWhenIdle.some((item) => item.id === "app.settings"), true);
+  assert.equal(visibleWhenIdle.some((item) => item.id === "app.source_control"), true);
   assert.equal(visibleWhenIdle.some((item) => item.id === "message.send"), true);
   assert.equal(visibleWhenIdle.some((item) => item.id === "message.stop"), false);
 

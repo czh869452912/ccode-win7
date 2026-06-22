@@ -32,6 +32,21 @@ const SURFACE_COPY = {
     label: "Plan",
     description: "Inspect the current plan.",
   },
+  source_control: {
+    icon: "S",
+    label: "Source Control",
+    description: "Review local Git status.",
+  },
+  settings: {
+    icon: "G",
+    label: "Settings",
+    description: "Adjust app-shell preferences.",
+  },
+  diagnostics: {
+    icon: "I",
+    label: "Diagnostics",
+    description: "Inspect app-shell health.",
+  },
 };
 
 const SURFACE_TAB_TEST_IDS = {

@@ -97,7 +97,12 @@ class AppShellService(object):
 
     def _capabilities(self) -> Dict[str, Any]:
         return {
-            "app_commands": ["app.settings", "app.diagnostics", "app.reload"],
+            "app_commands": [
+                "app.settings",
+                "app.diagnostics",
+                "app.source_control",
+                "app.reload",
+            ],
             "workspace_commands": [
                 "workspace.open",
                 "workspace.refresh",

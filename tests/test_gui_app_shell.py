@@ -84,6 +84,7 @@ class TestGuiAppShellService(unittest.TestCase):
         self.assertEqual(payload["workspaces"], [])
         self.assertIn("app.settings", payload["capabilities"]["app_commands"])
         self.assertIn("app.diagnostics", payload["capabilities"]["app_commands"])
+        self.assertIn("app.source_control", payload["capabilities"]["app_commands"])
         self.assertIn("app.reload", payload["capabilities"]["app_commands"])
         self.assertIn("settings", payload["capabilities"]["surfaces"]["right_panel"])
         self.assertIn("diagnostics", payload["capabilities"]["surfaces"]["right_panel"])

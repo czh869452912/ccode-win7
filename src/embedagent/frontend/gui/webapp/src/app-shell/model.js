@@ -99,7 +99,7 @@ export function normalizeAppCapabilities(input = {}) {
       ? input.app_commands.map(String)
       : Array.isArray(input.appCommands)
         ? input.appCommands.map(String)
-        : ["app.settings", "app.diagnostics", "app.reload"],
+        : ["app.settings", "app.diagnostics", "app.source_control", "app.reload"],
     workspaceCommands: Array.isArray(input.workspace_commands)
       ? input.workspace_commands.map(String)
       : Array.isArray(input.workspaceCommands)
@@ -110,7 +110,7 @@ export function normalizeAppCapabilities(input = {}) {
         ? surfaces.right_panel.map(String)
         : Array.isArray(surfaces.rightPanel)
           ? surfaces.rightPanel.map(String)
-          : ["settings", "diagnostics"],
+          : ["settings", "diagnostics", "source_control"],
       bottomDrawer: Array.isArray(surfaces.bottom_drawer)
         ? surfaces.bottom_drawer.map(String)
         : Array.isArray(surfaces.bottomDrawer)

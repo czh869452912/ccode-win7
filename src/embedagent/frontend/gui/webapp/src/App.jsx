@@ -710,6 +710,12 @@ function App() {
         return "Terminal";
       case "plan":
         return "Plan";
+      case "source_control":
+        return "Source Control";
+      case "settings":
+        return "Settings";
+      case "diagnostics":
+        return "Diagnostics";
       default:
         return String(kind || "");
     }
@@ -783,13 +789,15 @@ function App() {
       return;
     }
     if (command.id === "app.settings") {
-      dispatch({ type: "set_inspector", value: "settings" });
-      dispatch({ type: "workbench_surface_activated", placement: "right", kind: "settings" });
+      openRightPanelSurface("settings", command.label);
       return;
     }
     if (command.id === "app.diagnostics") {
-      dispatch({ type: "set_inspector", value: "diagnostics" });
-      dispatch({ type: "workbench_surface_activated", placement: "right", kind: "diagnostics" });
+      openRightPanelSurface("diagnostics", command.label);
+      return;
+    }
+    if (command.id === "app.source_control") {
+      openRightPanelSurface("source_control", command.label);
       return;
     }
     if (command.id === "app.reload") {

@@ -1,5 +1,24 @@
-export const RIGHT_PANEL_KINDS = ["preview", "diff", "files", "file", "terminal", "plan"];
-export const RIGHT_PANEL_SURFACES = ["preview", "files", "terminal", "diff", "plan"];
+export const RIGHT_PANEL_KINDS = [
+  "preview",
+  "diff",
+  "files",
+  "file",
+  "terminal",
+  "plan",
+  "source_control",
+  "settings",
+  "diagnostics",
+];
+export const RIGHT_PANEL_SURFACES = [
+  "preview",
+  "files",
+  "terminal",
+  "diff",
+  "plan",
+  "source_control",
+  "settings",
+  "diagnostics",
+];
 export const BOTTOM_DRAWER_SURFACES = ["terminal", "run_output", "logs"];
 
 export const DEFAULT_SESSION_KEY = "__global__";
@@ -138,6 +157,12 @@ export function titleForSurfaceKind(kind) {
       return "Terminal";
     case "plan":
       return "Plan";
+    case "source_control":
+      return "Source Control";
+    case "settings":
+      return "Settings";
+    case "diagnostics":
+      return "Diagnostics";
     default:
       return String(kind || "");
   }
