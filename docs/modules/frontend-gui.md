@@ -5,7 +5,7 @@
 > 状态：`active`
 > 类型：`module`
 > 负责人：`project maintainers`
-> 最后同步日期：`2026-06-19`
+> 最后同步日期：`2026-06-22`
 > 对应代码范围：`src/embedagent/frontend/gui/`
 
 ## 1. Purpose And Scope
@@ -23,7 +23,7 @@
 - GUI app-shell hosted source-control read model（`backend/source_control_service.py`、`webapp/src/source-control/`）
 - 协议回调到 WebSocket 广播的实时转换（`backend/server.py`）
 - WebSocket 断线重连与会话事件回放恢复（`webapp/`）
-- T3code-inspired Agent timeline rows、structured tool detail expansion、timeline file-link activation、composer interaction panel、Preview/File/Diff/Files right-panel surface chrome、neutral workbench visual language（`webapp/src/session-runtime/`、`webapp/src/components/`、`webapp/src/styles.css`）
+- T3code-inspired Agent timeline rows、structured tool detail expansion、timeline file-link activation、composer interaction panel、Preview/File/Diff/Files right-panel surface chrome、renderer-local workbench UI state persistence、neutral workbench visual language（`webapp/src/session-runtime/`、`webapp/src/workbench/`、`webapp/src/components/`、`webapp/src/styles.css`）
 - 开发机可视调试 harness：启动真实 GUI、执行场景、截图、检查 console/DOM（`scripts/gui-visual-debug.mjs`）
 
 ## 3. Code Mapping
@@ -92,6 +92,18 @@ consumes existing backend snapshots, bootstrap history, runtime projections,
 task projections, permission context, artifacts, file trees, recipes, and tool
 catalog read models. It does not own workflow policy, permission decisions,
 tool activation, transcript history, extension loading, or provider behavior.
+
+The workbench has a T3code-style renderer UI-state store in
+`webapp/src/workbench/ui-state.js`. It sanitizes and persists only app-shell
+display state in browser `localStorage`: active workbench session key,
+right-panel open/width, bottom-drawer open/kind/height, and shallow
+session-scoped right-panel surface descriptors plus active surface id. It
+intentionally strips command palette open/query state, file contents, preview
+snapshots, terminal output, tool data, backend snapshots, transcript history,
+workflow state, permission state, and runtime reducer state. `store.js`
+activates the saved session surface stack on `session_activated`, matching
+T3code's per-thread tab restoration without making the frontend a second
+session-history source.
 
 The webapp build continues to target `chrome109` for bundled WebView2 Fixed
 Version 109 and Windows 7 compatibility. GUI runtime deployment must remain

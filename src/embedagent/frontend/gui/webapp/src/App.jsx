@@ -52,6 +52,10 @@ import RightPanelTabs from "./components/workbench/RightPanelTabs.jsx";
 import WorkbenchHeader from "./components/workbench/WorkbenchHeader.jsx";
 import { commandById, visibleCommands } from "./workbench/commands.js";
 import { DEFAULT_KEYBINDINGS, eventToKey, resolveKeybinding } from "./workbench/keybindings.js";
+import {
+  persistWorkbenchUiState,
+  readPersistedWorkbenchUiState,
+} from "./workbench/ui-state.js";
 
 const MODES = ["explore", "spec", "build", "debug", "verify"];
 const SLASH_COMMAND_HINTS = [
@@ -72,7 +76,10 @@ const SLASH_COMMAND_HINTS = [
 ];
 
 function App() {
-  const [state, dispatch] = useReducer(reducer, initialState);
+  const [state, dispatch] = useReducer(reducer, initialState, (baseState) => ({
+    ...baseState,
+    workbench: readPersistedWorkbenchUiState(),
+  }));
   const treeHeight = 640;
   const [userAnswer, setUserAnswer] = useState("");
   const [sessionEventLog, setSessionEventLog] = useState(() => createSessionEventLog());
@@ -137,6 +144,10 @@ function App() {
   useEffect(() => {
     currentSessionIdRef.current = state.currentSessionId || "";
   }, [state.currentSessionId]);
+
+  useEffect(() => {
+    persistWorkbenchUiState(state.workbench);
+  }, [state.workbench]);
 
   useEffect(() => {
     sessionEventLogRef.current = sessionEventLog;

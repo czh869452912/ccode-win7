@@ -273,6 +273,10 @@ export function reducer(state, action) {
           action.snapshot?.pending_interaction_valid && action.snapshot?.pending_interaction
             ? true
             : state.inspectorOpen,
+        workbench: reduceWorkbenchState(state.workbench, {
+          type: "workbench_session_activated",
+          sessionId: action.sessionId,
+        }),
       };
     case "session_snapshot": {
       const snapshot = action.snapshot;
@@ -1018,7 +1022,13 @@ export function reducer(state, action) {
     case "workbench_command_palette_query_changed":
     case "workbench_right_panel_toggled":
     case "workbench_bottom_drawer_toggled":
-      return { ...state, workbench: reduceWorkbenchState(state.workbench, action) };
+      return {
+        ...state,
+        workbench: reduceWorkbenchState(state.workbench, {
+          ...action,
+          sessionId: action.sessionId || state.currentSessionId || state.workbench?.activeSessionKey,
+        }),
+      };
     default:
       return state;
   }

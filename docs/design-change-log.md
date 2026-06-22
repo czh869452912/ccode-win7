@@ -1,6 +1,6 @@
 # EmbedAgent 设计与变更跟踪
 
-> 更新日期：2026-06-20
+> 更新日期：2026-06-22
 > 用途：记录关键设计变更、影响范围、关联文档和后续动作
 
 ---
@@ -43,6 +43,32 @@
 ---
 
 ## 3. 当前变更记录
+
+### DC-191
+
+- 日期：2026-06-22
+- 变更主题：T3 Code-style workbench renderer UI state persistence
+- 变更摘要：
+  - GUI workbench now has a sanitized renderer-local UI-state store mirroring T3 Code's `uiStateStore` pattern for durable app-shell preferences.
+  - The store persists right-panel open/width, bottom-drawer open/kind/height, active workbench session key, and shallow session-scoped right-panel surface descriptors plus active surface id.
+  - Session activation routes through the workbench reducer so each thread restores its own right-panel surface stack without making frontend state a session-history source.
+  - The persistence boundary strips command palette open/query state, file contents, preview snapshots, terminal output, tool data, backend snapshots, transcript history, workflow state, permission state, and runtime reducer state.
+- 影响范围：
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/store.js`
+  - `src/embedagent/frontend/gui/webapp/src/workbench/surfaces.js`
+  - `src/embedagent/frontend/gui/webapp/src/workbench/ui-state.js`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/workbench-ui-state.test.mjs`
+  - `src/embedagent/frontend/gui/static/assets/app.js`
+  - `src/embedagent/frontend/gui/static/assets/app.css`
+  - `docs/modules/frontend-gui.md`
+  - `docs/development-tracker.md`
+  - `docs/design-change-log.md`
+- 关联文档：
+  - `docs/modules/frontend-gui.md`
+  - `docs/development-tracker.md`
+- 是否需要 ADR：否；该变更是 GUI app-shell renderer state parity，不改变 Agent Core、backend protocol truth、session-history truth、permission engine、runtime reducers、workflow package ownership、extension loading policy 或 offline/Win7 runtime contract。
 
 ### DC-190
 

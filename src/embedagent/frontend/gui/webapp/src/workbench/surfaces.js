@@ -2,7 +2,7 @@ export const RIGHT_PANEL_KINDS = ["preview", "diff", "files", "file", "terminal"
 export const RIGHT_PANEL_SURFACES = ["preview", "files", "terminal", "diff", "plan"];
 export const BOTTOM_DRAWER_SURFACES = ["terminal", "run_output", "logs"];
 
-const DEFAULT_SESSION_KEY = "__global__";
+export const DEFAULT_SESSION_KEY = "__global__";
 
 function normalizeSessionId(sessionId) {
   const value = String(sessionId || "").trim();
@@ -180,6 +180,31 @@ function activateRightPanelSurface(panel, surface) {
   };
 }
 
+function setRightPanelSurfaceSelection(panel, surface) {
+  return {
+    ...panel,
+    activeKind: surface ? surface.kind : "",
+    activeSurfaceId: surface ? surface.id : null,
+  };
+}
+
+function rememberRightPanelSession(state, panel, sessionId) {
+  const key = normalizeSessionId(sessionId || state.activeSessionKey);
+  const existing = sessionSurfaces(state, key);
+  return {
+    ...state,
+    activeSessionKey: key,
+    surfacesBySession: {
+      ...state.surfacesBySession,
+      [key]: {
+        ...existing,
+        right: Array.isArray(panel && panel.surfaces) ? panel.surfaces : [],
+        activeRightSurfaceId: panel ? panel.activeSurfaceId || null : null,
+      },
+    },
+  };
+}
+
 function nextActiveAfterClose(items, closedIndex) {
   if (items.length === 0) return null;
   const boundedIndex = Math.max(0, Math.min(closedIndex, items.length - 1));
@@ -188,6 +213,7 @@ function nextActiveAfterClose(items, closedIndex) {
 
 export function createWorkbenchState() {
   return {
+    activeSessionKey: DEFAULT_SESSION_KEY,
     sidebar: {
       activeSection: "threads",
       projectSection: "files",
@@ -221,6 +247,30 @@ export function getSessionSurfaces(state, sessionId) {
   return sessionSurfaces(state || createWorkbenchState(), sessionId);
 }
 
+export function activateWorkbenchSession(state, sessionId) {
+  const current = state || createWorkbenchState();
+  const savedCurrent = rememberRightPanelSession(
+    current,
+    current.rightPanel || createWorkbenchState().rightPanel,
+    current.activeSessionKey || DEFAULT_SESSION_KEY,
+  );
+  const key = normalizeSessionId(sessionId);
+  const existing = sessionSurfaces(savedCurrent, key);
+  const rightSurfaces = Array.isArray(existing.right) ? existing.right : [];
+  const active =
+    activeSurfaceFrom(rightSurfaces, existing.activeRightSurfaceId) ||
+    rightSurfaces[rightSurfaces.length - 1] ||
+    null;
+  return {
+    ...savedCurrent,
+    activeSessionKey: key,
+    rightPanel: setRightPanelSurfaceSelection(
+      { ...savedCurrent.rightPanel, surfaces: rightSurfaces },
+      active,
+    ),
+  };
+}
+
 export function openSurface(state, input) {
   const current = state || createWorkbenchState();
   const surface = makeSurface(input || {});
@@ -229,6 +279,7 @@ export function openSurface(state, input) {
     return current;
   }
   if (placement === "right") {
+    const key = normalizeSessionId(input && (input.sessionId || current.activeSessionKey));
     const currentItems = current.rightPanel.surfaces || [];
     const filePath =
       surface.kind === "file"
@@ -260,13 +311,14 @@ export function openSurface(state, input) {
           ? currentItems.filter((item) => !(item.kind === "preview" && !item.resourceId))
           : currentItems;
     const surfaces = upsertSurface(sourceItems, nextSurface);
-    return {
+    const nextPanel = activateRightPanelSurface(
+      { ...current.rightPanel, surfaces },
+      nextSurface,
+    );
+    return rememberRightPanelSession({
       ...current,
-      rightPanel: activateRightPanelSurface(
-        { ...current.rightPanel, surfaces },
-        nextSurface,
-      ),
-    };
+      rightPanel: nextPanel,
+    }, nextPanel, key);
   }
   const key = normalizeSessionId(input && input.sessionId);
   const existing = sessionSurfaces(current, key);
@@ -300,10 +352,12 @@ export function activateSurface(state, input) {
     ? activeSurfaceFrom(current.rightPanel.surfaces || [], surfaceId)
     : null;
   if (existing) {
-    return {
+    const key = normalizeSessionId(input && (input.sessionId || current.activeSessionKey));
+    const nextPanel = activateRightPanelSurface(current.rightPanel, existing);
+    return rememberRightPanelSession({
       ...current,
-      rightPanel: activateRightPanelSurface(current.rightPanel, existing),
-    };
+      rightPanel: nextPanel,
+    }, nextPanel, key);
   }
   return openSurface(current, {
     placement: "right",
@@ -344,13 +398,15 @@ export function closeSurface(state, input) {
   const nextActive = shouldReplaceActive
     ? nextActiveAfterClose(nextItems, closedIndex)
     : activeSurfaceFrom(nextItems, current.rightPanel.activeSurfaceId);
-  return {
+  const key = normalizeSessionId(input && (input.sessionId || current.activeSessionKey));
+  const nextPanel = activateRightPanelSurface(
+    { ...current.rightPanel, surfaces: nextItems },
+    nextActive,
+  );
+  return rememberRightPanelSession({
     ...current,
-    rightPanel: activateRightPanelSurface(
-      { ...current.rightPanel, surfaces: nextItems },
-      nextActive,
-    ),
-  };
+    rightPanel: nextPanel,
+  }, nextPanel, key);
 }
 
 export function closeOtherSurfaces(state, input) {
@@ -360,13 +416,15 @@ export function closeOtherSurfaces(state, input) {
   const surfaceId = String((input && input.surfaceId) || "");
   const active = activeSurfaceFrom(current.rightPanel.surfaces || [], surfaceId);
   if (!active) return current;
-  return {
+  const key = normalizeSessionId(input && (input.sessionId || current.activeSessionKey));
+  const nextPanel = activateRightPanelSurface(
+    { ...current.rightPanel, surfaces: [active] },
+    active,
+  );
+  return rememberRightPanelSession({
     ...current,
-    rightPanel: activateRightPanelSurface(
-      { ...current.rightPanel, surfaces: [active] },
-      active,
-    ),
-  };
+    rightPanel: nextPanel,
+  }, nextPanel, key);
 }
 
 export function closeSurfacesToRight(state, input) {
@@ -379,26 +437,30 @@ export function closeSurfacesToRight(state, input) {
   if (index < 0) return current;
   const nextItems = items.slice(0, index + 1);
   const active = activeSurfaceFrom(nextItems, surfaceId) || nextItems[nextItems.length - 1] || null;
-  return {
+  const key = normalizeSessionId(input && (input.sessionId || current.activeSessionKey));
+  const nextPanel = activateRightPanelSurface(
+    { ...current.rightPanel, surfaces: nextItems },
+    active,
+  );
+  return rememberRightPanelSession({
     ...current,
-    rightPanel: activateRightPanelSurface(
-      { ...current.rightPanel, surfaces: nextItems },
-      active,
-    ),
-  };
+    rightPanel: nextPanel,
+  }, nextPanel, key);
 }
 
 export function closeAllSurfaces(state, input) {
   const current = state || createWorkbenchState();
   const placement = normalizePlacement(input && input.placement);
   if (placement !== "right") return current;
-  return {
+  const key = normalizeSessionId(input && (input.sessionId || current.activeSessionKey));
+  const nextPanel = activateRightPanelSurface(
+    { ...current.rightPanel, surfaces: [] },
+    null,
+  );
+  return rememberRightPanelSession({
     ...current,
-    rightPanel: activateRightPanelSurface(
-      { ...current.rightPanel, surfaces: [] },
-      null,
-    ),
-  };
+    rightPanel: nextPanel,
+  }, nextPanel, key);
 }
 
 function splitTerminalSurface(state, input) {
@@ -423,10 +485,12 @@ function splitTerminalSurface(state, input) {
   });
   const active = activeSurfaceFrom(surfaces, surfaceId);
   if (!active) return current;
-  return {
+  const key = normalizeSessionId(input && (input.sessionId || current.activeSessionKey));
+  const nextPanel = activateRightPanelSurface({ ...current.rightPanel, surfaces }, active);
+  return rememberRightPanelSession({
     ...current,
-    rightPanel: activateRightPanelSurface({ ...current.rightPanel, surfaces }, active),
-  };
+    rightPanel: nextPanel,
+  }, nextPanel, key);
 }
 
 function activateTerminalPane(state, input) {
@@ -445,10 +509,12 @@ function activateTerminalPane(state, input) {
   );
   const active = activeSurfaceFrom(surfaces, surfaceId);
   if (!active) return current;
-  return {
+  const key = normalizeSessionId(input && (input.sessionId || current.activeSessionKey));
+  const nextPanel = activateRightPanelSurface({ ...current.rightPanel, surfaces }, active);
+  return rememberRightPanelSession({
     ...current,
-    rightPanel: activateRightPanelSurface({ ...current.rightPanel, surfaces }, active),
-  };
+    rightPanel: nextPanel,
+  }, nextPanel, key);
 }
 
 function closeTerminalPane(state, input) {
@@ -478,15 +544,19 @@ function closeTerminalPane(state, input) {
         : surface.activeTerminalId,
   };
   const surfaces = items.map((item, itemIndex) => (itemIndex === index ? nextSurface : item));
-  return {
+  const key = normalizeSessionId(input && (input.sessionId || current.activeSessionKey));
+  const nextPanel = activateRightPanelSurface({ ...current.rightPanel, surfaces }, nextSurface);
+  return rememberRightPanelSession({
     ...current,
-    rightPanel: activateRightPanelSurface({ ...current.rightPanel, surfaces }, nextSurface),
-  };
+    rightPanel: nextPanel,
+  }, nextPanel, key);
 }
 
 export function reduceWorkbenchState(state, action) {
   const current = state || createWorkbenchState();
   switch (action.type) {
+    case "workbench_session_activated":
+      return activateWorkbenchSession(current, action.sessionId);
     case "workbench_surface_opened":
       return openSurface(current, action);
     case "workbench_surface_activated":

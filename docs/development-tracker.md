@@ -1,6 +1,6 @@
 # EmbedAgent 开发进度跟踪
 
-> 更新日期：2026-06-20（Pi/T3 residual contract cleanup）
+> 更新日期：2026-06-22（T3 workbench renderer UI state persistence）
 > 用途：持续跟踪当前阶段、下一步任务、里程碑进度、风险与阻塞
 
 ---
@@ -23,6 +23,13 @@
 ---
 
 ## 2. 当前阶段
+
+### 2026-06-22 - T3 Workbench Renderer UI State Persistence
+
+- GUI workbench state now follows T3 Code's renderer-owned UI-state store pattern: sanitized browser `localStorage` persistence for right-panel visibility/width, bottom-drawer visibility/kind/height, and session-scoped right-panel surface stacks.
+- Session activation restores the current thread's shallow right-panel surface descriptors and active surface id, so Files/File/Diff/Preview/Terminal/Plan tabs behave like thread-local workbench UI rather than one global inspector.
+- The persisted payload intentionally excludes command palette query/open state, file contents, preview snapshots, terminal output, tool data, backend snapshots, transcript history, workflow state, permission state, and runtime reducer state.
+- This slice stays in the GUI app shell: no Agent Core, backend protocol truth, workflow package, permission policy, transcript ledger, runtime reducers, provider configuration, extension loading, source-control mutation, telemetry, or offline/Win7 runtime assumptions changed.
 
 ### 2026-06-20 - Pi/T3 Residual Contract Cleanup
 

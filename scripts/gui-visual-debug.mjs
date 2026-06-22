@@ -1276,6 +1276,13 @@ async function resetScenarioViewport(page) {
   await page.setViewportSize(DEFAULT_SCENARIO_VIEWPORT);
 }
 
+async function resetScenarioStorage(page) {
+  await page.evaluate(() => {
+    window.localStorage?.clear?.();
+    window.sessionStorage?.clear?.();
+  });
+}
+
 async function runScenarios(options, repoRoot, outputDir) {
   const requireFromWebapp = createRequire(pathToFileURL(resolveWebappPackageJson(repoRoot)));
   const { chromium } = requireFromWebapp("playwright");
@@ -1299,6 +1306,7 @@ async function runScenarios(options, repoRoot, outputDir) {
         await resetScenarioViewport(page);
       }
       if (scenario !== "app") {
+        await resetScenarioStorage(page);
         await page.reload({ waitUntil: "domcontentloaded" });
       }
       if (scenario === "app") {

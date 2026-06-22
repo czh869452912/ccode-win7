@@ -28,6 +28,7 @@ import { runSessionLoadersTests } from "./session-loaders.test.mjs";
 import { runSocketMessageEffectsTests } from "./socket-message-effects.test.mjs";
 import { runVisualDebugFixturesTests } from "./visual-debug-fixtures.test.mjs";
 import { runWorkbenchStateTests } from "./workbench-state.test.mjs";
+import { runWorkbenchUiStateTests } from "./workbench-ui-state.test.mjs";
 import { runAppShellModelTests } from "./app-shell-model.test.mjs";
 import { runAppWorkspaceTests } from "./app-workspaces.test.mjs";
 import { runAppHomeModelTests } from "./app-home-model.test.mjs";
@@ -1229,6 +1230,7 @@ async function main() {
   assert.equal(composerSource.includes("onRefreshSourceControl"), true);
 
   runWorkbenchStateTests();
+  runWorkbenchUiStateTests();
   runAppShellModelTests();
   runAppWorkspaceTests();
   runAppHomeModelTests();
