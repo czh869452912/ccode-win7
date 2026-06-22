@@ -236,6 +236,17 @@ class TestPrepareOfflineContract(unittest.TestCase):
     def _script_text(self):
         return (ROOT / "scripts" / "prepare-offline.ps1").read_text(encoding="utf-8")
 
+    def test_package_config_exposes_gui_launcher_build_tool(self):
+        payload = json.loads(CONFIG.read_text(encoding="utf-8"))
+
+        self.assertIn("gui_launcher_build_root", payload["paths"])
+        self.assertEqual(
+            payload["tooling"]["build_gui_launcher"],
+            "scripts/build-gui-launcher.ps1",
+        )
+        self.assertTrue(payload["profiles"]["dev"]["run_gui_launcher_build"])
+        self.assertTrue(payload["profiles"]["release"]["run_gui_launcher_build"])
+
     def test_prepare_offline_uses_current_default_mode(self):
         script = self._script_text()
         self.assertNotIn('"default_mode": "code"', script)
@@ -249,6 +260,14 @@ class TestPrepareOfflineContract(unittest.TestCase):
         self.assertIn("data\\workspace-template\\main.c", script)
         self.assertIn("data\\workspace-template\\README.md", script)
         self.assertIn("int main(void)", script)
+
+    def test_prepare_offline_contract_mentions_native_gui_launcher_component(self):
+        script = self._script_text()
+
+        self.assertIn("GuiLauncherExePath", script)
+        self.assertIn("gui_launcher_exe", script)
+        self.assertIn("EmbedAgent.exe", script)
+        self.assertIn("embedagent-gui.exe", script)
 
 
 @unittest.skipIf(sys.platform != "win32", "Windows-only: requires PowerShell")
@@ -570,6 +589,40 @@ class TestStageJsonReports(unittest.TestCase):
             result_codes = [item["code"] for item in payload["results"]]
             self.assertIn("runtime_tool.git", result_codes)
             self.assertIn("runtime_tool.llvm.clang", result_codes)
+
+    def test_validate_offline_bundle_flags_missing_native_gui_launcher_in_strict_mode(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            bundle_root = Path(tmp) / "bundle"
+            sources_root = Path(tmp) / "sources"
+            bundle_root.mkdir()
+            sources_root.mkdir()
+            json_path = Path(tmp) / "validate-report.json"
+            result = subprocess.run(
+                [
+                    _powershell_exe(),
+                    "-NoProfile",
+                    "-File",
+                    str(VALIDATE_SCRIPT),
+                    "-BundleRoot",
+                    str(bundle_root),
+                    "-SourcesRoot",
+                    str(sources_root),
+                    "-ZipPath",
+                    str(Path(tmp) / "bundle.zip"),
+                    "-SkipDynamicChecks",
+                    "-RequireComplete",
+                    "-JsonOutputPath",
+                    str(json_path),
+                ],
+                cwd=str(ROOT),
+                capture_output=True,
+                text=True,
+            )
+            self.assertNotEqual(result.returncode, 0)
+            payload = json.loads(json_path.read_text(encoding="utf-8"))
+            result_codes = [item["code"] for item in payload["results"]]
+            self.assertIn("bundle.launcher.gui_exe_user", result_codes)
+            self.assertIn("bundle.launcher.gui_exe_cli", result_codes)
 
     def test_validate_offline_bundle_passes_static_runtime_contract_for_mock_bundle(self):
         with tempfile.TemporaryDirectory() as tmp:
