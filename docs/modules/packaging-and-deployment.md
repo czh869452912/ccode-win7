@@ -5,7 +5,7 @@
 > 状态：`active`
 > 类型：`module`
 > 负责人：`project maintainers`
-> 最后同步日期：`2026-06-14`
+> 最后同步日期：`2026-06-22`
 > 对应代码范围：`scripts/`
 
 ## 1. Purpose And Scope
@@ -28,6 +28,8 @@
 - 入口文件：`scripts/package.ps1`
 - 核心对象/脚本：
   - `package.ps1` — 统一编排入口（`doctor` / `deps` / `assemble` / `verify` / `release`）
+  - `build-gui-launcher.ps1` — 构建 Win32 GUI native launcher
+  - `launcher/embedagent_gui_launcher.cpp` — 薄原生 GUI 启动器源码
   - `prepare-offline.ps1` — 分级 bundle assembly
   - `build-offline-bundle.ps1` — 分发制品 + zip + sources seed
   - `validate-offline-bundle.ps1` — 静态与动态校验门禁
@@ -37,6 +39,7 @@
 - bundle 目录布局：
   ```text
   EmbedAgent/
+  ├── EmbedAgent.exe / embedagent-gui.exe
   ├── embedagent.cmd / embedagent-tui.cmd / embedagent-gui.cmd
   ├── manifests/
   │   ├── bundle-manifest.json
@@ -67,6 +70,7 @@
   | Universal Ctags | `bin/ctags/` | integrated |
   | LLVM/Clang bundle | `bin/llvm/` | contract-validated |
   | Fixed Version WebView2 109 | `runtime/webview2-fixed-runtime/` | Win7 GUI 必需 |
+  | Native GUI launcher | `EmbedAgent.exe`, `embedagent-gui.exe` | integrated |
 - 上游依赖：`src/embedagent/`、GUI 静态资源、`scripts/offline-assets.json`、`scripts/package.config.json`、`scripts/offline-runtime-contract.json`
 - 下游影响：`build/offline-dist/<artifact>.zip`、内网目标机
 - 相关验证：`validate-offline-bundle.ps1`、`validate-gui-smoke.py`、Win7 目标机部署前检查
@@ -77,6 +81,7 @@
 上游依赖：
 
 - Node/npm（GUI 静态资源构建）
+- `cl.exe` 或 `clang-cl.exe`（native GUI launcher 构建；运行时不需要）
 - PowerShell、Python venv
 - `scripts/offline-assets.json`（第三方资产清单）
 - `scripts/package.config.json`（打包配置）
@@ -93,11 +98,12 @@
 
 ## 5. Data / Control Flow
 
-`package.ps1` 按 `doctor` → `deps` → `assemble` → `verify` → `release` 的顺序驱动整个流水线。`assemble` 阶段先运行 `prepare-offline.ps1` 生成分级目录，再由 `build-offline-bundle.ps1` 晋升为分发制品；`verify` 阶段运行 `validate-offline-bundle.ps1` 做静态与动态门禁；最终通过验收的制品可部署到目标机并运行 `validate-gui-smoke.py` 做端到端确认。
+`package.ps1` 按 `doctor` → `deps` → `assemble` → `verify` → `release` 的顺序驱动整个流水线。`assemble` 阶段先构建 GUI native launcher，再运行 `prepare-offline.ps1` 生成分级目录，并由 `build-offline-bundle.ps1` 晋升为分发制品；`verify` 阶段运行 `validate-offline-bundle.ps1` 做静态与动态门禁；最终通过验收的制品可部署到目标机并运行 `validate-gui-smoke.py` 做端到端确认。
 
 ```mermaid
 flowchart LR
-    A["package.ps1<br/>doctor / deps / assemble / verify / release"] --> B["prepare-offline.ps1<br/>staging assembly"]
+    A["package.ps1<br/>doctor / deps / assemble / verify / release"] --> L["build-gui-launcher.ps1<br/>native GUI launcher"]
+    L --> B["prepare-offline.ps1<br/>staging assembly"]
     B --> C["build-offline-bundle.ps1<br/>dist artifact + zip + sources"]
     C --> D["validate-offline-bundle.ps1<br/>static + dynamic checks"]
     D --> E{READY?}
@@ -110,6 +116,7 @@ flowchart LR
 关键边界：
 
 - `package.ps1` 是人类/CI 唯一-facing 的入口。
+- `build-gui-launcher.ps1` 只在构建机生成薄 Win32 launcher；运行时仍使用 bundle 内 Python/WebView2。
 - `prepare-offline.ps1` 生成中间分级树，不直接产出最终 zip。
 - `validate-offline-bundle.ps1` 是 release-ready 的强制门禁，并消费 `offline-runtime-contract.json` 验证所有 runtime-invoked bundled external tools。
 - `validate-gui-smoke.py` 在目标机或 CI 上运行，验证 GUI 真实可用。

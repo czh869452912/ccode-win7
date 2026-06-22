@@ -394,6 +394,8 @@ The shipped product is expected to be a self-contained offline bundle.
 
 The architecture therefore assumes runtime discovery for bundled tools, not global machine dependencies.
 
+The GUI bundle includes a thin native Win32 launcher (`EmbedAgent.exe` / `embedagent-gui.exe`) for double-click startup, while Python, WebView2, LLVM/Clang, MinGit, ripgrep, and Universal Ctags remain explicit files in the portable bundle.
+
 `scripts/offline-runtime-contract.json` enumerates the bundled external tools that runtime flows may invoke. The release bundle validation gate and dependency checker must consume this contract rather than maintaining independent hard-coded lists. A clean Windows 7 unpack-and-run smoke remains the final release proof that the contract-backed bundle is actually portable.
 
 Offline-first does not forbid explicitly configured intranet use. It means network services are optional adapters with timeouts, local fallback/disable paths, and safe diagnostics. Telemetry, when present, is a passive sink over safe structured lifecycle/capability/diagnostic events and must not export prompts, source text, raw tool outputs, API keys, permission payloads, tokens, or approval secrets. The current code has only the permission/category and safe-envelope foundation for those future adapters; it does not ship a network uploader.

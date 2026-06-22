@@ -44,6 +44,31 @@
 
 ## 3. 当前变更记录
 
+### DC-192
+
+- 日期：2026-06-22
+- 变更主题：GUI native launcher in portable offline bundle
+- 变更摘要：
+  - The portable offline bundle now includes `EmbedAgent.exe` and `embedagent-gui.exe` as thin native GUI launchers.
+  - The launchers set the same bundle environment as `embedagent-gui.cmd`, check bundled Python and WebView2 Fixed Version runtime, and forward to the existing Python GUI launcher.
+  - The one-folder portable bundle remains the release baseline; this does not adopt PyInstaller, Nuitka, Electron, installer-first packaging, or one-file exe delivery.
+- 影响范围：
+  - `scripts/launcher/embedagent_gui_launcher.cpp`
+  - `scripts/build-gui-launcher.ps1`
+  - `scripts/package.config.json`
+  - `scripts/package-lib.ps1`
+  - `scripts/prepare-offline.ps1`
+  - `scripts/validate-offline-bundle.ps1`
+  - `scripts/check-bundle-dependencies.py`
+  - `scripts/validate-gui-smoke.py`
+  - `docs/adrs/0005-gui-native-launcher-in-portable-bundle.md`
+- 关联文档：
+  - `docs/adrs/0001-offline-portable-bundle-baseline.md`
+  - `docs/adrs/0005-gui-native-launcher-in-portable-bundle.md`
+  - `docs/modules/packaging-and-deployment.md`
+  - `docs/guides/win7-gui-validation.md`
+- 是否需要 ADR：是；native launcher exe changes the long-lived bundle entry-point strategy while preserving the portable bundle baseline.
+
 ### DC-191
 
 - 日期：2026-06-22

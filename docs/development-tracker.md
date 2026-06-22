@@ -1,6 +1,6 @@
 # EmbedAgent 开发进度跟踪
 
-> 更新日期：2026-06-22（T3 workbench renderer UI state persistence）
+> 更新日期：2026-06-22（GUI native bundle launcher）
 > 用途：持续跟踪当前阶段、下一步任务、里程碑进度、风险与阻塞
 
 ---
@@ -23,6 +23,13 @@
 ---
 
 ## 2. 当前阶段
+
+### 2026-06-22 - GUI Native Bundle Launcher
+
+- Offline GUI startup now has a native Win32 launcher entry point in the portable bundle: `EmbedAgent.exe` for user double-click startup and `embedagent-gui.exe` for scriptable GUI startup.
+- The launcher is a thin environment/setup shim over the existing Python GUI launcher; it does not freeze Agent Core or change GUI backend/frontend semantics.
+- `embedagent-gui.cmd` remains available for visible-console diagnostics and support.
+- Packaging validators and GUI smoke tests now treat the native launcher as the preferred bundle GUI entry point while preserving WebView2 Fixed Version 109 and one-folder offline delivery.
 
 ### 2026-06-22 - T3 Workbench Renderer UI State Persistence
 

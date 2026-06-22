@@ -1,6 +1,6 @@
 # Win7 GUI 验证步骤
 
-> 更新日期：2026-05-29
+> 更新日期：2026-06-22
 > 适用对象：已解压的离线 bundle，在真实 Windows 7 目标机上执行
 
 ---
@@ -29,6 +29,8 @@
 在 bundle 根目录执行：
 
 ```cmd
+EmbedAgent.exe --help
+embedagent-gui.exe --help
 embedagent-gui.cmd --help
 validate-gui-smoke.cmd
 validate-gui-smoke.cmd --windowed --auto-close-seconds 8
@@ -47,7 +49,10 @@ validate-gui-smoke.cmd --workspace D:\EmbedAgentWorkspace --windowed --auto-clos
 
 ### 4.1 基础启动
 
+- `EmbedAgent.exe --help` 返回退出码 `0`
+- `embedagent-gui.exe --help` 返回退出码 `0`
 - `embedagent-gui.cmd --help` 返回退出码 `0`
+- `embedagent-gui.cmd` 仍保留为可见控制台诊断入口
 - 不出现 `ImportError`、`ModuleNotFoundError`、`No module named fastapi/webview`
 
 ### 4.2 headless smoke
@@ -58,8 +63,8 @@ validate-gui-smoke.cmd --workspace D:\EmbedAgentWorkspace --windowed --auto-clos
 - `session_statuses` 至少覆盖 `running`、`waiting_permission`、`waiting_user_input`、`idle`
 - `tool_events` 同时包含 `tool_start` 与 `tool_finish`
 - `command_results` 中包含 `command_name == "review"` 且 `success == true`
-- `first_session_todos == 1`
-- `second_session_todos == 0`
+- `first_session_tasks == 1`
+- `second_session_tasks == 0`
 
 ### 4.3 windowed smoke
 
@@ -87,6 +92,14 @@ validate-gui-smoke.cmd --workspace D:\EmbedAgentWorkspace --windowed --auto-clos
 Windows 版本：
 bundle 是否包含 WebView2 Fixed Version 109：
 
+EmbedAgent.exe --help：
+- 退出码：
+- 结果：
+
+embedagent-gui.exe --help：
+- 退出码：
+- 结果：
+
 embedagent-gui.cmd --help：
 - 退出码：
 - 结果：
@@ -96,8 +109,8 @@ validate-gui-smoke.cmd：
 - assistant_text：
 - session_statuses：
 - tool_events：
-- first_session_todos：
-- second_session_todos：
+- first_session_tasks：
+- second_session_tasks：
 
 validate-gui-smoke.cmd --windowed --auto-close-seconds 8：
 - 退出码：

@@ -107,6 +107,9 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   backend owns a `PreviewService` that opens/probes loopback HTTP URLs, while
   the React preview model/API/chrome surface renders loading, success, and
   unreachable states without adding browser automation or Agent Core behavior
+- Offline GUI packaging now includes a native Win32 launcher exe in the portable
+  bundle, preserving the one-folder delivery model while improving double-click
+  startup.
 - this is explicitly separate from Agent Core session truth, workflow state,
   tool activation, permission policy, extension loading, provider config, and
   `/api/sessions/{id}/bootstrap`
