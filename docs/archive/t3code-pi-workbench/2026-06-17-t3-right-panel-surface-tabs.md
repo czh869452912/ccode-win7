@@ -1553,8 +1553,8 @@ At the top of `docs/design-change-log.md` current records, add:
   - `src/embedagent/frontend/gui/webapp/src/styles.css`
   - `src/embedagent/frontend/gui/webapp/test/`
 - 关联文档：
-  - `docs/superpowers/specs/2026-06-17-t3-right-panel-surface-tabs-design.md`
-  - `docs/superpowers/plans/2026-06-17-t3-right-panel-surface-tabs.md`
+  - `docs/archive/t3code-pi-workbench/2026-06-17-t3-right-panel-surface-tabs-design.md`
+  - `docs/archive/t3code-pi-workbench/2026-06-17-t3-right-panel-surface-tabs.md`
 - 是否需要 ADR：否；该变化在既有 GUI app-shell boundary 内实现，不改变 Agent Core 架构、公开 extension API、permission policy 或离线 bundle runtime contract。
 - 后续动作：
   - 继续按 T3 Code 参考实现 right-panel terminal split/file preview/browser preview 能力，但每个能力必须保持 Windows 7/offline constraints 和 GUI/Core 边界。

@@ -12,7 +12,7 @@
 
 ## Source References
 
-- Spec: `docs/superpowers/specs/2026-06-17-t3-right-panel-file-surface-design.md`
+- Spec: `docs/archive/t3code-pi-workbench/2026-06-17-t3-right-panel-file-surface-design.md`
 - T3 state reference: `reference/t3code/apps/web/src/rightPanelStore.ts`
 - T3 state tests: `reference/t3code/apps/web/src/rightPanelStore.test.ts`
 - T3 wiring reference: `reference/t3code/apps/web/src/components/ChatView.tsx`

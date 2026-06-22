@@ -1038,7 +1038,7 @@ Add a new DC entry in `docs/design-change-log.md`:
   - `scripts/gui-visual-debug.mjs`
   - `docs/modules/frontend-gui.md`
 - 关联文档：
-  - `docs/superpowers/specs/2026-06-16-gui-timeline-interaction-polish-design.md`
+  - `docs/archive/t3code-pi-workbench/2026-06-16-gui-timeline-interaction-polish-design.md`
 - 是否需要 ADR：否；这是 GUI shell and dev harness refinement.
 - 后续动作：
   - Continue later with Diff panel split/wrap review polish.

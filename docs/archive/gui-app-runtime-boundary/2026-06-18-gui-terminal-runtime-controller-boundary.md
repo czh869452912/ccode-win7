@@ -1141,8 +1141,8 @@ Add this record above `DC-173`:
   - `docs/development-tracker.md`
   - `docs/design-change-log.md`
 - 关联文档：
-  - `docs/superpowers/specs/2026-06-18-gui-terminal-runtime-controller-boundary-design.md`
-  - `docs/superpowers/plans/2026-06-18-gui-terminal-runtime-controller-boundary.md`
+  - `docs/archive/gui-app-runtime-boundary/2026-06-18-gui-terminal-runtime-controller-boundary-design.md`
+  - `docs/archive/gui-app-runtime-boundary/2026-06-18-gui-terminal-runtime-controller-boundary.md`
 - 是否需要 ADR：否；该 controller 是 GUI app-shell implementation detail，不是 backend protocol、terminal execution owner、session-history truth 或 Agent Core extension API。
 - 后续动作：
   - 可继续按相同模式规划 command router、source-control action controller 或 file preview controller 切片，让 `App.jsx` 进一步收敛为 composition shell。

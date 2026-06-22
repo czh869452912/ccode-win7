@@ -690,8 +690,8 @@ Add a new top entry before the current DC-172 entry:
   - `docs/development-tracker.md`
   - `docs/design-change-log.md`
 - 关联文档：
-  - `docs/superpowers/specs/2026-06-18-gui-session-app-loader-runtime-boundary-design.md`
-  - `docs/superpowers/plans/2026-06-18-gui-session-app-loader-runtime-boundary.md`
+  - `docs/archive/gui-app-runtime-boundary/2026-06-18-gui-session-app-loader-runtime-boundary-design.md`
+  - `docs/archive/gui-app-runtime-boundary/2026-06-18-gui-session-app-loader-runtime-boundary.md`
 - 是否需要 ADR：否；该边界是 GUI app-shell implementation detail，不是 backend protocol、session-history truth 或 Agent Core extension API。
 - 后续动作：
   - 可在后续切片继续把 command routing、terminal action helpers、source-control action helpers 或 file preview loading 从 `App.jsx` 抽到更小 controller/hook 中。

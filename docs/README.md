@@ -8,7 +8,7 @@
 
 ## 1. 文档分层
 
-- `docs/superpowers/`：当前切片说明书，服务本轮设计、计划、实施与 review；截至 `2026-06-17`，活动入口只保留 GUI standalone workspace/thread app 与 GUI timeline interaction polish 两组进行中材料；GUI app-shell boundary 与 GUI thread lifecycle boundary 已同步回全局文档并移入 `docs/archive/` 对应主题包。
+- `docs/superpowers/`：当前切片说明书，服务本轮设计、计划、实施与 review；截至 `2026-06-22`，已完成的 GUI/T3 parity、GUI runtime boundary、GUI native launcher、Pi-style loop continuation 等切片材料已同步回全局文档并移入 `docs/archive/` 对应主题包，当前该入口没有活动 plan/spec 文件。
 - `docs/` 活动文档：长期 `source-of-truth`，记录当前官方口径、模块边界和维护规则。
 - `docs/archive/`：历史留痕，保存已完成切片的设计、计划、分析和复盘材料。
 

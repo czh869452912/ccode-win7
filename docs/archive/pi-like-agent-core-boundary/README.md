@@ -2,7 +2,7 @@
 
 > 状态：`archive`
 > 类型：`slice-working-material`
-> 最后同步日期：`2026-06-20`
+> 最后同步日期：`2026-06-22`
 
 This package contains completed working materials for the Pi-inspired Agent Core
 boundary simplification and compacted-history checkpoint slice.
@@ -20,6 +20,8 @@ Archived materials:
 - `2026-06-20-pi-style-minimal-core-and-compaction-design.md`
 - `2026-06-20-pi-like-agent-core-remaining-slices.md`
 - `2026-06-20-compacted-history-checkpoints.md`
+- `2026-06-18-pi-style-agent-loop-continuation-design.md`
+- `2026-06-18-pi-style-agent-loop-continuation.md`
 
 These files are historical/reference material. Do not treat them as current
 architecture truth.

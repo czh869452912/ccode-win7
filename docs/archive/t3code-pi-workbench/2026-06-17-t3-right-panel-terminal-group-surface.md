@@ -1114,8 +1114,8 @@ At the top of `docs/design-change-log.md` under `## 3. 当前变更记录`, add:
 - 关联文档：
   - `docs/development-tracker.md`
   - `docs/design-change-log.md`
-  - `docs/superpowers/specs/2026-06-17-t3-right-panel-terminal-group-surface-design.md`
-  - `docs/superpowers/plans/2026-06-17-t3-right-panel-terminal-group-surface.md`
+  - `docs/archive/t3code-pi-workbench/2026-06-17-t3-right-panel-terminal-group-surface-design.md`
+  - `docs/archive/t3code-pi-workbench/2026-06-17-t3-right-panel-terminal-group-surface.md`
 - 是否需要 ADR：否；属于已批准的 GUI standalone app-shell / T3 Code parity program 内部 surface parity 切片，不改变 Agent Core public architecture。
 - 后续动作：
   - 继续按 `reference/t3code` 规划 browser preview、deeper file/editor parity 或 source-control checkpoint/diff 后续 slices，每项继续保持 Win7/offline 和 GUI/Core separation 约束。

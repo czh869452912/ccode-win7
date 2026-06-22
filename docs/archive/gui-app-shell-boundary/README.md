@@ -2,7 +2,7 @@
 
 > 状态：`archive`
 > 类型：`completed-slice`
-> 最后同步日期：`2026-06-17`
+> 最后同步日期：`2026-06-22`
 
 This archive package contains the completed design and implementation plan for
 the GUI app-shell boundary slice.
@@ -25,3 +25,5 @@ Archived materials:
 
 - `2026-06-17-gui-app-shell-boundary-design.md`
 - `2026-06-17-gui-app-shell-boundary.md`
+- `2026-06-15-gui-standalone-workspace-thread-app-design.md`
+- `2026-06-15-gui-standalone-workspace-thread-app.md`

@@ -367,8 +367,8 @@
   - `reference/t3code/apps/web/src/components/DiffPanelShell.tsx`
   - `reference/t3code/apps/web/src/components/DiffPanel.tsx`
   - `reference/t3code/apps/web/src/components/RightPanelTabs.tsx`
-  - `docs/superpowers/specs/2026-06-19-t3-right-panel-editor-diff-chrome-design.md`
-  - `docs/superpowers/plans/2026-06-19-t3-right-panel-editor-diff-chrome.md`
+  - `docs/archive/t3code-pi-workbench/2026-06-19-t3-right-panel-editor-diff-chrome-design.md`
+  - `docs/archive/t3code-pi-workbench/2026-06-19-t3-right-panel-editor-diff-chrome.md`
 - 是否需要 ADR：否；该变更是 GUI app-shell presentation/read-model parity work，不改变 Agent Core、backend protocol、session-history truth、workflow package contracts、permission policy、runtime reducers、provider configuration、source-control mutation policy、terminal execution、telemetry 或 public extension API。
 - 后续动作：
   - 继续一比一推进 T3code parity：source-control/branch mutation affordance boundaries、right-panel browser/preview shell、以及更深的 file editor 行为需要继续按 Win7/offline/hosted-extension 边界拆片。
@@ -402,7 +402,7 @@
   - `reference/t3code/apps/web/src/components/ChatMarkdown.tsx`
   - `reference/t3code/apps/web/src/rightPanelStore.ts`
   - `reference/t3code/apps/web/src/components/files/FilePreviewPanel.tsx`
-  - `docs/superpowers/plans/2026-06-19-t3-timeline-file-link-activation.md`
+  - `docs/archive/t3code-pi-workbench/2026-06-19-t3-timeline-file-link-activation.md`
 - 是否需要 ADR：否；该变更是 GUI app-shell presentation/read-model parity work，不改变 Agent Core、backend protocol、session-history truth、workflow package contracts、permission policy、runtime reducers、provider configuration、source-control mutation policy、terminal execution、telemetry 或 public extension API。
 - 后续动作：
   - 继续一比一推进 T3code parity：深化 editor/diff chrome，并梳理 source-control / branch mutation affordance 在 offline/Win7 约束下的 hosted-extension 边界。
@@ -462,8 +462,8 @@
   - `reference/t3code/apps/web/src/components/CommandPalette.logic.ts`
   - `reference/t3code/apps/web/src/components/ui/command.tsx`
   - `reference/t3code/apps/web/src/keybindings.ts`
-  - `docs/superpowers/specs/2026-06-18-t3-command-palette-root-submenu-design.md`
-  - `docs/superpowers/plans/2026-06-18-t3-command-palette-root-submenu.md`
+  - `docs/archive/t3code-pi-workbench/2026-06-18-t3-command-palette-root-submenu-design.md`
+  - `docs/archive/t3code-pi-workbench/2026-06-18-t3-command-palette-root-submenu.md`
 - 是否需要 ADR：否；该变更是 GUI app-shell presentation/read-model parity work，不改变 Agent Core、backend protocol、session-history truth、workflow package contracts、permission policy、runtime reducers、provider configuration、source-control mutation policy 或 public extension API。
 - 后续动作：
   - Continue one-to-one T3code parity with branch/environment mutation boundaries, source-control mutation affordances, and file/editor chrome after validating hosted/offline constraints.
@@ -497,8 +497,8 @@
   - `reference/t3code/apps/web/src/components/chat/ComposerPrimaryActions.tsx`
   - `reference/t3code/packages/shared/src/composerTrigger.ts`
   - `reference/t3code/packages/client-runtime/src/composerPathSearchState.ts`
-  - `docs/superpowers/specs/2026-06-18-t3-composer-command-menu-context-design.md`
-  - `docs/superpowers/plans/2026-06-18-t3-composer-command-menu-context.md`
+  - `docs/archive/t3code-pi-workbench/2026-06-18-t3-composer-command-menu-context-design.md`
+  - `docs/archive/t3code-pi-workbench/2026-06-18-t3-composer-command-menu-context.md`
 - 是否需要 ADR：否；该变更是 GUI app-shell presentation/read-model parity work，不改变 Agent Core、backend protocol、session-history truth、workflow package contracts、permission policy、runtime reducers、provider configuration、source-control mutation policy 或 public extension API。
 - 后续动作：
   - Continue one-to-one T3code parity for command palette depth, branch/worktree selectors behind explicit hosted boundaries, source-control mutation affordances, and file/editor chrome.
@@ -527,8 +527,8 @@
 - 关联文档：
   - `reference/t3code/apps/web/src/components/BranchToolbar.tsx`
   - `reference/t3code/apps/web/src/components/BranchToolbarActions.tsx`
-  - `docs/superpowers/specs/2026-06-18-t3-branch-toolbar-run-context-design.md`
-  - `docs/superpowers/plans/2026-06-18-t3-branch-toolbar-run-context.md`
+  - `docs/archive/t3code-pi-workbench/2026-06-18-t3-branch-toolbar-run-context-design.md`
+  - `docs/archive/t3code-pi-workbench/2026-06-18-t3-branch-toolbar-run-context.md`
 - 是否需要 ADR：否；该变更是 GUI app-shell presentation/read-model parity work，不改变 Agent Core、backend protocol、session-history truth、workflow package contracts、permission policy、runtime reducers、provider configuration、source-control mutation policy 或 public extension API。
 - 后续动作：
   - Continue one-to-one T3code parity for command routing, branch/worktree action surfacing behind explicit hosted boundaries, and file/editor chrome while preserving the small Agent Core boundary.
@@ -578,8 +578,8 @@
   - `src/embedagent/frontend/gui/`
   - `docs/`
 - 关联文档：
-  - `docs/superpowers/specs/2026-06-18-pi-style-agent-loop-continuation-design.md`
-  - `docs/superpowers/plans/2026-06-18-pi-style-agent-loop-continuation.md`
+  - `docs/archive/pi-like-agent-core-boundary/2026-06-18-pi-style-agent-loop-continuation-design.md`
+  - `docs/archive/pi-like-agent-core-boundary/2026-06-18-pi-style-agent-loop-continuation.md`
 - 是否需要 ADR：否；该变更实现既有 Pi-inspired blueprint 的小切片，不引入公共 extension API。
 - 后续动作：
   - Continue real Win7 bundle smoke validation and real C/C++ project validation with the new continuation behavior.
@@ -606,8 +606,8 @@
   - `docs/development-tracker.md`
   - `docs/design-change-log.md`
 - 关联文档：
-  - `docs/superpowers/specs/2026-06-18-t3-workbench-ia-tool-details-design.md`
-  - `docs/superpowers/plans/2026-06-18-t3-workbench-ia-tool-details.md`
+  - `docs/archive/t3code-pi-workbench/2026-06-18-t3-workbench-ia-tool-details-design.md`
+  - `docs/archive/t3code-pi-workbench/2026-06-18-t3-workbench-ia-tool-details.md`
 - 是否需要 ADR：否；该变更是 GUI app-shell display/read-model refinement，不是 backend protocol、session-history truth、workflow policy、permission policy 或 Agent Core extension API。
 - 后续动作：
   - Continue T3 parity slices for command routing, source-control action surfacing, file editor layout polish, and deeper responsive workbench behavior while keeping Agent Core small and separate.
@@ -630,8 +630,8 @@
   - `docs/development-tracker.md`
   - `docs/design-change-log.md`
 - 关联文档：
-  - `docs/superpowers/specs/2026-06-18-gui-terminal-runtime-controller-boundary-design.md`
-  - `docs/superpowers/plans/2026-06-18-gui-terminal-runtime-controller-boundary.md`
+  - `docs/archive/gui-app-runtime-boundary/2026-06-18-gui-terminal-runtime-controller-boundary-design.md`
+  - `docs/archive/gui-app-runtime-boundary/2026-06-18-gui-terminal-runtime-controller-boundary.md`
 - 是否需要 ADR：否；该 controller 是 GUI app-shell implementation detail，不是 backend protocol、terminal execution owner、session-history truth 或 Agent Core extension API。
 - 后续动作：
   - 可继续按相同模式规划 command router、source-control action controller 或 file preview controller 切片，让 `App.jsx` 进一步收敛为 composition shell。
@@ -653,8 +653,8 @@
   - `docs/development-tracker.md`
   - `docs/design-change-log.md`
 - 关联文档：
-  - `docs/superpowers/specs/2026-06-18-gui-session-app-loader-runtime-boundary-design.md`
-  - `docs/superpowers/plans/2026-06-18-gui-session-app-loader-runtime-boundary.md`
+  - `docs/archive/gui-app-runtime-boundary/2026-06-18-gui-session-app-loader-runtime-boundary-design.md`
+  - `docs/archive/gui-app-runtime-boundary/2026-06-18-gui-session-app-loader-runtime-boundary.md`
 - 是否需要 ADR：否；该边界是 GUI app-shell implementation detail，不是 backend protocol、session-history truth 或 Agent Core extension API。
 - 后续动作：
   - 可在后续切片继续把 command routing、terminal action helpers、source-control action helpers 或 file preview loading 从 `App.jsx` 抽到更小 controller/hook 中。
@@ -675,8 +675,8 @@
   - `docs/development-tracker.md`
   - `docs/design-change-log.md`
 - 关联文档：
-  - `docs/superpowers/specs/2026-06-18-gui-app-runtime-controller-boundary-design.md`
-  - `docs/superpowers/plans/2026-06-18-gui-app-runtime-controller-boundary.md`
+  - `docs/archive/gui-app-runtime-boundary/2026-06-18-gui-app-runtime-controller-boundary-design.md`
+  - `docs/archive/gui-app-runtime-boundary/2026-06-18-gui-app-runtime-controller-boundary.md`
 - 是否需要 ADR：否；该边界是 GUI app-shell implementation detail，不是 backend protocol、session-history truth 或 Agent Core extension API。
 - 后续动作：
   - 可在后续切片继续把 app/session/bootstrap loaders 和 command routing 从 `App.jsx` 抽到更小 controller/hook 中。
@@ -704,8 +704,8 @@
   - `docs/modules/frontend-gui.md`
   - `docs/development-tracker.md`
   - `docs/design-change-log.md`
-  - `docs/superpowers/specs/2026-06-18-t3-timeline-rich-projection-design.md`
-  - `docs/superpowers/plans/2026-06-18-t3-timeline-rich-projection.md`
+  - `docs/archive/t3code-pi-workbench/2026-06-18-t3-timeline-rich-projection-design.md`
+  - `docs/archive/t3code-pi-workbench/2026-06-18-t3-timeline-rich-projection.md`
 - 是否需要 ADR：否；属于已批准的 GUI/T3 Code parity program 内部 timeline rendering slice，不改变 Agent Core public architecture。
 - 后续动作：
   - 继续拆分 `App.jsx` 的 session runtime bridge、visual debug hooks、workbench shell composition，让 GUI 架构继续靠近 T3 Code 的 frontend-owned domain model，同时保持 Agent Core 小核心。
@@ -731,8 +731,8 @@
 - 关联文档：
   - `docs/development-tracker.md`
   - `docs/design-change-log.md`
-  - `docs/superpowers/specs/2026-06-17-t3-right-panel-terminal-group-surface-design.md`
-  - `docs/superpowers/plans/2026-06-17-t3-right-panel-terminal-group-surface.md`
+  - `docs/archive/t3code-pi-workbench/2026-06-17-t3-right-panel-terminal-group-surface-design.md`
+  - `docs/archive/t3code-pi-workbench/2026-06-17-t3-right-panel-terminal-group-surface.md`
 - 是否需要 ADR：否；属于已批准的 GUI standalone app-shell / T3 Code parity program 内部 surface parity 切片，不改变 Agent Core public architecture。
 - 后续动作：
   - 继续按 `reference/t3code` 规划 browser preview、deeper file/editor parity 或 source-control checkpoint/diff 后续 slices，每项继续保持 Win7/offline 和 GUI/Core separation 约束。
@@ -760,8 +760,8 @@
 - 关联文档：
   - `docs/development-tracker.md`
   - `docs/design-change-log.md`
-  - `docs/superpowers/specs/2026-06-17-t3-right-panel-file-surface-design.md`
-  - `docs/superpowers/plans/2026-06-17-t3-right-panel-file-surface.md`
+  - `docs/archive/t3code-pi-workbench/2026-06-17-t3-right-panel-file-surface-design.md`
+  - `docs/archive/t3code-pi-workbench/2026-06-17-t3-right-panel-file-surface.md`
 - 是否需要 ADR：否；属于已批准的 GUI standalone app-shell / T3 Code parity program 内部 surface parity 切片，不改变 Agent Core public architecture。
 - 后续动作：
   - 继续按 `reference/t3code` 规划 terminal grouping/split、browser preview 或 checkpoint diff 等后续 surface slices，每项继续保持 Win7/offline 和 GUI/Core separation 约束。
@@ -789,8 +789,8 @@
 - 关联文档：
   - `docs/development-tracker.md`
   - `docs/design-change-log.md`
-  - `docs/superpowers/specs/2026-06-17-t3-right-panel-surface-tabs-design.md`
-  - `docs/superpowers/plans/2026-06-17-t3-right-panel-surface-tabs.md`
+  - `docs/archive/t3code-pi-workbench/2026-06-17-t3-right-panel-surface-tabs-design.md`
+  - `docs/archive/t3code-pi-workbench/2026-06-17-t3-right-panel-surface-tabs.md`
 - 是否需要 ADR：否；属于已批准的 GUI standalone app-shell / T3 Code parity program 内部 UI shell 收敛，不改变 Agent Core public architecture。
 - 后续动作：
   - 继续按 `reference/t3code` 逐步补齐 browser/file preview/terminal grouping/checkpoint diff 等 surface，但每项必须保持 Win7/offline 和 GUI/Core separation 约束。
@@ -1069,8 +1069,8 @@
   - `docs/modules/frontend-gui.md`
   - `docs/development-tracker.md`
 - 关联文档：
-  - `docs/superpowers/specs/2026-06-16-gui-timeline-interaction-polish-design.md`
-  - `docs/superpowers/plans/2026-06-16-gui-timeline-interaction-polish.md`
+  - `docs/archive/t3code-pi-workbench/2026-06-16-gui-timeline-interaction-polish-design.md`
+  - `docs/archive/t3code-pi-workbench/2026-06-16-gui-timeline-interaction-polish.md`
 - 是否需要 ADR：否；这是 GUI shell and dev harness refinement，不改变长期架构边界。
 - 后续动作：
   - Continue later with Diff panel split/wrap review polish.

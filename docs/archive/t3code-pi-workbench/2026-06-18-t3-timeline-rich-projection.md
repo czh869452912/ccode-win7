@@ -1704,8 +1704,8 @@ At the top of `## 3. 当前变更记录` in `docs/design-change-log.md`, insert:
   - `docs/modules/frontend-gui.md`
   - `docs/development-tracker.md`
   - `docs/design-change-log.md`
-  - `docs/superpowers/specs/2026-06-18-t3-timeline-rich-projection-design.md`
-  - `docs/superpowers/plans/2026-06-18-t3-timeline-rich-projection.md`
+  - `docs/archive/t3code-pi-workbench/2026-06-18-t3-timeline-rich-projection-design.md`
+  - `docs/archive/t3code-pi-workbench/2026-06-18-t3-timeline-rich-projection.md`
 - 是否需要 ADR：否；属于已批准的 GUI/T3 Code parity program 内部 timeline rendering slice，不改变 Agent Core public architecture。
 - 后续动作：
   - 继续拆分 `App.jsx` 的 session runtime bridge、visual debug hooks、workbench shell composition，让 GUI 架构继续靠近 T3 Code 的 frontend-owned domain model，同时保持 Agent Core 小核心。
