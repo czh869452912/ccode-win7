@@ -18,6 +18,7 @@ class TestGuiLauncherExeContract(unittest.TestCase):
     def test_launcher_source_is_thin_win32_process_launcher(self):
         source = read(LAUNCHER_SOURCE)
 
+        self.assertLess(source.index("#include <windows.h>"), source.index("#include <shellapi.h>"))
         self.assertIn("CreateProcessW", source)
         self.assertIn("SetEnvironmentVariableW", source)
         self.assertIn("CommandLineToArgvW", source)
@@ -39,6 +40,10 @@ class TestGuiLauncherExeContract(unittest.TestCase):
         self.assertIn("cl.exe", script)
         self.assertIn("clang-cl.exe", script)
         self.assertIn("EMBEDAGENT_LAUNCHER_CC", script)
+        self.assertIn("vswhere.exe", script)
+        self.assertIn("VsDevCmd.bat", script)
+        self.assertIn("Microsoft.VisualStudio.Component.VC.Tools.x86.x64", script)
+        self.assertIn("LauncherCompilerExitCode", script)
 
     def test_prepare_offline_stages_native_gui_launchers(self):
         script = read(PREPARE_SCRIPT)

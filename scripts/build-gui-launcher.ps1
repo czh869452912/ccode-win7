@@ -57,6 +57,55 @@ function Resolve-CompilerPath {
     throw "No launcher compiler found. Set -CompilerPath or EMBEDAGENT_LAUNCHER_CC to cl.exe or clang-cl.exe."
 }
 
+function Resolve-VsDevCmdPath {
+    $vswhereCandidates = @(
+        (Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'),
+        (Join-Path $env:ProgramFiles 'Microsoft Visual Studio\Installer\vswhere.exe')
+    )
+
+    foreach ($vswhere in $vswhereCandidates) {
+        if (-not (Test-Path -LiteralPath $vswhere)) {
+            continue
+        }
+        $installationPath = (& $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath 2>$null | Select-Object -First 1)
+        if (-not $installationPath) {
+            continue
+        }
+        $candidate = Join-Path $installationPath 'Common7\Tools\VsDevCmd.bat'
+        if (Test-Path -LiteralPath $candidate) {
+            return (Resolve-Path -LiteralPath $candidate).Path
+        }
+    }
+
+    return ''
+}
+
+function Invoke-Compiler {
+    param(
+        [string]$Compiler,
+        [string[]]$Arguments
+    )
+
+    $compilerFile = Split-Path -Leaf $Compiler
+    if ($compilerFile -ieq 'cl.exe') {
+        & $Compiler @Arguments
+        $script:LauncherCompilerExitCode = $LASTEXITCODE
+        return
+    }
+
+    $vsDevCmd = Resolve-VsDevCmdPath
+    if ($vsDevCmd) {
+        $command = 'call "{0}" -arch=x64 -host_arch=x64 >nul && cl.exe {1}' -f $vsDevCmd, (($Arguments | ForEach-Object { '"' + ($_ -replace '"', '\"') + '"' }) -join ' ')
+        & cmd.exe /d /s /c $command
+        $script:LauncherCompilerExitCode = $LASTEXITCODE
+        return
+    }
+
+    & $Compiler @Arguments
+    $script:LauncherCompilerExitCode = $LASTEXITCODE
+    return
+}
+
 $projectRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
 $sourceResolved = Resolve-ProjectPath -ProjectRoot $projectRoot -Value $SourcePath
 if (-not $sourceResolved) {
@@ -101,9 +150,11 @@ $arguments = @(
     'user32.lib'
 )
 
-& $compiler @arguments
-if ($LASTEXITCODE -ne 0) {
-    throw "Native GUI launcher build failed with exit code $LASTEXITCODE."
+$script:LauncherCompilerExitCode = 0
+Invoke-Compiler -Compiler $compiler -Arguments $arguments
+$exitCode = $script:LauncherCompilerExitCode
+if ($exitCode -ne 0) {
+    throw "Native GUI launcher build failed with exit code $exitCode."
 }
 if (-not (Test-Path -LiteralPath $outputResolved)) {
     throw "Native GUI launcher compiler did not produce output: $outputResolved"
