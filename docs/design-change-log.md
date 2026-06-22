@@ -63,8 +63,8 @@
   - `docs/modules/frontend-gui.md`
   - `docs/development-tracker.md`
 - 关联文档：
-  - `docs/superpowers/specs/2026-06-22-t3-gui-parity-shell-design.md`
-  - `docs/superpowers/plans/2026-06-22-t3-gui-parity-shell.md`
+  - `docs/archive/t3-gui-parity-shell/2026-06-22-t3-gui-parity-shell-design.md`
+  - `docs/archive/t3-gui-parity-shell/2026-06-22-t3-gui-parity-shell.md`
   - `docs/modules/frontend-gui.md`
 - 是否需要 ADR：否；该变更是 GUI app-shell parity/stabilization work，不改变 Agent Core、session-history truth、permission policy、workflow package ownership、runtime reducers、provider behavior、extension loading、backend protocol semantics、offline deployment, or Windows 7 constraints.
 

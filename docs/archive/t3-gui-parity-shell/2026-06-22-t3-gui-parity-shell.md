@@ -12,7 +12,7 @@
 
 ## Source Spec
 
-Approved design: `docs/superpowers/specs/2026-06-22-t3-gui-parity-shell-design.md`
+Approved design: `2026-06-22-t3-gui-parity-shell-design.md`
 
 Primary T3 references:
 
