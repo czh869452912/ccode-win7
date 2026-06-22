@@ -169,9 +169,7 @@ class GuiTerminalApiTests(unittest.TestCase):
             self.assertEqual(opened["terminal"]["capabilities"]["pty"], False)
 
             listed = asyncio.run(
-                route(backend.app, "/api/sessions/{session_id}/terminals", "GET").endpoint(
-                    "sess-1"
-                )
+                route(backend.app, "/api/sessions/{session_id}/terminals", "GET").endpoint("sess-1")
             )
             self.assertEqual(listed["terminals"][0]["terminal_id"], "term-1")
 
@@ -228,7 +226,9 @@ class GuiTerminalApiTests(unittest.TestCase):
                 ).endpoint("sess-1", "term-1")
             )
             self.assertEqual(closed["terminal"]["status"], "closed")
-            self.assertTrue(any(message["type"] == "terminal_event" for message in frontend.messages))
+            self.assertTrue(
+                any(message["type"] == "terminal_event" for message in frontend.messages)
+            )
             self.assertIn(("write", "sess-1", "term-1", "echo hi\n"), terminal.calls)
             self.assertIn(("close", "sess-1", "term-1"), terminal.calls)
 

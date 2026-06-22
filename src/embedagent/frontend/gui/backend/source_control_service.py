@@ -109,7 +109,9 @@ class SourceControlService(object):
         self,
         workspace_root: str,
         git_executable: Optional[str] = None,
-        command_runner: Optional[Callable[[List[str], str, int, int, Dict[str, str]], Dict[str, Any]]] = None,
+        command_runner: Optional[
+            Callable[[List[str], str, int, int, Dict[str, str]], Dict[str, Any]]
+        ] = None,
         env_builder: Optional[Callable[[], Dict[str, str]]] = None,
         runtime_source: str = "",
     ) -> None:
@@ -117,7 +119,9 @@ class SourceControlService(object):
         self.command_runner = command_runner or default_command_runner
         self.env_builder = env_builder
         self.runtime_source = str(runtime_source or "")
-        self.git_executable = git_executable if git_executable is not None else self._resolve_git_executable()
+        self.git_executable = (
+            git_executable if git_executable is not None else self._resolve_git_executable()
+        )
 
     def status(self) -> Dict[str, Any]:
         base = self._base_status()
@@ -144,10 +148,14 @@ class SourceControlService(object):
         lines = [line for line in str(status_result.get("stdout") or "").splitlines() if line]
         branch, files = self._parse_status_lines(lines)
         head = self._first_stdout_line(
-            self._run_git(["rev-parse", "--short", "HEAD"], STATUS_TIMEOUT_SEC, MAX_STATUS_OUTPUT_BYTES)
+            self._run_git(
+                ["rev-parse", "--short", "HEAD"], STATUS_TIMEOUT_SEC, MAX_STATUS_OUTPUT_BYTES
+            )
         )
         remote_url = self._first_stdout_line(
-            self._run_git(["remote", "get-url", "origin"], STATUS_TIMEOUT_SEC, MAX_STATUS_OUTPUT_BYTES)
+            self._run_git(
+                ["remote", "get-url", "origin"], STATUS_TIMEOUT_SEC, MAX_STATUS_OUTPUT_BYTES
+            )
         )
         stats = self._collect_numstat()
         files = [self._with_stats(item, stats) for item in files]
@@ -273,7 +281,9 @@ class SourceControlService(object):
         max_output_bytes: int,
     ) -> Dict[str, Any]:
         command = [self.git_executable, "-C", self.workspace_root] + list(args)
-        return self.command_runner(command, self.workspace_root, timeout_sec, max_output_bytes, self._build_env())
+        return self.command_runner(
+            command, self.workspace_root, timeout_sec, max_output_bytes, self._build_env()
+        )
 
     def _relative_workspace_path(self, path: str) -> str:
         text = str(path or "").strip()
@@ -283,7 +293,9 @@ class SourceControlService(object):
         resolved = os.path.realpath(candidate)
         workspace_norm = os.path.normcase(self.workspace_root)
         resolved_norm = os.path.normcase(resolved)
-        if not (resolved_norm == workspace_norm or resolved_norm.startswith(workspace_norm + os.sep)):
+        if not (
+            resolved_norm == workspace_norm or resolved_norm.startswith(workspace_norm + os.sep)
+        ):
             raise ValueError("path_outside_workspace")
         relative = os.path.relpath(resolved, self.workspace_root)
         return "." if relative == "." else relative.replace(os.sep, "/")

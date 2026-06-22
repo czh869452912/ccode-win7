@@ -30,11 +30,10 @@ uv run pytest tests/ -m harness -v
 uv run pytest tests/ -v
 
 # Check lint (read-only)
-uv run ruff check src/ tests/
-uv run black --check src/ tests/
+uv run --locked python scripts/lint.py
 
 # Auto-fix lint
-uv run ruff check --fix src/ tests/ && uv run black src/ tests/
+uv run --locked python scripts/lint.py --fix
 
 # Full local CI equivalent
 make ci

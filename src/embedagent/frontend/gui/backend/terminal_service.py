@@ -76,7 +76,10 @@ class TerminalService(object):
         with self._lock:
             records = []
             for current_session_id, terminals in self._sessions.items():
-                if normalized_session_id is not None and current_session_id != normalized_session_id:
+                if (
+                    normalized_session_id is not None
+                    and current_session_id != normalized_session_id
+                ):
                     continue
                 for state in terminals.values():
                     records.append(self._summary_locked(state))
@@ -184,7 +187,9 @@ class TerminalService(object):
         events = []
         with self._lock:
             terminals = self._sessions.get(normalized_session_id, {})
-            target_ids = [normalized_terminal_id] if normalized_terminal_id else list(terminals.keys())
+            target_ids = (
+                [normalized_terminal_id] if normalized_terminal_id else list(terminals.keys())
+            )
             for target_id in target_ids:
                 state = terminals.get(target_id)
                 if state is None:

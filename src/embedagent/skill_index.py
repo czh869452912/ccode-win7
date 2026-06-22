@@ -39,9 +39,7 @@ class SkillIndex(object):
 
     def prompt_text(self) -> str:
         visible = [
-            item
-            for item in self.visible_records()
-            if item.name and item.description and item.path
+            item for item in self.visible_records() if item.name and item.description and item.path
         ]
         if not visible:
             return ""

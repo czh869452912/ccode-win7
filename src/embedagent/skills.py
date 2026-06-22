@@ -83,7 +83,8 @@ def expand_skill_invocation(
     display_path = skill.path or _display_path(os.path.realpath(workspace), path)
     base_dir = skill.base_dir or _display_path(os.path.realpath(workspace), os.path.dirname(path))
     lines = [
-        '<skill name="%s" location="%s">' % (_attribute_escape(command_name), _attribute_escape(display_path)),
+        '<skill name="%s" location="%s">'
+        % (_attribute_escape(command_name), _attribute_escape(display_path)),
         "References are relative to %s." % base_dir,
         "",
         body,

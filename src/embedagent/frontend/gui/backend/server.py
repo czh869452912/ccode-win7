@@ -23,8 +23,8 @@ from embedagent.frontend.gui.backend.app_host import (
 )
 from embedagent.frontend.gui.backend.app_shell import AppShellService
 from embedagent.frontend.gui.backend.bridge import BlockingResult, ThreadsafeAsyncDispatcher
-from embedagent.frontend.gui.backend.session_events import build_session_event
 from embedagent.frontend.gui.backend.preview_service import PreviewService
+from embedagent.frontend.gui.backend.session_events import build_session_event
 from embedagent.frontend.gui.backend.source_control_service import SourceControlService
 from embedagent.frontend.gui.backend.terminal_service import TerminalService
 from embedagent.modes import DEFAULT_MODE
@@ -146,9 +146,7 @@ def _serialize_session_snapshot(snapshot: Any) -> Dict[str, Any]:
         "restore_transcript_event_count": int(
             _read_value(snapshot, "restore_transcript_event_count", 0) or 0
         ),
-        "operation_diagnostics": dict(
-            _read_value(snapshot, "operation_diagnostics", {}) or {}
-        ),
+        "operation_diagnostics": dict(_read_value(snapshot, "operation_diagnostics", {}) or {}),
         "runtime_config": dict(_read_value(snapshot, "runtime_config", {}) or {}),
         "compaction_state": dict(_read_value(snapshot, "compaction_state", {}) or {}),
         "recovery_state": dict(_read_value(snapshot, "recovery_state", {}) or {}),

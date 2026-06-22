@@ -10,12 +10,10 @@ harness:
 	uv run pytest tests/ -m harness -v
 
 lint:
-	uv run ruff check src/ tests/
-	uv run black --check src/ tests/
+	uv run --locked python scripts/lint.py
 
 lint-fix:
-	uv run ruff check --fix src/ tests/
-	uv run black src/ tests/
+	uv run --locked python scripts/lint.py --fix
 
 smoke:
 	pip install -e ".[cli]" && python -c "import embedagent; print('import OK')"

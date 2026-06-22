@@ -70,14 +70,18 @@ class AppShellService(object):
         raw = self._app_host.remove_workspace(workspace_id)
         return self._base_payload(raw)
 
-    def _base_payload(self, raw: Optional[Dict[str, Any]] = None, last_error: str = "") -> Dict[str, Any]:
+    def _base_payload(
+        self, raw: Optional[Dict[str, Any]] = None, last_error: str = ""
+    ) -> Dict[str, Any]:
         payload = dict(raw or {})
         workspaces = list(payload.get("workspaces") or [])
         active_workspace = payload.get("active_workspace")
         response = {
             "app": self._app_metadata(),
             "workspaces": workspaces,
-            "active_workspace": dict(active_workspace) if isinstance(active_workspace, dict) else None,
+            "active_workspace": (
+                dict(active_workspace) if isinstance(active_workspace, dict) else None
+            ),
             "has_active_workspace": bool(payload.get("has_active_workspace")),
             "diagnostics": self._diagnostics(payload),
             "capabilities": self._capabilities(),

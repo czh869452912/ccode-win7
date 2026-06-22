@@ -133,7 +133,10 @@ class TestSessionLifecycleManager(unittest.TestCase):
         self.assertEqual(result, [{"id": "1"}])
 
     def test_thread_lifecycle_delegates_to_summary_store(self):
-        self.summary_store.rename_session.return_value = {"session_id": "sess-1", "title": "Renamed"}
+        self.summary_store.rename_session.return_value = {
+            "session_id": "sess-1",
+            "title": "Renamed",
+        }
         self.summary_store.archive_session.return_value = {
             "session_id": "sess-1",
             "thread": {"archived": True},

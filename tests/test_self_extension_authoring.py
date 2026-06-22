@@ -96,9 +96,7 @@ def test_authoring_accepts_network_and_telemetry_extension_permissions(tmp_path)
         )
     )
 
-    manifest_path = (
-        tmp_path / ".embedagent" / "extensions" / "enterprise-bridge" / "extension.json"
-    )
+    manifest_path = tmp_path / ".embedagent" / "extensions" / "enterprise-bridge" / "extension.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
 
     assert result.success is True
