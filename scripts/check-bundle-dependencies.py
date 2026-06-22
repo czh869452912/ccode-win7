@@ -5,12 +5,11 @@ Ensures all dependencies are present for zero-dependency deployment.
 """
 from __future__ import annotations
 
-import json
 import argparse
+import json
 import sys
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
-
 
 ROOT = Path(__file__).resolve().parents[1]
 CONTRACT = ROOT / "scripts" / "offline-runtime-contract.json"
@@ -18,7 +17,7 @@ for candidate in (ROOT / "src", ROOT / "app"):
     if candidate.exists():
         sys.path.insert(0, str(candidate))
 
-from embedagent.runtime_discovery import discover_bundle_root
+from embedagent.runtime_discovery import discover_bundle_root  # noqa: E402
 
 
 def parse_args():
@@ -81,10 +80,10 @@ def check_python_runtime(bundle_root: Path) -> Tuple[bool, List[str]]:
     """Check Python runtime exists."""
     errors = []
     python_exe = bundle_root / "runtime" / "python" / "python.exe"
-    
+
     if not python_exe.exists():
         errors.append("Missing: runtime/python/python.exe")
-    
+
     return len(errors) == 0, errors
 
 
@@ -92,11 +91,11 @@ def check_site_packages(bundle_root: Path) -> Tuple[bool, List[str]]:
     """Check all required Python packages are present."""
     errors = []
     sp = bundle_root / "runtime" / "site-packages"
-    
+
     if not sp.exists():
         errors.append("Missing: runtime/site-packages directory")
         return False, errors
-    
+
     # Critical packages that must be present
     critical = {
         # Core
@@ -124,7 +123,7 @@ def check_site_packages(bundle_root: Path) -> Tuple[bool, List[str]]:
         "pygments": ["pygments", "Pygments"],
         "wcwidth": ["wcwidth"],
     }
-    
+
     for display_name, variants in critical.items():
         found = False
         for variant in variants:
@@ -140,10 +139,10 @@ def check_site_packages(bundle_root: Path) -> Tuple[bool, List[str]]:
             if list(sp.glob(f"{variant}_*.pyd")) or list(sp.glob(f"{variant}*.so")):
                 found = True
                 break
-        
+
         if not found:
             errors.append(f"Missing package: {display_name}")
-    
+
     # Check package count
     pkg_count = len([d for d in sp.iterdir() if d.is_dir() and not d.name.endswith(".dist-info")])
     if pkg_count < 20:  # Minimum expected packages
@@ -153,7 +152,7 @@ def check_site_packages(bundle_root: Path) -> Tuple[bool, List[str]]:
     if editable_links:
         names = ", ".join(item.name for item in editable_links)
         errors.append(f"Editable path links should not be bundled: {names}")
-    
+
     return len(errors) == 0, errors
 
 
@@ -203,7 +202,7 @@ def check_external_tools(bundle_root: Path) -> Tuple[bool, List[str]]:
                 errors.append(
                     "runtime_tool.%s.%s missing: %s" % (tool_id, child_id, child_path)
                 )
-    
+
     return len(errors) == 0, errors
 
 
@@ -217,11 +216,11 @@ def check_launchers(bundle_root: Path) -> Tuple[bool, List[str]]:
         "embedagent-tui.cmd",
         "embedagent-gui.cmd",
     ]
-    
+
     for launcher in launchers:
         if not (bundle_root / launcher).exists():
             errors.append(f"Missing launcher: {launcher}")
-    
+
     return len(errors) == 0, errors
 
 
@@ -233,11 +232,11 @@ def check_config_files(bundle_root: Path) -> Tuple[bool, List[str]]:
         "config/config.json.template",
         "config/permission-rules.json",
     ]
-    
+
     for config in configs:
         if not (bundle_root / config).exists():
             errors.append(f"Missing config: {config}")
-    
+
     return len(errors) == 0, errors
 
 
@@ -249,11 +248,11 @@ def check_documentation(bundle_root: Path) -> Tuple[bool, List[str]]:
         "docs/win7-preflight-checklist.md",
         "docs/intranet-deployment.md",
     ]
-    
+
     for doc in docs:
         if not (bundle_root / doc).exists():
             errors.append(f"Missing documentation: {doc}")
-    
+
     return len(errors) == 0, errors
 
 
@@ -264,11 +263,11 @@ def check_static_files(bundle_root: Path) -> Tuple[bool, List[str]]:
         "app/embedagent/frontend/gui/static/index.html",
         "app/embedagent/frontend/gui/static/assets",
     ]
-    
+
     for file in static_files:
         if not (bundle_root / file).exists():
             errors.append(f"Missing static file: {file}")
-    
+
     return len(errors) == 0, errors
 
 
@@ -276,15 +275,15 @@ def check_manifest(bundle_root: Path) -> Tuple[bool, List[str]]:
     """Check bundle manifest exists and is valid."""
     errors = []
     manifest_path = bundle_root / "manifests" / "bundle-manifest.json"
-    
+
     if not manifest_path.exists():
         errors.append("Missing: manifests/bundle-manifest.json")
         return False, errors
-    
+
     try:
         with open(manifest_path) as f:
             manifest = json.load(f)
-        
+
         required_keys = ["schema_version", "components"]
         for key in required_keys:
             if key not in manifest:
@@ -293,7 +292,7 @@ def check_manifest(bundle_root: Path) -> Tuple[bool, List[str]]:
             errors.append("Manifest missing identifier key: bundle_id or artifact_name")
     except json.JSONDecodeError as e:
         errors.append(f"Invalid manifest JSON: {e}")
-    
+
     return len(errors) == 0, errors
 
 
