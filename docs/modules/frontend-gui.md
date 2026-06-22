@@ -132,6 +132,22 @@ opens file preview tabs through right-panel surface descriptors. The sidebar
 must not render a second Files tab or duplicate file tree; file navigation
 remains GUI app-shell display state and must not become workflow truth.
 
+### T3-Style GUI Shell Parity
+
+The GUI workbench now treats right-panel surfaces, terminal grouping, floating
+menus, and timeline row expansion as app-shell display state. These models are
+derived in the webapp and do not write transcript history, workflow state,
+permission policy, runtime reducers, extension loading state, telemetry, or
+source-control checkpoints.
+
+The right panel follows the T3 Code surface model: ordered surface descriptors,
+an active surface id, resource-specific file/preview/terminal surfaces,
+singleton local surfaces, and floating tab menus outside tab-scroll clipping.
+Terminal UI uses one shared shell for bottom drawer and right-panel owners
+while continuing to consume the existing GUI terminal backend service. Timeline
+rows are projected through the frontend-local T3 row model; compact/context
+display is turn-associated display metadata, not Agent Core context policy.
+
 ### T3 File Preview Chrome
 
 - The right-panel `FilePreviewSurface` renders a T3code-style file viewer over an

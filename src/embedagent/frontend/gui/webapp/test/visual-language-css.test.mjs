@@ -67,10 +67,16 @@ export function runVisualLanguageCssTests() {
   assertIncludes(styles, "@media (max-width: 720px)", "mobile guardrails should exist");
   assertIncludes(styles, ".right-panel-surface-tab.active", "right panel active surface styling should remain explicit");
   assertIncludes(styles, ".right-panel-tab-scroll", "right panel should use a horizontally scrollable surface tab list");
+  assertIncludes(styles, ".workbench-layout.drawer-open .workbench-center", "drawer-open layout should stay explicit");
+  assertIncludes(styles, "var(--bottom-drawer-h-raw", "bottom drawer height should be state-backed");
+  assertIncludes(styles, ".right-panel-tab-strip", "right panel tabs should use a stable strip");
+  assertIncludes(styles, ".floating-menu-layer", "right panel menus should float outside clipped tab scroll");
   assertIncludes(styles, ".right-panel-add-menu-popup", "right panel add-surface menu should be styled");
   assertIncludes(styles, ".right-panel-empty-card", "right panel empty-state surface cards should be styled");
   assertIncludes(styles, ".right-panel-files-surface", "right panel files surface should own a bounded shell");
   assertIncludes(styles, ".diff-panel", "diff panel should keep a dedicated shell");
+  assertIncludes(styles, ".terminal-shell-panes.split-horizontal", "terminal shell should support horizontal splits");
+  assertIncludes(styles, ".terminal-shell-panes.split-vertical", "terminal shell should support vertical splits");
   assertIncludes(
     styles,
     "background: var(--bg-panel);",

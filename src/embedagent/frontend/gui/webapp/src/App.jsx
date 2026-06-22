@@ -1425,6 +1425,7 @@ function App() {
       }
       rightPanelOpen={state.workbench.rightPanel.open}
       bottomDrawerOpen={state.workbench.bottomDrawer.open}
+      bottomDrawerHeight={state.workbench.bottomDrawer.height}
       onResizeSidebar={(e) => startResize(e, "--sidebar-w-raw", RESIZE_RIGHT)}
       onResizeRightPanel={(e) => startResize(e, "--inspector-w-raw", RESIZE_LEFT)}
     />

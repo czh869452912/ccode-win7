@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import fs from "node:fs";
+import assert from "node:assert/strict";
 import http from "node:http";
 import net from "node:net";
 import os from "node:os";
@@ -8,7 +9,24 @@ import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { createRequire } from "node:module";
 
-export const SCENARIOS = ["load", "chat", "composer", "palette", "preview", "diff", "file", "terminal", "responsive", "app", "thread", "timeline", "interaction"];
+export const SCENARIOS = [
+  "load",
+  "chat",
+  "composer",
+  "palette",
+  "preview",
+  "diff",
+  "file",
+  "terminal",
+  "responsive",
+  "app",
+  "thread",
+  "timeline",
+  "interaction",
+  "panel-overflow",
+  "terminal-split",
+  "timeline-context",
+];
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_REPO_ROOT = path.resolve(SCRIPT_DIR, "..");
@@ -1034,6 +1052,44 @@ async function runInteractionScenario(page) {
   };
 }
 
+async function runPanelOverflowScenario(page) {
+  await page.waitForFunction(() => Boolean(window.__EMBEDAGENT_VISUAL_DEBUG__), null, { timeout: 10000 });
+  await page.evaluate(() => {
+    window.__EMBEDAGENT_VISUAL_DEBUG__.loadPanelOverflowFixture();
+  });
+  await page.getByTestId("right-panel-surface-tabs").waitFor();
+  await page.getByLabel("Add panel surface").click();
+  const menuVisible = await page.locator(".right-panel-add-menu-popup").isVisible();
+  assert.equal(menuVisible, true);
+  const menuBox = await page.locator(".right-panel-add-menu-popup").boundingBox();
+  const tabsBox = await page.getByTestId("right-panel-surface-tabs").boundingBox();
+  assert.equal(Boolean(menuBox && tabsBox && menuBox.height > tabsBox.height), true);
+  return { menuEscapesTabbar: true };
+}
+
+async function runTerminalSplitScenario(page) {
+  await page.waitForFunction(() => Boolean(window.__EMBEDAGENT_VISUAL_DEBUG__), null, { timeout: 10000 });
+  await page.evaluate(() => {
+    window.__EMBEDAGENT_VISUAL_DEBUG__.loadTerminalSplitFixture();
+  });
+  await page.getByTestId("right-panel-terminal-surface").waitFor();
+  const paneCount = await page.locator(".terminal-shell-pane").count();
+  assert.equal(paneCount, 2);
+  return { paneCount };
+}
+
+async function runTimelineContextScenario(page) {
+  await page.waitForFunction(() => Boolean(window.__EMBEDAGENT_VISUAL_DEBUG__), null, { timeout: 10000 });
+  await page.evaluate(() => {
+    window.__EMBEDAGENT_VISUAL_DEBUG__.loadTimelineContextFixture();
+  });
+  await page.getByTestId("timeline-root").waitFor();
+  const compactRows = await page.locator('[data-row-kind="compact"]').count();
+  assert.equal(compactRows, 0);
+  const contextRows = await page.locator('[data-row-kind="context_summary"], [data-row-kind="system_notice"]').count();
+  return { compactRows, contextRows };
+}
+
 async function runThreadScenario(page) {
   await page.waitForFunction(() => Boolean(window.__EMBEDAGENT_VISUAL_DEBUG__), null, { timeout: 10000 });
   await page.waitForSelector('[data-testid="workbench-layout"]', { timeout: 10000 });
@@ -1333,6 +1389,12 @@ async function runScenarios(options, repoRoot, outputDir) {
         results.timeline = await runTimelineScenario(page);
       } else if (scenario === "interaction") {
         results.interaction = await runInteractionScenario(page);
+      } else if (scenario === "panel-overflow") {
+        results[scenario] = await runPanelOverflowScenario(page);
+      } else if (scenario === "terminal-split") {
+        results[scenario] = await runTerminalSplitScenario(page);
+      } else if (scenario === "timeline-context") {
+        results[scenario] = await runTimelineContextScenario(page);
       } else if (scenario === "responsive") {
         results.responsive = await runResponsiveScenario(page, options, outputDir);
       }
@@ -1354,7 +1416,7 @@ function printHelp() {
   console.log(`Usage: node scripts/gui-visual-debug.mjs [options]
 
 Options:
-  --scenario load|chat|composer|palette|preview|diff|file|terminal|responsive|app|thread|timeline|interaction|all
+  --scenario load|chat|composer|palette|preview|diff|file|terminal|responsive|app|thread|timeline|interaction|panel-overflow|terminal-split|timeline-context|all
                                    Scenario list to run (default: load)
   --workspace PATH                Existing workspace; temp workspace by default
   --output PATH                   Output dir for screenshots and summary JSON

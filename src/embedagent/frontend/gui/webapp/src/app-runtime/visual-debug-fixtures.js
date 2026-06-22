@@ -432,6 +432,107 @@ export function buildFilePreviewRevealFixtureAction() {
   };
 }
 
+export function loadPanelOverflowFixture(dispatch) {
+  dispatch({
+    type: "visual_thread_lifecycle_fixture_loaded",
+    sessionId: "visual-panel-overflow",
+    sessions: [{ session_id: "visual-panel-overflow", user_goal: "Panel overflow fixture" }],
+  });
+  for (const surface of [
+    { kind: "files" },
+    { kind: "diff", resourceId: "current" },
+    { kind: "plan" },
+    { kind: "source_control" },
+    { kind: "settings" },
+    { kind: "diagnostics" },
+    { kind: "preview", resourceId: "preview-a" },
+    {
+      kind: "terminal",
+      resourceId: "term-a",
+      terminalId: "term-a",
+      terminalIds: ["term-a"],
+      activeTerminalId: "term-a",
+    },
+  ]) {
+    dispatch({ type: "workbench_surface_opened", placement: "right", ...surface });
+  }
+}
+
+export function loadTerminalSplitFixture(dispatch) {
+  dispatch({
+    type: "visual_thread_lifecycle_fixture_loaded",
+    sessionId: "visual-terminal-split",
+    sessions: [{ session_id: "visual-terminal-split", user_goal: "Terminal split fixture" }],
+  });
+  dispatch({
+    type: "terminal_snapshot_loaded",
+    snapshot: {
+      session_id: "visual-terminal-split",
+      terminal_id: "term-a",
+      status: "running",
+      history: "term-a ready\n",
+      cols: 100,
+      rows: 30,
+    },
+  });
+  dispatch({
+    type: "terminal_snapshot_loaded",
+    snapshot: {
+      session_id: "visual-terminal-split",
+      terminal_id: "term-b",
+      status: "running",
+      history: "term-b ready\n",
+      cols: 100,
+      rows: 30,
+    },
+  });
+  dispatch({
+    type: "workbench_surface_opened",
+    placement: "right",
+    kind: "terminal",
+    resourceId: "term-a",
+    terminalId: "term-a",
+    terminalIds: ["term-a", "term-b"],
+    activeTerminalId: "term-b",
+    splitDirection: "vertical",
+  });
+}
+
+export function loadTimelineContextFixture(dispatch) {
+  dispatch({
+    type: "visual_timeline_fixture_loaded",
+    sessionId: "visual-timeline-context",
+    activeTurnId: "turn-context-active",
+    thinkingActive: true,
+    timeline: [
+      {
+        id: "user-context",
+        kind: "user",
+        role: "user",
+        content: "Build the project",
+        turnId: "turn-context-active",
+      },
+      {
+        id: "tool-running",
+        kind: "tool",
+        toolName: "run_recipe",
+        label: "Run Recipe",
+        status: "running",
+        tone: "running",
+        turnId: "turn-context-active",
+      },
+      {
+        id: "compact-active",
+        kind: "compact",
+        content: "Context compacted",
+        summarizedTurns: 5,
+        recentTurns: 2,
+        turnId: "turn-context-active",
+      },
+    ],
+  });
+}
+
 export function installVisualDebugFixtures({
   windowObject,
   locationSearch = "",
@@ -468,6 +569,15 @@ export function installVisualDebugFixtures({
     },
     loadThreadLifecycleFixture() {
       dispatch(buildThreadLifecycleFixtureAction());
+    },
+    loadPanelOverflowFixture() {
+      loadPanelOverflowFixture(dispatch);
+    },
+    loadTerminalSplitFixture() {
+      loadTerminalSplitFixture(dispatch);
+    },
+    loadTimelineContextFixture() {
+      loadTimelineContextFixture(dispatch);
     },
   };
   return () => {

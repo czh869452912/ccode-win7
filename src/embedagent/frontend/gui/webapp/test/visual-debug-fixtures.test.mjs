@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 import {
   buildComposerFileTreeFixtureAction,
@@ -10,7 +13,15 @@ import {
   installVisualDebugFixtures,
 } from "../src/app-runtime/visual-debug-fixtures.js";
 
+const WEBAPP_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const FIXTURES_PATH = path.join(WEBAPP_ROOT, "src", "app-runtime", "visual-debug-fixtures.js");
+
 export function runVisualDebugFixturesTests() {
+  const source = fs.readFileSync(FIXTURES_PATH, "utf8");
+  assert.equal(source.includes("loadPanelOverflowFixture"), true);
+  assert.equal(source.includes("loadTerminalSplitFixture"), true);
+  assert.equal(source.includes("loadTimelineContextFixture"), true);
+
   const timelineAction = buildTimelineFixtureAction({ currentMode: "build" });
   assert.equal(timelineAction.type, "visual_timeline_fixture_loaded");
   assert.equal(timelineAction.sessionId, "visual-debug-timeline");

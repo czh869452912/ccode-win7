@@ -37,6 +37,7 @@
 - Session activation restores the current thread's shallow right-panel surface descriptors and active surface id, so Files/File/Diff/Preview/Terminal/Plan tabs behave like thread-local workbench UI rather than one global inspector.
 - The persisted payload intentionally excludes command palette query/open state, file contents, preview snapshots, terminal output, tool data, backend snapshots, transcript history, workflow state, permission state, and runtime reducer state.
 - This slice stays in the GUI app shell: no Agent Core, backend protocol truth, workflow package, permission policy, transcript ledger, runtime reducers, provider configuration, extension loading, source-control mutation, telemetry, or offline/Win7 runtime assumptions changed.
+- 2026-06-22: Planned and implemented T3 GUI parity shell stabilization for right-panel floating menus, surface-store parity, shared terminal shell, and frontend-local timeline row model. Agent Core, transcript truth, reducers, workflow packages, permission policy, and backend protocol semantics remain unchanged.
 
 ### 2026-06-20 - Pi/T3 Residual Contract Cleanup
 

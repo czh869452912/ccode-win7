@@ -26,7 +26,7 @@ export async function runVisualDebugRunnerTests() {
   assert.deepEqual(runner.parseScenarioList("load,palette"), ["load", "palette"]);
   assert.deepEqual(runner.parseScenarioList("thread"), ["thread"]);
   assert.deepEqual(runner.parseScenarioList("timeline,interaction"), ["timeline", "interaction"]);
-  assert.deepEqual(runner.parseScenarioList("all"), ["app", "load", "chat", "composer", "palette", "preview", "diff", "file", "terminal", "responsive", "thread", "timeline", "interaction"]);
+  assert.deepEqual(runner.parseScenarioList("all"), ["app", "load", "chat", "composer", "palette", "preview", "diff", "file", "terminal", "responsive", "thread", "timeline", "interaction", "panel-overflow", "terminal-split", "timeline-context"]);
   assert.deepEqual(runner.parseScenarioList("preview"), ["preview"]);
   assert.deepEqual(runner.parseScenarioList("load,preview"), ["load", "preview"]);
   assert.deepEqual(runner.parseScenarioList("app"), ["app"]);
@@ -95,6 +95,9 @@ export async function runVisualDebugRunnerTests() {
   assert.equal(runnerSource.includes("right-panel-tab--diff"), false);
   assert.equal(runnerSource.includes("runTimelineScenario"), true);
   assert.equal(runnerSource.includes("runInteractionScenario"), true);
+  assert.equal(runnerSource.includes("runPanelOverflowScenario"), true);
+  assert.equal(runnerSource.includes("runTerminalSplitScenario"), true);
+  assert.equal(runnerSource.includes("runTimelineContextScenario"), true);
   assert.equal(runnerSource.includes("runThreadScenario"), true);
   assert.equal(runnerSource.includes("loadTimelineFixture"), true);
   assert.equal(runnerSource.includes("timeline-reasoning-row"), true);
@@ -103,6 +106,9 @@ export async function runVisualDebugRunnerTests() {
   assert.equal(runnerSource.includes("timeline-tool-file-link--src/parser.c"), true);
   assert.equal(runnerSource.includes("timelineLinkRevealState"), true);
   assert.equal(runnerSource.includes("loadInteractionFixture"), true);
+  assert.equal(runnerSource.includes("loadPanelOverflowFixture"), true);
+  assert.equal(runnerSource.includes("loadTerminalSplitFixture"), true);
+  assert.equal(runnerSource.includes("loadTimelineContextFixture"), true);
   assert.equal(runnerSource.includes("loadThreadLifecycleFixture"), true);
   assert.equal(runnerSource.includes("loadSourceControlFixture"), true);
   assert.equal(runnerSource.includes("runComposerScenario"), true);

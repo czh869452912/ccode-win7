@@ -44,6 +44,30 @@
 
 ## 3. 当前变更记录
 
+### DC-193
+
+- 日期：2026-06-22
+- 变更主题：T3 GUI parity shell
+- 变更摘要：
+  - Copied T3 Code's GUI shell architecture shape for right-panel surfaces, floating tab menus, terminal drawer/panel ownership, and timeline row projection.
+  - Kept all display state in the GUI app shell.
+  - Preserved the minimal Agent Core boundary: no QueryEngine, transcript, permission, workflow package, reducer, provider, or extension-loading changes.
+- 影响范围：
+  - `src/embedagent/frontend/gui/webapp/src/App.jsx`
+  - `src/embedagent/frontend/gui/webapp/src/components/workbench/`
+  - `src/embedagent/frontend/gui/webapp/src/workbench/`
+  - `src/embedagent/frontend/gui/webapp/src/session-runtime/t3-timeline.js`
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/visual-debug-fixtures.js`
+  - `src/embedagent/frontend/gui/webapp/src/styles.css`
+  - `scripts/gui-visual-debug.mjs`
+  - `docs/modules/frontend-gui.md`
+  - `docs/development-tracker.md`
+- 关联文档：
+  - `docs/superpowers/specs/2026-06-22-t3-gui-parity-shell-design.md`
+  - `docs/superpowers/plans/2026-06-22-t3-gui-parity-shell.md`
+  - `docs/modules/frontend-gui.md`
+- 是否需要 ADR：否；该变更是 GUI app-shell parity/stabilization work，不改变 Agent Core、session-history truth、permission policy、workflow package ownership、runtime reducers、provider behavior、extension loading、backend protocol semantics、offline deployment, or Windows 7 constraints.
+
 ### DC-192
 
 - 日期：2026-06-22

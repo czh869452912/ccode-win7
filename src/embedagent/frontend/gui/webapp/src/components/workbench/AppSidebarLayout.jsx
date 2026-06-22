@@ -8,15 +8,21 @@ export default function AppSidebarLayout({
   bottomDrawer,
   rightPanelOpen,
   bottomDrawerOpen,
+  bottomDrawerHeight,
   onResizeSidebar,
   onResizeRightPanel,
 }) {
+  const layoutStyle = {
+    "--bottom-drawer-h-raw": `${Number(bottomDrawerHeight || 220)}px`,
+  };
+
   return (
     <div
       className={`workbench-layout${rightPanelOpen ? " right-open" : " right-closed"}${
         bottomDrawerOpen ? " drawer-open" : ""
       }`}
       data-testid="workbench-layout"
+      style={layoutStyle}
     >
       <div className="workbench-header-slot">{header}</div>
       <div className="workbench-body">
