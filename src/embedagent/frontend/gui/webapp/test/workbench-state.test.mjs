@@ -205,7 +205,7 @@ export function runWorkbenchStateTests() {
   assert.deepEqual(emptyRight.rightPanel.surfaces, []);
   assert.equal(emptyRight.rightPanel.activeSurfaceId, null);
   assert.equal(emptyRight.rightPanel.activeKind, "");
-  assert.equal(emptyRight.rightPanel.open, true);
+  assert.equal(emptyRight.rightPanel.open, false);
 
   const terminalOne = openSurface(initial, {
     placement: "right",
@@ -295,7 +295,7 @@ export function runWorkbenchStateTests() {
   assert.deepEqual(finalClosedPane.rightPanel.surfaces, []);
   assert.equal(finalClosedPane.rightPanel.activeSurfaceId, null);
   assert.equal(finalClosedPane.rightPanel.activeKind, "");
-  assert.equal(finalClosedPane.rightPanel.open, true);
+  assert.equal(finalClosedPane.rightPanel.open, false);
 
   const withRunOutput = openSurface(withFiles, {
     sessionId: "sess-1",

@@ -112,10 +112,13 @@ function sanitizeSurface(input, fallbackPlacement) {
 
   if (kind !== "terminal") return base;
   const normalizedTerminalIds = terminalIds.length > 0 ? terminalIds : [terminalId].filter(Boolean);
+  const activeTerminalId = asString(source.activeTerminalId);
   return {
     ...base,
     terminalIds: normalizedTerminalIds,
-    activeTerminalId: asString(source.activeTerminalId || normalizedTerminalIds[0] || terminalId),
+    activeTerminalId: normalizedTerminalIds.includes(activeTerminalId)
+      ? activeTerminalId
+      : normalizedTerminalIds[0] || terminalId,
     ...(source.splitDirection === "vertical" ? { splitDirection: "vertical" } : {}),
   };
 }

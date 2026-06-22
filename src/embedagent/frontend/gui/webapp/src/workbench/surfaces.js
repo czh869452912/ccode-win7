@@ -197,9 +197,10 @@ function activeSurfaceFrom(items, activeSurfaceId) {
 }
 
 function activateRightPanelSurface(panel, surface) {
+  const surfaces = Array.isArray(panel && panel.surfaces) ? panel.surfaces : [];
   return {
     ...panel,
-    open: true,
+    open: surface ? true : surfaces.length > 0 && panel.open === true,
     activeKind: surface ? surface.kind : "",
     activeSurfaceId: surface ? surface.id : null,
   };
@@ -361,6 +362,66 @@ export function openSurface(state, input) {
   };
 }
 
+export function openFileSurface(state, input = {}) {
+  const filePath = normalizeFilePath(input.filePath || input.resourceId);
+  if (!filePath) return state || createWorkbenchState();
+  return openSurface(state, {
+    ...input,
+    placement: "right",
+    kind: "file",
+    filePath,
+    resourceId: filePath,
+    title: basenameForPath(filePath) || "File",
+  });
+}
+
+export function openPreviewSurface(state, input = {}) {
+  const previewId = String(input.previewId || input.resourceId || "").trim();
+  return openSurface(state, {
+    ...input,
+    placement: "right",
+    kind: "preview",
+    resourceId: previewId,
+    title: input.title || "Preview",
+  });
+}
+
+export function openTerminalSurface(state, input = {}) {
+  const terminalId = String(input.terminalId || input.resourceId || "").trim();
+  if (!terminalId) return state || createWorkbenchState();
+  return openSurface(state, {
+    ...input,
+    placement: "right",
+    kind: "terminal",
+    title: input.title || "Terminal",
+    resourceId: terminalId,
+    terminalId,
+    terminalIds: [terminalId],
+    activeTerminalId: terminalId,
+  });
+}
+
+export function splitTerminalSurfaceForWorkbench(state, input = {}) {
+  return splitTerminalSurface(state, {
+    ...input,
+    placement: "right",
+  });
+}
+
+export function activateTerminalPaneForWorkbench(state, input = {}) {
+  return activateTerminalPane(state, {
+    ...input,
+    placement: "right",
+  });
+}
+
+export function closeTerminalPaneForWorkbench(state, input = {}) {
+  return closeTerminalPane(state, {
+    ...input,
+    placement: "right",
+  });
+}
+
 export function activateSurface(state, input) {
   const current = state || createWorkbenchState();
   const placement = normalizePlacement(input && input.placement);
@@ -478,10 +539,13 @@ export function closeAllSurfaces(state, input) {
   const placement = normalizePlacement(input && input.placement);
   if (placement !== "right") return current;
   const key = normalizeSessionId(input && (input.sessionId || current.activeSessionKey));
-  const nextPanel = activateRightPanelSurface(
-    { ...current.rightPanel, surfaces: [] },
-    null,
-  );
+  const nextPanel = {
+    ...current.rightPanel,
+    open: false,
+    activeKind: "",
+    activeSurfaceId: null,
+    surfaces: [],
+  };
   return rememberRightPanelSession({
     ...current,
     rightPanel: nextPanel,

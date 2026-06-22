@@ -43,6 +43,7 @@ import { runComposerTriggerTests } from "./composer-trigger.test.mjs";
 import { runFilePreviewModelTests } from "./file-preview-model.test.mjs";
 import { runPreviewSurfaceModelTests } from "./preview-surface-model.test.mjs";
 import { runPreviewApiTests } from "./preview-api.test.mjs";
+import { runRightPanelStoreParityTests } from "./right-panel-store-parity.test.mjs";
 
 const WEBAPP_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -1247,6 +1248,7 @@ async function main() {
 
   runWorkbenchStateTests();
   runWorkbenchUiStateTests();
+  runRightPanelStoreParityTests();
   runAppShellModelTests();
   runAppWorkspaceTests();
   runAppHomeModelTests();
