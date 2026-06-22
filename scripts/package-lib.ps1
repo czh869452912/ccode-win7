@@ -358,6 +358,7 @@ function Invoke-PackageDoctor {
     $assetManifestPath = Resolve-ConfigPath -ProjectRoot $Context.project_root -Path ([string]$Context.config.paths.asset_manifest)
     $toolingRootChecks = @(
         (Resolve-ConfigPath -ProjectRoot $Context.project_root -Path ([string]$Context.config.tooling.export_dependencies))
+        (Resolve-ConfigPath -ProjectRoot $Context.project_root -Path ([string]$Context.config.tooling.build_gui_launcher))
         (Resolve-ConfigPath -ProjectRoot $Context.project_root -Path ([string]$Context.config.tooling.prepare_bundle))
         (Resolve-ConfigPath -ProjectRoot $Context.project_root -Path ([string]$Context.config.tooling.build_bundle))
         (Resolve-ConfigPath -ProjectRoot $Context.project_root -Path ([string]$Context.config.tooling.validate_bundle))
@@ -586,6 +587,51 @@ function Invoke-FrontendBuild {
     Add-StageResult -Report $Report -Name 'frontend_build' -Status 'pass' -ExitCode 0 -Summary $result
 }
 
+function Get-GuiLauncherOutputPath {
+    param(
+        [System.Collections.IDictionary]$Context
+    )
+
+    $outputRoot = Resolve-ConfigPath -ProjectRoot $Context.project_root -Path ([string]$Context.config.paths.gui_launcher_build_root)
+    return Join-Path $outputRoot 'embedagent-gui.exe'
+}
+
+function Invoke-GuiLauncherBuild {
+    param(
+        [System.Collections.IDictionary]$Context,
+        [ref]$Report
+    )
+
+    $scriptPath = Resolve-ToolPath -Context $Context -RelativePath ([string]$Context.config.tooling.build_gui_launcher)
+    $outputPath = Get-GuiLauncherOutputPath -Context $Context
+    $summary = @{
+        script = $scriptPath
+        output = $outputPath
+    }
+
+    Write-PackageLog "[assemble] Building native GUI launcher..."
+    try {
+        $null = Invoke-StageScript -ProjectRoot $Context.project_root -ScriptPath $scriptPath -Arguments @('-OutputPath', $outputPath)
+    }
+    catch {
+        $summary.error = $_.Exception.Message
+        Write-PackageLog ("[assemble]   gui_launcher_build FAILED: {0}" -f $_.Exception.Message)
+        Add-StageResult -Report $Report -Name 'gui_launcher_build' -Status 'fail' -ExitCode 1 -Summary $summary
+        return ''
+    }
+
+    if (-not (Test-Path -LiteralPath $outputPath)) {
+        $summary.error = 'launcher_output_missing'
+        Write-PackageLog ("[assemble]   gui_launcher_build FAILED: output missing at {0}" -f $outputPath)
+        Add-StageResult -Report $Report -Name 'gui_launcher_build' -Status 'fail' -ExitCode 1 -Summary $summary
+        return ''
+    }
+
+    Write-PackageLog ("[assemble]   gui_launcher_build OK ({0})" -f $outputPath)
+    Add-StageResult -Report $Report -Name 'gui_launcher_build' -Status 'pass' -ExitCode 0 -Summary $summary
+    return $outputPath
+}
+
 function Invoke-PackageAssemble {
     param(
         [System.Collections.IDictionary]$Context,
@@ -599,6 +645,12 @@ function Invoke-PackageAssemble {
         if (@($Report.Value.blocking_issues).Count -gt 0) { return }
     }
 
+    $guiLauncherExePath = ''
+    if ([bool]$Context.profile_config.run_gui_launcher_build) {
+        $guiLauncherExePath = Invoke-GuiLauncherBuild -Context $Context -Report $Report
+        if (@($Report.Value.blocking_issues).Count -gt 0) { return }
+    }
+
     $preparePath = Resolve-ToolPath -Context $Context -RelativePath ([string]$Context.config.tooling.prepare_bundle)
     $buildPath = Resolve-ToolPath -Context $Context -RelativePath ([string]$Context.config.tooling.build_bundle)
     $requiredAssetIds = Get-PackageRequiredAssetIds -Context $Context
@@ -609,6 +661,10 @@ function Invoke-PackageAssemble {
     }
     if ([bool]$Context.allow_download) {
         $prepareArgs += '-AllowDownload'
+    }
+    if ($guiLauncherExePath) {
+        $prepareArgs += '-GuiLauncherExePath'
+        $prepareArgs += $guiLauncherExePath
     }
 
     $buildArgs = @('-ArtifactName', [string]$Context.artifact_name)
