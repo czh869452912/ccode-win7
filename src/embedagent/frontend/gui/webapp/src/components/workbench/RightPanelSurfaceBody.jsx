@@ -3,7 +3,7 @@ import Inspector from "../Inspector.jsx";
 import FilePreviewSurface from "./FilePreviewSurface.jsx";
 import FilesSurface from "./FilesSurface.jsx";
 import PreviewSurface from "./PreviewSurface.jsx";
-import RightPanelTerminalSurface from "./RightPanelTerminalSurface.jsx";
+import TerminalShell from "./TerminalShell.jsx";
 
 function inspectorKindForSurface(surface) {
   if (!surface) return "";
@@ -72,7 +72,8 @@ export default function RightPanelSurfaceBody({
   }
   if (surface.kind === "terminal") {
     return (
-      <RightPanelTerminalSurface
+      <TerminalShell
+        owner="right-panel"
         surface={surface}
         terminal={terminal}
         onNew={onTerminalNew}

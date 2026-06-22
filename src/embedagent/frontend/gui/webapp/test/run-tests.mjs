@@ -45,6 +45,7 @@ import { runPreviewSurfaceModelTests } from "./preview-surface-model.test.mjs";
 import { runPreviewApiTests } from "./preview-api.test.mjs";
 import { runRightPanelStoreParityTests } from "./right-panel-store-parity.test.mjs";
 import { runRightPanelTabsSourceTests } from "./right-panel-tabs-source.test.mjs";
+import { runTerminalShellSourceTests } from "./terminal-shell-source.test.mjs";
 
 const WEBAPP_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -1123,10 +1124,9 @@ async function main() {
     webappSourcePath("components", "workbench", "BottomDrawer.jsx"),
     "utf8",
   );
-  assert.equal(bottomDrawerSource.includes("TerminalSurface"), true);
-  assert.equal(bottomDrawerSource.includes("terminal-drawer"), true);
+  assert.equal(bottomDrawerSource.includes("TerminalShell"), true);
   assert.equal(bottomDrawerSource.includes("run_output"), true);
-  assert.equal(bottomDrawerSource.includes("export function TerminalSurface"), true);
+  assert.equal(bottomDrawerSource.includes("export function TerminalSurface"), false);
 
   const filesSurfaceSource = fs.readFileSync(
     webappSourcePath("components", "workbench", "FilesSurface.jsx"),
@@ -1145,22 +1145,22 @@ async function main() {
   assert.equal(rightPanelSurfaceBodySource.includes("FilesSurface"), true);
   assert.equal(rightPanelSurfaceBodySource.includes("FilePreviewSurface"), true);
   assert.equal(rightPanelSurfaceBodySource.includes("PreviewSurface"), true);
-  assert.equal(rightPanelSurfaceBodySource.includes("TerminalSurface"), true);
+  assert.equal(rightPanelSurfaceBodySource.includes("TerminalShell"), true);
   assert.equal(rightPanelSurfaceBodySource.includes("Inspector"), true);
   assert.equal(rightPanelSurfaceBodySource.includes('surface.kind === "file"'), true);
   assert.equal(rightPanelSurfaceBodySource.includes('surface.kind === "preview"'), true);
   assert.equal(rightPanelSurfaceBodySource.includes("surface.kind === \"terminal\""), true);
   assert.equal(rightPanelSurfaceBodySource.includes("filePreviewsByPath"), true);
 
-  const rightPanelTerminalSurfaceSource = fs.readFileSync(
-    webappSourcePath("components", "workbench", "RightPanelTerminalSurface.jsx"),
+  const terminalShellSource = fs.readFileSync(
+    webappSourcePath("components", "workbench", "TerminalShell.jsx"),
     "utf8",
   );
-  assert.equal(rightPanelTerminalSurfaceSource.includes('data-testid="right-panel-terminal-surface"'), true);
-  assert.equal(rightPanelTerminalSurfaceSource.includes("surface.terminalIds"), true);
-  assert.equal(rightPanelTerminalSurfaceSource.includes("splitDirection"), true);
-  assert.equal(rightPanelTerminalSurfaceSource.includes("onSplitVertical"), true);
-  assert.equal(rightPanelSurfaceBodySource.includes("RightPanelTerminalSurface"), true);
+  assert.equal(terminalShellSource.includes('data-testid={isRightPanel ? "right-panel-terminal-surface" : "terminal-drawer"}'), true);
+  assert.equal(terminalShellSource.includes("surface.terminalIds"), true);
+  assert.equal(terminalShellSource.includes("splitDirection"), true);
+  assert.equal(terminalShellSource.includes("onSplitVertical"), true);
+  assert.equal(rightPanelSurfaceBodySource.includes("RightPanelTerminalSurface"), false);
   assert.equal(rightPanelSurfaceBodySource.includes("projectName={projectName}"), true);
 
   const filePreviewSurfaceSource = fs.readFileSync(
@@ -1265,6 +1265,7 @@ async function main() {
   runSourceControlStateTests();
   runTerminalStateTests();
   await runTerminalControllerTests();
+  runTerminalShellSourceTests();
   runSessionRuntimeTests();
   runT3TimelineTests();
   runTimelineUiStateTests();
