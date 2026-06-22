@@ -245,7 +245,6 @@ export function createTerminalController(deps = {}) {
       terminalIds: [openedTerminalId],
       activeTerminalId: openedTerminalId,
     });
-    dispatch({ type: "set_inspector", value: "terminal" });
     return openedTerminalId;
   }
 

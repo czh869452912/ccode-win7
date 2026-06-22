@@ -209,7 +209,12 @@ export async function runTerminalControllerTests() {
     const harness = createHarness();
     await harness.controller.selectBottomDrawerKind("terminal");
     assert.equal(harness.apiCalls[0].name, "openTerminal");
-    assert.equal(harness.actions.at(-1).kind, "terminal");
+    assert.deepEqual(harness.actions.at(-1), {
+      type: "workbench_surface_activated",
+      placement: "bottom",
+      kind: "terminal",
+    });
+    assert.equal(harness.actions.some((action) => action.placement === "right"), false);
   }
 
   {
@@ -252,11 +257,11 @@ export async function runTerminalControllerTests() {
       "terminal_snapshot_loaded",
       "terminal_active_set",
       "workbench_surface_opened",
-      "set_inspector",
     ]);
     assert.equal(harness.actions[2].kind, "terminal");
+    assert.equal(harness.actions[2].placement, "right");
     assert.deepEqual(harness.actions[2].terminalIds, ["term-3"]);
-    assert.deepEqual(harness.actions[3], { type: "set_inspector", value: "terminal" });
+    assert.equal(harness.actions.some((action) => action.type === "set_inspector"), false);
   }
 
   {
