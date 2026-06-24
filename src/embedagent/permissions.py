@@ -47,7 +47,7 @@ READ_TOOLS = {
 }
 WORKSPACE_WRITE_TOOLS = {"edit_file", "write_file"}
 SHELL_EXEC_TOOLS = {
-    "run_command",
+    "bash",
 }
 TOOLCHAIN_EXEC_TOOLS = {
     "run_recipe",

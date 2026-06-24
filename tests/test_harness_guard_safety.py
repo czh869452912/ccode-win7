@@ -34,8 +34,8 @@ class TestLoopGuard(unittest.TestCase):
         self.assertFalse(self.guard.should_block(action1))
 
     def test_consecutive_failures_stop(self):
-        action = Action(name="run_build", arguments={}, call_id="c1")
-        fail_obs = Observation(tool_name="run_build", success=False, error="failed", data=None)
+        action = Action(name="bash", arguments={}, call_id="c1")
+        fail_obs = Observation(tool_name="bash", success=False, error="failed", data=None)
 
         self.guard.record(action, fail_obs)
         self.guard.record(action, fail_obs)
@@ -43,9 +43,9 @@ class TestLoopGuard(unittest.TestCase):
         self.assertTrue(self.guard.should_stop())
 
     def test_success_resets_failure_count(self):
-        action = Action(name="run_build", arguments={}, call_id="c1")
-        fail_obs = Observation(tool_name="run_build", success=False, error="failed", data=None)
-        success_obs = Observation(tool_name="run_build", success=True, error=None, data="ok")
+        action = Action(name="bash", arguments={}, call_id="c1")
+        fail_obs = Observation(tool_name="bash", success=False, error="failed", data=None)
+        success_obs = Observation(tool_name="bash", success=True, error=None, data="ok")
 
         self.guard.record(action, fail_obs)
         self.guard.record(action, success_obs)

@@ -283,7 +283,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             session_id="session-artifacts",
             tool_call_id="call-artifact-1",
             message_id="m-artifact-1",
-            tool_name="run_command",
+            tool_name="bash",
             field_name="stdout",
             stored_path=stored.relative_path,
             preview_text=stored.preview_text,
@@ -1686,6 +1686,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
     def test_slash_run_passes_target_and_profile_to_recipe(self):
         with open(os.path.join(self.workspace, "CMakeLists.txt"), "w", encoding="utf-8") as handle:
             handle.write("cmake_minimum_required(VERSION 3.20)\nproject(demo C)\n")
+        os.makedirs(os.path.join(self.workspace, "build", "debug"))
         events = []
         self.adapter.submit_user_message(
             session_id=str(self.snapshot.get("session_id") or ""),

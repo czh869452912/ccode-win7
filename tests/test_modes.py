@@ -59,7 +59,7 @@ class TestAllowedTools(unittest.TestCase):
     def test_explore_is_read_only_tools(self):
         tools = allowed_tools_for("explore")
         self.assertIn("ask_user", tools)
-        for write_tool in ("edit_file", "write_file", "run_command", "compile_project"):
+        for write_tool in ("edit_file", "write_file", "bash", "compile_project"):
             self.assertNotIn(write_tool, tools)
 
     def test_verify_has_no_edit_file(self):

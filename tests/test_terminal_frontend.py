@@ -22,7 +22,7 @@ class TestTerminalFrontendModules(unittest.TestCase):
         self.state.inspector.artifact_items = [
             ArtifactRow(
                 path=".embedagent/memory/artifacts/demo.json",
-                tool_name="run_command",
+                tool_name="bash",
                 field_name="stdout",
             ),
         ]

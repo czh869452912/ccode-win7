@@ -29,7 +29,7 @@ This means the repository now has one official execution spine centered on:
 
 - `build` instead of `code`
 - `TaskGraph` instead of prompt-only todo flow
-- `run_recipe` / `report_quality_v2` instead of legacy duplicate verify tools in product paths
+- `bash` plus readiness-aware `run_recipe` / `report_quality_v2` instead of legacy duplicate verify tools in product paths
 - frontend `tasks` vocabulary instead of `todos`
 
 Recent workflow-boundary work has started slimming Agent Core without changing the default C/C++ behavior:
@@ -44,7 +44,7 @@ Recent workflow-boundary work has started slimming Agent Core without changing t
 - `src/embedagent/harness/workflow_projection.py` now owns the C harness to generic workflow payload adapter
 - `InProcessAdapter` no longer constructs `HarnessRunner` directly; harness refresh and task-snapshot persistence are delegated to the built-in C harness extension
 - `QueryEngine` now asks for schemas using explicit active tool names through `ToolRuntime.schemas_for(...)`, so default harness pack activation is owned by the workflow extension boundary
-- `CORE_PACK` no longer contains default harness workflow tools; build/debug/verify packs keep those tools explicitly for compatibility
+- `CORE_PACK` is the minimal file/search/editing/shell foundation; build/debug/verify packs keep harness-only recipe, quality, evidence, and task-status tools explicit
 - built-in mode `allowed_tools` no longer own default harness workflow tools; recipe, quality, evidence, and task-status tools are activated by the C harness extension
 - `ToolRuntime.schemas_for(mode, workflow_state, tool_names=...)` is now the single runtime schema projection entry point; default-harness paths use extension-active explicit tool names
 - `TurnOrchestrator` receives an injected allowed-tool policy from `QueryEngine` instead of calling runtime allowed-tool aliases
@@ -58,8 +58,8 @@ Recent workflow-boundary work has started slimming Agent Core without changing t
 - `AgentKernel` now owns user/command/resume turn frames and pending interaction create/resolve boundaries behind the session facade
 - `AgentToolActionService` now owns non-LLM tool action execution, including active-tool checks, extension pre/post hooks, `PermissionPolicy`, path write guards, runtime dispatch, and extension-owned tool calls
 - `AgentLoop` now owns Pi-style open turn-loop continuation behind `QueryEngine`, including agent steps, context/provider attempts, compact retry, tool batch interruption, guard stops, abort, and explicit loop safety-limit compatibility transitions; `QueryEngine` no longer owns `_run_loop_impl`, and hosted defaults no longer stop merely because eight model/tool cycles were used
-- `ToolRuntime` construction is now workflow-neutral; the bundled C/C++ workflow package registers compiler/build helpers, recipe, quality, evidence, and task-status tools with metadata through `CHarnessWorkflowExtension.register_tools(...)`
-- C/C++ workflow context reducers have moved out of Core `ReducerRegistry`; harness-owned reducers now cover build diagnostics, recipe results, quality reports, and task status through `CHarnessWorkflowExtension.register_context_reducers(...)`
+- `ToolRuntime` construction is now workflow-neutral; the bundled C/C++ workflow package registers recipe, quality, evidence, and task-status tools with metadata through `CHarnessWorkflowExtension.register_tools(...)`
+- C/C++ workflow context reducers have moved out of Core `ReducerRegistry`; harness-owned reducers now cover recipe results, quality reports, failing evidence, and task status through `CHarnessWorkflowExtension.register_context_reducers(...)`
 - workflow prompt descriptors now use generic `WorkflowPrompt` naming and new prompt messages use `workflow_prompt`; old harness prompt names are compatibility-only
 - `propose_mode_switch` is no longer projected as an unconditional model tool; it appears only when explicitly activated through the active-tool boundary
 - `ToolCatalogEntry` now keeps internal execution, presentation, and context-policy facets while preserving the legacy flat catalog payload for protocol/frontend compatibility
@@ -72,7 +72,7 @@ Recent workflow-boundary work has started slimming Agent Core without changing t
 - `RuntimeConfigReducer` now projects safe runtime configuration from transcript events, including model profile metadata, registered tool names, active model-visible tool names, local resource revision metadata, capability counts, and provider snapshot records
 - `WorkflowPackageManifest` now describes the bundled C/C++ workflow package identity, declared tools, packs, supported modes/workflow states, and resource scopes as read-only non-executing control-plane data exposed through the shared extension manager
 - `SelfExtensionAuthoringService` and `author_local_capability` can generate local skills, prompts, recipes, and disabled-by-default project extension skeletons without reloading resources or loading Python code
-- `scripts/offline-runtime-contract.json` is now the single repo-side contract for runtime-invoked bundled external tools; `validate-offline-bundle.ps1` and `check-bundle-dependencies.py` consume it for Python, MinGit, ripgrep, Universal Ctags, and LLVM/Clang child executable validation
+- `scripts/offline-runtime-contract.json` is now the single repo-side contract for runtime-invoked bundled external tools; `validate-offline-bundle.ps1` and `check-bundle-dependencies.py` consume it for Python, Bash from MinGit, MinGit, ripgrep, Universal Ctags, and LLVM/Clang child executable validation
 - Slice 6 completed the documentation cutover for self-extensible Agent Core: active source-of-truth docs and module docs now treat local offline self-extension as official architecture while keeping marketplaces, online installs, dependency installation, built-in tool replacement, and multi-agent orchestration out of scope
 - `HarnessStateSynchronizer` has been removed; product refresh uses `CHarnessWorkflowExtension.refresh_managed_session()` through the default harness extension directly
 - `StreamingToolExecutor` now window-schedules parallel read batches so failure/discard semantics are deterministic

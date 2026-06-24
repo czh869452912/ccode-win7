@@ -101,6 +101,8 @@ class TestReducerRegistryTasks(unittest.TestCase):
         CHarnessWorkflowExtension().register_context_reducers(self.registry)
 
     def test_bare_registry_omits_c_workflow_reducers(self):
+        self.assertIn("bash", self.registry._reducers)
+        self.assertNotIn("run_command", self.registry._reducers)
         self.assertNotIn("list_recipes", self.registry._reducers)
         self.assertNotIn("run_recipe", self.registry._reducers)
         self.assertNotIn("report_quality_v2", self.registry._reducers)
@@ -124,9 +126,9 @@ class TestReducerRegistryTasks(unittest.TestCase):
         self.assertIn("report_quality_v2", self.registry._reducers)
         self.assertIn("task_status", self.registry._reducers)
         self.assertIn("record_failing_evidence", self.registry._reducers)
-        self.assertIn("list_compilers", self.registry._reducers)
-        self.assertIn("configure_build_env", self.registry._reducers)
-        self.assertIn("run_build", self.registry._reducers)
+        self.assertNotIn("list_compilers", self.registry._reducers)
+        self.assertNotIn("configure_build_env", self.registry._reducers)
+        self.assertNotIn("run_build", self.registry._reducers)
 
     def test_reduce_task_status_list_action(self):
         self._register_default_c_workflow_context()
@@ -189,6 +191,25 @@ class TestReducerRegistryTasks(unittest.TestCase):
         self.assertIn("files", result)
         self.assertIn("main.c", result["files"][0])
 
+    def test_reduce_bash_command_result(self):
+        policy = self._make_policy()
+        data = {
+            "command": "echo ok",
+            "exit_code": 0,
+            "stdout": "ok\n",
+            "stderr": "",
+            "stdout_encoding": "utf-8",
+            "stderr_encoding": "utf-8",
+            "stdout_decode_errors_count": 0,
+            "stderr_decode_errors_count": 0,
+            "full_output_ref": ".embedagent/memory/command-output/example.txt",
+        }
+        result = self.registry.reduce_tool_data("bash", data, detailed=True, policy=policy)
+        self.assertEqual(result["exit_code"], 0)
+        self.assertEqual(result["stdout_encoding"], "utf-8")
+        self.assertIn("stdout_preview", result)
+        self.assertEqual(result["full_output_ref"], data["full_output_ref"])
+
     def test_reduce_report_quality_v2(self):
         self._register_default_c_workflow_context()
         policy = self._make_policy()
@@ -207,7 +228,7 @@ class TestReducerRegistryTasks(unittest.TestCase):
     def test_default_c_workflow_extension_registers_priority_tools(self):
         self._register_default_c_workflow_context()
 
-        self.assertIn("run_build", self.registry.high_priority_tool_names())
+        self.assertNotIn("run_build", self.registry.high_priority_tool_names())
         self.assertIn("run_recipe", self.registry.high_priority_tool_names())
         self.assertIn("report_quality_v2", self.registry.high_priority_tool_names())
         self.assertNotIn("compile_project", self.registry.high_priority_tool_names())

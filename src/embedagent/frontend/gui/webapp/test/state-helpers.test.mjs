@@ -47,7 +47,7 @@ test("timelineFromEvents preserves T3 work presentation metadata", () => {
       event: "tool_started",
       payload: {
         call_id: "call-meta",
-        tool_name: "run_command",
+        tool_name: "bash",
         tool_label: "Bash Started",
         item_type: "command_execution",
         request_kind: "command",
@@ -63,7 +63,7 @@ test("timelineFromEvents preserves T3 work presentation metadata", () => {
       event: "tool_finished",
       payload: {
         call_id: "call-meta",
-        tool_name: "run_command",
+        tool_name: "bash",
         tool_label: "Bash Complete",
         item_type: "command_execution",
         request_kind: "command",
@@ -257,7 +257,7 @@ test("timelineFromTurns preserves T3 work presentation metadata", () => {
           tool_calls: [
             {
               call_id: "call-meta",
-              tool_name: "run_command",
+              tool_name: "bash",
               tool_label: "Bash Complete",
               status: "success",
               item_type: "command_execution",

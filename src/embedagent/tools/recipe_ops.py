@@ -4,6 +4,7 @@ from typing import Any, Dict, List
 
 from embedagent.session import Observation
 from embedagent.tools._base import ToolDefinition
+from embedagent.workspace_recipes import RecipeResolutionError
 
 
 def build_tools(ctx) -> List[ToolDefinition]:
@@ -39,11 +40,19 @@ def build_tools(ctx) -> List[ToolDefinition]:
 
     def _run_recipe(arguments: Dict[str, Any]) -> Observation:
         recipe_id = str(arguments.get("recipe_id") or "").strip()
-        recipe = ctx.resolve_workspace_recipe(
-            recipe_id,
-            target=str(arguments.get("target") or ""),
-            profile=str(arguments.get("profile") or ""),
-        )
+        try:
+            recipe = ctx.resolve_workspace_recipe(
+                recipe_id,
+                target=str(arguments.get("target") or ""),
+                profile=str(arguments.get("profile") or ""),
+            )
+        except RecipeResolutionError as exc:
+            return Observation(
+                tool_name="run_recipe",
+                success=False,
+                error=str(exc),
+                data=dict(exc.payload),
+            )
         command_text = str(recipe.get("command") or "")
         cwd_argument = str(recipe.get("cwd") or ".")
         timeout_sec = int(recipe.get("timeout_sec") or 120)

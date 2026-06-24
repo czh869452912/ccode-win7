@@ -340,7 +340,7 @@ export function summarizeChangedFiles(items = []) {
 function commandPreviewFor(toolName, args) {
   if (!args || typeof args !== "object") return "";
   if (toolName === "run_recipe") return stringValue(args.recipe_id || args.command);
-  if (toolName === "run_command" || toolName === "shell" || toolName === "bash") {
+  if (toolName === "shell" || toolName === "bash") {
     return stringValue(args.command);
   }
   if (toolName === "grep_text") return stringValue(args.pattern || args.query);
@@ -360,7 +360,7 @@ function permissionCategoryToRequestKind(value) {
 }
 
 function toolNameRequestKind(toolName) {
-  if (toolName === "run_command" || toolName === "run_recipe" || toolName === "shell" || toolName === "bash") {
+  if (toolName === "run_recipe" || toolName === "shell" || toolName === "bash") {
     return "command";
   }
   if (toolName === "read_file" || toolName === "list_dir" || toolName === "glob_files" || toolName === "grep_text") {

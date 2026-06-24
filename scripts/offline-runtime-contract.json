@@ -49,6 +49,43 @@
       "notes": "Used by built-in git tools and workspace intelligence."
     },
     {
+      "id": "bash",
+      "component": "mingit_portable",
+      "category": "shell",
+      "alternatives": [
+        {
+          "paths": [
+            "bin/git/bin/bash.exe"
+          ]
+        },
+        {
+          "paths": [
+            "bin/git/usr/bin/bash.exe"
+          ]
+        },
+        {
+          "paths": [
+            "bin/git/bin/sh.exe"
+          ]
+        },
+        {
+          "paths": [
+            "bin/git/usr/bin/sh.exe"
+          ]
+        }
+      ],
+      "command_names": [
+        "bash",
+        "bash.exe",
+        "sh",
+        "sh.exe"
+      ],
+      "dynamic_check": [
+        "--version"
+      ],
+      "notes": "Used by the model-facing bash primitive for offline command execution."
+    },
+    {
       "id": "rg",
       "component": "ripgrep",
       "category": "search",

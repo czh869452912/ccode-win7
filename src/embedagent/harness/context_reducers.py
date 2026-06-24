@@ -5,14 +5,6 @@ from typing import Any, Dict
 
 def register_c_workflow_context_reducers(reducer_registry: Any) -> None:
     reducer_registry.register_reducer("list_recipes", reducer_registry._reduce_list)
-    reducer_registry.register_reducer("list_compilers", reducer_registry._reduce_list)
-    reducer_registry.register_reducer("configure_build_env", reducer_registry._reduce_generic)
-    reducer_registry.register_reducer(
-        "run_build",
-        lambda data, detailed, policy: reduce_diagnostics_tool(
-            data, detailed, policy, reducer_registry
-        ),
-    )
     reducer_registry.register_reducer(
         "run_recipe",
         lambda data, detailed, policy: reduce_recipe_result(
@@ -31,7 +23,6 @@ def register_c_workflow_context_reducers(reducer_registry: Any) -> None:
         "record_failing_evidence",
         reducer_registry._reduce_generic,
     )
-    reducer_registry.register_high_priority_tool("run_build")
     reducer_registry.register_high_priority_tool("run_recipe")
     reducer_registry.register_high_priority_tool("report_quality_v2")
 

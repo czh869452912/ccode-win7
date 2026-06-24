@@ -13,7 +13,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 from conftest import register_default_c_workflow_tools
 
 from embedagent.tools import ToolDefinition, ToolRuntime
-from embedagent.tools._base import ToolContext
+from embedagent.tools._base import MAX_COMMAND_OUTPUT_CHARS, ToolContext
 
 _COUNTER = count(1)
 
@@ -89,7 +89,7 @@ class TestToolRuntimeSchemas(unittest.TestCase):
             "read_file",
             "write_file",
             "edit_file",
-            "run_command",
+            "bash",
             "git_status",
             "git_diff",
             "git_log",
@@ -97,6 +97,7 @@ class TestToolRuntimeSchemas(unittest.TestCase):
         for name in expected:
             self.assertIn(name, self.tool_names, "Missing tool: %s" % name)
         for name in (
+            "run_command",
             "list_compilers",
             "configure_build_env",
             "run_build",
@@ -121,21 +122,17 @@ class TestToolRuntimeSchemas(unittest.TestCase):
             "list_dir",
             "glob_files",
             "grep_text",
+            "bash",
             "list_recipes",
             "run_recipe",
             "report_quality_v2",
             "task_status",
             "ask_user",
             "record_failing_evidence",
-            "list_compilers",
-            "configure_build_env",
-            "run_build",
         ):
             self.assertIn(name, tool_names, "Missing workflow tool: %s" % name)
         for name in ("list_compilers", "configure_build_env", "run_build"):
-            entry = self.rt.tool_catalog_entry(name)
-            self.assertEqual(entry["source_type"], "harness", name)
-            self.assertEqual(entry["source_id"], "embedagent.harness", name)
+            self.assertNotIn(name, tool_names, "Removed build helper leaked: %s" % name)
 
     def test_schema_structure(self):
         for schema in self.schemas:
@@ -186,7 +183,10 @@ class TestToolRuntimeSchemas(unittest.TestCase):
         self.assertIn("list_dir", tool_names)
         self.assertIn("write_file", tool_names)
         self.assertIn("edit_file", tool_names)
+        self.assertIn("bash", tool_names)
         self.assertIn("ask_user", tool_names)
+        self.assertNotIn("run_command", tool_names)
+        self.assertNotIn("run_build", tool_names)
         self.assertNotIn("run_recipe", tool_names)
         self.assertNotIn("task_status", tool_names)
         self.assertNotIn("list_files", tool_names)
@@ -198,11 +198,21 @@ class TestToolRuntimeSchemas(unittest.TestCase):
         self.assertIn("list_dir", tool_names)
         self.assertIn("write_file", tool_names)
         self.assertIn("edit_file", tool_names)
+        self.assertIn("bash", tool_names)
         self.assertIn("ask_user", tool_names)
         self.assertNotIn("record_failing_evidence", tool_names)
         self.assertNotIn("run_recipe", tool_names)
         self.assertNotIn("task_status", tool_names)
         self.assertNotIn("run_command", tool_names)
+
+    def test_schemas_for_verify_exposes_bash_without_write_tools(self):
+        schemas = self.rt.schemas_for("verify", workflow_state="chat")
+        tool_names = [item["function"]["name"] for item in schemas]
+        self.assertIn("bash", tool_names)
+        self.assertNotIn("write_file", tool_names)
+        self.assertNotIn("edit_file", tool_names)
+        self.assertNotIn("run_command", tool_names)
+        self.assertNotIn("run_build", tool_names)
 
     def test_author_local_capability_schema_is_build_debug_only(self):
         build_names = [
@@ -242,6 +252,73 @@ class TestToolRuntimeSchemas(unittest.TestCase):
                 )
             )
         )
+
+
+class TestCommandOutputDecoding(unittest.TestCase):
+    def setUp(self):
+        self.workspace = _make_workspace("command-decoding")
+        self.ctx = ToolContext(self.workspace)
+
+    def tearDown(self):
+        shutil.rmtree(self.workspace, ignore_errors=True)
+
+    def test_decode_command_output_prefers_utf8(self):
+        decoded = self.ctx.decode_command_output("stdout", "hello Chinese".encode("utf-8"))
+        self.assertEqual(decoded.text, "hello Chinese")
+        self.assertEqual(decoded.encoding, "utf-8")
+        self.assertEqual(decoded.decode_errors_count, 0)
+
+    def test_decode_command_output_falls_back_to_gbk(self):
+        decoded = self.ctx.decode_command_output("stdout", "中文".encode("gbk"))
+        self.assertEqual(decoded.text, "中文")
+        self.assertIn(decoded.encoding, ("gbk", "cp936"))
+        self.assertEqual(decoded.decode_errors_count, 0)
+
+    def test_decode_command_output_reports_replacement_fallback(self):
+        decoded = self.ctx.decode_command_output("stdout", b"\xff\xfe\x00\x81")
+        self.assertTrue(decoded.decode_errors_count >= 0)
+        self.assertIn("stdout_encoding", decoded.to_metadata())
+
+    @unittest.skipIf(sys.platform != "win32", "Windows-only: requires cmd.exe")
+    def test_bash_result_contains_decode_metadata(self):
+        rt = ToolRuntime(self.workspace)
+        obs = rt.execute("bash", {"command": "cmd /c echo hello"})
+        self.assertTrue(obs.success)
+        self.assertIn("stdout", obs.data)
+        self.assertIn("stdout_encoding", obs.data)
+        self.assertIn("stdout_decode_errors_count", obs.data)
+        self.assertIn("stderr_encoding", obs.data)
+
+    def test_truncate_output_keeps_tail(self):
+        text = "head" + ("a" * MAX_COMMAND_OUTPUT_CHARS) + "tail"
+        truncated, was_truncated = self.ctx.truncate_output(text)
+        self.assertTrue(was_truncated)
+        self.assertEqual(len(truncated), MAX_COMMAND_OUTPUT_CHARS)
+        self.assertTrue(truncated.endswith("tail"))
+        self.assertNotIn("head", truncated)
+
+    def test_command_observation_records_full_output_ref_when_truncated(self):
+        long_text = "x" * (MAX_COMMAND_OUTPUT_CHARS + 10)
+        result = {
+            "exit_code": 0,
+            "stdout": long_text,
+            "stderr": "",
+            "stdout_truncated": True,
+            "stderr_truncated": False,
+            "duration_ms": 1,
+            "timed_out": False,
+            "interrupted": False,
+            "stdout_encoding": "utf-8",
+            "stderr_encoding": "utf-8",
+            "stdout_decode_errors_count": 0,
+            "stderr_decode_errors_count": 0,
+            "stdout_output_maybe_mojibake": False,
+            "stderr_output_maybe_mojibake": False,
+        }
+        obs = self.ctx.build_command_observation("bash", "echo long", self.workspace, result)
+        self.assertTrue(obs.data["stdout_truncated"])
+        self.assertIn("full_output_ref", obs.data)
+        self.assertTrue(os.path.isfile(os.path.join(self.workspace, obs.data["full_output_ref"])))
 
 
 class TestToolRuntimeExecute(unittest.TestCase):
@@ -353,103 +430,12 @@ class TestToolRuntimeExecute(unittest.TestCase):
         self.assertEqual(obs.data["progress_renderer_key"], "file_write")
         self.assertEqual(obs.data["result_renderer_key"], "file_write")
 
-    def test_bare_runtime_rejects_c_workflow_build_tools(self):
+    def test_runtime_rejects_removed_build_wrapper_tools(self):
+        self._register_default_c_workflow_tools()
         for tool_name in ("list_compilers", "configure_build_env", "run_build"):
             obs = self.rt.execute(tool_name, {})
             self.assertFalse(obs.success, tool_name)
             self.assertEqual(obs.tool_name, tool_name)
-
-    def test_list_compilers_returns_observation(self):
-        self._register_default_c_workflow_tools()
-        obs = self.rt.execute("list_compilers", {})
-        self.assertTrue(obs.success)
-        self.assertEqual(obs.tool_name, "list_compilers")
-        self.assertIn("compilers", obs.data)
-        self.assertIn("count", obs.data)
-        self.assertIsInstance(obs.data["compilers"], list)
-        self.assertIsInstance(obs.data["count"], int)
-
-    def test_list_compilers_includes_catalog_metadata(self):
-        self._register_default_c_workflow_tools()
-        obs = self.rt.execute("list_compilers", {})
-        self.assertTrue(obs.success)
-        self.assertEqual(obs.data["tool_label"], "List Compilers")
-        self.assertEqual(obs.data["permission_category"], "read")
-        self.assertFalse(obs.data["supports_diff_preview"])
-
-    def test_configure_build_env_returns_observation(self):
-        self._register_default_c_workflow_tools()
-        obs = self.rt.execute("configure_build_env", {})
-        self.assertTrue(obs.success)
-        self.assertEqual(obs.tool_name, "configure_build_env")
-        self.assertIn("compiler", obs.data)
-        self.assertIn("compilers_available", obs.data)
-        self.assertIn("build_type", obs.data)
-        self.assertIn("c_flags", obs.data)
-        self.assertIn("cxx_flags", obs.data)
-        self.assertIn("linker_flags", obs.data)
-        self.assertIn("environment", obs.data)
-        self.assertIn("build_dir", obs.data)
-        self.assertIsInstance(obs.data["compilers_available"], list)
-        self.assertEqual(obs.data["build_type"], "debug")
-
-    def test_configure_build_env_with_build_type(self):
-        self._register_default_c_workflow_tools()
-        obs = self.rt.execute("configure_build_env", {"build_type": "release"})
-        self.assertTrue(obs.success)
-        self.assertEqual(obs.data["build_type"], "release")
-        self.assertEqual(obs.data["c_flags"], "-O3 -DNDEBUG")
-        self.assertEqual(obs.data["cxx_flags"], "-O3 -DNDEBUG")
-
-    def test_configure_build_env_includes_catalog_metadata(self):
-        self._register_default_c_workflow_tools()
-        obs = self.rt.execute("configure_build_env", {})
-        self.assertTrue(obs.success)
-        self.assertEqual(obs.data["tool_label"], "Configure Build Env")
-        self.assertEqual(obs.data["permission_category"], "read")
-        self.assertFalse(obs.data["supports_diff_preview"])
-
-    @unittest.skipIf(sys.platform != "win32", "Windows-only: requires cmd.exe")
-    def test_run_build_returns_observation(self):
-        self._register_default_c_workflow_tools()
-        obs = self.rt.execute("run_build", {"command": "cmd /c echo build-ok"})
-        self.assertTrue(obs.success)
-        self.assertEqual(obs.tool_name, "run_build")
-        self.assertIn("stdout", obs.data)
-        self.assertIn("build-ok", obs.data["stdout"])
-        self.assertIn("streaming_progress", obs.data)
-        self.assertIn("streaming_progress_count", obs.data)
-        self.assertIsInstance(obs.data["streaming_progress"], list)
-        self.assertIsInstance(obs.data["streaming_progress_count"], int)
-
-    def test_run_build_requires_command(self):
-        self._register_default_c_workflow_tools()
-        obs = self.rt.execute("run_build", {})
-        self.assertFalse(obs.success)
-        self.assertIsNotNone(obs.error)
-
-    @unittest.skipIf(sys.platform != "win32", "Windows-only: requires cmd.exe")
-    def test_run_build_parses_diagnostics(self):
-        self._register_default_c_workflow_tools()
-        # Write a helper batch file that prints a compiler-style diagnostic line
-        bat_path = os.path.join(self.workspace, "emit_diag.bat")
-        with open(bat_path, "w", encoding="utf-8") as f:
-            f.write("@echo off\necho test.c:1:2: error: test error\n")
-        obs = self.rt.execute("run_build", {"command": "emit_diag.bat"})
-        self.assertTrue(obs.success, obs.error)
-        self.assertIn("diagnostics", obs.data)
-        self.assertIsInstance(obs.data["diagnostics"], list)
-        self.assertGreaterEqual(obs.data["diagnostic_count"], 1)
-        self.assertEqual(obs.data["error_count"], 1)
-
-    @unittest.skipIf(sys.platform != "win32", "Windows-only: requires cmd.exe")
-    def test_run_build_includes_catalog_metadata(self):
-        self._register_default_c_workflow_tools()
-        obs = self.rt.execute("run_build", {"command": "cmd /c echo ok"})
-        self.assertTrue(obs.success)
-        self.assertEqual(obs.data["tool_label"], "Run Build")
-        self.assertEqual(obs.data["permission_category"], "shell_exec")
-        self.assertFalse(obs.data["supports_diff_preview"])
 
 
 class TestDiagnosticParsing(unittest.TestCase):
@@ -596,9 +582,7 @@ class TestDiagnosticParsing(unittest.TestCase):
             "timed_out": False,
             "interrupted": False,
         }
-        obs = self.ctx.build_diagnostic_observation(
-            "run_build", "cmd /c test", self.workspace, result
-        )
+        obs = self.ctx.build_diagnostic_observation("bash", "cmd /c test", self.workspace, result)
         self.assertIn("linker_error_count", obs.data)
         self.assertIn("linker_warning_count", obs.data)
         self.assertIn("linker_diagnostics", obs.data)
@@ -670,6 +654,7 @@ class TestManagedRuntimeEnvironment(unittest.TestCase):
         self._touch(bundle_root, "runtime", "python", "python.exe")
         self._touch(bundle_root, "bin", "git", "cmd", "git.exe")
         self._touch(bundle_root, "bin", "git", "bin", "git.exe")
+        self._touch(bundle_root, "bin", "git", "bin", "bash.exe")
         self._touch(bundle_root, "bin", "rg", "rg.exe")
         self._touch(bundle_root, "bin", "ctags", "ctags.exe")
         self._touch(bundle_root, "bin", "llvm", "bin", "clang.exe")
@@ -682,6 +667,7 @@ class TestManagedRuntimeEnvironment(unittest.TestCase):
         self.assertEqual(snapshot["runtime_source"], "bundle")
         self.assertTrue(snapshot["bundled_tools_ready"])
         self.assertEqual(snapshot["tool_sources"]["git"], "bundle")
+        self.assertEqual(snapshot["tool_sources"]["bash"], "bundle")
         self.assertEqual(snapshot["tool_sources"]["rg"], "bundle")
         self.assertEqual(snapshot["tool_sources"]["ctags"], "bundle")
         self.assertEqual(snapshot["tool_sources"]["llvm"], "bundle")
@@ -710,6 +696,7 @@ class TestManagedRuntimeEnvironment(unittest.TestCase):
         self._touch(bundle_root, "runtime", "python", "python.exe")
         self._touch(bundle_root, "bin", "git", "cmd", "git.exe")
         self._touch(bundle_root, "bin", "git", "bin", "git.exe")
+        self._touch(bundle_root, "bin", "git", "bin", "bash.exe")
         self._touch(bundle_root, "bin", "rg", "rg.exe")
         self._touch(bundle_root, "bin", "ctags", "ctags.exe")
         self._touch(bundle_root, "bin", "llvm", "bin", "clang.exe")
@@ -725,6 +712,7 @@ class TestManagedRuntimeEnvironment(unittest.TestCase):
         self.assertTrue(snapshot["bundled_tools_ready"])
         self.assertEqual(snapshot["tool_sources"]["python"], "bundle")
         self.assertEqual(snapshot["tool_sources"]["git"], "bundle")
+        self.assertEqual(snapshot["tool_sources"]["bash"], "bundle")
         self.assertEqual(snapshot["tool_sources"]["rg"], "bundle")
         self.assertEqual(snapshot["tool_sources"]["ctags"], "bundle")
         self.assertEqual(snapshot["tool_sources"]["llvm"], "bundle")
@@ -770,6 +758,10 @@ class TestRuntimeContractAlignment(unittest.TestCase):
         classified = {name: ctx.classify_managed_command(name) for name in names}
         self.assertEqual(classified["python"], "python")
         self.assertEqual(classified["git"], "git")
+        self.assertEqual(classified["bash"], "bash")
+        self.assertEqual(classified["bash.exe"], "bash")
+        self.assertEqual(classified["sh"], "bash")
+        self.assertEqual(classified["sh.exe"], "bash")
         self.assertEqual(classified["rg"], "rg")
         self.assertEqual(classified["ctags"], "ctags")
         self.assertEqual(classified["clang"], "llvm")
@@ -816,8 +808,37 @@ class TestWorkspaceRecipes(unittest.TestCase):
         self.assertTrue(cmake_build["supports_target"])
         self.assertTrue(cmake_build["supports_profile"])
 
+    def test_list_recipes_marks_cmake_build_not_ready_without_build_dir(self):
+        with open(os.path.join(self.workspace, "CMakeLists.txt"), "w", encoding="utf-8") as handle:
+            handle.write("cmake_minimum_required(VERSION 3.20)\nproject(demo C)\n")
+        from embedagent.workspace_recipes import list_workspace_recipes
+
+        payload = list_workspace_recipes(self.workspace)
+        build = [item for item in payload["items"] if item["id"] == "cmake.build.default"][0]
+        self.assertFalse(build["ready"])
+        self.assertEqual(build["confidence"], "medium")
+        self.assertIn("cmake.configure.default", build["requires"])
+        self.assertIn("suggested_next_step", build)
+
+    def test_project_recipe_is_ready_by_default(self):
+        os.makedirs(os.path.join(self.workspace, ".embedagent"))
+        with open(
+            os.path.join(self.workspace, ".embedagent", "workspace-recipes.json"),
+            "w",
+            encoding="utf-8",
+        ) as handle:
+            handle.write(
+                '[{"id":"custom.build","tool_name":"run_recipe","recipe_action":"build","command":"echo ok","cwd":"."}]'
+            )
+        from embedagent.workspace_recipes import list_workspace_recipes
+
+        payload = list_workspace_recipes(self.workspace)
+        recipe = [item for item in payload["items"] if item["id"] == "custom.build"][0]
+        self.assertTrue(recipe["ready"])
+        self.assertEqual(recipe["confidence"], "high")
+
     @unittest.skipIf(sys.platform != "win32", "Windows-only: requires cmd.exe")
-    def test_run_recipe_can_run_build_recipe_id(self):
+    def test_run_recipe_can_run_cmake_build_recipe_id(self):
         os.makedirs(os.path.join(self.workspace, ".embedagent"))
         with open(
             os.path.join(self.workspace, ".embedagent", "workspace-recipes.json"),
@@ -838,6 +859,7 @@ class TestWorkspaceRecipes(unittest.TestCase):
     def test_resolve_cmake_recipe_applies_target_and_profile(self):
         with open(os.path.join(self.workspace, "CMakeLists.txt"), "w", encoding="utf-8") as handle:
             handle.write("cmake_minimum_required(VERSION 3.20)\nproject(demo C)\n")
+        os.makedirs(os.path.join(self.workspace, "build", "debug"))
         from embedagent.workspace_recipes import resolve_workspace_recipe
 
         payload = resolve_workspace_recipe(
@@ -851,6 +873,30 @@ class TestWorkspaceRecipes(unittest.TestCase):
         self.assertEqual(payload["target"], "demo-app")
         self.assertIn("build/debug", payload["command"])
         self.assertIn("--target demo-app", payload["command"])
+
+    def test_run_recipe_refuses_cmake_build_without_configure(self):
+        with open(os.path.join(self.workspace, "CMakeLists.txt"), "w", encoding="utf-8") as handle:
+            handle.write("cmake_minimum_required(VERSION 3.20)\nproject(demo C)\n")
+        runtime = ToolRuntime(self.workspace)
+        register_default_c_workflow_tools(runtime, self.workspace)
+
+        obs = runtime.execute("run_recipe", {"recipe_id": "cmake.build.default"})
+
+        self.assertFalse(obs.success)
+        self.assertEqual(obs.data["error_kind"], "recipe_prerequisite_missing")
+        self.assertFalse(obs.data["retryable"])
+        self.assertIn("cmake.configure.default", obs.data["requires"])
+
+    def test_run_recipe_unknown_id_returns_available_alternatives(self):
+        runtime = ToolRuntime(self.workspace)
+        register_default_c_workflow_tools(runtime, self.workspace)
+
+        obs = runtime.execute("run_recipe", {"recipe_id": "missing"})
+
+        self.assertFalse(obs.success)
+        self.assertEqual(obs.data["error_kind"], "recipe_not_found")
+        self.assertFalse(obs.data["retryable"])
+        self.assertIn("available_recipes", obs.data)
 
     @unittest.skipIf(sys.platform != "win32", "Windows-only: requires cmd.exe")
     def test_run_recipe_can_run_verify_recipe_id(self):
@@ -930,104 +976,6 @@ class TestWorkspaceRecipes(unittest.TestCase):
         self.assertEqual(make_build["family"], "make")
         self.assertTrue(make_build["supports_target"])
         self.assertFalse(make_build["supports_profile"])
-
-
-class TestBuildArtifactReporting(unittest.TestCase):
-    """Tests for build artifact size reporting in run_build."""
-
-    def setUp(self):
-        self.workspace = _make_workspace("artifacts")
-        self.rt = ToolRuntime(self.workspace)
-        register_default_c_workflow_tools(self.rt, self.workspace)
-
-    def tearDown(self):
-        shutil.rmtree(self.workspace, ignore_errors=True)
-
-    @unittest.skipIf(sys.platform != "win32", "Windows-only: requires cmd.exe")
-    def test_run_build_reports_artifacts_on_success(self):
-        # Create a fake build output directory with artifacts
-        build_dir = os.path.join(self.workspace, "build")
-        os.makedirs(build_dir)
-        with open(os.path.join(build_dir, "demo.exe"), "wb") as f:
-            f.write(b"A" * 2048)
-        with open(os.path.join(build_dir, "demo.obj"), "wb") as f:
-            f.write(b"B" * 512)
-
-        obs = self.rt.execute("run_build", {"command": "cmd /c echo build-ok"})
-        self.assertTrue(obs.success)
-        self.assertIn("artifacts", obs.data)
-        self.assertIn("artifact_count", obs.data)
-        self.assertEqual(obs.data["artifact_count"], 2)
-        paths = [a["path"] for a in obs.data["artifacts"]]
-        self.assertIn("build/demo.exe", paths)
-        self.assertIn("build/demo.obj", paths)
-        for artifact in obs.data["artifacts"]:
-            self.assertIn("size_bytes", artifact)
-            self.assertIn("size_human", artifact)
-            if artifact["path"].endswith(".exe"):
-                self.assertEqual(artifact["size_bytes"], 2048)
-                self.assertEqual(artifact["size_human"], "2.0 KB")
-            elif artifact["path"].endswith(".obj"):
-                self.assertEqual(artifact["size_bytes"], 512)
-                self.assertEqual(artifact["size_human"], "512 B")
-
-    def test_run_build_no_artifacts_on_failure(self):
-        # Create artifacts but build fails
-        build_dir = os.path.join(self.workspace, "build")
-        os.makedirs(build_dir)
-        with open(os.path.join(build_dir, "demo.exe"), "wb") as f:
-            f.write(b"X" * 1024)
-
-        obs = self.rt.execute("run_build", {"command": "cmd /c exit 1"})
-        self.assertFalse(obs.success)
-        self.assertIn("artifacts", obs.data)
-        self.assertEqual(obs.data["artifact_count"], 0)
-        self.assertEqual(obs.data["artifacts"], [])
-
-    @unittest.skipIf(sys.platform != "win32", "Windows-only: requires cmd.exe")
-    def test_run_build_no_artifacts_if_timed_out(self):
-        obs = self.rt.execute("run_build", {"command": "cmd /c echo ok", "timeout_sec": 1})
-        self.assertTrue(obs.success)
-        # Should still scan since it didn't time out
-        self.assertIn("artifacts", obs.data)
-
-    @unittest.skipIf(sys.platform != "win32", "Windows-only: requires cmd.exe")
-    def test_artifact_scanning_respects_max_limit(self):
-        build_dir = os.path.join(self.workspace, "build")
-        os.makedirs(build_dir)
-        for i in range(60):
-            with open(os.path.join(build_dir, "file%d.o" % i), "wb") as f:
-                f.write(b"x")
-        obs = self.rt.execute("run_build", {"command": "cmd /c echo build-ok"})
-        self.assertTrue(obs.success)
-        self.assertLessEqual(obs.data["artifact_count"], 50)
-
-    def test_format_size_bytes(self):
-        from embedagent.tools.compile_ops import _format_size
-
-        self.assertEqual(_format_size(0), "0 B")
-        self.assertEqual(_format_size(512), "512 B")
-        self.assertEqual(_format_size(1023), "1023 B")
-        self.assertEqual(_format_size(1024), "1.0 KB")
-        self.assertEqual(_format_size(1536), "1.5 KB")
-        self.assertEqual(_format_size(1024 * 1024), "1.0 MB")
-        self.assertEqual(_format_size(1024 * 1024 * 2), "2.0 MB")
-
-    @unittest.skipIf(sys.platform != "win32", "Windows-only: requires cmd.exe")
-    def test_artifact_scanning_skips_non_artifact_files(self):
-        build_dir = os.path.join(self.workspace, "build")
-        os.makedirs(build_dir)
-        with open(os.path.join(build_dir, "main.c"), "w") as f:
-            f.write("int main() {}")
-        with open(os.path.join(build_dir, "README.md"), "w") as f:
-            f.write("# Build")
-        with open(os.path.join(build_dir, "app.exe"), "wb") as f:
-            f.write(b"x")
-
-        obs = self.rt.execute("run_build", {"command": "cmd /c echo build-ok"})
-        self.assertTrue(obs.success)
-        self.assertEqual(obs.data["artifact_count"], 1)
-        self.assertEqual(obs.data["artifacts"][0]["path"], "build/app.exe")
 
 
 if __name__ == "__main__":

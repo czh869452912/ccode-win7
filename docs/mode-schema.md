@@ -18,11 +18,11 @@ EmbedAgent now has one official first-class mode set:
 |------|----------------|--------------------------|--------------|
 | `explore` | code reading, explanation, impact analysis, discussion | `read_file`, `list_dir`, `glob_files`, `grep_text`, `git_status`, `git_log`, `ask_user` | read-only |
 | `spec` | requirements, constraints, acceptance criteria, docs | `read_file`, `list_dir`, `glob_files`, `grep_text`, `write_file`, `ask_user` | docs/text-oriented writes |
-| `build` | implementation loop | `read_file`, `list_dir`, `glob_files`, `grep_text`, `write_file`, `edit_file`, `ask_user` | implementation writes |
-| `debug` | reproduction, isolation, minimal repair | `read_file`, `list_dir`, `glob_files`, `grep_text`, `write_file`, `edit_file`, `ask_user` | implementation writes |
-| `verify` | build/test/static analysis summary without source edits | `read_file`, `list_dir`, `glob_files`, `grep_text`, `ask_user` | read-only |
+| `build` | implementation loop | `read_file`, `list_dir`, `glob_files`, `grep_text`, `write_file`, `edit_file`, `bash`, `ask_user` | implementation writes |
+| `debug` | reproduction, isolation, minimal repair | `read_file`, `list_dir`, `glob_files`, `grep_text`, `write_file`, `edit_file`, `bash`, `ask_user` | implementation writes |
+| `verify` | build/test/static analysis summary without source edits | `read_file`, `list_dir`, `glob_files`, `grep_text`, `bash`, `ask_user` | read-only source edits |
 
-Mode-contract tool lists are workflow-neutral. Default C/C++ harness tools such as `list_recipes`, `run_recipe`, `report_quality_v2`, `record_failing_evidence`, and `task_status` are registered runtime tools, but they are activated by the default C harness workflow extension and selected tool packs, not by the built-in mode schema itself.
+Mode-contract tool lists are workflow-neutral. `bash` is the single shell primitive in command-capable modes. Default C/C++ harness tools such as `list_recipes`, `run_recipe`, `report_quality_v2`, `record_failing_evidence`, and `task_status` are registered runtime tools, but they are activated by the default C harness workflow extension and selected tool packs, not by the built-in mode schema itself.
 
 Local resource reload does not alter mode contracts. Reloaded recipe JSON resources still execute only through the existing `run_recipe` tool path and its current mode/permission checks. Reloaded visible skills may appear only in the hosted lightweight local skill listing prompt unit and may be explicitly expanded through `/skill:<name> [args]`; reloaded prompts may be explicitly expanded through `/prompt:<name-or-path> [args]`. These expansions are normal Markdown/text context and do not add tools to the mode.
 

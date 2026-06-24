@@ -118,7 +118,7 @@ class QueryEngineDebugLiteTests(unittest.TestCase):
         )
         self.assertIn("record_failing_evidence", names)
         self.assertIn("run_recipe", names)
-        self.assertNotIn("run_command", names)
+        self.assertIn("bash", names)
 
     def test_adapter_create_session_exposes_debug_lite_snapshot_fields(self):
         adapter = InProcessAdapter(

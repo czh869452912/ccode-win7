@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import List
 
 from embedagent.harness.tool_metadata import C_WORKFLOW_TOOL_METADATA
-from embedagent.tools import compile_ops, recipe_ops, session_ops
+from embedagent.tools import recipe_ops, session_ops
 
 
 def _attach_metadata(tool):
@@ -15,7 +15,6 @@ def _attach_metadata(tool):
 
 def build_c_workflow_tools(ctx) -> List[object]:
     definitions = []
-    definitions.extend(compile_ops.build_tools(ctx))
     definitions.extend(recipe_ops.build_tools(ctx))
     definitions.extend(session_ops.build_workflow_tools(ctx))
     return [_attach_metadata(tool) for tool in definitions]

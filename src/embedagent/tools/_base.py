@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import fnmatch
+import hashlib
 import io
 import os
 import re
@@ -14,7 +15,10 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 from embedagent.local_resources import discover_local_resources
 from embedagent.runtime_discovery import discover_bundle_root
 from embedagent.session import Observation
-from embedagent.workspace_recipes import list_workspace_recipes, resolve_workspace_recipe
+from embedagent.workspace_recipes import (
+    list_workspace_recipes,
+    resolve_workspace_recipe,
+)
 
 MAX_READ_CHARS = 40000
 MAX_LIST_RESULTS = 500
@@ -29,7 +33,7 @@ DEFAULT_COMMAND_TIMEOUT_SEC = 30
 DEFAULT_BUILD_TIMEOUT_SEC = 120
 TEXT_ENCODINGS = ("utf-8", "utf-8-sig", "gbk", "cp936")
 SKIP_DIR_NAMES = {".git", ".hg", ".svn", "__pycache__"}
-MANAGED_RUNTIME_TOOL_KEYS = ("python", "git", "rg", "ctags", "llvm")
+MANAGED_RUNTIME_TOOL_KEYS = ("python", "git", "bash", "rg", "ctags", "llvm")
 LLVM_EXECUTABLE_NAMES = frozenset(
     (
         "clang",
@@ -51,6 +55,10 @@ LLVM_EXECUTABLE_NAMES = frozenset(
 DIRECT_MANAGED_EXECUTABLES = {
     "git": "git",
     "git.exe": "git",
+    "bash": "bash",
+    "bash.exe": "bash",
+    "sh": "bash",
+    "sh.exe": "bash",
     "rg": "rg",
     "rg.exe": "rg",
     "ctags": "ctags",
@@ -107,6 +115,23 @@ class ToolDefinition:
                 "description": self.description,
                 "parameters": self.parameters,
             },
+        }
+
+
+@dataclass
+class DecodedCommandOutput:
+    stream_name: str
+    text: str
+    encoding: str
+    decode_errors_count: int
+    output_maybe_mojibake: bool
+
+    def to_metadata(self) -> Dict[str, Any]:
+        prefix = self.stream_name
+        return {
+            "%s_encoding" % prefix: self.encoding,
+            "%s_decode_errors_count" % prefix: self.decode_errors_count,
+            "%s_output_maybe_mojibake" % prefix: self.output_maybe_mojibake,
         }
 
 
@@ -241,10 +266,94 @@ class ToolContext(object):
 
     # --------------------------------------------------- process execution
 
+    def _windows_code_page_encoding(self, getter_name: str) -> str:
+        if os.name != "nt":
+            return ""
+        try:
+            import ctypes
+
+            getter = getattr(ctypes.windll.kernel32, getter_name)
+            code_page = int(getter())
+        except (AttributeError, OSError, TypeError, ValueError):
+            return ""
+        return "cp%s" % code_page if code_page > 0 else ""
+
+    def command_output_encodings(self) -> List[str]:
+        encodings = ["utf-8-sig", "utf-8"]
+        for value in (
+            self._windows_code_page_encoding("GetOEMCP"),
+            self._windows_code_page_encoding("GetACP"),
+            "gbk",
+            "cp936",
+        ):
+            if value and value not in encodings:
+                encodings.append(value)
+        return encodings
+
+    def sanitize_command_output(self, text: str) -> str:
+        cleaned = []
+        for char in text.replace("\r\n", "\n").replace("\r", "\n"):
+            codepoint = ord(char)
+            if char in ("\n", "\t"):
+                cleaned.append(char)
+            elif codepoint < 32 or 0x7F <= codepoint <= 0x9F:
+                continue
+            elif 0xD800 <= codepoint <= 0xDFFF:
+                continue
+            else:
+                cleaned.append(char)
+        return "".join(cleaned)
+
+    def decode_command_output(self, stream_name: str, raw_bytes: bytes) -> DecodedCommandOutput:
+        data = raw_bytes or b""
+        for encoding in self.command_output_encodings():
+            try:
+                text = data.decode(encoding)
+            except UnicodeDecodeError:
+                continue
+            return DecodedCommandOutput(
+                stream_name=stream_name,
+                text=self.sanitize_command_output(text),
+                encoding="utf-8" if encoding == "utf-8-sig" else encoding,
+                decode_errors_count=0,
+                output_maybe_mojibake=False,
+            )
+        text = data.decode("utf-8", errors="replace")
+        return DecodedCommandOutput(
+            stream_name=stream_name,
+            text=self.sanitize_command_output(text),
+            encoding="utf-8-replace",
+            decode_errors_count=text.count("\ufffd"),
+            output_maybe_mojibake=True,
+        )
+
     def truncate_output(self, text: str) -> Tuple[str, bool]:
         if len(text) <= MAX_COMMAND_OUTPUT_CHARS:
             return text, False
-        return text[:MAX_COMMAND_OUTPUT_CHARS], True
+        return text[-MAX_COMMAND_OUTPUT_CHARS:], True
+
+    def materialize_command_output(
+        self,
+        tool_name: str,
+        command_text: str,
+        stdout: str,
+        stderr: str,
+    ) -> str:
+        payload = "tool: %s\ncommand: %s\n\n[stdout]\n%s\n\n[stderr]\n%s\n" % (
+            tool_name,
+            command_text,
+            stdout or "",
+            stderr or "",
+        )
+        digest = hashlib.sha1(payload.encode("utf-8")).hexdigest()[:16]
+        directory = os.path.join(self.workspace, ".embedagent", "memory", "command-output")
+        if not os.path.isdir(directory):
+            os.makedirs(directory)
+        path = os.path.join(directory, "%s.txt" % digest)
+        if not os.path.isfile(path):
+            with io.open(path, "w", encoding="utf-8", newline="") as handle:
+                handle.write(payload)
+        return os.path.relpath(path, self.workspace).replace(os.sep, "/")
 
     def allow_system_tool_fallback(self) -> bool:
         env_value = os.environ.get("EMBEDAGENT_ALLOW_SYSTEM_TOOL_FALLBACK", "").strip().lower()
@@ -314,6 +423,23 @@ class ToolContext(object):
                 (os.path.join(self.workspace, "bin", "git", "bin", "git.exe"), "workspace")
             )
             return candidates
+        if tool_key == "bash":
+            if bundle_root:
+                for relpath in (
+                    ("bin", "git", "bin", "bash.exe"),
+                    ("bin", "git", "usr", "bin", "bash.exe"),
+                    ("bin", "git", "bin", "sh.exe"),
+                    ("bin", "git", "usr", "bin", "sh.exe"),
+                ):
+                    candidates.append((os.path.join(bundle_root, *relpath), "bundle"))
+            for relpath in (
+                ("bin", "git", "bin", "bash.exe"),
+                ("bin", "git", "usr", "bin", "bash.exe"),
+                ("bin", "git", "bin", "sh.exe"),
+                ("bin", "git", "usr", "bin", "sh.exe"),
+            ):
+                candidates.append((os.path.join(self.workspace, *relpath), "workspace"))
+            return candidates
         if tool_key == "rg":
             if bundle_root:
                 candidates.append((os.path.join(bundle_root, "bin", "rg", "rg.exe"), "bundle"))
@@ -380,7 +506,7 @@ class ToolContext(object):
                     if resolved not in seen:
                         entries.append(resolved)
                         seen.add(resolved)
-        for tool_key in ("rg", "ctags", "python"):
+        for tool_key in ("bash", "rg", "ctags", "python"):
             executable, _ = self.resolve_managed_tool_path(tool_key)
             if executable:
                 directory = os.path.dirname(executable)
@@ -404,6 +530,7 @@ class ToolContext(object):
             "bundle_root": "",
             "python_exe": "",
             "git_exe": "",
+            "bash_exe": "",
             "rg_exe": "",
             "ctags_exe": "",
             "llvm_root": "",
@@ -418,6 +545,8 @@ class ToolContext(object):
                     resolved_tool_roots["python_exe"] = self.display_path(path)
                 elif tool_key == "git":
                     resolved_tool_roots["git_exe"] = self.display_path(path)
+                elif tool_key == "bash":
+                    resolved_tool_roots["bash_exe"] = self.display_path(path)
                 elif tool_key == "rg":
                     resolved_tool_roots["rg_exe"] = self.display_path(path)
                 elif tool_key == "ctags":
@@ -440,7 +569,7 @@ class ToolContext(object):
             runtime_source = "unavailable"
         bundled_tools_ready = all(
             tool_sources.get(key) in ("bundle", "workspace")
-            for key in ("git", "rg", "ctags", "llvm")
+            for key in ("git", "bash", "rg", "ctags", "llvm")
         )
         return {
             "runtime_source": runtime_source,
@@ -487,17 +616,14 @@ class ToolContext(object):
         target: str = "",
         profile: str = "",
     ) -> Dict[str, Any]:
-        try:
-            return resolve_workspace_recipe(
-                self.workspace,
-                recipe_id=recipe_id,
-                expected_tool_name=expected_tool_name,
-                target=target,
-                profile=profile,
-                resource_paths=self._resource_paths,
-            )
-        except ValueError as exc:
-            raise ToolError(str(exc))
+        return resolve_workspace_recipe(
+            self.workspace,
+            recipe_id=recipe_id,
+            expected_tool_name=expected_tool_name,
+            target=target,
+            profile=profile,
+            resource_paths=self._resource_paths,
+        )
 
     def rewrite_command_for_managed_tools(self, command_text: str) -> Tuple[str, str, str]:
         match = re.match(r'^(\s*)(?:"([^"]+)"|([^\s|&;<>]+))', command_text)
@@ -566,9 +692,6 @@ class ToolContext(object):
             shell=shell,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            universal_newlines=True,
-            encoding="utf-8",
-            errors="replace",
             env=self.build_process_env(),
             creationflags=(
                 getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0) if os.name == "nt" else 0
@@ -577,33 +700,41 @@ class ToolContext(object):
         timed_out = False
         interrupted = False
         deadline = started + timeout_sec
-        stdout = ""
-        stderr = ""
+        stdout_bytes = b""
+        stderr_bytes = b""
         while True:
             remaining = deadline - time.time()
             if remaining <= 0:
                 timed_out = True
                 self.terminate_process_tree(process)
-                stdout, stderr = process.communicate()
+                stdout_bytes, stderr_bytes = process.communicate()
                 break
             try:
-                stdout, stderr = process.communicate(timeout=min(0.2, remaining))
+                stdout_bytes, stderr_bytes = process.communicate(timeout=min(0.2, remaining))
                 break
             except subprocess.TimeoutExpired:
                 if stop_event is not None and stop_event.is_set():
                     interrupted = True
                     self.terminate_process_tree(process)
-                    stdout, stderr = process.communicate()
+                    stdout_bytes, stderr_bytes = process.communicate()
                     break
         duration_ms = int((time.time() - started) * 1000)
-        stdout, stdout_truncated = self.truncate_output(stdout or "")
-        stderr, stderr_truncated = self.truncate_output(stderr or "")
+        stdout_decoded = self.decode_command_output("stdout", stdout_bytes or b"")
+        stderr_decoded = self.decode_command_output("stderr", stderr_bytes or b"")
+        stdout, stdout_truncated = self.truncate_output(stdout_decoded.text)
+        stderr, stderr_truncated = self.truncate_output(stderr_decoded.text)
         return {
             "exit_code": process.returncode,
             "stdout": stdout,
             "stderr": stderr,
             "stdout_truncated": stdout_truncated,
             "stderr_truncated": stderr_truncated,
+            "stdout_encoding": stdout_decoded.encoding,
+            "stderr_encoding": stderr_decoded.encoding,
+            "stdout_decode_errors_count": stdout_decoded.decode_errors_count,
+            "stderr_decode_errors_count": stderr_decoded.decode_errors_count,
+            "stdout_output_maybe_mojibake": stdout_decoded.output_maybe_mojibake,
+            "stderr_output_maybe_mojibake": stderr_decoded.output_maybe_mojibake,
             "duration_ms": duration_ms,
             "timed_out": timed_out,
             "interrupted": interrupted,
@@ -765,6 +896,12 @@ class ToolContext(object):
             "stderr": result["stderr"],
             "stdout_truncated": result["stdout_truncated"],
             "stderr_truncated": result["stderr_truncated"],
+            "stdout_encoding": result.get("stdout_encoding") or "",
+            "stderr_encoding": result.get("stderr_encoding") or "",
+            "stdout_decode_errors_count": int(result.get("stdout_decode_errors_count") or 0),
+            "stderr_decode_errors_count": int(result.get("stderr_decode_errors_count") or 0),
+            "stdout_output_maybe_mojibake": bool(result.get("stdout_output_maybe_mojibake")),
+            "stderr_output_maybe_mojibake": bool(result.get("stderr_output_maybe_mojibake")),
             "duration_ms": result["duration_ms"],
             "timed_out": result["timed_out"],
             "interrupted": bool(result.get("interrupted")),
@@ -774,6 +911,13 @@ class ToolContext(object):
             "fallback_warnings": list(runtime.get("fallback_warnings") or []),
             "resolved_tool_roots": dict(runtime.get("resolved_tool_roots") or {}),
         }
+        if result.get("stdout_truncated") or result.get("stderr_truncated"):
+            data["full_output_ref"] = self.materialize_command_output(
+                tool_name,
+                command_text,
+                str(result.get("stdout") or ""),
+                str(result.get("stderr") or ""),
+            )
         if result.get("interrupted"):
             data.update(
                 {
@@ -781,6 +925,28 @@ class ToolContext(object):
                     "retryable": False,
                     "blocked_by": "user_cancelled",
                     "suggested_next_step": "用户取消了当前会话；如需继续，请恢复会话或重新提交请求。",
+                }
+            )
+        elif result["timed_out"]:
+            data.update(
+                {
+                    "error_kind": "timeout",
+                    "retryable": False,
+                    "suggested_next_step": (
+                        "Inspect partial output, then rerun with a narrower command or an "
+                        "explicitly larger timeout."
+                    ),
+                }
+            )
+        elif result["exit_code"] != 0:
+            data.update(
+                {
+                    "error_kind": "command_failed",
+                    "retryable": False,
+                    "suggested_next_step": (
+                        "Inspect stdout/stderr and change the command or project state before "
+                        "retrying."
+                    ),
                 }
             )
         return Observation(tool_name=tool_name, success=success, error=error, data=data)

@@ -124,16 +124,17 @@ Harness exposes focused packs instead of an undifferentiated tool wall.
 Main pack families:
 
 - discovery/file tools
+- shell command tools
 - recipe/build/verify tools
 - task/interaction tools
 
 This keeps model tool selection tight without hard mode walls becoming unusable.
 
-The workflow-neutral `CORE_PACK` does not contain harness workflow tools. Built-in mode `allowed_tools` are also workflow-neutral permission/write contracts; they do not own `list_recipes`, `run_recipe`, `report_quality_v2`, `record_failing_evidence`, or `task_status`.
+The workflow-neutral `CORE_PACK` contains the minimal file/search/editing foundation plus `bash` and `ask_user`. Built-in mode `allowed_tools` are also workflow-neutral permission/write contracts; they may expose `bash` in command-capable modes, but they do not own `list_recipes`, `run_recipe`, `report_quality_v2`, `record_failing_evidence`, or `task_status`.
 
-The built-in C harness extension registers and activates compiler/build helpers, recipe execution, quality reporting, failing-evidence capture, and task-status tools through the shared extension capability boundary. Tool definitions are assembled in `src/embedagent/harness/tool_registry.py`, their metadata lives in `src/embedagent/harness/tool_metadata.py`, and pack ownership lives in `src/embedagent/harness/packs.py`. Its active-tool hook returns pack tools only; `AgentExtensionHost` unions those with the mode contract when the engine needs the full default C/C++ tool set. `AgentExtensionHost` requests schemas by explicit active tool names through `ToolRuntime.schemas_for(mode, workflow_state, tool_names=...)`. Runtime schema filtering no longer activates the default harness pack by itself, and bare `ToolRuntime` construction does not register default C/C++ workflow tools.
+The built-in C harness extension registers and activates recipe readiness/execution, quality reporting, failing-evidence capture, and task-status tools through the shared extension capability boundary. Core runtime owns the `bash` primitive. Tool definitions are assembled in `src/embedagent/harness/tool_registry.py`, their metadata lives in `src/embedagent/harness/tool_metadata.py`, and pack ownership lives in `src/embedagent/harness/packs.py`. Its active-tool hook returns pack tools only; `AgentExtensionHost` unions those with the mode contract when the engine needs the full default C/C++ tool set. `AgentExtensionHost` requests schemas by explicit active tool names through `ToolRuntime.schemas_for(mode, workflow_state, tool_names=...)`. Runtime schema filtering no longer activates the default harness pack by itself, and bare `ToolRuntime` construction does not register default C/C++ workflow tools.
 
-The built-in C harness extension also registers C workflow context reducers from `src/embedagent/harness/context_reducers.py`. Core `ReducerRegistry` stays workflow-neutral; build diagnostics, recipe summaries, quality reports, and task-status reduction belong to the workflow package.
+The built-in C harness extension also registers C workflow context reducers from `src/embedagent/harness/context_reducers.py`. Core `ReducerRegistry` stays workflow-neutral and owns `bash` command summaries; recipe summaries, quality reports, failing-evidence records, and task-status reduction belong to the workflow package.
 
 The old `embedagent.tooling.packs` compatibility export has been removed. Current code must import bundled C/C++ workflow pack definitions from `embedagent.harness.packs`.
 
@@ -148,7 +149,7 @@ The built-in C harness extension also exposes a read-only workflow package manif
 
 `RuntimeConfigReducer` can project registered tool names, harness-influenced active model-visible tool names, and local resource revision metadata after those decisions have been emitted to the transcript. That projection is not the harness pack activation mechanism; the default C/C++ extension still owns pack selection and `AgentExtensionHost` still owns schema projection.
 
-Harness recipes and quality flows must invoke only bundled external tools described by `scripts/offline-runtime-contract.json`. The packaging gate validates Python, MinGit, ripgrep, Universal Ctags, and LLVM/Clang child executables from that shared contract, so adding a harness runtime binary requires updating the contract and tests in the same change.
+Harness recipes, `bash`, and quality flows must invoke only bundled external tools described by `scripts/offline-runtime-contract.json`. The packaging gate validates Python, Bash from MinGit, MinGit, ripgrep, Universal Ctags, and LLVM/Clang child executables from that shared contract, so adding a harness runtime binary requires updating the contract and tests in the same change.
 
 ## 8. Prompting Model
 

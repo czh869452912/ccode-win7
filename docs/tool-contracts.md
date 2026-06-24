@@ -15,9 +15,9 @@ The official runtime facade is:
 
 - `src/embedagent/tools/runtime.py`
 
-Workflow extensions may activate focused subsets of registered tools for a turn. The default C/C++ harness extension owns harness-specific tool activation, build helper registration, context reducers, and `task_status` behavior, while `ask_user` remains core interaction infrastructure.
+Workflow extensions may activate focused subsets of registered tools for a turn. The default C/C++ harness extension owns harness-specific tool activation, recipe readiness/execution, context reducers, and `task_status` behavior, while `ask_user` remains core interaction infrastructure.
 
-`CORE_PACK` is workflow-neutral. Harness tools such as `list_compilers`, `configure_build_env`, `run_build`, `list_recipes`, `run_recipe`, `report_quality_v2`, `record_failing_evidence`, and `task_status` must be registered/activated by workflow packs/extensions rather than being treated as bare Core tools.
+`CORE_PACK` is the minimal editing/search/shell foundation. Harness-only tools such as `list_recipes`, `run_recipe`, `report_quality_v2`, `record_failing_evidence`, and `task_status` must be registered/activated by workflow packs/extensions rather than being treated as bare Core tools.
 
 Bundled C/C++ workflow pack definitions are owned only by `src/embedagent/harness/packs.py`. The old `embedagent.tooling.packs` re-export and `embedagent.tooling` package-root pack aliases have been removed and must not be treated as official tool contracts.
 
@@ -41,7 +41,7 @@ Allowed-tool gating is not a runtime wrapper. Core orchestration receives an exp
 
 `author_local_capability` is a workflow-neutral write tool for local self-extension authoring. It creates workspace-bound skills, prompts, recipes, and disabled-by-default project extension skeletons under `.embedagent`; it does not reload resource caches and does not load, enable, import, or trust generated Python extension code.
 
-Runtime-invoked external binaries are governed by `scripts/offline-runtime-contract.json`. If a tool implementation, recipe path, or workflow package starts invoking a new bundled binary, the runtime contract and packaging validators must be updated in the same change. The contract currently covers Python, MinGit, ripgrep, Universal Ctags, and LLVM/Clang child executables.
+Runtime-invoked external binaries are governed by `scripts/offline-runtime-contract.json`. If a tool implementation, recipe path, or workflow package starts invoking a new bundled binary, the runtime contract and packaging validators must be updated in the same change. The contract currently covers Python, Bash from MinGit, MinGit, ripgrep, Universal Ctags, and LLVM/Clang child executables.
 
 Shell tooling uses `get_command_sanitizer()` directly. Do not depend on or
 recreate legacy sanitizer aliases such as `_DEFAULT_SANITIZER` or
@@ -134,9 +134,7 @@ Generated extension validation recipes must remain offline-friendly. They should
 
 | Tool | Purpose | Core Parameters |
 |------|---------|-----------------|
-| `list_compilers` | enumerate available bundled/workspace/system C/C++ compilers | none |
-| `configure_build_env` | suggest build flags/environment for a selected compiler/profile | optional `compiler`, `build_type`, `target` |
-| `run_build` | run a build command with diagnostics/artifact reporting | `command`, optional `cwd`, `timeout_sec`, `diagnostic` |
+| `bash` | execute an explicit sanitized shell command with decoded stdout/stderr and structured failure guidance | `command`, optional `cwd`, `timeout_sec` |
 | `list_recipes` | enumerate runnable workspace recipes | none |
 | `run_recipe` | execute a workspace recipe | `recipe_id` |
 | `report_quality_v2` | summarize minimal quality gate state | `error_count`, `warning_count`, `test_failures` |
@@ -156,7 +154,8 @@ These are supporting capabilities, not the primary workflow vocabulary:
 - `git_status`
 - `git_diff`
 - `git_log`
-- `run_command`
+
+Command execution is represented by `bash`, not by additional build-shaped wrappers. Recipe calls must report readiness and explicit next steps when a recipe is missing, mismatched, or blocked by prerequisites.
 
 ## 3. Observation Shape
 
@@ -168,6 +167,8 @@ Common fields include:
 - `error`
 - `tool_name`
 - tool-specific structured `data`
+
+Command observations must include decoded output metadata (`stdout_encoding`, `stderr_encoding`, replacement counts, and mojibake hints), tail-preserving truncation flags, and a `full_output_ref` when omitted output was materialized. Failed command-like observations should include `error_kind`, `retryable`, and `suggested_next_step` when the tool can infer a useful next action.
 
 For list/search style tools, the preferred output shape is:
 

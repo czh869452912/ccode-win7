@@ -3,42 +3,33 @@ from __future__ import annotations
 C_WORKFLOW_CORE_PACK = [
     "read_file",
     "list_dir",
+    "glob_files",
     "grep_text",
     "edit_file",
     "write_file",
+    "bash",
     "ask_user",
 ]
 
 C_WORKFLOW_BUILD_LITE_PACK = C_WORKFLOW_CORE_PACK + [
-    "glob_files",
-    "list_compilers",
-    "configure_build_env",
-    "run_build",
     "list_recipes",
     "run_recipe",
     "task_status",
 ]
 
-C_WORKFLOW_DEBUG_LITE_PACK = [
-    "read_file",
-    "list_dir",
-    "grep_text",
-    "edit_file",
-    "write_file",
-    "list_compilers",
-    "configure_build_env",
-    "run_build",
-    "run_recipe",
-    "ask_user",
-    "task_status",
-    "glob_files",
+C_WORKFLOW_DEBUG_LITE_PACK = C_WORKFLOW_CORE_PACK + [
     "list_recipes",
+    "run_recipe",
+    "task_status",
     "record_failing_evidence",
 ]
 
 C_WORKFLOW_VERIFY_PACK = [
-    "list_compilers",
-    "run_build",
+    "read_file",
+    "list_dir",
+    "glob_files",
+    "grep_text",
+    "bash",
     "list_recipes",
     "run_recipe",
     "report_quality_v2",

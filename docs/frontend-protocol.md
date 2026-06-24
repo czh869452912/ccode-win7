@@ -112,6 +112,7 @@ Important session snapshot fields include:
 - `pending_interaction_valid`
 - `runtime_source`
 - `bundled_tools_ready`
+- `runtime_environment.bash_exe`
 - `workflow`
 - `current_phase`
 - `discipline_profile`

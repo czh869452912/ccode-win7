@@ -639,7 +639,7 @@ def test_frontend_tool_catalog_gets_harness_tools_from_workflow_extension(tmp_pa
     assert "task_status" in names
 
 
-def test_c_harness_extension_active_tools_are_pack_only_for_verify():
+def test_c_harness_extension_active_tools_include_verify_foundation():
     from embedagent.harness.extension import CHarnessWorkflowExtension
 
     names = CHarnessWorkflowExtension().allowed_tool_names("verify")
@@ -647,8 +647,11 @@ def test_c_harness_extension_active_tools_are_pack_only_for_verify():
     assert "run_recipe" in names
     assert "report_quality_v2" in names
     assert "task_status" in names
-    assert "read_file" not in names
-    assert "grep_text" not in names
+    assert "bash" in names
+    assert "read_file" in names
+    assert "grep_text" in names
+    assert "write_file" not in names
+    assert "edit_file" not in names
 
 
 def test_c_harness_extension_is_inactive_for_non_harness_modes():

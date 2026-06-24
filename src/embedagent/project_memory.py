@@ -245,7 +245,7 @@ class ProjectMemoryStore(object):
         arguments: Dict[str, Any],
         observation: Observation,
     ) -> None:
-        if action_name not in ("run_command", "run_recipe"):
+        if action_name not in ("bash", "run_recipe"):
             return
         if not isinstance(observation.data, dict):
             return
@@ -379,12 +379,12 @@ class ProjectMemoryStore(object):
         self, mode_name: str, recipes: List[Dict[str, Any]]
     ) -> List[Dict[str, Any]]:
         preferred = {
-            "verify": ("test", "tidy", "analyze", "coverage", "build", "configure", "run_command"),
-            "build": ("build", "configure", "test", "run_command"),
-            "debug": ("test", "build", "configure", "run_command"),
-            "explore": ("build", "test", "configure", "run_command"),
-            "spec": ("build", "test", "configure", "run_command"),
-        }.get(mode_name, ("build", "test", "run_command"))
+            "verify": ("test", "tidy", "analyze", "coverage", "build", "configure", "bash"),
+            "build": ("build", "configure", "test", "bash"),
+            "debug": ("test", "build", "configure", "bash"),
+            "explore": ("build", "test", "configure", "bash"),
+            "spec": ("build", "test", "configure", "bash"),
+        }.get(mode_name, ("build", "test", "bash"))
         selected = []
         seen = set()
         for recipe_action in preferred:
@@ -399,8 +399,8 @@ class ProjectMemoryStore(object):
     def _select_issues(self, mode_name: str, issues: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         preferred = {
             "verify": ("quality", "test", "tidy", "analyze", "coverage", "build"),
-            "build": ("build", "test", "quality", "run_command"),
-            "debug": ("test", "build", "quality", "run_command"),
+            "build": ("build", "test", "quality", "bash"),
+            "debug": ("test", "build", "quality", "bash"),
         }.get(mode_name, ())
         selected = []
         for item in issues:
@@ -466,8 +466,8 @@ class ProjectMemoryStore(object):
             value = str((data or {}).get("recipe_action") or "").strip()
             if value:
                 return value
-        if str(action_name or "") == "run_command":
-            return "run_command"
+        if str(action_name or "") == "bash":
+            return "bash"
         return ""
 
     def _recipe_kind(self, item: Dict[str, Any]) -> str:
@@ -475,8 +475,8 @@ class ProjectMemoryStore(object):
         if recipe_action:
             return recipe_action
         tool_name = str(item.get("tool_name") or "").strip()
-        if tool_name == "run_command":
-            return "run_command"
+        if tool_name == "bash":
+            return "bash"
         return tool_name
 
     def _issue_kind(self, item: Dict[str, Any]) -> str:
@@ -486,8 +486,8 @@ class ProjectMemoryStore(object):
         recipe_action = str(item.get("recipe_action") or "").strip()
         if recipe_action:
             return recipe_action
-        if tool_name == "run_command":
-            return "run_command"
+        if tool_name == "bash":
+            return "bash"
         return tool_name
 
     def _stored_refs(self, observation: Observation) -> List[str]:

@@ -207,7 +207,7 @@ class TestRuntimeBundleContract(unittest.TestCase):
 
         self.assertEqual(payload["schema_version"], 1)
         tool_ids = [item["id"] for item in payload["required_tools"]]
-        self.assertEqual(tool_ids, ["python", "git", "rg", "ctags", "llvm"])
+        self.assertEqual(tool_ids, ["python", "git", "bash", "rg", "ctags", "llvm"])
         for item in payload["required_tools"]:
             self.assertTrue(item["component"])
             self.assertTrue(item["category"])
@@ -420,6 +420,7 @@ class TestStageJsonReports(unittest.TestCase):
                 "runtime/site-packages/extra_b/__init__.py",
                 "runtime/site-packages/extra_c/__init__.py",
                 "bin/git/cmd/git.exe",
+                "bin/git/bin/bash.exe",
                 "bin/rg/rg.exe",
                 "bin/ctags/ctags.exe",
                 "bin/llvm/bin/clang.exe",

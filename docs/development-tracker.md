@@ -304,9 +304,9 @@
 - Python 3.8.10 `uv` 环境验证通过（`.venv`）
 - Moonshot `kimi-k2.5` 真实联调已跑通最小工具闭环（需使用 `/v1`，并保留 `reasoning_content`）
 - `docs/llm-adapter.md` 已建立，记录已验证 provider 兼容点
-- Phase 2 工具核心实现已落地：`run_command`、`git_status`、`git_diff`、`git_log`
+- Phase 2 工具核心实现已落地：`bash`、`git_status`、`git_diff`、`git_log`
 - `docs/tool-contracts.md` 已建立，记录当前工具接口契约
-- Phase 2 Loop 烟雾验证通过：`run_command` 与 `git_status` 已通过主循环消费验证
+- Phase 2 Loop 烟雾验证通过：`bash` 与 `git_status` 已通过主循环消费验证
 - Phase 3 模式系统 v2 已落地：5 模式配置驱动（`explore`/`spec`/`code`/`debug`/`verify`）、`initialize_modes`、工具过滤、`/mode`；`switch_mode` LLM 工具已移除
 - `docs/mode-schema.md` 与 `docs/harness-state-machine.md` 已建立
 - Phase 3 验证通过：模式切换、违规工具拦截、写入范围拦截均已完成本地验证
@@ -377,7 +377,7 @@
 - tool interrupt / retry 已继续推进第二段：parallel batch 中的 `discarded` synthetic result 仍会进 transcript，但不再误计入 `LoopGuard` 导致整轮提前 `guard_stop`
 - tool interrupt / retry 已继续推进第三段：`StreamingToolExecutor` 并行批次已改成流式 start/result，`max_parallel_tools=1` 场景下现在能稳定落下“首个 action interrupted、后续未开始 action discarded”的 transcript 语义
 - tool interrupt / retry 已继续推进第四段：`tool_call` transcript 现在在 assistant action 阶段统一落盘，因此 discarded action 也能保持完整 `tool_call -> tool_result` 链路
-- tool interrupt / retry 已继续推进第五段：Windows 下 `run_command` 现在以新进程组启动，并在取消时优先发送 `CTRL_BREAK_EVENT`；长命令用户中断不再依赖 `taskkill` 成功才会及时返回
+- tool interrupt / retry 已继续推进第五段：Windows 下 `bash` 现在以新进程组启动，并在取消时优先发送 `CTRL_BREAK_EVENT`；长命令用户中断不再依赖 `taskkill` 成功才会及时返回
 - tool interrupt / retry 已继续推进第六段：`StreamingToolExecutor` 现在会直接观察 cancel event，因此 `max_parallel_tools>1` 时排队 action 在取消后会保持 `discarded`，不再偷偷升级成已启动的 `interrupted`
 - tool interrupt / retry 已继续推进第七段：当前 batch 一旦已经出现 `discarded`，同一条 assistant plan 中后续 batch 会统一落 `discarded` result，而不会继续真实执行后续写动作
 - tool interrupt / retry 已继续推进第八段：`StreamingToolExecutor` 现在对并行 batch 引入 idle timeout / cancel 收口；started 但迟迟不返回的只读 action 会落 `timeout` 或 `interrupted`，尚未开始的兄弟 action 会落 `discarded`，session 不再因单个卡死线程无限等待
@@ -463,7 +463,7 @@
 | T-003 | 实现第一批工具（read/list/search/edit） | `completed` | 已按 `docs/tool-design-spec.md` 规范落地 |
 | T-004 | 实现最小主循环 + CLI 入口 | `completed` | 本地假模型闭环已跑通 |
 | T-005 | Phase 1 里程碑验证（GLM5 + Qwen3.5） | `completed` | 目标模型环境不具备，按 Moonshot + Python 3.8 验证口径验收 |
-| T-006 | 实现 Phase 2 工具（run_command / git） | `completed` | 已补齐工具契约与 Loop 烟雾验证 |
+| T-006 | 实现 Phase 2 工具（bash / git） | `completed` | 已补齐工具契约与 Loop 烟雾验证 |
 | T-007 | 实现模式系统 v1（dict + 工具过滤） | `completed` | 已补齐文档与本地验证 |
 | T-008 | 实现 Phase 4 Clang 工具链第一版封装 | `in_progress` | 已有本地闭环工具链与 recipe-aware build/test 入口，待真实工程验证与版本收敛 |
 | T-009 | 实现 Phase 5 最小权限与防循环保护 | `completed` | 权限模型、Doom Loop Guard、ContextManager、mode-aware budget、Artifact Store、SessionSummaryStore、ProjectMemoryStore、Resume Entry、MemoryMaintenance 已落地；`scripts/validate-phase5.py` 已在 2026-03-29 复验通过 |
@@ -508,7 +508,7 @@
 |------|------|------|------|
 | Phase 0 | 仓库基线与工作约束 | `completed` | 已完成文档、版本策略、治理基线、工具规范 |
 | Phase 1 | 最小可工作 Loop | `completed` | 已完成 Python 3.8 与真实 OpenAI-compatible 工具闭环验证 |
-| Phase 2 | 工具集 v1 | `completed` | 已实现 run_command / git 工具，并完成 3.8 本地验证 |
+| Phase 2 | 工具集 v1 | `completed` | 已实现 bash / git 工具，并完成 3.8 本地验证 |
 | Phase 3 | 模式系统 v2 | `completed` | 5 模式配置驱动（explore/spec/code/debug/verify）、initialize_modes、工具过滤、/mode 已完成；switch_mode LLM 工具已移除 |
 | Phase 4 | Clang 工具链 | `in_progress` | 已有项目内闭环工具链，待真实工程与 Win7 验证 |
 | Phase 5 | 质量保障层 | `completed` | 权限、上下文、记忆、恢复与 cleanup 已落地；修复根目录文件写入边界后，专项验证脚本已复验通过 |

@@ -239,9 +239,7 @@ Runtime configuration projections are also read-only. `runtime_configured`, `res
 
 #### Build / Verify
 
-- `list_compilers`
-- `configure_build_env`
-- `run_build`
+- `bash`
 - `list_recipes`
 - `run_recipe`
 - `report_quality_v2`
@@ -257,7 +255,8 @@ Runtime configuration projections are also read-only. `runtime_configured`, `res
 - `git_status`
 - `git_diff`
 - `git_log`
-- `run_command` as controlled fallback
+
+`bash` is the official command execution primitive. Recipes are higher-level declarative entry points and must expose readiness and suggested next steps instead of acting like an opaque shell wrapper.
 
 ## 5. Workflow Extension And Harness Layer
 
@@ -300,12 +299,12 @@ The frontend should never infer permission policy from mode alone.
 
 The default C/C++ workflow extension registers harness-owned context reducers for:
 
-- `list_compilers`
-- `configure_build_env`
-- `run_build`
 - `run_recipe`
 - `report_quality_v2`
 - `task_status`
+- `record_failing_evidence`
+
+The workflow-neutral reducer registry owns `bash` command summaries, including output decoding metadata, tail truncation, full-output refs, and structured failure guidance.
 
 ## 8. Session / Transcript Truth
 

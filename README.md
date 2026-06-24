@@ -51,7 +51,7 @@ The next long-term architecture direction is captured in `docs/pi-inspired-agent
 - Official runtime configuration read model: `RuntimeConfigReducer` projects safe replayable runtime configuration from `transcript.jsonl`, including credential-free model profile metadata, registered tool names, model-visible active tool names, local resource revision metadata, capability counts, and provider snapshot records. It is diagnostic/replay state and does not replace extension activation, tool execution, resource reload, project extension loading, or permission policy.
 - Official compaction read model: `CompactionStateReducer` projects structured compact boundary state from `compact_boundary` transcript events, including token/message counts, preserved message anchors, trigger/phase/window diagnostics, safe file activity, evidence refs, extension-summary flags, and diagnostics. It feeds restore results, managed sessions, protocol snapshots, and session snapshots, but it does not drive context selection or become a second history source.
 - Official recovery read model: `RecoveryStateReducer` projects safe hosted-resume recovery markers from `recovery_marker` transcript events, including trusted-prefix counts, stop reasons, operation/compaction/runtime summaries, and diagnostics. It feeds restore results, managed sessions, protocol snapshots, and session snapshots, but it does not change restore rules or drive runtime policy.
-- Official offline runtime contract: `scripts/offline-runtime-contract.json` lists every runtime-invoked bundled external tool, including Python, MinGit, ripgrep, Universal Ctags, and the LLVM/Clang child executables. Bundle validators consume this contract instead of maintaining separate hard-coded tool lists.
+- Official offline runtime contract: `scripts/offline-runtime-contract.json` lists every runtime-invoked bundled external tool, including Python, Bash from MinGit, MinGit, ripgrep, Universal Ctags, and the LLVM/Clang child executables. Bundle validators consume this contract instead of maintaining separate hard-coded tool lists.
 - Official GUI bundle launcher: the GUI bundle includes a thin native Win32 launcher (`EmbedAgent.exe` / `embedagent-gui.exe`) for double-click startup, while Python, WebView2, LLVM/Clang, MinGit, ripgrep, and Universal Ctags remain explicit files in the portable bundle.
 - Official frontend vocabulary: `build`, `tasks`, `current_phase`, `discipline_profile`
 - Official GUI app-shell boundary: `GET /api/app/bootstrap` and `/api/app/workspaces*` expose GUI-owned workspace/app diagnostics, app commands, and local settings; this is separate from Agent Core session truth and from `GET /api/sessions/{id}/bootstrap`
@@ -142,6 +142,7 @@ The default C/C++ workflow tool vocabulary is centered on:
 - `write_file`
 - `edit_file`
 - `author_local_capability`
+- `bash`
 - `list_recipes`
 - `run_recipe`
 - `report_quality_v2`
@@ -149,7 +150,7 @@ The default C/C++ workflow tool vocabulary is centered on:
 - `record_failing_evidence`
 - `ask_user`
 
-Git/status helpers and `run_command` remain available as supporting capabilities where appropriate, but the architecture no longer treats the old duplicate file/build/todo tools as first-class workflow primitives.
+`bash` is the single shell primitive for explicit command execution. Recipe tools stay declarative and readiness-aware; if a project has no ready recipe, the model should inspect the workspace or use `bash` deliberately instead of forcing a wrapped build action. Git/status helpers remain supporting capabilities where appropriate, but the architecture no longer treats duplicate file/build/todo wrappers as first-class workflow primitives.
 
 These tools are registered in the runtime catalog. Built-in mode prompts expose only workflow-neutral permission/write contracts; the default C/C++ harness extension activates recipe, quality, evidence, and task-status tools through focused packs.
 
