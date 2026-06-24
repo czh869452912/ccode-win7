@@ -44,6 +44,39 @@
 
 ## 3. 当前变更记录
 
+### DC-194
+
+- Date: 2026-06-25
+- Change Topic: Pi-aligned minimal tool architecture
+- Summary:
+  - Re-centered the model-visible command primitive on `bash`.
+  - Removed legacy public `run_build`, compiler listing, and build-environment helper tools from public schemas, workflow packs, metadata, and docs.
+  - Kept C/C++ workflow capabilities behind the default workflow extension boundary: recipes, quality reporting, failing evidence, and task status.
+  - Added recipe readiness/prerequisite/refusal behavior so unconfigured projects get actionable next steps instead of repeated failed recipe execution.
+  - Improved non-streaming subprocess output handling with byte capture, explicit decoding fallback, and safe metadata.
+  - Added bundled Bash to the offline runtime contract.
+- Impacted Scope:
+  - `src/embedagent/tools/`
+  - `src/embedagent/harness/`
+  - `src/embedagent/workspace_recipes.py`
+  - `src/embedagent/modes.py`
+  - `scripts/offline-runtime-contract.json`
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/tool-contracts.md`
+  - `docs/mode-schema.md`
+  - `docs/agent-harness-v2.md`
+  - `docs/permission-model.md`
+  - `docs/frontend-protocol.md`
+  - `docs/development-tracker.md`
+- Related Docs:
+  - `docs/archive/pi-aligned-tool-architecture/2026-06-24-pi-aligned-tool-architecture-design.md`
+  - `docs/archive/pi-aligned-tool-architecture/2026-06-24-pi-aligned-tool-architecture.md`
+  - `docs/archive/pi-aligned-tool-architecture/README.md`
+- ADR Required: No. This is an approved implementation slice of the existing Pi-inspired Agent Core architecture program and does not add a new runtime dependency, network dependency, public marketplace, or incompatible deployment model.
+
 ### DC-193
 
 - 日期：2026-06-22

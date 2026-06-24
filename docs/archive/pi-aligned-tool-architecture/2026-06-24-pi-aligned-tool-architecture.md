@@ -1,6 +1,8 @@
 # Pi-Aligned Tool Architecture Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+>
+> **Archive status:** Completed and archived on 2026-06-25. The checklist below was the execution plan; completion was verified at archive time against the design acceptance criteria and synchronized source-of-truth docs.
 
 **Goal:** Replace the current C/C++-heavy public tool surface with a Pi-aligned minimal primitive tool architecture centered on a first-class `bash` tool.
 

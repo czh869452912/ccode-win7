@@ -1,5 +1,7 @@
 # Pi-Aligned Tool Architecture Redesign
 
+> Archive status: Completed and archived on 2026-06-25. Durable conclusions were synchronized into active source-of-truth docs before this design was moved to archive.
+
 ## Purpose
 
 Redesign the Agent Core tool architecture around Pi's minimal, composable
@@ -273,4 +275,3 @@ The redesign is complete when:
 ```bash
 uv run pytest tests/ -m "not slow and not gui" -v
 ```
-
