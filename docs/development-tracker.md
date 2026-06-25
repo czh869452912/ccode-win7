@@ -37,6 +37,14 @@
   transcript/session projections; `/api/sessions/{id}/events` returns
   `reload_required`, and the GUI T3 timeline uses bootstrap history plus live
   reducer actions instead of transport event-log history.
+- Slice 5 has started replacing the GUI's global root-state shape with
+  T3-style renderer modules: thread/session selection and history-integrity
+  display state now live in `webapp/src/session-runtime/thread-state.js`, and
+  composer draft state lives in `webapp/src/composer/composer-state.js`.
+  `App.jsx`, the command palette, terminal controller, workspace reset path,
+  and reducer tests now consume these focused read models instead of
+  root-level `sessions`, `currentSessionId`, `composer`, or
+  `historyIntegrity` fields.
 - Future Pi/T3 work should delete or replace transitional paths instead of
   adding adapters over them, while preserving Windows 7, offline deployment,
   Python 3.8, and the default C/C++ workflow.

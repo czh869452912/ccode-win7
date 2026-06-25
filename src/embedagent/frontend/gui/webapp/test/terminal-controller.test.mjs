@@ -6,7 +6,11 @@ const SESSION_NOTICE = "Open a session before using the terminal.";
 
 function baseState(overrides = {}) {
   return {
-    currentSessionId: "sess-1",
+    thread: {
+      sessions: [],
+      currentSessionId: "sess-1",
+      historyIntegrity: null,
+    },
     terminal: {
       activeTerminalId: "term-1",
       terminalIds: ["term-1"],
@@ -29,7 +33,7 @@ function createHarness(options = {}) {
   const apiCalls = [];
   const failures = options.failures || {};
   const snapshotFor = (terminalId) => ({
-    session_id: state.currentSessionId,
+    session_id: state.thread.currentSessionId,
     terminal_id: terminalId,
     status: "running",
     history: `history:${terminalId}`,
@@ -96,7 +100,11 @@ function actionTypes(actions) {
 
 export async function runTerminalControllerTests() {
   {
-    const harness = createHarness({ state: baseState({ currentSessionId: "" }) });
+    const harness = createHarness({
+      state: baseState({
+        thread: { sessions: [], currentSessionId: "", historyIntegrity: null },
+      }),
+    });
     const result = await harness.controller.ensureOpen();
     assert.equal(result, null);
     assert.deepEqual(harness.apiCalls, []);

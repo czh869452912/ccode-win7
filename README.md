@@ -56,6 +56,14 @@ The next long-term architecture direction is captured in `docs/pi-inspired-agent
 - Official frontend vocabulary: `build`, `tasks`, `current_phase`, `discipline_profile`
 - Official GUI app-shell boundary: `GET /api/app/bootstrap` and `/api/app/workspaces*` expose GUI-owned workspace/app diagnostics, app commands, and local settings; this is separate from Agent Core session truth and from `GET /api/sessions/{id}/bootstrap`
 - Official GUI thread lifecycle boundary: GUI `rename`, `fork`, and `archive` actions flow through the session lifecycle facade and update session summary/projection metadata for app thread lists; they do not rewrite transcript history, own workflow state, activate tools, decide permissions, load extensions, or create source-control checkpoints.
+- Official GUI renderer-state boundary: thread/session selection, session
+  summaries, and history-integrity display state live in
+  `webapp/src/session-runtime/thread-state.js`, composer draft text lives in
+  `webapp/src/composer/composer-state.js`, terminal display buffers remain in
+  `webapp/src/terminal/`, and workbench surface persistence remains in
+  `webapp/src/workbench/`. Root-level GUI state must not reintroduce
+  `sessions`, `currentSessionId`, `composer`, or `historyIntegrity` as
+  parallel fields.
 - Official GUI terminal boundary: the terminal bottom drawer is a GUI app-shell hosted, thread-scoped surface implemented with Windows 7-compatible Python stdlib subprocess pipes. It is not a full PTY, does not add runtime dependencies, and does not write transcript history, telemetry, workflow state, source-control checkpoints, or Agent Core policy.
 - Official GUI source-control boundary: the Source Control right-panel is a GUI app-shell hosted, active-workspace surface. It uses bundled/workspace MinGit through a read-only backend service for local Git status and file diffs only; it does not implement remote providers, push/pull, staging, commit, checkpoint mutation, transcript writes, workflow state, telemetry, permission policy, runtime reducers, provider config, extension loading, or Agent Core behavior.
 - Official GUI preview boundary: the Preview right-panel is a GUI app-shell hosted, local-only surface. Its backend preview service accepts loopback HTTP URLs only, probes them with Python stdlib networking, may open the same local URL in the system browser, and does not execute browser automation, contact remote hosts, write transcript/workflow/reducer state, or add Agent Core behavior.

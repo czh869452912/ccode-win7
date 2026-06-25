@@ -1,5 +1,7 @@
 export { normalizeAppBootstrap, normalizeWorkspaceRecord } from "./app-shell/model.js";
+import { createComposerState } from "./composer/composer-state.js";
 import { createSourceControlState } from "./source-control/source-control-state.js";
+import { createThreadState } from "./session-runtime/thread-state.js";
 import { createTerminalState } from "./terminal/terminal-state.js";
 
 export function canSwitchWorkspace(state = {}) {
@@ -17,9 +19,9 @@ export function canSwitchWorkspace(state = {}) {
 export function resetWorkspaceScopedState(state = {}) {
   return {
     ...state,
-    sessions: [],
-    currentSessionId: "",
+    thread: createThreadState(),
     snapshot: null,
+    composer: createComposerState(),
     timeline: [],
     streamingAssistantId: "",
     streamingReasoningId: "",
@@ -46,7 +48,6 @@ export function resetWorkspaceScopedState(state = {}) {
     activeTurnId: "",
     activeStepId: "",
     activeStepIndex: 0,
-    historyIntegrity: null,
     sourceControl: createSourceControlState(),
     terminal: createTerminalState(),
   };

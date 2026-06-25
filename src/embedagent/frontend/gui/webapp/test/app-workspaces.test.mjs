@@ -52,8 +52,12 @@ export function runAppWorkspaceTests() {
   assert.equal(pendingSwitch.reason, "pending_interaction");
 
   const reset = resetWorkspaceScopedState({
-    sessions: [{ session_id: "sess-1" }],
-    currentSessionId: "sess-1",
+    thread: {
+      sessions: [{ session_id: "sess-1" }],
+      currentSessionId: "sess-1",
+      historyIntegrity: { status: "partial" },
+    },
+    composer: { draft: "stale draft" },
     snapshot: { session_id: "sess-1" },
     timeline: [{ id: "row-1" }],
     tasks: [{ id: 1 }],
@@ -67,8 +71,10 @@ export function runAppWorkspaceTests() {
     activeTurnId: "turn-1",
     sourceControl: { status: "ready", selectedPath: "src/main.c" },
   });
-  assert.deepEqual(reset.sessions, []);
-  assert.equal(reset.currentSessionId, "");
+  assert.deepEqual(reset.thread.sessions, []);
+  assert.equal(reset.thread.currentSessionId, "");
+  assert.equal(reset.thread.historyIntegrity, null);
+  assert.equal(reset.composer.draft, "");
   assert.equal(reset.snapshot, null);
   assert.deepEqual(reset.timeline, []);
   assert.deepEqual(reset.tasks, []);

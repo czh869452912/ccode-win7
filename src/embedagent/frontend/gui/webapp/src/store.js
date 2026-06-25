@@ -1,9 +1,11 @@
 import { injectChildren, makeEventId, resolveTimelineAnchor } from "./state-helpers.js";
 import { focusDiffFile } from "./session-runtime/diff-model.js";
+import { createComposerState, reduceComposerState } from "./composer/composer-state.js";
 import { createAppShellState } from "./app-shell/model.js";
 import { reduceAppShellState } from "./app-shell/reducer.js";
 import { createSourceControlState, reduceSourceControlState } from "./source-control/source-control-state.js";
 import { createTerminalState, reduceTerminalState } from "./terminal/terminal-state.js";
+import { createThreadState, readActiveThreadId, reduceThreadState } from "./session-runtime/thread-state.js";
 import { createWorkbenchState, reduceWorkbenchState } from "./workbench/surfaces.js";
 import { resetWorkspaceScopedState } from "./app-workspaces.js";
 
@@ -14,10 +16,9 @@ export const initialState = {
   inspectorTab: "tasks",
   inspectorOpen: true,
   lang: "en",
-  sessions: [],
-  currentSessionId: "",
+  thread: createThreadState(),
   snapshot: null,
-  composer: "",
+  composer: createComposerState(),
   timeline: [],
   streamingAssistantId: "",
   streamingReasoningId: "",
@@ -47,7 +48,6 @@ export const initialState = {
   activeTurnId: "",
   activeStepId: "",
   activeStepIndex: 0,
-  historyIntegrity: null,
   workbench: createWorkbenchState(),
   app: createAppShellState(),
   sourceControl: createSourceControlState(),
@@ -91,7 +91,7 @@ export function reducer(state, action) {
     case "set_lang":
       return { ...state, lang: action.value };
     case "set_composer":
-      return { ...state, composer: action.value };
+      return { ...state, composer: reduceComposerState(state.composer, action) };
     case "set_connection":
       return { ...state, connectionState: action.value };
     case "app_bootstrap_loaded":
@@ -235,11 +235,11 @@ export function reducer(state, action) {
       };
     }
     case "sessions_loaded":
-      return { ...state, sessions: action.sessions };
+      return { ...state, thread: reduceThreadState(state.thread, action) };
     case "session_activated":
       return {
         ...state,
-        currentSessionId: action.sessionId,
+        thread: reduceThreadState(state.thread, action),
         snapshot: action.snapshot,
         requestedMode: action.snapshot?.current_mode || state.requestedMode,
         timeline: action.timeline,
@@ -260,7 +260,6 @@ export function reducer(state, action) {
         activeStepId: "",
         activeStepIndex: 0,
         eventLog: [],
-        historyIntegrity: action.historyIntegrity || null,
         plan: null,
         review: null,
         permissionContext: null,
@@ -287,21 +286,9 @@ export function reducer(state, action) {
       const hasActiveInteraction = Boolean(
         snapshot.pending_interaction_valid && snapshot.pending_interaction,
       );
-      let historyIntegrity = state.historyIntegrity;
-      if (
-        historyIntegrity &&
-        historyIntegrity.status === "partial" &&
-        !snapshot.restore_stop_reason
-      ) {
-        historyIntegrity = {
-          ...historyIntegrity,
-          status: "healthy",
-          restore_stop_reason: "",
-        };
-      }
       return {
         ...state,
-        currentSessionId: snapshot.session_id || state.currentSessionId,
+        thread: reduceThreadState(state.thread, action),
         snapshot,
         requestedMode: snapshot.current_mode || state.requestedMode,
         permission: snapshot.has_pending_permission ? snapshot.pending_permission || state.permission : null,
@@ -322,13 +309,13 @@ export function reducer(state, action) {
           !hadActiveInteraction && hasActiveInteraction
             ? true
             : state.inspectorOpen,
-        historyIntegrity,
       };
     }
     case "local_user_message":
       const pendingTurnId = makeEventId("user");
       return {
         ...state,
+        composer: reduceComposerState(state.composer, action),
         timeline: state.timeline
           .map((item) => (item.streaming ? { ...item, streaming: false } : item))
           .concat({
@@ -340,7 +327,6 @@ export function reducer(state, action) {
           createdAt: new Date().toISOString(),
           ...liveProjectionMeta(),
         }),
-        composer: "",
         interactionNotice: null,
         streamingAssistantId: "",
         streamingReasoningId: "",
@@ -607,7 +593,7 @@ export function reducer(state, action) {
       }, {});
       return {
         ...state,
-        currentSessionId: action.sessionId || "visual-debug-session",
+        thread: reduceThreadState(state.thread, action),
         snapshot: action.snapshot || {
           session_id: action.sessionId || "visual-debug-session",
           status: "idle",
@@ -630,7 +616,6 @@ export function reducer(state, action) {
         activeTurnId: action.activeTurnId || "",
         activeStepId: action.activeStepId || "",
         activeStepIndex: action.activeStepIndex || 0,
-        historyIntegrity: null,
         app: {
           ...state.app,
           bootstrapLoaded: true,
@@ -657,7 +642,7 @@ export function reducer(state, action) {
       const pendingInteraction = action.permission || action.userInput || null;
       return {
         ...state,
-        currentSessionId: action.sessionId || "visual-debug-session",
+        thread: reduceThreadState(state.thread, action),
         snapshot: {
           ...(state.snapshot || {}),
           session_id: action.sessionId || "visual-debug-session",
@@ -701,8 +686,7 @@ export function reducer(state, action) {
       return {
         ...state,
         sidebarTab: "chats",
-        currentSessionId: sessionId,
-        sessions: Array.isArray(action.sessions) ? action.sessions : [],
+        thread: reduceThreadState(state.thread, action),
         snapshot: {
           ...(state.snapshot || {}),
           session_id: sessionId,
@@ -1053,7 +1037,7 @@ export function reducer(state, action) {
         ...state,
         workbench: reduceWorkbenchState(state.workbench, {
           ...action,
-          sessionId: action.sessionId || state.currentSessionId || state.workbench?.activeSessionKey,
+          sessionId: action.sessionId || readActiveThreadId(state) || state.workbench?.activeSessionKey,
         }),
       };
     default:

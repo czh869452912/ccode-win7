@@ -35,6 +35,16 @@ Core: it must not own sessions, transcript history, workflow state, mode/tool
 policy, permission decisions, extension loading, provider configuration, or
 runtime reducers.
 
+The React GUI renderer uses focused T3-style local state modules for workbench
+surfaces, thread/session selection, composer drafts, terminal display buffers,
+source-control display state, and preview display state. In particular,
+`webapp/src/session-runtime/thread-state.js` owns the active thread id, session
+summary list, and history-integrity display read model, and
+`webapp/src/composer/composer-state.js` owns draft text. These modules are
+renderer read models only and must not become session history, workflow truth,
+tool policy, permission policy, extension loading policy, provider
+configuration, telemetry, or Agent Core runtime reducers.
+
 GUI thread lifecycle operations (`rename`, `fork`, and `archive`) are exposed
 through the session lifecycle facade and consumed by the GUI app shell. They
 update session summary/projection metadata used by app thread lists; they do

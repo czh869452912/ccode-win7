@@ -113,6 +113,13 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   backend owns a `PreviewService` that opens/probes loopback HTTP URLs, while
   the React preview model/API/chrome surface renders loading, success, and
   unreachable states without adding browser automation or Agent Core behavior
+- GUI renderer runtime state has started moving onto focused T3-style modules:
+  `session-runtime/thread-state.js` owns thread/session selection, session
+  summaries, and history-integrity display state, while
+  `composer/composer-state.js` owns local draft text. `App.jsx`, command
+  palette, terminal controller, workspace reset, and tests consume those read
+  models instead of root-level `sessions`, `currentSessionId`, `composer`, or
+  `historyIntegrity` fields.
 - Offline GUI packaging now includes a native Win32 launcher exe in the portable
   bundle, preserving the one-folder delivery model while improving double-click
   startup.
@@ -144,7 +151,8 @@ Near-term work should:
   replay assumptions
 - keep interactive actions, resumed action execution, and workflow-patch capture in the unified action pipeline
 - continue shrinking remaining QueryEngine/InProcessAdapter facade responsibilities without reintroducing compatibility wrappers
-- replace GUI global app/reducer state with T3-shaped renderer/runtime modules
+- continue replacing remaining GUI global app/reducer orchestration with
+  T3-shaped renderer/runtime modules after the thread/composer extraction
 - move visual fixtures and generated assets out of production state paths
 - keep real Win7 WebView2 109 bundle validation and real C/C++ workflow
   validation as release gates

@@ -5,7 +5,7 @@
 > 状态：`active`
 > 类型：`module`
 > 负责人：`project maintainers`
-> 最后同步日期：`2026-06-22`
+> 最后同步日期：`2026-06-25`
 > 对应代码范围：`src/embedagent/frontend/gui/`
 
 ## 1. Purpose And Scope
@@ -104,6 +104,16 @@ workflow state, permission state, and runtime reducer state. `store.js`
 activates the saved session surface stack on `session_activated`, matching
 T3code's per-thread tab restoration without making the frontend a second
 session-history source.
+
+Thread/session selection and composer draft state are now separate T3-style
+renderer modules rather than root fields on the global reducer state:
+`webapp/src/session-runtime/thread-state.js` owns session summaries, active
+thread id, and history-integrity display state, while
+`webapp/src/composer/composer-state.js` owns the local composer draft. `App.jsx`,
+the command palette, terminal controller, sidebar, timeline, and composer read
+these states through focused read models. `store.js` remains the reducer
+composition point for now, but new GUI code must not add root-level
+`sessions`, `currentSessionId`, `composer`, or `historyIntegrity` state.
 
 The webapp build continues to target `chrome109` for bundled WebView2 Fixed
 Version 109 and Windows 7 compatibility. GUI runtime deployment must remain

@@ -192,7 +192,9 @@ Debt symptoms:
 - A large App component coordinates API calls, workspace/session activation,
   runtime state, permissions, tasks, artifacts, source control, terminal,
   preview, command palette behavior, and rendering.
-- A large global reducer owns many unrelated state transitions.
+- A large global reducer still owns many unrelated state transitions, although
+  thread/session selection plus composer draft state have moved to focused
+  T3-style renderer modules.
 - T3 timeline rows are projected from current EmbedAgent events instead of
   being fed by a backend contract shaped for the T3 runtime model.
 - CSS and visual fixtures carry accumulated parity patches rather than a clean
@@ -204,6 +206,11 @@ Target direction:
   layer.
 - Use thread-scoped UI stores for right panel, terminal UI, composer state,
   thread selection, and workbench shell state.
+- Keep the promoted renderer state boundaries:
+  `session-runtime/thread-state.js` owns session summaries, active thread id,
+  and history-integrity display state; `composer/composer-state.js` owns local
+  draft text. Do not reintroduce root-level `sessions`, `currentSessionId`,
+  `composer`, or `historyIntegrity` fields.
 - Make backend session/bootstrap payloads map directly to the T3-facing runtime
   contract expected by the GUI.
 - Remove custom surfaces and controls that exist only because previous slices
@@ -263,7 +270,10 @@ The cleanup should proceed in deletion-oriented slices:
    cycle.
 6. Replace method-name extension compatibility with explicit capability
    contracts. Done in Slice 4.
-7. Replace GUI global app/reducer state with T3-shaped state modules.
+7. Replace GUI global app/reducer state with T3-shaped state modules. Slice 5
+   has completed the thread/composer state extraction; App orchestration,
+   timeline contract slimming, visual fixture isolation, and generated asset
+   policy remain active cleanup work.
 8. Move visual fixtures and generated static assets out of product source
    paths.
 9. Run real Win7 bundle and real C/C++ workflow validation against the promoted

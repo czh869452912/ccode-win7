@@ -1,3 +1,5 @@
+import { readActiveThreadId } from "../session-runtime/thread-state.js";
+
 const TERMINAL_DIMENSIONS = Object.freeze({ cols: 100, rows: 30 });
 const SESSION_NOTICE = "Open a session before using the terminal.";
 
@@ -13,7 +15,7 @@ function readTerminalState(state) {
 }
 
 function readSessionId(state) {
-  return String(state.currentSessionId || "");
+  return readActiveThreadId(state);
 }
 
 function readApi(deps, name) {

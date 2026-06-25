@@ -39,6 +39,7 @@ import { runComposerCommandSearchTests } from "./composer-command-search.test.mj
 import { runComposerComponentsSourceTests } from "./composer-components-source.test.mjs";
 import { runComposerIntegrationSourceTests } from "./composer-integration-source.test.mjs";
 import { runComposerPathContextTests } from "./composer-path-context.test.mjs";
+import { runComposerStateTests } from "./composer-state.test.mjs";
 import { runComposerTriggerTests } from "./composer-trigger.test.mjs";
 import { runFilePreviewModelTests } from "./file-preview-model.test.mjs";
 import { runPreviewSurfaceModelTests } from "./preview-surface-model.test.mjs";
@@ -46,6 +47,7 @@ import { runPreviewApiTests } from "./preview-api.test.mjs";
 import { runRightPanelStoreParityTests } from "./right-panel-store-parity.test.mjs";
 import { runRightPanelTabsSourceTests } from "./right-panel-tabs-source.test.mjs";
 import { runTerminalShellSourceTests } from "./terminal-shell-source.test.mjs";
+import { runThreadStateTests } from "./thread-state.test.mjs";
 
 const WEBAPP_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -148,8 +150,12 @@ async function main() {
   const switchedWorkspaceState = reducer(
     {
       ...appSettingsState,
-      currentSessionId: "sess-old",
-      sessions: [{ session_id: "sess-old" }],
+      thread: {
+        sessions: [{ session_id: "sess-old" }],
+        currentSessionId: "sess-old",
+        historyIntegrity: { status: "partial" },
+      },
+      composer: { draft: "old draft" },
       timeline: [{ id: "row-old" }],
       fileTree: [{ id: "src" }],
     },
@@ -163,8 +169,10 @@ async function main() {
       },
     },
   );
-  assert.equal(switchedWorkspaceState.currentSessionId, "");
-  assert.deepEqual(switchedWorkspaceState.sessions, []);
+  assert.equal(switchedWorkspaceState.thread.currentSessionId, "");
+  assert.deepEqual(switchedWorkspaceState.thread.sessions, []);
+  assert.equal(switchedWorkspaceState.thread.historyIntegrity, null);
+  assert.equal(switchedWorkspaceState.composer.draft, "");
   assert.deepEqual(switchedWorkspaceState.timeline, []);
   assert.deepEqual(switchedWorkspaceState.fileTree, []);
   assert.equal(switchedWorkspaceState.app.hasActiveWorkspace, false);
@@ -179,8 +187,8 @@ async function main() {
     ],
   });
   assert.equal(threadLifecycleFixtureState.sidebarTab, "chats");
-  assert.equal(threadLifecycleFixtureState.currentSessionId, "visual-thread-active");
-  assert.equal(threadLifecycleFixtureState.sessions.length, 2);
+  assert.equal(threadLifecycleFixtureState.thread.currentSessionId, "visual-thread-active");
+  assert.equal(threadLifecycleFixtureState.thread.sessions.length, 2);
   assert.equal(threadLifecycleFixtureState.app.hasActiveWorkspace, true);
 
   const composerFixtureState = reducer(initialState, {
@@ -691,7 +699,7 @@ async function main() {
     dedupedToolState.timeline.filter((item) => item.id === "call-bootstrap-1").length,
     1,
   );
-  assert.equal(dedupedToolState.historyIntegrity.status, "partial");
+  assert.equal(dedupedToolState.thread.historyIntegrity.status, "partial");
 
   const timelineSource = fs.readFileSync(
     webappSourcePath("components", "Timeline.jsx"),
@@ -1260,9 +1268,11 @@ async function main() {
   runBranchToolbarModelTests();
   runCommandPaletteModelTests();
   runCommandPaletteSourceTests();
+  runThreadStateTests();
   runComposerTriggerTests();
   runComposerCommandSearchTests();
   runComposerPathContextTests();
+  runComposerStateTests();
   runComposerComponentsSourceTests();
   runComposerIntegrationSourceTests();
   runSourceControlStateTests();

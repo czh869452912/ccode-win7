@@ -96,6 +96,24 @@ GUI app-shell settings are local shell preferences unless a later documented
 backend contract promotes a specific setting into durable runtime
 configuration. They must not be interpreted as Agent Core policy.
 
+### GUI Renderer Runtime State
+
+The GUI renderer state is moving toward T3 Code-style focused modules instead
+of one large app reducer shape. Thread selection, session summaries, and
+history-integrity display state are owned by
+`webapp/src/session-runtime/thread-state.js`; composer draft text is owned by
+`webapp/src/composer/composer-state.js`; terminal display buffers remain under
+`webapp/src/terminal/`; persisted workbench surfaces remain under
+`webapp/src/workbench/`.
+
+`store.js` may dispatch to these focused reducers, but new frontend code must
+not reintroduce root-level `sessions`, `currentSessionId`, `composer`, or
+`historyIntegrity` fields as parallel state. React components and runtime
+controllers should consume the focused read models. These renderer modules are
+GUI-local display/read-model state only: they do not own session history,
+workflow truth, permission policy, tool activation, extension loading,
+provider configuration, telemetry, or Agent Core runtime reducers.
+
 ## 3. Session Snapshot
 
 Important session snapshot fields include:

@@ -84,7 +84,11 @@ export function runWorkbenchUiStateTests() {
   });
 
   let state = {
-    currentSessionId: "sess-1",
+    thread: {
+      sessions: [],
+      currentSessionId: "sess-1",
+      historyIntegrity: null,
+    },
     workbench: parsePersistedWorkbenchUiState({}),
   };
   state = reducer(state, {

@@ -289,6 +289,18 @@ Frontend-facing contract changes must be reflected together in:
 
 Frontend session activation must not reintroduce split snapshot/timeline bootstrap. Use the single bootstrap payload and transcript-backed structured history only.
 
+GUI renderer runtime state must follow focused T3-style modules instead of
+root-level global reducer fields. Thread/session selection, session summaries,
+and history-integrity display state live in
+`src/embedagent/frontend/gui/webapp/src/session-runtime/thread-state.js`;
+composer draft text lives in
+`src/embedagent/frontend/gui/webapp/src/composer/composer-state.js`; terminal
+display buffers remain under `src/embedagent/frontend/gui/webapp/src/terminal/`;
+workbench surface persistence remains under
+`src/embedagent/frontend/gui/webapp/src/workbench/`. Do not reintroduce
+root-level `sessions`, `currentSessionId`, `composer`, or `historyIntegrity`
+as parallel GUI state.
+
 The GUI terminal bottom drawer is an app-shell hosted surface, not Agent Core. It uses Windows 7-compatible Python stdlib subprocess pipes, is not a full PTY, and must not depend on ConPTY, `node-pty`, `pywinpty`, `pexpect`, Electron, runtime Node, Docker, WSL, VS Code, or online services. Terminal output is GUI-local display state only: it must not be written to `transcript.jsonl`, telemetry, workflow state, source-control checkpoints, or permission/runtime reducer truth.
 
 The GUI Source Control right-panel is an app-shell hosted, active-workspace surface, not Agent Core and not the default C/C++ workflow package. It may use bundled/workspace MinGit through the GUI backend for read-only local `status` and `diff` views. It must remain local/offline by default and must not implement remote providers, push/pull, staging, commit, checkpoint mutation, transcript writes, workflow state, telemetry, permission policy, runtime reducer truth, provider configuration, extension loading, or hidden network behavior. Future source-control mutations or remote/intranet Git work must enter through explicit hosted extension/provider/workflow-package boundaries with normal permission categories and must not weaken Win7/offline support.

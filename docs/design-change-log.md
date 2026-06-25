@@ -44,6 +44,45 @@
 
 ## 3. 当前变更记录
 
+### DC-200
+
+- Date: 2026-06-25
+- Change Topic: T3-style GUI renderer state modules
+- Summary:
+  - Added `webapp/src/session-runtime/thread-state.js` as the focused owner for
+    GUI session summaries, active thread id, and history-integrity display
+    state.
+  - Added `webapp/src/composer/composer-state.js` as the focused owner for the
+    local composer draft.
+  - Updated `App.jsx`, workspace reset, terminal controller, command palette
+    wiring, reducer tests, and source tests so GUI code consumes focused read
+    models instead of root-level `sessions`, `currentSessionId`, `composer`, or
+    `historyIntegrity` fields.
+  - Kept the existing T3-style right-panel/workbench persistence path as the
+    promoted right-panel state boundary instead of adding another adapter over
+    it.
+- Impacted Scope:
+  - GUI React renderer state
+  - Workbench command palette and sidebar session selection
+  - Composer local draft handling
+  - Terminal controller session lookup
+  - Workspace switch/reset behavior
+- Related Docs:
+  - `AGENTS.md`
+  - `README.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/pre-release-architecture-debt-audit.md`
+- ADR Needed: No
+- Follow-up:
+  - Continue GUI cleanup with dev-only visual fixture isolation and generated
+    asset policy.
+  - Continue shrinking `App.jsx` API orchestration and the T3 timeline runtime
+    contract in later slices.
+
 ### DC-199
 
 - Date: 2026-06-25

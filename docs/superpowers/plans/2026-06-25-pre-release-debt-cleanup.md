@@ -430,7 +430,7 @@ git commit -m "refactor: make extension capabilities explicit"
 - Update: `docs/development-tracker.md`
 - Update: `docs/design-change-log.md`
 
-- [ ] **Step 1: Map T3 state modules to EmbedAgent state**
+- [x] **Step 1: Map T3 state modules to EmbedAgent state**
 
 Compare reference T3 modules with current GUI state:
 
@@ -443,23 +443,57 @@ rg -n "case '|visual_.*fixture|rightPanel|bottomDrawer|session_activated|bootstr
 
 Expected: a concrete mapping from current global state to T3-shaped stores.
 
-- [ ] **Step 2: Start with right-panel state**
+- Mapping result:
+  - T3 `rightPanelStore.ts` maps to the existing
+    `webapp/src/workbench/surfaces.js` / `workbench/ui-state.js`
+    thread-scoped surface store; deeper right-panel replacement remains a later
+    GUI parity cut.
+  - T3 session/thread state maps to new
+    `webapp/src/session-runtime/thread-state.js`.
+  - T3 composer-local state maps to new
+    `webapp/src/composer/composer-state.js`.
+  - Existing terminal state already lives under `webapp/src/terminal/`, with
+    terminal action orchestration in `app-runtime/terminal-controller.js`.
+
+- [x] **Step 2: Start with right-panel state**
 
 Replace the current right-panel reducer shape with a thread-scoped store modeled after T3's right-panel store. Keep only surfaces required for T3 parity and explicitly classify EmbedAgent-only surfaces as deferred or dev-only.
 
-- [ ] **Step 3: Move terminal/composer/thread UI state out of global reducer**
+- Status: existing T3-style right-panel persistence from the prior GUI workbench
+  slice remains the promoted path; this slice did not add a parallel
+  right-panel shape.
+
+- [x] **Step 3: Move terminal/composer/thread UI state out of global reducer**
 
 Create focused renderer stores for terminal UI state, composer local state, and thread selection where T3 has separate state modules.
 
-- [ ] **Step 4: Replace timeline translation with a T3-facing contract**
+- Implemented:
+  - `composer/composer-state.js` owns draft creation, reads, and reducer
+    updates.
+  - `session-runtime/thread-state.js` owns session summaries, active thread id,
+    and history-integrity display state.
+  - `App.jsx`, command palette, terminal controller, workspace reset, and tests
+    consume focused read models instead of root-level `sessions`,
+    `currentSessionId`, `composer`, or `historyIntegrity`.
+
+- [x] **Step 4: Replace timeline translation with a T3-facing contract**
 
 After Slice 1, consume the promoted session/bootstrap payload directly and remove independent timeline/event-log merge logic.
 
-- [ ] **Step 5: Shrink App.jsx**
+- Status: Slice 1 already removed timeline-backed history replay. This slice
+  preserved the current live display projection while moving history-integrity
+  display ownership into `thread-state.js`; full timeline contract slimming is
+  still follow-on work.
+
+- [x] **Step 5: Shrink App.jsx**
 
 Move API orchestration and state ownership into focused runtime modules. App should compose providers/surfaces, not own every operation.
 
-- [ ] **Step 6: Verification**
+- Implemented for this slice: App now consumes thread/composer read models and
+  no longer reads root-level thread/composer fields. Broader API orchestration
+  extraction remains follow-on work.
+
+- [x] **Step 6: Verification**
 
 Run:
 
@@ -471,7 +505,15 @@ Run the project's webapp test/build commands documented in `src/embedagent/front
 
 Expected: lint passes, webapp tests/build pass, and relevant visual debug scenarios still render.
 
-- [ ] **Step 7: Docs and commit**
+- Verification recorded:
+  - Red: `npm test` initially failed because
+    `src/composer/composer-state.js` did not exist.
+  - `npm test`: passed.
+  - `npm run build`: passed after `npm ci` restored locked webapp
+    dependencies in the worktree.
+  - `uv run --locked python scripts/lint.py`: passed.
+
+- [x] **Step 7: Docs and commit**
 
 Update frontend docs to describe the T3-native state shape. Commit with a message such as:
 

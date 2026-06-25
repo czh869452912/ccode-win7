@@ -40,6 +40,12 @@ import {
   refreshPreviewSession,
 } from "./preview/preview-api.js";
 import { buildBranchToolbarModel } from "./source-control/branch-toolbar-model.js";
+import { readComposerDraft } from "./composer/composer-state.js";
+import {
+  readActiveThreadId,
+  readThreadHistoryIntegrity,
+  readThreadSessions,
+} from "./session-runtime/thread-state.js";
 import NoWorkspaceState from "./components/NoWorkspaceState.jsx";
 import Sidebar from "./components/Sidebar.jsx";
 import Timeline from "./components/Timeline.jsx";
@@ -94,17 +100,21 @@ function App() {
   const stateRef = useRef(state);
   stateRef.current = state;
 
+  const currentSessionId = readActiveThreadId(state);
+  const threadSessions = readThreadSessions(state);
+  const composerDraft = readComposerDraft(state);
+  const historyIntegrity = readThreadHistoryIntegrity(state);
   const currentMode = state.snapshot?.current_mode || state.requestedMode;
   const currentStatus = state.snapshot?.status || "idle";
   const commandContext = useMemo(() => ({
-    hasSession: Boolean(state.currentSessionId),
+    hasSession: Boolean(currentSessionId),
     hasWorkspace: Boolean(state.app.hasActiveWorkspace),
     isRunning: currentStatus === "running" || currentStatus === "waiting_user_input",
     paletteOpen: state.workbench.commandPalette.open,
   }), [
     currentStatus,
+    currentSessionId,
     state.app.hasActiveWorkspace,
-    state.currentSessionId,
     state.workbench.commandPalette.open,
   ]);
   const paletteCommands = useMemo(() => visibleCommands(commandContext), [commandContext]);
@@ -142,8 +152,8 @@ function App() {
   );
 
   useEffect(() => {
-    currentSessionIdRef.current = state.currentSessionId || "";
-  }, [state.currentSessionId]);
+    currentSessionIdRef.current = currentSessionId;
+  }, [currentSessionId]);
 
   useEffect(() => {
     persistWorkbenchUiState(state.workbench);
@@ -204,7 +214,7 @@ function App() {
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [currentStatus, state.currentSessionId]);
+  }, [currentStatus, currentSessionId]);
 
   // smart auto-scroll: only follow when user is at bottom
   useEffect(() => {
@@ -247,7 +257,7 @@ function App() {
     return bootstrap;
   }
 
-  async function loadActiveWorkspaceData(sessionId = state.currentSessionId || "", assumeWorkspace = state.app.hasActiveWorkspace) {
+  async function loadActiveWorkspaceData(sessionId = currentSessionId, assumeWorkspace = state.app.hasActiveWorkspace) {
     await Promise.all([
       loadSessions(),
       loadArtifacts(),
@@ -566,7 +576,7 @@ function App() {
   }
 
   async function renameThread(sessionId) {
-    const current = (state.sessions || []).find((item) => item.session_id === sessionId) || {};
+    const current = threadSessions.find((item) => item.session_id === sessionId) || {};
     const initialTitle = current.thread?.title || current.title || current.user_goal || "";
     const title = window.prompt("Rename thread", initialTitle);
     if (title === null) return;
@@ -649,19 +659,19 @@ function App() {
 
   async function setMode(mode) {
     dispatch({ type: "mode_requested", mode });
-    if (!state.currentSessionId) return;
-    await fetchJson(`/api/sessions/${encodeURIComponent(state.currentSessionId)}/mode`, {
+    if (!currentSessionId) return;
+    await fetchJson(`/api/sessions/${encodeURIComponent(currentSessionId)}/mode`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ mode }),
     });
-    await loadSession(state.currentSessionId);
+    await loadSession(currentSessionId);
   }
 
   async function cancelSession() {
-    if (!state.currentSessionId) return;
+    if (!currentSessionId) return;
     dispatch({ type: "stream_completed" });
-    await fetchJson(`/api/sessions/${encodeURIComponent(state.currentSessionId)}/cancel`, {
+    await fetchJson(`/api/sessions/${encodeURIComponent(currentSessionId)}/cancel`, {
       method: "POST",
     });
   }
@@ -676,7 +686,7 @@ function App() {
     isAtBottomRef.current = true;
     dispatch({ type: "stream_completed" });
     dispatch({ type: "local_user_message", text });
-    let sessionId = state.currentSessionId;
+    let sessionId = currentSessionId;
     if (!sessionId) sessionId = await createSession(currentMode);
     await fetchJson(`/api/sessions/${encodeURIComponent(sessionId)}/message`, {
       method: "POST",
@@ -686,7 +696,7 @@ function App() {
   }
 
   async function sendMessage() {
-    await submitText(state.composer);
+    await submitText(composerDraft);
   }
 
   async function runRecipe(recipeId, options = {}) {
@@ -854,7 +864,7 @@ function App() {
     }
     window.addEventListener("keydown", onWorkbenchKeyDown);
     return () => window.removeEventListener("keydown", onWorkbenchKeyDown);
-  }, [state.workbench.commandPalette.open, currentStatus, state.composer, state.currentSessionId]);
+  }, [state.workbench.commandPalette.open, currentStatus, composerDraft, currentSessionId]);
 
   async function recoverSessionReplay(sessionId, logState = sessionEventLogRef.current) {
     if (!sessionId) return;
@@ -1021,12 +1031,12 @@ function App() {
   }
   async function respondToInteraction(payload) {
     const interaction = runtimeState.currentInteraction;
-    if (!interaction || !state.currentSessionId) return;
+    if (!interaction || !currentSessionId) return;
     dispatch({ type: "interaction_notice_clear" });
     let response;
     try {
       response = await fetchJson(
-        `/api/sessions/${encodeURIComponent(state.currentSessionId)}/interactions/${encodeURIComponent(interaction.interaction_id)}/respond`,
+        `/api/sessions/${encodeURIComponent(currentSessionId)}/interactions/${encodeURIComponent(interaction.interaction_id)}/respond`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -1034,8 +1044,8 @@ function App() {
         },
       );
     } catch (error) {
-      if ((error?.status === 409 || error?.status === 410) && state.currentSessionId) {
-        await loadSession(state.currentSessionId);
+      if ((error?.status === 409 || error?.status === 410) && currentSessionId) {
+        await loadSession(currentSessionId);
         dispatch({
           type: "interaction_notice_set",
           notice: {
@@ -1054,11 +1064,11 @@ function App() {
         snapshot: normalizeSessionPayload(response.snapshot),
       });
     } else {
-      await loadSession(state.currentSessionId);
+      await loadSession(currentSessionId);
     }
     updateSessionEventLog((current) =>
       appendSessionEvent(current, {
-        session_id: state.currentSessionId,
+        session_id: currentSessionId,
         event_id: makeEventId("evt"),
         seq: current.lastAppliedSeq + 1,
         created_at: new Date().toISOString(),
@@ -1075,7 +1085,7 @@ function App() {
     if (interaction.kind === "permission") {
       dispatch({ type: "permission_cleared" });
       if (payload?.decision && payload?.remember) {
-        loadPermissionContext(state.currentSessionId);
+        loadPermissionContext(currentSessionId);
       }
       logEvent("interaction_response", payload?.decision ? "approved" : "denied");
       return;
@@ -1092,12 +1102,12 @@ function App() {
   const appHomeModel = useMemo(
     () => buildAppHomeModel({
       app: state.app,
-      sessions: state.sessions,
-      currentSessionId: state.currentSessionId,
+      sessions: threadSessions,
+      currentSessionId,
       defaultMode: DEFAULT_MODE,
       threadLifecycleCapabilities: state.app.capabilities?.threadLifecycle || {},
     }),
-    [state.app, state.sessions, state.currentSessionId],
+    [currentSessionId, state.app, threadSessions],
   );
   const branchToolbarModel = useMemo(
     () =>
@@ -1113,12 +1123,13 @@ function App() {
     rightPanelSurfaces.find((surface) => surface.id === state.workbench.rightPanel.activeSurfaceId) || null;
 
   async function openPreviewUrl(url) {
-    if (!stateRef.current.currentSessionId) {
+    const sessionId = readActiveThreadId(stateRef.current);
+    if (!sessionId) {
       dispatch({ type: "interaction_notice_set", notice: "Open a session before using preview." });
       return null;
     }
     try {
-      const result = await openPreviewSession(stateRef.current.currentSessionId, url);
+      const result = await openPreviewSession(sessionId, url);
       const snapshot = result.preview || null;
       const resourceId = snapshot?.url || url;
       dispatch({
@@ -1141,7 +1152,7 @@ function App() {
   }
 
   async function refreshPreview(snapshot) {
-    const sessionId = stateRef.current.currentSessionId;
+    const sessionId = readActiveThreadId(stateRef.current);
     const tabId = snapshot?.tabId || snapshot?.tab_id || "";
     if (!sessionId || !tabId) return null;
     try {
@@ -1248,7 +1259,7 @@ function App() {
           lang={state.lang}
           currentMode={currentMode}
           currentStatus={currentStatus}
-          currentSessionId={state.currentSessionId}
+          currentSessionId={currentSessionId}
           activeWorkspace={state.app.activeWorkspace}
           turnsUsed={state.turnsUsed}
           maxTurns={state.maxTurns}
@@ -1265,7 +1276,7 @@ function App() {
         <Sidebar
           app={state.app}
           appHome={appHomeModel}
-          currentSessionId={state.currentSessionId}
+          currentSessionId={currentSessionId}
           currentMode={currentMode}
           workspacePathInput={state.app.workspacePathInput}
           onWorkspacePathChange={(value) => dispatch({ type: "workspace_path_changed", value })}
@@ -1285,7 +1296,7 @@ function App() {
               timeline={runtimeState.timelineView}
               rows={runtimeState.t3TimelineRows}
               toolCatalog={state.toolCatalog}
-              historyIntegrity={state.historyIntegrity}
+              historyIntegrity={historyIntegrity}
               thinkingActive={state.thinkingActive}
               streamingReasoningId={state.streamingReasoningId}
               terminationReason={state.terminationReason}
@@ -1298,7 +1309,7 @@ function App() {
               onOpenFile={openFile}
             />
             <Composer
-              value={state.composer}
+              value={composerDraft}
               onChange={(v) => dispatch({ type: "set_composer", value: v })}
               onSend={sendMessage}
               onStop={cancelSession}
@@ -1433,8 +1444,8 @@ function App() {
       open={state.workbench.commandPalette.open}
       query={state.workbench.commandPalette.query}
       commands={paletteCommands}
-      sessions={state.sessions}
-      currentSessionId={state.currentSessionId}
+      sessions={threadSessions}
+      currentSessionId={currentSessionId}
       workspaces={state.app.workspaces}
       activeWorkspaceId={activeWorkspaceId}
       keybindings={DEFAULT_KEYBINDINGS}
