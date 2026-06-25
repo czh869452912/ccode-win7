@@ -44,6 +44,43 @@
 
 ## 3. 当前变更记录
 
+### DC-199
+
+- Date: 2026-06-25
+- Change Topic: Explicit extension capability contracts
+- Summary:
+  - Introduced `ExtensionCapability` as the internal typed registration record
+    for extension hooks, event reducers/observers, workflow package manifests,
+    context reducer registration, active tool names, tool registration, and
+    extension-owned tool handling.
+  - Changed `ExtensionManager` registration so extensions participate only
+    through `extension_capabilities()`; method-name hooks are no longer
+    auto-discovered compatibility paths.
+  - Migrated the bundled `CHarnessWorkflowExtension`, dynamic tool test
+    extensions, local resource extensions, and project-local extension examples
+    to explicit capability records.
+  - Exposed `api.ExtensionCapability` to project-local extension authors and
+    updated generated extension skeletons so hooks must be declared explicitly.
+  - Added diagnostics for invalid capability records so malformed project
+    extensions fail visibly without becoming silent no-ops.
+- Impacted Scope:
+  - In-process extension runtime
+  - Default C/C++ workflow extension
+  - Project-local Python extension API
+  - Dynamic tool registration
+  - Local self-extension skeleton generation
+- Related Docs:
+  - `AGENTS.md`
+  - `README.md`
+  - `docs/tool-contracts.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/agent-harness-v2.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+- ADR Needed: No
+- Follow-up:
+  - Continue pre-release cleanup with the T3-native GUI runtime state slice.
+
 ### DC-198
 
 - Date: 2026-06-25
@@ -1993,7 +2030,7 @@
 - 变更主题：Pi-inspired minimal Core Phase B HookBus/reducer registry 收口
 - 变更摘要：
   - `AgentEventBus.dispatch(...)` 新增 event-specific `reducer_stop`，用于表达 first-block-wins、first-result-wins 等 reducer 停止语义
-  - `ExtensionManager` 公开 extension hook family 已统一通过 `AgentEventBus` 分发，公共 extension API 不变
+  - `ExtensionManager` 公开 extension hook family 已统一通过 `AgentEventBus` 分发；当时保留的公共 method-name extension API 已在 DC-199 删除
   - bus-backed hook families 包括 context patch、resource discovery、dynamic tool registration、tool-call decision、tool-result patch、prompt patch、workflow injection decision、prompt description、workflow initialization、active tool names、session task snapshot loading 与 extension-owned tool handling
   - tool-call reducer 保留旧语义：sequential argument rewrites 会更新同一个 `WorkflowEvent`，第一个 blocking decision 停止后续 reducer
   - extension diagnostics 统一携带 `agent_event_type`、`handler_kind`、source metadata 与安全事件 metadata

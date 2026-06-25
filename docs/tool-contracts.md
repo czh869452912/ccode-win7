@@ -56,6 +56,8 @@ The extension runtime may observe or patch tool calls through typed in-process h
 
 These hooks do not bypass mode contracts, `PermissionPolicy`, path write checks, or tool metadata categories.
 
+Extensions expose hook participation only through `extension_capabilities()` records. Each record is an `ExtensionCapability` naming the hook, handler, optional event type, reducer/observer kind, fail-closed override, and safe metadata. Method names alone are inert; for example, a project extension that defines `register_tools(...)` or `allowed_tool_names(...)` without returning matching `api.ExtensionCapability(...)` records is loaded but contributes no tools or active-tool policy.
+
 `AgentToolActionService` is the Agent Core boundary that applies those hooks around non-LLM tool action execution. It keeps extension pre/post hooks, permission checks, pending permission/user-input creation, resumed interaction execution, mode-switch proposals, path write guards, extension-owned tool handling, workflow-patch capture, and `ToolRuntime` dispatch in one pipeline. Interactive actions are skipped by parallel pre-execution and re-enter the serial action pipeline, so `QueryEngine` does not own separate `ask_user`, mode-switch, or workflow-patch branches.
 
 ## Dynamic Extension Tool Registration
@@ -110,7 +112,7 @@ Reload appends transcript-backed `resource_discovered` and `resource_reloaded` e
 
 Hosted product paths may load project-local Python extensions from `.embedagent/extensions/<name>/extension.json`. `enabled` defaults to false; enabled manifests must declare permissions and may point only to a workspace-bound `extension.py` entrypoint inside the extension directory.
 
-Loaded project extensions receive a narrow API object exposing extension result dataclasses, `ToolDefinition`, `Observation`, and workspace-bound text helpers. The loader does not install dependencies, contact remote registries, execute local resources, or allow built-in tool replacement. Dynamic tools from project extensions remain subject to catalog metadata, active-tool gating, and `PermissionPolicy`.
+Loaded project extensions receive a narrow API object exposing extension result dataclasses, `ExtensionCapability`, `ToolDefinition`, `Observation`, and workspace-bound text helpers. The loader does not install dependencies, contact remote registries, execute local resources, or allow built-in tool replacement. Dynamic tools from project extensions remain subject to catalog metadata, active-tool gating, and `PermissionPolicy`.
 
 Generated extension skeletons from `author_local_capability` start disabled. They become executable only through the existing hosted project-extension loading path after a manifest is explicitly enabled and passes validation.
 

@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from typing import Any, List, Optional, Set
 
-from embedagent.extensions import ToolRegistrationResult, WorkflowPrompt
+from embedagent.extensions import ExtensionCapability, ToolRegistrationResult, WorkflowPrompt
 from embedagent.harness import task_store
 from embedagent.harness.context_reducers import register_c_workflow_context_reducers
 from embedagent.harness.package_manifest import c_workflow_package_manifest_dict
@@ -25,6 +25,19 @@ class CHarnessWorkflowExtension(object):
         self.tools = tools
         self.harness_runner = harness_runner or HarnessRunner()
         self.graph_state = graph_state or HarnessSessionGraphState()
+
+    def extension_capabilities(self) -> List[ExtensionCapability]:
+        return [
+            ExtensionCapability("should_inject_workflow", self.should_inject_workflow),
+            ExtensionCapability("describe_prompt", self.describe_prompt),
+            ExtensionCapability("initialize_workflow_state", self.initialize_workflow_state),
+            ExtensionCapability("package_manifest", self.package_manifest),
+            ExtensionCapability("allowed_tool_names", self.allowed_tool_names),
+            ExtensionCapability("register_tools", self.register_tools),
+            ExtensionCapability("register_context_reducers", self.register_context_reducers),
+            ExtensionCapability("load_session_tasks", self.load_session_tasks),
+            ExtensionCapability("handle_tool_call", self.handle_tool_call),
+        ]
 
     def should_inject_workflow(self, user_text: str, current_mode: str) -> bool:
         if current_mode in ("explore", "verify"):

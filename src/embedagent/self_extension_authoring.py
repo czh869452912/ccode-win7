@@ -330,6 +330,12 @@ def create_extension(api):
         extension_id = api.extension_id
         builtin_extension = False
 
+        def extension_capabilities(self):
+            return [
+                # api.ExtensionCapability("resources_discover", self.resources_discover),
+                # api.ExtensionCapability("allowed_tool_names", self.allowed_tool_names),
+            ]
+
         # Example: expose extra resource paths without executing code during resource reload.
         # def resources_discover(self, event, context):
         #     return api.ResourcesDiscoverResult(skill_paths=[".embedagent/skills"])

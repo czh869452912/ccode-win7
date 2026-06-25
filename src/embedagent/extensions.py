@@ -5,6 +5,23 @@ from typing import Any, Dict, List, Optional, Set
 
 from embedagent.agent_event_bus import AgentEvent, AgentEventBus, AgentEventDispatchError
 
+_HOOK_EVENT_TYPES = {
+    "context": "extension.context",
+    "resources_discover": "extension.resources_discover",
+    "register_tools": "extension.register_tools",
+    "tool_call": "extension.tool_call",
+    "tool_result": "extension.tool_result",
+    "before_agent_start": "extension.before_agent_start",
+    "should_inject_workflow": "extension.should_inject_workflow",
+    "describe_prompt": "extension.describe_prompt",
+    "initialize_workflow_state": "extension.initialize_workflow_state",
+    "allowed_tool_names": "extension.allowed_tool_names",
+    "load_session_tasks": "extension.load_session_tasks",
+    "handle_tool_call": "extension.handle_tool_call",
+    "package_manifest": "extension.package_manifest",
+    "register_context_reducers": "extension.register_context_reducers",
+}
+
 
 @dataclass
 class SessionView:
@@ -43,6 +60,30 @@ class ExtensionContext:
     tool_registry: Any = None
     permission_policy: Any = None
     session_view: Optional[SessionView] = None
+
+
+@dataclass
+class ExtensionCapability:
+    """Explicit internal capability registration for in-process extensions."""
+
+    hook_name: str
+    handler: Any
+    event_type: str = ""
+    kind: str = "reducer"
+    fail_closed: Optional[bool] = None
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        hook_name = str(self.hook_name or "").strip()
+        event_type = str(self.event_type or "").strip()
+        if not event_type and hook_name in _HOOK_EVENT_TYPES:
+            event_type = _HOOK_EVENT_TYPES[hook_name]
+        if not hook_name and event_type.startswith("extension."):
+            hook_name = event_type.split(".", 1)[1]
+        self.hook_name = hook_name
+        self.event_type = event_type
+        self.kind = str(self.kind or "reducer")
+        self.metadata = dict(self.metadata or {})
 
 
 @dataclass
@@ -149,12 +190,14 @@ class ExtensionManager(object):
         self._extensions = []  # type: List[Any]
         self._diagnostics = []  # type: List[ExtensionDiagnostic]
         self._event_bus = AgentEventBus()
+        self._package_manifest_capabilities = []  # type: List[Dict[str, Any]]
+        self._context_reducer_capabilities = []  # type: List[Dict[str, Any]]
         for extension in list(extensions or []):
             self.register(extension)
 
     def register(self, extension: Any) -> None:
         self._extensions.append(extension)
-        self._register_bus_reducers(extension)
+        self._register_capabilities(extension)
 
     def diagnostics(self) -> List[Dict[str, Any]]:
         return [item.to_dict() for item in self._diagnostics]
@@ -184,14 +227,12 @@ class ExtensionManager(object):
 
     def package_manifests(self) -> List[Dict[str, Any]]:
         manifests = []
-        for extension in self._extensions:
-            manifest_method = getattr(extension, "package_manifest", None)
-            if not callable(manifest_method):
-                continue
-            extension_id = self._extension_id(extension)
-            source = "builtin" if self._is_builtin_extension(extension) else "project"
+        for entry in list(self._package_manifest_capabilities):
+            handler = entry["handler"]
+            extension_id = str(entry["source_id"] or "")
+            source = str(entry["source_type"] or "project")
             try:
-                payload = manifest_method()
+                payload = handler()
             except (RuntimeError, ValueError, TypeError, OSError) as exc:
                 self.record_diagnostic(
                     extension_id,
@@ -200,7 +241,7 @@ class ExtensionManager(object):
                     severity="error",
                     source=source,
                 )
-                if source == "builtin":
+                if bool(entry.get("fail_closed")):
                     raise
                 continue
             if isinstance(payload, dict):
@@ -217,172 +258,146 @@ class ExtensionManager(object):
     def _is_builtin_extension(self, extension: Any) -> bool:
         return bool(getattr(extension, "builtin_extension", True))
 
-    def _register_bus_reducers(self, extension: Any) -> None:
+    def _register_capabilities(self, extension: Any) -> None:
         source_id = self._extension_id(extension)
         source_type = "builtin" if self._is_builtin_extension(extension) else "project"
         fail_closed = self._is_builtin_extension(extension)
-        self._register_extension_reducer(
-            extension,
-            source_id,
-            source_type,
-            fail_closed,
-            "context",
-            "extension.context",
-            lambda event, context, ext=extension: ext.context(
-                event.payload["workflow_event"], context
-            ),
-        )
-        self._register_extension_reducer(
-            extension,
-            source_id,
-            source_type,
-            fail_closed,
-            "resources_discover",
-            "extension.resources_discover",
-            lambda event, context, ext=extension: ext.resources_discover(
-                event.payload["resources_event"], context
-            ),
-        )
-        self._register_extension_reducer(
-            extension,
-            source_id,
-            source_type,
-            fail_closed,
-            "register_tools",
-            "extension.register_tools",
-            lambda event, context, ext=extension: ext.register_tools(
-                event.payload["tool_registration_event"], context
-            ),
-        )
-        self._register_extension_reducer(
-            extension,
-            source_id,
-            source_type,
-            fail_closed,
-            "tool_call",
-            "extension.tool_call",
-            lambda event, context, ext=extension: self._call_tool_call_reducer(
-                ext, event.payload["workflow_event"], context
-            ),
-        )
-        self._register_extension_reducer(
-            extension,
-            source_id,
-            source_type,
-            fail_closed,
-            "tool_result",
-            "extension.tool_result",
-            lambda event, context, ext=extension: ext.tool_result(
-                event.payload["workflow_event"], context
-            ),
-        )
-        self._register_extension_reducer(
-            extension,
-            source_id,
-            source_type,
-            fail_closed,
-            "before_agent_start",
-            "extension.before_agent_start",
-            lambda event, context, ext=extension: ext.before_agent_start(
-                event.payload["workflow_event"], context
-            ),
-        )
-        self._register_extension_reducer(
-            extension,
-            source_id,
-            source_type,
-            fail_closed,
-            "should_inject_workflow",
-            "extension.should_inject_workflow",
-            lambda event, context, ext=extension: ext.should_inject_workflow(
-                event.payload["user_text"],
-                event.payload["current_mode"],
-            ),
-        )
-        self._register_extension_reducer(
-            extension,
-            source_id,
-            source_type,
-            fail_closed,
-            "describe_prompt",
-            "extension.describe_prompt",
-            lambda event, context, ext=extension: ext.describe_prompt(
-                event.payload["current_mode"],
-                workflow_state=event.payload["workflow_state"],
-                session=event.payload.get("session"),
-            ),
-        )
-        self._register_extension_reducer(
-            extension,
-            source_id,
-            source_type,
-            fail_closed,
-            "initialize_workflow_state",
-            "extension.initialize_workflow_state",
-            lambda event, context, ext=extension: ext.initialize_workflow_state(
-                event.payload["session"],
-                user_text=event.payload["user_text"],
-                current_mode=event.payload["current_mode"],
-                workflow_state=event.payload["workflow_state"],
-            ),
-        )
-        self._register_extension_reducer(
-            extension,
-            source_id,
-            source_type,
-            fail_closed,
-            "allowed_tool_names",
-            "extension.allowed_tool_names",
-            lambda event, context, ext=extension: ext.allowed_tool_names(
-                event.payload["mode_name"],
-                workflow_state=event.payload["workflow_state"],
-            ),
-        )
-        self._register_extension_reducer(
-            extension,
-            source_id,
-            source_type,
-            fail_closed,
-            "load_session_tasks",
-            "extension.load_session_tasks",
-            lambda event, context, ext=extension: ext.load_session_tasks(
-                workspace=event.payload["workspace"],
-                session_id=event.payload["session_id"],
-            ),
-        )
-        self._register_extension_reducer(
-            extension,
-            source_id,
-            source_type,
-            fail_closed,
-            "handle_tool_call",
-            "extension.handle_tool_call",
-            lambda event, context, ext=extension: ext.handle_tool_call(
-                event.payload["session"],
-                tool_name=event.payload["tool_name"],
-                current_mode=event.payload["current_mode"],
-                workflow_state=event.payload["workflow_state"],
-            ),
-        )
+        provider = getattr(extension, "extension_capabilities", None)
+        if not callable(provider):
+            return
+        try:
+            capabilities = list(provider() or [])
+        except (RuntimeError, ValueError, TypeError, OSError) as exc:
+            self.record_diagnostic(
+                source_id,
+                "extension_capabilities",
+                str(exc),
+                severity="error",
+                source=source_type,
+            )
+            if fail_closed:
+                raise
+            return
+        for raw_capability in capabilities:
+            capability = self._normalize_capability(
+                raw_capability,
+                source_id,
+                source_type,
+                fail_closed,
+            )
+            if capability is None:
+                continue
+            self._register_capability(
+                capability,
+                source_id,
+                source_type,
+                fail_closed,
+            )
 
-    def _register_extension_reducer(
+    def _normalize_capability(
         self,
-        extension: Any,
+        value: Any,
         source_id: str,
         source_type: str,
         fail_closed: bool,
-        hook_name: str,
-        event_type: str,
-        reducer: Any,
+    ) -> Optional[ExtensionCapability]:
+        if isinstance(value, ExtensionCapability):
+            return value
+        if isinstance(value, dict):
+            try:
+                return ExtensionCapability(**dict(value))
+            except TypeError as exc:
+                self.record_diagnostic(
+                    source_id,
+                    "extension_capabilities",
+                    "invalid capability record: %s" % exc,
+                    severity="error",
+                    source=source_type,
+                )
+                if fail_closed:
+                    raise
+                return None
+        self.record_diagnostic(
+            source_id,
+            "extension_capabilities",
+            "invalid capability record: %s" % value.__class__.__name__,
+            severity="error",
+            source=source_type,
+        )
+        if fail_closed:
+            raise TypeError("invalid capability record: %s" % value.__class__.__name__)
+        return None
+
+    def _register_capability(
+        self,
+        capability: ExtensionCapability,
+        source_id: str,
+        source_type: str,
+        default_fail_closed: bool,
     ) -> None:
-        if callable(getattr(extension, hook_name, None)):
+        if not callable(capability.handler):
+            self.record_diagnostic(
+                source_id,
+                "extension_capabilities",
+                "capability handler is not callable: %s" % capability.hook_name,
+                severity="error",
+                source=source_type,
+            )
+            if default_fail_closed:
+                raise TypeError("capability handler is not callable: %s" % capability.hook_name)
+            return
+        fail_closed = (
+            bool(capability.fail_closed)
+            if capability.fail_closed is not None
+            else bool(default_fail_closed)
+        )
+        entry = {
+            "source_id": source_id,
+            "source_type": source_type,
+            "handler": capability.handler,
+            "hook_name": capability.hook_name,
+            "event_type": capability.event_type,
+            "fail_closed": fail_closed,
+            "metadata": dict(capability.metadata or {}),
+        }
+        if capability.hook_name == "package_manifest":
+            self._package_manifest_capabilities.append(entry)
+            return
+        if capability.hook_name == "register_context_reducers":
+            self._context_reducer_capabilities.append(entry)
+            return
+        event_type = str(capability.event_type or "")
+        if not event_type:
+            self.record_diagnostic(
+                source_id,
+                "extension_capabilities",
+                "capability event_type is empty: %s" % capability.hook_name,
+                severity="error",
+                source=source_type,
+            )
+            if fail_closed:
+                raise ValueError("capability event_type is empty: %s" % capability.hook_name)
+            return
+        metadata = {"hook_name": capability.hook_name}
+        metadata.update(dict(capability.metadata or {}))
+        handler = self._event_handler_for_capability(capability)
+        if capability.kind == "observer":
+            self._event_bus.register_observer(
+                event_type,
+                source_id,
+                source_type,
+                handler,
+                fail_closed=fail_closed,
+                metadata=metadata,
+            )
+        else:
             self._event_bus.register_reducer(
                 event_type,
                 source_id,
                 source_type,
-                reducer,
+                handler,
                 fail_closed=fail_closed,
-                metadata={"hook_name": hook_name},
+                metadata=metadata,
             )
 
     def _record_bus_diagnostics(self, dispatch_result: Any, event_name: str) -> None:
@@ -401,13 +416,67 @@ class ExtensionManager(object):
                 )
             )
 
-    def _call_tool_call_reducer(
+    def _event_handler_for_capability(self, capability: ExtensionCapability) -> Any:
+        hook_name = capability.hook_name
+        handler = capability.handler
+        if hook_name == "context":
+            return lambda event, context: handler(event.payload["workflow_event"], context)
+        if hook_name == "resources_discover":
+            return lambda event, context: handler(event.payload["resources_event"], context)
+        if hook_name == "register_tools":
+            return lambda event, context: handler(event.payload["tool_registration_event"], context)
+        if hook_name == "tool_call":
+            return lambda event, context: self._call_tool_call_handler(
+                handler, event.payload["workflow_event"], context
+            )
+        if hook_name == "tool_result":
+            return lambda event, context: handler(event.payload["workflow_event"], context)
+        if hook_name == "before_agent_start":
+            return lambda event, context: handler(event.payload["workflow_event"], context)
+        if hook_name == "should_inject_workflow":
+            return lambda event, context: handler(
+                event.payload["user_text"],
+                event.payload["current_mode"],
+            )
+        if hook_name == "describe_prompt":
+            return lambda event, context: handler(
+                event.payload["current_mode"],
+                workflow_state=event.payload["workflow_state"],
+                session=event.payload.get("session"),
+            )
+        if hook_name == "initialize_workflow_state":
+            return lambda event, context: handler(
+                event.payload["session"],
+                user_text=event.payload["user_text"],
+                current_mode=event.payload["current_mode"],
+                workflow_state=event.payload["workflow_state"],
+            )
+        if hook_name == "allowed_tool_names":
+            return lambda event, context: handler(
+                event.payload["mode_name"],
+                workflow_state=event.payload["workflow_state"],
+            )
+        if hook_name == "load_session_tasks":
+            return lambda event, context: handler(
+                workspace=event.payload["workspace"],
+                session_id=event.payload["session_id"],
+            )
+        if hook_name == "handle_tool_call":
+            return lambda event, context: handler(
+                event.payload["session"],
+                tool_name=event.payload["tool_name"],
+                current_mode=event.payload["current_mode"],
+                workflow_state=event.payload["workflow_state"],
+            )
+        return lambda event, context: handler(event, context)
+
+    def _call_tool_call_handler(
         self,
-        extension: Any,
+        handler: Any,
         workflow_event: WorkflowEvent,
         context: ExtensionContext,
     ) -> Any:
-        decision = extension.tool_call(workflow_event, context)
+        decision = handler(workflow_event, context)
         updated = getattr(decision, "updated_arguments", None)
         if updated is not None:
             workflow_event.tool_arguments = dict(updated)
@@ -546,14 +615,12 @@ class ExtensionManager(object):
                         raise
 
     def register_context_reducers(self, reducer_registry: Any) -> None:
-        for extension in self._extensions:
-            register = getattr(extension, "register_context_reducers", None)
-            if not callable(register):
-                continue
-            extension_id = self._extension_id(extension)
-            source = "builtin" if self._is_builtin_extension(extension) else "project"
+        for entry in list(self._context_reducer_capabilities):
+            handler = entry["handler"]
+            extension_id = str(entry["source_id"] or "")
+            source = str(entry["source_type"] or "project")
             try:
-                register(reducer_registry)
+                handler(reducer_registry)
             except (RuntimeError, ValueError, TypeError, OSError) as exc:
                 self.record_diagnostic(
                     extension_id,
@@ -562,7 +629,7 @@ class ExtensionManager(object):
                     severity="error",
                     source=source,
                 )
-                if source == "builtin":
+                if bool(entry.get("fail_closed")):
                     raise
 
     def before_tool_call(

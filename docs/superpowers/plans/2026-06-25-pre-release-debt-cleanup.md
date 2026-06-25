@@ -328,7 +328,7 @@ git commit -m "refactor: shrink agent core ownership boundaries"
 - Update: `docs/development-tracker.md`
 - Update: `docs/design-change-log.md`
 
-- [ ] **Step 1: Inventory extension method hooks**
+- [x] **Step 1: Inventory extension method hooks**
 
 Run:
 
@@ -338,23 +338,53 @@ rg -n "hasattr\\(|getattr\\(|register_context_reducers|allowed_tool_names|handle
 
 Expected: all implicit method-name hooks are visible.
 
-- [ ] **Step 2: Add tests for explicit registration**
+- Inventory result:
+  - method-name discovery was concentrated in `ExtensionManager`.
+  - remaining `getattr(extension, ...)` uses are `extension_id`,
+    `builtin_extension`, and the explicit `extension_capabilities()` provider.
+  - archived docs still mention historical method-name hooks, but active docs
+    now state the explicit capability contract.
+
+- [x] **Step 2: Add tests for explicit registration**
 
 Write tests for a minimal extension that registers capabilities/events explicitly and does not rely on method-name discovery.
 
-- [ ] **Step 3: Introduce typed registration records**
+- Added tests:
+  - `test_extension_manager_registers_explicit_capability_records_only`
+  - `test_extension_manager_records_invalid_capability_records`
+
+- [x] **Step 3: Introduce typed registration records**
 
 Add explicit internal records for hook reducers, observers, dynamic tools, resource providers, workflow package manifests, and workflow-owned tool handlers.
 
-- [ ] **Step 4: Migrate bundled C/C++ workflow extension**
+- Implemented:
+  - `ExtensionCapability`
+  - explicit hook-to-event mapping
+  - explicit package manifest and context reducer capability stores
+  - diagnostics for malformed capability records
+
+- [x] **Step 4: Migrate bundled C/C++ workflow extension**
 
 Move the bundled harness extension onto explicit registration records.
 
-- [ ] **Step 5: Remove method-name compatibility**
+- `CHarnessWorkflowExtension.extension_capabilities()` now declares workflow
+  injection, prompt description, workflow initialization, package manifest,
+  active tools, tool registration, context reducers, task loading, and
+  extension-owned tool handling.
+
+- [x] **Step 5: Remove method-name compatibility**
 
 Delete fallback discovery paths once bundled and project-local extension tests use the explicit registration path.
 
-- [ ] **Step 6: Verification**
+- Removed:
+  - automatic registration based on `context`, `resources_discover`,
+    `register_tools`, `tool_call`, `tool_result`, `before_agent_start`,
+    `should_inject_workflow`, `describe_prompt`,
+    `initialize_workflow_state`, `allowed_tool_names`,
+    `load_session_tasks`, `handle_tool_call`, `package_manifest`, and
+    `register_context_reducers` method names.
+
+- [x] **Step 6: Verification**
 
 Run:
 
@@ -365,7 +395,13 @@ uv run --locked python scripts/lint.py
 
 Expected: fast non-GUI tests and lint pass.
 
-- [ ] **Step 7: Docs and commit**
+- Verification recorded:
+  - Red: `uv run pytest tests/test_capability_extensions.py::test_extension_manager_records_invalid_capability_records -v` failed before diagnostics were added.
+  - Green: `uv run pytest tests/test_capability_extensions.py::test_extension_manager_records_invalid_capability_records tests/test_capability_extensions.py::test_extension_manager_registers_explicit_capability_records_only -v` passed.
+  - Focused extension suite: `uv run pytest tests/test_capability_extensions.py tests/test_dynamic_tool_registration.py tests/test_project_extensions.py tests/test_workflow_extensions.py -v` passed, 97 tests.
+  - Wider extension/resource/self-extension suite: `uv run pytest tests/test_capability_extensions.py tests/test_dynamic_tool_registration.py tests/test_project_extensions.py tests/test_workflow_extensions.py tests/test_local_resources.py tests/test_query_engine_refactor.py tests/test_context_config.py tests/test_workflow_package_manifest.py tests/test_self_extension_authoring.py -v` passed, 230 tests.
+
+- [x] **Step 7: Docs and commit**
 
 Update extension and harness docs. Commit with a message such as:
 

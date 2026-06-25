@@ -74,6 +74,11 @@ class ExtraResourceExtension(object):
     def __init__(self, recipe_path):
         self.recipe_path = recipe_path
 
+    def extension_capabilities(self):
+        from embedagent.extensions import ExtensionCapability
+
+        return [ExtensionCapability("resources_discover", self.resources_discover)]
+
     def resources_discover(self, event, context):
         assert event.reason
         assert context.workspace

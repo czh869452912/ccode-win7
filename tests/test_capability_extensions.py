@@ -1,4 +1,6 @@
 from embedagent.extensions import (
+    ContextPatch,
+    ExtensionCapability,
     ExtensionContext,
     ExtensionManager,
     ResourcesDiscoverResult,
@@ -8,6 +10,73 @@ from embedagent.extensions import (
     WorkflowEvent,
 )
 from embedagent.session import Action, AssistantReply, Observation
+
+
+def _capabilities_for(extension, *hook_names):
+    return [
+        ExtensionCapability(hook_name, getattr(extension, hook_name)) for hook_name in hook_names
+    ]
+
+
+class ExplicitContextExtension(object):
+    extension_id = "explicit_context"
+    builtin_extension = False
+
+    def extension_capabilities(self):
+        return [
+            ExtensionCapability(
+                event_type="extension.context",
+                hook_name="context",
+                handler=self._context,
+            )
+        ]
+
+    def _context(self, event, context):
+        assert event.current_mode == "build"
+        assert context.workspace == "."
+        return ContextPatch(messages=[{"role": "system", "content": "explicit context"}])
+
+
+class LegacyOnlyContextExtension(object):
+    extension_id = "legacy_only_context"
+    builtin_extension = False
+
+    def context(self, event, context):
+        del event, context
+        raise AssertionError("method-name extension hooks must not be auto-registered")
+
+
+class InvalidCapabilityRecordExtension(object):
+    extension_id = "invalid_capability"
+    builtin_extension = False
+
+    def extension_capabilities(self):
+        return [{"hook_name": "context"}]
+
+
+def test_extension_manager_registers_explicit_capability_records_only():
+    manager = ExtensionManager([ExplicitContextExtension(), LegacyOnlyContextExtension()])
+
+    patch = manager.context(
+        WorkflowEvent(current_mode="build"),
+        ExtensionContext(workspace="."),
+    )
+
+    assert patch.messages == [{"role": "system", "content": "explicit context"}]
+    assert manager.diagnostics() == []
+
+
+def test_extension_manager_records_invalid_capability_records():
+    manager = ExtensionManager([InvalidCapabilityRecordExtension()])
+
+    patch = manager.context(WorkflowEvent(current_mode="build"), ExtensionContext(workspace="."))
+
+    assert patch.messages == []
+    diagnostics = manager.diagnostics()
+    assert len(diagnostics) == 1
+    assert diagnostics[0]["extension_id"] == "invalid_capability"
+    assert diagnostics[0]["event"] == "extension_capabilities"
+    assert "invalid capability record" in diagnostics[0]["error"]
 
 
 def test_agent_event_bus_reduces_in_source_order():
@@ -102,6 +171,9 @@ class BrokenProjectExtension(object):
     extension_id = "broken_project"
     builtin_extension = False
 
+    def extension_capabilities(self):
+        return _capabilities_for(self, "context")
+
     def context(self, event, context):
         del event, context
         raise RuntimeError("project hook failed")
@@ -110,6 +182,9 @@ class BrokenProjectExtension(object):
 class BrokenBuiltinExtension(object):
     extension_id = "broken_builtin"
     builtin_extension = True
+
+    def extension_capabilities(self):
+        return _capabilities_for(self, "context")
 
     def context(self, event, context):
         del event, context
@@ -159,6 +234,9 @@ class ResourceExtension(object):
     extension_id = "resources"
     builtin_extension = False
 
+    def extension_capabilities(self):
+        return _capabilities_for(self, "resources_discover")
+
     def resources_discover(self, event, context):
         assert event.cwd == "."
         assert event.reason == "startup"
@@ -185,6 +263,9 @@ def test_resources_discover_merges_and_deduplicates_paths():
 class BrokenResourceExtension(object):
     extension_id = "broken_resources"
     builtin_extension = False
+
+    def extension_capabilities(self):
+        return _capabilities_for(self, "resources_discover")
 
     def resources_discover(self, event, context):
         del event, context
@@ -235,6 +316,9 @@ class ContextInjectingExtension(object):
     extension_id = "context_injector"
     builtin_extension = False
 
+    def extension_capabilities(self):
+        return _capabilities_for(self, "context")
+
     def context(self, event, context):
         from embedagent.extensions import ContextPatch
 
@@ -275,6 +359,9 @@ def test_query_engine_applies_extension_context_patch(tmp_path):
 class ToolPolicyExtension(object):
     extension_id = "tool_policy"
     builtin_extension = False
+
+    def extension_capabilities(self):
+        return _capabilities_for(self, "tool_call", "tool_result")
 
     def tool_call(self, event, context):
         del context
@@ -324,6 +411,9 @@ class FirstRewriteToolExtension(object):
     extension_id = "first_rewrite"
     builtin_extension = False
 
+    def extension_capabilities(self):
+        return _capabilities_for(self, "tool_call")
+
     def tool_call(self, event, context):
         del context
         updated = dict(event.tool_arguments)
@@ -334,6 +424,9 @@ class FirstRewriteToolExtension(object):
 class SecondRewriteThenBlockToolExtension(object):
     extension_id = "second_rewrite"
     builtin_extension = False
+
+    def extension_capabilities(self):
+        return _capabilities_for(self, "tool_call")
 
     def tool_call(self, event, context):
         del context
@@ -346,6 +439,9 @@ class SecondRewriteThenBlockToolExtension(object):
 class BlockingAfterRewriteToolExtension(object):
     extension_id = "block_after_rewrite"
     builtin_extension = False
+
+    def extension_capabilities(self):
+        return _capabilities_for(self, "tool_call")
 
     def tool_call(self, event, context):
         del context
@@ -360,6 +456,9 @@ class BlockingAfterRewriteToolExtension(object):
 class ShouldNotRunToolExtension(object):
     extension_id = "should_not_run"
     builtin_extension = False
+
+    def extension_capabilities(self):
+        return _capabilities_for(self, "tool_call")
 
     def tool_call(self, event, context):
         del event, context
@@ -389,6 +488,9 @@ def test_tool_call_hook_preserves_sequential_rewrites_and_first_block_wins():
 class BrokenToolCallExtension(object):
     extension_id = "broken_tool_call"
     builtin_extension = False
+
+    def extension_capabilities(self):
+        return _capabilities_for(self, "tool_call")
 
     def tool_call(self, event, context):
         del event, context
@@ -431,6 +533,9 @@ class BrokenToolResultExtension(object):
     extension_id = "broken_tool_result"
     builtin_extension = False
 
+    def extension_capabilities(self):
+        return _capabilities_for(self, "tool_result")
+
     def tool_result(self, event, context):
         del event, context
         raise RuntimeError("tool result reducer failed")
@@ -459,6 +564,9 @@ def test_tool_result_hook_error_records_bus_metadata():
 class BrokenRegisterToolsExtension(object):
     extension_id = "broken_register_tools"
     builtin_extension = False
+
+    def extension_capabilities(self):
+        return _capabilities_for(self, "register_tools")
 
     def register_tools(self, event, context):
         del event, context
@@ -518,6 +626,9 @@ class BlockingToolExtension(object):
     extension_id = "blocking_tool"
     builtin_extension = False
 
+    def extension_capabilities(self):
+        return _capabilities_for(self, "tool_call")
+
     def tool_call(self, event, context):
         del context
         if event.tool_name == "read_file":
@@ -528,6 +639,9 @@ class BlockingToolExtension(object):
 class PatchingToolResultExtension(object):
     extension_id = "patching_tool_result"
     builtin_extension = False
+
+    def extension_capabilities(self):
+        return _capabilities_for(self, "tool_result")
 
     def tool_result(self, event, context):
         del context
@@ -604,6 +718,9 @@ def test_agent_extension_host_applies_context_and_tool_result_workflow_patch(tmp
     class ContextAndPatchExtension(object):
         extension_id = "context_and_patch"
         builtin_extension = False
+
+        def extension_capabilities(self):
+            return _capabilities_for(self, "context", "tool_result")
 
         def context(self, event, context):
             del context
@@ -689,6 +806,9 @@ def test_session_snapshot_projects_extension_state_and_diagnostics():
 class SnapshotBrokenExtension(object):
     extension_id = "snapshot_broken"
     builtin_extension = False
+
+    def extension_capabilities(self):
+        return _capabilities_for(self, "context")
 
     def context(self, event, context):
         del event, context

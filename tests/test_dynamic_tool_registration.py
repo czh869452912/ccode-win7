@@ -244,6 +244,14 @@ class DynamicToolExtension(object):
         self.active = active
         self.tool_name = tool_name
 
+    def extension_capabilities(self):
+        from embedagent.extensions import ExtensionCapability
+
+        return [
+            ExtensionCapability("register_tools", self.register_tools),
+            ExtensionCapability("allowed_tool_names", self.allowed_tool_names),
+        ]
+
     def register_tools(self, event, context):
         assert event.reason in ("session_start", "catalog", "test")
         assert context.tool_registry is not None
@@ -261,6 +269,14 @@ class DynamicToolExtension(object):
 class OwnedToolExtension(object):
     extension_id = "owned_tool"
     builtin_extension = False
+
+    def extension_capabilities(self):
+        from embedagent.extensions import ExtensionCapability
+
+        return [
+            ExtensionCapability("allowed_tool_names", self.allowed_tool_names),
+            ExtensionCapability("handle_tool_call", self.handle_tool_call),
+        ]
 
     def allowed_tool_names(self, mode_name, workflow_state="chat"):
         if mode_name == "build" and workflow_state == "chat":
@@ -283,6 +299,11 @@ class ModeSwitchToolExtension(object):
     extension_id = "mode_switch_tool"
     builtin_extension = False
 
+    def extension_capabilities(self):
+        from embedagent.extensions import ExtensionCapability
+
+        return [ExtensionCapability("allowed_tool_names", self.allowed_tool_names)]
+
     def allowed_tool_names(self, mode_name, workflow_state="chat"):
         del workflow_state
         if mode_name == "explore":
@@ -293,6 +314,11 @@ class ModeSwitchToolExtension(object):
 class InvalidToolExtension(object):
     extension_id = "invalid_tool"
     builtin_extension = False
+
+    def extension_capabilities(self):
+        from embedagent.extensions import ExtensionCapability
+
+        return [ExtensionCapability("register_tools", self.register_tools)]
 
     def register_tools(self, event, context):
         del event, context

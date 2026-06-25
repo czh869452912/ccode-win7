@@ -26,6 +26,7 @@ class ProjectExtensionApi(object):
     def __init__(self, workspace: str, extension_id: str, manifest: Dict[str, Any]) -> None:
         from embedagent.extensions import (
             ContextPatch,
+            ExtensionCapability,
             PromptPatch,
             ResourcesDiscoverResult,
             ToolCallDecision,
@@ -41,6 +42,7 @@ class ProjectExtensionApi(object):
         self.manifest = dict(manifest)
         self.permissions = list(manifest.get("permissions") or [])
         self.ContextPatch = ContextPatch
+        self.ExtensionCapability = ExtensionCapability
         self.Observation = Observation
         self.PromptPatch = PromptPatch
         self.ResourcesDiscoverResult = ResourcesDiscoverResult

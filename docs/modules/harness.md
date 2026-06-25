@@ -24,7 +24,7 @@
 
 Harness 的职责是把 workflow 结构从 ad-hoc prompt 行为中抽离出来，形成稳定的 `mode + discipline_profile + execution_phase + TaskGraph` 正式模型。
 
-The default C/C++ harness is the bundled built-in workflow extension. Hosted product paths install it through `src/embedagent/default_extensions.py`; a bare `QueryEngine` does not import or construct it. Harness internals may own `TaskGraph`, but Agent Core and frontend consumers receive only the generic `Session.workflow_state["workflow"]` projection.
+The default C/C++ harness is the bundled built-in workflow extension. Hosted product paths install it through `src/embedagent/default_extensions.py`; a bare `QueryEngine` does not import or construct it. Harness internals may own `TaskGraph`, but Agent Core and frontend consumers receive only the generic `Session.workflow_state["workflow"]` projection. Harness hooks, package manifest collection, context reducer registration, active tools, tool registration, task loading, and extension-owned `task_status` handling are declared through explicit `ExtensionCapability` records returned by `CHarnessWorkflowExtension.extension_capabilities()`.
 
 ## 3. Code Mapping
 
@@ -53,7 +53,7 @@ The default C/C++ harness is the bundled built-in workflow extension. Hosted pro
 
 ## 5. Data / Control Flow
 
-Hosted product paths 通过 `default_extensions.py` 把 bundled C harness 安装进 shared `ExtensionManager`。`CHarnessWorkflowExtension` 内部使用 `HarnessRunner` / `TaskGraph`，再通过 harness-owned workflow projection 把状态写入 `Session.workflow_state["workflow"]`，供 `task_status`、session snapshot 和 frontend tasks 使用。
+Hosted product paths 通过 `default_extensions.py` 把 bundled C harness 安装进 shared `ExtensionManager`。`CHarnessWorkflowExtension` 内部使用 `HarnessRunner` / `TaskGraph`，通过 `extension_capabilities()` 声明 prompt/state/tool/task 相关能力，再通过 harness-owned workflow projection 把状态写入 `Session.workflow_state["workflow"]`，供 `task_status`、session snapshot 和 frontend tasks 使用。
 
 ```mermaid
 flowchart TD

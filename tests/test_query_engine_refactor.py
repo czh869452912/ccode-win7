@@ -240,6 +240,11 @@ class WorkflowPatchExtension(object):
     extension_id = "workflow_patch_test"
     builtin_extension = False
 
+    def extension_capabilities(self):
+        from embedagent.extensions import ExtensionCapability
+
+        return [ExtensionCapability("tool_result", self.tool_result)]
+
     def tool_result(self, event, context):
         del event, context
         return ToolResultPatch(

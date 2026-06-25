@@ -51,11 +51,11 @@ Recent workflow-boundary work has started slimming Agent Core without changing t
 - built-in mode `allowed_tools` no longer own default harness workflow tools; recipe, quality, evidence, and task-status tools are activated by the C harness extension
 - `ToolRuntime.schemas_for(mode, workflow_state, tool_names=...)` is now the single runtime schema projection entry point; default-harness paths use extension-active explicit tool names
 - `InProcessAdapter` now owns one `ExtensionManager` shared with session-scoped `QueryEngine` and frontend tool catalog visibility
-- `ExtensionManager` now carries generic diagnostics, resource discovery hooks, context hooks, tool-call/tool-result hooks, and dynamic in-process tool registration
+- `ExtensionManager` now carries generic diagnostics, resource discovery hooks, context hooks, tool-call/tool-result hooks, and dynamic in-process tool registration through explicit `ExtensionCapability` records returned by `extension_capabilities()`
 - local file resources under `.embedagent/skills`, `.embedagent/prompts`, and `.embedagent/recipes` can be refreshed through the runtime, adapter, slash command, and GUI/core API; recipe JSON files feed the existing recipe contract, visible Agent Skills-style Markdown resources are summarized through one lightweight prompt unit, skill bodies expand only through `/skill:<name> [args]`, and prompt bodies expand only through `/prompt:<name-or-path> [args]`
-- manifest-gated project-local Python extensions can be loaded from enabled `.embedagent/extensions/<name>/extension.json` manifests by hosted product paths and are registered into the shared `ExtensionManager`
+- manifest-gated project-local Python extensions can be loaded from enabled `.embedagent/extensions/<name>/extension.json` manifests by hosted product paths and are registered into the shared `ExtensionManager`; hooks/tools are active only when declared with `api.ExtensionCapability`
 - `AgentExtensionHost` now centralizes QueryEngine-side extension dispatch, dynamic tool registration, extension-aware active schema projection, context patches, tool-call hooks, tool-result hooks, and extension-owned tool handling
-- `AgentEventBus` now provides the internal source-aware observer/reducer boundary for public extension hook dispatch while the public extension APIs remain unchanged
+- `AgentEventBus` now provides the internal source-aware observer/reducer boundary for explicitly declared extension capabilities; method-name hook compatibility is no longer a product path
 - `AgentLifecycleJournal` now owns durable lifecycle operation writes, transition save points, pending interaction lifecycle operation events, and context operation payload helpers
 - `AgentKernel` now owns user/command/resume turn frames and pending interaction create/resolve boundaries behind the session facade
 - `AgentToolActionService` now owns non-LLM tool action execution, including active-tool checks, extension pre/post hooks, `PermissionPolicy`, pending permission/user-input actions, mode-switch proposals, path write guards, runtime dispatch, extension-owned tool calls, resumed action execution, and workflow-patch capture
@@ -172,7 +172,7 @@ The current self-extensible Agent Core baseline remains valid. The next program 
    - encode reducer semantics per event instead of scattering merge behavior across the manager
    - attach source metadata, cleanup, diagnostics, and reload behavior to registrations
    - keep built-in workflow extensions and project-local extensions on the same internal event boundary
-   - current implementation status: Phase B is complete for extension hook dispatch; `ExtensionManager` routes public hook families through `AgentEventBus` and preserves existing public extension APIs
+   - current implementation status: Phase B is complete for extension hook dispatch, and the pre-release explicit capability cleanup is complete; `ExtensionManager` routes declared `ExtensionCapability` records through `AgentEventBus` and no longer auto-registers hooks by method name
 
 3. **AgentKernel lifecycle extraction**
    - current implementation status: Phase C is complete

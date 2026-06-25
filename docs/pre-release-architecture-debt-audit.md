@@ -156,27 +156,31 @@ Target direction:
 - Delete action-specific branches from the session facade once the common path
   exists.
 
-### 4.5 Extension Hooks Are Source-Aware But Still Compatibility-Shaped
+### 4.5 Extension Hooks Are Now Explicit Capabilities
 
-AgentEventBus is the right internal direction, but the current extension layer
-still preserves method-name style hook dispatch and scattered merge semantics.
+Status: retired in Slice 4.
 
-Debt symptoms:
+The extension layer now uses explicit `ExtensionCapability` records returned by
+`extension_capabilities()`. Method-name style hook dispatch is no longer a
+product contract. `ExtensionManager` routes declared capabilities through
+`AgentEventBus` or stores them as explicit non-event capability registrations
+for package manifests and context reducer registration.
 
-- Extension behavior is still inferred from methods on extension objects.
-- Some hook families go through the event bus while others remain direct
-  manager calls.
-- Reducer semantics are not yet visible as a compact, explicit extension
+Retired debt symptoms:
+
+- Extension behavior is no longer inferred from methods on extension objects.
+- Bundled C/C++ workflow hooks are declared in
+  `CHarnessWorkflowExtension.extension_capabilities()`.
+- Project-local extension examples and generated skeletons use
+  `api.ExtensionCapability`.
+- Invalid capability records produce extension diagnostics instead of silent
+  no-ops.
+
+Remaining direction:
+
+- Keep future hosted or intranet extensions on the same explicit capability
   contract.
-- Self-extension authoring will remain fragile if generated extensions target
-  implicit manager behavior.
-
-Target direction:
-
-- Define extension capabilities as explicit typed records and event reducers.
-- Route all hook families through one source-aware event/reducer boundary or
-  deliberately classify them as non-hook capability registrations.
-- Remove method-name compatibility as a product contract.
+- Do not reintroduce method-name compatibility while adding new hook families.
 
 ### 4.6 GUI T3 Parity Is Currently Adapted, Not Native
 
@@ -257,10 +261,12 @@ The cleanup should proceed in deletion-oriented slices:
 4. Move interactive actions into the unified action pipeline.
 5. Shrink the QueryEngine, AgentLoop, and InProcessAdapter responsibility
    cycle.
-6. Replace GUI global app/reducer state with T3-shaped state modules.
-7. Move visual fixtures and generated static assets out of product source
+6. Replace method-name extension compatibility with explicit capability
+   contracts. Done in Slice 4.
+7. Replace GUI global app/reducer state with T3-shaped state modules.
+8. Move visual fixtures and generated static assets out of product source
    paths.
-8. Run real Win7 bundle and real C/C++ workflow validation against the promoted
+9. Run real Win7 bundle and real C/C++ workflow validation against the promoted
    architecture.
 
 Each slice must end by deleting the old path or explicitly recording why the

@@ -24,6 +24,11 @@ class DoneClient(object):
 
 
 class FakeWorkflowExtension(object):
+    def extension_capabilities(self):
+        from embedagent.extensions import ExtensionCapability
+
+        return [ExtensionCapability("before_agent_start", self.before_agent_start)]
+
     def before_agent_start(self, event, context):
         del event, context
         from embedagent.extensions import PromptPatch
@@ -36,6 +41,11 @@ class FakeWorkflowExtension(object):
 
 
 class CatalogExtension(object):
+    def extension_capabilities(self):
+        from embedagent.extensions import ExtensionCapability
+
+        return [ExtensionCapability("allowed_tool_names", self.allowed_tool_names)]
+
     def allowed_tool_names(self, mode_name, workflow_state="chat"):
         del workflow_state
         if mode_name == "build":
@@ -46,6 +56,11 @@ class CatalogExtension(object):
 class ManifestExtension(object):
     extension_id = "fake.workflow"
     builtin_extension = False
+
+    def extension_capabilities(self):
+        from embedagent.extensions import ExtensionCapability
+
+        return [ExtensionCapability("package_manifest", self.package_manifest)]
 
     def package_manifest(self):
         return {
