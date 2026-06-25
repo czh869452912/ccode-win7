@@ -101,6 +101,11 @@ That remembered state is part of the permission context view, not an implicit mo
 
 Approving a pending permission does not create a second execution path.
 The resumed action must re-enter the same validation/execution pipeline as the initial action, including mode/path policy checks.
+Answering a pending user-input interaction follows the same rule: `ask_user`
+and `propose_mode_switch` responses re-enter `AgentToolActionService` rather
+than being handled by a QueryEngine-only branch. Mode-switch proposals are
+interactive actions; the mode changes only after a user response selects or
+confirms the requested mode.
 
 ## 7. Frontend Context View
 

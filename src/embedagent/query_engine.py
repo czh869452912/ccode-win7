@@ -30,12 +30,10 @@ from embedagent.extensions import (
 from embedagent.interaction import (
     UserInputRequest,
     UserInputResponse,
-    build_user_input_request,
 )
 from embedagent.llm import ModelClientError, OpenAICompatibleClient
 from embedagent.strategies.execution_tracer import ExecutionTracer, TraceEventType
 from embedagent.strategies.llm_retry_wrapper import LLMClientRetryWrapper
-from embedagent.strategies.turn_orchestrator import TurnOrchestrator
 from embedagent.memory_maintenance import MemoryMaintenance
 from embedagent.modes import (
     DEFAULT_MODE,
@@ -154,6 +152,8 @@ class QueryEngine(object):
             failure_observation_factory=self._failure_observation,
             permission_pending_handler=self._build_permission_pending_result,
             permission_rejected_handler=self._record_permission_rejection,
+            user_input_pending_handler=self._build_user_input_pending_result,
+            user_input_response_handler=self._build_user_input_observation,
         )
         self._llm_wrapper = LLMClientRetryWrapper(
             client=client,
@@ -174,15 +174,6 @@ class QueryEngine(object):
             self.transcript_store,
         )
         self._maintenance_counter = 0
-        self._turn_orchestrator = TurnOrchestrator(
-            llm_wrapper=self._llm_wrapper,
-            tools=self.tools,
-            permission_policy=self.permission_policy,
-            max_parallel_tools=self.max_parallel_tools,
-            tracer=self.tracer,
-            allowed_tool_names=self._allowed_tools_for_mode,
-            extension_tool_handler=self._handle_extension_tool_call,
-        )
         self._agent_loop = AgentLoop(
             max_turns=self.max_turns,
             max_parallel_tools=self.max_parallel_tools,
@@ -949,20 +940,6 @@ class QueryEngine(object):
 
     def _allowed_tools_for_mode(self, mode_name: str, workflow_state: str = "chat") -> set:
         return set(self.extension_host.allowed_tool_names(mode_name, workflow_state=workflow_state))
-
-    def _handle_extension_tool_call(
-        self,
-        session: Session,
-        action: Action,
-        current_mode: str,
-        workflow_state: str,
-    ) -> Optional[Observation]:
-        return self.extension_host.handle_tool_call(
-            session,
-            tool_name=action.name,
-            current_mode=current_mode,
-            workflow_state=workflow_state,
-        )
 
     def _tool_permission_category(self, tool_name: str) -> str:
         lookup = getattr(self.tools, "tool_catalog_entry", None)
@@ -1823,9 +1800,6 @@ class QueryEngine(object):
     def _is_extension_blocked_observation(self, observation: Optional[Observation]) -> bool:
         return self._action_service.is_extension_blocked_observation(observation)
 
-    def _is_interactive_precomputed_skip(self, observation: Optional[Observation]) -> bool:
-        return self._action_service.is_interactive_precomputed_skip(observation)
-
     def _apply_extension_tool_result_patch(
         self,
         session: Session,
@@ -1890,6 +1864,32 @@ class QueryEngine(object):
         )
         return QueryTurnResult("", session, transition, pending_interaction=pending)
 
+    def _build_user_input_pending_result(
+        self,
+        session: Session,
+        action: Action,
+        request: UserInputRequest,
+        current_mode: str,
+    ) -> QueryTurnResult:
+        request_payload = {
+            "tool_name": request.tool_name,
+            "question": request.question,
+            "options": [
+                {"index": item.index, "text": item.text, "mode": item.mode}
+                for item in request.options
+            ],
+            "details": dict(request.details),
+        }
+        pending, transition = self.kernel.record_pending_user_input(
+            session,
+            action,
+            request.tool_name,
+            request_payload,
+            request.question,
+            current_mode,
+        )
+        return QueryTurnResult("", session, transition, pending_interaction=pending)
+
     def _execute_action(
         self,
         session: Session,
@@ -1901,171 +1901,26 @@ class QueryEngine(object):
         precomputed_observation: Optional[Observation] = None,
         stop_event: Optional[threading.Event] = None,
     ) -> Tuple[Observation, str, Optional[QueryTurnResult]]:
-        if action.name not in ("ask_user", "propose_mode_switch"):
-            before_workflow, before_metadata = self._workflow_patch_snapshot(session)
-            result = self._action_service.execute_action(
-                session,
-                action,
-                current_mode,
-                workflow_state,
-                permission_handler,
-                user_input_handler,
-                precomputed_observation=precomputed_observation,
-                stop_event=stop_event,
-            )
-            self._capture_workflow_patch_if_changed(
-                session,
-                action,
-                current_mode,
-                workflow_state,
-                before_workflow,
-                before_metadata,
-            )
-            return result
-        runtime_action = action
-        if precomputed_observation is not None and not self._is_interactive_precomputed_skip(
-            precomputed_observation
-        ):
-            if self._is_extension_blocked_observation(precomputed_observation):
-                return precomputed_observation, current_mode, None
-            observation = self._apply_extension_tool_result_patch(
-                session,
-                action,
-                current_mode,
-                workflow_state,
-                precomputed_observation,
-            )
-            return observation, current_mode, None
-        blocked_observation, runtime_action = self._prepare_extension_tool_call(
+        before_workflow, before_metadata = self._workflow_patch_snapshot(session)
+        result = self._action_service.execute_action(
             session,
             action,
             current_mode,
             workflow_state,
+            permission_handler,
+            user_input_handler,
+            precomputed_observation=precomputed_observation,
+            stop_event=stop_event,
         )
-        if blocked_observation is not None:
-            return blocked_observation, current_mode, None
-        if action.name == "ask_user":
-            request = build_user_input_request(runtime_action.arguments)
-            response = user_input_handler(request) if user_input_handler is not None else None
-            if response is None:
-                request_payload = {
-                    "tool_name": request.tool_name,
-                    "question": request.question,
-                    "options": [
-                        {"index": item.index, "text": item.text, "mode": item.mode}
-                        for item in request.options
-                    ],
-                    "details": dict(request.details),
-                }
-                pending, transition = self.kernel.record_pending_user_input(
-                    session,
-                    action,
-                    "ask_user",
-                    request_payload,
-                    request.question,
-                    current_mode,
-                )
-                return (
-                    self._failure_observation(
-                        "ask_user",
-                        "waiting user input",
-                        "pending_interaction",
-                        False,
-                        "user_input",
-                        "等待用户回答。",
-                        {"pending": True},
-                    ),
-                    current_mode,
-                    QueryTurnResult("", session, transition, pending_interaction=pending),
-                )
-            observation, next_mode = self._build_user_input_observation(
-                session, current_mode, request, response, workflow_state=workflow_state
-            )
-            return observation, next_mode, None
-        if action.name == "propose_mode_switch":
-            response = (
-                user_input_handler(
-                    UserInputRequest(
-                        "propose_mode_switch",
-                        str(runtime_action.arguments.get("reason") or ""),
-                        [],
-                        {"target_mode": str(runtime_action.arguments.get("target_mode") or "")},
-                    )
-                )
-                if user_input_handler is not None
-                else None
-            )
-            if response is None:
-                request_payload = {
-                    "tool_name": "propose_mode_switch",
-                    "question": str(runtime_action.arguments.get("reason") or ""),
-                    "options": [],
-                    "details": {
-                        "target_mode": str(runtime_action.arguments.get("target_mode") or "")
-                    },
-                }
-                pending, transition = self.kernel.record_pending_user_input(
-                    session,
-                    action,
-                    "propose_mode_switch",
-                    request_payload,
-                    str(runtime_action.arguments.get("reason") or ""),
-                    current_mode,
-                )
-                return (
-                    self._failure_observation(
-                        action.name,
-                        "waiting user input",
-                        "pending_interaction",
-                        False,
-                        "user_input",
-                        "等待用户回答。",
-                        {"pending": True},
-                    ),
-                    current_mode,
-                    QueryTurnResult("", session, transition, pending_interaction=pending),
-                )
-            target_mode = str(
-                response.selected_mode or runtime_action.arguments.get("target_mode") or ""
-            ).strip()
-            if target_mode:
-                target_mode = str(require_mode(target_mode)["slug"])
-                if target_mode != current_mode:
-                    with self._session_guard():
-                        mode_message = session.add_system_message(
-                            self._build_system_prompt(target_mode)
-                        )
-                        self._append_message_event(
-                            session,
-                            {
-                                "role": mode_message.role,
-                                "content": mode_message.content,
-                                "message_id": mode_message.message_id,
-                                "parent_message_id": mode_message.parent_message_id,
-                                "turn_id": mode_message.turn_id,
-                                "step_id": mode_message.step_id,
-                                "kind": mode_message.kind,
-                                "metadata": dict(mode_message.metadata),
-                                "replaced_by_refs": list(mode_message.replaced_by_refs),
-                            },
-                        )
-                        self._append_workflow_prompt_messages(
-                            session,
-                            self.extension_host.describe_prompt(
-                                target_mode, workflow_state=workflow_state, session=session
-                            ),
-                        )
-                    current_mode = target_mode
-            return (
-                Observation(
-                    "propose_mode_switch",
-                    True,
-                    None,
-                    {"selected_mode": target_mode, "mode_changed": bool(target_mode)},
-                ),
-                current_mode,
-                None,
-            )
+        self._capture_workflow_patch_if_changed(
+            session,
+            action,
+            current_mode,
+            workflow_state,
+            before_workflow,
+            before_metadata,
+        )
+        return result
 
     def _build_user_input_observation(
         self,
@@ -2074,8 +1929,12 @@ class QueryEngine(object):
         request: UserInputRequest,
         response: UserInputResponse,
         workflow_state: str = "chat",
+        tool_name: str = "ask_user",
     ) -> Tuple[Observation, str]:
+        request_tool_name = tool_name or request.tool_name or "ask_user"
         selected_mode = str(response.selected_mode or "").strip()
+        if not selected_mode and request_tool_name == "propose_mode_switch":
+            selected_mode = str(request.details.get("target_mode") or "").strip()
         next_mode = current_mode
         mode_changed = False
         if selected_mode:
@@ -2109,7 +1968,7 @@ class QueryEngine(object):
                     )
         return (
             Observation(
-                "ask_user",
+                request_tool_name,
                 True,
                 None,
                 {
@@ -2173,30 +2032,22 @@ class QueryEngine(object):
                     "等待用户批准，或改为不需要该权限的方案。",
                 )
         else:
-            req = (
-                pending.request_payload.get("request")
-                if isinstance(pending.request_payload, dict)
-                else {}
-            )
-            request = UserInputRequest(
-                tool_name=str(req.get("tool_name") or pending.tool_name),
-                question=str(req.get("question") or ""),
-                options=[],
-                details=dict(req.get("details") or {}),
-            )
             response = UserInputResponse(
                 answer=str(resolution.get("answer") or ""),
                 selected_index=resolution.get("selected_index"),
                 selected_mode=str(resolution.get("selected_mode") or ""),
                 selected_option_text=str(resolution.get("selected_option_text") or ""),
             )
-            observation, current_mode = self._build_user_input_observation(
+            observation, current_mode, suspended = self._execute_action(
                 session,
+                action,
                 current_mode,
-                request,
-                response,
-                workflow_state=workflow_state,
+                workflow_state,
+                permission_handler=None,
+                user_input_handler=lambda request: response,
             )
+            if suspended is not None:
+                raise RuntimeError("user input resume unexpectedly re-suspended")
         with self._session_guard():
             tool_message_id = "m-" + uuid.uuid4().hex[:12]
             parent_message_id = session.last_message_id()

@@ -4,7 +4,6 @@ from embedagent.strategies.diff_engine import DiffBlock, DiffError, MultiSearchR
 from embedagent.strategies.execution_tracer import ExecutionTracer, TraceEvent, TraceEventType
 from embedagent.strategies.llm_retry_wrapper import LLMClientRetryWrapper
 from embedagent.strategies.tool_cache import CacheEntry, CacheTier, ToolResultCache
-from embedagent.strategies.turn_orchestrator import TurnOrchestrator
 
 __all__ = [
     "CacheEntry",
@@ -20,5 +19,4 @@ __all__ = [
     "ToolResultCache",
     "TraceEvent",
     "TraceEventType",
-    "TurnOrchestrator",
 ]

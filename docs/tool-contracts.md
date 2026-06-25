@@ -15,7 +15,7 @@ The official runtime facade is:
 
 - `src/embedagent/tools/runtime.py`
 
-Workflow extensions may activate focused subsets of registered tools for a turn. The default C/C++ harness extension owns harness-specific tool activation, recipe readiness/execution, context reducers, and `task_status` behavior, while `ask_user` remains core interaction infrastructure.
+Workflow extensions may activate focused subsets of registered tools for a turn. The default C/C++ harness extension owns harness-specific tool activation, recipe readiness/execution, context reducers, and `task_status` behavior, while `ask_user` and `propose_mode_switch` remain core interaction actions executed through the shared action lifecycle.
 
 `CORE_PACK` is the minimal editing/search/shell foundation. Harness-only tools such as `list_recipes`, `run_recipe`, `report_quality_v2`, `record_failing_evidence`, and `task_status` must be registered/activated by workflow packs/extensions rather than being treated as bare Core tools.
 
@@ -37,7 +37,7 @@ Built-in mode `allowed_tools` are workflow-neutral permission/write contracts. T
 
 `RecoveryStateReducer` is a transcript-backed read model, not a tool runtime. It describes hosted resume diagnostics such as trusted-prefix counts, stop reasons, reducer summaries, and duplicate/malformed diagnostics. Reducer state does not make a tool active, execute a tool, reload resources, load project extensions, change restore validation, select context, or bypass permission policy.
 
-Allowed-tool gating is not a runtime wrapper. Core orchestration receives an explicit allowed-tool policy from its host; hosted product paths use `QueryEngine._allowed_tools_for_mode(...)` as a compatibility facade over `AgentExtensionHost.allowed_tool_names(...)`.
+Allowed-tool gating is not a runtime wrapper. Hosted product paths use `AgentExtensionHost.allowed_tool_names(...)` through the shared extension host and request runtime schemas with explicit active tool names.
 
 `author_local_capability` is a workflow-neutral write tool for local self-extension authoring. It creates workspace-bound skills, prompts, recipes, and disabled-by-default project extension skeletons under `.embedagent`; it does not reload resource caches and does not load, enable, import, or trust generated Python extension code.
 
@@ -56,7 +56,7 @@ The extension runtime may observe or patch tool calls through typed in-process h
 
 These hooks do not bypass mode contracts, `PermissionPolicy`, path write checks, or tool metadata categories.
 
-`AgentToolActionService` is the Agent Core boundary that applies those hooks around non-LLM tool action execution. It keeps extension pre/post hooks, permission checks, path write guards, extension-owned tool handling, and `ToolRuntime` dispatch in one pipeline.
+`AgentToolActionService` is the Agent Core boundary that applies those hooks around non-LLM tool action execution. It keeps extension pre/post hooks, permission checks, pending permission/user-input creation, resumed interaction execution, mode-switch proposals, path write guards, extension-owned tool handling, and `ToolRuntime` dispatch in one pipeline. Interactive actions are skipped by parallel pre-execution and re-enter the serial action pipeline, so `QueryEngine` does not own separate `ask_user` or mode-switch branches.
 
 ## Dynamic Extension Tool Registration
 

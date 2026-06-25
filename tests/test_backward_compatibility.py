@@ -50,12 +50,15 @@ class TestPublicImports(object):
         from embedagent.strategies import (
             ContextCompactionEngine,
             LLMClientRetryWrapper,
-            TurnOrchestrator,
         )
 
         assert ContextCompactionEngine is not None
         assert LLMClientRetryWrapper is not None
-        assert TurnOrchestrator is not None
+
+    def test_turn_orchestrator_legacy_strategy_removed(self):
+        import embedagent.strategies as strategies
+
+        assert not hasattr(strategies, "TurnOrchestrator")
 
     def test_import_di_container(self):
         from embedagent.di_container import DIContainer, get_default_container

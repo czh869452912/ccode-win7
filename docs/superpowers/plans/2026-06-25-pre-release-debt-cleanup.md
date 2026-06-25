@@ -145,7 +145,7 @@ git commit -m "refactor: remove timeline as session truth"
 - Update: `docs/development-tracker.md`
 - Update: `docs/design-change-log.md`
 
-- [ ] **Step 1: Inventory special cases**
+- [x] **Step 1: Inventory special cases**
 
 Run:
 
@@ -155,29 +155,29 @@ rg -n "ask_user|propose_mode_switch|pending_interaction|pending_input|mode switc
 
 Expected: all special paths in QueryEngine, AgentToolActionService, kernel, lifecycle, tests, and docs are visible.
 
-- [ ] **Step 2: Add failing tests for unified ownership**
+- [x] **Step 2: Add failing tests for unified ownership**
 
 Write tests proving that interactive actions pass through the action service and lifecycle path instead of QueryEngine-only branches.
 
 Expected before implementation: failures identify the current split path.
 
-- [ ] **Step 3: Introduce an interaction action result shape**
+- [x] **Step 3: Introduce an interaction action result shape**
 
 Add an internal result type or structured observation path that can represent pending user input, pending approval, and mode switch proposals without bypassing the normal action service.
 
-- [ ] **Step 4: Move `ask_user` handling into AgentToolActionService**
+- [x] **Step 4: Move `ask_user` handling into AgentToolActionService**
 
 The action service should create the pending interaction result through kernel/lifecycle helpers, record the same lifecycle events, and return the same public observation shape currently expected by callers.
 
-- [ ] **Step 5: Move mode-switch proposal handling into the same pipeline**
+- [x] **Step 5: Move mode-switch proposal handling into the same pipeline**
 
 Mode-switch proposal behavior should be modeled as a first-class interaction action, not a QueryEngine branch with custom prompt insertion semantics.
 
-- [ ] **Step 6: Delete QueryEngine special cases**
+- [x] **Step 6: Delete QueryEngine special cases**
 
 Remove direct branches for interactive tools from QueryEngine after the tests prove the common path works.
 
-- [ ] **Step 7: Verification**
+- [x] **Step 7: Verification**
 
 Run:
 
@@ -188,7 +188,7 @@ uv run --locked python scripts/lint.py
 
 Expected: fast non-GUI tests and lint pass.
 
-- [ ] **Step 8: Docs and commit**
+- [x] **Step 8: Docs and commit**
 
 Update tool/permission/core docs to describe the unified interaction lifecycle. Commit with a message such as:
 

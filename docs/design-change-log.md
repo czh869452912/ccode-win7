@@ -44,6 +44,38 @@
 
 ## 3. 当前变更记录
 
+### DC-197
+
+- Date: 2026-06-25
+- Change Topic: Unified interactive action pipeline
+- Summary:
+  - Moved `ask_user` and `propose_mode_switch` execution into
+    `AgentToolActionService`, including pending user-input creation, resume
+    handling, and mode-switch observation generation.
+  - Removed the QueryEngine-only interactive tool branches. Resume of pending
+    user input now re-enters the same action execution path as the original
+    action.
+  - Reclassified parallel pre-execution skips for interactive actions as
+    `interactive_serial_skip`, making serial action-service execution the
+    owner instead of QueryEngine.
+  - Deleted the obsolete `TurnOrchestrator` strategy module and its tests so
+    `AgentLoop` remains the only turn-loop owner.
+- Impacted Scope:
+  - Agent Core action execution
+  - Pending interaction lifecycle
+  - Mode-switch proposal handling
+  - Core strategy exports
+- Related Docs:
+  - `docs/tool-contracts.md`
+  - `docs/permission-model.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+- ADR Needed: No
+- Follow-up:
+  - Continue Slice 3 by shrinking remaining QueryEngine/InProcessAdapter
+    facade methods that only exist for old compatibility tests.
+
 ### DC-196
 
 - Date: 2026-06-25

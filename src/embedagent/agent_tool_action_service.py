@@ -5,7 +5,7 @@ import threading
 from typing import Any, Callable, Optional, Tuple
 
 from embedagent.agent_extension_host import AgentExtensionHost
-from embedagent.interaction import UserInputRequest, UserInputResponse
+from embedagent.interaction import UserInputRequest, UserInputResponse, build_user_input_request
 from embedagent.modes import is_path_writable
 from embedagent.permissions import PermissionPolicy, PermissionRequest
 from embedagent.session import Action, Observation, QueryTurnResult, Session
@@ -27,6 +27,15 @@ class AgentToolActionService(object):
             Callable[[Session, Action, PermissionRequest, str], QueryTurnResult]
         ] = None,
         permission_rejected_handler: Optional[Callable[[Session, Action], None]] = None,
+        user_input_pending_handler: Optional[
+            Callable[[Session, Action, UserInputRequest, str], QueryTurnResult]
+        ] = None,
+        user_input_response_handler: Optional[
+            Callable[
+                [Session, str, UserInputRequest, UserInputResponse, str, str],
+                Tuple[Observation, str],
+            ]
+        ] = None,
     ) -> None:
         self.tools = tools
         self.permission_policy = permission_policy
@@ -35,16 +44,18 @@ class AgentToolActionService(object):
         self._failure_observation = failure_observation_factory
         self._permission_pending_handler = permission_pending_handler
         self._permission_rejected_handler = permission_rejected_handler
+        self._user_input_pending_handler = user_input_pending_handler
+        self._user_input_response_handler = user_input_response_handler
 
     def is_extension_blocked_observation(self, observation: Optional[Observation]) -> bool:
         if observation is None or not isinstance(observation.data, dict):
             return False
         return observation.data.get("error_kind") == "extension_blocked"
 
-    def is_interactive_precomputed_skip(self, observation: Optional[Observation]) -> bool:
+    def is_interactive_serial_skip(self, observation: Optional[Observation]) -> bool:
         if observation is None or not isinstance(observation.data, dict):
             return False
-        return observation.data.get("error_kind") == "interactive_precomputed_skip"
+        return observation.data.get("error_kind") == "interactive_serial_skip"
 
     def prepare_extension_tool_call(
         self,
@@ -86,8 +97,8 @@ class AgentToolActionService(object):
             return Observation(
                 action.name,
                 False,
-                "interactive tool requires query-engine handling",
-                {"error_kind": "interactive_precomputed_skip", "retryable": False},
+                "interactive tool requires serial action handling",
+                {"error_kind": "interactive_serial_skip", "retryable": False},
             )
         blocked_observation, runtime_action = self.prepare_extension_tool_call(
             session,
@@ -130,7 +141,6 @@ class AgentToolActionService(object):
         precomputed_observation: Optional[Observation] = None,
         stop_event: Optional[threading.Event] = None,
     ) -> Tuple[Observation, str, Optional[QueryTurnResult]]:
-        del user_input_handler
         runtime_action = action
         if action.name not in self.extension_host.allowed_tool_names(
             current_mode,
@@ -148,7 +158,7 @@ class AgentToolActionService(object):
                 current_mode,
                 None,
             )
-        if precomputed_observation is not None and not self.is_interactive_precomputed_skip(
+        if precomputed_observation is not None and not self.is_interactive_serial_skip(
             precomputed_observation
         ):
             if self.is_extension_blocked_observation(precomputed_observation):
@@ -169,6 +179,14 @@ class AgentToolActionService(object):
         )
         if blocked_observation is not None:
             return blocked_observation, current_mode, None
+        if action.name in ("ask_user", "propose_mode_switch"):
+            return self._execute_interactive_action(
+                session,
+                runtime_action,
+                current_mode,
+                workflow_state,
+                user_input_handler,
+            )
         observation = self.extension_host.handle_tool_call(
             session,
             tool_name=action.name,
@@ -264,6 +282,76 @@ class AgentToolActionService(object):
             observation,
         )
         return observation, current_mode, None
+
+    def _execute_interactive_action(
+        self,
+        session: Session,
+        action: Action,
+        current_mode: str,
+        workflow_state: str,
+        user_input_handler: Optional[Callable[[UserInputRequest], Optional[UserInputResponse]]],
+    ) -> Tuple[Observation, str, Optional[QueryTurnResult]]:
+        request = self._interactive_request(action)
+        response = user_input_handler(request) if user_input_handler is not None else None
+        if response is None:
+            suspended = None
+            if self._user_input_pending_handler is not None:
+                suspended = self._user_input_pending_handler(
+                    session,
+                    action,
+                    request,
+                    current_mode,
+                )
+            return (
+                self._failure_observation(
+                    action.name,
+                    "waiting user input",
+                    "pending_interaction",
+                    False,
+                    "user_input",
+                    "等待用户回答。",
+                    {"pending": True},
+                ),
+                current_mode,
+                suspended,
+            )
+        if self._user_input_response_handler is None:
+            return (
+                Observation(
+                    request.tool_name,
+                    True,
+                    None,
+                    {
+                        "question": request.question,
+                        "answer": str(response.answer or "").strip(),
+                        "selected_index": response.selected_index,
+                        "selected_option_text": response.selected_option_text,
+                        "selected_mode": str(response.selected_mode or "").strip(),
+                        "mode_changed": False,
+                    },
+                ),
+                current_mode,
+                None,
+            )
+        observation, next_mode = self._user_input_response_handler(
+            session,
+            current_mode,
+            request,
+            response,
+            workflow_state,
+            action.name,
+        )
+        return observation, next_mode, None
+
+    def _interactive_request(self, action: Action) -> UserInputRequest:
+        if action.name == "ask_user":
+            return build_user_input_request(action.arguments)
+        return UserInputRequest(
+            "propose_mode_switch",
+            str(action.arguments.get("reason") or ""),
+            [],
+            {"target_mode": str(action.arguments.get("target_mode") or "")},
+        )
 
     def _validate_write_path(
         self,

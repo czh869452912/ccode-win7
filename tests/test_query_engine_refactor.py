@@ -14,6 +14,7 @@ from embedagent.context import ContextManager
 from embedagent.default_extensions import build_default_extension_set
 from embedagent.extensions import ExtensionManager, ToolResultPatch, WorkflowPatch
 from embedagent.inprocess_adapter import InProcessAdapter
+from embedagent.interaction import UserInputResponse
 from embedagent.llm import ModelClientError
 from embedagent.permissions import PermissionPolicy
 from embedagent.query_engine import QueryEngine
@@ -106,6 +107,36 @@ class WriteThenDoneClient(object):
                 finish_reason="tool_calls",
             )
         return AssistantReply(content="written", actions=[], finish_reason="stop")
+
+    def stream(self, messages, tools=None, on_text_delta=None, on_reasoning_delta=None):
+        reply = self.generate(messages, tools=tools)
+        if on_text_delta is not None and reply.content:
+            on_text_delta(reply.content)
+        return reply
+
+
+class ModeSwitchThenDoneClient(object):
+    def __init__(self):
+        self.calls = 0
+
+    def generate(self, messages, tools=None):
+        self.calls += 1
+        if self.calls == 1:
+            return AssistantReply(
+                content="",
+                actions=[
+                    Action(
+                        name="propose_mode_switch",
+                        arguments={
+                            "target_mode": "debug",
+                            "reason": "需要进入 debug 模式继续排查",
+                        },
+                        call_id="mode-switch-1",
+                    )
+                ],
+                finish_reason="tool_calls",
+            )
+        return AssistantReply(content="debug ready", actions=[], finish_reason="stop")
 
     def stream(self, messages, tools=None, on_text_delta=None, on_reasoning_delta=None):
         reply = self.generate(messages, tools=tools)
@@ -438,6 +469,31 @@ class SpyKernel(object):
         return self._delegate.resolve_pending_interaction(session, pending, resolution)
 
 
+class SpyActionService(object):
+    def __init__(self, delegate):
+        self.delegate = delegate
+        self.executed = []
+
+    def is_extension_blocked_observation(self, observation):
+        return self.delegate.is_extension_blocked_observation(observation)
+
+    def is_interactive_serial_skip(self, observation):
+        return self.delegate.is_interactive_serial_skip(observation)
+
+    def prepare_extension_tool_call(self, *args, **kwargs):
+        return self.delegate.prepare_extension_tool_call(*args, **kwargs)
+
+    def execute_parallel_tool_action(self, *args, **kwargs):
+        return self.delegate.execute_parallel_tool_action(*args, **kwargs)
+
+    def apply_extension_tool_result_patch(self, *args, **kwargs):
+        return self.delegate.apply_extension_tool_result_patch(*args, **kwargs)
+
+    def execute_action(self, session, action, *args, **kwargs):
+        self.executed.append(action.name)
+        return self.delegate.execute_action(session, action, *args, **kwargs)
+
+
 class LockCheckingContextManager(ContextManager):
     def __init__(self, lock, *args, **kwargs):
         super(LockCheckingContextManager, self).__init__(*args, **kwargs)
@@ -688,6 +744,35 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertFalse(observation.success)
         self.assertEqual(observation.data["error_kind"], "mode_tool_blocked")
 
+    def test_parallel_interactive_action_requires_serial_action_execution(self):
+        from embedagent.agent_tool_action_service import AgentToolActionService
+
+        policy = PermissionPolicy(auto_approve_all=True, workspace=self.workspace)
+        engine = QueryEngine(
+            client=FakeClient(),
+            tools=self.tools,
+            permission_policy=policy,
+        )
+        service = AgentToolActionService(
+            tools=self.tools,
+            permission_policy=policy,
+            extension_host=engine.extension_host,
+            app_config_provider=lambda: None,
+            failure_observation_factory=engine._failure_observation,
+        )
+
+        observation = service.execute_parallel_tool_action(
+            Session(),
+            Action("ask_user", {"question": "继续吗？"}, "call-ask"),
+            "build",
+            "chat",
+            stop_event=None,
+        )
+
+        self.assertFalse(observation.success)
+        self.assertEqual(observation.data["error_kind"], "interactive_serial_skip")
+        self.assertTrue(service.is_interactive_serial_skip(observation))
+
     def test_agent_loop_can_be_constructed_without_runner_callback(self):
         from embedagent.agent_loop import AgentLoop
         from embedagent.agent_loop_continuation import DefaultAgentLoopContinuationPolicy
@@ -712,6 +797,133 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertFalse(hasattr(engine._agent_loop, "_runner"))
         self.assertFalse(hasattr(QueryEngine, "_run_loop_impl"))
         self.assertIs(engine.extension_manager, engine.extension_host.manager)
+
+    def test_query_engine_routes_ask_user_through_action_service(self):
+        engine = QueryEngine(
+            client=AskThenDoneClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+        )
+        spy = SpyActionService(engine._action_service)
+        engine._action_service = spy
+        session = Session()
+        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：spec")
+
+        result = engine.submit_user_turn(
+            user_text="继续",
+            stream=False,
+            initial_mode="spec",
+            session=session,
+            user_input_handler=None,
+        )
+
+        self.assertEqual(result.transition.reason, "user_input_wait")
+        self.assertIn("ask_user", spy.executed)
+
+    def test_query_engine_routes_mode_switch_proposal_through_action_service(self):
+        engine = QueryEngine(
+            client=ModeSwitchThenDoneClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+        )
+        spy = SpyActionService(engine._action_service)
+        engine._action_service = spy
+        session = Session()
+        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：build")
+
+        result = engine.submit_user_turn(
+            user_text="调试",
+            stream=False,
+            initial_mode="build",
+            session=session,
+            user_input_handler=lambda request: None,
+        )
+
+        self.assertEqual(result.transition.reason, "user_input_wait")
+        self.assertIn("propose_mode_switch", spy.executed)
+
+    def test_mode_switch_proposal_records_own_tool_observation(self):
+        engine = QueryEngine(
+            client=ModeSwitchThenDoneClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+        )
+        session = Session()
+        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：build")
+
+        result = engine.submit_user_turn(
+            user_text="调试",
+            stream=False,
+            initial_mode="build",
+            session=session,
+            user_input_handler=lambda request: UserInputResponse(
+                answer="同意",
+                selected_mode="debug",
+            ),
+        )
+
+        self.assertEqual(result.transition.reason, "completed")
+        observation = session.turns[-1].observations[0]
+        self.assertEqual(observation.tool_name, "propose_mode_switch")
+        self.assertEqual(observation.data["selected_mode"], "debug")
+        self.assertTrue(observation.data["mode_changed"])
+
+    def test_mode_switch_proposal_uses_action_target_when_response_omits_mode(self):
+        engine = QueryEngine(
+            client=ModeSwitchThenDoneClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+        )
+        session = Session()
+        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：build")
+
+        result = engine.submit_user_turn(
+            user_text="调试",
+            stream=False,
+            initial_mode="build",
+            session=session,
+            user_input_handler=lambda request: UserInputResponse(answer="同意"),
+        )
+
+        self.assertEqual(result.transition.reason, "completed")
+        observation = session.turns[-1].observations[0]
+        self.assertEqual(observation.tool_name, "propose_mode_switch")
+        self.assertEqual(observation.data["selected_mode"], "debug")
+        self.assertTrue(observation.data["mode_changed"])
+
+    def test_query_engine_routes_user_input_resume_through_action_service(self):
+        engine = QueryEngine(
+            client=AskThenDoneClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+        )
+        session = Session()
+        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：spec")
+        first = engine.submit_user_turn(
+            user_text="继续",
+            stream=False,
+            initial_mode="spec",
+            session=session,
+            user_input_handler=None,
+        )
+        self.assertEqual(first.transition.reason, "user_input_wait")
+        spy = SpyActionService(engine._action_service)
+        engine._action_service = spy
+
+        resumed = engine.resume_interaction(
+            session=session,
+            initial_mode="spec",
+            stream=False,
+            interaction_resolution={
+                "answer": "切到 debug 模式继续排查",
+                "selected_index": 1,
+                "selected_mode": "debug",
+                "selected_option_text": "切到 debug 模式继续排查",
+            },
+        )
+
+        self.assertEqual(resumed.transition.reason, "completed")
+        self.assertIn("ask_user", spy.executed)
 
     def test_default_agent_loop_continues_past_eight_tool_steps(self):
         client = LongToolThenDoneClient(tool_turns=9)

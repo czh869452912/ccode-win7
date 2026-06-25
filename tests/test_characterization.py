@@ -17,7 +17,6 @@ from embedagent.services.event_emitter import EventEmitter
 from embedagent.services.session_lifecycle import SessionLifecycleManager
 from embedagent.services.workspace_file_service import WorkspaceFileService
 from embedagent.strategies.llm_retry_wrapper import LLMClientRetryWrapper
-from embedagent.strategies.turn_orchestrator import TurnOrchestrator
 from embedagent.tools import ToolRuntime
 
 
@@ -95,8 +94,7 @@ class TestServiceDelegation(object):
         assert hasattr(engine, "_llm_wrapper")
         assert isinstance(engine._llm_wrapper, LLMClientRetryWrapper)
         assert not hasattr(engine, "_compaction")
-        assert hasattr(engine, "_turn_orchestrator")
-        assert isinstance(engine._turn_orchestrator, TurnOrchestrator)
+        assert not hasattr(engine, "_turn_orchestrator")
 
 
 class TestEventEmissionChain(object):

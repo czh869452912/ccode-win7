@@ -1,4 +1,4 @@
-"""Backward compatibility tests for QueryEngine after strategy extraction."""
+"""Boundary tests for QueryEngine orchestration ownership."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from embedagent.query_engine import QueryEngine
 from embedagent.tools import ToolRuntime
 
 
-class TestQueryEngineBackwardCompatibility(unittest.TestCase):
+class TestQueryEngineOrchestrationOwnership(unittest.TestCase):
     def test_query_engine_instantiation(self):
         """QueryEngine() still works with same constructor arguments."""
         client = MagicMock(spec=OpenAICompatibleClient)
@@ -34,7 +34,7 @@ class TestQueryEngineBackwardCompatibility(unittest.TestCase):
         self.assertEqual(engine.max_turns, 8)
         self.assertIsNotNone(engine._llm_wrapper)
         self.assertFalse(hasattr(engine, "_compaction"))
-        self.assertIsNotNone(engine._turn_orchestrator)
+        self.assertFalse(hasattr(engine, "_turn_orchestrator"))
 
     def test_query_engine_run_signature(self):
         """run() accepts same core parameters."""

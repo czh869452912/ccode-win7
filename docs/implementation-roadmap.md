@@ -43,14 +43,13 @@ Recent workflow-boundary work has started slimming Agent Core without changing t
 - `QueryEngine` no longer imports or constructs the default C harness extension; hosted paths install bundled extensions through `default_extensions.py`
 - `Session.workflow_state` is the generic workflow-state carrier; `Session.task_graph` has been removed and default C harness graph state is owned behind `CHarnessWorkflowExtension`
 - `SessionSnapshotProjector` and live frontend task APIs now project harness task fields from `Session.workflow_state["workflow"]`
-- extracted core strategies now read task-status projection from `Session.workflow_state["workflow"]` instead of inspecting `Session.task_graph`
+- the obsolete extracted turn-orchestrator strategy has been removed; `AgentLoop` is the only turn-loop owner and `AgentToolActionService` is the only non-LLM action execution owner
 - `src/embedagent/harness/workflow_projection.py` now owns the C harness to generic workflow payload adapter
 - `InProcessAdapter` no longer constructs `HarnessRunner` directly; harness refresh and task-snapshot persistence are delegated to the built-in C harness extension
 - `QueryEngine` now asks for schemas using explicit active tool names through `ToolRuntime.schemas_for(...)`, so default harness pack activation is owned by the workflow extension boundary
 - `CORE_PACK` is the minimal file/search/editing/shell foundation; build/debug/verify packs keep harness-only recipe, quality, evidence, and task-status tools explicit
 - built-in mode `allowed_tools` no longer own default harness workflow tools; recipe, quality, evidence, and task-status tools are activated by the C harness extension
 - `ToolRuntime.schemas_for(mode, workflow_state, tool_names=...)` is now the single runtime schema projection entry point; default-harness paths use extension-active explicit tool names
-- `TurnOrchestrator` receives an injected allowed-tool policy from `QueryEngine` instead of calling runtime allowed-tool aliases
 - `InProcessAdapter` now owns one `ExtensionManager` shared with session-scoped `QueryEngine` and frontend tool catalog visibility
 - `ExtensionManager` now carries generic diagnostics, resource discovery hooks, context hooks, tool-call/tool-result hooks, and dynamic in-process tool registration
 - local file resources under `.embedagent/skills`, `.embedagent/prompts`, and `.embedagent/recipes` can be refreshed through the runtime, adapter, slash command, and GUI/core API; recipe JSON files feed the existing recipe contract, visible Agent Skills-style Markdown resources are summarized through one lightweight prompt unit, skill bodies expand only through `/skill:<name> [args]`, and prompt bodies expand only through `/prompt:<name-or-path> [args]`
@@ -59,7 +58,7 @@ Recent workflow-boundary work has started slimming Agent Core without changing t
 - `AgentEventBus` now provides the internal source-aware observer/reducer boundary for public extension hook dispatch while the public extension APIs remain unchanged
 - `AgentLifecycleJournal` now owns durable lifecycle operation writes, transition save points, pending interaction lifecycle operation events, and context operation payload helpers
 - `AgentKernel` now owns user/command/resume turn frames and pending interaction create/resolve boundaries behind the session facade
-- `AgentToolActionService` now owns non-LLM tool action execution, including active-tool checks, extension pre/post hooks, `PermissionPolicy`, path write guards, runtime dispatch, and extension-owned tool calls
+- `AgentToolActionService` now owns non-LLM tool action execution, including active-tool checks, extension pre/post hooks, `PermissionPolicy`, pending permission/user-input actions, mode-switch proposals, path write guards, runtime dispatch, and extension-owned tool calls
 - `AgentLoop` now owns Pi-style open turn-loop continuation behind `QueryEngine`, including agent steps, context/provider attempts, compact retry, tool batch interruption, guard stops, abort, and explicit loop safety-limit compatibility transitions; `QueryEngine` no longer owns `_run_loop_impl`, and hosted defaults no longer stop merely because eight model/tool cycles were used
 - `ToolRuntime` construction is now workflow-neutral; the bundled C/C++ workflow package registers recipe, quality, evidence, and task-status tools with metadata through `CHarnessWorkflowExtension.register_tools(...)`
 - C/C++ workflow context reducers have moved out of Core `ReducerRegistry`; harness-owned reducers now cover recipe results, quality reports, failing evidence, and task status through `CHarnessWorkflowExtension.register_context_reducers(...)`
