@@ -108,14 +108,12 @@ class TestWorkspaceFileService(unittest.TestCase):
 class TestSessionLifecycleManager(unittest.TestCase):
     def setUp(self):
         self.summary_store = MagicMock()
-        self.timeline_store = MagicMock()
         self.plan_store = MagicMock()
         self.project_memory = MagicMock()
         self.session_restorer = MagicMock()
         self.transcript_store = MagicMock()
         self.manager = SessionLifecycleManager(
             session_store=self.summary_store,
-            timeline_store=self.timeline_store,
             summary_store=self.summary_store,
             plan_store=self.plan_store,
             project_memory=self.project_memory,

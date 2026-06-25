@@ -57,7 +57,7 @@ export function runSessionRuntimeTests() {
       replayState: "reload_required",
       events: [],
     },
-    bootstrapTimeline: [],
+    historyTimeline: [],
   });
   assert.equal(replayRuntime.transportView.replayState, "reload_required");
 
@@ -72,26 +72,39 @@ export function runSessionRuntimeTests() {
         options: [{ index: 1, text: "继续" }],
       },
     },
+    eventLog: createSessionEventLog(),
+  });
+  assert.equal(interactionRuntime.currentInteraction.interaction_id, "int-2");
+  assert.equal(interactionRuntime.timelineItems[0].kind, "interaction_requested");
+  assert.equal(interactionRuntime.timelineItems[0].projectionSource, "session_snapshot");
+
+  const ignoredTransportEventRuntime = projectSessionRuntime({
+    snapshot: {
+      session_id: "sess-1",
+      status: "idle",
+      current_mode: "build",
+      pending_interaction: null,
+    },
     eventLog: {
       ...createSessionEventLog(),
       events: [
         {
           session_id: "sess-1",
-          event_id: "evt-10",
-          seq: 10,
+          event_id: "evt-ignored",
+          seq: 1,
           event_kind: "interaction.created",
           created_at: "2026-04-04T00:01:00Z",
           payload: {
-            interaction_id: "int-2",
+            interaction_id: "int-ignored",
             kind: "user_input",
-            question: "继续吗？",
+            question: "ignored",
           },
         },
       ],
     },
+    historyTimeline: [],
   });
-  assert.equal(interactionRuntime.currentInteraction.interaction_id, "int-2");
-  assert.equal(interactionRuntime.timelineItems[0].kind, "interaction_requested");
+  assert.equal(ignoredTransportEventRuntime.timelineItems.length, 0);
 
   const dedupedInteractionRuntime = projectSessionRuntime({
     snapshot: {
@@ -104,25 +117,8 @@ export function runSessionRuntimeTests() {
         question: "Continue?",
       },
     },
-    eventLog: {
-      ...createSessionEventLog(),
-      events: [
-        {
-          session_id: "sess-1",
-          event_id: "evt-dedup",
-          seq: 1,
-          event_kind: "interaction.created",
-          created_at: "2026-04-04T00:01:10Z",
-          payload: {
-            interaction_id: "ask-dedup",
-            kind: "user_input",
-            tool_name: "ask_user",
-            question: "Continue?",
-          },
-        },
-      ],
-    },
-    bootstrapTimeline: [
+    eventLog: createSessionEventLog(),
+    historyTimeline: [
       {
         id: "local-user-input",
         kind: "user_input",
@@ -148,7 +144,7 @@ export function runSessionRuntimeTests() {
       pending_interaction: null,
     },
     eventLog: createSessionEventLog(),
-    bootstrapTimeline: [
+    historyTimeline: [
       {
         id: "cmd-1",
         kind: "command_result",
@@ -168,7 +164,7 @@ export function runSessionRuntimeTests() {
       current_mode: "build",
     },
     eventLog: createSessionEventLog(),
-    bootstrapTimeline: [
+    historyTimeline: [
       {
         id: "u-thinking-runtime",
         kind: "user",
@@ -189,7 +185,7 @@ export function runSessionRuntimeTests() {
       pending_interaction: null,
     },
     eventLog: createSessionEventLog(),
-    bootstrapTimeline: [
+    historyTimeline: [
       { id: "turn-1-user", kind: "user", content: "hello", turnId: "turn-1" },
       { id: "detached-tool", kind: "tool", toolName: "read_file", turnId: "turn-1", stepId: "", status: "success" },
     ],
@@ -222,7 +218,7 @@ export function runSessionRuntimeTests() {
       },
     },
     eventLog: createSessionEventLog(),
-    bootstrapTimeline: [],
+    historyTimeline: [],
   });
   assert.equal(expiredRuntime.currentInteraction, null);
   assert.equal(expiredRuntime.interactionNotice.kind, "expired");
@@ -236,7 +232,7 @@ export function runSessionRuntimeTests() {
       restore_stop_reason: "interaction_expired",
     },
     eventLog: createSessionEventLog(),
-    bootstrapTimeline: [],
+    historyTimeline: [],
   });
   assert.equal(restoredExpiredRuntime.currentInteraction, null);
   assert.equal(restoredExpiredRuntime.interactionNotice.kind, "expired");
@@ -256,7 +252,7 @@ export function runSessionRuntimeTests() {
       restore_stop_reason: "interaction_expired",
     },
     eventLog: createSessionEventLog(),
-    bootstrapTimeline: [],
+    historyTimeline: [],
   });
   assert.equal(resumedActiveInteractionRuntime.currentInteraction.interaction_id, "int-live");
   assert.equal(resumedActiveInteractionRuntime.interactionNotice, null);

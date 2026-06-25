@@ -11,7 +11,6 @@ from embedagent.project_memory import _utc_now as memory_utc_now
 from embedagent.session import _utc_now
 from embedagent.session_runtime import _utc_now as runtime_utc_now
 from embedagent.session_store import _utc_now as store_utc_now
-from embedagent.session_timeline import _utc_now as timeline_utc_now
 from embedagent.transcript_store import _utc_now as transcript_utc_now
 
 TIMESTAMP_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
@@ -28,7 +27,6 @@ class TestTimestampFormat:
     def test_all_helpers_produce_valid_format(self):
         helpers = [
             store_utc_now,
-            timeline_utc_now,
             runtime_utc_now,
             memory_utc_now,
             adapter_utc_now,

@@ -442,10 +442,10 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             event_handler=lambda event_name, session_id, payload: events.append(event_name),
         )
         payload = self.adapter.get_session_timeline(str(self.snapshot.get("session_id") or ""))
-        self.assertTrue(any(item["event"] == "turn_started" for item in payload["events"]))
+        self.assertEqual(payload["events"], [])
         self.assertEqual(payload["latest_assistant_reply"], "ok")
 
-    def test_build_session_history_uses_active_session_state_instead_of_timeline_tail(self):
+    def test_build_session_history_uses_active_session_state(self):
         adapter = InProcessAdapter(
             client=ToolClient(),
             tools=self.tools,
@@ -461,8 +461,6 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             permission_resolver=lambda ticket: True,
             event_handler=lambda event_name, current_session_id, payload: None,
         )
-        adapter.timeline_store.max_events = 3
-        adapter.timeline_store._trim_if_needed(adapter.timeline_store._timeline_path(session_id))
         history = adapter.build_session_history(session_id)
         self.assertEqual(history["integrity"]["status"], "healthy")
         self.assertEqual(len(history["turns"]), 1)
@@ -751,7 +749,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         ]
         self.assertTrue(any("demo_symbol" in item for item in rendered_sections))
 
-    def test_session_snapshot_and_timeline_include_compact_retry_projection(self):
+    def test_session_snapshot_and_history_include_compact_retry_projection(self):
         adapter = InProcessAdapter(
             client=CompactRetryClient(),
             tools=self.tools,
@@ -777,8 +775,11 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertEqual(refreshed["last_transition_reason"], "completed")
         self.assertIn("compact_retry", refreshed["recent_transition_reasons"])
         self.assertEqual(refreshed["compact_retry_count"], 1)
+        history = adapter.build_session_history(session_id)
+        turn = history["turns"][0]
+        self.assertIn("compact_retry", [item.get("kind") for item in turn["transitions"]])
         timeline = adapter.get_session_timeline(session_id)
-        self.assertTrue(any(item["event"] == "compact_retry" for item in timeline["events"]))
+        self.assertEqual(timeline["events"], [])
         self.assertIn("compact_retry", [item[0] for item in events])
 
     def test_session_snapshot_includes_last_transition_message(self):
@@ -1392,23 +1393,16 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         refreshed = adapter.get_session_snapshot(session_id)
         self.assertEqual(refreshed["restore_stop_reason"], "")
 
-    def test_load_session_events_after_returns_reload_required_when_after_seq_falls_before_retained_window(
+    def test_load_session_events_after_requires_bootstrap_reload_without_timeline_truth(
         self,
     ):
-        self.adapter.timeline_store.max_events = 3
         session_id = str(self.snapshot.get("session_id") or "")
-        for index in range(5):
-            self.adapter.timeline_store.append_event(
-                session_id,
-                "tool_started",
-                {"tool_name": "read_file", "call_id": "call-%s" % index},
-            )
-        self.adapter.timeline_store._trim_if_needed(
-            self.adapter.timeline_store._timeline_path(session_id)
-        )
         payload = self.adapter.load_session_events_after(session_id, after_seq=1, limit=50)
         self.assertEqual(payload["status"], "reload_required")
-        self.assertGreater(payload["first_seq"], 1)
+        self.assertEqual(payload["events"], [])
+        self.assertEqual(payload["first_seq"], 0)
+        self.assertEqual(payload["last_seq"], 0)
+        self.assertEqual(payload["reason"], "bootstrap_required")
 
     def test_resume_session_requires_transcript(self):
         adapter = InProcessAdapter(
@@ -2020,15 +2014,18 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
 
     def test_slash_review_emits_structured_findings(self):
         session_id = str(self.snapshot.get("session_id") or "")
-        self.adapter.timeline_store.append_event(
-            session_id,
-            "tool_finished",
-            {
-                "tool_name": "run_recipe",
-                "success": False,
-                "call_id": "call-build-1",
-                "error": "命令退出码为 1。",
-                "data": {
+        state = self.adapter._sessions[session_id]
+        action = Action("run_recipe", {"recipe_id": "cmake.build.default"}, "call-build-1")
+        state.session.add_user_message("build failed", turn_id="turn-review-build")
+        state.session.begin_step(step_id="step-review-build")
+        state.session.record_tool_call(action)
+        state.session.add_observation(
+            action,
+            Observation(
+                "run_recipe",
+                False,
+                "命令退出码为 1。",
+                {
                     "recipe_id": "cmake.build.default",
                     "recipe_action": "build",
                     "diagnostics": [
@@ -2040,7 +2037,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
                         }
                     ],
                 },
-            },
+            ),
         )
         events = []
         self.adapter.submit_user_message(
@@ -2072,15 +2069,18 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
 
     def test_slash_review_emits_findings_from_official_verify_path(self):
         session_id = str(self.snapshot.get("session_id") or "")
-        self.adapter.timeline_store.append_event(
-            session_id,
-            "tool_finished",
-            {
-                "tool_name": "run_recipe",
-                "success": False,
-                "call_id": "call-run-verify-1",
-                "error": "recipe failed",
-                "data": {
+        state = self.adapter._sessions[session_id]
+        state.session.add_user_message("verify failed", turn_id="turn-review-verify")
+        state.session.begin_step(step_id="step-review-verify")
+        test_action = Action("run_recipe", {"recipe_id": "cmake.test.default"}, "call-run-verify-1")
+        state.session.record_tool_call(test_action)
+        state.session.add_observation(
+            test_action,
+            Observation(
+                "run_recipe",
+                False,
+                "recipe failed",
+                {
                     "recipe_id": "cmake.test.default",
                     "recipe_action": "test",
                     "test_summary": {"failed": 1, "passed": 0, "total": 1},
@@ -2095,23 +2095,24 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
                     "error_count": 1,
                     "warning_count": 0,
                 },
-            },
+            ),
         )
-        self.adapter.timeline_store.append_event(
-            session_id,
-            "tool_finished",
-            {
-                "tool_name": "report_quality_v2",
-                "success": True,
-                "call_id": "call-quality-verify-1",
-                "data": {
+        quality_action = Action("report_quality_v2", {}, "call-quality-verify-1")
+        state.session.record_tool_call(quality_action)
+        state.session.add_observation(
+            quality_action,
+            Observation(
+                "report_quality_v2",
+                True,
+                None,
+                {
                     "passed": False,
                     "error_count": 1,
                     "warning_count": 0,
                     "test_failures": 1,
                     "reasons": ["quality failed"],
                 },
-            },
+            ),
         )
         events = []
         self.adapter.submit_user_message(

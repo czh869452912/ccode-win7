@@ -436,7 +436,6 @@ class AgentCoreAdapter(CoreInterface):
             "project_memory_store",
             "context_manager",
             "memory_maintenance",
-            "timeline_store",
             "maintenance_interval",
         ):
             if key in kwargs and kwargs.get(key) is not None:

@@ -79,8 +79,8 @@ function buildInteractionNotice(snapshot, currentInteraction) {
   return null;
 }
 
-function projectBootstrapTimeline(bootstrapTimeline = []) {
-  return (bootstrapTimeline || []).map((item) => {
+function projectHistoryTimeline(historyTimeline = []) {
+  return (historyTimeline || []).map((item) => {
     if (item?.kind === "permission" || item?.kind === "user_input" || item?.kind === "mode_switch_proposal") {
       return toInteractionTimelineItem({
         ...item,
@@ -101,57 +101,14 @@ function projectBootstrapTimeline(bootstrapTimeline = []) {
   });
 }
 
-function projectEventLogTimeline(events = []) {
-  const items = [];
-  for (const event of events || []) {
-    if (event?.event_kind === "interaction.created") {
-      items.push(
-        toInteractionTimelineItem({
-          id: event.event_id,
-          payload: event.payload,
-          turnId: event.payload?.turn_id || "",
-          stepId: event.payload?.step_id || "",
-          stepIndex: event.payload?.step_index || 0,
-          projectionSource: "session_events",
-          projectionKind: "interaction_event",
-          synthetic: false,
-        }),
-      );
-    } else if (event?.event_kind === "interaction.resolved") {
-      items.push(
-        toInteractionTimelineItem({
-          id: event.event_id,
-          payload: { ...(event.payload || {}), resolved: true },
-          resolved: true,
-          turnId: event.payload?.turn_id || "",
-          stepId: event.payload?.step_id || "",
-          stepIndex: event.payload?.step_index || 0,
-          projectionSource: "session_events",
-          projectionKind: "interaction_event",
-          synthetic: false,
-        }),
-      );
-    }
-  }
-  return items;
-}
-
-function mergeTimelineItems({ snapshot, eventLog, bootstrapTimeline = [] }) {
+function mergeTimelineItems({ snapshot, historyTimeline = [] }) {
   const currentInteraction = normalizePendingInteraction(snapshot);
-  const timelineItems = projectBootstrapTimeline(bootstrapTimeline);
-  const eventItems = projectEventLogTimeline(eventLog?.events || []);
+  const timelineItems = projectHistoryTimeline(historyTimeline);
   const interactionIds = new Set(
     timelineItems
       .filter((item) => item?.kind === "interaction_requested" || item?.kind === "interaction_resolved")
       .map((item) => item.interactionId || ""),
   );
-  for (const item of eventItems) {
-    const key = item.interactionId || item.id || "";
-    if (!key || !interactionIds.has(key)) {
-      timelineItems.push(item);
-      if (key) interactionIds.add(key);
-    }
-  }
   if (currentInteraction && !interactionIds.has(currentInteraction.interaction_id || "")) {
     timelineItems.push(
       toInteractionTimelineItem({
@@ -271,14 +228,14 @@ function resolveTransportReplayState(snapshot, eventLog) {
 export function projectSessionRuntime({
   snapshot,
   eventLog,
-  bootstrapTimeline = [],
+  historyTimeline = [],
   defaultMode = "explore",
   activeTurnId = "",
   thinkingActive = false,
 } = {}) {
   const currentInteraction = normalizePendingInteraction(snapshot);
   const interactionNotice = buildInteractionNotice(snapshot, currentInteraction);
-  const timelineItems = mergeTimelineItems({ snapshot, eventLog, bootstrapTimeline });
+  const timelineItems = mergeTimelineItems({ snapshot, historyTimeline });
   const timelineView = projectTurnGroups(timelineItems);
   return {
     currentInteraction,

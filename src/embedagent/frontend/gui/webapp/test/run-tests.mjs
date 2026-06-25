@@ -589,7 +589,15 @@ async function main() {
   });
   assert.equal(pendingPermissionState.permission.permission_id, "perm-panel-1");
   assert.equal(pendingPermissionState.inspectorTab, "interaction");
-  assert.equal(pendingPermissionState.timeline.length, 0);
+  assert.equal(pendingPermissionState.timeline.length, 1);
+  assert.equal(pendingPermissionState.timeline[0].kind, "permission");
+  assert.equal(pendingPermissionState.timeline[0].request.permission_id, "perm-panel-1");
+
+  const clearedPermissionState = reducer(pendingPermissionState, {
+    type: "permission_cleared",
+  });
+  assert.equal(clearedPermissionState.permission, null);
+  assert.equal(clearedPermissionState.timeline[0].answered, true);
 
   const pendingUserInputState = reducer(initialState, {
     type: "user_input_request",
@@ -612,11 +620,6 @@ async function main() {
     ],
   });
   assert.equal(recipeState.recipes.length, 2);
-
-  const resolvedPermissionState = reducer(pendingPermissionState, {
-    type: "permission_cleared",
-  });
-  assert.equal(resolvedPermissionState.permission, null);
 
   const activatedState = reducer(
     {

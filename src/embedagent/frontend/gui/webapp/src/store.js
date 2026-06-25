@@ -730,7 +730,15 @@ export function reducer(state, action) {
         },
       };
     }
-    case "permission_request":
+    case "permission_request": {
+      const permissionId = action.permission?.permission_id || action.permission?.interaction_id || "";
+      const hasTimelineItem =
+        permissionId &&
+        state.timeline.some(
+          (item) =>
+            item.kind === "permission" &&
+            (item.request?.permission_id || item.request?.interaction_id || "") === permissionId,
+        );
       return {
         ...state,
         permission: action.permission,
@@ -738,9 +746,28 @@ export function reducer(state, action) {
         thinkingActive: false,
         inspectorTab: action.inspectorTab || "interaction",
         inspectorOpen: true,
+        timeline: hasTimelineItem
+          ? state.timeline
+          : state.timeline.concat({
+              id: makeEventId("permission"),
+              kind: "permission",
+              request: action.permission,
+              answered: false,
+              turnId: action.permission?.turn_id || state.activeTurnId,
+              stepId: action.permission?.step_id || state.activeStepId,
+              stepIndex: action.permission?.step_index || state.activeStepIndex,
+              ...liveProjectionMeta(),
+            }),
       };
+    }
     case "permission_cleared":
-      return { ...state, permission: null };
+      return {
+        ...state,
+        permission: null,
+        timeline: state.timeline.map((item) =>
+          item.kind === "permission" && !item.answered ? { ...item, answered: true } : item,
+        ),
+      };
     case "user_input_request": {
       const isModeSwitchProposal = action.request.tool_name === "propose_mode_switch";
       return {

@@ -217,7 +217,11 @@ Official session-history truth is:
 
 GUI thread lifecycle operations (`rename`, `fork`, and `archive`) must flow through the session lifecycle facade and update session summary/projection metadata used by app thread lists. They must not rewrite transcript history, own workflow state, activate tools, decide permissions, load extensions, or create source-control checkpoints.
 
-`timeline.jsonl` is transport/replay infrastructure only. It is not a historical database.
+There is no durable `SessionTimelineStore` or timeline-backed history replay
+path. `GET /api/sessions/{id}/events` is a bootstrap-reload signal, not a
+history API. GUI session history and T3 timeline bootstrap must come from
+`GET /api/sessions/{id}/bootstrap`; live WebSocket/event-log data may update
+current GUI display state only and must not become durable history truth.
 
 Official durable operation truth is:
 

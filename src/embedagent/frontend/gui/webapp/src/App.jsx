@@ -115,7 +115,7 @@ function App() {
       projectSessionRuntime({
         snapshot: state.snapshot,
         eventLog: sessionEventLog,
-        bootstrapTimeline: state.timeline,
+        historyTimeline: state.timeline,
         defaultMode: DEFAULT_MODE,
         activeTurnId: state.activeTurnId,
         thinkingActive: state.thinkingActive,

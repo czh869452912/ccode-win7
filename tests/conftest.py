@@ -62,13 +62,6 @@ def mock_session_store():
 
 
 @pytest.fixture
-def mock_timeline_store():
-    from unittest.mock import MagicMock
-
-    return MagicMock()
-
-
-@pytest.fixture
 def mock_transcript_store():
     from unittest.mock import MagicMock
 

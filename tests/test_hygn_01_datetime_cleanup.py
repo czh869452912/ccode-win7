@@ -63,7 +63,6 @@ class TestNoDeprecatedDatetime:
         files_to_check = [
             "src/embedagent/session.py",
             "src/embedagent/session_store.py",
-            "src/embedagent/session_timeline.py",
             "src/embedagent/session_runtime.py",
             "src/embedagent/project_memory.py",
             "src/embedagent/inprocess_adapter.py",

@@ -11,7 +11,6 @@ from embedagent.session import Session
 from embedagent.session_restore import SessionRestorer
 from embedagent.session_runtime import ManagedSession
 from embedagent.session_store import SessionSummaryStore
-from embedagent.session_timeline import SessionTimelineStore
 from embedagent.transcript_store import TranscriptStore
 
 logger = logging.getLogger(__name__)
@@ -27,7 +26,6 @@ class SessionLifecycleManager(object):
     def __init__(
         self,
         session_store: SessionSummaryStore,
-        timeline_store: SessionTimelineStore,
         summary_store: SessionSummaryStore,
         plan_store: PlanStore,
         project_memory: ProjectMemoryStore,
@@ -35,7 +33,6 @@ class SessionLifecycleManager(object):
         transcript_store: TranscriptStore,
     ) -> None:
         self.session_store = session_store
-        self.timeline_store = timeline_store
         self.summary_store = summary_store
         self.plan_store = plan_store
         self.project_memory = project_memory

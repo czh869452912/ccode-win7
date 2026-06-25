@@ -85,6 +85,10 @@ Recent stabilization work has also completed the GUI session-history single-sour
 - `transcript.jsonl` is now the only durable session-history truth
 - GUI history is serialized from transcript-backed `Session` state
 - GUI activation now uses one `/api/sessions/{id}/bootstrap` payload instead of split snapshot/timeline fetches
+- `SessionTimelineStore` and timeline-backed review/event replay paths have
+  been removed; `/api/sessions/{id}/events` now asks the GUI to reload
+  bootstrap, and the active T3 timeline consumes bootstrap history plus live
+  reducer actions rather than transport event-log history
 
 Recent GUI app-shell work has established the first standalone-app boundary:
 
@@ -123,7 +127,7 @@ Recent stabilization work has also completed the agent-core ownership cutover:
 - frontend/live events now reuse engine-issued `step_id` values end-to-end
 - resumed permission/user-input interactions re-enter the same action pipeline instead of bypassing it
 - session snapshots are now built by a pure `SessionSnapshotProjector`
-- transcript/timeline sequence allocation now uses cached counters instead of rescanning on every append
+- transcript sequence allocation uses cached counters instead of rescanning on every append
 
 ## 4. Remaining Near-Term Work
 
@@ -134,8 +138,8 @@ contract.
 
 Near-term work should:
 
-- remove timeline as a durable product dependency and rebuild review/bootstrap
-  truth from transcript-backed projections
+- continue shrinking GUI/Core surfaces that were designed around timeline-era
+  replay assumptions
 - move interactive actions into the unified action pipeline
 - shrink the QueryEngine, AgentLoop, and InProcessAdapter responsibility cycle
 - replace GUI global app/reducer state with T3-shaped renderer/runtime modules

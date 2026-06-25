@@ -9,10 +9,9 @@ logger = logging.getLogger(__name__)
 
 
 class EventEmitter(object):
-    """Serializes and broadcasts events to registered handlers."""
+    """Broadcasts live session events to registered handlers."""
 
-    def __init__(self, timeline_store=None):
-        self.timeline_store = timeline_store
+    def __init__(self) -> None:
         self._handlers = {}  # type: Dict[str, List[EventHandler]]
         self._global_handlers = []  # type: List[EventHandler]
 
@@ -41,11 +40,6 @@ class EventEmitter(object):
         session_id: str,
         payload: Dict[str, Any],
     ) -> None:
-        try:
-            if self.timeline_store is not None:
-                self.timeline_store.append_event(session_id, event_name, payload)
-        except (OSError, ValueError, TypeError):
-            pass
         handlers = []
         if event_handler is not None:
             handlers.append(event_handler)

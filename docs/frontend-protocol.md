@@ -257,20 +257,25 @@ Important pushed event types include:
 - `session_event`
 - `terminal_event`
 
-`GET /api/sessions/{session_id}/events` is transport replay only. Frontend history bootstrap must come from the structured bootstrap payload, not replay-log parsing.
+`GET /api/sessions/{session_id}/events` is not a history replay API. The
+current contract returns `reload_required` so the GUI reloads
+`GET /api/sessions/{session_id}/bootstrap` instead of parsing a replay log.
+There is no durable `SessionTimelineStore`; frontend history bootstrap must
+come from the structured bootstrap payload, and the active GUI timeline is a
+frontend projection of that history plus live reducer actions.
 
 `terminal_event` carries GUI terminal output/lifecycle deltas for the bottom
 drawer. It is intentionally not part of session replay/history and must not be
 reduced into `Session`, `SessionHistoryAssembler`, `RuntimeConfigReducer`,
 `CompactionStateReducer`, or `RecoveryStateReducer`.
 
-Resource reload may appear in replay as `resource.discovered` and `resource.reloaded` event kinds. Frontends may use those for diagnostics or refresh hints, but session history remains transcript/bootstrap-backed.
+Resource reload may appear in live events as `resource.discovered` and `resource.reloaded` event kinds. Frontends may use those for diagnostics or refresh hints, but session history remains transcript/bootstrap-backed.
 
 Reducer-backed `runtime_config.resource_revision` advances from transcript `resource_reloaded` events. `resource.discovered` events remain diagnostics and should not be treated as a new active resource revision by frontend code.
 
-Reducer-backed `compaction_state` advances from transcript `compact_boundary` events. Frontends should not infer compaction from replay transport events, summary text alone, or timeline entries.
+Reducer-backed `compaction_state` advances from transcript `compact_boundary` events. Frontends should not infer compaction from transport events, summary text alone, or timeline entries.
 
-Reducer-backed `recovery_state` advances from transcript `recovery_marker` events. Frontends should not infer recovery state from replay transport events, timeline gaps, or session summary fields alone.
+Reducer-backed `recovery_state` advances from transcript `recovery_marker` events. Frontends should not infer recovery state from transport events, timeline gaps, or session summary fields alone.
 
 All live tool/interaction/command events must preserve the engine-issued execution anchors:
 

@@ -138,36 +138,21 @@ class _FakeCoreWithTimeline(_FakeCore):
                 "auto_approve_commands": False,
             },
             "replay": {
-                "status": "replay",
-                "first_seq": 3,
-                "last_seq": 4,
-                "reason": "",
+                "status": "reload_required",
+                "first_seq": 0,
+                "last_seq": 0,
+                "reason": "bootstrap_required",
                 "events": [],
             },
         }
 
     def load_session_events_after(self, session_id, after_seq, limit=200):
         return {
-            "status": "replay",
-            "first_seq": 3,
-            "last_seq": 4,
-            "reason": "",
-            "events": [
-                {
-                    "event_id": "evt-3",
-                    "seq": 3,
-                    "created_at": "2026-04-04T00:00:03Z",
-                    "event_kind": "tool.started",
-                    "payload": {"tool_name": "read_file"},
-                },
-                {
-                    "event_id": "evt-4",
-                    "seq": 4,
-                    "created_at": "2026-04-04T00:00:04Z",
-                    "event_kind": "tool.finished",
-                    "payload": {"tool_name": "read_file", "success": True},
-                },
-            ],
+            "status": "reload_required",
+            "first_seq": 0,
+            "last_seq": 0,
+            "reason": "bootstrap_required",
+            "events": [],
         }
 
 
@@ -507,7 +492,7 @@ class TestGuiBackendApi(unittest.TestCase):
         self.assertEqual(response["interaction_id"], "perm-1")
         self.assertEqual(response["status"], "resolved")
 
-    def test_get_session_events_replays_only_entries_after_seq(self):
+    def test_get_session_events_requires_bootstrap_reload(self):
         with tempfile.TemporaryDirectory() as static_dir:
             with open(os.path.join(static_dir, "index.html"), "w", encoding="utf-8") as handle:
                 handle.write("<html><body>ok</body></html>")
@@ -523,8 +508,9 @@ class TestGuiBackendApi(unittest.TestCase):
                     break
             self.assertIsNotNone(route)
             response = asyncio.run(route.endpoint("sess-1", 2, 200))
-        self.assertEqual(response["status"], "replay")
-        self.assertEqual([item["seq"] for item in response["events"]], [3, 4])
+        self.assertEqual(response["status"], "reload_required")
+        self.assertEqual(response["events"], [])
+        self.assertEqual(response["reason"], "bootstrap_required")
 
     def test_bootstrap_endpoint_returns_snapshot_history_plan_and_permissions(self):
         with tempfile.TemporaryDirectory() as static_dir:

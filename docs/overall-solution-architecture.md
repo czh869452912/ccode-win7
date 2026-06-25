@@ -151,6 +151,9 @@ Harness state refresh in the product adapter path goes through `CHarnessWorkflow
 - `runtime_config` in session snapshots is reducer-backed diagnostic state, not frontend-owned policy
 - `compaction_state` in session snapshots is reducer-backed diagnostic state, not frontend-owned context policy
 - `recovery_state` in session snapshots is reducer-backed diagnostic state, not frontend-owned recovery policy
+- no durable `SessionTimelineStore` exists; GUI activation and `/review`
+  consume transcript/session projections, while `/api/sessions/{id}/events`
+  only signals that bootstrap reload is required
 
 ## 3. Official Execution Model
 

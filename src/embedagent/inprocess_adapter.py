@@ -56,7 +56,6 @@ from embedagent.services import (
     WorkspaceFileService,
 )
 from embedagent.query_engine import QueryEngine
-from embedagent.session_timeline import SessionTimelineStore
 from embedagent.skill_index import build_skill_index
 from embedagent.skills import expand_skill_invocation
 from embedagent.slash_commands import (
@@ -211,7 +210,6 @@ class InProcessAdapter(object):
         project_memory_store: Optional[ProjectMemoryStore] = None,
         context_manager: Optional[ContextManager] = None,
         memory_maintenance: Optional[MemoryMaintenance] = None,
-        timeline_store: Optional[SessionTimelineStore] = None,
         maintenance_interval: int = 4,
         event_handler: Optional[EventHandler] = None,
     ) -> None:
@@ -228,7 +226,6 @@ class InProcessAdapter(object):
         self.max_turns = max_turns
         self.permission_policy = permission_policy or PermissionPolicy(auto_approve_all=True)
         self.summary_store = summary_store or SessionSummaryStore(self.tools.workspace)
-        self.timeline_store = timeline_store or SessionTimelineStore(self.tools.workspace)
         self.project_memory_store = project_memory_store or ProjectMemoryStore(self.tools.workspace)
         self.context_manager = context_manager or ContextManager(
             project_memory=self.project_memory_store
@@ -256,14 +253,13 @@ class InProcessAdapter(object):
         initialize_modes(self.tools.workspace)
         self._sessions = {}  # type: Dict[str, ManagedSession]
         self._lock = threading.RLock()
-        self._event_emitter = EventEmitter(self.timeline_store)
+        self._event_emitter = EventEmitter()
         self._workspace_files = WorkspaceFileService(
             self.tools.workspace,
             getattr(self.tools, "_ctx", None),
         )
         self._session_lifecycle = SessionLifecycleManager(
             session_store=self.summary_store,
-            timeline_store=self.timeline_store,
             summary_store=self.summary_store,
             plan_store=self.plan_store,
             project_memory=self.project_memory_store,
@@ -925,10 +921,8 @@ class InProcessAdapter(object):
         state = self._ensure_session_active(session_id)
         return {
             "session_id": state.session.session_id,
-            "events": self.timeline_store.load_events(state.session.session_id, limit=limit),
-            "latest_assistant_reply": self.timeline_store.latest_assistant_reply(
-                state.session.session_id
-            ),
+            "events": [],
+            "latest_assistant_reply": self._last_assistant_from_session(state.session),
         }
 
     def build_session_history(self, reference: str, mode: str = "") -> Dict[str, Any]:
@@ -1083,24 +1077,12 @@ class InProcessAdapter(object):
         self, session_id: str, after_seq: int, limit: int = 200
     ) -> Dict[str, Any]:
         self._require_session(session_id)
-        replay = self.timeline_store.load_events_after(session_id, after_seq, limit=limit)
-        items = []
-        for record in replay.get("events", []):
-            items.append(
-                {
-                    "event_id": str(record.get("event_id") or ""),
-                    "seq": int(record.get("seq") or 0),
-                    "created_at": str(record.get("created_at") or ""),
-                    "event_kind": str(record.get("event") or "").replace("_", "."),
-                    "payload": dict(record.get("payload") or {}),
-                }
-            )
         return {
-            "status": replay.get("status", "replay"),
-            "events": items,
-            "first_seq": int(replay.get("first_seq") or 0),
-            "last_seq": int(replay.get("last_seq") or 0),
-            "reason": str(replay.get("reason") or ""),
+            "status": "reload_required",
+            "events": [],
+            "first_seq": 0,
+            "last_seq": 0,
+            "reason": "bootstrap_required",
         }
 
     def list_workspace_recipes(self) -> Dict[str, Any]:
@@ -1833,7 +1815,7 @@ class InProcessAdapter(object):
         event_handler: Optional[EventHandler],
         permission_resolver: Optional[PermissionResolver],
     ) -> Dict[str, Any]:
-        events = self.timeline_store.load_events(state.session.session_id, limit=400)
+        events = self._review_events_from_session(state.session, limit=400)
         review = self._build_review_payload(events)
         lines = self._review_markdown_lines(review)
         self._emit_command_result(
@@ -1849,6 +1831,39 @@ class InProcessAdapter(object):
             ),
         )
         return {"handled": True, "continue_with_text": ""}
+
+    def _review_events_from_session(
+        self, session: Session, limit: int = 400
+    ) -> List[Dict[str, Any]]:
+        events = []  # type: List[Dict[str, Any]]
+        seen_call_ids = set()
+        for turn in session.turns:
+            for step in turn.steps:
+                for record in step.tool_calls:
+                    observation = record.observation
+                    if observation is None:
+                        continue
+                    call_id = str(record.call_id or "")
+                    if call_id and call_id in seen_call_ids:
+                        continue
+                    if call_id:
+                        seen_call_ids.add(call_id)
+                    data = observation.data if isinstance(observation.data, dict) else {}
+                    events.append(
+                        {
+                            "event": "tool_finished",
+                            "payload": {
+                                "tool_name": record.tool_name,
+                                "success": bool(observation.success),
+                                "call_id": call_id,
+                                "error": observation.error or "",
+                                "data": dict(data),
+                            },
+                        }
+                    )
+        if limit > 0:
+            return events[-limit:]
+        return events
 
     def _execute_tool_from_command(
         self,

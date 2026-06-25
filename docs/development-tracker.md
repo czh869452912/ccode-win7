@@ -32,6 +32,11 @@
   generated visual-debug state, and extension-hook compatibility layers are no
   longer protected compatibility targets.
 - The active cleanup baseline is `docs/pre-release-architecture-debt-audit.md`.
+- Slice 1 has removed `SessionTimelineStore` and timeline-backed `/review` /
+  `/events` replay. Session activation and review now consume
+  transcript/session projections; `/api/sessions/{id}/events` returns
+  `reload_required`, and the GUI T3 timeline uses bootstrap history plus live
+  reducer actions instead of transport event-log history.
 - Future Pi/T3 work should delete or replace transitional paths instead of
   adding adapters over them, while preserving Windows 7, offline deployment,
   Python 3.8, and the default C/C++ workflow.

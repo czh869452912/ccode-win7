@@ -59,20 +59,20 @@ Reference targets:
 
 **Files:**
 
-- Modify: `src/embedagent/session_timeline.py`
+- Delete: `src/embedagent/session_timeline.py`
 - Modify: `src/embedagent/services/event_emitter.py`
 - Modify: `src/embedagent/inprocess_adapter.py`
-- Modify: `src/embedagent/session_history.py`
-- Modify: `src/embedagent/session_projector.py`
 - Modify: `src/embedagent/frontend/gui/webapp/src/session-runtime/projector.js`
-- Modify: `src/embedagent/frontend/gui/webapp/src/session-runtime/t3-timeline.js`
+- Modify: `src/embedagent/frontend/gui/webapp/src/store.js`
 - Modify tests under `tests/` that reference session timeline replay, review, or bootstrap behavior
+- Modify webapp tests under `src/embedagent/frontend/gui/webapp/test/`
+- Update: `AGENTS.md`
 - Update: `docs/frontend-protocol.md`
 - Update: `docs/overall-solution-architecture.md`
 - Update: `docs/development-tracker.md`
 - Update: `docs/design-change-log.md`
 
-- [ ] **Step 1: Inventory timeline readers and writers**
+- [x] **Step 1: Inventory timeline readers and writers**
 
 Run:
 
@@ -82,34 +82,35 @@ rg -n "SessionTimelineStore|timeline_store|get_session_timeline|load_session_eve
 
 Expected: a complete list of code, tests, and docs that still treat timeline as persistent or queryable product state.
 
-- [ ] **Step 2: Write focused failing tests for review/bootstrap without timeline**
+- [x] **Step 2: Write focused failing tests for review/bootstrap without timeline**
 
 Add or adjust tests so `/review`, session bootstrap, and GUI history can be built from transcript/session projections after timeline storage is disabled.
 
 Run the narrow tests that cover these routes and projections. Expected before implementation: at least one failure showing timeline dependency.
 
-- [ ] **Step 3: Move review payload construction to transcript/session projections**
+- [x] **Step 3: Move review payload construction to transcript/session projections**
 
 Change review payload code so it consumes transcript-backed session/history/projection data, not timeline events or trimmed replay windows.
 
-- [ ] **Step 4: Make live event replay transcript-derived or ephemeral**
+- [x] **Step 4: Make live event replay transcript-derived or ephemeral**
 
 Remove durable product meaning from timeline writes. If a WebSocket replay cache remains, it must be derived from transcript/session state or documented as process-local transport cache only.
 
-- [ ] **Step 5: Simplify GUI runtime projection**
+- [x] **Step 5: Simplify GUI runtime projection**
 
 Remove frontend merging of independent `snapshot`, `eventLog`, and `bootstrapTimeline` truth sources. GUI runtime should consume the promoted bootstrap/session payload and project T3 rows from that single contract.
 
-- [ ] **Step 6: Delete or quarantine unused timeline persistence**
+- [x] **Step 6: Delete or quarantine unused timeline persistence**
 
 Delete `SessionTimelineStore` if no longer needed. If retained temporarily for live transport, rename/document it so it cannot be mistaken for history.
 
-- [ ] **Step 7: Verification**
+- [x] **Step 7: Verification**
 
 Run:
 
 ```bash
 uv run pytest tests/ -m "not slow and not gui" -v
+node --test src/embedagent/frontend/gui/webapp/test/run-tests.mjs
 uv run --locked python scripts/lint.py
 ```
 

@@ -1,6 +1,6 @@
 # EmbedAgent 设计与变更跟踪
 
-> 更新日期：2026-06-22
+> 更新日期：2026-06-25
 > 用途：记录关键设计变更、影响范围、关联文档和后续动作
 
 ---
@@ -43,6 +43,38 @@
 ---
 
 ## 3. 当前变更记录
+
+### DC-196
+
+- Date: 2026-06-25
+- Change Topic: Pre-release timeline truth removal
+- Summary:
+  - Deleted `SessionTimelineStore` and its persistence tests. `EventEmitter`
+    now only broadcasts live events and no longer writes a second history log.
+  - Moved `/review` input construction to live transcript-backed `Session`
+    tool observations, and changed `/api/sessions/{id}/events` to return
+    `reload_required` instead of replaying timeline tails.
+  - Simplified the GUI runtime projector from `bootstrapTimeline + eventLog`
+    merging to a single `historyTimeline` input. Transport event logs now
+    affect connection/reload state only; live permission/user-input cards are
+    created by reducer actions in current GUI display state.
+  - Updated source-of-truth docs so session history remains
+    `transcript.jsonl -> Session -> SessionHistoryAssembler -> /bootstrap`.
+- Impacted Scope:
+  - Agent Core session/runtime boundary
+  - GUI session bootstrap and T3 timeline projection
+  - `/review` command input construction
+  - Frontend protocol documentation
+- Related Docs:
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/superpowers/plans/2026-06-25-pre-release-debt-cleanup.md`
+- ADR Required: No. This is a deletion-oriented pre-release cleanup slice and
+  does not add a new public API, dependency, deployment model, or permission
+  category.
 
 ### DC-195
 
