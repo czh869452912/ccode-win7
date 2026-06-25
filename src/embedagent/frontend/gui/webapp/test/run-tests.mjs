@@ -178,21 +178,28 @@ async function main() {
   assert.equal(switchedWorkspaceState.app.hasActiveWorkspace, false);
   assert.equal(switchedWorkspaceState.app.settings.confirm_workspace_switch, true);
 
-  const threadLifecycleFixtureState = reducer(initialState, {
-    type: "visual_thread_lifecycle_fixture_loaded",
-    sessionId: "visual-thread-active",
+  const sessionsState = reducer(initialState, {
+    type: "sessions_loaded",
     sessions: [
-      { session_id: "visual-thread-active", user_goal: "Fix parser recovery" },
-      { session_id: "visual-thread-followup", user_goal: "Verify parser recovery" },
+      { session_id: "sess-active", user_goal: "Fix parser recovery" },
+      { session_id: "sess-followup", user_goal: "Verify parser recovery" },
     ],
   });
-  assert.equal(threadLifecycleFixtureState.sidebarTab, "chats");
-  assert.equal(threadLifecycleFixtureState.thread.currentSessionId, "visual-thread-active");
-  assert.equal(threadLifecycleFixtureState.thread.sessions.length, 2);
-  assert.equal(threadLifecycleFixtureState.app.hasActiveWorkspace, true);
+  const activatedThreadState = reducer(sessionsState, {
+    type: "session_activated",
+    sessionId: "sess-active",
+    snapshot: {
+      session_id: "sess-active",
+      current_mode: "build",
+      pending_interaction_valid: false,
+    },
+    timeline: [],
+  });
+  assert.equal(activatedThreadState.thread.currentSessionId, "sess-active");
+  assert.equal(activatedThreadState.thread.sessions.length, 2);
 
-  const composerFixtureState = reducer(initialState, {
-    type: "visual_composer_file_tree_fixture_loaded",
+  const fileTreeState = reducer(initialState, {
+    type: "file_tree_loaded",
     nodes: [
       {
         id: "src",
@@ -204,8 +211,7 @@ async function main() {
       },
     ],
   });
-  assert.equal(composerFixtureState.fileTree[0].children[0].path, "src/parser.c");
-  assert.equal(composerFixtureState.app.hasActiveWorkspace, true);
+  assert.equal(fileTreeState.fileTree[0].children[0].path, "src/parser.c");
 
   const root = [createTreeNode({ path: "src", name: "src", kind: "dir", has_children: true })];
   const next = injectChildren(root, "src", [
@@ -988,7 +994,8 @@ async function main() {
   assert.equal(visualDebugFixturesSource.includes("loadTimelineFixture"), true);
   assert.equal(visualDebugFixturesSource.includes("loadInteractionFixture"), true);
   assert.equal(visualDebugFixturesSource.includes("loadThreadLifecycleFixture"), true);
-  assert.equal(visualDebugFixturesSource.includes("visual_timeline_fixture_loaded"), true);
+  assert.equal(visualDebugFixturesSource.includes("visual_timeline_fixture_loaded"), false);
+  assert.equal(visualDebugFixturesSource.includes("dev_fixture_timeline"), true);
   assert.equal(visualDebugFixturesSource.includes('kind: "reasoning"'), true);
   assert.equal(visualDebugFixturesSource.includes('kind: "compact"'), true);
   assert.equal(visualDebugFixturesSource.includes('commandName: "review"'), true);
@@ -1001,13 +1008,12 @@ async function main() {
   assert.equal(storeSource.includes("createTerminalState"), true);
   assert.equal(storeSource.includes("reduceTerminalState"), true);
   assert.equal(storeSource.includes("terminal_snapshot_loaded"), true);
-  assert.equal(storeSource.includes("visual_timeline_fixture_loaded"), true);
-  assert.equal(storeSource.includes("action.activeTurnId"), true);
-  assert.equal(storeSource.includes("action.thinkingActive"), true);
-  assert.equal(storeSource.includes("action.streamingReasoningId"), true);
-  assert.equal(storeSource.includes("visual_interaction_fixture_loaded"), true);
-  assert.equal(storeSource.includes("visual_thread_lifecycle_fixture_loaded"), true);
-  assert.equal(storeSource.includes("visual_composer_file_tree_fixture_loaded"), true);
+  assert.equal(storeSource.includes("visual_timeline_fixture_loaded"), false);
+  assert.equal(storeSource.includes("visual_interaction_fixture_loaded"), false);
+  assert.equal(storeSource.includes("visual_thread_lifecycle_fixture_loaded"), false);
+  assert.equal(storeSource.includes("visual_composer_file_tree_fixture_loaded"), false);
+  assert.equal(storeSource.includes("visual_file_preview_reveal_fixture_loaded"), false);
+  assert.equal(storeSource.includes("visual_source_control_fixture_loaded"), false);
   assert.equal(storeSource.includes("filePreviewsByPath"), true);
   assert.equal(storeSource.includes("file_preview_load_started"), true);
   assert.equal(storeSource.includes("file_preview_loaded"), true);

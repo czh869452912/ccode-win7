@@ -224,14 +224,17 @@ normal source review when committed beside source code.
 
 Debt symptoms:
 
-- Product reducer state includes visual debug fixture actions.
+- Visual debug fixtures used to be product reducer actions; this has been
+  retired in Slice 6. They now live behind a dev-only expander.
 - Generated static assets can hide real source changes in search and review.
 - The visual harness can accidentally become a product behavior dependency.
 
 Target direction:
 
-- Move visual fixture injection into a dev-only harness boundary.
-- Keep production reducers free of visual-only actions.
+- Keep visual fixture injection inside the dev-only harness boundary:
+  `visual-debug-fixtures.js` uses private `dev_fixture_*` descriptors and
+  expands them into ordinary product reducer actions.
+- Keep production reducers free of `visual_*fixture` actions.
 - Treat generated assets as release artifacts with explicit build/validation
   gates, or keep them out of ordinary source review paths.
 
@@ -275,7 +278,9 @@ The cleanup should proceed in deletion-oriented slices:
    timeline contract slimming, visual fixture isolation, and generated asset
    policy remain active cleanup work.
 8. Move visual fixtures and generated static assets out of product source
-   paths.
+   paths. Slice 6 has moved visual fixture injection out of product reducers
+   and documented generated GUI assets as committed release artifacts for the
+   current packaging model.
 9. Run real Win7 bundle and real C/C++ workflow validation against the promoted
    architecture.
 
@@ -312,7 +317,8 @@ The debt program is not complete until:
   method-name compatibility.
 - GUI state shape follows T3 Code's module boundaries instead of a large custom
   reducer with T3-style renderers.
-- Dev fixtures and generated assets no longer pollute production state review.
+- Dev fixtures no longer pollute production reducers, and generated GUI assets
+  have an explicit release-artifact review policy.
 - A clean Windows 7 bundle can start the GUI and execute the default C/C++
   workflow offline.
 

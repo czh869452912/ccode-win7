@@ -114,6 +114,12 @@ GUI-local display/read-model state only: they do not own session history,
 workflow truth, permission policy, tool activation, extension loading,
 provider configuration, telemetry, or Agent Core runtime reducers.
 
+Visual debug scenarios are outside the frontend protocol. The React webapp may
+install `window.__EMBEDAGENT_VISUAL_DEBUG__` only when `?visual_debug=1` is
+present, and that hook must expand private `dev_fixture_*` descriptors into the
+same ordinary reducer actions used by product flows. Product reducers and
+frontend protocol docs must not define `visual_*fixture` action contracts.
+
 ## 3. Session Snapshot
 
 Important session snapshot fields include:

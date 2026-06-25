@@ -536,7 +536,7 @@ git commit -m "refactor: align gui runtime state with t3"
 - Modify generated-asset build/package scripts if needed
 - Modify docs and tests for visual debug behavior
 
-- [ ] **Step 1: Inventory fixture actions and generated asset references**
+- [x] **Step 1: Inventory fixture actions and generated asset references**
 
 Run:
 
@@ -546,19 +546,45 @@ rg -n "visual_.*fixture|visual_debug|static/assets/app\\.js|static/assets/app\\.
 
 Expected: all dev fixture and generated asset paths are visible.
 
-- [ ] **Step 2: Move fixture injection behind a dev-only boundary**
+- Inventory result:
+  - Product `store.js` and `thread-state.js` still had `visual_*fixture` cases.
+  - `visual-debug-fixtures.js` was the correct dev-only entry point but
+    dispatched visual fixture actions directly into the product reducer.
+  - Generated static assets under `src/embedagent/frontend/gui/static/` remain
+    the current offline packaging release artifacts.
+
+- [x] **Step 2: Move fixture injection behind a dev-only boundary**
 
 Visual fixtures should enter through a harness-only loader that cannot be dispatched as ordinary product reducer actions.
 
-- [ ] **Step 3: Remove fixture cases from product reducer**
+- Implemented:
+  - `visual-debug-fixtures.js` now uses private `dev_fixture_*` descriptors.
+  - `dispatchVisualDebugAction(...)` expands those descriptors into ordinary
+    product actions before they reach the reducer.
+
+- [x] **Step 3: Remove fixture cases from product reducer**
 
 Delete visual-only reducer actions after the dev harness has its own injection path.
 
-- [ ] **Step 4: Clarify generated asset policy**
+- Deleted:
+  - `visual_source_control_fixture_loaded`
+  - `visual_composer_file_tree_fixture_loaded`
+  - `visual_file_preview_reveal_fixture_loaded`
+  - `visual_timeline_fixture_loaded`
+  - `visual_interaction_fixture_loaded`
+  - `visual_thread_lifecycle_fixture_loaded`
+  - visual fixture handling in `thread-state.js`
+
+- [x] **Step 4: Clarify generated asset policy**
 
 Decide whether generated GUI assets remain committed as release artifacts or are generated during packaging only. Document the chosen policy and make normal review paths favor source files.
 
-- [ ] **Step 5: Verification**
+- Policy: generated GUI static assets remain committed release artifacts for
+  the current offline packaging model. Review should focus on `webapp/src/`,
+  and webapp source changes should refresh `frontend/gui/static/` through
+  `npm run build`.
+
+- [x] **Step 5: Verification**
 
 Run:
 
@@ -570,7 +596,14 @@ Run relevant visual debug scenarios from the documented GUI visual harness.
 
 Expected: lint passes and visual debug still works through the dev-only path.
 
-- [ ] **Step 6: Docs and commit**
+- Verification recorded:
+  - Red: `npm test` failed while `visual-debug-fixtures.js` still exposed
+    `visual_timeline_fixture_loaded`.
+  - `npm test`: passed after dev-only expansion.
+  - Additional verification before commit: `npm run build` and
+    `uv run --locked python scripts/lint.py`.
+
+- [x] **Step 6: Docs and commit**
 
 Commit with a message such as:
 

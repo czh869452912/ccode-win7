@@ -44,6 +44,41 @@
 
 ## 3. 当前变更记录
 
+### DC-201
+
+- Date: 2026-06-25
+- Change Topic: GUI visual debug fixtures isolated from product reducers
+- Summary:
+  - Removed `visual_*fixture` action handling from the product GUI reducer and
+    from `session-runtime/thread-state.js`.
+  - Changed `visual-debug-fixtures.js` so the dev-only `?visual_debug=1` hook
+    builds private `dev_fixture_*` descriptors and expands them into ordinary
+    product actions such as `app_shell_bootstrap_loaded`,
+    `session_activated`, `sessions_loaded`, `file_tree_loaded`,
+    `file_preview_loaded`, `source_control_status_loaded`, and
+    `workbench_surface_opened`.
+  - Updated webapp tests to assert fixture expansion never dispatches
+    `visual_*` actions and product stores do not contain visual fixture cases.
+  - Documented generated GUI static assets as committed release artifacts for
+    the current offline packaging model, with `webapp/src/` as the review source
+    of truth.
+- Impacted Scope:
+  - GUI React reducer state
+  - Dev-only visual debug harness
+  - GUI generated static asset review policy
+- Related Docs:
+  - `AGENTS.md`
+  - `README.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/pre-release-architecture-debt-audit.md`
+- ADR Needed: No
+- Follow-up:
+  - Continue to Slice 7 release gates: real Win7/WebView2 bundle smoke and real
+    C/C++ workflow validation.
+
 ### DC-200
 
 - Date: 2026-06-25

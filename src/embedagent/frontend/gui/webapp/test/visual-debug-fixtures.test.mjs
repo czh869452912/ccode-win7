@@ -21,9 +21,12 @@ export function runVisualDebugFixturesTests() {
   assert.equal(source.includes("loadPanelOverflowFixture"), true);
   assert.equal(source.includes("loadTerminalSplitFixture"), true);
   assert.equal(source.includes("loadTimelineContextFixture"), true);
+  assert.equal(source.includes("visual_timeline_fixture_loaded"), false);
+  assert.equal(source.includes("visual_interaction_fixture_loaded"), false);
+  assert.equal(source.includes("visual_thread_lifecycle_fixture_loaded"), false);
 
   const timelineAction = buildTimelineFixtureAction({ currentMode: "build" });
-  assert.equal(timelineAction.type, "visual_timeline_fixture_loaded");
+  assert.equal(timelineAction.type, "dev_fixture_timeline");
   assert.equal(timelineAction.sessionId, "visual-debug-timeline");
   assert.equal(timelineAction.snapshot.current_mode, "build");
   assert.equal(timelineAction.thinkingActive, true);
@@ -44,7 +47,7 @@ export function runVisualDebugFixturesTests() {
   );
 
   const permissionAction = buildInteractionFixtureAction("permission");
-  assert.equal(permissionAction.type, "visual_interaction_fixture_loaded");
+  assert.equal(permissionAction.type, "dev_fixture_interaction");
   assert.equal(permissionAction.permission.kind, "permission");
   assert.equal(permissionAction.userInput, null);
 
@@ -54,23 +57,23 @@ export function runVisualDebugFixturesTests() {
   assert.equal(userInputAction.userInput.options.length, 2);
 
   const threadAction = buildThreadLifecycleFixtureAction();
-  assert.equal(threadAction.type, "visual_thread_lifecycle_fixture_loaded");
+  assert.equal(threadAction.type, "dev_fixture_threads");
   assert.equal(threadAction.sessionId, "visual-thread-active");
   assert.equal(threadAction.sessions.length, 3);
 
   const sourceControlAction = buildSourceControlFixtureAction();
-  assert.equal(sourceControlAction.type, "visual_source_control_fixture_loaded");
+  assert.equal(sourceControlAction.type, "dev_fixture_source_control");
   assert.equal(sourceControlAction.status.branch, "feature/t3-toolbar");
   assert.equal(sourceControlAction.status.counts.total, 4);
   assert.equal(sourceControlAction.status.files.length, 4);
 
   const composerAction = buildComposerFileTreeFixtureAction();
-  assert.equal(composerAction.type, "visual_composer_file_tree_fixture_loaded");
+  assert.equal(composerAction.type, "dev_fixture_file_tree");
   assert.equal(composerAction.nodes[0].path, "src");
   assert.equal(composerAction.nodes[0].children.some((node) => node.path === "src/parser.c"), true);
 
   const revealAction = buildFilePreviewRevealFixtureAction();
-  assert.equal(revealAction.type, "visual_file_preview_reveal_fixture_loaded");
+  assert.equal(revealAction.type, "dev_fixture_file_preview");
   assert.equal(revealAction.path, "README.md");
   assert.equal(revealAction.revealLine, 4);
   assert.equal(revealAction.preview.content.includes("line 4 reveal target"), true);
@@ -114,15 +117,32 @@ export function runVisualDebugFixturesTests() {
   assert.deepEqual(
     dispatched.map((action) => action.type),
     [
-      "visual_timeline_fixture_loaded",
-      "visual_source_control_fixture_loaded",
-      "visual_interaction_fixture_loaded",
-      "visual_thread_lifecycle_fixture_loaded",
-      "visual_composer_file_tree_fixture_loaded",
-      "visual_file_preview_reveal_fixture_loaded",
+      "app_shell_bootstrap_loaded",
+      "session_activated",
+      "file_preview_loaded",
+      "set_inspector",
+      "workbench_surface_activated",
+      "step_started",
+      "thinking_state",
+      "app_shell_bootstrap_loaded",
+      "source_control_status_loaded",
+      "app_shell_bootstrap_loaded",
+      "session_activated",
+      "set_inspector",
+      "app_shell_bootstrap_loaded",
+      "set_sidebar",
+      "sessions_loaded",
+      "session_activated",
+      "app_shell_bootstrap_loaded",
+      "file_tree_loaded",
+      "app_shell_bootstrap_loaded",
+      "file_preview_loaded",
+      "workbench_surface_opened",
     ],
   );
-  assert.equal(dispatched[0].snapshot.current_mode, "verify");
+  assert.equal(dispatched.some((action) => String(action.type || "").startsWith("visual_")), false);
+  const firstActivation = dispatched.find((action) => action.type === "session_activated");
+  assert.equal(firstActivation.snapshot.current_mode, "verify");
   assert.equal(opened[0].title, "Debug Diff");
   cleanup();
   assert.equal(windowObject.__EMBEDAGENT_VISUAL_DEBUG__, undefined);

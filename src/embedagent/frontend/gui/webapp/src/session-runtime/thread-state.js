@@ -62,20 +62,6 @@ export function reduceThreadState(state, action = {}) {
         historyIntegrity: healHistoryIntegrity(current, snapshot),
       };
     }
-    case "visual_thread_lifecycle_fixture_loaded":
-      return {
-        ...current,
-        currentSessionId: String(action.sessionId || "visual-debug-session"),
-        sessions: Array.isArray(action.sessions) ? action.sessions : [],
-        historyIntegrity: null,
-      };
-    case "visual_timeline_fixture_loaded":
-    case "visual_interaction_fixture_loaded":
-      return {
-        ...current,
-        currentSessionId: String(action.sessionId || "visual-debug-session"),
-        historyIntegrity: null,
-      };
     case "workspace_scoped_state_reset":
       return createThreadState();
     default:

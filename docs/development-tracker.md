@@ -45,6 +45,11 @@
   and reducer tests now consume these focused read models instead of
   root-level `sessions`, `currentSessionId`, `composer`, or
   `historyIntegrity` fields.
+- Slice 6 has removed visual-debug fixture actions from product GUI state:
+  fixture helpers now use private `dev_fixture_*` descriptors and expand them
+  into ordinary product actions before reaching `store.js`. Generated GUI
+  static assets are documented as committed release artifacts for the current
+  offline packaging model, with `webapp/src/` as the review source of truth.
 - Future Pi/T3 work should delete or replace transitional paths instead of
   adding adapters over them, while preserving Windows 7, offline deployment,
   Python 3.8, and the default C/C++ workflow.

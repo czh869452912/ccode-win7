@@ -290,11 +290,16 @@ terminal actions plus right-panel terminal open/split/activate/close behavior.
 `App.jsx` remains the executor of HTTP route calls, reducer dispatch, event-log
 reset, session activation terminal summary loading, task/artifact refreshes,
 and render composition in this slice. `visual-debug-fixtures.js` owns the
-development-only `?visual_debug=1` fixtures used by the visual harness. This
-boundary is not a backend protocol, not session-history truth, and does not
-change Agent Core, workflow packages, permission policy, terminal execution,
-source-control execution, provider configuration, extension loading, telemetry,
-or runtime reducers.
+development-only `?visual_debug=1` fixtures used by the visual harness. The
+fixture module uses private `dev_fixture_*` descriptors internally, then
+expands them into ordinary product reducer actions such as
+`app_shell_bootstrap_loaded`, `session_activated`, `sessions_loaded`,
+`file_tree_loaded`, `file_preview_loaded`, `source_control_status_loaded`, and
+`workbench_surface_opened`. Product reducers must not add `visual_*fixture`
+cases. This boundary is not a backend protocol, not session-history truth, and
+does not change Agent Core, workflow packages, permission policy, terminal
+execution, source-control execution, provider configuration, extension
+loading, telemetry, or runtime reducers.
 
 Pending permission and user-input interactions render in the composer through
 `components/composer/ComposerInteractionPanel.jsx`. The inspector can still
@@ -348,6 +353,13 @@ thread lifecycle action rails so Codex can inspect real rendered GUI states.
 This hook is a development-only visual QA affordance. It is not a frontend
 protocol contract, not backend policy, not an Agent Core capability, and not
 available through normal product navigation.
+
+Generated GUI static assets under `src/embedagent/frontend/gui/static/` remain
+committed release artifacts in the current packaging model so offline bundles
+can be prepared without requiring Node on the target machine. Normal source
+review should prefer `src/embedagent/frontend/gui/webapp/src/` and the webapp
+tests; `static/assets/app.js` changes are expected only after
+`cd src/embedagent/frontend/gui/webapp && npm run build`.
 
 The visual runner also launches the GUI with an isolated
 `EMBEDAGENT_GUI_APP_HOME` under its output directory. This keeps temporary

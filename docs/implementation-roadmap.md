@@ -120,6 +120,13 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   palette, terminal controller, workspace reset, and tests consume those read
   models instead of root-level `sessions`, `currentSessionId`, `composer`, or
   `historyIntegrity` fields.
+- GUI visual-debug fixtures are now outside the product reducer state machine:
+  `visual-debug-fixtures.js` keeps private `dev_fixture_*` descriptors and
+  expands them into ordinary product actions, while `store.js` and
+  `thread-state.js` no longer define `visual_*fixture` cases.
+- Generated GUI static assets remain committed release artifacts for the
+  current offline packaging model; source review should use `webapp/src/`, and
+  `npm run build` refreshes `frontend/gui/static/` after source changes.
 - Offline GUI packaging now includes a native Win32 launcher exe in the portable
   bundle, preserving the one-folder delivery model while improving double-click
   startup.
@@ -153,7 +160,8 @@ Near-term work should:
 - continue shrinking remaining QueryEngine/InProcessAdapter facade responsibilities without reintroducing compatibility wrappers
 - continue replacing remaining GUI global app/reducer orchestration with
   T3-shaped renderer/runtime modules after the thread/composer extraction
-- move visual fixtures and generated assets out of production state paths
+- keep visual fixtures out of production reducer paths and preserve the
+  generated-asset release-artifact policy until packaging is redesigned
 - keep real Win7 WebView2 109 bundle validation and real C/C++ workflow
   validation as release gates
 

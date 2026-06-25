@@ -1,6 +1,194 @@
+const VISUAL_WORKSPACE = Object.freeze({
+  id: "visual-debug-workspace",
+  path: "D:/visual-debug",
+  label: "visual-debug",
+  exists: true,
+  created_at: "",
+  last_opened_at: "",
+});
+
+function visualAppBootstrap() {
+  return {
+    app: { shell_version: 1, product_name: "EmbedAgent", protocol: "gui_app_shell_v1" },
+    workspaces: [VISUAL_WORKSPACE],
+    active_workspace: VISUAL_WORKSPACE,
+    has_active_workspace: true,
+    capabilities: {
+      thread_lifecycle: { rename: true, fork: true, archive: true },
+      surfaces: {
+        right_panel: ["preview", "files", "terminal", "diff", "plan", "source_control", "settings", "diagnostics"],
+        bottom_drawer: ["terminal", "run_output", "logs"],
+      },
+      terminal: { enabled: true, pty: false, resize: false, history_persistent: false, max_buffer_bytes: 200000 },
+      source_control: {
+        enabled: true,
+        vcs: ["git"],
+        read_only: true,
+        remote_providers: false,
+        network: false,
+        checkpoints: false,
+        requires_active_workspace: true,
+      },
+    },
+    settings: { confirm_workspace_switch: true, show_diagnostics_badge: true },
+  };
+}
+
+function ensureVisualWorkspace(dispatch) {
+  dispatch({ type: "app_shell_bootstrap_loaded", bootstrap: visualAppBootstrap() });
+}
+
+function dispatchTimelineFixture(dispatch, action) {
+  ensureVisualWorkspace(dispatch);
+  const sessionId = action.sessionId || action.snapshot?.session_id || "visual-debug-session";
+  const snapshot = action.snapshot || {
+    session_id: sessionId,
+    status: "idle",
+    current_mode: "explore",
+    pending_interaction_valid: false,
+  };
+  dispatch({
+    type: "session_activated",
+    sessionId,
+    snapshot,
+    timeline: Array.isArray(action.timeline) ? action.timeline : [],
+    historyIntegrity: null,
+  });
+  for (const [path, preview] of Object.entries(action.previews || {})) {
+    dispatch({
+      type: "file_preview_loaded",
+      path,
+      preview: {
+        title: preview.title || path,
+        content: preview.content || "",
+      },
+    });
+  }
+  if (action.inspectorTab) {
+    dispatch({ type: "set_inspector", value: action.inspectorTab });
+    dispatch({
+      type: "workbench_surface_activated",
+      placement: "right",
+      kind: action.inspectorTab,
+    });
+  }
+  if (action.activeTurnId || action.activeStepId) {
+    dispatch({
+      type: "step_started",
+      turnId: action.activeTurnId || "",
+      stepId: action.activeStepId || "",
+      stepIndex: action.activeStepIndex || 0,
+    });
+  }
+  if (action.thinkingActive) {
+    dispatch({ type: "thinking_state", active: true });
+  }
+}
+
+function dispatchInteractionFixture(dispatch, action) {
+  ensureVisualWorkspace(dispatch);
+  const sessionId = action.sessionId || "visual-debug-interaction";
+  const pendingInteraction = action.permission || action.userInput || null;
+  dispatch({
+    type: "session_activated",
+    sessionId,
+    snapshot: {
+      session_id: sessionId,
+      status: pendingInteraction?.kind === "user_input" ? "waiting_user_input" : "waiting_permission",
+      current_mode: "explore",
+      pending_interaction_valid: Boolean(pendingInteraction),
+      pending_interaction: pendingInteraction,
+      pending_permission: action.permission || null,
+      pending_user_input: action.userInput || null,
+      has_pending_permission: Boolean(action.permission),
+    },
+    timeline: [],
+    historyIntegrity: null,
+  });
+  dispatch({ type: "set_inspector", value: "interaction" });
+}
+
+function dispatchThreadFixture(dispatch, action) {
+  ensureVisualWorkspace(dispatch);
+  const sessionId = action.sessionId || "visual-thread-active";
+  dispatch({ type: "set_sidebar", value: "chats" });
+  dispatch({ type: "sessions_loaded", sessions: Array.isArray(action.sessions) ? action.sessions : [] });
+  dispatch({
+    type: "session_activated",
+    sessionId,
+    snapshot: {
+      session_id: sessionId,
+      status: "idle",
+      current_mode: "explore",
+      pending_interaction_valid: false,
+    },
+    timeline: [],
+    historyIntegrity: null,
+  });
+}
+
+function dispatchSourceControlFixture(dispatch, action) {
+  ensureVisualWorkspace(dispatch);
+  dispatch({ type: "source_control_status_loaded", status: action.status || {} });
+}
+
+function dispatchFileTreeFixture(dispatch, action) {
+  ensureVisualWorkspace(dispatch);
+  dispatch({ type: "file_tree_loaded", nodes: Array.isArray(action.nodes) ? action.nodes : [] });
+}
+
+function dispatchFilePreviewFixture(dispatch, action) {
+  ensureVisualWorkspace(dispatch);
+  const path = String(action.path || "README.md");
+  const preview = action.preview || {};
+  dispatch({
+    type: "file_preview_loaded",
+    path,
+    preview: {
+      title: String(preview.title || action.title || path),
+      content: String(preview.content || ""),
+    },
+  });
+  dispatch({
+    type: "workbench_surface_opened",
+    placement: "right",
+    kind: "file",
+    title: action.title || path,
+    resourceId: path,
+    filePath: path,
+    revealLine: action.revealLine,
+  });
+}
+
+export function dispatchVisualDebugAction(dispatch, action = {}) {
+  if (typeof dispatch !== "function") return;
+  switch (action.type) {
+    case "dev_fixture_timeline":
+      dispatchTimelineFixture(dispatch, action);
+      return;
+    case "dev_fixture_interaction":
+      dispatchInteractionFixture(dispatch, action);
+      return;
+    case "dev_fixture_threads":
+      dispatchThreadFixture(dispatch, action);
+      return;
+    case "dev_fixture_source_control":
+      dispatchSourceControlFixture(dispatch, action);
+      return;
+    case "dev_fixture_file_tree":
+      dispatchFileTreeFixture(dispatch, action);
+      return;
+    case "dev_fixture_file_preview":
+      dispatchFilePreviewFixture(dispatch, action);
+      return;
+    default:
+      dispatch(action);
+  }
+}
+
 export function buildTimelineFixtureAction({ currentMode = "explore" } = {}) {
   return {
-    type: "visual_timeline_fixture_loaded",
+    type: "dev_fixture_timeline",
     sessionId: "visual-debug-timeline",
     inspectorTab: "tasks",
     timeline: [
@@ -222,7 +410,7 @@ export function buildLongTimelineFixtureAction({ currentMode = "explore", turnCo
     });
   }
   return {
-    type: "visual_timeline_fixture_loaded",
+    type: "dev_fixture_timeline",
     sessionId: "visual-debug-long-timeline",
     inspectorTab: "tasks",
     timeline,
@@ -272,7 +460,7 @@ export function buildInteractionFixtureAction(kind = "permission") {
         }
       : null;
   return {
-    type: "visual_interaction_fixture_loaded",
+    type: "dev_fixture_interaction",
     sessionId: "visual-debug-interaction",
     permission,
     userInput,
@@ -281,7 +469,7 @@ export function buildInteractionFixtureAction(kind = "permission") {
 
 export function buildThreadLifecycleFixtureAction() {
   return {
-    type: "visual_thread_lifecycle_fixture_loaded",
+    type: "dev_fixture_threads",
     sessionId: "visual-thread-active",
     sessions: [
       {
@@ -308,7 +496,7 @@ export function buildThreadLifecycleFixtureAction() {
 
 export function buildSourceControlFixtureAction() {
   return {
-    type: "visual_source_control_fixture_loaded",
+    type: "dev_fixture_source_control",
     status: {
       workspace_root: "D:/visual-debug/demo",
       is_repo: true,
@@ -380,7 +568,7 @@ export function buildSourceControlFixtureAction() {
 
 export function buildComposerFileTreeFixtureAction() {
   return {
-    type: "visual_composer_file_tree_fixture_loaded",
+    type: "dev_fixture_file_tree",
     nodes: [
       {
         id: "src",
@@ -412,7 +600,7 @@ export function buildComposerFileTreeFixtureAction() {
 
 export function buildFilePreviewRevealFixtureAction() {
   return {
-    type: "visual_file_preview_reveal_fixture_loaded",
+    type: "dev_fixture_file_preview",
     path: "README.md",
     title: "README.md",
     revealLine: 4,
@@ -433,8 +621,8 @@ export function buildFilePreviewRevealFixtureAction() {
 }
 
 export function loadPanelOverflowFixture(dispatch) {
-  dispatch({
-    type: "visual_thread_lifecycle_fixture_loaded",
+  dispatchVisualDebugAction(dispatch, {
+    type: "dev_fixture_threads",
     sessionId: "visual-panel-overflow",
     sessions: [{ session_id: "visual-panel-overflow", user_goal: "Panel overflow fixture" }],
   });
@@ -459,8 +647,8 @@ export function loadPanelOverflowFixture(dispatch) {
 }
 
 export function loadTerminalSplitFixture(dispatch) {
-  dispatch({
-    type: "visual_thread_lifecycle_fixture_loaded",
+  dispatchVisualDebugAction(dispatch, {
+    type: "dev_fixture_threads",
     sessionId: "visual-terminal-split",
     sessions: [{ session_id: "visual-terminal-split", user_goal: "Terminal split fixture" }],
   });
@@ -499,8 +687,8 @@ export function loadTerminalSplitFixture(dispatch) {
 }
 
 export function loadTimelineContextFixture(dispatch) {
-  dispatch({
-    type: "visual_timeline_fixture_loaded",
+  dispatchVisualDebugAction(dispatch, {
+    type: "dev_fixture_timeline",
     sessionId: "visual-timeline-context",
     activeTurnId: "turn-context-active",
     thinkingActive: true,
@@ -550,25 +738,25 @@ export function installVisualDebugFixtures({
       }
     },
     loadTimelineFixture() {
-      dispatch(buildTimelineFixtureAction({ currentMode }));
+      dispatchVisualDebugAction(dispatch, buildTimelineFixtureAction({ currentMode }));
     },
     loadSourceControlFixture() {
-      dispatch(buildSourceControlFixtureAction());
+      dispatchVisualDebugAction(dispatch, buildSourceControlFixtureAction());
     },
     loadComposerFileTreeFixture() {
-      dispatch(buildComposerFileTreeFixtureAction());
+      dispatchVisualDebugAction(dispatch, buildComposerFileTreeFixtureAction());
     },
     loadFilePreviewRevealFixture() {
-      dispatch(buildFilePreviewRevealFixtureAction());
+      dispatchVisualDebugAction(dispatch, buildFilePreviewRevealFixtureAction());
     },
     loadLongTimelineFixture() {
-      dispatch(buildLongTimelineFixtureAction({ currentMode }));
+      dispatchVisualDebugAction(dispatch, buildLongTimelineFixtureAction({ currentMode }));
     },
     loadInteractionFixture(kind = "permission") {
-      dispatch(buildInteractionFixtureAction(kind));
+      dispatchVisualDebugAction(dispatch, buildInteractionFixtureAction(kind));
     },
     loadThreadLifecycleFixture() {
-      dispatch(buildThreadLifecycleFixtureAction());
+      dispatchVisualDebugAction(dispatch, buildThreadLifecycleFixtureAction());
     },
     loadPanelOverflowFixture() {
       loadPanelOverflowFixture(dispatch);

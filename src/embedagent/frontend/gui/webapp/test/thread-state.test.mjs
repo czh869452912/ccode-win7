@@ -40,6 +40,10 @@ export function runThreadStateTests() {
     restore_stop_reason: "",
   });
   assert.equal(readThreadHistoryIntegrity({ thread: healed }).status, "healthy");
+  assert.deepEqual(
+    reduceThreadState(healed, { type: "dev_fixture_threads", sessionId: "visual" }),
+    healed,
+  );
 
   const switched = reduceThreadState(healed, { type: "workspace_scoped_state_reset" });
   assert.deepEqual(switched, createThreadState());

@@ -64,6 +64,15 @@ The next long-term architecture direction is captured in `docs/pi-inspired-agent
   `webapp/src/workbench/`. Root-level GUI state must not reintroduce
   `sessions`, `currentSessionId`, `composer`, or `historyIntegrity` as
   parallel fields.
+- Official GUI visual-debug boundary: `?visual_debug=1` may expose
+  `window.__EMBEDAGENT_VISUAL_DEBUG__`, but fixture helpers expand private
+  `dev_fixture_*` descriptors into ordinary product reducer actions. Product
+  reducers do not define `visual_*fixture` cases.
+- Official GUI static asset policy: generated files under
+  `src/embedagent/frontend/gui/static/` remain committed release artifacts for
+  the current offline packaging model; `webapp/src/` is the review source of
+  truth and `npm run build` refreshes the generated assets after source
+  changes.
 - Official GUI terminal boundary: the terminal bottom drawer is a GUI app-shell hosted, thread-scoped surface implemented with Windows 7-compatible Python stdlib subprocess pipes. It is not a full PTY, does not add runtime dependencies, and does not write transcript history, telemetry, workflow state, source-control checkpoints, or Agent Core policy.
 - Official GUI source-control boundary: the Source Control right-panel is a GUI app-shell hosted, active-workspace surface. It uses bundled/workspace MinGit through a read-only backend service for local Git status and file diffs only; it does not implement remote providers, push/pull, staging, commit, checkpoint mutation, transcript writes, workflow state, telemetry, permission policy, runtime reducers, provider config, extension loading, or Agent Core behavior.
 - Official GUI preview boundary: the Preview right-panel is a GUI app-shell hosted, local-only surface. Its backend preview service accepts loopback HTTP URLs only, probes them with Python stdlib networking, may open the same local URL in the system browser, and does not execute browser automation, contact remote hosts, write transcript/workflow/reducer state, or add Agent Core behavior.
