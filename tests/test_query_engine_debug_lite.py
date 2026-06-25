@@ -114,7 +114,8 @@ class QueryEngineDebugLiteTests(unittest.TestCase):
         session = Session()
         engine._ensure_extension_tools_registered(session, "debug", "chat", reason="test")
         names = sorted(
-            item["function"]["name"] for item in engine._schemas_for_active_tools("debug", "chat")
+            item["function"]["name"]
+            for item in engine.extension_host.schemas_for_active_tools("debug", "chat")
         )
         self.assertIn("record_failing_evidence", names)
         self.assertIn("run_recipe", names)

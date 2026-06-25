@@ -54,12 +54,12 @@ Recent workflow-boundary work has started slimming Agent Core without changing t
 - `ExtensionManager` now carries generic diagnostics, resource discovery hooks, context hooks, tool-call/tool-result hooks, and dynamic in-process tool registration
 - local file resources under `.embedagent/skills`, `.embedagent/prompts`, and `.embedagent/recipes` can be refreshed through the runtime, adapter, slash command, and GUI/core API; recipe JSON files feed the existing recipe contract, visible Agent Skills-style Markdown resources are summarized through one lightweight prompt unit, skill bodies expand only through `/skill:<name> [args]`, and prompt bodies expand only through `/prompt:<name-or-path> [args]`
 - manifest-gated project-local Python extensions can be loaded from enabled `.embedagent/extensions/<name>/extension.json` manifests by hosted product paths and are registered into the shared `ExtensionManager`
-- `AgentExtensionHost` now centralizes QueryEngine-side extension dispatch, dynamic tool registration, extension-aware active schema projection, context patches, tool-call hooks, tool-result hooks, workflow patches, and extension-owned tool handling
+- `AgentExtensionHost` now centralizes QueryEngine-side extension dispatch, dynamic tool registration, extension-aware active schema projection, context patches, tool-call hooks, tool-result hooks, and extension-owned tool handling
 - `AgentEventBus` now provides the internal source-aware observer/reducer boundary for public extension hook dispatch while the public extension APIs remain unchanged
 - `AgentLifecycleJournal` now owns durable lifecycle operation writes, transition save points, pending interaction lifecycle operation events, and context operation payload helpers
 - `AgentKernel` now owns user/command/resume turn frames and pending interaction create/resolve boundaries behind the session facade
-- `AgentToolActionService` now owns non-LLM tool action execution, including active-tool checks, extension pre/post hooks, `PermissionPolicy`, pending permission/user-input actions, mode-switch proposals, path write guards, runtime dispatch, and extension-owned tool calls
-- `AgentLoop` now owns Pi-style open turn-loop continuation behind `QueryEngine`, including agent steps, context/provider attempts, compact retry, tool batch interruption, guard stops, abort, and explicit loop safety-limit compatibility transitions; `QueryEngine` no longer owns `_run_loop_impl`, and hosted defaults no longer stop merely because eight model/tool cycles were used
+- `AgentToolActionService` now owns non-LLM tool action execution, including active-tool checks, extension pre/post hooks, `PermissionPolicy`, pending permission/user-input actions, mode-switch proposals, path write guards, runtime dispatch, extension-owned tool calls, resumed action execution, and workflow-patch capture
+- `AgentLoop` now owns Pi-style open turn-loop continuation behind `QueryEngine`, including agent steps, context/provider attempts, active schema requests through `AgentExtensionHost`, compact retry, tool batch interruption, guard stops, abort, and explicit loop safety-limit compatibility transitions; `QueryEngine` no longer owns `_run_loop_impl`, private active-tool schema wrappers, or action-execution forwarding wrappers, and hosted defaults no longer stop merely because eight model/tool cycles were used
 - `ToolRuntime` construction is now workflow-neutral; the bundled C/C++ workflow package registers recipe, quality, evidence, and task-status tools with metadata through `CHarnessWorkflowExtension.register_tools(...)`
 - C/C++ workflow context reducers have moved out of Core `ReducerRegistry`; harness-owned reducers now cover recipe results, quality reports, failing evidence, and task status through `CHarnessWorkflowExtension.register_context_reducers(...)`
 - workflow prompt descriptors now use generic `WorkflowPrompt` naming and new prompt messages use `workflow_prompt`; old harness prompt names are compatibility-only
@@ -125,6 +125,9 @@ Recent stabilization work has also completed the agent-core ownership cutover:
 - `QueryEngine` is now session-scoped and owns session mutation for the lifetime of a conversation
 - frontend/live events now reuse engine-issued `step_id` values end-to-end
 - resumed permission/user-input interactions re-enter the same action pipeline instead of bypassing it
+- `AgentToolActionService` owns workflow-patch capture after tool-result hooks, so `QueryEngine` no longer wraps extension result patching
+- `AgentLoop` asks `AgentExtensionHost` for active schemas directly, so `QueryEngine` no longer exposes private active-tool/schema forwarding methods
+- hosted `/review` synthesis now lives in `ReviewCommandService`; `InProcessAdapter` only gathers recent session tool evidence and emits the command result
 - session snapshots are now built by a pure `SessionSnapshotProjector`
 - transcript sequence allocation uses cached counters instead of rescanning on every append
 
@@ -139,8 +142,8 @@ Near-term work should:
 
 - continue shrinking GUI/Core surfaces that were designed around timeline-era
   replay assumptions
-- move interactive actions into the unified action pipeline
-- shrink the QueryEngine, AgentLoop, and InProcessAdapter responsibility cycle
+- keep interactive actions, resumed action execution, and workflow-patch capture in the unified action pipeline
+- continue shrinking remaining QueryEngine/InProcessAdapter facade responsibilities without reintroducing compatibility wrappers
 - replace GUI global app/reducer state with T3-shaped renderer/runtime modules
 - move visual fixtures and generated assets out of production state paths
 - keep real Win7 WebView2 109 bundle validation and real C/C++ workflow

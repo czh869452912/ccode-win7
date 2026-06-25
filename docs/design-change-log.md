@@ -44,6 +44,39 @@
 
 ## 3. 当前变更记录
 
+### DC-198
+
+- Date: 2026-06-25
+- Change Topic: Agent core ownership shrink
+- Summary:
+  - Moved workflow-patch persistence helpers into `AgentLifecycleJournal` and
+    workflow-patch capture into `AgentToolActionService`, so QueryEngine no
+    longer wraps extension tool-result patching.
+  - Let `AgentLoop` depend on `AgentExtensionHost` and `AgentToolActionService`
+    directly for active schema projection and action execution, then deleted
+    QueryEngine private forwarding wrappers for active tools and tool actions.
+  - Extracted hosted `/review` synthesis into `ReviewCommandService`, leaving
+    `InProcessAdapter` responsible only for collecting session evidence and
+    emitting the slash-command result.
+  - Updated focused tests to assert the formal host/action-service boundaries
+    instead of relying on QueryEngine private compatibility methods.
+- Impacted Scope:
+  - Agent Core turn loop
+  - Tool action execution
+  - Workflow patch lifecycle
+  - Hosted slash-command review synthesis
+  - In-process adapter ownership
+- Related Docs:
+  - `AGENTS.md`
+  - `docs/tool-contracts.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+- ADR Needed: No
+- Follow-up:
+  - Continue Slice 4 by replacing method-name extension compatibility hooks
+    with explicit capability contracts.
+
 ### DC-197
 
 - Date: 2026-06-25

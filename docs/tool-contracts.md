@@ -56,7 +56,7 @@ The extension runtime may observe or patch tool calls through typed in-process h
 
 These hooks do not bypass mode contracts, `PermissionPolicy`, path write checks, or tool metadata categories.
 
-`AgentToolActionService` is the Agent Core boundary that applies those hooks around non-LLM tool action execution. It keeps extension pre/post hooks, permission checks, pending permission/user-input creation, resumed interaction execution, mode-switch proposals, path write guards, extension-owned tool handling, and `ToolRuntime` dispatch in one pipeline. Interactive actions are skipped by parallel pre-execution and re-enter the serial action pipeline, so `QueryEngine` does not own separate `ask_user` or mode-switch branches.
+`AgentToolActionService` is the Agent Core boundary that applies those hooks around non-LLM tool action execution. It keeps extension pre/post hooks, permission checks, pending permission/user-input creation, resumed interaction execution, mode-switch proposals, path write guards, extension-owned tool handling, workflow-patch capture, and `ToolRuntime` dispatch in one pipeline. Interactive actions are skipped by parallel pre-execution and re-enter the serial action pipeline, so `QueryEngine` does not own separate `ask_user`, mode-switch, or workflow-patch branches.
 
 ## Dynamic Extension Tool Registration
 

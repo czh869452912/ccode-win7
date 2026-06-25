@@ -215,7 +215,7 @@ git commit -m "refactor: unify interactive action execution"
 - Update: `docs/development-tracker.md`
 - Update: `docs/design-change-log.md`
 
-- [ ] **Step 1: Measure current ownership**
+- [x] **Step 1: Measure current ownership**
 
 Run:
 
@@ -226,25 +226,65 @@ rg -n "self\\._agent_loop|_build_context|_schemas_for_active_tools|_execute_para
 
 Expected: current ownership hot spots are visible before edits.
 
-- [ ] **Step 2: Define the promoted ownership map**
+- Initial measurement:
+  - `query_engine.py`: 95726 bytes
+  - `agent_loop.py`: 34800 bytes
+  - `inprocess_adapter.py`: 130521 bytes
+  - Hot spots included QueryEngine action/schema forwarding, workflow-patch
+    callback wrappers, and adapter-owned `/review` synthesis.
+- Final measurement:
+  - `query_engine.py`: 88583 bytes
+  - `agent_loop.py`: 34685 bytes
+  - `inprocess_adapter.py`: 116724 bytes
+  - New focused owner: `review_command.py`: 13863 bytes
+
+- [x] **Step 2: Define the promoted ownership map**
 
 Update the plan for this slice with the exact responsibilities that will remain in each owner:
 
 - QueryEngine: session facade and public turn entrypoint only.
 - AgentLoop: provider/tool turn-loop state machine only.
-- AgentToolActionService: all non-LLM action execution.
-- AgentExtensionHost: extension activation, schemas, hooks, and workflow patches.
-- InProcessAdapter: hosted runtime/session manager bridge only.
+- AgentToolActionService: all non-LLM action execution, interactive/resume execution, and workflow-patch capture.
+- AgentExtensionHost: extension activation, schemas, hooks, and extension-owned tool handling.
+- AgentLifecycleJournal: lifecycle operation writes plus workflow-patch persistence helpers.
+- InProcessAdapter: hosted runtime/session manager bridge and command result emission only.
+- ReviewCommandService: hosted `/review` finding synthesis, git-diff evidence, and markdown rendering.
 
-- [ ] **Step 3: Extract one boundary at a time**
+- [x] **Step 3: Extract one boundary at a time**
 
 Move one responsibility per commit. Do not create a generic service if the responsibility can be deleted after Slice 1 or Slice 2.
 
-- [ ] **Step 4: Delete old callback paths**
+- Extracted:
+  - workflow patch snapshot/payload/persistence helpers from QueryEngine into
+    `AgentLifecycleJournal`
+  - action execution and parallel tool execution forwarding from QueryEngine
+    into direct `AgentLoop -> AgentToolActionService` calls
+  - active schema projection forwarding from QueryEngine into direct
+    `AgentLoop -> AgentExtensionHost` calls
+  - hosted `/review` synthesis from `InProcessAdapter` into
+    `ReviewCommandService`
+
+- [x] **Step 4: Delete old callback paths**
 
 After each extraction, delete the old callback or compatibility wrapper instead of leaving it as a parallel path.
 
-- [ ] **Step 5: Verification**
+- Deleted QueryEngine wrappers:
+  - `_allowed_tools_for_mode`
+  - `_schemas_for_active_tools`
+  - `_execute_action`
+  - `_execute_parallel_tool_action`
+  - `_prepare_extension_tool_call`
+  - `_apply_extension_tool_result_patch`
+  - `_is_extension_blocked_observation`
+- Deleted InProcessAdapter review synthesis methods:
+  - `_build_review_payload`
+  - `_append_review_section`
+  - `_review_finding_from_tool`
+  - `_review_kind`
+  - `_review_primary_detail`
+  - `_review_markdown_lines`
+
+- [x] **Step 5: Verification**
 
 Run:
 
@@ -255,7 +295,12 @@ uv run --locked python scripts/lint.py
 
 Expected: fast non-GUI tests and lint pass after each bounded extraction.
 
-- [ ] **Step 6: Docs and commit**
+- Verification recorded:
+  - `uv run pytest tests/test_query_engine_refactor.py tests/test_agent_lifecycle.py tests/test_dynamic_tool_registration.py tests/test_review_command.py tests/test_query_engine_build_lite.py tests/test_query_engine_debug_lite.py tests/test_query_engine_verify_slice.py tests/test_workflow_extensions.py -v`: 159 passed
+  - `uv run pytest tests/ -m "not slow and not gui" -v`: 969 passed, 11 deselected
+  - `uv run --locked python scripts/lint.py`: ruff and black check passed
+
+- [x] **Step 6: Docs and commit**
 
 Update architecture docs after the final extraction in this slice. Commit with a message such as:
 

@@ -50,15 +50,14 @@ class AgentLoop(object):
         build_context_operation: Optional[Callable[..., Any]] = None,
         record_context_snapshot_operation: Optional[Callable[..., Any]] = None,
         persist_summary: Optional[Callable[..., Any]] = None,
-        schemas_for_active_tools: Optional[Callable[..., Any]] = None,
+        extension_host: Optional[Any] = None,
         call_provider_operation: Optional[Callable[..., Any]] = None,
         should_retry_with_compact: Optional[Callable[..., Any]] = None,
         maybe_record_compact_boundary: Optional[Callable[..., Any]] = None,
         maybe_maintain_memory: Optional[Callable[..., Any]] = None,
         is_completion_signal: Optional[Callable[..., Any]] = None,
         tool_presentation_snapshot: Optional[Callable[..., Any]] = None,
-        execute_parallel_tool_action: Optional[Callable[..., Any]] = None,
-        execute_action: Optional[Callable[..., Any]] = None,
+        action_service: Optional[Any] = None,
         record_tool_observation: Optional[Callable[..., Any]] = None,
         discarded_observation: Optional[Callable[..., Any]] = None,
         interrupted_observation: Optional[Callable[..., Any]] = None,
@@ -80,15 +79,14 @@ class AgentLoop(object):
         self._build_context_operation = build_context_operation
         self._record_context_snapshot_operation = record_context_snapshot_operation
         self._persist_summary = persist_summary
-        self._schemas_for_active_tools = schemas_for_active_tools
+        self._extension_host = extension_host
         self._call_provider_operation = call_provider_operation
         self._should_retry_with_compact = should_retry_with_compact
         self._maybe_record_compact_boundary = maybe_record_compact_boundary
         self._maybe_maintain_memory = maybe_maintain_memory
         self._is_completion_signal = is_completion_signal
         self._tool_presentation_snapshot = tool_presentation_snapshot
-        self._execute_parallel_tool_action = execute_parallel_tool_action
-        self._execute_action = execute_action
+        self._action_service = action_service
         self._record_tool_observation = record_tool_observation
         self._discarded_observation = discarded_observation
         self._interrupted_observation = interrupted_observation
@@ -138,15 +136,14 @@ class AgentLoop(object):
             "_build_context_operation",
             "_record_context_snapshot_operation",
             "_persist_summary",
-            "_schemas_for_active_tools",
+            "_extension_host",
             "_call_provider_operation",
             "_should_retry_with_compact",
             "_maybe_record_compact_boundary",
             "_maybe_maintain_memory",
             "_is_completion_signal",
             "_tool_presentation_snapshot",
-            "_execute_parallel_tool_action",
-            "_execute_action",
+            "_action_service",
             "_record_tool_observation",
             "_discarded_observation",
             "_interrupted_observation",
@@ -280,7 +277,9 @@ class AgentLoop(object):
                 if on_context_result is not None:
                     on_context_result(assembly)
                 self._persist_summary(session, current_mode, assembly)
-                tool_schemas = self._schemas_for_active_tools(current_mode, workflow_state)
+                tool_schemas = self._extension_host.schemas_for_active_tools(
+                    current_mode, workflow_state
+                )
                 try:
                     reply = self._call_provider_operation(
                         session,
@@ -422,7 +421,7 @@ class AgentLoop(object):
                     on_step_finish(step_index, reply, transition.reason)
                 return QueryTurnResult(final_text, session, transition, turns_used)
             executor = StreamingToolExecutor(
-                lambda action: self._execute_parallel_tool_action(
+                lambda action: self._action_service.execute_parallel_tool_action(
                     session,
                     action,
                     current_mode,
@@ -477,14 +476,16 @@ class AgentLoop(object):
                         if interrupted:
                             observation = self._interrupted_observation(action.name)
                         else:
-                            observation, current_mode, suspended = self._execute_action(
-                                session,
-                                action,
-                                current_mode,
-                                workflow_state,
-                                permission_handler,
-                                user_input_handler,
-                                stop_event=stop_event,
+                            observation, current_mode, suspended = (
+                                self._action_service.execute_action(
+                                    session,
+                                    action,
+                                    current_mode,
+                                    workflow_state,
+                                    permission_handler,
+                                    user_input_handler,
+                                    stop_event=stop_event,
+                                )
                             )
                             if suspended is not None:
                                 self._persist_summary(session, current_mode, assembly)
@@ -585,7 +586,7 @@ class AgentLoop(object):
                         else:
                             observation = self._interrupted_observation(update.action.name)
                     else:
-                        observation, current_mode, suspended = self._execute_action(
+                        observation, current_mode, suspended = self._action_service.execute_action(
                             session,
                             update.action,
                             current_mode,

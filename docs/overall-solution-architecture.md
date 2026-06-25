@@ -115,7 +115,7 @@ The default C/C++ harness is now entered through the in-process workflow extensi
 
 Workflow-package prompt units are described by the generic `WorkflowPrompt` descriptor and appended as generic `workflow_prompt` system messages. Historical `HarnessPrompt` / `harness_prompt` names remain recognized only for source and session/transcript compatibility; new Agent Core prompt injection should use the generic workflow naming.
 
-`AgentLifecycleJournal` owns durable lifecycle writes for schema v2 operation events, transition save points, pending interaction lifecycle events, and context operation payload helpers. `AgentKernel` owns turn frames and pending interaction create/resolve boundaries. `AgentToolActionService` owns non-LLM tool action execution: active-tool checks, extension pre/post hooks, permission evaluation, pending permission/user-input action handling, mode-switch proposals, path write guards, runtime dispatch, and extension-owned tool calls. `AgentLoop` owns Pi-style open turn-loop continuation: agent step lifecycle, context/provider attempts, compact retry, tool batch interruption, guard-stop, abort, and explicit loop safety-limit compatibility transitions. The optional safety fuse is still configured through the legacy `max_turns` field, but the hosted default no longer stops merely because eight model/tool cycles were used. `QueryEngine` remains the public session facade and keeps ownership of transcript-backed session mutation compatibility.
+`AgentLifecycleJournal` owns durable lifecycle writes for schema v2 operation events, transition save points, pending interaction lifecycle events, context operation payload helpers, and workflow-patch persistence helpers. `AgentKernel` owns turn frames and pending interaction create/resolve boundaries. `AgentToolActionService` owns non-LLM tool action execution: active-tool checks, extension pre/post hooks, permission evaluation, pending permission/user-input action handling, mode-switch proposals, path write guards, runtime dispatch, extension-owned tool calls, resumed action execution, and workflow-patch capture after tool-result hooks. `AgentLoop` owns Pi-style open turn-loop continuation: agent step lifecycle, context/provider attempts, active schema requests through `AgentExtensionHost`, compact retry, tool batch interruption, guard-stop, abort, and explicit loop safety-limit compatibility transitions. The optional safety fuse is still configured through the legacy `max_turns` field, but the hosted default no longer stops merely because eight model/tool cycles were used. `QueryEngine` remains the public session facade and keeps ownership of transcript-backed session mutation compatibility.
 
 `TurnSnapshot` is the explicit frozen input for one provider request. `QueryEngine` builds it after context assembly and active tool schema projection, then calls the provider with `snapshot.messages` and `snapshot.tool_schemas`. Snapshot diagnostics may record safe metadata such as `snapshot_id`, mode/workflow state, registered tool names, active tool names, credential-free model profile metadata, safe prompt-unit metadata, and capability counts; they must not record prompt bodies, file contents, raw tool outputs, or credentials.
 
@@ -144,8 +144,8 @@ Harness state refresh in the product adapter path goes through `CHarnessWorkflow
 ### Session Runtime Ownership
 
 - `ManagedSession` hosts thread/lock/status and durable `Session` references
-- one session-scoped `QueryEngine` is the facade and transcript/session mutation owner; `AgentKernel`, `AgentLifecycleJournal`, `AgentLoop`, `AgentToolActionService`, and `AgentExtensionHost` own lifecycle, journal, loop, action, and extension dispatch internals
-- `InProcessAdapter` is a host/bridge layer and must not mint duplicate workflow identities
+- one session-scoped `QueryEngine` is the facade and transcript/session mutation owner; `AgentKernel`, `AgentLifecycleJournal`, `AgentLoop`, `AgentToolActionService`, and `AgentExtensionHost` own lifecycle, journal, loop, action, active schema, and extension dispatch internals
+- `InProcessAdapter` is a host/bridge layer and must not mint duplicate workflow identities or own slash-command business rules that can live in hosted services such as `ReviewCommandService`
 - `SessionSnapshotProjector` and `SessionHistoryAssembler` are projections, not workflow truth
 - `SessionSnapshotProjector` reads the generic workflow projection, not default harness internals
 - `runtime_config` in session snapshots is reducer-backed diagnostic state, not frontend-owned policy
@@ -154,6 +154,7 @@ Harness state refresh in the product adapter path goes through `CHarnessWorkflow
 - no durable `SessionTimelineStore` exists; GUI activation and `/review`
   consume transcript/session projections, while `/api/sessions/{id}/events`
   only signals that bootstrap reload is required
+- `/review` finding synthesis, git-diff evidence shaping, and markdown rendering live in `ReviewCommandService`; `InProcessAdapter` only gathers recent session tool evidence and emits the command result
 
 ## 3. Official Execution Model
 

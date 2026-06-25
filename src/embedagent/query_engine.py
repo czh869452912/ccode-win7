@@ -144,6 +144,11 @@ class QueryEngine(object):
         category_setter = getattr(self.permission_policy, "set_category_lookup", None)
         if callable(category_setter):
             category_setter(self._tool_permission_category)
+        self._session_lock = threading.RLock()
+        self.lifecycle = AgentLifecycleJournal(
+            append_event=self._append_transcript_event,
+            session_guard=self._session_guard,
+        )
         self._action_service = AgentToolActionService(
             tools=self.tools,
             permission_policy=self.permission_policy,
@@ -154,6 +159,7 @@ class QueryEngine(object):
             permission_rejected_handler=self._record_permission_rejection,
             user_input_pending_handler=self._build_user_input_pending_result,
             user_input_response_handler=self._build_user_input_observation,
+            lifecycle=self.lifecycle,
         )
         self._llm_wrapper = LLMClientRetryWrapper(
             client=client,
@@ -162,11 +168,6 @@ class QueryEngine(object):
         )
         self._turn_snapshot_builder = TurnSnapshotBuilder()
         self._last_turn_snapshot = None  # type: Optional[TurnSnapshot]
-        self._session_lock = threading.RLock()
-        self.lifecycle = AgentLifecycleJournal(
-            append_event=self._append_transcript_event,
-            session_guard=self._session_guard,
-        )
         self.kernel = AgentKernel(lifecycle=self.lifecycle)
         self.tool_commit = ToolCommitCoordinator(
             self.tools.tool_result_store,
@@ -189,15 +190,14 @@ class QueryEngine(object):
             build_context_operation=self._build_context_operation,
             record_context_snapshot_operation=self._record_context_snapshot_operation,
             persist_summary=self._persist_summary,
-            schemas_for_active_tools=self._schemas_for_active_tools,
+            extension_host=self.extension_host,
             call_provider_operation=self._call_provider_operation,
             should_retry_with_compact=self._should_retry_with_compact,
             maybe_record_compact_boundary=self._maybe_record_compact_boundary,
             maybe_maintain_memory=self._maybe_maintain_memory,
             is_completion_signal=self._is_completion_signal,
             tool_presentation_snapshot=self._tool_presentation_snapshot,
-            execute_parallel_tool_action=self._execute_parallel_tool_action,
-            execute_action=self._execute_action,
+            action_service=self._action_service,
             record_tool_observation=self._record_tool_observation,
             discarded_observation=self._discarded_observation,
             interrupted_observation=self._interrupted_observation,
@@ -369,103 +369,6 @@ class QueryEngine(object):
             step_id=step_id,
             result=snapshot,
         )
-
-    def _workflow_patch_snapshot(self, session: Session) -> Tuple[Dict[str, Any], Dict[str, Any]]:
-        workflow_root = getattr(session, "workflow_state", {}) or {}
-        workflow = {}
-        metadata = {}
-        if isinstance(workflow_root, dict):
-            workflow = dict(workflow_root.get("workflow") or {})
-            extensions = workflow_root.get("extensions") or {}
-            if isinstance(extensions, dict):
-                metadata = dict(extensions.get("last_workflow_patch") or {})
-        return workflow, metadata
-
-    def _workflow_patch_payload(
-        self,
-        session: Session,
-        current_mode: str,
-        workflow_state: str,
-        turn_id: str,
-        step_id: str,
-        tool_call_id: str,
-    ) -> Dict[str, Any]:
-        workflow, metadata = self._workflow_patch_snapshot(session)
-        return {
-            "turn_id": turn_id,
-            "step_id": step_id,
-            "tool_call_id": tool_call_id,
-            "mode_name": current_mode,
-            "workflow_state_name": workflow_state,
-            "workflow": workflow,
-            "metadata": metadata,
-        }
-
-    def _workflow_patch_changed(
-        self,
-        before_workflow: Dict[str, Any],
-        before_metadata: Dict[str, Any],
-        payload: Dict[str, Any],
-    ) -> bool:
-        workflow = dict(payload.get("workflow") or {})
-        metadata = dict(payload.get("metadata") or {})
-        return bool(workflow or metadata) and (
-            workflow != before_workflow or metadata != before_metadata
-        )
-
-    def _persist_workflow_patch(self, session: Session, payload: Dict[str, Any]) -> None:
-        turn_id = str(payload.get("turn_id") or "")
-        step_id = str(payload.get("step_id") or "")
-        tool_call_id = str(payload.get("tool_call_id") or "")
-        operation_id = "workflow_patch:%s:%s" % (step_id or "session", tool_call_id or "patch")
-        self._emit_operation_started(
-            session,
-            operation_id,
-            "workflow_patch",
-            turn_id=turn_id,
-            step_id=step_id,
-            tool_call_id=tool_call_id,
-            parent_operation_id="tool:%s" % tool_call_id if tool_call_id else "",
-            metadata={
-                "mode_name": str(payload.get("mode_name") or ""),
-                "workflow_state_name": str(payload.get("workflow_state_name") or ""),
-            },
-        )
-        self._append_transcript_event(session, "workflow_patch", dict(payload), schema_version=2)
-        self._emit_operation_finished(
-            session,
-            operation_id,
-            kind="workflow_patch",
-            turn_id=turn_id,
-            step_id=step_id,
-            tool_call_id=tool_call_id,
-            result={
-                "workflow": dict(payload.get("workflow") or {}),
-                "metadata": dict(payload.get("metadata") or {}),
-            },
-        )
-
-    def _capture_workflow_patch_if_changed(
-        self,
-        session: Session,
-        action: Action,
-        current_mode: str,
-        workflow_state: str,
-        before_workflow: Dict[str, Any],
-        before_metadata: Dict[str, Any],
-    ) -> None:
-        turn_id = session.turns[-1].turn_id if session.turns else ""
-        step_id = session.current_step().step_id if session.current_step() is not None else ""
-        payload = self._workflow_patch_payload(
-            session,
-            current_mode,
-            workflow_state,
-            turn_id,
-            step_id,
-            action.call_id,
-        )
-        if self._workflow_patch_changed(before_workflow, before_metadata, payload):
-            self._persist_workflow_patch(session, payload)
 
     def _provider_operation_result(self, reply: AssistantReply) -> Dict[str, Any]:
         return {
@@ -937,9 +840,6 @@ class QueryEngine(object):
 
     def _should_inject_workflow_prompt(self, user_text: str, current_mode: str) -> bool:
         return self.extension_host.should_inject_workflow(user_text, current_mode)
-
-    def _allowed_tools_for_mode(self, mode_name: str, workflow_state: str = "chat") -> set:
-        return set(self.extension_host.allowed_tool_names(mode_name, workflow_state=workflow_state))
 
     def _tool_permission_category(self, tool_name: str) -> str:
         lookup = getattr(self.tools, "tool_catalog_entry", None)
@@ -1562,7 +1462,7 @@ class QueryEngine(object):
                 on_step_finish(step_index, reply, "aborted")
             turn_frame.finish(result.transition)
             return result, committed
-        observation, current_mode, suspended = self._execute_action(
+        observation, current_mode, suspended = self._action_service.execute_action(
             session,
             action,
             current_mode,
@@ -1764,68 +1664,6 @@ class QueryEngine(object):
                 return True
         return False
 
-    def _schemas_for_active_tools(self, mode_name: str, workflow_state: str) -> list:
-        return self.extension_host.schemas_for_active_tools(mode_name, workflow_state)
-
-    def _prepare_extension_tool_call(
-        self,
-        session: Session,
-        action: Action,
-        current_mode: str,
-        workflow_state: str,
-    ) -> Tuple[Optional[Observation], Action]:
-        return self._action_service.prepare_extension_tool_call(
-            session,
-            action,
-            current_mode,
-            workflow_state,
-        )
-
-    def _execute_parallel_tool_action(
-        self,
-        session: Session,
-        action: Action,
-        current_mode: str,
-        workflow_state: str,
-        stop_event: Optional[threading.Event],
-    ) -> Observation:
-        return self._action_service.execute_parallel_tool_action(
-            session,
-            action,
-            current_mode,
-            workflow_state,
-            stop_event,
-        )
-
-    def _is_extension_blocked_observation(self, observation: Optional[Observation]) -> bool:
-        return self._action_service.is_extension_blocked_observation(observation)
-
-    def _apply_extension_tool_result_patch(
-        self,
-        session: Session,
-        action: Action,
-        current_mode: str,
-        workflow_state: str,
-        observation: Observation,
-    ) -> Observation:
-        before_workflow, before_metadata = self._workflow_patch_snapshot(session)
-        patched = self._action_service.apply_extension_tool_result_patch(
-            session,
-            action,
-            current_mode,
-            workflow_state,
-            observation,
-        )
-        self._capture_workflow_patch_if_changed(
-            session,
-            action,
-            current_mode,
-            workflow_state,
-            before_workflow,
-            before_metadata,
-        )
-        return patched
-
     def _record_permission_rejection(self, session: Session, action: Action) -> None:
         self._emit_lifecycle_event(
             session,
@@ -1889,38 +1727,6 @@ class QueryEngine(object):
             current_mode,
         )
         return QueryTurnResult("", session, transition, pending_interaction=pending)
-
-    def _execute_action(
-        self,
-        session: Session,
-        action: Action,
-        current_mode: str,
-        workflow_state: str,
-        permission_handler: Optional[Callable[[PermissionRequest], Optional[bool]]],
-        user_input_handler: Optional[Callable[[UserInputRequest], Optional[UserInputResponse]]],
-        precomputed_observation: Optional[Observation] = None,
-        stop_event: Optional[threading.Event] = None,
-    ) -> Tuple[Observation, str, Optional[QueryTurnResult]]:
-        before_workflow, before_metadata = self._workflow_patch_snapshot(session)
-        result = self._action_service.execute_action(
-            session,
-            action,
-            current_mode,
-            workflow_state,
-            permission_handler,
-            user_input_handler,
-            precomputed_observation=precomputed_observation,
-            stop_event=stop_event,
-        )
-        self._capture_workflow_patch_if_changed(
-            session,
-            action,
-            current_mode,
-            workflow_state,
-            before_workflow,
-            before_metadata,
-        )
-        return result
 
     def _build_user_input_observation(
         self,
@@ -2012,7 +1818,7 @@ class QueryEngine(object):
         if pending.kind == "permission":
             approved = bool(resolution.get("approved"))
             if approved:
-                observation, current_mode, suspended = self._execute_action(
+                observation, current_mode, suspended = self._action_service.execute_action(
                     session,
                     action,
                     current_mode,
@@ -2038,7 +1844,7 @@ class QueryEngine(object):
                 selected_mode=str(resolution.get("selected_mode") or ""),
                 selected_option_text=str(resolution.get("selected_option_text") or ""),
             )
-            observation, current_mode, suspended = self._execute_action(
+            observation, current_mode, suspended = self._action_service.execute_action(
                 session,
                 action,
                 current_mode,

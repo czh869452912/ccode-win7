@@ -5,6 +5,7 @@ import threading
 from typing import Any, Callable, Optional, Tuple
 
 from embedagent.agent_extension_host import AgentExtensionHost
+from embedagent.agent_lifecycle import AgentLifecycleJournal
 from embedagent.interaction import UserInputRequest, UserInputResponse, build_user_input_request
 from embedagent.modes import is_path_writable
 from embedagent.permissions import PermissionPolicy, PermissionRequest
@@ -36,6 +37,7 @@ class AgentToolActionService(object):
                 Tuple[Observation, str],
             ]
         ] = None,
+        lifecycle: Optional[AgentLifecycleJournal] = None,
     ) -> None:
         self.tools = tools
         self.permission_policy = permission_policy
@@ -46,6 +48,7 @@ class AgentToolActionService(object):
         self._permission_rejected_handler = permission_rejected_handler
         self._user_input_pending_handler = user_input_pending_handler
         self._user_input_response_handler = user_input_response_handler
+        self.lifecycle = lifecycle
 
     def is_extension_blocked_observation(self, observation: Optional[Observation]) -> bool:
         if observation is None or not isinstance(observation.data, dict):
@@ -131,6 +134,37 @@ class AgentToolActionService(object):
         )
 
     def execute_action(
+        self,
+        session: Session,
+        action: Action,
+        current_mode: str,
+        workflow_state: str,
+        permission_handler: Optional[Callable[[PermissionRequest], Optional[bool]]],
+        user_input_handler: Optional[Callable[[UserInputRequest], Optional[UserInputResponse]]],
+        precomputed_observation: Optional[Observation] = None,
+        stop_event: Optional[threading.Event] = None,
+    ) -> Tuple[Observation, str, Optional[QueryTurnResult]]:
+        before_workflow = self._workflow_patch_snapshot(session)
+        result = self._execute_action_inner(
+            session,
+            action,
+            current_mode,
+            workflow_state,
+            permission_handler,
+            user_input_handler,
+            precomputed_observation=precomputed_observation,
+            stop_event=stop_event,
+        )
+        self._capture_workflow_patch_if_changed(
+            session,
+            action,
+            current_mode,
+            workflow_state,
+            before_workflow,
+        )
+        return result
+
+    def _execute_action_inner(
         self,
         session: Session,
         action: Action,
@@ -282,6 +316,29 @@ class AgentToolActionService(object):
             observation,
         )
         return observation, current_mode, None
+
+    def _workflow_patch_snapshot(self, session: Session) -> Any:
+        if self.lifecycle is None:
+            return None
+        return self.lifecycle.workflow_patch_snapshot(session)
+
+    def _capture_workflow_patch_if_changed(
+        self,
+        session: Session,
+        action: Action,
+        current_mode: str,
+        workflow_state: str,
+        before_workflow: Any,
+    ) -> None:
+        if self.lifecycle is None:
+            return
+        self.lifecycle.capture_workflow_patch_if_changed(
+            session,
+            action,
+            current_mode,
+            workflow_state,
+            before_workflow,
+        )
 
     def _execute_interactive_action(
         self,

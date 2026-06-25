@@ -103,7 +103,8 @@ class QueryEngineBuildLiteTests(unittest.TestCase):
         session = Session()
         engine._ensure_extension_tools_registered(session, "build", "chat", reason="test")
         names = sorted(
-            item["function"]["name"] for item in engine._schemas_for_active_tools("build", "chat")
+            item["function"]["name"]
+            for item in engine.extension_host.schemas_for_active_tools("build", "chat")
         )
         self.assertIn("list_dir", names)
         self.assertIn("run_recipe", names)

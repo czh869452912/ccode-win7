@@ -432,9 +432,9 @@ def test_query_engine_dynamic_tool_schema_requires_activation(tmp_path):
     )
 
     engine.initialize_session(session, "build", workflow_state="chat", user_text="hello")
-    inactive_names = schema_names(engine._schemas_for_active_tools("build", "chat"))
+    inactive_names = schema_names(engine.extension_host.schemas_for_active_tools("build", "chat"))
     inactive.active = True
-    active_names = schema_names(engine._schemas_for_active_tools("build", "chat"))
+    active_names = schema_names(engine.extension_host.schemas_for_active_tools("build", "chat"))
 
     assert "dynamic_echo" not in inactive_names
     assert "dynamic_echo" in active_names

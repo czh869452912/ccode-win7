@@ -796,6 +796,13 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertIsInstance(engine._agent_loop, AgentLoop)
         self.assertFalse(hasattr(engine._agent_loop, "_runner"))
         self.assertFalse(hasattr(QueryEngine, "_run_loop_impl"))
+        self.assertFalse(hasattr(QueryEngine, "_execute_parallel_tool_action"))
+        self.assertFalse(hasattr(QueryEngine, "_execute_action"))
+        self.assertFalse(hasattr(QueryEngine, "_apply_extension_tool_result_patch"))
+        self.assertFalse(hasattr(QueryEngine, "_prepare_extension_tool_call"))
+        self.assertFalse(hasattr(QueryEngine, "_is_extension_blocked_observation"))
+        self.assertFalse(hasattr(QueryEngine, "_schemas_for_active_tools"))
+        self.assertFalse(hasattr(QueryEngine, "_allowed_tools_for_mode"))
         self.assertIs(engine.extension_manager, engine.extension_host.manager)
 
     def test_query_engine_routes_ask_user_through_action_service(self):
@@ -806,6 +813,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
         )
         spy = SpyActionService(engine._action_service)
         engine._action_service = spy
+        engine._agent_loop._action_service = spy
         session = Session()
         session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：spec")
 
@@ -828,6 +836,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
         )
         spy = SpyActionService(engine._action_service)
         engine._action_service = spy
+        engine._agent_loop._action_service = spy
         session = Session()
         session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：build")
 
@@ -909,6 +918,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertEqual(first.transition.reason, "user_input_wait")
         spy = SpyActionService(engine._action_service)
         engine._action_service = spy
+        engine._agent_loop._action_service = spy
 
         resumed = engine.resume_interaction(
             session=session,

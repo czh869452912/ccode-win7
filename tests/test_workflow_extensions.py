@@ -414,8 +414,8 @@ def test_query_engine_tool_activation_does_not_use_runtime_harness_pack_fallback
         extension_manager=default_extensions.manager,
     )
 
-    allowed = engine._allowed_tools_for_mode("build", "chat")
-    schemas = engine._schemas_for_active_tools("build", "chat")
+    allowed = engine.extension_host.allowed_tool_names("build", workflow_state="chat")
+    schemas = engine.extension_host.schemas_for_active_tools("build", "chat")
     names = set(item["function"]["name"] for item in schemas)
 
     assert "read_file" in allowed
@@ -718,10 +718,12 @@ def test_bare_query_engine_uses_empty_extension_host_without_c_harness(tmp_path)
     engine = QueryEngine(client=DoneClient(), tools=ToolRuntime(str(tmp_path)), max_turns=1)
 
     assert engine.extension_manager.diagnostics() == []
-    assert "run_recipe" not in engine._allowed_tools_for_mode("build", "chat")
-    assert "task_status" not in engine._allowed_tools_for_mode("build", "chat")
+    allowed = engine.extension_host.allowed_tool_names("build", workflow_state="chat")
+    assert "run_recipe" not in allowed
+    assert "task_status" not in allowed
     assert "propose_mode_switch" not in set(
-        item["function"]["name"] for item in engine._schemas_for_active_tools("build", "chat")
+        item["function"]["name"]
+        for item in engine.extension_host.schemas_for_active_tools("build", "chat")
     )
 
 

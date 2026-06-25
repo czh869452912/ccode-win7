@@ -86,7 +86,8 @@ class QueryEngineVerifySliceTests(unittest.TestCase):
         session = Session()
         engine._ensure_extension_tools_registered(session, "verify", "chat", reason="test")
         names = sorted(
-            item["function"]["name"] for item in engine._schemas_for_active_tools("verify", "chat")
+            item["function"]["name"]
+            for item in engine.extension_host.schemas_for_active_tools("verify", "chat")
         )
         self.assertIn("run_recipe", names)
         self.assertIn("report_quality_v2", names)
