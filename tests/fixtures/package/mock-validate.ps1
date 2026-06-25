@@ -9,6 +9,8 @@ param(
 $payload = [ordered]@{
     ok = $true
     bundle_root = $BundleRoot
+    skip_dynamic_checks = [bool]$SkipDynamicChecks
+    require_complete = [bool]$RequireComplete
     fail_count = 0
     warn_count = 0
     pass_count = 1

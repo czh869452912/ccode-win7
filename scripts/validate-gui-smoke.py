@@ -19,6 +19,8 @@ import websockets
 
 REPO_ROOT = os.path.realpath(os.path.join(os.path.dirname(__file__), ".."))
 PYTHON_EXE = os.path.join(REPO_ROOT, ".venv", "Scripts", "python.exe")
+FIXED_WEBVIEW2_RELATIVE_EXE = r"runtime\webview2-fixed-runtime\msedgewebview2.exe"
+EXPECTED_WEBVIEW2_FIXED_RUNTIME_MAJOR = 109
 
 
 def _free_port() -> int:
@@ -456,6 +458,28 @@ def _build_command(
     }
 
 
+def _detect_webview2_runtime_major(runtime_path: str) -> Optional[int]:
+    parts = os.path.normpath(runtime_path or "").split(os.sep)
+    for item in reversed(parts):
+        first = item.split(".", 1)[0]
+        if first.isdigit():
+            return int(first)
+    return None
+
+
+def _fixed_webview2_report(bundle_root: str) -> Dict[str, object]:
+    runtime_exe = os.path.join(bundle_root, *FIXED_WEBVIEW2_RELATIVE_EXE.split("\\"))
+    runtime_path = os.path.dirname(runtime_exe)
+    return {
+        "required": True,
+        "expected_runtime_major": EXPECTED_WEBVIEW2_FIXED_RUNTIME_MAJOR,
+        "runtime_exe": runtime_exe,
+        "runtime_path": runtime_path,
+        "runtime_major": _detect_webview2_runtime_major(runtime_path),
+        "exists": os.path.isfile(runtime_exe),
+    }
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Validate GUI smoke flow.")
     parser.add_argument(
@@ -472,12 +496,27 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--auto-close-seconds", type=float, default=8.0, help="Auto-close delay for windowed smoke"
     )
+    parser.add_argument(
+        "--require-fixed-webview2",
+        action="store_true",
+        help="Require bundled Fixed Version WebView2 109 when validating a bundle.",
+    )
     return parser
 
 
 def main(argv: Optional[List[str]] = None) -> int:
     args = build_parser().parse_args(argv)
     bundle_root = os.path.realpath(args.bundle_root) if args.bundle_root else ""
+    fixed_webview2 = {}
+    if args.require_fixed_webview2:
+        if not bundle_root:
+            raise RuntimeError("--require-fixed-webview2 requires --bundle-root")
+        fixed_webview2 = _fixed_webview2_report(bundle_root)
+        if not fixed_webview2.get("exists"):
+            raise RuntimeError(
+                "Bundled Fixed Version WebView2 runtime is missing: %s"
+                % fixed_webview2.get("runtime_exe")
+            )
 
     model_port = _free_port()
     gui_port = _free_port()
@@ -539,6 +578,15 @@ def main(argv: Optional[List[str]] = None) -> int:
             raise RuntimeError(
                 "Bundle GUI did not use bundled Chromium runtime: %s" % renderer_report
             )
+        if args.require_fixed_webview2:
+            if renderer_report.get("renderer") != "edgechromium":
+                raise RuntimeError(
+                    "Bundle GUI did not use edgechromium renderer: %s" % renderer_report
+                )
+            if renderer_report.get("runtime_source") != "bundle":
+                raise RuntimeError(
+                    "Bundle GUI did not use bundled WebView2 runtime: %s" % renderer_report
+                )
         print(
             json.dumps(
                 {
@@ -552,6 +600,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                     "command_results": summary.get("command_results"),
                     "model_requests": len(FakeOpenAIHandler.requests_seen),
                     "renderer_report": renderer_report,
+                    "fixed_webview2": fixed_webview2,
                 },
                 ensure_ascii=False,
                 indent=2,

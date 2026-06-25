@@ -256,9 +256,14 @@ Debt symptoms:
 Target direction:
 
 - Treat clean Win7 unpack-and-run smoke as a release gate.
-- Treat real C/C++ project validation as a release gate.
+- Treat C/C++ project validation as a release gate. The repo-side gate now
+  compiles `data/workspace-template/main.c` through bundle-local Clang using
+  `validate-cpp-smoke.py`; broader real-project validation remains a release
+  evidence item.
 - Disable or explicitly quarantine system-tool fallback in release bundle
-  validation.
+  validation. `offline-runtime-contract.json` declares release gates with
+  `allow_system_tool_fallback: false`, and release profile validation no longer
+  forces `-SkipDynamicChecks`.
 
 ## 5. Debt Retirement Order
 
@@ -281,8 +286,9 @@ The cleanup should proceed in deletion-oriented slices:
    paths. Slice 6 has moved visual fixture injection out of product reducers
    and documented generated GUI assets as committed release artifacts for the
    current packaging model.
-9. Run real Win7 bundle and real C/C++ workflow validation against the promoted
-   architecture.
+9. Run real Win7 bundle validation against the promoted architecture. Slice 7
+   added contract-backed C smoke and Win7 GUI gate metadata; final release still
+   requires target-machine WebView2/windowed evidence.
 
 Each slice must end by deleting the old path or explicitly recording why the
 slice is incomplete.

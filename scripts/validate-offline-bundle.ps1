@@ -402,6 +402,106 @@ function Invoke-RuntimeContractDynamicChecks {
     }
 }
 
+function Get-ReleaseGateById {
+    param(
+        [object]$Contract,
+        [string]$Id
+    )
+
+    foreach ($gate in @(Get-JsonPropertyValue -Object $Contract -Name 'release_gates')) {
+        if ($null -eq $gate) {
+            continue
+        }
+        if ([string]$gate.id -eq $Id) {
+            return $gate
+        }
+    }
+    return $null
+}
+
+function Test-ReleaseGateAssets {
+    param(
+        [System.Collections.ArrayList]$Results,
+        [string]$BundleRoot,
+        [object]$Contract
+    )
+
+    $cppGate = Get-ReleaseGateById -Contract $Contract -Id 'cpp_smoke_workspace'
+    if ($null -eq $cppGate) {
+        $level = if ($RequireComplete) { 'fail' } else { 'warn' }
+        Add-Result -Results $Results -Level $level -Code 'release_gate.cpp_smoke_workspace.contract' -Message 'Runtime contract does not declare cpp_smoke_workspace release gate.'
+    }
+    else {
+        Test-StaticPath -Results $Results -Path (Join-Path $BundleRoot ([string]$cppGate.script).Replace('/', '\')) -Code 'release_gate.cpp_smoke_workspace.script' -Message 'C/C++ smoke validation script present.' -TreatAsCompleteGate $true
+        Test-StaticPath -Results $Results -Path (Join-Path $BundleRoot ([string]$cppGate.workspace).Replace('/', '\')) -Code 'release_gate.cpp_smoke_workspace.workspace' -Message 'C/C++ smoke workspace present.' -TreatAsCompleteGate $true
+        Test-StaticPath -Results $Results -Path (Join-Path $BundleRoot ([string]$cppGate.launcher).Replace('/', '\')) -Code 'release_gate.cpp_smoke_workspace.launcher' -Message 'C/C++ smoke launcher present.' -TreatAsCompleteGate $true
+    }
+
+    $guiGate = Get-ReleaseGateById -Contract $Contract -Id 'gui_headless_smoke'
+    if ($null -eq $guiGate) {
+        $level = if ($RequireComplete) { 'fail' } else { 'warn' }
+        Add-Result -Results $Results -Level $level -Code 'release_gate.gui_headless_smoke.contract' -Message 'Runtime contract does not declare gui_headless_smoke release gate.'
+    }
+    else {
+        Test-StaticPath -Results $Results -Path (Join-Path $BundleRoot ([string]$guiGate.script).Replace('/', '\')) -Code 'release_gate.gui_headless_smoke.script' -Message 'GUI smoke validation script present.' -TreatAsCompleteGate $true
+        Test-StaticPath -Results $Results -Path (Join-Path $BundleRoot ([string]$guiGate.launcher).Replace('/', '\')) -Code 'release_gate.gui_headless_smoke.launcher' -Message 'GUI smoke launcher present.' -TreatAsCompleteGate $true
+    }
+
+    $win7Gate = Get-ReleaseGateById -Contract $Contract -Id 'win7_windowed_gui_smoke'
+    if ($null -eq $win7Gate) {
+        $level = if ($RequireComplete) { 'fail' } else { 'warn' }
+        Add-Result -Results $Results -Level $level -Code 'release_gate.win7_windowed_gui_smoke.contract' -Message 'Runtime contract does not declare win7_windowed_gui_smoke release gate.'
+    }
+    else {
+        $expectedMajor = [int]$win7Gate.webview2_fixed_runtime_major
+        if ($expectedMajor -eq 109) {
+            Add-Result -Results $Results -Level 'pass' -Code 'release_gate.win7_windowed_gui_smoke.webview2_major' -Message 'Win7 GUI release gate expects WebView2 Fixed Version major 109.'
+        }
+        else {
+            Add-Result -Results $Results -Level 'fail' -Code 'release_gate.win7_windowed_gui_smoke.webview2_major' -Message ('Win7 GUI release gate must expect WebView2 major 109, got {0}.' -f $expectedMajor)
+        }
+    }
+}
+
+function Invoke-CppSmokeGate {
+    param(
+        [System.Collections.ArrayList]$Results,
+        [string]$BundleRoot,
+        [object]$Contract
+    )
+
+    $cppGate = Get-ReleaseGateById -Contract $Contract -Id 'cpp_smoke_workspace'
+    if ($null -eq $cppGate) {
+        return
+    }
+    $pythonExe = Join-Path $BundleRoot 'runtime\python\python.exe'
+    $scriptPath = Join-Path $BundleRoot ([string]$cppGate.script).Replace('/', '\')
+    $workspacePath = Join-Path $BundleRoot ([string]$cppGate.workspace).Replace('/', '\')
+    if (-not (Test-Path -LiteralPath $pythonExe) -or -not (Test-Path -LiteralPath $scriptPath) -or -not (Test-Path -LiteralPath $workspacePath)) {
+        $level = if ($RequireComplete) { 'fail' } else { 'warn' }
+        Add-Result -Results $Results -Level $level -Code 'dynamic.release_gate.cpp_smoke_workspace' -Message 'Skipped C/C++ smoke gate because python, script, or workspace is missing.'
+        return
+    }
+    $reportPath = Join-Path $BundleRoot 'manifests\cpp-smoke-report.json'
+    Push-Location $BundleRoot
+    try {
+        $output = & $pythonExe $scriptPath --bundle-root $BundleRoot --workspace $workspacePath --json-report $reportPath 2>&1
+        $exitCode = $LASTEXITCODE
+        if ($exitCode -eq 0) {
+            Add-Result -Results $Results -Level 'pass' -Code 'dynamic.release_gate.cpp_smoke_workspace' -Message ('C/C++ smoke gate passed. Report: {0}' -f $reportPath)
+        }
+        else {
+            Add-Result -Results $Results -Level 'fail' -Code 'dynamic.release_gate.cpp_smoke_workspace' -Message ('C/C++ smoke gate failed ({0}): {1}' -f $exitCode, ($output | Out-String).Trim())
+        }
+    }
+    catch {
+        Add-Result -Results $Results -Level 'fail' -Code 'dynamic.release_gate.cpp_smoke_workspace' -Message ('C/C++ smoke gate threw: {0}' -f $_.Exception.Message)
+    }
+    finally {
+        Pop-Location
+    }
+}
+
 function Invoke-GuiHelpCheck {
     param(
         [System.Collections.ArrayList]$Results,
@@ -500,6 +600,7 @@ Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'embedagent-gui.c
 Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'EmbedAgent.exe') -Code 'bundle.launcher.gui_exe_user' -Message 'Native GUI user launcher present.' -TreatAsCompleteGate $true
 Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'embedagent-gui.exe') -Code 'bundle.launcher.gui_exe_cli' -Message 'Native GUI CLI launcher present.' -TreatAsCompleteGate $true
 Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'validate-gui-smoke.cmd') -Code 'bundle.launcher.gui_smoke' -Message 'GUI smoke launcher present.' -TreatAsCompleteGate $true
+Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'validate-cpp-smoke.cmd') -Code 'bundle.launcher.cpp_smoke' -Message 'C/C++ smoke launcher present.' -TreatAsCompleteGate $true
 Validate-LauncherContract -Results $results -Path (Join-Path $BundleRoot 'embedagent.cmd') -Code 'bundle.launcher.cli_contract' -RequiredMarkers @(
     'EMBEDAGENT_BUNDLE_ROOT',
     '%BUNDLE_ROOT%bin\git\bin',
@@ -517,10 +618,12 @@ Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'app\embedagent\f
 Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'app\embedagent\frontend\gui\static\assets\katex\katex.min.css') -Code 'bundle.gui.katex_css' -Message 'KaTeX CSS present (formula rendering, generated by npm run build).' -TreatAsCompleteGate $true
 Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'runtime\webview2-fixed-runtime\msedgewebview2.exe') -Code 'bundle.gui.webview2_runtime' -Message 'Bundled Fixed Version WebView2 runtime present.' -TreatAsCompleteGate $true
 Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'tools\validation\validate-gui-smoke.py') -Code 'bundle.gui.smoke_script' -Message 'GUI smoke validation script present.' -TreatAsCompleteGate $true
+Test-StaticPath -Results $results -Path (Join-Path $BundleRoot 'tools\validation\validate-cpp-smoke.py') -Code 'bundle.cpp.smoke_script' -Message 'C/C++ smoke validation script present.' -TreatAsCompleteGate $true
 Test-StaticPath -Results $results -Path $SourcesRoot -Code 'sources.root' -Message 'Sources seed directory present.' -TreatAsCompleteGate $true
 Test-StaticPath -Results $results -Path $sourcesManifestPath -Code 'sources.manifest' -Message 'assets-manifest.json present.' -TreatAsCompleteGate $true
 Test-StaticPath -Results $results -Path $sourcesChecksumsPath -Code 'sources.checksums' -Message 'sources checksums.txt present.' -TreatAsCompleteGate $true
 Test-RuntimeContract -Results $results -BundleRoot $BundleRoot -Contract $runtimeContract
+Test-ReleaseGateAssets -Results $results -BundleRoot $BundleRoot -Contract $runtimeContract
 
 if (Test-Path -LiteralPath $ZipPath) {
     Add-Result -Results $results -Level 'pass' -Code 'bundle.zip' -Message ('Zip artifact present: {0}' -f $ZipPath)
@@ -590,6 +693,7 @@ Test-NoEditableBundleLinks -Results $results -SitePackagesRoot (Join-Path $Bundl
 
 if (-not $SkipDynamicChecks) {
     Invoke-RuntimeContractDynamicChecks -Results $results -BundleRoot $BundleRoot -Contract $runtimeContract
+    Invoke-CppSmokeGate -Results $results -BundleRoot $BundleRoot -Contract $runtimeContract
     Invoke-CommandCheck -Results $results -FilePath $pythonExe -Arguments @('--version') -Code 'dynamic.python' -TreatAsCompleteGate $true
     if ($gitExe) {
         Invoke-CommandCheck -Results $results -FilePath $gitExe -Arguments @('--version') -Code 'dynamic.git' -TreatAsCompleteGate $true

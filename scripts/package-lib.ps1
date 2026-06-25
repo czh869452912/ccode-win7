@@ -714,7 +714,10 @@ function Invoke-PackageVerify {
     $checkJson = New-ReportPath -Context $Context -StageName 'check'
 
     Write-PackageLog "[verify] Running validate-offline-bundle.ps1..."
-    $validateArgs = @('-BundleRoot', $bundleRoot, '-JsonOutputPath', $validateJson, '-SkipDynamicChecks')
+    $validateArgs = @('-BundleRoot', $bundleRoot, '-JsonOutputPath', $validateJson)
+    if (-not [bool]$Context.profile_config.run_dynamic_checks) {
+        $validateArgs += '-SkipDynamicChecks'
+    }
     if ([bool]$Context.profile_config.require_complete -or [bool]$Context.strict) {
         $validateArgs += '-RequireComplete'
     }

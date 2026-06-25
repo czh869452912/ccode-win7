@@ -1,6 +1,6 @@
 # EmbedAgent Win7 部署前检查清单
 
-> 更新日期：2026-06-14
+> 更新日期：2026-06-25
 > 适用阶段：Phase 7 目标机验收
 
 ---
@@ -54,7 +54,8 @@
 7. `bin/git/`、`bin/rg/`、`bin/ctags/`、`bin/llvm/` 存在。
 8. `config/config.json` 与 `config/permission-rules.json` 模板存在。
 9. 构建机已运行 `scripts/validate-offline-bundle.ps1 -RequireComplete`，并确认报告中的 `runtime_contract.schema_version == 1`。
-10. 构建机已运行 `scripts/check-bundle-dependencies.py <bundle-root>`，并确认 External Tools / runtime contract 检查通过。
+10. 构建机已运行 `scripts/check-bundle-dependencies.py <bundle-root>`，并确认 External Tools / Release Gates / runtime contract 检查通过。
+11. release profile 不得依赖系统 PATH 兜底：`scripts/offline-runtime-contract.json` 中的 `release_gates` 必须保持 `allow_system_tool_fallback: false`。
 
 ---
 
@@ -67,6 +68,8 @@
 3. bundle 根目录下的 launcher 可见：
    - `embedagent.cmd`
    - `embedagent-tui.cmd`
+   - `validate-cpp-smoke.cmd`
+   - `validate-gui-smoke.cmd`
 4. `runtime/python/` 下的 Python 文件完整存在。
 5. `bin/llvm/bin/`、`bin/git/`、`bin/rg/`、`bin/ctags/` 下的可执行文件存在。
 6. `bin/llvm/bin/clang.exe`、`clang++.exe`、`clang-cl.exe`、`clang-tidy.exe`、`clang-analyzer.bat`、`llvm-profdata.exe`、`llvm-cov.exe` 均存在。
@@ -88,6 +91,7 @@ bin\llvm\bin\llvm-profdata.exe --version
 bin\llvm\bin\llvm-cov.exe --version
 bin\rg\rg.exe --version
 bin\ctags\ctags.exe --version
+validate-cpp-smoke.cmd
 ```
 
 若 MinGit 目录采用 `cmd\git.exe` 布局，则增加：
@@ -101,6 +105,7 @@ bin\git\cmd\git.exe --version
 - CLI 可以启动，不报缺少 Python 或模块导入错误。
 - 每个 bundle 内带动态检查的工具都能独立输出版本号。
 - `clang-analyzer.bat` 存在且路径与 `scripts/offline-runtime-contract.json` 一致。
+- `validate-cpp-smoke.cmd` 使用 bundle 内 `bin\llvm\bin\clang.exe` 编译 `data\workspace-template\main.c`，并在 `manifests\cpp-smoke-report.json` 记录 `runtime_source == "bundle"`。
 - launcher 已正确设置 PATH，不依赖系统环境。
 
 ---
@@ -141,6 +146,7 @@ bin\git\cmd\git.exe --version
 | 会话目录创建 | 运行后可生成 `.embedagent/` |
 | Python 依赖加载 | 无 `ImportError` / `ModuleNotFoundError` |
 | LLVM/Clang 可见 | `clang.exe --version` 可运行 |
+| C smoke workspace | `validate-cpp-smoke.cmd` 返回 `0` 且报告 runtime_source 为 `bundle` |
 | Git 可见 | `git.exe --version` 可运行 |
 | 搜索工具可见 | `rg.exe` / `ctags.exe` 可运行 |
 | TUI 启动 | 在支持宿主下进入全屏或给出清晰错误 |
@@ -159,6 +165,8 @@ bin\git\cmd\git.exe --version
 | bundle 版本 | `embedagent-win7-x64-20260329` |
 | 操作人 | `tester-a` |
 | 控制台宿主 | `cmd.exe` / `ConEmu` |
+| C smoke 结果 | `validate-cpp-smoke.cmd pass/fail` |
+| GUI smoke 结果 | `validate-gui-smoke.cmd pass/fail` |
 | 结果 | `pass` / `fail` |
 | 备注 | `TUI 正常 / 缺少 DLL / 模型地址不可达` |
 
@@ -170,6 +178,7 @@ Phase 7 的目标机验收不应该从“现场试试看能不能跑”开始，
 
 - bundle 完整性
 - Python 与外部工具存在性
+- C/C++ smoke workspace 能由 bundle 内 Clang 编译
 - Win7 运行库与控制台宿主条件
 - CLI/TUI 的首次启动表现
 

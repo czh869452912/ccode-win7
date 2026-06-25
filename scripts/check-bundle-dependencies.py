@@ -61,6 +61,11 @@ def runtime_contract_summary(contract: Dict) -> Dict:
     return {
         "path": str(CONTRACT),
         "schema_version": contract.get("schema_version"),
+        "release_gates": [
+            str(item.get("id") or "")
+            for item in contract.get("release_gates") or []
+            if isinstance(item, dict)
+        ],
     }
 
 
@@ -206,6 +211,47 @@ def check_external_tools(bundle_root: Path) -> Tuple[bool, List[str]]:
     return len(errors) == 0, errors
 
 
+def check_release_gates(bundle_root: Path) -> Tuple[bool, List[str]]:
+    """Check release-gate assets declared by the runtime contract."""
+    errors = []
+    contract = load_runtime_contract()
+    gates = contract.get("release_gates")
+    if not isinstance(gates, list) or not gates:
+        errors.append("release_gates missing from runtime contract")
+        return False, errors
+
+    gate_ids = []
+    for gate in gates:
+        if not isinstance(gate, dict):
+            errors.append("release_gate malformed: expected object")
+            continue
+        gate_id = str(gate.get("id") or "")
+        if not gate_id:
+            errors.append("release_gate missing id")
+            continue
+        gate_ids.append(gate_id)
+        for field in ("script", "workspace", "launcher"):
+            relative = str(gate.get(field) or "")
+            if not relative:
+                continue
+            if not _contract_path(bundle_root, relative).exists():
+                errors.append("release_gate.%s.%s missing: %s" % (gate_id, field, relative))
+        if gate.get("allow_system_tool_fallback") is True:
+            errors.append("release_gate.%s must not allow system tool fallback" % gate_id)
+
+    required = [
+        "runtime_contract",
+        "cpp_smoke_workspace",
+        "gui_headless_smoke",
+        "win7_windowed_gui_smoke",
+    ]
+    for gate_id in required:
+        if gate_id not in gate_ids:
+            errors.append("release_gate.%s missing from runtime contract" % gate_id)
+
+    return len(errors) == 0, errors
+
+
 def check_launchers(bundle_root: Path) -> Tuple[bool, List[str]]:
     """Check launcher entry points exist."""
     errors = []
@@ -321,6 +367,7 @@ def main():
         ("Python Runtime", check_python_runtime),
         ("Site Packages", check_site_packages),
         ("External Tools", check_external_tools),
+        ("Release Gates", check_release_gates),
         ("Launchers", check_launchers),
         ("Config Files", check_config_files),
         ("Documentation", check_documentation),

@@ -1,6 +1,52 @@
 {
   "schema_version": 1,
   "description": "Runtime-invoked tools that must be present in the offline portable bundle.",
+  "release_gates": [
+    {
+      "id": "runtime_contract",
+      "description": "Static and dynamic validation of every runtime-invoked bundled external tool declared by this contract.",
+      "validators": [
+        "scripts/validate-offline-bundle.ps1",
+        "scripts/check-bundle-dependencies.py"
+      ],
+      "allow_system_tool_fallback": false
+    },
+    {
+      "id": "cpp_smoke_workspace",
+      "description": "Compile the bundled C smoke workspace with the bundled Clang toolchain; release proof must not fall back to PATH.",
+      "script": "tools/validation/validate-cpp-smoke.py",
+      "launcher": "validate-cpp-smoke.cmd",
+      "workspace": "data/workspace-template",
+      "required_tool": "clang",
+      "allow_system_tool_fallback": false
+    },
+    {
+      "id": "gui_headless_smoke",
+      "description": "Exercise GUI backend, session activation, task API, tool events, permission/user-input flows, and /review against the bundle.",
+      "script": "tools/validation/validate-gui-smoke.py",
+      "launcher": "validate-gui-smoke.cmd",
+      "args": [
+        "--require-fixed-webview2"
+      ],
+      "expected_runtime_source": "bundle"
+    },
+    {
+      "id": "win7_windowed_gui_smoke",
+      "description": "Manual target-machine gate for Windows 7 SP1 using bundled Fixed Version WebView2 109.",
+      "script": "tools/validation/validate-gui-smoke.py",
+      "launcher": "validate-gui-smoke.cmd",
+      "args": [
+        "--windowed",
+        "--auto-close-seconds",
+        "8",
+        "--require-fixed-webview2"
+      ],
+      "manual_on_win7": true,
+      "webview2_fixed_runtime_major": 109,
+      "expected_renderer": "edgechromium",
+      "expected_runtime_source": "bundle"
+    }
+  ],
   "required_tools": [
     {
       "id": "python",

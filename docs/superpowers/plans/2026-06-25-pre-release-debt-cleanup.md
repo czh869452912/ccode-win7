@@ -629,7 +629,7 @@ git commit -m "refactor: isolate gui dev fixtures"
 - Update: `docs/development-tracker.md`
 - Update: `docs/design-change-log.md`
 
-- [ ] **Step 1: Inventory release validation**
+- [x] **Step 1: Inventory release validation**
 
 Run:
 
@@ -639,23 +639,58 @@ rg -n "allow_system_tool_fallback|offline-runtime-contract|validate-offline-bund
 
 Expected: all dev fallback and release validation assumptions are visible.
 
-- [ ] **Step 2: Quarantine development fallback**
+- Inventory result:
+  - `package-lib.ps1` release verification was still forcing
+    `-SkipDynamicChecks`, even though release profile configured
+    `run_dynamic_checks: true`.
+  - `offline-runtime-contract.json` covered runtime tools but not release-gate
+    metadata.
+  - C smoke existed only as workspace-template/manual clang guidance.
+
+- [x] **Step 2: Quarantine development fallback**
 
 Ensure release bundle validation fails when a runtime-invoked tool is missing from the bundle. Development fallback may remain only if explicitly configured and never treated as release proof.
 
-- [ ] **Step 3: Add real C/C++ smoke workspace**
+- Implemented:
+  - `release_gates` now declare `allow_system_tool_fallback: false`.
+  - `package-lib.ps1` honors `run_dynamic_checks`; release profile no longer
+    forces `-SkipDynamicChecks`.
+  - `validate-cpp-smoke.py` defaults to bundle-local Clang and fails when
+    bundled clang is missing unless an explicit development override is passed.
+
+- [x] **Step 3: Add real C/C++ smoke workspace**
 
 Use or create a tiny C/C++ workspace that exercises default inspect/build/verify behavior through bundled tools.
 
-- [ ] **Step 4: Add Win7 GUI smoke procedure**
+- Implemented:
+  - Existing `data/workspace-template/main.c` is now a bundle-local release
+    gate, validated by staged `tools/validation/validate-cpp-smoke.py` and
+    `validate-cpp-smoke.cmd`.
+  - `validate-offline-bundle.ps1` can execute the C smoke gate during dynamic
+    release validation.
+
+- [x] **Step 4: Add Win7 GUI smoke procedure**
 
 Document and automate as much as possible for WebView2 109 fixed runtime startup, GUI activation, and default C/C++ workflow execution.
 
-- [ ] **Step 5: Verification**
+- Implemented:
+  - `validate-gui-smoke.cmd` now passes `--require-fixed-webview2` by default.
+  - `validate-gui-smoke.py` reports `fixed_webview2` metadata and rejects
+    bundle GUI smoke that does not use bundled `edgechromium`.
+  - Win7 target-machine windowed smoke remains the external release evidence.
+
+- [x] **Step 5: Verification**
 
 Run repo-side validators locally, then record the manual/VM Win7 evidence in the tracker when available.
 
-- [ ] **Step 6: Docs and commit**
+- Verification recorded:
+  - RED: newly added release-gate, C smoke, GUI fixed-runtime, and
+    run-dynamic-checks tests failed against the old implementation.
+  - GREEN: `uv run pytest tests/test_cpp_smoke_validator.py
+    tests/test_gui_smoke_contract.py tests/test_packaging_control_plane.py -q`
+    passed, 44 tests.
+
+- [x] **Step 6: Docs and commit**
 
 Commit with a message such as:
 

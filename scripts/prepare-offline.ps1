@@ -619,6 +619,10 @@ $guiSmokeScript = Join-Path $projectRoot 'scripts\validate-gui-smoke.py'
 if (Test-Path -LiteralPath $guiSmokeScript) {
     Stage-File -Source $guiSmokeScript -Destination (Join-Path $bundleRoot 'tools\validation\validate-gui-smoke.py')
 }
+$cppSmokeScript = Join-Path $projectRoot 'scripts\validate-cpp-smoke.py'
+if (Test-Path -LiteralPath $cppSmokeScript) {
+    Stage-File -Source $cppSmokeScript -Destination (Join-Path $bundleRoot 'tools\validation\validate-cpp-smoke.py')
+}
 
 $defaultConfig = @'
 {
@@ -751,9 +755,20 @@ set "BUNDLE_ROOT=%~dp0"
 set "PYTHONHOME=%BUNDLE_ROOT%runtime\python"
 set "PYTHONPATH=%BUNDLE_ROOT%app;%BUNDLE_ROOT%runtime\site-packages"
 set "PYTHONNOUSERSITE=1"
-"%PYTHONHOME%\python.exe" "%BUNDLE_ROOT%tools\validation\validate-gui-smoke.py" --bundle-root "%BUNDLE_ROOT%" %*
+"%PYTHONHOME%\python.exe" "%BUNDLE_ROOT%tools\validation\validate-gui-smoke.py" --bundle-root "%BUNDLE_ROOT%" --require-fixed-webview2 %*
 '@
 Write-TextFile -Path (Join-Path $bundleRoot 'validate-gui-smoke.cmd') -Content ($launcherGuiSmoke.Trim() + "`r`n")
+
+$launcherCppSmoke = @'
+@echo off
+setlocal
+set "BUNDLE_ROOT=%~dp0"
+set "PYTHONHOME=%BUNDLE_ROOT%runtime\python"
+set "PYTHONPATH=%BUNDLE_ROOT%app;%BUNDLE_ROOT%runtime\site-packages"
+set "PYTHONNOUSERSITE=1"
+"%PYTHONHOME%\python.exe" "%BUNDLE_ROOT%tools\validation\validate-cpp-smoke.py" --bundle-root "%BUNDLE_ROOT%" %*
+'@
+Write-TextFile -Path (Join-Path $bundleRoot 'validate-cpp-smoke.cmd') -Content ($launcherCppSmoke.Trim() + "`r`n")
 
 $licensesReadme = @'
 Third-party license notices for bundled assets are written here during prepare.
@@ -792,9 +807,9 @@ $guiLauncherResult = Stage-GuiLauncherExe -Source $guiLauncherExeResolved -Bundl
 $components += New-ComponentRecord -Name 'app_code' -StagedPath 'app\embedagent' -Required $true -Status 'staged' -SourcePath $sourceAppRoot -Notes 'Copied from src/embedagent.' -AssetId ''
 $components += New-ComponentRecord -Name 'docs_bundle' -StagedPath 'docs' -Required $true -Status 'staged' -SourcePath (Join-Path $projectRoot 'docs') -Notes 'Copied configuration, preflight, intranet, and Win7 GUI validation docs.' -AssetId ''
 $components += New-ComponentRecord -Name 'config_templates' -StagedPath 'config' -Required $true -Status 'staged' -SourcePath '' -Notes 'Generated default config and permission rules templates.' -AssetId ''
-$components += New-ComponentRecord -Name 'launcher_scripts' -StagedPath '.' -Required $true -Status 'staged' -SourcePath '' -Notes 'Generated embedagent.cmd, embedagent-tui.cmd, embedagent-gui.cmd, and validate-gui-smoke.cmd.' -AssetId ''
+$components += New-ComponentRecord -Name 'launcher_scripts' -StagedPath '.' -Required $true -Status 'staged' -SourcePath '' -Notes 'Generated embedagent.cmd, embedagent-tui.cmd, embedagent-gui.cmd, validate-gui-smoke.cmd, and validate-cpp-smoke.cmd.' -AssetId ''
 $components += New-ComponentRecord -Name 'gui_launcher_exe' -StagedPath 'EmbedAgent.exe;embedagent-gui.exe' -Required $true -Status $guiLauncherResult.status -SourcePath $guiLauncherResult.source_path -Notes $guiLauncherResult.notes -AssetId ''
-$components += New-ComponentRecord -Name 'validation_tools' -StagedPath 'tools\validation' -Required $true -Status 'staged' -SourcePath $guiSmokeScript -Notes 'Copied bundle-local GUI smoke validation script.' -AssetId ''
+$components += New-ComponentRecord -Name 'validation_tools' -StagedPath 'tools\validation' -Required $true -Status 'staged' -SourcePath $guiSmokeScript -Notes 'Copied bundle-local GUI and C/C++ smoke validation scripts.' -AssetId ''
 
 Write-Host "[prepare] Resolving runtime assets..."
 Write-Host "[prepare]   Requested assets: $($requestedAssetIds -join ', ')"

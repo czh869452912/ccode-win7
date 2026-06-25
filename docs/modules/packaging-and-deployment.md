@@ -5,7 +5,7 @@
 > 状态：`active`
 > 类型：`module`
 > 负责人：`project maintainers`
-> 最后同步日期：`2026-06-22`
+> 最后同步日期：`2026-06-25`
 > 对应代码范围：`scripts/`
 
 ## 1. Purpose And Scope
@@ -19,6 +19,7 @@
 - 分发制品、zip 与 sources seed 生成（`build-offline-bundle.ps1`）
 - 包完整性静态与动态校验（`validate-offline-bundle.ps1`）
 - runtime-invoked bundled external tool 契约维护（`offline-runtime-contract.json`）
+- C/C++ release smoke 验证（`validate-cpp-smoke.py`）
 - GUI 端到端冒烟验收（`validate-gui-smoke.py`）
 - 统一编排与结构化报告输出（`package.ps1`）
 
@@ -34,6 +35,7 @@
   - `build-offline-bundle.ps1` — 分发制品 + zip + sources seed
   - `validate-offline-bundle.ps1` — 静态与动态校验门禁
   - `offline-runtime-contract.json` — runtime-invoked bundled external tools 单一契约
+  - `validate-cpp-smoke.py` — bundle 内 Clang + C smoke workspace 验收
   - `validate-gui-smoke.py` — headless/windowed 端到端 GUI 验收
   - `package-lib.ps1` — PowerShell 共享库（配置解析、报告构建、GUI asset 检查）
 - bundle 目录布局：
@@ -41,6 +43,7 @@
   EmbedAgent/
   ├── EmbedAgent.exe / embedagent-gui.exe
   ├── embedagent.cmd / embedagent-tui.cmd / embedagent-gui.cmd
+  ├── validate-cpp-smoke.cmd / validate-gui-smoke.cmd
   ├── manifests/
   │   ├── bundle-manifest.json
   │   ├── checksums.txt
@@ -57,6 +60,10 @@
   │   ├── ctags/
   │   └── llvm/
   ├── config/
+  ├── data/
+  │   └── workspace-template/       # bundled C smoke workspace
+  ├── tools/
+  │   └── validation/
   └── docs/
   ```
 - 核心组件清单：
@@ -73,7 +80,7 @@
   | Native GUI launcher | `EmbedAgent.exe`, `embedagent-gui.exe` | integrated |
 - 上游依赖：`src/embedagent/`、GUI 静态资源、`scripts/offline-assets.json`、`scripts/package.config.json`、`scripts/offline-runtime-contract.json`
 - 下游影响：`build/offline-dist/<artifact>.zip`、内网目标机
-- 相关验证：`validate-offline-bundle.ps1`、`validate-gui-smoke.py`、Win7 目标机部署前检查
+- 相关验证：`validate-offline-bundle.ps1`、`validate-cpp-smoke.py`、`validate-gui-smoke.py`、Win7 目标机部署前检查
 - 相关契约：`README.md`、`docs/implementation-roadmap.md`
 
 ## 4. Dependencies And Consumers
@@ -98,7 +105,7 @@
 
 ## 5. Data / Control Flow
 
-`package.ps1` 按 `doctor` → `deps` → `assemble` → `verify` → `release` 的顺序驱动整个流水线。`assemble` 阶段先构建 GUI native launcher，再运行 `prepare-offline.ps1` 生成分级目录，并由 `build-offline-bundle.ps1` 晋升为分发制品；`verify` 阶段运行 `validate-offline-bundle.ps1` 做静态与动态门禁；最终通过验收的制品可部署到目标机并运行 `validate-gui-smoke.py` 做端到端确认。
+`package.ps1` 按 `doctor` → `deps` → `assemble` → `verify` → `release` 的顺序驱动整个流水线。`assemble` 阶段先构建 GUI native launcher，再运行 `prepare-offline.ps1` 生成分级目录，并由 `build-offline-bundle.ps1` 晋升为分发制品；`verify` 阶段运行 `validate-offline-bundle.ps1` 做静态与动态门禁，release profile 会执行 contract-backed C/C++ smoke gate；最终通过验收的制品可部署到目标机并运行 `validate-gui-smoke.py` / `validate-cpp-smoke.py` 做端到端确认。
 
 ```mermaid
 flowchart LR
@@ -106,7 +113,8 @@ flowchart LR
     L --> B["prepare-offline.ps1<br/>staging assembly"]
     B --> C["build-offline-bundle.ps1<br/>dist artifact + zip + sources"]
     C --> D["validate-offline-bundle.ps1<br/>static + dynamic checks"]
-    D --> E{READY?}
+    D --> J["validate-cpp-smoke.py<br/>bundled Clang C smoke"]
+    J --> E{READY?}
     E -->|Yes| F["Release artifact<br/>zip + deployment docs"]
     E -->|No| G["Fail / report issues"]
     F --> H["Target machine<br/>intranet deployment"]
@@ -119,15 +127,17 @@ flowchart LR
 - `build-gui-launcher.ps1` 只在构建机生成薄 Win32 launcher；运行时仍使用 bundle 内 Python/WebView2。
 - `prepare-offline.ps1` 生成中间分级树，不直接产出最终 zip。
 - `validate-offline-bundle.ps1` 是 release-ready 的强制门禁，并消费 `offline-runtime-contract.json` 验证所有 runtime-invoked bundled external tools。
-- `validate-gui-smoke.py` 在目标机或 CI 上运行，验证 GUI 真实可用。
+- `validate-cpp-smoke.py` 是 bundle-local C/C++ release gate，默认只接受 bundle 内 `bin/llvm/bin/clang.exe`，不会把系统 PATH 上的 clang 当作发布证明。
+- `validate-gui-smoke.py` 在目标机或 CI 上运行，验证 GUI 真实可用；bundle launcher 默认传入 `--require-fixed-webview2`。
 
 ## 6. Verification And Tests
 
 推荐回归入口：
 
 - `scripts/validate-offline-bundle.ps1` — 文件完整性、manifest 可解析性、checksum、launcher 合约、Python `.pth` 补丁、editable link 清除、runtime contract 静态/动态检查
-- `scripts/check-bundle-dependencies.py` — Python 依赖、manifest、runtime contract 与外部工具存在性检查
-- `scripts/validate-gui-smoke.py` — 模拟 OpenAI 服务器、GUI 启动、WebSocket 会话、工具调用、权限/用户输入流、`/review`
+- `scripts/check-bundle-dependencies.py` — Python 依赖、manifest、runtime contract、release gate 资产与外部工具存在性检查
+- `scripts/validate-cpp-smoke.py` — 使用 bundle 内 Clang 编译 `data/workspace-template/main.c` 到 `.embedagent/smoke-build/main.obj`，JSON 报告必须显示 `runtime_source == "bundle"` 才能作为 release 证据
+- `scripts/validate-gui-smoke.py` — 模拟 OpenAI 服务器、GUI 启动、WebSocket 会话、工具调用、权限/用户输入流、`/review`，bundle 验证可要求 Fixed Version WebView2 109
 - Win7 GUI 验收标准（窗口模式）：
   - `renderer_report.renderer == "edgechromium"`
   - `renderer_report.runtime_source == "bundle"`
@@ -143,6 +153,7 @@ flowchart LR
 - `scripts/` 下打包脚本职责或入口变化
 - `offline-assets.json` 或 `package.config.json` 结构变化
 - `offline-runtime-contract.json` 的工具、路径、动态检查或 LLVM child executable 列表变化
+- `offline-runtime-contract.json` 的 `release_gates`、C smoke workspace 或 smoke 脚本变化
 - 新增或移除第三方依赖/工具
 - Win7 兼容性策略或 WebView2 版本策略变化
 - 部署目录结构或配置模板变化

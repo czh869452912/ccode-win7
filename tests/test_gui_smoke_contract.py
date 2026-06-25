@@ -23,6 +23,14 @@ class TestGuiSmokeContract(unittest.TestCase):
         self.assertIn('"embedagent-gui.cmd"', text)
         self.assertLess(text.index('"embedagent-gui.exe"'), text.index('"embedagent-gui.cmd"'))
 
+    def test_bundle_smoke_requires_fixed_webview2_runtime(self):
+        text = self._script_text()
+
+        self.assertIn("--require-fixed-webview2", text)
+        self.assertIn("runtime\\webview2-fixed-runtime\\msedgewebview2.exe", text)
+        self.assertIn('"runtime_major"', text)
+        self.assertIn('"expected_runtime_major"', text)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -51,7 +51,7 @@ The next long-term architecture direction is captured in `docs/pi-inspired-agent
 - Official runtime configuration read model: `RuntimeConfigReducer` projects safe replayable runtime configuration from `transcript.jsonl`, including credential-free model profile metadata, registered tool names, model-visible active tool names, local resource revision metadata, capability counts, and provider snapshot records. It is diagnostic/replay state and does not replace extension activation, tool execution, resource reload, project extension loading, or permission policy.
 - Official compaction read model: `CompactionStateReducer` projects structured compact boundary state from `compact_boundary` transcript events, including token/message counts, preserved message anchors, trigger/phase/window diagnostics, safe file activity, evidence refs, extension-summary flags, and diagnostics. It feeds restore results, managed sessions, protocol snapshots, and session snapshots, but it does not drive context selection or become a second history source.
 - Official recovery read model: `RecoveryStateReducer` projects safe hosted-resume recovery markers from `recovery_marker` transcript events, including trusted-prefix counts, stop reasons, operation/compaction/runtime summaries, and diagnostics. It feeds restore results, managed sessions, protocol snapshots, and session snapshots, but it does not change restore rules or drive runtime policy.
-- Official offline runtime contract: `scripts/offline-runtime-contract.json` lists every runtime-invoked bundled external tool, including Python, Bash from MinGit, MinGit, ripgrep, Universal Ctags, and the LLVM/Clang child executables. Bundle validators consume this contract instead of maintaining separate hard-coded tool lists.
+- Official offline runtime contract: `scripts/offline-runtime-contract.json` lists every runtime-invoked bundled external tool and release gate, including Python, Bash from MinGit, MinGit, ripgrep, Universal Ctags, the LLVM/Clang child executables, bundle-local C smoke validation, and Win7/WebView2 GUI smoke metadata. Bundle validators consume this contract instead of maintaining separate hard-coded tool lists.
 - Official GUI bundle launcher: the GUI bundle includes a thin native Win32 launcher (`EmbedAgent.exe` / `embedagent-gui.exe`) for double-click startup, while Python, WebView2, LLVM/Clang, MinGit, ripgrep, and Universal Ctags remain explicit files in the portable bundle.
 - Official frontend vocabulary: `build`, `tasks`, `current_phase`, `discipline_profile`
 - Official GUI app-shell boundary: `GET /api/app/bootstrap` and `/api/app/workspaces*` expose GUI-owned workspace/app diagnostics, app commands, and local settings; this is separate from Agent Core session truth and from `GET /api/sessions/{id}/bootstrap`
@@ -222,7 +222,7 @@ Current architecture cutover status:
 - Pi-inspired minimal Core Phase K recovery state: completed
 - Pi-inspired minimal Core Phase L pack compatibility cleanup: completed
 - Pi-inspired minimal Core Phase M core alias cleanup: completed
-- Remaining work: pre-release architecture debt cleanup, clean Win7 bundle smoke, and real C project validation
+- Remaining work: pre-release architecture debt cleanup and clean Win7/WebView2 bundle smoke evidence; repo-side C smoke validation is now contract-backed through `validate-cpp-smoke.py`
 
 ## Verification
 

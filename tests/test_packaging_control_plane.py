@@ -213,6 +213,32 @@ class TestRuntimeBundleContract(unittest.TestCase):
             self.assertTrue(item["category"])
             self.assertTrue(item.get("paths") or item.get("alternatives"))
 
+    def test_runtime_contract_declares_release_gates(self):
+        payload = json.loads(RUNTIME_CONTRACT.read_text(encoding="utf-8"))
+        gates = payload.get("release_gates") or []
+        gate_ids = [item["id"] for item in gates]
+
+        self.assertEqual(
+            gate_ids,
+            [
+                "runtime_contract",
+                "cpp_smoke_workspace",
+                "gui_headless_smoke",
+                "win7_windowed_gui_smoke",
+            ],
+        )
+        cpp_gate = [item for item in gates if item["id"] == "cpp_smoke_workspace"][0]
+        self.assertEqual(cpp_gate["script"], "tools/validation/validate-cpp-smoke.py")
+        self.assertEqual(cpp_gate["workspace"], "data/workspace-template")
+        self.assertEqual(cpp_gate["required_tool"], "clang")
+        self.assertFalse(cpp_gate["allow_system_tool_fallback"])
+
+        win7_gate = [item for item in gates if item["id"] == "win7_windowed_gui_smoke"][0]
+        self.assertTrue(win7_gate["manual_on_win7"])
+        self.assertEqual(win7_gate["webview2_fixed_runtime_major"], 109)
+        self.assertEqual(win7_gate["expected_renderer"], "edgechromium")
+        self.assertEqual(win7_gate["expected_runtime_source"], "bundle")
+
     def test_runtime_contract_lists_current_llvm_children(self):
         payload = json.loads(RUNTIME_CONTRACT.read_text(encoding="utf-8"))
         llvm = [item for item in payload["required_tools"] if item["id"] == "llvm"][0]
@@ -260,6 +286,12 @@ class TestPrepareOfflineContract(unittest.TestCase):
         self.assertIn("data\\workspace-template\\main.c", script)
         self.assertIn("data\\workspace-template\\README.md", script)
         self.assertIn("int main(void)", script)
+
+    def test_prepare_offline_stages_cpp_smoke_validator(self):
+        script = self._script_text()
+        self.assertIn("scripts\\validate-cpp-smoke.py", script)
+        self.assertIn("tools\\validation\\validate-cpp-smoke.py", script)
+        self.assertIn("validate-cpp-smoke.cmd", script)
 
     def test_prepare_offline_contract_mentions_native_gui_launcher_component(self):
         script = self._script_text()
@@ -435,6 +467,8 @@ class TestStageJsonReports(unittest.TestCase):
                 "embedagent.cmd",
                 "embedagent-tui.cmd",
                 "embedagent-gui.cmd",
+                "validate-gui-smoke.cmd",
+                "validate-cpp-smoke.cmd",
                 "config/config.json",
                 "config/config.json.template",
                 "config/permission-rules.json",
@@ -443,6 +477,9 @@ class TestStageJsonReports(unittest.TestCase):
                 "docs/intranet-deployment.md",
                 "app/embedagent/frontend/gui/static/index.html",
                 "app/embedagent/frontend/gui/static/assets/app.js",
+                "tools/validation/validate-gui-smoke.py",
+                "tools/validation/validate-cpp-smoke.py",
+                "data/workspace-template/main.c",
                 "manifests/bundle-manifest.json",
             ]:
                 target = bundle_root / Path(path)
@@ -677,6 +714,41 @@ class TestStageJsonReports(unittest.TestCase):
             self.assertIn("runtime_tool.git", result_codes)
             self.assertIn("runtime_tool.llvm.clang_tidy", result_codes)
             self.assertEqual(payload["runtime_contract"]["schema_version"], 1)
+
+    def test_validate_offline_bundle_flags_missing_cpp_smoke_assets_in_strict_mode(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            bundle_root = Path(tmp) / "bundle"
+            sources_root = Path(tmp) / "sources"
+            bundle_root.mkdir()
+            sources_root.mkdir()
+            json_path = Path(tmp) / "validate-report.json"
+            result = subprocess.run(
+                [
+                    _powershell_exe(),
+                    "-NoProfile",
+                    "-File",
+                    str(VALIDATE_SCRIPT),
+                    "-BundleRoot",
+                    str(bundle_root),
+                    "-SourcesRoot",
+                    str(sources_root),
+                    "-ZipPath",
+                    str(Path(tmp) / "bundle.zip"),
+                    "-SkipDynamicChecks",
+                    "-RequireComplete",
+                    "-JsonOutputPath",
+                    str(json_path),
+                ],
+                cwd=str(ROOT),
+                capture_output=True,
+                text=True,
+            )
+            self.assertNotEqual(result.returncode, 0)
+            payload = json.loads(json_path.read_text(encoding="utf-8"))
+            result_codes = [item["code"] for item in payload["results"]]
+            self.assertIn("release_gate.cpp_smoke_workspace.script", result_codes)
+            self.assertIn("release_gate.cpp_smoke_workspace.workspace", result_codes)
+            self.assertIn("release_gate.cpp_smoke_workspace.launcher", result_codes)
 
     def test_validate_offline_bundle_flags_gui_launcher_contract_drift(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -990,6 +1062,38 @@ class TestPackageOrchestration(unittest.TestCase):
         verify_summary = payload["stages"][-1]["summary"]
         self.assertTrue(verify_summary["validate_report"])
         self.assertTrue(verify_summary["dependency_report"])
+
+    def test_package_release_honors_dynamic_check_profile(self):
+        env = os.environ.copy()
+        env["EMBEDAGENT_PYTHON"] = sys.executable
+        with tempfile.TemporaryDirectory() as tmp:
+            config = json.loads(MOCK_CONFIG.read_text(encoding="utf-8"))
+            config["profiles"]["release"]["run_dynamic_checks"] = True
+            config_path = Path(tmp) / "mock-config-dynamic.json"
+            config_path.write_text(json.dumps(config), encoding="utf-8")
+
+            result = subprocess.run(
+                [
+                    _powershell_exe(),
+                    "-NoProfile",
+                    "-File",
+                    str(PACKAGE_SCRIPT),
+                    "release",
+                    "-Config",
+                    str(config_path),
+                    "-Json",
+                ],
+                cwd=str(ROOT),
+                capture_output=True,
+                text=True,
+                env=env,
+            )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        payload = json.loads(result.stdout)
+        verify_summary = payload["stages"][-1]["summary"]
+        validate_report = Path(verify_summary["validate_report"])
+        validate_payload = json.loads(validate_report.read_text(encoding="utf-8"))
+        self.assertFalse(validate_payload["skip_dynamic_checks"])
 
     def test_mock_release_does_not_inject_frontend_build_stage(self):
         env = os.environ.copy()

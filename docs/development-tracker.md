@@ -50,6 +50,12 @@
   into ordinary product actions before reaching `store.js`. Generated GUI
   static assets are documented as committed release artifacts for the current
   offline packaging model, with `webapp/src/` as the review source of truth.
+- Slice 7 has converted release claims into contract-backed gates:
+  `offline-runtime-contract.json` now declares release gates, bundle validators
+  check those gate assets, release profile verification no longer forces
+  `-SkipDynamicChecks`, and `validate-cpp-smoke.py` compiles the bundled C smoke
+  workspace through bundle-local Clang without system PATH fallback. Clean
+  Win7/WebView2 windowed GUI smoke remains a target-machine evidence item.
 - Future Pi/T3 work should delete or replace transitional paths instead of
   adding adapters over them, while preserving Windows 7, offline deployment,
   Python 3.8, and the default C/C++ workflow.

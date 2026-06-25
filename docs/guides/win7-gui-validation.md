@@ -1,6 +1,6 @@
 # Win7 GUI 验证步骤
 
-> 更新日期：2026-06-22
+> 更新日期：2026-06-25
 > 适用对象：已解压的离线 bundle，在真实 Windows 7 目标机上执行
 
 ---
@@ -34,6 +34,7 @@ embedagent-gui.exe --help
 embedagent-gui.cmd --help
 validate-gui-smoke.cmd
 validate-gui-smoke.cmd --windowed --auto-close-seconds 8
+validate-cpp-smoke.cmd
 ```
 
 如果需要显式工作区：
@@ -41,7 +42,10 @@ validate-gui-smoke.cmd --windowed --auto-close-seconds 8
 ```cmd
 validate-gui-smoke.cmd --workspace D:\EmbedAgentWorkspace
 validate-gui-smoke.cmd --workspace D:\EmbedAgentWorkspace --windowed --auto-close-seconds 8
+validate-cpp-smoke.cmd --workspace data\workspace-template
 ```
+
+说明：`validate-gui-smoke.cmd` 默认传入 `--require-fixed-webview2`，bundle 验收必须拒绝缺失 Fixed Version WebView2 109 的 GUI 路径。`validate-cpp-smoke.cmd` 用 bundle 内 Clang 编译 bundled C smoke workspace，不能把系统 PATH 上的 clang 当作发布证明。
 
 ---
 
@@ -74,6 +78,18 @@ validate-gui-smoke.cmd --workspace D:\EmbedAgentWorkspace --windowed --auto-clos
 - `command_results` 中包含 `command_name == "review"` 且 `success == true`
 - `renderer_report.renderer == "edgechromium"`
 - `renderer_report.runtime_source == "bundle"`
+- `fixed_webview2.expected_runtime_major == 109`
+- `fixed_webview2.exists == true`
+
+### 4.4 C/C++ smoke
+
+`validate-cpp-smoke.cmd` 的 JSON 输出中应满足：
+
+- `ok == true`
+- `runtime_source == "bundle"`
+- `source_path` 指向 `data\workspace-template\main.c`
+- `object_path` 指向 `.embedagent\smoke-build\main.obj`
+- `allow_system_tool_fallback == false`
 
 说明：
 
@@ -117,12 +133,21 @@ validate-gui-smoke.cmd --windowed --auto-close-seconds 8：
 - assistant_text：
 - renderer_report.renderer：
 - renderer_report.runtime_source：
+- fixed_webview2.expected_runtime_major：
+- fixed_webview2.exists：
 - 观察到的窗口行为：
+
+validate-cpp-smoke.cmd：
+- 退出码：
+- runtime_source：
+- clang：
+- object_path：
 
 结论：
 - [ ] Win7 GUI 可用
 - [ ] WebView2 路径可用
 - [ ] bundle 内 Chromium 路径可用
+- [ ] bundle 内 Clang 可编译 C smoke workspace
 ```
 
 ---

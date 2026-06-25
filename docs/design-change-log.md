@@ -44,6 +44,47 @@
 
 ## 3. 当前变更记录
 
+### DC-202
+
+- Date: 2026-06-25
+- Change Topic: Contract-backed Win7 and C/C++ release gates
+- Summary:
+  - Added `release_gates` to `scripts/offline-runtime-contract.json` for
+    runtime contract checks, bundle-local C smoke, GUI headless smoke, and
+    Win7 windowed GUI smoke with Fixed Version WebView2 109 expectations.
+  - Added `scripts/validate-cpp-smoke.py` and bundle staging for
+    `validate-cpp-smoke.cmd`; the gate compiles
+    `data/workspace-template/main.c` through bundle-local Clang and does not
+    allow system-tool fallback by default.
+  - Updated `validate-offline-bundle.ps1` and
+    `check-bundle-dependencies.py` to consume release-gate metadata from the
+    same runtime contract instead of maintaining separate hard-coded gate
+    assumptions.
+  - Fixed package verification so release profiles with
+    `run_dynamic_checks: true` no longer force `-SkipDynamicChecks`.
+  - Strengthened GUI smoke validation with `--require-fixed-webview2` and
+    explicit fixed WebView2 evidence fields in the JSON output.
+- Impacted Scope:
+  - Offline packaging validation
+  - Win7 GUI smoke procedure
+  - C/C++ workflow release proof
+  - Release documentation and preflight checklists
+- Related Docs:
+  - `AGENTS.md`
+  - `README.md`
+  - `docs/guides/win7-preflight-checklist.md`
+  - `docs/guides/win7-gui-validation.md`
+  - `docs/modules/packaging-and-deployment.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/pre-release-architecture-debt-audit.md`
+- ADR Needed: No
+- Follow-up:
+  - Run `validate-gui-smoke.cmd --windowed --auto-close-seconds 8` on a clean
+    Windows 7 target machine and record the WebView2/runtime evidence before
+    release claims.
+
 ### DC-201
 
 - Date: 2026-06-25

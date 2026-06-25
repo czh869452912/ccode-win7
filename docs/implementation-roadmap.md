@@ -162,8 +162,10 @@ Near-term work should:
   T3-shaped renderer/runtime modules after the thread/composer extraction
 - keep visual fixtures out of production reducer paths and preserve the
   generated-asset release-artifact policy until packaging is redesigned
-- keep real Win7 WebView2 109 bundle validation and real C/C++ workflow
-  validation as release gates
+- keep real Win7 WebView2 109 bundle validation and C/C++ workflow validation
+  as release gates; repo-side validation now includes bundle-local
+  `validate-cpp-smoke.py`, while Win7 windowed GUI smoke still requires target
+  machine evidence
 
 ### 4.1 Pi-Inspired Minimal Core Program
 
@@ -211,11 +213,12 @@ The current self-extensible Agent Core baseline remains valid. The next program 
    - generated project extensions are disabled by default and still require manifests, declared permissions, workspace-bound entrypoints, diagnostics, and normal `PermissionPolicy` enforcement
 
 6. **Offline bundle validation**
-   - current implementation status: Phase F is complete for repo-side validation
+   - current implementation status: Phase F is complete for repo-side validation, and the pre-release release-gate slice adds contract-backed C/C++ smoke validation
    - `scripts/offline-runtime-contract.json` lists all runtime-invoked bundled external tools
-   - PowerShell and Python bundle validators consume the same runtime contract, including LLVM/Clang child executable checks
+   - PowerShell and Python bundle validators consume the same runtime contract, including LLVM/Clang child executable checks and release-gate asset checks
+   - `validate-cpp-smoke.py` compiles the bundled C smoke workspace with bundle-local Clang and rejects system-tool fallback by default
    - extension loading remains dependency-free at runtime and generated validation recipes use managed bundle commands
-   - clean Windows 7 unpack-and-run smoke remains a release gate
+   - clean Windows 7 unpack-and-run GUI smoke remains a target-machine release gate
 
 7. **Turn snapshot and capability registry foundation**
    - current implementation status: Phase G is complete
