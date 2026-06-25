@@ -1,18 +1,24 @@
 # Pre-Release Architecture Debt Audit
 
-> Status: active
-> Type: architecture audit baseline
+> Status: completed
+> Type: architecture debt retirement record
 > Owner: project maintainers
 > Last synchronized: 2026-06-25
 
 ## 1. Purpose
 
-This document records the pre-release architecture debt baseline for EmbedAgent.
+This document records the 2026-06-25 pre-release architecture debt baseline and
+the cleanup program that retired the immediate Pi/T3 blocking paths.
 
 The project is not live and has no production users. Therefore old internal
 state formats, compatibility shims, transitional GUI contracts, and patch-style
 adapter layers do not deserve product compatibility protection. Future work
 should delete or replace those layers when they block the target architecture.
+
+The seven-slice cleanup program is now closed. The completed implementation
+plan is archived at
+`docs/archive/pre-release-debt-cleanup/2026-06-25-pre-release-debt-cleanup.md`.
+This audit remains a guardrail for future work; it is not an active backlog.
 
 The hard product constraints still apply:
 
@@ -267,7 +273,7 @@ Target direction:
 
 ## 5. Debt Retirement Order
 
-The cleanup should proceed in deletion-oriented slices:
+The cleanup proceeded in deletion-oriented slices:
 
 1. Freeze new feature work that deepens current transitional contracts.
 2. Define the target Pi-style session-log/reducer/kernel contract and the
@@ -279,9 +285,8 @@ The cleanup should proceed in deletion-oriented slices:
 6. Replace method-name extension compatibility with explicit capability
    contracts. Done in Slice 4.
 7. Replace GUI global app/reducer state with T3-shaped state modules. Slice 5
-   has completed the thread/composer state extraction; App orchestration,
-   timeline contract slimming, visual fixture isolation, and generated asset
-   policy remain active cleanup work.
+   completed the thread/composer state extraction and promoted the T3-facing
+   history/runtime state boundary.
 8. Move visual fixtures and generated static assets out of product source
    paths. Slice 6 has moved visual fixture injection out of product reducers
    and documented generated GUI assets as committed release artifacts for the
@@ -290,8 +295,8 @@ The cleanup should proceed in deletion-oriented slices:
    added contract-backed C smoke and Win7 GUI gate metadata; final release still
    requires target-machine WebView2/windowed evidence.
 
-Each slice must end by deleting the old path or explicitly recording why the
-slice is incomplete.
+Each completed slice deleted the old path or recorded remaining release evidence
+outside the cleanup program.
 
 ## 6. Non-Goals For This Cleanup
 
@@ -310,21 +315,26 @@ This cleanup does not authorize:
 
 ## 7. Completion Bar
 
-The debt program is not complete until:
+The debt program closed after these promoted paths were in place:
 
-- Agent Core can be explained without QueryEngine or InProcessAdapter carrying
-  workflow-specific product behavior.
-- Session restore is reducer-first instead of imperative replay with
-  compatibility branches.
-- Timeline is not queryable as history and not required for review/bootstrap
-  truth.
-- Interactive actions use the same action lifecycle as other tool calls.
+- Agent Core ownership is split across `AgentLifecycleJournal`, `AgentKernel`,
+  `AgentLoop`, `AgentToolActionService`, and `AgentExtensionHost`, with
+  remaining facade slimming handled as ordinary future deletion-oriented work.
+- Timeline is not queryable as durable history and is not required for review or
+  GUI bootstrap truth.
+- Interactive actions use the same action lifecycle as other non-LLM tool
+  actions.
 - Extension contracts are explicit typed capabilities/events rather than
   method-name compatibility.
-- GUI state shape follows T3 Code's module boundaries instead of a large custom
-  reducer with T3-style renderers.
+- GUI runtime state follows T3 Code-style focused modules for session/thread
+  state, composer draft state, terminal display buffers, and workbench surface
+  persistence.
 - Dev fixtures no longer pollute production reducers, and generated GUI assets
   have an explicit release-artifact review policy.
-- A clean Windows 7 bundle can start the GUI and execute the default C/C++
-  workflow offline.
+- Offline bundle release gates are contract-backed, including bundle-local C
+  smoke validation and explicit Win7/WebView2 GUI smoke metadata.
+
+Remaining release evidence is intentionally narrower: before release claims, a
+clean Windows 7 target machine still must run the fixed-WebView2 windowed GUI
+smoke and broader real C/C++ workflow validation from the promoted bundle.
 

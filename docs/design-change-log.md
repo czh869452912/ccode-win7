@@ -44,6 +44,43 @@
 
 ## 3. 当前变更记录
 
+### DC-203
+
+- Date: 2026-06-25
+- Change Topic: Pre-release debt cleanup closeout
+- Summary:
+  - Closed the seven-slice pre-release debt cleanup program after the
+    transcript/session truth, unified action pipeline, Agent Core ownership,
+    explicit extension capability, T3-style GUI state, dev fixture isolation,
+    and release-gate slices landed.
+  - Reclassified `docs/pre-release-architecture-debt-audit.md` from active
+    backlog baseline to completed debt-retirement record and future
+    deletion-oriented guardrail.
+  - Archived the completed implementation plan under
+    `docs/archive/pre-release-debt-cleanup/` and removed the active
+    `docs/superpowers/plans/` pointer.
+  - Kept clean Windows 7/WebView2 windowed GUI smoke and broader real C/C++
+    workflow validation as release-cut evidence items before release claims.
+- Impacted Scope:
+  - Documentation governance
+  - Architecture debt tracking
+  - Release evidence planning
+- Related Docs:
+  - `AGENTS.md`
+  - `README.md`
+  - `docs/README.md`
+  - `docs/archive/README.md`
+  - `docs/archive/pre-release-debt-cleanup/README.md`
+  - `docs/pre-release-architecture-debt-audit.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/overall-solution-architecture.md`
+- ADR Needed: No
+- Follow-up:
+  - Run `validate-gui-smoke.cmd --windowed --auto-close-seconds 8` on a clean
+    Windows 7 target machine and record the WebView2/runtime evidence before
+    release claims.
+
 ### DC-202
 
 - Date: 2026-06-25
@@ -117,8 +154,8 @@
   - `docs/pre-release-architecture-debt-audit.md`
 - ADR Needed: No
 - Follow-up:
-  - Continue to Slice 7 release gates: real Win7/WebView2 bundle smoke and real
-    C/C++ workflow validation.
+  - Closed by DC-202 release gates and DC-203 cleanup closeout; clean
+    Win7/WebView2 windowed smoke remains release-cut evidence.
 
 ### DC-200
 
@@ -288,7 +325,7 @@
   - `docs/overall-solution-architecture.md`
   - `docs/implementation-roadmap.md`
   - `docs/development-tracker.md`
-  - `docs/superpowers/plans/2026-06-25-pre-release-debt-cleanup.md`
+  - `docs/archive/pre-release-debt-cleanup/2026-06-25-pre-release-debt-cleanup.md`
 - ADR Required: No. This is a deletion-oriented pre-release cleanup slice and
   does not add a new public API, dependency, deployment model, or permission
   category.

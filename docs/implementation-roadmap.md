@@ -147,19 +147,20 @@ Recent stabilization work has also completed the agent-core ownership cutover:
 
 ## 4. Remaining Near-Term Work
 
-The next program is the pre-release debt cleanup described in
-`pre-release-architecture-debt-audit.md`. The product is not live, so the
-implementation should stop preserving old internal state as if it were a public
-contract.
+The 2026-06-25 pre-release debt cleanup program described in
+`pre-release-architecture-debt-audit.md` is closed, and its completed plan is
+archived under `docs/archive/pre-release-debt-cleanup/`. The product is still
+not live, so future implementation should continue deleting old internal state
+instead of preserving it as if it were a public contract.
 
 Near-term work should:
 
-- continue shrinking GUI/Core surfaces that were designed around timeline-era
-  replay assumptions
-- keep interactive actions, resumed action execution, and workflow-patch capture in the unified action pipeline
-- continue shrinking remaining QueryEngine/InProcessAdapter facade responsibilities without reintroducing compatibility wrappers
-- continue replacing remaining GUI global app/reducer orchestration with
-  T3-shaped renderer/runtime modules after the thread/composer extraction
+- keep future GUI/Core work on the promoted transcript, unified action,
+  explicit capability, and T3-style renderer-state paths closed by the cleanup
+  slices
+- continue shrinking remaining QueryEngine/InProcessAdapter facade
+  responsibilities through deletion-oriented replacements, not compatibility
+  wrappers
 - keep visual fixtures out of production reducer paths and preserve the
   generated-asset release-artifact policy until packaging is redesigned
 - keep real Win7 WebView2 109 bundle validation and C/C++ workflow validation

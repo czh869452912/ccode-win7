@@ -4,7 +4,7 @@
 
 **Goal:** Replace transitional Agent Core and GUI compatibility layers with the promoted Pi/T3-shaped architecture while preserving Windows 7, offline deployment, Python 3.8, and the default C/C++ workflow.
 
-**Architecture:** Treat `docs/pre-release-architecture-debt-audit.md` as the active cleanup baseline. Each slice must promote one target path, migrate tests and fixtures to that path, and delete the old path before completion. The work intentionally does not preserve pre-release internal session, timeline, GUI reducer, or extension-hook state compatibility.
+**Architecture:** This completed plan followed `docs/pre-release-architecture-debt-audit.md` as the cleanup baseline. Each slice promoted one target path, migrated tests and fixtures to that path, and deleted the old path before completion. The work intentionally did not preserve pre-release internal session, timeline, GUI reducer, or extension-hook state compatibility.
 
 **Tech Stack:** Python 3.8, pytest, React/Vite webapp, Windows 7-compatible GUI backend, bundled MinGit/ripgrep/ctags/LLVM runtime contract.
 
@@ -116,7 +116,7 @@ uv run --locked python scripts/lint.py
 
 Expected: fast non-GUI tests and lint pass.
 
-- [ ] **Step 8: Docs and commit**
+- [x] **Step 8: Docs and commit**
 
 Update source-of-truth docs to state the promoted path and delete references to timeline as queryable history. Commit with a message such as:
 
@@ -719,12 +719,13 @@ easier once those two branches are gone. Slice 5 should not start before Slice
 
 ## Completion Checklist
 
-- [ ] No feature work deepens transitional timeline/session/GUI reducer state.
-- [ ] Every completed slice deletes the old path or records the slice as
+- [x] No feature work deepens transitional timeline/session/GUI reducer state.
+- [x] Every completed slice deletes the old path or records the slice as
   incomplete.
-- [ ] Source-of-truth docs are updated in the same change as code.
-- [ ] Fast non-GUI tests pass after Agent Core slices.
-- [ ] Webapp tests/build and visual debug pass after GUI slices.
-- [ ] Clean Win7 bundle and real C/C++ workflow validation are recorded before
-  release claims.
+- [x] Source-of-truth docs are updated in the same change as code.
+- [x] Fast non-GUI tests pass after Agent Core slices.
+- [x] Webapp tests/build and visual debug pass after GUI slices.
+- [x] Release gates are recorded before release claims: repo-side C smoke is
+  contract-backed, and clean Win7/WebView2 plus broader real C/C++ validation
+  remain explicit release-cut evidence items rather than claimed proof here.
 

@@ -18,7 +18,7 @@ Local offline self-extension is part of the official architecture: workspace fil
 
 Optional enterprise/intranet integrations follow the same minimal-core rule: they may exist as trusted providers, workflow packages, project extensions, or telemetry sinks, but Agent Core must not depend on network availability. Intranet Git, custom service, and telemetry features must be explicit, disableable, manifest/config gated, permission-checked, and failure-tolerant; they must not send prompts, source text, raw tool outputs, or credentials through diagnostics or telemetry.
 
-The next long-term architecture direction is captured in `docs/pi-inspired-agent-core-blueprint.md`: continue learning from Pi's functional design and architecture philosophy while preserving EmbedAgent's offline, Windows 7, Python 3.8, and C/C++ engineering constraints. The current baseline remains valid, but the project is still pre-release and has no production user state to preserve. `docs/pre-release-architecture-debt-audit.md` is the active cleanup baseline: old internal session formats, timeline dependencies, GUI reducer shapes, and extension-hook compatibility layers should be deleted or replaced when they block the Pi/T3 target. The blueprint guides work toward a smaller Agent Kernel, durable session-log reducers, source-aware hooks, explicit turn snapshots, replayable runtime configuration, structured compaction state, recovery markers, and a default C/C++ workflow package loaded through the same capability boundary as local extensions.
+The next long-term architecture direction is captured in `docs/pi-inspired-agent-core-blueprint.md`: continue learning from Pi's functional design and architecture philosophy while preserving EmbedAgent's offline, Windows 7, Python 3.8, and C/C++ engineering constraints. The current baseline remains valid, but the project is still pre-release and has no production user state to preserve. `docs/pre-release-architecture-debt-audit.md` records the closed pre-release cleanup baseline and remains the guardrail for future deletion-oriented work: old internal session formats, timeline dependencies, GUI reducer shapes, and extension-hook compatibility layers should be deleted or replaced when they block the Pi/T3 target. The blueprint guides work toward a smaller Agent Kernel, durable session-log reducers, source-aware hooks, explicit turn snapshots, replayable runtime configuration, structured compaction state, recovery markers, and a default C/C++ workflow package loaded through the same capability boundary as local extensions.
 
 - User-visible modes: `explore`, `spec`, `build`, `debug`, `verify`
 - Default C/C++ execution model: `mode + discipline_profile + execution_phase`
@@ -222,7 +222,7 @@ Current architecture cutover status:
 - Pi-inspired minimal Core Phase K recovery state: completed
 - Pi-inspired minimal Core Phase L pack compatibility cleanup: completed
 - Pi-inspired minimal Core Phase M core alias cleanup: completed
-- Remaining work: pre-release architecture debt cleanup and clean Win7/WebView2 bundle smoke evidence; repo-side C smoke validation is now contract-backed through `validate-cpp-smoke.py`
+- Remaining release evidence: clean Win7/WebView2 bundle smoke and broader real C/C++ project validation before release claims; the pre-release debt cleanup slices are closed, and repo-side C smoke validation is contract-backed through `validate-cpp-smoke.py`
 
 ## Verification
 

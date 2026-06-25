@@ -426,7 +426,7 @@ When changing architecture:
 The project is pre-release. Compatibility with old internal session state,
 timeline projections, GUI reducer shapes, and extension-hook compatibility
 surfaces is not a product goal. `pre-release-architecture-debt-audit.md`
-records the active debt baseline for deleting or replacing those layers while
+records the closed debt baseline for deleting or replacing those layers while
 preserving Windows 7, offline deployment, Python 3.8, and the default C/C++
 workflow target.
 
@@ -443,7 +443,7 @@ The Pi lesson for enterprise capabilities is structural rather than permissive: 
 
 The intended long-term direction is that Agent Core can be described without C/C++ workflow vocabulary. The bundled C/C++ harness remains the default product workflow, but it should continue moving toward a first-party workflow package loaded through the same capability boundary as other local extensions.
 
-This is a gradual direction, not a statement that the target state is fully implemented. Phase A durable operation reducers, Phase B extension hook bus dispatch, Phase C AgentKernel lifecycle extraction, Phase D default C/C++ workflow package ownership, Phase E local self-extension authoring, Phase F repo-side offline bundle validation, Phase G turn snapshot / capability registry foundation, Phase H runtime configuration reducer, Phase I workflow package manifest/read model, Phase J structured compaction state, Phase K recovery state, Phase L pack compatibility cleanup, and Phase M core alias cleanup are complete, and the pre-release release-gate slice now adds contract-backed C smoke validation plus explicit Win7 GUI gate metadata. Near-term changes should prefer deletion-oriented replacement of stale internal paths over preserving hosted compatibility, while keeping the default C/C++ workflow runnable and recording clean Win7/WebView2 bundle smoke evidence before release claims.
+This is a gradual direction, not a statement that the target state is fully implemented. Phase A durable operation reducers, Phase B extension hook bus dispatch, Phase C AgentKernel lifecycle extraction, Phase D default C/C++ workflow package ownership, Phase E local self-extension authoring, Phase F repo-side offline bundle validation, Phase G turn snapshot / capability registry foundation, Phase H runtime configuration reducer, Phase I workflow package manifest/read model, Phase J structured compaction state, Phase K recovery state, Phase L pack compatibility cleanup, and Phase M core alias cleanup are complete. The 2026-06-25 pre-release debt cleanup slice program is closed, and the release-gate slice adds contract-backed C smoke validation plus explicit Win7 GUI gate metadata. Future changes should prefer deletion-oriented replacement of stale internal paths over preserving hosted compatibility, while keeping the default C/C++ workflow runnable and recording clean Win7/WebView2 bundle smoke evidence before release claims.
 
 Phase M removed the remaining core-level global/proxy compatibility aliases for
 mode registry access, command sanitizer access, and hosted adapter class lookup.

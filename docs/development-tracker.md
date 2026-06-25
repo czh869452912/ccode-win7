@@ -1,6 +1,6 @@
 # EmbedAgent 开发进度跟踪
 
-> 更新日期：2026-06-25（pre-release architecture debt baseline）
+> 更新日期：2026-06-25（pre-release architecture debt cleanup closed）
 > 用途：持续跟踪当前阶段、下一步任务、里程碑进度、风险与阻塞
 
 ---
@@ -24,14 +24,15 @@
 
 ## 2. 当前阶段
 
-### 2026-06-25 - Pre-Release Architecture Debt Baseline
+### 2026-06-25 - Pre-Release Architecture Debt Cleanup Closed
 
 - The project is explicitly treated as pre-release with no production user state
   to preserve.
 - Old internal session formats, timeline dependencies, GUI reducer shapes,
   generated visual-debug state, and extension-hook compatibility layers are no
   longer protected compatibility targets.
-- The active cleanup baseline is `docs/pre-release-architecture-debt-audit.md`.
+- `docs/pre-release-architecture-debt-audit.md` now records the closed cleanup
+  baseline and remains the deletion-oriented guardrail for future work.
 - Slice 1 has removed `SessionTimelineStore` and timeline-backed `/review` /
   `/events` replay. Session activation and review now consume
   transcript/session projections; `/api/sessions/{id}/events` returns
@@ -56,9 +57,11 @@
   `-SkipDynamicChecks`, and `validate-cpp-smoke.py` compiles the bundled C smoke
   workspace through bundle-local Clang without system PATH fallback. Clean
   Win7/WebView2 windowed GUI smoke remains a target-machine evidence item.
-- Future Pi/T3 work should delete or replace transitional paths instead of
-  adding adapters over them, while preserving Windows 7, offline deployment,
-  Python 3.8, and the default C/C++ workflow.
+- The completed implementation plan has been archived under
+  `docs/archive/pre-release-debt-cleanup/`. Future Pi/T3 work should delete or
+  replace transitional paths instead of adding adapters over them, while
+  preserving Windows 7, offline deployment, Python 3.8, and the default C/C++
+  workflow.
 
 ### 2026-06-22 - GUI Native Bundle Launcher
 
