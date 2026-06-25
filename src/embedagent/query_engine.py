@@ -1571,15 +1571,13 @@ class QueryEngine(object):
         """Detect if agent is signaling task completion.
 
         Signals:
-        - finish_reason == "completed" or "stop"
         - No tool calls requested
-        - Content contains completion markers
+        - A non-empty assistant message is available for the user
         """
-        if reply.finish_reason in ("completed", "stop"):
-            return True
-        if not reply.actions:
-            return True
-        return False
+        del session
+        if reply.actions:
+            return False
+        return bool(str(reply.content or "").strip())
 
     def _run_loop(
         self,

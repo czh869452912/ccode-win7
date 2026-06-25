@@ -40,6 +40,11 @@ class TestCompletionSignal(unittest.TestCase):
         session = Session()
         self.assertTrue(self.engine._is_completion_signal(reply, session))
 
+    def test_empty_stop_without_actions_is_not_completion(self):
+        reply = AssistantReply(content="", actions=[], finish_reason="stop")
+        session = Session()
+        self.assertFalse(self.engine._is_completion_signal(reply, session))
+
 
 if __name__ == "__main__":
     unittest.main()

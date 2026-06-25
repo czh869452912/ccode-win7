@@ -107,6 +107,10 @@ class AgentLoop(object):
             and int(completed_steps or 0) >= self.loop_safety_limit
         )
 
+    @staticmethod
+    def _has_visible_content(reply: AssistantReply) -> bool:
+        return bool(str(reply.content or "").strip())
+
     def _transition_from_decision(
         self,
         decision: AgentLoopContinuationDecision,
@@ -386,6 +390,32 @@ class AgentLoop(object):
                         record.presentation = presentation
             final_text = reply.content
             turns_used = step_index
+            if not reply.actions and not self._has_visible_content(reply):
+                decision = self.continuation_policy.decide_after_step(
+                    AgentLoopContinuationFacts(
+                        step_index=step_index,
+                        turns_used=turns_used,
+                        mode_name=current_mode,
+                        workflow_state=workflow_state,
+                        guard_stop_reason="provider returned empty assistant response without tool calls",
+                    )
+                )
+                if decision.kind not in (CONTINUATION_STOP, CONTINUATION_ABORT):
+                    raise RuntimeError("Unsupported continuation decision: %s" % decision.kind)
+                transition = self._transition_from_decision(
+                    decision,
+                    fallback_reason="guard_stop",
+                    fallback_message="provider returned empty assistant response without tool calls",
+                    turns_used=turns_used,
+                    fallback_next_mode=current_mode,
+                )
+                transition.metadata.setdefault("finish_reason", reply.finish_reason or "")
+                transition.metadata.setdefault("empty_response", True)
+                self._record_transition(session, transition)
+                self._persist_summary(session, current_mode, assembly)
+                if on_step_finish is not None:
+                    on_step_finish(step_index, reply, transition.reason)
+                return QueryTurnResult(final_text, session, transition, turns_used)
             if self._is_completion_signal(reply, session):
                 decision = self.continuation_policy.decide_after_step(
                     AgentLoopContinuationFacts(

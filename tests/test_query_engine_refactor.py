@@ -301,6 +301,18 @@ class FakeClient(object):
         return reply
 
 
+class EmptyStopClient(object):
+    def __init__(self):
+        self.calls = 0
+
+    def generate(self, messages, tools=None):
+        self.calls += 1
+        return AssistantReply(content="", actions=[], finish_reason="stop")
+
+    def stream(self, messages, tools=None, on_text_delta=None, on_reasoning_delta=None):
+        return self.generate(messages, tools=tools)
+
+
 class SnapshotInspectingClient(object):
     def __init__(self):
         self.messages = []
@@ -809,6 +821,34 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertFalse(hasattr(QueryEngine, "_schemas_for_active_tools"))
         self.assertFalse(hasattr(QueryEngine, "_allowed_tools_for_mode"))
         self.assertIs(engine.extension_manager, engine.extension_host.manager)
+
+    def test_query_engine_guard_stops_empty_provider_reply_without_tool_calls(self):
+        client = EmptyStopClient()
+        transcript_store = TranscriptStore(self.workspace)
+        engine = QueryEngine(
+            client=client,
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+            transcript_store=transcript_store,
+        )
+        session = Session()
+        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：build")
+
+        result = engine.submit_user_turn(
+            user_text="继续",
+            stream=False,
+            initial_mode="build",
+            session=session,
+        )
+
+        self.assertEqual(result.transition.reason, "guard_stop")
+        self.assertIn("empty assistant response", result.transition.message)
+        self.assertEqual(client.calls, 1)
+        self.assertEqual(result.final_text, "")
+        self.assertEqual(session.turns[-1].steps[-1].status, "guard_stop")
+        events = transcript_store.load_events(session.session_id)
+        transitions = [item for item in events if item["type"] == "loop_transition"]
+        self.assertEqual(transitions[-1]["payload"]["reason"], "guard_stop")
 
     def test_query_engine_routes_ask_user_through_action_service(self):
         engine = QueryEngine(
