@@ -409,6 +409,13 @@ When changing architecture:
 - then delete or archive the old path
 - keep current docs describing only the official architecture
 
+The project is pre-release. Compatibility with old internal session state,
+timeline projections, GUI reducer shapes, and extension-hook compatibility
+surfaces is not a product goal. `pre-release-architecture-debt-audit.md`
+records the active debt baseline for deleting or replacing those layers while
+preserving Windows 7, offline deployment, Python 3.8, and the default C/C++
+workflow target.
+
 ## 12. Next Architecture Direction
 
 The current official architecture remains the baseline described above. The next architecture program is defined by `pi-inspired-agent-core-blueprint.md`.
@@ -422,7 +429,7 @@ The Pi lesson for enterprise capabilities is structural rather than permissive: 
 
 The intended long-term direction is that Agent Core can be described without C/C++ workflow vocabulary. The bundled C/C++ harness remains the default product workflow, but it should continue moving toward a first-party workflow package loaded through the same capability boundary as other local extensions.
 
-This is a gradual direction, not a statement that the target state is fully implemented. Phase A durable operation reducers, Phase B extension hook bus dispatch, Phase C AgentKernel lifecycle extraction, Phase D default C/C++ workflow package ownership, Phase E local self-extension authoring, Phase F repo-side offline bundle validation, Phase G turn snapshot / capability registry foundation, Phase H runtime configuration reducer, Phase I workflow package manifest/read model, Phase J structured compaction state, Phase K recovery state, Phase L pack compatibility cleanup, and Phase M core alias cleanup are complete. Near-term changes should preserve the current hosted behavior while completing real Win7 smoke validation, continuing real C/C++ project validation, and continuing stale compatibility audits.
+This is a gradual direction, not a statement that the target state is fully implemented. Phase A durable operation reducers, Phase B extension hook bus dispatch, Phase C AgentKernel lifecycle extraction, Phase D default C/C++ workflow package ownership, Phase E local self-extension authoring, Phase F repo-side offline bundle validation, Phase G turn snapshot / capability registry foundation, Phase H runtime configuration reducer, Phase I workflow package manifest/read model, Phase J structured compaction state, Phase K recovery state, Phase L pack compatibility cleanup, and Phase M core alias cleanup are complete, but pre-release compatibility layers remain. Near-term changes should prefer deletion-oriented replacement of stale internal paths over preserving hosted compatibility, while keeping the default C/C++ workflow runnable and advancing real Win7 smoke and real C/C++ project validation.
 
 Phase M removed the remaining core-level global/proxy compatibility aliases for
 mode registry access, command sanitizer access, and hosted adapter class lookup.

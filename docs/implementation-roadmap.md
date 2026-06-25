@@ -13,6 +13,9 @@ It describes the current implementation order and the next remaining priorities.
 - End each major program with a runnable, verifiable milestone
 - Prefer one promoted architecture path over long-lived compatibility branches
 - Keep current docs aligned with current code
+- Treat pre-release internal compatibility as disposable; delete or replace old
+  session, timeline, GUI reducer, and extension-hook shapes instead of adding
+  new adapters over them
 
 ## 3. Completed Core Programs
 
@@ -124,10 +127,21 @@ Recent stabilization work has also completed the agent-core ownership cutover:
 
 ## 4. Remaining Near-Term Work
 
-- Continue polishing the T3code/Pi workbench shell with real Win7 WebView2 109
-  preview feasibility validation, narrow-width GUI layout validation, TUI
-  raw-console validation, C/C++ workflow task/run surface refinement, and
-  future source-control mutation/checkpoint slices outside Agent Core.
+The next program is the pre-release debt cleanup described in
+`pre-release-architecture-debt-audit.md`. The product is not live, so the
+implementation should stop preserving old internal state as if it were a public
+contract.
+
+Near-term work should:
+
+- remove timeline as a durable product dependency and rebuild review/bootstrap
+  truth from transcript-backed projections
+- move interactive actions into the unified action pipeline
+- shrink the QueryEngine, AgentLoop, and InProcessAdapter responsibility cycle
+- replace GUI global app/reducer state with T3-shaped renderer/runtime modules
+- move visual fixtures and generated assets out of production state paths
+- keep real Win7 WebView2 109 bundle validation and real C/C++ workflow
+  validation as release gates
 
 ### 4.1 Pi-Inspired Minimal Core Program
 
@@ -321,9 +335,11 @@ Before claiming a roadmap slice complete:
 
 ## 7. Current Roadmap Summary
 
-The repository is now past the architecture cutover stage and into stabilization:
+The repository is now past the architecture cutover stage and into pre-release
+debt cleanup:
 
-- keep deleting dead compatibility layers
+- delete or replace transitional session, timeline, GUI reducer, and
+  extension-hook layers instead of adapting around them
 - keep validating on real C projects
 - keep tightening offline bundle behavior around the shared runtime contract
 - keep the transcript-backed session-history path as the only official history model

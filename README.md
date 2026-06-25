@@ -18,7 +18,7 @@ Local offline self-extension is part of the official architecture: workspace fil
 
 Optional enterprise/intranet integrations follow the same minimal-core rule: they may exist as trusted providers, workflow packages, project extensions, or telemetry sinks, but Agent Core must not depend on network availability. Intranet Git, custom service, and telemetry features must be explicit, disableable, manifest/config gated, permission-checked, and failure-tolerant; they must not send prompts, source text, raw tool outputs, or credentials through diagnostics or telemetry.
 
-The next long-term architecture direction is captured in `docs/pi-inspired-agent-core-blueprint.md`: continue learning from Pi's functional design and architecture philosophy while preserving EmbedAgent's offline, Windows 7, Python 3.8, and C/C++ engineering constraints. The current baseline remains valid; the blueprint guides gradual work toward a smaller Agent Kernel, durable session-log reducers, source-aware hooks, explicit turn snapshots, replayable runtime configuration, structured compaction state, recovery markers, and a default C/C++ workflow package loaded through the same capability boundary as local extensions. Phase A durable operation truth, Phase B source-aware extension hook dispatch, Phase C AgentKernel lifecycle extraction, Phase D default C/C++ workflow package ownership, Phase E local self-extension authoring, Phase F repo-side offline bundle validation, Phase G turn snapshot / capability registry foundation, Phase H runtime configuration reducer, Phase I workflow package manifest/read model, Phase J structured compaction state, Phase K recovery state, Phase L pack compatibility cleanup, and Phase M core alias cleanup are complete. The next architecture work should focus on real Win7 bundle smoke validation, real C/C++ project validation, and continuing stale compatibility audits.
+The next long-term architecture direction is captured in `docs/pi-inspired-agent-core-blueprint.md`: continue learning from Pi's functional design and architecture philosophy while preserving EmbedAgent's offline, Windows 7, Python 3.8, and C/C++ engineering constraints. The current baseline remains valid, but the project is still pre-release and has no production user state to preserve. `docs/pre-release-architecture-debt-audit.md` is the active cleanup baseline: old internal session formats, timeline dependencies, GUI reducer shapes, and extension-hook compatibility layers should be deleted or replaced when they block the Pi/T3 target. The blueprint guides work toward a smaller Agent Kernel, durable session-log reducers, source-aware hooks, explicit turn snapshots, replayable runtime configuration, structured compaction state, recovery markers, and a default C/C++ workflow package loaded through the same capability boundary as local extensions.
 
 - User-visible modes: `explore`, `spec`, `build`, `debug`, `verify`
 - Default C/C++ execution model: `mode + discipline_profile + execution_phase`
@@ -73,6 +73,7 @@ The product no longer treats the old `code` mode or `manage_todos`-style workflo
 ## Documentation Entry Points
 
 - `docs/README.md`
+- `docs/pre-release-architecture-debt-audit.md`
 - `docs/documentation-governance.md`
 - `docs/documentation-style-guide.md`
 - `docs/workflows/code-doc-sync.md`
@@ -204,7 +205,7 @@ Current architecture cutover status:
 - Pi-inspired minimal Core Phase K recovery state: completed
 - Pi-inspired minimal Core Phase L pack compatibility cleanup: completed
 - Pi-inspired minimal Core Phase M core alias cleanup: completed
-- Remaining work: clean Win7 bundle smoke, real C project validation, and remaining stale compatibility audit
+- Remaining work: pre-release architecture debt cleanup, clean Win7 bundle smoke, and real C project validation
 
 ## Verification
 

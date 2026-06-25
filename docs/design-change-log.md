@@ -44,6 +44,32 @@
 
 ## 3. 当前变更记录
 
+### DC-195
+
+- Date: 2026-06-25
+- Change Topic: Pre-release architecture debt baseline
+- Summary:
+  - Established `docs/pre-release-architecture-debt-audit.md` as the active
+    baseline for deleting or replacing transitional Agent Core and GUI layers.
+  - Made explicit that the project has no production user state to preserve, so
+    old internal session formats, timeline dependencies, GUI reducer shapes,
+    visual fixture actions, and extension-hook compatibility layers are not
+    forward-compatibility targets.
+  - Kept the hard constraints unchanged: Windows 7, offline deployment, Python
+    3.8, bundled runtime tools, and the default C/C++ workflow.
+- Impacted Scope:
+  - Architecture planning
+  - Agent Core cleanup sequencing
+  - GUI T3 parity sequencing
+  - Documentation governance
+- Related Docs:
+  - `docs/pre-release-architecture-debt-audit.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+- ADR Required: No. This records a pre-release cleanup policy and does not add a
+  new runtime dependency, deployment model, permission category, or public API.
+
 ### DC-194
 
 - Date: 2026-06-25

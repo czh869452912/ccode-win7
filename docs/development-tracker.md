@@ -1,6 +1,6 @@
 # EmbedAgent 开发进度跟踪
 
-> 更新日期：2026-06-22（GUI native bundle launcher）
+> 更新日期：2026-06-25（pre-release architecture debt baseline）
 > 用途：持续跟踪当前阶段、下一步任务、里程碑进度、风险与阻塞
 
 ---
@@ -23,6 +23,18 @@
 ---
 
 ## 2. 当前阶段
+
+### 2026-06-25 - Pre-Release Architecture Debt Baseline
+
+- The project is explicitly treated as pre-release with no production user state
+  to preserve.
+- Old internal session formats, timeline dependencies, GUI reducer shapes,
+  generated visual-debug state, and extension-hook compatibility layers are no
+  longer protected compatibility targets.
+- The active cleanup baseline is `docs/pre-release-architecture-debt-audit.md`.
+- Future Pi/T3 work should delete or replace transitional paths instead of
+  adding adapters over them, while preserving Windows 7, offline deployment,
+  Python 3.8, and the default C/C++ workflow.
 
 ### 2026-06-22 - GUI Native Bundle Launcher
 
