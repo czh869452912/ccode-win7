@@ -39,6 +39,8 @@ from embedagent.modes import (
     DEFAULT_MODE,
     build_system_prompt,
     allowed_tools_for,
+    parse_mode_command,
+    parse_natural_language_mode_switch,
     require_mode,
 )
 from embedagent.permissions import PermissionPolicy, PermissionRequest
@@ -195,6 +197,7 @@ class QueryEngine(object):
             should_retry_with_compact=self._should_retry_with_compact,
             maybe_record_compact_boundary=self._maybe_record_compact_boundary,
             maybe_maintain_memory=self._maybe_maintain_memory,
+            classify_assistant_turn=self.classify_assistant_turn,
             is_completion_signal=self._is_completion_signal,
             tool_presentation_snapshot=self._tool_presentation_snapshot,
             action_service=self._action_service,
@@ -1070,6 +1073,104 @@ class QueryEngine(object):
             )
         self._record_transition(session, transition)
 
+    def _parse_mode_switch_request(
+        self, user_text: str, fallback_mode: str
+    ) -> Tuple[str, str, bool]:
+        mode_name, remainder, switched = parse_mode_command(user_text, fallback_mode=fallback_mode)
+        if switched:
+            return mode_name, remainder, True
+        return parse_natural_language_mode_switch(user_text, fallback_mode=fallback_mode)
+
+    def _append_user_turn_message(self, session: Session, user_text: str, turn_id: str) -> None:
+        with self._session_guard():
+            message_id = "m-" + uuid.uuid4().hex[:12]
+            parent_message_id = session.last_message_id()
+            self._append_message_event(
+                session,
+                {
+                    "role": "user",
+                    "content": user_text,
+                    "message_id": message_id,
+                    "parent_message_id": parent_message_id,
+                    "turn_id": turn_id,
+                    "step_id": "",
+                },
+            )
+            session.add_user_message(
+                user_text,
+                turn_id=turn_id,
+                message_id=message_id,
+                parent_message_id=parent_message_id,
+            )
+
+    def _finish_mode_switch_turn(
+        self,
+        session: Session,
+        turn_id: str,
+        source_mode: str,
+        target_mode: str,
+    ) -> QueryTurnResult:
+        applied_mode = require_mode(target_mode)["slug"]
+        message_text = "已切换到 `%s` 模式。" % applied_mode
+        reply = AssistantReply(content=message_text, actions=[], finish_reason="mode_changed")
+        with self._session_guard():
+            step = session.begin_step()
+            step_id = step.step_id
+            self._append_transcript_event(
+                session,
+                "step_started",
+                {
+                    "turn_id": turn_id,
+                    "step_id": step_id,
+                    "step_index": step.step_index,
+                },
+            )
+            self._emit_operation_started(
+                session,
+                "step:%s" % step_id,
+                "agent_step",
+                turn_id=turn_id,
+                step_id=step_id,
+                metadata={"step_index": step.step_index},
+            )
+            message_id = "m-" + uuid.uuid4().hex[:12]
+            parent_message_id = session.last_message_id()
+            self._append_message_event(
+                session,
+                {
+                    "role": "assistant",
+                    "content": reply.content,
+                    "message_id": message_id,
+                    "parent_message_id": parent_message_id,
+                    "turn_id": turn_id,
+                    "step_id": step_id,
+                    "actions": [],
+                    "reasoning_content": "",
+                    "finish_reason": reply.finish_reason,
+                },
+            )
+            session.add_assistant_reply(
+                reply,
+                message_id=message_id,
+                parent_message_id=parent_message_id,
+                turn_id=turn_id,
+                step_id=step_id,
+            )
+        transition = LoopTransition(
+            reason="mode_changed",
+            message=message_text,
+            next_mode=applied_mode,
+            turns_used=1,
+            metadata={
+                "source_mode": source_mode,
+                "target_mode": applied_mode,
+                "command": "mode",
+            },
+        )
+        self._record_transition(session, transition)
+        self._persist_summary(session, applied_mode)
+        return QueryTurnResult(message_text, session, transition, turns_used=1)
+
     def _interaction_checkpoint_payload(
         self,
         session: Session,
@@ -1240,8 +1341,20 @@ class QueryEngine(object):
         if session is None:
             with self._session_guard():
                 session = Session()
+        session_was_empty = not bool(session.messages)
+        original_user_text = user_text
+        source_mode = require_mode(initial_mode)["slug"]
+        target_mode, routed_user_text, mode_switched = self._parse_mode_switch_request(
+            user_text,
+            source_mode,
+        )
+        current_mode = require_mode(target_mode if mode_switched else source_mode)["slug"]
+        user_text = routed_user_text if mode_switched else user_text
+        initialization_user_text = user_text
+        if mode_switched and not session_was_empty:
+            initialization_user_text = ""
         current_mode = self.initialize_session(
-            session, initial_mode, workflow_state=workflow_state, user_text=user_text
+            session, current_mode, workflow_state=workflow_state, user_text=initialization_user_text
         )
 
         self.extension_host.initialize_workflow_state(
@@ -1263,27 +1376,40 @@ class QueryEngine(object):
                 data={"mode": current_mode, "workflow_state": workflow_state},
             )
 
-        if user_text:
-            with self._session_guard():
-                message_id = "m-" + uuid.uuid4().hex[:12]
-                parent_message_id = session.last_message_id()
-                self._append_message_event(
+        if mode_switched and not session_was_empty:
+            current_mode = self.apply_mode(
+                session,
+                current_mode,
+                workflow_state=workflow_state,
+                user_text=user_text,
+            )
+            self.extension_host.initialize_workflow_state(
+                session,
+                user_text=user_text,
+                current_mode=current_mode,
+                workflow_state=workflow_state,
+            )
+        visible_user_text = original_user_text if mode_switched and not user_text else user_text
+        if visible_user_text:
+            self._append_user_turn_message(session, visible_user_text, turn_id)
+        if mode_switched:
+            if not user_text:
+                result = self._finish_mode_switch_turn(
                     session,
-                    {
-                        "role": "user",
-                        "content": user_text,
-                        "message_id": message_id,
-                        "parent_message_id": parent_message_id,
-                        "turn_id": turn_id,
-                        "step_id": "",
-                    },
+                    turn_id,
+                    source_mode,
+                    current_mode,
                 )
-                session.add_user_message(
-                    user_text,
-                    turn_id=turn_id,
-                    message_id=message_id,
-                    parent_message_id=parent_message_id,
-                )
+                if self.tracer is not None:
+                    self.tracer.record(
+                        TraceEventType.TURN_END,
+                        session_id,
+                        turn_id,
+                        data={"transition_reason": getattr(result.transition, "reason", "")},
+                    )
+                    self.tracer.flush()
+                turn_frame.finish(result.transition)
+                return result
         try:
             result = self._run_loop(
                 session,
@@ -1567,17 +1693,19 @@ class QueryEngine(object):
         turn_frame.finish(result.transition)
         return result
 
-    def _is_completion_signal(self, reply, session) -> bool:
-        """Detect if agent is signaling task completion.
+    def classify_assistant_turn(self, reply, session=None) -> str:
+        """Classify one provider reply for loop continuation decisions."""
 
-        Signals:
-        - No tool calls requested
-        - A non-empty assistant message is available for the user
-        """
         del session
         if reply.actions:
-            return False
-        return bool(str(reply.content or "").strip())
+            return "tool_calls"
+        if str(reply.content or "").strip():
+            return "final_message"
+        return "empty_noop"
+
+    def _is_completion_signal(self, reply, session) -> bool:
+        """Compatibility wrapper for completion policy tests and old loop wiring."""
+        return self.classify_assistant_turn(reply, session) == "final_message"
 
     def _run_loop(
         self,

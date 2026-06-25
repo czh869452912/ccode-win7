@@ -55,6 +55,7 @@ class AgentLoop(object):
         should_retry_with_compact: Optional[Callable[..., Any]] = None,
         maybe_record_compact_boundary: Optional[Callable[..., Any]] = None,
         maybe_maintain_memory: Optional[Callable[..., Any]] = None,
+        classify_assistant_turn: Optional[Callable[..., Any]] = None,
         is_completion_signal: Optional[Callable[..., Any]] = None,
         tool_presentation_snapshot: Optional[Callable[..., Any]] = None,
         action_service: Optional[Any] = None,
@@ -84,6 +85,7 @@ class AgentLoop(object):
         self._should_retry_with_compact = should_retry_with_compact
         self._maybe_record_compact_boundary = maybe_record_compact_boundary
         self._maybe_maintain_memory = maybe_maintain_memory
+        self._classify_assistant_turn = classify_assistant_turn
         self._is_completion_signal = is_completion_signal
         self._tool_presentation_snapshot = tool_presentation_snapshot
         self._action_service = action_service
@@ -110,6 +112,15 @@ class AgentLoop(object):
     @staticmethod
     def _has_visible_content(reply: AssistantReply) -> bool:
         return bool(str(reply.content or "").strip())
+
+    def _classify_reply(self, reply: AssistantReply, session: Session) -> str:
+        if self._classify_assistant_turn is not None:
+            return str(self._classify_assistant_turn(reply, session))
+        if reply.actions:
+            return "tool_calls"
+        if self._has_visible_content(reply):
+            return "final_message"
+        return "empty_noop"
 
     def _transition_from_decision(
         self,
@@ -145,7 +156,6 @@ class AgentLoop(object):
             "_should_retry_with_compact",
             "_maybe_record_compact_boundary",
             "_maybe_maintain_memory",
-            "_is_completion_signal",
             "_tool_presentation_snapshot",
             "_action_service",
             "_record_tool_observation",
@@ -390,7 +400,8 @@ class AgentLoop(object):
                         record.presentation = presentation
             final_text = reply.content
             turns_used = step_index
-            if not reply.actions and not self._has_visible_content(reply):
+            assistant_turn_kind = self._classify_reply(reply, session)
+            if assistant_turn_kind == "empty_noop":
                 decision = self.continuation_policy.decide_after_step(
                     AgentLoopContinuationFacts(
                         step_index=step_index,
@@ -416,7 +427,10 @@ class AgentLoop(object):
                 if on_step_finish is not None:
                     on_step_finish(step_index, reply, transition.reason)
                 return QueryTurnResult(final_text, session, transition, turns_used)
-            if self._is_completion_signal(reply, session):
+            completion_signal = assistant_turn_kind == "final_message"
+            if self._classify_assistant_turn is None:
+                completion_signal = bool(self._is_completion_signal(reply, session))
+            if completion_signal:
                 decision = self.continuation_policy.decide_after_step(
                     AgentLoopContinuationFacts(
                         step_index=step_index,

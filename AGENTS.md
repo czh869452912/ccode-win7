@@ -259,7 +259,8 @@ Official durable recovery truth is reducer-backed:
 - `explore` is the default entry mode.
 - `verify` is read-only and owns quality-gate style execution.
 - The LLM does not autonomously switch modes.
-- User-driven switching happens through `/mode <name>` or confirmed `ask_user` choices.
+- User-driven switching happens through `/mode <name>`, explicit pure natural-language mode-switch requests, or confirmed `ask_user` choices.
+- Explicit user mode-switch requests are routed before provider calls; compound work requests must remain normal user turns unless they use `/mode <name> <message>`.
 
 Mode definitions live in `src/embedagent/modes.py`.
 

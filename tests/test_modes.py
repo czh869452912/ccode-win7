@@ -14,6 +14,7 @@ from embedagent.modes import (
     is_path_writable,
     mode_names,
     parse_mode_command,
+    parse_natural_language_mode_switch,
     require_mode,
 )
 
@@ -215,6 +216,24 @@ class TestParseModeCommand(unittest.TestCase):
         self.assertEqual(mode, "debug")
         self.assertEqual(msg, "")
         self.assertTrue(switched)
+
+    def test_natural_language_mode_switch_chinese(self):
+        mode, remainder, switched = parse_natural_language_mode_switch("切换到build模式")
+        self.assertEqual(mode, "build")
+        self.assertEqual(remainder, "")
+        self.assertTrue(switched)
+
+    def test_natural_language_mode_switch_english(self):
+        mode, remainder, switched = parse_natural_language_mode_switch("switch to debug mode")
+        self.assertEqual(mode, "debug")
+        self.assertEqual(remainder, "")
+        self.assertTrue(switched)
+
+    def test_natural_language_mode_switch_ignores_compound_request(self):
+        mode, remainder, switched = parse_natural_language_mode_switch("切换到build模式，然后编译")
+        self.assertEqual(mode, "explore")
+        self.assertEqual(remainder, "切换到build模式，然后编译")
+        self.assertFalse(switched)
 
 
 if __name__ == "__main__":

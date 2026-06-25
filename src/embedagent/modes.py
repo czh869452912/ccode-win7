@@ -192,6 +192,10 @@ _BUILTIN_MODES = {
 }  # type: Dict[str, Dict[str, object]]
 
 _MODE_COMMAND_RE = re.compile(r"^/mode\s+(\w+)(?:\s+(.*))?$", re.DOTALL)
+_NATURAL_MODE_SWITCH_PREFIX_RE = re.compile(
+    r"^\s*(?:切换到|切到|进入|转到|switch\s+(?:to\s+)?|change\s+(?:to\s+)?)",
+    re.IGNORECASE,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -541,3 +545,38 @@ def parse_mode_command(text: str, fallback_mode: str = DEFAULT_MODE) -> Tuple[st
     resolved = require_mode(target)["slug"]  # type: ignore[index]
     remainder = (match.group(2) or "").strip()
     return str(resolved), remainder, True
+
+
+def parse_natural_language_mode_switch(
+    text: str, fallback_mode: str = DEFAULT_MODE
+) -> Tuple[str, str, bool]:
+    stripped = str(text or "").strip()
+    if not stripped:
+        return fallback_mode, text, False
+    if _NATURAL_MODE_SWITCH_PREFIX_RE.match(stripped) is None:
+        return fallback_mode, text, False
+    lowered = stripped.lower()
+    for mode_name in mode_names():
+        mode_text = str(mode_name or "").strip()
+        if not mode_text:
+            continue
+        candidates = (
+            "切换到%s模式" % mode_text,
+            "切换到%s" % mode_text,
+            "切到%s模式" % mode_text,
+            "切到%s" % mode_text,
+            "进入%s模式" % mode_text,
+            "进入%s" % mode_text,
+            "转到%s模式" % mode_text,
+            "转到%s" % mode_text,
+            "switch to %s mode" % mode_text,
+            "switch to %s" % mode_text,
+            "switch mode %s" % mode_text,
+            "change to %s mode" % mode_text,
+            "change to %s" % mode_text,
+            "change mode %s" % mode_text,
+        )
+        if lowered in [candidate.lower() for candidate in candidates]:
+            resolved = require_mode(mode_text)["slug"]  # type: ignore[index]
+            return str(resolved), "", True
+    return fallback_mode, text, False

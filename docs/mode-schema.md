@@ -43,6 +43,8 @@ proxy alias has been removed and must not be reintroduced.
 - Mode switching is user-driven.
 - The model does not autonomously switch modes.
 - The agent may ask for a mode switch through `ask_user`, but the user confirms it.
+- `/mode <name>` and explicit pure natural-language mode-switch requests are handled before provider calls.
+- `/mode <name> <message>` switches to the target mode and then submits `<message>` as the user turn. Natural-language compound requests are not pre-routed.
 - Unknown mode names are invalid input and must fail fast instead of silently falling back to another mode.
 
 ## 4. Harness Relationship

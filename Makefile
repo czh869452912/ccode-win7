@@ -16,6 +16,6 @@ lint-fix:
 	uv run --locked python scripts/lint.py --fix
 
 smoke:
-	pip install -e ".[cli]" && python -c "import embedagent; print('import OK')"
+	uv pip install -e ".[cli]" && uv run python -c "import embedagent; print('import OK')"
 
 ci: lint test smoke

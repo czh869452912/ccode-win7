@@ -33,7 +33,11 @@ def _make_workspace():
 
 
 class FakeClient(object):
+    def __init__(self):
+        self.calls = 0
+
     def generate(self, messages, tools=None):
+        self.calls += 1
         return AssistantReply(content="ok", actions=[], finish_reason="stop")
 
     def stream(self, messages, tools=None, on_text_delta=None, on_reasoning_delta=None):
@@ -307,6 +311,27 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         children = self.adapter.list_workspace_children(path="src", limit=20)
         pkg = [item for item in children["items"] if item["path"] == "src/pkg"][0]
         self.assertTrue(pkg["has_children"])
+
+    def test_natural_language_mode_switch_updates_session_without_provider_call(self):
+        client = FakeClient()
+        adapter = InProcessAdapter(
+            client=client,
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+        )
+        snapshot = adapter.create_session("explore")
+
+        adapter.submit_user_message(
+            session_id=snapshot["session_id"],
+            text="切换到build模式",
+            stream=False,
+            wait=True,
+        )
+        updated = adapter.get_session_snapshot(snapshot["session_id"])
+
+        self.assertEqual(updated["current_mode"], "build")
+        self.assertEqual(client.calls, 0)
+        self.assertEqual(updated["last_transition_reason"], "mode_changed")
 
     def test_read_and_write_workspace_file(self):
         loaded = self.adapter.read_workspace_file("src/pkg/demo.c")

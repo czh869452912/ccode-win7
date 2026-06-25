@@ -291,7 +291,11 @@ class SpecCodeWriteClient(object):
 
 
 class FakeClient(object):
+    def __init__(self):
+        self.calls = 0
+
     def generate(self, messages, tools=None):
+        self.calls += 1
         return AssistantReply(content="ok", actions=[], finish_reason="stop")
 
     def stream(self, messages, tools=None, on_text_delta=None, on_reasoning_delta=None):
@@ -849,6 +853,93 @@ class TestQueryEngineRefactor(unittest.TestCase):
         events = transcript_store.load_events(session.session_id)
         transitions = [item for item in events if item["type"] == "loop_transition"]
         self.assertEqual(transitions[-1]["payload"]["reason"], "guard_stop")
+
+    def test_query_engine_handles_natural_language_mode_switch_before_provider(self):
+        client = FakeClient()
+        transcript_store = TranscriptStore(self.workspace)
+        engine = QueryEngine(
+            client=client,
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+            transcript_store=transcript_store,
+        )
+        session = Session()
+
+        result = engine.submit_user_turn(
+            user_text="切换到build模式",
+            stream=False,
+            initial_mode="explore",
+            session=session,
+        )
+
+        self.assertEqual(result.transition.reason, "mode_changed")
+        self.assertEqual(result.transition.next_mode, "build")
+        self.assertEqual(client.calls, 0)
+        self.assertEqual(result.final_text, "已切换到 `build` 模式。")
+        self.assertEqual(session.turns[-1].assistant_message, result.final_text)
+        events = transcript_store.load_events(session.session_id)
+        provider_events = [
+            item
+            for item in events
+            if item["type"] == "operation_started"
+            and item["payload"].get("kind") == "provider_request"
+        ]
+        self.assertEqual(provider_events, [])
+        step_starts = [
+            item
+            for item in events
+            if item["type"] == "operation_started" and item["payload"].get("kind") == "agent_step"
+        ]
+        step_finishes = [
+            item
+            for item in events
+            if item["type"] == "operation_finished" and item["payload"].get("kind") == "agent_step"
+        ]
+        self.assertEqual(len(step_starts), 1)
+        self.assertEqual(len(step_finishes), 1)
+        self.assertEqual(step_finishes[0]["payload"]["result"].get("reason"), "mode_changed")
+
+    def test_query_engine_handles_slash_mode_switch_before_provider(self):
+        client = FakeClient()
+        engine = QueryEngine(
+            client=client,
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+        )
+
+        result = engine.submit_user_turn(
+            user_text="/mode debug",
+            stream=False,
+            initial_mode="build",
+            session=Session(),
+        )
+
+        self.assertEqual(result.transition.reason, "mode_changed")
+        self.assertEqual(result.transition.next_mode, "debug")
+        self.assertEqual(client.calls, 0)
+
+    def test_query_engine_slash_mode_with_remainder_uses_target_mode_context(self):
+        client = SnapshotInspectingClient()
+        engine = QueryEngine(
+            client=client,
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+        )
+
+        result = engine.submit_user_turn(
+            user_text="/mode debug inspect workspace",
+            stream=False,
+            initial_mode="explore",
+            session=Session(),
+        )
+
+        self.assertEqual(result.transition.reason, "completed")
+        self.assertEqual(result.transition.next_mode, "debug")
+        self.assertEqual(len(client.messages), 1)
+        rendered = "\n".join(str(item.get("content") or "") for item in client.messages[0])
+        self.assertIn("当前模式：debug", rendered)
+        self.assertNotIn("当前模式：explore", rendered)
+        self.assertIn("inspect workspace", rendered)
 
     def test_query_engine_routes_ask_user_through_action_service(self):
         engine = QueryEngine(

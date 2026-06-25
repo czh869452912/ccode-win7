@@ -492,7 +492,12 @@ class AgentLifecycleJournal(object):
                 step_id=step_id,
                 result=savepoint_result,
             )
-            finished_step_reasons = ("completed", "permission_wait", "user_input_wait")
+            finished_step_reasons = (
+                "completed",
+                "mode_changed",
+                "permission_wait",
+                "user_input_wait",
+            )
             interrupted_step_reasons = ("aborted", "guard_stop", "max_turns")
             if step_id and transition.reason in (finished_step_reasons + interrupted_step_reasons):
                 if transition.reason in finished_step_reasons:
