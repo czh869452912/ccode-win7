@@ -1,4 +1,5 @@
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -47,33 +48,61 @@ class TestCppSmokeValidator(unittest.TestCase):
             workspace = root / "workspace"
             workspace.mkdir()
             (workspace / "main.c").write_text("int main(void) { return 0; }\n", encoding="ascii")
-            fake_clang = root / "fake-clang.cmd"
-            fake_clang.write_text(
-                "\n".join(
-                    [
-                        "@echo off",
-                        'if "%1"=="--version" (',
-                        "  echo fake clang 109",
-                        "  exit /b 0",
-                        ")",
-                        "set OUT=",
-                        ":loop",
-                        'if "%1"=="" goto done',
-                        'if "%1"=="-o" (',
-                        "  set OUT=%2",
-                        "  shift",
-                        ")",
-                        "shift",
-                        "goto loop",
-                        ":done",
-                        'if "%OUT%"=="" exit /b 2',
-                        'echo object > "%OUT%"',
-                        "exit /b 0",
-                    ]
+            if os.name == "nt":
+                fake_clang = root / "fake-clang.cmd"
+                fake_clang.write_text(
+                    "\n".join(
+                        [
+                            "@echo off",
+                            'if "%1"=="--version" (',
+                            "  echo fake clang 109",
+                            "  exit /b 0",
+                            ")",
+                            "set OUT=",
+                            ":loop",
+                            'if "%1"=="" goto done',
+                            'if "%1"=="-o" (',
+                            "  set OUT=%2",
+                            "  shift",
+                            ")",
+                            "shift",
+                            "goto loop",
+                            ":done",
+                            'if "%OUT%"=="" exit /b 2',
+                            'echo object > "%OUT%"',
+                            "exit /b 0",
+                        ]
+                    )
+                    + "\n",
+                    encoding="ascii",
                 )
-                + "\n",
-                encoding="ascii",
-            )
+            else:
+                fake_clang = root / "fake-clang"
+                fake_clang.write_text(
+                    "\n".join(
+                        [
+                            "#!/bin/sh",
+                            'if [ "$1" = "--version" ]; then',
+                            "  echo fake clang 109",
+                            "  exit 0",
+                            "fi",
+                            "out=",
+                            'while [ "$#" -gt 0 ]; do',
+                            '  if [ "$1" = "-o" ]; then',
+                            "    shift",
+                            '    out="$1"',
+                            "  fi",
+                            "  shift",
+                            "done",
+                            'if [ -z "$out" ]; then exit 2; fi',
+                            'printf "%s\\n" object > "$out"',
+                            "exit 0",
+                        ]
+                    )
+                    + "\n",
+                    encoding="ascii",
+                )
+                fake_clang.chmod(0o755)
             report_path = root / "report.json"
 
             result = subprocess.run(
