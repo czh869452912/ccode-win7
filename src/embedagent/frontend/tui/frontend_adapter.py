@@ -5,7 +5,7 @@ TUI Frontend Adapter
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Callable, Dict, Optional
+from typing import TYPE_CHECKING, Any, Callable, Dict, Optional
 
 from embedagent.protocol import (
     CommandResult,

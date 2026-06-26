@@ -45,8 +45,7 @@ def test_tool_observation_line_summarizes_command_result():
     )
 
     assert line == (
-        "[observation] bash success=True "
-        "cmd=uv run pytest tests/test_gui_streaming.py -q exit=0"
+        "[observation] bash success=True " "cmd=uv run pytest tests/test_gui_streaming.py -q exit=0"
     )
 
 
@@ -60,6 +59,4 @@ def test_tool_observation_line_summarizes_error_result():
         }
     )
 
-    assert line == (
-        "[observation] bash success=False exit=1 errors=2 error=compile failed"
-    )
+    assert line == ("[observation] bash success=False exit=1 errors=2 error=compile failed")
