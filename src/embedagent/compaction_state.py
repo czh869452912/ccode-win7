@@ -161,14 +161,10 @@ class CompactionStateReducer(object):
     ) -> CompactionBoundaryRecord:
         metadata = _copy_dict(payload.get("metadata"))
         token_counts = _int_counts(payload.get("token_counts"), ["approx_before", "approx_after"])
-        if "approx_after" not in token_counts and "approx_tokens" in metadata:
-            token_counts["approx_after"] = _safe_int(metadata.get("approx_tokens"))
         message_counts = _int_counts(
             payload.get("message_counts"),
             ["before", "after", "summarized_turns", "recent_turns"],
         )
-        if "summarized_turns" not in message_counts:
-            message_counts["summarized_turns"] = _safe_int(payload.get("compacted_turn_count"))
         file_activity = payload.get("file_activity")
         if not isinstance(file_activity, dict):
             file_activity = {}

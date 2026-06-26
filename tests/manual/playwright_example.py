@@ -91,7 +91,7 @@ def test_inspector_tabs(page):
     """测试 Inspector 标签切换"""
     print("\n测试: Inspector 标签切换")
 
-    tabs = ["todos", "plan", "artifacts", "runtime", "log"]
+    tabs = ["tasks", "plan", "artifacts", "runtime", "log"]
     for tab in tabs:
         try:
             page.click(f'[data-testid="inspector-tab--{tab}"]')

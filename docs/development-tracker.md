@@ -406,7 +406,7 @@
 - Phase 5D Project Memory Store 已落地：项目级 profile / recipe / known issue 已可落盘并注入上下文
 - Phase 5E Resume Entry 已落地：CLI 已支持 `--list-sessions` 与 `--resume <session_id|latest|summary.json>`
 - Phase 5F / Query cutover memory maintenance 已收口：tool-result cleanup 已改为基于 session-local stored paths，artifact browse/session summary/project memory 的可查询投影已切到 SQLite
-- Phase 5 长任务稳定性验证已完成：`scripts/validate-phase5.py` 已在修复根目录文件写入边界后重新跑通
+- Phase 5 historical validation has been superseded by current pytest/lint/offline gates; the old `scripts/validate-phase5.py` compatibility script has been retired from active `scripts/`.
 - Phase 5 权限细化已完成：已支持规则文件、allow / ask / deny、路径与命令模式匹配
 - Query / Context 重构切片已启动：`session.py` 已补齐 transcript/event 数据模型，`query_engine.py` 已成为新主循环骨架，`loop.py` 已退化为兼容入口
 - `ContextManager.build_messages(...)` 已开始接入 workspace intelligence、tool result replacement、duplicate suppression、activity folding 与 compact boundary 复用
@@ -516,8 +516,8 @@
 - Phase 2 里程碑已满足：文件读写、命令执行、Git 状态/差异/日志均已具备并完成 3.8 本地验证。
 - Phase 3 v2 里程碑已满足：5 模式（explore/spec/code/debug/verify）、配置驱动、工具过滤、用户主导切换均已完成 3.8 本地验证。
 - Phase 4 已具备项目内闭环工具链，但默认 recipe、真实 C 工程和 Win7 验证仍需补齐。
-- Phase 5 脚本验证已重新跑通，当前已从“实现完成”推进到“脚本复验通过”。
-- Phase 6 自动化验证已通过，当前缺口已收敛到 Win7 Chromium 路径与真实交互体验。
+- Phase 5/6 legacy validation scripts have been retired from active `scripts/`; current verification uses focused pytest coverage, frontend helper tests, lint, and offline bundle/runtime contract gates.
+- Phase 6 自动化验证口径已切到当前 GUI/TUI/frontend/backend 测试与 Win7 Chromium 实机证据，当前缺口仍是 Win7 真实交互体验。
 - Phase 7 现已完成设计基线、ADR、`prepare/build/validate` 三段脚本骨架，以及 Python / MinGit / rg / ctags 的真实资产接入；公共控制面 `package.ps1` 已接上，下一步应转向 site-packages 精简与完整 bundle 验收。
 
 ### P1：紧随其后
@@ -543,11 +543,11 @@
 | T-006 | 实现 Phase 2 工具（bash / git） | `completed` | 已补齐工具契约与 Loop 烟雾验证 |
 | T-007 | 实现模式系统 v1（dict + 工具过滤） | `completed` | 已补齐文档与本地验证 |
 | T-008 | 实现 Phase 4 Clang 工具链第一版封装 | `in_progress` | 已有本地闭环工具链与 recipe-aware build/test 入口，待真实工程验证与版本收敛 |
-| T-009 | 实现 Phase 5 最小权限与防循环保护 | `completed` | 权限模型、Doom Loop Guard、ContextManager、mode-aware budget、Artifact Store、SessionSummaryStore、ProjectMemoryStore、Resume Entry、MemoryMaintenance 已落地；`scripts/validate-phase5.py` 已在 2026-03-29 复验通过 |
+| T-009 | 实现 Phase 5 最小权限与防循环保护 | `completed` | 权限模型、Doom Loop Guard、ContextManager、mode-aware budget、Artifact Store、SessionSummaryStore、ProjectMemoryStore、Resume Entry、MemoryMaintenance 已落地；历史 phase 验证脚本已退役，当前由 pytest/lint/offline gates 覆盖 |
 | T-010 | 完成 Phase 6 前端协议与 TUI IA 设计 | `completed` | `frontend-protocol.md` 与 `tui-information-architecture.md` 已建立 |
 | T-011 | 实现 Phase 6A InProcessAdapter | `completed` | CLI 已改为通过 adapter 驱动 Core，并完成最小行为验证 |
 | T-012 | 落地模块化终端前端 | `completed` | 已完成 `src/embedagent/frontend/tui/` 模块化拆包，`src/embedagent/frontend/tui/` 已按新架构迁移，接入 timeline / workspace / artifact / todo 浏览接口，保留 `embedagent.tui` 兼容入口；下一步是继续做真实控制台 / Win7 手工验证与交互细化 |
-| T-013 | 建立 Phase 6 验证入口 | `completed` | `scripts/validate-phase6.py` 与 `docs/phase6-validation.md` 已建立，Phase 6 已进入脚本可跟踪状态 |
+| T-013 | 建立 Phase 6 验证入口 | `completed` | 历史 phase 脚本入口已退役；当前 Phase 6 验证入口为 GUI/TUI/frontend/backend focused tests、visual harness 与 Win7/WebView2 bundle smoke 证据 |
 | T-014 | 建立 Phase 7 离线打包设计基线 | `completed` | 已新增 `docs/offline-packaging.md`、`docs/win7-preflight-checklist.md` 与 ADR `0001-offline-portable-bundle-baseline.md` |
 | T-015 | 实现 Phase 7A prepare-offline 骨架 | `completed` | 已新增 `scripts/prepare-offline.ps1`，可生成 `build/offline-staging/EmbedAgent/`、launcher、模板配置、manifest 与 checksum 草案，并支持 `-SkipBuild` |
 | T-016 | 实现 Phase 7B build-offline-bundle 骨架 | `completed` | 已新增 `scripts/build-offline-bundle.ps1`，可消费 staging bundle，生成 `build/offline-dist/<artifact>/` 与 zip，并重写 dist manifest/checksum |
@@ -714,9 +714,9 @@
 | 2026-03-28 | Phase 5F Memory Maintenance 已落地，并完成 cleanup / index 验证 |
 | 2026-03-28 | Phase 6B 交互深化已完成：TUI 新增会话列表浏览、权限确认/错误/上下文状态展示，并修复 --tui 空启动路径 |
 | 2026-03-28 | Phase 6B 依赖与运行验证已推进：`prompt_toolkit` / `rich` 已接入，非控制台宿主会优雅报错，并完成 headless 真实事件循环验证 |
-| 2026-03-28 | Phase 6 验证入口已建立：新增 scripts/validate-phase6.py 和 docs/phase6-validation.md，阶段状态已可脚本跟踪 |
+| 2026-03-28 | Phase 6 历史验证入口曾建立；当前活动验证已切换为 focused tests、visual harness 与 bundle smoke gates，旧 phase 脚本不再位于 active `scripts/` |
 | 2026-03-29 | Phase 6 终端前端已模块化：新增 src/embedagent/frontend/tui/ 包、timeline store 和 adapter 浏览接口，保留 embedagent.tui 兼容入口，并通过 headless 与单元测试 |
-| 2026-03-29 | 修复 `**/*.md` 等模式对根目录文件不匹配的问题，补充 `test_modes.py` 回归，并重新跑通 `scripts/validate-phase5.py` |
+| 2026-03-29 | 修复 `**/*.md` 等模式对根目录文件不匹配的问题并补充 `test_modes.py` 回归；旧 Phase 5 脚本复验记录为历史状态，当前不再作为活动验证入口 |
 | 2026-03-29 | README、路线图、进度跟踪与变更日志已按当前能力和阶段状态完成一轮对齐 |
 | 2026-03-29 | 建立 Phase 7 离线打包设计基线：新增 `docs/offline-packaging.md`、`docs/win7-preflight-checklist.md` 与 ADR `0001-offline-portable-bundle-baseline.md` |
 | 2026-03-29 | 建立 `scripts/prepare-offline.ps1`：已可生成 staging bundle 骨架、launcher、模板配置、`bundle-manifest.json` 与 `checksums.txt`，并通过 `powershell.exe -NoProfile -File scripts/prepare-offline.ps1 -SkipBuild` 验证 |

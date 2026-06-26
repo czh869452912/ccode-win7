@@ -71,16 +71,16 @@ class TestCompactionStateReducer(unittest.TestCase):
         self.assertEqual(payload["diagnostics"], [])
         json.dumps(payload, sort_keys=True)
 
-    def test_reducer_accepts_legacy_boundary_payload(self):
+    def test_reducer_does_not_infer_legacy_boundary_counts(self):
         events = [
             {
                 "type": "compact_boundary",
-                "event_id": "evt-legacy",
+                "event_id": "evt-missing-counts",
                 "seq": 3,
                 "ts": "2026-06-14T00:00:00Z",
                 "payload": {
-                    "boundary_id": "cb-legacy",
-                    "summary_text": "Legacy summary",
+                    "boundary_id": "cb-missing-counts",
+                    "summary_text": "Missing structured counts",
                     "compacted_turn_count": 9,
                     "created_at": "2026-06-14T00:00:00Z",
                     "mode_name": "build",
@@ -94,9 +94,10 @@ class TestCompactionStateReducer(unittest.TestCase):
         payload = CompactionStateReducer().reduce(events).to_dict()
 
         self.assertEqual(payload["boundary_count"], 1)
-        self.assertEqual(payload["latest_boundary_id"], "cb-legacy")
-        self.assertEqual(payload["latest_boundary"]["token_counts"]["approx_after"], 700)
-        self.assertEqual(payload["latest_boundary"]["message_counts"]["summarized_turns"], 9)
+        self.assertEqual(payload["latest_boundary_id"], "cb-missing-counts")
+        self.assertEqual(payload["latest_boundary"]["token_counts"], {})
+        self.assertEqual(payload["latest_boundary"]["message_counts"], {})
+        self.assertEqual(payload["summarized_turn_count"], 0)
         self.assertEqual(payload["latest_boundary"]["file_activity"]["read_files"], [])
         self.assertEqual(payload["latest_boundary"]["evidence_refs"], [])
 

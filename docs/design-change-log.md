@@ -44,6 +44,30 @@
 
 ## 3. 当前变更记录
 
+### DC-210
+
+- Date: 2026-06-26
+- Change Topic: Active validation vocabulary cleanup
+- Summary:
+  - Removed compact-boundary reducer inference for old metadata-only payloads;
+    current `compact_boundary` events must carry structured `token_counts` and
+    `message_counts` if those diagnostics are needed.
+  - Retired old Phase 5/6 validation scripts from active `scripts/` because
+    they encoded pre-cutover mode/tool names and old loop entry points.
+  - Updated the manual GUI Playwright example to use the current `tasks`
+    inspector tab vocabulary.
+- Impacted Scope:
+  - `src/embedagent/compaction_state.py`
+  - `tests/test_compaction_state.py`
+  - `scripts/validate-phase5.py`
+  - `scripts/validate-phase6.py`
+  - `tests/manual/playwright_example.py`
+  - `docs/development-tracker.md`
+- ADR Needed: No
+- Follow-up:
+  - Keep historical phase validation notes in archive/changelog only; do not
+    reintroduce active scripts that exercise removed mode or tool aliases.
+
 ### DC-209
 
 - Date: 2026-06-26
