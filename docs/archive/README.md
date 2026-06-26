@@ -46,6 +46,7 @@ Archive 不承载当前官方口径。当前真相以 `README.md`、`AGENTS.md`�
 - `phase-m-core-alias-cleanup/`
 - `phase6-validation/`
 - `pi-aligned-tool-architecture/`
+- `pi-t3-residual-debt-cleanup/`
 - `pre-release-debt-cleanup/`
 - `pi-like-agent-core-boundary/`
 - `self-extensible-agent-core/`

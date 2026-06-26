@@ -24,6 +24,24 @@
 
 ## 2. 当前阶段
 
+### 2026-06-26 - Pi/T3 Residual Debt Cleanup
+
+- Default pre-release configuration and hosted GUI defaults now align with the
+  current architecture: `default_mode: explore` and `max_turns: null`.
+- `ToolRuntime.execute_for_mode`, adapter `_run_turn_v2`, adapter-local
+  resource command spec builders, and adapter-local review evidence shaping
+  were deleted or moved behind the intended boundaries.
+- `slash_commands.resource_command_specs(...)` now projects local skill/prompt
+  command specs for `/help` and capability descriptors.
+- `ReviewCommandService.build_payload_from_session(...)` owns hosted `/review`
+  evidence extraction, finding synthesis, git-diff evidence shaping, and
+  markdown rendering.
+- GUI event-log display state and transport replay/connection projection now
+  live under `webapp/src/session-runtime/`, and root-level GUI
+  `connectionState` / `set_connection` state was removed.
+- The completed slice plan is archived under
+  `docs/archive/pi-t3-residual-debt-cleanup/`.
+
 ### 2026-06-25 - Pre-Release Architecture Debt Cleanup Closed
 
 - The project is explicitly treated as pre-release with no production user state
@@ -45,7 +63,11 @@
   `App.jsx`, the command palette, terminal controller, workspace reset path,
   and reducer tests now consume these focused read models instead of
   root-level `sessions`, `currentSessionId`, `composer`, or
-  `historyIntegrity` fields.
+  `historyIntegrity` fields. Follow-on Pi/T3 residual cleanup moved GUI
+  run-output event-log display state into
+  `webapp/src/session-runtime/event-log-state.js`, moved transport replay /
+  connection projection into `webapp/src/session-runtime/event-log.js`, and
+  removed root-level `connectionState` / `set_connection`.
 - Slice 6 has removed visual-debug fixture actions from product GUI state:
   fixture helpers now use private `dev_fixture_*` descriptors and expand them
   into ordinary product actions before reaching `store.js`. Generated GUI

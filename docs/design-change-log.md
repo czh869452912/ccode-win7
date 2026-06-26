@@ -44,6 +44,41 @@
 
 ## 3. 当前变更记录
 
+### DC-204
+
+- Date: 2026-06-26
+- Change Topic: Pi/T3 residual debt cleanup
+- Summary:
+  - Aligned pre-release defaults to `default_mode: explore` and
+    `max_turns: null`.
+  - Removed `ToolRuntime.execute_for_mode` and collapsed the adapter turn
+    runner to a single `_run_turn` entrypoint.
+  - Moved local skill/prompt slash command spec projection to
+    `slash_commands.resource_command_specs(...)`.
+  - Moved hosted `/review` session evidence shaping into
+    `ReviewCommandService.build_payload_from_session(...)`.
+  - Moved GUI run-output event-log display state and transport replay /
+    connection projection into `webapp/src/session-runtime/`, removing
+    root-level GUI `connectionState` / `set_connection`.
+  - Archived the completed slice plan under
+    `docs/archive/pi-t3-residual-debt-cleanup/`.
+- Impacted Scope:
+  - Agent Core hosted adapter boundaries
+  - Tool/runtime contracts
+  - GUI renderer runtime state
+  - Documentation governance
+- Related Docs:
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/tool-contracts.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+  - `docs/archive/pi-t3-residual-debt-cleanup/README.md`
+- ADR Needed: No
+- Follow-up:
+  - Continue shrinking remaining hosted adapter slash-command responsibilities
+    into focused services when the boundary is behaviorally clear.
+
 ### DC-203
 
 - Date: 2026-06-25

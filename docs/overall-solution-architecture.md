@@ -166,7 +166,9 @@ Harness state refresh in the product adapter path goes through `CHarnessWorkflow
 - no durable `SessionTimelineStore` exists; GUI activation and `/review`
   consume transcript/session projections, while `/api/sessions/{id}/events`
   only signals that bootstrap reload is required
-- `/review` finding synthesis, git-diff evidence shaping, and markdown rendering live in `ReviewCommandService`; `InProcessAdapter` only gathers recent session tool evidence and emits the command result
+- `/review` session evidence extraction, finding synthesis, git-diff evidence
+  shaping, and markdown rendering live in `ReviewCommandService`;
+  `InProcessAdapter` only invokes that service and emits the command result
 
 ## 3. Official Execution Model
 

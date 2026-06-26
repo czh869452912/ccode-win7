@@ -102,17 +102,23 @@ The GUI renderer state is moving toward T3 Code-style focused modules instead
 of one large app reducer shape. Thread selection, session summaries, and
 history-integrity display state are owned by
 `webapp/src/session-runtime/thread-state.js`; composer draft text is owned by
-`webapp/src/composer/composer-state.js`; terminal display buffers remain under
-`webapp/src/terminal/`; persisted workbench surfaces remain under
+`webapp/src/composer/composer-state.js`; GUI run-output event-log display
+state is owned by `webapp/src/session-runtime/event-log-state.js`; active
+session transport replay/connection projection is owned by
+`webapp/src/session-runtime/event-log.js`; terminal display buffers remain
+under `webapp/src/terminal/`; persisted workbench surfaces remain under
 `webapp/src/workbench/`.
 
 `store.js` may dispatch to these focused reducers, but new frontend code must
 not reintroduce root-level `sessions`, `currentSessionId`, `composer`, or
-`historyIntegrity` fields as parallel state. React components and runtime
-controllers should consume the focused read models. These renderer modules are
-GUI-local display/read-model state only: they do not own session history,
-workflow truth, permission policy, tool activation, extension loading,
-provider configuration, telemetry, or Agent Core runtime reducers.
+`historyIntegrity` fields as parallel state. New transport status code must
+not reintroduce root-level `connectionState` / `set_connection`; websocket
+connection and replay status feed the session runtime event log and
+`projectTransportView(...)`. React components and runtime controllers should
+consume the focused read models. These renderer modules are GUI-local
+display/read-model state only: they do not own session history, workflow
+truth, permission policy, tool activation, extension loading, provider
+configuration, telemetry, or Agent Core runtime reducers.
 
 Visual debug scenarios are outside the frontend protocol. The React webapp may
 install `window.__EMBEDAGENT_VISUAL_DEBUG__` only when `?visual_debug=1` is

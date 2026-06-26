@@ -196,6 +196,8 @@ Dynamic in-process extension tools are registered into the shared `ToolRuntime` 
 
 Local resource reload is a file discovery operation. `ToolRuntime.reload_resources()`, `InProcessAdapter.reload_resources(...)`, `/resources reload`, and `POST /api/sessions/{session_id}/resources/reload` refresh workspace-bound skills, prompts, and recipe JSON resources. Skills/prompts are surfaced as resources; `.embedagent/recipes/*.json` feeds the existing recipe contract. Agent Skills-style frontmatter (`name`, `description`, `disable-model-invocation`) controls skill metadata and the lightweight local skill listing prompt unit. `/skill:<name> [args]` expands a workspace-bound skill Markdown file into a normal user turn; `/prompt:<name-or-path> [args]` expands a workspace-bound prompt file into a normal user turn. Neither bypasses tools, permissions, or extension loading. Reload does not execute local Python code. `author_local_capability` writes local self-extension artifacts under `.embedagent` and reports next actions; it does not implicitly reload resources or enable/load project extensions.
 
+Slash command specs for workspace-local skill and prompt resources must be projected through `slash_commands.resource_command_specs(resources)`. Hosted adapters and capability projections must not own parallel resource command spec builders.
+
 `ToolRuntime.capability_descriptors()` and `InProcessAdapter.capability_snapshot()` expose read-only capability projections for diagnostics and future reducer work. They must not be used as shortcuts for active-tool policy, permission checks, tool execution, resource reload, or project extension loading.
 
 Project-local Python extension loading is a separate hosted adapter operation, not resource reload. Enabled project extensions are registered into the shared `ExtensionManager`; any dynamic tools they expose are visible only through `ExtensionManager.allowed_tool_names(mode_name, workflow_state=workflow_state)` and remain subject to `PermissionPolicy`.
@@ -217,7 +219,7 @@ Official session-history truth is:
 
 GUI thread lifecycle operations (`rename`, `fork`, and `archive`) must flow through the session lifecycle facade and update session summary/projection metadata used by app thread lists. They must not rewrite transcript history, own workflow state, activate tools, decide permissions, load extensions, or create source-control checkpoints.
 
-Hosted `/review` synthesis is owned by `ReviewCommandService`, not by `InProcessAdapter` or Agent Core. The adapter may collect recent session tool evidence and emit the slash-command result, but review finding rules, git-diff evidence shaping, and markdown rendering must stay in that hosted command service.
+Hosted `/review` synthesis is owned by `ReviewCommandService`, not by `InProcessAdapter` or Agent Core. Session tool-evidence extraction, review finding rules, git-diff evidence shaping, and markdown rendering must stay in that hosted command service; the adapter only invokes the service and emits the slash-command result.
 
 There is no durable `SessionTimelineStore` or timeline-backed history replay
 path. `GET /api/sessions/{id}/events` is a bootstrap-reload signal, not a
@@ -294,13 +296,17 @@ GUI renderer runtime state must follow focused T3-style modules instead of
 root-level global reducer fields. Thread/session selection, session summaries,
 and history-integrity display state live in
 `src/embedagent/frontend/gui/webapp/src/session-runtime/thread-state.js`;
+GUI run-output event-log display state lives in
+`src/embedagent/frontend/gui/webapp/src/session-runtime/event-log-state.js`;
+active-session transport replay and connection projection live in
+`src/embedagent/frontend/gui/webapp/src/session-runtime/event-log.js`;
 composer draft text lives in
 `src/embedagent/frontend/gui/webapp/src/composer/composer-state.js`; terminal
 display buffers remain under `src/embedagent/frontend/gui/webapp/src/terminal/`;
 workbench surface persistence remains under
 `src/embedagent/frontend/gui/webapp/src/workbench/`. Do not reintroduce
-root-level `sessions`, `currentSessionId`, `composer`, or `historyIntegrity`
-as parallel GUI state.
+root-level `sessions`, `currentSessionId`, `composer`, `historyIntegrity`,
+`connectionState`, or `set_connection` as parallel GUI state.
 
 GUI visual debug fixtures are development-only. `?visual_debug=1` may expose
 `window.__EMBEDAGENT_VISUAL_DEBUG__`, but fixture helpers must expand private

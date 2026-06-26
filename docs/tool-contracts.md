@@ -31,6 +31,11 @@ Built-in mode `allowed_tools` are workflow-neutral permission/write contracts. T
 
 `CapabilityRegistry` is a read model, not a tool runtime. It can describe registered tools, local file resources, slash commands, the active model profile, and workflow packages with provenance metadata. Registration in the registry does not make a tool active, does not execute a tool, does not reload resources, does not load project extensions, and does not bypass permission policy.
 
+Slash command specs for workspace-local skill and prompt resources are
+projected by `slash_commands.resource_command_specs(resources)`. Hosted
+adapters and capability projections should consume that boundary instead of
+owning adapter-local resource command spec builders.
+
 `RuntimeConfigReducer` is a transcript-backed read model, not a tool runtime. It describes replayable runtime configuration such as credential-free model profile metadata, registered tool names, active model-visible tool names, local resource revision metadata, safe prompt-unit metadata, capability counts, and provider snapshot records. Reducer state does not make a tool active, execute a tool, reload resources, load project extensions, or bypass permission policy.
 
 `CompactionStateReducer` is a transcript-backed read model, not a tool runtime. It describes compact boundary diagnostics and compacted-history checkpoint diagnostics such as token/message counts, preserved message anchors, safe file activity paths, evidence refs, replacement-message counts, and duplicate/malformed diagnostics. Reducer state does not make a tool active, execute a tool, reload resources, load project extensions, select context, generate summaries, or bypass permission policy. `compacted_history` checkpoints are context/session-history events, not tool contracts.

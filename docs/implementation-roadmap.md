@@ -116,10 +116,13 @@ Recent GUI app-shell work has established the first standalone-app boundary:
 - GUI renderer runtime state has started moving onto focused T3-style modules:
   `session-runtime/thread-state.js` owns thread/session selection, session
   summaries, and history-integrity display state, while
-  `composer/composer-state.js` owns local draft text. `App.jsx`, command
-  palette, terminal controller, workspace reset, and tests consume those read
-  models instead of root-level `sessions`, `currentSessionId`, `composer`, or
-  `historyIntegrity` fields.
+  `composer/composer-state.js` owns local draft text,
+  `session-runtime/event-log-state.js` owns GUI run-output event-log display
+  state, and `session-runtime/event-log.js` owns active session transport
+  replay/connection projection. `App.jsx`, command palette, terminal
+  controller, workspace reset, and tests consume those read models instead of
+  root-level `sessions`, `currentSessionId`, `composer`, `historyIntegrity`,
+  or `connectionState` fields.
 - GUI visual-debug fixtures are now outside the product reducer state machine:
   `visual-debug-fixtures.js` keeps private `dev_fixture_*` descriptors and
   expands them into ordinary product actions, while `store.js` and
@@ -141,7 +144,10 @@ Recent stabilization work has also completed the agent-core ownership cutover:
 - resumed permission/user-input interactions re-enter the same action pipeline instead of bypassing it
 - `AgentToolActionService` owns workflow-patch capture after tool-result hooks, so `QueryEngine` no longer wraps extension result patching
 - `AgentLoop` asks `AgentExtensionHost` for active schemas directly, so `QueryEngine` no longer exposes private active-tool/schema forwarding methods
-- hosted `/review` synthesis now lives in `ReviewCommandService`; `InProcessAdapter` only gathers recent session tool evidence and emits the command result
+- hosted `/review` synthesis now lives in `ReviewCommandService`; the service
+  extracts recent session tool evidence, shapes git-diff/review findings, and
+  renders markdown, while `InProcessAdapter` only invokes the service and emits
+  the command result
 - session snapshots are now built by a pure `SessionSnapshotProjector`
 - transcript sequence allocation uses cached counters instead of rescanning on every append
 
