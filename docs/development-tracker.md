@@ -286,6 +286,7 @@
 ### 2026-06-17 - T3code App-Shell Boundary
 
 - GUI backend 新增 `AppShellService`，`/api/app/bootstrap` 与 `/api/app/workspaces*` 现在返回 GUI-owned app-shell envelope：workspace registry projection、active workspace metadata、safe host/runtime/renderer diagnostics、app commands、app surfaces 和 local shell settings。
+- GUI backend route 依赖已从兼容 `_ActiveCoreProxy` 收敛为显式 app-host active-core resolution；workspace-bound routes 通过 `GUIAppHost.require_core()` 取得当前 core，不再在 backend 上保留 `self.core` 代理状态。
 - React webapp 新增 `webapp/src/app-shell/` 纯 read-model/reducer helpers，并把现有 app bootstrap / workspace switch legacy actions 统一路由到 app-shell reducer；root `resetWorkspaceScopedState` 仍只负责清空 session/timeline/task 等 workspace-scoped GUI 状态。
 - Right panel 新增 Settings / Diagnostics 两个 app-level surfaces，命令 palette 新增 `app.settings` / `app.diagnostics` / `app.reload`，并保持这些命令与 session/workflow commands 分离。
 - 该切片补齐 T3code-like standalone app shell 的第一层边界；terminal 已由后续 bottom-drawer slice 补齐，source-control foundation 已由后续 right-panel slice 补齐，后续 mutation/checkpoint 仍不得把 Agent Core 加厚为 GUI-owned policy layer。

@@ -44,14 +44,6 @@ from embedagent.protocol import (
 _LOGGER = logging.getLogger(__name__)
 
 
-class _ActiveCoreProxy(object):
-    def __init__(self, backend: "GUIBackend") -> None:
-        self._backend = backend
-
-    def __getattr__(self, name: str) -> Any:
-        return getattr(self._backend._require_core(), name)
-
-
 def _to_mapping(value: Any) -> Optional[Dict[str, Any]]:
     if value is None:
         return None
@@ -688,7 +680,6 @@ class GUIBackend:
         self._preview_workspace_path = ""
         if self.terminal_service is not None and hasattr(self.terminal_service, "set_event_sink"):
             self.terminal_service.set_event_sink(self._emit_terminal_event)
-        self.core = _ActiveCoreProxy(self)  # Compatibility for existing route code.
         self.app = self._create_app()
         self._current_session_id: Optional[str] = None
 
@@ -785,17 +776,17 @@ class GUIBackend:
         deadline = time.time() + max(timeout_seconds, 0.0)
         latest = None
         while time.time() < deadline:
-            latest = self._call_core(self.core.get_session_snapshot, session_id)
+            core = self._require_core()
+            latest = self._call_core(core.get_session_snapshot, session_id)
             pending = _to_mapping(_read_value(latest, "pending_interaction"))
             pending_id = str((pending or {}).get("interaction_id") or "").strip()
             if not pending_id or pending_id != str(interaction_id or "").strip():
                 return latest
             time.sleep(0.02)
-        return (
-            latest
-            if latest is not None
-            else self._call_core(self.core.get_session_snapshot, session_id)
-        )
+        if latest is not None:
+            return latest
+        core = self._require_core()
+        return self._call_core(core.get_session_snapshot, session_id)
 
     def _create_app(self) -> FastAPI:
         @asynccontextmanager
@@ -882,16 +873,19 @@ class GUIBackend:
         # API 路由
         @app.get("/api/sessions")
         async def list_sessions(limit: int = 10):
-            return {"sessions": self.core.list_sessions(limit)}
+            core = self._require_core()
+            return {"sessions": core.list_sessions(limit)}
 
         @app.get("/api/sessions/{session_id}")
         async def get_session_snapshot(session_id: str):
-            snapshot = self._call_core(self.core.get_session_snapshot, session_id)
+            core = self._require_core()
+            snapshot = self._call_core(core.get_session_snapshot, session_id)
             return _serialize_session_snapshot(snapshot)
 
         @app.get("/api/sessions/{session_id}/bootstrap")
         async def get_session_bootstrap(session_id: str):
-            payload = self._call_core(self.core.get_session_bootstrap, session_id)
+            core = self._require_core()
+            payload = self._call_core(core.get_session_bootstrap, session_id)
             return {
                 "snapshot": _serialize_session_snapshot(payload.get("snapshot")),
                 "history": dict(payload.get("history") or {}),
@@ -903,13 +897,15 @@ class GUIBackend:
 
         @app.post("/api/sessions")
         async def create_session(mode: str = DEFAULT_MODE):
-            snapshot = self._call_core(self.core.create_session, mode)
+            core = self._require_core()
+            snapshot = self._call_core(core.create_session, mode)
             self._current_session_id = str(_read_value(snapshot, "session_id", "") or "")
             return _serialize_session_snapshot(snapshot)
 
         @app.post("/api/sessions/{session_id}/resume")
         async def resume_session(session_id: str, mode: str = ""):
-            snapshot = self._call_core(self.core.resume_session, session_id, mode)
+            core = self._require_core()
+            snapshot = self._call_core(core.resume_session, session_id, mode)
             self._current_session_id = str(_read_value(snapshot, "session_id", "") or "")
             return _serialize_session_snapshot(snapshot)
 
@@ -1072,18 +1068,21 @@ class GUIBackend:
         async def send_message(session_id: str, request: Dict[str, Any]):
             text = request.get("text", "")
             self._current_session_id = session_id
-            self._call_core(self.core.submit_message, session_id, text)
+            core = self._require_core()
+            self._call_core(core.submit_message, session_id, text)
             return {"status": "submitted"}
 
         @app.post("/api/sessions/{session_id}/cancel")
         async def cancel_session(session_id: str):
-            self._call_core(self.core.cancel_session, session_id)
+            core = self._require_core()
+            self._call_core(core.cancel_session, session_id)
             return {"status": "cancelled"}
 
         @app.post("/api/sessions/{session_id}/mode")
         async def set_mode(session_id: str, request: Dict[str, Any]):
             mode = request.get("mode", DEFAULT_MODE)
-            self._call_core(self.core.set_mode, session_id, mode)
+            core = self._require_core()
+            self._call_core(core.set_mode, session_id, mode)
             return {"status": "ok"}
 
         @app.post("/api/sessions/{session_id}/interactions/{interaction_id}/respond")
@@ -1095,7 +1094,8 @@ class GUIBackend:
                 if bool(request.get("decision")) and bool(request.get("remember")):
                     category = str(request.get("category") or "").strip()
                     if category:
-                        remember_method = getattr(self.core, "remember_permission_category", None)
+                        core = self._require_core()
+                        remember_method = getattr(core, "remember_permission_category", None)
                         if callable(remember_method):
                             self._call_core(remember_method, session_id, category)
                 snapshot = self._wait_for_interaction_resolution(session_id, interaction_id)
@@ -1107,64 +1107,75 @@ class GUIBackend:
                         "snapshot": snapshot,
                     }
                 )
+            core = self._require_core()
             response = self._call_core(
-                self.core.respond_to_interaction, session_id, interaction_id, request
+                core.respond_to_interaction, session_id, interaction_id, request
             )
             if bool(request.get("decision")) and bool(request.get("remember")):
                 category = str(request.get("category") or "").strip()
                 if category:
-                    remember_method = getattr(self.core, "remember_permission_category", None)
+                    remember_method = getattr(core, "remember_permission_category", None)
                     if callable(remember_method):
                         self._call_core(remember_method, session_id, category)
             return _serialize_interaction_response(response)
 
         @app.get("/api/workspace")
         async def get_workspace():
-            return self.core.get_workspace_snapshot()
+            core = self._require_core()
+            return core.get_workspace_snapshot()
 
         @app.get("/api/workspace/recipes")
         async def get_workspace_recipes():
-            return self.core.list_workspace_recipes()
+            core = self._require_core()
+            return core.list_workspace_recipes()
 
         @app.post("/api/sessions/{session_id}/resources/reload")
         async def reload_session_resources(session_id: str):
-            return self._call_core(self.core.reload_resources, session_id, reason="api")
+            core = self._require_core()
+            return self._call_core(core.reload_resources, session_id, reason="api")
 
         @app.get("/api/tool-catalog")
         async def get_tool_catalog():
-            return {"items": self.core.get_tool_catalog()}
+            core = self._require_core()
+            return {"items": core.get_tool_catalog()}
 
         @app.get("/api/sessions/{session_id}/plan")
         async def get_session_plan(session_id: str):
-            plan = self._call_core(self.core.get_session_plan, session_id)
+            core = self._require_core()
+            plan = self._call_core(core.get_session_plan, session_id)
             if plan is None:
                 return {"plan": None}
             return {"plan": _serialize_plan_snapshot(plan)}
 
         @app.get("/api/sessions/{session_id}/permissions")
         async def get_permission_context(session_id: str):
-            context = self._call_core(self.core.get_permission_context, session_id)
+            core = self._require_core()
+            context = self._call_core(core.get_permission_context, session_id)
             return _serialize_permission_context(context)
 
         @app.get("/api/sessions/{session_id}/events")
         async def get_session_events(session_id: str, after_seq: int = 0, limit: int = 200):
+            core = self._require_core()
             payload = self._call_core(
-                self.core.load_session_events_after, session_id, after_seq, limit=limit
+                core.load_session_events_after, session_id, after_seq, limit=limit
             )
             return _serialize_reload_signal_payload(session_id, payload)
 
         @app.get("/api/files")
         async def list_workspace_tree(path: str = ".", max_depth: int = 3):
-            return {"items": self.core.list_workspace_tree(path, max_depth)}
+            core = self._require_core()
+            return {"items": core.list_workspace_tree(path, max_depth)}
 
         @app.get("/api/files/tree")
         async def list_file_children(path: str = ".", limit: int = 200):
-            return {"items": self.core.list_file_children(path, limit)}
+            core = self._require_core()
+            return {"items": core.list_file_children(path, limit)}
 
         @app.get("/api/files/{path:path}")
         async def read_file(path: str):
             try:
-                return self.core.read_file(path)
+                core = self._require_core()
+                return core.read_file(path)
             except HTTPException:
                 raise
             except (OSError, ValueError, TypeError) as e:
@@ -1178,7 +1189,8 @@ class GUIBackend:
         async def get_diff(request: Dict[str, Any]):
             path = request.get("path", "")
             new_content = request.get("new_content", "")
-            diff = self.core.get_diff_preview(path, new_content)
+            core = self._require_core()
+            diff = core.get_diff_preview(path, new_content)
             return {
                 "path": diff.path,
                 "old_content": diff.old_content,
@@ -1188,15 +1200,18 @@ class GUIBackend:
 
         @app.get("/api/tasks")
         async def list_tasks(session_id: str = ""):
-            return {"tasks": self.core.list_tasks(session_id=session_id)}
+            core = self._require_core()
+            return {"tasks": core.list_tasks(session_id=session_id)}
 
         @app.get("/api/artifacts")
         async def list_artifacts(limit: int = 20):
-            return {"items": self.core.list_artifacts(limit=limit)}
+            core = self._require_core()
+            return {"items": core.list_artifacts(limit=limit)}
 
         @app.get("/api/artifacts/{reference:path}")
         async def read_artifact(reference: str):
-            return self.core.read_artifact(reference)
+            core = self._require_core()
+            return core.read_artifact(reference)
 
         # WebSocket 路由
         @app.websocket("/ws")

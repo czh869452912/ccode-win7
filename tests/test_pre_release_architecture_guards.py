@@ -68,3 +68,9 @@ def test_no_session_view_clear_uses_timeline_payload():
         if "clear" + "_timeline" in text:
             offenders.append(str(path.relative_to(ROOT)))
     assert offenders == []
+
+
+def test_gui_backend_routes_do_not_use_active_core_proxy():
+    text = _read(ROOT / "src/embedagent/frontend/gui/backend/server.py")
+    assert "_ActiveCoreProxy" not in text
+    assert "self.core" not in text

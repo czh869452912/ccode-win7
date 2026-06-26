@@ -54,6 +54,8 @@ permissions, load extensions, or create source-control checkpoints.
 The GUI terminal bottom drawer is also app-shell hosted. `GUIBackend` owns an
 in-memory terminal service bound to the active workspace and exposes
 thread-scoped terminal HTTP routes plus `terminal_event` WebSocket messages.
+GUIBackend resolves workspace-bound Agent Core access explicitly through the
+app host; it does not carry a compatibility core proxy as route state.
 The service uses Python stdlib subprocess pipes for Windows 7 compatibility and
 offline deployment; it is not a full PTY and does not introduce ConPTY,
 `node-pty`, `pywinpty`, `pexpect`, runtime Node, Electron, Docker, WSL, VS Code,

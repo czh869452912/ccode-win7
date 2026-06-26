@@ -49,6 +49,11 @@ diagnostics, app-level command metadata, and GUI-local settings. The canonical
 app activation bootstrap route is `GET /api/app/bootstrap`; app workspace
 routes return the same envelope after mutations.
 
+GUI backend session, workspace, file, task, artifact, and tool-catalog routes
+must resolve the active core explicitly through the app host. Backend routes
+must not depend on compatibility proxy objects that hide the active-workspace
+requirement.
+
 This state is owned by the GUI host and frontend shell. It is not session
 history, workflow truth, tool activation policy, permission policy, extension
 loading policy, provider configuration, or transcript state. It must not

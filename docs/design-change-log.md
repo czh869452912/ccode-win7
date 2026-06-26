@@ -44,6 +44,26 @@
 
 ## 3. 当前变更记录
 
+### DC-206
+
+- Date: 2026-06-26
+- Change Topic: GUI backend active-core proxy removal
+- Summary:
+  - Removed the GUI backend `_ActiveCoreProxy` compatibility object and the
+    `self.core` route proxy state.
+  - Updated workspace-bound HTTP routes to resolve the active core explicitly
+    through `GUIAppHost.require_core()`.
+  - Added a pre-release architecture guard preventing the proxy from returning.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/backend/server.py`
+  - `tests/test_pre_release_architecture_guards.py`
+  - `docs/frontend-protocol.md`
+  - `docs/overall-solution-architecture.md`
+- ADR Needed: No
+- Follow-up:
+  - S04 should remove the remaining timeline/event reload vocabulary now that
+    GUI route dependencies are explicit.
+
 ### DC-205
 
 - Date: 2026-06-26
