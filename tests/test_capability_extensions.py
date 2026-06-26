@@ -771,6 +771,16 @@ def test_agent_extension_host_applies_context_and_tool_result_workflow_patch(tmp
     assert session.workflow_state["extensions"]["last_workflow_patch"]["source"] == "test"
 
 
+def test_workflow_patch_exposes_only_current_read_model_fields():
+    from dataclasses import fields
+
+    from embedagent.extensions import WorkflowPatch
+
+    names = [item.name for item in fields(WorkflowPatch)]
+
+    assert names == ["workflow", "metadata"]
+
+
 def test_session_snapshot_projects_extension_state_and_diagnostics():
     from embedagent.session import Session
     from embedagent.session_projector import SessionSnapshotProjector

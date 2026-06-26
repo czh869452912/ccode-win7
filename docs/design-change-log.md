@@ -44,6 +44,28 @@
 
 ## 3. 当前变更记录
 
+### DC-211
+
+- Date: 2026-06-26
+- Change Topic: WorkflowPatch projection field cleanup
+- Summary:
+  - Removed the unused `legacy_projection` field from extension
+    `WorkflowPatch`.
+  - Locked the current tool-result workflow patch shape to `workflow` plus safe
+    `metadata`.
+  - Added regression coverage so extension patch read models cannot regain
+    legacy projection fields.
+- Impacted Scope:
+  - `src/embedagent/extensions.py`
+  - `tests/test_capability_extensions.py`
+  - `docs/tool-contracts.md`
+  - `docs/overall-solution-architecture.md`
+  - `AGENTS.md`
+- ADR Needed: No
+- Follow-up:
+  - Keep extension/capability projections read-only and avoid adding parallel
+    workflow-state carriers outside `workflow`/`metadata`.
+
 ### DC-210
 
 - Date: 2026-06-26

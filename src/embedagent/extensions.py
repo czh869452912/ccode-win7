@@ -130,7 +130,6 @@ class ToolResultPatch:
 @dataclass
 class WorkflowPatch:
     workflow: Dict[str, Any] = field(default_factory=dict)
-    legacy_projection: Dict[str, Any] = field(default_factory=dict)
     metadata: Dict[str, Any] = field(default_factory=dict)
 
 

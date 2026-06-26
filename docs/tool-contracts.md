@@ -119,6 +119,10 @@ Hosted product paths may load project-local Python extensions from `.embedagent/
 
 Loaded project extensions receive a narrow API object exposing extension result dataclasses, `ExtensionCapability`, `ToolDefinition`, `Observation`, and workspace-bound text helpers. The loader does not install dependencies, contact remote registries, execute local resources, or allow built-in tool replacement. Dynamic tools from project extensions remain subject to catalog metadata, active-tool gating, and `PermissionPolicy`.
 
+`WorkflowPatch` is the tool-result hook read-model patch shape. It carries only
+`workflow` and safe `metadata`; it does not expose legacy projection fields or
+grant tool activation, permission, or history authority.
+
 Generated extension skeletons from `author_local_capability` start disabled. They become executable only through the existing hosted project-extension loading path after a manifest is explicitly enabled and passes validation.
 
 Generated extension validation recipes must remain offline-friendly. They should execute through `run_recipe` and managed bundle commands such as `python -m py_compile ...`, not through dependency installers or remote package managers.
