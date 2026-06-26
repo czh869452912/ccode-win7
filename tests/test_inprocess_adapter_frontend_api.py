@@ -431,6 +431,14 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertIn("task_status", names)
         self.assertIn("report_quality_v2", names)
 
+    def test_capability_snapshot_keeps_registered_tool_names_and_counts(self):
+        snapshot = self.adapter.capability_snapshot()
+        names = [item.get("name") for item in snapshot.get("descriptors") or []]
+
+        self.assertIn("read_file", names)
+        self.assertIn("write_file", names)
+        self.assertIsInstance(snapshot.get("counts"), dict)
+
     def test_session_snapshot_projector_is_side_effect_free(self):
         from embedagent.session_projector import SessionSnapshotProjector
 
@@ -456,19 +464,31 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
 
         self.assertIs(state.engine, first_engine)
 
-    def test_timeline_api(self):
-        events = []
+    def test_session_bootstrap_uses_history_without_timeline_api(self):
         self.adapter.submit_user_message(
             session_id=str(self.snapshot.get("session_id") or ""),
             text="hello",
             stream=False,
             wait=True,
             permission_resolver=lambda ticket: True,
-            event_handler=lambda event_name, session_id, payload: events.append(event_name),
+            event_handler=lambda event_name, session_id, payload: None,
         )
-        payload = self.adapter.get_session_timeline(str(self.snapshot.get("session_id") or ""))
-        self.assertEqual(payload["events"], [])
-        self.assertEqual(payload["latest_assistant_reply"], "ok")
+        payload = self.adapter.get_session_bootstrap(str(self.snapshot.get("session_id") or ""))
+        self.assertIn("snapshot", payload)
+        self.assertIn("history", payload)
+        self.assertIn("permission_context", payload)
+        self.assertNotIn("replay", payload)
+        self.assertEqual(payload["history"]["turns"][0]["steps"][0]["assistant_text"], "ok")
+
+    def test_bootstrap_payload_is_assembled_by_service_contract(self):
+        session_id = str(self.snapshot.get("session_id") or "")
+        payload = self.adapter.get_session_bootstrap(session_id)
+
+        self.assertEqual(payload["snapshot"]["session_id"], session_id)
+        self.assertIn("history", payload)
+        self.assertIn("plan", payload)
+        self.assertIn("permission_context", payload)
+        self.assertNotIn("replay", payload)
 
     def test_build_session_history_uses_active_session_state(self):
         adapter = InProcessAdapter(
@@ -803,8 +823,8 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         history = adapter.build_session_history(session_id)
         turn = history["turns"][0]
         self.assertIn("compact_retry", [item.get("kind") for item in turn["transitions"]])
-        timeline = adapter.get_session_timeline(session_id)
-        self.assertEqual(timeline["events"], [])
+        bootstrap = adapter.get_session_bootstrap(session_id)
+        self.assertNotIn("replay", bootstrap)
         self.assertIn("compact_retry", [item[0] for item in events])
 
     def test_session_snapshot_includes_last_transition_message(self):
@@ -1505,6 +1525,25 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertIn("Workspace Recipes", command_events[0].get("message") or "")
         recipe_ids = [item["id"] for item in command_events[0].get("data", {}).get("items", [])]
         self.assertIn("make.build.default", recipe_ids)
+
+    def test_clear_command_uses_session_view_payload(self):
+        emitted = []
+        session_id = str(self.snapshot.get("session_id") or "")
+        self.adapter.submit_user_message(
+            session_id=session_id,
+            text="/clear",
+            stream=False,
+            wait=True,
+            event_handler=lambda event_name, current_session_id, payload: emitted.append(
+                (event_name, current_session_id, payload)
+            ),
+        )
+        command_payloads = [
+            payload for event_name, _, payload in emitted if event_name == "command_result"
+        ]
+
+        self.assertTrue(command_payloads)
+        self.assertEqual(command_payloads[-1]["data"], {"clear_session_view": True})
 
     @unittest.skipIf(sys.platform != "win32", "Windows-only: requires cmd.exe")
     def test_slash_run_executes_recipe_and_emits_tool_events(self):

@@ -67,7 +67,7 @@ export function runAppWorkspaceTests() {
     diffSurface: { title: "Diff" },
     fileTree: [{ id: "src" }],
     permissionContext: { session_id: "sess-1" },
-    eventLog: [{ label: "old" }],
+    runOutput: [{ label: "old" }],
     activeTurnId: "turn-1",
     sourceControl: { status: "ready", selectedPath: "src/main.c" },
   });
@@ -84,7 +84,7 @@ export function runAppWorkspaceTests() {
   assert.equal(reset.diffSurface, null);
   assert.deepEqual(reset.fileTree, []);
   assert.equal(reset.permissionContext, null);
-  assert.deepEqual(reset.eventLog, []);
+  assert.deepEqual(reset.runOutput, []);
   assert.equal(reset.activeTurnId, "");
   assert.equal(reset.sourceControl.status, "idle");
   assert.equal(reset.sourceControl.selectedPath, "");

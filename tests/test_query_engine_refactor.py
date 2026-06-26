@@ -1391,6 +1391,10 @@ class TestQueryEngineRefactor(unittest.TestCase):
         result_payload = finished[0]["result"]
 
         self.assertTrue(metadata["turn_snapshot"]["snapshot_id"].startswith("ts-"))
+        self.assertIn("snapshot_id", metadata["turn_snapshot"])
+        self.assertIn("mode_name", metadata["turn_snapshot"])
+        self.assertIn("workflow_state", metadata["turn_snapshot"])
+        self.assertIn("active_tool_names", metadata["turn_snapshot"])
         self.assertEqual(
             metadata["turn_snapshot"]["active_tool_names"],
             sorted(snapshot.active_tool_names),
@@ -1405,6 +1409,8 @@ class TestQueryEngineRefactor(unittest.TestCase):
         )
         self.assertNotIn("messages", metadata["turn_snapshot"])
         self.assertNotIn("tool_schemas", metadata["turn_snapshot"])
+        self.assertNotIn("prompt", metadata["turn_snapshot"])
+        self.assertNotIn("api_key", repr(metadata["turn_snapshot"]).lower())
 
     def test_turn_snapshot_records_safe_local_skill_prompt_unit_metadata(self):
         skill_dir = os.path.join(self.workspace, ".embedagent", "skills", "review")
@@ -1801,7 +1807,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
         session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：build")
         session.add_user_message("继续分析")
         actions = [
-            Action("list_files", {"path": "src"}, "call-list-1"),
+            Action("list_dir", {"path": "src"}, "call-list-1"),
             Action("read_file", {"path": "src/demo.c"}, "call-read-1"),
             Action("read_file", {"path": "src/demo.c"}, "call-read-2"),
         ]
@@ -1815,13 +1821,13 @@ class TestQueryEngineRefactor(unittest.TestCase):
         session.add_observation(
             actions[0],
             Observation(
-                tool_name="list_files",
+                tool_name="list_dir",
                 success=True,
                 error=None,
                 data={
                     "path": "src",
-                    "files": ["src/demo.c"],
-                    "files_stored_path": ".embedagent/memory/sessions/sess-context/tool-results/list-src/files.json",
+                    "entries": [{"name": "demo.c", "path": "src/demo.c", "type": "file"}],
+                    "entries_stored_path": ".embedagent/memory/sessions/sess-context/tool-results/list-src/entries.json",
                 },
             ),
         )

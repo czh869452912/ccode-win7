@@ -1,17 +1,17 @@
 import assert from "node:assert/strict";
 
 import {
-  createEventLogState,
-  readEventLogEntries,
-  reduceEventLogState,
-} from "../src/session-runtime/event-log-state.js";
+  createRunOutputState,
+  readRunOutputEntries,
+  reduceRunOutputState,
+} from "../src/session-runtime/run-output-state.js";
 
-export function runEventLogStateTests() {
-  const initial = createEventLogState();
+export function runRunOutputStateTests() {
+  const initial = createRunOutputState();
   assert.deepEqual(initial, []);
-  assert.deepEqual(readEventLogEntries({ eventLog: initial }), []);
+  assert.deepEqual(readRunOutputEntries({ runOutput: initial }), []);
 
-  const appended = reduceEventLogState(initial, {
+  const appended = reduceRunOutputState(initial, {
     type: "log_event",
     label: "session_event",
     detail: "turn_started",
@@ -21,7 +21,7 @@ export function runEventLogStateTests() {
 
   let capped = initial;
   for (let index = 0; index < 205; index += 1) {
-    capped = reduceEventLogState(capped, {
+    capped = reduceRunOutputState(capped, {
       type: "log_event",
       label: `event-${index}`,
       timestamp: index,
@@ -32,11 +32,13 @@ export function runEventLogStateTests() {
   assert.equal(capped[199].label, "event-204");
 
   assert.deepEqual(
-    reduceEventLogState(appended, { type: "session_activated" }),
-    createEventLogState(),
+    reduceRunOutputState(appended, { type: "session_activated" }),
+    createRunOutputState(),
   );
   assert.deepEqual(
-    reduceEventLogState(appended, { type: "workspace_scoped_state_reset" }),
-    createEventLogState(),
+    reduceRunOutputState(appended, { type: "workspace_scoped_state_reset" }),
+    createRunOutputState(),
   );
 }
+
+

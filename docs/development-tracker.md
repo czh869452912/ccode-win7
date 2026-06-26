@@ -36,9 +36,15 @@
 - `ReviewCommandService.build_payload_from_session(...)` owns hosted `/review`
   evidence extraction, finding synthesis, git-diff evidence shaping, and
   markdown rendering.
-- GUI event-log display state and transport replay/connection projection now
-  live under `webapp/src/session-runtime/`, and root-level GUI
-  `connectionState` / `set_connection` state was removed.
+- `SessionBootstrapService`, `RuntimeCapabilityService`,
+  `SlashCommandService`, `TurnSnapshotService`, and `PromptAssemblyService`
+  now own the corresponding hosted/Core projection work that had been
+  accumulating in `InProcessAdapter` and `QueryEngine`.
+- GUI run-output display state and transport connection/reload projection now
+  live under `webapp/src/session-runtime/`; session activation and WebSocket
+  lifecycle live under `webapp/src/app-runtime/`; root-level GUI
+  `connectionState` / `set_connection` state and timeline reload recovery were
+  removed.
 - The completed slice plan is archived under
   `docs/archive/pi-t3-residual-debt-cleanup/`.
 
@@ -65,8 +71,10 @@
   root-level `sessions`, `currentSessionId`, `composer`, or
   `historyIntegrity` fields. Follow-on Pi/T3 residual cleanup moved GUI
   run-output event-log display state into
-  `webapp/src/session-runtime/event-log-state.js`, moved transport replay /
-  connection projection into `webapp/src/session-runtime/event-log.js`, and
+  `webapp/src/session-runtime/run-output-state.js`, moved transport
+  connection/reload projection into
+  `webapp/src/session-runtime/session-transport-state.js`, moved WebSocket
+  lifecycle and bootstrap activation into focused app-runtime controllers, and
   removed root-level `connectionState` / `set_connection`.
 - Slice 6 has removed visual-debug fixture actions from product GUI state:
   fixture helpers now use private `dev_fixture_*` descriptors and expand them
@@ -317,7 +325,7 @@
 - 当前阶段：`Phase 4 真实工程验证 + Phase 6 GUI / Win7 收口 + Pi-inspired minimal Core enterprise boundary 收口`
 - 总体状态：`进行中`
 - 当前重点：`Agent Harness V2 official cutover 六步程序与文档治理 Batch A 已完成。模块文档（protocol/core、TUI、GUI、packaging）已补齐，代码-文档矩阵已同步。workflow extension boundary 代码迁移、repo-side 回归、本机 release bundle 验证和本机剩余边界清理已收口；Pi-inspired minimal Core Phase M core alias cleanup、enterprise/intranet capability boundary foundation、GUI terminal bottom drawer 与 GUI source-control foundation 已完成。下一步重点是在真实 Win7 目标机重跑离线 bundle smoke、继续真实 C/C++ 工程验证，并继续 stale compatibility audit。`
-- 最新 session-history 收口：`GUI session activation 已切到单一 `/api/sessions/{id}/bootstrap` 合约；历史 turns 现在只从 `transcript.jsonl -> Session -> SessionHistoryAssembler` 生成，`timeline.jsonl` 仅保留 transport replay 角色，raw fallback 不再是正式 GUI 恢复模式。`
+- 最新 session-history 收口：`GUI session activation 已切到单一 `/api/sessions/{id}/bootstrap` 合约；历史 turns 现在只从 `transcript.jsonl -> Session -> SessionHistoryAssembler` 生成；当前契约无 durable timeline transport，raw fallback 不再是正式 GUI 恢复模式。`
 - 最新稳定化收口：`set_session_mode()` 现在会先重置旧 phase 再刷新 Harness snapshot，避免 build/debug/verify 跨 mode 切换时把上一模式的 phase 残留到新会话快照；同时 `Context` 高优先级工具、reducer registry 与 `/review` 文案已统一到 `run_recipe/report_quality_v2/task_status` 正式词汇。`
 - 最新 dead-code 清理：`tools_v2/` 中仍被正式主路径使用的 discovery/recipe/session 模块已迁入官方 `src/embedagent/tools/`；旧 `tools_v2/*.py` 与已无人引用的 legacy `loop.py` 已删除，产品源码不再直接 import `tools_v2`。当前 `src/embedagent/agent_loop.py` 是 Slice 5 新增的正式 turn-loop 边界。`
 - 最新 core cutover：`ToolRuntime` 已不再维护 legacy execute aliases，`permissions.py` 也已只按正式工具词汇分类；`build_ops.py`、`todo_ops.py` 与 `tests/test_todo_ops.py` 已删除，官方 runtime 现在只接受正式 schema/catalog 中的工具名。`
@@ -444,10 +452,10 @@
 - tool interrupt / retry 已继续推进第八段：`StreamingToolExecutor` 现在对并行 batch 引入 idle timeout / cancel 收口；started 但迟迟不返回的只读 action 会落 `timeout` 或 `interrupted`，尚未开始的兄弟 action 会落 `discarded`，session 不再因单个卡死线程无限等待
 - timeline 持久化已推进一段：`SessionTimelineStore` 现在与 transcript 一样按文件串行化写入并记录单调 `seq`；GUI raw timeline 顺序不再只依赖 `created_at`
 - GUI turn 锚点已收口：webapp reducer 现在会给本地用户消息分配 provisional turn anchor，并在 `turn_started` 到来时整体回填，`/mode ... <message>` 这类“先命令结果、后真实 turn”链路不再把 command card 绑到伪 turn id 上
-- GUI active-session runtime 已推进到 event-log + projector 第一版：GUI backend 已新增统一 `session_event` envelope、`GET /api/sessions/{session_id}/events?after_seq=N` replay 入口，以及统一的 interaction response route；前端当前会以 `sessionEventLog + projectSessionRuntime(...)` 作为 active session 读模型骨架
+- GUI active-session runtime 已推进到 transport-state + projector 第一版：GUI backend 已新增统一 `session_event` envelope、`GET /api/sessions/{session_id}/events?after_seq=N` reload 信号入口，以及统一的 interaction response route；前端当前会以 `sessionTransport + projectSessionRuntime(...)` 作为 active session 读模型骨架
 - Inspector / Timeline 交互边界已收口：Inspector 现在使用统一 `InteractionPanel` 处理当前 pending interaction，Timeline 只显示交互历史摘要，不再保留第二套 inline approve / answer 控件
-- transport / restore 退化语义已补齐第一版：`ThreadsafeAsyncDispatcher` 现在会返回带 `reason` 的调度结果；`SessionRestorer` 遇到缺失可信 `interaction_id` 的 pending interaction 时会显式停在 `interaction_expired`；webapp `sessionEventLog` 已升级到 typed `replayState`
-- GUI runtime hardening 第二段已完成：timeline replay 现在显式区分 `replay / reload_required / degraded`，HTTP / WebSocket 错误边界已 typed 化；webapp projector 现在接管 replay state、command-result fallback、detached turn item 排序与 session-scoped runtime reset
+- transport / restore 退化语义已补齐第一版：`ThreadsafeAsyncDispatcher` 现在会返回带 `reason` 的调度结果；`SessionRestorer` 遇到缺失可信 `interaction_id` 的 pending interaction 时会显式停在 `interaction_expired`；webapp transport state 已升级到 typed reload state
+- GUI runtime hardening 第二段已完成：timeline reload 现在显式区分 `reload_required / degraded`，HTTP / WebSocket 错误边界已 typed 化；webapp projector 现在接管 reload state、command-result fallback、detached turn item 排序与 session-scoped runtime reset
 - GUI runtime hardening slice 已关闭：相关设计与实施文档已归档到 `docs/archive/gui-runtime-hardening/`
 - GUI timeline event-anchor unification 已完成：`command_result / context_compacted / session_error / permission_request / user_input_request` 现在在协议、GUI backend、前端 reducer、structured timeline 与 replay 路径上共享 `turn_id / step_id / step_index` 契约；slash/workflow 命令也已纳入正式 turn 生命周期
 - `build_structured_timeline()` 与 `timelineFromTurns()` 现已保留并投影 turn-level `transitions` / `tool_calls`，`/help`、`/review`、`/run` 这类命令结果在刷新和重放后不再掉到 session fallback 区
@@ -656,7 +664,7 @@
 | 2026-04-09 | 文档治理 Batch A 完成：补齐 4 篇缺失模块文档，修复 tools-and-tooling 不准确引用，更新代码-文档矩阵与模块索引 |
 | 2026-04-08 | 启动文档治理基线实施：建立 docs 分层、模板、术语表、同步工作流和第一批模块文档入口 |
 | 2026-04-04 | Query / Context / Context Loop 这轮重构已收口：P0 问题全部关闭，handoff/analysis/review 文档已归档到 `docs/archive/context-loop/`，活动状态以后续真实工程集成回归和 Win7 验证为准 |
-| 2026-04-04 | GUI runtime hardening 已推进完成：timeline replay / restore / typed HTTP-WS error boundary / active-session projector ownership 已收口，webapp 现已按 replay 状态和 grouped projector 读模型驱动 active session |
+| 2026-04-04 | GUI runtime hardening 已推进完成：timeline reload / restore / typed HTTP-WS error boundary / active-session projector ownership 已收口，webapp 现已按 reload 状态和 grouped projector 读模型驱动 active session |
 | 2026-04-04 | GUI runtime hardening 相关 spec/plan 已从活动 `docs/superpowers/` 入口移入 `docs/archive/gui-runtime-hardening/`，当前该 slice 视为关闭 |
 | 2026-04-05 | GUI timeline event-anchor unification 已完成：slash/workflow 命令现在会生成正式 turn 生命周期，`command_result / context_compacted / session_error` 与 permission/user_input 交互在 live/bootstrap/replay 路径上的 turn/step 坐标已统一；定向 Python 与 webapp helper 验证已通过 |
 | 2026-04-05 | GUI timeline event-anchor 相关设计/计划/分析文档已归档到 `docs/archive/gui-timeline-event-anchors/`；同时 `.venv\\Scripts\\python.exe -m unittest discover -s tests -v` 已在本轮收尾时全量通过 |

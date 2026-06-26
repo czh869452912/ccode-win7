@@ -44,6 +44,7 @@ from embedagent.modes import (
     require_mode,
 )
 from embedagent.permissions import PermissionPolicy, PermissionRequest
+from embedagent.prompt_assembly_service import PromptAssemblyService
 from embedagent.runtime_config import RuntimeConfigReducer
 from embedagent.project_memory import ProjectMemoryStore
 from embedagent.session import (
@@ -63,7 +64,8 @@ from embedagent.skill_index import build_skill_index
 from embedagent.tool_commit import ToolCommitCoordinator
 from embedagent.tools import ToolRuntime
 from embedagent.transcript_store import TranscriptStore
-from embedagent.turn_snapshot import TurnSnapshot, TurnSnapshotBuilder
+from embedagent.turn_snapshot import TurnSnapshot
+from embedagent.turn_snapshot_service import TurnSnapshotService
 from embedagent.workspace_intelligence import WorkspaceIntelligenceBroker
 from embedagent.workspace_profile import build_workspace_profile_message
 
@@ -168,7 +170,8 @@ class QueryEngine(object):
             max_retries=_LLM_MAX_RETRIES,
             base_delay=_LLM_RETRY_BASE_DELAY,
         )
-        self._turn_snapshot_builder = TurnSnapshotBuilder()
+        self._turn_snapshots = TurnSnapshotService()
+        self._prompt_assembly = PromptAssemblyService()
         self._last_turn_snapshot = None  # type: Optional[TurnSnapshot]
         self.kernel = AgentKernel(lifecycle=self.lifecycle)
         self.tool_commit = ToolCommitCoordinator(
@@ -519,17 +522,7 @@ class QueryEngine(object):
         return assembly
 
     def _active_tool_names_from_schemas(self, tool_schemas: list) -> list:
-        names = []
-        for schema in list(tool_schemas or []):
-            if not isinstance(schema, dict):
-                continue
-            function = schema.get("function")
-            if not isinstance(function, dict):
-                continue
-            name = str(function.get("name") or "").strip()
-            if name:
-                names.append(name)
-        return sorted(set(names))
+        return self._turn_snapshots.active_tool_names_from_schemas(tool_schemas)
 
     def _capability_snapshot_for_provider(self, active_tool_names: list) -> Dict[str, Any]:
         registry = CapabilityRegistry()
@@ -613,16 +606,7 @@ class QueryEngine(object):
         return [prompt_unit]
 
     def _registered_tool_names_from_capabilities(self, capabilities: Dict[str, Any]) -> list:
-        names = []
-        for item in list(capabilities.get("descriptors") or []):
-            if not isinstance(item, dict):
-                continue
-            if str(item.get("kind") or "") != "tool":
-                continue
-            name = str(item.get("name") or "").strip()
-            if name:
-                names.append(name)
-        return sorted(set(names))
+        return self._turn_snapshots.registered_tool_names_from_capabilities(capabilities)
 
     def _runtime_environment_snapshot(self) -> Dict[str, Any]:
         runtime_snapshot = getattr(self.tools, "runtime_environment_snapshot", None)
@@ -636,18 +620,7 @@ class QueryEngine(object):
         }
 
     def _turn_snapshot_metadata(self, snapshot: TurnSnapshot) -> Dict[str, Any]:
-        capabilities = dict(snapshot.capabilities or {})
-        return {
-            "snapshot_id": snapshot.snapshot_id,
-            "mode_name": snapshot.mode_name,
-            "workflow_state": snapshot.workflow_state,
-            "active_tool_names": list(snapshot.active_tool_names),
-            "registered_tool_names": self._registered_tool_names_from_capabilities(capabilities),
-            "model_profile": dict(snapshot.model_profile or {}),
-            "resource_revision": dict(snapshot.resource_revision or {}),
-            "prompt_units": [dict(item) for item in list(snapshot.prompt_units or [])],
-            "capability_counts": dict(capabilities.get("counts") or {}),
-        }
+        return self._turn_snapshots.metadata(snapshot)
 
     def _call_provider_operation(
         self,
@@ -666,7 +639,7 @@ class QueryEngine(object):
         active_tool_names = self._active_tool_names_from_schemas(tool_schemas)
         capabilities = self._capability_snapshot_for_provider(active_tool_names)
         runtime_config = self._runtime_config_snapshot(session)
-        snapshot = self._turn_snapshot_builder.build(
+        snapshot = self._turn_snapshots.build(
             session_id=session.session_id,
             turn_id=turn_id,
             step_id=step_id,
@@ -880,25 +853,9 @@ class QueryEngine(object):
         self.extension_host.register_tools(session, current_mode, workflow_state, reason=reason)
 
     def _append_workflow_prompt_messages(self, session: Session, workflow_prompt: Any) -> None:
-        if workflow_prompt is None:
-            return
-        existing = False
-        for message in list(session.messages):
-            if message.role != "system" or message.kind not in (
-                "workflow_prompt",
-                "harness_prompt",
-            ):
-                continue
-            metadata = dict(getattr(message, "metadata", {}) or {})
-            if str(metadata.get("mode_name") or "") != str(workflow_prompt.mode_name or ""):
-                continue
-            if str(metadata.get("discipline_label") or "") != str(
-                workflow_prompt.discipline_label or ""
-            ):
-                continue
-            existing = True
-            break
-        if existing:
+        if not self._prompt_assembly.should_append_workflow_prompt(
+            workflow_prompt, session.messages
+        ):
             return
         for index, content in enumerate(list(getattr(workflow_prompt, "prompt_units", []) or [])):
             workflow_message = session.add_system_message(

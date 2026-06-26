@@ -281,15 +281,19 @@ session history truth or backend policy.
 
 `webapp/src/app-runtime/` owns frontend-only runtime interpretation helpers.
 `session-loaders.js` owns private loader request vocabulary, loader request
-execution against injected GUI callbacks, and session bootstrap projection from
-the official `/api/sessions/{id}/bootstrap` payload. `socket-message-effects.js`
+execution against injected GUI callbacks, while
+`session-activation-controller.js` owns session bootstrap activation from the
+official `/api/sessions/{id}/bootstrap` payload. `socket-message-effects.js`
 maps existing WebSocket messages into private webapp descriptors: reducer
-actions, session event-log entries, and loader requests. `terminal-controller.js`
+actions, session transport events, and loader requests.
+`session-transport-controller.js` owns WebSocket connect/reconnect/error
+lifecycle and reload-by-bootstrap recovery; it must not call
+`/api/sessions/{id}/events` as a history replay API. `terminal-controller.js`
 coordinates existing terminal API helpers and reducer actions for bottom-drawer
 terminal actions plus right-panel terminal open/split/activate/close behavior.
-`App.jsx` remains the executor of HTTP route calls, reducer dispatch, event-log
-reset, session activation terminal summary loading, task/artifact refreshes,
-and render composition in this slice. `visual-debug-fixtures.js` owns the
+`App.jsx` remains the composition layer for HTTP route calls, reducer dispatch,
+session activation wiring, task/artifact refreshes, and render composition in
+this slice. `visual-debug-fixtures.js` owns the
 development-only `?visual_debug=1` fixtures used by the visual harness. The
 fixture module uses private `dev_fixture_*` descriptors internally, then
 expands them into ordinary product reducer actions such as
@@ -372,7 +376,7 @@ host paths.
 以下变化必须同步更新本文件：
 
 - 新增 Core 回调需要在 `WebSocketFrontend` 和 React reducer 中同步实现
-- 会话事件 schema 变化影响 `session_events.py`、`state-helpers.js`、`event-log.js`
+- 会话事件 schema 变化影响 `session_events.py`、`state-helpers.js`、`session-transport-state.js`
 - WebView2/运行时策略变化
 - FastAPI 路由或 WebSocket 广播协议变化
 - Source Control app-shell routes、capability metadata、read-only Git service 或 right-panel surface 变化

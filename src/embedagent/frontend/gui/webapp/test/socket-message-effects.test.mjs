@@ -11,13 +11,12 @@ function makeDeterministicIdFactory() {
     return `${prefix}-${next}`;
   };
 }
-
 function derive(type, data, options = {}) {
   return deriveSocketMessageEffects({
     type,
     data,
     currentSessionId: options.currentSessionId || "sess-active",
-    sessionEventLog: options.sessionEventLog || { lastAppliedSeq: 4 },
+    sessionTransport: options.sessionTransport || { lastAppliedSeq: 4 },
     makeId: options.makeId || makeDeterministicIdFactory(),
     nowIso: options.nowIso || (() => "2026-06-18T00:00:00.000Z"),
   });
@@ -44,11 +43,10 @@ export function runSocketMessageEffectsTests() {
     session_id: "sess-1",
     status: "running",
     current_mode: "build",
-    timeline_replay_status: "degraded",
   });
   assert.equal(status.actions[0].type, "session_snapshot");
   assert.equal(status.actions[0].snapshot.session_id, "sess-1");
-  assert.equal(status.actions[0].replayStatePatch, "degraded");
+  assert.equal(Object.hasOwn(status.actions[0], "replay" + "StatePatch"), false);
   assert.deepEqual(status.actions[1], { type: "log_event", label: "session_status", detail: "running" });
   assert.deepEqual(status.loaderRequests, [{ name: LOADER_REQUESTS.LOAD_SESSIONS }]);
 
@@ -58,8 +56,8 @@ export function runSocketMessageEffectsTests() {
     event_kind: "turn.started",
     payload: { turn_id: "turn-1", user_text: "inspect parser" },
   });
-  assert.equal(turnEvent.eventLogEntries.length, 1);
-  assert.equal(turnEvent.eventLogEntries[0].event_id, "evt-turn");
+  assert.equal(turnEvent.transportEvents.length, 1);
+  assert.equal(turnEvent.transportEvents[0].event_id, "evt-turn");
   assert.deepEqual(turnEvent.actions, [
     {
       type: "turn_started",
@@ -142,9 +140,9 @@ export function runSocketMessageEffectsTests() {
     step_index: 2,
   });
   assert.equal(permission.actions[0].type, "permission_request");
-  assert.equal(permission.eventLogEntries[0].event_kind, "interaction.created");
-  assert.equal(permission.eventLogEntries[0].payload.kind, "permission");
-  assert.equal(permission.eventLogEntries[0].seq, 5);
+  assert.equal(permission.transportEvents[0].event_kind, "interaction.created");
+  assert.equal(permission.transportEvents[0].payload.kind, "permission");
+  assert.equal(permission.transportEvents[0].seq, 5);
   assert.deepEqual(permission.actions[1], {
     type: "log_event",
     label: "permission_request",
@@ -160,8 +158,8 @@ export function runSocketMessageEffectsTests() {
     turn_id: "turn-1",
   });
   assert.equal(userInput.actions[0].type, "user_input_request");
-  assert.equal(userInput.eventLogEntries[0].payload.kind, "user_input");
-  assert.equal(userInput.eventLogEntries[0].payload.question, "Which parser mode?");
+  assert.equal(userInput.transportEvents[0].payload.kind, "user_input");
+  assert.equal(userInput.transportEvents[0].payload.question, "Which parser mode?");
 
   const commandDiff = derive("command_result", {
     command_name: "diff",
@@ -232,10 +230,10 @@ export function runSocketMessageEffectsTests() {
   assert.equal(compacted.actions[0].summarizedTurns, 5);
 
   const malformed = deriveSocketMessageEffects();
-  assert.deepEqual(malformed, { actions: [], eventLogEntries: [], loaderRequests: [] });
+  assert.deepEqual(malformed, { actions: [], transportEvents: [], loaderRequests: [] });
   assert.deepEqual(derive("unknown_message", { value: true }), {
     actions: [],
-    eventLogEntries: [],
+    transportEvents: [],
     loaderRequests: [],
   });
 }

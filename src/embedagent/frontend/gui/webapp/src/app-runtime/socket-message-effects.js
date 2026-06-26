@@ -6,7 +6,7 @@ import { LOADER_REQUESTS } from "./session-loaders.js";
 const FS_REFRESH_TOOLS = new Set(["write_file", "edit_file", "git_commit", "git_reset"]);
 
 function emptyEffects() {
-  return { actions: [], eventLogEntries: [], loaderRequests: [] };
+  return { actions: [], transportEvents: [], loaderRequests: [] };
 }
 
 function eventId(makeId, prefix) {
@@ -56,8 +56,8 @@ function pickToolPresentationPayload(payload = {}) {
   };
 }
 
-function nextSeq(sessionEventLog) {
-  return Number(sessionEventLog?.lastAppliedSeq || 0) + 1;
+function nextSeq(sessionTransport) {
+  return Number(sessionTransport?.lastAppliedSeq || 0) + 1;
 }
 
 function currentSession(options) {
@@ -68,7 +68,7 @@ function interactionEvent({ data, options, interactionId, payload }) {
   return {
     session_id: data?.session_id || currentSession(options),
     event_id: interactionId || eventId(options.makeId, "evt"),
-    seq: nextSeq(options.sessionEventLog),
+    seq: nextSeq(options.sessionTransport),
     created_at: nowValue(options.nowIso),
     event_kind: "interaction.created",
     payload,
@@ -147,11 +147,11 @@ export function deriveSocketMessageEffects({
   type = "",
   data = {},
   currentSessionId = "",
-  sessionEventLog = null,
+  sessionTransport = null,
   makeId = makeEventId,
   nowIso = () => new Date().toISOString(),
 } = {}) {
-  const options = { currentSessionId, sessionEventLog, makeId, nowIso };
+  const options = { currentSessionId, sessionTransport, makeId, nowIso };
   const payload = data || {};
   const effects = emptyEffects();
 
@@ -176,7 +176,7 @@ export function deriveSocketMessageEffects({
   }
 
   if (type === "session_event") {
-    effects.eventLogEntries.push(payload);
+    effects.transportEvents.push(payload);
     if (payload?.event_kind === "turn.started") {
       effects.actions.push({
         type: "turn_started",
@@ -204,9 +204,6 @@ export function deriveSocketMessageEffects({
       type: "session_snapshot",
       snapshot: normalizeSessionPayload(snap),
     };
-    if (snap?.timeline_replay_status && snap.timeline_replay_status !== "replay") {
-      action.replayStatePatch = snap.timeline_replay_status;
-    }
     effects.actions.push(action);
     if (snap?.session_id) effects.loaderRequests.push({ name: LOADER_REQUESTS.LOAD_SESSIONS });
     effects.actions.push(logAction("session_status", snap?.status || ""));
@@ -312,7 +309,7 @@ export function deriveSocketMessageEffects({
       },
       inspectorTab: "interaction",
     });
-    effects.eventLogEntries.push(
+    effects.transportEvents.push(
       interactionEvent({
         data: payload,
         options,
@@ -345,7 +342,7 @@ export function deriveSocketMessageEffects({
       },
       resetUserAnswer: true,
     });
-    effects.eventLogEntries.push(
+    effects.transportEvents.push(
       interactionEvent({
         data: payload,
         options,

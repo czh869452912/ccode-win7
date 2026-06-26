@@ -103,17 +103,20 @@ of one large app reducer shape. Thread selection, session summaries, and
 history-integrity display state are owned by
 `webapp/src/session-runtime/thread-state.js`; composer draft text is owned by
 `webapp/src/composer/composer-state.js`; GUI run-output event-log display
-state is owned by `webapp/src/session-runtime/event-log-state.js`; active
-session transport replay/connection projection is owned by
-`webapp/src/session-runtime/event-log.js`; terminal display buffers remain
-under `webapp/src/terminal/`; persisted workbench surfaces remain under
-`webapp/src/workbench/`.
+state is owned by `webapp/src/session-runtime/run-output-state.js`; active
+session transport connection/reload projection is owned by
+`webapp/src/session-runtime/session-transport-state.js`; WebSocket lifecycle
+control is owned by `webapp/src/app-runtime/session-transport-controller.js`;
+session bootstrap activation control is owned by
+`webapp/src/app-runtime/session-activation-controller.js`; terminal display
+buffers remain under `webapp/src/terminal/`; persisted workbench surfaces
+remain under `webapp/src/workbench/`.
 
 `store.js` may dispatch to these focused reducers, but new frontend code must
 not reintroduce root-level `sessions`, `currentSessionId`, `composer`, or
 `historyIntegrity` fields as parallel state. New transport status code must
 not reintroduce root-level `connectionState` / `set_connection`; websocket
-connection and replay status feed the session runtime event log and
+connection and reload status feed session transport state and
 `projectTransportView(...)`. React components and runtime controllers should
 consume the focused read models. These renderer modules are GUI-local
 display/read-model state only: they do not own session history, workflow
@@ -154,7 +157,7 @@ Important session snapshot fields include:
 - `runtime_config`
 - `compaction_state`
 - `recovery_state`
-- replay metadata fields
+- operation/runtime/compaction/recovery diagnostics
 
 `task_items` is the official frontend task list payload.
 
@@ -190,7 +193,6 @@ Session activation additionally depends on one bootstrap payload containing:
 - `history`
 - `plan`
 - `permission_context`
-- `replay`
 
 `history.integrity.status` is the official history health signal:
 
@@ -240,7 +242,7 @@ Key routes include:
 `GET /api/app/bootstrap` is the GUI app activation bootstrap contract. It
 reports app-shell state only. Session activation remains exclusively
 `GET /api/sessions/{session_id}/bootstrap`, whose payload contains session
-snapshot, structured history, plan, permission context, and replay metadata.
+snapshot, structured history, plan, and permission context.
 
 `POST /api/sessions` defaults to `explore` when no mode is supplied. Frontends should not use `build` as the implicit entry mode.
 

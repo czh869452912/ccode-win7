@@ -166,6 +166,14 @@ Harness state refresh in the product adapter path goes through `CHarnessWorkflow
 - no durable `SessionTimelineStore` exists; GUI activation and `/review`
   consume transcript/session projections, while `/api/sessions/{id}/events`
   only signals that bootstrap reload is required
+- hosted adapter session bootstrap assembly lives in `SessionBootstrapService`,
+  runtime/capability projections live in `RuntimeCapabilityService`, and slash
+  command dispatch lives in `SlashCommandService`; `InProcessAdapter` stays a
+  host facade over those services instead of accumulating command/bootstrap
+  business rules
+- provider request snapshots and workflow prompt append decisions live behind
+  `TurnSnapshotService` and `PromptAssemblyService`, keeping `QueryEngine`
+  focused on session mutation and loop orchestration
 - `/review` session evidence extraction, finding synthesis, git-diff evidence
   shaping, and markdown rendering live in `ReviewCommandService`;
   `InProcessAdapter` only invokes that service and emits the command result
@@ -335,7 +343,8 @@ Session truth is distributed across:
 - summary store
 - task snapshots
 
-No frontend should maintain its own workflow truth separate from session snapshots and replayable events.
+No frontend should maintain its own workflow truth separate from session
+snapshots and backend-owned live events.
 
 Additional ownership rules:
 
@@ -349,8 +358,8 @@ Official session-history ownership is:
 
 - `transcript.jsonl` is the only durable session-history ledger
 - `Session` / `session.turns` is the only live structured history state
-- `timeline.jsonl` is replay transport only
-- GUI activation reads one bootstrap payload that includes snapshot, structured history, plan, permission context, and replay metadata
+- there is no durable timeline transport in the current product contract
+- GUI activation reads one bootstrap payload that includes snapshot, structured history, plan, and permission context
 
 Historical turns must never be rebuilt from replay-log tails.
 

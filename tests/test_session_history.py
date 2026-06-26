@@ -13,7 +13,7 @@ from embedagent.session import (
 from embedagent.session_history import SessionHistoryAssembler
 
 
-class TestSessionHistoryAssemblerFlatTimeline(unittest.TestCase):
+class TestSessionHistoryAssemblerFlatHistory(unittest.TestCase):
     def setUp(self):
         self.assembler = SessionHistoryAssembler()
         self.session = Session(session_id="sess-test")
@@ -41,15 +41,15 @@ class TestSessionHistoryAssemblerFlatTimeline(unittest.TestCase):
             step_id=step.step_id,
         )
 
-    def test_flat_timeline_returns_items_array(self):
+    def test_flat_history_returns_items_array(self):
         self._add_user_turn("hello")
-        result = self.assembler.build_flat_timeline(self.session, "live", "healthy")
+        result = self.assembler.build_flat_history(self.session, "live", "healthy")
         self.assertIn("items", result)
         self.assertIsInstance(result["items"], list)
 
-    def test_flat_timeline_user_item_structure(self):
+    def test_flat_history_user_item_structure(self):
         self._add_user_turn("test message")
-        result = self.assembler.build_flat_timeline(self.session, "live", "healthy")
+        result = self.assembler.build_flat_history(self.session, "live", "healthy")
         items = result["items"]
         self.assertTrue(len(items) >= 1)
         user_item = items[0]
@@ -60,10 +60,10 @@ class TestSessionHistoryAssemblerFlatTimeline(unittest.TestCase):
         self.assertIn("parent_id", user_item)
         self.assertIn("turn_id", user_item)
 
-    def test_flat_timeline_assistant_item_structure(self):
+    def test_flat_history_assistant_item_structure(self):
         turn = self._add_user_turn("hello")
         self._add_assistant_step(turn, content="hi there", reasoning="thinking")
-        result = self.assembler.build_flat_timeline(self.session, "live", "healthy")
+        result = self.assembler.build_flat_history(self.session, "live", "healthy")
         items = result["items"]
         assistant_items = [i for i in items if i["type"] == "assistant"]
         self.assertEqual(len(assistant_items), 1)
@@ -74,13 +74,13 @@ class TestSessionHistoryAssemblerFlatTimeline(unittest.TestCase):
         self.assertIn("turn_id", item)
         self.assertIn("step_id", item)
 
-    def test_flat_timeline_tool_use_item(self):
+    def test_flat_history_tool_use_item(self):
         turn = self._add_user_turn("read file")
         self._add_assistant_step(
             turn,
             actions=[Action(name="read_file", arguments={"path": "test.txt"}, call_id="call-1")],
         )
-        result = self.assembler.build_flat_timeline(self.session, "live", "healthy")
+        result = self.assembler.build_flat_history(self.session, "live", "healthy")
         items = result["items"]
         tool_items = [i for i in items if i["type"] == "tool_use"]
         self.assertEqual(len(tool_items), 1)
@@ -90,14 +90,14 @@ class TestSessionHistoryAssemblerFlatTimeline(unittest.TestCase):
         self.assertEqual(item["arguments"], {"path": "test.txt"})
         self.assertEqual(item["status"], "started")
 
-    def test_flat_timeline_tool_result_item(self):
+    def test_flat_history_tool_result_item(self):
         turn = self._add_user_turn("read file")
         step = self._add_assistant_step(
             turn,
             actions=[Action(name="read_file", arguments={"path": "test.txt"}, call_id="call-1")],
         )
         self._add_tool_result(turn, step, "read_file", "call-1", success=True, data="file content")
-        result = self.assembler.build_flat_timeline(self.session, "live", "healthy")
+        result = self.assembler.build_flat_history(self.session, "live", "healthy")
         items = result["items"]
         result_items = [i for i in items if i["type"] == "tool_result"]
         self.assertEqual(len(result_items), 1)
@@ -107,7 +107,7 @@ class TestSessionHistoryAssemblerFlatTimeline(unittest.TestCase):
         self.assertEqual(item["tool_name"], "read_file")
         self.assertEqual(item["call_id"], "call-1")
 
-    def test_flat_timeline_parent_chain(self):
+    def test_flat_history_parent_chain(self):
         turn = self._add_user_turn("test")
         step = self._add_assistant_step(
             turn,
@@ -115,7 +115,7 @@ class TestSessionHistoryAssemblerFlatTimeline(unittest.TestCase):
             actions=[Action(name="tool", arguments={}, call_id="c1")],
         )
         self._add_tool_result(turn, step, "tool", "c1", success=True, data="ok")
-        result = self.assembler.build_flat_timeline(self.session, "live", "healthy")
+        result = self.assembler.build_flat_history(self.session, "live", "healthy")
         items = result["items"]
 
         # Find items
@@ -125,14 +125,14 @@ class TestSessionHistoryAssemblerFlatTimeline(unittest.TestCase):
         # Parent chain: tool_use -> tool_result
         self.assertEqual(tool_result["parent_id"], tool_use["id"])
 
-    def test_flat_timeline_empty_session(self):
-        result = self.assembler.build_flat_timeline(Session(session_id=""), "live", "healthy")
+    def test_flat_history_empty_session(self):
+        result = self.assembler.build_flat_history(Session(session_id=""), "live", "healthy")
         self.assertEqual(result["items"], [])
         self.assertEqual(result["session_id"], "")
 
-    def test_flat_timeline_integrity_info(self):
+    def test_flat_history_integrity_info(self):
         self._add_user_turn("test")
-        result = self.assembler.build_flat_timeline(
+        result = self.assembler.build_flat_history(
             self.session,
             "restored",
             "degraded",
@@ -146,7 +146,7 @@ class TestSessionHistoryAssemblerFlatTimeline(unittest.TestCase):
         self.assertEqual(integrity["consumed_event_count"], 5)
         self.assertEqual(integrity["transcript_event_count"], 10)
 
-    def test_flat_timeline_backward_compatible_with_build(self):
+    def test_flat_history_matches_nested_history_identity(self):
         turn = self._add_user_turn("test")
         step = self._add_assistant_step(
             turn,
@@ -154,8 +154,7 @@ class TestSessionHistoryAssemblerFlatTimeline(unittest.TestCase):
         )
         self._add_tool_result(turn, step, "tool", "c1", success=True, data="ok")
 
-        # Both methods should work
-        flat_result = self.assembler.build_flat_timeline(self.session, "live", "healthy")
+        flat_result = self.assembler.build_flat_history(self.session, "live", "healthy")
         nested_result = self.assembler.build(self.session, "live", "healthy")
 
         self.assertIn("items", flat_result)

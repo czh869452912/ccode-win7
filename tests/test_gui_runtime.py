@@ -356,7 +356,6 @@ class TestAgentCoreAdapterApi(unittest.TestCase):
             "history": {"session_id": "sess-1", "turns": [], "integrity": {"status": "healthy"}},
             "plan": None,
             "permission_context": {"session_id": "sess-1", "rules": []},
-            "replay": {"status": "replay", "events": []},
         }
 
         payload = core.get_session_bootstrap("sess-1")
@@ -383,7 +382,7 @@ class TestAgentCoreAdapterApi(unittest.TestCase):
             reason="api",
         )
 
-    def test_snapshot_projection_preserves_replay_metadata(self):
+    def test_snapshot_projection_drops_timeline_metadata_and_preserves_restore_diagnostics(self):
         from embedagent.core.adapter import AgentCoreAdapter
 
         core = AgentCoreAdapter(workspace="D:\\workspace")
@@ -394,20 +393,16 @@ class TestAgentCoreAdapterApi(unittest.TestCase):
             "current_mode": "build",
             "started_at": "2026-04-04T00:00:00Z",
             "updated_at": "2026-04-04T00:00:01Z",
-            "timeline_replay_status": "degraded",
-            "timeline_first_seq": 2,
-            "timeline_last_seq": 6,
-            "timeline_integrity": "degraded",
             "pending_interaction_valid": False,
             "restore_stop_reason": "transcript_missing",
         }
 
         snapshot = core.get_session_snapshot("sess-1")
 
-        self.assertEqual(snapshot.timeline_replay_status, "degraded")
-        self.assertEqual(snapshot.timeline_first_seq, 2)
-        self.assertEqual(snapshot.timeline_last_seq, 6)
-        self.assertEqual(snapshot.timeline_integrity, "degraded")
+        self.assertFalse(hasattr(snapshot, "timeline" + "_replay_status"))
+        self.assertFalse(hasattr(snapshot, "timeline" + "_first_seq"))
+        self.assertFalse(hasattr(snapshot, "timeline" + "_last_seq"))
+        self.assertFalse(hasattr(snapshot, "timeline" + "_integrity"))
         self.assertFalse(snapshot.pending_interaction_valid)
         self.assertEqual(snapshot.restore_stop_reason, "transcript_missing")
 

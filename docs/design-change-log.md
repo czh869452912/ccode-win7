@@ -57,9 +57,11 @@
     `slash_commands.resource_command_specs(...)`.
   - Moved hosted `/review` session evidence shaping into
     `ReviewCommandService.build_payload_from_session(...)`.
-  - Moved GUI run-output event-log display state and transport replay /
-    connection projection into `webapp/src/session-runtime/`, removing
-    root-level GUI `connectionState` / `set_connection`.
+  - Moved GUI run-output display state and transport connection/reload
+    projection into `webapp/src/session-runtime/`, removing root-level GUI
+    `connectionState` / `set_connection`.
+  - Moved session activation and WebSocket lifecycle mechanics into focused
+    `webapp/src/app-runtime/` controllers.
   - Archived the completed slice plan under
     `docs/archive/pi-t3-residual-debt-cleanup/`.
 - Impacted Scope:
@@ -2302,7 +2304,7 @@
 - 后续动作：
   - 启动 Phase B HookBus/reducer registry 设计，把 lifecycle/reducer 语义集中到 source-aware event boundary
   - 评估 AgentKernel extraction 时是否将 resume attempt 作为 turn operation 的子 operation
-  - 保持 operation diagnostics 为诊断投影，不替代 session history、timeline replay 或 frontend workflow projection
+  - 保持 operation diagnostics 为诊断投影，不替代 session history、timeline reload 或 frontend workflow projection
 
 ### DC-132
 
@@ -3789,12 +3791,12 @@
 ### DC-070
 
 - 日期：2026-04-04
-- 变更主题：GUI runtime hardening 进入 typed replay + projector ownership 第二阶段
+- 变更主题：GUI runtime hardening 进入 typed reload + projector ownership 第二阶段
 - 变更摘要：
-  - timeline replay / bootstrap API 现在显式区分 `replay / reload_required / degraded`，HTTP route 不再只返回扁平 events 数组
+  - timeline reload / bootstrap API 现在显式区分 `reload_required / degraded`，HTTP route 不再只返回扁平 events 数组
   - websocket / HTTP 错误边界现在会把常见 session / interaction 故障映射成 typed 错误，并在 websocket 非正常异常时确保清理连接
-  - `SessionSnapshot` / GUI snapshot payload 现在保留 replay metadata，`AgentCoreAdapter` 与 GUI backend 不再在协议层丢失 `timeline_replay_status` 一类字段
-  - webapp active session projector 现在接管 replay state、command result fallback、detached turn item 排序、session-scoped runtime reset，并让 Timeline 直接消费 grouped runtime view
+  - `SessionSnapshot` / GUI snapshot payload 当时保留 reload metadata；当前架构已删除 timeline-shaped snapshot 字段
+  - webapp active session projector 现在接管 reload state、command result fallback、detached turn item 排序、session-scoped runtime reset，并让 Timeline 直接消费 grouped runtime view
 - 影响范围：
   - GUI replay / restore / transport 恢复语义
   - active-session Timeline / Inspector 的读模型边界
@@ -3812,11 +3814,11 @@
 ### DC-063
 
 - 日期：2026-04-04
-- 变更主题：GUI active-session runtime 改为 event-log + projector 驱动
+- 变更主题：GUI active-session runtime 改为 transport-state + projector 驱动
 - 变更摘要：
-  - GUI backend 新增统一 `session_event` envelope，并补 `GET /api/sessions/{session_id}/events?after_seq=N` replay 入口
+  - GUI backend 新增统一 `session_event` envelope，并补 `GET /api/sessions/{session_id}/events?after_seq=N` reload 信号入口
   - active session 当前交互改为统一 interaction response route；Inspector 成为唯一可操作入口，Timeline 退化为交互历史摘要投影
-  - webapp 新增 `session-runtime/event-log.js` 与 `session-runtime/projector.js`，当前会话读模型开始从 `snapshot + event log + bootstrap timeline` 统一派生
+  - webapp 新增 session transport state 与 `session-runtime/projector.js`，当前会话读模型开始从 `snapshot + transport state + bootstrap history` 统一派生
   - dispatcher 失败开始带 `reason`，restore 遇到缺失可信 `interaction_id` 的 pending interaction 会显式停在 `interaction_expired`
 - 影响范围：
   - GUI Timeline / Inspector / transport 恢复语义

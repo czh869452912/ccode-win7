@@ -10,7 +10,7 @@ class FlatTimelineView(object):
         self._current_interaction = None
 
     def update(self, timeline_data):
-        """Update with new timeline data from build_flat_timeline()."""
+        """Update with new timeline data from build_flat_history()."""
         self._items = list(timeline_data.get("items") or [])
         self._current_interaction = timeline_data.get("current_interaction")
 

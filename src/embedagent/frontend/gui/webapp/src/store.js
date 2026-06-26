@@ -5,7 +5,7 @@ import { createAppShellState } from "./app-shell/model.js";
 import { reduceAppShellState } from "./app-shell/reducer.js";
 import { createSourceControlState, reduceSourceControlState } from "./source-control/source-control-state.js";
 import { createTerminalState, reduceTerminalState } from "./terminal/terminal-state.js";
-import { createEventLogState, reduceEventLogState } from "./session-runtime/event-log-state.js";
+import { createRunOutputState, reduceRunOutputState } from "./session-runtime/run-output-state.js";
 import { createThreadState, readActiveThreadId, reduceThreadState } from "./session-runtime/thread-state.js";
 import { createWorkbenchState, reduceWorkbenchState } from "./workbench/surfaces.js";
 import { resetWorkspaceScopedState } from "./app-workspaces.js";
@@ -39,7 +39,7 @@ export const initialState = {
   fileTree: [],
   toolCatalog: {},
   requestedMode: DEFAULT_MODE,
-  eventLog: createEventLogState(),
+  runOutput: createRunOutputState(),
   terminationReason: "",
   terminationDisplayReason: "",
   terminationMessage: "",
@@ -188,7 +188,7 @@ export function reducer(state, action) {
         activeTurnId: "",
         activeStepId: "",
         activeStepIndex: 0,
-        eventLog: reduceEventLogState(state.eventLog, action),
+        runOutput: reduceRunOutputState(state.runOutput, action),
         plan: null,
         review: null,
         permissionContext: null,
@@ -766,8 +766,8 @@ export function reducer(state, action) {
         activeTurnId: state.activeTurnId,
         timeline: state.timeline,
       });
-      const clearTimeline = Boolean(action.data?.clear_timeline);
-      const timeline = clearTimeline
+      const clearSessionView = Boolean(action.data?.clear_session_view);
+      const timeline = clearSessionView
           ? []
           : state.timeline.concat({
               id: action.id || makeEventId("cmd"),
@@ -806,7 +806,7 @@ export function reducer(state, action) {
         timeline: state.timeline.map((item) => (item.streaming ? { ...item, streaming: false } : item)),
       };
     case "log_event": {
-      return { ...state, eventLog: reduceEventLogState(state.eventLog, action) };
+      return { ...state, runOutput: reduceRunOutputState(state.runOutput, action) };
     }
     case "workbench_surface_opened":
     case "workbench_surface_activated":

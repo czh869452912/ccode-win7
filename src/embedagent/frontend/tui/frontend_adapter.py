@@ -32,7 +32,7 @@ class TUIFrontend(FrontendCallbacks):
 
     def __init__(self, app: "TerminalApp", assembler=None):
         self.app = app
-        self.assembler = assembler
+        self._assembler = assembler
         self.flat_timeline_view = None
         self._current_timeline: Dict[str, Any] = {"items": []}
         self._pending_permission_callbacks: Dict[str, Callable[[bool], None]] = {}
@@ -47,21 +47,10 @@ class TUIFrontend(FrontendCallbacks):
         consumed_event_count=0,
         transcript_event_count=0,
     ):
-        """Fetch timeline data using flat timeline builder when available."""
-        if self.assembler is not None:
+        """Fetch timeline display data from the official flat history builder."""
+        if self._assembler is not None:
             try:
-                return self.assembler.build_flat_timeline(
-                    session,
-                    history_source,
-                    integrity_status,
-                    restore_stop_reason=restore_stop_reason,
-                    consumed_event_count=consumed_event_count,
-                    transcript_event_count=transcript_event_count,
-                )
-            except (AttributeError, TypeError):
-                pass
-            try:
-                return self.assembler.build(
+                return self._assembler.build_flat_history(
                     session,
                     history_source,
                     integrity_status,
@@ -258,32 +247,16 @@ class TUIFrontend(FrontendCallbacks):
         consumed_event_count=0,
         transcript_event_count=0,
     ):
-        """Update flat timeline view using build_flat_timeline() if available.
-
-        Falls back to build() for backward compatibility.
-        """
+        """Update flat timeline view using the official flat history builder."""
         if self._assembler is None:
             return
-        assembler = self._assembler
-        if hasattr(assembler, "build_flat_timeline"):
-            timeline = assembler.build_flat_timeline(
-                session,
-                history_source,
-                integrity_status,
-                restore_stop_reason=restore_stop_reason,
-                consumed_event_count=consumed_event_count,
-                transcript_event_count=transcript_event_count,
-            )
-        elif hasattr(assembler, "build"):
-            timeline = assembler.build(
-                session,
-                history_source,
-                integrity_status,
-                restore_stop_reason=restore_stop_reason,
-                consumed_event_count=consumed_event_count,
-                transcript_event_count=transcript_event_count,
-            )
-        else:
-            return
+        timeline = self._assembler.build_flat_history(
+            session,
+            history_source,
+            integrity_status,
+            restore_stop_reason=restore_stop_reason,
+            consumed_event_count=consumed_event_count,
+            transcript_event_count=transcript_event_count,
+        )
         self.flat_timeline_view.update(timeline)
         return timeline

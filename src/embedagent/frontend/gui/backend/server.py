@@ -130,14 +130,6 @@ def _serialize_session_snapshot(snapshot: Any) -> Dict[str, Any]:
         ),
         "recent_transitions": list(_read_value(snapshot, "recent_transitions", []) or []),
         "compact_retry_count": int(_read_value(snapshot, "compact_retry_count", 0) or 0),
-        "timeline_replay_status": str(
-            _read_value(snapshot, "timeline_replay_status", "replay") or "replay"
-        ),
-        "timeline_first_seq": int(_read_value(snapshot, "timeline_first_seq", 0) or 0),
-        "timeline_last_seq": int(_read_value(snapshot, "timeline_last_seq", 0) or 0),
-        "timeline_integrity": str(
-            _read_value(snapshot, "timeline_integrity", "healthy") or "healthy"
-        ),
         "pending_interaction_valid": bool(pending_interaction_valid),
         "restore_stop_reason": str(_read_value(snapshot, "restore_stop_reason", "") or ""),
         "restore_consumed_event_count": int(
@@ -206,27 +198,18 @@ def _serialize_session_summary(payload: Any) -> Dict[str, Any]:
     }
 
 
-def _serialize_replay_payload(session_id: str, payload: Any) -> Dict[str, Any]:
-    if isinstance(payload, dict):
-        events = payload.get("events")
-        return {
-            "session_id": str(payload.get("session_id") or session_id),
-            "status": str(payload.get("status") or "replay"),
-            "first_seq": int(payload.get("first_seq") or 0),
-            "last_seq": int(payload.get("last_seq") or 0),
-            "reason": str(payload.get("reason") or ""),
-            "events": list(events or []) if isinstance(events, list) else [],
-        }
-    events = list(payload or []) if isinstance(payload, list) else []
-    first_seq = int(events[0].get("seq") or 0) if events else 0
-    last_seq = int(events[-1].get("seq") or 0) if events else 0
+def _serialize_reload_signal_payload(session_id: str, payload: Any) -> Dict[str, Any]:
+    data = payload if isinstance(payload, dict) else {}
+    status = str(data.get("status") or "reload_required")
+    if status not in {"reload_required", "degraded"}:
+        status = "reload_required"
     return {
-        "session_id": str(session_id or ""),
-        "status": "replay",
-        "first_seq": first_seq,
-        "last_seq": last_seq,
-        "reason": "",
-        "events": events,
+        "session_id": str(data.get("session_id") or session_id or ""),
+        "status": status,
+        "first_seq": int(data.get("first_seq") or 0),
+        "last_seq": int(data.get("last_seq") or 0),
+        "reason": str(data.get("reason") or ""),
+        "events": [],
     }
 
 
@@ -580,8 +563,6 @@ class WebSocketFrontend(FrontendCallbacks):
                     "bundled_tools_ready": snapshot_payload["bundled_tools_ready"],
                     "fallback_warnings": snapshot_payload["fallback_warnings"],
                     "runtime_environment": snapshot_payload["runtime_environment"],
-                    "timeline_replay_status": snapshot_payload["timeline_replay_status"],
-                    "timeline_integrity": snapshot_payload["timeline_integrity"],
                     "pending_interaction_valid": snapshot_payload["pending_interaction_valid"],
                 },
             }
@@ -918,7 +899,6 @@ class GUIBackend:
                 "permission_context": _serialize_permission_context(
                     payload.get("permission_context")
                 ),
-                "replay": _serialize_replay_payload(session_id, payload.get("replay") or {}),
             }
 
         @app.post("/api/sessions")
@@ -1171,7 +1151,7 @@ class GUIBackend:
             payload = self._call_core(
                 self.core.load_session_events_after, session_id, after_seq, limit=limit
             )
-            return _serialize_replay_payload(session_id, payload)
+            return _serialize_reload_signal_payload(session_id, payload)
 
         @app.get("/api/files")
         async def list_workspace_tree(path: str = ".", max_depth: int = 3):

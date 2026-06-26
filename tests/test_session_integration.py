@@ -152,12 +152,12 @@ class TestSessionIntegration(unittest.TestCase):
         self.assertEqual(result.skipped_count, 0)
         self.assertTrue(len(result.session.turns) >= 2)
 
-    def test_flat_timeline_from_restored_session(self):
+    def test_flat_history_from_restored_session(self):
         session_id = self._build_schema_v2_transcript()
         events = self.store.load_events(session_id)
         result = self.restorer.restore(events, best_effort=True)
 
-        timeline = self.assembler.build_flat_timeline(
+        timeline = self.assembler.build_flat_history(
             result.session,
             "restored",
             "healthy",
@@ -256,7 +256,7 @@ class TestSessionIntegration(unittest.TestCase):
             step_id=step.step_id,
         )
 
-        timeline = self.assembler.build_flat_timeline(session, "live", "healthy")
+        timeline = self.assembler.build_flat_history(session, "live", "healthy")
         tool_uses = [i for i in timeline["items"] if i["type"] == "tool_use"]
         tool_results = [i for i in timeline["items"] if i["type"] == "tool_result"]
 

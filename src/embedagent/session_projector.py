@@ -128,14 +128,6 @@ class SessionSnapshotProjector(object):
             "runtime_config": dict(getattr(state, "runtime_config", {}) or {}),
             "compaction_state": dict(getattr(state, "compaction_state", {}) or {}),
             "recovery_state": dict(getattr(state, "recovery_state", {}) or {}),
-            "timeline_replay_status": (
-                "degraded" if state.restore_stop_reason == "transcript_missing" else "replay"
-            ),
-            "timeline_first_seq": 0,
-            "timeline_last_seq": 0,
-            "timeline_integrity": (
-                "degraded" if state.restore_stop_reason == "transcript_missing" else "healthy"
-            ),
             "pending_interaction_valid": bool(state.pending_permission or state.pending_user_input),
             "current_phase": workflow_phase,
             "discipline_profile": workflow_discipline,

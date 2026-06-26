@@ -241,10 +241,6 @@ class TestGuiSync(unittest.TestCase):
                     },
                     "pending_interaction_valid": True,
                     "restore_stop_reason": "",
-                    "timeline_replay_status": "healthy",
-                    "timeline_first_seq": 10,
-                    "timeline_last_seq": 12,
-                    "timeline_integrity": "healthy",
                 }
             },
         )

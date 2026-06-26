@@ -77,10 +77,6 @@ class _FakeCoreWithTimeline(_FakeCore):
                 "bundled_tools_ready": False,
                 "fallback_warnings": [],
                 "runtime_environment": None,
-                "timeline_replay_status": "healthy",
-                "timeline_first_seq": 1,
-                "timeline_last_seq": 4,
-                "timeline_integrity": "healthy",
                 "pending_interaction_valid": False,
                 "restore_stop_reason": "",
                 "compact_summary_text": "summary kept for diagnostics",
@@ -136,13 +132,6 @@ class _FakeCoreWithTimeline(_FakeCore):
                 "auto_approve_all": True,
                 "auto_approve_writes": False,
                 "auto_approve_commands": False,
-            },
-            "replay": {
-                "status": "reload_required",
-                "first_seq": 0,
-                "last_seq": 0,
-                "reason": "bootstrap_required",
-                "events": [],
             },
         }
 
@@ -271,10 +260,6 @@ class _SnapshotCore(_FakeCore):
                 "bundled_tools_ready": False,
                 "fallback_warnings": [],
                 "runtime_environment": None,
-                "timeline_replay_status": "degraded",
-                "timeline_first_seq": 0,
-                "timeline_last_seq": 0,
-                "timeline_integrity": "degraded",
                 "pending_interaction_valid": False,
                 "restore_stop_reason": self.stop_reason,
                 "current_phase": "implement",
@@ -749,7 +734,8 @@ class TestGuiBackendApi(unittest.TestCase):
                     break
             self.assertIsNotNone(route)
             payload = asyncio.run(route.endpoint("sess-1"))
-        self.assertEqual(payload["timeline_replay_status"], "degraded")
+        self.assertNotIn("timeline" + "_replay_status", payload)
+        self.assertEqual(payload["restore_stop_reason"], "transcript_missing")
         self.assertEqual(payload["current_phase"], "implement")
         self.assertEqual(payload["discipline_profile"], "lite_spec_tdd")
         self.assertEqual(payload["task_items"][0]["content"], "build:implement")

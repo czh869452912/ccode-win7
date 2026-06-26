@@ -255,10 +255,6 @@ class SessionSnapshot:
     compaction_state: Dict[str, Any] = field(default_factory=dict)
     recovery_state: Dict[str, Any] = field(default_factory=dict)
     pending_interaction: Optional[Dict[str, Any]] = None
-    timeline_replay_status: str = "replay"
-    timeline_first_seq: int = 0
-    timeline_last_seq: int = 0
-    timeline_integrity: str = "healthy"
     pending_interaction_valid: bool = False
     current_phase: str = ""
     discipline_profile: str = ""
@@ -432,11 +428,6 @@ class CoreInterface(ABC):
     @abstractmethod
     def write_file(self, path: str, content: str) -> Dict[str, Any]:
         """写入文件"""
-        pass
-
-    @abstractmethod
-    def get_session_timeline(self, session_id: str, limit: int = 200) -> Dict[str, Any]:
-        """获取会话时间线"""
         pass
 
     @abstractmethod

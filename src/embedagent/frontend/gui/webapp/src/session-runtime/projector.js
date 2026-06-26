@@ -1,4 +1,4 @@
-import { projectTransportView } from "./event-log.js";
+import { projectTransportView } from "./session-transport-state.js";
 import { projectT3TimelineRows } from "./t3-timeline.js";
 
 function toInteractionTimelineItem(source) {
@@ -211,7 +211,7 @@ function projectTurnGroups(items = []) {
 
 export function projectSessionRuntime({
   snapshot,
-  eventLog,
+  sessionTransport,
   historyTimeline = [],
   defaultMode = "explore",
   activeTurnId = "",
@@ -224,7 +224,7 @@ export function projectSessionRuntime({
   return {
     currentInteraction,
     interactionNotice,
-    transportView: projectTransportView({ snapshot, eventLog }),
+    transportView: projectTransportView({ transportState: sessionTransport }),
     sessionStatusView: {
       sessionId: snapshot?.session_id || "",
       status: snapshot?.status || "idle",

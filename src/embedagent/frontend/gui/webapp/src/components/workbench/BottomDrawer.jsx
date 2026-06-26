@@ -1,8 +1,8 @@
 import React from "react";
 import TerminalShell from "./TerminalShell.jsx";
 
-function RunOutputDrawer({ eventLog, terminationReason, terminationMessage }) {
-  const entries = Array.isArray(eventLog) ? eventLog.slice(-80) : [];
+function RunOutputDrawer({ runOutput, terminationReason, terminationMessage }) {
+  const entries = Array.isArray(runOutput) ? runOutput.slice(-80) : [];
   return (
     <>
       {terminationReason ? (
@@ -26,7 +26,7 @@ function RunOutputDrawer({ eventLog, terminationReason, terminationMessage }) {
 
 export default function BottomDrawer({
   activeKind,
-  eventLog,
+  runOutput,
   terminationReason,
   terminationMessage,
   terminal,
@@ -89,7 +89,7 @@ export default function BottomDrawer({
           />
         ) : (
           <RunOutputDrawer
-            eventLog={eventLog}
+            runOutput={runOutput}
             terminationReason={terminationReason}
             terminationMessage={terminationMessage}
           />

@@ -61,7 +61,7 @@ export default function Inspector({
   snapshot,
   appShell,
   userAnswer,
-  eventLog,
+  runOutput,
   onTabChange,
   onOpenArtifact,
   onOpenReviewEvidence,
@@ -132,7 +132,7 @@ export default function Inspector({
           <DiagnosticsPanel appShell={appShell} lang={lang} />
         )}
         {inspectorTab === "preview" && <PreviewPanel preview={preview} lang={lang} />}
-        {inspectorTab === "log" && <LogPanel entries={eventLog} lang={lang} />}
+        {inspectorTab === "log" && <LogPanel entries={runOutput} lang={lang} />}
       </div>
     </aside>
   );

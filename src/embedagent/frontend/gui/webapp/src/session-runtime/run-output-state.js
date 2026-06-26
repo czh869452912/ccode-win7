@@ -1,17 +1,17 @@
-export function createEventLogState() {
+export function createRunOutputState() {
   return [];
 }
 
-export function readEventLogEntries(state = {}) {
-  return Array.isArray(state.eventLog) ? state.eventLog : createEventLogState();
+export function readRunOutputEntries(state = {}) {
+  return Array.isArray(state.runOutput) ? state.runOutput : createRunOutputState();
 }
 
-export function reduceEventLogState(state, action = {}) {
-  const current = Array.isArray(state) ? state : createEventLogState();
+export function reduceRunOutputState(state, action = {}) {
+  const current = Array.isArray(state) ? state : createRunOutputState();
   switch (action.type) {
     case "session_activated":
     case "workspace_scoped_state_reset":
-      return createEventLogState();
+      return createRunOutputState();
     case "log_event": {
       const entry = {
         ts: action.timestamp || Date.now(),

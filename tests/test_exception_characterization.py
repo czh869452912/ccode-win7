@@ -76,7 +76,13 @@ def test_timeline_service_load():
 
     service = TimelineService(None)
     result = service.load("session-123")
-    assert result == {"session_id": "session-123", "events": [], "latest_assistant_reply": ""}
+    assert result == {
+        "session_id": "session-123",
+        "turns": [],
+        "items": [],
+        "current_interaction": None,
+        "integrity": {"status": "unavailable"},
+    }
 
 
 def test_all_modified_modules_importable():

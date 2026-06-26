@@ -11,7 +11,8 @@ Durable conclusions were synchronized into active source-of-truth docs before ar
 - `ToolRuntime.execute_for_mode` and adapter turn-runner compatibility wrappers are removed
 - local skill/prompt slash command specs are projected from the slash-command boundary
 - hosted `/review` evidence shaping lives in `ReviewCommandService`
-- GUI event-log display state and transport replay projection live under `webapp/src/session-runtime/`
-- root GUI connection state was removed in favor of the session runtime event log
+- GUI run-output display state and transport connection/reload projection live under `webapp/src/session-runtime/`
+- session activation and WebSocket lifecycle control live under focused `webapp/src/app-runtime/` controllers
+- root GUI connection state was removed in favor of focused session transport state
 
 Use active docs for current product truth.

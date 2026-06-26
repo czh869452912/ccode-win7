@@ -5,16 +5,14 @@ import {
   makeEventId,
   normalizeSessionPayload,
 } from "./state-helpers.js";
-import { appendSessionEvent, capRetryAttempt, createSessionEventLog } from "./session-runtime/event-log.js";
+import { appendSessionTransportEvent, createSessionTransportState } from "./session-runtime/session-transport-state.js";
 import { createDiffSurfaceState } from "./session-runtime/diff-model.js";
 import { buildAppHomeModel } from "./session-runtime/app-home-model.js";
 import { projectSessionRuntime } from "./session-runtime/projector.js";
-import { shouldReconnectSocket } from "./session-runtime/websocket-lifecycle.js";
 import { deriveSocketMessageEffects } from "./app-runtime/socket-message-effects.js";
-import {
-  createLoaderRequestExecutor,
-  deriveSessionActivation,
-} from "./app-runtime/session-loaders.js";
+import { createLoaderRequestExecutor } from "./app-runtime/session-loaders.js";
+import { createSessionActivationController } from "./app-runtime/session-activation-controller.js";
+import { createSessionTransportController } from "./app-runtime/session-transport-controller.js";
 import { createTerminalController } from "./app-runtime/terminal-controller.js";
 import { installVisualDebugFixtures } from "./app-runtime/visual-debug-fixtures.js";
 import { canSwitchWorkspace, normalizeAppBootstrap } from "./app-workspaces.js";
@@ -88,15 +86,12 @@ function App() {
   }));
   const treeHeight = 640;
   const [userAnswer, setUserAnswer] = useState("");
-  const [sessionEventLog, setSessionEventLog] = useState(() => createSessionEventLog());
-  const wsRef = useRef(null);
-  const wsTokenRef = useRef(0);
-  const wsClosingRef = useRef(false);
+  const [sessionTransport, setSessionTransport] = useState(() => createSessionTransportState());
   const timelineRef = useRef(null);
-  const wsRetryRef = useRef(0);
   const isAtBottomRef = useRef(true);
   const currentSessionIdRef = useRef("");
-  const sessionEventLogRef = useRef(sessionEventLog);
+  const sessionTransportRef = useRef(sessionTransport);
+  const sessionTransportControllerRef = useRef(null);
   const stateRef = useRef(state);
   stateRef.current = state;
 
@@ -124,13 +119,13 @@ function App() {
     () =>
       projectSessionRuntime({
         snapshot: state.snapshot,
-        eventLog: sessionEventLog,
+        sessionTransport,
         historyTimeline: state.timeline,
         defaultMode: DEFAULT_MODE,
         activeTurnId: state.activeTurnId,
         thinkingActive: state.thinkingActive,
       }),
-    [sessionEventLog, state.activeTurnId, state.snapshot, state.thinkingActive, state.timeline],
+    [sessionTransport, state.activeTurnId, state.snapshot, state.thinkingActive, state.timeline],
   );
   const interactionNotice = state.interactionNotice || runtimeState.interactionNotice;
   const terminalController = useMemo(
@@ -160,33 +155,27 @@ function App() {
   }, [state.workbench]);
 
   useEffect(() => {
-    sessionEventLogRef.current = sessionEventLog;
-  }, [sessionEventLog]);
+    sessionTransportRef.current = sessionTransport;
+  }, [sessionTransport]);
 
-  function replaceSessionEventLog(nextLog) {
-    sessionEventLogRef.current = nextLog;
-    setSessionEventLog(nextLog);
-    return nextLog;
+  function replaceSessionTransport(nextTransport) {
+    sessionTransportRef.current = nextTransport;
+    setSessionTransport(nextTransport);
+    return nextTransport;
   }
 
-  function updateSessionEventLog(updater) {
-    const nextLog = updater(sessionEventLogRef.current);
-    sessionEventLogRef.current = nextLog;
-    setSessionEventLog(nextLog);
-    return nextLog;
+  function updateSessionTransport(updater) {
+    const nextTransport = updater(sessionTransportRef.current);
+    sessionTransportRef.current = nextTransport;
+    setSessionTransport(nextTransport);
+    return nextTransport;
   }
 
-  function createRuntimeEventLog(snapshot = null) {
-    const readyState = wsRef.current?.readyState;
-    const connectionState =
-      readyState === WebSocket.OPEN
-        ? "connected"
-        : readyState === WebSocket.CLOSED
-          ? "disconnected"
-          : "connecting";
-    return createSessionEventLog({
+  function createRuntimeSessionTransport() {
+    const connectionState = sessionTransportRef.current?.connectionState || "connecting";
+    return createSessionTransportState({
       connectionState,
-      replayState: snapshot?.timeline_replay_status || "healthy",
+      reloadState: "healthy",
     });
   }
 
@@ -197,11 +186,23 @@ function App() {
 
   // websocket lifecycle
   useEffect(() => {
-    connectWebSocket();
+    const controller = createSessionTransportController({
+      getCurrentSessionId: () => currentSessionIdRef.current,
+      getTransportState: () => sessionTransportRef.current,
+      updateTransportState: updateSessionTransport,
+      loadSession,
+      handleMessage: (message) => {
+        startTransition(() => handleSocketMessage(message.type, message.data || {}));
+      },
+      locationObject: window.location,
+    });
+    sessionTransportControllerRef.current = controller;
+    controller.connect();
     return () => {
-      wsClosingRef.current = true;
-      wsRef.current?.close();
-      wsRef.current = null;
+      controller.close();
+      if (sessionTransportControllerRef.current === controller) {
+        sessionTransportControllerRef.current = null;
+      }
     };
   }, []);
 
@@ -410,25 +411,17 @@ function App() {
   }
 
   async function loadSession(sessionId) {
-    const payload = await fetchJson(`/api/sessions/${encodeURIComponent(sessionId)}/bootstrap`);
-    const activation = deriveSessionActivation(payload, sessionId, { defaultMode: DEFAULT_MODE });
-    dispatch({
-      type: "session_activated",
-      sessionId: activation.sessionId,
-      snapshot: activation.snapshot,
-      timeline: activation.timeline,
-      historyIntegrity: activation.historyIntegrity,
+    const loadSessionController = createSessionActivationController({
+      fetchJson,
+      dispatch,
+      defaultMode: DEFAULT_MODE,
+      createTransportState: createRuntimeSessionTransport,
+      replaceTransportState: replaceSessionTransport,
+      listTerminals,
+      loadTasks,
+      loadArtifacts,
     });
-    replaceSessionEventLog(createRuntimeEventLog(activation.snapshot));
-    dispatch({ type: "plan_loaded", plan: activation.plan });
-    dispatch({ type: "permission_context_loaded", context: activation.permissionContext });
-    try {
-      const terminals = await listTerminals(sessionId);
-      dispatch({ type: "terminal_summaries_loaded", terminals: terminals.terminals || [] });
-    } catch (_) {
-      dispatch({ type: "terminal_summaries_loaded", terminals: [] });
-    }
-    await Promise.all([loadTasks(sessionId), loadArtifacts()]);
+    await loadSessionController(sessionId);
   }
 
   async function loadTasks(sessionId) {
@@ -570,7 +563,7 @@ function App() {
     });
     const snapshot = normalizeSessionPayload(payload);
     dispatch({ type: "session_activated", sessionId: snapshot.session_id, snapshot, timeline: [] });
-    replaceSessionEventLog(createRuntimeEventLog(snapshot));
+    replaceSessionTransport(createRuntimeSessionTransport());
     await Promise.all([loadSessions(), loadTasks(snapshot.session_id), loadPermissionContext(snapshot.session_id)]);
     return snapshot.session_id;
   }
@@ -866,103 +859,6 @@ function App() {
     return () => window.removeEventListener("keydown", onWorkbenchKeyDown);
   }, [state.workbench.commandPalette.open, currentStatus, composerDraft, currentSessionId]);
 
-  async function recoverSessionReplay(sessionId, logState = sessionEventLogRef.current) {
-    if (!sessionId) return;
-    try {
-      const replay = await fetchJson(
-        `/api/sessions/${encodeURIComponent(sessionId)}/events?after_seq=${encodeURIComponent(logState.lastAppliedSeq || 0)}`,
-      );
-      if (replay?.status === "replay") {
-        updateSessionEventLog((current) => {
-          let next = {
-            ...current,
-            connectionState: "connected",
-            replayState: "healthy",
-          };
-          const items = Array.isArray(replay.events) ? replay.events : [];
-          for (const item of items) {
-            next = appendSessionEvent(next, item);
-          }
-          return {
-            ...next,
-            connectionState: "connected",
-            replayState: next.replayState === "replay_needed" ? "replay_needed" : "healthy",
-          };
-        });
-        if (sessionEventLogRef.current.replayState === "replay_needed") {
-          await loadSession(sessionId);
-        }
-        return;
-      }
-      updateSessionEventLog((current) => ({
-        ...current,
-        connectionState: replay?.status === "degraded" ? "degraded" : "connected",
-        replayState: replay?.status || "degraded",
-      }));
-      await loadSession(sessionId);
-    } catch (_) {
-      updateSessionEventLog((current) => ({
-        ...current,
-        connectionState: "degraded",
-        replayState: "degraded",
-      }));
-      await loadSession(sessionId);
-    }
-  }
-
-  // ── WebSocket ──────────────────────────────────────────────────────
-
-  function connectWebSocket() {
-    wsClosingRef.current = false;
-    const socketToken = wsTokenRef.current + 1;
-    wsTokenRef.current = socketToken;
-    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const socket = new WebSocket(`${protocol}//${window.location.host}/ws`);
-    wsRef.current = socket;
-    socket.onopen = async () => {
-      updateSessionEventLog((current) => ({ ...current, connectionState: "connected" }));
-      wsRetryRef.current = 0;
-      if (currentSessionIdRef.current && sessionEventLogRef.current.replayState !== "healthy") {
-        await recoverSessionReplay(currentSessionIdRef.current, sessionEventLogRef.current);
-      }
-    };
-    socket.onclose = () => {
-      updateSessionEventLog((current) => ({ ...current, connectionState: "disconnected" }));
-      if (
-        !shouldReconnectSocket({
-          activeToken: wsTokenRef.current,
-          socketToken,
-          manualClose: wsClosingRef.current,
-        })
-      ) {
-        return;
-      }
-      const nextAttempt = capRetryAttempt(wsRetryRef.current + 1);
-      const delay = Math.min(1500 * Math.pow(2, Math.max(nextAttempt - 1, 0)), 30000);
-      wsRetryRef.current = nextAttempt;
-      window.setTimeout(connectWebSocket, delay);
-    };
-    socket.onerror = () => {
-      updateSessionEventLog((current) => ({
-        ...current,
-        connectionState: "degraded",
-        replayState: current.replayState === "reload_required" ? "reload_required" : "replay_needed",
-      }));
-    };
-    socket.onmessage = (event) => {
-      try {
-        const message = JSON.parse(event.data);
-        startTransition(() => handleSocketMessage(message.type, message.data || {}));
-      } catch (_) {
-        updateSessionEventLog((current) => ({
-          ...current,
-          connectionState: "degraded",
-          replayState: "degraded",
-        }));
-      }
-    };
-  }
-
   function logEvent(label, detail) {
     dispatch({ type: "log_event", label, detail });
   }
@@ -979,32 +875,34 @@ function App() {
   });
 
   function executeSocketEffects(effects = {}) {
-    const eventLogEntries = effects.eventLogEntries || [];
-    if (eventLogEntries.length) {
-      const nextLog = updateSessionEventLog((current) => {
-        let next = current;
-        for (const entry of eventLogEntries) {
-          next = appendSessionEvent(next, entry || {});
+    const transportEvents = effects.transportEvents || [];
+    if (transportEvents.length) {
+      const transportController = sessionTransportControllerRef.current;
+      let nextTransport = sessionTransportRef.current;
+      for (const entry of transportEvents) {
+        if (transportController) {
+          nextTransport = transportController.appendEvent(entry || {});
+        } else {
+          nextTransport = updateSessionTransport((current) =>
+            appendSessionTransportEvent(current, entry || {}),
+          );
         }
-        return next;
-      });
+      }
       if (
-        (nextLog.replayState === "replay_needed" || nextLog.replayState === "degraded") &&
+        (nextTransport.reloadState === "reload_required" || nextTransport.reloadState === "degraded") &&
         currentSessionIdRef.current
       ) {
-        void recoverSessionReplay(currentSessionIdRef.current, nextLog);
+        if (transportController) {
+          void transportController.recover(currentSessionIdRef.current, nextTransport);
+        } else {
+          void loadSession(currentSessionIdRef.current);
+        }
       }
     }
 
     for (const action of effects.actions || []) {
       if (action.type === "user_input_request" && action.resetUserAnswer) {
         setUserAnswer("");
-      }
-      if (action.type === "session_snapshot" && action.replayStatePatch) {
-        updateSessionEventLog((current) => ({
-          ...current,
-          replayState: action.replayStatePatch,
-        }));
       }
       dispatch(action);
     }
@@ -1019,7 +917,7 @@ function App() {
       type,
       data: data || {},
       currentSessionId: currentSessionIdRef.current,
-      sessionEventLog: sessionEventLogRef.current,
+      sessionTransport: sessionTransportRef.current,
       makeId: makeEventId,
       nowIso: () => new Date().toISOString(),
     });
@@ -1062,8 +960,8 @@ function App() {
     } else {
       await loadSession(currentSessionId);
     }
-    updateSessionEventLog((current) =>
-      appendSessionEvent(current, {
+    updateSessionTransport((current) =>
+      appendSessionTransportEvent(current, {
         session_id: currentSessionId,
         event_id: makeEventId("evt"),
         seq: current.lastAppliedSeq + 1,
@@ -1201,7 +1099,7 @@ function App() {
     snapshot: state.snapshot,
     appShell: state.app,
     userAnswer,
-    eventLog: state.eventLog,
+    runOutput: state.runOutput,
     onTabChange: (v) => {
       dispatch({ type: "set_inspector", value: v });
       openRightPanelSurface(v);
@@ -1415,7 +1313,7 @@ function App() {
       bottomDrawer={
         <BottomDrawer
           activeKind={state.workbench.bottomDrawer.activeKind}
-          eventLog={state.eventLog}
+          runOutput={state.runOutput}
           terminationReason={state.terminationDisplayReason || state.terminationReason}
           terminationMessage={state.terminationMessage}
           terminal={state.terminal}

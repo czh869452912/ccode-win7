@@ -601,10 +601,6 @@ export function normalizeSessionPayload(payload, defaultMode = "explore") {
     bundledToolsReady: Boolean(payload.bundled_tools_ready),
     fallbackWarnings: payload.fallback_warnings || [],
     runtimeEnvironment: payload.runtime_environment || null,
-    timeline_replay_status: payload.timeline_replay_status || "healthy",
-    timeline_first_seq: Number(payload.timeline_first_seq || 0),
-    timeline_last_seq: Number(payload.timeline_last_seq || 0),
-    timeline_integrity: payload.timeline_integrity || "healthy",
     pending_interaction_valid:
       payload.pending_interaction_valid === undefined
         ? Boolean(payload.pending_interaction || payload.pending_permission || payload.pending_user_input)

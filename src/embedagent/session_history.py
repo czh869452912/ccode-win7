@@ -284,7 +284,7 @@ class SessionHistoryAssembler(object):
                 return msg
         return None
 
-    def build_flat_timeline(
+    def build_flat_history(
         self,
         session: Session,
         history_source: str,
@@ -293,7 +293,7 @@ class SessionHistoryAssembler(object):
         consumed_event_count: int = 0,
         transcript_event_count: int = 0,
     ) -> Dict[str, Any]:
-        """Build a flat timeline of items for direct frontend consumption.
+        """Build a flat session history item stream for direct frontend consumption.
 
         Each item is self-contained with type, id, content, status, parent_id, turn_id.
         This replaces the nested turns[]->steps[]->tool_calls[] structure.

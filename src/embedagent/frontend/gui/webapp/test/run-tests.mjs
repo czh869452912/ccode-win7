@@ -25,6 +25,8 @@ import { runVisualLanguageCssTests } from "./visual-language-css.test.mjs";
 import { runVisualDebugRunnerTests } from "./visual-debug-runner.test.mjs";
 import { runWebSocketLifecycleTests } from "./websocket-lifecycle.test.mjs";
 import { runSessionLoadersTests } from "./session-loaders.test.mjs";
+import { runSessionActivationControllerTests } from "./session-activation-controller.test.mjs";
+import { runSessionTransportControllerTests } from "./session-transport-controller.test.mjs";
 import { runSocketMessageEffectsTests } from "./socket-message-effects.test.mjs";
 import { runVisualDebugFixturesTests } from "./visual-debug-fixtures.test.mjs";
 import { runWorkbenchStateTests } from "./workbench-state.test.mjs";
@@ -48,7 +50,7 @@ import { runRightPanelStoreParityTests } from "./right-panel-store-parity.test.m
 import { runRightPanelTabsSourceTests } from "./right-panel-tabs-source.test.mjs";
 import { runTerminalShellSourceTests } from "./terminal-shell-source.test.mjs";
 import { runThreadStateTests } from "./thread-state.test.mjs";
-import { runEventLogStateTests } from "./event-log-state.test.mjs";
+import { runRunOutputStateTests } from "./run-output-state.test.mjs";
 
 const WEBAPP_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -265,10 +267,6 @@ async function main() {
     recent_transitions: [
       { reason: "aborted", display_reason: "cancelled", message: "tool execution interrupted" },
     ],
-    timeline_replay_status: "degraded",
-    timeline_first_seq: 3,
-    timeline_last_seq: 9,
-    timeline_integrity: "degraded",
     pending_interaction_valid: false,
   });
   assert.equal(snapshot.status, "waiting_permission");
@@ -276,10 +274,10 @@ async function main() {
   assert.equal(snapshot.has_pending_permission, true);
   assert.equal(snapshot.lastTransitionDisplayReason, "cancelled");
   assert.equal(snapshot.recentTransitions[0].displayReason, "cancelled");
-  assert.equal(snapshot.timeline_replay_status, "degraded");
-  assert.equal(snapshot.timeline_first_seq, 3);
-  assert.equal(snapshot.timeline_last_seq, 9);
-  assert.equal(snapshot.timeline_integrity, "degraded");
+  assert.equal(Object.hasOwn(snapshot, "timeline" + "_replay_status"), false);
+  assert.equal(Object.hasOwn(snapshot, "timeline" + "_first_seq"), false);
+  assert.equal(Object.hasOwn(snapshot, "timeline" + "_last_seq"), false);
+  assert.equal(Object.hasOwn(snapshot, "timeline" + "_integrity"), false);
   assert.equal(snapshot.pending_interaction_valid, false);
 
   const defaultModeSnapshot = normalizeSessionPayload({ session_id: "sess-default" });
@@ -640,7 +638,7 @@ async function main() {
   const activatedState = reducer(
     {
       ...initialState,
-      eventLog: [{ ts: 1, label: "stale-session", detail: "" }],
+      runOutput: [{ ts: 1, label: "stale-session", detail: "" }],
     },
     {
       type: "session_activated",
@@ -659,7 +657,7 @@ async function main() {
       timeline: [],
     },
   );
-  assert.equal(activatedState.eventLog.length, 0);
+  assert.equal(activatedState.runOutput.length, 0);
   assert.equal(activatedState.inspectorTab, "interaction");
   assert.equal(activatedState.inspectorOpen, true);
 
@@ -882,7 +880,9 @@ async function main() {
   assert.equal(appSource.includes("executeLoaderRequest"), true);
   assert.equal(appSource.includes("installVisualDebugFixtures"), true);
   assert.equal(appSource.includes("createLoaderRequestExecutor"), true);
-  assert.equal(appSource.includes("deriveSessionActivation"), true);
+  assert.equal(appSource.includes("deriveSessionActivation"), false);
+  assert.equal(appSource.includes("function connectWebSocket"), false);
+  assert.equal(appSource.includes("function recoverSessionTransport"), false);
   assert.equal(appSource.includes("function executeLoaderRequest(request = {})"), false);
   assert.equal(appSource.includes("request.name === LOADER_REQUESTS"), false);
   assert.equal(appSource.includes('type: "set_connection"'), false);
@@ -1269,6 +1269,21 @@ async function main() {
   assert.equal(composerSource.includes("branchToolbar"), true);
   assert.equal(composerSource.includes("onRefreshSourceControl"), true);
 
+  const sessionActivationControllerSource = fs.readFileSync(
+    webappSourcePath("app-runtime", "session-activation-controller.js"),
+    "utf8",
+  );
+  assert.equal(sessionActivationControllerSource.includes("deriveSessionActivation"), true);
+  assert.equal(sessionActivationControllerSource.includes("/bootstrap"), true);
+
+  const sessionTransportControllerSource = fs.readFileSync(
+    webappSourcePath("app-runtime", "session-transport-controller.js"),
+    "utf8",
+  );
+  assert.equal(sessionTransportControllerSource.includes("shouldReconnectSocket"), true);
+  assert.equal(sessionTransportControllerSource.includes("appendSessionTransportEvent"), true);
+  assert.equal(sessionTransportControllerSource.includes("/events?after_seq"), false);
+
   runWorkbenchStateTests();
   runWorkbenchUiStateTests();
   runRightPanelTabsSourceTests();
@@ -1280,7 +1295,7 @@ async function main() {
   runCommandPaletteModelTests();
   runCommandPaletteSourceTests();
   runThreadStateTests();
-  runEventLogStateTests();
+  runRunOutputStateTests();
   runComposerTriggerTests();
   runComposerCommandSearchTests();
   runComposerPathContextTests();
@@ -1302,6 +1317,8 @@ async function main() {
   await runPreviewApiTests();
   runWebSocketLifecycleTests();
   await runSessionLoadersTests();
+  await runSessionActivationControllerTests();
+  await runSessionTransportControllerTests();
   runSocketMessageEffectsTests();
   runVisualDebugFixturesTests();
   await runVisualDebugRunnerTests();

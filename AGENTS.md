@@ -224,8 +224,9 @@ Hosted `/review` synthesis is owned by `ReviewCommandService`, not by `InProcess
 There is no durable `SessionTimelineStore` or timeline-backed history replay
 path. `GET /api/sessions/{id}/events` is a bootstrap-reload signal, not a
 history API. GUI session history and T3 timeline bootstrap must come from
-`GET /api/sessions/{id}/bootstrap`; live WebSocket/event-log data may update
-current GUI display state only and must not become durable history truth.
+`GET /api/sessions/{id}/bootstrap`; live WebSocket data and GUI run-output
+logs may update current GUI display state only and must not become durable
+history truth.
 
 Official durable operation truth is:
 
@@ -297,16 +298,21 @@ root-level global reducer fields. Thread/session selection, session summaries,
 and history-integrity display state live in
 `src/embedagent/frontend/gui/webapp/src/session-runtime/thread-state.js`;
 GUI run-output event-log display state lives in
-`src/embedagent/frontend/gui/webapp/src/session-runtime/event-log-state.js`;
-active-session transport replay and connection projection live in
-`src/embedagent/frontend/gui/webapp/src/session-runtime/event-log.js`;
+`src/embedagent/frontend/gui/webapp/src/session-runtime/run-output-state.js`;
+active-session transport connection/reload projection lives in
+`src/embedagent/frontend/gui/webapp/src/session-runtime/session-transport-state.js`;
+WebSocket lifecycle control lives in
+`src/embedagent/frontend/gui/webapp/src/app-runtime/session-transport-controller.js`;
+session bootstrap activation control lives in
+`src/embedagent/frontend/gui/webapp/src/app-runtime/session-activation-controller.js`;
 composer draft text lives in
 `src/embedagent/frontend/gui/webapp/src/composer/composer-state.js`; terminal
 display buffers remain under `src/embedagent/frontend/gui/webapp/src/terminal/`;
 workbench surface persistence remains under
 `src/embedagent/frontend/gui/webapp/src/workbench/`. Do not reintroduce
 root-level `sessions`, `currentSessionId`, `composer`, `historyIntegrity`,
-`connectionState`, or `set_connection` as parallel GUI state.
+`connectionState`, `set_connection`, or timeline reload state as parallel GUI
+state.
 
 GUI visual debug fixtures are development-only. `?visual_debug=1` may expose
 `window.__EMBEDAGENT_VISUAL_DEBUG__`, but fixture helpers must expand private

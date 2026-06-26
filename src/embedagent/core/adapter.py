@@ -172,10 +172,6 @@ def _session_snapshot_from_dict(snapshot: Dict[str, Any]) -> SessionSnapshot:
             if isinstance(snapshot.get("pending_interaction"), dict)
             else None
         ),
-        timeline_replay_status=str(snapshot.get("timeline_replay_status") or "replay"),
-        timeline_first_seq=int(snapshot.get("timeline_first_seq") or 0),
-        timeline_last_seq=int(snapshot.get("timeline_last_seq") or 0),
-        timeline_integrity=str(snapshot.get("timeline_integrity") or "healthy"),
         pending_interaction_valid=bool(
             snapshot.get(
                 "pending_interaction_valid",
@@ -576,9 +572,6 @@ class AgentCoreAdapter(CoreInterface):
 
     def write_file(self, path: str, content: str) -> Dict[str, Any]:
         return self._adapter.write_workspace_file(path, content)
-
-    def get_session_timeline(self, session_id: str, limit: int = 200) -> Dict[str, Any]:
-        return self._adapter.get_session_timeline(session_id, limit=limit)
 
     def list_artifacts(self, limit: int = 20) -> List[Dict[str, Any]]:
         return self._adapter.list_artifacts(limit=limit)

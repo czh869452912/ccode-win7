@@ -9,7 +9,6 @@ from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional
 
 from embedagent.capabilities import (
-    CapabilityRegistry,
     command_capability_descriptors,
     model_profile_capability_descriptor,
     workflow_package_capability_descriptors,
@@ -36,6 +35,7 @@ from embedagent.project_memory import ProjectMemoryStore
 from embedagent.protocol import CommandResult, PermissionContextView, PlanSnapshot
 from embedagent.recovery_state import RecoveryStateReducer
 from embedagent.review_command import ReviewCommandService
+from embedagent.runtime_capability_service import RuntimeCapabilityService
 from embedagent.runtime_config import RuntimeConfigReducer
 from embedagent.session import (
     Action,
@@ -45,6 +45,7 @@ from embedagent.session import (
     PendingInteraction,
     Session,
 )
+from embedagent.session_bootstrap_service import SessionBootstrapService
 from embedagent.session_history import SessionHistoryAssembler
 from embedagent.session_operation_log import OperationLogReducer, operation_diagnostics
 from embedagent.session_projector import SessionSnapshotProjector
@@ -59,6 +60,7 @@ from embedagent.services import (
 from embedagent.query_engine import QueryEngine
 from embedagent.skill_index import build_skill_index
 from embedagent.skills import expand_skill_invocation
+from embedagent.slash_command_service import SlashCommandService
 from embedagent.slash_commands import (
     ParsedSlashCommand,
     SlashCommandRegistry,
@@ -268,6 +270,36 @@ class InProcessAdapter(object):
             session_restorer=self.session_restorer,
             transcript_store=self.transcript_store,
         )
+        self._bootstrap_service = SessionBootstrapService(
+            snapshot_loader=self.get_session_snapshot,
+            history_loader=self.build_session_history,
+            plan_loader=self.get_session_plan,
+            permission_context_loader=self.get_permission_context,
+        )
+        self._runtime_capabilities = RuntimeCapabilityService(
+            descriptor_loader=self._capability_descriptors,
+            model_descriptor_loader=lambda: model_profile_capability_descriptor(self.client),
+            workflow_manifest_loader=self._workflow_package_capability_descriptors,
+        )
+        self._slash_commands = SlashCommandService(
+            {
+                "help": self._handle_command_help,
+                "mode": self._handle_command_mode,
+                "sessions": self._handle_command_sessions,
+                "resume": self._handle_command_resume,
+                "workspace": self._handle_command_workspace,
+                "recipes": self._handle_command_recipes,
+                "resources": self._handle_command_resources,
+                "run": self._handle_command_run,
+                "clear": self._handle_command_clear,
+                "tasks": self._handle_command_tasks,
+                "artifacts": self._handle_command_artifacts,
+                "diff": self._handle_command_diff,
+                "permissions": self._handle_command_permissions,
+                "plan": self._handle_command_plan,
+                "review": self._handle_command_review,
+            }
+        )
 
     def _load_project_extensions(self) -> Dict[str, Any]:
         payload = load_project_extensions(self.tools.workspace)
@@ -337,31 +369,29 @@ class InProcessAdapter(object):
         )
 
     def capability_snapshot(self) -> Dict[str, Any]:
-        registry = CapabilityRegistry()
+        return self._runtime_capabilities.snapshot()
+
+    def _capability_descriptors(self) -> List[Any]:
+        descriptors = []
         runtime_capabilities = getattr(self.tools, "capability_descriptors", None)
         if callable(runtime_capabilities):
-            registry.extend(runtime_capabilities())
-        registry.extend(
+            descriptors.extend(runtime_capabilities())
+        descriptors.extend(
             command_capability_descriptors(
                 self.command_registry,
                 extra_specs=resource_command_specs(self.tools.local_resources()),
             )
         )
+        return descriptors
+
+    def _workflow_package_capability_descriptors(self) -> List[Any]:
         package_manifests = getattr(self.extension_manager, "package_manifests", None)
         if callable(package_manifests):
-            registry.extend(workflow_package_capability_descriptors(package_manifests()))
-        registry.register(model_profile_capability_descriptor(self.client))
-        return registry.snapshot().to_dict()
+            return workflow_package_capability_descriptors(package_manifests())
+        return []
 
     def _registered_tool_names_from_snapshot(self, snapshot: Dict[str, Any]) -> List[str]:
-        names = []
-        for item in list(snapshot.get("descriptors") or []):
-            if not isinstance(item, dict):
-                continue
-            if str(item.get("kind") or "") != "tool":
-                continue
-            names.append(str(item.get("name") or ""))
-        return _stable_names(names)
+        return self._runtime_capabilities.registered_tool_names(snapshot)
 
     def _active_tool_names_for_state(self, state: ManagedSession) -> List[str]:
         names = self.extension_manager.allowed_tool_names(
@@ -909,14 +939,6 @@ class InProcessAdapter(object):
     def write_workspace_file(self, path: str, content: str) -> Dict[str, Any]:
         return self._workspace_files.write_file(path, content)
 
-    def get_session_timeline(self, session_id: str, limit: int = 200) -> Dict[str, Any]:
-        state = self._ensure_session_active(session_id)
-        return {
-            "session_id": state.session.session_id,
-            "events": [],
-            "latest_assistant_reply": self._last_assistant_from_session(state.session),
-        }
-
     def build_session_history(self, reference: str, mode: str = "") -> Dict[str, Any]:
         try:
             state = self._ensure_session_active(reference, mode)
@@ -954,14 +976,7 @@ class InProcessAdapter(object):
 
     def get_session_bootstrap(self, reference: str, mode: str = "") -> Dict[str, Any]:
         state = self._ensure_session_active(reference, mode)
-        session_id = state.session.session_id
-        return {
-            "snapshot": self.get_session_snapshot(session_id),
-            "history": self.build_session_history(session_id),
-            "plan": self.get_session_plan(session_id),
-            "permission_context": self.get_permission_context(session_id),
-            "replay": self.load_session_events_after(session_id, after_seq=0, limit=0),
-        }
+        return self._bootstrap_service.build(state.session.session_id)
 
     def _history_unavailable_reason(self, exc: Exception) -> str:
         message = str(exc or "").strip().lower()
@@ -1218,7 +1233,7 @@ class InProcessAdapter(object):
             else:
                 state.workflow_state = "command"
             state.updated_at = _utc_now()
-        handler = getattr(self, "_handle_command_%s" % parsed.name, None)
+        handler = self._slash_commands.handler_for(parsed.name)
         if not callable(handler):
             self._emit_command_result(
                 event_handler,
@@ -1609,7 +1624,7 @@ class InProcessAdapter(object):
                 command_name="clear",
                 success=True,
                 message="已请求前端清空当前时间线视图。",
-                data={"clear_timeline": True},
+                data={"clear_session_view": True},
             ),
         )
         return {"handled": True, "continue_with_text": ""}

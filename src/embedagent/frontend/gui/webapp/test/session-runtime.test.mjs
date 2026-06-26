@@ -1,16 +1,16 @@
 import assert from "node:assert/strict";
 
 import {
-  appendSessionEvent,
+  appendSessionTransportEvent,
   capRetryAttempt,
-  createSessionEventLog,
+  createSessionTransportState,
   projectTransportView,
-} from "../src/session-runtime/event-log.js";
+} from "../src/session-runtime/session-transport-state.js";
 import { projectSessionRuntime } from "../src/session-runtime/projector.js";
 
 export function runSessionRuntimeTests() {
-  const initial = createSessionEventLog();
-  const first = appendSessionEvent(initial, {
+  const initial = createSessionTransportState();
+  const first = appendSessionTransportEvent(initial, {
     session_id: "sess-1",
     event_id: "evt-1",
     seq: 1,
@@ -18,7 +18,7 @@ export function runSessionRuntimeTests() {
     created_at: "2026-04-04T00:00:00Z",
     payload: { turn_id: "turn-1", user_text: "hello" },
   });
-  const gap = appendSessionEvent(first, {
+  const gap = appendSessionTransportEvent(first, {
     session_id: "sess-1",
     event_id: "evt-3",
     seq: 3,
@@ -26,7 +26,7 @@ export function runSessionRuntimeTests() {
     created_at: "2026-04-04T00:00:01Z",
     payload: { turn_id: "turn-1", step_id: "step-1" },
   });
-  assert.equal(gap.replayState, "replay_needed");
+  assert.equal(gap.reloadState, "reload_required");
 
   const runtime = projectSessionRuntime({
     snapshot: {
@@ -39,40 +39,38 @@ export function runSessionRuntimeTests() {
         reason: "need write access",
       },
     },
-    eventLog: createSessionEventLog(),
+    sessionTransport: createSessionTransportState(),
   });
   assert.equal(runtime.currentInteraction.interaction_id, "int-1");
   assert.equal(runtime.timelineView.some((item) => item.kind === "permission"), false);
   assert.equal(runtime.sessionStatusView.mode, "explore");
 
-  const replayRuntime = projectSessionRuntime({
+  const reloadRuntime = projectSessionRuntime({
     snapshot: {
       session_id: "sess-1",
       status: "running",
       current_mode: "build",
-      timeline_replay_status: "reload_required",
       pending_interaction: null,
     },
-    eventLog: {
-      ...createSessionEventLog(),
-      replayState: "reload_required",
+    sessionTransport: {
+      ...createSessionTransportState(),
+      reloadState: "reload_required",
       events: [],
     },
     historyTimeline: [],
   });
-  assert.equal(replayRuntime.transportView.replayState, "reload_required");
+  assert.equal(reloadRuntime.transportView.reloadState, "reload_required");
 
   const transportView = projectTransportView({
-    snapshot: { timeline_replay_status: "reload_required" },
-    eventLog: {
-      ...createSessionEventLog({ connectionState: "open" }),
+    transportState: {
+      ...createSessionTransportState({ connectionState: "open" }),
       lastAppliedSeq: 7,
-      replayState: "replay",
+      reloadState: "healthy",
     },
   });
   assert.deepEqual(transportView, {
     connectionState: "open",
-    replayState: "healthy",
+    reloadState: "healthy",
     lastAppliedSeq: 7,
   });
 
@@ -87,7 +85,7 @@ export function runSessionRuntimeTests() {
         options: [{ index: 1, text: "继续" }],
       },
     },
-    eventLog: createSessionEventLog(),
+    sessionTransport: createSessionTransportState(),
   });
   assert.equal(interactionRuntime.currentInteraction.interaction_id, "int-2");
   assert.equal(interactionRuntime.timelineItems[0].kind, "interaction_requested");
@@ -100,8 +98,8 @@ export function runSessionRuntimeTests() {
       current_mode: "build",
       pending_interaction: null,
     },
-    eventLog: {
-      ...createSessionEventLog(),
+    sessionTransport: {
+      ...createSessionTransportState(),
       events: [
         {
           session_id: "sess-1",
@@ -132,7 +130,7 @@ export function runSessionRuntimeTests() {
         question: "Continue?",
       },
     },
-    eventLog: createSessionEventLog(),
+    sessionTransport: createSessionTransportState(),
     historyTimeline: [
       {
         id: "local-user-input",
@@ -158,7 +156,7 @@ export function runSessionRuntimeTests() {
       current_mode: "build",
       pending_interaction: null,
     },
-    eventLog: createSessionEventLog(),
+    sessionTransport: createSessionTransportState(),
     historyTimeline: [
       {
         id: "cmd-1",
@@ -178,7 +176,7 @@ export function runSessionRuntimeTests() {
       status: "running",
       current_mode: "build",
     },
-    eventLog: createSessionEventLog(),
+    sessionTransport: createSessionTransportState(),
     historyTimeline: [
       {
         id: "u-thinking-runtime",
@@ -199,7 +197,7 @@ export function runSessionRuntimeTests() {
       current_mode: "build",
       pending_interaction: null,
     },
-    eventLog: createSessionEventLog(),
+    sessionTransport: createSessionTransportState(),
     historyTimeline: [
       { id: "turn-1-user", kind: "user", content: "hello", turnId: "turn-1" },
       { id: "detached-tool", kind: "tool", toolName: "read_file", turnId: "turn-1", stepId: "", status: "success" },
@@ -207,7 +205,7 @@ export function runSessionRuntimeTests() {
   });
   assert.equal(detachedRuntime.timelineView[0].trailingTurnItems[0].id, "detached-tool");
 
-  const malformedEventLog = appendSessionEvent(createSessionEventLog(), {
+  const malformedTransport = appendSessionTransportEvent(createSessionTransportState(), {
     session_id: "sess-1",
     event_id: "evt-bad",
     seq: 1,
@@ -215,7 +213,7 @@ export function runSessionRuntimeTests() {
     created_at: "2026-04-04T00:02:00Z",
     payload: null,
   });
-  assert.equal(malformedEventLog.replayState, "degraded");
+  assert.equal(malformedTransport.reloadState, "degraded");
 
   const retryState = capRetryAttempt(200);
   assert.equal(retryState, 20);
@@ -232,7 +230,7 @@ export function runSessionRuntimeTests() {
         tool_name: "edit_file",
       },
     },
-    eventLog: createSessionEventLog(),
+    sessionTransport: createSessionTransportState(),
     historyTimeline: [],
   });
   assert.equal(expiredRuntime.currentInteraction, null);
@@ -246,7 +244,7 @@ export function runSessionRuntimeTests() {
       pending_interaction: null,
       restore_stop_reason: "interaction_expired",
     },
-    eventLog: createSessionEventLog(),
+    sessionTransport: createSessionTransportState(),
     historyTimeline: [],
   });
   assert.equal(restoredExpiredRuntime.currentInteraction, null);
@@ -266,7 +264,7 @@ export function runSessionRuntimeTests() {
       },
       restore_stop_reason: "interaction_expired",
     },
-    eventLog: createSessionEventLog(),
+    sessionTransport: createSessionTransportState(),
     historyTimeline: [],
   });
   assert.equal(resumedActiveInteractionRuntime.currentInteraction.interaction_id, "int-live");

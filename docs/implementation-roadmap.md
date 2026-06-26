@@ -88,6 +88,11 @@ Recent stabilization work has also completed the GUI session-history single-sour
   been removed; `/api/sessions/{id}/events` now asks the GUI to reload
   bootstrap, and the active T3 timeline consumes bootstrap history plus live
   reducer actions rather than transport event-log history
+- The 2026-06-26 Pi/T3 residual debt cleanup removed timeline-shaped snapshot
+  fields, the old session timeline API, and core flat timeline naming in favor of
+  bootstrap/history projections; it also extracted hosted bootstrap,
+  capability, slash-command, prompt-assembly, and turn-snapshot services so
+  adapter/core facades stay small.
 
 Recent GUI app-shell work has established the first standalone-app boundary:
 
@@ -117,9 +122,12 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   `session-runtime/thread-state.js` owns thread/session selection, session
   summaries, and history-integrity display state, while
   `composer/composer-state.js` owns local draft text,
-  `session-runtime/event-log-state.js` owns GUI run-output event-log display
-  state, and `session-runtime/event-log.js` owns active session transport
-  replay/connection projection. `App.jsx`, command palette, terminal
+  `session-runtime/run-output-state.js` owns GUI run-output event-log display
+  state, `session-runtime/session-transport-state.js` owns active session
+  transport connection/reload projection,
+  `app-runtime/session-transport-controller.js` owns WebSocket lifecycle, and
+  `app-runtime/session-activation-controller.js` owns bootstrap activation.
+  `App.jsx`, command palette, terminal
   controller, workspace reset, and tests consume those read models instead of
   root-level `sessions`, `currentSessionId`, `composer`, `historyIntegrity`,
   or `connectionState` fields.
