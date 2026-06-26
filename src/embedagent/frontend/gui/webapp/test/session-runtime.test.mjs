@@ -6,7 +6,7 @@ import {
   createSessionTransportState,
   projectTransportView,
 } from "../src/session-runtime/session-transport-state.js";
-import { projectSessionRuntime } from "../src/session-runtime/projector.js";
+import { buildSessionActivityRuntime } from "../src/session-runtime/activity-state.js";
 
 export function runSessionRuntimeTests() {
   const initial = createSessionTransportState();
@@ -28,7 +28,7 @@ export function runSessionRuntimeTests() {
   });
   assert.equal(gap.reloadState, "reload_required");
 
-  const runtime = projectSessionRuntime({
+  const runtime = buildSessionActivityRuntime({
     snapshot: {
       session_id: "sess-1",
       status: "waiting_permission",
@@ -45,7 +45,7 @@ export function runSessionRuntimeTests() {
   assert.equal(runtime.timelineView.some((item) => item.kind === "permission"), false);
   assert.equal(runtime.sessionStatusView.mode, "explore");
 
-  const reloadRuntime = projectSessionRuntime({
+  const reloadRuntime = buildSessionActivityRuntime({
     snapshot: {
       session_id: "sess-1",
       status: "running",
@@ -57,7 +57,7 @@ export function runSessionRuntimeTests() {
       reloadState: "reload_required",
       events: [],
     },
-    historyTimeline: [],
+    activities: [],
   });
   assert.equal(reloadRuntime.transportView.reloadState, "reload_required");
 
@@ -74,7 +74,7 @@ export function runSessionRuntimeTests() {
     lastAppliedSeq: 7,
   });
 
-  const interactionRuntime = projectSessionRuntime({
+  const interactionRuntime = buildSessionActivityRuntime({
     snapshot: {
       session_id: "sess-1",
       status: "waiting_user_input",
@@ -88,10 +88,10 @@ export function runSessionRuntimeTests() {
     sessionTransport: createSessionTransportState(),
   });
   assert.equal(interactionRuntime.currentInteraction.interaction_id, "int-2");
-  assert.equal(interactionRuntime.timelineItems[0].kind, "interaction_requested");
-  assert.equal(interactionRuntime.timelineItems[0].projectionSource, "session_snapshot");
+  assert.equal(interactionRuntime.timelineItems.length, 0);
+  assert.equal(interactionRuntime.t3TimelineRows.filter((row) => row.kind === "interaction").length, 1);
 
-  const ignoredTransportEventRuntime = projectSessionRuntime({
+  const ignoredTransportEventRuntime = buildSessionActivityRuntime({
     snapshot: {
       session_id: "sess-1",
       status: "idle",
@@ -115,11 +115,11 @@ export function runSessionRuntimeTests() {
         },
       ],
     },
-    historyTimeline: [],
+    activities: [],
   });
   assert.equal(ignoredTransportEventRuntime.timelineItems.length, 0);
 
-  const dedupedInteractionRuntime = projectSessionRuntime({
+  const dedupedInteractionRuntime = buildSessionActivityRuntime({
     snapshot: {
       session_id: "sess-1",
       status: "waiting_user_input",
@@ -131,10 +131,10 @@ export function runSessionRuntimeTests() {
       },
     },
     sessionTransport: createSessionTransportState(),
-    historyTimeline: [
+    activities: [
       {
         id: "local-user-input",
-        kind: "user_input",
+        kind: "interaction_requested",
         request: {
           request_id: "ask-dedup",
           tool_name: "ask_user",
@@ -149,7 +149,7 @@ export function runSessionRuntimeTests() {
   );
   assert.equal(dedupedInteractionRuntime.t3TimelineRows.filter((row) => row.kind === "interaction").length, 1);
 
-  const commandRuntime = projectSessionRuntime({
+  const commandRuntime = buildSessionActivityRuntime({
     snapshot: {
       session_id: "sess-1",
       status: "idle",
@@ -157,7 +157,7 @@ export function runSessionRuntimeTests() {
       pending_interaction: null,
     },
     sessionTransport: createSessionTransportState(),
-    historyTimeline: [
+    activities: [
       {
         id: "cmd-1",
         kind: "command_result",
@@ -170,14 +170,14 @@ export function runSessionRuntimeTests() {
   });
   assert.equal(commandRuntime.timelineView[0].sessionFallbackItems[0].kind, "command_result_fallback");
 
-  const thinkingRuntime = projectSessionRuntime({
+  const thinkingRuntime = buildSessionActivityRuntime({
     snapshot: {
       session_id: "sess-thinking",
       status: "running",
       current_mode: "build",
     },
     sessionTransport: createSessionTransportState(),
-    historyTimeline: [
+    activities: [
       {
         id: "u-thinking-runtime",
         kind: "user",
@@ -190,7 +190,7 @@ export function runSessionRuntimeTests() {
   });
   assert.equal(thinkingRuntime.t3TimelineRows.some((row) => row.kind === "working"), true);
 
-  const detachedRuntime = projectSessionRuntime({
+  const detachedRuntime = buildSessionActivityRuntime({
     snapshot: {
       session_id: "sess-1",
       status: "idle",
@@ -198,7 +198,7 @@ export function runSessionRuntimeTests() {
       pending_interaction: null,
     },
     sessionTransport: createSessionTransportState(),
-    historyTimeline: [
+    activities: [
       { id: "turn-1-user", kind: "user", content: "hello", turnId: "turn-1" },
       { id: "detached-tool", kind: "tool", toolName: "read_file", turnId: "turn-1", stepId: "", status: "success" },
     ],
@@ -218,7 +218,7 @@ export function runSessionRuntimeTests() {
   const retryState = capRetryAttempt(200);
   assert.equal(retryState, 20);
 
-  const expiredRuntime = projectSessionRuntime({
+  const expiredRuntime = buildSessionActivityRuntime({
     snapshot: {
       session_id: "sess-1",
       status: "waiting_permission",
@@ -231,12 +231,12 @@ export function runSessionRuntimeTests() {
       },
     },
     sessionTransport: createSessionTransportState(),
-    historyTimeline: [],
+    activities: [],
   });
   assert.equal(expiredRuntime.currentInteraction, null);
   assert.equal(expiredRuntime.interactionNotice.kind, "expired");
 
-  const restoredExpiredRuntime = projectSessionRuntime({
+  const restoredExpiredRuntime = buildSessionActivityRuntime({
     snapshot: {
       session_id: "sess-1",
       status: "idle",
@@ -245,12 +245,12 @@ export function runSessionRuntimeTests() {
       restore_stop_reason: "interaction_expired",
     },
     sessionTransport: createSessionTransportState(),
-    historyTimeline: [],
+    activities: [],
   });
   assert.equal(restoredExpiredRuntime.currentInteraction, null);
   assert.equal(restoredExpiredRuntime.interactionNotice.kind, "expired");
 
-  const resumedActiveInteractionRuntime = projectSessionRuntime({
+  const resumedActiveInteractionRuntime = buildSessionActivityRuntime({
     snapshot: {
       session_id: "sess-1",
       status: "waiting_user_input",
@@ -265,7 +265,7 @@ export function runSessionRuntimeTests() {
       restore_stop_reason: "interaction_expired",
     },
     sessionTransport: createSessionTransportState(),
-    historyTimeline: [],
+    activities: [],
   });
   assert.equal(resumedActiveInteractionRuntime.currentInteraction.interaction_id, "int-live");
   assert.equal(resumedActiveInteractionRuntime.interactionNotice, null);

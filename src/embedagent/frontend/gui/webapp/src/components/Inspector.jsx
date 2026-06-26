@@ -2,7 +2,6 @@ import React from "react";
 import { useLang } from "../LangContext.js";
 import { t } from "../strings.js";
 import { formatDiagnosticsRows } from "../app-shell/diagnostics.js";
-import { summarizeTimelineProjection } from "../state-helpers.js";
 import { RIGHT_PANEL_SURFACES } from "../workbench/surfaces.js";
 import DiffView from "./DiffView.jsx";
 import InteractionPanel from "./InteractionPanel.jsx";
@@ -119,7 +118,7 @@ export default function Inspector({
           <PermissionsPanel permissionContext={permissionContext} lang={lang} />
         )}
         {inspectorTab === "runtime" && (
-          <RuntimePanel snapshot={snapshot} timeline={timeline} lang={lang} />
+          <RuntimePanel snapshot={snapshot} lang={lang} />
         )}
         {inspectorTab === "settings" && (
           <SettingsPanel
@@ -377,7 +376,7 @@ function PermissionsPanel({ permissionContext, lang }) {
   );
 }
 
-function RuntimePanel({ snapshot, timeline, lang }) {
+function RuntimePanel({ snapshot, lang }) {
   const runtime = snapshot?.runtimeEnvironment || {};
   const warnings = Array.isArray(snapshot?.fallbackWarnings)
     ? snapshot.fallbackWarnings
@@ -387,7 +386,6 @@ function RuntimePanel({ snapshot, timeline, lang }) {
   const recentTransitions = Array.isArray(snapshot?.recentTransitions)
     ? snapshot.recentTransitions
     : [];
-  const projection = summarizeTimelineProjection(timeline || []);
   const resolvedRoots = runtime?.resolved_tool_roots || {};
   const toolSources = runtime?.tool_sources || {};
   if (!snapshot) {
@@ -403,7 +401,6 @@ function RuntimePanel({ snapshot, timeline, lang }) {
         <div><strong>{t("inspector.currentPhase", lang)}:</strong> {snapshot.current_phase || "-"}</div>
         <div><strong>{t("inspector.disciplineProfile", lang)}:</strong> {snapshot.discipline_profile || "-"}</div>
         <div><strong>{t("inspector.currentActivity", lang)}:</strong> {snapshot.current_activity || "-"}</div>
-        <div><strong>{t("inspector.timelineProjection", lang)}:</strong> {projection.source || "-"}</div>
         <div><strong>{t("inspector.runtimeSource", lang)}:</strong> {snapshot.runtimeSource || "-"}</div>
         <div><strong>{t("inspector.runtimeReady", lang)}:</strong> {snapshot.bundledToolsReady ? t("inspector.yes", lang) : t("inspector.no", lang)}</div>
         {snapshot.compactBoundaryCount > 0 && (

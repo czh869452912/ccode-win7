@@ -10,11 +10,10 @@ import {
   normalizeSessionPayload,
   resolveTimelineAnchor,
   resolveVisiblePermission,
-  timelineFromEvents,
-  timelineFromTurns,
 } from "../src/state-helpers.js";
 import { runDiffModelTests } from "./diff-model.test.mjs";
 import { runInteractionModelTests } from "./interaction-model.test.mjs";
+import { runActivityStateTests } from "./activity-state.test.mjs";
 import { runSessionRuntimeTests } from "./session-runtime.test.mjs";
 import { runT3TimelineTests } from "./t3-timeline.test.mjs";
 import { runSourceControlStateTests } from "./source-control-state.test.mjs";
@@ -226,37 +225,6 @@ async function main() {
   assert.equal(next[0].childrenLoaded, true);
   assert.equal(next[0].children[0].path, "src/pkg");
 
-  const timeline = timelineFromEvents([
-    { event_id: "evt-1", event: "turn_started", payload: { text: "hello" } },
-    { event_id: "evt-2", event: "tool_started", payload: { call_id: "call-1", tool_name: "read_file", tool_label: "Read File", progress_renderer_key: "file", result_renderer_key: "file", arguments: { path: "README.md" } } },
-    { event_id: "evt-3", event: "tool_finished", payload: { call_id: "call-1", tool_name: "read_file", tool_label: "Read File", progress_renderer_key: "file", result_renderer_key: "file", success: true, data: { path: "README.md" } } },
-    { event_id: "evt-4", event: "session_finished", payload: { final_text: "done" } },
-  ]);
-  assert.equal(timeline[1].id, "call-1");
-  assert.equal(timeline[1].status, "success");
-  assert.equal(timeline[1].label, "Read File");
-  assert.equal(timeline[1].resultRendererKey, "file");
-  assert.equal(timeline[2].content, "done");
-
-  const reviewTimeline = timelineFromEvents([
-    {
-      event_id: "evt-review",
-      event: "command_result",
-      payload: {
-        command_name: "review",
-        success: true,
-        message: "## Review Findings",
-        data: {
-          review: {
-            findings: [{ id: "f1", severity: "high", priority: 1, title: "Build failed", body: "compile failed" }],
-          },
-        },
-      },
-    },
-  ]);
-  assert.equal(reviewTimeline[0].commandName, "review");
-  assert.equal(reviewTimeline[0].data.review.findings[0].title, "Build failed");
-
   const snapshot = normalizeSessionPayload({
     session_id: "sess-1",
     status: "waiting_permission",
@@ -283,36 +251,6 @@ async function main() {
 
   const defaultModeSnapshot = normalizeSessionPayload({ session_id: "sess-default" });
   assert.equal(defaultModeSnapshot.current_mode, "explore");
-
-  const structuredTimeline = timelineFromTurns([
-    {
-      turn_id: "turn-1",
-      user_text: "analyze demo",
-      steps: [
-        {
-          step_id: "step-1",
-          reasoning: "inspect file",
-          tool_calls: [
-            {
-              call_id: "call-1",
-              tool_name: "read_file",
-              tool_label: "Read File",
-              status: "success",
-              arguments: { path: "demo.c" },
-            },
-          ],
-        },
-        {
-          step_id: "step-2",
-          reasoning: "summarize",
-          assistant_text: "done",
-          tool_calls: [],
-        },
-      ],
-    },
-  ]);
-  assert.equal(structuredTimeline[1].stepId, "step-1");
-  assert.equal(structuredTimeline[4].stepId, "step-2");
 
   const pendingTurnAnchor = resolveTimelineAnchor({
     explicitTurnId: "",
@@ -922,6 +860,8 @@ async function main() {
   assert.equal(appSource.includes("showTabs={false}"), false);
   assert.equal(appSource.includes("activeKind={state.inspectorTab}"), false);
   assert.equal(appSource.includes("appShell: state.app"), true);
+  assert.equal(appSource.includes("projectSessionRuntime"), false);
+  assert.equal(appSource.includes("buildSessionActivityRuntime"), true);
 
   const visualFixturesSource = fs.readFileSync(
     webappSourcePath("app-runtime", "visual-debug-fixtures.js"),
@@ -957,12 +897,25 @@ async function main() {
   assert.equal(sessionLoadersSource.includes("createLoaderRequestExecutor"), true);
   assert.equal(sessionLoadersSource.includes("deriveSessionActivation"), true);
   assert.equal(sessionLoadersSource.includes("LOADER_REQUESTS"), true);
-  assert.equal(sessionLoadersSource.includes("timelineFromTurns"), true);
+  assert.equal(sessionLoadersSource.includes("normalizeHistoryActivities"), true);
+  assert.equal(sessionLoadersSource.includes("history.activities"), true);
+  assert.equal(sessionLoadersSource.includes("timelineFromTurns"), false);
   assert.equal(sessionLoadersSource.includes("normalizeSessionPayload"), true);
   assert.equal(sessionLoadersSource.includes("fetch("), false);
   assert.equal(sessionLoadersSource.includes("new WebSocket"), false);
   assert.equal(sessionLoadersSource.includes("useEffect"), false);
   assert.equal(sessionLoadersSource.includes("import React"), false);
+
+  const stateHelpersSource = fs.readFileSync(
+    webappSourcePath("state-helpers.js"),
+    "utf8",
+  );
+  assert.equal(stateHelpersSource.includes("timelineFromEvents"), false);
+  assert.equal(stateHelpersSource.includes("timelineFromTurns"), false);
+  assert.equal(stateHelpersSource.includes("summarizeTimelineProjection"), false);
+
+  const sessionRuntimeFiles = fs.readdirSync(webappSourcePath("session-runtime"));
+  assert.equal(sessionRuntimeFiles.includes("projector.js"), false);
 
   const terminalControllerSource = fs.readFileSync(
     webappSourcePath("app-runtime", "terminal-controller.js"),
@@ -1310,6 +1263,7 @@ async function main() {
   runTerminalStateTests();
   await runTerminalControllerTests();
   runTerminalShellSourceTests();
+  runActivityStateTests();
   runSessionRuntimeTests();
   runT3TimelineTests();
   runTimelineUiStateTests();

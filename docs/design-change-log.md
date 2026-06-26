@@ -44,6 +44,30 @@
 
 ## 3. 当前变更记录
 
+### DC-209
+
+- Date: 2026-06-26
+- Change Topic: GUI activity runtime cutover
+- Summary:
+  - Switched React session activation to consume bootstrap `history.activities`
+    through `session-runtime/activity-state.js`.
+  - Removed the old frontend runtime projector and the `timelineFromEvents` /
+    `timelineFromTurns` history reconstruction helpers from product source.
+  - Removed the Runtime inspector timeline-projection diagnostic row so the GUI
+    no longer exposes the old raw/structured replay split as current state.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/session-loaders.js`
+  - `src/embedagent/frontend/gui/webapp/src/session-runtime/activity-state.js`
+  - `src/embedagent/frontend/gui/webapp/src/session-runtime/projector.js`
+  - `src/embedagent/frontend/gui/webapp/src/state-helpers.js`
+  - `src/embedagent/frontend/gui/webapp/src/components/Inspector.jsx`
+  - `src/embedagent/frontend/gui/webapp/test/`
+  - `docs/frontend-protocol.md`
+- ADR Needed: No
+- Follow-up:
+  - Continue GUI cleanup by removing dev fixture/product vocabulary remnants
+    without reintroducing product reducer fixture actions.
+
 ### DC-208
 
 - Date: 2026-06-26

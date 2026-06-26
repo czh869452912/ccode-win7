@@ -205,7 +205,12 @@ Session activation additionally depends on one bootstrap payload containing:
 items use the current frontend vocabulary (`user`, `reasoning`, `tool`,
 `assistant`) and carry `turn_id`, `step_id`, `step_index`, `status`, and safe
 tool presentation metadata where applicable. Frontends must not rebuild this
-activity stream from event replay tails.
+activity stream from event replay tails or nested `history.turns`.
+
+The React GUI activates sessions by normalizing `history.activities` through
+`webapp/src/session-runtime/activity-state.js`. Legacy helpers that rebuilt
+timeline items from `turns` or transport events are not frontend protocol
+surfaces.
 
 `history.integrity.status` is the official history health signal:
 
@@ -303,9 +308,10 @@ Important pushed event types include:
 
 There is no session event replay HTTP route. Transport gaps and reconnects ask
 the GUI to reload `GET /api/sessions/{session_id}/bootstrap`; frontend history
-bootstrap must come from that structured bootstrap payload, and the active GUI
-timeline is a frontend projection of bootstrap history plus live reducer
-actions. There is no durable `SessionTimelineStore`.
+bootstrap must come from `history.activities` in that structured bootstrap
+payload, and the active GUI timeline is a frontend projection of that activity
+read model plus live reducer actions. There is no durable
+`SessionTimelineStore`.
 
 `terminal_event` carries GUI terminal output/lifecycle deltas for the bottom
 drawer. It is intentionally not part of session replay/history and must not be

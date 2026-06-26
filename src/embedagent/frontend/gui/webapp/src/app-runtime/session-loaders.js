@@ -1,4 +1,5 @@
-import { normalizeSessionPayload, timelineFromTurns } from "../state-helpers.js";
+import { normalizeSessionPayload } from "../state-helpers.js";
+import { normalizeHistoryActivities } from "../session-runtime/activity-state.js";
 
 export const LOADER_REQUESTS = Object.freeze({
   LOAD_APP_BOOTSTRAP: "load_app_bootstrap",
@@ -66,9 +67,7 @@ export function deriveSessionActivation(payload = {}, sessionId = "", options = 
   return {
     sessionId,
     snapshot,
-    timeline: timelineFromTurns(history.turns || [], [], {
-      projectionSource: history.history_source || "",
-    }),
+    timeline: normalizeHistoryActivities(history.activities || []),
     historyIntegrity: history.integrity || null,
     plan: safePayload.plan || null,
     permissionContext: safePayload.permission_context || null,

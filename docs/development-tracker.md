@@ -43,7 +43,10 @@
   accumulating in `InProcessAdapter` and `QueryEngine`.
 - `SessionHistoryAssembler` now emits bootstrap `history.activities` as a
   direct T3-style activity read model from transcript-backed `Session` state,
-  alongside the nested diagnostic `turns` structure.
+  alongside the nested diagnostic `turns` structure; the React GUI now
+  normalizes those activities through `session-runtime/activity-state.js`
+  instead of `timelineFromTurns`, `timelineFromEvents`, or
+  `session-runtime/projector.js`.
 - GUI run-output display state and transport connection/reload projection now
   live under `webapp/src/session-runtime/`; session activation and WebSocket
   lifecycle live under `webapp/src/app-runtime/`; root-level GUI
@@ -241,7 +244,7 @@
 ### 2026-06-18 - T3 Timeline Rich Projection
 
 - GUI T3-style timeline now projects and renders thinking, reasoning, compact, command-result, and review-result rows in the active row renderer instead of relying on the legacy grouped fallback.
-- `projectSessionRuntime(...)` receives GUI-local `activeTurnId` / `thinkingActive` state so live `thinking_state` and `reasoning_delta` events are visible without new backend protocol.
+- Current `activity-state.js` runtime receives GUI-local `activeTurnId` / `thinkingActive` state so live `thinking_state` and `reasoning_delta` events are visible without new backend protocol.
 - Timeline expansion defaults and visual fixtures now cover rich row kinds, and responsive CSS guardrails reduce clipping under narrow or zoomed layouts.
 - This slice remains GUI app-shell display/read-model work only: no transcript writes, workflow-state ownership, permission/runtime reducer changes, provider configuration, extension loading, source-control checkpoints, or Agent Core policy changes.
 
@@ -457,13 +460,13 @@
 - tool interrupt / retry 已继续推进第八段：`StreamingToolExecutor` 现在对并行 batch 引入 idle timeout / cancel 收口；started 但迟迟不返回的只读 action 会落 `timeout` 或 `interrupted`，尚未开始的兄弟 action 会落 `discarded`，session 不再因单个卡死线程无限等待
 - timeline 持久化已推进一段：`SessionTimelineStore` 现在与 transcript 一样按文件串行化写入并记录单调 `seq`；GUI raw timeline 顺序不再只依赖 `created_at`
 - GUI turn 锚点已收口：webapp reducer 现在会给本地用户消息分配 provisional turn anchor，并在 `turn_started` 到来时整体回填，`/mode ... <message>` 这类“先命令结果、后真实 turn”链路不再把 command card 绑到伪 turn id 上
-- GUI active-session runtime 已推进到 transport-state + projector 第一版：GUI backend 已新增统一 `session_event` envelope 和统一的 interaction response route；S04 后已删除 `GET /api/sessions/{session_id}/events?after_seq=N` reload 信号入口，transport recovery 通过 session bootstrap reload 收口；前端当前会以 `sessionTransport + projectSessionRuntime(...)` 作为 active session 读模型骨架
+- GUI active-session runtime 已推进到 transport-state + activity-state：GUI backend 已新增统一 `session_event` envelope 和统一的 interaction response route；S04 后已删除 `GET /api/sessions/{session_id}/events?after_seq=N` reload 信号入口，transport recovery 通过 session bootstrap reload 收口；前端当前会以 `sessionTransport + history.activities` 作为 active session 读模型骨架
 - Inspector / Timeline 交互边界已收口：Inspector 现在使用统一 `InteractionPanel` 处理当前 pending interaction，Timeline 只显示交互历史摘要，不再保留第二套 inline approve / answer 控件
 - transport / restore 退化语义已补齐第一版：`ThreadsafeAsyncDispatcher` 现在会返回带 `reason` 的调度结果；`SessionRestorer` 遇到缺失可信 `interaction_id` 的 pending interaction 时会显式停在 `interaction_expired`；webapp transport state 已升级到 typed reload state
-- GUI runtime hardening 第二段已完成：transport/bootstrap recovery 现在显式区分 `reload_required / degraded`，HTTP / WebSocket 错误边界已 typed 化；webapp projector 现在接管 reload state、command-result fallback、detached turn item 排序与 session-scoped runtime reset
+- GUI runtime hardening 第二段已完成：transport/bootstrap recovery 现在显式区分 `reload_required / degraded`，HTTP / WebSocket 错误边界已 typed 化；当前 webapp activity runtime 接管 reload state、command-result fallback、detached turn item 排序与 session-scoped runtime reset
 - GUI runtime hardening slice 已关闭：相关设计与实施文档已归档到 `docs/archive/gui-runtime-hardening/`
 - GUI timeline event-anchor unification 已完成：`command_result / context_compacted / session_error / permission_request / user_input_request` 现在在协议、GUI backend、前端 reducer、structured timeline 与 replay 路径上共享 `turn_id / step_id / step_index` 契约；slash/workflow 命令也已纳入正式 turn 生命周期
-- `build_structured_timeline()` 与 `timelineFromTurns()` 现已保留并投影 turn-level `transitions` / `tool_calls`，`/help`、`/review`、`/run` 这类命令结果在刷新和重放后不再掉到 session fallback 区
+- turn-level `transitions` / `tool_calls` 历史能力已被收口到 bootstrap `history.activities`，`/help`、`/review`、`/run` 这类命令结果在刷新和重放后不再依赖前端从 nested turns 重建
 - `ContextManager` 的 `compacted` 判定已收紧：常规 old-turn summary 不再单独触发 GUI `context_compacted` 卡片
 - GUI timeline event-anchor 相关 spec/plan/analysis 已归档到 `docs/archive/gui-timeline-event-anchors/`，当前这轮 slice 视为关闭
 - GUI backend broadcast 已硬化：`WebSocketFrontend` 现在会在广播前冻结连接快照，并在独立锁下做 connect/disconnect/cleanup，连接集变化不再触发 `Set changed size during iteration`

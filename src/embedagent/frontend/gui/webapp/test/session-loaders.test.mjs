@@ -93,6 +93,27 @@ export async function runSessionLoadersTests() {
       history: {
         history_source: "step_events",
         integrity: { status: "healthy", event_count: 12 },
+        activities: [
+          {
+            kind: "user",
+            id: "activity-user",
+            turn_id: "turn-1",
+            content: "Inspect parser",
+            projection_source: "session_state",
+          },
+          {
+            kind: "tool",
+            id: "activity-tool",
+            turn_id: "turn-1",
+            step_id: "step-1",
+            step_index: 1,
+            tool_name: "read_file",
+            call_id: "call-1",
+            arguments: { path: "src/parser.c" },
+            status: "success",
+            projection_source: "session_state",
+          },
+        ],
         turns: [
           {
             turn_id: "turn-1",
@@ -127,12 +148,11 @@ export async function runSessionLoadersTests() {
   assert.equal(activation.snapshot.session_id, "sess-bootstrap");
   assert.equal(activation.snapshot.current_mode, "debug");
   assert.equal(activation.snapshot.status, "waiting_permission");
-  assert.equal(activation.timeline.length, 4);
+  assert.equal(activation.timeline.length, 2);
   assert.equal(activation.timeline[0].kind, "user");
-  assert.equal(activation.timeline[0].projectionSource, "step_events");
-  assert.equal(activation.timeline[1].kind, "reasoning");
-  assert.equal(activation.timeline[2].toolName, "read_file");
-  assert.equal(activation.timeline[3].kind, "assistant");
+  assert.equal(activation.timeline[0].projectionSource, "session_state");
+  assert.equal(activation.timeline[1].toolName, "read_file");
+  assert.equal(activation.timeline[1].projectionSource, "session_state");
   assert.deepEqual(activation.historyIntegrity, { status: "healthy", event_count: 12 });
   assert.equal(activation.plan.title, "Parser plan");
   assert.equal(activation.permissionContext.rules[0].category, "workspace_write");

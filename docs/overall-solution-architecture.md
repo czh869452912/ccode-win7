@@ -162,6 +162,7 @@ Harness state refresh in the product adapter path goes through `CHarnessWorkflow
 - `InProcessAdapter` is a host/bridge layer and must not mint duplicate workflow identities or own slash-command business rules that can live in hosted services such as `ReviewCommandService`
 - `SessionSnapshotProjector` and `SessionHistoryAssembler` are projections, not workflow truth
 - `SessionHistoryAssembler` emits both nested `turns` and direct T3-style `activities` from the same transcript-backed `Session` state
+- the React GUI consumes `history.activities` through `session-runtime/activity-state.js`; nested `history.turns` is diagnostic structure and must not be reprojected into a second GUI history source
 - `SessionSnapshotProjector` reads the generic workflow projection, not default harness internals
 - `runtime_config` in session snapshots is reducer-backed diagnostic state, not frontend-owned policy
 - `compaction_state` in session snapshots is reducer-backed diagnostic state, not frontend-owned context policy

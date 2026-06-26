@@ -222,11 +222,12 @@ GUI thread lifecycle operations (`rename`, `fork`, and `archive`) must flow thro
 Hosted `/review` synthesis is owned by `ReviewCommandService`, not by `InProcessAdapter` or Agent Core. Session tool-evidence extraction, review finding rules, git-diff evidence shaping, and markdown rendering must stay in that hosted command service; the adapter only invokes the service and emits the slash-command result.
 
 There is no durable `SessionTimelineStore` or timeline-backed history replay
-path. `GET /api/sessions/{id}/events` is a bootstrap-reload signal, not a
-history API. GUI session history and T3 timeline bootstrap must come from
-`GET /api/sessions/{id}/bootstrap`; live WebSocket data and GUI run-output
-logs may update current GUI display state only and must not become durable
-history truth.
+path, and there is no session event replay HTTP route. GUI session history and
+T3 timeline bootstrap must come from `GET /api/sessions/{id}/bootstrap`
+`history.activities`; nested `history.turns` is structured diagnostics and must
+not be reprojected into a second GUI history source. Live WebSocket data and
+GUI run-output logs may update current GUI display state only and must not
+become durable history truth.
 
 Official durable operation truth is:
 
@@ -292,11 +293,17 @@ Frontend-facing contract changes must be reflected together in:
 - `src/embedagent/frontend/`
 
 Frontend session activation must not reintroduce split snapshot/timeline bootstrap. Use the single bootstrap payload and transcript-backed structured history only.
+The GUI T3 timeline bootstrap must consume `history.activities` through the
+focused session runtime activity module; do not reintroduce frontend
+`timelineFromTurns`, `timelineFromEvents`, or `session-runtime/projector.js`
+paths.
 
 GUI renderer runtime state must follow focused T3-style modules instead of
 root-level global reducer fields. Thread/session selection, session summaries,
 and history-integrity display state live in
 `src/embedagent/frontend/gui/webapp/src/session-runtime/thread-state.js`;
+session activity normalization and T3 timeline grouping live in
+`src/embedagent/frontend/gui/webapp/src/session-runtime/activity-state.js`;
 GUI run-output event-log display state lives in
 `src/embedagent/frontend/gui/webapp/src/session-runtime/run-output-state.js`;
 active-session transport connection/reload projection lives in

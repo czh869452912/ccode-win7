@@ -78,7 +78,6 @@ const STRINGS = {
     "inspector.disciplineProfile": "Discipline",
     "inspector.currentActivity": "Activity",
     "inspector.taskSummary": "Task summary",
-    "inspector.timelineProjection": "Timeline projection",
     "inspector.recentTransitions": "Recent transitions",
     "inspector.noRecentTransitions": "No recent transitions.",
 
@@ -231,7 +230,6 @@ const STRINGS = {
     "inspector.disciplineProfile": "工程纪律",
     "inspector.currentActivity": "当前活动",
     "inspector.taskSummary": "任务摘要",
-    "inspector.timelineProjection": "时间线投影",
     "inspector.recentTransitions": "最近状态迁移",
     "inspector.noRecentTransitions": "当前没有最近状态迁移。",
 

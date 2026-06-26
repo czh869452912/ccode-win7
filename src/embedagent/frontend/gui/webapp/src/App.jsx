@@ -8,7 +8,7 @@ import {
 import { appendSessionTransportEvent, createSessionTransportState } from "./session-runtime/session-transport-state.js";
 import { createDiffSurfaceState } from "./session-runtime/diff-model.js";
 import { buildAppHomeModel } from "./session-runtime/app-home-model.js";
-import { projectSessionRuntime } from "./session-runtime/projector.js";
+import { buildSessionActivityRuntime } from "./session-runtime/activity-state.js";
 import { deriveSocketMessageEffects } from "./app-runtime/socket-message-effects.js";
 import { createLoaderRequestExecutor } from "./app-runtime/session-loaders.js";
 import { createSessionActivationController } from "./app-runtime/session-activation-controller.js";
@@ -117,10 +117,10 @@ function App() {
   const activeWorkspaceId = state.app.activeWorkspace?.id || "";
   const runtimeState = useMemo(
     () =>
-      projectSessionRuntime({
+      buildSessionActivityRuntime({
         snapshot: state.snapshot,
         sessionTransport,
-        historyTimeline: state.timeline,
+        activities: state.timeline,
         defaultMode: DEFAULT_MODE,
         activeTurnId: state.activeTurnId,
         thinkingActive: state.thinkingActive,

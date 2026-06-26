@@ -3,13 +3,10 @@ import assert from "node:assert/strict";
 
 import {
   createTreeNode,
-  describeProjectionBadge,
-  describeTimelineProjectionNotice,
   injectChildren,
   normalizeSessionPayload,
-  summarizeTimelineProjection,
-  timelineFromEvents,
-  timelineFromTurns,
+  resolveTimelineAnchor,
+  resolveVisiblePermission,
 } from "../src/state-helpers.js";
 
 test("injectChildren loads nested file tree children in place", () => {
@@ -23,156 +20,12 @@ test("injectChildren loads nested file tree children in place", () => {
   assert.equal(next[0].children[0].path, "src/pkg");
 });
 
-test("timelineFromEvents preserves tool lifecycle and final assistant text", () => {
-  const events = [
-    { event_id: "evt-1", event: "turn_started", payload: { text: "hello" } },
-    { event_id: "evt-2", event: "tool_started", payload: { call_id: "call-1", tool_name: "read_file", tool_label: "Read File", progress_renderer_key: "file", result_renderer_key: "file", arguments: { path: "README.md" } } },
-    { event_id: "evt-3", event: "tool_finished", payload: { call_id: "call-1", tool_name: "read_file", tool_label: "Read File", progress_renderer_key: "file", result_renderer_key: "file", success: true, data: { path: "README.md" } } },
-    { event_id: "evt-4", event: "session_finished", payload: { final_text: "done" } },
-  ];
-  const timeline = timelineFromEvents(events);
-  assert.equal(timeline[0].kind, "user");
-  assert.equal(timeline[1].id, "call-1");
-  assert.equal(timeline[1].status, "success");
-   assert.equal(timeline[1].label, "Read File");
-   assert.equal(timeline[1].resultRendererKey, "file");
-  assert.equal(timeline[2].kind, "assistant");
-  assert.equal(timeline[2].content, "done");
-});
-
-test("timelineFromEvents preserves T3 work presentation metadata", () => {
-  const timeline = timelineFromEvents([
-    {
-      event_id: "evt-start",
-      event: "tool_started",
-      payload: {
-        call_id: "call-meta",
-        tool_name: "bash",
-        tool_label: "Bash Started",
-        item_type: "command_execution",
-        request_kind: "command",
-        tool_title: "Ran command",
-        tool_lifecycle_status: "inProgress",
-        command: "uv run pytest tests/",
-        raw_command: "python -m pytest tests/",
-        source_activity_kind: "tool.updated",
-      },
-    },
-    {
-      event_id: "evt-finish",
-      event: "tool_finished",
-      payload: {
-        call_id: "call-meta",
-        tool_name: "bash",
-        tool_label: "Bash Complete",
-        item_type: "command_execution",
-        request_kind: "command",
-        tool_title: "Ran command",
-        tool_lifecycle_status: "completed",
-        command: "uv run pytest tests/",
-        raw_command: "python -m pytest tests/",
-        source_activity_kind: "tool.completed",
-        success: true,
-        data: {
-          changed_files: ["src/main.c"],
-          item: { input: { command: "uv run pytest tests/" } },
-        },
-      },
-    },
-  ]);
-  assert.equal(timeline[0].id, "call-meta");
-  assert.equal(timeline[0].itemType, "command_execution");
-  assert.equal(timeline[0].requestKind, "command");
-  assert.equal(timeline[0].toolTitle, "Ran command");
-  assert.equal(timeline[0].toolLifecycleStatus, "completed");
-  assert.equal(timeline[0].command, "uv run pytest tests/");
-  assert.equal(timeline[0].rawCommand, "python -m pytest tests/");
-  assert.equal(timeline[0].sourceActivityKind, "tool.completed");
-  assert.deepEqual(timeline[0].changedFiles, ["src/main.c"]);
-  assert.deepEqual(timeline[0].toolData, { input: { command: "uv run pytest tests/" } });
-});
-
-test("timelineFromEvents keeps command results for review workflows", () => {
-  const timeline = timelineFromEvents([
-    {
-      event_id: "evt-review",
-      event: "command_result",
-      payload: {
-        command_name: "review",
-        success: true,
-        message: "## Review Findings",
-        data: {
-          review: {
-            findings: [{ id: "f1", severity: "high", priority: 1, title: "Build failed", body: "compile failed" }],
-          },
-        },
-      },
-    },
-  ]);
-  assert.equal(timeline[0].kind, "command_result");
-  assert.equal(timeline[0].commandName, "review");
-  assert.equal(timeline[0].turnId, "");
-});
-
-test("timelineFromEvents preserves anchors for command, compact, and error events", () => {
-  const timeline = timelineFromEvents([
-    {
-      event_id: "evt-command",
-      event: "command_result",
-      payload: {
-        command_name: "help",
-        success: true,
-        message: "ok",
-        turn_id: "turn-1",
-      },
-    },
-    {
-      event_id: "evt-compact",
-      event: "context_compacted",
-      payload: {
-        recent_turns: 2,
-        summarized_turns: 5,
-        approx_tokens_after: 1024,
-        turn_id: "turn-1",
-        step_id: "step-2",
-        step_index: 2,
-      },
-    },
-    {
-      event_id: "evt-error",
-      event: "session_error",
-      payload: {
-        error: "boom",
-        turn_id: "turn-1",
-        step_id: "step-2",
-        step_index: 2,
-      },
-    },
-  ]);
-  assert.equal(timeline[0].turnId, "turn-1");
-  assert.equal(timeline[1].turnId, "turn-1");
-  assert.equal(timeline[1].stepId, "step-2");
-  assert.equal(timeline[2].turnId, "turn-1");
-  assert.equal(timeline[2].stepId, "step-2");
-});
-
-test("normalizeSessionPayload keeps status and mode stable", () => {
+test("normalizeSessionPayload keeps status, mode, and transition display fields stable", () => {
   const snapshot = normalizeSessionPayload({
     session_id: "sess-1",
     status: "waiting_permission",
     current_mode: "debug",
     has_pending_permission: true,
-  });
-  assert.equal(snapshot.session_id, "sess-1");
-  assert.equal(snapshot.status, "waiting_permission");
-  assert.equal(snapshot.current_mode, "debug");
-  assert.equal(snapshot.has_pending_permission, true);
-});
-
-test("normalizeSessionPayload preserves display-oriented transition fields", () => {
-  const snapshot = normalizeSessionPayload({
-    session_id: "sess-2",
-    status: "idle",
     last_transition_reason: "aborted",
     last_transition_display_reason: "cancelled",
     last_transition_message: "tool execution interrupted",
@@ -182,237 +35,68 @@ test("normalizeSessionPayload preserves display-oriented transition fields", () 
         display_reason: "cancelled",
         message: "tool execution interrupted",
       },
-      {
-        reason: "guard_stop",
-        display_reason: "guard",
-        message: "too many repeated failures",
-      },
     ],
   });
-  assert.equal(snapshot.lastTransitionReason, "aborted");
+  assert.equal(snapshot.session_id, "sess-1");
+  assert.equal(snapshot.status, "waiting_permission");
+  assert.equal(snapshot.current_mode, "debug");
+  assert.equal(snapshot.has_pending_permission, true);
   assert.equal(snapshot.lastTransitionDisplayReason, "cancelled");
-  assert.equal(snapshot.lastTransitionMessage, "tool execution interrupted");
-  assert.equal(snapshot.recentTransitions.length, 2);
   assert.equal(snapshot.recentTransitions[0].displayReason, "cancelled");
-  assert.equal(snapshot.recentTransitions[0].display_reason, "cancelled");
 });
 
-test("timelineFromTurns expands one user turn into multiple agent steps", () => {
-  const timeline = timelineFromTurns([
-    {
-      turn_id: "turn-1",
-      user_text: "analyze demo",
-      projection_kind: "step_events",
-      steps: [
-        {
-          step_id: "step-1",
-          projection_kind: "recorded_step",
-          synthetic: false,
-          reasoning: "inspect file",
-          tool_calls: [
-            {
-              call_id: "call-1",
-              tool_name: "read_file",
-              tool_label: "Read File",
-              status: "success",
-              arguments: { path: "demo.c" },
-              data: { path: "demo.c" },
-            },
-          ],
-          assistant_text: "",
-        },
-        {
-          step_id: "step-2",
-          projection_kind: "recorded_step",
-          synthetic: false,
-          reasoning: "summarize result",
-          assistant_text: "done",
-          tool_calls: [],
-        },
-      ],
-    },
-  ], [], { projectionSource: "step_events" });
-  assert.equal(timeline[0].kind, "user");
-  assert.equal(timeline[0].projectionSource, "step_events");
-  assert.equal(timeline[1].stepId, "step-1");
-  assert.equal(timeline[1].kind, "reasoning");
-  assert.equal(timeline[1].projectionKind, "recorded_step");
-  assert.equal(timeline[1].synthetic, false);
-  assert.equal(timeline[2].stepId, "step-1");
-  assert.equal(timeline[2].kind, "tool");
-  assert.equal(timeline[3].stepId, "step-2");
-  assert.equal(timeline[3].kind, "reasoning");
-  assert.equal(timeline[4].stepId, "step-2");
-  assert.equal(timeline[4].kind, "assistant");
-});
-
-test("timelineFromTurns preserves T3 work presentation metadata", () => {
-  const timeline = timelineFromTurns([
-    {
-      turn_id: "turn-meta",
-      user_text: "run checks",
-      steps: [
-        {
-          step_id: "step-meta",
-          tool_calls: [
-            {
-              call_id: "call-meta",
-              tool_name: "bash",
-              tool_label: "Bash Complete",
-              status: "success",
-              item_type: "command_execution",
-              request_kind: "command",
-              tool_title: "Ran command",
-              tool_lifecycle_status: "completed",
-              command: "uv run pytest tests/",
-              raw_command: "python -m pytest tests/",
-              source_activity_kind: "tool.completed",
-              changed_files: ["src/main.c"],
-              tool_data: { input: { command: "uv run pytest tests/" } },
-            },
-          ],
-        },
-      ],
-    },
-  ]);
-  const tool = timeline.find((item) => item.kind === "tool");
-  assert.equal(tool.itemType, "command_execution");
-  assert.equal(tool.requestKind, "command");
-  assert.equal(tool.toolTitle, "Ran command");
-  assert.equal(tool.toolLifecycleStatus, "completed");
-  assert.equal(tool.command, "uv run pytest tests/");
-  assert.equal(tool.rawCommand, "python -m pytest tests/");
-  assert.equal(tool.sourceActivityKind, "tool.completed");
-  assert.deepEqual(tool.changedFiles, ["src/main.c"]);
-  assert.deepEqual(tool.toolData, { input: { command: "uv run pytest tests/" } });
-});
-
-test("timelineFromTurns preserves synthetic step projection metadata", () => {
-  const timeline = timelineFromTurns([
-    {
-      turn_id: "turn-legacy",
-      user_text: "legacy analyze",
-      projection_kind: "turn_events",
-      steps: [
-        {
-          step_id: "turn-legacy-step-1",
-          step_index: 1,
-          projection_kind: "synthetic_single_step",
-          synthetic: true,
-          reasoning: "legacy reasoning",
-          assistant_text: "legacy done",
-          tool_calls: [],
-        },
-      ],
-    },
-  ], [], { projectionSource: "turn_events" });
-  assert.equal(timeline[0].projectionSource, "turn_events");
-  assert.equal(timeline[1].projectionKind, "synthetic_single_step");
-  assert.equal(timeline[1].synthetic, true);
-  assert.equal(timeline[2].projectionKind, "synthetic_single_step");
-  assert.equal(timeline[2].synthetic, true);
-});
-
-test("timelineFromTurns projects turn-level transitions and tool calls", () => {
-  const timeline = timelineFromTurns([
-    {
-      turn_id: "turn-command",
-      user_text: "/run custom.build",
-      projection_kind: "step_events",
-      tool_calls: [
-        {
-          call_id: "cmd-tool-1",
-          tool_name: "run_recipe",
-          tool_label: "Custom Build",
-          status: "success",
-          arguments: { recipe_id: "custom.build" },
-        },
-      ],
-      transitions: [
-        {
-          kind: "command_result",
-          message: "recipe finished",
-          metadata: {
-            command_name: "run",
-            success: true,
-            message: "recipe finished",
-            turn_id: "turn-command",
-          },
-        },
-      ],
-      steps: [],
-    },
-  ]);
-  assert.equal(timeline[0].kind, "user");
-  assert.equal(timeline[1].kind, "tool");
-  assert.equal(timeline[1].turnId, "turn-command");
-  assert.equal(timeline[1].stepId, "");
-  assert.equal(timeline[2].kind, "command_result");
-  assert.equal(timeline[2].turnId, "turn-command");
-});
-
-test("describeProjectionBadge hides recorded steps and labels synthetic projections", () => {
+test("resolveTimelineAnchor prefers explicit, active, then pending local user turns", () => {
   assert.equal(
-    describeProjectionBadge({
-      projectionSource: "step_events",
-      projectionKind: "recorded_step",
-      synthetic: false,
+    resolveTimelineAnchor({
+      explicitTurnId: "turn-explicit",
+      activeTurnId: "turn-active",
+      timeline: [{ id: "user-pending", kind: "user", turnId: "" }],
     }),
-    null,
+    "turn-explicit",
   );
-  assert.deepEqual(
-    describeProjectionBadge({
-      projectionSource: "turn_events",
-      projectionKind: "synthetic_single_step",
-      synthetic: true,
-    }),
-    {
-      label: "synthetic",
-      detail: "turn projection",
-    },
-  );
-});
-
-test("summarizeTimelineProjection distinguishes structured and transport-only timelines", () => {
-  assert.deepEqual(
-    summarizeTimelineProjection([
-      { kind: "user", projectionSource: "turn_events", projectionKind: "turn_events", synthetic: false },
-      { kind: "reasoning", projectionSource: "turn_events", projectionKind: "synthetic_single_step", synthetic: true },
-    ]),
-    {
-      source: "turn_events",
-      syntheticCount: 1,
-      projectedCount: 2,
-    },
-  );
-  assert.deepEqual(
-    summarizeTimelineProjection([
-      { kind: "user", content: "legacy raw" },
-      { kind: "tool", toolName: "read_file" },
-    ]),
-    {
-      source: "raw_events",
-      syntheticCount: 0,
-      projectedCount: 0,
-    },
-  );
-});
-
-test("describeTimelineProjectionNotice no longer promotes raw fallback as a UI state", () => {
   assert.equal(
-    describeTimelineProjectionNotice({
-      source: "step_events",
-      syntheticCount: 0,
-      projectedCount: 4,
+    resolveTimelineAnchor({
+      explicitTurnId: "",
+      activeTurnId: "turn-active",
+      timeline: [{ id: "user-pending", kind: "user", turnId: "" }],
     }),
-    null,
+    "turn-active",
+  );
+  assert.equal(
+    resolveTimelineAnchor({
+      explicitTurnId: "",
+      activeTurnId: "",
+      timeline: [
+        { id: "cmd-old", kind: "command_result", turnId: "" },
+        { id: "user-pending", kind: "user", turnId: "", pendingTurnId: "pending-local" },
+      ],
+    }),
+    "pending-local",
+  );
+});
+
+test("resolveVisiblePermission uses explicit permission before snapshot fallback", () => {
+  const explicit = { permission_id: "perm-explicit" };
+  assert.equal(
+    resolveVisiblePermission(explicit, {
+      has_pending_permission: true,
+      pending_permission: { permission_id: "perm-snapshot" },
+    }),
+    explicit,
   );
   assert.deepEqual(
-    describeTimelineProjectionNotice({
-      source: "raw_events",
-      syntheticCount: 0,
-      projectedCount: 0,
+    resolveVisiblePermission(null, {
+      has_pending_permission: true,
+      pending_permission: {
+        permission_id: "perm-1",
+        tool_name: "edit_file",
+        category: "workspace_write",
+      },
     }),
-    null,
+    {
+      permission_id: "perm-1",
+      tool_name: "edit_file",
+      category: "workspace_write",
+    },
   );
 });

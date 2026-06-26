@@ -18,7 +18,16 @@ export async function runSessionActivationControllerTests() {
         history: {
           history_source: "bootstrap",
           integrity: { status: "healthy" },
-          turns: [{ turn_id: "turn-1", user_text: "hello" }],
+          activities: [
+            {
+              kind: "user",
+              id: "activity-user",
+              turn_id: "turn-1",
+              content: "hello",
+              projection_source: "session_state",
+            },
+          ],
+          turns: [],
         },
         plan: { title: "Build plan" },
         permission_context: { session_id: "sess-activation" },
