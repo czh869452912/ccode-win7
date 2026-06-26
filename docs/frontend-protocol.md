@@ -208,9 +208,10 @@ tool presentation metadata where applicable. Frontends must not rebuild this
 activity stream from event replay tails or nested `history.turns`.
 
 The React GUI activates sessions by normalizing `history.activities` through
-`webapp/src/session-runtime/activity-state.js`. Legacy helpers that rebuilt
-timeline items from `turns` or transport events are not frontend protocol
-surfaces.
+`webapp/src/session-runtime/activity-state.js`. The TUI activates sessions by
+formatting the same `history.activities` records into local display lines.
+Legacy helpers that rebuilt timeline items from `turns`, transport events, or
+TUI-local `items` history streams are not frontend protocol surfaces.
 
 `history.integrity.status` is the official history health signal:
 

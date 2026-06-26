@@ -44,6 +44,32 @@
 
 ## 3. 当前变更记录
 
+### DC-212
+
+- Date: 2026-06-26
+- Change Topic: TUI session history cutover to bootstrap activities
+- Summary:
+  - Removed the old TUI flat history item view and event-list reload formatter.
+  - Deleted `SessionHistoryAssembler.build_flat_history()` so
+    `SessionHistoryAssembler.build().activities` is the only active frontend
+    session-history read model.
+  - Added pre-release guards preventing TUI flat item history, old item
+    mutation callbacks, and event-list history reload paths from returning.
+- Impacted Scope:
+  - `src/embedagent/session_history.py`
+  - `src/embedagent/frontend/tui/`
+  - `tests/test_session_history.py`
+  - `tests/test_tui_timeline_activities.py`
+  - `tests/test_pre_release_architecture_guards.py`
+  - `docs/frontend-protocol.md`
+  - `docs/overall-solution-architecture.md`
+  - `AGENTS.md`
+- ADR Needed: No
+- Follow-up:
+  - Keep GUI and TUI session activation on the single session bootstrap
+    `history.activities` contract; live transport output may update local
+    display state only.
+
 ### DC-211
 
 - Date: 2026-06-26

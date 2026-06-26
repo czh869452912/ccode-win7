@@ -44,9 +44,10 @@
 - `SessionHistoryAssembler` now emits bootstrap `history.activities` as a
   direct T3-style activity read model from transcript-backed `Session` state,
   alongside the nested diagnostic `turns` structure; the React GUI now
-  normalizes those activities through `session-runtime/activity-state.js`
-  instead of `timelineFromTurns`, `timelineFromEvents`, or
-  `session-runtime/projector.js`.
+  normalizes those activities through `session-runtime/activity-state.js` and
+  the TUI formats the same activities into local display lines instead of using
+  `timelineFromTurns`, `timelineFromEvents`, `session-runtime/projector.js`,
+  `build_flat_history()`, `FlatTimelineView`, or event-list reload formatters.
 - GUI run-output display state and transport connection/reload projection now
   live under `webapp/src/session-runtime/`; session activation and WebSocket
   lifecycle live under `webapp/src/app-runtime/`; root-level GUI

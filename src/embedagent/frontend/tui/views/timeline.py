@@ -104,58 +104,6 @@ def format_context_line(payload):
     return " ".join(parts)
 
 
-def format_timeline_records(records):
-    lines = []
-    for item in records:
-        if not isinstance(item, dict):
-            continue
-        event = str(item.get("event") or "")
-        payload = item.get("payload") if isinstance(item.get("payload"), dict) else {}
-        if event == "turn_started":
-            lines.append("user> %s" % str(payload.get("text") or ""))
-        elif event == "tool_started":
-            lines.append(
-                "[tool] %s %s" % (payload.get("tool_name") or "", payload.get("arguments") or {})
-            )
-        elif event == "tool_finished":
-            lines.append(format_observation_line(payload))
-        elif event == "permission_required":
-            permission = (
-                payload.get("permission") if isinstance(payload.get("permission"), dict) else {}
-            )
-            lines.append(
-                "[permission] %s" % (permission.get("reason") or "\u9700\u8981\u786e\u8ba4")
-            )
-        elif event == "user_input_required":
-            request = (
-                payload.get("user_input") if isinstance(payload.get("user_input"), dict) else {}
-            )
-            lines.append(
-                "[question] %s"
-                % (request.get("question") or "\u9700\u8981\u7528\u6237\u56de\u7b54")
-            )
-        elif event == "context_compacted":
-            lines.append(format_context_line(payload))
-        elif event == "session_error":
-            lines.append("[error] %s" % str(payload.get("error") or ""))
-        elif event == "session_resumed":
-            lines.append("[system] \u4f1a\u8bdd\u5df2\u6062\u590d")
-        elif event == "session_created":
-            snapshot = (
-                payload.get("session_snapshot")
-                if isinstance(payload.get("session_snapshot"), dict)
-                else {}
-            )
-            lines.append(
-                "[system] \u5df2\u521b\u5efa\u4f1a\u8bdd %s" % (snapshot.get("session_id") or "")
-            )
-        elif event == "session_finished":
-            text = str(payload.get("final_text") or "").strip()
-            if text:
-                lines.append("assistant> %s" % text)
-    return lines
-
-
 def build_timeline_text(state):
     parts = list(state.timeline.lines)
     if state.timeline.stream_text:

@@ -57,6 +57,36 @@ def test_no_core_flat_timeline_builder_name():
     assert "build_flat" + "_timeline" not in text
 
 
+def test_no_tui_flat_or_event_history_projection_contract():
+    files = [
+        ROOT / "src/embedagent/session_history.py",
+        ROOT / "src/embedagent/frontend/tui/controller.py",
+        ROOT / "src/embedagent/frontend/tui/frontend_adapter.py",
+        ROOT / "src/embedagent/frontend/tui/services/timeline.py",
+        ROOT / "src/embedagent/frontend/tui/views/timeline.py",
+        ROOT / "src/embedagent/frontend/tui/views/__init__.py",
+    ]
+    forbidden = [
+        "build_flat" + "_history",
+        "Flat" + "TimelineView",
+        "flat" + "_timeline",
+        "get" + "_timeline_data",
+        "update" + "_flat_timeline",
+        "handle" + "_item_updated",
+        "handle" + "_item_completed",
+        "format" + "_timeline_records",
+        'payload.get("events")',
+        '"items": []',
+    ]
+    offenders = []
+    for path in files:
+        text = _read(path)
+        for token in forbidden:
+            if token in text:
+                offenders.append("%s contains %s" % (path.relative_to(ROOT), token))
+    assert offenders == []
+
+
 def test_no_session_view_clear_uses_timeline_payload():
     files = [
         ROOT / "src/embedagent/inprocess_adapter.py",

@@ -215,8 +215,8 @@ Official session-history truth is:
 
 - `transcript.jsonl` as the only durable session-history ledger
 - `Session` / `session.turns` as the only live structured session state
-- `SessionHistoryAssembler` as the only GUI history serializer
-- `GET /api/sessions/{id}/bootstrap` as the only GUI activation bootstrap contract
+- `SessionHistoryAssembler` as the only frontend session-history serializer
+- `GET /api/sessions/{id}/bootstrap` as the only GUI/TUI activation bootstrap contract
 
 `GET /api/app/bootstrap` is the GUI app-shell activation bootstrap only. It may expose GUI-owned workspace registry projection, safe host/runtime/renderer diagnostics, app-level commands, app surfaces, and local shell settings; it must not become session history truth, workflow truth, provider/runtime policy, permission policy, extension loading policy, or a replacement for `GET /api/sessions/{id}/bootstrap`.
 
@@ -225,12 +225,16 @@ GUI thread lifecycle operations (`rename`, `fork`, and `archive`) must flow thro
 Hosted `/review` synthesis is owned by `ReviewCommandService`, not by `InProcessAdapter` or Agent Core. Session tool-evidence extraction, review finding rules, git-diff evidence shaping, and markdown rendering must stay in that hosted command service; the adapter only invokes the service and emits the slash-command result.
 
 There is no durable `SessionTimelineStore` or timeline-backed history replay
-path, and there is no session event replay HTTP route. GUI session history and
-T3 timeline bootstrap must come from `GET /api/sessions/{id}/bootstrap`
-`history.activities`; nested `history.turns` is structured diagnostics and must
-not be reprojected into a second GUI history source. Live WebSocket data and
-GUI run-output logs may update current GUI display state only and must not
-become durable history truth.
+path, and there is no session event replay HTTP route. GUI session history, TUI
+session history, and T3 timeline bootstrap must come from
+`GET /api/sessions/{id}/bootstrap` `history.activities`; nested `history.turns`
+is structured diagnostics and must not be reprojected into a second frontend
+history source. `SessionHistoryAssembler.build()` is the only active history
+serializer; flat history item streams such as `build_flat_history()`,
+`FlatTimelineView`, TUI `items` history fallbacks, and event-list timeline
+reload formatters are not product contracts. Live WebSocket data, TUI line
+buffers, and GUI run-output logs may update current display state only and must
+not become durable history truth.
 
 Official durable operation truth is:
 
@@ -296,10 +300,11 @@ Frontend-facing contract changes must be reflected together in:
 - `src/embedagent/frontend/`
 
 Frontend session activation must not reintroduce split snapshot/timeline bootstrap. Use the single bootstrap payload and transcript-backed structured history only.
-The GUI T3 timeline bootstrap must consume `history.activities` through the
-focused session runtime activity module; do not reintroduce frontend
-`timelineFromTurns`, `timelineFromEvents`, or `session-runtime/projector.js`
-paths.
+GUI and TUI timeline bootstrap must consume `history.activities`; the GUI uses
+the focused session runtime activity module and the TUI formats the same
+activities into local display lines. Do not reintroduce frontend
+`timelineFromTurns`, `timelineFromEvents`, `session-runtime/projector.js`,
+`FlatTimelineView`, or event-list timeline reload formatter paths.
 
 GUI renderer runtime state must follow focused T3-style modules instead of
 root-level global reducer fields. Thread/session selection, session summaries,

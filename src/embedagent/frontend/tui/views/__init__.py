@@ -10,7 +10,6 @@ from embedagent.frontend.tui.views.timeline import (
     format_activity_records,
     format_context_line,
     format_observation_line,
-    format_timeline_records,
 )
 
 __all__ = [
@@ -24,7 +23,6 @@ __all__ = [
     "format_context_line",
     "format_observation_line",
     "format_activity_records",
-    "format_timeline_records",
     "ActivityTimelineView",
     "TimelineView",
 ]

@@ -10,7 +10,6 @@ from embedagent.frontend.tui.views.timeline import (
     format_activity_records,
     format_context_line,
     format_observation_line,
-    format_timeline_records,
 )
 from embedagent.frontend.tui.workbench import command_by_id
 
@@ -687,16 +686,11 @@ class TerminalController(object):
         payload = self.owner.timeline_service.load(
             session_id, limit=self.owner.state.transcript_limit
         )
-        events = payload.get("events") or []
         self.latest_assistant_reply = str(
             payload.get("latest_assistant_reply") or self.latest_assistant_reply or ""
         )
         activities = payload.get("activities") or []
         if activities:
             self.owner.state.timeline.lines = format_activity_records(activities)
-            self.owner.state.timeline.stream_text = ""
-            reducer.trim_timeline(self.owner.state)
-        elif events:
-            self.owner.state.timeline.lines = format_timeline_records(events)
             self.owner.state.timeline.stream_text = ""
             reducer.trim_timeline(self.owner.state)
