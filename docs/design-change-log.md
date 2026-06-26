@@ -586,7 +586,7 @@
 - 变更摘要：
   - C/C++ workflow context reducers 从 Core `ReducerRegistry` 物理迁出，改由 `src/embedagent/harness/context_reducers.py` 通过 `CHarnessWorkflowExtension.register_context_reducers(...)` 注册。
   - bare `ToolRuntime` 不再默认注册 `list_compilers`、`configure_build_env`、`run_build`；这些 build helpers 现在随 C workflow extension 注册、metadata、pack 和 manifest 一起归属默认 C/C++ workflow package。
-  - 新 prompt descriptor 使用 `WorkflowPrompt`，新系统消息保持 `kind="workflow_prompt"`；`HarnessPrompt` / `harness_prompt` 仅保留兼容旧源码和历史 transcript 去重。
+  - 新 prompt descriptor 使用 `WorkflowPrompt`，新系统消息保持 `kind="workflow_prompt"`；`harness_prompt` 不再作为活动 prompt assembly kind 参与注入或去重。
   - `propose_mode_switch` 不再无条件进入 provider tool schema，只有通过 active-tool boundary 显式激活时才投影。
   - `ToolCatalogEntry` 内部继续向 execution / presentation / context-policy facets 收敛，同时保持 flat catalog payload 兼容前端和协议。
   - 新增 provider request 前的最小 `ContextPlan` read model，用于记录 selected-message counts、recent/summarized turns、token/char summary、pipeline steps、preserved message ids 与 replacement refs；`CompactionStateReducer` 继续只做 transcript-backed diagnostics/replay projection。
@@ -1719,7 +1719,7 @@
 - 变更摘要：
   - `QueryEngine` 内部 workflow prompt 注入 helper 已改为 `_should_inject_workflow_prompt` / `_append_workflow_prompt_messages`
   - 新增的 workflow prompt system message 使用 `kind="workflow_prompt"`，不再使用 harness-shaped `harness_prompt`
-  - 旧 `kind="harness_prompt"` 仅作为历史 session/transcript 去重兼容保留，hosted C/C++ prompt content 与 activation 行为不变
+  - 后续 S01 清理已删除 `kind="harness_prompt"` 的活动 prompt assembly 去重兼容；hosted C/C++ prompt content 与 activation 行为继续使用 `workflow_prompt`
 - 影响范围：
   - `src/embedagent/query_engine.py`
   - `tests/test_query_engine_refactor.py`

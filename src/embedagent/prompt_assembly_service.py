@@ -13,7 +13,7 @@ class PromptAssemblyService(object):
         for message in list(existing_messages or []):
             if getattr(message, "role", "") != "system":
                 continue
-            if getattr(message, "kind", "") not in ("workflow_prompt", "harness_prompt"):
+            if getattr(message, "kind", "") != "workflow_prompt":
                 continue
             metadata = getattr(message, "metadata", {}) or {}
             if str(metadata.get("mode_name") or "") != mode_name:

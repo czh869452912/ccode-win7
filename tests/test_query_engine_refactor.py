@@ -1177,7 +1177,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertEqual(current_mode, "build")
         self.assertEqual(len(session.messages), len(first_messages))
 
-    def test_workflow_prompt_dedupe_accepts_legacy_harness_prompt_kind(self):
+    def test_workflow_prompt_dedupe_ignores_legacy_harness_prompt_kind(self):
         transcript_store = TranscriptStore(self.workspace)
         default_extensions = build_default_extension_set(self.tools)
         engine = QueryEngine(
@@ -1208,10 +1208,13 @@ class TestQueryEngineRefactor(unittest.TestCase):
             for message in session.messages
             if message.kind in ("harness_prompt", "workflow_prompt")
         ]
+        workflow_prompt_messages = [
+            message for message in session.messages if message.kind == "workflow_prompt"
+        ]
 
         self.assertEqual(current_mode, "build")
-        self.assertEqual(len(prompt_messages), 1)
-        self.assertEqual(prompt_messages[0].kind, "harness_prompt")
+        self.assertEqual(len(prompt_messages), 2)
+        self.assertEqual(len(workflow_prompt_messages), 1)
 
     def test_query_engine_writes_tool_presentation_into_tool_call_event(self):
         transcript_store = TranscriptStore(self.workspace)
