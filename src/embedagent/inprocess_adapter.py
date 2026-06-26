@@ -30,7 +30,7 @@ from embedagent.modes import (
 )
 from embedagent.permissions import PermissionPolicy, PermissionRequest
 from embedagent.plan_store import PlanStore
-from embedagent.prompts import expand_prompt_invocation, prompt_command_specs
+from embedagent.prompts import expand_prompt_invocation
 from embedagent.project_extensions import load_project_extensions
 from embedagent.project_memory import ProjectMemoryStore
 from embedagent.protocol import CommandResult, PermissionContextView, PlanSnapshot
@@ -62,8 +62,8 @@ from embedagent.skills import expand_skill_invocation
 from embedagent.slash_commands import (
     ParsedSlashCommand,
     SlashCommandRegistry,
-    SlashCommandSpec,
     parse_slash_command,
+    resource_command_specs,
 )
 from embedagent.tools import ToolRuntime
 from embedagent.transcript_store import TranscriptStore
@@ -344,7 +344,7 @@ class InProcessAdapter(object):
         registry.extend(
             command_capability_descriptors(
                 self.command_registry,
-                extra_specs=self._skill_command_specs(),
+                extra_specs=resource_command_specs(self.tools.local_resources()),
             )
         )
         package_manifests = getattr(self.extension_manager, "package_manifests", None)
@@ -370,16 +370,6 @@ class InProcessAdapter(object):
             fallback=set(allowed_tools_for(state.current_mode)),
         )
         return _stable_names(list(names))
-
-    def _resource_command_specs(self) -> List[SlashCommandSpec]:
-        resources = self.tools.local_resources()
-        specs = []  # type: List[SlashCommandSpec]
-        specs.extend(build_skill_index(resources).command_specs())
-        specs.extend(prompt_command_specs(resources))
-        return specs
-
-    def _skill_command_specs(self) -> List[SlashCommandSpec]:
-        return self._resource_command_specs()
 
     def _runtime_config_payload(
         self,
@@ -1305,13 +1295,13 @@ class InProcessAdapter(object):
                 command_name="help",
                 success=True,
                 message=self.command_registry.help_markdown(
-                    extra_specs=self._skill_command_specs()
+                    extra_specs=resource_command_specs(self.tools.local_resources())
                 ),
                 data={
                     "commands": [
                         item.name
                         for item in self.command_registry.specs(
-                            extra_specs=self._skill_command_specs()
+                            extra_specs=resource_command_specs(self.tools.local_resources())
                         )
                     ]
                 },

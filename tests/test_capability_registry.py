@@ -9,7 +9,7 @@ from embedagent.capabilities import (
     runtime_tool_capability_descriptors,
     workflow_package_capability_descriptors,
 )
-from embedagent.slash_commands import SlashCommandRegistry
+from embedagent.slash_commands import SlashCommandRegistry, resource_command_specs
 from embedagent.tools import ToolRuntime
 
 
@@ -163,6 +163,39 @@ def test_command_and_model_profile_descriptors_are_serializable():
     assert model_items[0]["metadata"]["base_url"] == "http://localhost:11434/v1"
     assert "api_key" not in model_items[0]["metadata"]
     json.dumps(payload, sort_keys=True)
+
+
+def test_resource_command_specs_project_visible_skills_and_prompts():
+    resources = {
+        "skills": [
+            {
+                "name": "code-review",
+                "description": "Review local C changes.",
+                "path": ".embedagent/skills/review/SKILL.md",
+                "prompt_visible": True,
+            },
+            {
+                "name": "private-audit",
+                "description": "Hidden checklist.",
+                "path": ".embedagent/skills/private/SKILL.md",
+                "prompt_visible": False,
+            },
+        ],
+        "prompts": [
+            {
+                "name": "triage",
+                "path": ".embedagent/prompts/triage.md",
+            }
+        ],
+    }
+
+    specs = resource_command_specs(resources)
+
+    assert [item.name for item in specs] == ["skill:code-review", "prompt:triage"]
+    assert [item.usage for item in specs] == [
+        "/skill:code-review [args]",
+        "/prompt:triage [args]",
+    ]
 
 
 def test_workflow_package_capability_descriptors_project_manifest():

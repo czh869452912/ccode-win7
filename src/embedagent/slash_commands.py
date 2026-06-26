@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from embedagent.capabilities import command_capability_descriptors
 
@@ -88,3 +88,13 @@ def parse_slash_command(text: str) -> Optional[ParsedSlashCommand]:
 
 def slash_command_names() -> List[str]:
     return SlashCommandRegistry().command_names()
+
+
+def resource_command_specs(resources: Dict[str, Any]) -> List[SlashCommandSpec]:
+    from embedagent.prompts import prompt_command_specs
+    from embedagent.skill_index import build_skill_index
+
+    specs = []  # type: List[SlashCommandSpec]
+    specs.extend(build_skill_index(resources).command_specs())
+    specs.extend(prompt_command_specs(resources))
+    return specs

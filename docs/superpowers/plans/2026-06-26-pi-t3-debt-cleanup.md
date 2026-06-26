@@ -165,3 +165,29 @@ Move the real turn-runner implementation into `_run_turn`, update permission/use
 Run: `uv run pytest tests/test_backward_compatibility.py::TestInProcessAdapterCompatibility::test_turn_runner_has_single_internal_entrypoint tests/test_inprocess_adapter_frontend_api.py::TestInProcessAdapterFrontendApis::test_resume_session_restores_waiting_permission_from_transcript tests/test_inprocess_adapter_frontend_api.py::TestInProcessAdapterFrontendApis::test_cancel_session_does_not_mark_idle_before_worker_exits -v`
 
 Expected: PASS.
+
+### Task 5: Move Resource Slash Command Specs Out of the Adapter
+
+**Files:**
+- Modify: `src/embedagent/slash_commands.py`
+- Modify: `src/embedagent/inprocess_adapter.py`
+- Test: `tests/test_capability_registry.py`
+- Test: `tests/test_backward_compatibility.py`
+
+- [x] **Step 1: Write failing resource command projection test**
+
+Assert `resource_command_specs(resources)` projects visible local skills and prompts into slash command specs in one place.
+
+- [x] **Step 2: Write failing adapter boundary test**
+
+Assert `InProcessAdapter` no longer exposes `_resource_command_specs` or `_skill_command_specs`.
+
+- [x] **Step 3: Implement the command registry boundary**
+
+Add `resource_command_specs(resources)` to `slash_commands.py` and make adapter capability/help projection consume it directly.
+
+- [x] **Step 4: Verify Task 5 passes**
+
+Run: `uv run pytest tests/test_capability_registry.py::test_resource_command_specs_project_visible_skills_and_prompts tests/test_backward_compatibility.py::TestInProcessAdapterCompatibility::test_resource_command_specs_live_outside_adapter -v`
+
+Expected: PASS.
