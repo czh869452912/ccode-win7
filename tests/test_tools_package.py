@@ -437,6 +437,9 @@ class TestToolRuntimeExecute(unittest.TestCase):
             self.assertFalse(obs.success, tool_name)
             self.assertEqual(obs.tool_name, tool_name)
 
+    def test_mode_aware_execution_shortcut_removed(self):
+        self.assertFalse(hasattr(ToolRuntime, "execute_for_mode"))
+
 
 class TestDiagnosticParsing(unittest.TestCase):
     """Tests for enhanced diagnostic parsing across compiler formats."""

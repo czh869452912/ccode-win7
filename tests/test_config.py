@@ -39,6 +39,38 @@ class TestAppConfigDefaults(unittest.TestCase):
         self.assertEqual(cfg.max_context_tokens, 32000)
         self.assertEqual(cfg.model, "qwen3")
 
+    def test_config_template_uses_current_architecture_defaults(self):
+        template_path = os.path.join(
+            os.path.dirname(__file__),
+            "..",
+            "config",
+            "config.json.template",
+        )
+        with open(template_path, "r", encoding="utf-8") as handle:
+            payload = json.load(handle)
+
+        self.assertIsNone(payload.get("max_turns"))
+        self.assertEqual(payload.get("default_mode"), "explore")
+
+    def test_current_config_docs_do_not_show_removed_defaults(self):
+        repo_root = os.path.realpath(os.path.join(os.path.dirname(__file__), ".."))
+        paths = [
+            os.path.join(repo_root, "src", "embedagent", "config.py"),
+            os.path.join(repo_root, "config", "config.json.template"),
+            os.path.join(repo_root, "docs", "guides", "configuration-guide.md"),
+            os.path.join(repo_root, "docs", "guides", "intranet-deployment.md"),
+        ]
+        stale_markers = (
+            '"default_mode": "code"',
+            '"default_mode": "build"',
+            '"max_turns": 8',
+        )
+        for path in paths:
+            with open(path, "r", encoding="utf-8") as handle:
+                text = handle.read()
+            for marker in stale_markers:
+                self.assertNotIn(marker, text, "%s leaked in %s" % (marker, path))
+
 
 class TestLoadJsonFile(unittest.TestCase):
     def test_valid_json(self):

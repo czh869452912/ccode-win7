@@ -79,6 +79,14 @@ class TestPublicImports(object):
         assert not hasattr(adapter, "_get_adapter_class")
         assert adapter.get_inprocess_adapter() is not None
 
+    def test_core_adapter_snapshot_falls_back_to_default_mode(self):
+        from embedagent.core.adapter import _session_snapshot_from_dict
+        from embedagent.modes import DEFAULT_MODE
+
+        snapshot = _session_snapshot_from_dict({})
+
+        assert snapshot.current_mode == DEFAULT_MODE
+
 
 class TestInProcessAdapterCompatibility(object):
     """Verify InProcessAdapter public API unchanged."""

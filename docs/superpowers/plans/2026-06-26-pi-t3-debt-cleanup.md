@@ -1,0 +1,141 @@
+# Pi/T3 Debt Cleanup Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** Remove the next layer of pre-release architecture drift that conflicts with the Pi-inspired Agent Core and T3-style GUI/runtime contracts.
+
+**Architecture:** This cleanup favors deletion and contract alignment over compatibility shims. Agent Core behavior must route through the documented mode registry, extension host, tool runtime schema projection, and transcript/bootstrap reducers; GUI work must continue moving state ownership into focused T3-style modules rather than expanding root reducer glue.
+
+**Tech Stack:** Python 3.8, pytest, React/Vite source under `src/embedagent/frontend/gui/webapp/src`, local/offline Windows 7-compatible runtime only.
+
+---
+
+### Task 1: Align Pre-Release Default Configuration
+
+**Files:**
+- Modify: `config/config.json.template`
+- Modify: `src/embedagent/config.py`
+- Modify: `src/embedagent/core/adapter.py`
+- Modify: `src/embedagent/frontend/gui/webapp/src/store.js`
+- Test: `tests/test_config.py`
+- Test: `tests/test_backward_compatibility.py`
+
+- [x] **Step 1: Write failing config-template test**
+
+```python
+def test_config_template_uses_current_architecture_defaults(self):
+    template_path = os.path.join(
+        os.path.dirname(__file__),
+        "..",
+        "config",
+        "config.json.template",
+    )
+    with open(template_path, "r", encoding="utf-8") as handle:
+        payload = json.load(handle)
+
+    self.assertIsNone(payload.get("max_turns"))
+    self.assertEqual(payload.get("default_mode"), "explore")
+```
+
+- [x] **Step 2: Write failing protocol-fallback test**
+
+```python
+def test_core_adapter_snapshot_falls_back_to_default_mode(self):
+    from embedagent.core.adapter import _session_snapshot_from_dict
+    from embedagent.modes import DEFAULT_MODE
+
+    snapshot = _session_snapshot_from_dict({})
+
+    assert snapshot.current_mode == DEFAULT_MODE
+```
+
+- [x] **Step 3: Verify the tests fail before implementation**
+
+Run: `uv run pytest tests/test_config.py::TestAppConfigDefaults::test_config_template_uses_current_architecture_defaults tests/test_backward_compatibility.py::TestPublicImports::test_core_adapter_snapshot_falls_back_to_default_mode -v`
+
+Expected: FAIL because the template still uses `code`/`8` and the adapter fallback still uses `build`.
+
+- [x] **Step 4: Implement the minimal alignment**
+
+Change `config/config.json.template` to:
+
+```json
+{
+  "_comment": "EmbedAgent 内网环境配置文件模板 - 复制到 ~/.embedagent/config.json 并修改",
+  "base_url": "http://192.168.1.100:8000/v1",
+  "api_key": "sk-internal",
+  "model": "qwen3.5-coder",
+  "timeout": 120,
+  "max_context_tokens": 32000,
+  "reserve_output_tokens": 3000,
+  "chars_per_token": 3.0,
+  "max_turns": null,
+  "default_mode": "explore"
+}
+```
+
+Import `DEFAULT_MODE` in `src/embedagent/core/adapter.py` and use it in `_session_snapshot_from_dict`. Update the config docstring example from `build` to `explore`. Set GUI initial `maxTurns` to `null`.
+
+- [x] **Step 5: Verify Task 1 passes**
+
+Run: `uv run pytest tests/test_config.py::TestAppConfigDefaults::test_config_template_uses_current_architecture_defaults tests/test_backward_compatibility.py::TestPublicImports::test_core_adapter_snapshot_falls_back_to_default_mode -v`
+
+Expected: PASS.
+
+### Task 2: Delete Misleading Mode-Aware Tool Runtime Shortcut
+
+**Files:**
+- Modify: `src/embedagent/tools/runtime.py`
+- Test: `tests/test_tools_package.py`
+
+- [x] **Step 1: Write failing boundary test**
+
+```python
+def test_mode_aware_execution_shortcut_removed(self):
+    self.assertFalse(hasattr(ToolRuntime, "execute_for_mode"))
+```
+
+- [x] **Step 2: Verify the boundary test fails before implementation**
+
+Run: `uv run pytest tests/test_tools_package.py::TestToolRuntimeExecute::test_mode_aware_execution_shortcut_removed -v`
+
+Expected: FAIL while `ToolRuntime.execute_for_mode` still exists.
+
+- [x] **Step 3: Delete the shortcut**
+
+Remove `ToolRuntime.execute_for_mode`. Mode/tool activation remains owned by `ExtensionManager`/`AgentExtensionHost`; `ToolRuntime.schemas_for(...)` stays the schema projection boundary, and execution remains the low-level runtime dispatch behind `AgentToolActionService`.
+
+- [x] **Step 4: Verify Task 2 passes**
+
+Run: `uv run pytest tests/test_tools_package.py::TestToolRuntimeExecute::test_mode_aware_execution_shortcut_removed -v`
+
+Expected: PASS.
+
+### Task 3: Keep the Next Cleanup Slices Explicit
+
+**Files:**
+- Modify later: `src/embedagent/inprocess_adapter.py`
+- Modify later: `src/embedagent/query_engine.py`
+- Modify later: `src/embedagent/session_runtime.py`
+- Modify later: `src/embedagent/frontend/gui/webapp/src/App.jsx`
+- Modify later: `src/embedagent/frontend/gui/webapp/src/app-runtime/socket-message-effects.js`
+- Modify later: `src/embedagent/frontend/gui/webapp/src/session-runtime/projector.js`
+- Modify later: `src/embedagent/frontend/gui/backend/server.py`
+
+- [x] **Step 1: Treat the remaining debt as separate slices**
+
+Do not patch around the large files. Extract activation/resume/bootstrap services from `InProcessAdapter`, keep `QueryEngine` as session facade rather than hook dispatcher, move GUI live event folding into typed thread-runtime reducers, and split GUI backend route groups by hosted surface.
+
+- [x] **Step 2: Add tests before each extraction**
+
+For each slice, write regression tests against the intended boundary first. Prefer tests that assert removed paths stay absent, because this project is pre-release and should delete stale compatibility scaffolding.
+
+- [x] **Step 3: Verify the focused cleanup slice before broad CI**
+
+Run: `uv run pytest tests/test_config.py tests/test_backward_compatibility.py tests/test_tools_package.py -v`
+
+Expected: PASS.
+
+Run: `uv run --locked python scripts/lint.py`
+
+Expected: exit code 0.

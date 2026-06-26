@@ -18,7 +18,7 @@
         "max_recent_turns": 4,
         "auto_compact_threshold_ratio": 0.9,
         "max_turns": null,
-        "default_mode": "build",
+        "default_mode": "explore",
         "mode_writable_globs": {
             "build": ["**/*.py", "**/*.toml", "**/*.cfg"],
             "spec": ["**/*.md", "**/*.rst"]

@@ -61,6 +61,7 @@ function readWebappSourceText(...parts) {
 
 async function main() {
   assert.equal(initialState.requestedMode, "explore");
+  assert.equal(initialState.maxTurns, null);
   assert.equal(initialState.app.bootstrapLoaded, false);
   assert.equal(initialState.app.app.protocol, "gui_app_shell_v1");
   assert.equal(initialState.app.settings.confirm_workspace_switch, true);

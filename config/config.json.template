@@ -7,6 +7,6 @@
   "max_context_tokens": 32000,
   "reserve_output_tokens": 3000,
   "chars_per_token": 3.0,
-  "max_turns": 8,
-  "default_mode": "code"
+  "max_turns": null,
+  "default_mode": "explore"
 }

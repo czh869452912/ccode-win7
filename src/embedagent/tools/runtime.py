@@ -500,17 +500,6 @@ class ToolRuntime(object):
             schemas.append(tool.schema())
         return schemas
 
-    def execute_for_mode(
-        self,
-        mode_name: str,
-        name: str,
-        arguments: Dict[str, Any],
-        stop_event=None,
-        workflow_state: str = "chat",
-    ) -> Observation:
-        del mode_name, workflow_state
-        return self.execute_with_interrupt(name, arguments, stop_event)
-
     def catalog_entries(self) -> List[Dict[str, Any]]:
         return [entry.to_dict() for entry in self._catalog.values()]
 

@@ -44,7 +44,7 @@ export const initialState = {
   terminationDisplayReason: "",
   terminationMessage: "",
   turnsUsed: 0,
-  maxTurns: 8,
+  maxTurns: null,
   activeTurnId: "",
   activeStepId: "",
   activeStepIndex: 0,

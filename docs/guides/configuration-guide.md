@@ -185,7 +185,7 @@ can still require confirmation or be denied by `PermissionPolicy`.
 
 ```json
 {
-  "default_mode": "build",
+  "default_mode": "explore",
   "mode_writable_globs": {
     "build": ["src/mymodule/**/*.c", "src/mymodule/**/*.h"],
     "debug": ["src/mymodule/**/*.c", "src/mymodule/**/*.h", "tests/**/*.c"]

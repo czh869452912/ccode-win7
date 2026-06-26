@@ -88,7 +88,7 @@ copy C:\Tools\EmbedAgent\config\config.json C:\Users\<username>\.embedagent\
   "api_key": "your-internal-api-key",
   "model": "qwen3.5-coder",
   "timeout": 120,
-  "default_mode": "build"
+  "default_mode": "explore"
 }
 ```
 
