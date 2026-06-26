@@ -13,7 +13,7 @@ ACTIVE_SOURCE_FILES = [
     ROOT / "src/embedagent/frontend/gui/webapp/src/state-helpers.js",
     ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx",
     ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/socket-message-effects.js",
-    ROOT / "src/embedagent/frontend/gui/webapp/src/session-runtime/projector.js",
+    ROOT / "src/embedagent/frontend/gui/webapp/src/session-runtime/activity-state.js",
 ]
 
 
@@ -68,6 +68,12 @@ def test_no_session_view_clear_uses_timeline_payload():
         if "clear" + "_timeline" in text:
             offenders.append(str(path.relative_to(ROOT)))
     assert offenders == []
+
+
+def test_gui_session_runtime_projector_is_removed():
+    assert not (
+        ROOT / "src/embedagent/frontend/gui/webapp/src/session-runtime/projector.js"
+    ).exists()
 
 
 def test_gui_backend_routes_do_not_use_active_core_proxy():
