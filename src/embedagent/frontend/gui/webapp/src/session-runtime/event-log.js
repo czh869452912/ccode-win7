@@ -48,3 +48,13 @@ export function appendSessionEvent(log, event) {
     lastAppliedSeq: seq || log.lastAppliedSeq,
   };
 }
+
+export function projectTransportView({ snapshot, eventLog } = {}) {
+  const eventReplayState = normalizeReplayState(eventLog?.replayState, "");
+  return {
+    connectionState: eventLog?.connectionState || "connecting",
+    replayState:
+      eventReplayState || normalizeReplayState(snapshot?.timeline_replay_status, "healthy"),
+    lastAppliedSeq: Number(eventLog?.lastAppliedSeq || 0),
+  };
+}

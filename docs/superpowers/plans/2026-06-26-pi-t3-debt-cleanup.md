@@ -220,3 +220,30 @@ Add `createEventLogState`, `readEventLogEntries`, and `reduceEventLogState`; wir
 Run: `npm test` under `src/embedagent/frontend/gui/webapp`.
 
 Expected: PASS.
+
+### Task 7: Move Transport Replay Projection Out of the Runtime Projector
+
+**Files:**
+- Modify: `src/embedagent/frontend/gui/webapp/src/session-runtime/event-log.js`
+- Modify: `src/embedagent/frontend/gui/webapp/src/session-runtime/projector.js`
+- Test: `src/embedagent/frontend/gui/webapp/test/session-runtime.test.mjs`
+
+- [x] **Step 1: Write failing transport view test**
+
+Assert `projectTransportView({ snapshot, eventLog })` owns replay-state normalization, connection state, and last applied sequence projection.
+
+- [x] **Step 2: Verify the test fails before implementation**
+
+Run: `npm test` under `src/embedagent/frontend/gui/webapp`.
+
+Expected: FAIL while `event-log.js` does not export `projectTransportView`.
+
+- [x] **Step 3: Move transport replay projection to event-log state**
+
+Export `projectTransportView` from `event-log.js`, make `projectSessionRuntime` consume it, and delete duplicated replay-state normalization from `projector.js`.
+
+- [x] **Step 4: Verify Task 7 passes**
+
+Run: `npm test` under `src/embedagent/frontend/gui/webapp`.
+
+Expected: PASS.

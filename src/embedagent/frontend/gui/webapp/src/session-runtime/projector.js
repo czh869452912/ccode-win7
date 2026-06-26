@@ -1,13 +1,5 @@
+import { projectTransportView } from "./event-log.js";
 import { projectT3TimelineRows } from "./t3-timeline.js";
-
-const VALID_REPLAY_STATES = new Set(["healthy", "replay_needed", "reload_required", "degraded"]);
-
-function normalizeReplayState(value, fallback = "healthy") {
-  const candidate = String(value || "").trim();
-  if (candidate === "replay") return "healthy";
-  if (VALID_REPLAY_STATES.has(candidate)) return candidate;
-  return fallback;
-}
 
 function toInteractionTimelineItem(source) {
   const payload = source?.payload || source || {};
@@ -217,14 +209,6 @@ function projectTurnGroups(items = []) {
   }));
 }
 
-function resolveTransportReplayState(snapshot, eventLog) {
-  const eventReplayState = normalizeReplayState(eventLog?.replayState, "");
-  if (eventReplayState) {
-    return eventReplayState;
-  }
-  return normalizeReplayState(snapshot?.timeline_replay_status, "healthy");
-}
-
 export function projectSessionRuntime({
   snapshot,
   eventLog,
@@ -240,11 +224,7 @@ export function projectSessionRuntime({
   return {
     currentInteraction,
     interactionNotice,
-    transportView: {
-      connectionState: eventLog?.connectionState || "connecting",
-      replayState: resolveTransportReplayState(snapshot, eventLog),
-      lastAppliedSeq: Number(eventLog?.lastAppliedSeq || 0),
-    },
+    transportView: projectTransportView({ snapshot, eventLog }),
     sessionStatusView: {
       sessionId: snapshot?.session_id || "",
       status: snapshot?.status || "idle",

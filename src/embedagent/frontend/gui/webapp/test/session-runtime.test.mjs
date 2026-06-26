@@ -4,6 +4,7 @@ import {
   appendSessionEvent,
   capRetryAttempt,
   createSessionEventLog,
+  projectTransportView,
 } from "../src/session-runtime/event-log.js";
 import { projectSessionRuntime } from "../src/session-runtime/projector.js";
 
@@ -60,6 +61,20 @@ export function runSessionRuntimeTests() {
     historyTimeline: [],
   });
   assert.equal(replayRuntime.transportView.replayState, "reload_required");
+
+  const transportView = projectTransportView({
+    snapshot: { timeline_replay_status: "reload_required" },
+    eventLog: {
+      ...createSessionEventLog({ connectionState: "open" }),
+      lastAppliedSeq: 7,
+      replayState: "replay",
+    },
+  });
+  assert.deepEqual(transportView, {
+    connectionState: "open",
+    replayState: "healthy",
+    lastAppliedSeq: 7,
+  });
 
   const interactionRuntime = projectSessionRuntime({
     snapshot: {
