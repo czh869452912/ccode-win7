@@ -1,123 +1,85 @@
 import os
 import sys
-import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from embedagent.frontend.tui.views.timeline import FlatTimelineView
+from embedagent.frontend.tui.views.timeline import (
+    ActivityTimelineView,
+    format_activity_records,
+)
 
 
-class TestFlatTimelineView(unittest.TestCase):
-    def setUp(self):
-        self.view = FlatTimelineView()
+def test_empty_activities_render():
+    view = ActivityTimelineView()
+    view.update({"activities": []})
 
-    def test_empty_timeline_renders(self):
-        self.view.update({"items": []})
-        result = self.view.render()
-        self.assertIsNotNone(result)
+    result = view.render()
 
-    def test_user_item_renders(self):
-        self.view.update(
+    assert result is not None
+
+
+def test_activity_records_format_user_tool_and_assistant():
+    lines = format_activity_records(
+        [
             {
-                "items": [
-                    {
-                        "type": "user",
-                        "id": "m1",
-                        "content": "Hello",
-                        "status": "completed",
-                        "parent_id": "",
-                        "turn_id": "t1",
-                    }
-                ]
-            }
-        )
-        result = self.view.render()
-        self.assertIsNotNone(result)
-
-    def test_tool_use_item_renders(self):
-        self.view.update(
+                "kind": "user",
+                "id": "m1",
+                "content": "Read file",
+                "status": "completed",
+                "turn_id": "t1",
+            },
             {
-                "items": [
-                    {
-                        "type": "tool_use",
-                        "id": "tu1",
-                        "content": "",
-                        "status": "started",
-                        "parent_id": "m1",
-                        "turn_id": "t1",
-                        "tool_name": "read_file",
-                        "call_id": "c1",
-                        "arguments": {"path": "test.txt"},
-                    }
-                ]
-            }
-        )
-        result = self.view.render()
-        self.assertIsNotNone(result)
-
-    def test_tool_result_item_renders(self):
-        self.view.update(
+                "kind": "tool",
+                "id": "tool-c1",
+                "tool_name": "read_file",
+                "call_id": "c1",
+                "content": "src/main.c",
+                "status": "success",
+                "turn_id": "t1",
+            },
             {
-                "items": [
-                    {
-                        "type": "tool_result",
-                        "id": "tr1",
-                        "content": "file content",
-                        "status": "success",
-                        "parent_id": "tu1",
-                        "turn_id": "t1",
-                        "tool_name": "read_file",
-                        "call_id": "c1",
-                        "data": "file content",
-                        "error": "",
-                    }
-                ]
-            }
-        )
-        result = self.view.render()
-        self.assertIsNotNone(result)
+                "kind": "assistant",
+                "id": "m2",
+                "content": "Done.",
+                "status": "completed",
+                "turn_id": "t1",
+            },
+        ]
+    )
 
-    def test_multiple_items_render(self):
-        self.view.update(
+    assert lines == [
+        "user> Read file",
+        "tool read_file [success] src/main.c",
+        "assistant> Done.",
+    ]
+
+
+def test_activity_records_format_reasoning_interaction_and_compact():
+    lines = format_activity_records(
+        [
             {
-                "items": [
-                    {
-                        "type": "user",
-                        "id": "m1",
-                        "content": "Read file",
-                        "status": "completed",
-                        "parent_id": "",
-                        "turn_id": "t1",
-                    },
-                    {
-                        "type": "tool_use",
-                        "id": "tu1",
-                        "content": "",
-                        "status": "started",
-                        "parent_id": "m1",
-                        "turn_id": "t1",
-                        "tool_name": "read_file",
-                        "call_id": "c1",
-                        "arguments": {"path": "test.txt"},
-                    },
-                    {
-                        "type": "tool_result",
-                        "id": "tr1",
-                        "content": "content",
-                        "status": "success",
-                        "parent_id": "tu1",
-                        "turn_id": "t1",
-                        "tool_name": "read_file",
-                        "call_id": "c1",
-                        "data": "content",
-                        "error": "",
-                    },
-                ]
-            }
-        )
-        result = self.view.render()
-        self.assertIsNotNone(result)
+                "kind": "reasoning",
+                "id": "step-1",
+                "content": "Inspecting build failure",
+                "status": "completed",
+            },
+            {
+                "kind": "interaction",
+                "id": "permission-1",
+                "content": "Allow write_file?",
+                "status": "pending",
+            },
+            {
+                "kind": "compact",
+                "id": "compact-1",
+                "content": "Older context summarized.",
+                "status": "completed",
+            },
+        ]
+    )
 
-
-if __name__ == "__main__":
-    unittest.main()
+    assert lines == [
+        "thinking> Inspecting build failure",
+        "interaction [pending] Allow write_file?",
+        "compact> Older context summarized.",
+    ]

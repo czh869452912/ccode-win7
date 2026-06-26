@@ -20,8 +20,9 @@ class TimelineService(object):
                 pass
         return {
             "session_id": session_id,
-            "items": [],
+            "history_source": "unavailable",
             "turns": [],
+            "activities": [],
             "current_interaction": None,
             "integrity": {"status": "unavailable"},
         }

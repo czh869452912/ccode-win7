@@ -78,11 +78,13 @@ def test_timeline_service_load():
     result = service.load("session-123")
     assert result == {
         "session_id": "session-123",
+        "history_source": "unavailable",
         "turns": [],
-        "items": [],
+        "activities": [],
         "current_interaction": None,
         "integrity": {"status": "unavailable"},
     }
+    assert "items" not in result
 
 
 def test_all_modified_modules_importable():

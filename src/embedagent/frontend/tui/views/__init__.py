@@ -4,9 +4,11 @@ from embedagent.frontend.tui.views.explorer import build_explorer_text
 from embedagent.frontend.tui.views.header import build_header_text
 from embedagent.frontend.tui.views.inspector import build_help_text, build_inspector_text
 from embedagent.frontend.tui.views.timeline import (
+    ActivityTimelineView,
     FlatTimelineView,
     TimelineView,
     build_timeline_text,
+    format_activity_records,
     format_context_line,
     format_observation_line,
     format_timeline_records,
@@ -22,7 +24,9 @@ __all__ = [
     "build_timeline_text",
     "format_context_line",
     "format_observation_line",
+    "format_activity_records",
     "format_timeline_records",
+    "ActivityTimelineView",
     "FlatTimelineView",
     "TimelineView",
 ]

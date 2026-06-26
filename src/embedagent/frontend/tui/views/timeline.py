@@ -190,6 +190,25 @@ class FlatTimelineView(object):
         return False
 
 
+class ActivityTimelineView(object):
+    """Render session bootstrap activities for the conversation UI."""
+
+    def __init__(self, console=None):
+        self.console = console
+        self._activities = []
+
+    def update(self, timeline_data):
+        self._activities = list(timeline_data.get("activities") or [])
+
+    def render(self):
+        from rich.panel import Panel
+
+        lines = format_activity_records(self._activities)
+        if not lines:
+            return Panel("No conversation yet", title="Timeline")
+        return Panel("\n".join(lines), title="Conversation")
+
+
 class TimelineView(object):
     """Timeline view that delegates to FlatTimelineView for flat item data."""
 
@@ -212,6 +231,31 @@ class TimelineView(object):
         from rich.panel import Panel
 
         return Panel("Legacy timeline view", title="Timeline")
+
+
+def format_activity_records(records):
+    lines = []
+    for item in records:
+        if not isinstance(item, dict):
+            continue
+        kind = str(item.get("kind") or "")
+        content = str(item.get("content") or "")
+        status = str(item.get("status") or "")
+        if kind == "user":
+            lines.append("user> %s" % content)
+        elif kind == "assistant":
+            lines.append("assistant> %s" % content)
+        elif kind == "reasoning":
+            lines.append("thinking> %s" % content)
+        elif kind == "tool":
+            tool_name = str(item.get("tool_name") or "tool")
+            suffix = (" " + content) if content else ""
+            lines.append("tool %s [%s]%s" % (tool_name, status or "unknown", suffix))
+        elif kind == "interaction":
+            lines.append("interaction [%s] %s" % (status or "pending", content))
+        elif kind == "compact":
+            lines.append("compact> %s" % content)
+    return lines
 
 
 def format_observation_line(payload):
