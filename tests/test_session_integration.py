@@ -152,12 +152,12 @@ class TestSessionIntegration(unittest.TestCase):
         self.assertEqual(result.skipped_count, 0)
         self.assertTrue(len(result.session.turns) >= 2)
 
-    def test_flat_history_from_restored_session(self):
+    def test_activity_history_from_restored_session(self):
         session_id = self._build_schema_v2_transcript()
         events = self.store.load_events(session_id)
         result = self.restorer.restore(events, best_effort=True)
 
-        timeline = self.assembler.build_flat_history(
+        history = self.assembler.build(
             result.session,
             "restored",
             "healthy",
@@ -165,15 +165,14 @@ class TestSessionIntegration(unittest.TestCase):
             transcript_event_count=result.transcript_event_count,
         )
 
-        self.assertIn("items", timeline)
-        self.assertTrue(len(timeline["items"]) >= 5)
+        self.assertIn("activities", history)
+        self.assertNotIn("items", history)
+        self.assertTrue(len(history["activities"]) >= 4)
 
-        # Verify item types
-        types = [item["type"] for item in timeline["items"]]
-        self.assertIn("user", types)
-        self.assertIn("assistant", types)
-        self.assertIn("tool_use", types)
-        self.assertIn("tool_result", types)
+        kinds = [item["kind"] for item in history["activities"]]
+        self.assertIn("user", kinds)
+        self.assertIn("assistant", kinds)
+        self.assertIn("tool", kinds)
 
     def test_full_pipeline_best_effort_with_corruption(self):
         session_id = self._build_schema_v2_transcript()
@@ -256,17 +255,13 @@ class TestSessionIntegration(unittest.TestCase):
             step_id=step.step_id,
         )
 
-        timeline = self.assembler.build_flat_history(session, "live", "healthy")
-        tool_uses = [i for i in timeline["items"] if i["type"] == "tool_use"]
-        tool_results = [i for i in timeline["items"] if i["type"] == "tool_result"]
+        history = self.assembler.build(session, "live", "healthy")
+        tool_activities = [i for i in history["activities"] if i["kind"] == "tool"]
 
-        self.assertEqual(len(tool_uses), 2)
-        self.assertEqual(len(tool_results), 2)
-
-        # Each tool_result parent should match a tool_use
-        for result_item in tool_results:
-            parent_use = [u for u in tool_uses if u["id"] == result_item["parent_id"]]
-            self.assertEqual(len(parent_use), 1)
+        self.assertEqual(len(tool_activities), 2)
+        self.assertEqual([item["call_id"] for item in tool_activities], ["c1", "c2"])
+        self.assertEqual([item["status"] for item in tool_activities], ["success", "success"])
+        self.assertEqual([item["data"] for item in tool_activities], ["content a", "content b"])
 
     def test_backward_compatibility_schema_v1_restore(self):
         """Verify schema v1 transcripts still restore correctly."""

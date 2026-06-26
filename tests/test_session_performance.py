@@ -208,21 +208,21 @@ class TestSessionPerformance(unittest.TestCase):
         )
         self.assertEqual(result.transcript_event_count, len(events))
 
-    def test_flat_history_performance_1000_items(self):
+    def test_activity_history_performance_1000_events(self):
         session_id = "sess-perf-1000"
         events = self._generate_events(1000, session_id)
         result = self.restorer.restore(events, best_effort=True)
 
         start = time.time()
-        timeline = self.assembler.build_flat_history(result.session, "restored", "healthy")
+        history = self.assembler.build(result.session, "restored", "healthy")
         elapsed_ms = (time.time() - start) * 1000
 
-        items = timeline["items"]
-        per_hundred_ms = elapsed_ms / (len(items) / 100)
+        activities = history["activities"]
+        per_hundred_ms = elapsed_ms / (len(activities) / 100)
         self.assertLess(
             per_hundred_ms,
             self.MAX_TIMELINE_MS,
-            "History took %.2fms per 100 items (max %.2fms)"
+            "History took %.2fms per 100 activities (max %.2fms)"
             % (per_hundred_ms, self.MAX_TIMELINE_MS),
         )
 
@@ -239,8 +239,9 @@ class TestSessionPerformance(unittest.TestCase):
         # Session should have reasonable number of turns
         self.assertTrue(len(result.session.turns) <= 125)  # 500 / 4 = 125 turns
 
-        timeline = self.assembler.build_flat_history(result.session, "restored", "healthy")
-        self.assertTrue(len(timeline["items"]) >= 500)
+        history = self.assembler.build(result.session, "restored", "healthy")
+        self.assertTrue(len(history["activities"]) >= 250)
+        self.assertNotIn("items", history)
 
 
 if __name__ == "__main__":

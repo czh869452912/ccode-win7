@@ -13,7 +13,7 @@ from embedagent.session import (
 from embedagent.session_history import SessionHistoryAssembler
 
 
-class TestSessionHistoryAssemblerFlatHistory(unittest.TestCase):
+class TestSessionHistoryAssemblerActivities(unittest.TestCase):
     def setUp(self):
         self.assembler = SessionHistoryAssembler()
         self.session = Session(session_id="sess-test")
@@ -41,98 +41,104 @@ class TestSessionHistoryAssemblerFlatHistory(unittest.TestCase):
             step_id=step.step_id,
         )
 
-    def test_flat_history_returns_items_array(self):
+    def test_history_returns_activities_array(self):
         self._add_user_turn("hello")
-        result = self.assembler.build_flat_history(self.session, "live", "healthy")
-        self.assertIn("items", result)
-        self.assertIsInstance(result["items"], list)
+        result = self.assembler.build(self.session, "live", "healthy")
+        self.assertIn("activities", result)
+        self.assertIsInstance(result["activities"], list)
+        self.assertNotIn("items", result)
 
-    def test_flat_history_user_item_structure(self):
+    def test_user_activity_structure(self):
         self._add_user_turn("test message")
-        result = self.assembler.build_flat_history(self.session, "live", "healthy")
-        items = result["items"]
-        self.assertTrue(len(items) >= 1)
-        user_item = items[0]
-        self.assertEqual(user_item["type"], "user")
-        self.assertEqual(user_item["content"], "test message")
-        self.assertEqual(user_item["status"], "completed")
-        self.assertIn("id", user_item)
-        self.assertIn("parent_id", user_item)
-        self.assertIn("turn_id", user_item)
+        result = self.assembler.build(self.session, "live", "healthy")
+        activities = result["activities"]
+        self.assertTrue(len(activities) >= 1)
+        user_activity = activities[0]
+        self.assertEqual(user_activity["kind"], "user")
+        self.assertEqual(user_activity["content"], "test message")
+        self.assertEqual(user_activity["status"], "completed")
+        self.assertIn("id", user_activity)
+        self.assertIn("turn_id", user_activity)
+        self.assertIn("projection_source", user_activity)
 
-    def test_flat_history_assistant_item_structure(self):
+    def test_assistant_activity_structure(self):
         turn = self._add_user_turn("hello")
         self._add_assistant_step(turn, content="hi there", reasoning="thinking")
-        result = self.assembler.build_flat_history(self.session, "live", "healthy")
-        items = result["items"]
-        assistant_items = [i for i in items if i["type"] == "assistant"]
+        result = self.assembler.build(self.session, "live", "healthy")
+        activities = result["activities"]
+        assistant_items = [i for i in activities if i["kind"] == "assistant"]
+        reasoning_items = [i for i in activities if i["kind"] == "reasoning"]
         self.assertEqual(len(assistant_items), 1)
+        self.assertEqual(len(reasoning_items), 1)
         item = assistant_items[0]
         self.assertEqual(item["content"], "hi there")
-        self.assertEqual(item["reasoning"], "thinking")
         self.assertIn("status", item)
         self.assertIn("turn_id", item)
         self.assertIn("step_id", item)
+        self.assertEqual(reasoning_items[0]["content"], "thinking")
 
-    def test_flat_history_tool_use_item(self):
+    def test_pending_tool_activity(self):
         turn = self._add_user_turn("read file")
         self._add_assistant_step(
             turn,
             actions=[Action(name="read_file", arguments={"path": "test.txt"}, call_id="call-1")],
         )
-        result = self.assembler.build_flat_history(self.session, "live", "healthy")
-        items = result["items"]
-        tool_items = [i for i in items if i["type"] == "tool_use"]
+        result = self.assembler.build(self.session, "live", "healthy")
+        activities = result["activities"]
+        tool_items = [i for i in activities if i["kind"] == "tool"]
         self.assertEqual(len(tool_items), 1)
         item = tool_items[0]
         self.assertEqual(item["tool_name"], "read_file")
         self.assertEqual(item["call_id"], "call-1")
         self.assertEqual(item["arguments"], {"path": "test.txt"})
-        self.assertEqual(item["status"], "started")
+        self.assertEqual(item["status"], "running")
+        self.assertIsNone(item["data"])
 
-    def test_flat_history_tool_result_item(self):
+    def test_completed_tool_activity(self):
         turn = self._add_user_turn("read file")
         step = self._add_assistant_step(
             turn,
             actions=[Action(name="read_file", arguments={"path": "test.txt"}, call_id="call-1")],
         )
         self._add_tool_result(turn, step, "read_file", "call-1", success=True, data="file content")
-        result = self.assembler.build_flat_history(self.session, "live", "healthy")
-        items = result["items"]
-        result_items = [i for i in items if i["type"] == "tool_result"]
-        self.assertEqual(len(result_items), 1)
-        item = result_items[0]
+        result = self.assembler.build(self.session, "live", "healthy")
+        activities = result["activities"]
+        tool_items = [i for i in activities if i["kind"] == "tool"]
+        self.assertEqual(len(tool_items), 1)
+        item = tool_items[0]
         self.assertEqual(item["status"], "success")
         self.assertEqual(item["data"], "file content")
         self.assertEqual(item["tool_name"], "read_file")
         self.assertEqual(item["call_id"], "call-1")
 
-    def test_flat_history_parent_chain(self):
+    def test_multiple_tool_calls_have_distinct_tool_activities(self):
         turn = self._add_user_turn("test")
         step = self._add_assistant_step(
             turn,
-            content="using tool",
-            actions=[Action(name="tool", arguments={}, call_id="c1")],
+            content="using tools",
+            actions=[
+                Action(name="tool", arguments={"path": "a"}, call_id="c1"),
+                Action(name="tool", arguments={"path": "b"}, call_id="c2"),
+            ],
         )
-        self._add_tool_result(turn, step, "tool", "c1", success=True, data="ok")
-        result = self.assembler.build_flat_history(self.session, "live", "healthy")
-        items = result["items"]
+        self._add_tool_result(turn, step, "tool", "c1", success=True, data="ok-a")
+        self._add_tool_result(turn, step, "tool", "c2", success=False, error="bad-b")
+        result = self.assembler.build(self.session, "live", "healthy")
+        tool_items = [i for i in result["activities"] if i["kind"] == "tool"]
 
-        # Find items
-        tool_use = [i for i in items if i["type"] == "tool_use"][0]
-        tool_result = [i for i in items if i["type"] == "tool_result"][0]
+        self.assertEqual([i["call_id"] for i in tool_items], ["c1", "c2"])
+        self.assertEqual([i["status"] for i in tool_items], ["success", "error"])
+        self.assertEqual(tool_items[0]["data"], "ok-a")
+        self.assertEqual(tool_items[1]["error"], "bad-b")
 
-        # Parent chain: tool_use -> tool_result
-        self.assertEqual(tool_result["parent_id"], tool_use["id"])
-
-    def test_flat_history_empty_session(self):
-        result = self.assembler.build_flat_history(Session(session_id=""), "live", "healthy")
-        self.assertEqual(result["items"], [])
+    def test_empty_session(self):
+        result = self.assembler.build(Session(session_id=""), "live", "healthy")
+        self.assertEqual(result["activities"], [])
         self.assertEqual(result["session_id"], "")
 
-    def test_flat_history_integrity_info(self):
+    def test_history_integrity_info(self):
         self._add_user_turn("test")
-        result = self.assembler.build_flat_history(
+        result = self.assembler.build(
             self.session,
             "restored",
             "degraded",
@@ -146,33 +152,7 @@ class TestSessionHistoryAssemblerFlatHistory(unittest.TestCase):
         self.assertEqual(integrity["consumed_event_count"], 5)
         self.assertEqual(integrity["transcript_event_count"], 10)
 
-    def test_flat_history_matches_nested_history_identity(self):
-        turn = self._add_user_turn("test")
-        step = self._add_assistant_step(
-            turn,
-            actions=[Action(name="tool", arguments={}, call_id="c1")],
-        )
-        self._add_tool_result(turn, step, "tool", "c1", success=True, data="ok")
-
-        flat_result = self.assembler.build_flat_history(self.session, "live", "healthy")
-        nested_result = self.assembler.build(self.session, "live", "healthy")
-
-        self.assertIn("items", flat_result)
-        self.assertIn("turns", nested_result)
-        self.assertEqual(flat_result["session_id"], nested_result["session_id"])
-
-    def test_old_build_method_unchanged(self):
-        """Verify old build() still produces nested structure."""
-        turn = self._add_user_turn("test")
-        self._add_assistant_step(turn, content="reply")
-
-        result = self.assembler.build(self.session, "live", "healthy")
-        self.assertIn("turns", result)
-        self.assertIsInstance(result["turns"], list)
-        if result["turns"]:
-            self.assertIn("steps", result["turns"][0])
-
-    def test_build_includes_t3_activity_read_model(self):
+    def test_build_keeps_nested_history_and_activity_read_model(self):
         turn = self._add_user_turn("Inspect parser", turn_id="turn-activity")
         step = self._add_assistant_step(
             turn,
@@ -197,7 +177,8 @@ class TestSessionHistoryAssemblerFlatHistory(unittest.TestCase):
 
         result = self.assembler.build(self.session, "session_state", "healthy")
 
-        self.assertIn("activities", result)
+        self.assertIn("turns", result)
+        self.assertIn("steps", result["turns"][0])
         activities = result["activities"]
         self.assertEqual(
             [item["kind"] for item in activities], ["user", "reasoning", "tool", "assistant"]
