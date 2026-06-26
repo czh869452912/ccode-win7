@@ -47,27 +47,100 @@ class SessionHistoryAssembler(object):
     ) -> Dict[str, Any]:
         runtime = self._runtime_snapshot_lookup() if callable(self._runtime_snapshot_lookup) else {}
         turns = []
+        activities = []
         for turn_index, turn in enumerate(session.turns):
             steps = []
+            if turn.user_message:
+                activities.append(
+                    {
+                        "kind": "user",
+                        "id": self._message_id_for_turn(session, turn.turn_id, "user")
+                        or "user-%s" % turn.turn_id,
+                        "turn_id": turn.turn_id,
+                        "step_id": "",
+                        "step_index": 0,
+                        "content": turn.user_message,
+                        "status": "completed",
+                        "projection_source": str(history_source or ""),
+                    }
+                )
             for step_index, step in enumerate(turn.steps):
                 step_transitions = self._step_transitions(turn_index, step_index, session)
                 step_transition = step_transitions[-1] if step_transitions else None
+                step_status = self._step_status(
+                    step, step_transition, turn_index, step_index, session
+                )
+                if step.reasoning:
+                    activities.append(
+                        {
+                            "kind": "reasoning",
+                            "id": "reasoning-%s" % step.step_id,
+                            "turn_id": turn.turn_id,
+                            "step_id": step.step_id,
+                            "step_index": step.step_index,
+                            "content": step.reasoning,
+                            "status": step_status,
+                            "projection_source": str(history_source or ""),
+                        }
+                    )
+                serialized_tools = [
+                    self._serialize_tool_call(record, runtime) for record in step.tool_calls
+                ]
+                for tool in serialized_tools:
+                    activities.append(
+                        {
+                            "kind": "tool",
+                            "id": "tool-%s" % str(tool.get("call_id") or ""),
+                            "turn_id": turn.turn_id,
+                            "step_id": step.step_id,
+                            "step_index": step.step_index,
+                            "content": "",
+                            "status": str(tool.get("status") or "running"),
+                            "projection_source": str(history_source or ""),
+                            "tool_name": str(tool.get("tool_name") or ""),
+                            "tool_label": str(tool.get("tool_label") or ""),
+                            "call_id": str(tool.get("call_id") or ""),
+                            "arguments": dict(tool.get("arguments") or {}),
+                            "data": tool.get("data"),
+                            "error": str(tool.get("error") or ""),
+                            "permission_category": str(tool.get("permission_category") or ""),
+                            "supports_diff_preview": bool(tool.get("supports_diff_preview")),
+                            "progress_renderer_key": str(
+                                tool.get("progress_renderer_key") or "default"
+                            ),
+                            "result_renderer_key": str(
+                                tool.get("result_renderer_key") or "default"
+                            ),
+                        }
+                    )
+                if step.assistant_message:
+                    activities.append(
+                        {
+                            "kind": "assistant",
+                            "id": self._message_id_for_step(
+                                session, turn.turn_id, step.step_id, "assistant"
+                            )
+                            or "assistant-%s" % step.step_id,
+                            "turn_id": turn.turn_id,
+                            "step_id": step.step_id,
+                            "step_index": step.step_index,
+                            "content": step.assistant_message,
+                            "status": step_status,
+                            "projection_source": str(history_source or ""),
+                        }
+                    )
                 steps.append(
                     {
                         "step_id": step.step_id,
                         "step_index": step.step_index,
                         "reasoning": step.reasoning,
                         "assistant_text": step.assistant_message,
-                        "tool_calls": [
-                            self._serialize_tool_call(record, runtime) for record in step.tool_calls
-                        ],
+                        "tool_calls": serialized_tools,
                         "transitions": [
                             self._serialize_transition(transition)
                             for transition in step_transitions
                         ],
-                        "status": self._step_status(
-                            step, step_transition, turn_index, step_index, session
-                        ),
+                        "status": step_status,
                     }
                 )
             turns.append(
@@ -85,6 +158,7 @@ class SessionHistoryAssembler(object):
             "session_id": session.session_id,
             "history_source": str(history_source or ""),
             "turns": turns,
+            "activities": activities,
             "current_interaction": self._serialize_pending_interaction(session.pending_interaction),
             "integrity": {
                 "status": str(integrity_status or "healthy"),
@@ -283,6 +357,16 @@ class SessionHistoryAssembler(object):
             ):
                 return msg
         return None
+
+    def _message_id_for_turn(self, session, turn_id, role):
+        for msg in session.messages:
+            if getattr(msg, "turn_id", "") == turn_id and getattr(msg, "role", "") == role:
+                return getattr(msg, "message_id", "")
+        return ""
+
+    def _message_id_for_step(self, session, turn_id, step_id, role):
+        message = self._find_message_for_turn_step(session, turn_id, step_id, role)
+        return getattr(message, "message_id", "") if message is not None else ""
 
     def build_flat_history(
         self,

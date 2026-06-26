@@ -44,6 +44,28 @@
 
 ## 3. 当前变更记录
 
+### DC-208
+
+- Date: 2026-06-26
+- Change Topic: Bootstrap session activity read model
+- Summary:
+  - Added `history.activities` to `SessionHistoryAssembler.build(...)` so
+    bootstrap history exposes a direct T3-style activity stream.
+  - Kept nested `history.turns` as structured diagnostics while avoiding any
+    event replay or frontend-owned history reconstruction.
+  - Added backend tests proving session bootstrap carries the new activity read
+    model.
+- Impacted Scope:
+  - `src/embedagent/session_history.py`
+  - `tests/test_session_history.py`
+  - `tests/test_inprocess_adapter_frontend_api.py`
+  - `docs/frontend-protocol.md`
+  - `docs/overall-solution-architecture.md`
+- ADR Needed: No
+- Follow-up:
+  - S06 should switch GUI activation to consume `history.activities` and remove
+    the old timeline projection helpers from product runtime.
+
 ### DC-207
 
 - Date: 2026-06-26

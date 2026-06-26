@@ -41,6 +41,9 @@
   `SlashCommandService`, `TurnSnapshotService`, and `PromptAssemblyService`
   now own the corresponding hosted/Core projection work that had been
   accumulating in `InProcessAdapter` and `QueryEngine`.
+- `SessionHistoryAssembler` now emits bootstrap `history.activities` as a
+  direct T3-style activity read model from transcript-backed `Session` state,
+  alongside the nested diagnostic `turns` structure.
 - GUI run-output display state and transport connection/reload projection now
   live under `webapp/src/session-runtime/`; session activation and WebSocket
   lifecycle live under `webapp/src/app-runtime/`; root-level GUI

@@ -161,6 +161,7 @@ Harness state refresh in the product adapter path goes through `CHarnessWorkflow
 - one session-scoped `QueryEngine` is the facade and transcript/session mutation owner; `AgentKernel`, `AgentLifecycleJournal`, `AgentLoop`, `AgentToolActionService`, and `AgentExtensionHost` own lifecycle, journal, loop, action, active schema, and extension dispatch internals
 - `InProcessAdapter` is a host/bridge layer and must not mint duplicate workflow identities or own slash-command business rules that can live in hosted services such as `ReviewCommandService`
 - `SessionSnapshotProjector` and `SessionHistoryAssembler` are projections, not workflow truth
+- `SessionHistoryAssembler` emits both nested `turns` and direct T3-style `activities` from the same transcript-backed `Session` state
 - `SessionSnapshotProjector` reads the generic workflow projection, not default harness internals
 - `runtime_config` in session snapshots is reducer-backed diagnostic state, not frontend-owned policy
 - `compaction_state` in session snapshots is reducer-backed diagnostic state, not frontend-owned context policy

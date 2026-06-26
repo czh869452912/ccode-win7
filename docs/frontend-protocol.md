@@ -199,6 +199,14 @@ Session activation additionally depends on one bootstrap payload containing:
 - `plan`
 - `permission_context`
 
+`history` is assembled by `SessionHistoryAssembler` from transcript-backed
+`Session` state. It contains nested `turns` for structured diagnostics and
+`activities` for direct T3-style frontend consumption. `history.activities`
+items use the current frontend vocabulary (`user`, `reasoning`, `tool`,
+`assistant`) and carry `turn_id`, `step_id`, `step_index`, `status`, and safe
+tool presentation metadata where applicable. Frontends must not rebuild this
+activity stream from event replay tails.
+
 `history.integrity.status` is the official history health signal:
 
 - `healthy`

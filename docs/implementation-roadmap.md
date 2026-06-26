@@ -83,7 +83,7 @@ Recent stabilization work has also completed the GUI session-history single-sour
 
 - `transcript.jsonl` is now the only durable session-history truth
 - GUI history is serialized from transcript-backed `Session` state
-- GUI activation now uses one `/api/sessions/{id}/bootstrap` payload instead of split snapshot/timeline fetches
+- GUI activation now uses one `/api/sessions/{id}/bootstrap` payload instead of split snapshot/timeline fetches; bootstrap history now includes nested `turns` plus direct T3-style `activities`
 - `SessionTimelineStore` and timeline-backed review/event replay paths have
   been removed; there is no session event replay HTTP route, and the active T3
   timeline consumes bootstrap history plus live reducer actions rather than

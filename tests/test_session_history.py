@@ -172,6 +172,45 @@ class TestSessionHistoryAssemblerFlatHistory(unittest.TestCase):
         if result["turns"]:
             self.assertIn("steps", result["turns"][0])
 
+    def test_build_includes_t3_activity_read_model(self):
+        turn = self._add_user_turn("Inspect parser", turn_id="turn-activity")
+        step = self._add_assistant_step(
+            turn,
+            content="Parser inspected.",
+            reasoning="Read parser entry point",
+            actions=[
+                Action(
+                    name="read_file",
+                    arguments={"path": "src/parser.c"},
+                    call_id="call-activity",
+                )
+            ],
+        )
+        self._add_tool_result(
+            turn,
+            step,
+            "read_file",
+            "call-activity",
+            success=True,
+            data={"path": "src/parser.c"},
+        )
+
+        result = self.assembler.build(self.session, "session_state", "healthy")
+
+        self.assertIn("activities", result)
+        activities = result["activities"]
+        self.assertEqual(
+            [item["kind"] for item in activities], ["user", "reasoning", "tool", "assistant"]
+        )
+        self.assertEqual(activities[0]["content"], "Inspect parser")
+        self.assertEqual(activities[0]["turn_id"], "turn-activity")
+        self.assertEqual(activities[1]["content"], "Read parser entry point")
+        self.assertEqual(activities[1]["step_id"], step.step_id)
+        self.assertEqual(activities[2]["tool_name"], "read_file")
+        self.assertEqual(activities[2]["call_id"], "call-activity")
+        self.assertEqual(activities[2]["status"], "success")
+        self.assertEqual(activities[3]["content"], "Parser inspected.")
+
 
 if __name__ == "__main__":
     unittest.main()

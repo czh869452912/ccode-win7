@@ -478,6 +478,8 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertIn("history", payload)
         self.assertIn("permission_context", payload)
         self.assertNotIn("replay", payload)
+        self.assertIn("activities", payload["history"])
+        self.assertTrue(payload["history"]["activities"])
         self.assertEqual(payload["history"]["turns"][0]["steps"][0]["assistant_text"], "ok")
 
     def test_bootstrap_payload_is_assembled_by_service_contract(self):
