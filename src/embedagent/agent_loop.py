@@ -56,7 +56,6 @@ class AgentLoop(object):
         maybe_record_compact_boundary: Optional[Callable[..., Any]] = None,
         maybe_maintain_memory: Optional[Callable[..., Any]] = None,
         classify_assistant_turn: Optional[Callable[..., Any]] = None,
-        is_completion_signal: Optional[Callable[..., Any]] = None,
         tool_presentation_snapshot: Optional[Callable[..., Any]] = None,
         action_service: Optional[Any] = None,
         record_tool_observation: Optional[Callable[..., Any]] = None,
@@ -86,7 +85,6 @@ class AgentLoop(object):
         self._maybe_record_compact_boundary = maybe_record_compact_boundary
         self._maybe_maintain_memory = maybe_maintain_memory
         self._classify_assistant_turn = classify_assistant_turn
-        self._is_completion_signal = is_completion_signal
         self._tool_presentation_snapshot = tool_presentation_snapshot
         self._action_service = action_service
         self._record_tool_observation = record_tool_observation
@@ -428,8 +426,6 @@ class AgentLoop(object):
                     on_step_finish(step_index, reply, transition.reason)
                 return QueryTurnResult(final_text, session, transition, turns_used)
             completion_signal = assistant_turn_kind == "final_message"
-            if self._classify_assistant_turn is None:
-                completion_signal = bool(self._is_completion_signal(reply, session))
             if completion_signal:
                 decision = self.continuation_policy.decide_after_step(
                     AgentLoopContinuationFacts(

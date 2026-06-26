@@ -201,7 +201,6 @@ class QueryEngine(object):
             maybe_record_compact_boundary=self._maybe_record_compact_boundary,
             maybe_maintain_memory=self._maybe_maintain_memory,
             classify_assistant_turn=self.classify_assistant_turn,
-            is_completion_signal=self._is_completion_signal,
             tool_presentation_snapshot=self._tool_presentation_snapshot,
             action_service=self._action_service,
             record_tool_observation=self._record_tool_observation,
@@ -1368,21 +1367,21 @@ class QueryEngine(object):
                 turn_frame.finish(result.transition)
                 return result
         try:
-            result = self._run_loop(
-                session,
-                current_mode,
-                workflow_state,
-                stream,
-                stop_event,
-                on_text_delta,
-                on_reasoning_delta,
-                on_tool_start,
-                on_tool_finish,
-                on_context_result,
-                on_step_start,
-                on_step_finish,
-                permission_handler,
-                user_input_handler,
+            result = self._agent_loop.run(
+                session=session,
+                current_mode=current_mode,
+                workflow_state=workflow_state,
+                stream=stream,
+                stop_event=stop_event,
+                on_text_delta=on_text_delta,
+                on_reasoning_delta=on_reasoning_delta,
+                on_tool_start=on_tool_start,
+                on_tool_finish=on_tool_finish,
+                on_context_result=on_context_result,
+                on_step_start=on_step_start,
+                on_step_finish=on_step_finish,
+                permission_handler=permission_handler,
+                user_input_handler=user_input_handler,
             )
             if self.tracer is not None:
                 self.tracer.record(
@@ -1628,21 +1627,21 @@ class QueryEngine(object):
             on_tool_finish,
         )
         try:
-            result = self._run_loop(
-                session,
-                current_mode,
-                workflow_state,
-                stream,
-                stop_event,
-                on_text_delta,
-                on_reasoning_delta,
-                on_tool_start,
-                on_tool_finish,
-                on_context_result,
-                on_step_start,
-                on_step_finish,
-                permission_handler,
-                user_input_handler,
+            result = self._agent_loop.run(
+                session=session,
+                current_mode=current_mode,
+                workflow_state=workflow_state,
+                stream=stream,
+                stop_event=stop_event,
+                on_text_delta=on_text_delta,
+                on_reasoning_delta=on_reasoning_delta,
+                on_tool_start=on_tool_start,
+                on_tool_finish=on_tool_finish,
+                on_context_result=on_context_result,
+                on_step_start=on_step_start,
+                on_step_finish=on_step_finish,
+                permission_handler=permission_handler,
+                user_input_handler=user_input_handler,
             )
         except BaseException as exc:
             turn_frame.interrupt("resume_error", error=str(exc))
@@ -1659,44 +1658,6 @@ class QueryEngine(object):
         if str(reply.content or "").strip():
             return "final_message"
         return "empty_noop"
-
-    def _is_completion_signal(self, reply, session) -> bool:
-        """Compatibility wrapper for completion policy tests and old loop wiring."""
-        return self.classify_assistant_turn(reply, session) == "final_message"
-
-    def _run_loop(
-        self,
-        session: Session,
-        current_mode: str,
-        workflow_state: str,
-        stream: bool,
-        stop_event: Optional[threading.Event],
-        on_text_delta: Optional[Callable[[str], None]],
-        on_reasoning_delta: Optional[Callable[[str], None]],
-        on_tool_start: Optional[Callable[[Action], None]],
-        on_tool_finish: Optional[Callable[[Action, Observation], None]],
-        on_context_result: Optional[Callable[[ContextAssemblyResult], None]],
-        on_step_start: Optional[Callable[[str, int], None]],
-        on_step_finish: Optional[Callable[[int, AssistantReply, str], None]],
-        permission_handler: Optional[Callable[[PermissionRequest], Optional[bool]]],
-        user_input_handler: Optional[Callable[[UserInputRequest], Optional[UserInputResponse]]],
-    ) -> QueryTurnResult:
-        return self._agent_loop.run(
-            session=session,
-            current_mode=current_mode,
-            workflow_state=workflow_state,
-            stream=stream,
-            stop_event=stop_event,
-            on_text_delta=on_text_delta,
-            on_reasoning_delta=on_reasoning_delta,
-            on_tool_start=on_tool_start,
-            on_tool_finish=on_tool_finish,
-            on_context_result=on_context_result,
-            on_step_start=on_step_start,
-            on_step_finish=on_step_finish,
-            permission_handler=permission_handler,
-            user_input_handler=user_input_handler,
-        )
 
     def _build_context(
         self, session: Session, mode_name: str, workflow_state: str, force_compact: bool = False

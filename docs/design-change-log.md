@@ -44,6 +44,28 @@
 
 ## 3. 当前变更记录
 
+### DC-205
+
+- Date: 2026-06-26
+- Change Topic: QueryEngine loop/completion compatibility wrapper removal
+- Summary:
+  - Removed private `_run_loop` and `_is_completion_signal` compatibility
+    wrappers from `QueryEngine`.
+  - Routed turn-loop execution directly into `AgentLoop.run(...)`.
+  - Kept completion decisions on the official `classify_assistant_turn(...)`
+    classification boundary and added regression guards against reintroducing
+    the wrappers.
+- Impacted Scope:
+  - `src/embedagent/query_engine.py`
+  - `src/embedagent/agent_loop.py`
+  - `tests/test_harness_completion_signal.py`
+  - `AGENTS.md`
+  - `docs/overall-solution-architecture.md`
+- ADR Needed: No
+- Follow-up:
+  - Continue removing private facade wrappers as later slices move GUI and
+    hosted adapter calls to explicit service boundaries.
+
 ### DC-204
 
 - Date: 2026-06-26
