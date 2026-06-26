@@ -28,6 +28,12 @@ function terminationCardFor({
   maxTurns,
 }) {
   if (terminationReason === "max_turns") {
+    if (maxTurns == null) {
+      return {
+        tone: "context",
+        content: "Explicit loop safety limit reached.",
+      };
+    }
     return {
       tone: "context",
       content: `Maximum turn limit reached (${turnsUsed}/${maxTurns}).`,

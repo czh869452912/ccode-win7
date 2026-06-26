@@ -54,7 +54,7 @@ def launch_tui(
     resolved_api_key = str(_resolve_runtime_value(api_key, app_config.api_key, ""))
     resolved_model = str(_resolve_runtime_value(model, app_config.model, ""))
     resolved_timeout = float(_resolve_runtime_value(timeout, app_config.timeout, 120.0))
-    raw_max_turns = _resolve_runtime_value(max_turns, app_config.max_turns, None)
+    raw_max_turns = max_turns
     resolved_max_turns = int(raw_max_turns) if raw_max_turns is not None else None
     if not resolved_model:
         raise ValueError("必须通过 --model 或配置文件提供模型名称。")

@@ -1,7 +1,7 @@
 # EmbedAgent Configuration Guide
 
 EmbedAgent uses layered configuration for model connection settings, context budgets,
-loop limits, and mode write policies.
+and mode write policies.
 
 This guide follows the current product baseline:
 
@@ -50,7 +50,6 @@ file does not require changing source code.
   "reserve_output_tokens": 2000,
   "chars_per_token": 3.0,
   "max_recent_turns": 4,
-  "max_turns": null,
   "default_mode": "explore",
   "mode_writable_globs": {
     "<mode_name>": ["glob_pattern", "..."]
@@ -93,11 +92,10 @@ Do not commit `config/config.json` when it contains a real API key.
 For larger local models, increasing `max_context_tokens` can reduce compaction
 frequency. Keep `reserve_output_tokens` large enough for tool plans and final answers.
 
-## Loop And Mode Defaults
+## Mode Defaults
 
 | Field | Type | Default | Meaning |
 |------|------|---------|---------|
-| `max_turns` | integer or null | `null` | Optional model/tool loop safety limit; omit or set null for Pi-style open continuation |
 | `default_mode` | string | `explore` | Initial mode for new sessions |
 
 Valid `default_mode` values are:
@@ -205,7 +203,9 @@ can still require confirmation or be denied by `PermissionPolicy`.
 
 ## CLI Overrides
 
-These CLI arguments override matching config fields:
+These CLI arguments override matching config fields. `--max-turns` is an
+explicit runtime safety fuse for diagnostics and tests; persistent JSON config
+does not set the product's loop ceiling.
 
 ```text
 --max-context-tokens INT

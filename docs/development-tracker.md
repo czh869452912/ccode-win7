@@ -27,7 +27,8 @@
 ### 2026-06-26 - Pi/T3 Residual Debt Cleanup
 
 - Default pre-release configuration and hosted GUI defaults now align with the
-  current architecture: `default_mode: explore` and `max_turns: null`.
+  current architecture: `default_mode: explore`, with no persistent loop
+  ceiling in JSON config.
 - `ToolRuntime.execute_for_mode`, adapter `_run_turn_v2`, adapter-local
   resource command spec builders, and adapter-local review evidence shaping
   were deleted or moved behind the intended boundaries.
@@ -115,7 +116,7 @@
 - C harness workflow injection now recognizes common Chinese development/debug/verification requests while keeping casual chat in build/debug from initializing workflow state.
 - Tool result cache documentation and stats now describe only implemented cache tiers; the unused L3 projection placeholder has been removed instead of being treated as a public capability.
 - `AgentCoreAdapter.shutdown()` now detaches frontend state and either delegates to runtime shutdown or cancels known sessions, keeping GUI workspace switching/app shutdown from depending on a no-op core cleanup path.
-- Offline staging no longer ships stale `code` / fixed-eight-turn defaults: generated bundle configs use `default_mode: explore` and `max_turns: null`, and the workspace template is now a tiny buildable C smoke project instead of a placeholder directory.
+- Offline staging no longer ships stale `code` / fixed-eight-turn defaults: generated bundle configs use `default_mode: explore` and do not carry a persistent loop ceiling, while the workspace template is now a tiny buildable C smoke project instead of a placeholder directory.
 
 ### 2026-06-19 - Pi-Style Agent Core Prompt/Resource/Runtime-State Alignment
 

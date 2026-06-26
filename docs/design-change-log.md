@@ -49,8 +49,8 @@
 - Date: 2026-06-26
 - Change Topic: Pi/T3 residual debt cleanup
 - Summary:
-  - Aligned pre-release defaults to `default_mode: explore` and
-    `max_turns: null`.
+  - Aligned pre-release defaults to `default_mode: explore` with no persistent
+    loop ceiling in JSON config.
   - Removed `ToolRuntime.execute_for_mode` and collapsed the adapter turn
     runner to a single `_run_turn` entrypoint.
   - Moved local skill/prompt slash command spec projection to
@@ -511,7 +511,7 @@
   - C harness workflow injection recognizes Chinese work requests such as implementation, debugging, running tests, and failure triage, while casual chat remains non-triggering.
   - Tool result cache stats and documentation now expose only implemented L1/L2 tiers, removing the unused L3 projection placeholder.
   - `AgentCoreAdapter.shutdown()` now detaches frontend callback state and performs best-effort runtime/session cleanup for GUI host shutdown and workspace switching.
-  - `prepare-offline.ps1` generated configs now use `default_mode: explore` and `max_turns: null`; the staged workspace template is now a tiny buildable C smoke project instead of a placeholder directory.
+  - `prepare-offline.ps1` generated configs now use `default_mode: explore` without a persistent loop ceiling; the staged workspace template is now a tiny buildable C smoke project instead of a placeholder directory.
 - 影响范围：
   - `scripts/prepare-offline.ps1`
   - `scripts/validate-gui-smoke.py`

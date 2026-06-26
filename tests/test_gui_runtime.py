@@ -72,10 +72,37 @@ class TestGuiLauncher(unittest.TestCase):
             adapter_cls.return_value.initialize.assert_called_once_with(
                 client=client_cls.return_value,
                 tools=tools_cls.return_value,
-                max_turns=11,
+                max_turns=None,
                 permission_policy=permission_policy_cls.return_value,
                 context_manager=context_manager_cls.return_value,
             )
+
+    def test_create_core_accepts_explicit_runtime_safety_limit(self):
+        app_config = AppConfig(
+            base_url="http://internal/v1",
+            api_key="sk-internal",
+            model="qwen3.5-coder",
+            timeout=45,
+            max_turns=8,
+        )
+        with tempfile.TemporaryDirectory() as workspace:
+            with patch("embedagent.config.load_config", return_value=app_config), patch(
+                "embedagent.llm.OpenAICompatibleClient"
+            ), patch("embedagent.tools.ToolRuntime"), patch(
+                "embedagent.context.make_context_config", return_value="context-config"
+            ), patch(
+                "embedagent.context.ContextManager"
+            ), patch(
+                "embedagent.project_memory.ProjectMemoryStore"
+            ), patch(
+                "embedagent.permissions.PermissionPolicy"
+            ), patch(
+                "embedagent.core.adapter.AgentCoreAdapter"
+            ) as adapter_cls:
+                gui_launcher.create_core(workspace, {"max_turns": 3})
+
+            adapter_cls.return_value.initialize.assert_called_once()
+            self.assertEqual(adapter_cls.return_value.initialize.call_args.kwargs["max_turns"], 3)
 
     def test_main_accepts_workspace_option(self):
         with tempfile.TemporaryDirectory() as workspace:

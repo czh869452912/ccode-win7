@@ -185,6 +185,7 @@ export function reducer(state, action) {
         terminationDisplayReason: "",
         terminationMessage: "",
         turnsUsed: 0,
+        maxTurns: null,
         activeTurnId: "",
         activeStepId: "",
         activeStepIndex: 0,
@@ -261,6 +262,10 @@ export function reducer(state, action) {
         streamingReasoningId: "",
         thinkingActive: false,
         terminationReason: "",
+        terminationDisplayReason: "",
+        terminationMessage: "",
+        turnsUsed: 0,
+        maxTurns: null,
         activeTurnId: pendingTurnId,
       };
     case "turn_started": {
@@ -320,7 +325,7 @@ export function reducer(state, action) {
         terminationDisplayReason: action.terminationDisplayReason || action.terminationReason || "",
         terminationMessage: action.terminationMessage || "",
         turnsUsed: action.turnsUsed || 0,
-        maxTurns: action.maxTurns || state.maxTurns,
+        maxTurns: action.maxTurns ?? null,
       };
     case "assistant_delta": {
       let timeline = state.timeline.slice();

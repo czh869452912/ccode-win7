@@ -51,6 +51,7 @@ import { runRightPanelTabsSourceTests } from "./right-panel-tabs-source.test.mjs
 import { runTerminalShellSourceTests } from "./terminal-shell-source.test.mjs";
 import { runThreadStateTests } from "./thread-state.test.mjs";
 import { runRunOutputStateTests } from "./run-output-state.test.mjs";
+import { runStoreReducerTests } from "./store-reducer.test.mjs";
 
 const WEBAPP_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -1071,6 +1072,8 @@ async function main() {
   assert.equal(workbenchHeaderSource.includes("mode-${currentMode}"), true);
   assert.equal(workbenchHeaderSource.includes("header-status-group"), true);
   assert.equal(workbenchHeaderSource.includes("header-action-group"), true);
+  assert.equal(workbenchHeaderSource.includes("turns {turnsUsed}/{maxTurns}"), true);
+  assert.equal(workbenchHeaderSource.includes("turnsUsed > 0 && maxTurns != null"), true);
 
   const appSidebarLayoutSource = fs.readFileSync(
     webappSourcePath("components", "workbench", "AppSidebarLayout.jsx"),
@@ -1296,6 +1299,7 @@ async function main() {
   runCommandPaletteSourceTests();
   runThreadStateTests();
   runRunOutputStateTests();
+  runStoreReducerTests();
   runComposerTriggerTests();
   runComposerCommandSearchTests();
   runComposerPathContextTests();

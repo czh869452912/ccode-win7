@@ -39,7 +39,7 @@ export default function WorkbenchHeader({
           {currentSessionId ? (
             <span className="meta-text">{currentSessionId.slice(0, 8)}</span>
           ) : null}
-          {turnsUsed > 0 ? (
+          {turnsUsed > 0 && maxTurns != null ? (
             <span className="meta-text">turns {turnsUsed}/{maxTurns}</span>
           ) : null}
         </div>

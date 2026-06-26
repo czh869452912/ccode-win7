@@ -17,7 +17,6 @@
         "chars_per_token": 3.0,
         "max_recent_turns": 4,
         "auto_compact_threshold_ratio": 0.9,
-        "max_turns": null,
         "default_mode": "explore",
         "mode_writable_globs": {
             "build": ["**/*.py", "**/*.toml", "**/*.cfg"],
@@ -53,7 +52,7 @@ class AppConfig:
     chars_per_token: Optional[float] = None
     max_recent_turns: Optional[int] = None
     auto_compact_threshold_ratio: Optional[float] = None
-    # 循环控制
+    # Explicit runtime/test loop safety fuse. Persistent JSON config ignores this field.
     max_turns: Optional[int] = None
     default_mode: Optional[str] = None
     allow_system_tool_fallback: Optional[bool] = None
@@ -91,11 +90,6 @@ def _merge(base: AppConfig, overrides: dict) -> AppConfig:
         ):
             if normalized.get(field_name) is None and context_section.get(field_name) is not None:
                 normalized[field_name] = context_section.get(field_name)
-    session_section = overrides.get("session")
-    if isinstance(session_section, dict):
-        if normalized.get("max_turns") is None and session_section.get("max_turns") is not None:
-            normalized["max_turns"] = session_section.get("max_turns")
-
     simple_fields = (
         "base_url",
         "api_key",
@@ -106,7 +100,6 @@ def _merge(base: AppConfig, overrides: dict) -> AppConfig:
         "chars_per_token",
         "max_recent_turns",
         "auto_compact_threshold_ratio",
-        "max_turns",
         "default_mode",
         "allow_system_tool_fallback",
     )
@@ -133,6 +126,7 @@ def _merge(base: AppConfig, overrides: dict) -> AppConfig:
             if isinstance(globs, list):
                 merged_extra_globs[mode_name] = [str(g) for g in globs]
     kwargs["mode_extra_writable_globs"] = merged_extra_globs
+    kwargs["max_turns"] = base.max_turns
 
     return AppConfig(**kwargs)
 

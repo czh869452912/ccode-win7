@@ -76,7 +76,7 @@ def create_core(workspace: str, config: Optional[Dict[str, Any]] = None):
     api_key = str(_resolve_runtime_value(options.get("api_key"), app_config.api_key, ""))
     model = str(_resolve_runtime_value(options.get("model"), app_config.model, ""))
     timeout = float(_resolve_runtime_value(options.get("timeout"), app_config.timeout, 120.0))
-    raw_max_turns = _resolve_runtime_value(options.get("max_turns"), app_config.max_turns, None)
+    raw_max_turns = options.get("max_turns")
     max_turns = int(raw_max_turns) if raw_max_turns is not None else None
     permission_rules = str(options.get("permission_rules") or "")
     if not model:

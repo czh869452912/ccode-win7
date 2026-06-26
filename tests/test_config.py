@@ -173,7 +173,14 @@ class TestMerge(unittest.TestCase):
         self.assertEqual(result.reserve_output_tokens, 3000)
         self.assertEqual(result.chars_per_token, 3.5)
         self.assertEqual(result.max_recent_turns, 4)
-        self.assertEqual(result.max_turns, 12)
+        self.assertIsNone(result.max_turns)
+
+    def test_persistent_max_turns_is_ignored(self):
+        base = AppConfig(max_turns=None)
+
+        result = _merge(base, {"max_turns": 8, "session": {"max_turns": 12}})
+
+        self.assertIsNone(result.max_turns)
 
 
 class TestLoadConfig(unittest.TestCase):
@@ -200,6 +207,19 @@ class TestLoadConfig(unittest.TestCase):
                 cfg = load_config(workspace)
             self.assertEqual(cfg.model, "project-model")
             self.assertEqual(cfg.max_context_tokens, 16000)
+
+    def test_load_config_ignores_legacy_user_max_turns(self):
+        with tempfile.TemporaryDirectory() as workspace:
+            with tempfile.TemporaryDirectory() as user_config_dir, patch(
+                "embedagent.config._USER_CONFIG_DIR", user_config_dir
+            ):
+                with open(os.path.join(user_config_dir, "config.json"), "w") as f:
+                    json.dump({"model": "user-model", "max_turns": 8}, f)
+
+                cfg = load_config(workspace)
+
+            self.assertEqual(cfg.model, "user-model")
+            self.assertIsNone(cfg.max_turns)
 
     def test_project_config_overrides_user_config(self):
         # We can't easily test user config (~/.embedagent) without side effects,
