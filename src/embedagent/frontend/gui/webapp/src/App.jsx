@@ -920,7 +920,6 @@ function App() {
     const socket = new WebSocket(`${protocol}//${window.location.host}/ws`);
     wsRef.current = socket;
     socket.onopen = async () => {
-      dispatch({ type: "set_connection", value: "connected" });
       updateSessionEventLog((current) => ({ ...current, connectionState: "connected" }));
       wsRetryRef.current = 0;
       if (currentSessionIdRef.current && sessionEventLogRef.current.replayState !== "healthy") {
@@ -928,7 +927,6 @@ function App() {
       }
     };
     socket.onclose = () => {
-      dispatch({ type: "set_connection", value: "disconnected" });
       updateSessionEventLog((current) => ({ ...current, connectionState: "disconnected" }));
       if (
         !shouldReconnectSocket({
@@ -945,7 +943,6 @@ function App() {
       window.setTimeout(connectWebSocket, delay);
     };
     socket.onerror = () => {
-      dispatch({ type: "set_connection", value: "disconnected" });
       updateSessionEventLog((current) => ({
         ...current,
         connectionState: "degraded",
@@ -957,7 +954,6 @@ function App() {
         const message = JSON.parse(event.data);
         startTransition(() => handleSocketMessage(message.type, message.data || {}));
       } catch (_) {
-        dispatch({ type: "set_connection", value: "disconnected" });
         updateSessionEventLog((current) => ({
           ...current,
           connectionState: "degraded",

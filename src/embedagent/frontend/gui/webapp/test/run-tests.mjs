@@ -885,6 +885,7 @@ async function main() {
   assert.equal(appSource.includes("deriveSessionActivation"), true);
   assert.equal(appSource.includes("function executeLoaderRequest(request = {})"), false);
   assert.equal(appSource.includes("request.name === LOADER_REQUESTS"), false);
+  assert.equal(appSource.includes('type: "set_connection"'), false);
   assert.equal(appSource.includes("__EMBEDAGENT_VISUAL_DEBUG__"), false);
   assert.equal(appSource.includes("visual_timeline_fixture_loaded"), false);
   assert.equal(appSource.includes("activeTurnId: state.activeTurnId"), true);
@@ -1010,6 +1011,8 @@ async function main() {
   assert.equal(storeSource.includes("createTerminalState"), true);
   assert.equal(storeSource.includes("reduceTerminalState"), true);
   assert.equal(storeSource.includes("terminal_snapshot_loaded"), true);
+  assert.equal(storeSource.includes("connectionState:"), false);
+  assert.equal(storeSource.includes('"set_connection"'), false);
   assert.equal(storeSource.includes("visual_timeline_fixture_loaded"), false);
   assert.equal(storeSource.includes("visual_interaction_fixture_loaded"), false);
   assert.equal(storeSource.includes("visual_thread_lifecycle_fixture_loaded"), false);

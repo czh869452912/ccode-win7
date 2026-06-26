@@ -247,3 +247,30 @@ Export `projectTransportView` from `event-log.js`, make `projectSessionRuntime` 
 Run: `npm test` under `src/embedagent/frontend/gui/webapp`.
 
 Expected: PASS.
+
+### Task 8: Remove Root GUI Connection State
+
+**Files:**
+- Modify: `src/embedagent/frontend/gui/webapp/src/App.jsx`
+- Modify: `src/embedagent/frontend/gui/webapp/src/store.js`
+- Test: `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+
+- [x] **Step 1: Write failing source guard**
+
+Assert App no longer dispatches `set_connection` and store no longer owns a root `connectionState` field/action.
+
+- [x] **Step 2: Verify the guard fails before implementation**
+
+Run: `npm test` under `src/embedagent/frontend/gui/webapp`.
+
+Expected: FAIL while root connection state still exists.
+
+- [x] **Step 3: Route connection state only through session runtime event log**
+
+Remove root `connectionState` and `set_connection`; keep websocket open/close/error updates on `sessionEventLog.connectionState`, which feeds `projectTransportView`.
+
+- [x] **Step 4: Verify Task 8 passes**
+
+Run: `npm test` under `src/embedagent/frontend/gui/webapp`.
+
+Expected: PASS.

@@ -39,7 +39,6 @@ export const initialState = {
   fileTree: [],
   toolCatalog: {},
   requestedMode: DEFAULT_MODE,
-  connectionState: "connecting",
   eventLog: createEventLogState(),
   terminationReason: "",
   terminationDisplayReason: "",
@@ -93,8 +92,6 @@ export function reducer(state, action) {
       return { ...state, lang: action.value };
     case "set_composer":
       return { ...state, composer: reduceComposerState(state.composer, action) };
-    case "set_connection":
-      return { ...state, connectionState: action.value };
     case "app_bootstrap_loaded":
       return {
         ...state,
