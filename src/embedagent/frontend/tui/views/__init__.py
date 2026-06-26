@@ -5,7 +5,6 @@ from embedagent.frontend.tui.views.header import build_header_text
 from embedagent.frontend.tui.views.inspector import build_help_text, build_inspector_text
 from embedagent.frontend.tui.views.timeline import (
     ActivityTimelineView,
-    FlatTimelineView,
     TimelineView,
     build_timeline_text,
     format_activity_records,
@@ -27,6 +26,5 @@ __all__ = [
     "format_activity_records",
     "format_timeline_records",
     "ActivityTimelineView",
-    "FlatTimelineView",
     "TimelineView",
 ]
