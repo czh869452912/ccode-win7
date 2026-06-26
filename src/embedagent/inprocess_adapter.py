@@ -1807,8 +1807,7 @@ class InProcessAdapter(object):
         event_handler: Optional[EventHandler],
         permission_resolver: Optional[PermissionResolver],
     ) -> Dict[str, Any]:
-        events = self._review_events_from_session(state.session, limit=400)
-        review = self.review_command.build_payload(events)
+        review = self.review_command.build_payload_from_session(state.session, limit=400)
         lines = self.review_command.markdown_lines(review)
         self._emit_command_result(
             event_handler,
@@ -1823,39 +1822,6 @@ class InProcessAdapter(object):
             ),
         )
         return {"handled": True, "continue_with_text": ""}
-
-    def _review_events_from_session(
-        self, session: Session, limit: int = 400
-    ) -> List[Dict[str, Any]]:
-        events = []  # type: List[Dict[str, Any]]
-        seen_call_ids = set()
-        for turn in session.turns:
-            for step in turn.steps:
-                for record in step.tool_calls:
-                    observation = record.observation
-                    if observation is None:
-                        continue
-                    call_id = str(record.call_id or "")
-                    if call_id and call_id in seen_call_ids:
-                        continue
-                    if call_id:
-                        seen_call_ids.add(call_id)
-                    data = observation.data if isinstance(observation.data, dict) else {}
-                    events.append(
-                        {
-                            "event": "tool_finished",
-                            "payload": {
-                                "tool_name": record.tool_name,
-                                "success": bool(observation.success),
-                                "call_id": call_id,
-                                "error": observation.error or "",
-                                "data": dict(data),
-                            },
-                        }
-                    )
-        if limit > 0:
-            return events[-limit:]
-        return events
 
     def _execute_tool_from_command(
         self,

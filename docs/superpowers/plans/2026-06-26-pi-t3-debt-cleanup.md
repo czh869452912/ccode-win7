@@ -274,3 +274,29 @@ Remove root `connectionState` and `set_connection`; keep websocket open/close/er
 Run: `npm test` under `src/embedagent/frontend/gui/webapp`.
 
 Expected: PASS.
+
+### Task 9: Move Hosted Review Evidence Shaping Into ReviewCommandService
+
+**Files:**
+- Modify: `src/embedagent/review_command.py`
+- Modify: `src/embedagent/inprocess_adapter.py`
+- Test: `tests/test_review_command.py`
+- Test: `tests/test_backward_compatibility.py`
+
+- [x] **Step 1: Write failing service test**
+
+Assert `ReviewCommandService.build_payload_from_session(session, limit=...)` builds review payloads from recorded session tool observations.
+
+- [x] **Step 2: Write failing adapter boundary test**
+
+Assert `InProcessAdapter` no longer owns `_review_events_from_session`.
+
+- [x] **Step 3: Move review evidence shaping into the service**
+
+Add session-to-review-event extraction inside `ReviewCommandService`; make `/review` call `build_payload_from_session` and delete the adapter helper.
+
+- [x] **Step 4: Verify Task 9 passes**
+
+Run: `uv run pytest tests/test_review_command.py tests/test_backward_compatibility.py::TestInProcessAdapterCompatibility::test_review_evidence_shaping_lives_outside_adapter tests/test_inprocess_adapter_frontend_api.py::TestInProcessAdapterFrontendApis::test_slash_review_emits_structured_findings tests/test_inprocess_adapter_frontend_api.py::TestInProcessAdapterFrontendApis::test_slash_review_emits_findings_from_official_verify_path -v`
+
+Expected: PASS.

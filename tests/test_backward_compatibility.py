@@ -137,6 +137,11 @@ class TestInProcessAdapterCompatibility(object):
         assert not hasattr(InProcessAdapter, "_resource_command_specs")
         assert not hasattr(InProcessAdapter, "_skill_command_specs")
 
+    def test_review_evidence_shaping_lives_outside_adapter(self):
+        from embedagent.inprocess_adapter import InProcessAdapter
+
+        assert not hasattr(InProcessAdapter, "_review_events_from_session")
+
 
 class TestQueryEngineCompatibility(object):
     """Verify QueryEngine public API unchanged."""
