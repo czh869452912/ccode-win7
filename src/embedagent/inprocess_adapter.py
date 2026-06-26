@@ -1162,28 +1162,28 @@ class InProcessAdapter(object):
         self._notify_status(event_handler, state)
         if wait:
             self._run_turn(
-                state,
-                text_to_run,
-                stream,
-                permission_resolver,
-                user_input_resolver,
-                event_handler,
+                state=state,
+                text=text_to_run,
+                stream=stream,
+                permission_resolver=permission_resolver,
+                user_input_resolver=user_input_resolver,
+                event_handler=event_handler,
                 turn_id=command_turn_id or "",
                 emit_turn_start=not bool(command_turn_id),
             )
             return self.get_session_snapshot(session_id)
         thread = threading.Thread(
             target=self._run_turn,
-            args=(
-                state,
-                text_to_run,
-                stream,
-                permission_resolver,
-                user_input_resolver,
-                event_handler,
-                command_turn_id or "",
-                not bool(command_turn_id),
-            ),
+            kwargs={
+                "state": state,
+                "text": text_to_run,
+                "stream": stream,
+                "permission_resolver": permission_resolver,
+                "user_input_resolver": user_input_resolver,
+                "event_handler": event_handler,
+                "turn_id": command_turn_id or "",
+                "emit_turn_start": not bool(command_turn_id),
+            },
             name="embedagent-session-%s" % session_id[:8],
         )
         with state.lock:
@@ -2163,7 +2163,16 @@ class InProcessAdapter(object):
                 command_wait = True
         if command_wait:
             return self._wait_for_command_resolution(session_id)
-        self._run_turn_v2(state, "", True, None, None, self.event_handler, {"approved": True}, True)
+        self._run_turn(
+            state=state,
+            text="",
+            stream=True,
+            permission_resolver=None,
+            user_input_resolver=None,
+            event_handler=self.event_handler,
+            interaction_resolution={"approved": True},
+            resume_pending=True,
+        )
         return self.get_session_snapshot(session_id)
 
     def reject_permission(self, session_id: str, permission_id: str) -> Dict[str, Any]:
@@ -2181,8 +2190,15 @@ class InProcessAdapter(object):
                 command_wait = True
         if command_wait:
             return self._wait_for_command_resolution(session_id)
-        self._run_turn_v2(
-            state, "", True, None, None, self.event_handler, {"approved": False}, True
+        self._run_turn(
+            state=state,
+            text="",
+            stream=True,
+            permission_resolver=None,
+            user_input_resolver=None,
+            event_handler=self.event_handler,
+            interaction_resolution={"approved": False},
+            resume_pending=True,
         )
         return self.get_session_snapshot(session_id)
 
@@ -2216,20 +2232,20 @@ class InProcessAdapter(object):
             snapshot = self._wait_for_command_resolution(session_id)
             self._notify_status(None, state)
             return snapshot
-        self._run_turn_v2(
-            state,
-            "",
-            True,
-            None,
-            None,
-            self.event_handler,
-            {
+        self._run_turn(
+            state=state,
+            text="",
+            stream=True,
+            permission_resolver=None,
+            user_input_resolver=None,
+            event_handler=self.event_handler,
+            interaction_resolution={
                 "answer": str(answer or ""),
                 "selected_index": selected_index,
                 "selected_mode": str(selected_mode or ""),
                 "selected_option_text": str(selected_option_text or ""),
             },
-            True,
+            resume_pending=True,
         )
         snapshot = self.get_session_snapshot(session_id)
         self._notify_status(None, state)
@@ -2321,28 +2337,6 @@ class InProcessAdapter(object):
         return snapshot
 
     def _run_turn(
-        self,
-        state: ManagedSession,
-        text: str,
-        stream: bool,
-        permission_resolver: Optional[PermissionResolver],
-        user_input_resolver: Optional[UserInputResolver],
-        event_handler: Optional[EventHandler],
-        turn_id: str = "",
-        emit_turn_start: bool = True,
-    ) -> None:
-        return self._run_turn_v2(
-            state=state,
-            text=text,
-            stream=stream,
-            permission_resolver=permission_resolver,
-            user_input_resolver=user_input_resolver,
-            event_handler=event_handler,
-            turn_id=turn_id,
-            emit_turn_start=emit_turn_start,
-        )
-
-    def _run_turn_v2(
         self,
         state: ManagedSession,
         text: str,

@@ -125,6 +125,12 @@ class TestInProcessAdapterCompatibility(object):
 
         assert isinstance(adapter._event_emitter, EventEmitter)
 
+    def test_turn_runner_has_single_internal_entrypoint(self):
+        from embedagent.inprocess_adapter import InProcessAdapter
+
+        assert hasattr(InProcessAdapter, "_run_turn")
+        assert not hasattr(InProcessAdapter, "_run_turn_v2")
+
 
 class TestQueryEngineCompatibility(object):
     """Verify QueryEngine public API unchanged."""

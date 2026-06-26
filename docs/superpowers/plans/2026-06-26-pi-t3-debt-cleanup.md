@@ -139,3 +139,29 @@ Expected: PASS.
 Run: `uv run --locked python scripts/lint.py`
 
 Expected: exit code 0.
+
+### Task 4: Collapse the Pre-Release Turn Runner Wrapper
+
+**Files:**
+- Modify: `src/embedagent/inprocess_adapter.py`
+- Test: `tests/test_backward_compatibility.py`
+
+- [x] **Step 1: Write failing single-entrypoint boundary test**
+
+Assert `InProcessAdapter` still has `_run_turn` but no longer exposes `_run_turn_v2`.
+
+- [x] **Step 2: Verify the boundary test fails before implementation**
+
+Run: `uv run pytest tests/test_backward_compatibility.py::TestInProcessAdapterCompatibility::test_turn_runner_has_single_internal_entrypoint -v`
+
+Expected: FAIL while `_run_turn_v2` still exists.
+
+- [x] **Step 3: Rename the implementation to the official single entrypoint**
+
+Move the real turn-runner implementation into `_run_turn`, update permission/user-input resume paths to use keyword arguments, and use keyword `threading.Thread(..., kwargs=...)` for the async submit path so optional continuation parameters are explicit.
+
+- [x] **Step 4: Verify Task 4 passes**
+
+Run: `uv run pytest tests/test_backward_compatibility.py::TestInProcessAdapterCompatibility::test_turn_runner_has_single_internal_entrypoint tests/test_inprocess_adapter_frontend_api.py::TestInProcessAdapterFrontendApis::test_resume_session_restores_waiting_permission_from_transcript tests/test_inprocess_adapter_frontend_api.py::TestInProcessAdapterFrontendApis::test_cancel_session_does_not_mark_idle_before_worker_exits -v`
+
+Expected: PASS.
