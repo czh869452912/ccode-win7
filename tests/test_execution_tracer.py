@@ -2,8 +2,8 @@
 
 import os
 import tempfile
-import time
 import unittest
+from unittest.mock import patch
 
 from embedagent.strategies.execution_tracer import ExecutionTracer, TraceEventType
 
@@ -25,8 +25,15 @@ class TestExecutionTracer(unittest.TestCase):
 
     def test_start_span_records_duration(self):
         tracer = ExecutionTracer()
-        with tracer.start_span(TraceEventType.LLM_CALL_START, "session_1", "turn_1"):
-            time.sleep(0.05)
+        with patch(
+            "embedagent.strategies.execution_tracer.time.time",
+            side_effect=[1000.0, 1000.0, 1000.0499, 1000.1],
+        ), patch(
+            "embedagent.strategies.execution_tracer.time.perf_counter",
+            side_effect=[200.0, 200.0499],
+        ):
+            with tracer.start_span(TraceEventType.LLM_CALL_START, "session_1", "turn_1"):
+                pass
 
         traces = tracer.get_traces(session_id="session_1")
         # Should have start and end events
@@ -34,7 +41,7 @@ class TestExecutionTracer(unittest.TestCase):
         end_event = traces[1]
         self.assertEqual(end_event.event_type, TraceEventType.LLM_CALL_END)
         self.assertIsNotNone(end_event.duration_ms)
-        self.assertGreaterEqual(end_event.duration_ms, 50)
+        self.assertEqual(end_event.duration_ms, 50)
 
     def test_span_captures_exception(self):
         tracer = ExecutionTracer()

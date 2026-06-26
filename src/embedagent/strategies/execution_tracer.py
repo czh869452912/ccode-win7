@@ -99,7 +99,7 @@ class ExecutionTracer(object):
         step_id: Optional[str] = None,
         data: Optional[Dict[str, Any]] = None,
     ):
-        start_time = time.time()
+        start_time = time.perf_counter()
         self.record(event_type, session_id, turn_id, step_id, data)
         try:
             yield
@@ -113,7 +113,7 @@ class ExecutionTracer(object):
             )
             raise
         finally:
-            duration_ms = int((time.time() - start_time) * 1000)
+            duration_ms = int(round((time.perf_counter() - start_time) * 1000))
             self.record(
                 (
                     TraceEventType.LLM_CALL_END
