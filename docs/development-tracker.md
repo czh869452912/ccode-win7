@@ -397,7 +397,7 @@
 - `workspace_intelligence.py`、`tool_execution.py` 与 `tests/test_query_engine_refactor.py` 已落地；新测试已覆盖 pending interaction resume、tool batch partition、intelligence/boundary 注入
 - `DiagnosticsProvider` 已升级为工作集优先的文件级热点聚合：同一文件上的 compile/tidy/analyzer 诊断会折叠为单条热点证据，最近编辑/读取文件优先于被动报错文件
 - `DiagnosticsProvider` 已继续推进第二段：`verify` 模式下会把 `report_quality`、`run_tests`、`collect_coverage` 等无路径失败聚成一条 quality gate summary，避免质量门信息只剩零散 observation
-- `RecipeProvider` 已继续推进第二段：当前会按 mode 区分 `project / history / detected` recipe 来源优先级，并把 `stage` 作为细粒度 tie-break；`code` 模式更偏 project/detected build，`verify` 模式更偏 project/history test
+- `RecipeProvider` 已继续推进第二段：当时会按 mode 区分 `project / history / detected` recipe 来源优先级，并把 `stage` 作为细粒度 tie-break；该记录中的旧 `code` 口径已由后续 official cutover 替换为当前正式 `build` 模式，`verify` 模式仍偏 project/history test
 - `QueryEngine` 已具备第一版 reactive compact retry：当模型明确报出 prompt/context 过长时，会记录 `compact_retry` transition、复用 compact boundary，并以内部 compact policy 自动重试一次
 - `ContextManager` 已具备第一版 pre-provider auto compact：当常规上下文接近输入预算阈值且存在可摘要旧 turn 时，会在 provider 请求前用内部 compact policy 重新组装，并通过 `compact_boundary` 记录 `auto_threshold/pre_provider` 诊断字段
 - `compact_retry` 现在已对前端可观测：snapshot 暴露最近 transition reasons / compact retry 次数，timeline 也会记录 `compact_retry` event
