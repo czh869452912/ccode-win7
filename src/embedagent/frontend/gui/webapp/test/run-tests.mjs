@@ -48,6 +48,7 @@ import { runRightPanelStoreParityTests } from "./right-panel-store-parity.test.m
 import { runRightPanelTabsSourceTests } from "./right-panel-tabs-source.test.mjs";
 import { runTerminalShellSourceTests } from "./terminal-shell-source.test.mjs";
 import { runThreadStateTests } from "./thread-state.test.mjs";
+import { runEventLogStateTests } from "./event-log-state.test.mjs";
 
 const WEBAPP_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -1276,6 +1277,7 @@ async function main() {
   runCommandPaletteModelTests();
   runCommandPaletteSourceTests();
   runThreadStateTests();
+  runEventLogStateTests();
   runComposerTriggerTests();
   runComposerCommandSearchTests();
   runComposerPathContextTests();

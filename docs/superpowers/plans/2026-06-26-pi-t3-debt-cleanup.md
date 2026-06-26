@@ -191,3 +191,32 @@ Add `resource_command_specs(resources)` to `slash_commands.py` and make adapter 
 Run: `uv run pytest tests/test_capability_registry.py::test_resource_command_specs_project_visible_skills_and_prompts tests/test_backward_compatibility.py::TestInProcessAdapterCompatibility::test_resource_command_specs_live_outside_adapter -v`
 
 Expected: PASS.
+
+### Task 6: Move GUI Event Log State Into Session Runtime
+
+**Files:**
+- Add: `src/embedagent/frontend/gui/webapp/src/session-runtime/event-log-state.js`
+- Modify: `src/embedagent/frontend/gui/webapp/src/store.js`
+- Modify: `src/embedagent/frontend/gui/webapp/src/app-workspaces.js`
+- Test: `src/embedagent/frontend/gui/webapp/test/event-log-state.test.mjs`
+- Test: `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+
+- [x] **Step 1: Write failing event-log reducer test**
+
+Assert event log creation, append, 200-entry cap, session activation reset, and workspace reset live in a focused session-runtime module.
+
+- [x] **Step 2: Verify the test fails before implementation**
+
+Run: `npm test` under `src/embedagent/frontend/gui/webapp`.
+
+Expected: FAIL while `session-runtime/event-log-state.js` does not exist.
+
+- [x] **Step 3: Implement the focused event-log state module**
+
+Add `createEventLogState`, `readEventLogEntries`, and `reduceEventLogState`; wire `store.js` and `app-workspaces.js` to consume it instead of hard-coded root reducer event-log rules.
+
+- [x] **Step 4: Verify Task 6 passes**
+
+Run: `npm test` under `src/embedagent/frontend/gui/webapp`.
+
+Expected: PASS.

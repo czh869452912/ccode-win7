@@ -1,6 +1,7 @@
 export { normalizeAppBootstrap, normalizeWorkspaceRecord } from "./app-shell/model.js";
 import { createComposerState } from "./composer/composer-state.js";
 import { createSourceControlState } from "./source-control/source-control-state.js";
+import { reduceEventLogState } from "./session-runtime/event-log-state.js";
 import { createThreadState } from "./session-runtime/thread-state.js";
 import { createTerminalState } from "./terminal/terminal-state.js";
 
@@ -40,7 +41,7 @@ export function resetWorkspaceScopedState(state = {}) {
     diffSurface: null,
     fileTree: [],
     toolCatalog: {},
-    eventLog: [],
+    eventLog: reduceEventLogState(state.eventLog, { type: "workspace_scoped_state_reset" }),
     terminationReason: "",
     terminationDisplayReason: "",
     terminationMessage: "",

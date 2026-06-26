@@ -5,6 +5,7 @@ import { createAppShellState } from "./app-shell/model.js";
 import { reduceAppShellState } from "./app-shell/reducer.js";
 import { createSourceControlState, reduceSourceControlState } from "./source-control/source-control-state.js";
 import { createTerminalState, reduceTerminalState } from "./terminal/terminal-state.js";
+import { createEventLogState, reduceEventLogState } from "./session-runtime/event-log-state.js";
 import { createThreadState, readActiveThreadId, reduceThreadState } from "./session-runtime/thread-state.js";
 import { createWorkbenchState, reduceWorkbenchState } from "./workbench/surfaces.js";
 import { resetWorkspaceScopedState } from "./app-workspaces.js";
@@ -39,7 +40,7 @@ export const initialState = {
   toolCatalog: {},
   requestedMode: DEFAULT_MODE,
   connectionState: "connecting",
-  eventLog: [],
+  eventLog: createEventLogState(),
   terminationReason: "",
   terminationDisplayReason: "",
   terminationMessage: "",
@@ -190,7 +191,7 @@ export function reducer(state, action) {
         activeTurnId: "",
         activeStepId: "",
         activeStepIndex: 0,
-        eventLog: [],
+        eventLog: reduceEventLogState(state.eventLog, action),
         plan: null,
         review: null,
         permissionContext: null,
@@ -808,12 +809,7 @@ export function reducer(state, action) {
         timeline: state.timeline.map((item) => (item.streaming ? { ...item, streaming: false } : item)),
       };
     case "log_event": {
-      const entry = { ts: Date.now(), label: action.label, detail: action.detail || "" };
-      const eventLog =
-        state.eventLog.length >= 200
-          ? [...state.eventLog.slice(-199), entry]
-          : [...state.eventLog, entry];
-      return { ...state, eventLog };
+      return { ...state, eventLog: reduceEventLogState(state.eventLog, action) };
     }
     case "workbench_surface_opened":
     case "workbench_surface_activated":
