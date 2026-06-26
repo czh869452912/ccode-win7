@@ -74,3 +74,23 @@ def test_gui_backend_routes_do_not_use_active_core_proxy():
     text = _read(ROOT / "src/embedagent/frontend/gui/backend/server.py")
     assert "_ActiveCoreProxy" not in text
     assert "self.core" not in text
+
+
+def test_no_timeline_reload_route_or_metadata_in_active_gui_backend():
+    files = [
+        ROOT / "src/embedagent/frontend/gui/backend/server.py",
+        ROOT / "src/embedagent/frontend/gui/backend/session_events.py",
+        ROOT / "src/embedagent/inprocess_adapter.py",
+        ROOT / "src/embedagent/core/adapter.py",
+    ]
+    offenders = []
+    for path in files:
+        text = _read(path)
+        for token in (
+            "/api/sessions/{session_id}/events",
+            "_timeline_event",
+            "load_session" + "_events_after",
+        ):
+            if token in text:
+                offenders.append("%s contains %s" % (path.relative_to(ROOT), token))
+    assert offenders == []

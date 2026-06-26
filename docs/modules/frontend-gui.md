@@ -288,7 +288,7 @@ maps existing WebSocket messages into private webapp descriptors: reducer
 actions, session transport events, and loader requests.
 `session-transport-controller.js` owns WebSocket connect/reconnect/error
 lifecycle and reload-by-bootstrap recovery; it must not call
-`/api/sessions/{id}/events` as a history replay API. `terminal-controller.js`
+session event replay HTTP routes as history APIs. `terminal-controller.js`
 coordinates existing terminal API helpers and reducer actions for bottom-drawer
 terminal actions plus right-panel terminal open/split/activate/close behavior.
 `App.jsx` remains the composition layer for HTTP route calls, reducer dispatch,

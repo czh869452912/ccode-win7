@@ -1080,18 +1080,6 @@ class InProcessAdapter(object):
             return items
         return []
 
-    def load_session_events_after(
-        self, session_id: str, after_seq: int, limit: int = 200
-    ) -> Dict[str, Any]:
-        self._require_session(session_id)
-        return {
-            "status": "reload_required",
-            "events": [],
-            "first_seq": 0,
-            "last_seq": 0,
-            "reason": "bootstrap_required",
-        }
-
     def list_workspace_recipes(self) -> Dict[str, Any]:
         method = getattr(self.tools, "workspace_recipes", None)
         if callable(method):

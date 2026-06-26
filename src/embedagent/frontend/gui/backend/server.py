@@ -190,21 +190,6 @@ def _serialize_session_summary(payload: Any) -> Dict[str, Any]:
     }
 
 
-def _serialize_reload_signal_payload(session_id: str, payload: Any) -> Dict[str, Any]:
-    data = payload if isinstance(payload, dict) else {}
-    status = str(data.get("status") or "reload_required")
-    if status not in {"reload_required", "degraded"}:
-        status = "reload_required"
-    return {
-        "session_id": str(data.get("session_id") or session_id or ""),
-        "status": status,
-        "first_seq": int(data.get("first_seq") or 0),
-        "last_seq": int(data.get("last_seq") or 0),
-        "reason": str(data.get("reason") or ""),
-        "events": [],
-    }
-
-
 def _serialize_interaction_response(payload: Dict[str, Any]) -> Dict[str, Any]:
     response = dict(payload or {})
     snapshot = response.get("snapshot")
@@ -1152,14 +1137,6 @@ class GUIBackend:
             core = self._require_core()
             context = self._call_core(core.get_permission_context, session_id)
             return _serialize_permission_context(context)
-
-        @app.get("/api/sessions/{session_id}/events")
-        async def get_session_events(session_id: str, after_seq: int = 0, limit: int = 200):
-            core = self._require_core()
-            payload = self._call_core(
-                core.load_session_events_after, session_id, after_seq, limit=limit
-            )
-            return _serialize_reload_signal_payload(session_id, payload)
 
         @app.get("/api/files")
         async def list_workspace_tree(path: str = ".", max_depth: int = 3):

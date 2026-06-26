@@ -227,7 +227,6 @@ Key routes include:
 - `GET /api/sessions/{session_id}/bootstrap`
 - `GET /api/sessions/{session_id}/plan`
 - `GET /api/sessions/{session_id}/permissions`
-- `GET /api/sessions/{session_id}/events`
 - `POST /api/sessions/{session_id}/resources/reload`
 - `GET /api/sessions/{session_id}/terminals`
 - `POST /api/sessions/{session_id}/terminals/{terminal_id}/open`
@@ -294,12 +293,11 @@ Important pushed event types include:
 - `session_event`
 - `terminal_event`
 
-`GET /api/sessions/{session_id}/events` is not a history replay API. The
-current contract returns `reload_required` so the GUI reloads
-`GET /api/sessions/{session_id}/bootstrap` instead of parsing a replay log.
-There is no durable `SessionTimelineStore`; frontend history bootstrap must
-come from the structured bootstrap payload, and the active GUI timeline is a
-frontend projection of that history plus live reducer actions.
+There is no session event replay HTTP route. Transport gaps and reconnects ask
+the GUI to reload `GET /api/sessions/{session_id}/bootstrap`; frontend history
+bootstrap must come from that structured bootstrap payload, and the active GUI
+timeline is a frontend projection of bootstrap history plus live reducer
+actions. There is no durable `SessionTimelineStore`.
 
 `terminal_event` carries GUI terminal output/lifecycle deltas for the bottom
 drawer. It is intentionally not part of session replay/history and must not be

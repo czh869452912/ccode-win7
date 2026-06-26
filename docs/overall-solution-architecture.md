@@ -166,8 +166,8 @@ Harness state refresh in the product adapter path goes through `CHarnessWorkflow
 - `compaction_state` in session snapshots is reducer-backed diagnostic state, not frontend-owned context policy
 - `recovery_state` in session snapshots is reducer-backed diagnostic state, not frontend-owned recovery policy
 - no durable `SessionTimelineStore` exists; GUI activation and `/review`
-  consume transcript/session projections, while `/api/sessions/{id}/events`
-  only signals that bootstrap reload is required
+  consume transcript/session projections, and transport recovery reloads
+  session bootstrap instead of calling a session event replay route
 - hosted adapter session bootstrap assembly lives in `SessionBootstrapService`,
   runtime/capability projections live in `RuntimeCapabilityService`, and slash
   command dispatch lives in `SlashCommandService`; `InProcessAdapter` stays a

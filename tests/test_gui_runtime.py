@@ -266,7 +266,7 @@ class TestWebSocketFrontend(unittest.TestCase):
             "tool_started",
             {
                 "session_id": "sess-1",
-                "_timeline_event": {
+                "_session_event": {
                     "event_id": "evt-1",
                     "seq": 3,
                     "created_at": "2026-04-04T00:00:00Z",

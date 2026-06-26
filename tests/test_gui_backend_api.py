@@ -135,15 +135,6 @@ class _FakeCoreWithTimeline(_FakeCore):
             },
         }
 
-    def load_session_events_after(self, session_id, after_seq, limit=200):
-        return {
-            "status": "reload_required",
-            "first_seq": 0,
-            "last_seq": 0,
-            "reason": "bootstrap_required",
-            "events": [],
-        }
-
 
 class _ResourceReloadCore(_FakeCore):
     def __init__(self):
@@ -477,25 +468,20 @@ class TestGuiBackendApi(unittest.TestCase):
         self.assertEqual(response["interaction_id"], "perm-1")
         self.assertEqual(response["status"], "resolved")
 
-    def test_get_session_events_requires_bootstrap_reload(self):
+    def test_session_events_route_is_not_registered(self):
         with tempfile.TemporaryDirectory() as static_dir:
             with open(os.path.join(static_dir, "index.html"), "w", encoding="utf-8") as handle:
                 handle.write("<html><body>ok</body></html>")
             backend = GUIBackend(_FakeCoreWithTimeline(), static_dir=static_dir)
-            route = None
+            matching_routes = []
             for item in backend.app.routes:
                 if getattr(
                     item, "path", ""
                 ) == "/api/sessions/{session_id}/events" and "GET" in getattr(
                     item, "methods", set()
                 ):
-                    route = item
-                    break
-            self.assertIsNotNone(route)
-            response = asyncio.run(route.endpoint("sess-1", 2, 200))
-        self.assertEqual(response["status"], "reload_required")
-        self.assertEqual(response["events"], [])
-        self.assertEqual(response["reason"], "bootstrap_required")
+                    matching_routes.append(item)
+            self.assertEqual(matching_routes, [])
 
     def test_bootstrap_endpoint_returns_snapshot_history_plan_and_permissions(self):
         with tempfile.TemporaryDirectory() as static_dir:

@@ -1438,16 +1438,8 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         refreshed = adapter.get_session_snapshot(session_id)
         self.assertEqual(refreshed["restore_stop_reason"], "")
 
-    def test_load_session_events_after_requires_bootstrap_reload_without_timeline_truth(
-        self,
-    ):
-        session_id = str(self.snapshot.get("session_id") or "")
-        payload = self.adapter.load_session_events_after(session_id, after_seq=1, limit=50)
-        self.assertEqual(payload["status"], "reload_required")
-        self.assertEqual(payload["events"], [])
-        self.assertEqual(payload["first_seq"], 0)
-        self.assertEqual(payload["last_seq"], 0)
-        self.assertEqual(payload["reason"], "bootstrap_required")
+    def test_adapter_does_not_expose_timeline_event_reload_api(self):
+        self.assertFalse(hasattr(self.adapter, "load_session_events_after"))
 
     def test_resume_session_requires_transcript(self):
         adapter = InProcessAdapter(

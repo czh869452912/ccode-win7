@@ -44,6 +44,28 @@
 
 ## 3. 当前变更记录
 
+### DC-207
+
+- Date: 2026-06-26
+- Change Topic: GUI timeline/event reload route removal
+- Summary:
+  - Removed the `/api/sessions/{session_id}/events` reload route and the
+    `load_session_events_after` adapter/core surface.
+  - Renamed the GUI live event metadata carrier from `_timeline_event` to
+    `_session_event`.
+  - Added pre-release guards so session-history replay cannot re-enter through
+    a timeline/event reload API.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/backend/server.py`
+  - `src/embedagent/frontend/gui/backend/session_events.py`
+  - `src/embedagent/inprocess_adapter.py`
+  - `src/embedagent/core/adapter.py`
+  - `tests/test_pre_release_architecture_guards.py`
+- ADR Needed: No
+- Follow-up:
+  - S05/S06 should finish moving the frontend read model away from legacy
+    timeline projection helpers.
+
 ### DC-206
 
 - Date: 2026-06-26

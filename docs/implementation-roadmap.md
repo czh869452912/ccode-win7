@@ -85,9 +85,9 @@ Recent stabilization work has also completed the GUI session-history single-sour
 - GUI history is serialized from transcript-backed `Session` state
 - GUI activation now uses one `/api/sessions/{id}/bootstrap` payload instead of split snapshot/timeline fetches
 - `SessionTimelineStore` and timeline-backed review/event replay paths have
-  been removed; `/api/sessions/{id}/events` now asks the GUI to reload
-  bootstrap, and the active T3 timeline consumes bootstrap history plus live
-  reducer actions rather than transport event-log history
+  been removed; there is no session event replay HTTP route, and the active T3
+  timeline consumes bootstrap history plus live reducer actions rather than
+  transport event-log history
 - The 2026-06-26 Pi/T3 residual debt cleanup removed timeline-shaped snapshot
   fields, the old session timeline API, and core flat timeline naming in favor of
   bootstrap/history projections; it also extracted hosted bootstrap,

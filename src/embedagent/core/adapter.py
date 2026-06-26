@@ -536,11 +536,6 @@ class AgentCoreAdapter(CoreInterface):
     ) -> Dict[str, Any]:
         return self._adapter.respond_to_interaction(session_id, interaction_id, payload)
 
-    def load_session_events_after(
-        self, session_id: str, after_seq: int, limit: int = 200
-    ) -> Dict[str, Any]:
-        return self._adapter.load_session_events_after(session_id, after_seq, limit=limit)
-
     def get_workspace_snapshot(self) -> WorkspaceInfo:
         snapshot = self._adapter.get_workspace_snapshot()
         git_info = snapshot.get("git", {})
