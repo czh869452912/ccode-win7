@@ -40,6 +40,7 @@ import { runCommandPaletteSourceTests } from "./command-palette-source.test.mjs"
 import { runComposerCommandSearchTests } from "./composer-command-search.test.mjs";
 import { runComposerComponentsSourceTests } from "./composer-components-source.test.mjs";
 import { runComposerIntegrationSourceTests } from "./composer-integration-source.test.mjs";
+import { runComposerInteractionModelTests } from "./composer-interaction-model.test.mjs";
 import { runComposerPathContextTests } from "./composer-path-context.test.mjs";
 import { runComposerStateTests } from "./composer-state.test.mjs";
 import { runComposerTriggerTests } from "./composer-trigger.test.mjs";
@@ -1309,6 +1310,7 @@ async function main() {
   runComposerTriggerTests();
   runComposerCommandSearchTests();
   runComposerPathContextTests();
+  runComposerInteractionModelTests();
   runComposerStateTests();
   runComposerComponentsSourceTests();
   runComposerIntegrationSourceTests();

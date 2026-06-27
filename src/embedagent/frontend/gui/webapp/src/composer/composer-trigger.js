@@ -17,6 +17,17 @@ function findTokenStart(source, cursor) {
   return index;
 }
 
+function findSlashCommandStart(source, cursor) {
+  let index = cursor - 1;
+  while (index >= 0) {
+    const char = source.charAt(index);
+    if (char === "\n") return -1;
+    if (char === "/" && isBoundary(source, index)) return index;
+    index -= 1;
+  }
+  return -1;
+}
+
 export function detectComposerTrigger(text = "", cursor = undefined) {
   const source = String(text || "");
   const end = clampCursor(source, cursor);
@@ -35,6 +46,21 @@ export function detectComposerTrigger(text = "", cursor = undefined) {
       end,
       text: token,
     };
+  }
+
+  const slashStart = findSlashCommandStart(source, end);
+  if (slashStart >= 0 && slashStart < start) {
+    const slashText = source.slice(slashStart, end);
+    if (!slashText.includes("\n")) {
+      return {
+        kind: "slash",
+        marker: "/",
+        query: slashText.slice(1),
+        start: slashStart,
+        end,
+        text: slashText,
+      };
+    }
   }
 
   if (token.charAt(0) === "@") {

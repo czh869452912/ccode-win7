@@ -112,6 +112,12 @@ const STRINGS = {
     "composer.placeholder": "Message… Enter to send, Shift+Enter for newline",
     "composer.send": "Send",
     "composer.stop": "Stop",
+    "composer.hint.command": "/ commands",
+    "composer.hint.file": "@ files",
+    "composer.hint.select": "↑↓ select",
+    "composer.hint.newline": "Shift+Enter newline",
+    "composer.hint.running": "running turns disable editing",
+    "composer.hint.interaction": "interaction pending",
 
     // Header
     "header.refresh": "Refresh",
@@ -260,6 +266,12 @@ const STRINGS = {
     "composer.placeholder": "输入消息，Enter 发送，Shift+Enter 换行",
     "composer.send": "发送",
     "composer.stop": "停止",
+    "composer.hint.command": "/ 命令",
+    "composer.hint.file": "@ 文件",
+    "composer.hint.select": "↑↓ 选择",
+    "composer.hint.newline": "Shift+Enter 换行",
+    "composer.hint.running": "running 时禁用",
+    "composer.hint.interaction": "interaction pending",
 
     "header.refresh": "刷新",
     "header.toggleInspector": "切换检查面板",

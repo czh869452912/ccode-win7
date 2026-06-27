@@ -4385,6 +4385,48 @@ body {
   }
 }
 
+@media (max-width: 520px) {
+  .composer {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+
+  .composer-inner {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 9px;
+  }
+
+  .composer-inner textarea {
+    min-width: 0;
+    flex-basis: calc(100% - 88px);
+  }
+
+  .composer-mode-badge {
+    max-width: 92px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .composer-tool,
+  .composer-primary-action,
+  .composer-stop-action {
+    flex: 0 0 30px;
+    width: 30px;
+    height: 30px;
+  }
+
+  .composer-hint-bar {
+    flex-wrap: wrap;
+    gap: 5px 9px;
+  }
+
+  .hint-text.running-hint {
+    margin-left: 0;
+  }
+}
+
 /* ═══════════════════════════════════════════
    APP-SPECIFIC COMPONENT CLASSES
    ═══════════════════════════════════════════ */

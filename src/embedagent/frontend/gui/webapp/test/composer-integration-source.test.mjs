@@ -11,12 +11,11 @@ function readSource(...parts) {
 
 export function runComposerIntegrationSourceTests() {
   const composerSource = readSource("components", "Composer.jsx");
-  assert.equal(composerSource.includes("detectComposerTrigger"), true);
-  assert.equal(composerSource.includes("replaceComposerTrigger"), true);
-  assert.equal(composerSource.includes("buildComposerCommandItems"), true);
-  assert.equal(composerSource.includes("searchComposerCommandItems"), true);
-  assert.equal(composerSource.includes("flattenComposerPathCandidates"), true);
-  assert.equal(composerSource.includes("searchComposerPathCandidates"), true);
+  assert.equal(composerSource.includes("buildComposerInteractionModel"), true);
+  assert.equal(composerSource.includes("moveComposerMenuIndex"), true);
+  assert.equal(composerSource.includes("selectComposerMenuItem"), true);
+  assert.equal(composerSource.includes("detectComposerTrigger"), false);
+  assert.equal(composerSource.includes("replaceComposerTrigger"), false);
   assert.equal(composerSource.includes("ComposerCommandMenu"), true);
   assert.equal(composerSource.includes("ComposerPrimaryActions"), true);
   assert.equal(composerSource.includes("BranchToolbar"), true);
@@ -27,6 +26,17 @@ export function runComposerIntegrationSourceTests() {
   assert.equal(composerSource.includes("fetch("), false);
   assert.equal(composerSource.includes("transcript"), false);
   assert.equal(composerSource.includes("PermissionPolicy"), false);
+
+  const interactionModelSource = readSource("composer", "composer-interaction-model.js");
+  assert.equal(interactionModelSource.includes("detectComposerTrigger"), true);
+  assert.equal(interactionModelSource.includes("replaceComposerTrigger"), true);
+  assert.equal(interactionModelSource.includes("buildComposerCommandItems"), true);
+  assert.equal(interactionModelSource.includes("searchComposerCommandItems"), true);
+  assert.equal(interactionModelSource.includes("flattenComposerPathCandidates"), true);
+  assert.equal(interactionModelSource.includes("searchComposerPathCandidates"), true);
+  assert.equal(interactionModelSource.includes("fetch("), false);
+  assert.equal(interactionModelSource.includes("transcript"), false);
+  assert.equal(interactionModelSource.includes("PermissionPolicy"), false);
 
   const appSource = readSource("App.jsx");
   assert.equal(appSource.includes("visibleCommands"), true);

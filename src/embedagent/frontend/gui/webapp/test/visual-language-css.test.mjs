@@ -47,6 +47,9 @@ export function runVisualLanguageCssTests() {
   assertIncludes(styles, ".composer-menu-item.active", "composer active item should be styled");
   assertIncludes(styles, ".composer-primary-action", "composer primary action should be styled");
   assertIncludes(styles, ".composer-stop-action", "composer stop action should be styled");
+  assertIncludes(styles, "@media (max-width: 520px)", "composer should have a 520px overflow guard");
+  assertIncludes(styles, ".composer-inner textarea", "composer textarea should remain shrinkable");
+  assertIncludes(styles, "min-width: 0;", "composer inner controls should avoid overflow");
   assertNotIncludes(styles, ".composer-hints", "old slash hint container should be removed");
   assertNotIncludes(styles, ".composer-hint {", "old slash hint button should be removed");
   assertIncludes(styles, ".cmd-palette-results", "command palette should render grouped results");
