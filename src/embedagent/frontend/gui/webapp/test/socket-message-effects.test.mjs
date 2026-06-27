@@ -83,6 +83,21 @@ export function runSocketMessageEffectsTests() {
   assert.equal(transitionEvent.actions[0].terminationDisplayReason, "max turns reached");
   assert.equal(transitionEvent.actions[0].turnsUsed, 8);
 
+  const resolvedInteractionEvent = derive("session_event", {
+    event_id: "evt-interaction-resolved",
+    seq: 6,
+    event_kind: "interaction.resolved",
+    payload: {
+      interaction_id: "int-1",
+      kind: "user_input",
+      answer: "continue",
+      selected_option_text: "Continue",
+    },
+  });
+  assert.deepEqual(resolvedInteractionEvent.actions, []);
+  assert.equal(resolvedInteractionEvent.transportEvents.length, 1);
+  assert.equal(resolvedInteractionEvent.transportEvents[0].event_kind, "interaction.resolved");
+
   const turnEndWithoutSafetyLimit = derive("turn_end", {
     termination_reason: "completed",
     display_reason: "completed",

@@ -130,3 +130,36 @@ def test_no_timeline_reload_route_or_metadata_in_active_gui_backend():
             if token in text:
                 offenders.append("%s contains %s" % (path.relative_to(ROOT), token))
     assert offenders == []
+
+
+def test_no_legacy_task_tool_execution_contract_in_tests():
+    legacy_tool = "manage" + "_todos"
+    offenders = []
+    for path in (ROOT / "tests").glob("test_*.py"):
+        text = _read(path)
+        forbidden = (
+            'execute("%s"' % legacy_tool,
+            "execute('%s'" % legacy_tool,
+            '"tool_name", "%s"' % legacy_tool,
+            "'tool_name', '%s'" % legacy_tool,
+        )
+        for token in forbidden:
+            if token in text:
+                offenders.append("%s contains %s" % (path.relative_to(ROOT), token))
+    assert offenders == []
+
+
+def test_gui_backend_server_keeps_route_registration_delegated():
+    text = _read(ROOT / "src/embedagent/frontend/gui/backend/server.py")
+    route_decorator_count = (
+        text.count("@app.get(") + text.count("@app.post(") + text.count("@app.delete(")
+    )
+    assert route_decorator_count <= 2
+    for helper in (
+        "register_app_routes(",
+        "register_session_routes(",
+        "register_terminal_routes(",
+        "register_source_control_routes(",
+        "register_preview_routes(",
+    ):
+        assert helper in text

@@ -820,7 +820,6 @@ async function main() {
   assert.equal(appSource.includes("loadAppBootstrap"), true);
   assert.equal(appSource.includes("openWorkspace"), true);
   assert.equal(appSource.includes("activateWorkspace"), true);
-  assert.equal(appSource.includes("no_active_workspace"), true);
   assert.equal(appSource.includes("deriveSocketMessageEffects"), true);
   assert.equal(appSource.includes("executeSocketEffects"), true);
   assert.equal(appSource.includes("executeLoaderRequest"), true);
@@ -836,23 +835,64 @@ async function main() {
   assert.equal(appSource.includes("visual_timeline_fixture_loaded"), false);
   assert.equal(appSource.includes("activeTurnId: state.activeTurnId"), true);
   assert.equal(appSource.includes("thinkingActive: state.thinkingActive"), true);
-  assert.equal(appSource.includes("renameThread"), true);
-  assert.equal(appSource.includes("archiveThread"), true);
-  assert.equal(appSource.includes("forkThread"), true);
-  assert.equal(appSource.includes("/rename"), true);
-  assert.equal(appSource.includes("/archive"), true);
-  assert.equal(appSource.includes("/fork"), true);
-  assert.equal(appSource.includes('command.id === "app.settings"'), true);
-  assert.equal(appSource.includes('command.id === "app.diagnostics"'), true);
-  assert.equal(appSource.includes('command.id === "app.source_control"'), true);
-  assert.equal(appSource.includes('command.id === "app.reload"'), true);
+  for (const directSessionFunction of [
+    "async function createSession",
+    "async function renameThread",
+    "async function archiveThread",
+    "async function forkThread",
+    "async function setMode",
+    "async function cancelSession",
+    "async function submitText",
+  ]) {
+    assert.equal(appSource.includes(directSessionFunction), false);
+  }
+  assert.equal(appSource.includes("createSessionController"), true);
+  assert.equal(appSource.includes("createThreadLifecycleController"), true);
+  const directCommandIdCases = (appSource.match(/command\.id ===/g) || []).length;
+  assert.ok(directCommandIdCases <= 2);
+  const sessionControllerSource = fs.readFileSync(
+    webappSourcePath("app-runtime", "session-controller.js"),
+    "utf8",
+  );
+  assert.equal(sessionControllerSource.includes("export function createSessionController"), true);
+  assert.equal(sessionControllerSource.includes("no_active_workspace"), true);
+  assert.equal(sessionControllerSource.includes("/api/sessions?mode="), true);
+  assert.equal(sessionControllerSource.includes("/message"), true);
+  assert.equal(sessionControllerSource.includes("import React"), false);
+  const threadLifecycleControllerSource = fs.readFileSync(
+    webappSourcePath("app-runtime", "thread-lifecycle-controller.js"),
+    "utf8",
+  );
+  assert.equal(threadLifecycleControllerSource.includes("export function createThreadLifecycleController"), true);
+  assert.equal(threadLifecycleControllerSource.includes("/rename"), true);
+  assert.equal(threadLifecycleControllerSource.includes("/archive"), true);
+  assert.equal(threadLifecycleControllerSource.includes("/fork"), true);
+  assert.equal(threadLifecycleControllerSource.includes("import React"), false);
+  const rightPanelControllerSource = fs.readFileSync(
+    webappSourcePath("app-runtime", "right-panel-controller.js"),
+    "utf8",
+  );
+  assert.equal(rightPanelControllerSource.includes("export function createRightPanelController"), true);
+  assert.equal(rightPanelControllerSource.includes("rightPanelSurfaceTitle"), true);
+  assert.equal(rightPanelControllerSource.includes("terminalController.openRightPanelSurface"), true);
+  assert.equal(rightPanelControllerSource.includes("import React"), false);
+  const workbenchCommandControllerSource = fs.readFileSync(
+    webappSourcePath("app-runtime", "workbench-command-controller.js"),
+    "utf8",
+  );
+  assert.equal(workbenchCommandControllerSource.includes("export function createWorkbenchCommandController"), true);
+  assert.equal(workbenchCommandControllerSource.includes('case "app.settings"'), true);
+  assert.equal(workbenchCommandControllerSource.includes('case "app.diagnostics"'), true);
+  assert.equal(workbenchCommandControllerSource.includes('case "app.source_control"'), true);
+  assert.equal(workbenchCommandControllerSource.includes('case "app.reload"'), true);
+  assert.equal(workbenchCommandControllerSource.includes('case "surface.preview"'), true);
+  assert.equal(workbenchCommandControllerSource.includes("import React"), false);
   assert.equal(appSource.includes("getSourceControlStatus"), true);
   assert.equal(appSource.includes("loadSourceControlStatus"), true);
   assert.equal(appSource.includes("openSourceControlFile"), true);
   assert.equal(appSource.includes("buildBranchToolbarModel"), true);
   assert.equal(appSource.includes("branchToolbarModel"), true);
   assert.equal(appSource.includes("onRefreshSourceControl"), true);
-  assert.equal(appSource.includes('command.id === "surface.preview"'), true);
   assert.equal(appSource.includes("RightPanelSurfaceBody"), true);
   assert.equal(appSource.includes("onOpenFile={openFile}"), true);
   assert.equal(appSource.includes("activeRightPanelSurface"), true);
@@ -984,6 +1024,10 @@ async function main() {
   assert.equal(storeSource.includes("file_preview_load_started"), true);
   assert.equal(storeSource.includes("file_preview_loaded"), true);
   assert.equal(storeSource.includes("file_preview_load_failed"), true);
+  assert.equal(storeSource.includes("reduceActivityState"), true);
+  assert.equal(storeSource.includes('case "assistant_delta":'), false);
+  assert.equal(storeSource.includes('case "tool_started":'), false);
+  assert.equal(storeSource.includes('case "tool_finished":'), false);
 
   const noWorkspaceSource = fs.readFileSync(
     webappSourcePath("components", "NoWorkspaceState.jsx"),

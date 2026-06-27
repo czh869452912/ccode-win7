@@ -9,6 +9,8 @@ from itertools import count
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
+from embedagent.hosted_command_service import HostedCommandService
+from embedagent.hosted_interaction_service import HostedInteractionService
 from embedagent.inprocess_adapter import InProcessAdapter
 from embedagent.llm import ModelClientError
 from embedagent.permissions import PermissionPolicy, PermissionRequest
@@ -1313,7 +1315,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             details={"recipe_id": "custom.build"},
         )
 
-        ticket = adapter._create_permission_ticket(
+        ticket = adapter.interaction_service.create_permission_ticket(
             state,
             request,
             turn_id="turn-live",
@@ -1539,6 +1541,29 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertTrue(command_payloads)
         self.assertEqual(command_payloads[-1]["data"], {"clear_session_view": True})
 
+    def test_slash_commands_dispatch_through_hosted_command_service(self):
+        session_id = str(self.snapshot.get("session_id") or "")
+        self.assertIsInstance(self.adapter.command_service, HostedCommandService)
+        seen = []
+        original_dispatch = self.adapter.command_service.dispatch
+
+        def record_dispatch(state, text, event_handler, permission_resolver):
+            seen.append(text)
+            return original_dispatch(state, text, event_handler, permission_resolver)
+
+        self.adapter.command_service.dispatch = record_dispatch
+        try:
+            self.adapter.submit_user_message(
+                session_id=session_id,
+                text="/tasks",
+                stream=False,
+                wait=True,
+            )
+        finally:
+            self.adapter.command_service.dispatch = original_dispatch
+
+        self.assertEqual(seen, ["/tasks"])
+
     @unittest.skipIf(sys.platform != "win32", "Windows-only: requires cmd.exe")
     def test_slash_run_executes_recipe_and_emits_tool_events(self):
         os.makedirs(os.path.join(self.workspace, ".embedagent"), exist_ok=True)
@@ -1728,7 +1753,9 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
 
         adapter.get_session_snapshot = fake_get_session_snapshot
         try:
-            resolved = adapter._wait_for_command_resolution(session_id, timeout_s=0.2)
+            resolved = adapter.interaction_service.wait_for_command_resolution(
+                session_id, timeout_s=0.2
+            )
         finally:
             adapter.get_session_snapshot = original_get_snapshot
 
@@ -1882,6 +1909,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         snapshot = adapter.create_session("spec")
         session_id = str(snapshot.get("session_id") or "")
         events = []
+        self.assertIsInstance(adapter.interaction_service, HostedInteractionService)
         adapter.event_handler = lambda event_name, current_session_id, payload: events.append(
             (event_name, payload)
         )
@@ -1926,6 +1954,30 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertEqual(final_snapshot["status"], "idle")
         self.assertFalse(final_snapshot["pending_interaction_valid"])
         self.assertEqual(final_snapshot["current_mode"], "debug")
+
+    def test_adapter_interaction_response_delegates_to_hosted_service(self):
+        adapter = InProcessAdapter(
+            client=FakeClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+        )
+        calls = []
+
+        class FakeInteractionService(object):
+            def respond_to_interaction(self, session_id, interaction_id, payload):
+                calls.append((session_id, interaction_id, dict(payload)))
+                return {"status": "resolved"}
+
+        adapter.interaction_service = FakeInteractionService()
+
+        result = adapter.respond_to_interaction(
+            "sess-1",
+            "interaction-1",
+            {"response_kind": "approve"},
+        )
+
+        self.assertEqual(calls, [("sess-1", "interaction-1", {"response_kind": "approve"})])
+        self.assertEqual(result, {"status": "resolved"})
 
     def test_approve_permission_returns_resolved_snapshot_for_command_wait(self):
         os.makedirs(os.path.join(self.workspace, ".embedagent"), exist_ok=True)

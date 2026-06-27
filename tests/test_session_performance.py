@@ -72,6 +72,22 @@ class TestSessionPerformance(unittest.TestCase):
                 }
                 parent_id = msg_id
             elif i % 4 == 1:
+                # Agent step start
+                event = {
+                    "schema_version": 2,
+                    "session_id": session_id,
+                    "event_id": "evt-%d" % i,
+                    "seq": i + 1,
+                    "ts": "2026-04-02T00:00:%02dZ" % (i % 60),
+                    "type": "step_started",
+                    "parent_message_id": parent_id,
+                    "payload": {
+                        "turn_id": "t-%d" % (i // 4),
+                        "step_id": "s-%d" % i,
+                        "step_index": 1,
+                    },
+                }
+            elif i % 4 == 2:
                 # Assistant message
                 msg_id = "m-%d" % i
                 event = {
@@ -87,29 +103,14 @@ class TestSessionPerformance(unittest.TestCase):
                         "content": "Reply %d" % i,
                         "message_id": msg_id,
                         "turn_id": "t-%d" % (i // 4),
-                        "step_id": "s-%d" % i,
-                    },
-                }
-                parent_id = msg_id
-            elif i % 4 == 2:
-                # Tool call
-                msg_id = "m-%d" % i
-                event = {
-                    "schema_version": 2,
-                    "session_id": session_id,
-                    "event_id": "evt-%d" % i,
-                    "seq": i + 1,
-                    "ts": "2026-04-02T00:00:%02dZ" % (i % 60),
-                    "type": "tool_call",
-                    "parent_message_id": parent_id,
-                    "payload": {
-                        "role": "tool_call",
-                        "tool_name": "read_file",
-                        "call_id": "call-%d" % i,
-                        "arguments": {"path": "file%d.txt" % i},
-                        "message_id": msg_id,
-                        "turn_id": "t-%d" % (i // 4),
                         "step_id": "s-%d" % (i - 1),
+                        "actions": [
+                            {
+                                "name": "read_file",
+                                "arguments": {"path": "file%d.txt" % i},
+                                "call_id": "call-%d" % i,
+                            }
+                        ],
                     },
                 }
                 parent_id = msg_id

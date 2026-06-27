@@ -237,8 +237,8 @@ sessions, workflow truth, transcript history, tool activation, permission
 policy, extension loading, provider settings, or runtime reducer state.
 
 The terminal bottom drawer is a GUI app-shell hosted surface implemented by
-`backend/terminal_service.py`, terminal HTTP routes on `GUIBackend`, and the
-React `webapp/src/terminal/` model/API helpers. It starts workspace-bound
+`backend/terminal_service.py`, `backend/routes_terminal.py`, and the React
+`webapp/src/terminal/` model/API helpers. It starts workspace-bound
 subprocesses with Python stdlib pipes for Windows 7/offline compatibility and
 streams `terminal_event` messages to the GUI. It is not a full PTY and does not
 add ConPTY, `node-pty`, `pywinpty`, `pexpect`, runtime Node, Electron, Docker,
@@ -247,8 +247,8 @@ ephemeral GUI display state; they must not be written to transcript history,
 telemetry, workflow state, source-control checkpoints, or Agent Core reducers.
 
 The Source Control right-panel is a GUI app-shell hosted surface implemented by
-`backend/source_control_service.py`, app-level source-control HTTP routes on
-`GUIBackend`, and the React `webapp/src/source-control/` model/API helpers plus
+`backend/source_control_service.py`, `backend/routes_source_control.py`, and
+the React `webapp/src/source-control/` model/API helpers plus
 `components/source-control/SourceControlPanel.jsx`. It is active-workspace
 bound and read-only: the backend invokes bundled/workspace MinGit for local
 status and staged/unstaged diff views, while the frontend displays grouped
@@ -257,6 +257,12 @@ implement remote providers, push/pull, staging, commit, checkpoint mutation, or
 network behavior, and it must not write transcript history, workflow state,
 telemetry, permission policy, provider/runtime configuration, extension loading
 state, or Agent Core reducers.
+
+`backend/server.py` remains the GUI backend composition root. App-shell,
+session/core, terminal, source-control, and preview HTTP route registration is
+delegated to `routes_app.py`, `routes_sessions.py`, `routes_terminal.py`,
+`routes_source_control.py`, and `routes_preview.py`; new backend route families
+should follow that split rather than accumulating decorators in `server.py`.
 
 ## 7. Timeline, Interaction, And Diff Surfaces
 

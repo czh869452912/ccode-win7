@@ -468,6 +468,67 @@ class TestGuiBackendApi(unittest.TestCase):
         self.assertEqual(response["interaction_id"], "perm-1")
         self.assertEqual(response["status"], "resolved")
 
+    def test_post_interaction_response_emits_backend_owned_resolved_event(self):
+        from embedagent.frontend.gui.backend.bridge import BlockingResult
+
+        with tempfile.TemporaryDirectory() as static_dir:
+            with open(os.path.join(static_dir, "index.html"), "w", encoding="utf-8") as handle:
+                handle.write("<html><body>ok</body></html>")
+            core = _SnapshotCore("")
+            backend = GUIBackend(core, static_dir=static_dir)
+            messages = []
+            backend.frontend._dispatcher = type(
+                "ImmediateDispatcher",
+                (),
+                {
+                    "dispatch": lambda self, callback: (
+                        callback(),
+                        type("Result", (), {"__bool__": lambda self: True, "reason": ""})(),
+                    )[1]
+                },
+            )()
+            backend.frontend.broadcast = lambda message: messages.append(message)
+            backend.frontend._pending_inputs["int-1"] = BlockingResult(None)
+            route = None
+            for item in backend.app.routes:
+                if getattr(
+                    item, "path", ""
+                ) == "/api/sessions/{session_id}/interactions/{interaction_id}/respond" and "POST" in getattr(
+                    item, "methods", set()
+                ):
+                    route = item
+                    break
+            self.assertIsNotNone(route)
+            response = asyncio.run(
+                route.endpoint(
+                    "sess-1",
+                    "int-1",
+                    {
+                        "kind": "user_input",
+                        "response_kind": "answer",
+                        "answer": "continue",
+                        "selected_option_text": "Continue",
+                    },
+                )
+            )
+        self.assertEqual(response["status"], "resolved")
+        resolved_events = [
+            message
+            for message in messages
+            if message.get("type") == "session_event"
+            and message.get("data", {}).get("event_kind") == "interaction.resolved"
+        ]
+        self.assertEqual(len(resolved_events), 1)
+        event = resolved_events[0]["data"]
+        self.assertEqual(event["session_id"], "sess-1")
+        self.assertGreater(event["seq"], 0)
+        self.assertTrue(event["event_id"])
+        self.assertTrue(event["created_at"])
+        self.assertEqual(event["payload"]["interaction_id"], "int-1")
+        self.assertEqual(event["payload"]["kind"], "user_input")
+        self.assertEqual(event["payload"]["answer"], "continue")
+        self.assertEqual(event["payload"]["selected_option_text"], "Continue")
+
     def test_session_events_route_is_not_registered(self):
         with tempfile.TemporaryDirectory() as static_dir:
             with open(os.path.join(static_dir, "index.html"), "w", encoding="utf-8") as handle:

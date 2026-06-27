@@ -409,11 +409,6 @@ class TestToolRuntimeExecute(unittest.TestCase):
         )
         self.assertFalse(obs.success)
 
-    def test_official_runtime_rejects_legacy_task_tool(self):
-        obs = self.rt.execute("manage_todos", {"action": "list"})
-        self.assertFalse(obs.success)
-        self.assertEqual(obs.tool_name, "manage_todos")
-
     def test_write_file_observation_includes_catalog_metadata(self):
         obs = self.rt.execute(
             "write_file",

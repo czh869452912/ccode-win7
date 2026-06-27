@@ -1,7 +1,7 @@
-"""Compatibility and boundary tests for architecture refactors.
+"""Boundary tests for the current pre-release architecture.
 
-These tests verify that current public APIs remain usable while stale
-compatibility aliases stay removed.
+The project does not preserve pre-release compatibility. These tests protect
+current public construction paths and verify that stale aliases remain absent.
 """
 
 from unittest.mock import MagicMock
@@ -88,8 +88,8 @@ class TestPublicImports(object):
         assert snapshot.current_mode == DEFAULT_MODE
 
 
-class TestInProcessAdapterCompatibility(object):
-    """Verify InProcessAdapter public API unchanged."""
+class TestInProcessAdapterBoundaries(object):
+    """Verify InProcessAdapter construction and removed-alias boundaries."""
 
     def _make_adapter(self):
         from embedagent.inprocess_adapter import InProcessAdapter
@@ -143,8 +143,8 @@ class TestInProcessAdapterCompatibility(object):
         assert not hasattr(InProcessAdapter, "_review_events_from_session")
 
 
-class TestQueryEngineCompatibility(object):
-    """Verify QueryEngine public API unchanged."""
+class TestQueryEngineBoundaries(object):
+    """Verify QueryEngine construction boundaries."""
 
     def test_can_instantiate_with_minimal_args(self, fresh_container):
         from embedagent.llm import OpenAICompatibleClient
@@ -178,8 +178,8 @@ class TestQueryEngineCompatibility(object):
         assert callable(QueryEngine.submit_user_turn)
 
 
-class TestModesCompatibility(object):
-    """Verify modes module public API unchanged."""
+class TestModesBoundaries(object):
+    """Verify current modes module boundaries."""
 
     def test_mode_names_returns_list(self):
         from embedagent.modes import mode_names

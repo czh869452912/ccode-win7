@@ -509,7 +509,7 @@ class SessionRestorer(object):
             return True
         step = session.current_step()
         if step is None:
-            return True
+            return False
         return str(step.step_id or "") == expected
 
     def _is_valid_compact_boundary(self, session: Session, payload: Dict[str, Any]) -> bool:

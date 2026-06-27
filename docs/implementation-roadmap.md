@@ -69,7 +69,7 @@ Recent workflow-boundary work has started slimming Agent Core without changing t
 - Pi-inspired minimal Core Phase A durable operation log, Phase B HookBus/reducer registry, Phase C AgentKernel lifecycle extraction, Phase D default C/C++ workflow package ownership, Phase E self-extension authoring loop, Phase F repo-side offline bundle validation, Phase G turn snapshot / capability registry foundation, Phase H runtime configuration reducer, Phase I workflow package manifest/read model, Phase J structured compaction state, Phase K recovery state, Phase L pack compatibility cleanup, Phase M core alias cleanup, and the Pi-style prompt-surface/resource/runtime-state alignment slice are complete
 - the Pi-style enterprise/intranet capability boundary foundation is implemented: runtime tool catalog metadata is the source of truth for permission category, unknown or invalid categories fall back to ask-by-default `other`, `network` and `telemetry` permission categories are recognized by policy/runtime/extension metadata, and `embedagent.telemetry` provides local safe telemetry envelopes while future intranet Git, custom service, provider, organization-local catalog, and sink work stays optional and outside Agent Core
 - stale core compatibility aliases have been removed; current code uses `get_mode_registry()`, `get_command_sanitizer()`, and `get_inprocess_adapter()` directly instead of `MODE_REGISTRY`, `_DEFAULT_SANITIZER`, `get_default_sanitizer()`, `_inprocess_adapter`, or `_get_adapter_class()`
-- `TurnSnapshot` is now the explicit frozen provider-request input; `QueryEngine` builds it after context assembly and active schema projection, then provider requests consume `snapshot.messages` and `snapshot.tool_schemas`
+- `TurnSnapshot` is now the explicit frozen provider-request input; `TurnSnapshotService` builds it after context assembly and active schema projection, then provider requests consume `snapshot.messages` and `snapshot.tool_schemas`
 - `CapabilityRegistry` is now the non-executing read model for tools, local file resources, slash commands, model profiles, and workflow packages; activation and execution remain owned by `AgentExtensionHost` / `ExtensionManager` and `ToolRuntime` / `AgentToolActionService`
 - `RuntimeConfigReducer` now projects safe runtime configuration from transcript events, including model profile metadata, registered tool names, active model-visible tool names, local resource revision metadata, capability counts, and provider snapshot records
 - `WorkflowPackageManifest` now describes the bundled C/C++ workflow package identity, declared tools, packs, supported modes/workflow states, and resource scopes as read-only non-executing control-plane data exposed through the shared extension manager
@@ -98,6 +98,13 @@ Recent stabilization work has also completed the GUI session-history single-sour
   bootstrap/history projections; it also extracted hosted bootstrap,
   capability, slash-command, prompt-assembly, and turn-snapshot services so
   adapter/core facades stay small.
+- The 2026-06-27 follow-up cleanup finished the next adapter/core split:
+  GUI backend HTTP registration now lives in focused route modules;
+  `HostedCommandService` owns slash-command dispatch, command-result emission,
+  and command-owned tool execution; `HostedInteractionService` owns permission
+  and user-input response glue; `TurnSnapshotService`,
+  `PromptAssemblyService`, and `CompactionJournal` own provider snapshot,
+  workflow prompt, and compaction payload assembly outside `QueryEngine`.
 
 Recent GUI app-shell work has established the first standalone-app boundary:
 
@@ -157,10 +164,15 @@ Recent stabilization work has also completed the agent-core ownership cutover:
 - resumed permission/user-input interactions re-enter the same action pipeline instead of bypassing it
 - `AgentToolActionService` owns workflow-patch capture after tool-result hooks, so `QueryEngine` no longer wraps extension result patching
 - `AgentLoop` asks `AgentExtensionHost` for active schemas directly, so `QueryEngine` no longer exposes private active-tool/schema forwarding methods
-- hosted `/review` synthesis now lives in `ReviewCommandService`; the service
-  extracts recent session tool evidence, shapes git-diff/review findings, and
-  renders markdown, while `InProcessAdapter` only invokes the service and emits
-  the command result
+- hosted slash-command dispatch now lives in `HostedCommandService`; hosted
+  `/review` synthesis remains in `ReviewCommandService` underneath that
+  command boundary, while `InProcessAdapter` only bridges sessions and events
+- hosted permission/user-input response glue now lives in
+  `HostedInteractionService`; actual resumed action execution still re-enters
+  the core action pipeline
+- provider snapshot, workflow prompt append/dedupe, and compaction payload
+  assembly now live in `TurnSnapshotService`, `PromptAssemblyService`, and
+  `CompactionJournal`, so `QueryEngine` no longer owns those helper details
 - session snapshots are now built by a pure `SessionSnapshotProjector`
 - live tool-completion refresh has moved to `read_model_invalidations`
   metadata on tool catalog entries and events, so GUI/Core paths no longer
@@ -181,9 +193,10 @@ Near-term work should:
 - keep future GUI/Core work on the promoted transcript, unified action,
   explicit capability, and T3-style renderer-state paths closed by the cleanup
   slices
-- continue shrinking remaining QueryEngine/InProcessAdapter facade
-  responsibilities through deletion-oriented replacements, not compatibility
-  wrappers
+- preserve the promoted service boundaries around `QueryEngine`,
+  `InProcessAdapter`, GUI backend route registration, and renderer runtime
+  state; future slices should delete stale helper paths instead of adding
+  compatibility wrappers over them
 - keep visual fixtures out of production reducer paths and preserve the
   generated-asset release-artifact policy until packaging is redesigned
 - keep real Win7 WebView2 109 bundle validation and C/C++ workflow validation

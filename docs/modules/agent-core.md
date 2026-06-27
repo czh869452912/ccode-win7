@@ -5,8 +5,8 @@
 > 状态：`active`
 > 类型：`module`
 > 负责人：`project maintainers`
-> 最后同步日期：`2026-06-12`
-> 对应代码范围：`src/embedagent/query_engine.py`, `src/embedagent/agent_loop.py`, `src/embedagent/agent_tool_action_service.py`, `src/embedagent/agent_extension_host.py`, `src/embedagent/inprocess_adapter.py`, `src/embedagent/default_extensions.py`, `src/embedagent/project_extensions.py`, `src/embedagent/session_runtime.py`
+> 最后同步日期：`2026-06-27`
+> 对应代码范围：`src/embedagent/query_engine.py`, `src/embedagent/agent_loop.py`, `src/embedagent/agent_tool_action_service.py`, `src/embedagent/agent_extension_host.py`, `src/embedagent/inprocess_adapter.py`, `src/embedagent/hosted_command_service.py`, `src/embedagent/hosted_interaction_service.py`, `src/embedagent/turn_snapshot_service.py`, `src/embedagent/prompt_assembly_service.py`, `src/embedagent/compaction_journal.py`, `src/embedagent/default_extensions.py`, `src/embedagent/project_extensions.py`, `src/embedagent/session_runtime.py`
 
 ## 1. Purpose And Scope
 
@@ -19,6 +19,8 @@
 - `AgentToolActionService` non-LLM tool action execution boundary
 - `AgentExtensionHost` extension dispatch and active schema projection boundary
 - hosted `InProcessAdapter` shared `ExtensionManager` ownership
+- hosted command and interaction service boundaries
+- provider snapshot, workflow prompt, and compaction journal helper boundaries
 - default extension assembly and manifest-gated project-local extension loading
 - session runtime host state
 
@@ -28,7 +30,7 @@
 
 - 目录：`src/embedagent/`
 - 入口文件：`src/embedagent/query_engine.py`
-- 核心对象：`QueryEngine`、`AgentLoop`、`AgentToolActionService`、`AgentExtensionHost`、`InProcessAdapter`、`ManagedSession`、`ExtensionManager`
+- 核心对象：`QueryEngine`、`AgentLoop`、`AgentToolActionService`、`AgentExtensionHost`、`InProcessAdapter`、`HostedCommandService`、`HostedInteractionService`、`TurnSnapshotService`、`PromptAssemblyService`、`CompactionJournal`、`ManagedSession`、`ExtensionManager`
 - 上游依赖：frontend / core adapter / slash commands
 - 下游影响：harness、tools runtime、session snapshot、transcript
 - 相关测试：`tests/test_query_engine_refactor.py`、`tests/test_inprocess_adapter_frontend_api.py`、`tests/test_gui_backend_api.py`、`tests/test_capability_extensions.py`、`tests/test_dynamic_tool_registration.py`、`tests/test_project_extensions.py`、`tests/test_local_resources.py`、`tests/test_workflow_extensions.py`
@@ -55,7 +57,7 @@
 
 ## 5. Data / Control Flow
 
-`QueryEngine` 是 session-scoped facade，保留 transcript/session mutation 与 interaction suspend/resume ownership。`AgentLoop` 承担 Pi-style open turn-loop continuation 边界，负责 agent step、context/provider attempt、compact retry、guard-stop、abort 与显式 loop safety-limit 兼容 transition；默认 hosted 路径不再因为 8 个 model/tool cycles 被截断。`AgentToolActionService` 承担非 LLM tool action execution，`AgentExtensionHost` 承担 extension dispatch、dynamic tool registration、active schema projection 与 workflow patching。`InProcessAdapter` 负责把 CLI/TUI/GUI 的请求接到 session owner 上，并持有 hosted runtime 的 shared `ExtensionManager`。扩展对象只有通过 `extension_capabilities()` 返回 `ExtensionCapability` 记录才会参与这些 hook；单纯定义同名方法不会被自动注册。
+`QueryEngine` 是 session-scoped facade，保留 transcript/session mutation 与 interaction suspend/resume ownership。`AgentLoop` 承担 Pi-style open turn-loop continuation 边界，负责 agent step、context/provider attempt、compact retry、guard-stop、abort 与显式 loop safety-limit 兼容 transition；默认 hosted 路径不再因为 8 个 model/tool cycles 被截断。`AgentToolActionService` 承担非 LLM tool action execution，`AgentExtensionHost` 承担 extension dispatch、dynamic tool registration、active schema projection 与 workflow patching。`TurnSnapshotService` 承担 provider snapshot 元数据组装，`PromptAssemblyService` 承担 workflow prompt append/dedupe，`CompactionJournal` 承担 compact boundary / compacted history payload 组装。`InProcessAdapter` 负责把 CLI/TUI/GUI 的请求接到 session owner 上，并持有 hosted runtime 的 shared `ExtensionManager`；slash command 与 pending interaction glue 分别由 `HostedCommandService` 和 `HostedInteractionService` 承担。扩展对象只有通过 `extension_capabilities()` 返回 `ExtensionCapability` 记录才会参与这些 hook；单纯定义同名方法不会被自动注册。
 
 ```mermaid
 flowchart TD
@@ -63,6 +65,7 @@ flowchart TD
     B --> C["InProcessAdapter"]
     C --> D["Session Runtime"]
     D --> E["QueryEngine"]
+    E --> X["TurnSnapshotService / PromptAssemblyService / CompactionJournal"]
     E --> F["AgentLoop"]
     F --> G["AgentToolActionService"]
     G --> H["AgentExtensionHost"]
@@ -75,7 +78,9 @@ flowchart TD
 
 - `QueryEngine` 是 session-scoped facade 和 transcript/session mutation owner。
 - `AgentLoop`、`AgentToolActionService`、`AgentExtensionHost` 是 loop/action/extension dispatch 子边界。
-- `InProcessAdapter` 不应生成第二套 workflow identity。
+- `TurnSnapshotService`、`PromptAssemblyService`、`CompactionJournal` 是 snapshot/prompt/compaction helper 子边界。
+- `InProcessAdapter` 不应生成第二套 workflow identity，也不应重新拥有 slash-command 或 pending-interaction helper 逻辑。
+- `HostedCommandService` owns slash-command dispatch and command-result emission; `HostedInteractionService` owns approve/reject/reply/respond glue.
 - hosted product paths 通过 `default_extensions.py` 安装 bundled C harness，并可通过 `project_extensions.py` 加载 manifest-gated local extensions。
 - runtime host 负责承载，而不是替代 engine 执行逻辑。
 
@@ -95,7 +100,7 @@ flowchart TD
 - `tests/test_local_resources.py`
 - `tests/test_workflow_extensions.py`
 
-当变更影响 step anchor、resume pipeline、bootstrap、extension dispatch、dynamic tools、resource reload、project extension loading 或 adapter/frontend contract 时，应优先重跑这些测试。
+当变更影响 step anchor、resume pipeline、bootstrap、extension dispatch、dynamic tools、resource reload、project extension loading、hosted command/interaction services、provider snapshots、compaction payloads 或 adapter/frontend contract 时，应优先重跑这些测试。
 
 ## 7. Change Triggers
 
@@ -103,7 +108,9 @@ flowchart TD
 
 - `QueryEngine` owner 边界变化
 - `AgentLoop`、`AgentToolActionService` 或 `AgentExtensionHost` 职责变化
+- `TurnSnapshotService`、`PromptAssemblyService`、`CompactionJournal` 职责变化
 - `InProcessAdapter` 承担的职责变化
+- `HostedCommandService` 或 `HostedInteractionService` 职责变化
 - default extension assembly 或 project-local extension loading 路径变化
 - `ManagedSession` 或 session runtime host 结构变化
 - turn/step/interactions 的正式主链路变化

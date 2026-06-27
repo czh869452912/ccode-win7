@@ -62,6 +62,12 @@ class TestSessionIntegration(unittest.TestCase):
         )
         self.store.append_event(
             session_id,
+            "step_started",
+            {"turn_id": "t-1", "step_id": "s-1", "step_index": 1},
+            schema_version=2,
+        )
+        self.store.append_event(
+            session_id,
             "assistant",
             {
                 "role": "assistant",
