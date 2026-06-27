@@ -627,7 +627,7 @@ Expected: PASS.
 - Modify: `tests/test_compacted_history.py`
 - Modify: `tests/test_compaction_state.py`
 
-- [ ] **Step 1: Add size/ownership guard**
+- [x] **Step 1: Add size/ownership guard**
 
 Add a guard that fails if `QueryEngine` contains direct helper names for compaction payload assembly after extraction:
 
@@ -642,23 +642,23 @@ for token in (
     assert token not in source
 ```
 
-- [ ] **Step 2: Move provider snapshot metadata**
+- [x] **Step 2: Move provider snapshot metadata**
 
 Move runtime config, capability, prompt-unit, and context-stat snapshot helpers into `TurnSnapshotService` if they are not already owned there.
 
-- [ ] **Step 3: Move workflow prompt appending**
+- [x] **Step 3: Move workflow prompt appending**
 
 Move workflow prompt append/dedupe helpers into `PromptAssemblyService`.
 
-- [ ] **Step 4: Create compaction journal helper**
+- [x] **Step 4: Create compaction journal helper**
 
 Create a helper that accepts session, context assembly result, summaries, and IDs, then returns safe `compact_boundary` and `compacted_history` payloads.
 
-- [ ] **Step 5: Delete moved QueryEngine helpers**
+- [x] **Step 5: Delete moved QueryEngine helpers**
 
 Update QueryEngine to call the service/helper. Remove the private helpers from QueryEngine in the same slice.
 
-- [ ] **Step 6: Run focused core tests**
+- [x] **Step 6: Run focused core tests**
 
 Run:
 

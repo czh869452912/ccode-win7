@@ -5,21 +5,15 @@ import threading
 import time
 import uuid
 from copy import deepcopy
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, Optional, Tuple
 
 from embedagent.agent_extension_host import AgentExtensionHost
 from embedagent.agent_kernel import AgentKernel
 from embedagent.agent_lifecycle import AgentLifecycleJournal
 from embedagent.agent_loop import AgentLoop
 from embedagent.agent_tool_action_service import AgentToolActionService
-from embedagent.capabilities import (
-    CapabilityRegistry,
-    model_profile_capability_descriptor,
-    resource_capability_descriptors,
-    runtime_tool_capability_descriptors,
-)
 from embedagent.compacted_history import CompactedHistoryReducer
-from embedagent.compactor import DeterministicCompactor
+from embedagent.compaction_journal import CompactionJournal
 from embedagent.context import ContextManager
 from embedagent.context_window import ContextWindowState
 from embedagent.extensions import (
@@ -45,7 +39,6 @@ from embedagent.modes import (
 )
 from embedagent.permissions import PermissionPolicy, PermissionRequest
 from embedagent.prompt_assembly_service import PromptAssemblyService
-from embedagent.runtime_config import RuntimeConfigReducer
 from embedagent.project_memory import ProjectMemoryStore
 from embedagent.session import (
     Action,
@@ -60,7 +53,6 @@ from embedagent.session import (
     ToolPresentationSnapshot,
 )
 from embedagent.session_store import SessionSummaryStore
-from embedagent.skill_index import build_skill_index
 from embedagent.tool_commit import ToolCommitCoordinator
 from embedagent.tools import ToolRuntime
 from embedagent.transcript_store import TranscriptStore
@@ -84,17 +76,6 @@ _COMPACT_RETRY_ERROR_MARKERS = (
     "超出上下文",
 )
 _OPERATION_RUNTIME_ERRORS = (OSError, RuntimeError, ValueError, TypeError, KeyError, AttributeError)
-
-
-def _has_meaningful_resource_revision(value: Dict[str, Any]) -> bool:
-    if not isinstance(value, dict):
-        return False
-    if int(value.get("revision") or 0) > 0:
-        return True
-    for key in ("event_id", "reason", "ts"):
-        if str(value.get(key) or "").strip():
-            return True
-    return False
 
 
 class QueryEngine(object):
@@ -124,7 +105,7 @@ class QueryEngine(object):
         self.context_manager = context_manager or ContextManager(
             project_memory=self.project_memory_store
         )
-        self.compactor = DeterministicCompactor()
+        self._compaction_journal = CompactionJournal()
         self.summary_store = summary_store or SessionSummaryStore(self.tools.workspace)
         self.memory_maintenance = memory_maintenance or MemoryMaintenance(
             summary_store=self.summary_store,
@@ -520,107 +501,6 @@ class QueryEngine(object):
         )
         return assembly
 
-    def _active_tool_names_from_schemas(self, tool_schemas: list) -> list:
-        return self._turn_snapshots.active_tool_names_from_schemas(tool_schemas)
-
-    def _capability_snapshot_for_provider(self, active_tool_names: list) -> Dict[str, Any]:
-        registry = CapabilityRegistry()
-        registry.extend(runtime_tool_capability_descriptors(self.tools))
-        local_resources = {}
-        local_resources_method = getattr(self.tools, "local_resources", None)
-        if callable(local_resources_method):
-            local_resources = local_resources_method()
-        registry.extend(resource_capability_descriptors(local_resources))
-        registry.register(model_profile_capability_descriptor(self.client))
-
-        active_set = set(active_tool_names or [])
-        for descriptor in registry.descriptors(kind="tool"):
-            descriptor.active = descriptor.name in active_set
-            registry.register(descriptor)
-        return registry.snapshot().to_dict()
-
-    def _runtime_config_snapshot(self, session: Session) -> Dict[str, Any]:
-        if callable(self._runtime_config_provider):
-            try:
-                return dict(self._runtime_config_provider(session) or {})
-            except (OSError, RuntimeError, ValueError, TypeError):
-                return {}
-        try:
-            events = self.transcript_store.load_events(session.session_id)
-        except (OSError, ValueError, TypeError):
-            return {}
-        return RuntimeConfigReducer().reduce(events).to_dict()
-
-    def _model_profile_snapshot(
-        self, runtime_config: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, Any]:
-        config_profile = {}
-        if isinstance(runtime_config, dict):
-            config_profile = dict(runtime_config.get("model_profile") or {})
-        if config_profile:
-            return {
-                "name": str(config_profile.get("name") or ""),
-                "source_type": str(config_profile.get("source_type") or ""),
-                "source_id": str(config_profile.get("source_id") or ""),
-                "metadata": dict(config_profile.get("metadata") or {}),
-            }
-        descriptor = model_profile_capability_descriptor(self.client)
-        return {
-            "name": descriptor.name,
-            "source_type": descriptor.source_type,
-            "source_id": descriptor.source_id,
-            "metadata": dict(descriptor.metadata or {}),
-        }
-
-    def _resource_revision_snapshot(
-        self, runtime_config: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, Any]:
-        if not isinstance(runtime_config, dict):
-            return {}
-        revision = runtime_config.get("resource_revision") or {}
-        return dict(revision) if isinstance(revision, dict) else {}
-
-    def _prompt_units_for_snapshot(
-        self, runtime_config: Optional[Dict[str, Any]] = None
-    ) -> List[Dict[str, Any]]:
-        local_resources = {}
-        local_resources_method = getattr(self.tools, "local_resources", None)
-        if callable(local_resources_method):
-            try:
-                local_resources = local_resources_method()
-            except (OSError, RuntimeError, ValueError, TypeError):
-                local_resources = {}
-        summary = build_skill_index(local_resources).safe_summary()
-        visible_skill_count = int(summary.get("visible_skill_count") or 0)
-        if visible_skill_count <= 0:
-            return []
-        prompt_unit = {
-            "kind": "local_skill_listing",
-            "visible_skill_names": list(summary.get("visible_skill_names") or []),
-            "visible_skill_count": visible_skill_count,
-        }
-        resource_revision = self._resource_revision_snapshot(runtime_config)
-        if _has_meaningful_resource_revision(resource_revision):
-            prompt_unit["resource_revision"] = resource_revision
-        return [prompt_unit]
-
-    def _registered_tool_names_from_capabilities(self, capabilities: Dict[str, Any]) -> list:
-        return self._turn_snapshots.registered_tool_names_from_capabilities(capabilities)
-
-    def _runtime_environment_snapshot(self) -> Dict[str, Any]:
-        runtime_snapshot = getattr(self.tools, "runtime_environment_snapshot", None)
-        if not callable(runtime_snapshot):
-            return {}
-        return dict(runtime_snapshot() or {})
-
-    def _context_stats_for_snapshot(self, messages: list) -> Dict[str, Any]:
-        return {
-            "message_count": len(messages or []),
-        }
-
-    def _turn_snapshot_metadata(self, snapshot: TurnSnapshot) -> Dict[str, Any]:
-        return self._turn_snapshots.metadata(snapshot)
-
     def _call_provider_operation(
         self,
         session: Session,
@@ -635,27 +515,21 @@ class QueryEngine(object):
         on_text_delta: Optional[Callable[[str], None]],
         on_reasoning_delta: Optional[Callable[[str], None]],
     ) -> AssistantReply:
-        active_tool_names = self._active_tool_names_from_schemas(tool_schemas)
-        capabilities = self._capability_snapshot_for_provider(active_tool_names)
-        runtime_config = self._runtime_config_snapshot(session)
-        snapshot = self._turn_snapshots.build(
-            session_id=session.session_id,
+        snapshot = self._turn_snapshots.build_provider_snapshot(
+            session=session,
             turn_id=turn_id,
             step_id=step_id,
             mode_name=current_mode,
             workflow_state=workflow_state,
             messages=messages,
             tool_schemas=tool_schemas,
-            active_tool_names=active_tool_names,
-            model_profile=self._model_profile_snapshot(runtime_config),
-            resource_revision=self._resource_revision_snapshot(runtime_config),
-            prompt_units=self._prompt_units_for_snapshot(runtime_config),
-            runtime_environment=self._runtime_environment_snapshot(),
-            capabilities=capabilities,
-            context_stats=self._context_stats_for_snapshot(messages),
+            tools=self.tools,
+            client=self.client,
+            transcript_store=self.transcript_store,
+            runtime_config_provider=self._runtime_config_provider,
         )
         self._last_turn_snapshot = snapshot
-        snapshot_metadata = self._turn_snapshot_metadata(snapshot)
+        snapshot_metadata = self._turn_snapshots.metadata(snapshot)
         self._emit_operation_started(
             session,
             operation_id,
@@ -852,35 +726,18 @@ class QueryEngine(object):
         self.extension_host.register_tools(session, current_mode, workflow_state, reason=reason)
 
     def _append_workflow_prompt_messages(self, session: Session, workflow_prompt: Any) -> None:
-        if not self._prompt_assembly.should_append_workflow_prompt(
-            workflow_prompt, session.messages
-        ):
-            return
-        for index, content in enumerate(list(getattr(workflow_prompt, "prompt_units", []) or [])):
-            workflow_message = session.add_system_message(
-                content,
-                kind="workflow_prompt",
-                metadata={
-                    "mode_name": str(workflow_prompt.mode_name or ""),
-                    "discipline_label": str(workflow_prompt.discipline_label or ""),
-                    "pack_name": str(workflow_prompt.pack_name or ""),
-                    "unit_index": index,
-                },
-            )
+        def append_event(message: Any) -> None:
             self._append_message_event(
                 session,
-                {
-                    "role": workflow_message.role,
-                    "content": workflow_message.content,
-                    "message_id": workflow_message.message_id,
-                    "parent_message_id": workflow_message.parent_message_id,
-                    "turn_id": workflow_message.turn_id,
-                    "step_id": workflow_message.step_id,
-                    "kind": workflow_message.kind,
-                    "metadata": dict(workflow_message.metadata),
-                    "replaced_by_refs": list(workflow_message.replaced_by_refs),
-                },
+                self._prompt_assembly.message_event_payload(message),
             )
+
+        self._prompt_assembly.append_workflow_prompt_messages(
+            workflow_prompt,
+            session.messages,
+            session.add_system_message,
+            on_message=append_event,
+        )
 
     def _build_system_prompt(self, mode_name: str) -> str:
         resources = {}
@@ -1983,90 +1840,6 @@ class QueryEngine(object):
                 _LOG.warning("session trim failed: %s", exc)
         self._maybe_maintain_memory()
 
-    def _compaction_token_counts(self, assembly: ContextAssemblyResult) -> Dict[str, int]:
-        stats = getattr(assembly, "stats", None)
-        return {
-            "approx_before": int(getattr(stats, "approx_tokens_before", 0) or 0),
-            "approx_after": int(
-                getattr(stats, "approx_tokens_after", 0) or assembly.approx_tokens or 0
-            ),
-        }
-
-    def _compaction_message_counts(self, assembly: ContextAssemblyResult) -> Dict[str, int]:
-        stats = getattr(assembly, "stats", None)
-        total_messages = int(getattr(stats, "total_session_messages", 0) or 0)
-        selected_messages = int(getattr(stats, "selected_messages", 0) or len(assembly.messages))
-        summarized_turns = int(
-            getattr(stats, "summarized_turns", 0) or assembly.summarized_turns or 0
-        )
-        recent_turns = int(getattr(stats, "recent_turns", 0) or assembly.recent_turns or 0)
-        return {
-            "before": total_messages,
-            "after": selected_messages,
-            "summarized_turns": summarized_turns,
-            "recent_turns": recent_turns,
-        }
-
-    def _compaction_file_activity(self, assembly: ContextAssemblyResult) -> Dict[str, List[str]]:
-        analysis = getattr(assembly, "analysis", {}) or {}
-        if not isinstance(analysis, dict):
-            analysis = {}
-        read_files = []
-        seen = set()
-        for item in list(analysis.get("top_hot_files") or []):
-            if not isinstance(item, dict):
-                continue
-            path = str(item.get("path") or "").strip()
-            if not path or path in seen:
-                continue
-            seen.add(path)
-            read_files.append(path)
-        return {
-            "read_files": sorted(read_files),
-            "modified_files": [],
-        }
-
-    def _compaction_evidence_refs(self, assembly: ContextAssemblyResult) -> List[str]:
-        refs = []
-        seen = set()
-        for replacement in list(getattr(assembly, "replacements", []) or []):
-            if not isinstance(replacement, dict):
-                continue
-            for item in list(replacement.get("stored_refs") or []):
-                ref = str(item or "").strip()
-                if not ref or ref in seen:
-                    continue
-                seen.add(ref)
-                refs.append(ref)
-        return sorted(refs)
-
-    def _compacted_history_payload(
-        self,
-        boundary: Any,
-        assembly: ContextAssemblyResult,
-        window_state: ContextWindowState,
-        token_counts: Dict[str, int],
-        message_counts: Dict[str, int],
-        file_activity: Dict[str, List[str]],
-        evidence_refs: List[str],
-    ) -> Dict[str, Any]:
-        return self.compactor.build_checkpoint_payload(
-            boundary_id=str(getattr(boundary, "boundary_id", "") or ""),
-            summary_text=str(getattr(boundary, "summary_text", "") or ""),
-            created_at=str(getattr(boundary, "created_at", "") or ""),
-            first_kept_message_id=str(getattr(boundary, "preserved_head_message_id", "") or ""),
-            trigger=window_state.trigger,
-            phase=window_state.phase,
-            token_counts=token_counts,
-            message_counts=message_counts,
-            file_activity=file_activity,
-            evidence_refs=evidence_refs,
-            metadata={
-                "pipeline_steps": list(getattr(assembly, "pipeline_steps", []) or []),
-                "source_boundary_id": str(getattr(boundary, "boundary_id", "") or ""),
-            },
-        )
-
     def _maybe_record_compact_boundary(
         self, session: Session, current_mode: str, assembly: ContextAssemblyResult
     ) -> bool:
@@ -2106,47 +1879,22 @@ class QueryEngine(object):
             plan_payload_fields = getattr(plan, "to_boundary_payload_fields", None)
             if callable(plan_payload_fields):
                 plan_payload = dict(plan_payload_fields())
-            token_counts = self._compaction_token_counts(assembly)
-            message_counts = self._compaction_message_counts(assembly)
-            message_counts.update(dict(plan_payload.get("message_counts") or {}))
-            file_activity = self._compaction_file_activity(assembly)
-            evidence_refs = self._compaction_evidence_refs(assembly)
-            self._append_transcript_event(
-                session,
-                "compact_boundary",
-                {
-                    "boundary_id": boundary.boundary_id,
-                    "summary_text": boundary.summary_text,
-                    "compacted_turn_count": boundary.compacted_turn_count,
-                    "created_at": boundary.created_at,
-                    "mode_name": boundary.mode_name,
-                    "preserved_head_message_id": boundary.preserved_head_message_id,
-                    "preserved_tail_message_id": boundary.preserved_tail_message_id,
-                    "trigger": window_state.trigger,
-                    "phase": window_state.phase,
-                    "context_window_generation": window_state.context_window_generation,
-                    "metadata": dict(boundary.metadata),
-                    "token_counts": token_counts,
-                    "message_counts": message_counts,
-                    "file_activity": file_activity,
-                    "evidence_refs": evidence_refs,
-                    "extension_summary": False,
-                },
-            )
-            compacted_history_payload = self._compacted_history_payload(
+            compaction_payloads = self._compaction_journal.build_payloads(
                 boundary,
                 assembly,
                 window_state,
-                token_counts,
-                message_counts,
-                file_activity,
-                evidence_refs,
+                plan_payload,
+            )
+            self._append_transcript_event(
+                session,
+                "compact_boundary",
+                compaction_payloads["compact_boundary"],
             )
             compacted_history_state = CompactedHistoryReducer().reduce(
                 [
                     {
                         "type": "compacted_history",
-                        "payload": compacted_history_payload,
+                        "payload": compaction_payloads["compacted_history"],
                     }
                 ]
             )
@@ -2156,7 +1904,7 @@ class QueryEngine(object):
                 self._append_transcript_event(
                     session,
                     "compacted_history",
-                    compacted_history_payload,
+                    compaction_payloads["compacted_history"],
                 )
             return True
 

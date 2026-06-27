@@ -857,6 +857,16 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertFalse(hasattr(QueryEngine, "_allowed_tools_for_mode"))
         self.assertIs(engine.extension_manager, engine.extension_host.manager)
 
+    def test_query_engine_does_not_own_compaction_payload_helpers(self):
+        for helper_name in (
+            "_compaction_token_counts",
+            "_compaction_message_counts",
+            "_compaction_file_activity",
+            "_compaction_evidence_refs",
+            "_compacted_history_payload",
+        ):
+            self.assertFalse(hasattr(QueryEngine, helper_name), helper_name)
+
     def test_query_engine_guard_stops_empty_provider_reply_without_tool_calls(self):
         client = EmptyStopClient()
         transcript_store = TranscriptStore(self.workspace)
