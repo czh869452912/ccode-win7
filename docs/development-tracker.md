@@ -1,6 +1,6 @@
 # EmbedAgent 开发进度跟踪
 
-> 更新日期：2026-06-27（Pi/T3 residual debt cleanup in progress）
+> 更新日期：2026-06-27（Pi/T3 residual debt cleanup closed）
 > 用途：持续跟踪当前阶段、下一步任务、里程碑进度、风险与阻塞
 
 ---
@@ -23,6 +23,20 @@
 ---
 
 ## 2. 当前阶段
+
+### 2026-06-27 - Pi/T3 Residual Debt Cleanup Closed
+
+- GUI backend route registration is split by family: `server.py` is now the
+  composition root, while app/session/terminal/source-control/preview routes
+  live in focused route modules.
+- `HostedCommandService` owns slash-command dispatch, command-result emission,
+  and hosted command tool execution; `HostedInteractionService` owns
+  permission/user-input response glue and pending ticket state.
+- `TurnSnapshotService`, `PromptAssemblyService`, and `CompactionJournal` own
+  provider snapshot metadata, workflow prompt append/dedupe, and compaction
+  payload assembly outside `QueryEngine`.
+- The 2026-06-27 residual cleanup plan and design spec are archived under
+  `docs/archive/pi-t3-residual-debt-cleanup/` after active docs synchronization.
 
 ### 2026-06-27 - Pi/T3 Residual Debt Cleanup Slice 3
 

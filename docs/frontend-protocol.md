@@ -54,6 +54,12 @@ must resolve the active core explicitly through the app host. Backend routes
 must not depend on compatibility proxy objects that hide the active-workspace
 requirement.
 
+`src/embedagent/frontend/gui/backend/server.py` is the backend composition
+root. HTTP route registration is delegated by family to `routes_app.py`,
+`routes_sessions.py`, `routes_terminal.py`, `routes_source_control.py`, and
+`routes_preview.py`; new route families should follow that pattern instead of
+adding broad route ownership back to `server.py`.
+
 This state is owned by the GUI host and frontend shell. It is not session
 history, workflow truth, tool activation policy, permission policy, extension
 loading policy, provider configuration, or transcript state. It must not

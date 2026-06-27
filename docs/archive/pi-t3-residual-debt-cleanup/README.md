@@ -19,11 +19,19 @@ Durable conclusions were synchronized into active source-of-truth docs before ar
 - ordinary command/build/test failures remain diagnostic tool results instead of hard loop stops
 - GUI interaction activity and workspace refresh invalidation now come from backend/tool metadata contracts
 - runtime configuration read-model invalidation is reducer-backed and tested from transcript events
+- GUI backend route registration is delegated to route-family modules instead of
+  concentrated in `server.py`
+- hosted command and interaction glue now lives in `HostedCommandService` and
+  `HostedInteractionService`
+- provider snapshot, workflow prompt, and compaction payload assembly now lives
+  in `TurnSnapshotService`, `PromptAssemblyService`, and `CompactionJournal`
 
 Archived materials:
 
 - [2026-06-26-pi-t3-debt-cleanup.md](2026-06-26-pi-t3-debt-cleanup.md)
 - [2026-06-26-pi-t3-followup-cleanup.md](2026-06-26-pi-t3-followup-cleanup.md)
 - [2026-06-27-pi-t3-residual-debt-audit.md](2026-06-27-pi-t3-residual-debt-audit.md)
+- [2026-06-27-pi-t3-residual-debt-design.md](2026-06-27-pi-t3-residual-debt-design.md)
+- [2026-06-27-pi-t3-residual-debt-cleanup.md](2026-06-27-pi-t3-residual-debt-cleanup.md)
 
 Use active docs for current product truth.

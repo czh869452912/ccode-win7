@@ -44,6 +44,44 @@
 
 ## 3. 当前变更记录
 
+### DC-216
+
+- Date: 2026-06-27
+- Change Topic: Hosted adapter and QueryEngine service-boundary cleanup
+- Summary:
+  - Split GUI backend HTTP route registration into focused route modules while
+    keeping `server.py` as the composition root.
+  - Extracted hosted slash-command dispatch/result emission into
+    `HostedCommandService` and permission/user-input response glue into
+    `HostedInteractionService`.
+  - Moved provider snapshot metadata, workflow prompt append/dedupe, and
+    compact-boundary/compacted-history payload assembly into
+    `TurnSnapshotService`, `PromptAssemblyService`, and `CompactionJournal`.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/backend/server.py`
+  - `src/embedagent/frontend/gui/backend/routes_app.py`
+  - `src/embedagent/frontend/gui/backend/routes_sessions.py`
+  - `src/embedagent/frontend/gui/backend/routes_terminal.py`
+  - `src/embedagent/frontend/gui/backend/routes_source_control.py`
+  - `src/embedagent/frontend/gui/backend/routes_preview.py`
+  - `src/embedagent/inprocess_adapter.py`
+  - `src/embedagent/hosted_command_service.py`
+  - `src/embedagent/hosted_interaction_service.py`
+  - `src/embedagent/query_engine.py`
+  - `src/embedagent/turn_snapshot_service.py`
+  - `src/embedagent/prompt_assembly_service.py`
+  - `src/embedagent/compaction_journal.py`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/modules/agent-core.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/frontend-protocol.md`
+- ADR Needed: No
+- Follow-up:
+  - Preserve these service boundaries in future Pi/T3 cleanup and avoid
+    reintroducing adapter-local command helpers, QueryEngine snapshot helpers,
+    QueryEngine compaction payload helpers, or monolithic GUI route modules.
+
 ### DC-215
 
 - Date: 2026-06-27
