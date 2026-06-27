@@ -1252,7 +1252,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertEqual(current_mode, "build")
         self.assertEqual(len(session.messages), len(first_messages))
 
-    def test_workflow_prompt_dedupe_ignores_legacy_harness_prompt_kind(self):
+    def test_workflow_prompt_dedupe_ignores_non_workflow_prompt_kinds(self):
         transcript_store = TranscriptStore(self.workspace)
         default_extensions = build_default_extension_set(self.tools)
         engine = QueryEngine(
@@ -1267,8 +1267,8 @@ class TestQueryEngineRefactor(unittest.TestCase):
         )
         session = Session()
         session.add_system_message(
-            "legacy prompt",
-            kind="harness_prompt",
+            "unrelated system prompt",
+            kind="system_note",
             metadata={
                 "mode_name": "build",
                 "discipline_label": "lite_spec_tdd",
@@ -1281,7 +1281,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
         prompt_messages = [
             message
             for message in session.messages
-            if message.kind in ("harness_prompt", "workflow_prompt")
+            if message.kind in ("system_note", "workflow_prompt")
         ]
         workflow_prompt_messages = [
             message for message in session.messages if message.kind == "workflow_prompt"
@@ -3147,11 +3147,29 @@ class TestQueryEngineRefactor(unittest.TestCase):
         )
         transcript_store.append_event(
             session_id,
+            "step_started",
+            {"turn_id": "t-1", "step_id": "s-1", "step_index": 1},
+        )
+        transcript_store.append_event(
+            session_id,
+            "tool_call",
+            {
+                "turn_id": "t-1",
+                "step_id": "s-1",
+                "call_id": "call-read-1",
+                "tool_name": "read_file",
+                "arguments": {"path": "src/demo.c"},
+                "status": "started",
+            },
+        )
+        transcript_store.append_event(
+            session_id,
             "message",
             {
                 "role": "tool",
                 "content": '{"success": true, "error": null, "data": {"path": "src/demo.c", "content_stored_path": ".embedagent/memory/sessions/sess-replacements/tool-results/call-read-1/content.txt"}}',
                 "message_id": "m-tool",
+                "parent_message_id": "m-user",
                 "turn_id": "t-1",
                 "step_id": "s-1",
                 "tool_call_id": "call-read-1",

@@ -388,7 +388,7 @@
 
 - 当前阶段：`Phase 4 真实工程验证 + Phase 6 GUI / Win7 收口 + Pi-inspired minimal Core enterprise boundary 收口`
 - 总体状态：`进行中`
-- 当前重点：`Agent Harness V2 official cutover 六步程序与文档治理 Batch A 已完成。模块文档（protocol/core、TUI、GUI、packaging）已补齐，代码-文档矩阵已同步。workflow extension boundary 代码迁移、repo-side 回归、本机 release bundle 验证和本机剩余边界清理已收口；Pi-inspired minimal Core Phase M core alias cleanup、enterprise/intranet capability boundary foundation、GUI terminal bottom drawer 与 GUI source-control foundation 已完成。下一步重点是在真实 Win7 目标机重跑离线 bundle smoke、继续真实 C/C++ 工程验证，并继续 stale compatibility audit。`
+- 当前重点：`Agent Harness V2 official cutover 六步程序与文档治理 Batch A 已完成。模块文档（protocol/core、TUI、GUI、packaging）已补齐，代码-文档矩阵已同步。workflow extension boundary 代码迁移、repo-side 回归、本机 release bundle 验证和本机剩余边界清理已收口；Pi-inspired minimal Core Phase M core alias cleanup、enterprise/intranet capability boundary foundation、GUI terminal bottom drawer 与 GUI source-control foundation 已完成。下一步重点是在真实 Win7 目标机重跑离线 bundle smoke、继续真实 C/C++ 工程验证，并用架构守卫防止旧兼容路径回流。`
 - 最新 session-history 收口：`GUI session activation 已切到单一 `/api/sessions/{id}/bootstrap` 合约；历史 turns 现在只从 `transcript.jsonl -> Session -> SessionHistoryAssembler` 生成；当前契约无 durable timeline transport，raw fallback 不再是正式 GUI 恢复模式。`
 - 最新稳定化收口：`set_session_mode()` 现在会先重置旧 phase 再刷新 Harness snapshot，避免 build/debug/verify 跨 mode 切换时把上一模式的 phase 残留到新会话快照；同时 `Context` 高优先级工具、reducer registry 与 `/review` 文案已统一到 `run_recipe/report_quality_v2/task_status` 正式词汇。`
 - 最新 dead-code 清理：`tools_v2/` 中仍被正式主路径使用的 discovery/recipe/session 模块已迁入官方 `src/embedagent/tools/`；旧 `tools_v2/*.py` 与已无人引用的 legacy `loop.py` 已删除，产品源码不再直接 import `tools_v2`。当前 `src/embedagent/agent_loop.py` 是 Slice 5 新增的正式 turn-loop 边界。`
@@ -492,7 +492,7 @@
 - restore 顺序校验已继续推进：`SessionRestorer` 现在在 `step_started` 缺少 user turn、`tool_call` 缺少 active step，或 replay 事件引用了错误的 `turn_id / step_id` 时停止回放，避免恢复链凭空补造空 turn / 空 step，或把事件静默挂到错误的活动节点上
 - compact boundary replay 已继续推进：`SessionRestorer` 现在会校验 `preserved_head_message_id / preserved_tail_message_id` 是否存在且顺序正确；同时 `QueryEngine` 会在 transcript 缺失时先 bootstrap 现有内存 session 的 message / compact boundary 历史，避免新 boundary 引用了 transcript 里不存在的旧消息
 - compact boundary 写入策略已继续收口：同一 step 在 `compact_retry` 前后现在只会落一条有效 `compact_boundary`，避免把“摘要套摘要”再次写回 transcript，导致 restore 后边界漂移
-- message replay 边界已继续推进：`SessionRestorer` 现在会拒绝错误 `turn_id` 的 `assistant/tool` message，并在已有 active step 时校验其 `step_id`；同时保留对旧 transcript 的兼容入口，允许“未显式落 `step_started` 的 assistant/tool message”作为建步前缀继续恢复
+- message replay 边界已继续推进：`SessionRestorer` 现在会拒绝错误 `turn_id` 的 `assistant/tool` message；如果消息携带 `step_id`，也必须已经存在匹配的 active step，不再允许“未显式落 `step_started` 的 assistant/tool message”作为建步前缀继续恢复
 - transcript 引用 ID 校验已继续推进：`SessionRestorer` 现在会在出现重复 `message_id` 或重复 `tool_call.call_id` 时停止回放，避免 compact boundary、content replacement 和 tool topology 的引用目标变得不唯一
 - pending resolution replay 已继续推进：`SessionRestorer` 现在会校验 `pending_resolution` 的 `turn_id / step_id` 是否仍然指向当前活动节点，避免错误 resolution 把真正的 pending 状态提前清掉
 - pending resolution 引用一致性已继续推进：`SessionRestorer` 现在还会校验 `pending_resolution` 的 `interaction_id / tool_name / kind` 是否匹配当前 pending interaction，避免“指向别的等待态”的 resolution 被错误消费
@@ -551,7 +551,7 @@
 - 已完成 dist/source GUI 布局重新对齐：重建后的离线 bundle 已携带 `static/assets`、Fixed Version WebView2 109、无 `__editable__.embedagent-*.pth` 泄漏，且 bundle 级 `validate-offline-bundle.ps1`、`validate-gui-smoke.py`、`check-bundle-dependencies.py` 全部通过
 - Phase 7 打包链路已开始切换到声明式控制面：`scripts/package.config.json`、`scripts/package-lib.ps1` 与 `scripts/package.ps1` 已落地；当前 `doctor/deps/assemble/verify/release` 已可通过 mocked orchestration contract 运行，并统一写入 `build/offline-reports/`
 
-项目下一步：继续推进 Phase 4 真实工程验证，在 Win7 bundle 中验证 Fixed Version WebView2 109 路径，并把 Phase 7 的 site-packages 精简、真实 release pipeline 验收和 Win7 bundle 验收接上；Pi-inspired minimal Core Phase A-M 已收口，后续重点转为真实 Win7 smoke、真实 C/C++ 工程验证和剩余 stale compatibility audit。
+项目下一步：继续推进 Phase 4 真实工程验证，在 Win7 bundle 中验证 Fixed Version WebView2 109 路径，并把 Phase 7 的 site-packages 精简、真实 release pipeline 验收和 Win7 bundle 验收接上；Pi-inspired minimal Core Phase A-M 已收口，后续重点转为真实 Win7 smoke、真实 C/C++ 工程验证和架构守卫回归。
 
 ---
 
@@ -563,7 +563,7 @@
 2. 在 Win7 bundle 中完成 GUI Chromium 基线实机验证并记录结果
 3. 为当前 `package.ps1 release` 路径评估并收敛 `site-packages` 的精简导出方案
 4. 运行 contract-backed offline bundle 的 clean Win7 unpack-and-run smoke 并记录结果
-5. 删除剩余 stale compatibility paths，并保持 source-of-truth docs 与当前正式架构同步
+5. 用架构守卫防止 stale compatibility paths 回流，并保持 source-of-truth docs 与当前正式架构同步
 
 实现备注：
 

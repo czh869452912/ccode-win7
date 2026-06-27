@@ -1236,6 +1236,40 @@ class TestSessionRestorer(unittest.TestCase):
         self.assertEqual(result.session.turns[0].assistant_message, "")
         self.assertEqual(result.session.turns[0].transitions, [])
 
+    def test_restore_stops_at_assistant_message_with_step_id_without_active_step(self):
+        session_id = "sess-invalid-assistant-message-step"
+        self.store.append_event(session_id, "session_meta", {"current_mode": "build"})
+        self.store.append_event(
+            session_id,
+            "message",
+            {
+                "role": "user",
+                "content": "读取文件",
+                "message_id": "m-user",
+                "turn_id": "t-1",
+                "step_id": "",
+            },
+        )
+        self.store.append_event(
+            session_id,
+            "message",
+            {
+                "role": "assistant",
+                "content": "bad assistant",
+                "message_id": "m-assistant",
+                "turn_id": "t-1",
+                "step_id": "s-1",
+                "actions": [],
+                "reasoning_content": "",
+                "finish_reason": "stop",
+            },
+        )
+        result = SessionRestorer().restore(self.store.load_events(session_id))
+        self.assertEqual(result.stop_reason, "assistant_message_step_mismatch")
+        self.assertEqual(len(result.session.turns), 1)
+        self.assertEqual(result.session.turns[0].assistant_message, "")
+        self.assertEqual(result.session.turns[0].steps, [])
+
     def test_restore_stops_at_tool_message_with_mismatched_step_id(self):
         session_id = "sess-invalid-tool-message-step"
         self.store.append_event(session_id, "session_meta", {"current_mode": "build"})
@@ -1284,6 +1318,40 @@ class TestSessionRestorer(unittest.TestCase):
         self.assertEqual(len(result.session.turns), 1)
         self.assertEqual([item.role for item in result.session.messages], ["user"])
         self.assertEqual(result.session.turns[0].transitions, [])
+
+    def test_restore_stops_at_tool_message_with_step_id_without_active_step(self):
+        session_id = "sess-invalid-tool-message-no-step"
+        self.store.append_event(session_id, "session_meta", {"current_mode": "build"})
+        self.store.append_event(
+            session_id,
+            "message",
+            {
+                "role": "user",
+                "content": "读取文件",
+                "message_id": "m-user",
+                "turn_id": "t-1",
+                "step_id": "",
+            },
+        )
+        self.store.append_event(
+            session_id,
+            "message",
+            {
+                "role": "tool",
+                "content": '{"success": true, "error": null, "data": {"path": "src/demo.c"}}',
+                "message_id": "m-tool",
+                "turn_id": "t-1",
+                "step_id": "s-1",
+                "tool_call_id": "call-read-1",
+                "tool_name": "read_file",
+                "kind": "tool_result",
+            },
+        )
+        result = SessionRestorer().restore(self.store.load_events(session_id))
+        self.assertEqual(result.stop_reason, "tool_message_step_mismatch")
+        self.assertEqual(len(result.session.turns), 1)
+        self.assertEqual([item.role for item in result.session.messages], ["user"])
+        self.assertEqual(result.session.turns[0].steps, [])
 
     def test_restore_stops_at_duplicate_message_id(self):
         session_id = "sess-duplicate-message-id"

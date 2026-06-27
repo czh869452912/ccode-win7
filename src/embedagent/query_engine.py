@@ -657,7 +657,39 @@ class QueryEngine(object):
                     "workspace": self.tools.workspace,
                 },
             )
+            step_records = {}
+            for turn in list(getattr(session, "turns", []) or []):
+                turn_id = str(getattr(turn, "turn_id", "") or "")
+                for step in list(getattr(turn, "steps", []) or []):
+                    step_id = str(getattr(step, "step_id", "") or "")
+                    if not step_id:
+                        continue
+                    step_records[(turn_id, step_id)] = {
+                        "turn_id": turn_id,
+                        "step_id": step_id,
+                        "step_index": int(getattr(step, "step_index", 0) or 0),
+                        "reasoning": str(getattr(step, "reasoning", "") or ""),
+                    }
+            emitted_steps = set()
             for message in list(getattr(session, "messages", []) or []):
+                message_turn_id = str(getattr(message, "turn_id", "") or "")
+                message_step_id = str(getattr(message, "step_id", "") or "")
+                step_key = (message_turn_id, message_step_id)
+                if message_step_id and step_key not in emitted_steps:
+                    self._append_transcript_event(
+                        session,
+                        "step_started",
+                        step_records.get(
+                            step_key,
+                            {
+                                "turn_id": message_turn_id,
+                                "step_id": message_step_id,
+                                "step_index": 0,
+                                "reasoning": "",
+                            },
+                        ),
+                    )
+                    emitted_steps.add(step_key)
                 self._append_message_event(session, self._message_event_payload(message))
             for boundary in list(getattr(session, "compact_boundaries", []) or []):
                 boundary_metadata = dict(getattr(boundary, "metadata", {}) or {})
