@@ -576,7 +576,7 @@ Expected: PASS.
 - Modify: `tests/test_inprocess_adapter_frontend_api.py`
 - Modify: `tests/test_review_command.py`
 
-- [ ] **Step 1: Characterize current behavior**
+- [x] **Step 1: Characterize current behavior**
 
 Add tests around:
 
@@ -585,7 +585,7 @@ Add tests around:
 - user input response routing
 - command result emission with turn and step anchors
 
-- [ ] **Step 2: Move command execution helpers**
+- [x] **Step 2: Move command execution helpers**
 
 Move slash-command command execution and command-result emission that does not belong to Agent Core into `HostedCommandService`.
 
@@ -597,15 +597,15 @@ self.command_service.dispatch(text, state)
 
 The service result should contain enough information for the adapter to persist state and emit command results without calling back into adapter-private command helpers.
 
-- [ ] **Step 3: Move interaction glue**
+- [x] **Step 3: Move interaction glue**
 
 Move approve/reject/reply/respond glue into `HostedInteractionService`. Keep actual tool-action resume inside existing Agent action pipeline.
 
-- [ ] **Step 4: Delete adapter methods after migration**
+- [x] **Step 4: Delete adapter methods after migration**
 
 Do not keep private forwarding wrappers unless tests need them for an active public API. Update tests to target the new service where appropriate.
 
-- [ ] **Step 5: Run focused adapter tests**
+- [x] **Step 5: Run focused adapter tests**
 
 Run:
 

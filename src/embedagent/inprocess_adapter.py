@@ -2,9 +2,7 @@ from __future__ import annotations  # noqa: I001
 
 import os
 import threading
-import time
 import uuid
-from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional
 
@@ -29,20 +27,22 @@ from embedagent.modes import (
 )
 from embedagent.permissions import PermissionPolicy, PermissionRequest
 from embedagent.plan_store import PlanStore
-from embedagent.prompts import expand_prompt_invocation
 from embedagent.project_extensions import load_project_extensions
 from embedagent.project_memory import ProjectMemoryStore
-from embedagent.protocol import CommandResult, PermissionContextView, PlanSnapshot
+from embedagent.protocol import PermissionContextView, PlanSnapshot
 from embedagent.recovery_state import RecoveryStateReducer
-from embedagent.review_command import ReviewCommandService
+from embedagent.hosted_command_service import HostedCommandService
+from embedagent.hosted_interaction_service import (
+    HostedInteractionService,
+    PermissionTicket,
+    UserInputTicket,
+)
 from embedagent.runtime_capability_service import RuntimeCapabilityService
 from embedagent.runtime_config import RuntimeConfigReducer
 from embedagent.session import (
     Action,
     AssistantReply,
-    LoopTransition,
     Observation,
-    PendingInteraction,
     Session,
 )
 from embedagent.session_bootstrap_service import SessionBootstrapService
@@ -59,10 +59,7 @@ from embedagent.services import (
 )
 from embedagent.query_engine import QueryEngine
 from embedagent.skill_index import build_skill_index
-from embedagent.skills import expand_skill_invocation
-from embedagent.slash_command_service import SlashCommandService
 from embedagent.slash_commands import (
-    ParsedSlashCommand,
     SlashCommandRegistry,
     parse_slash_command,
     resource_command_specs,
@@ -118,58 +115,6 @@ UserInputResolver = Callable[[Dict[str, Any]], Optional[Dict[str, Any]]]
 
 def _utc_now() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
-
-
-@dataclass
-class PermissionTicket:
-    permission_id: str
-    session_id: str
-    tool_name: str
-    category: str
-    reason: str
-    details: Dict[str, Any]
-    turn_id: str = ""
-    step_id: str = ""
-    step_index: int = 0
-
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "permission_id": self.permission_id,
-            "session_id": self.session_id,
-            "tool_name": self.tool_name,
-            "category": self.category,
-            "reason": self.reason,
-            "details": self.details,
-            "turn_id": self.turn_id,
-            "step_id": self.step_id,
-            "step_index": self.step_index,
-        }
-
-
-@dataclass
-class UserInputTicket:
-    request_id: str
-    session_id: str
-    tool_name: str
-    question: str
-    options: List[Dict[str, Any]]
-    details: Dict[str, Any]
-    turn_id: str = ""
-    step_id: str = ""
-    step_index: int = 0
-
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "request_id": self.request_id,
-            "session_id": self.session_id,
-            "tool_name": self.tool_name,
-            "question": self.question,
-            "options": self.options,
-            "details": self.details,
-            "turn_id": self.turn_id,
-            "step_id": self.step_id,
-            "step_index": self.step_index,
-        }
 
 
 def _pending_interaction_payload(state: "ManagedSession") -> Optional[Dict[str, Any]]:
@@ -238,7 +183,6 @@ class InProcessAdapter(object):
             project_memory_store=self.project_memory_store,
             tool_result_store=self.tools.tool_result_store,
         )
-        self.review_command = ReviewCommandService(self.tools)
         self.maintenance_interval = maintenance_interval if maintenance_interval > 0 else 1
         self.event_handler = event_handler
         self.plan_store = PlanStore(self.tools.workspace)
@@ -281,24 +225,36 @@ class InProcessAdapter(object):
             model_descriptor_loader=lambda: model_profile_capability_descriptor(self.client),
             workflow_manifest_loader=self._workflow_package_capability_descriptors,
         )
-        self._slash_commands = SlashCommandService(
-            {
-                "help": self._handle_command_help,
-                "mode": self._handle_command_mode,
-                "sessions": self._handle_command_sessions,
-                "resume": self._handle_command_resume,
-                "workspace": self._handle_command_workspace,
-                "recipes": self._handle_command_recipes,
-                "resources": self._handle_command_resources,
-                "run": self._handle_command_run,
-                "clear": self._handle_command_clear,
-                "tasks": self._handle_command_tasks,
-                "artifacts": self._handle_command_artifacts,
-                "diff": self._handle_command_diff,
-                "permissions": self._handle_command_permissions,
-                "plan": self._handle_command_plan,
-                "review": self._handle_command_review,
-            }
+        self.interaction_service = HostedInteractionService(
+            require_session=self._require_session,
+            run_turn=self._run_turn,
+            get_session_snapshot=lambda session_id: self.get_session_snapshot(session_id),
+            notify_status=self._notify_status,
+            default_event_handler=lambda: self.event_handler,
+        )
+        self.command_service = HostedCommandService(
+            tools=self.tools,
+            command_registry=self.command_registry,
+            plan_store=self.plan_store,
+            max_turns=self.max_turns,
+            require_session=self._require_session,
+            set_session_mode=self.set_session_mode,
+            resume_session=self.resume_session,
+            list_sessions=self.list_sessions,
+            get_workspace_snapshot=self.get_workspace_snapshot,
+            list_workspace_recipes=self.list_workspace_recipes,
+            reload_resources=self.reload_resources,
+            list_tasks=self.list_tasks,
+            list_artifacts=self.list_artifacts,
+            get_permission_context=self.get_permission_context,
+            emit=self._emit,
+            emit_with_snapshot=self._emit_with_snapshot,
+            notify_status=self._notify_status,
+            persist_state=self._persist_state,
+            refresh_harness_state=self._refresh_harness_state,
+            tool_event_metadata=self._tool_event_metadata,
+            create_permission_ticket=self.interaction_service.create_permission_ticket,
+            clear_pending_permission=self.interaction_service.clear_pending_permission,
         )
 
     def _load_project_extensions(self) -> Dict[str, Any]:
@@ -1111,7 +1067,7 @@ class InProcessAdapter(object):
                 session_id,
                 {"turn_id": command_turn_id, "user_text": text},
             )
-        dispatch = self._dispatch_input(state, text, event_handler, permission_resolver)
+        dispatch = self.command_service.dispatch(state, text, event_handler, permission_resolver)
         if dispatch.get("handled") and not dispatch.get("continue_with_text"):
             if command_turn_id:
                 self._emit(
@@ -1187,830 +1143,6 @@ class InProcessAdapter(object):
         thread.start()
         return self.get_session_snapshot(session_id)
 
-    def _dispatch_input(
-        self,
-        state: ManagedSession,
-        text: str,
-        event_handler: Optional[EventHandler],
-        permission_resolver: Optional[PermissionResolver],
-    ) -> Dict[str, Any]:
-        parsed = parse_slash_command(text)
-        if parsed is None:
-            return {"handled": False, "continue_with_text": text}
-        if parsed.name.startswith("skill:"):
-            return self._dispatch_skill_command(state, parsed, event_handler)
-        if parsed.name.startswith("prompt:"):
-            return self._dispatch_prompt_command(state, parsed, event_handler)
-        spec = self.command_registry.get(parsed.name)
-        if spec is None:
-            self._emit_command_result(
-                event_handler,
-                state,
-                CommandResult(
-                    command_name=parsed.name,
-                    success=False,
-                    message="未知命令：/%s" % parsed.name,
-                    data={"raw_args": parsed.raw_args},
-                ),
-            )
-            return {"handled": True, "continue_with_text": ""}
-        with state.lock:
-            state.current_command_context = parsed.name
-            if parsed.name in ("plan", "review"):
-                state.workflow_state = parsed.name
-            else:
-                state.workflow_state = "command"
-            state.updated_at = _utc_now()
-        handler = self._slash_commands.handler_for(parsed.name)
-        if not callable(handler):
-            self._emit_command_result(
-                event_handler,
-                state,
-                CommandResult(
-                    command_name=parsed.name,
-                    success=False,
-                    message="命令尚未实现：/%s" % parsed.name,
-                    data={"raw_args": parsed.raw_args},
-                ),
-            )
-            return {"handled": True, "continue_with_text": ""}
-        return handler(state, parsed, event_handler, permission_resolver)
-
-    def _dispatch_skill_command(
-        self,
-        state: ManagedSession,
-        parsed: ParsedSlashCommand,
-        event_handler: Optional[EventHandler],
-    ) -> Dict[str, Any]:
-        resources = self.tools.local_resources()
-        expanded_text, error = expand_skill_invocation(
-            "/%s %s" % (parsed.name, parsed.raw_args), resources, self.tools.workspace
-        )
-        if error:
-            self._emit_command_result(
-                event_handler,
-                state,
-                CommandResult(
-                    command_name=parsed.name,
-                    success=False,
-                    message=error,
-                    data={"raw_args": parsed.raw_args},
-                ),
-            )
-            return {"handled": True, "continue_with_text": ""}
-        return {"handled": True, "continue_with_text": expanded_text}
-
-    def _dispatch_prompt_command(
-        self,
-        state: ManagedSession,
-        parsed: ParsedSlashCommand,
-        event_handler: Optional[EventHandler],
-    ) -> Dict[str, Any]:
-        resources = self.tools.local_resources()
-        expanded_text, error = expand_prompt_invocation(
-            "/%s %s" % (parsed.name, parsed.raw_args), resources, self.tools.workspace
-        )
-        if error:
-            self._emit_command_result(
-                event_handler,
-                state,
-                CommandResult(
-                    command_name=parsed.name,
-                    success=False,
-                    message=error,
-                    data={"raw_args": parsed.raw_args},
-                ),
-            )
-            return {"handled": True, "continue_with_text": ""}
-        return {"handled": True, "continue_with_text": expanded_text}
-
-    def _handle_command_help(
-        self,
-        state: ManagedSession,
-        parsed: ParsedSlashCommand,
-        event_handler: Optional[EventHandler],
-        permission_resolver: Optional[PermissionResolver],
-    ) -> Dict[str, Any]:
-        self._emit_command_result(
-            event_handler,
-            state,
-            CommandResult(
-                command_name="help",
-                success=True,
-                message=self.command_registry.help_markdown(
-                    extra_specs=resource_command_specs(self.tools.local_resources())
-                ),
-                data={
-                    "commands": [
-                        item.name
-                        for item in self.command_registry.specs(
-                            extra_specs=resource_command_specs(self.tools.local_resources())
-                        )
-                    ]
-                },
-            ),
-        )
-        return {"handled": True, "continue_with_text": ""}
-
-    def _handle_command_mode(
-        self,
-        state: ManagedSession,
-        parsed: ParsedSlashCommand,
-        event_handler: Optional[EventHandler],
-        permission_resolver: Optional[PermissionResolver],
-    ) -> Dict[str, Any]:
-        if not parsed.args:
-            self._emit_command_result(
-                event_handler,
-                state,
-                CommandResult(
-                    command_name="mode",
-                    success=True,
-                    message="当前模式：`%s`" % state.current_mode,
-                    data={"current_mode": state.current_mode},
-                ),
-            )
-            return {"handled": True, "continue_with_text": ""}
-        target_mode = require_mode(parsed.args[0])["slug"]
-        remainder = ""
-        if parsed.raw_args:
-            parts = parsed.raw_args.split(None, 1)
-            remainder = str(parts[1] or "").strip() if len(parts) > 1 else ""
-        snapshot = self.set_session_mode(state.session.session_id, target_mode)
-        message = "已切换到 `%s` 模式。" % target_mode
-        if remainder:
-            message += " 继续处理后续消息。"
-        self._emit_command_result(
-            event_handler,
-            state,
-            CommandResult(
-                command_name="mode",
-                success=True,
-                message=message,
-                data={"current_mode": target_mode, "session_snapshot": snapshot},
-            ),
-        )
-        return {"handled": True, "continue_with_text": remainder}
-
-    def _handle_command_sessions(
-        self,
-        state: ManagedSession,
-        parsed: ParsedSlashCommand,
-        event_handler: Optional[EventHandler],
-        permission_resolver: Optional[PermissionResolver],
-    ) -> Dict[str, Any]:
-        sessions = self.list_sessions(limit=10)
-        lines = ["## Recent Sessions", ""]
-        if not sessions:
-            lines.append("当前没有可恢复会话。")
-        else:
-            for item in sessions:
-                label = str(
-                    item.get("user_goal")
-                    or item.get("summary_text")
-                    or item.get("session_id")
-                    or ""
-                )
-                lines.append(
-                    "- `%s` [%s] %s"
-                    % (
-                        str(item.get("session_id") or "")[:12],
-                        str(item.get("current_mode") or "-"),
-                        label[:96],
-                    )
-                )
-        self._emit_command_result(
-            event_handler,
-            state,
-            CommandResult(
-                command_name="sessions",
-                success=True,
-                message="\n".join(lines),
-                data={"sessions": sessions},
-            ),
-        )
-        return {"handled": True, "continue_with_text": ""}
-
-    def _handle_command_resume(
-        self,
-        state: ManagedSession,
-        parsed: ParsedSlashCommand,
-        event_handler: Optional[EventHandler],
-        permission_resolver: Optional[PermissionResolver],
-    ) -> Dict[str, Any]:
-        reference = parsed.args[0] if parsed.args else "latest"
-        mode = parsed.args[1] if len(parsed.args) > 1 else state.current_mode
-        snapshot = self.resume_session(reference, mode, event_handler=event_handler)
-        self._emit_command_result(
-            event_handler,
-            self._require_session(str(snapshot.get("session_id") or "")),
-            CommandResult(
-                command_name="resume",
-                success=True,
-                message="已恢复会话 `%s`。" % str(snapshot.get("session_id") or ""),
-                data={
-                    "session_snapshot": snapshot,
-                    "switch_session_id": str(snapshot.get("session_id") or ""),
-                },
-            ),
-        )
-        return {"handled": True, "continue_with_text": ""}
-
-    def _handle_command_workspace(
-        self,
-        state: ManagedSession,
-        parsed: ParsedSlashCommand,
-        event_handler: Optional[EventHandler],
-        permission_resolver: Optional[PermissionResolver],
-    ) -> Dict[str, Any]:
-        payload = self.get_workspace_snapshot()
-        git_payload = payload.get("git") if isinstance(payload.get("git"), dict) else {}
-        tree_payload = payload.get("tree") if isinstance(payload.get("tree"), dict) else {}
-        recipe_payload = payload.get("recipes") if isinstance(payload.get("recipes"), dict) else {}
-        lines = [
-            "## Workspace",
-            "",
-            "- path: `%s`" % payload.get("workspace", ""),
-            "- branch: `%s`" % git_payload.get("branch", ""),
-            "- dirty files: %s" % git_payload.get("dirty_count", 0),
-            "- files: %s" % tree_payload.get("file_count", 0),
-            "- dirs: %s" % tree_payload.get("dir_count", 0),
-            "- recipes: %s" % int(recipe_payload.get("count") or 0),
-        ]
-        self._emit_command_result(
-            event_handler,
-            state,
-            CommandResult(
-                command_name="workspace",
-                success=True,
-                message="\n".join(lines),
-                data=payload,
-            ),
-        )
-        return {"handled": True, "continue_with_text": ""}
-
-    def _handle_command_recipes(
-        self,
-        state: ManagedSession,
-        parsed: ParsedSlashCommand,
-        event_handler: Optional[EventHandler],
-        permission_resolver: Optional[PermissionResolver],
-    ) -> Dict[str, Any]:
-        payload = self.list_workspace_recipes()
-        items = payload.get("items") or []
-        lines = ["## Workspace Recipes", ""]
-        if not items:
-            lines.append("当前工作区没有可用 recipe。")
-        else:
-            for item in items:
-                if not isinstance(item, dict):
-                    continue
-                lines.append(
-                    "- `%s` [%s] %s"
-                    % (
-                        str(item.get("id") or ""),
-                        str(item.get("tool_name") or ""),
-                        str(item.get("label") or item.get("command") or ""),
-                    )
-                )
-        self._emit_command_result(
-            event_handler,
-            state,
-            CommandResult(
-                command_name="recipes",
-                success=True,
-                message="\n".join(lines),
-                data=payload,
-            ),
-        )
-        return {"handled": True, "continue_with_text": ""}
-
-    def _handle_command_resources(
-        self,
-        state: ManagedSession,
-        parsed: ParsedSlashCommand,
-        event_handler: Optional[EventHandler],
-        permission_resolver: Optional[PermissionResolver],
-    ) -> Dict[str, Any]:
-        action = parsed.args[0] if parsed.args else "list"
-        if str(action or "").strip().lower() == "reload":
-            payload = self.reload_resources(
-                session_id=state.session.session_id,
-                reason="command",
-            )
-        else:
-            lookup = getattr(self.tools, "local_resources", None)
-            payload = (
-                lookup()
-                if callable(lookup)
-                else self.reload_resources(session_id=state.session.session_id, reason="command")
-            )
-        counts = dict(payload.get("counts") or {})
-        lines = [
-            "## Local Resources",
-            "",
-            "- skills: %s" % int(counts.get("skills") or 0),
-            "- prompts: %s" % int(counts.get("prompts") or 0),
-            "- recipes: %s" % int(counts.get("recipes") or 0),
-            "- diagnostics: %s" % int(counts.get("diagnostics") or 0),
-        ]
-        self._emit_command_result(
-            event_handler,
-            state,
-            CommandResult(
-                command_name="resources",
-                success=True,
-                message="\n".join(lines),
-                data=payload,
-            ),
-        )
-        return {"handled": True, "continue_with_text": ""}
-
-    def _handle_command_run(
-        self,
-        state: ManagedSession,
-        parsed: ParsedSlashCommand,
-        event_handler: Optional[EventHandler],
-        permission_resolver: Optional[PermissionResolver],
-    ) -> Dict[str, Any]:
-        if not parsed.args:
-            self._emit_command_result(
-                event_handler,
-                state,
-                CommandResult(
-                    command_name="run",
-                    success=False,
-                    message="用法：`/run <recipe_id>`",
-                    data={},
-                ),
-            )
-            return {"handled": True, "continue_with_text": ""}
-        recipe_id = str(parsed.args[0] or "").strip()
-        target = str(parsed.args[1] or "").strip() if len(parsed.args) > 1 else ""
-        profile = str(parsed.args[2] or "").strip() if len(parsed.args) > 2 else ""
-        recipes_payload = self.list_workspace_recipes()
-        recipe_items = recipes_payload.get("items") or []
-        matched = None
-        for item in recipe_items:
-            if isinstance(item, dict) and str(item.get("id") or "") == recipe_id:
-                matched = item
-                break
-        if matched is None:
-            self._emit_command_result(
-                event_handler,
-                state,
-                CommandResult(
-                    command_name="run",
-                    success=False,
-                    message="未找到 recipe：`%s`" % recipe_id,
-                    data={"recipe_id": recipe_id},
-                ),
-            )
-            return {"handled": True, "continue_with_text": ""}
-        observation = self._execute_tool_from_command(
-            state=state,
-            command_text="/run %s" % parsed.raw_args,
-            tool_name=str(matched.get("tool_name") or ""),
-            arguments={"recipe_id": recipe_id, "target": target, "profile": profile},
-            permission_resolver=permission_resolver,
-            event_handler=event_handler,
-        )
-        success = bool(observation.success)
-        message = (
-            "已执行 recipe `%s`。" % recipe_id
-            if success
-            else "recipe `%s` 执行失败：%s" % (recipe_id, observation.error or "未知错误")
-        )
-        payload = dict(observation.data) if isinstance(observation.data, dict) else {}
-        payload["recipe_id"] = recipe_id
-        payload["tool_name"] = str(matched.get("tool_name") or "")
-        payload["target"] = target
-        payload["profile"] = profile
-        self._emit_command_result(
-            event_handler,
-            state,
-            CommandResult(
-                command_name="run",
-                success=success,
-                message=message,
-                data=payload,
-            ),
-        )
-        return {"handled": True, "continue_with_text": ""}
-
-    def _handle_command_clear(
-        self,
-        state: ManagedSession,
-        parsed: ParsedSlashCommand,
-        event_handler: Optional[EventHandler],
-        permission_resolver: Optional[PermissionResolver],
-    ) -> Dict[str, Any]:
-        self._emit_command_result(
-            event_handler,
-            state,
-            CommandResult(
-                command_name="clear",
-                success=True,
-                message="已请求前端清空当前时间线视图。",
-                data={"clear_session_view": True},
-            ),
-        )
-        return {"handled": True, "continue_with_text": ""}
-
-    def _handle_command_tasks(
-        self,
-        state: ManagedSession,
-        parsed: ParsedSlashCommand,
-        event_handler: Optional[EventHandler],
-        permission_resolver: Optional[PermissionResolver],
-    ) -> Dict[str, Any]:
-        payload = self.list_tasks(session_id=state.session.session_id)
-        lines = ["## Session Tasks", ""]
-        tasks = payload.get("tasks") or []
-        if not tasks:
-            lines.append("当前会话暂无任务。")
-        else:
-            for item in tasks:
-                if not isinstance(item, dict):
-                    continue
-                prefix = "[x]" if item.get("done") else "[ ]"
-                lines.append("- %s %s" % (prefix, str(item.get("content") or "")))
-        self._emit_command_result(
-            event_handler,
-            state,
-            CommandResult(
-                command_name="tasks",
-                success=True,
-                message="\n".join(lines),
-                data=payload,
-            ),
-        )
-        return {"handled": True, "continue_with_text": ""}
-
-    def _handle_command_artifacts(
-        self,
-        state: ManagedSession,
-        parsed: ParsedSlashCommand,
-        event_handler: Optional[EventHandler],
-        permission_resolver: Optional[PermissionResolver],
-    ) -> Dict[str, Any]:
-        items = self.list_artifacts(limit=20)
-        lines = ["## Recent Artifacts", ""]
-        if not items:
-            lines.append("暂无工件。")
-        else:
-            for item in items:
-                lines.append(
-                    "- `%s` (%s)"
-                    % (
-                        str(item.get("path") or ""),
-                        str(item.get("tool_name") or item.get("kind") or ""),
-                    )
-                )
-        self._emit_command_result(
-            event_handler,
-            state,
-            CommandResult(
-                command_name="artifacts",
-                success=True,
-                message="\n".join(lines),
-                data={"items": items},
-            ),
-        )
-        return {"handled": True, "continue_with_text": ""}
-
-    def _handle_command_diff(
-        self,
-        state: ManagedSession,
-        parsed: ParsedSlashCommand,
-        event_handler: Optional[EventHandler],
-        permission_resolver: Optional[PermissionResolver],
-    ) -> Dict[str, Any]:
-        observation = self.tools.execute("git_diff", {"path": ".", "scope": "working"})
-        diff_text = ""
-        file_count = 0
-        if observation.success and isinstance(observation.data, dict):
-            diff_text = str(observation.data.get("diff") or "")
-            file_count = int(observation.data.get("file_count") or 0)
-        if not observation.success:
-            message = "无法读取 Git diff：%s" % (observation.error or "未知错误")
-        elif not diff_text:
-            message = "当前工作区没有未提交 diff。"
-        else:
-            message = "## Git Diff\n\n- changed files: %s" % file_count
-        self._emit_command_result(
-            event_handler,
-            state,
-            CommandResult(
-                command_name="diff",
-                success=observation.success,
-                message=message,
-                data=observation.data if isinstance(observation.data, dict) else {},
-            ),
-        )
-        return {"handled": True, "continue_with_text": ""}
-
-    def _handle_command_permissions(
-        self,
-        state: ManagedSession,
-        parsed: ParsedSlashCommand,
-        event_handler: Optional[EventHandler],
-        permission_resolver: Optional[PermissionResolver],
-    ) -> Dict[str, Any]:
-        context = self.get_permission_context(state.session.session_id)
-        lines = [
-            "## Permission Context",
-            "",
-            "- rules path: `%s`" % context.rules_path,
-            "- remembered categories: %s" % (", ".join(context.remembered_categories) or "(none)"),
-            "- rule count: %s" % len(context.rules),
-        ]
-        self._emit_command_result(
-            event_handler,
-            state,
-            CommandResult(
-                command_name="permissions",
-                success=True,
-                message="\n".join(lines),
-                data={
-                    "session_id": context.session_id,
-                    "rules_path": context.rules_path,
-                    "categories": context.categories,
-                    "rules": context.rules,
-                    "remembered_categories": context.remembered_categories,
-                    "auto_approve_all": context.auto_approve_all,
-                    "auto_approve_writes": context.auto_approve_writes,
-                    "auto_approve_commands": context.auto_approve_commands,
-                },
-            ),
-        )
-        return {"handled": True, "continue_with_text": ""}
-
-    def _handle_command_plan(
-        self,
-        state: ManagedSession,
-        parsed: ParsedSlashCommand,
-        event_handler: Optional[EventHandler],
-        permission_resolver: Optional[PermissionResolver],
-    ) -> Dict[str, Any]:
-        current = self.plan_store.load(state.session.session_id)
-        if parsed.raw_args:
-            summary = parsed.raw_args.splitlines()[0][:120]
-            current = self.plan_store.save(
-                state.session.session_id,
-                title="Current Plan",
-                content=parsed.raw_args,
-                workflow_state="plan",
-                summary=summary,
-            )
-            with state.lock:
-                state.workflow_state = "plan"
-                state.active_plan_ref = current.path
-                state.updated_at = _utc_now()
-            self._emit_plan_updated(event_handler, state, current)
-            self._emit_command_result(
-                event_handler,
-                state,
-                CommandResult(
-                    command_name="plan",
-                    success=True,
-                    message="已更新当前计划。",
-                    data={"plan": self._plan_to_dict(current)},
-                ),
-            )
-            return {"handled": True, "continue_with_text": ""}
-        if current is None:
-            current = self.plan_store.save(
-                state.session.session_id,
-                title="Current Plan",
-                content="## Summary\n\n- \n\n## Steps\n\n1. \n\n## Tests\n\n- \n\n## Assumptions\n\n- ",
-                workflow_state="plan",
-                summary="Current Plan",
-            )
-            with state.lock:
-                state.workflow_state = "plan"
-                state.active_plan_ref = current.path
-        self._emit_plan_updated(event_handler, state, current)
-        self._emit_command_result(
-            event_handler,
-            state,
-            CommandResult(
-                command_name="plan",
-                success=True,
-                message=current.content,
-                data={"plan": self._plan_to_dict(current)},
-            ),
-        )
-        return {"handled": True, "continue_with_text": ""}
-
-    def _handle_command_review(
-        self,
-        state: ManagedSession,
-        parsed: ParsedSlashCommand,
-        event_handler: Optional[EventHandler],
-        permission_resolver: Optional[PermissionResolver],
-    ) -> Dict[str, Any]:
-        review = self.review_command.build_payload_from_session(state.session, limit=400)
-        lines = self.review_command.markdown_lines(review)
-        self._emit_command_result(
-            event_handler,
-            state,
-            CommandResult(
-                command_name="review",
-                success=True,
-                message="\n".join(lines),
-                data={
-                    "review": review,
-                },
-            ),
-        )
-        return {"handled": True, "continue_with_text": ""}
-
-    def _execute_tool_from_command(
-        self,
-        state: ManagedSession,
-        command_text: str,
-        tool_name: str,
-        arguments: Dict[str, Any],
-        permission_resolver: Optional[PermissionResolver],
-        event_handler: Optional[EventHandler],
-    ) -> Observation:
-        action = Action(
-            name=tool_name,
-            arguments=dict(arguments),
-            call_id="cmd-%s" % uuid.uuid4().hex[:10],
-        )
-        turn_id = state.current_command_turn_id
-        with state.lock:
-            state.status = "running"
-            state.updated_at = _utc_now()
-        self._notify_status(event_handler, state)
-        current_step = {"step_id": "", "step_index": 0}
-
-        def on_step_start(step_id: str, step_index: int) -> None:
-            current_step["step_id"] = step_id
-            current_step["step_index"] = step_index
-            with state.lock:
-                state.current_command_step_id = step_id
-                state.current_command_step_index = step_index
-            self._emit(
-                event_handler,
-                "step_start",
-                state.session.session_id,
-                {"turn_id": turn_id, "step_id": step_id, "step_index": step_index},
-            )
-
-        def on_step_finish(step_index: int, reply: AssistantReply, status: str) -> None:
-            self._emit(
-                event_handler,
-                "step_end",
-                state.session.session_id,
-                {
-                    "turn_id": turn_id,
-                    "step_id": current_step["step_id"],
-                    "step_index": step_index,
-                    "assistant_text": reply.content or "",
-                    "finish_reason": reply.finish_reason or "",
-                    "status": status,
-                },
-            )
-
-        def on_tool_start(start_action: Action) -> None:
-            payload = {
-                "tool_name": start_action.name,
-                "arguments": start_action.arguments,
-                "call_id": start_action.call_id,
-                "turn_id": turn_id,
-                "step_id": current_step["step_id"],
-                "step_index": current_step["step_index"],
-            }
-            payload.update(self._tool_event_metadata(start_action.name))
-            self._emit(event_handler, "tool_started", state.session.session_id, payload)
-
-        def on_tool_finish(finished_action: Action, observation: Observation) -> None:
-            payload = {
-                "tool_name": finished_action.name,
-                "success": observation.success,
-                "error": observation.error,
-                "data": observation.data,
-                "call_id": finished_action.call_id,
-                "turn_id": turn_id,
-                "step_id": current_step["step_id"],
-                "step_index": current_step["step_index"],
-            }
-            payload.update(self._tool_event_metadata(finished_action.name))
-            self._emit_with_snapshot(event_handler, "tool_finished", state, payload)
-
-        def permission_handler(request: PermissionRequest) -> Optional[bool]:
-            ticket = self._create_permission_ticket(
-                state,
-                request,
-                turn_id=turn_id,
-                step_id=current_step["step_id"],
-                step_index=current_step["step_index"],
-            )
-            self._emit_with_snapshot(
-                event_handler,
-                "permission_required",
-                state,
-                {
-                    "permission": ticket.to_dict(),
-                    "turn_id": ticket.turn_id,
-                    "step_id": ticket.step_id,
-                    "step_index": ticket.step_index,
-                },
-            )
-            self._notify_status(event_handler, state)
-            if permission_resolver is not None:
-                approved = bool(permission_resolver(ticket.to_dict()))
-                self._clear_pending_permission(state)
-                return approved
-            with state.lock:
-                state.status = "waiting_permission"
-                state.pending_event = threading.Event()
-            return None
-
-        result, observation = state.engine.submit_command_turn(
-            user_text=command_text,
-            action=action,
-            initial_mode=state.current_mode,
-            workflow_state=state.workflow_state,
-            session=state.session,
-            turn_id=turn_id,
-            stop_event=state.stop_event,
-            on_tool_start=on_tool_start,
-            on_tool_finish=on_tool_finish,
-            on_step_start=on_step_start,
-            on_step_finish=on_step_finish,
-            permission_handler=permission_handler,
-            user_input_handler=None,
-        )
-        state.session = result.session
-        if (
-            result.transition.reason in ("permission_wait", "user_input_wait")
-            and permission_resolver is None
-        ):
-            with state.lock:
-                event = state.pending_event
-            if event is not None:
-                event.wait()
-            approved = False
-            with state.lock:
-                approved = bool(state.pending_result)
-                state.pending_event = None
-                state.pending_result = None
-                state.status = "running"
-            resumed = state.engine.resume_interaction(
-                session=state.session,
-                initial_mode=state.current_mode,
-                interaction_resolution={"approved": approved},
-                workflow_state=state.workflow_state,
-                stream=False,
-                stop_event=state.stop_event,
-                on_tool_start=on_tool_start,
-                on_tool_finish=on_tool_finish,
-                on_step_start=on_step_start,
-                on_step_finish=on_step_finish,
-                permission_handler=permission_handler,
-                user_input_handler=None,
-            )
-            state.session = resumed.session
-            result = resumed
-            self._clear_pending_permission(state)
-            if state.session.turns and state.session.turns[-1].observations:
-                observation = state.session.turns[-1].observations[-1]
-            else:
-                observation = Observation(
-                    tool_name=tool_name,
-                    success=False,
-                    error="用户拒绝执行该 recipe。",
-                    data={"error_kind": "permission_denied"},
-                )
-        if result.transition.next_mode:
-            state.current_mode = result.transition.next_mode
-        self._refresh_harness_state(state)
-        with state.lock:
-            state.status = "idle"
-            state.updated_at = _utc_now()
-            state.current_command_step_id = current_step["step_id"]
-            state.current_command_step_index = current_step["step_index"]
-        self._emit(
-            event_handler,
-            "turn_end",
-            state.session.session_id,
-            {
-                "turn_id": turn_id,
-                "final_text": "",
-                "termination_reason": result.transition.reason,
-                "turns_used": result.turns_used,
-                "max_turns": self.max_turns,
-                "error": result.transition.message or "",
-            },
-        )
-        self._persist_state(state)
-        self._notify_status(event_handler, state)
-        return observation
-
     def _tool_event_metadata(self, tool_name: str) -> Dict[str, Any]:
         lookup = getattr(self.tools, "tool_catalog_entry", None)
         runtime_lookup = getattr(self.tools, "runtime_environment_snapshot", None)
@@ -2034,133 +1166,11 @@ class InProcessAdapter(object):
             "fallback_warnings": list(runtime.get("fallback_warnings") or []),
         }
 
-    def _emit_command_result(
-        self,
-        event_handler: Optional[EventHandler],
-        state: ManagedSession,
-        result: CommandResult,
-    ) -> None:
-        state.engine.record_command_result(
-            state.session,
-            user_text=state.current_command_text,
-            command_name=result.command_name,
-            success=result.success,
-            message=result.message,
-            data=result.data if isinstance(result.data, dict) else {},
-            turn_id=result.turn_id or state.current_command_turn_id,
-            step_id=result.step_id or state.current_command_step_id,
-            step_index=result.step_index or state.current_command_step_index,
-        )
-        payload = {
-            "command_name": result.command_name,
-            "success": result.success,
-            "message": result.message,
-            "data": result.data,
-            "turn_id": result.turn_id or state.current_command_turn_id,
-            "step_id": result.step_id or state.current_command_step_id,
-            "step_index": result.step_index or state.current_command_step_index,
-        }
-        self._emit_with_snapshot(event_handler, "command_result", state, payload)
-
-    def _wait_for_command_resolution(
-        self, session_id: str, timeout_s: float = 3.0
-    ) -> Dict[str, Any]:
-        deadline = time.time() + max(timeout_s, 0.1)
-        snapshot = self.get_session_snapshot(session_id)
-        while time.time() < deadline:
-            snapshot = self.get_session_snapshot(session_id)
-            if (
-                not bool(snapshot.get("pending_interaction_valid"))
-                and snapshot.get("status") != "waiting_permission"
-                and snapshot.get("status") != "waiting_user_input"
-                and snapshot.get("status") != "running"
-            ):
-                return snapshot
-            state = self._require_session(session_id)
-            with state.lock:
-                active = state.active_thread
-            if active is not None and not active.is_alive():
-                return self.get_session_snapshot(session_id)
-            time.sleep(0.05)
-        return snapshot
-
-    def _emit_plan_updated(
-        self,
-        event_handler: Optional[EventHandler],
-        state: ManagedSession,
-        plan: PlanSnapshot,
-    ) -> None:
-        self._emit_with_snapshot(
-            event_handler,
-            "plan_updated",
-            state,
-            {"plan": self._plan_to_dict(plan)},
-        )
-
-    def _plan_to_dict(self, plan: PlanSnapshot) -> Dict[str, Any]:
-        return {
-            "session_id": plan.session_id,
-            "title": plan.title,
-            "content": plan.content,
-            "updated_at": plan.updated_at,
-            "workflow_state": plan.workflow_state,
-            "path": plan.path,
-            "summary": plan.summary,
-        }
-
     def approve_permission(self, session_id: str, permission_id: str) -> Dict[str, Any]:
-        state = self._require_session(session_id)
-        command_wait = False
-        with state.lock:
-            if (
-                state.pending_permission is None
-                or state.pending_permission.permission_id != permission_id
-            ):
-                raise ValueError("未找到待批准的权限请求。")
-            if state.pending_event is not None:
-                state.pending_result = True
-                state.pending_event.set()
-                command_wait = True
-        if command_wait:
-            return self._wait_for_command_resolution(session_id)
-        self._run_turn(
-            state=state,
-            text="",
-            stream=True,
-            permission_resolver=None,
-            user_input_resolver=None,
-            event_handler=self.event_handler,
-            interaction_resolution={"approved": True},
-            resume_pending=True,
-        )
-        return self.get_session_snapshot(session_id)
+        return self.interaction_service.approve_permission(session_id, permission_id)
 
     def reject_permission(self, session_id: str, permission_id: str) -> Dict[str, Any]:
-        state = self._require_session(session_id)
-        command_wait = False
-        with state.lock:
-            if (
-                state.pending_permission is None
-                or state.pending_permission.permission_id != permission_id
-            ):
-                raise ValueError("未找到待拒绝的权限请求。")
-            if state.pending_event is not None:
-                state.pending_result = False
-                state.pending_event.set()
-                command_wait = True
-        if command_wait:
-            return self._wait_for_command_resolution(session_id)
-        self._run_turn(
-            state=state,
-            text="",
-            stream=True,
-            permission_resolver=None,
-            user_input_resolver=None,
-            event_handler=self.event_handler,
-            interaction_resolution={"approved": False},
-            resume_pending=True,
-        )
-        return self.get_session_snapshot(session_id)
+        return self.interaction_service.reject_permission(session_id, permission_id)
 
     def reply_user_input(
         self,
@@ -2171,45 +1181,14 @@ class InProcessAdapter(object):
         selected_mode: str = "",
         selected_option_text: str = "",
     ) -> Dict[str, Any]:
-        state = self._require_session(session_id)
-        command_wait = False
-        with state.lock:
-            if (
-                state.pending_user_input is None
-                or state.pending_user_input.request_id != request_id
-            ):
-                raise ValueError("未找到待处理的用户问题。")
-            if state.pending_user_event is not None:
-                state.pending_user_response = UserInputResponse(
-                    answer=str(answer or ""),
-                    selected_index=selected_index,
-                    selected_mode=str(selected_mode or ""),
-                    selected_option_text=str(selected_option_text or ""),
-                )
-                state.pending_user_event.set()
-                command_wait = True
-        if command_wait:
-            snapshot = self._wait_for_command_resolution(session_id)
-            self._notify_status(None, state)
-            return snapshot
-        self._run_turn(
-            state=state,
-            text="",
-            stream=True,
-            permission_resolver=None,
-            user_input_resolver=None,
-            event_handler=self.event_handler,
-            interaction_resolution={
-                "answer": str(answer or ""),
-                "selected_index": selected_index,
-                "selected_mode": str(selected_mode or ""),
-                "selected_option_text": str(selected_option_text or ""),
-            },
-            resume_pending=True,
+        return self.interaction_service.reply_user_input(
+            session_id,
+            request_id,
+            answer,
+            selected_index=selected_index,
+            selected_mode=selected_mode,
+            selected_option_text=selected_option_text,
         )
-        snapshot = self.get_session_snapshot(session_id)
-        self._notify_status(None, state)
-        return snapshot
 
     def respond_to_interaction(
         self,
@@ -2217,44 +1196,11 @@ class InProcessAdapter(object):
         interaction_id: str,
         payload: Dict[str, Any],
     ) -> Dict[str, Any]:
-        state = self._require_session(session_id)
-        kind = str((payload or {}).get("response_kind") or "").strip()
-        with state.lock:
-            if (
-                state.pending_permission is not None
-                and state.pending_permission.permission_id == interaction_id
-            ):
-                pass
-            elif (
-                state.pending_user_input is not None
-                and state.pending_user_input.request_id == interaction_id
-            ):
-                pass
-            else:
-                raise ValueError("未找到待处理的交互请求。")
-        if (
-            state.pending_permission is not None
-            and state.pending_permission.permission_id == interaction_id
-        ):
-            if kind == "approve":
-                self.approve_permission(session_id, interaction_id)
-            else:
-                self.reject_permission(session_id, interaction_id)
-        else:
-            self.reply_user_input(
-                session_id,
-                interaction_id,
-                str((payload or {}).get("answer") or ""),
-                selected_index=(payload or {}).get("selected_index"),
-                selected_mode=str((payload or {}).get("selected_mode") or ""),
-                selected_option_text=str((payload or {}).get("selected_option_text") or ""),
-            )
-        return {
-            "session_id": session_id,
-            "interaction_id": interaction_id,
-            "status": "resolved",
-            "snapshot": self.get_session_snapshot(session_id),
-        }
+        return self.interaction_service.respond_to_interaction(
+            session_id,
+            interaction_id,
+            payload,
+        )
 
     def set_session_mode(self, session_id: str, mode: str) -> Dict[str, Any]:
         state = self._require_session(session_id)
@@ -2458,7 +1404,7 @@ class InProcessAdapter(object):
             )
 
         def permission_handler(request: PermissionRequest) -> Optional[bool]:
-            ticket = self._create_permission_ticket(
+            ticket = self.interaction_service.create_permission_ticket(
                 state,
                 request,
                 turn_id=turn_id,
@@ -2479,14 +1425,14 @@ class InProcessAdapter(object):
             self._notify_status(event_handler, state)
             if permission_resolver is not None:
                 approved = bool(permission_resolver(ticket.to_dict()))
-                self._clear_pending_permission(state)
+                self.interaction_service.clear_pending_permission(state)
                 return approved
             with state.lock:
                 state.status = "waiting_permission"
             return None
 
         def user_input_handler(request: UserInputRequest) -> Optional[UserInputResponse]:
-            ticket = self._create_user_input_ticket(
+            ticket = self.interaction_service.create_user_input_ticket(
                 state,
                 request,
                 turn_id=turn_id,
@@ -2507,7 +1453,7 @@ class InProcessAdapter(object):
             self._notify_status(event_handler, state)
             if user_input_resolver is not None:
                 payload = user_input_resolver(ticket.to_dict()) or {}
-                self._clear_pending_user_input(state)
+                self.interaction_service.clear_pending_user_input(state)
                 return UserInputResponse(
                     answer=str(payload.get("answer") or ""),
                     selected_index=payload.get("selected_index"),
@@ -2633,97 +1579,6 @@ class InProcessAdapter(object):
 
     def _persist_state(self, state: ManagedSession) -> None:
         self._session_lifecycle.persist_state(state.session, state.current_mode, state)
-
-    def _create_permission_ticket(
-        self,
-        state: ManagedSession,
-        request: PermissionRequest,
-        turn_id: str = "",
-        step_id: str = "",
-        step_index: int = 0,
-    ) -> PermissionTicket:
-        ticket = PermissionTicket(
-            permission_id="perm_%s" % uuid.uuid4().hex[:8],
-            session_id=state.session.session_id,
-            tool_name=request.tool_name,
-            category=request.category,
-            reason=request.reason,
-            details=request.details,
-            turn_id=turn_id,
-            step_id=step_id,
-            step_index=step_index,
-        )
-        with state.lock:
-            state.pending_permission = ticket
-            state.pending_result = None
-            if state.session.pending_interaction is None:
-                permission_payload = {
-                    "tool_name": request.tool_name,
-                    "category": request.category,
-                    "reason": request.reason,
-                    "details": dict(request.details),
-                }
-                pending = PendingInteraction(
-                    kind="permission",
-                    tool_name=request.tool_name,
-                    request_payload={"permission": permission_payload},
-                )
-                state.session.record_transition(
-                    LoopTransition(
-                        reason="permission_wait",
-                        message=request.reason,
-                        pending_interaction=pending,
-                        next_mode=state.current_mode,
-                    )
-                )
-            state.updated_at = _utc_now()
-        return ticket
-
-    def _create_user_input_ticket(
-        self,
-        state: ManagedSession,
-        request: UserInputRequest,
-        turn_id: str = "",
-        step_id: str = "",
-        step_index: int = 0,
-    ) -> UserInputTicket:
-        ticket = UserInputTicket(
-            request_id="ask_%s" % uuid.uuid4().hex[:8],
-            session_id=state.session.session_id,
-            tool_name=request.tool_name,
-            question=request.question,
-            options=[
-                {"index": item.index, "text": item.text, "mode": item.mode}
-                for item in request.options
-            ],
-            details=request.details,
-            turn_id=turn_id,
-            step_id=step_id,
-            step_index=step_index,
-        )
-        with state.lock:
-            state.pending_user_input = ticket
-            state.pending_user_response = None
-            state.updated_at = _utc_now()
-        return ticket
-
-    def _clear_pending_permission(self, state: ManagedSession) -> None:
-        with state.lock:
-            state.pending_permission = None
-            state.pending_event = None
-            state.pending_result = None
-            if state.status != "error":
-                state.status = "running"
-            state.updated_at = _utc_now()
-
-    def _clear_pending_user_input(self, state: ManagedSession) -> None:
-        with state.lock:
-            state.pending_user_input = None
-            state.pending_user_event = None
-            state.pending_user_response = None
-            if state.status != "error":
-                state.status = "running"
-            state.updated_at = _utc_now()
 
     def _last_assistant_from_session(self, session: Session) -> str:
         return self._session_lifecycle._last_assistant_from_session(session)
