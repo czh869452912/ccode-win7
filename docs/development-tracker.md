@@ -1,6 +1,6 @@
 # EmbedAgent 开发进度跟踪
 
-> 更新日期：2026-06-25（pre-release architecture debt cleanup closed）
+> 更新日期：2026-06-27（Pi/T3 residual debt cleanup in progress）
 > 用途：持续跟踪当前阶段、下一步任务、里程碑进度、风险与阻塞
 
 ---
@@ -23,6 +23,19 @@
 ---
 
 ## 2. 当前阶段
+
+### 2026-06-27 - Pi/T3 Residual Debt Cleanup Slice 2
+
+- GUI live permission/user-input activity now comes from backend-owned
+  `session_event` messages emitted from Core turn events and bridged through
+  `WebSocketFrontend.on_turn_event(...)`.
+- Raw `permission_request` / `user_input_request` WebSocket messages now drive
+  only the current blocking interaction UI and response path; the renderer no
+  longer synthesizes `interaction.created` activity records from those raw
+  request messages.
+- `WebSocketFrontend` now completes GUI session-event metadata (`event_id`,
+  `seq`, `created_at`) at the backend boundary when Core payloads do not
+  provide it, keeping live transport sequencing out of renderer logic.
 
 ### 2026-06-27 - Pi/T3 Residual Debt Cleanup Slice 1
 

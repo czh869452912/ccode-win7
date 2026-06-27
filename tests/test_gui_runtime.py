@@ -10,9 +10,11 @@ from unittest.mock import ANY, MagicMock, patch
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from embedagent.config import AppConfig
+from embedagent.core.adapter import CallbackBridge
 from embedagent.frontend.gui import launcher as gui_launcher
 from embedagent.frontend.gui.backend.bridge import BlockingResult, ThreadsafeAsyncDispatcher
 from embedagent.frontend.gui.backend.server import GUIBackend, WebSocketFrontend
+from embedagent.protocol import PermissionRequest
 
 
 class TestGuiLauncher(unittest.TestCase):
@@ -282,6 +284,79 @@ class TestWebSocketFrontend(unittest.TestCase):
         self.assertEqual(dispatched[0]["data"]["event_kind"], "tool.started")
         self.assertEqual(dispatched[0]["data"]["seq"], 3)
 
+    def test_on_turn_event_generates_metadata_when_core_payload_has_none(self):
+        frontend = WebSocketFrontend()
+        dispatched = []
+        frontend._dispatch_message = lambda message: dispatched.append(message) or True
+
+        frontend.on_turn_event(
+            "permission_required",
+            {
+                "session_id": "sess-1",
+                "permission": {
+                    "permission_id": "perm-1",
+                    "tool_name": "write_file",
+                    "category": "workspace_write",
+                    "reason": "Allow write",
+                },
+                "turn_id": "turn-1",
+                "step_id": "step-1",
+                "step_index": 1,
+            },
+        )
+
+        event = dispatched[0]["data"]
+        self.assertEqual(event["session_id"], "sess-1")
+        self.assertEqual(event["event_kind"], "interaction.created")
+        self.assertTrue(event["event_id"].startswith("evt-"))
+        self.assertEqual(event["seq"], 1)
+        self.assertTrue(event["created_at"].endswith("Z"))
+        self.assertEqual(event["payload"]["permission"]["permission_id"], "perm-1")
+
+    def test_permission_request_does_not_create_activity_event(self):
+        frontend = WebSocketFrontend()
+        dispatched = []
+        frontend._dispatch_message = lambda message: dispatched.append(message) or False
+
+        result = frontend.on_permission_request(
+            PermissionRequest(
+                permission_id="perm-1",
+                session_id="sess-1",
+                tool_name="write_file",
+                category="workspace_write",
+                reason="Allow write",
+            )
+        )
+
+        self.assertFalse(result)
+        self.assertEqual(dispatched[0]["type"], "permission_request")
+        self.assertNotIn("session_event", dispatched[0]["data"])
+
+
+class TestCallbackBridge(unittest.TestCase):
+    def test_interaction_required_events_are_forwarded_to_session_event_stream(self):
+        frontend = MagicMock()
+        bridge = CallbackBridge(frontend)
+
+        bridge.emit(
+            "permission_required",
+            "sess-1",
+            {
+                "permission": {"permission_id": "perm-1", "tool_name": "write_file"},
+                "turn_id": "turn-1",
+                "step_id": "step-1",
+                "step_index": 1,
+            },
+        )
+
+        frontend.on_turn_event.assert_called_once()
+        event_name, payload = frontend.on_turn_event.call_args[0]
+        self.assertEqual(event_name, "permission_required")
+        self.assertEqual(payload["session_id"], "sess-1")
+        self.assertEqual(payload["permission"]["permission_id"], "perm-1")
+
+
+class TestWebSocketFrontendDispatch(unittest.TestCase):
     def test_dispatch_result_reason_is_logged_when_queueing_fails(self):
         frontend = WebSocketFrontend()
         frontend._dispatcher.dispatch = lambda factory: type(

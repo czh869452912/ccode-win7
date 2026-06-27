@@ -9,7 +9,9 @@ import logging
 import os
 import threading
 import time
+import uuid
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from typing import Any, Dict, Optional, Set
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
@@ -42,6 +44,10 @@ from embedagent.protocol import (
 )
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def _utc_now() -> str:
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 def _to_mapping(value: Any) -> Optional[Dict[str, Any]]:
@@ -304,6 +310,8 @@ class WebSocketFrontend(FrontendCallbacks):
         self._pending_inputs = {}  # type: Dict[str, BlockingResult[Optional[Dict[str, Any]]]]
         self._pending_lock = threading.RLock()
         self._dispatcher = ThreadsafeAsyncDispatcher()
+        self._session_event_lock = threading.RLock()
+        self._session_event_seq = {}  # type: Dict[str, int]
 
     async def connect(self, websocket: WebSocket):
         await websocket.accept()
@@ -342,6 +350,38 @@ class WebSocketFrontend(FrontendCallbacks):
             _LOGGER.error("GUI event dispatch failed: %s", result.reason)
             return False
         return True
+
+    def _complete_session_event_metadata(
+        self, session_id: str, metadata: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        result = dict(metadata or {})
+        key = str(session_id or "")
+        with self._session_event_lock:
+            current = int(self._session_event_seq.get(key, 0) or 0)
+            try:
+                supplied_seq = int(result.get("seq") or 0)
+            except (TypeError, ValueError):
+                supplied_seq = 0
+            if supplied_seq > 0:
+                seq = supplied_seq
+                self._session_event_seq[key] = max(current, supplied_seq)
+            else:
+                seq = current + 1
+                self._session_event_seq[key] = seq
+        result["seq"] = seq
+        if not result.get("event_id"):
+            result["event_id"] = "evt-%s" % uuid.uuid4().hex[:12]
+        if not result.get("created_at"):
+            result["created_at"] = _utc_now()
+        return result
+
+    def _session_event_message(
+        self, session_id: str, event_name: str, payload: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        data = dict(payload or {})
+        metadata = dict(data.get("_session_event") or {})
+        data["_session_event"] = self._complete_session_event_metadata(session_id, metadata)
+        return build_session_event(session_id, event_name, data)
 
     # ============ FrontendCallbacks 实现 ============
 
@@ -600,7 +640,7 @@ class WebSocketFrontend(FrontendCallbacks):
 
     def on_turn_event(self, event_name: str, payload: dict) -> None:
         session_id = str(payload.get("session_id") or "")
-        self._dispatch_message(build_session_event(session_id, event_name, dict(payload)))
+        self._dispatch_message(self._session_event_message(session_id, event_name, dict(payload)))
 
     # ============ 处理前端响应 ============
 

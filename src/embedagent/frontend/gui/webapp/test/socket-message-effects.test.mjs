@@ -140,9 +140,7 @@ export function runSocketMessageEffectsTests() {
     step_index: 2,
   });
   assert.equal(permission.actions[0].type, "permission_request");
-  assert.equal(permission.transportEvents[0].event_kind, "interaction.created");
-  assert.equal(permission.transportEvents[0].payload.kind, "permission");
-  assert.equal(permission.transportEvents[0].seq, 5);
+  assert.deepEqual(permission.transportEvents, []);
   assert.deepEqual(permission.actions[1], {
     type: "log_event",
     label: "permission_request",
@@ -158,8 +156,7 @@ export function runSocketMessageEffectsTests() {
     turn_id: "turn-1",
   });
   assert.equal(userInput.actions[0].type, "user_input_request");
-  assert.equal(userInput.transportEvents[0].payload.kind, "user_input");
-  assert.equal(userInput.transportEvents[0].payload.question, "Which parser mode?");
+  assert.deepEqual(userInput.transportEvents, []);
 
   const commandDiff = derive("command_result", {
     command_name: "diff",

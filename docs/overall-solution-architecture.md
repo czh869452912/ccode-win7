@@ -168,6 +168,12 @@ Harness state refresh in the product adapter path goes through `CHarnessWorkflow
 - `SessionHistoryAssembler` emits both nested `turns` and direct T3-style `activities` from the same transcript-backed `Session` state
 - the React GUI consumes `history.activities` through `session-runtime/activity-state.js`; the TUI formats the same activities into local display lines; nested `history.turns` is diagnostic structure and must not be reprojected into a second frontend history source
 - `SessionHistoryAssembler.build()` is the only active history serializer; deleted flat item serializers and TUI `items` history views must not be reintroduced
+- GUI live interaction activity is backend-owned: Core `permission_required`
+  and `user_input_required` turn events flow through `CallbackBridge` into
+  `WebSocketFrontend.on_turn_event(...)` and then into `session_event`
+  envelopes. Raw `permission_request` / `user_input_request` WebSocket
+  messages drive only the current blocking interaction UI and must not become
+  renderer-synthesized activity/history streams.
 - `SessionSnapshotProjector` reads the generic workflow projection, not default harness internals
 - `runtime_config` in session snapshots is reducer-backed diagnostic state, not frontend-owned policy
 - `compaction_state` in session snapshots is reducer-backed diagnostic state, not frontend-owned context policy

@@ -213,6 +213,15 @@ formatting the same `history.activities` records into local display lines.
 Legacy helpers that rebuilt timeline items from `turns`, transport events, or
 TUI-local `items` history streams are not frontend protocol surfaces.
 
+For live GUI updates, interaction activity is also backend-owned. Core turn
+events such as `permission_required` and `user_input_required` are forwarded by
+`CallbackBridge` to `WebSocketFrontend.on_turn_event(...)`, then normalized as
+`session_event` messages with `event_kind=interaction.created`. Raw
+`permission_request` and `user_input_request` WebSocket messages remain only
+the current blocking interaction UI/response channel; renderer code must not
+synthesize `interaction.created` transport events, history rows, or activity
+records from those raw request messages.
+
 `history.integrity.status` is the official history health signal:
 
 - `healthy`

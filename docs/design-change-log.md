@@ -44,6 +44,36 @@
 
 ## 3. 当前变更记录
 
+### DC-214
+
+- Date: 2026-06-27
+- Change Topic: GUI live interaction activity stream convergence
+- Summary:
+  - Forwarded Core `permission_required` and `user_input_required` events
+    through `CallbackBridge` into the backend-owned GUI `session_event` stream.
+  - Moved GUI live session-event metadata completion (`event_id`, `seq`,
+    `created_at`) to `WebSocketFrontend`, keeping renderer code from minting
+    interaction activity records.
+  - Removed renderer-side synthesis of `interaction.created` from raw
+    `permission_request` / `user_input_request` WebSocket messages; those
+    messages now only drive the blocking interaction UI and response path.
+- Impacted Scope:
+  - `src/embedagent/core/adapter.py`
+  - `src/embedagent/frontend/gui/backend/server.py`
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/socket-message-effects.js`
+  - `src/embedagent/frontend/gui/webapp/test/socket-message-effects.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_gui_runtime.py`
+  - `docs/frontend-protocol.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `AGENTS.md`
+- ADR Needed: No
+- Follow-up:
+  - Continue GUI metadata-driven invalidation cleanup so file/task refresh
+    behavior follows backend/tool metadata instead of hard-coded renderer tool
+    sets.
+
 ### DC-213
 
 - Date: 2026-06-27

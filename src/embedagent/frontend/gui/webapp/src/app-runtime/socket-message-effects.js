@@ -56,23 +56,8 @@ function pickToolPresentationPayload(payload = {}) {
   };
 }
 
-function nextSeq(sessionTransport) {
-  return Number(sessionTransport?.lastAppliedSeq || 0) + 1;
-}
-
 function currentSession(options) {
   return options.currentSessionId || "";
-}
-
-function interactionEvent({ data, options, interactionId, payload }) {
-  return {
-    session_id: data?.session_id || currentSession(options),
-    event_id: interactionId || eventId(options.makeId, "evt"),
-    seq: nextSeq(options.sessionTransport),
-    created_at: nowValue(options.nowIso),
-    event_kind: "interaction.created",
-    payload,
-  };
 }
 
 function commandResultEffects(data, options) {
@@ -309,24 +294,6 @@ export function deriveSocketMessageEffects({
       },
       inspectorTab: "interaction",
     });
-    effects.transportEvents.push(
-      interactionEvent({
-        data: payload,
-        options,
-        interactionId: payload?.permission_id || "",
-        payload: {
-          interaction_id: payload?.permission_id || "",
-          kind: "permission",
-          tool_name: payload?.tool_name || "",
-          category: payload?.category || "",
-          reason: payload?.reason || "",
-          details: payload?.details || {},
-          turn_id: payload?.turn_id || "",
-          step_id: payload?.step_id || "",
-          step_index: payload?.step_index || 0,
-        },
-      }),
-    );
     effects.actions.push(logAction("permission_request", payload?.reason || ""));
     return effects;
   }
@@ -342,23 +309,6 @@ export function deriveSocketMessageEffects({
       },
       resetUserAnswer: true,
     });
-    effects.transportEvents.push(
-      interactionEvent({
-        data: payload,
-        options,
-        interactionId: payload?.request_id || "",
-        payload: {
-          interaction_id: payload?.request_id || "",
-          kind: "user_input",
-          tool_name: payload?.tool_name || "",
-          question: payload?.question || "",
-          options: payload?.options || [],
-          turn_id: payload?.turn_id || "",
-          step_id: payload?.step_id || "",
-          step_index: payload?.step_index || 0,
-        },
-      }),
-    );
     effects.actions.push(logAction("user_input_request", payload?.question || ""));
     return effects;
   }

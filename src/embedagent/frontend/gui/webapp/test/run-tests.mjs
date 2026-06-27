@@ -884,7 +884,7 @@ async function main() {
   assert.equal(socketMessageEffectsSource.includes("permission_request"), true);
   assert.equal(socketMessageEffectsSource.includes("user_input_request"), true);
   assert.equal(socketMessageEffectsSource.includes("command_result"), true);
-  assert.equal(socketMessageEffectsSource.includes("data?.session_id || currentSession(options)"), true);
+  assert.equal(socketMessageEffectsSource.includes('event_kind: "interaction.created"'), false);
   assert.equal(socketMessageEffectsSource.includes("fetch("), false);
 
   assert.equal(socketMessageEffectsSource.includes("new WebSocket"), false);

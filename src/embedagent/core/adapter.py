@@ -43,6 +43,20 @@ _TASK_REFRESH_TOOLS: frozenset = frozenset(
     }
 )
 _ARTIFACT_TOOLS: frozenset = frozenset({"write_file", "edit_file"})
+_SESSION_EVENT_NAMES: frozenset = frozenset(
+    {
+        "turn_start",
+        "turn_end",
+        "step_start",
+        "step_end",
+        "tool_started",
+        "tool_finished",
+        "permission_required",
+        "user_input_required",
+        "session_finished",
+        "session_error",
+    }
+)
 
 
 def get_inprocess_adapter(fresh: bool = False):
@@ -339,9 +353,11 @@ class CallbackBridge:
             snapshot = payload.get("session_snapshot", {})
             self._notify_status_change(snapshot)
 
-        elif event_name in ("turn_start", "turn_end"):
+        if event_name in _SESSION_EVENT_NAMES:
             if hasattr(self.frontend, "on_turn_event"):
-                self.frontend.on_turn_event(event_name, payload)
+                event_payload = dict(payload or {})
+                event_payload.setdefault("session_id", session_id)
+                self.frontend.on_turn_event(event_name, event_payload)
 
         elif event_name == "mode_changed":
             snapshot = payload.get("session_snapshot", {})

@@ -236,6 +236,14 @@ reload formatters are not product contracts. Live WebSocket data, TUI line
 buffers, and GUI run-output logs may update current display state only and must
 not become durable history truth.
 
+GUI live interaction activity must enter the renderer through backend-owned
+`session_event` messages emitted from Core turn events such as
+`permission_required` and `user_input_required`. Raw
+`permission_request` / `user_input_request` WebSocket messages exist only to
+drive the current blocking interaction UI and response path; renderer code must
+not synthesize `interaction.created` activity/history records from those raw
+request messages or maintain a parallel interaction activity stream.
+
 Official durable operation truth is:
 
 - schema v2 `operation_started`
