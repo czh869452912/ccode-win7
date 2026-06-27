@@ -93,7 +93,7 @@ flowchart LR
 - `InProcessAdapter` 新增事件类型，需要在 `CallbackBridge.emit` 中补充映射
 - 会话快照字段变化，需要更新 `_session_snapshot_from_dict` 和 `SessionSnapshot`
 - resource reload 或 extension diagnostics API/字段变化
-- 新增应在完成后触发 UI 刷新的工具，需要加入 `_TASK_REFRESH_TOOLS` 或 `_ARTIFACT_TOOLS`
+- 新增应在完成后触发 UI 刷新的工具，需要在工具目录元数据声明 `read_model_invalidations`，并通过工具事件传递给 GUI；不要新增 Core/GUI 侧工具名刷新列表
 - 新增前端形态（CLI、移动端等）需要实现 `FrontendCallbacks`
 - `CoreInterface` 或 `FrontendCallbacks` 接口签名变化
 
