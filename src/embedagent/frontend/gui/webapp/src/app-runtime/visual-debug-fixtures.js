@@ -1,3 +1,5 @@
+import { createDiffSurfaceState } from "../session-runtime/diff-model.js";
+
 const VISUAL_WORKSPACE = Object.freeze({
   id: "visual-debug-workspace",
   path: "D:/visual-debug",
@@ -646,6 +648,56 @@ export function loadPanelOverflowFixture(dispatch) {
   }
 }
 
+export function loadSurfaceSwitchingFixture(dispatch) {
+  const sessionId = "visual-surface-switching";
+  dispatchVisualDebugAction(dispatch, {
+    type: "dev_fixture_threads",
+    sessionId,
+    sessions: [{ session_id: sessionId, user_goal: "Surface switching fixture" }],
+  });
+  dispatchVisualDebugAction(dispatch, buildFilePreviewRevealFixtureAction());
+  dispatchVisualDebugAction(dispatch, buildSourceControlFixtureAction());
+  dispatch({
+    type: "terminal_snapshot_loaded",
+    snapshot: {
+      session_id: sessionId,
+      terminal_id: "surface-term-a",
+      status: "running",
+      history: "surface-term-a ready\n",
+      cols: 100,
+      rows: 30,
+    },
+  });
+  for (const surface of [
+    { kind: "files" },
+    { kind: "file", resourceId: "README.md", filePath: "README.md", title: "README.md" },
+    { kind: "diff", resourceId: "current" },
+    { kind: "preview", resourceId: "preview-a" },
+    {
+      kind: "terminal",
+      resourceId: "surface-term-a",
+      terminalId: "surface-term-a",
+      terminalIds: ["surface-term-a"],
+      activeTerminalId: "surface-term-a",
+    },
+    { kind: "source_control" },
+    { kind: "settings" },
+    { kind: "diagnostics" },
+  ]) {
+    dispatch({ type: "workbench_surface_opened", placement: "right", ...surface });
+  }
+  dispatch({
+    type: "diff_surface_opened",
+    diffSurface: createDiffSurfaceState({
+      title: "Visual Debug Diff",
+      diff: "--- a/demo.c\n+++ b/demo.c\n@@ -1,3 +1,3 @@\n int main(void) {\n-    return 0;\n+    return 1;\n }\n",
+      source: "visual-debug",
+      filePath: "demo.c",
+    }),
+  });
+  dispatch({ type: "workbench_surface_activated", placement: "right", kind: "diagnostics" });
+}
+
 export function loadTerminalSplitFixture(dispatch) {
   dispatchVisualDebugAction(dispatch, {
     type: "dev_fixture_threads",
@@ -760,6 +812,9 @@ export function installVisualDebugFixtures({
     },
     loadPanelOverflowFixture() {
       loadPanelOverflowFixture(dispatch);
+    },
+    loadSurfaceSwitchingFixture() {
+      loadSurfaceSwitchingFixture(dispatch);
     },
     loadTerminalSplitFixture() {
       loadTerminalSplitFixture(dispatch);

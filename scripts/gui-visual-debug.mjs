@@ -14,6 +14,8 @@ export const SCENARIOS = [
   "chat",
   "composer",
   "palette",
+  "surface-switching",
+  "source-control",
   "preview",
   "diff",
   "file",
@@ -216,6 +218,7 @@ export function buildGuiLaunchConfig({
   const env = {
     ...process.env,
     PYTHONPATH: path.join(repoRoot, "src"),
+    EMBEDAGENT_ALLOW_SYSTEM_TOOL_FALLBACK: "1",
   };
   if (bundleRoot) {
     env.EMBEDAGENT_BUNDLE_ROOT = bundleRoot;
@@ -697,6 +700,86 @@ async function runPaletteScenario(page, options, outputDir) {
     results.push({ name: viewport.name, noOverlap, screenshot });
   }
   return { viewports: results };
+}
+
+async function runSurfaceSwitchingScenario(page) {
+  await page.waitForFunction(() => Boolean(window.__EMBEDAGENT_VISUAL_DEBUG__), null, { timeout: 10000 });
+  await page.evaluate(() => {
+    window.__EMBEDAGENT_VISUAL_DEBUG__.loadSurfaceSwitchingFixture();
+  });
+  await page.waitForSelector('[data-testid="right-panel-surface-tab--diagnostics"]', { timeout: 10000 });
+  const surfaceKinds = [
+    ["file", '[data-testid="right-panel-file-surface"]'],
+    ["diff", '[data-testid="diff-panel"]'],
+    ["preview", '[data-testid="right-panel-preview-surface"]'],
+    ["terminal", '[data-testid="right-panel-terminal-surface"]'],
+    ["source_control", '[data-testid="source-control-panel"]'],
+    ["settings", ".app-settings-grid"],
+    ["diagnostics", ".panel-preview"],
+  ];
+  const activated = [];
+  for (const [kind, bodySelector] of surfaceKinds) {
+    await page.click(`[data-testid="right-panel-surface-tab--${kind}"] [role="tab"]`);
+    await page.waitForSelector(bodySelector, { timeout: 10000 });
+    const active = await page.locator(`[data-testid="right-panel-surface-tab--${kind}"] [role="tab"]`).getAttribute("aria-selected");
+    if (active !== "true") {
+      throw new Error(`Surface ${kind} did not become active`);
+    }
+    activated.push(kind);
+  }
+  const noOverlap = await assertNoOverlap(page);
+  if (!noOverlap) throw new Error("Right panel tabs overlap in surface switching scenario");
+  return {
+    activated,
+    surfaceCount: activated.length,
+    rightTabsDoNotOverlap: noOverlap,
+  };
+}
+
+async function runSourceControlScenario(page) {
+  await page.waitForSelector('[data-testid="right-panel-empty-surface--source_control"]', { timeout: 10000 });
+  await page.click('[data-testid="right-panel-empty-surface--source_control"]');
+  await page.waitForSelector('[data-testid="source-control-panel"]', { timeout: 15000 });
+  try {
+    await page.waitForSelector('[data-testid="source-control-file--demo.c"]', { timeout: 15000 });
+  } catch (error) {
+    const details = await page.evaluate(() => ({
+      panelText: document.querySelector('[data-testid="source-control-panel"]')?.textContent || "",
+      files: Array.from(document.querySelectorAll('[data-testid^="source-control-file--"]')).map((element) => element.getAttribute("data-testid")),
+    }));
+    throw new Error(`Source control fixture file did not render: ${JSON.stringify(details)} (${error.message})`);
+  }
+  const panelText = await page.locator('[data-testid="source-control-panel"]').innerText();
+  const forbiddenWriteControls = await page.locator(
+    '[data-testid="source-control-panel"] button:has-text("Stage"), '
+      + '[data-testid="source-control-panel"] button:has-text("Commit"), '
+      + '[data-testid="source-control-panel"] button:has-text("Push"), '
+      + '[data-testid="source-control-panel"] button:has-text("Pull")',
+  ).count();
+  await page.click('[data-testid="source-control-file--demo.c"]');
+  await page.waitForSelector('[data-testid="diff-panel"]', { timeout: 15000 });
+  await page.waitForSelector('[data-testid="diff-file--demo.c"]', { timeout: 15000 });
+  const activeTab = await page.locator('[data-testid="right-panel-surface-tab--diff"] [role="tab"]').getAttribute("aria-selected");
+  const diffText = await page.locator('[data-testid="diff-panel"]').innerText();
+  const noOverlap = await assertNoOverlap(page);
+  if (activeTab !== "true") throw new Error("Source control file selection did not activate the diff surface");
+  if (!panelText.includes("demo.c") || !panelText.includes("changed")) {
+    throw new Error(`Source control panel did not show the local demo.c change: ${panelText}`);
+  }
+  if (forbiddenWriteControls !== 0) {
+    throw new Error(`Source control scenario exposed ${forbiddenWriteControls} write controls`);
+  }
+  if (!diffText.includes("demo.c") || !diffText.includes("return 1")) {
+    throw new Error(`Source control diff did not show the expected demo.c patch: ${diffText}`);
+  }
+  if (!noOverlap) throw new Error("Right panel tabs overlap in source-control scenario");
+  return {
+    activeTab: activeTab === "true",
+    hasDemoFile: panelText.includes("demo.c"),
+    hasDemoDiff: diffText.includes("demo.c") && diffText.includes("return 1"),
+    forbiddenWriteControls,
+    rightTabsDoNotOverlap: noOverlap,
+  };
 }
 
 async function runPreviewScenario(page) {
@@ -1377,6 +1460,10 @@ async function runScenarios(options, repoRoot, outputDir) {
         results.composer = await runComposerScenario(page, options, outputDir);
       } else if (scenario === "palette") {
         results.palette = await runPaletteScenario(page, options, outputDir);
+      } else if (scenario === "surface-switching") {
+        results[scenario] = await runSurfaceSwitchingScenario(page);
+      } else if (scenario === "source-control") {
+        results[scenario] = await runSourceControlScenario(page);
       } else if (scenario === "preview") {
         results.preview = await runPreviewScenario(page);
       } else if (scenario === "diff") {
@@ -1418,7 +1505,7 @@ function printHelp() {
   console.log(`Usage: node scripts/gui-visual-debug.mjs [options]
 
 Options:
-  --scenario load|chat|composer|palette|preview|diff|file|terminal|responsive|app|thread|timeline|interaction|panel-overflow|terminal-split|timeline-context|all
+  --scenario load|chat|composer|palette|surface-switching|source-control|preview|diff|file|terminal|responsive|app|thread|timeline|interaction|panel-overflow|terminal-split|timeline-context|all
                                    Scenario list to run (default: load)
   --workspace PATH                Existing workspace; temp workspace by default
   --output PATH                   Output dir for screenshots and summary JSON
@@ -1466,7 +1553,7 @@ export async function runVisualDebug(options = parseVisualDebugArgs()) {
   const workspace = path.resolve(
     options.workspace || path.join(os.tmpdir(), `embedagent-gui-visual-workspace-${Date.now()}`),
   );
-  if (scenarios.includes("diff")) {
+  if (scenarios.includes("diff") || scenarios.includes("source-control")) {
     createDiffWorkspace(workspace, resolveGitExecutable({ bundleRoot: options.bundleRoot }));
   } else {
     createWorkspace(workspace);

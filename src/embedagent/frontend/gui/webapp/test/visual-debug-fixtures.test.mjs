@@ -18,6 +18,7 @@ const FIXTURES_PATH = path.join(WEBAPP_ROOT, "src", "app-runtime", "visual-debug
 
 export function runVisualDebugFixturesTests() {
   const source = fs.readFileSync(FIXTURES_PATH, "utf8");
+  assert.equal(source.includes("loadSurfaceSwitchingFixture"), true);
   assert.equal(source.includes("loadPanelOverflowFixture"), true);
   assert.equal(source.includes("loadTerminalSplitFixture"), true);
   assert.equal(source.includes("loadTimelineContextFixture"), true);
@@ -107,6 +108,7 @@ export function runVisualDebugFixturesTests() {
   windowObject.__EMBEDAGENT_VISUAL_DEBUG__.loadSourceControlFixture();
   windowObject.__EMBEDAGENT_VISUAL_DEBUG__.loadInteractionFixture("user_input");
   windowObject.__EMBEDAGENT_VISUAL_DEBUG__.loadThreadLifecycleFixture();
+  windowObject.__EMBEDAGENT_VISUAL_DEBUG__.loadSurfaceSwitchingFixture();
   windowObject.__EMBEDAGENT_VISUAL_DEBUG__.loadComposerFileTreeFixture();
   windowObject.__EMBEDAGENT_VISUAL_DEBUG__.loadFilePreviewRevealFixture();
   windowObject.__EMBEDAGENT_VISUAL_DEBUG__.openDiffFixture({
@@ -133,6 +135,26 @@ export function runVisualDebugFixturesTests() {
       "set_sidebar",
       "sessions_loaded",
       "session_activated",
+      "app_shell_bootstrap_loaded",
+      "set_sidebar",
+      "sessions_loaded",
+      "session_activated",
+      "app_shell_bootstrap_loaded",
+      "file_preview_loaded",
+      "workbench_surface_opened",
+      "app_shell_bootstrap_loaded",
+      "source_control_status_loaded",
+      "terminal_snapshot_loaded",
+      "workbench_surface_opened",
+      "workbench_surface_opened",
+      "workbench_surface_opened",
+      "workbench_surface_opened",
+      "workbench_surface_opened",
+      "workbench_surface_opened",
+      "workbench_surface_opened",
+      "workbench_surface_opened",
+      "diff_surface_opened",
+      "workbench_surface_activated",
       "app_shell_bootstrap_loaded",
       "file_tree_loaded",
       "app_shell_bootstrap_loaded",

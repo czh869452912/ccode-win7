@@ -26,7 +26,8 @@ export async function runVisualDebugRunnerTests() {
   assert.deepEqual(runner.parseScenarioList("load,palette"), ["load", "palette"]);
   assert.deepEqual(runner.parseScenarioList("thread"), ["thread"]);
   assert.deepEqual(runner.parseScenarioList("timeline,interaction"), ["timeline", "interaction"]);
-  assert.deepEqual(runner.parseScenarioList("all"), ["app", "load", "chat", "composer", "palette", "preview", "diff", "file", "terminal", "responsive", "thread", "timeline", "interaction", "panel-overflow", "terminal-split", "timeline-context"]);
+  assert.deepEqual(runner.parseScenarioList("all"), ["app", "load", "chat", "composer", "palette", "surface-switching", "source-control", "preview", "diff", "file", "terminal", "responsive", "thread", "timeline", "interaction", "panel-overflow", "terminal-split", "timeline-context"]);
+  assert.deepEqual(runner.parseScenarioList("surface-switching,source-control"), ["surface-switching", "source-control"]);
   assert.deepEqual(runner.parseScenarioList("preview"), ["preview"]);
   assert.deepEqual(runner.parseScenarioList("load,preview"), ["load", "preview"]);
   assert.deepEqual(runner.parseScenarioList("app"), ["app"]);
@@ -127,6 +128,12 @@ export async function runVisualDebugRunnerTests() {
   assert.equal(runnerSource.includes("command-palette-command--surface.diff"), true);
   assert.equal(runnerSource.includes("command-palette-session--"), true);
   assert.equal(runnerSource.includes("command-palette-workspace--"), true);
+  assert.equal(runnerSource.includes("runSurfaceSwitchingScenario"), true);
+  assert.equal(runnerSource.includes('"source_control"'), true);
+  assert.equal(runnerSource.includes('"diagnostics"'), true);
+  assert.equal(runnerSource.includes("runSourceControlScenario"), true);
+  assert.equal(runnerSource.includes("source-control-file--demo.c"), true);
+  assert.equal(runnerSource.includes("forbiddenWriteControls"), true);
 
   const noBuildArgs = runner.parseVisualDebugArgs(["--no-build"]);
   assert.equal(noBuildArgs.buildWebapp, false);
@@ -152,6 +159,7 @@ export async function runVisualDebugRunnerTests() {
   assert.equal(launch.args.includes("--port"), true);
   assert.equal(launch.args.includes("54321"), true);
   assert.equal(launch.env.PYTHONPATH, path.join("C:/repo", "src"));
+  assert.equal(launch.env.EMBEDAGENT_ALLOW_SYSTEM_TOOL_FALLBACK, "1");
   assert.equal(launch.env.EMBEDAGENT_BUNDLE_ROOT, "C:/bundle");
   assert.equal(launch.env.EMBEDAGENT_GUI_APP_HOME, "C:/tmp/gui-app-home");
 
