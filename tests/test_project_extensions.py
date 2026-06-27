@@ -270,6 +270,79 @@ def test_project_extension_dynamic_tool_uses_existing_catalog_and_permission_flo
     assert result.data["echo"] == "hi"
 
 
+def test_project_extension_network_tool_is_visible_only_after_allowed_activation(tmp_path):
+    root = tmp_path / ".embedagent" / "extensions" / "tools"
+    root.mkdir(parents=True)
+    (root / "extension.json").write_text(
+        '{"id": "project_network_tools", "enabled": true, "permissions": ["network"]}',
+        encoding="utf-8",
+    )
+    (root / "extension.py").write_text(
+        "\n".join(
+            [
+                "def create_extension(api):",
+                "    def handler(arguments):",
+                "        return api.Observation('project_intranet_fetch', True, None, {'url': arguments.get('url', '')})",
+                "    class ProjectNetworkTools(object):",
+                "        extension_id = api.extension_id",
+                "        builtin_extension = False",
+                "        active = False",
+                "        def extension_capabilities(self):",
+                "            return [",
+                "                api.ExtensionCapability('register_tools', self.register_tools),",
+                "                api.ExtensionCapability('allowed_tool_names', self.allowed_tool_names),",
+                "            ]",
+                "        def register_tools(self, event, context):",
+                "            tool = api.ToolDefinition(",
+                "                name='project_intranet_fetch',",
+                "                description='Fetch from a trusted intranet service.',",
+                "                parameters={'type': 'object', 'properties': {'url': {'type': 'string'}}},",
+                "                handler=handler,",
+                "                metadata={",
+                "                    'permission_category': 'network',",
+                "                    'mode_visibility': ['build'],",
+                "                    'workflow_visibility': ['chat'],",
+                "                    'read_only': False,",
+                "                },",
+                "                read_only=False,",
+                "            )",
+                "            return api.ToolRegistrationResult(tools=[tool], source_id=api.extension_id)",
+                "        def allowed_tool_names(self, mode_name, workflow_state='chat'):",
+                "            return {'project_intranet_fetch'} if self.active and mode_name == 'build' else set()",
+                "    return ProjectNetworkTools()",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    from embedagent.extensions import (
+        ExtensionContext,
+        ExtensionManager,
+        ToolRegistrationEvent,
+    )
+    from embedagent.project_extensions import load_project_extensions
+    from embedagent.tools import ToolRuntime
+
+    payload = load_project_extensions(str(tmp_path))
+    loaded_extension = payload["loaded_extensions"][0]
+    runtime = ToolRuntime(str(tmp_path))
+    manager = ExtensionManager([loaded_extension])
+    manager.register_tools(
+        ToolRegistrationEvent(current_mode="build", workflow_state_name="chat", reason="test"),
+        ExtensionContext(workspace=str(tmp_path), tool_registry=runtime),
+    )
+
+    inactive_names = manager.allowed_tool_names("build", workflow_state="chat")
+    loaded_extension.active = True
+    active_names = manager.allowed_tool_names("build", workflow_state="chat")
+    entry = runtime.tool_catalog_entry("project_intranet_fetch")
+
+    assert payload["counts"]["loaded"] == 1
+    assert entry["permission_category"] == "network"
+    assert "project_intranet_fetch" not in inactive_names
+    assert "project_intranet_fetch" in active_names
+
+
 def test_project_extension_loading_does_not_invoke_dependency_installers(tmp_path, monkeypatch):
     root = tmp_path / ".embedagent" / "extensions" / "sample"
     root.mkdir(parents=True)

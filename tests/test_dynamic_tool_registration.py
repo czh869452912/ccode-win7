@@ -684,3 +684,57 @@ def test_dynamic_tool_registration_accepts_network_and_telemetry_categories(tmp_
 
     assert runtime.tool_catalog_entry("intranet_fetch")["permission_category"] == "network"
     assert runtime.tool_catalog_entry("flush_telemetry")["permission_category"] == "telemetry"
+
+
+def test_permission_policy_uses_runtime_catalog_for_dynamic_network_tool(tmp_path):
+    from embedagent.permissions import PermissionPolicy
+
+    runtime = ToolRuntime(str(tmp_path))
+    runtime.register_tool(
+        make_dynamic_tool(
+            name="intranet_fetch",
+            permission_category="network",
+            read_only=False,
+        ),
+        source_type="extension",
+        source_id="enterprise_tools",
+    )
+    policy = PermissionPolicy(auto_approve_all=False, workspace=str(tmp_path))
+    policy.set_category_lookup(
+        lambda name: str((runtime.tool_catalog_entry(name) or {}).get("permission_category") or "")
+    )
+
+    decision = policy.evaluate(Action("intranet_fetch", {"url": "https://git.internal"}, "call-1"))
+
+    assert decision.outcome == "ask"
+    assert decision.request is not None
+    assert decision.request.category == "network"
+    assert decision.details["category"] == "network"
+
+
+def test_permission_policy_falls_back_to_other_when_catalog_metadata_is_missing_or_invalid(
+    tmp_path,
+):
+    from embedagent.permissions import PermissionPolicy
+
+    runtime = ToolRuntime(str(tmp_path))
+    policy = PermissionPolicy(auto_approve_all=False, workspace=str(tmp_path))
+    policy.set_category_lookup(
+        lambda name: str((runtime.tool_catalog_entry(name) or {}).get("permission_category") or "")
+    )
+
+    missing = policy.evaluate(Action("not_registered", {}, "call-missing"))
+    invalid = PermissionPolicy(
+        auto_approve_all=False,
+        workspace=str(tmp_path),
+        category_lookup=lambda name: "not_a_category",
+    ).evaluate(Action("invalid_metadata_tool", {}, "call-invalid"))
+
+    assert missing.outcome == "ask"
+    assert missing.request is not None
+    assert missing.request.category == "other"
+    assert missing.details["category"] == "other"
+    assert invalid.outcome == "ask"
+    assert invalid.request is not None
+    assert invalid.request.category == "other"
+    assert invalid.details["category"] == "other"

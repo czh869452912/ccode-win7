@@ -15,7 +15,7 @@ from embedagent.inprocess_adapter import InProcessAdapter
 from embedagent.llm import ModelClientError
 from embedagent.permissions import PermissionPolicy, PermissionRequest
 from embedagent.session import Action, AssistantReply, Observation
-from embedagent.tools import ToolRuntime
+from embedagent.tools import ToolDefinition, ToolRuntime
 
 _COUNTER = count(1)
 
@@ -133,6 +133,59 @@ class ToolClient(object):
         if on_text_delta is not None and reply.content:
             on_text_delta(reply.content)
         return reply
+
+
+class FrontendCatalogDynamicToolExtension(object):
+    extension_id = "frontend_catalog_dynamic"
+    builtin_extension = False
+
+    def __init__(self):
+        self.active = False
+
+    def extension_capabilities(self):
+        from embedagent.extensions import ExtensionCapability
+
+        return [
+            ExtensionCapability("register_tools", self.register_tools),
+            ExtensionCapability("allowed_tool_names", self.allowed_tool_names),
+        ]
+
+    def register_tools(self, event, context):
+        from embedagent.extensions import ToolRegistrationResult
+
+        del event
+
+        def handler(arguments):
+            return Observation(
+                "frontend_intranet_fetch",
+                True,
+                None,
+                {"url": str(arguments.get("url") or "")},
+            )
+
+        tool = ToolDefinition(
+            name="frontend_intranet_fetch",
+            description="Fetch a trusted intranet URL for frontend catalog tests.",
+            parameters={
+                "type": "object",
+                "properties": {"url": {"type": "string"}},
+            },
+            handler=handler,
+            metadata={
+                "permission_category": "network",
+                "mode_visibility": ["build"],
+                "workflow_visibility": ["chat"],
+                "read_only": False,
+            },
+            read_only=False,
+        )
+        assert context.tool_registry is not None
+        return ToolRegistrationResult(tools=[tool], source_id=self.extension_id)
+
+    def allowed_tool_names(self, mode_name, workflow_state="chat"):
+        if self.active and mode_name == "build" and workflow_state == "chat":
+            return {"frontend_intranet_fetch"}
+        return set()
 
 
 class MultiStepClient(object):
@@ -450,6 +503,20 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertIn("run_recipe", names)
         self.assertIn("task_status", names)
         self.assertIn("report_quality_v2", names)
+
+    def test_tool_catalog_projects_dynamic_tools_only_when_shared_manager_allows_them(self):
+        extension = FrontendCatalogDynamicToolExtension()
+        self.adapter.extension_manager.register(extension)
+
+        inactive = self.adapter.get_tool_catalog()
+        extension.active = True
+        active = self.adapter.get_tool_catalog()
+        active_entry = [item for item in active if item.get("name") == "frontend_intranet_fetch"][0]
+
+        self.assertFalse(any(item.get("name") == "frontend_intranet_fetch" for item in inactive))
+        self.assertEqual(active_entry.get("source_id"), "frontend_catalog_dynamic")
+        self.assertEqual(active_entry.get("source_type"), "extension")
+        self.assertEqual(active_entry.get("permission_category"), "network")
 
     def test_capability_snapshot_keeps_registered_tool_names_and_counts(self):
         snapshot = self.adapter.capability_snapshot()

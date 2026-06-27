@@ -771,6 +771,163 @@ def test_agent_extension_host_applies_context_and_tool_result_workflow_patch(tmp
     assert session.workflow_state["extensions"]["last_workflow_patch"]["source"] == "test"
 
 
+class DynamicServiceBoundaryExtension(object):
+    extension_id = "dynamic_service_boundary"
+    builtin_extension = False
+
+    def __init__(self):
+        self.calls = []
+
+    def extension_capabilities(self):
+        return _capabilities_for(
+            self,
+            "register_tools",
+            "allowed_tool_names",
+            "tool_call",
+            "tool_result",
+        )
+
+    def register_tools(self, event, context):
+        from embedagent.extensions import ToolRegistrationResult
+        from embedagent.tools import ToolDefinition
+
+        del event
+
+        def handler(arguments):
+            payload = dict(arguments)
+            self.calls.append(("handler", payload))
+            return Observation(
+                "service_intranet_fetch",
+                True,
+                None,
+                {"url": str(arguments.get("url") or ""), "handler_seen": True},
+            )
+
+        tool = ToolDefinition(
+            name="service_intranet_fetch",
+            description="Fetch from a trusted intranet service.",
+            parameters={
+                "type": "object",
+                "properties": {"url": {"type": "string"}},
+            },
+            handler=handler,
+            metadata={
+                "permission_category": "network",
+                "mode_visibility": ["build"],
+                "workflow_visibility": ["chat"],
+                "read_only": False,
+            },
+            read_only=False,
+        )
+        return ToolRegistrationResult(tools=[tool], source_id=self.extension_id)
+
+    def allowed_tool_names(self, mode_name, workflow_state="chat"):
+        if mode_name == "build" and workflow_state == "chat":
+            return {"service_intranet_fetch"}
+        return set()
+
+    def tool_call(self, event, context):
+        del context
+        if event.tool_name != "service_intranet_fetch":
+            return None
+        self.calls.append(("before", dict(event.tool_arguments)))
+        updated = dict(event.tool_arguments)
+        updated["url"] = "https://intranet.example/rewritten"
+        return ToolCallDecision(updated_arguments=updated, metadata={"rewritten": True})
+
+    def tool_result(self, event, context):
+        del context
+        if event.tool_name != "service_intranet_fetch":
+            return None
+        self.calls.append(("after", dict(event.observation.data or {})))
+        return ToolResultPatch(
+            observation=Observation(
+                event.tool_name,
+                True,
+                None,
+                {
+                    "patched_by_extension_host": True,
+                    "url": str((event.observation.data or {}).get("url") or ""),
+                },
+            )
+        )
+
+
+def test_agent_tool_action_service_runs_dynamic_tools_through_extension_hooks(tmp_path):
+    from embedagent.agent_extension_host import AgentExtensionHost
+    from embedagent.agent_tool_action_service import AgentToolActionService
+    from embedagent.permissions import PermissionPolicy
+    from embedagent.session import Session
+    from embedagent.tools import ToolRuntime
+
+    runtime = ToolRuntime(str(tmp_path))
+    policy = PermissionPolicy(auto_approve_all=True, workspace=str(tmp_path))
+    extension = DynamicServiceBoundaryExtension()
+    host = AgentExtensionHost(
+        manager=ExtensionManager([extension]),
+        tools=runtime,
+        permission_policy=policy,
+    )
+    session = Session()
+    host.register_tools(session, "build", "chat", reason="test")
+
+    direct = runtime.execute(
+        "service_intranet_fetch",
+        {"url": "https://intranet.example/original"},
+    )
+
+    def failure_observation(tool_name, error, error_kind, retryable, source, guidance, data=None):
+        del retryable, source, guidance
+        payload = dict(data or {})
+        payload["error_kind"] = error_kind
+        return Observation(tool_name, False, error, payload)
+
+    service = AgentToolActionService(
+        tools=runtime,
+        permission_policy=policy,
+        extension_host=host,
+        app_config_provider=lambda: None,
+        failure_observation_factory=failure_observation,
+    )
+    observation, current_mode, suspended = service.execute_action(
+        session,
+        Action(
+            "service_intranet_fetch",
+            {"url": "https://intranet.example/original"},
+            "call-service",
+        ),
+        "build",
+        "chat",
+        permission_handler=None,
+        user_input_handler=None,
+    )
+
+    assert direct.success is True
+    assert direct.data["url"] == "https://intranet.example/original"
+    assert direct.data.get("patched_by_extension_host") is None
+    assert suspended is None
+    assert current_mode == "build"
+    assert observation.success is True
+    assert observation.data == {
+        "patched_by_extension_host": True,
+        "url": "https://intranet.example/rewritten",
+    }
+    assert extension.calls[0] == (
+        "handler",
+        {"url": "https://intranet.example/original"},
+    )
+    assert extension.calls[1] == (
+        "before",
+        {"url": "https://intranet.example/original"},
+    )
+    assert extension.calls[2] == (
+        "handler",
+        {"url": "https://intranet.example/rewritten"},
+    )
+    assert extension.calls[3][0] == "after"
+    assert extension.calls[3][1]["url"] == "https://intranet.example/rewritten"
+
+
 def test_workflow_patch_exposes_only_current_read_model_fields():
     from dataclasses import fields
 
