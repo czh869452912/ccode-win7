@@ -1,10 +1,6 @@
 from __future__ import annotations
 
-import json
-import os
 from typing import Any, Dict, List, Optional
-
-from embedagent.harness import task_store
 
 
 class SessionService(object):
@@ -83,26 +79,9 @@ class SessionService(object):
         method = getattr(self.adapter, "list_tasks", None)
         if callable(method):
             return method(session_id=session_id)
-        tasks_path = task_store.task_snapshot_path(self.workspace, session_id) if session_id else ""
-        if not os.path.isfile(tasks_path):
-            return {
-                "count": 0,
-                "tasks": [],
-                "path": task_store.relative_task_snapshot_path(session_id) if session_id else "",
-                "session_id": session_id,
-            }
-        try:
-            with open(tasks_path, "r", encoding="utf-8") as handle:
-                payload = json.load(handle)
-        except (OSError, json.JSONDecodeError, ValueError):
-            payload = []
-        if isinstance(payload, dict):
-            tasks = payload.get("tasks") if isinstance(payload.get("tasks"), list) else []
-        else:
-            tasks = payload if isinstance(payload, list) else []
         return {
-            "count": len(tasks),
-            "tasks": tasks,
-            "path": task_store.relative_task_snapshot_path(session_id) if session_id else "",
+            "count": 0,
+            "tasks": [],
+            "path": "",
             "session_id": session_id,
         }

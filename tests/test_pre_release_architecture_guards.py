@@ -231,6 +231,26 @@ def test_harness_workflow_extension_stays_behind_default_package_boundary():
     assert offenders == []
 
 
+def test_active_source_does_not_reintroduce_tooling_pack_aliases():
+    forbidden = (
+        "embedagent.tooling.packs",
+        "from embedagent.tooling import BUILD_LITE_PACK",
+        "from embedagent.tooling import CORE_PACK",
+        "from embedagent.tooling import DEBUG_LITE_PACK",
+        "from embedagent.tooling import VERIFY_PACK",
+        "from embedagent.tooling import PACKS",
+        "from embedagent.tooling import pack_tool_names",
+    )
+    offenders = []
+    for path in _source_files_under("src/embedagent", suffixes=(".py",)):
+        rel = _relative(path)
+        text = _read(path)
+        for token in forbidden:
+            if token in text:
+                offenders.append("%s contains %s" % (rel, token))
+    assert offenders == []
+
+
 def test_runtime_tool_execute_calls_stay_behind_action_or_hosted_services():
     allowed_files = {
         "src/embedagent/agent_tool_action_service.py",

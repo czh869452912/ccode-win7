@@ -396,6 +396,33 @@ def test_inprocess_frontend_task_api_does_not_import_harness_task_store_directly
     assert "embedagent.harness.task_store" not in source
 
 
+def test_frontend_task_apis_do_not_import_harness_task_internals():
+    frontend_roots = [
+        _REPO_ROOT / "src" / "embedagent" / "frontend",
+        _REPO_ROOT / "src" / "embedagent" / "core",
+        _REPO_ROOT / "src" / "embedagent" / "protocol",
+        _REPO_ROOT / "src" / "embedagent" / "session_projector.py",
+        _REPO_ROOT / "src" / "embedagent" / "inprocess_adapter.py",
+    ]
+    forbidden = (
+        "embedagent.harness.task_graph",
+        "embedagent.harness.task_store",
+        "from embedagent.harness import task_store",
+        "from embedagent.harness.task_graph",
+    )
+    offenders = []
+    for root in frontend_roots:
+        paths = [root] if root.is_file() else list(root.rglob("*.py"))
+        for path in paths:
+            rel = path.relative_to(_REPO_ROOT).as_posix()
+            text = path.read_text(encoding="utf-8")
+            for token in forbidden:
+                if token in text:
+                    offenders.append("%s imports %s" % (rel, token))
+
+    assert offenders == []
+
+
 def test_inprocess_adapter_no_longer_constructs_harness_runner_directly():
     source = (_REPO_ROOT / "src" / "embedagent" / "inprocess_adapter.py").read_text(
         encoding="utf-8"
@@ -503,6 +530,34 @@ def test_tool_runtime_default_schemas_follow_mode_contract_not_harness_pack(tmp_
     assert "task_status" not in default_names
 
 
+def test_tool_runtime_default_schemas_remain_workflow_neutral_after_c_tools_register(tmp_path):
+    from embedagent.default_extensions import build_default_extension_set
+    from embedagent.extensions import ExtensionContext, ToolRegistrationEvent
+    from embedagent.tools import ToolRuntime
+
+    runtime = ToolRuntime(str(tmp_path))
+    default_set = build_default_extension_set(runtime)
+    default_set.manager.register_tools(
+        ToolRegistrationEvent(current_mode="build", workflow_state_name="chat", reason="test"),
+        ExtensionContext(workspace=str(tmp_path), tool_registry=runtime),
+    )
+    harness_tools = {
+        "list_recipes",
+        "run_recipe",
+        "report_quality_v2",
+        "record_failing_evidence",
+        "task_status",
+    }
+
+    for mode_name in ("explore", "spec", "build", "debug", "verify"):
+        names = set(
+            item["function"]["name"]
+            for item in runtime.schemas_for(mode_name, workflow_state="chat")
+        )
+        leaked = names & harness_tools
+        assert leaked == set(), "%s leaked workflow tools: %s" % (mode_name, sorted(leaked))
+
+
 def test_bare_tool_runtime_does_not_register_default_c_workflow_tools(tmp_path):
     from embedagent.tools import ToolRuntime
 
@@ -531,8 +586,24 @@ def test_default_c_workflow_extension_registers_workflow_tools(tmp_path):
 
     assert "list_recipes" in names
     assert "run_recipe" in names
+    assert "report_quality_v2" in names
     assert "task_status" in names
     assert "record_failing_evidence" in names
+
+
+def test_default_c_workflow_extension_owns_c_workflow_tool_activation():
+    from embedagent.harness.extension import CHarnessWorkflowExtension
+
+    extension = CHarnessWorkflowExtension()
+    build_tools = extension.allowed_tool_names("build", workflow_state="chat")
+    debug_tools = extension.allowed_tool_names("debug", workflow_state="chat")
+    verify_tools = extension.allowed_tool_names("verify", workflow_state="chat")
+
+    assert {"list_recipes", "run_recipe", "task_status"} <= build_tools
+    assert {"list_recipes", "run_recipe", "record_failing_evidence", "task_status"} <= debug_tools
+    assert {"list_recipes", "run_recipe", "report_quality_v2", "task_status"} <= verify_tools
+    assert extension.allowed_tool_names("explore", workflow_state="chat") == set()
+    assert extension.allowed_tool_names("spec", workflow_state="chat") == set()
 
 
 def test_default_c_workflow_extension_registers_context_reducers(tmp_path):
