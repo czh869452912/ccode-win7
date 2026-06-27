@@ -542,15 +542,13 @@ async function main() {
   });
   assert.equal(pendingPermissionState.permission.permission_id, "perm-panel-1");
   assert.equal(pendingPermissionState.inspectorTab, "interaction");
-  assert.equal(pendingPermissionState.timeline.length, 1);
-  assert.equal(pendingPermissionState.timeline[0].kind, "permission");
-  assert.equal(pendingPermissionState.timeline[0].request.permission_id, "perm-panel-1");
+  assert.equal(pendingPermissionState.timeline.length, 0);
 
   const clearedPermissionState = reducer(pendingPermissionState, {
     type: "permission_cleared",
   });
   assert.equal(clearedPermissionState.permission, null);
-  assert.equal(clearedPermissionState.timeline[0].answered, true);
+  assert.equal(clearedPermissionState.timeline.length, 0);
 
   const pendingUserInputState = reducer(initialState, {
     type: "user_input_request",
@@ -564,6 +562,15 @@ async function main() {
   assert.equal(pendingUserInputState.userInput.request_id, "ask-panel-1");
   assert.equal(pendingUserInputState.inspectorTab, "interaction");
   assert.equal(pendingUserInputState.inspectorOpen, true);
+  assert.equal(pendingUserInputState.timeline.length, 0);
+
+  const answeredUserInputState = reducer(pendingUserInputState, {
+    type: "user_input_answered",
+    requestId: "ask-panel-1",
+    answerText: "继续",
+  });
+  assert.equal(answeredUserInputState.userInput, null);
+  assert.equal(answeredUserInputState.timeline.length, 0);
 
   const recipeState = reducer(initialState, {
     type: "recipes_loaded",

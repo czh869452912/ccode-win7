@@ -514,14 +514,6 @@ export function reducer(state, action) {
     case "append_timeline_item":
       return { ...state, timeline: state.timeline.concat(action.item) };
     case "permission_request": {
-      const permissionId = action.permission?.permission_id || action.permission?.interaction_id || "";
-      const hasTimelineItem =
-        permissionId &&
-        state.timeline.some(
-          (item) =>
-            item.kind === "permission" &&
-            (item.request?.permission_id || item.request?.interaction_id || "") === permissionId,
-        );
       return {
         ...state,
         permission: action.permission,
@@ -529,30 +521,14 @@ export function reducer(state, action) {
         thinkingActive: false,
         inspectorTab: action.inspectorTab || "interaction",
         inspectorOpen: true,
-        timeline: hasTimelineItem
-          ? state.timeline
-          : state.timeline.concat({
-              id: makeEventId("permission"),
-              kind: "permission",
-              request: action.permission,
-              answered: false,
-              turnId: action.permission?.turn_id || state.activeTurnId,
-              stepId: action.permission?.step_id || state.activeStepId,
-              stepIndex: action.permission?.step_index || state.activeStepIndex,
-              ...liveProjectionMeta(),
-            }),
       };
     }
     case "permission_cleared":
       return {
         ...state,
         permission: null,
-        timeline: state.timeline.map((item) =>
-          item.kind === "permission" && !item.answered ? { ...item, answered: true } : item,
-        ),
       };
     case "user_input_request": {
-      const isModeSwitchProposal = action.request.tool_name === "propose_mode_switch";
       return {
         ...state,
         userInput: action.request,
@@ -560,51 +536,17 @@ export function reducer(state, action) {
         thinkingActive: false,
         inspectorTab: "interaction",
         inspectorOpen: true,
-        timeline: state.timeline.concat(
-          isModeSwitchProposal
-            ? {
-                id: makeEventId("mode_switch"),
-                kind: "mode_switch_proposal",
-                request: action.request,
-                answered: false,
-                turnId: action.request?.turn_id || state.activeTurnId,
-                stepId: action.request?.step_id || state.activeStepId,
-                stepIndex: action.request?.step_index || state.activeStepIndex,
-                ...liveProjectionMeta(),
-              }
-            : {
-                id: makeEventId("user_input"),
-                kind: "user_input",
-                request: action.request,
-                answered: false,
-                turnId: action.request?.turn_id || state.activeTurnId,
-                stepId: action.request?.step_id || state.activeStepId,
-                stepIndex: action.request?.step_index || state.activeStepIndex,
-                ...liveProjectionMeta(),
-              },
-        ),
       };
     }
     case "user_input_answered":
       return {
         ...state,
         userInput: null,
-        timeline: state.timeline.map((item) =>
-          (item.kind === "user_input" || item.kind === "mode_switch_proposal") &&
-          item.request?.request_id === action.requestId
-            ? { ...item, answered: true, answerText: action.answerText }
-            : item,
-        ),
       };
     case "user_input_cleared":
       return {
         ...state,
         userInput: null,
-        timeline: state.timeline.map((item) =>
-          (item.kind === "user_input" || item.kind === "mode_switch_proposal") && !item.answered
-            ? { ...item, answered: true }
-            : item,
-        ),
       };
     case "tasks_loaded":
       return { ...state, tasks: action.tasks };
