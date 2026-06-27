@@ -838,33 +838,15 @@ class InProcessAdapter(object):
         runtime = runtime_lookup() if callable(runtime_lookup) else {}
         recipes_payload = self.list_workspace_recipes()
         recipe_items = recipes_payload.get("items") if isinstance(recipes_payload, dict) else []
-        git_status = self.tools.execute("git_status", {"path": "."})
-        branch = ""
-        dirty_count = 0
-        modified_count = 0
-        untracked_count = 0
-        if git_status.success and isinstance(git_status.data, dict):
-            branch = str(git_status.data.get("branch") or "")
-            entries = git_status.data.get("entries") or []
-            if isinstance(entries, list):
-                dirty_count = len(entries)
-                for item in entries:
-                    if not isinstance(item, dict):
-                        continue
-                    status = str(item.get("status") or "").strip()
-                    if "?" in status:
-                        untracked_count += 1
-                    elif status:
-                        modified_count += 1
         return {
             "workspace": self.tools.workspace,
             "hosted": True,
             "git": {
-                "available": bool(branch or git_status.success),
-                "branch": branch,
-                "dirty_count": dirty_count,
-                "modified_count": modified_count,
-                "untracked_count": untracked_count,
+                "available": False,
+                "branch": "",
+                "dirty_count": 0,
+                "modified_count": 0,
+                "untracked_count": 0,
             },
             "tree": counts,
             "runtime_environment": runtime,

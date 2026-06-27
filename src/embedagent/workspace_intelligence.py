@@ -400,6 +400,17 @@ class DiagnosticsProvider(WorkspaceIntelligenceProvider):
 class GitStateProvider(WorkspaceIntelligenceProvider):
     name = "git"
 
+    def _latest_git_status(self, session: Session) -> Optional[Observation]:
+        for turn in reversed(list(getattr(session, "turns", []) or [])):
+            for observation in reversed(list(getattr(turn, "observations", []) or [])):
+                if getattr(observation, "tool_name", "") != "git_status":
+                    continue
+                if not getattr(observation, "success", False):
+                    continue
+                if isinstance(getattr(observation, "data", None), dict):
+                    return observation
+        return None
+
     def collect(
         self,
         session: Session,
@@ -409,8 +420,8 @@ class GitStateProvider(WorkspaceIntelligenceProvider):
     ) -> List[IntelligenceEvidence]:
         if mode_name not in ("explore", "spec", "build", "debug"):
             return []
-        observation = tools.execute("git_status", {"path": "."})
-        if not isinstance(observation.data, dict):
+        observation = self._latest_git_status(session)
+        if observation is None or not isinstance(observation.data, dict):
             return []
         branch = str(observation.data.get("branch") or "")
         entries = (

@@ -314,6 +314,24 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         pkg = [item for item in children["items"] if item["path"] == "src/pkg"][0]
         self.assertTrue(pkg["has_children"])
 
+    def test_workspace_snapshot_does_not_execute_runtime_tools(self):
+        original_execute = self.tools.execute
+        calls = []
+
+        def forbidden_execute(name, arguments):
+            calls.append((name, dict(arguments)))
+            raise AssertionError("workspace snapshot must not execute tools")
+
+        self.tools.execute = forbidden_execute
+        try:
+            payload = self.adapter.get_workspace_snapshot()
+        finally:
+            self.tools.execute = original_execute
+
+        self.assertEqual(calls, [])
+        self.assertEqual(payload["git"]["available"], False)
+        self.assertEqual(payload["git"]["branch"], "")
+
     def test_natural_language_mode_switch_updates_session_without_provider_call(self):
         client = FakeClient()
         adapter = InProcessAdapter(

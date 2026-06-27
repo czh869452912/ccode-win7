@@ -26,6 +26,7 @@ from embedagent.transcript_store import TranscriptStore
 from embedagent.workspace_intelligence import (
     CtagsProvider,
     DiagnosticsProvider,
+    GitStateProvider,
     LlspProvider,
     RecipeProvider,
     WorkspaceIntelligenceBroker,
@@ -1974,6 +1975,37 @@ class TestQueryEngineRefactor(unittest.TestCase):
         )
         self.assertIn("demo", message)
         self.assertIn("src/demo.c", message)
+
+    def test_git_state_provider_uses_session_observations_without_executing_tools(self):
+        class ForbiddenExecuteTools(object):
+            def execute(self, name, arguments):
+                raise AssertionError("git intelligence must not execute tools")
+
+        session = Session()
+        action = Action("git_status", {"path": "."}, "git-1")
+        session.add_user_message("check git")
+        session.record_tool_call(action)
+        session.add_observation(
+            action,
+            Observation(
+                "git_status",
+                True,
+                "",
+                {
+                    "branch": "main",
+                    "entries": [
+                        {"status": " M", "path": "src/demo.c"},
+                        {"status": "??", "path": "src/new.c"},
+                    ],
+                },
+            ),
+        )
+
+        evidence = GitStateProvider().collect(session, "build", ForbiddenExecuteTools(), None)
+
+        self.assertEqual(len(evidence), 1)
+        self.assertIn("main", evidence[0].content)
+        self.assertEqual(evidence[0].metadata.get("dirty_count"), 2)
 
     def test_ctags_provider_prioritizes_recent_working_set_files(self):
         with open(os.path.join(self.workspace, "tags"), "w", encoding="utf-8") as handle:
