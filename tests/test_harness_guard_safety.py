@@ -39,7 +39,11 @@ class TestLoopGuard(unittest.TestCase):
             tool_name="bash",
             success=False,
             error="failed",
-            data={"error_kind": "command_failed", "retryable": False},
+            data={
+                "error_kind": "command_failed",
+                "outcome_class": "diagnostic_failure",
+                "retryable": False,
+            },
         )
 
         self.guard.record(action, fail_obs)
@@ -47,6 +51,20 @@ class TestLoopGuard(unittest.TestCase):
 
         self.assertFalse(self.guard.should_stop())
         self.assertFalse(self.guard.should_block(action))
+
+    def test_non_diagnostic_timeout_still_counts_as_failure(self):
+        action = Action(name="read_file", arguments={"path": "README.md"}, call_id="c1")
+        fail_obs = Observation(
+            tool_name="read_file",
+            success=False,
+            error="timed out",
+            data={"error_kind": "timeout", "retryable": False},
+        )
+
+        self.guard.record(action, fail_obs)
+        self.guard.record(action, fail_obs)
+
+        self.assertTrue(self.guard.should_stop())
 
     def test_success_resets_failure_count(self):
         action = Action(name="bash", arguments={}, call_id="c1")

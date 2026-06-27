@@ -17,9 +17,7 @@ def _is_diagnostic_failure(observation: Observation) -> bool:
     if not isinstance(observation.data, dict):
         return False
     outcome_class = str(observation.data.get("outcome_class") or "")
-    if outcome_class == "diagnostic_failure":
-        return True
-    return observation.data.get("error_kind") in ("command_failed", "timeout")
+    return outcome_class == "diagnostic_failure"
 
 
 class LoopGuard(object):
