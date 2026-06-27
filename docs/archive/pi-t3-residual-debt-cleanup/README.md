@@ -1,9 +1,10 @@
 # Pi/T3 Residual Debt Cleanup Archive
 
 > Status: completed slice archive
-> Date: 2026-06-26
+> Date: 2026-06-27
 
-This package preserves the completed Pi/T3 residual architecture-debt cleanup plan.
+This package preserves completed Pi/T3 residual architecture-debt cleanup plans,
+follow-up plans, and audit notes.
 
 Durable conclusions were synchronized into active source-of-truth docs before archiving:
 
@@ -14,5 +15,15 @@ Durable conclusions were synchronized into active source-of-truth docs before ar
 - GUI run-output display state and transport connection/reload projection live under `webapp/src/session-runtime/`
 - session activation and WebSocket lifecycle control live under focused `webapp/src/app-runtime/` controllers
 - root GUI connection state was removed in favor of focused session transport state
+- permission policy now reads permission categories from runtime/catalog metadata and unknown categories ask by default
+- ordinary command/build/test failures remain diagnostic tool results instead of hard loop stops
+- GUI interaction activity and workspace refresh invalidation now come from backend/tool metadata contracts
+- runtime configuration read-model invalidation is reducer-backed and tested from transcript events
+
+Archived materials:
+
+- [2026-06-26-pi-t3-debt-cleanup.md](2026-06-26-pi-t3-debt-cleanup.md)
+- [2026-06-26-pi-t3-followup-cleanup.md](2026-06-26-pi-t3-followup-cleanup.md)
+- [2026-06-27-pi-t3-residual-debt-audit.md](2026-06-27-pi-t3-residual-debt-audit.md)
 
 Use active docs for current product truth.
