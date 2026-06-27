@@ -654,6 +654,21 @@ class WebSocketFrontend(FrontendCallbacks):
         session_id = str(payload.get("session_id") or "")
         self._dispatch_message(self._session_event_message(session_id, event_name, dict(payload)))
 
+    def _emit_interaction_resolved_event(
+        self, session_id: str, interaction_id: str, request: Dict[str, Any]
+    ) -> None:
+        payload = {
+            "session_id": session_id,
+            "interaction_id": interaction_id,
+            "kind": str(request.get("kind") or ""),
+            "decision": request.get("decision"),
+            "answer": str(request.get("answer") or ""),
+            "selected_option_text": str(request.get("selected_option_text") or ""),
+        }
+        self._dispatch_message(
+            self._session_event_message(session_id, "interaction_resolved", payload)
+        )
+
     # ============ 处理前端响应 ============
 
     def handle_permission_response(self, permission_id: str, approved: bool):
@@ -1136,6 +1151,7 @@ class GUIBackend:
                         if callable(remember_method):
                             self._call_core(remember_method, session_id, category)
                 snapshot = self._wait_for_interaction_resolution(session_id, interaction_id)
+                self.frontend._emit_interaction_resolved_event(session_id, interaction_id, request)
                 return _serialize_interaction_response(
                     {
                         "session_id": session_id,
@@ -1154,6 +1170,7 @@ class GUIBackend:
                     remember_method = getattr(core, "remember_permission_category", None)
                     if callable(remember_method):
                         self._call_core(remember_method, session_id, category)
+            self.frontend._emit_interaction_resolved_event(session_id, interaction_id, request)
             return _serialize_interaction_response(response)
 
         @app.get("/api/workspace")

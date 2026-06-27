@@ -130,3 +130,20 @@ def test_no_timeline_reload_route_or_metadata_in_active_gui_backend():
             if token in text:
                 offenders.append("%s contains %s" % (path.relative_to(ROOT), token))
     assert offenders == []
+
+
+def test_no_legacy_task_tool_execution_contract_in_tests():
+    legacy_tool = "manage" + "_todos"
+    offenders = []
+    for path in (ROOT / "tests").glob("test_*.py"):
+        text = _read(path)
+        forbidden = (
+            'execute("%s"' % legacy_tool,
+            "execute('%s'" % legacy_tool,
+            '"tool_name", "%s"' % legacy_tool,
+            "'tool_name', '%s'" % legacy_tool,
+        )
+        for token in forbidden:
+            if token in text:
+                offenders.append("%s contains %s" % (path.relative_to(ROOT), token))
+    assert offenders == []

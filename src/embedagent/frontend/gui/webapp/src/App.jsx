@@ -11,9 +11,13 @@ import { buildAppHomeModel } from "./session-runtime/app-home-model.js";
 import { buildSessionActivityRuntime } from "./session-runtime/activity-state.js";
 import { deriveSocketMessageEffects } from "./app-runtime/socket-message-effects.js";
 import { createLoaderRequestExecutor } from "./app-runtime/session-loaders.js";
+import { createRightPanelController } from "./app-runtime/right-panel-controller.js";
 import { createSessionActivationController } from "./app-runtime/session-activation-controller.js";
+import { createSessionController } from "./app-runtime/session-controller.js";
 import { createSessionTransportController } from "./app-runtime/session-transport-controller.js";
 import { createTerminalController } from "./app-runtime/terminal-controller.js";
+import { createThreadLifecycleController } from "./app-runtime/thread-lifecycle-controller.js";
+import { createWorkbenchCommandController } from "./app-runtime/workbench-command-controller.js";
 import { installVisualDebugFixtures } from "./app-runtime/visual-debug-fixtures.js";
 import { canSwitchWorkspace, normalizeAppBootstrap } from "./app-workspaces.js";
 import { LangContext } from "./LangContext.js";
@@ -557,136 +561,42 @@ function App() {
     });
   }, [runtimeState.timelineItems, state.requestedMode]);
 
-  async function createSession(mode) {
-    const payload = await fetchJson(`/api/sessions?mode=${encodeURIComponent(mode)}`, {
-      method: "POST",
-    });
-    const snapshot = normalizeSessionPayload(payload);
-    dispatch({ type: "session_activated", sessionId: snapshot.session_id, snapshot, timeline: [] });
-    replaceSessionTransport(createRuntimeSessionTransport());
-    await Promise.all([loadSessions(), loadTasks(snapshot.session_id), loadPermissionContext(snapshot.session_id)]);
-    return snapshot.session_id;
-  }
-
-  async function renameThread(sessionId) {
-    const current = threadSessions.find((item) => item.session_id === sessionId) || {};
-    const initialTitle = current.thread?.title || current.title || current.user_goal || "";
-    const title = window.prompt("Rename thread", initialTitle);
-    if (title === null) return;
-    const normalizedTitle = String(title || "").trim();
-    if (!normalizedTitle) {
-      dispatch({
-        type: "interaction_notice_set",
-        notice: {
-          kind: "thread_lifecycle",
-          title: "Rename failed",
-          body: "Thread title cannot be empty.",
+  const sessionController = useMemo(
+    () =>
+      createSessionController({
+        fetchJson,
+        dispatch,
+        normalizeSessionPayload,
+        createRuntimeSessionTransport,
+        replaceSessionTransport,
+        getCurrentSessionId: () => readActiveThreadId(stateRef.current),
+        getCurrentMode: () => stateRef.current.snapshot?.current_mode || stateRef.current.requestedMode,
+        hasActiveWorkspace: () => Boolean(stateRef.current.app.hasActiveWorkspace),
+        markTimelineBottom: () => {
+          isAtBottomRef.current = true;
         },
-      });
-      return;
-    }
-    await fetchJson(`/api/sessions/${encodeURIComponent(sessionId)}/rename`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: normalizedTitle }),
-    });
-    await loadSessions();
-  }
-
-  async function archiveThread(sessionId) {
-    const ok = window.confirm("Archive this thread?");
-    if (!ok) return;
-    await fetchJson(`/api/sessions/${encodeURIComponent(sessionId)}/archive`, {
-      method: "POST",
-    });
-    await loadSessions();
-    dispatch({
-      type: "interaction_notice_set",
-      notice: {
-        kind: "thread_lifecycle",
-        title: "Thread archived",
-        body: "The thread was archived and hidden from the normal thread list.",
-      },
-    });
-  }
-
-  async function forkThread(sessionId) {
-    const title = window.prompt("Fork thread title", "");
-    if (title === null) return;
-    const payload = await fetchJson(`/api/sessions/${encodeURIComponent(sessionId)}/fork`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: String(title || "").trim() }),
-    });
-    await loadSessions();
-    if (payload.session_id) {
-      await loadSession(payload.session_id);
-    }
-  }
-
-  async function handleThreadLifecycleAction(actionId, sessionId) {
-    try {
-      if (actionId === "rename") {
-        await renameThread(sessionId);
-        return;
-      }
-      if (actionId === "archive") {
-        await archiveThread(sessionId);
-        return;
-      }
-      if (actionId === "fork") {
-        await forkThread(sessionId);
-        return;
-      }
-    } catch (error) {
-      dispatch({
-        type: "interaction_notice_set",
-        notice: {
-          kind: "thread_lifecycle",
-          title: "Thread action failed",
-          body: error?.message || String(error || "thread_lifecycle_failed"),
-        },
-      });
-    }
-  }
-
-  async function setMode(mode) {
-    dispatch({ type: "mode_requested", mode });
-    if (!currentSessionId) return;
-    await fetchJson(`/api/sessions/${encodeURIComponent(currentSessionId)}/mode`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ mode }),
-    });
-    await loadSession(currentSessionId);
-  }
-
-  async function cancelSession() {
-    if (!currentSessionId) return;
-    dispatch({ type: "stream_completed" });
-    await fetchJson(`/api/sessions/${encodeURIComponent(currentSessionId)}/cancel`, {
-      method: "POST",
-    });
-  }
-
-  async function submitText(rawText) {
-    const text = (rawText || "").trim();
-    if (!text) return;
-    if (!state.app.hasActiveWorkspace) {
-      dispatch({ type: "workspace_activation_failed", error: "no_active_workspace" });
-      return;
-    }
-    isAtBottomRef.current = true;
-    dispatch({ type: "stream_completed" });
-    dispatch({ type: "local_user_message", text });
-    let sessionId = currentSessionId;
-    if (!sessionId) sessionId = await createSession(currentMode);
-    await fetchJson(`/api/sessions/${encodeURIComponent(sessionId)}/message`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text }),
-    });
-  }
+        loadSessions,
+        loadTasks,
+        loadPermissionContext,
+        loadSession,
+      }),
+    [],
+  );
+  const threadLifecycleController = useMemo(
+    () =>
+      createThreadLifecycleController({
+        fetchJson,
+        dispatch,
+        loadSessions,
+        loadSession,
+        getThreadSessions: () => readThreadSessions(stateRef.current),
+        prompt: (message, initialValue) => window.prompt(message, initialValue),
+        confirm: (message) => window.confirm(message),
+      }),
+    [],
+  );
+  const { createSession, setMode, cancelSession, submitText } = sessionController;
+  const { handleThreadLifecycleAction } = threadLifecycleController;
 
   async function sendMessage() {
     await submitText(composerDraft);
@@ -701,148 +611,40 @@ function App() {
     await submitText(parts.join(" "));
   }
 
-  function rightPanelSurfaceTitle(kind, fallback = "") {
-    const label = String(fallback || "").replace(/^Open\s+/i, "").trim();
-    if (label) return label;
-    switch (kind) {
-      case "diff":
-        return "Diff";
-      case "files":
-        return "Files";
-      case "terminal":
-        return "Terminal";
-      case "plan":
-        return "Plan";
-      case "source_control":
-        return "Source Control";
-      case "settings":
-        return "Settings";
-      case "diagnostics":
-        return "Diagnostics";
-      default:
-        return String(kind || "");
-    }
-  }
-
-  function normalizeFileSurfacePath(path) {
-    return String(path || "").replace(/\\/g, "/").replace(/^\/+/, "");
-  }
-
-  function fileSurfaceTitle(path) {
-    const normalized = normalizeFileSurfacePath(path);
-    if (!normalized) return "File";
-    const parts = normalized.split("/");
-    return parts[parts.length - 1] || normalized;
-  }
-
-  function openRightPanelSurface(kind, title = "") {
-    const surfaceKind = String(kind || "");
-    if (surfaceKind === "file") return;
-    if (surfaceKind === "terminal") {
-      void terminalController.openRightPanelSurface();
-      return;
-    }
-    dispatch({
-      type: "workbench_surface_opened",
-      placement: "right",
-      kind: surfaceKind,
-      title: rightPanelSurfaceTitle(surfaceKind, title),
-      resourceId: surfaceKind === "diff" ? "current" : "",
-    });
-    dispatch({ type: "set_inspector", value: surfaceKind });
-  }
-
-  async function executeWorkbenchCommand(command) {
-    if (!command) return;
-    if (command.id === "palette.open") {
-      dispatch({ type: "workbench_command_palette_opened" });
-      return;
-    }
-    if (command.id === "palette.close") {
-      dispatch({ type: "workbench_command_palette_closed" });
-      return;
-    }
-    if (command.id === "session.new") {
-      await createSession(currentMode);
-      return;
-    }
-    if (command.id === "thread.new") {
-      await createSession(currentMode);
-      return;
-    }
-    if (command.id === "session.refresh") {
-      await loadSessions();
-      return;
-    }
-    if (command.id === "workspace.open") {
-      dispatch({ type: "set_sidebar", value: "chats" });
-      window.setTimeout(() => {
-        document.querySelector('[data-testid="sidebar-workspace-path-input"]')?.focus();
-      }, 0);
-      return;
-    }
-    if (command.id === "workspace.refresh") {
-      await loadAppBootstrap();
-      return;
-    }
-    if (command.id === "workspace.remove_current") {
-      if (state.app.activeWorkspace?.id) {
-        await removeWorkspace(state.app.activeWorkspace.id);
-      }
-      return;
-    }
-    if (command.id === "app.settings") {
-      openRightPanelSurface("settings", command.label);
-      return;
-    }
-    if (command.id === "app.diagnostics") {
-      openRightPanelSurface("diagnostics", command.label);
-      return;
-    }
-    if (command.id === "app.source_control") {
-      openRightPanelSurface("source_control", command.label);
-      return;
-    }
-    if (command.id === "app.reload") {
-      await loadAppBootstrap();
-      return;
-    }
-    if (command.id === "surface.preview") {
-      openRightPanelSurface("preview", command.label);
-      return;
-    }
-    if (command.id === "message.send") {
-      await sendMessage();
-      return;
-    }
-    if (command.id === "message.stop") {
-      await cancelSession();
-      return;
-    }
-    if (command.id === "view.toggle_right_panel") {
-      dispatch({ type: "workbench_right_panel_toggled" });
-      return;
-    }
-    if (command.id === "view.toggle_bottom_drawer") {
-      dispatch({ type: "workbench_bottom_drawer_toggled" });
-      return;
-    }
-    if (command.surface) {
-      openRightPanelSurface(command.surface, command.label);
-      return;
-    }
-    if (command.drawer) {
-      if (command.drawer === "terminal") {
-        await terminalController.ensureOpen();
-        return;
-      }
-      dispatch({ type: "workbench_surface_activated", placement: "bottom", kind: command.drawer });
-      return;
-    }
-    if (command.slash) {
-      await submitText(command.slash);
-    }
-  }
+  const rightPanelController = useMemo(
+    () =>
+      createRightPanelController({
+        dispatch,
+        terminalController,
+      }),
+    [terminalController],
+  );
+  const {
+    fileSurfaceTitle,
+    normalizeFileSurfacePath,
+    openSurface: openRightPanelSurface,
+  } = rightPanelController;
+  const workbenchCommandController = useMemo(
+    () =>
+      createWorkbenchCommandController({
+        dispatch,
+        documentObject: document,
+        setTimeoutFn: window.setTimeout.bind(window),
+        getCurrentMode: () => stateRef.current.snapshot?.current_mode || stateRef.current.requestedMode,
+        getActiveWorkspaceId: () => stateRef.current.app.activeWorkspace?.id || "",
+        createSession,
+        loadSessions,
+        loadAppBootstrap,
+        removeWorkspace,
+        sendMessage: () => submitText(readComposerDraft(stateRef.current)),
+        cancelSession,
+        submitText,
+        openRightPanelSurface,
+        terminalController,
+      }),
+    [openRightPanelSurface, terminalController],
+  );
+  const executeWorkbenchCommand = workbenchCommandController.execute;
 
   useEffect(() => {
     function onWorkbenchKeyDown(event) {
@@ -960,22 +762,6 @@ function App() {
     } else {
       await loadSession(currentSessionId);
     }
-    updateSessionTransport((current) =>
-      appendSessionTransportEvent(current, {
-        session_id: currentSessionId,
-        event_id: makeEventId("evt"),
-        seq: current.lastAppliedSeq + 1,
-        created_at: new Date().toISOString(),
-        event_kind: "interaction.resolved",
-        payload: {
-          interaction_id: interaction.interaction_id,
-          kind: interaction.kind,
-          answer: payload?.answer || "",
-          selected_option_text: payload?.selected_option_text || "",
-          decision: payload?.decision,
-        },
-      }),
-    );
     if (interaction.kind === "permission") {
       dispatch({ type: "permission_cleared" });
       if (payload?.decision && payload?.remember) {

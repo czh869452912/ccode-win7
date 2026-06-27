@@ -11,6 +11,7 @@ _GUI_EVENT_KIND_MAP = {
     "tool_finished": "tool.finished",
     "permission_required": "interaction.created",
     "user_input_required": "interaction.created",
+    "interaction_resolved": "interaction.resolved",
     "session_finished": "session.finished",
     "session_error": "session.error",
 }

@@ -4,9 +4,91 @@ import {
   buildSessionActivityRuntime,
   normalizeHistoryActivities,
 } from "../src/session-runtime/activity-state.js";
+import {
+  createActivityState,
+  reduceActivityState,
+} from "../src/session-runtime/activity-reducer.js";
 import { createSessionTransportState } from "../src/session-runtime/session-transport-state.js";
 
 export function runActivityStateTests() {
+  let activity = createActivityState();
+  activity = reduceActivityState(activity, {
+    type: "local_user_message",
+    text: "Inspect parser",
+    createdAt: "2026-06-27T00:00:00.000Z",
+  });
+  assert.equal(activity.timeline.length, 1);
+  assert.equal(activity.timeline[0].kind, "user");
+  assert.equal(activity.activeTurnId, activity.timeline[0].pendingTurnId);
+
+  activity = reduceActivityState(activity, {
+    type: "turn_started",
+    turnId: "turn-1",
+    userText: "Inspect parser",
+    createdAt: "2026-06-27T00:00:01.000Z",
+  });
+  assert.equal(activity.timeline[0].turnId, "turn-1");
+
+  activity = reduceActivityState(activity, {
+    type: "step_started",
+    turnId: "turn-1",
+    stepId: "step-1",
+    stepIndex: 1,
+  });
+  activity = reduceActivityState(activity, {
+    type: "reasoning_delta",
+    text: "Read parser entry point",
+    createdAt: "2026-06-27T00:00:02.000Z",
+  });
+  activity = reduceActivityState(activity, {
+    type: "tool_started",
+    callId: "call-1",
+    toolName: "read_file",
+    label: "Read File",
+    arguments: { path: "src/parser.c" },
+  });
+  activity = reduceActivityState(activity, {
+    type: "tool_finished",
+    callId: "call-1",
+    toolName: "read_file",
+    label: "Read File",
+    success: true,
+    data: { path: "src/parser.c" },
+  });
+  activity = reduceActivityState(activity, {
+    type: "assistant_delta",
+    text: "Parser inspected.",
+    createdAt: "2026-06-27T00:00:03.000Z",
+  });
+  activity = reduceActivityState(activity, {
+    type: "step_ended",
+    turnId: "turn-1",
+    stepId: "step-1",
+    stepIndex: 1,
+  });
+  assert.equal(activity.timeline.filter((item) => item.kind === "reasoning").length, 1);
+  assert.equal(activity.timeline.filter((item) => item.kind === "tool").length, 1);
+  assert.equal(activity.timeline.filter((item) => item.kind === "assistant").length, 1);
+  assert.equal(activity.streamingAssistantId, "");
+
+  activity = reduceActivityState(activity, {
+    type: "context_compacted",
+    content: "Context compacted.",
+    recentTurns: 2,
+    summarizedTurns: 4,
+    approxTokensAfter: 4096,
+  });
+  activity = reduceActivityState(activity, {
+    type: "session_error",
+    error: "loop stopped",
+  });
+  activity = reduceActivityState(activity, {
+    type: "stream_completed",
+  });
+  assert.equal(activity.timeline.some((item) => item.kind === "compact"), true);
+  assert.equal(activity.timeline.some((item) => item.kind === "system" && item.tone === "error"), true);
+  assert.equal(activity.thinkingActive, false);
+
   const activities = normalizeHistoryActivities([
     {
       kind: "user",
