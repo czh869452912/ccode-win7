@@ -332,8 +332,9 @@ There is no session event replay HTTP route. Transport gaps and reconnects ask
 the GUI to reload `GET /api/sessions/{session_id}/bootstrap`; frontend history
 bootstrap must come from `history.activities` in that structured bootstrap
 payload, and the active GUI timeline is a frontend projection of that activity
-read model plus live reducer actions. There is no durable
-`SessionTimelineStore`.
+read model plus live reducer actions. There is no durable `SessionTimelineStore`;
+that historical store has been removed and must not be treated as current
+frontend history truth.
 
 `terminal_event` carries GUI terminal output/lifecycle deltas for the bottom
 drawer. It is intentionally not part of session replay/history and must not be

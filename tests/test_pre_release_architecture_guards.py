@@ -251,6 +251,99 @@ def test_active_source_does_not_reintroduce_tooling_pack_aliases():
     assert offenders == []
 
 
+def _active_contract_doc_files():
+    roots = [
+        ROOT / "README.md",
+        ROOT / "AGENTS.md",
+        ROOT / "docs",
+    ]
+    excluded_prefixes = (
+        "docs/archive/",
+        "docs/superpowers/",
+    )
+    excluded_files = {
+        "docs/design-change-log.md",
+        "docs/development-tracker.md",
+    }
+    result = []
+    for root in roots:
+        candidates = [root] if root.is_file() else list(root.rglob("*.md"))
+        for path in candidates:
+            rel = _relative(path)
+            if rel in excluded_files:
+                continue
+            if any(rel.startswith(prefix) for prefix in excluded_prefixes):
+                continue
+            result.append(path)
+    return result
+
+
+def _doc_legacy_context_windows(text):
+    lines = text.splitlines()
+    for index, line in enumerate(lines):
+        start = max(0, index - 2)
+        end = min(len(lines), index + 2)
+        yield line, " ".join(item.strip() for item in lines[start:end] if item.strip())
+
+
+def test_active_docs_keep_legacy_architecture_terms_in_removed_contexts():
+    legacy_terms = (
+        "manage_todos",
+        "mode=code",
+        "timeline replay",
+        "legacy harness_prompt compatibility",
+        "SessionTimelineStore",
+        "HarnessStateSynchronizer",
+        "embedagent.tooling.packs",
+    )
+    allowed_context_markers = (
+        "archive",
+        "archived",
+        "current baseline",
+        "do not",
+        "does not",
+        "forbidden",
+        "guard",
+        "guards",
+        "has been deleted",
+        "has been removed",
+        "have been removed",
+        "historical",
+        "is not",
+        "must not",
+        "no longer",
+        "not current",
+        "not part of",
+        "not treated",
+        "no durable",
+        "old",
+        "obsolete",
+        "removed",
+        "stale",
+        "there is no",
+        "不再",
+        "不得",
+        "不属于",
+        "历史",
+        "已删除",
+        "已移除",
+        "禁止",
+    )
+    offenders = []
+    for path in _active_contract_doc_files():
+        rel = _relative(path)
+        for line, context in _doc_legacy_context_windows(_read(path)):
+            lowered_line = line.lower()
+            lowered_context = context.lower()
+            for term in legacy_terms:
+                if term.lower() not in lowered_line:
+                    continue
+                if any(marker in lowered_context for marker in allowed_context_markers):
+                    continue
+                offenders.append("%s uses %s without removed/forbidden context" % (rel, term))
+    assert offenders == []
+
+
 def test_runtime_tool_execute_calls_stay_behind_action_or_hosted_services():
     allowed_files = {
         "src/embedagent/agent_tool_action_service.py",
