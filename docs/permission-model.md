@@ -23,7 +23,7 @@ Actions are classified into these categories:
 
 These categories drive default allow/ask behavior and frontend explanation text.
 
-Dynamic extension tools are classified through `ToolRuntime` catalog metadata. `PermissionPolicy` may receive a category lookup bound to the active runtime; if a registered extension tool declares `workspace_write`, `shell_exec`, `toolchain_exec`, or `git_write`, the same approval and rule paths apply as for built-in tools. Unknown tools without valid metadata remain `other` and should not be used as a shortcut for privileged behavior.
+Runtime tool catalog metadata is the source of truth for tool permission category. `PermissionPolicy` may receive a category lookup bound to the active runtime; if a registered tool declares `workspace_write`, `shell_exec`, `toolchain_exec`, or `git_write`, the same approval and rule paths apply as for built-in tools. Unknown tools or tools without valid metadata are classified as `other`, and `other` asks by default. It must not be used as a shortcut for privileged behavior.
 
 Local resource reload is a read/discovery operation and does not grant execution rights. Skills discovered from `.embedagent/skills` may be summarized in the hosted local skill listing prompt unit or explicitly expanded through `/skill:<name> [args]`; prompts discovered from `.embedagent/prompts` may be explicitly expanded through `/prompt:<name-or-path> [args]`. Expansion only reads workspace-bound Markdown/text into a normal user turn and grants no additional tool or write permissions. Recipes discovered from `.embedagent/recipes/*.json` still execute through `run_recipe` and the same recipe/toolchain permission rules as bundled workspace recipes.
 
@@ -89,10 +89,11 @@ This format is intentionally predictable so the UI and the model can reason abou
 
 Without a matching rule:
 
-- `read` and interaction tools are allowed
+- `read` is allowed
 - `workspace_write` asks unless auto-approve-writes is enabled
 - `shell_exec` and `toolchain_exec` ask unless auto-approve-commands is enabled
 - `git_write` asks unless auto-approve-writes is enabled
+- `network`, `telemetry`, and `other` ask unless auto-approve-all is enabled
 
 ## 6. Session Memory
 

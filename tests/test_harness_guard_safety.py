@@ -33,14 +33,20 @@ class TestLoopGuard(unittest.TestCase):
 
         self.assertFalse(self.guard.should_block(action1))
 
-    def test_consecutive_failures_stop(self):
+    def test_diagnostic_command_failures_do_not_hard_stop(self):
         action = Action(name="bash", arguments={}, call_id="c1")
-        fail_obs = Observation(tool_name="bash", success=False, error="failed", data=None)
+        fail_obs = Observation(
+            tool_name="bash",
+            success=False,
+            error="failed",
+            data={"error_kind": "command_failed", "retryable": False},
+        )
 
         self.guard.record(action, fail_obs)
         self.guard.record(action, fail_obs)
 
-        self.assertTrue(self.guard.should_stop())
+        self.assertFalse(self.guard.should_stop())
+        self.assertFalse(self.guard.should_block(action))
 
     def test_success_resets_failure_count(self):
         action = Action(name="bash", arguments={}, call_id="c1")

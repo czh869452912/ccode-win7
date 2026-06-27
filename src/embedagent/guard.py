@@ -13,6 +13,15 @@ def _action_key(action: Action) -> str:
     )
 
 
+def _is_diagnostic_failure(observation: Observation) -> bool:
+    if not isinstance(observation.data, dict):
+        return False
+    outcome_class = str(observation.data.get("outcome_class") or "")
+    if outcome_class == "diagnostic_failure":
+        return True
+    return observation.data.get("error_kind") in ("command_failed", "timeout")
+
+
 class LoopGuard(object):
     def __init__(
         self,
@@ -99,6 +108,9 @@ class LoopGuard(object):
             if observation.data.get("blocked_by") == "user_confirmation":
                 return
             if observation.data.get("error_kind") in ("discarded", "interrupted"):
+                return
+            if _is_diagnostic_failure(observation):
+                self.tool_call_history.append(action.name)
                 return
         self.tool_call_history.append(action.name)
         self.consecutive_failures += 1

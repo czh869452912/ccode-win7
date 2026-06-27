@@ -5,25 +5,42 @@ import unittest
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from embedagent.permissions import (
-    READ_TOOLS,
-    TOOLCHAIN_EXEC_TOOLS,
-    WORKSPACE_WRITE_TOOLS,
+    OFFICIAL_PERMISSION_CATEGORIES,
     PermissionPolicy,
 )
 from embedagent.session import Action
+from embedagent.tools import ToolRuntime
 
 
 class TestPermissionPolicy(unittest.TestCase):
-    def test_task_status_is_treated_as_read(self):
-        policy = PermissionPolicy(auto_approve_all=False, workspace="D:\\workspace")
+    def test_built_in_category_comes_from_runtime_metadata(self):
+        import tempfile
 
-        decision = policy.evaluate(Action("task_status", {}, "call-list"))
+        with tempfile.TemporaryDirectory(prefix="perm-runtime-") as workspace:
+            runtime = ToolRuntime(workspace)
+            policy = PermissionPolicy(auto_approve_all=False, workspace=workspace)
+            policy.set_category_lookup(
+                lambda name: str(
+                    (runtime.tool_catalog_entry(name) or {}).get("permission_category") or ""
+                )
+            )
 
-        self.assertEqual(decision.outcome, "allow")
-        self.assertEqual(decision.details.get("category"), "read")
+            read_decision = policy.evaluate(Action("read_file", {"path": "README.md"}, "call-read"))
+            shell_decision = policy.evaluate(
+                Action("bash", {"command": "echo hello"}, "call-shell")
+            )
+
+        self.assertEqual(read_decision.outcome, "allow")
+        self.assertEqual(read_decision.details.get("category"), "read")
+        self.assertEqual(shell_decision.outcome, "ask")
+        self.assertEqual(shell_decision.request.category, "shell_exec")
 
     def test_run_recipe_rule_can_match_recipe_alias(self):
-        policy = PermissionPolicy(auto_approve_all=False, workspace="D:\\workspace")
+        policy = PermissionPolicy(
+            auto_approve_all=False,
+            workspace="D:\\workspace",
+            category_lookup=lambda name: "toolchain_exec" if name == "run_recipe" else "",
+        )
         policy.rules = policy._load_rules_from_items(
             [
                 {
@@ -42,7 +59,11 @@ class TestPermissionPolicy(unittest.TestCase):
         self.assertEqual(decision.outcome, "allow")
 
     def test_permission_details_include_stable_explanation_sections(self):
-        policy = PermissionPolicy(auto_approve_all=False, workspace="D:\\workspace")
+        policy = PermissionPolicy(
+            auto_approve_all=False,
+            workspace="D:\\workspace",
+            category_lookup=lambda name: "toolchain_exec" if name == "run_recipe" else "",
+        )
 
         decision = policy.evaluate(
             Action("run_recipe", {"recipe_id": "cmake.test.default"}, "call-run")
@@ -55,13 +76,8 @@ class TestPermissionPolicy(unittest.TestCase):
         self.assertIn("[规则]", explanation)
         self.assertIn("cmake.test.default", explanation)
 
-    def test_official_permission_sets_exclude_legacy_tool_names(self):
-        self.assertNotIn("list_files", READ_TOOLS)
-        self.assertNotIn("search_text", READ_TOOLS)
-        self.assertNotIn("report_quality", READ_TOOLS)
-        self.assertNotIn("manage_todos", WORKSPACE_WRITE_TOOLS)
-        self.assertNotIn("compile_project", TOOLCHAIN_EXEC_TOOLS)
-        self.assertNotIn("run_tests", TOOLCHAIN_EXEC_TOOLS)
+    def test_official_permission_categories_include_other_as_ask_by_default(self):
+        self.assertIn("other", OFFICIAL_PERMISSION_CATEGORIES)
 
     def test_metadata_category_lookup_controls_dynamic_tool_permission(self):
         policy = PermissionPolicy(
@@ -97,7 +113,17 @@ class TestPermissionPolicy(unittest.TestCase):
 
         decision = policy.evaluate(Action("dynamic_unknown", {}, "call-unknown"))
 
-        self.assertEqual(decision.outcome, "allow")
+        self.assertEqual(decision.outcome, "ask")
+        self.assertEqual(decision.request.category, "other")
+        self.assertEqual(decision.details.get("category"), "other")
+
+    def test_missing_metadata_category_falls_back_to_other_and_asks(self):
+        policy = PermissionPolicy(auto_approve_all=False, workspace="D:\\workspace")
+
+        decision = policy.evaluate(Action("unknown_tool", {}, "call-unknown"))
+
+        self.assertEqual(decision.outcome, "ask")
+        self.assertEqual(decision.request.category, "other")
         self.assertEqual(decision.details.get("category"), "other")
 
     def test_dynamic_network_tool_requires_permission(self):

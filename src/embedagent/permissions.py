@@ -32,31 +32,6 @@ def build_permission_explanation(
     )
 
 
-READ_TOOLS = {
-    "read_file",
-    "list_dir",
-    "glob_files",
-    "grep_text",
-    "list_recipes",
-    "report_quality_v2",
-    "task_status",
-    "record_failing_evidence",
-    "git_status",
-    "git_diff",
-    "git_log",
-}
-WORKSPACE_WRITE_TOOLS = {"edit_file", "write_file"}
-SHELL_EXEC_TOOLS = {
-    "bash",
-}
-TOOLCHAIN_EXEC_TOOLS = {
-    "run_recipe",
-}
-GIT_WRITE_TOOLS = set()
-INTERACTION_TOOLS = {
-    "ask_user",
-    "propose_mode_switch",
-}
 OFFICIAL_PERMISSION_CATEGORY_ORDER = (
     "read",
     "workspace_write",
@@ -65,6 +40,7 @@ OFFICIAL_PERMISSION_CATEGORY_ORDER = (
     "git_write",
     "network",
     "telemetry",
+    "other",
 )
 OFFICIAL_PERMISSION_CATEGORIES = frozenset(OFFICIAL_PERMISSION_CATEGORY_ORDER)
 
@@ -146,7 +122,7 @@ class PermissionPolicy(object):
             )
         if self.auto_approve_all:
             return PermissionDecision(outcome="allow", details=details)
-        if category == "read" or action.name in INTERACTION_TOOLS:
+        if category == "read":
             return PermissionDecision(outcome="allow", details=details)
         if category == "workspace_write" or category == "git_write":
             if self.auto_approve_writes:
@@ -185,7 +161,16 @@ class PermissionPolicy(object):
                 ),
                 details=details,
             )
-        return PermissionDecision(outcome="allow", details=details)
+        return PermissionDecision(
+            outcome="ask",
+            request=PermissionRequest(
+                tool_name=action.name,
+                category="other",
+                reason=self._default_reason("other"),
+                details=details,
+            ),
+            details=details,
+        )
 
     def build_request(self, action: Action) -> Optional[PermissionRequest]:
         decision = self.evaluate(action)
@@ -410,16 +395,6 @@ class PermissionPolicy(object):
         metadata_category = self._metadata_category_for_action(action)
         if metadata_category:
             return metadata_category
-        if action.name in WORKSPACE_WRITE_TOOLS:
-            return "workspace_write"
-        if action.name in GIT_WRITE_TOOLS:
-            return "git_write"
-        if action.name in SHELL_EXEC_TOOLS:
-            return "shell_exec"
-        if action.name in TOOLCHAIN_EXEC_TOOLS:
-            return "toolchain_exec"
-        if action.name in READ_TOOLS:
-            return "read"
         return "other"
 
     def _metadata_category_for_action(self, action: Action) -> str:

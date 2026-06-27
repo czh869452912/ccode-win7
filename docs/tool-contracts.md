@@ -11,6 +11,11 @@ Every official tool should be understood as a contract made of:
 - catalog metadata
 - permission category
 
+`ToolRuntime` catalog metadata is the source of truth for permission category.
+`PermissionPolicy` consumes the active runtime category lookup and must not keep
+a parallel built-in tool-name taxonomy. A tool without valid category metadata
+is classified as `other`, which asks by default.
+
 The official runtime facade is:
 
 - `src/embedagent/tools/runtime.py`
@@ -179,7 +184,7 @@ Common fields include:
 - `tool_name`
 - tool-specific structured `data`
 
-Command observations must include decoded output metadata (`stdout_encoding`, `stderr_encoding`, replacement counts, and mojibake hints), tail-preserving truncation flags, and a `full_output_ref` when omitted output was materialized. Failed command-like observations should include `error_kind`, `retryable`, and `suggested_next_step` when the tool can infer a useful next action.
+Command observations must include decoded output metadata (`stdout_encoding`, `stderr_encoding`, replacement counts, and mojibake hints), tail-preserving truncation flags, and a `full_output_ref` when omitted output was materialized. Failed command-like observations should include `error_kind`, `outcome_class`, `retryable`, and `suggested_next_step` when the tool can infer a useful next action. Ordinary non-zero command exits and command timeouts are diagnostic failures for the agent loop: they should be visible to the next model turn and must not be treated as automatic hard-stop conditions.
 
 For list/search style tools, the preferred output shape is:
 

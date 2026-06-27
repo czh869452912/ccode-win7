@@ -931,6 +931,7 @@ class ToolContext(object):
             data.update(
                 {
                     "error_kind": "timeout",
+                    "outcome_class": "diagnostic_failure",
                     "retryable": False,
                     "suggested_next_step": (
                         "Inspect partial output, then rerun with a narrower command or an "
@@ -942,6 +943,7 @@ class ToolContext(object):
             data.update(
                 {
                     "error_kind": "command_failed",
+                    "outcome_class": "diagnostic_failure",
                     "retryable": False,
                     "suggested_next_step": (
                         "Inspect stdout/stderr and change the command or project state before "

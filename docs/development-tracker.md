@@ -24,6 +24,22 @@
 
 ## 2. 当前阶段
 
+### 2026-06-27 - Pi/T3 Residual Debt Cleanup Slice 1
+
+- Permission category classification now comes from `ToolRuntime` catalog
+  metadata through the active runtime lookup; `PermissionPolicy` no longer owns
+  a parallel built-in tool-name taxonomy.
+- `other` is an official permission category and asks by default, so unknown
+  tools or tools with invalid/missing permission metadata cannot fall through
+  to allow.
+- `bash` command failures and timeouts now carry
+  `outcome_class=diagnostic_failure`; `LoopGuard` no longer counts ordinary
+  command/build/test diagnostic failures toward hard `guard_stop`, so repeated
+  compile or shell failures can feed the next model turn.
+- Guard-stop remains available for provider/protocol no-progress, repeated
+  non-diagnostic blocked actions, interruption, discarded parallel results, and
+  explicit runtime/test safety fuses.
+
 ### 2026-06-26 - Pi/T3 Residual Debt Cleanup
 
 - Default pre-release configuration and hosted GUI defaults now align with the

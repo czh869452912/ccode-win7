@@ -44,6 +44,35 @@
 
 ## 3. 当前变更记录
 
+### DC-213
+
+- Date: 2026-06-27
+- Change Topic: Permission category convergence and diagnostic loop failures
+- Summary:
+  - Removed `PermissionPolicy`'s parallel built-in tool-name taxonomy; the
+    active `ToolRuntime` catalog metadata is now the source of truth for tool
+    permission category.
+  - Promoted `other` to an official ask-by-default permission category so
+    unknown or invalid tool metadata cannot fall through to allow.
+  - Marked command failures and timeouts as `outcome_class=diagnostic_failure`
+    and excluded those diagnostic failures from hard loop guard stops, keeping
+    C/C++ build/test failures visible to the next model turn.
+- Impacted Scope:
+  - `src/embedagent/permissions.py`
+  - `src/embedagent/guard.py`
+  - `src/embedagent/tools/_base.py`
+  - `tests/test_permissions.py`
+  - `tests/test_harness_guard_safety.py`
+  - `tests/test_query_engine_refactor.py`
+  - `docs/permission-model.md`
+  - `docs/tool-contracts.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+- ADR Needed: No
+- Follow-up:
+  - Continue the remaining Pi/T3 residual cleanup slices for backend session
+    stream contracts and GUI T3 state convergence.
+
 ### DC-212
 
 - Date: 2026-06-26
