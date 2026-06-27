@@ -28,6 +28,7 @@ import { runSessionActivationControllerTests } from "./session-activation-contro
 import { runSessionTransportControllerTests } from "./session-transport-controller.test.mjs";
 import { runSocketMessageEffectsTests } from "./socket-message-effects.test.mjs";
 import { runVisualDebugFixturesTests } from "./visual-debug-fixtures.test.mjs";
+import { runWorkbenchParityModelTests } from "./workbench-parity-model.test.mjs";
 import { runWorkbenchStateTests } from "./workbench-state.test.mjs";
 import { runWorkbenchUiStateTests } from "./workbench-ui-state.test.mjs";
 import { runAppShellModelTests } from "./app-shell-model.test.mjs";
@@ -1292,6 +1293,7 @@ async function main() {
   assert.equal(sessionTransportControllerSource.includes("/events?after_seq"), false);
 
   runWorkbenchStateTests();
+  runWorkbenchParityModelTests();
   runWorkbenchUiStateTests();
   runRightPanelTabsSourceTests();
   runRightPanelStoreParityTests();
