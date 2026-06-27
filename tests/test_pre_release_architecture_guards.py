@@ -147,3 +147,19 @@ def test_no_legacy_task_tool_execution_contract_in_tests():
             if token in text:
                 offenders.append("%s contains %s" % (path.relative_to(ROOT), token))
     assert offenders == []
+
+
+def test_gui_backend_server_keeps_route_registration_delegated():
+    text = _read(ROOT / "src/embedagent/frontend/gui/backend/server.py")
+    route_decorator_count = (
+        text.count("@app.get(") + text.count("@app.post(") + text.count("@app.delete(")
+    )
+    assert route_decorator_count <= 2
+    for helper in (
+        "register_app_routes(",
+        "register_session_routes(",
+        "register_terminal_routes(",
+        "register_source_control_routes(",
+        "register_preview_routes(",
+    ):
+        assert helper in text

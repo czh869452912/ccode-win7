@@ -529,23 +529,23 @@ Expected: PASS.
 - Modify: `tests/test_gui_terminal_api.py`
 - Modify: `tests/test_gui_source_control_api.py`
 
-- [ ] **Step 1: Add route registration guard**
+- [x] **Step 1: Add route registration guard**
 
 Add a guard test that counts route decorators in `server.py` and fails if HTTP route registration remains concentrated there after this slice. Allow only root/static/websocket/bootstrap wiring.
 
-- [ ] **Step 2: Move app-shell routes**
+- [x] **Step 2: Move app-shell routes**
 
 Move `/api/app/bootstrap`, workspace registry routes, and app-level preview external route into `routes_app.py`.
 
-- [ ] **Step 3: Move session/core routes**
+- [x] **Step 3: Move session/core routes**
 
 Move session list/create/snapshot/bootstrap/message/cancel/mode/resources/plan/permissions/tasks/artifacts/file routes into `routes_sessions.py`.
 
-- [ ] **Step 4: Move surface routes**
+- [x] **Step 4: Move surface routes**
 
 Move terminal, source-control, and preview route families into their own route modules. Keep existing URL paths and HTTP behavior unchanged.
 
-- [ ] **Step 5: Keep server.py as composition**
+- [x] **Step 5: Keep server.py as composition**
 
 `server.py` should own `GUIBackend`, `WebSocketFrontend`, shared serializers if still needed, and calls like:
 
@@ -557,7 +557,7 @@ register_source_control_routes(app, backend)
 register_preview_routes(app, backend)
 ```
 
-- [ ] **Step 6: Run GUI backend tests**
+- [x] **Step 6: Run GUI backend tests**
 
 Run:
 
