@@ -174,6 +174,11 @@ Harness state refresh in the product adapter path goes through `CHarnessWorkflow
   envelopes. Raw `permission_request` / `user_input_request` WebSocket
   messages drive only the current blocking interaction UI and must not become
   renderer-synthesized activity/history streams.
+- GUI/TUI read-model refresh after tool completion is metadata-driven. Tool
+  catalog entries may declare `read_model_invalidations`; hosted adapters and
+  frontend shells use those hints to refresh safe projections such as
+  workspace files, tasks, or artifacts instead of maintaining parallel
+  tool-name refresh lists.
 - `SessionSnapshotProjector` reads the generic workflow projection, not default harness internals
 - `runtime_config` in session snapshots is reducer-backed diagnostic state, not frontend-owned policy
 - `compaction_state` in session snapshots is reducer-backed diagnostic state, not frontend-owned context policy

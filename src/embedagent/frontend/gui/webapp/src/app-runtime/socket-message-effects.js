@@ -3,7 +3,7 @@ import { createDiffSurfaceState } from "../session-runtime/diff-model.js";
 import { makeEventId, normalizeSessionPayload } from "../state-helpers.js";
 import { LOADER_REQUESTS } from "./session-loaders.js";
 
-const FS_REFRESH_TOOLS = new Set(["write_file", "edit_file", "git_commit", "git_reset"]);
+const WORKSPACE_FILES_INVALIDATION = "workspace_files";
 
 function emptyEffects() {
   return { actions: [], transportEvents: [], loaderRequests: [] };
@@ -58,6 +58,11 @@ function pickToolPresentationPayload(payload = {}) {
 
 function currentSession(options) {
   return options.currentSessionId || "";
+}
+
+function readModelInvalidations(payload = {}) {
+  const raw = payload?.read_model_invalidations || payload?.readModelInvalidations || payload?.data?.read_model_invalidations || [];
+  return Array.isArray(raw) ? raw.map((item) => String(item || "").trim()).filter(Boolean) : [];
 }
 
 function commandResultEffects(data, options) {
@@ -236,6 +241,7 @@ export function deriveSocketMessageEffects({
       supportsDiffPreview: Boolean(payload?.supports_diff_preview),
       progressRendererKey: payload?.progress_renderer_key || "",
       resultRendererKey: payload?.result_renderer_key || "",
+      readModelInvalidations: readModelInvalidations(payload),
       runtimeSource: payload?.runtime_source || "",
       resolvedToolRoots: payload?.resolved_tool_roots || {},
       ...pickToolPresentationPayload(payload),
@@ -263,6 +269,7 @@ export function deriveSocketMessageEffects({
       supportsDiffPreview: Boolean(payload?.supports_diff_preview),
       progressRendererKey: payload?.progress_renderer_key || "",
       resultRendererKey: payload?.result_renderer_key || "",
+      readModelInvalidations: readModelInvalidations(payload),
       runtimeSource: payload?.runtime_source || "",
       resolvedToolRoots: payload?.resolved_tool_roots || {},
       ...pickToolPresentationPayload(payload),
@@ -277,7 +284,7 @@ export function deriveSocketMessageEffects({
         payload?.success ? "success" : `error: ${payload?.error || ""}`,
       ),
     );
-    if (FS_REFRESH_TOOLS.has(payload?.tool_name || "")) {
+    if (readModelInvalidations(payload).includes(WORKSPACE_FILES_INVALIDATION)) {
       effects.loaderRequests.push({ name: LOADER_REQUESTS.LOAD_FILE_CHILDREN, path: "." });
     }
     return effects;

@@ -1817,6 +1817,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertEqual(tool_finish.get("permission_category"), "read")
         self.assertEqual(tool_start.get("progress_renderer_key"), "file")
         self.assertEqual(tool_finish.get("result_renderer_key"), "file")
+        self.assertEqual(tool_finish.get("read_model_invalidations"), [])
 
     def test_adapter_step_events_use_engine_step_id(self):
         adapter = InProcessAdapter(

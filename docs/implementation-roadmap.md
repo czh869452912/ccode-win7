@@ -162,6 +162,10 @@ Recent stabilization work has also completed the agent-core ownership cutover:
   renders markdown, while `InProcessAdapter` only invokes the service and emits
   the command result
 - session snapshots are now built by a pure `SessionSnapshotProjector`
+- live tool-completion refresh has moved to `read_model_invalidations`
+  metadata on tool catalog entries and events, so GUI/Core paths no longer
+  maintain parallel tool-name lists for workspace file, task, or artifact
+  refresh
 - transcript sequence allocation uses cached counters instead of rescanning on every append
 
 ## 4. Remaining Near-Term Work

@@ -16,6 +16,13 @@ Every official tool should be understood as a contract made of:
 a parallel built-in tool-name taxonomy. A tool without valid category metadata
 is classified as `other`, which asks by default.
 
+Catalog metadata may also declare `read_model_invalidations`, a list of safe
+read models that should be refreshed after a tool finishes, such as
+`workspace_files`, `tasks`, or `artifacts`. Hosted adapters and GUI/TUI shells
+may use those hints to refresh read-only projections, but they must not infer
+refresh behavior from hard-coded tool-name lists. These hints do not activate
+tools, grant permissions, mutate workflow state, or bypass `PermissionPolicy`.
+
 The official runtime facade is:
 
 - `src/embedagent/tools/runtime.py`
@@ -78,6 +85,7 @@ In-process extensions may register tools into the shared `ToolRuntime` through t
 - `permission_category`
 - mode and workflow visibility metadata when they need to override defaults
 - read-only and concurrency metadata through either the `ToolDefinition` or explicit metadata
+- optional read-model invalidation hints such as `read_model_invalidations`
 - source metadata supplied by the extension runtime
 
 Registration does not make a tool active by itself. A dynamic tool appears in model schemas and frontend catalog views only when its name is active through `ExtensionManager.allowed_tool_names(mode_name, workflow_state=workflow_state)` as consumed by `AgentExtensionHost`. Project-local Python extensions use the same registration path and source metadata. Extensions cannot replace built-in tools.

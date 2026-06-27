@@ -579,6 +579,7 @@ def test_default_c_workflow_tool_metadata_survives_package_registration(tmp_path
     assert entry["source_type"] == "harness"
     assert entry["activity_kind"] == "diagnostic"
     assert entry["interrupt_behavior"] == "cancel"
+    assert entry["read_model_invalidations"] == ["tasks"]
 
 
 def test_tool_runtime_no_longer_imports_harness_mode_describer():

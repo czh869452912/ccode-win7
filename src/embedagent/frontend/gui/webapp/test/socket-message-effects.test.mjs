@@ -113,20 +113,31 @@ export function runSocketMessageEffectsTests() {
 
   const toolFinish = derive("tool_finish", {
     call_id: "call-1",
-    tool_name: "edit_file",
-    tool_label: "Edit File",
+    tool_name: "project_write",
+    tool_label: "Project Write",
     success: true,
     data: { path: "src/main.c" },
+    read_model_invalidations: ["workspace_files"],
     turn_id: "turn-1",
     step_id: "step-1",
     step_index: 1,
   });
   assert.equal(toolFinish.actions[0].type, "tool_finished");
-  assert.equal(toolFinish.actions[0].toolName, "edit_file");
+  assert.equal(toolFinish.actions[0].toolName, "project_write");
+  assert.deepEqual(toolFinish.actions[0].readModelInvalidations, ["workspace_files"]);
   assert.equal(toolFinish.actions[0].completedAt, "2026-06-18T00:00:00.000Z");
   assert.deepEqual(toolFinish.loaderRequests, [
     { name: LOADER_REQUESTS.LOAD_FILE_CHILDREN, path: "." },
   ]);
+
+  const toolFinishWithoutInvalidation = derive("tool_finish", {
+    call_id: "call-2",
+    tool_name: "edit_file",
+    tool_label: "Edit File",
+    success: true,
+    data: { path: "src/main.c" },
+  });
+  assert.deepEqual(toolFinishWithoutInvalidation.loaderRequests, []);
 
   const permission = derive("permission_request", {
     permission_id: "perm-1",

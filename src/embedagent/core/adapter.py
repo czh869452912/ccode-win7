@@ -31,18 +31,6 @@ from embedagent.protocol import (
     WorkspaceInfo,
 )
 
-# Tool sets for sync-push refresh notifications
-_TASK_REFRESH_TOOLS: frozenset = frozenset(
-    {
-        "task_status",
-        "record_failing_evidence",
-        "write_file",
-        "edit_file",
-        "run_recipe",
-        "report_quality_v2",
-    }
-)
-_ARTIFACT_TOOLS: frozenset = frozenset({"write_file", "edit_file"})
 _SESSION_EVENT_NAMES: frozenset = frozenset(
     {
         "turn_start",
@@ -57,6 +45,20 @@ _SESSION_EVENT_NAMES: frozenset = frozenset(
         "session_error",
     }
 )
+_TASK_INVALIDATION = "tasks"
+_ARTIFACT_INVALIDATION = "artifacts"
+
+
+def _read_model_invalidations(payload: Dict[str, Any]) -> List[str]:
+    values = []
+    raw = payload.get("read_model_invalidations")
+    if not raw and isinstance(payload.get("data"), dict):
+        raw = payload["data"].get("read_model_invalidations")
+    for item in list(raw or []):
+        text = str(item or "").strip()
+        if text and text not in values:
+            values.append(text)
+    return values
 
 
 def get_inprocess_adapter(fresh: bool = False):
@@ -242,6 +244,10 @@ class CallbackBridge:
                 arguments["_progress_renderer_key"] = payload.get("progress_renderer_key")
             if payload.get("result_renderer_key"):
                 arguments["_result_renderer_key"] = payload.get("result_renderer_key")
+            if isinstance(payload.get("read_model_invalidations"), list):
+                arguments["_read_model_invalidations"] = list(
+                    payload.get("read_model_invalidations") or []
+                )
             call = ToolCall(
                 tool_name=payload.get("tool_name", ""),
                 arguments=arguments,
@@ -259,6 +265,7 @@ class CallbackBridge:
             self.frontend.on_tool_start(call)
 
         elif event_name == "tool_finished":
+            read_model_invalidations = _read_model_invalidations(payload)
             result = ToolResult(
                 tool_name=payload.get("tool_name", ""),
                 success=payload.get("success", False),
@@ -276,11 +283,13 @@ class CallbackBridge:
                 ),
             )
             self.frontend.on_tool_finish(result)
-            # Sync push: notify frontend to refetch related data
-            tool_name = payload.get("tool_name", "")
-            if tool_name in _TASK_REFRESH_TOOLS and hasattr(self.frontend, "on_tasks_refresh"):
+            if _TASK_INVALIDATION in read_model_invalidations and hasattr(
+                self.frontend, "on_tasks_refresh"
+            ):
                 self.frontend.on_tasks_refresh()
-            if tool_name in _ARTIFACT_TOOLS and hasattr(self.frontend, "on_artifacts_refresh"):
+            if _ARTIFACT_INVALIDATION in read_model_invalidations and hasattr(
+                self.frontend, "on_artifacts_refresh"
+            ):
                 self.frontend.on_artifacts_refresh()
 
         elif event_name == "session_error":

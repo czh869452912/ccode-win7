@@ -123,6 +123,7 @@ def test_runtime_tool_capability_descriptors_project_tool_catalog(tmp_path):
     assert by_name["read_file"].source_type == "builtin"
     assert by_name["read_file"].source_id == "embedagent.core"
     assert by_name["read_file"].metadata["permission_category"] == "read"
+    assert by_name["read_file"].metadata["read_model_invalidations"] == []
 
 
 def test_resource_capability_descriptors_project_local_resources(tmp_path):

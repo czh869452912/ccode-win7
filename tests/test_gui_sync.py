@@ -1,4 +1,4 @@
-"""Tests for GUI real-time sync callbacks: tasks_refresh and artifacts_refresh."""
+"""Tests for GUI read-model invalidation sync callbacks."""
 
 import os
 import shutil
@@ -130,7 +130,7 @@ class TestGuiSync(unittest.TestCase):
         self.assertEqual(len(dispatched), 1)
         self.assertEqual(dispatched[0]["type"], "artifacts_refresh")
 
-    def test_callback_bridge_calls_tasks_refresh_for_run_recipe(self):
+    def test_callback_bridge_calls_tasks_refresh_for_task_invalidation(self):
         from embedagent.core.adapter import CallbackBridge
 
         mock_frontend = MagicMock()
@@ -139,15 +139,15 @@ class TestGuiSync(unittest.TestCase):
             "tool_finished",
             "session-1",
             {
-                "tool_name": "run_recipe",
+                "tool_name": "dynamic_tool",
                 "success": True,
-                "data": {},
+                "data": {"read_model_invalidations": ["tasks"]},
                 "call_id": "call-1",
             },
         )
         mock_frontend.on_tasks_refresh.assert_called_once()
 
-    def test_callback_bridge_calls_artifacts_refresh_for_write_file(self):
+    def test_callback_bridge_calls_artifacts_refresh_for_artifact_invalidation(self):
         from embedagent.core.adapter import CallbackBridge
 
         mock_frontend = MagicMock()
@@ -156,15 +156,15 @@ class TestGuiSync(unittest.TestCase):
             "tool_finished",
             "session-1",
             {
-                "tool_name": "write_file",
+                "tool_name": "dynamic_tool",
                 "success": True,
-                "data": {},
+                "data": {"read_model_invalidations": ["artifacts"]},
                 "call_id": "call-2",
             },
         )
         mock_frontend.on_artifacts_refresh.assert_called_once()
 
-    def test_callback_bridge_calls_artifacts_refresh_for_edit_file(self):
+    def test_callback_bridge_calls_both_refreshes_for_multiple_invalidations(self):
         from embedagent.core.adapter import CallbackBridge
 
         mock_frontend = MagicMock()
@@ -173,12 +173,13 @@ class TestGuiSync(unittest.TestCase):
             "tool_finished",
             "session-1",
             {
-                "tool_name": "edit_file",
+                "tool_name": "dynamic_tool",
                 "success": True,
-                "data": {},
+                "read_model_invalidations": ["tasks", "artifacts"],
                 "call_id": "call-3",
             },
         )
+        mock_frontend.on_tasks_refresh.assert_called_once()
         mock_frontend.on_artifacts_refresh.assert_called_once()
 
     def test_callback_bridge_context_compacted_preserves_metadata(self):
@@ -251,7 +252,7 @@ class TestGuiSync(unittest.TestCase):
         self.assertTrue(snapshot.pending_interaction_valid)
         self.assertEqual(snapshot.restore_stop_reason, "")
 
-    def test_callback_bridge_does_not_call_refresh_for_unrelated_tool(self):
+    def test_callback_bridge_does_not_call_refresh_without_invalidation_metadata(self):
         from embedagent.core.adapter import CallbackBridge
 
         mock_frontend = MagicMock()
@@ -260,7 +261,7 @@ class TestGuiSync(unittest.TestCase):
             "tool_finished",
             "session-1",
             {
-                "tool_name": "read_file",
+                "tool_name": "write_file",
                 "success": True,
                 "data": {},
                 "call_id": "call-4",

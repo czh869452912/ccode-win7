@@ -1,21 +1,28 @@
-const FILE_CHANGE_TOOLS = new Set(["write_file", "edit_file", "git_commit", "git_reset"]);
-const FILE_READ_TOOLS = new Set(["read_file", "list_dir", "glob_files", "grep_text"]);
-
 function cleanString(value) {
   return String(value || "").trim();
 }
 
 function permissionRequestKind(interaction) {
   const category = cleanString(interaction?.category);
-  const toolName = cleanString(interaction?.tool_name || interaction?.toolName);
-  if (category === "command" || category === "shell" || toolName === "run_recipe") {
-    return "command";
+  const explicitKind = cleanString(interaction?.request_kind || interaction?.requestKind);
+  if (["command", "file-read", "file-change"].includes(explicitKind)) {
+    return explicitKind;
   }
-  if (FILE_READ_TOOLS.has(toolName)) {
+  if (category === "read") {
     return "file-read";
   }
-  if (FILE_CHANGE_TOOLS.has(toolName) || category.indexOf("write") >= 0) {
+  if (category === "workspace_write" || category === "git_write") {
     return "file-change";
+  }
+  if (
+    category === "command" ||
+    category === "shell" ||
+    category === "shell_exec" ||
+    category === "toolchain_exec" ||
+    category === "network" ||
+    category === "telemetry"
+  ) {
+    return "command";
   }
   return "file-change";
 }

@@ -441,6 +441,12 @@ class WebSocketFrontend(FrontendCallbacks):
                         if isinstance(call.arguments, dict)
                         else ""
                     ),
+                    "read_model_invalidations": (
+                        list(call.arguments.get("_read_model_invalidations") or [])
+                        if isinstance(call.arguments, dict)
+                        and isinstance(call.arguments.get("_read_model_invalidations"), list)
+                        else []
+                    ),
                     "runtime_source": call.runtime_source,
                     "resolved_tool_roots": call.resolved_tool_roots,
                     **_tool_presentation_payload(call.arguments),
@@ -487,6 +493,12 @@ class WebSocketFrontend(FrontendCallbacks):
                         result.data.get("result_renderer_key")
                         if isinstance(result.data, dict)
                         else ""
+                    ),
+                    "read_model_invalidations": (
+                        list(result.data.get("read_model_invalidations") or [])
+                        if isinstance(result.data, dict)
+                        and isinstance(result.data.get("read_model_invalidations"), list)
+                        else []
                     ),
                     "runtime_source": result.runtime_source
                     or (result.data.get("runtime_source") if isinstance(result.data, dict) else ""),

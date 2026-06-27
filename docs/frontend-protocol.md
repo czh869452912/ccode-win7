@@ -128,6 +128,12 @@ display/read-model state only: they do not own session history, workflow
 truth, permission policy, tool activation, extension loading, provider
 configuration, telemetry, or Agent Core runtime reducers.
 
+Live tool-completion refresh uses backend/tool metadata rather than renderer
+tool-name lists. Tool events may carry `read_model_invalidations` values such
+as `workspace_files`, `tasks`, or `artifacts`; GUI loaders may refresh those
+read-only projections, but renderer code must not infer file/task/artifact
+refresh from names like `write_file`, `edit_file`, or workflow-package tools.
+
 Visual debug scenarios are outside the frontend protocol. The React webapp may
 install `window.__EMBEDAGENT_VISUAL_DEBUG__` only when `?visual_debug=1` is
 present, and that hook must expand private `dev_fixture_*` descriptors into the

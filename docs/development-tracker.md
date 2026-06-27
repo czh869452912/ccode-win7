@@ -24,6 +24,18 @@
 
 ## 2. 当前阶段
 
+### 2026-06-27 - Pi/T3 Residual Debt Cleanup Slice 3
+
+- Tool catalog metadata now carries `read_model_invalidations` for safe
+  projection refresh hints such as `workspace_files`, `tasks`, and
+  `artifacts`.
+- `InProcessAdapter`, `CallbackBridge`, GUI WebSocket payloads, and renderer
+  loader effects now consume those invalidation hints instead of hard-coded
+  tool-name lists for file/task/artifact refresh.
+- GUI interaction and timeline request-kind classification has been trimmed
+  toward explicit request kind / permission category metadata, and stale
+  inactive tool-label aliases were removed from the renderer store.
+
 ### 2026-06-27 - Pi/T3 Residual Debt Cleanup Slice 2
 
 - GUI live permission/user-input activity now comes from backend-owned

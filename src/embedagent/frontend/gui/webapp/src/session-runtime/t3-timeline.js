@@ -353,9 +353,9 @@ function commandPreviewFor(toolName, args) {
 
 function permissionCategoryToRequestKind(value) {
   const text = stringValue(value);
-  if (text === "command" || text === "shell" || text === "process") return "command";
+  if (["command", "shell", "shell_exec", "toolchain_exec", "process", "network", "telemetry"].includes(text)) return "command";
   if (text === "file-read" || text === "read" || text === "workspace_read") return "file-read";
-  if (text === "file-change" || text === "write" || text === "workspace_write") return "file-change";
+  if (text === "file-change" || text === "write" || text === "workspace_write" || text === "git_write") return "file-change";
   return "";
 }
 
@@ -363,10 +363,6 @@ function toolNameRequestKind(toolName) {
   if (toolName === "run_recipe" || toolName === "shell" || toolName === "bash") {
     return "command";
   }
-  if (toolName === "read_file" || toolName === "list_dir" || toolName === "glob_files" || toolName === "grep_text") {
-    return "file-read";
-  }
-  if (toolName === "write_file" || toolName === "edit_file") return "file-change";
   return "";
 }
 

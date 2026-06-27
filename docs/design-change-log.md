@@ -44,6 +44,36 @@
 
 ## 3. 当前变更记录
 
+### DC-215
+
+- Date: 2026-06-27
+- Change Topic: Tool metadata-driven GUI read-model invalidations
+- Summary:
+  - Added `read_model_invalidations` to tool catalog metadata and runtime
+    observation/event decoration.
+  - Moved GUI/Core task, artifact, and workspace-file refresh decisions to
+    those metadata hints instead of hard-coded tool-name lists.
+  - Trimmed stale renderer tool-label aliases and moved interaction request
+    classification toward explicit request kind / permission category metadata.
+- Impacted Scope:
+  - `src/embedagent/tools/runtime.py`
+  - `src/embedagent/harness/tool_metadata.py`
+  - `src/embedagent/inprocess_adapter.py`
+  - `src/embedagent/core/adapter.py`
+  - `src/embedagent/frontend/gui/backend/server.py`
+  - `src/embedagent/frontend/gui/webapp/src/app-runtime/socket-message-effects.js`
+  - `src/embedagent/frontend/gui/webapp/src/session-runtime/interaction-model.js`
+  - `src/embedagent/frontend/gui/webapp/src/session-runtime/t3-timeline.js`
+  - `src/embedagent/frontend/gui/webapp/src/store.js`
+  - `docs/tool-contracts.md`
+  - `docs/frontend-protocol.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+- ADR Needed: No
+- Follow-up:
+  - Continue auditing frontend surfaces for remaining root-state or tool-name
+    policy couplings.
+
 ### DC-214
 
 - Date: 2026-06-27

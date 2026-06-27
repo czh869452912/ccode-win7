@@ -2026,6 +2026,7 @@ class InProcessAdapter(object):
             "supports_diff_preview": bool(entry.get("supports_diff_preview")),
             "progress_renderer_key": entry.get("progress_renderer_key") or "",
             "result_renderer_key": entry.get("result_renderer_key") or "",
+            "read_model_invalidations": list(entry.get("read_model_invalidations") or []),
             "source_type": entry.get("source_type") or "",
             "source_id": entry.get("source_id") or "",
             "runtime_source": str(runtime.get("runtime_source") or ""),

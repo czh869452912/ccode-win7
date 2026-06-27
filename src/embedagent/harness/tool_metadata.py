@@ -32,6 +32,7 @@ C_WORKFLOW_TOOL_METADATA = {
         "result_budget_policy": "artifact-first",
         "activity_kind": "diagnostic",
         "context_priority": 100,
+        "read_model_invalidations": ["tasks"],
     },
     "report_quality_v2": {
         "permission_category": "read",
@@ -48,6 +49,7 @@ C_WORKFLOW_TOOL_METADATA = {
         "result_budget_policy": "compact-preview",
         "activity_kind": "diagnostic",
         "context_priority": 88,
+        "read_model_invalidations": ["tasks"],
     },
     "task_status": {
         "permission_category": "read",
@@ -64,6 +66,7 @@ C_WORKFLOW_TOOL_METADATA = {
         "result_budget_policy": "compact-preview",
         "activity_kind": "task",
         "context_priority": 98,
+        "read_model_invalidations": ["tasks"],
     },
     "record_failing_evidence": {
         "permission_category": "read",
@@ -80,5 +83,6 @@ C_WORKFLOW_TOOL_METADATA = {
         "result_budget_policy": "compact-preview",
         "activity_kind": "diagnostic",
         "context_priority": 82,
+        "read_model_invalidations": ["tasks"],
     },
 }

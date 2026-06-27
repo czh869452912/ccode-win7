@@ -52,6 +52,7 @@ class ToolContextPolicy:
     context_reducer_key: str
     activity_kind: str
     context_priority: int
+    read_model_invalidations: List[str]
 
 
 @dataclass
@@ -111,6 +112,10 @@ class ToolCatalogEntry:
     def context_priority(self) -> int:
         return self.context_policy.context_priority
 
+    @property
+    def read_model_invalidations(self) -> List[str]:
+        return list(self.context_policy.read_model_invalidations)
+
     def to_dict(self) -> Dict[str, Any]:
         return {
             "name": self.name,
@@ -129,6 +134,7 @@ class ToolCatalogEntry:
             "result_budget_policy": self.result_budget_policy,
             "activity_kind": self.activity_kind,
             "context_priority": self.context_priority,
+            "read_model_invalidations": self.read_model_invalidations,
             "source_type": self.source_type,
             "source_id": self.source_id,
         }
@@ -166,6 +172,7 @@ _DEFAULT_TOOL_METADATA = {
         "result_budget_policy": "compact-preview",
         "activity_kind": "edit",
         "context_priority": 95,
+        "read_model_invalidations": ["workspace_files", "tasks", "artifacts"],
     },
     "edit_file": {
         "permission_category": "workspace_write",
@@ -182,6 +189,7 @@ _DEFAULT_TOOL_METADATA = {
         "result_budget_policy": "compact-preview",
         "activity_kind": "edit",
         "context_priority": 95,
+        "read_model_invalidations": ["workspace_files", "tasks", "artifacts"],
     },
     "bash": {
         "permission_category": "shell_exec",
@@ -326,6 +334,7 @@ _DEFAULT_TOOL_METADATA = {
         "result_budget_policy": "compact-preview",
         "activity_kind": "edit",
         "context_priority": 82,
+        "read_model_invalidations": ["workspace_files", "tasks", "artifacts"],
     },
 }
 
@@ -471,6 +480,7 @@ class ToolRuntime(object):
                 context_reducer_key=str(metadata.get("context_reducer_key") or tool.name),
                 activity_kind=str(metadata.get("activity_kind") or "tool"),
                 context_priority=int(metadata.get("context_priority") or 50),
+                read_model_invalidations=list(metadata.get("read_model_invalidations") or []),
             ),
             source_type=source_type,
             source_id=source_id,
@@ -614,6 +624,10 @@ class ToolRuntime(object):
                 )
                 data.setdefault("progress_renderer_key", entry.presentation.progress_renderer_key)
                 data.setdefault("result_renderer_key", entry.presentation.result_renderer_key)
+                data.setdefault(
+                    "read_model_invalidations",
+                    list(entry.context_policy.read_model_invalidations),
+                )
                 data.setdefault("source_type", entry.source_type)
                 data.setdefault("source_id", entry.source_id)
                 observation.data = data
@@ -638,4 +652,5 @@ class ToolRuntime(object):
             "result_budget_policy": "default",
             "activity_kind": "tool",
             "context_priority": 50,
+            "read_model_invalidations": [],
         }

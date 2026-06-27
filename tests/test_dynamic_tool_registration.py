@@ -138,8 +138,10 @@ def test_register_tool_defaults_extension_presentation_metadata(tmp_path):
     assert entry["result_budget_policy"] == "compact-preview"
     assert entry["activity_kind"] == "tool"
     assert entry["context_priority"] == 50
+    assert entry["read_model_invalidations"] == []
     assert observation.success is True
     assert observation.data["tool_label"] == "minimal_echo"
+    assert observation.data["read_model_invalidations"] == []
 
 
 def test_tool_catalog_entry_keeps_internal_metadata_facets_behind_legacy_payload(tmp_path):
@@ -160,10 +162,20 @@ def test_tool_catalog_entry_keeps_internal_metadata_facets_behind_legacy_payload
     assert internal_entry.presentation.progress_renderer_key == "default"
     assert internal_entry.context_policy.context_reducer_key == "minimal_echo"
     assert internal_entry.context_policy.context_priority == 50
+    assert internal_entry.context_policy.read_model_invalidations == []
     assert payload["read_only"] is True
     assert payload["concurrency_safe"] is True
     assert payload["user_label"] == "minimal_echo"
     assert payload["context_reducer_key"] == "minimal_echo"
+    assert payload["read_model_invalidations"] == []
+
+
+def test_builtin_write_tools_declare_read_model_invalidations(tmp_path):
+    runtime = ToolRuntime(str(tmp_path))
+
+    entry = runtime.tool_catalog_entry("write_file")
+
+    assert entry["read_model_invalidations"] == ["workspace_files", "tasks", "artifacts"]
 
 
 def test_tool_runtime_execution_reads_presentation_facets_internally():
