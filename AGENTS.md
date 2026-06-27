@@ -39,6 +39,32 @@ uv run --locked python scripts/lint.py --fix
 make ci
 ```
 
+## Pre-Merge Architecture Gate
+
+Before merging GUI, Agent Core, permission, extension, workflow-package, or
+frontend-protocol changes, run this gate from the repository root:
+
+```bash
+uv run pytest tests/test_pre_release_architecture_guards.py tests/test_current_architecture_boundaries.py -v
+uv run pytest tests/ -m "not slow and not gui" -v
+uv run --locked python scripts/lint.py
+```
+
+Run the GUI gate from `src/embedagent/frontend/gui/webapp`:
+
+```bash
+npm test
+npm run build
+```
+
+`npm run build` is required whenever webapp source changes, and the generated
+GUI static assets under `src/embedagent/frontend/gui/static/` must be committed
+with the source change.
+
+Win7/offline delivery claims require real bundle smoke evidence on the
+target-style bundle. Local development tests do not replace clean
+Win7/WebView2 bundle smoke results.
+
 **Constraints (always enforce)**:
 - Python **3.8.x strictly** — never use 3.9+ syntax (no walrus operator `:=`, no `match`, no `dict | dict`)
 - Never import modules absent from `pyproject.toml` dependencies

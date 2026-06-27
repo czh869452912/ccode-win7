@@ -37,6 +37,17 @@
   payload assembly outside `QueryEngine`.
 - The 2026-06-27 residual cleanup plan and design spec are archived under
   `docs/archive/pi-t3-residual-debt-cleanup/` after active docs synchronization.
+- Pre-merge architecture gate is now the default merge checklist for GUI,
+  Agent Core, permission, extension, workflow-package, and frontend-protocol
+  changes:
+  `uv run pytest tests/test_pre_release_architecture_guards.py tests/test_current_architecture_boundaries.py -v`,
+  `uv run pytest tests/ -m "not slow and not gui" -v`,
+  `uv run --locked python scripts/lint.py`, plus `npm test` from the GUI
+  webapp. When webapp source changes, `npm run build` must refresh and commit
+  generated GUI static assets.
+- Win7/offline delivery claims remain gated by real target-style bundle smoke
+  evidence; local dev tests and webapp builds are regression gates, not release
+  evidence for clean Win7/WebView2 operation.
 
 ### 2026-06-27 - Pi/T3 Residual Debt Cleanup Slice 3
 
@@ -563,7 +574,7 @@
 2. 在 Win7 bundle 中完成 GUI Chromium 基线实机验证并记录结果
 3. 为当前 `package.ps1 release` 路径评估并收敛 `site-packages` 的精简导出方案
 4. 运行 contract-backed offline bundle 的 clean Win7 unpack-and-run smoke 并记录结果
-5. 用架构守卫防止 stale compatibility paths 回流，并保持 source-of-truth docs 与当前正式架构同步
+5. 合并 GUI/Core 架构改动前执行 pre-merge architecture gate，防止 stale compatibility paths 回流，并保持 source-of-truth docs 与当前正式架构同步
 
 实现备注：
 
@@ -680,6 +691,7 @@
 | R-023 | 架构 cutover 已完成，但若后续新增功能绕过 Harness/Protocol/Permission 的正式边界，仍可能重新引入平行术语和隐式兼容层 | 中 | 继续把 `README` / `AGENTS` / architecture docs 作为唯一 source of truth；新增功能优先复用 Harness、TaskGraph、recipe runtime 和 session snapshot，而不是再建第二套路径 |
 | R-024 | 文档分层、模块映射和同步流程尚未完全建立 | 高 | Batch B 已完成：遗留文档已归档，操作指南已下沉，模块文档与 guides/ 索引已同步 |
 | R-025 | Pi-inspired minimal Core 若被理解成一次性重写，可能破坏已收口的 hosted C/C++ workflow、Win7 bundle 和 self-extension baseline | 高 | 按 durable operation log -> HookBus/reducer -> AgentKernel -> default workflow package 的顺序做小切片；每片保持当前行为回归通过，并在 source-of-truth docs 中明确“目标蓝图”和“已实现 baseline”的边界 |
+| R-026 | GUI/Core 架构改动若只跑局部测试，可能绕过 extension、permission、workflow package 或 GUI runtime 边界 | 高 | 合并前执行 pre-merge architecture gate；webapp source 变更必须运行 `npm run build` 并提交生成的 GUI static assets；Win7/offline 发布判断必须另有真实 bundle smoke 证据 |
 
 ---
 

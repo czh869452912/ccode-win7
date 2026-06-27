@@ -199,6 +199,27 @@ Project-local Python extensions are a separate, explicit opt-in path under `.emb
 - Runtime-invoked external tools must be represented in `scripts/offline-runtime-contract.json` and validated by the packaging gates.
 - A clean Windows 7 machine must be able to unpack and run the bundle without preinstalled tools.
 
+## Pre-Merge Architecture Gate
+
+Before merging GUI, Agent Core, permission, extension, workflow-package, or frontend-protocol changes, run this gate from the repository root:
+
+```bash
+uv run pytest tests/test_pre_release_architecture_guards.py tests/test_current_architecture_boundaries.py -v
+uv run pytest tests/ -m "not slow and not gui" -v
+uv run --locked python scripts/lint.py
+```
+
+Run the GUI gate from `src/embedagent/frontend/gui/webapp`:
+
+```bash
+npm test
+npm run build
+```
+
+`npm run build` is required whenever webapp source changes, and the generated GUI static assets must be committed with the source change.
+
+Windows 7 and offline-delivery claims require real bundle smoke evidence on the target-style bundle. Local development tests are useful regression evidence, but they are not a substitute for clean Win7/WebView2 bundle smoke results.
+
 ## Read In This Order
 
 For implementation work, start with:
