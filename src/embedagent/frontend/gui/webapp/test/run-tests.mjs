@@ -672,6 +672,9 @@ async function main() {
     "utf8",
   );
   assert.equal(timelineRowsSource.includes("rowUiState"), true);
+  assert.equal(timelineRowsSource.includes("rowDensityFor"), true);
+  assert.equal(timelineRowsSource.includes("density={"), true);
+  assert.equal(timelineRowsSource.includes("data-density"), true);
   assert.equal(timelineRowsSource.includes("onToggleRow"), true);
   assert.equal(timelineRowsSource.includes("onOpenFile"), true);
   assert.equal(timelineRowsSource.includes("rowKeyFor"), true);
@@ -701,6 +704,8 @@ async function main() {
     "utf8",
   );
   assert.equal(workRowSource.includes("expanded"), true);
+  assert.equal(workRowSource.includes("density"), true);
+  assert.equal(workRowSource.includes("data-density"), true);
   assert.equal(workRowSource.includes("onToggle"), true);
   assert.equal(workRowSource.includes("onOpenFile"), true);
   assert.equal(workRowSource.includes("useState(row.status === \"error\")"), false);
@@ -754,6 +759,10 @@ async function main() {
   assert.equal(stylesSource.includes("mode-build"), true);
   assert.equal(stylesSource.includes(".t3-work-row.error"), true);
   assert.equal(stylesSource.includes(".t3-work-row.running"), true);
+  assert.equal(stylesSource.includes(".t3-work-row.density-compact"), true);
+  assert.equal(stylesSource.includes(".t3-work-row.density-normal"), true);
+  assert.equal(stylesSource.includes(".t3-work-row.density-expanded"), true);
+  assert.equal(stylesSource.includes(".t3-command-result-row.density-expanded"), true);
   assert.equal(stylesSource.includes("timeline-work-detail"), true);
   assert.equal(stylesSource.includes(".t3-tool-detail-grid"), true);
   assert.equal(stylesSource.includes(".t3-tool-detail-section"), true);

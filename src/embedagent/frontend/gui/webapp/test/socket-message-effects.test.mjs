@@ -183,6 +183,16 @@ export function runSocketMessageEffectsTests() {
   });
   assert.equal(userInput.actions[0].type, "user_input_request");
   assert.deepEqual(userInput.transportEvents, []);
+  assert.equal(userInput.actions.some((action) => action.type === "append_timeline_item"), false);
+  assert.equal(userInput.actions.some((action) => action.type === "activity_reset"), false);
+
+  const rawPermission = derive("permission_request", {
+    permission_id: "perm-raw",
+    tool_name: "edit_file",
+    reason: "Raw request should not create durable activity",
+  });
+  assert.equal(rawPermission.actions.some((action) => action.type === "append_timeline_item"), false);
+  assert.equal(rawPermission.actions.some((action) => action.type === "activity_reset"), false);
 
   const commandDiff = derive("command_result", {
     command_name: "diff",

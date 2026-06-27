@@ -943,7 +943,7 @@ async function runTimelineScenario(page) {
   }
   await page.waitForSelector('[data-testid="timeline-reasoning-row"]', { timeout: 10000 });
   await page.waitForSelector('[data-testid="timeline-review-result-row"]', { timeout: 10000 });
-  await page.waitForSelector('[data-testid="timeline-thinking-row"]', { timeout: 10000 });
+  await page.waitForSelector('[data-testid="timeline-working-row"]', { timeout: 10000 });
   await page.waitForSelector('[data-testid="timeline-work-row"]', { timeout: 10000 });
   for (let index = 0; index < 20; index += 1) {
     const collapsedWorkRow = page.locator('[data-testid="timeline-work-row"] button[aria-expanded="false"]').first();
@@ -1005,7 +1005,7 @@ async function runTimelineScenario(page) {
     hasChangedFiles: await page.locator('[data-testid="changed-files-card"]').isVisible(),
     hasReasoning: await page.locator('[data-testid="timeline-reasoning-row"]').first().isVisible(),
     hasReview: await page.locator('[data-testid="timeline-review-result-row"]').first().isVisible(),
-    hasThinking: await page.locator('[data-testid="timeline-thinking-row"]').first().isVisible(),
+    hasWorking: await page.locator('[data-testid="timeline-working-row"]').first().isVisible(),
     hasExpandedDetail: await page.locator('[data-testid="timeline-work-detail"]').first().isVisible(),
     timelineLinkRevealState,
     workPresentation,

@@ -882,6 +882,25 @@ function messageRow(item, role) {
   };
 }
 
+function reasoningRow(item) {
+  const content = stringValue(item?.content);
+  const wordCount = content.trim() ? content.trim().split(/\s+/).length : 0;
+  return {
+    id: stringValue(item?.id || `reasoning-${item?.turnId || item?.turn_id || "row"}`),
+    kind: "reasoning",
+    turnId: stringValue(item?.turnId || item?.turn_id),
+    stepId: stringValue(item?.stepId || item?.step_id),
+    stepIndex: numberValue(item?.stepIndex || item?.step_index),
+    createdAt: timestampValue(item?.createdAt, item?.created_at),
+    completedAt: timestampValue(item?.completedAt, item?.completed_at),
+    label: "Thinking",
+    content,
+    wordCount,
+    streaming: Boolean(item?.streaming),
+    rawItem: item || {},
+  };
+}
+
 function contextSummaryRow(item, placement = "fold_body") {
   return {
     id: stringValue(item?.id || `context-${item?.turnId || item?.turn_id || "row"}`),
@@ -1018,7 +1037,7 @@ function activityRowForItem(item) {
   if (item.kind === "interaction_requested" || item.kind === "interaction_resolved") {
     return interactionRow(item);
   }
-  if (item.kind === "reasoning") return null;
+  if (item.kind === "reasoning") return item.streaming ? null : reasoningRow(item);
   if (item.kind === "compact") return contextSummaryRow(item);
   if (item.kind === "command_result" || item.kind === "command_result_fallback") {
     const commandName = stringValue(item?.commandName || item?.command_name);
@@ -1057,7 +1076,6 @@ function turnActivityEntries(group) {
   }
   for (const step of group?.steps || []) {
     for (const item of step?.activityItems || []) {
-      if (item?.kind === "reasoning") continue;
       pushActivity(item);
     }
   }
@@ -1108,7 +1126,6 @@ function orderedOpenRowsForTurn(group, context = null) {
   }
   for (const step of group?.steps || []) {
     for (const item of step?.activityItems || []) {
-      if (item?.kind === "reasoning") continue;
       const row = activityRowForItem(item);
       if (row) rows.push(rowForOpenPlacement(row, context));
     }

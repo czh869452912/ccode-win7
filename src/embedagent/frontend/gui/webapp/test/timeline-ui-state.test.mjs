@@ -3,8 +3,10 @@ import assert from "node:assert/strict";
 import {
   createTimelineUiState,
   isRowExpandedByDefault,
+  rowDensityFor,
   restoreAnchorScroll,
   rowUiKey,
+  toggleTimelineRowDensity,
   shouldPinToBottom,
   toggleTimelineRow,
 } from "../src/session-runtime/timeline-ui-state.js";
@@ -70,6 +72,25 @@ export function runTimelineUiStateTests() {
   assert.equal(richState.expanded[rowUiKey(richRows[2])], true);
   assert.equal(richState.expanded[rowUiKey(richRows[3])], false);
   assert.equal(richState.expanded[rowUiKey(richRows[4])], false);
+  assert.equal(richState.density[rowUiKey(richRows[0])], "compact");
+  assert.equal(richState.density[rowUiKey(richRows[1])], "expanded");
+  assert.equal(richState.density[rowUiKey(richRows[2])], "expanded");
+  assert.equal(richState.density[rowUiKey(richRows[3])], "compact");
+  assert.equal(rowDensityFor(richRows[1], richState), "expanded");
+  assert.equal(rowDensityFor(richRows[4], { density: { [rowUiKey(richRows[4])]: "normal" } }), "normal");
+
+  const normalCommand = toggleTimelineRowDensity(richState, rowUiKey(richRows[0]), "normal");
+  assert.equal(normalCommand.density[rowUiKey(richRows[0])], "normal");
+  assert.equal(normalCommand.expanded[rowUiKey(richRows[0])], false);
+  assert.equal(normalCommand.touched[rowUiKey(richRows[0])], true);
+
+  const expandedCommand = toggleTimelineRowDensity(normalCommand, rowUiKey(richRows[0]), "expanded");
+  assert.equal(expandedCommand.density[rowUiKey(richRows[0])], "expanded");
+  assert.equal(expandedCommand.expanded[rowUiKey(richRows[0])], true);
+
+  const preservedDensity = createTimelineUiState(richRows, expandedCommand);
+  assert.equal(preservedDensity.density[rowUiKey(richRows[0])], "expanded");
+  assert.equal(preservedDensity.expanded[rowUiKey(richRows[0])], true);
 
   assert.equal(shouldPinToBottom({ scrollTop: 90, clientHeight: 100, scrollHeight: 200 }), true);
   assert.equal(shouldPinToBottom({ scrollTop: 40, clientHeight: 100, scrollHeight: 200 }), false);

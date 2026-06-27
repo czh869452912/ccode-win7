@@ -101,7 +101,7 @@ export async function runVisualDebugRunnerTests() {
   assert.equal(runnerSource.includes("runThreadScenario"), true);
   assert.equal(runnerSource.includes("loadTimelineFixture"), true);
   assert.equal(runnerSource.includes("timeline-reasoning-row"), true);
-  assert.equal(runnerSource.includes("timeline-thinking-row"), true);
+  assert.equal(runnerSource.includes("timeline-working-row"), true);
   assert.equal(runnerSource.includes("timeline-review-result-row"), true);
   assert.equal(runnerSource.includes("timeline-tool-file-link--src/parser.c"), true);
   assert.equal(runnerSource.includes("timelineLinkRevealState"), true);

@@ -43,7 +43,14 @@ function StatusIndicator({ indicator }) {
   return null;
 }
 
-export default function WorkRow({ row, expanded = false, onToggle = null, rowKey = "", onOpenFile = null }) {
+export default function WorkRow({
+  row,
+  density = "compact",
+  expanded = false,
+  onToggle = null,
+  rowKey = "",
+  onOpenFile = null,
+}) {
   const presentation = row.presentation || {
     heading: row.label || row.toolName || "Work",
     preview: row.commandPreview || "",
@@ -68,10 +75,11 @@ export default function WorkRow({ row, expanded = false, onToggle = null, rowKey
 
   return (
     <div
-      className={`t3-work-row ${row.tone || "neutral"}`}
+      className={`t3-work-row ${row.tone || "neutral"} density-${density || "compact"}`}
       data-testid="timeline-work-row"
       data-row-kind="work"
       data-row-key={rowKey}
+      data-density={density || "compact"}
       data-icon-name={presentation.iconName}
       data-status-indicator={presentation.statusIndicator}
     >

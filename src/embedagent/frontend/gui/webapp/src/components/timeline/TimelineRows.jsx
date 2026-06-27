@@ -4,7 +4,10 @@ import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 
-import { rowUiKey as defaultRowUiKey } from "../../session-runtime/timeline-ui-state.js";
+import {
+  rowDensityFor,
+  rowUiKey as defaultRowUiKey,
+} from "../../session-runtime/timeline-ui-state.js";
 import ChangedFilesCard from "./ChangedFilesCard.jsx";
 import WorkRow from "./WorkRow.jsx";
 
@@ -98,6 +101,7 @@ function WorkGroupSection({ rows, rowUiState, onToggleRow, rowKeyFor, onOpenFile
               key={row.id}
               row={row}
               rowKey={key}
+              density={rowDensityFor(row, rowUiState)}
               expanded={Boolean(rowUiState?.expanded?.[key])}
               onToggle={onToggleRow}
               onOpenFile={onOpenFile}
@@ -264,8 +268,15 @@ function InteractionRow({ row }) {
 function ExpandableShell({ row, rowKeyFor, rowUiState, onToggleRow, className, label, meta, children, ...domProps }) {
   const key = rowKeyFor(row);
   const open = Boolean(rowUiState?.expanded?.[key]);
+  const density = rowDensityFor(row, rowUiState);
   return (
-    <section {...domProps} className={className} data-row-kind={row.kind} data-row-key={key}>
+    <section
+      {...domProps}
+      className={`${className} density-${density}`}
+      data-row-kind={row.kind}
+      data-row-key={key}
+      data-density={density}
+    >
       <button
         type="button"
         className="t3-rich-row-summary"
@@ -426,6 +437,7 @@ function TimelineRowSwitch({
       <WorkRow
         row={row}
         rowKey={key}
+        density={rowDensityFor(row, rowUiState)}
         expanded={Boolean(rowUiState?.expanded?.[key])}
         onToggle={onToggleRow}
         onOpenFile={onOpenFile}

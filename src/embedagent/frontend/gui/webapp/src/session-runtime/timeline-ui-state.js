@@ -7,6 +7,12 @@ function booleanValue(value, fallback = false) {
   return typeof value === "boolean" ? value : fallback;
 }
 
+function normalizeDensity(value, fallback = "compact") {
+  const text = stringValue(value, fallback);
+  if (text === "compact" || text === "normal" || text === "expanded") return text;
+  return fallback;
+}
+
 export function rowUiKey(row) {
   const kind = stringValue(row?.kind, "row");
   const turnId = stringValue(row?.turnId || row?.turn_id);
@@ -51,6 +57,10 @@ export function isRowExpandedByDefault(row) {
   return false;
 }
 
+export function defaultRowDensity(row) {
+  return isRowExpandedByDefault(row) ? "expanded" : "compact";
+}
+
 function collectRows(rows) {
   const collected = [];
   for (const row of rows || []) {
@@ -64,28 +74,54 @@ function collectRows(rows) {
 
 export function createTimelineUiState(rows = [], previousState = null) {
   const previousExpanded = previousState?.expanded || {};
+  const previousDensity = previousState?.density || {};
   const previousTouched = previousState?.touched || {};
   const expanded = {};
+  const density = {};
   const touched = {};
   for (const row of collectRows(rows)) {
     const key = rowUiKey(row);
     if (!key) continue;
     if (previousTouched[key]) {
-      expanded[key] = Boolean(previousExpanded[key]);
+      density[key] = normalizeDensity(
+        previousDensity[key],
+        previousExpanded[key] ? "expanded" : "compact",
+      );
+      expanded[key] = density[key] === "expanded";
       touched[key] = true;
     } else {
-      expanded[key] = isRowExpandedByDefault(row);
+      density[key] = defaultRowDensity(row);
+      expanded[key] = density[key] === "expanded";
     }
   }
-  return { expanded, touched };
+  return { expanded, density, touched };
 }
 
 export function toggleTimelineRow(state, rowKey) {
   const expanded = { ...(state?.expanded || {}) };
+  const density = { ...(state?.density || {}) };
   const touched = { ...(state?.touched || {}) };
-  expanded[rowKey] = !Boolean(expanded[rowKey]);
+  const nextExpanded = !Boolean(expanded[rowKey]);
+  expanded[rowKey] = nextExpanded;
+  density[rowKey] = nextExpanded ? "expanded" : "compact";
   touched[rowKey] = true;
-  return { expanded, touched };
+  return { expanded, density, touched };
+}
+
+export function toggleTimelineRowDensity(state, rowKey, nextDensity = "expanded") {
+  const expanded = { ...(state?.expanded || {}) };
+  const density = { ...(state?.density || {}) };
+  const touched = { ...(state?.touched || {}) };
+  const value = normalizeDensity(nextDensity, "expanded");
+  density[rowKey] = value;
+  expanded[rowKey] = value === "expanded";
+  touched[rowKey] = true;
+  return { expanded, density, touched };
+}
+
+export function rowDensityFor(row, state = null) {
+  const key = rowUiKey(row);
+  return normalizeDensity(state?.density?.[key], defaultRowDensity(row));
 }
 
 export function shouldPinToBottom({ scrollTop = 0, clientHeight = 0, scrollHeight = 0, threshold = 16 } = {}) {

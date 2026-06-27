@@ -785,12 +785,13 @@ export function runT3TimelineTests() {
   const richFold = richRows.find((row) => row.kind === T3_ROW_KINDS.TURN_FOLD);
   assert.ok(richFold);
   assert.equal(richFold.workCount, 1);
-  assert.equal(richFold.reasoningCount, 0);
+  assert.equal(richFold.reasoningCount, 1);
   assert.deepEqual(
     richFold.entries.map((entry) => entry.kind),
-    [T3_ROW_KINDS.CONTEXT_SUMMARY, T3_ROW_KINDS.WORK],
+    [T3_ROW_KINDS.CONTEXT_SUMMARY, "reasoning", T3_ROW_KINDS.WORK],
   );
   assert.equal(richFold.entries[0].content, "older turns summarized");
+  assert.equal(richFold.entries[1].wordCount, 6);
   assert.equal(richRows.some((row) => row.kind === T3_ROW_KINDS.COMMAND_RESULT), true);
   const reviewRow = richRows.find((row) => row.kind === T3_ROW_KINDS.REVIEW_RESULT);
   assert.ok(reviewRow);
@@ -999,8 +1000,10 @@ export function runT3TimelineTests() {
     interleavedRows.map((row) => row.id),
     [
       "u-interleaved",
+      "reason-1",
       "tool-1",
       "assistant-1",
+      "reason-2",
       "tool-2",
       "assistant-2",
     ],
@@ -1118,10 +1121,13 @@ export function runT3TimelineTests() {
     multiCycleRows.map((row) => row.id),
     [
       "u-multi-cycle",
+      "cycle-thinking-1",
       "cycle-tool-1",
       "cycle-tool-2",
       "cycle-output-1",
+      "cycle-thinking-2",
       "cycle-tool-3",
+      "cycle-thinking-3",
       "cycle-output-2",
     ],
   );

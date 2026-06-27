@@ -187,4 +187,85 @@ export function runActivityStateTests() {
     pendingRuntime.t3TimelineRows.filter((row) => row.kind === "interaction").length,
     1,
   );
+
+  const denseActivities = [
+    {
+      id: "u-dense",
+      kind: "user",
+      turn_id: "turn-dense",
+      content: "Review parser and compact context",
+    },
+    {
+      id: "compact-dense",
+      kind: "compact",
+      turn_id: "turn-dense",
+      content: "Older parser work summarized.",
+      summarized_turns: 9,
+      recent_turns: 3,
+      approx_tokens_after: 5200,
+    },
+    ...Array.from({ length: 6 }, (_, index) => ({
+      id: `tool-dense-${index + 1}`,
+      kind: "tool",
+      turn_id: "turn-dense",
+      step_id: `step-dense-${index + 1}`,
+      step_index: index + 1,
+      tool_name: index % 2 === 0 ? "read_file" : "grep_text",
+      tool_label: index % 2 === 0 ? "Read File" : "Search",
+      status: "success",
+      arguments: index % 2 === 0
+        ? { path: `src/file_${index + 1}.c` }
+        : { pattern: "parse", path: "src" },
+      data: index % 2 === 0
+        ? { path: `src/file_${index + 1}.c`, content_preview: "int main(void);" }
+        : { matches: [{ path: "src/parser.c", line: index + 1, text: "parse();" }] },
+    })),
+    {
+      id: "review-dense",
+      kind: "command_result",
+      command_name: "review",
+      turn_id: "turn-dense",
+      success: false,
+      content: "Review found one parser issue in [src/parser.c:42](src/parser.c#L42).",
+      data: {
+        review: {
+          findings: [
+            {
+              id: "finding-dense",
+              severity: "high",
+              title: "Parser can drop EOF",
+              body: "EOF handling should preserve diagnostics.",
+              file: "src/parser.c",
+              line: 42,
+            },
+          ],
+        },
+      },
+    },
+    {
+      id: "a-dense",
+      kind: "assistant",
+      turn_id: "turn-dense",
+      step_id: "step-dense-6",
+      step_index: 6,
+      content: "Parser review complete.",
+    },
+  ];
+  const denseRuntime = buildSessionActivityRuntime({
+    snapshot: {
+      session_id: "sess-dense",
+      status: "idle",
+      current_mode: "build",
+    },
+    sessionTransport: createSessionTransportState(),
+    activities: denseActivities,
+  });
+  const denseFold = denseRuntime.t3TimelineRows.find((row) => row.kind === "turn_fold");
+  assert.ok(denseFold);
+  assert.equal(denseFold.entries.filter((entry) => entry.kind === "work").length, 6);
+  assert.equal(denseFold.entries.some((entry) => entry.kind === "context_summary"), true);
+  const denseReview = denseRuntime.t3TimelineRows.find((row) => row.kind === "review_result");
+  assert.ok(denseReview);
+  assert.equal(denseReview.findings[0].file, "src/parser.c");
+  assert.equal(denseReview.findings[0].line, 42);
 }
