@@ -1,24 +1,218 @@
-export const RIGHT_PANEL_KINDS = [
-  "preview",
-  "diff",
-  "files",
-  "file",
-  "terminal",
-  "plan",
-  "source_control",
-  "settings",
-  "diagnostics",
+const DEFAULT_PERSIST_FIELDS = [
+  "id",
+  "placement",
+  "kind",
+  "title",
+  "resourceId",
+  "filePath",
+  "terminalId",
+  "revealLine",
+  "revealRequestId",
 ];
-export const RIGHT_PANEL_SURFACES = [
-  "preview",
-  "files",
-  "terminal",
-  "diff",
-  "plan",
-  "source_control",
-  "settings",
-  "diagnostics",
+
+const TERMINAL_PERSIST_FIELDS = [
+  ...DEFAULT_PERSIST_FIELDS,
+  "terminalIds",
+  "activeTerminalId",
+  "splitDirection",
 ];
+
+function defineSurface(input) {
+  return Object.freeze({
+    ...input,
+    persistFields: Object.freeze((input.persistFields || DEFAULT_PERSIST_FIELDS).slice()),
+    keywords: Object.freeze((input.keywords || []).slice()),
+  });
+}
+
+export const RIGHT_PANEL_SURFACE_REGISTRY = Object.freeze([
+  defineSurface({
+    kind: "preview",
+    title: "Preview",
+    icon: "B",
+    description: "Open a local browser preview.",
+    placement: "right",
+    resourceId: "optional",
+    defaultResourceId: "",
+    closeBehavior: "closable",
+    persistFields: DEFAULT_PERSIST_FIELDS,
+    launcher: true,
+    launcherOrder: 10,
+    command: true,
+    slash: "/preview",
+    visibleWhen: "always",
+    keywords: ["browser", "localhost", "web"],
+  }),
+  defineSurface({
+    kind: "diff",
+    title: "Diff",
+    icon: "D",
+    description: "Review local changes.",
+    placement: "right",
+    resourceId: "current",
+    defaultResourceId: "current",
+    closeBehavior: "closable",
+    persistFields: DEFAULT_PERSIST_FIELDS,
+    launcher: true,
+    launcherOrder: 40,
+    command: true,
+    slash: "/diff",
+    visibleWhen: "always",
+    keywords: ["git", "changes", "diff"],
+    inspectorKind: "diff",
+  }),
+  defineSurface({
+    kind: "files",
+    title: "Files",
+    icon: "F",
+    description: "Browse workspace files.",
+    placement: "right",
+    resourceId: "singleton",
+    defaultResourceId: "",
+    closeBehavior: "closable",
+    persistFields: DEFAULT_PERSIST_FIELDS,
+    launcher: true,
+    launcherOrder: 20,
+    command: true,
+    slash: "/workspace",
+    visibleWhen: "always",
+  }),
+  defineSurface({
+    kind: "file",
+    title: "File",
+    icon: "F",
+    description: "View a workspace file.",
+    placement: "right",
+    resourceId: "file_path",
+    defaultResourceId: "",
+    closeBehavior: "closable",
+    persistFields: DEFAULT_PERSIST_FIELDS,
+    launcher: false,
+    launcherOrder: 0,
+    command: false,
+  }),
+  defineSurface({
+    kind: "terminal",
+    title: "Terminal",
+    icon: "T",
+    description: "Use a shell in this workspace.",
+    placement: "right",
+    resourceId: "terminal_id",
+    defaultResourceId: "",
+    closeBehavior: "closable",
+    persistFields: TERMINAL_PERSIST_FIELDS,
+    launcher: true,
+    launcherOrder: 30,
+    command: true,
+    slash: "",
+    visibleWhen: "has_session",
+  }),
+  defineSurface({
+    kind: "plan",
+    title: "Plan",
+    icon: "P",
+    description: "Inspect the current plan.",
+    placement: "right",
+    resourceId: "singleton",
+    defaultResourceId: "",
+    closeBehavior: "closable",
+    persistFields: DEFAULT_PERSIST_FIELDS,
+    launcher: true,
+    launcherOrder: 50,
+    command: true,
+    slash: "/plan",
+    visibleWhen: "always",
+    inspectorKind: "plan",
+  }),
+  defineSurface({
+    kind: "source_control",
+    title: "Source Control",
+    icon: "S",
+    description: "Review local Git status.",
+    placement: "right",
+    resourceId: "singleton",
+    defaultResourceId: "",
+    closeBehavior: "closable",
+    persistFields: DEFAULT_PERSIST_FIELDS,
+    launcher: true,
+    launcherOrder: 60,
+    command: true,
+    slash: "",
+    visibleWhen: "always",
+    readOnly: true,
+    offline: true,
+    inspectorKind: "source_control",
+    keywords: ["git", "changes", "local"],
+  }),
+  defineSurface({
+    kind: "settings",
+    title: "Settings",
+    icon: "G",
+    description: "Adjust app-shell preferences.",
+    placement: "right",
+    resourceId: "singleton",
+    defaultResourceId: "",
+    closeBehavior: "closable",
+    persistFields: DEFAULT_PERSIST_FIELDS,
+    launcher: true,
+    launcherOrder: 70,
+    command: true,
+    slash: "",
+    visibleWhen: "always",
+    inspectorKind: "settings",
+  }),
+  defineSurface({
+    kind: "diagnostics",
+    title: "Diagnostics",
+    icon: "I",
+    description: "Inspect app-shell health.",
+    placement: "right",
+    resourceId: "singleton",
+    defaultResourceId: "",
+    closeBehavior: "closable",
+    persistFields: DEFAULT_PERSIST_FIELDS,
+    launcher: true,
+    launcherOrder: 80,
+    command: true,
+    slash: "",
+    visibleWhen: "always",
+    inspectorKind: "diagnostics",
+  }),
+]);
+
+export function rightPanelSurfaceDefinitions() {
+  return RIGHT_PANEL_SURFACE_REGISTRY;
+}
+
+export function surfaceDefinitionFor(kind) {
+  const normalized = String(kind || "");
+  return RIGHT_PANEL_SURFACE_REGISTRY.find((definition) => definition.kind === normalized) || null;
+}
+
+export function rightPanelLauncherSurfaceDefinitions() {
+  return RIGHT_PANEL_SURFACE_REGISTRY
+    .filter((definition) => definition.launcher)
+    .slice()
+    .sort((left, right) => (left.launcherOrder || 0) - (right.launcherOrder || 0));
+}
+
+export function surfaceCommandDefinitions() {
+  return rightPanelLauncherSurfaceDefinitions()
+    .filter((definition) => definition.command !== false)
+    .map((definition) => ({
+      id: `surface.${definition.kind}`,
+      group: "surface",
+      label: `Open ${definition.title}`,
+      slash: definition.slash || "",
+      surface: definition.kind,
+      visibleWhen: definition.visibleWhen || "always",
+      ...(definition.keywords.length > 0 ? { keywords: Array.from(definition.keywords) } : {}),
+    }));
+}
+
+export const RIGHT_PANEL_KINDS = RIGHT_PANEL_SURFACE_REGISTRY.map((definition) => definition.kind);
+export const RIGHT_PANEL_SURFACES = rightPanelLauncherSurfaceDefinitions()
+  .map((definition) => definition.kind);
 export const BOTTOM_DRAWER_SURFACES = ["terminal", "run_output", "logs"];
 
 export const DEFAULT_SESSION_KEY = "__global__";
@@ -79,12 +273,15 @@ function surfaceIdFor(input) {
 function makeSurface(input) {
   const placement = normalizePlacement(input && input.placement);
   const kind = String((input && input.kind) || defaultActiveKind(placement));
+  const definition = placement === "right" ? surfaceDefinitionFor(kind) : null;
   const filePath =
     kind === "file"
       ? normalizeFilePath(input && (input.filePath || input.resourceId))
       : String((input && input.filePath) || "");
   const resourceId =
-    kind === "file" ? filePath : String((input && input.resourceId) || "");
+    kind === "file"
+      ? filePath
+      : String((input && input.resourceId) || (definition && definition.defaultResourceId) || "");
   const terminalIds =
     kind === "terminal"
       ? uniqueTerminalIds(
@@ -144,28 +341,8 @@ function makeSurface(input) {
 }
 
 export function titleForSurfaceKind(kind) {
-  switch (kind) {
-    case "diff":
-      return "Diff";
-    case "preview":
-      return "Preview";
-    case "files":
-      return "Files";
-    case "file":
-      return "File";
-    case "terminal":
-      return "Terminal";
-    case "plan":
-      return "Plan";
-    case "source_control":
-      return "Source Control";
-    case "settings":
-      return "Settings";
-    case "diagnostics":
-      return "Diagnostics";
-    default:
-      return String(kind || "");
-  }
+  const definition = surfaceDefinitionFor(kind);
+  return definition ? definition.title : String(kind || "");
 }
 
 function emptySessionSurfaces() {

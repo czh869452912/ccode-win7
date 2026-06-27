@@ -18,6 +18,7 @@ import {
 import {
   BOTTOM_DRAWER_SURFACES,
   RIGHT_PANEL_KINDS,
+  RIGHT_PANEL_SURFACE_REGISTRY,
   RIGHT_PANEL_SURFACES,
   activateSurface,
   closeAllSurfaces,
@@ -27,9 +28,35 @@ import {
   createWorkbenchState,
   openSurface,
   reduceWorkbenchState,
+  rightPanelLauncherSurfaceDefinitions,
+  rightPanelSurfaceDefinitions,
+  surfaceCommandDefinitions,
+  surfaceDefinitionFor,
 } from "../src/workbench/surfaces.js";
 
 export function runWorkbenchStateTests() {
+  const registryDefinitions = rightPanelSurfaceDefinitions();
+  assert.equal(registryDefinitions, RIGHT_PANEL_SURFACE_REGISTRY);
+  assert.deepEqual(registryDefinitions.map((definition) => definition.kind), RIGHT_PANEL_KINDS);
+  assert.deepEqual(rightPanelLauncherSurfaceDefinitions().map((definition) => definition.kind), RIGHT_PANEL_SURFACES);
+  for (const definition of registryDefinitions) {
+    assert.equal(definition.placement, "right");
+    assert.equal(typeof definition.kind, "string");
+    assert.equal(Boolean(definition.title), true);
+    assert.equal(Boolean(definition.resourceId), true);
+    assert.equal(Boolean(definition.closeBehavior), true);
+    assert.equal(Array.isArray(definition.persistFields), true);
+    assert.equal(definition.persistFields.includes("kind"), true);
+    assert.equal(definition.persistFields.includes("placement"), true);
+    assert.equal(surfaceDefinitionFor(definition.kind), definition);
+  }
+  assert.equal(surfaceDefinitionFor("missing"), null);
+  assert.equal(surfaceDefinitionFor("source_control").readOnly, true);
+  assert.equal(surfaceDefinitionFor("source_control").offline, true);
+  assert.equal(surfaceDefinitionFor("file").launcher, false);
+  assert.equal(surfaceDefinitionFor("file").command, false);
+  assert.equal(surfaceDefinitionFor("diff").defaultResourceId, "current");
+
   assert.deepEqual(RIGHT_PANEL_KINDS, [
     "preview",
     "diff",
@@ -347,8 +374,16 @@ export function runWorkbenchStateTests() {
   assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "app.reload"), true);
   assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "surface.files"), true);
   assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "surface.preview"), true);
+  assert.deepEqual(
+    WORKBENCH_COMMANDS.filter((item) => item.group === "surface" && item.surface)
+      .map((item) => item.id),
+    surfaceCommandDefinitions().map((item) => item.id),
+  );
   assert.equal(commandById("surface.preview").surface, "preview");
   assert.equal(commandById("surface.diff").surface, "diff");
+  assert.equal(commandById("surface.source_control").surface, "source_control");
+  assert.equal(commandById("surface.settings").surface, "settings");
+  assert.equal(commandById("surface.diagnostics").surface, "diagnostics");
   assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "workspace.open"), true);
   assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "workspace.refresh"), true);
   assert.equal(WORKBENCH_COMMANDS.some((item) => item.id === "workspace.remove_current"), true);

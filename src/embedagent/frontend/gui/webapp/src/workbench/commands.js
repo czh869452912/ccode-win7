@@ -1,4 +1,5 @@
 import { APP_COMMANDS } from "../app-shell/commands.js";
+import { surfaceCommandDefinitions } from "./surfaces.js";
 
 export const COMMAND_GROUPS = [
   "app",
@@ -24,11 +25,7 @@ export const WORKBENCH_COMMANDS = [
   { id: "mode.build", group: "mode", label: "Mode: Build", slash: "/mode build", visibleWhen: "has_session" },
   { id: "mode.debug", group: "mode", label: "Mode: Debug", slash: "/mode debug", visibleWhen: "has_session" },
   { id: "mode.verify", group: "mode", label: "Mode: Verify", slash: "/mode verify", visibleWhen: "has_session" },
-  { id: "surface.preview", group: "surface", label: "Open Preview", slash: "/preview", surface: "preview", visibleWhen: "always", keywords: ["browser", "localhost", "web"] },
-  { id: "surface.files", group: "surface", label: "Open Files", slash: "/workspace", surface: "files", visibleWhen: "always" },
-  { id: "surface.terminal", group: "surface", label: "Open Terminal", slash: "", surface: "terminal", visibleWhen: "has_session" },
-  { id: "surface.diff", group: "surface", label: "Open Diff", slash: "/diff", surface: "diff", visibleWhen: "always", keywords: ["git", "changes", "diff"] },
-  { id: "surface.plan", group: "surface", label: "Open Plan", slash: "/plan", surface: "plan", visibleWhen: "always" },
+  ...surfaceCommandDefinitions(),
   { id: "drawer.run_output", group: "surface", label: "Toggle Run Output", slash: "", drawer: "run_output", visibleWhen: "always" },
   { id: "drawer.terminal", group: "surface", label: "Open Terminal", slash: "", drawer: "terminal", visibleWhen: "has_session" },
   { id: "workspace.open", group: "workspace", label: "Open Workspace", slash: "", visibleWhen: "always", keywords: ["project", "folder"] },

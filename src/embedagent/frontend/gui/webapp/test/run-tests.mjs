@@ -896,7 +896,8 @@ async function main() {
   assert.equal(workbenchCommandControllerSource.includes('case "app.diagnostics"'), true);
   assert.equal(workbenchCommandControllerSource.includes('case "app.source_control"'), true);
   assert.equal(workbenchCommandControllerSource.includes('case "app.reload"'), true);
-  assert.equal(workbenchCommandControllerSource.includes('case "surface.preview"'), true);
+  assert.equal(workbenchCommandControllerSource.includes('case "surface.preview"'), false);
+  assert.equal(workbenchCommandControllerSource.includes("command.surface"), true);
   assert.equal(workbenchCommandControllerSource.includes("import React"), false);
   assert.equal(appSource.includes("getSourceControlStatus"), true);
   assert.equal(appSource.includes("loadSourceControlStatus"), true);
@@ -1109,13 +1110,11 @@ async function main() {
   assert.equal(rightPanelTabsSource.includes("onCloseSurfacesToRight"), true);
   assert.equal(rightPanelTabsSource.includes("onCloseAllSurfaces"), true);
   assert.equal(rightPanelTabsSource.includes("RIGHT_PANEL_SURFACES.map"), false);
-  assert.equal(rightPanelTabsSource.includes("file:"), true);
+  assert.equal(rightPanelTabsSource.includes("rightPanelLauncherSurfaceDefinitions"), true);
+  assert.equal(rightPanelTabsSource.includes("surfaceDefinitionFor"), true);
+  assert.equal(rightPanelTabsSource.includes("SURFACE_COPY"), false);
   assert.equal(rightPanelTabsSource.includes("right-panel-surface-tab--file"), true);
   assert.equal(rightPanelTabsSource.includes("right-panel-surface-tab--preview"), true);
-  assert.equal(rightPanelTabsSource.includes("source_control:"), true);
-  assert.equal(rightPanelTabsSource.includes("Source Control"), true);
-  assert.equal(rightPanelTabsSource.includes("Settings"), true);
-  assert.equal(rightPanelTabsSource.includes("Diagnostics"), true);
   assert.equal(rightPanelTabsSource.includes("todos"), false);
 
   const changedFilesCardSource = fs.readFileSync(

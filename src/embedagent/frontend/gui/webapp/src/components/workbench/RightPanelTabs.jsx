@@ -1,54 +1,10 @@
 import React from "react";
-import { RIGHT_PANEL_SURFACES, titleForSurfaceKind } from "../../workbench/surfaces.js";
+import {
+  rightPanelLauncherSurfaceDefinitions,
+  surfaceDefinitionFor,
+  titleForSurfaceKind,
+} from "../../workbench/surfaces.js";
 import FloatingMenu from "./FloatingMenu.jsx";
-
-const SURFACE_COPY = {
-  preview: {
-    icon: "B",
-    label: "Preview",
-    description: "Open a local browser preview.",
-  },
-  diff: {
-    icon: "D",
-    label: "Diff",
-    description: "Review local changes.",
-  },
-  files: {
-    icon: "F",
-    label: "Files",
-    description: "Browse workspace files.",
-  },
-  file: {
-    icon: "F",
-    label: "File",
-    description: "View a workspace file.",
-  },
-  terminal: {
-    icon: "T",
-    label: "Terminal",
-    description: "Use a shell in this workspace.",
-  },
-  plan: {
-    icon: "P",
-    label: "Plan",
-    description: "Inspect the current plan.",
-  },
-  source_control: {
-    icon: "S",
-    label: "Source Control",
-    description: "Review local Git status.",
-  },
-  settings: {
-    icon: "G",
-    label: "Settings",
-    description: "Adjust app-shell preferences.",
-  },
-  diagnostics: {
-    icon: "I",
-    label: "Diagnostics",
-    description: "Inspect app-shell health.",
-  },
-};
 
 const SURFACE_TAB_TEST_IDS = {
   preview: "right-panel-surface-tab--preview",
@@ -62,8 +18,8 @@ function surfaceTitle(surface) {
 }
 
 function SurfaceIcon({ kind }) {
-  const copy = SURFACE_COPY[kind] || { icon: "S" };
-  return <span className="right-panel-surface-icon" aria-hidden="true">{copy.icon}</span>;
+  const definition = surfaceDefinitionFor(kind);
+  return <span className="right-panel-surface-icon" aria-hidden="true">{definition?.icon || "S"}</span>;
 }
 
 function SurfaceTabMenu({
@@ -144,7 +100,7 @@ function SurfaceTabMenu({
 function SurfaceAddMenu({ onAddSurface }) {
   const [open, setOpen] = React.useState(false);
   const buttonRef = React.useRef(null);
-  const availableSurfaces = RIGHT_PANEL_SURFACES.slice();
+  const availableSurfaces = rightPanelLauncherSurfaceDefinitions();
   return (
     <span className="right-panel-add-menu">
       <button
@@ -164,20 +120,19 @@ function SurfaceAddMenu({ onAddSurface }) {
         onClose={() => setOpen(false)}
         className="right-panel-add-menu-popup"
       >
-        {availableSurfaces.map((kind) => {
-          const copy = SURFACE_COPY[kind];
+        {availableSurfaces.map((definition) => {
           return (
             <button
-              key={kind}
+              key={definition.kind}
               type="button"
               role="menuitem"
               onClick={() => {
                 setOpen(false);
-                onAddSurface(kind);
+                onAddSurface(definition.kind);
               }}
             >
-              <SurfaceIcon kind={kind} />
-              <span>{copy.label}</span>
+              <SurfaceIcon kind={definition.kind} />
+              <span>{definition.title}</span>
             </button>
           );
         })}
@@ -187,7 +142,7 @@ function SurfaceAddMenu({ onAddSurface }) {
 }
 
 function RightPanelEmptyState({ onAddSurface }) {
-  const availableSurfaces = RIGHT_PANEL_SURFACES.slice();
+  const availableSurfaces = rightPanelLauncherSurfaceDefinitions();
   return (
     <div className="right-panel-empty-state" data-testid="right-panel-empty-state">
       <div className="right-panel-empty-copy">
@@ -195,19 +150,18 @@ function RightPanelEmptyState({ onAddSurface }) {
         <p>Choose what to show in the right panel.</p>
       </div>
       <div className="right-panel-empty-grid">
-        {availableSurfaces.map((kind) => {
-          const copy = SURFACE_COPY[kind];
+        {availableSurfaces.map((definition) => {
           return (
             <button
-              key={kind}
+              key={definition.kind}
               type="button"
               className="right-panel-empty-card"
-              onClick={() => onAddSurface(kind)}
-              data-testid={`right-panel-empty-surface--${kind}`}
+              onClick={() => onAddSurface(definition.kind)}
+              data-testid={`right-panel-empty-surface--${definition.kind}`}
             >
-              <SurfaceIcon kind={kind} />
-              <span>{copy.label}</span>
-              <small>{copy.description}</small>
+              <SurfaceIcon kind={definition.kind} />
+              <span>{definition.title}</span>
+              <small>{definition.description}</small>
             </button>
           );
         })}

@@ -1,4 +1,5 @@
 import React from "react";
+import { surfaceDefinitionFor } from "../../workbench/surfaces.js";
 import Inspector from "../Inspector.jsx";
 import FilePreviewSurface from "./FilePreviewSurface.jsx";
 import FilesSurface from "./FilesSurface.jsx";
@@ -7,9 +8,8 @@ import TerminalShell from "./TerminalShell.jsx";
 
 function inspectorKindForSurface(surface) {
   if (!surface) return "";
-  if (surface.kind === "diff") return "diff";
-  if (surface.kind === "plan") return "plan";
-  return surface.kind;
+  const definition = surfaceDefinitionFor(surface.kind);
+  return definition?.inspectorKind || surface.kind;
 }
 
 export default function RightPanelSurfaceBody({

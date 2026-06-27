@@ -3,6 +3,8 @@ import {
   DEFAULT_SESSION_KEY,
   RIGHT_PANEL_KINDS,
   createWorkbenchState,
+  surfaceDefinitionFor,
+  titleForSurfaceKind,
 } from "./surfaces.js";
 
 export const WORKBENCH_UI_STATE_KEY = "embedagent:workbench-ui-state:v1";
@@ -41,20 +43,7 @@ function titleFor(kind, title, resourceId) {
     const parts = normalizeFilePath(resourceId).split("/");
     return parts[parts.length - 1] || "File";
   }
-  switch (kind) {
-    case "diff":
-      return "Diff";
-    case "preview":
-      return "Preview";
-    case "files":
-      return "Files";
-    case "terminal":
-      return "Terminal";
-    case "plan":
-      return "Plan";
-    default:
-      return kind;
-  }
+  return titleForSurfaceKind(kind);
 }
 
 function surfaceIdFor(placement, kind, resourceId) {
@@ -77,6 +66,7 @@ function sanitizeSurface(input, fallbackPlacement) {
   const allowed = placement === "bottom" ? BOTTOM_DRAWER_SURFACES : RIGHT_PANEL_KINDS;
   const kind = asString(source.kind);
   if (!allowed.includes(kind)) return null;
+  const definition = placement === "right" ? surfaceDefinitionFor(kind) : null;
 
   const filePath = kind === "file" ? normalizeFilePath(source.filePath || source.resourceId) : "";
   const resourceId =
@@ -110,10 +100,12 @@ function sanitizeSurface(input, fallbackPlacement) {
     revealRequestId,
   };
 
-  if (kind !== "terminal") return base;
+  if (kind !== "terminal") {
+    return definition ? pickSurfaceFields(base, definition.persistFields) : base;
+  }
   const normalizedTerminalIds = terminalIds.length > 0 ? terminalIds : [terminalId].filter(Boolean);
   const activeTerminalId = asString(source.activeTerminalId);
-  return {
+  const terminalSurface = {
     ...base,
     terminalIds: normalizedTerminalIds,
     activeTerminalId: normalizedTerminalIds.includes(activeTerminalId)
@@ -121,6 +113,18 @@ function sanitizeSurface(input, fallbackPlacement) {
       : normalizedTerminalIds[0] || terminalId,
     ...(source.splitDirection === "vertical" ? { splitDirection: "vertical" } : {}),
   };
+  if (!definition) return terminalSurface;
+  return pickSurfaceFields(terminalSurface, definition.persistFields);
+}
+
+function pickSurfaceFields(surface, fields) {
+  const result = {};
+  for (const field of fields || []) {
+    if (Object.prototype.hasOwnProperty.call(surface, field) && surface[field] !== undefined) {
+      result[field] = surface[field];
+    }
+  }
+  return result;
 }
 
 function sanitizeSurfaceList(items, placement) {

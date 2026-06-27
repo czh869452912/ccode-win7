@@ -15,6 +15,10 @@ import {
   activateTerminalPaneForWorkbench,
   closeTerminalPaneForWorkbench,
 } from "../src/workbench/surfaces.js";
+import {
+  parsePersistedWorkbenchUiState,
+  serializeWorkbenchUiState,
+} from "../src/workbench/ui-state.js";
 
 function surfaceIds(state) {
   return state.workbench
@@ -24,6 +28,10 @@ function surfaceIds(state) {
 
 function rightPanel(state) {
   return state.workbench ? state.workbench.rightPanel : state.rightPanel;
+}
+
+function serializedTextFor(value) {
+  return JSON.stringify(value);
 }
 
 export function runRightPanelStoreParityTests() {
@@ -137,4 +145,103 @@ export function runRightPanelStoreParityTests() {
   state = closeAllSurfaces(state, { placement: "right", sessionId: "thread-a" });
   assert.equal(rightPanel(state).open, false);
   assert.deepEqual(surfaceIds(state), []);
+
+  const dirtyState = createWorkbenchState();
+  const serialized = serializeWorkbenchUiState({
+    ...dirtyState,
+    activeSessionKey: "thread-dirty",
+    rightPanel: {
+      ...dirtyState.rightPanel,
+      surfaces: [
+        {
+          id: "right:file:src/main.c",
+          placement: "right",
+          kind: "file",
+          title: "main.c",
+          resourceId: "src/main.c",
+          filePath: "src/main.c",
+          content: "int api_key = 1;",
+          rawFileContent: "secret file body",
+          api_key: "sk-local",
+        },
+        {
+          id: "right:diff:current",
+          placement: "right",
+          kind: "diff",
+          title: "Diff",
+          resourceId: "current",
+          rawDiff: "--- secret diff",
+          focusedDiff: "token diff",
+          files: [{ path: "src/main.c", diff: "password diff" }],
+        },
+        {
+          id: "right:terminal:term-1",
+          placement: "right",
+          kind: "terminal",
+          title: "Terminal",
+          resourceId: "term-1",
+          terminalId: "term-1",
+          terminalIds: ["term-1"],
+          activeTerminalId: "term-1",
+          output: "TOKEN=abc",
+          scrollback: ["secret terminal output"],
+        },
+        {
+          id: "right:preview:preview-a",
+          placement: "right",
+          kind: "preview",
+          title: "Preview",
+          resourceId: "preview-a",
+          previewSnapshot: { html: "<main>raw html</main>", body: "secret preview body" },
+        },
+        {
+          id: "right:diagnostics",
+          placement: "right",
+          kind: "diagnostics",
+          title: "Diagnostics",
+          toolPayload: { raw: "secret tool data" },
+          permissionPayload: { token: "approval-secret" },
+          secret: "diagnostic secret",
+        },
+      ],
+      activeSurfaceId: "right:diagnostics",
+    },
+    surfacesBySession: {},
+  });
+  const persistedText = serializedTextFor(serialized);
+  for (const forbidden of [
+    "api_key",
+    "sk-local",
+    "secret file body",
+    "--- secret diff",
+    "password diff",
+    "TOKEN=abc",
+    "secret terminal output",
+    "raw html",
+    "secret preview body",
+    "secret tool data",
+    "approval-secret",
+    "diagnostic secret",
+  ]) {
+    assert.equal(persistedText.includes(forbidden), false);
+  }
+  const restored = parsePersistedWorkbenchUiState(serialized);
+  const restoredText = serializedTextFor(restored);
+  for (const forbidden of [
+    "\"rawDiff\":",
+    "\"focusedDiff\":",
+    "\"diffScopes\":",
+    "\"output\":",
+    "\"scrollback\":",
+    "\"previewSnapshot\":",
+    "\"toolPayload\":",
+    "\"permissionPayload\":",
+    "\"secret\":",
+  ]) {
+    assert.equal(restoredText.includes(forbidden), false);
+  }
+  assert.deepEqual(
+    restored.surfacesBySession["thread-dirty"].right.map((surface) => surface.kind),
+    ["file", "diff", "terminal", "preview", "diagnostics"],
+  );
 }

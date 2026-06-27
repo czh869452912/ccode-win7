@@ -1,24 +1,9 @@
+import { surfaceDefinitionFor, titleForSurfaceKind } from "../workbench/surfaces.js";
+
 export function rightPanelSurfaceTitle(kind, fallback = "") {
   const label = String(fallback || "").replace(/^Open\s+/i, "").trim();
   if (label) return label;
-  switch (kind) {
-    case "diff":
-      return "Diff";
-    case "files":
-      return "Files";
-    case "terminal":
-      return "Terminal";
-    case "plan":
-      return "Plan";
-    case "source_control":
-      return "Source Control";
-    case "settings":
-      return "Settings";
-    case "diagnostics":
-      return "Diagnostics";
-    default:
-      return String(kind || "");
-  }
+  return titleForSurfaceKind(kind);
 }
 
 export function normalizeFileSurfacePath(path) {
@@ -48,7 +33,7 @@ export function createRightPanelController({
       placement: "right",
       kind: surfaceKind,
       title: rightPanelSurfaceTitle(surfaceKind, title),
-      resourceId: surfaceKind === "diff" ? "current" : "",
+      resourceId: surfaceDefinitionFor(surfaceKind)?.defaultResourceId || "",
     });
     dispatch({ type: "set_inspector", value: surfaceKind });
   }

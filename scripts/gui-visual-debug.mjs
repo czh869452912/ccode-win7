@@ -891,6 +891,7 @@ async function runFileScenario(page) {
 }
 
 async function runTerminalScenario(page) {
+  const paneSelector = '[data-testid^="terminal-shell-pane--"]';
   await page.waitForSelector('[data-testid="new-session-btn"]', { timeout: 10000 });
   if (await page.locator(".thread-card.selected").count() === 0) {
     await page.click('[data-testid="new-session-btn"]');
@@ -899,24 +900,25 @@ async function runTerminalScenario(page) {
   await page.waitForSelector('[data-testid="right-panel-empty-surface--terminal"]', { timeout: 10000 });
   await page.click('[data-testid="right-panel-empty-surface--terminal"]');
   await page.waitForSelector('[data-testid="right-panel-terminal-surface"]', { timeout: 15000 });
-  await page.waitForSelector('[data-testid^="right-panel-terminal-pane--"]', { timeout: 15000 });
+  await page.waitForSelector(paneSelector, { timeout: 15000 });
   await page.click('[data-testid="right-panel-terminal-surface"] button[title="Split terminal horizontally"]');
   try {
-    await page.waitForFunction(() => {
-      return document.querySelectorAll('[data-testid^="right-panel-terminal-pane--"]').length >= 2;
-    }, null, { timeout: 15000 });
+    await page.waitForFunction((selector) => {
+      return document.querySelectorAll(selector).length >= 2;
+    }, paneSelector, { timeout: 15000 });
   } catch (error) {
-    const details = await page.evaluate(() => ({
-      paneIds: Array.from(document.querySelectorAll('[data-testid^="right-panel-terminal-pane--"]')).map((element) => element.getAttribute("data-testid")),
+    const details = await page.evaluate((selector) => ({
+      paneIds: Array.from(document.querySelectorAll(selector)).map((element) => element.getAttribute("data-testid")),
       surfaceText: document.querySelector('[data-testid="right-panel-terminal-surface"]')?.textContent || "",
       notice: document.querySelector(".interaction-notice")?.textContent || "",
       selectedThreadCount: document.querySelectorAll(".thread-card.selected").length,
-    }));
+    }), paneSelector);
     throw new Error(`Terminal split did not create a second pane: ${JSON.stringify(details)} (${error.message})`);
   }
   const activeTab = await page.locator('[data-testid="right-panel-surface-tab--terminal"] [role="tab"]').getAttribute("aria-selected");
-  const paneCount = await page.locator('[data-testid^="right-panel-terminal-pane--"]').count();
-  const splitDirection = await page.locator('[data-testid="right-panel-terminal-surface"]').getAttribute("data-split-direction");
+  const paneCount = await page.locator(paneSelector).count();
+  const splitClassName = await page.locator('[data-testid="terminal-shell-panes"]').getAttribute("class");
+  const splitDirection = String(splitClassName || "").includes("split-horizontal") ? "horizontal" : null;
   const noOverlap = await assertNoOverlap(page);
   if (activeTab !== "true") throw new Error("Terminal tab did not become active");
   if (paneCount < 2) throw new Error(`Expected split terminal panes, saw ${paneCount}`);

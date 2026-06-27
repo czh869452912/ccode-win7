@@ -11,6 +11,8 @@ function readSource(...parts) {
 
 export function runRightPanelTabsSourceTests() {
   const tabsSource = readSource("components", "workbench", "RightPanelTabs.jsx");
+  const commandsSource = readSource("workbench", "commands.js");
+  const surfacesSource = readSource("workbench", "surfaces.js");
   const floatingMenuSource = readSource("components", "workbench", "FloatingMenu.jsx");
   const cssSource = readSource("styles.css");
 
@@ -22,6 +24,16 @@ export function runRightPanelTabsSourceTests() {
   assert.equal(floatingMenuSource.includes("document.body"), true);
   assert.equal(floatingMenuSource.includes("Escape"), true);
   assert.equal(floatingMenuSource.includes("getBoundingClientRect"), true);
+  assert.equal(tabsSource.includes("SURFACE_COPY"), false);
+  assert.equal(tabsSource.includes("rightPanelLauncherSurfaceDefinitions"), true);
+  assert.equal(tabsSource.includes("surfaceDefinitionFor"), true);
+  assert.equal(tabsSource.includes("RIGHT_PANEL_SURFACES"), false);
+  assert.equal(commandsSource.includes("surfaceCommandDefinitions"), true);
+  assert.equal(commandsSource.includes('id: "surface.preview"'), false);
+  assert.equal(commandsSource.includes('id: "surface.diff"'), false);
+  assert.equal(surfacesSource.includes("RIGHT_PANEL_SURFACE_REGISTRY"), true);
+  assert.equal(surfacesSource.includes("persistFields"), true);
+  assert.equal(surfacesSource.includes("closeBehavior"), true);
 
   const tabScrollRule = /\.right-panel-tab-scroll\s*\{[\s\S]*?\}/.exec(cssSource)?.[0] || "";
   assert.equal(tabScrollRule.includes("overflow-y: hidden"), true);

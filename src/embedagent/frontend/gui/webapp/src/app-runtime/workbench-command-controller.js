@@ -58,9 +58,6 @@ export function createWorkbenchCommandController({
       case "app.source_control":
         openRightPanelSurface("source_control", command.label);
         return;
-      case "surface.preview":
-        openRightPanelSurface("preview", command.label);
-        return;
       case "message.send":
         await sendMessage();
         return;

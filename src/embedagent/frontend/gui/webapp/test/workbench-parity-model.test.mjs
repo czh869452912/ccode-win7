@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 
 import { initialState, reducer } from "../src/store.js";
+import { surfaceCommandDefinitions } from "../src/workbench/surfaces.js";
 import { buildWorkbenchParityModel } from "../src/workbench/workbench-parity-model.js";
 
 function clone(value) {
@@ -55,11 +56,7 @@ export function runWorkbenchParityModelTests() {
   assert.equal(desktopModel.composer.mode, "command-ready");
   assert.equal(desktopModel.timeline.density, "compact");
   assert.deepEqual(desktopModel.commandPalette.availableSurfaceCommands, [
-    "surface.preview",
-    "surface.files",
-    "surface.terminal",
-    "surface.diff",
-    "surface.plan",
+    ...surfaceCommandDefinitions().map((command) => command.id),
     "drawer.run_output",
     "drawer.terminal",
   ]);

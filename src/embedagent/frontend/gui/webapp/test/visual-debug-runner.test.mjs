@@ -92,6 +92,9 @@ export async function runVisualDebugRunnerTests() {
   assert.equal(runnerSource.includes("Preview unavailable"), true);
   assert.equal(runnerSource.includes("runTerminalScenario"), true);
   assert.equal(runnerSource.includes("right-panel-terminal-surface"), true);
+  assert.equal(runnerSource.includes("terminal-shell-pane--"), true);
+  assert.equal(runnerSource.includes("right-panel-terminal-pane--"), false);
+  assert.equal(runnerSource.includes("terminal-shell-panes"), true);
   assert.equal(runnerSource.includes("right-panel-tab--diff"), false);
   assert.equal(runnerSource.includes("runTimelineScenario"), true);
   assert.equal(runnerSource.includes("runInteractionScenario"), true);
