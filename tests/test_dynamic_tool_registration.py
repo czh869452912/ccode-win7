@@ -178,6 +178,28 @@ def test_builtin_write_tools_declare_read_model_invalidations(tmp_path):
     assert entry["read_model_invalidations"] == ["workspace_files", "tasks", "artifacts"]
 
 
+def test_register_tool_rejects_invalid_read_model_invalidation_shape(tmp_path):
+    runtime = ToolRuntime(str(tmp_path))
+    tool = make_minimal_dynamic_tool()
+    tool.metadata["read_model_invalidations"] = "workspace_files"
+
+    with pytest.raises(ValueError) as exc:
+        runtime.register_tool(tool, source_id="minimal.extension", source_type="extension")
+
+    assert "read_model_invalidations" in str(exc.value)
+
+
+def test_register_tool_rejects_unknown_read_model_invalidation(tmp_path):
+    runtime = ToolRuntime(str(tmp_path))
+    tool = make_minimal_dynamic_tool()
+    tool.metadata["read_model_invalidations"] = ["workspace_files", "unknown_view"]
+
+    with pytest.raises(ValueError) as exc:
+        runtime.register_tool(tool, source_id="minimal.extension", source_type="extension")
+
+    assert "unknown_view" in str(exc.value)
+
+
 def test_tool_runtime_execution_reads_presentation_facets_internally():
     import inspect
 

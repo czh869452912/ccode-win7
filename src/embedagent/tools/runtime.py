@@ -29,6 +29,26 @@ from embedagent.tools._base import ToolContext, ToolDefinition, ToolError
 _VALID_TOOL_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 _REGISTERABLE_PERMISSION_CATEGORIES = OFFICIAL_PERMISSION_CATEGORIES
 _EXTENSION_REQUIRED_PERMISSION_METADATA = ("permission_category",)
+_READ_MODEL_INVALIDATIONS = frozenset(("workspace_files", "tasks", "artifacts"))
+
+
+def _normalize_read_model_invalidations(tool_name: str, value: Any) -> List[str]:
+    if value in (None, ""):
+        return []
+    if not isinstance(value, (list, tuple)):
+        raise ValueError("tool %s read_model_invalidations must be a list of strings" % tool_name)
+    result = []
+    for item in value:
+        text = str(item or "").strip()
+        if not text:
+            continue
+        if text not in _READ_MODEL_INVALIDATIONS:
+            raise ValueError(
+                "tool %s has unsupported read_model_invalidations value: %s" % (tool_name, text)
+            )
+        if text not in result:
+            result.append(text)
+    return result
 
 
 @dataclass
@@ -449,6 +469,10 @@ class ToolRuntime(object):
                 "tool %s has unsupported permission category: %s"
                 % (tool.name, category or "<empty>")
             )
+        metadata["read_model_invalidations"] = _normalize_read_model_invalidations(
+            tool.name,
+            metadata.get("read_model_invalidations"),
+        )
         return metadata
 
     def _catalog_entry_for_tool(
