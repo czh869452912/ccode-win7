@@ -111,24 +111,6 @@ def register_session_routes(app: Any, backend: Any) -> None:
     @app.post("/api/sessions/{session_id}/interactions/{interaction_id}/respond")
     async def respond_to_interaction(session_id: str, interaction_id: str, request: Dict[str, Any]):
         backend._current_session_id = session_id
-        if backend.frontend.resolve_interaction_response(interaction_id, request):
-            if bool(request.get("decision")) and bool(request.get("remember")):
-                category = str(request.get("category") or "").strip()
-                if category:
-                    core = backend._require_core()
-                    remember_method = getattr(core, "remember_permission_category", None)
-                    if callable(remember_method):
-                        backend._call_core(remember_method, session_id, category)
-            snapshot = backend._wait_for_interaction_resolution(session_id, interaction_id)
-            backend.frontend._emit_interaction_resolved_event(session_id, interaction_id, request)
-            return serialize_interaction_response(
-                {
-                    "session_id": session_id,
-                    "interaction_id": interaction_id,
-                    "status": "resolved",
-                    "snapshot": snapshot,
-                }
-            )
         core = backend._require_core()
         response = backend._call_core(
             core.respond_to_interaction, session_id, interaction_id, request
@@ -139,7 +121,6 @@ def register_session_routes(app: Any, backend: Any) -> None:
                 remember_method = getattr(core, "remember_permission_category", None)
                 if callable(remember_method):
                     backend._call_core(remember_method, session_id, category)
-        backend.frontend._emit_interaction_resolved_event(session_id, interaction_id, request)
         return serialize_interaction_response(response)
 
     @app.get("/api/workspace")

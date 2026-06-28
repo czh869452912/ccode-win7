@@ -437,21 +437,6 @@ class WebSocketFrontend(FrontendCallbacks):
         session_id = str(payload.get("session_id") or "")
         self._dispatch_message(self._session_event_message(session_id, event_name, dict(payload)))
 
-    def _emit_interaction_resolved_event(
-        self, session_id: str, interaction_id: str, request: Dict[str, Any]
-    ) -> None:
-        payload = {
-            "session_id": session_id,
-            "interaction_id": interaction_id,
-            "kind": str(request.get("kind") or ""),
-            "decision": request.get("decision"),
-            "answer": str(request.get("answer") or ""),
-            "selected_option_text": str(request.get("selected_option_text") or ""),
-        }
-        self._dispatch_message(
-            self._session_event_message(session_id, "interaction_resolved", payload)
-        )
-
     # ============ 处理前端响应 ============
 
     def handle_permission_response(self, permission_id: str, approved: bool):
@@ -469,14 +454,6 @@ class WebSocketFrontend(FrontendCallbacks):
             waiter = self._pending_inputs.get(request_id)
         if waiter is not None:
             waiter.resolve(dict(payload))
-            return True
-        return False
-
-    def resolve_interaction_response(self, interaction_id: str, payload: Dict[str, Any]) -> bool:
-        decision = bool((payload or {}).get("decision", False))
-        if self.handle_permission_response(interaction_id, decision):
-            return True
-        if self.handle_user_input_response(interaction_id, dict(payload or {})):
             return True
         return False
 

@@ -391,7 +391,7 @@ class TestGuiBackendApi(unittest.TestCase):
             )
         self.assertEqual(response["interaction_id"], "int-1")
 
-    def test_post_interaction_response_resolves_frontend_pending_input_before_core_fallback(self):
+    def test_post_interaction_response_routes_frontend_pending_input_through_core(self):
         from embedagent.frontend.gui.backend.bridge import BlockingResult
 
         with tempfile.TemporaryDirectory() as static_dir:
@@ -421,11 +421,14 @@ class TestGuiBackendApi(unittest.TestCase):
                     },
                 )
             )
-        self.assertEqual(core.respond_calls, [])
+        self.assertEqual(len(core.respond_calls), 1)
+        self.assertEqual(core.respond_calls[0][0], "sess-1")
+        self.assertEqual(core.respond_calls[0][1], "int-1")
         self.assertEqual(response["interaction_id"], "int-1")
         self.assertEqual(response["status"], "resolved")
+        self.assertIn("int-1", backend.frontend._pending_inputs)
 
-    def test_post_interaction_response_resolves_frontend_pending_permission_before_core_fallback(
+    def test_post_interaction_response_routes_frontend_pending_permission_through_core(
         self,
     ):
         from embedagent.frontend.gui.backend.bridge import BlockingResult
@@ -456,13 +459,14 @@ class TestGuiBackendApi(unittest.TestCase):
                     },
                 )
             )
-        self.assertEqual(core.respond_calls, [])
+        self.assertEqual(len(core.respond_calls), 1)
+        self.assertEqual(core.respond_calls[0][0], "sess-1")
+        self.assertEqual(core.respond_calls[0][1], "perm-1")
         self.assertEqual(response["interaction_id"], "perm-1")
         self.assertEqual(response["status"], "resolved")
+        self.assertIn("perm-1", backend.frontend._pending_permissions)
 
     def test_post_interaction_response_emits_backend_owned_resolved_event(self):
-        from embedagent.frontend.gui.backend.bridge import BlockingResult
-
         with tempfile.TemporaryDirectory() as static_dir:
             with open(os.path.join(static_dir, "index.html"), "w", encoding="utf-8") as handle:
                 handle.write("<html><body>ok</body></html>")
@@ -480,7 +484,6 @@ class TestGuiBackendApi(unittest.TestCase):
                 },
             )()
             backend.frontend.broadcast = lambda message: messages.append(message)
-            backend.frontend._pending_inputs["int-1"] = BlockingResult(None)
             route = None
             for item in backend.app.routes:
                 if getattr(
@@ -510,16 +513,7 @@ class TestGuiBackendApi(unittest.TestCase):
             if message.get("type") == "session_event"
             and message.get("data", {}).get("event_kind") == "interaction.resolved"
         ]
-        self.assertEqual(len(resolved_events), 1)
-        event = resolved_events[0]["data"]
-        self.assertEqual(event["session_id"], "sess-1")
-        self.assertGreater(event["seq"], 0)
-        self.assertTrue(event["event_id"])
-        self.assertTrue(event["created_at"])
-        self.assertEqual(event["payload"]["interaction_id"], "int-1")
-        self.assertEqual(event["payload"]["kind"], "user_input")
-        self.assertEqual(event["payload"]["answer"], "continue")
-        self.assertEqual(event["payload"]["selected_option_text"], "Continue")
+        self.assertEqual(resolved_events, [])
 
     def test_session_events_route_is_not_registered(self):
         with tempfile.TemporaryDirectory() as static_dir:

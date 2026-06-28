@@ -510,6 +510,27 @@ def test_gui_raw_interaction_requests_do_not_synthesize_activity_records():
     assert offenders == []
 
 
+def test_gui_interaction_responses_route_through_core_lifecycle():
+    files = [
+        ROOT / "src/embedagent/frontend/gui/backend/routes_sessions.py",
+        ROOT / "src/embedagent/frontend/gui/backend/server.py",
+        ROOT / "src/embedagent/frontend/gui/backend/session_events.py",
+    ]
+    forbidden = (
+        "resolve_interaction_response",
+        "_emit_interaction_resolved_event",
+        "interaction_resolved",
+        '"interaction.resolved"',
+    )
+    offenders = []
+    for path in files:
+        text = _read(path)
+        for token in forbidden:
+            if token in text:
+                offenders.append("%s contains %s" % (_relative(path), token))
+    assert offenders == []
+
+
 def test_gui_runtime_state_does_not_reintroduce_removed_root_session_state():
     store_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/store.js")
     forbidden_root_state = (

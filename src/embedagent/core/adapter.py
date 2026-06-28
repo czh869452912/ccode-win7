@@ -462,8 +462,8 @@ class AgentCoreAdapter(CoreInterface):
                     text=text,
                     stream=True,
                     wait=True,
-                    permission_resolver=self._resolve_permission,
-                    user_input_resolver=self._resolve_user_input,
+                    permission_resolver=None,
+                    user_input_resolver=None,
                     event_handler=self._on_adapter_event,
                 )
             except (RuntimeError, ValueError, TypeError) as e:
@@ -474,16 +474,6 @@ class AgentCoreAdapter(CoreInterface):
 
         thread = threading.Thread(target=run, daemon=True)
         thread.start()
-
-    def _resolve_permission(self, payload: Dict[str, Any]) -> bool:
-        if self._callback_bridge is None:
-            return False
-        return self._callback_bridge.request_permission(payload)
-
-    def _resolve_user_input(self, payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        if self._callback_bridge is None:
-            return None
-        return self._callback_bridge.request_user_input(payload)
 
     def cancel_session(self, session_id: str) -> None:
         self._adapter.cancel_session(session_id)

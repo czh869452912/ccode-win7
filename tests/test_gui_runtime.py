@@ -484,6 +484,20 @@ class TestAgentCoreAdapterApi(unittest.TestCase):
             reason="api",
         )
 
+    def test_submit_message_uses_core_owned_interaction_lifecycle(self):
+        from embedagent.core.adapter import AgentCoreAdapter
+
+        core = AgentCoreAdapter(workspace="D:\\workspace")
+        core._adapter = MagicMock()
+
+        core.submit_message("sess-1", "hello")
+
+        core._adapter.submit_user_message.assert_called_once()
+        kwargs = core._adapter.submit_user_message.call_args.kwargs
+        self.assertIsNone(kwargs["permission_resolver"])
+        self.assertIsNone(kwargs["user_input_resolver"])
+        self.assertEqual(kwargs["event_handler"], core._on_adapter_event)
+
     def test_snapshot_projection_drops_timeline_metadata_and_preserves_restore_diagnostics(self):
         from embedagent.core.adapter import AgentCoreAdapter
 

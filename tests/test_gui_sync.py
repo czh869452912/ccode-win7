@@ -20,7 +20,7 @@ from embedagent.tools import ToolRuntime
 
 @pytest.mark.gui
 class TestGuiSync(unittest.TestCase):
-    def test_gui_backend_route_resolves_real_pending_input_waiter(self):
+    def test_gui_backend_route_resolves_core_pending_input_interaction(self):
         import asyncio
 
         from test_inprocess_adapter_frontend_api import AskUserClient
@@ -51,10 +51,10 @@ class TestGuiSync(unittest.TestCase):
             deadline = time.time() + 3.0
             interaction_id = ""
             while time.time() < deadline:
-                with backend.frontend._pending_lock:
-                    pending_ids = list(backend.frontend._pending_inputs.keys())
-                if pending_ids:
-                    interaction_id = str(pending_ids[0] or "")
+                current_snapshot = core.get_session_snapshot(session_id)
+                pending = current_snapshot.pending_interaction or {}
+                if pending.get("kind") == "user_input":
+                    interaction_id = str(pending.get("interaction_id") or "")
                     break
                 time.sleep(0.02)
 
