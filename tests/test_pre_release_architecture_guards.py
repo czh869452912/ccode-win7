@@ -568,6 +568,40 @@ def test_gui_interaction_responses_route_through_core_lifecycle():
     assert offenders == []
 
 
+def test_gui_workspace_lifecycle_stays_in_workspace_controller():
+    app_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx")
+    controller_path = (
+        ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/workspace-controller.js"
+    )
+    controller_text = _read(controller_path)
+    forbidden_app_tokens = (
+        "async function loadAppBootstrap",
+        "async function loadActiveWorkspaceData",
+        "async function openWorkspace",
+        "async function activateWorkspace",
+        "async function removeWorkspace",
+        "canSwitchWorkspace",
+        "normalizeAppBootstrap",
+        '"/api/app/bootstrap"',
+        '"/api/app/workspaces"',
+    )
+    offenders = []
+    for token in forbidden_app_tokens:
+        if token in app_text:
+            offenders.append("App.jsx owns workspace lifecycle token %s" % token)
+    required_controller_tokens = (
+        "export function createWorkspaceController",
+        "normalizeAppBootstrap",
+        '"/api/app/bootstrap"',
+        '"/api/app/workspaces"',
+    )
+    for token in required_controller_tokens:
+        if token not in controller_text:
+            offenders.append("workspace-controller.js missing %s" % token)
+    assert "import React" not in controller_text
+    assert offenders == []
+
+
 def test_gui_runtime_state_does_not_reintroduce_removed_root_session_state():
     store_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/store.js")
     forbidden_root_state = (

@@ -33,6 +33,7 @@ import { runWorkbenchStateTests } from "./workbench-state.test.mjs";
 import { runWorkbenchUiStateTests } from "./workbench-ui-state.test.mjs";
 import { runAppShellModelTests } from "./app-shell-model.test.mjs";
 import { runAppWorkspaceTests } from "./app-workspaces.test.mjs";
+import { runWorkspaceControllerTests } from "./workspace-controller.test.mjs";
 import { runAppHomeModelTests } from "./app-home-model.test.mjs";
 import { runBranchToolbarModelTests } from "./branch-toolbar-model.test.mjs";
 import { runCommandPaletteModelTests } from "./command-palette-model.test.mjs";
@@ -1314,6 +1315,7 @@ async function main() {
   runRightPanelStoreParityTests();
   runAppShellModelTests();
   runAppWorkspaceTests();
+  await runWorkspaceControllerTests();
   runAppHomeModelTests();
   runBranchToolbarModelTests();
   runCommandPaletteModelTests();

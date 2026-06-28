@@ -18,8 +18,8 @@ import { createSessionTransportController } from "./app-runtime/session-transpor
 import { createTerminalController } from "./app-runtime/terminal-controller.js";
 import { createThreadLifecycleController } from "./app-runtime/thread-lifecycle-controller.js";
 import { createWorkbenchCommandController } from "./app-runtime/workbench-command-controller.js";
+import { createWorkspaceController } from "./app-runtime/workspace-controller.js";
 import { installVisualDebugFixtures } from "./app-runtime/visual-debug-fixtures.js";
-import { canSwitchWorkspace, normalizeAppBootstrap } from "./app-workspaces.js";
 import { LangContext } from "./LangContext.js";
 import { t } from "./strings.js";
 import {
@@ -250,30 +250,6 @@ function App() {
     return payload;
   }
 
-  async function loadAppBootstrap() {
-    const payload = await fetchJson("/api/app/bootstrap");
-    const bootstrap = normalizeAppBootstrap(payload || {});
-    dispatch({ type: "app_bootstrap_loaded", bootstrap });
-    if (bootstrap.hasActiveWorkspace) {
-      await loadActiveWorkspaceData("", true);
-    } else {
-      dispatch({ type: "source_control_reset" });
-    }
-    return bootstrap;
-  }
-
-  async function loadActiveWorkspaceData(sessionId = currentSessionId, assumeWorkspace = state.app.hasActiveWorkspace) {
-    await Promise.all([
-      loadSessions(),
-      loadArtifacts(),
-      loadTasks(sessionId || ""),
-      loadFileChildren("."),
-      loadToolCatalog(),
-      loadWorkspaceRecipes(),
-      loadSourceControlStatus(false, assumeWorkspace),
-    ]);
-  }
-
   async function loadSourceControlStatus(refresh = false, assumeWorkspace = state.app.hasActiveWorkspace) {
     if (!assumeWorkspace) {
       dispatch({ type: "source_control_reset" });
@@ -315,77 +291,6 @@ function App() {
       }
     } catch (error) {
       dispatch({ type: "source_control_diff_failed", error: error.message || "Diff unavailable" });
-    }
-  }
-
-  function workspaceErrorFrom(error) {
-    return String(error?.detail || error?.message || "workspace_open_failed");
-  }
-
-  async function openWorkspace(path) {
-    const targetPath = String(path || state.app.workspacePathInput || "").trim();
-    if (!targetPath) {
-      dispatch({ type: "workspace_activation_failed", error: "workspace_path_required" });
-      return;
-    }
-    const switchState = canSwitchWorkspace(state);
-    if (!switchState.allowed) {
-      dispatch({ type: "workspace_activation_failed", error: switchState.reason });
-      return;
-    }
-    dispatch({ type: "workspace_activation_started" });
-    try {
-      const payload = await fetchJson("/api/app/workspaces", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ path: targetPath }),
-      });
-      const bootstrap = normalizeAppBootstrap(payload || {});
-      dispatch({ type: "workspace_switched", bootstrap });
-      if (bootstrap.hasActiveWorkspace) {
-        await loadActiveWorkspaceData("", true);
-      } else {
-        dispatch({ type: "source_control_reset" });
-      }
-    } catch (error) {
-      dispatch({ type: "workspace_activation_failed", error: workspaceErrorFrom(error) });
-    }
-  }
-
-  async function activateWorkspace(workspaceId) {
-    const switchState = canSwitchWorkspace(state);
-    if (!switchState.allowed) {
-      dispatch({ type: "workspace_activation_failed", error: switchState.reason });
-      return;
-    }
-    dispatch({ type: "workspace_activation_started" });
-    try {
-      const payload = await fetchJson(
-        `/api/app/workspaces/${encodeURIComponent(workspaceId)}/activate`,
-        { method: "POST" },
-      );
-      const bootstrap = normalizeAppBootstrap(payload || {});
-      dispatch({ type: "workspace_switched", bootstrap });
-      if (bootstrap.hasActiveWorkspace) {
-        await loadActiveWorkspaceData("", true);
-      } else {
-        dispatch({ type: "source_control_reset" });
-      }
-    } catch (error) {
-      dispatch({ type: "workspace_activation_failed", error: workspaceErrorFrom(error) });
-    }
-  }
-
-  async function removeWorkspace(workspaceId) {
-    const payload = await fetchJson(`/api/app/workspaces/${encodeURIComponent(workspaceId)}`, {
-      method: "DELETE",
-    });
-    const bootstrap = normalizeAppBootstrap(payload || {});
-    dispatch({ type: "workspace_switched", bootstrap });
-    if (bootstrap.hasActiveWorkspace) {
-      await loadActiveWorkspaceData("", true);
-    } else {
-      dispatch({ type: "source_control_reset" });
     }
   }
 
@@ -560,6 +465,35 @@ function App() {
       currentMode: state.requestedMode || DEFAULT_MODE,
     });
   }, [runtimeState.timelineItems, state.requestedMode]);
+
+  const workspaceController = useMemo(
+    () =>
+      createWorkspaceController({
+        fetchJson,
+        dispatch,
+        getState: () => stateRef.current,
+        getCurrentSessionId: () => readActiveThreadId(stateRef.current),
+        loadWorkspaceData: async (sessionId, assumeWorkspace) => {
+          await Promise.all([
+            loadSessions(),
+            loadArtifacts(),
+            loadTasks(sessionId || ""),
+            loadFileChildren("."),
+            loadToolCatalog(),
+            loadWorkspaceRecipes(),
+            loadSourceControlStatus(false, assumeWorkspace),
+          ]);
+        },
+      }),
+    [],
+  );
+  const {
+    activateWorkspace,
+    loadActiveWorkspaceData,
+    loadAppBootstrap,
+    openWorkspace,
+    removeWorkspace,
+  } = workspaceController;
 
   const sessionController = useMemo(
     () =>
