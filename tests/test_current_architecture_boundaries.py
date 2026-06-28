@@ -177,6 +177,12 @@ class TestQueryEngineBoundaries(object):
         assert hasattr(QueryEngine, "submit_user_turn")
         assert callable(QueryEngine.submit_user_turn)
 
+    def test_workflow_prompt_assembly_lives_outside_query_engine(self):
+        from embedagent.query_engine import QueryEngine
+
+        assert not hasattr(QueryEngine, "_append_workflow_prompt_messages")
+        assert not hasattr(QueryEngine, "_should_inject_workflow_prompt")
+
 
 class TestModesBoundaries(object):
     """Verify current modes module boundaries."""

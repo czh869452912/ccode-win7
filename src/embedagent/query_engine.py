@@ -719,9 +719,6 @@ class QueryEngine(object):
                     },
                 )
 
-    def _should_inject_workflow_prompt(self, user_text: str, current_mode: str) -> bool:
-        return self.extension_host.should_inject_workflow(user_text, current_mode)
-
     def _tool_permission_category(self, tool_name: str) -> str:
         lookup = getattr(self.tools, "tool_catalog_entry", None)
         if not callable(lookup):
@@ -757,20 +754,6 @@ class QueryEngine(object):
     ) -> None:
         self.extension_host.register_tools(session, current_mode, workflow_state, reason=reason)
 
-    def _append_workflow_prompt_messages(self, session: Session, workflow_prompt: Any) -> None:
-        def append_event(message: Any) -> None:
-            self._append_message_event(
-                session,
-                self._prompt_assembly.message_event_payload(message),
-            )
-
-        self._prompt_assembly.append_workflow_prompt_messages(
-            workflow_prompt,
-            session.messages,
-            session.add_system_message,
-            on_message=append_event,
-        )
-
     def _build_system_prompt(self, mode_name: str) -> str:
         resources = {}
         local_resources = getattr(self.tools, "local_resources", None)
@@ -793,16 +776,17 @@ class QueryEngine(object):
             workflow_state,
             reason="session_start",
         )
-        if self._should_inject_workflow_prompt(user_text, current_mode):
-            workflow_prompt = self.extension_host.describe_prompt(
-                current_mode, workflow_state=workflow_state, session=session
-            )
-        else:
-            workflow_prompt = None
         if session.messages:
             self._ensure_transcript_bootstrap(session, current_mode)
             with self._session_guard():
-                self._append_workflow_prompt_messages(session, workflow_prompt)
+                self._prompt_assembly.append_described_workflow_prompt(
+                    self.extension_host,
+                    session,
+                    current_mode,
+                    workflow_state,
+                    lambda payload: self._append_message_event(session, payload),
+                    user_text=user_text,
+                )
             return current_mode
         with self._session_guard():
             profile_message = session.add_system_message(
@@ -833,19 +817,20 @@ class QueryEngine(object):
                         "replaced_by_refs": list(message.replaced_by_refs),
                     },
                 )
-            self._append_workflow_prompt_messages(session, workflow_prompt)
+            self._prompt_assembly.append_described_workflow_prompt(
+                self.extension_host,
+                session,
+                current_mode,
+                workflow_state,
+                lambda payload: self._append_message_event(session, payload),
+                user_text=user_text,
+            )
         return current_mode
 
     def apply_mode(
         self, session: Session, next_mode: str, workflow_state: str = "chat", user_text: str = ""
     ) -> str:
         current_mode = require_mode(next_mode)["slug"]
-        if self._should_inject_workflow_prompt(user_text, current_mode):
-            workflow_prompt = self.extension_host.describe_prompt(
-                current_mode, workflow_state=workflow_state, session=session
-            )
-        else:
-            workflow_prompt = None
         with self._session_guard():
             mode_message = session.add_system_message(self._build_system_prompt(current_mode))
             self._append_message_event(
@@ -862,7 +847,14 @@ class QueryEngine(object):
                     "replaced_by_refs": list(mode_message.replaced_by_refs),
                 },
             )
-            self._append_workflow_prompt_messages(session, workflow_prompt)
+            self._prompt_assembly.append_described_workflow_prompt(
+                self.extension_host,
+                session,
+                current_mode,
+                workflow_state,
+                lambda payload: self._append_message_event(session, payload),
+                user_text=user_text,
+            )
         return current_mode
 
     def _record_transition(self, session: Session, transition: LoopTransition) -> None:
@@ -1493,11 +1485,13 @@ class QueryEngine(object):
             session, resume_turn_id, current_mode, workflow_state, "resume"
         )
         with self._session_guard():
-            self._append_workflow_prompt_messages(
+            self._prompt_assembly.append_described_workflow_prompt(
+                self.extension_host,
                 session,
-                self.extension_host.describe_prompt(
-                    current_mode, workflow_state=workflow_state, session=session
-                ),
+                current_mode,
+                workflow_state,
+                lambda payload: self._append_message_event(session, payload),
+                force=True,
             )
         with self._session_guard():
             pending = session.pending_interaction
@@ -1699,11 +1693,13 @@ class QueryEngine(object):
                             "replaced_by_refs": list(mode_message.replaced_by_refs),
                         },
                     )
-                    self._append_workflow_prompt_messages(
+                    self._prompt_assembly.append_described_workflow_prompt(
+                        self.extension_host,
                         session,
-                        self.extension_host.describe_prompt(
-                            selected_mode, workflow_state=workflow_state, session=session
-                        ),
+                        selected_mode,
+                        workflow_state,
+                        lambda payload: self._append_message_event(session, payload),
+                        force=True,
                     )
         return (
             Observation(

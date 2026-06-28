@@ -50,6 +50,41 @@ class PromptAssemblyService(object):
                 on_message(workflow_message)
         return True
 
+    def append_for_session(
+        self,
+        workflow_prompt: Any,
+        session: Any,
+        append_message_event: Callable[[Dict[str, Any]], None],
+    ) -> bool:
+        def on_message(message: Any) -> None:
+            append_message_event(self.message_event_payload(message))
+
+        return self.append_workflow_prompt_messages(
+            workflow_prompt,
+            getattr(session, "messages", []),
+            session.add_system_message,
+            on_message=on_message,
+        )
+
+    def append_described_workflow_prompt(
+        self,
+        extension_host: Any,
+        session: Any,
+        current_mode: str,
+        workflow_state: str,
+        append_message_event: Callable[[Dict[str, Any]], None],
+        user_text: str = "",
+        force: bool = False,
+    ) -> bool:
+        if not force and not extension_host.should_inject_workflow(user_text, current_mode):
+            return False
+        workflow_prompt = extension_host.describe_prompt(
+            current_mode,
+            workflow_state=workflow_state,
+            session=session,
+        )
+        return self.append_for_session(workflow_prompt, session, append_message_event)
+
     def message_event_payload(self, message: Any) -> Dict[str, Any]:
         return {
             "role": message.role,

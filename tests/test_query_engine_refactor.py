@@ -3602,7 +3602,9 @@ class TestQueryEngineRefactor(unittest.TestCase):
         )
         waiting = adapter.get_session_snapshot(session_id)
         self.assertEqual(waiting["status"], "waiting_user_input")
-        request_id = str((waiting.get("pending_user_input") or {}).get("request_id") or "")
+        pending_interaction = waiting.get("pending_interaction") or {}
+        self.assertEqual(pending_interaction.get("kind"), "user_input")
+        request_id = str(pending_interaction.get("interaction_id") or "")
         adapter.reply_user_input(
             session_id=session_id,
             request_id=request_id,
@@ -3632,7 +3634,9 @@ class TestQueryEngineRefactor(unittest.TestCase):
         )
         waiting = adapter.get_session_snapshot(session_id)
         self.assertEqual(waiting["status"], "waiting_permission")
-        permission_id = str((waiting.get("pending_permission") or {}).get("permission_id") or "")
+        pending_interaction = waiting.get("pending_interaction") or {}
+        self.assertEqual(pending_interaction.get("kind"), "permission")
+        permission_id = str(pending_interaction.get("interaction_id") or "")
         adapter.approve_permission(session_id, permission_id)
         final_snapshot = adapter.get_session_snapshot(session_id)
         self.assertEqual(final_snapshot["status"], "idle")
