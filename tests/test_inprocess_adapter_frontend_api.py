@@ -1273,7 +1273,12 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         )
         restored = adapter.resume_session(session_id, "build")
         self.assertEqual(restored["status"], "waiting_permission")
-        self.assertTrue(restored["has_pending_permission"])
+        pending = restored.get("pending_interaction") or {}
+        self.assertTrue(restored["pending_interaction_valid"])
+        self.assertEqual(pending.get("kind"), "permission")
+        self.assertTrue(str(pending.get("interaction_id") or "").strip())
+        self.assertNotIn("has_pending_permission", restored)
+        self.assertNotIn("pending_permission", restored)
 
     def test_resume_session_exposes_restore_diagnostics_for_clean_replay(self):
         adapter = InProcessAdapter(
@@ -1732,7 +1737,9 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             if waiting.get("status") == "waiting_permission":
                 break
             time.sleep(0.05)
-        permission_id = str((waiting.get("pending_permission") or {}).get("permission_id") or "")
+        permission_id = str(
+            (waiting.get("pending_interaction") or {}).get("interaction_id") or ""
+        )
         try:
             self.assertEqual(waiting["status"], "waiting_permission")
             self.assertIn("pending_interaction", waiting)
@@ -1791,7 +1798,9 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             if waiting.get("status") == "waiting_permission":
                 break
             time.sleep(0.001)
-        permission_id = str((waiting.get("pending_permission") or {}).get("permission_id") or "")
+        permission_id = str(
+            (waiting.get("pending_interaction") or {}).get("interaction_id") or ""
+        )
         try:
             self.assertEqual(waiting["status"], "waiting_permission")
             for _ in range(20):
@@ -1820,7 +1829,6 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             {
                 "status": "idle",
                 "pending_interaction_valid": False,
-                "has_pending_permission": False,
             },
         ]
         original_get_snapshot = adapter.get_session_snapshot
@@ -1833,7 +1841,6 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             return {
                 "status": "idle",
                 "pending_interaction_valid": False,
-                "has_pending_permission": False,
             }
 
         adapter.get_session_snapshot = fake_get_session_snapshot
@@ -2099,7 +2106,9 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             if waiting.get("status") == "waiting_permission":
                 break
             time.sleep(0.05)
-        permission_id = str((waiting.get("pending_permission") or {}).get("permission_id") or "")
+        pending = waiting.get("pending_interaction") or {}
+        self.assertEqual(pending.get("kind"), "permission")
+        permission_id = str(pending.get("interaction_id") or "")
         self.assertTrue(permission_id)
 
         resolved = adapter.approve_permission(session_id, permission_id)
@@ -2107,7 +2116,8 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         worker.join(3.0)
         self.assertEqual(resolved["status"], "idle")
         self.assertFalse(resolved["pending_interaction_valid"])
-        self.assertFalse(resolved["has_pending_permission"])
+        self.assertIsNone(resolved.get("pending_interaction"))
+        self.assertNotIn("has_pending_permission", resolved)
 
     def test_unknown_mode_create_session_raises(self):
         adapter = InProcessAdapter(

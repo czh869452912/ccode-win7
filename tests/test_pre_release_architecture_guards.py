@@ -273,6 +273,13 @@ def test_session_snapshot_contract_uses_single_pending_interaction_payload():
             "`pending_input`",
             "`pending_user_input`",
         ),
+        ROOT
+        / "tests/test_inprocess_adapter_frontend_api.py": (
+            'restored["has_pending_permission"]',
+            'resolved["has_pending_permission"]',
+            '(waiting.get("pending_permission")',
+            '"has_pending_permission": False',
+        ),
     }
     offenders = []
     for path, tokens in checked_files.items():
