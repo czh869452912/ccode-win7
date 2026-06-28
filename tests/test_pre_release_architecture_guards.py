@@ -193,6 +193,30 @@ def test_gui_backend_server_keeps_route_registration_delegated():
         assert helper in text
 
 
+def test_gui_backend_route_modules_do_not_import_server_helpers():
+    offenders = []
+    for path in sorted((ROOT / "src/embedagent/frontend/gui/backend").glob("routes_*.py")):
+        text = _read(path)
+        if "from embedagent.frontend.gui.backend.server import" in text:
+            offenders.append(_relative(path))
+    assert offenders == []
+
+    server_text = _read(ROOT / "src/embedagent/frontend/gui/backend/server.py")
+    forbidden_defs = (
+        "def _serialize_session_snapshot",
+        "def _serialize_session_summary",
+        "def _serialize_interaction_response",
+        "def _serialize_plan_snapshot",
+        "def _serialize_permission_context",
+        "def _thread_lifecycle_http_error",
+        "def _terminal_http_error",
+        "def _source_control_http_error",
+        "def _preview_http_error",
+    )
+    leaked_helpers = [name for name in forbidden_defs if name in server_text]
+    assert leaked_helpers == []
+
+
 def test_query_engine_does_not_own_extension_dispatch_boundary():
     text = _read(ROOT / "src/embedagent/query_engine.py")
     assert "AgentExtensionHost(" in text

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
-from embedagent.frontend.gui.backend.server import _terminal_http_error
+from embedagent.frontend.gui.backend.http_errors import terminal_http_error
 
 
 def register_terminal_routes(app: Any, backend: Any) -> None:
@@ -23,7 +23,7 @@ def register_terminal_routes(app: Any, backend: Any) -> None:
                 rows=int(request.get("rows") or 24),
             )
         except ValueError as exc:
-            raise _terminal_http_error(exc)
+            raise terminal_http_error(exc)
         return {"terminal": snapshot}
 
     @app.get("/api/sessions/{session_id}/terminals/{terminal_id}/snapshot")
@@ -32,7 +32,7 @@ def register_terminal_routes(app: Any, backend: Any) -> None:
         try:
             snapshot = terminal.snapshot(session_id, terminal_id)
         except ValueError as exc:
-            raise _terminal_http_error(exc)
+            raise terminal_http_error(exc)
         return {"terminal": snapshot}
 
     @app.post("/api/sessions/{session_id}/terminals/{terminal_id}/write")
@@ -41,7 +41,7 @@ def register_terminal_routes(app: Any, backend: Any) -> None:
         try:
             snapshot = terminal.write(session_id, terminal_id, str(request.get("data") or ""))
         except ValueError as exc:
-            raise _terminal_http_error(exc)
+            raise terminal_http_error(exc)
         return {"terminal": snapshot}
 
     @app.post("/api/sessions/{session_id}/terminals/{terminal_id}/clear")
@@ -50,7 +50,7 @@ def register_terminal_routes(app: Any, backend: Any) -> None:
         try:
             snapshot = terminal.clear(session_id, terminal_id)
         except ValueError as exc:
-            raise _terminal_http_error(exc)
+            raise terminal_http_error(exc)
         return {"terminal": snapshot}
 
     @app.post("/api/sessions/{session_id}/terminals/{terminal_id}/restart")
@@ -65,7 +65,7 @@ def register_terminal_routes(app: Any, backend: Any) -> None:
                 rows=int(request.get("rows") or 24),
             )
         except ValueError as exc:
-            raise _terminal_http_error(exc)
+            raise terminal_http_error(exc)
         return {"terminal": snapshot}
 
     @app.post("/api/sessions/{session_id}/terminals/{terminal_id}/resize")
@@ -79,7 +79,7 @@ def register_terminal_routes(app: Any, backend: Any) -> None:
                 rows=int(request.get("rows") or 24),
             )
         except ValueError as exc:
-            raise _terminal_http_error(exc)
+            raise terminal_http_error(exc)
         return {"terminal": snapshot}
 
     @app.post("/api/sessions/{session_id}/terminals/{terminal_id}/close")
@@ -88,5 +88,5 @@ def register_terminal_routes(app: Any, backend: Any) -> None:
         try:
             snapshot = terminal.close(session_id, terminal_id)
         except ValueError as exc:
-            raise _terminal_http_error(exc)
+            raise terminal_http_error(exc)
         return {"terminal": snapshot}

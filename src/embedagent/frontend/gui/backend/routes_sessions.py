@@ -4,14 +4,14 @@ from typing import Any, Dict
 
 from fastapi import HTTPException
 
-from embedagent.frontend.gui.backend.server import (
-    _read_value,
-    _serialize_interaction_response,
-    _serialize_permission_context,
-    _serialize_plan_snapshot,
-    _serialize_session_snapshot,
-    _serialize_session_summary,
-    _thread_lifecycle_http_error,
+from embedagent.frontend.gui.backend.http_errors import thread_lifecycle_http_error
+from embedagent.frontend.gui.backend.protocol_payloads import (
+    read_value,
+    serialize_interaction_response,
+    serialize_permission_context,
+    serialize_plan_snapshot,
+    serialize_session_snapshot,
+    serialize_session_summary,
 )
 from embedagent.modes import DEFAULT_MODE
 
@@ -26,32 +26,32 @@ def register_session_routes(app: Any, backend: Any) -> None:
     async def get_session_snapshot(session_id: str):
         core = backend._require_core()
         snapshot = backend._call_core(core.get_session_snapshot, session_id)
-        return _serialize_session_snapshot(snapshot)
+        return serialize_session_snapshot(snapshot)
 
     @app.get("/api/sessions/{session_id}/bootstrap")
     async def get_session_bootstrap(session_id: str):
         core = backend._require_core()
         payload = backend._call_core(core.get_session_bootstrap, session_id)
         return {
-            "snapshot": _serialize_session_snapshot(payload.get("snapshot")),
+            "snapshot": serialize_session_snapshot(payload.get("snapshot")),
             "history": dict(payload.get("history") or {}),
-            "plan": _serialize_plan_snapshot(payload.get("plan")),
-            "permission_context": _serialize_permission_context(payload.get("permission_context")),
+            "plan": serialize_plan_snapshot(payload.get("plan")),
+            "permission_context": serialize_permission_context(payload.get("permission_context")),
         }
 
     @app.post("/api/sessions")
     async def create_session(mode: str = DEFAULT_MODE):
         core = backend._require_core()
         snapshot = backend._call_core(core.create_session, mode)
-        backend._current_session_id = str(_read_value(snapshot, "session_id", "") or "")
-        return _serialize_session_snapshot(snapshot)
+        backend._current_session_id = str(read_value(snapshot, "session_id", "") or "")
+        return serialize_session_snapshot(snapshot)
 
     @app.post("/api/sessions/{session_id}/resume")
     async def resume_session(session_id: str, mode: str = ""):
         core = backend._require_core()
         snapshot = backend._call_core(core.resume_session, session_id, mode)
-        backend._current_session_id = str(_read_value(snapshot, "session_id", "") or "")
-        return _serialize_session_snapshot(snapshot)
+        backend._current_session_id = str(read_value(snapshot, "session_id", "") or "")
+        return serialize_session_snapshot(snapshot)
 
     @app.post("/api/sessions/{session_id}/rename")
     async def rename_session(session_id: str, request: Dict[str, Any]):
@@ -62,8 +62,8 @@ def register_session_routes(app: Any, backend: Any) -> None:
                 str(request.get("title") or ""),
             )
         except ValueError as exc:
-            raise _thread_lifecycle_http_error(exc)
-        return {"session": _serialize_session_summary(summary)}
+            raise thread_lifecycle_http_error(exc)
+        return {"session": serialize_session_summary(summary)}
 
     @app.post("/api/sessions/{session_id}/archive")
     async def archive_session(session_id: str):
@@ -71,8 +71,8 @@ def register_session_routes(app: Any, backend: Any) -> None:
         try:
             summary = core.archive_session(session_id)
         except ValueError as exc:
-            raise _thread_lifecycle_http_error(exc)
-        return {"session": _serialize_session_summary(summary)}
+            raise thread_lifecycle_http_error(exc)
+        return {"session": serialize_session_summary(summary)}
 
     @app.post("/api/sessions/{session_id}/fork")
     async def fork_session(session_id: str, request: Dict[str, Any]):
@@ -83,8 +83,8 @@ def register_session_routes(app: Any, backend: Any) -> None:
                 str(request.get("title") or ""),
             )
         except ValueError as exc:
-            raise _thread_lifecycle_http_error(exc)
-        payload = _serialize_session_summary(summary)
+            raise thread_lifecycle_http_error(exc)
+        payload = serialize_session_summary(summary)
         return {"session_id": payload["session_id"], "session": payload}
 
     @app.post("/api/sessions/{session_id}/message")
@@ -121,7 +121,7 @@ def register_session_routes(app: Any, backend: Any) -> None:
                         backend._call_core(remember_method, session_id, category)
             snapshot = backend._wait_for_interaction_resolution(session_id, interaction_id)
             backend.frontend._emit_interaction_resolved_event(session_id, interaction_id, request)
-            return _serialize_interaction_response(
+            return serialize_interaction_response(
                 {
                     "session_id": session_id,
                     "interaction_id": interaction_id,
@@ -140,7 +140,7 @@ def register_session_routes(app: Any, backend: Any) -> None:
                 if callable(remember_method):
                     backend._call_core(remember_method, session_id, category)
         backend.frontend._emit_interaction_resolved_event(session_id, interaction_id, request)
-        return _serialize_interaction_response(response)
+        return serialize_interaction_response(response)
 
     @app.get("/api/workspace")
     async def get_workspace():
@@ -168,13 +168,13 @@ def register_session_routes(app: Any, backend: Any) -> None:
         plan = backend._call_core(core.get_session_plan, session_id)
         if plan is None:
             return {"plan": None}
-        return {"plan": _serialize_plan_snapshot(plan)}
+        return {"plan": serialize_plan_snapshot(plan)}
 
     @app.get("/api/sessions/{session_id}/permissions")
     async def get_permission_context(session_id: str):
         core = backend._require_core()
         context = backend._call_core(core.get_permission_context, session_id)
-        return _serialize_permission_context(context)
+        return serialize_permission_context(context)
 
     @app.get("/api/files")
     async def list_workspace_tree(path: str = ".", max_depth: int = 3):

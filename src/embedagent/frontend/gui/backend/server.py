@@ -25,11 +25,16 @@ from embedagent.frontend.gui.backend.app_host import (
 )
 from embedagent.frontend.gui.backend.app_shell import AppShellService
 from embedagent.frontend.gui.backend.bridge import BlockingResult, ThreadsafeAsyncDispatcher
+from embedagent.frontend.gui.backend.http_errors import translate_value_error
 from embedagent.frontend.gui.backend.preview_service import PreviewService
+from embedagent.frontend.gui.backend.protocol_payloads import (
+    read_value,
+    serialize_session_snapshot,
+    to_mapping,
+)
 from embedagent.frontend.gui.backend.session_events import build_session_event
 from embedagent.frontend.gui.backend.source_control_service import SourceControlService
 from embedagent.frontend.gui.backend.terminal_service import TerminalService
-from embedagent.modes import DEFAULT_MODE
 from embedagent.protocol import (
     CommandResult,
     CoreInterface,
@@ -48,104 +53,6 @@ _LOGGER = logging.getLogger(__name__)
 
 def _utc_now() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
-
-
-def _to_mapping(value: Any) -> Optional[Dict[str, Any]]:
-    if value is None:
-        return None
-    if isinstance(value, dict):
-        return dict(value)
-    payload = getattr(value, "__dict__", None)
-    if isinstance(payload, dict):
-        return dict(payload)
-    return None
-
-
-def _read_value(payload: Any, key: str, default: Any = None, aliases: tuple = ()) -> Any:
-    if isinstance(payload, dict):
-        if key in payload:
-            return payload.get(key, default)
-        for alias in aliases:
-            if alias in payload:
-                return payload.get(alias, default)
-        return default
-    for name in (key,) + tuple(aliases):
-        if hasattr(payload, name):
-            return getattr(payload, name)
-    return default
-
-
-def _read_status_value(snapshot: Any) -> str:
-    status = _read_value(snapshot, "status", "")
-    return str(getattr(status, "value", status) or "")
-
-
-def _serialize_session_snapshot(snapshot: Any) -> Dict[str, Any]:
-    pending_permission = _to_mapping(_read_value(snapshot, "pending_permission"))
-    pending_input = _to_mapping(
-        _read_value(snapshot, "pending_input", None, aliases=("pending_user_input",))
-    )
-    pending_interaction = _to_mapping(_read_value(snapshot, "pending_interaction"))
-    runtime_environment = _to_mapping(_read_value(snapshot, "runtime_environment"))
-    has_pending_input = bool(
-        _read_value(snapshot, "has_pending_input", False, aliases=("has_pending_user_input",))
-    )
-    pending_interaction_valid = _read_value(snapshot, "pending_interaction_valid", None)
-    if pending_interaction_valid is None:
-        pending_interaction_valid = bool(pending_interaction or pending_permission or pending_input)
-    return {
-        "session_id": str(_read_value(snapshot, "session_id", "") or ""),
-        "status": _read_status_value(snapshot),
-        "current_mode": str(_read_value(snapshot, "current_mode", DEFAULT_MODE) or DEFAULT_MODE),
-        "started_at": str(_read_value(snapshot, "started_at", "", aliases=("created_at",)) or ""),
-        "updated_at": str(_read_value(snapshot, "updated_at", "") or ""),
-        "workflow_state": str(_read_value(snapshot, "workflow_state", "chat") or "chat"),
-        "has_active_plan": bool(_read_value(snapshot, "has_active_plan", False)),
-        "active_plan_ref": str(_read_value(snapshot, "active_plan_ref", "") or ""),
-        "current_command_context": str(_read_value(snapshot, "current_command_context", "") or ""),
-        "has_pending_permission": bool(_read_value(snapshot, "has_pending_permission", False)),
-        "has_pending_input": has_pending_input,
-        "pending_permission": pending_permission,
-        "pending_user_input": pending_input,
-        "pending_interaction": pending_interaction,
-        "last_error": _read_value(snapshot, "last_error"),
-        "runtime_source": str(_read_value(snapshot, "runtime_source", "") or ""),
-        "bundled_tools_ready": bool(_read_value(snapshot, "bundled_tools_ready", False)),
-        "fallback_warnings": list(_read_value(snapshot, "fallback_warnings", []) or []),
-        "runtime_environment": runtime_environment,
-        "compact_summary_text": str(_read_value(snapshot, "compact_summary_text", "") or ""),
-        "context_analysis": dict(_read_value(snapshot, "context_analysis", {}) or {}),
-        "compact_boundary_count": int(_read_value(snapshot, "compact_boundary_count", 0) or 0),
-        "workspace_intelligence": list(_read_value(snapshot, "workspace_intelligence", []) or []),
-        "context_pipeline_steps": list(_read_value(snapshot, "context_pipeline_steps", []) or []),
-        "last_transition_reason": str(_read_value(snapshot, "last_transition_reason", "") or ""),
-        "last_transition_message": str(_read_value(snapshot, "last_transition_message", "") or ""),
-        "last_transition_display_reason": str(
-            _read_value(snapshot, "last_transition_display_reason", "") or ""
-        ),
-        "recent_transition_reasons": list(
-            _read_value(snapshot, "recent_transition_reasons", []) or []
-        ),
-        "recent_transitions": list(_read_value(snapshot, "recent_transitions", []) or []),
-        "compact_retry_count": int(_read_value(snapshot, "compact_retry_count", 0) or 0),
-        "pending_interaction_valid": bool(pending_interaction_valid),
-        "restore_stop_reason": str(_read_value(snapshot, "restore_stop_reason", "") or ""),
-        "restore_consumed_event_count": int(
-            _read_value(snapshot, "restore_consumed_event_count", 0) or 0
-        ),
-        "restore_transcript_event_count": int(
-            _read_value(snapshot, "restore_transcript_event_count", 0) or 0
-        ),
-        "operation_diagnostics": dict(_read_value(snapshot, "operation_diagnostics", {}) or {}),
-        "runtime_config": dict(_read_value(snapshot, "runtime_config", {}) or {}),
-        "compaction_state": dict(_read_value(snapshot, "compaction_state", {}) or {}),
-        "recovery_state": dict(_read_value(snapshot, "recovery_state", {}) or {}),
-        "current_phase": str(_read_value(snapshot, "current_phase", "") or ""),
-        "discipline_profile": str(_read_value(snapshot, "discipline_profile", "") or ""),
-        "current_activity": str(_read_value(snapshot, "current_activity", "") or ""),
-        "task_summary": str(_read_value(snapshot, "task_summary", "") or ""),
-        "task_items": list(_read_value(snapshot, "task_items", []) or []),
-    }
 
 
 def _tool_presentation_payload(source: Any) -> Dict[str, Any]:
@@ -173,128 +80,6 @@ def _tool_presentation_payload(source: Any) -> Dict[str, Any]:
         "changed_files": pick("changed_files", "changedFiles") or [],
         "tool_data": pick("tool_data", "toolData", "item"),
     }
-
-
-def _serialize_session_summary(payload: Any) -> Dict[str, Any]:
-    data = dict(payload or {})
-    thread = data.get("thread") if isinstance(data.get("thread"), dict) else {}
-    safe_thread = {
-        "title": str(thread.get("title") or ""),
-        "archived": bool(thread.get("archived")),
-        "archived_at": str(thread.get("archived_at") or ""),
-        "forked_from": str(thread.get("forked_from") or ""),
-        "forked_at": str(thread.get("forked_at") or ""),
-    }
-    return {
-        "session_id": str(data.get("session_id") or ""),
-        "title": str(data.get("title") or safe_thread.get("title") or ""),
-        "current_mode": str(data.get("current_mode") or ""),
-        "updated_at": str(data.get("updated_at") or ""),
-        "summary_ref": str(data.get("summary_ref") or ""),
-        "transcript_ref": str(data.get("transcript_ref") or ""),
-        "thread": safe_thread,
-    }
-
-
-def _serialize_interaction_response(payload: Dict[str, Any]) -> Dict[str, Any]:
-    response = dict(payload or {})
-    snapshot = response.get("snapshot")
-    if snapshot is not None:
-        response["snapshot"] = _serialize_session_snapshot(snapshot)
-    return response
-
-
-def _serialize_plan_snapshot(plan: Optional[PlanSnapshot]) -> Optional[Dict[str, Any]]:
-    if plan is None:
-        return None
-    return {
-        "session_id": plan.session_id,
-        "title": plan.title,
-        "content": plan.content,
-        "updated_at": plan.updated_at,
-        "workflow_state": plan.workflow_state,
-        "path": plan.path,
-        "summary": plan.summary,
-    }
-
-
-def _serialize_permission_context(context: Any) -> Dict[str, Any]:
-    return {
-        "session_id": str(_read_value(context, "session_id", "") or ""),
-        "rules_path": str(_read_value(context, "rules_path", "") or ""),
-        "categories": list(_read_value(context, "categories", []) or []),
-        "rules": list(_read_value(context, "rules", []) or []),
-        "remembered_categories": list(_read_value(context, "remembered_categories", []) or []),
-        "auto_approve_all": bool(_read_value(context, "auto_approve_all", False)),
-        "auto_approve_writes": bool(_read_value(context, "auto_approve_writes", False)),
-        "auto_approve_commands": bool(_read_value(context, "auto_approve_commands", False)),
-    }
-
-
-def _translate_value_error(exc: ValueError) -> HTTPException:
-    detail = str(exc or "").strip()
-    if "session_id 不存在" in detail or detail == "session_not_found":
-        return HTTPException(status_code=404, detail="session_not_found")
-    if detail in ("interaction_gone", "interaction_expired", "未找到待处理的交互请求。"):
-        return HTTPException(status_code=410, detail="interaction_expired")
-    if detail == "interaction_conflict":
-        return HTTPException(status_code=409, detail=detail)
-    return HTTPException(status_code=422, detail=detail or "invalid_request")
-
-
-def _thread_lifecycle_http_error(exc: ValueError) -> HTTPException:
-    detail = str(exc or "").strip() or "thread_lifecycle_failed"
-    if "session_id 不存在" in detail or detail == "session_not_found":
-        return HTTPException(status_code=404, detail="session_not_found")
-    if detail == "invalid_thread_title":
-        return HTTPException(status_code=422, detail=detail)
-    if detail == "session_fork_failed":
-        return HTTPException(status_code=422, detail=detail)
-    return HTTPException(status_code=422, detail=detail)
-
-
-def _terminal_http_error(exc: ValueError) -> HTTPException:
-    detail = str(exc or "").strip() or "terminal_failed"
-    if detail == "terminal_not_found":
-        return HTTPException(status_code=404, detail=detail)
-    if detail == "terminal_not_running":
-        return HTTPException(status_code=409, detail=detail)
-    if detail in (
-        "invalid_session_id",
-        "invalid_terminal_id",
-        "terminal_write_empty",
-        "terminal_write_too_large",
-        "terminal_cwd_outside_workspace",
-        "terminal_cwd_not_found",
-        "terminal_cwd_not_directory",
-        "terminal_shell_unavailable",
-    ):
-        return HTTPException(status_code=422, detail=detail)
-    if detail.startswith("terminal_start_failed"):
-        return HTTPException(status_code=422, detail=detail)
-    return HTTPException(status_code=422, detail=detail)
-
-
-def _source_control_http_error(exc: ValueError) -> HTTPException:
-    detail = str(exc or "").strip() or "source_control_failed"
-    if detail in ("invalid_diff_scope", "path_outside_workspace"):
-        return HTTPException(status_code=422, detail=detail)
-    return HTTPException(status_code=422, detail=detail or "source_control_failed")
-
-
-def _preview_http_error(exc: ValueError) -> HTTPException:
-    detail = str(exc or "").strip() or "preview_failed"
-    if detail == "preview_tab_not_found":
-        return HTTPException(status_code=404, detail=detail)
-    if detail in (
-        "invalid_session_id",
-        "invalid_preview_tab_id",
-        "preview_url_required",
-        "preview_url_too_long",
-        "preview_url_not_local",
-    ):
-        return HTTPException(status_code=422, detail=detail)
-    return HTTPException(status_code=422, detail=detail or "preview_failed")
 
 
 class WebSocketFrontend(FrontendCallbacks):
@@ -572,7 +357,7 @@ class WebSocketFrontend(FrontendCallbacks):
                 self._pending_inputs.pop(request.request_id, None)
 
     def on_session_status_change(self, snapshot: SessionSnapshot) -> None:
-        snapshot_payload = _serialize_session_snapshot(snapshot)
+        snapshot_payload = serialize_session_snapshot(snapshot)
         self._dispatch_message(
             {
                 "type": "session_status",
@@ -741,7 +526,7 @@ class GUIBackend:
         except NoActiveWorkspaceError:
             raise HTTPException(status_code=409, detail="no_active_workspace")
         except ValueError as exc:
-            raise _translate_value_error(exc)
+            raise translate_value_error(exc)
 
     def _require_core(self) -> CoreInterface:
         try:
@@ -830,7 +615,7 @@ class GUIBackend:
         while time.time() < deadline:
             core = self._require_core()
             latest = self._call_core(core.get_session_snapshot, session_id)
-            pending = _to_mapping(_read_value(latest, "pending_interaction"))
+            pending = to_mapping(read_value(latest, "pending_interaction"))
             pending_id = str((pending or {}).get("interaction_id") or "").strip()
             if not pending_id or pending_id != str(interaction_id or "").strip():
                 return latest

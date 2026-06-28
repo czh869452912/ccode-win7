@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from embedagent.frontend.gui.backend.server import _source_control_http_error
+from embedagent.frontend.gui.backend.http_errors import source_control_http_error
 
 
 def register_source_control_routes(app: Any, backend: Any) -> None:
@@ -22,5 +22,5 @@ def register_source_control_routes(app: Any, backend: Any) -> None:
         try:
             payload = source_control.diff(path, scope=scope)
         except ValueError as exc:
-            raise _source_control_http_error(exc)
+            raise source_control_http_error(exc)
         return {"diff": payload}

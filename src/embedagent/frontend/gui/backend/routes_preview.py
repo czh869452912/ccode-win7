@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
-from embedagent.frontend.gui.backend.server import _preview_http_error
+from embedagent.frontend.gui.backend.http_errors import preview_http_error
 
 
 def register_preview_routes(app: Any, backend: Any) -> None:
@@ -12,7 +12,7 @@ def register_preview_routes(app: Any, backend: Any) -> None:
         try:
             payload = preview.list_sessions(session_id)
         except ValueError as exc:
-            raise _preview_http_error(exc)
+            raise preview_http_error(exc)
         return {"preview": payload}
 
     @app.post("/api/sessions/{session_id}/preview/open")
@@ -21,7 +21,7 @@ def register_preview_routes(app: Any, backend: Any) -> None:
         try:
             payload = preview.open(session_id, str(request.get("url") or ""))
         except ValueError as exc:
-            raise _preview_http_error(exc)
+            raise preview_http_error(exc)
         return {"preview": payload}
 
     @app.post("/api/sessions/{session_id}/preview/{tab_id}/refresh")
@@ -30,7 +30,7 @@ def register_preview_routes(app: Any, backend: Any) -> None:
         try:
             payload = preview.refresh(session_id, tab_id)
         except ValueError as exc:
-            raise _preview_http_error(exc)
+            raise preview_http_error(exc)
         return {"preview": payload}
 
     @app.post("/api/sessions/{session_id}/preview/{tab_id}/close")
@@ -39,5 +39,5 @@ def register_preview_routes(app: Any, backend: Any) -> None:
         try:
             payload = preview.close(session_id, tab_id)
         except ValueError as exc:
-            raise _preview_http_error(exc)
+            raise preview_http_error(exc)
         return {"preview": payload}

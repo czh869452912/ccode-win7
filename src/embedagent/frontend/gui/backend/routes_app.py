@@ -4,7 +4,7 @@ from typing import Any, Dict
 
 from fastapi import HTTPException
 
-from embedagent.frontend.gui.backend.server import _preview_http_error
+from embedagent.frontend.gui.backend.http_errors import preview_http_error
 
 
 def register_app_routes(app: Any, backend: Any) -> None:
@@ -48,5 +48,5 @@ def register_app_routes(app: Any, backend: Any) -> None:
         try:
             payload = preview.open_external(str(request.get("url") or ""))
         except ValueError as exc:
-            raise _preview_http_error(exc)
+            raise preview_http_error(exc)
         return payload
