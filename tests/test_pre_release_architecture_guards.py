@@ -491,6 +491,7 @@ def test_gui_raw_interaction_requests_do_not_synthesize_activity_records():
     activity_tokens = (
         "interaction.created",
         "append_timeline_item",
+        "append_activity_item",
         "turn_started",
         "tool_started",
         "assistant_delta",
@@ -507,6 +508,42 @@ def test_gui_raw_interaction_requests_do_not_synthesize_activity_records():
                 offenders.append(
                     "%s:%s synthesizes activity from raw interaction request" % (rel, index + 1)
                 )
+    assert offenders == []
+
+
+def test_gui_session_activity_source_state_uses_activity_vocabulary():
+    checked_files = {
+        "src/embedagent/frontend/gui/webapp/src/session-runtime/activity-reducer.js": (
+            "action.timeline",
+            "state.timeline",
+            " timeline:",
+            " timeline)",
+            " timeline,",
+            "upsertTimelineItem",
+        ),
+        "src/embedagent/frontend/gui/webapp/src/app-runtime/session-loaders.js": (
+            "timeline: normalizeHistoryActivities",
+        ),
+        "src/embedagent/frontend/gui/webapp/src/app-runtime/session-activation-controller.js": (
+            "activation.timeline",
+            "timeline: activation.",
+        ),
+        "src/embedagent/frontend/gui/webapp/src/app-runtime/session-controller.js": (
+            "timeline: []",
+        ),
+        "src/embedagent/frontend/gui/webapp/src/store.js": (
+            "action.timeline",
+            "state.timeline",
+            "append_timeline_item",
+        ),
+        "src/embedagent/frontend/gui/webapp/src/App.jsx": ("state.timeline",),
+    }
+    offenders = []
+    for rel, forbidden_tokens in checked_files.items():
+        text = _read(ROOT / rel)
+        for token in forbidden_tokens:
+            if token in text:
+                offenders.append("%s contains source-state token %s" % (rel, token))
     assert offenders == []
 
 

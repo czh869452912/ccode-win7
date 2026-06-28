@@ -152,11 +152,11 @@ export async function runSessionLoadersTests() {
   assert.equal(activation.snapshot.session_id, "sess-bootstrap");
   assert.equal(activation.snapshot.current_mode, "debug");
   assert.equal(activation.snapshot.status, "waiting_permission");
-  assert.equal(activation.timeline.length, 2);
-  assert.equal(activation.timeline[0].kind, "user");
-  assert.equal(activation.timeline[0].projectionSource, "session_state");
-  assert.equal(activation.timeline[1].toolName, "read_file");
-  assert.equal(activation.timeline[1].projectionSource, "session_state");
+  assert.equal(activation.activities.length, 2);
+  assert.equal(activation.activities[0].kind, "user");
+  assert.equal(activation.activities[0].projectionSource, "session_state");
+  assert.equal(activation.activities[1].toolName, "read_file");
+  assert.equal(activation.activities[1].projectionSource, "session_state");
   assert.deepEqual(activation.historyIntegrity, { status: "healthy", event_count: 12 });
   assert.equal(activation.plan.title, "Parser plan");
   assert.equal(activation.permissionContext.rules[0].category, "workspace_write");
@@ -164,7 +164,7 @@ export async function runSessionLoadersTests() {
   const sparseActivation = deriveSessionActivation(null, "sess-empty");
   assert.equal(sparseActivation.sessionId, "sess-empty");
   assert.equal(sparseActivation.snapshot.session_id, "");
-  assert.deepEqual(sparseActivation.timeline, []);
+  assert.deepEqual(sparseActivation.activities, []);
   assert.equal(sparseActivation.historyIntegrity, null);
   assert.equal(sparseActivation.plan, null);
   assert.equal(sparseActivation.permissionContext, null);

@@ -8,7 +8,7 @@ import {
   createTreeNode,
   injectChildren,
   normalizeSessionPayload,
-  resolveTimelineAnchor,
+  resolveActivityAnchor,
   resolveVisiblePermission,
 } from "../src/state-helpers.js";
 import { runDiffModelTests } from "./diff-model.test.mjs";
@@ -162,7 +162,7 @@ async function main() {
         historyIntegrity: { status: "partial" },
       },
       composer: { draft: "old draft" },
-      timeline: [{ id: "row-old" }],
+      activities: [{ id: "row-old" }],
       fileTree: [{ id: "src" }],
     },
     {
@@ -179,7 +179,7 @@ async function main() {
   assert.deepEqual(switchedWorkspaceState.thread.sessions, []);
   assert.equal(switchedWorkspaceState.thread.historyIntegrity, null);
   assert.equal(switchedWorkspaceState.composer.draft, "");
-  assert.deepEqual(switchedWorkspaceState.timeline, []);
+  assert.deepEqual(switchedWorkspaceState.activities, []);
   assert.deepEqual(switchedWorkspaceState.fileTree, []);
   assert.equal(switchedWorkspaceState.app.hasActiveWorkspace, false);
   assert.equal(switchedWorkspaceState.app.settings.confirm_workspace_switch, true);
@@ -199,7 +199,7 @@ async function main() {
       current_mode: "build",
       pending_interaction_valid: false,
     },
-    timeline: [],
+    activities: [],
   });
   assert.equal(activatedThreadState.thread.currentSessionId, "sess-active");
   assert.equal(activatedThreadState.thread.sessions.length, 2);
@@ -261,10 +261,10 @@ async function main() {
   const defaultModeSnapshot = normalizeSessionPayload({ session_id: "sess-default" });
   assert.equal(defaultModeSnapshot.current_mode, "explore");
 
-  const pendingTurnAnchor = resolveTimelineAnchor({
+  const pendingTurnAnchor = resolveActivityAnchor({
     explicitTurnId: "",
     activeTurnId: "",
-    timeline: [
+    activities: [
       { id: "cmd-old", kind: "command_result", turnId: "" },
       { id: "user-pending", kind: "user", turnId: "", content: "/mode debug" },
     ],
@@ -340,16 +340,16 @@ async function main() {
     stepIndex: 1,
     assistantText: "done",
   });
-  assert.equal(liveState.timeline[0].turnId, "turn-live");
-  assert.equal(liveState.timeline[1].stepId, "step-live-1");
-  assert.equal(liveState.timeline[2].stepId, "step-live-1");
-  assert.equal(liveState.timeline[3].stepId, "step-live-1");
-  assert.equal(liveState.timeline[1].projectionSource, "step_events");
-  assert.equal(liveState.timeline[1].projectionKind, "recorded_step");
-  assert.equal(liveState.timeline[1].synthetic, false);
-  assert.equal(liveState.timeline[2].projectionSource, "step_events");
-  assert.equal(liveState.timeline[3].projectionSource, "step_events");
-  assert.equal(liveState.timeline.length, 4);
+  assert.equal(liveState.activities[0].turnId, "turn-live");
+  assert.equal(liveState.activities[1].stepId, "step-live-1");
+  assert.equal(liveState.activities[2].stepId, "step-live-1");
+  assert.equal(liveState.activities[3].stepId, "step-live-1");
+  assert.equal(liveState.activities[1].projectionSource, "step_events");
+  assert.equal(liveState.activities[1].projectionKind, "recorded_step");
+  assert.equal(liveState.activities[1].synthetic, false);
+  assert.equal(liveState.activities[2].projectionSource, "step_events");
+  assert.equal(liveState.activities[3].projectionSource, "step_events");
+  assert.equal(liveState.activities.length, 4);
 
   let streamedAssistantState = reducer(initialState, {
     type: "local_user_message",
@@ -381,10 +381,10 @@ async function main() {
     assistantText: "ask flow ok",
   });
   assert.equal(
-    streamedAssistantState.timeline.filter((item) => item.kind === "assistant").length,
+    streamedAssistantState.activities.filter((item) => item.kind === "assistant").length,
     1,
   );
-  assert.equal(streamedAssistantState.timeline[1].content, "ask flow ok");
+  assert.equal(streamedAssistantState.activities[1].content, "ask flow ok");
 
   let modeCommandState = reducer(initialState, {
     type: "local_user_message",
@@ -401,10 +401,10 @@ async function main() {
     },
     turnId: "turn-mode",
   });
-  assert.equal(modeCommandState.timeline[1].turnId, "turn-mode");
-  assert.equal(modeCommandState.timeline[1].projectionSource, "raw_events");
-  assert.equal(modeCommandState.timeline[1].projectionKind, "raw_event");
-  assert.equal(modeCommandState.timeline[1].synthetic, false);
+  assert.equal(modeCommandState.activities[1].turnId, "turn-mode");
+  assert.equal(modeCommandState.activities[1].projectionSource, "raw_events");
+  assert.equal(modeCommandState.activities[1].projectionKind, "raw_event");
+  assert.equal(modeCommandState.activities[1].synthetic, false);
 
   let reboundTurnState = reducer(initialState, {
     type: "local_user_message",
@@ -420,15 +420,15 @@ async function main() {
       current_mode: "debug",
     },
   });
-  const provisionalTurnId = reboundTurnState.timeline[1].turnId;
+  const provisionalTurnId = reboundTurnState.activities[1].turnId;
   reboundTurnState = reducer(reboundTurnState, {
     type: "turn_started",
     turnId: "turn-after-mode",
     userText: "继续分析",
   });
   assert.notEqual(provisionalTurnId, "");
-  assert.equal(reboundTurnState.timeline[0].turnId, "turn-after-mode");
-  assert.equal(reboundTurnState.timeline[1].turnId, "turn-after-mode");
+  assert.equal(reboundTurnState.activities[0].turnId, "turn-after-mode");
+  assert.equal(reboundTurnState.activities[1].turnId, "turn-after-mode");
 
   const reviewState = reducer(initialState, {
     type: "command_result",
@@ -443,9 +443,9 @@ async function main() {
       },
     },
   });
-  assert.equal(reviewState.timeline.length, 1);
-  assert.equal(reviewState.timeline[0].kind, "command_result");
-  assert.equal(reviewState.timeline[0].projectionSource, "raw_events");
+  assert.equal(reviewState.activities.length, 1);
+  assert.equal(reviewState.activities[0].kind, "command_result");
+  assert.equal(reviewState.activities[0].projectionSource, "raw_events");
   assert.equal(reviewState.review.summary, "quality summary");
 
   const diffSurfaceState = reducer(initialState, {
@@ -496,16 +496,16 @@ async function main() {
     stepId: "step-error",
     stepIndex: 3,
   });
-  assert.equal(sessionErrorState.timeline.length, 1);
-  assert.equal(sessionErrorState.timeline[0].kind, "system");
-  assert.equal(sessionErrorState.timeline[0].tone, "error");
-  assert.equal(sessionErrorState.timeline[0].content, "loop exploded");
-  assert.equal(sessionErrorState.timeline[0].turnId, "turn-error");
-  assert.equal(sessionErrorState.timeline[0].stepId, "step-error");
-  assert.equal(sessionErrorState.timeline[0].stepIndex, 3);
-  assert.equal(sessionErrorState.timeline[0].projectionSource, "raw_events");
-  assert.equal(sessionErrorState.timeline[0].projectionKind, "raw_event");
-  assert.equal(sessionErrorState.timeline[0].synthetic, false);
+  assert.equal(sessionErrorState.activities.length, 1);
+  assert.equal(sessionErrorState.activities[0].kind, "system");
+  assert.equal(sessionErrorState.activities[0].tone, "error");
+  assert.equal(sessionErrorState.activities[0].content, "loop exploded");
+  assert.equal(sessionErrorState.activities[0].turnId, "turn-error");
+  assert.equal(sessionErrorState.activities[0].stepId, "step-error");
+  assert.equal(sessionErrorState.activities[0].stepIndex, 3);
+  assert.equal(sessionErrorState.activities[0].projectionSource, "raw_events");
+  assert.equal(sessionErrorState.activities[0].projectionKind, "raw_event");
+  assert.equal(sessionErrorState.activities[0].synthetic, false);
 
   const compactedState = reducer(initialState, {
     type: "context_compacted",
@@ -516,17 +516,17 @@ async function main() {
     stepId: "step-compact",
     stepIndex: 4,
   });
-  assert.equal(compactedState.timeline.length, 1);
-  assert.equal(compactedState.timeline[0].kind, "compact");
-  assert.equal(compactedState.timeline[0].recentTurns, 2);
-  assert.equal(compactedState.timeline[0].summarizedTurns, 5);
-  assert.equal(compactedState.timeline[0].approxTokensAfter, 8000);
-  assert.equal(compactedState.timeline[0].turnId, "turn-compact");
-  assert.equal(compactedState.timeline[0].stepId, "step-compact");
-  assert.equal(compactedState.timeline[0].stepIndex, 4);
-  assert.equal(compactedState.timeline[0].projectionSource, "raw_events");
-  assert.equal(compactedState.timeline[0].projectionKind, "raw_event");
-  assert.equal(compactedState.timeline[0].synthetic, false);
+  assert.equal(compactedState.activities.length, 1);
+  assert.equal(compactedState.activities[0].kind, "compact");
+  assert.equal(compactedState.activities[0].recentTurns, 2);
+  assert.equal(compactedState.activities[0].summarizedTurns, 5);
+  assert.equal(compactedState.activities[0].approxTokensAfter, 8000);
+  assert.equal(compactedState.activities[0].turnId, "turn-compact");
+  assert.equal(compactedState.activities[0].stepId, "step-compact");
+  assert.equal(compactedState.activities[0].stepIndex, 4);
+  assert.equal(compactedState.activities[0].projectionSource, "raw_events");
+  assert.equal(compactedState.activities[0].projectionKind, "raw_event");
+  assert.equal(compactedState.activities[0].synthetic, false);
 
   const permissionState = reducer(initialState, {
     type: "permission_context_loaded",
@@ -552,13 +552,13 @@ async function main() {
   });
   assert.equal(pendingPermissionState.permission.permission_id, "perm-panel-1");
   assert.equal(pendingPermissionState.inspectorTab, "interaction");
-  assert.equal(pendingPermissionState.timeline.length, 0);
+  assert.equal(pendingPermissionState.activities.length, 0);
 
   const clearedPermissionState = reducer(pendingPermissionState, {
     type: "permission_cleared",
   });
   assert.equal(clearedPermissionState.permission, null);
-  assert.equal(clearedPermissionState.timeline.length, 0);
+  assert.equal(clearedPermissionState.activities.length, 0);
 
   const pendingUserInputState = reducer(initialState, {
     type: "user_input_request",
@@ -572,7 +572,7 @@ async function main() {
   assert.equal(pendingUserInputState.userInput.request_id, "ask-panel-1");
   assert.equal(pendingUserInputState.inspectorTab, "interaction");
   assert.equal(pendingUserInputState.inspectorOpen, true);
-  assert.equal(pendingUserInputState.timeline.length, 0);
+  assert.equal(pendingUserInputState.activities.length, 0);
 
   const answeredUserInputState = reducer(pendingUserInputState, {
     type: "user_input_answered",
@@ -580,7 +580,7 @@ async function main() {
     answerText: "继续",
   });
   assert.equal(answeredUserInputState.userInput, null);
-  assert.equal(answeredUserInputState.timeline.length, 0);
+  assert.equal(answeredUserInputState.activities.length, 0);
 
   const recipeState = reducer(initialState, {
     type: "recipes_loaded",
@@ -609,7 +609,7 @@ async function main() {
           question: "继续吗？",
         },
       },
-      timeline: [],
+      activities: [],
     },
   );
   assert.equal(activatedState.runOutput.length, 0);
@@ -624,7 +624,7 @@ async function main() {
       current_mode: "build",
       pending_interaction_valid: false,
     },
-    timeline: [
+    activities: [
       {
         id: "call-bootstrap-1",
         kind: "tool",
@@ -656,7 +656,7 @@ async function main() {
     stepIndex: 1,
   });
   assert.equal(
-    dedupedToolState.timeline.filter((item) => item.id === "call-bootstrap-1").length,
+    dedupedToolState.activities.filter((item) => item.id === "call-bootstrap-1").length,
     1,
   );
   assert.equal(dedupedToolState.thread.historyIntegrity.status, "partial");

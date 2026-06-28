@@ -17,9 +17,9 @@ export function runActivityStateTests() {
     text: "Inspect parser",
     createdAt: "2026-06-27T00:00:00.000Z",
   });
-  assert.equal(activity.timeline.length, 1);
-  assert.equal(activity.timeline[0].kind, "user");
-  assert.equal(activity.activeTurnId, activity.timeline[0].pendingTurnId);
+  assert.equal(activity.activities.length, 1);
+  assert.equal(activity.activities[0].kind, "user");
+  assert.equal(activity.activeTurnId, activity.activities[0].pendingTurnId);
 
   activity = reduceActivityState(activity, {
     type: "turn_started",
@@ -27,7 +27,7 @@ export function runActivityStateTests() {
     userText: "Inspect parser",
     createdAt: "2026-06-27T00:00:01.000Z",
   });
-  assert.equal(activity.timeline[0].turnId, "turn-1");
+  assert.equal(activity.activities[0].turnId, "turn-1");
 
   activity = reduceActivityState(activity, {
     type: "step_started",
@@ -66,9 +66,9 @@ export function runActivityStateTests() {
     stepId: "step-1",
     stepIndex: 1,
   });
-  assert.equal(activity.timeline.filter((item) => item.kind === "reasoning").length, 1);
-  assert.equal(activity.timeline.filter((item) => item.kind === "tool").length, 1);
-  assert.equal(activity.timeline.filter((item) => item.kind === "assistant").length, 1);
+  assert.equal(activity.activities.filter((item) => item.kind === "reasoning").length, 1);
+  assert.equal(activity.activities.filter((item) => item.kind === "tool").length, 1);
+  assert.equal(activity.activities.filter((item) => item.kind === "assistant").length, 1);
   assert.equal(activity.streamingAssistantId, "");
 
   activity = reduceActivityState(activity, {
@@ -85,8 +85,8 @@ export function runActivityStateTests() {
   activity = reduceActivityState(activity, {
     type: "stream_completed",
   });
-  assert.equal(activity.timeline.some((item) => item.kind === "compact"), true);
-  assert.equal(activity.timeline.some((item) => item.kind === "system" && item.tone === "error"), true);
+  assert.equal(activity.activities.some((item) => item.kind === "compact"), true);
+  assert.equal(activity.activities.some((item) => item.kind === "system" && item.tone === "error"), true);
   assert.equal(activity.thinkingActive, false);
 
   const activities = normalizeHistoryActivities([

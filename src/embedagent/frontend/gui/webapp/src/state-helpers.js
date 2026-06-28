@@ -33,9 +33,9 @@ export function injectChildren(nodes, targetPath, children) {
   });
 }
 
-export function findLatestPendingUserTurnKey(timeline) {
-  for (let index = (timeline || []).length - 1; index >= 0; index -= 1) {
-    const item = timeline[index];
+export function findLatestPendingUserTurnKey(activities) {
+  for (let index = (activities || []).length - 1; index >= 0; index -= 1) {
+    const item = activities[index];
     if (item?.kind === "user" && !item.turnId) {
       return item.pendingTurnId || item.id || "";
     }
@@ -43,8 +43,8 @@ export function findLatestPendingUserTurnKey(timeline) {
   return "";
 }
 
-export function resolveTimelineAnchor({ explicitTurnId = "", activeTurnId = "", timeline = [] } = {}) {
-  return explicitTurnId || activeTurnId || findLatestPendingUserTurnKey(timeline) || "";
+export function resolveActivityAnchor({ explicitTurnId = "", activeTurnId = "", activities = [] } = {}) {
+  return explicitTurnId || activeTurnId || findLatestPendingUserTurnKey(activities) || "";
 }
 
 export function resolveVisiblePermission(explicitPermission, snapshot) {

@@ -18,7 +18,7 @@ export function createSessionController({
       method: "POST",
     });
     const snapshot = normalizeSessionPayload(payload);
-    dispatch({ type: "session_activated", sessionId: snapshot.session_id, snapshot, timeline: [] });
+    dispatch({ type: "session_activated", sessionId: snapshot.session_id, snapshot, activities: [] });
     replaceSessionTransport(createRuntimeSessionTransport());
     await Promise.all([
       loadSessions(),

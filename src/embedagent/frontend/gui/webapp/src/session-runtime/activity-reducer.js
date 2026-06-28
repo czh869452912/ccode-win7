@@ -1,8 +1,8 @@
-import { makeEventId, resolveTimelineAnchor } from "../state-helpers.js";
+import { makeEventId, resolveActivityAnchor } from "../state-helpers.js";
 
 export function createActivityState() {
   return {
-    timeline: [],
+    activities: [],
     streamingAssistantId: "",
     streamingReasoningId: "",
     thinkingActive: false,
@@ -33,12 +33,12 @@ export function rawProjectionMeta() {
   };
 }
 
-function upsertTimelineItem(timeline, nextItem, match) {
-  const index = timeline.findIndex(match);
+function upsertActivityItem(activities, nextItem, match) {
+  const index = activities.findIndex(match);
   if (index < 0) {
-    return timeline.concat(nextItem);
+    return activities.concat(nextItem);
   }
-  return timeline.map((item, currentIndex) =>
+  return activities.map((item, currentIndex) =>
     currentIndex === index ? { ...item, ...nextItem } : item,
   );
 }
@@ -48,13 +48,13 @@ export function reduceActivityState(state, action) {
     case "activity_reset":
       return {
         ...createActivityState(),
-        timeline: Array.isArray(action.timeline) ? action.timeline : [],
+        activities: Array.isArray(action.activities) ? action.activities : [],
       };
     case "local_user_message": {
       const pendingTurnId = makeEventId("user");
       return {
         ...state,
-        timeline: state.timeline
+        activities: state.activities
           .map((item) => (item.streaming ? { ...item, streaming: false } : item))
           .concat({
             id: pendingTurnId,
@@ -80,7 +80,7 @@ export function reduceActivityState(state, action) {
       const turnId = action.turnId || "";
       let linked = false;
       let linkedAnchor = "";
-      const timeline = state.timeline.map((item) => {
+      const activities = state.activities.map((item) => {
         if (!linked && item.kind === "user" && !item.turnId) {
           linked = true;
           linkedAnchor = item.pendingTurnId || item.id || "";
@@ -94,11 +94,11 @@ export function reduceActivityState(state, action) {
         }
         return item;
       });
-      const reboundTimeline = linkedAnchor
-        ? timeline.map((item) => (item.turnId === linkedAnchor ? { ...item, turnId } : item))
-        : timeline;
+      const reboundActivities = linkedAnchor
+        ? activities.map((item) => (item.turnId === linkedAnchor ? { ...item, turnId } : item))
+        : activities;
       if (!linked) {
-        reboundTimeline.push({
+        reboundActivities.push({
           id: makeEventId("user"),
           kind: "user",
           content: action.userText || "",
@@ -109,7 +109,7 @@ export function reduceActivityState(state, action) {
       }
       return {
         ...state,
-        timeline: reboundTimeline,
+        activities: reboundActivities,
         activeTurnId: turnId,
       };
     }
@@ -132,15 +132,15 @@ export function reduceActivityState(state, action) {
         maxTurns: action.maxTurns ?? null,
       };
     case "assistant_delta": {
-      let timeline = state.timeline.slice();
+      let activities = state.activities.slice();
       const turnId = action.turnId || state.activeTurnId;
       const stepId = action.stepId || state.activeStepId;
       const stepIndex = action.stepIndex || state.activeStepIndex;
       let id = state.streamingAssistantId;
-      const existing = id ? timeline.find((item) => item.id === id) : null;
+      const existing = id ? activities.find((item) => item.id === id) : null;
       if (!id || (existing && existing.stepId !== stepId)) {
         id = makeEventId("assistant");
-        timeline.push({
+        activities.push({
           id,
           kind: "assistant",
           content: action.text,
@@ -152,24 +152,24 @@ export function reduceActivityState(state, action) {
           ...liveProjectionMeta(),
         });
       } else {
-        timeline = timeline.map((item) =>
+        activities = activities.map((item) =>
           item.id === id
             ? { ...item, content: `${item.content || ""}${action.text}`, streaming: true }
             : item,
         );
       }
-      return { ...state, timeline, streamingAssistantId: id, thinkingActive: false };
+      return { ...state, activities, streamingAssistantId: id, thinkingActive: false };
     }
     case "reasoning_delta": {
-      let timeline = state.timeline.slice();
+      let activities = state.activities.slice();
       const turnId = action.turnId || state.activeTurnId;
       const stepId = action.stepId || state.activeStepId;
       const stepIndex = action.stepIndex || state.activeStepIndex;
       let id = state.streamingReasoningId;
-      const existing = id ? timeline.find((item) => item.id === id) : null;
+      const existing = id ? activities.find((item) => item.id === id) : null;
       if (!id || (existing && existing.stepId !== stepId)) {
         id = makeEventId("thinking");
-        timeline.push({
+        activities.push({
           id,
           kind: "reasoning",
           content: action.text,
@@ -182,16 +182,16 @@ export function reduceActivityState(state, action) {
           ...liveProjectionMeta(),
         });
       } else {
-        timeline = timeline.map((item) =>
+        activities = activities.map((item) =>
           item.id === id
             ? { ...item, content: `${item.content || ""}${action.text}`, streaming: true }
             : item,
         );
       }
-      return { ...state, timeline, streamingReasoningId: id };
+      return { ...state, activities, streamingReasoningId: id };
     }
     case "thinking_state": {
-      const timeline = state.timeline.map((item) => {
+      const activities = state.activities.map((item) => {
         if (item.id === state.streamingReasoningId) {
           return { ...item, streaming: Boolean(action.active) };
         }
@@ -200,14 +200,14 @@ export function reduceActivityState(state, action) {
         }
         return item;
       });
-      return { ...state, thinkingActive: Boolean(action.active), timeline };
+      return { ...state, thinkingActive: Boolean(action.active), activities };
     }
     case "tool_started":
       return {
         ...state,
         thinkingActive: false,
-        timeline: upsertTimelineItem(
-          state.timeline,
+        activities: upsertActivityItem(
+          state.activities,
           {
             id: action.callId,
             kind: "tool",
@@ -245,8 +245,8 @@ export function reduceActivityState(state, action) {
     case "tool_finished":
       return {
         ...state,
-        timeline: upsertTimelineItem(
-          state.timeline,
+        activities: upsertActivityItem(
+          state.activities,
           {
             id: action.callId,
             kind: "tool",
@@ -285,7 +285,7 @@ export function reduceActivityState(state, action) {
       const turnId = action.turnId || state.activeTurnId;
       const stepId = action.stepId || state.activeStepId;
       const stepIndex = action.stepIndex || state.activeStepIndex;
-      let timeline = state.timeline.map((item) => {
+      let activities = state.activities.map((item) => {
         if (
           (item.id === state.streamingAssistantId || item.id === state.streamingReasoningId) &&
           item.stepId === stepId
@@ -294,9 +294,9 @@ export function reduceActivityState(state, action) {
         }
         return item;
       });
-      const hasAssistant = timeline.some((item) => item.kind === "assistant" && item.stepId === stepId);
+      const hasAssistant = activities.some((item) => item.kind === "assistant" && item.stepId === stepId);
       if (!hasAssistant && action.assistantText) {
-        timeline = timeline.concat({
+        activities = activities.concat({
           id: makeEventId("assistant"),
           kind: "assistant",
           content: action.assistantText,
@@ -310,7 +310,7 @@ export function reduceActivityState(state, action) {
       }
       return {
         ...state,
-        timeline,
+        activities,
         streamingAssistantId: "",
         streamingReasoningId: "",
         activeTurnId: turnId,
@@ -321,15 +321,15 @@ export function reduceActivityState(state, action) {
     case "session_error":
       return {
         ...state,
-        timeline: state.timeline.concat({
+        activities: state.activities.concat({
           id: action.id || makeEventId("error"),
           kind: "system",
           tone: "error",
           content: action.error || "会话出错",
-          turnId: resolveTimelineAnchor({
+          turnId: resolveActivityAnchor({
             explicitTurnId: action.turnId || "",
             activeTurnId: state.activeTurnId,
-            timeline: state.timeline,
+            activities: state.activities,
           }),
           stepId: action.stepId || "",
           stepIndex: action.stepIndex || 0,
@@ -342,17 +342,17 @@ export function reduceActivityState(state, action) {
     case "context_compacted":
       return {
         ...state,
-        timeline: state.timeline.concat({
+        activities: state.activities.concat({
           id: action.id || makeEventId("context"),
           kind: "compact",
           content: action.content || "",
           recentTurns: action.recentTurns,
           summarizedTurns: action.summarizedTurns,
           approxTokensAfter: action.approxTokensAfter,
-          turnId: resolveTimelineAnchor({
+          turnId: resolveActivityAnchor({
             explicitTurnId: action.turnId || "",
             activeTurnId: state.activeTurnId,
-            timeline: state.timeline,
+            activities: state.activities,
           }),
           stepId: action.stepId || "",
           stepIndex: action.stepIndex || 0,
@@ -360,15 +360,15 @@ export function reduceActivityState(state, action) {
         }),
       };
     case "command_result": {
-      const turnId = resolveTimelineAnchor({
+      const turnId = resolveActivityAnchor({
         explicitTurnId: action.turnId || "",
         activeTurnId: state.activeTurnId,
-        timeline: state.timeline,
+        activities: state.activities,
       });
       const clearSessionView = Boolean(action.data?.clear_session_view);
-      const timeline = clearSessionView
+      const activities = clearSessionView
         ? []
-        : state.timeline.concat({
+        : state.activities.concat({
             id: action.id || makeEventId("cmd"),
             kind: "command_result",
             commandName: action.commandName,
@@ -383,7 +383,7 @@ export function reduceActivityState(state, action) {
           });
       return {
         ...state,
-        timeline,
+        activities,
         thinkingActive: false,
         streamingAssistantId: "",
         streamingReasoningId: "",
@@ -395,7 +395,7 @@ export function reduceActivityState(state, action) {
         streamingAssistantId: "",
         streamingReasoningId: "",
         thinkingActive: false,
-        timeline: state.timeline.map((item) => (item.streaming ? { ...item, streaming: false } : item)),
+        activities: state.activities.map((item) => (item.streaming ? { ...item, streaming: false } : item)),
       };
     default:
       return state;

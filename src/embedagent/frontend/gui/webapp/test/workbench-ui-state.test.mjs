@@ -111,7 +111,7 @@ export function runWorkbenchUiStateTests() {
     type: "session_activated",
     sessionId: "sess-2",
     snapshot: { session_id: "sess-2", current_mode: "explore" },
-    timeline: [],
+    activities: [],
   });
   assert.equal(state.workbench.activeSessionKey, "sess-2");
   assert.deepEqual(state.workbench.rightPanel.surfaces, []);
@@ -131,7 +131,7 @@ export function runWorkbenchUiStateTests() {
     type: "session_activated",
     sessionId: "sess-1",
     snapshot: { session_id: "sess-1", current_mode: "explore" },
-    timeline: [],
+    activities: [],
   });
   assert.equal(state.workbench.activeSessionKey, "sess-1");
   assert.deepEqual(state.workbench.rightPanel.surfaces.map((item) => item.id), [

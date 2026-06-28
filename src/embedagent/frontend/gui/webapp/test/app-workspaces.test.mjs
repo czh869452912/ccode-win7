@@ -59,7 +59,7 @@ export function runAppWorkspaceTests() {
     },
     composer: { draft: "stale draft" },
     snapshot: { session_id: "sess-1" },
-    timeline: [{ id: "row-1" }],
+    activities: [{ id: "row-1" }],
     tasks: [{ id: 1 }],
     artifacts: [{ id: "a" }],
     recipes: [{ id: "r" }],
@@ -76,7 +76,7 @@ export function runAppWorkspaceTests() {
   assert.equal(reset.thread.historyIntegrity, null);
   assert.equal(reset.composer.draft, "");
   assert.equal(reset.snapshot, null);
-  assert.deepEqual(reset.timeline, []);
+  assert.deepEqual(reset.activities, []);
   assert.deepEqual(reset.tasks, []);
   assert.deepEqual(reset.artifacts, []);
   assert.deepEqual(reset.recipes, []);

@@ -53,7 +53,7 @@ function dispatchTimelineFixture(dispatch, action) {
     type: "session_activated",
     sessionId,
     snapshot,
-    timeline: Array.isArray(action.timeline) ? action.timeline : [],
+    activities: Array.isArray(action.timeline) ? action.timeline : [],
     historyIntegrity: null,
   });
   for (const [path, preview] of Object.entries(action.previews || {})) {
@@ -101,7 +101,7 @@ function dispatchInteractionFixture(dispatch, action) {
       pending_interaction_valid: Boolean(pendingInteraction),
       pending_interaction: pendingInteraction,
     },
-    timeline: [],
+    activities: [],
     historyIntegrity: null,
   });
   dispatch({ type: "set_inspector", value: "interaction" });
@@ -121,7 +121,7 @@ function dispatchThreadFixture(dispatch, action) {
       current_mode: "explore",
       pending_interaction_valid: false,
     },
-    timeline: [],
+    activities: [],
     historyIntegrity: null,
   });
 }

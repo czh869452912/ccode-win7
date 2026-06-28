@@ -35,7 +35,7 @@ export function createSessionActivationController({
       type: "session_activated",
       sessionId: activation.sessionId,
       snapshot: activation.snapshot,
-      timeline: activation.timeline,
+      activities: activation.activities,
       historyIntegrity: activation.historyIntegrity,
     });
     replaceTransport(buildTransportState());

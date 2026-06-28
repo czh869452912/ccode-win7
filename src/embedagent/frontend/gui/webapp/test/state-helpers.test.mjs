@@ -5,7 +5,7 @@ import {
   createTreeNode,
   injectChildren,
   normalizeSessionPayload,
-  resolveTimelineAnchor,
+  resolveActivityAnchor,
   resolveVisiblePermission,
 } from "../src/state-helpers.js";
 
@@ -49,28 +49,28 @@ test("normalizeSessionPayload keeps status, mode, and transition display fields 
   assert.equal(snapshot.recentTransitions[0].displayReason, "cancelled");
 });
 
-test("resolveTimelineAnchor prefers explicit, active, then pending local user turns", () => {
+test("resolveActivityAnchor prefers explicit, active, then pending local user turns", () => {
   assert.equal(
-    resolveTimelineAnchor({
+    resolveActivityAnchor({
       explicitTurnId: "turn-explicit",
       activeTurnId: "turn-active",
-      timeline: [{ id: "user-pending", kind: "user", turnId: "" }],
+      activities: [{ id: "user-pending", kind: "user", turnId: "" }],
     }),
     "turn-explicit",
   );
   assert.equal(
-    resolveTimelineAnchor({
+    resolveActivityAnchor({
       explicitTurnId: "",
       activeTurnId: "turn-active",
-      timeline: [{ id: "user-pending", kind: "user", turnId: "" }],
+      activities: [{ id: "user-pending", kind: "user", turnId: "" }],
     }),
     "turn-active",
   );
   assert.equal(
-    resolveTimelineAnchor({
+    resolveActivityAnchor({
       explicitTurnId: "",
       activeTurnId: "",
-      timeline: [
+      activities: [
         { id: "cmd-old", kind: "command_result", turnId: "" },
         { id: "user-pending", kind: "user", turnId: "", pendingTurnId: "pending-local" },
       ],

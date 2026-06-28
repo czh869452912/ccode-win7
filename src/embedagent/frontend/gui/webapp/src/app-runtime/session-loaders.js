@@ -67,7 +67,7 @@ export function deriveSessionActivation(payload = {}, sessionId = "", options = 
   return {
     sessionId,
     snapshot,
-    timeline: normalizeHistoryActivities(history.activities || []),
+    activities: normalizeHistoryActivities(history.activities || []),
     historyIntegrity: history.integrity || null,
     plan: safePayload.plan || null,
     permissionContext: safePayload.permission_context || null,

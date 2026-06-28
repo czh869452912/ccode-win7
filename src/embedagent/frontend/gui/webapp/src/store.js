@@ -158,7 +158,7 @@ export function reducer(state, action) {
         thread: reduceThreadState(state.thread, action),
         snapshot: action.snapshot,
         requestedMode: action.snapshot?.current_mode || state.requestedMode,
-        ...reduceActivityState(state, { type: "activity_reset", timeline: action.timeline }),
+        ...reduceActivityState(state, { type: "activity_reset", activities: action.activities }),
         permission:
           action.snapshot?.pending_interaction_valid && action.snapshot?.pending_interaction?.kind === "permission"
             ? action.snapshot.pending_interaction
@@ -223,8 +223,6 @@ export function reducer(state, action) {
             : state.inspectorOpen,
       };
     }
-    case "append_timeline_item":
-      return { ...state, timeline: state.timeline.concat(action.item) };
     case "permission_request": {
       return {
         ...state,

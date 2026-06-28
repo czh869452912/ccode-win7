@@ -23,7 +23,7 @@ export function resetWorkspaceScopedState(state = {}) {
     thread: createThreadState(),
     snapshot: null,
     composer: createComposerState(),
-    timeline: [],
+    activities: [],
     streamingAssistantId: "",
     streamingReasoningId: "",
     thinkingActive: false,

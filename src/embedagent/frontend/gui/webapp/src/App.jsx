@@ -124,12 +124,12 @@ function App() {
       buildSessionActivityRuntime({
         snapshot: state.snapshot,
         sessionTransport,
-        activities: state.timeline,
+        activities: state.activities,
         defaultMode: DEFAULT_MODE,
         activeTurnId: state.activeTurnId,
         thinkingActive: state.thinkingActive,
       }),
-    [sessionTransport, state.activeTurnId, state.snapshot, state.thinkingActive, state.timeline],
+    [sessionTransport, state.activeTurnId, state.snapshot, state.thinkingActive, state.activities],
   );
   const interactionNotice = state.interactionNotice || runtimeState.interactionNotice;
   const terminalController = useMemo(

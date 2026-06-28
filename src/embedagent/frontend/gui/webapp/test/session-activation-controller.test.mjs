@@ -60,7 +60,7 @@ export async function runSessionActivationControllerTests() {
   assert.equal(actions[0].type, "session_activated");
   assert.equal(actions[0].sessionId, "sess-activation");
   assert.equal(actions[0].snapshot.current_mode, "build");
-  assert.equal(actions[0].timeline[0].kind, "user");
+  assert.equal(actions[0].activities[0].kind, "user");
   assert.deepEqual(actions[0].historyIntegrity, { status: "healthy" });
   assert.deepEqual(replacedTransport, {
     connectionState: "connected",
