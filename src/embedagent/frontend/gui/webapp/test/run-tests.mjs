@@ -231,7 +231,14 @@ async function main() {
     session_id: "sess-1",
     status: "waiting_permission",
     current_mode: "debug",
-    has_pending_permission: true,
+    pending_interaction_valid: true,
+    pending_interaction: {
+      interaction_id: "perm-1",
+      kind: "permission",
+      tool_name: "edit_file",
+      category: "workspace_write",
+      reason: "需要写入",
+    },
     last_transition_reason: "aborted",
     last_transition_display_reason: "cancelled",
     last_transition_message: "tool execution interrupted",
@@ -242,7 +249,7 @@ async function main() {
   });
   assert.equal(snapshot.status, "waiting_permission");
   assert.equal(snapshot.current_mode, "debug");
-  assert.equal(snapshot.has_pending_permission, true);
+  assert.equal(snapshot.pending_interaction.kind, "permission");
   assert.equal(snapshot.lastTransitionDisplayReason, "cancelled");
   assert.equal(snapshot.recentTransitions[0].displayReason, "cancelled");
   assert.equal(Object.hasOwn(snapshot, "timeline" + "_replay_status"), false);
@@ -265,15 +272,16 @@ async function main() {
   assert.equal(pendingTurnAnchor, "user-pending");
 
   const visiblePermission = resolveVisiblePermission(null, {
-    has_pending_permission: true,
-    pending_permission: {
-      permission_id: "perm-1",
+    pending_interaction_valid: true,
+    pending_interaction: {
+      interaction_id: "perm-1",
+      kind: "permission",
       tool_name: "edit_file",
       category: "workspace_write",
       reason: "需要写入",
     },
   });
-  assert.equal(visiblePermission.permission_id, "perm-1");
+  assert.equal(visiblePermission.interaction_id, "perm-1");
 
   let liveState = reducer(initialState, {
     type: "local_user_message",
@@ -594,7 +602,6 @@ async function main() {
       snapshot: {
         session_id: "sess-2",
         current_mode: "build",
-        has_pending_permission: false,
         pending_interaction_valid: true,
         pending_interaction: {
           interaction_id: "ask-existing",
@@ -615,7 +622,6 @@ async function main() {
     snapshot: {
       session_id: "sess-bootstrap",
       current_mode: "build",
-      has_pending_permission: false,
       pending_interaction_valid: false,
     },
     timeline: [

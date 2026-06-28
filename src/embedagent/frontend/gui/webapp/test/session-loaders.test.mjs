@@ -88,7 +88,11 @@ export async function runSessionLoadersTests() {
         session_id: "sess-bootstrap",
         status: "waiting_permission",
         current_mode: "debug",
-        has_pending_permission: true,
+        pending_interaction_valid: true,
+        pending_interaction: {
+          interaction_id: "perm-bootstrap",
+          kind: "permission",
+        },
       },
       history: {
         history_source: "step_events",

@@ -92,44 +92,6 @@ def _status_from_snapshot(snapshot: Dict[str, Any]) -> SessionStatus:
     return status_map.get(snapshot.get("status"), SessionStatus.IDLE)
 
 
-def _permission_request_from_snapshot(snapshot: Dict[str, Any]) -> Optional[PermissionRequest]:
-    if not snapshot.get("has_pending_permission"):
-        return None
-    permission = snapshot.get("pending_permission", {})
-    if not isinstance(permission, dict):
-        return None
-    return PermissionRequest(
-        permission_id=permission.get("permission_id", ""),
-        tool_name=permission.get("tool_name", ""),
-        category=permission.get("category", ""),
-        reason=permission.get("reason", ""),
-        details=permission.get("details", {}),
-        session_id=permission.get("session_id", ""),
-        turn_id=permission.get("turn_id", ""),
-        step_id=permission.get("step_id", ""),
-        step_index=int(permission.get("step_index") or 0),
-    )
-
-
-def _user_input_request_from_snapshot(snapshot: Dict[str, Any]) -> Optional[UserInputRequest]:
-    if not (snapshot.get("has_pending_user_input") or snapshot.get("has_pending_input")):
-        return None
-    request = snapshot.get("pending_user_input", snapshot.get("pending_input", {}))
-    if not isinstance(request, dict):
-        return None
-    return UserInputRequest(
-        request_id=request.get("request_id", ""),
-        tool_name=request.get("tool_name", ""),
-        question=request.get("question", ""),
-        options=request.get("options", []),
-        details=request.get("details", {}),
-        session_id=request.get("session_id", ""),
-        turn_id=request.get("turn_id", ""),
-        step_id=request.get("step_id", ""),
-        step_index=int(request.get("step_index") or 0),
-    )
-
-
 def _runtime_environment_from_snapshot(snapshot: Dict[str, Any]) -> RuntimeEnvironmentSnapshot:
     runtime = snapshot.get("runtime_environment") or {}
     return RuntimeEnvironmentSnapshot(
@@ -156,12 +118,6 @@ def _session_snapshot_from_dict(snapshot: Dict[str, Any]) -> SessionSnapshot:
         has_active_plan=bool(snapshot.get("has_active_plan", False)),
         active_plan_ref=snapshot.get("active_plan_ref", ""),
         current_command_context=snapshot.get("current_command_context", ""),
-        has_pending_permission=bool(snapshot.get("has_pending_permission", False)),
-        has_pending_input=bool(
-            snapshot.get("has_pending_user_input", snapshot.get("has_pending_input", False))
-        ),
-        pending_permission=_permission_request_from_snapshot(snapshot),
-        pending_input=_user_input_request_from_snapshot(snapshot),
         last_error=snapshot.get("last_error"),
         runtime_source=str(snapshot.get("runtime_source") or ""),
         bundled_tools_ready=bool(snapshot.get("bundled_tools_ready", False)),
@@ -191,12 +147,7 @@ def _session_snapshot_from_dict(snapshot: Dict[str, Any]) -> SessionSnapshot:
         pending_interaction_valid=bool(
             snapshot.get(
                 "pending_interaction_valid",
-                bool(
-                    snapshot.get("pending_interaction")
-                    or snapshot.get("pending_permission")
-                    or snapshot.get("pending_user_input")
-                    or snapshot.get("pending_input")
-                ),
+                bool(snapshot.get("pending_interaction")),
             )
         ),
         current_phase=str(snapshot.get("current_phase") or ""),

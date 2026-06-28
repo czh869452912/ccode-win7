@@ -109,14 +109,6 @@ class SessionSnapshotProjector(object):
             ),
             "recent_transitions": recent_transitions,
             "compact_retry_count": int(summary_payload.get("compact_retry_count") or 0),
-            "has_pending_permission": state.pending_permission is not None,
-            "pending_permission": (
-                state.pending_permission.to_dict() if state.pending_permission else None
-            ),
-            "has_pending_user_input": state.pending_user_input is not None,
-            "pending_user_input": (
-                state.pending_user_input.to_dict() if state.pending_user_input else None
-            ),
             "pending_interaction": (
                 dict(pending_interaction) if pending_interaction is not None else None
             ),

@@ -229,10 +229,6 @@ class SessionSnapshot:
     has_active_plan: bool = False
     active_plan_ref: str = ""
     current_command_context: str = ""
-    has_pending_permission: bool = False
-    has_pending_input: bool = False
-    pending_permission: Optional[PermissionRequest] = None
-    pending_input: Optional[UserInputRequest] = None
     last_error: Optional[str] = None
     runtime_source: str = ""
     bundled_tools_ready: bool = False

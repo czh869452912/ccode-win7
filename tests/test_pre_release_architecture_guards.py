@@ -217,6 +217,72 @@ def test_gui_backend_route_modules_do_not_import_server_helpers():
     assert leaked_helpers == []
 
 
+def test_session_snapshot_contract_uses_single_pending_interaction_payload():
+    checked_files = {
+        ROOT
+        / "src/embedagent/protocol/__init__.py": (
+            "has_pending_permission:",
+            "has_pending_input:",
+            "pending_permission: Optional",
+            "pending_input: Optional",
+        ),
+        ROOT
+        / "src/embedagent/session_projector.py": (
+            '"has_pending_permission"',
+            '"pending_permission"',
+            '"has_pending_user_input"',
+            '"pending_user_input"',
+        ),
+        ROOT
+        / "src/embedagent/core/adapter.py": (
+            "def _permission_request_from_snapshot",
+            "def _user_input_request_from_snapshot",
+            '"has_pending_user_input"',
+            '"has_pending_input"',
+            '"pending_permission"',
+            '"pending_user_input"',
+            '"pending_input"',
+        ),
+        ROOT
+        / "src/embedagent/frontend/gui/backend/protocol_payloads.py": (
+            '"has_pending_permission"',
+            '"has_pending_input"',
+            '"pending_permission"',
+            '"pending_user_input"',
+            '"pending_input"',
+        ),
+        ROOT
+        / "src/embedagent/frontend/gui/webapp/src/state-helpers.js": (
+            "has_pending_permission",
+            "has_pending_input",
+            "pending_permission",
+            "pending_user_input",
+        ),
+        ROOT
+        / "src/embedagent/frontend/gui/webapp/src/store.js": (
+            "has_pending_permission",
+            "has_pending_input",
+            "pending_permission",
+            "pending_user_input",
+        ),
+        ROOT
+        / "docs/frontend-protocol.md": (
+            "`has_pending_permission`",
+            "`pending_permission`",
+            "`has_pending_input`",
+            "`pending_input`",
+            "`pending_user_input`",
+        ),
+    }
+    offenders = []
+    for path, tokens in checked_files.items():
+        text = _read(path)
+        for token in tokens:
+            if token in text:
+                offenders.append("%s contains %s" % (_relative(path), token))
+    assert offenders == []
+
+
 def test_query_engine_does_not_own_extension_dispatch_boundary():
     text = _read(ROOT / "src/embedagent/query_engine.py")
     assert "AgentExtensionHost(" in text

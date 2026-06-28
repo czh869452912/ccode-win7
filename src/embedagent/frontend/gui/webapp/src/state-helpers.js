@@ -51,8 +51,8 @@ export function resolveVisiblePermission(explicitPermission, snapshot) {
   if (explicitPermission) {
     return explicitPermission;
   }
-  if (snapshot?.has_pending_permission && snapshot?.pending_permission) {
-    return snapshot.pending_permission;
+  if (snapshot?.pending_interaction_valid && snapshot?.pending_interaction?.kind === "permission") {
+    return snapshot.pending_interaction;
   }
   return null;
 }
@@ -76,10 +76,6 @@ export function normalizeSessionPayload(payload, defaultMode = "explore") {
     has_active_plan: Boolean(payload.has_active_plan),
     active_plan_ref: payload.active_plan_ref || "",
     current_command_context: payload.current_command_context || "",
-    has_pending_permission: Boolean(payload.has_pending_permission),
-    has_pending_input: Boolean(payload.has_pending_input),
-    pending_permission: payload.pending_permission || null,
-    pending_user_input: payload.pending_user_input || null,
     last_error: payload.last_error || "",
     lastTransitionReason: payload.last_transition_reason || "",
     lastTransitionDisplayReason:
@@ -92,7 +88,7 @@ export function normalizeSessionPayload(payload, defaultMode = "explore") {
     runtimeEnvironment: payload.runtime_environment || null,
     pending_interaction_valid:
       payload.pending_interaction_valid === undefined
-        ? Boolean(payload.pending_interaction || payload.pending_permission || payload.pending_user_input)
+        ? Boolean(payload.pending_interaction)
         : Boolean(payload.pending_interaction_valid),
     compactRetryCount: payload.compact_retry_count || 0,
     compactBoundaryCount: payload.compact_boundary_count || 0,
@@ -103,35 +99,7 @@ export function normalizeSessionPayload(payload, defaultMode = "explore") {
     current_activity: payload.current_activity || "",
     task_summary: payload.task_summary || "",
     task_items: Array.isArray(payload.task_items) ? payload.task_items : [],
-    pending_interaction:
-      payload.pending_interaction ||
-      (payload.pending_permission
-        ? {
-            interaction_id: payload.pending_permission.permission_id || "",
-            session_id: payload.pending_permission.session_id || payload.session_id || "",
-            kind: "permission",
-            tool_name: payload.pending_permission.tool_name || "",
-            category: payload.pending_permission.category || "",
-            reason: payload.pending_permission.reason || "",
-            details: payload.pending_permission.details || {},
-            turn_id: payload.pending_permission.turn_id || "",
-            step_id: payload.pending_permission.step_id || "",
-            step_index: payload.pending_permission.step_index || 0,
-          }
-        : payload.pending_user_input
-          ? {
-              interaction_id: payload.pending_user_input.request_id || "",
-              session_id: payload.pending_user_input.session_id || payload.session_id || "",
-              kind: "user_input",
-              tool_name: payload.pending_user_input.tool_name || "",
-              question: payload.pending_user_input.question || "",
-              options: payload.pending_user_input.options || [],
-              details: payload.pending_user_input.details || {},
-              turn_id: payload.pending_user_input.turn_id || "",
-              step_id: payload.pending_user_input.step_id || "",
-              step_index: payload.pending_user_input.step_index || 0,
-            }
-          : null),
+    pending_interaction: payload.pending_interaction || null,
   };
 }
 

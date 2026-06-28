@@ -119,12 +119,18 @@ class TUIFrontend(FrontendCallbacks):
         from embedagent.frontend.tui import reducer
 
         # 更新状态
+        pending_interaction = snapshot.pending_interaction or {}
+        pending_kind = str(pending_interaction.get("kind") or "")
         reducer.update_snapshot(
             self.app.state,
             status=snapshot.status.value,
             current_mode=snapshot.current_mode,
-            has_pending_permission=snapshot.has_pending_permission,
-            has_pending_user_input=snapshot.has_pending_input,
+            has_pending_permission=(
+                snapshot.pending_interaction_valid and pending_kind == "permission"
+            ),
+            has_pending_user_input=(
+                snapshot.pending_interaction_valid and pending_kind == "user_input"
+            ),
         )
 
         # 如果有错误，显示

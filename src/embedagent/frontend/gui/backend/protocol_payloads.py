@@ -37,18 +37,11 @@ def read_status_value(snapshot: Any) -> str:
 
 
 def serialize_session_snapshot(snapshot: Any) -> Dict[str, Any]:
-    pending_permission = to_mapping(read_value(snapshot, "pending_permission"))
-    pending_input = to_mapping(
-        read_value(snapshot, "pending_input", None, aliases=("pending_user_input",))
-    )
     pending_interaction = to_mapping(read_value(snapshot, "pending_interaction"))
     runtime_environment = to_mapping(read_value(snapshot, "runtime_environment"))
-    has_pending_input = bool(
-        read_value(snapshot, "has_pending_input", False, aliases=("has_pending_user_input",))
-    )
     pending_interaction_valid = read_value(snapshot, "pending_interaction_valid", None)
     if pending_interaction_valid is None:
-        pending_interaction_valid = bool(pending_interaction or pending_permission or pending_input)
+        pending_interaction_valid = bool(pending_interaction)
     return {
         "session_id": str(read_value(snapshot, "session_id", "") or ""),
         "status": read_status_value(snapshot),
@@ -59,10 +52,6 @@ def serialize_session_snapshot(snapshot: Any) -> Dict[str, Any]:
         "has_active_plan": bool(read_value(snapshot, "has_active_plan", False)),
         "active_plan_ref": str(read_value(snapshot, "active_plan_ref", "") or ""),
         "current_command_context": str(read_value(snapshot, "current_command_context", "") or ""),
-        "has_pending_permission": bool(read_value(snapshot, "has_pending_permission", False)),
-        "has_pending_input": has_pending_input,
-        "pending_permission": pending_permission,
-        "pending_user_input": pending_input,
         "pending_interaction": pending_interaction,
         "last_error": read_value(snapshot, "last_error"),
         "runtime_source": str(read_value(snapshot, "runtime_source", "") or ""),

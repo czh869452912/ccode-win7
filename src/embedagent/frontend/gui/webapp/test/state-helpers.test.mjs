@@ -25,7 +25,11 @@ test("normalizeSessionPayload keeps status, mode, and transition display fields 
     session_id: "sess-1",
     status: "waiting_permission",
     current_mode: "debug",
-    has_pending_permission: true,
+    pending_interaction_valid: true,
+    pending_interaction: {
+      interaction_id: "perm-1",
+      kind: "permission",
+    },
     last_transition_reason: "aborted",
     last_transition_display_reason: "cancelled",
     last_transition_message: "tool execution interrupted",
@@ -40,7 +44,7 @@ test("normalizeSessionPayload keeps status, mode, and transition display fields 
   assert.equal(snapshot.session_id, "sess-1");
   assert.equal(snapshot.status, "waiting_permission");
   assert.equal(snapshot.current_mode, "debug");
-  assert.equal(snapshot.has_pending_permission, true);
+  assert.equal(snapshot.pending_interaction.kind, "permission");
   assert.equal(snapshot.lastTransitionDisplayReason, "cancelled");
   assert.equal(snapshot.recentTransitions[0].displayReason, "cancelled");
 });
@@ -79,22 +83,24 @@ test("resolveVisiblePermission uses explicit permission before snapshot fallback
   const explicit = { permission_id: "perm-explicit" };
   assert.equal(
     resolveVisiblePermission(explicit, {
-      has_pending_permission: true,
-      pending_permission: { permission_id: "perm-snapshot" },
+      pending_interaction_valid: true,
+      pending_interaction: { interaction_id: "perm-snapshot", kind: "permission" },
     }),
     explicit,
   );
   assert.deepEqual(
     resolveVisiblePermission(null, {
-      has_pending_permission: true,
-      pending_permission: {
-        permission_id: "perm-1",
+      pending_interaction_valid: true,
+      pending_interaction: {
+        interaction_id: "perm-1",
+        kind: "permission",
         tool_name: "edit_file",
         category: "workspace_write",
       },
     }),
     {
-      permission_id: "perm-1",
+      interaction_id: "perm-1",
+      kind: "permission",
       tool_name: "edit_file",
       category: "workspace_write",
     },

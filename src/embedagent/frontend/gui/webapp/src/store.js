@@ -159,10 +159,13 @@ export function reducer(state, action) {
         snapshot: action.snapshot,
         requestedMode: action.snapshot?.current_mode || state.requestedMode,
         ...reduceActivityState(state, { type: "activity_reset", timeline: action.timeline }),
-        permission: action.snapshot?.has_pending_permission ? action.snapshot?.pending_permission || null : null,
+        permission:
+          action.snapshot?.pending_interaction_valid && action.snapshot?.pending_interaction?.kind === "permission"
+            ? action.snapshot.pending_interaction
+            : null,
         userInput:
           action.snapshot?.pending_interaction_valid && action.snapshot?.pending_interaction?.kind === "user_input"
-            ? action.snapshot?.pending_user_input || action.snapshot?.pending_interaction || null
+            ? action.snapshot.pending_interaction
             : null,
         interactionNotice: null,
         runOutput: reduceRunOutputState(state.runOutput, action),
@@ -197,10 +200,13 @@ export function reducer(state, action) {
         thread: reduceThreadState(state.thread, action),
         snapshot,
         requestedMode: snapshot.current_mode || state.requestedMode,
-        permission: snapshot.has_pending_permission ? snapshot.pending_permission || state.permission : null,
+        permission:
+          snapshot.pending_interaction_valid && snapshot.pending_interaction?.kind === "permission"
+            ? snapshot.pending_interaction
+            : null,
         userInput:
           snapshot.pending_interaction_valid && snapshot.pending_interaction?.kind === "user_input"
-            ? snapshot.pending_user_input || snapshot.pending_interaction || state.userInput
+            ? snapshot.pending_interaction
             : null,
         tasks: Array.isArray(snapshot.task_items) ? snapshot.task_items : state.tasks,
         interactionNotice:

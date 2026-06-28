@@ -370,8 +370,6 @@ class WebSocketFrontend(FrontendCallbacks):
                     "has_active_plan": snapshot_payload["has_active_plan"],
                     "active_plan_ref": snapshot_payload["active_plan_ref"],
                     "current_command_context": snapshot_payload["current_command_context"],
-                    "has_pending_permission": snapshot_payload["has_pending_permission"],
-                    "has_pending_input": snapshot_payload["has_pending_input"],
                     "last_error": snapshot_payload["last_error"],
                     "runtime_source": snapshot_payload["runtime_source"],
                     "bundled_tools_ready": snapshot_payload["bundled_tools_ready"],

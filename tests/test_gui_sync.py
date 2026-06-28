@@ -224,14 +224,6 @@ class TestGuiSync(unittest.TestCase):
                     "current_mode": "spec",
                     "started_at": "2026-04-06T00:00:00Z",
                     "updated_at": "2026-04-06T00:00:01Z",
-                    "has_pending_input": True,
-                    "pending_user_input": {
-                        "request_id": "ask-1",
-                        "session_id": "session-1",
-                        "tool_name": "ask_user",
-                        "question": "下一步怎么做？",
-                        "options": [{"index": 1, "text": "继续"}],
-                    },
                     "pending_interaction": {
                         "interaction_id": "ask-1",
                         "session_id": "session-1",
@@ -246,8 +238,6 @@ class TestGuiSync(unittest.TestCase):
             },
         )
         snapshot = mock_frontend.on_session_status_change.call_args[0][0]
-        self.assertTrue(snapshot.has_pending_input)
-        self.assertEqual(snapshot.pending_input.request_id, "ask-1")
         self.assertEqual(snapshot.pending_interaction["interaction_id"], "ask-1")
         self.assertTrue(snapshot.pending_interaction_valid)
         self.assertEqual(snapshot.restore_stop_reason, "")
