@@ -1737,9 +1737,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             if waiting.get("status") == "waiting_permission":
                 break
             time.sleep(0.05)
-        permission_id = str(
-            (waiting.get("pending_interaction") or {}).get("interaction_id") or ""
-        )
+        permission_id = str((waiting.get("pending_interaction") or {}).get("interaction_id") or "")
         try:
             self.assertEqual(waiting["status"], "waiting_permission")
             self.assertIn("pending_interaction", waiting)
@@ -1798,9 +1796,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             if waiting.get("status") == "waiting_permission":
                 break
             time.sleep(0.001)
-        permission_id = str(
-            (waiting.get("pending_interaction") or {}).get("interaction_id") or ""
-        )
+        permission_id = str((waiting.get("pending_interaction") or {}).get("interaction_id") or "")
         try:
             self.assertEqual(waiting["status"], "waiting_permission")
             for _ in range(20):

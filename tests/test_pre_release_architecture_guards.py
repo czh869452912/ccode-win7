@@ -565,6 +565,10 @@ def test_gui_interaction_responses_route_through_core_lifecycle():
         "_emit_interaction_resolved_event",
         "interaction_resolved",
         '"interaction.resolved"',
+        "handle_permission_response",
+        "handle_user_input_response",
+        '"permission_response"',
+        '"user_input_response"',
     )
     offenders = []
     for path in files:

@@ -437,26 +437,6 @@ class WebSocketFrontend(FrontendCallbacks):
         session_id = str(payload.get("session_id") or "")
         self._dispatch_message(self._session_event_message(session_id, event_name, dict(payload)))
 
-    # ============ 处理前端响应 ============
-
-    def handle_permission_response(self, permission_id: str, approved: bool):
-        """处理权限响应"""
-        with self._pending_lock:
-            waiter = self._pending_permissions.get(permission_id)
-        if waiter is not None:
-            waiter.resolve(bool(approved))
-            return True
-        return False
-
-    def handle_user_input_response(self, request_id: str, payload: Dict[str, Any]):
-        """处理用户输入响应"""
-        with self._pending_lock:
-            waiter = self._pending_inputs.get(request_id)
-        if waiter is not None:
-            waiter.resolve(dict(payload))
-            return True
-        return False
-
 
 class GUIBackend:
     """GUI 后端服务"""
@@ -653,31 +633,4 @@ class GUIBackend:
 
     async def _handle_websocket_message(self, data: Dict[str, Any]):
         """处理 WebSocket 消息"""
-        msg_type = data.get("type")
-
-        if msg_type == "permission_response":
-            perm_id = data.get("permission_id", "")
-            approved = data.get("approved", False)
-            remember = bool(data.get("remember", False))
-            category = str(data.get("category") or "")
-            session_id = str(data.get("session_id") or "")
-            if (
-                remember
-                and approved
-                and category
-                and self._current_session_id
-                and session_id == self._current_session_id
-            ):
-                try:
-                    core = self._require_core()
-                except HTTPException:
-                    core = None
-                if core is not None:
-                    remember_method = getattr(core, "remember_permission_category", None)
-                    if callable(remember_method):
-                        remember_method(self._current_session_id, category)
-            self.frontend.handle_permission_response(perm_id, approved)
-
-        elif msg_type == "user_input_response":
-            req_id = data.get("request_id", "")
-            self.frontend.handle_user_input_response(req_id, data)
+        return None

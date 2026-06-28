@@ -389,63 +389,6 @@ class TestWebSocketFrontendDispatch(unittest.TestCase):
                 any("Unhandled websocket failure" in entry for entry in captured.output)
             )
 
-    def test_legacy_permission_response_does_not_remember_without_matching_session(self):
-        with tempfile.TemporaryDirectory() as static_dir:
-            with open(os.path.join(static_dir, "index.html"), "w", encoding="utf-8") as handle:
-                handle.write("<html><body>ok</body></html>")
-            core = _BackendCore()
-            backend = GUIBackend(core, static_dir=static_dir)
-            backend._current_session_id = "sess-current"
-
-            asyncio.run(
-                backend._handle_websocket_message(
-                    {
-                        "type": "permission_response",
-                        "permission_id": "perm-1",
-                        "approved": True,
-                        "remember": True,
-                        "category": "workspace_write",
-                    }
-                )
-            )
-            asyncio.run(
-                backend._handle_websocket_message(
-                    {
-                        "type": "permission_response",
-                        "permission_id": "perm-2",
-                        "session_id": "sess-other",
-                        "approved": True,
-                        "remember": True,
-                        "category": "workspace_write",
-                    }
-                )
-            )
-
-        self.assertEqual(core.remember_calls, [])
-
-    def test_legacy_permission_response_remembers_matching_session(self):
-        with tempfile.TemporaryDirectory() as static_dir:
-            with open(os.path.join(static_dir, "index.html"), "w", encoding="utf-8") as handle:
-                handle.write("<html><body>ok</body></html>")
-            core = _BackendCore()
-            backend = GUIBackend(core, static_dir=static_dir)
-            backend._current_session_id = "sess-current"
-
-            asyncio.run(
-                backend._handle_websocket_message(
-                    {
-                        "type": "permission_response",
-                        "permission_id": "perm-1",
-                        "session_id": "sess-current",
-                        "approved": True,
-                        "remember": True,
-                        "category": "workspace_write",
-                    }
-                )
-            )
-
-        self.assertEqual(core.remember_calls, [("sess-current", "workspace_write")])
-
 
 class TestAgentCoreAdapterApi(unittest.TestCase):
     def test_get_session_bootstrap_delegates_to_inner_adapter(self):
