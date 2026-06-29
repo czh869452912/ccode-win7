@@ -43,8 +43,10 @@ from embedagent.runtime_config import RuntimeConfigReducer
 from embedagent.session import (
     Action,
     AssistantReply,
+    LoopTransition,
     Observation,
     Session,
+    TurnOutcome,
 )
 from embedagent.session_bootstrap_service import SessionBootstrapService
 from embedagent.session_history import SessionHistoryAssembler
@@ -1075,6 +1077,9 @@ class InProcessAdapter(object):
                     {
                         "turn_id": command_turn_id,
                         "final_text": "",
+                        "outcome": TurnOutcome.from_transition(
+                            LoopTransition(reason="completed")
+                        ).to_dict(),
                         "termination_reason": "completed",
                         "turns_used": 0,
                         "max_turns": self.max_turns,
@@ -1550,6 +1555,7 @@ class InProcessAdapter(object):
             {
                 "turn_id": turn_id,
                 "final_text": result.final_text,
+                "outcome": result.outcome.to_dict(),
                 "termination_reason": result.transition.reason,
                 "turns_used": result.turns_used,
                 "max_turns": self.max_turns,
@@ -1566,6 +1572,7 @@ class InProcessAdapter(object):
             {
                 "final_text": result.final_text,
                 "session_snapshot": snapshot,
+                "outcome": result.outcome.to_dict(),
                 "termination_reason": result.transition.reason,
                 "turns_used": result.turns_used,
                 "max_turns": self.max_turns,

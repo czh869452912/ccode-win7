@@ -228,6 +228,76 @@ class LoopTransition:
     metadata: Dict[str, Any] = field(default_factory=dict)
 
 
+@dataclass(frozen=True)
+class TurnOutcome:
+    kind: str
+    reason: str = ""
+    message: str = ""
+    exit_code: int = 0
+    is_success: bool = True
+
+    @classmethod
+    def from_transition(cls, transition: LoopTransition) -> "TurnOutcome":
+        reason = str(transition.reason or "")
+        message = str(transition.message or "")
+        if reason == "completed":
+            return cls(
+                kind="completed",
+                reason=reason,
+                message=message,
+                exit_code=0,
+                is_success=True,
+            )
+        if reason == "aborted":
+            return cls(
+                kind="aborted",
+                reason=reason,
+                message=message,
+                exit_code=130,
+                is_success=False,
+            )
+        if reason == "guard_stop":
+            return cls(
+                kind="blocked",
+                reason=reason,
+                message=message,
+                exit_code=2,
+                is_success=False,
+            )
+        if reason == "max_turns":
+            return cls(
+                kind="partial",
+                reason=reason,
+                message=message,
+                exit_code=2,
+                is_success=False,
+            )
+        if reason.endswith("_wait") or reason in ("permission_wait", "user_input_wait"):
+            return cls(
+                kind="waiting",
+                reason=reason,
+                message=message,
+                exit_code=2,
+                is_success=False,
+            )
+        return cls(
+            kind="failed",
+            reason=reason,
+            message=message,
+            exit_code=1,
+            is_success=False,
+        )
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "kind": self.kind,
+            "reason": self.reason,
+            "message": self.message,
+            "exit_code": self.exit_code,
+            "is_success": self.is_success,
+        }
+
+
 @dataclass
 class ContextAssemblyResult:
     messages: List[Dict[str, Any]]
@@ -254,6 +324,10 @@ class QueryTurnResult:
     transition: LoopTransition
     turns_used: int = 0
     pending_interaction: Optional[PendingInteraction] = None
+
+    @property
+    def outcome(self) -> TurnOutcome:
+        return TurnOutcome.from_transition(self.transition)
 
 
 @dataclass

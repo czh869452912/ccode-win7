@@ -141,6 +141,25 @@ def test_cli_shell_does_not_construct_hosted_runtime_dependencies():
         assert needle not in text
 
 
+def test_active_prompt_sources_do_not_present_code_as_mode():
+    files = [
+        ROOT / "src/embedagent/modes.py",
+        ROOT / "src/embedagent/workspace_profile.py",
+    ]
+    forbidden = (
+        "code/debug",
+        "code 模式",
+        "/mode code",
+    )
+    offenders = []
+    for path in files:
+        text = _read(path)
+        for token in forbidden:
+            if token in text:
+                offenders.append("%s contains %s" % (_relative(path), token))
+    assert offenders == []
+
+
 def test_tui_shell_does_not_construct_hosted_runtime_dependencies():
     for rel in (
         "src/embedagent/frontend/tui/launcher.py",

@@ -667,19 +667,6 @@ class ToolContext(object):
             resource_paths=self._resource_paths,
         )
 
-    def rewrite_command_for_managed_tools(self, command_text: str) -> Tuple[str, str, str]:
-        match = re.match(r'^(\s*)(?:"([^"]+)"|([^\s|&;<>]+))', command_text)
-        if not match:
-            return command_text, "", ""
-        leading = match.group(1) or ""
-        token = match.group(2) or match.group(3) or ""
-        tool_key = self.classify_managed_command(token)
-        if not tool_key:
-            return command_text, "", ""
-        executable, source = self.resolve_managed_command_executable(token)
-        rewritten = leading + '"' + executable + '"' + command_text[match.end() :]
-        return rewritten, tool_key, source
-
     def build_process_env(self) -> Dict[str, str]:
         env = os.environ.copy()
         runtime = self.runtime_environment_snapshot()
@@ -1029,25 +1016,20 @@ class ToolContext(object):
         cwd = self.resolve_directory(cwd_argument)
         if timeout_sec <= 0:
             raise ToolError("timeout_sec 必须大于 0。")
-        resolved_command, managed_tool, _ = self.rewrite_command_for_managed_tools(command_text)
         result = self.run_subprocess(
-            command=resolved_command,
+            command=command_text,
             cwd=cwd,
             timeout_sec=timeout_sec,
             shell=True,
             stop_event=self.get_interrupt_event(),
         )
         if diagnostic:
-            observation = self.build_diagnostic_observation(
-                tool_name, resolved_command, cwd, result
-            )
+            observation = self.build_diagnostic_observation(tool_name, command_text, cwd, result)
         else:
-            observation = self.build_command_observation(tool_name, resolved_command, cwd, result)
+            observation = self.build_command_observation(tool_name, command_text, cwd, result)
         if isinstance(observation.data, dict):
             data = dict(observation.data)
             data["requested_command"] = command_text
-            if managed_tool:
-                data["managed_primary_tool"] = managed_tool
             observation.data = data
         return observation
 
