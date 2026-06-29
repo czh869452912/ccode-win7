@@ -36,6 +36,7 @@ import { runAppWorkspaceTests } from "./app-workspaces.test.mjs";
 import { runWorkspaceControllerTests } from "./workspace-controller.test.mjs";
 import { runAppHomeModelTests } from "./app-home-model.test.mjs";
 import { runBranchToolbarModelTests } from "./branch-toolbar-model.test.mjs";
+import { runCommandCapabilitiesTests } from "./command-capabilities.test.mjs";
 import { runCommandPaletteModelTests } from "./command-palette-model.test.mjs";
 import { runCommandPaletteSourceTests } from "./command-palette-source.test.mjs";
 import { runComposerCommandSearchTests } from "./composer-command-search.test.mjs";
@@ -73,6 +74,7 @@ async function main() {
   assert.equal(initialState.app.settings.confirm_workspace_switch, true);
   assert.equal(initialState.app.hasActiveWorkspace, false);
   assert.equal(initialState.app.activeWorkspace, null);
+  assert.deepEqual(initialState.sessionCapabilities, { commands: [] });
   const storeTerminalSurface = reducer(initialState, {
     type: "workbench_surface_opened",
     placement: "right",
@@ -180,6 +182,7 @@ async function main() {
   assert.deepEqual(switchedWorkspaceState.thread.sessions, []);
   assert.equal(switchedWorkspaceState.thread.historyIntegrity, null);
   assert.equal(switchedWorkspaceState.composer.draft, "");
+  assert.deepEqual(switchedWorkspaceState.sessionCapabilities, { commands: [] });
   assert.deepEqual(switchedWorkspaceState.activities, []);
   assert.deepEqual(switchedWorkspaceState.fileTree, []);
   assert.equal(switchedWorkspaceState.app.hasActiveWorkspace, false);
@@ -204,6 +207,7 @@ async function main() {
   });
   assert.equal(activatedThreadState.thread.currentSessionId, "sess-active");
   assert.equal(activatedThreadState.thread.sessions.length, 2);
+  assert.deepEqual(activatedThreadState.sessionCapabilities, { commands: [] });
 
   const fileTreeState = reducer(initialState, {
     type: "file_tree_loaded",
@@ -868,6 +872,9 @@ async function main() {
   assert.equal(appSource.includes("createThreadLifecycleController"), true);
   const directCommandIdCases = (appSource.match(/command\.id ===/g) || []).length;
   assert.ok(directCommandIdCases <= 2);
+  assert.equal(appSource.includes("SLASH_COMMAND_HINTS"), false);
+  assert.equal(appSource.includes("buildComposerCommandsFromCapabilities"), true);
+  assert.equal(appSource.includes("const composerCommands = paletteCommands"), false);
   const sessionControllerSource = fs.readFileSync(
     webappSourcePath("app-runtime", "session-controller.js"),
     "utf8",
@@ -1318,6 +1325,7 @@ async function main() {
   await runWorkspaceControllerTests();
   runAppHomeModelTests();
   runBranchToolbarModelTests();
+  runCommandCapabilitiesTests();
   runCommandPaletteModelTests();
   runCommandPaletteSourceTests();
   runThreadStateTests();

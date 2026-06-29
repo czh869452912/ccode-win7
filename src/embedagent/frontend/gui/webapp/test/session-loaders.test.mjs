@@ -144,6 +144,16 @@ export async function runSessionLoadersTests() {
       },
       plan: { title: "Parser plan", steps: [] },
       permission_context: { session_id: "sess-bootstrap", rules: [{ category: "workspace_write" }] },
+      capabilities: {
+        commands: [
+          {
+            name: "resources",
+            usage: "/resources [reload]",
+            summary: "Reload resources",
+            active: true,
+          },
+        ],
+      },
     },
     "sess-bootstrap",
   );
@@ -160,6 +170,7 @@ export async function runSessionLoadersTests() {
   assert.deepEqual(activation.historyIntegrity, { status: "healthy", event_count: 12 });
   assert.equal(activation.plan.title, "Parser plan");
   assert.equal(activation.permissionContext.rules[0].category, "workspace_write");
+  assert.equal(activation.capabilities.commands[0].usage, "/resources [reload]");
 
   const sparseActivation = deriveSessionActivation(null, "sess-empty");
   assert.equal(sparseActivation.sessionId, "sess-empty");
@@ -168,4 +179,5 @@ export async function runSessionLoadersTests() {
   assert.equal(sparseActivation.historyIntegrity, null);
   assert.equal(sparseActivation.plan, null);
   assert.equal(sparseActivation.permissionContext, null);
+  assert.deepEqual(sparseActivation.capabilities, { commands: [] });
 }

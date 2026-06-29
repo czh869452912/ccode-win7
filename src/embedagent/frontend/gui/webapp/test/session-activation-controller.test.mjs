@@ -31,6 +31,15 @@ export async function runSessionActivationControllerTests() {
         },
         plan: { title: "Build plan" },
         permission_context: { session_id: "sess-activation" },
+        capabilities: {
+          commands: [
+            {
+              name: "help",
+              usage: "/help",
+              active: true,
+            },
+          ],
+        },
       };
     },
     dispatch: (action) => actions.push(action),
@@ -62,6 +71,7 @@ export async function runSessionActivationControllerTests() {
   assert.equal(actions[0].snapshot.current_mode, "build");
   assert.equal(actions[0].activities[0].kind, "user");
   assert.deepEqual(actions[0].historyIntegrity, { status: "healthy" });
+  assert.equal(actions[0].capabilities.commands[0].usage, "/help");
   assert.deepEqual(replacedTransport, {
     connectionState: "connected",
     reloadState: "healthy",

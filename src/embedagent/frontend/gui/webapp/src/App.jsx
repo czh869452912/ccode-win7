@@ -9,6 +9,7 @@ import { appendSessionTransportEvent, createSessionTransportState } from "./sess
 import { createDiffSurfaceState } from "./session-runtime/diff-model.js";
 import { buildAppHomeModel } from "./session-runtime/app-home-model.js";
 import { buildSessionActivityRuntime } from "./session-runtime/activity-state.js";
+import { buildComposerCommandsFromCapabilities } from "./session-runtime/command-capabilities.js";
 import { deriveSocketMessageEffects } from "./app-runtime/socket-message-effects.js";
 import { createLoaderRequestExecutor } from "./app-runtime/session-loaders.js";
 import { createRightPanelController } from "./app-runtime/right-panel-controller.js";
@@ -66,22 +67,7 @@ import {
 } from "./workbench/ui-state.js";
 
 const MODES = ["explore", "spec", "build", "debug", "verify"];
-const SLASH_COMMAND_HINTS = [
-  "/help",
-  "/mode",
-  "/sessions",
-  "/resume",
-  "/workspace",
-  "/run",
-  "/recipes",
-  "/clear",
-  "/plan",
-  "/review",
-  "/diff",
-  "/permissions",
-  "/tasks",
-  "/artifacts",
-];
+const EMPTY_COMMAND_HINTS = [];
 
 function App() {
   const [state, dispatch] = useReducer(reducer, initialState, (baseState) => ({
@@ -117,7 +103,10 @@ function App() {
     state.workbench.commandPalette.open,
   ]);
   const paletteCommands = useMemo(() => visibleCommands(commandContext), [commandContext]);
-  const composerCommands = paletteCommands;
+  const composerCommands = useMemo(
+    () => buildComposerCommandsFromCapabilities(state.sessionCapabilities || {}),
+    [state.sessionCapabilities],
+  );
   const activeWorkspaceId = state.app.activeWorkspace?.id || "";
   const runtimeState = useMemo(
     () =>
@@ -929,7 +918,7 @@ function App() {
               onStop={cancelSession}
               isRunning={currentStatus === "running" || currentStatus === "waiting_user_input"}
               currentMode={currentMode}
-              commandHints={SLASH_COMMAND_HINTS}
+              commandHints={EMPTY_COMMAND_HINTS}
               commands={composerCommands}
               fileTree={state.fileTree}
               onOpenCommandPalette={() => dispatch({ type: "workbench_command_palette_opened" })}

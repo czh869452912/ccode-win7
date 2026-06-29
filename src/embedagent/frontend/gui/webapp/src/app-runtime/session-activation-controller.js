@@ -37,6 +37,7 @@ export function createSessionActivationController({
       snapshot: activation.snapshot,
       activities: activation.activities,
       historyIntegrity: activation.historyIntegrity,
+      capabilities: activation.capabilities,
     });
     replaceTransport(buildTransportState());
     send({ type: "plan_loaded", plan: activation.plan });

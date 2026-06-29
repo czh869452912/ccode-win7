@@ -40,6 +40,7 @@ export const initialState = {
   diffSurface: null,
   fileTree: [],
   toolCatalog: {},
+  sessionCapabilities: { commands: [] },
   requestedMode: DEFAULT_MODE,
   runOutput: createRunOutputState(),
   workbench: createWorkbenchState(),
@@ -157,6 +158,7 @@ export function reducer(state, action) {
         ...state,
         thread: reduceThreadState(state.thread, action),
         snapshot: action.snapshot,
+        sessionCapabilities: action.capabilities || { commands: [] },
         requestedMode: action.snapshot?.current_mode || state.requestedMode,
         ...reduceActivityState(state, { type: "activity_reset", activities: action.activities }),
         permission:

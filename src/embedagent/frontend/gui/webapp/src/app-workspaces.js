@@ -41,6 +41,7 @@ export function resetWorkspaceScopedState(state = {}) {
     diffSurface: null,
     fileTree: [],
     toolCatalog: {},
+    sessionCapabilities: { commands: [] },
     runOutput: reduceRunOutputState(state.runOutput, { type: "workspace_scoped_state_reset" }),
     terminationReason: "",
     terminationDisplayReason: "",

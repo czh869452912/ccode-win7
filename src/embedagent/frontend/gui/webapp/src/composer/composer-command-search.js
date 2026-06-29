@@ -75,7 +75,7 @@ export function buildComposerCommandItems(commands = []) {
       label: command.label || slash,
       detail: slash,
       slash,
-      insertion: `${slash} `,
+      insertion: command.insertion || `${slash} `,
       keywords: Array.isArray(command.keywords) ? command.keywords : [],
       order: items.length,
     });
