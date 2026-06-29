@@ -8,6 +8,9 @@ parser.add_argument("--json-report", required=True)
 parser.add_argument("--output-dir", required=False, default="")
 args = parser.parse_args()
 
+if args.output_dir:
+    (Path(args.output_dir) / "site-packages").mkdir(parents=True, exist_ok=True)
+
 Path(args.json_report).write_text(
     json.dumps(
         {

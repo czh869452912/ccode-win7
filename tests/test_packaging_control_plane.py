@@ -76,6 +76,30 @@ class TestPackageFoundation(unittest.TestCase):
         payload = json.loads(result.stdout)
         self.assertEqual(payload["final_status"], "READY")
 
+    def test_stage_results_include_timing_metadata(self):
+        result = run_pwsh(
+            ". '{lib}'; "
+            "$report = New-PackageReport -Command 'release' -Profile 'release'; "
+            "Add-StageResult -Report ([ref]$report) -Name 'prepare' -Status 'pass' -ExitCode 0 -Summary @{{script='mock'}}; "
+            "$report.stages[0] | ConvertTo-Json -Depth 8 -Compress".format(
+                lib=str(LIB).replace("\\", "\\\\"),
+            )
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["name"], "prepare")
+        self.assertIn("started_at", payload)
+        self.assertIn("finished_at", payload)
+        self.assertIn("duration_ms", payload)
+        self.assertIsInstance(payload["duration_ms"], int)
+        self.assertGreaterEqual(payload["duration_ms"], 0)
+
+    def test_powershell_stage_invocation_avoids_start_process_wait(self):
+        script = LIB.read_text(encoding="utf-8")
+
+        self.assertNotIn("Start-Process", script)
+        self.assertNotIn("-Wait -PassThru", script)
+
     def test_python_stage_resolution_prefers_project_relative_venv(self):
         project_root = ROOT / "build" / "test-tmp" / "python-resolution"
         shutil.rmtree(project_root, ignore_errors=True)
@@ -1059,6 +1083,11 @@ class TestPackageOrchestration(unittest.TestCase):
         self.assertEqual(stage_names, ["deps", "prepare", "build", "verify"])
         stage_statuses = [stage["status"] for stage in payload["stages"]]
         self.assertEqual(stage_statuses, ["pass", "pass", "pass", "pass"])
+        for stage in payload["stages"]:
+            self.assertIn("started_at", stage)
+            self.assertIn("finished_at", stage)
+            self.assertIn("duration_ms", stage)
+            self.assertGreaterEqual(stage["duration_ms"], 0)
         verify_summary = payload["stages"][-1]["summary"]
         self.assertTrue(verify_summary["validate_report"])
         self.assertTrue(verify_summary["dependency_report"])

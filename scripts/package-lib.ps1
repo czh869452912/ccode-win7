@@ -54,13 +54,23 @@ function New-PackageReport {
     }
 }
 
+function New-PackageStageTimer {
+    $started = Get-Date
+    $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+    return [ordered]@{
+        started_at = $started.ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
+        stopwatch = $stopwatch
+    }
+}
+
 function Add-StageResult {
     param(
         [object]$Report,
         [string]$Name,
         [string]$Status,
         [int]$ExitCode,
-        [hashtable]$Summary
+        [hashtable]$Summary,
+        [object]$StageTimer = $null
     )
 
     $target = $Report
@@ -71,10 +81,27 @@ function Add-StageResult {
         $target = $target.Value
     }
 
+    $finished = Get-Date
+    $startedAt = $finished.ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
+    $durationMs = 0
+    if ($StageTimer -and $StageTimer -is [System.Collections.IDictionary]) {
+        if ($StageTimer.Contains('started_at')) {
+            $startedAt = [string]$StageTimer['started_at']
+        }
+        if ($StageTimer.Contains('stopwatch') -and $StageTimer['stopwatch']) {
+            $timer = $StageTimer['stopwatch']
+            $timer.Stop()
+            $durationMs = [int64]$timer.ElapsedMilliseconds
+        }
+    }
+
     $stage = [ordered]@{
         name = $Name
         status = $Status
         exit_code = $ExitCode
+        started_at = $startedAt
+        finished_at = $finished.ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
+        duration_ms = $durationMs
         summary = $Summary
     }
     $target['stages'] += $stage
@@ -531,11 +558,11 @@ function Invoke-StageScript {
                 throw ('PowerShell stage script failed: {0} (exit {1})' -f $ScriptPath, $LASTEXITCODE)
             }
         } else {
-            # Use Start-Process so child script output streams directly to the
-            # same console window and progress is visible in real time.
-            $proc = Start-Process -FilePath $powerShellPath -ArgumentList $procArgs -NoNewWindow -Wait -PassThru
-            if ($proc.ExitCode -ne 0) {
-                throw ('PowerShell stage script failed: {0} (exit {1})' -f $ScriptPath, $proc.ExitCode)
+            & $powerShellPath @procArgs
+            $exitCode = $LASTEXITCODE
+            Write-PackageLog ("[stage]   exited {0}: {1}" -f $exitCode, $ScriptPath)
+            if ($exitCode -ne 0) {
+                throw ('PowerShell stage script failed: {0} (exit {1})' -f $ScriptPath, $exitCode)
             }
         }
         return
@@ -565,9 +592,10 @@ function Invoke-PackageDeps {
     $scriptPath = Resolve-ToolPath -Context $Context -RelativePath ([string]$Context.config.tooling.export_dependencies)
     $jsonPath = New-ReportPath -Context $Context -StageName 'deps'
     $outputRoot = Resolve-ConfigPath -ProjectRoot $Context.project_root -Path ([string]$Context.config.paths.site_packages_export_root)
+    $timer = New-PackageStageTimer
     $null = Invoke-StageScript -ProjectRoot $Context.project_root -ScriptPath $scriptPath -Arguments @('--output-dir', $outputRoot, '--json-report', $jsonPath)
     $payload = Get-Content -LiteralPath $jsonPath -Raw | ConvertFrom-Json
-    Add-StageResult -Report $Report -Name 'deps' -Status $(if ($payload.ok) { 'pass' } else { 'fail' }) -ExitCode $(if ($payload.ok) { 0 } else { 1 }) -Summary @{ report = $jsonPath }
+    Add-StageResult -Report $Report -Name 'deps' -Status $(if ($payload.ok) { 'pass' } else { 'fail' }) -ExitCode $(if ($payload.ok) { 0 } else { 1 }) -Summary @{ report = $jsonPath } -StageTimer $timer
 }
 
 function Invoke-FrontendBuild {
@@ -577,14 +605,15 @@ function Invoke-FrontendBuild {
     )
 
     Write-PackageLog "[assemble] Building GUI frontend assets..."
+    $timer = New-PackageStageTimer
     $result = Ensure-GuiFrontendAssets -ProjectRoot $Context.project_root -ForceBuild
     if (-not $result.ok) {
         Write-PackageLog ("[assemble]   frontend_build FAILED: {0}" -f $result.reason)
-        Add-StageResult -Report $Report -Name 'frontend_build' -Status 'fail' -ExitCode 1 -Summary $result
+        Add-StageResult -Report $Report -Name 'frontend_build' -Status 'fail' -ExitCode 1 -Summary $result -StageTimer $timer
         return
     }
     Write-PackageLog ("[assemble]   frontend_build OK ({0})" -f $result.mode)
-    Add-StageResult -Report $Report -Name 'frontend_build' -Status 'pass' -ExitCode 0 -Summary $result
+    Add-StageResult -Report $Report -Name 'frontend_build' -Status 'pass' -ExitCode 0 -Summary $result -StageTimer $timer
 }
 
 function Get-GuiLauncherOutputPath {
@@ -610,25 +639,26 @@ function Invoke-GuiLauncherBuild {
     }
 
     Write-PackageLog "[assemble] Building native GUI launcher..."
+    $timer = New-PackageStageTimer
     try {
         $null = Invoke-StageScript -ProjectRoot $Context.project_root -ScriptPath $scriptPath -Arguments @('-OutputPath', $outputPath)
     }
     catch {
         $summary.error = $_.Exception.Message
         Write-PackageLog ("[assemble]   gui_launcher_build FAILED: {0}" -f $_.Exception.Message)
-        Add-StageResult -Report $Report -Name 'gui_launcher_build' -Status 'fail' -ExitCode 1 -Summary $summary
+        Add-StageResult -Report $Report -Name 'gui_launcher_build' -Status 'fail' -ExitCode 1 -Summary $summary -StageTimer $timer
         return ''
     }
 
     if (-not (Test-Path -LiteralPath $outputPath)) {
         $summary.error = 'launcher_output_missing'
         Write-PackageLog ("[assemble]   gui_launcher_build FAILED: output missing at {0}" -f $outputPath)
-        Add-StageResult -Report $Report -Name 'gui_launcher_build' -Status 'fail' -ExitCode 1 -Summary $summary
+        Add-StageResult -Report $Report -Name 'gui_launcher_build' -Status 'fail' -ExitCode 1 -Summary $summary -StageTimer $timer
         return ''
     }
 
     Write-PackageLog ("[assemble]   gui_launcher_build OK ({0})" -f $outputPath)
-    Add-StageResult -Report $Report -Name 'gui_launcher_build' -Status 'pass' -ExitCode 0 -Summary $summary
+    Add-StageResult -Report $Report -Name 'gui_launcher_build' -Status 'pass' -ExitCode 0 -Summary $summary -StageTimer $timer
     return $outputPath
 }
 
@@ -666,6 +696,11 @@ function Invoke-PackageAssemble {
         $prepareArgs += '-GuiLauncherExePath'
         $prepareArgs += $guiLauncherExePath
     }
+    $sitePackagesRoot = Resolve-ConfigPath -ProjectRoot $Context.project_root -Path ([string]$Context.config.paths.site_packages_root)
+    if ($sitePackagesRoot -and (Test-Path -LiteralPath $sitePackagesRoot)) {
+        $prepareArgs += '-SitePackagesRoot'
+        $prepareArgs += $sitePackagesRoot
+    }
 
     $buildArgs = @('-ArtifactName', [string]$Context.artifact_name)
     if (@($requiredAssetIds).Count -gt 0) {
@@ -677,14 +712,30 @@ function Invoke-PackageAssemble {
     }
 
     Write-PackageLog "[assemble] Running prepare-offline.ps1..."
-    $null = Invoke-StageScript -ProjectRoot $Context.project_root -ScriptPath $preparePath -Arguments $prepareArgs
+    $prepareTimer = New-PackageStageTimer
+    try {
+        $null = Invoke-StageScript -ProjectRoot $Context.project_root -ScriptPath $preparePath -Arguments $prepareArgs
+    }
+    catch {
+        Write-PackageLog ("[assemble]   prepare FAILED: {0}" -f $_.Exception.Message)
+        Add-StageResult -Report $Report -Name 'prepare' -Status 'fail' -ExitCode 1 -Summary @{ script = $preparePath; site_packages_root = $sitePackagesRoot; error = $_.Exception.Message } -StageTimer $prepareTimer
+        return
+    }
     Write-PackageLog "[assemble]   prepare OK"
-    Add-StageResult -Report $Report -Name 'prepare' -Status 'pass' -ExitCode 0 -Summary @{ script = $preparePath }
+    Add-StageResult -Report $Report -Name 'prepare' -Status 'pass' -ExitCode 0 -Summary @{ script = $preparePath; site_packages_root = $sitePackagesRoot } -StageTimer $prepareTimer
 
     Write-PackageLog "[assemble] Running build-offline-bundle.ps1..."
-    $null = Invoke-StageScript -ProjectRoot $Context.project_root -ScriptPath $buildPath -Arguments $buildArgs
+    $buildTimer = New-PackageStageTimer
+    try {
+        $null = Invoke-StageScript -ProjectRoot $Context.project_root -ScriptPath $buildPath -Arguments $buildArgs
+    }
+    catch {
+        Write-PackageLog ("[assemble]   build FAILED: {0}" -f $_.Exception.Message)
+        Add-StageResult -Report $Report -Name 'build' -Status 'fail' -ExitCode 1 -Summary @{ script = $buildPath; artifact_name = $Context.artifact_name; error = $_.Exception.Message } -StageTimer $buildTimer
+        return
+    }
     Write-PackageLog "[assemble]   build OK"
-    Add-StageResult -Report $Report -Name 'build' -Status 'pass' -ExitCode 0 -Summary @{ script = $buildPath; artifact_name = $Context.artifact_name }
+    Add-StageResult -Report $Report -Name 'build' -Status 'pass' -ExitCode 0 -Summary @{ script = $buildPath; artifact_name = $Context.artifact_name } -StageTimer $buildTimer
 
     Write-PackageLog "[assemble] Package assembly complete"
 }
@@ -714,6 +765,7 @@ function Invoke-PackageVerify {
     $checkJson = New-ReportPath -Context $Context -StageName 'check'
 
     Write-PackageLog "[verify] Running validate-offline-bundle.ps1..."
+    $verifyTimer = New-PackageStageTimer
     $validateArgs = @('-BundleRoot', $bundleRoot, '-JsonOutputPath', $validateJson)
     if (-not [bool]$Context.profile_config.run_dynamic_checks) {
         $validateArgs += '-SkipDynamicChecks'
@@ -721,21 +773,32 @@ function Invoke-PackageVerify {
     if ([bool]$Context.profile_config.require_complete -or [bool]$Context.strict) {
         $validateArgs += '-RequireComplete'
     }
-    $null = Invoke-StageScript -ProjectRoot $Context.project_root -ScriptPath $validateScript -Arguments $validateArgs
-    $validatePayload = Get-Content -LiteralPath $validateJson -Raw | ConvertFrom-Json
-    Write-PackageLog ("[verify]   validate: {0}" -f $(if ($validatePayload.ok) { "OK" } else { "FAIL" }))
+    try {
+        $null = Invoke-StageScript -ProjectRoot $Context.project_root -ScriptPath $validateScript -Arguments $validateArgs
+        $validatePayload = Get-Content -LiteralPath $validateJson -Raw | ConvertFrom-Json
+        Write-PackageLog ("[verify]   validate: {0}" -f $(if ($validatePayload.ok) { "OK" } else { "FAIL" }))
 
-    Write-PackageLog "[verify] Running check-bundle-dependencies.py..."
-    $null = Invoke-StageScript -ProjectRoot $Context.project_root -ScriptPath $checkScript -Arguments @($bundleRoot, '--json-report', $checkJson)
-    $checkPayload = Get-Content -LiteralPath $checkJson -Raw | ConvertFrom-Json
-    Write-PackageLog ("[verify]   dependencies: {0}" -f $(if ($checkPayload.ok) { "OK" } else { "FAIL" }))
+        Write-PackageLog "[verify] Running check-bundle-dependencies.py..."
+        $null = Invoke-StageScript -ProjectRoot $Context.project_root -ScriptPath $checkScript -Arguments @($bundleRoot, '--json-report', $checkJson)
+        $checkPayload = Get-Content -LiteralPath $checkJson -Raw | ConvertFrom-Json
+        Write-PackageLog ("[verify]   dependencies: {0}" -f $(if ($checkPayload.ok) { "OK" } else { "FAIL" }))
+    }
+    catch {
+        Add-StageResult -Report $Report -Name 'verify' -Status 'fail' -ExitCode 1 -Summary @{
+            bundle_root = $bundleRoot
+            validate_report = $validateJson
+            dependency_report = $checkJson
+            error = $_.Exception.Message
+        } -StageTimer $verifyTimer
+        return
+    }
 
     $verifyOk = ([bool]$validatePayload.ok) -and ([bool]$checkPayload.ok)
     Add-StageResult -Report $Report -Name 'verify' -Status $(if ($verifyOk) { 'pass' } else { 'fail' }) -ExitCode $(if ($verifyOk) { 0 } else { 1 }) -Summary @{
         bundle_root = $bundleRoot
         validate_report = $validateJson
         dependency_report = $checkJson
-    }
+    } -StageTimer $verifyTimer
     Write-PackageLog ("[verify] Overall: {0}" -f $(if ($verifyOk) { "PASS" } else { "FAIL" }))
 }
 

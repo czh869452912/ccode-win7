@@ -1,7 +1,8 @@
 [CmdletBinding()]
 param(
     [string[]]$AssetIds = @(),
-    [switch]$AllowDownload
+    [switch]$AllowDownload,
+    [string]$SitePackagesRoot = ""
 )
 
 if (@($AssetIds).Count -eq 0) {
@@ -10,8 +11,16 @@ if (@($AssetIds).Count -eq 0) {
 if (-not $AllowDownload) {
     throw 'mock prepare expected AllowDownload'
 }
+if (-not $SitePackagesRoot) {
+    throw 'mock prepare expected SitePackagesRoot'
+}
 
 $projectRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..\..')).Path
+$expectedSitePackagesRoot = Join-Path $projectRoot 'build\offline-cache\site-packages-export\site-packages'
+if ($SitePackagesRoot -ne $expectedSitePackagesRoot) {
+    throw "mock prepare expected SitePackagesRoot=$expectedSitePackagesRoot but got $SitePackagesRoot"
+}
+
 $bundleRoot = Join-Path $projectRoot 'build\offline-staging\EmbedAgent'
 New-Item -ItemType Directory -Path (Join-Path $bundleRoot 'manifests') -Force | Out-Null
 @{
