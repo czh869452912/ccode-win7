@@ -355,6 +355,35 @@ class TestContextCompactionSignal(unittest.TestCase):
         self.assertNotIn("reactive_compact_retry", result.pipeline_steps)
         self.assertGreater(result.summarized_turns, 0)
 
+    def test_auto_compact_does_not_use_stale_usage_after_compaction(self):
+        cfg = ContextConfig(auto_compact_threshold_ratio=0.01)
+        cfg.mode_overrides["build"].update(
+            {
+                "max_context_tokens": 1000,
+                "reserve_output_tokens": 0,
+                "reserve_reasoning_tokens": 0,
+                "max_recent_turns": 4,
+            }
+        )
+        manager = ContextManager(config=cfg)
+        session = Session(session_id="sess-stale-usage")
+        session.add_user_message("before compact")
+        session.add_assistant_reply(
+            AssistantReply(
+                content="large response",
+                actions=[],
+                finish_reason="stop",
+                usage={"prompt_tokens": 950, "completion_tokens": 10, "total_tokens": 960},
+            )
+        )
+        boundary = session.add_compact_boundary("summary", 1, "build", {})
+        boundary.preserved_tail_message_id = session.messages[-1].message_id
+
+        result = manager.build_messages(session, mode_name="build")
+
+        self.assertNotIn("auto_compact_threshold", result.pipeline_steps)
+        self.assertEqual(result.context_usage.source, "unknown_after_compaction")
+
 
 if __name__ == "__main__":
     unittest.main()

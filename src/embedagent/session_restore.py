@@ -453,6 +453,7 @@ class SessionRestorer(object):
                 ],
                 finish_reason=str(payload.get("finish_reason") or ""),
                 reasoning_content=str(payload.get("reasoning_content") or ""),
+                usage=dict((payload.get("metadata") or {}).get("usage") or {}),
             )
             session.add_assistant_reply(
                 reply,

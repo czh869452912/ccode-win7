@@ -236,6 +236,7 @@ class SessionSnapshot:
     runtime_environment: Optional[RuntimeEnvironmentSnapshot] = None
     compact_summary_text: str = ""
     context_analysis: Dict[str, Any] = field(default_factory=dict)
+    context_usage: Dict[str, Any] = field(default_factory=dict)
     compact_boundary_count: int = 0
     workspace_intelligence: List[Dict[str, Any]] = field(default_factory=list)
     context_pipeline_steps: List[str] = field(default_factory=list)

@@ -396,6 +396,13 @@ class Session:
             if reply.reasoning_content:
                 step.reasoning = reply.reasoning_content
         parent_value = str(parent_message_id or self.last_message_id() or "")
+        metadata = {}
+        if isinstance(reply.usage, dict) and reply.usage:
+            metadata["usage"] = {
+                "prompt_tokens": int(reply.usage.get("prompt_tokens") or 0),
+                "completion_tokens": int(reply.usage.get("completion_tokens") or 0),
+                "total_tokens": int(reply.usage.get("total_tokens") or 0),
+            }
         self.messages.append(
             TranscriptMessage(
                 role="assistant",
@@ -406,6 +413,7 @@ class Session:
                 parent_message_id=parent_value,
                 turn_id=turn_id or (self.turns[-1].turn_id if self.turns else ""),
                 step_id=step_id or (step.step_id if step is not None else ""),
+                metadata=metadata,
             )
         )
         if not self.turns:

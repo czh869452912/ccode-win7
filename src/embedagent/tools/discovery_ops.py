@@ -9,7 +9,9 @@ from embedagent.session import Observation
 from embedagent.tools._base import ToolDefinition, ToolError
 
 
-def _diagnostic_tool_error(message: str, error_kind: str, suggested_next_step: str = "") -> ToolError:
+def _diagnostic_tool_error(
+    message: str, error_kind: str, suggested_next_step: str = ""
+) -> ToolError:
     return ToolError(
         message,
         error_kind=error_kind,

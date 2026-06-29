@@ -733,8 +733,10 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         )
         refreshed = adapter.get_session_snapshot(session_id)
         self.assertIn("context_analysis", refreshed)
+        self.assertIn("context_usage", refreshed)
         self.assertIn("compact_boundary_count", refreshed)
         self.assertIsInstance(refreshed["context_analysis"], dict)
+        self.assertIsInstance(refreshed["context_usage"], dict)
 
     def test_session_snapshot_includes_compaction_state(self):
         adapter = InProcessAdapter(

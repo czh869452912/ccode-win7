@@ -442,7 +442,9 @@ class TestToolRuntimeExecute(unittest.TestCase):
         with open(os.path.join(self.workspace, "src.txt"), "w", encoding="utf-8") as handle:
             handle.write("needle in source\n")
         with open(
-            os.path.join(self.workspace, ".embedagent", "memory", "sessions", "s1", "transcript.jsonl"),
+            os.path.join(
+                self.workspace, ".embedagent", "memory", "sessions", "s1", "transcript.jsonl"
+            ),
             "w",
             encoding="utf-8",
         ) as handle:

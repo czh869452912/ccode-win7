@@ -60,6 +60,7 @@ def serialize_session_snapshot(snapshot: Any) -> Dict[str, Any]:
         "runtime_environment": runtime_environment,
         "compact_summary_text": str(read_value(snapshot, "compact_summary_text", "") or ""),
         "context_analysis": dict(read_value(snapshot, "context_analysis", {}) or {}),
+        "context_usage": dict(read_value(snapshot, "context_usage", {}) or {}),
         "compact_boundary_count": int(read_value(snapshot, "compact_boundary_count", 0) or 0),
         "workspace_intelligence": list(read_value(snapshot, "workspace_intelligence", []) or []),
         "context_pipeline_steps": list(read_value(snapshot, "context_pipeline_steps", []) or []),

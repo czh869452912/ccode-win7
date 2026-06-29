@@ -6,6 +6,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
+from embedagent.context_usage import ContextUsageEstimator
 from embedagent.project_memory import ProjectMemoryStore
 from embedagent.session import Action, Message, Observation, Session, Turn
 from embedagent.workspace_intelligence import WorkspaceIntelligenceBroker
@@ -186,6 +187,7 @@ class ContextBuildResult:
     replacements: List[Dict[str, Any]] = field(default_factory=list)
     pipeline_steps: List[str] = field(default_factory=list)
     plan: Any = None
+    context_usage: Any = None
 
     def __post_init__(self) -> None:
         if self.plan is None:
@@ -716,6 +718,7 @@ class ContextManager(object):
         self.token_estimator = token_estimator or TokenEstimator(
             self.config.estimated_chars_per_token
         )
+        self.context_usage_estimator = ContextUsageEstimator(self.config.estimated_chars_per_token)
 
     def build_messages(
         self,
@@ -742,6 +745,11 @@ class ContextManager(object):
         raw_messages = [message.to_api_dict() for message in session.messages]
         chars_before = self._measure_messages(raw_messages)
         tokens_before = self._estimate_tokens(chars_before)
+        usage_estimate = self.context_usage_estimator.estimate_session(
+            session,
+            context_window=policy.max_context_tokens,
+            reserve_tokens=policy.reserve_output_tokens + policy.reserve_reasoning_tokens,
+        )
         intelligence_message = ""
         intelligence_sections = []
         if intelligence_broker is not None and tools is not None:
@@ -831,7 +839,7 @@ class ContextManager(object):
                     stats,
                     summary_message=str(getattr(compacted_history, "summary_text", "") or ""),
                     intelligence_sections=intelligence_sections,
-                    analysis=self._analyze_context(session),
+                    analysis=self._analysis_with_context_usage(session, usage_estimate),
                     replacements=replacements,
                     pipeline_steps=([compact_step] if compact_step else [])
                     + [
@@ -839,6 +847,7 @@ class ContextManager(object):
                         "working_set",
                         "prompt_render",
                     ],
+                    context_usage=usage_estimate,
                 )
         if not visible_turns:
             messages = [self._compact_message(message, policy) for message in session.messages]
@@ -886,9 +895,10 @@ class ContextManager(object):
                 stats,
                 summary_message=boundary.summary_text if boundary is not None else "",
                 intelligence_sections=intelligence_sections,
-                analysis=self._analyze_context(session),
+                analysis=self._analysis_with_context_usage(session, usage_estimate),
                 replacements=[],
                 pipeline_steps=pipeline_steps,
+                context_usage=usage_estimate,
             )
         recent_turns = min(policy.max_recent_turns, len(visible_turns))
         best = None  # type: Optional[ContextBuildResult]
@@ -961,6 +971,12 @@ class ContextManager(object):
             return False
         max_input_tokens = int(getattr(candidate.budget, "max_input_tokens", 0) or 0)
         input_tokens = int(getattr(candidate.budget, "input_tokens", 0) or 0)
+        usage = getattr(candidate, "context_usage", None)
+        usage_tokens = getattr(usage, "tokens", None)
+        if usage_tokens is None and getattr(usage, "source", "") == "unknown_after_compaction":
+            return False
+        if usage_tokens is not None:
+            input_tokens = int(usage_tokens)
         if max_input_tokens <= 0:
             return False
         return input_tokens >= int(max_input_tokens * ratio)
@@ -1007,6 +1023,11 @@ class ContextManager(object):
         intelligence_message: str,
         intelligence_sections: List[Dict[str, Any]],
     ) -> ContextBuildResult:
+        usage_estimate = self.context_usage_estimator.estimate_session(
+            session,
+            context_window=policy.max_context_tokens,
+            reserve_tokens=policy.reserve_output_tokens + policy.reserve_reasoning_tokens,
+        )
         latest_system = self._latest_system_message(session)
         auxiliary_system_messages = self._auxiliary_system_messages(session, latest_system, policy)
         old_turns = visible_turns[:-recent_turns] if recent_turns < len(visible_turns) else []
@@ -1063,7 +1084,7 @@ class ContextManager(object):
             stats,
             summary_message=summary_text,
             intelligence_sections=intelligence_sections,
-            analysis=self._analyze_context(session),
+            analysis=self._analysis_with_context_usage(session, usage_estimate),
             replacements=replacements,
             pipeline_steps=[
                 "working_set",
@@ -1074,6 +1095,7 @@ class ContextManager(object):
                 "summary/compact",
                 "prompt_render",
             ],
+            context_usage=usage_estimate,
         )
 
     def _policy_for_mode(self, mode_name: str) -> ContextPolicy:
@@ -1636,6 +1658,12 @@ class ContextManager(object):
             "replacement_count": replacement_count,
             "resume_replay_hits": 1 if session.latest_compact_boundary() is not None else 0,
         }
+
+    def _analysis_with_context_usage(self, session: Session, usage_estimate: Any) -> Dict[str, Any]:
+        analysis = self._analyze_context(session)
+        if hasattr(usage_estimate, "to_dict"):
+            analysis["context_usage"] = usage_estimate.to_dict()
+        return analysis
 
 
 def _truncate_text(text: str, limit: int) -> str:

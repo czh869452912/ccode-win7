@@ -53,7 +53,9 @@ class TestLoopGuard(unittest.TestCase):
         self.assertFalse(self.guard.should_block(action))
 
     def test_diagnostic_grep_failures_do_not_hard_stop(self):
-        action = Action(name="grep_text", arguments={"path": "missing", "pattern": "x"}, call_id="c1")
+        action = Action(
+            name="grep_text", arguments={"path": "missing", "pattern": "x"}, call_id="c1"
+        )
         fail_obs = Observation(
             tool_name="grep_text",
             success=False,

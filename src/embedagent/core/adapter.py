@@ -125,6 +125,7 @@ def _session_snapshot_from_dict(snapshot: Dict[str, Any]) -> SessionSnapshot:
         runtime_environment=_runtime_environment_from_snapshot(snapshot),
         compact_summary_text=str(snapshot.get("compact_summary_text") or ""),
         context_analysis=dict(snapshot.get("context_analysis") or {}),
+        context_usage=dict(snapshot.get("context_usage") or {}),
         compact_boundary_count=int(snapshot.get("compact_boundary_count") or 0),
         workspace_intelligence=list(snapshot.get("workspace_intelligence") or []),
         context_pipeline_steps=list(snapshot.get("context_pipeline_steps") or []),

@@ -59,6 +59,8 @@ class SessionSnapshotProjector(object):
         del harness_context
         summary_payload = dict(summary or {})
         runtime_payload = dict(runtime or {})
+        context_analysis = dict(summary_payload.get("context_analysis") or {})
+        context_usage = dict(context_analysis.get("context_usage") or {})
         recent_transitions = _normalize_recent_transitions(
             list(summary_payload.get("recent_transitions") or [])
         )
@@ -95,7 +97,8 @@ class SessionSnapshotProjector(object):
             "user_goal": str(summary_payload.get("user_goal") or ""),
             "summary_ref": str(summary_payload.get("summary_ref") or state.summary_ref or ""),
             "compact_summary_text": str(summary_payload.get("compact_summary_text") or ""),
-            "context_analysis": dict(summary_payload.get("context_analysis") or {}),
+            "context_analysis": context_analysis,
+            "context_usage": context_usage,
             "compact_boundary_count": len(getattr(state.session, "compact_boundaries", []) or []),
             "workspace_intelligence": list(summary_payload.get("workspace_intelligence") or []),
             "context_pipeline_steps": list(summary_payload.get("context_pipeline_steps") or []),

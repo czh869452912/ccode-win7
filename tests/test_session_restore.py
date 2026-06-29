@@ -165,6 +165,48 @@ class TestSessionRestorer(unittest.TestCase):
         self.assertEqual(result.consumed_event_count, 7)
         self.assertEqual(result.stop_reason, "")
 
+    def test_restore_preserves_assistant_usage_metadata(self):
+        events = [
+            {
+                "type": "message",
+                "payload": {
+                    "role": "user",
+                    "content": "hello",
+                    "message_id": "m-user",
+                    "turn_id": "t-1",
+                },
+            },
+            {
+                "type": "step_started",
+                "payload": {"turn_id": "t-1", "step_id": "s-1", "step_index": 1},
+            },
+            {
+                "type": "message",
+                "payload": {
+                    "role": "assistant",
+                    "content": "world",
+                    "message_id": "m-assistant",
+                    "parent_message_id": "m-user",
+                    "turn_id": "t-1",
+                    "step_id": "s-1",
+                    "metadata": {
+                        "usage": {
+                            "prompt_tokens": 100,
+                            "completion_tokens": 20,
+                            "total_tokens": 120,
+                        }
+                    },
+                },
+            },
+        ]
+
+        result = SessionRestorer().restore(events)
+        assistant = [message for message in result.session.messages if message.role == "assistant"][
+            0
+        ]
+
+        self.assertEqual(assistant.metadata["usage"]["total_tokens"], 120)
+
     def test_restore_ignores_resource_reload_events(self):
         session_id = "sess-resource-events"
         self.store.append_event(
