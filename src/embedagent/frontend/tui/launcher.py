@@ -9,24 +9,13 @@ import argparse
 import logging
 import os
 import sys
-from typing import Any, Optional
+from typing import Optional
 
-from embedagent.config import load_config
 from embedagent.frontend.tui.bootstrap import TUIUnavailableError, run_tui
+from embedagent.hosted.launch_config import LaunchOverrides, resolve_launch_config
+from embedagent.hosted.runtime import create_hosted_runtime
 
 _LOGGER = logging.getLogger(__name__)
-
-
-def _resolve_runtime_value(override: Any, configured: Any, default: Any) -> Any:
-    if override is not None:
-        if isinstance(override, str):
-            if override.strip():
-                return override
-        else:
-            return override
-    if configured is not None:
-        return configured
-    return default
 
 
 def launch_tui(
@@ -47,17 +36,21 @@ def launch_tui(
 ):
     """启动 TUI。"""
     workspace = os.path.realpath(workspace)
-    app_config = load_config(workspace)
-    resolved_base_url = str(
-        _resolve_runtime_value(base_url, app_config.base_url, "http://127.0.0.1:8000/v1")
+    launch_config = resolve_launch_config(
+        workspace,
+        overrides=LaunchOverrides(
+            base_url=base_url,
+            api_key=api_key,
+            model=model,
+            timeout=timeout,
+            max_turns=max_turns,
+            approve_all=approve_all,
+            approve_writes=approve_writes,
+            approve_commands=approve_commands,
+            permission_rules=permission_rules,
+        ),
     )
-    resolved_api_key = str(_resolve_runtime_value(api_key, app_config.api_key, ""))
-    resolved_model = str(_resolve_runtime_value(model, app_config.model, ""))
-    resolved_timeout = float(_resolve_runtime_value(timeout, app_config.timeout, 120.0))
-    raw_max_turns = max_turns
-    resolved_max_turns = int(raw_max_turns) if raw_max_turns is not None else None
-    if not resolved_model:
-        raise ValueError("必须通过 --model 或配置文件提供模型名称。")
+    runtime = create_hosted_runtime(launch_config)
 
     previous_headless = os.environ.get("EMBEDAGENT_TUI_HEADLESS")
     if headless:
@@ -66,18 +59,10 @@ def launch_tui(
         os.environ.pop("EMBEDAGENT_TUI_HEADLESS", None)
     try:
         return run_tui(
-            base_url=resolved_base_url,
-            api_key=resolved_api_key,
-            model=resolved_model,
-            workspace=workspace,
-            timeout=resolved_timeout,
-            max_turns=resolved_max_turns,
+            session_host=runtime.session_host,
+            workspace=launch_config.workspace,
             mode=mode,
             resume=resume,
-            approve_all=approve_all,
-            approve_writes=approve_writes,
-            approve_commands=approve_commands,
-            permission_rules=permission_rules,
             initial_message=message,
         )
     finally:

@@ -5,16 +5,11 @@ import os
 import sys
 from typing import Dict, List, Optional
 
-from embedagent.config import load_config
-from embedagent.context import ContextManager, make_context_config
-from embedagent.inprocess_adapter import InProcessAdapter
-from embedagent.llm import ModelClientError, OpenAICompatibleClient
+from embedagent.hosted.launch_config import LaunchOverrides, resolve_launch_config
+from embedagent.hosted.runtime import create_hosted_runtime
+from embedagent.llm import ModelClientError
 from embedagent.modes import DEFAULT_MODE, initialize_modes, parse_mode_command
-from embedagent.permissions import PermissionPolicy
-from embedagent.project_memory import ProjectMemoryStore
-from embedagent.session_store import SessionSummaryStore
-from embedagent.tools import ToolRuntime
-from embedagent.tui import TUIUnavailableError, run_tui
+from embedagent.tui import TUIUnavailableError
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -26,17 +21,17 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--base-url",
-        default=os.environ.get("EMBEDAGENT_BASE_URL", "http://127.0.0.1:8000/v1"),
+        default="",
         help="模型服务根地址。示例：http://127.0.0.1:8000/v1",
     )
     parser.add_argument(
         "--api-key",
-        default=os.environ.get("EMBEDAGENT_API_KEY", ""),
+        default="",
         help="模型服务 API Key。示例：sk-local",
     )
     parser.add_argument(
         "--model",
-        default=os.environ.get("EMBEDAGENT_MODEL", ""),
+        default="",
         help="模型名称。示例：qwen3.5-coder",
     )
     parser.add_argument(
@@ -47,7 +42,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--timeout",
         type=float,
-        default=float(os.environ.get("EMBEDAGENT_TIMEOUT", "120")),
+        default=None,
         help="请求模型的超时时间（秒）。示例：120",
     )
     parser.add_argument(
@@ -172,19 +167,30 @@ def main(argv: Optional[List[str]] = None) -> int:
     workspace = os.path.realpath(args.workspace)
     initialize_modes(workspace)
 
-    # Load user-level and project-level config, then apply CLI overrides
-    app_config = load_config(workspace)
-    if args.max_context_tokens is not None:
-        app_config.max_context_tokens = args.max_context_tokens
-    if args.reserve_output_tokens is not None:
-        app_config.reserve_output_tokens = args.reserve_output_tokens
-    if args.chars_per_token is not None:
-        app_config.chars_per_token = args.chars_per_token
-
-    summary_store = SessionSummaryStore(workspace)
+    try:
+        launch_config = resolve_launch_config(
+            workspace,
+            LaunchOverrides(
+                base_url=args.base_url,
+                api_key=args.api_key,
+                model=args.model,
+                timeout=args.timeout,
+                max_turns=args.max_turns,
+                approve_all=args.approve_all,
+                approve_writes=args.approve_writes,
+                approve_commands=args.approve_commands,
+                permission_rules=args.permission_rules,
+                max_context_tokens=args.max_context_tokens,
+                reserve_output_tokens=args.reserve_output_tokens,
+                chars_per_token=args.chars_per_token,
+            ),
+        )
+    except ValueError as exc:
+        parser.error(str(exc))
 
     if args.list_sessions:
-        sessions = summary_store.list_summaries(limit=max(1, int(args.session_limit)))
+        runtime = create_hosted_runtime(launch_config)
+        sessions = runtime.session_host.list_sessions(limit=max(1, int(args.session_limit)))
         if not sessions:
             sys.stdout.write("当前没有可恢复的会话摘要。\n")
             return 0
@@ -193,17 +199,18 @@ def main(argv: Optional[List[str]] = None) -> int:
         return 0
 
     resumed_summary = None  # type: Optional[Dict[str, object]]
-    fallback_mode = args.mode or getattr(app_config, "default_mode", None) or DEFAULT_MODE
+    fallback_mode = (
+        args.mode or getattr(launch_config.app_config, "default_mode", None) or DEFAULT_MODE
+    )
     if args.resume:
         try:
-            resumed_summary = summary_store.load_summary(args.resume)
+            runtime = create_hosted_runtime(launch_config)
+            resumed_summary = runtime.session_host.load_session_summary(args.resume)
         except ValueError as exc:
             parser.error(str(exc))
         fallback_mode = args.mode or str(resumed_summary.get("current_mode") or DEFAULT_MODE)
 
     if args.tui:
-        if not (args.model or app_config.model):
-            parser.error("必须通过 --model 或 EMBEDAGENT_MODEL 提供模型名称。")
         initial_mode = fallback_mode
         initial_message = " ".join(args.message).strip()
         switched = False
@@ -215,28 +222,28 @@ def main(argv: Optional[List[str]] = None) -> int:
         if switched and not initial_message:
             initial_message = ""
         try:
-            return run_tui(
-                base_url=args.base_url,
-                api_key=args.api_key,
-                model=args.model,
+            from embedagent.frontend.tui.launcher import launch_tui
+
+            return launch_tui(
                 workspace=workspace,
-                timeout=args.timeout,
-                max_turns=args.max_turns,
                 mode=initial_mode,
                 resume=args.resume,
+                message=initial_message,
+                base_url=args.base_url or None,
+                api_key=args.api_key or None,
+                model=args.model or None,
+                timeout=args.timeout,
+                max_turns=args.max_turns,
                 approve_all=args.approve_all,
                 approve_writes=args.approve_writes,
                 approve_commands=args.approve_commands,
                 permission_rules=args.permission_rules,
-                initial_message=initial_message,
             )
         except TUIUnavailableError as exc:
             sys.stderr.write("error: %s\n" % exc)
             return 1
 
     if args.gui:
-        if not (args.model or app_config.model):
-            parser.error("必须通过 --model 或 EMBEDAGENT_MODEL 提供模型名称。")
         initial_mode = fallback_mode
         initial_message = " ".join(args.message).strip()
         if initial_message:
@@ -279,27 +286,6 @@ def main(argv: Optional[List[str]] = None) -> int:
     if switched and not user_message:
         sys.stdout.write("已切换到 %s 模式。\n" % initial_mode)
         return 0
-
-    if not args.model:
-        parser.error("必须通过 --model 或 EMBEDAGENT_MODEL 提供模型名称。")
-
-    client = OpenAICompatibleClient(
-        base_url=args.base_url,
-        api_key=args.api_key,
-        model=args.model,
-        timeout=args.timeout,
-    )
-    tools = ToolRuntime(workspace, app_config=app_config)
-    context_config = make_context_config(app_config)
-    project_memory = ProjectMemoryStore(workspace)
-    context_manager = ContextManager(config=context_config, project_memory=project_memory)
-    permission_policy = PermissionPolicy(
-        auto_approve_all=args.approve_all,
-        auto_approve_writes=args.approve_writes,
-        auto_approve_commands=args.approve_commands,
-        workspace=workspace,
-        rules_path=args.permission_rules,
-    )
 
     runtime_state = {
         "printed": False,
@@ -393,21 +379,16 @@ def main(argv: Optional[List[str]] = None) -> int:
             runtime_state["last_error"] = str(payload.get("error") or "")
             return
 
-    adapter = InProcessAdapter(
-        client=client,
-        tools=tools,
-        max_turns=args.max_turns,
-        permission_policy=permission_policy,
-        summary_store=summary_store,
-        context_manager=context_manager,
-        event_handler=on_event,
-    )
+    runtime = create_hosted_runtime(launch_config, event_handler=on_event)
+    session_host = runtime.session_host
 
     try:
         if args.resume:
-            snapshot = adapter.resume_session(args.resume, initial_mode, event_handler=on_event)
+            snapshot = session_host.resume_session(
+                args.resume, initial_mode, event_handler=on_event
+            )
         else:
-            snapshot = adapter.create_session(initial_mode, event_handler=on_event)
+            snapshot = session_host.create_session(initial_mode, event_handler=on_event)
     except ValueError as exc:
         parser.error(str(exc))
 
@@ -447,7 +428,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         return {"answer": raw}
 
     try:
-        adapter.submit_user_message(
+        session_host.submit_user_message(
             session_id=str(snapshot.get("session_id") or ""),
             text=user_message,
             stream=not args.no_stream,

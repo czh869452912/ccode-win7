@@ -1,0 +1,53 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+from embedagent.context import ContextManager, make_context_config
+from embedagent.hosted.launch_config import LaunchConfig
+from embedagent.hosted.session_host import HostedSessionHost
+from embedagent.inprocess_adapter import InProcessAdapter
+from embedagent.llm import OpenAICompatibleClient
+from embedagent.permissions import PermissionPolicy
+from embedagent.project_memory import ProjectMemoryStore
+from embedagent.session_store import SessionSummaryStore
+from embedagent.tools import ToolRuntime
+
+
+@dataclass
+class HostedRuntime(object):
+    launch_config: LaunchConfig
+    session_host: HostedSessionHost
+
+
+def create_hosted_runtime(launch_config: LaunchConfig, event_handler=None) -> HostedRuntime:
+    client = OpenAICompatibleClient(
+        base_url=launch_config.base_url,
+        api_key=launch_config.api_key,
+        model=launch_config.model,
+        timeout=launch_config.timeout,
+    )
+    tools = ToolRuntime(launch_config.workspace, app_config=launch_config.app_config)
+    context_manager = ContextManager(
+        config=make_context_config(launch_config.app_config),
+        project_memory=ProjectMemoryStore(launch_config.workspace),
+    )
+    permission_policy = PermissionPolicy(
+        auto_approve_all=launch_config.approve_all,
+        auto_approve_writes=launch_config.approve_writes,
+        auto_approve_commands=launch_config.approve_commands,
+        workspace=launch_config.workspace,
+        rules_path=launch_config.permission_rules,
+    )
+    adapter = InProcessAdapter(
+        client=client,
+        tools=tools,
+        max_turns=launch_config.max_turns,
+        permission_policy=permission_policy,
+        summary_store=SessionSummaryStore(launch_config.workspace),
+        context_manager=context_manager,
+        event_handler=event_handler,
+    )
+    return HostedRuntime(
+        launch_config=launch_config,
+        session_host=HostedSessionHost(adapter=adapter),
+    )

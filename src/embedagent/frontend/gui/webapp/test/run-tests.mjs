@@ -56,6 +56,7 @@ import { runTerminalShellSourceTests } from "./terminal-shell-source.test.mjs";
 import { runThreadStateTests } from "./thread-state.test.mjs";
 import { runRunOutputStateTests } from "./run-output-state.test.mjs";
 import { runStoreReducerTests } from "./store-reducer.test.mjs";
+import { createComposerState, readComposerDraft } from "../src/composer/composer-state.js";
 
 const WEBAPP_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -165,7 +166,7 @@ async function main() {
         currentSessionId: "sess-old",
         historyIntegrity: { status: "partial" },
       },
-      composer: { draft: "old draft" },
+      composer: createComposerState(),
       activities: [{ id: "row-old" }],
       fileTree: [{ id: "src" }],
     },
@@ -182,7 +183,7 @@ async function main() {
   assert.equal(switchedWorkspaceState.thread.currentSessionId, "");
   assert.deepEqual(switchedWorkspaceState.thread.sessions, []);
   assert.equal(switchedWorkspaceState.thread.historyIntegrity, null);
-  assert.equal(switchedWorkspaceState.composer.draft, "");
+  assert.equal(readComposerDraft(switchedWorkspaceState), "");
   assert.deepEqual(switchedWorkspaceState.sessionCapabilities, { commands: [] });
   assert.deepEqual(switchedWorkspaceState.activities, []);
   assert.deepEqual(switchedWorkspaceState.fileTree, []);

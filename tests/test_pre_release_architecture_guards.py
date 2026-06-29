@@ -128,6 +128,50 @@ def test_no_session_view_clear_uses_timeline_payload():
     assert offenders == []
 
 
+def test_cli_shell_does_not_construct_hosted_runtime_dependencies():
+    text = _read(ROOT / "src/embedagent/cli.py")
+    blocked = (
+        "OpenAICompatibleClient(",
+        "ToolRuntime(",
+        "ContextManager(",
+        "PermissionPolicy(",
+        "InProcessAdapter(",
+    )
+    for needle in blocked:
+        assert needle not in text
+
+
+def test_tui_shell_does_not_construct_hosted_runtime_dependencies():
+    for rel in (
+        "src/embedagent/frontend/tui/launcher.py",
+        "src/embedagent/frontend/tui/bootstrap.py",
+    ):
+        text = _read(ROOT / rel)
+        blocked = (
+            "OpenAICompatibleClient(",
+            "ToolRuntime(",
+            "ContextManager(",
+            "PermissionPolicy(",
+            "InProcessAdapter(",
+            "load_config(",
+        )
+        for needle in blocked:
+            assert needle not in text
+
+
+def test_gui_shell_does_not_construct_hosted_runtime_dependencies():
+    text = _read(ROOT / "src/embedagent/frontend/gui/launcher.py")
+    blocked = (
+        "OpenAICompatibleClient(",
+        "ToolRuntime(",
+        "ContextManager(",
+        "PermissionPolicy(",
+        "load_config(",
+    )
+    for needle in blocked:
+        assert needle not in text
+
+
 def test_gui_session_runtime_projector_is_removed():
     assert not (
         ROOT / "src/embedagent/frontend/gui/webapp/src/session-runtime/projector.js"
@@ -643,3 +687,13 @@ def test_gui_runtime_state_does_not_reintroduce_removed_root_session_state():
         ROOT / "src/embedagent/frontend/gui/webapp/src/session-runtime/projector.js"
     ).exists()
     assert offenders == []
+
+
+def test_gui_composer_state_is_thread_scoped_not_global_draft():
+    composer_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/composer/composer-state.js"
+    )
+    store_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/store.js")
+    assert "draftsByKey" in composer_text
+    assert "draftKeyForSession" in composer_text
+    assert 'draft: ""' not in store_text
