@@ -205,14 +205,16 @@ def test_tool_runtime_execution_reads_presentation_facets_internally():
 
     from embedagent.tools.runtime import ToolRuntime
 
-    source = inspect.getsource(ToolRuntime.execute_with_interrupt)
+    execute_source = inspect.getsource(ToolRuntime.execute_with_interrupt)
+    enrichment_source = inspect.getsource(ToolRuntime._enrich_observation)
 
-    assert "entry.presentation.user_label" in source
-    assert "entry.presentation.supports_diff_preview" in source
-    assert "entry.presentation.progress_renderer_key" in source
-    assert "entry.presentation.result_renderer_key" in source
-    assert "entry.user_label" not in source
-    assert "entry.supports_diff_preview" not in source
+    assert "_enrich_observation" in execute_source
+    assert "entry.presentation.user_label" in enrichment_source
+    assert "entry.presentation.supports_diff_preview" in enrichment_source
+    assert "entry.presentation.progress_renderer_key" in enrichment_source
+    assert "entry.presentation.result_renderer_key" in enrichment_source
+    assert "entry.user_label" not in enrichment_source
+    assert "entry.supports_diff_preview" not in enrichment_source
 
 
 def test_register_tool_requires_extension_permission_category(tmp_path):
