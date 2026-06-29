@@ -28,4 +28,19 @@ export function runStoreReducerTests() {
 
   assert.equal(nextUserState.terminationReason, "");
   assert.equal(nextUserState.maxTurns, null);
+
+  const capabilityState = reducer(initialState, {
+    type: "session_capabilities_loaded",
+    capabilities: {
+      commands: [
+        {
+          name: "help",
+          usage: "/help",
+          active: true,
+        },
+      ],
+    },
+  });
+
+  assert.equal(capabilityState.sessionCapabilities.commands[0].usage, "/help");
 }

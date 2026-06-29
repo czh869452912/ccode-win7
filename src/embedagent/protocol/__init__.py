@@ -363,6 +363,11 @@ class CoreInterface(ABC):
         pass
 
     @abstractmethod
+    def get_session_capabilities(self, session_id: str = "") -> Dict[str, Any]:
+        """获取前端可展示的会话命令能力"""
+        pass
+
+    @abstractmethod
     def submit_message(self, session_id: str, text: str) -> None:
         """提交用户消息（异步）"""
         pass

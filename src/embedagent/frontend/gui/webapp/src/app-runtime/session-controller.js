@@ -2,15 +2,11 @@ export function createSessionController({
   fetchJson,
   dispatch,
   normalizeSessionPayload,
-  createRuntimeSessionTransport,
-  replaceSessionTransport,
   getCurrentSessionId,
   getCurrentMode,
   hasActiveWorkspace,
   markTimelineBottom,
   loadSessions,
-  loadTasks,
-  loadPermissionContext,
   loadSession,
 }) {
   async function createSession(mode) {
@@ -18,13 +14,7 @@ export function createSessionController({
       method: "POST",
     });
     const snapshot = normalizeSessionPayload(payload);
-    dispatch({ type: "session_activated", sessionId: snapshot.session_id, snapshot, activities: [] });
-    replaceSessionTransport(createRuntimeSessionTransport());
-    await Promise.all([
-      loadSessions(),
-      loadTasks(snapshot.session_id),
-      loadPermissionContext(snapshot.session_id),
-    ]);
+    await Promise.all([loadSessions(), loadSession(snapshot.session_id)]);
     return snapshot.session_id;
   }
 

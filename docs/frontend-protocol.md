@@ -253,6 +253,7 @@ Key routes include:
 - `POST /api/app/source-control/refresh`
 - `GET /api/app/source-control/diff?path=<path>&scope=<scope>`
 - `GET /api/sessions`
+- `GET /api/sessions/capabilities`
 - `GET /api/sessions/{session_id}`
 - `POST /api/sessions`
 - `POST /api/sessions/{session_id}/message`
@@ -282,6 +283,12 @@ Key routes include:
 reports app-shell state only. Session activation remains exclusively
 `GET /api/sessions/{session_id}/bootstrap`, whose payload contains session
 snapshot, structured history, plan, and permission context.
+
+`GET /api/sessions/capabilities` exposes the active workspace/session command
+capability projection used by GUI composer slash-command menus. It is a
+read-only capability surface derived from Agent Core capability metadata; it is
+not session history, workflow truth, tool activation policy, permission policy,
+or an extension loading endpoint.
 
 `POST /api/sessions` defaults to `explore` when no mode is supplied. Frontends should not use `build` as the implicit entry mode.
 

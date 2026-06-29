@@ -25,6 +25,7 @@ import { runVisualDebugRunnerTests } from "./visual-debug-runner.test.mjs";
 import { runWebSocketLifecycleTests } from "./websocket-lifecycle.test.mjs";
 import { runSessionLoadersTests } from "./session-loaders.test.mjs";
 import { runSessionActivationControllerTests } from "./session-activation-controller.test.mjs";
+import { runSessionControllerTests } from "./session-controller.test.mjs";
 import { runSessionTransportControllerTests } from "./session-transport-controller.test.mjs";
 import { runSocketMessageEffectsTests } from "./socket-message-effects.test.mjs";
 import { runVisualDebugFixturesTests } from "./visual-debug-fixtures.test.mjs";
@@ -1355,6 +1356,7 @@ async function main() {
   runWebSocketLifecycleTests();
   await runSessionLoadersTests();
   await runSessionActivationControllerTests();
+  await runSessionControllerTests();
   await runSessionTransportControllerTests();
   runSocketMessageEffectsTests();
   runVisualDebugFixturesTests();

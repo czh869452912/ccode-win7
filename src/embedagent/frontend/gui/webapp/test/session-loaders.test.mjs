@@ -4,6 +4,7 @@ import {
   LOADER_REQUESTS,
   createLoaderRequestExecutor,
   deriveSessionActivation,
+  loadSessionCommandCapabilities,
 } from "../src/app-runtime/session-loaders.js";
 
 function createRecordedLoaders() {
@@ -180,4 +181,29 @@ export async function runSessionLoadersTests() {
   assert.equal(sparseActivation.plan, null);
   assert.equal(sparseActivation.permissionContext, null);
   assert.deepEqual(sparseActivation.capabilities, { commands: [] });
+
+  const capabilityActions = [];
+  const loadedCapabilities = await loadSessionCommandCapabilities({
+    fetchJson: async (url) => {
+      assert.equal(url, "/api/sessions/capabilities");
+      return {
+        commands: [
+          {
+            name: "help",
+            usage: "/help",
+            summary: "Show commands",
+            active: true,
+          },
+        ],
+      };
+    },
+    dispatch: (action) => capabilityActions.push(action),
+  });
+  assert.equal(loadedCapabilities.commands[0].usage, "/help");
+  assert.deepEqual(capabilityActions, [
+    {
+      type: "session_capabilities_loaded",
+      capabilities: loadedCapabilities,
+    },
+  ]);
 }

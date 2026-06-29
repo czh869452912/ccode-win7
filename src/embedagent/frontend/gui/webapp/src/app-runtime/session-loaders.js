@@ -75,3 +75,11 @@ export function deriveSessionActivation(payload = {}, sessionId = "", options = 
     capabilities: normalizeCommandCapabilities(safePayload.capabilities || {}),
   };
 }
+
+export async function loadSessionCommandCapabilities({ fetchJson, dispatch } = {}) {
+  const request = typeof fetchJson === "function" ? fetchJson : () => Promise.resolve({});
+  const send = typeof dispatch === "function" ? dispatch : () => {};
+  const capabilities = normalizeCommandCapabilities(await request("/api/sessions/capabilities"));
+  send({ type: "session_capabilities_loaded", capabilities });
+  return capabilities;
+}

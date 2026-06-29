@@ -23,6 +23,12 @@ def register_session_routes(app: Any, backend: Any) -> None:
         core = backend._require_core()
         return {"sessions": core.list_sessions(limit)}
 
+    @app.get("/api/sessions/capabilities")
+    async def get_session_capabilities():
+        core = backend._require_core()
+        payload = backend._call_core(core.get_session_capabilities)
+        return serialize_session_capabilities(payload)
+
     @app.get("/api/sessions/{session_id}")
     async def get_session_snapshot(session_id: str):
         core = backend._require_core()

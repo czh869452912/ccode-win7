@@ -153,6 +153,11 @@ export function reducer(state, action) {
       };
     case "sessions_loaded":
       return { ...state, thread: reduceThreadState(state.thread, action) };
+    case "session_capabilities_loaded":
+      return {
+        ...state,
+        sessionCapabilities: action.capabilities || { commands: [] },
+      };
     case "session_activated":
       return {
         ...state,

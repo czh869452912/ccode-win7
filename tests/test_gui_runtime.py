@@ -409,6 +409,20 @@ class TestAgentCoreAdapterApi(unittest.TestCase):
         self.assertEqual(payload["history"]["session_id"], "sess-1")
         core._adapter.get_session_bootstrap.assert_called_once_with("sess-1")
 
+    def test_get_session_capabilities_delegates_to_inner_adapter(self):
+        from embedagent.core.adapter import AgentCoreAdapter
+
+        core = AgentCoreAdapter(workspace="D:\\workspace")
+        core._adapter = MagicMock()
+        core._adapter.get_session_capabilities.return_value = {
+            "commands": [{"name": "help", "usage": "/help", "active": True}]
+        }
+
+        payload = core.get_session_capabilities()
+
+        self.assertEqual(payload["commands"][0]["usage"], "/help")
+        core._adapter.get_session_capabilities.assert_called_once_with(session_id="")
+
     def test_reload_resources_delegates_to_inner_adapter(self):
         from embedagent.core.adapter import AgentCoreAdapter
 

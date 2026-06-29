@@ -56,6 +56,20 @@ class _ModeCaptureCore(_FakeCore):
 
 
 class _FakeCoreWithTimeline(_FakeCore):
+    def get_session_capabilities(self):
+        return {
+            "commands": [
+                {
+                    "name": "help",
+                    "usage": "/help",
+                    "summary": "Show commands",
+                    "source_type": "builtin",
+                    "source_id": "slash_commands",
+                    "active": True,
+                }
+            ]
+        }
+
     def get_session_bootstrap(self, session_id):
         return {
             "snapshot": {
@@ -129,18 +143,7 @@ class _FakeCoreWithTimeline(_FakeCore):
                 "auto_approve_writes": False,
                 "auto_approve_commands": False,
             },
-            "capabilities": {
-                "commands": [
-                    {
-                        "name": "help",
-                        "usage": "/help",
-                        "summary": "Show commands",
-                        "source_type": "builtin",
-                        "source_id": "slash_commands",
-                        "active": True,
-                    }
-                ]
-            },
+            "capabilities": self.get_session_capabilities(),
         }
 
 
@@ -563,6 +566,16 @@ class TestGuiBackendApi(unittest.TestCase):
         self.assertIn("plan", payload)
         self.assertIn("permission_context", payload)
         self.assertEqual(payload["capabilities"]["commands"][0]["usage"], "/help")
+
+    def test_session_capabilities_endpoint_returns_slash_commands(self):
+        with tempfile.TemporaryDirectory() as static_dir:
+            with open(os.path.join(static_dir, "index.html"), "w", encoding="utf-8") as handle:
+                handle.write("<html><body>ok</body></html>")
+            backend = GUIBackend(_FakeCoreWithTimeline(), static_dir=static_dir)
+            route = self._route(backend, "/api/sessions/capabilities", "GET")
+            self.assertIsNotNone(route)
+            payload = asyncio.run(route.endpoint())
+        self.assertEqual(payload["commands"][0]["usage"], "/help")
 
     def test_bootstrap_snapshot_preserves_agent_diagnostics(self):
         with tempfile.TemporaryDirectory() as static_dir:

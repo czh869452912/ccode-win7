@@ -453,6 +453,9 @@ class AgentCoreAdapter(CoreInterface):
         result["snapshot"] = self._snapshot_to_protocol(snapshot or {})
         return result
 
+    def get_session_capabilities(self, session_id: str = "") -> Dict[str, Any]:
+        return self._adapter.get_session_capabilities(session_id=session_id)
+
     def submit_message(self, session_id: str, text: str) -> None:
         """异步提交消息"""
 

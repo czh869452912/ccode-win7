@@ -100,4 +100,6 @@ export async function runWorkspaceControllerTests() {
   assert.equal(controllerSource.includes("/api/app/bootstrap"), true);
   assert.equal(controllerSource.includes("/api/app/workspaces"), true);
   assert.equal(controllerSource.includes("import React"), false);
+
+  assert.equal(appSource.includes("loadSessionCommandCapabilities({ fetchJson, dispatch })"), true);
 }

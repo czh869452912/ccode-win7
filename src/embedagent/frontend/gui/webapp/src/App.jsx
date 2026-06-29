@@ -11,7 +11,7 @@ import { buildAppHomeModel } from "./session-runtime/app-home-model.js";
 import { buildSessionActivityRuntime } from "./session-runtime/activity-state.js";
 import { buildComposerCommandsFromCapabilities } from "./session-runtime/command-capabilities.js";
 import { deriveSocketMessageEffects } from "./app-runtime/socket-message-effects.js";
-import { createLoaderRequestExecutor } from "./app-runtime/session-loaders.js";
+import { createLoaderRequestExecutor, loadSessionCommandCapabilities } from "./app-runtime/session-loaders.js";
 import { createRightPanelController } from "./app-runtime/right-panel-controller.js";
 import { createSessionActivationController } from "./app-runtime/session-activation-controller.js";
 import { createSessionController } from "./app-runtime/session-controller.js";
@@ -175,6 +175,7 @@ function App() {
   // initial app/workspace data load
   useEffect(() => {
     loadAppBootstrap();
+    loadSessionCommandCapabilities({ fetchJson, dispatch }).catch(() => {});
   }, []);
 
   // websocket lifecycle
@@ -466,6 +467,7 @@ function App() {
           await Promise.all([
             loadSessions(),
             loadArtifacts(),
+            loadSessionCommandCapabilities({ fetchJson, dispatch }),
             loadTasks(sessionId || ""),
             loadFileChildren("."),
             loadToolCatalog(),
@@ -490,8 +492,6 @@ function App() {
         fetchJson,
         dispatch,
         normalizeSessionPayload,
-        createRuntimeSessionTransport,
-        replaceSessionTransport,
         getCurrentSessionId: () => readActiveThreadId(stateRef.current),
         getCurrentMode: () => stateRef.current.snapshot?.current_mode || stateRef.current.requestedMode,
         hasActiveWorkspace: () => Boolean(stateRef.current.app.hasActiveWorkspace),
@@ -499,8 +499,6 @@ function App() {
           isAtBottomRef.current = true;
         },
         loadSessions,
-        loadTasks,
-        loadPermissionContext,
         loadSession,
       }),
     [],
