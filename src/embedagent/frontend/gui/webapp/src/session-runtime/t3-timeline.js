@@ -1155,6 +1155,27 @@ function terminalAssistantItemForTurn(group) {
   return null;
 }
 
+function stepOrderValue(step, fallback) {
+  const value = numberValue(step?.stepIndex || step?.step_index, NaN);
+  return Number.isFinite(value) && value > 0 ? value : fallback;
+}
+
+function terminalAssistantStepOrder(group) {
+  const terminalAssistantItem = terminalAssistantItemForTurn(group);
+  if (!terminalAssistantItem) return NaN;
+  const terminalId = stringValue(terminalAssistantItem?.id);
+  const steps = group?.steps || [];
+  for (let index = steps.length - 1; index >= 0; index -= 1) {
+    const assistantItem = steps[index]?.assistantItem;
+    if (!assistantItem) continue;
+    const assistantId = stringValue(assistantItem?.id);
+    if ((terminalId && assistantId === terminalId) || assistantItem === terminalAssistantItem) {
+      return stepOrderValue(steps[index], index + 1);
+    }
+  }
+  return NaN;
+}
+
 function foldEntriesForTurn(group) {
   const terminalAssistantItem = terminalAssistantItemForTurn(group);
   return orderedOpenRowsForTurn(group).filter((row) => {
@@ -1165,6 +1186,30 @@ function foldEntriesForTurn(group) {
 
 function hasInterruptedWork(entries) {
   return entries.some((entry) => entry.tone === "interrupted" || entry.tone === "discarded");
+}
+
+function isErrorWorkEntry(entry) {
+  return entry?.kind === T3_ROW_KINDS.WORK && (entry.status === "error" || entry.tone === "error");
+}
+
+function hasTerminalErrorWork(group, workEntries) {
+  if (!workEntries.some(isErrorWorkEntry)) return false;
+  const terminalOrder = terminalAssistantStepOrder(group);
+  if (!Number.isFinite(terminalOrder)) return true;
+
+  let stepErrorCount = 0;
+  const steps = group?.steps || [];
+  for (let index = 0; index < steps.length; index += 1) {
+    const stepOrder = stepOrderValue(steps[index], index + 1);
+    for (const item of steps[index]?.activityItems || []) {
+      const row = activityRowForItem(item);
+      if (!isErrorWorkEntry(row)) continue;
+      stepErrorCount += 1;
+      if (stepOrder >= terminalOrder) return true;
+    }
+  }
+
+  return workEntries.filter(isErrorWorkEntry).length > stepErrorCount;
 }
 
 function timestampMs(value) {
@@ -1256,7 +1301,7 @@ export function isTurnFoldedByDefault(group, context = {}) {
   }
   if (hasInterruptedWork(workEntries)) return false;
   if (workEntries.some((entry) => entry.status === "running" || entry.tone === "running")) return false;
-  if (workEntries.some((entry) => entry.status === "error" || entry.tone === "error")) return false;
+  if (hasTerminalErrorWork(group, workEntries)) return false;
   return assistantRowsForTurn(group).length > 0;
 }
 

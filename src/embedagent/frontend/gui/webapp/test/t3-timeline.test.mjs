@@ -174,6 +174,84 @@ export function runT3TimelineTests() {
     assert.equal(rows.some((row) => row.kind === "turn_fold"), false);
   }
 
+  {
+    const rows = projectT3TimelineRows({
+      currentStatus: "idle",
+      activeTurnId: "",
+      turnGroups: [
+        {
+          turnId: "turn-recovered",
+          startedAt: "2026-06-22T00:03:00.000Z",
+          completedAt: "2026-06-22T00:03:12.000Z",
+          userItem: {
+            id: "user-recovered",
+            kind: "user",
+            role: "user",
+            content: "inspect after a recoverable tool error",
+            createdAt: "2026-06-22T00:03:00.000Z",
+            turnId: "turn-recovered",
+          },
+          steps: [
+            {
+              stepId: "step-recovered-error",
+              stepIndex: 1,
+              activityItems: [
+                {
+                  id: "tool-recovered-error",
+                  kind: "tool",
+                  toolName: "grep_text",
+                  label: "Search",
+                  status: "error",
+                  tone: "error",
+                  error: "decode failed",
+                  createdAt: "2026-06-22T00:03:02.000Z",
+                  completedAt: "2026-06-22T00:03:03.000Z",
+                  turnId: "turn-recovered",
+                  stepId: "step-recovered-error",
+                  stepIndex: 1,
+                },
+              ],
+            },
+            {
+              stepId: "step-recovered-success",
+              stepIndex: 2,
+              activityItems: [
+                {
+                  id: "tool-recovered-success",
+                  kind: "tool",
+                  toolName: "read_file",
+                  label: "Read File",
+                  status: "success",
+                  createdAt: "2026-06-22T00:03:05.000Z",
+                  completedAt: "2026-06-22T00:03:06.000Z",
+                  turnId: "turn-recovered",
+                  stepId: "step-recovered-success",
+                  stepIndex: 2,
+                },
+              ],
+              assistantItem: {
+                id: "assistant-recovered",
+                kind: "assistant",
+                role: "assistant",
+                content: "done after recovery",
+                createdAt: "2026-06-22T00:03:12.000Z",
+                completedAt: "2026-06-22T00:03:12.000Z",
+                turnId: "turn-recovered",
+                stepId: "step-recovered-success",
+                stepIndex: 2,
+              },
+            },
+          ],
+        },
+      ],
+    });
+    assert.deepEqual(rows.map((row) => row.kind), ["message", "turn_fold", "message"]);
+    const fold = rows.find((row) => row.kind === "turn_fold");
+    assert.equal(fold.label, "Worked for 12s");
+    assert.equal(fold.workCount, 2);
+    assert.equal(fold.entries.some((entry) => entry.status === "error"), true);
+  }
+
   const settledRows = projectT3TimelineRows({
     turnGroups: [
       {
