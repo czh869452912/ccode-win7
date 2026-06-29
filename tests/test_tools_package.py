@@ -437,6 +437,24 @@ class TestToolRuntimeExecute(unittest.TestCase):
         self.assertEqual(obs.data["outcome_class"], "diagnostic_failure")
         self.assertFalse(obs.data["retryable"])
 
+    def test_grep_text_skips_embedagent_memory_by_default(self):
+        os.makedirs(os.path.join(self.workspace, ".embedagent", "memory", "sessions", "s1"))
+        with open(os.path.join(self.workspace, "src.txt"), "w", encoding="utf-8") as handle:
+            handle.write("needle in source\n")
+        with open(
+            os.path.join(self.workspace, ".embedagent", "memory", "sessions", "s1", "transcript.jsonl"),
+            "w",
+            encoding="utf-8",
+        ) as handle:
+            handle.write("needle in agent memory\n")
+
+        obs = self.rt.execute("grep_text", {"pattern": "needle", "path": "."})
+
+        self.assertTrue(obs.success)
+        self.assertEqual(obs.data["returned_count"], 1)
+        self.assertIn("src.txt:1:needle in source", obs.data["preview"][0])
+        self.assertNotIn(".embedagent/memory", "\n".join(obs.data["preview"]))
+
     def test_read_file_outside_workspace_blocked(self):
         obs = self.rt.execute("read_file", {"path": "/etc/passwd"})
         self.assertFalse(obs.success)

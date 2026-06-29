@@ -12,6 +12,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
+from embedagent.constants import should_skip_directory
 from embedagent.local_resources import discover_local_resources
 from embedagent.runtime_discovery import discover_bundle_root
 from embedagent.session import Observation
@@ -32,7 +33,6 @@ MAX_INLINE_LIST_CHARS = 3000
 DEFAULT_COMMAND_TIMEOUT_SEC = 30
 DEFAULT_BUILD_TIMEOUT_SEC = 120
 TEXT_ENCODINGS = ("utf-8", "utf-8-sig", "gbk", "cp936")
-SKIP_DIR_NAMES = {".git", ".hg", ".svn", "__pycache__"}
 MANAGED_RUNTIME_TOOL_KEYS = ("python", "git", "bash", "rg", "ctags", "llvm")
 LLVM_EXECUTABLE_NAMES = frozenset(
     (
@@ -288,7 +288,13 @@ class ToolContext(object):
             return [root]
         collected = []
         for current_root, dir_names, file_names in os.walk(root):
-            dir_names[:] = [name for name in dir_names if name not in SKIP_DIR_NAMES]
+            visible_dirs = []
+            for name in dir_names:
+                absolute_dir = os.path.join(current_root, name)
+                if should_skip_directory(name, self.relative_path(absolute_dir)):
+                    continue
+                visible_dirs.append(name)
+            dir_names[:] = visible_dirs
             for file_name in file_names:
                 absolute_path = os.path.join(current_root, file_name)
                 relative = self.relative_path(absolute_path)

@@ -6,7 +6,7 @@ import logging
 import os
 from typing import Any, Dict, Optional
 
-from embedagent.constants import SKIP_DIR_NAMES
+from embedagent.constants import should_skip_directory
 
 logger = logging.getLogger(__name__)
 
@@ -113,7 +113,9 @@ class WorkspaceFileService(object):
             names = []
         for name in names:
             absolute = os.path.join(root, name)
-            if os.path.isdir(absolute) and name in SKIP_DIR_NAMES:
+            if os.path.isdir(absolute) and should_skip_directory(
+                name, self.relative_path(absolute)
+            ):
                 continue
             kind = "dir" if os.path.isdir(absolute) else "file"
             items.append(
@@ -154,7 +156,7 @@ class WorkspaceFileService(object):
             for name in names:
                 absolute = os.path.join(current_path, name)
                 if os.path.isdir(absolute):
-                    if name in SKIP_DIR_NAMES:
+                    if should_skip_directory(name, self.relative_path(absolute)):
                         continue
                     directories.append((name, absolute))
                 else:
@@ -187,7 +189,13 @@ class WorkspaceFileService(object):
         file_count = 0
         dir_count = 0
         for current_root, dir_names, file_names in os.walk(self.workspace_root):
-            dir_names[:] = [name for name in dir_names if name not in SKIP_DIR_NAMES]
+            visible_dirs = []
+            for name in dir_names:
+                absolute = os.path.join(current_root, name)
+                if should_skip_directory(name, self.relative_path(absolute)):
+                    continue
+                visible_dirs.append(name)
+            dir_names[:] = visible_dirs
             dir_count += len(dir_names)
             file_count += len(file_names)
         return {"file_count": file_count, "dir_count": dir_count}
@@ -198,7 +206,10 @@ class WorkspaceFileService(object):
         except OSError:
             return False
         for name in names:
-            if name in SKIP_DIR_NAMES:
+            absolute = os.path.join(path, name)
+            if os.path.isdir(absolute) and should_skip_directory(
+                name, self.relative_path(absolute)
+            ):
                 continue
             return True
         return False
