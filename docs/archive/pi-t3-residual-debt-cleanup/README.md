@@ -25,13 +25,26 @@ Durable conclusions were synchronized into active source-of-truth docs before ar
   `HostedInteractionService`
 - provider snapshot, workflow prompt, and compaction payload assembly now lives
   in `TurnSnapshotService`, `PromptAssemblyService`, and `CompactionJournal`
+- `grep_text` accepts file roots and reports diagnostic search/path failures
+  without tripping no-progress guard-stop behavior
+- default workspace search skips `.embedagent/memory`
+- GUI composer slash commands are projected from backend command capabilities
+  instead of static frontend hints
+- context usage accounting prefers provider usage metadata and ignores stale
+  usage before the latest compact boundary
+- legacy wrapper-level `ContextCompactionEngine` compaction was removed from
+  `LLMClientRetryWrapper`
 
 Archived materials:
 
 - [2026-06-26-pi-t3-debt-cleanup.md](2026-06-26-pi-t3-debt-cleanup.md)
 - [2026-06-26-pi-t3-followup-cleanup.md](2026-06-26-pi-t3-followup-cleanup.md)
+- [2026-06-27-t3-gui-architecture-guards.md](2026-06-27-t3-gui-architecture-guards.md)
 - [2026-06-27-pi-t3-residual-debt-audit.md](2026-06-27-pi-t3-residual-debt-audit.md)
 - [2026-06-27-pi-t3-residual-debt-design.md](2026-06-27-pi-t3-residual-debt-design.md)
 - [2026-06-27-pi-t3-residual-debt-cleanup.md](2026-06-27-pi-t3-residual-debt-cleanup.md)
+- [2026-06-28-pi-t3-debt-cleanup.md](2026-06-28-pi-t3-debt-cleanup.md)
+- [2026-06-29-pi-t3-debt-cleanup-design.md](2026-06-29-pi-t3-debt-cleanup-design.md)
+- [2026-06-29-pi-t3-debt-cleanup.md](2026-06-29-pi-t3-debt-cleanup.md)
 
 Use active docs for current product truth.
