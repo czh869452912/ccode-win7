@@ -129,6 +129,18 @@ class _FakeCoreWithTimeline(_FakeCore):
                 "auto_approve_writes": False,
                 "auto_approve_commands": False,
             },
+            "capabilities": {
+                "commands": [
+                    {
+                        "name": "help",
+                        "usage": "/help",
+                        "summary": "Show commands",
+                        "source_type": "builtin",
+                        "source_id": "slash_commands",
+                        "active": True,
+                    }
+                ]
+            },
         }
 
 
@@ -550,6 +562,7 @@ class TestGuiBackendApi(unittest.TestCase):
         self.assertIn("history", payload)
         self.assertIn("plan", payload)
         self.assertIn("permission_context", payload)
+        self.assertEqual(payload["capabilities"]["commands"][0]["usage"], "/help")
 
     def test_bootstrap_snapshot_preserves_agent_diagnostics(self):
         with tempfile.TemporaryDirectory() as static_dir:

@@ -213,6 +213,30 @@ def command_capability_descriptors(
     return descriptors
 
 
+def command_capability_payload(snapshot: Dict[str, Any]) -> Dict[str, Any]:
+    commands = []
+    for item in list((snapshot or {}).get("descriptors") or []):
+        if not isinstance(item, dict) or item.get("kind") != "command":
+            continue
+        metadata = dict(item.get("metadata") or {})
+        usage = str(metadata.get("usage") or "").strip()
+        name = _clean_text(item.get("name"))
+        if not name or not usage:
+            continue
+        commands.append(
+            {
+                "name": name,
+                "usage": usage,
+                "summary": str(metadata.get("summary") or ""),
+                "source_type": _clean_text(item.get("source_type"), "builtin"),
+                "source_id": _clean_text(item.get("source_id"), "slash_commands"),
+                "active": bool(item.get("active")),
+            }
+        )
+    commands.sort(key=lambda item: item["usage"])
+    return {"commands": commands}
+
+
 def workflow_package_capability_descriptors(manifests: Any) -> List[CapabilityDescriptor]:
     descriptors = []
     for manifest in list(manifests or []):

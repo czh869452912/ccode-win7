@@ -8,6 +8,7 @@ from typing import Any, Callable, Dict, List, Optional
 
 from embedagent.capabilities import (
     command_capability_descriptors,
+    command_capability_payload,
     model_profile_capability_descriptor,
     workflow_package_capability_descriptors,
 )
@@ -228,6 +229,7 @@ class InProcessAdapter(object):
             history_loader=self.build_session_history,
             plan_loader=self.get_session_plan,
             permission_context_loader=self.get_permission_context,
+            capability_loader=self.get_session_capabilities,
         )
         self._runtime_capabilities = RuntimeCapabilityService(
             descriptor_loader=self._capability_descriptors,
@@ -335,6 +337,11 @@ class InProcessAdapter(object):
 
     def capability_snapshot(self) -> Dict[str, Any]:
         return self._runtime_capabilities.snapshot()
+
+    def get_session_capabilities(self, session_id: str = "") -> Dict[str, Any]:
+        del session_id
+        self._ensure_extension_tools_registered(reason="capabilities")
+        return command_capability_payload(self.capability_snapshot())
 
     def _capability_descriptors(self) -> List[Any]:
         descriptors = []

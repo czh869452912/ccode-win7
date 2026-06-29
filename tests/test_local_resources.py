@@ -816,6 +816,36 @@ class TestLocalResources(unittest.TestCase):
         self.assertIn("skill:code-review", command_names)
         self.assertIn("prompt:triage", command_names)
 
+    def test_session_bootstrap_includes_dynamic_resource_commands(self):
+        _write_text(
+            os.path.join(self.workspace, ".embedagent", "skills", "review", "SKILL.md"),
+            "---\n"
+            "name: code-review\n"
+            "description: Review local C changes.\n"
+            "---\n"
+            "# Review\n",
+        )
+        _write_text(
+            os.path.join(self.workspace, ".embedagent", "prompts", "triage.md"),
+            "# Triage\n",
+        )
+        adapter = InProcessAdapter(
+            client=FakeClient(),
+            tools=ToolRuntime(self.workspace),
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+        )
+        snapshot = adapter.create_session(mode="explore")
+        session_id = snapshot["session_id"]
+        adapter.reload_resources(session_id=session_id, reason="test")
+
+        bootstrap = adapter.get_session_bootstrap(session_id)
+        commands = bootstrap["capabilities"]["commands"]
+        usages = [item["usage"] for item in commands]
+
+        self.assertIn("/resources [reload]", usages)
+        self.assertIn("/skill:code-review [args]", usages)
+        self.assertIn("/prompt:triage [args]", usages)
+
     def test_adapter_capability_snapshot_combines_tools_resources_commands_and_model(self):
         _write_text(
             os.path.join(self.workspace, ".embedagent", "prompts", "triage.md"),

@@ -147,3 +147,26 @@ def serialize_permission_context(context: Any) -> Dict[str, Any]:
         "auto_approve_writes": bool(read_value(context, "auto_approve_writes", False)),
         "auto_approve_commands": bool(read_value(context, "auto_approve_commands", False)),
     }
+
+
+def serialize_session_capabilities(payload: Any) -> Dict[str, Any]:
+    data = payload if isinstance(payload, dict) else {}
+    commands = []
+    for item in list(data.get("commands") or []):
+        if not isinstance(item, dict):
+            continue
+        usage = str(item.get("usage") or "").strip()
+        name = str(item.get("name") or "").strip()
+        if not usage or not name:
+            continue
+        commands.append(
+            {
+                "name": name,
+                "usage": usage,
+                "summary": str(item.get("summary") or ""),
+                "source_type": str(item.get("source_type") or ""),
+                "source_id": str(item.get("source_id") or ""),
+                "active": bool(item.get("active")),
+            }
+        )
+    return {"commands": commands}

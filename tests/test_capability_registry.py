@@ -199,6 +199,37 @@ def test_resource_command_specs_project_visible_skills_and_prompts():
     ]
 
 
+def test_command_capability_payload_projects_safe_command_menu_items():
+    from embedagent.capabilities import command_capability_payload
+
+    descriptors = command_capability_descriptors(
+        SlashCommandRegistry(),
+        extra_specs=resource_command_specs(
+            {
+                "skills": [
+                    {
+                        "name": "code-review",
+                        "description": "Review local C changes.",
+                        "path": ".embedagent/skills/review/SKILL.md",
+                        "prompt_visible": True,
+                    }
+                ],
+                "prompts": [{"name": "triage", "path": ".embedagent/prompts/triage.md"}],
+            }
+        ),
+    )
+    registry = CapabilityRegistry(descriptors)
+
+    payload = command_capability_payload(registry.snapshot().to_dict())
+    usages = [item["usage"] for item in payload["commands"]]
+
+    assert "/help" in usages
+    assert "/resources [reload]" in usages
+    assert "/skill:code-review [args]" in usages
+    assert "/prompt:triage [args]" in usages
+    assert all("api_key" not in json.dumps(item) for item in payload["commands"])
+
+
 def test_workflow_package_capability_descriptors_project_manifest():
     from embedagent.harness.package_manifest import build_c_workflow_package_manifest
 
