@@ -383,6 +383,60 @@ class TestToolRuntimeExecute(unittest.TestCase):
         self.assertEqual(obs.data["returned_count"], 1)
         self.assertEqual(obs.data["decode_error_count"], 1)
 
+    def test_grep_text_accepts_single_file_path(self):
+        with open(os.path.join(self.workspace, "hal_uart.h"), "w", encoding="utf-8") as handle:
+            handle.write("class HAL_UART {\npublic:\n  void init();\n};\n")
+
+        obs = self.rt.execute(
+            "grep_text",
+            {"pattern": "class HAL_UART", "path": "hal_uart.h"},
+        )
+
+        self.assertTrue(obs.success)
+        self.assertEqual(obs.data["returned_count"], 1)
+        self.assertEqual(obs.data["total_count"], 1)
+        self.assertIn("hal_uart.h:1:class HAL_UART", obs.data["preview"][0])
+
+    def test_grep_text_supports_regex_and_literal_mode(self):
+        with open(os.path.join(self.workspace, "hal_uart.h"), "w", encoding="utf-8") as handle:
+            handle.write("class HAL_UART {\npublic:\n  void init();\n};\n")
+
+        regex_obs = self.rt.execute(
+            "grep_text",
+            {"pattern": "HAL_UART|public:|void ", "path": "hal_uart.h"},
+        )
+        literal_obs = self.rt.execute(
+            "grep_text",
+            {"pattern": "HAL_UART|public:", "path": "hal_uart.h", "literal": True},
+        )
+
+        self.assertTrue(regex_obs.success)
+        self.assertEqual(regex_obs.data["returned_count"], 3)
+        self.assertTrue(literal_obs.success)
+        self.assertEqual(literal_obs.data["returned_count"], 0)
+        self.assertEqual(literal_obs.data["total_count"], 0)
+
+    def test_grep_text_invalid_regex_is_diagnostic_failure_with_catalog_metadata(self):
+        with open(os.path.join(self.workspace, "demo.c"), "w", encoding="utf-8") as handle:
+            handle.write("int main(void) { return 0; }\n")
+
+        obs = self.rt.execute("grep_text", {"pattern": "[", "path": "."})
+
+        self.assertFalse(obs.success)
+        self.assertEqual(obs.data["error_kind"], "invalid_pattern")
+        self.assertEqual(obs.data["outcome_class"], "diagnostic_failure")
+        self.assertFalse(obs.data["retryable"])
+        self.assertEqual(obs.data["tool_label"], "Grep Text")
+        self.assertEqual(obs.data["permission_category"], "read")
+
+    def test_grep_text_missing_path_is_diagnostic_failure(self):
+        obs = self.rt.execute("grep_text", {"pattern": "needle", "path": "missing"})
+
+        self.assertFalse(obs.success)
+        self.assertEqual(obs.data["error_kind"], "path_not_found")
+        self.assertEqual(obs.data["outcome_class"], "diagnostic_failure")
+        self.assertFalse(obs.data["retryable"])
+
     def test_read_file_outside_workspace_blocked(self):
         obs = self.rt.execute("read_file", {"path": "/etc/passwd"})
         self.assertFalse(obs.success)

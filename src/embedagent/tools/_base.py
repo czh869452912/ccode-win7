@@ -90,7 +90,30 @@ LINKER_SIGNATURE_PATTERNS = [
 
 
 class ToolError(Exception):
-    pass
+    def __init__(
+        self,
+        message: str,
+        error_kind: str = "tool_error",
+        retryable: bool = True,
+        outcome_class: str = "",
+        suggested_next_step: str = "",
+    ) -> None:
+        super(ToolError, self).__init__(message)
+        self.error_kind = str(error_kind or "tool_error")
+        self.retryable = bool(retryable)
+        self.outcome_class = str(outcome_class or "")
+        self.suggested_next_step = str(suggested_next_step or "")
+
+    def to_observation_data(self) -> Dict[str, Any]:
+        data = {
+            "error_kind": self.error_kind,
+            "retryable": self.retryable,
+        }
+        if self.outcome_class:
+            data["outcome_class"] = self.outcome_class
+        if self.suggested_next_step:
+            data["suggested_next_step"] = self.suggested_next_step
+        return data
 
 
 @dataclass

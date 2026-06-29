@@ -620,21 +620,30 @@ class ToolRuntime(object):
             self._ctx.set_interrupt_event(stop_event)
             observation = tool.handler(arguments)
         except ToolError as exc:
-            return Observation(
-                tool_name=name,
-                success=False,
-                error=str(exc),
-                data={"error_kind": "tool_error", "retryable": True},
+            data = (
+                exc.to_observation_data()
+                if hasattr(exc, "to_observation_data")
+                else {"error_kind": "tool_error", "retryable": True}
+            )
+            return self._enrich_observation(
+                name,
+                Observation(tool_name=name, success=False, error=str(exc), data=data),
             )
         except (RuntimeError, ValueError, TypeError) as exc:
-            return Observation(
-                tool_name=name,
-                success=False,
-                error="工具执行失败：%s" % exc,
-                data={"error_kind": "tool_error", "retryable": True},
+            return self._enrich_observation(
+                name,
+                Observation(
+                    tool_name=name,
+                    success=False,
+                    error="工具执行失败：%s" % exc,
+                    data={"error_kind": "tool_error", "retryable": True},
+                ),
             )
         finally:
             self._ctx.clear_interrupt_event()
+        return self._enrich_observation(name, observation)
+
+    def _enrich_observation(self, name: str, observation: Observation) -> Observation:
         observation.tool_name = name
         if isinstance(observation.data, dict):
             entry = self._catalog.get(name)

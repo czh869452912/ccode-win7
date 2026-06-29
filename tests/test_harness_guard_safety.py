@@ -52,6 +52,25 @@ class TestLoopGuard(unittest.TestCase):
         self.assertFalse(self.guard.should_stop())
         self.assertFalse(self.guard.should_block(action))
 
+    def test_diagnostic_grep_failures_do_not_hard_stop(self):
+        action = Action(name="grep_text", arguments={"path": "missing", "pattern": "x"}, call_id="c1")
+        fail_obs = Observation(
+            tool_name="grep_text",
+            success=False,
+            error="路径不存在：missing",
+            data={
+                "error_kind": "path_not_found",
+                "outcome_class": "diagnostic_failure",
+                "retryable": False,
+            },
+        )
+
+        self.guard.record(action, fail_obs)
+        self.guard.record(action, fail_obs)
+
+        self.assertFalse(self.guard.should_stop())
+        self.assertFalse(self.guard.should_block(action))
+
     def test_non_diagnostic_timeout_still_counts_as_failure(self):
         action = Action(name="read_file", arguments={"path": "README.md"}, call_id="c1")
         fail_obs = Observation(

@@ -2,10 +2,62 @@ from __future__ import annotations
 
 import fnmatch
 import os
+import re
 from typing import Any, Dict, List
 
 from embedagent.session import Observation
 from embedagent.tools._base import ToolDefinition, ToolError
+
+
+def _diagnostic_tool_error(message: str, error_kind: str, suggested_next_step: str = "") -> ToolError:
+    return ToolError(
+        message,
+        error_kind=error_kind,
+        retryable=False,
+        outcome_class="diagnostic_failure",
+        suggested_next_step=suggested_next_step,
+    )
+
+
+def _resolve_search_root(ctx, raw_path: str) -> str:
+    try:
+        return ctx.resolve_path(raw_path)
+    except ToolError as exc:
+        text = str(exc)
+        if "路径不存在" in text:
+            raise _diagnostic_tool_error(
+                text,
+                "path_not_found",
+                "Use list_dir or glob_files to find the correct search root.",
+            )
+        if "路径超出当前工作区" in text:
+            raise _diagnostic_tool_error(
+                text,
+                "path_outside_workspace",
+                "Search only paths inside the current workspace.",
+            )
+        raise
+
+
+def _compile_pattern(pattern: str, literal: bool):
+    if literal:
+        return None
+    try:
+        return re.compile(pattern, re.IGNORECASE)
+    except re.error as exc:
+        raise _diagnostic_tool_error(
+            "搜索模式不是有效正则表达式：%s" % exc,
+            "invalid_pattern",
+            "Set literal=true for fixed-string search or provide a valid regular expression.",
+        )
+
+
+def _line_matches(line_text: str, lowered_pattern: str, compiled_pattern, literal: bool) -> bool:
+    if not lowered_pattern:
+        return True
+    if literal:
+        return lowered_pattern in line_text.lower()
+    return compiled_pattern.search(line_text) is not None
 
 
 def build_tools(ctx) -> List[ToolDefinition]:
@@ -62,12 +114,14 @@ def build_tools(ctx) -> List[ToolDefinition]:
 
     def _grep_text(arguments: Dict[str, Any]) -> Observation:
         pattern = str(arguments.get("pattern") or "").strip()
-        path = ctx.resolve_directory(str(arguments.get("path") or "."))
+        path = _resolve_search_root(ctx, str(arguments.get("path") or "."))
         limit = max(1, int(arguments.get("limit") or 20))
         offset = max(0, int(arguments.get("offset") or 0))
         matches = []
         decode_error_count = 0
         lowered = pattern.lower()
+        literal = bool(arguments.get("literal", False))
+        compiled_pattern = _compile_pattern(pattern, literal)
         for absolute_path in ctx.iter_files(path, pattern=None):
             if ctx.is_binary_file(absolute_path):
                 continue
@@ -78,7 +132,7 @@ def build_tools(ctx) -> List[ToolDefinition]:
             if str(encoding or "").endswith("-replace"):
                 decode_error_count += 1
             for line_number, line_text in enumerate(content.split("\n"), start=1):
-                if lowered and lowered not in line_text.lower():
+                if not _line_matches(line_text, lowered, compiled_pattern, literal):
                     continue
                 matches.append(
                     "%s:%s:%s"
@@ -150,6 +204,10 @@ def build_tools(ctx) -> List[ToolDefinition]:
                     "path": {"type": "string", "description": "搜索根目录。示例：src"},
                     "limit": {"type": "integer", "description": "返回数量上限。示例：20"},
                     "offset": {"type": "integer", "description": "分页偏移。示例：0"},
+                    "literal": {
+                        "type": "boolean",
+                        "description": "为 true 时按固定字符串搜索；默认为 false，按正则表达式搜索。",
+                    },
                 },
                 "required": ["pattern", "path"],
                 "additionalProperties": False,
