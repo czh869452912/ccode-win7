@@ -342,7 +342,7 @@ class LoopResult:
     ``"completed"``   — agent replied without requesting more tool calls.
     ``"max_turns"``   — hit the explicit loop safety limit configured through
     the legacy ``max_turns`` field.
-    ``"guard"``       — LoopGuard stopped the loop (doom-loop protection).
+    ``"guard"``       — ProgressGuard stopped the loop (doom-loop protection).
     ``"cancelled"``   — external ``stop_event`` was set.
     ``"error"``       — unexpected exception; ``error`` field contains the message.
     """

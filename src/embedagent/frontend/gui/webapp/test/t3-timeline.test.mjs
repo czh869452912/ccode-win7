@@ -767,6 +767,20 @@ export function runT3TimelineTests() {
   assert.equal(systemRows[2].kind, "work");
   assert.equal(systemRows[2].id, "detached-tool");
 
+  const experienceRows = projectT3TimelineRows({
+    turnGroups: [],
+    currentStatus: "idle",
+    turnExperience: {
+      status: "blocked",
+      completed: [{ kind: "file_created", path: "README.md" }],
+      unverified: [{ kind: "validation_missing", message: "Created files have not been validated." }],
+      next_steps: ["Run validation for the changed files."],
+    },
+  });
+  assert.equal(experienceRows.length, 1);
+  assert.equal(experienceRows[0].kind, "system_notice");
+  assert.equal(experienceRows[0].content.includes("Unverified: validation_missing Created files have not been validated."), true);
+
   const richRows = projectT3TimelineRows({
     turnGroups: [
       {

@@ -292,6 +292,7 @@ export function buildSessionActivityRuntime({
       currentInteraction,
       interactionNotice,
       thinkingActive,
+      turnExperience: snapshot?.turnExperience || snapshot?.turn_experience || null,
     }),
   };
 }

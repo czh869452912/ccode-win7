@@ -86,6 +86,7 @@ def serialize_session_snapshot(snapshot: Any) -> Dict[str, Any]:
         "runtime_config": dict(read_value(snapshot, "runtime_config", {}) or {}),
         "compaction_state": dict(read_value(snapshot, "compaction_state", {}) or {}),
         "recovery_state": dict(read_value(snapshot, "recovery_state", {}) or {}),
+        "turn_experience": dict(read_value(snapshot, "turn_experience", {}) or {}),
         "current_phase": str(read_value(snapshot, "current_phase", "") or ""),
         "discipline_profile": str(read_value(snapshot, "discipline_profile", "") or ""),
         "current_activity": str(read_value(snapshot, "current_activity", "") or ""),

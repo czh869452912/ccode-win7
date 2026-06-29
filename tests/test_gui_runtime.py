@@ -450,6 +450,11 @@ class TestAgentCoreAdapterApi(unittest.TestCase):
             "updated_at": "2026-04-04T00:00:01Z",
             "pending_interaction_valid": False,
             "restore_stop_reason": "transcript_missing",
+            "turn_experience": {
+                "status": "blocked",
+                "completed": [{"kind": "file_created", "path": "README.md"}],
+                "next_steps": ["Run validation for the changed files."],
+            },
         }
 
         snapshot = core.get_session_snapshot("sess-1")
@@ -460,6 +465,8 @@ class TestAgentCoreAdapterApi(unittest.TestCase):
         self.assertFalse(hasattr(snapshot, "timeline" + "_integrity"))
         self.assertFalse(snapshot.pending_interaction_valid)
         self.assertEqual(snapshot.restore_stop_reason, "transcript_missing")
+        self.assertEqual(snapshot.turn_experience["status"], "blocked")
+        self.assertEqual(snapshot.turn_experience["completed"][0]["path"], "README.md")
 
 
 if __name__ == "__main__":

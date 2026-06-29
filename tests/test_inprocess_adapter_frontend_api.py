@@ -293,6 +293,39 @@ class WriteThenDoneClient(object):
         return reply
 
 
+class ThreeFileWriteThenDoneClient(object):
+    def __init__(self):
+        self.calls = 0
+
+    def generate(self, messages, tools=None):
+        self.calls += 1
+        if self.calls <= 3:
+            files = [
+                ("README.md", "# Demo\n"),
+                ("src/main.c", "int main(void) { return 0; }\n"),
+                ("tests/test_demo.py", "def test_demo():\n    assert True\n"),
+            ]
+            path, content = files[self.calls - 1]
+            return AssistantReply(
+                content="",
+                actions=[
+                    Action(
+                        name="write_file",
+                        arguments={"path": path, "content": content, "overwrite": False},
+                        call_id="write-experience-%s" % self.calls,
+                    )
+                ],
+                finish_reason="tool_calls",
+            )
+        return AssistantReply(content="files created", actions=[], finish_reason="stop")
+
+    def stream(self, messages, tools=None, on_text_delta=None, on_reasoning_delta=None):
+        reply = self.generate(messages, tools=tools)
+        if on_text_delta is not None and reply.content:
+            on_text_delta(reply.content)
+        return reply
+
+
 class CancellableToolClient(object):
     def __init__(self):
         self.calls = 0
@@ -1193,6 +1226,39 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             self.assertEqual(payload["outcome"]["reason"], "guard_stop")
             self.assertEqual(payload["outcome"]["exit_code"], 2)
             self.assertFalse(payload["outcome"]["is_success"])
+
+    def test_snapshot_exposes_turn_experience_after_progressive_writes(self):
+        adapter = InProcessAdapter(
+            client=ThreeFileWriteThenDoneClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+        )
+        snapshot = adapter.create_session("build")
+        session_id = str(snapshot.get("session_id") or "")
+
+        adapter.submit_user_message(
+            session_id=session_id,
+            text="创建三个项目文件",
+            stream=False,
+            wait=True,
+            event_handler=lambda event_name, current_session_id, payload: None,
+        )
+
+        refreshed = adapter.get_session_snapshot(session_id)
+        experience = refreshed["turn_experience"]
+        self.assertEqual(experience["status"], "completed")
+        self.assertEqual(
+            experience["completed"],
+            [
+                {"kind": "file_created", "path": "README.md"},
+                {"kind": "file_created", "path": "src/main.c"},
+                {"kind": "file_created", "path": "tests/test_demo.py"},
+            ],
+        )
+        self.assertEqual(
+            experience["next_steps"],
+            ["Run validation for the changed files."],
+        )
 
     def test_snapshot_and_session_history_preserve_cancelled_transition(self):
         client = CancellableToolClient()

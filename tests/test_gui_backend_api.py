@@ -112,6 +112,11 @@ class _FakeCoreWithTimeline(_FakeCore):
                 "runtime_config": {"resource_revision": {"revision": 3}},
                 "compaction_state": {"boundary_count": 1, "latest_boundary_id": "cb-1"},
                 "recovery_state": {"marker_count": 1, "latest_marker_id": "rm-1"},
+                "turn_experience": {
+                    "status": "blocked",
+                    "completed": [{"kind": "file_created", "path": "README.md"}],
+                    "next_steps": ["Run validation for the changed files."],
+                },
                 "current_phase": "implement",
                 "discipline_profile": "lite_spec_tdd",
                 "current_activity": "build harness active (implement)",
@@ -608,6 +613,11 @@ class TestGuiBackendApi(unittest.TestCase):
         self.assertEqual(snapshot["runtime_config"]["resource_revision"]["revision"], 3)
         self.assertEqual(snapshot["compaction_state"]["latest_boundary_id"], "cb-1")
         self.assertEqual(snapshot["recovery_state"]["latest_marker_id"], "rm-1")
+        self.assertEqual(snapshot["turn_experience"]["status"], "blocked")
+        self.assertEqual(
+            snapshot["turn_experience"]["completed"][0]["path"],
+            "README.md",
+        )
 
     def test_reload_resources_endpoint_calls_core_with_session_context(self):
         with tempfile.TemporaryDirectory() as static_dir:

@@ -44,6 +44,34 @@
 
 ## 3. 当前变更记录
 
+### DC-217
+
+- Date: 2026-06-29
+- Change Topic: ProgressGuard and turn experience read-model convergence
+- Summary:
+  - Replaced repeated tool-name stopping with `ProgressGuard`, which compares
+    action intent plus observation evidence fingerprints for no-progress
+    detection.
+  - Added `TurnExperienceReducer` to project completed work, unverified work,
+    blockers, validation failures, and next steps from `tool_result` and
+    `loop_transition` transcript events.
+  - Exposed `turn_experience` through session snapshots and `session_finished`
+    events so CLI, TUI, and GUI render one backend-owned read model.
+- Impacted Scope:
+  - `src/embedagent/guard.py`
+  - `src/embedagent/agent_loop.py`
+  - `src/embedagent/turn_experience.py`
+  - `src/embedagent/inprocess_adapter.py`
+  - `src/embedagent/cli.py`
+  - `src/embedagent/frontend/tui/`
+  - `src/embedagent/frontend/gui/webapp/src/session-runtime/`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+- ADR Required: No
+
 ### DC-216
 
 - Date: 2026-06-27

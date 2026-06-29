@@ -69,6 +69,7 @@ from embedagent.slash_commands import (
 )
 from embedagent.tools import ToolRuntime
 from embedagent.transcript_store import TranscriptStore
+from embedagent.turn_experience import TurnExperienceReducer
 
 EventHandler = Callable[[str, str, Dict[str, Any]], None]
 
@@ -416,26 +417,15 @@ class InProcessAdapter(object):
             ),
         )
 
-    def _refresh_runtime_config(self, state: ManagedSession) -> None:
+    def _refresh_reducer_state(self, state: ManagedSession) -> None:
         try:
             events = self.transcript_store.load_events(state.session.session_id)
         except (OSError, ValueError, TypeError):
             return
         state.runtime_config = RuntimeConfigReducer().reduce(events).to_dict()
-
-    def _refresh_compaction_state(self, state: ManagedSession) -> None:
-        try:
-            events = self.transcript_store.load_events(state.session.session_id)
-        except (OSError, ValueError, TypeError):
-            return
         state.compaction_state = CompactionStateReducer().reduce(events).to_dict()
-
-    def _refresh_recovery_state(self, state: ManagedSession) -> None:
-        try:
-            events = self.transcript_store.load_events(state.session.session_id)
-        except (OSError, ValueError, TypeError):
-            return
         state.recovery_state = RecoveryStateReducer().reduce(events).to_dict()
+        state.turn_experience = TurnExperienceReducer().reduce(events).to_dict()
 
     def _runtime_summary_for_recovery(self, runtime_config: Dict[str, Any]) -> Dict[str, Any]:
         resource_revision = runtime_config.get("resource_revision")
@@ -605,9 +595,7 @@ class InProcessAdapter(object):
                     payload,
                     normalized_reason,
                 )
-                self._refresh_runtime_config(state)
-                self._refresh_compaction_state(state)
-                self._refresh_recovery_state(state)
+                self._refresh_reducer_state(state)
                 state.updated_at = _utc_now()
         return dict(payload or {})
 
@@ -687,9 +675,7 @@ class InProcessAdapter(object):
             state.updated_at = _utc_now()
         self.reload_resources(session_id=session.session_id, reason="session_start")
         with state.lock:
-            self._refresh_runtime_config(state)
-            self._refresh_compaction_state(state)
-            self._refresh_recovery_state(state)
+            self._refresh_reducer_state(state)
         self._persist_state(state)
         snapshot = self.get_session_snapshot(session.session_id)
         self._emit(
@@ -782,9 +768,7 @@ class InProcessAdapter(object):
         with state.lock:
             self._apply_project_extension_state(state)
             self._append_recovery_marker(state, restored, current_mode, state.runtime_config)
-            self._refresh_runtime_config(state)
-            self._refresh_compaction_state(state)
-            self._refresh_recovery_state(state)
+            self._refresh_reducer_state(state)
             state.updated_at = _utc_now()
         snapshot = self.get_session_snapshot(session.session_id)
         self._emit(
@@ -830,9 +814,7 @@ class InProcessAdapter(object):
         runtime = runtime_lookup() if callable(runtime_lookup) else {}
         with state.lock:
             self._refresh_operation_diagnostics(state)
-            self._refresh_runtime_config(state)
-            self._refresh_compaction_state(state)
-            self._refresh_recovery_state(state)
+            self._refresh_reducer_state(state)
             summary = self._read_summary_for_state(state)
             return self.snapshot_projector.build_snapshot(
                 state,
@@ -1572,6 +1554,7 @@ class InProcessAdapter(object):
             {
                 "final_text": result.final_text,
                 "session_snapshot": snapshot,
+                "turn_experience": dict(snapshot.get("turn_experience") or {}),
                 "outcome": result.outcome.to_dict(),
                 "termination_reason": result.transition.reason,
                 "turns_used": result.turns_used,

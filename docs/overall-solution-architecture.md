@@ -142,6 +142,8 @@ Workflow-package prompt units are described by the generic `WorkflowPrompt` desc
 
 `AgentLifecycleJournal` owns durable lifecycle writes for schema v2 operation events, transition save points, pending interaction lifecycle events, context operation payload helpers, and workflow-patch persistence helpers. `AgentKernel` owns turn frames and pending interaction create/resolve boundaries. `AgentToolActionService` owns non-LLM tool action execution: active-tool checks, extension pre/post hooks, permission evaluation, pending permission/user-input action handling, mode-switch proposals, path write guards, runtime dispatch, extension-owned tool calls, resumed action execution, and workflow-patch capture after tool-result hooks. `AgentLoop` owns Pi-style open turn-loop continuation: agent step lifecycle, context/provider attempts, active schema requests through `AgentExtensionHost`, compact retry, tool batch interruption, guard-stop, abort, and explicit loop safety-limit compatibility transitions. Ordinary command/build/test failures are diagnostic tool results for the next model turn, not automatic hard-stop conditions; guard-stop is reserved for provider/protocol no-progress and true runaway protection. The optional safety fuse remains available only as an explicit runtime/test parameter; persistent JSON configuration must not set a product loop ceiling, and hosted defaults do not stop merely because eight model/tool cycles were used. `QueryEngine` remains the public session facade and keeps ownership of transcript-backed session mutation compatibility; it must not grow private loop or completion forwarding wrappers.
 
+`ProgressGuard` owns the turn-loop no-progress/runaway safety check. It fingerprints action intent together with observation evidence, so distinct files, commands, diagnostic outputs, and successful writes are treated as progress even when they use the same tool name. It replaces repeated-tool-name stopping with evidence-aware stopping and remains a guard only; it does not decide validation success, tool activation, permissions, or workflow state.
+
 Explicit user mode-switch requests are routed by `QueryEngine` before provider calls. `/mode <name>` and pure natural-language mode switches become local mode changes with closed lifecycle operations; `/mode <name> <message>` switches first and submits the remainder under the target mode. Model-initiated mode changes remain non-LLM tool actions mediated by `AgentToolActionService` and user confirmation, not autonomous provider policy.
 
 `TurnSnapshot` is the explicit frozen input for one provider request. `TurnSnapshotService` builds it after context assembly and active tool schema projection, including credential-free model profile, runtime configuration, resource revision, capability, prompt-unit, and context-stat metadata. `QueryEngine` then calls the provider with `snapshot.messages` and `snapshot.tool_schemas`. Snapshot diagnostics may record safe metadata such as `snapshot_id`, mode/workflow state, registered tool names, active tool names, credential-free model profile metadata, safe prompt-unit metadata, and capability counts; they must not record prompt bodies, file contents, raw tool outputs, or credentials.
@@ -159,6 +161,8 @@ Explicit user mode-switch requests are routed by `QueryEngine` before provider c
 `CompactionStateReducer` is the replayable structured compaction read model. It reduces `compact_boundary` transcript events into safe boundary records with preserved message anchors, token/message counts, trigger/phase/window-generation diagnostics, file activity paths, evidence refs, extension-summary flags, and duplicate/malformed diagnostics. It also projects compacted-history checkpoints as diagnostic state. It feeds restore results, `ManagedSession.compaction_state`, protocol snapshots, and session snapshots. It remains diagnostic/replay state and must not become a context selector, summary generator, extension executor, permission engine, or second session-history source.
 
 `RecoveryStateReducer` is the replayable hosted recovery read model. It reduces `recovery_marker` transcript events into safe recovery records with trusted-prefix counts, stop reasons, skip summaries, operation/compaction/runtime summaries, and duplicate/malformed diagnostics. It feeds restore results, `ManagedSession.recovery_state`, protocol snapshots, and session snapshots. It remains diagnostic/replay state and must not change restore validation, retry tool calls, select modes, activate tools, load extensions, bypass permissions, or become frontend-owned policy.
+
+`TurnExperienceReducer` is the replayable turn-experience read model. It reduces safe `tool_result` and `loop_transition` transcript events into completed work, unverified changes, validation failures, blockers, last failure, and suggested next steps. It feeds `ManagedSession.turn_experience`, protocol snapshots, session snapshots, `session_finished` payloads, CLI diagnostics, the TUI inspector, and GUI T3 system notices. It remains display/replay state and must not drive loop continuation, validation policy, active-tool selection, permission decisions, restore rules, extension loading, or session-history truth.
 
 Default bundled extension assembly is outside `QueryEngine` in `src/embedagent/default_extensions.py`. A bare `QueryEngine` receives an empty `ExtensionManager`; hosted product paths install the default C/C++ harness explicitly before constructing session engines. Hosted product paths may additionally load project-local extensions from `.embedagent/extensions/<name>/extension.json` when the manifest is explicitly enabled and declares permissions. Loaded project extensions receive `api.ExtensionCapability` and must explicitly declare every active hook from `extension_capabilities()`. Public remote registries, plugin marketplaces, runtime dependency installation, built-in tool replacement, and multi-agent orchestration remain out of scope.
 
@@ -192,6 +196,7 @@ Harness state refresh in the product adapter path goes through `CHarnessWorkflow
 - `runtime_config` in session snapshots is reducer-backed diagnostic state, not frontend-owned policy
 - `compaction_state` in session snapshots is reducer-backed diagnostic state, not frontend-owned context policy
 - `recovery_state` in session snapshots is reducer-backed diagnostic state, not frontend-owned recovery policy
+- `turn_experience` in session snapshots is reducer-backed display state; CLI, TUI, and GUI may render it but must not infer their own completion, validation, blocker, or next-step policy from history or tool names
 - no durable `SessionTimelineStore` exists; GUI activation and `/review`
   consume transcript/session projections, and transport recovery reloads
   session bootstrap instead of calling a session event replay route
@@ -254,6 +259,7 @@ Session snapshots carry:
 - `task_items`
 - `extensions`
 - `extension_diagnostics`
+- `turn_experience`
 
 ## 4. Tool Architecture
 
@@ -430,6 +436,15 @@ Replayable hosted recovery state is projected from recovery marker events:
 - `recovery_marker`
 
 `RecoveryStateReducer` consumes the validated transcript prefix and must not infer recovery state from `timeline.jsonl`, prompts, raw tool outputs, or local extension code. Hosted resume may append safe recovery markers after restoring a trusted prefix. Session snapshots may expose `recovery_state` for diagnostics and restore visibility; that projection does not change restore validation, retry tool calls, select modes, activate tools, select context, load extensions, or bypass permissions.
+
+### Turn Experience State Rule
+
+User-facing turn experience is projected from safe transcript events:
+
+- `tool_result`
+- `loop_transition`
+
+`TurnExperienceReducer` consumes the validated transcript prefix and must not infer experience state from frontend replay, `timeline.jsonl`, prompts, local extension code, or renderer state. Session snapshots may expose `turn_experience` for CLI/TUI/GUI display and resume visibility; that projection does not decide whether the agent continues, whether validation is sufficient, which tools are active, what permissions apply, or what session history means.
 
 ## 9. Frontend Contract
 

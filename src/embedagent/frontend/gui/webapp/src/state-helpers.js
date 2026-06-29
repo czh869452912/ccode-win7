@@ -94,6 +94,10 @@ export function normalizeSessionPayload(payload, defaultMode = "explore") {
     compactBoundaryCount: payload.compact_boundary_count || 0,
     contextPipelineSteps: Array.isArray(payload.context_pipeline_steps) ? payload.context_pipeline_steps : [],
     contextAnalysis: payload.context_analysis || null,
+    turnExperience:
+      payload.turn_experience && typeof payload.turn_experience === "object"
+        ? payload.turn_experience
+        : {},
     current_phase: payload.current_phase || "",
     discipline_profile: payload.discipline_profile || "",
     current_activity: payload.current_activity || "",

@@ -34,7 +34,7 @@ The next long-term architecture direction is captured in `docs/pi-inspired-agent
 - Official file discovery: `list_dir`, `glob_files`, `grep_text`
 - Official permission engine: `PermissionPolicy` with structured rule matching and stable explanation text
 - Official enterprise permission categories: `network` and `telemetry` exist for optional intranet/custom-service tools and telemetry flush/sink actions; both require explicit metadata and default to confirmation
-- Official session runtime ownership: one session-scoped `QueryEngine` remains the facade and transcript/session mutation owner, while `AgentLifecycleJournal`, `AgentKernel`, `AgentLoop`, `AgentToolActionService`, and `AgentExtensionHost` own durable lifecycle writes, turn frames and suspend/resume boundaries, open turn-loop continuation, non-LLM tool action execution, and extension hook dispatch
+- Official session runtime ownership: one session-scoped `QueryEngine` remains the facade and transcript/session mutation owner, while `AgentLifecycleJournal`, `AgentKernel`, `AgentLoop`, `ProgressGuard`, `AgentToolActionService`, and `AgentExtensionHost` own durable lifecycle writes, turn frames and suspend/resume boundaries, open turn-loop continuation, no-progress/runaway protection, non-LLM tool action execution, and extension hook dispatch
 - Official workflow extension hosting: `InProcessAdapter` owns one `ExtensionManager` shared with session-scoped `QueryEngine` and frontend tool catalog visibility
 - Official hosted adapter services: `HostedCommandService` owns slash-command dispatch, command result emission, and hosted command tool execution; `HostedInteractionService` owns permission/user-input response glue and pending ticket state. `InProcessAdapter` remains the host/session bridge and must not grow parallel command or interaction helper paths.
 - Official extension runtime direction: `ExtensionManager` is the shared in-process capability boundary for workflow defaults, prompt/context hooks, tool-call/tool-result hooks, resource discovery contracts, dynamic in-process tool registration, extension diagnostics, and manifest-gated project-local Python extensions. Extensions expose hooks only through `extension_capabilities()` returning `ExtensionCapability` records; method-name hooks are no longer auto-discovered. Internally, capability records dispatch through the source-aware `AgentEventBus` with event-specific reducer semantics and diagnostics.
@@ -52,6 +52,7 @@ The next long-term architecture direction is captured in `docs/pi-inspired-agent
 - Official runtime configuration read model: `RuntimeConfigReducer` projects safe replayable runtime configuration from `transcript.jsonl`, including credential-free model profile metadata, registered tool names, model-visible active tool names, local resource revision metadata, capability counts, and provider snapshot records. It is diagnostic/replay state and does not replace extension activation, tool execution, resource reload, project extension loading, or permission policy.
 - Official compaction read model: `CompactionJournal` builds safe `compact_boundary` and `compacted_history` transcript payloads, while `CompactionStateReducer` projects structured compact boundary state from those events. The reducer feeds restore results, managed sessions, protocol snapshots, and session snapshots, but it does not drive context selection or become a second history source.
 - Official recovery read model: `RecoveryStateReducer` projects safe hosted-resume recovery markers from `recovery_marker` transcript events, including trusted-prefix counts, stop reasons, operation/compaction/runtime summaries, and diagnostics. It feeds restore results, managed sessions, protocol snapshots, and session snapshots, but it does not change restore rules or drive runtime policy.
+- Official turn experience read model: `TurnExperienceReducer` projects safe completed, unverified, next-step, blocker, and last-failure state from transcript events. It feeds session snapshots and `session_finished` payloads for CLI/TUI/GUI display only; it does not decide loop continuation, validation policy, tool activation, permissions, or session history.
 - Official offline runtime contract: `scripts/offline-runtime-contract.json` lists every runtime-invoked bundled external tool and release gate, including Python, Bash from MinGit, MinGit, ripgrep, Universal Ctags, the LLVM/Clang child executables, bundle-local C smoke validation, and Win7/WebView2 GUI smoke metadata. Bundle validators consume this contract instead of maintaining separate hard-coded tool lists.
 - Official GUI bundle launcher: the GUI bundle includes a thin native Win32 launcher (`EmbedAgent.exe` / `embedagent-gui.exe`) for double-click startup, while Python, WebView2, LLVM/Clang, MinGit, ripgrep, and Universal Ctags remain explicit files in the portable bundle.
 - Official frontend vocabulary: `build`, `tasks`, `current_phase`, `discipline_profile`
@@ -108,6 +109,8 @@ The product no longer treats the old `code` mode or `manage_todos`-style workflo
   Internal lifecycle kernel for turn frames and pending interaction creation/resolution boundaries.
 - `src/embedagent/agent_loop.py`
   Pi-style open continuation loop for agent steps, provider/context attempts, compact retry, tool batches, guard stops, abort transitions, and explicit loop safety-limit compatibility transitions.
+- `src/embedagent/guard.py`
+  ProgressGuard for evidence-fingerprint based no-progress/runaway protection across tool actions and observations.
 - `src/embedagent/agent_loop_continuation.py`
   Internal continuation decision policy for open-loop stop, continue, abort, and safety-limit behavior.
 - `src/embedagent/agent_tool_action_service.py`
@@ -132,6 +135,8 @@ The product no longer treats the old `code` mode or `manage_todos`-style workflo
   Reducer-backed compaction projection for compact boundary metadata, safe file activity, evidence refs, and restore diagnostics.
 - `src/embedagent/recovery_state.py`
   Reducer-backed recovery projection for hosted resume markers, trusted prefix metadata, and restore diagnostics.
+- `src/embedagent/turn_experience.py`
+  Reducer-backed turn experience projection for completed work, unverified changes, blockers, validation failures, and suggested next steps.
 - `src/embedagent/telemetry.py`
   Local-only safe telemetry envelope helper that redacts prompt/source/output/credential fields before future sinks see metadata.
 - `src/embedagent/extensions.py`

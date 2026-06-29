@@ -12,6 +12,41 @@ def _truncate_text(text: str, limit: int) -> str:
     return text[:limit] + "..."
 
 
+def _format_experience_item(item) -> str:
+    if not isinstance(item, dict):
+        return str(item or "").strip()
+    parts = []
+    for key in ("kind", "path", "command", "message", "reason"):
+        value = str(item.get(key) or "").strip()
+        if value and value not in parts:
+            parts.append(value)
+    return " ".join(parts).strip()
+
+
+def _append_experience_lines(lines, snapshot) -> None:
+    experience = snapshot.get("turn_experience")
+    if not isinstance(experience, dict):
+        return
+    rows = []
+    for item in experience.get("completed") or []:
+        text = _format_experience_item(item)
+        if text:
+            rows.append("- done: %s" % text)
+    for item in experience.get("unverified") or []:
+        text = _format_experience_item(item)
+        if text:
+            rows.append("- unverified: %s" % text)
+    for item in experience.get("next_steps") or []:
+        text = _format_experience_item(item)
+        if text:
+            rows.append("- next: %s" % text)
+    if not rows:
+        return
+    lines.append("")
+    lines.append("Turn Experience")
+    lines.extend(rows[:8])
+
+
 def build_inspector_text(state: TerminalState, summary, latest_reply: str):
     tab = state.inspector.tab
     if tab == "help":
@@ -86,6 +121,7 @@ def build_inspector_text(state: TerminalState, summary, latest_reply: str):
     lines.append("- recent: %s" % context_stats.get("recent_turns", "-"))
     lines.append("- summarized: %s" % context_stats.get("summarized_turns", "-"))
     lines.append("- tokens: %s" % context_stats.get("approx_tokens_after", "-"))
+    _append_experience_lines(lines, snapshot)
     if state.workspace_snapshot:
         git_info = (
             state.workspace_snapshot.get("git")

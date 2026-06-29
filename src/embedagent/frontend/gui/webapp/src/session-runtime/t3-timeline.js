@@ -1016,6 +1016,41 @@ function systemNoticeRow(item) {
   };
 }
 
+function experienceItemText(item) {
+  if (item == null) return "";
+  if (typeof item !== "object") return stringValue(item);
+  const parts = [];
+  for (const key of ["kind", "path", "command", "message", "reason"]) {
+    const value = stringValue(item?.[key]).trim();
+    if (value && !parts.includes(value)) parts.push(value);
+  }
+  return parts.join(" ");
+}
+
+function experienceListText(items) {
+  if (!Array.isArray(items)) return "";
+  return items.map(experienceItemText).filter(Boolean).join(", ");
+}
+
+function turnExperienceSummaryRow(turnExperience) {
+  if (!turnExperience || typeof turnExperience !== "object") return null;
+  const completed = experienceListText(turnExperience.completed);
+  const unverified = experienceListText(turnExperience.unverified);
+  const nextSteps = experienceListText(turnExperience.next_steps || turnExperience.nextSteps);
+  const parts = [];
+  if (completed) parts.push(`Done: ${completed}`);
+  if (unverified) parts.push(`Unverified: ${unverified}`);
+  if (nextSteps) parts.push(`Next: ${nextSteps}`);
+  if (parts.length === 0) return null;
+  return {
+    id: "turn-experience-summary",
+    kind: T3_ROW_KINDS.SYSTEM_NOTICE,
+    tone: unverified || turnExperience.status === "blocked" ? "warning" : "context",
+    content: parts.join(" · "),
+    rawItem: turnExperience,
+  };
+}
+
 function interactionRow(item, fallback = {}) {
   return {
     id: stringValue(item?.id || item?.interactionId || fallback.id || "interaction"),
@@ -1336,6 +1371,7 @@ export function projectT3TimelineRows({
   currentInteraction = null,
   interactionNotice = null,
   thinkingActive = false,
+  turnExperience = null,
 } = {}) {
   const rows = [];
   const context = { currentStatus, activeTurnId };
@@ -1421,6 +1457,8 @@ export function projectT3TimelineRows({
       rawItem: interactionNotice,
     });
   }
+
+  pushRow(turnExperienceSummaryRow(turnExperience));
 
   const hasActiveTurnRow = rows.some(
     (row) =>
