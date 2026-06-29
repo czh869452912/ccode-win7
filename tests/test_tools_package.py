@@ -279,6 +279,27 @@ class TestCommandOutputDecoding(unittest.TestCase):
         self.assertTrue(decoded.decode_errors_count >= 0)
         self.assertIn("stdout_encoding", decoded.to_metadata())
 
+    def test_read_text_uses_replacement_fallback_for_mixed_encoding_bytes(self):
+        path = os.path.join(self.workspace, "mixed.txt")
+        with open(path, "wb") as handle:
+            handle.write("prefix\n".encode("utf-8") + b"\xd7" + b"\n")
+
+        content, newline_style, encoding = self.ctx.read_text(path)
+
+        self.assertIn("prefix", content)
+        self.assertIn("\ufffd", content)
+        self.assertEqual(newline_style, "\n")
+        self.assertEqual(encoding, "utf-8-replace")
+
+    def test_write_text_maps_replacement_encoding_to_real_codec(self):
+        path = os.path.join(self.workspace, "mixed.txt")
+
+        self.ctx.write_text(path, "prefix\n\ufffd\n", "\n", "utf-8-replace")
+
+        with open(path, "rb") as handle:
+            raw = handle.read()
+        self.assertEqual(raw, "prefix\n\ufffd\n".encode("utf-8"))
+
     @unittest.skipIf(sys.platform != "win32", "Windows-only: requires cmd.exe")
     def test_bash_result_contains_decode_metadata(self):
         rt = ToolRuntime(self.workspace)
@@ -349,6 +370,18 @@ class TestToolRuntimeExecute(unittest.TestCase):
         obs = self.rt.execute("read_file", {"path": "hello.txt"})
         self.assertTrue(obs.success)
         self.assertIn("hello world", obs.data["content"])
+
+    def test_grep_text_continues_with_replacement_decoded_files(self):
+        with open(os.path.join(self.workspace, "good.txt"), "w", encoding="utf-8") as handle:
+            handle.write("needle\n")
+        with open(os.path.join(self.workspace, "mixed.txt"), "wb") as handle:
+            handle.write(b"prefix\n\xd7\n")
+
+        obs = self.rt.execute("grep_text", {"pattern": "needle", "path": "."})
+
+        self.assertTrue(obs.success)
+        self.assertEqual(obs.data["returned_count"], 1)
+        self.assertEqual(obs.data["decode_error_count"], 1)
 
     def test_read_file_outside_workspace_blocked(self):
         obs = self.rt.execute("read_file", {"path": "/etc/passwd"})

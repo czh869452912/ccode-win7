@@ -233,11 +233,24 @@ class ToolContext(object):
                 )
             except UnicodeDecodeError as exc:
                 last_error = exc
-        raise ToolError("文件编码无法识别：%s" % last_error)
+        raw_content = raw_bytes.decode("utf-8", errors="replace")
+        if "\ufffd" not in raw_content:
+            raise ToolError("文件编码无法识别：%s" % last_error)
+        return (
+            self.normalize_newlines(raw_content),
+            self.detect_newline(raw_content),
+            "utf-8-replace",
+        )
+
+    def write_encoding(self, encoding: str) -> str:
+        value = str(encoding or "").strip()
+        if value.endswith("-replace"):
+            return value[: -len("-replace")] or "utf-8"
+        return value or "utf-8"
 
     def write_text(self, path: str, content: str, newline_style: str, encoding: str) -> None:
         serialized = content.replace("\n", newline_style)
-        with io.open(path, "w", encoding=encoding, newline="") as handle:
+        with io.open(path, "w", encoding=self.write_encoding(encoding), newline="") as handle:
             handle.write(serialized)
 
     def preview_text(self, text: str, limit: int) -> str:

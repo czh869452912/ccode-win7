@@ -11,7 +11,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from embedagent.hosted_command_service import HostedCommandService
 from embedagent.hosted_interaction_service import HostedInteractionService
-from embedagent.inprocess_adapter import InProcessAdapter
+from embedagent.inprocess_adapter import InProcessAdapter, _should_emit_context_compacted
 from embedagent.llm import ModelClientError
 from embedagent.permissions import PermissionPolicy, PermissionRequest
 from embedagent.session import Action, AssistantReply, Observation
@@ -786,6 +786,20 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             "src/pkg/demo.c",
             refreshed["compaction_state"]["latest_boundary"]["file_activity"]["read_files"],
         )
+
+    def test_context_compacted_live_event_ignores_reused_compacted_history_checkpoint(self):
+        class Result(object):
+            compacted = True
+            pipeline_steps = ["compacted_history_checkpoint", "working_set", "prompt_render"]
+
+        self.assertFalse(_should_emit_context_compacted(Result()))
+
+    def test_context_compacted_live_event_allows_new_compaction_triggers(self):
+        class Result(object):
+            compacted = True
+            pipeline_steps = ["auto_compact_threshold", "working_set", "prompt_render"]
+
+        self.assertTrue(_should_emit_context_compacted(Result()))
 
     def test_resume_appends_recovery_marker_and_snapshot_projects_recovery_state(self):
         adapter = InProcessAdapter(

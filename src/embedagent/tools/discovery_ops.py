@@ -5,7 +5,7 @@ import os
 from typing import Any, Dict, List
 
 from embedagent.session import Observation
-from embedagent.tools._base import ToolDefinition
+from embedagent.tools._base import ToolDefinition, ToolError
 
 
 def build_tools(ctx) -> List[ToolDefinition]:
@@ -66,14 +66,17 @@ def build_tools(ctx) -> List[ToolDefinition]:
         limit = max(1, int(arguments.get("limit") or 20))
         offset = max(0, int(arguments.get("offset") or 0))
         matches = []
+        decode_error_count = 0
         lowered = pattern.lower()
         for absolute_path in ctx.iter_files(path, pattern=None):
             if ctx.is_binary_file(absolute_path):
                 continue
             try:
-                content, _, _ = ctx.read_text(absolute_path)
-            except (OSError, UnicodeDecodeError, ValueError):
+                content, _, encoding = ctx.read_text(absolute_path)
+            except (OSError, ToolError, UnicodeDecodeError, ValueError):
                 continue
+            if str(encoding or "").endswith("-replace"):
+                decode_error_count += 1
             for line_number, line_text in enumerate(content.split("\n"), start=1):
                 if lowered and lowered not in line_text.lower():
                     continue
@@ -97,6 +100,7 @@ def build_tools(ctx) -> List[ToolDefinition]:
                 "has_more": offset + len(items) < len(matches),
                 "next_offset": offset + len(items),
                 "result_ref": "",
+                "decode_error_count": decode_error_count,
             },
         )
 

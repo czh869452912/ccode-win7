@@ -109,6 +109,15 @@ def _stable_names(names: Any) -> List[str]:
     return sorted(result)
 
 
+def _should_emit_context_compacted(result: object) -> bool:
+    if not bool(getattr(result, "compacted", False)):
+        return False
+    pipeline_steps = list(getattr(result, "pipeline_steps", []) or [])
+    return bool(
+        "auto_compact_threshold" in pipeline_steps or "reactive_compact_retry" in pipeline_steps
+    )
+
+
 PermissionResolver = Callable[[Dict[str, Any]], bool]
 UserInputResolver = Callable[[Dict[str, Any]], Optional[Dict[str, Any]]]
 
@@ -1364,7 +1373,7 @@ class InProcessAdapter(object):
                         "pipeline_steps": pipeline_steps,
                     },
                 )
-            if not bool(getattr(result, "compacted", False)):
+            if not _should_emit_context_compacted(result):
                 return
             self._emit_with_snapshot(
                 event_handler,
