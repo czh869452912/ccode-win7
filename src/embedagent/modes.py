@@ -96,6 +96,9 @@ _BUILTIN_MODES = {
             "ask_user",
         ],
         "writable_globs": [
+            "**/*.md",
+            "**/*.rst",
+            "**/*.txt",
             "**/*.c",
             "**/*.cc",
             "**/*.cpp",
@@ -144,6 +147,9 @@ _BUILTIN_MODES = {
             "ask_user",
         ],
         "writable_globs": [
+            "**/*.md",
+            "**/*.rst",
+            "**/*.txt",
             "**/*.c",
             "**/*.cc",
             "**/*.cpp",

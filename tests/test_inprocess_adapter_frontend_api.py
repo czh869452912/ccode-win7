@@ -1164,6 +1164,36 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             "guard_stop", [item.get("kind") for item in turn["steps"][0].get("transitions", [])]
         )
 
+    def test_session_finished_event_includes_blocked_outcome(self):
+        adapter = InProcessAdapter(
+            client=GuardStopClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+        )
+        snapshot = adapter.create_session("build")
+        session_id = str(snapshot.get("session_id") or "")
+        events = []
+        adapter.submit_user_message(
+            session_id=session_id,
+            text="重复修改不存在文件",
+            stream=False,
+            wait=True,
+            permission_resolver=lambda ticket: True,
+            event_handler=lambda event_name, current_session_id, payload: events.append(
+                (event_name, payload)
+            ),
+        )
+
+        finished = [payload for event_name, payload in events if event_name == "session_finished"]
+        turn_end = [payload for event_name, payload in events if event_name == "turn_end"]
+        self.assertEqual(len(finished), 1)
+        self.assertEqual(len(turn_end), 1)
+        for payload in (finished[0], turn_end[0]):
+            self.assertEqual(payload["outcome"]["kind"], "blocked")
+            self.assertEqual(payload["outcome"]["reason"], "guard_stop")
+            self.assertEqual(payload["outcome"]["exit_code"], 2)
+            self.assertFalse(payload["outcome"]["is_success"])
+
     def test_snapshot_and_session_history_preserve_cancelled_transition(self):
         client = CancellableToolClient()
         adapter = InProcessAdapter(
@@ -1715,6 +1745,10 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertEqual(tool_finished.get("turn_id"), turn_start.get("turn_id"))
         self.assertTrue(str(tool_started.get("step_id") or "").strip())
         self.assertEqual(tool_finished.get("step_id"), tool_started.get("step_id"))
+        turn_end = [payload for event_name, payload in events if event_name == "turn_end"][0]
+        self.assertEqual(turn_end["outcome"]["kind"], "completed")
+        self.assertEqual(turn_end["outcome"]["reason"], "completed")
+        self.assertEqual(turn_end["outcome"]["exit_code"], 0)
 
     def test_slash_run_permission_wait_enters_session_history(self):
         os.makedirs(os.path.join(self.workspace, ".embedagent"), exist_ok=True)
@@ -2165,6 +2199,9 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertIn("Slash Commands", command_events[0].get("message") or "")
         self.assertEqual(command_events[0].get("turn_id"), turn_start.get("turn_id"))
         self.assertEqual(turn_end.get("turn_id"), turn_start.get("turn_id"))
+        self.assertEqual(turn_end["outcome"]["kind"], "completed")
+        self.assertEqual(turn_end["outcome"]["reason"], "completed")
+        self.assertEqual(turn_end["outcome"]["exit_code"], 0)
 
     def test_slash_help_command_result_persists_in_resumed_history(self):
         session_id = str(self.snapshot.get("session_id") or "")

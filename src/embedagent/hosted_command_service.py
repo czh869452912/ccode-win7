@@ -10,7 +10,7 @@ from embedagent.permissions import PermissionRequest
 from embedagent.prompts import expand_prompt_invocation
 from embedagent.protocol import CommandResult, PlanSnapshot
 from embedagent.review_command import ReviewCommandService
-from embedagent.session import Action, AssistantReply, Observation
+from embedagent.session import Action, AssistantReply, LoopTransition, Observation, TurnOutcome
 from embedagent.session_runtime import ManagedSession
 from embedagent.skills import expand_skill_invocation
 from embedagent.slash_command_service import SlashCommandService
@@ -947,6 +947,12 @@ class HostedCommandService(object):
             {
                 "turn_id": turn_id,
                 "final_text": "",
+                "outcome": TurnOutcome.from_transition(
+                    LoopTransition(
+                        reason=result.transition.reason,
+                        message=result.transition.message or "",
+                    )
+                ).to_dict(),
                 "termination_reason": result.transition.reason,
                 "turns_used": result.turns_used,
                 "max_turns": self.max_turns,

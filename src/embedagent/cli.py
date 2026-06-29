@@ -291,6 +291,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         "printed": False,
         "final_text": "",
         "last_error": "",
+        "outcome": {},
     }
 
     def on_event(event_name: str, session_id: str, payload: Dict[str, object]) -> None:
@@ -374,6 +375,8 @@ def main(argv: Optional[List[str]] = None) -> int:
             return
         if event_name == "session_finished":
             runtime_state["final_text"] = str(payload.get("final_text") or "")
+            outcome = payload.get("outcome") or {}
+            runtime_state["outcome"] = outcome if isinstance(outcome, dict) else {}
             return
         if event_name == "session_error":
             runtime_state["last_error"] = str(payload.get("error") or "")
@@ -449,6 +452,20 @@ def main(argv: Optional[List[str]] = None) -> int:
         sys.stdout.write(final_text)
     if final_text and not final_text.endswith("\n"):
         sys.stdout.write("\n")
+    outcome = runtime_state.get("outcome") or {}
+    if isinstance(outcome, dict) and outcome:
+        exit_code = int(outcome.get("exit_code") or 0)
+        if not bool(outcome.get("is_success")):
+            kind = str(outcome.get("kind") or "failed")
+            reason = str(outcome.get("reason") or "")
+            message = str(outcome.get("message") or "")
+            diagnostic = "[%s]" % kind
+            if reason:
+                diagnostic += " " + reason
+            if message:
+                diagnostic += ": " + message
+            sys.stderr.write(diagnostic + "\n")
+        return exit_code
     return 0
 
 

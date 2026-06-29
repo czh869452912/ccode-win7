@@ -74,6 +74,43 @@ class ToolsV2RuntimeTests(unittest.TestCase):
         self.assertNotIn("report_quality_v2", names)
         self.assertNotIn("task_status", names)
 
+    def test_bash_preserves_shell_fallback_when_managed_primary_tool_is_missing(self):
+        from unittest.mock import patch
+
+        from embedagent.config import AppConfig
+        from embedagent.tools import ToolRuntime
+
+        command = (
+            'clang-analyzer --version || "%s" -c "print(\'fallback-ok\')"'
+            % sys.executable.replace("\\", "\\\\")
+        )
+        with patch.dict(
+            os.environ,
+            {
+                "EMBEDAGENT_ALLOW_SYSTEM_TOOL_FALLBACK": "0",
+                "EMBEDAGENT_BUNDLE_ROOT": "",
+                "EMBEDAGENT_LLVM_ROOT": "",
+            },
+            clear=False,
+        ):
+            runtime = ToolRuntime(
+                self.workspace,
+                app_config=AppConfig(allow_system_tool_fallback=False),
+            )
+            observation = runtime.execute(
+                "bash",
+                {
+                    "command": command,
+                    "cwd": ".",
+                    "timeout_sec": 10,
+                },
+            )
+
+        self.assertTrue(observation.success)
+        self.assertEqual(observation.data["requested_command"], command)
+        self.assertIn("fallback-ok", observation.data["stdout"])
+        self.assertNotIn("managed_primary_tool", observation.data)
+
 
 if __name__ == "__main__":
     unittest.main()

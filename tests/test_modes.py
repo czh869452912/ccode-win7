@@ -138,8 +138,11 @@ class TestIsPathWritable(unittest.TestCase):
     def test_root_python_in_build_mode(self):
         self.assertTrue(is_path_writable("build", "manage.py"))
 
-    def test_markdown_blocked_in_build_mode(self):
-        self.assertFalse(is_path_writable("build", "README.md"))
+    def test_development_modes_can_write_project_docs(self):
+        for mode_name in ("build", "debug"):
+            self.assertTrue(is_path_writable(mode_name, "README.md"))
+            self.assertTrue(is_path_writable(mode_name, "docs/design.md"))
+            self.assertTrue(is_path_writable(mode_name, "notes/plan.txt"))
 
     def test_python_blocked_in_spec_mode(self):
         self.assertFalse(is_path_writable("spec", "src/main.py"))

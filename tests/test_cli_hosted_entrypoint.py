@@ -50,3 +50,72 @@ def test_cli_architecture_guard_blocks_direct_runtime_construction():
     ]
     for needle in blocked:
         assert needle not in text
+
+
+def test_cli_returns_blocked_outcome_exit_code_and_diagnostic(tmp_path, monkeypatch, capsys):
+    runtime = MagicMock()
+    runtime.session_host.create_session.return_value = {"session_id": "s1"}
+
+    def submit_user_message(**kwargs):
+        handler = kwargs["event_handler"]
+        handler(
+            "session_finished",
+            "s1",
+            {
+                "final_text": "I stopped before finishing.",
+                "outcome": {
+                    "kind": "blocked",
+                    "reason": "guard_stop",
+                    "message": "repeated tool calls: bash",
+                    "exit_code": 2,
+                    "is_success": False,
+                },
+            },
+        )
+
+    runtime.session_host.submit_user_message.side_effect = submit_user_message
+    monkeypatch.setattr(
+        "embedagent.cli.create_hosted_runtime",
+        lambda launch_config, event_handler=None: runtime,
+    )
+
+    exit_code = cli.main(["--workspace", str(tmp_path), "--no-stream", "hello"])
+
+    captured = capsys.readouterr()
+    assert exit_code == 2
+    assert "I stopped before finishing." in captured.out
+    assert "[blocked] guard_stop: repeated tool calls: bash" in captured.err
+
+
+def test_cli_completed_outcome_returns_success(tmp_path, monkeypatch, capsys):
+    runtime = MagicMock()
+    runtime.session_host.create_session.return_value = {"session_id": "s1"}
+
+    def submit_user_message(**kwargs):
+        kwargs["event_handler"](
+            "session_finished",
+            "s1",
+            {
+                "final_text": "Done.",
+                "outcome": {
+                    "kind": "completed",
+                    "reason": "completed",
+                    "message": "",
+                    "exit_code": 0,
+                    "is_success": True,
+                },
+            },
+        )
+
+    runtime.session_host.submit_user_message.side_effect = submit_user_message
+    monkeypatch.setattr(
+        "embedagent.cli.create_hosted_runtime",
+        lambda launch_config, event_handler=None: runtime,
+    )
+
+    exit_code = cli.main(["--workspace", str(tmp_path), "--no-stream", "hello"])
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert captured.out == "Done.\n"
+    assert "[completed]" not in captured.err

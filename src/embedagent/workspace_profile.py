@@ -140,7 +140,7 @@ def build_workspace_profile_message(
         empty_msg = (
             "工作区画像：当前工作区基本为空。"
             "spec 模式如需起草文档，可默认创建 docs/ 作为首个文档目录；"
-            "code/debug 模式不要假设 src/ 已存在，应根据用户路径或当前目标决定结构。"
+            "build/debug 模式不要假设 src/ 已存在，应根据用户路径或当前目标决定结构。"
         )
         return empty_msg + _pending_tasks_hint(workspace, session_id=session_id)
     lines = ["工作区画像：请优先复用现有工程结构，不要强行套模板。"]
