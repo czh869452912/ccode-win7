@@ -397,6 +397,8 @@ class Session:
                 step.reasoning = reply.reasoning_content
         parent_value = str(parent_message_id or self.last_message_id() or "")
         metadata = {}
+        if reply.finish_reason:
+            metadata["finish_reason"] = str(reply.finish_reason)
         if isinstance(reply.usage, dict) and reply.usage:
             metadata["usage"] = {
                 "prompt_tokens": int(reply.usage.get("prompt_tokens") or 0),

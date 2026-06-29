@@ -617,6 +617,7 @@ class TestLocalResources(unittest.TestCase):
         self.assertEqual(command_results[0]["command_name"], "resources")
         self.assertTrue(command_results[0]["success"])
         self.assertEqual(command_results[0]["data"]["counts"]["skills"], 1)
+        self.assertIn("capabilities", command_results[0]["data"]["read_model_invalidations"])
 
     def test_session_start_skill_prompt_is_single_prompt_surface(self):
         _write_text(

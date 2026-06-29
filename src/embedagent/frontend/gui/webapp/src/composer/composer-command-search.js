@@ -39,17 +39,44 @@ function keywordMatch(keywords, query) {
   });
 }
 
+function queryParts(query) {
+  return normalizeText(query).split(/\s+/).filter(Boolean);
+}
+
+function orderedPartMatch(value, parts) {
+  if (!Array.isArray(parts) || parts.length <= 1) return false;
+  const tokens = normalizeText(value).split(/[^a-z0-9_./-]+/i).filter(Boolean);
+  if (tokens.length === 0) return false;
+  let tokenIndex = 0;
+  for (const part of parts) {
+    let found = false;
+    while (tokenIndex < tokens.length) {
+      if (tokens[tokenIndex].startsWith(part)) {
+        found = true;
+        tokenIndex += 1;
+        break;
+      }
+      tokenIndex += 1;
+    }
+    if (!found) return false;
+  }
+  return true;
+}
+
 function scoreItem(item, query) {
   if (!query) return 100 + item.order;
 
   const slash = normalizeText(item.slash);
   const slashBare = slash.charAt(0) === "/" ? slash.slice(1) : slash;
   const label = normalizeText(item.label);
+  const parts = queryParts(query);
 
   if (slashBare === query || slash === `/${query}`) return 0;
   if (label === query) return 4;
   if (slashBare.startsWith(query)) return 10;
   if (slash.startsWith(`/${query}`)) return 12;
+  if (orderedPartMatch(slashBare, parts)) return 14;
+  if (orderedPartMatch(label, parts)) return 18;
   if (label.startsWith(query)) return 20;
   if (wordBoundaryMatch(label, query)) return 30;
   if (keywordMatch(item.keywords, query)) return 40;

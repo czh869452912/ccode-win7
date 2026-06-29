@@ -24,6 +24,7 @@ function createRecordedLoaders() {
       loadArtifacts: record("loadArtifacts"),
       loadPermissionContext: record("loadPermissionContext"),
       loadFileChildren: record("loadFileChildren"),
+      loadSessionCommandCapabilities: record("loadSessionCommandCapabilities"),
     },
   };
 }
@@ -69,6 +70,9 @@ export async function runSessionLoadersTests() {
 
   await execute({ name: LOADER_REQUESTS.LOAD_FILE_CHILDREN, path: "src" });
   assert.deepEqual(calls.at(-1), { name: "loadFileChildren", args: ["src"] });
+
+  await execute({ name: LOADER_REQUESTS.LOAD_SESSION_CAPABILITIES });
+  assert.deepEqual(calls.at(-1), { name: "loadSessionCommandCapabilities", args: [] });
 
   const beforeNoOps = calls.length;
   await execute({ name: "unknown_loader" });

@@ -12,6 +12,8 @@ class TestNoDeprecationWarnings:
         """Run pytest with warnings as errors and verify no failures from project code."""
         # Run the fast test subset with deprecation warnings treated as errors
         # IMPORTANT: ignore this file to avoid infinite recursion
+        project_root = os.path.realpath(os.path.join(os.path.dirname(__file__), ".."))
+        nested_basetemp = os.path.join(project_root, "build", "test-sandboxes", "pytest-hygn-03")
         result = subprocess.run(
             [
                 sys.executable,
@@ -20,6 +22,8 @@ class TestNoDeprecationWarnings:
                 "tests/",
                 "-m",
                 "not slow and not gui",
+                "--basetemp",
+                nested_basetemp,
                 "--ignore=tests/test_gui_sync.py",  # Skip known failing test
                 "--ignore=tests/test_hygn_03_warning_cleanup.py",  # Skip self to avoid recursion
                 "-W",
@@ -28,7 +32,7 @@ class TestNoDeprecationWarnings:
             ],
             capture_output=True,
             text=True,
-            cwd=os.path.join(os.path.dirname(__file__), ".."),
+            cwd=project_root,
         )
 
         # Check that the test suite passes (exit code 0)

@@ -79,6 +79,19 @@ export function runTimelineUiStateTests() {
   assert.equal(rowDensityFor(richRows[1], richState), "expanded");
   assert.equal(rowDensityFor(richRows[4], { density: { [rowUiKey(richRows[4])]: "normal" } }), "normal");
 
+  const helpRow = {
+    id: "cmd-help",
+    kind: "command_result",
+    turnId: "turn-1",
+    commandName: "help",
+    success: true,
+    content: "## Slash Commands",
+  };
+  const helpState = createTimelineUiState([helpRow]);
+  assert.equal(isRowExpandedByDefault(helpRow), true);
+  assert.equal(helpState.expanded[rowUiKey(helpRow)], true);
+  assert.equal(helpState.density[rowUiKey(helpRow)], "expanded");
+
   const normalCommand = toggleTimelineRowDensity(richState, rowUiKey(richRows[0]), "normal");
   assert.equal(normalCommand.density[rowUiKey(richRows[0])], "normal");
   assert.equal(normalCommand.expanded[rowUiKey(richRows[0])], false);

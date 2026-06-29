@@ -14,6 +14,7 @@ from conftest import register_default_c_workflow_tools
 
 from embedagent.tools import ToolDefinition, ToolRuntime
 from embedagent.tools._base import MAX_COMMAND_OUTPUT_CHARS, ToolContext
+from embedagent.tools.discovery_ops import build_tools as build_discovery_tools
 
 _COUNTER = count(1)
 
@@ -456,6 +457,79 @@ class TestToolRuntimeExecute(unittest.TestCase):
         self.assertEqual(obs.data["returned_count"], 1)
         self.assertIn("src.txt:1:needle in source", obs.data["preview"][0])
         self.assertNotIn(".embedagent/memory", "\n".join(obs.data["preview"]))
+
+    def test_grep_text_uses_managed_ripgrep_when_available(self):
+        class FakeRgContext(ToolContext):
+            def __init__(self, workspace):
+                super(FakeRgContext, self).__init__(workspace)
+                self.commands = []
+
+            def resolve_managed_tool_path(self, tool_key):
+                if tool_key == "rg":
+                    return os.path.join(self.workspace, "bin", "rg", "rg.exe"), "workspace"
+                return super(FakeRgContext, self).resolve_managed_tool_path(tool_key)
+
+            def run_subprocess(self, command, cwd, timeout_sec, shell, stop_event=None):
+                self.commands.append(
+                    {
+                        "command": command,
+                        "cwd": cwd,
+                        "timeout_sec": timeout_sec,
+                        "shell": shell,
+                    }
+                )
+                return {
+                    "exit_code": 0,
+                    "stdout": "src/main.c:2:needle hit\n",
+                    "stderr": "",
+                    "stdout_decode_errors_count": 0,
+                    "stderr_decode_errors_count": 0,
+                    "timed_out": False,
+                    "interrupted": False,
+                }
+
+        ctx = FakeRgContext(self.workspace)
+        grep_tool = [tool for tool in build_discovery_tools(ctx) if tool.name == "grep_text"][0]
+
+        obs = grep_tool.handler({"pattern": "needle", "path": ".", "limit": 1, "offset": 0})
+
+        self.assertTrue(obs.success)
+        self.assertEqual(obs.data["preview"], ["src/main.c:2:needle hit"])
+        self.assertEqual(obs.data["search_backend"], "rg")
+        self.assertEqual(obs.data["managed_tool_source"], "workspace")
+        command = ctx.commands[0]["command"]
+        self.assertFalse(ctx.commands[0]["shell"])
+        self.assertIn("--line-number", command)
+        self.assertIn("--hidden", command)
+        self.assertIn("--no-ignore", command)
+        self.assertIn("--ignore-case", command)
+        self.assertIn("--encoding", command)
+        self.assertIn("auto", command)
+        self.assertIn("!.embedagent/memory/**", command)
+
+    def test_grep_text_rg_invalid_regex_is_diagnostic_failure(self):
+        class FakeRgContext(ToolContext):
+            def resolve_managed_tool_path(self, tool_key):
+                if tool_key == "rg":
+                    return os.path.join(self.workspace, "bin", "rg", "rg.exe"), "workspace"
+                return super(FakeRgContext, self).resolve_managed_tool_path(tool_key)
+
+            def run_subprocess(self, command, cwd, timeout_sec, shell, stop_event=None):
+                return {
+                    "exit_code": 2,
+                    "stdout": "",
+                    "stderr": "regex parse error:\n    [\n    ^\nerror: unclosed character class",
+                    "stdout_decode_errors_count": 0,
+                    "stderr_decode_errors_count": 0,
+                    "timed_out": False,
+                    "interrupted": False,
+                }
+
+        ctx = FakeRgContext(self.workspace)
+        grep_tool = [tool for tool in build_discovery_tools(ctx) if tool.name == "grep_text"][0]
+
+        with self.assertRaisesRegex(Exception, "搜索模式不是有效正则表达式"):
+            grep_tool.handler({"pattern": "[", "path": "."})
 
     def test_read_file_outside_workspace_blocked(self):
         obs = self.rt.execute("read_file", {"path": "/etc/passwd"})

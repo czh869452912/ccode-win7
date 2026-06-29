@@ -450,6 +450,8 @@ class HostedCommandService(object):
                 else self._reload_resources(session_id=state.session.session_id, reason="command")
             )
         counts = dict(payload.get("counts") or {})
+        result_data = dict(payload)
+        result_data["read_model_invalidations"] = ["capabilities"]
         lines = [
             "## Local Resources",
             "",
@@ -465,7 +467,7 @@ class HostedCommandService(object):
                 command_name="resources",
                 success=True,
                 message="\n".join(lines),
-                data=payload,
+                data=result_data,
             ),
         )
         return {"handled": True, "continue_with_text": ""}

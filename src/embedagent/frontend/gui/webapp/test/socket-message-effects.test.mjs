@@ -220,6 +220,15 @@ export function runSocketMessageEffectsTests() {
     { name: LOADER_REQUESTS.LOAD_SESSION, sessionId: "sess-next" },
   ]);
 
+  const commandResourcesReload = derive("command_result", {
+    command_name: "resources",
+    success: true,
+    data: { read_model_invalidations: ["capabilities"], counts: { skills: 1 } },
+  });
+  assert.deepEqual(commandResourcesReload.loaderRequests, [
+    { name: LOADER_REQUESTS.LOAD_SESSION_CAPABILITIES },
+  ]);
+
   const commandWorkspace = derive("command_result", {
     command_name: "workspace",
     success: true,

@@ -37,6 +37,14 @@ export function runComposerCommandSearchTests() {
     searchComposerCommandItems(items, "/mode d").map((item) => item.slash),
     ["/mode debug"],
   );
+  assert.deepEqual(
+    searchComposerCommandItems(items, "mode d").map((item) => item.slash),
+    ["/mode debug"],
+  );
+  assert.deepEqual(
+    searchComposerCommandItems(items, "mode bu").map((item) => item.slash),
+    ["/mode build"],
+  );
 
   assert.equal(searchComposerCommandItems(items, "git")[0].slash, "/diff");
   assert.equal(searchComposerCommandItems(items, "build")[0].slash, "/mode build");

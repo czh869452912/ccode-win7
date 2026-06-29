@@ -4,6 +4,7 @@ import { makeEventId, normalizeSessionPayload } from "../state-helpers.js";
 import { LOADER_REQUESTS } from "./session-loaders.js";
 
 const WORKSPACE_FILES_INVALIDATION = "workspace_files";
+const CAPABILITIES_INVALIDATION = "capabilities";
 
 function emptyEffects() {
   return { actions: [], transportEvents: [], loaderRequests: [] };
@@ -68,6 +69,7 @@ function readModelInvalidations(payload = {}) {
 function commandResultEffects(data, options) {
   const effects = emptyEffects();
   const commandName = data?.command_name || "";
+  const invalidations = readModelInvalidations(data);
   effects.actions.push({
     type: "command_result",
     id: eventId(options.makeId, "cmd"),
@@ -128,6 +130,9 @@ function commandResultEffects(data, options) {
       review: data.data.review,
       inspectorTab: "review",
     });
+  }
+  if (invalidations.includes(CAPABILITIES_INVALIDATION)) {
+    effects.loaderRequests.push({ name: LOADER_REQUESTS.LOAD_SESSION_CAPABILITIES });
   }
   effects.actions.push(logAction(`command: /${commandName || "?"}`, data?.success ? "ok" : "error"));
   return effects;

@@ -124,11 +124,23 @@ class OpenAICompatibleClient(object):
         except urllib.error.URLError as exc:
             raise ModelClientError("模型服务不可用：%s" % exc)
 
+        return self._parse_stream_response(
+            response,
+            on_text_delta=on_text_delta,
+            on_reasoning_delta=on_reasoning_delta,
+        )
+
+    def _parse_stream_response(
+        self,
+        response: Any,
+        on_text_delta: Optional[Callable[[str], None]],
+        on_reasoning_delta: Optional[Callable[[str], None]],
+    ) -> AssistantReply:
         content_parts = []
         reasoning_parts = []
         tool_buffers = {}
         finish_reason = None
-        total_chars = 0
+        usage = {}
         for event_data in self._iter_sse_events(response):
             if event_data == "[DONE]":
                 break
@@ -136,39 +148,38 @@ class OpenAICompatibleClient(object):
                 payload_item = json.loads(event_data)
             except ValueError:
                 continue
+            chunk_usage = self._extract_usage(payload_item)
+            if any(chunk_usage.values()):
+                usage = chunk_usage
             choices = payload_item.get("choices") or []
             if not choices:
                 continue
             choice = choices[0]
+            if not usage:
+                choice_usage = self._extract_usage(choice)
+                if any(choice_usage.values()):
+                    usage = choice_usage
             delta = choice.get("delta") or {}
             text = self._normalize_content(delta.get("content"))
             if text:
                 content_parts.append(text)
-                total_chars += len(text)
                 if on_text_delta is not None:
                     on_text_delta(text)
             reasoning_text = self._normalize_content(delta.get("reasoning_content"))
             if reasoning_text:
                 reasoning_parts.append(reasoning_text)
-                total_chars += len(reasoning_text)
                 if on_reasoning_delta is not None:
                     on_reasoning_delta(reasoning_text)
             self._merge_stream_tool_calls(tool_buffers, delta)
             if choice.get("finish_reason"):
                 finish_reason = choice.get("finish_reason")
         actions = self._finalize_stream_tool_calls(tool_buffers)
-        # Approximate tokens for streaming: chars / 4
-        approx_tokens = total_chars // 4
         return AssistantReply(
             content="".join(content_parts),
             actions=actions,
             finish_reason=finish_reason,
             reasoning_content="".join(reasoning_parts),
-            usage={
-                "prompt_tokens": 0,
-                "completion_tokens": approx_tokens,
-                "total_tokens": approx_tokens,
-            },
+            usage=usage,
         )
 
     def _iter_sse_events(self, response: Any) -> Iterable[str]:

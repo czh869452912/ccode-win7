@@ -355,6 +355,25 @@ class TestCallbackBridge(unittest.TestCase):
         self.assertEqual(payload["session_id"], "sess-1")
         self.assertEqual(payload["permission"]["permission_id"], "perm-1")
 
+    def test_command_result_preserves_read_model_invalidations(self):
+        frontend = MagicMock()
+        bridge = CallbackBridge(frontend)
+
+        bridge.emit(
+            "command_result",
+            "sess-1",
+            {
+                "command_name": "resources",
+                "success": True,
+                "message": "reloaded",
+                "data": {"read_model_invalidations": ["capabilities"]},
+            },
+        )
+
+        result = frontend.on_command_result.call_args[0][0]
+        self.assertEqual(result.command_name, "resources")
+        self.assertEqual(result.data["read_model_invalidations"], ["capabilities"])
+
 
 class TestWebSocketFrontendDispatch(unittest.TestCase):
     def test_dispatch_result_reason_is_logged_when_queueing_fails(self):

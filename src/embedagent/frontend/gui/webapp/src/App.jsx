@@ -595,6 +595,7 @@ function App() {
     loadArtifacts,
     loadPermissionContext,
     loadFileChildren,
+    loadSessionCommandCapabilities: () => loadSessionCommandCapabilities({ fetchJson, dispatch }),
   });
 
   function executeSocketEffects(effects = {}) {

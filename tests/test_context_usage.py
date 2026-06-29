@@ -62,3 +62,24 @@ def test_context_usage_estimates_when_no_provider_usage_exists():
     assert estimate.tokens > 0
     assert estimate.usage_tokens == 0
     assert estimate.source == "estimate"
+
+
+def test_context_usage_ignores_error_assistant_usage():
+    session = Session(session_id="sess-error-usage")
+    session.add_user_message("hello")
+    session.add_assistant_reply(
+        AssistantReply(
+            content="provider error",
+            finish_reason="error",
+            usage={"prompt_tokens": 100, "completion_tokens": 1, "total_tokens": 101},
+        )
+    )
+
+    estimate = ContextUsageEstimator(chars_per_token=4.0).estimate_session(
+        session,
+        context_window=1000,
+        reserve_tokens=100,
+    )
+
+    assert estimate.source == "estimate"
+    assert estimate.usage_tokens == 0

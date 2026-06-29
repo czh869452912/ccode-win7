@@ -45,7 +45,7 @@ export function isRowExpandedByDefault(row) {
   if (!row) return false;
   if (row.kind === "turn_fold") return booleanValue(row.defaultOpen, false);
   if (row.kind === "command_result") {
-    return row.success === false;
+    return row.success === false || stringValue(row.content).trim().length > 0;
   }
   if (row.kind === "review_result") {
     return row.success === false;

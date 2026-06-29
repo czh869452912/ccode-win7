@@ -58,7 +58,11 @@ class ContextUsageEstimator(object):
             message = messages[index]
             if getattr(message, "role", "") != "assistant":
                 continue
-            usage = dict(getattr(message, "metadata", {}) or {}).get("usage") or {}
+            metadata = dict(getattr(message, "metadata", {}) or {})
+            finish_reason = str(metadata.get("finish_reason") or "").strip().lower()
+            if finish_reason in ("aborted", "error"):
+                continue
+            usage = metadata.get("usage") or {}
             usage_tokens = self._usage_tokens(dict(usage or {}))
             if usage_tokens <= 0:
                 continue

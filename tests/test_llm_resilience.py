@@ -4,7 +4,7 @@ import time
 import unittest
 from unittest.mock import Mock
 
-from embedagent.llm import ModelClientError
+from embedagent.llm import ModelClientError, OpenAICompatibleClient
 from embedagent.session import AssistantReply
 from embedagent.strategies.circuit_breaker import CircuitBreaker, CircuitBreakerOpenError
 from embedagent.strategies.llm_retry_wrapper import LLMClientRetryWrapper
@@ -138,6 +138,64 @@ class TestLLMResilienceIntegration(unittest.TestCase):
 
         self.assertEqual(reply.content, "hello")
         self.assertEqual(deltas, ["hello"])
+
+
+class _FakeSseResponse(object):
+    def __init__(self, lines):
+        self._lines = lines
+
+    def __iter__(self):
+        for line in self._lines:
+            yield line.encode("utf-8")
+
+
+class TestOpenAICompatibleStreamingUsage(unittest.TestCase):
+    def _client(self):
+        return OpenAICompatibleClient(
+            base_url="http://127.0.0.1:8000/v1",
+            api_key="",
+            model="local-test",
+        )
+
+    def test_streaming_without_provider_usage_does_not_fabricate_total_tokens(self):
+        client = self._client()
+        response = _FakeSseResponse(
+            [
+                'data: {"choices":[{"delta":{"content":"hello"},"finish_reason":null}]}\n',
+                "\n",
+                'data: {"choices":[{"delta":{},"finish_reason":"stop"}]}\n',
+                "\n",
+                "data: [DONE]\n",
+                "\n",
+            ]
+        )
+
+        reply = client._parse_stream_response(response, on_text_delta=None, on_reasoning_delta=None)
+
+        self.assertEqual(reply.content, "hello")
+        self.assertEqual(reply.usage, {})
+
+    def test_streaming_uses_real_provider_usage_from_sse_chunk(self):
+        client = self._client()
+        response = _FakeSseResponse(
+            [
+                'data: {"choices":[{"delta":{"content":"hello"},"finish_reason":null}]}\n',
+                "\n",
+                (
+                    'data: {"usage":{"prompt_tokens":10,"completion_tokens":2,'
+                    '"total_tokens":12},"choices":[{"delta":{},"finish_reason":"stop"}]}\n'
+                ),
+                "\n",
+                "data: [DONE]\n",
+                "\n",
+            ]
+        )
+
+        reply = client._parse_stream_response(response, on_text_delta=None, on_reasoning_delta=None)
+
+        self.assertEqual(
+            reply.usage, {"prompt_tokens": 10, "completion_tokens": 2, "total_tokens": 12}
+        )
 
 
 if __name__ == "__main__":

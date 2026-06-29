@@ -11,6 +11,7 @@ export const LOADER_REQUESTS = Object.freeze({
   LOAD_ARTIFACTS: "load_artifacts",
   LOAD_PERMISSION_CONTEXT: "load_permission_context",
   LOAD_FILE_CHILDREN: "load_file_children",
+  LOAD_SESSION_CAPABILITIES: "load_session_capabilities",
 });
 
 function invoke(callback, ...args) {
@@ -53,6 +54,9 @@ export function createLoaderRequestExecutor(loaders = {}) {
     }
     if (name === LOADER_REQUESTS.LOAD_FILE_CHILDREN) {
       return invoke(loaders.loadFileChildren, request.path || ".");
+    }
+    if (name === LOADER_REQUESTS.LOAD_SESSION_CAPABILITIES) {
+      return invoke(loaders.loadSessionCommandCapabilities);
     }
     return Promise.resolve();
   };
