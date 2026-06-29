@@ -1662,7 +1662,7 @@
   - The auto compact path is represented as the `auto_compact_threshold` context pipeline step. Reactive provider-error retry continues to use `reactive_compact_retry`.
   - `QueryEngine` now writes compact-boundary `trigger`, `phase`, and `context_window_generation` diagnostics into both the transcript payload and boundary metadata; `CompactionStateReducer` projects those fields as read-model state.
   - `ContextWindowState` centralizes those diagnostic derivation rules as an internal value object; it is not a new durable history source or policy engine.
-  - `QueryEngine` no longer constructs the legacy `ContextCompactionEngine`; wrapper-level compaction remains available only when injected into `LLMClientRetryWrapper` directly.
+  - `QueryEngine` no longer constructs the legacy `ContextCompactionEngine`; wrapper-level compaction has been removed from `LLMClientRetryWrapper`, so provider context-length recovery is owned by the AgentLoop/ContextManager compaction path.
   - `SessionRestorer` preserves those diagnostics when replaying compact boundaries.
 - 影响范围：
   - `src/embedagent/context.py`

@@ -47,13 +47,14 @@ class TestPublicImports(object):
         assert WorkspaceFileService is not None
 
     def test_import_strategies(self):
-        from embedagent.strategies import (
-            ContextCompactionEngine,
-            LLMClientRetryWrapper,
-        )
+        from embedagent.strategies import LLMClientRetryWrapper
 
-        assert ContextCompactionEngine is not None
         assert LLMClientRetryWrapper is not None
+
+    def test_legacy_context_compaction_strategy_removed(self):
+        import embedagent.strategies as strategies
+
+        assert not hasattr(strategies, "ContextCompactionEngine")
 
     def test_turn_orchestrator_legacy_strategy_removed(self):
         import embedagent.strategies as strategies

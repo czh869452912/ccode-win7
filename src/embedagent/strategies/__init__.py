@@ -1,5 +1,4 @@
 from embedagent.strategies.circuit_breaker import CircuitBreaker, CircuitBreakerOpenError
-from embedagent.strategies.context_compaction_engine import ContextCompactionEngine
 from embedagent.strategies.diff_engine import DiffBlock, DiffError, MultiSearchReplaceDiffEngine
 from embedagent.strategies.execution_tracer import ExecutionTracer, TraceEvent, TraceEventType
 from embedagent.strategies.llm_retry_wrapper import LLMClientRetryWrapper
@@ -10,7 +9,6 @@ __all__ = [
     "CacheTier",
     "CircuitBreaker",
     "CircuitBreakerOpenError",
-    "ContextCompactionEngine",
     "DiffBlock",
     "DiffError",
     "ExecutionTracer",
