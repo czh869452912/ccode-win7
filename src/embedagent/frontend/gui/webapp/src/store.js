@@ -56,7 +56,10 @@ export function reducer(state, action) {
     if (action.type === "local_user_message") {
       return {
         ...nextState,
-        composer: reduceComposerState(state.composer, action),
+        composer: reduceComposerState(state.composer, {
+          ...action,
+          sessionId: action.sessionId || readActiveThreadId(state),
+        }),
         interactionNotice: null,
       };
     }
@@ -79,7 +82,13 @@ export function reducer(state, action) {
     case "set_lang":
       return { ...state, lang: action.value };
     case "set_composer":
-      return { ...state, composer: reduceComposerState(state.composer, action) };
+      return {
+        ...state,
+        composer: reduceComposerState(state.composer, {
+          ...action,
+          sessionId: action.sessionId || readActiveThreadId(state),
+        }),
+      };
     case "app_bootstrap_loaded":
       return {
         ...state,

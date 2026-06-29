@@ -6,6 +6,7 @@ import {
   normalizeWorkspaceRecord,
   resetWorkspaceScopedState,
 } from "../src/app-workspaces.js";
+import { createComposerState, readComposerDraft } from "../src/composer/composer-state.js";
 
 export function runAppWorkspaceTests() {
   const workspace = normalizeWorkspaceRecord({
@@ -57,7 +58,7 @@ export function runAppWorkspaceTests() {
       currentSessionId: "sess-1",
       historyIntegrity: { status: "partial" },
     },
-    composer: { draft: "stale draft" },
+    composer: createComposerState(),
     snapshot: { session_id: "sess-1" },
     activities: [{ id: "row-1" }],
     tasks: [{ id: 1 }],
@@ -74,7 +75,7 @@ export function runAppWorkspaceTests() {
   assert.deepEqual(reset.thread.sessions, []);
   assert.equal(reset.thread.currentSessionId, "");
   assert.equal(reset.thread.historyIntegrity, null);
-  assert.equal(reset.composer.draft, "");
+  assert.equal(readComposerDraft(reset), "");
   assert.equal(reset.snapshot, null);
   assert.deepEqual(reset.activities, []);
   assert.deepEqual(reset.tasks, []);

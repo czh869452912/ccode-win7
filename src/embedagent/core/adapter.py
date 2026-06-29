@@ -416,6 +416,10 @@ class AgentCoreAdapter(CoreInterface):
                 adapter_kwargs[key] = kwargs.get(key)
         self._adapter = AdapterClass(**adapter_kwargs)
 
+    def attach_adapter(self, adapter) -> None:
+        """Attach a hosted InProcessAdapter built outside this protocol wrapper."""
+        self._adapter = adapter
+
     def register_frontend(self, frontend: FrontendCallbacks) -> None:
         """注册前端回调"""
         self._frontend = frontend

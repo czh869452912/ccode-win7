@@ -9,7 +9,6 @@ from unittest.mock import ANY, MagicMock, patch
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from embedagent.config import AppConfig
 from embedagent.core.adapter import CallbackBridge
 from embedagent.frontend.gui import launcher as gui_launcher
 from embedagent.frontend.gui.backend.bridge import BlockingResult, ThreadsafeAsyncDispatcher
@@ -18,27 +17,18 @@ from embedagent.protocol import PermissionRequest
 
 
 class TestGuiLauncher(unittest.TestCase):
-    def test_create_core_uses_flat_config_and_runtime_policies(self):
-        app_config = AppConfig(
-            base_url="http://internal/v1",
-            api_key="sk-internal",
-            model="qwen3.5-coder",
-            timeout=45,
-            max_turns=11,
-        )
+    def test_create_core_delegates_runtime_construction_to_hosted_runtime(self):
         with tempfile.TemporaryDirectory() as workspace:
             real_workspace = os.path.realpath(workspace)
-            with patch("embedagent.config.load_config", return_value=app_config), patch(
-                "embedagent.llm.OpenAICompatibleClient"
-            ) as client_cls, patch("embedagent.tools.ToolRuntime") as tools_cls, patch(
-                "embedagent.context.make_context_config", return_value="context-config"
-            ) as make_context_config, patch(
-                "embedagent.context.ContextManager"
-            ) as context_manager_cls, patch(
-                "embedagent.project_memory.ProjectMemoryStore"
-            ) as memory_store_cls, patch(
-                "embedagent.permissions.PermissionPolicy"
-            ) as permission_policy_cls, patch(
+            hosted_runtime = MagicMock()
+            hosted_runtime.session_host.adapter = MagicMock(name="inner_adapter")
+            with patch(
+                "embedagent.frontend.gui.launcher.resolve_launch_config",
+                return_value=MagicMock(workspace=real_workspace),
+            ) as resolve_config, patch(
+                "embedagent.frontend.gui.launcher.create_hosted_runtime",
+                return_value=hosted_runtime,
+            ) as create_hosted_runtime, patch(
                 "embedagent.core.adapter.AgentCoreAdapter"
             ) as adapter_cls:
                 core = gui_launcher.create_core(
@@ -50,61 +40,34 @@ class TestGuiLauncher(unittest.TestCase):
                 )
 
             self.assertIs(core, adapter_cls.return_value)
-            client_cls.assert_called_once_with(
-                base_url="http://internal/v1",
-                api_key="sk-internal",
-                model="qwen3.5-coder",
-                timeout=45.0,
+            self.assertEqual(resolve_config.call_args.args[0], real_workspace)
+            self.assertTrue(resolve_config.call_args.kwargs["overrides"].approve_commands)
+            self.assertEqual(
+                resolve_config.call_args.kwargs["overrides"].permission_rules,
+                ".embedagent/permission-rules.json",
             )
-            tools_cls.assert_called_once_with(workspace=real_workspace, app_config=app_config)
-            make_context_config.assert_called_once_with(app_config)
-            memory_store_cls.assert_called_once_with(real_workspace)
-            context_manager_cls.assert_called_once_with(
-                config="context-config",
-                project_memory=memory_store_cls.return_value,
-            )
-            permission_policy_cls.assert_called_once_with(
-                auto_approve_all=False,
-                auto_approve_writes=False,
-                auto_approve_commands=True,
-                workspace=real_workspace,
-                rules_path=".embedagent/permission-rules.json",
-            )
+            create_hosted_runtime.assert_called_once()
             adapter_cls.assert_called_once_with(workspace=real_workspace, config=ANY)
-            adapter_cls.return_value.initialize.assert_called_once_with(
-                client=client_cls.return_value,
-                tools=tools_cls.return_value,
-                max_turns=None,
-                permission_policy=permission_policy_cls.return_value,
-                context_manager=context_manager_cls.return_value,
+            adapter_cls.return_value.attach_adapter.assert_called_once_with(
+                hosted_runtime.session_host.adapter
             )
 
     def test_create_core_accepts_explicit_runtime_safety_limit(self):
-        app_config = AppConfig(
-            base_url="http://internal/v1",
-            api_key="sk-internal",
-            model="qwen3.5-coder",
-            timeout=45,
-            max_turns=8,
-        )
         with tempfile.TemporaryDirectory() as workspace:
-            with patch("embedagent.config.load_config", return_value=app_config), patch(
-                "embedagent.llm.OpenAICompatibleClient"
-            ), patch("embedagent.tools.ToolRuntime"), patch(
-                "embedagent.context.make_context_config", return_value="context-config"
-            ), patch(
-                "embedagent.context.ContextManager"
-            ), patch(
-                "embedagent.project_memory.ProjectMemoryStore"
-            ), patch(
-                "embedagent.permissions.PermissionPolicy"
+            hosted_runtime = MagicMock()
+            hosted_runtime.session_host.adapter = MagicMock(name="inner_adapter")
+            with patch(
+                "embedagent.frontend.gui.launcher.resolve_launch_config",
+                return_value=MagicMock(workspace=os.path.realpath(workspace)),
+            ) as resolve_config, patch(
+                "embedagent.frontend.gui.launcher.create_hosted_runtime",
+                return_value=hosted_runtime,
             ), patch(
                 "embedagent.core.adapter.AgentCoreAdapter"
-            ) as adapter_cls:
+            ):
                 gui_launcher.create_core(workspace, {"max_turns": 3})
 
-            adapter_cls.return_value.initialize.assert_called_once()
-            self.assertEqual(adapter_cls.return_value.initialize.call_args.kwargs["max_turns"], 3)
+            self.assertEqual(resolve_config.call_args.kwargs["overrides"].max_turns, 3)
 
     def test_main_accepts_workspace_option(self):
         with tempfile.TemporaryDirectory() as workspace:

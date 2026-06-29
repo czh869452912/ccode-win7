@@ -14,6 +14,8 @@ import threading
 import time
 from typing import Any, Dict, Optional
 
+from embedagent.hosted.launch_config import LaunchOverrides, resolve_launch_config
+from embedagent.hosted.runtime import create_hosted_runtime
 from embedagent.runtime_discovery import discover_bundle_root, running_from_bundle
 
 # 配置日志
@@ -40,80 +42,31 @@ def check_dependencies():
     return True
 
 
-def _resolve_runtime_value(override: Any, configured: Any, default: Any) -> Any:
-    if override is not None:
-        if isinstance(override, str):
-            if override.strip():
-                return override
-        else:
-            return override
-    if configured is not None:
-        return configured
-    return default
-
-
 def create_core(workspace: str, config: Optional[Dict[str, Any]] = None):
     """创建 Agent Core 实例"""
     # 延迟导入以避免循环依赖
-    from embedagent.config import load_config
-    from embedagent.context import ContextManager, make_context_config
     from embedagent.core.adapter import AgentCoreAdapter
-    from embedagent.llm import OpenAICompatibleClient
-    from embedagent.permissions import PermissionPolicy
-    from embedagent.project_memory import ProjectMemoryStore
-    from embedagent.tools import ToolRuntime
 
     options = dict(config or {})
     workspace = os.path.realpath(workspace)
-
-    # 加载配置
-    app_config = load_config(workspace)
-    base_url = str(
-        _resolve_runtime_value(
-            options.get("base_url"), app_config.base_url, "http://127.0.0.1:8000/v1"
-        )
+    launch_config = resolve_launch_config(
+        workspace,
+        overrides=LaunchOverrides(
+            base_url=options.get("base_url"),
+            api_key=options.get("api_key"),
+            model=options.get("model"),
+            timeout=options.get("timeout"),
+            max_turns=options.get("max_turns"),
+            approve_all=bool(options.get("approve_all", False)),
+            approve_writes=bool(options.get("approve_writes", False)),
+            approve_commands=bool(options.get("approve_commands", False)),
+            permission_rules=str(options.get("permission_rules") or ""),
+        ),
     )
-    api_key = str(_resolve_runtime_value(options.get("api_key"), app_config.api_key, ""))
-    model = str(_resolve_runtime_value(options.get("model"), app_config.model, ""))
-    timeout = float(_resolve_runtime_value(options.get("timeout"), app_config.timeout, 120.0))
-    raw_max_turns = options.get("max_turns")
-    max_turns = int(raw_max_turns) if raw_max_turns is not None else None
-    permission_rules = str(options.get("permission_rules") or "")
-    if not model:
-        raise ValueError("必须通过 --model 或配置文件提供模型名称。")
+    runtime = create_hosted_runtime(launch_config)
 
-    # 创建 LLM 客户端
-    client = OpenAICompatibleClient(
-        base_url=base_url,
-        api_key=api_key,
-        model=model,
-        timeout=timeout,
-    )
-
-    # 创建工具运行时
-    tools = ToolRuntime(workspace=workspace, app_config=app_config)
-    context_manager = ContextManager(
-        config=make_context_config(app_config),
-        project_memory=ProjectMemoryStore(workspace),
-    )
-    permission_policy = PermissionPolicy(
-        auto_approve_all=bool(options.get("approve_all", False)),
-        auto_approve_writes=bool(options.get("approve_writes", False)),
-        auto_approve_commands=bool(options.get("approve_commands", False)),
-        workspace=workspace,
-        rules_path=permission_rules,
-    )
-
-    # 创建 Core Adapter
     core = AgentCoreAdapter(workspace=workspace, config=options)
-    core.initialize(
-        client=client,
-        tools=tools,
-        max_turns=max_turns,
-        permission_policy=permission_policy,
-        context_manager=context_manager,
-    )
-
+    core.attach_adapter(runtime.session_host.adapter)
     return core
 
 
