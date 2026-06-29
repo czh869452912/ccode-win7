@@ -236,6 +236,79 @@ class TwoFailingBashThenDoneClient(object):
         return reply
 
 
+class ThreeFileWriteThenDoneClient(object):
+    def __init__(self):
+        self.calls = 0
+
+    def generate(self, messages, tools=None):
+        self.calls += 1
+        if self.calls <= 3:
+            files = [
+                ("README.md", "# Demo\n"),
+                ("src/main.c", "int main(void) { return 0; }\n"),
+                ("tests/test_demo.py", "def test_demo():\n    assert True\n"),
+            ]
+            path, content = files[self.calls - 1]
+            return AssistantReply(
+                content="",
+                actions=[
+                    Action(
+                        name="write_file",
+                        arguments={
+                            "path": path,
+                            "content": content,
+                            "overwrite": False,
+                        },
+                        call_id="write-%s" % self.calls,
+                    )
+                ],
+                finish_reason="tool_calls",
+            )
+        return AssistantReply(content="files created", actions=[], finish_reason="stop")
+
+    def stream(self, messages, tools=None, on_text_delta=None, on_reasoning_delta=None):
+        reply = self.generate(messages, tools=tools)
+        if on_text_delta is not None and reply.content:
+            on_text_delta(reply.content)
+        return reply
+
+
+class ThreeDistinctBashFailuresThenDoneClient(object):
+    def __init__(self):
+        self.calls = 0
+
+    def generate(self, messages, tools=None):
+        self.calls += 1
+        if self.calls <= 3:
+            commands = [
+                'python -c "import sys; sys.exit(1)"',
+                'python -c "import sys; sys.exit(2)"',
+                'python -c "import sys; sys.exit(3)"',
+            ]
+            return AssistantReply(
+                content="",
+                actions=[
+                    Action(
+                        name="bash",
+                        arguments={
+                            "command": commands[self.calls - 1],
+                            "cwd": ".",
+                            "timeout_sec": 5,
+                        },
+                        call_id="bash-diag-%s" % self.calls,
+                    )
+                ],
+                finish_reason="tool_calls",
+            )
+        return AssistantReply(content="diagnostics completed", actions=[], finish_reason="stop")
+
+    def stream(self, messages, tools=None, on_text_delta=None, on_reasoning_delta=None):
+        reply = self.generate(messages, tools=tools)
+        if on_text_delta is not None and reply.content:
+            on_text_delta(reply.content)
+        return reply
+
+
 class LongToolThenDoneClient(object):
     def __init__(self, tool_turns):
         self.calls = 0
@@ -929,6 +1002,80 @@ class TestQueryEngineRefactor(unittest.TestCase):
         events = transcript_store.load_events(session.session_id)
         transitions = [item for item in events if item["type"] == "loop_transition"]
         self.assertEqual(transitions[-1]["payload"]["reason"], "completed")
+
+    def test_query_engine_allows_progressive_multi_file_writes(self):
+        client = ThreeFileWriteThenDoneClient()
+        transcript_store = TranscriptStore(self.workspace)
+        engine = QueryEngine(
+            client=client,
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+            transcript_store=transcript_store,
+        )
+        session = Session()
+        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：build")
+
+        result = engine.submit_user_turn(
+            user_text="创建三个项目文件",
+            stream=False,
+            initial_mode="build",
+            session=session,
+        )
+
+        self.assertEqual(result.transition.reason, "completed")
+        self.assertEqual(result.final_text, "files created")
+        self.assertEqual(client.calls, 4)
+        self.assertTrue(os.path.exists(os.path.join(self.workspace, "README.md")))
+        self.assertTrue(os.path.exists(os.path.join(self.workspace, "src", "main.c")))
+        self.assertTrue(os.path.exists(os.path.join(self.workspace, "tests", "test_demo.py")))
+
+    def test_query_engine_allows_distinct_diagnostic_bash_attempts(self):
+        client = ThreeDistinctBashFailuresThenDoneClient()
+        transcript_store = TranscriptStore(self.workspace)
+        engine = QueryEngine(
+            client=client,
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+            transcript_store=transcript_store,
+        )
+        session = Session()
+        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：build")
+
+        result = engine.submit_user_turn(
+            user_text="运行三个不同诊断命令后继续",
+            stream=False,
+            initial_mode="build",
+            session=session,
+        )
+
+        self.assertEqual(result.transition.reason, "completed")
+        self.assertEqual(result.final_text, "diagnostics completed")
+        self.assertEqual(client.calls, 4)
+        self.assertEqual(len(session.turns[-1].observations), 3)
+
+    def test_query_engine_guard_stops_repeated_parallel_no_progress_actions(self):
+        client = ParallelSuccessfulReadThenDoneClient()
+        transcript_store = TranscriptStore(self.workspace)
+        engine = QueryEngine(
+            client=client,
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+            transcript_store=transcript_store,
+        )
+        session = Session()
+        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：build")
+
+        result = engine.submit_user_turn(
+            user_text="重复读取同一个文件",
+            stream=False,
+            initial_mode="build",
+            session=session,
+        )
+
+        self.assertEqual(result.transition.reason, "guard_stop")
+        self.assertEqual(result.transition.message, "repeated no-progress action")
+        self.assertEqual(client.calls, 1)
+        self.assertEqual(len(session.turns[-1].observations), 3)
 
     def test_query_engine_handles_natural_language_mode_switch_before_provider(self):
         client = FakeClient()

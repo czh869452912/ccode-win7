@@ -61,6 +61,26 @@ export function runSessionRuntimeTests() {
   });
   assert.equal(reloadRuntime.transportView.reloadState, "reload_required");
 
+  const experienceRuntime = buildSessionActivityRuntime({
+    snapshot: {
+      session_id: "sess-experience",
+      status: "idle",
+      current_mode: "build",
+      turnExperience: {
+        status: "blocked",
+        completed: [{ kind: "file_created", path: "README.md" }],
+        unverified: [{ kind: "validation_missing", message: "Created files have not been validated." }],
+        next_steps: ["Run validation for the changed files."],
+      },
+    },
+    sessionTransport: createSessionTransportState(),
+  });
+  const experienceRow = experienceRuntime.t3TimelineRows.find((row) => row.id === "turn-experience-summary");
+  assert.equal(experienceRow.kind, "system_notice");
+  assert.equal(experienceRow.tone, "warning");
+  assert.equal(experienceRow.content.includes("Done: file_created README.md"), true);
+  assert.equal(experienceRow.content.includes("Next: Run validation for the changed files."), true);
+
   const transportView = projectTransportView({
     transportState: {
       ...createSessionTransportState({ connectionState: "open" }),

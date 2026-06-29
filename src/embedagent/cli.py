@@ -161,6 +161,44 @@ def _parse_initial_message(
     return [initial_mode, user_message, "1" if switched else "0"]
 
 
+def _format_experience_item(item: object) -> str:
+    if not isinstance(item, dict):
+        return str(item or "").strip()
+    parts = []
+    kind = str(item.get("kind") or "").strip()
+    if kind:
+        parts.append(kind)
+    for key in ("path", "command", "message", "reason"):
+        value = str(item.get(key) or "").strip()
+        if value and value not in parts:
+            parts.append(value)
+    return " ".join(parts).strip()
+
+
+def _write_turn_experience(stream: object, experience: object) -> None:
+    if not isinstance(experience, dict):
+        return
+
+    sections = [
+        ("Done", experience.get("completed")),
+        ("Unverified", experience.get("unverified")),
+        ("Next", experience.get("next_steps")),
+    ]
+    for title, raw_items in sections:
+        if not isinstance(raw_items, list) or not raw_items:
+            continue
+        lines = []
+        for item in raw_items:
+            line = _format_experience_item(item)
+            if line:
+                lines.append(line)
+        if not lines:
+            continue
+        stream.write(title + ":\n")
+        for line in lines:
+            stream.write("  - " + line + "\n")
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -292,6 +330,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         "final_text": "",
         "last_error": "",
         "outcome": {},
+        "turn_experience": {},
     }
 
     def on_event(event_name: str, session_id: str, payload: Dict[str, object]) -> None:
@@ -377,6 +416,8 @@ def main(argv: Optional[List[str]] = None) -> int:
             runtime_state["final_text"] = str(payload.get("final_text") or "")
             outcome = payload.get("outcome") or {}
             runtime_state["outcome"] = outcome if isinstance(outcome, dict) else {}
+            experience = payload.get("turn_experience") or {}
+            runtime_state["turn_experience"] = experience if isinstance(experience, dict) else {}
             return
         if event_name == "session_error":
             runtime_state["last_error"] = str(payload.get("error") or "")
@@ -453,6 +494,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     if final_text and not final_text.endswith("\n"):
         sys.stdout.write("\n")
     outcome = runtime_state.get("outcome") or {}
+    turn_experience = runtime_state.get("turn_experience") or {}
     if isinstance(outcome, dict) and outcome:
         exit_code = int(outcome.get("exit_code") or 0)
         if not bool(outcome.get("is_success")):
@@ -465,7 +507,9 @@ def main(argv: Optional[List[str]] = None) -> int:
             if message:
                 diagnostic += ": " + message
             sys.stderr.write(diagnostic + "\n")
+        _write_turn_experience(sys.stderr, turn_experience)
         return exit_code
+    _write_turn_experience(sys.stderr, turn_experience)
     return 0
 
 

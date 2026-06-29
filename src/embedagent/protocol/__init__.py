@@ -251,6 +251,7 @@ class SessionSnapshot:
     restore_transcript_event_count: int = 0
     compaction_state: Dict[str, Any] = field(default_factory=dict)
     recovery_state: Dict[str, Any] = field(default_factory=dict)
+    turn_experience: Dict[str, Any] = field(default_factory=dict)
     pending_interaction: Optional[Dict[str, Any]] = None
     pending_interaction_valid: bool = False
     current_phase: str = ""

@@ -15,12 +15,12 @@ def test_completed_transition_maps_to_successful_outcome():
 
 def test_guard_stop_transition_maps_to_blocked_outcome():
     outcome = TurnOutcome.from_transition(
-        LoopTransition(reason="guard_stop", message="repeated tool calls: bash")
+        LoopTransition(reason="guard_stop", message="repeated no-progress action")
     )
 
     assert outcome.kind == "blocked"
     assert outcome.reason == "guard_stop"
-    assert outcome.message == "repeated tool calls: bash"
+    assert outcome.message == "repeated no-progress action"
     assert outcome.exit_code == 2
     assert outcome.is_success is False
 

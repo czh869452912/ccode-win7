@@ -4,13 +4,13 @@ import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from embedagent.guard import LoopGuard
+from embedagent.guard import ProgressGuard
 from embedagent.session import Action, Observation
 
 
-class TestLoopGuard(unittest.TestCase):
+class TestProgressGuard(unittest.TestCase):
     def test_non_retryable_failure_blocks_repeat_early(self):
-        guard = LoopGuard()
+        guard = ProgressGuard()
         action = Action(name="edit_file", arguments={"path": "demo.txt"}, call_id="call-1")
         observation = Observation(
             tool_name="edit_file",

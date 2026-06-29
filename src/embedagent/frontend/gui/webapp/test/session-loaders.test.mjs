@@ -98,6 +98,11 @@ export async function runSessionLoadersTests() {
           interaction_id: "perm-bootstrap",
           kind: "permission",
         },
+        turn_experience: {
+          status: "blocked",
+          completed: [{ kind: "file_created", path: "README.md" }],
+          next_steps: ["Run validation for the changed files."],
+        },
       },
       history: {
         history_source: "step_events",
@@ -167,6 +172,8 @@ export async function runSessionLoadersTests() {
   assert.equal(activation.snapshot.session_id, "sess-bootstrap");
   assert.equal(activation.snapshot.current_mode, "debug");
   assert.equal(activation.snapshot.status, "waiting_permission");
+  assert.equal(activation.snapshot.turnExperience.status, "blocked");
+  assert.equal(activation.snapshot.turnExperience.completed[0].path, "README.md");
   assert.equal(activation.activities.length, 2);
   assert.equal(activation.activities[0].kind, "user");
   assert.equal(activation.activities[0].projectionSource, "session_state");

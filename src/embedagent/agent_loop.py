@@ -14,7 +14,7 @@ from embedagent.agent_loop_continuation import (
     AgentLoopContinuationPolicy,
     DefaultAgentLoopContinuationPolicy,
 )
-from embedagent.guard import LoopGuard
+from embedagent.guard import ProgressGuard
 from embedagent.interaction import UserInputRequest, UserInputResponse
 from embedagent.llm import ModelClientError
 from embedagent.permissions import PermissionRequest
@@ -184,7 +184,7 @@ class AgentLoop(object):
     ) -> QueryTurnResult:
         self._ensure_configured()
         final_text = ""
-        loop_guard = LoopGuard()
+        loop_guard = ProgressGuard()
         turns_used = 0
         turn_index = 0
         force_compact_next_step = False
@@ -683,9 +683,8 @@ class AgentLoop(object):
                     loop_guard.record(update.action, observation)
                     if batch_interrupted:
                         continue
-                    # For parallel batches, only check should_stop (consecutive failures)
-                    # during the batch. should_block (repeated tool calls) is checked
-                    # at batch boundaries to avoid blocking legitimate parallel usage.
+                    # Parallel batches defer no-progress checks to the batch boundary.
+                    # Consecutive hard failures can still stop immediately.
                     if loop_guard.should_stop():
                         transition = LoopTransition(
                             reason="guard_stop",
@@ -706,6 +705,18 @@ class AgentLoop(object):
                     if on_step_finish is not None:
                         on_step_finish(step_index, reply, "aborted")
                     return QueryTurnResult(final_text, session, transition, turns_used)
+                if not batch_discarded:
+                    for action in batch.actions:
+                        if loop_guard.should_block(action) or loop_guard.should_stop():
+                            transition = LoopTransition(
+                                reason="guard_stop",
+                                message=loop_guard.stop_reason(),
+                                turns_used=turns_used,
+                            )
+                            self._record_transition(session, transition)
+                            if on_step_finish is not None:
+                                on_step_finish(step_index, reply, "guard_stop")
+                            return QueryTurnResult(final_text, session, transition, turns_used)
                 if batch_discarded:
                     discard_remaining_batches = True
             if on_step_finish is not None:

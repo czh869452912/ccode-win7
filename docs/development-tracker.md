@@ -83,7 +83,7 @@
   tools or tools with invalid/missing permission metadata cannot fall through
   to allow.
 - `bash` command failures and timeouts now carry
-  `outcome_class=diagnostic_failure`; `LoopGuard` no longer counts ordinary
+  `outcome_class=diagnostic_failure`; the guard path no longer counts ordinary
   command/build/test diagnostic failures toward hard `guard_stop`, so repeated
   compile or shell failures can feed the next model turn.
 - Guard-stop remains available for provider/protocol no-progress, repeated
@@ -518,7 +518,7 @@
 - compact / resume replay 已推进一段：`compact_boundary` 现在会显式写入 transcript，并补齐 `preserved_head_message_id / preserved_tail_message_id`，`SessionRestorer` 已可回放 compact 边界而不丢失 preserved segment 元数据
 - pending interaction replay 已推进一段：`resume_pending()` 现在会把 `pending_resolution` 与恢复阶段生成的 `tool_result` 一并落入 transcript，恢复后的 tool call 状态不再卡在 `pending`
 - tool interrupt / retry 已推进第一段：`tool_started` 之后若会话被取消，`QueryEngine` 现在会写入 synthetic interrupted tool_result，并在 transcript / timeline / adapter `tool_finished` 事件中统一表现为 aborted
-- tool interrupt / retry 已继续推进第二段：parallel batch 中的 `discarded` synthetic result 仍会进 transcript，但不再误计入 `LoopGuard` 导致整轮提前 `guard_stop`
+- tool interrupt / retry 已继续推进第二段：parallel batch 中的 `discarded` synthetic result 仍会进 transcript，但不再误计入 guard 失败累计导致整轮提前 `guard_stop`
 - tool interrupt / retry 已继续推进第三段：`StreamingToolExecutor` 并行批次已改成流式 start/result，`max_parallel_tools=1` 场景下现在能稳定落下“首个 action interrupted、后续未开始 action discarded”的 transcript 语义
 - tool interrupt / retry 已继续推进第四段：`tool_call` transcript 现在在 assistant action 阶段统一落盘，因此 discarded action 也能保持完整 `tool_call -> tool_result` 链路
 - tool interrupt / retry 已继续推进第五段：Windows 下 `bash` 现在以新进程组启动，并在取消时优先发送 `CTRL_BREAK_EVENT`；长命令用户中断不再依赖 `taskkill` 成功才会及时返回

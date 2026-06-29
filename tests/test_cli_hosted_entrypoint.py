@@ -63,10 +63,22 @@ def test_cli_returns_blocked_outcome_exit_code_and_diagnostic(tmp_path, monkeypa
             "s1",
             {
                 "final_text": "I stopped before finishing.",
+                "turn_experience": {
+                    "status": "blocked",
+                    "completed": [{"kind": "file_created", "path": "README.md"}],
+                    "unverified": [
+                        {
+                            "kind": "validation_missing",
+                            "message": "Created files have not been validated.",
+                        }
+                    ],
+                    "next_steps": ["Run validation for the changed files."],
+                    "blocker": {"reason": "guard_stop", "message": "repeated no-progress action"},
+                },
                 "outcome": {
                     "kind": "blocked",
                     "reason": "guard_stop",
-                    "message": "repeated tool calls: bash",
+                    "message": "repeated no-progress action",
                     "exit_code": 2,
                     "is_success": False,
                 },
@@ -84,7 +96,13 @@ def test_cli_returns_blocked_outcome_exit_code_and_diagnostic(tmp_path, monkeypa
     captured = capsys.readouterr()
     assert exit_code == 2
     assert "I stopped before finishing." in captured.out
-    assert "[blocked] guard_stop: repeated tool calls: bash" in captured.err
+    assert "[blocked] guard_stop: repeated no-progress action" in captured.err
+    assert "Done:" in captured.err
+    assert "file_created README.md" in captured.err
+    assert "Unverified:" in captured.err
+    assert "validation_missing Created files have not been validated." in captured.err
+    assert "Next:" in captured.err
+    assert "Run validation for the changed files." in captured.err
 
 
 def test_cli_completed_outcome_returns_success(tmp_path, monkeypatch, capsys):
