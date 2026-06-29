@@ -187,6 +187,9 @@ The 2026-06-25 pre-release debt cleanup program described in
 archived under `docs/archive/pre-release-debt-cleanup/`. The product is still
 not live, so future implementation should continue deleting old internal state
 instead of preserving it as if it were a public contract.
+The follow-up Pi/T3 residual debt cleanup package is archived under
+`docs/archive/pi-t3-residual-debt-cleanup/` after synchronizing durable
+conclusions into active source-of-truth docs.
 
 Near-term work should:
 

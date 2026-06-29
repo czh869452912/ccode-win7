@@ -3,7 +3,7 @@
 > 状态：`archive`
 > 类型：`reference`
 > 负责人：`project maintainers`
-> 最后同步日期：`2026-06-27`
+> 最后同步日期：`2026-06-29`
 > 对应代码范围：`docs/archive/`
 
 ## 1. Purpose

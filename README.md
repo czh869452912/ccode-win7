@@ -85,7 +85,7 @@ The product no longer treats the old `code` mode or `manage_todos`-style workflo
 
 ## Documentation Model
 
-- `docs/superpowers/` stores design and implementation materials for the current slice.
+- `docs/superpowers/` stores design and implementation materials for the current slice only; completed slice materials move to `docs/archive/` after durable conclusions are synchronized into active docs.
 - `docs/` active documents store the long-lived project source of truth.
 - `docs/archive/` stores completed slice artifacts and historical references.
 
