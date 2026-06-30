@@ -358,8 +358,10 @@ def test_hosted_runtime_uses_single_pending_interaction_state():
         ROOT / "src/embedagent/session_runtime.py",
         ROOT / "src/embedagent/hosted_interaction_service.py",
         ROOT / "src/embedagent/inprocess_adapter.py",
+        ROOT / "src/embedagent/core/adapter.py",
         ROOT / "src/embedagent/session_projector.py",
         ROOT / "src/embedagent/hosted_command_service.py",
+        ROOT / "src/embedagent/frontend/gui/backend/server.py",
         ROOT / "src/embedagent/services/session_lifecycle.py",
     ]
     forbidden = (
@@ -375,6 +377,10 @@ def test_hosted_runtime_uses_single_pending_interaction_state():
         "pending_user_response: Optional",
         "clear_pending_permission(",
         "clear_pending_user_input(",
+        "_pending_permissions",
+        "_pending_permission_results",
+        "_pending_inputs",
+        "_pending_input_results",
     )
     offenders = []
     for path in files:

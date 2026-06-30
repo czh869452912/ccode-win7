@@ -165,10 +165,6 @@ class CallbackBridge:
 
     def __init__(self, frontend: FrontendCallbacks):
         self.frontend = frontend
-        self._pending_permissions: Dict[str, threading.Event] = {}
-        self._pending_permission_results: Dict[str, bool] = {}
-        self._pending_inputs: Dict[str, threading.Event] = {}
-        self._pending_input_results: Dict[str, Optional[str]] = {}
 
     def emit(self, event_name: str, session_id: str, payload: Dict[str, Any]) -> None:
         """处理来自 Adapter 的事件"""

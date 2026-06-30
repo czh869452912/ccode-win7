@@ -91,8 +91,8 @@ class WebSocketFrontend(FrontendCallbacks):
     def __init__(self):
         self.connections: Set[WebSocket] = set()
         self._connections_lock = threading.RLock()
-        self._pending_permissions = {}  # type: Dict[str, BlockingResult[bool]]
-        self._pending_inputs = {}  # type: Dict[str, BlockingResult[Optional[Dict[str, Any]]]]
+        self._permission_waiters = {}  # type: Dict[str, BlockingResult[bool]]
+        self._user_input_waiters = {}  # type: Dict[str, BlockingResult[Optional[Dict[str, Any]]]]
         self._pending_lock = threading.RLock()
         self._dispatcher = ThreadsafeAsyncDispatcher()
         self._session_event_lock = threading.RLock()
@@ -302,7 +302,7 @@ class WebSocketFrontend(FrontendCallbacks):
         """同步阻塞等待用户响应"""
         waiter = BlockingResult(False)
         with self._pending_lock:
-            self._pending_permissions[request.permission_id] = waiter
+            self._permission_waiters[request.permission_id] = waiter
         queued = self._dispatch_message(
             {
                 "type": "permission_request",
@@ -325,13 +325,13 @@ class WebSocketFrontend(FrontendCallbacks):
             return bool(waiter.wait(300.0))
         finally:
             with self._pending_lock:
-                self._pending_permissions.pop(request.permission_id, None)
+                self._permission_waiters.pop(request.permission_id, None)
 
     def on_user_input_request(self, request: UserInputRequest) -> Optional[Dict[str, Any]]:
         """同步阻塞等待用户响应"""
         waiter = BlockingResult(None)  # type: BlockingResult[Optional[Dict[str, Any]]]
         with self._pending_lock:
-            self._pending_inputs[request.request_id] = waiter
+            self._user_input_waiters[request.request_id] = waiter
         queued = self._dispatch_message(
             {
                 "type": "user_input_request",
@@ -354,7 +354,7 @@ class WebSocketFrontend(FrontendCallbacks):
             return waiter.wait(300.0)
         finally:
             with self._pending_lock:
-                self._pending_inputs.pop(request.request_id, None)
+                self._user_input_waiters.pop(request.request_id, None)
 
     def on_session_status_change(self, snapshot: SessionSnapshot) -> None:
         snapshot_payload = serialize_session_snapshot(snapshot)
