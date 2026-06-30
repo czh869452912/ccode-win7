@@ -35,8 +35,6 @@ from embedagent.recovery_state import RecoveryStateReducer
 from embedagent.hosted_command_service import HostedCommandService
 from embedagent.hosted_interaction_service import (
     HostedInteractionService,
-    PermissionTicket,
-    UserInputTicket,
 )
 from embedagent.runtime_capability_service import RuntimeCapabilityService
 from embedagent.runtime_config import RuntimeConfigReducer
@@ -131,32 +129,14 @@ def _utc_now() -> str:
 
 
 def _pending_interaction_payload(state: "ManagedSession") -> Optional[Dict[str, Any]]:
-    if state.pending_permission is not None:
-        return {
-            "interaction_id": state.pending_permission.permission_id,
-            "session_id": state.pending_permission.session_id,
-            "kind": "permission",
-            "tool_name": state.pending_permission.tool_name,
-            "category": state.pending_permission.category,
-            "reason": state.pending_permission.reason,
-            "details": dict(state.pending_permission.details),
-            "turn_id": state.pending_permission.turn_id,
-            "step_id": state.pending_permission.step_id,
-            "step_index": state.pending_permission.step_index,
-        }
-    if state.pending_user_input is not None:
-        return {
-            "interaction_id": state.pending_user_input.request_id,
-            "session_id": state.pending_user_input.session_id,
-            "kind": "user_input",
-            "tool_name": state.pending_user_input.tool_name,
-            "question": state.pending_user_input.question,
-            "options": list(state.pending_user_input.options),
-            "details": dict(state.pending_user_input.details),
-            "turn_id": state.pending_user_input.turn_id,
-            "step_id": state.pending_user_input.step_id,
-            "step_index": state.pending_user_input.step_index,
-        }
+    pending = getattr(state, "pending_interaction", None)
+    if pending is None:
+        return None
+    to_dict = getattr(pending, "to_dict", None)
+    if callable(to_dict):
+        return to_dict()
+    if isinstance(pending, dict):
+        return dict(pending)
     return None
 
 
@@ -269,7 +249,7 @@ class InProcessAdapter(object):
             tool_event_metadata=self._tool_event_metadata,
             create_permission_ticket=self.interaction_service.create_permission_ticket,
             record_pending_permission=self._record_command_pending_permission,
-            clear_pending_permission=self.interaction_service.clear_pending_permission,
+            clear_pending_interaction=self.interaction_service.clear_pending_interaction,
         )
 
     def _load_project_extensions(self) -> Dict[str, Any]:
@@ -758,40 +738,16 @@ class InProcessAdapter(object):
             workflow_state=state.workflow_state,
         )
         if session.pending_interaction is not None:
-            if session.pending_interaction.kind == "permission":
+            rebuilt = self.interaction_service.rebuild_pending_ticket_from_core(
+                state,
+                session.pending_interaction,
+            )
+            if rebuilt and session.pending_interaction.kind == "permission":
                 state.status = "waiting_permission"
-                permission_payload = dict(
-                    session.pending_interaction.request_payload.get("permission") or {}
-                )
-                interaction_id = str(session.pending_interaction.interaction_id or "").strip()
-                if interaction_id:
-                    state.pending_permission = PermissionTicket(
-                        permission_id=interaction_id,
-                        session_id=session.session_id,
-                        tool_name=session.pending_interaction.tool_name,
-                        category=str(permission_payload.get("category") or ""),
-                        reason=str(permission_payload.get("reason") or ""),
-                        details=dict(permission_payload.get("details") or {}),
-                    )
-                else:
-                    state.status = "idle"
-            elif session.pending_interaction.kind == "user_input":
+            elif rebuilt and session.pending_interaction.kind == "user_input":
                 state.status = "waiting_user_input"
-                request_payload = dict(
-                    session.pending_interaction.request_payload.get("request") or {}
-                )
-                interaction_id = str(session.pending_interaction.interaction_id or "").strip()
-                if interaction_id:
-                    state.pending_user_input = UserInputTicket(
-                        request_id=interaction_id,
-                        session_id=session.session_id,
-                        tool_name=session.pending_interaction.tool_name,
-                        question=str(request_payload.get("question") or ""),
-                        options=list(request_payload.get("options") or []),
-                        details=dict(request_payload.get("details") or {}),
-                    )
-                else:
-                    state.status = "idle"
+            else:
+                state.status = "idle"
         plan = self.plan_store.load(session.session_id)
         if plan is not None:
             state.active_plan_ref = plan.path
@@ -1249,12 +1205,12 @@ class InProcessAdapter(object):
             has_active_thread = bool(
                 state.active_thread is not None and state.active_thread.is_alive()
             )
-            if state.pending_permission is not None and state.pending_event is not None:
-                state.pending_result = False
+            if state.pending_interaction is not None and state.pending_event is not None:
+                if state.pending_interaction.kind == "user_input":
+                    state.pending_response = {"user_input": UserInputResponse(answer="")}
+                else:
+                    state.pending_response = {"approved": False}
                 state.pending_event.set()
-            if state.pending_user_input is not None and state.pending_user_event is not None:
-                state.pending_user_response = UserInputResponse(answer="")
-                state.pending_user_event.set()
             if state.status != "error":
                 state.status = "running" if has_active_thread else "idle"
         snapshot = self.get_session_snapshot(session_id)
@@ -1280,8 +1236,9 @@ class InProcessAdapter(object):
             state.status = "running"
             state.last_error = None
             state.updated_at = _utc_now()
-            state.pending_permission = None
-            state.pending_user_input = None
+            state.pending_interaction = None
+            state.pending_event = None
+            state.pending_response = None
             state.restore_stop_reason = ""
             state.restore_consumed_event_count = 0
             state.restore_transcript_event_count = 0
@@ -1444,7 +1401,7 @@ class InProcessAdapter(object):
             self._notify_status(event_handler, state)
             if permission_resolver is not None:
                 approved = bool(permission_resolver(ticket.to_dict()))
-                self.interaction_service.clear_pending_permission(state)
+                self.interaction_service.clear_pending_interaction(state)
                 return approved
             with state.lock:
                 state.status = "waiting_permission"
@@ -1472,7 +1429,7 @@ class InProcessAdapter(object):
             self._notify_status(event_handler, state)
             if user_input_resolver is not None:
                 payload = user_input_resolver(ticket.to_dict()) or {}
-                self.interaction_service.clear_pending_user_input(state)
+                self.interaction_service.clear_pending_interaction(state)
                 return UserInputResponse(
                     answer=str(payload.get("answer") or ""),
                     selected_index=payload.get("selected_index"),

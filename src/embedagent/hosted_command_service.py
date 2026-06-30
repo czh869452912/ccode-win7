@@ -58,7 +58,7 @@ class HostedCommandService(object):
         tool_event_metadata: Callable[[str], Dict[str, Any]],
         create_permission_ticket: Callable[..., Any],
         record_pending_permission: Callable[..., Any],
-        clear_pending_permission: Callable[[ManagedSession], None],
+        clear_pending_interaction: Callable[[ManagedSession], None],
     ) -> None:
         self.tools = tools
         self.command_registry = command_registry
@@ -83,7 +83,7 @@ class HostedCommandService(object):
         self._tool_event_metadata = tool_event_metadata
         self._create_permission_ticket = create_permission_ticket
         self._record_pending_permission = record_pending_permission
-        self._clear_pending_permission = clear_pending_permission
+        self._clear_pending_interaction = clear_pending_interaction
         self._slash_commands = SlashCommandService(
             {
                 "help": self._handle_command_help,
@@ -878,7 +878,7 @@ class HostedCommandService(object):
             self._notify_status(event_handler, state)
             if permission_resolver is not None:
                 approved = bool(permission_resolver(ticket.to_dict()))
-                self._clear_pending_permission(state)
+                self._clear_pending_interaction(state)
                 return approved
             with state.lock:
                 state.status = "waiting_permission"
@@ -911,9 +911,10 @@ class HostedCommandService(object):
                 event.wait()
             approved = False
             with state.lock:
-                approved = bool(state.pending_result)
+                response = dict(state.pending_response or {})
+                approved = bool(response.get("approved"))
                 state.pending_event = None
-                state.pending_result = None
+                state.pending_response = None
                 state.status = "running"
             resumed = state.engine.resume_interaction(
                 session=state.session,
@@ -931,7 +932,7 @@ class HostedCommandService(object):
             )
             state.session = resumed.session
             result = resumed
-            self._clear_pending_permission(state)
+            self._clear_pending_interaction(state)
             if state.session.turns and state.session.turns[-1].observations:
                 observation = state.session.turns[-1].observations[-1]
             else:

@@ -124,7 +124,7 @@ class SessionSnapshotProjector(object):
             "compaction_state": dict(getattr(state, "compaction_state", {}) or {}),
             "recovery_state": dict(getattr(state, "recovery_state", {}) or {}),
             "turn_experience": dict(getattr(state, "turn_experience", {}) or {}),
-            "pending_interaction_valid": bool(state.pending_permission or state.pending_user_input),
+            "pending_interaction_valid": bool(pending_interaction),
             "current_phase": workflow_phase,
             "discipline_profile": workflow_discipline,
             "current_activity": workflow_activity,

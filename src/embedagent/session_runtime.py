@@ -5,7 +5,6 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional, Set
 
-from embedagent.interaction import UserInputResponse
 from embedagent.session import Session
 
 
@@ -29,12 +28,9 @@ class ManagedSession(object):
     summary_ref: str = ""
     updated_at: str = field(default_factory=_utc_now)
     last_error: Optional[str] = None
-    pending_permission: Optional[Any] = None
-    pending_user_input: Optional[Any] = None
+    pending_interaction: Optional[Any] = None
     pending_event: Optional[threading.Event] = None
-    pending_result: Optional[bool] = None
-    pending_user_event: Optional[threading.Event] = None
-    pending_user_response: Optional[UserInputResponse] = None
+    pending_response: Optional[Dict[str, Any]] = None
     active_thread: Optional[threading.Thread] = None
     resume_summary: Optional[Dict[str, Any]] = None
     last_assistant_message: str = ""

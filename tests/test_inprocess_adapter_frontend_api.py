@@ -2237,6 +2237,41 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             session_pending.interaction_id,
             snapshot_interaction.get("interaction_id"),
         )
+        self.assertEqual(snapshot_interaction.get("kind"), "user_input")
+        self.assertIn("questions", snapshot_interaction)
+        self.assertEqual(snapshot_interaction["questions"][0]["id"], "answer")
+        self.assertEqual(snapshot_interaction["questions"][0]["question"], "下一步怎么做？")
+        self.assertEqual(
+            snapshot_interaction["questions"][0]["options"][0]["label"],
+            "切到 debug 模式继续排查",
+        )
+        self.assertEqual(snapshot_interaction["questions"][0]["multi_select"], False)
+
+    def test_managed_session_has_one_hosted_pending_interaction_field(self):
+        adapter = InProcessAdapter(
+            client=AskUserClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+        )
+        snapshot = adapter.create_session("spec")
+        session_id = str(snapshot.get("session_id") or "")
+
+        adapter.submit_user_message(
+            session_id=session_id,
+            text="请继续",
+            stream=False,
+            wait=True,
+            event_handler=lambda event_name, current_session_id, payload: None,
+        )
+
+        state = adapter._sessions[session_id]
+        with state.lock:
+            self.assertIsNotNone(state.pending_interaction)
+            self.assertFalse(hasattr(state, "pending_permission"))
+            self.assertFalse(hasattr(state, "pending_user_input"))
+            self.assertFalse(hasattr(state, "pending_result"))
+            self.assertFalse(hasattr(state, "pending_user_event"))
+            self.assertFalse(hasattr(state, "pending_user_response"))
 
     def test_adapter_interaction_response_delegates_to_hosted_service(self):
         adapter = InProcessAdapter(

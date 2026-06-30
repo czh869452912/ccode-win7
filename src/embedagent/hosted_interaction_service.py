@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import time
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Callable, Dict, Optional
 
@@ -25,56 +25,129 @@ def _public_details(details: Dict[str, Any]) -> Dict[str, Any]:
     return payload
 
 
+def _request_kind_for_category(category: str) -> str:
+    value = str(category or "").strip()
+    if value == "read":
+        return "file-read"
+    if value in ("workspace_write", "git_write"):
+        return "file-change"
+    return "command"
+
+
+def _option_payload(index: Any, text: Any, mode: Any = "") -> Dict[str, Any]:
+    label = str(text or "")
+    return {
+        "label": label,
+        "description": label,
+        "value": label,
+        "index": index,
+        "mode": str(mode or ""),
+    }
+
+
+def _questions_for_request(request: UserInputRequest) -> Dict[str, Any]:
+    options = []
+    for item in request.options:
+        options.append(_option_payload(item.index, item.text, item.mode))
+    return {
+        "questions": [
+            {
+                "id": "answer",
+                "question": request.question,
+                "options": options,
+                "multi_select": False,
+            }
+        ],
+        "details": _public_details(request.details),
+    }
+
+
+def _questions_from_request_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
+    options = []
+    for index, item in enumerate(list(payload.get("options") or []), start=1):
+        if not isinstance(item, dict):
+            continue
+        option_index = item.get("index")
+        if option_index is None:
+            option_index = index
+        options.append(
+            _option_payload(
+                option_index,
+                item.get("label") or item.get("text") or item.get("value") or "",
+                item.get("mode") or "",
+            )
+        )
+    details = dict(payload.get("details") or {})
+    return {
+        "questions": [
+            {
+                "id": "answer",
+                "question": str(payload.get("question") or ""),
+                "options": options,
+                "multi_select": False,
+            }
+        ],
+        "details": _public_details(details),
+    }
+
+
 @dataclass
-class PermissionTicket:
-    permission_id: str
+class HostedPendingInteraction:
+    interaction_id: str
+    kind: str
     session_id: str
     tool_name: str
-    category: str
-    reason: str
-    details: Dict[str, Any]
+    payload: Dict[str, Any]
     turn_id: str = ""
     step_id: str = ""
     step_index: int = 0
+    created_at: str = field(default_factory=_utc_now)
 
     def to_dict(self) -> Dict[str, Any]:
-        return {
-            "permission_id": self.permission_id,
+        result = {
+            "interaction_id": self.interaction_id,
+            "kind": self.kind,
             "session_id": self.session_id,
             "tool_name": self.tool_name,
-            "category": self.category,
-            "reason": self.reason,
-            "details": self.details,
             "turn_id": self.turn_id,
             "step_id": self.step_id,
             "step_index": self.step_index,
+            "created_at": self.created_at,
         }
+        result.update(dict(self.payload or {}))
+        return result
 
+    @property
+    def permission_id(self) -> str:
+        return self.interaction_id
 
-@dataclass
-class UserInputTicket:
-    request_id: str
-    session_id: str
-    tool_name: str
-    question: str
-    options: Any
-    details: Dict[str, Any]
-    turn_id: str = ""
-    step_id: str = ""
-    step_index: int = 0
+    @property
+    def request_id(self) -> str:
+        return self.interaction_id
 
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "request_id": self.request_id,
-            "session_id": self.session_id,
-            "tool_name": self.tool_name,
-            "question": self.question,
-            "options": self.options,
-            "details": self.details,
-            "turn_id": self.turn_id,
-            "step_id": self.step_id,
-            "step_index": self.step_index,
-        }
+    @property
+    def category(self) -> str:
+        return str((self.payload or {}).get("category") or "")
+
+    @property
+    def reason(self) -> str:
+        return str((self.payload or {}).get("reason") or "")
+
+    @property
+    def details(self) -> Dict[str, Any]:
+        return dict((self.payload or {}).get("details") or {})
+
+    @property
+    def question(self) -> str:
+        questions = list((self.payload or {}).get("questions") or [])
+        first = questions[0] if questions and isinstance(questions[0], dict) else {}
+        return str(first.get("question") or "")
+
+    @property
+    def options(self) -> Any:
+        questions = list((self.payload or {}).get("questions") or [])
+        first = questions[0] if questions and isinstance(questions[0], dict) else {}
+        return list(first.get("options") or [])
 
 
 class HostedInteractionService(object):
@@ -101,23 +174,27 @@ class HostedInteractionService(object):
         turn_id: str = "",
         step_id: str = "",
         step_index: int = 0,
-    ) -> PermissionTicket:
+    ) -> HostedPendingInteraction:
         permission_id = "perm_%s" % uuid.uuid4().hex[:8]
         request.details[_INTERACTION_ID_DETAIL_KEY] = permission_id
-        ticket = PermissionTicket(
-            permission_id=permission_id,
+        ticket = HostedPendingInteraction(
+            interaction_id=permission_id,
+            kind="permission",
             session_id=state.session.session_id,
             tool_name=request.tool_name,
-            category=request.category,
-            reason=request.reason,
-            details=_public_details(request.details),
+            payload={
+                "category": request.category,
+                "reason": request.reason,
+                "details": _public_details(request.details),
+                "request_kind": _request_kind_for_category(request.category),
+            },
             turn_id=turn_id,
             step_id=step_id,
             step_index=step_index,
         )
         with state.lock:
-            state.pending_permission = ticket
-            state.pending_result = None
+            state.pending_interaction = ticket
+            state.pending_response = None
             state.updated_at = _utc_now()
         return ticket
 
@@ -128,46 +205,68 @@ class HostedInteractionService(object):
         turn_id: str = "",
         step_id: str = "",
         step_index: int = 0,
-    ) -> UserInputTicket:
+    ) -> HostedPendingInteraction:
         request_id = "ask_%s" % uuid.uuid4().hex[:8]
         request.details[_INTERACTION_ID_DETAIL_KEY] = request_id
-        ticket = UserInputTicket(
-            request_id=request_id,
+        ticket = HostedPendingInteraction(
+            interaction_id=request_id,
+            kind="user_input",
             session_id=state.session.session_id,
             tool_name=request.tool_name,
-            question=request.question,
-            options=[
-                {"index": item.index, "text": item.text, "mode": item.mode}
-                for item in request.options
-            ],
-            details=_public_details(request.details),
+            payload=_questions_for_request(request),
             turn_id=turn_id,
             step_id=step_id,
             step_index=step_index,
         )
         with state.lock:
-            state.pending_user_input = ticket
-            state.pending_user_response = None
+            state.pending_interaction = ticket
+            state.pending_response = None
             state.updated_at = _utc_now()
         return ticket
 
-    def clear_pending_permission(self, state: ManagedSession) -> None:
+    def clear_pending_interaction(self, state: ManagedSession) -> None:
         with state.lock:
-            state.pending_permission = None
+            state.pending_interaction = None
             state.pending_event = None
-            state.pending_result = None
+            state.pending_response = None
             if state.status != "error":
                 state.status = "running"
             state.updated_at = _utc_now()
 
-    def clear_pending_user_input(self, state: ManagedSession) -> None:
+    def rebuild_pending_ticket_from_core(self, state: ManagedSession, pending: Any) -> bool:
+        interaction_id = str(getattr(pending, "interaction_id", "") or "").strip()
+        kind = str(getattr(pending, "kind", "") or "").strip()
+        if not interaction_id:
+            return False
+        request_payload = dict(getattr(pending, "request_payload", {}) or {})
+        if kind == "permission":
+            permission_payload = dict(request_payload.get("permission") or {})
+            payload = {
+                "category": str(permission_payload.get("category") or ""),
+                "reason": str(permission_payload.get("reason") or ""),
+                "details": _public_details(dict(permission_payload.get("details") or {})),
+                "request_kind": _request_kind_for_category(
+                    str(permission_payload.get("category") or "")
+                ),
+            }
+        elif kind == "user_input":
+            payload = _questions_from_request_payload(dict(request_payload.get("request") or {}))
+        else:
+            return False
+        ticket = HostedPendingInteraction(
+            interaction_id=interaction_id,
+            kind=kind,
+            session_id=state.session.session_id,
+            tool_name=str(getattr(pending, "tool_name", "") or ""),
+            payload=payload,
+            created_at=str(getattr(pending, "created_at", "") or _utc_now()),
+        )
         with state.lock:
-            state.pending_user_input = None
-            state.pending_user_event = None
-            state.pending_user_response = None
-            if state.status != "error":
-                state.status = "running"
+            state.pending_interaction = ticket
+            state.pending_response = None
+            state.pending_event = None
             state.updated_at = _utc_now()
+        return True
 
     def approve_permission(self, session_id: str, permission_id: str) -> Dict[str, Any]:
         return self._resolve_permission(session_id, permission_id, approved=True)
@@ -187,19 +286,19 @@ class HostedInteractionService(object):
         state = self._require_session(session_id)
         command_wait = False
         with state.lock:
-            if (
-                state.pending_user_input is None
-                or state.pending_user_input.request_id != request_id
-            ):
+            pending = state.pending_interaction
+            if pending is None or pending.kind != "user_input" or pending.request_id != request_id:
                 raise ValueError("未找到待处理的用户问题。")
-            if state.pending_user_event is not None:
-                state.pending_user_response = UserInputResponse(
-                    answer=str(answer or ""),
-                    selected_index=selected_index,
-                    selected_mode=str(selected_mode or ""),
-                    selected_option_text=str(selected_option_text or ""),
-                )
-                state.pending_user_event.set()
+            if state.pending_event is not None:
+                state.pending_response = {
+                    "user_input": UserInputResponse(
+                        answer=str(answer or ""),
+                        selected_index=selected_index,
+                        selected_mode=str(selected_mode or ""),
+                        selected_option_text=str(selected_option_text or ""),
+                    )
+                }
+                state.pending_event.set()
                 command_wait = True
         if command_wait:
             snapshot = self.wait_for_command_resolution(session_id)
@@ -233,18 +332,10 @@ class HostedInteractionService(object):
         state = self._require_session(session_id)
         kind = str((payload or {}).get("response_kind") or "").strip()
         with state.lock:
-            if (
-                state.pending_permission is not None
-                and state.pending_permission.permission_id == interaction_id
-            ):
-                pending_kind = "permission"
-            elif (
-                state.pending_user_input is not None
-                and state.pending_user_input.request_id == interaction_id
-            ):
-                pending_kind = "user_input"
-            else:
+            pending = state.pending_interaction
+            if pending is None or pending.interaction_id != interaction_id:
                 raise ValueError("未找到待处理的交互请求。")
+            pending_kind = pending.kind
         if pending_kind == "permission":
             if kind == "approve" and bool((payload or {}).get("remember")):
                 category = str((payload or {}).get("category") or "").strip()
@@ -300,15 +391,17 @@ class HostedInteractionService(object):
         state = self._require_session(session_id)
         command_wait = False
         with state.lock:
+            pending = state.pending_interaction
             if (
-                state.pending_permission is None
-                or state.pending_permission.permission_id != permission_id
+                pending is None
+                or pending.kind != "permission"
+                or pending.permission_id != permission_id
             ):
                 if approved:
                     raise ValueError("未找到待批准的权限请求。")
                 raise ValueError("未找到待拒绝的权限请求。")
             if state.pending_event is not None:
-                state.pending_result = bool(approved)
+                state.pending_response = {"approved": bool(approved)}
                 state.pending_event.set()
                 command_wait = True
         if command_wait:
