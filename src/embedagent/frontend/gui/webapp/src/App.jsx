@@ -18,6 +18,7 @@ import { createSessionController } from "./app-runtime/session-controller.js";
 import { createSessionTransportController } from "./app-runtime/session-transport-controller.js";
 import { createTerminalController } from "./app-runtime/terminal-controller.js";
 import { createThreadLifecycleController } from "./app-runtime/thread-lifecycle-controller.js";
+import { createInteractionResponseController } from "./app-runtime/interaction-response-controller.js";
 import { createWorkbenchCommandController } from "./app-runtime/workbench-command-controller.js";
 import { createWorkspaceController } from "./app-runtime/workspace-controller.js";
 import { installVisualDebugFixtures } from "./app-runtime/visual-debug-fixtures.js";
@@ -76,10 +77,13 @@ function App() {
   }));
   const treeHeight = 640;
   const [userAnswer, setUserAnswer] = useState("");
+  const [interactionResponseInFlight, setInteractionResponseInFlightState] = useState("");
   const [sessionTransport, setSessionTransport] = useState(() => createSessionTransportState());
   const timelineRef = useRef(null);
   const isAtBottomRef = useRef(true);
   const currentSessionIdRef = useRef("");
+  const interactionResponseInFlightRef = useRef("");
+  const runtimeStateRef = useRef(null);
   const sessionTransportRef = useRef(sessionTransport);
   const sessionTransportControllerRef = useRef(null);
   const stateRef = useRef(state);
@@ -120,6 +124,7 @@ function App() {
       }),
     [sessionTransport, state.activeTurnId, state.snapshot, state.thinkingActive, state.activities],
   );
+  runtimeStateRef.current = runtimeState;
   const interactionNotice = state.interactionNotice || runtimeState.interactionNotice;
   const terminalController = useMemo(
     () =>
@@ -162,6 +167,12 @@ function App() {
     sessionTransportRef.current = nextTransport;
     setSessionTransport(nextTransport);
     return nextTransport;
+  }
+
+  function setInteractionResponseInFlight(value) {
+    const normalized = String(value || "");
+    interactionResponseInFlightRef.current = normalized;
+    setInteractionResponseInFlightState(normalized);
   }
 
   function createRuntimeSessionTransport() {
@@ -644,52 +655,27 @@ function App() {
     });
     executeSocketEffects(effects);
   }
+
+  const interactionResponseController = useMemo(
+    () =>
+      createInteractionResponseController({
+        fetchJson,
+        dispatch,
+        normalizeSessionPayload,
+        getCurrentSessionId: () => currentSessionIdRef.current,
+        getCurrentInteraction: () => runtimeStateRef.current?.currentInteraction || null,
+        getResponseInFlight: () => interactionResponseInFlightRef.current,
+        setResponseInFlight: setInteractionResponseInFlight,
+        loadSession,
+        loadPermissionContext,
+        clearUserAnswer: () => setUserAnswer(""),
+        logEvent,
+      }),
+    [],
+  );
+
   async function respondToInteraction(payload) {
-    const interaction = runtimeState.currentInteraction;
-    if (!interaction || !currentSessionId) return;
-    dispatch({ type: "interaction_notice_clear" });
-    let response;
-    try {
-      response = await fetchJson(
-        `/api/sessions/${encodeURIComponent(currentSessionId)}/interactions/${encodeURIComponent(interaction.interaction_id)}/respond`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload || {}),
-        },
-      );
-    } catch (error) {
-      if ((error?.status === 409 || error?.status === 410) && currentSessionId) {
-        await loadSession(currentSessionId);
-        dispatch({
-          type: "interaction_notice_set",
-          notice: {
-            kind: error.status === 410 ? "expired" : "conflict",
-            detail: error.detail || "",
-          },
-        });
-        logEvent("interaction_response", error.detail || `HTTP ${error.status}`);
-        return;
-      }
-      throw error;
-    }
-    if (response?.snapshot) {
-      dispatch({
-        type: "session_snapshot",
-        snapshot: normalizeSessionPayload(response.snapshot),
-      });
-    } else {
-      await loadSession(currentSessionId);
-    }
-    if (interaction.kind === "permission") {
-      if (payload?.decision && payload?.remember) {
-        loadPermissionContext(currentSessionId);
-      }
-      logEvent("interaction_response", payload?.decision ? "approved" : "denied");
-      return;
-    }
-    setUserAnswer("");
-    logEvent("interaction_response", (payload?.answer || payload?.selected_option_text || "").slice(0, 40));
+    await interactionResponseController.respondToInteraction(payload);
   }
 
   const appHomeModel = useMemo(
@@ -911,6 +897,7 @@ function App() {
               onOpenCommandPalette={() => dispatch({ type: "workbench_command_palette_opened" })}
               interaction={runtimeState.currentInteraction}
               interactionNotice={interactionNotice}
+              interactionBusy={Boolean(interactionResponseInFlight)}
               answerValue={userAnswer}
               onAnswerChange={setUserAnswer}
               onRespondInteraction={respondToInteraction}

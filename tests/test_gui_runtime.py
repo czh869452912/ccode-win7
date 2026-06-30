@@ -458,6 +458,48 @@ class TestAgentCoreAdapterApi(unittest.TestCase):
             reason="api",
         )
 
+    def test_session_lifecycle_and_cancel_delegate_to_inner_adapter(self):
+        from embedagent.core.adapter import AgentCoreAdapter
+
+        core = AgentCoreAdapter(workspace="D:\\workspace")
+        core._adapter = MagicMock()
+        core._adapter.rename_session.return_value = {
+            "session_id": "sess-1",
+            "title": "Renamed",
+            "thread": {"title": "Renamed", "archived": False},
+        }
+        core._adapter.archive_session.return_value = {
+            "session_id": "sess-1",
+            "thread": {"title": "Renamed", "archived": True},
+        }
+        core._adapter.fork_session.return_value = {
+            "session_id": "sess-copy",
+            "title": "Copy",
+            "thread": {"title": "Copy", "forked_from": "sess-1"},
+        }
+        core._adapter.cancel_session.return_value = {
+            "session_id": "sess-1",
+            "status": "idle",
+            "current_mode": "build",
+            "pending_interaction": None,
+            "pending_interaction_valid": False,
+        }
+
+        renamed = core.rename_session("sess-1", "Renamed")
+        archived = core.archive_session("sess-1")
+        forked = core.fork_session("sess-1", "Copy")
+        cancelled = core.cancel_session("sess-1")
+
+        self.assertEqual(renamed["title"], "Renamed")
+        self.assertTrue(archived["thread"]["archived"])
+        self.assertEqual(forked["session_id"], "sess-copy")
+        self.assertEqual(cancelled.session_id, "sess-1")
+        self.assertFalse(cancelled.pending_interaction_valid)
+        core._adapter.rename_session.assert_called_once_with("sess-1", "Renamed")
+        core._adapter.archive_session.assert_called_once_with("sess-1")
+        core._adapter.fork_session.assert_called_once_with("sess-1", title="Copy")
+        core._adapter.cancel_session.assert_called_once_with("sess-1")
+
     def test_submit_message_uses_core_owned_interaction_lifecycle(self):
         from embedagent.core.adapter import AgentCoreAdapter
 

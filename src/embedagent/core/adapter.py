@@ -461,6 +461,15 @@ class AgentCoreAdapter(CoreInterface):
     def get_session_capabilities(self, session_id: str = "") -> Dict[str, Any]:
         return self._adapter.get_session_capabilities(session_id=session_id)
 
+    def rename_session(self, session_id: str, title: str) -> Dict[str, Any]:
+        return self._adapter.rename_session(session_id, title)
+
+    def archive_session(self, session_id: str) -> Dict[str, Any]:
+        return self._adapter.archive_session(session_id)
+
+    def fork_session(self, session_id: str, title: str = "") -> Dict[str, Any]:
+        return self._adapter.fork_session(session_id, title=title)
+
     def submit_message(self, session_id: str, text: str) -> None:
         """异步提交消息"""
 
@@ -484,8 +493,8 @@ class AgentCoreAdapter(CoreInterface):
         thread = threading.Thread(target=run, daemon=True)
         thread.start()
 
-    def cancel_session(self, session_id: str) -> None:
-        self._adapter.cancel_session(session_id)
+    def cancel_session(self, session_id: str) -> SessionSnapshot:
+        return self._snapshot_to_protocol(self._adapter.cancel_session(session_id))
 
     def set_mode(self, session_id: str, mode: str) -> None:
         self._adapter.set_session_mode(session_id, mode)

@@ -27,6 +27,7 @@ import { runSessionLoadersTests } from "./session-loaders.test.mjs";
 import { runSessionActivationControllerTests } from "./session-activation-controller.test.mjs";
 import { runSessionControllerTests } from "./session-controller.test.mjs";
 import { runSessionTransportControllerTests } from "./session-transport-controller.test.mjs";
+import { runInteractionResponseControllerTests } from "./interaction-response-controller.test.mjs";
 import { runSocketMessageEffectsTests } from "./socket-message-effects.test.mjs";
 import { runVisualDebugFixturesTests } from "./visual-debug-fixtures.test.mjs";
 import { runWorkbenchParityModelTests } from "./workbench-parity-model.test.mjs";
@@ -1396,6 +1397,7 @@ async function main() {
   await runSessionActivationControllerTests();
   await runSessionControllerTests();
   await runSessionTransportControllerTests();
+  await runInteractionResponseControllerTests();
   runSocketMessageEffectsTests();
   runVisualDebugFixturesTests();
   await runVisualDebugRunnerTests();

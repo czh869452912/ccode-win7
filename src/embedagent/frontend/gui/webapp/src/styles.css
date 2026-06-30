@@ -2948,6 +2948,11 @@ body {
   text-align: left;
 }
 .composer-option:hover { border-color: var(--border-focus); }
+.composer-option:disabled {
+  cursor: wait;
+  opacity: .55;
+}
+.composer-option:disabled:hover { border-color: var(--border-default); }
 .composer-option kbd {
   display: inline-flex; align-items: center; justify-content: center;
   width: 20px; height: 20px;

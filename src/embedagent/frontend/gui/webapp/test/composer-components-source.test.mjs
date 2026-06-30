@@ -31,4 +31,10 @@ export function runComposerComponentsSourceTests() {
   assert.equal(actionsSource.includes("composer-primary-action"), true);
   assert.equal(actionsSource.includes("composer-stop-action"), true);
   assertNoCoreBoundaryLeak(actionsSource, "ComposerPrimaryActions");
+
+  const interactionPanelSource = readSource("components", "composer", "ComposerInteractionPanel.jsx");
+  assert.equal(interactionPanelSource.includes("busy = false"), true);
+  assert.equal(interactionPanelSource.includes("disabled={busy}"), true);
+  assert.equal(interactionPanelSource.includes("disabled={busy || !hasAnswer}"), true);
+  assertNoCoreBoundaryLeak(interactionPanelSource, "ComposerInteractionPanel");
 }

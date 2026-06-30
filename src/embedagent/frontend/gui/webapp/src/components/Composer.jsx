@@ -43,6 +43,7 @@ export default function Composer({
   onOpenCommandPalette,
   interaction = null,
   interactionNotice = null,
+  interactionBusy = false,
   answerValue = "",
   onAnswerChange,
   onRespondInteraction,
@@ -193,6 +194,7 @@ export default function Composer({
       <ComposerInteractionPanel
         interaction={interaction}
         notice={interactionNotice}
+        busy={interactionBusy}
         answerValue={answerValue}
         onAnswerChange={onAnswerChange}
         onRespond={onRespondInteraction}

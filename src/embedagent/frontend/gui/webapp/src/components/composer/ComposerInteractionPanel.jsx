@@ -9,6 +9,7 @@ import {
 export default function ComposerInteractionPanel({
   interaction,
   notice,
+  busy = false,
   answerValue = "",
   onAnswerChange,
   onRespond,
@@ -30,6 +31,7 @@ export default function ComposerInteractionPanel({
         view={view}
         remember={remember}
         onRememberChange={setRemember}
+        busy={busy}
         onRespond={onRespond}
       />
     );
@@ -37,6 +39,7 @@ export default function ComposerInteractionPanel({
   return (
     <UserInputPanel
       view={view}
+      busy={busy}
       answerValue={answerValue}
       onAnswerChange={onAnswerChange}
       onRespond={onRespond}
@@ -57,7 +60,7 @@ function NoticePanel({ view }) {
   );
 }
 
-function PermissionPanel({ view, remember, onRememberChange, onRespond }) {
+function PermissionPanel({ view, remember, onRememberChange, busy = false, onRespond }) {
   return (
     <section
       className="composer-interaction-panel permission"
@@ -88,6 +91,7 @@ function PermissionPanel({ view, remember, onRememberChange, onRespond }) {
           <input
             type="checkbox"
             checked={remember}
+            disabled={busy}
             onChange={(event) => onRememberChange(event.target.checked)}
           />
           <span>{view.rememberLabel}</span>
@@ -95,6 +99,7 @@ function PermissionPanel({ view, remember, onRememberChange, onRespond }) {
         <button
           type="button"
           className="ghost btn-deny"
+          disabled={busy}
           onClick={() => onRespond && onRespond(buildPermissionResponse(view, { decision: false }))}
           data-testid="permission-deny-button"
         >
@@ -103,6 +108,7 @@ function PermissionPanel({ view, remember, onRememberChange, onRespond }) {
         <button
           type="button"
           className="primary"
+          disabled={busy}
           onClick={() => onRespond && onRespond(buildPermissionResponse(view, { decision: true, remember }))}
           data-testid="permission-approve-button"
         >
@@ -113,7 +119,7 @@ function PermissionPanel({ view, remember, onRememberChange, onRespond }) {
   );
 }
 
-function UserInputPanel({ view, answerValue, onAnswerChange, onRespond }) {
+function UserInputPanel({ view, busy = false, answerValue, onAnswerChange, onRespond }) {
   const hasAnswer = String(answerValue || "").trim().length > 0;
   return (
     <section
@@ -133,6 +139,7 @@ function UserInputPanel({ view, answerValue, onAnswerChange, onRespond }) {
               key={`${option.index}-${option.text}`}
               type="button"
               className="composer-option"
+              disabled={busy}
               onClick={() => onRespond && onRespond(buildUserInputResponse(view, { option }))}
               data-testid={`user-input-option-${option.index}`}
             >
@@ -152,13 +159,14 @@ function UserInputPanel({ view, answerValue, onAnswerChange, onRespond }) {
           onChange={(event) => onAnswerChange && onAnswerChange(event.target.value)}
           placeholder={view.customPlaceholder}
           aria-label={view.customPlaceholder}
+          disabled={busy}
           rows={2}
           data-testid="user-input-custom-answer"
         />
         <button
           type="button"
           className="primary"
-          disabled={!hasAnswer}
+          disabled={busy || !hasAnswer}
           onClick={() => onRespond && onRespond(buildUserInputResponse(view, { answer: answerValue }))}
           data-testid="user-input-submit-button"
         >

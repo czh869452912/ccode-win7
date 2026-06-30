@@ -374,7 +374,7 @@ class CoreInterface(ABC):
         pass
 
     @abstractmethod
-    def cancel_session(self, session_id: str) -> None:
+    def cancel_session(self, session_id: str) -> SessionSnapshot:
         """取消会话"""
         pass
 
@@ -396,6 +396,31 @@ class CoreInterface(ABC):
     @abstractmethod
     def reply_user_input(self, session_id: str, request_id: str, answer: str, **kwargs) -> None:
         """回复用户输入请求"""
+        pass
+
+    @abstractmethod
+    def rename_session(self, session_id: str, title: str) -> Dict[str, Any]:
+        """重命名会话线程"""
+        pass
+
+    @abstractmethod
+    def archive_session(self, session_id: str) -> Dict[str, Any]:
+        """归档会话线程"""
+        pass
+
+    @abstractmethod
+    def fork_session(self, session_id: str, title: str = "") -> Dict[str, Any]:
+        """派生会话线程"""
+        pass
+
+    @abstractmethod
+    def respond_to_interaction(
+        self,
+        session_id: str,
+        interaction_id: str,
+        payload: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        """响应统一 pending interaction"""
         pass
 
     @abstractmethod
