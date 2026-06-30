@@ -121,9 +121,7 @@ def serialize_interaction_response(
 ) -> Dict[str, Any]:
     response = to_mapping(payload)
     if response is not None and (
-        "snapshot" in response
-        or "interaction_id" in response
-        or "interactionId" in response
+        "snapshot" in response or "interaction_id" in response or "interactionId" in response
     ):
         snapshot = response.get("snapshot")
         return {
@@ -134,7 +132,10 @@ def serialize_interaction_response(
                 or ""
             ),
             "interaction_id": str(
-                response.get("interaction_id") or response.get("interactionId") or interaction_id or ""
+                response.get("interaction_id")
+                or response.get("interactionId")
+                or interaction_id
+                or ""
             ),
             "status": str(response.get("status") or "resolved"),
             "snapshot": serialize_session_snapshot(snapshot) if snapshot is not None else None,

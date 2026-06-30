@@ -2478,7 +2478,9 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         interaction_id = str((waiting.get("pending_interaction") or {}).get("interaction_id") or "")
         self.assertTrue(interaction_id)
 
-        resolved = adapter.respond_to_interaction(session_id, interaction_id, {"decision": "cancel"})
+        resolved = adapter.respond_to_interaction(
+            session_id, interaction_id, {"decision": "cancel"}
+        )
 
         worker.join(3.0)
         self.assertFalse(worker.is_alive())

@@ -583,7 +583,9 @@ class TestGuiBackendApi(unittest.TestCase):
                 )
             )
 
-        self.assertEqual(core.respond_calls, [("sess-1", "int-1", {"answers": {"answer": "continue"}})])
+        self.assertEqual(
+            core.respond_calls, [("sess-1", "int-1", {"answers": {"answer": "continue"}})]
+        )
         self.assertEqual(response["session_id"], "sess-1")
         self.assertEqual(response["interaction_id"], "int-1")
         self.assertEqual(response["status"], "resolved")
@@ -616,9 +618,7 @@ class TestGuiBackendApi(unittest.TestCase):
                             break
                     self.assertIsNotNone(route)
                     with self.assertRaises(HTTPException) as raised:
-                        asyncio.run(
-                            route.endpoint("sess-1", "int-1", {"decision": "accept"})
-                        )
+                        asyncio.run(route.endpoint("sess-1", "int-1", {"decision": "accept"}))
                 self.assertEqual(raised.exception.status_code, expected_status)
                 self.assertEqual(raised.exception.detail, expected_detail)
 

@@ -419,8 +419,10 @@ def test_product_interfaces_expose_only_unified_interaction_response():
 def test_shell_interaction_payloads_use_decision_and_answers_contract():
     files = [
         ROOT / "src/embedagent/frontend/gui/webapp/src/session-runtime/interaction-model.js",
-        ROOT / "src/embedagent/frontend/gui/webapp/src/components/composer/ComposerInteractionPanel.jsx",
-        ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/interaction-response-controller.js",
+        ROOT
+        / "src/embedagent/frontend/gui/webapp/src/components/composer/ComposerInteractionPanel.jsx",
+        ROOT
+        / "src/embedagent/frontend/gui/webapp/src/app-runtime/interaction-response-controller.js",
         ROOT / "src/embedagent/frontend/tui/controller.py",
     ]
     forbidden = (
