@@ -26,8 +26,6 @@ export const initialState = {
   snapshot: null,
   composer: createComposerState(),
   ...createActivityState(),
-  permission: null,
-  userInput: null,
   interactionNotice: null,
   tasks: [],
   artifacts: [],
@@ -175,14 +173,6 @@ export function reducer(state, action) {
         sessionCapabilities: action.capabilities || { commands: [] },
         requestedMode: action.snapshot?.current_mode || state.requestedMode,
         ...reduceActivityState(state, { type: "activity_reset", activities: action.activities }),
-        permission:
-          action.snapshot?.pending_interaction_valid && action.snapshot?.pending_interaction?.kind === "permission"
-            ? action.snapshot.pending_interaction
-            : null,
-        userInput:
-          action.snapshot?.pending_interaction_valid && action.snapshot?.pending_interaction?.kind === "user_input"
-            ? action.snapshot.pending_interaction
-            : null,
         interactionNotice: null,
         runOutput: reduceRunOutputState(state.runOutput, action),
         plan: null,
@@ -216,14 +206,6 @@ export function reducer(state, action) {
         thread: reduceThreadState(state.thread, action),
         snapshot,
         requestedMode: snapshot.current_mode || state.requestedMode,
-        permission:
-          snapshot.pending_interaction_valid && snapshot.pending_interaction?.kind === "permission"
-            ? snapshot.pending_interaction
-            : null,
-        userInput:
-          snapshot.pending_interaction_valid && snapshot.pending_interaction?.kind === "user_input"
-            ? snapshot.pending_interaction
-            : null,
         tasks: Array.isArray(snapshot.task_items) ? snapshot.task_items : state.tasks,
         interactionNotice:
           snapshot.pending_interaction_valid && snapshot.pending_interaction
@@ -239,41 +221,6 @@ export function reducer(state, action) {
             : state.inspectorOpen,
       };
     }
-    case "permission_request": {
-      return {
-        ...state,
-        permission: action.permission,
-        interactionNotice: null,
-        thinkingActive: false,
-        inspectorTab: action.inspectorTab || "interaction",
-        inspectorOpen: true,
-      };
-    }
-    case "permission_cleared":
-      return {
-        ...state,
-        permission: null,
-      };
-    case "user_input_request": {
-      return {
-        ...state,
-        userInput: action.request,
-        interactionNotice: null,
-        thinkingActive: false,
-        inspectorTab: "interaction",
-        inspectorOpen: true,
-      };
-    }
-    case "user_input_answered":
-      return {
-        ...state,
-        userInput: null,
-      };
-    case "user_input_cleared":
-      return {
-        ...state,
-        userInput: null,
-      };
     case "tasks_loaded":
       return { ...state, tasks: action.tasks };
     case "artifacts_loaded":

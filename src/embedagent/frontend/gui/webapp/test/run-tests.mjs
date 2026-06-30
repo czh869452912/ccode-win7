@@ -548,45 +548,79 @@ async function main() {
   assert.deepEqual(permissionState.permissionContext.remembered_categories, ["workspace_write"]);
 
   const pendingPermissionState = reducer(initialState, {
-    type: "permission_request",
-    permission: {
-      permission_id: "perm-panel-1",
-      tool_name: "edit_file",
-      category: "workspace_write",
-      reason: "need write permission",
+    type: "session_snapshot",
+    snapshot: {
+      session_id: "sess-1",
+      current_mode: "build",
+      status: "waiting_permission",
+      pending_interaction_valid: true,
+      pending_interaction: {
+        interaction_id: "perm-panel-1",
+        kind: "permission",
+        tool_name: "edit_file",
+        category: "workspace_write",
+        reason: "need write permission",
+      },
+      task_items: [],
     },
-    inspectorTab: "interaction",
   });
-  assert.equal(pendingPermissionState.permission.permission_id, "perm-panel-1");
+  assert.equal(pendingPermissionState.snapshot.pending_interaction.interaction_id, "perm-panel-1");
+  assert.equal(Object.prototype.hasOwnProperty.call(pendingPermissionState, "permission"), false);
   assert.equal(pendingPermissionState.inspectorTab, "interaction");
+  assert.equal(pendingPermissionState.inspectorOpen, true);
   assert.equal(pendingPermissionState.activities.length, 0);
 
   const clearedPermissionState = reducer(pendingPermissionState, {
-    type: "permission_cleared",
+    type: "session_snapshot",
+    snapshot: {
+      session_id: "sess-1",
+      current_mode: "build",
+      status: "idle",
+      pending_interaction_valid: false,
+      pending_interaction: null,
+      task_items: [],
+    },
   });
-  assert.equal(clearedPermissionState.permission, null);
+  assert.equal(clearedPermissionState.snapshot.pending_interaction, null);
+  assert.equal(Object.prototype.hasOwnProperty.call(clearedPermissionState, "permission"), false);
   assert.equal(clearedPermissionState.activities.length, 0);
 
   const pendingUserInputState = reducer(initialState, {
-    type: "user_input_request",
-    request: {
-      request_id: "ask-panel-1",
-      tool_name: "ask_user",
-      question: "继续吗？",
-      options: [{ index: 1, text: "继续" }],
+    type: "session_snapshot",
+    snapshot: {
+      session_id: "sess-1",
+      current_mode: "build",
+      status: "waiting_user_input",
+      pending_interaction_valid: true,
+      pending_interaction: {
+        interaction_id: "ask-panel-1",
+        kind: "user_input",
+        tool_name: "ask_user",
+        question: "继续吗？",
+        options: [{ index: 1, text: "继续" }],
+      },
+      task_items: [],
     },
   });
-  assert.equal(pendingUserInputState.userInput.request_id, "ask-panel-1");
+  assert.equal(pendingUserInputState.snapshot.pending_interaction.interaction_id, "ask-panel-1");
+  assert.equal(Object.prototype.hasOwnProperty.call(pendingUserInputState, "userInput"), false);
   assert.equal(pendingUserInputState.inspectorTab, "interaction");
   assert.equal(pendingUserInputState.inspectorOpen, true);
   assert.equal(pendingUserInputState.activities.length, 0);
 
   const answeredUserInputState = reducer(pendingUserInputState, {
-    type: "user_input_answered",
-    requestId: "ask-panel-1",
-    answerText: "继续",
+    type: "session_snapshot",
+    snapshot: {
+      session_id: "sess-1",
+      current_mode: "build",
+      status: "idle",
+      pending_interaction_valid: false,
+      pending_interaction: null,
+      task_items: [],
+    },
   });
-  assert.equal(answeredUserInputState.userInput, null);
+  assert.equal(answeredUserInputState.snapshot.pending_interaction, null);
+  assert.equal(Object.prototype.hasOwnProperty.call(answeredUserInputState, "userInput"), false);
   assert.equal(answeredUserInputState.activities.length, 0);
 
   const recipeState = reducer(initialState, {
@@ -1298,6 +1332,9 @@ async function main() {
   );
   assert.equal(composerSource.includes("onOpenCommandPalette"), true);
   assert.equal(composerSource.includes("ComposerInteractionPanel"), true);
+  assert.equal(composerSource.includes("syncComposerTextareaSize"), true);
+  assert.equal(composerSource.includes("scrollHeight"), true);
+  assert.equal(composerSource.includes("overflowY"), true);
   assert.equal(composerSource.includes("BranchToolbar"), true);
   assert.equal(composerSource.includes("branchToolbar"), true);
   assert.equal(composerSource.includes("onRefreshSourceControl"), true);

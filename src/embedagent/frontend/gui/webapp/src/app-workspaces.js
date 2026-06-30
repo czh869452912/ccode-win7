@@ -27,8 +27,6 @@ export function resetWorkspaceScopedState(state = {}) {
     streamingAssistantId: "",
     streamingReasoningId: "",
     thinkingActive: false,
-    permission: null,
-    userInput: null,
     interactionNotice: null,
     tasks: [],
     artifacts: [],

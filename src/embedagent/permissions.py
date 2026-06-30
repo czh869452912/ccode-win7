@@ -94,7 +94,11 @@ class PermissionPolicy(object):
     def set_category_lookup(self, category_lookup: Optional[Callable[[str], str]]) -> None:
         self._category_lookup = category_lookup
 
-    def evaluate(self, action: Action) -> PermissionDecision:
+    def evaluate(
+        self,
+        action: Action,
+        remembered_categories: Optional[List[str]] = None,
+    ) -> PermissionDecision:
         category = self._category_for_action(action)
         details = self._build_details(action, category)
         matched_rule = self._match_rule(action, category, details)
@@ -120,6 +124,10 @@ class PermissionPolicy(object):
                 ),
                 details=details,
             )
+        remembered = set(remembered_categories or [])
+        if category in remembered:
+            details["remembered_category"] = category
+            return PermissionDecision(outcome="allow", details=details)
         if self.auto_approve_all:
             return PermissionDecision(outcome="allow", details=details)
         if category == "read":

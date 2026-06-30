@@ -551,20 +551,34 @@ class SpyKernel(object):
         )
         return SpyTurnFrame(self, turn_id, source)
 
-    def record_pending_permission(self, session, action, permission_payload, current_mode):
+    def record_pending_permission(
+        self, session, action, permission_payload, current_mode, interaction_id=""
+    ):
         self.pending_permissions.append(
             {
                 "tool_name": action.name,
                 "permission_payload": dict(permission_payload),
                 "current_mode": current_mode,
+                "interaction_id": interaction_id,
             }
         )
         return self._delegate.record_pending_permission(
-            session, action, permission_payload, current_mode
+            session,
+            action,
+            permission_payload,
+            current_mode,
+            interaction_id=interaction_id,
         )
 
     def record_pending_user_input(
-        self, session, action, tool_name, request_payload, message, current_mode
+        self,
+        session,
+        action,
+        tool_name,
+        request_payload,
+        message,
+        current_mode,
+        interaction_id="",
     ):
         self.pending_user_inputs.append(
             {
@@ -572,6 +586,7 @@ class SpyKernel(object):
                 "request_payload": dict(request_payload),
                 "message": message,
                 "current_mode": current_mode,
+                "interaction_id": interaction_id,
             }
         )
         return self._delegate.record_pending_user_input(
@@ -581,6 +596,7 @@ class SpyKernel(object):
             request_payload,
             message,
             current_mode,
+            interaction_id=interaction_id,
         )
 
     def resolve_pending_interaction(self, session, pending, resolution):

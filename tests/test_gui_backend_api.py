@@ -16,6 +16,7 @@ class _FakeCore(object):
     def __init__(self):
         self.frontend = None
         self.respond_calls = []
+        self.remember_calls = []
 
     def register_frontend(self, frontend):
         self.frontend = frontend
@@ -23,12 +24,30 @@ class _FakeCore(object):
     def shutdown(self):
         return None
 
+    def cancel_session(self, session_id):
+        return {
+            "session_id": session_id,
+            "status": "idle",
+            "current_mode": "build",
+            "pending_interaction": None,
+            "pending_interaction_valid": False,
+        }
+
     def respond_to_interaction(self, session_id, interaction_id, payload):
         self.respond_calls.append((session_id, interaction_id, payload))
         return {
             "session_id": session_id,
             "interaction_id": interaction_id,
             "status": "resolved",
+        }
+
+    def remember_permission_category(self, session_id, category):
+        self.remember_calls.append((session_id, category))
+        return {
+            "session_id": session_id,
+            "status": "idle",
+            "pending_interaction": None,
+            "pending_interaction_valid": False,
         }
 
 
@@ -367,6 +386,28 @@ class TestGuiBackendApi(unittest.TestCase):
         self.assertEqual(fork_payload["session_id"], "sess-fork")
         self.assertEqual(fork_payload["session"]["thread"]["forked_from"], "sess-1")
 
+    def test_cancel_session_route_returns_core_snapshot(self):
+        with tempfile.TemporaryDirectory() as static_dir:
+            with open(os.path.join(static_dir, "index.html"), "w", encoding="utf-8") as handle:
+                handle.write("<html><body>ok</body></html>")
+            core = _FakeCore()
+            backend = GUIBackend(core, static_dir=static_dir)
+            route = None
+            for item in backend.app.routes:
+                if getattr(
+                    item, "path", ""
+                ) == "/api/sessions/{session_id}/cancel" and "POST" in getattr(
+                    item, "methods", set()
+                ):
+                    route = item
+                    break
+            self.assertIsNotNone(route)
+            payload = asyncio.run(route.endpoint("sess-1"))
+
+        self.assertEqual(payload["session_id"], "sess-1")
+        self.assertEqual(payload["status"], "idle")
+        self.assertFalse(payload["pending_interaction_valid"])
+
     def test_thread_lifecycle_errors_map_to_http_status(self):
         with tempfile.TemporaryDirectory() as static_dir:
             with open(os.path.join(static_dir, "index.html"), "w", encoding="utf-8") as handle:
@@ -485,6 +526,43 @@ class TestGuiBackendApi(unittest.TestCase):
         self.assertEqual(response["interaction_id"], "perm-1")
         self.assertEqual(response["status"], "resolved")
         self.assertIn("perm-1", backend.frontend._pending_permissions)
+
+    def test_post_interaction_response_does_not_own_permission_remember_side_effect(
+        self,
+    ):
+        with tempfile.TemporaryDirectory() as static_dir:
+            with open(os.path.join(static_dir, "index.html"), "w", encoding="utf-8") as handle:
+                handle.write("<html><body>ok</body></html>")
+            core = _FakeCore()
+            backend = GUIBackend(core, static_dir=static_dir)
+            route = None
+            for item in backend.app.routes:
+                if getattr(
+                    item, "path", ""
+                ) == "/api/sessions/{session_id}/interactions/{interaction_id}/respond" and "POST" in getattr(
+                    item, "methods", set()
+                ):
+                    route = item
+                    break
+            self.assertIsNotNone(route)
+            response = asyncio.run(
+                route.endpoint(
+                    "sess-1",
+                    "perm-1",
+                    {
+                        "response_kind": "approve",
+                        "decision": True,
+                        "remember": True,
+                        "category": "workspace_write",
+                    },
+                )
+            )
+
+        self.assertEqual(response["interaction_id"], "perm-1")
+        self.assertEqual(len(core.respond_calls), 1)
+        self.assertEqual(core.respond_calls[0][2]["remember"], True)
+        self.assertEqual(core.respond_calls[0][2]["category"], "workspace_write")
+        self.assertEqual(core.remember_calls, [])
 
     def test_post_interaction_response_emits_backend_owned_resolved_event(self):
         with tempfile.TemporaryDirectory() as static_dir:

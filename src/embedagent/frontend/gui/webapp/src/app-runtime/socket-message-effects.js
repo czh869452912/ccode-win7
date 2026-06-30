@@ -296,32 +296,20 @@ export function deriveSocketMessageEffects({
   }
 
   if (type === "permission_request") {
-    effects.actions.push({
-      type: "permission_request",
-      permission: {
-        ...payload,
-        turn_id: payload?.turn_id || "",
-        step_id: payload?.step_id || "",
-        step_index: payload?.step_index || 0,
-      },
-      inspectorTab: "interaction",
-    });
     effects.actions.push(logAction("permission_request", payload?.reason || ""));
+    effects.loaderRequests.push({
+      name: LOADER_REQUESTS.LOAD_SESSION,
+      sessionId: payload?.session_id || options.currentSessionId || "",
+    });
     return effects;
   }
 
   if (type === "user_input_request") {
-    effects.actions.push({
-      type: "user_input_request",
-      request: {
-        ...payload,
-        turn_id: payload?.turn_id || "",
-        step_id: payload?.step_id || "",
-        step_index: payload?.step_index || 0,
-      },
-      resetUserAnswer: true,
-    });
     effects.actions.push(logAction("user_input_request", payload?.question || ""));
+    effects.loaderRequests.push({
+      name: LOADER_REQUESTS.LOAD_SESSION,
+      sessionId: payload?.session_id || options.currentSessionId || "",
+    });
     return effects;
   }
 

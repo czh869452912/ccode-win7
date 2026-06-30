@@ -105,11 +105,15 @@ class AgentKernel(object):
         action: Action,
         permission_payload: dict,
         current_mode: str,
+        interaction_id: str = "",
     ):
-        pending = PendingInteraction(
-            kind="permission",
-            tool_name=action.name,
-        )
+        pending_kwargs = {
+            "kind": "permission",
+            "tool_name": action.name,
+        }
+        if interaction_id:
+            pending_kwargs["interaction_id"] = interaction_id
+        pending = PendingInteraction(**pending_kwargs)
         pending.request_payload = self.interaction_checkpoint_payload(
             session,
             action,
@@ -134,11 +138,15 @@ class AgentKernel(object):
         request_payload: dict,
         message: str,
         current_mode: str,
+        interaction_id: str = "",
     ):
-        pending = PendingInteraction(
-            kind="user_input",
-            tool_name=tool_name,
-        )
+        pending_kwargs = {
+            "kind": "user_input",
+            "tool_name": tool_name,
+        }
+        if interaction_id:
+            pending_kwargs["interaction_id"] = interaction_id
+        pending = PendingInteraction(**pending_kwargs)
         pending.request_payload = self.interaction_checkpoint_payload(
             session,
             action,

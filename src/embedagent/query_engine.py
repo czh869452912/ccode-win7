@@ -96,6 +96,7 @@ class QueryEngine(object):
         tracer: Optional[ExecutionTracer] = None,
         extension_manager: Optional[ExtensionManager] = None,
         runtime_config_provider: Optional[Callable[[Session], Dict[str, Any]]] = None,
+        remembered_permission_categories_provider: Optional[Callable[[Session], list]] = None,
     ) -> None:
         self.client = client
         self.tools = tools
@@ -118,6 +119,7 @@ class QueryEngine(object):
         self.transcript_store = transcript_store or TranscriptStore(self.tools.workspace)
         self.tracer = tracer
         self._runtime_config_provider = runtime_config_provider
+        self._remembered_permission_categories_provider = remembered_permission_categories_provider
         self.extension_host = AgentExtensionHost(
             manager=extension_manager or ExtensionManager(),
             tools=self.tools,
@@ -145,6 +147,7 @@ class QueryEngine(object):
             user_input_pending_handler=self._build_user_input_pending_result,
             user_input_response_handler=self._build_user_input_observation,
             lifecycle=self.lifecycle,
+            remembered_categories_provider=self._remembered_permission_categories,
         )
         self._llm_wrapper = LLMClientRetryWrapper(
             client=client,
@@ -218,6 +221,12 @@ class QueryEngine(object):
 
     def last_turn_snapshot(self) -> Optional[TurnSnapshot]:
         return self._last_turn_snapshot
+
+    def _remembered_permission_categories(self, session: Session) -> list:
+        provider = self._remembered_permission_categories_provider
+        if provider is None:
+            return []
+        return list(provider(session) or [])
 
     def _session_guard(self):
         return self._session_lock
@@ -1608,6 +1617,14 @@ class QueryEngine(object):
             },
         )
 
+    def _interaction_id_from_request_details(self, details: dict) -> str:
+        return str((details or {}).get("_interaction_id") or "").strip()
+
+    def _public_interaction_details(self, details: dict) -> dict:
+        payload = dict(details or {})
+        payload.pop("_interaction_id", None)
+        return payload
+
     def _build_permission_pending_result(
         self,
         session: Session,
@@ -1619,13 +1636,14 @@ class QueryEngine(object):
             "tool_name": request.tool_name,
             "category": request.category,
             "reason": request.reason,
-            "details": dict(request.details),
+            "details": self._public_interaction_details(request.details),
         }
         pending, transition = self.kernel.record_pending_permission(
             session,
             action,
             permission_payload,
             current_mode,
+            interaction_id=self._interaction_id_from_request_details(request.details),
         )
         return QueryTurnResult("", session, transition, pending_interaction=pending)
 
@@ -1643,7 +1661,7 @@ class QueryEngine(object):
                 {"index": item.index, "text": item.text, "mode": item.mode}
                 for item in request.options
             ],
-            "details": dict(request.details),
+            "details": self._public_interaction_details(request.details),
         }
         pending, transition = self.kernel.record_pending_user_input(
             session,
@@ -1652,6 +1670,7 @@ class QueryEngine(object):
             request_payload,
             request.question,
             current_mode,
+            interaction_id=self._interaction_id_from_request_details(request.details),
         )
         return QueryTurnResult("", session, transition, pending_interaction=pending)
 

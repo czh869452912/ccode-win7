@@ -104,6 +104,22 @@ class TestPermissionPolicy(unittest.TestCase):
         self.assertEqual(decision.request.category, "workspace_write")
         self.assertEqual(decision.details.get("path"), "generated.txt")
 
+    def test_remembered_category_allows_matching_action_for_session(self):
+        policy = PermissionPolicy(
+            auto_approve_all=False,
+            workspace="D:\\workspace",
+            category_lookup=lambda name: "workspace_write" if name == "dynamic_write" else "",
+        )
+
+        decision = policy.evaluate(
+            Action("dynamic_write", {"path": "generated.txt"}, "call-write"),
+            remembered_categories=["workspace_write"],
+        )
+
+        self.assertEqual(decision.outcome, "allow")
+        self.assertEqual(decision.details.get("category"), "workspace_write")
+        self.assertEqual(decision.details.get("remembered_category"), "workspace_write")
+
     def test_invalid_metadata_category_falls_back_to_other(self):
         policy = PermissionPolicy(
             auto_approve_all=False,

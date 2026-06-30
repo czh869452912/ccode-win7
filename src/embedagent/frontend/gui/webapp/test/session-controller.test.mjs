@@ -40,4 +40,48 @@ export async function runSessionControllerTests() {
   assert.deepEqual(loadedSessions, ["sess-new"]);
   assert.equal(actions.some((action) => action.type === "session_activated"), false);
   assert.equal(calls.some((call) => call[0] === "loadSessions"), true);
+
+  const cancelActions = [];
+  const cancelController = createSessionController({
+    fetchJson: async (url, options = {}) => {
+      calls.push(["fetchJson", url, options.method || "GET"]);
+      if (url === "/api/sessions/sess-cancel/cancel") {
+        return {
+          session_id: "sess-cancel",
+          status: "idle",
+          current_mode: "build",
+          pending_interaction: null,
+          pending_interaction_valid: false,
+        };
+      }
+      throw new Error(`unexpected url ${url}`);
+    },
+    dispatch: (action) => cancelActions.push(action),
+    normalizeSessionPayload: (payload) => ({
+      session_id: payload.session_id,
+      status: payload.status || "idle",
+      current_mode: payload.current_mode || "explore",
+      pending_interaction: payload.pending_interaction || null,
+      pending_interaction_valid: Boolean(payload.pending_interaction_valid),
+    }),
+    getCurrentSessionId: () => "sess-cancel",
+    getCurrentMode: () => "build",
+    hasActiveWorkspace: () => true,
+    loadSessions: async () => {},
+    loadSession: async () => {},
+  });
+
+  await cancelController.cancelSession();
+
+  assert.deepEqual(cancelActions[0], { type: "stream_completed" });
+  assert.deepEqual(cancelActions[1], {
+    type: "session_snapshot",
+    snapshot: {
+      session_id: "sess-cancel",
+      status: "idle",
+      current_mode: "build",
+      pending_interaction: null,
+      pending_interaction_valid: false,
+    },
+  });
 }

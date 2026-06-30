@@ -78,7 +78,15 @@ export function runWorkbenchParityModelTests() {
   assert.equal(narrowModel.timeline.density, "compact");
 
   let mobile = sessionWorkspaceState({
-    userInput: { request_id: "input-1", question: "Pick one" },
+    snapshot: {
+      status: "waiting_user_input",
+      pending_interaction_valid: true,
+      pending_interaction: {
+        interaction_id: "input-1",
+        kind: "user_input",
+        question: "Pick one",
+      },
+    },
   });
   mobile = openRightSurface(mobile, "preview", { resourceId: "http://127.0.0.1:5173" });
   mobile = reducer(mobile, { type: "workbench_bottom_drawer_toggled" });

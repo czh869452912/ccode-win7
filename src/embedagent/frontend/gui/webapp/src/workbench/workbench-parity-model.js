@@ -35,12 +35,10 @@ function isRunningStatus(status) {
 
 function hasInteraction(state) {
   return Boolean(
-    (state && state.permission) ||
-      (state && state.userInput) ||
-      (state &&
-        state.snapshot &&
-        state.snapshot.pending_interaction_valid &&
-        state.snapshot.pending_interaction),
+    state &&
+      state.snapshot &&
+      state.snapshot.pending_interaction_valid &&
+      state.snapshot.pending_interaction,
   );
 }
 

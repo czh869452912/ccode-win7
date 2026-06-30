@@ -106,8 +106,8 @@ def register_session_routes(app: Any, backend: Any) -> None:
     @app.post("/api/sessions/{session_id}/cancel")
     async def cancel_session(session_id: str):
         core = backend._require_core()
-        backend._call_core(core.cancel_session, session_id)
-        return {"status": "cancelled"}
+        snapshot = backend._call_core(core.cancel_session, session_id)
+        return serialize_session_snapshot(snapshot)
 
     @app.post("/api/sessions/{session_id}/mode")
     async def set_mode(session_id: str, request: Dict[str, Any]):
@@ -123,12 +123,6 @@ def register_session_routes(app: Any, backend: Any) -> None:
         response = backend._call_core(
             core.respond_to_interaction, session_id, interaction_id, request
         )
-        if bool(request.get("decision")) and bool(request.get("remember")):
-            category = str(request.get("category") or "").strip()
-            if category:
-                remember_method = getattr(core, "remember_permission_category", None)
-                if callable(remember_method):
-                    backend._call_core(remember_method, session_id, category)
         return serialize_interaction_response(response)
 
     @app.get("/api/workspace")

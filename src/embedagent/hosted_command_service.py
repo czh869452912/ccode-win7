@@ -57,6 +57,7 @@ class HostedCommandService(object):
         refresh_harness_state: Callable[[ManagedSession], None],
         tool_event_metadata: Callable[[str], Dict[str, Any]],
         create_permission_ticket: Callable[..., Any],
+        record_pending_permission: Callable[..., Any],
         clear_pending_permission: Callable[[ManagedSession], None],
     ) -> None:
         self.tools = tools
@@ -81,6 +82,7 @@ class HostedCommandService(object):
         self._refresh_harness_state = refresh_harness_state
         self._tool_event_metadata = tool_event_metadata
         self._create_permission_ticket = create_permission_ticket
+        self._record_pending_permission = record_pending_permission
         self._clear_pending_permission = clear_pending_permission
         self._slash_commands = SlashCommandService(
             {
@@ -854,6 +856,13 @@ class HostedCommandService(object):
                 turn_id=turn_id,
                 step_id=current_step["step_id"],
                 step_index=current_step["step_index"],
+            )
+            self._record_pending_permission(
+                state,
+                action,
+                request,
+                state.current_mode,
+                interaction_id=ticket.permission_id,
             )
             self._emit_with_snapshot(
                 event_handler,

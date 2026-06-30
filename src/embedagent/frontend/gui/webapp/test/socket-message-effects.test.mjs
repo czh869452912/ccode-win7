@@ -165,13 +165,14 @@ export function runSocketMessageEffectsTests() {
     step_id: "step-2",
     step_index: 2,
   });
-  assert.equal(permission.actions[0].type, "permission_request");
+  assert.equal(permission.actions.some((action) => action.type === "permission_request"), false);
   assert.deepEqual(permission.transportEvents, []);
-  assert.deepEqual(permission.actions[1], {
+  assert.deepEqual(permission.actions[0], {
     type: "log_event",
     label: "permission_request",
     detail: "Allow edit",
   });
+  assert.deepEqual(permission.loaderRequests, [{ name: LOADER_REQUESTS.LOAD_SESSION, sessionId: "sess-active" }]);
 
   const userInput = derive("user_input_request", {
     request_id: "input-1",
@@ -181,8 +182,9 @@ export function runSocketMessageEffectsTests() {
     options: [{ index: 1, text: "Strict" }],
     turn_id: "turn-1",
   });
-  assert.equal(userInput.actions[0].type, "user_input_request");
+  assert.equal(userInput.actions.some((action) => action.type === "user_input_request"), false);
   assert.deepEqual(userInput.transportEvents, []);
+  assert.deepEqual(userInput.loaderRequests, [{ name: LOADER_REQUESTS.LOAD_SESSION, sessionId: "sess-active" }]);
   assert.equal(userInput.actions.some((action) => action.type === "append_activity_item"), false);
   assert.equal(userInput.actions.some((action) => action.type === "activity_reset"), false);
 

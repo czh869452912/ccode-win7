@@ -293,6 +293,53 @@ class WriteThenDoneClient(object):
         return reply
 
 
+class TwoWriteThenDoneClient(object):
+    def __init__(self):
+        self.calls = 0
+
+    def generate(self, messages, tools=None):
+        self.calls += 1
+        if self.calls == 1:
+            return AssistantReply(
+                content="",
+                actions=[
+                    Action(
+                        name="write_file",
+                        arguments={
+                            "path": "src/first_write.c",
+                            "content": "int first_write(void) { return 1; }\n",
+                            "overwrite": True,
+                        },
+                        call_id="write-remember-1",
+                    )
+                ],
+                finish_reason="tool_calls",
+            )
+        if self.calls == 2:
+            return AssistantReply(
+                content="",
+                actions=[
+                    Action(
+                        name="write_file",
+                        arguments={
+                            "path": "src/second_write.c",
+                            "content": "int second_write(void) { return 2; }\n",
+                            "overwrite": True,
+                        },
+                        call_id="write-remember-2",
+                    )
+                ],
+                finish_reason="tool_calls",
+            )
+        return AssistantReply(content="written", actions=[], finish_reason="stop")
+
+    def stream(self, messages, tools=None, on_text_delta=None, on_reasoning_delta=None):
+        reply = self.generate(messages, tools=tools)
+        if on_text_delta is not None and reply.content:
+            on_text_delta(reply.content)
+        return reply
+
+
 class ThreeFileWriteThenDoneClient(object):
     def __init__(self):
         self.calls = 0
@@ -1499,7 +1546,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertEqual(active[0].get("operation_id"), "provider:req-live")
         self.assertEqual(active[0].get("status"), "started")
 
-    def test_permission_ticket_records_pending_session_history_before_engine_returns(self):
+    def test_permission_ticket_does_not_write_session_history_directly(self):
         adapter = InProcessAdapter(
             client=ToolClient(),
             tools=self.tools,
@@ -1526,11 +1573,13 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         )
 
         self.assertTrue(ticket.permission_id)
+        self.assertEqual(request.details.get("_interaction_id"), ticket.permission_id)
+        self.assertIsNone(state.session.pending_interaction)
         payload = adapter.build_session_history(session_id)
         turn = payload["turns"][0]
-        self.assertEqual(turn["status"], "waiting_permission")
-        self.assertEqual(turn["steps"][0]["status"], "permission_wait")
-        self.assertEqual(turn["transitions"][0]["kind"], "permission_required")
+        self.assertEqual(turn["status"], "completed")
+        self.assertNotEqual(turn["steps"][0]["status"], "permission_wait")
+        self.assertEqual(turn["transitions"], [])
 
     def test_resume_session_exposes_restore_diagnostics_for_truncated_replay(self):
         adapter = InProcessAdapter(
@@ -2159,6 +2208,36 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertFalse(final_snapshot["pending_interaction_valid"])
         self.assertEqual(final_snapshot["current_mode"], "debug")
 
+    def test_live_user_input_pending_id_matches_session_pending_interaction(self):
+        adapter = InProcessAdapter(
+            client=AskUserClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+        )
+        snapshot = adapter.create_session("spec")
+        session_id = str(snapshot.get("session_id") or "")
+        adapter.submit_user_message(
+            session_id=session_id,
+            text="请继续",
+            stream=False,
+            wait=True,
+            event_handler=lambda event_name, current_session_id, payload: None,
+        )
+
+        waiting = adapter.get_session_snapshot(session_id)
+        snapshot_interaction = waiting.get("pending_interaction") or {}
+        state = adapter._sessions[session_id]
+        with state.lock:
+            session_pending = state.session.pending_interaction
+
+        self.assertEqual(waiting["status"], "waiting_user_input")
+        self.assertIsNotNone(session_pending)
+        self.assertEqual(session_pending.kind, "user_input")
+        self.assertEqual(
+            session_pending.interaction_id,
+            snapshot_interaction.get("interaction_id"),
+        )
+
     def test_adapter_interaction_response_delegates_to_hosted_service(self):
         adapter = InProcessAdapter(
             client=FakeClient(),
@@ -2230,6 +2309,99 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertFalse(resolved["pending_interaction_valid"])
         self.assertIsNone(resolved.get("pending_interaction"))
         self.assertNotIn("has_pending_permission", resolved)
+
+    def test_live_permission_pending_id_matches_session_pending_interaction(self):
+        os.makedirs(os.path.join(self.workspace, ".embedagent"), exist_ok=True)
+        with open(
+            os.path.join(self.workspace, ".embedagent", "workspace-recipes.json"),
+            "w",
+            encoding="utf-8",
+        ) as handle:
+            handle.write(
+                '[{"id":"custom.build","tool_name":"run_recipe","recipe_action":"build","label":"Custom Build","command":"cmd /c echo build-ok","cwd":"."}]'
+            )
+        adapter = InProcessAdapter(
+            client=FakeClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=False, workspace=self.workspace),
+        )
+        snapshot = adapter.create_session("build")
+        session_id = str(snapshot.get("session_id") or "")
+        worker = threading.Thread(
+            target=adapter.submit_user_message,
+            kwargs={
+                "session_id": session_id,
+                "text": "/run custom.build",
+                "stream": False,
+                "wait": True,
+                "event_handler": lambda event_name, current_session_id, payload: None,
+            },
+        )
+        worker.start()
+        deadline = time.time() + 3.0
+        waiting = adapter.get_session_snapshot(session_id)
+        while time.time() < deadline:
+            waiting = adapter.get_session_snapshot(session_id)
+            if waiting.get("status") == "waiting_permission":
+                break
+            time.sleep(0.05)
+        snapshot_interaction = waiting.get("pending_interaction") or {}
+        permission_id = str(snapshot_interaction.get("interaction_id") or "")
+        state = adapter._sessions[session_id]
+        with state.lock:
+            session_pending = state.session.pending_interaction
+        try:
+            self.assertEqual(waiting["status"], "waiting_permission")
+            self.assertIsNotNone(session_pending)
+            self.assertEqual(session_pending.kind, "permission")
+            self.assertEqual(session_pending.interaction_id, permission_id)
+        finally:
+            if permission_id:
+                adapter.approve_permission(session_id, permission_id)
+            else:
+                adapter.cancel_session(session_id)
+            worker.join(3.0)
+
+    def test_interaction_response_remember_allows_next_matching_permission_in_session(self):
+        adapter = InProcessAdapter(
+            client=TwoWriteThenDoneClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=False, workspace=self.workspace),
+        )
+        snapshot = adapter.create_session("build")
+        session_id = str(snapshot.get("session_id") or "")
+        adapter.submit_user_message(
+            session_id=session_id,
+            text="写两个文件",
+            stream=False,
+            wait=True,
+            event_handler=lambda event_name, current_session_id, payload: None,
+        )
+        waiting = adapter.get_session_snapshot(session_id)
+        pending = waiting.get("pending_interaction") or {}
+        self.assertEqual(waiting["status"], "waiting_permission")
+        self.assertEqual(pending.get("category"), "workspace_write")
+        permission_id = str(pending.get("interaction_id") or "")
+        self.assertTrue(permission_id)
+
+        adapter.respond_to_interaction(
+            session_id,
+            permission_id,
+            {
+                "response_kind": "approve",
+                "decision": True,
+                "remember": True,
+                "category": "workspace_write",
+            },
+        )
+        final_snapshot = adapter.get_session_snapshot(session_id)
+
+        self.assertEqual(final_snapshot["status"], "idle")
+        self.assertFalse(final_snapshot["pending_interaction_valid"])
+        self.assertTrue(os.path.isfile(os.path.join(self.workspace, "src", "first_write.c")))
+        self.assertTrue(os.path.isfile(os.path.join(self.workspace, "src", "second_write.c")))
+        context = adapter.get_permission_context(session_id)
+        self.assertIn("workspace_write", context.remembered_categories)
 
     def test_unknown_mode_create_session_raises(self):
         adapter = InProcessAdapter(

@@ -34,9 +34,12 @@ export function createSessionController({
     const sessionId = getCurrentSessionId();
     if (!sessionId) return;
     dispatch({ type: "stream_completed" });
-    await fetchJson(`/api/sessions/${encodeURIComponent(sessionId)}/cancel`, {
+    const snapshot = await fetchJson(`/api/sessions/${encodeURIComponent(sessionId)}/cancel`, {
       method: "POST",
     });
+    if (snapshot?.session_id) {
+      dispatch({ type: "session_snapshot", snapshot: normalizeSessionPayload(snapshot) });
+    }
   }
 
   async function submitText(rawText) {

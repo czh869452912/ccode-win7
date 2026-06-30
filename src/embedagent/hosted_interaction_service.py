@@ -8,15 +8,21 @@ from typing import Any, Callable, Dict, Optional
 
 from embedagent.interaction import UserInputRequest, UserInputResponse
 from embedagent.permissions import PermissionRequest
-from embedagent.session import LoopTransition, PendingInteraction
 from embedagent.session_runtime import ManagedSession
 
 EventHandler = Callable[[str, str, Dict[str, Any]], None]
 UserInputResolver = Callable[[Dict[str, Any]], Optional[Dict[str, Any]]]
+_INTERACTION_ID_DETAIL_KEY = "_interaction_id"
 
 
 def _utc_now() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def _public_details(details: Dict[str, Any]) -> Dict[str, Any]:
+    payload = dict(details or {})
+    payload.pop(_INTERACTION_ID_DETAIL_KEY, None)
+    return payload
 
 
 @dataclass
@@ -96,13 +102,15 @@ class HostedInteractionService(object):
         step_id: str = "",
         step_index: int = 0,
     ) -> PermissionTicket:
+        permission_id = "perm_%s" % uuid.uuid4().hex[:8]
+        request.details[_INTERACTION_ID_DETAIL_KEY] = permission_id
         ticket = PermissionTicket(
-            permission_id="perm_%s" % uuid.uuid4().hex[:8],
+            permission_id=permission_id,
             session_id=state.session.session_id,
             tool_name=request.tool_name,
             category=request.category,
             reason=request.reason,
-            details=request.details,
+            details=_public_details(request.details),
             turn_id=turn_id,
             step_id=step_id,
             step_index=step_index,
@@ -110,26 +118,6 @@ class HostedInteractionService(object):
         with state.lock:
             state.pending_permission = ticket
             state.pending_result = None
-            if state.session.pending_interaction is None:
-                permission_payload = {
-                    "tool_name": request.tool_name,
-                    "category": request.category,
-                    "reason": request.reason,
-                    "details": dict(request.details),
-                }
-                pending = PendingInteraction(
-                    kind="permission",
-                    tool_name=request.tool_name,
-                    request_payload={"permission": permission_payload},
-                )
-                state.session.record_transition(
-                    LoopTransition(
-                        reason="permission_wait",
-                        message=request.reason,
-                        pending_interaction=pending,
-                        next_mode=state.current_mode,
-                    )
-                )
             state.updated_at = _utc_now()
         return ticket
 
@@ -141,8 +129,10 @@ class HostedInteractionService(object):
         step_id: str = "",
         step_index: int = 0,
     ) -> UserInputTicket:
+        request_id = "ask_%s" % uuid.uuid4().hex[:8]
+        request.details[_INTERACTION_ID_DETAIL_KEY] = request_id
         ticket = UserInputTicket(
-            request_id="ask_%s" % uuid.uuid4().hex[:8],
+            request_id=request_id,
             session_id=state.session.session_id,
             tool_name=request.tool_name,
             question=request.question,
@@ -150,7 +140,7 @@ class HostedInteractionService(object):
                 {"index": item.index, "text": item.text, "mode": item.mode}
                 for item in request.options
             ],
-            details=request.details,
+            details=_public_details(request.details),
             turn_id=turn_id,
             step_id=step_id,
             step_index=step_index,
@@ -256,6 +246,12 @@ class HostedInteractionService(object):
             else:
                 raise ValueError("未找到待处理的交互请求。")
         if pending_kind == "permission":
+            if kind == "approve" and bool((payload or {}).get("remember")):
+                category = str((payload or {}).get("category") or "").strip()
+                if category:
+                    with state.lock:
+                        state.remembered_permission_categories.add(category)
+                        state.updated_at = _utc_now()
             if kind == "approve":
                 self.approve_permission(session_id, interaction_id)
             else:

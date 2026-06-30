@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 import threading
-from typing import Any, Callable, Optional, Tuple
+from typing import Any, Callable, List, Optional, Tuple
 
 from embedagent.agent_extension_host import AgentExtensionHost
 from embedagent.agent_lifecycle import AgentLifecycleJournal
@@ -38,6 +38,7 @@ class AgentToolActionService(object):
             ]
         ] = None,
         lifecycle: Optional[AgentLifecycleJournal] = None,
+        remembered_categories_provider: Optional[Callable[[Session], List[str]]] = None,
     ) -> None:
         self.tools = tools
         self.permission_policy = permission_policy
@@ -49,6 +50,7 @@ class AgentToolActionService(object):
         self._user_input_pending_handler = user_input_pending_handler
         self._user_input_response_handler = user_input_response_handler
         self.lifecycle = lifecycle
+        self._remembered_categories_provider = remembered_categories_provider
 
     def is_extension_blocked_observation(self, observation: Optional[Observation]) -> bool:
         if observation is None or not isinstance(observation.data, dict):
@@ -229,7 +231,13 @@ class AgentToolActionService(object):
         )
         if observation is not None:
             return observation, current_mode, None
-        decision = self.permission_policy.evaluate(runtime_action)
+        remembered_categories = []
+        if self._remembered_categories_provider is not None:
+            remembered_categories = self._remembered_categories_provider(session) or []
+        decision = self.permission_policy.evaluate(
+            runtime_action,
+            remembered_categories=remembered_categories,
+        )
         if decision.outcome == "deny":
             if self._permission_rejected_handler is not None:
                 self._permission_rejected_handler(session, action)

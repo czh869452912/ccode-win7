@@ -625,9 +625,6 @@ function App() {
     }
 
     for (const action of effects.actions || []) {
-      if (action.type === "user_input_request" && action.resetUserAnswer) {
-        setUserAnswer("");
-      }
       dispatch(action);
     }
 
@@ -685,18 +682,12 @@ function App() {
       await loadSession(currentSessionId);
     }
     if (interaction.kind === "permission") {
-      dispatch({ type: "permission_cleared" });
       if (payload?.decision && payload?.remember) {
         loadPermissionContext(currentSessionId);
       }
       logEvent("interaction_response", payload?.decision ? "approved" : "denied");
       return;
     }
-    dispatch({
-      type: "user_input_answered",
-      requestId: interaction.interaction_id,
-      answerText: payload?.selected_option_text || payload?.answer || userAnswer.trim(),
-    });
     setUserAnswer("");
     logEvent("interaction_response", (payload?.answer || payload?.selected_option_text || "").slice(0, 40));
   }
@@ -806,7 +797,6 @@ function App() {
     sourceControl: state.sourceControl,
     snapshot: state.snapshot,
     appShell: state.app,
-    userAnswer,
     runOutput: state.runOutput,
     onTabChange: (v) => {
       dispatch({ type: "set_inspector", value: v });
@@ -819,8 +809,6 @@ function App() {
     onRefreshSourceControl: () => loadSourceControlStatus(true),
     onSelectSourceControlFile: openSourceControlFile,
     onAppSettingsChange: (patch) => dispatch({ type: "app_shell_settings_changed", patch }),
-    onUserAnswerChange: setUserAnswer,
-    onRespondInteraction: respondToInteraction,
   };
 
   const RESIZE_RIGHT = 1;   // sidebar: drag right = expand

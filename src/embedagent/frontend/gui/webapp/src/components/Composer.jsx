@@ -20,6 +20,16 @@ const COMPOSER_HINT_LABELS = {
   "status.interaction": "composer.hint.interaction",
 };
 
+const COMPOSER_INPUT_MAX_HEIGHT = 160;
+
+function syncComposerTextareaSize(target) {
+  if (!target) return;
+  target.style.height = "auto";
+  const nextHeight = Math.min(target.scrollHeight, COMPOSER_INPUT_MAX_HEIGHT);
+  target.style.height = `${nextHeight}px`;
+  target.style.overflowY = target.scrollHeight > COMPOSER_INPUT_MAX_HEIGHT ? "auto" : "hidden";
+}
+
 export default function Composer({
   value,
   onChange,
@@ -98,6 +108,10 @@ export default function Composer({
     }
   }, [composerDisabled, triggerKey]);
 
+  useEffect(() => {
+    syncComposerTextareaSize(textareaRef.current);
+  }, [composerDisabled, textValue]);
+
   function recordCursor(target) {
     if (!target) return;
     const nextCursor = typeof target.selectionStart === "number" ? target.selectionStart : String(target.value || "").length;
@@ -110,6 +124,7 @@ export default function Composer({
       if (!target) return;
       target.focus();
       target.setSelectionRange(nextCursor, nextCursor);
+      syncComposerTextareaSize(target);
       setCursor(nextCursor);
     });
   }
@@ -118,6 +133,7 @@ export default function Composer({
     setDismissedTriggerKey("");
     recordCursor(event.target);
     onChange(event.target.value);
+    syncComposerTextareaSize(event.target);
   }
 
   function selectMenuItem(item) {

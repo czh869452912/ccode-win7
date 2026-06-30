@@ -59,7 +59,6 @@ export default function Inspector({
   sourceControl,
   snapshot,
   appShell,
-  userAnswer,
   runOutput,
   onTabChange,
   onOpenArtifact,
@@ -69,8 +68,6 @@ export default function Inspector({
   onRefreshSourceControl,
   onSelectSourceControlFile,
   onAppSettingsChange,
-  onRespondInteraction,
-  onUserAnswerChange,
   showTabs = true,
 }) {
   const lang = useLang();
@@ -91,9 +88,6 @@ export default function Inspector({
           <InteractionPanel
             interaction={currentInteraction}
             notice={interactionNotice}
-            answerValue={userAnswer}
-            onAnswerChange={onUserAnswerChange}
-            onRespond={onRespondInteraction}
           />
         )}
         {inspectorTab === "tasks" && <TaskPanel tasks={tasks} lang={lang} />}

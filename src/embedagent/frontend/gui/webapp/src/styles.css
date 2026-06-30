@@ -3017,7 +3017,7 @@ body {
   color: var(--text-primary); font-family: var(--font-sans);
   font-size: 13px; resize: none;
   min-height: 20px; max-height: 160px;
-  padding: 0; line-height: 1.5;
+  padding: 0; line-height: 1.5; overflow-y: hidden;
 }
 .composer-inner textarea::placeholder { color: var(--text-muted); }
 .composer-inner textarea:disabled      { opacity: .5; cursor: not-allowed; }
