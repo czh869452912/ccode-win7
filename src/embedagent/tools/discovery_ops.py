@@ -7,19 +7,7 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from embedagent.constants import SKIP_DIR_NAMES, SKIP_RELATIVE_DIRS
 from embedagent.session import Observation
-from embedagent.tools._base import ToolDefinition, ToolError
-
-
-def _diagnostic_tool_error(
-    message: str, error_kind: str, suggested_next_step: str = ""
-) -> ToolError:
-    return ToolError(
-        message,
-        error_kind=error_kind,
-        retryable=False,
-        outcome_class="diagnostic_failure",
-        suggested_next_step=suggested_next_step,
-    )
+from embedagent.tools._base import ToolDefinition, ToolError, diagnostic_tool_error
 
 
 def _resolve_search_root(ctx, raw_path: str) -> str:
@@ -28,16 +16,42 @@ def _resolve_search_root(ctx, raw_path: str) -> str:
     except ToolError as exc:
         text = str(exc)
         if "路径不存在" in text:
-            raise _diagnostic_tool_error(
+            raise diagnostic_tool_error(
                 text,
                 "path_not_found",
                 "Use list_dir or glob_files to find the correct search root.",
             )
         if "路径超出当前工作区" in text:
-            raise _diagnostic_tool_error(
+            raise diagnostic_tool_error(
                 text,
                 "path_outside_workspace",
                 "Search only paths inside the current workspace.",
+            )
+        raise
+
+
+def _resolve_listing_directory(ctx, raw_path: str) -> str:
+    try:
+        return ctx.resolve_directory(raw_path)
+    except ToolError as exc:
+        text = str(exc)
+        if "路径不存在" in text:
+            raise diagnostic_tool_error(
+                text,
+                "path_not_found",
+                "Use list_dir or glob_files to find an existing directory.",
+            )
+        if "路径超出当前工作区" in text:
+            raise diagnostic_tool_error(
+                text,
+                "path_outside_workspace",
+                "List only paths inside the current workspace.",
+            )
+        if "路径不是目录" in text:
+            raise diagnostic_tool_error(
+                text,
+                "not_directory",
+                "Use read_file for files or choose a directory path.",
             )
         raise
 
@@ -48,7 +62,7 @@ def _compile_pattern(pattern: str, literal: bool):
     try:
         return re.compile(pattern, re.IGNORECASE)
     except re.error as exc:
-        raise _diagnostic_tool_error(
+        raise diagnostic_tool_error(
             "搜索模式不是有效正则表达式：%s" % exc,
             "invalid_pattern",
             "Set literal=true for fixed-string search or provide a valid regular expression.",
@@ -92,7 +106,7 @@ def _skip_globs() -> Iterable[str]:
 
 def build_tools(ctx) -> List[ToolDefinition]:
     def _list_dir(arguments: Dict[str, Any]) -> Observation:
-        path = ctx.resolve_directory(str(arguments.get("path") or "."))
+        path = _resolve_listing_directory(ctx, str(arguments.get("path") or "."))
         limit = max(1, int(arguments.get("limit") or 50))
         offset = max(0, int(arguments.get("offset") or 0))
         names = sorted(os.listdir(path), key=lambda item: item.lower())
@@ -117,7 +131,7 @@ def build_tools(ctx) -> List[ToolDefinition]:
 
     def _glob_files(arguments: Dict[str, Any]) -> Observation:
         pattern = str(arguments.get("pattern") or "").strip()
-        path = ctx.resolve_directory(str(arguments.get("path") or "."))
+        path = _resolve_listing_directory(ctx, str(arguments.get("path") or "."))
         limit = max(1, int(arguments.get("limit") or 50))
         offset = max(0, int(arguments.get("offset") or 0))
         matches = []
@@ -217,7 +231,7 @@ def build_tools(ctx) -> List[ToolDefinition]:
                 stop_event=ctx.get_interrupt_event(),
             )
         except OSError as exc:
-            raise _diagnostic_tool_error(
+            raise diagnostic_tool_error(
                 "ripgrep 搜索失败：%s" % exc,
                 "search_failed",
                 "Check the bundled ripgrep executable and retry.",
@@ -226,12 +240,12 @@ def build_tools(ctx) -> List[ToolDefinition]:
         stderr = str(result.get("stderr") or "")
         if exit_code not in (0, 1):
             if _is_regex_parse_error(stderr):
-                raise _diagnostic_tool_error(
+                raise diagnostic_tool_error(
                     "搜索模式不是有效正则表达式：%s" % stderr.strip(),
                     "invalid_pattern",
                     "Set literal=true for fixed-string search or provide a valid regular expression.",
                 )
-            raise _diagnostic_tool_error(
+            raise diagnostic_tool_error(
                 "ripgrep 搜索失败：%s" % (stderr.strip() or "exit code %s" % exit_code),
                 "search_failed",
                 "Check the search path and pattern, then retry with a narrower query.",

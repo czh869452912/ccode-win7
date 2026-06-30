@@ -116,6 +116,18 @@ class ToolError(Exception):
         return data
 
 
+def diagnostic_tool_error(
+    message: str, error_kind: str, suggested_next_step: str = ""
+) -> ToolError:
+    return ToolError(
+        message,
+        error_kind=error_kind,
+        retryable=False,
+        outcome_class="diagnostic_failure",
+        suggested_next_step=suggested_next_step,
+    )
+
+
 @dataclass
 class ToolDefinition:
     name: str

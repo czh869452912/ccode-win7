@@ -309,6 +309,37 @@ class ThreeDistinctBashFailuresThenDoneClient(object):
         return reply
 
 
+class TwoReadDiagnosticsThenDoneClient(object):
+    def __init__(self):
+        self.calls = 0
+
+    def generate(self, messages, tools=None):
+        self.calls += 1
+        if self.calls == 1:
+            action = Action(
+                name="read_file",
+                arguments={"path": "src/missing.c"},
+                call_id="read-missing",
+            )
+            return AssistantReply(content="", actions=[action], finish_reason="tool_calls")
+        if self.calls == 2:
+            action = Action(
+                name="read_file",
+                arguments={"path": "src/binary.dat"},
+                call_id="read-binary",
+            )
+            return AssistantReply(content="", actions=[action], finish_reason="tool_calls")
+        return AssistantReply(
+            content="read diagnostics inspected", actions=[], finish_reason="stop"
+        )
+
+    def stream(self, messages, tools=None, on_text_delta=None, on_reasoning_delta=None):
+        reply = self.generate(messages, tools=tools)
+        if on_text_delta is not None and reply.content:
+            on_text_delta(reply.content)
+        return reply
+
+
 class LongToolThenDoneClient(object):
     def __init__(self, tool_turns):
         self.calls = 0
@@ -816,6 +847,8 @@ class TestQueryEngineRefactor(unittest.TestCase):
         os.makedirs(os.path.join(self.workspace, "src"), exist_ok=True)
         with open(os.path.join(self.workspace, "src", "demo.c"), "w", encoding="utf-8") as handle:
             handle.write("int demo(void) {\n    return 0;\n}\n")
+        with open(os.path.join(self.workspace, "src", "binary.dat"), "wb") as handle:
+            handle.write(b"not text\x00data")
         for index in range(1, 11):
             with open(
                 os.path.join(self.workspace, "src", "step_%02d.c" % index),
@@ -1068,6 +1101,39 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertEqual(result.final_text, "diagnostics completed")
         self.assertEqual(client.calls, 4)
         self.assertEqual(len(session.turns[-1].observations), 3)
+
+    def test_query_engine_continues_after_read_diagnostic_failures(self):
+        client = TwoReadDiagnosticsThenDoneClient()
+        transcript_store = TranscriptStore(self.workspace)
+        engine = QueryEngine(
+            client=client,
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+            transcript_store=transcript_store,
+        )
+        session = Session()
+        session.add_system_message("你是 EmbedAgent 的受控模式原型。\n当前模式：explore")
+
+        result = engine.submit_user_turn(
+            user_text="检查读取错误后继续总结",
+            stream=False,
+            initial_mode="explore",
+            session=session,
+        )
+
+        self.assertEqual(result.transition.reason, "completed")
+        self.assertEqual(result.final_text, "read diagnostics inspected")
+        self.assertEqual(client.calls, 3)
+        observations = session.turns[-1].observations
+        self.assertEqual(len(observations), 2)
+        self.assertTrue(
+            all(item.data.get("outcome_class") == "diagnostic_failure" for item in observations)
+        )
+        self.assertEqual(observations[0].data.get("error_kind"), "path_not_found")
+        self.assertEqual(observations[1].data.get("error_kind"), "binary_file")
+        events = transcript_store.load_events(session.session_id)
+        transitions = [item for item in events if item["type"] == "loop_transition"]
+        self.assertEqual(transitions[-1]["payload"]["reason"], "completed")
 
     def test_query_engine_guard_stops_repeated_parallel_no_progress_actions(self):
         client = ParallelSuccessfulReadThenDoneClient()
@@ -3661,7 +3727,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertEqual(
             tool_results,
             [
-                ("read_file", "tool_error"),
+                ("read_file", "path_not_found"),
                 ("read_file", None),
                 ("read_file", "discarded"),
                 ("edit_file", "discarded"),
@@ -3676,7 +3742,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertEqual(
             transcript_results,
             [
-                ("call-read-missing", "tool_error"),
+                ("call-read-missing", "path_not_found"),
                 ("call-read-demo-a", None),
                 ("call-read-demo-b", "discarded"),
                 ("call-edit-demo", "discarded"),

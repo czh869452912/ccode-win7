@@ -7,18 +7,62 @@ from typing import Any, Dict, List
 from embedagent.services.shadow_git import ShadowGitSnapshot
 from embedagent.session import Observation
 from embedagent.strategies.diff_engine import DiffBlock, MultiSearchReplaceDiffEngine
-from embedagent.tools._base import MAX_READ_CHARS, ToolContext, ToolDefinition, ToolError
+from embedagent.tools._base import (
+    MAX_READ_CHARS,
+    ToolContext,
+    ToolDefinition,
+    ToolError,
+    diagnostic_tool_error,
+)
 
 logger = logging.getLogger(__name__)
+
+
+def _read_file_tool_error(error: ToolError) -> ToolError:
+    text = str(error)
+    if "路径不存在" in text:
+        return diagnostic_tool_error(
+            text,
+            "path_not_found",
+            "Use list_dir or glob_files to find the correct file path.",
+        )
+    if "路径超出当前工作区" in text:
+        return diagnostic_tool_error(
+            text,
+            "path_outside_workspace",
+            "Read only files inside the current workspace.",
+        )
+    if "只能读取文件" in text:
+        return diagnostic_tool_error(
+            text,
+            "not_file",
+            "Use list_dir for directories or choose a file path.",
+        )
+    if "文件看起来不是文本文件" in text:
+        return diagnostic_tool_error(
+            text,
+            "binary_file",
+            "Use file discovery tools to inspect names and read only text files.",
+        )
+    if "文件编码无法识别" in text:
+        return diagnostic_tool_error(
+            text,
+            "unknown_encoding",
+            "Try another text file or inspect the file encoding outside read_file.",
+        )
+    return error
 
 
 def build_tools(ctx: ToolContext) -> List[ToolDefinition]:
 
     def _read_file(arguments: Dict[str, Any]) -> Observation:
-        path = ctx.resolve_path(str(arguments["path"]))
-        if not os.path.isfile(path):
-            raise ToolError("只能读取文件，不能读取目录。")
-        content, _, encoding = ctx.read_text(path)
+        try:
+            path = ctx.resolve_path(str(arguments["path"]))
+            if not os.path.isfile(path):
+                raise ToolError("只能读取文件，不能读取目录。")
+            content, _, encoding = ctx.read_text(path)
+        except ToolError as exc:
+            raise _read_file_tool_error(exc)
         original_length = len(content)
         truncated = original_length > MAX_READ_CHARS
         if truncated:

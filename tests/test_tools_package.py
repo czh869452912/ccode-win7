@@ -372,6 +372,35 @@ class TestToolRuntimeExecute(unittest.TestCase):
         self.assertTrue(obs.success)
         self.assertIn("hello world", obs.data["content"])
 
+    def test_read_file_missing_path_is_diagnostic_failure(self):
+        obs = self.rt.execute("read_file", {"path": "missing.txt"})
+
+        self.assertFalse(obs.success)
+        self.assertEqual(obs.data["error_kind"], "path_not_found")
+        self.assertEqual(obs.data["outcome_class"], "diagnostic_failure")
+        self.assertFalse(obs.data["retryable"])
+
+    def test_read_file_binary_path_is_diagnostic_failure(self):
+        with open(os.path.join(self.workspace, "image.bin"), "wb") as handle:
+            handle.write(b"abc\x00def")
+
+        obs = self.rt.execute("read_file", {"path": "image.bin"})
+
+        self.assertFalse(obs.success)
+        self.assertEqual(obs.data["error_kind"], "binary_file")
+        self.assertEqual(obs.data["outcome_class"], "diagnostic_failure")
+        self.assertFalse(obs.data["retryable"])
+
+    def test_list_dir_outside_workspace_is_diagnostic_failure(self):
+        outside = os.path.dirname(self.workspace)
+
+        obs = self.rt.execute("list_dir", {"path": outside})
+
+        self.assertFalse(obs.success)
+        self.assertEqual(obs.data["error_kind"], "path_outside_workspace")
+        self.assertEqual(obs.data["outcome_class"], "diagnostic_failure")
+        self.assertFalse(obs.data["retryable"])
+
     def test_grep_text_continues_with_replacement_decoded_files(self):
         with open(os.path.join(self.workspace, "good.txt"), "w", encoding="utf-8") as handle:
             handle.write("needle\n")
