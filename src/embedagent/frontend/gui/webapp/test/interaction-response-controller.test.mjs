@@ -11,7 +11,7 @@ function deferred() {
 }
 
 export async function runInteractionResponseControllerTests() {
-  let inFlight = "";
+  let respondingIds = [];
   let cleared = 0;
   const calls = [];
   const dispatches = [];
@@ -26,9 +26,9 @@ export async function runInteractionResponseControllerTests() {
     normalizeSessionPayload: (payload) => ({ ...payload, normalized: true }),
     getCurrentSessionId: () => "sess-1",
     getCurrentInteraction: () => ({ interaction_id: "ask-1", kind: "user_input" }),
-    getResponseInFlight: () => inFlight,
-    setResponseInFlight: (value) => {
-      inFlight = value;
+    getRespondingRequestIds: () => respondingIds,
+    setRespondingRequestIds: (value) => {
+      respondingIds = typeof value === "function" ? value(respondingIds) : value;
     },
     loadSession: async () => {
       throw new Error("loadSession should not run on resolved response");
@@ -39,15 +39,9 @@ export async function runInteractionResponseControllerTests() {
     logEvent: (label, detail) => logs.push({ label, detail }),
   });
 
-  const first = controller.respondToInteraction({
-    response_kind: "answer",
-    answer: "yes",
-  });
-  assert.equal(inFlight, "ask-1");
-  const duplicate = await controller.respondToInteraction({
-    response_kind: "answer",
-    answer: "again",
-  });
+  const first = controller.respondToInteraction({ answers: { answer: "yes" } });
+  assert.equal(respondingIds.includes("ask-1"), true);
+  const duplicate = await controller.respondToInteraction({ answers: { answer: "again" } });
   assert.equal(duplicate, null);
   assert.equal(calls.length, 1);
 
@@ -66,7 +60,7 @@ export async function runInteractionResponseControllerTests() {
   const response = await first;
 
   assert.equal(response.status, "resolved");
-  assert.equal(inFlight, "");
+  assert.deepEqual(respondingIds, []);
   assert.equal(cleared, 1);
   assert.equal(calls[0].url, "/api/sessions/sess-1/interactions/ask-1/respond");
   assert.equal(dispatches[0].type, "interaction_notice_clear");
@@ -76,7 +70,7 @@ export async function runInteractionResponseControllerTests() {
   assert.equal(logs[0].detail, "yes");
 
   let loadedSession = "";
-  inFlight = "";
+  respondingIds = [];
   const expiredController = createInteractionResponseController({
     fetchJson: async () => {
       const error = new Error("interaction_expired");
@@ -88,9 +82,9 @@ export async function runInteractionResponseControllerTests() {
     normalizeSessionPayload: (payload) => payload,
     getCurrentSessionId: () => "sess-1",
     getCurrentInteraction: () => ({ interaction_id: "ask-2", kind: "user_input" }),
-    getResponseInFlight: () => inFlight,
-    setResponseInFlight: (value) => {
-      inFlight = value;
+    getRespondingRequestIds: () => respondingIds,
+    setRespondingRequestIds: (value) => {
+      respondingIds = typeof value === "function" ? value(respondingIds) : value;
     },
     loadSession: async (sessionId) => {
       loadedSession = sessionId;
@@ -98,13 +92,10 @@ export async function runInteractionResponseControllerTests() {
     logEvent: (label, detail) => logs.push({ label, detail }),
   });
 
-  const expired = await expiredController.respondToInteraction({
-    response_kind: "answer",
-    answer: "late",
-  });
+  const expired = await expiredController.respondToInteraction({ answers: { answer: "late" } });
 
   assert.equal(expired, null);
-  assert.equal(inFlight, "");
+  assert.deepEqual(respondingIds, []);
   assert.equal(loadedSession, "sess-1");
   assert.equal(dispatches.at(-1).type, "interaction_notice_set");
   assert.equal(dispatches.at(-1).notice.kind, "expired");

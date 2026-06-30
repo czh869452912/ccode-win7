@@ -70,6 +70,10 @@ import {
 const MODES = ["explore", "spec", "build", "debug", "verify"];
 const EMPTY_COMMAND_HINTS = [];
 
+function isTurnInterruptibleStatus(status) {
+  return status === "running" || status === "waiting_permission" || status === "waiting_user_input";
+}
+
 function App() {
   const [state, dispatch] = useReducer(reducer, initialState, (baseState) => ({
     ...baseState,
@@ -77,12 +81,12 @@ function App() {
   }));
   const treeHeight = 640;
   const [userAnswer, setUserAnswer] = useState("");
-  const [interactionResponseInFlight, setInteractionResponseInFlightState] = useState("");
+  const [respondingRequestIds, setRespondingRequestIdsState] = useState([]);
   const [sessionTransport, setSessionTransport] = useState(() => createSessionTransportState());
   const timelineRef = useRef(null);
   const isAtBottomRef = useRef(true);
   const currentSessionIdRef = useRef("");
-  const interactionResponseInFlightRef = useRef("");
+  const respondingRequestIdsRef = useRef([]);
   const runtimeStateRef = useRef(null);
   const sessionTransportRef = useRef(sessionTransport);
   const sessionTransportControllerRef = useRef(null);
@@ -98,7 +102,7 @@ function App() {
   const commandContext = useMemo(() => ({
     hasSession: Boolean(currentSessionId),
     hasWorkspace: Boolean(state.app.hasActiveWorkspace),
-    isRunning: currentStatus === "running" || currentStatus === "waiting_user_input",
+    isRunning: isTurnInterruptibleStatus(currentStatus),
     paletteOpen: state.workbench.commandPalette.open,
   }), [
     currentStatus,
@@ -169,10 +173,14 @@ function App() {
     return nextTransport;
   }
 
-  function setInteractionResponseInFlight(value) {
-    const normalized = String(value || "");
-    interactionResponseInFlightRef.current = normalized;
-    setInteractionResponseInFlightState(normalized);
+  function setRespondingRequestIds(value) {
+    const nextValue =
+      typeof value === "function" ? value(respondingRequestIdsRef.current) : value;
+    const normalized = Array.isArray(nextValue)
+      ? nextValue.map((item) => String(item || "")).filter(Boolean)
+      : [];
+    respondingRequestIdsRef.current = normalized;
+    setRespondingRequestIdsState(normalized);
   }
 
   function createRuntimeSessionTransport() {
@@ -214,7 +222,7 @@ function App() {
   // Escape key cancels running session
   useEffect(() => {
     function onKeyDown(e) {
-      if (e.key === "Escape" && (currentStatus === "running" || currentStatus === "waiting_user_input")) {
+      if (e.key === "Escape" && isTurnInterruptibleStatus(currentStatus)) {
         cancelSession();
       }
     }
@@ -582,7 +590,7 @@ function App() {
     function onWorkbenchKeyDown(event) {
       const command = resolveKeybinding(DEFAULT_KEYBINDINGS, eventToKey(event), {
         paletteOpen: state.workbench.commandPalette.open,
-        isRunning: currentStatus === "running" || currentStatus === "waiting_user_input",
+        isRunning: isTurnInterruptibleStatus(currentStatus),
         composerFocused: document.activeElement?.dataset?.testid === "composer-input",
       });
       if (!command) return;
@@ -664,8 +672,8 @@ function App() {
         normalizeSessionPayload,
         getCurrentSessionId: () => currentSessionIdRef.current,
         getCurrentInteraction: () => runtimeStateRef.current?.currentInteraction || null,
-        getResponseInFlight: () => interactionResponseInFlightRef.current,
-        setResponseInFlight: setInteractionResponseInFlight,
+        getRespondingRequestIds: () => respondingRequestIdsRef.current,
+        setRespondingRequestIds,
         loadSession,
         loadPermissionContext,
         clearUserAnswer: () => setUserAnswer(""),
@@ -889,7 +897,7 @@ function App() {
               onChange={(v) => dispatch({ type: "set_composer", value: v })}
               onSend={sendMessage}
               onStop={cancelSession}
-              isRunning={currentStatus === "running" || currentStatus === "waiting_user_input"}
+              isRunning={isTurnInterruptibleStatus(currentStatus)}
               currentMode={currentMode}
               commandHints={EMPTY_COMMAND_HINTS}
               commands={composerCommands}
@@ -897,7 +905,10 @@ function App() {
               onOpenCommandPalette={() => dispatch({ type: "workbench_command_palette_opened" })}
               interaction={runtimeState.currentInteraction}
               interactionNotice={interactionNotice}
-              interactionBusy={Boolean(interactionResponseInFlight)}
+              interactionBusy={Boolean(
+                runtimeState.currentInteraction?.interactionId &&
+                  respondingRequestIds.includes(runtimeState.currentInteraction.interactionId)
+              )}
               answerValue={userAnswer}
               onAnswerChange={setUserAnswer}
               onRespondInteraction={respondToInteraction}

@@ -30,7 +30,7 @@ function hasActiveWorkspace(state) {
 }
 
 function isRunningStatus(status) {
-  return status === "running" || status === "waiting_user_input";
+  return status === "running" || status === "waiting_permission" || status === "waiting_user_input";
 }
 
 function hasInteraction(state) {

@@ -9,9 +9,9 @@ function interactionIdFor(interaction) {
 
 function interactionLogDetail(interaction, payload) {
   if (interaction?.kind === "permission") {
-    return payload?.decision ? "approved" : "denied";
+    return String(payload?.decision || "");
   }
-  return String(payload?.answer || payload?.selected_option_text || "").slice(0, 40);
+  return String(payload?.answers?.answer || "").slice(0, 40);
 }
 
 export function createInteractionResponseController({
@@ -20,8 +20,8 @@ export function createInteractionResponseController({
   normalizeSessionPayload,
   getCurrentSessionId,
   getCurrentInteraction,
-  getResponseInFlight,
-  setResponseInFlight,
+  getRespondingRequestIds,
+  setRespondingRequestIds,
   loadSession,
   loadPermissionContext,
   clearUserAnswer,
@@ -34,24 +34,47 @@ export function createInteractionResponseController({
   const readSessionId = typeof getCurrentSessionId === "function" ? getCurrentSessionId : () => "";
   const readInteraction =
     typeof getCurrentInteraction === "function" ? getCurrentInteraction : () => null;
-  const readInFlight =
-    typeof getResponseInFlight === "function" ? getResponseInFlight : () => "";
-  const writeInFlight =
-    typeof setResponseInFlight === "function" ? setResponseInFlight : () => {};
+  const readRespondingIds =
+    typeof getRespondingRequestIds === "function" ? getRespondingRequestIds : () => [];
+  const writeRespondingIds =
+    typeof setRespondingRequestIds === "function" ? setRespondingRequestIds : () => {};
   const reloadSession = typeof loadSession === "function" ? loadSession : () => Promise.resolve();
   const reloadPermissions =
     typeof loadPermissionContext === "function" ? loadPermissionContext : () => {};
   const clearAnswer = typeof clearUserAnswer === "function" ? clearUserAnswer : () => {};
   const recordEvent = typeof logEvent === "function" ? logEvent : () => {};
 
+  function respondingIds() {
+    const value = readRespondingIds();
+    return Array.isArray(value) ? value.map((item) => String(item || "")) : [];
+  }
+
+  function isResponding(id) {
+    return respondingIds().includes(id);
+  }
+
+  function markResponding(id) {
+    writeRespondingIds((existing) => {
+      const current = Array.isArray(existing) ? existing : [];
+      return current.includes(id) ? current : [...current, id];
+    });
+  }
+
+  function clearResponding(id) {
+    writeRespondingIds((existing) => {
+      const current = Array.isArray(existing) ? existing : [];
+      return current.filter((value) => value !== id);
+    });
+  }
+
   async function respondToInteraction(payload) {
     const sessionId = String(readSessionId() || "");
     const interaction = readInteraction();
     const interactionId = interactionIdFor(interaction);
     if (!sessionId || !interactionId) return null;
-    if (readInFlight()) return null;
+    if (isResponding(interactionId)) return null;
 
-    writeInFlight(interactionId);
+    markResponding(interactionId);
     send({ type: "interaction_notice_clear" });
     try {
       const response = await fetchPayload(
@@ -71,7 +94,7 @@ export function createInteractionResponseController({
         await reloadSession(sessionId);
       }
       if (interaction.kind === "permission") {
-        if (payload?.decision && payload?.remember) {
+        if (payload?.decision === "acceptForSession") {
           reloadPermissions(sessionId);
         }
       } else {
@@ -94,9 +117,7 @@ export function createInteractionResponseController({
       }
       throw error;
     } finally {
-      if (readInFlight() === interactionId) {
-        writeInFlight("");
-      }
+      clearResponding(interactionId);
     }
   }
 

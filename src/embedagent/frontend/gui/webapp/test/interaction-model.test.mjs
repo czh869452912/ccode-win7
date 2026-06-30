@@ -28,50 +28,41 @@ export function runInteractionModelTests() {
   assert.equal(permission.detailRows[0].label, "path");
   assert.equal(permission.detailRows[0].value, "src/demo.c");
 
-  assert.deepEqual(
-    buildPermissionResponse(permission, { decision: true, remember: true }),
-    {
-      response_kind: "approve",
-      decision: true,
-      remember: true,
-      category: "workspace_write",
-    },
-  );
-  assert.deepEqual(
-    buildPermissionResponse(permission, { decision: false, remember: true }),
-    {
-      response_kind: "deny",
-      decision: false,
-      remember: false,
-      category: "workspace_write",
-    },
-  );
+  assert.deepEqual(buildPermissionResponse(permission, "acceptForSession"), {
+    decision: "acceptForSession",
+  });
+  assert.deepEqual(buildPermissionResponse(permission, "decline"), {
+    decision: "decline",
+  });
 
   const ask = normalizeComposerInteraction({
     interaction_id: "ask-1",
     kind: "user_input",
     tool_name: "ask_user",
-    question: "Continue?",
-    options: [
-      { index: 1, text: "Continue" },
-      { index: 2, text: "Switch to debug", mode: "debug" },
+    questions: [
+      {
+        id: "answer",
+        question: "Continue?",
+        options: [
+          { index: 1, label: "Continue" },
+          { index: 2, label: "Switch to debug", mode: "debug" },
+        ],
+        multi_select: false,
+      },
     ],
   });
 
   assert.equal(ask.kind, "user_input");
   assert.equal(ask.summary, "Input requested");
+  assert.equal(ask.questions[0].id, "answer");
   assert.equal(ask.options[0].shortcut, "1");
+  assert.equal(ask.options[1].label, "Switch to debug");
   assert.equal(ask.options[1].mode, "debug");
   assert.deepEqual(buildUserInputResponse(ask, { option: ask.options[1] }), {
-    response_kind: "answer",
-    answer: "Switch to debug",
-    selected_index: 2,
-    selected_mode: "debug",
-    selected_option_text: "Switch to debug",
+    answers: { answer: "Switch to debug" },
   });
   assert.deepEqual(buildUserInputResponse(ask, { answer: "custom path" }), {
-    response_kind: "answer",
-    answer: "custom path",
+    answers: { answer: "custom path" },
   });
 
   const expired = interactionNoticeView({ kind: "expired", detail: "gone" });

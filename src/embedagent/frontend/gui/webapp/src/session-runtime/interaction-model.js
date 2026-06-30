@@ -52,11 +52,14 @@ function detailRowsFor(details) {
 function normalizeOptions(options) {
   return (Array.isArray(options) ? options : []).map((option, index) => {
     const selectedIndex = Number(option?.index || index + 1);
+    const label = cleanString(option?.label || option?.text || option?.value);
     return {
       index: selectedIndex,
-      text: cleanString(option?.text || option?.label || option?.value),
+      label,
+      text: label,
+      value: cleanString(option?.value || label),
       description: cleanString(option?.description),
-      mode: cleanString(option?.mode || option?.selected_mode),
+      mode: cleanString(option?.mode),
       shortcut: selectedIndex >= 1 && selectedIndex <= 9 ? String(selectedIndex) : "",
     };
   }).filter((option) => option.text);
@@ -109,42 +112,46 @@ export function normalizeComposerInteraction(interaction, notice = null) {
       rawInteraction: interaction,
     };
   }
+  const rawQuestions = Array.isArray(interaction.questions) ? interaction.questions : [];
+  const questions = rawQuestions.length
+    ? rawQuestions.map((question, index) => ({
+        id: cleanString(question?.id || (index === 0 ? "answer" : `answer_${index + 1}`)),
+        question: cleanString(question?.question),
+        options: normalizeOptions(question?.options),
+        multi_select: Boolean(question?.multi_select || question?.multiSelect),
+      })).filter((question) => question.question || question.options.length > 0)
+    : [
+        {
+          id: "answer",
+          question: cleanString(interaction.question),
+          options: normalizeOptions(interaction.options),
+          multi_select: false,
+        },
+      ];
+  const firstQuestion = questions[0] || { question: "", options: [] };
   return {
     kind: "user_input",
     interactionId: cleanString(interaction.interaction_id || interaction.request_id),
     summary: "Input requested",
     toolName: cleanString(interaction.tool_name || interaction.toolName),
-    question: cleanString(interaction.question),
-    options: normalizeOptions(interaction.options),
+    questions,
+    question: firstQuestion.question || "",
+    options: firstQuestion.options || [],
     customPlaceholder: "Or type a custom answer...",
     submitLabel: "Submit",
     rawInteraction: interaction,
   };
 }
 
-export function buildPermissionResponse(interaction, options = {}) {
-  const approved = Boolean(options.decision);
-  return {
-    response_kind: approved ? "approve" : "deny",
-    decision: approved,
-    remember: approved ? Boolean(options.remember) : false,
-    category: cleanString(interaction?.category),
-  };
+export function buildPermissionResponse(_interaction, decision) {
+  return { decision };
 }
 
 export function buildUserInputResponse(interaction, options = {}) {
   const selected = options.option || null;
-  if (selected) {
-    return {
-      response_kind: "answer",
-      answer: selected.text || "",
-      selected_index: selected.index || null,
-      selected_mode: selected.mode || "",
-      selected_option_text: selected.text || "",
-    };
-  }
   return {
-    response_kind: "answer",
-    answer: cleanString(options.answer),
+    answers: {
+      answer: selected ? selected.label || selected.text || "" : cleanString(options.answer),
+    },
   };
 }

@@ -100,7 +100,7 @@ function PermissionPanel({ view, remember, onRememberChange, busy = false, onRes
           type="button"
           className="ghost btn-deny"
           disabled={busy}
-          onClick={() => onRespond && onRespond(buildPermissionResponse(view, { decision: false }))}
+          onClick={() => onRespond && onRespond(buildPermissionResponse(view, "decline"))}
           data-testid="permission-deny-button"
         >
           {view.secondaryLabel}
@@ -109,7 +109,10 @@ function PermissionPanel({ view, remember, onRememberChange, busy = false, onRes
           type="button"
           className="primary"
           disabled={busy}
-          onClick={() => onRespond && onRespond(buildPermissionResponse(view, { decision: true, remember }))}
+          onClick={() =>
+            onRespond &&
+            onRespond(buildPermissionResponse(view, remember ? "acceptForSession" : "accept"))
+          }
           data-testid="permission-approve-button"
         >
           {view.primaryLabel}
@@ -136,7 +139,7 @@ function UserInputPanel({ view, busy = false, answerValue, onAnswerChange, onRes
         <div className="composer-option-list">
           {view.options.map((option) => (
             <button
-              key={`${option.index}-${option.text}`}
+              key={`${option.index}-${option.label || option.text}`}
               type="button"
               className="composer-option"
               disabled={busy}

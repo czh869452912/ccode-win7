@@ -77,6 +77,12 @@ export function runWorkbenchParityModelTests() {
   assert.equal(narrowModel.composer.mode, "running");
   assert.equal(narrowModel.timeline.density, "compact");
 
+  const waitingPermission = buildWorkbenchParityModel(
+    sessionWorkspaceState({ snapshot: { status: "waiting_permission" } }),
+    { width: 900, height: 760 },
+  );
+  assert.equal(waitingPermission.composer.mode, "running");
+
   let mobile = sessionWorkspaceState({
     snapshot: {
       status: "waiting_user_input",

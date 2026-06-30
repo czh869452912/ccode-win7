@@ -491,9 +491,9 @@ class TerminalController(object):
                 reducer.update_snapshot(
                     self.owner.state, current_mode=str(data.get("to_mode") or "")
                 )
-            if payload.get("tool_name") == "ask_user" and data.get("selected_mode"):
+            if payload.get("tool_name") == "ask_user" and data.get("mode"):
                 reducer.update_snapshot(
-                    self.owner.state, current_mode=str(data.get("selected_mode") or "")
+                    self.owner.state, current_mode=str(data.get("mode") or "")
                 )
             reducer.append_line(self.owner.state, format_observation_line(payload))
         elif event_name == "permission_required":
