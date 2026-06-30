@@ -11,6 +11,8 @@ def translate_value_error(exc: ValueError) -> HTTPException:
         return HTTPException(status_code=410, detail="interaction_expired")
     if detail == "interaction_conflict":
         return HTTPException(status_code=409, detail=detail)
+    if detail == "invalid_interaction_response":
+        return HTTPException(status_code=422, detail=detail)
     return HTTPException(status_code=422, detail=detail or "invalid_request")
 
 

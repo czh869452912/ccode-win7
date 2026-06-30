@@ -912,6 +912,8 @@ class HostedCommandService(object):
             approved = False
             with state.lock:
                 response = dict(state.pending_response or {})
+                if response.get("cancelled"):
+                    state.stop_event.set()
                 approved = bool(response.get("approved"))
                 state.pending_event = None
                 state.pending_response = None

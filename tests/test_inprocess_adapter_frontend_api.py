@@ -2185,13 +2185,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         adapter.respond_to_interaction(
             session_id,
             interaction_id,
-            {
-                "response_kind": "answer",
-                "answer": "切到 debug 模式继续排查",
-                "selected_index": 1,
-                "selected_mode": "debug",
-                "selected_option_text": "切到 debug 模式继续排查",
-            },
+            {"answers": {"answer": "切到 debug 模式继续排查"}},
         )
 
         tool_finished = [
@@ -2291,13 +2285,13 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         result = adapter.respond_to_interaction(
             "sess-1",
             "interaction-1",
-            {"response_kind": "approve"},
+            {"decision": "accept"},
         )
 
-        self.assertEqual(calls, [("sess-1", "interaction-1", {"response_kind": "approve"})])
+        self.assertEqual(calls, [("sess-1", "interaction-1", {"decision": "accept"})])
         self.assertEqual(result, {"status": "resolved"})
 
-    def test_approve_permission_returns_resolved_snapshot_for_command_wait(self):
+    def test_permission_accept_decision_returns_resolved_snapshot_for_command_wait(self):
         os.makedirs(os.path.join(self.workspace, ".embedagent"), exist_ok=True)
         with open(
             os.path.join(self.workspace, ".embedagent", "workspace-recipes.json"),
@@ -2337,13 +2331,161 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         permission_id = str(pending.get("interaction_id") or "")
         self.assertTrue(permission_id)
 
-        resolved = adapter.approve_permission(session_id, permission_id)
+        resolved = adapter.respond_to_interaction(
+            session_id,
+            permission_id,
+            {"decision": "accept"},
+        )
 
         worker.join(3.0)
         self.assertEqual(resolved["status"], "idle")
         self.assertFalse(resolved["pending_interaction_valid"])
         self.assertIsNone(resolved.get("pending_interaction"))
         self.assertNotIn("has_pending_permission", resolved)
+
+    def test_permission_accept_for_session_remembers_backend_ticket_category(self):
+        os.makedirs(os.path.join(self.workspace, ".embedagent"), exist_ok=True)
+        with open(
+            os.path.join(self.workspace, ".embedagent", "workspace-recipes.json"),
+            "w",
+            encoding="utf-8",
+        ) as handle:
+            handle.write(
+                '[{"id":"custom.build","tool_name":"run_recipe","recipe_action":"build","label":"Custom Build","command":"cmd /c echo build-ok","cwd":"."}]'
+            )
+        adapter = InProcessAdapter(
+            client=FakeClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=False, workspace=self.workspace),
+        )
+        snapshot = adapter.create_session("build")
+        session_id = str(snapshot.get("session_id") or "")
+        worker = threading.Thread(
+            target=adapter.submit_user_message,
+            kwargs={
+                "session_id": session_id,
+                "text": "/run custom.build",
+                "stream": False,
+                "wait": True,
+                "event_handler": lambda event_name, current_session_id, payload: None,
+            },
+        )
+        worker.start()
+        deadline = time.time() + 3.0
+        waiting = adapter.get_session_snapshot(session_id)
+        while time.time() < deadline:
+            waiting = adapter.get_session_snapshot(session_id)
+            if waiting.get("status") == "waiting_permission":
+                break
+            time.sleep(0.05)
+        pending = waiting.get("pending_interaction") or {}
+        self.assertEqual(pending.get("kind"), "permission")
+        self.assertEqual(pending.get("category"), "toolchain_exec")
+        interaction_id = str(pending.get("interaction_id") or "")
+        self.assertTrue(interaction_id)
+
+        adapter.respond_to_interaction(session_id, interaction_id, {"decision": "acceptForSession"})
+        worker.join(3.0)
+
+        context = adapter.get_permission_context(session_id)
+        self.assertIn("toolchain_exec", context.remembered_categories)
+
+    def test_respond_to_interaction_rejects_legacy_payload_shape(self):
+        adapter = InProcessAdapter(
+            client=AskUserClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+        )
+        snapshot = adapter.create_session("spec")
+        session_id = str(snapshot.get("session_id") or "")
+        adapter.submit_user_message(
+            session_id=session_id,
+            text="请继续",
+            stream=False,
+            wait=True,
+            event_handler=lambda event_name, current_session_id, payload: None,
+        )
+        waiting = adapter.get_session_snapshot(session_id)
+        interaction_id = str((waiting.get("pending_interaction") or {}).get("interaction_id") or "")
+
+        with self.assertRaises(ValueError) as raised:
+            adapter.respond_to_interaction(
+                session_id,
+                interaction_id,
+                {"response_kind": "answer", "answer": "legacy"},
+            )
+        self.assertIn("invalid_interaction_response", str(raised.exception))
+
+    def test_respond_to_interaction_conflicts_when_another_pending_is_active(self):
+        adapter = InProcessAdapter(
+            client=AskUserClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+        )
+        snapshot = adapter.create_session("spec")
+        session_id = str(snapshot.get("session_id") or "")
+        adapter.submit_user_message(
+            session_id=session_id,
+            text="请继续",
+            stream=False,
+            wait=True,
+            event_handler=lambda event_name, current_session_id, payload: None,
+        )
+
+        with self.assertRaises(ValueError) as raised:
+            adapter.respond_to_interaction(
+                session_id,
+                "different-id",
+                {"answers": {"answer": "x"}},
+            )
+        self.assertIn("interaction_conflict", str(raised.exception))
+
+    def test_permission_cancel_decision_interrupts_pending_wait(self):
+        os.makedirs(os.path.join(self.workspace, ".embedagent"), exist_ok=True)
+        with open(
+            os.path.join(self.workspace, ".embedagent", "workspace-recipes.json"),
+            "w",
+            encoding="utf-8",
+        ) as handle:
+            handle.write(
+                '[{"id":"custom.build","tool_name":"run_recipe","recipe_action":"build","label":"Custom Build","command":"cmd /c echo build-ok","cwd":"."}]'
+            )
+        adapter = InProcessAdapter(
+            client=FakeClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=False, workspace=self.workspace),
+        )
+        snapshot = adapter.create_session("build")
+        session_id = str(snapshot.get("session_id") or "")
+        worker = threading.Thread(
+            target=adapter.submit_user_message,
+            kwargs={
+                "session_id": session_id,
+                "text": "/run custom.build",
+                "stream": False,
+                "wait": True,
+                "event_handler": lambda event_name, current_session_id, payload: None,
+            },
+        )
+        worker.start()
+        deadline = time.time() + 3.0
+        waiting = adapter.get_session_snapshot(session_id)
+        while time.time() < deadline:
+            waiting = adapter.get_session_snapshot(session_id)
+            if waiting.get("status") == "waiting_permission":
+                break
+            time.sleep(0.05)
+        interaction_id = str((waiting.get("pending_interaction") or {}).get("interaction_id") or "")
+        self.assertTrue(interaction_id)
+
+        resolved = adapter.respond_to_interaction(session_id, interaction_id, {"decision": "cancel"})
+
+        worker.join(3.0)
+        self.assertFalse(worker.is_alive())
+        final_snapshot = adapter.get_session_snapshot(session_id)
+        self.assertFalse(final_snapshot["pending_interaction_valid"])
+        self.assertIsNone(final_snapshot.get("pending_interaction"))
+        self.assertIn(resolved["status"], ("idle", "running"))
 
     def test_live_permission_pending_id_matches_session_pending_interaction(self):
         os.makedirs(os.path.join(self.workspace, ".embedagent"), exist_ok=True)
@@ -2422,12 +2564,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         adapter.respond_to_interaction(
             session_id,
             permission_id,
-            {
-                "response_kind": "approve",
-                "decision": True,
-                "remember": True,
-                "category": "workspace_write",
-            },
+            {"decision": "acceptForSession"},
         )
         final_snapshot = adapter.get_session_snapshot(session_id)
 

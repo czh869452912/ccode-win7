@@ -13,6 +13,7 @@ from embedagent.session_runtime import ManagedSession
 EventHandler = Callable[[str, str, Dict[str, Any]], None]
 UserInputResolver = Callable[[Dict[str, Any]], Optional[Dict[str, Any]]]
 _INTERACTION_ID_DETAIL_KEY = "_interaction_id"
+_PERMISSION_DECISIONS = set(["accept", "acceptForSession", "decline", "cancel"])
 
 
 def _utc_now() -> str:
@@ -23,6 +24,22 @@ def _public_details(details: Dict[str, Any]) -> Dict[str, Any]:
     payload = dict(details or {})
     payload.pop(_INTERACTION_ID_DETAIL_KEY, None)
     return payload
+
+
+def _invalid_response() -> ValueError:
+    return ValueError("invalid_interaction_response")
+
+
+def _answer_from_payload(payload: Dict[str, Any]) -> str:
+    answers = payload.get("answers") if isinstance(payload, dict) else None
+    if not isinstance(answers, dict):
+        raise _invalid_response()
+    if "answer" in answers:
+        return str(answers.get("answer") or "")
+    if answers:
+        first_key = sorted(answers.keys())[0]
+        return str(answers.get(first_key) or "")
+    raise _invalid_response()
 
 
 def _request_kind_for_category(category: str) -> str:
@@ -89,6 +106,24 @@ def _questions_from_request_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
         ],
         "details": _public_details(details),
     }
+
+
+def _response_for_answer(ticket: "HostedPendingInteraction", answer: str) -> UserInputResponse:
+    questions = ticket.payload.get("questions") or []
+    options = []
+    if questions and isinstance(questions[0], dict):
+        options = list(questions[0].get("options") or [])
+    for item in options:
+        if not isinstance(item, dict):
+            continue
+        if str(item.get("label") or item.get("value") or "") == answer:
+            return UserInputResponse(
+                answer=answer,
+                selected_index=item.get("index"),
+                selected_mode=str(item.get("mode") or ""),
+                selected_option_text=str(item.get("label") or answer),
+            )
+    return UserInputResponse(answer=answer)
 
 
 @dataclass
@@ -284,44 +319,17 @@ class HostedInteractionService(object):
         selected_option_text: str = "",
     ) -> Dict[str, Any]:
         state = self._require_session(session_id)
-        command_wait = False
         with state.lock:
             pending = state.pending_interaction
             if pending is None or pending.kind != "user_input" or pending.request_id != request_id:
                 raise ValueError("未找到待处理的用户问题。")
-            if state.pending_event is not None:
-                state.pending_response = {
-                    "user_input": UserInputResponse(
-                        answer=str(answer or ""),
-                        selected_index=selected_index,
-                        selected_mode=str(selected_mode or ""),
-                        selected_option_text=str(selected_option_text or ""),
-                    )
-                }
-                state.pending_event.set()
-                command_wait = True
-        if command_wait:
-            snapshot = self.wait_for_command_resolution(session_id)
-            self._notify_status(None, state)
-            return snapshot
-        self._run_turn(
-            state=state,
-            text="",
-            stream=True,
-            permission_resolver=None,
-            user_input_resolver=None,
-            event_handler=self._default_event_handler(),
-            interaction_resolution={
-                "answer": str(answer or ""),
-                "selected_index": selected_index,
-                "selected_mode": str(selected_mode or ""),
-                "selected_option_text": str(selected_option_text or ""),
-            },
-            resume_pending=True,
+        response = UserInputResponse(
+            answer=str(answer or ""),
+            selected_index=selected_index,
+            selected_mode=str(selected_mode or ""),
+            selected_option_text=str(selected_option_text or ""),
         )
-        snapshot = self._get_session_snapshot(session_id)
-        self._notify_status(None, state)
-        return snapshot
+        return self._respond_to_user_input(state, pending, response)
 
     def respond_to_interaction(
         self,
@@ -330,38 +338,32 @@ class HostedInteractionService(object):
         payload: Dict[str, Any],
     ) -> Dict[str, Any]:
         state = self._require_session(session_id)
-        kind = str((payload or {}).get("response_kind") or "").strip()
+        payload = dict(payload or {})
         with state.lock:
-            pending = state.pending_interaction
-            if pending is None or pending.interaction_id != interaction_id:
-                raise ValueError("未找到待处理的交互请求。")
-            pending_kind = pending.kind
+            ticket = state.pending_interaction
+            if ticket is None:
+                raise ValueError("interaction_expired")
+            if ticket.interaction_id != interaction_id:
+                raise ValueError("interaction_conflict")
+            pending_kind = ticket.kind
         if pending_kind == "permission":
-            if kind == "approve" and bool((payload or {}).get("remember")):
-                category = str((payload or {}).get("category") or "").strip()
-                if category:
-                    with state.lock:
-                        state.remembered_permission_categories.add(category)
-                        state.updated_at = _utc_now()
-            if kind == "approve":
-                self.approve_permission(session_id, interaction_id)
-            else:
-                self.reject_permission(session_id, interaction_id)
-        else:
-            self.reply_user_input(
-                session_id,
-                interaction_id,
-                str((payload or {}).get("answer") or ""),
-                selected_index=(payload or {}).get("selected_index"),
-                selected_mode=str((payload or {}).get("selected_mode") or ""),
-                selected_option_text=str((payload or {}).get("selected_option_text") or ""),
+            decision = str(payload.get("decision") or "").strip()
+            if decision not in _PERMISSION_DECISIONS:
+                raise _invalid_response()
+            return self._respond_to_permission_decision(
+                state,
+                ticket,
+                decision,
             )
-        return {
-            "session_id": session_id,
-            "interaction_id": interaction_id,
-            "status": "resolved",
-            "snapshot": self._get_session_snapshot(session_id),
-        }
+        if pending_kind == "user_input":
+            answer = _answer_from_payload(payload)
+            response = _response_for_answer(ticket, answer)
+            return self._respond_to_user_input(
+                state,
+                ticket,
+                response,
+            )
+        raise _invalid_response()
 
     def wait_for_command_resolution(
         self, session_id: str, timeout_s: float = 3.0
@@ -385,27 +387,44 @@ class HostedInteractionService(object):
             time.sleep(0.05)
         return snapshot
 
-    def _resolve_permission(
-        self, session_id: str, permission_id: str, approved: bool
+    def _respond_to_permission_decision(
+        self,
+        state: ManagedSession,
+        ticket: HostedPendingInteraction,
+        decision: str,
     ) -> Dict[str, Any]:
-        state = self._require_session(session_id)
+        approved = decision in ("accept", "acceptForSession")
+        if decision == "acceptForSession":
+            category = str(ticket.payload.get("category") or "").strip()
+            if category:
+                with state.lock:
+                    state.remembered_permission_categories.add(category)
+                    state.updated_at = _utc_now()
         command_wait = False
         with state.lock:
-            pending = state.pending_interaction
-            if (
-                pending is None
-                or pending.kind != "permission"
-                or pending.permission_id != permission_id
-            ):
-                if approved:
-                    raise ValueError("未找到待批准的权限请求。")
-                raise ValueError("未找到待拒绝的权限请求。")
-            if state.pending_event is not None:
+            if state.pending_interaction is None:
+                raise ValueError("interaction_expired")
+            if state.pending_interaction.interaction_id != ticket.interaction_id:
+                raise ValueError("interaction_conflict")
+            event = state.pending_event
+            if decision == "cancel":
+                state.stop_event.set()
+                state.pending_response = {"cancelled": True, "approved": False}
+            else:
                 state.pending_response = {"approved": bool(approved)}
-                state.pending_event.set()
+            if event is not None:
+                event.set()
                 command_wait = True
         if command_wait:
-            return self.wait_for_command_resolution(session_id)
+            snapshot = self.wait_for_command_resolution(state.session.session_id)
+            self._notify_status(None, state)
+            return snapshot
+        if decision == "cancel":
+            with state.lock:
+                state.stop_event.set()
+            snapshot = self._get_session_snapshot(state.session.session_id)
+            self._notify_status(None, state)
+            return snapshot
         self._run_turn(
             state=state,
             text="",
@@ -416,4 +435,62 @@ class HostedInteractionService(object):
             interaction_resolution={"approved": bool(approved)},
             resume_pending=True,
         )
-        return self._get_session_snapshot(session_id)
+        snapshot = self._get_session_snapshot(state.session.session_id)
+        self._notify_status(None, state)
+        return snapshot
+
+    def _respond_to_user_input(
+        self,
+        state: ManagedSession,
+        ticket: HostedPendingInteraction,
+        response: UserInputResponse,
+    ) -> Dict[str, Any]:
+        command_wait = False
+        with state.lock:
+            if state.pending_interaction is None:
+                raise ValueError("interaction_expired")
+            if state.pending_interaction.interaction_id != ticket.interaction_id:
+                raise ValueError("interaction_conflict")
+            if state.pending_event is not None:
+                state.pending_response = {"user_input": response}
+                state.pending_event.set()
+                command_wait = True
+        if command_wait:
+            snapshot = self.wait_for_command_resolution(state.session.session_id)
+            self._notify_status(None, state)
+            return snapshot
+        self._run_turn(
+            state=state,
+            text="",
+            stream=True,
+            permission_resolver=None,
+            user_input_resolver=None,
+            event_handler=self._default_event_handler(),
+            interaction_resolution={
+                "answer": str(response.answer or ""),
+                "selected_index": response.selected_index,
+                "selected_mode": str(response.selected_mode or ""),
+                "selected_option_text": str(response.selected_option_text or ""),
+            },
+            resume_pending=True,
+        )
+        snapshot = self._get_session_snapshot(state.session.session_id)
+        self._notify_status(None, state)
+        return snapshot
+
+    def _resolve_permission(
+        self, session_id: str, permission_id: str, approved: bool
+    ) -> Dict[str, Any]:
+        state = self._require_session(session_id)
+        with state.lock:
+            pending = state.pending_interaction
+            if (
+                pending is None
+                or pending.kind != "permission"
+                or pending.permission_id != permission_id
+            ):
+                if approved:
+                    raise ValueError("未找到待批准的权限请求。")
+                raise ValueError("未找到待拒绝的权限请求。")
+        decision = "accept" if approved else "decline"
+        return self._respond_to_permission_decision(state, pending, decision)
