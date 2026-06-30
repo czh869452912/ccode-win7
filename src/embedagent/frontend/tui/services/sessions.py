@@ -42,29 +42,13 @@ class SessionService(object):
                 event_handler=event_handler,
             )
 
-    def approve(self, session_id: str, permission_id: str) -> Dict[str, Any]:
-        return self.adapter.approve_permission(session_id, permission_id)
-
-    def reject(self, session_id: str, permission_id: str) -> Dict[str, Any]:
-        return self.adapter.reject_permission(session_id, permission_id)
-
-    def reply_user_input(
+    def respond_to_interaction(
         self,
         session_id: str,
-        request_id: str,
-        answer: str,
-        selected_index=None,
-        selected_mode: str = "",
-        selected_option_text: str = "",
+        interaction_id: str,
+        payload: Dict[str, Any],
     ) -> Dict[str, Any]:
-        return self.adapter.reply_user_input(
-            session_id,
-            request_id,
-            answer,
-            selected_index=selected_index,
-            selected_mode=selected_mode,
-            selected_option_text=selected_option_text,
-        )
+        return self.adapter.respond_to_interaction(session_id, interaction_id, payload)
 
     def load_summary(self, summary_ref: str) -> Optional[Dict[str, Any]]:
         store = getattr(self.adapter, "summary_store", None)

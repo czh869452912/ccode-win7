@@ -32,11 +32,12 @@ def build_help_text(state: TerminalState) -> str:
     lines.append("F6 snapshot  F7 preview selected")
     lines.append("F8 edit selected  F9 artifacts")
     lines.append("F10 follow output  Ctrl-S save editor")
-    if state.session.pending_permission is not None:
+    pending = state.session.pending_interaction
+    if pending is not None and pending.get("kind") == "permission":
         lines.append("")
         lines.append("Permission")
         lines.append("输入 y / n 处理当前确认。")
-    if state.session.pending_user_input is not None:
+    if pending is not None and pending.get("kind") == "user_input":
         lines.append("")
         lines.append("Question")
         lines.append("输入选项序号或自由文本回答当前问题。")

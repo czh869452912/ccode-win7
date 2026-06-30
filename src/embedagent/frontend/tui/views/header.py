@@ -27,9 +27,10 @@ def build_header_text(state: TerminalState) -> str:
         branch,
         dirty,
     )
-    if state.session.pending_permission is not None:
+    pending = state.session.pending_interaction
+    if pending is not None and pending.get("kind") == "permission":
         second_line += "  permission=waiting"
-    if state.session.pending_user_input is not None:
+    if pending is not None and pending.get("kind") == "user_input":
         second_line += "  user_input=waiting"
     if not state.timeline.follow_output:
         second_line += "  follow=off"

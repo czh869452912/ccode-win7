@@ -5,7 +5,7 @@ TUI Frontend Adapter
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Callable, Dict, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 from embedagent.protocol import (
     CommandResult,
@@ -33,8 +33,6 @@ class TUIFrontend(FrontendCallbacks):
     def __init__(self, app: "TerminalApp", assembler=None):
         del assembler
         self.app = app
-        self._pending_permission_callbacks: Dict[str, Callable[[bool], None]] = {}
-        self._pending_input_callbacks: Dict[str, Callable[[Optional[str]], None]] = {}
 
     def refresh_timeline(self):
         """Refresh the timeline view with current data."""
@@ -94,8 +92,6 @@ class TUIFrontend(FrontendCallbacks):
         """请求用户权限 - TUI 使用阻塞式确认"""
         from embedagent.frontend.tui import reducer
 
-        # 设置待确认状态
-        reducer.set_pending_permission(self.app.state, request.__dict__)
         reducer.append_line(self.app.state, f"[permission] {request.reason} (y/n)")
         self.app.refresh_views()
 
@@ -107,7 +103,6 @@ class TUIFrontend(FrontendCallbacks):
         """请求用户输入"""
         from embedagent.frontend.tui import reducer
 
-        reducer.set_pending_user_input(self.app.state, request.__dict__)
         reducer.append_line(self.app.state, f"[question] {request.question}")
         self.app.refresh_views()
 
@@ -119,18 +114,16 @@ class TUIFrontend(FrontendCallbacks):
         from embedagent.frontend.tui import reducer
 
         # 更新状态
-        pending_interaction = snapshot.pending_interaction or {}
-        pending_kind = str(pending_interaction.get("kind") or "")
+        pending_interaction = (
+            snapshot.pending_interaction if snapshot.pending_interaction_valid else None
+        )
+        reducer.set_pending_interaction(self.app.state, pending_interaction)
         reducer.update_snapshot(
             self.app.state,
             status=snapshot.status.value,
             current_mode=snapshot.current_mode,
-            has_pending_permission=(
-                snapshot.pending_interaction_valid and pending_kind == "permission"
-            ),
-            has_pending_user_input=(
-                snapshot.pending_interaction_valid and pending_kind == "user_input"
-            ),
+            pending_interaction=pending_interaction,
+            pending_interaction_valid=bool(pending_interaction),
         )
 
         # 如果有错误，显示

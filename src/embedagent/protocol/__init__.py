@@ -384,21 +384,6 @@ class CoreInterface(ABC):
         pass
 
     @abstractmethod
-    def approve_permission(self, session_id: str, permission_id: str) -> None:
-        """批准权限请求"""
-        pass
-
-    @abstractmethod
-    def reject_permission(self, session_id: str, permission_id: str) -> None:
-        """拒绝权限请求"""
-        pass
-
-    @abstractmethod
-    def reply_user_input(self, session_id: str, request_id: str, answer: str, **kwargs) -> None:
-        """回复用户输入请求"""
-        pass
-
-    @abstractmethod
     def rename_session(self, session_id: str, title: str) -> Dict[str, Any]:
         """重命名会话线程"""
         pass

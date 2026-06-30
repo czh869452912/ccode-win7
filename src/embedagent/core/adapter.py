@@ -499,22 +499,6 @@ class AgentCoreAdapter(CoreInterface):
     def set_mode(self, session_id: str, mode: str) -> None:
         self._adapter.set_session_mode(session_id, mode)
 
-    def approve_permission(self, session_id: str, permission_id: str) -> None:
-        self._adapter.approve_permission(session_id, permission_id)
-
-    def reject_permission(self, session_id: str, permission_id: str) -> None:
-        self._adapter.reject_permission(session_id, permission_id)
-
-    def reply_user_input(self, session_id: str, request_id: str, answer: str, **kwargs) -> None:
-        self._adapter.reply_user_input(
-            session_id,
-            request_id,
-            answer,
-            selected_index=kwargs.get("selected_index"),
-            selected_mode=kwargs.get("selected_mode"),
-            selected_option_text=kwargs.get("selected_option_text"),
-        )
-
     def respond_to_interaction(
         self, session_id: str, interaction_id: str, payload: Dict[str, Any]
     ) -> Dict[str, Any]:

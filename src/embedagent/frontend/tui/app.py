@@ -99,8 +99,8 @@ class TerminalApp(object):
         return self.state.session.current_session_id
 
     @property
-    def pending_permission(self):
-        return self.state.session.pending_permission
+    def pending_interaction(self):
+        return self.state.session.pending_interaction
 
     @property
     def transcript_lines(self):

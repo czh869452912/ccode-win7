@@ -21,8 +21,7 @@ class SessionState:
     current_snapshot: Dict[str, Any] = field(default_factory=dict)
     session_items: List[Dict[str, Any]] = field(default_factory=list)
     session_selection: int = 0
-    pending_permission: Optional[Dict[str, Any]] = None
-    pending_user_input: Optional[Dict[str, Any]] = None
+    pending_interaction: Optional[Dict[str, Any]] = None
     last_error: str = ""
     last_context_event: Dict[str, Any] = field(default_factory=dict)
 

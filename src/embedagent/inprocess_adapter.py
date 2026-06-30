@@ -1141,30 +1141,6 @@ class InProcessAdapter(object):
             "fallback_warnings": list(runtime.get("fallback_warnings") or []),
         }
 
-    def approve_permission(self, session_id: str, permission_id: str) -> Dict[str, Any]:
-        return self.interaction_service.approve_permission(session_id, permission_id)
-
-    def reject_permission(self, session_id: str, permission_id: str) -> Dict[str, Any]:
-        return self.interaction_service.reject_permission(session_id, permission_id)
-
-    def reply_user_input(
-        self,
-        session_id: str,
-        request_id: str,
-        answer: str,
-        selected_index: Optional[int] = None,
-        selected_mode: str = "",
-        selected_option_text: str = "",
-    ) -> Dict[str, Any]:
-        return self.interaction_service.reply_user_input(
-            session_id,
-            request_id,
-            answer,
-            selected_index=selected_index,
-            selected_mode=selected_mode,
-            selected_option_text=selected_option_text,
-        )
-
     def respond_to_interaction(
         self,
         session_id: str,

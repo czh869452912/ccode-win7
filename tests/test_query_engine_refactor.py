@@ -3834,13 +3834,10 @@ class TestQueryEngineRefactor(unittest.TestCase):
         pending_interaction = waiting.get("pending_interaction") or {}
         self.assertEqual(pending_interaction.get("kind"), "user_input")
         request_id = str(pending_interaction.get("interaction_id") or "")
-        adapter.reply_user_input(
-            session_id=session_id,
-            request_id=request_id,
-            answer="切到 debug 模式继续排查",
-            selected_index=1,
-            selected_mode="debug",
-            selected_option_text="切到 debug 模式继续排查",
+        adapter.respond_to_interaction(
+            session_id,
+            request_id,
+            {"answers": {"answer": "切到 debug 模式继续排查"}},
         )
         final_snapshot = adapter.get_session_snapshot(session_id)
         self.assertEqual(final_snapshot["status"], "idle")
@@ -3866,7 +3863,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
         pending_interaction = waiting.get("pending_interaction") or {}
         self.assertEqual(pending_interaction.get("kind"), "permission")
         permission_id = str(pending_interaction.get("interaction_id") or "")
-        adapter.approve_permission(session_id, permission_id)
+        adapter.respond_to_interaction(session_id, permission_id, {"decision": "accept"})
         final_snapshot = adapter.get_session_snapshot(session_id)
         self.assertEqual(final_snapshot["status"], "idle")
         self.assertTrue(os.path.isfile(os.path.join(self.workspace, "src", "generated_write.c")))

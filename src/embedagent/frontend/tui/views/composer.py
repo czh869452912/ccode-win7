@@ -4,8 +4,9 @@ from embedagent.frontend.tui.state import TerminalState
 
 
 def build_prompt(state: TerminalState) -> str:
-    if state.session.pending_permission is not None:
+    pending = state.session.pending_interaction
+    if pending is not None and pending.get("kind") == "permission":
         return "confirm(y/n)> "
-    if state.session.pending_user_input is not None:
+    if pending is not None and pending.get("kind") == "user_input":
         return "answer> "
     return "user> "

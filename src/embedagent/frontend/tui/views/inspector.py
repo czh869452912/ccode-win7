@@ -53,10 +53,8 @@ def build_inspector_text(state: TerminalState, summary, latest_reply: str):
         return build_dialog_help_text(state)
     if tab == "snapshot":
         payload = dict(state.session.current_snapshot)
-        if state.session.pending_permission is not None:
-            payload["pending_permission"] = state.session.pending_permission
-        if state.session.pending_user_input is not None:
-            payload["pending_user_input"] = state.session.pending_user_input
+        if state.session.pending_interaction is not None:
+            payload["pending_interaction"] = state.session.pending_interaction
         if state.session.last_context_event:
             payload["last_context_event"] = state.session.last_context_event
         if state.workspace_snapshot:
@@ -161,24 +159,28 @@ def build_inspector_text(state: TerminalState, summary, latest_reply: str):
         )
         artifacts = summary.get("recent_artifacts") or []
         lines.append("- artifacts: %s" % len(artifacts))
-    if state.session.pending_permission:
-        permission = state.session.pending_permission
+    pending = state.session.pending_interaction
+    if pending and pending.get("kind") == "permission":
+        permission = pending
         lines.append("")
         lines.append("Permission")
         lines.append("- tool: %s" % (permission.get("tool_name") or "-"))
         lines.append("- reason: %s" % _truncate_text(str(permission.get("reason") or "-"), 96))
-    if state.session.pending_user_input:
-        request = state.session.pending_user_input
+    if pending and pending.get("kind") == "user_input":
+        request = pending
+        questions = request.get("questions") or []
+        question = questions[0] if questions and isinstance(questions[0], dict) else {}
         lines.append("")
         lines.append("Question")
         lines.append("- tool: %s" % (request.get("tool_name") or "-"))
-        lines.append("- question: %s" % _truncate_text(str(request.get("question") or "-"), 96))
-        options = request.get("options") or []
+        lines.append("- question: %s" % _truncate_text(str(question.get("question") or "-"), 96))
+        options = question.get("options") or []
         for item in options[:4]:
             if not isinstance(item, dict):
                 continue
             suffix = " -> %s" % item.get("mode") if item.get("mode") else ""
-            lines.append("  %s. %s%s" % (item.get("index") or "-", item.get("text") or "", suffix))
+            label = item.get("label") or item.get("value") or item.get("text") or ""
+            lines.append("  %s. %s%s" % (item.get("index") or "-", label, suffix))
     if state.session.last_error:
         lines.append("")
         lines.append("Error")

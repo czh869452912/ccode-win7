@@ -1921,7 +1921,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             self.assertTrue(str(step.get("step_id") or "").strip())
         finally:
             if permission_id:
-                adapter.approve_permission(session_id, permission_id)
+                adapter.respond_to_interaction(session_id, permission_id, {"decision": "accept"})
             else:
                 adapter.cancel_session(session_id)
             worker.join(3.0)
@@ -1971,7 +1971,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
                 self.assertTrue(turn.get("transitions"))
         finally:
             if permission_id:
-                adapter.approve_permission(session_id, permission_id)
+                adapter.respond_to_interaction(session_id, permission_id, {"decision": "accept"})
             else:
                 adapter.cancel_session(session_id)
             worker.join(3.0)
@@ -2534,7 +2534,7 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
             self.assertEqual(session_pending.interaction_id, permission_id)
         finally:
             if permission_id:
-                adapter.approve_permission(session_id, permission_id)
+                adapter.respond_to_interaction(session_id, permission_id, {"decision": "accept"})
             else:
                 adapter.cancel_session(session_id)
             worker.join(3.0)
