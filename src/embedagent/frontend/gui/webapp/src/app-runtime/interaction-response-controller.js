@@ -24,7 +24,6 @@ export function createInteractionResponseController({
   setRespondingRequestIds,
   loadSession,
   loadPermissionContext,
-  clearUserAnswer,
   logEvent,
 } = {}) {
   const send = typeof dispatch === "function" ? dispatch : () => {};
@@ -41,7 +40,6 @@ export function createInteractionResponseController({
   const reloadSession = typeof loadSession === "function" ? loadSession : () => Promise.resolve();
   const reloadPermissions =
     typeof loadPermissionContext === "function" ? loadPermissionContext : () => {};
-  const clearAnswer = typeof clearUserAnswer === "function" ? clearUserAnswer : () => {};
   const recordEvent = typeof logEvent === "function" ? logEvent : () => {};
 
   function respondingIds() {
@@ -97,8 +95,6 @@ export function createInteractionResponseController({
         if (payload?.decision === "acceptForSession") {
           reloadPermissions(sessionId);
         }
-      } else {
-        clearAnswer();
       }
       recordEvent("interaction_response", interactionLogDetail(interaction, payload || {}));
       return response;

@@ -34,7 +34,20 @@ export function runComposerComponentsSourceTests() {
 
   const interactionPanelSource = readSource("components", "composer", "ComposerInteractionPanel.jsx");
   assert.equal(interactionPanelSource.includes("busy = false"), true);
-  assert.equal(interactionPanelSource.includes("disabled={busy}"), true);
-  assert.equal(interactionPanelSource.includes("disabled={busy || !hasAnswer}"), true);
   assertNoCoreBoundaryLeak(interactionPanelSource, "ComposerInteractionPanel");
+
+  const approvalPanelSource = readSource("components", "composer", "ComposerPendingApprovalPanel.jsx");
+  const approvalActionsSource = readSource("components", "composer", "ComposerPendingApprovalActions.jsx");
+  const userInputPanelSource = readSource("components", "composer", "ComposerPendingUserInputPanel.jsx");
+
+  assert.equal(approvalPanelSource.includes("buildPermissionResponse"), false);
+  assert.equal(approvalActionsSource.includes('"acceptForSession"'), true);
+  assert.equal(approvalActionsSource.includes('"decline"'), true);
+  assert.equal(approvalActionsSource.includes('"cancel"'), true);
+  assert.equal(approvalActionsSource.includes("disabled={busy}"), true);
+  assert.equal(userInputPanelSource.includes("buildUserInputResponse"), true);
+  assert.equal(userInputPanelSource.includes("disabled={busy || !answer.trim()}"), true);
+  assertNoCoreBoundaryLeak(approvalPanelSource, "ComposerPendingApprovalPanel");
+  assertNoCoreBoundaryLeak(approvalActionsSource, "ComposerPendingApprovalActions");
+  assertNoCoreBoundaryLeak(userInputPanelSource, "ComposerPendingUserInputPanel");
 }

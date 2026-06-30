@@ -12,7 +12,6 @@ function deferred() {
 
 export async function runInteractionResponseControllerTests() {
   let respondingIds = [];
-  let cleared = 0;
   const calls = [];
   const dispatches = [];
   const logs = [];
@@ -32,9 +31,6 @@ export async function runInteractionResponseControllerTests() {
     },
     loadSession: async () => {
       throw new Error("loadSession should not run on resolved response");
-    },
-    clearUserAnswer: () => {
-      cleared += 1;
     },
     logEvent: (label, detail) => logs.push({ label, detail }),
   });
@@ -61,7 +57,6 @@ export async function runInteractionResponseControllerTests() {
 
   assert.equal(response.status, "resolved");
   assert.deepEqual(respondingIds, []);
-  assert.equal(cleared, 1);
   assert.equal(calls[0].url, "/api/sessions/sess-1/interactions/ask-1/respond");
   assert.equal(dispatches[0].type, "interaction_notice_clear");
   assert.equal(dispatches[1].type, "session_snapshot");

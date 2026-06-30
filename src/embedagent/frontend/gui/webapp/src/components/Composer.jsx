@@ -44,8 +44,6 @@ export default function Composer({
   interaction = null,
   interactionNotice = null,
   interactionBusy = false,
-  answerValue = "",
-  onAnswerChange,
   onRespondInteraction,
   branchToolbar = null,
   onRefreshSourceControl,
@@ -195,8 +193,6 @@ export default function Composer({
         interaction={interaction}
         notice={interactionNotice}
         busy={interactionBusy}
-        answerValue={answerValue}
-        onAnswerChange={onAnswerChange}
         onRespond={onRespondInteraction}
       />
       <div className="composer-inner">

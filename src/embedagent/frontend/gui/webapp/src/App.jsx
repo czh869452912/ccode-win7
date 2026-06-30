@@ -80,7 +80,6 @@ function App() {
     workbench: readPersistedWorkbenchUiState(),
   }));
   const treeHeight = 640;
-  const [userAnswer, setUserAnswer] = useState("");
   const [respondingRequestIds, setRespondingRequestIdsState] = useState([]);
   const [sessionTransport, setSessionTransport] = useState(() => createSessionTransportState());
   const timelineRef = useRef(null);
@@ -676,7 +675,6 @@ function App() {
         setRespondingRequestIds,
         loadSession,
         loadPermissionContext,
-        clearUserAnswer: () => setUserAnswer(""),
         logEvent,
       }),
     [],
@@ -909,8 +907,6 @@ function App() {
                 runtimeState.currentInteraction?.interactionId &&
                   respondingRequestIds.includes(runtimeState.currentInteraction.interactionId)
               )}
-              answerValue={userAnswer}
-              onAnswerChange={setUserAnswer}
               onRespondInteraction={respondToInteraction}
               branchToolbar={branchToolbarModel}
               onRefreshSourceControl={() => loadSourceControlStatus(true)}
