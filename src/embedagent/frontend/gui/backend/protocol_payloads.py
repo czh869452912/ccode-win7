@@ -116,12 +116,37 @@ def serialize_session_summary(payload: Any) -> Dict[str, Any]:
     }
 
 
-def serialize_interaction_response(payload: Dict[str, Any]) -> Dict[str, Any]:
-    response = dict(payload or {})
-    snapshot = response.get("snapshot")
-    if snapshot is not None:
-        response["snapshot"] = serialize_session_snapshot(snapshot)
-    return response
+def serialize_interaction_response(
+    payload: Any, session_id: str = "", interaction_id: str = ""
+) -> Dict[str, Any]:
+    response = to_mapping(payload)
+    if response is not None and (
+        "snapshot" in response
+        or "interaction_id" in response
+        or "interactionId" in response
+    ):
+        snapshot = response.get("snapshot")
+        return {
+            "session_id": str(
+                response.get("session_id")
+                or session_id
+                or read_value(snapshot, "session_id", "")
+                or ""
+            ),
+            "interaction_id": str(
+                response.get("interaction_id") or response.get("interactionId") or interaction_id or ""
+            ),
+            "status": str(response.get("status") or "resolved"),
+            "snapshot": serialize_session_snapshot(snapshot) if snapshot is not None else None,
+        }
+
+    snapshot = payload
+    return {
+        "session_id": str(session_id or read_value(snapshot, "session_id", "") or ""),
+        "interaction_id": str(interaction_id or ""),
+        "status": "resolved",
+        "snapshot": serialize_session_snapshot(snapshot) if snapshot is not None else None,
+    }
 
 
 def serialize_plan_snapshot(plan: Optional[PlanSnapshot]) -> Optional[Dict[str, Any]]:

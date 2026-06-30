@@ -295,6 +295,12 @@ class _SnapshotCore(_FakeCore):
         )()
 
 
+class _SnapshotInteractionCore(_SnapshotCore):
+    def respond_to_interaction(self, session_id, interaction_id, payload):
+        self.respond_calls.append((session_id, interaction_id, payload))
+        return self.get_session_snapshot(session_id)
+
+
 class TestGuiBackendApi(unittest.TestCase):
     def _route(self, backend, path, method):
         for item in backend.app.routes:
@@ -428,7 +434,8 @@ class TestGuiBackendApi(unittest.TestCase):
         with tempfile.TemporaryDirectory() as static_dir:
             with open(os.path.join(static_dir, "index.html"), "w", encoding="utf-8") as handle:
                 handle.write("<html><body>ok</body></html>")
-            backend = GUIBackend(_FakeCore(), static_dir=static_dir)
+            core = _FakeCore()
+            backend = GUIBackend(core, static_dir=static_dir)
             route = None
             for item in backend.app.routes:
                 if getattr(
@@ -444,23 +451,21 @@ class TestGuiBackendApi(unittest.TestCase):
                     "sess-1",
                     "int-1",
                     {
-                        "response_kind": "approve",
-                        "decision": True,
-                        "client_request_id": "cli-1",
+                        "decision": "accept",
                     },
                 )
             )
         self.assertEqual(response["interaction_id"], "int-1")
+        self.assertEqual(response["status"], "resolved")
+        self.assertIsNone(response["snapshot"])
+        self.assertEqual(core.respond_calls, [("sess-1", "int-1", {"decision": "accept"})])
 
     def test_post_interaction_response_routes_frontend_pending_input_through_core(self):
-        from embedagent.frontend.gui.backend.bridge import BlockingResult
-
         with tempfile.TemporaryDirectory() as static_dir:
             with open(os.path.join(static_dir, "index.html"), "w", encoding="utf-8") as handle:
                 handle.write("<html><body>ok</body></html>")
             core = _SnapshotCore("")
             backend = GUIBackend(core, static_dir=static_dir)
-            backend.frontend._pending_inputs["int-1"] = BlockingResult(None)
             route = None
             for item in backend.app.routes:
                 if getattr(
@@ -476,30 +481,25 @@ class TestGuiBackendApi(unittest.TestCase):
                     "sess-1",
                     "int-1",
                     {
-                        "response_kind": "answer",
-                        "answer": "继续",
-                        "selected_option_text": "继续",
+                        "answers": {"answer": "继续"},
                     },
                 )
             )
         self.assertEqual(len(core.respond_calls), 1)
         self.assertEqual(core.respond_calls[0][0], "sess-1")
         self.assertEqual(core.respond_calls[0][1], "int-1")
+        self.assertEqual(core.respond_calls[0][2], {"answers": {"answer": "继续"}})
         self.assertEqual(response["interaction_id"], "int-1")
         self.assertEqual(response["status"], "resolved")
-        self.assertIn("int-1", backend.frontend._pending_inputs)
 
     def test_post_interaction_response_routes_frontend_pending_permission_through_core(
         self,
     ):
-        from embedagent.frontend.gui.backend.bridge import BlockingResult
-
         with tempfile.TemporaryDirectory() as static_dir:
             with open(os.path.join(static_dir, "index.html"), "w", encoding="utf-8") as handle:
                 handle.write("<html><body>ok</body></html>")
             core = _SnapshotCore("")
             backend = GUIBackend(core, static_dir=static_dir)
-            backend.frontend._pending_permissions["perm-1"] = BlockingResult(False)
             route = None
             for item in backend.app.routes:
                 if getattr(
@@ -515,17 +515,16 @@ class TestGuiBackendApi(unittest.TestCase):
                     "sess-1",
                     "perm-1",
                     {
-                        "response_kind": "approve",
-                        "decision": True,
+                        "decision": "accept",
                     },
                 )
             )
         self.assertEqual(len(core.respond_calls), 1)
         self.assertEqual(core.respond_calls[0][0], "sess-1")
         self.assertEqual(core.respond_calls[0][1], "perm-1")
+        self.assertEqual(core.respond_calls[0][2], {"decision": "accept"})
         self.assertEqual(response["interaction_id"], "perm-1")
         self.assertEqual(response["status"], "resolved")
-        self.assertIn("perm-1", backend.frontend._pending_permissions)
 
     def test_post_interaction_response_does_not_own_permission_remember_side_effect(
         self,
@@ -550,19 +549,78 @@ class TestGuiBackendApi(unittest.TestCase):
                     "sess-1",
                     "perm-1",
                     {
-                        "response_kind": "approve",
-                        "decision": True,
-                        "remember": True,
-                        "category": "workspace_write",
+                        "decision": "acceptForSession",
                     },
                 )
             )
 
         self.assertEqual(response["interaction_id"], "perm-1")
         self.assertEqual(len(core.respond_calls), 1)
-        self.assertEqual(core.respond_calls[0][2]["remember"], True)
-        self.assertEqual(core.respond_calls[0][2]["category"], "workspace_write")
+        self.assertEqual(core.respond_calls[0][2], {"decision": "acceptForSession"})
         self.assertEqual(core.remember_calls, [])
+
+    def test_post_interaction_response_wraps_core_snapshot_response(self):
+        with tempfile.TemporaryDirectory() as static_dir:
+            with open(os.path.join(static_dir, "index.html"), "w", encoding="utf-8") as handle:
+                handle.write("<html><body>ok</body></html>")
+            core = _SnapshotInteractionCore("")
+            backend = GUIBackend(core, static_dir=static_dir)
+            route = None
+            for item in backend.app.routes:
+                if getattr(
+                    item, "path", ""
+                ) == "/api/sessions/{session_id}/interactions/{interaction_id}/respond" and "POST" in getattr(
+                    item, "methods", set()
+                ):
+                    route = item
+                    break
+            self.assertIsNotNone(route)
+            response = asyncio.run(
+                route.endpoint(
+                    "sess-1",
+                    "int-1",
+                    {"answers": {"answer": "continue"}},
+                )
+            )
+
+        self.assertEqual(core.respond_calls, [("sess-1", "int-1", {"answers": {"answer": "continue"}})])
+        self.assertEqual(response["session_id"], "sess-1")
+        self.assertEqual(response["interaction_id"], "int-1")
+        self.assertEqual(response["status"], "resolved")
+        self.assertEqual(response["snapshot"]["session_id"], "sess-1")
+        self.assertEqual(response["snapshot"]["status"], "idle")
+        self.assertFalse(response["snapshot"]["pending_interaction_valid"])
+
+    def test_post_interaction_response_maps_lifecycle_errors(self):
+        cases = (
+            ("interaction_expired", 410, "interaction_expired"),
+            ("interaction_conflict", 409, "interaction_conflict"),
+            ("invalid_interaction_response", 422, "invalid_interaction_response"),
+        )
+        for error_text, expected_status, expected_detail in cases:
+            with self.subTest(error_text=error_text):
+                with tempfile.TemporaryDirectory() as static_dir:
+                    with open(
+                        os.path.join(static_dir, "index.html"), "w", encoding="utf-8"
+                    ) as handle:
+                        handle.write("<html><body>ok</body></html>")
+                    backend = GUIBackend(_ErrorCore(error_text), static_dir=static_dir)
+                    route = None
+                    for item in backend.app.routes:
+                        if getattr(
+                            item, "path", ""
+                        ) == "/api/sessions/{session_id}/interactions/{interaction_id}/respond" and "POST" in getattr(
+                            item, "methods", set()
+                        ):
+                            route = item
+                            break
+                    self.assertIsNotNone(route)
+                    with self.assertRaises(HTTPException) as raised:
+                        asyncio.run(
+                            route.endpoint("sess-1", "int-1", {"decision": "accept"})
+                        )
+                self.assertEqual(raised.exception.status_code, expected_status)
+                self.assertEqual(raised.exception.detail, expected_detail)
 
     def test_post_interaction_response_emits_backend_owned_resolved_event(self):
         with tempfile.TemporaryDirectory() as static_dir:
@@ -597,10 +655,7 @@ class TestGuiBackendApi(unittest.TestCase):
                     "sess-1",
                     "int-1",
                     {
-                        "kind": "user_input",
-                        "response_kind": "answer",
-                        "answer": "continue",
-                        "selected_option_text": "Continue",
+                        "answers": {"answer": "continue"},
                     },
                 )
             )
@@ -864,7 +919,7 @@ class TestGuiBackendApi(unittest.TestCase):
                     break
             self.assertIsNotNone(route)
             with self.assertRaises(HTTPException) as raised:
-                asyncio.run(route.endpoint("sess-1", "int-1", {"response_kind": "approve"}))
+                asyncio.run(route.endpoint("sess-1", "int-1", {"decision": "accept"}))
         self.assertEqual(raised.exception.status_code, 410)
 
     def test_snapshot_route_reports_transcript_missing_as_degraded_metadata(self):

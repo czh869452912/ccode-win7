@@ -123,7 +123,11 @@ def register_session_routes(app: Any, backend: Any) -> None:
         response = backend._call_core(
             core.respond_to_interaction, session_id, interaction_id, request
         )
-        return serialize_interaction_response(response)
+        return serialize_interaction_response(
+            response,
+            session_id=session_id,
+            interaction_id=interaction_id,
+        )
 
     @app.get("/api/workspace")
     async def get_workspace():

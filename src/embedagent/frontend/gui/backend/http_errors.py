@@ -7,12 +7,16 @@ def translate_value_error(exc: ValueError) -> HTTPException:
     detail = str(exc or "").strip()
     if "session_id 不存在" in detail or detail == "session_not_found":
         return HTTPException(status_code=404, detail="session_not_found")
-    if detail in ("interaction_gone", "interaction_expired", "未找到待处理的交互请求。"):
+    if (
+        "interaction_gone" in detail
+        or "interaction_expired" in detail
+        or "未找到待处理的交互请求。" in detail
+    ):
         return HTTPException(status_code=410, detail="interaction_expired")
-    if detail == "interaction_conflict":
-        return HTTPException(status_code=409, detail=detail)
-    if detail == "invalid_interaction_response":
-        return HTTPException(status_code=422, detail=detail)
+    if "interaction_conflict" in detail:
+        return HTTPException(status_code=409, detail="interaction_conflict")
+    if "invalid_interaction_response" in detail:
+        return HTTPException(status_code=422, detail="invalid_interaction_response")
     return HTTPException(status_code=422, detail=detail or "invalid_request")
 
 
