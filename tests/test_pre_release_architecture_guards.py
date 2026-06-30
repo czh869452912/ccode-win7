@@ -360,6 +360,7 @@ def test_hosted_runtime_uses_single_pending_interaction_state():
         ROOT / "src/embedagent/inprocess_adapter.py",
         ROOT / "src/embedagent/session_projector.py",
         ROOT / "src/embedagent/hosted_command_service.py",
+        ROOT / "src/embedagent/services/session_lifecycle.py",
     ]
     forbidden = (
         "state.pending_permission",
@@ -389,6 +390,7 @@ def test_product_interfaces_expose_only_unified_interaction_response():
         ROOT / "src/embedagent/core/adapter.py",
         ROOT / "src/embedagent/protocol/__init__.py",
         ROOT / "src/embedagent/inprocess_adapter.py",
+        ROOT / "src/embedagent/hosted_interaction_service.py",
         ROOT / "src/embedagent/frontend/tui/services/sessions.py",
     ]
     forbidden = (

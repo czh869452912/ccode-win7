@@ -79,37 +79,15 @@ class SessionLifecycleManager(object):
         )
         if session.pending_interaction is not None:
             if session.pending_interaction.kind == "permission":
-                state.status = "waiting_permission"
-                permission_payload = dict(
-                    session.pending_interaction.request_payload.get("permission") or {}
-                )
                 interaction_id = str(session.pending_interaction.interaction_id or "").strip()
                 if interaction_id:
-                    state.pending_permission = {
-                        "permission_id": interaction_id,
-                        "session_id": session.session_id,
-                        "tool_name": session.pending_interaction.tool_name,
-                        "category": str(permission_payload.get("category") or ""),
-                        "reason": str(permission_payload.get("reason") or ""),
-                        "details": dict(permission_payload.get("details") or {}),
-                    }
+                    state.status = "waiting_permission"
                 else:
                     state.status = "idle"
             elif session.pending_interaction.kind == "user_input":
-                state.status = "waiting_user_input"
-                request_payload = dict(
-                    session.pending_interaction.request_payload.get("request") or {}
-                )
                 interaction_id = str(session.pending_interaction.interaction_id or "").strip()
                 if interaction_id:
-                    state.pending_user_input = {
-                        "request_id": interaction_id,
-                        "session_id": session.session_id,
-                        "tool_name": session.pending_interaction.tool_name,
-                        "question": str(request_payload.get("question") or ""),
-                        "options": list(request_payload.get("options") or []),
-                        "details": dict(request_payload.get("details") or {}),
-                    }
+                    state.status = "waiting_user_input"
                 else:
                     state.status = "idle"
         plan = self.plan_store.load(session.session_id)

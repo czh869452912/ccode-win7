@@ -73,13 +73,7 @@ class TestGuiSync(unittest.TestCase):
                 route.endpoint(
                     session_id,
                     interaction_id,
-                    {
-                        "response_kind": "answer",
-                        "answer": "切到 debug 模式继续排查",
-                        "selected_index": 1,
-                        "selected_mode": "debug",
-                        "selected_option_text": "切到 debug 模式继续排查",
-                    },
+                    {"answers": {"answer": "切到 debug 模式继续排查"}},
                 )
             )
 

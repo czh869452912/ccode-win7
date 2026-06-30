@@ -303,34 +303,6 @@ class HostedInteractionService(object):
             state.updated_at = _utc_now()
         return True
 
-    def approve_permission(self, session_id: str, permission_id: str) -> Dict[str, Any]:
-        return self._resolve_permission(session_id, permission_id, approved=True)
-
-    def reject_permission(self, session_id: str, permission_id: str) -> Dict[str, Any]:
-        return self._resolve_permission(session_id, permission_id, approved=False)
-
-    def reply_user_input(
-        self,
-        session_id: str,
-        request_id: str,
-        answer: str,
-        selected_index: Optional[int] = None,
-        selected_mode: str = "",
-        selected_option_text: str = "",
-    ) -> Dict[str, Any]:
-        state = self._require_session(session_id)
-        with state.lock:
-            pending = state.pending_interaction
-            if pending is None or pending.kind != "user_input" or pending.request_id != request_id:
-                raise ValueError("未找到待处理的用户问题。")
-        response = UserInputResponse(
-            answer=str(answer or ""),
-            selected_index=selected_index,
-            selected_mode=str(selected_mode or ""),
-            selected_option_text=str(selected_option_text or ""),
-        )
-        return self._respond_to_user_input(state, pending, response)
-
     def respond_to_interaction(
         self,
         session_id: str,
@@ -477,20 +449,3 @@ class HostedInteractionService(object):
         snapshot = self._get_session_snapshot(state.session.session_id)
         self._notify_status(None, state)
         return snapshot
-
-    def _resolve_permission(
-        self, session_id: str, permission_id: str, approved: bool
-    ) -> Dict[str, Any]:
-        state = self._require_session(session_id)
-        with state.lock:
-            pending = state.pending_interaction
-            if (
-                pending is None
-                or pending.kind != "permission"
-                or pending.permission_id != permission_id
-            ):
-                if approved:
-                    raise ValueError("未找到待批准的权限请求。")
-                raise ValueError("未找到待拒绝的权限请求。")
-        decision = "accept" if approved else "decline"
-        return self._respond_to_permission_decision(state, pending, decision)
