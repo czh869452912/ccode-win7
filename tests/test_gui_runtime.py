@@ -69,6 +69,41 @@ class TestGuiLauncher(unittest.TestCase):
 
             self.assertEqual(resolve_config.call_args.kwargs["overrides"].max_turns, 3)
 
+    def test_create_core_uses_user_config_model_when_option_omitted(self):
+        with tempfile.TemporaryDirectory() as workspace:
+            with tempfile.TemporaryDirectory() as user_config_dir:
+                with open(
+                    os.path.join(user_config_dir, "config.json"), "w", encoding="utf-8"
+                ) as fh:
+                    json.dump(
+                        {
+                            "base_url": "http://user-config/v1",
+                            "api_key": "sk-user-config",
+                            "model": "user-config-model",
+                            "timeout": 33,
+                        },
+                        fh,
+                    )
+                hosted_runtime = MagicMock()
+                hosted_runtime.session_host.adapter = MagicMock(name="inner_adapter")
+                launch_configs = []
+
+                def fake_create_hosted_runtime(launch_config):
+                    launch_configs.append(launch_config)
+                    return hosted_runtime
+
+                with patch("embedagent.config._USER_CONFIG_DIR", user_config_dir), patch(
+                    "embedagent.frontend.gui.launcher.create_hosted_runtime",
+                    side_effect=fake_create_hosted_runtime,
+                ), patch("embedagent.core.adapter.AgentCoreAdapter") as adapter_cls:
+                    core = gui_launcher.create_core(workspace, {})
+
+        self.assertIs(core, adapter_cls.return_value)
+        self.assertEqual(launch_configs[0].model, "user-config-model")
+        self.assertEqual(launch_configs[0].base_url, "http://user-config/v1")
+        self.assertEqual(launch_configs[0].api_key, "sk-user-config")
+        self.assertEqual(launch_configs[0].timeout, 33)
+
     def test_main_accepts_workspace_option(self):
         with tempfile.TemporaryDirectory() as workspace:
             with patch.object(gui_launcher, "launch_gui") as launch_gui:

@@ -1,7 +1,31 @@
+import json
 from unittest.mock import MagicMock
 
 from embedagent import cli
 from embedagent.config import AppConfig
+
+
+def _use_user_config(tmp_path, monkeypatch):
+    user_config_dir = tmp_path / "user-config"
+    user_config_dir.mkdir()
+    config_path = user_config_dir / "config.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "base_url": "http://user-config/v1",
+                "api_key": "sk-user-config",
+                "model": "user-config-model",
+                "timeout": 33,
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr("embedagent.config._USER_CONFIG_DIR", str(user_config_dir))
+    monkeypatch.delenv("EMBEDAGENT_BASE_URL", raising=False)
+    monkeypatch.delenv("EMBEDAGENT_API_KEY", raising=False)
+    monkeypatch.delenv("EMBEDAGENT_MODEL", raising=False)
+    monkeypatch.delenv("EMBEDAGENT_TIMEOUT", raising=False)
+    return str(user_config_dir)
 
 
 def test_cli_uses_hosted_config_model_for_non_tui_turn(tmp_path, monkeypatch):
@@ -53,8 +77,10 @@ def test_cli_architecture_guard_blocks_direct_runtime_construction():
 
 
 def test_cli_returns_blocked_outcome_exit_code_and_diagnostic(tmp_path, monkeypatch, capsys):
+    _use_user_config(tmp_path, monkeypatch)
     runtime = MagicMock()
     runtime.session_host.create_session.return_value = {"session_id": "s1"}
+    launch_configs = []
 
     def submit_user_message(**kwargs):
         handler = kwargs["event_handler"]
@@ -88,7 +114,7 @@ def test_cli_returns_blocked_outcome_exit_code_and_diagnostic(tmp_path, monkeypa
     runtime.session_host.submit_user_message.side_effect = submit_user_message
     monkeypatch.setattr(
         "embedagent.cli.create_hosted_runtime",
-        lambda launch_config, event_handler=None: runtime,
+        lambda launch_config, event_handler=None: launch_configs.append(launch_config) or runtime,
     )
 
     exit_code = cli.main(["--workspace", str(tmp_path), "--no-stream", "hello"])
@@ -103,11 +129,15 @@ def test_cli_returns_blocked_outcome_exit_code_and_diagnostic(tmp_path, monkeypa
     assert "validation_missing Created files have not been validated." in captured.err
     assert "Next:" in captured.err
     assert "Run validation for the changed files." in captured.err
+    assert launch_configs[0].model == "user-config-model"
+    assert launch_configs[0].base_url == "http://user-config/v1"
 
 
 def test_cli_completed_outcome_returns_success(tmp_path, monkeypatch, capsys):
+    _use_user_config(tmp_path, monkeypatch)
     runtime = MagicMock()
     runtime.session_host.create_session.return_value = {"session_id": "s1"}
+    launch_configs = []
 
     def submit_user_message(**kwargs):
         kwargs["event_handler"](
@@ -128,7 +158,7 @@ def test_cli_completed_outcome_returns_success(tmp_path, monkeypatch, capsys):
     runtime.session_host.submit_user_message.side_effect = submit_user_message
     monkeypatch.setattr(
         "embedagent.cli.create_hosted_runtime",
-        lambda launch_config, event_handler=None: runtime,
+        lambda launch_config, event_handler=None: launch_configs.append(launch_config) or runtime,
     )
 
     exit_code = cli.main(["--workspace", str(tmp_path), "--no-stream", "hello"])
@@ -137,3 +167,4 @@ def test_cli_completed_outcome_returns_success(tmp_path, monkeypatch, capsys):
     assert exit_code == 0
     assert captured.out == "Done.\n"
     assert "[completed]" not in captured.err
+    assert launch_configs[0].model == "user-config-model"
