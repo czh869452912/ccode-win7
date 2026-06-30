@@ -353,6 +353,98 @@ def test_session_snapshot_contract_uses_single_pending_interaction_payload():
     assert offenders == []
 
 
+def test_hosted_runtime_uses_single_pending_interaction_state():
+    files = [
+        ROOT / "src/embedagent/session_runtime.py",
+        ROOT / "src/embedagent/hosted_interaction_service.py",
+        ROOT / "src/embedagent/inprocess_adapter.py",
+        ROOT / "src/embedagent/session_projector.py",
+        ROOT / "src/embedagent/hosted_command_service.py",
+    ]
+    forbidden = (
+        "state.pending_permission",
+        "state.pending_user_input",
+        "state.pending_result",
+        "state.pending_user_event",
+        "state.pending_user_response",
+        "pending_permission: Optional",
+        "pending_user_input: Optional",
+        "pending_result: Optional",
+        "pending_user_event: Optional",
+        "pending_user_response: Optional",
+        "clear_pending_permission(",
+        "clear_pending_user_input(",
+    )
+    offenders = []
+    for path in files:
+        text = _read(path)
+        for token in forbidden:
+            if token in text:
+                offenders.append("%s contains %s" % (_relative(path), token))
+    assert offenders == []
+
+
+def test_product_interfaces_expose_only_unified_interaction_response():
+    files = [
+        ROOT / "src/embedagent/core/adapter.py",
+        ROOT / "src/embedagent/protocol/__init__.py",
+        ROOT / "src/embedagent/inprocess_adapter.py",
+        ROOT / "src/embedagent/frontend/tui/services/sessions.py",
+    ]
+    forbidden = (
+        "def approve_permission",
+        "def reject_permission",
+        "def reply_user_input",
+        ".approve_permission(",
+        ".reject_permission(",
+        ".reply_user_input(",
+    )
+    offenders = []
+    for path in files:
+        text = _read(path)
+        for token in forbidden:
+            if token in text:
+                offenders.append("%s contains %s" % (_relative(path), token))
+    assert offenders == []
+
+
+def test_shell_interaction_payloads_use_decision_and_answers_contract():
+    files = [
+        ROOT / "src/embedagent/frontend/gui/webapp/src/session-runtime/interaction-model.js",
+        ROOT / "src/embedagent/frontend/gui/webapp/src/components/composer/ComposerInteractionPanel.jsx",
+        ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/interaction-response-controller.js",
+        ROOT / "src/embedagent/frontend/tui/controller.py",
+    ]
+    forbidden = (
+        "response_kind",
+        "remember:",
+        "selected_mode",
+        "selected_option_text",
+    )
+    offenders = []
+    for path in files:
+        if not path.exists():
+            continue
+        text = _read(path)
+        for token in forbidden:
+            if token in text:
+                offenders.append("%s contains %s" % (_relative(path), token))
+    assert offenders == []
+
+    interaction_model = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/session-runtime/interaction-model.js"
+    )
+    permission_builder = re.search(
+        r"function buildPermissionResponse[\s\S]*?}\n",
+        interaction_model,
+    ) or re.search(
+        r"export function buildPermissionResponse[\s\S]*?}\n",
+        interaction_model,
+    )
+    assert permission_builder is not None
+    assert "category" not in permission_builder.group(0)
+
+
 def test_query_engine_does_not_own_extension_dispatch_boundary():
     text = _read(ROOT / "src/embedagent/query_engine.py")
     assert "AgentExtensionHost(" in text
