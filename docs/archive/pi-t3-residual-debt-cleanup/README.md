@@ -2,6 +2,7 @@
 
 > Status: completed slice archive
 > Date: 2026-06-27
+> Last updated: 2026-07-01
 
 This package preserves completed Pi/T3 residual architecture-debt cleanup plans,
 follow-up plans, and audit notes.
@@ -23,6 +24,19 @@ Durable conclusions were synchronized into active source-of-truth docs before ar
   concentrated in `server.py`
 - hosted command and interaction glue now lives in `HostedCommandService` and
   `HostedInteractionService`
+- hosted runtime shell construction now flows through the shared hosted
+  runtime/session-host boundary instead of shell-local runtime assembly
+- CLI-visible turn completion now renders and exits from the backend-owned
+  turn outcome contract instead of inferring success from missing exceptions
+- permission and `ask_user` now share one hosted pending-interaction
+  lifecycle exposed through `Session.pending_interaction` and
+  `respond_to_interaction(...)`
+- old GUI/TUI/Core blocking interaction callbacks and protocol DTOs were
+  deleted; raw `permission_request` / `user_input_request` transport messages
+  are not renderer history or display truth
+- cancelling while a permission or user-input interaction is pending resolves
+  the Core-owned pending interaction and clears the stop signal for the next
+  turn
 - provider snapshot, workflow prompt, and compaction payload assembly now lives
   in `TurnSnapshotService`, `PromptAssemblyService`, and `CompactionJournal`
 - `grep_text` accepts file roots and reports diagnostic search/path failures
@@ -46,5 +60,10 @@ Archived materials:
 - [2026-06-28-pi-t3-debt-cleanup.md](2026-06-28-pi-t3-debt-cleanup.md)
 - [2026-06-29-pi-t3-debt-cleanup-design.md](2026-06-29-pi-t3-debt-cleanup-design.md)
 - [2026-06-29-pi-t3-debt-cleanup.md](2026-06-29-pi-t3-debt-cleanup.md)
+- [2026-06-29-experience-runtime-convergence.md](2026-06-29-experience-runtime-convergence.md)
+- [2026-06-29-hosted-runtime-shell-isolation.md](2026-06-29-hosted-runtime-shell-isolation.md)
+- [2026-06-30-interaction-convergence.md](2026-06-30-interaction-convergence.md)
+- [2026-06-30-interaction-lifecycle-convergence-design.md](2026-06-30-interaction-lifecycle-convergence-design.md)
+- [2026-06-30-interaction-lifecycle-convergence.md](2026-06-30-interaction-lifecycle-convergence.md)
 
 Use active docs for current product truth.

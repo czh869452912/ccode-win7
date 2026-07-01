@@ -1,6 +1,6 @@
 # EmbedAgent 设计与变更跟踪
 
-> 更新日期：2026-06-25
+> 更新日期：2026-07-01
 > 用途：记录关键设计变更、影响范围、关联文档和后续动作
 
 ---
@@ -43,6 +43,32 @@
 ---
 
 ## 3. 当前变更记录
+
+### DC-218
+
+- Date: 2026-07-01
+- Change Topic: Completed superpowers material archive closeout
+- Summary:
+  - Moved completed hosted runtime, experience runtime, interaction
+    convergence, and interaction lifecycle working materials out of active
+    `docs/superpowers/` into
+    `docs/archive/pi-t3-residual-debt-cleanup/`.
+  - Updated archive indexes and active docs navigation so
+    `docs/superpowers/` again represents only current-slice material.
+  - Synchronized the active GUI module document with the current hosted
+    pending-interaction lifecycle instead of the removed synchronous callback
+    model.
+- Impacted Scope:
+  - `docs/superpowers/`
+  - `docs/archive/pi-t3-residual-debt-cleanup/`
+  - `docs/modules/frontend-gui.md`
+  - `docs/README.md`
+  - `docs/development-tracker.md`
+- Related Docs:
+  - `docs/documentation-governance.md`
+  - `docs/workflows/code-doc-sync.md`
+  - `docs/archive/README.md`
+- ADR Required: No
 
 ### DC-217
 

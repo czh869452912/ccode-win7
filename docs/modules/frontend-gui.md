@@ -5,7 +5,7 @@
 > 状态：`active`
 > 类型：`module`
 > 负责人：`project maintainers`
-> 最后同步日期：`2026-06-25`
+> 最后同步日期：`2026-07-01`
 > 对应代码范围：`src/embedagent/frontend/gui/`
 
 ## 1. Purpose And Scope
@@ -38,7 +38,7 @@
   - `AppShellService` — GUI-local app bootstrap/read-model boundary
   - `SourceControlService` — active-workspace-bound, read-only local Git status/diff service
   - `WebSocketFrontend` — `FrontendCallbacks` 的 WebSocket 实现
-  - `BlockingResult` / `ThreadsafeAsyncDispatcher` — 线程安全阻塞与异步调度
+  - `ThreadsafeAsyncDispatcher` — 从工作线程向 FastAPI 事件循环调度 WebSocket 广播
 - 上游依赖：`embedagent.cli` 调用 `launch_gui`
 - 下游影响：`AgentCoreAdapter`、`OpenAICompatibleClient`、`ToolRuntime`、`PermissionPolicy`、`ProjectMemoryStore`
 - 相关测试：`tests/test_gui_backend_api.py`、`tests/test_gui_runtime.py`、`tests/test_gui_sync.py`、`src/embedagent/frontend/gui/webapp/test/`
@@ -61,7 +61,7 @@
 
 ## 5. Data / Control Flow
 
-用户通过 `pywebview` 窗口与 React SPA 交互；SPA 通过 WebSocket/HTTP 访问 FastAPI 后端；`GUIBackend` 将 `WebSocketFrontend` 注册为 `AgentCoreAdapter` 的回调目标；对于权限或用户输入请求，`BlockingResult` 会阻塞 Core 线程直到用户通过前端响应。
+用户通过 `pywebview` 窗口与 React SPA 交互；SPA 通过 WebSocket/HTTP 访问 FastAPI 后端；`GUIBackend` 将 `WebSocketFrontend` 注册为 `AgentCoreAdapter` 的回调目标。权限与 `ask_user` 交互的可见真相来自 `Session.pending_interaction` / `pending_interaction_valid` 快照字段，GUI 通过统一的 `respond_to_interaction(session_id, interaction_id, payload)` 路径提交响应；`HostedInteractionService` 负责 pending ticket glue，实际恢复继续回到 Agent Core 的 action pipeline。
 
 ```mermaid
 flowchart TD
@@ -70,14 +70,16 @@ flowchart TD
     SPA --> WS["WebSocket / HTTP"]
     WS --> Backend["GUIBackend<br/>FastAPI"]
     Backend --> WSF["WebSocketFrontend<br/>implements FrontendCallbacks"]
-    WSF --> Adapter["AgentCoreAdapter<br/>+ ToolRuntime + LLM Client"]
+    WSF --> Adapter["AgentCoreAdapter<br/>Hosted runtime session bridge"]
+    Backend --> Interaction["HostedInteractionService<br/>pending interaction response glue"]
+    Interaction --> Adapter
 ```
 
 关键边界：
 
-- `WebSocketFrontend` 实现了完整的 `FrontendCallbacks` 接口。
-- `BlockingResult` 用于同步阻塞 Core 线程等待用户响应。
-- React SPA 负责自动重连和会话事件回放恢复。
+- `WebSocketFrontend` 只负责把 Core/session 回调广播为 WebSocket 消息；它不拥有 permission 或 user-input 的阻塞等待状态。
+- `permission_request` / `user_input_request` 原始 WebSocket 消息只用于唤醒当前交互 UI/传输路径；renderer 不从这些消息合成历史、activity 或第二套 pending state。
+- React SPA 负责自动重连、会话 bootstrap reload，以及从 `snapshot.pending_interaction` 渲染当前可响应交互。
 
 ## 6. Workbench Shell
 
