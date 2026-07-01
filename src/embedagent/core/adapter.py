@@ -20,14 +20,12 @@ from embedagent.protocol import (
     Message,
     MessageType,
     PermissionContextView,
-    PermissionRequest,
     PlanSnapshot,
     RuntimeEnvironmentSnapshot,
     SessionSnapshot,
     SessionStatus,
     ToolCall,
     ToolResult,
-    UserInputRequest,
     WorkspaceInfo,
 )
 
@@ -339,39 +337,6 @@ class CallbackBridge:
                 },
             )
             self.frontend.on_message(msg)
-
-    def request_permission(self, payload: Dict[str, Any]) -> bool:
-        request = PermissionRequest(
-            permission_id=str(payload.get("permission_id", "")),
-            tool_name=str(payload.get("tool_name", "")),
-            category=str(payload.get("category", "")),
-            reason=str(payload.get("reason", "")),
-            details=payload.get("details", {}),
-            session_id=str(payload.get("session_id", "")),
-            turn_id=str(payload.get("turn_id", "")),
-            step_id=str(payload.get("step_id", "")),
-            step_index=int(payload.get("step_index") or 0),
-        )
-        return bool(self.frontend.on_permission_request(request))
-
-    def request_user_input(self, payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        request = UserInputRequest(
-            request_id=str(payload.get("request_id", "")),
-            tool_name=str(payload.get("tool_name", "")),
-            question=str(payload.get("question", "")),
-            options=payload.get("options", []),
-            details=payload.get("details", {}),
-            session_id=str(payload.get("session_id", "")),
-            turn_id=str(payload.get("turn_id", "")),
-            step_id=str(payload.get("step_id", "")),
-            step_index=int(payload.get("step_index") or 0),
-        )
-        answer = self.frontend.on_user_input_request(request)
-        if answer is None:
-            return None
-        if isinstance(answer, dict):
-            return answer
-        return {"answer": str(answer)}
 
     def _notify_status_change(self, snapshot: Dict[str, Any]) -> None:
         """通知状态变化"""

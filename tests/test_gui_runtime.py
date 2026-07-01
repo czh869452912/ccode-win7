@@ -11,9 +11,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from embedagent.core.adapter import CallbackBridge
 from embedagent.frontend.gui import launcher as gui_launcher
-from embedagent.frontend.gui.backend.bridge import BlockingResult, ThreadsafeAsyncDispatcher
+from embedagent.frontend.gui.backend.bridge import ThreadsafeAsyncDispatcher
 from embedagent.frontend.gui.backend.server import GUIBackend, WebSocketFrontend
-from embedagent.protocol import PermissionRequest
 
 
 class TestGuiLauncher(unittest.TestCase):
@@ -128,25 +127,6 @@ class TestGuiLauncher(unittest.TestCase):
         self.assertIn("model", payload)
         self.assertNotIn("llm", payload)
         self.assertNotIn("context", payload)
-
-
-class TestBlockingResult(unittest.TestCase):
-    def test_wait_returns_resolved_value(self):
-        waiter = BlockingResult(False)
-
-        def resolve_later():
-            waiter.resolve(True)
-
-        thread = threading.Thread(target=resolve_later)
-        thread.start()
-        try:
-            self.assertTrue(waiter.wait(1.0))
-        finally:
-            thread.join(1.0)
-
-    def test_wait_times_out_to_default(self):
-        waiter = BlockingResult("fallback")
-        self.assertEqual(waiter.wait(0.01), "fallback")
 
 
 class TestThreadsafeAsyncDispatcher(unittest.TestCase):
@@ -310,25 +290,6 @@ class TestWebSocketFrontend(unittest.TestCase):
         self.assertEqual(event["seq"], 1)
         self.assertTrue(event["created_at"].endswith("Z"))
         self.assertEqual(event["payload"]["permission"]["permission_id"], "perm-1")
-
-    def test_permission_request_does_not_create_activity_event(self):
-        frontend = WebSocketFrontend()
-        dispatched = []
-        frontend._dispatch_message = lambda message: dispatched.append(message) or False
-
-        result = frontend.on_permission_request(
-            PermissionRequest(
-                permission_id="perm-1",
-                session_id="sess-1",
-                tool_name="write_file",
-                category="workspace_write",
-                reason="Allow write",
-            )
-        )
-
-        self.assertFalse(result)
-        self.assertEqual(dispatched[0]["type"], "permission_request")
-        self.assertNotIn("session_event", dispatched[0]["data"])
 
 
 class TestCallbackBridge(unittest.TestCase):

@@ -1025,6 +1025,10 @@ class InProcessAdapter(object):
         event_handler: Optional[EventHandler] = None,
     ) -> Dict[str, Any]:
         state = self._require_session(session_id)
+        with state.lock:
+            if state.active_thread is not None and state.active_thread.is_alive():
+                raise RuntimeError("当前会话仍在运行中。")
+            state.stop_event.clear()
         parsed_command = parse_slash_command(text)
         command_turn_id = "t-" + uuid.uuid4().hex[:12] if parsed_command is not None else ""
         with state.lock:
@@ -1111,8 +1115,6 @@ class InProcessAdapter(object):
             name="embedagent-session-%s" % session_id[:8],
         )
         with state.lock:
-            if state.active_thread is not None and state.active_thread.is_alive():
-                raise RuntimeError("当前会话仍在运行中。")
             state.active_thread = thread
         thread.daemon = True
         thread.start()
@@ -1176,6 +1178,7 @@ class InProcessAdapter(object):
 
     def cancel_session(self, session_id: str) -> Dict[str, Any]:
         state = self._require_session(session_id)
+        pending_resolution = None
         with state.lock:
             state.stop_event.set()
             has_active_thread = bool(
@@ -1187,8 +1190,35 @@ class InProcessAdapter(object):
                 else:
                     state.pending_response = {"approved": False}
                 state.pending_event.set()
+            elif state.pending_interaction is not None:
+                if state.pending_interaction.kind == "user_input":
+                    pending_resolution = {
+                        "answer": "",
+                        "cancelled": True,
+                    }
+                else:
+                    pending_resolution = {
+                        "approved": False,
+                        "cancelled": True,
+                    }
             if state.status != "error":
                 state.status = "running" if has_active_thread else "idle"
+        if pending_resolution is not None:
+            cancel_event = threading.Event()
+            cancel_event.set()
+            with state.lock:
+                state.stop_event.clear()
+            self._run_turn(
+                state=state,
+                text="",
+                stream=True,
+                permission_resolver=None,
+                user_input_resolver=None,
+                event_handler=self.event_handler,
+                interaction_resolution=pending_resolution,
+                resume_pending=True,
+                stop_event=cancel_event,
+            )
         snapshot = self.get_session_snapshot(session_id)
         self._notify_status(None, state)
         return snapshot
@@ -1203,6 +1233,7 @@ class InProcessAdapter(object):
         event_handler: Optional[EventHandler],
         interaction_resolution: Optional[Dict[str, Any]] = None,
         resume_pending: bool = False,
+        stop_event: Optional[threading.Event] = None,
         turn_id: str = "",
         emit_turn_start: bool = True,
     ) -> None:
@@ -1429,7 +1460,7 @@ class InProcessAdapter(object):
                     interaction_resolution=interaction_resolution,
                     workflow_state=state.workflow_state,
                     stream=stream,
-                    stop_event=state.stop_event,
+                    stop_event=stop_event or state.stop_event,
                     on_text_delta=on_text_delta,
                     on_reasoning_delta=on_reasoning_delta,
                     on_tool_start=on_tool_start,
@@ -1447,7 +1478,7 @@ class InProcessAdapter(object):
                     initial_mode=state.current_mode,
                     workflow_state=state.workflow_state,
                     session=state.session,
-                    stop_event=state.stop_event,
+                    stop_event=stop_event or state.stop_event,
                     on_text_delta=on_text_delta,
                     on_reasoning_delta=on_reasoning_delta,
                     on_tool_start=on_tool_start,

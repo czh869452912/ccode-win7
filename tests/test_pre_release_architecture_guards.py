@@ -701,6 +701,35 @@ def test_gui_pending_interaction_display_comes_only_from_session_snapshot():
     ).exists()
 
 
+def test_hosted_interactions_do_not_keep_legacy_blocking_frontend_paths():
+    banned_tokens = (
+        "on_permission_request",
+        "on_user_input_request",
+        "request_permission(",
+        "request_user_input(",
+        "_permission_waiters",
+        "_user_input_waiters",
+    )
+    checked_roots = (
+        ROOT / "src/embedagent/protocol",
+        ROOT / "src/embedagent/core",
+        ROOT / "src/embedagent/frontend/gui/backend",
+        ROOT / "src/embedagent/frontend/tui",
+    )
+    offenders = []
+    for root in checked_roots:
+        for path in root.rglob("*.py"):
+            rel = _relative(path)
+            for line_number, line in enumerate(_read(path).splitlines(), start=1):
+                for token in banned_tokens:
+                    if token in line:
+                        offenders.append(
+                            "%s:%s keeps legacy blocking interaction path %s"
+                            % (rel, line_number, token)
+                        )
+    assert offenders == []
+
+
 def test_gui_session_activity_source_state_uses_activity_vocabulary():
     checked_files = {
         "src/embedagent/frontend/gui/webapp/src/session-runtime/activity-reducer.js": (

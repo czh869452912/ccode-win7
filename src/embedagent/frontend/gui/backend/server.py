@@ -8,7 +8,6 @@ from __future__ import annotations
 import logging
 import os
 import threading
-import time
 import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
@@ -24,14 +23,10 @@ from embedagent.frontend.gui.backend.app_host import (
     SingleWorkspaceAppHost,
 )
 from embedagent.frontend.gui.backend.app_shell import AppShellService
-from embedagent.frontend.gui.backend.bridge import BlockingResult, ThreadsafeAsyncDispatcher
+from embedagent.frontend.gui.backend.bridge import ThreadsafeAsyncDispatcher
 from embedagent.frontend.gui.backend.http_errors import translate_value_error
 from embedagent.frontend.gui.backend.preview_service import PreviewService
-from embedagent.frontend.gui.backend.protocol_payloads import (
-    read_value,
-    serialize_session_snapshot,
-    to_mapping,
-)
+from embedagent.frontend.gui.backend.protocol_payloads import serialize_session_snapshot
 from embedagent.frontend.gui.backend.session_events import build_session_event
 from embedagent.frontend.gui.backend.source_control_service import SourceControlService
 from embedagent.frontend.gui.backend.terminal_service import TerminalService
@@ -40,12 +35,10 @@ from embedagent.protocol import (
     CoreInterface,
     FrontendCallbacks,
     Message,
-    PermissionRequest,
     PlanSnapshot,
     SessionSnapshot,
     ToolCall,
     ToolResult,
-    UserInputRequest,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -91,9 +84,6 @@ class WebSocketFrontend(FrontendCallbacks):
     def __init__(self):
         self.connections: Set[WebSocket] = set()
         self._connections_lock = threading.RLock()
-        self._permission_waiters = {}  # type: Dict[str, BlockingResult[bool]]
-        self._user_input_waiters = {}  # type: Dict[str, BlockingResult[Optional[Dict[str, Any]]]]
-        self._pending_lock = threading.RLock()
         self._dispatcher = ThreadsafeAsyncDispatcher()
         self._session_event_lock = threading.RLock()
         self._session_event_seq = {}  # type: Dict[str, int]
@@ -297,64 +287,6 @@ class WebSocketFrontend(FrontendCallbacks):
                 },
             }
         )
-
-    def on_permission_request(self, request: PermissionRequest) -> bool:
-        """同步阻塞等待用户响应"""
-        waiter = BlockingResult(False)
-        with self._pending_lock:
-            self._permission_waiters[request.permission_id] = waiter
-        queued = self._dispatch_message(
-            {
-                "type": "permission_request",
-                "data": {
-                    "permission_id": request.permission_id,
-                    "session_id": request.session_id,
-                    "tool_name": request.tool_name,
-                    "category": request.category,
-                    "reason": request.reason,
-                    "details": request.details,
-                    "turn_id": request.turn_id,
-                    "step_id": request.step_id,
-                    "step_index": request.step_index,
-                },
-            }
-        )
-        try:
-            if not queued:
-                return False
-            return bool(waiter.wait(300.0))
-        finally:
-            with self._pending_lock:
-                self._permission_waiters.pop(request.permission_id, None)
-
-    def on_user_input_request(self, request: UserInputRequest) -> Optional[Dict[str, Any]]:
-        """同步阻塞等待用户响应"""
-        waiter = BlockingResult(None)  # type: BlockingResult[Optional[Dict[str, Any]]]
-        with self._pending_lock:
-            self._user_input_waiters[request.request_id] = waiter
-        queued = self._dispatch_message(
-            {
-                "type": "user_input_request",
-                "data": {
-                    "request_id": request.request_id,
-                    "session_id": request.session_id,
-                    "tool_name": request.tool_name,
-                    "question": request.question,
-                    "options": request.options,
-                    "details": request.details,
-                    "turn_id": request.turn_id,
-                    "step_id": request.step_id,
-                    "step_index": request.step_index,
-                },
-            }
-        )
-        try:
-            if not queued:
-                return None
-            return waiter.wait(300.0)
-        finally:
-            with self._pending_lock:
-                self._user_input_waiters.pop(request.request_id, None)
 
     def on_session_status_change(self, snapshot: SessionSnapshot) -> None:
         snapshot_payload = serialize_session_snapshot(snapshot)
@@ -561,24 +493,6 @@ class GUIBackend:
 
     def _emit_terminal_event(self, event: Dict[str, Any]) -> None:
         self.frontend._dispatch_message({"type": "terminal_event", "data": {"event": dict(event)}})
-
-    def _wait_for_interaction_resolution(
-        self, session_id: str, interaction_id: str, timeout_seconds: float = 2.0
-    ):
-        deadline = time.time() + max(timeout_seconds, 0.0)
-        latest = None
-        while time.time() < deadline:
-            core = self._require_core()
-            latest = self._call_core(core.get_session_snapshot, session_id)
-            pending = to_mapping(read_value(latest, "pending_interaction"))
-            pending_id = str((pending or {}).get("interaction_id") or "").strip()
-            if not pending_id or pending_id != str(interaction_id or "").strip():
-                return latest
-            time.sleep(0.02)
-        if latest is not None:
-            return latest
-        core = self._require_core()
-        return self._call_core(core.get_session_snapshot, session_id)
 
     def _create_app(self) -> FastAPI:
         from embedagent.frontend.gui.backend.routes_app import register_app_routes

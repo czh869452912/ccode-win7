@@ -84,36 +84,6 @@ class ToolResult:
 
 
 @dataclass
-class PermissionRequest:
-    """权限请求"""
-
-    permission_id: str
-    tool_name: str
-    category: str
-    reason: str
-    details: Dict[str, Any] = field(default_factory=dict)
-    session_id: str = ""
-    turn_id: str = ""
-    step_id: str = ""
-    step_index: int = 0
-
-
-@dataclass
-class UserInputRequest:
-    """用户输入请求"""
-
-    request_id: str
-    tool_name: str
-    question: str
-    options: List[Dict[str, Any]] = field(default_factory=list)
-    details: Dict[str, Any] = field(default_factory=dict)
-    session_id: str = ""
-    turn_id: str = ""
-    step_id: str = ""
-    step_index: int = 0
-
-
-@dataclass
 class CommandResult:
     """Slash command / workflow result"""
 
@@ -137,17 +107,6 @@ class PlanSnapshot:
     workflow_state: str = "plan"
     path: str = ""
     summary: str = ""
-
-
-@dataclass
-class TimelineItem:
-    """前端可消费的统一时间线条目"""
-
-    id: str
-    kind: str
-    content: str = ""
-    status: str = ""
-    metadata: Dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -292,14 +251,6 @@ class FrontendCallbacks(Protocol):
 
     def on_tool_finish(self, result: ToolResult) -> None:
         """工具执行完成"""
-        ...
-
-    def on_permission_request(self, request: PermissionRequest) -> bool:
-        """请求用户权限，返回是否批准"""
-        ...
-
-    def on_user_input_request(self, request: UserInputRequest) -> Optional[str]:
-        """请求用户输入，返回答案"""
         ...
 
     def on_session_status_change(self, snapshot: SessionSnapshot) -> None:

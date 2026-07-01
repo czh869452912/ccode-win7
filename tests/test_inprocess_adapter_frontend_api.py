@@ -1383,6 +1383,109 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertEqual(final_snapshot.get("status"), "idle")
         self.assertEqual(final_snapshot.get("last_transition_reason"), "aborted")
 
+    def test_cancel_session_clears_waiting_user_input_interaction(self):
+        adapter = InProcessAdapter(
+            client=AskUserClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+        )
+        snapshot = adapter.create_session("spec")
+        session_id = str(snapshot.get("session_id") or "")
+        adapter.submit_user_message(
+            session_id=session_id,
+            text="请继续",
+            stream=False,
+            wait=False,
+            event_handler=lambda event_name, current_session_id, payload: None,
+        )
+        deadline = time.time() + 3.0
+        waiting = {}
+        while time.time() < deadline:
+            waiting = adapter.get_session_snapshot(session_id)
+            if waiting.get("status") == "waiting_user_input":
+                break
+            time.sleep(0.05)
+        self.assertEqual(waiting.get("status"), "waiting_user_input")
+        self.assertTrue(waiting.get("pending_interaction_valid"))
+
+        cancelled = adapter.cancel_session(session_id)
+
+        self.assertEqual(cancelled.get("status"), "idle")
+        self.assertFalse(cancelled.get("pending_interaction_valid"))
+        self.assertIsNone(cancelled.get("pending_interaction"))
+        final_snapshot = adapter.get_session_snapshot(session_id)
+        self.assertFalse(final_snapshot.get("pending_interaction_valid"))
+        self.assertIsNone(final_snapshot.get("pending_interaction"))
+
+    def test_cancel_session_clears_waiting_permission_interaction(self):
+        adapter = InProcessAdapter(
+            client=WriteThenDoneClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=False, workspace=self.workspace),
+        )
+        snapshot = adapter.create_session("build")
+        session_id = str(snapshot.get("session_id") or "")
+        adapter.submit_user_message(
+            session_id=session_id,
+            text="写文件",
+            stream=False,
+            wait=False,
+            event_handler=lambda event_name, current_session_id, payload: None,
+        )
+        deadline = time.time() + 3.0
+        waiting = {}
+        while time.time() < deadline:
+            waiting = adapter.get_session_snapshot(session_id)
+            if waiting.get("status") == "waiting_permission":
+                break
+            time.sleep(0.05)
+        self.assertEqual(waiting.get("status"), "waiting_permission")
+        self.assertTrue(waiting.get("pending_interaction_valid"))
+
+        cancelled = adapter.cancel_session(session_id)
+
+        self.assertEqual(cancelled.get("status"), "idle")
+        self.assertFalse(cancelled.get("pending_interaction_valid"))
+        self.assertIsNone(cancelled.get("pending_interaction"))
+        self.assertFalse(os.path.exists(os.path.join(self.workspace, "src", "generated_write.c")))
+
+    def test_new_turn_after_waiting_permission_cancel_does_not_keep_stop_signal(self):
+        adapter = InProcessAdapter(
+            client=WriteThenDoneClient(),
+            tools=self.tools,
+            permission_policy=PermissionPolicy(auto_approve_all=False, workspace=self.workspace),
+        )
+        snapshot = adapter.create_session("build")
+        session_id = str(snapshot.get("session_id") or "")
+        adapter.submit_user_message(
+            session_id=session_id,
+            text="写文件",
+            stream=False,
+            wait=False,
+            event_handler=lambda event_name, current_session_id, payload: None,
+        )
+        deadline = time.time() + 3.0
+        waiting = {}
+        while time.time() < deadline:
+            waiting = adapter.get_session_snapshot(session_id)
+            if waiting.get("status") == "waiting_permission":
+                break
+            time.sleep(0.05)
+        self.assertEqual(waiting.get("status"), "waiting_permission")
+        adapter.cancel_session(session_id)
+
+        adapter.client = FakeClient()
+        refreshed = adapter.submit_user_message(
+            session_id=session_id,
+            text="继续",
+            stream=False,
+            wait=True,
+            event_handler=lambda event_name, current_session_id, payload: None,
+        )
+
+        self.assertEqual(refreshed.get("status"), "idle")
+        self.assertEqual(refreshed.get("last_transition_reason"), "completed")
+
     def test_workspace_recipe_api_detects_cmake(self):
         with open(os.path.join(self.workspace, "CMakeLists.txt"), "w", encoding="utf-8") as handle:
             handle.write("cmake_minimum_required(VERSION 3.20)\nproject(demo C)\n")
