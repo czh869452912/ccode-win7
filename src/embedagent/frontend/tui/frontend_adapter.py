@@ -5,19 +5,17 @@ TUI Frontend Adapter
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Dict
 
 from embedagent.protocol import (
     CommandResult,
     FrontendCallbacks,
     Message,
     MessageType,
-    PermissionRequest,
     PlanSnapshot,
     SessionSnapshot,
     ToolCall,
     ToolResult,
-    UserInputRequest,
 )
 
 if TYPE_CHECKING:
@@ -87,27 +85,6 @@ class TUIFrontend(FrontendCallbacks):
         }
         reducer.append_line(self.app.state, format_observation_line(payload))
         self.app.refresh_views()
-
-    def on_permission_request(self, request: PermissionRequest) -> bool:
-        """请求用户权限 - TUI 使用阻塞式确认"""
-        from embedagent.frontend.tui import reducer
-
-        reducer.append_line(self.app.state, f"[permission] {request.reason} (y/n)")
-        self.app.refresh_views()
-
-        # 等待用户输入（通过 controller 处理）
-        # 这里返回 False，实际确认通过 handle_permission_reply 处理
-        return False
-
-    def on_user_input_request(self, request: UserInputRequest) -> Optional[str]:
-        """请求用户输入"""
-        from embedagent.frontend.tui import reducer
-
-        reducer.append_line(self.app.state, f"[question] {request.question}")
-        self.app.refresh_views()
-
-        # 等待用户输入
-        return None
 
     def on_session_status_change(self, snapshot: SessionSnapshot) -> None:
         """会话状态变化"""

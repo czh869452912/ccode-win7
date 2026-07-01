@@ -3,9 +3,7 @@ from __future__ import annotations
 import asyncio
 import threading
 from dataclasses import dataclass
-from typing import Any, Awaitable, Callable, Generic, TypeVar
-
-T = TypeVar("T")
+from typing import Any, Awaitable, Callable
 
 
 @dataclass(frozen=True)
@@ -15,27 +13,6 @@ class DispatchResult(object):
 
     def __bool__(self) -> bool:
         return bool(self.queued)
-
-
-class BlockingResult(Generic[T]):
-    """Thread-safe synchronous waiter used by GUI approval/input callbacks."""
-
-    def __init__(self, default: T) -> None:
-        self._default = default
-        self._event = threading.Event()
-        self._lock = threading.RLock()
-        self._result = default
-
-    def resolve(self, value: T) -> None:
-        with self._lock:
-            self._result = value
-            self._event.set()
-
-    def wait(self, timeout: float) -> T:
-        if not self._event.wait(timeout):
-            return self._default
-        with self._lock:
-            return self._result
 
 
 class ThreadsafeAsyncDispatcher(object):
