@@ -115,6 +115,32 @@ def test_no_tui_flat_or_event_history_projection_contract():
     assert offenders == []
 
 
+def test_no_flat_timeline_view_or_builder_paths():
+    forbidden = (
+        "Flat" + "TimelineView",
+        "build_flat" + "_history",
+        "build_flat" + "_timeline",
+        "timeline" + "FromTurns",
+        "timeline" + "FromEvents",
+    )
+    forbidden_paths = ("src/embedagent/frontend/gui/webapp/src/session-runtime/projector.js",)
+    offenders = []
+    for path in _source_files_under(
+        "src/embedagent",
+        "src/embedagent_core",
+        "src/embedagent_host",
+    ):
+        text = _read(path)
+        rel = _relative(path)
+        for token in forbidden:
+            if token in text:
+                offenders.append("%s contains %s" % (rel, token))
+    for rel_path in forbidden_paths:
+        if (ROOT / rel_path).exists():
+            offenders.append("%s exists" % rel_path)
+    assert offenders == []
+
+
 def test_no_session_view_clear_uses_timeline_payload():
     files = [
         ROOT / "src/embedagent_host/inprocess_adapter.py",
