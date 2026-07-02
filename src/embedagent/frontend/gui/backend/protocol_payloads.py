@@ -3,7 +3,17 @@ from __future__ import annotations
 from typing import Any, Dict, Optional
 
 from embedagent.modes import DEFAULT_MODE
-from embedagent.protocol import PlanSnapshot
+from embedagent.protocol import (
+    AppBootstrap,
+    CapabilitySnapshot,
+    CommandDescriptor,
+    ModeDescriptor,
+    PlanSnapshot,
+    ThreadDetailSnapshot,
+    ThreadShell,
+    ToolPresentation,
+    WorkflowPackageDescriptor,
+)
 
 
 def to_mapping(value: Any) -> Optional[Dict[str, Any]]:
@@ -34,6 +44,207 @@ def read_value(payload: Any, key: str, default: Any = None, aliases: tuple = ())
 def read_status_value(snapshot: Any) -> str:
     status = read_value(snapshot, "status", "")
     return str(getattr(status, "value", status) or "")
+
+
+def _normal_mapping(value: Any) -> Dict[str, Any]:
+    return value if isinstance(value, dict) else {}
+
+
+def _normal_list(value: Any) -> list:
+    return list(value) if isinstance(value, list) else []
+
+
+def _camel_or_snake(payload: Dict[str, Any], camel: str, snake: str, default: Any = None) -> Any:
+    if camel in payload:
+        return payload.get(camel, default)
+    if snake in payload:
+        return payload.get(snake, default)
+    return default
+
+
+def _protocol_capability_snapshot(payload: Any) -> CapabilitySnapshot:
+    data = _normal_mapping(payload)
+    modes = []
+    for item in _normal_list(data.get("modes")):
+        if not isinstance(item, dict):
+            continue
+        mode_id = str(item.get("id") or item.get("name") or "").strip()
+        if not mode_id:
+            continue
+        modes.append(
+            ModeDescriptor(
+                id=mode_id,
+                label=str(item.get("label") or item.get("name") or mode_id),
+                description=str(item.get("description") or ""),
+                icon_key=str(_camel_or_snake(item, "iconKey", "icon_key", "") or ""),
+                color_token=str(_camel_or_snake(item, "colorToken", "color_token", "") or ""),
+                command_id=str(_camel_or_snake(item, "commandId", "command_id", "") or ""),
+            )
+        )
+    commands = []
+    for item in _normal_list(data.get("commands")):
+        if not isinstance(item, dict):
+            continue
+        command_id = str(item.get("id") or item.get("name") or "").strip()
+        usage = str(item.get("usage") or "").strip()
+        if not command_id and not usage:
+            continue
+        commands.append(
+            CommandDescriptor(
+                id=command_id or usage,
+                label=str(item.get("label") or usage or command_id),
+                group=str(item.get("group") or item.get("source_type") or "command"),
+                dispatch=dict(item.get("dispatch") or {}),
+                shortcut=str(item.get("shortcut") or ""),
+                availability=dict(item.get("availability") or {}),
+            )
+        )
+    tools = []
+    for item in _normal_list(data.get("tools")):
+        if not isinstance(item, dict):
+            continue
+        name = str(item.get("name") or "").strip()
+        if not name:
+            continue
+        tools.append(
+            ToolPresentation(
+                name=name,
+                label=str(item.get("label") or name),
+                icon_key=str(_camel_or_snake(item, "iconKey", "icon_key", "") or ""),
+                renderer_key=str(
+                    _camel_or_snake(item, "rendererKey", "renderer_key", "generic") or "generic"
+                ),
+                permission_category=str(
+                    _camel_or_snake(
+                        item,
+                        "permissionCategory",
+                        "permission_category",
+                        "other",
+                    )
+                    or "other"
+                ),
+                metadata=dict(item.get("metadata") or {}),
+            )
+        )
+    workflow_packages = []
+    workflow_items = data.get("workflowPackages")
+    if workflow_items is None:
+        workflow_items = data.get("workflow_packages")
+    for item in _normal_list(workflow_items):
+        if not isinstance(item, dict):
+            continue
+        package_id = str(item.get("id") or "").strip()
+        if not package_id:
+            continue
+        workflow_packages.append(
+            WorkflowPackageDescriptor(
+                id=package_id,
+                label=str(item.get("label") or package_id),
+                active=bool(item.get("active")),
+                state=dict(item.get("state") or {}),
+                metadata=dict(item.get("metadata") or {}),
+            )
+        )
+    empty_state = data.get("emptyState")
+    if empty_state is None:
+        empty_state = data.get("empty_state")
+    model_profiles = data.get("modelProfiles")
+    if model_profiles is None:
+        model_profiles = data.get("model_profiles")
+    return CapabilitySnapshot(
+        modes=modes,
+        commands=commands,
+        tools=tools,
+        workflow_packages=workflow_packages,
+        resources=_normal_list(data.get("resources")),
+        model_profiles=_normal_list(model_profiles),
+        empty_state=dict(empty_state or {}),
+    )
+
+
+def serialize_app_bootstrap(payload: Any) -> Dict[str, Any]:
+    data = _normal_mapping(payload)
+    commands = []
+    for item in _normal_list(data.get("commands")):
+        if not isinstance(item, dict):
+            continue
+        command_id = str(item.get("id") or item.get("name") or "").strip()
+        if not command_id:
+            continue
+        commands.append(
+            CommandDescriptor(
+                id=command_id,
+                label=str(item.get("label") or item.get("usage") or command_id),
+                group=str(item.get("group") or "app"),
+                dispatch=dict(item.get("dispatch") or {}),
+                shortcut=str(item.get("shortcut") or ""),
+                availability=dict(item.get("availability") or {}),
+            )
+        )
+    bootstrap = AppBootstrap(
+        app=dict(data.get("app") or {}),
+        workspaces=_normal_list(data.get("workspaces")),
+        commands=commands,
+        surfaces=_normal_list(data.get("surfaces")),
+        diagnostics=dict(data.get("diagnostics") or {}),
+    )
+    result = bootstrap.to_dict()
+    active_workspace = data.get("active_workspace")
+    if active_workspace is None:
+        active_workspace = data.get("activeWorkspace")
+    result.update(
+        {
+            "active_workspace": (
+                dict(active_workspace) if isinstance(active_workspace, dict) else None
+            ),
+            "has_active_workspace": bool(
+                data.get("has_active_workspace") or data.get("hasActiveWorkspace")
+            ),
+            "capabilities": dict(data.get("capabilities") or {}),
+            "settings": dict(data.get("settings") or {}),
+            "last_error": str(data.get("last_error") or data.get("lastError") or ""),
+        }
+    )
+    if "removed" in data:
+        result["removed"] = bool(data.get("removed"))
+    return result
+
+
+def serialize_session_bootstrap(payload: Any) -> Dict[str, Any]:
+    data = _normal_mapping(payload)
+    raw_snapshot = data.get("snapshot")
+    raw_snapshot_mapping = _normal_mapping(raw_snapshot)
+    snapshot_payload = serialize_session_snapshot(data.get("snapshot"))
+    session_id = str(snapshot_payload.get("session_id") or data.get("session_id") or "")
+    thread = _normal_mapping(data.get("thread"))
+    history = _normal_mapping(data.get("history"))
+    workflow = raw_snapshot_mapping.get("workflow_state")
+    if not isinstance(workflow, dict):
+        workflow = _normal_mapping(data.get("workflow"))
+    detail = ThreadDetailSnapshot(
+        thread=ThreadShell(
+            id=session_id,
+            title=str(thread.get("title") or snapshot_payload.get("title") or session_id),
+            archived=bool(thread.get("archived")),
+            current_mode=str(snapshot_payload.get("current_mode") or ""),
+            status=str(snapshot_payload.get("status") or ""),
+            updated_at=str(
+                snapshot_payload.get("updated_at")
+                or snapshot_payload.get("started_at")
+                or ""
+            ),
+            pending_interaction=bool(snapshot_payload.get("pending_interaction_valid")),
+        ),
+        snapshot=snapshot_payload,
+        activities=_normal_list(history.get("activities")),
+        capabilities=_protocol_capability_snapshot(data.get("capabilities")),
+        workflow=workflow,
+        integrity=dict(history.get("integrity") or {}),
+    )
+    result = detail.to_dict()
+    result["plan"] = serialize_plan_snapshot(data.get("plan"))
+    result["permission_context"] = serialize_permission_context(data.get("permission_context"))
+    return result
 
 
 def serialize_session_snapshot(snapshot: Any) -> Dict[str, Any]:

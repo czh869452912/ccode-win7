@@ -703,7 +703,8 @@ class TestGuiBackendApi(unittest.TestCase):
         self.assertIn("history", payload)
         self.assertIn("plan", payload)
         self.assertIn("permission_context", payload)
-        self.assertEqual(payload["capabilities"]["commands"][0]["usage"], "/help")
+        self.assertNotIn("turns", payload["history"])
+        self.assertEqual(payload["capabilities"]["commands"][0]["label"], "/help")
 
     def test_session_capabilities_endpoint_returns_slash_commands(self):
         with tempfile.TemporaryDirectory() as static_dir:

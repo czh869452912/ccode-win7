@@ -54,4 +54,19 @@ export function runCommandCapabilitiesTests() {
   assert.equal(commands[0].insertion, "/resources ");
   assert.equal(commands[1].insertion, "/skill:code-review ");
   assert.deepEqual(commands[1].keywords, ["skill:code-review", "Review local C changes"]);
+
+  const protocolCapabilities = normalizeCommandCapabilities({
+    commands: [
+      {
+        id: "help",
+        label: "/help",
+        group: "command",
+        dispatch: { kind: "slash", command: "help" },
+        active: true,
+      },
+    ],
+  });
+  assert.equal(protocolCapabilities.commands[0].usage, "/help");
+  assert.equal(protocolCapabilities.commands[0].name, "help");
+  assert.equal(buildComposerCommandsFromCapabilities(protocolCapabilities)[0].insertion, "/help ");
 }

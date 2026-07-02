@@ -11,8 +11,9 @@ export function normalizeCommandCapabilities(input = {}) {
   const seen = new Set();
   const source = Array.isArray(input?.commands) ? input.commands : [];
   for (const item of source) {
-    const name = text(item?.name);
-    const usage = text(item?.usage);
+    const usage = text(item?.usage || item?.label);
+    const protocolId = text(item?.id);
+    const name = text(item?.name || protocolId);
     if (!name || !usage || item?.active === false) continue;
     const key = usage.toLowerCase();
     if (seen.has(key)) continue;

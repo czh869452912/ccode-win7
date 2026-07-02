@@ -5,12 +5,13 @@ from typing import Any, Dict
 from fastapi import HTTPException
 
 from embedagent.frontend.gui.backend.http_errors import preview_http_error
+from embedagent.frontend.gui.backend.protocol_payloads import serialize_app_bootstrap
 
 
 def register_app_routes(app: Any, backend: Any) -> None:
     @app.get("/api/app/bootstrap")
     async def get_app_bootstrap():
-        return backend.app_shell.bootstrap()
+        return serialize_app_bootstrap(backend.app_shell.bootstrap())
 
     @app.get("/api/app/workspaces")
     async def list_app_workspaces():

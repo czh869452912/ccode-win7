@@ -10,6 +10,7 @@ from embedagent.frontend.gui.backend.protocol_payloads import (
     serialize_interaction_response,
     serialize_permission_context,
     serialize_plan_snapshot,
+    serialize_session_bootstrap,
     serialize_session_capabilities,
     serialize_session_snapshot,
     serialize_session_summary,
@@ -39,13 +40,7 @@ def register_session_routes(app: Any, backend: Any) -> None:
     async def get_session_bootstrap(session_id: str):
         core = backend._require_core()
         payload = backend._call_core(core.get_session_bootstrap, session_id)
-        return {
-            "snapshot": serialize_session_snapshot(payload.get("snapshot")),
-            "history": dict(payload.get("history") or {}),
-            "plan": serialize_plan_snapshot(payload.get("plan")),
-            "permission_context": serialize_permission_context(payload.get("permission_context")),
-            "capabilities": serialize_session_capabilities(payload.get("capabilities")),
-        }
+        return serialize_session_bootstrap(payload)
 
     @app.post("/api/sessions")
     async def create_session(mode: str = DEFAULT_MODE):
