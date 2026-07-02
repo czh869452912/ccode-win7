@@ -66,6 +66,25 @@ function readModelInvalidations(payload = {}) {
   return Array.isArray(raw) ? raw.map((item) => String(item || "").trim()).filter(Boolean) : [];
 }
 
+function text(value) {
+  return String(value || "").trim();
+}
+
+function normalizeInteractionPayload(payload = {}) {
+  return {
+    requestKind: text(payload?.request_kind || payload?.requestKind),
+    permissionCategory: text(payload?.category || payload?.permission_category || payload?.permissionCategory),
+    toolName: text(payload?.tool_name || payload?.toolName),
+    summary: text(payload?.summary || payload?.reason || payload?.question),
+    reason: text(payload?.reason),
+    details: payload?.details && typeof payload.details === "object" ? payload.details : {},
+    questions: Array.isArray(payload?.questions) ? payload.questions : [],
+    decision: text(payload?.decision),
+    answer: text(payload?.answer || payload?.selected_option_text),
+    error: text(payload?.error || payload?.detail),
+  };
+}
+
 function commandResultEffects(data, options) {
   const effects = emptyEffects();
   const commandName = data?.command_name || "";
@@ -172,22 +191,51 @@ export function deriveSocketMessageEffects({
 
   if (type === "session_event") {
     effects.transportEvents.push(payload);
-    if (payload?.event_kind === "turn.started") {
+    const eventKind = payload?.event_kind || "";
+    const eventPayload = payload?.payload || {};
+    const createdAt = payload?.created_at || nowValue(options.nowIso);
+    const requestId = String(eventPayload?.request_id || eventPayload?.interaction_id || "");
+    if (eventKind === "turn.started") {
       effects.actions.push({
         type: "turn_started",
-        turnId: payload.payload?.turn_id || "",
-        userText: payload.payload?.user_text || "",
-        createdAt: payload?.created_at || nowValue(options.nowIso),
+        turnId: eventPayload?.turn_id || "",
+        userText: eventPayload?.user_text || "",
+        createdAt,
       });
-    } else if (payload?.event_kind === "transition.recorded") {
+    } else if (eventKind === "transition.recorded") {
       effects.actions.push({
         type: "turn_ended",
-        terminationReason: payload.payload?.termination_reason || "",
+        terminationReason: eventPayload?.termination_reason || "",
         terminationDisplayReason:
-          payload.payload?.display_reason || payload.payload?.termination_reason || "",
-        terminationMessage: payload.payload?.message || payload.payload?.error || "",
-        turnsUsed: payload.payload?.turns_used || 0,
-        maxTurns: payload.payload?.max_turns ?? null,
+          eventPayload?.display_reason || eventPayload?.termination_reason || "",
+        terminationMessage: eventPayload?.message || eventPayload?.error || "",
+        turnsUsed: eventPayload?.turns_used || 0,
+        maxTurns: eventPayload?.max_turns ?? null,
+      });
+    } else if (eventKind === "approval.requested" || eventKind === "user-input.requested") {
+      effects.actions.push({
+        type: "interaction_requested",
+        id: payload?.event_id || eventId(options.makeId, "interaction"),
+        kind: eventKind,
+        requestId,
+        turnId: String(eventPayload?.turn_id || ""),
+        createdAt,
+        payload: normalizeInteractionPayload(eventPayload),
+      });
+    } else if (
+      eventKind === "approval.resolved" ||
+      eventKind === "approval.response.failed" ||
+      eventKind === "user-input.resolved" ||
+      eventKind === "user-input.response.failed"
+    ) {
+      effects.actions.push({
+        type: "interaction_resolved",
+        id: payload?.event_id || eventId(options.makeId, "interaction"),
+        kind: eventKind,
+        requestId,
+        turnId: String(eventPayload?.turn_id || ""),
+        createdAt,
+        payload: normalizeInteractionPayload(eventPayload),
       });
     }
     return effects;
@@ -295,23 +343,7 @@ export function deriveSocketMessageEffects({
     return effects;
   }
 
-  if (type === "permission_request") {
-    effects.actions.push(logAction("permission_request", payload?.reason || ""));
-    effects.loaderRequests.push({
-      name: LOADER_REQUESTS.LOAD_SESSION,
-      sessionId: payload?.session_id || options.currentSessionId || "",
-    });
-    return effects;
-  }
-
-  if (type === "user_input_request") {
-    effects.actions.push(logAction("user_input_request", payload?.question || ""));
-    effects.loaderRequests.push({
-      name: LOADER_REQUESTS.LOAD_SESSION,
-      sessionId: payload?.session_id || options.currentSessionId || "",
-    });
-    return effects;
-  }
+  if (type === "permission_request" || type === "user_input_request") return effects;
 
   if (type === "command_result") return commandResultEffects(payload, options);
 

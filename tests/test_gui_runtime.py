@@ -285,11 +285,12 @@ class TestWebSocketFrontend(unittest.TestCase):
 
         event = dispatched[0]["data"]
         self.assertEqual(event["session_id"], "sess-1")
-        self.assertEqual(event["event_kind"], "interaction.created")
+        self.assertEqual(event["event_kind"], "approval.requested")
         self.assertTrue(event["event_id"].startswith("evt-"))
         self.assertEqual(event["seq"], 1)
         self.assertTrue(event["created_at"].endswith("Z"))
         self.assertEqual(event["payload"]["permission"]["permission_id"], "perm-1")
+        self.assertEqual(event["payload"]["request_id"], "perm-1")
 
 
 class TestCallbackBridge(unittest.TestCase):

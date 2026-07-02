@@ -89,6 +89,32 @@ export function runActivityStateTests() {
   assert.equal(activity.activities.some((item) => item.kind === "system" && item.tone === "error"), true);
   assert.equal(activity.thinkingActive, false);
 
+  let interactionActivity = reduceActivityState(createActivityState(), {
+    type: "interaction_requested",
+    id: "evt-approval",
+    kind: "approval.requested",
+    requestId: "perm-1",
+    turnId: "turn-1",
+    createdAt: "2026-07-02T10:00:00.000Z",
+    payload: { summary: "Edit src/demo.c", toolName: "edit_file" },
+  });
+  assert.equal(interactionActivity.activities[0].kind, "interaction");
+  assert.equal(interactionActivity.activities[0].sourceActivityKind, "approval.requested");
+  assert.equal(interactionActivity.activities[0].requestId, "perm-1");
+  assert.equal(interactionActivity.activities[0].status, "pending");
+
+  interactionActivity = reduceActivityState(interactionActivity, {
+    type: "interaction_resolved",
+    id: "evt-approval-resolved",
+    kind: "approval.resolved",
+    requestId: "perm-1",
+    turnId: "turn-1",
+    createdAt: "2026-07-02T10:01:00.000Z",
+    payload: { decision: "accept" },
+  });
+  assert.equal(interactionActivity.activities[0].status, "resolved");
+  assert.equal(interactionActivity.activities[0].resolvedAt, "2026-07-02T10:01:00.000Z");
+
   const activities = normalizeHistoryActivities([
     {
       kind: "user",

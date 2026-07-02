@@ -83,20 +83,56 @@ export function runSocketMessageEffectsTests() {
   assert.equal(transitionEvent.actions[0].terminationDisplayReason, "max turns reached");
   assert.equal(transitionEvent.actions[0].turnsUsed, 8);
 
-  const resolvedInteractionEvent = derive("session_event", {
-    event_id: "evt-interaction-resolved",
-    seq: 6,
-    event_kind: "interaction.resolved",
+  const approvalRequested = derive("session_event", {
+    event_id: "evt-approval",
+    seq: 7,
+    event_kind: "approval.requested",
     payload: {
-      interaction_id: "int-1",
-      kind: "user_input",
-      answer: "continue",
-      selected_option_text: "Continue",
+      request_id: "perm-1",
+      interaction_id: "perm-1",
+      turn_id: "turn-1",
+      tool_name: "edit_file",
+      request_kind: "file-change",
+      summary: "Edit src/demo.c",
+      details: { path: "src/demo.c" },
     },
   });
-  assert.deepEqual(resolvedInteractionEvent.actions, []);
-  assert.equal(resolvedInteractionEvent.transportEvents.length, 1);
-  assert.equal(resolvedInteractionEvent.transportEvents[0].event_kind, "interaction.resolved");
+  assert.equal(approvalRequested.actions[0].type, "interaction_requested");
+  assert.equal(approvalRequested.actions[0].kind, "approval.requested");
+  assert.equal(approvalRequested.actions[0].requestId, "perm-1");
+  assert.equal(approvalRequested.actions[0].payload.toolName, "edit_file");
+  assert.deepEqual(approvalRequested.loaderRequests, []);
+
+  const userInputRequested = derive("session_event", {
+    event_id: "evt-user-input",
+    seq: 8,
+    event_kind: "user-input.requested",
+    payload: {
+      request_id: "ask-1",
+      interaction_id: "ask-1",
+      turn_id: "turn-1",
+      questions: [{ id: "answer", question: "Continue?", options: [{ index: 1, label: "Yes" }] }],
+    },
+  });
+  assert.equal(userInputRequested.actions[0].type, "interaction_requested");
+  assert.equal(userInputRequested.actions[0].kind, "user-input.requested");
+  assert.equal(userInputRequested.actions[0].requestId, "ask-1");
+  assert.deepEqual(userInputRequested.loaderRequests, []);
+
+  const approvalResolved = derive("session_event", {
+    event_id: "evt-approval-resolved",
+    seq: 9,
+    event_kind: "approval.resolved",
+    payload: {
+      request_id: "perm-1",
+      interaction_id: "perm-1",
+      turn_id: "turn-1",
+      decision: "accept",
+    },
+  });
+  assert.equal(approvalResolved.actions[0].type, "interaction_resolved");
+  assert.equal(approvalResolved.actions[0].kind, "approval.resolved");
+  assert.equal(approvalResolved.actions[0].requestId, "perm-1");
 
   const turnEndWithoutSafetyLimit = derive("turn_end", {
     termination_reason: "completed",
@@ -165,14 +201,9 @@ export function runSocketMessageEffectsTests() {
     step_id: "step-2",
     step_index: 2,
   });
-  assert.equal(permission.actions.some((action) => action.type === "permission_request"), false);
+  assert.deepEqual(permission.actions, []);
   assert.deepEqual(permission.transportEvents, []);
-  assert.deepEqual(permission.actions[0], {
-    type: "log_event",
-    label: "permission_request",
-    detail: "Allow edit",
-  });
-  assert.deepEqual(permission.loaderRequests, [{ name: LOADER_REQUESTS.LOAD_SESSION, sessionId: "sess-active" }]);
+  assert.deepEqual(permission.loaderRequests, []);
 
   const userInput = derive("user_input_request", {
     request_id: "input-1",
@@ -182,11 +213,9 @@ export function runSocketMessageEffectsTests() {
     options: [{ index: 1, text: "Strict" }],
     turn_id: "turn-1",
   });
-  assert.equal(userInput.actions.some((action) => action.type === "user_input_request"), false);
+  assert.deepEqual(userInput.actions, []);
   assert.deepEqual(userInput.transportEvents, []);
-  assert.deepEqual(userInput.loaderRequests, [{ name: LOADER_REQUESTS.LOAD_SESSION, sessionId: "sess-active" }]);
-  assert.equal(userInput.actions.some((action) => action.type === "append_activity_item"), false);
-  assert.equal(userInput.actions.some((action) => action.type === "activity_reset"), false);
+  assert.deepEqual(userInput.loaderRequests, []);
 
   const rawPermission = derive("permission_request", {
     permission_id: "perm-raw",

@@ -125,7 +125,7 @@ export function runSessionRuntimeTests() {
           session_id: "sess-1",
           event_id: "evt-ignored",
           seq: 1,
-          event_kind: "interaction.created",
+          event_kind: "approval.requested",
           created_at: "2026-04-04T00:01:00Z",
           payload: {
             interaction_id: "int-ignored",

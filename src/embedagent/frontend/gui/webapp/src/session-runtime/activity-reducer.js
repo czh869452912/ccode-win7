@@ -359,6 +359,46 @@ export function reduceActivityState(state, action) {
           ...rawProjectionMeta(),
         }),
       };
+    case "interaction_requested":
+      return {
+        ...state,
+        activities: upsertActivityItem(
+          state.activities,
+          {
+            id: action.id || makeEventId("interaction"),
+            kind: "interaction",
+            sourceActivityKind: action.kind,
+            requestId: action.requestId || "",
+            status: "pending",
+            content: action.payload?.summary || "",
+            turnId: action.turnId || state.activeTurnId,
+            createdAt: action.createdAt || "",
+            payload: action.payload || {},
+            ...liveProjectionMeta(),
+          },
+          (item) => item.kind === "interaction" && item.requestId === action.requestId,
+        ),
+      };
+    case "interaction_resolved":
+      return {
+        ...state,
+        activities: upsertActivityItem(
+          state.activities,
+          {
+            id: action.id || makeEventId("interaction"),
+            kind: "interaction",
+            sourceActivityKind: action.kind,
+            requestId: action.requestId || "",
+            status: action.kind && action.kind.indexOf("failed") >= 0 ? "error" : "resolved",
+            content: action.payload?.summary || action.payload?.error || "",
+            turnId: action.turnId || state.activeTurnId,
+            resolvedAt: action.createdAt || "",
+            payload: action.payload || {},
+            ...liveProjectionMeta(),
+          },
+          (item) => item.kind === "interaction" && item.requestId === action.requestId,
+        ),
+      };
     case "command_result": {
       const turnId = resolveActivityAnchor({
         explicitTurnId: action.turnId || "",
@@ -415,6 +455,8 @@ export const ACTIVITY_ACTION_TYPES = new Set([
   "step_ended",
   "session_error",
   "context_compacted",
+  "interaction_requested",
+  "interaction_resolved",
   "command_result",
   "stream_completed",
 ]);
