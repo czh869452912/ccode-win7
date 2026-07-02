@@ -126,6 +126,28 @@ function Get-ChecksumLines {
     return @(Get-Content -LiteralPath $ChecksumPath | Where-Object { $_.Trim() })
 }
 
+function Get-Sha256Hash {
+    param(
+        [string]$Path
+    )
+
+    $stream = [System.IO.File]::OpenRead($Path)
+    try {
+        $sha256 = [System.Security.Cryptography.SHA256]::Create()
+        try {
+            $hashBytes = $sha256.ComputeHash($stream)
+        }
+        finally {
+            $sha256.Dispose()
+        }
+    }
+    finally {
+        $stream.Dispose()
+    }
+
+    return ([System.BitConverter]::ToString($hashBytes)).Replace('-', '').ToLowerInvariant()
+}
+
 function Validate-Checksums {
     param(
         [System.Collections.ArrayList]$Results,
@@ -153,7 +175,7 @@ function Validate-Checksums {
             Add-Result -Results $Results -Level 'fail' -Code ($CodePrefix + '.checksums.missing_file') -Message ('Missing file referenced by checksums.txt: {0}' -f $relativePath)
             continue
         }
-        $actualHash = (Get-FileHash -LiteralPath $targetPath -Algorithm SHA256).Hash.ToLowerInvariant()
+        $actualHash = Get-Sha256Hash -Path $targetPath
         if ($actualHash -ne $expectedHash) {
             Add-Result -Results $Results -Level 'fail' -Code ($CodePrefix + '.checksums.mismatch') -Message ('Checksum mismatch: {0}' -f $relativePath)
         }
