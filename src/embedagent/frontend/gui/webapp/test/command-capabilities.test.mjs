@@ -56,6 +56,13 @@ export function runCommandCapabilitiesTests() {
   assert.deepEqual(commands[1].keywords, ["skill:code-review", "Review local C changes"]);
 
   const protocolCapabilities = normalizeCommandCapabilities({
+    modes: [
+      {
+        id: "python-build",
+        label: "Python Build",
+        commandId: "mode.python-build",
+      },
+    ],
     commands: [
       {
         id: "help",
@@ -69,4 +76,10 @@ export function runCommandCapabilitiesTests() {
   assert.equal(protocolCapabilities.commands[0].usage, "/help");
   assert.equal(protocolCapabilities.commands[0].name, "help");
   assert.equal(buildComposerCommandsFromCapabilities(protocolCapabilities)[0].insertion, "/help ");
+  assert.equal(protocolCapabilities.modes[0].id, "python-build");
+  assert.equal(protocolCapabilities.commands.some((item) => item.id === "mode.python-build"), true);
+  assert.equal(
+    protocolCapabilities.commands.find((item) => item.id === "mode.python-build").slash,
+    "/mode python-build",
+  );
 }

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
-from embedagent.modes import DEFAULT_MODE
+from embedagent.modes import DEFAULT_MODE, get_mode_registry
 from embedagent.protocol import (
     AppBootstrap,
     CapabilitySnapshot,
@@ -60,6 +60,124 @@ def _camel_or_snake(payload: Dict[str, Any], camel: str, snake: str, default: An
     if snake in payload:
         return payload.get(snake, default)
     return default
+
+
+_MODE_PRESENTATION = {
+    "explore": {"label": "Explore", "iconKey": "search", "colorToken": "info"},
+    "spec": {"label": "Spec", "iconKey": "clipboard-list", "colorToken": "accent"},
+    "build": {"label": "Build", "iconKey": "hammer", "colorToken": "success"},
+    "debug": {"label": "Debug", "iconKey": "bug", "colorToken": "warning"},
+    "verify": {"label": "Verify", "iconKey": "check-circle", "colorToken": "verify"},
+}
+_MODE_ORDER = ("explore", "spec", "build", "debug", "verify")
+
+
+def _default_mode_capabilities() -> list:
+    modes = []
+    registry = get_mode_registry()
+    ordered_mode_ids = [mode_id for mode_id in _MODE_ORDER if mode_id in registry]
+    ordered_mode_ids.extend(
+        sorted(mode_id for mode_id in registry.keys() if mode_id not in _MODE_ORDER)
+    )
+    for mode_id in ordered_mode_ids:
+        presentation = dict(_MODE_PRESENTATION.get(mode_id, {}))
+        modes.append(
+            {
+                "id": mode_id,
+                "label": str(presentation.get("label") or mode_id),
+                "description": "",
+                "iconKey": str(presentation.get("iconKey") or ""),
+                "colorToken": str(presentation.get("colorToken") or ""),
+                "commandId": "mode.%s" % mode_id,
+            }
+        )
+    return modes
+
+
+def _default_tool_presentations() -> list:
+    return [
+        {
+            "name": "read_file",
+            "label": "Read file",
+            "iconKey": "eye",
+            "rendererKey": "file",
+            "permissionCategory": "read",
+            "metadata": {"previewArg": "path"},
+        },
+        {
+            "name": "write_file",
+            "label": "Write file",
+            "iconKey": "square-pen",
+            "rendererKey": "file_write",
+            "permissionCategory": "workspace_write",
+            "metadata": {"previewArg": "path"},
+        },
+        {
+            "name": "edit_file",
+            "label": "Edit file",
+            "iconKey": "square-pen",
+            "rendererKey": "file_edit",
+            "permissionCategory": "workspace_write",
+            "metadata": {"previewArg": "path"},
+        },
+        {
+            "name": "bash",
+            "label": "Bash",
+            "iconKey": "terminal",
+            "rendererKey": "command",
+            "permissionCategory": "shell_exec",
+            "metadata": {"previewArg": "command"},
+        },
+        {
+            "name": "grep_text",
+            "label": "Grep text",
+            "iconKey": "wrench",
+            "rendererKey": "search",
+            "permissionCategory": "read",
+            "metadata": {"previewArg": "pattern"},
+        },
+        {
+            "name": "glob_files",
+            "label": "Glob files",
+            "iconKey": "wrench",
+            "rendererKey": "search",
+            "permissionCategory": "read",
+            "metadata": {"previewArg": "pattern"},
+        },
+        {
+            "name": "list_dir",
+            "label": "List directory",
+            "iconKey": "wrench",
+            "rendererKey": "list",
+            "permissionCategory": "read",
+            "metadata": {"previewArg": "path"},
+        },
+        {
+            "name": "ask_user",
+            "label": "Ask user",
+            "iconKey": "message-circle",
+            "rendererKey": "interaction",
+            "permissionCategory": "read",
+            "metadata": {},
+        },
+        {
+            "name": "author_local_capability",
+            "label": "Author capability",
+            "iconKey": "hammer",
+            "rendererKey": "file_write",
+            "permissionCategory": "workspace_write",
+            "metadata": {"previewArg": "name"},
+        },
+    ]
+
+
+def _default_empty_state() -> Dict[str, Any]:
+    return {
+        "scenario_label": "local workspace",
+        "primary": "Open a project",
+        "secondary": "Choose a local workspace to manage threads, files, tasks, and agent runs.",
+        "pathPlaceholder": "D:\\work\\project",
+    }
 
 
 def _protocol_capability_snapshot(payload: Any) -> CapabilitySnapshot:
@@ -389,23 +507,35 @@ def serialize_permission_context(context: Any) -> Dict[str, Any]:
 
 
 def serialize_session_capabilities(payload: Any) -> Dict[str, Any]:
-    data = payload if isinstance(payload, dict) else {}
+    data = dict(payload) if isinstance(payload, dict) else {}
+    if not data.get("modes"):
+        data["modes"] = _default_mode_capabilities()
+    if not data.get("tools"):
+        data["tools"] = _default_tool_presentations()
+    if not (data.get("emptyState") or data.get("empty_state")):
+        data["emptyState"] = _default_empty_state()
+    snapshot = _protocol_capability_snapshot(data).to_dict()
     commands = []
     for item in list(data.get("commands") or []):
         if not isinstance(item, dict):
             continue
-        usage = str(item.get("usage") or "").strip()
-        name = str(item.get("name") or "").strip()
+        usage = str(item.get("usage") or item.get("label") or "").strip()
+        name = str(item.get("name") or item.get("id") or usage).strip()
         if not usage or not name:
             continue
         commands.append(
             {
+                "id": str(item.get("id") or name),
                 "name": name,
                 "usage": usage,
+                "label": str(item.get("label") or usage),
+                "group": str(item.get("group") or item.get("source_type") or "command"),
                 "summary": str(item.get("summary") or ""),
                 "source_type": str(item.get("source_type") or ""),
                 "source_id": str(item.get("source_id") or ""),
-                "active": bool(item.get("active")),
+                "active": bool(item.get("active", True)),
+                "dispatch": dict(item.get("dispatch") or {}),
             }
         )
-    return {"commands": commands}
+    snapshot["commands"] = commands
+    return snapshot

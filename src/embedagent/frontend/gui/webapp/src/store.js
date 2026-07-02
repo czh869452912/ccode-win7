@@ -7,6 +7,8 @@ import { createSourceControlState, reduceSourceControlState } from "./source-con
 import { createTerminalState, reduceTerminalState } from "./terminal/terminal-state.js";
 import { createRunOutputState, reduceRunOutputState } from "./session-runtime/run-output-state.js";
 import { createThreadState, readActiveThreadId, reduceThreadState } from "./session-runtime/thread-state.js";
+import { resolveToolPresentation } from "./session-runtime/tool-presentation.js";
+import { normalizeProtocolCapabilities } from "./session-runtime/protocol-normalizer.js";
 import {
   ACTIVITY_ACTION_TYPES,
   createActivityState,
@@ -16,6 +18,7 @@ import { createWorkbenchState, reduceWorkbenchState } from "./workbench/surfaces
 import { resetWorkspaceScopedState } from "./app-workspaces.js";
 
 export const DEFAULT_MODE = "explore";
+export const EMPTY_CAPABILITIES = normalizeProtocolCapabilities({});
 
 export const initialState = {
   sidebarTab: "chats",
@@ -38,7 +41,7 @@ export const initialState = {
   diffSurface: null,
   fileTree: [],
   toolCatalog: {},
-  sessionCapabilities: { commands: [] },
+  sessionCapabilities: EMPTY_CAPABILITIES,
   requestedMode: DEFAULT_MODE,
   runOutput: createRunOutputState(),
   workbench: createWorkbenchState(),
@@ -163,14 +166,14 @@ export function reducer(state, action) {
     case "session_capabilities_loaded":
       return {
         ...state,
-        sessionCapabilities: action.capabilities || { commands: [] },
+        sessionCapabilities: action.capabilities || EMPTY_CAPABILITIES,
       };
     case "session_activated":
       return {
         ...state,
         thread: reduceThreadState(state.thread, action),
         snapshot: action.snapshot,
-        sessionCapabilities: action.capabilities || { commands: [] },
+        sessionCapabilities: action.capabilities || EMPTY_CAPABILITIES,
         requestedMode: action.snapshot?.current_mode || state.requestedMode,
         ...reduceActivityState(state, { type: "activity_reset", activities: action.activities }),
         interactionNotice: null,
@@ -382,20 +385,15 @@ export const TOOL_LABELS = {
   grep_text: (a) => `Grep "${a.pattern || ""}"`,
   author_local_capability: (a) => `Author capability${a.name ? `: ${a.name}` : ""}`,
   ask_user: () => "Ask user",
-  list_recipes: () => "List recipes",
-  run_recipe: (a) => `Run recipe${a.recipe_id ? `: ${a.recipe_id}` : ""}`,
-  report_quality_v2: () => "Quality report",
-  task_status: () => "Task status",
-  record_failing_evidence: () => "Record failing evidence",
   bash: (a) => `Bash: ${a.command || ""}`,
   git_status: () => "Git status",
   git_diff: (a) => `Git diff${a.path ? `  ${a.path}` : ""}`,
   git_log: () => "Git log",
 };
 
-export function toolLabel(toolName, args) {
+export function toolLabel(toolName, args, catalog = {}) {
   const fn = TOOL_LABELS[toolName];
-  return fn ? fn(args || {}) : toolName;
+  return fn ? fn(args || {}) : resolveToolPresentation(toolName, catalog).label || toolName;
 }
 
 export const STATUS_ICON = { running: "⋯", success: "✓", error: "✗" };

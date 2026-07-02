@@ -1,3 +1,8 @@
+import {
+  commandPreviewFromToolPresentation,
+  resolveToolPresentation,
+} from "./tool-presentation.js";
+
 export const T3_ROW_KINDS = Object.freeze({
   MESSAGE: "message",
   WORK: "work",
@@ -337,9 +342,10 @@ export function summarizeChangedFiles(items = []) {
   };
 }
 
-function commandPreviewFor(toolName, args) {
+function commandPreviewFor(toolName, args, presentation = null) {
   if (!args || typeof args !== "object") return "";
-  if (toolName === "run_recipe") return stringValue(args.recipe_id || args.command);
+  const metadataPreview = commandPreviewFromToolPresentation(presentation, args);
+  if (metadataPreview) return metadataPreview;
   if (toolName === "shell" || toolName === "bash") {
     return stringValue(args.command);
   }
@@ -360,7 +366,7 @@ function permissionCategoryToRequestKind(value) {
 }
 
 function toolNameRequestKind(toolName) {
-  if (toolName === "run_recipe" || toolName === "shell" || toolName === "bash") {
+  if (toolName === "shell" || toolName === "bash") {
     return "command";
   }
   return "";
@@ -496,6 +502,7 @@ function workEntryIconName(entry) {
   if (entry?.sourceActivityKind === "user-input.requested" || entry?.sourceActivityKind === "user-input.resolved") {
     return "message-circle";
   }
+  if (entry?.iconName) return entry.iconName;
   if (entry?.requestKind === "command") return "terminal";
   if (entry?.requestKind === "file-read") return "eye";
   if (entry?.requestKind === "file-change") return "square-pen";
@@ -780,19 +787,21 @@ function toneForWork(item, status) {
   return "neutral";
 }
 
-export function normalizeWorkEntry(item) {
+export function normalizeWorkEntry(item, options = {}) {
   const args = publicArgs(item?.arguments || {});
   const toolName = stringValue(item?.toolName || item?.tool_name);
+  const toolPresentation = resolveToolPresentation(toolName, options.toolCatalog || {});
   const status = stringValue(item?.status || "running");
   const changed = summarizeChangedFiles([item]);
   const data = item?.data && typeof item.data === "object" ? item.data : {};
   const requestKind =
     normalizeRequestKind(item?.requestKind || item?.request_kind || data.requestKind || data.request_kind) ||
     normalizeRequestKind(item?.permissionCategory || item?.permission_category) ||
+    permissionCategoryToRequestKind(toolPresentation.permissionCategory) ||
     toolNameRequestKind(toolName);
   const command =
     firstString(item?.command, item?.rawCommand ? "" : "", data.command, args.command) ||
-    commandPreviewFor(toolName, args);
+    commandPreviewFor(toolName, args, toolPresentation);
   const rawCommand = firstString(item?.rawCommand, item?.raw_command, data.rawCommand, data.raw_command);
   const detail = firstString(item?.detail, data.detail) || detailTextFor(item);
   const itemType = normalizeItemType(item?.itemType || item?.item_type || data.itemType || data.item_type);
@@ -815,7 +824,15 @@ export function normalizeWorkEntry(item) {
             ? data.item
             : undefined;
   const workEntry = {
-    label: stringValue(item?.label || item?.tool_label || item?.toolTitle || item?.tool_title || toolName || "Work"),
+    label: stringValue(
+      item?.label ||
+        item?.tool_label ||
+        item?.toolTitle ||
+        item?.tool_title ||
+        toolPresentation.label ||
+        toolName ||
+        "Work",
+    ),
     detail,
     command,
     rawCommand,
@@ -826,6 +843,7 @@ export function normalizeWorkEntry(item) {
     itemType,
     requestKind,
     toolLifecycleStatus,
+    iconName: toolPresentation.declared ? toolPresentation.iconKey : "",
     sourceActivityKind: firstString(
       item?.sourceActivityKind,
       item?.source_activity_kind,
@@ -849,7 +867,7 @@ export function normalizeWorkEntry(item) {
     requestKind,
     command,
     rawCommand,
-    commandPreview: command || commandPreviewFor(toolName, args),
+    commandPreview: command || commandPreviewFor(toolName, args, toolPresentation),
     args,
     detail,
     detailModel: buildToolDetailModel(item, args, changed),
@@ -1066,9 +1084,9 @@ function interactionRow(item, fallback = {}) {
   };
 }
 
-function activityRowForItem(item) {
+function activityRowForItem(item, context = {}) {
   if (!item) return null;
-  if (item.kind === "tool") return normalizeWorkEntry(item);
+  if (item.kind === "tool") return normalizeWorkEntry(item, context);
   if (item.kind === "interaction_requested" || item.kind === "interaction_resolved") {
     return interactionRow(item);
   }
@@ -1100,10 +1118,10 @@ function allTurnItems(group) {
   return items;
 }
 
-function turnActivityEntries(group) {
+function turnActivityEntries(group, context = {}) {
   const entries = [];
   function pushActivity(item) {
-    const row = activityRowForItem(item);
+    const row = activityRowForItem(item, context);
     if (row) entries.push(row);
   }
   for (const item of (group?.leadingSystemItems || []).concat(group?.systemItems || [])) {
@@ -1146,22 +1164,22 @@ function assistantRowsForTurn(group) {
 }
 
 function rowForOpenPlacement(row, context) {
-  if (context && row?.kind === T3_ROW_KINDS.CONTEXT_SUMMARY) {
+  if (context?.openPlacement && row?.kind === T3_ROW_KINDS.CONTEXT_SUMMARY) {
     return { ...row, kind: T3_ROW_KINDS.SYSTEM_NOTICE, placement: "active_turn_boundary" };
   }
   return row;
 }
 
-function orderedOpenRowsForTurn(group, context = null) {
+function orderedOpenRowsForTurn(group, context = {}) {
   const rows = [];
   for (const item of (group?.leadingSystemItems || []).concat(group?.systemItems || [])) {
     if (item?.kind !== "compact") continue;
-    const row = activityRowForItem(item);
+    const row = activityRowForItem(item, context);
     if (row) rows.push(rowForOpenPlacement(row, context));
   }
   for (const step of group?.steps || []) {
     for (const item of step?.activityItems || []) {
-      const row = activityRowForItem(item);
+      const row = activityRowForItem(item, context);
       if (row) rows.push(rowForOpenPlacement(row, context));
     }
     if (step?.assistantItem) {
@@ -1175,7 +1193,7 @@ function orderedOpenRowsForTurn(group, context = null) {
       item?.kind === "interaction_requested" ||
       item?.kind === "interaction_resolved"
     ) {
-      const row = activityRowForItem(item);
+      const row = activityRowForItem(item, context);
       if (row) rows.push(rowForOpenPlacement(row, context));
     }
   }
@@ -1211,9 +1229,9 @@ function terminalAssistantStepOrder(group) {
   return NaN;
 }
 
-function foldEntriesForTurn(group) {
+function foldEntriesForTurn(group, context = {}) {
   const terminalAssistantItem = terminalAssistantItemForTurn(group);
-  return orderedOpenRowsForTurn(group).filter((row) => {
+  return orderedOpenRowsForTurn(group, context).filter((row) => {
     if (row.kind !== T3_ROW_KINDS.MESSAGE || row.role !== "assistant") return true;
     return row.id !== stringValue(terminalAssistantItem?.id);
   });
@@ -1227,7 +1245,7 @@ function isErrorWorkEntry(entry) {
   return entry?.kind === T3_ROW_KINDS.WORK && (entry.status === "error" || entry.tone === "error");
 }
 
-function hasTerminalErrorWork(group, workEntries) {
+function hasTerminalErrorWork(group, workEntries, context = {}) {
   if (!workEntries.some(isErrorWorkEntry)) return false;
   const terminalOrder = terminalAssistantStepOrder(group);
   if (!Number.isFinite(terminalOrder)) return true;
@@ -1237,7 +1255,7 @@ function hasTerminalErrorWork(group, workEntries) {
   for (let index = 0; index < steps.length; index += 1) {
     const stepOrder = stepOrderValue(steps[index], index + 1);
     for (const item of steps[index]?.activityItems || []) {
-      const row = activityRowForItem(item);
+      const row = activityRowForItem(item, context);
       if (!isErrorWorkEntry(row)) continue;
       stepErrorCount += 1;
       if (stepOrder >= terminalOrder) return true;
@@ -1327,8 +1345,8 @@ function turnFoldLabel(group, entries) {
 }
 
 export function isTurnFoldedByDefault(group, context = {}) {
-  const entries = turnActivityEntries(group);
-  const foldEntries = foldEntriesForTurn(group);
+  const entries = turnActivityEntries(group, context);
+  const foldEntries = foldEntriesForTurn(group, context);
   const workEntries = entries.filter((entry) => entry.kind === T3_ROW_KINDS.WORK);
   if (foldEntries.length === 0) return false;
   if (group?.turnId && group.turnId === context.activeTurnId && context.currentStatus === "running") {
@@ -1336,16 +1354,16 @@ export function isTurnFoldedByDefault(group, context = {}) {
   }
   if (hasInterruptedWork(workEntries)) return false;
   if (workEntries.some((entry) => entry.status === "running" || entry.tone === "running")) return false;
-  if (hasTerminalErrorWork(group, workEntries)) return false;
+  if (hasTerminalErrorWork(group, workEntries, context)) return false;
   return assistantRowsForTurn(group).length > 0;
 }
 
-function pushLooseItem(push, item) {
+function pushLooseItem(push, item, context = {}) {
   if (!item) return;
   if (item.kind === "assistant") push(messageRow(item, "assistant"));
   else if (item.kind === "user") push(messageRow(item, "user"));
   else {
-    const row = activityRowForItem(item);
+    const row = activityRowForItem(item, context);
     push(row || systemNoticeRow(item));
   }
 }
@@ -1372,9 +1390,10 @@ export function projectT3TimelineRows({
   interactionNotice = null,
   thinkingActive = false,
   turnExperience = null,
+  toolCatalog = {},
 } = {}) {
   const rows = [];
-  const context = { currentStatus, activeTurnId };
+  const context = { currentStatus, activeTurnId, toolCatalog };
   const seenInteractionIds = new Set();
   function pushRow(row) {
     if (!row) return;
@@ -1389,17 +1408,17 @@ export function projectT3TimelineRows({
     if (group?.userItem) pushRow(messageRow(group.userItem, "user"));
     for (const item of group?.leadingSystemItems || []) {
       if (item?.kind === "compact") continue;
-      pushLooseItem(pushRow, item);
+      pushLooseItem(pushRow, item, context);
     }
     for (const item of group?.systemItems || []) {
       if (item?.kind === "compact") continue;
-      pushLooseItem(pushRow, item);
+      pushLooseItem(pushRow, item, context);
     }
 
-    const entries = turnActivityEntries(group);
+    const entries = turnActivityEntries(group, context);
     const assistantRows = assistantRowsForTurn(group);
     const shouldFold = isTurnFoldedByDefault(group, context);
-    const foldEntries = shouldFold ? foldEntriesForTurn(group) : [];
+    const foldEntries = shouldFold ? foldEntriesForTurn(group, context) : [];
     if (entries.length > 0 || foldEntries.length > 0) {
       if (shouldFold) {
         pushRow({
@@ -1415,7 +1434,7 @@ export function projectT3TimelineRows({
           entries: foldEntries,
         });
       } else {
-        for (const row of orderedOpenRowsForTurn(group, context)) pushRow(row);
+        for (const row of orderedOpenRowsForTurn(group, { ...context, openPlacement: true })) pushRow(row);
       }
     }
 
@@ -1433,10 +1452,10 @@ export function projectT3TimelineRows({
     for (const item of (group?.trailingTurnItems || []).concat(group?.detachedItems || [])) {
       if (item?.kind !== "tool" && item?.kind !== "interaction_requested" && item?.kind !== "interaction_resolved") {
         if (item?.kind === "compact") continue;
-        pushLooseItem(pushRow, item);
+        pushLooseItem(pushRow, item, context);
       }
     }
-    for (const item of group?.sessionFallbackItems || []) pushLooseItem(pushRow, item);
+    for (const item of group?.sessionFallbackItems || []) pushLooseItem(pushRow, item, context);
   }
 
   if (currentInteraction) {

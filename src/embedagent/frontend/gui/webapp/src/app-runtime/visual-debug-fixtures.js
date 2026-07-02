@@ -255,7 +255,7 @@ export function buildTimelineFixtureAction({ currentMode = "explore" } = {}) {
       {
         id: "visual-command-1",
         kind: "tool",
-        toolName: "run_recipe",
+        toolName: "pytest",
         label: "Bash Complete",
         toolTitle: "Ran command",
         itemType: "command_execution",
@@ -264,7 +264,7 @@ export function buildTimelineFixtureAction({ currentMode = "explore" } = {}) {
         command: "uv run pytest tests/ -m harness",
         rawCommand: "python -m pytest tests/ -m harness",
         status: "success",
-        arguments: { recipe_id: "harness" },
+        arguments: { command: "uv run pytest tests/ -m harness" },
         data: { stdout_preview: "12 passed" },
         turnId: "visual-turn-1",
         stepId: "visual-step-1",
@@ -752,10 +752,11 @@ export function loadTimelineContextFixture(dispatch) {
       {
         id: "tool-running",
         kind: "tool",
-        toolName: "run_recipe",
-        label: "Run Recipe",
+        toolName: "pytest",
+        label: "Pytest",
         status: "running",
         tone: "running",
+        arguments: { command: "uv run pytest tests/" },
         turnId: "turn-context-active",
       },
       {

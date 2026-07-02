@@ -191,7 +191,9 @@ export async function runSessionLoadersTests() {
   assert.equal(sparseActivation.historyIntegrity, null);
   assert.equal(sparseActivation.plan, null);
   assert.equal(sparseActivation.permissionContext, null);
-  assert.deepEqual(sparseActivation.capabilities, { commands: [] });
+  assert.deepEqual(sparseActivation.capabilities.commands, []);
+  assert.deepEqual(sparseActivation.capabilities.modes, []);
+  assert.deepEqual(sparseActivation.capabilities.toolCatalog, {});
 
   const capabilityActions = [];
   const loadedCapabilities = await loadSessionCommandCapabilities({

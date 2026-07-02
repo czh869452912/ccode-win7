@@ -10,6 +10,7 @@ import ComposerCommandMenu from "./composer/ComposerCommandMenu.jsx";
 import ComposerInteractionPanel from "./composer/ComposerInteractionPanel.jsx";
 import ComposerPrimaryActions from "./composer/ComposerPrimaryActions.jsx";
 import BranchToolbar from "./workbench/BranchToolbar.jsx";
+import { modeBadgeLabel, modeBadgeStyle } from "../session-runtime/mode-style.js";
 
 const COMPOSER_HINT_LABELS = {
   command: "composer.hint.command",
@@ -37,6 +38,7 @@ export default function Composer({
   onStop,
   isRunning,
   currentMode,
+  modeCatalog = {},
   commandHints = [],
   commands = [],
   fileTree = [],
@@ -206,8 +208,8 @@ export default function Composer({
           emptyText={interactionModel.menu.emptyText}
         />
         {currentMode && (
-          <span className={`composer-mode-badge mode-${currentMode}`}>
-            {currentMode}
+          <span className="composer-mode-badge" style={modeBadgeStyle(currentMode, modeCatalog)}>
+            {modeBadgeLabel(currentMode, modeCatalog)}
           </span>
         )}
         <textarea

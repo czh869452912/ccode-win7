@@ -11,11 +11,16 @@ export function createWorkbenchCommandController({
   sendMessage,
   cancelSession,
   submitText,
+  setMode,
   openRightPanelSurface,
   terminalController,
 }) {
   async function execute(command) {
     if (!command) return;
+    if (command.dispatch?.kind === "mode.set" && command.dispatch.mode) {
+      await setMode(command.dispatch.mode);
+      return;
+    }
     switch (command.id) {
       case "palette.open":
         dispatch({ type: "workbench_command_palette_opened" });

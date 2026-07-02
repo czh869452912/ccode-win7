@@ -103,8 +103,8 @@ export function runT3TimelineTests() {
                 {
                   id: "tool-running",
                   kind: "tool",
-                  toolName: "run_recipe",
-                  label: "Run Recipe",
+                  toolName: "pytest",
+                  label: "Pytest",
                   status: "running",
                   tone: "running",
                   createdAt: "2026-06-22T00:01:03.000Z",
@@ -149,8 +149,8 @@ export function runT3TimelineTests() {
                 {
                   id: "tool-failed",
                   kind: "tool",
-                  toolName: "run_recipe",
-                  label: "Run Recipe",
+                  toolName: "pytest",
+                  label: "Pytest",
                   status: "error",
                   tone: "error",
                   createdAt: "2026-06-22T00:02:02.000Z",
@@ -360,10 +360,10 @@ export function runT3TimelineTests() {
               {
                 id: "tool-live",
                 kind: "tool",
-                toolName: "run_recipe",
-                label: "Run Recipe",
+                toolName: "pytest",
+                label: "Pytest",
                 status: "running",
-                arguments: { recipe_id: "build" },
+                arguments: { command: "uv run pytest tests/" },
                 turnId: "turn-live",
                 stepId: "step-live",
               },
@@ -426,6 +426,59 @@ export function runT3TimelineTests() {
   assert.equal(matchSection.items[0].path, "src/parser.c");
   assert.equal(matchSection.items[0].line, 4);
   assert.equal(matchSection.items[0].displayLine, "4");
+
+  const metadataRows = projectT3TimelineRows({
+    toolCatalog: {
+      pytest: {
+        name: "pytest",
+        label: "Pytest",
+        iconKey: "terminal",
+        rendererKey: "command",
+        permissionCategory: "command",
+        metadata: { previewArg: "command" },
+      },
+    },
+    turnGroups: [
+      {
+        turnId: "turn-python-tool",
+        userItem: {
+          id: "u-python-tool",
+          kind: "user",
+          content: "run python tests",
+          turnId: "turn-python-tool",
+        },
+        steps: [
+          {
+            stepId: "step-python-tool",
+            stepIndex: 1,
+            activityItems: [
+              {
+                id: "pytest-call",
+                kind: "tool",
+                toolName: "pytest",
+                status: "success",
+                arguments: { command: "uv run pytest tests/python" },
+                turnId: "turn-python-tool",
+                stepId: "step-python-tool",
+              },
+            ],
+            assistantItem: null,
+          },
+        ],
+        trailingTurnItems: [],
+        leadingSystemItems: [],
+        sessionFallbackItems: [],
+      },
+    ],
+    currentStatus: "running",
+    activeTurnId: "turn-python-tool",
+  });
+  const metadataWork = metadataRows.find((row) => row.id === "pytest-call");
+  assert.equal(metadataWork.label, "Pytest");
+  assert.equal(metadataWork.requestKind, "command");
+  assert.equal(metadataWork.commandPreview, "uv run pytest tests/python");
+  assert.equal(metadataWork.presentation.heading, "Pytest");
+  assert.equal(metadataWork.presentation.iconName, "terminal");
 
   const actionPresentationRows = projectT3TimelineRows({
     turnGroups: [
@@ -614,17 +667,17 @@ export function runT3TimelineTests() {
               {
                 id: "recipe-detail",
                 kind: "tool",
-                toolName: "run_recipe",
-                label: "Run Recipe",
+                toolName: "workflow_task",
+                label: "Workflow Task",
                 status: "error",
-                error: "build failed",
-                arguments: { recipe_id: "build-debug", target: "parser" },
+                error: "task failed",
+                arguments: { recipe_id: "python-test", target: "parser" },
                 data: {
-                  recipe_id: "build-debug",
-                  command: "clang -Wall src/parser.c",
+                  recipe_id: "python-test",
+                  command: "uv run pytest tests/parser",
                   exit_code: 1,
-                  stdout_preview: "Compiling parser",
-                  stderr_preview: "parser.c:7: error: expected ';'",
+                  stdout_preview: "Running parser tests",
+                  stderr_preview: "parser test failed",
                 },
                 turnId: "turn-detail",
                 stepId: "step-detail",
@@ -660,10 +713,10 @@ export function runT3TimelineTests() {
   assert.equal(editDetail.sections.find((section) => section.kind === "diff").content.includes("@@ -1 +1 @@"), true);
   assert.equal(detailWorkRows.find((row) => row.toolName === "edit_file").changedFiles[0].path, "src/parser.c");
 
-  const recipeDetail = detailWorkRows.find((row) => row.toolName === "run_recipe").detailModel;
-  assert.equal(recipeDetail.fields.find((field) => field.label === "recipe").value, "build-debug");
+  const recipeDetail = detailWorkRows.find((row) => row.toolName === "workflow_task").detailModel;
+  assert.equal(recipeDetail.fields.find((field) => field.label === "recipe").value, "python-test");
   assert.equal(recipeDetail.fields.find((field) => field.label === "exit").value, "1");
-  assert.equal(recipeDetail.sections.find((section) => section.kind === "stderr").content.includes("expected"), true);
+  assert.equal(recipeDetail.sections.find((section) => section.kind === "stderr").content.includes("failed"), true);
 
   const changed = summarizeChangedFiles([
     {
@@ -706,7 +759,7 @@ export function runT3TimelineTests() {
               {
                 id: "tool-2",
                 kind: "tool",
-                toolName: "run_recipe",
+                toolName: "pytest",
                 status: "error",
                 error: "cancelled",
                 data: { error_kind: "interrupted" },

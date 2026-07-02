@@ -4,6 +4,9 @@ import { createSourceControlState } from "./source-control/source-control-state.
 import { reduceRunOutputState } from "./session-runtime/run-output-state.js";
 import { createThreadState } from "./session-runtime/thread-state.js";
 import { createTerminalState } from "./terminal/terminal-state.js";
+import { normalizeProtocolCapabilities } from "./session-runtime/protocol-normalizer.js";
+
+const EMPTY_CAPABILITIES = normalizeProtocolCapabilities({});
 
 export function canSwitchWorkspace(state = {}) {
   const snapshot = state.snapshot || {};
@@ -39,7 +42,7 @@ export function resetWorkspaceScopedState(state = {}) {
     diffSurface: null,
     fileTree: [],
     toolCatalog: {},
-    sessionCapabilities: { commands: [] },
+    sessionCapabilities: EMPTY_CAPABILITIES,
     runOutput: reduceRunOutputState(state.runOutput, { type: "workspace_scoped_state_reset" }),
     terminationReason: "",
     terminationDisplayReason: "",

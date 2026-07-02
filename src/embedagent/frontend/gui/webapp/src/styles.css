@@ -106,12 +106,10 @@ body {
   font-size: 11px;
   font-family: var(--font-mono);
   border: 1px solid;
+  color: var(--mode-badge-color, var(--color-info));
+  background: rgba(var(--mode-badge-rgb, 56,139,253), .1);
+  border-color: rgba(var(--mode-badge-rgb, 56,139,253), .25);
 }
-.mode-badge.mode-explore { color: var(--color-info);    background: rgba(56,139,253,.1);  border-color: rgba(56,139,253,.25);  }
-.mode-badge.mode-spec    { color: var(--color-accent);  background: rgba(188,140,255,.1); border-color: rgba(188,140,255,.25); }
-.mode-badge.mode-build   { color: var(--color-success); background: rgba(63,185,80,.1);   border-color: rgba(63,185,80,.25);   }
-.mode-badge.mode-debug   { color: var(--color-warning); background: rgba(210,153,34,.1);  border-color: rgba(210,153,34,.25);  }
-.mode-badge.mode-verify  { color: var(--color-verify);              background: rgba(227,179,65,.1);  border-color: rgba(227,179,65,.25);  }
 
 .header-right,
 .header-status-group,
@@ -3010,12 +3008,10 @@ body {
   font-size: 9px; font-family: var(--font-mono);
   flex-shrink: 0; align-self: center;
   border: 1px solid;
+  color: var(--mode-badge-color, var(--color-info));
+  background: rgba(var(--mode-badge-rgb, 56,139,253), .1);
+  border-color: rgba(var(--mode-badge-rgb, 56,139,253), .25);
 }
-.composer-mode-badge.mode-explore { color:var(--color-info);    background:rgba(56,139,253,.1);  border-color:rgba(56,139,253,.25);  }
-.composer-mode-badge.mode-spec    { color:var(--color-accent);  background:rgba(188,140,255,.1); border-color:rgba(188,140,255,.25); }
-.composer-mode-badge.mode-build   { color:var(--color-success); background:rgba(63,185,80,.1);   border-color:rgba(63,185,80,.25);   }
-.composer-mode-badge.mode-debug   { color:var(--color-warning); background:rgba(210,153,34,.1);  border-color:rgba(210,153,34,.25);  }
-.composer-mode-badge.mode-verify  { color:var(--color-verify);              background:rgba(227,179,65,.1);  border-color:rgba(227,179,65,.25);  }
 
 .composer-inner textarea {
   flex: 1; background: none; border: none; outline: none;
@@ -3422,18 +3418,12 @@ body {
   color: var(--text-secondary);
 }
 
-.mode-badge.mode-explore,
-.mode-badge.mode-spec,
-.mode-badge.mode-build,
-.mode-badge.mode-debug,
-.mode-badge.mode-verify,
-.composer-mode-badge.mode-explore,
-.composer-mode-badge.mode-spec,
-.composer-mode-badge.mode-build,
-.composer-mode-badge.mode-debug,
-.composer-mode-badge.mode-verify {
-  border-color: var(--border-default);
-  background: rgba(255,255,255,.035);
+.mode-badge,
+.composer-mode-badge,
+.thread-mode {
+  color: var(--mode-badge-color, var(--text-secondary));
+  background: rgba(var(--mode-badge-rgb, 255,255,255), .035);
+  border-color: rgba(var(--mode-badge-rgb, 255,255,255), .25);
 }
 
 .ghost,
@@ -4800,11 +4790,6 @@ body {
 .thread-state {
   color: var(--text-success);
 }
-.thread-mode.mode-build { color: var(--color-success); border-color: rgba(63,185,80,.25); }
-.thread-mode.mode-debug { color: var(--color-warning); border-color: rgba(210,153,34,.25); }
-.thread-mode.mode-spec { color: var(--color-accent); border-color: rgba(188,140,255,.25); }
-.thread-mode.mode-explore { color: var(--color-info); border-color: rgba(56,139,253,.25); }
-.thread-mode.mode-verify { color: var(--color-verify); border-color: rgba(227,179,65,.25); }
 .thread-detail { margin-left: auto; }
 .thread-actions {
   display: flex;

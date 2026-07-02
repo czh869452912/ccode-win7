@@ -103,11 +103,13 @@ function App() {
     hasWorkspace: Boolean(state.app.hasActiveWorkspace),
     isRunning: isTurnInterruptibleStatus(currentStatus),
     paletteOpen: state.workbench.commandPalette.open,
+    capabilities: state.sessionCapabilities || {},
   }), [
     currentStatus,
     currentSessionId,
     state.app.hasActiveWorkspace,
     state.workbench.commandPalette.open,
+    state.sessionCapabilities,
   ]);
   const paletteCommands = useMemo(() => visibleCommands(commandContext), [commandContext]);
   const composerCommands = useMemo(
@@ -124,8 +126,17 @@ function App() {
         defaultMode: DEFAULT_MODE,
         activeTurnId: state.activeTurnId,
         thinkingActive: state.thinkingActive,
+        toolCatalog: state.sessionCapabilities?.toolCatalog || state.toolCatalog,
       }),
-    [sessionTransport, state.activeTurnId, state.snapshot, state.thinkingActive, state.activities],
+    [
+      sessionTransport,
+      state.activeTurnId,
+      state.snapshot,
+      state.thinkingActive,
+      state.activities,
+      state.sessionCapabilities,
+      state.toolCatalog,
+    ],
   );
   runtimeStateRef.current = runtimeState;
   const interactionNotice = state.interactionNotice || runtimeState.interactionNotice;
@@ -578,6 +589,7 @@ function App() {
         sendMessage: () => submitText(readComposerDraft(stateRef.current)),
         cancelSession,
         submitText,
+        setMode,
         openRightPanelSurface,
         terminalController,
       }),
@@ -843,6 +855,7 @@ function App() {
           currentStatus={currentStatus}
           currentSessionId={currentSessionId}
           activeWorkspace={state.app.activeWorkspace}
+          modeCatalog={state.sessionCapabilities?.modeCatalog || {}}
           turnsUsed={state.turnsUsed}
           maxTurns={state.maxTurns}
           rightPanelOpen={state.workbench.rightPanel.open}
@@ -860,6 +873,7 @@ function App() {
           appHome={appHomeModel}
           currentSessionId={currentSessionId}
           currentMode={currentMode}
+          modeCatalog={state.sessionCapabilities?.modeCatalog || {}}
           workspacePathInput={state.app.workspacePathInput}
           onWorkspacePathChange={(value) => dispatch({ type: "workspace_path_changed", value })}
           onLoadSession={loadSession}
@@ -897,6 +911,7 @@ function App() {
               onStop={cancelSession}
               isRunning={isTurnInterruptibleStatus(currentStatus)}
               currentMode={currentMode}
+              modeCatalog={state.sessionCapabilities?.modeCatalog || {}}
               commandHints={EMPTY_COMMAND_HINTS}
               commands={composerCommands}
               fileTree={state.fileTree}
@@ -919,6 +934,7 @@ function App() {
             activating={state.app.activatingWorkspace}
             workspaces={state.app.workspaces}
             appHome={appHomeModel}
+            emptyState={state.sessionCapabilities?.emptyState}
             onChange={(value) => dispatch({ type: "workspace_path_changed", value })}
             onOpen={openWorkspace}
             onActivate={activateWorkspace}
@@ -1037,7 +1053,7 @@ function App() {
       onClose={() => dispatch({ type: "workbench_command_palette_closed" })}
       onSelect={(command) => {
         dispatch({ type: "workbench_command_palette_closed" });
-        void executeWorkbenchCommand(commandById(command.id));
+        void executeWorkbenchCommand(commandById(command.id, state.sessionCapabilities || {}));
       }}
       onSelectSession={(sessionId) => {
         dispatch({ type: "workbench_command_palette_closed" });

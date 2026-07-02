@@ -259,6 +259,7 @@ export function buildSessionActivityRuntime({
   defaultMode = "explore",
   activeTurnId = "",
   thinkingActive = false,
+  toolCatalog = {},
 } = {}) {
   const timelineItems = normalizeHistoryActivities(activities);
   const currentInteraction = currentInteractionFromActivities(timelineItems);
@@ -283,6 +284,7 @@ export function buildSessionActivityRuntime({
       interactionNotice,
       thinkingActive,
       turnExperience: snapshot?.turnExperience || snapshot?.turn_experience || null,
+      toolCatalog,
     }),
   };
 }

@@ -39,6 +39,7 @@ import { runWorkspaceControllerTests } from "./workspace-controller.test.mjs";
 import { runAppHomeModelTests } from "./app-home-model.test.mjs";
 import { runBranchToolbarModelTests } from "./branch-toolbar-model.test.mjs";
 import { runCommandCapabilitiesTests } from "./command-capabilities.test.mjs";
+import { runProtocolNormalizerTests } from "./protocol-normalizer.test.mjs";
 import { runCommandPaletteModelTests } from "./command-palette-model.test.mjs";
 import { runCommandPaletteSourceTests } from "./command-palette-source.test.mjs";
 import { runComposerCommandSearchTests } from "./composer-command-search.test.mjs";
@@ -77,7 +78,9 @@ async function main() {
   assert.equal(initialState.app.settings.confirm_workspace_switch, true);
   assert.equal(initialState.app.hasActiveWorkspace, false);
   assert.equal(initialState.app.activeWorkspace, null);
-  assert.deepEqual(initialState.sessionCapabilities, { commands: [] });
+  assert.deepEqual(initialState.sessionCapabilities.commands, []);
+  assert.deepEqual(initialState.sessionCapabilities.modes, []);
+  assert.deepEqual(initialState.sessionCapabilities.toolCatalog, {});
   const storeTerminalSurface = reducer(initialState, {
     type: "workbench_surface_opened",
     placement: "right",
@@ -185,7 +188,9 @@ async function main() {
   assert.deepEqual(switchedWorkspaceState.thread.sessions, []);
   assert.equal(switchedWorkspaceState.thread.historyIntegrity, null);
   assert.equal(readComposerDraft(switchedWorkspaceState), "");
-  assert.deepEqual(switchedWorkspaceState.sessionCapabilities, { commands: [] });
+  assert.deepEqual(switchedWorkspaceState.sessionCapabilities.commands, []);
+  assert.deepEqual(switchedWorkspaceState.sessionCapabilities.modes, []);
+  assert.deepEqual(switchedWorkspaceState.sessionCapabilities.toolCatalog, {});
   assert.deepEqual(switchedWorkspaceState.activities, []);
   assert.deepEqual(switchedWorkspaceState.fileTree, []);
   assert.equal(switchedWorkspaceState.app.hasActiveWorkspace, false);
@@ -210,7 +215,9 @@ async function main() {
   });
   assert.equal(activatedThreadState.thread.currentSessionId, "sess-active");
   assert.equal(activatedThreadState.thread.sessions.length, 2);
-  assert.deepEqual(activatedThreadState.sessionCapabilities, { commands: [] });
+  assert.deepEqual(activatedThreadState.sessionCapabilities.commands, []);
+  assert.deepEqual(activatedThreadState.sessionCapabilities.modes, []);
+  assert.deepEqual(activatedThreadState.sessionCapabilities.toolCatalog, {});
 
   const fileTreeState = reducer(initialState, {
     type: "file_tree_loaded",
@@ -627,8 +634,8 @@ async function main() {
   const recipeState = reducer(initialState, {
     type: "recipes_loaded",
     items: [
-      { id: "cmake.build.default", tool_name: "run_recipe", recipe_action: "build", label: "CMake Build", source: "detected" },
-      { id: "cmake.test.default", tool_name: "run_recipe", recipe_action: "test", label: "CTest", source: "detected" },
+      { id: "python.test.default", tool_name: "pytest", recipe_action: "test", label: "Pytest", source: "detected" },
+      { id: "html.lint.default", tool_name: "html_lint", recipe_action: "lint", label: "HTML Lint", source: "detected" },
     ],
   });
   assert.equal(recipeState.recipes.length, 2);
@@ -804,7 +811,9 @@ async function main() {
   const stylesSource = readWebappSourceText("styles.css");
   assert.equal(stylesSource.includes("todo-"), false);
   assert.equal(stylesSource.includes("mode-code"), false);
-  assert.equal(stylesSource.includes("mode-build"), true);
+  assert.equal(stylesSource.includes("mode-build"), false);
+  assert.equal(stylesSource.includes("--mode-badge-color"), true);
+  assert.equal(stylesSource.includes("--mode-badge-rgb"), true);
   assert.equal(stylesSource.includes(".t3-work-row.error"), true);
   assert.equal(stylesSource.includes(".t3-work-row.running"), true);
   assert.equal(stylesSource.includes(".t3-work-row.density-compact"), true);
@@ -1138,7 +1147,8 @@ async function main() {
     "utf8",
   );
   assert.equal(workbenchHeaderSource.includes("mode-code"), false);
-  assert.equal(workbenchHeaderSource.includes("mode-${currentMode}"), true);
+  assert.equal(workbenchHeaderSource.includes("mode-${currentMode}"), false);
+  assert.equal(workbenchHeaderSource.includes("modeBadgeStyle(currentMode, modeCatalog)"), true);
   assert.equal(workbenchHeaderSource.includes("header-status-group"), true);
   assert.equal(workbenchHeaderSource.includes("header-action-group"), true);
   assert.equal(workbenchHeaderSource.includes("turns {turnsUsed}/{maxTurns}"), true);
@@ -1367,6 +1377,7 @@ async function main() {
   await runWorkspaceControllerTests();
   runAppHomeModelTests();
   runBranchToolbarModelTests();
+  runProtocolNormalizerTests();
   runCommandCapabilitiesTests();
   runCommandPaletteModelTests();
   runCommandPaletteSourceTests();

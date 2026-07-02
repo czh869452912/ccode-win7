@@ -1,5 +1,6 @@
 import React from "react";
 import { t } from "../../strings.js";
+import { modeBadgeLabel, modeBadgeStyle } from "../../session-runtime/mode-style.js";
 
 export default function WorkbenchHeader({
   lang,
@@ -11,6 +12,7 @@ export default function WorkbenchHeader({
   maxTurns,
   rightPanelOpen,
   bottomDrawerOpen,
+  modeCatalog = {},
   onRefresh,
   onToggleLang,
   onToggleRightPanel,
@@ -20,7 +22,9 @@ export default function WorkbenchHeader({
   return (
     <header className="app-header workbench-header" data-testid="workbench-header">
       <span className="app-logo">EmbedAgent</span>
-      <span className={`mode-badge mode-${currentMode}`}>{currentMode}</span>
+      <span className="mode-badge" style={modeBadgeStyle(currentMode, modeCatalog)}>
+        {modeBadgeLabel(currentMode, modeCatalog)}
+      </span>
       {activeWorkspace ? (
         <span className="workspace-header-label" title={activeWorkspace.path}>
           {activeWorkspace.label}

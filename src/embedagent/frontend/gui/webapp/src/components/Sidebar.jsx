@@ -1,12 +1,14 @@
 import React from "react";
 import { useLang } from "../LangContext.js";
 import { t } from "../strings.js";
+import { modeBadgeLabel, modeBadgeStyle } from "../session-runtime/mode-style.js";
 
 export default function Sidebar({
   app,
   appHome,
   currentSessionId,
   currentMode,
+  modeCatalog = {},
   workspacePathInput,
   onWorkspacePathChange,
   onLoadSession,
@@ -147,7 +149,9 @@ export default function Sidebar({
               >
                 <span className="thread-title">{session.title}</span>
                 <span className="thread-meta">
-                  <span className={`thread-mode mode-${session.mode}`}>{session.mode}</span>
+                  <span className="thread-mode" style={modeBadgeStyle(session.mode, modeCatalog)}>
+                    {modeBadgeLabel(session.mode, modeCatalog)}
+                  </span>
                   {session.isActive ? (
                     <span className="thread-state">active</span>
                   ) : null}

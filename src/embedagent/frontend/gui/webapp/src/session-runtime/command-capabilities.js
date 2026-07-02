@@ -1,3 +1,5 @@
+import { normalizeProtocolCapabilities } from "./protocol-normalizer.js";
+
 function text(value) {
   return String(value || "").trim();
 }
@@ -7,11 +9,12 @@ function insertionFromUsage(usage) {
 }
 
 export function normalizeCommandCapabilities(input = {}) {
+  const normalized = normalizeProtocolCapabilities(input);
   const commands = [];
   const seen = new Set();
-  const source = Array.isArray(input?.commands) ? input.commands : [];
+  const source = Array.isArray(normalized.commands) ? normalized.commands : [];
   for (const item of source) {
-    const usage = text(item?.usage || item?.label);
+    const usage = text(item?.usage || item?.slash || (String(item?.label || "").startsWith("/") ? item.label : ""));
     const protocolId = text(item?.id);
     const name = text(item?.name || protocolId);
     if (!name || !usage || item?.active === false) continue;
@@ -21,13 +24,19 @@ export function normalizeCommandCapabilities(input = {}) {
     commands.push({
       name,
       usage,
+      id: protocolId || name,
+      label: text(item?.label || usage),
+      group: text(item?.group || "command"),
+      dispatch: item?.dispatch && typeof item.dispatch === "object" ? item.dispatch : {},
+      slash: text(item?.slash || usage),
       summary: text(item?.summary),
       sourceType: text(item?.source_type || item?.sourceType),
       sourceId: text(item?.source_id || item?.sourceId),
+      visibleWhen: text(item?.visibleWhen || item?.visible_when || "always"),
       active: true,
     });
   }
-  return { commands };
+  return { ...normalized, commands };
 }
 
 export function buildComposerCommandsFromCapabilities(capabilities = {}) {
