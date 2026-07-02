@@ -683,19 +683,25 @@ def test_gui_raw_interaction_requests_do_not_synthesize_activity_records():
     assert offenders == []
 
 
-def test_gui_pending_interaction_display_comes_only_from_session_snapshot():
+def test_gui_pending_interaction_display_comes_from_activity_selector_not_raw_requests():
     store_path = ROOT / "src/embedagent/frontend/gui/webapp/src/store.js"
     socket_effects_path = (
         ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/socket-message-effects.js"
     )
+    activity_state_path = (
+        ROOT / "src/embedagent/frontend/gui/webapp/src/session-runtime/activity-state.js"
+    )
     store_text = _read(store_path)
     socket_text = _read(socket_effects_path)
+    activity_state_text = _read(activity_state_path)
     assert re.search(r"\n\s+permission\s*:", store_text) is None
     assert re.search(r"\n\s+userInput\s*:", store_text) is None
     assert 'case "permission_request"' not in store_text
     assert 'case "user_input_request"' not in store_text
     assert 'type: "permission_request"' not in socket_text
     assert 'type: "user_input_request"' not in socket_text
+    assert "currentInteractionFromActivities(timelineItems)" in activity_state_text
+    assert "normalizePendingInteraction" not in activity_state_text
     assert not (
         ROOT / "src/embedagent/frontend/gui/webapp/src/components/PermissionModal.jsx"
     ).exists()

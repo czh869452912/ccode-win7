@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   buildPermissionResponse,
   buildUserInputResponse,
+  currentInteractionFromActivities,
   interactionNoticeView,
   normalizeComposerInteraction,
 } from "../src/session-runtime/interaction-model.js";
@@ -74,4 +75,69 @@ export function runInteractionModelTests() {
   const conflict = normalizeComposerInteraction(null, { kind: "conflict" });
   assert.equal(conflict.kind, "notice");
   assert.equal(conflict.title, "Interaction already handled");
+
+  const activityPermission = currentInteractionFromActivities([
+    {
+      id: "act-approval",
+      kind: "interaction",
+      sourceActivityKind: "approval.requested",
+      requestId: "perm-activity",
+      status: "pending",
+      turnId: "turn-1",
+      payload: {
+        requestKind: "file-change",
+        toolName: "edit_file",
+        summary: "File-change approval requested",
+        reason: "Edit src/demo.c",
+        details: { path: "src/demo.c" },
+      },
+    },
+  ]);
+  assert.equal(activityPermission.kind, "permission");
+  assert.equal(activityPermission.interactionId, "perm-activity");
+  assert.equal(activityPermission.summary, "File-change approval requested");
+  assert.equal(activityPermission.detailRows[0].value, "src/demo.c");
+
+  const closedPermission = currentInteractionFromActivities([
+    {
+      id: "act-approval",
+      kind: "interaction",
+      sourceActivityKind: "approval.requested",
+      requestId: "perm-activity",
+      status: "pending",
+      payload: { summary: "Edit src/demo.c" },
+    },
+    {
+      id: "act-approval-resolved",
+      kind: "interaction",
+      sourceActivityKind: "approval.resolved",
+      requestId: "perm-activity",
+      status: "resolved",
+      payload: { decision: "accept" },
+    },
+  ]);
+  assert.equal(closedPermission, null);
+
+  const activityInput = currentInteractionFromActivities([
+    {
+      id: "act-input",
+      kind: "interaction",
+      sourceActivityKind: "user-input.requested",
+      requestId: "ask-activity",
+      status: "pending",
+      payload: {
+        toolName: "ask_user",
+        questions: [
+          {
+            id: "answer",
+            question: "Continue?",
+            options: [{ index: 1, label: "Continue" }],
+          },
+        ],
+      },
+    },
+  ]);
+  assert.equal(activityInput.kind, "user_input");
+  assert.equal(activityInput.interactionId, "ask-activity");
+  assert.equal(activityInput.options[0].label, "Continue");
 }

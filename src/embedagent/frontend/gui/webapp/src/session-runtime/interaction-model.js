@@ -143,6 +143,58 @@ export function normalizeComposerInteraction(interaction, notice = null) {
   };
 }
 
+function isResolvedInteractionActivity(item) {
+  if (!item || item.kind !== "interaction" || !item.requestId) return false;
+  const sourceKind = cleanString(item.sourceActivityKind || item.source_activity_kind);
+  return (
+    item.status === "resolved" ||
+    item.status === "error" ||
+    sourceKind === "approval.resolved" ||
+    sourceKind === "approval.response.failed" ||
+    sourceKind === "user-input.resolved" ||
+    sourceKind === "user-input.response.failed"
+  );
+}
+
+export function currentInteractionFromActivities(activities = []) {
+  const records = Array.isArray(activities) ? activities : [];
+  const closedRequestIds = new Set();
+  for (const item of records) {
+    if (isResolvedInteractionActivity(item)) {
+      closedRequestIds.add(item.requestId);
+    }
+  }
+  for (let index = records.length - 1; index >= 0; index -= 1) {
+    const item = records[index];
+    if (!item || item.kind !== "interaction" || item.status !== "pending") continue;
+    if (!item.requestId || closedRequestIds.has(item.requestId)) continue;
+    const sourceKind = cleanString(item.sourceActivityKind || item.source_activity_kind);
+    const payload = item.payload && typeof item.payload === "object" ? item.payload : {};
+    if (sourceKind === "approval.requested") {
+      return normalizeComposerInteraction({
+        interaction_id: item.requestId,
+        kind: "permission",
+        tool_name: payload.toolName || payload.tool_name,
+        category: payload.permissionCategory || payload.permission_category,
+        reason: payload.reason || payload.summary,
+        details: payload.details || {},
+        request_kind: payload.requestKind || payload.request_kind,
+      });
+    }
+    if (sourceKind === "user-input.requested") {
+      return normalizeComposerInteraction({
+        interaction_id: item.requestId,
+        kind: "user_input",
+        tool_name: payload.toolName || payload.tool_name || "ask_user",
+        questions: Array.isArray(payload.questions) ? payload.questions : [],
+        question: payload.question || payload.summary,
+        options: Array.isArray(payload.options) ? payload.options : [],
+      });
+    }
+  }
+  return null;
+}
+
 export function buildPermissionResponse(_interaction, decision) {
   return { decision };
 }

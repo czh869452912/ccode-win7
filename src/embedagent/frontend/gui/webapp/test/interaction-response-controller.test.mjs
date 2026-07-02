@@ -24,7 +24,7 @@ export async function runInteractionResponseControllerTests() {
     dispatch: (action) => dispatches.push(action),
     normalizeSessionPayload: (payload) => ({ ...payload, normalized: true }),
     getCurrentSessionId: () => "sess-1",
-    getCurrentInteraction: () => ({ interaction_id: "ask-1", kind: "user_input" }),
+    getCurrentInteraction: () => ({ interactionId: "ask-1", kind: "user_input" }),
     getRespondingRequestIds: () => respondingIds,
     setRespondingRequestIds: (value) => {
       respondingIds = typeof value === "function" ? value(respondingIds) : value;

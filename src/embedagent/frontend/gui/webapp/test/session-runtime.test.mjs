@@ -32,16 +32,24 @@ export function runSessionRuntimeTests() {
     snapshot: {
       session_id: "sess-1",
       status: "waiting_permission",
-      pending_interaction: {
-        interaction_id: "int-1",
-        kind: "permission",
-        tool_name: "edit_file",
-        reason: "need write access",
-      },
     },
     sessionTransport: createSessionTransportState(),
+    activities: [
+      {
+        id: "int-1-requested",
+        kind: "interaction",
+        sourceActivityKind: "approval.requested",
+        requestId: "int-1",
+        status: "pending",
+        payload: {
+          toolName: "edit_file",
+          reason: "need write access",
+          details: {},
+        },
+      },
+    ],
   });
-  assert.equal(runtime.currentInteraction.interaction_id, "int-1");
+  assert.equal(runtime.currentInteraction.interactionId, "int-1");
   assert.equal(runtime.timelineView.some((item) => item.kind === "permission"), false);
   assert.equal(runtime.sessionStatusView.mode, "explore");
 
@@ -98,17 +106,29 @@ export function runSessionRuntimeTests() {
     snapshot: {
       session_id: "sess-1",
       status: "waiting_user_input",
-      pending_interaction: {
-        interaction_id: "int-2",
-        kind: "user_input",
-        question: "继续吗？",
-        options: [{ index: 1, text: "继续" }],
-      },
     },
     sessionTransport: createSessionTransportState(),
+    activities: [
+      {
+        id: "int-2-requested",
+        kind: "interaction",
+        sourceActivityKind: "user-input.requested",
+        requestId: "int-2",
+        status: "pending",
+        payload: {
+          questions: [
+            {
+              id: "answer",
+              question: "继续吗？",
+              options: [{ index: 1, text: "继续" }],
+            },
+          ],
+        },
+      },
+    ],
   });
-  assert.equal(interactionRuntime.currentInteraction.interaction_id, "int-2");
-  assert.equal(interactionRuntime.timelineItems.length, 0);
+  assert.equal(interactionRuntime.currentInteraction.interactionId, "int-2");
+  assert.equal(interactionRuntime.timelineItems.length, 1);
   assert.equal(interactionRuntime.t3TimelineRows.filter((row) => row.kind === "interaction").length, 1);
 
   const ignoredTransportEventRuntime = buildSessionActivityRuntime({
@@ -143,28 +163,24 @@ export function runSessionRuntimeTests() {
     snapshot: {
       session_id: "sess-1",
       status: "waiting_user_input",
-      pending_interaction: {
-        interaction_id: "ask-dedup",
-        kind: "user_input",
-        tool_name: "ask_user",
-        question: "Continue?",
-      },
     },
     sessionTransport: createSessionTransportState(),
     activities: [
       {
         id: "local-user-input",
-        kind: "interaction_requested",
-        request: {
-          request_id: "ask-dedup",
-          tool_name: "ask_user",
-          question: "Continue?",
+        kind: "interaction",
+        sourceActivityKind: "user-input.requested",
+        requestId: "ask-dedup",
+        status: "pending",
+        payload: {
+          toolName: "ask_user",
+          questions: [{ id: "answer", question: "Continue?", options: [] }],
         },
       },
     ],
   });
   assert.equal(
-    dedupedInteractionRuntime.timelineItems.filter((item) => item.kind === "interaction_requested").length,
+    dedupedInteractionRuntime.timelineItems.filter((item) => item.kind === "interaction").length,
     1,
   );
   assert.equal(dedupedInteractionRuntime.t3TimelineRows.filter((row) => row.kind === "interaction").length, 1);
@@ -275,18 +291,28 @@ export function runSessionRuntimeTests() {
       session_id: "sess-1",
       status: "waiting_user_input",
       current_mode: "build",
-      pending_interaction_valid: true,
-      pending_interaction: {
-        interaction_id: "int-live",
-        kind: "user_input",
-        question: "继续吗？",
-        options: [{ index: 1, text: "继续" }],
-      },
       restore_stop_reason: "interaction_expired",
     },
     sessionTransport: createSessionTransportState(),
-    activities: [],
+    activities: [
+      {
+        id: "int-live-requested",
+        kind: "interaction",
+        sourceActivityKind: "user-input.requested",
+        requestId: "int-live",
+        status: "pending",
+        payload: {
+          questions: [
+            {
+              id: "answer",
+              question: "继续吗？",
+              options: [{ index: 1, text: "继续" }],
+            },
+          ],
+        },
+      },
+    ],
   });
-  assert.equal(resumedActiveInteractionRuntime.currentInteraction.interaction_id, "int-live");
+  assert.equal(resumedActiveInteractionRuntime.currentInteraction.interactionId, "int-live");
   assert.equal(resumedActiveInteractionRuntime.interactionNotice, null);
 }

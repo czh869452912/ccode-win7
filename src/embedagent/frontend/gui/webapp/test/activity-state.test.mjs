@@ -196,18 +196,23 @@ export function runActivityStateTests() {
     snapshot: {
       session_id: "sess-1",
       status: "waiting_user_input",
-      pending_interaction_valid: true,
-      pending_interaction: {
-        interaction_id: "ask-1",
-        kind: "user_input",
-        question: "Continue?",
-      },
       restore_stop_reason: "interaction_expired",
     },
     sessionTransport: createSessionTransportState(),
-    activities: [],
+    activities: [
+      {
+        id: "ask-1-requested",
+        kind: "interaction",
+        sourceActivityKind: "user-input.requested",
+        requestId: "ask-1",
+        status: "pending",
+        payload: {
+          questions: [{ id: "answer", question: "Continue?", options: [] }],
+        },
+      },
+    ],
   });
-  assert.equal(pendingRuntime.currentInteraction.interaction_id, "ask-1");
+  assert.equal(pendingRuntime.currentInteraction.interactionId, "ask-1");
   assert.equal(pendingRuntime.interactionNotice, null);
   assert.equal(
     pendingRuntime.t3TimelineRows.filter((row) => row.kind === "interaction").length,

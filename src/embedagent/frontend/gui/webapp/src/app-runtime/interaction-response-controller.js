@@ -1,6 +1,7 @@
 function interactionIdFor(interaction) {
   return String(
-    interaction?.interaction_id ||
+    interaction?.interactionId ||
+      interaction?.interaction_id ||
       interaction?.permission_id ||
       interaction?.request_id ||
       "",

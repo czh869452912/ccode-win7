@@ -1,4 +1,5 @@
 import { projectTransportView } from "./session-transport-state.js";
+import { currentInteractionFromActivities } from "./interaction-model.js";
 import { projectT3TimelineRows } from "./t3-timeline.js";
 
 function textValue(value, fallback = "") {
@@ -27,17 +28,6 @@ function firstValue(...values) {
 function firstText(...values) {
   const value = firstValue(...values);
   return textValue(value);
-}
-
-function normalizePendingInteraction(snapshot) {
-  const interaction = snapshot?.pending_interaction;
-  if (!interaction || interaction.status === "resolved") {
-    return null;
-  }
-  if (snapshot?.pending_interaction_valid === false || interaction.valid === false || interaction.status === "expired") {
-    return null;
-  }
-  return interaction;
 }
 
 function buildInteractionNotice(snapshot, currentInteraction) {
@@ -270,9 +260,9 @@ export function buildSessionActivityRuntime({
   activeTurnId = "",
   thinkingActive = false,
 } = {}) {
-  const currentInteraction = normalizePendingInteraction(snapshot);
-  const interactionNotice = buildInteractionNotice(snapshot, currentInteraction);
   const timelineItems = normalizeHistoryActivities(activities);
+  const currentInteraction = currentInteractionFromActivities(timelineItems);
+  const interactionNotice = buildInteractionNotice(snapshot, currentInteraction);
   const timelineView = projectActivityTurnGroups(timelineItems);
   return {
     currentInteraction,

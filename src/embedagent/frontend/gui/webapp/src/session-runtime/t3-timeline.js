@@ -1442,9 +1442,13 @@ export function projectT3TimelineRows({
   if (currentInteraction) {
     pushRow(
       interactionRow(currentInteraction, {
-        id: currentInteraction.interaction_id,
+        id: currentInteraction.interactionId || currentInteraction.interaction_id,
         kind: currentInteraction.kind,
-        label: currentInteraction.tool_name || currentInteraction.question || currentInteraction.kind,
+        label:
+          currentInteraction.toolName ||
+          currentInteraction.tool_name ||
+          currentInteraction.question ||
+          currentInteraction.kind,
         detail: currentInteraction.reason || currentInteraction.question || "",
       }),
     );
