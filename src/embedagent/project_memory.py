@@ -102,18 +102,19 @@ class ProjectMemoryStore(object):
             self._write_json(self.index_path, index)
 
     def collect_stored_paths(self) -> List[str]:
-        issues = self._load_json(self.issues_path, [])
-        refs = []
-        seen = set()
-        for item in issues:
-            if not isinstance(item, dict):
-                continue
-            for path in item.get("stored_refs") or []:
-                if not path or path in seen:
+        with self._lock:
+            issues = self._load_json(self.issues_path, [])
+            refs = []
+            seen = set()
+            for item in issues:
+                if not isinstance(item, dict):
                     continue
-                seen.add(path)
-                refs.append(path)
-        return refs
+                for path in item.get("stored_refs") or []:
+                    if not path or path in seen:
+                        continue
+                    seen.add(path)
+                    refs.append(path)
+            return refs
 
     def cleanup(self) -> Dict[str, int]:
         with self._lock:
@@ -130,44 +131,45 @@ class ProjectMemoryStore(object):
             }
 
     def build_system_message(self, mode_name: str, char_limit: int) -> Optional[str]:
-        profile = self._load_json(self.profile_path, None)
-        recipes = self._load_json(self.recipes_path, [])
-        issues = self._load_json(self.issues_path, [])
-        if not profile:
-            return None
-        lines = [
-            "以下是项目级记忆，仅供当前任务参考；若与当前系统提示或用户明确要求冲突，以后者为准。"
-        ]
-        profile_line = self._profile_line(profile)
-        if profile_line:
-            lines.append("项目概况：%s" % profile_line)
-        selected_recipes = self._select_recipes(mode_name, recipes)
-        if selected_recipes:
-            lines.append("常用命令：")
-            for index, item in enumerate(selected_recipes, start=1):
-                lines.append(
-                    "%s. [%s] cwd=%s cmd=%s"
-                    % (
-                        index,
-                        self._recipe_kind(item),
-                        item.get("cwd", "."),
-                        _truncate_text(item.get("command", ""), 120),
+        with self._lock:
+            profile = self._load_json(self.profile_path, None)
+            recipes = self._load_json(self.recipes_path, [])
+            issues = self._load_json(self.issues_path, [])
+            if not profile:
+                return None
+            lines = [
+                "以下是项目级记忆，仅供当前任务参考；若与当前系统提示或用户明确要求冲突，以后者为准。"
+            ]
+            profile_line = self._profile_line(profile)
+            if profile_line:
+                lines.append("项目概况：%s" % profile_line)
+            selected_recipes = self._select_recipes(mode_name, recipes)
+            if selected_recipes:
+                lines.append("常用命令：")
+                for index, item in enumerate(selected_recipes, start=1):
+                    lines.append(
+                        "%s. [%s] cwd=%s cmd=%s"
+                        % (
+                            index,
+                            self._recipe_kind(item),
+                            item.get("cwd", "."),
+                            _truncate_text(item.get("command", ""), 120),
+                        )
                     )
-                )
-        selected_issues = self._select_issues(mode_name, issues)
-        if selected_issues:
-            lines.append("已知问题：")
-            for index, item in enumerate(selected_issues, start=1):
-                parts = [self._issue_kind(item)]
-                if item.get("path"):
-                    parts.append("path=%s" % item["path"])
-                if item.get("summary"):
-                    parts.append(_truncate_text(item["summary"], 120))
-                if item.get("status"):
-                    parts.append("status=%s" % item["status"])
-                lines.append("%s. %s" % (index, ", ".join([part for part in parts if part])))
-        text = "\n".join(lines)
-        return _truncate_text(text, char_limit) if text else None
+            selected_issues = self._select_issues(mode_name, issues)
+            if selected_issues:
+                lines.append("已知问题：")
+                for index, item in enumerate(selected_issues, start=1):
+                    parts = [self._issue_kind(item)]
+                    if item.get("path"):
+                        parts.append("path=%s" % item["path"])
+                    if item.get("summary"):
+                        parts.append(_truncate_text(item["summary"], 120))
+                    if item.get("status"):
+                        parts.append("status=%s" % item["status"])
+                    lines.append("%s. %s" % (index, ", ".join([part for part in parts if part])))
+            text = "\n".join(lines)
+            return _truncate_text(text, char_limit) if text else None
 
     def _ensure_root(self) -> None:
         if not os.path.isdir(self.root):

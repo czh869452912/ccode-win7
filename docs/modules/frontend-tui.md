@@ -43,8 +43,8 @@
 
 - `prompt_toolkit`、`rich`
 - `embedagent.protocol`、`embedagent.config`、`embedagent.context`
-- `embedagent.inprocess_adapter`、`embedagent.llm`、`embedagent.modes`
-- `embedagent.permissions`、`embedagent.project_memory`、`embedagent.tools`
+- `embedagent_host.inprocess_adapter`、`embedagent.llm`、`embedagent.modes`
+- `embedagent_core.permissions`、`embedagent.project_memory`、`embedagent.tools`
 
 下游消费者：
 

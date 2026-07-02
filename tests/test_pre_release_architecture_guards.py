@@ -501,7 +501,7 @@ def test_query_engine_does_not_own_extension_dispatch_boundary():
 
 def test_c_cpp_workflow_extension_stays_behind_default_package_boundary():
     allowed_files = {
-        "src/embedagent/default_extensions.py",
+        "src/embedagent_host/default_extensions.py",
     }
     allowed_prefixes = ("src/embedagent/workflow_packages/c_cpp/",)
     offenders = []
