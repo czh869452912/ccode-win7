@@ -260,7 +260,7 @@ def test_register_tool_is_idempotent_for_same_source(tmp_path):
     assert entries[0]["source_id"] == "test.extension"
 
 
-def test_builtin_and_harness_tools_have_source_metadata(tmp_path):
+def test_builtin_and_c_cpp_workflow_tools_have_source_metadata(tmp_path):
     from conftest import register_default_c_workflow_tools
 
     runtime = ToolRuntime(str(tmp_path))
@@ -268,8 +268,11 @@ def test_builtin_and_harness_tools_have_source_metadata(tmp_path):
 
     assert runtime.tool_catalog_entry("read_file")["source_type"] == "builtin"
     assert runtime.tool_catalog_entry("read_file")["source_id"] == "embedagent.core"
-    assert runtime.tool_catalog_entry("run_recipe")["source_type"] == "harness"
-    assert runtime.tool_catalog_entry("run_recipe")["source_id"] == "embedagent.harness"
+    assert runtime.tool_catalog_entry("run_recipe")["source_type"] == "workflow_package"
+    assert (
+        runtime.tool_catalog_entry("run_recipe")["source_id"]
+        == "embedagent.workflow_packages.c_cpp"
+    )
 
 
 class DynamicToolExtension(object):

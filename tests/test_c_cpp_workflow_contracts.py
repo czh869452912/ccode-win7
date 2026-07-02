@@ -11,7 +11,7 @@ pytestmark = pytest.mark.harness
 
 class HarnessContractsTests(unittest.TestCase):
     def test_build_mode_defaults_to_lite_spec_tdd(self):
-        from embedagent.harness.registry import build_default_registry
+        from embedagent.workflow_packages.c_cpp.registry import build_default_registry
 
         registry = build_default_registry()
         self.assertEqual(
@@ -20,7 +20,7 @@ class HarnessContractsTests(unittest.TestCase):
         )
 
     def test_build_mode_has_expected_lite_track(self):
-        from embedagent.harness.registry import build_default_registry
+        from embedagent.workflow_packages.c_cpp.registry import build_default_registry
 
         registry = build_default_registry()
         self.assertEqual(
@@ -29,13 +29,13 @@ class HarnessContractsTests(unittest.TestCase):
         )
 
     def test_verify_mode_is_readonly(self):
-        from embedagent.harness.registry import build_default_registry
+        from embedagent.workflow_packages.c_cpp.registry import build_default_registry
 
         registry = build_default_registry()
         self.assertTrue(registry["verify"].readonly_mode)
 
     def test_debug_mode_defaults_to_lite_spec_tdd(self):
-        from embedagent.harness.registry import build_default_registry
+        from embedagent.workflow_packages.c_cpp.registry import build_default_registry
 
         registry = build_default_registry()
         self.assertEqual(
@@ -44,7 +44,7 @@ class HarnessContractsTests(unittest.TestCase):
         )
 
     def test_debug_mode_has_expected_lite_track(self):
-        from embedagent.harness.registry import build_default_registry
+        from embedagent.workflow_packages.c_cpp.registry import build_default_registry
 
         registry = build_default_registry()
         self.assertEqual(
@@ -53,7 +53,7 @@ class HarnessContractsTests(unittest.TestCase):
         )
 
     def test_build_mode_full_track_has_test_design_and_repair(self):
-        from embedagent.harness.registry import build_default_registry
+        from embedagent.workflow_packages.c_cpp.registry import build_default_registry
 
         registry = build_default_registry()
         self.assertEqual(

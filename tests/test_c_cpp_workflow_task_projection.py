@@ -6,10 +6,10 @@ from itertools import count
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from embedagent.harness import task_store
 from embedagent.inprocess_adapter import InProcessAdapter
 from embedagent.permissions import PermissionPolicy
 from embedagent.tools import ToolRuntime
+from embedagent.workflow_packages.c_cpp import task_store
 
 _COUNTER = count(1)
 

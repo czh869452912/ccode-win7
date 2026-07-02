@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from embedagent.harness.task_graph import TaskGraph
+from embedagent.workflow_packages.c_cpp.task_graph import TaskGraph
 
 
 class HarnessSessionGraphState(object):

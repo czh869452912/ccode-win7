@@ -2,17 +2,17 @@ from __future__ import annotations
 
 from typing import Any, Dict, List
 
-from embedagent.harness.packs import C_WORKFLOW_PACKS
-from embedagent.harness.tool_metadata import C_WORKFLOW_TOOL_METADATA
 from embedagent.workflow_package_manifest import (
     WorkflowPackageManifest,
     WorkflowPackDeclaration,
     WorkflowToolDeclaration,
 )
+from embedagent.workflow_packages.c_cpp.packs import C_WORKFLOW_PACKS
+from embedagent.workflow_packages.c_cpp.tool_metadata import C_WORKFLOW_TOOL_METADATA
 
 C_WORKFLOW_PACKAGE_ID = "embedagent.c_workflow"
 C_WORKFLOW_PACKAGE_LABEL = "C/C++ Workflow"
-C_WORKFLOW_PACKAGE_SOURCE_ID = "embedagent.harness"
+C_WORKFLOW_PACKAGE_SOURCE_ID = "embedagent.workflow_packages.c_cpp"
 C_WORKFLOW_SUPPORTED_MODES = ["build", "debug", "verify"]
 C_WORKFLOW_SUPPORTED_STATES = ["chat", "plan", "review", "command"]
 C_WORKFLOW_RESOURCE_SCOPES = [".embedagent/recipes"]
@@ -26,7 +26,7 @@ def _tool_declarations() -> List[WorkflowToolDeclaration]:
             WorkflowToolDeclaration(
                 name=name,
                 permission_category=str(safe_metadata.get("permission_category") or "other"),
-                source_type="harness",
+                source_type="workflow_package",
                 source_id=C_WORKFLOW_PACKAGE_SOURCE_ID,
                 metadata=safe_metadata,
             )

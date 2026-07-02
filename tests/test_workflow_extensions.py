@@ -86,7 +86,7 @@ class ToolRuntimeBoundaryProbe(object):
         current_phase="",
         observations=None,
     ):
-        from embedagent.harness.runner import HarnessRunner
+        from embedagent.workflow_packages.c_cpp.runner import HarnessRunner
 
         return HarnessRunner().describe_mode(
             mode_name,
@@ -174,7 +174,7 @@ def test_session_import_does_not_eagerly_load_harness_task_graph():
     script = (
         "import sys\n"
         "import embedagent.session\n"
-        "print('embedagent.harness.task_graph' in sys.modules)\n"
+        "print('embedagent.workflow_packages.c_cpp.task_graph' in sys.modules)\n"
     )
 
     result = subprocess.run(
@@ -252,9 +252,9 @@ def test_workflow_prompt_descriptor_uses_generic_name():
     extensions_source = (_REPO_ROOT / "src" / "embedagent" / "extensions.py").read_text(
         encoding="utf-8"
     )
-    harness_source = (_REPO_ROOT / "src" / "embedagent" / "harness" / "extension.py").read_text(
-        encoding="utf-8"
-    )
+    harness_source = (
+        _REPO_ROOT / "src" / "embedagent" / "workflow_packages" / "c_cpp" / "extension.py"
+    ).read_text(encoding="utf-8")
 
     assert "class WorkflowPrompt" in extensions_source
     assert "HarnessPrompt = WorkflowPrompt" in extensions_source
@@ -263,8 +263,10 @@ def test_workflow_prompt_descriptor_uses_generic_name():
 
 
 def test_c_harness_workflow_projection_builder_shapes_generic_payload():
-    from embedagent.harness.task_graph import TaskGraph
-    from embedagent.harness.workflow_projection import build_c_harness_workflow_projection
+    from embedagent.workflow_packages.c_cpp.task_graph import TaskGraph
+    from embedagent.workflow_packages.c_cpp.workflow_projection import (
+        build_c_harness_workflow_projection,
+    )
 
     graph = TaskGraph.from_user_request("build the project", "build")
     context = type(
@@ -294,9 +296,9 @@ def test_c_harness_workflow_projection_builder_shapes_generic_payload():
 
 
 def test_c_harness_extension_delegates_workflow_projection_to_builder():
-    source = (_REPO_ROOT / "src" / "embedagent" / "harness" / "extension.py").read_text(
-        encoding="utf-8"
-    )
+    source = (
+        _REPO_ROOT / "src" / "embedagent" / "workflow_packages" / "c_cpp" / "extension.py"
+    ).read_text(encoding="utf-8")
 
     assert "build_c_harness_workflow_projection" in source
     assert '"id": "c_harness"' not in source
@@ -305,14 +307,14 @@ def test_c_harness_extension_delegates_workflow_projection_to_builder():
 def test_query_engine_no_longer_imports_task_graph_directly():
     source = (_REPO_ROOT / "src" / "embedagent" / "query_engine.py").read_text(encoding="utf-8")
 
-    assert "from embedagent.harness.task_graph import TaskGraph" not in source
+    assert "from embedagent.workflow_packages.c_cpp.task_graph import TaskGraph" not in source
     assert "TaskGraph.from_user_request" not in source
 
 
 def test_c_harness_extension_no_longer_reads_session_task_graph_directly():
-    source = (_REPO_ROOT / "src" / "embedagent" / "harness" / "extension.py").read_text(
-        encoding="utf-8"
-    )
+    source = (
+        _REPO_ROOT / "src" / "embedagent" / "workflow_packages" / "c_cpp" / "extension.py"
+    ).read_text(encoding="utf-8")
 
     assert "session.task_graph" not in source
     assert 'getattr(session, "task_graph"' not in source
@@ -321,7 +323,10 @@ def test_c_harness_extension_no_longer_reads_session_task_graph_directly():
 def test_query_engine_no_longer_imports_default_harness_extension_directly():
     source = (_REPO_ROOT / "src" / "embedagent" / "query_engine.py").read_text(encoding="utf-8")
 
-    assert "from embedagent.harness.extension import CHarnessWorkflowExtension" not in source
+    assert (
+        "from embedagent.workflow_packages.c_cpp.extension import CHarnessWorkflowExtension"
+        not in source
+    )
     assert "CHarnessWorkflowExtension(" not in source
 
 
@@ -392,8 +397,8 @@ def test_inprocess_frontend_task_api_does_not_import_harness_task_store_directly
         encoding="utf-8"
     )
 
-    assert "from embedagent.harness import task_store" not in source
-    assert "embedagent.harness.task_store" not in source
+    assert "from embedagent.workflow_packages.c_cpp import task_store" not in source
+    assert "embedagent.workflow_packages.c_cpp.task_store" not in source
 
 
 def test_frontend_task_apis_do_not_import_harness_task_internals():
@@ -405,10 +410,10 @@ def test_frontend_task_apis_do_not_import_harness_task_internals():
         _REPO_ROOT / "src" / "embedagent" / "inprocess_adapter.py",
     ]
     forbidden = (
-        "embedagent.harness.task_graph",
-        "embedagent.harness.task_store",
-        "from embedagent.harness import task_store",
-        "from embedagent.harness.task_graph",
+        "embedagent.workflow_packages.c_cpp.task_graph",
+        "embedagent.workflow_packages.c_cpp.task_store",
+        "from embedagent.workflow_packages.c_cpp import task_store",
+        "from embedagent.workflow_packages.c_cpp.task_graph",
     )
     offenders = []
     for root in frontend_roots:
@@ -428,7 +433,7 @@ def test_inprocess_adapter_no_longer_constructs_harness_runner_directly():
         encoding="utf-8"
     )
 
-    assert "from embedagent.harness.runner import HarnessRunner" not in source
+    assert "from embedagent.workflow_packages.c_cpp.runner import HarnessRunner" not in source
     assert "HarnessRunner()" not in source
 
 
@@ -437,7 +442,10 @@ def test_inprocess_adapter_gets_default_harness_extension_from_factory():
         encoding="utf-8"
     )
 
-    assert "from embedagent.harness.extension import CHarnessWorkflowExtension" not in source
+    assert (
+        "from embedagent.workflow_packages.c_cpp.extension import CHarnessWorkflowExtension"
+        not in source
+    )
     assert "CHarnessWorkflowExtension(" not in source
     assert "build_default_extension_set" in source
 
@@ -467,7 +475,7 @@ def test_query_engine_tool_activation_does_not_use_runtime_harness_pack_fallback
 
 
 def test_core_pack_no_longer_contains_harness_workflow_tools():
-    from embedagent.harness.packs import (
+    from embedagent.workflow_packages.c_cpp.packs import (
         C_WORKFLOW_BUILD_LITE_PACK,
         C_WORKFLOW_CORE_PACK,
         C_WORKFLOW_DEBUG_LITE_PACK,
@@ -592,7 +600,7 @@ def test_default_c_workflow_extension_registers_workflow_tools(tmp_path):
 
 
 def test_default_c_workflow_extension_owns_c_workflow_tool_activation():
-    from embedagent.harness.extension import CHarnessWorkflowExtension
+    from embedagent.workflow_packages.c_cpp.extension import CHarnessWorkflowExtension
 
     extension = CHarnessWorkflowExtension()
     build_tools = extension.allowed_tool_names("build", workflow_state="chat")
@@ -647,7 +655,7 @@ def test_default_c_workflow_tool_metadata_survives_package_registration(tmp_path
 
     entry = runtime.tool_catalog_entry("run_recipe")
     assert entry["permission_category"] == "toolchain_exec"
-    assert entry["source_type"] == "harness"
+    assert entry["source_type"] == "workflow_package"
     assert entry["activity_kind"] == "diagnostic"
     assert entry["interrupt_behavior"] == "cancel"
     assert entry["read_model_invalidations"] == ["tasks"]
@@ -662,8 +670,8 @@ def test_tool_runtime_no_longer_imports_harness_mode_describer():
     assert "pack_tool_names" not in source
 
 
-def test_harness_package_owns_c_workflow_packs():
-    from embedagent.harness.packs import C_WORKFLOW_CORE_PACK, pack_tool_names
+def test_c_cpp_workflow_package_owns_c_workflow_packs():
+    from embedagent.workflow_packages.c_cpp.packs import C_WORKFLOW_CORE_PACK, pack_tool_names
 
     assert "run_recipe" not in C_WORKFLOW_CORE_PACK
     assert "run_recipe" in pack_tool_names("build_lite")
@@ -674,7 +682,7 @@ def test_importing_tool_runtime_does_not_import_harness_runtime_modules():
     script = (
         "import sys\n"
         "import embedagent.tools.runtime\n"
-        "for name in ('embedagent.tools.harness_runtime', 'embedagent.harness.runner'):\n"
+        "for name in ('embedagent.tools.harness_runtime', 'embedagent.workflow_packages.c_cpp.runner'):\n"
         "    print(name, name in sys.modules)\n"
     )
     result = subprocess.run(
@@ -687,7 +695,7 @@ def test_importing_tool_runtime_does_not_import_harness_runtime_modules():
     )
 
     assert "embedagent.tools.harness_runtime False" in result.stdout
-    assert "embedagent.harness.runner False" in result.stdout
+    assert "embedagent.workflow_packages.c_cpp.runner False" in result.stdout
 
 
 def test_tool_runtime_no_longer_exposes_legacy_schema_alias():
@@ -727,7 +735,7 @@ def test_frontend_tool_catalog_gets_harness_tools_from_workflow_extension(tmp_pa
 
 
 def test_c_harness_extension_active_tools_include_verify_foundation():
-    from embedagent.harness.extension import CHarnessWorkflowExtension
+    from embedagent.workflow_packages.c_cpp.extension import CHarnessWorkflowExtension
 
     names = CHarnessWorkflowExtension().allowed_tool_names("verify")
 
@@ -742,7 +750,7 @@ def test_c_harness_extension_active_tools_include_verify_foundation():
 
 
 def test_c_harness_extension_is_inactive_for_non_harness_modes():
-    from embedagent.harness.extension import CHarnessWorkflowExtension
+    from embedagent.workflow_packages.c_cpp.extension import CHarnessWorkflowExtension
 
     extension = CHarnessWorkflowExtension()
 
@@ -751,7 +759,7 @@ def test_c_harness_extension_is_inactive_for_non_harness_modes():
 
 
 def test_c_harness_package_manifest_does_not_drive_active_tools():
-    from embedagent.harness.extension import CHarnessWorkflowExtension
+    from embedagent.workflow_packages.c_cpp.extension import CHarnessWorkflowExtension
 
     extension = CHarnessWorkflowExtension()
     manifest = extension.package_manifest()

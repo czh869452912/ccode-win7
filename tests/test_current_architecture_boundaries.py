@@ -4,7 +4,33 @@ The project does not preserve pre-release compatibility. These tests protect
 current public construction paths and verify that stale aliases remain absent.
 """
 
+from pathlib import Path
 from unittest.mock import MagicMock
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_c_cpp_workflow_package_replaces_embedagent_harness_package():
+    old_package = ROOT / "src" / "embedagent" / "harness"
+    new_package = ROOT / "src" / "embedagent" / "workflow_packages" / "c_cpp"
+    assert not old_package.exists()
+    assert (new_package / "extension.py").is_file()
+
+    forbidden_tokens = (
+        "embedagent." + "harness",
+        "src/embedagent/" + "harness",
+    )
+    offenders = []
+    for relative_root in ("src/embedagent", "tests"):
+        for path in (ROOT / relative_root).rglob("*.py"):
+            if "__pycache__" in path.parts:
+                continue
+            text = path.read_text(encoding="utf-8")
+            rel = path.relative_to(ROOT).as_posix()
+            for token in forbidden_tokens:
+                if token in text:
+                    offenders.append("%s contains %s" % (rel, token))
+    assert offenders == []
 
 
 class TestPublicImports(object):

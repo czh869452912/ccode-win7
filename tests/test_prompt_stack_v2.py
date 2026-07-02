@@ -11,7 +11,7 @@ pytestmark = pytest.mark.harness
 
 class PromptStackV2Tests(unittest.TestCase):
     def test_build_messages_returns_three_sections(self):
-        from embedagent.harness.prompt_stack import build_prompt_units
+        from embedagent.workflow_packages.c_cpp.prompt_stack import build_prompt_units
 
         units = build_prompt_units(
             base_prompt="base",

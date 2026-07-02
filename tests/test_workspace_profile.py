@@ -6,7 +6,7 @@ from itertools import count
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from embedagent.harness import task_store
+from embedagent.workflow_packages.c_cpp import task_store
 from embedagent.workspace_profile import build_workspace_profile_message
 
 _COUNTER = count(1)

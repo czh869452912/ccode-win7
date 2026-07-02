@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from embedagent.harness.contracts import (
+from embedagent.workflow_packages.c_cpp.contracts import (
     DisciplineProfile,
     ExecutionPhase,
     ModeDefinition,

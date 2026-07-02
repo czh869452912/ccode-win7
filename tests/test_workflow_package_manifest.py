@@ -16,15 +16,15 @@ def test_workflow_package_manifest_serializes_stable_safe_payload():
         label="C/C++ Workflow",
         version="1",
         source_type="builtin",
-        source_id="embedagent.harness",
+        source_id="embedagent.workflow_packages.c_cpp",
         supported_modes=["debug", "build", "build"],
         supported_workflow_states=["chat", "plan"],
         tools=[
             WorkflowToolDeclaration(
                 name="run_recipe",
                 permission_category="toolchain_exec",
-                source_type="harness",
-                source_id="embedagent.harness",
+                source_type="workflow_package",
+                source_id="embedagent.workflow_packages.c_cpp",
                 metadata={"activity_kind": "diagnostic"},
             )
         ],
@@ -86,14 +86,16 @@ def test_workflow_package_manifest_rejects_missing_identity():
 
 
 def test_c_workflow_manifest_projects_package_packs_tools_and_resources():
-    from embedagent.harness.package_manifest import build_c_workflow_package_manifest
+    from embedagent.workflow_packages.c_cpp.package_manifest import (
+        build_c_workflow_package_manifest,
+    )
 
     manifest = build_c_workflow_package_manifest()
     payload = manifest.to_dict()
 
     assert payload["package_id"] == "embedagent.c_workflow"
     assert payload["source_type"] == "builtin"
-    assert payload["source_id"] == "embedagent.harness"
+    assert payload["source_id"] == "embedagent.workflow_packages.c_cpp"
     assert payload["supported_modes"] == ["build", "debug", "verify"]
     assert "chat" in payload["supported_workflow_states"]
     assert ".embedagent/recipes" in payload["resource_scopes"]
@@ -110,7 +112,7 @@ def test_c_workflow_manifest_projects_package_packs_tools_and_resources():
 
 
 def test_c_harness_extension_exposes_read_only_package_manifest():
-    from embedagent.harness.extension import CHarnessWorkflowExtension
+    from embedagent.workflow_packages.c_cpp.extension import CHarnessWorkflowExtension
 
     manifest = CHarnessWorkflowExtension().package_manifest()
 

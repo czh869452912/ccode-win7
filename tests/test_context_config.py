@@ -15,8 +15,8 @@ from embedagent.context import (
     ReducerRegistry,
     make_context_config,
 )
-from embedagent.harness.extension import CHarnessWorkflowExtension
 from embedagent.session import AssistantReply, Observation, Session
+from embedagent.workflow_packages.c_cpp.extension import CHarnessWorkflowExtension
 
 
 class TestMakeContextConfig(unittest.TestCase):

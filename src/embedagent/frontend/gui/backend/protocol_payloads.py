@@ -347,9 +347,7 @@ def serialize_session_bootstrap(payload: Any) -> Dict[str, Any]:
             current_mode=str(snapshot_payload.get("current_mode") or ""),
             status=str(snapshot_payload.get("status") or ""),
             updated_at=str(
-                snapshot_payload.get("updated_at")
-                or snapshot_payload.get("started_at")
-                or ""
+                snapshot_payload.get("updated_at") or snapshot_payload.get("started_at") or ""
             ),
             pending_interaction=bool(snapshot_payload.get("pending_interaction_valid")),
         ),

@@ -231,7 +231,9 @@ def test_command_capability_payload_projects_safe_command_menu_items():
 
 
 def test_workflow_package_capability_descriptors_project_manifest():
-    from embedagent.harness.package_manifest import build_c_workflow_package_manifest
+    from embedagent.workflow_packages.c_cpp.package_manifest import (
+        build_c_workflow_package_manifest,
+    )
 
     descriptors = workflow_package_capability_descriptors([build_c_workflow_package_manifest()])
     registry = CapabilityRegistry(descriptors)
@@ -242,7 +244,7 @@ def test_workflow_package_capability_descriptors_project_manifest():
     assert item["kind"] == "workflow_package"
     assert item["name"] == "embedagent.c_workflow"
     assert item["source_type"] == "builtin"
-    assert item["source_id"] == "embedagent.harness"
+    assert item["source_id"] == "embedagent.workflow_packages.c_cpp"
     assert item["active"] is True
     assert item["metadata"]["label"] == "C/C++ Workflow"
     assert "packs" in item["metadata"]

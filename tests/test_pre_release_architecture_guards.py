@@ -473,11 +473,11 @@ def test_query_engine_does_not_own_extension_dispatch_boundary():
     assert offenders == []
 
 
-def test_harness_workflow_extension_stays_behind_default_package_boundary():
+def test_c_cpp_workflow_extension_stays_behind_default_package_boundary():
     allowed_files = {
         "src/embedagent/default_extensions.py",
     }
-    allowed_prefixes = ("src/embedagent/harness/",)
+    allowed_prefixes = ("src/embedagent/workflow_packages/c_cpp/",)
     offenders = []
     for path in _source_files_under("src/embedagent", suffixes=(".py",)):
         rel = _relative(path)
@@ -486,7 +486,7 @@ def test_harness_workflow_extension_stays_behind_default_package_boundary():
         text = _read(path)
         for token in (
             "CHarnessWorkflowExtension",
-            "embedagent.harness.extension",
+            "embedagent.workflow_packages.c_cpp.extension",
         ):
             if token in text:
                 offenders.append("%s imports or constructs %s" % (rel, token))
@@ -635,7 +635,7 @@ def test_tool_refresh_paths_use_read_model_invalidations_not_tool_name_lists():
     )
     refresh_words = ("refresh", "invalidate", "invalidations", "tool_finished", "tool_result")
     allowed_prefixes = (
-        "src/embedagent/harness/",
+        "src/embedagent/workflow_packages/c_cpp/",
         "src/embedagent/tools/",
     )
     offenders = []

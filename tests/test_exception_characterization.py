@@ -12,7 +12,7 @@ def test_permissions_load_missing_file():
 
 def test_task_store_load_missing_file():
     """Verify task_store handles missing file gracefully."""
-    from embedagent.harness.task_store import load_task_snapshot
+    from embedagent.workflow_packages.c_cpp.task_store import load_task_snapshot
 
     result = load_task_snapshot("/nonexistent/path", "session-123")
     assert result == {}

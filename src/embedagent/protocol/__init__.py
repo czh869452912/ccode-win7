@@ -12,15 +12,31 @@ from enum import Enum, auto
 from typing import Any, Dict, List, Optional, Protocol
 
 from embedagent.protocol.app_protocol import (
-    AppBootstrap,
-    CapabilitySnapshot,
-    CommandDescriptor,
-    InteractionActivity,
-    ModeDescriptor,
-    ThreadDetailSnapshot,
-    ThreadShell,
-    ToolPresentation,
-    WorkflowPackageDescriptor,
+    AppBootstrap as AppBootstrap,
+)
+from embedagent.protocol.app_protocol import (
+    CapabilitySnapshot as CapabilitySnapshot,
+)
+from embedagent.protocol.app_protocol import (
+    CommandDescriptor as CommandDescriptor,
+)
+from embedagent.protocol.app_protocol import (
+    InteractionActivity as InteractionActivity,
+)
+from embedagent.protocol.app_protocol import (
+    ModeDescriptor as ModeDescriptor,
+)
+from embedagent.protocol.app_protocol import (
+    ThreadDetailSnapshot as ThreadDetailSnapshot,
+)
+from embedagent.protocol.app_protocol import (
+    ThreadShell as ThreadShell,
+)
+from embedagent.protocol.app_protocol import (
+    ToolPresentation as ToolPresentation,
+)
+from embedagent.protocol.app_protocol import (
+    WorkflowPackageDescriptor as WorkflowPackageDescriptor,
 )
 
 

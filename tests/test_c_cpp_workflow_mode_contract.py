@@ -42,7 +42,7 @@ class TestPermissionContract(unittest.TestCase):
 @pytest.mark.harness
 class TestHarnessInjection(unittest.TestCase):
     def _make_extension(self):
-        from embedagent.harness.extension import CHarnessWorkflowExtension
+        from embedagent.workflow_packages.c_cpp.extension import CHarnessWorkflowExtension
 
         return CHarnessWorkflowExtension()
 

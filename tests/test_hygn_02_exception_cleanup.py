@@ -60,7 +60,11 @@ class TestNoBareExceptBlocks:
         """Verify modified files use specific exception types."""
         files_expected_patterns = {
             "src/embedagent/permissions.py": ["OSError", "JSONDecodeError", "ValueError"],
-            "src/embedagent/harness/task_store.py": ["OSError", "JSONDecodeError", "ValueError"],
+            "src/embedagent/workflow_packages/c_cpp/task_store.py": [
+                "OSError",
+                "JSONDecodeError",
+                "ValueError",
+            ],
             "src/embedagent/session_store.py": ["OSError", "JSONDecodeError", "ValueError"],
             "src/embedagent/project_memory.py": ["OSError", "ValueError"],
             "src/embedagent/workspace_recipes.py": ["OSError", "JSONDecodeError", "ValueError"],

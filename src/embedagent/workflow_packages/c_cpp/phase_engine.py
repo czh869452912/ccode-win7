@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from embedagent.harness.contracts import ExecutionPhase
+from embedagent.workflow_packages.c_cpp.contracts import ExecutionPhase
 
 
 def normalize_phase(current_phase):

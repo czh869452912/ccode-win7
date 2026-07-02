@@ -11,7 +11,7 @@ pytestmark = pytest.mark.harness
 
 class HarnessRunnerTaskGraphTests(unittest.TestCase):
     def test_runner_builds_full_spec_units_with_task_summary(self):
-        from embedagent.harness.runner import HarnessRunner
+        from embedagent.workflow_packages.c_cpp.runner import HarnessRunner
 
         runner = HarnessRunner()
         units = runner.build_mode_units("build", [], discipline_override="full_spec_tdd")

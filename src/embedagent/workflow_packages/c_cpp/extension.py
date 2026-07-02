@@ -4,15 +4,17 @@ import re
 from typing import Any, List, Optional, Set
 
 from embedagent.extensions import ExtensionCapability, ToolRegistrationResult, WorkflowPrompt
-from embedagent.harness import task_store
-from embedagent.harness.context_reducers import register_c_workflow_context_reducers
-from embedagent.harness.package_manifest import c_workflow_package_manifest_dict
-from embedagent.harness.packs import pack_tool_names
-from embedagent.harness.runner import HarnessRunner
-from embedagent.harness.session_graph_state import HarnessSessionGraphState
-from embedagent.harness.tool_registry import build_c_workflow_tools
-from embedagent.harness.workflow_projection import build_c_harness_workflow_projection
 from embedagent.session import Observation
+from embedagent.workflow_packages.c_cpp import task_store
+from embedagent.workflow_packages.c_cpp.context_reducers import register_c_workflow_context_reducers
+from embedagent.workflow_packages.c_cpp.package_manifest import c_workflow_package_manifest_dict
+from embedagent.workflow_packages.c_cpp.packs import pack_tool_names
+from embedagent.workflow_packages.c_cpp.runner import HarnessRunner
+from embedagent.workflow_packages.c_cpp.session_graph_state import HarnessSessionGraphState
+from embedagent.workflow_packages.c_cpp.tool_registry import build_c_workflow_tools
+from embedagent.workflow_packages.c_cpp.workflow_projection import (
+    build_c_harness_workflow_projection,
+)
 
 
 class CHarnessWorkflowExtension(object):
@@ -248,13 +250,13 @@ class CHarnessWorkflowExtension(object):
         if tool_context is None:
             return ToolRegistrationResult(
                 tools=[],
-                source_id="embedagent.harness",
-                source_type="harness",
+                source_id="embedagent.workflow_packages.c_cpp",
+                source_type="workflow_package",
             )
         return ToolRegistrationResult(
             tools=build_c_workflow_tools(tool_context),
-            source_id="embedagent.harness",
-            source_type="harness",
+            source_id="embedagent.workflow_packages.c_cpp",
+            source_type="workflow_package",
         )
 
     def register_context_reducers(self, reducer_registry: Any) -> None:

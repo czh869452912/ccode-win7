@@ -1,10 +1,13 @@
 from __future__ import annotations
 
-from embedagent.harness.contracts import HarnessModeContext
-from embedagent.harness.phase_engine import advance_until_stable, artifact_flags_from_observations
-from embedagent.harness.prompt_stack import build_prompt_units
-from embedagent.harness.registry import build_default_registry
-from embedagent.harness.task_graph import TaskGraph
+from embedagent.workflow_packages.c_cpp.contracts import HarnessModeContext
+from embedagent.workflow_packages.c_cpp.phase_engine import (
+    advance_until_stable,
+    artifact_flags_from_observations,
+)
+from embedagent.workflow_packages.c_cpp.prompt_stack import build_prompt_units
+from embedagent.workflow_packages.c_cpp.registry import build_default_registry
+from embedagent.workflow_packages.c_cpp.task_graph import TaskGraph
 
 
 class HarnessRunner(object):
