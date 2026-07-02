@@ -313,7 +313,7 @@ Outcomes:
 - cleanup and reload behavior are deterministic
 - built-in workflow extension and project-local extensions use the same internal bus
 
-Current implementation status: Phase B is complete for extension hook dispatch, and the pre-release explicit capability cleanup has landed. `src/embedagent/agent_event_bus.py` defines the internal source-aware event bus, observer/reducer registrations, dispatch diagnostics, event-specific reducer stopping, and fail-closed behavior for trusted reducers. `ExtensionManager` now registers hook participation from explicit `ExtensionCapability` records returned by `extension_capabilities()`; method-name hooks are not auto-discovered. Declared capabilities route through `AgentEventBus` for context patches, tool-call decisions, tool-result patches, resource discovery, dynamic tool registration, prompt patches, active tool names, workflow initialization, task snapshot loading, and extension-owned tool handling, while package manifests and context reducer registration are explicit non-event capability records. Lifecycle orchestration is now behind the Phase C kernel/journal/loop boundaries; future lifecycle observers should use the bus boundary rather than adding direct facade hooks.
+Current implementation status: Phase B is complete for extension hook dispatch, and the pre-release explicit capability cleanup has landed. `src/embedagent_core/agent_event_bus.py` defines the internal source-aware event bus, observer/reducer registrations, dispatch diagnostics, event-specific reducer stopping, and fail-closed behavior for trusted reducers. `src/embedagent_core/extensions.py` registers hook participation from explicit `ExtensionCapability` records returned by `extension_capabilities()`; method-name hooks are not auto-discovered. Declared capabilities route through `AgentEventBus` for context patches, tool-call decisions, tool-result patches, resource discovery, dynamic tool registration, prompt patches, active tool names, workflow initialization, task snapshot loading, and extension-owned tool handling, while package manifests and context reducer registration are explicit non-event capability records. Lifecycle orchestration is now behind the Phase C kernel/journal/loop boundaries; future lifecycle observers should use the bus boundary rather than adding direct facade hooks.
 
 ### Phase C: AgentKernel Extraction
 
@@ -327,7 +327,7 @@ Outcomes:
 - the public session facade shrinks
 - tool action execution remains behind the action service
 
-Current implementation status: Phase C is complete and the follow-on continuation slice has landed. `src/embedagent/agent_lifecycle.py` defines `AgentLifecycleJournal` for durable lifecycle operation events, context operation payload helpers, pending interaction lifecycle events, and transition save points. `src/embedagent/agent_kernel.py` defines `AgentKernel` and `AgentTurnFrame` for user, command, and resume turn lifecycle plus pending interaction create/resolve boundaries. `src/embedagent/agent_loop.py` now owns Pi-style open turn-loop continuation, including agent steps, context/provider attempts, compact retry, tool batch interruption, guard stops, aborts, and explicit loop safety-limit compatibility transitions. `QueryEngine` remains the session-scoped facade and transcript/session mutation compatibility surface.
+Current implementation status: Phase C is complete and the follow-on continuation slice has landed. `src/embedagent_core/agent_lifecycle.py` defines `AgentLifecycleJournal` for durable lifecycle operation events, context operation payload helpers, pending interaction lifecycle events, and transition save points. `src/embedagent_core/agent_kernel.py` defines `AgentKernel` and `AgentTurnFrame` for user, command, and resume turn lifecycle plus pending interaction create/resolve boundaries. `src/embedagent_core/agent_loop.py` now owns Pi-style open turn-loop continuation, including agent steps, context/provider attempts, compact retry, tool batch interruption, guard stops, aborts, and explicit loop safety-limit compatibility transitions. `QueryEngine` remains the session-scoped facade and transcript/session mutation compatibility surface.
 
 ### Phase D: Default C/C++ Workflow Package
 
@@ -340,7 +340,7 @@ Outcomes:
 - frontend projections consume generic workflow state
 - bare AgentKernel works without the C/C++ package
 
-Current implementation status: Phase D is complete for default C/C++ workflow capability ownership. `ToolRuntime` construction is workflow-neutral and no longer imports the harness runtime facade. `CHarnessWorkflowExtension.register_tools(...)` registers recipe, quality, evidence, and task-status tools into the shared runtime with source metadata. C/C++ workflow tool metadata lives in `src/embedagent/harness/tool_metadata.py`; C/C++ workflow packs live in `src/embedagent/harness/packs.py`; hosted product paths still load the bundled package through `src/embedagent/default_extensions.py`, while bare Agent Core does not expose C/C++ workflow tools unless that package is installed.
+Current implementation status: Phase D is complete for default C/C++ workflow capability ownership and the monorepo package split has landed. `ToolRuntime` construction is workflow-neutral and no longer imports the harness runtime facade. `CHarnessWorkflowExtension.register_tools(...)` registers recipe, quality, evidence, and task-status tools into the shared runtime with source metadata. C/C++ workflow tool metadata lives in `src/embedagent/workflow_packages/c_cpp/tool_metadata.py`; C/C++ workflow packs live in `src/embedagent/workflow_packages/c_cpp/packs.py`; hosted product paths load the bundled package through `src/embedagent_host/default_extensions.py`, while bare Agent Core under `src/embedagent_core/` does not expose C/C++ workflow tools unless that package is installed.
 
 ### Phase E: Self-Extension Authoring Loop
 
@@ -384,7 +384,7 @@ Outcomes:
 - session snapshots expose reducer-backed `runtime_config`
 - `TurnSnapshot` can carry reducer-backed model profile, resource revision metadata, and safe prompt-unit metadata
 
-Current implementation status: Phase H is complete. `src/embedagent/runtime_config.py` defines `RuntimeConfigReducer` and serializable state objects. `InProcessAdapter` emits and refreshes runtime config during session creation, local resource reload, resume, and snapshot projection. `QueryEngine` can consume reducer-backed runtime configuration while building provider turn snapshots. Provider snapshot records now preserve safe prompt-unit summaries such as local skill listing names/counts while stripping unsafe provider inputs. The reducer ignores `resource_discovered` for revision advancement and leaves activation, execution, resource reload, extension loading, and permission checks with their existing owners.
+Current implementation status: Phase H is complete. `src/embedagent_core/runtime_config.py` defines `RuntimeConfigReducer` and serializable state objects. `InProcessAdapter` emits and refreshes runtime config during session creation, local resource reload, resume, and snapshot projection. `QueryEngine` can consume reducer-backed runtime configuration while building provider turn snapshots. Provider snapshot records now preserve safe prompt-unit summaries such as local skill listing names/counts while stripping unsafe provider inputs. The reducer ignores `resource_discovered` for revision advancement and leaves activation, execution, resource reload, extension loading, and permission checks with their existing owners.
 
 ### Phase I: Workflow Package Manifest / Read Model
 
@@ -398,7 +398,7 @@ Outcomes:
 - the capability registry projects `workflow_package` descriptors for diagnostics and future reducer work
 - manifest projection stays read-only and does not activate tools, execute tools, grant permissions, reload resources, or load extensions
 
-Current implementation status: Phase I is complete. `src/embedagent/workflow_package_manifest.py` defines the generic manifest read model. The bundled C/C++ package exposes its manifest through `CHarnessWorkflowExtension.package_manifest()` and `ExtensionManager.package_manifests()`. `CapabilityRegistry` now includes `workflow_package` descriptors, and `InProcessAdapter.capability_snapshot()` includes the bundled C/C++ package descriptor through the shared extension manager rather than through a direct adapter-to-harness dependency.
+Current implementation status: Phase I is complete. `src/embedagent_core/workflow_package_manifest.py` defines the generic manifest read model. The bundled C/C++ package exposes its manifest through `CHarnessWorkflowExtension.package_manifest()` and `ExtensionManager.package_manifests()`. `CapabilityRegistry` now includes `workflow_package` descriptors, and `InProcessAdapter.capability_snapshot()` includes the bundled C/C++ package descriptor through the shared extension manager rather than through a direct adapter-to-harness dependency.
 
 ### Phase J: Structured Compaction State
 
@@ -412,7 +412,7 @@ Outcomes:
 - `Session.compact_boundaries` remains live context compatibility state
 - compaction projection stays read-only and does not select context, execute tools, load extensions, grant permissions, or replace session history
 
-Current implementation status: Phase J is complete. `src/embedagent/compaction_state.py` defines the reducer and serializable read model; `QueryEngine` enriches `compact_boundary` transcript events; `SessionRestorer` reduces the consumed transcript prefix; `InProcessAdapter` refreshes `ManagedSession.compaction_state`; `SessionSnapshotProjector` and the protocol/core adapter expose the projection.
+Current implementation status: Phase J is complete. `src/embedagent_core/compaction_state.py` defines the reducer and serializable read model; `QueryEngine` enriches `compact_boundary` transcript events; `SessionRestorer` reduces the consumed transcript prefix; `InProcessAdapter` refreshes `ManagedSession.compaction_state`; `SessionSnapshotProjector` and the protocol/core adapter expose the projection.
 
 ### Phase K: Recovery State
 
@@ -426,7 +426,7 @@ Outcomes:
 - restore validation, transcript repair, mode selection, tool activation, context selection, extension loading, tool execution, and permissions remain owned by existing boundaries
 - recovery projection stays read-only and does not replace session history or frontend bootstrap truth
 
-Current implementation status: Phase K is complete. `src/embedagent/recovery_state.py` defines the reducer and serializable read model; `InProcessAdapter.resume_session(...)` appends safe `recovery_marker` events after restore; `SessionRestorer` reduces recovery markers from the consumed transcript prefix; `ManagedSession`, `SessionSnapshotProjector`, and the protocol/core adapter expose `recovery_state`.
+Current implementation status: Phase K is complete. `src/embedagent_core/recovery_state.py` defines the reducer and serializable read model; `InProcessAdapter.resume_session(...)` appends safe `recovery_marker` events after restore; `SessionRestorer` reduces recovery markers from the consumed transcript prefix; `ManagedSession`, `SessionSnapshotProjector`, and the protocol/core adapter expose `recovery_state`.
 
 ### Phase L: Pack Compatibility Cleanup
 
@@ -436,7 +436,7 @@ Outcomes:
 
 - `src/embedagent/tooling/packs.py` is removed
 - `embedagent.tooling` no longer re-exports C/C++ workflow pack aliases
-- bundled C/C++ workflow pack truth is available only from `src/embedagent/harness/packs.py`
+- bundled C/C++ workflow pack truth is available only from `src/embedagent/workflow_packages/c_cpp/packs.py`
 - active tool selection, schema projection, permissions, and hosted C/C++ behavior remain unchanged
 
 Current implementation status: Phase L is complete. The historical `embedagent.tooling.packs` re-export has been deleted, package-root pack aliases have been removed from `embedagent.tooling`, and architecture tests guard the single harness-owned pack import path.
@@ -451,9 +451,8 @@ Outcomes:
 - mode registry access uses `get_mode_registry()` / `initialize_modes()`
 - command sanitizer access uses `get_command_sanitizer()`
 - hosted adapter class lookup uses `get_inprocess_adapter()`
-- legacy names such as `MODE_REGISTRY`, `_DEFAULT_SANITIZER`,
-  `get_default_sanitizer()`, `_inprocess_adapter`, and `_get_adapter_class()`
-  are no longer exported or used
+- legacy registry, sanitizer, and adapter private aliases are no longer
+  exported or used
 - mode behavior, shell sanitizer behavior, adapter lifecycle, permissions, and
   hosted C/C++ behavior remain unchanged
 

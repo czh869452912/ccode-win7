@@ -5,7 +5,7 @@
 > 状态：`active`
 > 类型：`module`
 > 负责人：`project maintainers`
-> 最后同步日期：`2026-06-12`
+> 最后同步日期：`2026-07-02`
 > 对应代码范围：`src/embedagent/session.py`, `src/embedagent/session_history.py`, `src/embedagent/session_projector.py`, `src/embedagent/transcript_store.py`
 
 ## 1. Purpose And Scope
@@ -38,8 +38,8 @@
 
 上游依赖：
 
-- `src/embedagent/query_engine.py`
-- `src/embedagent/inprocess_adapter.py`
+- `src/embedagent_core/query_engine.py`
+- `src/embedagent_host/inprocess_adapter.py`
 
 下游消费者：
 

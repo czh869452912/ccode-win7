@@ -16,7 +16,7 @@ The stable architecture assumptions are:
 
 The product is organized around one main execution spine:
 
-`Frontend -> Core Adapter -> InProcessAdapter -> Session Runtime -> QueryEngine -> AgentKernel -> AgentLoop / AgentLifecycleJournal -> AgentToolActionService -> AgentExtensionHost / ToolRuntime / PermissionPolicy -> Context/Stores`
+`Frontend -> Agent App Protocol / Core Adapter -> Hosted Runtime -> InProcessAdapter -> Session Runtime -> QueryEngine -> AgentKernel -> AgentLoop / AgentLifecycleJournal -> AgentToolActionService -> AgentExtensionHost / ToolRuntime / PermissionPolicy -> Context/Stores`
 
 ### Frontend Layer
 
@@ -87,35 +87,69 @@ behavior.
 - `src/embedagent/protocol/`
 - `src/embedagent/core/`
 
-This is the stable contract boundary between UI and Agent Core.
+This is the stable contract boundary between UI shells and Agent Core. The GUI
+consumes Agent App Protocol snapshots/events and backend-declared capability
+metadata instead of hard-coding scenario-specific modes, tools, or workflow
+packages.
 
 ### Agent Core Layer
 
-- `src/embedagent/inprocess_adapter.py`
-- `src/embedagent/query_engine.py`
-- `src/embedagent/agent_lifecycle.py`
-- `src/embedagent/agent_kernel.py`
-- `src/embedagent/agent_loop.py`
-- `src/embedagent/agent_tool_action_service.py`
-- `src/embedagent/agent_extension_host.py`
-- `src/embedagent/agent_event_bus.py`
-- `src/embedagent/turn_snapshot.py`
-- `src/embedagent/capabilities.py`
-- `src/embedagent/runtime_config.py`
-- `src/embedagent/compaction_state.py`
-- `src/embedagent/recovery_state.py`
-- `src/embedagent/workflow_package_manifest.py`
+- `src/embedagent_core/`
+- `src/embedagent_core/query_engine.py`
+- `src/embedagent_core/agent_lifecycle.py`
+- `src/embedagent_core/agent_kernel.py`
+- `src/embedagent_core/agent_loop.py`
+- `src/embedagent_core/agent_tool_action_service.py`
+- `src/embedagent_core/agent_extension_host.py`
+- `src/embedagent_core/agent_event_bus.py`
+- `src/embedagent_core/turn_snapshot.py`
+- `src/embedagent_core/capabilities.py`
+- `src/embedagent_core/runtime_config.py`
+- `src/embedagent_core/compaction_state.py`
+- `src/embedagent_core/recovery_state.py`
+- `src/embedagent_core/workflow_package_manifest.py`
+- `src/embedagent_core/extensions.py`
+- `src/embedagent_core/permissions.py`
+
+This is the generic Agent Core package. It owns the session engine, lifecycle
+journal, loop/action/extension boundaries, permission policy, explicit turn
+snapshots, reducers, capability read models, and workflow package manifest read
+model. It must not import GUI backend modules, hosted product composition, or
+specific workflow packages.
+
+### Host And Product Composition Layer
+
+- `src/embedagent_host/inprocess_adapter.py`
+- `src/embedagent_host/default_extensions.py`
+- `src/embedagent_host/hosted_command_service.py`
+- `src/embedagent_host/hosted_interaction_service.py`
+- `src/embedagent_host/hosted/`
 - `src/embedagent/session_runtime.py`
 - `src/embedagent/session_projector.py`
 - `src/embedagent/session_history.py`
-- `src/embedagent/extensions.py`
-- `src/embedagent/default_extensions.py`
-- `src/embedagent/harness/workflow_projection.py`
 - `src/embedagent/tools/`
 - `src/embedagent/context.py`
-- `src/embedagent/permissions.py`
+- `src/embedagent/project_extensions.py`
+- `src/embedagent/slash_commands.py`
 
-This is the product core.
+This layer assembles Agent Core, selected workflow packages, local resources,
+project-local extensions, product session hosting, CLI/TUI/GUI bridges, and
+offline bundle integration. It is replaceable product composition, not generic
+Core.
+
+### Default C/C++ Workflow Package
+
+- `src/embedagent/workflow_packages/c_cpp/`
+- `src/embedagent/workflow_packages/c_cpp/extension.py`
+- `src/embedagent/workflow_packages/c_cpp/workflow_projection.py`
+- `src/embedagent/workflow_packages/c_cpp/packs.py`
+- `src/embedagent/workflow_packages/c_cpp/tool_registry.py`
+- `src/embedagent/workflow_packages/c_cpp/tool_metadata.py`
+
+The first-party C/C++ workflow package owns C/C++ discipline, phase, task graph,
+tool registration, metadata, packs, context reducers, session task snapshots,
+and workflow projection. It is bundled by the hosted product but is not part of
+the generic Agent Core.
 
 The default C/C++ harness is now entered through the in-process workflow extension boundary. Harness internals remain bundled and enabled by default, but `QueryEngine` must not import concrete harness task classes directly.
 
@@ -138,7 +172,7 @@ Tool-result workflow patches expose only the current generic `workflow` read
 model plus safe `metadata`; old extension projection fields are not part of
 the extension boundary.
 
-Workflow-package prompt units are described by the generic `WorkflowPrompt` descriptor and appended as generic `workflow_prompt` system messages. `PromptAssemblyService` owns workflow-prompt append/dedupe mechanics. `harness_prompt` is no longer an active prompt assembly kind; new Agent Core prompt injection and deduplication use only the generic workflow naming.
+Workflow-package prompt units are described by the generic `WorkflowPrompt` descriptor and appended as generic `workflow_prompt` system messages. `PromptAssemblyService` owns workflow-prompt append/dedupe mechanics. The old harness-specific prompt kind is no longer active; new Agent Core prompt injection and deduplication use only the generic workflow naming.
 
 `AgentLifecycleJournal` owns durable lifecycle writes for schema v2 operation events, transition save points, pending interaction lifecycle events, context operation payload helpers, and workflow-patch persistence helpers. `AgentKernel` owns turn frames and pending interaction create/resolve boundaries. `AgentToolActionService` owns non-LLM tool action execution: active-tool checks, extension pre/post hooks, permission evaluation, pending permission/user-input action handling, mode-switch proposals, path write guards, runtime dispatch, extension-owned tool calls, resumed action execution, and workflow-patch capture after tool-result hooks. `AgentLoop` owns Pi-style open turn-loop continuation: agent step lifecycle, context/provider attempts, active schema requests through `AgentExtensionHost`, compact retry, tool batch interruption, guard-stop, abort, and explicit loop safety-limit compatibility transitions. Ordinary command/build/test failures are diagnostic tool results for the next model turn, not automatic hard-stop conditions; guard-stop is reserved for provider/protocol no-progress and true runaway protection. The optional safety fuse remains available only as an explicit runtime/test parameter; persistent JSON configuration must not set a product loop ceiling, and hosted defaults do not stop merely because eight model/tool cycles were used. `QueryEngine` remains the public session facade and keeps ownership of transcript-backed session mutation compatibility; it must not grow private loop or completion forwarding wrappers.
 
@@ -164,7 +198,7 @@ Explicit user mode-switch requests are routed by `QueryEngine` before provider c
 
 `TurnExperienceReducer` is the replayable turn-experience read model. It reduces safe `tool_result` and `loop_transition` transcript events into completed work, unverified changes, validation failures, blockers, last failure, and suggested next steps. It feeds `ManagedSession.turn_experience`, protocol snapshots, session snapshots, `session_finished` payloads, CLI diagnostics, the TUI inspector, and GUI T3 system notices. It remains display/replay state and must not drive loop continuation, validation policy, active-tool selection, permission decisions, restore rules, extension loading, or session-history truth.
 
-Default bundled extension assembly is outside `QueryEngine` in `src/embedagent/default_extensions.py`. A bare `QueryEngine` receives an empty `ExtensionManager`; hosted product paths install the default C/C++ harness explicitly before constructing session engines. Hosted product paths may additionally load project-local extensions from `.embedagent/extensions/<name>/extension.json` when the manifest is explicitly enabled and declares permissions. Loaded project extensions receive `api.ExtensionCapability` and must explicitly declare every active hook from `extension_capabilities()`. Public remote registries, plugin marketplaces, runtime dependency installation, built-in tool replacement, and multi-agent orchestration remain out of scope.
+Default bundled extension assembly is outside `QueryEngine` in `src/embedagent_host/default_extensions.py`. A bare `QueryEngine` receives an empty `ExtensionManager`; hosted product paths install the default C/C++ harness explicitly before constructing session engines. Hosted product paths may additionally load project-local extensions from `.embedagent/extensions/<name>/extension.json` when the manifest is explicitly enabled and declares permissions. Loaded project extensions receive `api.ExtensionCapability` and must explicitly declare every active hook from `extension_capabilities()`. Public remote registries, plugin marketplaces, runtime dependency installation, built-in tool replacement, and multi-agent orchestration remain out of scope.
 
 Optional enterprise/intranet integrations are hosted capabilities, not Agent Core responsibilities. Intranet Git adapters, custom service providers, model gateways, organization-local catalogs, and telemetry sinks must be explicitly configured, trusted, disableable, and failure-tolerant. They attach through provider, extension, workflow-package, or passive sink boundaries with source metadata and normal permission checks; they must not make startup, default C/C++ workflows, restore, resource reload, or session history depend on network availability.
 
@@ -197,8 +231,8 @@ Harness state refresh in the product adapter path goes through `CHarnessWorkflow
 - `compaction_state` in session snapshots is reducer-backed diagnostic state, not frontend-owned context policy
 - `recovery_state` in session snapshots is reducer-backed diagnostic state, not frontend-owned recovery policy
 - `turn_experience` in session snapshots is reducer-backed display state; CLI, TUI, and GUI may render it but must not infer their own completion, validation, blocker, or next-step policy from history or tool names
-- no durable `SessionTimelineStore` exists; GUI activation and `/review`
-  consume transcript/session projections, and transport recovery reloads
+- no durable timeline-backed session-history store exists; GUI activation and
+  `/review` consume transcript/session projections, and transport recovery reloads
   session bootstrap instead of calling a session event replay route
 - hosted adapter session bootstrap assembly lives in `SessionBootstrapService`,
   runtime/capability projections live in `RuntimeCapabilityService`, slash
@@ -246,7 +280,7 @@ Official task truth flows through:
 
 `Session.task_graph` has been removed. The default C/C++ harness keeps `TaskGraph` ownership behind `CHarnessWorkflowExtension` and a harness-owned session graph state adapter, while the core/frontend boundary carries only `Session.workflow_state["workflow"]`. Importing or instantiating `embedagent.session.Session` must not load harness task graph internals.
 
-Frontend-facing task projection now comes from `Session.workflow_state["workflow"]`. The default C/C++ harness extension is responsible for keeping that projection synchronized with its internal task graph and persisted session task snapshots. The payload assembly itself is centralized in `src/embedagent/harness/workflow_projection.py`, which is the adapter from C harness internals to generic workflow state.
+Frontend-facing task projection now comes from `Session.workflow_state["workflow"]`. The default C/C++ harness extension is responsible for keeping that projection synchronized with its internal task graph and persisted session task snapshots. The payload assembly itself is centralized in `src/embedagent/workflow_packages/c_cpp/workflow_projection.py`, which is the adapter from C harness internals to generic workflow state.
 
 Workflow-neutral strategies, projectors, and frontend task APIs read task state from that generic workflow projection rather than from harness task graph internals.
 
@@ -275,7 +309,7 @@ Built-in mode allowed-tool lists are workflow-neutral permission/write contracts
 
 The tool runtime is source-aware and dynamically extensible. A bare `ToolRuntime` registers workflow-neutral built-ins only. In-process extensions can register `ToolDefinition` objects into the shared runtime; the bundled C/C++ workflow package uses this same boundary for compiler/build helpers, recipe execution, quality reporting, evidence capture, and task-status tools. Source metadata is projected through the existing catalog, and active-tool visibility still flows through `ExtensionManager.allowed_tool_names(mode_name, workflow_state=workflow_state)`.
 
-C/C++ workflow pack definitions live only in `src/embedagent/harness/packs.py`. The obsolete `src/embedagent/tooling/packs.py` re-export and package-root pack aliases have been removed so Agent Core no longer carries a second pack import surface.
+C/C++ workflow pack definitions live only in `src/embedagent/workflow_packages/c_cpp/packs.py`. The obsolete `src/embedagent/tooling/packs.py` re-export and package-root pack aliases have been removed so Agent Core no longer carries a second pack import surface.
 
 Local self-extension authoring is a workflow-neutral write capability. `SelfExtensionAuthoringService` writes workspace-bound `.embedagent` skills, prompts, recipes, and disabled-by-default project extension skeletons. The `author_local_capability` tool exposes that service in build/debug mode with `workspace_write` permission. Authoring does not refresh resource caches and does not import or enable generated Python extensions; resource reload and project extension loading remain separate operations.
 
@@ -323,9 +357,9 @@ Runtime configuration projections are also read-only. `runtime_configured`, `res
 
 ## 5. Workflow Extension And Harness Layer
 
-`src/embedagent/extensions.py` owns the local in-process capability extension contract.
+`src/embedagent_core/extensions.py` owns the local in-process capability extension contract.
 
-The default C/C++ harness extension in `src/embedagent/harness/extension.py` owns:
+The default C/C++ workflow package extension in `src/embedagent/workflow_packages/c_cpp/extension.py` owns:
 
 - mode registry
 - discipline defaults
@@ -338,7 +372,7 @@ This keeps workflow structure out of the frontend, out of ad-hoc prompt text, an
 
 ## 6. Permission Layer
 
-`src/embedagent/permissions.py` is the only official permission engine.
+`src/embedagent_core/permissions.py` is the only official permission engine.
 
 It owns:
 
@@ -451,7 +485,7 @@ User-facing turn experience is projected from safe transcript events:
 The frontend-facing vocabulary is now:
 
 - `build`, not `code`
-- `tasks`, not `todos`
+- `tasks`, not the retired todo vocabulary
 - `current_phase`
 - `discipline_profile`
 - `current_activity`

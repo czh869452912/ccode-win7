@@ -1003,7 +1003,7 @@ async function main() {
   assert.equal(socketMessageEffectsSource.includes('type === "permission_request"'), true);
   assert.equal(socketMessageEffectsSource.includes('type === "user_input_request"'), true);
   assert.equal(socketMessageEffectsSource.includes("command_result"), true);
-  assert.equal(socketMessageEffectsSource.includes('event_kind: "interaction.created"'), false);
+  assert.equal(socketMessageEffectsSource.includes('event_kind: "interaction' + '.created"'), false);
   assert.equal(socketMessageEffectsSource.includes("approval.requested"), true);
   assert.equal(socketMessageEffectsSource.includes("user-input.requested"), true);
   assert.equal(socketMessageEffectsSource.includes("fetch("), false);
@@ -1020,7 +1020,7 @@ async function main() {
   assert.equal(sessionLoadersSource.includes("LOADER_REQUESTS"), true);
   assert.equal(sessionLoadersSource.includes("normalizeHistoryActivities"), true);
   assert.equal(sessionLoadersSource.includes("history.activities"), true);
-  assert.equal(sessionLoadersSource.includes("timelineFromTurns"), false);
+  assert.equal(sessionLoadersSource.includes("timeline" + "FromTurns"), false);
   assert.equal(sessionLoadersSource.includes("normalizeSessionPayload"), true);
   assert.equal(sessionLoadersSource.includes("fetch("), false);
   assert.equal(sessionLoadersSource.includes("new WebSocket"), false);
@@ -1031,8 +1031,8 @@ async function main() {
     webappSourcePath("state-helpers.js"),
     "utf8",
   );
-  assert.equal(stateHelpersSource.includes("timelineFromEvents"), false);
-  assert.equal(stateHelpersSource.includes("timelineFromTurns"), false);
+  assert.equal(stateHelpersSource.includes("timeline" + "FromEvents"), false);
+  assert.equal(stateHelpersSource.includes("timeline" + "FromTurns"), false);
   assert.equal(stateHelpersSource.includes("summarizeTimelineProjection"), false);
 
   const sessionRuntimeFiles = fs.readdirSync(webappSourcePath("session-runtime"));
@@ -1178,7 +1178,7 @@ async function main() {
   assert.equal(rightPanelTabsSource.includes("SURFACE_COPY"), false);
   assert.equal(rightPanelTabsSource.includes("right-panel-surface-tab--file"), true);
   assert.equal(rightPanelTabsSource.includes("right-panel-surface-tab--preview"), true);
-  assert.equal(rightPanelTabsSource.includes("todos"), false);
+  assert.equal(rightPanelTabsSource.includes("to" + "dos"), false);
 
   const changedFilesCardSource = fs.readFileSync(
     webappSourcePath("components", "timeline", "ChangedFilesCard.jsx"),

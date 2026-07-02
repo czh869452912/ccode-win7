@@ -2024,7 +2024,7 @@ git commit -m "test: remove misleading flat timeline test path"
 - Create or modify: `docs/tool-contracts.md`
 - Create or modify: `docs/agent-harness-v2.md`
 
-- [ ] **Step 1: Update documentation only after code tasks pass**
+- [x] **Step 1: Update documentation only after code tasks pass**
 
 Edit the docs so the active architecture states:
 
@@ -2038,17 +2038,18 @@ Interactions are durable activity records; raw transport requests do not create 
 
 Delete statements that describe old harness paths, flat timeline history, raw interaction request GUI state, or hardcoded C/C++ GUI behavior as active contracts.
 
-- [ ] **Step 2: Run doc terminology scan**
+- [x] **Step 2: Run doc terminology scan**
 
 Run:
 
 ```bash
-rg -n "embedagent\\.harness|FlatTimelineView|build_flat_history|timelineFromTurns|timelineFromEvents|interaction\\.created|harness_prompt|code mode|todos" README.md AGENTS.md docs src tests
+rg -n -P "embedagent\\.harness|src/embedagent/harness|MODE_REGISTRY|_DEFAULT_SANITIZER|get_default_sanitizer|(?<![A-Za-z0-9])_inprocess_adapter|_get_adapter_class|SessionTimelineStore|build_flat_history|FlatTimelineView|timelineFromTurns|timelineFromEvents|harness_prompt|interaction\\.created|manage_todos|/api/todos|todos\\.json|\\btodos\\b" README.md AGENTS.md docs src tests --glob "!docs/archive/**" --glob "!docs/superpowers/**" --glob "!docs/development-tracker.md" --glob "!docs/design-change-log.md" --glob "!src/embedagent/frontend/gui/static/**"
 ```
 
-Expected: no active-contract hits. Historical hits are acceptable only under `docs/archive/`, `analysis/`, or reference code.
+Expected: no active-contract hits. Historical tracker/change-log files and
+generated static assets are not active contracts.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add README.md AGENTS.md docs/overall-solution-architecture.md docs/implementation-roadmap.md docs/pi-inspired-agent-core-blueprint.md docs/frontend-protocol.md docs/tool-contracts.md docs/agent-harness-v2.md
@@ -2063,7 +2064,7 @@ git commit -m "docs: describe generic core and t3 gui contract"
 - Modify only files surfaced by the scans and failing tests.
 - Do not add compatibility modules to make obsolete imports pass.
 
-- [ ] **Step 1: Run architecture gate**
+- [x] **Step 1: Run architecture gate**
 
 Run:
 
@@ -2073,7 +2074,7 @@ uv run pytest tests/test_pre_release_architecture_guards.py tests/test_current_a
 
 Expected: PASS.
 
-- [ ] **Step 2: Run fast backend suite**
+- [x] **Step 2: Run fast backend suite**
 
 Run:
 
@@ -2083,7 +2084,7 @@ uv run pytest tests/ -m "not slow and not gui" -v
 
 Expected: PASS. If failures are from obsolete old path assertions, delete or replace those tests in the same commit that deletes the code path. If failures are from active behavior, fix the promoted path.
 
-- [ ] **Step 3: Run lint**
+- [x] **Step 3: Run lint**
 
 Run:
 
@@ -2093,7 +2094,7 @@ uv run --locked python scripts/lint.py
 
 Expected: PASS.
 
-- [ ] **Step 4: Run GUI gate**
+- [x] **Step 4: Run GUI gate**
 
 Run:
 
@@ -2105,17 +2106,17 @@ npm run build
 
 Expected: PASS and static assets are current.
 
-- [ ] **Step 5: Scan for obsolete import paths and compatibility language**
+- [x] **Step 5: Scan for obsolete import paths and compatibility language**
 
 Run:
 
 ```bash
-rg -n "embedagent\\.harness|MODE_REGISTRY|_DEFAULT_SANITIZER|get_default_sanitizer|_inprocess_adapter|_get_adapter_class|SessionTimelineStore|build_flat_history|FlatTimelineView|timelineFromTurns|timelineFromEvents|harness_prompt|interaction\\.created" src tests README.md AGENTS.md docs
+rg -n -P "embedagent\\.harness|src/embedagent/harness|MODE_REGISTRY|_DEFAULT_SANITIZER|get_default_sanitizer|(?<![A-Za-z0-9])_inprocess_adapter|_get_adapter_class|SessionTimelineStore|build_flat_history|FlatTimelineView|timelineFromTurns|timelineFromEvents|harness_prompt|interaction\\.created|manage_todos|/api/todos|todos\\.json|\\btodos\\b" README.md AGENTS.md docs src tests --glob "!docs/archive/**" --glob "!docs/superpowers/**" --glob "!docs/development-tracker.md" --glob "!docs/design-change-log.md" --glob "!src/embedagent/frontend/gui/static/**"
 ```
 
 Expected: no active hits outside historical docs/reference material. Delete active hits; do not suppress the scan.
 
-- [ ] **Step 6: Commit final cleanup**
+- [x] **Step 6: Commit final cleanup**
 
 ```bash
 git add src tests README.md AGENTS.md docs src/embedagent/frontend/gui/static

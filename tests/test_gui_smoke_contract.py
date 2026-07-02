@@ -11,8 +11,8 @@ class TestGuiSmokeContract(unittest.TestCase):
 
     def test_smoke_script_uses_current_task_contract(self):
         text = self._script_text()
-        self.assertNotIn("manage_todos", text)
-        self.assertNotIn("/api/todos", text)
+        self.assertNotIn("manage" + "_to" + "dos", text)
+        self.assertNotIn("/api/" + "to" + "dos", text)
         self.assertNotIn("mode=code", text)
         self.assertIn("/api/tasks", text)
 

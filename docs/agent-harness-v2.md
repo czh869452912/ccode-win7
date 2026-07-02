@@ -4,13 +4,17 @@
 
 This document is now the official architecture baseline, not a future design draft.
 
-Agent Harness is the promoted default C/C++ workflow model for EmbedAgent.
+Agent Harness is the promoted default C/C++ workflow model for the hosted
+EmbedAgent product.
 
-The harness is now being extracted behind the in-process workflow extension boundary. It remains bundled and enabled by default, but Agent Core should interact with it through `ExtensionManager` rather than importing harness task classes directly.
+The harness now lives in the first-party C/C++ workflow package under
+`src/embedagent/workflow_packages/c_cpp/`. It remains bundled and enabled by
+default in hosted product builds, but generic Agent Core interacts with it only
+through `ExtensionManager` and workflow package capabilities.
 
-The hosted runtime has one adapter-owned `ExtensionManager` shared by `InProcessAdapter`, each session-scoped `QueryEngine`, and frontend tool catalog visibility. `QueryEngine` consumes that manager through `AgentExtensionHost`, which centralizes prompt/context hooks, active tool names, dynamic tool registration, explicit schema projection, tool-call hooks, tool-result hooks, and extension-owned tool handling. `src/embedagent/default_extensions.py` installs the bundled C harness into that manager for hosted product paths. A bare `QueryEngine` does not import or construct the default harness extension. Hosted product paths may load manifest-gated project-local Python extensions into the same manager. Both bundled and project-local extensions expose hooks through explicit `ExtensionCapability` records returned by `extension_capabilities()`; hook method names are not auto-discovered. Local file resources, including Agent Skills-style Markdown skills, text prompt files, `/skill:<name>` expansion, and `/prompt:<name-or-path>` expansion, remain file-only Agent Core resources rather than harness package execution; remote registries, plugin marketplaces, dependency installation, built-in tool replacement, and multi-agent orchestration remain outside the harness baseline.
+The hosted runtime has one adapter-owned `ExtensionManager` shared by `InProcessAdapter`, each session-scoped `QueryEngine`, and frontend tool catalog visibility. `QueryEngine` consumes that manager through `AgentExtensionHost`, which centralizes prompt/context hooks, active tool names, dynamic tool registration, explicit schema projection, tool-call hooks, tool-result hooks, and extension-owned tool handling. `src/embedagent_host/default_extensions.py` installs the bundled C harness into that manager for hosted product paths. A bare `QueryEngine` does not import or construct the default harness extension. Hosted product paths may load manifest-gated project-local Python extensions into the same manager. Both bundled and project-local extensions expose hooks through explicit `ExtensionCapability` records returned by `extension_capabilities()`; hook method names are not auto-discovered. Local file resources, including Agent Skills-style Markdown skills, text prompt files, `/skill:<name>` expansion, and `/prompt:<name-or-path>` expansion, remain file-only Agent Core resources rather than harness package execution; remote registries, plugin marketplaces, dependency installation, built-in tool replacement, and multi-agent orchestration remain outside the harness baseline.
 
-The C harness contributes workflow prompt units through the generic workflow prompt boundary. New prompt descriptors use `WorkflowPrompt`, and newly appended prompt messages use `kind="workflow_prompt"`; `kind="harness_prompt"` is no longer an active prompt assembly kind.
+The C harness contributes workflow prompt units through the generic workflow prompt boundary. New prompt descriptors use `WorkflowPrompt`, and newly appended prompt messages use `kind="workflow_prompt"`; the old harness-specific prompt kind is no longer active.
 
 ## 2. Core Ideas
 
@@ -104,7 +108,7 @@ The built-in C harness workflow extension owns synchronization from harness inte
 - `metadata.current_phase`
 - `metadata.discipline_profile`
 
-The generic workflow payload is assembled by `src/embedagent/harness/workflow_projection.py`. This keeps the C harness `TaskGraph` shape separate from the core/frontend workflow read model.
+The generic workflow payload is assembled by `src/embedagent/workflow_packages/c_cpp/workflow_projection.py`. This keeps the C harness `TaskGraph` shape separate from the core/frontend workflow read model.
 
 Workflow-neutral strategies and projectors read this generic workflow payload. They must not inspect harness task graph internals directly.
 
@@ -132,14 +136,14 @@ This keeps model tool selection tight without hard mode walls becoming unusable.
 
 The workflow-neutral `CORE_PACK` contains the minimal file/search/editing foundation plus `bash` and `ask_user`. Built-in mode `allowed_tools` are also workflow-neutral permission/write contracts; they may expose `bash` in command-capable modes, but they do not own `list_recipes`, `run_recipe`, `report_quality_v2`, `record_failing_evidence`, or `task_status`.
 
-The built-in C harness extension declares its workflow prompt, state initialization, active-tool, tool-registration, context-reducer, manifest, task-loading, and extension-owned tool capabilities through `ExtensionCapability` records. It registers and activates recipe readiness/execution, quality reporting, failing-evidence capture, and task-status tools through that shared extension capability boundary. Core runtime owns the `bash` primitive. Tool definitions are assembled in `src/embedagent/harness/tool_registry.py`, their metadata lives in `src/embedagent/harness/tool_metadata.py`, and pack ownership lives in `src/embedagent/harness/packs.py`. Its active-tool capability returns pack tools only; `AgentExtensionHost` unions those with the mode contract when the engine needs the full default C/C++ tool set. `AgentExtensionHost` requests schemas by explicit active tool names through `ToolRuntime.schemas_for(mode, workflow_state, tool_names=...)`. Runtime schema filtering no longer activates the default harness pack by itself, and bare `ToolRuntime` construction does not register default C/C++ workflow tools.
+The built-in C harness extension declares its workflow prompt, state initialization, active-tool, tool-registration, context-reducer, manifest, task-loading, and extension-owned tool capabilities through `ExtensionCapability` records. It registers and activates recipe readiness/execution, quality reporting, failing-evidence capture, and task-status tools through that shared extension capability boundary. Core runtime owns the `bash` primitive. Tool definitions are assembled in `src/embedagent/workflow_packages/c_cpp/tool_registry.py`, their metadata lives in `src/embedagent/workflow_packages/c_cpp/tool_metadata.py`, and pack ownership lives in `src/embedagent/workflow_packages/c_cpp/packs.py`. Its active-tool capability returns pack tools only; `AgentExtensionHost` unions those with the mode contract when the engine needs the full default C/C++ tool set. `AgentExtensionHost` requests schemas by explicit active tool names through `ToolRuntime.schemas_for(mode, workflow_state, tool_names=...)`. Runtime schema filtering no longer activates the default harness pack by itself, and bare `ToolRuntime` construction does not register default C/C++ workflow tools.
 
-The built-in C harness extension also registers C workflow context reducers from `src/embedagent/harness/context_reducers.py`. Core `ReducerRegistry` stays workflow-neutral and owns `bash` command summaries; recipe summaries, quality reports, failing-evidence records, and task-status reduction belong to the workflow package.
+The built-in C harness extension also registers C workflow context reducers from `src/embedagent/workflow_packages/c_cpp/context_reducers.py`. Core `ReducerRegistry` stays workflow-neutral and owns `bash` command summaries; recipe summaries, quality reports, failing-evidence records, and task-status reduction belong to the workflow package.
 
-The old `embedagent.tooling.packs` compatibility export has been removed. Current code must import bundled C/C++ workflow pack definitions from `embedagent.harness.packs`.
+The old `embedagent.tooling.packs` compatibility export has been removed. Current code must import bundled C/C++ workflow pack definitions from `embedagent.workflow_packages.c_cpp.packs`.
 
-Harness code should also consume current core accessors directly. The old
-`MODE_REGISTRY` and sanitizer compatibility aliases are not harness contracts;
+Harness code should also consume current core accessors directly. Removed
+mode-registry and sanitizer compatibility aliases are not harness contracts;
 mode registry and shell command sanitizer access now go through
 `get_mode_registry()` and `get_command_sanitizer()`.
 

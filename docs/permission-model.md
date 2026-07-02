@@ -4,7 +4,7 @@
 
 The repository now has one official permission engine:
 
-- `src/embedagent/permissions.py`
+- `src/embedagent_core/permissions.py`
 
 There is no parallel `permissions_v2` architecture anymore.
 
@@ -45,10 +45,9 @@ Optional intranet/network capabilities do not create an implicit allow path. Int
 
 Telemetry permission scope is intentionally narrow. Passive telemetry may observe only safe lifecycle/capability/diagnostic events and must not export prompts, source contents, raw tool outputs, API keys, approval secrets, permission payloads, or permission tokens. `embedagent.telemetry.build_safe_telemetry_envelope(...)` is local-only redaction/summarization support for future sinks, not a network uploader. Telemetry sink failures should surface as diagnostics without changing normal permission decisions or default offline execution.
 
-Command sanitization must enter through `get_command_sanitizer()`. The old
-`_DEFAULT_SANITIZER` proxy and `get_default_sanitizer()` wrapper have been
-removed; reintroducing them would create a second apparent command-safety
-surface outside the official accessor.
+Command sanitization must enter through `get_command_sanitizer()`. Removed
+sanitizer proxy/wrapper aliases must not be reintroduced because they would
+create a second apparent command-safety surface outside the official accessor.
 
 ## 3. Rule Shape
 

@@ -5,12 +5,12 @@
 > 状态：`active`
 > 类型：`module`
 > 负责人：`project maintainers`
-> 最后同步日期：`2026-06-27`
-> 对应代码范围：`src/embedagent/query_engine.py`, `src/embedagent/agent_loop.py`, `src/embedagent/agent_tool_action_service.py`, `src/embedagent/agent_extension_host.py`, `src/embedagent/inprocess_adapter.py`, `src/embedagent/hosted_command_service.py`, `src/embedagent/hosted_interaction_service.py`, `src/embedagent/turn_snapshot_service.py`, `src/embedagent/prompt_assembly_service.py`, `src/embedagent/compaction_journal.py`, `src/embedagent/default_extensions.py`, `src/embedagent/project_extensions.py`, `src/embedagent/session_runtime.py`
+> 最后同步日期：`2026-07-02`
+> 对应代码范围：`src/embedagent_core/`, `src/embedagent_host/`, `src/embedagent/prompt_assembly_service.py`, `src/embedagent/project_extensions.py`, `src/embedagent/session_runtime.py`
 
 ## 1. Purpose And Scope
 
-本模块文档说明 EmbedAgent 的 Agent Core 执行主链路，重点覆盖 session 级 `QueryEngine` facade、`AgentLoop`、`AgentToolActionService`、`AgentExtensionHost`、产品宿主适配层 `InProcessAdapter` 和 runtime host 状态 `ManagedSession` 的分工。
+本模块文档说明 EmbedAgent 的通用 Agent Core 与 hosted product composition 执行主链路，重点覆盖 `embedagent_core` 中的 session 级 `QueryEngine` facade、`AgentLoop`、`AgentToolActionService`、`AgentExtensionHost`，以及 `embedagent_host` 中的 `InProcessAdapter`、hosted command/interaction services 和 runtime host 状态 `ManagedSession` 的分工。
 
 ## 2. Responsibilities
 
@@ -24,12 +24,13 @@
 - default extension assembly and manifest-gated project-local extension loading
 - session runtime host state
 
-`Agent Core` 的职责是把前端、slash command、tool runtime、harness、session state 和 transcript 组织成单一正式执行主链路，避免并行 owner 或平行 workflow path。
+`Agent Core` 的职责是提供 workflow-neutral session engine、extension boundary、permission policy、reducers、turn snapshots 与 capability read models。`embedagent_host` 把 Core、选定 workflow packages、slash command、tool runtime、session state、transcript 与 UI shells 组织成单一正式产品执行主链路，避免并行 owner 或平行 workflow path。
 
 ## 3. Code Mapping
 
-- 目录：`src/embedagent/`
-- 入口文件：`src/embedagent/query_engine.py`
+- Core 目录：`src/embedagent_core/`
+- Host 目录：`src/embedagent_host/`
+- Core 入口文件：`src/embedagent_core/query_engine.py`
 - 核心对象：`QueryEngine`、`AgentLoop`、`AgentToolActionService`、`AgentExtensionHost`、`InProcessAdapter`、`HostedCommandService`、`HostedInteractionService`、`TurnSnapshotService`、`PromptAssemblyService`、`CompactionJournal`、`ManagedSession`、`ExtensionManager`
 - 上游依赖：frontend / core adapter / slash commands
 - 下游影响：harness、tools runtime、session snapshot、transcript
@@ -46,10 +47,10 @@
 
 下游依赖：
 
-- `src/embedagent/harness/`
+- `src/embedagent/workflow_packages/c_cpp/`
 - `src/embedagent/tools/`
-- `src/embedagent/extensions.py`
-- `src/embedagent/default_extensions.py`
+- `src/embedagent_core/extensions.py`
+- `src/embedagent_host/default_extensions.py`
 - `src/embedagent/project_extensions.py`
 - `src/embedagent/session.py`
 - `src/embedagent/transcript_store.py`
@@ -81,7 +82,7 @@ flowchart TD
 - `TurnSnapshotService`、`PromptAssemblyService`、`CompactionJournal` 是 snapshot/prompt/compaction helper 子边界。
 - `InProcessAdapter` 不应生成第二套 workflow identity，也不应重新拥有 slash-command 或 pending-interaction helper 逻辑。
 - `HostedCommandService` owns slash-command dispatch and command-result emission; `HostedInteractionService` owns approve/reject/reply/respond glue.
-- hosted product paths 通过 `default_extensions.py` 安装 bundled C harness，并可通过 `project_extensions.py` 加载 manifest-gated local extensions。
+- hosted product paths 通过 `src/embedagent_host/default_extensions.py` 安装 bundled C harness，并可通过 `project_extensions.py` 加载 manifest-gated local extensions。
 - runtime host 负责承载，而不是替代 engine 执行逻辑。
 
 ## 6. Verification And Tests

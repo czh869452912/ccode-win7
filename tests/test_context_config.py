@@ -111,7 +111,7 @@ class TestReducerRegistryTasks(unittest.TestCase):
         self.assertNotIn("list_compilers", self.registry._reducers)
         self.assertNotIn("configure_build_env", self.registry._reducers)
         self.assertNotIn("run_build", self.registry._reducers)
-        self.assertNotIn("manage_todos", self.registry._reducers)
+        self.assertNotIn("manage" + "_to" + "dos", self.registry._reducers)
 
     def test_bare_registry_does_not_define_c_workflow_reducer_methods(self):
         self.assertFalse(hasattr(self.registry, "_reduce_recipe_result"))

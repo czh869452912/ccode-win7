@@ -5,18 +5,18 @@
 > 状态：`active`
 > 类型：`module`
 > 负责人：`project maintainers`
-> 最后同步日期：`2026-06-12`
+> 最后同步日期：`2026-07-02`
 > 对应代码范围：`src/embedagent/protocol/`, `src/embedagent/core/`
 
 ## 1. Purpose And Scope
 
-本模块文档说明 EmbedAgent 的前后端正式契约层（`protocol`）以及把契约桥接到旧引擎的适配层（`core`）。
-`protocol` 定义了所有前端实现必须遵守的共享数据结构和双向接口；`core` 提供 `AgentCoreAdapter`，把现有 `InProcessAdapter` 的遗留字典负载翻译成稳定协议对象。
+本模块文档说明 EmbedAgent 的前后端正式契约层（`protocol`）以及把契约桥接到 hosted runtime 的适配层（`core`）。
+`protocol` 定义了所有前端实现必须遵守的共享数据结构和双向接口；`core` 提供 `AgentCoreAdapter`，把 `embedagent_host.InProcessAdapter` 的产品负载翻译成稳定协议对象。
 
 ## 2. Responsibilities
 
 - 声明共享 `dataclass`、枚举和双向接口（`CoreInterface`、`FrontendCallbacks`）
-- 把遗留内部字典翻译成协议快照和事件
+- 把 hosted runtime 负载翻译成协议快照和事件
 - 把引擎回调按正确类型和元数据转发给前端
 - 在变更型工具完成后触发前端数据刷新
 - expose resource reload through the stable core API
@@ -30,7 +30,7 @@
 - 核心对象：
   - `protocol/__init__.py` — `CoreInterface`、`FrontendCallbacks`、`Message`、`ToolCall`、`SessionSnapshot` 等全部数据类
   - `core/adapter.py` — `AgentCoreAdapter`、`CallbackBridge`
-- 上游依赖：`InProcessAdapter`（旧引擎）
+- 上游依赖：`InProcessAdapter`（hosted runtime）
 - 下游影响：`frontend/tui/frontend_adapter.py`、`frontend/gui/backend/server.py`
 - 相关测试：`tests/test_architecture.py`、`tests/test_gui_sync.py`、`tests/test_gui_runtime.py`、`tests/test_gui_backend_api.py`、`tests/test_local_resources.py`、`tests/test_project_extensions.py`、`tests/test_capability_extensions.py`
 - 相关契约：`docs/frontend-protocol.md`、`docs/overall-solution-architecture.md`
@@ -39,8 +39,8 @@
 
 上游依赖：
 
-- `src/embedagent/inprocess_adapter.py`
-- `src/embedagent/query_engine.py`
+- `src/embedagent_host/inprocess_adapter.py`
+- `src/embedagent_core/query_engine.py`
 
 下游消费者：
 

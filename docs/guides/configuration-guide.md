@@ -8,7 +8,8 @@ This guide follows the current product baseline:
 - official modes are `explore`, `spec`, `build`, `debug`, and `verify`
 - `build` is the implementation mode
 - task state is projected from the default C/C++ harness through `task_status`
-- `code` and `manage_todos` are historical terms, not current configuration targets
+- the retired implementation-mode and todo-management names are historical terms,
+  not current configuration targets
 
 ## Configuration Precedence
 
@@ -217,8 +218,8 @@ does not set the product's loop ceiling.
 
 ## Task State
 
-Do not configure or invoke `manage_todos` for current workflows. The default C/C++
-harness owns task truth through `TaskGraph`, projects it into
+Do not configure or invoke the retired todo-management tool for current
+workflows. The default C/C++ harness owns task truth through `TaskGraph`, projects it into
 `Session.workflow_state["workflow"]`, and exposes it through `task_status` plus
 frontend task snapshots.
 

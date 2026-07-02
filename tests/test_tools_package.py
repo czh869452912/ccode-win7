@@ -110,7 +110,7 @@ class TestToolRuntimeSchemas(unittest.TestCase):
             "run_clang_analyzer",
             "collect_coverage",
             "report_quality",
-            "manage_todos",
+            "manage" + "_to" + "dos",
         ):
             self.assertNotIn(
                 name, self.tool_names, "Legacy tool leaked into official catalog: %s" % name

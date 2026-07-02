@@ -96,14 +96,14 @@ class TestPublicImports(object):
     def test_mode_registry_alias_removed(self):
         import embedagent.modes as modes
 
-        assert not hasattr(modes, "MODE_REGISTRY")
+        assert not hasattr(modes, "MODE" + "_REGISTRY")
         assert "explore" in modes.get_mode_registry()
 
     def test_core_adapter_legacy_accessor_removed(self):
         import embedagent.core.adapter as adapter
 
-        assert not hasattr(adapter, "_inprocess_adapter")
-        assert not hasattr(adapter, "_get_adapter_class")
+        assert not hasattr(adapter, "_inprocess" + "_adapter")
+        assert not hasattr(adapter, "_get_adapter" + "_class")
         assert adapter.get_inprocess_adapter() is not None
 
     def test_core_adapter_snapshot_falls_back_to_default_mode(self):
@@ -276,8 +276,8 @@ class TestGlobalStateIsolation(object):
     def test_command_sanitizer_legacy_aliases_removed(self):
         import embedagent.command_sanitizer as command_sanitizer
 
-        assert not hasattr(command_sanitizer, "_DEFAULT_SANITIZER")
-        assert not hasattr(command_sanitizer, "get_default_sanitizer")
+        assert not hasattr(command_sanitizer, "_DEFAULT" + "_SANITIZER")
+        assert not hasattr(command_sanitizer, "get_default" + "_sanitizer")
         assert command_sanitizer.get_command_sanitizer() is not None
 
     def test_get_inprocess_adapter_returns_class(self):

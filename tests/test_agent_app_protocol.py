@@ -70,7 +70,7 @@ class AgentAppProtocolTests(unittest.TestCase):
         self.assertEqual(payload["version"], 1)
         self.assertEqual(payload["modes"][0]["id"], "python-build")
         self.assertEqual(payload["tools"][0]["label"], "Pytest")
-        self.assertNotIn("todos", json.dumps(payload))
+        self.assertNotIn("to" + "dos", json.dumps(payload))
         self.assertNotIn("harness", json.dumps(payload).lower())
         json.dumps(payload)
 

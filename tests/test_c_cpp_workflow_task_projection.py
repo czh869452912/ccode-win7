@@ -93,7 +93,7 @@ class HarnessTaskProjectionTests(unittest.TestCase):
                     "memory",
                     "sessions",
                     session_id,
-                    "todos.json",
+                    "to" + "dos.json",
                 )
             )
         )

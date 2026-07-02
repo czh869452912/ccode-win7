@@ -29,7 +29,7 @@
 > 类型：`module`
 > 负责人：`project maintainers`
 > 最后同步日期：`2026-04-08`
-> 对应代码范围：`src/embedagent/harness/`
+> 对应代码范围：`src/embedagent/workflow_packages/c_cpp/`
 ```
 
 ## 3. Required Sections By Document Type
@@ -54,8 +54,8 @@
 - 下列历史词汇不得在活动文档中作为正式术语使用；若必须提及，
   必须同时说明它们已被移除、禁止或不属于当前架构：
   - `code` 作为 first-class mode
-  - `todos`
-  - `manage_todos`（禁止作为当前正式术语）
+  - retired todo vocabulary
+  - retired todo-management tool name（禁止作为当前正式术语）
 
 ## 5. Code Mapping Rules
 

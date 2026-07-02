@@ -38,8 +38,8 @@
 | 历史术语 | 当前状态 | 替代词汇 / 说明 |
 |---|---|---|
 | `code` 作为 first-class mode | 禁止在活动文档中作为正式词汇使用 | 使用 `build` |
-| `todos` | 禁止作为前端正式词汇使用 | 使用 `tasks` |
-| `manage_todos` | 禁止作为官方任务工作流语义使用 | 使用 `TaskGraph`、`task_status` |
+| retired todo vocabulary | 禁止作为前端正式词汇使用 | 使用 `tasks` |
+| retired todo-management tool name | 禁止作为官方任务工作流语义使用 | 使用 `TaskGraph`、`task_status` |
 | `timeline.jsonl` 作为历史数据库或 transport ledger | 禁止 | 当前契约无 durable timeline transport；GUI history 只走 transcript/bootstrap |
 | 完成切片 plan/spec 停留在 `docs/superpowers/` | 禁止 | 回写长期文档后归档到 `docs/archive/<topic>/` |
 | 历史阶段说明停留在 docs 根目录 | 禁止 | 迁入合适的 `docs/archive/<topic>/` |

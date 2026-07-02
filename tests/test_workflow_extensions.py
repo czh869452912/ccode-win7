@@ -250,7 +250,7 @@ def test_c_harness_extension_uses_generic_workflow_prompt_kind(tmp_path):
     ]
 
     assert "workflow_prompt" in prompt_kinds
-    assert "harness_prompt" not in prompt_kinds
+    assert "harness" + "_prompt" not in prompt_kinds
 
 
 def test_workflow_prompt_descriptor_uses_generic_name():

@@ -5,8 +5,8 @@
 > 状态：`active`
 > 类型：`module`
 > 负责人：`project maintainers`
-> 最后同步日期：`2026-06-12`
-> 对应代码范围：`src/embedagent/permissions.py`, `src/embedagent/context.py`, `src/embedagent/workspace_intelligence.py`
+> 最后同步日期：`2026-07-02`
+> 对应代码范围：`src/embedagent_core/permissions.py`, `src/embedagent/context.py`, `src/embedagent/workspace_intelligence.py`
 
 ## 1. Purpose And Scope
 
@@ -25,8 +25,9 @@
 
 ## 3. Code Mapping
 
-- 目录：`src/embedagent/`
-- 入口文件：`src/embedagent/permissions.py`, `src/embedagent/context.py`
+- Core 目录：`src/embedagent_core/`
+- Runtime 目录：`src/embedagent/`
+- 入口文件：`src/embedagent_core/permissions.py`, `src/embedagent/context.py`
 - 核心对象：`PermissionPolicy`、`ContextManager`、`WorkspaceIntelligenceProvider`、`WorkspaceIntelligenceBroker`、`AgentExtensionHost`、`AgentToolActionService`
 - 上游依赖：query engine、tool runtime
 - 下游影响：tool approval UX、message assembly、verify context quality
@@ -37,10 +38,10 @@
 
 上游依赖：
 
-- `src/embedagent/query_engine.py`
+- `src/embedagent_core/query_engine.py`
 - `src/embedagent/tools/runtime.py`
-- `src/embedagent/agent_extension_host.py`
-- `src/embedagent/agent_tool_action_service.py`
+- `src/embedagent_core/agent_extension_host.py`
+- `src/embedagent_core/agent_tool_action_service.py`
 
 下游消费者：
 

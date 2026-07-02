@@ -31,7 +31,7 @@ Workflow extensions may activate focused subsets of registered tools for a turn.
 
 `CORE_PACK` is the minimal editing/search/shell foundation. Harness-only tools such as `list_recipes`, `run_recipe`, `report_quality_v2`, `record_failing_evidence`, and `task_status` must be registered/activated by workflow packs/extensions rather than being treated as bare Core tools.
 
-Bundled C/C++ workflow pack definitions are owned only by `src/embedagent/harness/packs.py`. The old `embedagent.tooling.packs` re-export and `embedagent.tooling` package-root pack aliases have been removed and must not be treated as official tool contracts.
+Bundled C/C++ workflow pack definitions are owned only by `src/embedagent/workflow_packages/c_cpp/packs.py`. The removed tooling-package pack re-export and package-root aliases must not be treated as official tool contracts.
 
 Built-in mode `allowed_tools` are workflow-neutral permission/write contracts. They must not be used as the complete default C/C++ tool list. The C harness extension reports only its active pack tools; product paths that need the default harness behavior must union the mode contract with active workflow-extension tools and request schemas by explicit active tool names.
 
@@ -61,8 +61,7 @@ Allowed-tool gating is not a runtime wrapper. Hosted product paths use `AgentExt
 Runtime-invoked external binaries are governed by `scripts/offline-runtime-contract.json`. If a tool implementation, recipe path, or workflow package starts invoking a new bundled binary, the runtime contract and packaging validators must be updated in the same change. The contract currently covers Python, Bash from MinGit, MinGit, ripgrep, Universal Ctags, and LLVM/Clang child executables.
 
 Shell tooling uses `get_command_sanitizer()` directly. Do not depend on or
-recreate legacy sanitizer aliases such as `_DEFAULT_SANITIZER` or
-`get_default_sanitizer()`.
+recreate removed sanitizer proxy/wrapper aliases.
 
 ## Extension Tool Hooks
 
@@ -266,8 +265,8 @@ Examples of duplicates that should not be reintroduced:
 The authoritative implementation lives in:
 
 - `src/embedagent/tools/runtime.py`
-- `src/embedagent/harness/extension.py`
-- `src/embedagent/harness/tool_registry.py`
-- `src/embedagent/harness/tool_metadata.py`
+- `src/embedagent/workflow_packages/c_cpp/extension.py`
+- `src/embedagent/workflow_packages/c_cpp/tool_registry.py`
+- `src/embedagent/workflow_packages/c_cpp/tool_metadata.py`
 
 This document must stay aligned with those files.

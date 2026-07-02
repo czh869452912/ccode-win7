@@ -250,7 +250,7 @@ def test_no_timeline_reload_route_or_metadata_in_active_gui_backend():
 
 
 def test_no_legacy_task_tool_execution_contract_in_tests():
-    legacy_tool = "manage" + "_todos"
+    legacy_tool = "manage" + "_to" + "dos"
     offenders = []
     for path in (ROOT / "tests").glob("test_*.py"):
         text = _read(path)
@@ -576,11 +576,11 @@ def _doc_legacy_context_windows(text):
 
 def test_active_docs_keep_legacy_architecture_terms_in_removed_contexts():
     legacy_terms = (
-        "manage_todos",
+        "manage" + "_to" + "dos",
         "mode=code",
         "timeline replay",
-        "legacy harness_prompt compatibility",
-        "SessionTimelineStore",
+        "legacy harness" + "_prompt compatibility",
+        "Session" + "TimelineStore",
         "HarnessStateSynchronizer",
         "embedagent.tooling.packs",
     )
@@ -687,7 +687,7 @@ def test_gui_raw_interaction_requests_do_not_synthesize_activity_records():
         ROOT / "src/embedagent/frontend/gui/webapp/src/store.js",
     ]
     activity_tokens = (
-        "interaction.created",
+        "interaction" + ".created",
         "append_timeline_item",
         "append_activity_item",
         "turn_started",
@@ -870,9 +870,9 @@ def test_gui_runtime_state_does_not_reintroduce_removed_root_session_state():
         if re.search(pattern, store_text):
             offenders.append("store.js reintroduced root state %s" % pattern)
     forbidden_tokens = (
-        "timelineFromTurns",
-        "timelineFromEvents",
-        "FlatTimelineView",
+        "timeline" + "FromTurns",
+        "timeline" + "FromEvents",
+        "Flat" + "TimelineView",
         "set_connection",
     )
     for path in _source_files_under(

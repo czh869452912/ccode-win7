@@ -114,7 +114,7 @@ The current baseline remains authoritative. `docs/pi-inspired-agent-core-bluepri
 
 The project is still pre-release and has no production user state to preserve. `docs/pre-release-architecture-debt-audit.md` records the closed pre-release debt cleanup baseline and remains the deletion-oriented guardrail: do not add compatibility scaffolding for old internal session, timeline, GUI reducer, or extension-hook shapes when a slice can delete or replace them. Forward compatibility for pre-release internal state is not a goal; preserving Windows 7, offline deployment, Python 3.8, and the default C/C++ workflow remains mandatory.
 
-Do not treat blueprint target terms such as `SessionLog` or public `HookBus` as implemented public APIs until a specific implementation slice lands and updates the source-of-truth docs. `AgentEventBus` is now the internal source-aware event/reducer boundary for public extension hook dispatch; it is not a public extension API. `AgentLifecycleJournal`, `AgentKernel`, `AgentLoop`, `AgentLoopContinuationPolicy`, `ProgressGuard`, `TurnSnapshot`, `CapabilityRegistry`, `RuntimeConfigReducer`, `WorkflowPackageManifest`, `CompactionStateReducer`, `RecoveryStateReducer`, and `TurnExperienceReducer` are implemented internal Agent Core boundaries/read models, not public extension APIs. The bundled default C/C++ workflow package now owns its workflow tool registration, metadata, packs, and read-only package manifest behind `CHarnessWorkflowExtension`; the obsolete `embedagent.tooling.packs` compatibility re-export has been removed, so C/C++ workflow pack truth lives only in `embedagent.harness.packs`. Core singleton-like access must use explicit accessors (`get_mode_registry()`, `get_command_sanitizer()`, `get_inprocess_adapter()`); stale global/proxy aliases such as `MODE_REGISTRY`, `_DEFAULT_SANITIZER`, `get_default_sanitizer()`, `_inprocess_adapter`, and `_get_adapter_class()` must not be reintroduced. Local self-extension authoring is available through `SelfExtensionAuthoringService` and `author_local_capability`; repo-side offline bundle validation and release-gate metadata are contract-backed through `scripts/offline-runtime-contract.json`, including bundle-local C smoke validation through `validate-cpp-smoke.py`; near-term work must keep the default C/C++ workflow runnable while deleting stale internal compatibility layers and recording real Win7/WebView2 bundle smoke evidence before release claims. Future intranet Git, custom service, provider, or telemetry work must follow Pi's adapter style rather than copying Pi's full openness: Core emits safe events/read models and enforces capability/permission boundaries, while networked behavior lives in optional hosted extensions, providers, workflow packages, or passive telemetry sinks.
+Do not treat blueprint target terms such as `SessionLog` or public `HookBus` as implemented public APIs until a specific implementation slice lands and updates the source-of-truth docs. `AgentEventBus` is now the internal source-aware event/reducer boundary for public extension hook dispatch; it is not a public extension API. `AgentLifecycleJournal`, `AgentKernel`, `AgentLoop`, `AgentLoopContinuationPolicy`, `ProgressGuard`, `TurnSnapshot`, `CapabilityRegistry`, `RuntimeConfigReducer`, `WorkflowPackageManifest`, `CompactionStateReducer`, `RecoveryStateReducer`, and `TurnExperienceReducer` are implemented internal Agent Core boundaries/read models, not public extension APIs. The bundled default C/C++ workflow package now owns its workflow tool registration, metadata, packs, and read-only package manifest behind `CHarnessWorkflowExtension`; the obsolete `embedagent.tooling.packs` compatibility re-export has been removed, so C/C++ workflow pack truth lives only in `embedagent.workflow_packages.c_cpp.packs`. Core singleton-like access must use explicit accessors (`get_mode_registry()`, `get_command_sanitizer()`, `get_inprocess_adapter()`); removed registry, sanitizer, and adapter private aliases must not be reintroduced. Local self-extension authoring is available through `SelfExtensionAuthoringService` and `author_local_capability`; repo-side offline bundle validation and release-gate metadata are contract-backed through `scripts/offline-runtime-contract.json`, including bundle-local C smoke validation through `validate-cpp-smoke.py`; near-term work must keep the default C/C++ workflow runnable while deleting stale internal compatibility layers and recording real Win7/WebView2 bundle smoke evidence before release claims. Future intranet Git, custom service, provider, or telemetry work must follow Pi's adapter style rather than copying Pi's full openness: Core emits safe events/read models and enforces capability/permission boundaries, while networked behavior lives in optional hosted extensions, providers, workflow packages, or passive telemetry sinks.
 
 ### Modes
 
@@ -129,8 +129,8 @@ Official first-class modes are:
 `code` is no longer a first-class mode.
 
 Mode registry access must go through `get_mode_registry()` / `initialize_modes()`.
-Do not reintroduce a module-level `MODE_REGISTRY` proxy or make mode helpers depend
-on mutable compatibility aliases.
+Do not reintroduce module-level mode-registry proxy aliases or make mode helpers
+depend on mutable compatibility aliases.
 
 ### Harness
 
@@ -154,7 +154,7 @@ Local offline self-extension is an official architecture capability, limited to 
 read model plus safe `metadata`; do not reintroduce extension
 `legacy_projection` or parallel workflow projection fields.
 
-Workflow-package prompt units appended by `QueryEngine` must use the generic `workflow_prompt` system message kind. `harness_prompt` is not an active prompt assembly kind and must not be used for workflow prompt injection or deduplication.
+Workflow-package prompt units appended by `QueryEngine` must use the generic `workflow_prompt` system message kind. The old harness-specific prompt kind is not active and must not be used for workflow prompt injection or deduplication.
 
 `AgentLifecycleJournal` owns durable lifecycle event emission, transition save points, pending interaction lifecycle operation events, context operation payload helpers, and workflow-patch persistence helpers. `AgentKernel` owns turn frames plus pending interaction creation/resolution boundaries. `AgentToolActionService` owns non-LLM tool action execution behind `QueryEngine`: active-tool checks, extension pre/post hooks, `PermissionPolicy` evaluation, path write guards, runtime dispatch, extension-owned tool calls, interactive action handling, resumed action execution, and workflow-patch capture after tool-result hooks. `AgentLoop` owns Pi-style open turn-loop continuation behind the session facade, including agent steps, provider/context attempts, active schema requests through `AgentExtensionHost`, compact retry, guard-stop, abort, and explicit loop safety-limit compatibility transitions. `ProgressGuard` owns evidence-fingerprint based no-progress/runaway detection over action plus observation pairs; it must not collapse distinct files, commands, diagnostics, or successful changes into a generic repeated-tool stop. Ordinary command/build/test failures are diagnostic tool results for the next model turn and must not trigger hard loop termination merely because they are non-zero or non-retryable; guard-stop is for no-progress/runaway protection. `max_turns` remains accepted only as an explicit runtime/test safety fuse; persistent JSON configuration must not set a product loop ceiling, and omitted values mean no fixed turn-count ceiling. `QueryEngine` remains the session-scoped facade and transcript/session mutation owner; do not reintroduce private loop, completion, active-tool, action-execution, snapshot-assembly, workflow-prompt, or compaction-payload forwarding wrappers such as `_run_loop`, `_is_completion_signal`, `_allowed_tools_for_mode`, `_schemas_for_active_tools`, `_execute_action`, `_execute_parallel_tool_action`, `_capability_snapshot_for_provider`, `_prompt_units_for_snapshot`, `_append_workflow_prompt_messages`, `_compaction_token_counts`, or `_compacted_history_payload`.
 
@@ -172,7 +172,7 @@ Workflow-package prompt units appended by `QueryEngine` must use the generic `wo
 
 `TurnExperienceReducer` is the transcript-backed read model for user-facing turn experience. It reduces safe `tool_result` and `loop_transition` events into completed work, unverified changes, validation failures, blockers, and next steps. Session snapshots and `session_finished` events may expose `turn_experience` for CLI/TUI/GUI display; the projection must not drive loop continuation, validation policy, active tools, permissions, restore behavior, extension loading, or session-history truth.
 
-Default extension assembly lives in `src/embedagent/default_extensions.py`. `QueryEngine` must not import or construct `CHarnessWorkflowExtension`; direct `QueryEngine` tests or hosts that need default C/C++ behavior must pass an explicit `ExtensionManager`.
+Default extension assembly lives in `src/embedagent_host/default_extensions.py`. `QueryEngine` must not import or construct `CHarnessWorkflowExtension`; direct `QueryEngine` tests or hosts that need default C/C++ behavior must pass an explicit `ExtensionManager`.
 
 `HarnessStateSynchronizer` has been removed. Product adapter paths must refresh harness state through `CHarnessWorkflowExtension.refresh_managed_session()` behind the default harness workflow extension.
 
@@ -186,13 +186,13 @@ Official task truth for the default C/C++ harness workflow is:
 
 `Session.workflow_state` is the generic workflow-state carrier. Frontend-facing task fields are projected from `Session.workflow_state["workflow"]`.
 
-Default C/C++ workflow projection assembly lives in `src/embedagent/harness/workflow_projection.py`. Harness internals may use `TaskGraph`, but the core/frontend boundary must consume the generic workflow payload produced there.
+Default C/C++ workflow projection assembly lives in `src/embedagent/workflow_packages/c_cpp/workflow_projection.py`. Harness internals may use `TaskGraph`, but the core/frontend boundary must consume the generic workflow payload produced there.
 
 `Session.task_graph` has been removed. Default C/C++ graph ownership lives behind `CHarnessWorkflowExtension` and its harness-owned session graph state. Workflow-neutral strategies, projectors, and frontend task APIs must consume only `Session.workflow_state["workflow"]`.
 
-Importing or instantiating `embedagent.session.Session` must not load `embedagent.harness.task_graph`; C harness graph internals stay behind the default harness workflow extension.
+Importing or instantiating `embedagent.session.Session` must not load `embedagent.workflow_packages.c_cpp.task_graph`; C harness graph internals stay behind the default harness workflow extension.
 
-`manage_todos` is not part of the official workflow architecture.
+The retired todo-management tool is not part of the official workflow architecture.
 
 ### Tooling
 
@@ -217,11 +217,11 @@ Built-in mode `allowed_tools` are workflow-neutral permission/write contracts. D
 
 `ToolRuntime.schemas_for(mode, workflow_state, tool_names=...)` is the single runtime schema projection entry point. Without explicit `tool_names`, it projects only the workflow-neutral mode contract. Do not use runtime mode contracts as a shortcut for default harness pack activation; use `AgentExtensionHost` over the shared `ExtensionManager` and pass explicit active tool names into runtime schema projection.
 
-C/C++ workflow pack definitions live only in `src/embedagent/harness/packs.py`. Do not reintroduce `src/embedagent/tooling/packs.py`, `embedagent.tooling.packs`, or package-root pack aliases on `embedagent.tooling`; those were stale compatibility paths and are no longer part of the product contract.
+C/C++ workflow pack definitions live only in `src/embedagent/workflow_packages/c_cpp/packs.py`. Do not reintroduce `src/embedagent/tooling/packs.py`, `embedagent.tooling.packs`, or package-root pack aliases on `embedagent.tooling`; those were stale compatibility paths and are no longer part of the product contract.
 
 Command sanitization uses `get_command_sanitizer()` directly. Do not reintroduce
-`get_default_sanitizer()` or `_DEFAULT_SANITIZER`; shell execution must continue
-through the official sanitizer accessor and normal permission policy.
+removed sanitizer proxy/wrapper aliases; shell execution must continue through
+the official sanitizer accessor and normal permission policy.
 
 Dynamic in-process extension tools are registered into the shared `ToolRuntime` with source metadata and explicit permission categories. The runtime catalog is the source of truth for tool permission category; `PermissionPolicy` must not maintain a parallel built-in tool taxonomy, and missing or invalid metadata falls back to ask-by-default `other`. The default C/C++ workflow package uses the same registration boundary for recipe, quality, evidence, and task-status tools. A registered extension tool is model-visible only when active through the shared `ExtensionManager.allowed_tool_names(mode_name, workflow_state=workflow_state)` path and remains subject to `PermissionPolicy`. Tool completion read-model refresh must use catalog/event `read_model_invalidations`; do not maintain Core, adapter, or GUI hard-coded tool-name refresh lists.
 
@@ -252,14 +252,13 @@ GUI thread lifecycle operations (`rename`, `fork`, and `archive`) must flow thro
 
 Hosted slash-command dispatch, command result emission, and command-owned tool execution are owned by `HostedCommandService`, not by `InProcessAdapter` or Agent Core. Hosted permission/user-input approve/reject/reply/respond glue and pending ticket state are owned by `HostedInteractionService`. Hosted `/review` synthesis is owned by `ReviewCommandService` underneath the command service. Session tool-evidence extraction, review finding rules, git-diff evidence shaping, and markdown rendering must stay in hosted command services; the adapter only invokes those services and bridges resulting state/events.
 
-There is no durable `SessionTimelineStore` or timeline-backed history replay
-path, and there is no session event replay HTTP route. GUI session history, TUI
-session history, and T3 timeline bootstrap must come from
+There is no durable timeline-backed session-history store or timeline-backed
+history replay path, and there is no session event replay HTTP route. GUI
+session history, TUI session history, and T3 timeline bootstrap must come from
 `GET /api/sessions/{id}/bootstrap` `history.activities`; nested `history.turns`
 is structured diagnostics and must not be reprojected into a second frontend
 history source. `SessionHistoryAssembler.build()` is the only active history
-serializer; flat history item streams such as `build_flat_history()`,
-`FlatTimelineView`, TUI `items` history fallbacks, and event-list timeline
+serializer; flat history item streams, TUI `items` history fallbacks, and event-list timeline
 reload formatters are not product contracts. Live WebSocket data, TUI line
 buffers, and GUI run-output logs may update current display state only and must
 not become durable history truth.
@@ -269,7 +268,7 @@ GUI live interaction activity must enter the renderer through backend-owned
 `permission_required` and `user_input_required`. Raw
 `permission_request` / `user_input_request` WebSocket messages exist only to
 drive the current blocking interaction UI and response path; renderer code must
-not synthesize `interaction.created` activity/history records from those raw
+not synthesize interaction-created activity/history records from those raw
 request messages or maintain a parallel interaction activity stream.
 
 Official durable operation truth is:
@@ -315,7 +314,7 @@ Mode definitions live in `src/embedagent/modes.py`.
 
 One official permission engine only:
 
-- `src/embedagent/permissions.py`
+- `src/embedagent_core/permissions.py`
 
 Permission rules are structured data, not free-form prompt behavior.
 When changing permission behavior, keep rule matching, decision categories, and explanation text aligned.
@@ -325,7 +324,7 @@ Do not hide network or intranet side effects behind `read` or generic `other` be
 
 One official frontend vocabulary only:
 
-- `tasks`, not `todos`
+- `tasks`, not the retired todo vocabulary
 - `build`, not `code`
 - `current_phase`, `discipline_profile`, `current_activity`, `task_summary`, `task_items`
 
@@ -339,8 +338,8 @@ Frontend session activation must not reintroduce split snapshot/timeline bootstr
 GUI and TUI timeline bootstrap must consume `history.activities`; the GUI uses
 the focused session runtime activity module and the TUI formats the same
 activities into local display lines. Do not reintroduce frontend
-`timelineFromTurns`, `timelineFromEvents`, `session-runtime/projector.js`,
-`FlatTimelineView`, or event-list timeline reload formatter paths.
+turn/event timeline rebuilders, `session-runtime/projector.js`, flat timeline
+views, or event-list timeline reload formatter paths.
 
 GUI backend HTTP routes must stay delegated by family. `server.py` is the
 composition root for app/static/websocket/bootstrap wiring, while route

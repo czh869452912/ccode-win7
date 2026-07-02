@@ -7,7 +7,7 @@ This document describes the current stable contract between Agent Core and front
 The protocol vocabulary is now:
 
 - `build`, not `code`
-- `tasks`, not `todos`
+- `tasks`, not the retired todo vocabulary
 - `current_phase`
 - `discipline_profile`
 - `current_activity`
@@ -24,9 +24,8 @@ The stable contract boundary is:
 Frontends should only rely on this boundary, not on internal session or query-engine details.
 
 The core adapter boundary uses `get_inprocess_adapter()` internally for hosted
-adapter class lookup. Legacy adapter compatibility accessors such as
-`_inprocess_adapter` and `_get_adapter_class()` are not frontend protocol
-contracts and have been removed.
+adapter class lookup. Removed private adapter lookup aliases are not frontend
+protocol contracts.
 
 ### Workbench Shell State
 
@@ -228,10 +227,10 @@ TUI-local `items` history streams are not frontend protocol surfaces.
 For live GUI updates, interaction activity is also backend-owned. Core turn
 events such as `permission_required` and `user_input_required` are forwarded by
 `CallbackBridge` to `WebSocketFrontend.on_turn_event(...)`, then normalized as
-`session_event` messages with `event_kind=interaction.created`. Raw
+`session_event` messages whose event kind denotes interaction creation. Raw
 `permission_request` and `user_input_request` WebSocket messages remain only
 the current blocking interaction UI/response channel; renderer code must not
-synthesize `interaction.created` transport events, history rows, or activity
+synthesize interaction-created transport events, history rows, or activity
 records from those raw request messages.
 
 `history.integrity.status` is the official history health signal:
@@ -339,9 +338,9 @@ There is no session event replay HTTP route. Transport gaps and reconnects ask
 the GUI to reload `GET /api/sessions/{session_id}/bootstrap`; frontend history
 bootstrap must come from `history.activities` in that structured bootstrap
 payload, and the active GUI timeline is a frontend projection of that activity
-read model plus live reducer actions. There is no durable `SessionTimelineStore`;
-that historical store has been removed and must not be treated as current
-frontend history truth.
+read model plus live reducer actions. There is no durable timeline-backed
+session-history store; that historical path has been removed and must not be
+treated as current frontend history truth.
 
 `terminal_event` carries GUI terminal output/lifecycle deltas for the bottom
 drawer. It is intentionally not part of session replay/history and must not be

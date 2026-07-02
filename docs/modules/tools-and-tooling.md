@@ -39,10 +39,10 @@
 
 上游依赖：
 
-- `src/embedagent/harness/`
-- `src/embedagent/query_engine.py`
-- `src/embedagent/agent_extension_host.py`
-- `src/embedagent/agent_tool_action_service.py`
+- `src/embedagent/workflow_packages/c_cpp/`
+- `src/embedagent_core/query_engine.py`
+- `src/embedagent_core/agent_extension_host.py`
+- `src/embedagent_core/agent_tool_action_service.py`
 
 下游消费者：
 
