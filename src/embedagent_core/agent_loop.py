@@ -4,20 +4,9 @@ import threading
 import uuid
 from typing import Any, Callable, Optional
 
-from embedagent.agent_loop_continuation import (
-    CONTINUATION_ABORT,
-    CONTINUATION_COMPACT_THEN_CONTINUE,
-    CONTINUATION_CONTINUE,
-    CONTINUATION_STOP,
-    AgentLoopContinuationDecision,
-    AgentLoopContinuationFacts,
-    AgentLoopContinuationPolicy,
-    DefaultAgentLoopContinuationPolicy,
-)
 from embedagent.guard import ProgressGuard
 from embedagent.interaction import UserInputRequest, UserInputResponse
 from embedagent.llm import ModelClientError
-from embedagent.permissions import PermissionRequest
 from embedagent.session import (
     Action,
     AssistantReply,
@@ -28,6 +17,17 @@ from embedagent.session import (
     Session,
 )
 from embedagent.tool_execution import StreamingToolExecutor, partition_tool_actions
+from embedagent_core.agent_loop_continuation import (
+    CONTINUATION_ABORT,
+    CONTINUATION_COMPACT_THEN_CONTINUE,
+    CONTINUATION_CONTINUE,
+    CONTINUATION_STOP,
+    AgentLoopContinuationDecision,
+    AgentLoopContinuationFacts,
+    AgentLoopContinuationPolicy,
+    DefaultAgentLoopContinuationPolicy,
+)
+from embedagent_core.permissions import PermissionRequest
 
 
 class AgentLoop(object):

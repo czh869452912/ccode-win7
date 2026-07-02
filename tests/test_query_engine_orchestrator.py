@@ -7,9 +7,9 @@ from unittest.mock import MagicMock
 
 from embedagent.context import ContextManager
 from embedagent.llm import OpenAICompatibleClient
-from embedagent.permissions import PermissionPolicy
-from embedagent.query_engine import QueryEngine
 from embedagent.tools import ToolRuntime
+from embedagent_core.permissions import PermissionPolicy
+from embedagent_core.query_engine import QueryEngine
 
 
 class TestQueryEngineOrchestrationOwnership(unittest.TestCase):

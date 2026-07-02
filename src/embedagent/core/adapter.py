@@ -68,7 +68,7 @@ def get_inprocess_adapter(fresh: bool = False):
 
 
 def _register_adapter_factory() -> None:
-    from embedagent.inprocess_adapter import InProcessAdapter
+    from embedagent_host.inprocess_adapter import InProcessAdapter
 
     get_default_container().register_factory(
         "inprocess_adapter",

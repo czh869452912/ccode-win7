@@ -2,13 +2,13 @@ from __future__ import annotations
 
 from typing import Any, Dict, List
 
-from embedagent.workflow_package_manifest import (
+from embedagent.workflow_packages.c_cpp.packs import C_WORKFLOW_PACKS
+from embedagent.workflow_packages.c_cpp.tool_metadata import C_WORKFLOW_TOOL_METADATA
+from embedagent_core.workflow_package_manifest import (
     WorkflowPackageManifest,
     WorkflowPackDeclaration,
     WorkflowToolDeclaration,
 )
-from embedagent.workflow_packages.c_cpp.packs import C_WORKFLOW_PACKS
-from embedagent.workflow_packages.c_cpp.tool_metadata import C_WORKFLOW_TOOL_METADATA
 
 C_WORKFLOW_PACKAGE_ID = "embedagent.c_workflow"
 C_WORKFLOW_PACKAGE_LABEL = "C/C++ Workflow"

@@ -5,9 +5,9 @@ import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from embedagent.agent_kernel import AgentKernel
-from embedagent.agent_lifecycle import AgentLifecycleJournal
 from embedagent.session import Action, LoopTransition, PendingInteraction, Session
+from embedagent_core.agent_kernel import AgentKernel
+from embedagent_core.agent_lifecycle import AgentLifecycleJournal
 
 
 class TestAgentLifecycleJournal(unittest.TestCase):

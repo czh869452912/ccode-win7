@@ -1,7 +1,7 @@
 import os
 
 from embedagent.config import AppConfig
-from embedagent.hosted.launch_config import LaunchOverrides, resolve_launch_config
+from embedagent_host.hosted.launch_config import LaunchOverrides, resolve_launch_config
 
 
 def _clear_runtime_env(monkeypatch):
@@ -14,7 +14,7 @@ def _clear_runtime_env(monkeypatch):
 def test_resolve_launch_config_uses_overrides_before_config(tmp_path, monkeypatch):
     _clear_runtime_env(monkeypatch)
     monkeypatch.setattr(
-        "embedagent.hosted.launch_config.load_config",
+        "embedagent_host.hosted.launch_config.load_config",
         lambda workspace: AppConfig(
             base_url="http://configured/v1",
             api_key="sk-configured",
@@ -43,7 +43,7 @@ def test_resolve_launch_config_uses_overrides_before_config(tmp_path, monkeypatc
 def test_resolve_launch_config_uses_config_when_overrides_are_empty(tmp_path, monkeypatch):
     _clear_runtime_env(monkeypatch)
     monkeypatch.setattr(
-        "embedagent.hosted.launch_config.load_config",
+        "embedagent_host.hosted.launch_config.load_config",
         lambda workspace: AppConfig(
             base_url="http://configured/v1",
             api_key="sk-configured",
@@ -63,7 +63,7 @@ def test_resolve_launch_config_uses_config_when_overrides_are_empty(tmp_path, mo
 def test_resolve_launch_config_ignores_persistent_max_turns(tmp_path, monkeypatch):
     _clear_runtime_env(monkeypatch)
     monkeypatch.setattr(
-        "embedagent.hosted.launch_config.load_config",
+        "embedagent_host.hosted.launch_config.load_config",
         lambda workspace: AppConfig(
             base_url="http://configured/v1",
             api_key="sk-configured",
@@ -81,7 +81,7 @@ def test_resolve_launch_config_ignores_persistent_max_turns(tmp_path, monkeypatc
 def test_resolve_launch_config_accepts_explicit_max_turns_safety_fuse(tmp_path, monkeypatch):
     _clear_runtime_env(monkeypatch)
     monkeypatch.setattr(
-        "embedagent.hosted.launch_config.load_config",
+        "embedagent_host.hosted.launch_config.load_config",
         lambda workspace: AppConfig(
             base_url="http://configured/v1",
             api_key="sk-configured",
@@ -99,7 +99,7 @@ def test_resolve_launch_config_accepts_explicit_max_turns_safety_fuse(tmp_path, 
 def test_resolve_launch_config_rejects_missing_model(tmp_path, monkeypatch):
     _clear_runtime_env(monkeypatch)
     monkeypatch.setattr(
-        "embedagent.hosted.launch_config.load_config",
+        "embedagent_host.hosted.launch_config.load_config",
         lambda workspace: AppConfig(base_url="http://configured/v1", api_key="sk-configured"),
     )
 

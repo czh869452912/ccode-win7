@@ -14,9 +14,9 @@ import threading
 import time
 from typing import Any, Dict, Optional
 
-from embedagent.hosted.launch_config import LaunchOverrides, resolve_launch_config
-from embedagent.hosted.runtime import create_hosted_runtime
 from embedagent.runtime_discovery import discover_bundle_root, running_from_bundle
+from embedagent_host.hosted.launch_config import LaunchOverrides, resolve_launch_config
+from embedagent_host.hosted.runtime import create_hosted_runtime
 
 # 配置日志
 logging.basicConfig(

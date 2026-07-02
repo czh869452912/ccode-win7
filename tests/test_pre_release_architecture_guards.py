@@ -10,7 +10,7 @@ ACTIVE_SOURCE_FILES = [
     ROOT / "src/embedagent/protocol/__init__.py",
     ROOT / "src/embedagent/session_projector.py",
     ROOT / "src/embedagent/core/adapter.py",
-    ROOT / "src/embedagent/inprocess_adapter.py",
+    ROOT / "src/embedagent_host/inprocess_adapter.py",
     ROOT / "src/embedagent/frontend/gui/backend/server.py",
     ROOT / "src/embedagent/frontend/gui/webapp/src/state-helpers.js",
     ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx",
@@ -69,7 +69,7 @@ def test_no_session_timeline_api_in_active_source():
     files = [
         ROOT / "src/embedagent/protocol/__init__.py",
         ROOT / "src/embedagent/core/adapter.py",
-        ROOT / "src/embedagent/inprocess_adapter.py",
+        ROOT / "src/embedagent_host/inprocess_adapter.py",
         ROOT / "src/embedagent/frontend/tui/services/timeline.py",
     ]
     offenders = []
@@ -117,7 +117,7 @@ def test_no_tui_flat_or_event_history_projection_contract():
 
 def test_no_session_view_clear_uses_timeline_payload():
     files = [
-        ROOT / "src/embedagent/inprocess_adapter.py",
+        ROOT / "src/embedagent_host/inprocess_adapter.py",
         ROOT / "src/embedagent/frontend/gui/webapp/src/store.js",
     ]
     offenders = []
@@ -207,7 +207,7 @@ def test_no_timeline_reload_route_or_metadata_in_active_gui_backend():
     files = [
         ROOT / "src/embedagent/frontend/gui/backend/server.py",
         ROOT / "src/embedagent/frontend/gui/backend/session_events.py",
-        ROOT / "src/embedagent/inprocess_adapter.py",
+        ROOT / "src/embedagent_host/inprocess_adapter.py",
         ROOT / "src/embedagent/core/adapter.py",
     ]
     offenders = []
@@ -356,11 +356,11 @@ def test_session_snapshot_contract_uses_single_pending_interaction_payload():
 def test_hosted_runtime_uses_single_pending_interaction_state():
     files = [
         ROOT / "src/embedagent/session_runtime.py",
-        ROOT / "src/embedagent/hosted_interaction_service.py",
-        ROOT / "src/embedagent/inprocess_adapter.py",
+        ROOT / "src/embedagent_host/hosted_interaction_service.py",
+        ROOT / "src/embedagent_host/inprocess_adapter.py",
         ROOT / "src/embedagent/core/adapter.py",
         ROOT / "src/embedagent/session_projector.py",
-        ROOT / "src/embedagent/hosted_command_service.py",
+        ROOT / "src/embedagent_host/hosted_command_service.py",
         ROOT / "src/embedagent/frontend/gui/backend/server.py",
         ROOT / "src/embedagent/services/session_lifecycle.py",
     ]
@@ -395,8 +395,8 @@ def test_product_interfaces_expose_only_unified_interaction_response():
     files = [
         ROOT / "src/embedagent/core/adapter.py",
         ROOT / "src/embedagent/protocol/__init__.py",
-        ROOT / "src/embedagent/inprocess_adapter.py",
-        ROOT / "src/embedagent/hosted_interaction_service.py",
+        ROOT / "src/embedagent_host/inprocess_adapter.py",
+        ROOT / "src/embedagent_host/hosted_interaction_service.py",
         ROOT / "src/embedagent/frontend/tui/services/sessions.py",
     ]
     forbidden = (
@@ -456,7 +456,7 @@ def test_shell_interaction_payloads_use_decision_and_answers_contract():
 
 
 def test_query_engine_does_not_own_extension_dispatch_boundary():
-    text = _read(ROOT / "src/embedagent/query_engine.py")
+    text = _read(ROOT / "src/embedagent_core/query_engine.py")
     assert "AgentExtensionHost(" in text
     forbidden_dispatches = (
         "self.extension_manager.allowed_tool_names(",
@@ -609,7 +609,7 @@ def test_active_docs_keep_legacy_architecture_terms_in_removed_contexts():
 def test_runtime_tool_execute_calls_stay_behind_action_or_hosted_services():
     allowed_files = {
         "src/embedagent/agent_tool_action_service.py",
-        "src/embedagent/hosted_command_service.py",
+        "src/embedagent_host/hosted_command_service.py",
         "src/embedagent/review_command.py",
     }
     allowed_prefixes = ("src/embedagent/tools/",)

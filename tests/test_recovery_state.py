@@ -1,7 +1,7 @@
 import json
 import unittest
 
-from embedagent.recovery_state import RecoveryStateReducer
+from embedagent_core.recovery_state import RecoveryStateReducer
 
 
 class TestRecoveryStateReducer(unittest.TestCase):

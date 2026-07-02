@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from embedagent.workflow_package_manifest import (
+from embedagent_core.workflow_package_manifest import (
     WorkflowPackageManifest,
     WorkflowPackageManifestError,
     WorkflowPackDeclaration,

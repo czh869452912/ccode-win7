@@ -65,7 +65,7 @@ class TestNoDeprecatedDatetime:
             "src/embedagent/session_store.py",
             "src/embedagent/session_runtime.py",
             "src/embedagent/project_memory.py",
-            "src/embedagent/inprocess_adapter.py",
+            "src/embedagent_host/inprocess_adapter.py",
             "src/embedagent/plan_store.py",
             "src/embedagent/transcript_store.py",
             "src/embedagent/session_restore.py",

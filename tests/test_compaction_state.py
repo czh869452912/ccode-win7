@@ -1,7 +1,7 @@
 import json
 import unittest
 
-from embedagent.compaction_state import CompactionStateReducer
+from embedagent_core.compaction_state import CompactionStateReducer
 
 
 class TestCompactionStateReducer(unittest.TestCase):

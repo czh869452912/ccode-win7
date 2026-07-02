@@ -59,7 +59,11 @@ class TestNoBareExceptBlocks:
     def test_files_use_specific_exceptions(self):
         """Verify modified files use specific exception types."""
         files_expected_patterns = {
-            "src/embedagent/permissions.py": ["OSError", "JSONDecodeError", "ValueError"],
+            "src/embedagent_core/permissions.py": [
+                "OSError",
+                "JSONDecodeError",
+                "ValueError",
+            ],
             "src/embedagent/workflow_packages/c_cpp/task_store.py": [
                 "OSError",
                 "JSONDecodeError",
@@ -103,7 +107,7 @@ class TestNoBareExceptBlocks:
                 "TypeError",
             ],
             "src/embedagent/frontend/tui/layout.py": ["ValueError", "TypeError"],
-            "src/embedagent/inprocess_adapter.py": ["OSError", "ValueError", "TypeError"],
+            "src/embedagent_host/inprocess_adapter.py": ["OSError", "ValueError", "TypeError"],
         }
 
         base_dir = os.path.join(os.path.dirname(__file__), "..")

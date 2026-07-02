@@ -1,4 +1,5 @@
-from embedagent.extensions import (
+from embedagent.session import Action, AssistantReply, Observation
+from embedagent_core.extensions import (
     ContextPatch,
     ExtensionCapability,
     ExtensionContext,
@@ -9,7 +10,6 @@ from embedagent.extensions import (
     ToolResultPatch,
     WorkflowEvent,
 )
-from embedagent.session import Action, AssistantReply, Observation
 
 
 def _capabilities_for(extension, *hook_names):
@@ -80,7 +80,7 @@ def test_extension_manager_records_invalid_capability_records():
 
 
 def test_agent_event_bus_reduces_in_source_order():
-    from embedagent.agent_event_bus import AgentEvent, AgentEventBus
+    from embedagent_core.agent_event_bus import AgentEvent, AgentEventBus
 
     bus = AgentEventBus()
     calls = []
@@ -121,7 +121,7 @@ def test_agent_event_bus_reduces_in_source_order():
 
 
 def test_agent_event_bus_records_project_reducer_diagnostics():
-    from embedagent.agent_event_bus import AgentEvent, AgentEventBus
+    from embedagent_core.agent_event_bus import AgentEvent, AgentEventBus
 
     bus = AgentEventBus()
 
@@ -142,7 +142,7 @@ def test_agent_event_bus_records_project_reducer_diagnostics():
 
 
 def test_agent_event_bus_observers_run_before_reducers_without_results():
-    from embedagent.agent_event_bus import AgentEvent, AgentEventBus
+    from embedagent_core.agent_event_bus import AgentEvent, AgentEventBus
 
     bus = AgentEventBus()
     calls = []
@@ -320,7 +320,7 @@ class ContextInjectingExtension(object):
         return _capabilities_for(self, "context")
 
     def context(self, event, context):
-        from embedagent.extensions import ContextPatch
+        from embedagent_core.extensions import ContextPatch
 
         assert event.current_mode == "build"
         assert context.workspace
@@ -330,9 +330,9 @@ class ContextInjectingExtension(object):
 
 
 def test_query_engine_applies_extension_context_patch(tmp_path):
-    from embedagent.permissions import PermissionPolicy
-    from embedagent.query_engine import QueryEngine
     from embedagent.tools import ToolRuntime
+    from embedagent_core.permissions import PermissionPolicy
+    from embedagent_core.query_engine import QueryEngine
 
     client = CapturingClient()
     tools = ToolRuntime(str(tmp_path))
@@ -656,9 +656,9 @@ class PatchingToolResultExtension(object):
 
 
 def test_query_engine_tool_call_hook_can_block_tool_execution(tmp_path):
-    from embedagent.permissions import PermissionPolicy
-    from embedagent.query_engine import QueryEngine
     from embedagent.tools import ToolRuntime
+    from embedagent_core.permissions import PermissionPolicy
+    from embedagent_core.query_engine import QueryEngine
 
     target = tmp_path / "blocked.txt"
     target.write_text("blocked", encoding="utf-8")
@@ -683,9 +683,9 @@ def test_query_engine_tool_call_hook_can_block_tool_execution(tmp_path):
 
 
 def test_query_engine_tool_result_hook_can_replace_observation(tmp_path):
-    from embedagent.permissions import PermissionPolicy
-    from embedagent.query_engine import QueryEngine
     from embedagent.tools import ToolRuntime
+    from embedagent_core.permissions import PermissionPolicy
+    from embedagent_core.query_engine import QueryEngine
 
     target = tmp_path / "readme.txt"
     target.write_text("hello", encoding="utf-8")
@@ -709,11 +709,11 @@ def test_query_engine_tool_result_hook_can_replace_observation(tmp_path):
 
 
 def test_agent_extension_host_applies_context_and_tool_result_workflow_patch(tmp_path):
-    from embedagent.agent_extension_host import AgentExtensionHost
-    from embedagent.extensions import ContextPatch, WorkflowPatch
-    from embedagent.permissions import PermissionPolicy
     from embedagent.session import ContextAssemblyResult, Session
     from embedagent.tools import ToolRuntime
+    from embedagent_core.agent_extension_host import AgentExtensionHost
+    from embedagent_core.extensions import ContextPatch, WorkflowPatch
+    from embedagent_core.permissions import PermissionPolicy
 
     class ContextAndPatchExtension(object):
         extension_id = "context_and_patch"
@@ -788,8 +788,8 @@ class DynamicServiceBoundaryExtension(object):
         )
 
     def register_tools(self, event, context):
-        from embedagent.extensions import ToolRegistrationResult
         from embedagent.tools import ToolDefinition
+        from embedagent_core.extensions import ToolRegistrationResult
 
         del event
 
@@ -854,11 +854,11 @@ class DynamicServiceBoundaryExtension(object):
 
 
 def test_agent_tool_action_service_runs_dynamic_tools_through_extension_hooks(tmp_path):
-    from embedagent.agent_extension_host import AgentExtensionHost
-    from embedagent.agent_tool_action_service import AgentToolActionService
-    from embedagent.permissions import PermissionPolicy
     from embedagent.session import Session
     from embedagent.tools import ToolRuntime
+    from embedagent_core.agent_extension_host import AgentExtensionHost
+    from embedagent_core.agent_tool_action_service import AgentToolActionService
+    from embedagent_core.permissions import PermissionPolicy
 
     runtime = ToolRuntime(str(tmp_path))
     policy = PermissionPolicy(auto_approve_all=True, workspace=str(tmp_path))
@@ -931,7 +931,7 @@ def test_agent_tool_action_service_runs_dynamic_tools_through_extension_hooks(tm
 def test_workflow_patch_exposes_only_current_read_model_fields():
     from dataclasses import fields
 
-    from embedagent.extensions import WorkflowPatch
+    from embedagent_core.extensions import WorkflowPatch
 
     names = [item.name for item in fields(WorkflowPatch)]
 
@@ -983,8 +983,8 @@ class SnapshotBrokenExtension(object):
 
 
 def test_inprocess_snapshot_includes_extension_diagnostics(tmp_path):
-    from embedagent.inprocess_adapter import InProcessAdapter
     from embedagent.tools import ToolRuntime
+    from embedagent_host.inprocess_adapter import InProcessAdapter
 
     adapter = InProcessAdapter(tools=ToolRuntime(str(tmp_path)))
     adapter.extension_manager = ExtensionManager([SnapshotBrokenExtension()])

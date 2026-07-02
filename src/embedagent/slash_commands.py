@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
-from embedagent.capabilities import command_capability_descriptors
+from embedagent_core.capabilities import command_capability_descriptors
 
 
 @dataclass

@@ -3,7 +3,6 @@
 import re
 from datetime import datetime, timedelta, timezone
 
-from embedagent.inprocess_adapter import _utc_now as adapter_utc_now
 from embedagent.plan_store import _utc_now as plan_utc_now
 from embedagent.project_memory import _utc_now as memory_utc_now
 
@@ -12,6 +11,7 @@ from embedagent.session import _utc_now
 from embedagent.session_runtime import _utc_now as runtime_utc_now
 from embedagent.session_store import _utc_now as store_utc_now
 from embedagent.transcript_store import _utc_now as transcript_utc_now
+from embedagent_host.inprocess_adapter import _utc_now as adapter_utc_now
 
 TIMESTAMP_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
 

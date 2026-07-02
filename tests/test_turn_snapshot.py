@@ -1,6 +1,6 @@
 import json
 
-from embedagent.turn_snapshot import TurnSnapshotBuilder
+from embedagent_core.turn_snapshot import TurnSnapshotBuilder
 
 
 def test_turn_snapshot_builder_copies_provider_inputs_and_sorts_active_tools():

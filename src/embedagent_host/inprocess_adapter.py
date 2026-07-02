@@ -6,16 +6,16 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional
 
-from embedagent.capabilities import (
+from embedagent_core.capabilities import (
     command_capability_descriptors,
     command_capability_payload,
     model_profile_capability_descriptor,
     workflow_package_capability_descriptors,
 )
-from embedagent.compaction_state import CompactionStateReducer
+from embedagent_core.compaction_state import CompactionStateReducer
 from embedagent.context import ContextManager
-from embedagent.default_extensions import build_default_extension_set
-from embedagent.extensions import ExtensionContext, ToolRegistrationEvent
+from embedagent_host.default_extensions import build_default_extension_set
+from embedagent_core.extensions import ExtensionContext, ToolRegistrationEvent
 from embedagent.interaction import UserInputRequest, UserInputResponse
 from embedagent.llm import OpenAICompatibleClient
 from embedagent.memory_maintenance import MemoryMaintenance
@@ -26,18 +26,18 @@ from embedagent.modes import (
     mode_names,
     require_mode,
 )
-from embedagent.permissions import PermissionPolicy, PermissionRequest
+from embedagent_core.permissions import PermissionPolicy, PermissionRequest
 from embedagent.plan_store import PlanStore
 from embedagent.project_extensions import load_project_extensions
 from embedagent.project_memory import ProjectMemoryStore
 from embedagent.protocol import PermissionContextView, PlanSnapshot
-from embedagent.recovery_state import RecoveryStateReducer
-from embedagent.hosted_command_service import HostedCommandService
-from embedagent.hosted_interaction_service import (
+from embedagent_core.recovery_state import RecoveryStateReducer
+from embedagent_host.hosted_command_service import HostedCommandService
+from embedagent_host.hosted_interaction_service import (
     HostedInteractionService,
 )
-from embedagent.runtime_capability_service import RuntimeCapabilityService
-from embedagent.runtime_config import RuntimeConfigReducer
+from embedagent_core.runtime_capability_service import RuntimeCapabilityService
+from embedagent_core.runtime_config import RuntimeConfigReducer
 from embedagent.session import (
     Action,
     AssistantReply,
@@ -48,7 +48,7 @@ from embedagent.session import (
 )
 from embedagent.session_bootstrap_service import SessionBootstrapService
 from embedagent.session_history import SessionHistoryAssembler
-from embedagent.session_operation_log import OperationLogReducer, operation_diagnostics
+from embedagent_core.session_operation_log import OperationLogReducer, operation_diagnostics
 from embedagent.session_projector import SessionSnapshotProjector
 from embedagent.session_restore import SessionRestorer
 from embedagent.session_runtime import ManagedSession
@@ -58,7 +58,7 @@ from embedagent.services import (
     SessionLifecycleManager,
     WorkspaceFileService,
 )
-from embedagent.query_engine import QueryEngine
+from embedagent_core.query_engine import QueryEngine
 from embedagent.skill_index import build_skill_index
 from embedagent.slash_commands import (
     SlashCommandRegistry,
@@ -67,7 +67,7 @@ from embedagent.slash_commands import (
 )
 from embedagent.tools import ToolRuntime
 from embedagent.transcript_store import TranscriptStore
-from embedagent.turn_experience import TurnExperienceReducer
+from embedagent_core.turn_experience import TurnExperienceReducer
 
 EventHandler = Callable[[str, str, Dict[str, Any]], None]
 

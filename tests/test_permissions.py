@@ -4,12 +4,12 @@ import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from embedagent.permissions import (
+from embedagent.session import Action
+from embedagent.tools import ToolRuntime
+from embedagent_core.permissions import (
     OFFICIAL_PERMISSION_CATEGORIES,
     PermissionPolicy,
 )
-from embedagent.session import Action
-from embedagent.tools import ToolRuntime
 
 
 class TestPermissionPolicy(unittest.TestCase):

@@ -4,8 +4,8 @@ import pytest
 
 
 def register_default_c_workflow_tools(runtime, workspace: str, reason: str = "test") -> None:
-    from embedagent.default_extensions import build_default_extension_set
-    from embedagent.extensions import ExtensionContext, ToolRegistrationEvent
+    from embedagent_core.extensions import ExtensionContext, ToolRegistrationEvent
+    from embedagent_host.default_extensions import build_default_extension_set
 
     default_set = build_default_extension_set(runtime)
     default_set.manager.register_tools(

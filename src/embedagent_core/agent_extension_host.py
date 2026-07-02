@@ -2,17 +2,17 @@ from __future__ import annotations
 
 from typing import Any, Callable, Optional, Set, Tuple
 
-from embedagent.extensions import (
+from embedagent.interaction import ask_user_schema, propose_mode_switch_schema
+from embedagent.modes import allowed_tools_for
+from embedagent.session import Action, ContextAssemblyResult, Observation, Session
+from embedagent.tools import ToolRuntime
+from embedagent_core.extensions import (
     ExtensionContext,
     ExtensionManager,
     SessionView,
     ToolRegistrationEvent,
     WorkflowEvent,
 )
-from embedagent.interaction import ask_user_schema, propose_mode_switch_schema
-from embedagent.modes import allowed_tools_for
-from embedagent.session import Action, ContextAssemblyResult, Observation, Session
-from embedagent.tools import ToolRuntime
 
 
 class AgentExtensionHost(object):

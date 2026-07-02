@@ -25,13 +25,13 @@ class DoneClient(object):
 
 class FakeWorkflowExtension(object):
     def extension_capabilities(self):
-        from embedagent.extensions import ExtensionCapability
+        from embedagent_core.extensions import ExtensionCapability
 
         return [ExtensionCapability("before_agent_start", self.before_agent_start)]
 
     def before_agent_start(self, event, context):
         del event, context
-        from embedagent.extensions import PromptPatch
+        from embedagent_core.extensions import PromptPatch
 
         return PromptPatch(
             prompt_units=["fake prompt"],
@@ -42,7 +42,7 @@ class FakeWorkflowExtension(object):
 
 class CatalogExtension(object):
     def extension_capabilities(self):
-        from embedagent.extensions import ExtensionCapability
+        from embedagent_core.extensions import ExtensionCapability
 
         return [ExtensionCapability("allowed_tool_names", self.allowed_tool_names)]
 
@@ -58,7 +58,7 @@ class ManifestExtension(object):
     builtin_extension = False
 
     def extension_capabilities(self):
-        from embedagent.extensions import ExtensionCapability
+        from embedagent_core.extensions import ExtensionCapability
 
         return [ExtensionCapability("package_manifest", self.package_manifest)]
 
@@ -111,7 +111,12 @@ class ToolRuntimeBoundaryProbe(object):
 
 
 def test_fake_workflow_extension_adds_prompt_units_and_active_tools():
-    from embedagent.extensions import ExtensionContext, ExtensionManager, SessionView, WorkflowEvent
+    from embedagent_core.extensions import (
+        ExtensionContext,
+        ExtensionManager,
+        SessionView,
+        WorkflowEvent,
+    )
 
     manager = ExtensionManager()
     manager.register(FakeWorkflowExtension())
@@ -135,7 +140,7 @@ def test_fake_workflow_extension_adds_prompt_units_and_active_tools():
 
 
 def test_extension_manager_collects_package_manifests_from_extensions():
-    from embedagent.extensions import ExtensionManager
+    from embedagent_core.extensions import ExtensionManager
 
     manager = ExtensionManager([ManifestExtension()])
 
@@ -190,10 +195,10 @@ def test_session_import_does_not_eagerly_load_harness_task_graph():
 
 
 def test_c_harness_extension_preserves_build_prompt_behavior(tmp_path):
-    from embedagent.default_extensions import build_default_extension_set
-    from embedagent.permissions import PermissionPolicy
-    from embedagent.query_engine import QueryEngine
     from embedagent.tools import ToolRuntime
+    from embedagent_core.permissions import PermissionPolicy
+    from embedagent_core.query_engine import QueryEngine
+    from embedagent_host.default_extensions import build_default_extension_set
 
     tools = ToolRuntime(str(tmp_path))
     default_extensions = build_default_extension_set(tools)
@@ -219,10 +224,10 @@ def test_c_harness_extension_preserves_build_prompt_behavior(tmp_path):
 
 
 def test_c_harness_extension_uses_generic_workflow_prompt_kind(tmp_path):
-    from embedagent.default_extensions import build_default_extension_set
-    from embedagent.permissions import PermissionPolicy
-    from embedagent.query_engine import QueryEngine
     from embedagent.tools import ToolRuntime
+    from embedagent_core.permissions import PermissionPolicy
+    from embedagent_core.query_engine import QueryEngine
+    from embedagent_host.default_extensions import build_default_extension_set
 
     tools = ToolRuntime(str(tmp_path))
     default_extensions = build_default_extension_set(tools)
@@ -249,7 +254,7 @@ def test_c_harness_extension_uses_generic_workflow_prompt_kind(tmp_path):
 
 
 def test_workflow_prompt_descriptor_uses_generic_name():
-    extensions_source = (_REPO_ROOT / "src" / "embedagent" / "extensions.py").read_text(
+    extensions_source = (_REPO_ROOT / "src" / "embedagent_core" / "extensions.py").read_text(
         encoding="utf-8"
     )
     harness_source = (
@@ -259,7 +264,7 @@ def test_workflow_prompt_descriptor_uses_generic_name():
     assert "class WorkflowPrompt" in extensions_source
     assert "HarnessPrompt = WorkflowPrompt" in extensions_source
     assert "HarnessPrompt(" not in harness_source
-    assert "from embedagent.extensions import HarnessPrompt" not in harness_source
+    assert "from embedagent_core.extensions import HarnessPrompt" not in harness_source
 
 
 def test_c_harness_workflow_projection_builder_shapes_generic_payload():
@@ -305,7 +310,9 @@ def test_c_harness_extension_delegates_workflow_projection_to_builder():
 
 
 def test_query_engine_no_longer_imports_task_graph_directly():
-    source = (_REPO_ROOT / "src" / "embedagent" / "query_engine.py").read_text(encoding="utf-8")
+    source = (_REPO_ROOT / "src" / "embedagent_core" / "query_engine.py").read_text(
+        encoding="utf-8"
+    )
 
     assert "from embedagent.workflow_packages.c_cpp.task_graph import TaskGraph" not in source
     assert "TaskGraph.from_user_request" not in source
@@ -321,7 +328,9 @@ def test_c_harness_extension_no_longer_reads_session_task_graph_directly():
 
 
 def test_query_engine_no_longer_imports_default_harness_extension_directly():
-    source = (_REPO_ROOT / "src" / "embedagent" / "query_engine.py").read_text(encoding="utf-8")
+    source = (_REPO_ROOT / "src" / "embedagent_core" / "query_engine.py").read_text(
+        encoding="utf-8"
+    )
 
     assert (
         "from embedagent.workflow_packages.c_cpp.extension import CHarnessWorkflowExtension"
@@ -370,7 +379,7 @@ def test_session_snapshot_projector_no_longer_reads_task_graph_directly():
 
 
 def test_inprocess_frontend_task_api_uses_workflow_state_projection():
-    source = (_REPO_ROOT / "src" / "embedagent" / "inprocess_adapter.py").read_text(
+    source = (_REPO_ROOT / "src" / "embedagent_host" / "inprocess_adapter.py").read_text(
         encoding="utf-8"
     )
     module = ast.parse(source)
@@ -393,7 +402,7 @@ def test_inprocess_frontend_task_api_uses_workflow_state_projection():
 
 
 def test_inprocess_frontend_task_api_does_not_import_harness_task_store_directly():
-    source = (_REPO_ROOT / "src" / "embedagent" / "inprocess_adapter.py").read_text(
+    source = (_REPO_ROOT / "src" / "embedagent_host" / "inprocess_adapter.py").read_text(
         encoding="utf-8"
     )
 
@@ -407,7 +416,7 @@ def test_frontend_task_apis_do_not_import_harness_task_internals():
         _REPO_ROOT / "src" / "embedagent" / "core",
         _REPO_ROOT / "src" / "embedagent" / "protocol",
         _REPO_ROOT / "src" / "embedagent" / "session_projector.py",
-        _REPO_ROOT / "src" / "embedagent" / "inprocess_adapter.py",
+        _REPO_ROOT / "src" / "embedagent_host" / "inprocess_adapter.py",
     ]
     forbidden = (
         "embedagent.workflow_packages.c_cpp.task_graph",
@@ -429,7 +438,7 @@ def test_frontend_task_apis_do_not_import_harness_task_internals():
 
 
 def test_inprocess_adapter_no_longer_constructs_harness_runner_directly():
-    source = (_REPO_ROOT / "src" / "embedagent" / "inprocess_adapter.py").read_text(
+    source = (_REPO_ROOT / "src" / "embedagent_host" / "inprocess_adapter.py").read_text(
         encoding="utf-8"
     )
 
@@ -438,7 +447,7 @@ def test_inprocess_adapter_no_longer_constructs_harness_runner_directly():
 
 
 def test_inprocess_adapter_gets_default_harness_extension_from_factory():
-    source = (_REPO_ROOT / "src" / "embedagent" / "inprocess_adapter.py").read_text(
+    source = (_REPO_ROOT / "src" / "embedagent_host" / "inprocess_adapter.py").read_text(
         encoding="utf-8"
     )
 
@@ -451,9 +460,9 @@ def test_inprocess_adapter_gets_default_harness_extension_from_factory():
 
 
 def test_query_engine_tool_activation_does_not_use_runtime_harness_pack_fallback():
-    from embedagent.default_extensions import build_default_extension_set
-    from embedagent.permissions import PermissionPolicy
-    from embedagent.query_engine import QueryEngine
+    from embedagent_core.permissions import PermissionPolicy
+    from embedagent_core.query_engine import QueryEngine
+    from embedagent_host.default_extensions import build_default_extension_set
 
     tools = ToolRuntimeBoundaryProbe()
     default_extensions = build_default_extension_set(tools)
@@ -539,9 +548,9 @@ def test_tool_runtime_default_schemas_follow_mode_contract_not_harness_pack(tmp_
 
 
 def test_tool_runtime_default_schemas_remain_workflow_neutral_after_c_tools_register(tmp_path):
-    from embedagent.default_extensions import build_default_extension_set
-    from embedagent.extensions import ExtensionContext, ToolRegistrationEvent
     from embedagent.tools import ToolRuntime
+    from embedagent_core.extensions import ExtensionContext, ToolRegistrationEvent
+    from embedagent_host.default_extensions import build_default_extension_set
 
     runtime = ToolRuntime(str(tmp_path))
     default_set = build_default_extension_set(runtime)
@@ -580,9 +589,9 @@ def test_bare_tool_runtime_does_not_register_default_c_workflow_tools(tmp_path):
 
 
 def test_default_c_workflow_extension_registers_workflow_tools(tmp_path):
-    from embedagent.default_extensions import build_default_extension_set
-    from embedagent.extensions import ExtensionContext, ToolRegistrationEvent
     from embedagent.tools import ToolRuntime
+    from embedagent_core.extensions import ExtensionContext, ToolRegistrationEvent
+    from embedagent_host.default_extensions import build_default_extension_set
 
     runtime = ToolRuntime(str(tmp_path))
     default_set = build_default_extension_set(runtime)
@@ -616,8 +625,8 @@ def test_default_c_workflow_extension_owns_c_workflow_tool_activation():
 
 def test_default_c_workflow_extension_registers_context_reducers(tmp_path):
     from embedagent.context import ContextManager
-    from embedagent.default_extensions import build_default_extension_set
     from embedagent.tools import ToolRuntime
+    from embedagent_host.default_extensions import build_default_extension_set
 
     runtime = ToolRuntime(str(tmp_path))
     context_manager = ContextManager()
@@ -642,9 +651,9 @@ def test_tool_runtime_no_longer_imports_harness_runtime_metadata():
 
 
 def test_default_c_workflow_tool_metadata_survives_package_registration(tmp_path):
-    from embedagent.default_extensions import build_default_extension_set
-    from embedagent.extensions import ExtensionContext, ToolRegistrationEvent
     from embedagent.tools import ToolRuntime
+    from embedagent_core.extensions import ExtensionContext, ToolRegistrationEvent
+    from embedagent_host.default_extensions import build_default_extension_set
 
     runtime = ToolRuntime(str(tmp_path))
     default_set = build_default_extension_set(runtime)
@@ -717,12 +726,12 @@ def test_tool_runtime_no_longer_exposes_allowed_tool_names_alias():
 
 
 def test_frontend_tool_catalog_gets_harness_tools_from_workflow_extension(tmp_path, monkeypatch):
-    from embedagent.inprocess_adapter import InProcessAdapter
     from embedagent.tools import ToolRuntime
+    from embedagent_host.inprocess_adapter import InProcessAdapter
 
     adapter = InProcessAdapter(tools=ToolRuntime(str(tmp_path)))
     monkeypatch.setattr(
-        "embedagent.inprocess_adapter.allowed_tools_for",
+        "embedagent_host.inprocess_adapter.allowed_tools_for",
         lambda mode_name: ["read_file", "ask_user"],
     )
 
@@ -773,8 +782,8 @@ def test_c_harness_package_manifest_does_not_drive_active_tools():
 
 
 def test_inprocess_adapter_tool_catalog_uses_shared_extension_manager(tmp_path):
-    from embedagent.inprocess_adapter import InProcessAdapter
     from embedagent.tools import ToolRuntime
+    from embedagent_host.inprocess_adapter import InProcessAdapter
 
     adapter = InProcessAdapter(tools=ToolRuntime(str(tmp_path)))
     adapter.extension_manager.register(CatalogExtension())
@@ -785,8 +794,8 @@ def test_inprocess_adapter_tool_catalog_uses_shared_extension_manager(tmp_path):
 
 
 def test_inprocess_adapter_passes_extension_manager_to_query_engine(tmp_path):
-    from embedagent.inprocess_adapter import InProcessAdapter
     from embedagent.tools import ToolRuntime
+    from embedagent_host.inprocess_adapter import InProcessAdapter
 
     adapter = InProcessAdapter(tools=ToolRuntime(str(tmp_path)))
     engine = adapter._build_engine()
@@ -795,8 +804,8 @@ def test_inprocess_adapter_passes_extension_manager_to_query_engine(tmp_path):
 
 
 def test_inprocess_adapter_session_engine_uses_shared_extension_manager(tmp_path):
-    from embedagent.inprocess_adapter import InProcessAdapter
     from embedagent.tools import ToolRuntime
+    from embedagent_host.inprocess_adapter import InProcessAdapter
 
     adapter = InProcessAdapter(client=DoneClient(), tools=ToolRuntime(str(tmp_path)))
     snapshot = adapter.create_session(mode="build")
@@ -807,8 +816,8 @@ def test_inprocess_adapter_session_engine_uses_shared_extension_manager(tmp_path
 
 
 def test_bare_query_engine_uses_empty_extension_host_without_c_harness(tmp_path):
-    from embedagent.query_engine import QueryEngine
     from embedagent.tools import ToolRuntime
+    from embedagent_core.query_engine import QueryEngine
 
     engine = QueryEngine(client=DoneClient(), tools=ToolRuntime(str(tmp_path)), max_turns=1)
 
@@ -823,7 +832,9 @@ def test_bare_query_engine_uses_empty_extension_host_without_c_harness(tmp_path)
 
 
 def test_query_engine_no_longer_dispatches_extension_manager_hooks_directly():
-    source = (_REPO_ROOT / "src" / "embedagent" / "query_engine.py").read_text(encoding="utf-8")
+    source = (_REPO_ROOT / "src" / "embedagent_core" / "query_engine.py").read_text(
+        encoding="utf-8"
+    )
     forbidden = [
         ".should_inject_workflow(",
         ".allowed_tool_names(",
@@ -840,11 +851,11 @@ def test_query_engine_no_longer_dispatches_extension_manager_hooks_directly():
 
 
 def test_inprocess_adapter_no_longer_depends_on_removed_sync_facade(tmp_path):
-    from embedagent.inprocess_adapter import InProcessAdapter
     from embedagent.tools import ToolRuntime
+    from embedagent_host.inprocess_adapter import InProcessAdapter
 
     symbol = "Harness" + "State" + "Synchronizer"
-    source = (_REPO_ROOT / "src" / "embedagent" / "inprocess_adapter.py").read_text(
+    source = (_REPO_ROOT / "src" / "embedagent_host" / "inprocess_adapter.py").read_text(
         encoding="utf-8"
     )
     adapter = InProcessAdapter(tools=ToolRuntime(str(tmp_path)))
@@ -857,7 +868,7 @@ def test_inprocess_adapter_no_longer_depends_on_removed_sync_facade(tmp_path):
 def test_inprocess_adapter_import_does_not_load_removed_sync_module():
     script = (
         "import sys\n"
-        "import embedagent.inprocess_adapter\n"
+        "import embedagent_host.inprocess_adapter\n"
         "module_name = 'embedagent.services.' + 'harness_' + 'state_' + 'synchronizer'\n"
         "print(module_name in sys.modules)\n"
     )

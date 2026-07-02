@@ -6,7 +6,6 @@ from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional
 
 from embedagent.modes import require_mode
-from embedagent.permissions import PermissionRequest
 from embedagent.prompts import expand_prompt_invocation
 from embedagent.protocol import CommandResult, PlanSnapshot
 from embedagent.review_command import ReviewCommandService
@@ -20,6 +19,7 @@ from embedagent.slash_commands import (
     parse_slash_command,
     resource_command_specs,
 )
+from embedagent_core.permissions import PermissionRequest
 
 EventHandler = Callable[[str, str, Dict[str, Any]], None]
 PermissionResolver = Callable[[Dict[str, Any]], bool]

@@ -3,7 +3,7 @@
 
 def test_permissions_load_missing_file():
     """Verify permissions handles missing file gracefully."""
-    from embedagent.permissions import PermissionPolicy
+    from embedagent_core.permissions import PermissionPolicy
 
     policy = PermissionPolicy(auto_approve_all=True, workspace="/nonexistent/path")
     rules = policy._load_rules("/nonexistent/path/permissions.json")
@@ -47,8 +47,8 @@ def test_workspace_recipes_load_json_missing_file():
 def test_core_adapter_read_file_missing():
     """Verify core_adapter handles missing file gracefully."""
     from embedagent.core.adapter import AgentCoreAdapter
-    from embedagent.permissions import PermissionPolicy
     from embedagent.tools import ToolRuntime
+    from embedagent_core.permissions import PermissionPolicy
 
     adapter = AgentCoreAdapter("/nonexistent/path")
     adapter.initialize(

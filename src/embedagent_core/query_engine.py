@@ -7,16 +7,16 @@ import uuid
 from copy import deepcopy
 from typing import Any, Callable, Dict, Optional, Tuple
 
-from embedagent.agent_extension_host import AgentExtensionHost
-from embedagent.agent_kernel import AgentKernel
-from embedagent.agent_lifecycle import AgentLifecycleJournal
-from embedagent.agent_loop import AgentLoop
-from embedagent.agent_tool_action_service import AgentToolActionService
+from embedagent_core.agent_extension_host import AgentExtensionHost
+from embedagent_core.agent_kernel import AgentKernel
+from embedagent_core.agent_lifecycle import AgentLifecycleJournal
+from embedagent_core.agent_loop import AgentLoop
+from embedagent_core.agent_tool_action_service import AgentToolActionService
 from embedagent.compacted_history import CompactedHistoryReducer
-from embedagent.compaction_journal import CompactionJournal
+from embedagent_core.compaction_journal import CompactionJournal
 from embedagent.context import ContextManager
 from embedagent.context_window import ContextWindowState
-from embedagent.extensions import (
+from embedagent_core.extensions import (
     ExtensionContext,
     ExtensionManager,
     WorkflowEvent,
@@ -37,7 +37,7 @@ from embedagent.modes import (
     parse_natural_language_mode_switch,
     require_mode,
 )
-from embedagent.permissions import PermissionPolicy, PermissionRequest
+from embedagent_core.permissions import PermissionPolicy, PermissionRequest
 from embedagent.prompt_assembly_service import PromptAssemblyService
 from embedagent.project_memory import ProjectMemoryStore
 from embedagent.session import (
@@ -56,8 +56,8 @@ from embedagent.session_store import SessionSummaryStore
 from embedagent.tool_commit import ToolCommitCoordinator
 from embedagent.tools import ToolRuntime
 from embedagent.transcript_store import TranscriptStore
-from embedagent.turn_snapshot import TurnSnapshot
-from embedagent.turn_snapshot_service import TurnSnapshotService
+from embedagent_core.turn_snapshot import TurnSnapshot
+from embedagent_core.turn_snapshot_service import TurnSnapshotService
 from embedagent.workspace_intelligence import WorkspaceIntelligenceBroker
 from embedagent.workspace_profile import build_workspace_profile_message
 

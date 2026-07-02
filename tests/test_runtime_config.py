@@ -1,4 +1,4 @@
-from embedagent.runtime_config import RuntimeConfigReducer
+from embedagent_core.runtime_config import RuntimeConfigReducer
 
 
 def _event(event_type, payload, seq=1, event_id="evt-1", ts="2026-06-14T00:00:00Z"):

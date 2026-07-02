@@ -4,14 +4,14 @@ import os
 import threading
 from typing import Any, Callable, List, Optional, Tuple
 
-from embedagent.agent_extension_host import AgentExtensionHost
-from embedagent.agent_lifecycle import AgentLifecycleJournal
 from embedagent.interaction import UserInputRequest, UserInputResponse, build_user_input_request
 from embedagent.modes import is_path_writable
-from embedagent.permissions import PermissionPolicy, PermissionRequest
 from embedagent.session import Action, Observation, QueryTurnResult, Session
 from embedagent.tools import ToolRuntime
 from embedagent.tools._base import ToolError
+from embedagent_core.agent_extension_host import AgentExtensionHost
+from embedagent_core.agent_lifecycle import AgentLifecycleJournal
+from embedagent_core.permissions import PermissionPolicy, PermissionRequest
 
 
 class AgentToolActionService(object):

@@ -5,12 +5,12 @@ import re
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
-from embedagent.capabilities import (
+from embedagent_core.capabilities import (
     resource_capability_descriptors,
     runtime_tool_capability_descriptors,
 )
 from embedagent.modes import allowed_tools_for
-from embedagent.permissions import OFFICIAL_PERMISSION_CATEGORIES
+from embedagent_core.permissions import OFFICIAL_PERMISSION_CATEGORIES
 from embedagent.projection_db import ProjectionDb
 from embedagent.session import Observation
 from embedagent.strategies.tool_cache import ToolResultCache

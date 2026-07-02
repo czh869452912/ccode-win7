@@ -1,6 +1,8 @@
 import json
 
-from embedagent.capabilities import (
+from embedagent.slash_commands import SlashCommandRegistry, resource_command_specs
+from embedagent.tools import ToolRuntime
+from embedagent_core.capabilities import (
     CapabilityDescriptor,
     CapabilityRegistry,
     command_capability_descriptors,
@@ -9,8 +11,6 @@ from embedagent.capabilities import (
     runtime_tool_capability_descriptors,
     workflow_package_capability_descriptors,
 )
-from embedagent.slash_commands import SlashCommandRegistry, resource_command_specs
-from embedagent.tools import ToolRuntime
 
 
 def test_registry_registers_descriptors_and_serializes_snapshot():
@@ -200,7 +200,7 @@ def test_resource_command_specs_project_visible_skills_and_prompts():
 
 
 def test_command_capability_payload_projects_safe_command_menu_items():
-    from embedagent.capabilities import command_capability_payload
+    from embedagent_core.capabilities import command_capability_payload
 
     descriptors = command_capability_descriptors(
         SlashCommandRegistry(),

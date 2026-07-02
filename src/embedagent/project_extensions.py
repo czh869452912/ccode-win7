@@ -5,7 +5,7 @@ import re
 import sys
 from typing import Any, Dict, List, Optional
 
-from embedagent.permissions import OFFICIAL_PERMISSION_CATEGORIES
+from embedagent_core.permissions import OFFICIAL_PERMISSION_CATEGORIES
 
 DEFAULT_EXTENSION_RELPATH = os.path.join(".embedagent", "extensions")
 _VALID_EXTENSION_ID_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_.-]*$")
@@ -24,7 +24,9 @@ _LOAD_FAILURE_TYPES = (
 
 class ProjectExtensionApi(object):
     def __init__(self, workspace: str, extension_id: str, manifest: Dict[str, Any]) -> None:
-        from embedagent.extensions import (
+        from embedagent.session import Observation
+        from embedagent.tools import ToolDefinition
+        from embedagent_core.extensions import (
             ContextPatch,
             ExtensionCapability,
             PromptPatch,
@@ -34,8 +36,6 @@ class ProjectExtensionApi(object):
             ToolResultPatch,
             WorkflowPatch,
         )
-        from embedagent.session import Observation
-        from embedagent.tools import ToolDefinition
 
         self.workspace = os.path.realpath(workspace)
         self.extension_id = str(extension_id or "")

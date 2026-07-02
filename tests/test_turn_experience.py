@@ -1,4 +1,4 @@
-from embedagent.turn_experience import TurnExperienceReducer
+from embedagent_core.turn_experience import TurnExperienceReducer
 
 
 def _event(event_type, payload, seq):

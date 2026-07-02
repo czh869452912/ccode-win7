@@ -7,8 +7,8 @@ from datetime import datetime, timezone
 from typing import Any, Callable, Dict, Optional
 
 from embedagent.interaction import UserInputRequest, UserInputResponse
-from embedagent.permissions import PermissionRequest
 from embedagent.session_runtime import ManagedSession
+from embedagent_core.permissions import PermissionRequest
 
 EventHandler = Callable[[str, str, Dict[str, Any]], None]
 UserInputResolver = Callable[[Dict[str, Any]], Optional[Dict[str, Any]]]

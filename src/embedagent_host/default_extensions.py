@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from embedagent.extensions import ExtensionManager
 from embedagent.workflow_packages.c_cpp.extension import CHarnessWorkflowExtension
+from embedagent_core.extensions import ExtensionManager
 
 
 @dataclass

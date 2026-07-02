@@ -7,12 +7,12 @@ from itertools import count
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from embedagent.extensions import ResourcesDiscoverResult
-from embedagent.inprocess_adapter import InProcessAdapter
-from embedagent.permissions import PermissionPolicy
-from embedagent.query_engine import QueryEngine
 from embedagent.session import AssistantReply
 from embedagent.tools import ToolRuntime
+from embedagent_core.extensions import ResourcesDiscoverResult
+from embedagent_core.permissions import PermissionPolicy
+from embedagent_core.query_engine import QueryEngine
+from embedagent_host.inprocess_adapter import InProcessAdapter
 
 _COUNTER = count(1)
 
@@ -75,7 +75,7 @@ class ExtraResourceExtension(object):
         self.recipe_path = recipe_path
 
     def extension_capabilities(self):
-        from embedagent.extensions import ExtensionCapability
+        from embedagent_core.extensions import ExtensionCapability
 
         return [ExtensionCapability("resources_discover", self.resources_discover)]
 

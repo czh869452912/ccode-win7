@@ -102,7 +102,7 @@ class TestInProcessAdapterIsolation(object):
     def test_adapter_fresh_returns_class(self):
         """get_inprocess_adapter(fresh=True) returns the InProcessAdapter class."""
         from embedagent.core.adapter import get_inprocess_adapter
-        from embedagent.inprocess_adapter import InProcessAdapter
+        from embedagent_host.inprocess_adapter import InProcessAdapter
 
         a1 = get_inprocess_adapter(fresh=True)
         a2 = get_inprocess_adapter(fresh=True)

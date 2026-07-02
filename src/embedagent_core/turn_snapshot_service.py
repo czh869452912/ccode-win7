@@ -2,15 +2,15 @@ from __future__ import annotations
 
 from typing import Any, Callable, Dict, List, Optional
 
-from embedagent.capabilities import (
+from embedagent.skill_index import build_skill_index
+from embedagent_core.capabilities import (
     CapabilityRegistry,
     model_profile_capability_descriptor,
     resource_capability_descriptors,
     runtime_tool_capability_descriptors,
 )
-from embedagent.runtime_config import RuntimeConfigReducer
-from embedagent.skill_index import build_skill_index
-from embedagent.turn_snapshot import TurnSnapshot, TurnSnapshotBuilder
+from embedagent_core.runtime_config import RuntimeConfigReducer
+from embedagent_core.turn_snapshot import TurnSnapshot, TurnSnapshotBuilder
 
 
 def _has_meaningful_resource_revision(value: Dict[str, Any]) -> bool:

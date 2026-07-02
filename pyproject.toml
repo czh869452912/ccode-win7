@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "embedagent"
 version = "0.1.0"
-description = "Offline-first agentic coding platform for Windows 7 embedded C application development"
+description = "Offline-first agentic coding platform with a generic Agent Core and replaceable workflow packages"
 readme = "README.md"
 requires-python = ">=3.8,<3.9"
 dependencies = [
@@ -34,7 +34,7 @@ embedagent-gui = "embedagent.frontend.gui.launcher:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
-include = ["embedagent*"]
+include = ["embedagent*", "embedagent_core*", "embedagent_host*"]
 
 [tool.setuptools.package-data]
 embedagent = [
@@ -73,7 +73,7 @@ filterwarnings = [
 ]
 
 [tool.coverage.run]
-source = ["src/embedagent"]
+source = ["src/embedagent", "src/embedagent_core", "src/embedagent_host"]
 omit = ["*/tests/*", "*/fixtures/*", "*/manual/*"]
 
 [tool.coverage.report]

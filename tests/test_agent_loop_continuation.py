@@ -4,7 +4,7 @@ import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from embedagent.agent_loop_continuation import (
+from embedagent_core.agent_loop_continuation import (
     CONTINUATION_ABORT,
     CONTINUATION_CONTINUE,
     CONTINUATION_STOP,

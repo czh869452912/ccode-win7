@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Set
 
-from embedagent.agent_event_bus import AgentEvent, AgentEventBus, AgentEventDispatchError
+from embedagent_core.agent_event_bus import AgentEvent, AgentEventBus, AgentEventDispatchError
 
 _HOOK_EVENT_TYPES = {
     "context": "extension.context",

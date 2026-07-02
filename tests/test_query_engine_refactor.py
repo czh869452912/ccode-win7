@@ -11,13 +11,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from embedagent.config import AppConfig
 from embedagent.context import ContextManager
-from embedagent.default_extensions import build_default_extension_set
-from embedagent.extensions import ExtensionManager, ToolResultPatch, WorkflowPatch
-from embedagent.inprocess_adapter import InProcessAdapter
 from embedagent.interaction import UserInputResponse
 from embedagent.llm import ModelClientError
-from embedagent.permissions import PermissionPolicy
-from embedagent.query_engine import QueryEngine
 from embedagent.session import Action, AssistantReply, Observation, Session
 from embedagent.session_restore import SessionRestorer
 from embedagent.tool_execution import partition_tool_actions
@@ -31,6 +26,11 @@ from embedagent.workspace_intelligence import (
     RecipeProvider,
     WorkspaceIntelligenceBroker,
 )
+from embedagent_core.extensions import ExtensionManager, ToolResultPatch, WorkflowPatch
+from embedagent_core.permissions import PermissionPolicy
+from embedagent_core.query_engine import QueryEngine
+from embedagent_host.default_extensions import build_default_extension_set
+from embedagent_host.inprocess_adapter import InProcessAdapter
 
 _COUNTER = count(1)
 
@@ -377,7 +377,7 @@ class WorkflowPatchExtension(object):
     builtin_extension = False
 
     def extension_capabilities(self):
-        from embedagent.extensions import ExtensionCapability
+        from embedagent_core.extensions import ExtensionCapability
 
         return [ExtensionCapability("tool_result", self.tool_result)]
 
@@ -881,9 +881,9 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertNotIn("content_stored_path", result.data)
 
     def test_agent_tool_action_service_rejects_inactive_tool(self):
-        from embedagent.agent_extension_host import AgentExtensionHost
-        from embedagent.agent_tool_action_service import AgentToolActionService
-        from embedagent.extensions import ExtensionManager
+        from embedagent_core.agent_extension_host import AgentExtensionHost
+        from embedagent_core.agent_tool_action_service import AgentToolActionService
+        from embedagent_core.extensions import ExtensionManager
 
         policy = PermissionPolicy(auto_approve_all=True, workspace=self.workspace)
         host = AgentExtensionHost(
@@ -920,7 +920,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertEqual(observation.data["error_kind"], "mode_tool_blocked")
 
     def test_parallel_interactive_action_requires_serial_action_execution(self):
-        from embedagent.agent_tool_action_service import AgentToolActionService
+        from embedagent_core.agent_tool_action_service import AgentToolActionService
 
         policy = PermissionPolicy(auto_approve_all=True, workspace=self.workspace)
         engine = QueryEngine(
@@ -949,8 +949,8 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertTrue(service.is_interactive_serial_skip(observation))
 
     def test_agent_loop_can_be_constructed_without_runner_callback(self):
-        from embedagent.agent_loop import AgentLoop
-        from embedagent.agent_loop_continuation import DefaultAgentLoopContinuationPolicy
+        from embedagent_core.agent_loop import AgentLoop
+        from embedagent_core.agent_loop_continuation import DefaultAgentLoopContinuationPolicy
 
         loop = AgentLoop()
 
@@ -960,9 +960,9 @@ class TestQueryEngineRefactor(unittest.TestCase):
         self.assertIsNone(loop.max_turns)
 
     def test_query_engine_exposes_slim_agent_components(self):
-        from embedagent.agent_extension_host import AgentExtensionHost
-        from embedagent.agent_loop import AgentLoop
-        from embedagent.agent_tool_action_service import AgentToolActionService
+        from embedagent_core.agent_extension_host import AgentExtensionHost
+        from embedagent_core.agent_loop import AgentLoop
+        from embedagent_core.agent_tool_action_service import AgentToolActionService
 
         engine = QueryEngine(client=FakeClient(), tools=self.tools, max_turns=1)
 

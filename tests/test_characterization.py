@@ -12,12 +12,12 @@ from unittest.mock import MagicMock
 import pytest
 
 from embedagent.llm import OpenAICompatibleClient
-from embedagent.query_engine import QueryEngine
 from embedagent.services.event_emitter import EventEmitter
 from embedagent.services.session_lifecycle import SessionLifecycleManager
 from embedagent.services.workspace_file_service import WorkspaceFileService
 from embedagent.strategies.llm_retry_wrapper import LLMClientRetryWrapper
 from embedagent.tools import ToolRuntime
+from embedagent_core.query_engine import QueryEngine
 
 
 class TestInProcessAdapterFacade(object):
@@ -49,7 +49,7 @@ class TestServiceDelegation(object):
 
     def _make_adapter(self, fresh_container):
         """Helper to create an InProcessAdapter with mocked dependencies."""
-        from embedagent.inprocess_adapter import InProcessAdapter
+        from embedagent_host.inprocess_adapter import InProcessAdapter
 
         client = MagicMock(spec=OpenAICompatibleClient)
         tools = MagicMock(spec=ToolRuntime)

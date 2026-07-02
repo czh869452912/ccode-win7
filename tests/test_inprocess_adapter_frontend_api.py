@@ -9,13 +9,13 @@ from itertools import count
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from embedagent.hosted_command_service import HostedCommandService
-from embedagent.hosted_interaction_service import HostedInteractionService
-from embedagent.inprocess_adapter import InProcessAdapter, _should_emit_context_compacted
 from embedagent.llm import ModelClientError
-from embedagent.permissions import PermissionPolicy, PermissionRequest
 from embedagent.session import Action, AssistantReply, Observation
 from embedagent.tools import ToolDefinition, ToolRuntime
+from embedagent_core.permissions import PermissionPolicy, PermissionRequest
+from embedagent_host.hosted_command_service import HostedCommandService
+from embedagent_host.hosted_interaction_service import HostedInteractionService
+from embedagent_host.inprocess_adapter import InProcessAdapter, _should_emit_context_compacted
 
 _COUNTER = count(1)
 
@@ -143,7 +143,7 @@ class FrontendCatalogDynamicToolExtension(object):
         self.active = False
 
     def extension_capabilities(self):
-        from embedagent.extensions import ExtensionCapability
+        from embedagent_core.extensions import ExtensionCapability
 
         return [
             ExtensionCapability("register_tools", self.register_tools),
@@ -151,7 +151,7 @@ class FrontendCatalogDynamicToolExtension(object):
         ]
 
     def register_tools(self, event, context):
-        from embedagent.extensions import ToolRegistrationResult
+        from embedagent_core.extensions import ToolRegistrationResult
 
         del event
 

@@ -1,9 +1,9 @@
 from unittest.mock import MagicMock
 
 from embedagent.config import AppConfig
-from embedagent.hosted.launch_config import LaunchConfig
-from embedagent.hosted.runtime import create_hosted_runtime
-from embedagent.hosted.session_host import HostedSessionHost
+from embedagent_host.hosted.launch_config import LaunchConfig
+from embedagent_host.hosted.runtime import create_hosted_runtime
+from embedagent_host.hosted.session_host import HostedSessionHost
 
 
 def _config(tmp_path):
@@ -33,11 +33,11 @@ def test_create_hosted_runtime_builds_session_host(tmp_path, monkeypatch):
     context_cls = MagicMock(return_value=MagicMock(name="context_manager"))
     policy_cls = MagicMock(return_value=MagicMock(name="permission_policy"))
     adapter_cls = MagicMock(return_value=MagicMock(name="adapter"))
-    monkeypatch.setattr("embedagent.hosted.runtime.OpenAICompatibleClient", client_cls)
-    monkeypatch.setattr("embedagent.hosted.runtime.ToolRuntime", tools_cls)
-    monkeypatch.setattr("embedagent.hosted.runtime.ContextManager", context_cls)
-    monkeypatch.setattr("embedagent.hosted.runtime.PermissionPolicy", policy_cls)
-    monkeypatch.setattr("embedagent.hosted.runtime.InProcessAdapter", adapter_cls)
+    monkeypatch.setattr("embedagent_host.hosted.runtime.OpenAICompatibleClient", client_cls)
+    monkeypatch.setattr("embedagent_host.hosted.runtime.ToolRuntime", tools_cls)
+    monkeypatch.setattr("embedagent_host.hosted.runtime.ContextManager", context_cls)
+    monkeypatch.setattr("embedagent_host.hosted.runtime.PermissionPolicy", policy_cls)
+    monkeypatch.setattr("embedagent_host.hosted.runtime.InProcessAdapter", adapter_cls)
 
     runtime = create_hosted_runtime(_config(tmp_path))
 

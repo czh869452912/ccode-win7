@@ -37,12 +37,12 @@ class TestPublicImports(object):
     """Verify public imports and removed-alias boundaries."""
 
     def test_import_inprocess_adapter(self):
-        from embedagent.inprocess_adapter import InProcessAdapter
+        from embedagent_host.inprocess_adapter import InProcessAdapter
 
         assert InProcessAdapter is not None
 
     def test_import_query_engine(self):
-        from embedagent.query_engine import QueryEngine
+        from embedagent_core.query_engine import QueryEngine
 
         assert QueryEngine is not None
 
@@ -119,9 +119,9 @@ class TestInProcessAdapterBoundaries(object):
     """Verify InProcessAdapter construction and removed-alias boundaries."""
 
     def _make_adapter(self):
-        from embedagent.inprocess_adapter import InProcessAdapter
         from embedagent.llm import OpenAICompatibleClient
         from embedagent.tools import ToolRuntime
+        from embedagent_host.inprocess_adapter import InProcessAdapter
 
         client = MagicMock(spec=OpenAICompatibleClient)
         tools = MagicMock(spec=ToolRuntime)
@@ -130,7 +130,7 @@ class TestInProcessAdapterBoundaries(object):
         return InProcessAdapter(client=client, tools=tools)
 
     def test_can_instantiate_with_no_args(self):
-        from embedagent.inprocess_adapter import InProcessAdapter
+        from embedagent_host.inprocess_adapter import InProcessAdapter
 
         adapter = InProcessAdapter()
         assert adapter is not None
@@ -153,19 +153,19 @@ class TestInProcessAdapterBoundaries(object):
         assert isinstance(adapter._event_emitter, EventEmitter)
 
     def test_turn_runner_has_single_internal_entrypoint(self):
-        from embedagent.inprocess_adapter import InProcessAdapter
+        from embedagent_host.inprocess_adapter import InProcessAdapter
 
         assert hasattr(InProcessAdapter, "_run_turn")
         assert not hasattr(InProcessAdapter, "_run_turn_v2")
 
     def test_resource_command_specs_live_outside_adapter(self):
-        from embedagent.inprocess_adapter import InProcessAdapter
+        from embedagent_host.inprocess_adapter import InProcessAdapter
 
         assert not hasattr(InProcessAdapter, "_resource_command_specs")
         assert not hasattr(InProcessAdapter, "_skill_command_specs")
 
     def test_review_evidence_shaping_lives_outside_adapter(self):
-        from embedagent.inprocess_adapter import InProcessAdapter
+        from embedagent_host.inprocess_adapter import InProcessAdapter
 
         assert not hasattr(InProcessAdapter, "_review_events_from_session")
 
@@ -175,8 +175,8 @@ class TestQueryEngineBoundaries(object):
 
     def test_can_instantiate_with_minimal_args(self, fresh_container):
         from embedagent.llm import OpenAICompatibleClient
-        from embedagent.query_engine import QueryEngine
         from embedagent.tools import ToolRuntime
+        from embedagent_core.query_engine import QueryEngine
 
         client = MagicMock(spec=OpenAICompatibleClient)
         tools = MagicMock(spec=ToolRuntime)
@@ -187,25 +187,25 @@ class TestQueryEngineBoundaries(object):
         assert engine is not None
 
     def test_has_run_method(self):
-        from embedagent.query_engine import QueryEngine
+        from embedagent_core.query_engine import QueryEngine
 
         assert hasattr(QueryEngine, "run")
         assert callable(QueryEngine.run)
 
     def test_has_stop_method(self):
-        from embedagent.query_engine import QueryEngine
+        from embedagent_core.query_engine import QueryEngine
 
         assert hasattr(QueryEngine, "stop")
         assert callable(QueryEngine.stop)
 
     def test_has_submit_user_turn_method(self):
-        from embedagent.query_engine import QueryEngine
+        from embedagent_core.query_engine import QueryEngine
 
         assert hasattr(QueryEngine, "submit_user_turn")
         assert callable(QueryEngine.submit_user_turn)
 
     def test_workflow_prompt_assembly_lives_outside_query_engine(self):
-        from embedagent.query_engine import QueryEngine
+        from embedagent_core.query_engine import QueryEngine
 
         assert not hasattr(QueryEngine, "_append_workflow_prompt_messages")
         assert not hasattr(QueryEngine, "_should_inject_workflow_prompt")
@@ -282,7 +282,7 @@ class TestGlobalStateIsolation(object):
 
     def test_get_inprocess_adapter_returns_class(self):
         from embedagent.core.adapter import get_inprocess_adapter
-        from embedagent.inprocess_adapter import InProcessAdapter
+        from embedagent_host.inprocess_adapter import InProcessAdapter
 
         result = get_inprocess_adapter()
         assert result is InProcessAdapter

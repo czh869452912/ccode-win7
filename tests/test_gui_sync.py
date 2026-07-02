@@ -13,9 +13,9 @@ import pytest
 sys.path.insert(0, os.path.dirname(__file__))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from embedagent.permissions import PermissionPolicy
 from embedagent.protocol import MessageType
 from embedagent.tools import ToolRuntime
+from embedagent_core.permissions import PermissionPolicy
 
 
 @pytest.mark.gui

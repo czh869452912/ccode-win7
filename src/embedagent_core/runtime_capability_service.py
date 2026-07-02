@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Callable, Dict, List
 
-from embedagent.capabilities import CapabilityRegistry
+from embedagent_core.capabilities import CapabilityRegistry
 
 
 class RuntimeCapabilityService(object):

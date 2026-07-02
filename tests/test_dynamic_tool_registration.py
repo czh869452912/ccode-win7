@@ -2,14 +2,14 @@ from __future__ import annotations
 
 import pytest
 
-from embedagent.extensions import (
+from embedagent.session import Action, AssistantReply, Observation, Session
+from embedagent.tools import ToolDefinition, ToolRuntime
+from embedagent_core.extensions import (
     ExtensionContext,
     ExtensionManager,
     ToolRegistrationEvent,
     ToolRegistrationResult,
 )
-from embedagent.session import Action, AssistantReply, Observation, Session
-from embedagent.tools import ToolDefinition, ToolRuntime
 
 
 def dynamic_tool_metadata(permission_category="read", read_only=True):
@@ -284,7 +284,7 @@ class DynamicToolExtension(object):
         self.tool_name = tool_name
 
     def extension_capabilities(self):
-        from embedagent.extensions import ExtensionCapability
+        from embedagent_core.extensions import ExtensionCapability
 
         return [
             ExtensionCapability("register_tools", self.register_tools),
@@ -310,7 +310,7 @@ class OwnedToolExtension(object):
     builtin_extension = False
 
     def extension_capabilities(self):
-        from embedagent.extensions import ExtensionCapability
+        from embedagent_core.extensions import ExtensionCapability
 
         return [
             ExtensionCapability("allowed_tool_names", self.allowed_tool_names),
@@ -339,7 +339,7 @@ class ModeSwitchToolExtension(object):
     builtin_extension = False
 
     def extension_capabilities(self):
-        from embedagent.extensions import ExtensionCapability
+        from embedagent_core.extensions import ExtensionCapability
 
         return [ExtensionCapability("allowed_tool_names", self.allowed_tool_names)]
 
@@ -355,7 +355,7 @@ class InvalidToolExtension(object):
     builtin_extension = False
 
     def extension_capabilities(self):
-        from embedagent.extensions import ExtensionCapability
+        from embedagent_core.extensions import ExtensionCapability
 
         return [ExtensionCapability("register_tools", self.register_tools)]
 
@@ -397,9 +397,9 @@ def test_extension_tool_registration_failure_records_diagnostic(tmp_path):
 
 
 def test_agent_extension_host_registers_dynamic_tools_and_projects_active_schemas(tmp_path):
-    from embedagent.agent_extension_host import AgentExtensionHost
     from embedagent.modes import allowed_tools_for
-    from embedagent.permissions import PermissionPolicy
+    from embedagent_core.agent_extension_host import AgentExtensionHost
+    from embedagent_core.permissions import PermissionPolicy
 
     runtime = ToolRuntime(str(tmp_path))
     session = Session()
@@ -419,9 +419,9 @@ def test_agent_extension_host_registers_dynamic_tools_and_projects_active_schema
 
 
 def test_agent_extension_host_uses_mode_contract_as_active_tool_fallback(tmp_path):
-    from embedagent.agent_extension_host import AgentExtensionHost
     from embedagent.modes import allowed_tools_for
-    from embedagent.permissions import PermissionPolicy
+    from embedagent_core.agent_extension_host import AgentExtensionHost
+    from embedagent_core.permissions import PermissionPolicy
 
     runtime = ToolRuntime(str(tmp_path))
     host = AgentExtensionHost(
@@ -440,8 +440,8 @@ def test_agent_extension_host_uses_mode_contract_as_active_tool_fallback(tmp_pat
 
 
 def test_agent_extension_host_projects_mode_switch_only_when_active(tmp_path):
-    from embedagent.agent_extension_host import AgentExtensionHost
-    from embedagent.permissions import PermissionPolicy
+    from embedagent_core.agent_extension_host import AgentExtensionHost
+    from embedagent_core.permissions import PermissionPolicy
 
     host = AgentExtensionHost(
         manager=ExtensionManager([ModeSwitchToolExtension()]),
@@ -483,8 +483,8 @@ class ToolCallingClient(object):
 
 
 def test_query_engine_dynamic_tool_schema_requires_activation(tmp_path):
-    from embedagent.permissions import PermissionPolicy
-    from embedagent.query_engine import QueryEngine
+    from embedagent_core.permissions import PermissionPolicy
+    from embedagent_core.query_engine import QueryEngine
 
     runtime = ToolRuntime(str(tmp_path))
     session = Session()
@@ -506,8 +506,8 @@ def test_query_engine_dynamic_tool_schema_requires_activation(tmp_path):
 
 
 def test_query_engine_executes_active_extension_tool(tmp_path):
-    from embedagent.permissions import PermissionPolicy
-    from embedagent.query_engine import QueryEngine
+    from embedagent_core.permissions import PermissionPolicy
+    from embedagent_core.query_engine import QueryEngine
 
     action = Action("dynamic_echo", {"message": "hello"}, "call-dynamic")
     client = ToolCallingClient(action)
@@ -529,10 +529,10 @@ def test_query_engine_executes_active_extension_tool(tmp_path):
 
 
 def test_agent_tool_action_service_executes_active_dynamic_tool(tmp_path):
-    from embedagent.agent_extension_host import AgentExtensionHost
-    from embedagent.agent_tool_action_service import AgentToolActionService
-    from embedagent.permissions import PermissionPolicy
-    from embedagent.query_engine import QueryEngine
+    from embedagent_core.agent_extension_host import AgentExtensionHost
+    from embedagent_core.agent_tool_action_service import AgentToolActionService
+    from embedagent_core.permissions import PermissionPolicy
+    from embedagent_core.query_engine import QueryEngine
 
     runtime = ToolRuntime(str(tmp_path))
     policy = PermissionPolicy(auto_approve_all=True, workspace=str(tmp_path))
@@ -571,10 +571,10 @@ def test_agent_tool_action_service_executes_active_dynamic_tool(tmp_path):
 
 
 def test_agent_tool_action_service_dispatches_extension_owned_tool(tmp_path):
-    from embedagent.agent_extension_host import AgentExtensionHost
-    from embedagent.agent_tool_action_service import AgentToolActionService
-    from embedagent.permissions import PermissionPolicy
-    from embedagent.query_engine import QueryEngine
+    from embedagent_core.agent_extension_host import AgentExtensionHost
+    from embedagent_core.agent_tool_action_service import AgentToolActionService
+    from embedagent_core.permissions import PermissionPolicy
+    from embedagent_core.query_engine import QueryEngine
 
     runtime = ToolRuntime(str(tmp_path))
     policy = PermissionPolicy(auto_approve_all=True, workspace=str(tmp_path))
@@ -629,8 +629,8 @@ class DynamicShellExtension(DynamicToolExtension):
 
 
 def test_query_engine_dynamic_shell_tool_waits_for_permission(tmp_path):
-    from embedagent.permissions import PermissionPolicy
-    from embedagent.query_engine import QueryEngine
+    from embedagent_core.permissions import PermissionPolicy
+    from embedagent_core.query_engine import QueryEngine
 
     action = Action("dynamic_shell", {"message": "hello"}, "call-shell")
     engine = QueryEngine(
@@ -652,7 +652,7 @@ def test_query_engine_dynamic_shell_tool_waits_for_permission(tmp_path):
 
 
 def test_inprocess_adapter_catalog_includes_active_extension_tool(tmp_path):
-    from embedagent.inprocess_adapter import InProcessAdapter
+    from embedagent_host.inprocess_adapter import InProcessAdapter
 
     adapter = InProcessAdapter(tools=ToolRuntime(str(tmp_path)))
     adapter.extension_manager.register(DynamicToolExtension(active=True))
@@ -692,7 +692,7 @@ def test_dynamic_tool_registration_accepts_network_and_telemetry_categories(tmp_
 
 
 def test_permission_policy_uses_runtime_catalog_for_dynamic_network_tool(tmp_path):
-    from embedagent.permissions import PermissionPolicy
+    from embedagent_core.permissions import PermissionPolicy
 
     runtime = ToolRuntime(str(tmp_path))
     runtime.register_tool(
@@ -720,7 +720,7 @@ def test_permission_policy_uses_runtime_catalog_for_dynamic_network_tool(tmp_pat
 def test_permission_policy_falls_back_to_other_when_catalog_metadata_is_missing_or_invalid(
     tmp_path,
 ):
-    from embedagent.permissions import PermissionPolicy
+    from embedagent_core.permissions import PermissionPolicy
 
     runtime = ToolRuntime(str(tmp_path))
     policy = PermissionPolicy(auto_approve_all=False, workspace=str(tmp_path))
