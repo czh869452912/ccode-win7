@@ -11,6 +11,18 @@ from datetime import datetime, timezone
 from enum import Enum, auto
 from typing import Any, Dict, List, Optional, Protocol
 
+from embedagent.protocol.app_protocol import (
+    AppBootstrap,
+    CapabilitySnapshot,
+    CommandDescriptor,
+    InteractionActivity,
+    ModeDescriptor,
+    ThreadDetailSnapshot,
+    ThreadShell,
+    ToolPresentation,
+    WorkflowPackageDescriptor,
+)
+
 
 def _utc_now() -> datetime:
     return datetime.now(timezone.utc)
