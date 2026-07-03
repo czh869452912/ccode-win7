@@ -6,11 +6,11 @@ from itertools import count
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
+from query_engine_product_helpers import build_product_query_engine
+
 from embedagent.tools import ToolRuntime
 from embedagent_core.permissions import PermissionPolicy
-from embedagent_core.query_engine import QueryEngine
 from embedagent_core.session import Action, AssistantReply, Session
-from embedagent_host.default_extensions import build_default_extension_set
 from embedagent_host.inprocess_adapter import InProcessAdapter
 
 _COUNTER = count(1)
@@ -89,12 +89,11 @@ class QueryEngineDebugLiteTests(unittest.TestCase):
         shutil.rmtree(self.workspace, ignore_errors=True)
 
     def _build_engine(self, client=None):
-        default_extensions = build_default_extension_set(self.tools)
-        return QueryEngine(
+        return build_product_query_engine(
             client=client or DoneClient(),
             tools=self.tools,
+            workspace=self.workspace,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
-            extension_manager=default_extensions.manager,
         )
 
     def test_debug_mode_submit_turn_adds_harness_context(self):

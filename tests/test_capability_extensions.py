@@ -1,3 +1,5 @@
+from query_engine_product_helpers import build_product_query_engine
+
 from embedagent_core.extensions import (
     ContextPatch,
     ExtensionCapability,
@@ -332,14 +334,14 @@ class ContextInjectingExtension(object):
 def test_query_engine_applies_extension_context_patch(tmp_path):
     from embedagent.tools import ToolRuntime
     from embedagent_core.permissions import PermissionPolicy
-    from embedagent_core.query_engine import QueryEngine
 
     client = CapturingClient()
     tools = ToolRuntime(str(tmp_path))
     manager = ExtensionManager([ContextInjectingExtension()])
-    engine = QueryEngine(
+    engine = build_product_query_engine(
         client=client,
         tools=tools,
+        workspace=str(tmp_path),
         permission_policy=PermissionPolicy(
             auto_approve_all=True,
             workspace=str(tmp_path),
@@ -658,14 +660,14 @@ class PatchingToolResultExtension(object):
 def test_query_engine_tool_call_hook_can_block_tool_execution(tmp_path):
     from embedagent.tools import ToolRuntime
     from embedagent_core.permissions import PermissionPolicy
-    from embedagent_core.query_engine import QueryEngine
 
     target = tmp_path / "blocked.txt"
     target.write_text("blocked", encoding="utf-8")
     action = Action("read_file", {"path": "blocked.txt"}, "call-read")
-    engine = QueryEngine(
+    engine = build_product_query_engine(
         client=ToolCallingClient(action),
         tools=ToolRuntime(str(tmp_path)),
+        workspace=str(tmp_path),
         permission_policy=PermissionPolicy(
             auto_approve_all=True,
             workspace=str(tmp_path),
@@ -685,14 +687,14 @@ def test_query_engine_tool_call_hook_can_block_tool_execution(tmp_path):
 def test_query_engine_tool_result_hook_can_replace_observation(tmp_path):
     from embedagent.tools import ToolRuntime
     from embedagent_core.permissions import PermissionPolicy
-    from embedagent_core.query_engine import QueryEngine
 
     target = tmp_path / "readme.txt"
     target.write_text("hello", encoding="utf-8")
     action = Action("read_file", {"path": "readme.txt"}, "call-read")
-    engine = QueryEngine(
+    engine = build_product_query_engine(
         client=ToolCallingClient(action),
         tools=ToolRuntime(str(tmp_path)),
+        workspace=str(tmp_path),
         permission_policy=PermissionPolicy(
             auto_approve_all=True,
             workspace=str(tmp_path),

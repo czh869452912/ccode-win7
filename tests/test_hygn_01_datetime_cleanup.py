@@ -61,7 +61,7 @@ class TestNoDeprecatedDatetime:
     def test_timezone_imported_in_modified_files(self):
         """Verify all files using datetime.now(timezone.utc) import timezone."""
         files_to_check = [
-            "src/embedagent/session.py",
+            "src/embedagent_core/session.py",
             "src/embedagent/session_store.py",
             "src/embedagent/session_runtime.py",
             "src/embedagent/project_memory.py",

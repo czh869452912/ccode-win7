@@ -4,6 +4,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from query_engine_product_helpers import build_product_query_engine
+
 from embedagent_core.session import AssistantReply, Session
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -197,14 +199,14 @@ def test_session_import_does_not_eagerly_load_harness_task_graph():
 def test_c_harness_extension_preserves_build_prompt_behavior(tmp_path):
     from embedagent.tools import ToolRuntime
     from embedagent_core.permissions import PermissionPolicy
-    from embedagent_core.query_engine import QueryEngine
     from embedagent_host.default_extensions import build_default_extension_set
 
     tools = ToolRuntime(str(tmp_path))
     default_extensions = build_default_extension_set(tools)
-    engine = QueryEngine(
+    engine = build_product_query_engine(
         client=DoneClient(),
         tools=tools,
+        workspace=str(tmp_path),
         permission_policy=PermissionPolicy(auto_approve_all=True, workspace=str(tmp_path)),
         extension_manager=default_extensions.manager,
     )
@@ -226,14 +228,14 @@ def test_c_harness_extension_preserves_build_prompt_behavior(tmp_path):
 def test_c_harness_extension_uses_generic_workflow_prompt_kind(tmp_path):
     from embedagent.tools import ToolRuntime
     from embedagent_core.permissions import PermissionPolicy
-    from embedagent_core.query_engine import QueryEngine
     from embedagent_host.default_extensions import build_default_extension_set
 
     tools = ToolRuntime(str(tmp_path))
     default_extensions = build_default_extension_set(tools)
-    engine = QueryEngine(
+    engine = build_product_query_engine(
         client=DoneClient(),
         tools=tools,
+        workspace=str(tmp_path),
         permission_policy=PermissionPolicy(auto_approve_all=True, workspace=str(tmp_path)),
         extension_manager=default_extensions.manager,
     )
@@ -461,14 +463,14 @@ def test_inprocess_adapter_gets_default_harness_extension_from_factory():
 
 def test_query_engine_tool_activation_does_not_use_runtime_harness_pack_fallback():
     from embedagent_core.permissions import PermissionPolicy
-    from embedagent_core.query_engine import QueryEngine
     from embedagent_host.default_extensions import build_default_extension_set
 
     tools = ToolRuntimeBoundaryProbe()
     default_extensions = build_default_extension_set(tools)
-    engine = QueryEngine(
+    engine = build_product_query_engine(
         client=DoneClient(),
         tools=tools,
+        workspace=".",
         permission_policy=PermissionPolicy(auto_approve_all=True, workspace="."),
         extension_manager=default_extensions.manager,
     )
@@ -819,7 +821,11 @@ def test_bare_query_engine_uses_empty_extension_host_without_c_harness(tmp_path)
     from embedagent.tools import ToolRuntime
     from embedagent_core.query_engine import QueryEngine
 
-    engine = QueryEngine(client=DoneClient(), tools=ToolRuntime(str(tmp_path)), max_turns=1)
+    engine = QueryEngine(
+        client=DoneClient(),
+        tools=ToolRuntime(str(tmp_path)),
+        max_turns=1,
+    )
 
     assert engine.extension_manager.diagnostics() == []
     allowed = engine.extension_host.allowed_tool_names("build", workflow_state="chat")

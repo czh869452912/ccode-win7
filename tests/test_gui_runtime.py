@@ -467,9 +467,12 @@ class TestAgentCoreAdapterApi(unittest.TestCase):
 
         core = AgentCoreAdapter(workspace="D:\\workspace")
         core._adapter = MagicMock()
+        called = threading.Event()
+        core._adapter.submit_user_message.side_effect = lambda **kwargs: called.set()
 
         core.submit_message("sess-1", "hello")
 
+        self.assertTrue(called.wait(1.0))
         core._adapter.submit_user_message.assert_called_once()
         kwargs = core._adapter.submit_user_message.call_args.kwargs
         self.assertIsNone(kwargs["permission_resolver"])
