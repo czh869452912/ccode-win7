@@ -38,7 +38,7 @@ from embedagent_host.hosted_interaction_service import (
 )
 from embedagent_core.runtime_capability_service import RuntimeCapabilityService
 from embedagent_core.runtime_config import RuntimeConfigReducer
-from embedagent.session import (
+from embedagent_core.session import (
     Action,
     AssistantReply,
     LoopTransition,

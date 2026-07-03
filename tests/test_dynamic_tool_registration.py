@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from embedagent.session import Action, AssistantReply, Observation, Session
+from embedagent_core.session import Action, AssistantReply, Observation, Session
 from embedagent.tools import ToolDefinition, ToolRuntime
 from embedagent_core.extensions import (
     ExtensionContext,

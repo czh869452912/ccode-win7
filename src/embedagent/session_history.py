@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Callable, Dict, Optional
 
-from embedagent.session import PendingInteraction, Session, ToolCallRecord, ToolPresentationSnapshot
+from embedagent_core.session import PendingInteraction, Session, ToolCallRecord, ToolPresentationSnapshot
 
 
 def _display_transition_reason(reason: str) -> str:

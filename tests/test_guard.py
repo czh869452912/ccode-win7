@@ -5,7 +5,7 @@ import unittest
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from embedagent.guard import ProgressGuard
-from embedagent.session import Action, Observation
+from embedagent_core.session import Action, Observation
 
 
 class TestProgressGuard(unittest.TestCase):

@@ -164,7 +164,7 @@ class TestLLMRetryBehavior(object):
                 from embedagent.llm import ModelClientError
 
                 raise ModelClientError("HTTP 500: internal server error")
-            from embedagent.session import AssistantReply
+            from embedagent_core.session import AssistantReply
 
             return AssistantReply(content="ok", actions=[])
 

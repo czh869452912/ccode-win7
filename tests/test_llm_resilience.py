@@ -5,7 +5,7 @@ import unittest
 from unittest.mock import Mock
 
 from embedagent.llm import ModelClientError, OpenAICompatibleClient
-from embedagent.session import AssistantReply
+from embedagent_core.session import AssistantReply
 from embedagent.strategies.circuit_breaker import CircuitBreaker, CircuitBreakerOpenError
 from embedagent.strategies.llm_retry_wrapper import LLMClientRetryWrapper
 

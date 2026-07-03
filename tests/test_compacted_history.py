@@ -1,7 +1,7 @@
 import json
 import unittest
 
-from embedagent.compacted_history import CompactedHistoryReducer
+from embedagent_core.compacted_history import CompactedHistoryReducer
 
 
 class TestCompactedHistoryReducer(unittest.TestCase):

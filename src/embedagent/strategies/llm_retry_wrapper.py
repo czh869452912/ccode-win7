@@ -11,7 +11,7 @@ import time
 from typing import Any, Callable, Dict, List, Optional
 
 from embedagent.llm import ModelClientError, OpenAICompatibleClient
-from embedagent.session import AssistantReply
+from embedagent_core.session import AssistantReply
 from embedagent.strategies.circuit_breaker import CircuitBreaker, CircuitBreakerOpenError
 
 _LOG = logging.getLogger(__name__)

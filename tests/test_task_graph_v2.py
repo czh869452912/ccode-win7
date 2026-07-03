@@ -11,7 +11,7 @@ pytestmark = pytest.mark.harness
 
 class TaskGraphV2Tests(unittest.TestCase):
     def test_c_cpp_workflow_extension_owns_task_graph_without_session_field(self):
-        from embedagent.session import Observation, Session
+        from embedagent_core.session import Observation, Session
         from embedagent.session_runtime import ManagedSession
         from embedagent.workflow_packages.c_cpp.extension import CHarnessWorkflowExtension
 

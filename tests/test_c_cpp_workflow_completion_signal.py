@@ -4,7 +4,7 @@ import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from embedagent.session import Action, AssistantReply
+from embedagent_core.session import Action, AssistantReply
 from embedagent_core.query_engine import QueryEngine
 
 

@@ -13,7 +13,7 @@ from embedagent.config import AppConfig
 from embedagent.context import ContextManager
 from embedagent.interaction import UserInputResponse
 from embedagent.llm import ModelClientError
-from embedagent.session import Action, AssistantReply, Observation, Session
+from embedagent_core.session import Action, AssistantReply, Observation, Session
 from embedagent.session_restore import SessionRestorer
 from embedagent.tool_execution import partition_tool_actions
 from embedagent.tools import ToolRuntime

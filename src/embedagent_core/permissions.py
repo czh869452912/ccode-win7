@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional
 
 from embedagent.protocol import PermissionContextView
-from embedagent.session import Action
+from embedagent_core.session import Action
 
 
 def build_permission_explanation(

@@ -4,7 +4,7 @@ from typing import Any, Dict, List
 
 from embedagent.compactor import DeterministicCompactor
 from embedagent.context_window import ContextWindowState
-from embedagent.session import ContextAssemblyResult
+from embedagent_core.session import ContextAssemblyResult
 
 
 class CompactionJournal(object):

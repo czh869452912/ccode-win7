@@ -7,7 +7,7 @@ import urllib.request
 import uuid
 from typing import Any, Callable, Dict, Iterable, List, Optional
 
-from embedagent.session import Action, AssistantReply
+from embedagent_core.session import Action, AssistantReply
 
 
 class ModelClientError(Exception):

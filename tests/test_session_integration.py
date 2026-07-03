@@ -6,7 +6,7 @@ from itertools import count
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from embedagent.session import (
+from embedagent_core.session import (
     Action,
     AssistantReply,
     Observation,

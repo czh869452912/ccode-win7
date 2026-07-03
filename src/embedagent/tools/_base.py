@@ -15,7 +15,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 from embedagent.constants import should_skip_directory
 from embedagent.local_resources import discover_local_resources
 from embedagent.runtime_discovery import discover_bundle_root
-from embedagent.session import Observation
+from embedagent_core.session import Observation
 from embedagent.workspace_recipes import (
     list_workspace_recipes,
     resolve_workspace_recipe,

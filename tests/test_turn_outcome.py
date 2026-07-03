@@ -1,4 +1,4 @@
-from embedagent.session import LoopTransition, QueryTurnResult, Session, TurnOutcome
+from embedagent_core.session import LoopTransition, QueryTurnResult, Session, TurnOutcome
 
 
 def test_completed_transition_maps_to_successful_outcome():

@@ -6,7 +6,7 @@ import re
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from embedagent.constants import SKIP_DIR_NAMES, SKIP_RELATIVE_DIRS
-from embedagent.session import Observation
+from embedagent_core.session import Observation
 from embedagent.tools._base import ToolDefinition, ToolError, diagnostic_tool_error
 
 

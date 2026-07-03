@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Callable, Dict, Optional
 
-from embedagent.session import (
+from embedagent_core.session import (
     Action,
     ContextAssemblyResult,
     LoopTransition,

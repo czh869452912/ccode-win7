@@ -1,5 +1,5 @@
 from embedagent.context_usage import ContextUsageEstimator
-from embedagent.session import AssistantReply, Session
+from embedagent_core.session import AssistantReply, Session
 
 
 def _session_with_usage():

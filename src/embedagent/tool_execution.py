@@ -6,7 +6,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional
 
-from embedagent.session import Action, Observation
+from embedagent_core.session import Action, Observation
 
 
 @dataclass

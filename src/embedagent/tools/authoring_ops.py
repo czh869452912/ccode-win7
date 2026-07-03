@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any, Dict, List
 
 from embedagent.self_extension_authoring import AuthoringRequest, SelfExtensionAuthoringService
-from embedagent.session import Observation
+from embedagent_core.session import Observation
 from embedagent.tools._base import ToolContext, ToolDefinition
 
 

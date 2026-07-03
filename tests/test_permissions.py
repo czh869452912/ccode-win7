@@ -4,7 +4,7 @@ import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from embedagent.session import Action
+from embedagent_core.session import Action
 from embedagent.tools import ToolRuntime
 from embedagent_core.permissions import (
     OFFICIAL_PERMISSION_CATEGORIES,

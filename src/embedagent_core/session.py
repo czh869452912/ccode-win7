@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from embedagent.compacted_history import CompactedHistoryCheckpoint
+from embedagent_core.compacted_history import CompactedHistoryCheckpoint
 
 # Message type constants for schema_version=2 transcripts
 MESSAGE_TYPE_USER = "user"

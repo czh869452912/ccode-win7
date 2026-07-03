@@ -12,9 +12,9 @@ from embedagent_core.capabilities import (
 from embedagent.modes import allowed_tools_for
 from embedagent_core.permissions import OFFICIAL_PERMISSION_CATEGORIES
 from embedagent.projection_db import ProjectionDb
-from embedagent.session import Observation
+from embedagent_core.session import Observation
 from embedagent.strategies.tool_cache import ToolResultCache
-from embedagent.session import Action
+from embedagent_core.session import Action
 from embedagent.tool_result_store import ToolResultStore
 from embedagent.tools import (
     authoring_ops,

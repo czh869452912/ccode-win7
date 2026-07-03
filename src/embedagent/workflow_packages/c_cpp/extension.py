@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from typing import Any, List, Optional, Set
 
-from embedagent.session import Observation
+from embedagent_core.session import Observation
 from embedagent.workflow_packages.c_cpp import task_store
 from embedagent.workflow_packages.c_cpp.context_reducers import register_c_workflow_context_reducers
 from embedagent.workflow_packages.c_cpp.package_manifest import c_workflow_package_manifest_dict

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from embedagent.session import (
+from embedagent_core.session import (
     Action,
     InteractionCheckpoint,
     LoopTransition,

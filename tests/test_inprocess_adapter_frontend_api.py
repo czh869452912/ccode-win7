@@ -10,7 +10,7 @@ from itertools import count
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from embedagent.llm import ModelClientError
-from embedagent.session import Action, AssistantReply, Observation
+from embedagent_core.session import Action, AssistantReply, Observation
 from embedagent.tools import ToolDefinition, ToolRuntime
 from embedagent_core.permissions import PermissionPolicy, PermissionRequest
 from embedagent_host.hosted_command_service import HostedCommandService

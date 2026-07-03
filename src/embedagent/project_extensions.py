@@ -24,7 +24,7 @@ _LOAD_FAILURE_TYPES = (
 
 class ProjectExtensionApi(object):
     def __init__(self, workspace: str, extension_id: str, manifest: Dict[str, Any]) -> None:
-        from embedagent.session import Observation
+        from embedagent_core.session import Observation
         from embedagent.tools import ToolDefinition
         from embedagent_core.extensions import (
             ContextPatch,

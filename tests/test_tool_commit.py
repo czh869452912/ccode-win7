@@ -3,7 +3,7 @@ import tempfile
 import unittest
 
 from embedagent.projection_db import ProjectionDb
-from embedagent.session import Action, Observation, Session
+from embedagent_core.session import Action, Observation, Session
 from embedagent.tool_commit import ToolCommitCoordinator
 from embedagent.tool_result_store import ToolResultStore
 from embedagent.transcript_store import TranscriptStore

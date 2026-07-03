@@ -12,7 +12,7 @@ from embedagent_core.agent_kernel import AgentKernel
 from embedagent_core.agent_lifecycle import AgentLifecycleJournal
 from embedagent_core.agent_loop import AgentLoop
 from embedagent_core.agent_tool_action_service import AgentToolActionService
-from embedagent.compacted_history import CompactedHistoryReducer
+from embedagent_core.compacted_history import CompactedHistoryReducer
 from embedagent_core.compaction_journal import CompactionJournal
 from embedagent.context import ContextManager
 from embedagent.context_window import ContextWindowState
@@ -40,7 +40,7 @@ from embedagent.modes import (
 from embedagent_core.permissions import PermissionPolicy, PermissionRequest
 from embedagent.prompt_assembly_service import PromptAssemblyService
 from embedagent.project_memory import ProjectMemoryStore
-from embedagent.session import (
+from embedagent_core.session import (
     Action,
     AssistantReply,
     ContextAssemblyResult,

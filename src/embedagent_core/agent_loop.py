@@ -7,7 +7,7 @@ from typing import Any, Callable, Optional
 from embedagent.guard import ProgressGuard
 from embedagent.interaction import UserInputRequest, UserInputResponse
 from embedagent.llm import ModelClientError
-from embedagent.session import (
+from embedagent_core.session import (
     Action,
     AssistantReply,
     ContextAssemblyResult,

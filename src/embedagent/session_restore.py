@@ -5,8 +5,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, List
 
-from embedagent.compacted_history import CompactedHistoryReducer
-from embedagent.session import (
+from embedagent_core.compacted_history import CompactedHistoryReducer
+from embedagent_core.session import (
     Action,
     AssistantReply,
     LoopTransition,

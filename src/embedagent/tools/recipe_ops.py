@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List
 
-from embedagent.session import Observation
+from embedagent_core.session import Observation
 from embedagent.tools._base import ToolDefinition
 from embedagent.workspace_recipes import RecipeResolutionError
 

@@ -4,7 +4,7 @@ from typing import Any, Callable, Optional, Set, Tuple
 
 from embedagent.interaction import ask_user_schema, propose_mode_switch_schema
 from embedagent.modes import allowed_tools_for
-from embedagent.session import Action, ContextAssemblyResult, Observation, Session
+from embedagent_core.session import Action, ContextAssemblyResult, Observation, Session
 from embedagent.tools import ToolRuntime
 from embedagent_core.extensions import (
     ExtensionContext,

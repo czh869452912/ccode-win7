@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
 from embedagent.project_memory import ProjectMemoryStore
-from embedagent.session import Observation, Session
+from embedagent_core.session import Observation, Session
 
 
 @dataclass

@@ -4,7 +4,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from embedagent.session import AssistantReply, Session
+from embedagent_core.session import AssistantReply, Session
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 
@@ -169,7 +169,7 @@ def test_session_has_generic_workflow_state():
 def test_session_no_longer_has_task_graph_field():
     from dataclasses import fields
 
-    from embedagent.session import Session
+    from embedagent_core.session import Session
 
     assert "task_graph" not in {field.name for field in fields(Session)}
     assert not hasattr(Session(), "task_graph")
@@ -178,7 +178,7 @@ def test_session_no_longer_has_task_graph_field():
 def test_session_import_does_not_eagerly_load_harness_task_graph():
     script = (
         "import sys\n"
-        "import embedagent.session\n"
+        "import embedagent_core.session\n"
         "print('embedagent.workflow_packages.c_cpp.task_graph' in sys.modules)\n"
     )
 

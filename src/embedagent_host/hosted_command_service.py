@@ -9,7 +9,7 @@ from embedagent.modes import require_mode
 from embedagent.prompts import expand_prompt_invocation
 from embedagent.protocol import CommandResult, PlanSnapshot
 from embedagent.review_command import ReviewCommandService
-from embedagent.session import Action, AssistantReply, LoopTransition, Observation, TurnOutcome
+from embedagent_core.session import Action, AssistantReply, LoopTransition, Observation, TurnOutcome
 from embedagent.session_runtime import ManagedSession
 from embedagent.skills import expand_skill_invocation
 from embedagent.slash_command_service import SlashCommandService

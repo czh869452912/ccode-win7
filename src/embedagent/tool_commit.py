@@ -6,7 +6,7 @@ import time
 from copy import deepcopy
 from typing import Any, Dict, Optional
 
-from embedagent.session import Observation, Session
+from embedagent_core.session import Observation, Session
 
 _LOG = logging.getLogger(__name__)
 

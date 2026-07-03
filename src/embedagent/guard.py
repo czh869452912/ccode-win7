@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 
-from embedagent.session import Action, Observation
+from embedagent_core.session import Action, Observation
 
 
 def _action_key(action: Action) -> str:

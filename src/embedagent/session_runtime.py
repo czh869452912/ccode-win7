@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional, Set
 
-from embedagent.session import Session
+from embedagent_core.session import Session
 
 
 def _utc_now() -> str:

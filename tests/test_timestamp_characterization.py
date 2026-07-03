@@ -7,7 +7,7 @@ from embedagent.plan_store import _utc_now as plan_utc_now
 from embedagent.project_memory import _utc_now as memory_utc_now
 
 # Import modules to test
-from embedagent.session import _utc_now
+from embedagent_core.session import _utc_now
 from embedagent.session_runtime import _utc_now as runtime_utc_now
 from embedagent.session_store import _utc_now as store_utc_now
 from embedagent.transcript_store import _utc_now as transcript_utc_now

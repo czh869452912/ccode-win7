@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Optional
 from embedagent.modes import build_system_prompt
 from embedagent.persistence_sanitize import sanitize_jsonable
 from embedagent.projection_db import ProjectionDb
-from embedagent.session import Action, Observation, Session
+from embedagent_core.session import Action, Observation, Session
 from embedagent.tool_result_store import ToolResultStore
 from embedagent.transcript_store import TranscriptStore
 from embedagent.workspace_profile import build_workspace_profile_message

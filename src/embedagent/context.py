@@ -8,7 +8,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from embedagent.context_usage import ContextUsageEstimator
 from embedagent.project_memory import ProjectMemoryStore
-from embedagent.session import Action, Message, Observation, Session, Turn
+from embedagent_core.session import Action, Message, Observation, Session, Turn
 from embedagent.workspace_intelligence import WorkspaceIntelligenceBroker
 
 _MODE_RE = re.compile(r"当前模式：(\w+)")

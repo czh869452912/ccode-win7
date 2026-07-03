@@ -7,7 +7,7 @@ from unittest import mock
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from embedagent.compacted_history import CompactedHistoryCheckpoint
+from embedagent_core.compacted_history import CompactedHistoryCheckpoint
 from embedagent.config import AppConfig
 from embedagent.context import (
     ContextConfig,
@@ -15,7 +15,7 @@ from embedagent.context import (
     ReducerRegistry,
     make_context_config,
 )
-from embedagent.session import AssistantReply, Observation, Session
+from embedagent_core.session import AssistantReply, Observation, Session
 from embedagent.workflow_packages.c_cpp.extension import CHarnessWorkflowExtension
 
 

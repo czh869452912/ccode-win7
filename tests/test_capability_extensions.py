@@ -1,4 +1,4 @@
-from embedagent.session import Action, AssistantReply, Observation
+from embedagent_core.session import Action, AssistantReply, Observation
 from embedagent_core.extensions import (
     ContextPatch,
     ExtensionCapability,
@@ -291,7 +291,7 @@ class CapturingClient(object):
         self.messages = []
 
     def generate(self, messages, tools=None):
-        from embedagent.session import AssistantReply
+        from embedagent_core.session import AssistantReply
 
         del tools
         self.messages = list(messages)
@@ -709,7 +709,7 @@ def test_query_engine_tool_result_hook_can_replace_observation(tmp_path):
 
 
 def test_agent_extension_host_applies_context_and_tool_result_workflow_patch(tmp_path):
-    from embedagent.session import ContextAssemblyResult, Session
+    from embedagent_core.session import ContextAssemblyResult, Session
     from embedagent.tools import ToolRuntime
     from embedagent_core.agent_extension_host import AgentExtensionHost
     from embedagent_core.extensions import ContextPatch, WorkflowPatch
@@ -854,7 +854,7 @@ class DynamicServiceBoundaryExtension(object):
 
 
 def test_agent_tool_action_service_runs_dynamic_tools_through_extension_hooks(tmp_path):
-    from embedagent.session import Session
+    from embedagent_core.session import Session
     from embedagent.tools import ToolRuntime
     from embedagent_core.agent_extension_host import AgentExtensionHost
     from embedagent_core.agent_tool_action_service import AgentToolActionService
@@ -939,7 +939,7 @@ def test_workflow_patch_exposes_only_current_read_model_fields():
 
 
 def test_session_snapshot_projects_extension_state_and_diagnostics():
-    from embedagent.session import Session
+    from embedagent_core.session import Session
     from embedagent.session_projector import SessionSnapshotProjector
     from embedagent.session_runtime import ManagedSession
 

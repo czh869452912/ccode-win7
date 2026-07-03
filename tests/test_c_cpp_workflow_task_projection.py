@@ -30,7 +30,7 @@ def _make_workspace(name):
 
 class DoneClient(object):
     def generate(self, messages, tools=None):
-        from embedagent.session import AssistantReply
+        from embedagent_core.session import AssistantReply
 
         del messages, tools
         return AssistantReply(content="done", actions=[], finish_reason="stop")

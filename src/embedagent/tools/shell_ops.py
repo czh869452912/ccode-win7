@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any, Dict, List
 
 from embedagent.command_sanitizer import get_command_sanitizer
-from embedagent.session import Observation
+from embedagent_core.session import Observation
 from embedagent.tools._base import (
     DEFAULT_COMMAND_TIMEOUT_SEC,
     ToolContext,
