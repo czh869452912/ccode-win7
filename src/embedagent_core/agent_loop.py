@@ -4,8 +4,8 @@ import threading
 import uuid
 from typing import Any, Callable, Optional
 
-from embedagent.guard import ProgressGuard
-from embedagent.interaction import UserInputRequest, UserInputResponse
+from embedagent_core.guard import ProgressGuard
+from embedagent_core.interaction import UserInputRequest, UserInputResponse
 from embedagent.llm import ModelClientError
 from embedagent_core.session import (
     Action,
@@ -16,7 +16,7 @@ from embedagent_core.session import (
     QueryTurnResult,
     Session,
 )
-from embedagent.tool_execution import StreamingToolExecutor, partition_tool_actions
+from embedagent_core.tool_execution import StreamingToolExecutor, partition_tool_actions
 from embedagent_core.agent_loop_continuation import (
     CONTINUATION_ABORT,
     CONTINUATION_COMPACT_THEN_CONTINUE,

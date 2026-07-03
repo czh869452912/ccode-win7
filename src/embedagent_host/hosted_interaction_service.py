@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Callable, Dict, Optional
 
-from embedagent.interaction import UserInputRequest, UserInputResponse
+from embedagent_core.interaction import UserInputRequest, UserInputResponse
 from embedagent.session_runtime import ManagedSession
 from embedagent_core.permissions import PermissionRequest
 

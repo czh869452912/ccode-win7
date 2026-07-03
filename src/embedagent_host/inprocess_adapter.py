@@ -16,7 +16,7 @@ from embedagent_core.compaction_state import CompactionStateReducer
 from embedagent.context import ContextManager
 from embedagent_host.default_extensions import build_default_extension_set
 from embedagent_core.extensions import ExtensionContext, ToolRegistrationEvent
-from embedagent.interaction import UserInputRequest, UserInputResponse
+from embedagent_core.interaction import UserInputRequest, UserInputResponse
 from embedagent.llm import OpenAICompatibleClient
 from embedagent.memory_maintenance import MemoryMaintenance
 from embedagent.modes import (

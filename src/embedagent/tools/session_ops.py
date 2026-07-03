@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List
 
-from embedagent.interaction import ask_user_schema
+from embedagent_core.interaction import ask_user_schema
 from embedagent_core.session import Observation
 from embedagent.tools._base import ToolDefinition
 

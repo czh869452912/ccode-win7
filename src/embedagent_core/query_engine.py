@@ -21,7 +21,7 @@ from embedagent_core.extensions import (
     ExtensionManager,
     WorkflowEvent,
 )
-from embedagent.interaction import (
+from embedagent_core.interaction import (
     UserInputRequest,
     UserInputResponse,
 )

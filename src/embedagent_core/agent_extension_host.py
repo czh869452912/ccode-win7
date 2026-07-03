@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Callable, Optional, Set, Tuple
 
-from embedagent.interaction import ask_user_schema, propose_mode_switch_schema
+from embedagent_core.interaction import ask_user_schema, propose_mode_switch_schema
 from embedagent.modes import allowed_tools_for
 from embedagent_core.session import Action, ContextAssemblyResult, Observation, Session
 from embedagent.tools import ToolRuntime

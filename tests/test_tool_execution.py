@@ -7,7 +7,7 @@ import unittest
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from embedagent_core.session import Action, Observation
-from embedagent.tool_execution import StreamingToolExecutor, ToolBatch
+from embedagent_core.tool_execution import StreamingToolExecutor, ToolBatch
 
 
 class TestStreamingToolExecutor(unittest.TestCase):
