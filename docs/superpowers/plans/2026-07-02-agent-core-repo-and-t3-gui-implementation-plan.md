@@ -1,5 +1,10 @@
 # Agent Core Repository Split And T3 GUI Implementation Plan
 
+> **Superseded:** This broad plan is superseded by the staged plans starting with
+> `docs/superpowers/plans/2026-07-03-agent-core-boundary-extraction.md`.
+> The older document reflects an earlier repository shape and must not be used
+> as the execution checklist for current work.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Replace the current C/C++-shaped product internals with a generic Agent Core, explicit host/workflow package assembly, and a T3 Code-style GUI contract that is driven by backend capabilities and durable activities.
