@@ -131,10 +131,10 @@ packages.
 ### Host And Product Composition Layer
 
 - `src/embedagent_host/inprocess_adapter.py`
-- `src/embedagent_host/default_extensions.py`
 - `src/embedagent_host/hosted_command_service.py`
 - `src/embedagent_host/hosted_interaction_service.py`
 - `src/embedagent_host/hosted/`
+- `src/embedagent/agent_applications.py`
 - `src/embedagent/session_runtime.py`
 - `src/embedagent/session_projector.py`
 - `src/embedagent/session_history.py`
@@ -143,16 +143,28 @@ packages.
 - `src/embedagent/project_extensions.py`
 - `src/embedagent/slash_commands.py`
 
-This layer assembles Agent Core, selected workflow packages, local resources,
+This layer assembles Agent Core, selected agent applications, workflow packages, local resources,
 project-local extensions, product session hosting, CLI/TUI/GUI bridges, and
 offline bundle integration. It is replaceable product composition, not generic
 Core.
 
-Hosted agent profiles declare scenario mode metadata, base tool policy, and
-GUI mode capability projection. Workflow packages declare scenario-specific
+Hosted `AgentApplication` records declare scenario identity, manifest metadata,
+profile, mode policy, extension manager, and workflow refreshers. The hosted
+application registry resolves the selected application id and exposes safe
+`AgentApplicationManifest` records for GUI capability projection. Agent
+profiles declare scenario mode metadata, base tool policy, and GUI mode
+capability projection.
+Workflow packages declare scenario-specific
 workflow tools, packs, prompts, resources, manifests, and package-owned tool
 names. Provider-facing schemas are always projected from explicit active tool
 names computed by the shared extension boundary.
+
+The built-in application registry currently exposes `embedagent.default_c_cpp`
+as the default packaged product application plus profile-only
+`embedagent.generic`, `embedagent.python`, and `embedagent.html` applications.
+Those non-C applications share the same Agent Core, hosted runtime, protocol,
+and GUI shell while carrying no C/C++ workflow package manifest or harness
+refresh path.
 
 ### Default C/C++ Workflow Package
 
@@ -215,13 +227,13 @@ Explicit user mode-switch requests are routed by `QueryEngine` before provider c
 
 `TurnExperienceReducer` is the replayable turn-experience read model. It reduces safe `tool_result` and `loop_transition` transcript events into completed work, unverified changes, validation failures, blockers, last failure, and suggested next steps. It feeds `ManagedSession.turn_experience`, protocol snapshots, session snapshots, `session_finished` payloads, CLI diagnostics, the TUI inspector, and GUI T3 system notices. It remains display/replay state and must not drive loop continuation, validation policy, active-tool selection, permission decisions, restore rules, extension loading, or session-history truth.
 
-Default bundled extension assembly is outside `QueryEngine` in `src/embedagent_host/default_extensions.py`. A bare `QueryEngine` receives an empty `ExtensionManager`; hosted product paths install the default C/C++ harness explicitly before constructing session engines. Hosted product paths may additionally load project-local extensions from `.embedagent/extensions/<name>/extension.json` when the manifest is explicitly enabled and declares permissions. Loaded project extensions receive `api.ExtensionCapability` and must explicitly declare every active hook from `extension_capabilities()`. Public remote registries, plugin marketplaces, runtime dependency installation, built-in tool replacement, and multi-agent orchestration remain out of scope.
+Default bundled workflow assembly is outside `QueryEngine` through `AgentApplication`. A bare `QueryEngine` receives an empty `ExtensionManager`; hosted product paths install the selected application extension manager before constructing session engines. The default C/C++ product application lives in `src/embedagent/workflow_packages/c_cpp/application.py`, while `InProcessAdapter` depends only on the application boundary, selected application id, and injected mode/profile policies. Hosted capability payloads expose the selected application as `agentApplication` and available applications from the same selected registry as `agentApplications`; an injected external application must not leak the bundled C/C++ application into its GUI capability list. Hosted product paths may additionally load project-local extensions from `.embedagent/extensions/<name>/extension.json` when the manifest is explicitly enabled and declares permissions. Loaded project extensions receive `api.ExtensionCapability` and must explicitly declare every active hook from `extension_capabilities()`. Public remote registries, plugin marketplaces, runtime dependency installation, built-in tool replacement, and multi-agent orchestration remain out of scope.
 
 Optional enterprise/intranet integrations are hosted capabilities, not Agent Core responsibilities. Intranet Git adapters, custom service providers, model gateways, organization-local catalogs, and telemetry sinks must be explicitly configured, trusted, disableable, and failure-tolerant. They attach through provider, extension, workflow-package, or passive sink boundaries with source metadata and normal permission checks; they must not make startup, default C/C++ workflows, restore, resource reload, or session history depend on network availability.
 
 The foundation for that boundary is implemented as metadata and policy, not as network behavior. `ToolRuntime` catalog metadata is the source of truth for permission category, and `PermissionPolicy` asks by default for `other` when a tool lacks valid metadata. `network` and `telemetry` are official permission categories recognized by `PermissionPolicy`, dynamic tool registration, project extension manifests, self-extension authoring, frontend permission context, and tool catalogs. `src/embedagent/telemetry.py` builds local safe envelopes for future sinks by redacting or summarizing prompt/source/output/credential metadata; it does not upload data or create a telemetry service.
 
-Harness state refresh in the product adapter path goes through `CHarnessWorkflowExtension.refresh_managed_session()` behind the default C harness workflow extension. The old `HarnessStateSynchronizer` service facade has been removed rather than kept as a parallel compatibility path.
+Managed-session workflow refresh in the product adapter path goes through `AgentApplication.refresh_managed_session()`, which delegates to the selected application's workflow refreshers. The bundled C/C++ application uses `CHarnessWorkflowExtension.refresh_managed_session()` internally; the old `HarnessStateSynchronizer` service facade has been removed rather than kept as a parallel compatibility path.
 
 ### Session Runtime Ownership
 
@@ -508,8 +520,14 @@ The frontend-facing vocabulary is now:
 - `current_activity`
 - `task_summary`
 - `task_items`
+- `agentApplication` and `agentApplications` for backend-declared scenario
+  application identity, profile id, workflow package ids, and activation state
 
 If a frontend change introduces older terms back into the product shell, that is an architectural regression.
+GUI no-workspace copy, mode catalogs, command lists, tool presentation,
+workflow package/application identity, and runtime workflow summary rows must
+come from backend capability/snapshot payloads rather than renderer-side C/C++
+defaults.
 
 ## 10. Bundling Model
 

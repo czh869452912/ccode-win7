@@ -17,11 +17,11 @@ from embedagent.modes import (
 )
 from embedagent.project_memory import ProjectMemoryStore
 from embedagent.tools import ToolRuntime
+from embedagent.workflow_packages.c_cpp.application import build_c_cpp_agent_application
 from embedagent.workspace_intelligence import WorkspaceIntelligenceBroker
 from embedagent_core.permissions import PermissionPolicy
 from embedagent_core.query_engine import QueryEngine
 from embedagent_core.session import AssistantReply, Session
-from embedagent_host.default_extensions import build_default_extension_set
 from embedagent_host.inprocess_adapter import InProcessAdapter
 
 _COUNTER = count(1)
@@ -105,7 +105,7 @@ class QueryEngineBuildLiteTests(unittest.TestCase):
         shutil.rmtree(self.workspace, ignore_errors=True)
 
     def _build_engine(self, client=None):
-        default_extensions = build_default_extension_set(self.tools)
+        default_extensions = build_c_cpp_agent_application(self.tools)
         project_memory = ProjectMemoryStore(self.workspace)
         return QueryEngine(
             client=client or DoneClient(),
@@ -114,7 +114,7 @@ class QueryEngineBuildLiteTests(unittest.TestCase):
             context_manager=ContextManager(project_memory=project_memory),
             project_memory_store=project_memory,
             intelligence_broker=WorkspaceIntelligenceBroker(),
-            extension_manager=default_extensions.manager,
+            extension_manager=default_extensions.extension_manager,
             mode_tool_policy=ProductModeToolPolicy(),
             write_path_policy=ProductWritePathPolicy(),
             mode_runtime_policy=ProductModeRuntimePolicy(),

@@ -21,6 +21,10 @@ composition layer, and replaceable workflow packages:
   import GUI backend code, hosted product composition, or workflow packages.
 - `src/embedagent_host/` assembles Core, selected workflow packages, session
   hosting, command/interaction services, and UI shells into the product runtime.
+- `src/embedagent/agent_applications.py` is the hosted scenario application
+  registry. Built-in ids currently include `embedagent.default_c_cpp`,
+  `embedagent.generic`, `embedagent.python`, and `embedagent.html`; the default
+  packaged product still selects `embedagent.default_c_cpp`.
 - `src/embedagent/workflow_packages/c_cpp/` is the first-party default C/C++
   workflow package. It is bundled by the hosted product, but it is not Core.
 - `src/embedagent/protocol/` contains the Agent App Protocol contracts consumed
@@ -61,8 +65,9 @@ The next long-term architecture direction is captured in `docs/pi-inspired-agent
 - Official local resources: `.embedagent/skills`, `.embedagent/prompts`, and `.embedagent/recipes` are discovered as workspace-bound file resources and can be refreshed through `ToolRuntime.reload_resources()`, `InProcessAdapter.reload_resources(...)`, `/resources reload`, or `POST /api/sessions/{id}/resources/reload`. Skills support Agent Skills-style frontmatter; visible skills are summarized through one lightweight local skill listing prompt unit, while `/skill:<name> [args]` explicitly expands a local skill file into a normal user turn. Prompt files are not injected into default system prompts; `/prompt:<name-or-path> [args]` explicitly expands a workspace-bound prompt file into a normal user turn.
 - Official local self-extension authoring: `SelfExtensionAuthoringService` and the `author_local_capability` tool generate workspace-bound skills, prompts, recipes, and disabled-by-default project extension skeletons. Authoring writes files only; it does not reload resources or load Python extension code.
 - Official project extension loading: hosted product paths may load enabled `.embedagent/extensions/<name>/extension.json` manifests with workspace-bound `extension.py` entrypoints; `enabled` defaults to false, enabled manifests must declare permissions, no dependency installation or remote registry is allowed, and loaded extensions register explicit `api.ExtensionCapability` records through the same shared `ExtensionManager`
-- Official default extension assembly: `src/embedagent_host/default_extensions.py` installs the bundled C/C++ harness for hosted product paths; `QueryEngine` itself has no built-in harness import or constructor fallback
-- Official harness refresh path: `CHarnessWorkflowExtension.refresh_managed_session()`; the old `HarnessStateSynchronizer` service facade has been removed
+- Official agent application assembly: `src/embedagent/agent_applications.py` defines the hosted scenario application boundary, manifest registry, and selected-application loader. The default hosted product loads `src/embedagent/workflow_packages/c_cpp/application.py`, which installs the bundled C/C++ workflow extension outside `QueryEngine`; profile-only built-ins such as `embedagent.generic`, `embedagent.python`, and `embedagent.html` load the same Agent Core and GUI without installing the C/C++ workflow package. `QueryEngine` itself has no built-in harness import or constructor fallback.
+- Official frontend application capability: hosted capability payloads expose the selected application as `agentApplication` and available same-package applications as `agentApplications`. GUI shells consume these backend-declared descriptors and must not hard-code C/C++ defaults, no-workspace copy, or application-specific mode/tool lists.
+- Official application refresh path: `AgentApplication.refresh_managed_session()` delegates to the selected application's workflow refreshers. The bundled C/C++ application uses `CHarnessWorkflowExtension.refresh_managed_session()` internally; the old `HarnessStateSynchronizer` service facade has been removed.
 - Official runtime schema projection: `ToolRuntime.schemas_for(mode, workflow_state, tool_names=...)` is the single schema projection entry point; callers must pass explicit active tool names and omitted `tool_names` project no provider-facing schemas
 - Official core accessor surface: mode registry, command sanitizer, and adapter class lookup use `get_mode_registry()`, `get_command_sanitizer()`, and `get_inprocess_adapter()` directly. Removed registry, sanitizer, and adapter private aliases must not be reintroduced.
 - Official turn snapshot boundary: `TurnSnapshotService` builds the provider `TurnSnapshot` after context assembly and active schema projection; provider requests consume `snapshot.messages` and `snapshot.tool_schemas`
@@ -164,8 +169,10 @@ The product no longer treats the old `code` mode or legacy todo-management workf
   Local-only safe telemetry envelope helper that redacts prompt/source/output/credential fields before future sinks see metadata.
 - `src/embedagent_core/extensions.py`
   In-process extension contract and manager for workflow prompt/tool/state hooks.
-- `src/embedagent_host/default_extensions.py`
-  Hosted-runtime factory that installs the bundled C/C++ harness extension outside `QueryEngine`.
+- `src/embedagent/agent_applications.py`
+  Hosted scenario application boundary, manifest registry, selected-application loader, profile, mode policy, extension manager, and workflow refreshers.
+- `src/embedagent/workflow_packages/c_cpp/application.py`
+  Default C/C++ scenario application factory that installs the bundled workflow extension outside `QueryEngine`.
 - `src/embedagent/session_runtime.py` and `src/embedagent/session_projector.py`
   Runtime host state plus pure snapshot/bootstrap projection from session truth.
 - `src/embedagent/workflow_packages/c_cpp/`

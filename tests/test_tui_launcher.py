@@ -21,11 +21,19 @@ class TestTuiLauncher(unittest.TestCase):
                 "embedagent.frontend.tui.launcher.run_tui",
                 return_value=0,
             ) as run_tui:
-                exit_code = tui_launcher.launch_tui(workspace=workspace, max_turns=3)
+                exit_code = tui_launcher.launch_tui(
+                    workspace=workspace,
+                    max_turns=3,
+                    agent_application_id="tests.python",
+                )
 
         self.assertEqual(exit_code, 0)
         self.assertEqual(resolve_config.call_args.args[0], real_workspace)
         self.assertEqual(resolve_config.call_args.kwargs["overrides"].max_turns, 3)
+        self.assertEqual(
+            resolve_config.call_args.kwargs["overrides"].agent_application_id,
+            "tests.python",
+        )
         create_runtime.assert_called_once()
         self.assertIs(run_tui.call_args.kwargs["session_host"], runtime.session_host)
 

@@ -2,6 +2,10 @@ import React from "react";
 import { useLang } from "../LangContext.js";
 import { t } from "../strings.js";
 import { formatDiagnosticsRows } from "../app-shell/diagnostics.js";
+import {
+  buildWorkflowRuntimeRows,
+  workflowTaskSummary,
+} from "../session-runtime/workflow-display.js";
 import { RIGHT_PANEL_SURFACES } from "../workbench/surfaces.js";
 import DiffView from "./DiffView.jsx";
 import InteractionPanel from "./InteractionPanel.jsx";
@@ -380,6 +384,8 @@ function RuntimePanel({ snapshot, lang }) {
   const recentTransitions = Array.isArray(snapshot?.recentTransitions)
     ? snapshot.recentTransitions
     : [];
+  const workflowRows = buildWorkflowRuntimeRows(snapshot);
+  const taskSummary = workflowTaskSummary(snapshot);
   const resolvedRoots = runtime?.resolved_tool_roots || {};
   const toolSources = runtime?.tool_sources || {};
   if (!snapshot) {
@@ -392,9 +398,6 @@ function RuntimePanel({ snapshot, lang }) {
         <div><strong>{t("inspector.sessionStatus", lang)}:</strong> {snapshot.status || "-"}</div>
         <div><strong>{t("inspector.lastState", lang)}:</strong> {snapshot.lastTransitionDisplayReason || snapshot.lastTransitionReason || "-"}</div>
         <div><strong>{t("inspector.lastStateMessage", lang)}:</strong> {snapshot.lastTransitionMessage || "-"}</div>
-        <div><strong>{t("inspector.currentPhase", lang)}:</strong> {snapshot.current_phase || "-"}</div>
-        <div><strong>{t("inspector.disciplineProfile", lang)}:</strong> {snapshot.discipline_profile || "-"}</div>
-        <div><strong>{t("inspector.currentActivity", lang)}:</strong> {snapshot.current_activity || "-"}</div>
         <div><strong>{t("inspector.runtimeSource", lang)}:</strong> {snapshot.runtimeSource || "-"}</div>
         <div><strong>{t("inspector.runtimeReady", lang)}:</strong> {snapshot.bundledToolsReady ? t("inspector.yes", lang) : t("inspector.no", lang)}</div>
         {snapshot.compactBoundaryCount > 0 && (
@@ -414,10 +417,22 @@ function RuntimePanel({ snapshot, lang }) {
           </div>
         </>
       )}
-      {snapshot.task_summary ? (
+      {workflowRows.length > 0 ? (
+        <>
+          <h3>{t("inspector.workflow", lang)}</h3>
+          <div className="runtime-summary">
+            {workflowRows.map((row) => (
+              <div key={row.key}>
+                <strong>{row.labelKey ? t(row.labelKey, lang) : row.label}:</strong> {row.value}
+              </div>
+            ))}
+          </div>
+        </>
+      ) : null}
+      {taskSummary ? (
         <>
           <h3>{t("inspector.taskSummary", lang)}</h3>
-          <pre>{snapshot.task_summary}</pre>
+          <pre>{taskSummary}</pre>
         </>
       ) : null}
       <h3>{t("inspector.recentTransitions", lang)}</h3>

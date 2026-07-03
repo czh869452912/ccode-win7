@@ -6,6 +6,7 @@ import unittest
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from embedagent.protocol import (
+    AgentApplicationDescriptor,
     AppBootstrap,
     CapabilitySnapshot,
     CommandDescriptor,
@@ -56,6 +57,22 @@ class AgentAppProtocolTests(unittest.TestCase):
                     state={"phase": "test"},
                 )
             ],
+            agent_application=AgentApplicationDescriptor(
+                id="python",
+                label="Python Agent",
+                profile_id="python.profile",
+                workflow_package_ids=["workflow-python"],
+                active=True,
+            ),
+            agent_applications=[
+                AgentApplicationDescriptor(
+                    id="python",
+                    label="Python Agent",
+                    profile_id="python.profile",
+                    workflow_package_ids=["workflow-python"],
+                    active=True,
+                )
+            ],
             resources=[],
             model_profiles=[],
             empty_state={
@@ -68,6 +85,8 @@ class AgentAppProtocolTests(unittest.TestCase):
         payload = snapshot.to_dict()
 
         self.assertEqual(payload["version"], 1)
+        self.assertEqual(payload["agentApplication"]["applicationId"], "python")
+        self.assertEqual(payload["agentApplications"][0]["profileId"], "python.profile")
         self.assertEqual(payload["modes"][0]["id"], "python-build")
         self.assertEqual(payload["tools"][0]["label"], "Pytest")
         self.assertNotIn("to" + "dos", json.dumps(payload))

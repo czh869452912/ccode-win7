@@ -21,6 +21,7 @@ class LaunchOverrides(object):
     max_context_tokens: Optional[int] = None
     reserve_output_tokens: Optional[int] = None
     chars_per_token: Optional[float] = None
+    agent_application_id: Optional[str] = None
 
 
 @dataclass
@@ -36,6 +37,7 @@ class LaunchConfig(object):
     approve_writes: bool
     approve_commands: bool
     permission_rules: str
+    agent_application_id: str
 
 
 def _first_non_empty(*values):
@@ -97,6 +99,15 @@ def resolve_launch_config(workspace: str, overrides: LaunchOverrides) -> LaunchC
     )
     if not model:
         raise ValueError("必须通过 --model、环境变量或配置文件提供模型名称。")
+    agent_application_id = str(
+        _first_non_empty(
+            overrides.agent_application_id,
+            getattr(app_config, "agent_application_id", ""),
+            os.environ.get("EMBEDAGENT_AGENT_APPLICATION_ID"),
+            "",
+        )
+        or ""
+    )
     return LaunchConfig(
         workspace=resolved_workspace,
         app_config=app_config,
@@ -109,4 +120,5 @@ def resolve_launch_config(workspace: str, overrides: LaunchOverrides) -> LaunchC
         approve_writes=bool(overrides.approve_writes),
         approve_commands=bool(overrides.approve_commands),
         permission_rules=overrides.permission_rules or "",
+        agent_application_id=agent_application_id,
     )

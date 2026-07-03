@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 
 def _dict(value: Any) -> Dict[str, Any]:
@@ -87,12 +87,40 @@ class WorkflowPackageDescriptor:
 
 
 @dataclass
+class AgentApplicationDescriptor:
+    id: str
+    label: str
+    profile_id: str = ""
+    workflow_package_ids: List[str] = field(default_factory=list)
+    active: bool = False
+    source_type: str = ""
+    source_id: str = ""
+    default: bool = False
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "applicationId": self.id,
+            "label": self.label,
+            "profileId": self.profile_id,
+            "workflowPackageIds": [str(item) for item in self.workflow_package_ids],
+            "active": bool(self.active),
+            "sourceType": self.source_type,
+            "sourceId": self.source_id,
+            "default": bool(self.default),
+            "metadata": _dict(self.metadata),
+        }
+
+
+@dataclass
 class CapabilitySnapshot:
     version: int = 1
     modes: List[ModeDescriptor] = field(default_factory=list)
     commands: List[CommandDescriptor] = field(default_factory=list)
     tools: List[ToolPresentation] = field(default_factory=list)
     workflow_packages: List[WorkflowPackageDescriptor] = field(default_factory=list)
+    agent_application: Optional[AgentApplicationDescriptor] = None
+    agent_applications: List[AgentApplicationDescriptor] = field(default_factory=list)
     resources: List[Dict[str, Any]] = field(default_factory=list)
     model_profiles: List[Dict[str, Any]] = field(default_factory=list)
     empty_state: Dict[str, Any] = field(default_factory=dict)
@@ -104,6 +132,10 @@ class CapabilitySnapshot:
             "commands": [item.to_dict() for item in self.commands],
             "tools": [item.to_dict() for item in self.tools],
             "workflowPackages": [item.to_dict() for item in self.workflow_packages],
+            "agentApplication": (
+                self.agent_application.to_dict() if self.agent_application is not None else {}
+            ),
+            "agentApplications": [item.to_dict() for item in self.agent_applications],
             "resources": [_dict(item) for item in self.resources],
             "modelProfiles": [_dict(item) for item in self.model_profiles],
             "emptyState": _dict(self.empty_state),

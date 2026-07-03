@@ -566,7 +566,8 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         def fail_describe_mode(*args, **kwargs):
             raise AssertionError("get_session_snapshot should use workflow_state projection")
 
-        self.adapter.harness_workflow.harness_runner.describe_mode = fail_describe_mode
+        workflow_refresher = self.adapter.agent_application.workflow_refreshers[0]
+        workflow_refresher.harness_runner.describe_mode = fail_describe_mode
 
         projected = self.adapter.get_session_snapshot(session_id)
 
@@ -611,7 +612,8 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         modes = capabilities.get("modes") or []
         ids = [item.get("id") for item in modes]
 
-        self.assertEqual(ids, ["build", "debug", "explore", "spec", "verify"])
+        self.assertEqual(ids, ["explore", "spec", "build", "debug", "verify"])
+        self.assertNotIn("_order", modes[0])
         build = [item for item in modes if item.get("id") == "build"][0]
         self.assertEqual(build.get("dispatch"), {"kind": "mode.set", "mode": "build"})
 

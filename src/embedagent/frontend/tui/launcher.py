@@ -33,6 +33,7 @@ def launch_tui(
     approve_writes: bool = False,
     approve_commands: bool = False,
     permission_rules: str = "",
+    agent_application_id: Optional[str] = None,
 ):
     """启动 TUI。"""
     workspace = os.path.realpath(workspace)
@@ -48,6 +49,7 @@ def launch_tui(
             approve_writes=approve_writes,
             approve_commands=approve_commands,
             permission_rules=permission_rules,
+            agent_application_id=agent_application_id,
         ),
     )
     runtime = create_hosted_runtime(launch_config)
@@ -99,6 +101,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--approve-commands", action="store_true", help="Auto-approve commands and toolchain runs"
     )
     parser.add_argument("--permission-rules", default="", help="Permission rules file path")
+    parser.add_argument(
+        "--agent-application",
+        default="",
+        help="Agent application id for this hosted runtime",
+    )
     parser.add_argument("--headless", action="store_true", help="Headless mode")
     parser.add_argument("--debug", action="store_true", help="Debug mode")
     return parser
@@ -136,6 +143,7 @@ def main(argv: Optional[list] = None) -> int:
             approve_writes=args.approve_writes,
             approve_commands=args.approve_commands,
             permission_rules=args.permission_rules,
+            agent_application_id=args.agent_application or None,
         )
     except (TUIUnavailableError, ValueError) as exc:
         _LOGGER.error(str(exc))

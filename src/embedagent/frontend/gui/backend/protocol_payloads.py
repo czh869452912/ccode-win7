@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
-from embedagent.modes import DEFAULT_MODE, get_mode_registry
+from embedagent.modes import DEFAULT_MODE
 from embedagent.protocol import (
+    AgentApplicationDescriptor,
     AppBootstrap,
     CapabilitySnapshot,
     CommandDescriptor,
@@ -51,7 +52,7 @@ def _normal_mapping(value: Any) -> Dict[str, Any]:
 
 
 def _normal_list(value: Any) -> list:
-    return list(value) if isinstance(value, list) else []
+    return list(value) if isinstance(value, (list, tuple)) else []
 
 
 def _camel_or_snake(payload: Dict[str, Any], camel: str, snake: str, default: Any = None) -> Any:
@@ -62,122 +63,32 @@ def _camel_or_snake(payload: Dict[str, Any], camel: str, snake: str, default: An
     return default
 
 
-_MODE_PRESENTATION = {
-    "explore": {"label": "Explore", "iconKey": "search", "colorToken": "info"},
-    "spec": {"label": "Spec", "iconKey": "clipboard-list", "colorToken": "accent"},
-    "build": {"label": "Build", "iconKey": "hammer", "colorToken": "success"},
-    "debug": {"label": "Debug", "iconKey": "bug", "colorToken": "warning"},
-    "verify": {"label": "Verify", "iconKey": "check-circle", "colorToken": "verify"},
-}
-_MODE_ORDER = ("explore", "spec", "build", "debug", "verify")
-
-
-def _default_mode_capabilities() -> list:
-    modes = []
-    registry = get_mode_registry()
-    ordered_mode_ids = [mode_id for mode_id in _MODE_ORDER if mode_id in registry]
-    ordered_mode_ids.extend(
-        sorted(mode_id for mode_id in registry.keys() if mode_id not in _MODE_ORDER)
+def _agent_application_descriptor(
+    item: Any,
+    active: bool = False,
+) -> Optional[AgentApplicationDescriptor]:
+    data = _normal_mapping(item)
+    app_id = str(
+        data.get("applicationId") or data.get("application_id") or data.get("id") or ""
+    ).strip()
+    if not app_id:
+        return None
+    return AgentApplicationDescriptor(
+        id=app_id,
+        label=str(data.get("label") or data.get("name") or app_id),
+        profile_id=str(_camel_or_snake(data, "profileId", "profile_id", "") or ""),
+        workflow_package_ids=[
+            str(value)
+            for value in _normal_list(
+                _camel_or_snake(data, "workflowPackageIds", "workflow_package_ids", [])
+            )
+        ],
+        active=bool(data.get("active", active)),
+        source_type=str(_camel_or_snake(data, "sourceType", "source_type", "") or ""),
+        source_id=str(_camel_or_snake(data, "sourceId", "source_id", "") or ""),
+        default=bool(data.get("default", False)),
+        metadata=dict(data.get("metadata") or {}),
     )
-    for mode_id in ordered_mode_ids:
-        presentation = dict(_MODE_PRESENTATION.get(mode_id, {}))
-        modes.append(
-            {
-                "id": mode_id,
-                "label": str(presentation.get("label") or mode_id),
-                "description": "",
-                "iconKey": str(presentation.get("iconKey") or ""),
-                "colorToken": str(presentation.get("colorToken") or ""),
-                "commandId": "mode.%s" % mode_id,
-            }
-        )
-    return modes
-
-
-def _default_tool_presentations() -> list:
-    return [
-        {
-            "name": "read_file",
-            "label": "Read file",
-            "iconKey": "eye",
-            "rendererKey": "file",
-            "permissionCategory": "read",
-            "metadata": {"previewArg": "path"},
-        },
-        {
-            "name": "write_file",
-            "label": "Write file",
-            "iconKey": "square-pen",
-            "rendererKey": "file_write",
-            "permissionCategory": "workspace_write",
-            "metadata": {"previewArg": "path"},
-        },
-        {
-            "name": "edit_file",
-            "label": "Edit file",
-            "iconKey": "square-pen",
-            "rendererKey": "file_edit",
-            "permissionCategory": "workspace_write",
-            "metadata": {"previewArg": "path"},
-        },
-        {
-            "name": "bash",
-            "label": "Bash",
-            "iconKey": "terminal",
-            "rendererKey": "command",
-            "permissionCategory": "shell_exec",
-            "metadata": {"previewArg": "command"},
-        },
-        {
-            "name": "grep_text",
-            "label": "Grep text",
-            "iconKey": "wrench",
-            "rendererKey": "search",
-            "permissionCategory": "read",
-            "metadata": {"previewArg": "pattern"},
-        },
-        {
-            "name": "glob_files",
-            "label": "Glob files",
-            "iconKey": "wrench",
-            "rendererKey": "search",
-            "permissionCategory": "read",
-            "metadata": {"previewArg": "pattern"},
-        },
-        {
-            "name": "list_dir",
-            "label": "List directory",
-            "iconKey": "wrench",
-            "rendererKey": "list",
-            "permissionCategory": "read",
-            "metadata": {"previewArg": "path"},
-        },
-        {
-            "name": "ask_user",
-            "label": "Ask user",
-            "iconKey": "message-circle",
-            "rendererKey": "interaction",
-            "permissionCategory": "read",
-            "metadata": {},
-        },
-        {
-            "name": "author_local_capability",
-            "label": "Author capability",
-            "iconKey": "hammer",
-            "rendererKey": "file_write",
-            "permissionCategory": "workspace_write",
-            "metadata": {"previewArg": "name"},
-        },
-    ]
-
-
-def _default_empty_state() -> Dict[str, Any]:
-    return {
-        "scenario_label": "local workspace",
-        "primary": "Open a project",
-        "secondary": "Choose a local workspace to manage threads, files, tasks, and agent runs.",
-        "pathPlaceholder": "D:\\work\\project",
-    }
 
 
 def _protocol_capability_snapshot(payload: Any) -> CapabilitySnapshot:
@@ -269,11 +180,29 @@ def _protocol_capability_snapshot(payload: Any) -> CapabilitySnapshot:
     model_profiles = data.get("modelProfiles")
     if model_profiles is None:
         model_profiles = data.get("model_profiles")
+    agent_application = data.get("agentApplication")
+    if agent_application is None:
+        agent_application = data.get("agent_application")
+    agent_applications = data.get("agentApplications")
+    if agent_applications is None:
+        agent_applications = data.get("agent_applications")
+    current_agent_application = _agent_application_descriptor(
+        agent_application,
+        active=True,
+    )
     return CapabilitySnapshot(
         modes=modes,
         commands=commands,
         tools=tools,
         workflow_packages=workflow_packages,
+        agent_application=current_agent_application,
+        agent_applications=[
+            descriptor
+            for descriptor in [
+                _agent_application_descriptor(item) for item in _normal_list(agent_applications)
+            ]
+            if descriptor is not None
+        ],
         resources=_normal_list(data.get("resources")),
         model_profiles=_normal_list(model_profiles),
         empty_state=dict(empty_state or {}),
@@ -506,12 +435,6 @@ def serialize_permission_context(context: Any) -> Dict[str, Any]:
 
 def serialize_session_capabilities(payload: Any) -> Dict[str, Any]:
     data = dict(payload) if isinstance(payload, dict) else {}
-    if not data.get("modes"):
-        data["modes"] = _default_mode_capabilities()
-    if not data.get("tools"):
-        data["tools"] = _default_tool_presentations()
-    if not (data.get("emptyState") or data.get("empty_state")):
-        data["emptyState"] = _default_empty_state()
     snapshot = _protocol_capability_snapshot(data).to_dict()
     commands = []
     for item in list(data.get("commands") or []):

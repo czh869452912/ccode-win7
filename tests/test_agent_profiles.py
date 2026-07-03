@@ -36,6 +36,7 @@ class AgentProfileTests(unittest.TestCase):
         profile = default_c_cpp_agent_profile()
         payload = profile.mode_descriptor_payloads()
         build = [item for item in payload if item["id"] == "build"][0]
+        self.assertEqual([item["order"] for item in payload], [0, 1, 2, 3, 4])
         self.assertEqual(build["label"], "Build")
         self.assertEqual(build["dispatch"], {"kind": "mode.set", "mode": "build"})
         self.assertEqual(build["source_type"], "agent_profile")
@@ -47,6 +48,37 @@ class AgentProfileTests(unittest.TestCase):
         profile = default_c_cpp_agent_profile()
         with self.assertRaises(ValueError):
             profile.require_mode("python-build")
+
+    def test_builtin_non_c_profiles_are_domain_scoped(self):
+        from embedagent.agent_profiles import (
+            generic_agent_profile,
+            html_agent_profile,
+            python_agent_profile,
+        )
+
+        generic = generic_agent_profile()
+        python = python_agent_profile()
+        html = html_agent_profile()
+
+        self.assertEqual(generic.profile_id, "embedagent.generic")
+        self.assertEqual(python.profile_id, "embedagent.python")
+        self.assertEqual(html.profile_id, "embedagent.html")
+        self.assertEqual(
+            [item.slug for item in generic.modes], ["explore", "spec", "build", "debug", "verify"]
+        )
+        self.assertEqual(
+            [item.slug for item in python.modes], ["explore", "spec", "build", "debug", "verify"]
+        )
+        self.assertEqual(
+            [item.slug for item in html.modes], ["explore", "spec", "build", "debug", "verify"]
+        )
+
+        self.assertIn("**/*.py", python.writable_globs_for("build"))
+        self.assertNotIn("**/*.c", python.writable_globs_for("build"))
+        self.assertIn("**/*.html", html.writable_globs_for("build"))
+        self.assertIn("**/*.css", html.writable_globs_for("build"))
+        self.assertNotIn("**/*.c", html.writable_globs_for("build"))
+        self.assertIn("**/*", generic.writable_globs_for("build"))
 
 
 if __name__ == "__main__":

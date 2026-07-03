@@ -66,6 +66,24 @@ export function runInteractionModelTests() {
     answers: { answer: "custom path" },
   });
 
+  const customQuestion = normalizeComposerInteraction({
+    interaction_id: "ask-target",
+    kind: "user_input",
+    questions: [
+      {
+        id: "target",
+        question: "Choose target?",
+        options: [{ index: 1, label: "Python", value: "python" }],
+      },
+    ],
+  });
+  assert.deepEqual(buildUserInputResponse(customQuestion, { option: customQuestion.options[0] }), {
+    answers: { target: "python" },
+  });
+  assert.deepEqual(buildUserInputResponse(customQuestion, { answer: "embedded" }), {
+    answers: { target: "embedded" },
+  });
+
   const expired = interactionNoticeView({ kind: "expired", detail: "gone" });
   assert.equal(expired.kind, "notice");
   assert.equal(expired.tone, "expired");

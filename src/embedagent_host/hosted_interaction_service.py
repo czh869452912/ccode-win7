@@ -116,7 +116,12 @@ def _response_for_answer(ticket: "HostedPendingInteraction", answer: str) -> Use
     for item in options:
         if not isinstance(item, dict):
             continue
-        if str(item.get("label") or item.get("value") or "") == answer:
+        option_values = set(
+            str(value or "")
+            for value in (item.get("label"), item.get("text"), item.get("value"))
+            if str(value or "")
+        )
+        if answer in option_values:
             return UserInputResponse(
                 answer=answer,
                 selected_index=item.get("index"),

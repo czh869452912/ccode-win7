@@ -50,7 +50,8 @@
 - `src/embedagent/workflow_packages/c_cpp/`
 - `src/embedagent/tools/`
 - `src/embedagent_core/extensions.py`
-- `src/embedagent_host/default_extensions.py`
+- `src/embedagent/agent_applications.py`
+- `src/embedagent/workflow_packages/c_cpp/application.py`
 - `src/embedagent/project_extensions.py`
 - `src/embedagent/session.py`
 - `src/embedagent/transcript_store.py`
@@ -82,7 +83,7 @@ flowchart TD
 - `TurnSnapshotService`、`PromptAssemblyService`、`CompactionJournal` 是 snapshot/prompt/compaction helper 子边界。
 - `InProcessAdapter` 不应生成第二套 workflow identity，也不应重新拥有 slash-command 或 pending-interaction helper 逻辑。
 - `HostedCommandService` owns slash-command dispatch and command-result emission; `HostedInteractionService` owns approve/reject/reply/respond glue.
-- hosted product paths 通过 `src/embedagent_host/default_extensions.py` 安装 bundled C harness，并可通过 `project_extensions.py` 加载 manifest-gated local extensions。
+- hosted product paths 通过 selected `AgentApplication` 安装 bundled/default workflow packages，并通过 `AgentApplication.refresh_managed_session()` 刷新应用拥有的 workflow/session projection；也可通过 `project_extensions.py` 加载 manifest-gated local extensions。
 - runtime host 负责承载，而不是替代 engine 执行逻辑。
 
 ## 6. Verification And Tests

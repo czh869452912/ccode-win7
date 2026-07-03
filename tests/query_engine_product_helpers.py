@@ -14,10 +14,10 @@ from embedagent.modes import (
 from embedagent.project_memory import ProjectMemoryStore
 from embedagent.tool_commit import ToolCommitCoordinator
 from embedagent.transcript_store import TranscriptStore
+from embedagent.workflow_packages.c_cpp.application import build_c_cpp_agent_application
 from embedagent.workspace_intelligence import WorkspaceIntelligenceBroker
 from embedagent_core.permissions import PermissionPolicy
 from embedagent_core.query_engine import QueryEngine as CoreQueryEngine
-from embedagent_host.default_extensions import build_default_extension_set
 
 
 class ProductModeToolPolicy(object):
@@ -85,7 +85,7 @@ def build_product_query_engine(
         )
     manager = extension_manager
     if manager is None:
-        manager = build_default_extension_set(tools).manager
+        manager = build_c_cpp_agent_application(tools).extension_manager
     return CoreQueryEngine(
         client=client,
         tools=tools,

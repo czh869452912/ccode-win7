@@ -1,7 +1,11 @@
 from unittest.mock import MagicMock
 
 from embedagent.config import AppConfig
-from embedagent_host.hosted.launch_config import LaunchConfig
+from embedagent_host.hosted.launch_config import (
+    LaunchConfig,
+    LaunchOverrides,
+    resolve_launch_config,
+)
 from embedagent_host.hosted.runtime import create_hosted_runtime
 from embedagent_host.hosted.session_host import HostedSessionHost
 
@@ -24,6 +28,7 @@ def _config(tmp_path):
         approve_writes=False,
         approve_commands=False,
         permission_rules="",
+        agent_application_id="tests.python",
     )
 
 
@@ -52,6 +57,24 @@ def test_create_hosted_runtime_builds_session_host(tmp_path, monkeypatch):
     context_cls.assert_called_once()
     policy_cls.assert_called_once()
     adapter_cls.assert_called_once()
+    assert adapter_cls.call_args.kwargs["agent_application_id"] == "tests.python"
+
+
+def test_resolve_launch_config_projects_agent_application_id(tmp_path, monkeypatch):
+    config_dir = tmp_path / ".embedagent"
+    config_dir.mkdir()
+    (config_dir / "config.json").write_text(
+        '{"model": "configured-model", "agent_application_id": "config.python"}',
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("EMBEDAGENT_AGENT_APPLICATION_ID", "env.python")
+
+    launch_config = resolve_launch_config(
+        str(tmp_path),
+        LaunchOverrides(agent_application_id="override.python"),
+    )
+
+    assert launch_config.agent_application_id == "override.python"
 
 
 def test_session_host_delegates_session_operations():
