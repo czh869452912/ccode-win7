@@ -17,6 +17,8 @@ from embedagent_core.session import Action
 from embedagent_core.tool_contracts import (
     ToolCatalogEntry,
     ToolContextPolicy,
+    ToolDefinition,
+    ToolError,
     ToolExecutionSpec,
     ToolPresentation,
     ToolRuntimePort,
@@ -30,7 +32,7 @@ from embedagent.tools import (
     session_ops,
     shell_ops,
 )
-from embedagent.tools._base import ToolContext, ToolDefinition, ToolError
+from embedagent.tools._base import ToolContext
 
 _VALID_TOOL_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 _REGISTERABLE_PERMISSION_CATEGORIES = OFFICIAL_PERMISSION_CATEGORIES

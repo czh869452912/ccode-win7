@@ -10,7 +10,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from embedagent.tools._base import ToolError
+from embedagent_core.tool_contracts import ToolError
 
 logger = logging.getLogger(__name__)
 

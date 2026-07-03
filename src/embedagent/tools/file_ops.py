@@ -9,11 +9,9 @@ from embedagent.strategies.diff_engine import DiffBlock, MultiSearchReplaceDiffE
 from embedagent.tools._base import (
     MAX_READ_CHARS,
     ToolContext,
-    ToolDefinition,
-    ToolError,
-    diagnostic_tool_error,
 )
 from embedagent_core.session import Observation
+from embedagent_core.tool_contracts import ToolDefinition, ToolError, diagnostic_tool_error
 
 logger = logging.getLogger(__name__)
 

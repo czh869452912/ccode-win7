@@ -6,10 +6,9 @@ from embedagent.command_sanitizer import get_command_sanitizer
 from embedagent.tools._base import (
     DEFAULT_COMMAND_TIMEOUT_SEC,
     ToolContext,
-    ToolDefinition,
-    ToolError,
 )
 from embedagent_core.session import Observation
+from embedagent_core.tool_contracts import ToolDefinition, ToolError
 
 
 def build_tools(ctx: ToolContext) -> List[ToolDefinition]:

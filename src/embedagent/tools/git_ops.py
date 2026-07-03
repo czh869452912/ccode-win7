@@ -3,8 +3,9 @@ from __future__ import annotations
 from typing import Any, Dict, List
 
 from embedagent.services.shadow_git import ShadowGitSnapshot
-from embedagent.tools._base import ToolContext, ToolDefinition, ToolError
+from embedagent.tools._base import ToolContext
 from embedagent_core.session import Observation
+from embedagent_core.tool_contracts import ToolDefinition, ToolError
 
 
 def build_tools(ctx: ToolContext) -> List[ToolDefinition]:

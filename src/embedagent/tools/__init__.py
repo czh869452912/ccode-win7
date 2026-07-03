@@ -11,7 +11,7 @@ def __getattr__(name: str):
 
         return _ToolRuntime
     if name == "ToolDefinition":
-        from embedagent.tools._base import ToolDefinition as _ToolDefinition
+        from embedagent_core.tool_contracts import ToolDefinition as _ToolDefinition
 
         return _ToolDefinition
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
