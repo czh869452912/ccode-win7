@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from typing import Any, Callable, Optional, Set, Tuple
+from typing import Any, Optional, Set, Tuple
 
 from embedagent_core.interaction import ask_user_schema, propose_mode_switch_schema
-from embedagent.modes import allowed_tools_for
+from embedagent_core.policies import EmptyModeToolPolicy, ModeToolPolicy
 from embedagent_core.session import Action, ContextAssemblyResult, Observation, Session
 from embedagent_core.extensions import (
     ExtensionContext,
@@ -23,12 +23,12 @@ class AgentExtensionHost(object):
         manager: Optional[ExtensionManager],
         tools: ToolRuntimePort,
         permission_policy: Any,
-        mode_allowed_tools: Optional[Callable[[str], Any]] = None,
+        mode_tool_policy: Optional[ModeToolPolicy] = None,
     ) -> None:
         self.manager = manager or ExtensionManager()
         self.tools = tools
         self.permission_policy = permission_policy
-        self._mode_allowed_tools = mode_allowed_tools or allowed_tools_for
+        self._mode_tool_policy = mode_tool_policy or EmptyModeToolPolicy()
 
     def context_for(self, session: Session) -> ExtensionContext:
         runtime_snapshot = {}
@@ -93,7 +93,12 @@ class AgentExtensionHost(object):
             self.manager.allowed_tool_names(
                 mode_name,
                 workflow_state=workflow_state,
-                fallback=set(self._mode_allowed_tools(mode_name)),
+                fallback=set(
+                    self._mode_tool_policy.allowed_tools_for(
+                        mode_name,
+                        workflow_state=workflow_state,
+                    )
+                ),
             )
         )
 

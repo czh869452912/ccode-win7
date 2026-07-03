@@ -23,6 +23,7 @@ from embedagent.modes import (
     DEFAULT_MODE,
     allowed_tools_for,
     initialize_modes,
+    is_path_writable,
     mode_names,
     require_mode,
 )
@@ -70,6 +71,22 @@ from embedagent.transcript_store import TranscriptStore
 from embedagent_core.turn_experience import TurnExperienceReducer
 
 EventHandler = Callable[[str, str, Dict[str, Any]], None]
+
+
+class _ProductModeToolPolicy(object):
+    def allowed_tools_for(self, mode_name: str, workflow_state: Any = None) -> List[str]:
+        del workflow_state
+        return allowed_tools_for(mode_name)
+
+
+class _ProductWritePathPolicy(object):
+    def is_path_writable(
+        self,
+        mode_name: str,
+        normalized_path: str,
+        app_config: Any = None,
+    ) -> bool:
+        return is_path_writable(mode_name, normalized_path, app_config)
 
 
 def _display_transition_reason(reason: str) -> str:
@@ -318,6 +335,8 @@ class InProcessAdapter(object):
             transcript_store=self.transcript_store,
             extension_manager=self.extension_manager,
             remembered_permission_categories_provider=self._remembered_categories_for_session,
+            mode_tool_policy=_ProductModeToolPolicy(),
+            write_path_policy=_ProductWritePathPolicy(),
         )
 
     def _remembered_categories_for_session(self, session: Session) -> List[str]:

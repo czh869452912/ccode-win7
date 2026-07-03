@@ -401,6 +401,11 @@ def test_agent_extension_host_registers_dynamic_tools_and_projects_active_schema
     from embedagent_core.agent_extension_host import AgentExtensionHost
     from embedagent_core.permissions import PermissionPolicy
 
+    class ProductModeToolPolicy(object):
+        def allowed_tools_for(self, mode_name, workflow_state=None):
+            del workflow_state
+            return allowed_tools_for(mode_name)
+
     runtime = ToolRuntime(str(tmp_path))
     session = Session()
     extension = DynamicToolExtension(active=True)
@@ -408,7 +413,7 @@ def test_agent_extension_host_registers_dynamic_tools_and_projects_active_schema
         manager=ExtensionManager([extension]),
         tools=runtime,
         permission_policy=PermissionPolicy(auto_approve_all=True, workspace=str(tmp_path)),
-        mode_allowed_tools=allowed_tools_for,
+        mode_tool_policy=ProductModeToolPolicy(),
     )
 
     host.register_tools(session, "build", "chat", reason="session_start")
@@ -423,12 +428,17 @@ def test_agent_extension_host_uses_mode_contract_as_active_tool_fallback(tmp_pat
     from embedagent_core.agent_extension_host import AgentExtensionHost
     from embedagent_core.permissions import PermissionPolicy
 
+    class ProductModeToolPolicy(object):
+        def allowed_tools_for(self, mode_name, workflow_state=None):
+            del workflow_state
+            return allowed_tools_for(mode_name)
+
     runtime = ToolRuntime(str(tmp_path))
     host = AgentExtensionHost(
         manager=ExtensionManager(),
         tools=runtime,
         permission_policy=PermissionPolicy(auto_approve_all=True, workspace=str(tmp_path)),
-        mode_allowed_tools=allowed_tools_for,
+        mode_tool_policy=ProductModeToolPolicy(),
     )
 
     host.register_tools(Session(), "build", "chat", reason="session_start")

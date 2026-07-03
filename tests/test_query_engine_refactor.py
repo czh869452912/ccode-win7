@@ -885,12 +885,17 @@ class TestQueryEngineRefactor(unittest.TestCase):
         from embedagent_core.agent_tool_action_service import AgentToolActionService
         from embedagent_core.extensions import ExtensionManager
 
+        class EmptyModeToolPolicy(object):
+            def allowed_tools_for(self, mode_name, workflow_state=None):
+                del mode_name, workflow_state
+                return []
+
         policy = PermissionPolicy(auto_approve_all=True, workspace=self.workspace)
         host = AgentExtensionHost(
             manager=ExtensionManager(),
             tools=self.tools,
             permission_policy=policy,
-            mode_allowed_tools=lambda mode_name: [],
+            mode_tool_policy=EmptyModeToolPolicy(),
         )
         engine = QueryEngine(
             client=FakeClient(),

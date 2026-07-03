@@ -32,12 +32,17 @@ from embedagent.memory_maintenance import MemoryMaintenance
 from embedagent.modes import (
     DEFAULT_MODE,
     build_system_prompt,
-    allowed_tools_for,
     parse_mode_command,
     parse_natural_language_mode_switch,
     require_mode,
 )
 from embedagent_core.permissions import PermissionPolicy, PermissionRequest
+from embedagent_core.policies import (
+    DenyWritePathPolicy,
+    EmptyModeToolPolicy,
+    ModeToolPolicy,
+    WritePathPolicy,
+)
 from embedagent.prompt_assembly_service import PromptAssemblyService
 from embedagent.project_memory import ProjectMemoryStore
 from embedagent_core.session import (
@@ -97,6 +102,8 @@ class QueryEngine(object):
         extension_manager: Optional[ExtensionManager] = None,
         runtime_config_provider: Optional[Callable[[Session], Dict[str, Any]]] = None,
         remembered_permission_categories_provider: Optional[Callable[[Session], list]] = None,
+        mode_tool_policy: Optional[ModeToolPolicy] = None,
+        write_path_policy: Optional[WritePathPolicy] = None,
     ) -> None:
         self.client = client
         self.tools = tools
@@ -120,11 +127,13 @@ class QueryEngine(object):
         self.tracer = tracer
         self._runtime_config_provider = runtime_config_provider
         self._remembered_permission_categories_provider = remembered_permission_categories_provider
+        self._mode_tool_policy = mode_tool_policy or EmptyModeToolPolicy()
+        self._write_path_policy = write_path_policy or DenyWritePathPolicy()
         self.extension_host = AgentExtensionHost(
             manager=extension_manager or ExtensionManager(),
             tools=self.tools,
             permission_policy=self.permission_policy,
-            mode_allowed_tools=allowed_tools_for,
+            mode_tool_policy=self._mode_tool_policy,
         )
         self.extension_manager = self.extension_host.manager
         self.extension_manager.register_context_reducers(self.context_manager.reducers)
@@ -142,6 +151,7 @@ class QueryEngine(object):
             extension_host=self.extension_host,
             app_config_provider=lambda: getattr(self.tools, "app_config", None),
             failure_observation_factory=self._failure_observation,
+            write_path_policy=self._write_path_policy,
             permission_pending_handler=self._build_permission_pending_result,
             permission_rejected_handler=self._record_permission_rejection,
             user_input_pending_handler=self._build_user_input_pending_result,

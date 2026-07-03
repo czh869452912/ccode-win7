@@ -5,7 +5,7 @@ import threading
 from typing import Any, Callable, List, Optional, Tuple
 
 from embedagent_core.interaction import UserInputRequest, UserInputResponse, build_user_input_request
-from embedagent.modes import is_path_writable
+from embedagent_core.policies import DenyWritePathPolicy, WritePathPolicy
 from embedagent_core.session import Action, Observation, QueryTurnResult, Session
 from embedagent_core.agent_extension_host import AgentExtensionHost
 from embedagent_core.agent_lifecycle import AgentLifecycleJournal
@@ -23,6 +23,7 @@ class AgentToolActionService(object):
         extension_host: AgentExtensionHost,
         app_config_provider: Callable[[], Any],
         failure_observation_factory: Callable[..., Observation],
+        write_path_policy: Optional[WritePathPolicy] = None,
         permission_pending_handler: Optional[
             Callable[[Session, Action, PermissionRequest, str], QueryTurnResult]
         ] = None,
@@ -44,6 +45,7 @@ class AgentToolActionService(object):
         self.extension_host = extension_host
         self._app_config_provider = app_config_provider
         self._failure_observation = failure_observation_factory
+        self.write_path_policy = write_path_policy or DenyWritePathPolicy()
         self._permission_pending_handler = permission_pending_handler
         self._permission_rejected_handler = permission_rejected_handler
         self._user_input_pending_handler = user_input_pending_handler
@@ -435,7 +437,11 @@ class AgentToolActionService(object):
                 "补充一个相对于工作区的 path 参数。",
             )
         normalized = path.replace("\\", "/")
-        if not is_path_writable(current_mode, normalized, self._app_config_provider()):
+        if not self.write_path_policy.is_path_writable(
+            current_mode,
+            normalized,
+            self._app_config_provider(),
+        ):
             return self._failure_observation(
                 action.name,
                 "当前模式 %s 不允许修改 %s。" % (current_mode, normalized),
