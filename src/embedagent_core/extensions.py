@@ -772,9 +772,9 @@ class ExtensionManager(object):
         self,
         mode_name: str,
         workflow_state: str = "chat",
-        fallback: Optional[Set[str]] = None,
+        base_tool_names: Optional[Set[str]] = None,
     ) -> Set[str]:
-        names = set(fallback or set())
+        names = set(base_tool_names or set())
         dispatch = self._dispatch_event(
             "extension.allowed_tool_names",
             {"mode_name": mode_name, "workflow_state": workflow_state},

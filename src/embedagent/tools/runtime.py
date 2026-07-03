@@ -8,7 +8,6 @@ from embedagent_core.capabilities import (
     resource_capability_descriptors,
     runtime_tool_capability_descriptors,
 )
-from embedagent.modes import allowed_tools_for
 from embedagent_core.permissions import OFFICIAL_PERMISSION_CATEGORIES
 from embedagent.projection_db import ProjectionDb
 from embedagent_core.session import Observation
@@ -421,10 +420,16 @@ class ToolRuntime(ToolRuntimePort):
         workflow_state: str = "chat",
         tool_names: Optional[List[str]] = None,
     ) -> List[Dict[str, Any]]:
-        allowed_by_mode = set(tool_names or allowed_tools_for(mode_name))
+        if tool_names is None:
+            return []
         schemas = []
-        for name, tool in self._tools.items():
-            if name not in allowed_by_mode:
+        seen = set()
+        for name in list(tool_names or []):
+            if name in seen:
+                continue
+            seen.add(name)
+            tool = self._tools.get(name)
+            if tool is None:
                 continue
             entry = self._catalog.get(name)
             if entry is not None and entry.workflow_visibility:

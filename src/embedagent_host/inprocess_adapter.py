@@ -12,6 +12,7 @@ from embedagent_core.capabilities import (
     model_profile_capability_descriptor,
     workflow_package_capability_descriptors,
 )
+from embedagent.agent_profiles import default_c_cpp_agent_profile
 from embedagent_core.compaction_state import CompactionStateReducer
 from embedagent.context import ContextManager
 from embedagent_host.default_extensions import build_default_extension_set
@@ -21,7 +22,6 @@ from embedagent_host.providers.openai_compatible import OpenAICompatibleClient
 from embedagent.memory_maintenance import MemoryMaintenance
 from embedagent.modes import (
     DEFAULT_MODE,
-    allowed_tools_for,
     build_system_prompt,
     initialize_modes,
     is_path_writable,
@@ -80,9 +80,12 @@ EventHandler = Callable[[str, str, Dict[str, Any]], None]
 
 
 class _ProductModeToolPolicy(object):
+    def __init__(self, profile: Any = None) -> None:
+        self._profile = profile or default_c_cpp_agent_profile()
+
     def allowed_tools_for(self, mode_name: str, workflow_state: Any = None) -> List[str]:
         del workflow_state
-        return allowed_tools_for(mode_name)
+        return self._profile.allowed_tools_for(mode_name)
 
 
 class _ProductWritePathPolicy(object):
@@ -249,6 +252,8 @@ class InProcessAdapter(object):
         self.workspace_profile = _WorkspaceProfilePort()
         self.session_restorer = SessionRestorer()
         self.snapshot_projector = SessionSnapshotProjector()
+        self._agent_profile = default_c_cpp_agent_profile()
+        self._mode_tool_policy = _ProductModeToolPolicy(self._agent_profile)
         default_extensions = build_default_extension_set(self.tools)
         self.harness_workflow = default_extensions.harness_workflow
         self.extension_manager = default_extensions.manager
@@ -387,7 +392,7 @@ class InProcessAdapter(object):
             workspace_profile=self.workspace_profile,
             extension_manager=self.extension_manager,
             remembered_permission_categories_provider=self._remembered_categories_for_session,
-            mode_tool_policy=_ProductModeToolPolicy(),
+            mode_tool_policy=self._mode_tool_policy,
             write_path_policy=_ProductWritePathPolicy(),
             mode_runtime_policy=_ProductModeRuntimePolicy(),
         )
@@ -458,7 +463,7 @@ class InProcessAdapter(object):
         names = self.extension_manager.allowed_tool_names(
             state.current_mode,
             workflow_state=state.workflow_state,
-            fallback=set(allowed_tools_for(state.current_mode)),
+            base_tool_names=set(self._mode_tool_policy.allowed_tools_for(state.current_mode)),
         )
         return _stable_names(list(names))
 
@@ -1067,7 +1072,7 @@ class InProcessAdapter(object):
                     self.extension_manager.allowed_tool_names(
                         mode_name,
                         workflow_state="chat",
-                        fallback=set(allowed_tools_for(mode_name)),
+                        base_tool_names=set(self._mode_tool_policy.allowed_tools_for(mode_name)),
                     )
                 )
             items = []

@@ -33,6 +33,21 @@ def _make_workspace(prefix):
     return root
 
 
+SPEC_BASE_TOOLS = ["read_file", "list_dir", "glob_files", "grep_text", "write_file", "ask_user"]
+VERIFY_BASE_TOOLS = ["read_file", "list_dir", "glob_files", "grep_text", "bash", "ask_user"]
+WRITE_BASE_TOOLS = [
+    "read_file",
+    "list_dir",
+    "glob_files",
+    "grep_text",
+    "write_file",
+    "edit_file",
+    "bash",
+    "author_local_capability",
+    "ask_user",
+]
+
+
 class TestToolRuntimeImport(unittest.TestCase):
     def test_import_from_package(self):
         # The original import path must still work
@@ -146,14 +161,22 @@ class TestToolRuntimeSchemas(unittest.TestCase):
             self.assertIn("required", func["parameters"])
 
     def test_review_workflow_filters_out_write_tools_from_spec_mode(self):
-        schemas = self.rt.schemas_for("spec", workflow_state="review")
+        schemas = self.rt.schemas_for(
+            "spec",
+            workflow_state="review",
+            tool_names=SPEC_BASE_TOOLS,
+        )
         tool_names = [item["function"]["name"] for item in schemas]
         self.assertIn("read_file", tool_names)
         self.assertNotIn("task_status", tool_names)
         self.assertNotIn("write_file", tool_names)
 
-    def test_verify_review_workflow_defaults_to_read_only_mode_contract(self):
-        schemas = self.rt.schemas_for("verify", workflow_state="review")
+    def test_verify_review_workflow_uses_explicit_read_only_tool_names(self):
+        schemas = self.rt.schemas_for(
+            "verify",
+            workflow_state="review",
+            tool_names=VERIFY_BASE_TOOLS,
+        )
         tool_names = [item["function"]["name"] for item in schemas]
         self.assertIn("read_file", tool_names)
         self.assertIn("grep_text", tool_names)
@@ -163,8 +186,12 @@ class TestToolRuntimeSchemas(unittest.TestCase):
         self.assertNotIn("report_quality_v2", tool_names)
         self.assertNotIn("write_file", tool_names)
 
-    def test_schemas_for_defaults_to_verify_mode_contract(self):
-        schemas = self.rt.schemas_for("verify", workflow_state="review")
+    def test_schemas_for_explicit_verify_mode_contract(self):
+        schemas = self.rt.schemas_for(
+            "verify",
+            workflow_state="review",
+            tool_names=VERIFY_BASE_TOOLS,
+        )
         tool_names = [item["function"]["name"] for item in schemas]
         self.assertIn("read_file", tool_names)
         self.assertIn("list_dir", tool_names)
@@ -177,8 +204,12 @@ class TestToolRuntimeSchemas(unittest.TestCase):
         self.assertNotIn("task_status", tool_names)
         self.assertNotIn("write_file", tool_names)
 
-    def test_schemas_for_defaults_to_build_mode_contract(self):
-        schemas = self.rt.schemas_for("build", workflow_state="chat")
+    def test_schemas_for_explicit_build_mode_contract(self):
+        schemas = self.rt.schemas_for(
+            "build",
+            workflow_state="chat",
+            tool_names=WRITE_BASE_TOOLS,
+        )
         tool_names = [item["function"]["name"] for item in schemas]
         self.assertIn("read_file", tool_names)
         self.assertIn("list_dir", tool_names)
@@ -192,8 +223,12 @@ class TestToolRuntimeSchemas(unittest.TestCase):
         self.assertNotIn("task_status", tool_names)
         self.assertNotIn("list_files", tool_names)
 
-    def test_schemas_for_defaults_to_debug_mode_contract(self):
-        schemas = self.rt.schemas_for("debug", workflow_state="chat")
+    def test_schemas_for_explicit_debug_mode_contract(self):
+        schemas = self.rt.schemas_for(
+            "debug",
+            workflow_state="chat",
+            tool_names=WRITE_BASE_TOOLS,
+        )
         tool_names = [item["function"]["name"] for item in schemas]
         self.assertIn("read_file", tool_names)
         self.assertIn("list_dir", tool_names)
@@ -207,7 +242,11 @@ class TestToolRuntimeSchemas(unittest.TestCase):
         self.assertNotIn("run_command", tool_names)
 
     def test_schemas_for_verify_exposes_bash_without_write_tools(self):
-        schemas = self.rt.schemas_for("verify", workflow_state="chat")
+        schemas = self.rt.schemas_for(
+            "verify",
+            workflow_state="chat",
+            tool_names=VERIFY_BASE_TOOLS,
+        )
         tool_names = [item["function"]["name"] for item in schemas]
         self.assertIn("bash", tool_names)
         self.assertNotIn("write_file", tool_names)
@@ -217,14 +256,28 @@ class TestToolRuntimeSchemas(unittest.TestCase):
 
     def test_author_local_capability_schema_is_build_debug_only(self):
         build_names = [
-            item["function"]["name"] for item in self.rt.schemas_for("build", workflow_state="chat")
+            item["function"]["name"]
+            for item in self.rt.schemas_for(
+                "build",
+                workflow_state="chat",
+                tool_names=WRITE_BASE_TOOLS,
+            )
         ]
         debug_names = [
-            item["function"]["name"] for item in self.rt.schemas_for("debug", workflow_state="chat")
+            item["function"]["name"]
+            for item in self.rt.schemas_for(
+                "debug",
+                workflow_state="chat",
+                tool_names=WRITE_BASE_TOOLS,
+            )
         ]
         verify_names = [
             item["function"]["name"]
-            for item in self.rt.schemas_for("verify", workflow_state="review")
+            for item in self.rt.schemas_for(
+                "verify",
+                workflow_state="review",
+                tool_names=VERIFY_BASE_TOOLS,
+            )
         ]
 
         self.assertIn("author_local_capability", build_names)

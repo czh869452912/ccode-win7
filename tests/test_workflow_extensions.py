@@ -534,7 +534,7 @@ def test_mode_allowed_tools_no_longer_own_harness_workflow_tools():
         assert leaked == [], "%s leaks harness tools: %s" % (mode_name, leaked)
 
 
-def test_tool_runtime_default_schemas_follow_mode_contract_not_harness_pack(tmp_path):
+def test_tool_runtime_default_schemas_require_explicit_active_tool_names(tmp_path):
     from embedagent.tools import ToolRuntime
 
     runtime = ToolRuntime(str(tmp_path))
@@ -543,13 +543,10 @@ def test_tool_runtime_default_schemas_follow_mode_contract_not_harness_pack(tmp_
         item["function"]["name"] for item in runtime.schemas_for("verify", workflow_state="review")
     )
 
-    assert "read_file" in default_names
-    assert "grep_text" in default_names
-    assert "run_recipe" not in default_names
-    assert "task_status" not in default_names
+    assert default_names == set()
 
 
-def test_tool_runtime_default_schemas_remain_workflow_neutral_after_c_tools_register(tmp_path):
+def test_tool_runtime_default_schemas_remain_empty_after_c_tools_register(tmp_path):
     from embedagent.tools import ToolRuntime
     from embedagent_core.extensions import ExtensionContext, ToolRegistrationEvent
     from embedagent_host.default_extensions import build_default_extension_set
@@ -573,8 +570,8 @@ def test_tool_runtime_default_schemas_remain_workflow_neutral_after_c_tools_regi
             item["function"]["name"]
             for item in runtime.schemas_for(mode_name, workflow_state="chat")
         )
-        leaked = names & harness_tools
-        assert leaked == set(), "%s leaked workflow tools: %s" % (mode_name, sorted(leaked))
+        assert names == set(), "%s projected tools without explicit active names" % mode_name
+        assert names & harness_tools == set()
 
 
 def test_bare_tool_runtime_does_not_register_default_c_workflow_tools(tmp_path):
@@ -727,15 +724,11 @@ def test_tool_runtime_no_longer_exposes_allowed_tool_names_alias():
     assert legacy_alias not in source
 
 
-def test_frontend_tool_catalog_gets_harness_tools_from_workflow_extension(tmp_path, monkeypatch):
+def test_frontend_tool_catalog_gets_harness_tools_from_workflow_extension(tmp_path):
     from embedagent.tools import ToolRuntime
     from embedagent_host.inprocess_adapter import InProcessAdapter
 
     adapter = InProcessAdapter(tools=ToolRuntime(str(tmp_path)))
-    monkeypatch.setattr(
-        "embedagent_host.inprocess_adapter.allowed_tools_for",
-        lambda mode_name: ["read_file", "ask_user"],
-    )
 
     names = set(item.get("name") for item in adapter.get_tool_catalog())
 

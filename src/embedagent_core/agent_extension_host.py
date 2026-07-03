@@ -93,7 +93,7 @@ class AgentExtensionHost(object):
             self.manager.allowed_tool_names(
                 mode_name,
                 workflow_state=workflow_state,
-                fallback=set(
+                base_tool_names=set(
                     self._mode_tool_policy.allowed_tools_for(
                         mode_name,
                         workflow_state=workflow_state,

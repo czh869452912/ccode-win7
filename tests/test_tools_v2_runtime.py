@@ -36,43 +36,39 @@ class ToolsV2RuntimeTests(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.workspace, ignore_errors=True)
 
-    def test_build_mode_schema_defaults_to_mode_contract(self):
+    def test_schema_projection_requires_explicit_tool_names(self):
         from embedagent.tools import ToolRuntime
 
         runtime = ToolRuntime(self.workspace)
         names = [item["function"]["name"] for item in runtime.schemas_for("build")]
-        self.assertIn("read_file", names)
-        self.assertIn("list_dir", names)
-        self.assertIn("write_file", names)
-        self.assertIn("edit_file", names)
-        self.assertNotIn("run_recipe", names)
-        self.assertNotIn("task_status", names)
+        self.assertEqual(names, [])
 
-    def test_debug_mode_schema_defaults_to_mode_contract(self):
+    def test_explicit_build_tool_names_project_schemas(self):
         from embedagent.tools import ToolRuntime
 
         runtime = ToolRuntime(self.workspace)
-        names = [item["function"]["name"] for item in runtime.schemas_for("debug")]
-        self.assertIn("read_file", names)
-        self.assertIn("edit_file", names)
-        self.assertIn("ask_user", names)
-        self.assertNotIn("run_recipe", names)
-        self.assertNotIn("record_failing_evidence", names)
-        self.assertNotIn("task_status", names)
+        names = [
+            item["function"]["name"]
+            for item in runtime.schemas_for(
+                "build",
+                tool_names=["read_file", "list_dir", "write_file", "edit_file"],
+            )
+        ]
+        self.assertEqual(names, ["read_file", "list_dir", "write_file", "edit_file"])
 
-    def test_verify_mode_schema_defaults_to_read_only_mode_contract(self):
+    def test_explicit_verify_tool_names_preserve_workflow_visibility_filter(self):
         from embedagent.tools import ToolRuntime
 
         runtime = ToolRuntime(self.workspace)
-        names = [item["function"]["name"] for item in runtime.schemas_for("verify")]
-        self.assertIn("read_file", names)
-        self.assertIn("list_dir", names)
-        self.assertIn("grep_text", names)
-        self.assertIn("ask_user", names)
-        self.assertNotIn("run_recipe", names)
-        self.assertNotIn("list_recipes", names)
-        self.assertNotIn("report_quality_v2", names)
-        self.assertNotIn("task_status", names)
+        names = [
+            item["function"]["name"]
+            for item in runtime.schemas_for(
+                "verify",
+                workflow_state="chat",
+                tool_names=["read_file", "grep_text", "ask_user"],
+            )
+        ]
+        self.assertEqual(names, ["read_file", "grep_text", "ask_user"])
 
     def test_bash_preserves_shell_fallback_when_managed_primary_tool_is_missing(self):
         from unittest.mock import patch
