@@ -10,6 +10,10 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from embedagent.persistence_sanitize import sanitize_jsonable
 from embedagent.projection_db import ProjectionDb
+from embedagent.workflow_packages.c_cpp.tool_names import (
+    C_WORKFLOW_TOOL_REPORT_QUALITY,
+    C_WORKFLOW_TOOL_RUN_RECIPE,
+)
 from embedagent_core.session import Observation, Session
 
 _PYTHON_REQ_RE = re.compile(r'^requires-python\s*=\s*"([^"]+)"', re.MULTILINE)
@@ -247,7 +251,7 @@ class ProjectMemoryStore(object):
         arguments: Dict[str, Any],
         observation: Observation,
     ) -> None:
-        if action_name not in ("bash", "run_recipe"):
+        if action_name not in ("bash", C_WORKFLOW_TOOL_RUN_RECIPE):
             return
         if not isinstance(observation.data, dict):
             return
@@ -464,7 +468,7 @@ class ProjectMemoryStore(object):
         return observation.data.get("command")
 
     def _recipe_action_from(self, action_name: str, data: Dict[str, Any]) -> str:
-        if str(action_name or "") == "run_recipe":
+        if str(action_name or "") == C_WORKFLOW_TOOL_RUN_RECIPE:
             value = str((data or {}).get("recipe_action") or "").strip()
             if value:
                 return value
@@ -483,7 +487,7 @@ class ProjectMemoryStore(object):
 
     def _issue_kind(self, item: Dict[str, Any]) -> str:
         tool_name = str(item.get("tool_name") or "").strip()
-        if tool_name == "report_quality_v2":
+        if tool_name == C_WORKFLOW_TOOL_REPORT_QUALITY:
             return "quality"
         recipe_action = str(item.get("recipe_action") or "").strip()
         if recipe_action:

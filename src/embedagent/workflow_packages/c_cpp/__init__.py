@@ -1,30 +1,6 @@
-from embedagent.workflow_packages.c_cpp import task_store
-from embedagent.workflow_packages.c_cpp.contracts import (
-    ArtifactState,
-    DisciplineProfile,
-    ExecutionPhase,
-    HarnessModeContext,
-    ModeDefinition,
-    WorkMode,
-)
-from embedagent.workflow_packages.c_cpp.phase_engine import advance_phase
-from embedagent.workflow_packages.c_cpp.prompt_stack import build_prompt_units
-from embedagent.workflow_packages.c_cpp.registry import build_default_registry
-from embedagent.workflow_packages.c_cpp.runner import HarnessRunner
-from embedagent.workflow_packages.c_cpp.task_graph import TaskGraph, TaskNode
+"""Default C/C++ workflow package.
 
-__all__ = [
-    "advance_phase",
-    "ArtifactState",
-    "build_default_registry",
-    "build_prompt_units",
-    "DisciplineProfile",
-    "ExecutionPhase",
-    "HarnessModeContext",
-    "HarnessRunner",
-    "ModeDefinition",
-    "TaskGraph",
-    "TaskNode",
-    "task_store",
-    "WorkMode",
-]
+Import concrete workflow modules explicitly from their owning files.  The
+package root intentionally avoids re-exporting harness runtime objects so
+metadata-only imports do not load runner or task graph internals.
+"""

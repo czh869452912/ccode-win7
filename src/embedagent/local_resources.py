@@ -5,6 +5,7 @@ import os
 from typing import Any, Dict, List, Optional
 
 from embedagent.skills import discover_skill_resources
+from embedagent.workflow_packages.c_cpp.tool_names import C_WORKFLOW_TOOL_RUN_RECIPE
 
 DEFAULT_SKILL_RELPATH = os.path.join(".embedagent", "skills")
 DEFAULT_PROMPT_RELPATH = os.path.join(".embedagent", "prompts")
@@ -203,7 +204,7 @@ def _normalize_recipe(
     recipe_action = str(entry.get("recipe_action") or entry.get("stage") or "custom").strip()
     return {
         "id": recipe_id,
-        "tool_name": str(entry.get("tool_name") or "run_recipe"),
+        "tool_name": str(entry.get("tool_name") or C_WORKFLOW_TOOL_RUN_RECIPE),
         "recipe_action": recipe_action,
         "label": str(entry.get("label") or recipe_id),
         "command": command,

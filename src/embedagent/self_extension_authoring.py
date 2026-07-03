@@ -6,6 +6,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Dict, List
 
+from embedagent.workflow_packages.c_cpp.tool_names import C_WORKFLOW_TOOL_RUN_RECIPE
 from embedagent_core.permissions import OFFICIAL_PERMISSION_CATEGORIES
 
 _VALID_KIND = set(["skill", "prompt", "recipe", "extension"])
@@ -164,7 +165,7 @@ class SelfExtensionAuthoringService(object):
             return []
         payload = {
             "id": "local.%s" % slug.replace("-", "_"),
-            "tool_name": "run_recipe",
+            "tool_name": C_WORKFLOW_TOOL_RUN_RECIPE,
             "recipe_action": str(request.recipe_action or "custom"),
             "label": name,
             "command": str(request.command or ""),
@@ -208,7 +209,7 @@ class SelfExtensionAuthoringService(object):
             json.dumps(
                 {
                     "id": "local.%s.validate" % extension_id,
-                    "tool_name": "run_recipe",
+                    "tool_name": C_WORKFLOW_TOOL_RUN_RECIPE,
                     "recipe_action": "test",
                     "label": "Validate %s" % name,
                     "command": "python -m py_compile .embedagent/extensions/%s/extension.py" % slug,

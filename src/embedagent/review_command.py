@@ -2,6 +2,11 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
+from embedagent.workflow_packages.c_cpp.tool_names import (
+    C_WORKFLOW_TOOL_REPORT_QUALITY,
+    C_WORKFLOW_TOOL_RUN_RECIPE,
+)
+
 
 class ReviewCommandService(object):
     """Builds the hosted /review command payload from recent tool evidence."""
@@ -80,7 +85,11 @@ class ReviewCommandService(object):
                     "title": "No recent test execution",
                     "body": "最近的验证证据里没有测试 recipe 结果，测试覆盖存在缺口。",
                     "evidence": [
-                        {"type": "verify_gap", "tool_name": "run_recipe", "recipe_action": "test"}
+                        {
+                            "type": "verify_gap",
+                            "tool_name": C_WORKFLOW_TOOL_RUN_RECIPE,
+                            "recipe_action": "test",
+                        }
                     ],
                 }
             )
@@ -332,7 +341,7 @@ class ReviewCommandService(object):
         return None
 
     def _review_kind(self, tool_name: str, data: Dict[str, Any]) -> str:
-        if tool_name == "run_recipe":
+        if tool_name == C_WORKFLOW_TOOL_RUN_RECIPE:
             action = str(data.get("recipe_action") or "").strip().lower()
             if action in ("configure", "build"):
                 return "build"
@@ -345,7 +354,7 @@ class ReviewCommandService(object):
             if isinstance(data.get("diagnostics"), list):
                 return "diagnostic"
             return ""
-        if tool_name == "report_quality_v2":
+        if tool_name == C_WORKFLOW_TOOL_REPORT_QUALITY:
             return "quality"
         return ""
 

@@ -1,0 +1,12 @@
+from __future__ import annotations
+
+C_WORKFLOW_TOOL_LIST_RECIPES = "list_recipes"
+C_WORKFLOW_TOOL_RUN_RECIPE = "run_recipe"
+C_WORKFLOW_TOOL_REPORT_QUALITY = "report_quality_v2"
+C_WORKFLOW_TOOL_TASK_STATUS = "task_status"
+C_WORKFLOW_TOOL_RECORD_FAILING_EVIDENCE = "record_failing_evidence"
+
+C_WORKFLOW_DIAGNOSTIC_TOOL_NAMES = (
+    C_WORKFLOW_TOOL_RUN_RECIPE,
+    C_WORKFLOW_TOOL_REPORT_QUALITY,
+)

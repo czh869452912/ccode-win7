@@ -6,6 +6,10 @@ import re
 from typing import Any, Dict, List
 
 from embedagent.local_resources import discover_local_resources
+from embedagent.workflow_packages.c_cpp.tool_names import (
+    C_WORKFLOW_TOOL_LIST_RECIPES,
+    C_WORKFLOW_TOOL_RUN_RECIPE,
+)
 
 _PROJECT_RECIPES_RELPATH = os.path.join(".embedagent", "workspace-recipes.json")
 _HISTORY_RECIPES_RELPATH = os.path.join(".embedagent", "memory", "project", "command-recipes.json")
@@ -73,7 +77,8 @@ def resolve_workspace_recipe(
                     "expected_tool_name": normalized_expected,
                     "actual_tool_name": tool_name,
                     "available_recipes": available,
-                    "suggested_next_step": "Pick a recipe returned by list_recipes.",
+                    "suggested_next_step": "Pick a recipe returned by %s."
+                    % C_WORKFLOW_TOOL_LIST_RECIPES,
                 },
             )
 
@@ -123,7 +128,9 @@ def resolve_workspace_recipe(
             "retryable": False,
             "recipe_id": normalized_id,
             "available_recipes": available,
-            "suggested_next_step": "Call list_recipes and choose an available ready recipe.",
+            "suggested_next_step": (
+                "Call %s and choose an available ready recipe." % C_WORKFLOW_TOOL_LIST_RECIPES
+            ),
         },
     )
 
@@ -158,7 +165,7 @@ def _normalize_recipe_item(item: Dict[str, Any]) -> Dict[str, Any]:
     original_tool_name = str(item.get("tool_name") or "").strip()
     stage = str(item.get("stage") or "").strip()
     normalized = dict(item)
-    normalized["tool_name"] = "run_recipe"
+    normalized["tool_name"] = C_WORKFLOW_TOOL_RUN_RECIPE
     normalized["recipe_action"] = str(
         item.get("recipe_action") or _recipe_action_from(original_tool_name, stage)
     )
@@ -177,7 +184,7 @@ def _recipe_action_from(tool_name: str, stage: str) -> str:
     normalized_stage = str(stage or "").strip()
     if normalized_stage:
         return normalized_stage
-    if str(tool_name or "").strip() == "run_recipe":
+    if str(tool_name or "").strip() == C_WORKFLOW_TOOL_RUN_RECIPE:
         return "custom"
     return "custom"
 
@@ -224,7 +231,7 @@ def _detect_builtin_recipes(workspace: str) -> List[Dict[str, Any]]:
         build_dir = _cmake_build_dir("")
         configure = {
             "id": "cmake.configure.default",
-            "tool_name": "run_recipe",
+            "tool_name": C_WORKFLOW_TOOL_RUN_RECIPE,
             "recipe_action": "configure",
             "label": "CMake Configure",
             "command": "cmake -S . -B build",
@@ -240,7 +247,7 @@ def _detect_builtin_recipes(workspace: str) -> List[Dict[str, Any]]:
         }
         build = {
             "id": "cmake.build.default",
-            "tool_name": "run_recipe",
+            "tool_name": C_WORKFLOW_TOOL_RUN_RECIPE,
             "recipe_action": "build",
             "label": "CMake Build",
             "command": "cmake --build build",
@@ -254,7 +261,7 @@ def _detect_builtin_recipes(workspace: str) -> List[Dict[str, Any]]:
         }
         test = {
             "id": "cmake.test.default",
-            "tool_name": "run_recipe",
+            "tool_name": C_WORKFLOW_TOOL_RUN_RECIPE,
             "recipe_action": "test",
             "label": "CTest",
             "command": "ctest --test-dir build --output-on-failure",
@@ -277,7 +284,7 @@ def _detect_builtin_recipes(workspace: str) -> List[Dict[str, Any]]:
             [
                 {
                     "id": "make.build.default",
-                    "tool_name": "run_recipe",
+                    "tool_name": C_WORKFLOW_TOOL_RUN_RECIPE,
                     "recipe_action": "build",
                     "label": "Make Build",
                     "command": "make",
@@ -293,7 +300,7 @@ def _detect_builtin_recipes(workspace: str) -> List[Dict[str, Any]]:
                 },
                 {
                     "id": "make.test.default",
-                    "tool_name": "run_recipe",
+                    "tool_name": C_WORKFLOW_TOOL_RUN_RECIPE,
                     "recipe_action": "test",
                     "label": "Make Test",
                     "command": "make test",
@@ -323,7 +330,7 @@ def _detect_builtin_recipes(workspace: str) -> List[Dict[str, Any]]:
             [
                 {
                     "id": "ninja.build.default",
-                    "tool_name": "run_recipe",
+                    "tool_name": C_WORKFLOW_TOOL_RUN_RECIPE,
                     "recipe_action": "build",
                     "label": "Ninja Build",
                     "command": "ninja",
@@ -338,7 +345,7 @@ def _detect_builtin_recipes(workspace: str) -> List[Dict[str, Any]]:
                 },
                 {
                     "id": "ninja.test.default",
-                    "tool_name": "run_recipe",
+                    "tool_name": C_WORKFLOW_TOOL_RUN_RECIPE,
                     "recipe_action": "test",
                     "label": "Ninja Test",
                     "command": "ninja test",

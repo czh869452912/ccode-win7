@@ -279,9 +279,7 @@ def app_capability_payload(snapshot: Dict[str, Any]) -> Dict[str, Any]:
                 "icon_key": _clean_text(metadata.get("icon_key"), "circle"),
                 "color_token": _clean_text(metadata.get("color_token"), "info"),
                 "command_id": _clean_text(metadata.get("command_id"), "mode.%s" % mode_id),
-                "dispatch": dict(
-                    metadata.get("dispatch") or {"kind": "mode.set", "mode": mode_id}
-                ),
+                "dispatch": dict(metadata.get("dispatch") or {"kind": "mode.set", "mode": mode_id}),
                 "source_type": _clean_text(item.get("source_type"), "agent_profile"),
                 "source_id": _clean_text(item.get("source_id"), "agent_profile"),
                 "active": bool(item.get("active")),
