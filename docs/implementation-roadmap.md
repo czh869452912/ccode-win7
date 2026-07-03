@@ -41,6 +41,10 @@ product composition and default C/C++ behavior:
 - `src/embedagent_core/` now contains the workflow-neutral session engine,
   extension boundary, permission policy, reducers, turn snapshots, and
   capability read models
+- `embedagent_core` no longer imports `embedagent`, `embedagent_host`, GUI/TUI,
+  or workflow package modules
+- product-owned concrete services are injected through Core ports
+- deleted product-level compatibility paths are intentionally absent
 - `src/embedagent_host/` now contains hosted product composition, default
   extension assembly, hosted command/interaction services, and adapter glue
 - `src/embedagent/workflow_packages/c_cpp/` now contains the first-party C/C++
@@ -181,6 +185,11 @@ Recent stabilization work has also completed the agent-core ownership cutover:
 - provider snapshot, workflow prompt append/dedupe, and compaction payload
   assembly now live in `TurnSnapshotService`, `PromptAssemblyService`, and
   `CompactionJournal`, so `QueryEngine` no longer owns those helper details
+- Agent Core boundary extraction is complete: durable session and interaction
+  records, model/tool contracts, loop guard primitives, prompt/compaction
+  helpers, and host-service policy ports now live in `embedagent_core`, while
+  concrete providers, tools, stores, context assembly, workspace intelligence,
+  and default workflow composition stay in hosted/product layers
 - session snapshots are now built by a pure `SessionSnapshotProjector`
 - live tool-completion refresh has moved to `read_model_invalidations`
   metadata on tool catalog entries and events, so GUI/Core paths no longer

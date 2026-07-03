@@ -26,6 +26,12 @@ composition layer, and replaceable workflow packages:
 - `src/embedagent/protocol/` contains the Agent App Protocol contracts consumed
   by reusable GUI/TUI shells.
 
+`embedagent_core` is the generic Agent Core package boundary. It does not
+import the product package, host package, GUI, TUI, or workflow packages.
+Concrete provider clients, workspace tools, stores, context assembly, and
+default workflow composition live outside Core and are injected by
+`embedagent_host`.
+
 Local offline self-extension is part of the official architecture: workspace file resources and manifest-gated project-local Python extensions can extend the hosted runtime while remote registries, online installs, dependency installation, plugin marketplaces, built-in tool replacement, and general multi-agent orchestration remain outside the product baseline.
 
 Optional enterprise/intranet integrations follow the same minimal-core rule: they may exist as trusted providers, workflow packages, project extensions, or telemetry sinks, but Agent Core must not depend on network availability. Intranet Git, custom service, and telemetry features must be explicit, disableable, manifest/config gated, permission-checked, and failure-tolerant; they must not send prompts, source text, raw tool outputs, or credentials through diagnostics or telemetry.
@@ -121,7 +127,7 @@ The product no longer treats the old `code` mode or legacy todo-management workf
   Internal lifecycle kernel for turn frames and pending interaction creation/resolution boundaries.
 - `src/embedagent_core/agent_loop.py`
   Pi-style open continuation loop for agent steps, provider/context attempts, compact retry, tool batches, guard stops, abort transitions, and explicit loop safety-limit compatibility transitions.
-- `src/embedagent/guard.py`
+- `src/embedagent_core/guard.py`
   ProgressGuard for evidence-fingerprint based no-progress/runaway protection across tool actions and observations.
 - `src/embedagent_core/agent_loop_continuation.py`
   Internal continuation decision policy for open-loop stop, continue, abort, and safety-limit behavior.
@@ -135,8 +141,12 @@ The product no longer treats the old `code` mode or legacy todo-management workf
   Frozen provider-request input built from context messages, active schemas, workflow state, runtime metadata, and capability projections.
 - `src/embedagent_core/turn_snapshot_service.py`
   Provider snapshot builder and safe snapshot metadata projector for runtime config, capabilities, prompt units, model profile, and context stats.
-- `src/embedagent/prompt_assembly_service.py`
+- `src/embedagent_core/prompt_assembly_service.py`
   Workflow prompt append/dedupe service for generic `workflow_prompt` system messages.
+- `src/embedagent_core/ports.py`, `src/embedagent_core/policies.py`, and
+  `src/embedagent_core/tool_contracts.py`
+  Abstract host-service, mode/path-policy, and tool-runtime contracts injected
+  by product composition.
 - `src/embedagent_core/compaction_journal.py`
   Safe compact-boundary and compacted-history transcript payload builder.
 - `src/embedagent_core/capabilities.py`
@@ -255,6 +265,7 @@ Current architecture cutover status:
 - Context/intelligence cutover: completed
 - Permission/task truth cutover: completed
 - Agent core ownership cutover: completed
+- Agent Core boundary extraction: completed
 - Frontend/protocol officialization: completed
 - Session-history single-source cutover: completed
 - Pi-inspired minimal Core Phase A durable operation log: completed

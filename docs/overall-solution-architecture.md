@@ -102,6 +102,16 @@ packages.
 - `src/embedagent_core/agent_tool_action_service.py`
 - `src/embedagent_core/agent_extension_host.py`
 - `src/embedagent_core/agent_event_bus.py`
+- `src/embedagent_core/session.py`
+- `src/embedagent_core/interaction.py`
+- `src/embedagent_core/model.py`
+- `src/embedagent_core/tool_contracts.py`
+- `src/embedagent_core/ports.py`
+- `src/embedagent_core/policies.py`
+- `src/embedagent_core/guard.py`
+- `src/embedagent_core/prompt_assembly_service.py`
+- `src/embedagent_core/compactor.py`
+- `src/embedagent_core/context_window.py`
 - `src/embedagent_core/turn_snapshot.py`
 - `src/embedagent_core/capabilities.py`
 - `src/embedagent_core/runtime_config.py`
@@ -111,11 +121,12 @@ packages.
 - `src/embedagent_core/extensions.py`
 - `src/embedagent_core/permissions.py`
 
-This is the generic Agent Core package. It owns the session engine, lifecycle
-journal, loop/action/extension boundaries, permission policy, explicit turn
-snapshots, reducers, capability read models, and workflow package manifest read
-model. It must not import GUI backend modules, hosted product composition, or
-specific workflow packages.
+This is the generic Agent Core package. Agent Core is dependency-inverted: it
+owns turn state, transcript records, reducers, permission contracts, extension
+dispatch, loop control, and abstract ports. Host/product layers implement the
+ports. C/C++ workflow behavior is a workflow package, not a Core dependency.
+Core must not import the product package, host package, GUI, TUI, or workflow
+packages.
 
 ### Host And Product Composition Layer
 
@@ -278,7 +289,7 @@ Official task truth flows through:
 - `task_status`
 - session task snapshots
 
-`Session.task_graph` has been removed. The default C/C++ harness keeps `TaskGraph` ownership behind `CHarnessWorkflowExtension` and a harness-owned session graph state adapter, while the core/frontend boundary carries only `Session.workflow_state["workflow"]`. Importing or instantiating `embedagent.session.Session` must not load harness task graph internals.
+`Session.task_graph` has been removed. The default C/C++ harness keeps `TaskGraph` ownership behind `CHarnessWorkflowExtension` and a harness-owned session graph state adapter, while the core/frontend boundary carries only `Session.workflow_state["workflow"]`. Importing or instantiating `embedagent_core.session.Session` must not load harness task graph internals.
 
 Frontend-facing task projection now comes from `Session.workflow_state["workflow"]`. The default C/C++ harness extension is responsible for keeping that projection synchronized with its internal task graph and persisted session task snapshots. The payload assembly itself is centralized in `src/embedagent/workflow_packages/c_cpp/workflow_projection.py`, which is the adapter from C harness internals to generic workflow state.
 
