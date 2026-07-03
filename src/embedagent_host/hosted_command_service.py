@@ -9,7 +9,6 @@ from embedagent.modes import require_mode
 from embedagent.prompts import expand_prompt_invocation
 from embedagent.protocol import CommandResult, PlanSnapshot
 from embedagent.review_command import ReviewCommandService
-from embedagent_core.session import Action, AssistantReply, LoopTransition, Observation, TurnOutcome
 from embedagent.session_runtime import ManagedSession
 from embedagent.skills import expand_skill_invocation
 from embedagent.slash_command_service import SlashCommandService
@@ -20,6 +19,7 @@ from embedagent.slash_commands import (
     resource_command_specs,
 )
 from embedagent_core.permissions import PermissionRequest
+from embedagent_core.session import Action, AssistantReply, LoopTransition, Observation, TurnOutcome
 
 EventHandler = Callable[[str, str, Dict[str, Any]], None]
 PermissionResolver = Callable[[Dict[str, Any]], bool]

@@ -3,7 +3,6 @@ from __future__ import annotations
 import re
 from typing import Any, List, Optional, Set
 
-from embedagent_core.session import Observation
 from embedagent.workflow_packages.c_cpp import task_store
 from embedagent.workflow_packages.c_cpp.context_reducers import register_c_workflow_context_reducers
 from embedagent.workflow_packages.c_cpp.package_manifest import c_workflow_package_manifest_dict
@@ -15,6 +14,7 @@ from embedagent.workflow_packages.c_cpp.workflow_projection import (
     build_c_harness_workflow_projection,
 )
 from embedagent_core.extensions import ExtensionCapability, ToolRegistrationResult, WorkflowPrompt
+from embedagent_core.session import Observation
 
 
 class CHarnessWorkflowExtension(object):

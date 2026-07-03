@@ -7,11 +7,11 @@ from itertools import count
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from embedagent_core.session import AssistantReply
 from embedagent.tools import ToolRuntime
 from embedagent_core.extensions import ResourcesDiscoverResult
 from embedagent_core.permissions import PermissionPolicy
 from embedagent_core.query_engine import QueryEngine
+from embedagent_core.session import AssistantReply
 from embedagent_host.inprocess_adapter import InProcessAdapter
 
 _COUNTER = count(1)

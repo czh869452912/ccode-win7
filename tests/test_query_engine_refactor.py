@@ -11,11 +11,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from embedagent.config import AppConfig
 from embedagent.context import ContextManager
-from embedagent_core.interaction import UserInputResponse
-from embedagent_core.model import ModelClientError
-from embedagent_core.session import Action, AssistantReply, Observation, Session
 from embedagent.session_restore import SessionRestorer
-from embedagent_core.tool_execution import partition_tool_actions
 from embedagent.tools import ToolRuntime
 from embedagent.transcript_store import TranscriptStore
 from embedagent.workspace_intelligence import (
@@ -27,8 +23,12 @@ from embedagent.workspace_intelligence import (
     WorkspaceIntelligenceBroker,
 )
 from embedagent_core.extensions import ExtensionManager, ToolResultPatch, WorkflowPatch
+from embedagent_core.interaction import UserInputResponse
+from embedagent_core.model import ModelClientError
 from embedagent_core.permissions import PermissionPolicy
 from embedagent_core.query_engine import QueryEngine
+from embedagent_core.session import Action, AssistantReply, Observation, Session
+from embedagent_core.tool_execution import partition_tool_actions
 from embedagent_host.default_extensions import build_default_extension_set
 from embedagent_host.inprocess_adapter import InProcessAdapter
 

@@ -170,8 +170,8 @@ class TestSessionLifecycleManager(unittest.TestCase):
         self.assertEqual(state.current_mode, "explore")
 
     def test_persist_state_saves_summary(self):
-        from embedagent_core.session import Session
         from embedagent.session_runtime import ManagedSession
+        from embedagent_core.session import Session
 
         session = Session()
         state = ManagedSession(session=session, current_mode="explore")
@@ -187,8 +187,8 @@ class TestHarnessWorkflowExtensionRefresh(unittest.TestCase):
         self.extension = CHarnessWorkflowExtension(harness_runner=self.harness_runner)
 
     def test_refresh_task_graph_updates_snapshot(self):
-        from embedagent_core.session import Session
         from embedagent.session_runtime import ManagedSession
+        from embedagent_core.session import Session
 
         session = Session()
         state = ManagedSession(session=session, current_mode="explore")

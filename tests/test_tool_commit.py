@@ -3,10 +3,10 @@ import tempfile
 import unittest
 
 from embedagent.projection_db import ProjectionDb
-from embedagent_core.session import Action, Observation, Session
 from embedagent.tool_commit import ToolCommitCoordinator
 from embedagent.tool_result_store import ToolResultStore
 from embedagent.transcript_store import TranscriptStore
+from embedagent_core.session import Action, Observation, Session
 
 
 class TestToolCommitCoordinator(unittest.TestCase):

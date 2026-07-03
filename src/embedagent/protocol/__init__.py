@@ -11,7 +11,6 @@ from datetime import datetime, timezone
 from enum import Enum, auto
 from typing import Any, Dict, List, Optional, Protocol
 
-from embedagent_core.permissions import PermissionContextView
 from embedagent.protocol.app_protocol import (
     AppBootstrap as AppBootstrap,
 )
@@ -39,6 +38,7 @@ from embedagent.protocol.app_protocol import (
 from embedagent.protocol.app_protocol import (
     WorkflowPackageDescriptor as WorkflowPackageDescriptor,
 )
+from embedagent_core.permissions import PermissionContextView
 
 
 def _utc_now() -> datetime:

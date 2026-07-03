@@ -10,21 +10,17 @@ import subprocess
 import threading
 import time
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from embedagent.constants import should_skip_directory
 from embedagent.local_resources import discover_local_resources
 from embedagent.runtime_discovery import discover_bundle_root
-from embedagent_core.session import Observation
-from embedagent_core.tool_contracts import (
-    ToolDefinition,
-    ToolError,
-    diagnostic_tool_error,
-)
 from embedagent.workspace_recipes import (
     list_workspace_recipes,
     resolve_workspace_recipe,
 )
+from embedagent_core.session import Observation
+from embedagent_core.tool_contracts import ToolError
 
 MAX_READ_CHARS = 40000
 MAX_LIST_RESULTS = 500

@@ -3,8 +3,8 @@
 import time
 import unittest
 
-from embedagent_core.session import Action, Observation
 from embedagent.strategies.tool_cache import CacheEntry, CacheTier, ToolResultCache
+from embedagent_core.session import Action, Observation
 
 
 class TestToolResultCache(unittest.TestCase):

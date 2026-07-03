@@ -5,10 +5,10 @@ import unittest
 from unittest.mock import Mock
 
 from embedagent_core.model import ModelClientError
-from embedagent_host.providers.openai_compatible import OpenAICompatibleClient
 from embedagent_core.session import AssistantReply
 from embedagent_core.strategies.circuit_breaker import CircuitBreaker, CircuitBreakerOpenError
 from embedagent_core.strategies.llm_retry_wrapper import LLMClientRetryWrapper
+from embedagent_host.providers.openai_compatible import OpenAICompatibleClient
 
 
 class TestCircuitBreaker(unittest.TestCase):

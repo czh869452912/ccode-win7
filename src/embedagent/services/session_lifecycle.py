@@ -7,11 +7,11 @@ from typing import Any, Dict, List, Optional
 from embedagent.modes import DEFAULT_MODE, require_mode
 from embedagent.plan_store import PlanStore
 from embedagent.project_memory import ProjectMemoryStore
-from embedagent_core.session import Session
 from embedagent.session_restore import SessionRestorer
 from embedagent.session_runtime import ManagedSession
 from embedagent.session_store import SessionSummaryStore
 from embedagent.transcript_store import TranscriptStore
+from embedagent_core.session import Session
 
 logger = logging.getLogger(__name__)
 

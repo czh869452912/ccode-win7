@@ -5,7 +5,6 @@ import os
 from typing import Any, Dict, List
 
 from embedagent.services.shadow_git import ShadowGitSnapshot
-from embedagent_core.session import Observation
 from embedagent.strategies.diff_engine import DiffBlock, MultiSearchReplaceDiffEngine
 from embedagent.tools._base import (
     MAX_READ_CHARS,
@@ -14,6 +13,7 @@ from embedagent.tools._base import (
     ToolError,
     diagnostic_tool_error,
 )
+from embedagent_core.session import Observation
 
 logger = logging.getLogger(__name__)
 

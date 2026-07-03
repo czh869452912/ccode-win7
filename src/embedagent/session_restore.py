@@ -6,6 +6,8 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List
 
 from embedagent_core.compacted_history import CompactedHistoryReducer
+from embedagent_core.compaction_state import CompactionState, CompactionStateReducer
+from embedagent_core.recovery_state import RecoveryState, RecoveryStateReducer
 from embedagent_core.session import (
     Action,
     AssistantReply,
@@ -16,8 +18,6 @@ from embedagent_core.session import (
     ToolPresentationSnapshot,
     TranscriptMessage,
 )
-from embedagent_core.compaction_state import CompactionState, CompactionStateReducer
-from embedagent_core.recovery_state import RecoveryState, RecoveryStateReducer
 from embedagent_core.session_operation_log import OperationLogReducer, OperationLogState
 
 _LOG = logging.getLogger(__name__)

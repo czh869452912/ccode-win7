@@ -2,9 +2,6 @@ from __future__ import annotations
 
 from typing import Any, Optional, Set, Tuple
 
-from embedagent_core.interaction import ask_user_schema, propose_mode_switch_schema
-from embedagent_core.policies import EmptyModeToolPolicy, ModeToolPolicy
-from embedagent_core.session import Action, ContextAssemblyResult, Observation, Session
 from embedagent_core.extensions import (
     ExtensionContext,
     ExtensionManager,
@@ -12,6 +9,9 @@ from embedagent_core.extensions import (
     ToolRegistrationEvent,
     WorkflowEvent,
 )
+from embedagent_core.interaction import ask_user_schema, propose_mode_switch_schema
+from embedagent_core.policies import EmptyModeToolPolicy, ModeToolPolicy
+from embedagent_core.session import Action, ContextAssemblyResult, Observation, Session
 from embedagent_core.tool_contracts import ToolRuntimePort
 
 

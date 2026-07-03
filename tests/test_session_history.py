@@ -4,13 +4,13 @@ import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
+from embedagent.session_history import SessionHistoryAssembler
 from embedagent_core.session import (
     Action,
     AssistantReply,
     Observation,
     Session,
 )
-from embedagent.session_history import SessionHistoryAssembler
 
 
 class TestSessionHistoryAssemblerActivities(unittest.TestCase):

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from embedagent_core.agent_lifecycle import AgentLifecycleJournal
 from embedagent_core.session import (
     Action,
     InteractionCheckpoint,
@@ -7,7 +8,6 @@ from embedagent_core.session import (
     PendingInteraction,
     Session,
 )
-from embedagent_core.agent_lifecycle import AgentLifecycleJournal
 
 
 class AgentTurnFrame(object):

@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from typing import Any, Dict, List
 
-from embedagent_core.session import Observation
 from embedagent.tools._base import ToolDefinition
 from embedagent.workspace_recipes import RecipeResolutionError
+from embedagent_core.session import Observation
 
 
 def build_tools(ctx) -> List[ToolDefinition]:

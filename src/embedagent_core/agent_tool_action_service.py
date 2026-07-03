@@ -4,12 +4,16 @@ import os
 import threading
 from typing import Any, Callable, List, Optional, Tuple
 
-from embedagent_core.interaction import UserInputRequest, UserInputResponse, build_user_input_request
-from embedagent_core.policies import DenyWritePathPolicy, WritePathPolicy
-from embedagent_core.session import Action, Observation, QueryTurnResult, Session
 from embedagent_core.agent_extension_host import AgentExtensionHost
 from embedagent_core.agent_lifecycle import AgentLifecycleJournal
+from embedagent_core.interaction import (
+    UserInputRequest,
+    UserInputResponse,
+    build_user_input_request,
+)
 from embedagent_core.permissions import PermissionPolicy, PermissionRequest
+from embedagent_core.policies import DenyWritePathPolicy, WritePathPolicy
+from embedagent_core.session import Action, Observation, QueryTurnResult, Session
 from embedagent_core.tool_contracts import ToolError, ToolRuntimePort
 
 

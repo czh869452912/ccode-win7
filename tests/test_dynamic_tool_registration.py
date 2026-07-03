@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import pytest
 
-from embedagent_core.session import Action, AssistantReply, Observation, Session
 from embedagent.tools import ToolDefinition, ToolRuntime
 from embedagent_core.extensions import (
     ExtensionContext,
@@ -10,6 +9,7 @@ from embedagent_core.extensions import (
     ToolRegistrationEvent,
     ToolRegistrationResult,
 )
+from embedagent_core.session import Action, AssistantReply, Observation, Session
 
 
 def dynamic_tool_metadata(permission_category="read", read_only=True):

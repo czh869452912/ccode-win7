@@ -6,8 +6,8 @@ import re
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from embedagent.constants import SKIP_DIR_NAMES, SKIP_RELATIVE_DIRS
-from embedagent_core.session import Observation
 from embedagent.tools._base import ToolDefinition, ToolError, diagnostic_tool_error
+from embedagent_core.session import Observation
 
 
 def _resolve_search_root(ctx, raw_path: str) -> str:

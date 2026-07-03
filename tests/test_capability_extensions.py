@@ -1,4 +1,3 @@
-from embedagent_core.session import Action, AssistantReply, Observation
 from embedagent_core.extensions import (
     ContextPatch,
     ExtensionCapability,
@@ -10,6 +9,7 @@ from embedagent_core.extensions import (
     ToolResultPatch,
     WorkflowEvent,
 )
+from embedagent_core.session import Action, AssistantReply, Observation
 
 
 def _capabilities_for(extension, *hook_names):
@@ -709,11 +709,11 @@ def test_query_engine_tool_result_hook_can_replace_observation(tmp_path):
 
 
 def test_agent_extension_host_applies_context_and_tool_result_workflow_patch(tmp_path):
-    from embedagent_core.session import ContextAssemblyResult, Session
     from embedagent.tools import ToolRuntime
     from embedagent_core.agent_extension_host import AgentExtensionHost
     from embedagent_core.extensions import ContextPatch, WorkflowPatch
     from embedagent_core.permissions import PermissionPolicy
+    from embedagent_core.session import ContextAssemblyResult, Session
 
     class ContextAndPatchExtension(object):
         extension_id = "context_and_patch"
@@ -854,11 +854,11 @@ class DynamicServiceBoundaryExtension(object):
 
 
 def test_agent_tool_action_service_runs_dynamic_tools_through_extension_hooks(tmp_path):
-    from embedagent_core.session import Session
     from embedagent.tools import ToolRuntime
     from embedagent_core.agent_extension_host import AgentExtensionHost
     from embedagent_core.agent_tool_action_service import AgentToolActionService
     from embedagent_core.permissions import PermissionPolicy
+    from embedagent_core.session import Session
 
     runtime = ToolRuntime(str(tmp_path))
     policy = PermissionPolicy(auto_approve_all=True, workspace=str(tmp_path))
@@ -939,9 +939,9 @@ def test_workflow_patch_exposes_only_current_read_model_fields():
 
 
 def test_session_snapshot_projects_extension_state_and_diagnostics():
-    from embedagent_core.session import Session
     from embedagent.session_projector import SessionSnapshotProjector
     from embedagent.session_runtime import ManagedSession
+    from embedagent_core.session import Session
 
     session = Session()
     session.workflow_state["extensions"] = {

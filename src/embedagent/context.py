@@ -8,8 +8,8 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from embedagent.context_usage import ContextUsageEstimator
 from embedagent.project_memory import ProjectMemoryStore
-from embedagent_core.session import Action, Message, Observation, Session, Turn
 from embedagent.workspace_intelligence import WorkspaceIntelligenceBroker
+from embedagent_core.session import Action, Message, Observation, Session, Turn
 
 _MODE_RE = re.compile(r"当前模式：(\w+)")
 _MODE_PROMPT_PREFIX = "你是 EmbedAgent 的受控模式原型。"
