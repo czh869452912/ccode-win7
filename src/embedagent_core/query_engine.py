@@ -25,7 +25,7 @@ from embedagent_core.interaction import (
     UserInputRequest,
     UserInputResponse,
 )
-from embedagent.llm import ModelClientError, OpenAICompatibleClient
+from embedagent_core.model import ModelClient, ModelClientError
 from embedagent.strategies.execution_tracer import ExecutionTracer, TraceEventType
 from embedagent.strategies.llm_retry_wrapper import LLMClientRetryWrapper
 from embedagent.memory_maintenance import MemoryMaintenance
@@ -81,7 +81,7 @@ _OPERATION_RUNTIME_ERRORS = (OSError, RuntimeError, ValueError, TypeError, KeyEr
 class QueryEngine(object):
     def __init__(
         self,
-        client: OpenAICompatibleClient,
+        client: ModelClient,
         tools: ToolRuntime,
         max_turns: Optional[int] = None,
         permission_policy: Optional[PermissionPolicy] = None,

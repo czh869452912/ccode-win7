@@ -6,7 +6,7 @@ import unittest
 from unittest.mock import MagicMock
 
 from embedagent.context import ContextManager
-from embedagent.llm import OpenAICompatibleClient
+from embedagent_host.providers.openai_compatible import OpenAICompatibleClient
 from embedagent.tools import ToolRuntime
 from embedagent_core.permissions import PermissionPolicy
 from embedagent_core.query_engine import QueryEngine

@@ -5,7 +5,7 @@ import os
 import sys
 from typing import Dict, List, Optional
 
-from embedagent.llm import ModelClientError
+from embedagent_core.model import ModelClientError
 from embedagent.modes import DEFAULT_MODE, initialize_modes, parse_mode_command
 from embedagent.tui import TUIUnavailableError
 from embedagent_host.hosted.launch_config import LaunchOverrides, resolve_launch_config

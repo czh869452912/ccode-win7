@@ -139,7 +139,7 @@ class TestInProcessAdapterBoundaries(object):
     """Verify InProcessAdapter construction and removed-alias boundaries."""
 
     def _make_adapter(self):
-        from embedagent.llm import OpenAICompatibleClient
+        from embedagent_host.providers.openai_compatible import OpenAICompatibleClient
         from embedagent.tools import ToolRuntime
         from embedagent_host.inprocess_adapter import InProcessAdapter
 
@@ -194,7 +194,7 @@ class TestQueryEngineBoundaries(object):
     """Verify QueryEngine construction boundaries."""
 
     def test_can_instantiate_with_minimal_args(self, fresh_container):
-        from embedagent.llm import OpenAICompatibleClient
+        from embedagent_host.providers.openai_compatible import OpenAICompatibleClient
         from embedagent.tools import ToolRuntime
         from embedagent_core.query_engine import QueryEngine
 

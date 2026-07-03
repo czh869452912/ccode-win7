@@ -5,7 +5,7 @@ from __future__ import annotations
 import unittest
 from unittest.mock import MagicMock
 
-from embedagent.llm import ModelClientError
+from embedagent_core.model import ModelClientError
 from embedagent_core.session import AssistantReply
 from embedagent.strategies.llm_retry_wrapper import LLMClientRetryWrapper
 

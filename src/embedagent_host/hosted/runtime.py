@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from embedagent.context import ContextManager, make_context_config
-from embedagent.llm import OpenAICompatibleClient
+from embedagent_host.providers.openai_compatible import OpenAICompatibleClient
 from embedagent.project_memory import ProjectMemoryStore
 from embedagent.session_store import SessionSummaryStore
 from embedagent.tools import ToolRuntime

@@ -7,11 +7,8 @@ import urllib.request
 import uuid
 from typing import Any, Callable, Dict, Iterable, List, Optional
 
+from embedagent_core.model import ModelClientError
 from embedagent_core.session import Action, AssistantReply
-
-
-class ModelClientError(Exception):
-    pass
 
 
 class OpenAICompatibleClient(object):

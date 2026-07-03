@@ -17,7 +17,7 @@ from embedagent.context import ContextManager
 from embedagent_host.default_extensions import build_default_extension_set
 from embedagent_core.extensions import ExtensionContext, ToolRegistrationEvent
 from embedagent_core.interaction import UserInputRequest, UserInputResponse
-from embedagent.llm import OpenAICompatibleClient
+from embedagent_host.providers.openai_compatible import OpenAICompatibleClient
 from embedagent.memory_maintenance import MemoryMaintenance
 from embedagent.modes import (
     DEFAULT_MODE,

@@ -6,7 +6,7 @@ from typing import Any, Callable, Optional
 
 from embedagent_core.guard import ProgressGuard
 from embedagent_core.interaction import UserInputRequest, UserInputResponse
-from embedagent.llm import ModelClientError
+from embedagent_core.model import ModelClientError
 from embedagent_core.session import (
     Action,
     AssistantReply,

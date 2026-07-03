@@ -10,7 +10,7 @@ import random
 import time
 from typing import Any, Callable, Dict, List, Optional
 
-from embedagent.llm import ModelClientError, OpenAICompatibleClient
+from embedagent_core.model import ModelClient, ModelClientError
 from embedagent_core.session import AssistantReply
 from embedagent.strategies.circuit_breaker import CircuitBreaker, CircuitBreakerOpenError
 
@@ -26,7 +26,7 @@ class LLMClientRetryWrapper(object):
 
     def __init__(
         self,
-        client: OpenAICompatibleClient,
+        client: ModelClient,
         max_retries: int = _LLM_MAX_RETRIES,
         base_delay: float = _LLM_RETRY_BASE_DELAY,
         circuit_breaker: Optional[CircuitBreaker] = None,
