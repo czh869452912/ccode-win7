@@ -7,32 +7,50 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 
 class CorePackageImportTests(unittest.TestCase):
-    def test_embedagent_core_imports_no_gui_host_or_workflow_package(self):
+    def _core_python_files(self):
         root = os.path.join(os.path.dirname(__file__), "..", "src", "embedagent_core")
         self.assertTrue(os.path.isdir(root))
-        forbidden = (
-            "embedagent.frontend",
-            "embedagent_host",
-            "embedagent.workflow_packages",
-            "embedagent.workflow_packages.c_cpp",
-        )
-        offenders = []
         for dirpath, _dirnames, filenames in os.walk(root):
             for filename in filenames:
-                if not filename.endswith(".py"):
+                if filename.endswith(".py"):
+                    yield root, os.path.join(dirpath, filename)
+
+    def _imports_from_file(self, path):
+        with open(path, "r", encoding="utf-8") as handle:
+            tree = ast.parse(handle.read(), filename=path)
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom):
+                yield node.module or ""
+            elif isinstance(node, ast.Import):
+                for alias in node.names:
+                    yield alias.name
+
+    def test_embedagent_core_imports_no_product_host_gui_or_workflow_packages(self):
+        offenders = []
+        for root, path in self._core_python_files():
+            for module in self._imports_from_file(path):
+                if module == "embedagent_core" or module.startswith("embedagent_core."):
                     continue
-                path = os.path.join(dirpath, filename)
-                with open(path, "r", encoding="utf-8") as handle:
-                    tree = ast.parse(handle.read(), filename=path)
-                for node in ast.walk(tree):
-                    module = ""
-                    if isinstance(node, ast.ImportFrom):
-                        module = node.module or ""
-                    elif isinstance(node, ast.Import):
-                        module = ",".join(alias.name for alias in node.names)
-                    if any(item in module for item in forbidden):
-                        offenders.append((os.path.relpath(path, root), module))
+                if module == "embedagent_host" or module.startswith("embedagent_host."):
+                    offenders.append((os.path.relpath(path, root), module))
+                    continue
+                if module == "embedagent" or module.startswith("embedagent."):
+                    offenders.append((os.path.relpath(path, root), module))
+                    continue
         self.assertEqual(offenders, [])
+
+    def test_deleted_core_type_paths_do_not_exist_in_product_package(self):
+        root = os.path.join(os.path.dirname(__file__), "..", "src", "embedagent")
+        deleted = (
+            "session.py",
+            "interaction.py",
+            "guard.py",
+            "tool_execution.py",
+            "compacted_history.py",
+            "llm.py",
+        )
+        existing = [name for name in deleted if os.path.exists(os.path.join(root, name))]
+        self.assertEqual(existing, [])
 
 
 if __name__ == "__main__":

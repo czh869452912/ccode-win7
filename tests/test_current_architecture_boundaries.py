@@ -10,6 +10,26 @@ from unittest.mock import MagicMock
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def _relative(path):
+    return path.relative_to(ROOT).as_posix()
+
+
+def _source_files_under(*relative_roots, **kwargs):
+    suffixes = kwargs.get("suffixes", (".py",))
+    files = []
+    for relative_root in relative_roots:
+        root = ROOT / relative_root
+        candidates = [root] if root.is_file() else list(root.rglob("*"))
+        for path in candidates:
+            if not path.is_file():
+                continue
+            if "__pycache__" in path.parts:
+                continue
+            if path.suffix in suffixes:
+                files.append(path)
+    return files
+
+
 def test_c_cpp_workflow_package_replaces_embedagent_harness_package():
     old_package = ROOT / "src" / "embedagent" / "harness"
     new_package = ROOT / "src" / "embedagent" / "workflow_packages" / "c_cpp"
@@ -257,6 +277,45 @@ class TestGlobalStateIsolation(object):
         # Global registry should be unchanged
         global_names = set(get_mode_registry().keys())
         assert "custom_mode" not in global_names
+
+
+def test_no_compatibility_reexports_for_core_extraction():
+    deleted_paths = [
+        ROOT / "src/embedagent/session.py",
+        ROOT / "src/embedagent/interaction.py",
+        ROOT / "src/embedagent/guard.py",
+        ROOT / "src/embedagent/tool_execution.py",
+        ROOT / "src/embedagent/compacted_history.py",
+        ROOT / "src/embedagent/llm.py",
+    ]
+    existing = [_relative(path) for path in deleted_paths if path.exists()]
+    assert existing == []
+
+    forbidden_reexport_text = (
+        "from embedagent_core.session import",
+        "from embedagent_core.interaction import",
+        "from embedagent_core.guard import",
+        "from embedagent_core.tool_execution import",
+        "from embedagent_core.compacted_history import",
+        "from embedagent_core.model import",
+    )
+    offenders = []
+    for path in _source_files_under("src/embedagent", suffixes=(".py",)):
+        text = _read(path)
+        rel = _relative(path)
+        if rel.startswith("src/embedagent/workflow_packages/c_cpp/"):
+            continue
+        for token in forbidden_reexport_text:
+            if token in text and path.name in (
+                "session.py",
+                "interaction.py",
+                "guard.py",
+                "tool_execution.py",
+                "compacted_history.py",
+                "llm.py",
+            ):
+                offenders.append("%s reexports %s" % (rel, token))
+    assert offenders == []
 
     def test_fresh_di_container_isolated(self, fresh_container):
         from embedagent.di_container import DIContainer
