@@ -349,3 +349,34 @@ def test_no_compatibility_reexports_for_core_extraction():
 
         result = get_inprocess_adapter()
         assert result is InProcessAdapter
+
+
+def test_tool_runtime_does_not_import_mode_registry_for_schema_projection():
+    runtime_source = _read(ROOT / "src/embedagent/tools/runtime.py")
+    assert "from embedagent.modes import allowed_tools_for" not in runtime_source
+    assert "allowed_tools_for(mode_name)" not in runtime_source
+
+
+def test_c_workflow_tools_are_declared_only_by_c_workflow_package_or_tests():
+    c_tools = (
+        "list_recipes",
+        "run_recipe",
+        "report_quality_v2",
+        "record_failing_evidence",
+        "task_status",
+    )
+    allowed_prefixes = (
+        "src/embedagent/workflow_packages/c_cpp/",
+        "src/embedagent/tools/recipe_ops.py",
+        "src/embedagent/tools/session_ops.py",
+    )
+    offenders = []
+    for path in _source_files_under("src", suffixes=(".py", ".js", ".jsx")):
+        rel = _relative(path)
+        if rel.startswith(allowed_prefixes):
+            continue
+        text = _read(path)
+        for tool_name in c_tools:
+            if '"%s"' % tool_name in text or "'%s'" % tool_name in text:
+                offenders.append("%s hard-codes %s" % (rel, tool_name))
+    assert offenders == []
