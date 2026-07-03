@@ -219,6 +219,32 @@ export function runActivityStateTests() {
     1,
   );
 
+  const snapshotPendingRuntime = buildSessionActivityRuntime({
+    snapshot: {
+      session_id: "sess-1",
+      status: "waiting_user_input",
+      pending_interaction_valid: true,
+      pending_interaction: {
+        interaction_id: "ask-snapshot",
+        kind: "user_input",
+        tool_name: "ask_user",
+        questions: [
+          {
+            id: "answer",
+            question: "Choose target?",
+            options: [{ index: 1, label: "Python" }],
+          },
+        ],
+      },
+    },
+    sessionTransport: createSessionTransportState(),
+    activities: [],
+  });
+  assert.equal(snapshotPendingRuntime.currentInteraction.interactionId, "ask-snapshot");
+  assert.equal(snapshotPendingRuntime.currentInteraction.question, "Choose target?");
+  assert.equal(snapshotPendingRuntime.currentInteraction.options[0].label, "Python");
+  assert.equal(snapshotPendingRuntime.interactionNotice, null);
+
   const denseActivities = [
     {
       id: "u-dense",

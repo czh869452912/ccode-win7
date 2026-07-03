@@ -4,10 +4,12 @@ import sys
 import threading
 import time
 import unittest
+from unittest import mock
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from embedagent.project_memory import ProjectMemoryStore
+from embedagent import project_memory
+from embedagent.project_memory import ProjectMemoryStore, _atomic_write_json
 
 
 class ProjectMemoryStoreConcurrencyTests(unittest.TestCase):
@@ -50,6 +52,27 @@ class ProjectMemoryStoreConcurrencyTests(unittest.TestCase):
         thread.join(1.0)
         self.assertTrue(finished.is_set())
         self.assertEqual(result, [None])
+
+    def test_atomic_write_json_retries_transient_permission_error(self):
+        path = os.path.join(self.workspace, ".embedagent", "memory", "project", "state.json")
+        attempts = []
+        real_replace = project_memory.os.replace
+
+        def flaky_replace(src, dst):
+            attempts.append((src, dst))
+            if len(attempts) < 3:
+                raise PermissionError("locked")
+            return real_replace(src, dst)
+
+        with mock.patch("embedagent.project_memory.os.replace", side_effect=flaky_replace):
+            _atomic_write_json(path, {"ok": True})
+
+        self.assertEqual(len(attempts), 3)
+        with open(path, "r", encoding="utf-8") as handle:
+            self.assertIn('"ok": true', handle.read())
+        parent = os.path.dirname(path)
+        leftovers = [name for name in os.listdir(parent) if name.endswith(".tmp")]
+        self.assertEqual(leftovers, [])
 
 
 if __name__ == "__main__":

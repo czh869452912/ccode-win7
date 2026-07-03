@@ -12,6 +12,9 @@ from enum import Enum, auto
 from typing import Any, Dict, List, Optional, Protocol
 
 from embedagent.protocol.app_protocol import (
+    AgentApplicationDescriptor as AgentApplicationDescriptor,
+)
+from embedagent.protocol.app_protocol import (
     AppBootstrap as AppBootstrap,
 )
 from embedagent.protocol.app_protocol import (

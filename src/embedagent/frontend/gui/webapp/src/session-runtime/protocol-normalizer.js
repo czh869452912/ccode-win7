@@ -103,16 +103,32 @@ export function normalizeWorkflowPackageDescriptor(item = {}) {
   };
 }
 
+export function normalizeAgentApplicationDescriptor(item = {}) {
+  const data = objectValue(item);
+  const applicationId = firstText(data.applicationId, data.application_id, data.id);
+  if (!applicationId) return null;
+  return {
+    applicationId,
+    label: firstText(data.label, data.name, applicationId),
+    profileId: text(camelOrSnake(data, "profileId", "profile_id")),
+    workflowPackageIds: listValue(
+      data.workflowPackageIds || data.workflow_package_ids,
+    ).map((value) => text(value)).filter(Boolean),
+    active: Boolean(data.active),
+    sourceType: text(camelOrSnake(data, "sourceType", "source_type")),
+    sourceId: text(camelOrSnake(data, "sourceId", "source_id")),
+    default: Boolean(data.default),
+    metadata: objectValue(data.metadata),
+  };
+}
+
 export function normalizeEmptyState(input = {}) {
   const data = objectValue(input);
   return {
-    scenarioLabel: firstText(data.scenarioLabel, data.scenario_label, "local workspace"),
-    primary: firstText(data.primary, "Open a project"),
-    secondary: firstText(
-      data.secondary,
-      "Choose a local workspace to manage threads, files, tasks, and agent runs.",
-    ),
-    pathPlaceholder: firstText(data.pathPlaceholder, data.path_placeholder, "D:\\work\\project"),
+    scenarioLabel: firstText(data.scenarioLabel, data.scenario_label),
+    primary: firstText(data.primary),
+    secondary: firstText(data.secondary),
+    pathPlaceholder: firstText(data.pathPlaceholder, data.path_placeholder),
   };
 }
 
@@ -153,6 +169,9 @@ export function normalizeProtocolCapabilities(input = {}) {
   for (const tool of tools) toolCatalog[tool.name] = tool;
   const modeCatalog = {};
   for (const mode of modes) modeCatalog[mode.id] = mode;
+  const agentApplication = normalizeAgentApplicationDescriptor(
+    data.agentApplication || data.agent_application,
+  );
   return {
     version: Number(data.version) || 1,
     modes,
@@ -162,6 +181,10 @@ export function normalizeProtocolCapabilities(input = {}) {
     toolCatalog,
     workflowPackages: listValue(data.workflowPackages || data.workflow_packages)
       .map(normalizeWorkflowPackageDescriptor)
+      .filter(Boolean),
+    agentApplication,
+    agentApplications: listValue(data.agentApplications || data.agent_applications)
+      .map(normalizeAgentApplicationDescriptor)
       .filter(Boolean),
     resources: listValue(data.resources),
     modelProfiles: listValue(data.modelProfiles || data.model_profiles),

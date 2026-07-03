@@ -18,6 +18,7 @@
         "max_recent_turns": 4,
         "auto_compact_threshold_ratio": 0.9,
         "default_mode": "explore",
+        "agent_application_id": "embedagent.default_c_cpp",
         "mode_writable_globs": {
             "build": ["**/*.py", "**/*.toml", "**/*.cfg"],
             "spec": ["**/*.md", "**/*.rst"]
@@ -55,6 +56,7 @@ class AppConfig:
     # Explicit runtime/test loop safety fuse. Persistent JSON config ignores this field.
     max_turns: Optional[int] = None
     default_mode: Optional[str] = None
+    agent_application_id: Optional[str] = None
     allow_system_tool_fallback: Optional[bool] = None
     # 每个模式的可写路径 glob 覆盖
     mode_writable_globs: Dict[str, List[str]] = field(default_factory=dict)
@@ -101,6 +103,7 @@ def _merge(base: AppConfig, overrides: dict) -> AppConfig:
         "max_recent_turns",
         "auto_compact_threshold_ratio",
         "default_mode",
+        "agent_application_id",
         "allow_system_tool_fallback",
     )
     merged_globs = dict(base.mode_writable_globs)

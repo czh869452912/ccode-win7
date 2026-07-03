@@ -198,17 +198,17 @@ def test_session_import_does_not_eagerly_load_harness_task_graph():
 
 def test_c_harness_extension_preserves_build_prompt_behavior(tmp_path):
     from embedagent.tools import ToolRuntime
+    from embedagent.workflow_packages.c_cpp.application import build_c_cpp_agent_application
     from embedagent_core.permissions import PermissionPolicy
-    from embedagent_host.default_extensions import build_default_extension_set
 
     tools = ToolRuntime(str(tmp_path))
-    default_extensions = build_default_extension_set(tools)
+    default_extensions = build_c_cpp_agent_application(tools)
     engine = build_product_query_engine(
         client=DoneClient(),
         tools=tools,
         workspace=str(tmp_path),
         permission_policy=PermissionPolicy(auto_approve_all=True, workspace=str(tmp_path)),
-        extension_manager=default_extensions.manager,
+        extension_manager=default_extensions.extension_manager,
     )
 
     result = engine.submit_user_turn(
@@ -227,17 +227,17 @@ def test_c_harness_extension_preserves_build_prompt_behavior(tmp_path):
 
 def test_c_harness_extension_uses_generic_workflow_prompt_kind(tmp_path):
     from embedagent.tools import ToolRuntime
+    from embedagent.workflow_packages.c_cpp.application import build_c_cpp_agent_application
     from embedagent_core.permissions import PermissionPolicy
-    from embedagent_host.default_extensions import build_default_extension_set
 
     tools = ToolRuntime(str(tmp_path))
-    default_extensions = build_default_extension_set(tools)
+    default_extensions = build_c_cpp_agent_application(tools)
     engine = build_product_query_engine(
         client=DoneClient(),
         tools=tools,
         workspace=str(tmp_path),
         permission_policy=PermissionPolicy(auto_approve_all=True, workspace=str(tmp_path)),
-        extension_manager=default_extensions.manager,
+        extension_manager=default_extensions.extension_manager,
     )
 
     result = engine.submit_user_turn(
@@ -448,7 +448,7 @@ def test_inprocess_adapter_no_longer_constructs_harness_runner_directly():
     assert "HarnessRunner()" not in source
 
 
-def test_inprocess_adapter_gets_default_harness_extension_from_factory():
+def test_inprocess_adapter_gets_default_workflow_from_agent_application():
     source = (_REPO_ROOT / "src" / "embedagent_host" / "inprocess_adapter.py").read_text(
         encoding="utf-8"
     )
@@ -458,21 +458,23 @@ def test_inprocess_adapter_gets_default_harness_extension_from_factory():
         not in source
     )
     assert "CHarnessWorkflowExtension(" not in source
-    assert "build_default_extension_set" in source
+    assert "build_default_extension_set" not in source
+    assert "build_agent_application" in source
+    assert "build_default_agent_application" not in source
 
 
 def test_query_engine_tool_activation_does_not_use_runtime_harness_pack_fallback():
+    from embedagent.workflow_packages.c_cpp.application import build_c_cpp_agent_application
     from embedagent_core.permissions import PermissionPolicy
-    from embedagent_host.default_extensions import build_default_extension_set
 
     tools = ToolRuntimeBoundaryProbe()
-    default_extensions = build_default_extension_set(tools)
+    default_extensions = build_c_cpp_agent_application(tools)
     engine = build_product_query_engine(
         client=DoneClient(),
         tools=tools,
         workspace=".",
         permission_policy=PermissionPolicy(auto_approve_all=True, workspace="."),
-        extension_manager=default_extensions.manager,
+        extension_manager=default_extensions.extension_manager,
     )
 
     allowed = engine.extension_host.allowed_tool_names("build", workflow_state="chat")
@@ -548,12 +550,12 @@ def test_tool_runtime_default_schemas_require_explicit_active_tool_names(tmp_pat
 
 def test_tool_runtime_default_schemas_remain_empty_after_c_tools_register(tmp_path):
     from embedagent.tools import ToolRuntime
+    from embedagent.workflow_packages.c_cpp.application import build_c_cpp_agent_application
     from embedagent_core.extensions import ExtensionContext, ToolRegistrationEvent
-    from embedagent_host.default_extensions import build_default_extension_set
 
     runtime = ToolRuntime(str(tmp_path))
-    default_set = build_default_extension_set(runtime)
-    default_set.manager.register_tools(
+    default_set = build_c_cpp_agent_application(runtime)
+    default_set.extension_manager.register_tools(
         ToolRegistrationEvent(current_mode="build", workflow_state_name="chat", reason="test"),
         ExtensionContext(workspace=str(tmp_path), tool_registry=runtime),
     )
@@ -589,12 +591,12 @@ def test_bare_tool_runtime_does_not_register_default_c_workflow_tools(tmp_path):
 
 def test_default_c_workflow_extension_registers_workflow_tools(tmp_path):
     from embedagent.tools import ToolRuntime
+    from embedagent.workflow_packages.c_cpp.application import build_c_cpp_agent_application
     from embedagent_core.extensions import ExtensionContext, ToolRegistrationEvent
-    from embedagent_host.default_extensions import build_default_extension_set
 
     runtime = ToolRuntime(str(tmp_path))
-    default_set = build_default_extension_set(runtime)
-    default_set.manager.register_tools(
+    default_set = build_c_cpp_agent_application(runtime)
+    default_set.extension_manager.register_tools(
         ToolRegistrationEvent(current_mode="build", workflow_state_name="chat", reason="test"),
         ExtensionContext(workspace=str(tmp_path), tool_registry=runtime),
     )
@@ -625,12 +627,12 @@ def test_default_c_workflow_extension_owns_c_workflow_tool_activation():
 def test_default_c_workflow_extension_registers_context_reducers(tmp_path):
     from embedagent.context import ContextManager
     from embedagent.tools import ToolRuntime
-    from embedagent_host.default_extensions import build_default_extension_set
+    from embedagent.workflow_packages.c_cpp.application import build_c_cpp_agent_application
 
     runtime = ToolRuntime(str(tmp_path))
     context_manager = ContextManager()
-    default_set = build_default_extension_set(runtime)
-    default_set.manager.register_context_reducers(context_manager.reducers)
+    default_set = build_c_cpp_agent_application(runtime)
+    default_set.extension_manager.register_context_reducers(context_manager.reducers)
 
     reducers = context_manager.reducers
     assert "run_recipe" in reducers._reducers
@@ -651,12 +653,12 @@ def test_tool_runtime_no_longer_imports_harness_runtime_metadata():
 
 def test_default_c_workflow_tool_metadata_survives_package_registration(tmp_path):
     from embedagent.tools import ToolRuntime
+    from embedagent.workflow_packages.c_cpp.application import build_c_cpp_agent_application
     from embedagent_core.extensions import ExtensionContext, ToolRegistrationEvent
-    from embedagent_host.default_extensions import build_default_extension_set
 
     runtime = ToolRuntime(str(tmp_path))
-    default_set = build_default_extension_set(runtime)
-    default_set.manager.register_tools(
+    default_set = build_c_cpp_agent_application(runtime)
+    default_set.extension_manager.register_tools(
         ToolRegistrationEvent(current_mode="verify", workflow_state_name="chat", reason="test"),
         ExtensionContext(workspace=str(tmp_path), tool_registry=runtime),
     )

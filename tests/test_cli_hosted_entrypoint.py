@@ -51,13 +51,23 @@ def test_cli_uses_hosted_config_model_for_non_tui_turn(tmp_path, monkeypatch):
         fake_create_hosted_runtime,
     )
 
-    exit_code = cli.main(["--workspace", str(tmp_path), "--no-stream", "hello"])
+    exit_code = cli.main(
+        [
+            "--workspace",
+            str(tmp_path),
+            "--agent-application",
+            "tests.python",
+            "--no-stream",
+            "hello",
+        ]
+    )
 
     assert exit_code == 0
     assert launch_configs[0].base_url == "http://configured/v1"
     assert launch_configs[0].api_key == "sk-configured"
     assert launch_configs[0].model == "configured-model"
     assert launch_configs[0].timeout == 45
+    assert launch_configs[0].agent_application_id == "tests.python"
     runtime.session_host.create_session.assert_called_once()
     runtime.session_host.submit_user_message.assert_called_once()
 

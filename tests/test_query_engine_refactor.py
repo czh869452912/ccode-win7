@@ -16,6 +16,7 @@ from embedagent.context import ContextManager
 from embedagent.session_restore import SessionRestorer
 from embedagent.tools import ToolRuntime
 from embedagent.transcript_store import TranscriptStore
+from embedagent.workflow_packages.c_cpp.application import build_c_cpp_agent_application
 from embedagent.workspace_intelligence import (
     CtagsProvider,
     DiagnosticsProvider,
@@ -30,7 +31,6 @@ from embedagent_core.model import ModelClientError
 from embedagent_core.permissions import PermissionPolicy
 from embedagent_core.session import Action, AssistantReply, Observation, Session
 from embedagent_core.tool_execution import partition_tool_actions
-from embedagent_host.default_extensions import build_default_extension_set
 from embedagent_host.inprocess_adapter import InProcessAdapter
 
 _COUNTER = count(1)
@@ -1461,7 +1461,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
 
     def test_initialize_session_injects_profile_mode_and_harness_once(self):
         transcript_store = TranscriptStore(self.workspace)
-        default_extensions = build_default_extension_set(self.tools)
+        default_extensions = build_c_cpp_agent_application(self.tools)
         engine = QueryEngine(
             client=FakeClient(),
             tools=self.tools,
@@ -1470,7 +1470,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
                 workspace=self.workspace,
             ),
             transcript_store=transcript_store,
-            extension_manager=default_extensions.manager,
+            extension_manager=default_extensions.extension_manager,
         )
         session = Session()
 
@@ -1490,7 +1490,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
 
     def test_workflow_prompt_dedupe_ignores_non_workflow_prompt_kinds(self):
         transcript_store = TranscriptStore(self.workspace)
-        default_extensions = build_default_extension_set(self.tools)
+        default_extensions = build_c_cpp_agent_application(self.tools)
         engine = QueryEngine(
             client=FakeClient(),
             tools=self.tools,
@@ -1499,7 +1499,7 @@ class TestQueryEngineRefactor(unittest.TestCase):
                 workspace=self.workspace,
             ),
             transcript_store=transcript_store,
-            extension_manager=default_extensions.manager,
+            extension_manager=default_extensions.extension_manager,
         )
         session = Session()
         session.add_system_message(
@@ -3784,13 +3784,13 @@ class TestQueryEngineRefactor(unittest.TestCase):
             self.workspace,
             app_config=AppConfig(allow_system_tool_fallback=True),
         )
-        default_extensions = build_default_extension_set(interrupt_tools)
+        default_extensions = build_c_cpp_agent_application(interrupt_tools)
         engine = QueryEngine(
             client=SlowCommandClient(),
             tools=interrupt_tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
             transcript_store=transcript_store,
-            extension_manager=default_extensions.manager,
+            extension_manager=default_extensions.extension_manager,
         )
 
         def trigger_cancel(action):

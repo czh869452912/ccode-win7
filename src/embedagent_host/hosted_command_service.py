@@ -5,7 +5,6 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional
 
-from embedagent.modes import require_mode
 from embedagent.prompts import expand_prompt_invocation
 from embedagent.protocol import CommandResult, PlanSnapshot
 from embedagent.review_command import ReviewCommandService
@@ -40,6 +39,7 @@ class HostedCommandService(object):
         max_turns: Optional[int],
         require_session: Callable[[str], ManagedSession],
         set_session_mode: Callable[[str, str], Dict[str, Any]],
+        resolve_mode: Callable[[str], Dict[str, Any]],
         resume_session: Callable[..., Dict[str, Any]],
         list_sessions: Callable[..., List[Dict[str, Any]]],
         get_workspace_snapshot: Callable[[], Dict[str, Any]],
@@ -54,7 +54,7 @@ class HostedCommandService(object):
         ],
         notify_status: Callable[[Optional[EventHandler], ManagedSession], None],
         persist_state: Callable[[ManagedSession], None],
-        refresh_harness_state: Callable[[ManagedSession], None],
+        refresh_workflow_state: Callable[[ManagedSession], None],
         tool_event_metadata: Callable[[str], Dict[str, Any]],
         create_permission_ticket: Callable[..., Any],
         record_pending_permission: Callable[..., Any],
@@ -67,6 +67,7 @@ class HostedCommandService(object):
         self.max_turns = max_turns
         self._require_session = require_session
         self._set_session_mode = set_session_mode
+        self._resolve_mode = resolve_mode
         self._resume_session = resume_session
         self._list_sessions = list_sessions
         self._get_workspace_snapshot = get_workspace_snapshot
@@ -79,7 +80,7 @@ class HostedCommandService(object):
         self._emit_with_snapshot = emit_with_snapshot
         self._notify_status = notify_status
         self._persist_state = persist_state
-        self._refresh_harness_state = refresh_harness_state
+        self._refresh_workflow_state = refresh_workflow_state
         self._tool_event_metadata = tool_event_metadata
         self._create_permission_ticket = create_permission_ticket
         self._record_pending_permission = record_pending_permission
@@ -277,7 +278,7 @@ class HostedCommandService(object):
                 ),
             )
             return {"handled": True, "continue_with_text": ""}
-        target_mode = require_mode(parsed.args[0])["slug"]
+        target_mode = self._resolve_mode(parsed.args[0])["slug"]
         remainder = ""
         if parsed.raw_args:
             parts = parsed.raw_args.split(None, 1)
@@ -946,7 +947,7 @@ class HostedCommandService(object):
                 )
         if result.transition.next_mode:
             state.current_mode = result.transition.next_mode
-        self._refresh_harness_state(state)
+        self._refresh_workflow_state(state)
         with state.lock:
             state.status = "idle"
             state.updated_at = _utc_now()

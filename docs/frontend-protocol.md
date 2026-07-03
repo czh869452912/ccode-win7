@@ -13,6 +13,8 @@ The protocol vocabulary is now:
 - `current_activity`
 - `task_summary`
 - `task_items`
+- `agentApplication`
+- `agentApplications`
 
 ## 2. Core Boundary
 
@@ -189,7 +191,20 @@ Future intranet/custom-service/provider/telemetry health, if exposed, belongs in
 
 Permission context and tool catalog payloads may include `network` and `telemetry` permission categories. Frontends may display those categories and remember approvals through the existing backend-owned permission flow, but they must not reinterpret them as `read` or auto-run them from catalog metadata.
 
-Capability projections are also diagnostics/read-model state. `InProcessAdapter.capability_snapshot()` may expose tools, local file resources, slash commands, workflow package manifests, and model profile metadata for future frontend inspection, but frontends must not treat that projection as active-tool policy or permission state.
+Capability projections are also diagnostics/read-model state. `InProcessAdapter.capability_snapshot()` may expose tools, local file resources, slash commands, workflow package manifests, selected agent application metadata, available same-package agent applications, and model profile metadata for future frontend inspection, but frontends must not treat that projection as active-tool policy or permission state.
+
+Session capability payloads expose:
+
+- `agentApplication`: the selected backend-declared application descriptor
+- `agentApplications`: the available application descriptors from the same selected application registry
+- `modes`, `commands`, `tools`, `workflowPackages`, `resources`, `modelProfiles`, and `emptyState`
+
+Renderer code must consume these backend-declared descriptors. It must not
+hard-code the default C/C++ application, mode list, workflow-package labels, or
+no-workspace copy when the backend has not provided them.
+`workflowPackages` is present as an array; profile-only applications such as
+`embedagent.python` or `embedagent.html` may legitimately return an empty
+array.
 
 Visible skills and prompt files are projected to frontend-adjacent surfaces as local `resource` descriptors plus explicit slash-command descriptors (`skill:<name>` and `prompt:<name>`). There is no first-class frontend `skill` or `prompt` capability kind yet; frontends should continue treating these files as file-only local resources plus optional commands.
 
@@ -202,6 +217,9 @@ Visible skills and prompt files are projected to frontend-adjacent surfaces as l
 `workflow` is the generic workflow projection. For the default C/C++ harness, `current_phase`, `discipline_profile`, `current_activity`, `task_summary`, and `task_items` are compatibility fields projected from `workflow`.
 
 Frontend shells should not read or infer default harness internals such as task graph state. They consume the snapshot fields and, where a richer shape is needed, the `workflow` payload.
+GUI runtime panels must render workflow summary rows only when the snapshot or
+`workflow.metadata.display_rows` provides values; a non-C application with no
+workflow package must not show empty C/C++ phase/discipline rows by default.
 
 Session activation additionally depends on one bootstrap payload containing:
 
@@ -287,7 +305,11 @@ snapshot, structured history, plan, and permission context.
 capability projection used by GUI composer slash-command menus. It is a
 read-only capability surface derived from Agent Core capability metadata; it is
 not session history, workflow truth, tool activation policy, permission policy,
-or an extension loading endpoint.
+or an extension loading endpoint. Its application fields are display/control
+metadata only: `agentApplication` identifies the selected scenario application,
+and `agentApplications` lists only applications available from the selected
+package/registry, so an externally injected Python/HTML/etc. application does
+not inherit bundled C/C++ defaults in the GUI.
 
 `POST /api/sessions` defaults to `explore` when no mode is supplied. Frontends should not use `build` as the implicit entry mode.
 

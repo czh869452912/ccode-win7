@@ -41,6 +41,22 @@ export function runProtocolNormalizerTests() {
       },
     ],
     workflowPackages: [{ id: "workflow-python", label: "Python", active: true }],
+    agentApplication: {
+      applicationId: "tests.python",
+      label: "Python Agent",
+      profileId: "tests.python.profile",
+      workflowPackageIds: ["workflow-python"],
+      active: true,
+    },
+    agentApplications: [
+      {
+        id: "tests.python",
+        label: "Python Agent",
+        profile_id: "tests.python.profile",
+        workflow_package_ids: ["workflow-python"],
+        active: true,
+      },
+    ],
     emptyState: {
       scenario_label: "Python workspace",
       primary: "Choose a local Python workspace",
@@ -58,6 +74,8 @@ export function runProtocolNormalizerTests() {
   assert.equal(capabilities.commands[0].dispatch.command, "/test");
   assert.equal(capabilities.toolCatalog.pytest.label, "Pytest");
   assert.equal(capabilities.workflowPackages[0].id, "workflow-python");
+  assert.equal(capabilities.agentApplication.applicationId, "tests.python");
+  assert.equal(capabilities.agentApplications[0].profileId, "tests.python.profile");
   assert.equal(capabilities.emptyState.scenarioLabel, "Python workspace");
   assert.equal(capabilities.emptyState.pathPlaceholder, "D:\\work\\python-app");
 
@@ -71,4 +89,14 @@ export function runProtocolNormalizerTests() {
   assert.equal(fallbackPresentation.label, "html_lint");
   assert.equal(fallbackPresentation.iconKey, "wrench");
   assert.equal(fallbackPresentation.rendererKey, "generic");
+
+  const emptyCapabilities = normalizeProtocolCapabilities({});
+  assert.deepEqual(emptyCapabilities.emptyState, {
+    scenarioLabel: "",
+    primary: "",
+    secondary: "",
+    pathPlaceholder: "",
+  });
+  assert.deepEqual(emptyCapabilities.agentApplication, null);
+  assert.deepEqual(emptyCapabilities.agentApplications, []);
 }

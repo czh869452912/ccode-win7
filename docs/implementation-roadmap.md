@@ -52,12 +52,12 @@ product composition and default C/C++ behavior:
 - `src/embedagent_core/extensions.py` now provides the in-process workflow extension boundary
 - the C/C++ harness is wrapped as the default built-in workflow extension
 - `QueryEngine` no longer imports or instantiates `TaskGraph` directly
-- `QueryEngine` no longer imports or constructs the default C harness extension; hosted paths install bundled extensions through `src/embedagent_host/default_extensions.py`
+- `QueryEngine` no longer imports or constructs the default C harness extension; hosted paths install selected scenario applications through `src/embedagent/agent_applications.py`, with the default C/C++ application factory in `src/embedagent/workflow_packages/c_cpp/application.py`
 - `Session.workflow_state` is the generic workflow-state carrier; `Session.task_graph` has been removed and default C harness graph state is owned behind `CHarnessWorkflowExtension`
 - `SessionSnapshotProjector` and live frontend task APIs now project harness task fields from `Session.workflow_state["workflow"]`
 - the obsolete extracted turn-orchestrator strategy has been removed; `AgentLoop` is the only turn-loop owner and `AgentToolActionService` is the only non-LLM action execution owner
 - `src/embedagent/workflow_packages/c_cpp/workflow_projection.py` now owns the C harness to generic workflow payload adapter
-- `InProcessAdapter` no longer constructs `HarnessRunner` directly; harness refresh and task-snapshot persistence are delegated to the built-in C harness extension
+- `InProcessAdapter` no longer constructs `HarnessRunner` directly; managed-session workflow refresh is delegated through the selected `AgentApplication`, and the bundled C/C++ application delegates task-snapshot persistence to the built-in C harness extension
 - `QueryEngine` now asks for schemas using explicit active tool names through `ToolRuntime.schemas_for(...)`, so default harness pack activation is owned by the workflow extension boundary
 - Agent profile contracts now own hosted scenario mode/base-tool metadata and GUI mode capability projection, while workflow package contracts own scenario-specific workflow tools, package-owned tool names, and packs; `ToolRuntime.schemas_for(...)` no longer performs implicit mode fallback when active tool names are omitted
 - `CORE_PACK` is the minimal file/search/editing/shell foundation; build/debug/verify packs keep harness-only recipe, quality, evidence, and task-status tools explicit
@@ -79,7 +79,7 @@ product composition and default C/C++ behavior:
 - `propose_mode_switch` is no longer projected as an unconditional model tool; it appears only when explicitly activated through the active-tool boundary
 - `ToolCatalogEntry` now keeps internal execution, presentation, and context-policy facets while preserving the legacy flat catalog payload for protocol/frontend compatibility
 - C/C++ workflow pack definitions now live only under `src/embedagent/workflow_packages/c_cpp/packs.py`; the obsolete tooling-package compatibility export has been removed
-- Pi-inspired minimal Core Phase A durable operation log, Phase B HookBus/reducer registry, Phase C AgentKernel lifecycle extraction, Phase D default C/C++ workflow package ownership, Phase E self-extension authoring loop, Phase F repo-side offline bundle validation, Phase G turn snapshot / capability registry foundation, Phase H runtime configuration reducer, Phase I workflow package manifest/read model, Phase J structured compaction state, Phase K recovery state, Phase L pack compatibility cleanup, Phase M core alias cleanup, and the Pi-style prompt-surface/resource/runtime-state alignment slice are complete
+- Pi-inspired minimal Core Phase A durable operation log, Phase B HookBus/reducer registry, Phase C AgentKernel lifecycle extraction, Phase D default C/C++ workflow package ownership, Phase E self-extension authoring loop, Phase F repo-side offline bundle validation, Phase G turn snapshot / capability registry foundation, Phase H runtime configuration reducer, Phase I workflow package manifest/read model, Phase J structured compaction state, Phase K recovery state, Phase L pack compatibility cleanup, Phase M core alias cleanup, Phase N agent application manifest/capability projection, and the Pi-style prompt-surface/resource/runtime-state alignment slice are complete
 - the Pi-style enterprise/intranet capability boundary foundation is implemented: runtime tool catalog metadata is the source of truth for permission category, unknown or invalid categories fall back to ask-by-default `other`, `network` and `telemetry` permission categories are recognized by policy/runtime/extension metadata, and `embedagent.telemetry` provides local safe telemetry envelopes while future intranet Git, custom service, provider, organization-local catalog, and sink work stays optional and outside Agent Core
 - stale core compatibility aliases have been removed; current code uses `get_mode_registry()`, `get_command_sanitizer()`, and `get_inprocess_adapter()` directly instead of removed registry, sanitizer, or adapter private aliases
 - `TurnSnapshot` is now the explicit frozen provider-request input; `TurnSnapshotService` builds it after context assembly and active schema projection, then provider requests consume `snapshot.messages` and `snapshot.tool_schemas`
@@ -89,7 +89,7 @@ product composition and default C/C++ behavior:
 - `SelfExtensionAuthoringService` and `author_local_capability` can generate local skills, prompts, recipes, and disabled-by-default project extension skeletons without reloading resources or loading Python code
 - `scripts/offline-runtime-contract.json` is now the single repo-side contract for runtime-invoked bundled external tools; `validate-offline-bundle.ps1` and `check-bundle-dependencies.py` consume it for Python, Bash from MinGit, MinGit, ripgrep, Universal Ctags, and LLVM/Clang child executable validation
 - Slice 6 completed the documentation cutover for self-extensible Agent Core: active source-of-truth docs and module docs now treat local offline self-extension as official architecture while keeping marketplaces, online installs, dependency installation, built-in tool replacement, and multi-agent orchestration out of scope
-- `HarnessStateSynchronizer` has been removed; product refresh uses `CHarnessWorkflowExtension.refresh_managed_session()` through the default harness extension directly
+- `HarnessStateSynchronizer` has been removed; product refresh uses `AgentApplication.refresh_managed_session()`, with the default C/C++ application delegating to `CHarnessWorkflowExtension.refresh_managed_session()` internally
 - `StreamingToolExecutor` now window-schedules parallel read batches so failure/discard semantics are deterministic
 
 Recent stabilization work has also completed the GUI session-history single-source cutover:
@@ -335,6 +335,14 @@ The current self-extensible Agent Core baseline remains valid. The next program 
    - adapter class lookup goes through `get_inprocess_adapter()`
    - stale registry, sanitizer, and adapter compatibility names have been removed
 
+14. **Agent application manifest and capability projection**
+   - current implementation status: Phase N is complete for the hosted boundary and first built-in multi-application registry
+   - `AgentApplicationManifest` records describe application id, label, profile id, workflow package ids, source metadata, and default status
+   - `build_agent_application(application_id, tools)` is the hosted selected-application loader; the default C/C++ application is one builtin application, not a `QueryEngine` fallback
+   - built-in ids now include `embedagent.default_c_cpp`, `embedagent.generic`, `embedagent.python`, and `embedagent.html`; the non-C applications are profile-only and do not install the C/C++ workflow package
+   - GUI/session capability payloads expose `agentApplication` and `agentApplications` from the backend, and injected external applications do not leak the bundled C/C++ application into their available-application list
+   - renderer no-workspace copy, capability normalizers, mode order, `workflowPackages`, and runtime workflow summary rows now come from backend-declared capability/snapshot payloads instead of C/C++ defaults
+
 This program must not introduce public online extension marketplaces, runtime dependency installation, public remote registries, built-in tool replacement by project-local code, container requirements, WSL requirements, VS Code dependency, or general multi-agent orchestration in Agent Core. Optional intranet Git/custom-service/provider/catalog/telemetry integrations may be considered only as trusted, explicitly configured hosted capabilities with disable/fallback behavior, safe diagnostics, source metadata, and normal permission checks.
 
 ### 4.2 Legacy Helper Deletion
@@ -352,7 +360,7 @@ Remaining cleanup should focus on:
 
 Near-term decoupling should continue from the new extension boundary:
 
-- default extension configuration is closed for the current baseline: hosted product paths use `src/embedagent_host/default_extensions.py`, while bare `QueryEngine` callers pass an `ExtensionManager` explicitly when they need bundled C harness behavior
+- default extension configuration has moved behind `AgentApplication`: hosted product paths use the selected scenario application's profile and extension manager, while bare `QueryEngine` callers pass an `ExtensionManager` explicitly when they need bundled workflow behavior
 - `QueryEngine` should remain a facade over `AgentLoop`, `AgentToolActionService`, and `AgentExtensionHost`; new extension hook dispatch should not be added directly back to `QueryEngine`
 - keep public remote registries, plugin marketplaces, runtime dependency installation, built-in tool replacement, and multi-agent orchestration out of scope; project-local Python extensions stay limited to explicit enabled manifests under `.embedagent/extensions/<name>/`, and future intranet capabilities must use the same explicit hosted boundary discipline
 

@@ -4,6 +4,7 @@ import json
 import os
 import re
 import threading
+import time
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
@@ -19,6 +20,8 @@ from embedagent_core.session import Observation, Session
 _PYTHON_REQ_RE = re.compile(r'^requires-python\s*=\s*"([^"]+)"', re.MULTILINE)
 _PRIMARY_ENV_RE = re.compile(r"Primary development environment manager:\s*`([^`]+)`")
 _FALLBACK_ENV_RE = re.compile(r"approved fallback", re.IGNORECASE)
+_ATOMIC_WRITE_REPLACE_ATTEMPTS = 5
+_ATOMIC_WRITE_REPLACE_DELAY_SECONDS = 0.05
 
 
 def _utc_now() -> str:
@@ -36,9 +39,29 @@ def _atomic_write_json(path: str, payload: Any) -> None:
     if parent and not os.path.isdir(parent):
         os.makedirs(parent, exist_ok=True)
     tmp = path + ".%s.tmp" % uuid.uuid4().hex
-    with open(tmp, "w", encoding="utf-8") as handle:
-        json.dump(sanitize_jsonable(payload), handle, ensure_ascii=False, indent=2, sort_keys=True)
-    os.replace(tmp, path)
+    try:
+        with open(tmp, "w", encoding="utf-8") as handle:
+            json.dump(
+                sanitize_jsonable(payload),
+                handle,
+                ensure_ascii=False,
+                indent=2,
+                sort_keys=True,
+            )
+        for attempt in range(_ATOMIC_WRITE_REPLACE_ATTEMPTS):
+            try:
+                os.replace(tmp, path)
+                return
+            except PermissionError:
+                if attempt + 1 >= _ATOMIC_WRITE_REPLACE_ATTEMPTS:
+                    raise
+                time.sleep(_ATOMIC_WRITE_REPLACE_DELAY_SECONDS * (attempt + 1))
+    finally:
+        if os.path.exists(tmp):
+            try:
+                os.remove(tmp)
+            except OSError:
+                pass
 
 
 class ProjectMemoryStore(object):

@@ -1,5 +1,8 @@
 import { projectTransportView } from "./session-transport-state.js";
-import { currentInteractionFromActivities } from "./interaction-model.js";
+import {
+  currentInteractionFromActivities,
+  normalizeComposerInteraction,
+} from "./interaction-model.js";
 import { projectT3TimelineRows } from "./t3-timeline.js";
 
 function textValue(value, fallback = "") {
@@ -47,6 +50,13 @@ function buildInteractionNotice(snapshot, currentInteraction) {
     };
   }
   return null;
+}
+
+function currentInteractionFromSnapshot(snapshot) {
+  const interaction = snapshot?.pending_interaction;
+  if (!interaction || snapshot?.pending_interaction_valid === false) return null;
+  if (interaction.valid === false || interaction.status === "expired") return null;
+  return normalizeComposerInteraction(interaction);
 }
 
 function normalizeActivityKind(kind) {
@@ -262,7 +272,8 @@ export function buildSessionActivityRuntime({
   toolCatalog = {},
 } = {}) {
   const timelineItems = normalizeHistoryActivities(activities);
-  const currentInteraction = currentInteractionFromActivities(timelineItems);
+  const activityInteraction = currentInteractionFromActivities(timelineItems);
+  const currentInteraction = currentInteractionFromSnapshot(snapshot) || activityInteraction;
   const interactionNotice = buildInteractionNotice(snapshot, currentInteraction);
   const timelineView = projectActivityTurnGroups(timelineItems);
   return {

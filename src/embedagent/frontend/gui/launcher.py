@@ -61,6 +61,7 @@ def create_core(workspace: str, config: Optional[Dict[str, Any]] = None):
             approve_writes=bool(options.get("approve_writes", False)),
             approve_commands=bool(options.get("approve_commands", False)),
             permission_rules=str(options.get("permission_rules") or ""),
+            agent_application_id=options.get("agent_application_id") or None,
         ),
     )
     runtime = create_hosted_runtime(launch_config)
@@ -212,6 +213,7 @@ def launch_gui(
     approve_writes: bool = False,
     approve_commands: bool = False,
     permission_rules: str = "",
+    agent_application_id: Optional[str] = None,
     auto_close_seconds: Optional[float] = None,
     renderer_report: str = "",
     cdp_port: Optional[int] = None,
@@ -263,6 +265,7 @@ def launch_gui(
         "approve_writes": approve_writes,
         "approve_commands": approve_commands,
         "permission_rules": permission_rules,
+        "agent_application_id": agent_application_id,
     }
     host_diagnostics = {
         "host": {
@@ -400,6 +403,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--permission-rules", default="", help="Permission rules file path")
     parser.add_argument(
+        "--agent-application",
+        default="",
+        help="Agent application id for this hosted runtime",
+    )
+    parser.add_argument(
         "--auto-close-seconds",
         type=float,
         default=None,
@@ -444,6 +452,7 @@ def main(argv: Optional[list] = None) -> int:
             approve_writes=args.approve_writes,
             approve_commands=args.approve_commands,
             permission_rules=args.permission_rules,
+            agent_application_id=args.agent_application or None,
             auto_close_seconds=args.auto_close_seconds,
             renderer_report=args.renderer_report,
         )

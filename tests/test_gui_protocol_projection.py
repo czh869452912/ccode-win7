@@ -28,6 +28,22 @@ class GuiProtocolProjectionTests(unittest.TestCase):
                     "modes": [{"id": "python", "label": "Python", "commandId": "mode.python"}],
                     "commands": [{"id": "mode.python", "label": "Python", "group": "mode"}],
                     "tools": [{"name": "pytest", "label": "Pytest"}],
+                    "agentApplication": {
+                        "applicationId": "tests.python",
+                        "label": "Python Agent",
+                        "profileId": "tests.python.profile",
+                        "workflowPackageIds": ["workflow-python"],
+                        "active": True,
+                    },
+                    "agentApplications": [
+                        {
+                            "applicationId": "tests.python",
+                            "label": "Python Agent",
+                            "profileId": "tests.python.profile",
+                            "workflowPackageIds": ["workflow-python"],
+                            "active": True,
+                        }
+                    ],
                     "emptyState": {"scenario_label": "Python workspace"},
                 },
             }
@@ -38,6 +54,14 @@ class GuiProtocolProjectionTests(unittest.TestCase):
         self.assertNotIn("turns", payload["history"])
         self.assertNotIn("timeline", payload)
         self.assertEqual(payload["capabilities"]["modes"][0]["id"], "python")
+        self.assertEqual(
+            payload["capabilities"]["agentApplication"]["applicationId"],
+            "tests.python",
+        )
+        self.assertEqual(
+            payload["capabilities"]["agentApplications"][0]["profileId"],
+            "tests.python.profile",
+        )
         self.assertEqual(payload["workflow"]["package_id"], "workflow-python")
 
     def test_app_bootstrap_is_app_shell_only(self):

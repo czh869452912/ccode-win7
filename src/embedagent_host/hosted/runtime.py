@@ -46,6 +46,7 @@ def create_hosted_runtime(launch_config: LaunchConfig, event_handler=None) -> Ho
         summary_store=SessionSummaryStore(launch_config.workspace),
         context_manager=context_manager,
         event_handler=event_handler,
+        agent_application_id=launch_config.agent_application_id,
     )
     return HostedRuntime(
         launch_config=launch_config,

@@ -1,5 +1,6 @@
 from __future__ import annotations  # noqa: I001
 
+import fnmatch
 import os
 import threading
 import uuid
@@ -13,24 +14,16 @@ from embedagent_core.capabilities import (
     mode_capability_descriptors,
     workflow_package_capability_descriptors,
 )
-from embedagent.agent_profiles import default_c_cpp_agent_profile
+from embedagent.agent_applications import (
+    available_agent_application_manifests,
+    build_agent_application,
+)
 from embedagent_core.compaction_state import CompactionStateReducer
 from embedagent.context import ContextManager
-from embedagent_host.default_extensions import build_default_extension_set
 from embedagent_core.extensions import ExtensionContext, ToolRegistrationEvent
 from embedagent_core.interaction import UserInputRequest, UserInputResponse
 from embedagent_host.providers.openai_compatible import OpenAICompatibleClient
 from embedagent.memory_maintenance import MemoryMaintenance
-from embedagent.modes import (
-    DEFAULT_MODE,
-    build_system_prompt,
-    initialize_modes,
-    is_path_writable,
-    mode_names,
-    parse_mode_command,
-    parse_natural_language_mode_switch,
-    require_mode,
-)
 from embedagent_core.permissions import PermissionPolicy, PermissionRequest
 from embedagent.plan_store import PlanStore
 from embedagent.project_extensions import load_project_extensions
@@ -82,29 +75,74 @@ EventHandler = Callable[[str, str, Dict[str, Any]], None]
 
 class _ProductModeToolPolicy(object):
     def __init__(self, profile: Any = None) -> None:
-        self._profile = profile or default_c_cpp_agent_profile()
+        self._profile = profile
 
     def allowed_tools_for(self, mode_name: str, workflow_state: Any = None) -> List[str]:
         del workflow_state
+        if self._profile is None:
+            return []
         return self._profile.allowed_tools_for(mode_name)
 
 
+def _fnmatch_with_doublestar(path: str, pattern: str) -> bool:
+    if fnmatch.fnmatch(path, pattern):
+        return True
+    if pattern.startswith("**/") and fnmatch.fnmatch(path, pattern[3:]):
+        return True
+    return False
+
+
+def _profile_writable_globs(profile: Any, mode_name: str, config: Any = None) -> List[str]:
+    base_globs = list(profile.writable_globs_for(mode_name))
+    if config is not None:
+        override = getattr(config, "mode_writable_globs", {}).get(mode_name)
+        if override is not None and isinstance(override, list):
+            base_globs = list(override)
+        extra = getattr(config, "mode_extra_writable_globs", {}).get(mode_name)
+        if extra is not None and isinstance(extra, list):
+            base_globs.extend([str(item) for item in extra if str(item or "").strip()])
+    deduped = []
+    seen = set()
+    for item in base_globs:
+        text = str(item or "").strip()
+        if not text or text in seen:
+            continue
+        seen.add(text)
+        deduped.append(text)
+    return deduped
+
+
 class _ProductWritePathPolicy(object):
+    def __init__(self, profile: Any) -> None:
+        self._profile = profile
+
     def is_path_writable(
         self,
         mode_name: str,
         normalized_path: str,
         app_config: Any = None,
     ) -> bool:
-        return is_path_writable(mode_name, normalized_path, app_config)
+        path = normalized_path.replace("\\", "/")
+        result = False
+        for raw_pattern in _profile_writable_globs(self._profile, mode_name, app_config):
+            pattern = raw_pattern.replace("\\", "/")
+            if pattern.startswith("!"):
+                if _fnmatch_with_doublestar(path, pattern[1:]):
+                    result = False
+            elif _fnmatch_with_doublestar(path, pattern):
+                result = True
+        return result
 
 
 class _ProductModeRuntimePolicy(object):
+    def __init__(self, profile: Any) -> None:
+        self._profile = profile
+
     def default_mode(self) -> str:
-        return DEFAULT_MODE
+        return str(self._profile.default_mode)
 
     def require_mode(self, mode_name: str) -> Dict[str, Any]:
-        return require_mode(mode_name or DEFAULT_MODE)
+        return self._profile.require_mode(mode_name or self.default_mode()).to_mode_definition()
 
     def build_system_prompt(
         self,
@@ -113,21 +151,80 @@ class _ProductModeRuntimePolicy(object):
         workspace: str = "",
         local_resources: Any = None,
     ) -> str:
-        return build_system_prompt(
-            mode_name,
-            app_config,
-            workspace,
-            local_resources=local_resources,
+        mode = self._profile.require_mode(mode_name or self.default_mode())
+        allowed_tools = list(mode.allowed_tools)
+        writable_globs = _profile_writable_globs(self._profile, mode.slug, app_config)
+        writable_text = ", ".join(writable_globs) if writable_globs else "只读"
+        can_ask_user = "ask_user" in allowed_tools
+        ask_rule = (
+            "当缺少关键决策时，向用户提供 2 到 4 个明确选项并等待确认。"
+            if can_ask_user
+            else "当需要用户决策时，用自然语言说明建议并等待用户输入。"
+        )
+        del workspace, local_resources
+        return (
+            "你是 EmbedAgent 的受控模式原型。"
+            "请优先用中文回答，并严格遵守当前模式边界。"
+            "模式不是权限系统；权限审批由运行时单独处理。"
+            "工程结构是可探测的软约定，不是你必须强推的模板。\n\n"
+            "当前模式：{mode_name}\n"
+            "模式说明：{mode_description}\n"
+            "模式切换规则：你不能主动切换模式。若需要切换，向用户提供明确选项并等待确认；或建议用户使用 /mode 命令。\n"
+            "用户确认规则：{ask_rule}\n"
+            "写入边界：{writable_globs}"
+        ).format(
+            mode_name=mode.slug,
+            mode_description=str(mode.system_prompt),
+            ask_rule=ask_rule,
+            writable_globs=writable_text,
         )
 
     def parse_mode_switch_request(self, user_text: str, fallback_mode: str):
-        mode_name, remainder, switched = parse_mode_command(
-            user_text,
-            fallback_mode=fallback_mode,
+        fallback = fallback_mode or self.default_mode()
+        stripped = str(user_text or "").strip()
+        if not stripped:
+            return fallback, user_text, False
+        parts = stripped.split(None, 2)
+        if parts and parts[0] == "/mode" and len(parts) >= 2:
+            resolved = self.require_mode(parts[1])["slug"]
+            remainder = parts[2].strip() if len(parts) >= 3 else ""
+            return str(resolved), remainder, True
+        lowered = stripped.lower()
+        prefixes = (
+            "切换到",
+            "切到",
+            "进入",
+            "转到",
+            "switch to ",
+            "switch mode ",
+            "change to ",
+            "change mode ",
         )
-        if switched:
-            return mode_name, remainder, True
-        return parse_natural_language_mode_switch(user_text, fallback_mode=fallback_mode)
+        if not any(lowered.startswith(prefix.lower()) for prefix in prefixes):
+            return fallback, user_text, False
+        for mode in self._profile.modes:
+            mode_text = str(mode.slug or "").strip()
+            if not mode_text:
+                continue
+            candidates = (
+                "切换到%s模式" % mode_text,
+                "切换到%s" % mode_text,
+                "切到%s模式" % mode_text,
+                "切到%s" % mode_text,
+                "进入%s模式" % mode_text,
+                "进入%s" % mode_text,
+                "转到%s模式" % mode_text,
+                "转到%s" % mode_text,
+                "switch to %s mode" % mode_text,
+                "switch to %s" % mode_text,
+                "switch mode %s" % mode_text,
+                "change to %s mode" % mode_text,
+                "change to %s" % mode_text,
+                "change mode %s" % mode_text,
+            )
+            if lowered in [candidate.lower() for candidate in candidates]:
+                return mode.slug, "", True
+        return fallback, user_text, False
 
 
 class _WorkspaceProfilePort(object):
@@ -216,6 +313,8 @@ class InProcessAdapter(object):
         memory_maintenance: Optional[MemoryMaintenance] = None,
         maintenance_interval: int = 4,
         event_handler: Optional[EventHandler] = None,
+        agent_application_id: str = "",
+        agent_application: Optional[Any] = None,
     ) -> None:
         if tools is None:
             tools = ToolRuntime(os.getcwd())
@@ -253,17 +352,20 @@ class InProcessAdapter(object):
         self.workspace_profile = _WorkspaceProfilePort()
         self.session_restorer = SessionRestorer()
         self.snapshot_projector = SessionSnapshotProjector()
-        self._agent_profile = default_c_cpp_agent_profile()
+        self.agent_application = agent_application or build_agent_application(
+            agent_application_id,
+            self.tools,
+        )
+        self._agent_profile = self.agent_application.profile
         self._mode_tool_policy = _ProductModeToolPolicy(self._agent_profile)
-        default_extensions = build_default_extension_set(self.tools)
-        self.harness_workflow = default_extensions.harness_workflow
-        self.extension_manager = default_extensions.manager
+        self._write_path_policy = _ProductWritePathPolicy(self._agent_profile)
+        self._mode_runtime_policy = _ProductModeRuntimePolicy(self._agent_profile)
+        self.extension_manager = self.agent_application.extension_manager
         self.extension_manager.register_context_reducers(self.context_manager.reducers)
         self.project_extension_state = self._load_project_extensions()
         category_setter = getattr(self.permission_policy, "set_category_lookup", None)
         if callable(category_setter):
             category_setter(self._tool_permission_category)
-        initialize_modes(self.tools.workspace)
         self._sessions = {}  # type: Dict[str, ManagedSession]
         self._lock = threading.RLock()
         self._event_emitter = EventEmitter()
@@ -306,6 +408,7 @@ class InProcessAdapter(object):
             max_turns=self.max_turns,
             require_session=self._require_session,
             set_session_mode=self.set_session_mode,
+            resolve_mode=self._mode_runtime_policy.require_mode,
             resume_session=self.resume_session,
             list_sessions=self.list_sessions,
             get_workspace_snapshot=self.get_workspace_snapshot,
@@ -318,7 +421,7 @@ class InProcessAdapter(object):
             emit_with_snapshot=self._emit_with_snapshot,
             notify_status=self._notify_status,
             persist_state=self._persist_state,
-            refresh_harness_state=self._refresh_harness_state,
+            refresh_workflow_state=self._refresh_application_state,
             tool_event_metadata=self._tool_event_metadata,
             create_permission_ticket=self.interaction_service.create_permission_ticket,
             record_pending_permission=self._record_command_pending_permission,
@@ -395,8 +498,8 @@ class InProcessAdapter(object):
             extension_manager=self.extension_manager,
             remembered_permission_categories_provider=self._remembered_categories_for_session,
             mode_tool_policy=self._mode_tool_policy,
-            write_path_policy=_ProductWritePathPolicy(),
-            mode_runtime_policy=_ProductModeRuntimePolicy(),
+            write_path_policy=self._write_path_policy,
+            mode_runtime_policy=self._mode_runtime_policy,
         )
 
     def _remembered_categories_for_session(self, session: Session) -> List[str]:
@@ -437,7 +540,70 @@ class InProcessAdapter(object):
     def get_session_capabilities(self, session_id: str = "") -> Dict[str, Any]:
         del session_id
         self._ensure_extension_tools_registered(reason="capabilities")
-        return app_capability_payload(self.capability_snapshot())
+        payload = app_capability_payload(self.capability_snapshot())
+        current_application = self._agent_application_capability_payload(active=True)
+        if current_application:
+            payload["agentApplication"] = current_application
+        registry_payloads = []
+        current_id = (
+            str(current_application.get("applicationId") or "") if current_application else ""
+        )
+        for manifest in available_agent_application_manifests():
+            item = manifest.to_dict()
+            item_id = str(item.get("applicationId") or "")
+            item["active"] = bool(item_id and item_id == current_id)
+            registry_payloads.append(item)
+        registry_ids = set(str(item.get("applicationId") or "") for item in registry_payloads)
+        if current_id in registry_ids:
+            available = registry_payloads
+        elif current_application:
+            available = [dict(current_application)]
+        else:
+            available = registry_payloads
+        payload["agentApplications"] = available
+        return payload
+
+    def _agent_application_capability_payload(self, active: bool = False) -> Dict[str, Any]:
+        manifest = getattr(self.agent_application, "manifest", None)
+        if manifest is not None and hasattr(manifest, "to_dict"):
+            payload = manifest.to_dict()
+        else:
+            profile = getattr(self.agent_application, "profile", None)
+            payload = {
+                "applicationId": str(getattr(self.agent_application, "application_id", "") or ""),
+                "label": str(getattr(self.agent_application, "label", "") or ""),
+                "profileId": str(getattr(profile, "profile_id", "") or ""),
+                "workflowPackageIds": [
+                    str(item.get("package_id") or item.get("id") or "")
+                    for item in self._extension_package_manifest_payloads()
+                ],
+                "sourceType": "injected",
+                "sourceId": str(getattr(self.agent_application, "application_id", "") or ""),
+                "default": False,
+                "metadata": {},
+            }
+        application_id = str(payload.get("applicationId") or "").strip()
+        if not application_id:
+            return {}
+        payload["applicationId"] = application_id
+        payload["label"] = str(payload.get("label") or application_id)
+        payload["active"] = bool(active)
+        return payload
+
+    def _extension_package_manifest_payloads(self) -> List[Dict[str, Any]]:
+        package_manifests = getattr(self.extension_manager, "package_manifests", None)
+        if not callable(package_manifests):
+            return []
+        payloads = []
+        for manifest in list(package_manifests() or []):
+            if hasattr(manifest, "to_dict"):
+                payload = manifest.to_dict()
+            elif isinstance(manifest, dict):
+                payload = dict(manifest)
+            else:
+                continue
+            payloads.append(payload)
+        return payloads
 
     def _capability_descriptors(self) -> List[Any]:
         descriptors = []
@@ -733,9 +899,9 @@ class InProcessAdapter(object):
             },
         )
 
-    def _refresh_harness_state(self, state: ManagedSession) -> None:
+    def _refresh_application_state(self, state: ManagedSession) -> None:
         observations = state.session.turns[-1].observations if state.session.turns else []
-        self.harness_workflow.refresh_managed_session(
+        self.agent_application.refresh_managed_session(
             state,
             self.tools.workspace,
             observations=observations,
@@ -743,10 +909,12 @@ class InProcessAdapter(object):
 
     def create_session(
         self,
-        mode: str = DEFAULT_MODE,
+        mode: str = "",
         event_handler: Optional[EventHandler] = None,
     ) -> Dict[str, Any]:
-        current_mode = require_mode(mode)["slug"]
+        current_mode = self._mode_runtime_policy.require_mode(
+            mode or self._mode_runtime_policy.default_mode()
+        )["slug"]
         session = Session()
         plan = self.plan_store.load(session.session_id)
         state = ManagedSession(
@@ -786,7 +954,9 @@ class InProcessAdapter(object):
         transcript_path = self.summary_store.resolve_transcript_path(reference)
         events = self.transcript_store.load_events(transcript_path)
         restored = self.session_restorer.restore(events)
-        current_mode = require_mode(mode or restored.current_mode or DEFAULT_MODE)["slug"]
+        current_mode = self._mode_runtime_policy.require_mode(
+            mode or restored.current_mode or self._mode_runtime_policy.default_mode()
+        )["slug"]
         session = restored.session
         summary_ref = ""
         try:
@@ -831,7 +1001,7 @@ class InProcessAdapter(object):
         if plan is not None:
             state.active_plan_ref = plan.path
             state.workflow_state = "plan"
-        self._refresh_harness_state(state)
+        self._refresh_application_state(state)
         with self._lock:
             self._sessions[session.session_id] = state
         with state.lock:
@@ -854,7 +1024,7 @@ class InProcessAdapter(object):
             state = self._sessions.get(reference)
         if state is not None:
             return state
-        snapshot = self.resume_session(reference, mode or DEFAULT_MODE)
+        snapshot = self.resume_session(reference, mode or self._mode_runtime_policy.default_mode())
         session_id = str(snapshot.get("session_id") or "")
         return self._require_session(session_id)
 
@@ -1069,7 +1239,7 @@ class InProcessAdapter(object):
         method = getattr(self.tools, "catalog_entries", None)
         if callable(method):
             allowed = set()
-            for mode_name in mode_names():
+            for mode_name in self._agent_profile.mode_registry().keys():
                 allowed.update(
                     self.extension_manager.allowed_tool_names(
                         mode_name,
@@ -1236,14 +1406,14 @@ class InProcessAdapter(object):
 
     def set_session_mode(self, session_id: str, mode: str) -> Dict[str, Any]:
         state = self._require_session(session_id)
-        current_mode = require_mode(mode)["slug"]
+        current_mode = self._mode_runtime_policy.require_mode(mode)["slug"]
         with state.lock:
             state.current_mode = state.engine.apply_mode(
                 state.session,
                 current_mode,
                 workflow_state=state.workflow_state,
             )
-            self._refresh_harness_state(state)
+            self._refresh_application_state(state)
         self._persist_state(state)
         snapshot = self.get_session_snapshot(session_id)
         self._emit(
@@ -1603,7 +1773,7 @@ class InProcessAdapter(object):
             state.last_assistant_message = result.final_text
             if result.transition.next_mode:
                 state.current_mode = result.transition.next_mode
-            self._refresh_harness_state(state)
+            self._refresh_application_state(state)
             state.status = "idle"
             state.active_thread = None
             state.updated_at = _utc_now()

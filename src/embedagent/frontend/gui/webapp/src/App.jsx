@@ -67,7 +67,6 @@ import {
   readPersistedWorkbenchUiState,
 } from "./workbench/ui-state.js";
 
-const MODES = ["explore", "spec", "build", "debug", "verify"];
 const EMPTY_COMMAND_HINTS = [];
 
 function isTurnInterruptibleStatus(status) {

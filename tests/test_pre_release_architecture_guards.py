@@ -500,9 +500,7 @@ def test_query_engine_does_not_own_extension_dispatch_boundary():
 
 
 def test_c_cpp_workflow_extension_stays_behind_default_package_boundary():
-    allowed_files = {
-        "src/embedagent_host/default_extensions.py",
-    }
+    allowed_files = set()
     allowed_prefixes = ("src/embedagent/workflow_packages/c_cpp/",)
     offenders = []
     for path in _source_files_under("src/embedagent", suffixes=(".py",)):
@@ -709,7 +707,7 @@ def test_gui_raw_interaction_requests_do_not_synthesize_activity_records():
     assert offenders == []
 
 
-def test_gui_pending_interaction_display_comes_from_activity_selector_not_raw_requests():
+def test_gui_pending_interaction_display_prefers_session_snapshot_not_raw_requests():
     store_path = ROOT / "src/embedagent/frontend/gui/webapp/src/store.js"
     socket_effects_path = (
         ROOT / "src/embedagent/frontend/gui/webapp/src/app-runtime/socket-message-effects.js"
@@ -726,11 +724,39 @@ def test_gui_pending_interaction_display_comes_from_activity_selector_not_raw_re
     assert 'case "user_input_request"' not in store_text
     assert 'type: "permission_request"' not in socket_text
     assert 'type: "user_input_request"' not in socket_text
+    assert "currentInteractionFromSnapshot(snapshot) || activityInteraction" in activity_state_text
     assert "currentInteractionFromActivities(timelineItems)" in activity_state_text
     assert "normalizePendingInteraction" not in activity_state_text
     assert not (
         ROOT / "src/embedagent/frontend/gui/webapp/src/components/PermissionModal.jsx"
     ).exists()
+
+
+def test_agent_application_capabilities_are_declared_by_backend_not_gui_defaults():
+    adapter_text = _read(ROOT / "src/embedagent_host/inprocess_adapter.py")
+    protocol_text = _read(ROOT / "src/embedagent/protocol/app_protocol.py")
+    normalizer_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/session-runtime/protocol-normalizer.js"
+    )
+    no_workspace_text = _read(
+        ROOT / "src/embedagent/frontend/gui/webapp/src/components/NoWorkspaceState.jsx"
+    )
+
+    assert "build_agent_application" in adapter_text
+    assert "agentApplication" in adapter_text
+    assert "agentApplications" in adapter_text
+    assert "AgentApplicationDescriptor" in protocol_text
+    assert "normalizeAgentApplicationDescriptor" in normalizer_text
+
+    forbidden_gui_defaults = (
+        "Default C/C++ Agent",
+        "D:\\\\work\\\\project",
+        "Open a project",
+        "local workspace",
+    )
+    for token in forbidden_gui_defaults:
+        assert token not in normalizer_text
+        assert token not in no_workspace_text
 
 
 def test_hosted_interactions_do_not_keep_legacy_blocking_frontend_paths():

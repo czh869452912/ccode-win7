@@ -4,11 +4,11 @@ import pytest
 
 
 def register_default_c_workflow_tools(runtime, workspace: str, reason: str = "test") -> None:
+    from embedagent.workflow_packages.c_cpp.application import build_c_cpp_agent_application
     from embedagent_core.extensions import ExtensionContext, ToolRegistrationEvent
-    from embedagent_host.default_extensions import build_default_extension_set
 
-    default_set = build_default_extension_set(runtime)
-    default_set.manager.register_tools(
+    default_set = build_c_cpp_agent_application(runtime)
+    default_set.extension_manager.register_tools(
         ToolRegistrationEvent(current_mode="build", workflow_state_name="chat", reason=reason),
         ExtensionContext(workspace=str(workspace or ""), tool_registry=runtime),
     )

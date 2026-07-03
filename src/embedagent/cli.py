@@ -57,6 +57,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="初始工作模式。示例：build；恢复会话时默认沿用摘要中的模式。",
     )
     parser.add_argument(
+        "--agent-application",
+        default="",
+        help="Agent application id for this hosted runtime.",
+    )
+    parser.add_argument(
         "--resume",
         default="",
         help="恢复一个会话，可传 session_id、latest 或 summary.json 路径。示例：--resume latest",
@@ -218,6 +223,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                 approve_writes=args.approve_writes,
                 approve_commands=args.approve_commands,
                 permission_rules=args.permission_rules,
+                agent_application_id=args.agent_application or None,
                 max_context_tokens=args.max_context_tokens,
                 reserve_output_tokens=args.reserve_output_tokens,
                 chars_per_token=args.chars_per_token,
@@ -276,6 +282,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                 approve_writes=args.approve_writes,
                 approve_commands=args.approve_commands,
                 permission_rules=args.permission_rules,
+                agent_application_id=args.agent_application or None,
             )
         except TUIUnavailableError as exc:
             sys.stderr.write("error: %s\n" % exc)
@@ -305,6 +312,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                 approve_writes=args.approve_writes,
                 approve_commands=args.approve_commands,
                 permission_rules=args.permission_rules,
+                agent_application_id=args.agent_application or None,
             )
             return 0
         except (ImportError, RuntimeError, ValueError) as exc:

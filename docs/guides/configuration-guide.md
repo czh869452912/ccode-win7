@@ -52,6 +52,7 @@ file does not require changing source code.
   "chars_per_token": 3.0,
   "max_recent_turns": 4,
   "default_mode": "explore",
+  "agent_application_id": "embedagent.default_c_cpp",
   "mode_writable_globs": {
     "<mode_name>": ["glob_pattern", "..."]
   },
@@ -98,6 +99,7 @@ frequency. Keep `reserve_output_tokens` large enough for tool plans and final an
 | Field | Type | Default | Meaning |
 |------|------|---------|---------|
 | `default_mode` | string | `explore` | Initial mode for new sessions |
+| `agent_application_id` | string | `embedagent.default_c_cpp` | Hosted scenario application to load |
 
 Valid `default_mode` values are:
 
@@ -108,6 +110,20 @@ Valid `default_mode` values are:
 - `verify`
 
 Unknown mode names fail fast. `code` is not a valid first-class mode.
+
+`agent_application_id` selects the hosted application package before the
+session engine is built. The default value loads the bundled C/C++ application;
+other packaged applications can provide different profiles, workflow packages,
+and GUI capability metadata while keeping the same Agent Core and GUI shell.
+Built-in application ids are:
+
+- `embedagent.default_c_cpp`
+- `embedagent.generic`
+- `embedagent.python`
+- `embedagent.html`
+
+The equivalent environment variable is `EMBEDAGENT_AGENT_APPLICATION_ID`, and
+CLI/TUI/GUI launchers accept `--agent-application <id>`.
 
 ## Writable Globs
 
@@ -214,6 +230,7 @@ does not set the product's loop ceiling.
 --chars-per-token FLOAT
 --max-turns INT
 --mode STR
+--agent-application STR
 ```
 
 ## Task State

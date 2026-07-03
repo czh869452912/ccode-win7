@@ -12,11 +12,10 @@ export default function NoWorkspaceState({
   onActivate,
 }) {
   const copy = emptyState || {};
-  const scenarioLabel = copy.scenarioLabel || copy.scenario_label || "local workspace";
-  const primary = copy.primary || "Open a project";
-  const secondary =
-    copy.secondary || "Choose a local workspace to manage threads, files, tasks, and agent runs.";
-  const pathPlaceholder = copy.pathPlaceholder || copy.path_placeholder || "D:\\work\\project";
+  const scenarioLabel = copy.scenarioLabel || copy.scenario_label || "";
+  const primary = copy.primary || "";
+  const secondary = copy.secondary || "";
+  const pathPlaceholder = copy.pathPlaceholder || copy.path_placeholder || "";
   const recentWorkspaces = Array.isArray(appHome?.workspace?.rows)
     ? appHome.workspace.rows
     : Array.isArray(workspaces)
@@ -32,11 +31,9 @@ export default function NoWorkspaceState({
     <main className="no-workspace" data-testid="no-workspace-state">
       <section className="no-workspace-inner" aria-label="Open workspace">
         <div className="no-workspace-kicker">EmbedAgent</div>
-        <h1 className="no-workspace-title">{primary}</h1>
-        <p className="no-workspace-subtitle">
-          {secondary}
-        </p>
-        <div className="no-workspace-scenario">{scenarioLabel}</div>
+        {primary ? <h1 className="no-workspace-title">{primary}</h1> : null}
+        {secondary ? <p className="no-workspace-subtitle">{secondary}</p> : null}
+        {scenarioLabel ? <div className="no-workspace-scenario">{scenarioLabel}</div> : null}
         <form className="workspace-open-form" onSubmit={handleSubmit}>
           <input
             className="workspace-path-input"

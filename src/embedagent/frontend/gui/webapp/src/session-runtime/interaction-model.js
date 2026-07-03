@@ -201,9 +201,14 @@ export function buildPermissionResponse(_interaction, decision) {
 
 export function buildUserInputResponse(interaction, options = {}) {
   const selected = options.option || null;
+  const questions = Array.isArray(interaction?.questions) ? interaction.questions : [];
+  const firstQuestion = questions[0] || {};
+  const answerKey = cleanString(firstQuestion.id) || "answer";
   return {
     answers: {
-      answer: selected ? selected.label || selected.text || "" : cleanString(options.answer),
+      [answerKey]: selected
+        ? selected.value || selected.label || selected.text || ""
+        : cleanString(options.answer),
     },
   };
 }

@@ -107,12 +107,20 @@ class TestGuiLauncher(unittest.TestCase):
         with tempfile.TemporaryDirectory() as workspace:
             with patch.object(gui_launcher, "launch_gui") as launch_gui:
                 exit_code = gui_launcher.main(
-                    ["--workspace", workspace, "--model", "qwen3.5-coder"]
+                    [
+                        "--workspace",
+                        workspace,
+                        "--model",
+                        "qwen3.5-coder",
+                        "--agent-application",
+                        "tests.python",
+                    ]
                 )
         self.assertEqual(exit_code, 0)
         launch_gui.assert_called_once()
         self.assertEqual(launch_gui.call_args.kwargs["workspace"], os.path.abspath(workspace))
         self.assertEqual(launch_gui.call_args.kwargs["model"], "qwen3.5-coder")
+        self.assertEqual(launch_gui.call_args.kwargs["agent_application_id"], "tests.python")
 
     def test_config_template_uses_flat_runtime_schema(self):
         template_path = os.path.join(

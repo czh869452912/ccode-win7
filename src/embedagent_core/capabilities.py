@@ -271,8 +271,13 @@ def app_capability_payload(snapshot: Dict[str, Any]) -> Dict[str, Any]:
         mode_id = _clean_text(metadata.get("id") or item.get("name"))
         if not mode_id:
             continue
+        try:
+            mode_order = int(metadata.get("order") or 0)
+        except (TypeError, ValueError):
+            mode_order = 0
         modes.append(
             {
+                "_order": mode_order,
                 "id": mode_id,
                 "label": _clean_text(metadata.get("label"), mode_id),
                 "description": str(metadata.get("description") or ""),
@@ -285,8 +290,30 @@ def app_capability_payload(snapshot: Dict[str, Any]) -> Dict[str, Any]:
                 "active": bool(item.get("active")),
             }
         )
-    modes.sort(key=lambda item: item["id"])
+    modes.sort(key=lambda item: (item.get("_order", 0), item["id"]))
+    for item in modes:
+        item.pop("_order", None)
     payload["modes"] = modes
+    workflow_packages = []
+    for item in list((snapshot or {}).get("descriptors") or []):
+        if not isinstance(item, dict) or item.get("kind") != "workflow_package":
+            continue
+        metadata = dict(item.get("metadata") or {})
+        package_id = _clean_text(metadata.get("package_id") or item.get("name"))
+        if not package_id:
+            continue
+        workflow_packages.append(
+            {
+                "id": package_id,
+                "label": _clean_text(metadata.get("label"), package_id),
+                "active": bool(item.get("active")),
+                "state": dict(metadata.get("state") or {}),
+                "source_type": _clean_text(item.get("source_type"), "workflow_package"),
+                "source_id": _clean_text(item.get("source_id"), package_id),
+            }
+        )
+    workflow_packages.sort(key=lambda item: item["id"])
+    payload["workflowPackages"] = workflow_packages
     return payload
 
 
