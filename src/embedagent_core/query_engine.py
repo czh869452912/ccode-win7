@@ -14,8 +14,7 @@ from embedagent_core.agent_loop import AgentLoop
 from embedagent_core.agent_tool_action_service import AgentToolActionService
 from embedagent_core.compacted_history import CompactedHistoryReducer
 from embedagent_core.compaction_journal import CompactionJournal
-from embedagent.context import ContextManager
-from embedagent.context_window import ContextWindowState
+from embedagent_core.context_window import ContextWindowState
 from embedagent_core.extensions import (
     ExtensionContext,
     ExtensionManager,
@@ -26,25 +25,34 @@ from embedagent_core.interaction import (
     UserInputResponse,
 )
 from embedagent_core.model import ModelClient, ModelClientError
-from embedagent.strategies.execution_tracer import ExecutionTracer, TraceEventType
-from embedagent.strategies.llm_retry_wrapper import LLMClientRetryWrapper
-from embedagent.memory_maintenance import MemoryMaintenance
-from embedagent.modes import (
-    DEFAULT_MODE,
-    build_system_prompt,
-    parse_mode_command,
-    parse_natural_language_mode_switch,
-    require_mode,
-)
+from embedagent_core.strategies.execution_tracer import ExecutionTracer, TraceEventType
+from embedagent_core.strategies.llm_retry_wrapper import LLMClientRetryWrapper
 from embedagent_core.permissions import PermissionPolicy, PermissionRequest
 from embedagent_core.policies import (
     DenyWritePathPolicy,
     EmptyModeToolPolicy,
+    ModeRuntimePolicy,
     ModeToolPolicy,
+    PassThroughModeRuntimePolicy,
     WritePathPolicy,
 )
-from embedagent.prompt_assembly_service import PromptAssemblyService
-from embedagent.project_memory import ProjectMemoryStore
+from embedagent_core.ports import (
+    ContextAssemblerPort,
+    EmptyWorkspaceProfile,
+    InMemoryTranscriptStore,
+    MemoryMaintenancePort,
+    NoopContextAssembler,
+    NoopMemoryMaintenance,
+    NoopProjectMemoryStore,
+    NoopSessionSummaryStore,
+    NoopToolCommitCoordinator,
+    ProjectMemoryStorePort,
+    SessionSummaryStorePort,
+    ToolCommitCoordinatorPort,
+    TranscriptStorePort,
+    WorkspaceProfilePort,
+)
+from embedagent_core.prompt_assembly_service import PromptAssemblyService
 from embedagent_core.session import (
     Action,
     AssistantReply,
@@ -57,14 +65,9 @@ from embedagent_core.session import (
     Session,
     ToolPresentationSnapshot,
 )
-from embedagent.session_store import SessionSummaryStore
-from embedagent.tool_commit import ToolCommitCoordinator
-from embedagent.transcript_store import TranscriptStore
 from embedagent_core.tool_contracts import ToolRuntimePort
 from embedagent_core.turn_snapshot import TurnSnapshot
 from embedagent_core.turn_snapshot_service import TurnSnapshotService
-from embedagent.workspace_intelligence import WorkspaceIntelligenceBroker
-from embedagent.workspace_profile import build_workspace_profile_message
 
 _LOG = logging.getLogger(__name__)
 _RETRYABLE_HTTP_CODES = {429, 500, 502, 503, 504}
@@ -90,45 +93,43 @@ class QueryEngine(object):
         tools: ToolRuntimePort,
         max_turns: Optional[int] = None,
         permission_policy: Optional[PermissionPolicy] = None,
-        context_manager: Optional[ContextManager] = None,
-        summary_store: Optional[SessionSummaryStore] = None,
-        project_memory_store: Optional[ProjectMemoryStore] = None,
-        memory_maintenance: Optional[MemoryMaintenance] = None,
+        context_manager: Optional[ContextAssemblerPort] = None,
+        summary_store: Optional[SessionSummaryStorePort] = None,
+        project_memory_store: Optional[ProjectMemoryStorePort] = None,
+        memory_maintenance: Optional[MemoryMaintenancePort] = None,
         maintenance_interval: int = 4,
-        intelligence_broker: Optional[WorkspaceIntelligenceBroker] = None,
+        intelligence_broker: Optional[Any] = None,
         max_parallel_tools: int = 3,
-        transcript_store: Optional[TranscriptStore] = None,
+        transcript_store: Optional[TranscriptStorePort] = None,
         tracer: Optional[ExecutionTracer] = None,
         extension_manager: Optional[ExtensionManager] = None,
         runtime_config_provider: Optional[Callable[[Session], Dict[str, Any]]] = None,
         remembered_permission_categories_provider: Optional[Callable[[Session], list]] = None,
         mode_tool_policy: Optional[ModeToolPolicy] = None,
         write_path_policy: Optional[WritePathPolicy] = None,
+        mode_runtime_policy: Optional[ModeRuntimePolicy] = None,
+        tool_commit: Optional[ToolCommitCoordinatorPort] = None,
+        workspace_profile: Optional[WorkspaceProfilePort] = None,
     ) -> None:
         self.client = client
         self.tools = tools
         self.max_turns = max_turns
         self.permission_policy = permission_policy or PermissionPolicy(auto_approve_all=True)
-        self.project_memory_store = project_memory_store or ProjectMemoryStore(self.tools.workspace)
-        self.context_manager = context_manager or ContextManager(
-            project_memory=self.project_memory_store
-        )
+        self.project_memory_store = project_memory_store or NoopProjectMemoryStore()
+        self.context_manager = context_manager or NoopContextAssembler()
         self._compaction_journal = CompactionJournal()
-        self.summary_store = summary_store or SessionSummaryStore(self.tools.workspace)
-        self.memory_maintenance = memory_maintenance or MemoryMaintenance(
-            summary_store=self.summary_store,
-            project_memory_store=self.project_memory_store,
-            tool_result_store=self.tools.tool_result_store,
-        )
+        self.summary_store = summary_store or NoopSessionSummaryStore()
+        self.memory_maintenance = memory_maintenance or NoopMemoryMaintenance()
         self.maintenance_interval = maintenance_interval if maintenance_interval > 0 else 1
-        self.intelligence_broker = intelligence_broker or WorkspaceIntelligenceBroker()
+        self.intelligence_broker = intelligence_broker
         self.max_parallel_tools = max(1, int(max_parallel_tools or 1))
-        self.transcript_store = transcript_store or TranscriptStore(self.tools.workspace)
+        self.transcript_store = transcript_store or InMemoryTranscriptStore()
         self.tracer = tracer
         self._runtime_config_provider = runtime_config_provider
         self._remembered_permission_categories_provider = remembered_permission_categories_provider
         self._mode_tool_policy = mode_tool_policy or EmptyModeToolPolicy()
         self._write_path_policy = write_path_policy or DenyWritePathPolicy()
+        self._mode_runtime_policy = mode_runtime_policy or PassThroughModeRuntimePolicy()
         self.extension_host = AgentExtensionHost(
             manager=extension_manager or ExtensionManager(),
             tools=self.tools,
@@ -168,11 +169,8 @@ class QueryEngine(object):
         self._prompt_assembly = PromptAssemblyService()
         self._last_turn_snapshot = None  # type: Optional[TurnSnapshot]
         self.kernel = AgentKernel(lifecycle=self.lifecycle)
-        self.tool_commit = ToolCommitCoordinator(
-            self.tools.tool_result_store,
-            self.tools.projection_db,
-            self.transcript_store,
-        )
+        self.tool_commit = tool_commit or NoopToolCommitCoordinator()
+        self.workspace_profile = workspace_profile or EmptyWorkspaceProfile()
         self._maintenance_counter = 0
         self._agent_loop = AgentLoop(
             max_turns=self.max_turns,
@@ -208,7 +206,7 @@ class QueryEngine(object):
         self,
         user_text: str = "",
         session: Optional[Any] = None,
-        initial_mode: str = DEFAULT_MODE,
+        initial_mode: str = "",
         workflow_state: str = "chat",
         stream: bool = True,
         **kwargs: Any,
@@ -778,17 +776,23 @@ class QueryEngine(object):
         local_resources = getattr(self.tools, "local_resources", None)
         if callable(local_resources):
             resources = local_resources()
-        return build_system_prompt(
+        return self._mode_runtime_policy.build_system_prompt(
             mode_name,
             getattr(self.tools, "app_config", None),
             getattr(self.tools, "workspace", ""),
             local_resources=resources,
         )
 
+    def _require_mode_slug(self, mode_name: str) -> str:
+        mode = self._mode_runtime_policy.require_mode(
+            str(mode_name or self._mode_runtime_policy.default_mode())
+        )
+        return str(mode.get("slug") or mode_name or self._mode_runtime_policy.default_mode())
+
     def initialize_session(
         self, session: Session, initial_mode: str, workflow_state: str = "chat", user_text: str = ""
     ) -> str:
-        current_mode = require_mode(initial_mode)["slug"]
+        current_mode = self._require_mode_slug(initial_mode)
         self._ensure_extension_tools_registered(
             session,
             current_mode,
@@ -809,7 +813,7 @@ class QueryEngine(object):
             return current_mode
         with self._session_guard():
             profile_message = session.add_system_message(
-                build_workspace_profile_message(self.tools.workspace, session.session_id)
+                self.workspace_profile.build_message(self.tools.workspace, session.session_id)
             )
             system_message = session.add_system_message(self._build_system_prompt(current_mode))
             self._append_transcript_event(
@@ -849,7 +853,7 @@ class QueryEngine(object):
     def apply_mode(
         self, session: Session, next_mode: str, workflow_state: str = "chat", user_text: str = ""
     ) -> str:
-        current_mode = require_mode(next_mode)["slug"]
+        current_mode = self._require_mode_slug(next_mode)
         with self._session_guard():
             mode_message = session.add_system_message(self._build_system_prompt(current_mode))
             self._append_message_event(
@@ -932,10 +936,7 @@ class QueryEngine(object):
     def _parse_mode_switch_request(
         self, user_text: str, fallback_mode: str
     ) -> Tuple[str, str, bool]:
-        mode_name, remainder, switched = parse_mode_command(user_text, fallback_mode=fallback_mode)
-        if switched:
-            return mode_name, remainder, True
-        return parse_natural_language_mode_switch(user_text, fallback_mode=fallback_mode)
+        return self._mode_runtime_policy.parse_mode_switch_request(user_text, fallback_mode)
 
     def _append_user_turn_message(self, session: Session, user_text: str, turn_id: str) -> None:
         with self._session_guard():
@@ -966,7 +967,7 @@ class QueryEngine(object):
         source_mode: str,
         target_mode: str,
     ) -> QueryTurnResult:
-        applied_mode = require_mode(target_mode)["slug"]
+        applied_mode = self._require_mode_slug(target_mode)
         message_text = "已切换到 `%s` 模式。" % applied_mode
         reply = AssistantReply(content=message_text, actions=[], finish_reason="mode_changed")
         with self._session_guard():
@@ -1178,7 +1179,7 @@ class QueryEngine(object):
         self,
         user_text: str,
         stream: bool = True,
-        initial_mode: str = DEFAULT_MODE,
+        initial_mode: str = "",
         workflow_state: str = "chat",
         session: Optional[Session] = None,
         stop_event: Optional[threading.Event] = None,
@@ -1199,12 +1200,12 @@ class QueryEngine(object):
                 session = Session()
         session_was_empty = not bool(session.messages)
         original_user_text = user_text
-        source_mode = require_mode(initial_mode)["slug"]
+        source_mode = self._require_mode_slug(initial_mode)
         target_mode, routed_user_text, mode_switched = self._parse_mode_switch_request(
             user_text,
             source_mode,
         )
-        current_mode = require_mode(target_mode if mode_switched else source_mode)["slug"]
+        current_mode = self._require_mode_slug(target_mode if mode_switched else source_mode)
         user_text = routed_user_text if mode_switched else user_text
         initialization_user_text = user_text
         if mode_switched and not session_was_empty:
@@ -1498,7 +1499,7 @@ class QueryEngine(object):
             Callable[[UserInputRequest], Optional[UserInputResponse]]
         ] = None,
     ) -> QueryTurnResult:
-        current_mode = require_mode(initial_mode)["slug"]
+        current_mode = self._require_mode_slug(initial_mode)
         resume_turn_id = self._turn_id(session) or ("t-" + uuid.uuid4().hex[:12])
         turn_frame = self.kernel.begin_turn(
             session, resume_turn_id, current_mode, workflow_state, "resume"
@@ -1700,7 +1701,7 @@ class QueryEngine(object):
         next_mode = current_mode
         mode_changed = False
         if selected_mode:
-            selected_mode = str(require_mode(selected_mode)["slug"])
+            selected_mode = self._require_mode_slug(selected_mode)
             if selected_mode != current_mode:
                 next_mode = selected_mode
                 mode_changed = True

@@ -14,6 +14,10 @@ def _relative(path):
     return path.relative_to(ROOT).as_posix()
 
 
+def _read(path):
+    return path.read_text(encoding="utf-8")
+
+
 def _source_files_under(*relative_roots, **kwargs):
     suffixes = kwargs.get("suffixes", (".py",))
     files = []
@@ -93,9 +97,9 @@ class TestPublicImports(object):
         assert WorkspaceFileService is not None
 
     def test_import_strategies(self):
-        from embedagent.strategies import LLMClientRetryWrapper
+        from embedagent.strategies import ToolResultCache
 
-        assert LLMClientRetryWrapper is not None
+        assert ToolResultCache is not None
 
     def test_legacy_context_compaction_strategy_removed(self):
         import embedagent.strategies as strategies

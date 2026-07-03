@@ -1,6 +1,6 @@
 import unittest
 
-from embedagent.context_window import ContextWindowState
+from embedagent_core.context_window import ContextWindowState
 
 
 class TestContextWindowState(unittest.TestCase):

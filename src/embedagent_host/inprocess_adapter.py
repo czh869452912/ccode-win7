@@ -22,9 +22,12 @@ from embedagent.memory_maintenance import MemoryMaintenance
 from embedagent.modes import (
     DEFAULT_MODE,
     allowed_tools_for,
+    build_system_prompt,
     initialize_modes,
     is_path_writable,
     mode_names,
+    parse_mode_command,
+    parse_natural_language_mode_switch,
     require_mode,
 )
 from embedagent_core.permissions import PermissionPolicy, PermissionRequest
@@ -67,8 +70,11 @@ from embedagent.slash_commands import (
     resource_command_specs,
 )
 from embedagent.tools import ToolRuntime
+from embedagent.tool_commit import ToolCommitCoordinator
 from embedagent.transcript_store import TranscriptStore
 from embedagent_core.turn_experience import TurnExperienceReducer
+from embedagent.workspace_intelligence import WorkspaceIntelligenceBroker
+from embedagent.workspace_profile import build_workspace_profile_message
 
 EventHandler = Callable[[str, str, Dict[str, Any]], None]
 
@@ -87,6 +93,42 @@ class _ProductWritePathPolicy(object):
         app_config: Any = None,
     ) -> bool:
         return is_path_writable(mode_name, normalized_path, app_config)
+
+
+class _ProductModeRuntimePolicy(object):
+    def default_mode(self) -> str:
+        return DEFAULT_MODE
+
+    def require_mode(self, mode_name: str) -> Dict[str, Any]:
+        return require_mode(mode_name or DEFAULT_MODE)
+
+    def build_system_prompt(
+        self,
+        mode_name: str,
+        app_config: Any = None,
+        workspace: str = "",
+        local_resources: Any = None,
+    ) -> str:
+        return build_system_prompt(
+            mode_name,
+            app_config,
+            workspace,
+            local_resources=local_resources,
+        )
+
+    def parse_mode_switch_request(self, user_text: str, fallback_mode: str):
+        mode_name, remainder, switched = parse_mode_command(
+            user_text,
+            fallback_mode=fallback_mode,
+        )
+        if switched:
+            return mode_name, remainder, True
+        return parse_natural_language_mode_switch(user_text, fallback_mode=fallback_mode)
+
+
+class _WorkspaceProfilePort(object):
+    def build_message(self, workspace: str, session_id: str) -> str:
+        return build_workspace_profile_message(workspace, session_id)
 
 
 def _display_transition_reason(reason: str) -> str:
@@ -193,11 +235,18 @@ class InProcessAdapter(object):
             project_memory_store=self.project_memory_store,
             tool_result_store=self.tools.tool_result_store,
         )
+        self.intelligence_broker = WorkspaceIntelligenceBroker()
         self.maintenance_interval = maintenance_interval if maintenance_interval > 0 else 1
         self.event_handler = event_handler
         self.plan_store = PlanStore(self.tools.workspace)
         self.command_registry = SlashCommandRegistry()
         self.transcript_store = TranscriptStore(self.tools.workspace)
+        self.tool_commit = ToolCommitCoordinator(
+            self.tools.tool_result_store,
+            getattr(self.tools, "projection_db", None),
+            self.transcript_store,
+        )
+        self.workspace_profile = _WorkspaceProfilePort()
         self.session_restorer = SessionRestorer()
         self.snapshot_projector = SessionSnapshotProjector()
         default_extensions = build_default_extension_set(self.tools)
@@ -332,11 +381,15 @@ class InProcessAdapter(object):
             project_memory_store=self.project_memory_store,
             memory_maintenance=self.memory_maintenance,
             maintenance_interval=self.maintenance_interval,
+            intelligence_broker=self.intelligence_broker,
             transcript_store=self.transcript_store,
+            tool_commit=self.tool_commit,
+            workspace_profile=self.workspace_profile,
             extension_manager=self.extension_manager,
             remembered_permission_categories_provider=self._remembered_categories_for_session,
             mode_tool_policy=_ProductModeToolPolicy(),
             write_path_policy=_ProductWritePathPolicy(),
+            mode_runtime_policy=_ProductModeRuntimePolicy(),
         )
 
     def _remembered_categories_for_session(self, session: Session) -> List[str]:

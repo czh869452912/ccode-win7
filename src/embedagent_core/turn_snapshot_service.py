@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import Any, Callable, Dict, List, Optional
 
-from embedagent.skill_index import build_skill_index
 from embedagent_core.capabilities import (
     CapabilityRegistry,
     model_profile_capability_descriptor,
@@ -156,7 +155,7 @@ class TurnSnapshotService(object):
                 local_resources = local_resources_method()
             except (OSError, RuntimeError, ValueError, TypeError):
                 local_resources = {}
-        summary = build_skill_index(local_resources).safe_summary()
+        summary = self._local_skill_summary(local_resources)
         visible_skill_count = int(summary.get("visible_skill_count") or 0)
         if visible_skill_count <= 0:
             return []
@@ -169,6 +168,27 @@ class TurnSnapshotService(object):
         if _has_meaningful_resource_revision(resource_revision):
             prompt_unit["resource_revision"] = resource_revision
         return [prompt_unit]
+
+    def _local_skill_summary(self, local_resources: Any) -> Dict[str, Any]:
+        if isinstance(local_resources, dict):
+            skills = list(local_resources.get("skills") or [])
+        else:
+            skills = list(local_resources or [])
+        visible_names = []
+        skill_count = 0
+        for item in skills:
+            if not isinstance(item, dict):
+                continue
+            name = str(item.get("name") or "").strip()
+            path = str(item.get("path") or "").strip()
+            skill_count += 1
+            if name and path and bool(item.get("prompt_visible", False)):
+                visible_names.append(name)
+        return {
+            "skill_count": skill_count,
+            "visible_skill_count": len(visible_names),
+            "visible_skill_names": sorted(set(visible_names)),
+        }
 
     def runtime_environment_snapshot(self, tools: Any) -> Dict[str, Any]:
         runtime_snapshot = getattr(tools, "runtime_environment_snapshot", None)

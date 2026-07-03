@@ -7,7 +7,7 @@ from unittest.mock import MagicMock
 
 from embedagent_core.model import ModelClientError
 from embedagent_core.session import AssistantReply
-from embedagent.strategies.llm_retry_wrapper import LLMClientRetryWrapper
+from embedagent_core.strategies.llm_retry_wrapper import LLMClientRetryWrapper
 
 
 class TestLLMClientRetryWrapper(unittest.TestCase):

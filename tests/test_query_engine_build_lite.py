@@ -7,9 +7,20 @@ from itertools import count
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from embedagent_core.session import AssistantReply, Session
+from embedagent.context import ContextManager
+from embedagent.modes import (
+    allowed_tools_for,
+    build_system_prompt,
+    is_path_writable,
+    parse_mode_command,
+    parse_natural_language_mode_switch,
+    require_mode,
+)
+from embedagent.project_memory import ProjectMemoryStore
 from embedagent.tools import ToolRuntime
 from embedagent_core.permissions import PermissionPolicy
 from embedagent_core.query_engine import QueryEngine
+from embedagent.workspace_intelligence import WorkspaceIntelligenceBroker
 from embedagent_host.default_extensions import build_default_extension_set
 from embedagent_host.inprocess_adapter import InProcessAdapter
 
@@ -44,6 +55,42 @@ class DoneClient(object):
         return reply
 
 
+class ProductModeToolPolicy(object):
+    def allowed_tools_for(self, mode_name, workflow_state=None):
+        del workflow_state
+        return allowed_tools_for(mode_name)
+
+
+class ProductWritePathPolicy(object):
+    def is_path_writable(self, mode_name, normalized_path, app_config=None):
+        return is_path_writable(mode_name, normalized_path, app_config)
+
+
+class ProductModeRuntimePolicy(object):
+    def default_mode(self):
+        return "explore"
+
+    def require_mode(self, mode_name):
+        return require_mode(mode_name or self.default_mode())
+
+    def build_system_prompt(self, mode_name, app_config=None, workspace="", local_resources=None):
+        return build_system_prompt(
+            mode_name,
+            app_config,
+            workspace,
+            local_resources=local_resources,
+        )
+
+    def parse_mode_switch_request(self, user_text, fallback_mode):
+        mode_name, remainder, switched = parse_mode_command(
+            user_text,
+            fallback_mode=fallback_mode,
+        )
+        if switched:
+            return mode_name, remainder, True
+        return parse_natural_language_mode_switch(user_text, fallback_mode=fallback_mode)
+
+
 class QueryEngineBuildLiteTests(unittest.TestCase):
     def setUp(self):
         self.workspace = _make_workspace("build-lite")
@@ -59,11 +106,18 @@ class QueryEngineBuildLiteTests(unittest.TestCase):
 
     def _build_engine(self, client=None):
         default_extensions = build_default_extension_set(self.tools)
+        project_memory = ProjectMemoryStore(self.workspace)
         return QueryEngine(
             client=client or DoneClient(),
             tools=self.tools,
             permission_policy=PermissionPolicy(auto_approve_all=True, workspace=self.workspace),
+            context_manager=ContextManager(project_memory=project_memory),
+            project_memory_store=project_memory,
+            intelligence_broker=WorkspaceIntelligenceBroker(),
             extension_manager=default_extensions.manager,
+            mode_tool_policy=ProductModeToolPolicy(),
+            write_path_policy=ProductWritePathPolicy(),
+            mode_runtime_policy=ProductModeRuntimePolicy(),
         )
 
     def test_build_mode_submit_turn_adds_harness_context(self):

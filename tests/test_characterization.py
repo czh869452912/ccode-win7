@@ -15,7 +15,7 @@ from embedagent_host.providers.openai_compatible import OpenAICompatibleClient
 from embedagent.services.event_emitter import EventEmitter
 from embedagent.services.session_lifecycle import SessionLifecycleManager
 from embedagent.services.workspace_file_service import WorkspaceFileService
-from embedagent.strategies.llm_retry_wrapper import LLMClientRetryWrapper
+from embedagent_core.strategies.llm_retry_wrapper import LLMClientRetryWrapper
 from embedagent.tools import ToolRuntime
 from embedagent_core.query_engine import QueryEngine
 

@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from embedagent.strategies.execution_tracer import ExecutionTracer, TraceEventType
+from embedagent_core.strategies.execution_tracer import ExecutionTracer, TraceEventType
 
 
 class TestExecutionTracer(unittest.TestCase):
@@ -26,10 +26,10 @@ class TestExecutionTracer(unittest.TestCase):
     def test_start_span_records_duration(self):
         tracer = ExecutionTracer()
         with patch(
-            "embedagent.strategies.execution_tracer.time.time",
+            "embedagent_core.strategies.execution_tracer.time.time",
             side_effect=[1000.0, 1000.0, 1000.0499, 1000.1],
         ), patch(
-            "embedagent.strategies.execution_tracer.time.perf_counter",
+            "embedagent_core.strategies.execution_tracer.time.perf_counter",
             side_effect=[200.0, 200.0499],
         ):
             with tracer.start_span(TraceEventType.LLM_CALL_START, "session_1", "turn_1"):

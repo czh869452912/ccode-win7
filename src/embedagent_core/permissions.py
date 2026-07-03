@@ -7,8 +7,21 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional
 
-from embedagent.protocol import PermissionContextView
 from embedagent_core.session import Action
+
+
+@dataclass
+class PermissionContextView:
+    """Read-only permission context projection for host/frontends."""
+
+    session_id: str
+    rules_path: str
+    categories: List[str] = field(default_factory=list)
+    rules: List[Dict[str, Any]] = field(default_factory=list)
+    remembered_categories: List[str] = field(default_factory=list)
+    auto_approve_all: bool = False
+    auto_approve_writes: bool = False
+    auto_approve_commands: bool = False
 
 
 def build_permission_explanation(

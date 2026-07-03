@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from typing import Any, Dict, List
 
-from embedagent.compactor import DeterministicCompactor
-from embedagent.context_window import ContextWindowState
+from embedagent_core.compactor import DeterministicCompactor
+from embedagent_core.context_window import ContextWindowState
 from embedagent_core.session import ContextAssemblyResult
 
 

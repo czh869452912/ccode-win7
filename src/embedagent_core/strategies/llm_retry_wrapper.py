@@ -12,7 +12,7 @@ from typing import Any, Callable, Dict, List, Optional
 
 from embedagent_core.model import ModelClient, ModelClientError
 from embedagent_core.session import AssistantReply
-from embedagent.strategies.circuit_breaker import CircuitBreaker, CircuitBreakerOpenError
+from embedagent_core.strategies.circuit_breaker import CircuitBreaker, CircuitBreakerOpenError
 
 _LOG = logging.getLogger(__name__)
 

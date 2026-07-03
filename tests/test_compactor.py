@@ -1,6 +1,6 @@
 import unittest
 
-from embedagent.compactor import DeterministicCompactor
+from embedagent_core.compactor import DeterministicCompactor
 
 
 class TestDeterministicCompactor(unittest.TestCase):

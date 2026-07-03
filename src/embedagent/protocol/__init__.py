@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 from enum import Enum, auto
 from typing import Any, Dict, List, Optional, Protocol
 
+from embedagent_core.permissions import PermissionContextView
 from embedagent.protocol.app_protocol import (
     AppBootstrap as AppBootstrap,
 )
@@ -176,20 +177,6 @@ class RuntimeEnvironmentSnapshot:
     fallback_warnings: List[str] = field(default_factory=list)
     resolved_tool_roots: Dict[str, Any] = field(default_factory=dict)
     tool_sources: Dict[str, Any] = field(default_factory=dict)
-
-
-@dataclass
-class PermissionContextView:
-    """前端展示权限上下文所需的数据"""
-
-    session_id: str
-    rules_path: str
-    categories: List[str] = field(default_factory=list)
-    rules: List[Dict[str, Any]] = field(default_factory=list)
-    remembered_categories: List[str] = field(default_factory=list)
-    auto_approve_all: bool = False
-    auto_approve_writes: bool = False
-    auto_approve_commands: bool = False
 
 
 @dataclass
