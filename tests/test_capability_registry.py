@@ -41,6 +41,7 @@ def test_registry_registers_descriptors_and_serializes_snapshot():
 
     assert payload["counts"] == {
         "command": 1,
+        "mode": 0,
         "model_profile": 0,
         "resource": 0,
         "tool": 1,
@@ -250,3 +251,17 @@ def test_workflow_package_capability_descriptors_project_manifest():
     assert "packs" in item["metadata"]
     assert "tools" in item["metadata"]
     json.dumps(payload, sort_keys=True)
+
+
+def test_mode_capability_descriptors_project_agent_profile_modes():
+    from embedagent.agent_profiles import default_c_cpp_agent_profile
+    from embedagent_core.capabilities import mode_capability_descriptors
+
+    descriptors = mode_capability_descriptors(default_c_cpp_agent_profile())
+
+    names = [item.name for item in descriptors]
+    assert names == ["build", "debug", "explore", "spec", "verify"]
+    build = [item for item in descriptors if item.name == "build"][0]
+    assert build.kind == "mode"
+    assert build.source_type == "agent_profile"
+    assert build.metadata["dispatch"] == {"kind": "mode.set", "mode": "build"}

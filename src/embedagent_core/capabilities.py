@@ -4,7 +4,7 @@ from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
-CAPABILITY_KINDS = ("command", "model_profile", "resource", "tool", "workflow_package")
+CAPABILITY_KINDS = ("command", "mode", "model_profile", "resource", "tool", "workflow_package")
 
 
 def _clean_text(value: Any, default: str = "") -> str:
@@ -235,6 +235,61 @@ def command_capability_payload(snapshot: Dict[str, Any]) -> Dict[str, Any]:
         )
     commands.sort(key=lambda item: item["usage"])
     return {"commands": commands}
+
+
+def mode_capability_descriptors(profile: Any) -> List[CapabilityDescriptor]:
+    payloads_method = getattr(profile, "mode_descriptor_payloads", None)
+    if not callable(payloads_method):
+        return []
+    descriptors = []
+    for item in list(payloads_method() or []):
+        if not isinstance(item, dict):
+            continue
+        mode_id = _clean_text(item.get("id"))
+        if not mode_id:
+            continue
+        descriptors.append(
+            CapabilityDescriptor(
+                name=mode_id,
+                kind="mode",
+                source_type=_clean_text(item.get("source_type"), "agent_profile"),
+                source_id=_clean_text(item.get("source_id"), "agent_profile"),
+                metadata=dict(item),
+                active=True,
+            )
+        )
+    return sorted(descriptors, key=lambda descriptor: descriptor.name)
+
+
+def app_capability_payload(snapshot: Dict[str, Any]) -> Dict[str, Any]:
+    payload = command_capability_payload(snapshot)
+    modes = []
+    for item in list((snapshot or {}).get("descriptors") or []):
+        if not isinstance(item, dict) or item.get("kind") != "mode":
+            continue
+        metadata = dict(item.get("metadata") or {})
+        mode_id = _clean_text(metadata.get("id") or item.get("name"))
+        if not mode_id:
+            continue
+        modes.append(
+            {
+                "id": mode_id,
+                "label": _clean_text(metadata.get("label"), mode_id),
+                "description": str(metadata.get("description") or ""),
+                "icon_key": _clean_text(metadata.get("icon_key"), "circle"),
+                "color_token": _clean_text(metadata.get("color_token"), "info"),
+                "command_id": _clean_text(metadata.get("command_id"), "mode.%s" % mode_id),
+                "dispatch": dict(
+                    metadata.get("dispatch") or {"kind": "mode.set", "mode": mode_id}
+                ),
+                "source_type": _clean_text(item.get("source_type"), "agent_profile"),
+                "source_id": _clean_text(item.get("source_id"), "agent_profile"),
+                "active": bool(item.get("active")),
+            }
+        )
+    modes.sort(key=lambda item: item["id"])
+    payload["modes"] = modes
+    return payload
 
 
 def workflow_package_capability_descriptors(manifests: Any) -> List[CapabilityDescriptor]:

@@ -606,6 +606,15 @@ class TestInProcessAdapterFrontendApis(unittest.TestCase):
         self.assertIn("write_file", names)
         self.assertIsInstance(snapshot.get("counts"), dict)
 
+    def test_session_capabilities_include_backend_declared_modes(self):
+        capabilities = self.adapter.get_session_capabilities(self.snapshot["session_id"])
+        modes = capabilities.get("modes") or []
+        ids = [item.get("id") for item in modes]
+
+        self.assertEqual(ids, ["build", "debug", "explore", "spec", "verify"])
+        build = [item for item in modes if item.get("id") == "build"][0]
+        self.assertEqual(build.get("dispatch"), {"kind": "mode.set", "mode": "build"})
+
     def test_session_snapshot_projector_is_side_effect_free(self):
         from embedagent.session_projector import SessionSnapshotProjector
 

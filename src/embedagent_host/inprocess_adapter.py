@@ -7,9 +7,10 @@ from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional
 
 from embedagent_core.capabilities import (
+    app_capability_payload,
     command_capability_descriptors,
-    command_capability_payload,
     model_profile_capability_descriptor,
+    mode_capability_descriptors,
     workflow_package_capability_descriptors,
 )
 from embedagent.agent_profiles import default_c_cpp_agent_profile
@@ -288,6 +289,7 @@ class InProcessAdapter(object):
         self._runtime_capabilities = RuntimeCapabilityService(
             descriptor_loader=self._capability_descriptors,
             model_descriptor_loader=lambda: model_profile_capability_descriptor(self.client),
+            mode_descriptor_loader=lambda: mode_capability_descriptors(self._agent_profile),
             workflow_manifest_loader=self._workflow_package_capability_descriptors,
         )
         self.interaction_service = HostedInteractionService(
@@ -435,7 +437,7 @@ class InProcessAdapter(object):
     def get_session_capabilities(self, session_id: str = "") -> Dict[str, Any]:
         del session_id
         self._ensure_extension_tools_registered(reason="capabilities")
-        return command_capability_payload(self.capability_snapshot())
+        return app_capability_payload(self.capability_snapshot())
 
     def _capability_descriptors(self) -> List[Any]:
         descriptors = []
