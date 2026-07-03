@@ -148,6 +148,12 @@ project-local extensions, product session hosting, CLI/TUI/GUI bridges, and
 offline bundle integration. It is replaceable product composition, not generic
 Core.
 
+Hosted agent profiles declare scenario mode metadata, base tool policy, and
+GUI mode capability projection. Workflow packages declare scenario-specific
+workflow tools, packs, prompts, resources, manifests, and package-owned tool
+names. Provider-facing schemas are always projected from explicit active tool
+names computed by the shared extension boundary.
+
 ### Default C/C++ Workflow Package
 
 - `src/embedagent/workflow_packages/c_cpp/`
@@ -195,7 +201,7 @@ Explicit user mode-switch requests are routed by `QueryEngine` before provider c
 
 `WorkflowPackageManifest` is a non-executing read model for workflow package identity, supported modes and workflow states, declared tools, packs, resource scopes, and diagnostics. The bundled C/C++ package exposes its manifest through the extension boundary and derives it from the same package-owned constants that drive tool metadata and pack definitions. Manifest projection is diagnostic/control-plane state only; it does not activate tools, grant permissions, execute tools, or load packages.
 
-`CapabilityRegistry` is a non-executing read model for runtime tools, local file resources, slash commands, model profiles, and workflow packages. It records provenance and metadata for diagnostics and future reducer work. It does not decide active tools, execute tools, reload resources, load extensions, or replace permission checks; those responsibilities remain with `AgentExtensionHost` / `ExtensionManager`, `ToolRuntime` / `AgentToolActionService`, resource reload paths, project extension loading, and `PermissionPolicy`.
+`CapabilityRegistry` is a non-executing read model for runtime tools, modes, local file resources, slash commands, model profiles, and workflow packages. It records provenance and metadata for diagnostics and future reducer work. It does not decide active tools, execute tools, reload resources, load extensions, or replace permission checks; those responsibilities remain with `AgentExtensionHost` / `ExtensionManager`, `ToolRuntime` / `AgentToolActionService`, resource reload paths, project extension loading, and `PermissionPolicy`.
 
 `RuntimeConfigReducer` is the replayable runtime configuration read model. It reduces safe transcript events into credential-free model profile metadata, registered tool names, model-visible active tool names, local resource revision metadata, capability counts, and provider snapshot records. It feeds `ManagedSession.runtime_config`, session snapshots, and provider `TurnSnapshot` resource revision/model metadata when available. It remains diagnostic/replay state and must not become an active-tool selector, resource loader, extension loader, tool executor, or permission engine.
 
@@ -314,9 +320,9 @@ The tool runtime has one official facade:
 
 Harness selects focused tool packs by mode/phase, but execution still flows through one runtime object.
 
-Built-in mode allowed-tool lists are workflow-neutral permission/write contracts. Default C/C++ workflow tools are activated by the harness extension and packs, then passed to runtime schema projection as explicit active tool names.
+Hosted agent profile allowed-tool lists are workflow-neutral permission/write contracts. Default C/C++ workflow tools are activated by the harness extension and packs, then passed to runtime schema projection as explicit active tool names.
 
-`ToolRuntime.schemas_for(mode, workflow_state, tool_names=...)` is the single runtime schema projection entry point. Without explicit `tool_names`, it projects only the workflow-neutral mode contract; it must not be used to activate the default harness pack implicitly.
+`ToolRuntime.schemas_for(mode, workflow_state, tool_names=...)` is the single runtime schema projection entry point. Without explicit `tool_names`, it returns no provider-facing schemas; it must not be used to activate base mode tools or the default harness pack implicitly.
 
 The tool runtime is source-aware and dynamically extensible. A bare `ToolRuntime` registers workflow-neutral built-ins only. In-process extensions can register `ToolDefinition` objects into the shared runtime; the bundled C/C++ workflow package uses this same boundary for compiler/build helpers, recipe execution, quality reporting, evidence capture, and task-status tools. Source metadata is projected through the existing catalog, and active-tool visibility still flows through `ExtensionManager.allowed_tool_names(mode_name, workflow_state=workflow_state)`.
 

@@ -925,3 +925,12 @@ git commit -m "docs: record workflow package contract extraction"
 - Spec coverage: The plan covers scenario/profile contracts, explicit active tool schema projection, C/C++ workflow package ownership, GUI mode metadata via backend capabilities, and deletion of old implicit fallback behavior.
 - Placeholder scan: No deferred placeholder or compatibility shim steps are present.
 - Type consistency: `AgentProfile`, `AgentModeDescriptor`, `mode_capability_descriptors`, `app_capability_payload`, and `base_tool_names` are introduced before use and referenced consistently.
+
+## Execution Status
+
+- Implemented in branch `codex/agent-core-boundary-extraction`.
+- Added `AgentProfile` / `AgentModeDescriptor` as the hosted scenario profile contract.
+- Removed implicit `ToolRuntime.schemas_for(...)` mode fallback; provider-facing schemas now require explicit active tool names.
+- Renamed extension active-tool fallback semantics to `base_tool_names`.
+- Projected backend-declared modes through capability snapshots for GUI consumption.
+- Centralized C/C++ workflow tool name constants under `src/embedagent/workflow_packages/c_cpp/tool_names.py` and removed package-owned workflow tool name literals from product control-plane modules.
