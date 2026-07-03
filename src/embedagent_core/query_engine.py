@@ -54,8 +54,8 @@ from embedagent_core.session import (
 )
 from embedagent.session_store import SessionSummaryStore
 from embedagent.tool_commit import ToolCommitCoordinator
-from embedagent.tools import ToolRuntime
 from embedagent.transcript_store import TranscriptStore
+from embedagent_core.tool_contracts import ToolRuntimePort
 from embedagent_core.turn_snapshot import TurnSnapshot
 from embedagent_core.turn_snapshot_service import TurnSnapshotService
 from embedagent.workspace_intelligence import WorkspaceIntelligenceBroker
@@ -82,7 +82,7 @@ class QueryEngine(object):
     def __init__(
         self,
         client: ModelClient,
-        tools: ToolRuntime,
+        tools: ToolRuntimePort,
         max_turns: Optional[int] = None,
         permission_policy: Optional[PermissionPolicy] = None,
         context_manager: Optional[ContextManager] = None,

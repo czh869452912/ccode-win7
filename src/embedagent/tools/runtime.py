@@ -2,7 +2,6 @@ from __future__ import annotations  # noqa: I001
 
 import os
 import re
-from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
 from embedagent_core.capabilities import (
@@ -15,6 +14,13 @@ from embedagent.projection_db import ProjectionDb
 from embedagent_core.session import Observation
 from embedagent.strategies.tool_cache import ToolResultCache
 from embedagent_core.session import Action
+from embedagent_core.tool_contracts import (
+    ToolCatalogEntry,
+    ToolContextPolicy,
+    ToolExecutionSpec,
+    ToolPresentation,
+    ToolRuntimePort,
+)
 from embedagent.tool_result_store import ToolResultStore
 from embedagent.tools import (
     authoring_ops,
@@ -49,115 +55,6 @@ def _normalize_read_model_invalidations(tool_name: str, value: Any) -> List[str]
         if text not in result:
             result.append(text)
     return result
-
-
-@dataclass
-class ToolExecutionSpec:
-    read_only: bool
-    concurrency_safe: bool
-    interrupt_behavior: str
-    result_budget_policy: str
-
-
-@dataclass
-class ToolPresentation:
-    user_label: str
-    progress_renderer_key: str
-    result_renderer_key: str
-    supports_diff_preview: bool
-
-
-@dataclass
-class ToolContextPolicy:
-    context_reducer_key: str
-    activity_kind: str
-    context_priority: int
-    read_model_invalidations: List[str]
-
-
-@dataclass
-class ToolCatalogEntry:
-    name: str
-    description: str
-    permission_category: str
-    mode_visibility: List[str]
-    workflow_visibility: List[str]
-    execution: ToolExecutionSpec
-    presentation: ToolPresentation
-    context_policy: ToolContextPolicy
-    source_type: str
-    source_id: str
-
-    @property
-    def user_label(self) -> str:
-        return self.presentation.user_label
-
-    @property
-    def progress_renderer_key(self) -> str:
-        return self.presentation.progress_renderer_key
-
-    @property
-    def result_renderer_key(self) -> str:
-        return self.presentation.result_renderer_key
-
-    @property
-    def supports_diff_preview(self) -> bool:
-        return self.presentation.supports_diff_preview
-
-    @property
-    def context_reducer_key(self) -> str:
-        return self.context_policy.context_reducer_key
-
-    @property
-    def read_only(self) -> bool:
-        return self.execution.read_only
-
-    @property
-    def concurrency_safe(self) -> bool:
-        return self.execution.concurrency_safe
-
-    @property
-    def interrupt_behavior(self) -> str:
-        return self.execution.interrupt_behavior
-
-    @property
-    def result_budget_policy(self) -> str:
-        return self.execution.result_budget_policy
-
-    @property
-    def activity_kind(self) -> str:
-        return self.context_policy.activity_kind
-
-    @property
-    def context_priority(self) -> int:
-        return self.context_policy.context_priority
-
-    @property
-    def read_model_invalidations(self) -> List[str]:
-        return list(self.context_policy.read_model_invalidations)
-
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "name": self.name,
-            "description": self.description,
-            "permission_category": self.permission_category,
-            "mode_visibility": list(self.mode_visibility),
-            "workflow_visibility": list(self.workflow_visibility),
-            "user_label": self.user_label,
-            "progress_renderer_key": self.progress_renderer_key,
-            "result_renderer_key": self.result_renderer_key,
-            "supports_diff_preview": self.supports_diff_preview,
-            "context_reducer_key": self.context_reducer_key,
-            "read_only": self.read_only,
-            "concurrency_safe": self.concurrency_safe,
-            "interrupt_behavior": self.interrupt_behavior,
-            "result_budget_policy": self.result_budget_policy,
-            "activity_kind": self.activity_kind,
-            "context_priority": self.context_priority,
-            "read_model_invalidations": self.read_model_invalidations,
-            "source_type": self.source_type,
-            "source_id": self.source_id,
-        }
 
 
 _DEFAULT_TOOL_METADATA = {
@@ -359,7 +256,7 @@ _DEFAULT_TOOL_METADATA = {
 }
 
 
-class ToolRuntime(object):
+class ToolRuntime(ToolRuntimePort):
     def __init__(
         self, workspace: str, app_config=None, cache: Optional[ToolResultCache] = None
     ) -> None:
@@ -391,6 +288,9 @@ class ToolRuntime(object):
                 source_id="embedagent.core",
                 source_type="builtin",
             )
+
+    def path_resolver(self):
+        return self._ctx
 
     def register_tool(
         self,

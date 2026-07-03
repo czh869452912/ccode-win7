@@ -7,11 +7,10 @@ from typing import Any, Callable, List, Optional, Tuple
 from embedagent_core.interaction import UserInputRequest, UserInputResponse, build_user_input_request
 from embedagent.modes import is_path_writable
 from embedagent_core.session import Action, Observation, QueryTurnResult, Session
-from embedagent.tools import ToolRuntime
-from embedagent.tools._base import ToolError
 from embedagent_core.agent_extension_host import AgentExtensionHost
 from embedagent_core.agent_lifecycle import AgentLifecycleJournal
 from embedagent_core.permissions import PermissionPolicy, PermissionRequest
+from embedagent_core.tool_contracts import ToolError, ToolRuntimePort
 
 
 class AgentToolActionService(object):
@@ -19,7 +18,7 @@ class AgentToolActionService(object):
 
     def __init__(
         self,
-        tools: ToolRuntime,
+        tools: ToolRuntimePort,
         permission_policy: PermissionPolicy,
         extension_host: AgentExtensionHost,
         app_config_provider: Callable[[], Any],
@@ -448,7 +447,10 @@ class AgentToolActionService(object):
         if action.name != "edit_file":
             return None
         try:
-            resolved_path = self.tools._ctx.resolve_path(normalized, allow_missing=True)
+            resolved_path = self.tools.path_resolver().resolve_path(
+                normalized,
+                allow_missing=True,
+            )
         except ToolError as exc:
             return self._failure_observation(
                 action.name,

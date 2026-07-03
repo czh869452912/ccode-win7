@@ -9,13 +9,18 @@ import signal
 import subprocess
 import threading
 import time
-from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional, Tuple
 
 from embedagent.constants import should_skip_directory
 from embedagent.local_resources import discover_local_resources
 from embedagent.runtime_discovery import discover_bundle_root
 from embedagent_core.session import Observation
+from embedagent_core.tool_contracts import (
+    ToolDefinition,
+    ToolError,
+    diagnostic_tool_error,
+)
 from embedagent.workspace_recipes import (
     list_workspace_recipes,
     resolve_workspace_recipe,
@@ -87,70 +92,6 @@ LINKER_SIGNATURE_PATTERNS = [
     re.compile(r"^\s*symbol.*multiply defined", re.IGNORECASE),
     re.compile(r"^\s*LNK[0-9]+:", re.IGNORECASE),
 ]
-
-
-class ToolError(Exception):
-    def __init__(
-        self,
-        message: str,
-        error_kind: str = "tool_error",
-        retryable: bool = True,
-        outcome_class: str = "",
-        suggested_next_step: str = "",
-    ) -> None:
-        super(ToolError, self).__init__(message)
-        self.error_kind = str(error_kind or "tool_error")
-        self.retryable = bool(retryable)
-        self.outcome_class = str(outcome_class or "")
-        self.suggested_next_step = str(suggested_next_step or "")
-
-    def to_observation_data(self) -> Dict[str, Any]:
-        data = {
-            "error_kind": self.error_kind,
-            "retryable": self.retryable,
-        }
-        if self.outcome_class:
-            data["outcome_class"] = self.outcome_class
-        if self.suggested_next_step:
-            data["suggested_next_step"] = self.suggested_next_step
-        return data
-
-
-def diagnostic_tool_error(
-    message: str, error_kind: str, suggested_next_step: str = ""
-) -> ToolError:
-    return ToolError(
-        message,
-        error_kind=error_kind,
-        retryable=False,
-        outcome_class="diagnostic_failure",
-        suggested_next_step=suggested_next_step,
-    )
-
-
-@dataclass
-class ToolDefinition:
-    name: str
-    description: str
-    parameters: Dict[str, Any]
-    handler: Callable[[Dict[str, Any]], Observation]
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    read_only: bool = False
-    concurrency_safe: bool = False
-    interrupt_behavior: str = "block"
-    result_budget_policy: str = "default"
-    activity_kind: str = "tool"
-    context_priority: int = 50
-
-    def schema(self) -> Dict[str, Any]:
-        return {
-            "type": "function",
-            "function": {
-                "name": self.name,
-                "description": self.description,
-                "parameters": self.parameters,
-            },
-        }
 
 
 @dataclass

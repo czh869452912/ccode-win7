@@ -5,7 +5,6 @@ from typing import Any, Callable, Optional, Set, Tuple
 from embedagent_core.interaction import ask_user_schema, propose_mode_switch_schema
 from embedagent.modes import allowed_tools_for
 from embedagent_core.session import Action, ContextAssemblyResult, Observation, Session
-from embedagent.tools import ToolRuntime
 from embedagent_core.extensions import (
     ExtensionContext,
     ExtensionManager,
@@ -13,6 +12,7 @@ from embedagent_core.extensions import (
     ToolRegistrationEvent,
     WorkflowEvent,
 )
+from embedagent_core.tool_contracts import ToolRuntimePort
 
 
 class AgentExtensionHost(object):
@@ -21,7 +21,7 @@ class AgentExtensionHost(object):
     def __init__(
         self,
         manager: Optional[ExtensionManager],
-        tools: ToolRuntime,
+        tools: ToolRuntimePort,
         permission_policy: Any,
         mode_allowed_tools: Optional[Callable[[str], Any]] = None,
     ) -> None:
