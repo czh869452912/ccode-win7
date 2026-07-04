@@ -365,6 +365,10 @@ do not keep a second hard-coded tab registry, `inspectorTab` adapter, or
 The renderer has no root-level `inspectorTab` / `inspectorOpen` navigation
 state; opening, activating, and closing right-panel content flows through
 workbench surface state.
+Active GUI webapp source uses the current right-panel/surface vocabulary for
+this area: `surface.*` translation keys, `surface-panel` CSS, the
+`--right-panel-w-raw` layout variable, and `right-panel-toggle` tests. Retired
+Inspector shell ids and selectors are not active protocol vocabulary.
 
 `POST /api/sessions` without an explicit mode leaves mode selection to the selected backend application/profile. Frontends should not inject `explore` or `build` as an implicit entry mode.
 Frontend protocol projection also preserves an empty/missing `current_mode` as

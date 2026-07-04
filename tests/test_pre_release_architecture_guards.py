@@ -1051,6 +1051,37 @@ def test_gui_has_no_root_inspector_navigation_state():
             assert token not in text
 
 
+def test_gui_webapp_source_uses_right_panel_surface_vocabulary():
+    checked_paths = (
+        ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx",
+        ROOT / "src/embedagent/frontend/gui/webapp/src/styles.css",
+        ROOT / "src/embedagent/frontend/gui/webapp/src/strings.js",
+        ROOT / "src/embedagent/frontend/gui/webapp/src/components/SurfacePanel.jsx",
+        ROOT / "src/embedagent/frontend/gui/webapp/src/components/InteractionPanel.jsx",
+        ROOT / "src/embedagent/frontend/gui/webapp/src/components/workbench/WorkbenchHeader.jsx",
+    )
+    forbidden_tokens = (
+        "--inspector-w-raw",
+        "inspector-toggle",
+        "header.toggleInspector",
+        "inspector.",
+        'className="inspector"',
+        'className="inspector-body"',
+        ".inspector",
+        ".inspector-tabs",
+        ".insp-tab",
+        "INSPECTOR",
+    )
+    offenders = []
+    for path in checked_paths:
+        text = _read(path)
+        for token in forbidden_tokens:
+            if token in text:
+                offenders.append("%s contains %s" % (path.relative_to(ROOT), token))
+
+    assert offenders == []
+
+
 def test_gui_has_no_retired_inspector_sidecar_state():
     app_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx")
     store_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/store.js")

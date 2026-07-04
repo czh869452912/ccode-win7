@@ -19,8 +19,8 @@ export default function SurfacePanel({
   const lang = useLang();
 
   return (
-    <aside className="inspector" role="complementary" aria-label="Surface panel" data-testid="surface-panel">
-      <div className="inspector-body">
+    <aside className="surface-panel" role="complementary" aria-label="Surface panel" data-testid="surface-panel">
+      <div className="surface-panel-body">
         {surfaceKind === "plan" && <PlanPanel plan={plan} lang={lang} />}
         {surfaceKind === "diff" && (
           <DiffPanel surface={diffSurface} onFocusFile={onFocusDiffFile} />
@@ -56,7 +56,7 @@ function SettingsPanel({ appShell, lang, onAppSettingsChange }) {
   };
   return (
     <div className="panel-preview">
-      <h3>{t("inspector.settings", lang)}</h3>
+      <h3>{t("surface.settings", lang)}</h3>
       <div className="app-settings-grid">
         <label className="app-setting-row">
           <input
@@ -65,7 +65,7 @@ function SettingsPanel({ appShell, lang, onAppSettingsChange }) {
             checked={settings.confirm_workspace_switch !== false}
             onChange={(event) => update("confirm_workspace_switch", event.target.checked)}
           />
-          <span>{t("inspector.confirmWorkspaceSwitch", lang)}</span>
+          <span>{t("surface.confirmWorkspaceSwitch", lang)}</span>
         </label>
         <label className="app-setting-row">
           <input
@@ -74,7 +74,7 @@ function SettingsPanel({ appShell, lang, onAppSettingsChange }) {
             checked={settings.show_diagnostics_badge !== false}
             onChange={(event) => update("show_diagnostics_badge", event.target.checked)}
           />
-          <span>{t("inspector.showDiagnosticsBadge", lang)}</span>
+          <span>{t("surface.showDiagnosticsBadge", lang)}</span>
         </label>
       </div>
     </div>
@@ -94,21 +94,21 @@ function DiagnosticsPanel({ appShell, lang }) {
   const surfaceLabel = (surface) => String(surface?.kind || surface?.id || "");
   return (
     <div className="panel-preview">
-      <h3>{t("inspector.diagnostics", lang)}</h3>
+      <h3>{t("surface.diagnostics", lang)}</h3>
       {rows.length > 0 ? (
         <div className="diagnostics-table">
           {rows.map((row) => (
             <div key={`${row.group}-${row.key}`} className="diagnostics-row">
-              <span className="diagnostics-group">{t(`inspector.diagnostics.${row.group}`, lang)}</span>
+              <span className="diagnostics-group">{t(`surface.diagnostics.${row.group}`, lang)}</span>
               <span className="diagnostics-key">{row.label}</span>
               <code className="diagnostics-value">{row.value || "-"}</code>
             </div>
           ))}
         </div>
       ) : (
-        <div className="empty-copy">{t("inspector.noDiagnostics", lang)}</div>
+        <div className="empty-copy">{t("surface.noDiagnostics", lang)}</div>
       )}
-      <h3>{t("inspector.capabilities", lang)}</h3>
+      <h3>{t("surface.capabilities", lang)}</h3>
       <div className="rule-chip-list">
         {appCommands.concat(workspaceCommands).map((command) => (
           <span key={command} className="rule-chip monospace">{command}</span>
@@ -123,11 +123,11 @@ function DiagnosticsPanel({ appShell, lang }) {
 
 function PlanPanel({ plan, lang }) {
   if (!plan) {
-    return <div className="empty-copy">{t("inspector.noPlan", lang)}</div>;
+    return <div className="empty-copy">{t("surface.noPlan", lang)}</div>;
   }
   return (
     <div className="panel-preview">
-      <h3>{plan.title || t("inspector.plan", lang)}</h3>
+      <h3>{plan.title || t("surface.plan", lang)}</h3>
       <pre>{plan.content}</pre>
     </div>
   );

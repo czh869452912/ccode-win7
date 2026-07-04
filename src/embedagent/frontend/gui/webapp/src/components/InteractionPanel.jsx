@@ -8,7 +8,7 @@ export default function InteractionPanel({
   const lang = useLang();
 
   if (!interaction && !notice) {
-    return <div className="empty-copy">{t("inspector.noInteraction", lang)}</div>;
+    return <div className="empty-copy">{t("surface.noInteraction", lang)}</div>;
   }
 
   if (notice?.kind === "expired") {
@@ -30,7 +30,7 @@ export default function InteractionPanel({
   }
 
   if (!interaction) {
-    return <div className="empty-copy">{t("inspector.noInteraction", lang)}</div>;
+    return <div className="empty-copy">{t("surface.noInteraction", lang)}</div>;
   }
 
   if (interaction.kind === "permission") {
@@ -52,8 +52,8 @@ export default function InteractionPanel({
   }
 
   return (
-    <div className="prompt-panel" role="dialog" aria-label={t("inspector.inputRequired", lang)}>
-      <h3>{t("inspector.inputRequired", lang)}</h3>
+    <div className="prompt-panel" role="dialog" aria-label={t("surface.inputRequired", lang)}>
+      <h3>{t("surface.inputRequired", lang)}</h3>
       <p>{interaction.question || ""}</p>
       <div className="option-list">
         {(interaction.options || []).map((option) => (

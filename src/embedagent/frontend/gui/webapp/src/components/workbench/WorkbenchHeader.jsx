@@ -72,11 +72,11 @@ export default function WorkbenchHeader({
             Run
           </button>
           <button
-            className={`ghost inspector-toggle${rightPanelOpen ? " active" : ""}`}
+            className={`ghost right-panel-toggle${rightPanelOpen ? " active" : ""}`}
             onClick={onToggleRightPanel}
-            title={t("header.toggleInspector", lang)}
+            title={t("header.toggleRightPanel", lang)}
             aria-pressed={rightPanelOpen}
-            data-testid="inspector-toggle"
+            data-testid="right-panel-toggle"
           >
             Panel
           </button>

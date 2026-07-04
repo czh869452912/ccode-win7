@@ -411,6 +411,7 @@
 - 当前收敛：工具展示 catalog 现在只来自 session capabilities/bootstrap 的 `toolCatalog`；GUI `/api/tool-catalog` route、root `toolCatalog` fallback state 和 frontend-facing `CoreInterface.get_tool_catalog` facade 已删除。
 - 当前收敛：旧 `Inspector.jsx` 组件、`inspectorTab` / `inspectorKind` adapter、内部 `RIGHT_PANEL_SURFACES` tab registry、`showTabs` 和 `onTabChange` 导航入口都已删除；right-panel surfaces 是唯一的右栏导航真相。
 - 当前收敛：renderer root `inspectorTab` / `inspectorOpen` state 和 `set_inspector` / `toggle_inspector` reducer actions 已删除，socket effects、visual fixtures 与 App 打开面板动作都不再写这条旧状态。
+- 当前收敛：GUI webapp 源码中的旧 Inspector shell 命名也已清理为 right-panel/surface 词汇：`surface.*` i18n keys、`surface-panel` CSS、`--right-panel-w-raw` layout variable、`right-panel-toggle` test id，并已重建 GUI static assets。
 - 当前收敛：`AgentCoreAdapter` frontend protocol projection 不再导入 built-in `DEFAULT_MODE`，也不再把缺失 `current_mode` 注入为 `explore`；模式默认值由选中 application/profile 后端声明。
 - 该切片补齐 T3code-like standalone app shell 的第一层边界；terminal 已由后续 bottom-drawer slice 补齐，source-control foundation 已由后续 right-panel slice 补齐，后续 mutation/checkpoint 仍不得把 Agent Core 加厚为 GUI-owned policy layer。
 

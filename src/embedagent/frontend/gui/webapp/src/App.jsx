@@ -714,7 +714,7 @@ function App() {
   };
 
   const RESIZE_RIGHT = 1;   // sidebar: drag right = expand
-  const RESIZE_LEFT  = -1;  // inspector: drag right = shrink
+  const RESIZE_LEFT  = -1;  // right panel: drag right = shrink
 
   function startResize(e, cssVar, direction) {
     e.preventDefault();
@@ -937,7 +937,7 @@ function App() {
       bottomDrawerOpen={state.workbench.bottomDrawer.open}
       bottomDrawerHeight={state.workbench.bottomDrawer.height}
       onResizeSidebar={(e) => startResize(e, "--sidebar-w-raw", RESIZE_RIGHT)}
-      onResizeRightPanel={(e) => startResize(e, "--inspector-w-raw", RESIZE_LEFT)}
+      onResizeRightPanel={(e) => startResize(e, "--right-panel-w-raw", RESIZE_LEFT)}
     />
     <CommandPalette
       open={state.workbench.commandPalette.open}

@@ -13,28 +13,28 @@ const STRINGS = {
     "sidebar.newSession": "New Session",
 
     // Right panel surfaces
-    "inspector.plan": "Plan",
-    "inspector.diff": "Diff",
-    "inspector.settings": "Settings",
-    "inspector.diagnostics": "Diagnostics",
-    "inspector.confirmWorkspaceSwitch": "Confirm workspace switch",
-    "inspector.showDiagnosticsBadge": "Show diagnostics badge",
-    "inspector.capabilities": "Capabilities",
-    "inspector.diagnostics.host": "Host",
-    "inspector.diagnostics.runtime": "Runtime",
-    "inspector.diagnostics.renderer": "Renderer",
-    "inspector.diagnostics.workspace_registry": "Workspace Registry",
-    "inspector.diagnostics.active_core": "Active Core",
+    "surface.plan": "Plan",
+    "surface.diff": "Diff",
+    "surface.settings": "Settings",
+    "surface.diagnostics": "Diagnostics",
+    "surface.confirmWorkspaceSwitch": "Confirm workspace switch",
+    "surface.showDiagnosticsBadge": "Show diagnostics badge",
+    "surface.capabilities": "Capabilities",
+    "surface.diagnostics.host": "Host",
+    "surface.diagnostics.runtime": "Runtime",
+    "surface.diagnostics.renderer": "Renderer",
+    "surface.diagnostics.workspace_registry": "Workspace Registry",
+    "surface.diagnostics.active_core": "Active Core",
 
     // Panel empty states
-    "inspector.noInteraction": "No pending interaction.",
-    "inspector.noPlan": "No active plan in this session.",
-    "inspector.noDiagnostics": "No app diagnostics loaded.",
+    "surface.noInteraction": "No pending interaction.",
+    "surface.noPlan": "No active plan in this session.",
+    "surface.noDiagnostics": "No app diagnostics loaded.",
 
     // User input panel
-    "inspector.inputRequired": "Input Required",
-    "inspector.customAnswer": "Or type a custom answer…",
-    "inspector.submit": "Submit",
+    "surface.inputRequired": "Input Required",
+    "surface.customAnswer": "Or type a custom answer…",
+    "surface.submit": "Submit",
     "interaction.expiredTitle": "Interaction expired",
     "interaction.expiredBody": "This request is no longer active. Trigger the action again to continue.",
     "interaction.conflictTitle": "Interaction already handled",
@@ -53,7 +53,7 @@ const STRINGS = {
 
     // Header
     "header.refresh": "Refresh",
-    "header.toggleInspector": "Toggle inspector panel",
+    "header.toggleRightPanel": "Toggle right panel",
 
     // Timeline
     "timeline.thinking": "Thinking…",
@@ -101,15 +101,26 @@ const STRINGS = {
     "sidebar.files": "文件",
     "sidebar.newSession": "新建会话",
 
-    "inspector.plan": "计划",
-    "inspector.diff": "差异",
+    "surface.plan": "计划",
+    "surface.diff": "差异",
+    "surface.settings": "设置",
+    "surface.diagnostics": "诊断",
+    "surface.confirmWorkspaceSwitch": "确认切换工作区",
+    "surface.showDiagnosticsBadge": "显示诊断标记",
+    "surface.capabilities": "能力",
+    "surface.diagnostics.host": "宿主",
+    "surface.diagnostics.runtime": "运行时",
+    "surface.diagnostics.renderer": "渲染器",
+    "surface.diagnostics.workspace_registry": "工作区注册表",
+    "surface.diagnostics.active_core": "活动 Core",
 
-    "inspector.noInteraction": "当前没有待处理交互。",
-    "inspector.noPlan": "当前会话暂无计划。",
+    "surface.noInteraction": "当前没有待处理交互。",
+    "surface.noPlan": "当前会话暂无计划。",
+    "surface.noDiagnostics": "当前没有应用诊断。",
 
-    "inspector.inputRequired": "需要输入",
-    "inspector.customAnswer": "或输入自定义回答…",
-    "inspector.submit": "提交",
+    "surface.inputRequired": "需要输入",
+    "surface.customAnswer": "或输入自定义回答…",
+    "surface.submit": "提交",
     "interaction.expiredTitle": "交互已过期",
     "interaction.expiredBody": "该请求已经失效，如仍需继续，请重新触发对应操作。",
     "interaction.conflictTitle": "交互已被处理",
@@ -126,7 +137,7 @@ const STRINGS = {
     "composer.hint.interaction": "interaction pending",
 
     "header.refresh": "刷新",
-    "header.toggleInspector": "切换检查面板",
+    "header.toggleRightPanel": "切换右侧面板",
 
     "timeline.thinking": "思考中…",
     "timeline.thinkingLabel": "思考",

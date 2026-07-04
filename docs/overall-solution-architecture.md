@@ -600,6 +600,10 @@ adapter, or `onTabChange` navigation path that bypasses app capabilities.
 The renderer must not keep parallel root-level `inspectorTab` / `inspectorOpen`
 navigation fields; the right-panel workbench surface state is the single live
 navigation state for this area.
+The active GUI webapp source also follows this vocabulary directly:
+`surface.*` translation keys, `surface-panel` CSS, `right-panel-toggle` tests,
+and the `--right-panel-w-raw` layout variable. Old Inspector shell selectors,
+i18n keys, and toggle ids are historical only.
 
 ## 10. Bundling Model
 

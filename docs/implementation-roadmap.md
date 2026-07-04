@@ -221,6 +221,10 @@ Recent GUI app-shell work has established the first standalone-app boundary:
 - Root renderer `inspectorTab` / `inspectorOpen` state and `set_inspector` /
   `toggle_inspector` reducer actions have been removed; right-panel navigation
   now flows only through workbench surface state.
+- GUI webapp source now uses active right-panel/surface vocabulary here:
+  `surface.*` i18n keys, `surface-panel` CSS, `--right-panel-w-raw`, and
+  `right-panel-toggle`. Retired Inspector shell names are guarded from active
+  source.
 - `AgentCoreAdapter` no longer imports built-in `DEFAULT_MODE` or injects
   `explore` into missing frontend protocol `current_mode`; selected
   application/profile mode state remains backend-declared.
