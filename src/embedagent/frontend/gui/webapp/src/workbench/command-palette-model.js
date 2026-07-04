@@ -164,7 +164,7 @@ function commandItem(command, shortcutMap, groupDescriptors) {
     description: commandDescription(command, descriptor),
     meta: asText(command.slash),
     shortcut: shortcutMap[command.id] || "",
-    leading: descriptor.leading || descriptor.title.slice(0, 1) || ">",
+    leading: descriptor.leading,
     disabled: false,
     searchTerms: [asText(command.slash), descriptor.title, ...(descriptor.keywords || []), ...(command.keywords || [])],
   };
@@ -195,7 +195,7 @@ function submenuItem(groupId, items, groupDescriptors) {
     description: descriptor.description,
     meta: descriptor.meta,
     trailing: String(items.length),
-    leading: descriptor.leading || title.slice(0, 1) || ">",
+    leading: descriptor.leading,
     disabled: items.length === 0,
     searchTerms: [groupId, title, descriptor.description, ...(descriptor.keywords || [])],
   };

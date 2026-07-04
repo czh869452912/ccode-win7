@@ -219,6 +219,8 @@ export function runCommandPaletteModelTests() {
   assert.equal(noCopyCommand.title, "Visible Command");
   assert.equal(noCopyCommand.description, "");
   assert.equal(noCopyCommand.meta, "");
+  assert.equal(noCopyCommand.leading, "");
+  assert.equal(noCopyItems.find((item) => item.id === "submenu:app").leading, "");
   const surfaceNoCopyItems = flattenPaletteGroups(buildCommandPaletteRootGroups({
     commands: [
       { id: "surface.preview", group: "surface", label: "Show Preview", surface: "preview", slash: "" },

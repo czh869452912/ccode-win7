@@ -63,7 +63,9 @@ than using title-cased group ids, and missing command row description/meta copy
 remains empty instead of falling back to command ids. Surface command row
 descriptions come from surface descriptors rather than surface/drawer ids.
 Session/workspace palette row leading markers also come from command-palette
-label descriptors and remain empty when absent.
+label descriptors and remain empty when absent. Command-palette group leading
+markers come from explicit group descriptors and are not synthesized from group
+titles.
 Labels, descriptions, icon keys, command/slash metadata, ordering, visibility,
 and read-only/offline hints come from the app shell. Surface-owned panel
 headings, including the right-panel Files surface header, use the active

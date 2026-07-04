@@ -1352,7 +1352,14 @@ async function main() {
   assert.equal(commandPaletteModelSource.includes("title: asText(group.title) || titleCase(id)"), false);
   assert.equal(commandPaletteModelSource.includes("title: titleCase(id)"), false);
   assert.equal(commandPaletteModelSource.includes("descriptor.title || titleCase"), false);
+  assert.equal(commandPaletteModelSource.includes("slice(0, 1)"), false);
+  assert.equal(commandPaletteModelSource.includes('|| ">"'), false);
   assert.equal(commandPaletteModelSource.includes('asText(command.group) || "commands"'), false);
+  const commandPaletteResultsSource = fs.readFileSync(
+    webappSourcePath("components", "workbench", "CommandPaletteResults.jsx"),
+    "utf8",
+  );
+  assert.equal(commandPaletteResultsSource.includes('item.leading || ">"'), false);
   assert.equal(protocolNormalizerSource.includes("firstText(data.label, data.usage, id)"), false);
   assert.equal(appHomeModelSource.includes("Backend lifecycle API is not available yet"), false);
   assert.equal(appHomeModelSource.includes("Thread is missing"), false);

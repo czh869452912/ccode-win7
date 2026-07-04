@@ -44,6 +44,33 @@
 
 ## 3. 当前变更记录
 
+### DC-263
+
+- Date: 2026-07-04
+- Change Topic: GUI command-palette group leading markers are descriptors
+- Summary:
+  - Default app-shell command-palette group descriptors now explicitly declare
+    leading markers.
+  - Command-palette command/submenu rows use `descriptor.leading` only and no
+    longer fall back to the group title's first character or `>`.
+  - Added frontend and Python architecture guards for the no synthesized group
+    leading marker rule.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/backend/app_shell_spec.py`
+  - `src/embedagent/frontend/gui/webapp/src/workbench/command-palette-model.js`
+  - `src/embedagent/frontend/gui/webapp/test/command-palette-model.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+
 ### DC-262
 
 - Date: 2026-07-04

@@ -55,7 +55,7 @@ export default function CommandPaletteResults({
                   data-testid={itemTestId(item)}
                 >
                   <span className="cmd-palette-row-leading" aria-hidden="true">
-                    {item.leading || ">"}
+                    {item.leading}
                   </span>
                   <span className="cmd-palette-row-main">
                     <span className="cmd-palette-row-title">{item.title}</span>

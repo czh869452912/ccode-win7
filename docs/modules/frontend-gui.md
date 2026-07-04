@@ -78,7 +78,8 @@ or command-palette group ids into visible row titles or secondary row copy.
 Surface command row descriptions come from surface descriptors and are not
 synthesized from surface or drawer ids. Session/workspace palette row leading
 markers come from command-palette label descriptors and remain empty when
-absent.
+absent. Command-palette group leading markers come from explicit group
+descriptors and are not synthesized from group titles.
 Command-result run-output log labels are likewise payload-driven through
 fields such as `log_label` / `log_detail`; the socket effects module must not
 derive visible bottom-drawer log copy from slash command names or success
@@ -341,7 +342,8 @@ instead of using title-cased group ids, and missing command row
 description/meta copy remains empty instead of falling back to command ids.
 Surface command row descriptions are passed through from surface descriptors
 rather than generated from surface or drawer ids. Session/workspace palette row
-leading markers are descriptor-owned and empty when absent.
+leading markers are descriptor-owned and empty when absent. Command-palette
+group leading markers are also descriptor-owned.
 Surface descriptor records that omit `title` remain capability diagnostics and
 do not enter visible launchers or commands; renderer helpers must not fall back
 to surface kind/id strings for tab or launcher titles. Resource surface helper

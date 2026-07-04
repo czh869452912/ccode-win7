@@ -1087,6 +1087,7 @@ def test_gui_command_palette_groups_are_app_shell_descriptors():
     assert "workspace_leading" in spec_text
     assert '"command_palette": {' in spec_text
     assert "def _palette_group(" in spec_text
+    assert "leading=" in spec_text
     assert "normalizePaletteGroupDescriptor" in model_text
     assert "rootPlaceholder" in model_text
     assert "sessionLeading" in model_text
@@ -1107,6 +1108,8 @@ def test_gui_command_palette_groups_are_app_shell_descriptors():
     assert "title: asText(group.title) || titleCase(id)" not in palette_model_text
     assert "title: titleCase(id)" not in palette_model_text
     assert "descriptor.title || titleCase" not in palette_model_text
+    assert "slice(0, 1)" not in palette_model_text
+    assert '|| ">"' not in palette_model_text
     assert 'asText(command.group) || "commands"' not in palette_model_text
     assert "!group || !groupDescriptor(group, groupDescriptors).title" in palette_model_text
     assert "if (!title) return []" in palette_model_text
@@ -1114,6 +1117,7 @@ def test_gui_command_palette_groups_are_app_shell_descriptors():
     assert '"Search commands, sessions, workspaces"' not in palette_component_text
     assert '"No matching commands, sessions, or workspaces"' not in palette_component_text
     assert '"No matching commands, sessions, or workspaces"' not in palette_results_text
+    assert 'item.leading || ">"' not in palette_results_text
     assert 'emptyLabel = ""' in palette_results_text
     assert '"Current"' not in palette_model_text
     assert '"Missing"' not in palette_model_text

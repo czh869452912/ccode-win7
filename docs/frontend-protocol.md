@@ -95,7 +95,8 @@ fallback group titles. Missing command row description/meta copy remains empty
 instead of falling back to command ids. Surface command row descriptions come
 from surface descriptors and are not synthesized from surface or drawer ids.
 Session/workspace row leading markers come from command-palette label
-descriptors and remain empty when absent.
+descriptors and remain empty when absent. Command-palette group leading markers
+come from explicit group descriptors and are not synthesized from group titles.
 `capabilities.command_palette`
 also carries renderer-facing `labels` for the palette title, search label,
 placeholders, empty states, root section titles, current/missing badges,

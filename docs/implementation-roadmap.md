@@ -146,6 +146,8 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   surface/drawer ids;
   session/workspace palette row leading markers come from command-palette label
   descriptors and remain empty when absent;
+  command-palette group leading markers come from explicit group descriptors
+  and are not synthesized from group titles;
   surface descriptors without explicit titles remain
   diagnostic capability records and do not enter visible launchers or surface
   commands; persisted workbench surface state is also re-sanitized

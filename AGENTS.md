@@ -420,7 +420,8 @@ row description/meta copy must remain empty instead of falling back to command
 ids. Surface command row descriptions must come from surface descriptors and
 must not be synthesized from surface or drawer ids. Session/workspace palette
 row leading markers must also come from command-palette label descriptors and
-remain empty when absent.
+remain empty when absent. Command-palette group leading markers must come from
+explicit group descriptors and must not be synthesized from group titles.
 
 The GUI terminal bottom drawer is an app-shell hosted surface, not Agent Core. It uses Windows 7-compatible Python stdlib subprocess pipes, is not a full PTY, and must not depend on ConPTY, `node-pty`, `pywinpty`, `pexpect`, Electron, runtime Node, Docker, WSL, VS Code, or online services. Terminal output is GUI-local display state only: it must not be written to `transcript.jsonl`, telemetry, workflow state, source-control checkpoints, or permission/runtime reducer truth.
 
