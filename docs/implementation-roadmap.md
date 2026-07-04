@@ -137,7 +137,10 @@ Recent GUI app-shell work has established the first standalone-app boundary:
   helper functions rather than exported fixed id lists, and do not invent
   visible app entrypoints when the `capabilities` object or relevant descriptor
   arrays are missing; persisted workbench surface state is also re-sanitized
-  after app bootstrap or workspace switch against those app-shell capabilities
+  after app bootstrap or workspace switch against those app-shell capabilities;
+  when an active core exists, app bootstrap also carries the core's safe
+  agent-application registry and empty-state read model so the GUI can adapt
+  for generic or specialized agents before a session is opened
 - retired Inspector sidecar loaders/state/actions for artifacts, review panes,
   permission-rule panes, runtime panes, workspace previews, and event logs have
   been removed; the GUI uses active surfaces, session activities, interaction

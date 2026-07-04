@@ -100,7 +100,7 @@ class AppShellService(object):
         }
 
     def _capabilities(self) -> Dict[str, Any]:
-        return {
+        capabilities = {
             "app_commands": [
                 "app.settings",
                 "app.diagnostics",
@@ -139,6 +139,26 @@ class AppShellService(object):
                 "archive": True,
             },
         }
+        capabilities.update(self._active_agent_capabilities())
+        return capabilities
+
+    def _active_agent_capabilities(self) -> Dict[str, Any]:
+        current_core = getattr(self._app_host, "current_core", None)
+        core = current_core() if callable(current_core) else None
+        get_session_capabilities = getattr(core, "get_session_capabilities", None)
+        if not callable(get_session_capabilities):
+            return {}
+        try:
+            source = get_session_capabilities("")
+        except (OSError, RuntimeError, TypeError, ValueError, AttributeError):
+            return {}
+        if not isinstance(source, dict):
+            return {}
+        projected = {}
+        for key in ("agentApplication", "agentApplications", "emptyState"):
+            if key in source:
+                projected[key] = _safe_mapping(source.get(key))
+        return projected
 
     def _keybindings(self) -> list:
         return [

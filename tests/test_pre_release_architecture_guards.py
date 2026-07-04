@@ -815,6 +815,18 @@ def test_gui_keybindings_are_app_shell_declared_not_renderer_defaults():
     assert "DEFAULT_KEYBINDINGS" not in keybindings_text
 
 
+def test_gui_app_shell_projects_active_agent_application_capabilities():
+    app_shell_text = _read(ROOT / "src/embedagent/frontend/gui/backend/app_shell.py")
+    app_model_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/app-shell/model.js")
+    app_text = _read(ROOT / "src/embedagent/frontend/gui/webapp/src/App.jsx")
+
+    assert "get_session_capabilities" in app_shell_text
+    assert '"agentApplication"' in app_shell_text
+    assert '"agentApplications"' in app_shell_text
+    assert "normalizeAgentApplicationDescriptor" in app_model_text
+    assert "state.app.capabilities?.emptyState" in app_text
+
+
 def test_agent_core_has_no_harness_prompt_or_command_name_validation_coupling():
     extensions_text = _read(ROOT / "src/embedagent_core/extensions.py")
     turn_experience_text = _read(ROOT / "src/embedagent_core/turn_experience.py")

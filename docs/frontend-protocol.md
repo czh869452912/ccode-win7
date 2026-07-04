@@ -85,6 +85,10 @@ bottom-drawer tabs, labels, icons, descriptions, and keybinding targets are
 filtered or merged from this bootstrap declaration. A
 missing `capabilities` object or missing capability descriptor arrays mean no
 app-shell entrypoints, not GUI defaults.
+When a workspace has an active core, app bootstrap may also include the active
+core's safe `agentApplication`, `agentApplications`, and `emptyState`
+projection. The GUI can use that projection for app-level empty-state copy and
+agent-aware shell display without reading session history.
 Workbench-local persisted surface state is re-sanitized after app bootstrap or
 workspace switch against the same declaration; stale local `preview`,
 `source_control`, `terminal`, or other surfaces must not survive when the

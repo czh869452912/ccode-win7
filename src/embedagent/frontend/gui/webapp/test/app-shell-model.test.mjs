@@ -33,6 +33,14 @@ export function runAppShellModelTests() {
   assert.deepEqual(initial.capabilities.surfaces.rightPanel, []);
   assert.deepEqual(initial.capabilities.surfaces.bottomDrawer, []);
   assert.deepEqual(initial.capabilities.keybindings, []);
+  assert.equal(initial.capabilities.agentApplication, null);
+  assert.deepEqual(initial.capabilities.agentApplications, []);
+  assert.deepEqual(initial.capabilities.emptyState, {
+    scenarioLabel: "",
+    primary: "",
+    secondary: "",
+    pathPlaceholder: "",
+  });
   assert.equal(initial.capabilities.terminal.enabled, false);
   assert.equal(initial.capabilities.terminal.pty, false);
   assert.equal(initial.capabilities.terminal.resize, false);
@@ -91,6 +99,26 @@ export function runAppShellModelTests() {
         { key: "MOD+K", command_id: "palette.open", when: "not_palette" },
         { key: "mod+,", command_id: "app.settings", when: "always" },
       ],
+      agentApplication: {
+        applicationId: "tests.python",
+        label: "Python Agent",
+        profileId: "tests.python.profile",
+        workflowPackageIds: ["tests.python.workflow"],
+        active: true,
+      },
+      agentApplications: [
+        {
+          applicationId: "tests.python",
+          label: "Python Agent",
+          profileId: "tests.python.profile",
+          workflowPackageIds: ["tests.python.workflow"],
+          active: true,
+        },
+      ],
+      emptyState: {
+        scenario_label: "Python workspace",
+        primary: "Open a Python project",
+      },
       source_control: {
         enabled: true,
         vcs: ["git"],
@@ -139,6 +167,10 @@ export function runAppShellModelTests() {
     { key: "mod+k", commandId: "palette.open", when: "not_palette" },
     { key: "mod+,", commandId: "app.settings", when: "always" },
   ]);
+  assert.equal(bootstrap.capabilities.agentApplication.applicationId, "tests.python");
+  assert.equal(bootstrap.capabilities.agentApplications[0].profileId, "tests.python.profile");
+  assert.equal(bootstrap.capabilities.emptyState.scenarioLabel, "Python workspace");
+  assert.equal(bootstrap.capabilities.emptyState.primary, "Open a Python project");
   assert.equal(bootstrap.capabilities.sourceControl.enabled, true);
   assert.deepEqual(bootstrap.capabilities.sourceControl.vcs, ["git"]);
   assert.equal(bootstrap.capabilities.sourceControl.readOnly, true);
@@ -187,6 +219,9 @@ export function runAppShellModelTests() {
       bottom_drawer: [surface("logs", "Logs")],
     },
     key_bindings: [{ key: "mod+k", command_id: "palette.open" }],
+    agent_application: { application_id: "tests.generic", label: "Generic Agent" },
+    agent_applications: [{ application_id: "tests.generic", label: "Generic Agent" }],
+    empty_state: { scenario_label: "Generic workspace" },
     terminal: { enabled: true, pty: false, resize: false },
   });
   assert.deepEqual(capabilities.appCommands, ["app.settings"]);
@@ -196,6 +231,9 @@ export function runAppShellModelTests() {
   assert.deepEqual(capabilities.keybindings, [
     { key: "mod+k", commandId: "palette.open", when: "always" },
   ]);
+  assert.equal(capabilities.agentApplication.applicationId, "tests.generic");
+  assert.equal(capabilities.agentApplications[0].label, "Generic Agent");
+  assert.equal(capabilities.emptyState.scenarioLabel, "Generic workspace");
   assert.equal(capabilities.terminal.enabled, true);
   assert.equal(capabilities.terminal.pty, false);
   assert.equal(capabilities.terminal.resize, false);
@@ -206,6 +244,14 @@ export function runAppShellModelTests() {
   assert.deepEqual(emptyCapabilities.surfaces.rightPanel, []);
   assert.deepEqual(emptyCapabilities.surfaces.bottomDrawer, []);
   assert.deepEqual(emptyCapabilities.keybindings, []);
+  assert.equal(emptyCapabilities.agentApplication, null);
+  assert.deepEqual(emptyCapabilities.agentApplications, []);
+  assert.deepEqual(emptyCapabilities.emptyState, {
+    scenarioLabel: "",
+    primary: "",
+    secondary: "",
+    pathPlaceholder: "",
+  });
 
   const reduced = reduceAppShellState(initial, {
     type: "app_shell_bootstrap_loaded",

@@ -56,6 +56,10 @@ declaration omits the `capabilities` object or the relevant command, surface,
 or keybinding descriptor arrays. Persisted workbench surface state is re-sanitized after app
 bootstrap or workspace switch against the same declaration, so stale local UI
 state cannot reopen surfaces that the active app shell does not expose.
+When a workspace is active, app bootstrap also projects the active Core's safe
+agent application registry and empty-state read model into app-shell
+capabilities; the GUI can adapt labels/copy for generic or specialized agents
+without making app bootstrap a session-history source.
 Retired Inspector sidecar state for artifacts, review panes, permission-rule
 panes, runtime panes, workspace previews, and event logs has been removed; those
 concerns now appear only through active surfaces, session activities,

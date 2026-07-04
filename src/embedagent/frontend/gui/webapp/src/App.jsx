@@ -832,7 +832,7 @@ function App() {
             activating={state.app.activatingWorkspace}
             workspaces={state.app.workspaces}
             appHome={appHomeModel}
-            emptyState={state.sessionCapabilities?.emptyState}
+            emptyState={state.app.capabilities?.emptyState || state.sessionCapabilities?.emptyState}
             onChange={(value) => dispatch({ type: "workspace_path_changed", value })}
             onOpen={openWorkspace}
             onActivate={activateWorkspace}

@@ -38,6 +38,30 @@ class _FakeCore(object):
     def get_session_bootstrap(self, session_id):
         raise AssertionError("app shell must not read session bootstrap")
 
+    def get_session_capabilities(self, session_id=""):
+        return {
+            "agentApplication": {
+                "applicationId": "tests.python",
+                "label": "Python Agent",
+                "profileId": "tests.python.profile",
+                "workflowPackageIds": ["tests.python.workflow"],
+                "active": True,
+            },
+            "agentApplications": [
+                {
+                    "applicationId": "tests.python",
+                    "label": "Python Agent",
+                    "profileId": "tests.python.profile",
+                    "workflowPackageIds": ["tests.python.workflow"],
+                    "active": True,
+                }
+            ],
+            "emptyState": {
+                "scenario_label": "Python workspace",
+                "primary": "Open a Python project",
+            },
+        }
+
     def get_workspace_snapshot(self):
         return {"path": self.workspace}
 
@@ -154,6 +178,18 @@ class TestGuiAppShellService(unittest.TestCase):
 
         self.assertEqual(payload["active_workspace"]["path"], os.path.realpath(workspace))
         self.assertEqual(payload["has_active_workspace"], True)
+        self.assertEqual(
+            payload["capabilities"]["agentApplication"]["applicationId"],
+            "tests.python",
+        )
+        self.assertEqual(
+            payload["capabilities"]["agentApplications"][0]["profileId"],
+            "tests.python.profile",
+        )
+        self.assertEqual(
+            payload["capabilities"]["emptyState"]["scenario_label"],
+            "Python workspace",
+        )
         self.assertEqual(payload["diagnostics"]["active_core"]["present"], True)
         self.assertEqual(payload["diagnostics"]["workspace_registry"]["count"], 1)
         self.assertEqual(len(created), 1)

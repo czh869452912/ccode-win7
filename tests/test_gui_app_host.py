@@ -51,6 +51,27 @@ class _FakeCore(object):
             }
         ]
 
+    def get_session_capabilities(self, session_id=""):
+        return {
+            "agentApplication": {
+                "applicationId": "tests.generic",
+                "label": "Generic Agent",
+                "profileId": "tests.generic.profile",
+                "workflowPackageIds": [],
+                "active": True,
+            },
+            "agentApplications": [
+                {
+                    "applicationId": "tests.generic",
+                    "label": "Generic Agent",
+                    "profileId": "tests.generic.profile",
+                    "workflowPackageIds": [],
+                    "active": True,
+                }
+            ],
+            "emptyState": {"scenario_label": "Generic workspace"},
+        }
+
     def get_workspace_snapshot(self):
         return {"path": self.workspace}
 
@@ -140,6 +161,10 @@ class TestGuiAppHost(unittest.TestCase):
 
         _assert_app_shell_payload(self, payload)
         self.assertEqual(payload["active_workspace"]["path"], os.path.realpath(workspace))
+        self.assertEqual(
+            payload["capabilities"]["agentApplication"]["applicationId"],
+            "tests.generic",
+        )
         self.assertEqual(payload["diagnostics"]["active_core"]["present"], True)
         self.assertEqual(len(created), 1)
         self.assertIs(created[0].frontend, backend.frontend)
