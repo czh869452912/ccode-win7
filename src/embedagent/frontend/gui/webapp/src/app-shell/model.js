@@ -277,6 +277,7 @@ function normalizeSourceControlChrome(input = {}) {
     countLabels: normalizeStringMap(value.count_labels || value.countLabels),
     groupLabels: normalizeStringMap(value.group_labels || value.groupLabels),
     providerLabels: normalizeStringMap(value.provider_labels || value.providerLabels),
+    fileStatusLabels: normalizeStringMap(value.file_status_labels || value.fileStatusLabels),
     branchToolbar: normalizeBranchToolbarChrome(value.branch_toolbar || value.branchToolbar),
   };
 }

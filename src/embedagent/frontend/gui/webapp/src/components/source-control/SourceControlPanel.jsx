@@ -12,7 +12,7 @@ function EmptyState({ children }) {
   return <div className="source-control-empty">{children}</div>;
 }
 
-function FileRow({ file, active, onSelectFile }) {
+function FileRow({ file, active, sourceControlChrome, onSelectFile }) {
   const scope = file.diffScopes?.[0] || (file.group === "staged" ? "staged" : "unstaged");
   return (
     <button
@@ -22,7 +22,7 @@ function FileRow({ file, active, onSelectFile }) {
       data-testid={`source-control-file--${file.path}`}
     >
       <span className={`source-control-status status-${String(file.status || "").toLowerCase()}`}>
-        {fileStatusLabel(file)}
+        {fileStatusLabel(file, sourceControlChrome)}
       </span>
       <span className="source-control-path">{file.displayPath || file.path}</span>
       <span className="source-control-stats">{changeSummary(file)}</span>
@@ -44,6 +44,7 @@ function FileGroup({ group, files, selectedPath, sourceControlChrome, onSelectFi
             key={`${file.group}-${file.path}`}
             file={file}
             active={file.path === selectedPath}
+            sourceControlChrome={sourceControlChrome}
             onSelectFile={onSelectFile}
           />
         ))}

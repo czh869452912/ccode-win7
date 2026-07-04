@@ -1491,9 +1491,16 @@ async function main() {
   );
   assert.equal(sourceControlPanelSource.includes('data-testid="source-control-panel"'), true);
   assert.equal(sourceControlPanelSource.includes("groupSourceControlFiles"), true);
-  assert.equal(sourceControlPanelSource.includes("fileStatusLabel"), true);
+  assert.equal(sourceControlPanelSource.includes("fileStatusLabel(file, sourceControlChrome)"), true);
   assert.equal(sourceControlPanelSource.includes("onRefresh"), true);
   assert.equal(sourceControlPanelSource.includes("sourceControlChrome"), true);
+  const sourceControlPresentationSource = fs.readFileSync(
+    webappSourcePath("source-control", "source-control-presentation.js"),
+    "utf8",
+  );
+  assert.equal(sourceControlPresentationSource.includes("fileStatusLabels"), true);
+  assert.equal(sourceControlPresentationSource.includes("slice(0, 1)"), false);
+  assert.equal(sourceControlPresentationSource.includes('"?"'), false);
   for (const hardcodedSourceControlCopy of [
     "Source control unavailable.",
     "Loading changes...",

@@ -44,6 +44,40 @@
 
 ## 3. 当前变更记录
 
+### DC-264
+
+- Date: 2026-07-04
+- Change Topic: GUI source-control file status labels are app-shell chrome
+- Summary:
+  - `/api/app/bootstrap` `capabilities.source_control.chrome` now declares
+    `file_status_labels` for Source Control file badges.
+  - The renderer normalizes those descriptors to `fileStatusLabels` and
+    `fileStatusLabel()` no longer synthesizes labels from Git status initials
+    or `?`.
+  - Added frontend and Python architecture guards for the no renderer-local
+    status badge fallback rule.
+- Impacted Scope:
+  - `src/embedagent/frontend/gui/backend/app_shell_spec.py`
+  - `src/embedagent/frontend/gui/webapp/src/app-shell/model.js`
+  - `src/embedagent/frontend/gui/webapp/src/source-control/source-control-presentation.js`
+  - `src/embedagent/frontend/gui/webapp/src/components/source-control/SourceControlPanel.jsx`
+  - `src/embedagent/frontend/gui/webapp/test/app-shell-model.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/source-control-state.test.mjs`
+  - `src/embedagent/frontend/gui/webapp/test/run-tests.mjs`
+  - `tests/test_pre_release_architecture_guards.py`
+- Related Docs:
+  - `README.md`
+  - `AGENTS.md`
+  - `docs/frontend-protocol.md`
+  - `docs/modules/frontend-gui.md`
+  - `docs/overall-solution-architecture.md`
+  - `docs/implementation-roadmap.md`
+  - `docs/development-tracker.md`
+- ADR Required: No
+- Follow-up:
+  - Continue removing renderer-local GUI copy/semantic fallbacks so app shells
+    can adapt to different base or specialized agents through descriptors.
+
 ### DC-263
 
 - Date: 2026-07-04

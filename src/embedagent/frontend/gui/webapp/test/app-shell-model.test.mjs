@@ -292,6 +292,7 @@ export function runAppShellModelTests() {
     countLabels: {},
     groupLabels: {},
     providerLabels: {},
+    fileStatusLabels: {},
     branchToolbar: {
       defaultWorkspaceLabel: "",
       loadingLabel: "",
@@ -707,6 +708,10 @@ export function runAppShellModelTests() {
             local: "Local Git",
             fallback: "Local provider",
           },
+          file_status_labels: {
+            modified: "~",
+            untracked: "N",
+          },
           branch_toolbar: {
             default_workspace_label: "Project",
             loading_label: "Scanning Git",
@@ -1087,6 +1092,7 @@ export function runAppShellModelTests() {
   assert.equal(bootstrap.capabilities.sourceControl.chrome.noBranchLabel, "No ref");
   assert.equal(bootstrap.capabilities.sourceControl.chrome.countLabels.files, "paths");
   assert.equal(bootstrap.capabilities.sourceControl.chrome.groupLabels.unstaged, "Modified");
+  assert.equal(bootstrap.capabilities.sourceControl.chrome.fileStatusLabels.modified, "~");
   assert.equal(
     bootstrap.capabilities.sourceControl.chrome.providerLabels.fallback,
     "Local provider",

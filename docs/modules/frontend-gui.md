@@ -377,8 +377,8 @@ mutation, or network behavior, and they must not write transcript history,
 workflow state, telemetry, permission policy, provider/runtime configuration,
 extension loading state, or Agent Core reducers.
 Source-control panel labels, empty states, count labels, group labels,
-provider labels, runtime labels, Branch Toolbar labels, and fallback notices
-are declared under `/api/app/bootstrap`
+provider labels, file status badge labels, runtime labels, Branch Toolbar
+labels, and fallback notices are declared under `/api/app/bootstrap`
 `capabilities.source_control.chrome`; renderer source-control modules may
 consume that chrome but must not keep parallel English defaults.
 The Diff surface opened from a selected changed file uses the separate

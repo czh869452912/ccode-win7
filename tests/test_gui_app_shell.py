@@ -444,6 +444,16 @@ class TestGuiAppShellService(unittest.TestCase):
                         "local": "Local Git",
                         "fallback": "Local Git",
                     },
+                    "file_status_labels": {
+                        "added": "A",
+                        "copied": "C",
+                        "deleted": "D",
+                        "modified": "M",
+                        "renamed": "R",
+                        "typechange": "T",
+                        "untracked": "U",
+                        "conflicted": "C",
+                    },
                     "branch_toolbar": {
                         "default_workspace_label": "Workspace",
                         "loading_label": "Checking Git...",

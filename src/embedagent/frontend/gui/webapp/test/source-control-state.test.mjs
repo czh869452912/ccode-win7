@@ -99,7 +99,11 @@ export function runSourceControlStateTests() {
   assert.equal(state.diff.path, "include/api.h");
   assert.equal(state.diff.available, true);
 
-  assert.equal(fileStatusLabel({ status: "modified" }), "M");
+  assert.equal(
+    fileStatusLabel({ status: "modified" }, { fileStatusLabels: { modified: "~" } }),
+    "~",
+  );
+  assert.equal(fileStatusLabel({ status: "unknown" }, { fileStatusLabels: {} }), "");
   assert.equal(providerLabel(normalized.provider), "GitHub");
   assert.equal(groupLabel("unstaged", { groupLabels: { unstaged: "Modified" } }), "Modified");
   assert.equal(

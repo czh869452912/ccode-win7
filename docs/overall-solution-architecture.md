@@ -151,7 +151,9 @@ only read-only local Git status/diff commands through bundled or workspace
 MinGit. The React source-control model displays local changes and opens the
 existing Diff surface for selected files. Diff workbench tab titles come from
 explicit diff payload titles or the app-shell surface descriptor rather than a
-renderer `"diff"` fallback. This slice does not stage, commit,
+renderer `"diff"` fallback, and file status badge labels come from
+`capabilities.source_control.chrome.file_status_labels` instead of renderer
+status-initial inference. This slice does not stage, commit,
 push, pull, contact remote providers, create checkpoints, or write transcript
 history, workflow state, telemetry, permission policy, runtime reducer truth,
 provider configuration, extension loading state, or Agent Core behavior.

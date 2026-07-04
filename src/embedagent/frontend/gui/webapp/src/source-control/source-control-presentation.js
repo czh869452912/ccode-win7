@@ -1,18 +1,7 @@
-const STATUS_LABELS = {
-  added: "A",
-  copied: "C",
-  deleted: "D",
-  modified: "M",
-  renamed: "R",
-  typechange: "T",
-  untracked: "U",
-  conflicted: "C",
-};
-
-export function fileStatusLabel(file = {}) {
+export function fileStatusLabel(file = {}, chrome = {}) {
   const status = String(file.status || "").toLowerCase();
-  if (STATUS_LABELS[status]) return STATUS_LABELS[status];
-  return status ? status.slice(0, 1).toUpperCase() : "?";
+  const labels = chrome.fileStatusLabels || {};
+  return String(labels[status] || labels.fallback || "");
 }
 
 export function groupLabel(group, chrome = {}) {
